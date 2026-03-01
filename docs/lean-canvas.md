@@ -263,6 +263,13 @@ Track your accuracy over time:
 
 **On open source:** The code is open, but the moat is the network + data + brand, not the software. Open source actually accelerates adoption and builds trust.
 
+### Brand Separation
+
+ClarityPledge is the platform brand (like Stripe). ladischenski.com is the founder's personal coaching brand (like Patrick Collison at Stripe). Coaching revenue flows through the personal brand; product adoption through the platform brand. Cross-link but never conflate — each has a distinct audience and purpose.
+
+- **ClarityPledge:** The tool, the movement, the community. About page links to ladischenski.com for coaching inquiries.
+- **ladischenski.com:** Slava's personal coaching site. Co-founder De-Risking sessions, intake via Google Calendar.
+
 ---
 
 ## Channels
