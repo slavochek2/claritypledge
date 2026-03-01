@@ -73,6 +73,16 @@ Recommendation: Remove from README.md, link to definitions.md instead.
 
 ## Workflow
 
+0. **Branch check — before writing anything:**
+   ```bash
+   git branch --show-current
+   ```
+   If the current branch is NOT `main` and NOT a `feature/*` branch (e.g., it's a UAT branch, hotfix, or throwaway branch), warn:
+
+   > "Warning: You are on branch [{branch}] — KDD entries written here will not reach main unless cherry-picked. Consider committing this KDD directly to main first: `git stash`, `git checkout main`, write KDD, `git checkout -`."
+
+   This is not a blocker — just a warning. The user decides. But without the warning, KDD entries are silently stranded on UAT branches and lost when the branch is deleted.
+
 1. **Review recent work:**
    ```bash
    git log --oneline -10

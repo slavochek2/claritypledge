@@ -26,11 +26,35 @@ git checkout main
 git merge feature/p422-clarity-partner-agreement --no-ff
 git push origin main   # → Vercel auto-deploys
 
-# Clean up
+# Clean up (see "Before Deleting Branches" below first)
 git branch -d feature/p422-clarity-partner-agreement
 ```
 
 **Naming:** `feature/pN-short-description` (e.g., `feature/p427-story-edit-delete`)
+
+### Before Deleting Branches — Check for Unreleased Commits
+
+Before deleting any branch (manually or during a cleanup sweep), run this check to find commits not on main:
+
+```bash
+# Check a single branch:
+git log --oneline origin/main..<branch-name>
+
+# Check ALL local branches at once (run before any bulk deletion):
+for branch in $(git branch --list | tr -d ' *'); do
+  count=$(git rev-list --count origin/main..$branch 2>/dev/null)
+  if [ "$count" -gt "0" ]; then
+    echo "UNMERGED: $branch — $count commit(s) not on main:"
+    git log --oneline origin/main..$branch
+  fi
+done
+```
+
+**Why this matters:** UAT branches and feature branches may contain commits (docs, KDDs, architecture notes) written during testing that were never merged to main. A branch that looks "done" (feature code on main, spec closed) can silently contain unreleased content.
+
+**Rule:** If a branch shows unmerged commits, inspect them before deleting. Cherry-pick anything worth keeping to main first.
+
+**History:** `docs/ux-patterns.md` (266 lines of navigation architecture) was lost in 2026-03 because the branch containing it was deleted without this check. The lesson: KDDs and doc files written during UAT naturally land on the UAT branch and are the most likely stranded content.
 
 ### Worktree workflow (parallel / isolation)
 

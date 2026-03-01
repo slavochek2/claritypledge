@@ -9,6 +9,7 @@ tags:
   - agreements
   - partners
 created_date: 2026-03-01
+delivery_stage: 2-ux-review
 ---
 
 # P466: Agreement Creation — HelloSign Redesign
