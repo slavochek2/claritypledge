@@ -20,6 +20,35 @@ Use NVC framework to identify components in the brain dump:
 - **Need** — What underlying need is present?
 - **Request** — What does the person want?
 
+## Pre-Write Path Check (hard stop before creating any file)
+
+Before creating the session file, verify the path is correct:
+
+```
+CORRECT:   .private/sifter/sessions/{session-name}.md   ← gitignored, local only
+WRONG:     content/sifter/sessions/{session-name}.md    ← public git, NEVER use
+```
+
+If the path starts with `content/` — stop. Use `.private/` instead. No exceptions.
+
+## Path Verification (before creating session file)
+
+**Before writing the session file, verify the path is private:**
+
+```
+CORRECT:   .private/sifter/sessions/{session-name}.md   ← gitignored, local only
+WRONG:     content/sifter/sessions/{session-name}.md    ← public git, NEVER use this
+```
+
+If `.private/sifter/sessions/` directory doesn't exist, create it:
+```bash
+mkdir -p .private/sifter/sessions
+```
+
+**Hard stop:** If you find yourself about to write to any path under `content/`, stop. Session files belong in `.private/` only.
+
+---
+
 ## Saving to Session File
 
 Save to `.private/sifter/sessions/{session-name}.md` (gitignored — never in public git).
