@@ -459,14 +459,15 @@ export const realStoriesService: StoriesService = {
     };
   },
 
-  async linkPointToStory(storyId: string, pointId: string): Promise<boolean> {
-    log(' linkPointToStory:', { storyId, pointId });
+  async linkPointToStory(storyId: string, pointId: string, authorId: string): Promise<boolean> {
+    log(' linkPointToStory:', { storyId, pointId, authorId });
 
     const { error } = await supabase
       .from('story_points')
       .insert({
         story_id: storyId,
         point_id: pointId,
+        author_id: authorId,
       });
 
     if (error) {

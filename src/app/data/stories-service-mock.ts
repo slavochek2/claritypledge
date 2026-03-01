@@ -173,7 +173,7 @@ export const mockStoriesService: StoriesService = {
     };
   },
 
-  async linkPointToStory(storyId: string, pointId: string): Promise<boolean> {
+  async linkPointToStory(storyId: string, pointId: string, _authorId: string): Promise<boolean> {
     // Check if already linked (prevent duplicates)
     const existing = mockStoryPoints[storyId]?.find(p => p.id === pointId);
     if (existing) {
@@ -209,6 +209,10 @@ export const mockStoriesService: StoriesService = {
 
     mockStoryPoints[storyId].splice(index, 1);
     return true;
+  },
+
+  async getStoryByUserAndPoint(_userId: string, _pointId: string): Promise<Story | null> {
+    return null;
   },
 
   async deleteStory(_storyId: string): Promise<boolean> {

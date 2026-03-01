@@ -549,7 +549,7 @@ export function StoryGuideChat({
           .maybeSingle();
 
         if (position) {
-          await storiesService.linkPointToStory(story.id, pointId);
+          await storiesService.linkPointToStory(story.id, pointId, user.id);
         }
         // If no position found, still save the story — just without the point link
       }

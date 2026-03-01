@@ -99,7 +99,7 @@ function AddPointForm({
 
     setIsAdding(true);
     try {
-      const linked = await storiesService.linkPointToStory(storyId, orphanPoint.id);
+      const linked = await storiesService.linkPointToStory(storyId, orphanPoint.id, currentUserId);
       if (!linked) {
         toast.error('Linking failed again. Please try later.');
         setIsAdding(false);
@@ -151,7 +151,7 @@ function AddPointForm({
       }
 
       // Link to story
-      const linked = await storiesService.linkPointToStory(storyId, point.id);
+      const linked = await storiesService.linkPointToStory(storyId, point.id, currentUserId);
       if (!linked) {
         // Save orphan point for retry
         setOrphanPoint(point);

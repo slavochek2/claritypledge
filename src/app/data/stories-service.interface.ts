@@ -92,8 +92,9 @@ export interface StoriesService {
   /**
    * Link a point to a story
    * Only story author can link.
+   * @param authorId - The story author's user ID (stored as author_id in story_points for fast lookups)
    */
-  linkPointToStory(storyId: string, pointId: string): Promise<boolean>;
+  linkPointToStory(storyId: string, pointId: string, authorId: string): Promise<boolean>;
 
   /**
    * Unlink a point from a story
