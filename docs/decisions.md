@@ -2,6 +2,20 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-01 [process]: Sifter privacy hardening — three additional mechanical guards added
+
+**Context:** After moving session files to `.private/` and updating sifter skill paths, three gaps remained: (1) sifter-story.md had no explicit stop preventing a future agent from accidentally writing to `content/sifter/sessions/`; (2) the privacy skill didn't scan `content/sifter/` (only `content/articles/`); (3) no auto-loaded rules file existed for `content/sifter/**` paths — so any edit in that area would receive no privacy context.
+
+**Decision:** Added three mechanical guards: (1) Explicit "Path Verification" section at the top of `sifter-story.md` with correct vs wrong paths side-by-side and a hard-stop instruction; (2) `content/sifter/` added to privacy SKILL.md scan scope with note that any `.md` file found there is a misplaced session file; (3) New `.claude/rules/sifter.md` auto-loaded for `content/sifter/**/*.md` — explains the boundary, provides recovery steps, and defines what legitimate public content looks like in that path.
+
+**Alternatives rejected:** Removing `content/sifter/` entirely — would break any future structural/config files. Relying on the gitignore alone — gitignore prevents leaking, but doesn't prevent the write in the first place; the guard must be earlier.
+
+**Consequences:** Three-layer defense for sifter session privacy: gitignore (leak prevention) + path guard in skill (write prevention) + auto-loaded rules (context injection). Future sessions touching `content/sifter/` will receive the rules file automatically. Privacy skill will flag any stray session file if it appears in `content/sifter/`.
+
+**References:** [sifter-story.md](.claude/commands/slava/content/sifter-story.md) · [privacy/SKILL.md](.claude/commands/slava/maintain/privacy/SKILL.md) · [.claude/rules/sifter.md](.claude/rules/sifter.md)
+
+---
+
 ## 2026-03-01 [process]: Sifter session files and content article drafts are privacy risk zones — structural fix applied
 
 **Context:** Sifter session files (`content/sifter/sessions/`) were in the public git repo. They contained an "Interaction Log" section tracking agent working steps — including real names and verbatim private messages used as source material. Root cause (5 Whys): the session file template conflated private process metadata (NVC extraction, source references, real names) with publishable output (story, points). The privacy skill didn't scan `content/` paths, so it missed this. Similarly, `content/articles/` draft files had no rule preventing process notes (outreach emails, approval tracking) from landing in the public file.
