@@ -2,6 +2,20 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-01 [product]: Story edit from point card routes to /story/:storyId, not /chat
+
+**Context:** P465 spec (point card footer redesign) added an edit pencil icon for a viewer's existing story on a point card. Initial spec drafts routed the edit action through `/chat` (AI-assisted editing via StoryGuideChat), with load-time detection of an existing story to enter "edit mode". This was caught during /spec-review: the `/chat` edit-mode logic was unspecified, and Decision 3 contradicted UX Flow 2 and the component analysis table in 4 places.
+
+**Decision:** Edit pencil navigates to `/story/:storyId` — the existing story editor on `story-detail-page.tsx`. The `/chat` load-time edit detection is explicitly out of scope for P465.
+
+**Alternatives rejected:** Routing through `/chat` with `isEditMode` prop and `existingStory` preload — would require StoryGuideChatPage to detect existing story on mount, initialize directly at `polish` phase, and suppress brain-dump triggers. Valid capability but adds scope not justified by the footer redesign goal.
+
+**Consequences:** Story editing from point card context is consolidated on `story-detail-page`, consistent with all other edit-story entry points. `/chat` remains a new-story-only flow until a dedicated "AI-assisted story editing" feature scopes it properly. `StoryGuideChat.tsx` and `story-guide-chat-page.tsx` are out of scope for P465.
+
+**References:** [features/p465_point_card_footer_redesign.md](features/p465_point_card_footer_redesign.md)
+
+---
+
 ## 2026-03-01 [process]: pick-flow — delivery_stage precedence + flow: value constraint
 
 **Context:** Two bugs in `/pick-flow` SKILL.md discovered:
