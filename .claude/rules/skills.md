@@ -1,3 +1,8 @@
+---
+paths:
+  - ".claude/commands/slava/**/*.md"
+---
+
 # Skill Rules
 
 Auto-loaded when editing `.claude/commands/slava/**/*.md`.
