@@ -53,3 +53,13 @@ Stash is the most commonly misused command in agent contexts:
 - Stash pop can fail and leave things in a broken half-applied state
 - The user loses visibility into what was stashed
 - `git commit -m "wip: ..."` is always safer and equally reversible
+
+## Cleaning up tracked files + .gitignore changes
+
+When removing tracked files AND adding them to `.gitignore` in the same operation:
+
+1. `git rm -r --cached --ignore-unmatch <paths>` first — untracks without deleting from disk
+2. Update `.gitignore`
+3. `git add .gitignore`
+
+Never reverse steps 1–2. `git add -A` silently skips paths that `.gitignore` now covers, even when those paths are tracked files being deleted from the index.
