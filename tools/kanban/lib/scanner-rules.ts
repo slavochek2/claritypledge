@@ -27,7 +27,7 @@ export const VALID_STATUS: readonly Status[] = [
   'rejected',
 ] as const;
 
-export const VALID_TYPE: readonly FeatureType[] = ['bug', 'task', 'story', 'comment'] as const;
+export const VALID_TYPE: readonly FeatureType[] = ['bug', 'task', 'story', 'comment', 'change-request'] as const;
 
 export const VALID_SIZE: readonly Size[] = ['xs', 's', 'm', 'l', 'xl'] as const;
 

@@ -58,12 +58,15 @@ Before applying the scoring table, classify the task:
 | **Feature** (new user-facing capability) | Apply scoring table below |
 | **Bug** (broken behavior, root cause known) | `/fix` → done |
 | **Bug** (root cause unclear) | Investigate first, then `/fix` |
+| **Redesign** (shipped feature, code works, design was wrong) | `/change-request` → then `/ux` / `/architect` / `/generate-tests` / `/dev` / `/verify` per scoring table hard rules (DB column → `/architect` mandatory; net-new visual pattern → `/ux` mandatory — apply drop-`/ux` rule from scoring table; ASCII in conversation ≠ UX resolved for new interaction patterns); if redesign also adds new capability, file `/create-prd` for that portion separately |
 | **Refactor** (restructuring, no behavior change) | `/quick-feature` (skeleton for tracking) → `/dev` — no `/create-prd`, no `/ux` |
 | **Data migration** (one-time SQL script) | `/dev` + `/generate-tests` mandatory (P270 rule) |
 | **Dependency upgrade** | Inline or `/dev` — apply scoring if upgrade touches auth/DB/build |
 | **Test-only change** | Inline edit — no spec, no flow |
 | **Content/copy change** | Inline or `/dev` — no spec unless copy is acceptance-criteria-level |
 | **Analytics instrumentation** | `/dev` — no `/ux`, no `/architect` unless new DB column |
+
+**Redesign test:** "Is the code broken, or is the design wrong?" Broken → `/fix`. Wrong design → `/change-request`. Both (design wrong AND fix requires new capability) → `/change-request` for the redesign + `/create-prd` for the new capability, filed separately.
 
 If task type is non-feature/non-bug, state the type and give the default flow directly. Skip the scoring table.
 
@@ -109,6 +112,7 @@ These changes affect **all future work** — not a single feature. Risk is asymm
 ## Available commands (in sequence order)
 
 - `/fix` — targeted bug fix, stops at QA gate on success (run `/ship` to close)
+- `/change-request` — redesign spec for a shipped feature whose design was wrong (wrong ordering, actor confusion, duplication, hierarchy); creates new P-number with predecessor linkage and superseded-sections table; use when code works as specified but UX/design is wrong; NOT for new capability (new user value → `/create-prd`)
 - `/quick-feature` — skeleton spec in `features/` (30 sec), use for tracking
 - `/create-prd` — full PRD with acceptance criteria (3-5 min)
 - `/ux` — wireframes/design decisions (UI features only, skip if design is resolved)

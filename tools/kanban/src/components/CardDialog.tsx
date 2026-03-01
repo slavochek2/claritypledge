@@ -13,7 +13,7 @@ interface CardDialogProps {
 
 // Options for single-select fields
 const STATUS_OPTIONS: Status[] = ['draft', 'backlog', 'week', 'today', 'in-progress', 'blocked', 'qa', 'done', 'all-done', 'rejected']
-const TYPE_OPTIONS: (FeatureType | null)[] = [null, 'bug', 'task', 'story']
+const TYPE_OPTIONS: (FeatureType | null)[] = [null, 'bug', 'task', 'story', 'change-request']
 const SIZE_OPTIONS: (Size | null)[] = [null, 'xs', 's', 'm', 'l', 'xl']
 const DELIVERY_STAGE_OPTIONS: (DeliveryStage | null)[] = [
   null,
@@ -39,6 +39,7 @@ const VALUE_COLORS: Record<string, { bg: string; text: string }> = {
   bug: { bg: 'var(--tag-red-bg)', text: 'var(--tag-red-text)' },
   task: { bg: 'var(--tag-gray-bg)', text: 'var(--tag-gray-text)' },
   story: { bg: 'var(--tag-blue-bg)', text: 'var(--tag-blue-text)' },
+  'change-request': { bg: 'var(--tag-purple-bg)', text: 'var(--tag-purple-text)' },
   // Size
   xs: { bg: 'var(--tag-green-bg)', text: 'var(--tag-green-text)' },
   s: { bg: 'var(--tag-green-bg)', text: 'var(--tag-green-text)' },

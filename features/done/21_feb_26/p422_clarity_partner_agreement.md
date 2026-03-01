@@ -20,6 +20,7 @@ reviews:
   alignment: null
 created_date: 2026-02-24T00:00:00.000Z
 locked_at: '2026-02-28T09:35:09.031Z'
+superseded_by: p466
 ---
 
 # P422: Clarity Partner Agreement

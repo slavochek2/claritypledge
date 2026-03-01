@@ -1,9 +1,10 @@
 ---
 status: week
-type: story
+type: change-request
 rank: 1000003.0
 changes: p456
-delivery_stage: 2-ux-review
+delivery_stage: 3-arch-review
+flow: ux → architect → generate-tests → decompose → dev → verify
 tags:
   - redesign
   - p456
@@ -107,61 +108,7 @@ On other-profile surfaces, `filteredStories` contains only Alice's stories. `vie
 
 ## Redesign
 
-Single unified footer row per context. CTA appears between position buttons and the stories row — not after it. No "✓ Agree ·" prefix (position shown by highlighted button). Share/open icons live in the stories row.
-
-**OWN PROFILE — no story yet:**
-```
-┌─────────────────────────────────────────┐
-│  ◉ Agree   ○ Disagree   ○ Unsure        │
-│                                         │
-│  Why do you agree? →                    │  ← CTA: no prefix, follows position block
-│  ▷ 0 stories  [share] [open]            │  ← stories row with icons
-└─────────────────────────────────────────┘
-```
-
-**OWN PROFILE — story exists:**
-```
-┌─────────────────────────────────────────┐
-│  ◉ Agree   ○ Disagree   ○ Unsure        │
-│                                         │
-│  ▷ 1 story  [edit] [delete] [share] [open] │  ← no CTA; edit/delete in stories row
-└─────────────────────────────────────────┘
-```
-"1 story" — no "by you" (own profile, implied). No add-another CTA (1 story per user per point).
-
-**OTHER PROFILE — position taken, no story yet:**
-```
-┌─────────────────────────────────────────┐
-│  ◉ Agree   ○ Disagree   ○ Unsure        │
-│                                         │
-│  Why do you agree? →                    │  ← CTA between position and stories
-│  ▷ 2 stories by Alice  [share] [open]   │  ← Alice's stories; share/open here
-└─────────────────────────────────────────┘
-```
-
-**OTHER PROFILE — position taken, story exists:**
-```
-┌─────────────────────────────────────────┐
-│  ◉ Agree   ○ Disagree   ○ Unsure        │
-│                                         │
-│  ▷ 2 stories by Alice · 1 by you  [share] [open] │  ← no CTA; viewer count appended
-└─────────────────────────────────────────┘
-```
-No CTA when viewer already has a story. Edit/delete accessible via the viewer's own story row (existing pattern).
-
-**OTHER PROFILE — no position taken:**
-```
-┌─────────────────────────────────────────┐
-│  ○ Agree   ○ Disagree   ○ Unsure        │
-│                                         │
-│  ▷ 2 stories by Alice  [share] [open]   │  ← no CTA (position is prerequisite)
-└─────────────────────────────────────────┘
-```
-
-**Feed view (no profileOwner context — unchanged):**
-```
-▷ N stories  [share] [open]
-```
+Single unified footer row per context. CTA appears between position buttons and the stories row — not after it. No "✓ Agree ·" prefix (position shown by highlighted button). Share/open icons live in the stories row. On own profile, a single row replaces both the pre-P456 stories row and the P456 split footer. On other profiles, the viewer count ("· 1 by you") is appended to the owner count in the same row when the viewer has a story. Feed view is unchanged.
 
 **CTA copy mapping (preserved from P456):**
 
@@ -172,6 +119,8 @@ No CTA when viewer already has a story. Edit/delete accessible via the viewer's 
 | Unsure | Why are you unsure? → |
 
 No "✓ Agree ·" prefix on any surface. Position is shown by the highlighted button above the point.
+
+See UX Design → Screen Layouts below for full per-state ASCII.
 
 ---
 
@@ -669,3 +618,310 @@ No layout changes at breakpoints for the footer rows themselves. The `pl-[44px]`
 - [x] Decisions requiring founder input surfaced explicitly (3 decisions)
 - [x] Sections 1–5 contain no file paths or code patterns
 - [x] Flows are specific enough that developer can implement without guessing
+
+---
+
+## Architecture
+
+### Prior Decisions Checked
+
+- **[technical] `getPositionCTACopy`** (2026-02-27) — Pure function in `src/app/prototypes/shared/types.ts`. P465 preserves this utility; only changes the rendering side (drop `copy.symbol` / `copy.label` prefix, keep `copy.ctaText` and `copy.ariaLabel`).
+- **P117** — `story_points` table defined with `PRIMARY KEY (story_id, point_id)` only. No `UNIQUE(author_id, point_id)` constraint exists. Confirmed via migration file.
+- **P134 / P136** — Profile story-point join pattern: `getStoriesByAuthorWithPoints` fetches only the profile owner's stories upstream; `filteredStories` in `PointCardWithLinks` therefore contains only owner stories on profile surfaces. This is the root of the viewer-count-always-0 bug.
+- **P456 Index entry** — Notes the split-footer implementation. P465 replaces it.
+
+---
+
+### Technical Analysis
+
+#### Current Code State
+
+**`src/app/components/social/point-card-with-links.tsx`**
+
+Two rendering branches:
+- **Quote pattern** (lines 216–353): triggered when `showQuotePattern = profileOwner && profileOwner.position`. Renders the quoted box with footer inside. The P456 Story CTA block at lines 308–352 appends below the existing stories-row footer at lines 263–306. Both rows are always rendered when `userPosition` is truthy — the duplication.
+- **Feed pattern** (lines 355–491): standalone layout. Similar two-row structure (stories row at lines 396–444, P456 CTA row at lines 446–490).
+- **P451 dead code** (lines 575–586): `showStoryCTA && !liveSessionMode` outer-component button — the "Tell your story →" blue button rendered _outside_ the card div. This is a sibling element to the card, not in the footer.
+
+The `filteredStories` variable (line 173) is set to `linkedStories` directly — no author filtering in the component. All filtering happens upstream.
+
+`viewerStoryCount` (lines 312, 450) = `filteredStories.filter(s => s.authorId === currentUserId).length`. On other-profile surfaces `filteredStories` contains only the profile owner's stories, so this is always 0.
+
+**`src/app/pages/profile-page-v2.tsx`**
+
+- `viewerStoriesForPoint` memo (lines 183–196): only populates when `currentUserId === profile.id` (own profile). Returns empty Map on other profiles, so `viewerStoryCount` passed to `QuotedPointCard` is always 0 on other profiles.
+- `QuotedPointCard` component (lines 1143–1318): separate local component used in the Stories tab (profile owner's story cards showing linked points). Its footer at lines 1276–1317 has the same P456 pattern.
+- Data loading (lines 249–359): `getStoriesByAuthorWithPoints(profile.id, currentUser?.id)` fetches only the profile owner's stories. Viewer's stories are never fetched here.
+
+**`src/app/pages/story-guide-chat-page.tsx`**
+
+Page reads `?from=position&pointId=XYZ`. Calls `pointsService.getPointWithUserPosition(pointId, user.id)` to get the point and the user's position. No logic to detect whether the user already has a story for this point. `StoryGuideChat` component has no `editMode` or `existingStoryId` prop — always creates new.
+
+**`supabase/migrations/20260204_stories_points_calibration.sql`**
+
+```sql
+CREATE TABLE story_points (
+  story_id UUID NOT NULL REFERENCES stories(id) ON DELETE CASCADE,
+  point_id UUID NOT NULL REFERENCES points(id) ON DELETE CASCADE,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  PRIMARY KEY (story_id, point_id)
+);
+```
+
+No `UNIQUE(author_id, point_id)` constraint. The junction table doesn't even have `author_id` — author identity flows through `story_id → stories.author_id`. A uniqueness constraint on `(author_id, point_id)` would need to be a computed constraint spanning two tables, which PostgreSQL does not support directly. The correct approach is a partial unique index or a constraint function. See Decision 3 below.
+
+**`src/app/data/stories-service.interface.ts` / `stories-service-real.ts`**
+
+No method for `getStoryByUserAndPoint(userId, pointId)`. The `linkPointToStory` method already handles the 23505 duplicate-key error on the current PK — but that only catches `(story_id, point_id)` duplicates, not `(author_id, point_id)` duplicates.
+
+#### Dependencies
+
+- No new npm packages needed.
+- New Supabase migration required.
+- New method on `StoriesService` interface required.
+- `StoryGuideChatPage` and `StoryGuideChat` require new props.
+
+---
+
+### Architecture Decisions
+
+**Decision 1: Viewer story count on other profiles — fetch strategy**
+
+- **Chosen:** One targeted query at profile-page load time, scoped to the viewer and the set of point IDs on the page.
+- **Approach:** In `profile-page-v2.tsx`, after `adaptedPoints` is built (so `pointIds` is known), fire a secondary query:
+  ```ts
+  // After existing story_points batch query (line 290-301)
+  if (currentUserId && currentUserId !== profile.id) {
+    const { data: viewerLinks } = await supabase
+      .from('story_points')
+      .select('point_id, story_id, story:stories!inner(author_id)')
+      .in('point_id', pointIds)
+      .eq('story.author_id', currentUserId);
+    // Build Map<pointId, count>
+  }
+  ```
+  This produces a `viewerStoriesForPoint` Map populated for all other-profile cases, not just own-profile.
+- **Rationale:** The batch is already structured here; adding a second batch for the viewer's links follows the existing P134/P151 pattern of batch loading at profile load time. Avoids per-card fetches. Reuses the `viewerStoriesForPoint` state variable that already exists in the page.
+- **Trade-off:** One extra query per profile page load (for authenticated viewer on another profile). Acceptable; it is a bounded join on indexed columns (`story_points.point_id` index exists).
+- **Alternative rejected — Fetch in component:** Putting the fetch in `PointCardWithLinks` would cause N queries for N point cards. The per-card fetch pattern was already rejected in P134/P151 for this reason.
+- **Alternative rejected — Fetch viewer stories separately upfront:** Could call `getStoriesByAuthorWithPoints(currentUserId)` to get all viewer stories, then cross-reference. But this fetches the viewer's entire story library, which grows unboundedly and would be inefficient.
+- **Viewer story ID also needed:** For edit mode routing (Decision 3), we need not just the count but the `story_id` itself. The query above already returns `story_id`. Store a `Map<pointId, string>` for `viewerStoryIdForPoint` alongside the count map. Both maps are built from the same query result.
+
+**Decision 2: DB constraint — 1 story per user per point**
+
+- **Chosen:** Unique partial index via an intermediate view/approach — specifically, a `UNIQUE` constraint on a generated column or a `UNIQUE` index on `story_points` joined with `stories.author_id`. Since `story_points` does not have `author_id`, and cross-table unique indexes are not native to PostgreSQL, the correct approach is a **trigger that enforces the constraint**.
+- **Revised approach after analysis:** Add an `author_id` denormalization column to `story_points` (populated at insert time) and add a `UNIQUE(author_id, point_id)` constraint on that column. This is the most robust and query-efficient solution.
+
+  ```sql
+  -- New migration
+  ALTER TABLE story_points ADD COLUMN author_id UUID REFERENCES profiles(id) ON DELETE CASCADE;
+
+  -- Backfill from stories table
+  UPDATE story_points sp
+  SET author_id = s.author_id
+  FROM stories s
+  WHERE sp.story_id = s.id;
+
+  -- Make non-nullable after backfill
+  ALTER TABLE story_points ALTER COLUMN author_id SET NOT NULL;
+
+  -- Unique constraint
+  ALTER TABLE story_points ADD CONSTRAINT story_points_author_point_unique UNIQUE (author_id, point_id);
+
+  -- Index (covered by the unique constraint, no separate index needed)
+  ```
+
+- **Rationale:** Denormalization of `author_id` into the junction table is a standard PostgreSQL pattern when cross-table uniqueness is needed. The `author_id` is functionally dependent on `story_id` (stories.author_id), so it is technically redundant, but this redundancy is acceptable and maintained by the existing INSERT pattern (`linkPointToStory` always inserts with a known story). An ON DELETE CASCADE on `author_id → profiles` is an extra safety net.
+- **Backfill safety:** The backfill SQL above is idempotent if run twice (UPDATE SET ... WHERE is idempotent when source data is consistent). Before adding the NOT NULL constraint, must confirm zero NULLs remain.
+- **Data violation check:** The migration must check for existing violations before adding the UNIQUE constraint:
+  ```sql
+  -- Check for existing violations before adding constraint
+  SELECT sp.author_id, sp.point_id, COUNT(*) AS cnt
+  FROM story_points sp
+  JOIN stories s ON sp.story_id = s.id
+  GROUP BY sp.author_id, sp.point_id   -- wait: we need to use sp.author_id after backfill
+  HAVING COUNT(*) > 1;
+  ```
+  This is a pre-flight check; if violations exist, they must be resolved (keep the oldest story_point, delete newer duplicates) before adding the constraint. Include this resolution in the migration as a safe DELETE with a CTE.
+- **`linkPointToStory` update:** The service method currently inserts `{ story_id, point_id }`. It must now also insert `author_id`. The service knows the story, so it can pass the author_id. Update the call sites in `StoryGuideChat.tsx` where `linkPointToStory` is called.
+- **RLS update:** The existing INSERT policy `"Story authors can link points"` checks `EXISTS (stories WHERE id = story_id AND author_id = auth.uid())`. This policy already enforces authorship — it remains correct and sufficient. No new RLS policy needed for the uniqueness column.
+- **Alternative rejected — Trigger-only enforcement:** A PostgreSQL trigger that raises an exception on duplicate `(author_id, point_id)` would work but: (1) doesn't provide a unique index for efficient querying, (2) error message is less clear to the application layer, (3) convention in this codebase is DB constraints, not trigger-based business rules.
+- **Alternative rejected — Application-layer only:** Checking for existing story before creating is the UI/UX layer defense, but not sufficient as a DB constraint. The DB constraint is the authoritative enforcement.
+
+**Decision 3: /chat edit mode routing**
+
+- **Chosen:** Detect existing story in `StoryGuideChatPage` at load time using a new service method; pass `existingStory` to `StoryGuideChat` as a prop.
+- **Approach:**
+  1. Add `getStoryByUserAndPoint(userId: string, pointId: string): Promise<Story | null>` to `StoriesService` interface and real implementation. Query: `stories INNER JOIN story_points ON stories.id = story_points.story_id WHERE stories.author_id = userId AND story_points.point_id = pointId LIMIT 1`. Or equivalently: `story_points WHERE author_id = userId AND point_id = pointId` (after adding `author_id` column from Decision 2) with a join to `stories`.
+  2. In `StoryGuideChatPage`, fire this query in the same `useEffect` that fetches the point. If a story is found, pass it as `existingStory` to `StoryGuideChat`.
+  3. `StoryGuideChat` receives optional `existingStory?: Story` prop. When present: skip the brain-dump/AI phases, pre-populate the draft card with `existingStory.content`, open at the `polish` phase with an "Edit your story" heading, and save via `updateStory` instead of `createStory`.
+- **"Edit mode" definition in StoryGuideChat:** The phase machine (`idle → brain-dump → streaming → ...`) is bypassed. Component initializes directly at `polish` phase with the existing content as the draft. The user can edit the text and re-save. This is a targeted entry point into an existing phase — no new phases needed.
+- **URL shape:** `/chat?from=position&pointId=X` — unchanged. The edit detection is automatic at load time. No `storyId` or `editMode` URL param needed, because `pointId` + `userId` uniquely identify the story (enforced by Decision 2 constraint).
+- **Rationale:** Putting detection in the page shell keeps `StoryGuideChat` receiving explicit state (not querying DB itself), consistent with how `contextPoint` and `contextProfileOwner` are passed. The page is the data-fetching boundary.
+- **Trade-off:** One extra query per `/chat?from=position&pointId=X` load for authenticated users. Acceptable; it is a lightweight point lookup on indexed columns.
+- **Alternative rejected — URL param `?storyId=Y`:** Would require the CTA button to know the story ID at render time, which requires the viewer story data to be loaded before rendering the button. Adds complexity to the UI before we've even verified the data pipeline works. The load-time detection approach doesn't require story ID in the URL.
+- **Alternative rejected — Edit via `/chat?from=position&storyId=Y` separate route:** The UX spec says the edit entry point is the same CTA click path. Introducing a separate URL shape complicates the router and the component. One URL, load-time branch is simpler.
+
+**Decision 4: PointCardWithLinks — viewer story ID propagation**
+
+- **Chosen:** Add `viewerStoryIdForPoint?: Map<string, string>` prop to `profile-page-v2.tsx` rendering, but **not** to `PointCardWithLinks`. The story ID is only needed for the edit navigation URL (`/chat?from=position&pointId=X`), and `pointId` is already known to the component via `point.id`. Since Decision 3 establishes that edit detection happens in the chat page (not the profile page), the edit CTA URL remains `/chat?from=position&pointId=X` — same as the create CTA. No story ID needed in the URL.
+- **Consequence:** `PointCardWithLinks` does not need a new prop for story ID. The viewer story count (`viewerStoryCount > 0`) determines whether to suppress the CTA. When count > 0, the CTA is hidden and no edit link is shown in the stories row (edit is via own profile).
+
+**Decision 5: Own-profile edit/delete icons**
+
+- **Chosen:** Own-profile edit/delete in `QuotedPointCard` (Stories tab) is existing behavior. For the Points tab, the `PointCardWithLinks` component does not currently render edit/delete for the viewer's own stories. Per UX spec, on own profile a unified footer row shows edit/delete icons when `viewerStoryCount > 0`. These icons need a `storyId` to navigate to `/chat?from=position&pointId=X&storyId=Y`. This requires knowing the viewer's `storyId` for each point on own-profile.
+- **Approach:** On own profile, `viewerStoriesForPoint` already maps point_id → count. Add a parallel `viewerStoryIdForPoint: Map<pointId, storyId>` built from the same story data. Pass into the rendering of point cards. This is own-profile only (when `currentUserId === profile.id`), using the already-loaded `realStories`.
+- **Implementation note:** On own profile, `realStories` contains all the viewer's stories with their linked points. Building the `storyId` map is a trivial `.map()` over the existing data — no new queries.
+
+---
+
+### Security Review
+
+**RLS Policies:**
+
+- `story_points` has RLS enabled. INSERT policy: `EXISTS (stories WHERE id = story_id AND author_id = auth.uid())`. This correctly enforces that only the story author can link their story to a point. The new `author_id` column (Decision 2) does not weaken this — the existing policy already validates authorship via the stories table join.
+- The new `UNIQUE(author_id, point_id)` constraint operates at the DB constraint level, below RLS. It will fire for any insert, including service-role inserts. This is correct — the constraint is a data integrity rule, not an access control rule.
+- `stories` table RLS: UPDATE policy uses `auth.uid() = author_id`. Edit mode in `/chat` calls `updateStory`, which is already protected by this policy. No new policy needed.
+- SELECT on `story_points` is public (readable by all). The new secondary viewer-story query in `profile-page-v2.tsx` uses the public anon key (client-side Supabase). Because SELECT on `story_points` is public, this query works without special auth. No RLS change needed.
+- The new service method `getStoryByUserAndPoint` reads from `stories` (public SELECT) and `story_points` (public SELECT). No RLS change needed.
+
+**Authentication:**
+
+- `StoryGuideChatPage` already has an auth gate (`if (!user) return <Navigate to="/signup" />`). The new story existence check runs inside the same `useEffect` that guards on `!user` — no unauthenticated query path introduced.
+- The viewer-story secondary query in `profile-page-v2.tsx` is guarded by `if (currentUserId && currentUserId !== profile.id)` — only fires for authenticated viewers on other profiles.
+- Edit mode in `StoryGuideChat` updates a story via `updateStory`. The RLS policy `auth.uid() = author_id` on `stories` prevents any user from editing another user's story, even if they somehow pass a different `storyId`.
+
+**Authorization:**
+
+- The 1-story-per-user-per-point constraint is enforced at three layers: (1) UI — CTA is hidden when `viewerStoryCount > 0`, (2) `/chat` page — edit-mode detection redirects to edit instead of create, (3) DB — `UNIQUE(author_id, point_id)` on `story_points` returns a 23505 error if violated. Existing `linkPointToStory` already handles 23505 gracefully (returns `true` — idempotent). After Decision 2 the 23505 will fire on the new constraint too; the error code check is already in place and will continue to work.
+- Delete icon on own-profile navigates to a delete flow. Story deletion is already protected by `auth.uid() = author_id` DELETE policy on `stories`.
+
+**Input Validation:**
+
+- No new user-supplied inputs introduced. The `pointId` from the URL is passed to `getStoryByUserAndPoint` and `getPointWithUserPosition`. Both are used in Supabase `.eq()` calls — PostgREST parameterizes these values; no SQL injection risk.
+- `existingStory.content` passed to `StoryGuideChat` as pre-populated draft is rendered as controlled textarea value — no XSS risk (React escapes by default).
+
+**Data Protection:**
+
+- No PII introduced. `author_id` denormalized into `story_points` is a UUID — not an email or name. Already visible via the stories join; denormalization does not increase exposure.
+- The viewer-story query returns only `point_id`, `story_id`, and `author_id` (UUID). No story content or personal data fetched in this query.
+- `story_points` SELECT is already public — anyone can see which story IDs are linked to which point IDs. The new query pattern does not open new data exposure.
+
+**AI Prompt Security:**
+
+Not applicable. This feature does not add new AI API calls or modify prompt construction. Edit mode in `StoryGuideChat` re-uses the existing prompt infrastructure; the existing AI prompt security review from P425 applies unchanged.
+
+---
+
+### Implementation Approach
+
+#### Files to Create
+
+1. `supabase/migrations/20260301HHMMSS_story_points_author_unique.sql` — new migration (timestamp to be generated by `./scripts/migrate.sh` convention; use a unique timestamp like `20260301120000`).
+
+#### Files to Modify
+
+1. **`supabase/migrations/20260301120000_story_points_author_unique.sql`** (new) — Add `author_id` column to `story_points`, backfill, add UNIQUE constraint, pre-flight duplicate check with cleanup CTE.
+
+2. **`src/app/data/stories-service.interface.ts`** — Add `getStoryByUserAndPoint(userId: string, pointId: string): Promise<Story | null>` to the interface.
+
+3. **`src/app/data/stories-service-real.ts`** — Implement `getStoryByUserAndPoint`: query `story_points` where `author_id = userId AND point_id = pointId`, join `stories` to get content. Also update `linkPointToStory` to include `author_id` in the insert payload.
+
+4. **`src/app/data/stories-service-mock.ts`** — Add stub for `getStoryByUserAndPoint` returning `null`.
+
+5. **`src/app/pages/profile-page-v2.tsx`** — Three changes:
+   a. **Viewer story secondary query:** After `adaptedPoints` is built, when `currentUserId && currentUserId !== profile.id`, query `story_points` for viewer links to these point IDs. Build `Map<pointId, count>` and `Map<pointId, storyId>`.
+   b. **`viewerStoriesForPoint` memo:** Extend to also handle the other-profile case (currently only populates on own profile). The memo is replaced by state (the secondary query is async, memo cannot be async). Or: keep the memo for own-profile (synchronous from `realStories`), and use a new `viewerStoryCountMap` state variable for other-profile (populated from the secondary query).
+   c. **`viewerStoryIdForPoint` map (own profile):** Built from `realStories` in the same memo — maps `pointId → storyId` for own-profile edit navigation.
+
+6. **`src/app/pages/story-guide-chat-page.tsx`** — Add story existence check in the position-triggered `useEffect`. Call `storiesService.getStoryByUserAndPoint(user.id, pointId)`. If found, pass as `existingStory` prop to `StoryGuideChat`. Import `storiesService`.
+
+7. **`src/app/components/story-guide/StoryGuideChat.tsx`** — Add `existingStory?: Story` prop to `StoryGuideChatProps`. When present, initialize phase to `'polish'` instead of `'idle'`, pre-populate draft content with `existingStory.content`, change heading to "Edit your story", and call `updateStory` on save instead of `createStory`.
+
+8. **`src/app/components/social/point-card-with-links.tsx`** — Four changes:
+   a. **Remove P451 dead code** (lines 575–586): delete the outer `showStoryCTA` button.
+   b. **Quote pattern footer restructure:** Remove the P456 CTA block (lines 308–352). Replace both the old stories-row div and the P456 CTA block with a new unified footer structure: CTA row (when `userPosition && !liveSessionMode && viewerStoryCount === 0`) above the stories row, both inside the quoted box.
+   c. **Add `viewerStoryCount` prop:** Currently computed inline from `filteredStories.filter(...)`. Change to accept it as a prop (so profile-page can pass the accurate count for other profiles). Keep the inline computation as the fallback default value `viewerStoryCount ?? filteredStories.filter(s => s.authorId === currentUserId).length`.
+   d. **Feed pattern:** CTA below stories row (as documented in UX spec for feed — no restructure of order needed in feed).
+
+9. **`src/app/pages/profile-page-v2.tsx` — `QuotedPointCard` component** (lines 1143–1318): Restructure the P456 footer block (lines 1276–1317) to match the new single-row / CTA-above-stories order. Remove the "✓ Agree ·" prefix (`copy.symbol` / `copy.label`). On own profile, when `viewerStoryCount > 0`, show edit link navigating to `/chat?from=position&pointId=X&storyId=Y`.
+
+#### Build Sequence
+
+1. **Migration** — Write and run `./scripts/migrate.sh`. Verify on test DB. Check no violations before constraint add. (Does not affect frontend.)
+2. **Service layer** — Add `getStoryByUserAndPoint` to interface + real implementation. Update `linkPointToStory` to pass `author_id`. Update mock stub. Run unit tests.
+3. **Profile page — data pipeline** — Add viewer story secondary query for other profiles. Add `viewerStoryIdForPoint` map for own profile. Pass correct counts to `PointCardWithLinks` and `QuotedPointCard`. Verify `viewerStoryCount` is accurate on other-profile pages.
+4. **`PointCardWithLinks` — footer restructure** — Remove P451 dead code. Restructure quote-pattern footer (CTA above stories row, remove `copy.symbol`/`copy.label`, add `viewerStoryCount` prop). Leave feed pattern order as-is.
+5. **`QuotedPointCard` footer** — Restructure P456 block; add edit link on own profile.
+6. **`StoryGuideChatPage`** — Add story existence check, pass `existingStory` to chat component.
+7. **`StoryGuideChat`** — Add `existingStory` prop, implement edit mode entry (skip to `polish` phase with pre-populated content, use `updateStory` on save).
+8. **Visual verification** — Run `/verify` on own profile (Flow 1 + Flow 2) and other profile (Flow 3 + Flow 4). Confirm no duplication, no actor-confusion label, accurate viewer count.
+
+#### No New npm Packages
+
+All required functionality (Supabase client queries, React state, navigation) is already available. No new dependencies.
+
+#### Migration File
+
+```sql
+-- Migration: Add author_id to story_points for 1-story-per-user-per-point enforcement
+-- P465: Point card footer redesign
+-- Date: 2026-03-01
+
+BEGIN;
+
+-- Step 1: Add author_id column (nullable initially, for backfill)
+ALTER TABLE story_points
+  ADD COLUMN IF NOT EXISTS author_id UUID REFERENCES profiles(id) ON DELETE CASCADE;
+
+-- Step 2: Backfill from stories table
+UPDATE story_points sp
+SET author_id = s.author_id
+FROM stories s
+WHERE sp.story_id = s.id
+  AND sp.author_id IS NULL;
+
+-- Step 3: Pre-flight check — surface any violations before adding constraint
+-- (If this query returns rows, resolve them in Step 3b before proceeding)
+-- After backfill, check for (author_id, point_id) duplicates:
+DO $$
+DECLARE
+  violation_count INTEGER;
+BEGIN
+  SELECT COUNT(*) INTO violation_count
+  FROM (
+    SELECT author_id, point_id
+    FROM story_points
+    WHERE author_id IS NOT NULL
+    GROUP BY author_id, point_id
+    HAVING COUNT(*) > 1
+  ) dups;
+
+  IF violation_count > 0 THEN
+    -- Delete duplicate story_points rows, keeping the oldest (smallest story_id as tiebreaker)
+    DELETE FROM story_points sp
+    WHERE sp.ctid NOT IN (
+      SELECT MIN(sp2.ctid)
+      FROM story_points sp2
+      WHERE sp2.author_id IS NOT NULL
+      GROUP BY sp2.author_id, sp2.point_id
+    );
+
+    RAISE NOTICE 'Resolved % duplicate (author_id, point_id) pairs in story_points', violation_count;
+  ELSE
+    RAISE NOTICE 'No duplicate (author_id, point_id) pairs found — clean backfill';
+  END IF;
+END $$;
+
+-- Step 4: Make non-nullable
+ALTER TABLE story_points ALTER COLUMN author_id SET NOT NULL;
+
+-- Step 5: Add unique constraint
+ALTER TABLE story_points
+  ADD CONSTRAINT story_points_author_point_unique UNIQUE (author_id, point_id);
+
+-- Step 6: Add index on author_id for viewer-story lookups
+CREATE INDEX IF NOT EXISTS idx_story_points_author ON story_points(author_id);
+
+COMMIT;
+```

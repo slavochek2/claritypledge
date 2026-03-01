@@ -109,7 +109,7 @@ Slug from the redesign description (underscores, not hyphens), not the predecess
 ```markdown
 ---
 status: week
-type: story
+type: change-request
 rank: {calculated}
 changes: p{predecessor_N}
 tags:

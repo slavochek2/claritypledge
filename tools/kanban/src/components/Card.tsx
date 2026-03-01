@@ -14,6 +14,7 @@ const TYPE_PREFIX: Record<FeatureType, string> = {
   task: '[T]',
   bug: '[B]',
   comment: '[C]',
+  'change-request': '[CR]',
 }
 
 const TAG_COLORS = [

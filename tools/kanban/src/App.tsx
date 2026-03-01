@@ -81,6 +81,7 @@ const TYPE_CHIPS: { id: TypeFilter; label: string; color: string }[] = [
   { id: 'bug', label: 'Bug', color: 'var(--tag-red-bg)' },
   { id: 'task', label: 'Task', color: 'var(--tag-blue-bg)' },
   { id: 'story', label: 'Story', color: 'var(--tag-green-bg)' },
+  { id: 'change-request', label: 'Change Request', color: 'var(--tag-purple-bg)' },
 ]
 
 export default function App() {
@@ -115,7 +116,7 @@ export default function App() {
   })
   const [typeFilter, setTypeFilter] = useState<TypeFilter>(() => {
     const stored = localStorage.getItem(TYPE_FILTER_KEY)
-    if (stored === 'bug' || stored === 'task' || stored === 'story') return stored
+    if (stored === 'bug' || stored === 'task' || stored === 'story' || stored === 'change-request') return stored
     return 'all'
   })
   const [currentPage, setCurrentPage] = useState<PageId>(() => {

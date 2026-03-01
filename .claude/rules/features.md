@@ -45,6 +45,7 @@ ALWAYS run `./scripts/next-p-number.sh` — never compute manually (`ls`, `find`
 - `bug` — something broken that needs fixing
 - `task` — technical work (refactor, infra, tools, docs)
 - `comment` — notes, decisions (not actionable)
+- `change-request` — redesign of a shipped feature whose design was wrong; use `/change-request` to file
 
 ## Optional Frontmatter: `flow`
 
@@ -60,7 +61,7 @@ Records which implementation flow was chosen. Set by `/pick-flow` or the agent/h
 
 A change request is a redesign spec for a **shipped feature whose design was wrong** (wrong visual ordering, actor confusion, duplication, hierarchy issues). Use `/change-request` to file one.
 
-Change requests use `type: story` with extra frontmatter:
+Change requests use `type: change-request` with extra frontmatter:
 
 ```yaml
 changes: p422      # which original feature this redesigns
@@ -75,7 +76,7 @@ source: sim
 persona: solo-founder  # which persona surfaced it
 ```
 
-No separate `change-request` type — kanban shows them as regular stories. The `changes:` + `redesign` tag are the distinguishers.
+Use `type: change-request` (first-class kanban type, shown in purple). The `changes:` + `redesign` tag are additional distinguishers for traceability.
 
 **When to use `/change-request` vs other skills:**
 - Code is broken → `/fix`

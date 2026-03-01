@@ -5,7 +5,7 @@ export type Status = 'backlog' | 'week' | 'today' | 'in-progress' | 'blocked' | 
 export type ArticleStatus = 'idea' | 'draft' | 'editing' | 'ready' | 'published' | 'promoted'
 
 // Feature type badge (first-class badge)
-export type FeatureType = 'bug' | 'task' | 'story' | 'comment'
+export type FeatureType = 'bug' | 'task' | 'story' | 'comment' | 'change-request'
 
 // Size badge (display-if-present, AI-managed)
 export type Size = 'xs' | 's' | 'm' | 'l' | 'xl'
