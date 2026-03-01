@@ -231,11 +231,15 @@ The partner sees the same certificate layout. Their name field is pre-filled wit
 
 ## Next Steps
 
-- Has net-new layout pattern (certificate-as-form, inline editable slot) → run `/ux features/p466_agreement_creation_hellosign_redesign.md` first
-- After UX → `/architect` (DB migration + new component pattern)
-- After architect → `/generate-tests`
-- After tests → `/dev`
-- After dev → `/verify` (net-new visual surface)
+✅ `/ux` complete (`delivery_stage: 2-ux-review`)
+
+Remaining pipeline:
+1. `/architect` — DB migration (`partner_display_name`), new component pattern, RLS
+2. `/generate-tests` — scenarios for editable slot, auto-fill, required validation, all certificate variants
+3. `/spec-review` — **mandatory** (`type: change-request`); runs after generate-tests so tests surface spec ambiguity first
+4. `/decompose` — 5+ files (certificate, SignatureSlot, create-agreement-page, agreement-page, DB migration)
+5. `/dev`
+6. `/verify` — net-new visual surface (certificate-as-form)
 
 ---
 

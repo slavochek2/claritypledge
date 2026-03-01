@@ -85,7 +85,8 @@ Use this table to build the command chain directly. Each row maps a signal to a 
 | New business logic, permissions, owner/visitor split, role-based rendering, multi-step flow state, billing/access derived values | any | + `/generate-tests` |
 | 5+ files or 3+ independent concerns | B or C | + `/decompose` (after `/generate-tests`) |
 | New layout structure, net-new styled component, visual acceptance criteria in spec, or responsive/animation changes | any | + `/verify` |
-| Spec already written — `test_files:` present in frontmatter | — | skip `/generate-tests`, start from `/dev` |
+| Spec already written — `test_files:` present, `type` ≠ `change-request` | — | skip `/generate-tests`, start from `/dev` |
+| Spec already written — `test_files:` present, `type: change-request` | — | skip `/generate-tests`, run `/spec-review` → `/dev` |
 | Spec already written — `test_files:` absent | — | start from `/generate-tests` → `/dev` |
 | Drop `/ux` only when ALL of the following are true: (a) ASCII/mockups in conversation cover all states: happy path, edge cases, empty states, loading states, and responsive/mobile layout; (b) No net-new visual component or layout pattern is being introduced; (c) No mobile-specific layout concerns exist. Otherwise: run `/ux` even if happy-path structure is sketched in conversation. "ASCII decided" ≠ "UX resolved". | — | drop `/ux` |
 | `type: change-request` in spec frontmatter | any | `/spec-review` mandatory (not optional) |

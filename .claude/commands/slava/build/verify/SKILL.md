@@ -497,6 +497,30 @@ Fix UAT-3.1 failure, then re-run `/verify p{N}` to confirm.
 
 ---
 
+### Step 8a: Set status: qa on passing verdict (✅ only)
+
+This step runs only after a ✅ ("Ready to ship") verdict is produced in Step 8. Skip entirely for ⚠️ or ❌ verdicts.
+
+**1. Resolve P-number** — from argument (`p273` → `273`) or parse from branch name (extract the integer following `p` in the branch name's last segment, e.g., `feature/p273-slug` → `273`). If no P-number found → report "Cannot determine P-number — pass it explicitly (e.g., `/verify p273`)" and stop.
+
+**2. Locate spec** — substitute the actual P-number for `{N}`:
+```bash
+find features -name "p{N}_*.md" -not -path "*/done/*" -not -path "*/archive/*"
+```
+- **0 files found** → "No active spec for P{N} — status not changed"
+- **2+ files found** → "Ambiguous — multiple specs match P{N}: {list}. Resolve manually."
+- **Exactly 1 file** → continue
+
+**3. Read frontmatter, apply guards (stop on first hit):**
+- **Guard A** — `locked_at:` present → "Spec is locked (`locked_at` present) — status not changed"
+- **Guard B** — `delivery_stage:` absent OR ≠ `uat` → "Spec not at UAT gate (`delivery_stage: {value-or-absent}`) — status not changed"
+- **Guard C** — current `status:` ≠ `in-progress` → "Current status is `{value}`, not `in-progress` — status not changed" (prevents advancing `blocked`, `done`, already-`qa`, etc.)
+
+**4. All guards pass** — check that the string `status: in-progress` appears verbatim within the YAML frontmatter block (the lines between the first `---` and second `---`, typically the first 20 lines of the file). If not found verbatim → report "Frontmatter string `status: in-progress` not found verbatim — edit manually" and stop. Otherwise, replace that occurrence with `status: qa`.
+Report: "Set `status: qa` in {spec-path}. Run `/ship p{N}` when ready to merge."
+
+---
+
 ## How This Skill Works for P273
 
 **Spec:** `features/p273_bug-create-story-unverified-error.md`
