@@ -45,6 +45,16 @@ ALWAYS run `./scripts/next-a-number.sh` to get the next article number. Never co
 
 The article body lives in the same file as the frontmatter. Use the file for outline, notes, and full draft — it's all one place.
 
+## Privacy Rule — Process Notes Stay Private
+
+`content/articles/` is a **public git repo**. Never put the following inside article files:
+- Contact emails or personal contact info for collaborators/sources
+- Outreach tracking ("sent email to X on date Y, awaiting reply")
+- Approval status notes about named individuals
+- Any content you wouldn't want publicly visible on GitHub
+
+If you need to track this, create a companion file at `.private/articles/{a-number}_notes.md`. The kanban only reads the article file — notes stay invisible to it and to git.
+
 ## Publishing Workflow
 
 1. Write in `draft` status
