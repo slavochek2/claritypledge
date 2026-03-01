@@ -223,6 +223,10 @@ Skill archiving checklist and frontmatter requirements auto-load when editing `.
 
 **Pre-commit failures: fix inline, never ask.** Apply the known fix and re-run. See [git-workflow.md](docs/technical/git-workflow.md) for remedies by failure type.
 
+**Subagent staging does not transfer.** If a subagent ran `git add`, `git rm`, or `git mv`, verify the staged state in the main session with `git diff --cached --name-only` before committing. Never assume a subagent's staging work is present. Re-stage explicitly if needed.
+
+**Before cleanup/deletion commits, audit the index.** If other work exists in the working tree (modified specs, CLAUDE.md, etc.), run `git diff --cached --name-only` to confirm only the intended files are staged. Unstage bystanders with `git reset HEAD -- <file>` before committing.
+
 **Commit flow is zero-question.** When the user says "commit", "wrap", "ship", or equivalent: fix any blockers inline (lint → `npx eslint --fix`; TS errors → fix the type; frontmatter → `python3 scripts/fix-frontmatter.py`), then commit. Do NOT ask "should I fix the lint error?" — just fix it. Only pause for genuine ambiguity (e.g., a test failure that could mean the fix is wrong, not auto-fixable lint).
 
 ---
