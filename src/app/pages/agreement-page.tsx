@@ -4,7 +4,7 @@
  * Route: /agreements/:id
  *
  * Branches on agreement.status:
- *   'pending'    → PendingView (creator: invitation status + resend; partner: Review & Sign)
+ *   'pending'    → PendingView (partner: Review & Sign; creator: certificate only)
  *   'active'     → ActiveView (certificate with gold seal + terminate option)
  *   'declined'   → DeclinedView (muted certificate + suggestion)
  *   'expired'    → ExpiredView (muted certificate + resend for creator)
@@ -112,7 +112,6 @@ function PendingView({
   isPartner,
 }: {
   agreement: ClarityAgreement;
-  isCreator: boolean;
   isPartner: boolean;
 }) {
   return (
@@ -454,7 +453,6 @@ export function AgreementPage() {
       content = (
         <PendingView
           agreement={agreement}
-          isCreator={isCreator}
           isPartner={isPartner}
         />
       );

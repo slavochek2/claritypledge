@@ -23,7 +23,10 @@ import { AgreementRow } from '@/app/components/agreements/agreement-row';
 function PageSkeleton() {
   return (
     <div className="max-w-lg mx-auto px-4 mt-3 animate-pulse">
-      <div className="h-8 bg-muted rounded w-48 mb-6" />
+      <div className="flex items-center justify-between mb-4">
+        <div className="h-8 bg-muted rounded w-32" />
+        <div className="h-11 bg-muted rounded-md w-32" />
+      </div>
       <div className="space-y-2">
         {[1, 2, 3].map((i) => (
           <div key={i} className="h-14 bg-muted rounded-lg" />
