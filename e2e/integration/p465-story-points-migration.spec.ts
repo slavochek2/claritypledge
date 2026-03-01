@@ -26,7 +26,7 @@ import { createTestStory, deleteTestStory } from '../helpers/test-story';
 
 const TABLE = 'story_points';
 
-test.describe('P465 Migration — story_points.author_id column + UNIQUE constraint', () => {
+test.describe.serial('P465 Migration — story_points.author_id column + UNIQUE constraint', () => {
   test.setTimeout(45000);
 
   let author: TestUser;
