@@ -6,9 +6,9 @@ Extract falsifiable Points from a completed Story. Run after `/slava:sifter-stor
 
 Session name as argument (e.g., `/sifter-point sender-receiver-gaps`).
 
-If no argument: prompt "Which session?" and list `content/sifter/sessions/`.
+If no argument: prompt "Which session?" and list `.private/sifter/sessions/`.
 
-Read: `content/sifter/sessions/{session-name}.md`
+Read: `.private/sifter/sessions/{session-name}.md`
 
 ## Process (invisible to user)
 

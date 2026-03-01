@@ -88,5 +88,8 @@ TEST_*.md
 private/personal/
 .private/
 
+# Sifter session files — contain private brain dumps, real names, source messages
+content/sifter/sessions/
+
 # Deploy queue — local operational state, cleared by /ship after running
 DEPLOY_QUEUE.md
