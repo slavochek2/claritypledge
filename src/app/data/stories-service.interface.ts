@@ -101,6 +101,14 @@ export interface StoriesService {
    */
   unlinkPointFromStory(storyId: string, pointId: string): Promise<boolean>;
 
+  /**
+   * Get a story linked to a specific point by a specific user.
+   * Used in /chat to detect edit mode: if user already has a story for this point,
+   * open in edit mode instead of create mode.
+   * Returns null if no story exists for (userId, pointId).
+   */
+  getStoryByUserAndPoint(userId: string, pointId: string): Promise<Story | null>;
+
   // ============================================================================
   // DELETE
   // ============================================================================

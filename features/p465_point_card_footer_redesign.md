@@ -3,8 +3,14 @@ status: week
 type: change-request
 rank: 1000003.0
 changes: p456
-delivery_stage: 3-arch-review
+delivery_stage: 4-tests-ready
 flow: ux → architect → generate-tests → decompose → dev → verify
+uat_file: features/uat/p465.md
+test_files:
+  - e2e/integration/p465-story-points-migration.spec.ts
+  - src/tests/getStoryByUserAndPoint.test.ts
+  - e2e/p465-point-card-footer.spec.ts
+  - e2e/p465-smoke.spec.ts
 tags:
   - redesign
   - p456
@@ -169,7 +175,7 @@ See UX Design → Screen Layouts below for full per-state ASCII.
 
 **In scope:**
 - `src/app/components/social/point-card-with-links.tsx` — main shared component (quote pattern + feed view); both own and other-profile contexts share this
-- `src/app/pages/profile-page-v2.tsx` — `PointCardProfile` component (lines 1248-1289) — own-profile-specific footer
+- `src/app/pages/profile-page-v2.tsx` — `QuotedPointCard` component (footer at lines 1276-1317) — profile-surface footer (own and other profiles)
 - `supabase/migrations/` — new migration: `UNIQUE(author_id, point_id)` constraint on `story_points`
 - `/chat` entry point — detect existing story for `(currentUserId, pointId)` and open edit mode instead of create
 
@@ -239,8 +245,8 @@ This feature has three distinct rendering contexts, each with distinct footer lo
 
 | Context | Component | Viewer === Owner? | Profile owner available? |
 |---------|-----------|-------------------|--------------------------|
-| **Own profile** | `PointCardProfile` in `profile-page-v2.tsx` | Yes | Self |
-| **Other profile** | `PointCardProfile` in `profile-page-v2.tsx` | No | Alice |
+| **Own profile** | `QuotedPointCard` in `profile-page-v2.tsx` | Yes | Self |
+| **Other profile** | `QuotedPointCard` in `profile-page-v2.tsx` | No | Alice |
 | **Feed / quote pattern** | `PointCardWithLinks` (non-profile-owner context) | N/A | No |
 | **/live** | `PointCardWithLinks` with `liveSessionMode=true` | N/A | N/A |
 
@@ -589,7 +595,7 @@ No layout changes at breakpoints for the footer rows themselves. The `pl-[44px]`
 |---------|---------------|--------------|-----------------|
 | Stories row (expand trigger) | Extend | `point-card-with-links.tsx` lines 269-283 (quote pattern) and 402-444 (feed pattern). Add "by you" suffix logic; add edit/delete icons when `isOwnProfile && viewerStoryCount > 0`. | No — extend existing row |
 | CTA row ("Why do you agree? →") | Extend | `point-card-with-links.tsx` lines 308-352 (quote) and 447-490 (feed). Remove `copy.symbol` / `copy.label` prefix. Change position to render before stories row, not after. | No — text + position change only |
-| `PointCardProfile` footer | Extend | `profile-page-v2.tsx` lines 1276-1317. Replace dual-row with unified single-row per the state matrix. | No |
+| `QuotedPointCard` footer | Extend | `profile-page-v2.tsx` lines 1276-1317. Replace dual-row with unified single-row per the state matrix. | No |
 | Edit icon button | New | `Pencil` icon from Lucide, same styling as existing icon buttons (`min-w-[44px] min-h-[44px]`, `text-gray-400 hover:text-gray-600`). Navigation to `/chat?from=position&pointId=X&storyId=Y`. | No |
 | Delete icon button | New | `Trash2` icon from Lucide. Triggers confirmation dialog. Same icon button styling. | No |
 | Delete confirmation dialog | Reuse / Extend | Check for an existing confirmation dialog component in `src/app/components/ui/`. If none: a small headless modal or `window.confirm` (simpler, lower risk for this case). **Decision needed:** use `window.confirm` (zero new code, accessible by default) or a styled dialog component? | Yes — `window.confirm` vs styled dialog. Recommend `window.confirm` to keep scope minimal; upgrade later if needed. |
@@ -757,6 +763,7 @@ No method for `getStoryByUserAndPoint(userId, pointId)`. The `linkPointToStory` 
   2. In `StoryGuideChatPage`, fire this query in the same `useEffect` that fetches the point. If a story is found, pass it as `existingStory` to `StoryGuideChat`.
   3. `StoryGuideChat` receives optional `existingStory?: Story` prop. When present: skip the brain-dump/AI phases, pre-populate the draft card with `existingStory.content`, open at the `polish` phase with an "Edit your story" heading, and save via `updateStory` instead of `createStory`.
 - **"Edit mode" definition in StoryGuideChat:** The phase machine (`idle → brain-dump → streaming → ...`) is bypassed. Component initializes directly at `polish` phase with the existing content as the draft. The user can edit the text and re-save. This is a targeted entry point into an existing phase — no new phases needed.
+- **State initialization on edit-mode entry (explicit):** Set `phase = 'polish'`, `polishedContent = existingStory.content`, `messages = []`. `linkPointToStory` is NOT called in edit mode — the story is already linked in `story_points`. `DraftCard` renders from `polishedContent` state, so seeding it from `existingStory.content` delivers the pre-populated content without new state variables. The edit/save path calls `updateStory(existingStory.id, ...)` instead of `createStory`.
 - **URL shape:** `/chat?from=position&pointId=X` — unchanged. The edit detection is automatic at load time. No `storyId` or `editMode` URL param needed, because `pointId` + `userId` uniquely identify the story (enforced by Decision 2 constraint).
 - **Rationale:** Putting detection in the page shell keeps `StoryGuideChat` receiving explicit state (not querying DB itself), consistent with how `contextPoint` and `contextProfileOwner` are passed. The page is the data-fetching boundary.
 - **Trade-off:** One extra query per `/chat?from=position&pointId=X` load for authenticated users. Acceptable; it is a lightweight point lookup on indexed columns.
@@ -926,3 +933,47 @@ CREATE INDEX IF NOT EXISTS idx_story_points_author ON story_points(author_id);
 
 COMMIT;
 ```
+
+---
+
+## Test Coverage Strategy
+
+### Files Generated
+
+| File | Type | What It Tests |
+|------|------|---------------|
+| `e2e/integration/p465-story-points-migration.spec.ts` | Integration (P270 mandatory) | `author_id` column exists, insert succeeds, `UNIQUE(author_id, point_id)` rejects duplicate, SELECT by author_id, RLS public SELECT policy |
+| `src/tests/getStoryByUserAndPoint.test.ts` | Unit (Vitest) | Returns Story on match, returns null on PGRST116, queries with correct userId+pointId, handles unexpected DB errors |
+| `e2e/p465-point-card-footer.spec.ts` | E2E (Playwright) | Flow 1 (own, no story: CTA visible, no actor confusion prefix), Flow 2 (own, story: CTA hidden, count appears once), Flow 3 (other, no viewer story: CTA above stories row, owner attribution), Flow 4 (other, viewer has story: CTA hidden, "by you" visible) |
+| `e2e/p465-smoke.spec.ts` | Smoke (Playwright) | App loads without JS errors, body not blank |
+| `features/uat/p465.md` | Manual UAT | Duplication fix (D), actor confusion fix (AC), viewer story count (VS), 1-story-per-user (OS), CTA ordering (ORD), regressions (REG), mobile (MOB) |
+
+### What's Tested
+
+- ✅ DB migration: column/constraint/index presence (integration)
+- ✅ RLS: public SELECT on `story_points` for viewer secondary query (integration)
+- ✅ Service: `getStoryByUserAndPoint` returns Story or null (unit)
+- ✅ Own-profile: no story count duplication (E2E Flow 2)
+- ✅ Other-profile: viewer count accuracy + no actor confusion prefix (E2E Flows 3+4)
+- ✅ CTA hidden when viewer already has story (E2E Flows 2+4)
+- ✅ CTA row positioned above stories row (E2E Flow 3)
+
+### What's NOT Tested (Rationale)
+
+- ❌ Edit mode full flow (`StoryGuideChat` polish phase) — requires AI mocking; covered by manual UAT OS-3
+- ❌ `QuotedPointCard` in isolation — always rendered via profile page; covered by E2E flows
+- ❌ `linkPointToStory` `author_id` update — tested indirectly via integration test insert
+
+### Test Pyramid
+
+```
+       /\
+      /  \   9 E2E tests
+     /____\
+    / 5 INT  \
+   /__________\
+  / 4 UNIT    \
+ ______________
+```
+
+**Total:** 18 automated tests + 24 UAT checks
