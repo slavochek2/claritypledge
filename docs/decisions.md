@@ -2,6 +2,18 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-01 [process]: pre-commit lint auto-fix clears non-TS staged files in separate processes
+
+**Context:** When running `git add non-ts-file` in one process and `git commit` in a separate background process, the pre-commit script's lint auto-fix (`xargs git add $STAGED_TS`) re-stages only the TS files it fixed. If CLAUDE.md or .md skill files are staged before the pre-commit runs, the `xargs git add` on TS-only files leaves the non-TS files in a transient state — they vanish from the commit. Resulted in two empty commits (`f290fadc`, `da685ffa`) with correct commit messages but no file changes.
+
+**Decision:** Always stage non-TS files and commit in a single atomic `git add ... && git commit` command. Never split into `git add` (one process) → `git commit` (separate background process) when non-TS files are involved. The pre-commit script's re-stage loop only runs on TS/JS files and will not preserve .md files staged in a parent process.
+
+**Alternatives rejected:** Modifying pre-commit to preserve all staged files — touches shared infra, higher risk.
+
+**Consequences:** Atomic `git add ... && git commit` in one shell command is the reliable pattern for mixed-type commits (md + ts). Split processes for staging + committing is unsafe when pre-commit modifies the index.
+
+---
+
 ## 2026-03-01 [process]: UAT branch stranding — pre-deletion diff gate + /kdd branch-awareness warning
 
 **Context:** `docs/ux-patterns.md` (266 lines of navigation architecture) was written during UAT for p422-p425, landed on the UAT branch, and was lost when that branch was deleted without checking for unreleased commits. 5-Why root cause: branch deletion had no "diff vs main" gate. The /kdd skill had no branch-awareness check, so KDD entries written on UAT branches were stranded silently.
