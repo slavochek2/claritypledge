@@ -1,6 +1,7 @@
 ---
 paths:
   - "content/sifter/**/*.md"
+  - ".private/sifter/**/*.md"
 ---
 
 # Sifter Rules

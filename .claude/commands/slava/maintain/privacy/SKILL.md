@@ -50,7 +50,7 @@ This is a **privacy + personal harm** scan: things that are technically safe to 
    Focus on: `docs/`, `features/`, `.claude/commands/`, `CLAUDE.md`, `README.md`, `content/articles/`, `content/sifter/`
    Skip: `src/`, `e2e/`, `supabase/` (code rarely contains personal content)
    Note: `content/articles/` drafts may contain outreach tracking, contact info, or approval notes mixed in with article content — a known risk zone.
-   Note: `content/sifter/` should contain no session files (those belong in `.private/sifter/sessions/`). Any `.md` file found here is a misplaced session file — flag immediately and move to `.private/`.
+   Note: `content/sifter/` should contain no session files (those belong in `.private/sifter/sessions/`). Only structural files with no personal content are valid here (e.g., `README.md`, schema templates). Any `.md` file that contains user-entered content, names, or brain dump material is a misplaced session file — flag immediately and move to `.private/sifter/sessions/`.
 
 3. **Flag findings** — for each finding, state:
    - File + approximate location
