@@ -12,7 +12,7 @@ Two calibration failures:
 1. **Speakers** overestimate how clearly they communicated
 2. **Listeners** overestimate how well they understood
 
-No feedback loop exists — conversations end without checking if understanding actually happened. People think they understood, but didn't — and never find out.
+No feedback loop exists — conversations end without checking if understanding actually happened. People think they understood, but didn't — and never find out. The result is **False Agreement** — both parties believe they've aligned, but neither has verified it. By the time the gap surfaces, it has become a conflict.
 
 **The measurement problem:** Existing tools don't help. 75% of research relies on self-reports (the miscalibration we're trying to fix). Gong measures talk-time ratio, not comprehension. 360 feedback buries "listening" as 1 item among 30. Meta-analysis shows metacomprehension accuracy is only r=0.24 — people are poor at knowing what they know.
 
@@ -134,6 +134,8 @@ For rationalists, AI researchers, and those building personal AI agents: a syste
 For co-founder pairs: experience where your mental models diverge — then build the shared understanding that functional alignment requires.
 
 **Positioning:** Preventive calibration for functioning-but-misaligned teams. Not crisis intervention or therapy. Works when both parties recognize the problem exists but trust isn't broken.
+
+*External label: Co-founder De-Risking (jargon-free version of calibration coaching for external audiences)*
 
 **Shared foundation:**
 > **Scale your inner world — know who understood you, how well, and where they diverge — without being present for every conversation.**

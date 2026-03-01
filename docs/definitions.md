@@ -6,6 +6,20 @@ Core concepts of the Clarity Pledge platform. This is the product's conceptual f
 
 ---
 
+## False Agreement
+
+> **One-liner:** False Agreement is the state where two people believe they have aligned, but haven't verified it.
+
+**The mechanism:** Both parties walk away from a conversation with miscalibrated confidence that understanding occurred. The gap is invisible until it becomes a conflict. By the time it surfaces, it's expensive — in co-founder relationships, this pattern is the root cause of most splits, not strategic disagreement.
+
+**Distinction from disagreement:** False agreement is more dangerous than open disagreement. Two people who disagree openly can negotiate. Two people in false agreement act on misaligned assumptions until the gap surfaces — typically in high-stakes moments.
+
+**Why it matters for ClarityPledge:** The explain-back protocol is specifically designed to surface false agreement before it becomes costly. A /live session replaces "I think we're aligned" with "I can demonstrate we're aligned."
+
+*See also: [theory-of-change.md](theory-of-change.md) — "Making the Invisible Visible"*
+
+---
+
 ## Story (The Scaling Mechanism)
 
 > **One-liner:** A Story is how you scale your inner world — it lets others understand you without you being present for every conversation.

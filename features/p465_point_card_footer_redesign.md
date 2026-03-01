@@ -153,7 +153,8 @@ See UX Design → Screen Layouts below for full per-state ASCII.
 
 ## What Stays the Same
 
-- All data fetching (`getStoriesByAuthorWithPoints`, `getStoriesForPoints`) — no new service methods
+- Profile owner story fetching — `getStoriesByAuthorWithPoints` unchanged; owner stories pipeline is not modified
+- ⚠️ Viewer story fetching on other profiles is NOT unchanged — Requirement 4 explicitly requires fetching the viewer's own story count per point. Service method changes for this are scoped to the architect phase. See also: AC line 251 and UX Design Decision 2.
 - `getPositionCTACopy()` utility in `types.ts` — copy mapping unchanged
 - Navigation destination: `/chat?from=position&pointId={id}` — unchanged
 - /live disabled state and "Available after the session" hint — unchanged
