@@ -479,7 +479,7 @@ See [docs/development-process.md](docs/development-process.md) for complete work
 
 When a tool is no longer used (IDE, AI assistant, backup tool, build framework):
 
-1. `git rm -r --cached <tool-dir>` — untrack from git
+1. `git rm -r --cached --ignore-unmatch <tool-dir>` — untrack from git index (files remain in history; that's fine)
 2. `rm -rf <tool-dir>` — delete from disk
 3. Add pattern to `.gitignore` — prevent re-accumulation
 

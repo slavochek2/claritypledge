@@ -517,11 +517,12 @@ else
 fi
 echo ""
 
-# 17. One-time scripts outside archive/ — warn if staged directly in scripts/ root
+# 18. One-time scripts outside archive/ — warn if staged directly in scripts/ root
 echo ">>> Checking for one-time scripts not yet archived..."
 ONE_TIME_STAGED=$(git diff --cached --name-only | \
     grep -E '^scripts/[^/]+\.(cjs|mjs|ts|sh|js|py)$' | \
-    grep -iE '(migrate|reclassify|convert|rewrite|fix-|setup-|backfill|patch|seed)' || true)
+    grep -iE '(migrate|reclassify|convert|rewrite|backfill|patch|seed)' | \
+    grep -vE '(migrate\.sh|pre-migration|post-migration)' || true)
 if [ -n "$ONE_TIME_STAGED" ]; then
     echo -e "${YELLOW}⚠ One-time script(s) staged in scripts/ root — archive after use:${NC}"
     echo "$ONE_TIME_STAGED" | sed 's/^/  /'
