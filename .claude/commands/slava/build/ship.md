@@ -18,6 +18,14 @@ Ship an approved feature to production.
 ## What it does
 
 1. **Find the branch** — looks for `feature/pN*` or `feature/pN-*`
+
+**1a. Divergence check** — run `git rev-list --count main..feature/pN-*` (ahead) and `git rev-list --count feature/pN-*..main` (behind).
+- If behind-count > 20: warn "Branch is N commits behind main — rebase or manual merge needed." Propose:
+  **(A) Rebase:** `git rebase main` on feature branch, resolve conflicts, then proceed normally.
+  **(B) Already merged manually:** Ask "Was this already merged to main? If so, reply 'spec-only' to run spec closure + branch cleanup only (steps 7-9), skipping the merge."
+- Wait for user choice. **Step 7 (spec closure) is mandatory regardless of which path is chosen.**
+- If user replies 'spec-only': skip steps 2-6, jump directly to step 7.
+
 2. **Verify clean state** — no uncommitted changes on the feature branch
 3. **Run pre-commit checks** — `./scripts/pre-commit-checks.sh`
 4. **Merge to main** — `git merge feature/pN --no-ff` (preserves branch history)
@@ -73,7 +81,7 @@ For small work committed directly to main, just say "push" — no need for /ship
 ## After shipping
 
 - Vercel deployment takes ~60s — check claritypledge.com
-- If the feature had a spec: it should already be in `features/done/` (closed by /dev)
+- The spec is closed by /ship step 7 — /dev leaves it at `delivery_stage: uat`, NOT done. If the spec is still in `features/` after /ship completes, step 7 failed — investigate before continuing.
 - Run `/verify` if you want visual QA of the live site
 
 ---

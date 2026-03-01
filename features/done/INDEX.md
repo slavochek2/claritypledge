@@ -1,7 +1,7 @@
 # Done Features Index
 
 Quick reference for past completed work. Consult when starting work on a related topic.
-Last updated: 2026-02-28
+Last updated: 2026-03-01
 
 ---
 
@@ -26,6 +26,7 @@ Last updated: 2026-02-28
 - **P423** (Feb 26) Calibration on Every Paraphrase — record calibration data on every exchange; no story/score requirement
 - **P424** (Feb 26) Visibility Model — three-tier (Private/Shared/Public); RLS uses EXISTS subquery on event_rsvps for shared
 - **P425** (Feb 25) AI-Guided Story Creation Core Loop — `/chat` page with AI streaming chat; phase state machine guides user from staking a position to filing a first-person story; Supabase edge function, rate limiting, NVC scaffolding
+- **P425** (Feb 26) AI Story Guide Chat — ship via non-feature branch leaves spec at qa; code-on-main ≠ spec-closed
 - **P426** (Feb 26) Story Show/More Toggle — character limit prevents excessive card height; expandable text pattern
 - **P427** (Feb 26) Story Edit and Delete — `useBlocker` requires data router; guard via handleBack override + popstate; `story_versions` RLS was USING(true); Radix Dialog modal always needs `hideCloseButton` for confirm dialogs
 - **P434** (Feb 26) Point Statement Truncation — line-clamp prevents card overflow
@@ -74,6 +75,7 @@ Last updated: 2026-02-28
 ## Agreements & Relationships
 
 - **P422** (Feb 26) Clarity Partner Agreement — two-party agreement flow; separate pages per state (create/pending/accepted/declined); edge function sends emails
+- **P422** (Feb 26) Clarity Partner Agreement — UAT branch rescue pattern; revert-from-main wrong mechanism; use feature branch + /ship instead
 - **P459** (Feb 27) Move Agreements to Connections Page — profile sub-page at `/p/:slug/connections`; service-layer filter for current user only (not creator); react-refresh requires named exports
 
 ## Events & Content

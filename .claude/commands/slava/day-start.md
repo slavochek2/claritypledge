@@ -159,6 +159,21 @@ git branch --format='%(refname:short) %(upstream:track)' | grep -v "^main"
 git log --oneline origin/main..HEAD 2>/dev/null | wc -l | tr -d ' '
 ```
 
+**2b. Stranded spec check** — find specs open but whose branch no longer exists:
+```bash
+# P-numbers with open specs (uat or in-progress)
+OPEN=$(grep -rl "delivery_stage: uat\|status: in-progress" features/p*.md 2>/dev/null | grep -oP 'p\d+' | sort -u)
+# P-numbers with existing branches
+BRANCHES=$(git branch -a | grep -oP '(?<=feature/|origin/feature/)p\d+' | sort -u)
+# Stranded = open but no branch
+comm -23 <(echo "$OPEN") <(echo "$BRANCHES")
+```
+If any P-numbers are stranded (open spec, no branch): output:
+```
+⚠ STRANDED SPECS (code on main, spec not closed):
+  · pN — features/pN_name.md — run /ship pN spec-only to close
+```
+
 Output a branch block:
 
 ```
@@ -171,7 +186,11 @@ BRANCHES
 Rules:
 - If on `main` with 0 commits ahead: "main is clean and in sync"
 - If on `main` with N commits ahead: "N commits on main not pushed — push when ready or was this meant to be on a branch?"
-- For each feature branch: show name + one-line suggestion ("ready to /ship?" if closed, "in-progress" if spec still open)
+- For each feature branch: show name + one-line suggestion:
+  - `delivery_stage: uat` AND branch exists → "ready to /ship pN?"
+  - `delivery_stage: uat` AND branch gone (merged) → "branch merged but spec open — run /ship pN spec-only"
+  - spec open (`status: in-progress`, no `delivery_stage`) → "in-progress"
+  - no spec found → "no spec — branch may be stale, consider cleanup"
 - If no feature branches: omit the section
 
 ---

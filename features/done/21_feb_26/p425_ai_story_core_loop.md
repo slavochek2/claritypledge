@@ -1,5 +1,6 @@
 ---
-status: qa
+status: all-done
+completed_at: "2026-02-28"
 type: story
 rank: 94122.75
 workstream: C1

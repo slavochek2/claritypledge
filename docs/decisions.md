@@ -2,6 +2,48 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-01 [product]: Session-start shared goal reaffirmation (mini pledge) as Pinker common knowledge mechanism
+
+**Context:** Two real clarity sessions surfaced the same failure mode: partners entered a session with divergent implicit goals (one seeking emotional validation, one seeking cognitive precision). No mechanism exists to align them before the session begins.
+
+**Decision:** Added to P421 (Pre-Session Safety Check) as a concrete operationalization of the "commitment ritual" open question: a lightweight step where both participants explicitly commit that their shared goal for the session is *cognitive understanding* (not agreement, not emotional resolution). The act of committing together creates Pinker's common knowledge — both know it, and both know the other knows it. This is what creates psychological safety, not private intent alone.
+
+**Alternatives rejected:** Making it part of the agreement flow (one-time only) — misses the safety function that repeats each session. Skipping it and trusting implicit alignment — this is exactly the failure mode observed.
+
+**Consequences:** P421 now has a concrete mechanism for the commitment ritual. The mini pledge should link to the sister story point (three meanings of "understand") so "cognitive understanding" carries a shared definition. Design still open: same UI step as safety check, or separate micro-step.
+
+**References:** [p421_presession_safety_check.md](features/drafts/p421_presession_safety_check.md)
+
+---
+
+## 2026-03-01 [product]: ITT/RITT framework formalized as 8 shareable claims in philosophy.md
+
+**Context:** The meta-epistemology had been described abstractly (postulates, hypotheses). A set of 8 sequenced claims — from "problems require knowledge" through "trust based on RITT performance" — now exists in a form that can be shared as profile stories/points.
+
+**Decision:** Filed the 8 claims in `docs/philosophy.md` under "Formalized Claims (ITT/RITT Framework)" and created P464 to track turning them into profile story/point pairs. The claims are numbered and build on each other (#1 → #8); profile ordering should follow the logical chain.
+
+**Alternatives rejected:** Keeping them as abstract postulates only — not shareable in clarity sessions. Filing each as a separate spec — unnecessary overhead for content work.
+
+**Consequences:** P464 is now the single tracking item for all 9 content pieces (8 ITT/RITT claims + "understanding precedes control" entry point). philosophy.md is the source; P464 tracks filing them as profile content.
+
+**References:** [docs/philosophy.md](docs/philosophy.md) · [p464_understanding_precedes_control_story.md](features/drafts/p464_understanding_precedes_control_story.md)
+
+---
+
+## 2026-03-01 [process]: Docs commits have no independent path to main — structurally coupled to branch fate
+
+**Context:** Branch cleanup audit discovered `p422-p425-uat` had 5 stranded commits (including `docs/ux-patterns.md` 266 lines, 4 `decisions.md` KDD entries, `/ship` skill guard, `/ss` stash check) not on main — 3 days after features shipped. Root cause (5 Whys): docs/KDD commits made on the UAT branch while feature development continued on a separate branch. When the feature shipped via a different branch, the UAT branch was abandoned without cherry-picking.
+
+**Decision:** Three structural fixes applied: (1) `/dev` UAT gate message now explicitly names spec closure as /ship's job and warns about manual-merge consequences; (2) `/ship` skill gets a divergence-check step 1a with a `spec-only` escape hatch for already-merged branches; (3) `/day-start` gets a stranded-spec check (2b) that cross-references open specs against existing branches. /day-start also corrects the "ready to /ship?" suggestion to distinguish branch-exists vs branch-already-merged.
+
+**Alternatives rejected:** "Be more careful" — not mechanical. `Persist: main` commit trailer — overhead per commit, no tooling yet. Rescue-branch read-only convention — hard to enforce in agent sessions.
+
+**Consequences:** /day-start now surfaces stranded specs at session start. /ship bypasses now trigger an explicit divergence dialog. `/dev` makes the spec-closure responsibility of /ship visible at UAT handoff. The class of failure (docs stranded on abandoned branch) now has three detection points instead of zero.
+
+**References:** [docs/process-learnings.md](docs/process-learnings.md)
+
+---
+
 ## 2026-02-28 [process]: OpenClaw over custom bot — search named tools before building
 
 **Context:** Built a custom Gemini Telegram bot across 2 sessions (VM provisioning, bot.py, sqlite-vec memory, GitHub PAT, email) before discovering the user intended to use OpenClaw — a 68k-star open-source agent framework that does all of this out of the box. VM paused.
