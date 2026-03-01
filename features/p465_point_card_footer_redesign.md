@@ -12,6 +12,13 @@ tags:
   - footer
   - story-cta
 created_date: 2026-03-01
+uat_file: features/uat/p465.md
+test_files:
+  - e2e/p465-point-card-footer.spec.ts
+  - e2e/p465-smoke.spec.ts
+  - e2e/integration/p465-author-id-migration.spec.ts
+  - e2e/a11y/p465-accessibility.spec.ts
+  - src/tests/viewer-story-count.test.ts
 ---
 
 # P465: Point card footer — unified row, no actor confusion, 1 story per user
@@ -926,3 +933,79 @@ CREATE INDEX IF NOT EXISTS idx_story_points_author ON story_points(author_id);
 
 COMMIT;
 ```
+
+---
+
+## Test Coverage Strategy
+
+**Files generated:**
+
+| File | Type | Purpose |
+|------|------|---------|
+| `e2e/p465-point-card-footer.spec.ts` | E2E | Core behavioral assertions — duplication fix, actor confusion fix, viewer count, CTA copy, ordering |
+| `e2e/p465-smoke.spec.ts` | E2E smoke | Profile pages load without JS errors in all footer states |
+| `e2e/integration/p465-author-id-migration.spec.ts` | Integration | DB migration: column exists, backfill, UNIQUE constraint, RLS, cascade |
+| `e2e/a11y/p465-accessibility.spec.ts` | Accessibility E2E | ARIA labels, no nested buttons, keyboard nav, focus rings |
+| `src/tests/viewer-story-count.test.ts` | Unit | `getViewerStoryCountsForPoints`, `getViewerStoryIdsForPoints`, `getStoryByUserAndPoint` — service methods with Supabase mock |
+| `features/uat/p465.md` | Manual UAT | Human checklist: all contexts × states × edge cases |
+
+---
+
+**What's tested:**
+
+- **Own-profile duplication fix** — E2E asserts exactly one story-count element visible; smoke confirms no JS errors in all states
+- **Actor confusion fix** — E2E asserts "✓ Agree ·" prefix is absent; E2E asserts CTA DOM position precedes stories row
+- **Viewer story count on other profiles** — E2E asserts "· N by you" appears when viewer has a story; asserts CTA absent in that state
+- **UNIQUE(author_id, point_id) constraint** — Integration test: 23505 on duplicate insert, different authors allowed on same point
+- **`story_points.author_id` column existence** — Integration test: schema check via admin client (P270 rule)
+- **Viewer service methods** — Unit tests: `getViewerStoryCountsForPoints` returns correct Map from Supabase response; error handling graceful (returns empty Map not throw)
+- **`getStoryByUserAndPoint`** — Unit test: returns story when exists, null when absent, null on error
+- **CTA adaptive copy** — E2E: agree/disagree/unsure all produce correct ctaText
+- **1-story-per-user UI gate** — E2E: CTA hidden when story exists, no "+ add story →" remnant
+- **Edit/delete icons** — E2E: visible only when story exists; have aria-labels
+- **P451 dead code removal** — E2E: "Tell your story →" not present after P465
+- **Keyboard accessibility** — A11y E2E: CTA focusable via Tab, activatable via Enter; no nested buttons
+- **RLS on new column** — Integration: user-scoped client can insert story_point with author_id
+
+---
+
+**What's NOT tested (rationale):**
+
+- **`StoryGuideChat` edit mode internals** — out of scope per spec; only the entry point branch (D3) is in scope. Component phase machine testing would require rendering StoryGuideChat in a mocked state — deferred to a dedicated edit-mode feature.
+- **Delete confirmation dialog flow (full)** — UAT covers manually; E2E would require clicking delete + interacting with `window.confirm` (or a dialog), which is fragile in Playwright with native browser dialogs. UAT scenario E-B/E-C/E-D cover it.
+- **`window.confirm` vs styled dialog** — UX Decision 1 deferred to founder; test written for the aria-label pattern without asserting which dialog implementation is used.
+- **/live disabled state** — unchanged from P456; P456 E2E and UAT already cover it. No new /live tests needed.
+- **Feed page** — out of scope per spec (no duplication risk in feed).
+- **Stories tab (QuotedPoint)** — out of scope per spec (P456 changes there are correct).
+- **Backfill SQL correctness** — SQL is tested indirectly via integration test (if backfill failed, column would have nulls and `NOT NULL` constraint wouldn't hold). Direct backfill row-count verification deferred to migration script output in dev.
+
+---
+
+**Test pyramid:**
+
+```
+                    Manual UAT
+                  ┌─────────────┐
+                  │  p465.md    │
+                  │ 30 scenarios│
+                  └─────────────┘
+
+            E2E + Accessibility
+        ┌──────────────────────────┐
+        │  p465-point-card-footer  │  22 tests
+        │  p465-smoke              │   5 tests
+        │  p465-accessibility      │  11 tests
+        └──────────────────────────┘
+
+          Integration (DB/Migration)
+      ┌────────────────────────────────┐
+      │  p465-author-id-migration      │   6 tests
+      └────────────────────────────────┘
+
+                Unit (Service)
+    ┌──────────────────────────────────────┐
+    │  viewer-story-count.test.ts          │  14 tests
+    └──────────────────────────────────────┘
+```
+
+**Total: 58 automated tests + 30 UAT scenarios**
