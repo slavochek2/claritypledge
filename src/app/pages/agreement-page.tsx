@@ -13,7 +13,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { Clock, Copy, Check, Loader2, LockIcon } from 'lucide-react';
+import { Loader2, LockIcon } from 'lucide-react';
 import { useAuth } from '@/auth';
 import { agreementsService } from '@/app/data/agreements-service';
 import type { ClarityAgreement } from '@/app/data/agreements-service';
@@ -40,18 +40,6 @@ function formatDate(isoDate: string): string {
   });
 }
 
-function buildAcceptUrl(agreementId: string, token: string): string {
-  return `${window.location.origin}/agreements/${agreementId}/accept?token=${encodeURIComponent(token)}`;
-}
-
-function buildCalendarUrl(): string {
-  return (
-    'https://calendar.google.com/calendar/render?action=TEMPLATE' +
-    '&text=Clarity+Partner+%2Flive+Session' +
-    '&details=Our+first+%2Flive+session+under+the+Clarity+Partner+Agreement'
-  );
-}
-
 function isValidUuid(value: string): boolean {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
 }
@@ -71,34 +59,6 @@ function MutedCertificate({ agreement }: { agreement: ClarityAgreement }) {
         termsText={agreement.termsText}
       />
     </div>
-  );
-}
-
-// ─── Copy-link button ─────────────────────────────────────────────────────────
-
-function CopyLinkButton({ url }: { url: string }) {
-  const [copied, setCopied] = useState(false);
-
-  const handleCopy = async () => {
-    try {
-      await navigator.clipboard.writeText(url);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch {
-      toast.error('Failed to copy link');
-    }
-  };
-
-  return (
-    <button
-      type="button"
-      onClick={handleCopy}
-      className="inline-flex items-center gap-1.5 text-sm text-[#0044CC] hover:underline"
-      aria-label="Copy invitation link"
-    >
-      {copied ? <Check size={14} /> : <Copy size={14} />}
-      {copied ? 'Copied!' : 'Copy invitation link'}
-    </button>
   );
 }
 
@@ -149,19 +109,12 @@ function TerminateDialog({
 
 function PendingView({
   agreement,
-  isCreator,
   isPartner,
-  onResend,
-  isResending,
 }: {
   agreement: ClarityAgreement;
   isCreator: boolean;
   isPartner: boolean;
-  onResend: () => void;
-  isResending: boolean;
 }) {
-  const acceptUrl = buildAcceptUrl(agreement.id, agreement.invitationToken);
-
   return (
     <div className="space-y-6">
       <AgreementCertificate
@@ -173,57 +126,6 @@ function PendingView({
         partnerSignedAt={null}
         termsText={agreement.termsText}
       />
-
-      {isCreator && (
-        <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 space-y-3">
-          <div className="flex flex-col gap-1">
-            <div className="flex items-start gap-2">
-              <Clock size={16} className="text-amber-600 mt-0.5 flex-shrink-0" />
-              <p className="text-sm text-amber-900">
-                Invitation sent to{' '}
-                <span className="font-medium">{agreement.partnerEmail}</span>. Waiting for them to
-                sign.
-              </p>
-            </div>
-            <p className="text-xs text-amber-700/70 pl-6">
-              Their email is shown here only to confirm where the invitation was sent.
-            </p>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-3">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={onResend}
-              disabled={isResending}
-              className="min-h-[36px]"
-            >
-              {isResending ? (
-                <>
-                  <Loader2 size={14} className="animate-spin mr-1" />
-                  Resending...
-                </>
-              ) : (
-                'Resend Invitation'
-              )}
-            </Button>
-            <CopyLinkButton url={acceptUrl} />
-          </div>
-        </div>
-      )}
-
-      {isCreator && (
-        <p className="text-sm text-muted-foreground">
-          <a
-            href={buildCalendarUrl()}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-[#0044CC] hover:underline"
-          >
-            Schedule a /live session while you wait →
-          </a>
-        </p>
-      )}
 
       {isPartner && (
         <div className="flex justify-center">
@@ -554,8 +456,6 @@ export function AgreementPage() {
           agreement={agreement}
           isCreator={isCreator}
           isPartner={isPartner}
-          onResend={handleResend}
-          isResending={isResending}
         />
       );
       break;

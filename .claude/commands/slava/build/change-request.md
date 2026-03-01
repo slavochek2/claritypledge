@@ -67,6 +67,8 @@ Identify for each section above:
 - Which parts are EXTENDED (redesign adds to them without contradicting)
 
 Return as structured text, not prose. Be specific — quote the predecessor text when calling something superseded.
+
+**Scope constraint:** Return only analysis of the predecessor spec's content and what the redesign changes. Do NOT recommend process changes, skill changes, or historical-origin explanations — those are out of scope. The question is "what did the predecessor spec say, and what does the redesign correct?" not "why was it built that way."
 ```
 
 This analysis feeds directly into the "Current State", "What's Wrong", and "Predecessor Sections Superseded" sections of the new spec. Do not write those sections from memory.
@@ -104,7 +106,11 @@ NEW_RANK=$(echo "${MAX_RANK:-0} + 1.0" | bc)
 
 **File:** `features/p{N}_{redesign-slug}.md`
 
-Slug from the redesign description (underscores, not hyphens), not the predecessor title.
+Slug from the redesign description, not the predecessor title.
+
+**Slug rules (hard):**
+- Underscores only — never hyphens. Wrong: `point-card-footer`. Correct: `point_card_footer`.
+- Verify before creating: `ls features/p*.md | head -5` confirms existing convention.
 
 ```markdown
 ---
@@ -240,6 +246,7 @@ This is non-destructive — the predecessor spec content is preserved as histori
 - [ ] Surfaces in scope explicitly listed
 - [ ] "What stays the same" section present
 - [ ] Regression check in acceptance criteria
+- [ ] **If `type: change-request` is new to this codebase:** confirm it is registered in `tools/kanban/lib/scanner-rules.ts` VALID_TYPE array (server strips unknown types silently), `features.md` type list, `/pick-flow` skill type table, and `CLAUDE.md` type classification table
 
 ---
 

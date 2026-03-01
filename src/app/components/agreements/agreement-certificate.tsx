@@ -69,7 +69,6 @@ function SignatureSlot({ label, name, signedAt, isPending }: SignatureSlotProps)
 
 export function AgreementCertificate({
   variant,
-  displayId,
   creatorName,
   creatorSignedAt,
   partnerName,
@@ -92,11 +91,6 @@ export function AgreementCertificate({
       <div className="space-y-6">
         {/* Header */}
         <div className="text-center space-y-1.5 pb-5 border-b-2 border-[#002B5C]">
-          {displayId && (
-            <p className="text-[10px] uppercase tracking-[0.25em] text-[#1A1A1A]/50 font-sans mb-2">
-              {displayId}
-            </p>
-          )}
           <h2
             className="text-2xl md:text-3xl font-serif tracking-wide text-[#1A1A1A]"
             style={{ fontFamily: '"Playfair Display", Georgia, serif' }}
@@ -104,7 +98,7 @@ export function AgreementCertificate({
             Clarity Partner Agreement
           </h2>
           <p className="text-[10px] md:text-xs text-[#1A1A1A]/60 uppercase tracking-[0.2em] font-sans">
-            A bilateral commitment to clarity
+            A mutual commitment to clarity
           </p>
         </div>
 

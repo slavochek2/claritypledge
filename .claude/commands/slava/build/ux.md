@@ -310,7 +310,10 @@ Format as a table:
 
 If UX is unclear (e.g., "Where does toggle appear?"), ask user BEFORE generating incomplete UX.
 
-Append UX section to {spec_file}. Do NOT modify existing Business Requirements content.
+Before writing: check if a `## UX` or `## UX Design` or `## UX Requirements` section already exists in the spec (use Read tool).
+- If NO existing UX section → append at end of file.
+- If YES existing UX section → replace it in-place using Edit tool. Do NOT leave two UX sections in the file.
+Do NOT modify any content before the UX section.
 
 **IMPORTANT - Delivery Stage Tracking:**
 1. BEFORE starting UX design, clear the prd-review stage (running /ux = PRD approved):
