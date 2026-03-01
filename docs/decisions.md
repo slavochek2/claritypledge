@@ -2,6 +2,34 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-01 [process]: Sifter session files and content article drafts are privacy risk zones — structural fix applied
+
+**Context:** Sifter session files (`content/sifter/sessions/`) were in the public git repo. They contained an "Interaction Log" section tracking agent working steps — including real names and verbatim private messages used as source material. Root cause (5 Whys): the session file template conflated private process metadata (NVC extraction, source references, real names) with publishable output (story, points). The privacy skill didn't scan `content/` paths, so it missed this. Similarly, `content/articles/` draft files had no rule preventing process notes (outreach emails, approval tracking) from landing in the public file.
+
+**Decision:** Three structural fixes: (1) All sifter session files moved to `.private/sifter/sessions/` (gitignored). Sifter skills updated to use this path. (2) `content/sifter/sessions/` added to `.gitignore`. (3) Privacy skill scan scope expanded to include `content/articles/`. Auto-loaded rule added to `.claude/rules/content.md`: process notes (contact info, outreach tracking, approvals) must go to `.private/articles/{a-number}_notes.md`, never inline in article files. History scrub deferred — see `.private/docs/business/git-history-scrub-todo.md`.
+
+**Alternatives rejected:** Moving sifter skills to global `~/.claude/` — skills are just instructions with no PII, gain nothing privacy-wise, lose version control. Moving article drafts to `.private/` — breaks kanban which reads `content/articles/`. Two-file pattern for every article — over-engineered for the frequency of the problem.
+
+**Consequences:** Sifter sessions are now machine-local (not synced across devices via git). This is acceptable — sessions are scratch pads; once the story is approved and in Supabase, the session file is no longer needed. Workflow unchanged: same skill commands, same kanban, same article paths. Privacy skill now catches the category of issue that caused the original leak. No changes to insight-post, LinkedIn creation, or any build skills.
+
+**References:** [.private/docs/business/git-history-scrub-todo.md](.private/docs/business/git-history-scrub-todo.md) · [.claude/rules/content.md](.claude/rules/content.md) · [maintain/privacy/SKILL.md](.claude/commands/slava/maintain/privacy/SKILL.md)
+
+---
+
+## 2026-03-01 [process]: /verify is the natural trigger for /ship — not a separate optional step
+
+**Context:** After a feature is implemented and UAT-gated, the sequence is: run `/verify` (live browser UAT) → if passes → run `/ship`. But `/ship` and `/verify` are disconnected — `/ship` doesn't prompt for `/verify`, `/verify` doesn't call `/ship`, and `/ss` doesn't surface "verify passed" as a feature state. The result: `/verify` gets skipped or forgotten, `/ship` gets run blind.
+
+**Decision:** `/ship` step 10 should actively prompt: "Run /verify first? (visual QA of the live site)" — making it a first-class decision point, not a passive note. `/ss` should surface delivery_stage as "uat — verified" vs "uat — unverified" once /verify is run on a feature. The three-step rhythm is: `/dev` (UAT gate) → `/verify` (live QA) → `/ship` (close spec).
+
+**Alternatives rejected:** Keeping /verify as a passive suggestion — easily skipped, no process anchor. Auto-running /verify inside /ship — too opinionated; backend-only changes don't need it.
+
+**Consequences:** /ship step 10 needs rewording to prompt for /verify. /ss needs a "verified" state tracked somewhere (process-learnings.md or .private/ note per feature). This makes the three-step delivery rhythm explicit.
+
+**References:** [build/ship.md](.claude/commands/slava/build/ship.md) · [build/verify.md](.claude/commands/slava/build/verify.md)
+
+---
+
 ## 2026-03-01 [product]: Session-start shared goal reaffirmation (mini pledge) as Pinker common knowledge mechanism
 
 **Context:** Two real clarity sessions surfaced the same failure mode: partners entered a session with divergent implicit goals (one seeking emotional validation, one seeking cognitive precision). No mechanism exists to align them before the session begins.
