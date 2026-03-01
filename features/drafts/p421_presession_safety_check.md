@@ -1,5 +1,5 @@
 ---
-status: backlog
+status: today
 type: story
 rank: 125469.0
 workstream: C1
@@ -19,14 +19,25 @@ Before a /live session begins, both participants rate how calm and safe they fee
 
 ## Technical Notes
 
-_Implementation details, architecture decisions._
+### Mini Pledge — Shared Goal Reaffirmation
+
+The commitment ritual takes a specific form: both participants explicitly commit that their shared goal for this session is **cognitive understanding** — not agreement, not emotional resolution.
+
+**Mechanism:** A point (or lightweight UI step) where both press to confirm: *"In this session, I commit to reaching cognitive understanding — not agreement."*
+
+**Why it creates psychological safety (Pinker's common knowledge):** Private intent isn't enough. Safety requires that both people know it, *and* both know the other knows it. The shared act of committing creates that common knowledge — neither person needs to fear the session will be weaponized for something else.
+
+**Definition anchor:** The point can link to the sister story point (the three meanings of "understand": cognitive / emotional / agreement) so "cognitive understanding" isn't abstract — it carries a shared definition both people already agreed to.
+
+**Design note:** Could be as simple as both pressing "I'm ready to listen" simultaneously. The act of pressing *together* is what creates the common knowledge — not just reading the words.
 
 ## Open Questions
 
 - Can people accurately self-report when flooded? (Self-assessment may fail exactly when needed most — consider proxy signals: time since last conflict mention, language tone in chat)
 - Should both parties see each other's scores, or only a combined "ready / not ready" signal?
 - What's the right threshold? 8 mirrors the /live verification threshold — worth keeping consistent.
-- Commitment ritual (explicit pre-session pledges) — separate UI step or part of the same check?
+- Mini pledge: same UI step as safety check, or separate micro-step before session?
+- Does the pledge repeat every session, or only first-time?
 
 ## Acceptance Criteria
 

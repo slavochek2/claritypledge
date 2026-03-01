@@ -148,11 +148,16 @@ function FocusRow({ feature, onFeatureUpdate }: FocusRowProps) {
     <>
       <div
         ref={setNodeRef}
+        role="button"
+        tabIndex={0}
         style={style}
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
         onClick={() => {
           if (!isDragging) setDialogOpen(true)
+        }}
+        onKeyDown={(e) => {
+          if ((e.key === 'Enter' || e.key === ' ') && !isDragging) setDialogOpen(true)
         }}
         {...listeners}
         {...attributes}

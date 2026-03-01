@@ -17,3 +17,14 @@ When writing a principle to CLAUDE.md, a specific threshold ("30 minutes") was f
 
 ---
 
+## Voice-note processing has no intake skill
+
+**Date:** 2026-03-01
+**Status:** proposed
+
+Two separate sessions involved processing voice notes into structured product/philosophical content (extract ideas → classify → file spec / doc update / private content). Each session reinvented the intake flow with no template: what gets filed where, what stays private, what becomes a spec vs doc update.
+
+**Fix:** Create `/voice-intake` skill. Steps: (1) read raw transcript, (2) extract distinct ideas, (3) classify each: spec / doc update / private / drop, (4) file or draft in the right place, (5) surface open questions and dropped threads. Should handle the "some content is private, some public" split explicitly.
+
+---
+
