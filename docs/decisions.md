@@ -2,6 +2,34 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-01 [process]: /claude-md gate is now mechanical via .claude/rules/rules.md
+
+**Context:** The CLAUDE.md rule "Before editing CLAUDE.md or .claude/rules/*.md: Run /claude-md first" was pure discipline — no mechanical enforcement. 5-why root cause: the guard system had guards for leaf paths (sifter, skills, features, src) but not for the meta-infrastructure itself. Cobbler's-shoes failure. Discovered when /kdd reflection surfaced that .claude/rules/ files were edited in this session without running /claude-md.
+
+**Decision:** Created `.claude/rules/rules.md` with `paths: CLAUDE.md + .claude/rules/**/*.md`. Any agent editing these files now receives the hard-stop instruction automatically. Also fixed `skills.md` which claimed to auto-load for `.claude/commands/slava/**/*.md` but had no `paths:` frontmatter block — it was broken and never firing.
+
+**Alternatives rejected:** Adding a pre-commit hook — fires too late (after the write, not before). Relying on CLAUDE.md text alone — shown to fail under context pressure and post-compaction continuation.
+
+**Consequences:** /claude-md gate is now mechanical for its intended scope. The same pattern can be applied to any other discipline-only rule that keeps getting skipped — convert it to a path-triggered rule file. skills.md now actually fires when editing skill files (was silently broken).
+
+**References:** [.claude/rules/rules.md](.claude/rules/rules.md) · [.claude/rules/skills.md](.claude/rules/skills.md)
+
+---
+
+## 2026-03-01 [process]: Three mechanical guards against project root pollution
+
+**Context:** Root analysis found 3 distinct accumulation patterns: (1) 15 empty dirs from a botched `restic` command run inside the project dir on Feb 26 — shell interpreted args as dir names; (2) 90 tracked files across dead tool dirs (.agents, .aider, .bmad, .cursor, .opencode) from tool migrations that had no teardown step; (3) one-time migration scripts sitting in `scripts/` root with no archive prompt. 5 whys traced all three to the same root: tool adoption has a workflow, tool retirement has none; shell commands have no guard against wrong-directory execution; script archival convention exists but has no trigger.
+
+**Decision:** Three mechanical fixes: (1) CLAUDE.md "Retiring a Tool" section — explicit 3-step checklist (`git rm --cached --ignore-unmatch`, `rm -rf`, `.gitignore` entry) with instruction to do all 3 in the same session; (2) `pre-commit-checks.sh` check #18 — warns when scripts named with one-time patterns (migrate*, reclassify*, backfill*, etc.) are staged in `scripts/` root rather than `scripts/archive/`; (3) `restic()` guard in `~/.zshrc` — warns before running restic from inside a git repo (TTY-gated to avoid hanging in non-interactive contexts).
+
+**Alternatives rejected:** Documentation-only (relies on discipline, doesn't catch it mechanically). Shell alias for restic (functions shadow the command cleanly; alias doesn't support TTY check). Pre-commit block instead of warning for script names (too aggressive — legitimate scripts like `migrate.sh` share naming patterns).
+
+**Consequences:** Tool migrations now have a teardown checklist. One-time scripts get a nudge at commit time. Shell commands from inside the project dir prompt before proceeding. Note: restic guard in `~/.zshrc` is user-local (not repo) — agents won't have it; the CLAUDE.md checklist is the agent-side equivalent.
+
+**References:** [CLAUDE.md — Retiring a Tool](../CLAUDE.md) · [pre-commit-checks.sh](../scripts/pre-commit-checks.sh) · `~/.zshrc`
+
+---
+
 ## 2026-03-01 [process]: Sifter privacy hardening — three additional mechanical guards added
 
 **Context:** After moving session files to `.private/` and updating sifter skill paths, three gaps remained: (1) sifter-story.md had no explicit stop preventing a future agent from accidentally writing to `content/sifter/sessions/`; (2) the privacy skill didn't scan `content/sifter/` (only `content/articles/`); (3) no auto-loaded rules file existed for `content/sifter/**` paths — so any edit in that area would receive no privacy context.
