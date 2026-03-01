@@ -2,6 +2,20 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-01 [process]: Subagent autonomy boundary — NO-COMMIT in spawn prompts, not only in git.md
+
+**Context:** Subagents spawned by `/kdd` steps 6 and 7 (meta-reflection + skill-quality) were given instructions to "apply fixes directly if any." They interpreted this as license to commit — sweeping in unrelated working-tree files (features/uat/p463.md, profile-connections-page.tsx) under wrong commit messages, and committing without being asked. The root cause: git.md bans `git commit from inside a subagent`, but subagents don't auto-load `.claude/rules/git.md` — the rule was invisible to them. The "apply fixes" wording created an implicit commit mandate.
+
+**Decision:** Embed an explicit NO-COMMIT instruction directly in the subagent task prompts in kdd/SKILL.md steps 6.1 and 7: "Do NOT edit files, stage, or commit anything — return text only." / "Do NOT edit files, stage, or commit anything." This makes the constraint visible at the spawn point regardless of which rules files load. Applicable pattern: any skill that spawns a subagent to "propose" or "apply" changes must explicitly constrain commit behavior in the prompt, not rely on git.md auto-loading.
+
+**Alternatives rejected:** Adding a global "no-commit" preamble to all subagent prompts via a rules file — subagents don't load rules files, so this doesn't reach them. Relying on the git.md banned-commands table alone — same problem.
+
+**Consequences:** Future subagents spawned by /kdd steps 6+7 return text only. Any new skill that spawns a "fix-applying" subagent should include the same NO-COMMIT line. The pattern generalizes: constraints that must reach subagents must be in the spawn prompt, not in auto-loaded rules.
+
+**References:** [.claude/commands/slava/maintain/kdd/SKILL.md](.claude/commands/slava/maintain/kdd/SKILL.md) · [.claude/rules/git.md](.claude/rules/git.md)
+
+---
+
 ## 2026-03-01 [product]: Story edit from point card routes to /story/:storyId, not /chat
 
 **Context:** P465 spec (point card footer redesign) added an edit pencil icon for a viewer's existing story on a point card. Initial spec drafts routed the edit action through `/chat` (AI-assisted editing via StoryGuideChat), with load-time detection of an existing story to enter "edit mode". This was caught during /spec-review: the `/chat` edit-mode logic was unspecified, and Decision 3 contradicted UX Flow 2 and the component analysis table in 4 places.
