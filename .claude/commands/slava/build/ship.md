@@ -50,7 +50,11 @@ Ship an approved feature to production.
    Commit: `chore: close pN — {title}`
 8. **Run fix-kanban** — Invoke `/slava:maintain:fix-kanban`
 9. **Clean up** — delete the local feature branch
-10. **Ask:** "Capture learnings with /kdd? (y/n)"
+10. **Ask — two questions in one message:**
+    "Run /verify first? (y = visual QA of the live site against acceptance criteria, recommended for any UI change / n = skip)
+    Capture learnings with /kdd? (y/n)"
+
+    If user picks y for /verify → invoke `/verify p{N}` immediately before /kdd.
 
 ---
 
@@ -82,7 +86,7 @@ For small work committed directly to main, just say "push" — no need for /ship
 
 - Vercel deployment takes ~60s — check claritypledge.com
 - The spec is closed by /ship step 7 — /dev leaves it at `delivery_stage: uat`, NOT done. If the spec is still in `features/` after /ship completes, step 7 failed — investigate before continuing.
-- Run `/verify` if you want visual QA of the live site
+- `/verify` is prompted at step 10 — run it for any UI change. Skipping is valid for backend-only changes.
 
 ---
 
