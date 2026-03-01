@@ -431,6 +431,11 @@ Small work — bug fix with confirmed root cause, copy change, config tweak, sin
 /dev  (or inline — no skill needed)
 ```
 
+Design correction — shipped feature, design was wrong (not broken code, not new capability):
+```
+/change-request → /ux (if layout changes) → /dev
+```
+
 **When in doubt, go one tier up** — the cost of extra process is lower than the cost of building the wrong thing. Use `/pick-flow` if the right tier is unclear.
 
 `* /decompose` optional — complex features only (5+ files, 3+ concerns, or 6+ build steps). `* /spec-review` always run after `/generate-tests`, before `/decompose` or `/dev` — it catches ambiguity that causes wrong implementation.
@@ -459,6 +464,7 @@ See [docs/development-process.md](docs/development-process.md) for complete work
 |-----------|--------|
 | New feature approved | `/create-prd` (or `/quick-feature` for skeleton) |
 | Bug fix approved | `/fix` |
+| Shipped design was wrong | `/change-request` |
 | Implementation ready (spec exists) | `/dev` |
 
 **Why:** Ad-hoc implementation bypasses test generation, spec tracking, and auto-close. The skill does the same work with none of the gaps.
@@ -468,6 +474,18 @@ See [docs/development-process.md](docs/development-process.md) for complete work
 ---
 
 ## Tool Preferences
+
+### Retiring a Tool
+
+When a tool is no longer used (IDE, AI assistant, backup tool, build framework):
+
+1. `git rm -r --cached <tool-dir>` — untrack from git
+2. `rm -rf <tool-dir>` — delete from disk
+3. Add pattern to `.gitignore` — prevent re-accumulation
+
+**Do all 3 in the same session the tool stops being used.** Leaving step 3 undone is how dead artifacts accumulate silently across tool migrations.
+
+---
 
 ### Library Documentation (Context7)
 
