@@ -79,6 +79,8 @@ For architecture patterns, see [docs/technical/architecture.md](docs/technical/a
 
 **When the claim cannot be easily tested** (e.g., "survives a reboot", "handles reconnection under network failure"): say so explicitly — do not proceed as if it were confirmed. Never present an inferred capability as confirmed. State the inference and name the test.
 
+**Document coverage claims require reading the document.** "X is not in P465" or "the spec doesn't cover this" are falsifiable — read the file first. Never assert what a spec, doc, or file does or does not contain without having read it in this session.
+
 ---
 
 ### Transparency Principle

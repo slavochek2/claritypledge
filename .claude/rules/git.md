@@ -3,6 +3,7 @@ paths:
   - "src/**"
   - "scripts/**"
   - "**/*.sh"
+  - ".gitignore"
 ---
 
 # Git Safety (Firewall)
@@ -19,6 +20,11 @@ paths:
 | `git add -f <file>` | Forces adding ignored files |
 | `git reset HEAD` (no args) | Resets entire index; use `git reset HEAD -- file1 file2` |
 | `git push --force` to main/master | Destructive; always warn user |
+| `git commit` from inside a subagent | Subagent staging state does not transfer to the main session's git index; commits issued from subagents will be empty or wrong |
+
+## Commits must come from the main session
+
+Never issue `git commit` from inside a subagent. Subagents have an isolated staging area — their `git add` calls do not appear in the main session's index, and vice versa. Commit workflow: subagent stages → main session verifies with `git diff --cached --name-only` → main session commits.
 
 ## Always use explicit file names
 
