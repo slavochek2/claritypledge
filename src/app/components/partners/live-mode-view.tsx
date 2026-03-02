@@ -2418,20 +2418,8 @@ function UnderstandingScreen({
       <div className="flex flex-col h-full">
         <LiveHeader partnerName={partnerName} onExit={onExit} isPrivate={isPrivate} />
         <div className={CONTENT_LAYOUT}>
-          {/* Hide ratings until both submit to prevent bias */}
-          {/* P400 Bug 3: journey FIRST, story SECOND (correct order) */}
-          <JourneyToUnderstanding
-            checkerRating={checkerRating}
-            responderRating={responderRating}
-            explainBackRatings={liveState.explainBackRatings}
-            isChecker={isChecker}
-            displayPartnerName={displayPartnerName}
-            checkerName={checkerName}
-            proverName={liveState.proverName ? getFirstName(liveState.proverName) : undefined}
-            className="w-full max-w-sm"
-            hideUntilBothSubmitted={true}
-          />
           {/* P272: Story card visible throughout round */}
+          {/* P455: Story card moved above WaitingIndicator (consistent with all other screens) */}
           {selectedStory && (
             <LiveStoryCardExpanded
               story={selectedStory}
@@ -2450,7 +2438,7 @@ function UnderstandingScreen({
             </button>
           )}
 
-          {/* Waiting indicator below the card */}
+          {/* Waiting indicator */}
           <ActionArea>
             <WaitingIndicator
               message={waitingMessage}
@@ -2458,6 +2446,20 @@ function UnderstandingScreen({
               skipLabel="Cancel"
             />
           </ActionArea>
+
+          {/* P455: Journey card moved below WaitingIndicator (consistent with all other screens) */}
+          {/* Hide ratings until both submit to prevent bias */}
+          <JourneyToUnderstanding
+            checkerRating={checkerRating}
+            responderRating={responderRating}
+            explainBackRatings={liveState.explainBackRatings}
+            isChecker={isChecker}
+            displayPartnerName={displayPartnerName}
+            checkerName={checkerName}
+            proverName={liveState.proverName ? getFirstName(liveState.proverName) : undefined}
+            className="w-full max-w-sm"
+            hideUntilBothSubmitted={true}
+          />
         </div>
       </div>
     );
@@ -2559,7 +2561,7 @@ function UnderstandingScreen({
       <div className="flex flex-col h-full">
         <LiveHeader partnerName={partnerName} onExit={onExit} isPrivate={isPrivate} />
         <div className={CONTENT_LAYOUT}>
-          {/* P400 Bug 3: journey FIRST, story SECOND (correct order) */}
+          {/* Result-first order: journey → gap badge (bonded) → CTA → story (reference) */}
           <JourneyToUnderstanding
             checkerRating={checkerRating}
             responderRating={responderRating}
@@ -2570,14 +2572,6 @@ function UnderstandingScreen({
             proverName={liveState.proverName ? getFirstName(liveState.proverName) : undefined}
             className="w-full max-w-sm"
           />
-          {/* P272: Story card visible throughout round */}
-          {selectedStory && (
-            <LiveStoryCardExpanded
-              story={selectedStory}
-              onPositionSelect={onPositionSelect}
-              className="w-full max-w-sm mb-2"
-            />
-          )}
           <div className="border border-blue-200 bg-blue-50 rounded-lg px-4 py-3 w-full max-w-sm">
             <div className="flex items-center justify-center gap-2 mb-1">
               <span className="bg-blue-500 text-white text-xs font-semibold px-2 py-0.5 rounded-full">{gapBadgeText}</span>
@@ -2617,6 +2611,14 @@ function UnderstandingScreen({
               </>
             )}
           </ActionArea>
+          {/* P272: Story card — reference context, scrollable */}
+          {selectedStory && (
+            <LiveStoryCardExpanded
+              story={selectedStory}
+              onPositionSelect={onPositionSelect}
+              className="w-full max-w-sm mb-2"
+            />
+          )}
         </div>
 
         {/* Negotiation Dialog 1: Speaker sees when listener wants to share perspective */}
@@ -2690,7 +2692,7 @@ function UnderstandingScreen({
       <div className="flex flex-col h-full">
         <LiveHeader partnerName={partnerName} onExit={onExit} isPrivate={isPrivate} />
         <div className={CONTENT_LAYOUT}>
-          {/* P400 Bug 3: journey FIRST, story SECOND (correct order) */}
+          {/* Result-first order: journey → calibrated badge (bonded) → CTA → story (reference) */}
           <JourneyToUnderstanding
             checkerRating={checkerRating}
             responderRating={responderRating}
@@ -2701,14 +2703,6 @@ function UnderstandingScreen({
             proverName={liveState.proverName ? getFirstName(liveState.proverName) : undefined}
             className="w-full max-w-sm"
           />
-          {/* P272: Story card visible throughout round */}
-          {selectedStory && (
-            <LiveStoryCardExpanded
-              story={selectedStory}
-              onPositionSelect={onPositionSelect}
-              className="w-full max-w-sm mb-2"
-            />
-          )}
           <div className="border border-input bg-muted/50 rounded-lg px-4 py-3 w-full max-w-sm">
             <div className="flex items-center justify-center gap-2 mb-1">
               <span className="bg-green-500 text-white text-xs font-semibold px-2 py-0.5 rounded-full">Perfectly calibrated</span>
@@ -2748,6 +2742,14 @@ function UnderstandingScreen({
               </>
             )}
           </ActionArea>
+          {/* P272: Story card — reference context, scrollable */}
+          {selectedStory && (
+            <LiveStoryCardExpanded
+              story={selectedStory}
+              onPositionSelect={onPositionSelect}
+              className="w-full max-w-sm mb-2"
+            />
+          )}
         </div>
 
         {/* Negotiation Dialog 1: Speaker sees when listener wants to share perspective */}
