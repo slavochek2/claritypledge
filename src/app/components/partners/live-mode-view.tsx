@@ -1724,10 +1724,10 @@ export function JourneyToUnderstanding({
   // Round 0 is implicit - users don't need to see "0" on first check-in
   const showRoundNumbers = explainBackRatings.length > 0;
 
-  // Collapse older rounds when there are multiple explain-back rounds
-  const hasOlderRounds = explainBackRatings.length > 1;
-  // Older rounds = all except the last; always show the latest round
-  const olderRounds = hasOlderRounds ? explainBackRatings.slice(0, -1) : [];
+  // Collapse older rounds only when 3+ rounds (2+ hidden) — 1-2 rounds show all rows
+  const hasOlderRounds = explainBackRatings.length > 2;
+  // Older rounds = all except the last (computed always so they render when not collapsed)
+  const olderRounds = explainBackRatings.slice(0, -1);
   const latestRound = explainBackRatings.length > 0 ? explainBackRatings[explainBackRatings.length - 1] : null;
   const latestRoundIndex = explainBackRatings.length - 1;
 
@@ -1798,7 +1798,7 @@ export function JourneyToUnderstanding({
           </div>
         </div>
 
-        {/* Older explain-back rounds — collapsed by default when >1 round exists */}
+        {/* Older explain-back rounds — collapsed by default when 3+ rounds; shown directly when 1-2 */}
         {hasOlderRounds && !showHistory && (
           <button
             type="button"
@@ -1808,7 +1808,7 @@ export function JourneyToUnderstanding({
             Show {olderRounds.length} earlier {olderRounds.length === 1 ? 'round' : 'rounds'}
           </button>
         )}
-        {hasOlderRounds && showHistory && olderRounds.map((rating, index) => (
+        {(!hasOlderRounds || showHistory) && olderRounds.map((rating, index) => (
           <div key={index} className="flex gap-3 pt-2 border-t">
             <div className="w-4 shrink-0 text-xs text-muted-foreground pt-0.5 text-right">{index + 1}</div>
             <div className="flex-1">

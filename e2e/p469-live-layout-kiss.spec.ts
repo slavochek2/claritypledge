@@ -27,7 +27,7 @@
  *
  * explainBackRatings is number[] — each element is checker rating per round.
  * Round labels: olderRounds[i] shows as index+1, latestRound shows as latestRoundIndex+1.
- * Collapse triggers when explainBackRatings.length > 1.
+ * Collapse triggers when explainBackRatings.length > 2 (3+ rounds → 2+ hidden rows worth collapsing).
  *
  * Viewport: 375px width (iPhone SE) — the target constraint.
  */
@@ -381,7 +381,8 @@ test.describe('P469 — Journey card history collapse', () => {
     await expect(journeyCard.locator('text=1').first()).toBeVisible();
   });
 
-  test('2 explain-back rounds: "Show 1 earlier round" button visible', async ({ page }) => {
+  test('2 explain-back rounds: all rows visible, no collapse button', async ({ page }) => {
+    // P469 fix: threshold raised to > 2. With only 2 rounds, 1 hidden row saves no meaningful space.
     await setRounds(2);
 
     injectSessionStorage(page, sessionCode, testUser.name);
@@ -392,21 +393,18 @@ test.describe('P469 — Journey card history collapse', () => {
     const journeyCard = page.locator('[data-testid="journey-to-understanding"]');
     await expect(journeyCard).toBeVisible({ timeout: 15000 });
 
-    // olderRounds = [7], latest = 8 at index 1 → label "2"
-    const collapseBtn = journeyCard.getByRole('button', { name: /show 1 earlier round/i });
-    await expect(collapseBtn).toBeVisible();
+    // No collapse button — 2 rounds is below the collapse threshold
+    const collapseBtn = journeyCard.getByRole('button', { name: /earlier round/i });
+    await expect(collapseBtn).not.toBeVisible();
 
-    // Round 0 (initial) always visible
+    // All 3 rows visible: round 0, round 1, round 2 (latest)
     await expect(journeyCard.locator('text=0').first()).toBeVisible();
-
-    // Latest round (round 2) always visible
+    await expect(journeyCard.locator('text=1').first()).toBeVisible();
     await expect(journeyCard.locator('text=2').first()).toBeVisible();
-
-    // Older round 1 hidden by default (use exact match to avoid matching "Show 1 earlier round" button)
-    await expect(journeyCard.locator(':text-is("1")')).not.toBeVisible();
   });
 
-  test('2 explain-back rounds: clicking "Show 1 earlier round" reveals it', async ({ page }) => {
+  test('2 explain-back rounds: round 1 directly visible without interaction', async ({ page }) => {
+    // P469 fix: intermediate round visible immediately — no click required
     await setRounds(2);
 
     injectSessionStorage(page, sessionCode, testUser.name);
@@ -417,15 +415,11 @@ test.describe('P469 — Journey card history collapse', () => {
     const journeyCard = page.locator('[data-testid="journey-to-understanding"]');
     await expect(journeyCard).toBeVisible({ timeout: 15000 });
 
-    const collapseBtn = journeyCard.getByRole('button', { name: /show 1 earlier round/i });
-    await expect(collapseBtn).toBeVisible();
-    await collapseBtn.click();
-
-    // After click: round 1 now visible
+    // Round 1 is visible without any interaction (was hidden before fix)
     await expect(journeyCard.locator('text=1').first()).toBeVisible();
 
-    // Collapse button gone after expanding
-    await expect(collapseBtn).not.toBeVisible();
+    // No "Show N earlier rounds" button anywhere in journey card
+    await expect(journeyCard.getByRole('button', { name: /earlier round/i })).not.toBeVisible();
   });
 
   test('3 explain-back rounds: "Show 2 earlier rounds" button visible', async ({ page }) => {
