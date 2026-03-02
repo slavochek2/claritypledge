@@ -2,6 +2,20 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-02 [product]: Point card attribution convention — always show "by [name]" when profileOwner is known
+
+**Context:** P465 redesigned the point card footer (unified row, no actor confusion). Post-ship QA revealed that "by [name]" attribution was missing on own profile and at 0 story count — inconsistent with the Stories tab pattern ("x points by [name]"). P469 was filed to correct this.
+
+**Decision:** When `profileOwner` is known (profile-page context), attribution always shows — including at 0 count ("0 stories by Slava" on own, "0 stories by Alice" on other). Zero-count attribution is not hidden. This mirrors the Stories tab convention and prevents the misleading read that "0 stories" belongs to an unknown actor. Attribution is omitted only in context-free views (point detail page, detail-view mode) where no profile owner exists.
+
+**Alternatives rejected:** Show name only when count > 0 — creates asymmetry between zero and non-zero states, and implies "no name = no actor" which is confusing. Hide name on own profile — the Stories tab shows "x points by [your name]" on own profile, and consistency requires the same.
+
+**Consequences:** `PointCardWithLinks` footer logic must always include `by ${profileOwner.name}` when `profileOwner` is defined, regardless of count. The two Cases (own profile, other profile) differ only in whether the viewer CTA appears, not in whether the name appears. See P469 for the full case map.
+
+**References:** [features/p469_point_card_attribution_consistency.md](../features/p469_point_card_attribution_consistency.md)
+
+---
+
 ## 2026-03-02 [technical]: ThreadMessage accepts optional children to embed interactive content in chat bubbles
 
 **Context:** P467 needed a rating phase rendered as an AI message bubble with embedded 0-10 buttons. Two options: create a new `RatingThreadMessage` variant (duplicate the bubble layout) or extend `ThreadMessage` with a `children?: React.ReactNode` prop. The spec initially left this ambiguous.
