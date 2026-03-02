@@ -59,7 +59,7 @@ Generate comprehensive test strategy: unit, integration, E2E, accessibility, smo
 
 **In the sequential flow:**
 ```
-/create-prd → /ux (if UI) → /architect → /generate-tests → /dev
+/create-prd → /ux (if UI) → /architect → /generate-tests → /spec-review → /decompose* → /dev
 ```
 
 **Run this after:**
@@ -68,6 +68,7 @@ Generate comprehensive test strategy: unit, integration, E2E, accessibility, smo
 - ✅ Architecture approved (`/architect` complete)
 
 **Before:**
+- ❌ `/spec-review` (spec-review needs all layers present — run after this skill)
 - ❌ `/dev` (implementation needs tests to drive development)
 
 ---

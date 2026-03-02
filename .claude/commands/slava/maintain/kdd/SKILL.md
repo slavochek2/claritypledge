@@ -201,6 +201,8 @@ Recommendation: Remove from README.md, link to definitions.md instead.
 
 6. **Meta-reflection** — output to chat only (no file logging):
 
+   > **User-triggered only.** This step runs when `/kdd` is explicitly called by the user. Do NOT invoke `/kdd` autonomously to capture meta-reflection from your own session reasoning — only run when the user explicitly calls the skill.
+
    **6.1 Extract problems (subagent):**
 
    Spawn a `general-purpose` subagent with the full conversation context and this task:
