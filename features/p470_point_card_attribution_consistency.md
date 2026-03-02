@@ -12,6 +12,10 @@ tags:
   - attribution
 created_date: 2026-03-02T00:00:00.000Z
 locked_at: '2026-03-02T14:40:30.207Z'
+uat_file: features/uat/p470.md
+test_files:
+  - e2e/p470-point-card-attribution.spec.ts
+  - e2e/p470-smoke.spec.ts
 ---
 
 # P470: Point card footer — attribution consistency and viewer story gaps
@@ -215,6 +219,8 @@ CASE G — Alice's profile, Alice has 0 stories, I have NO position:
 
 7. **Viewer CTA:** If viewer has a position (`userPosition !== null`) and no story, render `"Add your story →"` inside their compact row, navigating to `/chat?from=position&pointId=:id`.
 
+   **Dev note — pre-existing orphan call:** `setShowStoryCTA(true)` is called at line 180 of `point-detail-page.tsx` (inside `handlePositionClick`, after `setPosition` succeeds) but `showStoryCTA` has no `useState` declaration. This will be a TypeScript error. Resolution: add `const [showStoryCTA, setShowStoryCTA] = useState(false)` and use it as an additional condition for showing the CTA — `(userPosition !== null || showStoryCTA) && !viewerHasStory` — so the CTA also appears immediately after the user takes a position in the same session without a page reload.
+
 ---
 
 ## What Stays the Same
@@ -279,4 +285,48 @@ CASE G — Alice's profile, Alice has 0 stories, I have NO position:
 
 ## Next Steps
 
-Run `/dev features/p468_point_card_attribution_consistency.md` directly — scope is targeted (3 files, well-defined logic changes), no new architecture needed. Service method `getStoryByUserAndPoint` already exists for Group 2.
+Run `/dev features/p470_point_card_attribution_consistency.md` directly — scope is targeted (3 files, well-defined logic changes), no new architecture needed. Service method `getStoryByUserAndPoint` already exists for Group 2.
+
+---
+
+## Test Coverage Strategy
+
+### What is tested
+
+**E2E (`e2e/p470-point-card-attribution.spec.ts`):**
+- Case A: Own profile with story — "by [own name]" present; ✏ navigates to `/story/:id`, not `/chat`
+- Case B: Own profile no story — "0 stories by [own name]"; CTA reads "Add your story" not "Add a story"
+- Case C: Other profile, viewer no position — attribution visible, no CTA
+- Case D: Other profile, owner has stories, viewer position + 0 stories — count AND CTA both visible simultaneously (the suppression bug)
+- Case E: Other profile, viewer has story — "✏ your story" as clickable link; navigates to `/story/:id`
+- Case F: Other profile, owner 0 stories, viewer has position — name at zero count; CTA present
+- Case G: Other profile, owner 0 stories, viewer no position — empty left side, no CTA
+- Point detail: viewer with position + no story — "Add your story →" CTA in position row; navigates to `/chat?from=position&pointId=`
+- Point detail: viewer with story — story content renders inline (not suppressed)
+- Regression: P465 "1 story" count duplication check still holds; "✓ Agree ·" actor prefix absent
+
+**Smoke (`e2e/p470-smoke.spec.ts`):**
+- App root loads without JS errors
+- `/point/:id` (unknown ID) renders gracefully (no crash)
+- `/events` loads without console errors
+
+**Manual UAT (`features/uat/p470.md`):**
+- All 7 Cases (A–G) with step-by-step setup and visual verification
+- Point detail page viewer CTA + viewer story render
+- Regression against P465 UAT checklist and unchanged surfaces (feed, live, Stories tab)
+
+### What is NOT tested and why
+
+- **Unit tests:** No new utility functions, no new business logic functions — pure JSX conditional rendering. Unit tests of JSX conditions would be lower signal than E2E assertions on rendered output.
+- **Integration tests:** No DB/auth changes — no new tables, no new migrations, no new RLS policies.
+- **Accessibility tests:** No new interactive components introduced. Existing ✏ button and CTA link are standard patterns already covered implicitly.
+- **Live session mode:** No change to live session CTA suppression behavior. Live mode suppresses CTAs via `liveSessionMode` flag — that path is unchanged. Covered by "unchanged surfaces" in UAT checklist.
+- **`/chat` create flow internals:** Out of scope per spec — only the post-creation edit routing destination changes.
+- **Stories tab:** `story-card-with-links.tsx` and `QuotedPointCard` unchanged — covered by regression UAT checkbox only.
+- **Feed view rendering:** Feed view (no `profileOwner`) path unchanged. Smoke test + regression check confirms no JS errors; visual assertion in E2E regression describe block.
+
+### Coverage gaps (known, accepted)
+
+- Point detail page viewer CTA navigation is tested via URL assertion; the `/chat` story creation flow itself is not exercised (out of scope).
+- `viewerStoryId` prop flow from `profile-page-v2` to `point-card-with-links` is implicitly tested through Case E navigation behavior, but prop threading is not directly inspected (no unit test).
+- Case E "✏ your story" rendered as a `<button>` vs `<a>` element is not asserted (test checks click behavior, not DOM node type).
