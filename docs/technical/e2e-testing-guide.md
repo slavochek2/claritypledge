@@ -671,6 +671,8 @@ expect(rls).toBeNull(); // Fails if RLS blocks user access
 
 **Note:** `e2e/integration/migration-template.spec.ts` is intentionally skipped (`test.describe.skip`) — it's a copy-paste template with placeholder `example_column`. Copy it and rename for each new migration.
 
+**NOT NULL additions and test helper sync:** When a migration adds a NOT NULL column to any table that `e2e/helpers/` inserts into, update the relevant helpers in the same commit as the migration — the integration test will surface the missing column at insert time, but the fix must land together, not as a follow-up. If the column can be derived from related data, centralize the lookup in the helper rather than pushing the column to every callsite. See `e2e/helpers/test-story.ts` `linkStoryToPoint` for the pattern (P465).
+
 ---
 
 ## Known Pre-Existing Failures
