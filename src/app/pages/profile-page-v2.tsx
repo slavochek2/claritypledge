@@ -941,6 +941,7 @@ export function ProfilePageV2() {
                       }
                       return undefined;
                     }}
+                    onDeleteStory={() => guardedRemovePosition(point.id)}
                   />
                 ))
               )

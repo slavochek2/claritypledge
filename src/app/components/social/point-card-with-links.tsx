@@ -6,7 +6,7 @@
 
 import { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Pin, ChevronDown, ChevronRight, ExternalLink } from 'lucide-react';
+import { Pin, ChevronDown, ChevronRight, ExternalLink, Pencil, Trash2 } from 'lucide-react';
 import { EarBadge } from '@/components/ui/ear-badge';
 import { MobileTooltip } from '@/app/components/shared/mobile-tooltip';
 import { GravatarAvatar } from '@/components/ui/gravatar-avatar';
@@ -72,6 +72,8 @@ interface PointCardWithLinksProps {
   getStoryAuthor?: (authorId: string) => StoryAuthor | undefined;
   /** Callback when user clicks on a story */
   onStoryClick?: (storyId: string) => void;
+  /** P465: Callback to delete the viewer's story on this point (own profile only) */
+  onDeleteStory?: (pointId: string) => void;
 }
 
 /**
@@ -96,8 +98,10 @@ export function PointCardWithLinks({
   currentUserId,
   getStoryAuthor,
   onStoryClick,
+  onDeleteStory,
 }: PointCardWithLinksProps) {
   const navigate = useNavigate();
+  const isOwnProfile = !!(currentUserId && profileOwner?.id && currentUserId === profileOwner.id);
   const [userPosition, setUserPosition] = useState<Position>(
     selectedPosition ?? (currentUserId ? point.positions[currentUserId]?.position ?? null : null)
   );
@@ -301,11 +305,11 @@ export function PointCardWithLinks({
                   >
                     {storiesExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
                     <span>
-                      {filteredStories.length} {filteredStories.length === 1 ? 'story' : 'stories'}{profileOwner ? ` by ${profileOwner.name}` : ''}
+                      {filteredStories.length} {filteredStories.length === 1 ? 'story' : 'stories'}{profileOwner && !isOwnProfile ? ` by ${profileOwner.name}` : ''}
                       {/* P465: viewer's own story count suffix on other profiles */}
                       {(() => {
                         const vc = viewerStoryCount ?? filteredStories.filter(s => s.authorId === currentUserId).length;
-                        return (vc > 0 && profileOwner) ? ` · ${vc} by you` : null;
+                        return (vc > 0 && profileOwner && !isOwnProfile) ? ` · ${vc} by you` : null;
                       })()}
                     </span>
                   </button>
@@ -316,6 +320,29 @@ export function PointCardWithLinks({
                 {/* Action icons - hidden in live session mode */}
                 {!hideActions && !liveSessionMode && (
                   <div className="flex items-center gap-1">
+                    {/* P465: edit/delete controls on own profile when viewer has a story */}
+                    {isOwnProfile && (viewerStoryCount ?? filteredStories.filter(s => s.authorId === currentUserId).length) > 0 && (
+                      <>
+                        <MobileTooltip content="Edit your story">
+                          <button
+                            onClick={(e) => { e.stopPropagation(); navigate(`/chat?from=position&pointId=${point.id}`); }}
+                            className="min-w-[44px] min-h-[44px] flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors"
+                            aria-label="Edit your story"
+                          >
+                            <Pencil size={16} />
+                          </button>
+                        </MobileTooltip>
+                        <MobileTooltip content="Delete your story">
+                          <button
+                            onClick={(e) => { e.stopPropagation(); onDeleteStory?.(point.id); }}
+                            className="min-w-[44px] min-h-[44px] flex items-center justify-center text-gray-400 hover:text-destructive hover:bg-gray-100 rounded-full transition-colors"
+                            aria-label="Delete your story"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </MobileTooltip>
+                      </>
+                    )}
                     <ShareButton
                       type="point"
                       id={point.id}
