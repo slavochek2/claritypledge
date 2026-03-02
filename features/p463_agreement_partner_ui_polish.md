@@ -1,7 +1,7 @@
 ---
-status: done
+status: qa
 type: feature
-rank: 1
+rank: 15685.375
 workstream: E1
 created_date: 2026-02-28T00:00:00.000Z
 flow: dev
@@ -10,8 +10,7 @@ tags:
   - agreements
   - partners
   - ux-polish
-completed_at: '2026-03-01'
-locked_at: '2026-03-01T11:28:56.353Z'
+locked_at: '2026-03-02T09:04:30.953Z'
 ---
 
 # P463: Agreement & Partner UI Polish

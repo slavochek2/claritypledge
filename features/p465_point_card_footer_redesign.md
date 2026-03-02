@@ -1,8 +1,7 @@
 ---
-status: done
-completed_at: '2026-03-02'
+status: qa
 type: change-request
-rank: 0.5
+rank: 31370.75
 changes: p456
 delivery_stage: uat
 flow: ux → architect → generate-tests → decompose → dev → verify
@@ -19,7 +18,7 @@ tags:
   - footer
   - story-cta
 created_date: 2026-03-01T00:00:00.000Z
-locked_at: '2026-03-02T08:37:01.274Z'
+locked_at: '2026-03-02T09:04:26.892Z'
 ---
 
 # P465: Point card footer — unified row, no actor confusion, 1 story per user
