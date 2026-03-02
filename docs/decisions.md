@@ -2,6 +2,48 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-02 [technical]: ThreadMessage accepts optional children for embedded interactive content
+
+**Context:** P467 inline rating phase requires a 0–10 button row inside an AI message bubble. Two options: (A) add `children?: React.ReactNode` to `ThreadMessage`; (B) create a new `RatingThreadMessage` variant.
+
+**Decision:** Add `children?: React.ReactNode` to `ThreadMessage`. `children` renders below `content` inside the bubble div; suppressed during `isStreaming`. Keeps single-bubble mental model — one component for all thread messages.
+
+**Alternatives rejected:** New `RatingThreadMessage` variant — duplicates bubble styling, creates two diverging bubble implementations.
+
+**Consequences:** `ThreadMessage` is the single bubble component for all thread content including interactive embeds. Any new interactive thread element (future: image, poll) follows the same pattern.
+
+**References:** [P467 spec](features/p467_chat_context_header_inline_rating.md) · Component Analysis §6
+
+---
+
+## 2026-03-02 [technical]: StoryGuideChat rating phase is thread-native, not a Drawer
+
+**Context:** P425 specified rating prompt inline in thread. Implementation drifted to a bottom Drawer, duplicating the latest draft above rating controls. P467 corrects this.
+
+**Decision:** Remove Drawer from StoryGuideChat entirely. Rating prompt renders as an AI message bubble with embedded 0–10 button row. Both click (immediate send) and type-in-input-bar paths supported. After 2nd iteration, "Save as-is →" escape hatch appears inline below buttons.
+
+**Alternatives rejected:** Keeping Drawer with layout fixes — the Drawer breaks the "single continuous thread" mental model regardless of layout. Two display modes for the same draft (thread + drawer) is inherently confusing.
+
+**Consequences:** Any future rating/feedback UX in chat must be thread-native. No modals, no drawers mid-conversation.
+
+**References:** [P467 spec](features/p467_chat_context_header_inline_rating.md) · Root Cause §4
+
+---
+
+## 2026-03-02 [product]: Context components in focused flows must be scoped to the task, not imported from profile surfaces
+
+**Context:** StoryGuideChat used `PointCardWithLinks` (a profile-page component) as its context card. Because `profileOwner.position` is truthy, the quote pattern fires — showing the user's own name in 3rd person, interactive position buttons, a share button, and story CTA rows. None of these are relevant to the writing task.
+
+**Decision:** Create `ChatContextHeader` — a purpose-built slim component (~48px) showing only: point text (truncated, expandable) + 1st-person position chip ("You agree") + link to point detail. No avatar, no position buttons, no share, no CTAs.
+
+**Alternatives rejected:** Passing flags (`hideActions`, `liveSessionMode`) to `PointCardWithLinks` — too many suppression flags, component was designed for a different actor model (viewing others' positions, not your own in a writing context).
+
+**Consequences:** Profile-page components stay on profile pages. Focused-flow pages get purpose-built context headers scoped to the task. Reuse is wrong when the component's design assumptions don't match the consumer's context.
+
+**References:** [P467 spec](features/p467_chat_context_header_inline_rating.md) · Root Cause §4
+
+---
+
 ## 2026-03-02 [process]: spec-review mandatory gate in CLAUDE.md + decompose pre-flight
 
 **Context:** P465 spec had 3 BLOCK issues (component name mismatch, missing state initialization, test gap) that existed at /decompose time — they only got caught because the session started with a spec-review fix pass. The spec had passed prior /spec-review with `NEEDS FIXES` unaddressed. Two gaps: (1) CLAUDE.md footnote used `*` marker on spec-review, making it read as optional like /decompose; (2) /decompose pre-flight only gated on `## Technical Analysis` presence, not on a clean spec-review verdict.

@@ -11,6 +11,7 @@ tags:
   - rating
 created_date: 2026-03-02
 flow: dev
+delivery_stage: 2-ux-review
 ---
 
 # P467: /chat — slim context header + inline rating (remove drawer)
@@ -177,3 +178,363 @@ Replace both with thread-native components:
 ## Next Steps
 
 Run `/ux features/p467_chat_context_header_inline_rating.md` — `ChatContextHeader` is a net-new component; mobile layout for 0–10 button row needs a formal design pass before coding.
+
+---
+
+## UX
+
+### 1. User Flow
+
+#### 1a. ChatContextHeader — all states
+
+**Entry:** User arrives at `/chat?from=position&pointId=X`. The page mounts with `contextPoint` and `contextProfileOwner` props populated.
+
+```
+1. Header renders immediately above the thread, sticky at top-16 (below nav).
+   - Shows: [Pin icon] {point text, line-clamp-1}  [You agree | You disagree | You're unsure]  [↗]
+   - If position is null/undefined → chip is hidden (see edge cases §3).
+
+2. User reads the truncated point text.
+   - If text fits in one line → no interaction needed, no expand affordance shown.
+   - If text overflows → tap anywhere on the text area expands it.
+
+3. Expanded state:
+   - Point text expands to show full content (line-clamp removed).
+   - Tap again (or tap outside) collapses back to line-clamp-1.
+
+4. User taps [↗]:
+   - Navigates to /point/:id in the same tab.
+   - Browser back button returns to /chat with scroll position preserved.
+
+5. Header stays sticky as user scrolls the thread — always visible.
+```
+
+#### 1b. Inline rating — click path
+
+```
+Entry: AI streaming finishes, phase transitions to 'rating'.
+       A DraftCard message appears in thread, followed by an AI rating-prompt bubble
+       containing the 0–10 button row.
+
+1. Rating bubble appears inline in the thread after the DraftCard:
+   ┌── 🤖 AI ─────────────────────────────────────────────────────┐
+   │  How well does this capture what you meant?                   │
+   │  [0][1][2][3][4][5][6][7][8][9][10]                          │
+   │  not at all                              perfectly            │
+   └───────────────────────────────────────────────────────────────┘
+
+2. User taps any number button (e.g. [7]).
+   - Button highlights immediately (selected state).
+   - Rating is sent as a user message without requiring a separate Send tap.
+   - User message "[7]" appears in thread.
+   - Phase transitions to 'iterating', AI streaming begins.
+   - Button row is no longer interactive (the message is already committed).
+
+3. AI responds with revised draft (streaming → DraftCard + new rating bubble).
+   Loop continues until user is satisfied.
+```
+
+#### 1c. Inline rating — type path
+
+```
+Entry: Same as 1b — phase is 'rating' or 'iterating'.
+       Input bar is visible with placeholder "What's off? Or type 0–10..."
+
+1. User taps input bar and types a number (e.g. "8") or a sentence
+   (e.g. "8 — the opening feels too abstract").
+
+2. User presses Enter (or taps Send button).
+   - Input is validated: if pure number 0–10 → treated as rating.
+   - If mixed text with leading number → sent as-is (AI interprets).
+   - Message appears in thread as user bubble.
+   - Phase transitions, AI streams next response.
+
+3. After send, input bar clears and placeholder reverts to default for next phase.
+```
+
+#### 1d. Escape hatch — "Save as-is →"
+
+```
+Trigger: iterationCount >= 1 (after the 2nd iteration). The rating bubble shows
+         an additional link below the 0–10 buttons.
+
+1. User sees below the button row:
+   Save as-is →
+
+2. User taps "Save as-is →".
+   - Phase transitions immediately to 'visibility'.
+   - VisibilityAndSave component renders inline in thread (unchanged from P425).
+   - Rating bubble remains visible in scroll history (the link is now inert).
+
+3. User completes save flow normally via VisibilityAndSave.
+```
+
+---
+
+### 2. Screen Designs
+
+#### 2a. ChatContextHeader — normal state (text fits one line)
+
+```
+╭─ sticky, ~48px tall ─────────────────────────────────────────────╮
+│ 📌  Avoiding hard conversations causes more damage than...  [You agree] [↗] │
+╰───────────────────────────────────────────────────────────────────╯
+
+Layout (horizontal):
+  [Pin icon 16px] [point text flex-1 line-clamp-1 text-sm] [chip] [↗ icon button 44px tap target]
+
+Chip: "You agree" / "You disagree" / "You're unsure"
+  - Rounded pill, muted background, text-xs, no interactive affordance
+  - Chip is read-only — no dropdown, no tap behavior
+
+↗ button:
+  - Lucide ExternalLink or ArrowUpRight icon, 16px
+  - Minimum 44×44px tap target
+  - aria-label="Open point detail"
+```
+
+#### 2b. ChatContextHeader — expanded state (after tap on text)
+
+```
+╭─ sticky, height auto ─────────────────────────────────────────────╮
+│ 📌  Avoiding hard conversations causes more damage than            │
+│     having them, even when they go badly. This applies            │
+│     to co-founder pairs especially.     [You agree] [↗]           │
+╰───────────────────────────────────────────────────────────────────╯
+
+- line-clamp removed, text wraps naturally
+- Header grows downward; thread scrolls down to compensate (no layout jump)
+- Tap on text again → collapses back to normal state
+- Chip and [↗] remain on the same last line or wrap below text depending on width
+```
+
+#### 2c. Rating message bubble — buttons visible (1st iteration, no escape hatch)
+
+```
+Thread at phase 'rating':
+
+  ┌── DraftCard (v1) ─────────────────────────────────────────────┐
+  │  Draft v1 · Draft · not saved                                  │
+  │  "I feel paralyzed when disagreement surfaces. I look at..."   │
+  └────────────────────────────────────────────────────────────────┘
+
+  ┌── 🤖 AI ───────────────────────────────────────────────────────┐
+  │  How well does this capture what you meant?                    │
+  │                                                                │
+  │  ┌─────────────────────────────────────────────────────────┐   │
+  │  │  0   1   2   3   4   5   6   7   8   9   10             │   │
+  │  └─────────────────────────────────────────────────────────┘   │
+  │  not at all                                         perfectly  │
+  └────────────────────────────────────────────────────────────────┘
+
+  ┌── input bar ───────────────────────────────────────────────────┐
+  │  What's off? Or type 0–10...                          [→ send] │
+  └────────────────────────────────────────────────────────────────┘
+```
+
+#### 2d. Rating message bubble — after rating selected (collapsed)
+
+```
+After clicking [7]:
+
+  ┌── 🤖 AI ───────────────────────────────────────────────────────┐
+  │  How well does this capture what you meant?                    │
+  │  [buttons row — visually inert / grayed, selected=7 shown]     │
+  └────────────────────────────────────────────────────────────────┘
+
+  ┌── You ─────────────────────────────────────────────────────────┐
+  │  7                                                             │
+  └────────────────────────────────────────────────────────────────┘
+
+  🤖 AI streaming indicator...
+```
+
+Buttons remain visible in thread history but non-interactive. The selected value is visually highlighted in the frozen state (bg-blue-500).
+
+#### 2e. Escape hatch state — after 2nd iteration (iterationCount >= 1)
+
+```
+  ┌── 🤖 AI ───────────────────────────────────────────────────────┐
+  │  How well does this capture what you meant?                    │
+  │                                                                │
+  │  ┌─────────────────────────────────────────────────────────┐   │
+  │  │  0   1   2   3   4   5   6   7   8   9   10             │   │
+  │  └─────────────────────────────────────────────────────────┘   │
+  │  not at all                                         perfectly  │
+  │                                                                │
+  │  Save as-is →                                                  │
+  └────────────────────────────────────────────────────────────────┘
+```
+
+"Save as-is →" is a small text link (text-sm, muted, underline on hover) centered or left-aligned below the buttons. It is not a button — no border, no filled background. Tap target still meets 44px height by including generous vertical padding.
+
+#### 2f. Input bar placeholder during rating phase
+
+```
+Phase 'rating' or 'iterating':
+  placeholder = "What's off? Or type 0–10..."
+
+All other phases:
+  placeholder = existing behavior (unchanged)
+```
+
+---
+
+### 3. Edge Cases
+
+#### Long point text (truncation + expand)
+
+- Normal state: `line-clamp-1` truncates with `…` ellipsis at end.
+- If text is short enough to fit without truncation, no expand behavior is needed and no visual affordance is shown.
+- If text is truncated: the text region is tappable (full row minus chip and ↗ button area). A subtle visual cue (e.g., cursor pointer on desktop) indicates it is expandable. No explicit "Read more" label is added to keep the header slim.
+- Expanded state: header grows, no max-height cap — show full point text however long.
+- Collapse: second tap on text region.
+
+#### Position is null/undefined
+
+- The chip is not rendered at all — no empty pill, no placeholder text.
+- The header still shows: Pin icon + point text + [↗].
+- This applies when `userPosition` is null (user has not staked a position) or when `contextProfileOwner` is not provided.
+- The header still renders normally; the missing chip does not break the layout (text simply takes the space).
+
+#### User types invalid rating (letters, >10, negative)
+
+- Letters only (e.g. "abc"): treated as a comment message — sent as-is, AI interprets it as qualitative feedback and continues iterating.
+- Number > 10 (e.g. "12"): sent as-is. AI is expected to handle gracefully (or prompt for valid rating). No client-side blocking.
+- Negative number (e.g. "-1"): sent as-is, same treatment.
+- Empty string: Send button remains disabled (no change from current behavior).
+- Rationale: Client-side blocking of unusual inputs adds UI complexity for a rare case. The AI backend is the appropriate validation layer for this conversational input.
+
+#### User types valid rating and hits send during rating phase
+
+- Works identically to clicking a button. E.g., typing "7" + Enter sends "7" as a user message.
+- The button row in the currently active rating bubble does not get a highlighted state — the user bypassed the buttons. This is acceptable: the historical rating bubble shows buttons in neutral state; the user message "7" in the thread communicates what was sent.
+- The phase transitions normally to 'iterating' and AI streams.
+
+#### Connection drops during AI streaming
+
+- Existing abort/error handling in `StoryGuideChat.tsx` is unchanged (lines ~332–342).
+- On error: `apiError` is set, phase resets to `'brain-dump'`, retry or "Write without AI →" link appears.
+- The rating bubble that was about to appear does not render (streaming was aborted).
+- The previously committed DraftCard remains visible in the thread — no data loss.
+
+#### Escape hatch "Save as-is →" — what happens
+
+- Tapping "Save as-is →" calls `handleEscapeHatchSave()`, which sets `phase = 'visibility'`.
+- `VisibilityAndSave` renders inline in the thread at the bottom of the message list.
+- The content saved is the latest DraftCard content (same as current escape hatch path — `polishedContent ?? latestDraftCard.content`).
+- The rating bubble that contained the escape hatch link stays frozen in the thread history (buttons inert, "Save as-is →" link no longer triggers anything meaningful since phase has moved on).
+- The input bar hides (consistent with `showInputBar` logic excluding `'visibility'` phase).
+
+---
+
+### 4. Accessibility
+
+#### 0–10 button row
+
+- Each button: `aria-label="Rate {n}"` (e.g. `aria-label="Rate 7"`).
+- The group is wrapped in a `role="group"` with `aria-label="Rating scale from 0 to 10"`.
+- Keyboard navigation: Tab moves focus to the first unselected button (or first button if none selected). Arrow keys (Left/Right) move within the group. Enter or Space selects and immediately sends.
+- When a button is selected: `aria-pressed="true"` on that button; `aria-pressed="false"` on all others.
+- After send (buttons frozen): add `aria-disabled="true"` and `tabIndex={-1}` to all buttons so focus moves past the row.
+- Anchor labels at row ends ("not at all" / "perfectly") are `aria-hidden="true"` — decorative only.
+
+#### Expanded point text
+
+- The text region that triggers expand/collapse: `role="button"` when truncated, `aria-expanded={isExpanded}`, `aria-label="Point text — tap to expand"`.
+- When not truncated: plain `<p>`, not interactive, no role needed.
+- Keyboard: Enter or Space toggles when text region is focused.
+
+#### Position chip
+
+- `aria-label="Your position: You agree"` (full description, not just the visible text).
+- Not interactive — no `role="button"`.
+- If chip is absent (no position), nothing is rendered — no empty element.
+
+#### Screen reader announcements
+
+- When user taps a rating button and the rating is sent: an `aria-live="polite"` region announces "Rating {n} sent" so screen reader users hear confirmation without needing to read the full thread.
+- When the escape hatch appears: no special announcement needed — it appears inline in the chat bubble which the user is already reading.
+- When streaming starts: existing `ThreadMessage` with `isStreaming` prop renders `aria-hidden` dots (already implemented in `ThreadMessage.tsx`). The live region can announce "AI is thinking..." via a separate `aria-live` region (implementation detail for /dev to determine).
+
+---
+
+### 5. Responsive Design
+
+#### Mobile (375px) — 0–10 button row
+
+This is the highest-risk layout concern for this spec.
+
+**Button count:** 11 buttons (0–10), each needing ≥44px tap target height.
+
+**Width budget at 375px:**
+- Chat bubble max-width: ~85% of screen = ~319px
+- Bubble padding: ~px-4 per side = 32px total
+- Available for buttons: ~287px
+- 11 buttons with gap-1 (4px × 10 gaps): 40px consumed by gaps
+- Remaining for button width: ~247px / 11 = ~22px per button
+
+At 22px width per button, label "10" (two digits) clips. Solutions in order of preference:
+
+**Option A — Single-digit labels, no internal padding (chosen approach):**
+- Labels "0"–"9" and "10" shown as-is.
+- Each button: `flex-1 min-w-0 py-2.5` (height satisfies 44px), minimal horizontal padding.
+- "10" renders at font-size xs (12px) — fits in ~22px even at two digits.
+- This matches the existing `RatingButtons` implementation in `partners/shared.tsx` (`flex gap-1 w-full max-w-sm`). The `max-w-sm` cap (384px) must be removed when embedded in the chat bubble — buttons should fill bubble width, not be capped.
+- Verified fit: at 375px with the constraints above, xs font "10" fits without clipping.
+
+**Option B — fallback if A clips visually:**
+- Use `text-[10px]` for the button label (below standard `text-xs`).
+- Or: use `gap-0.5` instead of `gap-1` to reclaim 5px.
+- Only use if verified via browser screenshot that Option A clips.
+
+**Tap target height:** `py-2.5` gives 20px top + 20px bottom + 16px line height = ~56px actual touch height. Meets ≥44px requirement.
+
+**"not at all / perfectly" anchor labels:**
+- Rendered as `<div class="flex justify-between text-xs text-muted-foreground">` below the button row, within the bubble.
+- Do not affect button layout.
+
+#### Mobile (375px) — ChatContextHeader
+
+```
+╭─ h-12 (48px) ─────────────────────────────────────────────────────╮
+│ [📌 20px] [text flex-1 min-w-0 text-sm line-clamp-1] [chip] [↗] │
+╰────────────────────────────────────────────────────────────────────╯
+```
+
+- Pin icon: 20px, flex-shrink-0.
+- Point text: `flex-1 min-w-0 truncate` or `line-clamp-1`.
+- Chip ("You agree"): `whitespace-nowrap text-xs`. On very long points the chip stays, text truncates.
+- [↗]: 44×44px tap target minimum, flex-shrink-0.
+- Total row at 375px: 20 (icon) + 8 (gap) + text + 8 (gap) + chip + 8 (gap) + 44 (tap) = chip + text share remaining ~289px, text truncates first.
+
+**Scroll behavior:** The header is `sticky top-16 z-10` — it stays pinned below the app nav bar as the thread scrolls. No height change on scroll (only expand/collapse on tap).
+
+#### Desktop (768px+)
+
+- Button row has more room; 11 buttons spread naturally, no layout concern.
+- ChatContextHeader: text is less likely to truncate; expand behavior still available.
+- No layout changes from mobile — same component, responsive via flex.
+
+---
+
+### 6. Component Analysis
+
+Scanned: `src/app/components/story-guide/` and `src/app/components/social/`
+
+| Element | Classification | File / Notes | Decision needed? |
+|---------|---------------|--------------|-----------------|
+| `ChatContextHeader` | **New** | `src/app/components/story-guide/ChatContextHeader.tsx` (create) | No — spec is clear: new file, not PointCardWithLinks |
+| Position chip ("You agree" text) | **New** | Inline in `ChatContextHeader`. Not `PositionBadge` (which is 3rd-person). Simple `<span>` with conditional text from `userPosition`. | No |
+| 0–10 rating button row | **Extend** | `RatingButtons` in `src/app/components/partners/shared.tsx` — reuse logic, but must remove `max-w-sm` cap for inline-bubble use. Consider extracting a `max-w` prop or wrapping with `w-full`. | Minor: confirm whether to add a `maxWidth` prop to `RatingButtons` or just override with a wrapper `div`. Recommend adding prop to keep it clean. |
+| Rating message bubble wrapper | **Extend** | `ThreadMessage` in `src/app/components/story-guide/ThreadMessage.tsx` — currently renders `content: string`. For the rating phase, the bubble needs embedded JSX (button row + labels). Options: (A) add `children?: React.ReactNode` prop to `ThreadMessage`; (B) create a `RatingThreadMessage` variant. Recommend (A) — simpler, keeps ThreadMessage as the single bubble component. | Yes — confirm: add `children` prop to `ThreadMessage`, or new variant? Recommend `children` prop. |
+| Escape hatch link ("Save as-is →") | **New** | Inline inside the rating bubble content (not a separate component). Renders when `iterationCount >= 1`. Replaces the current escape-hatch buttons in `ChatRatingContent` (which had "Save at this version" + "Keep refining"). | No — straightforward inline element |
+| `ChatRatingContent` | **Retire from this surface** | `src/app/components/partners/shared.tsx` — currently used inside the Drawer. After this change, the Drawer is removed. `ChatRatingContent` stays in the codebase (may be used elsewhere or in partners surface), but `StoryGuideChat` no longer imports it for the rating phase. | No — keep the component, stop using it in StoryGuideChat |
+| Input bar placeholder (phase-dependent) | **Extend** | `getPlaceholder()` helper in `StoryGuideChat.tsx` (line 113). Currently returns `'0–10, or describe what\'s off...'` for rating/iterating phases. Change to `"What's off? Or type 0–10..."`. Single-line change. | No |
+| `PointCardWithLinks` | **Remove from this surface** | `src/app/components/social/point-card-with-links.tsx` — not modified. Its import and render in `StoryGuideChat.tsx` is removed and replaced by `ChatContextHeader`. | No |
+| `Drawer` / `DrawerContent` | **Remove** | `@/components/ui/drawer` — import and all render code removed from `StoryGuideChat.tsx`. | No |
+| `DraftCard` | **Reuse as-is** | `src/app/components/story-guide/DraftCard.tsx` — unchanged. Still renders after each AI draft response. | No |
+| `VisibilityAndSave` | **Reuse as-is** | `src/app/components/story-guide/VisibilityAndSave.tsx` — unchanged. Renders when phase = 'visibility'. | No |
+| `SavedStoryChatCard` | **Reuse as-is** | `src/app/components/story-guide/SavedStoryChatCard.tsx` — unchanged. | No |
+
+**Key decision for /dev:** Should `ThreadMessage` receive a `children?: React.ReactNode` prop to support the rating button row inline in the AI bubble, or should a new `RatingThreadMessage` component be created? Recommendation: add `children` prop to `ThreadMessage`. It is a clean, minimal extension — `children` renders below `content` when provided, keeping the single-bubble mental model intact. The `content` string can be empty (or the rating question text) and `children` contains the button row JSX.

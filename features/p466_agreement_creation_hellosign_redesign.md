@@ -9,7 +9,14 @@ tags:
   - agreements
   - partners
 created_date: 2026-03-01
-delivery_stage: 2-ux-review
+delivery_stage: 4-test-review
+uat_file: features/uat/p466.md
+test_files:
+  - e2e/integration/p466-partner-display-name-migration.spec.ts
+  - e2e/p466-agreement-creation.spec.ts
+  - e2e/a11y/p466-accessibility.spec.ts
+  - e2e/p466-smoke.spec.ts
+  - src/tests/p466-partner-display-name.test.ts
 ---
 
 # P466: Agreement Creation — HelloSign Redesign
@@ -775,3 +782,211 @@ Scanned `src/app/components/` and `src/app/pages/` for existing components relev
 - **FD-1 (from spec):** Auto-populate partner name slot from email lookup when slot is empty — UX design assumes YES (auto-fill, editable). If the founder decides NO, the lookup result panel below the email field still shows the name via AvatarBadge, but the certificate slot must be manually filled.
 
 - **FD-2 (from spec):** Partner name required — UX design assumes YES (required, blocks submit). If the founder decides optional, the validation section changes: error on submit is removed; slot shows placeholder but never blocks.
+
+---
+
+## Technical Architecture
+
+### 1. Technical Analysis
+
+#### 1.1 Current Code State
+
+**Pages involved:**
+
+- `src/app/pages/create-agreement-page.tsx` — 383 lines. Fully self-contained: inline `AvatarBadge`, validation, debounced email lookup, submit handler. State: `partnerEmail`, `visibility`, `termsText`, `lookupResult`, `isSubmitting`. No reference to partner name.
+- `src/app/pages/agreement-page.tsx` — 514 lines. State-branched view (pending/active/declined/expired/terminated). Passes `partnerName={agreement.partner?.name ?? 'Invited party'}` to `AgreementCertificate`. If `partner?.name` is null (pre-acceptance), it falls back to `'Invited party'`.
+- `src/app/pages/accept-agreement-page.tsx` — 388 lines. Passes `partnerName={agreement.partner?.name}` to `AgreementCertificate`. No editable name slot today. `handleAccept` calls `supabase.rpc('accept_agreement', { p_agreement_id, p_token, p_partner_id })` — no name parameter in the current RPC signature.
+
+**Certificate component:**
+
+- `src/app/components/agreements/agreement-certificate.tsx` — 206 lines. `CertificateVariant` already includes `'creation'` in the type but the creation variant is not implemented as a special branch in the render — `isActive` and `isPending` are the only active branches. `SignatureSlot` is a local function that renders static `<p>` for the name. No editable path exists.
+
+**Data layer:**
+
+- `agreements-service.interface.ts` — `CreateAgreementInput` has `{ partnerEmail, termsText, visibility }`. No `partnerDisplayName`. `ClarityAgreement` type has no `partnerDisplayName` field.
+- `agreements-service-real.ts` — `createAgreement` inserts `{ creator_profile_id, partner_email, terms_text, visibility }`. No `partner_display_name` in the insert.
+
+**Database schema:**
+
+- `clarity_agreements` table (migration `20260224150000_p422_clarity_agreements.sql`): no `partner_display_name` column. The column must be added.
+- `accept_agreement` RPC (migration `20260227120000_p453_accept_agreement_creator_guard.sql`): current signature is `accept_agreement(p_agreement_id UUID, p_token TEXT, p_partner_id UUID)`. No `p_partner_display_name` parameter.
+
+**Confirmed gap:** `partner_display_name` does not exist anywhere in the codebase — not in the DB schema, not in the TypeScript types, not in the service layer. The UX spec references it throughout. A migration and data layer changes are both required.
+
+#### 1.2 Related Prior Work
+
+- **P422** — original agreements feature. Source of all files listed above.
+- **P443** — added `accept_agreement` RPC (SECURITY DEFINER). This RPC must be updated to accept an optional `partner_display_name` parameter.
+- **P453** — hardened `accept_agreement` with `creator_profile_id != p_partner_id` guard. The updated RPC must preserve this guard.
+- No prior `partner_display_name` work found in `features/done/INDEX.md` or anywhere in the codebase.
+
+---
+
+### 2. Architecture Decisions
+
+#### Decision A: DB Column — `partner_display_name` migration
+
+**Chosen:** Add nullable `TEXT` column `partner_display_name` to `clarity_agreements`. Populated at creation time (creator specifies it). Optionally updated at accept time (partner edits before signing).
+
+**Rationale:** This is the simplest, most direct approach. The value belongs on the agreement row — it is part of the agreement document, not the partner's profile. Storing it separately would add unnecessary indirection.
+
+**Constraint:** `CHECK (char_length(partner_display_name) <= 100)` — matches UX spec requirement (Section 3.3). Nullable because legacy agreements have no stored name and null is the correct sentinel (Section 3.5 edge case).
+
+**Alternative rejected:** Deriving display name from `profiles.name` only — this was the P422 approach and is exactly what the spec identifies as wrong ("Invited party" fallback).
+
+**Migration needed:** New file `supabase/migrations/20260302HHMMSS_p466_partner_display_name.sql` with `ALTER TABLE clarity_agreements ADD COLUMN IF NOT EXISTS partner_display_name TEXT CHECK (char_length(partner_display_name) <= 100)`.
+
+#### Decision B: `accept_agreement` RPC signature update
+
+**Chosen:** Add an optional `p_partner_display_name TEXT DEFAULT NULL` parameter to the `accept_agreement` RPC. When provided, write it to `partner_display_name`. Preserve all existing guards (`invitation_token`, `status = 'pending'`, `creator_profile_id != p_partner_id`).
+
+**Rationale:** The RPC is the security boundary for acceptance. Extending it with an optional name parameter is the least-risk path. It does not change the security model. Because the parameter has a DEFAULT, it is backward compatible with the existing `accept_agreement` call in `accept-agreement-page.tsx` until that page is updated.
+
+**Precedent:** This follows the same SECURITY DEFINER pattern already established in P443/P453.
+
+**Migration needed:** New file `supabase/migrations/20260302HHMMSS_p466_accept_agreement_display_name.sql` — `CREATE OR REPLACE FUNCTION accept_agreement(...)` with the additional parameter. Must preserve the `creator_profile_id != p_partner_id` guard from P453.
+
+#### Decision C: `SignatureSlot` — extend with `editable` prop (FD-A resolved)
+
+**Chosen:** Extend the existing `SignatureSlot` local function in `agreement-certificate.tsx` to accept `editable?: boolean`, `value?: string`, `onChange?: (v: string) => void`, `error?: string`, and `placeholder?: string`. When `editable` is true, the name `<p>` is replaced by a styled `<input type="text">`.
+
+**Rationale:** The UX spec Section 6 already recommends this approach (FD-A). It keeps the component co-located, avoids creating a parallel `EditableSignatureSlot` component that would need to stay in sync with `SignatureSlot` rendering logic, and is the simpler path. The two branches share all the label/date rendering — only the name element differs.
+
+**Alternative rejected:** Separate `EditableSignatureSlot` component — unnecessary abstraction; the only difference between the two is one JSX element.
+
+#### Decision D: Partner name input — `<input type="text">` (FD-B resolved)
+
+**Chosen:** Styled `<input type="text">` with `border-0 bg-transparent`, Playfair Display font, focus bottom-border via CSS (not Tailwind ring), `min-height: 44px` for touch targets.
+
+**Rationale:** `<input type="text">` is the correct HTML element for a single-line editable text value. The UX spec recommends it (FD-B). `contenteditable` has well-documented pitfalls (paste handling, IME composition, cursor management, screen reader behavior). The document-text appearance is achieved entirely through CSS — the accessibility behavior of `<input>` is not sacrificed.
+
+**Required aria attributes:** `aria-label="Partner's full name"`, `aria-required="true"`, `aria-invalid` + `aria-describedby` in error state. Full requirements in Section 4.1 of UX spec.
+
+**XSS note:** Text content rendered via React JSX text nodes is escaped by default. Partner name is never rendered via `innerHTML` or any unsafe API — XSS is not a risk here.
+
+#### Decision E: `AgreementCertificate` as partially controlled component (FD-C resolved)
+
+**Chosen:** Pass `partnerNameValue`, `onPartnerNameChange`, `onTermsChange`, `partnerNameError`, and `termsError` as optional props to `AgreementCertificate`. These props are only used when `variant === 'creation'`. In all other variants, the existing static rendering is unchanged.
+
+**Rationale:** The spec's core design principle is "the document IS the form." Passing callbacks into the certificate component preserves this — the form fields are structurally inside the certificate frame in the DOM, not overlaid on top of it. Absolute-position overlays would create z-index, scroll, and touch-handling problems and break the semantic structure.
+
+**Risk:** `AgreementCertificate` grows more props. This is acceptable — the certificate is the central document of the feature and the additional props are all mode-specific with clear names.
+
+#### Decision F: Rendering priority — profile name overrides `partner_display_name` post-acceptance
+
+**Chosen:** After acceptance, `agreement-page.tsx` uses `agreement.partner?.name ?? agreement.partnerDisplayName ?? 'Partner'` fallback chain. Profile name (from the joined `profiles` row) takes precedence once it exists.
+
+**Rationale:** Matches requirement 6 in the Business Requirements. Once the partner has a profile name, that is the authoritative name. `partner_display_name` is the pre-acceptance placeholder that the creator set. Post-acceptance, the profile name is the source of truth.
+
+**Impact on `agreement-page.tsx`:** The `MutedCertificate` sub-component and all `AgreementCertificate` usages in the page need to use this fallback chain instead of the current `agreement.partner?.name ?? 'Invited party'`.
+
+---
+
+### 3. Security Review
+
+**RLS Policies:**
+- The existing INSERT policy (`"Authenticated users can create agreements"`) uses `WITH CHECK (auth.uid() IS NOT NULL AND creator_profile_id = auth.uid())`. Adding `partner_display_name` to the INSERT does not require a new policy — the column is user-supplied text written by the authenticated creator, which the INSERT policy already controls. No RLS gap.
+- The existing UPDATE policy (`"Parties can update their agreements"`) uses `USING (creator_profile_id = auth.uid() OR partner_profile_id = auth.uid())`. Because `partner_display_name` at acceptance time is written through the `accept_agreement` SECURITY DEFINER RPC (not a direct UPDATE), the UPDATE RLS policy does not apply to the acceptance write. The RPC's own WHERE clause enforces the security boundary — the token must match, status must be pending, and the caller cannot be the creator. This is the same security model as P443/P453 and is sound.
+- SELECT policy is unchanged. `partner_display_name` is not sensitive enough to require additional policy. Public agreements already expose all agreement content to anonymous viewers.
+
+**Authentication:**
+- Creation: requires authenticated user (`auth.uid()` checked in RLS INSERT policy and in `realAgreementsService.createAgreement`).
+- Acceptance: `accept_agreement` RPC is `GRANT EXECUTE ... TO authenticated` only (P443 migration). Unauthenticated partners cannot call it. The unauthenticated decline flow (`decline_agreement`) is correctly granted to `anon` — this is intentional (P422 decision) and is unchanged.
+- The accept-page flow correctly gates `handleAccept` behind `currentUser` being non-null.
+
+**Authorization:**
+- Owner vs visitor: unchanged by this feature. The fallback chain `partner?.name ?? partnerDisplayName ?? 'Partner'` exposes `partner_display_name` to anyone who can already see the agreement (which is controlled by the SELECT policy: public visibility OR party to the agreement). No new surface exposed.
+- `partner_display_name` is visible to both parties and, for public agreements, to anyone. This is expected — it is a display name on a document, not a secret.
+
+**Input Validation:**
+- `partner_display_name` is user-supplied text. SQL injection risk: mitigated by parameterized queries via the Supabase client (never string-interpolated into SQL). XSS risk: mitigated by React's JSX text node rendering (content is escaped by default; the value is rendered as a text node in JSX, not inserted as raw HTML). Defense in depth — DB constraint and client validation both enforce the 100-char limit.
+- Whitespace: UX spec requires trimming before validation. The service layer must trim before insert (as it already does for `termsText` in `createAgreement`).
+
+**Data Protection:**
+- `partner_display_name` is a display name — typically a first name or full name. This is PII in the same category as `profiles.name`, which is already stored and surfaced publicly for users who have pledged. No additional PII handling beyond what is already in place for profile names is required.
+- The column is nullable. Legacy agreements have null — this does not expose any data.
+- No new external services, API keys, or edge functions are introduced by this feature. No Pre-deploy Checklist required.
+
+---
+
+### 4. Implementation Approach
+
+#### 4.1 Files to Create
+
+| File | Purpose |
+|------|---------|
+| `supabase/migrations/20260302HHMMSS_p466_partner_display_name.sql` | Add `partner_display_name TEXT` column to `clarity_agreements`. Nullable, 100-char constraint. |
+| `supabase/migrations/20260302HHMMSS_p466_accept_agreement_display_name.sql` | `CREATE OR REPLACE FUNCTION accept_agreement(...)` — extend signature with `p_partner_display_name TEXT DEFAULT NULL`. Preserve P453 `creator_profile_id != p_partner_id` guard. |
+
+**Note on timestamps:** Two migration files in the same day require `YYYYMMDDHHMMSS` format (project rule). Use actual timestamps when creating.
+
+#### 4.2 Files to Modify
+
+| File | What changes |
+|------|-------------|
+| `src/app/data/agreements-service.interface.ts` | Add `partnerDisplayName: string \| null` to `ClarityAgreement`. Add optional `partnerDisplayName?: string` to `CreateAgreementInput`. |
+| `src/app/data/agreements-service-real.ts` | `DbAgreementRow` gets `partner_display_name: string \| null`. `mapDbRowToAgreement` maps it. `createAgreement` passes `partner_display_name` in the insert. |
+| `src/app/components/agreements/agreement-certificate.tsx` | `AgreementCertificateProps` gets new optional props: `partnerNameValue`, `onPartnerNameChange`, `termsValue`, `onTermsChange`, `partnerNameError`. `SignatureSlot` gets `editable`, `value`, `onChange`, `error`, `placeholder` props. `creation` variant activates editable slot and editable terms textarea. |
+| `src/app/pages/create-agreement-page.tsx` | Add `partnerDisplayName` state. Wire to certificate via new props. Move email/visibility controls below certificate. Update submit handler to pass `partnerDisplayName`. Update validation to include name slot. Update submit button label. |
+| `src/app/pages/accept-agreement-page.tsx` | Add editable partner name state, pre-seeded from `agreement.partnerDisplayName`. Pass `onPartnerNameChange` to `AgreementCertificate`. Update `handleAccept` to pass name to RPC (`p_partner_display_name`). |
+| `src/app/pages/agreement-page.tsx` | Update `partnerName` prop in all `AgreementCertificate` usages: `agreement.partner?.name ?? agreement.partnerDisplayName ?? 'Partner'` (and `'Invited party'` only when `status === 'pending'` and no display name). |
+
+#### 4.3 Build Sequence
+
+1. **DB migration** — `partner_display_name` column + updated `accept_agreement` RPC. Run `./scripts/migrate.sh`. Verify column exists before writing TypeScript.
+2. **Data layer** — Update `agreements-service.interface.ts` types and `agreements-service-real.ts`. Run TypeScript compiler to confirm no type errors.
+3. **`AgreementCertificate` component** — Add `editable` branch to `SignatureSlot`, wire `creation` variant props. Keep all existing variants functionally unchanged.
+4. **`create-agreement-page.tsx`** — New layout (certificate first, controls below), new state, new validation, updated submit handler.
+5. **`accept-agreement-page.tsx`** — Editable name slot, updated `handleAccept` RPC call.
+6. **`agreement-page.tsx`** — Fallback chain update across all five state views.
+7. **Manual UAT** — Creation flow (empty slot error, auto-fill, submit), acceptance flow (pre-filled name, edit, accept), agreement-page rendering for all five statuses with and without `partnerDisplayName`.
+
+---
+
+## Test Coverage Strategy
+
+### Test files generated by `/generate-tests`
+
+| File | Type | Tests | What it covers |
+|------|------|-------|----------------|
+| `e2e/integration/p466-partner-display-name-migration.spec.ts` | Integration (P270 mandatory) | 9 | Column exists, nullable, stores value, 100-char CHECK constraint, `accept_agreement` RPC extension, RPC writes name, backward compat, RLS SELECT, RLS INSERT |
+| `e2e/p466-agreement-creation.spec.ts` | E2E | 16 | Full creation flow, empty slot error, whitespace trim, 100-char limit, live update, auto-fill, no-overwrite, submission, pending view with display name, accept page pre-fill, acceptance stores name, fallback chain post-acceptance, null legacy agreement, all 5 state regressions |
+| `e2e/a11y/p466-accessibility.spec.ts` | Accessibility | 18 | Certificate region landmark, partner slot ARIA (aria-label, aria-required, keyboard reach, Enter-doesn't-submit, aria-invalid, role="alert", focus return, aria-describedby), terms textarea ARIA, tab order (forward + Shift+Tab), lookup announcements, accept page slot, no JS crashes on 3 pages |
+| `e2e/p466-smoke.spec.ts` | Smoke | 7 | Create page loads + certificate renders + editable slot present, accept page loads + shows display name, agreement-page pending/active loads + fallback chain |
+| `src/tests/p466-partner-display-name.test.ts` | Unit | 28 | `validatePartnerDisplayName`: empty, whitespace, 100-char boundary, 101-char, special chars, unicode. `resolvePartnerName` fallback chain: all three tiers, priority ordering, legacy null, pending vs non-pending fallback copy |
+
+**Total: 78 tests across 5 files.**
+
+### Run commands
+
+```bash
+# Smoke first — fastest signal
+npx playwright test e2e/p466-smoke.spec.ts
+
+# Integration — verifies both DB migrations before the full E2E runs
+npx playwright test e2e/integration/p466-partner-display-name-migration.spec.ts
+
+# Full E2E
+npx playwright test e2e/p466-agreement-creation.spec.ts
+
+# Accessibility
+npx playwright test e2e/a11y/p466-accessibility.spec.ts
+
+# Unit
+npm test src/tests/p466-partner-display-name.test.ts
+
+# UAT (manual)
+# See features/uat/p466.md
+```
+
+### Test design notes
+
+**Integration tests (P270 rule):** Two-client pattern enforced — `supabaseAdmin` for schema checks and data setup, user-scoped JWT client for RLS assertions. Tests cover both migrations independently: column existence + constraint (migration 1), RPC parameter + write behavior (migration 2).
+
+**E2E tests:** Built on the existing P422 agreement E2E pattern (`agreements.spec.ts`). Uses `createTestAgreement` / `deleteTestAgreement` helpers. TC-09 through TC-13 are the net-new P466 scenarios; TC-14 is a regression guard for all five existing states.
+
+**Accessibility tests:** Structured to match the ARIA contract from spec section 4.1. The partner name slot is the novel surface — tests verify the full error state ARIA cycle (aria-invalid → aria-describedby → role="alert" → focus return) which is the most at-risk path for implementation misses. Several tests use soft assertions (warn-and-continue) for attributes that are harder to verify programmatically but should be confirmed during UAT.
+
+**Unit tests:** Two pure-logic functions inlined as local copies (to be replaced by direct imports once the implementation exports them). The validation function tests cover the three spec-defined rules plus edge cases. The fallback chain tests document all six priority combinations so the implementer has a complete behavioral reference before writing code.
+
+**UAT file:** `features/uat/p466.md` — 60+ manual checklist items covering layout, all slot states (empty, focus, typing, filled, error, auto-fill), creation happy path, acceptance flow, five agreement state regressions, full validation matrix, error states, accessibility spot-checks, and responsive design spot-checks.
