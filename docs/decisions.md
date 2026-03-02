@@ -2,6 +2,48 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-02 [technical]: ThreadMessage accepts optional children to embed interactive content in chat bubbles
+
+**Context:** P467 needed a rating phase rendered as an AI message bubble with embedded 0-10 buttons. Two options: create a new `RatingThreadMessage` variant (duplicate the bubble layout) or extend `ThreadMessage` with a `children?: React.ReactNode` prop. The spec initially left this ambiguous.
+
+**Decision:** `ThreadMessage` accepts `children?: React.ReactNode`. Children render below `content`, suppressed during `isStreaming`. Keeps single-bubble mental model — one component handles all thread messages regardless of embedded content. `RatingButtons` from `partners/shared.tsx` is reused and extended with a `fullWidth` prop to remove `max-w-sm` cap when embedded in a chat bubble.
+
+**Alternatives rejected:** New `RatingThreadMessage` component — duplicates bubble layout and adds component proliferation for what is structurally the same element. Rendering rating buttons outside the bubble — breaks the visual thread metaphor.
+
+**Consequences:** Any future interactive content in chat threads (thumbs, reaction picker, inline forms) follows the same pattern: extend `ThreadMessage` with `children`, suppress during streaming. `RatingButtons` `fullWidth` prop is now part of the shared API — test that default (constrained) still works for partner form usage.
+
+**References:** [features/p467_chat_context_header_inline_rating.md](../features/p467_chat_context_header_inline_rating.md)
+
+---
+
+## 2026-03-02 [technical]: StoryGuideChat rating phase is thread-native (AI bubble), not a Drawer
+
+**Context:** P425 specified inline rating. The shipped implementation used a Drawer — implementation drift from the spec. P467 was filed as a change-request to restore the original intent. During /ux, two options were considered: keep Drawer (lower implementation cost) or restore inline (correct product behavior).
+
+**Decision:** Drawer removed entirely. Rating phase renders as an AI message bubble with embedded `RatingButtons` (0-10 row). Both click and keyboard/type-input paths supported. The bubble appears in the thread after the AI's final message — continuous scroll, no modal layer.
+
+**Alternatives rejected:** Drawer retained — misrepresents the product as having a modal interrupt in what should be a continuous conversation. Drawer as fallback for mobile — adds conditional complexity with no validated need.
+
+**Consequences:** Any future rating or scoring UI in StoryGuideChat must be thread-native first. The Drawer import is removed from the chat page. If a Drawer is needed for a genuinely separate concern (settings, share), it must not be reused for inline-intent flows.
+
+**References:** [features/p467_chat_context_header_inline_rating.md](../features/p467_chat_context_header_inline_rating.md)
+
+---
+
+## 2026-03-02 [product]: ChatContextHeader design principle — context components in focused flows must be scoped to the task, not imported from profile surfaces
+
+**Context:** P425 used `PointCardWithLinks` as the context header in `/chat`. That component is a profile-surface component: it renders quote pattern, share button, position buttons, and story CTAs — all profile-page concerns. In the chat context, only three things matter: the point text, the user's 1st-person position chip, and a link to `/point/:id`. The quote pattern was firing because `profileOwner.position` was truthy — wrong component in wrong context.
+
+**Decision:** `ChatContextHeader` is a new, scoped component. It does not extend or wrap `PointCardWithLinks`. It renders: point text, 1st-person position chip ("You agree" / "You disagree" / "You're unsure"), and a link to the point detail page. Profile-surface concerns (share, story CTA, position buttons) are absent by design, not hidden via flags. `PositionBadge` (3rd-person) is replaced with a 1st-person chip local to the header.
+
+**Alternatives rejected:** `PointCardWithLinks` with feature flags to suppress profile UI — `hideActions`, `hideShare`, `hideStory` proliferation. Shared context component with mode prop — same problem, different spelling.
+
+**Consequences:** Any feature that displays a point in a focused flow (chat, guided exercise, onboarding step) should build a purpose-scoped header, not adapt the profile card. The rule: if the user is doing a task, show only what serves that task. Profile UI belongs on profile pages.
+
+**References:** [features/p467_chat_context_header_inline_rating.md](../features/p467_chat_context_header_inline_rating.md)
+
+---
+
 ## 2026-03-02 [process]: UAT gate without /verify leaves visual bugs undetected
 
 **Context:** P465 dev run completed, set `delivery_stage: uat` correctly, all 885 unit tests green. But `/verify` was never run. Screenshots taken during manual UAT revealed 7 bugs: duplicate P451 button, Back button non-clickable, share icon too small, story shown twice on own profile, wrong attribution context, nonsensical nested layout, stray edit hint. These are layout/rendering bugs that tests cannot catch — they only surface visually.
