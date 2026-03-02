@@ -197,14 +197,15 @@ Rules:
 ```bash
 git stash list
 ```
-If non-empty, surface all entries before continuing:
+If non-empty, print all entries (max 10; if more, note "N more — run `git stash list` to see all"):
 ```
 ⚠ STASHES (invisible to git status — address before starting work):
   · stash@{0}: [message]
   ...
-Apply, drop, or continue?
 ```
-Wait for response. If user says "continue" or dismisses → proceed. Do not silently skip.
+Note: stash message includes the branch it was created on — apply only if you are on that branch.
+
+Ask: **"Apply, drop, or continue?"** Wait for response, then proceed.
 
 ---
 

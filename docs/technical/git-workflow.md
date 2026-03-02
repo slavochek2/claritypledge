@@ -124,18 +124,19 @@ git commit -m "feat: your changes"
 
 **Symptom:** `bash .git/hooks/pre-commit` exits 0; `git commit` returns exit 1 with no clear error.
 
-**Root cause:** Git invokes hooks with a minimal shell — no profile, no `.zshrc` PATH additions, no `nvm`/`brew`/`rbenv` shims. A tool referenced in the hook (e.g. `node`, `npx`, `eslint`) may not be on the minimal PATH.
+**Root cause:** Git invokes hooks as a non-interactive shell — no `.zshrc`, no `nvm`/`brew` shims. When `git commit` is run by Claude Code, a GUI app, or a script, the hook PATH may be narrower than your terminal session. A tool (`npx`, `gitleaks`, etc.) that's on your interactive PATH may be missing.
 
 **Correct diagnostic — simulate git's environment:**
 ```bash
-# Option A: simulate minimal shell
-env -i PATH=/usr/bin:/bin:/usr/local/bin bash ./scripts/pre-commit-checks.sh
+# Option A: simulate a non-interactive shell (how Claude Code / scripts invoke git)
+env -i PATH=/usr/bin:/bin:/usr/sbin:/sbin:/usr/local/bin:/opt/homebrew/bin bash ./scripts/pre-commit-checks.sh
 
-# Option B: add set -x to the hook temporarily, then commit
-# Trace output shows which command fails under git's shell
+# Option B: add `set -x` after the shebang line in scripts/pre-commit-checks.sh,
+# then run `git commit` — trace output on stderr shows which command fails
+# under git's invocation context. Remove set -x before the real commit.
 ```
 
-**Fix:** Use absolute paths for tools in the hook, or add the required paths explicitly in the hook via `export PATH="/opt/homebrew/bin:$PATH"`.
+**Fix:** For this project, add `export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"` near the top of `scripts/pre-commit-checks.sh` (after the shebang). The script calls `npx`, `npm`, and `gitleaks` without absolute paths — patching all call sites would be fragile.
 
 **`--no-verify` is a workaround, not a fix.** Only use it after running the above diagnostic and confirming the hook is correct but the environment is the issue. Report it explicitly when used.
 
