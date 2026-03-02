@@ -17,6 +17,7 @@ import type { PointWithCounts, PointWithUserPosition, PointPositionWithUser, Pos
 import { getPositionGroup, type PositionButtonGroup } from '@/app/prototypes/shared/types';
 import type { Story } from '@/app/prototypes/shared/types';
 import { GravatarAvatar } from '@/components/ui/gravatar-avatar';
+import { FocusHeader } from '@/app/components/layout/focus-header';
 import {
   PositionBadge,
   PositionButtons,
