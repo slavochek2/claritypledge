@@ -444,7 +444,7 @@ Design correction — shipped feature, design was wrong (not broken code, not ne
 
 **When in doubt, go one tier up** — the cost of extra process is lower than the cost of building the wrong thing. Use `/pick-flow` if the right tier is unclear.
 
-`* /decompose` optional — complex features only (5+ files, 3+ concerns, or 6+ build steps). `* /spec-review` always run after `/generate-tests`, before `/decompose` or `/dev` — it catches ambiguity that causes wrong implementation.
+`* /decompose` optional — complex features only (5+ files, 3+ concerns, or 6+ build steps). `/spec-review` mandatory — always run after `/generate-tests`, before `/decompose` or `/dev`. A spec with BLOCK findings must not proceed to `/decompose` or `/dev`.
 
 Each layer has a review gate. `/dev` stops at UAT gate — sets `delivery_stage: uat`, keeps `status: in-progress`, code stays on feature branch. `/ship pN` (user-triggered) merges to prod and closes the spec (`status: done`, moves to `features/done/`). `/fix` closes inline (no branch needed).
 
