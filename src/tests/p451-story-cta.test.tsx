@@ -112,7 +112,11 @@ const linkedPointWithPosition: Point = {
   positions: { [CURRENT_USER]: { position: 'agree' as PositionType, userId: CURRENT_USER } },
 };
 
-describe('P451: PointCardWithLinks story CTA', () => {
+// P465: P451's "Tell your story →" blue button is removed from PointCardWithLinks.
+// The CTA is now inline text ("Why do you agree? →") in the footer row.
+const AGREE_CTA_LINKS = 'Why do you agree? →';
+
+describe('P451/P465: PointCardWithLinks story CTA', () => {
   it('does NOT show CTA before staking', () => {
     render(
       <BrowserRouter>
@@ -123,10 +127,12 @@ describe('P451: PointCardWithLinks story CTA', () => {
         />
       </BrowserRouter>
     );
+    // P465: P451 blue button removed; P456 inline CTA also absent before staking
     expect(screen.queryByText('Tell your story →')).toBeNull();
+    expect(screen.queryByText(AGREE_CTA_LINKS)).toBeNull();
   });
 
-  it('shows CTA after staking a position', () => {
+  it('shows position-aware CTA after staking a position (no P451 blue button)', () => {
     render(
       <BrowserRouter>
         <PointCardWithLinks
@@ -137,10 +143,12 @@ describe('P451: PointCardWithLinks story CTA', () => {
       </BrowserRouter>
     );
     clickAgree();
-    expect(screen.getByText('Tell your story →')).toBeInTheDocument();
+    // P465: P451 blue "Tell your story →" removed; inline CTA appears (feed pattern)
+    expect(screen.queryByText('Tell your story →')).toBeNull();
+    expect(screen.getByText(AGREE_CTA_LINKS)).toBeInTheDocument();
   });
 
-  it('shows CTA on load when position is pre-existing (refresh regression)', () => {
+  it('shows position-aware CTA on load when position is pre-existing (refresh regression)', () => {
     render(
       <BrowserRouter>
         <PointCardWithLinks
@@ -150,7 +158,9 @@ describe('P451: PointCardWithLinks story CTA', () => {
         />
       </BrowserRouter>
     );
-    expect(screen.getByText('Tell your story →')).toBeInTheDocument();
+    // P465: inline CTA shown; P451 blue button gone
+    expect(screen.queryByText('Tell your story →')).toBeNull();
+    expect(screen.getByText(AGREE_CTA_LINKS)).toBeInTheDocument();
   });
 });
 

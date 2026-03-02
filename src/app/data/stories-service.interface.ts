@@ -92,14 +92,23 @@ export interface StoriesService {
   /**
    * Link a point to a story
    * Only story author can link.
+   * @param authorId - The story author's user ID (stored as author_id in story_points for fast lookups)
    */
-  linkPointToStory(storyId: string, pointId: string): Promise<boolean>;
+  linkPointToStory(storyId: string, pointId: string, authorId: string): Promise<boolean>;
 
   /**
    * Unlink a point from a story
    * Only story author can unlink.
    */
   unlinkPointFromStory(storyId: string, pointId: string): Promise<boolean>;
+
+  /**
+   * Get a story linked to a specific point by a specific user.
+   * Used in /chat to detect edit mode: if user already has a story for this point,
+   * open in edit mode instead of create mode.
+   * Returns null if no story exists for (userId, pointId).
+   */
+  getStoryByUserAndPoint(userId: string, pointId: string): Promise<Story | null>;
 
   // ============================================================================
   // DELETE

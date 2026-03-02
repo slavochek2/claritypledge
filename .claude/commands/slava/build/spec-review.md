@@ -116,6 +116,9 @@ Look for unvalidated assumptions:
 - Third-party dependencies — are external services (APIs, edge functions, AI models) confirmed to exist and accessible?
 - Component reuse — does the spec reference components that don't exist yet?
 - Migration order — does the spec assume DB columns exist that require a prior migration to apply?
+- **Coexistence assumption check:** For any AC that uses language like "X replaces Y", "X does not coexist with Y", "Y is removed when X appears" — verify that Y actually exists and is a separate, independent element in the current component/page. If the AC assumes replacement but a pre-existing adjacent element also satisfies the same condition, the replacement logic will fail silently on surfaces where both elements are present.
+
+  Ask: "Does anything already on this surface do the same job as what this spec adds or removes? Would both elements be visible simultaneously on any surface?"
 
 ### 5. Under-specification
 Flag any requirement where a dev agent would have to guess:

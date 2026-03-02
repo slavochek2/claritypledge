@@ -55,7 +55,7 @@ import {
 import { VisibilityBadge } from "@/app/components/shared/visibility-badge";
 import type { PositionType, Position } from "@/app/prototypes/shared/types";
 import type { StoryVisibility } from "@/app/types";
-import { getPositionGroup, getPositionCTACopy, type PositionButtonGroup } from "@/app/prototypes/shared/types";
+import { getPositionGroup, type PositionButtonGroup } from "@/app/prototypes/shared/types";
 import { formatTimeAgo } from "@/app/prototypes/shared/utils";
 // Profile owner context for card components
 interface ProfileOwner {
@@ -167,6 +167,9 @@ export function ProfilePageV2() {
   const [realStories, setRealStories] = useState<StoryWithPoints[]>([]);
   const [realPoints, setRealPoints] = useState<PointWithUserPosition[]>([]);
   const [realCalibration, setRealCalibration] = useState<UserCalibration | null>(null);
+
+  // P465: Viewer story count map for other profiles (fetched async)
+  const [viewerStoryCountMap, setViewerStoryCountMap] = useState<Map<string, number>>(new Map());
   const [realEarsCount, setRealEarsCount] = useState<number>(0);
 
   // P422: Agreements state
@@ -352,6 +355,29 @@ export function ProfilePageV2() {
         });
 
           setRealPoints(adaptedPoints);
+
+          // P465: Fetch viewer's own story links for other profiles
+          if (currentUserId && profile && currentUserId !== profile.id) {
+            const pointIds = adaptedPoints.map(p => p.id);
+            if (pointIds.length > 0) {
+              const { data: viewerLinks } = await supabase
+                .from('story_points')
+                .select('point_id, story_id')
+                .in('point_id', pointIds)
+                .eq('author_id', currentUserId);
+
+              const countMap = new Map<string, number>();
+              const idMap = new Map<string, string>();
+              (viewerLinks ?? []).forEach(link => {
+                countMap.set(link.point_id, (countMap.get(link.point_id) ?? 0) + 1);
+                if (!idMap.has(link.point_id)) {
+                  idMap.set(link.point_id, link.story_id);
+                }
+              });
+              setViewerStoryCountMap(countMap);
+              setViewerStoryIdForPoint(idMap);
+            }
+          }
         } else {
           setRealPoints(validPoints);
         }
@@ -868,7 +894,6 @@ export function ProfilePageV2() {
                     credibilityStats={credibilityStats}
                     currentUserId={currentUser?.id}
                     onPointPositionSelect={handleProfilePointPosition}
-                    viewerStoriesForPoint={viewerStoriesForPoint}
                   />
                 ))
               )
@@ -894,6 +919,11 @@ export function ProfilePageV2() {
                     currentUserId={currentUser?.id}
                     onPositionSelect={(pos) => handleProfilePointPosition(point.id, pos)}
                     getPointPositionCounts={(p: AdaptedPoint) => toSevenPointCounts(p.positionCounts ?? {})}
+                    viewerStoryCount={
+                      currentUser?.id === profile?.id
+                        ? (viewerStoriesForPoint?.get(point.id) ?? 0)
+                        : (viewerStoryCountMap?.get(point.id) ?? 0)
+                    }
                     getStoryAuthor={(authorId) => {
                       // Return author info for stories
                       if (authorId === profile.id) {
@@ -908,6 +938,7 @@ export function ProfilePageV2() {
                       }
                       return undefined;
                     }}
+                    onDeleteStory={() => guardedRemovePosition(point.id)}
                   />
                 ))
               )
@@ -943,7 +974,6 @@ interface StoryCardFullProps {
   credibilityStats: { ear: number; mic: number };
   currentUserId?: string;
   onPointPositionSelect?: (pointId: string, pos: Position | null) => void;
-  viewerStoriesForPoint?: Map<string, number>;
 }
 
 const STORY_THRESHOLD = 180;
@@ -954,7 +984,6 @@ function StoryCardFull({
   credibilityStats,
   currentUserId,
   onPointPositionSelect,
-  viewerStoriesForPoint,
 }: StoryCardFullProps) {
   const navigate = useNavigate();
   const [pointsExpanded, setPointsExpanded] = useState(false);
@@ -1123,7 +1152,6 @@ function StoryCardFull({
               authorHasPledged={author.hasPledged}
               currentUserId={currentUserId}
               onPositionSelect={(pos) => onPointPositionSelect?.(point.id, pos)}
-              viewerStoryCount={viewerStoriesForPoint?.get(point.id) ?? 0}
             />
           ))}
           {linkedPoints.length > 3 && (
@@ -1154,7 +1182,6 @@ interface QuotedPointCardProps {
   authorHasPledged: boolean;
   currentUserId?: string;
   onPositionSelect?: (position: Position) => void;
-  viewerStoryCount?: number;
 }
 
 function QuotedPointCard({
@@ -1167,7 +1194,6 @@ function QuotedPointCard({
   authorHasPledged,
   currentUserId,
   onPositionSelect,
-  viewerStoryCount = 0,
 }: QuotedPointCardProps) {
   const navigate = useNavigate();
   const [userPosition, setUserPosition] = useState<Position>(
@@ -1273,48 +1299,6 @@ function QuotedPointCard({
           </div>
         </div>
 
-        {/* P456: Story CTA footer — shown when viewer has taken a position */}
-        {userPosition && (() => {
-          const positionGroup = getPositionGroup(userPosition as PositionType);
-          const copy = getPositionCTACopy(positionGroup);
-          const chatUrl = `/chat?from=position&pointId=${point.id}`;
-
-          return (
-            <div
-              role="presentation"
-              className="mt-2 pt-2 border-t border-border pl-[44px] pr-1"
-              onClick={e => e.stopPropagation()}
-            >
-              {viewerStoryCount === 0 ? (
-                <div className="flex items-center gap-1 text-sm">
-                  <span aria-hidden="true" className="text-muted-foreground">{copy.symbol}</span>
-                  <span className="text-muted-foreground">{copy.label}</span>
-                  <span aria-hidden="true" className="text-muted-foreground"> · </span>
-                  <button
-                    onClick={e => { e.stopPropagation(); navigate(chatUrl); }}
-                    aria-label={copy.ariaLabel}
-                    className="font-medium text-blue-600 hover:text-blue-700 transition-colors"
-                  >
-                    {copy.ctaText}
-                  </button>
-                </div>
-              ) : (
-                <div className="flex items-center justify-between w-full">
-                  <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                    <span aria-hidden="true">▶</span>
-                    <span>{viewerStoryCount} {viewerStoryCount === 1 ? 'story' : 'stories'}</span>
-                  </div>
-                  <button
-                    onClick={e => { e.stopPropagation(); navigate(chatUrl); }}
-                    className="text-sm font-medium text-blue-600 hover:text-blue-700 transition-colors"
-                  >
-                    + add story →
-                  </button>
-                </div>
-              )}
-            </div>
-          );
-        })()}
       </div>
     </div>
   );

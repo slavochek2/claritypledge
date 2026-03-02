@@ -72,6 +72,62 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-03-02 [technical]: story_versions INSERT RLS — use `current_user = 'postgres'` for trigger-context branch
+
+**Context:** `story_versions` has RLS enabled. The SECURITY DEFINER trigger `create_initial_story_version` runs as the `postgres` role (not `auth.uid()`). With no INSERT policy, the trigger was blocked (error 42501). Initial fix used `auth.uid() IS NULL` to allow the trigger-context branch, but this also matched anonymous API callers (anon role — no JWT sub claim), creating an unauthenticated-insert loophole.
+
+**Decision:** Scope the trigger-context branch to `current_user = 'postgres'`. In Supabase, SECURITY DEFINER triggers run as the `postgres` role; anonymous API callers run as the `anon` role. Only postgres can satisfy this check, closing the loophole. Pattern: `current_user = 'postgres' OR EXISTS (SELECT 1 FROM stories WHERE stories.id = story_id AND stories.author_id = auth.uid())`.
+
+**Alternatives rejected:** `auth.uid() IS NULL` — too broad, matches anon callers. `SECURITY DEFINER` on the RLS function — doesn't apply to policy conditions. BYPASSRLS for postgres — correct but requires superuser grant not available on Supabase free tier.
+
+**Consequences:** Any future INSERT policies on tables written to by SECURITY DEFINER triggers must use `current_user = 'postgres'` (not `auth.uid() IS NULL`) for the trigger-context branch.
+
+**References:** [supabase/migrations/20260302130000_story_versions_insert_policy_v2.sql](../supabase/migrations/20260302130000_story_versions_insert_policy_v2.sql)
+
+---
+
+## 2026-03-01 [process]: UAT branch stranding — pre-deletion diff gate + /kdd branch-awareness warning
+
+**Context:** `docs/ux-patterns.md` (266 lines of navigation architecture) was written during UAT for p422-p425, landed on the UAT branch, and was lost when that branch was deleted without checking for unreleased commits. 5-Why root cause: branch deletion had no "diff vs main" gate. The /kdd skill had no branch-awareness check, so KDD entries written on UAT branches were stranded silently.
+
+**Decision:** Two-layer safeguard. (1) `docs/technical/git-workflow.md` — added "Before Deleting Branches" section with single-branch and bulk-sweep loops that print commits not in main. (2) `/kdd` skill — added Step 0: reads current branch, warns if not `main` or `feature/*`, gives exact stash-checkout-write sequence to redirect KDD to a safe branch. Non-blocking — user decides. Recovered lost file from `git log --all` commit `2c4b74f2`.
+
+**Alternatives rejected:** Hard block on branch deletion — too aggressive, can't be enforced by the skill alone. Moving all KDD to main always — breaks feature-branch dev flow.
+
+**Consequences:** Any future branch deletion should include the diff loop. /kdd warns proactively if the branch looks throwaway. Stranded docs should now surface before deletion, not after.
+
+**References:** [docs/technical/git-workflow.md](technical/git-workflow.md) · [.claude/commands/slava/maintain/kdd/SKILL.md](../.claude/commands/slava/maintain/kdd/SKILL.md)
+
+---
+
+## 2026-03-01 [product]: Brand separation — ClarityPledge (platform) vs ladischenski.com (coaching)
+
+**Context:** ClarityPledge and the co-founder coaching practice on ladischenski.com were treated as one brand. As the coaching practice grew into a distinct offering (€500 sessions, retainer, workshop), conflating the two created positioning confusion — "ClarityPledge" sounds like a B2B SaaS product, not a coaching relationship.
+
+**Decision:** Formal brand separation. ClarityPledge = platform brand (like Stripe — invisible infrastructure, known to practitioner). ladischenski.com = Slava's personal coaching brand (like Patrick Collison — person-led, trust-based). Each brand has a distinct audience entry point: ladischenski.com intake call → coaching engagement → tool-assisted sessions using ClarityPledge. Documented in `lean-canvas.md` Unfair Advantage section.
+
+**Alternatives rejected:** Single brand — dilutes personal trust signal. Rename ClarityPledge to a personal brand — loses the "bigger than one person" positioning for future scale.
+
+**Consequences:** Marketing, copy, and positioning for coaching work should reference ladischenski.com, not ClarityPledge. ClarityPledge copy should read as a platform/tool, not as "Slava's thing." UVP doc notes external label: "Co-founder De-Risking" (jargon-free framing for coaching offer).
+
+**References:** [docs/lean-canvas.md](lean-canvas.md) · [ladischenski.com](https://ladischenski.com)
+
+---
+
+## 2026-03-01 [product]: False Agreement — named as the central problem ClarityPledge solves
+
+**Context:** The product focused on "calibrated communication" as the value prop. Conversations surfaced that the real enemy — the specific failure mode users fear — had no name. It was described circularly as "thinking you're aligned when you're not."
+
+**Decision:** Name the problem: **False Agreement** — state where two parties believe they have aligned but the alignment was never verified. Mechanically produced by: ambiguous language (both map different meanings to the same words), social pressure (both avoid revealing divergence), and attention gaps (both assume the other is tracking). Distinct from disagreement: harder to detect, more dangerous because it masquerades as success. Documented in `docs/definitions.md`. Cross-referenced in `lean-canvas.md` Problem section and `docs/theory-of-change.md`.
+
+**Alternatives rejected:** "Misalignment" — already used loosely everywhere, no precision. "Communication failure" — too broad, doesn't capture the false-positive nature of the state.
+
+**Consequences:** All product copy, UX writing, and future specs can now reference "False Agreement" as a shared term. Replaces the circular description. Hypothesis H-MetaEpistemic-Prerequisite (P421 Mini Pledge) is now framed as a prerequisite for exiting False Agreement — documented in `docs/hypotheses.md`.
+
+**References:** [docs/definitions.md](definitions.md) · [docs/lean-canvas.md](lean-canvas.md) · [docs/hypotheses.md](hypotheses.md)
+
+---
+
 ## 2026-03-01 [technical]: P465 — viewer story count via secondary batch query on other-profile surfaces
 
 **Context:** On other-profile surfaces, `filteredStories` in `point-card-with-links.tsx` is pre-filtered to the profile owner's stories upstream. `viewerStoryCount` was therefore always 0 on other profiles — viewer's own linked stories were never surfaced.

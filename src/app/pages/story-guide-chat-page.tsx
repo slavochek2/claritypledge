@@ -10,8 +10,9 @@ import { useAuth } from '@/auth';
 import { FocusHeader } from '@/app/components/layout/focus-header';
 import { StoryGuideChat } from '@/app/components/story-guide/StoryGuideChat';
 import { pointsService } from '@/app/data/points-service';
+import { storiesService } from '@/app/data/stories-service';
 import type { StoryDraft, ContextPoint, ContextProfileOwner } from '@/app/components/story-guide/StoryGuideChat';
-import type { PointWithUserPosition } from '@/app/types';
+import type { PointWithUserPosition, Story } from '@/app/types';
 
 export function StoryGuideChatPage() {
   const { user, isLoading } = useAuth();
@@ -26,6 +27,7 @@ export function StoryGuideChatPage() {
   const [userPosition, setUserPosition] = useState<string | undefined>(undefined);
   const [fullPoint, setFullPoint] = useState<PointWithUserPosition | null>(null);
   const [pointLoading, setPointLoading] = useState(isPositionTriggered);
+  const [existingStory, setExistingStory] = useState<Story | null>(null);
 
   // Fetch point data when position-triggered
   useEffect(() => {
@@ -33,8 +35,11 @@ export function StoryGuideChatPage() {
 
     setPointLoading(true);
 
-    pointsService.getPointWithUserPosition(pointId, user.id)
-      .then(point => {
+    Promise.all([
+      pointsService.getPointWithUserPosition(pointId, user.id),
+      storiesService.getStoryByUserAndPoint(user.id, pointId),
+    ])
+      .then(([point, story]) => {
         if (point) {
           setFullPoint(point);
           setPointText(point.statement);
@@ -43,6 +48,7 @@ export function StoryGuideChatPage() {
           }
         }
         // If point not found — proceed without context card (graceful degradation)
+        setExistingStory(story);
       })
       .catch(() => {
         // Graceful degradation: proceed without context
@@ -99,21 +105,22 @@ export function StoryGuideChatPage() {
   return (
     <div className="max-w-2xl mx-auto flex flex-col px-4">
       <FocusHeader onBack={handleBack} />
-      <div className="h-[calc(100vh-8rem)] flex flex-col">
-      {pointLoading ? (
-        <div className="flex-1 flex items-center justify-center">
-          <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600" />
-        </div>
-      ) : (
-        <StoryGuideChat
-          pointId={pointId}
-          pointText={pointText}
-          userPosition={userPosition}
-          contextPoint={contextPoint}
-          contextProfileOwner={contextProfileOwner}
-          onStoryConfirmed={handleStoryConfirmed}
-        />
-      )}
+      <div className="h-[calc(100vh-13rem)] lg:h-[calc(100vh-9rem)] flex flex-col">
+        {pointLoading ? (
+          <div className="flex-1 flex items-center justify-center">
+            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600" />
+          </div>
+        ) : (
+          <StoryGuideChat
+            pointId={pointId}
+            pointText={pointText}
+            userPosition={userPosition}
+            contextPoint={contextPoint}
+            contextProfileOwner={contextProfileOwner}
+            onStoryConfirmed={handleStoryConfirmed}
+            existingStory={existingStory ?? undefined}
+          />
+        )}
       </div>
     </div>
   );

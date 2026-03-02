@@ -15,7 +15,7 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import type { StoryVisibility } from '@/app/types';
+import type { StoryVisibility, Story } from '@/app/types';
 import { useAuth } from '@/auth';
 import { ThreadMessage } from './ThreadMessage';
 import { DraftCard } from './DraftCard';
@@ -92,6 +92,8 @@ export interface StoryGuideChatProps {
   contextProfileOwner?: ContextProfileOwner;
   onStoryConfirmed: (draft: StoryDraft) => void;
   onDismiss?: () => void;
+  /** If present, open in edit mode: pre-populate polish phase with existing story content. */
+  existingStory?: Story;
 }
 
 // ---------------------------------------------------------------------------
@@ -138,6 +140,7 @@ export function StoryGuideChat({
   contextProfileOwner,
   onStoryConfirmed,
   onDismiss: _onDismiss,
+  existingStory,
 }: StoryGuideChatProps) {
   const { user, session } = useAuth();
   const authorName = user?.name ?? 'You';
@@ -176,17 +179,17 @@ export function StoryGuideChat({
     }
   }, [user, pointId, guardedRemovePosition]);
 
-  const [phase, setPhase] = useState<ChatPhase>('idle');
+  const [phase, setPhase] = useState<ChatPhase>(() => existingStory ? 'polish' : 'idle');
   const [messages, setMessages] = useState<P425Message[]>([]);
   const [streamingContent, setStreamingContent] = useState<string | null>(null);
   const [iterationCount, setIterationCount] = useState(0);
   const [consecutiveFailures, setConsecutiveFailures] = useState(0);
   const [apiError, setApiError] = useState<string | null>(null);
-  const [selectedVisibility, setSelectedVisibility] = useState<StoryVisibility>('private');
+  const [selectedVisibility, setSelectedVisibility] = useState<StoryVisibility>(() => existingStory?.visibility ?? 'private');
   const [isSaving, setIsSaving] = useState(false);
   const [inputValue, setInputValue] = useState('');
   const [currentDraftVersion, setCurrentDraftVersion] = useState(0);
-  const [polishedContent, setPolishedContent] = useState<string | null>(null);
+  const [polishedContent, setPolishedContent] = useState<string | null>(() => existingStory?.content ?? null);
   const [ratingValue, setRatingValue] = useState<number | null>(null);
   const [ratingComment, setRatingComment] = useState('');
 
@@ -224,9 +227,31 @@ export function StoryGuideChat({
   }, [messages, streamingContent]);
 
   // ---------------------------------------------------------------------------
-  // Opening message for position-triggered flow
+  // Opening message — either create mode or edit mode
   // ---------------------------------------------------------------------------
   useEffect(() => {
+    if (existingStory) {
+      // Edit mode: show existing story as a draft card + heading message
+      setMessages([
+        {
+          id: makeId(),
+          role: 'ai',
+          content: 'Edit your story',
+          timestamp: Date.now(),
+        },
+        {
+          id: makeId(),
+          role: 'ai',
+          content: existingStory.content,
+          isDraftCard: true,
+          draftVersion: 1,
+          draftStatus: 'polish',
+          timestamp: Date.now() + 1,
+        },
+      ]);
+      return;
+    }
+
     if (messages.length === 0) {
       setMessages([
         {
@@ -522,8 +547,10 @@ export function StoryGuideChat({
     setPhase('saving');
 
     try {
-      // Step 1: Create story
-      const story = await storiesService.createStory(user.id, contentToSave, [], selectedVisibility);
+      // Step 1: Create or update story
+      const story = existingStory
+        ? await storiesService.updateStory(existingStory.id, { content: contentToSave, visibility: selectedVisibility })
+        : await storiesService.createStory(user.id, contentToSave, [], selectedVisibility);
 
       if (!story) {
         // Save failed — re-enable UI
@@ -538,8 +565,9 @@ export function StoryGuideChat({
         return;
       }
 
-      // Step 2: Link to point (if position-triggered flow)
-      if (pointId) {
+      // Step 2: Link to point (if position-triggered flow and NOT editing an existing story)
+      // Existing story is already linked — skip to avoid duplicate links.
+      if (pointId && !existingStory) {
         // Check position ownership before linking (security: spec §Security Review)
         const { data: position } = await supabase
           .from('positions')
@@ -549,7 +577,7 @@ export function StoryGuideChat({
           .maybeSingle();
 
         if (position) {
-          await storiesService.linkPointToStory(story.id, pointId);
+          await storiesService.linkPointToStory(story.id, pointId, user.id);
         }
         // If no position found, still save the story — just without the point link
       }
@@ -585,7 +613,7 @@ export function StoryGuideChat({
       setPhase('visibility');
       toast.error('Failed to save story. Please try again.');
     }
-  }, [user, polishedContent, messages, selectedVisibility, pointId, onStoryConfirmed]);
+  }, [user, polishedContent, messages, selectedVisibility, pointId, onStoryConfirmed, existingStory]);
 
   // ---------------------------------------------------------------------------
   // Render helpers

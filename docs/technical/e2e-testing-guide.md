@@ -178,7 +178,15 @@ import { linkStoryToPoint } from './helpers/test-story';
 
 await linkStoryToPoint(testStory.id, testPoint.id);
 // Story is now linked to the point
+// NOTE: story_points.author_id NOT NULL — linkStoryToPoint looks up stories.author_id automatically (P465)
 ```
+
+> **Profile page tab gotcha (P465):** The profile page defaults to the "Stories" tab. Tests targeting point cards on the "Points" tab must click the tab explicitly before asserting on point card content:
+> ```typescript
+> await page.getByRole('tab', { name: /points/i }).click();
+> await page.waitForLoadState('networkidle');
+> // Now safe to assert on point card content
+> ```
 
 **Clean up test story:**
 ```typescript

@@ -110,7 +110,7 @@ Seven tables added by P117. Full schema details in [architecture.md](architectur
 | `stories` | User-created content (title, content, understood_count) |
 | `story_versions` | Immutable snapshots, auto-created by trigger |
 | `points` | Statements users take positions on |
-| `story_points` | Many-to-many junction (stories ↔ points) |
+| `story_points` | Many-to-many junction (stories ↔ points); `author_id UUID NOT NULL` + `UNIQUE(author_id, point_id)` since P465 |
 | `point_positions` | Current user positions (7-point Likert) |
 | `point_position_history` | Audit log of position changes (trigger) |
 | `story_verifications` | /live verification records; `story_id`/`version_id` nullable since P413 |
@@ -118,6 +118,10 @@ Seven tables added by P117. Full schema details in [architecture.md](architectur
 **Migrations:** `supabase/migrations/20260204_stories_points_calibration.sql` (initial), `20260222120000_p413_nullable_story_verifications.sql` (nullable FKs + NULL guard on `update_story_understood_count` trigger).
 
 **Trigger NULL-guard pattern:** Any trigger on `story_verifications` that touches `story_id` must guard against NULL — `IF NEW.story_id IS NULL THEN RETURN NEW; END IF;` — since exchanges without a story are now valid rows.
+
+**story_versions INSERT RLS pattern (P465):** `story_versions` uses a SECURITY DEFINER trigger (`create_initial_story_version`) for auto-creation. When adding an INSERT policy, use `current_user = 'postgres'` for the trigger-context branch — NOT `auth.uid() IS NULL`. In Supabase, SECURITY DEFINER triggers run as the `postgres` role; `auth.uid() IS NULL` is too broad and also matches anonymous API callers (`anon` role). See `supabase/migrations/20260302130000_story_versions_insert_policy_v2.sql` and [decisions.md § 2026-03-02](../decisions.md).
+
+**story_points author_id (P465):** `story_points` has `author_id UUID NOT NULL` (FK to `profiles.id`) and a `UNIQUE(author_id, point_id)` constraint since P465. When inserting into `story_points` via test helpers or service layer, always look up `stories.author_id` first — don't assume it from the current session user.
 
 **Services:** Interface-based pattern — see [architecture.md § Service Layer](architecture.md#service-layer-pattern).
 

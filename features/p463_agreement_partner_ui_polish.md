@@ -1,11 +1,11 @@
 ---
-status: today
+status: in-progress
 type: feature
 rank: 1000002
 workstream: E1
 created_date: 2026-02-28
 flow: dev
-delivery_stage: 2-ux-review
+delivery_stage: uat
 tags: [agreements, partners, ux-polish]
 # For complete frontmatter specification, see docs/technical/feature-specs.md
 ---
@@ -82,11 +82,11 @@ Schedule a /live session →
 
 ## Acceptance Criteria
 
-- [ ] Certificate subtitle reads "A mutual commitment to clarity"
-- [ ] No A-XXXX ID visible in certificate header
-- [ ] Pending view: amber block absent; schedule link absent
-- [ ] Partners page: no "✦ Partner Agreements" heading
-- [ ] Partners page: "Add a Partner?" blue button in heading row
+- [x] Certificate subtitle reads "A mutual commitment to clarity"
+- [x] No A-XXXX ID visible in certificate header
+- [x] Pending view: amber block absent; schedule link absent
+- [x] Partners page: no "✦ Partner Agreements" heading
+- [x] Partners page: "Add a Partner?" blue button in heading row
 
 ## Testing
 

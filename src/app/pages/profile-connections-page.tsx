@@ -8,6 +8,7 @@
 
 import { useEffect, useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
+import { Button } from '@/components/ui/button';
 import { ArrowLeft } from 'lucide-react';
 import { getProfileBySlug, getProfile } from '@/app/data/api';
 import type { Profile } from '@/app/types';
@@ -22,7 +23,10 @@ import { AgreementRow } from '@/app/components/agreements/agreement-row';
 function PageSkeleton() {
   return (
     <div className="max-w-lg mx-auto px-4 mt-3 animate-pulse">
-      <div className="h-8 bg-muted rounded w-48 mb-6" />
+      <div className="flex items-center justify-between mb-4">
+        <div className="h-8 bg-muted rounded w-32" />
+        <div className="h-11 bg-muted rounded-md w-32" />
+      </div>
       <div className="space-y-2">
         {[1, 2, 3].map((i) => (
           <div key={i} className="h-14 bg-muted rounded-lg" />
@@ -39,12 +43,9 @@ function EmptyState({ isOwner }: { isOwner: boolean }) {
     <div className="px-4 py-12 text-center">
       <p className="text-sm text-muted-foreground mb-4">No agreements to show.</p>
       {isOwner && (
-        <Link
-          to="/agreements/new"
-          className="inline-flex items-center justify-center text-sm font-semibold h-9 px-5 rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
-        >
-          + New Agreement
-        </Link>
+        <Button asChild className="min-h-[44px]">
+          <Link to="/agreements/new">Add a Partner?</Link>
+        </Button>
       )}
     </div>
   );
@@ -135,19 +136,18 @@ export function ProfileConnectionsPage() {
       </button>
 
       {/* Page heading */}
-      <h1 className="text-xl font-bold text-foreground mb-4">
-        {isOwner ? 'My Partners' : `${(profile.name ?? 'User').split(' ')[0]}'s Partners`}
-      </h1>
+      <div className="flex items-center justify-between mb-4">
+        <h1 className="text-xl font-bold text-foreground">
+          {isOwner ? 'My Partners' : `${(profile.name ?? 'User').split(' ')[0]}'s Partners`}
+        </h1>
+        {isOwner && (
+          <Button asChild className="min-h-[44px]">
+            <Link to="/agreements/new">Add a Partner?</Link>
+          </Button>
+        )}
+      </div>
 
-      {/* Partner Agreements section */}
       <section aria-label="Partner Agreements">
-        <div className="flex items-center gap-2 mb-3">
-          <span className="text-xs text-muted-foreground" aria-hidden="true">✦</span>
-          <h2 className="text-sm font-semibold text-foreground uppercase tracking-wide">
-            Partner Agreements
-          </h2>
-        </div>
-
         {visibleAgreements.length === 0 ? (
           <EmptyState isOwner={isOwner} />
         ) : (
@@ -165,16 +165,6 @@ export function ProfileConnectionsPage() {
               ))}
             </ul>
 
-            {isOwner && (
-              <div className="px-4 pt-4">
-                <Link
-                  to="/agreements/new"
-                  className="inline-flex items-center gap-1 text-sm font-medium text-primary hover:underline transition-colors"
-                >
-                  + New Agreement
-                </Link>
-              </div>
-            )}
           </>
         )}
       </section>

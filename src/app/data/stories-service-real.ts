@@ -459,14 +459,15 @@ export const realStoriesService: StoriesService = {
     };
   },
 
-  async linkPointToStory(storyId: string, pointId: string): Promise<boolean> {
-    log(' linkPointToStory:', { storyId, pointId });
+  async linkPointToStory(storyId: string, pointId: string, authorId: string): Promise<boolean> {
+    log(' linkPointToStory:', { storyId, pointId, authorId });
 
     const { error } = await supabase
       .from('story_points')
       .insert({
         story_id: storyId,
         point_id: pointId,
+        author_id: authorId,
       });
 
     if (error) {
@@ -493,6 +494,51 @@ export const realStoriesService: StoriesService = {
     }
 
     return true;
+  },
+
+  // ============================================================================
+  // P465: EDIT-MODE DETECTION
+  // ============================================================================
+
+  async getStoryByUserAndPoint(userId: string, pointId: string): Promise<Story | null> {
+    log(' getStoryByUserAndPoint:', { userId, pointId });
+
+    const { data, error } = await supabase
+      .from('story_points')
+      .select('story_id, stories(id, author_id, title, content, visibility, current_version, understood_count, created_at, updated_at, tags)')
+      .eq('author_id', userId)
+      .eq('point_id', pointId)
+      .limit(1)
+      .single();
+
+    if (error) {
+      if (error.code !== 'PGRST116') {
+        log('ERROR: getStoryByUserAndPoint error:', error);
+        Sentry.captureException(error, { extra: { userId, pointId } });
+      }
+      return null;
+    }
+
+    if (!data?.stories) return null;
+
+    const s = data.stories as {
+      id: string; author_id: string; title?: string; content: string;
+      visibility: StoryVisibility; current_version: number; understood_count: number;
+      created_at: string; updated_at: string; tags: string[];
+    };
+
+    return {
+      id: s.id,
+      authorId: s.author_id,
+      title: s.title,
+      content: s.content,
+      visibility: s.visibility ?? 'private',
+      currentVersion: s.current_version ?? 1,
+      understoodCount: s.understood_count ?? 0,
+      createdAt: s.created_at,
+      updatedAt: s.updated_at,
+      tags: s.tags ?? [],
+    };
   },
 
   // ============================================================================

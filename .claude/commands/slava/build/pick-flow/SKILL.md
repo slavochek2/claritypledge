@@ -88,6 +88,7 @@ Use this table to build the command chain directly. Each row maps a signal to a 
 | Spec already written — `test_files:` present in frontmatter | — | skip `/generate-tests`, start from `/dev` |
 | Spec already written — `test_files:` absent | — | start from `/generate-tests` → `/dev` |
 | Drop `/ux` only when ALL of the following are true: (a) ASCII/mockups in conversation cover all states: happy path, edge cases, empty states, loading states, and responsive/mobile layout; (b) No net-new visual component or layout pattern is being introduced; (c) No mobile-specific layout concerns exist. Otherwise: run `/ux` even if happy-path structure is sketched in conversation. "ASCII decided" ≠ "UX resolved". | — | drop `/ux` |
+| `type: change-request` in spec frontmatter | any | `/spec-review` mandatory (not optional) |
 | **Changes `.claude/commands/`, `.claude/rules/`, `.claude/hooks/`, `CLAUDE.md`, git workflow, or `scripts/` invoked by hooks/CI** | **Infra** | **See infrastructure tier below** |
 
 **Command ordering when multiple signals apply:** `/create-prd` → `/ux` → `/architect` → `/generate-tests` → `/decompose` → `/dev` → `/verify`
@@ -140,4 +141,5 @@ Apply this to every step. Don't default to "might help a bit" — default to "cl
 - If spec exists: check `test_files:` in frontmatter — present → start from `/dev`; absent → `/generate-tests` → `/dev`
 - `/review-all` runs automatically inside `/dev` and `/fix` — never list it as a step in any flow
 - `/verify` for net-new visual surface (new layout, new component with new UI, visual acceptance criteria, responsive/animation) — not for every `.tsx` change, not for component extraction with identical output
+- **`/spec-review` is mandatory (not optional) for `type: change-request` specs.** Redesigns have pre-existing elements that can silently conflict with new AC — spec-review catches these before implementation. The `*` optional marker applies to new features only.
 - After user confirms flow: set `flow:` in spec frontmatter if spec exists
