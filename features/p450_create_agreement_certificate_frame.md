@@ -1,14 +1,15 @@
 ---
-status: week
+status: today
 type: story
-rank: 125490.0
+rank: 1000002.25
 tags:
   - p422
   - agreements
   - ceremony
   - ux
 changes: p422
-created_date: 2026-02-26
+created_date: 2026-02-26T00:00:00.000Z
+locked_at: '2026-03-02T08:36:17.791Z'
 ---
 
 # P450: Create Agreement Form — Certificate Frame + Pledge Text

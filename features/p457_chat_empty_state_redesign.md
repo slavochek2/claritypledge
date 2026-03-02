@@ -10,7 +10,7 @@ uat_file: features/uat/p457.md
 test_files:
   - src/tests/p457-chat-empty-state.test.ts
   - e2e/p457-chat-empty-state.spec.ts
-locked_at: '2026-03-01T11:29:04.659Z'
+locked_at: '2026-03-02T08:34:59.769Z'
 ---
 
 # P457: Chat Empty State Redesign

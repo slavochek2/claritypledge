@@ -64,6 +64,19 @@ const { data } = await supabase.from('profiles').select('*, witnesses(*)');
 - Never put dates in comments or documentation — use relative terms ("current", "recent")
 - Routes use `slug` (e.g., `/p/john-doe`), not UUID — use `getProfileBySlug()` for route params
 
+## Navigation Pattern — Browse vs Focus Pages
+
+New pages must declare their type:
+
+- **Browse page** (/, /events, /sessions, /p/:slug, /me): BottomNav shows automatically. No back button.
+- **Focus page** (/story/:id, /point/:id, /agreements/:id, /chat): Use `<FocusHeader onBack={...} />` at top of page content. BottomNav hides automatically via route list in `bottom-nav.tsx`.
+
+**Adding a new focus page:** Also add its route prefix to the `focusRoutes` array in `bottom-nav.tsx`.
+
+**Never define inline BackButton components** — use `FocusHeader` from `@/app/components/layout/focus-header`.
+
+Full pattern: [docs/ux-patterns.md](../../docs/ux-patterns.md) — "Navigation Architecture".
+
 ## Inline vs. Skill Threshold
 
 Inline src edits (without `/dev` or `/fix`) are only appropriate for:

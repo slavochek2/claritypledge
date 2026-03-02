@@ -1,17 +1,18 @@
 ---
-status: today
+status: week
 type: bug
-rank: 125486.0
+rank: 94122.5
 workstream: C1
 severity: high
-date_reported: 2026-02-26
-created_date: 2026-02-26
+date_reported: 2026-02-26T00:00:00.000Z
+created_date: 2026-02-26T00:00:00.000Z
 source: sim
 changes: p422
 tags:
   - privacy
   - pii
   - agreement
+locked_at: '2026-03-02T08:35:54.478Z'
 ---
 
 # BUG: PII — Invited Party Email Address Exposed in Agreement UI

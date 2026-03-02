@@ -203,7 +203,7 @@ export function ShareButton({ type, id, url, className, title, description }: Sh
           className={className || "p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors"}
           aria-label={`Share ${type}`}
         >
-          <Share2 size={14} />
+          <Share2 size={16} />
         </button>
       </MobileTooltip>
       <ShareDialog

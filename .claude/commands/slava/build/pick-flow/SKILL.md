@@ -48,6 +48,7 @@ Commands line lists every applicable step — do not compress into labels like "
 
 - If a spec file exists for this task: add `flow: <fix|dev|inline|quick-feature>` to its frontmatter
 - If no spec exists yet: note the chosen flow so the next skill (`/quick-feature` or `/create-prd`) sets it on creation
+- If a mandatory stage was skipped (e.g. `/architect` for a UI-only change): add a one-line note to the spec's `## Next Steps` section: `Skipped: /architect — [reason in ≤10 words].` Use the Edit tool.
 
 ## Step 0: Identify task type first
 

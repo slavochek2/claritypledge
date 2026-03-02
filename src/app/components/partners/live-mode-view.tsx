@@ -2561,7 +2561,7 @@ function UnderstandingScreen({
       <div className="flex flex-col h-full">
         <LiveHeader partnerName={partnerName} onExit={onExit} isPrivate={isPrivate} />
         <div className={CONTENT_LAYOUT}>
-          {/* Result-first order: journey → gap badge (bonded) → CTA → story (reference) */}
+          {/* Result-first: journey → gap badge (bonded) → CTA → story (reference, scrollable) */}
           <JourneyToUnderstanding
             checkerRating={checkerRating}
             responderRating={responderRating}
@@ -2692,7 +2692,7 @@ function UnderstandingScreen({
       <div className="flex flex-col h-full">
         <LiveHeader partnerName={partnerName} onExit={onExit} isPrivate={isPrivate} />
         <div className={CONTENT_LAYOUT}>
-          {/* Result-first order: journey → calibrated badge (bonded) → CTA → story (reference) */}
+          {/* Result-first: journey → calibrated badge (bonded) → CTA → story (reference, scrollable) */}
           <JourneyToUnderstanding
             checkerRating={checkerRating}
             responderRating={responderRating}

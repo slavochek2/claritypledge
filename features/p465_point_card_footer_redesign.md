@@ -1,24 +1,24 @@
 ---
-status: week
+status: in-progress
 type: change-request
-rank: 1000003.0
+rank: 0.5
 changes: p456
-delivery_stage: 5-decomposed
-flow: ux → architect → generate-tests → spec-review → decompose → dev → verify
+delivery_stage: uat
+flow: ux → architect → generate-tests → decompose → dev → verify
+uat_file: features/uat/p465.md
+test_files:
+  - e2e/integration/p465-story-points-migration.spec.ts
+  - src/tests/getStoryByUserAndPoint.test.ts
+  - e2e/p465-point-card-footer.spec.ts
+  - e2e/p465-smoke.spec.ts
 tags:
   - redesign
   - p456
   - point-card
   - footer
   - story-cta
-created_date: 2026-03-01
-uat_file: features/uat/p465.md
-test_files:
-  - e2e/p465-point-card-footer.spec.ts
-  - e2e/p465-smoke.spec.ts
-  - e2e/integration/p465-author-id-migration.spec.ts
-  - e2e/a11y/p465-accessibility.spec.ts
-  - src/tests/viewer-story-count.test.ts
+created_date: 2026-03-01T00:00:00.000Z
+locked_at: '2026-03-02T08:37:01.274Z'
 ---
 
 # P465: Point card footer — unified row, no actor confusion, 1 story per user
@@ -176,7 +176,7 @@ See UX Design → Screen Layouts below for full per-state ASCII.
 
 **In scope:**
 - `src/app/components/social/point-card-with-links.tsx` — main shared component (quote pattern + feed view); both own and other-profile contexts share this
-- `src/app/pages/profile-page-v2.tsx` — `PointCardProfile` component (lines 1248-1289) — own-profile-specific footer
+- `src/app/pages/profile-page-v2.tsx` — `QuotedPointCard` component (footer at lines 1276-1317) — profile-surface footer (own and other profiles)
 - `supabase/migrations/` — new migration: `UNIQUE(author_id, point_id)` constraint on `story_points`
 - `/chat` entry point — detect existing story for `(currentUserId, pointId)` and open edit mode instead of create
 
@@ -206,7 +206,6 @@ See UX Design → Screen Layouts below for full per-state ASCII.
 - [ ] Other profile, position taken, viewer has story: stories row shows "▷ N stories by [Alice] · 1 by you" — single row, no CTA
 - [ ] Other profile, position taken, viewer has no story: shows "▷ N stories by [Alice]" + CTA "Why do you agree? →"
 - [ ] Viewer story count on other profiles is accurate (not always 0) — requires data pipeline fix
-- [ ] Other profile, position taken, owner has zero stories, viewer has no story: shows "▷ 0 stories by Alice [share] [open]" + CTA above it
 
 **1 story per user per point:**
 - [ ] `story_points` table has `UNIQUE(author_id, point_id)` constraint
@@ -247,8 +246,8 @@ This feature has three distinct rendering contexts, each with distinct footer lo
 
 | Context | Component | Viewer === Owner? | Profile owner available? |
 |---------|-----------|-------------------|--------------------------|
-| **Own profile** | `PointCardProfile` in `profile-page-v2.tsx` | Yes | Self |
-| **Other profile** | `PointCardProfile` in `profile-page-v2.tsx` | No | Alice |
+| **Own profile** | `QuotedPointCard` in `profile-page-v2.tsx` | Yes | Self |
+| **Other profile** | `QuotedPointCard` in `profile-page-v2.tsx` | No | Alice |
 | **Feed / quote pattern** | `PointCardWithLinks` (non-profile-owner context) | N/A | No |
 | **/live** | `PointCardWithLinks` with `liveSessionMode=true` | N/A | N/A |
 
@@ -597,7 +596,7 @@ No layout changes at breakpoints for the footer rows themselves. The `pl-[44px]`
 |---------|---------------|--------------|-----------------|
 | Stories row (expand trigger) | Extend | `point-card-with-links.tsx` lines 269-283 (quote pattern) and 402-444 (feed pattern). Add "by you" suffix logic; add edit/delete icons when `isOwnProfile && viewerStoryCount > 0`. | No — extend existing row |
 | CTA row ("Why do you agree? →") | Extend | `point-card-with-links.tsx` lines 308-352 (quote) and 447-490 (feed). Remove `copy.symbol` / `copy.label` prefix. Change position to render before stories row, not after. | No — text + position change only |
-| `PointCardProfile` footer | Extend | `profile-page-v2.tsx` lines 1276-1317. Replace dual-row with unified single-row per the state matrix. | No |
+| `QuotedPointCard` footer | Extend | `profile-page-v2.tsx` lines 1276-1317. Replace dual-row with unified single-row per the state matrix. | No |
 | Edit icon button | New | `Pencil` icon from Lucide, same styling as existing icon buttons (`min-w-[44px] min-h-[44px]`, `text-gray-400 hover:text-gray-600`). Navigation to `/chat?from=position&pointId=X&storyId=Y`. | No |
 | Delete icon button | New | `Trash2` icon from Lucide. Triggers confirmation dialog. Same icon button styling. | No |
 | Delete confirmation dialog | Reuse / Extend | Check for an existing confirmation dialog component in `src/app/components/ui/`. If none: a small headless modal or `window.confirm` (simpler, lower risk for this case). **Decision needed:** use `window.confirm` (zero new code, accessible by default) or a styled dialog component? | Yes — `window.confirm` vs styled dialog. Recommend `window.confirm` to keep scope minimal; upgrade later if needed. |
@@ -709,8 +708,6 @@ No method for `getStoryByUserAndPoint(userId, pointId)`. The `linkPointToStory` 
     // Build Map<pointId, count>
   }
   ```
-  > ⚠️ **Superseded by Decision 2 (D2):** After D2 adds `author_id` directly to `story_points`, the nested join (`story:stories!inner(author_id)`) is unnecessary. Use `.select('point_id, story_id').eq('author_id', currentUserId)` instead. T3 is written to this simpler form — implement T3, not the join above.
-
   This produces a `viewerStoriesForPoint` Map populated for all other-profile cases, not just own-profile.
 - **Rationale:** The batch is already structured here; adding a second batch for the viewer's links follows the existing P134/P151 pattern of batch loading at profile load time. Avoids per-card fetches. Reuses the `viewerStoriesForPoint` state variable that already exists in the page.
 - **Trade-off:** One extra query per profile page load (for authenticated viewer on another profile). Acceptable; it is a bounded join on indexed columns (`story_points.point_id` index exists).
@@ -767,6 +764,7 @@ No method for `getStoryByUserAndPoint(userId, pointId)`. The `linkPointToStory` 
   2. In `StoryGuideChatPage`, fire this query in the same `useEffect` that fetches the point. If a story is found, pass it as `existingStory` to `StoryGuideChat`.
   3. `StoryGuideChat` receives optional `existingStory?: Story` prop. When present: skip the brain-dump/AI phases, pre-populate the draft card with `existingStory.content`, open at the `polish` phase with an "Edit your story" heading, and save via `updateStory` instead of `createStory`.
 - **"Edit mode" definition in StoryGuideChat:** The phase machine (`idle → brain-dump → streaming → ...`) is bypassed. Component initializes directly at `polish` phase with the existing content as the draft. The user can edit the text and re-save. This is a targeted entry point into an existing phase — no new phases needed.
+- **State initialization on edit-mode entry (explicit):** Set `phase = 'polish'`, `polishedContent = existingStory.content`, `messages = []`. `linkPointToStory` is NOT called in edit mode — the story is already linked in `story_points`. `DraftCard` renders from `polishedContent` state, so seeding it from `existingStory.content` delivers the pre-populated content without new state variables. The edit/save path calls `updateStory(existingStory.id, ...)` instead of `createStory`.
 - **URL shape:** `/chat?from=position&pointId=X` — unchanged. The edit detection is automatic at load time. No `storyId` or `editMode` URL param needed, because `pointId` + `userId` uniquely identify the story (enforced by Decision 2 constraint).
 - **Rationale:** Putting detection in the page shell keeps `StoryGuideChat` receiving explicit state (not querying DB itself), consistent with how `contextPoint` and `contextProfileOwner` are passed. The page is the data-fetching boundary.
 - **Trade-off:** One extra query per `/chat?from=position&pointId=X` load for authenticated users. Acceptable; it is a lightweight point lookup on indexed columns.
@@ -941,210 +939,107 @@ COMMIT;
 
 ## Test Coverage Strategy
 
-**Files generated:**
+### Files Generated
 
-| File | Type | Purpose |
-|------|------|---------|
-| `e2e/p465-point-card-footer.spec.ts` | E2E | Core behavioral assertions — duplication fix, actor confusion fix, viewer count, CTA copy, ordering |
-| `e2e/p465-smoke.spec.ts` | E2E smoke | Profile pages load without JS errors in all footer states |
-| `e2e/integration/p465-author-id-migration.spec.ts` | Integration | DB migration: column exists, backfill, UNIQUE constraint, RLS, cascade |
-| `e2e/a11y/p465-accessibility.spec.ts` | Accessibility E2E | ARIA labels, no nested buttons, keyboard nav, focus rings |
-| `src/tests/viewer-story-count.test.ts` | Unit | `getViewerStoryCountsForPoints`, `getViewerStoryIdsForPoints`, `getStoryByUserAndPoint` — service methods with Supabase mock |
-| `features/uat/p465.md` | Manual UAT | Human checklist: all contexts × states × edge cases |
+| File | Type | What It Tests |
+|------|------|---------------|
+| `e2e/integration/p465-story-points-migration.spec.ts` | Integration (P270 mandatory) | `author_id` column exists, insert succeeds, `UNIQUE(author_id, point_id)` rejects duplicate, SELECT by author_id, RLS public SELECT policy |
+| `src/tests/getStoryByUserAndPoint.test.ts` | Unit (Vitest) | Returns Story on match, returns null on PGRST116, queries with correct userId+pointId, handles unexpected DB errors |
+| `e2e/p465-point-card-footer.spec.ts` | E2E (Playwright) | Flow 1 (own, no story: CTA visible, no actor confusion prefix), Flow 2 (own, story: CTA hidden, count appears once), Flow 3 (other, no viewer story: CTA above stories row, owner attribution), Flow 4 (other, viewer has story: CTA hidden, "by you" visible) |
+| `e2e/p465-smoke.spec.ts` | Smoke (Playwright) | App loads without JS errors, body not blank |
+| `features/uat/p465.md` | Manual UAT | Duplication fix (D), actor confusion fix (AC), viewer story count (VS), 1-story-per-user (OS), CTA ordering (ORD), regressions (REG), mobile (MOB) |
 
----
+### What's Tested
 
-**What's tested:**
+- ✅ DB migration: column/constraint/index presence (integration)
+- ✅ RLS: public SELECT on `story_points` for viewer secondary query (integration)
+- ✅ Service: `getStoryByUserAndPoint` returns Story or null (unit)
+- ✅ Own-profile: no story count duplication (E2E Flow 2)
+- ✅ Other-profile: viewer count accuracy + no actor confusion prefix (E2E Flows 3+4)
+- ✅ CTA hidden when viewer already has story (E2E Flows 2+4)
+- ✅ CTA row positioned above stories row (E2E Flow 3)
 
-- **Own-profile duplication fix** — E2E asserts exactly one story-count element visible; smoke confirms no JS errors in all states
-- **Actor confusion fix** — E2E asserts "✓ Agree ·" prefix is absent; E2E asserts CTA DOM position precedes stories row
-- **Viewer story count on other profiles** — E2E asserts "· N by you" appears when viewer has a story; asserts CTA absent in that state
-- **UNIQUE(author_id, point_id) constraint** — Integration test: 23505 on duplicate insert, different authors allowed on same point
-- **`story_points.author_id` column existence** — Integration test: schema check via admin client (P270 rule)
-- **Viewer service methods** — Unit tests: `getViewerStoryCountsForPoints` returns correct Map from Supabase response; error handling graceful (returns empty Map not throw)
-- **`getStoryByUserAndPoint`** — Unit test: returns story when exists, null when absent, null on error
-- **CTA adaptive copy** — E2E: agree/disagree/unsure all produce correct ctaText
-- **1-story-per-user UI gate** — E2E: CTA hidden when story exists, no "+ add story →" remnant
-- **Edit/delete icons** — E2E: visible only when story exists; have aria-labels
-- **P451 dead code removal** — E2E: "Tell your story →" not present after P465
-- **Keyboard accessibility** — A11y E2E: CTA focusable via Tab, activatable via Enter; no nested buttons
-- **RLS on new column** — Integration: user-scoped client can insert story_point with author_id
+### What's NOT Tested (Rationale)
 
----
+- ❌ Edit mode full flow (`StoryGuideChat` polish phase) — requires AI mocking; covered by manual UAT OS-3
+- ❌ `QuotedPointCard` in isolation — always rendered via profile page; covered by E2E flows
+- ❌ `linkPointToStory` `author_id` update — tested indirectly via integration test insert
 
-**What's NOT tested (rationale):**
-
-- **`StoryGuideChat` edit mode internals** — out of scope per spec; only the entry point branch (D3) is in scope. Component phase machine testing would require rendering StoryGuideChat in a mocked state — deferred to a dedicated edit-mode feature.
-- **Delete confirmation dialog flow (full)** — UAT covers manually; E2E would require clicking delete + interacting with `window.confirm` (or a dialog), which is fragile in Playwright with native browser dialogs. UAT scenario E-B/E-C/E-D cover it.
-- **`window.confirm` vs styled dialog** — UX Decision 1 deferred to founder; test written for the aria-label pattern without asserting which dialog implementation is used.
-- **/live disabled state** — unchanged from P456; P456 E2E and UAT already cover it. No new /live tests needed.
-- **Feed page** — out of scope per spec (no duplication risk in feed).
-- **Stories tab (QuotedPoint)** — out of scope per spec (P456 changes there are correct).
-- **Backfill SQL correctness** — SQL is tested indirectly via integration test (if backfill failed, column would have nulls and `NOT NULL` constraint wouldn't hold). Direct backfill row-count verification deferred to migration script output in dev.
-
----
-
-**Test pyramid:**
+### Test Pyramid
 
 ```
-                    Manual UAT
-                  ┌─────────────┐
-                  │  p465.md    │
-                  │ 30 scenarios│
-                  └─────────────┘
-
-            E2E + Accessibility
-        ┌──────────────────────────┐
-        │  p465-point-card-footer  │  20 tests
-        │  p465-smoke              │   5 tests
-        │  p465-accessibility      │  11 tests
-        └──────────────────────────┘
-
-          Integration (DB/Migration)
-      ┌────────────────────────────────┐
-      │  p465-author-id-migration      │   6 tests
-      └────────────────────────────────┘
-
-                Unit (Service)
-    ┌──────────────────────────────────────┐
-    │  viewer-story-count.test.ts          │  14 tests
-    └──────────────────────────────────────┘
+       /\
+      /  \   9 E2E tests
+     /____\
+    / 5 INT  \
+   /__________\
+  / 4 UNIT    \
+ ______________
 ```
 
-**Total: 56 automated tests + 30 UAT scenarios**
+**Total:** 18 automated tests + 24 UAT checks
 
 ---
 
-## Spec Review
+## Implementation Tasks
 
-Run after `/generate-tests`, before `/dev`. Two-agent review (plan → critique). Date: 2026-03-01.
+> Generated by /decompose. Each task is scoped to 1–3 files and independently verifiable.
+> Run /dev to execute — it will dispatch one subagent per task.
+>
+> ⚠️ **Note:** `getStoryByUserAndPoint` is already implemented in `stories-service.interface.ts`
+> and `stories-service-real.ts` (done during BLOCK-fix session). Task 2 covers only the
+> remaining service work: `linkPointToStory` author_id update + mock stub.
 
-### Findings Requiring Action Before Implementation
+### Task 1: DB Migration — author_id column + UNIQUE constraint
+- **Files:** `supabase/migrations/20260301120000_story_points_author_unique.sql` (create)
+- **Spec refs:** "Technical Analysis > Implementation Approach > Migration File (lines ~872-936)"
+- **Tests:** `e2e/integration/p465-story-points-migration.spec.ts`
+- **Depends on:** None
+- **Verify:** `./scripts/migrate.sh` succeeds on test DB; migration spec passes 5/5 (author_id column exists, insert works, UNIQUE rejects duplicate, SELECT by author_id, RLS SELECT public)
+- [x] Complete
 
-| ID | Finding | Severity | Action |
-|----|---------|----------|--------|
-| F-1 | `e2e/helpers/test-story.ts` `linkStoryToPoint` inserts only `{ story_id, point_id }` — missing `author_id`. After migration adds `author_id NOT NULL`, every call fails with a not-null violation. The migration integration test (`p465-author-id-migration.spec.ts`) inserts `author_id` directly and is unaffected, but `p465-point-card-footer.spec.ts`, `p465-smoke.spec.ts`, and `e2e/a11y/p465-accessibility.spec.ts` (4 call sites at lines 171, 200, 335, 379) will break. | **High** | Update helper to `linkStoryToPoint(storyId, pointId, authorId)` and include `author_id` in the insert. Update all call sites in all three E2E files. |
-| F-2 | `src/app/data/stories-service.interface.ts` does not declare `getViewerStoryCountsForPoints` or `getViewerStoryIdsForPoints`. The unit tests (`viewer-story-count.test.ts`) describe them as service methods — the spec and test file are unambiguous on this. Interface must be updated before implementation. | **High** | Add both methods to the interface (plus `getStoryByUserAndPoint`). Remove `describe.skip` from unit tests once implemented. |
-| F-3 | Migration (arch lines 911-916) uses `ctid` for duplicate row dedup. Within-transaction `ctid` is stable (VACUUM cannot run inside an open transaction), so it is correct as written. However `ctid` is a physical identifier and misleads reviewers. Prefer `MIN(story_id)` — a stable, meaningful UUID key. | **Low** | Replace `MIN(sp2.ctid)` dedup with `MIN(story_id)` dedup in the migration. |
-| F-4 | Architecture Decision 3 (no `storyId` in Points-tab edit URL) and Decision 5 (`storyId` included in Stories-tab `QuotedPointCard` edit URL) are correct but never stated per-surface explicitly. UAT scenario E-A acknowledges both forms. A developer implementing the edit icon in `PointCardWithLinks` might add `storyId` to the URL, forcing `/chat` to handle it unexpectedly. | **Low** | Confirm in code comments at each edit icon: "Points tab → `/chat?from=position&pointId=X` (edit detected at load time)"; "Stories tab → `/chat?from=position&pointId=X&storyId=Y`". |
-| F-5 | No AC for "other profile, zero stories by Alice, viewer has position" state. Edge case section (line 453-459) covers it in prose but the Acceptance Criteria section has no corresponding line. Added below. | **Low** | AC added to Acceptance Criteria section. |
+### Task 2: Service layer — linkPointToStory author_id + mock stub
+- **Files:** `src/app/data/stories-service-real.ts` (modify: add `author_id` to `linkPointToStory` insert), `src/app/data/stories-service-mock.ts` (modify: add `getStoryByUserAndPoint` stub returning `null`)
+- **Spec refs:** "Technical Analysis > Files to Modify #3-4 (lines ~836-838), Build Sequence step 2 (lines ~860)"
+- **Tests:** `src/tests/getStoryByUserAndPoint.test.ts` (already passing)
+- **Depends on:** Task 1 (author_id column must exist before linkPointToStory passes it)
+- **Verify:** `linkPointToStory` inserts include `author_id`; mock compiles without type errors; unit tests still 4/4
+- [x] Complete
 
-### AC Addition (F-5)
+### Task 3: Profile page — viewer data pipeline + QuotedPointCard footer
+- **Files:** `src/app/pages/profile-page-v2.tsx` (modify: two changes — (a) viewer secondary query + viewerStoryCountMap state for other profiles, viewerStoryIdForPoint map for own profile; (b) QuotedPointCard footer restructure at lines 1276-1317 — remove "✓ Agree ·" prefix, CTA above stories row, edit link on own profile)
+- **Spec refs:** "Technical Analysis > Files to Modify #5 (lines ~840-843), Files to Modify #9 (lines ~855), Decisions 3-5 (lines ~758-782), UX Design > State Matrix (lines ~482-530)"
+- **Tests:** `e2e/p465-point-card-footer.spec.ts` (Flows 1-4)
+- **Depends on:** Task 2
+- **Verify:** On own profile: CTA above stories row, no "✓ Agree ·" prefix, edit link visible when story exists. On other profile: viewer story count accurate, "by you" suffix appears when viewer has a story.
+- [x] Complete
 
-Added to **Viewer count on other profiles** AC group:
+### Task 4: PointCardWithLinks — footer restructure + P451 cleanup
+- **Files:** `src/app/components/social/point-card-with-links.tsx` (modify: remove P451 dead code lines 576-586; restructure quote-pattern footer — CTA above stories row, remove copy.symbol/copy.label prefix; add `viewerStoryCount` prop with inline fallback)
+- **Spec refs:** "Technical Analysis > Files to Modify #8 (lines ~849-853), UX Design > Flows 1-4 (lines ~255-388), Decision 1 (lines ~712-725)"
+- **Tests:** `e2e/p465-point-card-footer.spec.ts` (all flows), `e2e/p465-smoke.spec.ts`
+- **Depends on:** Task 3 (viewerStoryCount prop passed from profile page)
+- **Verify:** "✓ Agree ·" prefix gone from all surfaces; P451 button absent; CTA renders above stories row in quote pattern; feed pattern CTA position unchanged; no TypeScript errors
+- [x] Complete
 
-- [ ] Other profile, position taken, owner has zero stories, viewer has no story: shows "▷ 0 stories by Alice [share] [open]" + CTA above it
+### Task 5: StoryGuideChatPage — edit mode detection
+- **Files:** `src/app/pages/story-guide-chat-page.tsx` (modify: add `getStoryByUserAndPoint` call in position-triggered useEffect; pass `existingStory` prop to `StoryGuideChat` when found)
+- **Spec refs:** "Technical Analysis > Files to Modify #6 (lines ~845), Decision 3 > Approach steps 2-3 (lines ~761-764)"
+- **Tests:** `e2e/p465-point-card-footer.spec.ts` (OS-3 manual UAT covers edit mode entry)
+- **Depends on:** Task 2 (`getStoryByUserAndPoint` already in interface + real service)
+- **Verify:** TypeScript compiles; when navigating to `/chat?from=position&pointId=X` with an existing story, `existingStory` prop is populated; when no story, `existingStory` is undefined
+- [x] Complete
 
-### Passed (No Action Needed)
-
-- Feed pattern is a distinct JSX branch (`PointCardWithLinks` lines 355-491) — share zero footer rendering code with the quote pattern. Restructuring the quote pattern cannot accidentally touch feed. ✅
-- DB migration `ctid` usage is within-transaction safe as written. ✅
-- Test helper call sites in `p465-author-id-migration.spec.ts` insert `author_id` directly (bypass `linkStoryToPoint`) — migration integration tests are not blocked by F-1. ✅
-- Prop fallback `viewerStoryCount ?? filteredStories.filter(...).length` is valid TypeScript — `??` correctly passes through `0` without falling back. ✅
-- `PointCardWithLinks` quote-pattern branch and feed-pattern branch share no footer JSX — P451 dead code removal (outer `showStoryCTA` button) is safe to remove without branch risk. ✅
-
----
-
-## Decomposed Tasks
-
-7 tasks. T2 and T3 are parallel from T1 — the unit test activation step in T2 waits on T3, but the helper fix itself does not.
-
-```
-Task 1 (migration)
-  ├── Task 2a (helper fix: linkStoryToPoint + a11y call sites)
-  └── Task 3 (service interface + impl)
-        ├── Task 2b (remove describe.skip from unit tests)
-        ├── Task 4 (profile page data pipeline)
-        │     └── Task 5 (footer rendering — both surfaces)
-        └── Task 6 (StoryGuideChatPage existence check)
-              └── Task 7 (StoryGuideChat edit mode)
-```
-
----
-
-### T1 — DB migration: `story_points.author_id` + UNIQUE constraint
-
-**Files:** `supabase/migrations/20260301120000_story_points_author_unique.sql` (new)
-
-Add `author_id UUID REFERENCES profiles(id) NOT NULL` to `story_points`, backfill from `stories.author_id`, pre-flight dedup check (use `MIN(story_id)` not `ctid`), add `UNIQUE(author_id, point_id)`, add index on `author_id`. Run `./scripts/migrate.sh`. Migration must be wrapped in explicit `BEGIN`/`COMMIT`.
-
-**Validates:** `e2e/integration/p465-author-id-migration.spec.ts` (all 6 tests — schema, backfill, unique constraint, multi-author, RLS, cascade).
-
----
-
-### T2 — Fix `linkStoryToPoint` helper + activate unit tests
-
-**Files:** `e2e/helpers/test-story.ts`, `e2e/a11y/p465-accessibility.spec.ts`, `src/tests/viewer-story-count.test.ts`
-
-Update `linkStoryToPoint(storyId, pointId, authorId)` to include `author_id` in the Supabase insert. Update all call sites in `p465-point-card-footer.spec.ts`, `p465-smoke.spec.ts`, and `p465-accessibility.spec.ts` (4 call sites at lines 171, 200, 335, 379). Remove `describe.skip` from `viewer-story-count.test.ts` once T3 lands (can be done in T3).
-
-**Validates:** All E2E tests pass post-migration. Unit tests (`viewer-story-count.test.ts` 14 tests) pass after T3.
+### Task 6: StoryGuideChat — edit mode UI
+- **Files:** `src/app/components/story-guide/StoryGuideChat.tsx` (modify: add `existingStory?: Story` prop; when present initialize `phase = 'polish'`, `polishedContent = existingStory.content`, `messages = []`; change heading to "Edit your story"; call `updateStory` on save instead of `createStory`)
+- **Spec refs:** "Technical Analysis > Files to Modify #7 (lines ~847), Decision 3 > State initialization (lines ~765-766), Decision 3 > Edit mode definition (lines ~765)"
+- **Tests:** `src/tests/getStoryByUserAndPoint.test.ts` (service contract); manual UAT OS-3 covers full edit flow
+- **Depends on:** Task 5 (existingStory prop passed from StoryGuideChatPage)
+- **Verify:** TypeScript compiles; when `existingStory` present, component renders at polish phase with pre-populated content and "Edit your story" heading; save calls `updateStory` not `createStory`
+- [x] Complete
 
 ---
 
-### T3 — StoriesService interface + implementation
+**Total tasks:** 6 | **Can parallelize:** Task 3 + Task 5 (after Task 2, different files) | **Must be sequential:** Task 1 → Task 2 → {Task 3 ∥ Task 5} → {Task 4 (after 3) ∥ Task 6 (after 5)}
 
-**Files:** `src/app/data/stories-service.interface.ts`, `src/app/data/stories-service-real.ts`, `src/app/data/stories-service-mock.ts`
-
-Add three methods to interface:
-- `getStoryByUserAndPoint(userId, pointId): Promise<Story | null>` — query `story_points WHERE author_id = userId AND point_id = pointId`, join `stories`, limit 1.
-- `getViewerStoryCountsForPoints(viewerId, pointIds): Promise<Map<string, number>>` — batch query, returns count per pointId.
-- `getViewerStoryIdsForPoints(viewerId, pointIds): Promise<Map<string, string>>` — same query, returns storyId per pointId. Both batch methods return empty Map on error or empty input (no throw).
-
-Also update `linkPointToStory` to include `author_id` in the insert payload. Add stubs to mock returning `null` / empty Maps. Remove `describe.skip` from `viewer-story-count.test.ts`.
-
-**Validates:** `src/tests/viewer-story-count.test.ts` (14 unit tests).
-
----
-
-### T4 — Profile page: viewer story secondary query (other-profile)
-
-**Files:** `src/app/pages/profile-page-v2.tsx`
-
-After `adaptedPoints` is built, when `currentUserId && currentUserId !== profile.id`, call `storiesService.getViewerStoryCountsForPoints(currentUserId, pointIds)` and `storiesService.getViewerStoryIdsForPoints(currentUserId, pointIds)`. Store in state: `otherProfileViewerCountMap` and `otherProfileViewerStoryIdMap`. For own profile, extend the existing `viewerStoriesForPoint` memo to also produce a storyId map (`viewerStoryIdForPoint`) from `realStories`. Pass both maps into all `PointCardProfile` / `QuotedPointCard` rendering.
-
-**Validates:** Viewer count data flows correctly — validated indirectly by T5 E2E tests.
-
----
-
-### T5 — Footer rendering: `PointCardWithLinks` + `QuotedPointCard` (both surfaces)
-
-**Files:** `src/app/components/social/point-card-with-links.tsx`, `src/app/pages/profile-page-v2.tsx` (QuotedPointCard section only, lines 1143-1321)
-
-Both surfaces share the same target layout — implement together to avoid inconsistent intermediate state.
-
-In `PointCardWithLinks`:
-- Add `viewerStoryCount?: number` prop. Fallback: `resolvedViewerStoryCount = viewerStoryCount ?? filteredStories.filter(s => s.authorId === currentUserId).length`.
-- Remove P451 dead code (lines 575-586).
-- Quote pattern: restructure footer — CTA above stories row, remove `copy.symbol`/`copy.label` prefix, gate CTA on `resolvedViewerStoryCount === 0`.
-- Feed pattern: remove `copy.symbol`/`copy.label` prefix only; leave CTA below stories row (out of scope for reorder).
-
-In `QuotedPointCard` (profile-page-v2.tsx):
-- Replace P456 split-footer block (lines 1276-1317) with unified structure: CTA above stories row, no prefix.
-- Own profile + story exists: single stories row with edit icon (→ `/chat?from=position&pointId=X`, edit detected at load time) and delete icon (`window.confirm` per UX Decision 1). Add code comment: "Points tab — no storyId in URL; /chat detects existing story at load time (D3)."
-- Own profile + no story: CTA + "▷ 0 stories [share] [open]".
-- Other profile + viewer count > 0: "▷ N stories by Alice · 1 by you [share] [open]", no CTA.
-- Other profile + viewer count === 0 + position: CTA above stories row.
-- Other profile + no position: stories row only.
-
-**Validates:** `e2e/p465-point-card-footer.spec.ts` (22 tests), `e2e/p465-smoke.spec.ts` (5 tests), `e2e/a11y/p465-accessibility.spec.ts` (11 tests).
-
----
-
-### T6 — `StoryGuideChatPage`: story existence check at load time
-
-**Files:** `src/app/pages/story-guide-chat-page.tsx`
-
-In the `useEffect` that processes `?from=position&pointId=X`, after fetching the point, call `storiesService.getStoryByUserAndPoint(user.id, pointId)`. Store in `existingStory` state. Pass as optional prop to `<StoryGuideChat existingStory={existingStory} />`. Guard with existing `!user` check.
-
-**Validates:** UAT scenarios S-B and S-C (manual only — edit-mode routing is out of scope for automated E2E per test coverage rationale).
-
----
-
-### T7 — `StoryGuideChat`: edit mode entry
-
-**Files:** `src/app/components/story-guide/StoryGuideChat.tsx`
-
-Add `existingStory?: Story` to `StoryGuideChatProps`. When present: initialize phase to `'polish'` (bypass idle → brain-dump → streaming), pre-populate draft with `existingStory.content`, render heading as "Edit your story", call `updateStory(existingStory.id, draftContent)` on save instead of `createStory`. Ships atomically with T6 (T6 passes the prop, T7 consumes it — neither is useful alone).
-
-**Validates:** UAT scenarios S-B and S-C (manual).
+**Post-implementation:** Run `/verify` on own profile (Flows 1+2) and other profile (Flows 3+4) to confirm no duplication, no actor-confusion label, accurate viewer count.

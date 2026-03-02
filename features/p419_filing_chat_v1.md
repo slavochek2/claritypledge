@@ -1,7 +1,7 @@
 ---
-status: week
+status: in-progress
 type: story
-rank: 2.25
+rank: 1
 workstream: C1
 tags:
   - filing
@@ -18,6 +18,7 @@ reviews:
   architect: null
   alignment: null
 created_date: 2026-02-24T00:00:00.000Z
+locked_at: '2026-03-02T08:35:59.978Z'
 ---
 
 # P419: Filing Chat V1 — AI-Guided Single Story Creation

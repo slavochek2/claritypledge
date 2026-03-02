@@ -1,14 +1,15 @@
 ---
-status: week
+status: blocked
 type: story
-rank: 125510.0
+rank: 0.75
 tags:
   - agreements
   - profile
   - ux
   - p422
-created_date: 2026-02-28
+created_date: 2026-02-28T00:00:00.000Z
 flow: dev
+locked_at: '2026-03-02T08:36:50.872Z'
 ---
 
 # P462: Clarity Partners Count — Header Prominence

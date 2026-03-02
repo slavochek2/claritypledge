@@ -1,7 +1,7 @@
 ---
-status: week
+status: today
 type: change-request
-rank: 1000005.0
+rank: 1000002.5
 changes: p425
 tags:
   - redesign
@@ -9,9 +9,15 @@ tags:
   - chat
   - context-header
   - rating
-created_date: 2026-03-02
+created_date: 2026-03-02T00:00:00.000Z
 flow: dev
 delivery_stage: 2-ux-review
+uat_file: features/uat/p467.md
+test_files:
+  - e2e/p467-chat-context-header.spec.ts
+  - e2e/p467-smoke.spec.ts
+  - e2e/a11y/p467-accessibility.spec.ts
+locked_at: '2026-03-02T08:37:12.090Z'
 ---
 
 # P467: /chat — slim context header + inline rating (remove drawer)
@@ -538,3 +544,40 @@ Scanned: `src/app/components/story-guide/` and `src/app/components/social/`
 | `SavedStoryChatCard` | **Reuse as-is** | `src/app/components/story-guide/SavedStoryChatCard.tsx` — unchanged. | No |
 
 **Key decision for /dev:** Should `ThreadMessage` receive a `children?: React.ReactNode` prop to support the rating button row inline in the AI bubble, or should a new `RatingThreadMessage` component be created? Recommendation: add `children` prop to `ThreadMessage`. It is a clean, minimal extension — `children` renders below `content` when provided, keeping the single-bubble mental model intact. The `content` string can be empty (or the rating question text) and `children` contains the button row JSX.
+
+---
+
+## Test Coverage Strategy
+
+**Approach:** E2E + accessibility tests only. No unit tests or integration tests (pure UI change, no DB/API changes).
+
+### Coverage by layer
+
+| Layer | Files | Rationale |
+|-------|-------|-----------|
+| E2E — main flow | `e2e/p467-chat-context-header.spec.ts` | ChatContextHeader rendering, inline rating flow (click + type paths), escape hatch, Drawer removal, P465 regression, no-position edge case |
+| E2E — smoke | `e2e/p467-smoke.spec.ts` | /chat page loads without Drawer, context header present, no static asset failures, auth redirect |
+| Accessibility | `e2e/a11y/p467-accessibility.spec.ts` | 0–10 button row keyboard nav, aria-labels, aria-pressed, aria-disabled after send, position chip aria-label, aria-live announcement, decorative anchor labels |
+| UAT — manual | `features/uat/p467.md` | Visual verification checklist for all AC items; rating flow (click + type paths); escape hatch; P465 edit mode; profile page regression |
+
+### test-id contract for /dev
+
+The test files rely on these `data-testid` attributes that `/dev` must implement:
+
+| `data-testid` | Component | Notes |
+|--------------|-----------|-------|
+| `chat-context-header` | `ChatContextHeader` | Root element of new component |
+| `position-chip` | Inline span in `ChatContextHeader` | The "You agree" / "You disagree" / "You're unsure" pill |
+| `point-text-toggle` | Text region in `ChatContextHeader` | Present only when text is truncated; has `role="button"` and `aria-expanded` |
+| `rating-bubble` | `ThreadMessage` wrapping the rating prompt | The AI bubble containing 0–10 buttons |
+| `thread-message-ai` | `ThreadMessage` (role=ai) | Already exists in current `ThreadMessage.tsx` |
+| `thread-message-user` | `ThreadMessage` (role=user) | Already exists in current `ThreadMessage.tsx` |
+| `story-guide-chat` | `StoryGuideChat` root | Already exists |
+| `story-guide-input` | Input bar textarea | Already exists |
+| `edit-story-heading` | Edit mode heading (P465) | Existing or new — needed for regression test |
+
+### Coverage gaps (accepted)
+
+- Rating click/type paths: tests use `test.skip()` stubs when not in rating phase — full flow requires AI edge function running and returning a draft. Mark as TODO for post-implementation verification via `/verify`.
+- Escape hatch iteration count: cannot assert `iterationCount >= 1` without completing 2 full AI loops in test — accepted as manual-only via UAT.
+- "Save as-is →" triggers save flow: covered in UAT manual checklist only.

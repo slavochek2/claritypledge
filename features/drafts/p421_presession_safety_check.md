@@ -1,10 +1,15 @@
 ---
-status: today
+status: blocked
 type: story
-rank: 125469.0
+rank: 0.5
 workstream: C1
 created_date: '2026-02-24'
-tags: [live, psychological-safety, onboarding, mediation]
+tags:
+  - live
+  - psychological-safety
+  - onboarding
+  - mediation
+locked_at: '2026-03-02T08:35:13.982Z'
 ---
 
 # P421: Pre-Session Psychological Safety Check

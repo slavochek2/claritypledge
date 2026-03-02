@@ -1,6 +1,6 @@
 ---
 name: ship
-description: Ship an approved feature to production. Merges feature/pN → main → pushes → Vercel deploys → closes spec (status: done, moves to features/done/).
+description: Ship an approved feature to production. Merges feature/pN → main → pushes → Vercel deploys → closes spec (status: all-done, moves to features/done/).
 when_to_use: When a feature is approved for production and lives on a feature branch.
 ---
 
@@ -27,12 +27,16 @@ Ship an approved feature to production.
 - If user replies 'spec-only': skip steps 2-6, jump directly to step 7.
 
 2. **Verify clean state** — no uncommitted changes on the feature branch
+2.5. **Check spec status** — read the spec's `status` frontmatter field:
+   - `done` → proceed (spec was manually approved after UAT — happy path)
+   - `qa` → ask: "pN spec is still in `qa` — you haven't marked it done after UAT. Ship anyway? (y/n)"
+   - anything else (backlog, in-progress, etc.) → ask: "pN spec is in `{status}` — this doesn't look ready to ship. Proceed anyway? (y/n)"
 3. **Run pre-commit checks** — `./scripts/pre-commit-checks.sh`
 4. **Merge to main** — `git merge feature/pN --no-ff` (preserves branch history)
 5. **Push** — `git push origin main` → Vercel auto-deploys
 6. **Confirm** — report the deployment URL
 7. **Close the spec** — move spec to `features/done/`, update frontmatter:
-   - `status: done`
+   - `status: all-done`
    - `completed_at: YYYY-MM-DD`
    - Remove `delivery_stage: uat` line
    ```bash
