@@ -2,6 +2,20 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-02 [product]: Journey collapse threshold — minimum 3 rounds to collapse
+
+**Context:** P469 initially set `hasOlderRounds = explainBackRatings.length > 1`, which fires with 2 explain-back rounds (3 total rows: round 0 + 1 + 2). With 2 rounds, collapse hides exactly 1 row — no meaningful space savings, adds UX friction. User correctly flagged this as a no-op collapse.
+
+**Decision:** Collapse fires only when `explainBackRatings.length > 2` (3+ explain-back rounds = 2+ hidden rows). With 1–2 explain-back rounds all rows render directly.
+
+**Alternatives rejected:** `> 1` threshold — produces "Show 1 earlier round" button that hides one row. Net result: more taps, no space recovery.
+
+**Consequences:** Journey card always shows all rows up to 3 explain-back rounds. Collapse first appears at 4 rows total. `olderRounds` must always compute as `explainBackRatings.slice(0, -1)` — do NOT gate it on `hasOlderRounds`, or intermediate rounds are dropped when threshold isn't met.
+
+**References:** `src/app/components/partners/live-mode-view.tsx` (`hasOlderRounds` constant)
+
+---
+
 ## 2026-03-02 [process]: features/ folder convention — root vs drafts vs done
 
 **Context:** fix-kanban session surfaced that `backlog`-status files accumulate in `features/` root alongside active sprint items (`today`, `week`, `in-progress`), and that `fix-frontmatter.py` was reporting false "no valid frontmatter" errors on UAT checklist files in `/uat/` subdirs.

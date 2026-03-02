@@ -1,7 +1,7 @@
 # Done Features Index
 
 Quick reference for past completed work. Consult when starting work on a related topic.
-Last updated: 2026-03-02
+Last updated: 2026-03-02 (P469)
 
 ---
 
@@ -16,6 +16,7 @@ Last updated: 2026-03-02
 - **P272** (Feb 26) Live Story-Point Verification — position-required validation on real session points, not mock data
 - **P275** (Feb 26) Live Positions Unverified RLS — RLS must require `verification_status IS NOT NULL`
 - **P276** (Feb 26) Two-Party E2E DB Polling — explicit waits reduce flakiness in multi-agent E2E coordination
+- **P469** (Mar 02) /live Layout Revert P455 + KISS Fixes — collapse threshold `> 1` fires with 2 rounds (hides 1 row); raise to `> 2`; `olderRounds` must always compute (don't gate on `hasOlderRounds` or it drops intermediate rounds)
 
 ## Points & Stories
 
