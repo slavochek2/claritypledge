@@ -72,6 +72,20 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-03-02 [technical]: story_versions INSERT RLS — use `current_user = 'postgres'` for trigger-context branch
+
+**Context:** `story_versions` has RLS enabled. The SECURITY DEFINER trigger `create_initial_story_version` runs as the `postgres` role (not `auth.uid()`). With no INSERT policy, the trigger was blocked (error 42501). Initial fix used `auth.uid() IS NULL` to allow the trigger-context branch, but this also matched anonymous API callers (anon role — no JWT sub claim), creating an unauthenticated-insert loophole.
+
+**Decision:** Scope the trigger-context branch to `current_user = 'postgres'`. In Supabase, SECURITY DEFINER triggers run as the `postgres` role; anonymous API callers run as the `anon` role. Only postgres can satisfy this check, closing the loophole. Pattern: `current_user = 'postgres' OR EXISTS (SELECT 1 FROM stories WHERE stories.id = story_id AND stories.author_id = auth.uid())`.
+
+**Alternatives rejected:** `auth.uid() IS NULL` — too broad, matches anon callers. `SECURITY DEFINER` on the RLS function — doesn't apply to policy conditions. BYPASSRLS for postgres — correct but requires superuser grant not available on Supabase free tier.
+
+**Consequences:** Any future INSERT policies on tables written to by SECURITY DEFINER triggers must use `current_user = 'postgres'` (not `auth.uid() IS NULL`) for the trigger-context branch.
+
+**References:** [supabase/migrations/20260302130000_story_versions_insert_policy_v2.sql](../supabase/migrations/20260302130000_story_versions_insert_policy_v2.sql)
+
+---
+
 ## 2026-03-01 [process]: UAT branch stranding — pre-deletion diff gate + /kdd branch-awareness warning
 
 **Context:** `docs/ux-patterns.md` (266 lines of navigation architecture) was written during UAT for p422-p425, landed on the UAT branch, and was lost when that branch was deleted without checking for unreleased commits. 5-Why root cause: branch deletion had no "diff vs main" gate. The /kdd skill had no branch-awareness check, so KDD entries written on UAT branches were stranded silently.
