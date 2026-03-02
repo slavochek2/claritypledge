@@ -76,12 +76,17 @@ Recommendation: Remove from README.md, link to definitions.md instead.
 0. **Branch check — before writing anything:**
    ```bash
    git branch --show-current
+   git worktree list
    ```
    If the current branch is NOT `main`, warn:
 
    > "Warning: You are on branch [{branch}] — KDD entries written here will not reach main until this branch merges. To land KDD directly on main instead: `git commit -m "wip: [description]"`, `git checkout main`, write KDD, commit, `git checkout -`, `git reset HEAD~1` (to undo the wip commit). Or proceed here if you're confident this branch will merge soon."
 
-   This is not a blocker — just a warning. The user decides. But without the warning, KDD entries are silently stranded on feature or UAT branches and lost when the branch is deleted.
+   If the current branch IS `main` but `git worktree list` shows active worktrees with uncommitted work, also warn:
+
+   > "Warning: Active worktree(s) detected on [{branches}]. If this KDD session was triggered from a worktree context, confirm you are writing from the correct branch. KDD commits on main are correct only if the learning is not worktree-specific."
+
+   These are not blockers — just warnings. The user decides. But without the warning, KDD entries are silently stranded on feature or UAT branches and lost when the branch is deleted.
 
 1. **Review recent work:**
    ```bash
