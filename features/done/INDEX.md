@@ -76,6 +76,7 @@ Last updated: 2026-03-02
 
 ## Agreements & Relationships
 
+- **P463** (Mar 02) Agreement & Partner UI Polish — remove exposed internal IDs and double-rotation resend bug by deleting amber pending block entirely; CTA always at top-right
 - **P422** (Feb 26) Clarity Partner Agreement — two-party agreement flow; separate pages per state (create/pending/accepted/declined); edge function sends emails
 - **P422** (Feb 26) Clarity Partner Agreement — UAT branch rescue pattern; revert-from-main wrong mechanism; use feature branch + /ship instead
 - **P459** (Feb 27) Move Agreements to Connections Page — profile sub-page at `/p/:slug/connections`; service-layer filter for current user only (not creator); react-refresh requires named exports

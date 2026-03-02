@@ -2,6 +2,18 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-02 [process]: Worktree branch deadlock — use `git checkout --detach` to free a branch locked by the main worktree
+
+**Context:** After merging feature/p463 into main (from inside the p465 worktree), the main repo was still checked out on `feature/p463`. `git branch -d feature/p463` failed because the branch was "used by worktree" (the main repo itself). `git checkout main` also failed because `main` was already locked by the p465 worktree. Classic deadlock: branch A locked by main repo, branch main locked by worktree — no path to switch.
+
+**Decision:** `git checkout --detach` on the main repo detaches HEAD from the branch without switching to any tracked branch. This frees the branch for deletion without conflicting with the worktree's lock on `main`. Then `git branch -d` succeeds.
+
+**Alternatives rejected:** Removing the p465 worktree first — would kill the active Claude session running inside it. Checking out a third branch (feature/p469) — works but leaves main repo in unexpected state.
+
+**Consequences:** When a worktree holds `main` and the main repo holds a feature branch after a merge, the cleanup sequence is: `git checkout --detach && git branch -d feature/pN`. No worktree removal needed.
+
+---
+
 ## 2026-03-02 [product]: Point card attribution convention — always show "by [name]" when profileOwner is known
 
 **Context:** P465 redesigned the point card footer (unified row, no actor confusion). Post-ship QA revealed that "by [name]" attribution was missing on own profile and at 0 story count — inconsistent with the Stories tab pattern ("x points by [name]"). P469 was filed to correct this.
