@@ -55,6 +55,7 @@ Last updated: 2026-03-02
 
 ## UI / Design System
 
+- **P455** (Mar 02) Live Mobile Layout Story Compact Reorder — CSS line-clamp + character-slice on same element conflict silently; use one truncation system only
 - **P408** (Feb 26) Position Cancel Visual Glitch — only call `setUserPosition` for non-null positions on cancel
 - **P402** (Feb 26) Profile Points Tab Wrong Query — query by positions held, not points created; batch load to avoid N+1
 - **P404** (Feb 26) Rename pledge-certificate-view — component at /p/:slug/pledge is pledge cert, not profile visitor view
@@ -116,3 +117,4 @@ Last updated: 2026-03-02
 - **P69** (Jan 27) Product Vision Consolidation — asymmetric conversion hypothesis as foundation
 - **P87** (Jan 27) Metrics Model Simplification — focus on verification + calibration only
 - **P94** (Jan 27) Doc Architecture Refactor — organize technical docs; navigation, cross-links, search
+- **P79** (Jan 20) Consulting & Revenue Model — superseded spec; personal brand settled as ladischenski.com (not "Slava Coaching"); two-brand strategy: ClarityPledge (product) + ladischenski.com (facilitation)

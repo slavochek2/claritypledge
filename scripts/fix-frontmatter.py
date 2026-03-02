@@ -340,7 +340,7 @@ def main():
     if single_file_mode:
         files = [Path(f) for f in sys.argv[1:]]
     else:
-        files = sorted((PROJECT_ROOT / 'features').rglob('p[0-9]*.md'))
+        files = sorted(f for f in (PROJECT_ROOT / 'features').rglob('p[0-9]*.md') if '/uat/' not in str(f))
 
     if not files:
         print('No feature files found')
@@ -348,7 +348,7 @@ def main():
 
     # Step 1: Auto-rename duplicates (full scan only — skip in single-file/hook mode
     # to avoid staging git mv operations on every hook invocation).
-    all_files = sorted((PROJECT_ROOT / 'features').rglob('p[0-9]*.md'))
+    all_files = sorted(f for f in (PROJECT_ROOT / 'features').rglob('p[0-9]*.md') if '/uat/' not in str(f))
     renames = [] if single_file_mode else fix_duplicates(all_files)
     for r in renames:
         if r['new'] is None:

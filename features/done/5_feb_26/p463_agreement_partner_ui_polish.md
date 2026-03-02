@@ -10,6 +10,7 @@ tags:
   - partners
   - ux-polish
 locked_at: '2026-03-02T09:04:30.953Z'
+completed_at: '2026-03-02'
 ---
 
 # P463: Agreement & Partner UI Polish
