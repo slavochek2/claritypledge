@@ -1,6 +1,6 @@
 ---
-status: qa
-delivery_stage: uat
+status: all-done
+completed_at: "2026-03-02"
 type: change-request
 rank: 1000007.0
 changes: p468
