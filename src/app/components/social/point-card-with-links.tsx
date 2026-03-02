@@ -266,28 +266,6 @@ export function PointCardWithLinks({
                 </div>
               </div>
 
-              {/* P465: CTA row — above stories row, only when position taken + no viewer story yet */}
-              {userPosition && !liveSessionMode && (() => {
-                const effectiveViewerStoryCount = viewerStoryCount ?? filteredStories.filter(s => s.authorId === currentUserId).length;
-                if (effectiveViewerStoryCount > 0) return null;
-                const positionGroup = getPositionGroup(userPosition as PositionType);
-                const copy = getPositionCTACopy(positionGroup);
-                return (
-                  <div
-                    role="presentation"
-                    className="flex items-center mt-3 pt-3 border-t border-gray-200 pl-[44px] pr-1 pb-2"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <button
-                      onClick={(e) => { e.stopPropagation(); navigate(`/chat?from=position&pointId=${point.id}`); }}
-                      aria-label={copy.ariaLabel}
-                      className="text-sm font-medium text-blue-600 hover:text-blue-700 transition-colors"
-                    >
-                      {copy.ctaText}
-                    </button>
-                  </div>
-                );
-              })()}
 
               {/* Footer - inside quoted box, pl-[44px] aligns with content column (32px icon + 12px gap) */}
               <div
@@ -295,7 +273,7 @@ export function PointCardWithLinks({
                 className="flex items-center justify-between mt-3 pt-3 border-t border-gray-200 pl-[44px]"
                 onClick={(e) => e.stopPropagation()}
               >
-                {/* Collapsible trigger (if has linked stories) */}
+                {/* Collapsible trigger (if has linked stories) or 0-stories CTA */}
                 {!isDetailView && filteredStories.length > 0 ? (
                   <button
                     onClick={() => setStoriesExpanded(!storiesExpanded)}
@@ -312,6 +290,16 @@ export function PointCardWithLinks({
                         return (vc > 0 && profileOwner && !isOwnProfile) ? ` · ${vc} by you` : null;
                       })()}
                     </span>
+                  </button>
+                ) : !isDetailView && userPosition && !liveSessionMode && (viewerStoryCount ?? filteredStories.filter(s => s.authorId === currentUserId).length) === 0 ? (
+                  /* P465: 0 stories + CTA unified — shown when position taken, no story yet */
+                  <button
+                    onClick={(e) => { e.stopPropagation(); navigate(`/chat?from=position&pointId=${point.id}`); }}
+                    className="flex items-center gap-2 text-sm text-blue-600 hover:text-blue-700 transition-colors"
+                    aria-label="Add a story for this point"
+                  >
+                    <ChevronRight size={14} />
+                    <span>0 stories · Add a story</span>
                   </button>
                 ) : (
                   <span />

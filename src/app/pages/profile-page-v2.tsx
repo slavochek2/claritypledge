@@ -26,8 +26,6 @@ import {
   Pin,
   ChevronDown,
   ChevronRight,
-  Pencil,
-  Trash2,
 } from "lucide-react";
 import { GravatarAvatar } from "@/components/ui/gravatar-avatar";
 
@@ -57,7 +55,7 @@ import {
 import { VisibilityBadge } from "@/app/components/shared/visibility-badge";
 import type { PositionType, Position } from "@/app/prototypes/shared/types";
 import type { StoryVisibility } from "@/app/types";
-import { getPositionGroup, getPositionCTACopy, type PositionButtonGroup } from "@/app/prototypes/shared/types";
+import { getPositionGroup, type PositionButtonGroup } from "@/app/prototypes/shared/types";
 import { formatTimeAgo } from "@/app/prototypes/shared/utils";
 // Profile owner context for card components
 interface ProfileOwner {
@@ -896,10 +894,6 @@ export function ProfilePageV2() {
                     credibilityStats={credibilityStats}
                     currentUserId={currentUser?.id}
                     onPointPositionSelect={handleProfilePointPosition}
-                    viewerStoriesForPoint={viewerStoriesForPoint}
-                    viewerStoryCountMap={viewerStoryCountMap}
-                    isOwnProfile={currentUser?.id === profile.id}
-                    onDeletePositionForPoint={guardedRemovePosition}
                   />
                 ))
               )
@@ -980,10 +974,6 @@ interface StoryCardFullProps {
   credibilityStats: { ear: number; mic: number };
   currentUserId?: string;
   onPointPositionSelect?: (pointId: string, pos: Position | null) => void;
-  viewerStoriesForPoint?: Map<string, number>;
-  viewerStoryCountMap?: Map<string, number>;     // P465: viewer story counts for other profiles
-  isOwnProfile?: boolean;                        // P465: true when viewer === profile owner
-  onDeletePositionForPoint?: (pointId: string) => void; // P465: delete story+position from Stories tab
 }
 
 const STORY_THRESHOLD = 180;
@@ -994,10 +984,6 @@ function StoryCardFull({
   credibilityStats,
   currentUserId,
   onPointPositionSelect,
-  viewerStoriesForPoint,
-  viewerStoryCountMap,
-  isOwnProfile = false,
-  onDeletePositionForPoint,
 }: StoryCardFullProps) {
   const navigate = useNavigate();
   const [pointsExpanded, setPointsExpanded] = useState(false);
@@ -1166,13 +1152,6 @@ function StoryCardFull({
               authorHasPledged={author.hasPledged}
               currentUserId={currentUserId}
               onPositionSelect={(pos) => onPointPositionSelect?.(point.id, pos)}
-              viewerStoryCount={
-                isOwnProfile
-                  ? (viewerStoriesForPoint?.get(point.id) ?? 0)
-                  : (viewerStoryCountMap?.get(point.id) ?? 0)
-              }
-              isOwnProfile={isOwnProfile}
-              onDeleteStory={onDeletePositionForPoint}
             />
           ))}
           {linkedPoints.length > 3 && (
@@ -1203,9 +1182,6 @@ interface QuotedPointCardProps {
   authorHasPledged: boolean;
   currentUserId?: string;
   onPositionSelect?: (position: Position) => void;
-  viewerStoryCount?: number;
-  isOwnProfile?: boolean;      // P465: true when viewer === profile owner
-  onDeleteStory?: (pointId: string) => void; // P465: delete story+position from Stories tab
 }
 
 function QuotedPointCard({
@@ -1218,9 +1194,6 @@ function QuotedPointCard({
   authorHasPledged,
   currentUserId,
   onPositionSelect,
-  viewerStoryCount = 0,
-  isOwnProfile = false,
-  onDeleteStory,
 }: QuotedPointCardProps) {
   const navigate = useNavigate();
   const [userPosition, setUserPosition] = useState<Position>(
@@ -1326,69 +1299,6 @@ function QuotedPointCard({
           </div>
         </div>
 
-        {/* P465: Story CTA footer — CTA above stories row, no actor-confusion prefix */}
-        {(() => {
-          const positionGroup = userPosition ? getPositionGroup(userPosition as PositionType) : null;
-          const copy = positionGroup ? getPositionCTACopy(positionGroup) : null;
-          const chatUrl = `/chat?from=position&pointId=${point.id}`;
-          const editUrl = chatUrl; // spec Decision 4: no storyId in URL; edit detected via DB lookup
-
-          const showCTA = userPosition && viewerStoryCount === 0;
-
-          return (
-            <div
-              role="presentation"
-              className="mt-2 border-t border-border pl-[44px] pr-1"
-              onClick={e => e.stopPropagation()}
-            >
-              {/* CTA row — shown above stories row, only when position taken + no story yet */}
-              {showCTA && copy && (
-                <div className="pt-2 pb-1">
-                  <button
-                    onClick={e => { e.stopPropagation(); navigate(chatUrl); }}
-                    aria-label={copy.ariaLabel}
-                    className="text-sm font-medium text-blue-600 hover:text-blue-700 transition-colors"
-                  >
-                    {copy.ctaText}
-                  </button>
-                </div>
-              )}
-
-              {/* Stories row */}
-              <div className={`${showCTA ? 'border-t border-border pt-2' : 'pt-2'} pb-1 flex items-center justify-between`}>
-                <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                  <span aria-hidden="true">&#9655;</span>
-                  <span>
-                    {viewerStoryCount} {viewerStoryCount === 1 ? 'story' : 'stories'}
-                  </span>
-                </div>
-                {/* Edit + Delete icons on own profile when story exists */}
-                {isOwnProfile && viewerStoryCount > 0 && (
-                  <div className="flex items-center">
-                    <MobileTooltip content="Edit your story">
-                      <button
-                        onClick={e => { e.stopPropagation(); navigate(editUrl); }}
-                        aria-label="Edit your story for this point"
-                        className="min-w-[44px] min-h-[44px] flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors"
-                      >
-                        <Pencil size={16} />
-                      </button>
-                    </MobileTooltip>
-                    <MobileTooltip content="Delete your story">
-                      <button
-                        onClick={e => { e.stopPropagation(); onDeleteStory?.(point.id); }}
-                        aria-label="Delete your story for this point"
-                        className="min-w-[44px] min-h-[44px] flex items-center justify-center text-gray-400 hover:text-destructive hover:bg-gray-100 rounded-full transition-colors"
-                      >
-                        <Trash2 size={16} />
-                      </button>
-                    </MobileTooltip>
-                  </div>
-                )}
-              </div>
-            </div>
-          );
-        })()}
       </div>
     </div>
   );
