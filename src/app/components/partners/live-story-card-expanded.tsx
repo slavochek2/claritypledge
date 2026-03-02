@@ -56,7 +56,7 @@ interface LiveStoryCardExpandedProps {
   defaultExpanded?: boolean;
 }
 
-const STORY_THRESHOLD = 180;
+const STORY_THRESHOLD = 100;
 
 export function LiveStoryCardExpanded({
   story,

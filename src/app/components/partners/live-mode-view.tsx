@@ -1833,17 +1833,17 @@ interface ActionAreaProps {
  */
 function ActionArea({ icon, title, subtitle, children, className = '' }: ActionAreaProps) {
   return (
-    <section className={`flex flex-col items-center gap-4 w-full max-w-sm pt-8 ${className}`} data-testid="action-area">
+    <section className={`flex flex-col items-center gap-3 w-full max-w-sm pt-4 ${className}`} data-testid="action-area">
       {/* Icon + Title block */}
       {(icon || title) && (
-        <div className="flex flex-col items-center gap-3">
+        <div className="flex flex-col items-center gap-2">
           {icon && (
-            <div className="w-20 h-20 rounded-full bg-blue-50 border-2 border-blue-200 flex items-center justify-center">
-              <span className="text-3xl" aria-hidden="true">{icon}</span>
+            <div className="w-12 h-12 rounded-full bg-blue-50 border-2 border-blue-200 flex items-center justify-center">
+              <span className="text-xl" aria-hidden="true">{icon}</span>
             </div>
           )}
           {title && (
-            <p className="text-lg font-semibold text-center max-w-xs whitespace-pre-line">
+            <p className="text-base font-semibold text-center max-w-xs whitespace-pre-line">
               {title}
             </p>
           )}
