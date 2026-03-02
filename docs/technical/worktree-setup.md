@@ -21,12 +21,15 @@ Two Claude sessions running simultaneously share the same git staging area. Unco
 ## Creating a Worktree
 
 ```bash
-# Option A: manually with git
-git worktree add .claude/worktrees/feature-name -b feature/pN-description
+# Create a worktree — always use slot name w1 or w2, not the feature name
+# The branch carries the feature identity
+git worktree add .claude/worktrees/w1 -b feature/pN-description
 
-# Option B: via the EnterWorktree tool in Claude
-# Use the EnterWorktree tool — it creates a worktree under .claude/worktrees/ automatically
+# Then run setup (symlinks .env.local and node_modules)
+./scripts/setup-worktree.sh .claude/worktrees/w1
 ```
+
+> **Note:** Always name the worktree by slot (w1, w2), not by feature (e.g., not p465). The branch name carries the feature. This keeps `start w1` and `kanban w1` working.
 
 ---
 
@@ -35,23 +38,33 @@ git worktree add .claude/worktrees/feature-name -b feature/pN-description
 Immediately after creating any worktree, run:
 
 ```bash
-./scripts/setup-worktree.sh .claude/worktrees/feature-name
+./scripts/setup-worktree.sh .claude/worktrees/w1
 ```
 
 **What it does:** Symlinks `.env.local` and `node_modules` from the main repo into the worktree.
 
 **Why it's required:** New worktrees don't include gitignored files or installed dependencies. Without `.env.local`, any script that reads credentials (migrations, edge function deploys, test setup) will silently fail. Without `node_modules`, nothing runs.
 
+**Note:** The script has a hardcoded `MAIN_REPO` path (`/Users/slavochek/Projects/public/claritypledge`). If the repo is cloned elsewhere, update line 9 of `scripts/setup-worktree.sh` before running.
+
 ---
 
 ## Running a Dev Server in a Worktree
 
-No pre-configured ports. Pick any free port:
+Ports are fixed by slot — no hunting required:
 
 ```bash
-cd .claude/worktrees/feature-name
-npm run dev -- --port 5101
+# Ports are fixed by slot — no hunting required
+cd .claude/worktrees/w1
+npm run dev -- --port 5100   # w1 is always 5100
+
+cd .claude/worktrees/w2
+npm run dev -- --port 5200   # w2 is always 5200
 ```
+
+Or use: `start w1` from terminal (handles this automatically).
+
+Port reference: w0 (main) = 5001, w1 = 5100, w2 = 5200.
 
 ---
 
@@ -62,11 +75,5 @@ npm run dev -- --port 5101
 git worktree list
 
 # Remove a worktree (after work is merged or abandoned)
-git worktree remove .claude/worktrees/feature-name
+git worktree remove .claude/worktrees/w1
 ```
-
----
-
-## Legacy: Named Worktrees
-
-`claritypledge-1` through `claritypledge-5` exist at `../claritypledge-N` (sibling directories to the main repo). They were set up for parallel visual comparison — running multiple dev servers at fixed ports (5100–5500) to compare different implementations side by side. This workflow is no longer the active pattern. Don't create new named worktrees; don't rely on the existing ones having correct setup.

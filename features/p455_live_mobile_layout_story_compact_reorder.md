@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: feature
 rank: 62741.5
 workstream: live
@@ -17,6 +17,7 @@ test_files:
   - e2e/p455-live-mobile-layout.spec.ts
   - e2e/p455-smoke.spec.ts
   - e2e/a11y/p455-accessibility.spec.ts
+locked_at: '2026-03-02T14:39:39.656Z'
 ---
 
 # P455: Live Mobile Layout — Compact Story + Reorder

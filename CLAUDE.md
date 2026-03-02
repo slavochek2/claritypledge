@@ -370,6 +370,8 @@ Before acting: paraphrase the end-state in 1-2 sentences and wait. If the user n
 
 **Why it matters:** This is how cleanup work (11 files) ended up silently bundled into a P437 feature commit — two sessions, one index.
 
+**Naming convention:** Always name the worktree by slot (`w1`, `w2`), never by feature name. The branch carries the feature: `git worktree add .claude/worktrees/w1 -b feature/pN-description`. This keeps `start w1` and `kanban w1` working predictably.
+
 See [worktree-setup.md](docs/technical/worktree-setup.md) for how to create worktrees.
 
 ---
@@ -561,6 +563,8 @@ Docs: [definitions.md](docs/definitions.md) | [lean-canvas.md](docs/lean-canvas.
 npm run kanban                   # Feature prioritization (port 9050)
 npm run dev && npm test && npm run build  # Standard dev loop
 ```
+
+**Kanban always from w0:** Run `kanban` or `kanban main` from the main repo only. Kanban reads `features/` from wherever it's launched — running from a worktree shows stale status for other features.
 
 **Where things live:** `docs/technical/` (guides) · `features/` (specs) · `src/app/` (source) · `e2e/` (tests) · `supabase/` (database) · `.claude/rules/` (path-specific agent rules)
 

@@ -151,3 +151,4 @@ Apply this to every step. Don't default to "might help a bit" — default to "cl
 - **`/spec-review` is mandatory (not optional) for `type: change-request` specs.** Redesigns have pre-existing elements that can silently conflict with new AC — spec-review catches these before implementation. The `*` optional marker applies to new features only.
 - After user confirms flow: set `flow:` in spec frontmatter if spec exists
 - When writing `flow:` to spec frontmatter, write exactly one of: `fix`, `dev`, `inline`, `quick-feature` — never the command chain string
+- If you are currently in a worktree (not w0/main), remind the user: spec creation skills (/create-prd, /quick-feature, /change-request, /create-bug) must be run from the main repo.

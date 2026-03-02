@@ -50,7 +50,7 @@ start_kanban() {
         dir="$BASE_DIR/claritypledge"
     else
         # Handle both "w1" and "1" formats
-        dir="$BASE_DIR/claritypledge-${worktree#w}"
+        dir="$BASE_DIR/claritypledge/.claude/worktrees/w${worktree#w}"
     fi
 
     if [ ! -d "$dir/tools/kanban" ]; then

@@ -117,6 +117,10 @@ The create-agreement page becomes the document itself. The certificate frame is 
 │         A MUTUAL COMMITMENT TO CLARITY                   │
 │                                                          │
 │  ┌──────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  We, Slava Ladischenski and [______________],    │    │
+│  │  agree to:                                       │    │
+│  │                                                  │    │
 │  │  We all crave being understood...                │    │
 │  │  [full pledge text — static]                     │    │
 │  │                                                  │    │
@@ -128,7 +132,7 @@ The create-agreement page becomes the document itself. The certificate frame is 
 │  └──────────────────────────────────────────────┘    │
 │                                                          │
 │  ────────────────     ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─    │
-│  Slava Ladischenski   [ Partner full name     ]          │
+│  Slava Ladischenski   [partner name — mirrors above]     │
 │  [today's date]       will sign upon acceptance          │
 │                                                          │
 └──────────────────────────────────────────────────────────┘
@@ -141,11 +145,12 @@ The create-agreement page becomes the document itself. The certificate frame is 
 
 Key design decisions:
 - **Certificate IS the form.** The outer double-border certificate frame is present from page load.
-- **Partner name is an inline editable field** in the PARTNER signature slot — visually integrated into the certificate, not a separate form field above.
+- **"We, [creator] and [partner], agree to:"** is the first line of the certificate body — inline sentence where the partner name blank is the primary editable input. Creator name is read-only (from profile). This is where the user types the partner name.
+- **Signature slot partner name mirrors the inline input** — same state, not a second input. The slot shows what was typed above; it is not independently editable. This avoids two competing entry points for the same value.
 - **Partner email and visibility are below the certificate** — operational details, not part of the document itself. The certificate is the commitment; the email is delivery logistics.
 - **Terms remain inline** in the certificate body, editable (as they are today).
 - **Creator's name and date** auto-populate from profile + today (same as current).
-- **Partner name placeholder** when empty: "Partner's name" (greyed, matches existing placeholder styling). Updates live as the user types.
+- **Partner name placeholder** when empty: "their name" (greyed, inline with the sentence). Updates live as the user types.
 - **On email lookup match**: email lookup still runs; AvatarBadge shows below email field as today. Name field can be pre-filled from `lookupResult.name` if user hasn't typed yet (founder decision — see FD-1 below).
 
 **Pending state (after submit) — unchanged from P463:**
@@ -171,8 +176,9 @@ The partner sees the same certificate layout. Their name field is pre-filled wit
 ## Requirements
 
 1. `create-agreement-page.tsx` renders the certificate frame as the primary UI; standard form fields (email, visibility) appear below it.
-2. The PARTNER signature slot contains an editable text input (styled as certificate text, not a form input).
-3. Partner name (entered in the certificate slot or the field) is stored as `partner_display_name` (nullable text) on `clarity_agreements`.
+2. The certificate body opens with "We, [creator name] and [partner name blank], agree to:" — the partner name blank is an inline editable input, the primary and only entry point for the partner name.
+3. The PARTNER signature slot at the bottom mirrors the partner name typed in the inline sentence — it is read-only in creation mode (not a second input).
+4. Partner name is stored as `partner_display_name` (nullable text) on `clarity_agreements`.
 4. DB migration: `ALTER TABLE clarity_agreements ADD COLUMN partner_display_name text` (nullable, no default).
 5. `partner_display_name` is pre-filled on the acceptance page (partner can edit before signing).
 6. After partner accepts with a ClarityPledge account, `partner.name` from their profile is the display name; `partner_display_name` is kept as a DB record but the profile name takes precedence in rendering.
@@ -209,9 +215,10 @@ The partner sees the same certificate layout. Their name field is pre-filled wit
 ## Acceptance Criteria
 
 - [ ] Create-agreement page renders the certificate frame as the primary layout; email and visibility are below the certificate
-- [ ] PARTNER signature slot contains an editable text input within the certificate
-- [ ] Creator can type a partner name; the certificate updates in real time
-- [ ] Partner name is required before submission (inline validation in the slot or below it)
+- [ ] Certificate body opens with "We, [creator name] and [partner name input], agree to:" as the first line
+- [ ] Creator types partner name inline in that sentence; the certificate updates in real time (signature slot mirrors it)
+- [ ] Signature slot partner name is read-only in creation mode — mirrors the inline input, not independently editable
+- [ ] Partner name is required before submission (inline validation in the sentence line)
 - [ ] Submitted `partner_display_name` is stored on `clarity_agreements`
 - [ ] Pending view PARTNER slot shows the stored name (not "Invited party") when `partner_display_name` is set
 - [ ] Acceptance page PARTNER slot is pre-filled with `partner_display_name` and editable
@@ -272,16 +279,13 @@ The existing 3-param overload already has this grant. The new 4-param signature 
 
 Backward compat: existing callers without the 4th param continue to work (DEFAULT NULL, no-op branch).
 
-**Decision C: Extend `SignatureSlot` in-place — no new component**
+**Decision C: Inline name input in certificate body — new element, not SignatureSlot**
 
-Add optional props to `SignatureSlotProps`:
-- `editable?: boolean` — when true, renders `<input>` instead of `<p>`
-- `value?: string` — controlled value for the input
-- `onChange?: (value: string) => void` — change handler
-- `placeholder?: string` — greyed placeholder text
-- `error?: string` — inline error message below the slot
+The "We, [creator] and [partner], agree to:" sentence is a new inline element in the certificate body — separate from `SignatureSlot`. The partner name blank is a borderless `<input>` styled to read as document text inline with the surrounding sentence.
 
-Styling when editable: `border-0 border-b border-[#1A1A1A]/30 bg-transparent ring-0 outline-none text-base font-semibold` with Playfair Display font — on focus, border becomes `border-[#1A1A1A]/70`; on blur, reads as document text. `<input type="text">` (not `contenteditable`) — accessible by default.
+Styling: `border-0 border-b border-[#1A1A1A]/30 bg-transparent ring-0 outline-none text-base font-semibold inline-block w-auto min-w-[120px]` with the certificate body font — on focus, border becomes `border-[#1A1A1A]/70`; on blur, reads as inline text. Placeholder: `"their name"` greyed.
+
+`SignatureSlot` gains `value?: string` prop for display purposes in creation mode — when provided, it renders that value read-only (same text styling, no editable input). Existing callers unchanged.
 
 **Decision D: `AgreementCertificate` gains optional creation-mode props**
 

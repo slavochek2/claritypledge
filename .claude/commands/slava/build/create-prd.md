@@ -22,6 +22,18 @@ Produces business requirements ONLY:
 
 ---
 
+## Worktree guard
+
+Before creating any file, check:
+```bash
+git worktree list | head -1 | awk '{print $1}'
+```
+Compare to `pwd`. If they differ, you are in a worktree — **stop immediately**. Tell the user:
+> "Specs must be created in w0 (main). Run `cd ~/Projects/public/claritypledge` first, then re-run this skill."
+Do not create any file until you are in the main repo.
+
+---
+
 ## Quick Start
 
 ```
