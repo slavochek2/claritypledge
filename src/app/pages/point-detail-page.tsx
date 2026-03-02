@@ -54,8 +54,6 @@ export function PointDetailPage() {
   const [userPosition, setUserPosition] = useState<PositionType | null>(null);
   const [retryKey, setRetryKey] = useState(0);
   const [linkedStories, setLinkedStories] = useState<Map<string, StoryWithAuthor[]>>(new Map());
-  const positionsSectionRef = useRef<HTMLDivElement>(null);
-
   // P401: Guard position removal with linked-stories warning dialog
   const { dialogProps, guardedRemovePosition } = useRemovePositionGuard({
     userId: user?.id ?? '',
@@ -162,8 +160,6 @@ export function PointDetailPage() {
   const handlePositionClick = async (position: PositionType) => {
     if (!user || !id) return;
 
-    console.log('[DEBUG] handlePositionClick:', { position, userId: user.id, pointId: id });
-
     // Toggle: clicking same position removes it
     const newPosition = userPosition === position ? null : position;
 
@@ -179,8 +175,7 @@ export function PointDetailPage() {
         await guardedRemovePosition(id);
         return;
       } else {
-        const result = await pointsService.setPosition(id, user.id, newPosition);
-        console.log('[DEBUG] setPosition result:', result);
+        await pointsService.setPosition(id, user.id, newPosition);
         setShowStoryCTA(true);
       }
 
@@ -188,10 +183,9 @@ export function PointDetailPage() {
       const updatedPoint = await pointsService.getPointWithUserPosition(id, user.id);
       if (updatedPoint) {
         setPoint(updatedPoint);
-        console.log('[DEBUG] Point reloaded after position update');
       }
     } catch (err) {
-      console.error('[DEBUG] Failed to update position:', err);
+      console.error('Failed to update position:', err);
       // Revert optimistic update on error
       setUserPosition(userPosition);
     }
