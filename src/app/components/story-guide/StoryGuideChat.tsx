@@ -179,7 +179,7 @@ export function StoryGuideChat({
     }
   }, [user, pointId, guardedRemovePosition]);
 
-  const [phase, setPhase] = useState<ChatPhase>(() => existingStory ? 'visibility' : 'idle');
+  const [phase, setPhase] = useState<ChatPhase>(() => existingStory ? 'polish' : 'idle');
   const [messages, setMessages] = useState<P425Message[]>([]);
   const [streamingContent, setStreamingContent] = useState<string | null>(null);
   const [iterationCount, setIterationCount] = useState(0);

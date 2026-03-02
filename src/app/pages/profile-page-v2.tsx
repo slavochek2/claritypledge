@@ -168,9 +168,8 @@ export function ProfilePageV2() {
   const [realPoints, setRealPoints] = useState<PointWithUserPosition[]>([]);
   const [realCalibration, setRealCalibration] = useState<UserCalibration | null>(null);
 
-  // P465: Viewer story count + ID maps for other profiles (fetched async)
+  // P465: Viewer story count map for other profiles (fetched async)
   const [viewerStoryCountMap, setViewerStoryCountMap] = useState<Map<string, number>>(new Map());
-  const [viewerStoryIdForPoint, setViewerStoryIdForPoint] = useState<Map<string, string>>(new Map());
   const [realEarsCount, setRealEarsCount] = useState<number>(0);
 
   // P422: Agreements state
@@ -197,23 +196,6 @@ export function ProfilePageV2() {
       });
     }
     return map;
-  }, [realStories, currentUserId, profile]);
-
-  // P465: Build viewerStoryIdForPoint map for own-profile edit navigation
-  useEffect(() => {
-    if (!currentUserId || !profile || currentUserId !== profile.id) {
-      setViewerStoryIdForPoint(new Map());
-      return;
-    }
-    const idMap = new Map<string, string>();
-    realStories.forEach(story => {
-      story.points?.forEach(p => {
-        if (!idMap.has(p.id)) {
-          idMap.set(p.id, story.id);
-        }
-      });
-    });
-    setViewerStoryIdForPoint(idMap);
   }, [realStories, currentUserId, profile]);
 
   // Load profile
@@ -914,7 +896,6 @@ export function ProfilePageV2() {
                     onPointPositionSelect={handleProfilePointPosition}
                     viewerStoriesForPoint={viewerStoriesForPoint}
                     viewerStoryCountMap={viewerStoryCountMap}
-                    viewerStoryIdForPoint={viewerStoryIdForPoint}
                     isOwnProfile={currentUser?.id === profile.id}
                   />
                 ))
@@ -997,7 +978,6 @@ interface StoryCardFullProps {
   onPointPositionSelect?: (pointId: string, pos: Position | null) => void;
   viewerStoriesForPoint?: Map<string, number>;
   viewerStoryCountMap?: Map<string, number>;     // P465: viewer story counts for other profiles
-  viewerStoryIdForPoint?: Map<string, string>;  // P465: story ID for edit navigation
   isOwnProfile?: boolean;                        // P465: true when viewer === profile owner
 }
 
@@ -1011,7 +991,6 @@ function StoryCardFull({
   onPointPositionSelect,
   viewerStoriesForPoint,
   viewerStoryCountMap,
-  viewerStoryIdForPoint,
   isOwnProfile = false,
 }: StoryCardFullProps) {
   const navigate = useNavigate();
@@ -1186,7 +1165,6 @@ function StoryCardFull({
                   ? (viewerStoriesForPoint?.get(point.id) ?? 0)
                   : (viewerStoryCountMap?.get(point.id) ?? 0)
               }
-              viewerStoryId={viewerStoryIdForPoint?.get(point.id)}
               isOwnProfile={isOwnProfile}
             />
           ))}
@@ -1219,7 +1197,6 @@ interface QuotedPointCardProps {
   currentUserId?: string;
   onPositionSelect?: (position: Position) => void;
   viewerStoryCount?: number;
-  viewerStoryId?: string;      // P465: story ID for edit navigation on own profile
   isOwnProfile?: boolean;      // P465: true when viewer === profile owner
 }
 
@@ -1234,7 +1211,6 @@ function QuotedPointCard({
   currentUserId,
   onPositionSelect,
   viewerStoryCount = 0,
-  viewerStoryId,
   isOwnProfile = false,
 }: QuotedPointCardProps) {
   const navigate = useNavigate();
@@ -1346,9 +1322,7 @@ function QuotedPointCard({
           const positionGroup = userPosition ? getPositionGroup(userPosition as PositionType) : null;
           const copy = positionGroup ? getPositionCTACopy(positionGroup) : null;
           const chatUrl = `/chat?from=position&pointId=${point.id}`;
-          const editUrl = viewerStoryId
-            ? `/chat?from=position&pointId=${point.id}&storyId=${viewerStoryId}`
-            : chatUrl;
+          const editUrl = chatUrl; // spec Decision 4: no storyId in URL; edit detected via DB lookup
 
           const showCTA = userPosition && viewerStoryCount === 0;
 
