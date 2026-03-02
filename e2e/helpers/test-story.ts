@@ -71,15 +71,31 @@ export async function createTestStory(
  * Links a story to a point via the story_points junction table
  * @param storyId - ID of the story
  * @param pointId - ID of the point
+ *
+ * P465: story_points.author_id is NOT NULL after migration. We look it up from
+ * the stories table rather than changing every call site across the test suite.
  */
 export async function linkStoryToPoint(storyId: string, pointId: string): Promise<void> {
   console.log(`[TEST HELPER] Linking story ${storyId} to point ${pointId}`);
+
+  // P465: fetch author_id before inserting (story_points.author_id is NOT NULL)
+  const { data: story, error: storyError } = await supabaseAdmin
+    .from('stories')
+    .select('author_id')
+    .eq('id', storyId)
+    .single();
+
+  if (storyError) {
+    console.error('[TEST HELPER] Failed to fetch story author_id:', storyError);
+    throw new Error(`Failed to fetch story author_id: ${storyError.message}`);
+  }
 
   const { error } = await supabaseAdmin
     .from('story_points')
     .insert({
       story_id: storyId,
       point_id: pointId,
+      author_id: story.author_id,
     });
 
   if (error) {

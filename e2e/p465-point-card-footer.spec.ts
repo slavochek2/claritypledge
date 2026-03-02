@@ -47,6 +47,8 @@ test.describe('Flow 1 — Own profile, no story: CTA visible, no actor confusion
   test('CTA is visible when no story exists', async ({ page }) => {
     await page.goto(`/p/${viewer.slug}`);
     await page.waitForLoadState('networkidle');
+    await page.getByRole('tab', { name: /points/i }).click();
+    await page.waitForLoadState('networkidle');
 
     const cta = page.getByText(/why do you agree/i);
     await expect(cta).toBeVisible();
@@ -55,6 +57,8 @@ test.describe('Flow 1 — Own profile, no story: CTA visible, no actor confusion
   test('"✓ Agree ·" actor-confusion prefix is absent from CTA row', async ({ page }) => {
     await page.goto(`/p/${viewer.slug}`);
     await page.waitForLoadState('networkidle');
+    await page.getByRole('tab', { name: /points/i }).click();
+    await page.waitForLoadState('networkidle');
 
     // The old P456 pattern that caused actor confusion must not appear
     await expect(page.getByText(/✓ agree ·/i)).not.toBeVisible();
@@ -62,6 +66,8 @@ test.describe('Flow 1 — Own profile, no story: CTA visible, no actor confusion
 
   test('story count appears at most once (no duplication)', async ({ page }) => {
     await page.goto(`/p/${viewer.slug}`);
+    await page.waitForLoadState('networkidle');
+    await page.getByRole('tab', { name: /points/i }).click();
     await page.waitForLoadState('networkidle');
 
     // "0 stories" should appear at most once, not duplicated across two rows
@@ -102,12 +108,16 @@ test.describe('Flow 2 — Own profile, story exists: CTA hidden, no count duplic
   test('CTA is hidden when story already exists', async ({ page }) => {
     await page.goto(`/p/${viewer.slug}`);
     await page.waitForLoadState('networkidle');
+    await page.getByRole('tab', { name: /points/i }).click();
+    await page.waitForLoadState('networkidle');
 
     await expect(page.getByText(/why do you agree/i)).not.toBeVisible();
   });
 
   test('"1 story" appears exactly once (no P456 duplication bug)', async ({ page }) => {
     await page.goto(`/p/${viewer.slug}`);
+    await page.waitForLoadState('networkidle');
+    await page.getByRole('tab', { name: /points/i }).click();
     await page.waitForLoadState('networkidle');
 
     const count = await page.getByText(/1 story/i).count();
@@ -152,12 +162,16 @@ test.describe('Flow 3 — Other profile, viewer has no story: CTA above stories 
   test('CTA is visible on other profile when viewer has no story', async ({ page }) => {
     await page.goto(`/p/${owner.slug}`);
     await page.waitForLoadState('networkidle');
+    await page.getByRole('tab', { name: /points/i }).click();
+    await page.waitForLoadState('networkidle');
 
     await expect(page.getByText(/why do you agree/i)).toBeVisible();
   });
 
   test('stories row attributes to profile owner, not viewer', async ({ page }) => {
     await page.goto(`/p/${owner.slug}`);
+    await page.waitForLoadState('networkidle');
+    await page.getByRole('tab', { name: /points/i }).click();
     await page.waitForLoadState('networkidle');
 
     // "by [owner name]" should appear — owner attribution, not viewer's
@@ -166,6 +180,8 @@ test.describe('Flow 3 — Other profile, viewer has no story: CTA above stories 
 
   test('CTA row is positioned above stories row (no actor confusion ordering)', async ({ page }) => {
     await page.goto(`/p/${owner.slug}`);
+    await page.waitForLoadState('networkidle');
+    await page.getByRole('tab', { name: /points/i }).click();
     await page.waitForLoadState('networkidle');
 
     const cta = page.getByText(/why do you agree/i);
@@ -227,12 +243,16 @@ test.describe('Flow 4 — Other profile, viewer has story: CTA hidden, "by you" 
   test('CTA is hidden when viewer already has a story', async ({ page }) => {
     await page.goto(`/p/${owner.slug}`);
     await page.waitForLoadState('networkidle');
+    await page.getByRole('tab', { name: /points/i }).click();
+    await page.waitForLoadState('networkidle');
 
     await expect(page.getByText(/why do you agree/i)).not.toBeVisible();
   });
 
   test('"by you" suffix visible in stories row when viewer has a story', async ({ page }) => {
     await page.goto(`/p/${owner.slug}`);
+    await page.waitForLoadState('networkidle');
+    await page.getByRole('tab', { name: /points/i }).click();
     await page.waitForLoadState('networkidle');
 
     await expect(page.getByText(/by you/i)).toBeVisible();
