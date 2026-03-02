@@ -193,6 +193,19 @@ Rules:
   - no spec found → "no spec — branch may be stale, consider cleanup"
 - If no feature branches: omit the section
 
+**2c. Stash check:**
+```bash
+git stash list
+```
+If non-empty, surface all entries before continuing:
+```
+⚠ STASHES (invisible to git status — address before starting work):
+  · stash@{0}: [message]
+  ...
+Apply, drop, or continue?
+```
+Wait for response. If user says "continue" or dismisses → proceed. Do not silently skip.
+
 ---
 
 ## Notes

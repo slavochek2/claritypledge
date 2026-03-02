@@ -120,6 +120,25 @@ git commit -m "feat: your changes"
 
 **When to use:** Pre-commit hooks fail due to test failures in files you didn't touch.
 
+### Hook passes manually but fails under `git commit`
+
+**Symptom:** `bash .git/hooks/pre-commit` exits 0; `git commit` returns exit 1 with no clear error.
+
+**Root cause:** Git invokes hooks with a minimal shell — no profile, no `.zshrc` PATH additions, no `nvm`/`brew`/`rbenv` shims. A tool referenced in the hook (e.g. `node`, `npx`, `eslint`) may not be on the minimal PATH.
+
+**Correct diagnostic — simulate git's environment:**
+```bash
+# Option A: simulate minimal shell
+env -i PATH=/usr/bin:/bin:/usr/local/bin bash ./scripts/pre-commit-checks.sh
+
+# Option B: add set -x to the hook temporarily, then commit
+# Trace output shows which command fails under git's shell
+```
+
+**Fix:** Use absolute paths for tools in the hook, or add the required paths explicitly in the hook via `export PATH="/opt/homebrew/bin:$PATH"`.
+
+**`--no-verify` is a workaround, not a fix.** Only use it after running the above diagnostic and confirming the hook is correct but the environment is the issue. Report it explicitly when used.
+
 ---
 
 ## Commit Discipline — Checkpoint Prompts
