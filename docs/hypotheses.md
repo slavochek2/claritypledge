@@ -51,7 +51,7 @@ Our active bets, in priority order. This is the map of what we still need to pro
 **Testing via:** C2 (First Calibration Labs) — 3–5 free Labs, track partner agreement creation rate and /live return rate. Target ≥50% of agreement-creating pairs return to /live within 30 days.
 **Kill if:** <30% agreement creation rate at Calibration Labs OR <30% of agreement-creating pairs return to /live within 30 days.
 **Notes:** High-stakes dyad with recurring calibration needs. ICP qualifier: relationship health + decision frequency, not funding stage. Validates positioning as preventive (not therapeutic). WTP itself is confirmed in C3 (H-Retainers-Sticky) — C2 tests engagement and return, not payment.
-**Scary thing:** Run first pilot session with a co-founder pair you know by March 7.
+**Scary thing:** Run first Calibration Lab with at least one co-founder pair by March 14.
 **Current status (2026-03-02):** No product yet — only a hypothesis. First pilot sessions are free in exchange for honest feedback. The session IS the product discovery. Goal of pilot: shift pair from "asking to paraphrase feels awkward" → "refusing to paraphrase feels wrong." Session prep: `pp/docs/business/cofounder-session-prep.md`.
 
 ---
@@ -179,7 +179,7 @@ Our active bets, in priority order. This is the map of what we still need to pro
 ### H-InvestorDueDiligence: Investors pay for calibration sessions during founder due diligence
 **Bet:** VCs will pay for a /live session with a founder they're considering backing, to verify communication clarity before writing a check.
 **Why parked:** Coaching track not validated yet. VC sales cycle is slow (3–6 months) — premature before coaching traction.
-**Revisit when:** C2 hit (10+ paid sessions), C3 hit (5+ retainer pairs with month-2 retention).
+**Revisit when:** C2 hit (10+ Calibration Lab participants with agreements created), C3 hit (5+ retainer pairs with month-2 retention).
 
 ---
 

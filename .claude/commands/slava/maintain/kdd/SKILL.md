@@ -18,7 +18,7 @@ Capture knowledge that matters. Git tracks *what* changed; this captures *why* a
 | What we're testing + evidence base | `docs/hypotheses.md` |
 | Open questions (unresolved) | `docs/hypotheses.md` "Open Questions" section |
 | Build sequence, priorities, trade-offs | `docs/decisions.md` |
-| GTM, sales tactics, pitches | `features/p{N}_sales_playbook.md` |
+| GTM, sales tactics, pitches | `features/archive/p105_sales_playbook.md` (archived) |
 | Pivot options | `docs/lean-canvas.md` "Alternative Approaches" section |
 | Epistemology (WHY this works) | `docs/philosophy.md` |
 | Cascade, √N, network effects | `docs/theory-of-change.md` |
@@ -80,7 +80,7 @@ Recommendation: Remove from README.md, link to definitions.md instead.
    ```
    If the current branch is NOT `main`, warn:
 
-   > "Warning: You are on branch [{branch}] — KDD entries written here will not reach main until this branch merges. To land KDD directly on main instead: `git commit -m "wip: [description]"`, `git checkout main`, write KDD, commit, `git checkout -`, `git reset HEAD~1` (to undo the wip commit). Or proceed here if you're confident this branch will merge soon."
+   > "Warning: You are on branch [{branch}] (or in detached HEAD state if branch is empty) — KDD entries written here will not reach main until this branch merges. To write KDD directly on main instead: stash or commit your current work, run `git checkout main`, write KDD there, then return with `git checkout {branch}`. Or proceed here if this branch will merge soon — KDD entries will land on main when it does."
 
    If the current branch IS `main` but `git worktree list` shows active worktrees with uncommitted work, also warn:
 
@@ -100,7 +100,7 @@ Recommendation: Remove from README.md, link to definitions.md instead.
    - Open question answered? → Update or remove from Open Questions
    - Phase complete / focus shifted? → `decisions.md`
    - Business model changed? → `lean-canvas.md`
-   - GTM/sales approach changed? → `features/p105_sales_playbook.md`
+   - GTM/sales approach changed? → `features/archive/p105_sales_playbook.md` (archived — or capture in decisions.md if new direction)
    - Schema/auth/testing changed? → relevant technical doc
    - Domain concepts changed? → `definitions.md`
    - Epistemological claims or WHY-this-works reasoning updated? → `docs/philosophy.md`
