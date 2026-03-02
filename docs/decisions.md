@@ -2,6 +2,20 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-02 [process]: spec-review mandatory gate in CLAUDE.md + decompose pre-flight
+
+**Context:** P465 spec had 3 BLOCK issues (component name mismatch, missing state initialization, test gap) that existed at /decompose time — they only got caught because the session started with a spec-review fix pass. The spec had passed prior /spec-review with `NEEDS FIXES` unaddressed. Two gaps: (1) CLAUDE.md footnote used `*` marker on spec-review, making it read as optional like /decompose; (2) /decompose pre-flight only gated on `## Technical Analysis` presence, not on a clean spec-review verdict.
+
+**Decision:** Two fixes — (1) CLAUDE.md Sequential Flow footnote: removed `*` from `/spec-review`, now reads "mandatory — always run after /generate-tests, before /decompose or /dev. A spec with BLOCK findings must not proceed." (2) decompose.md Pre-Flight Check: added second required gate — spec must have `## Spec Review` section with `READY` verdict before task manifest is generated. Explicit error message: "NEEDS FIXES → Run /spec-review and fix all BLOCK findings first."
+
+**Alternatives rejected:** Proposed #1 (stub missing symbol rule in Commit Discipline) and #2 (infra changes must be on main) and #4 (close infra protocol with step 5) — all FAILED adversarial review. #1 too prescriptive (stub is wrong fix when real implementation is needed). #2 too broad (infra changes scoped to a feature branch are sometimes legitimate). #4 BUBBLES UP section created a new open loop.
+
+**Consequences:** /decompose now has two hard stops: no Technical Analysis = run /architect first; no READY spec-review = run /spec-review first. BLOCKs that reach decompose time have no path forward except fixing the spec.
+
+**References:** [CLAUDE.md](../CLAUDE.md) · [decompose.md](.claude/commands/slava/build/decompose.md)
+
+---
+
 ## 2026-03-01 [process]: Two-agent plan/critique workflow for spec-review + decompose
 
 **Context:** Running `/spec-review` and `/decompose` on P465 — a complex feature with DB migration, 3+ component surfaces, and 7 architectural decisions. Question: should one agent just do both, or is a review loop valuable at the spec level?

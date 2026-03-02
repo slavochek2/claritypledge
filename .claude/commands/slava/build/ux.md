@@ -304,6 +304,7 @@ Format as a table:
 - [ ] Accessibility requirements specified: screen reader, keyboard, ARIA, color contrast
 - [ ] Responsive design considered: mobile, tablet, desktop breakpoints
 - [ ] Component Analysis table complete — every major element classified as Reuse/Extend/New
+- [ ] No component names in sections 1–5 that were not verified in Section 6 Component Analysis
 - [ ] Decisions requiring founder input surfaced explicitly
 - [ ] Sections 1–5 contain no file paths or code patterns
 - [ ] Flows are specific enough that developer can implement without guessing
