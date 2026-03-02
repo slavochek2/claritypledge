@@ -1,9 +1,9 @@
 ---
-status: week
+status: in-progress
 type: change-request
 rank: 1000003.0
 changes: p456
-delivery_stage: 4-tests-ready
+delivery_stage: uat
 flow: ux → architect → generate-tests → decompose → dev → verify
 uat_file: features/uat/p465.md
 test_files:
@@ -995,7 +995,7 @@ COMMIT;
 - **Tests:** `e2e/integration/p465-story-points-migration.spec.ts`
 - **Depends on:** None
 - **Verify:** `./scripts/migrate.sh` succeeds on test DB; migration spec passes 5/5 (author_id column exists, insert works, UNIQUE rejects duplicate, SELECT by author_id, RLS SELECT public)
-- [ ] Complete
+- [x] Complete
 
 ### Task 2: Service layer — linkPointToStory author_id + mock stub
 - **Files:** `src/app/data/stories-service-real.ts` (modify: add `author_id` to `linkPointToStory` insert), `src/app/data/stories-service-mock.ts` (modify: add `getStoryByUserAndPoint` stub returning `null`)
@@ -1003,7 +1003,7 @@ COMMIT;
 - **Tests:** `src/tests/getStoryByUserAndPoint.test.ts` (already passing)
 - **Depends on:** Task 1 (author_id column must exist before linkPointToStory passes it)
 - **Verify:** `linkPointToStory` inserts include `author_id`; mock compiles without type errors; unit tests still 4/4
-- [ ] Complete
+- [x] Complete
 
 ### Task 3: Profile page — viewer data pipeline + QuotedPointCard footer
 - **Files:** `src/app/pages/profile-page-v2.tsx` (modify: two changes — (a) viewer secondary query + viewerStoryCountMap state for other profiles, viewerStoryIdForPoint map for own profile; (b) QuotedPointCard footer restructure at lines 1276-1317 — remove "✓ Agree ·" prefix, CTA above stories row, edit link on own profile)
@@ -1011,7 +1011,7 @@ COMMIT;
 - **Tests:** `e2e/p465-point-card-footer.spec.ts` (Flows 1-4)
 - **Depends on:** Task 2
 - **Verify:** On own profile: CTA above stories row, no "✓ Agree ·" prefix, edit link visible when story exists. On other profile: viewer story count accurate, "by you" suffix appears when viewer has a story.
-- [ ] Complete
+- [x] Complete
 
 ### Task 4: PointCardWithLinks — footer restructure + P451 cleanup
 - **Files:** `src/app/components/social/point-card-with-links.tsx` (modify: remove P451 dead code lines 576-586; restructure quote-pattern footer — CTA above stories row, remove copy.symbol/copy.label prefix; add `viewerStoryCount` prop with inline fallback)
@@ -1019,7 +1019,7 @@ COMMIT;
 - **Tests:** `e2e/p465-point-card-footer.spec.ts` (all flows), `e2e/p465-smoke.spec.ts`
 - **Depends on:** Task 3 (viewerStoryCount prop passed from profile page)
 - **Verify:** "✓ Agree ·" prefix gone from all surfaces; P451 button absent; CTA renders above stories row in quote pattern; feed pattern CTA position unchanged; no TypeScript errors
-- [ ] Complete
+- [x] Complete
 
 ### Task 5: StoryGuideChatPage — edit mode detection
 - **Files:** `src/app/pages/story-guide-chat-page.tsx` (modify: add `getStoryByUserAndPoint` call in position-triggered useEffect; pass `existingStory` prop to `StoryGuideChat` when found)
@@ -1027,7 +1027,7 @@ COMMIT;
 - **Tests:** `e2e/p465-point-card-footer.spec.ts` (OS-3 manual UAT covers edit mode entry)
 - **Depends on:** Task 2 (`getStoryByUserAndPoint` already in interface + real service)
 - **Verify:** TypeScript compiles; when navigating to `/chat?from=position&pointId=X` with an existing story, `existingStory` prop is populated; when no story, `existingStory` is undefined
-- [ ] Complete
+- [x] Complete
 
 ### Task 6: StoryGuideChat — edit mode UI
 - **Files:** `src/app/components/story-guide/StoryGuideChat.tsx` (modify: add `existingStory?: Story` prop; when present initialize `phase = 'polish'`, `polishedContent = existingStory.content`, `messages = []`; change heading to "Edit your story"; call `updateStory` on save instead of `createStory`)
@@ -1035,7 +1035,7 @@ COMMIT;
 - **Tests:** `src/tests/getStoryByUserAndPoint.test.ts` (service contract); manual UAT OS-3 covers full edit flow
 - **Depends on:** Task 5 (existingStory prop passed from StoryGuideChatPage)
 - **Verify:** TypeScript compiles; when `existingStory` present, component renders at polish phase with pre-populated content and "Edit your story" heading; save calls `updateStory` not `createStory`
-- [ ] Complete
+- [x] Complete
 
 ---
 
