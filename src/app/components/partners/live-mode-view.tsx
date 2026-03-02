@@ -1733,7 +1733,7 @@ export function JourneyToUnderstanding({
 
   // Full mode with round numbers and header
   return (
-    <div className={`${bgClass} rounded-lg p-4 ${JOURNEY_MIN_HEIGHT} text-left ${className}`}>
+    <div className={`${bgClass} rounded-lg p-4 ${JOURNEY_MIN_HEIGHT} text-left ${className}`} data-testid="journey-to-understanding">
       {/* Section header - personal and directional */}
       <p className="text-sm font-medium text-muted-foreground text-center mb-4 pb-2 border-b border-border">{headerText}</p>
 

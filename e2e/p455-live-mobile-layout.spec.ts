@@ -4,9 +4,9 @@
  *
  * Tests:
  * - Story card appears above Check CTA in DOM/visual order (owner view)
- * - Journey card appears below CTA (not above)
- * - Story text has line-clamp-2 class when collapsed (compact mode)
- * - line-clamp-2 removed after "Show more" click (expand works)
+ * - Journey card appears above CTA when history exists (P469: reverted P455 reorder)
+ * - Story text is truncated at ~100 chars with ellipsis when collapsed (P469: STORY_THRESHOLD=100)
+ * - Ellipsis removed and full text shown after "Show more" click (P469: character-slice only, no line-clamp-2)
  * - "Speak freely" button is positioned immediately after CTA
  *
  * Setup: Authenticated user with a story in the idle screen (single-party,
@@ -55,7 +55,7 @@ test.describe('P455 — Live mobile layout (story selected, idle screen)', () =>
 
   test('story card appears above Check button (visual order)', async ({ page }) => {
     await page.setViewportSize(MOBILE_VIEWPORT);
-    await setTestSession(page, testUser);
+    await setTestSession(page, testUser.email);
     await page.goto('/live');
 
     // Wait for idle screen to load
@@ -94,9 +94,10 @@ test.describe('P455 — Live mobile layout (story selected, idle screen)', () =>
     expect(storyBox!.y).toBeLessThan(checkBox!.y);
   });
 
-  test('story text is truncated with line-clamp-2 by default', async ({ page }) => {
+  test('story text is truncated at ~100 chars with ellipsis by default', async ({ page }) => {
+    // P469: STORY_THRESHOLD lowered 180→100. No line-clamp-2 — character-slice only.
     await page.setViewportSize(MOBILE_VIEWPORT);
-    await setTestSession(page, testUser);
+    await setTestSession(page, testUser.email);
     await page.goto('/live');
 
     await expect(page.getByRole('button', { name: /new session/i })).toBeVisible();
@@ -105,18 +106,22 @@ test.describe('P455 — Live mobile layout (story selected, idle screen)', () =>
     const storyCard = page.locator('[data-testid="live-story-card-expanded"]');
     await expect(storyCard).toBeVisible({ timeout: 10000 });
 
-    // ASSERTION: story text paragraph has line-clamp-2 class when collapsed
+    // ASSERTION: story text is truncated with ellipsis (character-slice at 100 chars)
     const storyText = storyCard.locator('p').filter({ hasText: /she.*someone/i });
     await expect(storyText).toBeVisible();
 
-    const classes = await storyText.getAttribute('class');
-    console.log(`Story text classes: ${classes}`);
-    expect(classes).toContain('line-clamp-2');
+    const textContent = await storyText.textContent();
+    console.log(`Story text content: ${textContent}`);
+    expect(textContent).toContain('…');
+
+    // ASSERTION: "Show more" button is visible (truncation triggered)
+    await expect(storyCard.getByRole('button', { name: /show more/i })).toBeVisible();
   });
 
-  test('line-clamp-2 removed after "Show more" click', async ({ page }) => {
+  test('ellipsis removed and full text shown after "Show more" click', async ({ page }) => {
+    // P469: no line-clamp-2 — expand removes character-slice truncation (ellipsis disappears)
     await page.setViewportSize(MOBILE_VIEWPORT);
-    await setTestSession(page, testUser);
+    await setTestSession(page, testUser.email);
     await page.goto('/live');
 
     await expect(page.getByRole('button', { name: /new session/i })).toBeVisible();
@@ -129,21 +134,21 @@ test.describe('P455 — Live mobile layout (story selected, idle screen)', () =>
     await expect(showMoreBtn).toBeVisible();
     await showMoreBtn.click();
 
-    // ASSERTION: line-clamp-2 class removed after expand
+    // ASSERTION: ellipsis gone after expand
     const storyText = storyCard.locator('p').filter({ hasText: /she.*someone/i });
-    const classes = await storyText.getAttribute('class');
-    console.log(`Story text classes after expand: ${classes}`);
-    expect(classes).not.toContain('line-clamp-2');
+    const textContent = await storyText.textContent();
+    console.log(`Story text content after expand: ${textContent}`);
+    expect(textContent).not.toContain('…');
 
     // ASSERTION: "Show less" button now visible
     await expect(storyCard.getByRole('button', { name: /show less/i })).toBeVisible();
   });
 
-  test('journey card appears below Check button when history exists', async ({ page }) => {
+  test('journey card appears above Check button when history exists', async ({ page }) => {
+    // P469: P455 reorder reverted. Journey is at the top when hasRatingData — above story and CTA.
     // Note: Journey card only shows when rating history exists (not on first round).
-    // This test verifies the DOM order constraint via element positions.
     await page.setViewportSize(MOBILE_VIEWPORT);
-    await setTestSession(page, testUser);
+    await setTestSession(page, testUser.email);
     await page.goto('/live');
 
     await expect(page.getByRole('button', { name: /new session/i })).toBeVisible();
@@ -152,7 +157,7 @@ test.describe('P455 — Live mobile layout (story selected, idle screen)', () =>
     const checkBtn = page.locator('[data-testid="start-check"]');
     await expect(checkBtn).toBeVisible({ timeout: 10000 });
 
-    // Journey card: if present (first round = no history → not rendered), verify it's below CTA
+    // Journey card: if present (first round = no history → not rendered), verify it's ABOVE CTA
     const journeyCard = page.locator('[data-testid="journey-to-understanding"]');
     const journeyVisible = await journeyCard.isVisible();
 
@@ -163,9 +168,9 @@ test.describe('P455 — Live mobile layout (story selected, idle screen)', () =>
       expect(checkBox).not.toBeNull();
       expect(journeyBox).not.toBeNull();
 
-      console.log(`Check button bottom: ${checkBox!.y + checkBox!.height}, Journey card top: ${journeyBox!.y}`);
-      // Journey card top should be below Check button bottom
-      expect(journeyBox!.y).toBeGreaterThan(checkBox!.y);
+      console.log(`Journey card top: ${journeyBox!.y}, Check button top: ${checkBox!.y}`);
+      // Journey card top should be ABOVE Check button (P469: original order restored)
+      expect(journeyBox!.y).toBeLessThan(checkBox!.y);
     } else {
       // First round — no history — journey card not rendered (expected)
       console.log('Journey card not visible on first round — expected, skipping position check');
@@ -175,7 +180,7 @@ test.describe('P455 — Live mobile layout (story selected, idle screen)', () =>
 
   test('Speak freely button appears immediately below Check button', async ({ page }) => {
     await page.setViewportSize(MOBILE_VIEWPORT);
-    await setTestSession(page, testUser);
+    await setTestSession(page, testUser.email);
     await page.goto('/live');
 
     await expect(page.getByRole('button', { name: /new session/i })).toBeVisible();
@@ -207,7 +212,7 @@ test.describe('P455 — Live mobile layout (story selected, idle screen)', () =>
 
   test('Check button is visible without scrolling on 375px viewport', async ({ page }) => {
     await page.setViewportSize(MOBILE_VIEWPORT);
-    await setTestSession(page, testUser);
+    await setTestSession(page, testUser.email);
     await page.goto('/live');
 
     await expect(page.getByRole('button', { name: /new session/i })).toBeVisible();

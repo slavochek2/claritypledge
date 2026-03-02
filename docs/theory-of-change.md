@@ -35,13 +35,15 @@ This section maps the logical chain from problem to impact, showing how our acti
 - Build /live verification tool (real-time explain-back protocol)
 - Teach explain-back protocol (healthcare teach-back applied to workplace)
 - Create Stories as context for verification (solves "on what?" cold start problem)
-- Run workshops to train coaches (in-person skill building)
+- Run Calibration Lab workshops (free, in-person; participants experience the calibration gap firsthand)
+- Create Partner Agreements — formalize the commitment to ongoing /live practice between co-founder pairs
 - Publish essays to reach rationalist/AI safety communities (content-led recognition)
 - Build async verification tools (Slack integration, scale beyond real-time)
 
 **Distribution channels:**
-1. **Coaching cascade:** Coaches teach protocol → clients practice → teams adopt → √N growth
-2. **Content cascade:** Essays → AI safety researchers → enterprise pilots → legitimacy effects
+1. **Workshop-agreement cascade:** Calibration Lab → participants create partner agreements → agreements commit them to recurring /live → √N growth
+2. **Briefing protocol (primary cold start):** Person A files stories → Person B receives anon link → briefing activates Person B → Stage 1
+3. **Content cascade:** Essays → AI safety researchers → enterprise pilots → legitimacy effects
 
 ### Outputs (What We Produce)
 
@@ -50,7 +52,8 @@ This section maps the logical chain from problem to impact, showing how our acti
 - Certifications: Verified understanding records linking people to ideas
 - Protocol adoption: People using explain-back in daily conversations (with or without tool)
 - Content: Essays, specs, technical writing reaching aligned communities
-- Workshops delivered: Coaches trained, participants practice protocol
+- Workshops delivered: Calibration Labs run, participants practice protocol
+- Partner Agreements created: Co-founder pairs with formalized /live practice commitments
 
 **Data artifacts:**
 - Stories: Verified understanding corpus (training data for personal AI)
@@ -63,7 +66,7 @@ This section maps the logical chain from problem to impact, showing how our acti
 - Workshop participants report reduced miscommunication (qualitative feedback)
 - Essays reach 50+ readers in rationalist/AI safety communities (O-Essay-Reach)
 - First coaches adopt protocol and integrate into practice (O-Workshop-Retention)
-- €5K/month workshop revenue validates business model (C3 outcome)
+- €10K/month retainer MRR validates business model (C3 outcome) — Calibration Labs are free acquisition, not revenue
 
 **Medium-term outcomes (6-12 months):**
 - Recognition as "calibration expert" in AI alignment space (R3 outcome)
@@ -178,40 +181,33 @@ Gap_Value(A, B, Idea) =
 
 Two distinct mechanisms bring people to Stage 1. Both are valid; they serve different relationship contexts.
 
-#### Stage 0a: Protocol Propagation (Protocol-Led Growth)
+#### Stage 0a: Workshop-Agreement Cascade
 
-The **explain-back protocol** spreads independently of the product, through coaching relationships.
+The **explain-back protocol** spreads through workshops and Partner Agreements, not through coaches (who don't exist yet). The near-term mechanism:
 
 ```
-STAGE 0a: PROTOCOL PROPAGATION
-────────────────────────────────
-Coach learns explain-back protocol
-Coach teaches clients as part of coaching
-Clients practice with their teams
-Teams teach colleagues
-Protocol spreads WITHOUT measurement tool
+STAGE 0a: WORKSHOP-AGREEMENT CASCADE
+──────────────────────────────────────
+Calibration Lab (free workshop)
+Participants experience calibration gap firsthand
         ↓
-Some practitioners want to MEASURE:
-- "Am I actually improving?"
-- "Can I prove this to my manager?"
-- "How does my team compare?"
+Participants create a Partner Agreement
+(formalizes commitment to ongoing /live practice)
         ↓
-They discover /live (measurement layer)
+Agreement commits them to recurring /live sessions
+        ↓
+/live sessions generate stories
         ↓
 Stage 1 begins (The Proof)
 ```
 
-**Key insight:** The protocol is free and valuable without the product. The product captures value by measuring what the protocol enables.
+**Key insight:** The workshop creates the "aha" moment; the Partner Agreement operationalizes it. Without the agreement, workshop enthusiasm dissipates. With it, /live practice becomes a standing commitment.
 
-This is **Protocol-Led Growth** — distinct from Product-Led Growth:
-- PLG: Product spreads because using it is valuable
-- Protocol-Led: Protocol spreads free; product captures value from protocol users
+**Future path (coach-mediated):** Once coaches exist, the cascade extends: Coach learns explain-back → coach teaches clients → clients practice with teams. This is **Protocol-Led Growth** — protocol spreads free; product captures value from protocol users. The healthcare parallel holds: hospitals use "teach-back" (same mechanism), reducing readmissions by 60%. That path is valid but downstream; workshop → agreement is the near-term mechanism.
 
-**The healthcare parallel:** Hospitals use "teach-back" (same mechanism as explain-back). Meta-analysis shows it reduces readmissions by 60%. We're applying proven verification loops to workplace communication.
+#### Stage 0b: Briefing Protocol (Mirror Agent-Led Activation) — PRIMARY COLD START
 
-#### Stage 0b: Briefing Protocol (Mirror Agent-Led Activation)
-
-**Updated 2026-02-27.** A direct, product-mediated cold start for high-stakes dyads — does not require prior protocol adoption.
+**Updated 2026-03-02 (promoted to primary).** This is now the primary cold start mechanism — does not require coaches, workshops, or prior protocol adoption. Requirements: Person A has filed stories (P419); Person B receives an anonymous link (P458). V1: AI generates mirror claims from story content alone. V2: claims sharpen as /live sessions accumulate. This is the viral growth loop.
 
 ```
 STAGE 0b: BRIEFING PROTOCOL
@@ -236,7 +232,11 @@ Stage 1 begins (The Proof)
 
 **Key insight:** Points surface the gap; stories explain the gap. Mirror claims create productive tension first; stories emerge to explain it. The invitation IS the product experience — Person B gets value before signing up.
 
-**Difference from 0a:** Stage 0a is coach-mediated and spreads through professional relationships. Stage 0b is product-mediated and activates through personal invitation to a specific high-stakes Person B. They are complementary, not competing.
+**Why this is primary:** Stage 0b requires no coaches, no workshops, no pre-existing community. It needs only filed stories and a motivated Person B. It is self-contained and scalable from day one.
+
+**The self-reinforcing loop:** Partner Agreement → recurring /live (agreement operationalizes the commitment) → positions and stories accumulate → briefing protocol activates → new Person B enters Stage 0b → loop repeats.
+
+**Difference from 0a:** Stage 0a is workshop-mediated and spreads through in-person events. Stage 0b is product-mediated and activates through personal invitation to a specific high-stakes Person B. They are complementary — 0a seeds story content that makes 0b richer.
 
 ### Dependent Path: Rationalist Community Cascade
 
@@ -583,6 +583,7 @@ Minimum ROI:                  2x
 
 ## Changelog
 
+- **2026-03-02:** Stage 0b promoted to primary cold start; partner agreement loop added; Stage 0a reframed from coach-cascade to workshop-agreement path
 - **2026-01-28:** Added Stage 0 (Protocol Propagation / Protocol-Led Growth), Evidence Base section with research citations
 - **2026-01-25:** Promoted from `docs/visions/v0_theory-of-change.md` to source of truth doc (P96)
 - **2026-01-18:** Refactored — extracted problem/solution to lean-canvas.md, validation to hypotheses.md. This doc now focuses purely on the cascade mechanism.

@@ -1,6 +1,6 @@
 # Lean Canvas: Clarity Pledge
 
-**Last updated:** 2026-02-03
+**Last updated:** 2026-03-02
 
 ---
 
@@ -114,7 +114,10 @@ Primary revenue track — founder coaching:
 
 **Target:** €5k/month by Month 6 validates coaching as revenue foundation.
 
-**Path (Track 2):** Free Calibration Lab → Co-founder pair sessions → Retainer → Cohorts
+**Path (Track 2):** Free Calibration Lab → Co-founder pair sessions → Partner Agreement → Retainer → Cohorts
+
+**Partner agreement as retention mechanism (2026-03-02):** Once a partner agreement is created, it commits both parties to ongoing /live practice — generating positions and stories over time. This is what makes Calibration Lab different from a one-off event: the agreement operationalizes the commitment and keeps the pair in the product loop.
+
 **Path (Track 1):** Real session data → Essays → Recognition → Personal AI adoption → Network effects
 
 ---
@@ -171,6 +174,10 @@ This removes the social friction of checking understanding. It's not just market
 
 **Key insight (2026-02-27):** Points surface the gap; stories explain the gap. The flow is inverted from the original assumption: mirror claims create the "interesting wrong" tension first, stories emerge to explain it. Stories are the content layer; the briefing protocol is the cold start trigger.
 
+**V1 implementation note (2026-03-02):** V1 of the briefing protocol doesn't require story-learning from /live session history. The AI generates mirror claims directly from story content. /live session history makes the claims sharper over time (V2 enhancement) — but the protocol works from day one with stories alone.
+
+**Full product loop:** Partner Agreement → recurring /live → positions taken → stories filed → briefing protocol activates → Person B receives anon link → explain-back → gap report → Person B becomes a new user (Person A in their own pair). This is the viral growth engine.
+
 **Constraint:** Requires motivated Person B with pre-existing relationship stakes. Protocol channels existing motivation — doesn't create it.
 
 ### 3. /live — Real-time Verification (Core Product)
@@ -183,7 +190,7 @@ The core interaction, used in **any meeting**:
 
 **Key insight (2026-01-27):** /live isn't for special "Clarity events" — it's for any meeting where a team commits to verified understanding. Team standup, 1:1, board meeting, workshop — any meeting can be an "event."
 
-### 3. Stories (Scaling Mechanism — Building)
+### 4. Stories (Scaling Mechanism — Building)
 
 **The evolution (2026-02-02):** Stories aren't just narratives — they're how authors scale their inner world.
 
@@ -211,7 +218,7 @@ Story evolves through corrections
 
 See [decisions.md](decisions.md) "2026-02-02" entry for full sequence.
 
-### 4. Calibration Profile
+### 5. Calibration Profile
 Track your accuracy over time:
 - How often your confidence matches reality
 - Your verified understanding score
@@ -277,12 +284,12 @@ ClarityPledge is the platform brand (like Stripe). ladischenski.com is the found
 ### Track 2 (PRIMARY months 1-6): Coaching Path
 
 Primary channels for founder coaching revenue:
-- **Free Calibration Lab:** Open enrollment group sessions (90 min) — cast wide, route to paid coaching post-session
+- **Free Calibration Lab:** PRIMARY acquisition channel (90 min group session). Goal: get pairs into a room → experience the calibration gap → create a partner agreement + first /live session. Output is the agreement, not ticket revenue. Free/cost channel, not a revenue driver.
 - **Founder networks:** Direct outreach to co-founder pairs in accelerators, founder communities, peer groups
 - **Direct outreach:** Target functioning-but-misaligned co-founder pairs specifically
 - **Coach partnerships:** Partner with executive coaches who work with founders → referrals
 
-**Success signals:** 10 coaching clients by Month 3, €3k/month by Month 6.
+**Success signals:** 10 Calibration Lab participants by Month 3, €3k/month by Month 6.
 
 ### Track 1 (SECONDARY months 5-12): Recognition Path
 
@@ -301,12 +308,12 @@ Secondary channels for thought leadership — built on real session data:
 
 | Metric | Estimate |
 |--------|----------|
-| Workshop cost to run | ~$0 (your time) |
-| Workshop → free tool conversion | Target: 20%+ |
-| Free tool → business inquiry | Target: 5%+ |
-| Business team price | $100-500/team/month |
-| Business retention | Target: 80%+ |
-| CAC | ~$0 (workshops are free marketing) |
+| Calibration Lab cost to run | ~€0 (your time) |
+| Calibration Lab → partner agreement | Target: 50%+ |
+| Partner agreement → /live return (30d) | Target: 50%+ |
+| Pair retainer price | €800–1,500/pair/month |
+| Retainer month-2 retention | Target: 60%+ |
+| CAC | ~€0 (Calibration Labs are free acquisition) |
 
 ---
 
@@ -337,6 +344,8 @@ Secondary channels for thought leadership — built on real session data:
 - **Timeline:** Short-term revenue (Month 3+)
 - **Success metric:** Monthly recurring coaching revenue
 - **Role:** Validates tool UX, generates real founder data for recognition essays, NOT just safety net
+- **Retainer trigger (2026-03-02):** Coaching retainers are offered AFTER product usage is proven — pair has a partner agreement AND is using /live regularly. Not triggered by session value alone. The business is a software product; coaching retainers are the near-term bridge to product adoption.
+- **Long-term revenue path:** Software subscriptions as pairs scale usage (pairs that outgrow ad-hoc retainer → self-serve subscription tier)
 
 **Checkpoints (Unlock Gates):**
 
@@ -359,14 +368,14 @@ These are gates to unlock next level of ambition, not reasons to quit. If a chec
 - Rationalist/researcher use: free (community building)
 
 **Track 2 (PRIMARY): Founder Coaching Pricing**
-- **Free Calibration Lab** — open acquisition (90 min group session, cast wide, route post-session)
-- **€300–500** — single co-founder pair session (60-90 min)
-- **€800–1,500/month** — ongoing retainer per pair
+- **Free Calibration Lab** — free acquisition (90 min group session, cast wide, route post-session). Workshops are NOT revenue drivers — they are cost/acquisition to get pairs into the product loop.
+- **€300–500** — single co-founder pair session (60-90 min). Valid entry point but not the primary model.
+- **€800–1,500/month** — ongoing retainer per pair (triggered after pair has partner agreement + active /live usage)
 - **€2,000/person** — 4-week founder cohort (one-off workshop, distinct from C3 monthly Cohort retainer tier)
 - **€200–300/month** — founder community add-on (future C4)
 
 **Track 1 (SECONDARY): Recognition Path Pricing**
-- **€500–2,000/event** — workshop facilitation (validation tool, feeds coaching pipeline)
+- **Future:** software subscriptions as pairs scale usage (long-term product revenue model)
 - **Future:** personal AI integration premium features, API access
 
 ---

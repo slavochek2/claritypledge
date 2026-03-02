@@ -22,8 +22,8 @@ Our active bets, in priority order. This is the map of what we still need to pro
 **Testing via:** Manual briefing experiment — run full protocol with one real high-stakes Person B. Measure: does Person B accept? Does comprehension test surface a gap? Does the meeting start at depth?
 **Kill if:** Person B declines invitation OR finds mirror claims generic/unengaging OR meeting doesn't start noticeably deeper than without briefing.
 **Precondition:** Requires motivated Person B with pre-existing relationship stakes. Protocol channels existing motivation — doesn't create it from nothing.
-**Blocked by:** Identifying the right first Person B (high-stakes relationship, motivated to understand Person A).
 **Notes (2026-02-27):** Points surface the gap; stories explain the gap. This is the cold start trigger. H-Stories-ColdStart tests the content layer once a session is initiated.
+**Notes (2026-03-02):** V1 doesn't need story learning from /live sessions — AI generates mirror claims directly from story content. /live session history makes claims sharper over time (V2). This means the hypothesis is testable NOW.
 
 ---
 
@@ -41,18 +41,27 @@ Our active bets, in priority order. This is the map of what we still need to pro
 **Testing via:** Track post-session behavior in C2 — does filing happen? Does the agent follow up? Does a second session get initiated without direct outreach from Slava?
 **Kill if:** Filing happens but no new sessions result OR Slava's presence remains required to initiate every session.
 **Precondition:** Requires working filing mechanism (Person A can file insights post-session) and agent post-session engagement capability.
-**Blocked by:** H-BriefingProtocol-ColdStart — need validated sessions before testing propagation.
+**Blocked by:** H-BriefingProtocol-ColdStart (need validated sessions) AND H-AgreementRetention (need to confirm agreements drive /live return before testing propagation).
 **Notes (2026-02-28):** Structural constraint, not optional feature. Without this loop, C-track is a coaching practice (Slava-dependent), not a scalable product.
 
 ---
 
-### H-CoFounders-WillPay: Co-founder pairs pay for preventive calibration sessions
-**Bet:** Functioning-but-misaligned co-founder pairs will pay €300–500 per session for structured calibration to prevent alignment drift before it becomes crisis.
-**Testing via:** C2 (First Founder Sessions) — 3–5 paid sessions, track follow-up booking rate. Target ≥50% conversion to follow-ups.
-**Kill if:** <2 founder pairs across 3 sessions OR zero follow-up bookings.
-**Notes:** High-stakes dyad with recurring calibration needs. ICP qualifier: relationship health + decision frequency, not funding stage. Validates positioning as preventive (not therapeutic) and WTP for personalized facilitation.
+### H-CoFounders-WillPay: Co-founder pairs value and return to preventive calibration
+**Bet:** Co-founder pairs who attend a free Calibration Lab and create a partner agreement will return to /live regularly — the agreement operationalizes the commitment, not just records it. If the pair returns, WTP for retainers (H-Retainers-Sticky) becomes testable.
+**Testing via:** C2 (First Calibration Labs) — 3–5 free Labs, track partner agreement creation rate and /live return rate. Target ≥50% of agreement-creating pairs return to /live within 30 days.
+**Kill if:** <30% agreement creation rate at Calibration Labs OR <30% of agreement-creating pairs return to /live within 30 days.
+**Notes:** High-stakes dyad with recurring calibration needs. ICP qualifier: relationship health + decision frequency, not funding stage. Validates positioning as preventive (not therapeutic). WTP itself is confirmed in C3 (H-Retainers-Sticky) — C2 tests engagement and return, not payment.
 **Scary thing:** Run first pilot session with a co-founder pair you know by March 7.
 **Current status (2026-03-02):** No product yet — only a hypothesis. First pilot sessions are free in exchange for honest feedback. The session IS the product discovery. Goal of pilot: shift pair from "asking to paraphrase feels awkward" → "refusing to paraphrase feels wrong." Session prep: `pp/docs/business/cofounder-session-prep.md`.
+
+---
+
+### H-AgreementRetention: Partner agreements drive recurring /live usage
+**Bet:** Co-founder pairs who create a partner agreement at a Calibration Lab continue using /live regularly (at least once a month) for 3+ months — because the agreement operationalizes the commitment, not just records it.
+**Testing via:** C2 — track /live session frequency for pairs who created agreements vs. those who didn't. Measure 30-day and 90-day return rates.
+**Success:** >50% of agreement-creating pairs use /live at least once in month 2 and month 3.
+**Kill if:** <30% of agreement-creating pairs use /live in month 2 — means agreements are symbolic, not behavioral.
+**Notes:** This is the foundational retention hypothesis. If agreements don't drive recurring /live usage, the entire product loop breaks: no /live = no positions = no stories = no briefing protocol material. Test this before building anything downstream.
 
 ---
 
@@ -215,6 +224,8 @@ COACHING TRACK (C) — Months 1-6, PRIMARY
 ├─ H-ProtocolSpreadsWithoutTool (test in C2)
 ├─ H-Stories-ColdStart (C1) → unlocks C2
 ├─ H-CoFounders-WillPay (C2) → unlocks C3
+├─ H-AgreementRetention (C2) → required before H-FilingLoop-Propagation
+├─ H-FilingLoop-Propagation (blocked by H-AgreementRetention + H-BriefingProtocol-ColdStart)
 ├─ H-Retainers-Sticky (C3) → unlocks C4
 └─ H-Community-Retention (C4)
 

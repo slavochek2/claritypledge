@@ -1,5 +1,5 @@
 ---
-status: blocked
+status: backlog
 type: story
 rank: 0.5
 workstream: C1
@@ -9,7 +9,7 @@ tags:
   - psychological-safety
   - onboarding
   - mediation
-locked_at: '2026-03-02T08:35:13.982Z'
+locked_at: '2026-03-02T14:11:11.068Z'
 ---
 
 # P421: Pre-Session Psychological Safety Check

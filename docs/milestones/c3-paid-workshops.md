@@ -50,10 +50,18 @@ The shift from C3 "paid workshops" ($100/person events) to retainers (€800-1,5
 
 **Positioning:** See [lean-canvas.md](../lean-canvas.md) Track 2 for full positioning. Monthly retainer cadence mirrors how co-founder tensions compound — preventive maintenance, not crisis response.
 
+## Precondition: Who Gets a Retainer Offer
+
+Retainers are offered only to pairs who meet both conditions:
+1. **Created a partner agreement** during or after a C2 Calibration Lab
+2. **Returned to /live at least 2-3 times** after the Lab — demonstrating the agreement translates to practice
+
+"Experienced session value" is not sufficient. The retainer is facilitated calibration for pairs already using the product independently.
+
 ## Go-to-Market
 
-**Phase 1 (Weeks 1-4):** Offer retainers to all C2 session participants
-- High conversion likely (they've experienced value in-session)
+**Phase 1 (Weeks 1-4):** Offer retainers to C2 pairs who have demonstrated /live return behavior (used /live at least twice after the Lab)
+- High conversion likely (they've experienced value and already self-motivated)
 - Target: 5-8 signups
 
 **Phase 2 (Weeks 5-8):** Expand to warm leads + referrals from Phase 1
@@ -102,8 +110,8 @@ By end of C3:
 
 **Track:** Coaching (C-track) — PRIMARY months 1-6
 
-**Depends on:** C2 (Co-founder sessions validate value + conversion path)
+**Depends on:** C2 (Calibration Labs validate agreement creation + /live return behavior)
 
 **Next:** C4 (Founder Community — cohort add-on for €200-300/month)
 
-**Previous:** C2 (First Founder Sessions)
+**Previous:** C2 (First Calibration Labs + Partner Agreements)

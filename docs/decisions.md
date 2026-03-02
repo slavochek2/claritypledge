@@ -2,6 +2,62 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-02 [product]: ladischenski.com reframed as Calibration Lab facilitation site
+
+**Context:** Site was positioned as a consulting business — €250/hr coaching, €1,500 de-risking package, €3,350 workshop. Slava doesn't believe in the per-session coaching market; it requires selling prevention to people who don't self-identify as at risk.
+
+**Decision:** One CTA: "Join a free Calibration Lab." Services simplified to Free Calibration Lab (acquisition) + Ongoing Retainer (for pairs already using /live). Per-session coaching pricing removed. Site's job is getting co-founder pairs into a room, not selling them packages upfront.
+
+**Alternatives rejected:** Keep consulting pricing, add Calibration Lab as a tier — muddies the message, implies Lab is one of many paid options.
+
+**Consequences:** ladischenski.com is now a workshop facilitation front-end, not a coaching practice. Revenue comes from retainers after product usage is demonstrated, not upfront.
+
+**References:** [ladischenski-com/app/page.tsx](../../ladischenski-com/app/page.tsx) · [lean-canvas.md](lean-canvas.md) Channels section
+
+---
+
+## 2026-03-02 [product]: Partner Agreement is the retention mechanism, not a product ceremony
+
+**Context:** Agreement feature was being built with ceremony framing (certificate frame, HelloSign). The strategic purpose was unclear — was it a nice-to-have flourish, or load-bearing for the product?
+
+**Decision:** Agreement is the retention mechanism. Once a co-founder pair creates an agreement, /live becomes the operationalized practice they committed to — not a tool they tried once. Agreements drive recurring /live usage → positions accumulate → stories get filed → briefing protocol has material to work with. Workshop output = agreement, not just experience.
+
+**Alternatives rejected:** Skipping agreements, going straight to briefing protocol — no retention mechanism means /live remains a one-off; stories don't accumulate; briefing protocol has nothing to send.
+
+**Consequences:** Finishing the agreements feature is P1 before any briefing protocol work. The loop is: Agreement → recurring /live → stories → briefing → new Person B. Each link in the chain is required.
+
+**References:** [c2-workshops.md](milestones/c2-workshops.md) · [hypotheses.md](hypotheses.md) H-AgreementRetention
+
+---
+
+## 2026-03-02 [product]: Briefing protocol promoted to primary cold start; V1 needs only story content
+
+**Context:** Briefing protocol (Stage 0b in theory-of-change) was positioned as one of two parallel cold start paths alongside a coaching cascade via coaches. But no coaches exist. The coaching cascade was a theory, not a mechanism.
+
+**Decision:** Stage 0b (briefing protocol) is the PRIMARY cold start. V1 doesn't need /live session learning — AI generates mirror claims from story content directly. /live session history sharpens claims over time (V2), but the protocol is testable the moment P419 (good story filing) and P458 (anon access) ship. Coaching cascade reframed: workshops → agreements → /live, not coaches → clients → teams.
+
+**Alternatives rejected:** Building the coach partnership channel first — no evidence coaches exist or want to partner; adds dependency on a channel that hasn't been recruited.
+
+**Consequences:** The P471 briefing flow spec is blocked only on P419 + P458. The briefing protocol is the viral growth loop: Person A sends Person B a link → Person B experiences the gap → Person B becomes Person A.
+
+**References:** [theory-of-change.md](theory-of-change.md) Stage 0b · [hypotheses.md](hypotheses.md) H-BriefingProtocol-ColdStart · [p471 spec](../features/p471_briefing_flow_v1.md)
+
+---
+
+## 2026-03-02 [product]: Business model is software product, not coaching practice
+
+**Context:** Strategy had a dual-track: coaching (months 1-6) as revenue bridge, recognition (months 5-12) for thought leadership. The coaching track was accumulating infrastructure (HelloSign, certificate frames, per-session pricing) while the actual software product loop was being deferred. Slava flagged loss of motivation when thinking about selling €1,500 coaching sessions — a signal the model was wrong.
+
+**Decision:** ClarityPledge is a software product. Workshops (Calibration Labs) are free acquisition channels — they get pairs into a room to experience the gap and create a partner agreement. Coaching retainers are valid for pairs who have already demonstrated /live usage (agreement created + 2-3 returns) — not for pairs who just attended a session. The product loop is: Agreement → recurring /live → stories → briefing protocol → new users. Software subscriptions are the long-term model.
+
+**Alternatives rejected:** Coaching-first with software as the long-term bet — Slava doesn't believe in the per-session coaching market; can't sell what you don't believe. Skipping workshops entirely — workshops are the cheapest acquisition channel and generate agreements that drive product adoption.
+
+**Consequences:** All milestones reframed: C2 success metric is agreement creation + /live return rate (not "book paid session"). Retainers (C3) require demonstrated product usage as precondition. Coaching pricing on ladischenski.com removed. Feature priority: finish agreements → P419 → P458 → P471 briefing flow.
+
+**References:** [lean-canvas.md](lean-canvas.md) · [c2-workshops.md](milestones/c2-workshops.md) · [c3-paid-workshops.md](milestones/c3-paid-workshops.md) · [hypotheses.md](hypotheses.md) H-AgreementRetention
+
+---
+
 ## 2026-03-02 [process]: Worktree branch deadlock — use `git checkout --detach` to free a branch locked by the main worktree
 
 **Context:** After merging feature/p463 into main (from inside the p465 worktree), the main repo was still checked out on `feature/p463`. `git branch -d feature/p463` failed because the branch was "used by worktree" (the main repo itself). `git checkout main` also failed because `main` was already locked by the p465 worktree. Classic deadlock: branch A locked by main repo, branch main locked by worktree — no path to switch.

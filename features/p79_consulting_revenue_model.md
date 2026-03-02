@@ -1,15 +1,20 @@
 ---
-status: in-progress
+status: done
 type: story
 workstream: C2
 rank: 1
 tags: []
 created_date: 2026-01-20T00:00:00.000Z
 locked_at: '2026-02-28T09:34:21.114Z'
+completed_at: '2026-03-02'
 ---
 # P79: Consulting & Revenue Model
 
-## Status: Planning
+> **Superseded (2026-03-02).** This spec described the consulting revenue model during early planning. The model has since evolved: the current model is workshops (free Calibration Labs as acquisition) → partner agreements → recurring /live usage → briefing protocol → software subscriptions + facilitation retainers. The two-brand strategy (ClarityPledge + ladischenski.com), service tiers, and pricing established here remain valid and are referenced in the active milestone docs (c2-workshops.md, c3-paid-workshops.md). No content needs to move — links are sufficient.
+>
+> **Brand name note:** This spec uses "Slava Coaching" as the personal brand name. The settled brand is **ladischenski.com** (decided 2026-02-27). All external references should use ladischenski.com, not "Slava Coaching."
+
+## Status: Done (superseded)
 
 ## Key Decision: Two Separate Brands
 

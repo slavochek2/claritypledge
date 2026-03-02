@@ -78,7 +78,7 @@ See [H-Stories-ColdStart](../hypotheses.md#h-stories-coldstart-stories-are-the-c
 **Done:** Story + point creation on profiles, /live session flow, story verification in /live (P272), post-session magic link email (P274)
 **Before 1-to-many:** Event room entry (must be easy, not QR/link friction)
 
-**Done when:** Can run a workshop where participants create stories, verify in /live, enter rooms from event page.
+**Done when:** Can run a workshop where participants create stories, verify in /live, enter rooms from event page, and at least one partner agreement created from a workshop participant.
 
 ## Pilot Sequence
 
@@ -88,14 +88,15 @@ Track current position:
 2. [ ] Push to production
 3. [x] Create own stories (active listening) — test the loop yourself
 4. [ ] **Briefing protocol experiment** — identify one high-stakes Person B (pre-existing relationship stakes), run manual briefing with AI-generated mirror claims, measure whether meeting starts at depth. This precedes and runs in parallel with the 20-user pilot. See H-BriefingProtocol-ColdStart.
-5a. [ ] **Meta-epistemological briefing** — before each /live session, brief both participants on WHY we actively listen (the 8 postulates in philosophy.md), using the sister story (cognitive vs emotional understanding) as the entry point. This is the product implementation of H-MetaEpistemic-Prerequisite. Track: does the session start deeper? Does the briefing feel natural or academic?
-5. [ ] 1-on-1 free sessions (invite 20 warm contacts)
+5. [ ] **Meta-epistemological briefing** — before each /live session, brief both participants on WHY we actively listen (the 8 postulates in philosophy.md), using the sister story (cognitive vs emotional understanding) as the entry point. This is the product implementation of H-MetaEpistemic-Prerequisite. Track: does the session start deeper? Does the briefing feel natural or academic?
+6. [ ] 1-on-1 free sessions (invite 20 warm contacts)
    → Entry channel: ladischenski.com → 15-min intake call (Google Calendar with qualifying questions)
-6. [ ] 1-on-1 paid, money-back guarantee
-7. [ ] Fix event room entry (before 1-to-many)
-8. [ ] 1-to-many free (Calibration Lab, lead gen)
-9. [ ] 1-to-many paid
-10. [ ] Offline events
+7. [ ] Partner agreement creation — after free sessions, invite pairs to formalize their commitment via a partner agreement. This is the retention mechanism that drives recurring /live usage.
+8. [ ] 1-on-1 paid, money-back guarantee
+9. [ ] Fix event room entry (before 1-to-many)
+10. [ ] 1-to-many free (Calibration Lab, lead gen)
+11. [ ] 1-to-many paid
+12. [ ] Offline events
 
 ---
 
