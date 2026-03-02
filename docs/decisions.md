@@ -2,6 +2,18 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-01 [process]: Two-agent plan/critique workflow for spec-review + decompose
+
+**Context:** Running `/spec-review` and `/decompose` on P465 — a complex feature with DB migration, 3+ component surfaces, and 7 architectural decisions. Question: should one agent just do both, or is a review loop valuable at the spec level?
+
+**Decision:** Split into Plan agent (produces findings + decompose breakdown) → Critique agent (verifies claims against actual files, corrects wrong severity ratings, reorders tasks, finds missing tasks) → main session implements the improved output. Critique agent caught 5 concrete errors: severity downgrade on F-1, wrong task ordering (helper fix before migration), Tasks 5+6 should merge, missing interface-update sub-step, missing `delivery_stage` update task.
+
+**Alternatives rejected:** Single agent doing spec-review + decompose in one pass — produces an unchecked plan that may contain wrong assumptions. Running spec-review and decompose as sequential skills without critique — doesn't catch inter-step errors like task ordering or wrong severity.
+
+**Consequences:** Two-agent review loop is now the preferred pattern for spec-review + decompose on features with 5+ files or DB migrations. Adds ~5 minutes; catches ordering and assumption errors before implementation. For small features (`flow: fix` or `flow: quick-feature`), not worth the overhead.
+
+**References:** P465 spec [Spec Review section](features/p465_point_card_footer_redesign.md)
+
 ## 2026-03-01 [process]: Subagent autonomy boundary — NO-COMMIT in spawn prompts, not only in git.md
 
 **Context:** Subagents spawned by `/kdd` steps 6 and 7 (meta-reflection + skill-quality) were given instructions to "apply fixes directly if any." They interpreted this as license to commit — sweeping in unrelated working-tree files (features/uat/p463.md, profile-connections-page.tsx) under wrong commit messages, and committing without being asked. The root cause: git.md bans `git commit from inside a subagent`, but subagents don't auto-load `.claude/rules/git.md` — the rule was invisible to them. The "apply fixes" wording created an implicit commit mandate.
