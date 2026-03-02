@@ -1,7 +1,7 @@
 ---
-status: week
+status: today
 type: change-request
-rank: 1000006.0
+rank: 250000.5
 changes: p455
 tags:
   - redesign
@@ -9,9 +9,10 @@ tags:
   - live-session
   - mobile
   - layout
-created_date: 2026-03-02
+created_date: 2026-03-02T00:00:00.000Z
 flow: dev
 superseded_by: p469
+locked_at: '2026-03-02T14:40:25.449Z'
 ---
 
 # P468: /live Phase-Aware Layout Hierarchy
