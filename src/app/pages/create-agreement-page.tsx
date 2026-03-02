@@ -1,7 +1,10 @@
 /**
  * @file create-agreement-page.tsx
- * @description P422: Create Clarity Partner Agreement page.
+ * @description P466: Create Clarity Partner Agreement — certificate-as-form redesign.
  * Route: /agreements/new
+ *
+ * The certificate IS the form. Editable partner name is inline in the certificate
+ * body. Email and visibility controls appear below the certificate.
  */
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -9,9 +12,9 @@ import { useAuth } from '@/auth';
 import { supabase } from '@/lib/supabase';
 import { agreementsService } from '@/app/data/agreements-service';
 import type { AgreementParty, AgreementVisibility } from '@/app/data/agreements-service';
+import { AgreementCertificate } from '@/app/components/agreements/agreement-certificate';
 import { Loader2Icon, GlobeIcon, LockIcon, ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { MobileTooltip } from '@/app/components/shared/mobile-tooltip';
 
@@ -66,9 +69,13 @@ export function CreateAgreementPage() {
   const { user, session, isLoading: authLoading } = useAuth();
 
   // Form state
+  const [partnerName, setPartnerName] = useState('');
   const [partnerEmail, setPartnerEmail] = useState('');
   const [visibility, setVisibility] = useState<AgreementVisibility>('private');
   const [termsText, setTermsText] = useState(DEFAULT_TERMS);
+
+  // Track whether user has manually typed a name (prevents auto-fill overwrite)
+  const userTypedNameRef = useRef(false);
 
   // Lookup state
   const [lookupResult, setLookupResult] = useState<AgreementParty | null | 'not-found'>(null);
@@ -81,11 +88,12 @@ export function CreateAgreementPage() {
 
   // Validation errors
   const [errors, setErrors] = useState<{
+    partnerName?: string;
     partnerEmail?: string;
     termsText?: string;
   }>({});
 
-  // Creator name check (nameless users cannot create agreements)
+  // Creator name (nameless users cannot create agreements)
   const [creatorName, setCreatorName] = useState<string | null | undefined>(undefined);
   useEffect(() => {
     if (!user?.id) return;
@@ -99,6 +107,16 @@ export function CreateAgreementPage() {
       navigate('/login');
     }
   }, [authLoading, session, navigate]);
+
+  // Partner name change handler — sets the "user typed" flag to prevent auto-fill overwrite
+  const handlePartnerNameChange = useCallback((name: string) => {
+    userTypedNameRef.current = name.length > 0;
+    setPartnerName(name);
+    if (errors.partnerName && name.trim()) {
+      setErrors((prev) => ({ ...prev, partnerName: undefined }));
+    }
+    setSubmitError(null);
+  }, [errors.partnerName]);
 
   // Debounced email lookup
   const handleEmailChange = useCallback(
@@ -127,6 +145,11 @@ export function CreateAgreementPage() {
         try {
           const party = await agreementsService.lookupUserByEmail(trimmed);
           setLookupResult(party ?? 'not-found');
+
+          // FD-1: Auto-fill partner name from lookup result if user hasn't typed yet
+          if (party && !userTypedNameRef.current) {
+            setPartnerName(party.name);
+          }
         } finally {
           setIsLookingUp(false);
         }
@@ -135,18 +158,26 @@ export function CreateAgreementPage() {
     [user?.email]
   );
 
-  const handleTermsChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    const val = e.target.value;
-    if (val.length <= TERMS_MAX) {
-      setTermsText(val);
+  const handleTermsChange = (text: string) => {
+    if (text.length <= TERMS_MAX) {
+      setTermsText(text);
     }
-    if (errors.termsText && val.trim()) {
+    if (errors.termsText && text.trim()) {
       setErrors((prev) => ({ ...prev, termsText: undefined }));
     }
   };
 
+  const partnerNameInputRef = useRef<HTMLInputElement | null>(null);
+
   const validate = (): boolean => {
-    const newErrors: { partnerEmail?: string; termsText?: string } = {};
+    const newErrors: { partnerName?: string; partnerEmail?: string; termsText?: string } = {};
+
+    const nameTrimmed = partnerName.trim();
+    if (!nameTrimmed) {
+      newErrors.partnerName = 'Partner name is required';
+    } else if (nameTrimmed.length > 100) {
+      newErrors.partnerName = 'Name must be 100 characters or fewer';
+    }
 
     const emailTrimmed = partnerEmail.trim();
     if (!emailTrimmed) {
@@ -160,6 +191,14 @@ export function CreateAgreementPage() {
     }
 
     setErrors(newErrors);
+
+    // Focus the partner name input on validation error (ARIA / UX requirement)
+    if (newErrors.partnerName) {
+      // The input is inside the certificate — find via aria-label
+      const input = document.querySelector<HTMLInputElement>('input[aria-label="Partner\'s full name"]');
+      input?.focus();
+    }
+
     return Object.keys(newErrors).length === 0;
   };
 
@@ -187,6 +226,7 @@ export function CreateAgreementPage() {
 
       const agreement = await agreementsService.createAgreement({
         partnerEmail: partnerEmail.trim(),
+        partnerDisplayName: partnerName.trim(),
         termsText: termsText.trim(),
         visibility,
       });
@@ -219,6 +259,8 @@ export function CreateAgreementPage() {
     return null;
   }
 
+  const creatorHasNoName = creatorName !== undefined && !creatorName;
+
   return (
     <div className="container mx-auto px-4 py-8 pb-24 md:py-12 md:pb-12 max-w-2xl">
       <Button
@@ -231,37 +273,45 @@ export function CreateAgreementPage() {
         Back
       </Button>
 
-      {/* Header */}
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold">New Clarity Partner Agreement</h1>
-        <p className="text-muted-foreground mt-2">
-          Invite someone to practice calibrated communication with you.
-        </p>
-      </div>
-
       {/* Nameless creator error */}
-      {creatorName !== undefined && !creatorName && (
-        <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700" role="alert">
+      {creatorHasNoName && (
+        <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700 mb-6" role="alert">
           Please add your name in{' '}
           <a href="/settings" className="underline font-medium">Settings</a>{' '}
           before creating an agreement.
         </div>
       )}
 
-      {/* Form */}
+      {/* Certificate — primary UI (IS the form) */}
       <form onSubmit={handleSubmit} className="space-y-6">
+        <AgreementCertificate
+          variant="creation"
+          creatorName={creatorName ?? ''}
+          creatorSignedAt={new Date().toISOString()}
+          termsText={termsText}
+          onPartnerNameChange={handlePartnerNameChange}
+          partnerNameValue={partnerName}
+          partnerNameError={errors.partnerName}
+          partnerNamePlaceholder="their name"
+          onTermsChange={handleTermsChange}
+          termsError={errors.termsText}
+        />
+
+        {/* ── Fields below the certificate ── */}
+
         {/* Partner Email */}
         <div>
           <label htmlFor="partner-email" className="block text-sm font-medium mb-2">
-            Partner email <span className="text-red-500">*</span>
+            Partner&apos;s email <span className="text-red-500">*</span>
           </label>
           <div className="relative">
             <Input
+              ref={partnerNameInputRef as React.Ref<HTMLInputElement>}
               id="partner-email"
               type="email"
               value={partnerEmail}
               onChange={handleEmailChange}
-              placeholder="partner@example.com"
+              placeholder="email@example.com"
               aria-describedby={errors.partnerEmail ? 'partner-email-error' : undefined}
               aria-invalid={errors.partnerEmail ? 'true' : undefined}
               className={errors.partnerEmail ? 'border-red-500' : ''}
@@ -276,12 +326,12 @@ export function CreateAgreementPage() {
 
           {/* Lookup result */}
           {!errors.partnerEmail && lookupResult === 'not-found' && (
-            <p className="text-sm text-muted-foreground mt-2">
+            <p className="text-sm text-muted-foreground mt-2" role="status">
               No account found — they&apos;ll be invited to create one.
             </p>
           )}
           {!errors.partnerEmail && lookupResult !== null && lookupResult !== 'not-found' && (
-            <div className="mt-2">
+            <div className="mt-2" role="status">
               <p className="text-sm text-green-700 font-medium mb-1">Account found ✓</p>
               <AvatarBadge party={lookupResult} />
             </div>
@@ -323,33 +373,6 @@ export function CreateAgreementPage() {
           </div>
         </fieldset>
 
-        {/* Terms Text */}
-        <div>
-          <label htmlFor="terms-text" className="block text-sm font-medium mb-2">
-            Our terms:
-          </label>
-          <Textarea
-            id="terms-text"
-            value={termsText}
-            onChange={handleTermsChange}
-            rows={8}
-            aria-describedby={errors.termsText ? 'terms-error' : 'terms-hint'}
-            aria-invalid={errors.termsText ? 'true' : undefined}
-            className={`resize-y min-h-[180px] font-mono text-sm ${errors.termsText ? 'border-red-500' : ''}`}
-            placeholder="Describe the terms of your partnership..."
-          />
-          <div className="flex justify-between items-center mt-1">
-            <span id="terms-hint" className="text-xs text-muted-foreground">
-              {termsText.length}/{TERMS_MAX} characters
-            </span>
-          </div>
-          {errors.termsText && (
-            <p id="terms-error" className="text-sm text-red-500 mt-1" role="alert">
-              {errors.termsText}
-            </p>
-          )}
-        </div>
-
         {/* Submission error */}
         {submitError && (
           <p className="text-sm text-red-500" role="alert">
@@ -361,7 +384,8 @@ export function CreateAgreementPage() {
         <div className="pt-4">
           <Button
             type="submit"
-            disabled={isSubmitting || !!errors.partnerEmail || (creatorName !== undefined && !creatorName)}
+            disabled={isSubmitting || !!errors.partnerEmail || creatorHasNoName}
+            aria-disabled={creatorHasNoName ? 'true' : undefined}
             className="bg-blue-500 hover:bg-blue-600 text-white min-h-[44px]"
           >
             {isSubmitting ? (
@@ -370,7 +394,7 @@ export function CreateAgreementPage() {
                 Sending...
               </>
             ) : (
-              'Create & Send Invitation \u2736'
+              'Seal & Send Invitation \u2736'
             )}
           </Button>
         </div>

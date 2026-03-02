@@ -1,13 +1,21 @@
 /**
  * @file agreement-certificate.tsx
- * @description P422: Bilateral Clarity Partner Agreement certificate component.
+ * @description P422/P466: Bilateral Clarity Partner Agreement certificate component.
  * Renders the agreement in a formal certificate format with double-border frame,
  * bilateral pledge text, signature slots, and state-specific visuals.
+ *
+ * P466 additions:
+ *   - `creation` variant: certificate IS the form (inline partner name input + editable terms)
+ *   - `SignatureSlot` gains `value` prop for read-only display in creation mode
+ *   - `AgreementCertificate` gains creation-mode callback props
+ *   - Certificate outer element has role="region" aria-label for screen reader landmark
  */
 
 import { ClarityLogoMark } from '@/components/ui/clarity-logo';
 
 export type CertificateVariant = 'creation' | 'pending' | 'active' | 'celebration';
+
+const TERMS_MAX = 1000;
 
 export interface AgreementCertificateProps {
   variant: CertificateVariant;
@@ -18,6 +26,14 @@ export interface AgreementCertificateProps {
   partnerSignedAt?: string | null;
   termsText?: string;           // the agreement terms
   className?: string;
+
+  // P466: creation-mode props — omitting all = existing behavior unchanged
+  onPartnerNameChange?: (name: string) => void;
+  partnerNameValue?: string;
+  partnerNameError?: string;
+  partnerNamePlaceholder?: string;
+  onTermsChange?: (text: string) => void;
+  termsError?: string;
 }
 
 function formatSignedDate(isoDate: string): string {
@@ -31,24 +47,28 @@ function formatSignedDate(isoDate: string): string {
 interface SignatureSlotProps {
   label: string;
   name?: string;
+  value?: string;   // P466: overrides `name` with a read-only display value (creation mirror)
   signedAt?: string | null;
   isPending?: boolean;
+  hideNameText?: boolean; // P466: suppress name <p> when name shown elsewhere (creation sentence)
 }
 
-function SignatureSlot({ label, name, signedAt, isPending }: SignatureSlotProps) {
-  const displayName = name || 'Awaiting signature';
+function SignatureSlot({ label, name, value, signedAt, isPending, hideNameText }: SignatureSlotProps) {
+  const displayName = value !== undefined ? value : (name || 'Awaiting signature');
 
   return (
     <div className="flex flex-col gap-1.5 min-w-0">
       <p className="text-[10px] uppercase tracking-[0.15em] text-[#1A1A1A]/50 font-sans">
         {label}
       </p>
-      <p
-        className="text-base font-semibold text-[#1A1A1A] leading-tight"
-        style={{ fontFamily: '"Playfair Display", Georgia, serif' }}
-      >
-        {displayName}
-      </p>
+      {!hideNameText && (
+        <p
+          className="text-base font-semibold text-[#1A1A1A] leading-tight"
+          style={{ fontFamily: '"Playfair Display", Georgia, serif' }}
+        >
+          {displayName || <span className="text-[#1A1A1A]/30 font-normal">their name</span>}
+        </p>
+      )}
       {signedAt ? (
         <p className="text-xs text-[#1A1A1A]/60">
           Signed on {formatSignedDate(signedAt)}
@@ -75,12 +95,21 @@ export function AgreementCertificate({
   partnerSignedAt,
   termsText,
   className = '',
+  onPartnerNameChange,
+  partnerNameValue = '',
+  partnerNameError,
+  partnerNamePlaceholder = 'their name',
+  onTermsChange,
+  termsError,
 }: AgreementCertificateProps) {
   const isActive = variant === 'active' || variant === 'celebration';
   const isPending = variant === 'pending';
+  const isCreation = variant === 'creation';
 
   return (
     <div
+      role="region"
+      aria-label="Agreement certificate"
       className={`relative rounded-lg p-6 md:p-10 bg-[#FDFBF7] shadow-[0_20px_60px_-15px_rgba(0,0,0,0.25)] ${className}`}
       style={{
         border: '8px solid #002B5C',
@@ -101,6 +130,52 @@ export function AgreementCertificate({
             A mutual commitment to clarity
           </p>
         </div>
+
+        {/* P466: Creation mode — "We, [creator] and [partner input], agree to:" */}
+        {isCreation && onPartnerNameChange && (
+          <div>
+            <p
+              className="text-base md:text-lg leading-relaxed text-[#1A1A1A]"
+              style={{ fontFamily: '"Playfair Display", Georgia, serif' }}
+            >
+              We,{' '}
+              {creatorName}
+              {' '}and{' '}
+              <input
+                type="text"
+                aria-label="Partner's full name"
+                aria-required="true"
+                aria-invalid={partnerNameError ? 'true' : undefined}
+                aria-describedby={partnerNameError ? 'partner-name-error' : undefined}
+                value={partnerNameValue}
+                onChange={e => onPartnerNameChange(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') e.preventDefault(); }}
+                placeholder={partnerNamePlaceholder}
+                maxLength={110}
+                className={`border-0 rounded-none bg-transparent focus-visible:outline-none focus-visible:ring-0 font-serif text-base md:text-lg font-semibold inline-block min-w-[120px] w-auto placeholder:text-[#1A1A1A]/30 placeholder:font-normal ${
+                  partnerNameError
+                    ? 'border-b-2 border-red-500 focus-visible:border-red-500'
+                    : 'border-b-2 border-[#1A1A1A] focus-visible:border-[#0044CC]'
+                }`}
+                style={{
+                  fontFamily: '"Playfair Display", Georgia, serif',
+                  width: `${Math.max(120, (partnerNameValue?.length ?? 0) * 12)}px`,
+                  maxWidth: '100%',
+                }}
+              />,
+              {' '}agree to:
+            </p>
+            {partnerNameError && (
+              <p
+                id="partner-name-error"
+                role="alert"
+                className="text-sm text-red-500 mt-1"
+              >
+                {partnerNameError}
+              </p>
+            )}
+          </div>
+        )}
 
         {/* Opening tagline */}
         <p
@@ -150,7 +225,41 @@ export function AgreementCertificate({
         </div>
 
         {/* Terms section */}
-        {termsText && (
+        {isCreation && onTermsChange ? (
+          <div className="space-y-1.5 border-t border-[#1A1A1A]/15 pt-4">
+            <label
+              htmlFor="agreement-terms"
+              className="text-xs uppercase tracking-[0.15em] text-[#1A1A1A]/50 font-sans block"
+            >
+              Our terms:
+            </label>
+            <textarea
+              id="agreement-terms"
+              aria-label="Agreement terms"
+              aria-describedby="terms-char-count"
+              aria-invalid={termsError ? 'true' : undefined}
+              value={termsText ?? ''}
+              onChange={e => onTermsChange(e.target.value)}
+              rows={8}
+              className={`w-full resize-y bg-transparent border-0 border-b text-sm leading-relaxed text-[#1A1A1A]/80 focus-visible:outline-none focus-visible:ring-0 placeholder:text-[#1A1A1A]/30 min-h-[120px] ${
+                termsError ? 'border-red-400' : 'border-[#1A1A1A]/20 focus-visible:border-[#0044CC]'
+              }`}
+              style={{ fontFamily: '"Playfair Display", Georgia, serif' }}
+            />
+            <div className="flex justify-between items-center">
+              <span
+                id="terms-char-count"
+                aria-live="polite"
+                className="text-xs text-[#1A1A1A]/40 font-sans"
+              >
+                {termsText?.length ?? 0}/{TERMS_MAX}
+              </span>
+            </div>
+            {termsError && (
+              <p className="text-sm text-red-500" role="alert">{termsError}</p>
+            )}
+          </div>
+        ) : termsText ? (
           <div className="space-y-1.5 border-t border-[#1A1A1A]/15 pt-4">
             <p className="text-xs uppercase tracking-[0.15em] text-[#1A1A1A]/50 font-sans">
               Our terms:
@@ -162,7 +271,7 @@ export function AgreementCertificate({
               {termsText}
             </p>
           </div>
-        )}
+        ) : null}
 
         {/* Signatures + seal */}
         <div className="pt-5 border-t-2 border-[#002B5C]">
@@ -173,6 +282,7 @@ export function AgreementCertificate({
               name={creatorName}
               signedAt={creatorSignedAt}
               isPending={false}
+              hideNameText={isCreation}
             />
 
             {/* Center seal — only when active */}
@@ -195,10 +305,18 @@ export function AgreementCertificate({
             <SignatureSlot
               label="Partner"
               name={partnerName}
+              value={isCreation ? partnerNameValue : undefined}
               signedAt={partnerSignedAt}
               isPending={isPending}
             />
           </div>
+
+          {/* Creation mode: "will sign upon acceptance" sub-label */}
+          {isCreation && (
+            <p className="text-xs text-[#1A1A1A]/40 font-sans mt-3 text-right">
+              will sign upon acceptance
+            </p>
+          )}
         </div>
       </div>
     </div>

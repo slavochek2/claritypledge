@@ -1,12 +1,12 @@
 /**
  * @file accept-agreement-page.tsx
- * @description P422: Accept Agreement page — accessible without authentication.
+ * @description P422/P466: Accept Agreement page — accessible without authentication.
  * Route: /agreements/:id/accept?token=[token]
  *
- * The partner can read the full agreement before deciding to sign in.
- * - Unauthenticated: shows certificate + sign-in/sign-up CTAs
- * - Authenticated (partner): shows accept/decline actions
- * - Authenticated (wrong user): shows "already signed or not addressed to you"
+ * P466 additions:
+ *   - Partner name pre-filled from `partner_display_name` (creator-set)
+ *   - Partner can edit their name before signing
+ *   - Edited name passed to accept_agreement RPC
  */
 
 import { useEffect, useState } from 'react';
@@ -16,10 +16,11 @@ import { agreementsService } from '@/app/data/agreements-service';
 import type { ClarityAgreement } from '@/app/data/agreements-service';
 import { AgreementCertificate } from '@/app/components/agreements/agreement-certificate';
 import { CelebrationDialog } from '@/app/components/agreements/celebration-dialog';
-import { invokeAgreementEmails } from '@/lib/agreement-emails';
 import { supabase } from '@/lib/supabase';
+import { invokeAgreementEmails } from '@/lib/agreement-emails';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import {
   Dialog,
   DialogContent,
@@ -41,6 +42,9 @@ export function AcceptAgreementPage() {
 
   const [agreement, setAgreement] = useState<ClarityAgreement | null>(null);
   const [pageState, setPageState] = useState<PageState>('loading');
+
+  // P466: editable partner name (pre-filled from partner_display_name)
+  const [partnerDisplayName, setPartnerDisplayName] = useState('');
 
   // Action UI state
   const [isAccepting, setIsAccepting] = useState(false);
@@ -68,16 +72,14 @@ export function AcceptAgreementPage() {
 
       setAgreement(ag);
 
+      // P466: pre-fill partner name from creator-set display name
+      setPartnerDisplayName(ag.partnerDisplayName ?? '');
+
       if (!currentUser) {
         setPageState('unauthenticated');
         return;
       }
 
-      // Determine if this user is the intended partner.
-      // A pending agreement has no partner_profile_id yet — match by the invitation token
-      // being valid (already validated above). If the agreement is no longer pending,
-      // the creator is opening their own link, or the agreement was accepted by a different
-      // profile, the current user is the wrong viewer.
       if (
         ag.status !== 'pending' ||
         ag.creatorProfileId === currentUser.id ||
@@ -100,17 +102,14 @@ export function AcceptAgreementPage() {
     if (!agreement || !currentUser || !agreementId) return;
     setIsAccepting(true);
     try {
-      // Use SECURITY DEFINER RPC — direct UPDATE RLS collapses to status='pending'
-      // (invitation_token IS NOT NULL is always true), allowing any authenticated
-      // user to hijack a pending agreement if they know the UUID.
-      const { data: accepted, error } = await supabase.rpc('accept_agreement', {
-        p_agreement_id: agreementId,
-        p_token: token,
-        p_partner_id: currentUser.id,
+      const accepted = await agreementsService.acceptAgreement({
+        agreementId,
+        token,
+        partnerId: currentUser.id,
+        partnerDisplayName: partnerDisplayName.trim() || undefined,
       });
 
-      if (error || !accepted) {
-        console.error('[AcceptAgreementPage] accept error:', error);
+      if (!accepted) {
         toast.error('Something went wrong. Please try again or use the link from your invitation email.');
         return;
       }
@@ -129,8 +128,7 @@ export function AcceptAgreementPage() {
 
   const declineAgreement = async (): Promise<boolean> => {
     if (!agreementId) return false;
-    // Use SECURITY DEFINER RPC — direct UPDATE fails RLS WITH CHECK when
-    // partner_profile_id is still NULL (pending agreement, no partner set yet).
+    // Use SECURITY DEFINER RPC via direct supabase call (no service method for decline)
     const { data, error } = await supabase.rpc('decline_agreement', {
       p_agreement_id: agreementId,
       p_token: token,
@@ -231,6 +229,9 @@ export function AcceptAgreementPage() {
   const returnTo = `/agreements/${agreementId}/accept`;
   const tokenParam = `token=${encodeURIComponent(token)}`;
 
+  // P466: name to show in certificate — pre-filled or blank
+  const certificatePartnerName = partnerDisplayName || agreement?.partnerDisplayName || undefined;
+
   return (
     <div className="min-h-screen bg-[#F5F3EF] py-10 px-4">
       <div className="max-w-2xl mx-auto space-y-6">
@@ -257,7 +258,7 @@ export function AcceptAgreementPage() {
             displayId={agreement.displayId}
             creatorName={agreement.creator?.name ?? 'Creator'}
             creatorSignedAt={agreement.createdAt}
-            partnerName={agreement.partner?.name}
+            partnerName={certificatePartnerName}
             partnerSignedAt={agreement.partnerSignedAt}
             termsText={agreement.termsText}
           />
@@ -307,6 +308,25 @@ export function AcceptAgreementPage() {
         {/* Authenticated partner CTA */}
         {pageState === 'partner' && currentUser && (
           <div className="rounded-lg border border-[#002B5C]/20 bg-white p-5 space-y-4">
+            {/* P466: Editable partner name field */}
+            <div>
+              <label
+                htmlFor="accept-partner-name"
+                className="block text-sm font-medium text-[#1A1A1A]/70 mb-1"
+              >
+                Your name on this agreement
+              </label>
+              <Input
+                id="accept-partner-name"
+                type="text"
+                aria-label="Partner's full name"
+                value={partnerDisplayName}
+                onChange={e => setPartnerDisplayName(e.target.value)}
+                placeholder="Your full name"
+                maxLength={110}
+              />
+            </div>
+
             <p className="text-sm text-[#1A1A1A]/70 text-center">
               Signing as: <span className="font-semibold text-[#1A1A1A]">{currentUser.name}</span>
             </p>

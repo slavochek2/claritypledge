@@ -255,9 +255,18 @@ export default function ClarityPledgeApp() {
           }
         />
 
-        {/* P422: Clarity Partner Agreement routes — /new must come before /:id */}
+        {/* P422/P466: Clarity Partner Agreement creation routes.
+             /new redirects to /new/create so that Playwright's waitForURL
+             can distinguish "on the form" from "navigated to result":
+             /agreements/new/create has two path segments after /agreements/
+             and does NOT match /\/agreements\/[^/]+$/ (unlike /agreements/new).
+             All existing links to /agreements/new still work via the redirect. */}
         <Route
           path="/agreements/new"
+          element={<Navigate to="/agreements/new/create" replace />}
+        />
+        <Route
+          path="/agreements/new/create"
           element={
             <ClarityLandingLayout>
               <LazyRoute>

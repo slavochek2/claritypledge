@@ -46,7 +46,22 @@ function isValidUuid(value: string): boolean {
 
 // ─── Shared sub-components ────────────────────────────────────────────────────
 
+// P466: Decision F — state-dependent fallback chain
+// partner.name (profile) → partnerDisplayName (DB) → 'Invited party' (pending) | 'Partner' (other)
+function resolvePartnerName(
+  partner: ClarityAgreement['partner'],
+  partnerDisplayName: string | null,
+  isPending: boolean,
+): string {
+  return partner?.name ?? partnerDisplayName ?? (isPending ? 'Invited party' : 'Partner');
+}
+
 function MutedCertificate({ agreement }: { agreement: ClarityAgreement }) {
+  const partnerName = resolvePartnerName(
+    agreement.partner,
+    agreement.partnerDisplayName,
+    agreement.status === 'pending',
+  );
   return (
     <div className="opacity-40 grayscale">
       <AgreementCertificate
@@ -54,7 +69,7 @@ function MutedCertificate({ agreement }: { agreement: ClarityAgreement }) {
         displayId={agreement.displayId}
         creatorName={agreement.creator?.name ?? 'Creator'}
         creatorSignedAt={agreement.createdAt}
-        partnerName={agreement.partner?.name ?? 'Invited party'}
+        partnerName={partnerName}
         partnerSignedAt={agreement.partnerSignedAt}
         termsText={agreement.termsText}
       />
@@ -114,6 +129,11 @@ function PendingView({
   agreement: ClarityAgreement;
   isPartner: boolean;
 }) {
+  const partnerName = resolvePartnerName(
+    agreement.partner,
+    agreement.partnerDisplayName,
+    true,
+  );
   return (
     <div className="space-y-6">
       <AgreementCertificate
@@ -121,7 +141,7 @@ function PendingView({
         displayId={agreement.displayId}
         creatorName={agreement.creator?.name ?? 'Creator'}
         creatorSignedAt={agreement.createdAt}
-        partnerName={agreement.partner?.name ?? 'Invited party'}
+        partnerName={partnerName}
         partnerSignedAt={null}
         termsText={agreement.termsText}
       />
@@ -146,6 +166,11 @@ function ActiveView({
   isParty: boolean;
   onTerminate: () => void;
 }) {
+  const partnerName = resolvePartnerName(
+    agreement.partner,
+    agreement.partnerDisplayName,
+    false,
+  );
   return (
     <div className="space-y-6">
       <AgreementCertificate
@@ -153,7 +178,7 @@ function ActiveView({
         displayId={agreement.displayId}
         creatorName={agreement.creator?.name ?? 'Creator'}
         creatorSignedAt={agreement.createdAt}
-        partnerName={agreement.partner?.name ?? 'Partner'}
+        partnerName={partnerName}
         partnerSignedAt={agreement.partnerSignedAt}
         termsText={agreement.termsText}
       />

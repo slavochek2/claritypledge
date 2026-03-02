@@ -3,6 +3,7 @@ import type {
   AgreementParty,
   ClarityAgreement,
   CreateAgreementInput,
+  AcceptAgreementInput,
   AgreementStatus,
   AgreementVisibility,
 } from './agreements-service.interface';
@@ -31,6 +32,7 @@ interface DbAgreementRow {
   creator_profile_id: string;
   partner_profile_id: string | null;
   partner_email: string;
+  partner_display_name: string | null;  // P466
   terms_text: string;
   status: string;
   visibility: string;
@@ -66,6 +68,7 @@ function mapDbRowToAgreement(
     creatorProfileId: row.creator_profile_id,
     partnerProfileId: row.partner_profile_id ?? null,
     partnerEmail: row.partner_email,
+    partnerDisplayName: row.partner_display_name ?? null,
     termsText: row.terms_text,
     status: row.status as AgreementStatus,
     visibility: row.visibility as AgreementVisibility,
@@ -133,6 +136,7 @@ export const realAgreementsService: AgreementsService = {
       .insert({
         creator_profile_id: user.id,
         partner_email: input.partnerEmail,
+        partner_display_name: input.partnerDisplayName ?? null,
         terms_text: input.termsText,
         visibility: input.visibility,
       })
@@ -159,6 +163,23 @@ export const realAgreementsService: AgreementsService = {
     const creator = creatorProfile ? mapDbRowToAgreementParty(creatorProfile as DbProfile) : null;
 
     return mapDbRowToAgreement(row, creator, null);
+  },
+
+  async acceptAgreement(input: AcceptAgreementInput): Promise<boolean> {
+    log('acceptAgreement:', input.agreementId);
+
+    const { data, error } = await supabase.rpc('accept_agreement', {
+      p_agreement_id: input.agreementId,
+      p_token: input.token,
+      p_partner_id: input.partnerId,
+      p_partner_display_name: input.partnerDisplayName ?? null,
+    });
+
+    if (error) {
+      log('ERROR: acceptAgreement RPC error:', error);
+      return false;
+    }
+    return data === true;
   },
 
   async getAgreement(id: string): Promise<ClarityAgreement | null> {
