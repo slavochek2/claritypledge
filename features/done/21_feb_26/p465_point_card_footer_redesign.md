@@ -3,7 +3,7 @@ status: all-done
 type: change-request
 rank: 31370.75
 changes: p456
-superseded_by: p469
+superseded_by: p470
 completed_at: "2026-03-02"
 flow: ux → architect → generate-tests → decompose → dev → verify
 uat_file: features/uat/p465.md

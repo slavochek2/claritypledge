@@ -12,7 +12,7 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 **Consequences:** `PointCardWithLinks` footer logic must always include `by ${profileOwner.name}` when `profileOwner` is defined, regardless of count. The two Cases (own profile, other profile) differ only in whether the viewer CTA appears, not in whether the name appears. See P469 for the full case map.
 
-**References:** [features/p469_point_card_attribution_consistency.md](../features/p469_point_card_attribution_consistency.md)
+**References:** [features/p470_point_card_attribution_consistency.md](../features/p470_point_card_attribution_consistency.md)
 
 ---
 
