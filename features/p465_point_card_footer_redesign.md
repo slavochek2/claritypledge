@@ -3,7 +3,6 @@ status: qa
 type: change-request
 rank: 31370.75
 changes: p456
-delivery_stage: uat
 flow: ux → architect → generate-tests → decompose → dev → verify
 uat_file: features/uat/p465.md
 test_files:

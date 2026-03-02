@@ -11,6 +11,8 @@ tags:
   - mobile
   - layout
 created_date: 2026-03-02
+test_files:
+  - e2e/p469-live-layout-kiss.spec.ts
 ---
 
 # P469: /live Layout — Revert P455 Reorder, KISS Space Savings
