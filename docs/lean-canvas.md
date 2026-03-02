@@ -12,7 +12,7 @@ Two calibration failures:
 1. **Speakers** overestimate how clearly they communicated
 2. **Listeners** overestimate how well they understood
 
-No feedback loop exists — conversations end without checking if understanding actually happened. People think they understood, but didn't — and never find out.
+No feedback loop exists — conversations end without checking if understanding actually happened. People think they understood, but didn't — and never find out. The result is **False Agreement** — both parties believe they've aligned, but neither has verified it. By the time the gap surfaces, it has become a conflict.
 
 **The measurement problem:** Existing tools don't help. 75% of research relies on self-reports (the miscalibration we're trying to fix). Gong measures talk-time ratio, not comprehension. 360 feedback buries "listening" as 1 item among 30. Meta-analysis shows metacomprehension accuracy is only r=0.24 — people are poor at knowing what they know.
 
@@ -134,6 +134,8 @@ For rationalists, AI researchers, and those building personal AI agents: a syste
 For co-founder pairs: experience where your mental models diverge — then build the shared understanding that functional alignment requires.
 
 **Positioning:** Preventive calibration for functioning-but-misaligned teams. Not crisis intervention or therapy. Works when both parties recognize the problem exists but trust isn't broken.
+
+*External label: Co-founder De-Risking (jargon-free version of calibration coaching for external audiences)*
 
 **Shared foundation:**
 > **Scale your inner world — know who understood you, how well, and where they diverge — without being present for every conversation.**
@@ -260,6 +262,13 @@ Track your accuracy over time:
 5. **Brand as standard** — "Clarity Pledge" can become the default certification for good-faith dialogue (like Creative Commons for content licensing).
 
 **On open source:** The code is open, but the moat is the network + data + brand, not the software. Open source actually accelerates adoption and builds trust.
+
+### Brand Separation
+
+ClarityPledge is the platform brand (like Stripe). ladischenski.com is the founder's personal coaching brand (like Patrick Collison at Stripe). Coaching revenue flows through the personal brand; product adoption through the platform brand. Cross-link but never conflate — each has a distinct audience and purpose.
+
+- **ClarityPledge:** The tool, the movement, the community. About page links to ladischenski.com for coaching inquiries.
+- **ladischenski.com:** Slava's personal coaching site. Co-founder De-Risking sessions, intake via Google Calendar.
 
 ---
 

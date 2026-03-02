@@ -55,6 +55,8 @@ Co-founder pairs are the PRIMARY ICP for C-track. Unlike generic workshop partic
 
 ## Acquisition: Two Channels
 
+**Booking channel:** ladischenski.com → 15-min intake call → paid session. Intake questions qualify the dyad (functioning but misaligned, not in crisis).
+
 **Channel 1 — Free Calibration Lab** (primary, broadcast):
 - Biweekly, open enrollment, 90 min, cast wide (founders, operators, coaches)
 - After the session: route based on who showed up
@@ -98,6 +100,7 @@ Co-founder pairs are the PRIMARY ICP for C-track. Unlike generic workshop partic
 - [ ] Recruit 3-5 co-founder pairs (warm intros, founder communities, accelerator alumni)
 - [ ] Pick session topics (current real challenge for each pair)
 - [ ] Schedule sessions over 2-4 weeks
+- [ ] Meta-epistemological briefing before each session (see H-MetaEpistemic-Prerequisite)
 - [ ] Run session, note the gap reveal moment
 - [ ] Collect specific feedback: "Would you use this regularly?"
 - [ ] Ask directly: "Would you pay €300-500 for this? What about monthly?"

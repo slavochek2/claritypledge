@@ -66,6 +66,15 @@ GEMINI.md
 global_GEMINI.md
 .gemini/
 
+# Dead AI tool artifacts (Aider, BMAD, old IDE configs)
+.aider.chat.history.md
+.aider.tags.cache.v4/
+.bmad/
+bmad/
+.agents/
+.cursor/
+.opencode/
+
 # Screenshots and temp files saved to project root (from browser automation)
 /*.png
 /*.jpg
@@ -87,6 +96,9 @@ TEST_*.md
 # Personal data
 private/personal/
 .private/
+
+# Sifter session files — contain private brain dumps, real names, source messages
+content/sifter/sessions/
 
 # Deploy queue — local operational state, cleared by /ship after running
 DEPLOY_QUEUE.md

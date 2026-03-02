@@ -190,7 +190,10 @@ export function GoalsPage() {
             {doneSteps.map((step) => (
               <div
                 key={step.index}
+                role="button"
+                tabIndex={0}
                 onClick={() => toggle(step)}
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') toggle(step) }}
                 onMouseEnter={() => setHoveringDone(step.index)}
                 onMouseLeave={() => setHoveringDone(null)}
                 title="Click to uncheck"
@@ -234,7 +237,10 @@ export function GoalsPage() {
             {/* Next step */}
             {nextStep && (
               <div
+                role="button"
+                tabIndex={0}
                 onClick={() => toggle(nextStep)}
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') toggle(nextStep) }}
                 style={{
                   display: 'flex', alignItems: 'center', gap: 10,
                   padding: '9px 12px', marginBottom: 2,
@@ -262,7 +268,10 @@ export function GoalsPage() {
             {upcomingSteps.map((step, i) => (
               <div
                 key={step.index}
+                role="button"
+                tabIndex={0}
                 onClick={() => toggle(step)}
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') toggle(step) }}
                 style={{
                   display: 'flex', alignItems: 'center', gap: 10,
                   padding: '4px 6px', borderRadius: 3, marginBottom: 1,

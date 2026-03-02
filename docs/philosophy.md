@@ -358,6 +358,30 @@ Truth emerges through error correction. Active listening ensures we correct *act
 
 ---
 
+## Formalized Claims (ITT/RITT Framework)
+
+The following 8 claims operationalize the meta-epistemology into a shareable, verifiable sequence. They are designed to be presented as points — each can be agreed/disagreed with after understanding the supporting story.
+
+**Framing (preamble):** People across cultures answer big questions differently: (1) What is true? (2) Whom can I trust? (3) What makes one explanation, theory, or piece of evidence better than another? (4) What do I know, and how do I know it? (5) Which idea is more credible? People often disagree on these questions, and because of that, solving problems — especially in groups — is difficult. This is an attempt to find an answer that will work for everyone, across cultures.
+
+**#1.** We can't avoid having problems. The *right knowledge* helps us to solve them.
+
+**#2.** Effective knowledge exchange requires reaching genuine *shared understanding* of the idea to be transmitted. Without it, we can't reliably trust each other's ideas — or improve them together.
+
+**#3.** The Idea Turing Test (ITT) is valuable because it can predictably increase shared understanding between the listener and the speaker. (1) Speaker records a fixed master copy of the idea. (2) Listener restates the idea in their own words. (3) Judge (the speaker and/or an AI) questions the listener and compares their version with the master copy to locate any gaps. (4) If the judge can't reliably say which version of the idea is the original, the listener passes the ITT.
+
+**#4.** PTS (Please, Thanks, Sorry) is valuable as an effective protocol for coordinating ITTs. It helps people listen, respond, and repair understanding when it breaks down. (1) The speaker invites the listener to pass ITT by saying: "Please, listen actively." (2) If ITT is passed, the speaker says: "Thanks for listening actively." (3) If anyone feels misunderstood, they say: "I don't feel heard." The other responds: "Sorry, I wouldn't want you to feel that way. What can I do better?"
+
+**#5.** The Recursive Idea Turing Test (RITT) checks whether the listener's understanding is robust enough to teach the idea forward without loss. (1) Listener-One passes the ITT on Speaker-One's idea. (2) Listener-One (now Speaker-Two) teaches the same idea to Listener-Two. (3) When Listener-Two also passes the ITT, Listener-One passes the RITT.
+
+**#6.** I can trust the ideas of an individual more if they satisfy three criteria: (1) they pass RITTs on many unrelated ideas; (2) their own stance on ideas seldom flips, while their listeners' often do; (3) ideas they transmit empower their listeners to pass even more RITTs — effectively boosting people's ability to teach others.
+
+**#7.** An idea is more credible if its records show: (1) High fidelity — many listeners pass ITT. (2) High fecundity — many listeners pass RITT. (3) High longevity — RITT chains extend across many generations. (4) High trusted-share — a large portion of RITTs are carried out by "credible individuals" (see #6).
+
+**#8.** I trust someone more if they've passed RITT on these 8 ideas — because they've shown they can help others understand the value of RITT. This means they can boost others' problem-solving capacity, which makes them strong problem solvers themselves. I also trust them more because I know we can use the PTS communication protocol — making it easier to resolve conflicts, grow knowledge, and solve problems as a team.
+
+---
+
 ## Related Documents
 
 - [theory-of-change.md](theory-of-change.md) — HOW change spreads (cascade, √N)

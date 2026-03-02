@@ -27,6 +27,15 @@ Our active bets, in priority order. This is the map of what we still need to pro
 
 ---
 
+### H-MetaEpistemic-Prerequisite: Meta-epistemological alignment deepens session quality
+**Bet:** If both participants understand the meta-epistemological foundation before a /live session — specifically WHY we actively listen (the 8 postulates in philosophy.md), anchored via the sister story (cognitive vs emotional understanding) — session depth increases measurably compared to sessions without this briefing.
+**Testing via:** C1 sessions — brief both participants on the 8 postulates using the sister story as entry point before the session. Measure: does the session start deeper? Qualitative signal: "We didn't have to spend the first 10 minutes establishing what we're trying to do."
+**Kill if:** Sessions without the meta-epistemological briefing reach equal depth OR participants find the briefing academic/off-putting and disengage.
+**Product implementation:** Mini Pledge (P421) — a pre-session commitment ritual grounded in Pinker's common knowledge framing. Both participants confirm: "In this session, I commit to reaching cognitive understanding — not agreement."
+**Notes (2026-03-01):** Surfaced from voice note analysis. Onboarding to ClarityPledge sessions isn't just "here's how the tool works" — it's "here's how knowledge works, and why we verify." Without meta-epistemological alignment, participants follow the ritual but miss the point.
+
+---
+
 ### H-FilingLoop-Propagation: Sessions without filed material are sterile — filing + agent follow-up is the growth mechanism
 **Bet:** A calibration session that produces filed stories/points + agent follow-up generates a new session without Slava present. A session that produces nothing filed generates nothing next — growth depends entirely on Slava showing up again.
 **Testing via:** Track post-session behavior in C2 — does filing happen? Does the agent follow up? Does a second session get initiated without direct outreach from Slava?

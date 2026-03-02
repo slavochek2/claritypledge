@@ -14,6 +14,7 @@ const TYPE_PREFIX: Record<FeatureType, string> = {
   task: '[T]',
   bug: '[B]',
   comment: '[C]',
+  'change-request': '[CR]',
 }
 
 const TAG_COLORS = [
@@ -95,10 +96,17 @@ export function Card({ feature, onFeatureUpdate }: CardProps) {
       }}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
+      role="button"
+      tabIndex={0}
       onClick={() => {
         // Sensor has 5px activation constraint, so clicks work normally
         if (!isDragging) {
           setDialogOpen(true)
+        }
+      }}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          if (!isDragging) setDialogOpen(true)
         }
       }}
       {...listeners}

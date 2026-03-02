@@ -71,6 +71,16 @@ For architecture patterns, see [docs/technical/architecture.md](docs/technical/a
 
 ---
 
+### Falsify Before You Rely
+
+> **Principle:** Any time Claude states a capability, guarantee, or behavior of a tool or system that Claude has not personally verified in this session — flag it. There is no importance threshold. The cost of stating uncertainty is one sentence; the cost of a false guarantee can be hours.
+
+**When the claim can be tested:** Simulate the failure. Apply the fix. Simulate again.
+
+**When the claim cannot be easily tested** (e.g., "survives a reboot", "handles reconnection under network failure"): say so explicitly — do not proceed as if it were confirmed. Never present an inferred capability as confirmed. State the inference and name the test.
+
+---
+
 ### Transparency Principle
 
 > **Principle:** Never silently work around problems. Report issues to the user, even if you can technically proceed.
@@ -301,7 +311,7 @@ See [docs/technical/debugging.md](docs/technical/debugging.md) for full protocol
 
 ### Git & Commits
 
-See [docs/technical/git-workflow.md](docs/technical/git-workflow.md) for full workflow.
+See [docs/technical/git-workflow.md](docs/technical/git-workflow.md) for full workflow. Commit autonomy rules in [Commit Discipline](#commit-discipline) above. Banned commands in `.claude/rules/git.md`.
 
 **Quick rules:** Prompt for commits after logical units of work, run `./scripts/pre-commit-checks.sh` before committing.
 
@@ -319,7 +329,15 @@ Before setting up any external or self-hosted infrastructure (VNC, tunnels, serv
 2. Pick the simplest one that meets the need. If one option is clearly right, state it and proceed — no forced comparison needed
 3. State the choice explicitly before starting
 
+**Two-layer signal:** If you are about to add Tool B because Tool A hasn't been confirmed to work — stop. Verify Tool A against the specific failure first. Adding Tool B on top of an unverified Tool A does not reduce risk. (Legitimate layering — nginx + Node, certbot + nginx — has each layer solving a distinct, independently-verifiable problem.)
+
 **Why:** Complex infrastructure is hard to reverse. 2 minutes of comparison prevents hours of debugging the wrong tool.
+
+---
+
+### Infrastructure Work — Confirm End-State First
+
+Before acting: paraphrase the end-state in 1-2 sentences and wait. If the user names a specific tool, search it first — never assume.
 
 ---
 
@@ -329,7 +347,7 @@ Before setting up any external or self-hosted infrastructure (VNC, tunnels, serv
 
 **Ask before:** Installing new global tools, major refactors (10+ files), new frameworks/build systems, anything labeled "experimental." (Running `./scripts/migrate.sh` on an existing migration file does NOT need asking — schema design decisions do.)
 
-**Why:** Easy rollback if experiment fails.
+**Why:** Easy rollback if experiment fails. Branch names reflect feature, not worktree — see [worktree-setup.md](docs/technical/worktree-setup.md).
 
 ### Parallel Feature Work — Index Collision Risk
 
@@ -413,6 +431,11 @@ Small work — bug fix with confirmed root cause, copy change, config tweak, sin
 /dev  (or inline — no skill needed)
 ```
 
+Design correction — shipped feature, design was wrong (not broken code, not new capability):
+```
+/change-request → /ux (if layout changes) → /dev
+```
+
 **When in doubt, go one tier up** — the cost of extra process is lower than the cost of building the wrong thing. Use `/pick-flow` if the right tier is unclear.
 
 `* /decompose` optional — complex features only (5+ files, 3+ concerns, or 6+ build steps). `* /spec-review` always run after `/generate-tests`, before `/decompose` or `/dev` — it catches ambiguity that causes wrong implementation.
@@ -441,6 +464,7 @@ See [docs/development-process.md](docs/development-process.md) for complete work
 |-----------|--------|
 | New feature approved | `/create-prd` (or `/quick-feature` for skeleton) |
 | Bug fix approved | `/fix` |
+| Shipped design was wrong | `/change-request` |
 | Implementation ready (spec exists) | `/dev` |
 
 **Why:** Ad-hoc implementation bypasses test generation, spec tracking, and auto-close. The skill does the same work with none of the gaps.
@@ -450,6 +474,18 @@ See [docs/development-process.md](docs/development-process.md) for complete work
 ---
 
 ## Tool Preferences
+
+### Retiring a Tool
+
+When a tool is no longer used (IDE, AI assistant, backup tool, build framework):
+
+1. `git rm -r --cached --ignore-unmatch <tool-dir>` — untrack from git index (files remain in history; that's fine)
+2. `rm -rf <tool-dir>` — delete from disk
+3. Add pattern to `.gitignore` — prevent re-accumulation
+
+**Do all 3 in the same session the tool stops being used.** Leaving step 3 undone is how dead artifacts accumulate silently across tool migrations.
+
+---
 
 ### Library Documentation (Context7)
 
@@ -494,30 +530,7 @@ No priority order. Each has a unique strength. For full details: [browser-tools.
 
 ## Git Safety (Firewall)
 
-These are hard rules, not principles to reason about. Leaking secrets to git history is catastrophic and irreversible — there's no "it depends."
-
-**Never use these commands:**
-- `git add .` — can stage secrets and ignored files
-- `git add -A` — same problem
-- `git add -f <file>` — forces adding ignored files
-- `git reset HEAD` (no args) — resets the **entire** index, not just target files; always use `git reset HEAD -- file1 file2`
-- `git stash` (agent-initiated) — agents must NOT stash unilaterally; only stash if user explicitly asks; prefer `git commit -m "wip: ..."` instead
-
-**ALWAYS use explicit file names:**
-```bash
-git add src/app/pages/MyPage.tsx src/components/Button.tsx
-```
-
-**Files that MUST NEVER be committed:**
-- `.mcp.json` — contains API tokens
-- `.env.local` — contains secrets
-- Any file with `token`, `secret`, `key`, `password` in content
-
-**If you accidentally stage a secret:**
-```bash
-git reset HEAD <file>        # Unstage
-git rm --cached <file>       # Untrack (if already tracked)
-```
+Hard stops — rules auto-load when editing `src/`, `scripts/`, or `.sh` files via `.claude/rules/git.md`. See that file for the full banned-command list and reasoning.
 
 ---
 
@@ -528,12 +541,6 @@ See [architecture.md](docs/technical/architecture.md) for patterns.
 Code style, design system, point display, and data fetching rules auto-load when editing `src/` files via `.claude/rules/src.md`.
 
 Database migration rules, RLS debugging, and schema decisions auto-load when editing `supabase/` files via `.claude/rules/database.md`.
-
----
-
-### Worktree Branch Naming
-
-Worktree identity: `claritypledge-N` = wN. Branch names reflect feature, not worktree. See [worktree-setup.md](docs/technical/worktree-setup.md) for details.
 
 ---
 

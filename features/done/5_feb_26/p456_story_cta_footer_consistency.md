@@ -1,6 +1,7 @@
 ---
 status: all-done
 completed_at: "2026-02-28"
+superseded_by: p465
 type: story
 rank: 2
 flow: create-prd → generate-tests → decompose → dev → verify

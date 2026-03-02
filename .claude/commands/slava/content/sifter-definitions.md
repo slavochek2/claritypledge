@@ -6,7 +6,7 @@ Shared definitions for Stories and Points. Referenced by all sifter skills.
 
 ## Session File
 
-Each session is ONE file: `content/sifter/sessions/{session-name}.md`
+Each session is ONE file: `.private/sifter/sessions/{session-name}.md`
 
 ```markdown
 # Session: {session-name}

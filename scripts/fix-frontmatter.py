@@ -169,6 +169,25 @@ def fix_duplicates(all_files):
         keeper = files_sorted[0]
 
         for f_to_rename in files_sorted[1:]:
+            is_phantom = str(f_to_rename.resolve()) not in tracked
+
+            if is_phantom:
+                # Untracked phantom — delete it rather than accumulating another
+                # phantom with a new number. Phantoms arise when a previous rename
+                # used Path.rename() (filesystem-only) instead of git mv, leaving
+                # the original path tracked in git while a new path exists on disk.
+                try:
+                    f_to_rename.unlink()
+                except FileNotFoundError:
+                    pass  # already gone — treat as deleted
+                renames.append({
+                    'kept': keeper,
+                    'old': f_to_rename,
+                    'new': None,
+                    'refs': [],
+                })
+                continue
+
             new_num = next_available_p(all_nums)
             all_nums.add(new_num)
 
@@ -176,7 +195,17 @@ def fix_duplicates(all_files):
             new_name = re.sub(r'^p\d+', f'p{new_num}', f_to_rename.name)
             new_path = f_to_rename.parent / new_name
 
-            f_to_rename.rename(new_path)
+            # Use git mv so the rename is tracked in git's index.
+            # Falling back to Path.rename() would create the divergence (tracked
+            # path disappears from disk, new path appears as untracked ??) that
+            # causes phantom accumulation across sessions.
+            result = subprocess.run(
+                ['git', 'mv', str(f_to_rename), str(new_path)],
+                capture_output=True, cwd=PROJECT_ROOT
+            )
+            if result.returncode != 0:
+                # Fallback (e.g., outside a git repo)
+                f_to_rename.rename(new_path)
 
             # Update all references across features/ and docs/
             old_stem = f_to_rename.stem
@@ -317,23 +346,28 @@ def main():
         print('No feature files found')
         sys.exit(0)
 
-    # Step 1: Auto-rename duplicates (full scan always, even in single-file mode)
+    # Step 1: Auto-rename duplicates (full scan only — skip in single-file/hook mode
+    # to avoid staging git mv operations on every hook invocation).
     all_files = sorted((PROJECT_ROOT / 'features').rglob('p[0-9]*.md'))
-    renames = fix_duplicates(all_files)
+    renames = [] if single_file_mode else fix_duplicates(all_files)
     for r in renames:
-        print(f'✓ Renamed duplicate: {r["old"].name} → {r["new"].name}')
-        print(f'  (kept {r["kept"].name} as canonical)')
-        if r['refs']:
-            print(f'  updated {len(r["refs"])} reference(s):')
-            for ref in r['refs']:
-                print(f'    → {ref}')
+        if r['new'] is None:
+            print(f'✓ Deleted phantom: {r["old"].name}')
+            print(f'  (kept {r["kept"].name} as canonical)')
+        else:
+            print(f'✓ Renamed duplicate: {r["old"].name} → {r["new"].name}')
+            print(f'  (kept {r["kept"].name} as canonical)')
+            if r['refs']:
+                print(f'  updated {len(r["refs"])} reference(s):')
+                for ref in r['refs']:
+                    print(f'    → {ref}')
 
     # Re-derive file list after renames (paths may have changed)
     if single_file_mode:
         # Remap original paths to new paths if renamed
         rename_map = {r['old']: r['new'] for r in renames}
         files = [rename_map.get(f, f) for f in files]
-        files = [f for f in files if f.exists()]
+        files = [f for f in files if f is not None and f.exists()]
 
     # Step 2: Fix frontmatter fields
     next_rank = get_max_rank(all_files) + 1.0
@@ -357,7 +391,7 @@ def main():
             manual_count += 1
 
     # Machine-readable line for pre-commit to re-stage fixed files
-    all_fixed = fixed_files + [str(r['new']) for r in renames]
+    all_fixed = fixed_files + [str(r['new']) for r in renames if r['new'] is not None]
     if all_fixed:
         print('FIXED_FILES:' + ':'.join(all_fixed))
 

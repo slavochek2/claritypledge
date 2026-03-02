@@ -41,6 +41,7 @@ See [H-Stories-ColdStart](../hypotheses.md#h-stories-coldstart-stories-are-the-c
 2. Invite 20 pilot users (10 previous /live users + 10 new)
 3. Prompt: "Share a story that matters to you"
 4. Observe: Do they create? Do they verify?
+- Brief both participants on the 8 postulates before the session (meta-epistemological alignment). Track qualitative depth signal.
 
 **Timeline:** Feb 15 - Mar 15 (4 weeks)
 
@@ -87,12 +88,14 @@ Track current position:
 2. [ ] Push to production
 3. [x] Create own stories (active listening) — test the loop yourself
 4. [ ] **Briefing protocol experiment** — identify one high-stakes Person B (pre-existing relationship stakes), run manual briefing with AI-generated mirror claims, measure whether meeting starts at depth. This precedes and runs in parallel with the 20-user pilot. See H-BriefingProtocol-ColdStart.
+5a. [ ] **Meta-epistemological briefing** — before each /live session, brief both participants on WHY we actively listen (the 8 postulates in philosophy.md), using the sister story (cognitive vs emotional understanding) as the entry point. This is the product implementation of H-MetaEpistemic-Prerequisite. Track: does the session start deeper? Does the briefing feel natural or academic?
 5. [ ] 1-on-1 free sessions (invite 20 warm contacts)
-5. [ ] 1-on-1 paid, money-back guarantee
-6. [ ] Fix event room entry (before 1-to-many)
-7. [ ] 1-to-many free (Calibration Lab, lead gen)
-8. [ ] 1-to-many paid
-9. [ ] Offline events
+   → Entry channel: ladischenski.com → 15-min intake call (Google Calendar with qualifying questions)
+6. [ ] 1-on-1 paid, money-back guarantee
+7. [ ] Fix event room entry (before 1-to-many)
+8. [ ] 1-to-many free (Calibration Lab, lead gen)
+9. [ ] 1-to-many paid
+10. [ ] Offline events
 
 ---
 

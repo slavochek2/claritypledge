@@ -13,7 +13,7 @@ interface CardDialogProps {
 
 // Options for single-select fields
 const STATUS_OPTIONS: Status[] = ['draft', 'backlog', 'week', 'today', 'in-progress', 'blocked', 'qa', 'done', 'all-done', 'rejected']
-const TYPE_OPTIONS: (FeatureType | null)[] = [null, 'bug', 'task', 'story']
+const TYPE_OPTIONS: (FeatureType | null)[] = [null, 'bug', 'task', 'story', 'change-request']
 const SIZE_OPTIONS: (Size | null)[] = [null, 'xs', 's', 'm', 'l', 'xl']
 const DELIVERY_STAGE_OPTIONS: (DeliveryStage | null)[] = [
   null,
@@ -39,6 +39,7 @@ const VALUE_COLORS: Record<string, { bg: string; text: string }> = {
   bug: { bg: 'var(--tag-red-bg)', text: 'var(--tag-red-text)' },
   task: { bg: 'var(--tag-gray-bg)', text: 'var(--tag-gray-text)' },
   story: { bg: 'var(--tag-blue-bg)', text: 'var(--tag-blue-text)' },
+  'change-request': { bg: 'var(--tag-purple-bg)', text: 'var(--tag-purple-text)' },
   // Size
   xs: { bg: 'var(--tag-green-bg)', text: 'var(--tag-green-text)' },
   s: { bg: 'var(--tag-green-bg)', text: 'var(--tag-green-text)' },
@@ -242,10 +243,19 @@ export function CardDialog({
           return (
             <div
               key={option ?? 'empty'}
+              role="button"
+              tabIndex={0}
               onClick={(e) => {
                 e.stopPropagation()
                 updateFeature({ [field]: option })
                 setEditingField(null)
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.stopPropagation()
+                  updateFeature({ [field]: option })
+                  setEditingField(null)
+                }
               }}
               style={{
                 padding: '6px 12px',
@@ -361,6 +371,8 @@ export function CardDialog({
             return (
               <span
                 key={i}
+                role="button"
+                tabIndex={0}
                 style={{
                   ...tagStyle,
                   background: colors.bg,
@@ -371,6 +383,13 @@ export function CardDialog({
                   e.stopPropagation()
                   const newTags = currentTags.filter((_, idx) => idx !== i)
                   updateFeature({ [field]: newTags })
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.stopPropagation()
+                    const newTags = currentTags.filter((_, idx) => idx !== i)
+                    updateFeature({ [field]: newTags })
+                  }
                 }}
                 title="Click to remove"
               >
@@ -495,9 +514,18 @@ export function CardDialog({
     <>
       {/* Backdrop */}
       <div
+        role="button"
+        tabIndex={0}
+        aria-label="Close dialog"
         onClick={(e) => {
           e.stopPropagation()
           onClose()
+        }}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ' || e.key === 'Escape') {
+            e.stopPropagation()
+            onClose()
+          }
         }}
         style={{
           position: 'fixed',
@@ -508,6 +536,7 @@ export function CardDialog({
       />
 
       {/* Dialog */}
+      {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
       <div
         onClick={(e) => e.stopPropagation()}
         style={{
@@ -636,6 +665,8 @@ export function CardDialog({
               return (
                 <div
                   key={key}
+                  role="button"
+                  tabIndex={0}
                   style={{
                     ...propertyRowStyle,
                     position: 'relative',
@@ -643,6 +674,16 @@ export function CardDialog({
                   }}
                   onClick={() => {
                     if (!isEditing) {
+                      setEditingField(key)
+                      if (key === 'workstream' || key === 'hypothesis') {
+                        setTextInputValue((value as string) || '')
+                      } else if (key === 'rank') {
+                        setTextInputValue(value !== undefined ? String(value) : '')
+                      }
+                    }
+                  }}
+                  onKeyDown={(e) => {
+                    if ((e.key === 'Enter' || e.key === ' ') && !isEditing) {
                       setEditingField(key)
                       if (key === 'workstream' || key === 'hypothesis') {
                         setTextInputValue((value as string) || '')

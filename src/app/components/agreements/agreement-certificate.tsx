@@ -108,6 +108,14 @@ export function AgreementCertificate({
           </p>
         </div>
 
+        {/* Opening tagline */}
+        <p
+          className="text-center text-sm md:text-base italic text-[#1A1A1A]/70"
+          style={{ fontFamily: '"Playfair Display", Georgia, serif' }}
+        >
+          We all crave being understood. Let&apos;s commit to listen.
+        </p>
+
         {/* YOUR RIGHT */}
         <div className="space-y-2">
           <h3 className="text-base md:text-lg font-bold text-[#0044CC] tracking-wide uppercase">
@@ -117,7 +125,7 @@ export function AgreementCertificate({
             className="text-base md:text-lg leading-relaxed text-[#1A1A1A]"
             style={{ fontFamily: '"Playfair Display", Georgia, serif' }}
           >
-            To have your thoughts paraphrased before being challenged or dismissed.
+            When we speak, if either of us needs to know the other truly understood them, we can ask to have it mirrored back.
           </p>
         </div>
 
@@ -126,21 +134,12 @@ export function AgreementCertificate({
           <h3 className="text-base md:text-lg font-bold text-[#0044CC] tracking-wide uppercase">
             Our Promise
           </h3>
-          <ul className="space-y-1">
-            {[
-              "We will paraphrase each other's perspective before responding.",
-              "We will ask questions before making assumptions.",
-              "We will stay curious even when we disagree.",
-            ].map((line) => (
-              <li
-                key={line}
-                className="text-base md:text-lg leading-relaxed text-[#1A1A1A]"
-                style={{ fontFamily: '"Playfair Display", Georgia, serif' }}
-              >
-                {line}
-              </li>
-            ))}
-          </ul>
+          <p
+            className="text-base md:text-lg leading-relaxed text-[#1A1A1A]"
+            style={{ fontFamily: '"Playfair Display", Georgia, serif' }}
+          >
+            We will explain back what we think the other meant&mdash;withholding judgment or criticism&mdash;so they can confirm or correct us. We won&apos;t pretend to understand if we don&apos;t.
+          </p>
         </div>
 
         {/* THE EXCEPTION */}
@@ -152,17 +151,9 @@ export function AgreementCertificate({
             className="text-base md:text-lg leading-relaxed text-[#1A1A1A]"
             style={{ fontFamily: '"Playfair Display", Georgia, serif' }}
           >
-            Emergencies — where safety and urgency require immediate action — are exempt from this practice.
+            If either of us can&apos;t keep this promise in the moment, we&apos;ll explain why.
           </p>
         </div>
-
-        {/* Closing quote */}
-        <p
-          className="text-center text-sm md:text-base italic text-[#1A1A1A]/70 border-t border-[#1A1A1A]/15 pt-4"
-          style={{ fontFamily: '"Playfair Display", Georgia, serif' }}
-        >
-          "We all crave being understood."
-        </p>
 
         {/* Terms section */}
         {termsText && (

@@ -45,6 +45,7 @@ ALWAYS run `./scripts/next-p-number.sh` — never compute manually (`ls`, `find`
 - `bug` — something broken that needs fixing
 - `task` — technical work (refactor, infra, tools, docs)
 - `comment` — notes, decisions (not actionable)
+- `change-request` — redesign of a shipped feature whose design was wrong; use `/change-request` to file
 
 ## Optional Frontmatter: `flow`
 
@@ -56,17 +57,37 @@ Records which implementation flow was chosen. Set by `/pick-flow` or the agent/h
 
 **When `flow:` is set, the implementing agent must validate the chosen flow still matches actual scope before starting work.** If `flow: fix` is set but the scope has grown (multiple concerns, DB migration, 5+ files), flag the mismatch and confirm before proceeding.
 
-## Change Requests (from `/sim`)
+## Change Requests
 
-Sim findings filed as improvement specs use `type: story` with extra frontmatter:
+A change request is a redesign spec for a **shipped feature whose design was wrong** (wrong visual ordering, actor confusion, duplication, hierarchy issues). Use `/change-request` to file one.
+
+Change requests use `type: change-request` with extra frontmatter:
 
 ```yaml
-source: sim        # found via synthetic usability testing
-changes: p422      # which original feature this improves
+changes: p422      # which original feature this redesigns
+tags:
+  - redesign
+  - p422
+```
+
+**When filed from `/sim`**, also include:
+```yaml
+source: sim
 persona: solo-founder  # which persona surfaced it
 ```
 
-No separate `change-request` type — kanban shows them as regular stories. The `source: sim` field is the distinguisher.
+Use `type: change-request` (first-class kanban type, shown in purple). The `changes:` + `redesign` tag are additional distinguishers for traceability.
+
+**When to use `/change-request` vs other skills:**
+- Code is broken → `/fix`
+- New capability, new user value → `/create-prd`
+- Shipped feature, design was wrong → `/change-request`
+
+## Hook Side-Effect: Re-read Required After First Edit
+
+A PostToolUse hook (`features-frontmatter-fix.sh`) runs `fix-frontmatter.py` on every Write or Edit to `features/p*.md`, modifying the file on disk immediately after your tool call completes.
+
+**Rule:** If you make more than one Edit to the same feature file in a single task, re-read the file before each subsequent Edit. The hook may have altered frontmatter, making your previous copy stale. Skipping the re-read causes Edit to fail with an `old_string` mismatch.
 
 ## Secrets & External Services in Specs
 

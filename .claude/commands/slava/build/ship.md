@@ -18,6 +18,14 @@ Ship an approved feature to production.
 ## What it does
 
 1. **Find the branch** — looks for `feature/pN*` or `feature/pN-*`
+
+**1a. Divergence check** — run `git rev-list --count main..feature/pN-*` (ahead) and `git rev-list --count feature/pN-*..main` (behind).
+- If behind-count > 20: warn "Branch is N commits behind main — rebase or manual merge needed." Propose:
+  **(A) Rebase:** `git rebase main` on feature branch, resolve conflicts, then proceed normally.
+  **(B) Already merged manually:** Ask "Was this already merged to main? If so, reply 'spec-only' to run spec closure + branch cleanup only (steps 7-9), skipping the merge."
+- Wait for user choice. **Step 7 (spec closure) is mandatory regardless of which path is chosen.**
+- If user replies 'spec-only': skip steps 2-6, jump directly to step 7.
+
 2. **Verify clean state** — no uncommitted changes on the feature branch
 2.5. **Check spec status** — read the spec's `status` frontmatter field:
    - `done` → proceed (spec was manually approved after UAT — happy path)
@@ -37,10 +45,20 @@ Ship an approved feature to production.
    git mv features/pN_name.md features/done/{folder}/
    git mv features/uat/pN.md features/done/{folder}/uat/ 2>/dev/null || true
    ```
+   **Guard — verify the move landed correctly (substitute actual P-number, e.g. p422):**
+   ```bash
+   git status --short | grep "^[RAMD].*features/p422"
+   ```
+   Expected: one `R` line showing `features/p422_name.md → features/done/{folder}/p422_name.md`.
+   If the original still shows as `D` with no corresponding `A` in `done/`, the `git mv` failed — stop and investigate before committing.
    Commit: `chore: close pN — {title}`
 8. **Run fix-kanban** — Invoke `/slava:maintain:fix-kanban`
 9. **Clean up** — delete the local feature branch
-10. **Ask:** "Capture learnings with /kdd? (y/n)"
+10. **Ask — two questions in one message:**
+    "Run /verify first? (y = visual QA of the live site against acceptance criteria, recommended for any UI change / n = skip)
+    Capture learnings with /kdd? (y/n)"
+
+    If user picks y for /verify → invoke `/verify p{N}` immediately before /kdd.
 
 ---
 
@@ -71,8 +89,8 @@ For small work committed directly to main, just say "push" — no need for /ship
 ## After shipping
 
 - Vercel deployment takes ~60s — check claritypledge.com
-- If the feature had a spec: it should already be in `features/done/` (closed by /dev)
-- Run `/verify` if you want visual QA of the live site
+- The spec is closed by /ship step 7 — /dev leaves it at `delivery_stage: uat`, NOT done. If the spec is still in `features/` after /ship completes, step 7 failed — investigate before continuing.
+- `/verify` is prompted at step 10 — run it for any UI change. Skipping is valid for backend-only changes.
 
 ---
 

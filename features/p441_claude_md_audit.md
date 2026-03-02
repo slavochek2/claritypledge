@@ -1,10 +1,14 @@
 ---
-status: backlog
+status: week
 type: task
-rank: 125482.0
+rank: 125500
 workstream: foundation
-created_date: 2026-02-26
-tags: [process, claude-md, agents]
+created_date: 2026-02-26T00:00:00.000Z
+tags:
+  - process
+  - claude-md
+  - agents
+locked_at: '2026-02-28T09:34:18.312Z'
 ---
 
 # TASK: P441 — CLAUDE.md Audit (Reduce Size, Fix Instruction Dilution)

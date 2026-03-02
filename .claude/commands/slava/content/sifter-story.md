@@ -20,9 +20,23 @@ Use NVC framework to identify components in the brain dump:
 - **Need** — What underlying need is present?
 - **Request** — What does the person want?
 
+## Path Guard (hard stop before creating any file)
+
+**CORRECT:** `.private/sifter/sessions/{session-name}.md` — gitignored, local only
+**WRONG:** `content/sifter/sessions/{session-name}.md` — public git, never use this
+
+If `.private/sifter/sessions/` doesn't exist, create it first:
+```bash
+mkdir -p .private/sifter/sessions
+```
+
+If you find yourself about to write to any path under `content/` — stop immediately. No exceptions.
+
 ## Saving to Session File
 
-Save to `content/sifter/sessions/{session-name}.md` (single file with sections).
+Save to `.private/sifter/sessions/{session-name}.md` (gitignored — never in public git).
+
+**Privacy rule:** Session files contain working notes (brain dumps, real people's names, source messages) and must NEVER be saved to `content/`. The published output (story, points) lives only in this session file — the sifter-point skill reads it from `.private/`. Never commit session files.
 
 **Session name:** Use a slug from the main topic (e.g., `sender-receiver-gaps`).
 
@@ -148,9 +162,9 @@ When story is saved:
 [Final Story text]
 
 ---
-Session: `content/sifter/sessions/{session-name}.md`
+Session: `.private/sifter/sessions/{session-name}.md`
 
-**Next step:** `/sifter-point {session-name}`
+**Next step:** `/slava:sifter-point {session-name}`
 ```
 
 ## Behavior Notes

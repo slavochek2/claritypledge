@@ -76,6 +76,14 @@ Format: `{N}_{mon}_{yy}` (e.g., `5_feb_26`, `6_mar_26`)
 - Touch files without explicit `status: done` or `status: archived`
 - Auto-commit (you decide when to commit)
 
+## Branch Deletion Safeguard
+
+This skill moves feature docs — it does not delete branches. If you are about to delete branches as part of a cleanup sweep, always run the unreleased-commit check first:
+
+See `docs/technical/git-workflow.md → Before Deleting Branches` for the exact command.
+
+Branches with unmerged commits must be inspected before deletion — UAT and feature branches often contain docs, KDD entries, or architecture notes that were never merged to main.
+
 ## Example
 
 ```bash

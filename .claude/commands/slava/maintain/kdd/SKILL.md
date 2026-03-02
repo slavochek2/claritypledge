@@ -73,6 +73,16 @@ Recommendation: Remove from README.md, link to definitions.md instead.
 
 ## Workflow
 
+0. **Branch check — before writing anything:**
+   ```bash
+   git branch --show-current
+   ```
+   If the current branch is NOT `main` and NOT a `feature/*` branch (e.g., it's a UAT branch, hotfix, or throwaway branch), warn:
+
+   > "Warning: You are on branch [{branch}] — KDD entries written here will not reach main unless cherry-picked. Consider committing this KDD directly to main first: `git stash`, `git checkout main`, write KDD, `git checkout -`."
+
+   This is not a blocker — just a warning. The user decides. But without the warning, KDD entries are silently stranded on UAT branches and lost when the branch is deleted.
+
 1. **Review recent work:**
    ```bash
    git log --oneline -10
@@ -88,6 +98,7 @@ Recommendation: Remove from README.md, link to definitions.md instead.
    - GTM/sales approach changed? → `features/p105_sales_playbook.md`
    - Schema/auth/testing changed? → relevant technical doc
    - Domain concepts changed? → `definitions.md`
+   - Epistemological claims or WHY-this-works reasoning updated? → `docs/philosophy.md`
 
 3. **Propose updates** — state what you'll update and why, then proceed.
    - If no updates needed: "No knowledge updates needed" and skip to step 5
@@ -166,11 +177,13 @@ Recommendation: Remove from README.md, link to definitions.md instead.
    ```
    **Do NOT skip `completed_at`** — kanban "Done Today" column filters on this field.
 
-5.25. **Privacy gate — if source was claude-conversations:**
+5.25. **Privacy gate — if session involved personal content:**
 
-   If any doc updates in this session were synthesized from personal claude.ai conversations (not code sessions), run `/maintain:privacy` before committing. claude-conversations contain personal context (named individuals, relationship details, personal struggles) that must not land in public docs.
+   Run `/maintain:privacy` before committing if the session involved:
+   - **claude-conversations:** doc updates synthesized from personal claude.ai conversations (reading from `~/projects/private/claude-conversations/` or user mentioned a conversation by name)
+   - **sifter sessions:** any use of `/slava:sifter-story` or `/slava:sifter-point` — brain dumps contain real names and private context; verify no session file landed in `content/sifter/` before committing
 
-   Signal: session involved reading files from `~/projects/private/claude-conversations/` or the user mentioned a conversation by name.
+   Both paths produce personal content in a code repo context.
 
 5.5. **Session wrap checklist:**
 
@@ -230,6 +243,18 @@ Recommendation: Remove from README.md, link to definitions.md instead.
    If it requires `/claude-md` gate or user judgement: flag as a block, don't act unilaterally.
 
    **process-learnings graduation rule:** When a `Status: proposed` item gets resolved (fix applied, decision made): (1) delete it from process-learnings.md, (2) add a `[process]` entry to decisions.md. Never leave `Status: done` entries in process-learnings.md — done = graduated. An empty file is healthy.
+
+7. **Skill-quality reflection** — always runs after step 6, output to chat only:
+
+   Spawn a second `general-purpose` subagent with the full conversation context AND the content of any skills that were invoked this session (read from `.claude/commands/slava/`). Task:
+
+   > "You have the conversation transcript and the skill files that ran during it. For each friction point or mistake identified in the session: (1) identify which skill instruction, CLAUDE.md rule, or prompt wording contributed to it — quote the specific text, (2) propose a concrete improvement: exact before/after rewrite of that text. If the root cause was missing context (Claude didn't know something), propose where to add it (which skill file, which section). Cap at 5 improvements. Skip issues caused by external factors (network, user typos, ambiguous requirements). Return a structured list: [skill/file] → [quoted problem text] → [proposed replacement]."
+
+   If subagent finds no skill-level improvements — output "Skill quality: clean." and stop.
+
+   Present each proposed improvement with the before/after diff. For changes touching CLAUDE.md or `.claude/rules/*.md`: flag as requiring `/claude-md` gate before applying. For skill files: apply directly if user approves.
+
+   End with: "Apply improvements? (list numbers, 'all', or 'skip')"
 
 ## Rules
 

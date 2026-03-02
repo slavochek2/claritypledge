@@ -11,6 +11,7 @@ const TYPE_PREFIX: Record<FeatureType, string> = {
   task: '[T]',
   bug: '[B]',
   comment: '[C]',
+  'change-request': '[CR]',
 }
 
 interface FocusPageProps {
@@ -148,11 +149,16 @@ function FocusRow({ feature, onFeatureUpdate }: FocusRowProps) {
     <>
       <div
         ref={setNodeRef}
+        role="button"
+        tabIndex={0}
         style={style}
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
         onClick={() => {
           if (!isDragging) setDialogOpen(true)
+        }}
+        onKeyDown={(e) => {
+          if ((e.key === 'Enter' || e.key === ' ') && !isDragging) setDialogOpen(true)
         }}
         {...listeners}
         {...attributes}

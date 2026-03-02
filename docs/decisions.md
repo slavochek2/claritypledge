@@ -2,9 +2,360 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-01 [technical]: P465 — viewer story count via secondary batch query on other-profile surfaces
+
+**Context:** On other-profile surfaces, `filteredStories` in `point-card-with-links.tsx` is pre-filtered to the profile owner's stories upstream. `viewerStoryCount` was therefore always 0 on other profiles — viewer's own linked stories were never surfaced.
+
+**Decision:** Secondary batch query at profile-page load time, scoped to `currentUserId` and the page's `pointIds`. Uses `story_points WHERE author_id = currentUserId AND point_id IN (...)` — follows existing P134/P151 batch-loading pattern. Produces `viewerStoryCountMap: Map<pointId, number>` without touching the main owner-story pipeline.
+
+**Alternatives rejected:** Per-card fetch — N+1 problem. Fetching entire viewer story library then filtering — unbounded as library grows.
+
+**Consequences:** Other-profile surfaces can now show "2 stories by Alice · 1 by you" and suppress the CTA when viewer already has a story. No new service method for main pipeline — secondary query is optional and only fires when `currentUserId !== profile.id`.
+
+**References:** [features/p465_point_card_footer_redesign.md](../features/p465_point_card_footer_redesign.md)
+
+---
+
+## 2026-03-01 [technical]: P465 — 1 story per user per point via author_id denormalization + UNIQUE constraint
+
+**Context:** `story_points` had `PRIMARY KEY (story_id, point_id)` but no unique constraint on `(author_id, point_id)`. Cross-table uniqueness (via `stories.author_id`) is not natively enforceable in PostgreSQL. Multiple stories from the same user per point were technically possible.
+
+**Decision:** Denormalize `author_id` into `story_points` and add `UNIQUE(author_id, point_id)`. Migration backfills from `stories.author_id`, detects and auto-resolves violations (keep oldest), then adds NOT NULL + UNIQUE constraint + index. `linkPointToStory` updated to include `author_id` in INSERT.
+
+**Alternatives rejected:** Application-level check only — not safe, race condition possible. Separate junction table — adds complexity for no gain.
+
+**Consequences:** DB enforces 1 story per user per point. Existing 23505 error handling in `linkPointToStory` (returns `true` idempotently) continues to work. New index on `story_points(author_id)` enables the secondary viewer query efficiently.
+
+**References:** [features/p465_point_card_footer_redesign.md](../features/p465_point_card_footer_redesign.md)
+
+---
+
+## 2026-03-01 [process]: /change-request skill — standalone filing path for shipped design corrections
+
+**Context:** No process existed for "shipped feature, design was wrong." Bugs went to `/fix`. New capability went to `/create-prd`. Design corrections (wrong ordering, actor confusion, duplication) had no path — they were filed ad-hoc or misclassified as bugs.
+
+**Decision:** Created `/change-request` as a standalone skill (v2.0.0). Distinguishing features vs `/create-prd`: mandatory predecessor spec analysis via subagent (identifies which AC/JTBD/requirements are superseded, not just "what changed"), `type: change-request` in frontmatter, `changes: pN` + `superseded_by: pN` cross-linking, "Predecessor Sections Superseded" table in spec. Added `type: change-request` as first-class kanban type (purple chip, `[CR]` prefix). Critical fix: `VALID_TYPE` in `scanner-rules.ts` must include the new type or server strips it on scan.
+
+**Alternatives rejected:** Reuse `/create-prd` — loses predecessor traceability. Tag-only distinguisher (`source: sim` pattern) — fails when multiple filing paths exist; invisible on a crowded board.
+
+**Consequences:** Three-way filing decision is now unambiguous: broken code → `/fix`, new capability → `/create-prd`, shipped design wrong → `/change-request`. Future redesigns have a traceable chain via `changes:` + `superseded_by:` frontmatter fields.
+
+**References:** [.claude/commands/slava/build/change-request.md](.claude/commands/slava/build/change-request.md) · [.claude/rules/features.md](.claude/rules/features.md)
+
+---
+
+## 2026-03-01 [process]: /claude-md gate is now mechanical via .claude/rules/rules.md
+
+**Context:** The CLAUDE.md rule "Before editing CLAUDE.md or .claude/rules/*.md: Run /claude-md first" was pure discipline — no mechanical enforcement. 5-why root cause: the guard system had guards for leaf paths (sifter, skills, features, src) but not for the meta-infrastructure itself. Cobbler's-shoes failure. Discovered when /kdd reflection surfaced that .claude/rules/ files were edited in this session without running /claude-md.
+
+**Decision:** Created `.claude/rules/rules.md` with `paths: CLAUDE.md + .claude/rules/**/*.md`. Any agent editing these files now receives the hard-stop instruction automatically. Also fixed `skills.md` which claimed to auto-load for `.claude/commands/slava/**/*.md` but had no `paths:` frontmatter block — it was broken and never firing.
+
+**Alternatives rejected:** Adding a pre-commit hook — fires too late (after the write, not before). Relying on CLAUDE.md text alone — shown to fail under context pressure and post-compaction continuation.
+
+**Consequences:** /claude-md gate is now mechanical for its intended scope. The same pattern can be applied to any other discipline-only rule that keeps getting skipped — convert it to a path-triggered rule file. skills.md now actually fires when editing skill files (was silently broken).
+
+**References:** [.claude/rules/rules.md](.claude/rules/rules.md) · [.claude/rules/skills.md](.claude/rules/skills.md)
+
+---
+
+## 2026-03-01 [process]: Three mechanical guards against project root pollution
+
+**Context:** Root analysis found 3 distinct accumulation patterns: (1) 15 empty dirs from a botched `restic` command run inside the project dir on Feb 26 — shell interpreted args as dir names; (2) 90 tracked files across dead tool dirs (.agents, .aider, .bmad, .cursor, .opencode) from tool migrations that had no teardown step; (3) one-time migration scripts sitting in `scripts/` root with no archive prompt. 5 whys traced all three to the same root: tool adoption has a workflow, tool retirement has none; shell commands have no guard against wrong-directory execution; script archival convention exists but has no trigger.
+
+**Decision:** Three mechanical fixes: (1) CLAUDE.md "Retiring a Tool" section — explicit 3-step checklist (`git rm --cached --ignore-unmatch`, `rm -rf`, `.gitignore` entry) with instruction to do all 3 in the same session; (2) `pre-commit-checks.sh` check #18 — warns when scripts named with one-time patterns (migrate*, reclassify*, backfill*, etc.) are staged in `scripts/` root rather than `scripts/archive/`; (3) `restic()` guard in `~/.zshrc` — warns before running restic from inside a git repo (TTY-gated to avoid hanging in non-interactive contexts).
+
+**Alternatives rejected:** Documentation-only (relies on discipline, doesn't catch it mechanically). Shell alias for restic (functions shadow the command cleanly; alias doesn't support TTY check). Pre-commit block instead of warning for script names (too aggressive — legitimate scripts like `migrate.sh` share naming patterns).
+
+**Consequences:** Tool migrations now have a teardown checklist. One-time scripts get a nudge at commit time. Shell commands from inside the project dir prompt before proceeding. Note: restic guard in `~/.zshrc` is user-local (not repo) — agents won't have it; the CLAUDE.md checklist is the agent-side equivalent.
+
+**References:** [CLAUDE.md — Retiring a Tool](../CLAUDE.md) · [pre-commit-checks.sh](../scripts/pre-commit-checks.sh) · `~/.zshrc`
+
+---
+
+## 2026-03-01 [process]: Sifter privacy hardening — three additional mechanical guards added
+
+**Context:** After moving session files to `.private/` and updating sifter skill paths, three gaps remained: (1) sifter-story.md had no explicit stop preventing a future agent from accidentally writing to `content/sifter/sessions/`; (2) the privacy skill didn't scan `content/sifter/` (only `content/articles/`); (3) no auto-loaded rules file existed for `content/sifter/**` paths — so any edit in that area would receive no privacy context.
+
+**Decision:** Added three mechanical guards: (1) Explicit "Path Verification" section at the top of `sifter-story.md` with correct vs wrong paths side-by-side and a hard-stop instruction; (2) `content/sifter/` added to privacy SKILL.md scan scope with note that any `.md` file found there is a misplaced session file; (3) New `.claude/rules/sifter.md` auto-loaded for `content/sifter/**/*.md` — explains the boundary, provides recovery steps, and defines what legitimate public content looks like in that path.
+
+**Alternatives rejected:** Removing `content/sifter/` entirely — would break any future structural/config files. Relying on the gitignore alone — gitignore prevents leaking, but doesn't prevent the write in the first place; the guard must be earlier.
+
+**Consequences:** Three-layer defense for sifter session privacy: gitignore (leak prevention) + path guard in skill (write prevention) + auto-loaded rules (context injection). Future sessions touching `content/sifter/` will receive the rules file automatically. Privacy skill will flag any stray session file if it appears in `content/sifter/`.
+
+**References:** [sifter-story.md](.claude/commands/slava/content/sifter-story.md) · [privacy/SKILL.md](.claude/commands/slava/maintain/privacy/SKILL.md) · [.claude/rules/sifter.md](.claude/rules/sifter.md)
+
+---
+
+## 2026-03-01 [process]: Sifter session files and content article drafts are privacy risk zones — structural fix applied
+
+**Context:** Sifter session files (`content/sifter/sessions/`) were in the public git repo. They contained an "Interaction Log" section tracking agent working steps — including real names and verbatim private messages used as source material. Root cause (5 Whys): the session file template conflated private process metadata (NVC extraction, source references, real names) with publishable output (story, points). The privacy skill didn't scan `content/` paths, so it missed this. Similarly, `content/articles/` draft files had no rule preventing process notes (outreach emails, approval tracking) from landing in the public file.
+
+**Decision:** Three structural fixes: (1) All sifter session files moved to `.private/sifter/sessions/` (gitignored). Sifter skills updated to use this path. (2) `content/sifter/sessions/` added to `.gitignore`. (3) Privacy skill scan scope expanded to include `content/articles/`. Auto-loaded rule added to `.claude/rules/content.md`: process notes (contact info, outreach tracking, approvals) must go to `.private/articles/{a-number}_notes.md`, never inline in article files. History scrub deferred — see `.private/docs/business/git-history-scrub-todo.md`.
+
+**Alternatives rejected:** Moving sifter skills to global `~/.claude/` — skills are just instructions with no PII, gain nothing privacy-wise, lose version control. Moving article drafts to `.private/` — breaks kanban which reads `content/articles/`. Two-file pattern for every article — over-engineered for the frequency of the problem.
+
+**Consequences:** Sifter sessions are now machine-local (not synced across devices via git). This is acceptable — sessions are scratch pads; once the story is approved and in Supabase, the session file is no longer needed. Workflow unchanged: same skill commands, same kanban, same article paths. Privacy skill now catches the category of issue that caused the original leak. No changes to insight-post, LinkedIn creation, or any build skills.
+
+**References:** [.private/docs/business/git-history-scrub-todo.md](.private/docs/business/git-history-scrub-todo.md) · [.claude/rules/content.md](.claude/rules/content.md) · [maintain/privacy/SKILL.md](.claude/commands/slava/maintain/privacy/SKILL.md)
+
+---
+
+## 2026-03-01 [process]: /verify is the natural trigger for /ship — not a separate optional step
+
+**Context:** After a feature is implemented and UAT-gated, the sequence is: run `/verify` (live browser UAT) → if passes → run `/ship`. But `/ship` and `/verify` are disconnected — `/ship` doesn't prompt for `/verify`, `/verify` doesn't call `/ship`, and `/ss` doesn't surface "verify passed" as a feature state. The result: `/verify` gets skipped or forgotten, `/ship` gets run blind.
+
+**Decision:** `/ship` step 10 should actively prompt: "Run /verify first? (visual QA of the live site)" — making it a first-class decision point, not a passive note. `/ss` should surface delivery_stage as "uat — verified" vs "uat — unverified" once /verify is run on a feature. The three-step rhythm is: `/dev` (UAT gate) → `/verify` (live QA) → `/ship` (close spec).
+
+**Alternatives rejected:** Keeping /verify as a passive suggestion — easily skipped, no process anchor. Auto-running /verify inside /ship — too opinionated; backend-only changes don't need it.
+
+**Consequences:** /ship step 10 needs rewording to prompt for /verify. /ss needs a "verified" state tracked somewhere (process-learnings.md or .private/ note per feature). This makes the three-step delivery rhythm explicit.
+
+**References:** [build/ship.md](.claude/commands/slava/build/ship.md) · [build/verify.md](.claude/commands/slava/build/verify.md)
+
+---
+
+## 2026-03-01 [product]: Session-start shared goal reaffirmation (mini pledge) as Pinker common knowledge mechanism
+
+**Context:** Two real clarity sessions surfaced the same failure mode: partners entered a session with divergent implicit goals (one seeking emotional validation, one seeking cognitive precision). No mechanism exists to align them before the session begins.
+
+**Decision:** Added to P421 (Pre-Session Safety Check) as a concrete operationalization of the "commitment ritual" open question: a lightweight step where both participants explicitly commit that their shared goal for the session is *cognitive understanding* (not agreement, not emotional resolution). The act of committing together creates Pinker's common knowledge — both know it, and both know the other knows it. This is what creates psychological safety, not private intent alone.
+
+**Alternatives rejected:** Making it part of the agreement flow (one-time only) — misses the safety function that repeats each session. Skipping it and trusting implicit alignment — this is exactly the failure mode observed.
+
+**Consequences:** P421 now has a concrete mechanism for the commitment ritual. The mini pledge should link to the sister story point (three meanings of "understand") so "cognitive understanding" carries a shared definition. Design still open: same UI step as safety check, or separate micro-step.
+
+**References:** [p421_presession_safety_check.md](features/drafts/p421_presession_safety_check.md)
+
+---
+
+## 2026-03-01 [product]: ITT/RITT framework formalized as 8 shareable claims in philosophy.md
+
+**Context:** The meta-epistemology had been described abstractly (postulates, hypotheses). A set of 8 sequenced claims — from "problems require knowledge" through "trust based on RITT performance" — now exists in a form that can be shared as profile stories/points.
+
+**Decision:** Filed the 8 claims in `docs/philosophy.md` under "Formalized Claims (ITT/RITT Framework)" and created P464 to track turning them into profile story/point pairs. The claims are numbered and build on each other (#1 → #8); profile ordering should follow the logical chain.
+
+**Alternatives rejected:** Keeping them as abstract postulates only — not shareable in clarity sessions. Filing each as a separate spec — unnecessary overhead for content work.
+
+**Consequences:** P464 is now the single tracking item for all 9 content pieces (8 ITT/RITT claims + "understanding precedes control" entry point). philosophy.md is the source; P464 tracks filing them as profile content.
+
+**References:** [docs/philosophy.md](docs/philosophy.md) · [p464_understanding_precedes_control_story.md](features/drafts/p464_understanding_precedes_control_story.md)
+
+---
+
+## 2026-03-01 [process]: Docs commits have no independent path to main — structurally coupled to branch fate
+
+**Context:** Branch cleanup audit discovered `p422-p425-uat` had 5 stranded commits (including `docs/ux-patterns.md` 266 lines, 4 `decisions.md` KDD entries, `/ship` skill guard, `/ss` stash check) not on main — 3 days after features shipped. Root cause (5 Whys): docs/KDD commits made on the UAT branch while feature development continued on a separate branch. When the feature shipped via a different branch, the UAT branch was abandoned without cherry-picking.
+
+**Decision:** Three structural fixes applied: (1) `/dev` UAT gate message now explicitly names spec closure as /ship's job and warns about manual-merge consequences; (2) `/ship` skill gets a divergence-check step 1a with a `spec-only` escape hatch for already-merged branches; (3) `/day-start` gets a stranded-spec check (2b) that cross-references open specs against existing branches. /day-start also corrects the "ready to /ship?" suggestion to distinguish branch-exists vs branch-already-merged.
+
+**Alternatives rejected:** "Be more careful" — not mechanical. `Persist: main` commit trailer — overhead per commit, no tooling yet. Rescue-branch read-only convention — hard to enforce in agent sessions.
+
+**Consequences:** /day-start now surfaces stranded specs at session start. /ship bypasses now trigger an explicit divergence dialog. `/dev` makes the spec-closure responsibility of /ship visible at UAT handoff. The class of failure (docs stranded on abandoned branch) now has three detection points instead of zero.
+
+**References:** [docs/process-learnings.md](docs/process-learnings.md)
+
+---
+
+## 2026-02-28 [process]: OpenClaw over custom bot — search named tools before building
+
+**Context:** Built a custom Gemini Telegram bot across 2 sessions (VM provisioning, bot.py, sqlite-vec memory, GitHub PAT, email) before discovering the user intended to use OpenClaw — a 68k-star open-source agent framework that does all of this out of the box. VM paused.
+
+**Decision:** Switch to OpenClaw when resuming agent work. Custom bot abandoned.
+
+**Alternatives rejected:** Continuing custom bot — it reimplements ~10% of OpenClaw at maintenance cost.
+
+**Consequences:** Any named tool/product mentioned by the user must be searched before assuming. "Confirm end-state" rule added to CLAUDE.md. VM stays paused until OpenClaw setup.
+
+**References:** [CLAUDE.md — Infrastructure Work](CLAUDE.md)
+
+---
+
+## 2026-02-28 [process]: CLAUDE.md structural cleanup — Git Safety refactored to rules file
+
+**Context:** Audit found Git Safety section duplicated between CLAUDE.md (inline rules) and `.claude/rules/git.md` (auto-loaded rules file). Drift had already started — `git push --force` to main/master existed only in rules file.
+
+**Decision:** Collapse CLAUDE.md Git Safety to a 1-line reference. Rules file is the single source. Also: Worktree Branch Naming stub removed (merged into Worktree Protection section), Commit Discipline cross-referenced from Git & Commits.
+
+**Alternatives rejected:** Keeping both in sync manually — drift is inevitable.
+
+**Consequences:** One place to update git rules. CLAUDE.md ~30 lines shorter.
+
+**References:** [.claude/rules/git.md](.claude/rules/git.md)
+
+---
+
+## 2026-02-28 [process]: claude-md skill simplified — two explicit prompt modes
+
+**Context:** claude-md skill was 197 lines with duplicated content, template pseudo-syntax (`{IF_ARGUMENT}`), and inline examples that added noise without value.
+
+**Decision:** Cut to 45 lines. Two explicit agent prompt blocks: one for "validate a change" (with argument), one for "audit" (no argument). No conditional syntax.
+
+**Alternatives rejected:** Keeping long form for "educational" value — the agent doesn't need hand-holding.
+
+**Consequences:** Faster invocation, cleaner output, easier to maintain.
+
+---
+
+## 2026-02-28 [process]: Mira email infrastructure — claritypledge.com over Proton for programmatic access
+
+**Context:** Mira (bot persona) has mira.elv@proton.me for identity. Proton requires Bridge (desktop app) for IMAP — not practical for agent access. Created mira@claritypledge.com on All-Inkl (same server as ops@).
+
+**Decision:** mira@claritypledge.com for operational email (registrations, receiving service emails). read-ops-email.mjs script works for both. mira.elv@proton.me kept for identity only.
+
+**Alternatives rejected:** Proton Bridge — overkill, requires running desktop app.
+
+**Consequences:** Email read/write works with existing IMAP infrastructure.
+
+---
+
 **Format:**
 ```markdown
 ## YYYY-MM-DD: Decision Title
+
+---
+
+## 2026-02-28 [process]: tmux cannot preserve Claude Code conversations across restarts
+
+**Context:** 5 hours spent setting up tmux (resurrect, continuum, fzf picker) believing it would preserve Claude Code sessions across Mac restarts. Root cause of the original problem was macOS `AutomaticallyInstallMacOSUpdates = 1` restarting the machine without warning. The tmux solution correctly handles Ghostty closing (process stays alive) but cannot survive a machine restart — Claude's conversation state lives in RAM only.
+**Decision:** Disable macOS auto-restarts (`sudo defaults write /Library/Preferences/com.apple.SoftwareUpdate AutomaticallyInstallMacOSUpdates -int 0`). Accept that Claude conversations are always lost on restart. Use `/resume` within the same project dir for continuity. tmux remains useful for background processes and surviving accidental Ghostty close — not for Claude conversation persistence.
+**Alternatives rejected:** tmux-resurrect/continuum layering — restores shell only, not the claude process or its conversation state.
+**Consequences:** Machine no longer auto-restarts. Claude conversations lost on any restart are expected and not worth engineering around. tmux kept for legitimate uses (background processes, window organization).
+**References:** [tmux-setup.md](~/Projects/private/personal/docs/tmux-setup.md) · MEMORY.md
+
+---
+
+## 2026-02-28 [process]: Three structural safeguards against unverified capability claims
+
+**Context:** Root cause analysis of the tmux incident revealed three compounding failure patterns: (1) Claude made a confident capability claim it couldn't verify, (2) a known fix sat unactioned in MEMORY.md, (3) complexity layered on an unverified foundation. Addressed by adding three structural controls.
+**Decision:** (1) "Falsify Before You Rely" principle in CLAUDE.md — any capability claim about a tool or system Claude hasn't personally verified must be flagged, with explicit distinction between testable and untestable claims. (2) `ACTION_NEEDED:` tag convention in MEMORY.md — unresolved problems get tagged; `/day-start` scans for them at session start. (3) "Two-layer infrastructure signal" in "Before Choosing Infrastructure Tools" section — adding Tool B on top of unverified Tool A must trigger a stop and verification of Tool A first.
+**Alternatives rejected:** Process-based solutions (pre-mortem, cooling period, complexity budget) — require discipline at the moment of excitement, don't fire automatically.
+**Consequences:** Claude must flag unverified claims before user commits time. Known open problems surface each morning. Two-layer infra patterns trigger explicit verification check. None of these prevent a determined wrong path, but all three add friction at the right moment.
+**References:** [CLAUDE.md](CLAUDE.md) · [day-start.md](.claude/commands/slava/day-start.md) · [MEMORY.md](~/.claude/projects/.../memory/MEMORY.md)
+
+---
+
+## 2026-02-28 [process]: fix-frontmatter.py phantom accumulation — git-aware rename
+
+**Context:** Feature spec files were silently disappearing or accumulating phantom copies across sessions. Root cause: `fix-frontmatter.py` used `Path.rename()` (filesystem-only) when resolving duplicate P-numbers. This caused a tracked→untracked divergence each session (old path shows as `D`, new path as `??`). Over time the phantom would get renamed to yet another number (`p422→p457→p463`), occasionally contaminating unrelated commits via index collision.
+**Decision:** Two-path logic in `fix_duplicates()`: (1) If the duplicate is **untracked** (phantom), delete it with `unlink()` — never rename it to a new number. (2) If the duplicate is **tracked**, use `git mv` so the rename is tracked in the index. Added `FileNotFoundError` guard for concurrent hook invocations, and `f is not None` guard in single-file mode `rename_map`. Also added a post-`git mv` verification guard in `/ship` skill to catch failed moves before commit.
+**Alternatives rejected:** Continuing with `Path.rename()` + relying on pre-commit re-stage (insufficient — the divergence persists across session boundaries until manually cleaned up).
+**Consequences:** Phantom files are now self-healing on next hook invocation. Tracked renames are git-aware and won't leave orphan `D` entries. Index collision risk from spec management tools is reduced.
+**References:** [fix-frontmatter.py](scripts/fix-frontmatter.py) · [ship.md](.claude/commands/slava/build/ship.md)
+
+---
+
+## 2026-02-28 [process]: Pre-commit §16 gate — warn when .claude/ changes staged on non-main branch
+
+**Context:** Skills and process changes committed on feature branches are silently invisible in other worktrees until `/ship` merges to main. Developer might not realize a new skill isn't available elsewhere.
+**Decision:** `pre-commit-checks.sh` §16 detects `.claude/` files staged on any non-main branch and prints a visible warning. In an interactive terminal (where `/dev/tty` is accessible), it prompts for explicit confirmation before allowing the commit to proceed. In agent/CI context (no TTY), it increments `WARNINGS` but doesn't block.
+**Alternatives rejected:** Blocking all .claude/ commits on non-main (too restrictive — feature branches need skill prototyping); doing nothing (silent stranding was the recurring pattern).
+**Consequences:** Developer is always made aware when process/skill changes will be branch-local until ship. Agent sessions in non-TTY contexts see a warning count but aren't blocked.
+**References:** [scripts/pre-commit-checks.sh](scripts/pre-commit-checks.sh) §16
+
+---
+
+## 2026-02-28 [process]: /kdd meta-reflection — never auto-apply, always present to user
+
+**Context:** /kdd step 6 previously attempted to auto-apply "trivial" fixes identified during meta-reflection. The assumption was that trivial = safe to apply without asking. But friction items extracted from a session can have uncertain scope, downstream effects on other skills, or require user context the agent lacks — even when they look simple.
+**Decision:** /kdd step 6 NEVER auto-applies anything. The agent extracts problems (via subagent), triages each one (trivial / requires-decision / no-obvious-fix), and presents ALL items to the user in a single numbered message. User decides what to act on. The agent proposes; the user approves.
+**Alternatives rejected:** Auto-applying "trivially obvious" fixes (agent can't reliably assess what's truly trivial; the cost of a wrong auto-apply is higher than asking); skipping presentation entirely (defeats the purpose of the meta-reflection step).
+**Consequences:** /kdd meta-reflection produces a triage list, not a list of changes. The friction extraction subagent feeds into a human review loop, not an auto-fix loop.
+**References:** [.claude/commands/slava/maintain/kdd/SKILL.md](.claude/commands/slava/maintain/kdd/SKILL.md) step 6
+
+---
+
+## 2026-02-28 [technical]: Kanban server test isolation — guard listen() + export app
+
+**Context:** `tools/kanban/server/api.ts` called `app.listen()` at module load. Any test file importing `api.ts` would trigger the server binding, causing port 9051 conflicts with a running kanban server and test failures. Additionally, tests that needed `app` to make supertest requests couldn't import it because it wasn't exported.
+**Decision:** (1) Wrap `app.listen()` in `if (process.env.NODE_ENV !== 'test')` guard. (2) Add `export { app }` so tests can import the express instance directly. (3) Scope pre-commit kanban vitest to scanner tests only (`lib/__tests__` + `server/__tests__/scanner-smoke`) — integration tests (`api.test.ts`, `goals.test.ts`) depend on file I/O and real milestone content that doesn't exist in pre-commit context.
+**Alternatives rejected:** Running full kanban test suite in pre-commit (integration tests fail on missing files, creating false blockers); not exporting `app` (forces tests to spin up a real server).
+**Consequences:** Any future kanban server test can import `app` directly for supertest integration. Integration tests that need real file content should run in CI, not pre-commit.
+**References:** [tools/kanban/server/api.ts](tools/kanban/server/api.ts) · [scripts/pre-commit-checks.sh](scripts/pre-commit-checks.sh) §kanban
+
+---
+
+## 2026-02-28 [technical]: Revert-then-merge: files deleted by a revert are invisible in conflict list
+
+**Context:** P422 and P425 were reverted from `main` (commit `c08bc1f2`) to unblock a deploy. When later merging the feature branch back, git's conflict detection only shows files that exist on both sides. Files that were deleted by the revert (16 files: components, services, helpers, edge function) simply don't appear — they're silently absent from the working tree. The build fails with "cannot find module" errors.
+**Decision:** When merging a feature branch after a prior revert of that branch's content: after resolving the standard conflict list, explicitly restore all files that were deleted by the revert commit. Use `git show <feature-branch>:path/to/file > path/to/file` for each, or `git diff <revert-commit>^..<revert-commit> --name-only --diff-filter=D` to enumerate them.
+**Alternatives rejected:** Trusting the conflict list to be exhaustive (silently misses deleted files); cherry-picking individual commits (complex, can leave partial state).
+**Consequences:** After any `git merge --no-commit` of a branch that was previously reverted, run `git diff <revert-commit>^..<revert-commit> --name-only --diff-filter=D` and manually restore each file before committing. This is a one-time cost per revert, and the correct signal is "build fails on module-not-found after merge resolves clean."
+**References:** [docs/technical/git-workflow.md](docs/technical/git-workflow.md)
+
+---
+
+## 2026-02-28 [process]: Commit important content artifacts immediately after writing
+
+**Context:** In P438 session, a blog draft was written via Write tool (confirmed success) but wasn't on disk at session end — required recreating from transcript. Root cause unclear (likely context compaction or interrupted session).
+**Decision:** After writing any important artifact (blog draft, feature spec, key doc), immediately run `git status` to confirm it's tracked, then commit before continuing with edits or review. Don't rely on the Write tool confirmation alone — verify the file exists in git.
+**Alternatives rejected:** End-of-session checklist (requires discipline each time); no change (next session just loses work again).
+**Consequences:** Slightly more commits, but all are named and purposeful. Blog drafts appear as their own commit, which is fine.
+**References:** P438 session; content/blog/ai-agent-orchestration-three-setups.md had to be recreated.
+
+---
+
+## 2026-02-28 [process]: Blog articles require personal story first, research second
+
+**Context:** P438 article was initially drafted as a technical comparison of three AI orchestration setups (Jed's principle, Slava's setup, Jordan's pipeline). After review, Slava clarified the real story was his personal journey through the four AI dev barriers, with Jordan and Jed as supporting characters — not co-equal subjects.
+**Decision:** For "build in public" articles, start from the personal journey arc, then layer in external references. The story structure is: problem I had → what changed → what I learned → how others fit in. External repos/people are evidence, not the frame.
+**Alternatives rejected:** Technical comparison format (reads as survey, not story; loses the "why should I care" thread); starting with external references (obscures authorship, makes article feel like research report).
+**Consequences:** Before writing any future article: identify the personal arc first ("what problem did I have, what changed, what can I claim to have learned"). External examples slot in after the arc is clear.
+**References:** [content/blog/ai-agent-orchestration-three-setups.md](content/blog/ai-agent-orchestration-three-setups.md), [features/p438_article_ai_agent_orchestration.md](features/p438_article_ai_agent_orchestration.md)
+
+---
+
+## 2026-02-28 [process]: /kdd step 6 meta-reflection redesigned — subagent extraction + mechanical-first brainstorm
+
+**Context:** `/kdd` step 6 relied on Claude's direct memory to "scan for friction" — lossy in long sessions, and A/B options were shallow (no critique of whether solutions prevent problems mechanically vs. by discipline).
+**Decision:** Step 6 now: (1) spawns a `general-purpose` subagent whose sole job is extracting problems from the full conversation (capped at 10, deduped, excludes routine noise); (2) triages each problem into trivial-fix / decision / track-it; (3) for decisions generates `/simplify` blocks with 2–3 options each annotated `mechanical: yes/no`, with recommendation naming the mechanism and main risk.
+**Alternatives rejected:** Per-problem brainstorm subagents (overhead not worth it; inline brainstorm after extraction is sufficient); keeping A/B format (2 options forces binary framing; 3rd option surfaces non-obvious paths when genuine).
+**Consequences:** Every `/kdd` run after a non-trivial session will spawn one subagent for problem extraction. Sessions with no problems found exit immediately ("Clean session."). Recommendations now call out whether the fix is mechanical.
+**References:** [.claude/commands/slava/maintain/kdd/SKILL.md](.claude/commands/slava/maintain/kdd/SKILL.md) step 6
+
+---
+
+## 2026-02-28 [process]: Two-layer privacy model for claude-conversations synthesis
+
+**Context:** Session that synthesized strategy from claude.ai conversations inadvertently staged content with named individuals (collaborator names, email addresses, LinkedIn profile URLs). Pre-commit hook caught email patterns mechanically but missed nuanced content (names, contact info in prose).
+**Decision:** Two-layer privacy model: (1) mechanical — pre-commit §16 pattern-greps for known personal identifiers (emails, `slavochek`, named individuals in "experiment fails because [Name]" patterns); (2) judgment — `/maintain:privacy` skill run manually before committing when source material included claude-conversations. KDD step 5.25 added as explicit gate: "if source was claude-conversations, run `/maintain:privacy` before committing."
+**Alternatives rejected:** Relying solely on mechanical checks (misses prose context); blocking all claude-conversation synthesis (too restrictive — conversations are primary strategy input).
+**Consequences:** Every `/kdd` run after a session that touched `~/Projects/private/claude-conversations/` must pass through the privacy skill. Pre-commit §16 acts as backstop for known patterns.
+**References:** [scripts/pre-commit-checks.sh](scripts/pre-commit-checks.sh) §16, [.claude/commands/slava/maintain/kdd/SKILL.md](.claude/commands/slava/maintain/kdd/SKILL.md) step 5.25
+
+---
+
+## 2026-02-28 [process]: docs/business/collaborators/ moved to .private — already leaked to git history
+
+**Context:** `docs/business/collaborators/` (compensation model, profit-participation draft, transparency rationale) was committed to `origin/main` before this session. Files contain business negotiation strategy and compensation terms that could affect collaborator relationships if widely seen.
+**Decision:** Removed from public git index via `git rm -r --cached docs/business/collaborators/`. Moved to `.private/docs/business/collaborators/`. Going forward, all collaborator agreements, compensation discussions, and partnership terms live in `.private/` by default. Full history scrub (git filter-repo + force-push) deferred — decision left to user given complexity and low marginal risk (no credentials, no personal identifiers, strategic content only).
+**Alternatives rejected:** Leaving in place (ongoing exposure); immediate force-push history scrub (complex, requires coordination with any clones, disrupts ongoing branches).
+**Consequences:** `docs/business/` directory effectively deprecated as public location for sensitive business content. Any new collaborator-related docs → `.private/docs/business/` by default.
+**References:** `.private/docs/business/collaborators/`
+
+---
+
+## 2026-02-27 [technical]: Vitest unit tests fail silently when VITE_SUPABASE_* env vars missing
+
+**Context:** `src/lib/supabase.ts` throws at module load (`Missing Supabase environment variables`) when `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` are absent. Any test file that imports a module that transitively imports supabase.ts will fail with a module-load error — even if the test doesn't call Supabase at all. No `.env.test.local` fix works for Vitest (it uses `vite.config.ts`, not Playwright's dotenv loading).
+**Decision:** Add dummy stub values to `vite.config.ts` `test.env` block:
+```ts
+test: { env: { VITE_SUPABASE_URL: 'http://localhost:54321', VITE_SUPABASE_ANON_KEY: 'test-anon-key' } }
+```
+These are never used in a real Supabase call in unit tests — they only satisfy the module-load guard.
+**Alternatives rejected:** Per-file mocking of supabase.ts (too brittle, requires every new test file to remember); changing supabase.ts to not throw (breaks prod safety guard).
+**Consequences:** Adding new test files that import supabase-touching modules will Just Work. No per-file boilerplate needed.
+**References:** [vite.config.ts](vite.config.ts)
+
+---
+
+## 2026-02-27 [process]: Content articles live in `content/articles/`, separate from `features/`
+
+**Context:** Articles and blog posts were being tracked as feature specs in `features/p*_article_*.md`. This mixed content pipeline management with feature delivery — wrong kanban columns, wrong status values, wrong lifecycle.
+**Decision:** New namespace: `content/articles/a{N}_{slug}.md`. Own status pipeline: `idea → draft → editing → ready → published → promoted`. Auto-number via `scripts/next-a-number.sh`. Kanban gets a `Content` tab with its own DndContext and `ArticleStatus` type. Rules file `.claude/rules/content.md` auto-loads when editing `content/articles/`. `features/` remains for product feature specs only.
+**Alternatives rejected:** Subdirectory inside features/ (same wrong column semantics, no separate kanban view); separate Ghost CMS notes (not tracked in git, no kanban integration).
+**Consequences:** Future articles go in `content/articles/` not `features/`. Use `./scripts/next-a-number.sh` for numbering. Content kanban tab at `/content` in the kanban tool. Content skills (`/slava:content:*`) write to this directory.
+**References:** [content/articles/](content/articles/) · [.claude/rules/content.md](.claude/rules/content.md) · [tools/kanban/src/components/ContentPage.tsx](tools/kanban/src/components/ContentPage.tsx)
+
 
 **Context:** Why this came up
 **Decision:** What we chose

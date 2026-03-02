@@ -4,7 +4,29 @@ Interactive daily check-in. Checks prod health, shows what's next, asks what's d
 
 ## Steps
 
-### 0. Setup reminders
+### 0. Open items check (run first, before anything else)
+
+Scan MEMORY.md at `/Users/slavochek/.claude/projects/-Users-slavochek-Projects-public-claritypledge/memory/MEMORY.md` for lines starting with `ACTION_NEEDED:`.
+
+If the file does not exist at that path: output `⚠ MEMORY.md not found — open items check skipped` and continue to step 0a.
+
+If any `ACTION_NEEDED:` lines found, surface them:
+```
+⚠ OPEN ITEMS (from memory):
+  · [item 1]
+  · [item 2]
+Address one before starting new work? Reply 'yes' to make it this session's first task, or send anything else to continue.
+```
+
+Wait for response.
+- If user says yes → make the item the session's first task. Skip remaining day-start steps and go directly to it.
+- Anything else → continue to step 0a.
+
+If none found → silent, no output.
+
+---
+
+### 0a. Setup reminders
 
 **a) Reset Whisper language to auto-detect**
 ```bash
@@ -49,7 +71,25 @@ Filter out `test-agent@claritypledge.com` from results.
 
 Show: `✓ Signups: 0 in last 24h` or list each as `  · Name (email) — HH:MM UTC`
 
-**d) Cloud systems (silent on green — only output if something is wrong)**
+**d) Repo health baseline (surfaces ambient debt before any implementation starts)**
+
+Run as a background subagent to avoid blocking health display:
+```bash
+cd "$(git rev-parse --show-toplevel)"
+# Stash any uncommitted changes, baseline, restore
+git stash -q --include-untracked 2>/dev/null || true
+npm run lint 2>&1 | grep -c "error" || echo "0"
+npm test -- --run 2>&1 | tail -5
+git stash pop -q 2>/dev/null || true
+```
+
+Show:
+- `✓ Repo baseline: clean` if lint errors = 0 and tests pass
+- `⚠ Repo baseline: N lint errors, M test failures — fix before starting new work` if anything fails
+
+**Why:** Pre-existing failures block commits and waste cycles mid-implementation. Surface them at session start, not at first commit attempt.
+
+**e) Cloud systems (silent on green — only output if something is wrong)**
 ```bash
 # Ghost blog
 curl -s -o /dev/null -w "%{http_code}" https://claritypledge.com/blog --max-time 5
@@ -119,6 +159,21 @@ git branch --format='%(refname:short) %(upstream:track)' | grep -v "^main"
 git log --oneline origin/main..HEAD 2>/dev/null | wc -l | tr -d ' '
 ```
 
+**2b. Stranded spec check** — find specs open but whose branch no longer exists:
+```bash
+# P-numbers with open specs (uat or in-progress)
+OPEN=$(grep -rl "delivery_stage: uat\|status: in-progress" features/p*.md 2>/dev/null | grep -oP 'p\d+' | sort -u)
+# P-numbers with existing branches
+BRANCHES=$(git branch -a | grep -oP '(?<=feature/|origin/feature/)p\d+' | sort -u)
+# Stranded = open but no branch
+comm -23 <(echo "$OPEN") <(echo "$BRANCHES")
+```
+If any P-numbers are stranded (open spec, no branch): output:
+```
+⚠ STRANDED SPECS (code on main, spec not closed):
+  · pN — features/pN_name.md — run /ship pN spec-only to close
+```
+
 Output a branch block:
 
 ```
@@ -131,7 +186,11 @@ BRANCHES
 Rules:
 - If on `main` with 0 commits ahead: "main is clean and in sync"
 - If on `main` with N commits ahead: "N commits on main not pushed — push when ready or was this meant to be on a branch?"
-- For each feature branch: show name + one-line suggestion ("ready to /ship?" if closed, "in-progress" if spec still open)
+- For each feature branch: show name + one-line suggestion:
+  - `delivery_stage: uat` AND branch exists → "ready to /ship pN?"
+  - `delivery_stage: uat` AND branch gone (merged) → "branch merged but spec open — run /ship pN spec-only"
+  - spec open (`status: in-progress`, no `delivery_stage`) → "in-progress"
+  - no spec found → "no spec — branch may be stale, consider cleanup"
 - If no feature branches: omit the section
 
 ---

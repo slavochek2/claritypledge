@@ -17,46 +17,86 @@ Use **Claude in Chrome** (real browser, authenticated):
 ```
 mcp__claude-in-chrome__tabs_context_mcp       # see current tabs
 mcp__claude-in-chrome__tabs_create_mcp        # open new tab
-mcp__claude-in-chrome__navigate { url: "https://claude.ai/settings/account" }
+mcp__claude-in-chrome__navigate { url: "https://claude.ai/settings/data-privacy-controls" }
 ```
 
-Navigate to the export section. Look for:
-- Settings → Account → "Export data" or "Download your data"
-- Or try `https://claude.ai/settings/privacy` if account doesn't have it
+The export button is on the **Privacy** page, not Account. Look for `button "Export data"` in the page.
 
-Click the export/download button. Claude.ai will send an email — **do not wait in browser**.
+Click it via JavaScript (the button label is exactly "Export data"):
+```javascript
+const buttons = Array.from(document.querySelectorAll('button'));
+const btn = buttons.find(b => b.textContent.trim() === 'Export data');
+btn && btn.click();
+```
+
+A dialog appears with date range options (All / 30 days / 90 days / Custom). "All" is selected by default. Click Export:
+```javascript
+const dialog = document.querySelector('[role="dialog"]');
+const exportBtn = Array.from(dialog.querySelectorAll('button')).find(b => b.textContent.trim() === 'Export');
+exportBtn && exportBtn.click();
+```
+
+Claude.ai will send an email — **do not wait in browser**.
 
 ### 2. Poll Gmail for the export email
 
+Note the current time before polling — **only accept emails that arrived after you triggered the export** in step 1. Stale emails from previous runs have the same subject line and will cause downloading an old zip.
+
 Use **`mcp__slavochek-gmail__*`** — this is the dedicated personal Gmail MCP for `slavochek@googlemail.com`.
 
-Poll every 60 seconds, up to 10 minutes:
+Poll every 60 seconds (Bash `sleep 60`), up to 10 minutes total:
 
 ```
-mcp__slavochek-gmail__search_emails { query: "anthropic export" }
 mcp__slavochek-gmail__search_emails { query: "your data is ready" }
-mcp__slavochek-gmail__search_emails { query: "claude download" }
 ```
 
-When a matching email appears, fetch its full content using the `uid` from search results:
+When results appear, check the `date` field on each result. **Skip any email older than your export trigger time.** Take the most recent matching email that arrived after the trigger.
+
+Fetch its full content:
 
 ```
 mcp__slavochek-gmail__get_email_content { uid: <uid from search> }
 ```
 
-Extract the HTTPS download URL from the email body (typically a signed S3/CDN link).
+Extract the HTTPS download URL from the email body — it looks like `https://claude.ai/export/<uuid>/download/<hash>`.
 
 ### 3. Download the zip
 
-Use Bash to download to `~/Downloads`:
+The download URL is behind Cloudflare — `curl` will fail with a JS challenge page. Use `open` to let Chrome download it natively (uses the logged-in session):
 
 ```bash
-curl -L -o ~/Downloads/claude-export-$(date +%Y%m%d).zip "<download_url>"
+open "<download_url>"
 ```
 
-Verify the file exists and is non-empty:
+Chrome downloads to `~/Desktop` by default. Mark the time before calling `open`, then wait ~5 seconds and find the new file:
+
 ```bash
-ls -lh ~/Downloads/claude-export-*.zip | tail -1
+BEFORE=$(date +%s)
+open "<download_url>"
+sleep 6
+# Find zip files on Desktop newer than $BEFORE
+python3 -c "
+import os, time, glob
+before = $BEFORE
+zips = [f for f in glob.glob(os.path.expanduser('~/Desktop/*.zip')) if os.path.getmtime(f) > before]
+print(zips[0] if zips else 'NOT FOUND')
+"
+```
+
+The file will be named like `data-YYYY-MM-DD-HH-MM-SS-batch-0000.zip`. Copy it to `~/Downloads` (where claude-sync scans):
+
+```bash
+python3 -c "
+import os, shutil, glob, time
+# Find the newest zip on Desktop
+zips = sorted(glob.glob(os.path.expanduser('~/Desktop/data-*.zip')), key=os.path.getmtime, reverse=True)
+if zips:
+    dst = os.path.expanduser('~/Downloads/' + os.path.basename(zips[0]))
+    shutil.copy(zips[0], dst)
+    print('Copied:', dst)
+else:
+    print('No zip found on Desktop')
+"
 ```
 
 ### 4. Run claude-sync
@@ -83,7 +123,7 @@ Tell the user:
 
 **Email not arriving after 10 min:** Claude.ai may have rate-limited exports. Check if a previous export email exists (search without `newer_than`). The user may need to wait and re-run.
 
-**Download URL expired:** Export links are time-limited (typically 24h). If curl fails with 403, trigger a new export from step 1.
+**Download URL expired:** Export links are time-limited (typically 24h). If `open` downloads an HTML file instead of a zip, trigger a new export from step 1.
 
 **claude-sync finds no new files:** The zip may already have been imported. Check `.imported_ids.json` in `~/projects/private/claude-conversations/`.
 

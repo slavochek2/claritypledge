@@ -49,6 +49,7 @@ Tools: `mcp__chrome-devtools__*`
 - **Isolated** — each session gets a clean profile, runs without the user's Chrome
 - **Works in any Claude session** — no `--chrome` flag needed
 - ⚠️ **Known issue:** Currently opens visible browser despite `--headless` flag (postponed fix)
+- ⚠️ **Mutually exclusive with Claude in Chrome** — opening a CDP session blocks the extension's `computer` actions. Use one or the other per conversation, not both. Close the DevTools MCP panel before switching to Claude in Chrome.
 
 **Common tools:**
 - `navigate_page` — go to URL
@@ -76,7 +77,7 @@ Requires: `claude --chrome` + Chrome with Claude extension installed.
 - **Vision-based interaction** — `computer` tool with coordinate-based clicks, screenshots
 - **Rich page reading** — `read_page` accessibility tree, `find` for element search
 - **GIF recording** — `gif_creator` for documenting interactions
-- **Form filling** — `form_input` with element refs from `read_page`
+- **Form filling** — `form_input` with element refs from `read_page`; returns the "previous" field value — useful for recovering auto-generated or overwritten values
 - **JavaScript execution** — `javascript_tool` for arbitrary JS in page context
 
 **Common tools:**
