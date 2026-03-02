@@ -283,7 +283,13 @@ Backward compat: existing callers without the 4th param continue to work (DEFAUL
 
 The "We, [creator] and [partner], agree to:" sentence is a new inline element in the certificate body — separate from `SignatureSlot`. The partner name blank is a borderless `<input>` styled to read as document text inline with the surrounding sentence.
 
-Styling: `border-0 border-b border-[#1A1A1A]/30 bg-transparent ring-0 outline-none text-base font-semibold inline-block w-auto min-w-[120px]` with the certificate body font — on focus, border becomes `border-[#1A1A1A]/70`; on blur, reads as inline text. Placeholder: `"their name"` greyed.
+**Visual reference:** `src/app/components/pledge/sign-pledge-form.tsx` — the take-pledge flow uses the exact same pattern: inline editable name input inside the certificate frame, bottom-border only, transparent background, serif font. The create-agreement form must feel visually identical to that flow. Copy the input class pattern directly:
+```
+border-0 border-b-2 border-[#1A1A1A] rounded-none bg-transparent
+focus-visible:ring-0 focus-visible:border-[#0044CC] font-serif
+inline-block w-auto min-w-[120px]
+```
+On focus: border becomes `#0044CC`. On blur: reads as document text. Placeholder: `"their name"` greyed.
 
 `SignatureSlot` gains `value?: string` prop for display purposes in creation mode — when provided, it renders that value read-only (same text styling, no editable input). Existing callers unchanged.
 
