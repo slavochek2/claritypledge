@@ -1,5 +1,6 @@
 ---
-status: in-progress
+status: done
+completed_at: '2026-03-02'
 type: change-request
 rank: 0.5
 changes: p456
