@@ -3,6 +3,7 @@ status: in-progress
 type: change-request
 rank: 1000003.0
 changes: p456
+superseded_by: p468
 delivery_stage: uat
 flow: ux → architect → generate-tests → decompose → dev → verify
 uat_file: features/uat/p465.md
