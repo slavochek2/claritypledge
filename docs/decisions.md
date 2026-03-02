@@ -2,6 +2,23 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-02 [process]: Worktree strategy simplified — slots, not feature names
+
+**Context:** Two parallel worktree systems coexisted: old `claritypledge-N` sibling dirs (referenced by `start`/`stop` aliases and `kanban.sh`) and new `.claude/worktrees/<featurename>` (created by Claude). The directories didn't exist so `start w1` silently failed. Feature-named worktrees had no fixed port, so every dev server required manual port hunting. Spec files created from worktrees got trapped on feature branches, causing kanban status drift.
+
+**Decision:** Three rules, all enforced at point of action:
+1. **Slot naming** — worktrees always `w1`/`w2`, never feature names. Branch carries the feature: `git worktree add .claude/worktrees/w1 -b feature/pN-description`. Fixed ports: w0=5001, w1=5100, w2=5200.
+2. **Spec creation in w0 only** — enforced by worktree guard in `/create-prd`, `/quick-feature`, `/change-request`, `/create-bug`. If Claude runs these from a worktree, it stops and tells you to switch to main first. Exception: `/dev` may update `delivery_stage` in its own spec (merges to main at `/ship`).
+3. **Kanban always from w0** — `kanban` reads `features/` from wherever it's launched; running from a worktree gives stale status for all other features.
+
+**Alternatives rejected:** Feature-named worktrees with a port registry — adds indirection, no benefit. CLAUDE.md-only rules — too diluted, doesn't survive compaction; skill-level guards are more reliable.
+
+**Consequences:** `start w1` and `kanban w1` now reliably work. No port hunting. No spec files stranded on feature branches. Kanban is always authoritative from w0.
+
+**References:** [worktree-setup.md](technical/worktree-setup.md) · skills: `build/create-prd.md`, `build/quick-feature.md`, `build/change-request.md`, `build/create-bug.md`, `build/pick-flow/SKILL.md`
+
+---
+
 ## 2026-03-02 [product]: ladischenski.com reframed as Calibration Lab facilitation site
 
 **Context:** Site was positioned as a consulting business — €250/hr coaching, €1,500 de-risking package, €3,350 workshop. Slava doesn't believe in the per-session coaching market; it requires selling prevention to people who don't self-identify as at risk.
