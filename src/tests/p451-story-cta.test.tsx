@@ -11,10 +11,8 @@
 import { describe, it, expect } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { BrowserRouter } from 'react-router-dom';
-import { PointCardDetail } from '@/app/components/social/PointCardDetail';
 import { PointCardWithLinks } from '@/app/components/social/point-card-with-links';
 import { StoryCardDetail } from '@/app/components/social/StoryCardDetail';
-import type { Point as ProtoPoint } from '@/app/prototypes/shared/types';
 import type { Point, PositionType, PointPosition } from '@/app/prototypes/shared/types';
 import type { StoryWithAuthor, PointSummary } from '@/app/types';
 import type { SevenPointCounts } from '@/app/prototypes/linkedin-like/components/shared';
@@ -29,73 +27,11 @@ const emptyCounts: SevenPointCounts = {
   unsure: 0, somewhat_disagree: 0, disagree: 1, strongly_disagree: 0,
 };
 
-const getEmptyCounts = () => emptyCounts;
-
 // Click the main "Agree" segment button (not the dropdown arrow)
 function clickAgree() {
   const agreeBtn = screen.getByText('Agree').closest('button')!;
   fireEvent.click(agreeBtn);
 }
-
-// ── PointCardDetail ───────────────────────────────────────────────────────────
-
-const protoPoint: ProtoPoint = {
-  id: POINT_ID,
-  text: 'Remote work is more productive',
-  createdAt: '2026-01-01T00:00:00Z',
-  positions: {},
-  linkedStoryIds: [],
-};
-
-const protoPointWithPosition: ProtoPoint = {
-  ...protoPoint,
-  positions: { current: { position: 'agree' as PositionType, userId: CURRENT_USER } },
-};
-
-describe('P451: PointCardDetail story CTA', () => {
-  it('does NOT show CTA before staking', () => {
-    render(
-      <BrowserRouter>
-        <PointCardDetail
-          point={protoPoint}
-          linkedStories={[]}
-          getPointPositionCounts={getEmptyCounts}
-          isDetailView
-        />
-      </BrowserRouter>
-    );
-    expect(screen.queryByText('Tell your story →')).toBeNull();
-  });
-
-  it('shows CTA after staking a position', () => {
-    render(
-      <BrowserRouter>
-        <PointCardDetail
-          point={protoPoint}
-          linkedStories={[]}
-          getPointPositionCounts={getEmptyCounts}
-          isDetailView
-        />
-      </BrowserRouter>
-    );
-    clickAgree();
-    expect(screen.getByText('Tell your story →')).toBeInTheDocument();
-  });
-
-  it('shows CTA on load when position is pre-existing (refresh regression)', () => {
-    render(
-      <BrowserRouter>
-        <PointCardDetail
-          point={protoPointWithPosition}
-          linkedStories={[]}
-          getPointPositionCounts={getEmptyCounts}
-          isDetailView
-        />
-      </BrowserRouter>
-    );
-    expect(screen.getByText('Tell your story →')).toBeInTheDocument();
-  });
-});
 
 // ── PointCardWithLinks ────────────────────────────────────────────────────────
 

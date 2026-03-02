@@ -75,6 +75,8 @@ interface StoryCardDetailProps {
   footerActionsSlot?: React.ReactNode;
   /** Current viewer's user ID — used to scope story CTA count (P456) */
   currentUserId?: string;
+  /** Suppress share + external-link action icons in the footer (default: false) */
+  hideActions?: boolean;
 }
 
 /**
@@ -100,6 +102,7 @@ export function StoryCardDetail({
   visibilitySlot,
   footerActionsSlot,
   currentUserId,
+  hideActions = false,
 }: StoryCardDetailProps) {
   const navigate = useNavigate();
   const [pointsExpanded, setPointsExpanded] = useState(isDetailView);
@@ -305,12 +308,14 @@ export function StoryCardDetail({
             {/* Action icons */}
             <div className="flex items-center gap-1">
               {footerActionsSlot}
-              <ShareButton
-                type="story"
-                id={story.id}
-                title={`${story.authorName}'s story`}
-                description={story.content.slice(0, 100)}
-              />
+              {!hideActions && (
+                <ShareButton
+                  type="story"
+                  id={story.id}
+                  title={`${story.authorName}'s story`}
+                  description={story.content.slice(0, 100)}
+                />
+              )}
               <MobileTooltip content="Open story">
                 <button
                   onClick={() => isDetailView
