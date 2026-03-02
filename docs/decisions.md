@@ -2,6 +2,34 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-02 [process]: UAT gate without /verify leaves visual bugs undetected
+
+**Context:** P465 dev run completed, set `delivery_stage: uat` correctly, all 885 unit tests green. But `/verify` was never run. Screenshots taken during manual UAT revealed 7 bugs: duplicate P451 button, Back button non-clickable, share icon too small, story shown twice on own profile, wrong attribution context, nonsensical nested layout, stray edit hint. These are layout/rendering bugs that tests cannot catch — they only surface visually.
+
+**Decision:** After `/dev` sets the UAT gate, `/verify` must run before handing off to human UAT. "Tests pass" is necessary but not sufficient for UI-heavy features. The UAT file (e.g., `features/uat/p465.md`) is the checklist, but `/verify` is the minimum automated visual pass that precedes it.
+
+**Alternatives rejected:** Relying on unit tests alone — they validate data pipelines and constraints, not layout. Trusting "ready for UAT" commit message — that message was set by `/dev`, which doesn't run a browser.
+
+**Consequences:** Add `/verify` as a required step between `/dev` completing and declaring "ready for human UAT." Optional-post-work becomes mandatory-pre-UAT for any feature that touches UI layout. The 5-why: session ended after dev finished; no external signal that `/verify` was still pending.
+
+**References:** [features/p465_point_card_footer_redesign.md](../features/p465_point_card_footer_redesign.md)
+
+---
+
+## 2026-03-02 [technical]: point-detail-page.tsx has a separate CTA path from point-card-with-links.tsx
+
+**Context:** P456 and P465 redesigned the story CTA in `point-card-with-links.tsx` (component-level). But `point-detail-page.tsx` renders the point detail view directly (not via the component) and had its own legacy P451 "Tell your story →" button at the page level. When P465 dev ran, the component was updated but the page-level button was not removed — P456/P465 work didn't cover this path.
+
+**Decision:** Removed the P451 button from `point-detail-page.tsx` in UAT fix commit (cc65f783). The page-level CTA in `point-detail-page.tsx` lines 367-378 was dead code since the P465 CTA is inside the card footer.
+
+**Alternatives rejected:** None — the page already had the correct P465 CTA inside the card; the P451 button was pure duplication.
+
+**Consequences:** Any future CTA/footer redesign must audit BOTH the component path (`point-card-with-links.tsx`) AND the page path (`point-detail-page.tsx`). They render the same entity differently. Add this as a search step: `grep -r "Tell your story\|add story" src/app/pages/`.
+
+**References:** [features/p465_point_card_footer_redesign.md](../features/p465_point_card_footer_redesign.md)
+
+---
+
 ## 2026-03-01 [technical]: P465 — viewer story count via secondary batch query on other-profile surfaces
 
 **Context:** On other-profile surfaces, `filteredStories` in `point-card-with-links.tsx` is pre-filtered to the profile owner's stories upstream. `viewerStoryCount` was therefore always 0 on other profiles — viewer's own linked stories were never surfaced.
