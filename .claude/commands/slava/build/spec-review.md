@@ -62,7 +62,7 @@ Reads the fully prepared spec (Business + UX + Technical + Tests) and audits it 
 ```
 
 **Severity levels:**
-- `[BLOCK]` — Ambiguity will cause dev agent to make wrong assumptions or produce untestable output. Fix before `/dev`.
+- `[BLOCK]` — Ambiguity will cause dev agent to make wrong assumptions or produce untestable output. Fix before `/dev`. Before assigning BLOCK to any finding about an existing component, function, route, or DB column: verify the claim against the codebase (Grep + Read). A BLOCK based solely on spec text — without checking whether the code already handles it — is a false alarm.
 - `[WARN]` — Implementation will work but likely needs a revision cycle. Recommend fixing.
 - `[NOTE]` — Cleanup or stylistic improvement. Optional.
 
@@ -79,7 +79,17 @@ When invoked, spawn a general-purpose agent with this directive:
 ```
 You are a spec auditor. Your job is to catch issues that will cause rework during implementation.
 
-Read the full spec at {spec_file}. All layers should be present: Business Requirements, UX Requirements (if UI feature), Technical Architecture, and Test Coverage Strategy.
+**Phase 1 — Read everything first, before auditing anything.**
+
+1. Read the full spec at {spec_file}.
+2. From the spec, collect every named component, function, hook, and route mentioned. Use Grep and Read to locate and read each one in `src/`. If a name appears in an AC or architecture section, read its source file and its call sites now.
+3. Read any specs in `blocked_by` or `related_to` frontmatter fields.
+
+Do not begin dimension analysis until Phase 1 is complete. A finding about a named component or function requires evidence from what you read in Phase 1, not from spec text alone.
+
+**Phase 2 — Check layers are present.**
+
+All layers should be present: Business Requirements, UX Requirements (if UI feature), Technical Architecture, and Test Coverage Strategy.
 
 To determine feature type: check frontmatter for `feature_type: backend`. If absent, check whether the spec contains a "UX Requirements" or "UX Design" section. If neither frontmatter flag nor UX section exists, add BLOCK: "Cannot determine feature type — add `feature_type: backend` to frontmatter (if backend-only) or run /ux first (if UI feature)."
 
@@ -88,7 +98,7 @@ If any mandatory layer is missing for the feature type:
 - Any feature missing Technical Architecture → BLOCK: "Technical layer not found — run /architect first"
 - Any feature missing Test Coverage Strategy → BLOCK: "Tests layer not found — run /generate-tests first"
 
-Otherwise, audit across all seven dimensions:
+**Phase 3 — Audit across all seven dimensions:**
 
 ### 1. Redundancy
 Flag content copied verbatim or near-verbatim across sections without adding new information. Each section should add a new layer, not repeat the previous one.
