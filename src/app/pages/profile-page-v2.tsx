@@ -26,6 +26,8 @@ import {
   Pin,
   ChevronDown,
   ChevronRight,
+  Pencil,
+  Trash2,
 } from "lucide-react";
 import { GravatarAvatar } from "@/components/ui/gravatar-avatar";
 
@@ -897,6 +899,7 @@ export function ProfilePageV2() {
                     viewerStoriesForPoint={viewerStoriesForPoint}
                     viewerStoryCountMap={viewerStoryCountMap}
                     isOwnProfile={currentUser?.id === profile.id}
+                    onDeletePositionForPoint={guardedRemovePosition}
                   />
                 ))
               )
@@ -980,6 +983,7 @@ interface StoryCardFullProps {
   viewerStoriesForPoint?: Map<string, number>;
   viewerStoryCountMap?: Map<string, number>;     // P465: viewer story counts for other profiles
   isOwnProfile?: boolean;                        // P465: true when viewer === profile owner
+  onDeletePositionForPoint?: (pointId: string) => void; // P465: delete story+position from Stories tab
 }
 
 const STORY_THRESHOLD = 180;
@@ -993,6 +997,7 @@ function StoryCardFull({
   viewerStoriesForPoint,
   viewerStoryCountMap,
   isOwnProfile = false,
+  onDeletePositionForPoint,
 }: StoryCardFullProps) {
   const navigate = useNavigate();
   const [pointsExpanded, setPointsExpanded] = useState(false);
@@ -1167,6 +1172,7 @@ function StoryCardFull({
                   : (viewerStoryCountMap?.get(point.id) ?? 0)
               }
               isOwnProfile={isOwnProfile}
+              onDeleteStory={onDeletePositionForPoint}
             />
           ))}
           {linkedPoints.length > 3 && (
@@ -1199,6 +1205,7 @@ interface QuotedPointCardProps {
   onPositionSelect?: (position: Position) => void;
   viewerStoryCount?: number;
   isOwnProfile?: boolean;      // P465: true when viewer === profile owner
+  onDeleteStory?: (pointId: string) => void; // P465: delete story+position from Stories tab
 }
 
 function QuotedPointCard({
@@ -1213,6 +1220,7 @@ function QuotedPointCard({
   onPositionSelect,
   viewerStoryCount = 0,
   isOwnProfile = false,
+  onDeleteStory,
 }: QuotedPointCardProps) {
   const navigate = useNavigate();
   const [userPosition, setUserPosition] = useState<Position>(
@@ -1354,15 +1362,28 @@ function QuotedPointCard({
                     {viewerStoryCount} {viewerStoryCount === 1 ? 'story' : 'stories'}
                   </span>
                 </div>
-                {/* Edit icon on own profile when story exists */}
+                {/* Edit + Delete icons on own profile when story exists */}
                 {isOwnProfile && viewerStoryCount > 0 && (
-                  <button
-                    onClick={e => { e.stopPropagation(); navigate(editUrl); }}
-                    aria-label="Edit your story for this point"
-                    className="text-sm text-muted-foreground hover:text-foreground transition-colors"
-                  >
-                    edit &#8594;
-                  </button>
+                  <div className="flex items-center">
+                    <MobileTooltip content="Edit your story">
+                      <button
+                        onClick={e => { e.stopPropagation(); navigate(editUrl); }}
+                        aria-label="Edit your story for this point"
+                        className="min-w-[44px] min-h-[44px] flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors"
+                      >
+                        <Pencil size={16} />
+                      </button>
+                    </MobileTooltip>
+                    <MobileTooltip content="Delete your story">
+                      <button
+                        onClick={e => { e.stopPropagation(); onDeleteStory?.(point.id); }}
+                        aria-label="Delete your story for this point"
+                        className="min-w-[44px] min-h-[44px] flex items-center justify-center text-gray-400 hover:text-destructive hover:bg-gray-100 rounded-full transition-colors"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </MobileTooltip>
+                  </div>
                 )}
               </div>
             </div>

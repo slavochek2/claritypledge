@@ -316,20 +316,12 @@ function AuthorActionRow({
   storyId,
   currentVisibility,
   onVisibilityChanged,
-  onEdit,
-  onDelete,
   disabled,
-  editRef,
-  deleteRef,
 }: {
   storyId: string;
   currentVisibility: StoryVisibility;
   onVisibilityChanged: (v: StoryVisibility) => void;
-  onEdit: () => void;
-  onDelete: () => void;
   disabled?: boolean;
-  editRef?: React.RefObject<HTMLButtonElement>;
-  deleteRef?: React.RefObject<HTMLButtonElement>;
 }) {
   const [saving, setSaving] = useState(false);
 
@@ -356,7 +348,7 @@ function AuthorActionRow({
   const CurrentIcon = current.icon;
 
   return (
-    <div className="mt-3 flex items-center justify-between">
+    <div className="mt-3">
       {/* Visibility dropdown */}
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
@@ -385,36 +377,6 @@ function AuthorActionRow({
           </DropdownMenuRadioGroup>
         </DropdownMenuContent>
       </DropdownMenu>
-
-      {/* Edit + Delete */}
-      <div className="flex items-center gap-1">
-        <Button
-          ref={editRef}
-          type="button"
-          variant="ghost"
-          size="sm"
-          onClick={onEdit}
-          aria-label="Edit story"
-          disabled={disabled}
-          className="gap-1.5 text-muted-foreground"
-        >
-          <Pencil className="w-3.5 h-3.5" />
-          Edit
-        </Button>
-        <Button
-          ref={deleteRef}
-          type="button"
-          variant="ghost"
-          size="sm"
-          onClick={onDelete}
-          aria-label="Delete story"
-          disabled={disabled}
-          className="gap-1.5 text-destructive hover:text-destructive"
-        >
-          <Trash2 className="w-3.5 h-3.5" />
-          Delete
-        </Button>
-      </div>
     </div>
   );
 }
@@ -1137,6 +1099,30 @@ export function StoryDetailPage() {
           isDetailView={true}
           context="story-detail"
           linkedStoriesForPoints={linkedStoriesForPoints}
+          footerActionsSlot={isAuthor ? (
+            <>
+              <button
+                ref={editButtonRef}
+                type="button"
+                onClick={handleEditStart}
+                aria-label="Edit story"
+                disabled={isDeleting}
+                className="min-w-[44px] min-h-[44px] flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted rounded-full transition-colors disabled:opacity-50"
+              >
+                <Pencil className="w-4 h-4" />
+              </button>
+              <button
+                ref={deleteButtonRef}
+                type="button"
+                onClick={() => setDeleteDialogOpen(true)}
+                aria-label="Delete story"
+                disabled={isDeleting}
+                className="min-w-[44px] min-h-[44px] flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-muted rounded-full transition-colors disabled:opacity-50"
+              >
+                <Trash2 className="w-4 h-4" />
+              </button>
+            </>
+          ) : undefined}
         />
       )}
 
@@ -1147,11 +1133,7 @@ export function StoryDetailPage() {
             storyId={story.id}
             currentVisibility={story.visibility}
             onVisibilityChanged={(v) => setStory(prev => prev ? { ...prev, visibility: v } : prev)}
-            onEdit={handleEditStart}
-            onDelete={() => setDeleteDialogOpen(true)}
-            disabled={isDeleting || isEditMode}
-            editRef={editButtonRef}
-            deleteRef={deleteButtonRef}
+            disabled={isDeleting}
           />
           <KeyPointsSection
             storyId={story.id}
