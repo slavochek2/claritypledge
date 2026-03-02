@@ -2,6 +2,22 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-02 [process]: features/ folder convention — root vs drafts vs done
+
+**Context:** fix-kanban session surfaced that `backlog`-status files accumulate in `features/` root alongside active sprint items (`today`, `week`, `in-progress`), and that `fix-frontmatter.py` was reporting false "no valid frontmatter" errors on UAT checklist files in `/uat/` subdirs.
+
+**Decision:** Two rules:
+1. **Folder = spec maturity, not status.** `features/` root = fully-specced, sprint-queue items (any status). `features/drafts/` = parked specs not on near-term radar. Moving a spec to drafts signals "not doing this soon", not "not fully written." Backlog files stay in root if they're likely to be picked up within a sprint or two; move to drafts if they're genuinely off the roadmap.
+2. **fix-frontmatter.py skips `/uat/` paths.** UAT checklists (`features/uat/p*.md`, `features/done/*/uat/p*.md`) are generated files with no frontmatter by design. The script now excludes them (matches the existing `fix_duplicates` logic).
+
+**Alternatives rejected:** Moving all `backlog` files to `drafts/` automatically — conflates scheduling (status) with spec completeness (folder); promotes a spec would require moving it back.
+
+**Consequences:** fix-kanban output is clean with no false warnings. Folder location is a reliable signal of near-term intent.
+
+**References:** `scripts/fix-frontmatter.py` · `features/drafts/`
+
+---
+
 ## 2026-03-02 [process]: Worktree strategy simplified — slots, not feature names
 
 **Context:** Two parallel worktree systems coexisted: old `claritypledge-N` sibling dirs (referenced by `start`/`stop` aliases and `kanban.sh`) and new `.claude/worktrees/<featurename>` (created by Claude). The directories didn't exist so `start w1` silently failed. Feature-named worktrees had no fixed port, so every dev server required manual port hunting. Spec files created from worktrees got trapped on feature branches, causing kanban status drift.
