@@ -54,7 +54,7 @@ export function PointDetailPage() {
   const [userPosition, setUserPosition] = useState<PositionType | null>(null);
   const [retryKey, setRetryKey] = useState(0);
   const [linkedStories, setLinkedStories] = useState<Map<string, StoryWithAuthor[]>>(new Map());
-  const [showStoryCTA, setShowStoryCTA] = useState(false);
+  const positionsSectionRef = useRef<HTMLDivElement>(null);
 
   // P401: Guard position removal with linked-stories warning dialog
   const { dialogProps, guardedRemovePosition } = useRemovePositionGuard({
@@ -322,18 +322,6 @@ export function PointDetailPage() {
         </div>
       </div>
 
-      {/* P425: Story CTA — shown after staking a position */}
-      {showStoryCTA && id && (
-        <div className="mt-4">
-          <button
-            type="button"
-            className="w-full bg-blue-600 hover:bg-blue-700 text-white rounded-lg py-2.5 text-sm font-medium"
-            onClick={() => navigate(`/chat?from=position&pointId=${id}`)}
-          >
-            Tell your story →
-          </button>
-        </div>
-      )}
 
       {/* Positions section */}
       <div className="bg-card border border-border rounded-lg overflow-hidden">
