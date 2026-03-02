@@ -170,6 +170,8 @@ export function ProfilePageV2() {
 
   // P465: Viewer story count map for other profiles (fetched async)
   const [viewerStoryCountMap, setViewerStoryCountMap] = useState<Map<string, number>>(new Map());
+  // P470: Viewer story ID map for other profiles — pointId → storyId (first story per point)
+  const [viewerStoryIdForPoint, setViewerStoryIdForPoint] = useState<Map<string, string>>(new Map());
   const [realEarsCount, setRealEarsCount] = useState<number>(0);
 
   // P422: Agreements state
@@ -923,6 +925,11 @@ export function ProfilePageV2() {
                       currentUser?.id === profile?.id
                         ? (viewerStoriesForPoint?.get(point.id) ?? 0)
                         : (viewerStoryCountMap?.get(point.id) ?? 0)
+                    }
+                    viewerStoryId={
+                      currentUser?.id !== profile?.id
+                        ? viewerStoryIdForPoint.get(point.id)
+                        : undefined
                     }
                     getStoryAuthor={(authorId) => {
                       // Return author info for stories
