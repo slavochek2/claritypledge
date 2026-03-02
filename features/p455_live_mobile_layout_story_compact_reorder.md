@@ -11,6 +11,7 @@ tags:
   - story-card
   - journey-card
 flow: dev
+superseded_by: p468
 uat_file: features/uat/p455.md
 test_files:
   - e2e/p455-live-mobile-layout.spec.ts
