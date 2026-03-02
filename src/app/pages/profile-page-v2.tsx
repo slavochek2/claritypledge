@@ -941,6 +941,11 @@ export function ProfilePageV2() {
                     currentUserId={currentUser?.id}
                     onPositionSelect={(pos) => handleProfilePointPosition(point.id, pos)}
                     getPointPositionCounts={(p: AdaptedPoint) => toSevenPointCounts(p.positionCounts ?? {})}
+                    viewerStoryCount={
+                      currentUser?.id === profile?.id
+                        ? (viewerStoriesForPoint?.get(point.id) ?? 0)
+                        : (viewerStoryCountMap?.get(point.id) ?? 0)
+                    }
                     getStoryAuthor={(authorId) => {
                       // Return author info for stories
                       if (authorId === profile.id) {

@@ -55,6 +55,9 @@ interface PointCardWithLinksProps {
   disableNavigation?: boolean;
   /** Replace the "Tell your story →" CTA with a custom node (e.g. a status chip in /chat) */
   storyCTAOverride?: React.ReactNode;
+  /** P465: Viewer's own story count for this point. When on profile page, passed from profile-page
+   * secondary query (accurate for other profiles). Falls back to inline computation if not provided. */
+  viewerStoryCount?: number;
   /** Live session mode: shows position buttons + expandable stories, hides share/open */
   liveSessionMode?: boolean;
   /** Callback when position is selected (live session mode) */
@@ -86,6 +89,7 @@ export function PointCardWithLinks({
   disableNavigation = false,
   liveSessionMode = false,
   storyCTAOverride,
+  viewerStoryCount,
   onPositionSelect,
   selectedPosition,
   getPointPositionCounts,
@@ -98,7 +102,6 @@ export function PointCardWithLinks({
     selectedPosition ?? (currentUserId ? point.positions[currentUserId]?.position ?? null : null)
   );
   const [storiesExpanded, setStoriesExpanded] = useState(false);
-  const showStoryCTA = !!userPosition;
 
   // P154: Sync userPosition state when position prop changes (after refetch)
   useEffect(() => {
@@ -259,6 +262,29 @@ export function PointCardWithLinks({
                 </div>
               </div>
 
+              {/* P465: CTA row — above stories row, only when position taken + no viewer story yet */}
+              {userPosition && !liveSessionMode && (() => {
+                const effectiveViewerStoryCount = viewerStoryCount ?? filteredStories.filter(s => s.authorId === currentUserId).length;
+                if (effectiveViewerStoryCount > 0) return null;
+                const positionGroup = getPositionGroup(userPosition as PositionType);
+                const copy = getPositionCTACopy(positionGroup);
+                return (
+                  <div
+                    role="presentation"
+                    className="flex items-center mt-3 pt-3 border-t border-gray-200 pl-[44px] pr-1 pb-2"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <button
+                      onClick={(e) => { e.stopPropagation(); navigate(`/chat?from=position&pointId=${point.id}`); }}
+                      aria-label={copy.ariaLabel}
+                      className="text-sm font-medium text-blue-600 hover:text-blue-700 transition-colors"
+                    >
+                      {copy.ctaText}
+                    </button>
+                  </div>
+                );
+              })()}
+
               {/* Footer - inside quoted box, pl-[44px] aligns with content column (32px icon + 12px gap) */}
               <div
                 role="presentation"
@@ -276,6 +302,11 @@ export function PointCardWithLinks({
                     {storiesExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
                     <span>
                       {filteredStories.length} {filteredStories.length === 1 ? 'story' : 'stories'}{profileOwner ? ` by ${profileOwner.name}` : ''}
+                      {/* P465: viewer's own story count suffix on other profiles */}
+                      {(() => {
+                        const vc = viewerStoryCount ?? filteredStories.filter(s => s.authorId === currentUserId).length;
+                        return (vc > 0 && profileOwner) ? ` · ${vc} by you` : null;
+                      })()}
                     </span>
                   </button>
                 ) : (
@@ -304,52 +335,6 @@ export function PointCardWithLinks({
                   </div>
                 )}
               </div>
-
-              {/* P456: Story CTA footer — shown when viewer has taken a position */}
-              {userPosition && !liveSessionMode && (() => {
-                const positionGroup = getPositionGroup(userPosition as PositionType);
-                const copy = getPositionCTACopy(positionGroup);
-                const viewerStoryCount = filteredStories.filter(s => s.authorId === currentUserId).length;
-
-                return (
-                  <div
-                    role="presentation"
-                    className="flex items-center pl-[44px] pr-1 py-2 border-t border-gray-200"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    {viewerStoryCount === 0 ? (
-                      <div className="flex items-center gap-1 text-sm">
-                        <span aria-hidden="true" className="text-gray-600">{copy.symbol}</span>
-                        <span className="text-gray-600">{copy.label}</span>
-                        <span aria-hidden="true" className="text-gray-400"> · </span>
-                        <button
-                          onClick={(e) => { e.stopPropagation(); navigate(`/chat?from=position&pointId=${point.id}`); }}
-                          aria-label={copy.ariaLabel}
-                          className="font-medium text-blue-600 hover:text-blue-700 transition-colors"
-                        >
-                          {copy.ctaText}
-                        </button>
-                      </div>
-                    ) : (
-                      <div className="flex items-center justify-between w-full">
-                        <button
-                          onClick={(e) => { e.stopPropagation(); setStoriesExpanded(v => !v); }}
-                          className="flex items-center gap-1 text-sm text-gray-600 hover:text-blue-600 transition-colors"
-                        >
-                          <span aria-hidden="true">▶</span>
-                          <span>{viewerStoryCount} {viewerStoryCount === 1 ? 'story' : 'stories'}</span>
-                        </button>
-                        <button
-                          onClick={(e) => { e.stopPropagation(); navigate(`/chat?from=position&pointId=${point.id}`); }}
-                          className="text-sm font-medium text-blue-600 hover:text-blue-700 transition-colors"
-                        >
-                          + add story →
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                );
-              })()}
             </div>
           </>
         ) : (
@@ -443,48 +428,27 @@ export function PointCardWithLinks({
           )}
         </div>
 
-        {/* P456: Story CTA footer row for feed view — shown when viewer has taken a position */}
+        {/* P465: Story CTA footer row for feed view — shown when viewer has taken a position + no story yet */}
         {userPosition && !liveSessionMode && (() => {
           const positionGroup = getPositionGroup(userPosition as PositionType);
           const copy = getPositionCTACopy(positionGroup);
-          const viewerStoryCount = filteredStories.filter(s => s.authorId === currentUserId).length;
-
+          const effectiveViewerStoryCount = viewerStoryCount ?? filteredStories.filter(s => s.authorId === currentUserId).length;
+          if (effectiveViewerStoryCount > 0) return null;
           return (
             <div
               role="presentation"
               className="flex items-center pl-[52px] pr-4 py-2.5 border-t border-gray-100"
               onClick={(e) => e.stopPropagation()}
             >
-              {viewerStoryCount === 0 ? (
-                <div className="flex items-center gap-1 text-sm">
-                  <span aria-hidden="true" className="text-gray-600">{copy.symbol}</span>
-                  <span className="text-gray-600">{copy.label}</span>
-                  <span aria-hidden="true" className="text-gray-400"> · </span>
-                  <button
-                    onClick={(e) => { e.stopPropagation(); navigate(`/chat?from=position&pointId=${point.id}`); }}
-                    aria-label={copy.ariaLabel}
-                    className="font-medium text-blue-600 hover:text-blue-700 transition-colors"
-                  >
-                    {copy.ctaText}
-                  </button>
-                </div>
-              ) : (
-                <div className="flex items-center justify-between w-full">
-                  <button
-                    onClick={(e) => { e.stopPropagation(); setStoriesExpanded(v => !v); }}
-                    className="flex items-center gap-1 text-sm text-gray-600 hover:text-blue-600 transition-colors"
-                  >
-                    <span aria-hidden="true">▶</span>
-                    <span>{viewerStoryCount} {viewerStoryCount === 1 ? 'story' : 'stories'}</span>
-                  </button>
-                  <button
-                    onClick={(e) => { e.stopPropagation(); navigate(`/chat?from=position&pointId=${point.id}`); }}
-                    className="text-sm font-medium text-blue-600 hover:text-blue-700 transition-colors"
-                  >
-                    + add story →
-                  </button>
-                </div>
-              )}
+              <div className="flex items-center gap-1 text-sm">
+                <button
+                  onClick={(e) => { e.stopPropagation(); navigate(`/chat?from=position&pointId=${point.id}`); }}
+                  aria-label={copy.ariaLabel}
+                  className="font-medium text-blue-600 hover:text-blue-700 transition-colors"
+                >
+                  {copy.ctaText}
+                </button>
+              </div>
             </div>
           );
         })()}
@@ -572,18 +536,8 @@ export function PointCardWithLinks({
           </div>
         )}
     </div>
-    {/* P451: Story CTA — shown after staking a position */}
-    {showStoryCTA && !liveSessionMode && (
-      storyCTAOverride !== undefined ? storyCTAOverride : (
-        <button
-          type="button"
-          className="mt-2 w-full bg-blue-600 hover:bg-blue-700 text-white rounded-lg py-2 text-sm font-medium"
-          onClick={() => navigate(`/chat?from=position&pointId=${point.id}`)}
-        >
-          Tell your story →
-        </button>
-      )
-    )}
+    {/* storyCTAOverride: custom node injected by StoryGuideChat when position is taken in /chat */}
+    {storyCTAOverride !== undefined && !liveSessionMode && storyCTAOverride}
     </>
   );
 }
