@@ -2559,7 +2559,7 @@ function UnderstandingScreen({
       <div className="flex flex-col h-full">
         <LiveHeader partnerName={partnerName} onExit={onExit} isPrivate={isPrivate} />
         <div className={CONTENT_LAYOUT}>
-          {/* P400 Bug 3: journey FIRST, story SECOND (correct order) */}
+          {/* Result-first: journey → gap badge (bonded) → CTA → story (reference, scrollable) */}
           <JourneyToUnderstanding
             checkerRating={checkerRating}
             responderRating={responderRating}
@@ -2570,14 +2570,6 @@ function UnderstandingScreen({
             proverName={liveState.proverName ? getFirstName(liveState.proverName) : undefined}
             className="w-full max-w-sm"
           />
-          {/* P272: Story card visible throughout round */}
-          {selectedStory && (
-            <LiveStoryCardExpanded
-              story={selectedStory}
-              onPositionSelect={onPositionSelect}
-              className="w-full max-w-sm mb-2"
-            />
-          )}
           <div className="border border-blue-200 bg-blue-50 rounded-lg px-4 py-3 w-full max-w-sm">
             <div className="flex items-center justify-center gap-2 mb-1">
               <span className="bg-blue-500 text-white text-xs font-semibold px-2 py-0.5 rounded-full">{gapBadgeText}</span>
@@ -2617,6 +2609,14 @@ function UnderstandingScreen({
               </>
             )}
           </ActionArea>
+          {/* P272: Story card — reference context, scrollable */}
+          {selectedStory && (
+            <LiveStoryCardExpanded
+              story={selectedStory}
+              onPositionSelect={onPositionSelect}
+              className="w-full max-w-sm mb-2"
+            />
+          )}
         </div>
 
         {/* Negotiation Dialog 1: Speaker sees when listener wants to share perspective */}
@@ -2690,7 +2690,7 @@ function UnderstandingScreen({
       <div className="flex flex-col h-full">
         <LiveHeader partnerName={partnerName} onExit={onExit} isPrivate={isPrivate} />
         <div className={CONTENT_LAYOUT}>
-          {/* P400 Bug 3: journey FIRST, story SECOND (correct order) */}
+          {/* Result-first: journey → calibrated badge (bonded) → CTA → story (reference, scrollable) */}
           <JourneyToUnderstanding
             checkerRating={checkerRating}
             responderRating={responderRating}
@@ -2701,14 +2701,6 @@ function UnderstandingScreen({
             proverName={liveState.proverName ? getFirstName(liveState.proverName) : undefined}
             className="w-full max-w-sm"
           />
-          {/* P272: Story card visible throughout round */}
-          {selectedStory && (
-            <LiveStoryCardExpanded
-              story={selectedStory}
-              onPositionSelect={onPositionSelect}
-              className="w-full max-w-sm mb-2"
-            />
-          )}
           <div className="border border-input bg-muted/50 rounded-lg px-4 py-3 w-full max-w-sm">
             <div className="flex items-center justify-center gap-2 mb-1">
               <span className="bg-green-500 text-white text-xs font-semibold px-2 py-0.5 rounded-full">Perfectly calibrated</span>
@@ -2748,6 +2740,14 @@ function UnderstandingScreen({
               </>
             )}
           </ActionArea>
+          {/* P272: Story card — reference context, scrollable */}
+          {selectedStory && (
+            <LiveStoryCardExpanded
+              story={selectedStory}
+              onPositionSelect={onPositionSelect}
+              className="w-full max-w-sm mb-2"
+            />
+          )}
         </div>
 
         {/* Negotiation Dialog 1: Speaker sees when listener wants to share perspective */}
