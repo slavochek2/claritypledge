@@ -1,5 +1,6 @@
 ---
 status: in-progress
+delivery_stage: uat
 type: change-request
 rank: 1000007.0
 changes: p468

@@ -9,34 +9,108 @@
  * - Ellipsis removed and full text shown after "Show more" click (P469: character-slice only, no line-clamp-2)
  * - "Speak freely" button is positioned immediately after CTA
  *
- * Setup: Authenticated user with a story in the idle screen (single-party,
- * no two-party session needed — creator idle state is accessible solo).
+ * Setup: Uses direct clarity_sessions injection + ?insights=off to bypass mic check.
+ * Same pattern as P469 tests — no two-party UI flow needed.
  *
  * Viewport: 375px width (iPhone SE) — the target constraint.
  */
 
-import { test, expect } from '@playwright/test';
-import { createTestUser, deleteTestUser, setTestSession } from './helpers/test-user';
+import { test, expect, type Page } from '@playwright/test';
+import { createTestUser, deleteTestUser, setTestSession, deleteClaritySession } from './helpers/test-user';
 import { supabaseAdmin } from '../src/lib/supabase-admin';
 
 const MOBILE_VIEWPORT = { width: 375, height: 667 };
+
+const LONG_STORY =
+  "She's someone I've known for years. We were on a call trying to work something out. I paraphrased her position back to her. She said yes, that's right, you understood me. A few days later she told me she felt unheard. I was confused — I literally repeated her words back. But repeating words isn't the same as understanding the weight behind them.";
+
+function genCode(): string {
+  return Math.random().toString(36).slice(2, 8).toUpperCase();
+}
+
+function makeLiveState(options: {
+  storyId: string;
+  storyContent: string;
+  authorId: string;
+  authorName: string;
+  authorSlug: string;
+  checkerName: string;
+  checkerRating?: number;
+  responderRating?: number;
+}) {
+  const { storyId, storyContent, authorId, authorName, authorSlug, checkerName, checkerRating, responderRating } =
+    options;
+  return {
+    ratingPhase: 'idle' as const,
+    selectedStoryId: storyId,
+    selectedStoryData: {
+      id: storyId,
+      content: storyContent,
+      authorId,
+      authorName,
+      authorSlug,
+      points: [],
+    },
+    checkerName,
+    checkerRating,
+    responderRating,
+    explainBackRatings: [] as number[],
+  };
+}
+
+async function createTestSession(options: {
+  creatorName: string;
+  creatorProfileId: string;
+  liveState: object;
+}): Promise<string> {
+  const code = genCode();
+  const { error } = await supabaseAdmin.from('clarity_sessions').insert({
+    code,
+    creator_name: options.creatorName,
+    creator_profile_id: options.creatorProfileId,
+    joiner_name: 'TestPartner',
+    state: {},
+    live_state: options.liveState,
+    is_private: true,
+  });
+  if (error) throw new Error(`Failed to create test session: ${error.message}`);
+  return code;
+}
+
+function injectSessionStorage(page: Page, code: string, userName: string) {
+  page.context().addInitScript(
+    ({ keys }: { keys: Record<string, string> }) => {
+      for (const [k, v] of Object.entries(keys)) {
+        sessionStorage.setItem(k, v);
+      }
+    },
+    {
+      keys: {
+        clarity_live_session_code: code,
+        clarity_live_user_name: userName,
+        clarity_live_is_creator: 'true',
+      },
+    },
+  );
+}
 
 test.describe('P455 — Live mobile layout (story selected, idle screen)', () => {
   test.describe.configure({ timeout: 60000 });
 
   let testUser: Awaited<ReturnType<typeof createTestUser>>;
   let storyId: string;
+  let sessionCode: string;
+  let sessionCodeWithHistory: string;
 
   test.beforeAll(async () => {
     testUser = await createTestUser({ name: 'P455Layout' });
 
-    // Create a story for the test user with enough text to trigger line-clamp
+    // Create a story for the test user with enough text to trigger truncation
     const { data: story, error } = await supabaseAdmin
       .from('stories')
       .insert({
         author_id: testUser.user.id,
-        content:
-          "She's someone I've known for years. We were on a call trying to work something out. I paraphrased her position back to her. She said yes, that's right, you understood me. A few days later she told me she felt unheard. I was confused — I literally repeated her words back. But repeating words isn't the same as understanding the weight behind them.",
+        content: LONG_STORY,
         visibility: 'public',
       })
       .select('id')
@@ -44,9 +118,41 @@ test.describe('P455 — Live mobile layout (story selected, idle screen)', () =>
 
     if (error || !story) throw new Error(`Failed to create story: ${error?.message}`);
     storyId = story.id;
+
+    // Session without history (for layout + truncation tests)
+    sessionCode = await createTestSession({
+      creatorName: testUser.name,
+      creatorProfileId: testUser.user.id,
+      liveState: makeLiveState({
+        storyId,
+        storyContent: LONG_STORY,
+        authorId: testUser.user.id,
+        authorName: testUser.name,
+        authorSlug: testUser.slug,
+        checkerName: testUser.name,
+      }),
+    });
+
+    // Session WITH rating history (for journey card visibility test)
+    sessionCodeWithHistory = await createTestSession({
+      creatorName: testUser.name,
+      creatorProfileId: testUser.user.id,
+      liveState: makeLiveState({
+        storyId,
+        storyContent: LONG_STORY,
+        authorId: testUser.user.id,
+        authorName: testUser.name,
+        authorSlug: testUser.slug,
+        checkerName: testUser.name,
+        checkerRating: 6,
+        responderRating: 8,
+      }),
+    });
   });
 
   test.afterAll(async () => {
+    if (sessionCode) await deleteClaritySession(sessionCode);
+    if (sessionCodeWithHistory) await deleteClaritySession(sessionCodeWithHistory);
     if (storyId) {
       await supabaseAdmin.from('stories').delete().eq('id', storyId);
     }
@@ -54,32 +160,14 @@ test.describe('P455 — Live mobile layout (story selected, idle screen)', () =>
   });
 
   test('story card appears above Check button (visual order)', async ({ page }) => {
-    await page.setViewportSize(MOBILE_VIEWPORT);
+    injectSessionStorage(page, sessionCode, testUser.name);
     await setTestSession(page, testUser.email);
-    await page.goto('/live');
+    await page.setViewportSize(MOBILE_VIEWPORT);
+    await page.goto('/live?insights=off');
 
-    // Wait for idle screen to load
-    await expect(page.getByRole('button', { name: /new session/i })).toBeVisible();
-    // Start a session so we enter the idle/live screen
-    await page.getByRole('button', { name: /new session/i }).click();
-
-    // Wait for story search picker to appear (confirms we're in idle with stories available)
-    await expect(page.locator('[data-testid="story-search-picker"], [placeholder*="story"], button').filter({ hasText: /story|search/i }).first()).toBeVisible({ timeout: 10000 }).catch(() => {
-      // Story picker may not render if stories aren't loaded yet — wait for idle screen
-    });
-
-    // Select the story via the picker (finds by partial content match)
-    const storyPicker = page.locator('[data-testid="story-search-picker"]');
-    if (await storyPicker.isVisible()) {
-      await storyPicker.click();
-      await page.locator('text=She\'s someone').first().click();
-    }
-
-    // Wait for story card to appear
     const storyCard = page.locator('[data-testid="live-story-card-expanded"]');
-    await expect(storyCard).toBeVisible({ timeout: 10000 });
+    await expect(storyCard).toBeVisible({ timeout: 15000 });
 
-    // Wait for Check CTA button
     const checkBtn = page.locator('[data-testid="start-check"]');
     await expect(checkBtn).toBeVisible();
 
@@ -96,15 +184,13 @@ test.describe('P455 — Live mobile layout (story selected, idle screen)', () =>
 
   test('story text is truncated at ~100 chars with ellipsis by default', async ({ page }) => {
     // P469: STORY_THRESHOLD lowered 180→100. No line-clamp-2 — character-slice only.
-    await page.setViewportSize(MOBILE_VIEWPORT);
+    injectSessionStorage(page, sessionCode, testUser.name);
     await setTestSession(page, testUser.email);
-    await page.goto('/live');
-
-    await expect(page.getByRole('button', { name: /new session/i })).toBeVisible();
-    await page.getByRole('button', { name: /new session/i }).click();
+    await page.setViewportSize(MOBILE_VIEWPORT);
+    await page.goto('/live?insights=off');
 
     const storyCard = page.locator('[data-testid="live-story-card-expanded"]');
-    await expect(storyCard).toBeVisible({ timeout: 10000 });
+    await expect(storyCard).toBeVisible({ timeout: 15000 });
 
     // ASSERTION: story text is truncated with ellipsis (character-slice at 100 chars)
     const storyText = storyCard.locator('p').filter({ hasText: /she.*someone/i });
@@ -120,15 +206,13 @@ test.describe('P455 — Live mobile layout (story selected, idle screen)', () =>
 
   test('ellipsis removed and full text shown after "Show more" click', async ({ page }) => {
     // P469: no line-clamp-2 — expand removes character-slice truncation (ellipsis disappears)
-    await page.setViewportSize(MOBILE_VIEWPORT);
+    injectSessionStorage(page, sessionCode, testUser.name);
     await setTestSession(page, testUser.email);
-    await page.goto('/live');
-
-    await expect(page.getByRole('button', { name: /new session/i })).toBeVisible();
-    await page.getByRole('button', { name: /new session/i }).click();
+    await page.setViewportSize(MOBILE_VIEWPORT);
+    await page.goto('/live?insights=off');
 
     const storyCard = page.locator('[data-testid="live-story-card-expanded"]');
-    await expect(storyCard).toBeVisible({ timeout: 10000 });
+    await expect(storyCard).toBeVisible({ timeout: 15000 });
 
     const showMoreBtn = storyCard.getByRole('button', { name: /show more/i });
     await expect(showMoreBtn).toBeVisible();
@@ -146,48 +230,37 @@ test.describe('P455 — Live mobile layout (story selected, idle screen)', () =>
 
   test('journey card appears above Check button when history exists', async ({ page }) => {
     // P469: P455 reorder reverted. Journey is at the top when hasRatingData — above story and CTA.
-    // Note: Journey card only shows when rating history exists (not on first round).
-    await page.setViewportSize(MOBILE_VIEWPORT);
+    // This session has checkerRating + responderRating set → hasRatingData = true → journey renders.
+    injectSessionStorage(page, sessionCodeWithHistory, testUser.name);
     await setTestSession(page, testUser.email);
-    await page.goto('/live');
-
-    await expect(page.getByRole('button', { name: /new session/i })).toBeVisible();
-    await page.getByRole('button', { name: /new session/i }).click();
+    await page.setViewportSize(MOBILE_VIEWPORT);
+    await page.goto('/live?insights=off');
 
     const checkBtn = page.locator('[data-testid="start-check"]');
-    await expect(checkBtn).toBeVisible({ timeout: 10000 });
+    await expect(checkBtn).toBeVisible({ timeout: 15000 });
 
-    // Journey card: if present (first round = no history → not rendered), verify it's ABOVE CTA
     const journeyCard = page.locator('[data-testid="journey-to-understanding"]');
-    const journeyVisible = await journeyCard.isVisible();
+    await expect(journeyCard).toBeVisible({ timeout: 10000 });
 
-    if (journeyVisible) {
-      const checkBox = await checkBtn.boundingBox();
-      const journeyBox = await journeyCard.boundingBox();
+    const checkBox = await checkBtn.boundingBox();
+    const journeyBox = await journeyCard.boundingBox();
 
-      expect(checkBox).not.toBeNull();
-      expect(journeyBox).not.toBeNull();
+    expect(checkBox).not.toBeNull();
+    expect(journeyBox).not.toBeNull();
 
-      console.log(`Journey card top: ${journeyBox!.y}, Check button top: ${checkBox!.y}`);
-      // Journey card top should be ABOVE Check button (P469: original order restored)
-      expect(journeyBox!.y).toBeLessThan(checkBox!.y);
-    } else {
-      // First round — no history — journey card not rendered (expected)
-      console.log('Journey card not visible on first round — expected, skipping position check');
-      expect(journeyVisible).toBe(false);
-    }
+    console.log(`Journey card top: ${journeyBox!.y}, Check button top: ${checkBox!.y}`);
+    // Journey card top should be ABOVE Check button (P469: original order restored)
+    expect(journeyBox!.y).toBeLessThan(checkBox!.y);
   });
 
   test('Speak freely button appears immediately below Check button', async ({ page }) => {
-    await page.setViewportSize(MOBILE_VIEWPORT);
+    injectSessionStorage(page, sessionCode, testUser.name);
     await setTestSession(page, testUser.email);
-    await page.goto('/live');
-
-    await expect(page.getByRole('button', { name: /new session/i })).toBeVisible();
-    await page.getByRole('button', { name: /new session/i }).click();
+    await page.setViewportSize(MOBILE_VIEWPORT);
+    await page.goto('/live?insights=off');
 
     const storyCard = page.locator('[data-testid="live-story-card-expanded"]');
-    await expect(storyCard).toBeVisible({ timeout: 10000 });
+    await expect(storyCard).toBeVisible({ timeout: 15000 });
 
     const checkBtn = page.locator('[data-testid="start-check"]');
     const speakFreelyBtn = page.getByRole('button', { name: /speak freely/i });
@@ -211,15 +284,13 @@ test.describe('P455 — Live mobile layout (story selected, idle screen)', () =>
   });
 
   test('Check button is visible without scrolling on 375px viewport', async ({ page }) => {
-    await page.setViewportSize(MOBILE_VIEWPORT);
+    injectSessionStorage(page, sessionCode, testUser.name);
     await setTestSession(page, testUser.email);
-    await page.goto('/live');
-
-    await expect(page.getByRole('button', { name: /new session/i })).toBeVisible();
-    await page.getByRole('button', { name: /new session/i }).click();
+    await page.setViewportSize(MOBILE_VIEWPORT);
+    await page.goto('/live?insights=off');
 
     const storyCard = page.locator('[data-testid="live-story-card-expanded"]');
-    await expect(storyCard).toBeVisible({ timeout: 10000 });
+    await expect(storyCard).toBeVisible({ timeout: 15000 });
 
     const checkBtn = page.locator('[data-testid="start-check"]');
     await expect(checkBtn).toBeVisible();
