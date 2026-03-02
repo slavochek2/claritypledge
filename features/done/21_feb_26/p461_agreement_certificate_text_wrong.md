@@ -1,5 +1,5 @@
 ---
-status: today
+status: done
 type: bug
 rank: 1
 tags:
@@ -7,6 +7,7 @@ tags:
   - certificate
   - copy
 created_date: 2026-02-28
+completed_at: "2026-03-02"
 ---
 
 # P461: Agreement Certificate Text Deviates from V3 Pledge

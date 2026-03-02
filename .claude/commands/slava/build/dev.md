@@ -77,7 +77,10 @@ You're not just writing code — you're building something that will run in prod
 
 0.1. **Mark in-progress** — If a P-number spec was provided, update `status: in-progress` in frontmatter (skip silently if inline description mode)
 1. **Read tests** — UAT scenarios, E2E test stubs, acceptance criteria
-2. **Understand** — Read spec, find `[ ]` tasks (skip `[x]` done)
+2. **Understand** — Read the spec fully in this order:
+   - **Decisions** section first — every decision is a constraint, not a suggestion. Before writing a single line, internalize what the spec rules out (e.g., "edit detected via DB lookup, not URL param" means: do not add a URL param). Signal you skipped this: /review-all removes something because it contradicts a spec decision.
+   - **Acceptance Criteria** — what done looks like
+   - **`[ ]` tasks** — what to build (skip `[x]` done)
 3. **Implement** — Feature code + fill in test stubs
 4. **Run tests** — Execute test suite, check results
 5. **Iterate** — Fix code until ALL tests pass (max 5 attempts)
@@ -163,6 +166,7 @@ Agent implements TWO things in parallel:
 - **Fills in E2E test stubs** — Replace `// TODO: implement test` with actual test code
 - **Creates unit tests** — If needed for complex logic
 - **Verifies test structure** — Tests match acceptance criteria
+- **Establish page state before asserting** — After `page.goto()`, check which tab, panel, or step the page defaults to. If your assertion targets a non-default state (e.g., a secondary tab), navigate there explicitly first. Never assume the default UI state matches what you need to test.
 
 **Example:**
 ```typescript
@@ -297,7 +301,7 @@ The dev agent:
 - Skip silently if no feature file (inline description mode)
 
 **1. Pre-flight checks:**
-- Reads feature spec (business + UX + technical)
+- Reads feature spec (business + UX + technical) — **copy enumerated values verbatim**: any phase name, enum value, or string literal in the spec (e.g., `'polish'`, `'visibility'`, `delivery_stage: uat`) must be transcribed exactly. Do not substitute synonyms.
 - Reads UAT scenarios (features/uat/pN.md)
 - Reads E2E test stubs (e2e/pN-*.spec.ts)
 - Reads acceptance criteria
