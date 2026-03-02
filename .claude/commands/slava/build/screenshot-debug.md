@@ -21,6 +21,25 @@ Visual bug investigation from screenshot to fix path.
 
 ## Workflow
 
+### Step 0: Orient — Which App Instance Generated This Screenshot?
+
+Before reading the screenshot, confirm the source context:
+
+```bash
+git branch --show-current          # which branch is active?
+git worktree list                  # any active worktrees?
+lsof -ti:5173 -ti:3000 -ti:4173 | head -5   # which dev server ports are running?
+```
+
+State the context explicitly:
+```
+Running: branch [{branch}] | worktrees: [{list or none}] | dev server: port {N}
+```
+
+If a worktree is active and the screenshot may have come from it, say so — investigation may need to target the worktree codebase, not main.
+
+---
+
 ### Step 1: Read the Screenshot
 
 ```bash

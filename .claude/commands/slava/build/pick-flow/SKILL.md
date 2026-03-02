@@ -48,6 +48,7 @@ Commands line lists every applicable step — do not compress into labels like "
 
 - If a spec file exists for this task: add `flow: <fix|dev|inline|quick-feature>` to its frontmatter
 - If no spec exists yet: note the chosen flow so the next skill (`/quick-feature` or `/create-prd`) sets it on creation
+- If a mandatory stage was skipped (e.g. `/architect` for a UI-only change): add a one-line note to the spec's `## Next Steps` section: `Skipped: /architect — [reason in ≤10 words].` Use the Edit tool.
 
 ## Step 0: Identify task type first
 
@@ -85,8 +86,14 @@ Use this table to build the command chain directly. Each row maps a signal to a 
 | New business logic, permissions, owner/visitor split, role-based rendering, multi-step flow state, billing/access derived values | any | + `/generate-tests` |
 | 5+ files or 3+ independent concerns | B or C | + `/decompose` (after `/generate-tests`) |
 | New layout structure, net-new styled component, visual acceptance criteria in spec, or responsive/animation changes | any | + `/verify` |
-| Spec already written — `test_files:` present in frontmatter | — | skip `/generate-tests`, start from `/dev` |
+| Spec already written — `test_files:` present, `type` ≠ `change-request` | — | skip `/generate-tests`, start from `/dev` |
+| Spec already written — `test_files:` present, `type: change-request` | — | skip `/generate-tests`, run `/spec-review` → `/dev` |
 | Spec already written — `test_files:` absent | — | start from `/generate-tests` → `/dev` |
+| Spec exists, `delivery_stage: 5-decomposed` | — | resume from `/dev` |
+| Spec exists, `delivery_stage: 4-tests-ready` | — | resume from `/spec-review` → `/decompose`* → `/dev` |
+| Spec exists, `delivery_stage: 3-arch-review` | — | resume from `/generate-tests` → `/spec-review` → `/dev` |
+| Spec exists, `delivery_stage: 2-ux-done` | — | resume from `/architect` → `/generate-tests` → `/spec-review` → `/dev` |
+| Spec exists, `delivery_stage: 1-prd` | — | resume from `/ux` (if UI changes) or `/architect` → `/generate-tests` → `/spec-review` → `/dev` |
 | Drop `/ux` only when ALL of the following are true: (a) ASCII/mockups in conversation cover all states: happy path, edge cases, empty states, loading states, and responsive/mobile layout; (b) No net-new visual component or layout pattern is being introduced; (c) No mobile-specific layout concerns exist. Otherwise: run `/ux` even if happy-path structure is sketched in conversation. "ASCII decided" ≠ "UX resolved". | — | drop `/ux` |
 | `type: change-request` in spec frontmatter | any | `/spec-review` mandatory (not optional) |
 | **Changes `.claude/commands/`, `.claude/rules/`, `.claude/hooks/`, `CLAUDE.md`, git workflow, or `scripts/` invoked by hooks/CI** | **Infra** | **See infrastructure tier below** |
@@ -138,8 +145,9 @@ Apply this to every step. Don't default to "might help a bit" — default to "cl
 - `/generate-tests` whenever a regression would be annoying to debug manually — includes any conditional rendering, UI state change, interactive behavior, placeholder copy that could drift, button enable/disable logic, CSS class conditionals, and all security/auth/DB cases; mandatory for any DB migration (P270); skip only for pure CSS-only changes, single hardcoded strings with no logic, or one-liner typo fixes
 - `/ux` only if visual/interaction design is unresolved — skip if ASCII/mockup already decided
 - `/decompose` only for 5+ files or 3+ independent concerns
-- If spec exists: check `test_files:` in frontmatter — present → start from `/dev`; absent → `/generate-tests` → `/dev`
+- If spec exists: check `delivery_stage:` first — it takes precedence (see scoring table rows for all 5 stages: `1-prd` through `5-decomposed`); if absent, fall back to `test_files:` — present → start from `/dev`; absent → `/generate-tests` → `/dev`
 - `/review-all` runs automatically inside `/dev` and `/fix` — never list it as a step in any flow
 - `/verify` for net-new visual surface (new layout, new component with new UI, visual acceptance criteria, responsive/animation) — not for every `.tsx` change, not for component extraction with identical output
 - **`/spec-review` is mandatory (not optional) for `type: change-request` specs.** Redesigns have pre-existing elements that can silently conflict with new AC — spec-review catches these before implementation. The `*` optional marker applies to new features only.
 - After user confirms flow: set `flow:` in spec frontmatter if spec exists
+- When writing `flow:` to spec frontmatter, write exactly one of: `fix`, `dev`, `inline`, `quick-feature` — never the command chain string

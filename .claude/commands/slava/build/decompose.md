@@ -23,13 +23,22 @@ Convert the architect's build sequence into a structured task manifest so /dev c
 
 ## Pre-Flight Check
 
-**Required:** `## Technical Analysis` section must exist in the spec (architect must have run and been approved).
+**Required before generating the task manifest:**
 
-If missing:
+1. `## Technical Analysis` section must exist (architect ran and was approved).
+2. `/spec-review` must have run and returned `READY` (zero BLOCK findings). Check the spec for a `## Spec Review` section with verdict `READY`.
+3. `delivery_stage:` must be `4-tests-ready` (or spec-review just completed in this session). If `delivery_stage: 5-decomposed` → decompose already ran, check with user before re-running. If `status: in-progress` → implementation already started, run `/dev` instead.
+
+If any check fails:
 ```
 ERROR: Cannot run /decompose
 - Missing Technical Analysis section → Run /architect first
+- No spec-review section or verdict is NEEDS FIXES → Run /spec-review and fix all BLOCK findings first
+- delivery_stage is 5-decomposed → already decomposed; confirm before re-running
+- status is in-progress → implementation started; run /dev instead
 ```
+
+Do not generate a task manifest for a spec with outstanding BLOCK findings. BLOCKs at decompose time become implementation bugs.
 
 ---
 

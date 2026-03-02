@@ -59,7 +59,7 @@ Generate comprehensive test strategy: unit, integration, E2E, accessibility, smo
 
 **In the sequential flow:**
 ```
-/create-prd → /ux (if UI) → /architect → /generate-tests → /dev
+/create-prd → /ux (if UI) → /architect → /generate-tests → /spec-review → /decompose* → /dev
 ```
 
 **Run this after:**
@@ -68,6 +68,7 @@ Generate comprehensive test strategy: unit, integration, E2E, accessibility, smo
 - ✅ Architecture approved (`/architect` complete)
 
 **Before:**
+- ❌ `/spec-review` (spec-review needs all layers present — run after this skill)
 - ❌ `/dev` (implementation needs tests to drive development)
 
 ---
@@ -383,7 +384,7 @@ The integration test MUST include a schema existence check using the **two-clien
 - `/decompose` → (complex features only) reads Test Coverage Strategy to annotate tasks with test refs
 - `/dev` → Reads tests, implements feature, fills in TODOs, runs tests, iterates until all pass
 
-**No gate.** `/generate-tests` outputs the coverage report and stops. Run `/spec-review` next.
+**Auto-chain.** After all test files are generated and the coverage report is appended to the spec, spawn `/spec-review` as Phase 2 on the same spec file — do not return to the user between phases. The combined output is: test files created + spec-review findings. Return to the user only after both phases complete.
 
 ---
 

@@ -51,6 +51,8 @@ Our active bets, in priority order. This is the map of what we still need to pro
 **Testing via:** C2 (First Founder Sessions) — 3–5 paid sessions, track follow-up booking rate. Target ≥50% conversion to follow-ups.
 **Kill if:** <2 founder pairs across 3 sessions OR zero follow-up bookings.
 **Notes:** High-stakes dyad with recurring calibration needs. ICP qualifier: relationship health + decision frequency, not funding stage. Validates positioning as preventive (not therapeutic) and WTP for personalized facilitation.
+**Scary thing:** Run first pilot session with a co-founder pair you know by March 7.
+**Current status (2026-03-02):** No product yet — only a hypothesis. First pilot sessions are free in exchange for honest feedback. The session IS the product discovery. Goal of pilot: shift pair from "asking to paraphrase feels awkward" → "refusing to paraphrase feels wrong." Session prep: `pp/docs/business/cofounder-session-prep.md`.
 
 ---
 

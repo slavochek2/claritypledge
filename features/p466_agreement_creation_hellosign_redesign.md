@@ -1,14 +1,14 @@
 ---
-status: week
+status: today
 type: change-request
-rank: 1000004.0
+rank: 500001
 changes: p422
 tags:
   - redesign
   - p422
   - agreements
   - partners
-created_date: 2026-03-01
+created_date: 2026-03-01T00:00:00.000Z
 delivery_stage: 4-test-review
 uat_file: features/uat/p466.md
 test_files:
@@ -17,6 +17,7 @@ test_files:
   - e2e/p466-smoke.spec.ts
   - e2e/a11y/p466-accessibility.spec.ts
   - src/tests/p466-partner-display-name.test.ts
+locked_at: '2026-03-02T08:37:06.225Z'
 ---
 
 # P466: Agreement Creation — HelloSign Redesign

@@ -164,7 +164,8 @@ Add to spec frontmatter: `feature_type: backend`
 
 **Self-review checklist:**
 - [ ] Prior technical decisions checked (decisions.md [technical] + INDEX.md)
-- [ ] Current code state analyzed (not assumptions)
+- [ ] Current code state analyzed (not assumptions) — component names, routes, and API shapes in Architecture Decisions verified against actual src/ files
+- [ ] Architecture Decisions that override UX choices are explicitly flagged: "UX said X — this decision changes it to Y because Z"
 - [ ] Architecture decisions justified (not arbitrary)
 - [ ] Security review complete (RLS, auth, validation)
 - [ ] Files to change are concrete (not vague)

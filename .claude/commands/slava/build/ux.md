@@ -304,6 +304,7 @@ Format as a table:
 - [ ] Accessibility requirements specified: screen reader, keyboard, ARIA, color contrast
 - [ ] Responsive design considered: mobile, tablet, desktop breakpoints
 - [ ] Component Analysis table complete — every major element classified as Reuse/Extend/New
+- [ ] No component names in sections 1–5 that were not verified in Section 6 Component Analysis
 - [ ] Decisions requiring founder input surfaced explicitly
 - [ ] Sections 1–5 contain no file paths or code patterns
 - [ ] Flows are specific enough that developer can implement without guessing
@@ -320,4 +321,8 @@ Do NOT modify any content before the UX section.
    - Use Edit tool: `delivery_stage: 2-ux-review` (overwrite whatever was there — running this skill is the approval signal)
 
 2. AFTER appending UX section, the delivery_stage is already set to `2-ux-review` from step 1 — no further change needed.
+
+3. CONFIRM the write succeeded — read back the last 10 lines of {spec_file} and output exactly:
+   "UX section written to {spec_file} — [first 5 words of the last ## heading]. Ready for /generate-tests."
+   This is the final step. If the read-back shows no UX section, re-append and confirm again.
 ```

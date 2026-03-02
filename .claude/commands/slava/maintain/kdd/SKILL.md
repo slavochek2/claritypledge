@@ -76,12 +76,17 @@ Recommendation: Remove from README.md, link to definitions.md instead.
 0. **Branch check — before writing anything:**
    ```bash
    git branch --show-current
+   git worktree list
    ```
-   If the current branch is NOT `main` and NOT a `feature/*` branch (e.g., it's a UAT branch, hotfix, or throwaway branch), warn:
+   If the current branch is NOT `main`, warn:
 
-   > "Warning: You are on branch [{branch}] — KDD entries written here will not reach main unless cherry-picked. Consider committing this KDD directly to main first: `git stash`, `git checkout main`, write KDD, `git checkout -`."
+   > "Warning: You are on branch [{branch}] — KDD entries written here will not reach main until this branch merges. To land KDD directly on main instead: `git commit -m "wip: [description]"`, `git checkout main`, write KDD, commit, `git checkout -`, `git reset HEAD~1` (to undo the wip commit). Or proceed here if you're confident this branch will merge soon."
 
-   This is not a blocker — just a warning. The user decides. But without the warning, KDD entries are silently stranded on UAT branches and lost when the branch is deleted.
+   If the current branch IS `main` but `git worktree list` shows active worktrees with uncommitted work, also warn:
+
+   > "Warning: Active worktree(s) detected on [{branches}]. If this KDD session was triggered from a worktree context, confirm you are writing from the correct branch. KDD commits on main are correct only if the learning is not worktree-specific."
+
+   These are not blockers — just warnings. The user decides. But without the warning, KDD entries are silently stranded on feature or UAT branches and lost when the branch is deleted.
 
 1. **Review recent work:**
    ```bash
@@ -100,7 +105,7 @@ Recommendation: Remove from README.md, link to definitions.md instead.
    - Domain concepts changed? → `definitions.md`
    - Epistemological claims or WHY-this-works reasoning updated? → `docs/philosophy.md`
 
-3. **Propose updates** — state what you'll update and why, then proceed.
+3. **Propose updates** — before proposing, cross-check against the git log from step 1. If a commit already shows the doc was updated this session or in a recent prior commit, do NOT flag it as a gap — only propose updates for knowledge not yet captured. State what you'll update and why, then proceed.
    - If no updates needed: "No knowledge updates needed" and skip to step 5
    - Don't ask repeatedly for confirmation — be decisive
 
@@ -201,10 +206,12 @@ Recommendation: Remove from README.md, link to definitions.md instead.
 
 6. **Meta-reflection** — output to chat only (no file logging):
 
+   > **User-triggered only.** This step runs when `/kdd` is explicitly called by the user. Do NOT invoke `/kdd` autonomously to capture meta-reflection from your own session reasoning — only run when the user explicitly calls the skill.
+
    **6.1 Extract problems (subagent):**
 
    Spawn a `general-purpose` subagent with the full conversation context and this task:
-   > "Read this conversation. Extract problems, friction points, mistakes, and inefficiencies. Consolidate near-identical incidents into one item. Cap at 10 items max. Exclude routine tool calls and confirmations — only report things a human would call a mistake or waste. For each item identify: (1) what happened, (2) category: wrong-assumption / unnecessary-question / repeated-step / missed-signal / scope-creep / tool-fumble / missing-context / process-gap, (3) severity: minor / moderate / significant. Return a structured list only — no solutions yet."
+   > "Read this conversation. Extract problems, friction points, mistakes, and inefficiencies. Consolidate near-identical incidents into one item. Cap at 10 items max. Exclude routine tool calls and confirmations — only report things a human would call a mistake or waste. For each item identify: (1) what happened — be concrete: name the P-number, file path, or exact claim that was wrong, not just the abstract category, (2) category: wrong-assumption / unnecessary-question / repeated-step / missed-signal / scope-creep / tool-fumble / missing-context / process-gap, (3) severity: minor / moderate / significant. Return a structured list only — no solutions yet. Do NOT edit files, stage, or commit anything."
 
    **6.2 Triage each extracted problem:**
 
@@ -227,11 +234,11 @@ Recommendation: Remove from README.md, link to definitions.md instead.
    **Situation:** [1 sentence — what friction occurred]
 
    **Options:**
-   A) [option] — [tradeoff] | mechanical: yes/no
-   B) [option] — [tradeoff] | mechanical: yes/no
-   C) [option] — [tradeoff] | mechanical: yes/no   ← only if a genuine third path exists
+   A) [option] — [tradeoff: sustainability / thinking cost / error risk]
+   B) [option] — [tradeoff: sustainability / thinking cost / error risk]
+   C) [option, if exists] — [tradeoff: sustainability / thinking cost / error risk]
 
-   **Recommendation:** [Option X] — prevents this by [mechanism]. Main risk: [Y].
+   **Recommendation:** [Option X] — prevents this by [mechanism] (mechanical: yes/no). Main risk: [Y].
 
    Reply: "A", "B", or "C"
    ```
@@ -248,7 +255,7 @@ Recommendation: Remove from README.md, link to definitions.md instead.
 
    Spawn a second `general-purpose` subagent with the full conversation context AND the content of any skills that were invoked this session (read from `.claude/commands/slava/`). Task:
 
-   > "You have the conversation transcript and the skill files that ran during it. For each friction point or mistake identified in the session: (1) identify which skill instruction, CLAUDE.md rule, or prompt wording contributed to it — quote the specific text, (2) propose a concrete improvement: exact before/after rewrite of that text. If the root cause was missing context (Claude didn't know something), propose where to add it (which skill file, which section). Cap at 5 improvements. Skip issues caused by external factors (network, user typos, ambiguous requirements). Return a structured list: [skill/file] → [quoted problem text] → [proposed replacement]."
+   > "You have the conversation transcript and the skill files that ran during it. For each friction point or mistake identified in the session: (1) identify which skill instruction, CLAUDE.md rule, or prompt wording contributed to it — quote the specific text, (2) propose a concrete improvement: exact before/after rewrite of that text. Before finalizing each proposed change: (a) confirm the quoted old text exists verbatim in the file — do not paraphrase, (b) confirm the proposed replacement does not introduce new errors (regex correctness, section numbering, step ordering). Flag any proposed change you cannot verify as [UNVERIFIED]. If the root cause was missing context (Claude didn't know something), propose where to add it (which skill file, which section). Cap at 5 improvements. Skip issues caused by external factors (network, user typos, ambiguous requirements). Return a structured list: [skill/file] → [quoted problem text] → [proposed replacement]. Do NOT edit files, stage, or commit anything — return text only."
 
    If subagent finds no skill-level improvements — output "Skill quality: clean." and stop.
 

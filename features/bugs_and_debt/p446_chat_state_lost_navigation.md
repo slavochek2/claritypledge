@@ -1,7 +1,7 @@
 ---
-status: today
+status: week
 type: bug
-rank: 125483.75
+rank: 62745
 workstream: C1
 severity: medium
 date_reported: 2026-02-26T00:00:00.000Z
@@ -12,7 +12,7 @@ tags:
   - chat
   - state
   - navigation
-locked_at: '2026-02-27T09:32:04.777Z'
+locked_at: '2026-03-02T08:35:52.924Z'
 ---
 
 # BUG: Chat State Lost When Navigating Away and Back

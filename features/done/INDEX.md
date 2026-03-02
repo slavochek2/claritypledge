@@ -32,6 +32,7 @@ Last updated: 2026-03-02
 - **P434** (Feb 26) Point Statement Truncation — line-clamp prevents card overflow
 - **P465** (Mar 02) Point Card Footer Redesign — `filteredStories` is pre-filtered to profile owner upstream; viewer story count tracked separately via `viewerStoryCount`; attribution "by [name]" must always show when `profileOwner` known (see P469)
 - **P451** (Feb 28) Story CTA on All Surfaces — CTA appears on all 6 position-taking surfaces; `showStoryCTA = !!userPosition` derived check, no state; P451 was reverted then re-merged (16 files invisible in conflict list — restore with `git show branch:file`)
+- **P465** (Mar 02) Point Card Footer Redesign — story CTA + viewer count in point card footer; `getStoryCountForUser` avoids N+1; rebase then --no-ff merge to main; `positionsSectionRef` ghost variable from conflict resolution — always grep for unused refs after rebase
 - **P117** (Feb 5) Stories & Points Backend — DB schema: points, point_positions, point_history, story_points junction
 - **P131** (Feb 5) Manual Points Creation — user-created points with story linking; validate before AI extraction
 - **P132** (Feb 5) Rich Story View — story detail context; linked points appear with context

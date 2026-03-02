@@ -1,16 +1,16 @@
 ---
-status: qa
+status: all-done
 type: feature
-rank: 125504.0
+rank: 0.5
 workstream: E1
-created_date: 2026-02-27
+created_date: 2026-02-27T00:00:00.000Z
 tags: []
 flow: dev
 uat_file: features/uat/p457.md
 test_files:
   - src/tests/p457-chat-empty-state.test.ts
   - e2e/p457-chat-empty-state.spec.ts
-# For complete frontmatter specification, see docs/technical/feature-specs.md
+locked_at: '2026-03-02T08:34:59.769Z'
 ---
 
 # P457: Chat Empty State Redesign

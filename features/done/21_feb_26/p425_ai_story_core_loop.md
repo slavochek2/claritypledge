@@ -1,6 +1,7 @@
 ---
 status: all-done
 completed_at: "2026-02-28"
+superseded_by: p467
 type: story
 rank: 94122.75
 workstream: C1

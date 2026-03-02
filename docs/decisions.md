@@ -16,7 +16,158 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
-## 2026-03-02 [technical]: ThreadMessage accepts optional children to embed interactive content in chat bubbles
+## 2026-03-02 [product]: /live layout — solve space problems by shrinking elements, not reordering components
+
+**Context:** P455 moved story above CTA (story → CTA → journey) to keep CTA visible on 375px mobile. The reorder only helped before hasRatingData; once ratings exist, journey reinserted at top anyway. P468 added per-phase layout rules to fix the inconsistency. Both specs missed that swapping component positions between phases is itself a UX problem — users can't find stable landmarks.
+
+**Decision:** Revert the P455 reorder entirely. Solve screen space directly: shrink ActionArea icon (80px → 48px, −64px), reduce STORY_THRESHOLD (180 → 100 chars, ~−20px), collapse old journey rounds (show latest + "Show N earlier"). Component order stable across all phases: journey (when present) → story → CTA. P468 archived (never shipped, superseded by P469).
+
+**Alternatives rejected:** Per-phase ordering table (P468 approach) — correct in principle but complex; adds rules on top of a broken foundation. Reorder-only (P455 approach) — only helped before first rating existed.
+
+**Consequences:** Any future /live space problem should be solved by element sizing/collapsing before considering reorder. Component positions in /live are now stable — a user always knows where to look.
+
+**References:** [P469 spec](features/p469_live_layout_revert_p455_kiss_fixes.md)
+
+---
+
+## 2026-03-02 [technical]: CSS line-clamp fails silently when character-slice already truncates to the same height
+
+**Context:** P455 added `line-clamp-2` to LiveStoryCardExpanded to make story text compact. It had no visible effect — the "compact" and "full" views looked identical.
+
+**Decision:** Root cause: `story.content.slice(0, STORY_THRESHOLD)` at STORY_THRESHOLD=180 already produces ~2 lines of text. Applying `line-clamp-2` to already-2-line text does nothing. Two truncation systems (JS slice + CSS clamp) on the same element create a silent conflict where the CSS always wins but never fires. Fix: single system only — character slice at STORY_THRESHOLD=100. No CSS clamp.
+
+**Alternatives rejected:** Keep line-clamp-2 and remove character slice — CSS clamp is fragile (font-size, container-width dependent); character slice is predictable.
+
+**Consequences:** When truncating text in a component: use ONE mechanism. If using CSS clamp, don't also slice. If slicing, don't also clamp. Check for existing truncation before adding a new layer.
+
+**References:** `src/app/components/partners/live-story-card-expanded.tsx` — STORY_THRESHOLD constant
+
+---
+
+## 2026-03-02 [technical]: ThreadMessage accepts optional children for embedded interactive content
+
+**Context:** P467 inline rating phase requires a 0–10 button row inside an AI message bubble. Two options: (A) add `children?: React.ReactNode` to `ThreadMessage`; (B) create a new `RatingThreadMessage` variant.
+
+**Decision:** Add `children?: React.ReactNode` to `ThreadMessage`. `children` renders below `content` inside the bubble div; suppressed during `isStreaming`. Keeps single-bubble mental model — one component for all thread messages.
+
+**Alternatives rejected:** New `RatingThreadMessage` variant — duplicates bubble styling, creates two diverging bubble implementations.
+
+**Consequences:** `ThreadMessage` is the single bubble component for all thread content including interactive embeds. Any new interactive thread element (future: image, poll) follows the same pattern.
+
+**References:** [P467 spec](features/p467_chat_context_header_inline_rating.md) · Component Analysis §6
+
+---
+
+## 2026-03-02 [technical]: StoryGuideChat rating phase is thread-native, not a Drawer
+
+**Context:** P425 specified rating prompt inline in thread. Implementation drifted to a bottom Drawer, duplicating the latest draft above rating controls. P467 corrects this.
+
+**Decision:** Remove Drawer from StoryGuideChat entirely. Rating prompt renders as an AI message bubble with embedded 0–10 button row. Both click (immediate send) and type-in-input-bar paths supported. After 2nd iteration, "Save as-is →" escape hatch appears inline below buttons.
+
+**Alternatives rejected:** Keeping Drawer with layout fixes — the Drawer breaks the "single continuous thread" mental model regardless of layout. Two display modes for the same draft (thread + drawer) is inherently confusing.
+
+**Consequences:** Any future rating/feedback UX in chat must be thread-native. No modals, no drawers mid-conversation.
+
+**References:** [P467 spec](features/p467_chat_context_header_inline_rating.md) · Root Cause §4
+
+---
+
+## 2026-03-02 [product]: Context components in focused flows must be scoped to the task, not imported from profile surfaces
+
+**Context:** StoryGuideChat used `PointCardWithLinks` (a profile-page component) as its context card. Because `profileOwner.position` is truthy, the quote pattern fires — showing the user's own name in 3rd person, interactive position buttons, a share button, and story CTA rows. None of these are relevant to the writing task.
+
+**Decision:** Create `ChatContextHeader` — a purpose-built slim component (~48px) showing only: point text (truncated, expandable) + 1st-person position chip ("You agree") + link to point detail. No avatar, no position buttons, no share, no CTAs.
+
+**Alternatives rejected:** Passing flags (`hideActions`, `liveSessionMode`) to `PointCardWithLinks` — too many suppression flags, component was designed for a different actor model (viewing others' positions, not your own in a writing context).
+
+**Consequences:** Profile-page components stay on profile pages. Focused-flow pages get purpose-built context headers scoped to the task. Reuse is wrong when the component's design assumptions don't match the consumer's context.
+
+**References:** [P467 spec](features/p467_chat_context_header_inline_rating.md) · Root Cause §4
+
+---
+
+## 2026-03-02 [process]: spec-review mandatory gate in CLAUDE.md + decompose pre-flight
+
+**Context:** P465 spec had 3 BLOCK issues (component name mismatch, missing state initialization, test gap) that existed at /decompose time — they only got caught because the session started with a spec-review fix pass. The spec had passed prior /spec-review with `NEEDS FIXES` unaddressed. Two gaps: (1) CLAUDE.md footnote used `*` marker on spec-review, making it read as optional like /decompose; (2) /decompose pre-flight only gated on `## Technical Analysis` presence, not on a clean spec-review verdict.
+
+**Decision:** Two fixes — (1) CLAUDE.md Sequential Flow footnote: removed `*` from `/spec-review`, now reads "mandatory — always run after /generate-tests, before /decompose or /dev. A spec with BLOCK findings must not proceed." (2) decompose.md Pre-Flight Check: added second required gate — spec must have `## Spec Review` section with `READY` verdict before task manifest is generated. Explicit error message: "NEEDS FIXES → Run /spec-review and fix all BLOCK findings first."
+
+**Alternatives rejected:** Proposed #1 (stub missing symbol rule in Commit Discipline) and #2 (infra changes must be on main) and #4 (close infra protocol with step 5) — all FAILED adversarial review. #1 too prescriptive (stub is wrong fix when real implementation is needed). #2 too broad (infra changes scoped to a feature branch are sometimes legitimate). #4 BUBBLES UP section created a new open loop.
+
+**Consequences:** /decompose now has two hard stops: no Technical Analysis = run /architect first; no READY spec-review = run /spec-review first. BLOCKs that reach decompose time have no path forward except fixing the spec.
+
+**References:** [CLAUDE.md](../CLAUDE.md) · [decompose.md](.claude/commands/slava/build/decompose.md)
+
+---
+
+## 2026-03-01 [process]: Two-agent plan/critique workflow for spec-review + decompose
+
+**Context:** Running `/spec-review` and `/decompose` on P465 — a complex feature with DB migration, 3+ component surfaces, and 7 architectural decisions. Question: should one agent just do both, or is a review loop valuable at the spec level?
+
+**Decision:** Split into Plan agent (produces findings + decompose breakdown) → Critique agent (verifies claims against actual files, corrects wrong severity ratings, reorders tasks, finds missing tasks) → main session implements the improved output. Critique agent caught 5 concrete errors: severity downgrade on F-1, wrong task ordering (helper fix before migration), Tasks 5+6 should merge, missing interface-update sub-step, missing `delivery_stage` update task.
+
+**Alternatives rejected:** Single agent doing spec-review + decompose in one pass — produces an unchecked plan that may contain wrong assumptions. Running spec-review and decompose as sequential skills without critique — doesn't catch inter-step errors like task ordering or wrong severity.
+
+**Consequences:** Two-agent review loop is now the preferred pattern for spec-review + decompose on features with 5+ files or DB migrations. Adds ~5 minutes; catches ordering and assumption errors before implementation. For small features (`flow: fix` or `flow: quick-feature`), not worth the overhead.
+
+**References:** P465 spec [Spec Review section](features/p465_point_card_footer_redesign.md)
+
+## 2026-03-01 [process]: Subagent autonomy boundary — NO-COMMIT in spawn prompts, not only in git.md
+
+**Context:** Subagents spawned by `/kdd` steps 6 and 7 (meta-reflection + skill-quality) were given instructions to "apply fixes directly if any." They interpreted this as license to commit — sweeping in unrelated working-tree files (features/uat/p463.md, profile-connections-page.tsx) under wrong commit messages, and committing without being asked. The root cause: git.md bans `git commit from inside a subagent`, but subagents don't auto-load `.claude/rules/git.md` — the rule was invisible to them. The "apply fixes" wording created an implicit commit mandate.
+
+**Decision:** Embed an explicit NO-COMMIT instruction directly in the subagent task prompts in kdd/SKILL.md steps 6.1 and 7: "Do NOT edit files, stage, or commit anything — return text only." / "Do NOT edit files, stage, or commit anything." This makes the constraint visible at the spawn point regardless of which rules files load. Applicable pattern: any skill that spawns a subagent to "propose" or "apply" changes must explicitly constrain commit behavior in the prompt, not rely on git.md auto-loading.
+
+**Alternatives rejected:** Adding a global "no-commit" preamble to all subagent prompts via a rules file — subagents don't load rules files, so this doesn't reach them. Relying on the git.md banned-commands table alone — same problem.
+
+**Consequences:** Future subagents spawned by /kdd steps 6+7 return text only. Any new skill that spawns a "fix-applying" subagent should include the same NO-COMMIT line. The pattern generalizes: constraints that must reach subagents must be in the spawn prompt, not in auto-loaded rules.
+
+**References:** [.claude/commands/slava/maintain/kdd/SKILL.md](.claude/commands/slava/maintain/kdd/SKILL.md) · [.claude/rules/git.md](.claude/rules/git.md)
+
+---
+
+## 2026-03-01 [product]: Story edit from point card routes to /story/:storyId, not /chat
+
+**Context:** P465 spec (point card footer redesign) added an edit pencil icon for a viewer's existing story on a point card. Initial spec drafts routed the edit action through `/chat` (AI-assisted editing via StoryGuideChat), with load-time detection of an existing story to enter "edit mode". This was caught during /spec-review: the `/chat` edit-mode logic was unspecified, and Decision 3 contradicted UX Flow 2 and the component analysis table in 4 places.
+
+**Decision:** Edit pencil navigates to `/story/:storyId` — the existing story editor on `story-detail-page.tsx`. The `/chat` load-time edit detection is explicitly out of scope for P465.
+
+**Alternatives rejected:** Routing through `/chat` with `isEditMode` prop and `existingStory` preload — would require StoryGuideChatPage to detect existing story on mount, initialize directly at `polish` phase, and suppress brain-dump triggers. Valid capability but adds scope not justified by the footer redesign goal.
+
+**Consequences:** Story editing from point card context is consolidated on `story-detail-page`, consistent with all other edit-story entry points. `/chat` remains a new-story-only flow until a dedicated "AI-assisted story editing" feature scopes it properly. `StoryGuideChat.tsx` and `story-guide-chat-page.tsx` are out of scope for P465.
+
+**References:** [features/p465_point_card_footer_redesign.md](features/p465_point_card_footer_redesign.md)
+
+---
+
+## 2026-03-01 [process]: pick-flow — delivery_stage precedence + flow: value constraint
+
+**Context:** Two bugs in `/pick-flow` SKILL.md discovered:
+(1) Agents were writing the full command chain (e.g., `/quick-feature → /dev`) into spec `flow:` frontmatter instead of the tier identifier (`dev`, `fix`, etc.) — because the output template format `→` chain looked like the expected value.
+(2) The scoring table had no rows for `delivery_stage: 1-prd` or `2-ux-done`, causing agents to recommend the full pipeline from scratch on mid-pipeline specs. Only `3-arch-review`+ stages were represented via `test_files:` proxy.
+
+**Decision:** Three targeted edits to SKILL.md: (1) Hard rule added: "write exactly one of: fix, dev, inline, quick-feature — never the command chain string." (2) Hard rule 144 updated to give `delivery_stage:` precedence over `test_files:` fallback. (3) Two explicit scoring table rows added: `delivery_stage: 3-arch-review` → resume from `/generate-tests`; `delivery_stage: 2-ux-done` → resume from `/architect`; `delivery_stage: 1-prd` → resume from `/ux` or `/architect`.
+
+**Alternatives rejected:** Adding a new "Step 0.5" section with a 4-row mapping table — adversarial review (BUBBLES UP) + two parallel critique agents converged: root causes were narrow enough for targeted inline fixes, not a new section.
+
+**Consequences:** Agents reading pick-flow now write correct `flow:` values and won't restart a mid-pipeline spec from scratch. `delivery_stage:` is the primary routing signal when present.
+
+**References:** [.claude/commands/slava/build/pick-flow/SKILL.md](.claude/commands/slava/build/pick-flow/SKILL.md)
+
+---
+
+## 2026-03-01 [process]: pre-commit lint auto-fix clears non-TS staged files in separate processes
+
+**Context:** When running `git add non-ts-file` in one process and `git commit` in a separate background process, the pre-commit script's lint auto-fix (`xargs git add $STAGED_TS`) re-stages only the TS files it fixed. If CLAUDE.md or .md skill files are staged before the pre-commit runs, the `xargs git add` on TS-only files leaves the non-TS files in a transient state — they vanish from the commit. Resulted in two empty commits (`f290fadc`, `da685ffa`) with correct commit messages but no file changes.
+
+**Decision:** Always stage non-TS files and commit in a single atomic `git add ... && git commit` command. Never split into `git add` (one process) → `git commit` (separate background process) when non-TS files are involved. The pre-commit script's re-stage loop only runs on TS/JS files and will not preserve .md files staged in a parent process.
+
+**Alternatives rejected:** Modifying pre-commit to preserve all staged files — touches shared infra, higher risk.
+
+**Consequences:** Atomic `git add ... && git commit` in one shell command is the reliable pattern for mixed-type commits (md + ts). Split processes for staging + committing is unsafe when pre-commit modifies the index.
+
+---
+
 
 **Context:** P467 needed a rating phase rendered as an AI message bubble with embedded 0-10 buttons. Two options: create a new `RatingThreadMessage` variant (duplicate the bubble layout) or extend `ThreadMessage` with a `children?: React.ReactNode` prop. The spec initially left this ambiguous.
 

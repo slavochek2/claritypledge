@@ -99,6 +99,7 @@ Cross-check each layer against the others:
 - Architecture decisions vs. UX flows (does the tech approach support every UX state?)
 - Test coverage vs. acceptance criteria (is every criterion tested?)
 - Data model vs. UX fields (does every UI field have a corresponding DB column or computed value?)
+- Spec-stated routes vs. existing pages: for every route or URL pattern written in the spec, check whether a page at that route already exists in `src/app/pages/`. If the spec routes to `/foo?entityId=X` but a dedicated page for that entity already exists (e.g., `src/app/pages/entity-page.tsx` at `/entity/:id`), flag it: `[BLOCK] Consistency: Spec routes to /foo?entityId=X — /entity/:id already exists. Verify whether /foo is the correct destination or an unnecessary intermediary.`
 
 ### 3. Gaps
 For each acceptance criterion: verify that at least one of (UX flow / test case / implementation step) covers it explicitly. Flag criteria with no coverage.

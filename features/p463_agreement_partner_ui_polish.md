@@ -1,13 +1,15 @@
 ---
-status: in-progress
+status: qa
 type: feature
-rank: 1000002
+rank: 15685.375
 workstream: E1
-created_date: 2026-02-28
+created_date: 2026-02-28T00:00:00.000Z
 flow: dev
-delivery_stage: uat
-tags: [agreements, partners, ux-polish]
-# For complete frontmatter specification, see docs/technical/feature-specs.md
+tags:
+  - agreements
+  - partners
+  - ux-polish
+locked_at: '2026-03-02T09:04:30.953Z'
 ---
 
 # P463: Agreement & Partner UI Polish

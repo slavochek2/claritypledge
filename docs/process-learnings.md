@@ -30,6 +30,17 @@ When writing a principle to CLAUDE.md, a specific threshold ("30 minutes") was f
 
 ---
 
+## Dead code not caught by /review-all or pre-commit
+
+**Date:** 2026-03-02
+**Status:** proposed
+
+`PointCardDetail.tsx` had zero production callers and lived in `src/app/components/` undetected — caught only by an ad-hoc consistency audit, not by `/review-all` or any automated check. `/review-all` checks correctness and patterns; it does not detect zero-caller exports.
+
+**Fix:** Add dead-code detection (`knip` or `ts-prune`) to `scripts/pre-commit-checks.sh` or as a step in `/maintain:cleanup`. Zero-caller components accumulate silently across feature merges.
+
+---
+
 ## Raw ideas processing has no skill (`/process-raw-ideas`)
 
 **Date:** 2026-03-01
