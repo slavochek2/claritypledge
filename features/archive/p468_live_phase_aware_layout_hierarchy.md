@@ -11,6 +11,7 @@ tags:
   - layout
 created_date: 2026-03-02
 flow: dev
+superseded_by: p469
 ---
 
 # P468: /live Phase-Aware Layout Hierarchy

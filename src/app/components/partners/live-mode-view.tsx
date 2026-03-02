@@ -1644,6 +1644,9 @@ export function JourneyToUnderstanding({
     ? 'bg-green-50 border border-green-200'
     : 'bg-muted/50 border border-border';
 
+  // Must be declared before any early return (React hooks rules)
+  const [showHistory, setShowHistory] = useState(false);
+
   // In compact mode, skip round numbers and min-height
   if (compact) {
     return (
@@ -1721,6 +1724,13 @@ export function JourneyToUnderstanding({
   // Round 0 is implicit - users don't need to see "0" on first check-in
   const showRoundNumbers = explainBackRatings.length > 0;
 
+  // Collapse older rounds when there are multiple explain-back rounds
+  const hasOlderRounds = explainBackRatings.length > 1;
+  // Older rounds = all except the last; always show the latest round
+  const olderRounds = hasOlderRounds ? explainBackRatings.slice(0, -1) : [];
+  const latestRound = explainBackRatings.length > 0 ? explainBackRatings[explainBackRatings.length - 1] : null;
+  const latestRoundIndex = explainBackRatings.length - 1;
+
   // Full mode with round numbers and header
   return (
     <div className={`${bgClass} rounded-lg p-4 ${JOURNEY_MIN_HEIGHT} text-left ${className}`}>
@@ -1788,8 +1798,17 @@ export function JourneyToUnderstanding({
           </div>
         </div>
 
-        {/* Previous explain-back rounds - only speaker's belief after each explain-back */}
-        {explainBackRatings.map((rating, index) => (
+        {/* Older explain-back rounds — collapsed by default when >1 round exists */}
+        {hasOlderRounds && !showHistory && (
+          <button
+            type="button"
+            onClick={() => setShowHistory(true)}
+            className="w-full pt-2 border-t text-xs text-muted-foreground hover:text-foreground transition-colors text-left"
+          >
+            Show {olderRounds.length} earlier {olderRounds.length === 1 ? 'round' : 'rounds'}
+          </button>
+        )}
+        {hasOlderRounds && showHistory && olderRounds.map((rating, index) => (
           <div key={index} className="flex gap-3 pt-2 border-t">
             <div className="w-4 shrink-0 text-xs text-muted-foreground pt-0.5 text-right">{index + 1}</div>
             <div className="flex-1">
@@ -1803,6 +1822,22 @@ export function JourneyToUnderstanding({
             </div>
           </div>
         ))}
+
+        {/* Latest explain-back round (or only round) — always visible */}
+        {latestRound !== null && (
+          <div className="flex gap-3 pt-2 border-t">
+            <div className="w-4 shrink-0 text-xs text-muted-foreground pt-0.5 text-right">{latestRoundIndex + 1}</div>
+            <div className="flex-1">
+              <RatingDisplay
+                label={isChecker
+                  ? <b className="text-foreground">Your belief</b>
+                  : <b className="text-foreground">{checkerName}'s belief</b>
+                }
+                rating={latestRound}
+              />
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

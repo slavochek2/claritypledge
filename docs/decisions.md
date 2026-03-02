@@ -2,6 +2,34 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-02 [product]: /live layout — solve space problems by shrinking elements, not reordering components
+
+**Context:** P455 moved story above CTA (story → CTA → journey) to keep CTA visible on 375px mobile. The reorder only helped before hasRatingData; once ratings exist, journey reinserted at top anyway. P468 added per-phase layout rules to fix the inconsistency. Both specs missed that swapping component positions between phases is itself a UX problem — users can't find stable landmarks.
+
+**Decision:** Revert the P455 reorder entirely. Solve screen space directly: shrink ActionArea icon (80px → 48px, −64px), reduce STORY_THRESHOLD (180 → 100 chars, ~−20px), collapse old journey rounds (show latest + "Show N earlier"). Component order stable across all phases: journey (when present) → story → CTA. P468 archived (never shipped, superseded by P469).
+
+**Alternatives rejected:** Per-phase ordering table (P468 approach) — correct in principle but complex; adds rules on top of a broken foundation. Reorder-only (P455 approach) — only helped before first rating existed.
+
+**Consequences:** Any future /live space problem should be solved by element sizing/collapsing before considering reorder. Component positions in /live are now stable — a user always knows where to look.
+
+**References:** [P469 spec](features/p469_live_layout_revert_p455_kiss_fixes.md)
+
+---
+
+## 2026-03-02 [technical]: CSS line-clamp fails silently when character-slice already truncates to the same height
+
+**Context:** P455 added `line-clamp-2` to LiveStoryCardExpanded to make story text compact. It had no visible effect — the "compact" and "full" views looked identical.
+
+**Decision:** Root cause: `story.content.slice(0, STORY_THRESHOLD)` at STORY_THRESHOLD=180 already produces ~2 lines of text. Applying `line-clamp-2` to already-2-line text does nothing. Two truncation systems (JS slice + CSS clamp) on the same element create a silent conflict where the CSS always wins but never fires. Fix: single system only — character slice at STORY_THRESHOLD=100. No CSS clamp.
+
+**Alternatives rejected:** Keep line-clamp-2 and remove character slice — CSS clamp is fragile (font-size, container-width dependent); character slice is predictable.
+
+**Consequences:** When truncating text in a component: use ONE mechanism. If using CSS clamp, don't also slice. If slicing, don't also clamp. Check for existing truncation before adding a new layer.
+
+**References:** `src/app/components/partners/live-story-card-expanded.tsx` — STORY_THRESHOLD constant
+
+---
+
 ## 2026-03-02 [technical]: ThreadMessage accepts optional children for embedded interactive content
 
 **Context:** P467 inline rating phase requires a 0–10 button row inside an AI message bubble. Two options: (A) add `children?: React.ReactNode` to `ThreadMessage`; (B) create a new `RatingThreadMessage` variant.
