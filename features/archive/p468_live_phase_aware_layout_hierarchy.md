@@ -1,5 +1,5 @@
 ---
-status: today
+status: rejected
 type: change-request
 rank: 250000.5
 changes: p455
@@ -12,7 +12,7 @@ tags:
 created_date: 2026-03-02T00:00:00.000Z
 flow: dev
 superseded_by: p469
-locked_at: '2026-03-02T14:40:25.449Z'
+locked_at: '2026-03-02T14:57:28.612Z'
 ---
 
 # P468: /live Phase-Aware Layout Hierarchy

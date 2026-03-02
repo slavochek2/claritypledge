@@ -291,7 +291,7 @@ test.describe('P469 — Story threshold (STORY_THRESHOLD = 100)', () => {
 // ─────────────────────────────────────────────────────────────────────────────
 
 test.describe('P469 — Journey card history collapse', () => {
-  test.describe.configure({ timeout: 60000 });
+  test.describe.configure({ timeout: 60000, mode: 'serial' });
 
   let testUser: Awaited<ReturnType<typeof createTestUser>>;
   let storyId: string;
