@@ -1,7 +1,7 @@
 # Done Features Index
 
 Quick reference for past completed work. Consult when starting work on a related topic.
-Last updated: 2026-03-02 (P469)
+Last updated: 2026-03-03 (P470)
 
 ---
 
@@ -32,6 +32,7 @@ Last updated: 2026-03-02 (P469)
 - **P427** (Feb 26) Story Edit and Delete — `useBlocker` requires data router; guard via handleBack override + popstate; `story_versions` RLS was USING(true); Radix Dialog modal always needs `hideCloseButton` for confirm dialogs
 - **P434** (Feb 26) Point Statement Truncation — line-clamp prevents card overflow
 - **P465** (Mar 02) Point Card Footer Redesign — `filteredStories` is pre-filtered to profile owner upstream; viewer story count tracked separately via `viewerStoryCount`; attribution "by [name]" must always show when `profileOwner` known (see P470)
+- **P470** (Mar 03) Point Card Attribution Consistency — story count shows only RLS-visible stories to viewer (private=0 for visitors, by design); use `tempSignInClient` never `supabaseAdmin.signInWithPassword` in test helpers; `generateTestSlug` needs random suffix for parallel workers
 - **P451** (Feb 28) Story CTA on All Surfaces — CTA appears on all 6 position-taking surfaces; `showStoryCTA = !!userPosition` derived check, no state; P451 was reverted then re-merged (16 files invisible in conflict list — restore with `git show branch:file`)
 - **P465** (Mar 02) Point Card Footer Redesign — story CTA + viewer count in point card footer; `getStoryCountForUser` avoids N+1; rebase then --no-ff merge to main; `positionsSectionRef` ghost variable from conflict resolution — always grep for unused refs after rebase
 - **P117** (Feb 5) Stories & Points Backend — DB schema: points, point_positions, point_history, story_points junction
