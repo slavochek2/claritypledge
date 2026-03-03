@@ -9,13 +9,18 @@ import { fileURLToPath } from 'url'
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
 // Auto-detect port based on worktree
-// Main repo: 5001, Worktrees 1-7: 5100-5700
+// Main repo: 5001, Worktrees w1-w7: 5100-5700
 function getPort(): number {
   const cwd = process.cwd()
-  const worktreeMatch = cwd.match(/claritypledge-(\d+)$/)
-  if (worktreeMatch) {
-    const worktreeNum = parseInt(worktreeMatch[1], 10)
-    return 5000 + (worktreeNum * 100) // 5100, 5200, ..., 5700
+  // .claude/worktrees/w1, w2, ... (current naming convention)
+  const slotMatch = cwd.match(/[/\\]w(\d+)$/)
+  if (slotMatch) {
+    return 5000 + (parseInt(slotMatch[1], 10) * 100) // w1→5100, w2→5200, ...
+  }
+  // Legacy: claritypledge-1, claritypledge-2, ...
+  const legacyMatch = cwd.match(/claritypledge-(\d+)$/)
+  if (legacyMatch) {
+    return 5000 + (parseInt(legacyMatch[1], 10) * 100)
   }
   return 5001 // Main repo (5000 is blocked by macOS AirPlay)
 }

@@ -1,7 +1,7 @@
 ---
-status: week
+status: qa
 type: change-request
-rank: 1000006.0
+rank: 31370.75
 changes: p465
 tags:
   - redesign
@@ -9,7 +9,8 @@ tags:
   - point-card
   - footer
   - attribution
-created_date: 2026-03-02
+created_date: 2026-03-02T00:00:00.000Z
+locked_at: '2026-03-02T15:44:38.752Z'
 ---
 
 # P470: Point card footer — attribution consistency and viewer story gaps

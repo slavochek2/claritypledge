@@ -46,7 +46,11 @@ export async function createTestStory(
       title,
       content,
       author_id: authorId,
-      visibility: options.visibility || 'public',
+      // NOTE: production DB default is 'private' (P424 migration).
+      // Tests that care about visitor visibility must pass visibility: 'private' explicitly.
+      // This helper defaults to 'public' to avoid breaking 30+ existing tests that don't
+      // exercise visibility-specific paths.
+      visibility: options.visibility ?? 'public',
       tags: options.tags || ['test'],
     })
     .select('id, author_id, title, content')
