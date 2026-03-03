@@ -381,7 +381,7 @@ export function CreateAgreementPage() {
             type="submit"
             disabled={isSubmitting || !!errors.partnerEmail || creatorHasNoName}
             aria-disabled={creatorHasNoName ? 'true' : undefined}
-            className="bg-blue-500 hover:bg-blue-600 text-white min-h-[44px]"
+            className="bg-blue-500 hover:bg-blue-600 text-white min-h-[44px] w-full sm:w-auto"
           >
             {isSubmitting ? (
               <>

@@ -155,7 +155,7 @@ export function AgreementCertificate({
                 className={`border-0 rounded-none bg-transparent focus-visible:outline-none focus-visible:ring-0 font-serif text-base md:text-lg font-semibold inline-block min-w-[120px] w-auto placeholder:text-[#1A1A1A]/30 placeholder:font-normal ${
                   partnerNameError
                     ? 'border-b-2 border-red-500 focus-visible:border-red-500'
-                    : 'border-b-2 border-[#1A1A1A] focus-visible:border-[#0044CC]'
+                    : 'border-b-2 border-transparent focus-visible:border-[#0044CC]'
                 }`}
                 style={{
                   fontFamily: '"Playfair Display", Georgia, serif',
