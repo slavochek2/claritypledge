@@ -1,5 +1,5 @@
 ---
-status: week
+status: uat
 type: bug
 rank: 62745
 workstream: C1
@@ -31,11 +31,11 @@ In the AI-guided story creation flow (p425), if the user navigates away from the
 
 ## Root Cause
 
-_To be investigated. Likely: chat state held in React component state with no persistence — component unmounts on navigation, state is lost._
+Chat state (`messages`, `phase`, `iterationCount`, `currentDraftVersion`, `polishedContent`, `selectedVisibility`) is held entirely in React component state. `StoryGuideChat` unmounts on navigation, and React discards all component state on unmount — no persistence existed.
 
 ## Resolution
 
-_Persist chat state to localStorage or sessionStorage keyed by story/session ID. Or persist to DB if the session should survive browser close. Restore state on mount._
+Persist chat state to `sessionStorage` on every state change, restore on mount. Key: `story-chat-{pointId}` (or `story-chat-no-point` for standalone flow). State is cleared when the chat reaches `phase === 'saved'`. Edit mode (`existingStory` prop present) is excluded — the story is already in DB and the edit state is always re-derived from the DB record. Implementation: module-level helpers (`storageKey`, `loadChatState`, `saveChatState`, `clearChatState`) + a `useRef`-cached initial load + a `useEffect` that persists on every relevant state change.
 
 ## Verification
 
