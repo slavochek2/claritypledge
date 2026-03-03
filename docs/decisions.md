@@ -2,6 +2,34 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-03 [process]: Agent SDK — not worth learning yet; revisit trigger defined
+
+**Context:** Research session analyzing whether to invest in the Anthropic Claude Agent SDK (`claude-agent-sdk`). Ran three parallel agents: SDK research, usage history analysis (15 recent sessions), and devil's advocate critique.
+
+**Decision:** Do not learn the Agent SDK now. The bottleneck is not "can't run agents without being present" — it's that the standard implementation orchestration ritual is typed manually every session instead of being encoded in a skill. That's a 30-minute skill fix, not a 20-40 hour SDK investment.
+
+**What the Agent SDK actually is:** Claude Code's engine extracted as a callable Python/TS library. Removes the human-at-terminal requirement. Alpha (v0.1.44 as of Mar 2026, active development). Core use: webhook-triggered, scheduled, or background agent execution. Does NOT improve interactive Claude Code workflows.
+
+**Alternatives rejected:** Learning it now "to be prepared" — opportunity cost is a shipped feature. n8n (no-code automation) covers 80% of the use cases without the maintenance overhead.
+
+**Revisit trigger:** When ClarityPledge has a recurring operational task consuming 3+ hrs/week that is well-defined enough to specify as a prompt. Likely candidates: support ticket triage at volume, weekly cohort summaries, nightly codebase health reports.
+
+**Consequences:** No SDK work on the roadmap. Near-term action: build `/dev-ritual` skill encoding the 4-step implementation pattern. Fix `/dev` to auto-trigger `/verify`.
+
+---
+
+## 2026-03-03 [process]: Implementation orchestration ritual — automation debt identified
+
+**Context:** Usage history analysis across 15 recent sessions found that the 4-step implementation ritual is typed fresh every session 10+ times: "implement in subagents → review in agents → improve if needed → /kdd + /ss". It is never encoded in a skill. This is the highest-frequency mechanical step in the workflow.
+
+**Decision:** This is named automation debt. The orchestration pattern is mechanical and identical every session — it does not require judgment. The actual judgment (what to build, design KISS check, architecture) happens before and after this step. A `/dev-ritual` skill should encode it. Not built yet — naming it here so it doesn't stay invisible.
+
+**Alternatives rejected:** Leaving it as-is — repeating the same 8-12 message orchestration sequence for every feature is pure overhead.
+
+**Consequences:** `/dev-ritual` skill is the next process investment after current sprint. Also: `/dev` should auto-trigger `/verify` on completion — history shows `/verify` is regularly forgotten and has to be chased manually ("did you /verify?").
+
+---
+
 ## 2026-03-03 [product]: P466 — Certificate-as-form UX model for agreement creation
 
 **Context:** P466 redesigned `create-agreement-page.tsx` (previously a plain form). The goal was to make the creation feel meaningful — like drafting a real document, not filling a form.
