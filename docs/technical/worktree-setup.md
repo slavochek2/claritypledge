@@ -71,9 +71,18 @@ Port reference: w0 (main) = 5001, w1 = 5100, w2 = 5200.
 ## Listing and Removing Worktrees
 
 ```bash
-# List all worktrees
+# Always list first — confirms the worktree is still registered
 git worktree list
 
-# Remove a worktree (after work is merged or abandoned)
+# Remove a registered worktree (run from MAIN REPO ROOT — never from inside the worktree)
 git worktree remove .claude/worktrees/w1
+
+# If the directory exists on disk but is NOT in `git worktree list` output,
+# prune stale registry entries first, then remove the directory:
+git worktree prune && rm -rf .claude/worktrees/w1
 ```
+
+> **Common failure modes:**
+> - `"not a working tree"` or `"No such worktree"` → registration is already pruned (directory exists, git doesn't know it). Use the `prune && rm -rf` path above.
+> - `"not a git repository"` → you ran the command from inside the worktree directory. Re-run from the main repo root.
+> - `"contains modified or untracked files"` → use `--force` flag, or commit/stash changes first.

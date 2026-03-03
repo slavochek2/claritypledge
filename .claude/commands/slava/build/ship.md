@@ -43,7 +43,9 @@ Ship an approved feature to production.
    ls -d features/done/*/ 2>/dev/null | sort -V | tail -1  # find current sprint folder
    mkdir -p features/done/{folder}/uat
    git mv features/pN_name.md features/done/{folder}/
-   git mv features/uat/pN.md features/done/{folder}/uat/ 2>/dev/null || true
+   # UAT file may be untracked (git mv fails on untracked) — cp+add+rm is equivalent
+   git mv features/uat/pN.md features/done/{folder}/uat/ 2>/dev/null || \
+     (cp features/uat/pN.md features/done/{folder}/uat/pN.md && git add features/done/{folder}/uat/pN.md && rm features/uat/pN.md) || true
    ```
    **Guard — verify the move landed correctly (substitute actual P-number, e.g. p422):**
    ```bash
@@ -54,6 +56,7 @@ Ship an approved feature to production.
    Commit: `chore: close pN — {title}`
 8. **Run fix-kanban** — Invoke `/slava:maintain:fix-kanban`
 9. **Clean up** — delete the local feature branch
+9a. **Worktree cleanup** — run `git worktree list | grep "feature/p{N}"` (substitute actual P-number, e.g. `feature/p470`). If a worktree for this feature branch exists (e.g., `.claude/worktrees/w2`), run `git worktree remove --force .claude/worktrees/wN` from the **main repo root** (never from inside the worktree). If it fails, report and skip — do not block the ship. For orphaned directories not in the list: `git worktree prune && rm -rf .claude/worktrees/wN`.
 10. **Ask — two questions in one message:**
     "Run /verify first? (y = visual QA of the live site against acceptance criteria, recommended for any UI change / n = skip)
     Capture learnings with /kdd? (y/n)"
