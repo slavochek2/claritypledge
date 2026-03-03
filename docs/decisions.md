@@ -2,6 +2,20 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-03 [product]: P466 — Certificate-as-form UX model for agreement creation
+
+**Context:** P466 redesigned `create-agreement-page.tsx` (previously a plain form). The goal was to make the creation feel meaningful — like drafting a real document, not filling a form.
+
+**Decision:** The certificate IS the form. Partner name is an inline editable input styled to blend into the certificate body (Playfair Display, blurred border hidden). Email and visibility controls appear below the certificate, outside the document frame. The act of filling in the partner's name happens literally within the agreement text ("We, [Creator] and [Partner input], agree to:").
+
+**Alternatives rejected:** Separate form + preview layout — previews always feel disconnected; any two-panel approach splits user attention. Standard form-above-certificate — certificate becomes decorative, form has lower emotional weight.
+
+**Consequences:** The certificate component gains a `creation` variant. Inline inputs inside certificates must use `border-transparent` at rest (`focus-visible:border-[color]`) so they read as document text when unfocused. `partner_display_name` stored on agreement row for the pending state; replaced by partner profile name post-acceptance.
+
+**References:** `src/app/components/agreements/agreement-certificate.tsx`, `src/app/pages/create-agreement-page.tsx`
+
+---
+
 ## 2026-03-02 [product]: Journey collapse threshold — minimum 3 rounds to collapse
 
 **Context:** P469 initially set `hasOlderRounds = explainBackRatings.length > 1`, which fires with 2 explain-back rounds (3 total rows: round 0 + 1 + 2). With 2 rounds, collapse hides exactly 1 row — no meaningful space savings, adds UX friction. User correctly flagged this as a no-op collapse.

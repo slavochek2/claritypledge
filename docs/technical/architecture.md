@@ -390,6 +390,29 @@ Per-page meta tags, Open Graph, Twitter cards, canonical URLs, and JSON-LD are h
 
 ---
 
+## Certificate-as-Form Pattern (P466)
+
+**Context:** Agreement creation renders the certificate as the form itself. The partner name is an editable `<input>` embedded inline in the certificate text.
+
+**Invisible-until-focused input styling:**
+```tsx
+className={`border-0 border-b-2 bg-transparent focus-visible:outline-none focus-visible:ring-0 font-serif inline-block ${
+  hasError
+    ? 'border-red-500 focus-visible:border-red-500'   // error: always red
+    : 'border-transparent focus-visible:border-[#0044CC]'  // normal: hidden at rest, blue on focus
+}`}
+```
+
+Key rule: use `border-transparent` (not a visible color) at rest so the input reads as plain document text when blurred. Only in error state is the border always visible (red).
+
+**Width sizing:** `width: \`${Math.max(120, value.length * 12)}px\`` grows with content so the input stays inline.
+
+**Submission button on mobile:** Use `w-full sm:w-auto` — full-width on mobile, auto on ≥640px.
+
+**References:** `src/app/components/agreements/agreement-certificate.tsx` (`creation` variant), `src/app/pages/create-agreement-page.tsx`
+
+---
+
 ## Common Gotchas
 
 1. **Profile lookup**: Routes use `slug` (e.g., `/p/john-doe`), not UUID. Use `getProfileBySlug()` for routes, `getProfile(id)` when you have UUID.

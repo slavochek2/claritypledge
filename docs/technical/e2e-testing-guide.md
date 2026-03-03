@@ -447,6 +447,21 @@ test('slow operation', async ({ page }) => {
 
 ## Troubleshooting
 
+### Playwright Browser Binary Missing
+
+**Symptom:** All tests fail with `Error: browserType.launch: Executable doesn't exist at .../chromium_headless_shell-XXXX/...`
+
+**Cause:** Playwright updated its required browser build number; the local cache doesn't have it yet.
+
+**Fix:**
+```bash
+npx playwright install chromium
+```
+
+Safe to re-run — idempotent. Run after any `npm install` that updates `@playwright/test`.
+
+---
+
 ### RLS Errors
 
 **Symptom:** Tests fail with "new row violates row-level security policy"
