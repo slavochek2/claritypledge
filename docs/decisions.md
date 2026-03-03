@@ -2,6 +2,20 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-03 [process]: conversations-to-cp clarifying questions now classify as factual vs direction
+
+**Context:** /kdd session revealed that when conversations-to-cp step 3 asked 3 plain-text clarifying questions, the user invoked /simplify manually to get structured options — the questions didn't have enough format to answer inline. Two round-trips covered overlapping ground.
+
+**Decision:** Classify clarifying questions before outputting: factual (one right answer once context is known) → ask plainly; direction (trade-off between interpretations) → format as /simplify block inline with options, recommendation, and "Reply: A or B". Also: kdd step 6.2 suppresses the general "reply" prompt when /simplify blocks are present (conflicting instructions); kdd step 7 scopes decisions.md cross-reference to first 100 lines only.
+
+**Alternatives rejected:** Leaving plain-text format — requires user to manually invoke /simplify every time a direction question arises. Acceptable overhead once; becomes friction pattern on recurring runs.
+
+**Consequences:** conversations-to-cp step 3 now routes trade-off questions directly to /simplify format. No round-trip penalty for direction questions. applies also to any skill with a clarify step.
+
+**References:** `.claude/commands/slava/maintain/claude-conversations-to-cp.md` step 3, `.claude/commands/slava/maintain/kdd/SKILL.md` steps 6.2–6.3, 7
+
+---
+
 ## 2026-03-03 [product]: Content-led inbound is primary outbound channel; direct cold outreach dropped
 
 **Context:** Slava ran 2 co-founder coaching sessions this week. Sessions were well-received but people couldn't replicate the protocol without him present. Separately, Slava expressed strong demotivation toward cold outreach ("feel like shit" sending messages to people he hasn't talked to in years). First AI business meetup is ~1 week away — treated as confidence-building, not a client acquisition event.
