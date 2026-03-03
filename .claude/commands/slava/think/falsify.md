@@ -92,10 +92,8 @@ Spawn TWO agents simultaneously with the proposals AND the root causes from Phas
 > "For each proposal, given its root cause: simulate the failure mode.
 > Apply the proposed fix. Simulate again. Did the fix actually prevent it?
 > Read actual files to verify — do not reason from assumptions.
-> Also: did finding the root cause reveal a simpler or more complete fix?
-> Verdict per proposal: SURVIVES / FAILS.
-> If FAILS: what better fix emerged? Be specific (file, function, one-liner if applicable).
-> Do NOT edit files. Return analysis only."
+> Verdict per proposal: SURVIVES / FAILS + evidence (cite the file/line/mechanism that confirms it).
+> Do NOT propose alternatives. Do NOT edit files. Return analysis only."
 
 ---
 
@@ -140,6 +138,10 @@ Each agent gets: the root cause, the surviving proposal, and the scoring criteri
 > "Generate {N} alternative approaches to address this root cause: {root_cause}.
 > Surviving proposal for comparison: {proposal}.
 > Scoring criteria: {criteria}.
+>
+> If multiple root causes exist across surviving proposals, anchor on the most
+> constraining one (the one hardest to satisfy). All proposals contribute to a
+> unified 30-proposal pool — the benchmarking agent picks top 5 overall.
 >
 > Rules:
 > — The first 10 ideas are obvious. Push past them.
@@ -242,6 +244,7 @@ Skip (overkill, no action):
 ## Self-Check Before Writing Output
 
 - [ ] Root cause was established BEFORE critique and falsification ran (Phase 1 completed)
+- [ ] Root cause agent cited specific files or code to support each finding (not inferred from memory)
 - [ ] Critique agent did NOT read code — principle-level only (verify: no file paths cited in critique output)
 - [ ] Falsification agent DID read relevant code — cites specific files/lines in output (not general reasoning)
 - [ ] Synthesis triage table applied — no proposal skipped
