@@ -2,6 +2,20 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-03 [technical]: supabaseAdmin singleton mutation breaks subsequent service_role inserts
+
+**Context:** P470 E2E tests failed with "new row violates row-level security policy for table 'stories'" when `createTestStory` was called with `visibility: 'private'`, even though `supabaseAdmin` uses the service_role key and bypass policies exist. Root cause: `createTestPosition` called `supabaseAdmin.auth.signInWithPassword()` BEFORE `createTestStory` in `beforeAll`, leaving `supabaseAdmin`'s in-memory session set to the user's JWT. All subsequent service_role calls ran as the user instead.
+
+**Decision:** Never call `signInWithPassword` (or any auth mutation) on the `supabaseAdmin` singleton. When a helper needs to act as a specific user, create a short-lived `tempSignInClient` from the anon key, obtain the session token, then construct a separate `userClient` with that token. `supabaseAdmin` remains untouched throughout. Also: `generateTestSlug` must include a random suffix alongside `Date.now()` to prevent `profiles_slug_unique` violations when parallel Playwright workers run `beforeAll` at the same millisecond.
+
+**Alternatives rejected:** Calling `supabaseAdmin.auth.signOut()` after sign-in — unreliable, may leave client in anonymous mode rather than restoring service_role.
+
+**Consequences:** All E2E helpers that sign in as a user (test-user.ts, test-point.ts) use the `tempSignInClient` pattern. `supabaseAdmin` is never used for auth sign-in, only for admin API calls (`admin.createUser`, `admin.deleteUser`, `admin.getUserById`) and service_role DB queries.
+
+**References:** [e2e-testing-guide.md](docs/technical/e2e-testing-guide.md) | `e2e/helpers/test-user.ts` | `e2e/helpers/test-point.ts`
+
+---
+
 ## 2026-03-02 [product]: ladischenski.com reframed as Calibration Lab facilitation site
 
 **Context:** Site was positioned as a consulting business — €250/hr coaching, €1,500 de-risking package, €3,350 workshop. Slava doesn't believe in the per-session coaching market; it requires selling prevention to people who don't self-identify as at risk.
