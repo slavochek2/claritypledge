@@ -1,5 +1,5 @@
 ---
-status: backlog
+status: uat
 type: bug
 rank: 2
 workstream: C1
@@ -35,3 +35,21 @@ P121 covers sign-out not ending the meeting. This bug is about the general depar
 ## Impact
 
 Medium — affects core /live experience. Becomes critical for P124 (Event Rooms) where "back to room" flow depends on clean session endings.
+
+## Root Cause
+
+The `pagehide` handler in `clarity-live-page.tsx` called `patchClaritySessionLiveState` and `clearSessionJoiner` — both async `fetch()` calls via the Supabase client. When a tab closes or navigates away, the browser kills in-flight `fetch` requests before they complete. This made Layer 1 (the fast-path unload signal) unreliable: the DB write never landed, so Layer 2 (realtime) had nothing to broadcast, leaving Layer 3 (polling) as the only detection path. Polling works but adds up to 1s delay and fails entirely if the departing tab's network drops first.
+
+`navigator.sendBeacon` would solve the keepalive problem but cannot set custom headers (`apikey`, `Authorization`) required by Supabase. The correct fix is `fetch({ keepalive: true })`, which tells the browser to complete the request even after page teardown and supports arbitrary headers.
+
+## Resolution
+
+Replaced the unload-time `patchClaritySessionLiveState()`/`clearSessionJoiner()` calls in the `pagehide` handler with direct `fetch({ keepalive: true })` calls to the Supabase REST API:
+
+- **Creator departure:** POSTs to `/rest/v1/rpc/patch_live_state` with `keepalive: true`
+- **Joiner departure:** PATCHes `/rest/v1/clarity_sessions?id=eq.{id}` to set `joiner_name: null` with `keepalive: true`
+
+All three layers are now reliable:
+- **Layer 1 (fast path):** `pagehide` fires `fetch({ keepalive: true })` — browser guarantees delivery even during tab close/navigation
+- **Layer 2 (real-time):** Supabase realtime subscription picks up the DB change immediately and shows "partner left"
+- **Layer 3 (fallback):** 1000ms polling catches connection drops/crashes where Layer 1 cannot fire

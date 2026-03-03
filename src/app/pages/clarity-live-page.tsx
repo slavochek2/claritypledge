@@ -318,6 +318,19 @@ export function ClarityLivePage() {
   useEffect(() => {
     isCreatorRef.current = isCreator;
   }, [isCreator]);
+
+  // P126: Keep a current JWT ref so pagehide handler can use it for authenticated REST calls.
+  // The anon key alone is blocked by RLS on clarity_sessions for the joiner PATCH path.
+  const jwtRef = useRef<string | null>(null);
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => {
+      jwtRef.current = data.session?.access_token ?? null;
+    });
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      jwtRef.current = session?.access_token ?? null;
+    });
+    return () => subscription.unsubscribe();
+  }, []);
   const viewRef = useRef<ViewState>(view);
   useEffect(() => {
     viewRef.current = view;
@@ -325,6 +338,12 @@ export function ClarityLivePage() {
 
   // Fix A: Cleanup session on tab close / browser unload (pagehide is more reliable than beforeunload)
   // Only fires when actually leaving (not on bfcache suspend) and only from live view.
+  //
+  // P126: Use fetch({ keepalive: true }) instead of normal async fetch calls.
+  // keepalive: true tells the browser to keep the request alive even after the page is
+  // torn down — equivalent to sendBeacon but supports custom headers (required for
+  // Supabase apikey/Authorization). Without keepalive, the browser kills in-flight
+  // fetch calls during pagehide, making departure detection unreliable.
   useEffect(() => {
     const handlePageHide = (e: PageTransitionEvent) => {
       if (e.persisted) return; // bfcache — page will be restored, skip cleanup
@@ -332,13 +351,46 @@ export function ClarityLivePage() {
       if (!sessionId || iAmLeavingRef.current) return;
       if (viewRef.current !== 'live') return; // waiting room close doesn't signal sessionEnded
       iAmLeavingRef.current = true;
+
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
+      const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
+      // Use the user's JWT when available so RLS-protected tables (joiner PATCH) are
+      // authorised. Fall back to anon key — creator path uses SECURITY DEFINER RPC which
+      // bypasses RLS regardless.
+      const authToken = jwtRef.current ?? supabaseAnonKey;
+      const headers = {
+        'Content-Type': 'application/json',
+        'apikey': supabaseAnonKey,
+        'Authorization': `Bearer ${authToken}`,
+        'Prefer': 'return=minimal',
+      };
+
       if (isCreatorRef.current) {
-        patchClaritySessionLiveState(sessionId, {
-          sessionEnded: true,
-          sessionEndedAt: new Date().toISOString(),
-        }).catch(() => {});
+        // Creator leaving: patch live_state to set sessionEnded=true so joiner sees "partner left"
+        // Fire-and-forget with keepalive so the browser completes this even after page teardown.
+        fetch(
+          `${supabaseUrl}/rest/v1/rpc/patch_live_state`,
+          {
+            method: 'POST',
+            headers,
+            body: JSON.stringify({
+              p_session_id: sessionId,
+              p_patch: { sessionEnded: true, sessionEndedAt: new Date().toISOString() },
+            }),
+            keepalive: true,
+          }
+        ).catch(() => {});
       } else {
-        clearSessionJoiner(sessionId).catch(() => {});
+        // Joiner leaving: clear joiner_name so creator sees "partner left"
+        fetch(
+          `${supabaseUrl}/rest/v1/clarity_sessions?id=eq.${sessionId}`,
+          {
+            method: 'PATCH',
+            headers,
+            body: JSON.stringify({ joiner_name: null }),
+            keepalive: true,
+          }
+        ).catch(() => {});
       }
     };
     const handlePageShow = (e: PageTransitionEvent) => {
