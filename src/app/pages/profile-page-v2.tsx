@@ -26,6 +26,8 @@ import {
   Pin,
   ChevronDown,
   ChevronRight,
+  Pencil,
+  Trash2,
 } from "lucide-react";
 import { GravatarAvatar } from "@/components/ui/gravatar-avatar";
 
@@ -896,6 +898,7 @@ export function ProfilePageV2() {
                     credibilityStats={credibilityStats}
                     currentUserId={currentUser?.id}
                     onPointPositionSelect={handleProfilePointPosition}
+                    onDelete={(storyId) => setRealStories(prev => prev.filter(s => s.id !== storyId))}
                   />
                 ))
               )
@@ -945,7 +948,6 @@ export function ProfilePageV2() {
                       }
                       return undefined;
                     }}
-                    onDeleteStory={() => guardedRemovePosition(point.id)}
                   />
                 ))
               )
@@ -981,6 +983,7 @@ interface StoryCardFullProps {
   credibilityStats: { ear: number; mic: number };
   currentUserId?: string;
   onPointPositionSelect?: (pointId: string, pos: Position | null) => void;
+  onDelete?: (storyId: string) => void;
 }
 
 const STORY_THRESHOLD = 180;
@@ -991,10 +994,12 @@ function StoryCardFull({
   credibilityStats,
   currentUserId,
   onPointPositionSelect,
+  onDelete,
 }: StoryCardFullProps) {
   const navigate = useNavigate();
   const [pointsExpanded, setPointsExpanded] = useState(false);
   const [storyExpanded, setStoryExpanded] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const handleCardClick = () => {
     navigate(detailRoutes.story(story.id));
@@ -1126,6 +1131,42 @@ function StoryCardFull({
 
         {/* Action icons */}
         <div className="flex items-center gap-1">
+          {/* Edit/Delete — owner only */}
+          {currentUserId === story.authorId && (
+            <>
+              <MobileTooltip content="Edit story">
+                <button
+                  onClick={(e) => { e.stopPropagation(); navigate(`/story/${story.id}?edit=true`); }}
+                  className="min-w-[44px] min-h-[44px] flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted rounded-full transition-colors"
+                  aria-label="Edit story"
+                >
+                  <Pencil size={16} />
+                </button>
+              </MobileTooltip>
+              <MobileTooltip content="Delete story">
+                <button
+                  onClick={async (e) => {
+                    e.stopPropagation();
+                    if (!window.confirm('Delete this story? This cannot be undone.')) return;
+                    setIsDeleting(true);
+                    const success = await storiesService.deleteStory(story.id);
+                    if (success) {
+                      toast.success('Story deleted');
+                      onDelete?.(story.id);
+                    } else {
+                      toast.error('Failed to delete story');
+                      setIsDeleting(false);
+                    }
+                  }}
+                  disabled={isDeleting}
+                  className="min-w-[44px] min-h-[44px] flex items-center justify-center text-muted-foreground hover:text-red-500 hover:bg-muted rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  aria-label="Delete story"
+                >
+                  <Trash2 size={16} />
+                </button>
+              </MobileTooltip>
+            </>
+          )}
           <ShareButton
             type="story"
             id={story.id}
