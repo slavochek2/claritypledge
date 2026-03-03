@@ -2,6 +2,27 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-03 [process]: Conversation analysis skills — two-skill privacy split + MapReduce design
+
+**Context:** Needed a way to periodically analyze Claude conversation logs to surface strategic signals (lean-canvas, hypotheses, milestones, process friction) and personal/psychological patterns. Single skill risked personal content leaking into public cp repo.
+
+**Decision:** Two separate skills with no shared paths. `/claude-conversations-to-cp` (in cp, public-safe) reads only cp sessions → writes only to cp strategy docs. `/claude-conversations-to-pp` (in `~/.claude/commands/`, private) reads all sessions → writes only to `~/Projects/private/personal/docs/psychology.md`. Hard-coded paths in each skill, no flags that could route wrong.
+
+**Design choices:**
+- Both skills read user AND assistant messages — insights come from both sides
+- `--source` arg allows substituting Google Drive, local path, or other inputs (no Notion — not configured)
+- MapReduce pattern: >15 files → spawn parallel Explore agents per chunk → synthesize; ≤15 → direct read
+- 4-phase flow: Surface → Clarify (batch questions) → Plan (terminal only) → Confirm+Execute
+- `psychology.md` is a new private file — not mixed into decisions.md or slava-coaching.md
+
+**Alternatives rejected:** Single skill with `--personal` flag — too easy to accidentally route personal content through cp skill in a public session. Notion source — no MCP configured.
+
+**Consequences:** `/claude-conversations-to-pp` triggers `/kdd-private` for decisions with more structure needed. Run weekly or after intense sprints. `psychology.md` created on first run.
+
+**References:** `.claude/commands/slava/maintain/claude-conversations-to-cp.md`, `~/.claude/commands/claude-conversations-to-pp.md`
+
+---
+
 ## 2026-03-03 [process]: Agent SDK — not worth learning yet; revisit trigger defined
 
 **Context:** Research session analyzing whether to invest in the Anthropic Claude Agent SDK (`claude-agent-sdk`). Ran three parallel agents: SDK research, usage history analysis (15 recent sessions), and devil's advocate critique.
