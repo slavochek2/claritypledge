@@ -9,13 +9,13 @@ version: 1.1.0
 
 Analyzes Claude conversations (or alternative sources) and proposes updates to cp strategy docs.
 
-**Default input:** Claude conversation logs for the cp project.
+**Default input:** Exported Claude.ai conversations at `~/Projects/private/claude-conversations/` (markdown files, synced via claude-sync).
 **Alternative input:** Pass `--source` with a Google Drive folder ID or local path.
 
 ## Usage
 
 ```
-/claude-conversations-to-cp           # last 7 days, Claude conversations
+/claude-conversations-to-cp           # last 7 days, exported Claude.ai conversations
 /claude-conversations-to-cp 14d       # last 14 days
 /claude-conversations-to-cp 30d       # last 30 days
 /claude-conversations-to-cp --source gdrive:FOLDER_ID
@@ -33,15 +33,37 @@ Analyzes Claude conversations (or alternative sources) and proposes updates to c
 | Workflow friction, recurring manual steps | `docs/process-learnings.md` |
 | Features mentioned repeatedly but unspecced, priority shifts | `features/` (note only, no auto-edit) |
 
-## JSONL Message Format
+## Conversation File Format
 
-Claude Code stores conversations as `.jsonl` files where each line is a JSON object.
+### Default: Exported Claude.ai markdown (~/Projects/private/claude-conversations/)
 
-**Conversation messages** have `type: "user"` or `type: "assistant"` at the top level. Extract text from `message.content` (nested under the `message` key). Read BOTH types — insights come from both sides.
+Files are structured markdown with this format:
+```
+# Conversation Title
 
-**Skip** lines where `type` is `"system"`, `"file-history-snapshot"`, `"tool_use"`, or any other non-conversation type.
+**Created:** YYYY-MM-DDTHH:MM:SSZ
+**Updated:** YYYY-MM-DDTHH:MM:SSZ
 
-**Skip** files located under `subagents/` subdirectories — those contain task output, not full conversations.
+---
+
+### 👤 Human
+[user message text]
+
+---
+
+### 🤖 Claude
+[assistant message text]
+
+---
+```
+
+Read BOTH `👤 Human` and `🤖 Claude` sections — insights come from both sides. Extract the text under each heading. The date filter uses the `Created:` or `Updated:` frontmatter field.
+
+### Alternative: Claude Code CLI JSONL (~/.claude/projects/)
+
+Only used when `--source` explicitly points to a `.jsonl` path.
+
+JSONL format: each line is a JSON object. Conversation messages have `type: "user"` or `type: "assistant"`. Extract text from `message.content` (nested). Skip `type: "system"`, `"file-history-snapshot"`, `"tool_use"`. Skip files under `subagents/` subdirectories.
 
 ## Workflow
 
@@ -58,8 +80,8 @@ Claude Code stores conversations as `.jsonl` files where each line is a JSON obj
     </parse_args>
 
     <guard name="pp-path-block">
-      <if condition="--source path contains '/private/' or '/Projects/private'">
-        <action>Stop. Report: "Source path appears to be a private (pp) directory. This skill is cp-only and cannot read pp paths. Use /claude-conversations-to-pp for private sources."</action>
+      <if condition="--source path contains '/Projects/private' AND path is NOT ~/Projects/private/claude-conversations">
+        <action>Stop. Report: "Source path appears to be a private (pp) directory other than claude-conversations. This skill is cp-only. Use /claude-conversations-to-pp for personal/private sources."</action>
       </if>
     </guard>
 
@@ -70,8 +92,8 @@ Claude Code stores conversations as `.jsonl` files where each line is a JSON obj
     </guard>
 
     <if source="claude conversations (default)">
-      <action>Recursively glob for .jsonl files in ~/.claude/projects/-Users-slavochek-Projects-public-claritypledge/ — include subdirectories EXCEPT those named "subagents"</action>
-      <action>Filter to files modified within the time window (check mtime)</action>
+      <action>Glob for .md files in ~/Projects/private/claude-conversations/ recursively — these are exported Claude.ai conversations in markdown format</action>
+      <action>Filter by file mtime OR by the "Created:" / "Updated:" date in the frontmatter to match the time window</action>
       <action>Count files</action>
     </if>
 
@@ -111,7 +133,7 @@ Claude Code stores conversations as `.jsonl` files where each line is a JSON obj
 
         Read the following files: [file list].
 
-        JSONL format: each line is a JSON object. Conversation messages have type: 'user' or type: 'assistant'. Extract text from message.content (nested). Skip type: 'system', 'file-history-snapshot', and any non-conversation types.
+        File format: exported Claude.ai markdown. Each file has a title, Created/Updated dates, then conversation turns marked with '### 👤 Human' and '### 🤖 Claude'. Read both sides — insights come from both. (If a file is .jsonl, each line is a JSON object with type 'user' or 'assistant'; extract text from message.content.)
 
         Extract signals in ONLY these categories — return structured markdown, nothing else:
 
