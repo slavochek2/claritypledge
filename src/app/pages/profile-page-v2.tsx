@@ -308,6 +308,24 @@ export function ProfilePageV2() {
           linksByPoint.set(link.point_id, storyIds);
         });
 
+        // Fetch the actual story records for all linked story IDs.
+        // Query directly (not via stories-service) so RLS applies correctly:
+        // visitors see public/shared stories; owners see all their own stories.
+        // This fixes the bug where private stories (the default) were invisible
+        // to visitors because the earlier getStoriesByAuthorWithPoints call
+        // was scoped to the owner and returned no data for non-authors.
+        const allLinkedStoryIds = [...new Set([...linksByPoint.values()].flat())];
+        const { data: linkedStoriesRaw } = allLinkedStoryIds.length > 0
+          ? await supabase
+              .from('stories')
+              .select('id, content, author_id, created_at, understood_count, tags')
+              .in('id', allLinkedStoryIds)
+          : { data: [] as Array<{ id: string; content: string; author_id: string; created_at: string; understood_count: number; tags: string[] }> };
+
+        const linkedStoriesById = new Map(
+          (linkedStoriesRaw ?? []).map(s => [s.id, s])
+        );
+
         // P134: Adapt points to prototype format with linked stories
         const adaptedPoints: AdaptedPoint[] = validPoints.map(point => {
           const linkedStoryIds = linksByPoint.get(point.id) || [];
@@ -329,20 +347,20 @@ export function ProfilePageV2() {
             };
           }
 
-          // Find stories from our loaded stories and adapt them to prototype format
+          // Adapt linked stories using the RLS-gated batch query result
           const linkedStories = linkedStoryIds
             .map(storyId => {
-              const story = stories.find(s => s.id === storyId);
+              const story = linkedStoriesById.get(storyId);
               if (!story) return null;
               return {
                 id: story.id,
                 text: story.content,
-                authorId: story.authorId,
-                createdAt: story.createdAt,
+                authorId: story.author_id,
+                createdAt: story.created_at,
                 visibility: 'public' as const,
-                verificationCount: story.understoodCount,
+                verificationCount: story.understood_count ?? 0,
                 tags: story.tags || [],
-                linkedPointIds: story.points?.map(p => p.id) || [],
+                linkedPointIds: [],
               };
             })
             .filter((s): s is AdaptedStory => s !== null);
