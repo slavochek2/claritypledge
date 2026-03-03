@@ -14,7 +14,7 @@
  * - justCreated flow shows educational empty state with expanded form
  */
 import { useEffect, useState, useCallback, useRef } from 'react';
-import { useParams, useNavigate, useLocation } from 'react-router-dom';
+import { useParams, useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { LockIcon, Loader2, Plus, ChevronDown, Pencil, Trash2 } from 'lucide-react';
 import { FocusHeader } from '@/app/components/layout/focus-header';
 import { VISIBILITY_OPTIONS } from '@/app/data/story-visibility-options';
@@ -626,6 +626,7 @@ export function StoryDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const location = useLocation();
+  const [searchParams] = useSearchParams();
   const { user, isLoading: authLoading } = useAuth();
   const { checkVerified } = useVerificationGate();
 
@@ -646,7 +647,7 @@ export function StoryDetailPage() {
   const [linkedStoriesForPoints, setLinkedStoriesForPoints] = useState<Map<string, StoryWithAuthor[]>>(new Map());
 
   // P427: Edit and Delete state
-  const [isEditMode, setIsEditMode] = useState(false);
+  const [isEditMode, setIsEditMode] = useState(() => searchParams.get('edit') === 'true');
   const [editContent, setEditContent] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -655,6 +656,19 @@ export function StoryDetailPage() {
   const editButtonRef = useRef<HTMLButtonElement>(null);
   const deleteButtonRef = useRef<HTMLButtonElement>(null);
   const popstateHandlerRef = useRef<(() => void) | null>(null);
+
+  // Guard: reset edit mode if the loaded story is not owned by the current user
+  // (prevents non-authors from opening edit mode via ?edit=true URL)
+  // Also: populate editContent when story loads into an already-active edit mode
+  // (covers the ?edit=true URL path where handleEditStart is never called)
+  useEffect(() => {
+    if (!story) return;
+    if (story.authorId !== user?.id) {
+      setIsEditMode(false);
+    } else if (isEditMode && !editContent) {
+      setEditContent(story.content);
+    }
+  }, [story, user?.id]); // intentionally omits isEditMode/editContent — only fires on story/user load
 
   // P132: Guard for position removal — shows confirmation dialog with linked-story count
   const { dialogProps, guardedRemovePosition } = useRemovePositionGuard({

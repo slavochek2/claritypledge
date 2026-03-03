@@ -2,6 +2,34 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-03 [product]: Story count in point card footer shows only visible stories, not total
+
+**Context:** Visitor viewing a profile sees "0 stories by [owner]" when owner has private stories. Owner sees "1 story" on the same card. Annotation in screenshot asked "why 0?" — confirmed this is intentional, not a bug.
+
+**Decision:** The story count in the point card footer reflects only stories *visible to the viewer*, not the total story count. Private stories (default since P424) are not counted for visitors. This is correct — the count is "stories you could actually read", not "stories that exist."
+
+**Alternatives rejected:** Show total count regardless of visibility — rejected because showing "3 stories" when none are accessible is misleading and creates a dead CTA.
+
+**Consequences:** Visitors will often see "0 stories" on new profiles where stories haven't been made public. This is acceptable: it accurately reflects what's accessible. The "Add your story" CTA appears when the visitor has a position, providing a path forward regardless of owner story count.
+
+**References:** P470 E2E Flow 1 test explicitly asserts this: `visitor sees "0 stories by owner" when story is private (RLS correctly restricts)`
+
+---
+
+## 2026-03-03 [technical]: supabaseAdmin singleton mutation breaks subsequent service_role inserts
+
+**Context:** P470 E2E tests failed with "new row violates row-level security policy for table 'stories'" when `createTestStory` was called with `visibility: 'private'`, even though `supabaseAdmin` uses the service_role key and bypass policies exist. Root cause: `createTestPosition` called `supabaseAdmin.auth.signInWithPassword()` BEFORE `createTestStory` in `beforeAll`, leaving `supabaseAdmin`'s in-memory session set to the user's JWT. All subsequent service_role calls ran as the user instead.
+
+**Decision:** Never call `signInWithPassword` (or any auth mutation) on the `supabaseAdmin` singleton. When a helper needs to act as a specific user, create a short-lived `tempSignInClient` from the anon key, obtain the session token, then construct a separate `userClient` with that token. `supabaseAdmin` remains untouched throughout. Also: `generateTestSlug` must include a random suffix alongside `Date.now()` to prevent `profiles_slug_unique` violations when parallel Playwright workers run `beforeAll` at the same millisecond.
+
+**Alternatives rejected:** Calling `supabaseAdmin.auth.signOut()` after sign-in — unreliable, may leave client in anonymous mode rather than restoring service_role.
+
+**Consequences:** All E2E helpers that sign in as a user (test-user.ts, test-point.ts) use the `tempSignInClient` pattern. `supabaseAdmin` is never used for auth sign-in, only for admin API calls (`admin.createUser`, `admin.deleteUser`, `admin.getUserById`) and service_role DB queries.
+
+**References:** [e2e-testing-guide.md](docs/technical/e2e-testing-guide.md) | `e2e/helpers/test-user.ts` | `e2e/helpers/test-point.ts`
+
+---
+
 ## 2026-03-03 [process]: /falsify skill — 5-phase proposal testing with root-cause-first discipline
 
 **Context:** Meta-reflection from /kdd produced 3 process proposals. Running critique + falsification agents against them revealed all 3 failed — better fixes existed that the proposals missed. Prompted design of a reusable falsification skill.

@@ -13,7 +13,7 @@ import { Pin } from 'lucide-react';
 import { useAuth } from '@/auth';
 import { pointsService } from '@/app/data/points-service';
 import { storiesService } from '@/app/data/stories-service';
-import type { PointWithCounts, PointWithUserPosition, PointPositionWithUser, PositionType, StoryWithAuthor } from '@/app/types';
+import type { PointWithCounts, PointWithUserPosition, PointPositionWithUser, PositionType, StoryWithAuthor, Story as AppStory } from '@/app/types';
 import { getPositionGroup, type PositionButtonGroup } from '@/app/prototypes/shared/types';
 import type { Story } from '@/app/prototypes/shared/types';
 import { GravatarAvatar } from '@/components/ui/gravatar-avatar';
@@ -55,6 +55,7 @@ export function PointDetailPage() {
   const [userPosition, setUserPosition] = useState<PositionType | null>(null);
   const [retryKey, setRetryKey] = useState(0);
   const [linkedStories, setLinkedStories] = useState<Map<string, StoryWithAuthor[]>>(new Map());
+  const [viewerStory, setViewerStory] = useState<AppStory | null>(null);
   // P401: Guard position removal with linked-stories warning dialog
   const { dialogProps, guardedRemovePosition } = useRemovePositionGuard({
     userId: user?.id ?? '',
@@ -79,12 +80,15 @@ export function PointDetailPage() {
       }
 
       try {
-        const [pointData, positionData, storiesData] = await Promise.all([
+        const [pointData, positionData, storiesData, viewerStoryData] = await Promise.all([
           user?.id
             ? pointsService.getPointWithUserPosition(id, user.id)
             : pointsService.getPointWithCounts(id),
           pointsService.getPositionsForPoint(id),
           storiesService.getStoriesForPoints([id]).catch(() => new Map<string, StoryWithAuthor[]>()),
+          user?.id
+            ? storiesService.getStoryByUserAndPoint(user.id, id).catch(() => null)
+            : Promise.resolve(null),
         ]);
 
         if (!pointData) {
@@ -96,6 +100,7 @@ export function PointDetailPage() {
         setPoint(pointData);
         setPositions(positionData);
         setLinkedStories(storiesData);
+        setViewerStory(viewerStoryData);
         if (user?.id && (pointData as PointWithUserPosition).userPosition) {
           setUserPosition((pointData as PointWithUserPosition).userPosition!.position);
         }
@@ -177,7 +182,6 @@ export function PointDetailPage() {
         return;
       } else {
         await pointsService.setPosition(id, user.id, newPosition);
-        setShowStoryCTA(true);
       }
 
       // Reload point to get updated counts
@@ -208,6 +212,7 @@ export function PointDetailPage() {
     setPoint(null);
     setPositions([]);
     setLinkedStories(new Map());
+    setViewerStory(null);
     setRetryKey(k => k + 1);
   }, []);
 
@@ -347,6 +352,36 @@ export function PointDetailPage() {
             return (
               <div key={positionGroup} className="space-y-3">
                 {holdersInGroup.map(holder => {
+                  const isViewer = user?.id === holder.userId;
+
+                  // Req 6: viewer has a story — render full StoryCardWithLinks
+                  if (isViewer && viewerStory) {
+                    const protoStory: Story = {
+                      id: viewerStory.id,
+                      authorId: viewerStory.authorId,
+                      text: viewerStory.content,
+                      createdAt: viewerStory.createdAt,
+                      visibility: viewerStory.visibility,
+                      linkedPointIds: [],
+                      verificationCount: viewerStory.understoodCount,
+                    };
+                    const storyAuthor: StoryAuthor = {
+                      id: holder.userId,
+                      name: holder.userName,
+                      hasPledged: holder.userHasPledged,
+                      ear: holder.earCount,
+                    };
+                    return (
+                      <StoryCardWithLinks
+                        key={holder.id}
+                        story={protoStory}
+                        author={storyAuthor}
+                        context="point-detail"
+                        profileSubjectPosition={holder.position}
+                      />
+                    );
+                  }
+
                   const linkedStory = storyByAuthorId.get(holder.userId);
                   if (linkedStory) {
                     const protoStory: Story = {
@@ -375,11 +410,15 @@ export function PointDetailPage() {
                       />
                     );
                   }
+
+                  // Req 7: viewer has a position but no story — show CTA
+                  const showCta = isViewer && userPosition !== null && !viewerStory;
                   return (
                     <PositionHolderCard
                       key={holder.id}
                       holder={holder}
                       onProfileClick={() => navigate(`/p/${holder.userSlug}`)}
+                      ctaHref={showCta ? `/chat?from=position&pointId=${id}` : undefined}
                     />
                   );
                 })}
@@ -404,9 +443,11 @@ export function PointDetailPage() {
 function PositionHolderCard({
   holder,
   onProfileClick,
+  ctaHref,
 }: {
   holder: PointPositionWithUser;
   onProfileClick: () => void;
+  ctaHref?: string;
 }) {
   return (
     <div
@@ -437,7 +478,17 @@ function PositionHolderCard({
         <span className="font-medium text-foreground text-sm truncate">{holder.userName}</span>
         <EarBadge count={holder.earCount} name={holder.userName} />
         <PositionBadge position={holder.position} />
-        <span className="ml-auto text-xs text-muted-foreground italic shrink-0">No story yet</span>
+        {ctaHref ? (
+          <a
+            href={ctaHref}
+            onClick={e => e.stopPropagation()}
+            className="ml-auto text-xs text-blue-600 dark:text-blue-400 hover:underline shrink-0"
+          >
+            Add your story →
+          </a>
+        ) : (
+          <span className="ml-auto text-xs text-muted-foreground italic shrink-0">No story yet</span>
+        )}
       </div>
     </div>
   );

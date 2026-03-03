@@ -106,13 +106,24 @@ export async function createTestPosition(
 
   // Sign in as the user to insert with their JWT.
   // The point_positions INSERT policy requires auth.uid() = user_id and is_verified = true,
-  // so we use the user's own session (same pattern as createTestUser's profile creation).
+  // so we use the user's own session.
+  //
+  // IMPORTANT: Use a temp client (not supabaseAdmin) for sign-in to avoid corrupting
+  // supabaseAdmin's service_role session. Calling supabaseAdmin.auth.signInWithPassword()
+  // sets the in-memory session to the user's JWT, causing all subsequent admin inserts
+  // to run as the user (not service_role) — breaking e.g. createTestStory with
+  // visibility: 'private' (code 42501, RLS violation).
   const { data: userData, error: userError } = await supabaseAdmin.auth.admin.getUserById(userId);
   if (userError || !userData.user?.email) {
     throw new Error(`Failed to get user for position creation: ${userError?.message}`);
   }
 
-  const { data: signInData, error: signInError } = await supabaseAdmin.auth.signInWithPassword({
+  const supabaseUrl = process.env.VITE_SUPABASE_URL!;
+  const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY!;
+  const tempSignInClient = createClient(supabaseUrl, supabaseAnonKey, {
+    auth: { autoRefreshToken: false, persistSession: false },
+  });
+  const { data: signInData, error: signInError } = await tempSignInClient.auth.signInWithPassword({
     email: userData.user.email,
     password: TEST_PASSWORD,
   });
@@ -121,8 +132,6 @@ export async function createTestPosition(
     throw new Error(`Failed to sign in user for position creation: ${signInError?.message}`);
   }
 
-  const supabaseUrl = process.env.VITE_SUPABASE_URL!;
-  const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY!;
   const userClient = createClient(supabaseUrl, supabaseAnonKey, {
     global: { headers: { Authorization: `Bearer ${signInData.session.access_token}` } },
     auth: { autoRefreshToken: false, persistSession: false },

@@ -26,6 +26,8 @@ import {
   Pin,
   ChevronDown,
   ChevronRight,
+  Pencil,
+  Trash2,
 } from "lucide-react";
 import { GravatarAvatar } from "@/components/ui/gravatar-avatar";
 
@@ -170,6 +172,8 @@ export function ProfilePageV2() {
 
   // P465: Viewer story count map for other profiles (fetched async)
   const [viewerStoryCountMap, setViewerStoryCountMap] = useState<Map<string, number>>(new Map());
+  // P470: Viewer story ID map for other profiles — pointId → storyId (first story per point)
+  const [viewerStoryIdForPoint, setViewerStoryIdForPoint] = useState<Map<string, string>>(new Map());
   const [realEarsCount, setRealEarsCount] = useState<number>(0);
 
   // P422: Agreements state
@@ -304,6 +308,24 @@ export function ProfilePageV2() {
           linksByPoint.set(link.point_id, storyIds);
         });
 
+        // Fetch the actual story records for all linked story IDs.
+        // Query directly (not via stories-service) so RLS applies correctly:
+        // visitors see public/shared stories; owners see all their own stories.
+        // This fixes the bug where private stories (the default) were invisible
+        // to visitors because the earlier getStoriesByAuthorWithPoints call
+        // was scoped to the owner and returned no data for non-authors.
+        const allLinkedStoryIds = [...new Set([...linksByPoint.values()].flat())];
+        const { data: linkedStoriesRaw } = allLinkedStoryIds.length > 0
+          ? await supabase
+              .from('stories')
+              .select('id, content, author_id, created_at, understood_count, tags, visibility')
+              .in('id', allLinkedStoryIds)
+          : { data: [] as Array<{ id: string; content: string; author_id: string; created_at: string; understood_count: number; tags: string[]; visibility: string }> };
+
+        const linkedStoriesById = new Map(
+          (linkedStoriesRaw ?? []).map(s => [s.id, s])
+        );
+
         // P134: Adapt points to prototype format with linked stories
         const adaptedPoints: AdaptedPoint[] = validPoints.map(point => {
           const linkedStoryIds = linksByPoint.get(point.id) || [];
@@ -325,20 +347,20 @@ export function ProfilePageV2() {
             };
           }
 
-          // Find stories from our loaded stories and adapt them to prototype format
+          // Adapt linked stories using the RLS-gated batch query result
           const linkedStories = linkedStoryIds
             .map(storyId => {
-              const story = stories.find(s => s.id === storyId);
+              const story = linkedStoriesById.get(storyId);
               if (!story) return null;
               return {
                 id: story.id,
                 text: story.content,
-                authorId: story.authorId,
-                createdAt: story.createdAt,
-                visibility: 'public' as const,
-                verificationCount: story.understoodCount,
+                authorId: story.author_id,
+                createdAt: story.created_at,
+                visibility: (story.visibility as StoryVisibility) ?? 'public',
+                verificationCount: story.understood_count ?? 0,
                 tags: story.tags || [],
-                linkedPointIds: story.points?.map(p => p.id) || [],
+                linkedPointIds: [point.id],
               };
             })
             .filter((s): s is AdaptedStory => s !== null);
@@ -894,6 +916,7 @@ export function ProfilePageV2() {
                     credibilityStats={credibilityStats}
                     currentUserId={currentUser?.id}
                     onPointPositionSelect={handleProfilePointPosition}
+                    onDelete={(storyId) => setRealStories(prev => prev.filter(s => s.id !== storyId))}
                   />
                 ))
               )
@@ -924,6 +947,11 @@ export function ProfilePageV2() {
                         ? (viewerStoriesForPoint?.get(point.id) ?? 0)
                         : (viewerStoryCountMap?.get(point.id) ?? 0)
                     }
+                    viewerStoryId={
+                      currentUser?.id !== profile?.id
+                        ? viewerStoryIdForPoint.get(point.id)
+                        : undefined
+                    }
                     getStoryAuthor={(authorId) => {
                       // Return author info for stories
                       if (authorId === profile.id) {
@@ -938,7 +966,6 @@ export function ProfilePageV2() {
                       }
                       return undefined;
                     }}
-                    onDeleteStory={() => guardedRemovePosition(point.id)}
                   />
                 ))
               )
@@ -974,6 +1001,7 @@ interface StoryCardFullProps {
   credibilityStats: { ear: number; mic: number };
   currentUserId?: string;
   onPointPositionSelect?: (pointId: string, pos: Position | null) => void;
+  onDelete?: (storyId: string) => void;
 }
 
 const STORY_THRESHOLD = 180;
@@ -984,10 +1012,12 @@ function StoryCardFull({
   credibilityStats,
   currentUserId,
   onPointPositionSelect,
+  onDelete,
 }: StoryCardFullProps) {
   const navigate = useNavigate();
   const [pointsExpanded, setPointsExpanded] = useState(false);
   const [storyExpanded, setStoryExpanded] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const handleCardClick = () => {
     navigate(detailRoutes.story(story.id));
@@ -1119,6 +1149,42 @@ function StoryCardFull({
 
         {/* Action icons */}
         <div className="flex items-center gap-1">
+          {/* Edit/Delete — owner only */}
+          {currentUserId === story.authorId && (
+            <>
+              <MobileTooltip content="Edit story">
+                <button
+                  onClick={(e) => { e.stopPropagation(); navigate(`/story/${story.id}?edit=true`); }}
+                  className="min-w-[44px] min-h-[44px] flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted rounded-full transition-colors"
+                  aria-label="Edit story"
+                >
+                  <Pencil size={16} />
+                </button>
+              </MobileTooltip>
+              <MobileTooltip content="Delete story">
+                <button
+                  onClick={async (e) => {
+                    e.stopPropagation();
+                    if (!window.confirm('Delete this story? This cannot be undone.')) return;
+                    setIsDeleting(true);
+                    const success = await storiesService.deleteStory(story.id);
+                    if (success) {
+                      toast.success('Story deleted');
+                      onDelete?.(story.id);
+                    } else {
+                      toast.error('Failed to delete story');
+                      setIsDeleting(false);
+                    }
+                  }}
+                  disabled={isDeleting}
+                  className="min-w-[44px] min-h-[44px] flex items-center justify-center text-muted-foreground hover:text-red-500 hover:bg-muted rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  aria-label="Delete story"
+                >
+                  <Trash2 size={16} />
+                </button>
+              </MobileTooltip>
+            </>
+          )}
           <ShareButton
             type="story"
             id={story.id}

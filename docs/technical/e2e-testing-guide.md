@@ -57,6 +57,33 @@ E2E tests in this project use Playwright to test the full stack — from browser
 
 All test helpers live in `e2e/helpers/`. User creation uses the Admin API to create the auth user, then signs in with the user's own JWT to create the profile (satisfies `auth.uid() = id` RLS policy). Avoid service_role bypass for profile creation — PostgREST's `SET LOCAL ROLE` doesn't set the `current_setting('role')` GUC, making those policies unreliable.
 
+### Critical: Never call `signInWithPassword` on `supabaseAdmin`
+
+`supabaseAdmin` is a **module-level singleton**. Calling `supabaseAdmin.auth.signInWithPassword()` mutates its in-memory session to the user's JWT — **all subsequent calls on `supabaseAdmin` then run as that user**, not as service_role. This breaks any helper that runs after it (e.g., `createTestStory` with `visibility: 'private'` fails RLS).
+
+**The pattern for user sign-in inside helpers:**
+```typescript
+// ❌ WRONG — corrupts supabaseAdmin's session for all subsequent helpers
+const { data } = await supabaseAdmin.auth.signInWithPassword({ email, password });
+
+// ✅ CORRECT — use a short-lived temp client from the anon key
+const tempSignInClient = createClient(supabaseUrl, supabaseAnonKey, {
+  auth: { autoRefreshToken: false, persistSession: false },
+});
+const { data: signInData } = await tempSignInClient.auth.signInWithPassword({ email, password });
+// Then create a userClient with the session token for the actual RLS-gated insert
+const userClient = createClient(supabaseUrl, supabaseAnonKey, {
+  global: { headers: { Authorization: `Bearer ${signInData.session.access_token}` } },
+  auth: { autoRefreshToken: false, persistSession: false },
+});
+```
+
+`supabaseAdmin.auth.signOut()` was thought to restore service_role mode but doesn't reliably do so — the client may fall back to anonymous mode. Use `tempSignInClient` instead.
+
+### Parallel-worker slug uniqueness
+
+When `fullyParallel: true`, multiple Playwright workers may run `beforeAll` at the same millisecond. `generateTestSlug` uses both `Date.now()` **and** a 4-digit random suffix to prevent `profiles_slug_unique` constraint violations:
+
 ### User Helpers (`test-user.ts`)
 
 **Create test user:**

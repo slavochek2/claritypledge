@@ -6,7 +6,7 @@
 
 import { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Pin, ChevronDown, ChevronRight, ExternalLink, Pencil, Trash2 } from 'lucide-react';
+import { Pin, ChevronDown, ChevronRight, ExternalLink } from 'lucide-react';
 import { EarBadge } from '@/components/ui/ear-badge';
 import { MobileTooltip } from '@/app/components/shared/mobile-tooltip';
 import { GravatarAvatar } from '@/components/ui/gravatar-avatar';
@@ -72,8 +72,9 @@ interface PointCardWithLinksProps {
   getStoryAuthor?: (authorId: string) => StoryAuthor | undefined;
   /** Callback when user clicks on a story */
   onStoryClick?: (storyId: string) => void;
-  /** P465: Callback to delete the viewer's story on this point (own profile only) */
-  onDeleteStory?: (pointId: string) => void;
+
+  /** P470: Viewer's story ID for this point on another profile — used to render edit link */
+  viewerStoryId?: string;
 }
 
 /**
@@ -98,7 +99,7 @@ export function PointCardWithLinks({
   currentUserId,
   getStoryAuthor,
   onStoryClick,
-  onDeleteStory,
+  viewerStoryId,
 }: PointCardWithLinksProps) {
   const navigate = useNavigate();
   const isOwnProfile = !!(currentUserId && profileOwner?.id && currentUserId === profileOwner.id);
@@ -274,63 +275,82 @@ export function PointCardWithLinks({
                 onClick={(e) => e.stopPropagation()}
               >
                 {/* Collapsible trigger (if has linked stories) or 0-stories CTA */}
-                {!isDetailView && filteredStories.length > 0 ? (
-                  <button
-                    onClick={() => setStoriesExpanded(!storiesExpanded)}
-                    className="flex items-center gap-2 text-sm text-gray-600 hover:text-blue-600 transition-colors"
-                    aria-expanded={storiesExpanded}
-                    aria-label={`${storiesExpanded ? 'Collapse' : 'Expand'} linked stories`}
-                  >
-                    {storiesExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-                    <span>
-                      {filteredStories.length} {filteredStories.length === 1 ? 'story' : 'stories'}{profileOwner && !isOwnProfile ? ` by ${profileOwner.name}` : ''}
-                      {/* P465: viewer's own story count suffix on other profiles */}
-                      {(() => {
-                        const vc = viewerStoryCount ?? filteredStories.filter(s => s.authorId === currentUserId).length;
-                        return (vc > 0 && profileOwner && !isOwnProfile) ? ` · ${vc} by you` : null;
-                      })()}
-                    </span>
-                  </button>
-                ) : !isDetailView && userPosition && !liveSessionMode && (viewerStoryCount ?? filteredStories.filter(s => s.authorId === currentUserId).length) === 0 ? (
-                  /* P465: 0 stories + CTA unified — shown when position taken, no story yet */
-                  <button
-                    onClick={(e) => { e.stopPropagation(); navigate(`/chat?from=position&pointId=${point.id}`); }}
-                    className="flex items-center gap-2 text-sm text-blue-600 hover:text-blue-700 transition-colors"
-                    aria-label="Add a story for this point"
-                  >
-                    <ChevronRight size={14} />
-                    <span>0 stories · Add a story</span>
-                  </button>
-                ) : (
-                  <span />
-                )}
+                {(() => {
+                  if (isDetailView) return <span />;
+                  const effectiveViewerCount = viewerStoryCount ?? filteredStories.filter(s => s.authorId === currentUserId).length;
+                  const storyLabel = `${filteredStories.length} ${filteredStories.length === 1 ? 'story' : 'stories'}${profileOwner ? ` by ${profileOwner.name}` : ''}`;
+
+                  if (filteredStories.length > 0) {
+                    // Expand chevron button always rendered when stories exist
+                    return (
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <button
+                          onClick={() => setStoriesExpanded(!storiesExpanded)}
+                          className="flex items-center gap-2 text-sm text-gray-600 hover:text-blue-600 transition-colors"
+                          aria-expanded={storiesExpanded}
+                          aria-label={`${storiesExpanded ? 'Collapse' : 'Expand'} linked stories`}
+                        >
+                          {storiesExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                          <span>{storyLabel}</span>
+                        </button>
+                        {/* Case D: viewer has position but no story yet on another's profile */}
+                        {!liveSessionMode && !isOwnProfile && userPosition && effectiveViewerCount === 0 && (
+                          <button
+                            onClick={(e) => { e.stopPropagation(); navigate(`/chat?from=position&pointId=${point.id}`); }}
+                            className="text-sm text-blue-600 hover:text-blue-700 transition-colors"
+                            aria-label="Add your story"
+                          >
+                            · Add your story →
+                          </button>
+                        )}
+                        {/* Case E: viewer has a story on another profile's point */}
+                        {!liveSessionMode && !isOwnProfile && viewerStoryId && (
+                          <button
+                            onClick={(e) => { e.stopPropagation(); navigate(`/story/${viewerStoryId}?edit=true`); }}
+                            className="text-sm text-blue-600 hover:text-blue-700 transition-colors"
+                            aria-label="Edit your story"
+                          >
+                            · ✏ your story
+                          </button>
+                        )}
+                      </div>
+                    );
+                  }
+
+                  if (!liveSessionMode && userPosition && effectiveViewerCount === 0) {
+                    // Case B/F: 0 stories, viewer has position — show 0-stories label + Add CTA
+                    return (
+                      <div className="flex items-center gap-2">
+                        <ChevronRight size={14} className="text-gray-400" />
+                        <span className="text-sm text-gray-600">{storyLabel}</span>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); navigate(`/chat?from=position&pointId=${point.id}`); }}
+                          className="text-sm text-blue-600 hover:text-blue-700 transition-colors"
+                          aria-label="Add your story"
+                        >
+                          · Add your story →
+                        </button>
+                      </div>
+                    );
+                  }
+
+                  if (profileOwner && filteredStories.length > 0) {
+                    // Case G / no-position view: show story count without CTA
+                    // Only when there are stories to show — 0 stories + no position = empty left (Case G)
+                    return (
+                      <div className="flex items-center gap-2">
+                        <ChevronRight size={14} className="text-gray-400" />
+                        <span className="text-sm text-gray-600">{storyLabel}</span>
+                      </div>
+                    );
+                  }
+
+                  return <span />;
+                })()}
 
                 {/* Action icons - hidden in live session mode */}
                 {!hideActions && !liveSessionMode && (
                   <div className="flex items-center gap-1">
-                    {/* P465: edit/delete controls on own profile when viewer has a story */}
-                    {isOwnProfile && (viewerStoryCount ?? filteredStories.filter(s => s.authorId === currentUserId).length) > 0 && (
-                      <>
-                        <MobileTooltip content="Edit your story">
-                          <button
-                            onClick={(e) => { e.stopPropagation(); navigate(`/chat?from=position&pointId=${point.id}`); }}
-                            className="min-w-[44px] min-h-[44px] flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors"
-                            aria-label="Edit your story"
-                          >
-                            <Pencil size={16} />
-                          </button>
-                        </MobileTooltip>
-                        <MobileTooltip content="Delete your story">
-                          <button
-                            onClick={(e) => { e.stopPropagation(); onDeleteStory?.(point.id); }}
-                            className="min-w-[44px] min-h-[44px] flex items-center justify-center text-gray-400 hover:text-destructive hover:bg-gray-100 rounded-full transition-colors"
-                            aria-label="Delete your story"
-                          >
-                            <Trash2 size={16} />
-                          </button>
-                        </MobileTooltip>
-                      </>
-                    )}
                     <ShareButton
                       type="point"
                       id={point.id}
@@ -400,26 +420,62 @@ export function PointCardWithLinks({
           onClick={(e) => e.stopPropagation()}
         >
           {/* Collapsible trigger - show in live session mode with all stories, or on profile/feed with any linked stories */}
-          {!isDetailView &&
-          (liveSessionMode
-            ? allLinkedStories.length > 0
-            : filteredStories.length > 0) ? (
-            <button
-              onClick={() => setStoriesExpanded(!storiesExpanded)}
-              className="flex items-center gap-2 text-sm text-gray-600 hover:text-blue-600 transition-colors"
-              aria-expanded={storiesExpanded}
-              aria-label={`${storiesExpanded ? 'Collapse' : 'Expand'} linked stories`}
-            >
-              {storiesExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-              <span>
-                {liveSessionMode
-                  ? `${allLinkedStories.length} ${
-                      allLinkedStories.length === 1 ? 'story' : 'stories'
-                    }`
-                  : `${filteredStories.length} ${filteredStories.length === 1 ? 'story' : 'stories'}${profileOwner ? ` by ${profileOwner.name}` : ''}`}
-              </span>
-            </button>
-          ) : (
+          {!isDetailView ? (() => {
+            if (liveSessionMode) {
+              if (allLinkedStories.length === 0) return <span />;
+              return (
+                <button
+                  onClick={() => setStoriesExpanded(!storiesExpanded)}
+                  className="flex items-center gap-2 text-sm text-gray-600 hover:text-blue-600 transition-colors"
+                  aria-expanded={storiesExpanded}
+                  aria-label={`${storiesExpanded ? 'Collapse' : 'Expand'} linked stories`}
+                >
+                  {storiesExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                  <span>{allLinkedStories.length} {allLinkedStories.length === 1 ? 'story' : 'stories'}</span>
+                </button>
+              );
+            }
+            const effectiveViewerCount = viewerStoryCount ?? filteredStories.filter(s => s.authorId === currentUserId).length;
+            const storyLabel = `${filteredStories.length} ${filteredStories.length === 1 ? 'story' : 'stories'}${profileOwner ? ` by ${profileOwner.name}` : ''}`;
+
+            if (filteredStories.length > 0) {
+              return (
+                <div className="flex items-center gap-2 flex-wrap">
+                  <button
+                    onClick={() => setStoriesExpanded(!storiesExpanded)}
+                    className="flex items-center gap-2 text-sm text-gray-600 hover:text-blue-600 transition-colors"
+                    aria-expanded={storiesExpanded}
+                    aria-label={`${storiesExpanded ? 'Collapse' : 'Expand'} linked stories`}
+                  >
+                    {storiesExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                    <span>{storyLabel}</span>
+                  </button>
+                  {/* Case D: viewer has position but no story yet on another's profile */}
+                  {!liveSessionMode && !isOwnProfile && userPosition && effectiveViewerCount === 0 && (
+                    <button
+                      onClick={(e) => { e.stopPropagation(); navigate(`/chat?from=position&pointId=${point.id}`); }}
+                      className="text-sm text-blue-600 hover:text-blue-700 transition-colors"
+                      aria-label="Add your story"
+                    >
+                      · Add your story →
+                    </button>
+                  )}
+                  {/* Case E: viewer has a story on another profile's point */}
+                  {!isOwnProfile && viewerStoryId && (
+                    <button
+                      onClick={(e) => { e.stopPropagation(); navigate(`/story/${viewerStoryId}?edit=true`); }}
+                      className="text-sm text-blue-600 hover:text-blue-700 transition-colors"
+                      aria-label="Edit your story"
+                    >
+                      · ✏ your story
+                    </button>
+                  )}
+                </div>
+              );
+            }
+
+            return <span />; /* Empty span for flexbox spacing */
+          })() : (
             <span /> /* Empty span for flexbox spacing */
           )}
 
