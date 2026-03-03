@@ -44,8 +44,9 @@ export function generateTestEmail(): string {
  */
 export function generateTestSlug(name: string): string {
   const timestamp = Date.now();
+  const random = Math.floor(Math.random() * 10000);
   const slug = name.toLowerCase().replace(/\s+/g, '-');
-  return `${slug}-${timestamp}`;
+  return `${slug}-${timestamp}-${random}`;
 }
 
 // Test password for all test users (never used in production)
@@ -96,9 +97,20 @@ export async function createTestUser(options: {
   console.log(`[TEST HELPER] Auth user created: ${authData.user.id}`);
 
   // Sign in as the new user to get their JWT — use it to create the profile.
-  // This satisfies the "Users can insert their own profile" RLS policy (auth.uid() = id)
-  // and avoids relying on the service_role bypass policy which has proven unreliable.
-  const { data: signInData, error: signInError } = await supabaseAdmin.auth.signInWithPassword({
+  // This satisfies the "Users can insert their own profile" RLS policy (auth.uid() = id).
+  //
+  // IMPORTANT: Use a temp client (not supabaseAdmin) for sign-in. Calling
+  // supabaseAdmin.auth.signInWithPassword() modifies supabaseAdmin's in-memory session
+  // so that all subsequent requests run as the user (not service_role). The subsequent
+  // signOut() call was supposed to restore service_role mode, but it doesn't reliably
+  // do so — the client may fall back to anonymous mode, causing RLS violations on later
+  // inserts (e.g. createTestStory with visibility: 'private' fails with code 42501).
+  const supabaseUrl = process.env.VITE_SUPABASE_URL!;
+  const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY!;
+  const tempSignInClient = createClient(supabaseUrl, supabaseAnonKey, {
+    auth: { autoRefreshToken: false, persistSession: false },
+  });
+  const { data: signInData, error: signInError } = await tempSignInClient.auth.signInWithPassword({
     email,
     password: TEST_PASSWORD,
   });
@@ -108,8 +120,6 @@ export async function createTestUser(options: {
   }
 
   // Create an authenticated client using the user's own JWT
-  const supabaseUrl = process.env.VITE_SUPABASE_URL!;
-  const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY!;
   const userClient = createClient(supabaseUrl, supabaseAnonKey, {
     global: { headers: { Authorization: `Bearer ${signInData.session.access_token}` } },
     auth: { autoRefreshToken: false, persistSession: false },
@@ -128,11 +138,6 @@ export async function createTestUser(options: {
       avatar_color: '#4A90E2',
       is_verified: true,
     }, { onConflict: 'id' });
-
-  // Restore supabaseAdmin to service_role mode — signInWithPassword above modified its
-  // in-memory session, which would cause subsequent admin inserts to run as the user (not
-  // service_role). Signing out resets the client back to using the service_role API key.
-  await supabaseAdmin.auth.signOut();
 
   if (profileError) {
     console.error('[TEST HELPER] Failed to create profile:', profileError);
