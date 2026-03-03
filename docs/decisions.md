@@ -2,6 +2,20 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-03 [product]: Story count in point card footer shows only visible stories, not total
+
+**Context:** Visitor viewing a profile sees "0 stories by [owner]" when owner has private stories. Owner sees "1 story" on the same card. Annotation in screenshot asked "why 0?" — confirmed this is intentional, not a bug.
+
+**Decision:** The story count in the point card footer reflects only stories *visible to the viewer*, not the total story count. Private stories (default since P424) are not counted for visitors. This is correct — the count is "stories you could actually read", not "stories that exist."
+
+**Alternatives rejected:** Show total count regardless of visibility — rejected because showing "3 stories" when none are accessible is misleading and creates a dead CTA.
+
+**Consequences:** Visitors will often see "0 stories" on new profiles where stories haven't been made public. This is acceptable: it accurately reflects what's accessible. The "Add your story" CTA appears when the visitor has a position, providing a path forward regardless of owner story count.
+
+**References:** P470 E2E Flow 1 test explicitly asserts this: `visitor sees "0 stories by owner" when story is private (RLS correctly restricts)`
+
+---
+
 ## 2026-03-03 [technical]: supabaseAdmin singleton mutation breaks subsequent service_role inserts
 
 **Context:** P470 E2E tests failed with "new row violates row-level security policy for table 'stories'" when `createTestStory` was called with `visibility: 'private'`, even though `supabaseAdmin` uses the service_role key and bypass policies exist. Root cause: `createTestPosition` called `supabaseAdmin.auth.signInWithPassword()` BEFORE `createTestStory` in `beforeAll`, leaving `supabaseAdmin`'s in-memory session set to the user's JWT. All subsequent service_role calls ran as the user instead.
