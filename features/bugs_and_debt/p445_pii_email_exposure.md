@@ -1,5 +1,5 @@
 ---
-status: week
+status: uat
 type: bug
 rank: 94122.5
 workstream: C1
@@ -29,7 +29,7 @@ The full email address of the invited party is displayed in the agreement flow U
 
 ## Root Cause
 
-_To be investigated. Likely: agreement display component renders raw user.email from the DB row without masking or abstracting to a display name._
+`getPartnerName()` in `src/app/components/agreements/agreement-row.tsx` fell back to `agreement.partnerEmail` (raw DB field) when the invited party had no linked profile (`agreement.partner` was null). This is the only path to screen — the agreement detail page (`agreement-page.tsx`) already used a proper fallback chain (`partner.name → partnerDisplayName → 'Invited party'`). The row component was the single missed spot.
 
 ## Resolution
 
