@@ -318,6 +318,19 @@ export function ClarityLivePage() {
   useEffect(() => {
     isCreatorRef.current = isCreator;
   }, [isCreator]);
+
+  // P126: Keep a current JWT ref so pagehide handler can use it for authenticated REST calls.
+  // The anon key alone is blocked by RLS on clarity_sessions for the joiner PATCH path.
+  const jwtRef = useRef<string | null>(null);
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => {
+      jwtRef.current = data.session?.access_token ?? null;
+    });
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      jwtRef.current = session?.access_token ?? null;
+    });
+    return () => subscription.unsubscribe();
+  }, []);
   const viewRef = useRef<ViewState>(view);
   useEffect(() => {
     viewRef.current = view;
@@ -341,10 +354,14 @@ export function ClarityLivePage() {
 
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
       const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
+      // Use the user's JWT when available so RLS-protected tables (joiner PATCH) are
+      // authorised. Fall back to anon key — creator path uses SECURITY DEFINER RPC which
+      // bypasses RLS regardless.
+      const authToken = jwtRef.current ?? supabaseAnonKey;
       const headers = {
         'Content-Type': 'application/json',
         'apikey': supabaseAnonKey,
-        'Authorization': `Bearer ${supabaseAnonKey}`,
+        'Authorization': `Bearer ${authToken}`,
         'Prefer': 'return=minimal',
       };
 
