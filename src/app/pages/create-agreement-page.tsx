@@ -110,13 +110,11 @@ export function CreateAgreementPage() {
 
   // Partner name change handler — sets the "user typed" flag to prevent auto-fill overwrite
   const handlePartnerNameChange = useCallback((name: string) => {
-    userTypedNameRef.current = name.length > 0;
+    if (name.length > 0) userTypedNameRef.current = true;
     setPartnerName(name);
-    if (errors.partnerName && name.trim()) {
-      setErrors((prev) => ({ ...prev, partnerName: undefined }));
-    }
+    setErrors((prev) => prev.partnerName && name.trim() ? { ...prev, partnerName: undefined } : prev);
     setSubmitError(null);
-  }, [errors.partnerName]);
+  }, []);
 
   // Debounced email lookup
   const handleEmailChange = useCallback(
@@ -166,8 +164,6 @@ export function CreateAgreementPage() {
       setErrors((prev) => ({ ...prev, termsText: undefined }));
     }
   };
-
-  const partnerNameInputRef = useRef<HTMLInputElement | null>(null);
 
   const validate = (): boolean => {
     const newErrors: { partnerName?: string; partnerEmail?: string; termsText?: string } = {};
@@ -306,7 +302,6 @@ export function CreateAgreementPage() {
           </label>
           <div className="relative">
             <Input
-              ref={partnerNameInputRef as React.Ref<HTMLInputElement>}
               id="partner-email"
               type="email"
               value={partnerEmail}
@@ -347,7 +342,7 @@ export function CreateAgreementPage() {
         {/* Visibility Selector */}
         <fieldset>
           <legend className="block text-sm font-medium mb-2">Visibility</legend>
-          <div className="flex gap-2" role="radiogroup" aria-label="Agreement visibility">
+          <div className="flex gap-2">
             {VISIBILITY_OPTIONS.map((opt) => {
               const Icon = opt.icon;
               const isSelected = visibility === opt.value;

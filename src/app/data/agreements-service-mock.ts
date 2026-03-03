@@ -1,4 +1,4 @@
-import type { AgreementsService, ClarityAgreement, AgreementParty } from './agreements-service.interface';
+import type { AgreementsService, ClarityAgreement, AgreementParty, AcceptAgreementInput } from './agreements-service.interface';
 
 const MOCK_PARTY_A: AgreementParty = {
   profileId: 'mock-user-a',
@@ -25,6 +25,7 @@ const MOCK_AGREEMENTS: ClarityAgreement[] = [
     creatorProfileId: 'mock-user-a',
     partnerProfileId: 'mock-user-b',
     partnerEmail: 'jordan@example.com',
+    partnerDisplayName: null,
     termsText:
       'We agree to communicate with honesty and care. We will give each other direct, calibrated feedback without softening or exaggerating. We will flag when we notice miscalibration and receive that feedback with openness.',
     status: 'active',
@@ -44,6 +45,7 @@ const MOCK_AGREEMENTS: ClarityAgreement[] = [
     creatorProfileId: 'mock-user-a',
     partnerProfileId: null,
     partnerEmail: 'taylor@example.com',
+    partnerDisplayName: null,
     termsText:
       'We commit to practicing calibrated communication in our coaching sessions. Direct, honest, and kind — always.',
     status: 'pending',
@@ -71,6 +73,7 @@ export const mockAgreementsService: AgreementsService = {
       creatorProfileId: 'mock-user-a',
       partnerProfileId: null,
       partnerEmail: input.partnerEmail,
+      partnerDisplayName: input.partnerDisplayName ?? null,
       termsText: input.termsText,
       status: 'pending',
       visibility: input.visibility,
@@ -85,6 +88,18 @@ export const mockAgreementsService: AgreementsService = {
     };
     MOCK_AGREEMENTS.push(agreement);
     return agreement;
+  },
+
+  async acceptAgreement(input: AcceptAgreementInput) {
+    const agreement = MOCK_AGREEMENTS.find(a => a.id === input.agreementId);
+    if (!agreement) return false;
+    agreement.status = 'active';
+    agreement.partnerProfileId = input.partnerId;
+    agreement.partnerSignedAt = new Date().toISOString();
+    if (input.partnerDisplayName !== undefined) {
+      agreement.partnerDisplayName = input.partnerDisplayName;
+    }
+    return true;
   },
 
   async getAgreement(id) {

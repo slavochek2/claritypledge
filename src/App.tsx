@@ -265,6 +265,9 @@ export default function ClarityPledgeApp() {
           path="/agreements/new"
           element={<Navigate to="/agreements/new/create" replace />}
         />
+        {/* ⚠ Coupling: /agreements/new redirects here (see route above).
+             If this path is ever renamed, add a redirect from /agreements/new/create
+             to the new path — otherwise bookmarked/shared URLs will 404. */}
         <Route
           path="/agreements/new/create"
           element={

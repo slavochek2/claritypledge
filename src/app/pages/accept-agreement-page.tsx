@@ -48,6 +48,7 @@ export function AcceptAgreementPage() {
 
   // Action UI state
   const [isAccepting, setIsAccepting] = useState(false);
+  const [nameError, setNameError] = useState<string | null>(null);
   const [isDeclining, setIsDeclining] = useState(false);
   const [showDeclineConfirm, setShowDeclineConfirm] = useState(false);
   const [showCelebration, setShowCelebration] = useState(false);
@@ -100,6 +101,11 @@ export function AcceptAgreementPage() {
 
   const handleAccept = async () => {
     if (!agreement || !currentUser || !agreementId) return;
+    if (partnerDisplayName.trim().length > 100) {
+      setNameError('Name must be 100 characters or fewer');
+      return;
+    }
+    setNameError(null);
     setIsAccepting(true);
     try {
       const accepted = await agreementsService.acceptAgreement({
@@ -229,8 +235,8 @@ export function AcceptAgreementPage() {
   const returnTo = `/agreements/${agreementId}/accept`;
   const tokenParam = `token=${encodeURIComponent(token)}`;
 
-  // P466: name to show in certificate — pre-filled or blank
-  const certificatePartnerName = partnerDisplayName || agreement?.partnerDisplayName || undefined;
+  // P466: name to show in certificate — live state only (pre-filled from ag.partnerDisplayName on load)
+  const certificatePartnerName = partnerDisplayName || undefined;
 
   return (
     <div className="min-h-screen bg-[#F5F3EF] py-10 px-4">
@@ -321,10 +327,13 @@ export function AcceptAgreementPage() {
                 type="text"
                 aria-label="Partner's full name"
                 value={partnerDisplayName}
-                onChange={e => setPartnerDisplayName(e.target.value)}
+                onChange={e => { setPartnerDisplayName(e.target.value); setNameError(null); }}
                 placeholder="Your full name"
-                maxLength={110}
+                maxLength={100}
               />
+              {nameError && (
+                <p className="mt-1 text-xs text-red-600">{nameError}</p>
+              )}
             </div>
 
             <p className="text-sm text-[#1A1A1A]/70 text-center">

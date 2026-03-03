@@ -235,10 +235,10 @@ export function AgreementCertificate({
             </label>
             <textarea
               id="agreement-terms"
-              aria-label="Agreement terms"
               aria-describedby="terms-char-count"
               aria-invalid={termsError ? 'true' : undefined}
               value={termsText ?? ''}
+              maxLength={TERMS_MAX}
               onChange={e => onTermsChange(e.target.value)}
               rows={8}
               className={`w-full resize-y bg-transparent border-0 border-b text-sm leading-relaxed text-[#1A1A1A]/80 focus-visible:outline-none focus-visible:ring-0 placeholder:text-[#1A1A1A]/30 min-h-[120px] ${
