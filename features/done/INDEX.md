@@ -1,12 +1,13 @@
 # Done Features Index
 
 Quick reference for past completed work. Consult when starting work on a related topic.
-Last updated: 2026-03-03 (P470)
+Last updated: 2026-03-03 (P445, P446, P126)
 
 ---
 
 ## Live Session / Real-time
 
+- **P126** (Mar 03) /live Departure Detection — pagehide uses `fetch({keepalive:true})` + user JWT so joiner PATCH clears RLS; creator path via SECURITY DEFINER RPC unaffected
 - **P398** (Feb 26) Session Round History — session state captured at round completion; history persists via sessionHistory table
 - **P399** (Feb 26) Live state story race condition — full-overwrite merges carry stale data; use atomic partial `patch_live_state` RPC
 - **P405** (Feb 26) My Sessions History — replace /live history block with global nav Sessions section
@@ -26,6 +27,7 @@ Last updated: 2026-03-03 (P470)
 - **P413** (Feb 26) Calibration from Any Exchange — `story_id`/`version_id` nullable on `story_verifications`; trigger guards for NULL story_id; InlineCalibration hidden until 5 sessions (was always rendered); test helper double-counting bug: trigger already increments count, don't add manually
 - **P423** (Feb 26) Calibration on Every Paraphrase — record calibration data on every exchange; no story/score requirement
 - **P424** (Feb 26) Visibility Model — three-tier (Private/Shared/Public); RLS uses EXISTS subquery on event_rsvps for shared
+- **P446** (Mar 03) Chat State Persistence — sessionStorage keyed by pointId; PERSISTABLE_PHASES whitelist blocks streaming/saving restore; clears on save complete or reset
 - **P425** (Feb 25) AI-Guided Story Creation Core Loop — `/chat` page with AI streaming chat; phase state machine guides user from staking a position to filing a first-person story; Supabase edge function, rate limiting, NVC scaffolding
 - **P425** (Feb 26) AI Story Guide Chat — ship via non-feature branch leaves spec at qa; code-on-main ≠ spec-closed
 - **P426** (Feb 26) Story Show/More Toggle — character limit prevents excessive card height; expandable text pattern
@@ -79,6 +81,7 @@ Last updated: 2026-03-03 (P470)
 
 ## Agreements & Relationships
 
+- **P445** (Mar 03) PII Email Masking — agreement row `getPartnerName()` falls back to `partnerDisplayName` → 'Invited party'; raw `partnerEmail` no longer rendered
 - **P463** (Mar 02) Agreement & Partner UI Polish — remove exposed internal IDs and double-rotation resend bug by deleting amber pending block entirely; CTA always at top-right
 - **P422** (Feb 26) Clarity Partner Agreement — two-party agreement flow; separate pages per state (create/pending/accepted/declined); edge function sends emails
 - **P422** (Feb 26) Clarity Partner Agreement — UAT branch rescue pattern; revert-from-main wrong mechanism; use feature branch + /ship instead

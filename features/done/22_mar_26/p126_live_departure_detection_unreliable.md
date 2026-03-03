@@ -1,5 +1,5 @@
 ---
-status: uat
+status: all-done
 type: bug
 rank: 2
 workstream: C1
