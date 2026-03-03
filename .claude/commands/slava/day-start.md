@@ -34,6 +34,12 @@ rm -f ~/.whisper-lang
 ```
 Silent — no output needed.
 
+**b) Lid sleep reset** (`lid-sleep`)
+```bash
+sudo pmset -a disablesleep 0
+```
+Silent — no output needed. Ensures lid-close always sleeps at day start.
+
 **b) Claude extension check**
 Output this line immediately (before any checks):
 ```

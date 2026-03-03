@@ -2,6 +2,26 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-03 [process]: /falsify skill — 5-phase proposal testing with root-cause-first discipline
+
+**Context:** Meta-reflection from /kdd produced 3 process proposals. Running critique + falsification agents against them revealed all 3 failed — better fixes existed that the proposals missed. Prompted design of a reusable falsification skill.
+
+**Decision:** Created `/slava:think:falsify`. Key design choices:
+- **Root-cause agent (5-why) runs BEFORE critique/falsification** — falsifying a proposal without knowing the root cause tests symptom-prevention, not problem-prevention (gives false positives)
+- **Critique (principle-level, no file reading) + Falsification (evidence-level, reads code) run in parallel** — critique asks "is this overkill / wrong layer?" while falsification asks "does it actually prevent the root cause?"
+- **Scoring criteria agent runs BEFORE creative brainstorm** — prevents post-hoc bias (defining "good" after seeing options)
+- **30 proposals from 2-3 creative agents in parallel** — the first 10 are obvious; orthogonal solutions surface at 20-30
+- **Unified creative pool** — when 2+ proposals survive, all creative agents draw from the same unified pool (not top-5-per-proposal)
+- **4 Verdict buckets**: Apply / Decide / Skip / Flag tension — the Overkill+SURVIVES triage path produces "Flag tension" (critique says skip, evidence says it holds — user decides)
+
+**Alternatives rejected:** Single agent doing critique+falsification — no separation of concerns; post-hoc scoring criteria — biased toward the first options seen; per-proposal creative pools — misses cross-pollination between root causes.
+
+**Consequences:** Run `/falsify` after any /kdd meta-reflection before acting on proposals. Also valid for UX inputs (after `/ascii-flows` to make design concrete) and code architecture decisions.
+
+**References:** [.claude/commands/slava/think/falsify.md](.claude/commands/slava/think/falsify.md)
+
+---
+
 ## 2026-03-03 [process]: Conversation analysis skills — two-skill privacy split + MapReduce design
 
 **Context:** Needed a way to periodically analyze Claude conversation logs to surface strategic signals (lean-canvas, hypotheses, milestones, process friction) and personal/psychological patterns. Single skill risked personal content leaking into public cp repo.

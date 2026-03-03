@@ -11,6 +11,12 @@ rm -f ~/.whisper-lang
 ```
 Silent — no output needed.
 
+Also reset lid sleep:
+```bash
+sudo pmset -a disablesleep 0
+```
+Silent — no output needed. Ensures lid-close sleeps after the workday.
+
 ### 1. Gather today's data (run in parallel)
 
 - **Cloud server status**: `gcloud compute instances list --filter="name=clarity-agent" --format="value(name,status,zone)"` — note if RUNNING or TERMINATED
