@@ -62,7 +62,8 @@ Co-founder pairs are the PRIMARY ICP for C-track. Unlike generic workshop partic
 **Booking channel:** ladischenski.com → primary CTA is joining a free Calibration Lab. Intake questions qualify the dyad (functioning but misaligned, not in crisis).
 
 **Channel 1 — Free Calibration Lab** (primary, broadcast):
-- Biweekly, open enrollment, 90 min, cast wide (founders, operators, coaches)
+- Biweekly, open enrollment, 90 min, cast wide (founders, operators, coaches, AI practitioners)
+- Venue: founder communities AND AI-adjacent events (AI business meetups, etc.) — calibration lab format works in both
 - ladischenski.com is the entry point — the site offers the free Lab as the primary action, not a paid session
 - After the Lab: route based on who showed up
   - Co-founder pairs → partner agreement creation + /live follow-up practice

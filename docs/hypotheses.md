@@ -27,6 +27,15 @@ Our active bets, in priority order. This is the map of what we still need to pro
 
 ---
 
+### H-AICalib-EntryTeaser: AI calibration demo lowers trust barrier before co-founder offer
+**Bet:** A 5-minute AI calibration demo ("paraphrase what AI just told you → see the gap") has lower emotional load and faster demo-ability than leading with co-founder calibration. Used as a workshop opener or meetup hook, it primes participants for the calibration concept — making the co-founder offer easier to land.
+**Testing via:** Calibration Lab workshops at AI-adjacent events (AI business meetups, etc.). Measure: does the AI teaser create "aha" faster than a co-founder scenario? Does it make the co-founder pivot feel natural (not jarring)?
+**Kill if:** AI teaser creates confusion about what the product is FOR, or participants leave thinking "this is an AI tool" rather than "this is for my high-stakes relationships."
+**Notes (2026-03-03):** This is NOT a pivot to AI as a market. AI calibration is the demo vehicle; co-founder calibration is the product. Leading with AI calibration as primary positioning was considered and set aside — too diluted, no moat. The value is in the low-friction demo, not in the AI calibration market itself.
+**Precondition:** Workshop venue has AI-adjacent participants (AI meetups, AI-using founder communities) where AI examples land naturally.
+
+---
+
 ### H-MetaEpistemic-Prerequisite: Meta-epistemological alignment deepens session quality
 **Bet:** If both participants understand the meta-epistemological foundation before a /live session — specifically WHY we actively listen (the 8 postulates in philosophy.md), anchored via the sister story (cognitive vs emotional understanding) — session depth increases measurably compared to sessions without this briefing.
 **Testing via:** C1 sessions — brief both participants on the 8 postulates using the sister story as entry point before the session. Measure: does the session start deeper? Qualitative signal: "We didn't have to spend the first 10 minutes establishing what we're trying to do."

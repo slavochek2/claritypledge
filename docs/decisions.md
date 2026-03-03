@@ -2,6 +2,34 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-03 [product]: Content-led inbound is primary outbound channel; direct cold outreach dropped
+
+**Context:** Slava ran 2 co-founder coaching sessions this week. Sessions were well-received but people couldn't replicate the protocol without him present. Separately, Slava expressed strong demotivation toward cold outreach ("feel like shit" sending messages to people he hasn't talked to in years). First AI business meetup is ~1 week away — treated as confidence-building, not a client acquisition event.
+
+**Decision:** Primary outbound is content-led inbound (essays, workshop recordings, build-in-public posts) and running Calibration Labs in relevant communities (founder groups, AI meetups). Direct cold outreach to individuals is dropped as a channel. Inbound from cold outreach is fine; proactive cold messaging is not. Content starts after the first Lab generates real data (~Month 2).
+
+**Alternatives rejected:** Direct outreach to co-founder pairs — Slava doesn't want to do it, and "preventive calibration" is hard to sell to people who don't feel the risk. This is a motivation and market-fit signal, not just a preference.
+
+**Consequences:** Acquisition timeline shifts slightly — content-led takes longer to warm than cold outreach. The AI business meetup is treated as a confidence and calibration rep-building event, not a sales event. lean-canvas.md Channels updated to reflect this.
+
+**References:** `docs/lean-canvas.md` Channels section (Track 2)
+
+---
+
+## 2026-03-03 [product]: AI calibration as demo vehicle (not a market); pivot to AI market considered and rejected
+
+**Context:** Multiple conversations explored repositioning ladischenski.com and ClarityPledge around "AI calibration" — helping people verify they understood what AI told them. The falsify skill was run on this proposal.
+
+**Decision:** AI calibration is a useful 5-minute demo opener in AI-adjacent venues (lowers emotional load vs. co-founder scenario, instant demo-ability). It is NOT the primary market or positioning. The product is co-founder/high-stakes dyad calibration. Positioning ladischenski.com fully around AI listening was considered and set aside — oversaturated category, no moat, would confuse what the product is for. H-AICalib-EntryTeaser filed as an active hypothesis to test the "demo teaser" use specifically.
+
+**Alternatives rejected:** Full pivot to "AI coaching / listening-to-AI market" — no differentiation, crowded, and walking away from the calibration protocol's real moat (verified understanding in high-stakes relationships). Rebranding ladischenski.com to AI framing as primary — also rejected; site stays co-founder focused, AI venue is an additional acquisition channel not a repositioning.
+
+**Consequences:** ladischenski.com copy stays co-founder focused. AI business meetup expands the Lab venue set without changing product positioning. Calibration Labs cast wide (AI practitioners + founders welcome) but the partner agreement and co-founder framing remain the goal. hypotheses.md updated with H-AICalib-EntryTeaser + explicit rejection note.
+
+**References:** `docs/hypotheses.md` H-AICalib-EntryTeaser, `docs/milestones/c2-workshops.md` Channel 1
+
+---
+
 ## 2026-03-03 [process]: Globalizing a skill means move (delete original), not copy
 
 **Context:** `/slava:build:simplify` and `/slava:think:falsify` were moved from cp's `.claude/commands/slava/` to `~/.claude/commands/slava/` so they'd be available in all projects (e.g., pp). First pass created copies in both locations — caught immediately via duplicate skill entries in the skills list.

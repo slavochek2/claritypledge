@@ -49,5 +49,18 @@ When writing a principle to CLAUDE.md, a specific threshold ("30 minutes") was f
 Two separate sessions involved processing voice notes into structured product/philosophical content (extract ideas → classify → file spec / doc update / private content). Each session reinvented the intake flow with no template: what gets filed where, what stays private, what becomes a spec vs doc update.
 
 **Fix:** Create `/process-raw-ideas` skill. Steps: (1) read raw transcript, (2) extract distinct ideas, (3) classify each: spec / doc update / private / drop, (4) file or draft in the right place, (5) surface open questions and dropped threads. Should handle the "some content is private, some public" split explicitly.
+
+---
+
+## Sessions end without filed material — propagation chain breaks
+
+**Date:** 2026-03-03 (confirmed across multiple Feb 28 sessions)
+**Status:** proposed
+
+People leave calibration sessions without filed stories or points. When nothing is filed, there is no material for the mirror agent briefing protocol, no input for the filing loop propagation hypothesis (H-FilingLoop-Propagation), and no record of the session's insights. The propagation chain requires filing to work — a session that produces nothing filed generates nothing next. Slava's presence remains the only mechanism to initiate the next session.
+
+Confirmed via: sessions run Feb 28 — participants reported insights during session but nothing was filed after.
+
+**Proposed fix:** File capture must happen IN session, not as homework. Either: (a) Slava files stories/points live during the session using the filing chat, or (b) end-of-session ritual includes explicit 5-min filing moment before closing. The filing chat UI is the tool; building the habit of using it in-session is the intervention.
 ---
 

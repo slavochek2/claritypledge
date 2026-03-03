@@ -284,9 +284,8 @@ ClarityPledge is the platform brand (like Stripe). ladischenski.com is the found
 ### Track 2 (PRIMARY months 1-6): Coaching Path
 
 Primary channels for founder coaching revenue:
-- **Free Calibration Lab:** PRIMARY acquisition channel (90 min group session). Goal: get pairs into a room → experience the calibration gap → create a partner agreement + first /live session. Output is the agreement, not ticket revenue. Free/cost channel, not a revenue driver.
-- **Founder networks:** Direct outreach to co-founder pairs in accelerators, founder communities, peer groups
-- **Direct outreach:** Target functioning-but-misaligned co-founder pairs specifically
+- **Calibration Lab workshops:** PRIMARY acquisition channel — run in founder/AI communities (accelerators, AI business meetups, peer groups). Goal: pairs experience the gap → create partner agreement + first /live session. Cast wide: co-founder pairs, AI practitioners, solo founders. Route post-session based on who showed up.
+- **Content-led inbound:** Essays, build-in-public posts, and workshop recordings generate inbound inquiries without cold outreach. Starts after first Lab produces real data (~Month 2).
 - **Coach partnerships:** Partner with executive coaches who work with founders → referrals
 
 **Success signals:** 10 Calibration Lab participants by Month 3, €3k/month by Month 6.
