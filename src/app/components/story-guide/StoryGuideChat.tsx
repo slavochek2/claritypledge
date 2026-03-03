@@ -115,13 +115,20 @@ type PersistedChatState = {
   selectedVisibility: StoryVisibility;
 };
 
-function storageKey(pointId: string | undefined): string {
-  return `story-chat-${pointId ?? 'no-point'}`;
+// Phases that are safe to persist. Transient phases (streaming, saving) are excluded
+// because restoring into them yields a broken UI with no active fetch or save in flight.
+const PERSISTABLE_PHASES = new Set<ChatPhase>(['idle', 'brain-dump', 'rating', 'iterating', 'polish', 'visibility']);
+
+function storageKey(pointId: string | undefined): string | null {
+  if (!pointId) return null; // Don't persist across point-less sessions — shared key causes collision
+  return `story-chat-${pointId}`;
 }
 
 function loadChatState(pointId: string | undefined): PersistedChatState | null {
+  const key = storageKey(pointId);
+  if (!key) return null;
   try {
-    const raw = sessionStorage.getItem(storageKey(pointId));
+    const raw = sessionStorage.getItem(key);
     if (!raw) return null;
     return JSON.parse(raw) as PersistedChatState;
   } catch {
@@ -130,16 +137,20 @@ function loadChatState(pointId: string | undefined): PersistedChatState | null {
 }
 
 function saveChatState(pointId: string | undefined, state: PersistedChatState): void {
+  const key = storageKey(pointId);
+  if (!key) return;
   try {
-    sessionStorage.setItem(storageKey(pointId), JSON.stringify(state));
+    sessionStorage.setItem(key, JSON.stringify(state));
   } catch {
     // sessionStorage quota exceeded or unavailable — silently ignore
   }
 }
 
 function clearChatState(pointId: string | undefined): void {
+  const key = storageKey(pointId);
+  if (!key) return;
   try {
-    sessionStorage.removeItem(storageKey(pointId));
+    sessionStorage.removeItem(key);
   } catch {
     // ignore
   }
@@ -280,14 +291,19 @@ export function StoryGuideChat({
     currentDraftVersionRef.current = currentDraftVersion;
   }, [currentDraftVersion]);
 
-  // P446: Persist chat state to sessionStorage (create mode only, not when saved/saving)
+  // P446: Persist chat state to sessionStorage (create mode only)
+  // Only persist stable phases — streaming/saving are transient; restoring them yields broken UI.
   useEffect(() => {
-    if (existingStory) return; // Edit mode — don't persist (story already in DB)
+    if (existingStory) return; // Edit mode — story is in DB, no need to persist
     if (phase === 'saved') {
       clearChatState(pointId);
       return;
     }
-    if (messages.length === 0) return; // Nothing to persist yet
+    if (messages.length === 0) {
+      clearChatState(pointId); // Clear any stale entry so restored state can't bleed through
+      return;
+    }
+    if (!PERSISTABLE_PHASES.has(phase)) return; // Skip transient phases (streaming, saving)
     saveChatState(pointId, { messages, phase, iterationCount, currentDraftVersion, polishedContent, selectedVisibility });
   }, [messages, phase, iterationCount, currentDraftVersion, polishedContent, selectedVisibility, pointId, existingStory]);
 
