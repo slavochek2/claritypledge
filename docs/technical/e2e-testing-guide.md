@@ -458,7 +458,7 @@ test('slow operation', async ({ page }) => {
 npx playwright install chromium
 ```
 
-Safe to re-run — idempotent. Run after any `npm install` that updates `@playwright/test`.
+Safe to re-run — idempotent. This is now automated via `postinstall` in `package.json` — running `npm install` will install/update the binary automatically.
 
 ---
 
@@ -474,6 +474,16 @@ supabase db push
 ```
 
 Apply `20260214_e2e_test_rls_complete_fix.sql` migration.
+
+---
+
+### Slug Collision (profiles_slug_unique)
+
+**Symptom:** Intermittent test failure — `duplicate key value violates unique constraint "profiles_slug_unique"`
+
+**Cause:** `generateTestSlug` used `Date.now()` alone. Playwright workers creating multiple users with the same `name` option within the same millisecond produce identical slugs.
+
+**Fix (already applied):** `generateTestSlug` now appends `Math.floor(Math.random() * 10000)` — same pattern as `generateTestEmail`. If you see this again, check whether a new helper function generates slugs without the random suffix.
 
 ---
 
