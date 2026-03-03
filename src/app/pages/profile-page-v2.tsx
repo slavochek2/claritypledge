@@ -318,9 +318,9 @@ export function ProfilePageV2() {
         const { data: linkedStoriesRaw } = allLinkedStoryIds.length > 0
           ? await supabase
               .from('stories')
-              .select('id, content, author_id, created_at, understood_count, tags')
+              .select('id, content, author_id, created_at, understood_count, tags, visibility')
               .in('id', allLinkedStoryIds)
-          : { data: [] as Array<{ id: string; content: string; author_id: string; created_at: string; understood_count: number; tags: string[] }> };
+          : { data: [] as Array<{ id: string; content: string; author_id: string; created_at: string; understood_count: number; tags: string[]; visibility: string }> };
 
         const linkedStoriesById = new Map(
           (linkedStoriesRaw ?? []).map(s => [s.id, s])
@@ -357,10 +357,10 @@ export function ProfilePageV2() {
                 text: story.content,
                 authorId: story.author_id,
                 createdAt: story.created_at,
-                visibility: 'public' as const,
+                visibility: (story.visibility as StoryVisibility) ?? 'public',
                 verificationCount: story.understood_count ?? 0,
                 tags: story.tags || [],
-                linkedPointIds: [],
+                linkedPointIds: [point.id],
               };
             })
             .filter((s): s is AdaptedStory => s !== null);
