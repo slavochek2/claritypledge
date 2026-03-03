@@ -2,6 +2,36 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-03 [technical]: pagehide + async fetch = silent departure loss; fix is keepalive + JWT
+
+**Context:** P126 — /live departure detection was unreliable. The `pagehide` handler fired correctly but the Supabase JS client calls were killed by the browser before completing (browser tears down page context on tab close / navigation).
+
+**Decision:** Two-part fix required:
+1. Use `fetch({ keepalive: true })` instead of Supabase client methods in `pagehide` handlers — `keepalive` tells the browser to complete the request even after page teardown. `navigator.sendBeacon` is not an alternative because it cannot send custom headers (`apikey`, `Authorization`).
+2. Pass the user's JWT (`jwtRef.current`) not the anon key in the `Authorization` header. Direct REST calls bypass the Supabase JS client's automatic auth injection. Tables with RLS silently block anon-key writes with zero rows affected — no error thrown.
+
+**Alternatives rejected:** `navigator.sendBeacon` — cannot set custom headers. Supabase SECURITY DEFINER RPC for all paths — works but requires a migration per path. JWT from local storage — fragile; use `supabase.auth.onAuthStateChange` to keep a ref current.
+
+**Consequences:** Any cleanup that must run on tab close / navigation away needs this pattern. Creator path uses SECURITY DEFINER RPC (bypasses RLS regardless of auth token). Joiner path uses direct REST PATCH — needs valid JWT.
+
+**References:** `src/app/pages/clarity-live-page.tsx` (jwtRef + pagehide handler), P126 spec
+
+---
+
+## 2026-03-03 [technical]: sessionStorage persistence — whitelist stable phases, null key for undefined IDs
+
+**Context:** P446 — StoryGuideChat state was lost on navigation. Simple sessionStorage persistence introduced a subtle bug: restoring `phase: 'streaming'` or `phase: 'saving'` yields a frozen UI (no active fetch, disabled input, no recovery path).
+
+**Decision:** Use a `PERSISTABLE_PHASES` whitelist (`Set<ChatPhase>`) — only persist phases where the UI is valid without an active async operation. Transient phases (`streaming`, `saving`) are excluded from the set; the save effect returns early if `!PERSISTABLE_PHASES.has(phase)`. Additionally: `storageKey()` returns `null` when `pointId` is undefined — all storage functions guard on null key — preventing multiple point-less chat sessions from sharing one storage slot.
+
+**Alternatives rejected:** Map transient phases back to predecessor phase before saving — fragile (requires knowing the predecessor). Save everything, clear on mount if phase is transient — loses the chat history.
+
+**Consequences:** Pattern applies to any stateful multi-phase UI that needs to survive navigation: define a whitelist of "safe to restore" phases up front. Lazy `useState` initializer + single `useRef` parse (avoiding N JSON.parse calls) is the right restore pattern.
+
+**References:** `src/app/components/story-guide/StoryGuideChat.tsx` (PERSISTABLE_PHASES, storageKey, save effect), P446 spec
+
+---
+
 ## 2026-03-03 [process]: Globalizing a skill means move (delete original), not copy
 
 **Context:** `/slava:build:simplify` and `/slava:think:falsify` were moved from cp's `.claude/commands/slava/` to global `~/.claude/commands/slava/` so they'd be available in all projects (e.g., pp). First pass created copies in both locations — caught immediately via duplicate skill entries in the skills list.
