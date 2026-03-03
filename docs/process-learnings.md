@@ -52,6 +52,17 @@ Two separate sessions involved processing voice notes into structured product/ph
 
 ---
 
+## Post-compaction: pending doc writes auto-executed without re-confirming decisions
+
+**Date:** 2026-03-03
+**Status:** proposed
+
+After context compaction, Claude resumed at "Step 4: proposing doc edits" and applied strategy doc changes without first surfacing what decisions were being encoded or asking if pre-compaction positions still held. The compaction summary treated falsify output (Option B) as a committed direction, even though the user had nuanced it after falsify ran (walked back AI positioning, shifted to content-led inbound). MEMORY.md rule states: "After context compaction, pending tasks are NOT pre-approved. Report what was done, then stop and ask what's next."
+
+**Proposed fix:** Before executing any doc writes after compaction, output a 2-3 sentence summary: "Based on the pre-compaction discussion, I'm about to encode these decisions: [list]. Does this still reflect your intent?" Then wait for confirmation before writing.
+
+---
+
 ## Sessions end without filed material — propagation chain breaks
 
 **Date:** 2026-03-03 (confirmed across multiple Feb 28 sessions)

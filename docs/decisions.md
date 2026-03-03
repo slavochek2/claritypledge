@@ -74,20 +74,6 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
-## 2026-03-03 [process]: Globalizing a skill means move (delete original), not copy
-
-**Context:** `/slava:build:simplify` and `/slava:think:falsify` were moved from cp's `.claude/commands/slava/` to global `~/.claude/commands/slava/` so they'd be available in all projects (e.g., pp). First pass created copies in both locations — caught immediately via duplicate skill entries in the skills list.
-
-**Decision:** When promoting a skill from project-local to global: (1) copy content to `~/.claude/commands/slava/<namespace>/<skill>`, (2) delete the original from the project, (3) update any CLAUDE.md references to the new path. Global skills are available in all projects including the originating one — no need to keep a local copy.
-
-**Alternatives rejected:** Keeping the project copy "for safety" — creates two sources of truth that silently diverge. The cp project's CLAUDE.md would update the local one; edits from pp context would be lost.
-
-**Consequences:** Skills that are project-agnostic (decision frameworks, thinking tools) should live globally. Skills with cp-specific context (e.g., `/kdd`, `/dev`, `/ascii-flows`) stay local to cp. The duplication signal: if a skill appears twice in the skills list, one copy must be deleted.
-
-**References:** `~/.claude/commands/slava/build/simplify/SKILL.md`, `~/.claude/commands/slava/think/falsify.md`
-
----
-
 ## 2026-03-03 [product]: Story count in point card footer shows only visible stories, not total
 
 **Context:** Visitor viewing a profile sees "0 stories by [owner]" when owner has private stories. Owner sees "1 story" on the same card. Annotation in screenshot asked "why 0?" — confirmed this is intentional, not a bug.

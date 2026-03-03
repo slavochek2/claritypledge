@@ -196,15 +196,16 @@ JSONL format: each line is a JSON object. Conversation messages have `type: "use
     </if>
 
     <if condition="clarifying questions exist">
+      <action>Classify each question before formatting: (a) factual — one clearly right answer once context is known; ask plainly. (b) direction — requires choosing between two valid interpretations with trade-offs; format as a /simplify block (Situation / Options A-B / Recommendation / Reply: A or B).</action>
       <output>
         ## Clarifying Questions
 
         Before I draft updates, I need your input on [N] things:
 
-        1. [Question — include the signal and why it's ambiguous]
-        2. [Question]
-        ...
+        [factual questions as plain numbered items]
+        [direction questions as /simplify blocks]
 
+        For direction questions, reply with the option letter. For factual questions, reply inline.
         Answer all at once and I'll draft the full update plan.
       </output>
       <action>Wait for user response before proceeding to step 4</action>
