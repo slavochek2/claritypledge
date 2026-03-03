@@ -44,8 +44,9 @@ export function generateTestEmail(): string {
  */
 export function generateTestSlug(name: string): string {
   const timestamp = Date.now();
+  const random = Math.floor(Math.random() * 10000);
   const slug = name.toLowerCase().replace(/\s+/g, '-');
-  return `${slug}-${timestamp}`;
+  return `${slug}-${timestamp}-${random}`;
 }
 
 // Test password for all test users (never used in production)

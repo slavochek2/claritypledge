@@ -4,7 +4,7 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "postinstall": "bash scripts/install-hooks.sh",
+    "postinstall": "bash scripts/install-hooks.sh && npx playwright install chromium",
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint . --max-warnings 999",
