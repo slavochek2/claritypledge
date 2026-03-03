@@ -102,6 +102,60 @@ export interface StoryGuideChatProps {
 
 const MAX_BRAIN_DUMP_LENGTH = 5000;
 
+// ---------------------------------------------------------------------------
+// sessionStorage persistence helpers (P446)
+// ---------------------------------------------------------------------------
+
+type PersistedChatState = {
+  messages: P425Message[];
+  phase: ChatPhase;
+  iterationCount: number;
+  currentDraftVersion: number;
+  polishedContent: string | null;
+  selectedVisibility: StoryVisibility;
+};
+
+// Phases that are safe to persist. Transient phases (streaming, saving) are excluded
+// because restoring into them yields a broken UI with no active fetch or save in flight.
+const PERSISTABLE_PHASES = new Set<ChatPhase>(['idle', 'brain-dump', 'rating', 'iterating', 'polish', 'visibility']);
+
+function storageKey(pointId: string | undefined): string | null {
+  if (!pointId) return null; // Don't persist across point-less sessions — shared key causes collision
+  return `story-chat-${pointId}`;
+}
+
+function loadChatState(pointId: string | undefined): PersistedChatState | null {
+  const key = storageKey(pointId);
+  if (!key) return null;
+  try {
+    const raw = sessionStorage.getItem(key);
+    if (!raw) return null;
+    return JSON.parse(raw) as PersistedChatState;
+  } catch {
+    return null;
+  }
+}
+
+function saveChatState(pointId: string | undefined, state: PersistedChatState): void {
+  const key = storageKey(pointId);
+  if (!key) return;
+  try {
+    sessionStorage.setItem(key, JSON.stringify(state));
+  } catch {
+    // sessionStorage quota exceeded or unavailable — silently ignore
+  }
+}
+
+function clearChatState(pointId: string | undefined): void {
+  const key = storageKey(pointId);
+  if (!key) return;
+  try {
+    sessionStorage.removeItem(key);
+  } catch {
+    // ignore
+  }
+}
+
 const EDGE_FN_URL =
   (import.meta.env.VITE_STORY_GUIDE_EDGE_FN_URL as string | undefined) ??
   `${import.meta.env.VITE_SUPABASE_URL as string}/functions/v1/story-guide-chat`;
@@ -179,17 +233,37 @@ export function StoryGuideChat({
     }
   }, [user, pointId, guardedRemovePosition]);
 
-  const [phase, setPhase] = useState<ChatPhase>(() => existingStory ? 'polish' : 'idle');
-  const [messages, setMessages] = useState<P425Message[]>([]);
+  // P446: Restore persisted chat state on mount (create mode only — not edit mode).
+  // Use a ref to load once at mount; lazy useState initialisers run only on first render
+  // but calling loadChatState() independently in each initialiser would parse JSON 5×.
+  const persistedStateRef = useRef<PersistedChatState | null | undefined>(undefined);
+  function getPersistedState(): PersistedChatState | null {
+    if (persistedStateRef.current === undefined) {
+      persistedStateRef.current = !existingStory ? loadChatState(pointId) : null;
+    }
+    return persistedStateRef.current;
+  }
+
+  const [phase, setPhase] = useState<ChatPhase>(() => {
+    if (existingStory) return 'polish';
+    return getPersistedState()?.phase ?? 'idle';
+  });
+  const [messages, setMessages] = useState<P425Message[]>(() => getPersistedState()?.messages ?? []);
   const [streamingContent, setStreamingContent] = useState<string | null>(null);
-  const [iterationCount, setIterationCount] = useState(0);
+  const [iterationCount, setIterationCount] = useState(() => getPersistedState()?.iterationCount ?? 0);
   const [consecutiveFailures, setConsecutiveFailures] = useState(0);
   const [apiError, setApiError] = useState<string | null>(null);
-  const [selectedVisibility, setSelectedVisibility] = useState<StoryVisibility>(() => existingStory?.visibility ?? 'private');
+  const [selectedVisibility, setSelectedVisibility] = useState<StoryVisibility>(() => {
+    if (existingStory) return existingStory.visibility ?? 'private';
+    return getPersistedState()?.selectedVisibility ?? 'private';
+  });
   const [isSaving, setIsSaving] = useState(false);
   const [inputValue, setInputValue] = useState('');
-  const [currentDraftVersion, setCurrentDraftVersion] = useState(0);
-  const [polishedContent, setPolishedContent] = useState<string | null>(() => existingStory?.content ?? null);
+  const [currentDraftVersion, setCurrentDraftVersion] = useState(() => getPersistedState()?.currentDraftVersion ?? 0);
+  const [polishedContent, setPolishedContent] = useState<string | null>(() => {
+    if (existingStory) return existingStory.content ?? null;
+    return getPersistedState()?.polishedContent ?? null;
+  });
   const [ratingValue, setRatingValue] = useState<number | null>(null);
   const [ratingComment, setRatingComment] = useState('');
 
@@ -216,6 +290,22 @@ export function StoryGuideChat({
   useEffect(() => {
     currentDraftVersionRef.current = currentDraftVersion;
   }, [currentDraftVersion]);
+
+  // P446: Persist chat state to sessionStorage (create mode only)
+  // Only persist stable phases — streaming/saving are transient; restoring them yields broken UI.
+  useEffect(() => {
+    if (existingStory) return; // Edit mode — story is in DB, no need to persist
+    if (phase === 'saved') {
+      clearChatState(pointId);
+      return;
+    }
+    if (messages.length === 0) {
+      clearChatState(pointId); // Clear any stale entry so restored state can't bleed through
+      return;
+    }
+    if (!PERSISTABLE_PHASES.has(phase)) return; // Skip transient phases (streaming, saving)
+    saveChatState(pointId, { messages, phase, iterationCount, currentDraftVersion, polishedContent, selectedVisibility });
+  }, [messages, phase, iterationCount, currentDraftVersion, polishedContent, selectedVisibility, pointId, existingStory]);
 
   // ---------------------------------------------------------------------------
   // Auto-scroll on new messages / streaming
@@ -252,17 +342,18 @@ export function StoryGuideChat({
       return;
     }
 
-    if (messages.length === 0) {
-      setMessages([
-        {
-          id: makeId(),
-          role: 'ai',
-          content: "What's your experience behind this?\nBrain-dump it — messy is fine.",
-          timestamp: Date.now(),
-        },
-      ]);
-      setPhase('brain-dump');
-    }
+    // P446: Skip opening message if we restored persisted state
+    if (messages.length > 0) return;
+
+    setMessages([
+      {
+        id: makeId(),
+        role: 'ai',
+        content: "What's your experience behind this?\nBrain-dump it — messy is fine.",
+        timestamp: Date.now(),
+      },
+    ]);
+    setPhase('brain-dump');
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
