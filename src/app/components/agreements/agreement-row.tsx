@@ -17,7 +17,7 @@ export interface AgreementRowProps {
 
 function getPartnerName(agreement: ClarityAgreement, currentProfileId: string): string {
   if (agreement.creatorProfileId === currentProfileId) {
-    return agreement.partner?.name ?? agreement.partnerEmail;
+    return agreement.partner?.name ?? agreement.partnerDisplayName ?? 'Invited party';
   }
   return agreement.creator?.name ?? 'Unknown';
 }
