@@ -9,7 +9,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/auth';
-import { supabase } from '@/lib/supabase';
 import { agreementsService } from '@/app/data/agreements-service';
 import type { AgreementParty, AgreementVisibility } from '@/app/data/agreements-service';
 import { AgreementCertificate } from '@/app/components/agreements/agreement-certificate';
@@ -92,17 +91,9 @@ export function CreateAgreementPage() {
     termsText?: string;
   }>({});
 
-  // Creator name + slug (nameless users cannot create agreements)
-  const [creatorName, setCreatorName] = useState<string | null | undefined>(undefined);
-  const [creatorSlug, setCreatorSlug] = useState<string | null>(null);
-  useEffect(() => {
-    if (!user?.id) return;
-    supabase.from('profiles').select('name, slug').eq('id', user.id).single()
-      .then(({ data }) => {
-        setCreatorName(data?.name ?? '');
-        setCreatorSlug(data?.slug ?? null);
-      });
-  }, [user?.id]);
+  // Creator name + slug — available directly from the Profile context (no DB fetch needed)
+  const creatorName = user?.name ?? undefined;
+  const creatorSlug = user?.slug ?? null;
 
   // Auth redirect
   useEffect(() => {

@@ -405,6 +405,54 @@ export const realAgreementsService: AgreementsService = {
     return true;
   },
 
+  async cancelInvitation(agreementId: string): Promise<boolean> {
+    log('cancelInvitation:', agreementId);
+
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      log('ERROR: cancelInvitation: No authenticated user');
+      return false;
+    }
+
+    const { data, error: fetchError } = await supabase
+      .from('clarity_agreements')
+      .select('id, creator_profile_id, status')
+      .eq('id', agreementId)
+      .maybeSingle();
+
+    if (fetchError || !data) {
+      log('ERROR: cancelInvitation: Agreement not found');
+      return false;
+    }
+
+    const row = data as { id: string; creator_profile_id: string; status: string };
+    if (row.creator_profile_id !== user.id) {
+      log('ERROR: cancelInvitation: Caller is not the creator');
+      return false;
+    }
+
+    if (row.status !== 'pending') {
+      log('ERROR: cancelInvitation: Cannot cancel agreement with status:', row.status);
+      return false;
+    }
+
+    const { error: updateError } = await supabase
+      .from('clarity_agreements')
+      .update({
+        status: 'terminated',
+        terminated_at: new Date().toISOString(),
+        terminated_by: user.id,
+      })
+      .eq('id', agreementId);
+
+    if (updateError) {
+      log('ERROR: cancelInvitation update error:', updateError);
+      return false;
+    }
+
+    return true;
+  },
+
   async terminateAgreement(agreementId: string): Promise<boolean> {
     log('terminateAgreement:', agreementId);
 

@@ -15,6 +15,10 @@ export interface AgreementRowProps {
   currentProfileId: string;
   /** When true, shows an inline Resend button on pending rows (owner view only). */
   resendable?: boolean;
+  /** When true, shows a Cancel button on pending rows (owner view only). */
+  cancelable?: boolean;
+  /** Called after a successful cancel so the parent can remove the row. */
+  onCancelled?: (agreementId: string) => void;
   onClick?: () => void;
 }
 
@@ -140,15 +144,84 @@ function ResendButton({ agreementId }: { agreementId: string }) {
   );
 }
 
+// ─── Inline cancel button (pending rows, owner only) ──────────────────────────
+
+function CancelButton({ agreementId, onCancelled }: { agreementId: string; onCancelled?: (id: string) => void }) {
+  const [confirming, setConfirming] = useState(false);
+  const [isCancelling, setIsCancelling] = useState(false);
+
+  const handleClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setConfirming(true);
+  };
+
+  const handleConfirm = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsCancelling(true);
+    try {
+      const ok = await agreementsService.cancelInvitation(agreementId);
+      if (ok) {
+        toast.success('Invitation cancelled.');
+        onCancelled?.(agreementId);
+      } else {
+        toast.error('Failed to cancel. Try again.');
+      }
+    } catch {
+      toast.error('Failed to cancel. Try again.');
+    } finally {
+      setIsCancelling(false);
+      setConfirming(false);
+    }
+  };
+
+  const handleAbort = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setConfirming(false);
+  };
+
+  if (confirming) {
+    return (
+      <div className="flex items-center gap-1 flex-shrink-0" onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}>
+        <button
+          onClick={handleAbort}
+          className="text-xs px-2 py-1 rounded-md border border-input text-muted-foreground hover:bg-muted min-h-[32px]"
+        >
+          Keep
+        </button>
+        <button
+          onClick={handleConfirm}
+          disabled={isCancelling}
+          className="text-xs px-2 py-1 rounded-md border border-red-300 text-red-600 hover:bg-red-50 disabled:opacity-50 min-h-[32px]"
+        >
+          {isCancelling ? '...' : 'Cancel'}
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <button
+      onClick={handleClick}
+      className="text-xs px-2.5 py-1 rounded-md border border-input text-muted-foreground hover:bg-muted flex-shrink-0 min-h-[32px]"
+    >
+      Revoke
+    </button>
+  );
+}
+
 // ─── Component ────────────────────────────────────────────────────────────────
 
-export function AgreementRow({ agreement, currentProfileId, resendable, onClick }: AgreementRowProps) {
+export function AgreementRow({ agreement, currentProfileId, resendable, cancelable, onCancelled, onClick }: AgreementRowProps) {
   const partnerName = getPartnerName(agreement, currentProfileId);
   const isTerminated =
     agreement.status === 'terminated' ||
     agreement.status === 'declined' ||
     agreement.status === 'expired';
   const showResend = resendable && agreement.status === 'pending';
+  const showCancel = cancelable && agreement.status === 'pending';
 
   const rowContent = (
     <div
@@ -162,9 +235,12 @@ export function AgreementRow({ agreement, currentProfileId, resendable, onClick 
         <p className="text-xs text-muted-foreground truncate">{subLabel(agreement)}</p>
       </div>
 
-      {/* Right side: resend button (pending) OR status badge */}
-      {showResend ? (
-        <ResendButton agreementId={agreement.id} />
+      {/* Right side: resend + cancel (pending, owner) OR status badge */}
+      {showResend || showCancel ? (
+        <div className="flex items-center gap-1 flex-shrink-0">
+          {showResend && <ResendButton agreementId={agreement.id} />}
+          {showCancel && <CancelButton agreementId={agreement.id} onCancelled={onCancelled} />}
+        </div>
       ) : (
         <StatusBadge status={agreement.status} />
       )}

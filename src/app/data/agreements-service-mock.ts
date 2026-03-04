@@ -131,6 +131,15 @@ export const mockAgreementsService: AgreementsService = {
     return true;
   },
 
+  async cancelInvitation(agreementId) {
+    const agreement = MOCK_AGREEMENTS.find(a => a.id === agreementId);
+    if (!agreement || agreement.status !== 'pending') return false;
+    agreement.status = 'terminated';
+    agreement.terminatedAt = new Date().toISOString();
+    agreement.terminatedBy = 'mock-user-a';
+    return true;
+  },
+
   async terminateAgreement(agreementId) {
     const agreement = MOCK_AGREEMENTS.find(a => a.id === agreementId);
     if (!agreement) return false;

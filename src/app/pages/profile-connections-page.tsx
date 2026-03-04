@@ -217,6 +217,8 @@ export function ProfileConnectionsPage() {
                       agreement={agreement}
                       currentProfileId={profile.id}
                       resendable={isOwner}
+                      cancelable={isOwner}
+                      onCancelled={(id) => setAgreements((prev) => prev.filter((a) => a.id !== id))}
                     />
                   ))}
                 </ul>
