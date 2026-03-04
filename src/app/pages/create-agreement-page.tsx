@@ -288,7 +288,7 @@ export function CreateAgreementPage() {
           onPartnerNameChange={handlePartnerNameChange}
           partnerNameValue={partnerName}
           partnerNameError={errors.partnerName}
-          partnerNamePlaceholder="their name"
+          partnerNamePlaceholder="Full name of your partner"
           onTermsChange={handleTermsChange}
           termsError={errors.termsText}
           footer={

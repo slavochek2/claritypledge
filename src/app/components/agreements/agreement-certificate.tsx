@@ -132,12 +132,6 @@ export function AgreementCertificate({
           <p className="text-[10px] md:text-xs text-[#1A1A1A]/60 uppercase tracking-[0.2em] font-sans">
             A mutual commitment to clarity
           </p>
-          <p
-            className="text-center text-sm md:text-base text-[#1A1A1A]/70 pt-1"
-            style={{ fontFamily: '"Playfair Display", Georgia, serif' }}
-          >
-            We all crave being understood. Let&apos;s commit to listen.
-          </p>
         </div>
 
         {/* P466: Creation mode — "We, [creator] and [partner input], agree to:" */}
@@ -161,14 +155,14 @@ export function AgreementCertificate({
                 onKeyDown={e => { if (e.key === 'Enter') e.preventDefault(); }}
                 placeholder={partnerNamePlaceholder}
                 maxLength={110}
-                className={`border-0 rounded-none bg-transparent focus-visible:outline-none focus-visible:ring-0 font-serif text-base md:text-lg font-semibold inline-block min-w-[120px] w-auto placeholder:text-[#1A1A1A]/30 placeholder:font-normal ${
+                className={`border-0 rounded-none bg-transparent focus-visible:outline-none focus-visible:ring-0 font-serif text-base md:text-lg font-semibold inline-block min-w-[220px] w-auto placeholder:text-[#1A1A1A]/30 placeholder:font-normal ${
                   partnerNameError
                     ? 'border-b-2 border-red-500 focus-visible:border-red-500'
                     : 'border-b-2 border-[#1A1A1A]/20 focus-visible:border-[#0044CC]'
                 }`}
                 style={{
                   fontFamily: '"Playfair Display", Georgia, serif',
-                  width: `${Math.max(120, (partnerNameValue?.length ?? 0) * 12)}px`,
+                  width: `${Math.max(220, (partnerNameValue?.length ?? 0) * 12)}px`,
                   maxWidth: '100%',
                 }}
               />,
