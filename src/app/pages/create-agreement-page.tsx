@@ -17,12 +17,13 @@ import { Loader2Icon, GlobeIcon, LockIcon, ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { MobileTooltip } from '@/app/components/shared/mobile-tooltip';
+import { toast } from 'sonner';
 
 const TERMS_MAX = 1000;
 
 const DEFAULT_TERMS = `Scope: Professional partnership — all work-related communication.
 Session duration: Minimum 15 minutes per /live session.
-Frequency: At least [X] /live session(s) per [month/quarter].
+Frequency: At least 1 /live session(s) per month.
 First session: We commit to completing a /live session within 30 days of signing.
 Response time: Session requests must be acknowledged within 14 days.
 Channel: Session requests via ClarityPledge only.
@@ -34,8 +35,8 @@ const VISIBILITY_OPTIONS: {
   label: string;
   tooltip: string;
 }[] = [
-  { value: 'private', icon: LockIcon, label: 'Private', tooltip: 'Only you and your partner can view this agreement.' },
   { value: 'public', icon: GlobeIcon, label: 'Public', tooltip: 'Anyone can view this agreement.' },
+  { value: 'private', icon: LockIcon, label: 'Private', tooltip: 'Only you and your partner can view this agreement.' },
 ];
 
 function AvatarBadge({ party }: { party: AgreementParty }) {
@@ -71,7 +72,7 @@ export function CreateAgreementPage() {
   // Form state
   const [partnerName, setPartnerName] = useState('');
   const [partnerEmail, setPartnerEmail] = useState('');
-  const [visibility, setVisibility] = useState<AgreementVisibility>('private');
+  const [visibility, setVisibility] = useState<AgreementVisibility>('public');
   const [termsText, setTermsText] = useState(DEFAULT_TERMS);
 
   // Track whether user has manually typed a name (prevents auto-fill overwrite)
@@ -233,6 +234,7 @@ export function CreateAgreementPage() {
         return;
       }
 
+      toast.success(`Agreement sent — waiting for ${partnerName.trim()} to co-sign.`);
       navigate(`/agreements/${agreement.id}`);
     } catch (err) {
       console.error('Error creating agreement:', err);
@@ -258,7 +260,7 @@ export function CreateAgreementPage() {
   const creatorHasNoName = creatorName !== undefined && !creatorName;
 
   return (
-    <div className="container mx-auto px-4 py-8 pb-24 md:py-12 md:pb-12 max-w-2xl">
+    <div className="container mx-auto px-4 py-8 pb-24 md:py-12 md:pb-12 max-w-3xl">
       <Button
         variant="ghost"
         onClick={() => navigate(-1)}
@@ -389,7 +391,7 @@ export function CreateAgreementPage() {
                 Sending...
               </>
             ) : (
-              'Seal & Send Invitation \u2736'
+              'Seal & Send \u2726'
             )}
           </Button>
         </div>

@@ -286,6 +286,14 @@ export const realAgreementsService: AgreementsService = {
 
     if (rows.length === 0) return [];
 
+    // C2: check-at-read expiry — presentation layer only, no DB write
+    const now = new Date();
+    rows.forEach(row => {
+      if (row.status === 'pending' && new Date(row.invitation_expires_at) < now) {
+        row.status = 'expired';
+      }
+    });
+
     // Batch-fetch all party profiles — no N+1
     const allProfileIds = Array.from(
       new Set(
