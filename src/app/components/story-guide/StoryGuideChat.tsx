@@ -538,6 +538,7 @@ export function StoryGuideChat({
 
       setMessages(prev => [...prev, draftCard, ratingPrompt]);
       setActiveRatingId(ratingPrompt.id);
+      setRatingValue(null); // reset so new bubble starts unselected
       setPhase('rating');
     },
     [session, pointText, userPosition]
@@ -618,7 +619,6 @@ export function StoryGuideChat({
     setTimeout(() => setRatingAnnouncement(''), 3000);
     // Send the rating as a user message, then reset so next rating bubble starts fresh
     handleSend(String(value));
-    setRatingValue(null);
   }, [handleSend]);
 
   // ---------------------------------------------------------------------------
