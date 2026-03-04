@@ -92,12 +92,16 @@ export function CreateAgreementPage() {
     termsText?: string;
   }>({});
 
-  // Creator name (nameless users cannot create agreements)
+  // Creator name + slug (nameless users cannot create agreements)
   const [creatorName, setCreatorName] = useState<string | null | undefined>(undefined);
+  const [creatorSlug, setCreatorSlug] = useState<string | null>(null);
   useEffect(() => {
     if (!user?.id) return;
-    supabase.from('profiles').select('name').eq('id', user.id).single()
-      .then(({ data }) => setCreatorName(data?.name ?? ''));
+    supabase.from('profiles').select('name, slug').eq('id', user.id).single()
+      .then(({ data }) => {
+        setCreatorName(data?.name ?? '');
+        setCreatorSlug(data?.slug ?? null);
+      });
   }, [user?.id]);
 
   // Auth redirect
@@ -233,7 +237,7 @@ export function CreateAgreementPage() {
       }
 
       toast.success(`Agreement sent — waiting for ${partnerName.trim()} to co-sign.`);
-      navigate(`/agreements/${agreement.id}`);
+      navigate(`/p/${creatorSlug ?? user.id}/partners`);
     } catch (err) {
       console.error('Error creating agreement:', err);
       setSubmitError('Failed to create agreement. Please check your connection and try again.');
