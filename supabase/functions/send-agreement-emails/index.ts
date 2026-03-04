@@ -132,7 +132,7 @@ async function handleInvitation(
     <h1 style="margin:0 0 8px;font-size:24px;font-weight:700;color:#111827;">You've been invited</h1>
     <p style="margin:0 0 16px;font-size:16px;color:#4b5563;">
       <strong>${creatorName}</strong> has invited you to a Clarity Partner Agreement —
-      a mutual commitment to maintain communication health through regular /live sessions.
+      a mutual commitment to avoid false disagreements when shit hits the fan.
     </p>
     <p style="margin:0 0 4px;font-size:14px;color:#6b7280;">
       You can review the full agreement terms before deciding to accept or decline.
@@ -142,8 +142,11 @@ async function handleInvitation(
       This invitation expires in 7 days. If you're new to Clarity Pledge,
       you'll be able to create an account as part of the signing flow.
     </p>
+    <p style="margin:8px 0 0;font-size:11px;color:#d1d5db;">
+      Your email was shared by ${creatorName} to send this invite. Remove it: <a href="mailto:privacy@claritypledge.com" style="color:#d1d5db;">privacy@claritypledge.com</a>
+    </p>
   `);
-  const text = `${creatorName} invited you to a Clarity Partner Agreement.\n\nReview and sign: ${acceptUrl}\n\nThis invitation expires in 7 days.\nClarity Pledge`;
+  const text = `${creatorName} invited you to a Clarity Partner Agreement.\n\nReview and sign: ${acceptUrl}\n\nThis invitation expires in 7 days.\n\nYour email was shared by ${creatorName} to send this invite. Remove it: privacy@claritypledge.com\nClarity Pledge`;
 
   await sendEmail({ to: agreement.partner_email, subject, html, text });
 }
