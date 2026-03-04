@@ -1,6 +1,5 @@
 ---
-status: qa
-delivery_stage: uat
+status: all-done
 type: task
 rank: 1000003
 tags:
@@ -8,6 +7,7 @@ tags:
   - p466
   - uat-polish
 created_date: 2026-03-03
+completed_at: "2026-03-04"
 flow: dev
 uat_file: features/uat/p472.md
 test_files:
