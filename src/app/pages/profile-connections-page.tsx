@@ -44,7 +44,7 @@ function EmptyState({ isOwner }: { isOwner: boolean }) {
       <p className="text-sm text-muted-foreground mb-4">No agreements to show.</p>
       {isOwner && (
         <Button asChild className="min-h-[44px] bg-[#0044CC] hover:bg-[#0044CC]/90 text-white">
-          <Link to="/agreements/new">Add a Partner?</Link>
+          <Link to="/agreements/new">Invite a new partner</Link>
         </Button>
       )}
     </div>
@@ -146,7 +146,7 @@ export function ProfileConnectionsPage() {
         </h1>
         {isOwner && (
           <Button asChild className="min-h-[44px] bg-[#0044CC] hover:bg-[#0044CC]/90 text-white">
-            <Link to="/agreements/new">Add a Partner?</Link>
+            <Link to="/agreements/new">Invite a new partner</Link>
           </Button>
         )}
       </div>
@@ -184,6 +184,7 @@ export function ProfileConnectionsPage() {
                       key={agreement.id}
                       agreement={agreement}
                       currentProfileId={profile.id}
+                      resendable={isOwner}
                     />
                   ))}
                 </ul>

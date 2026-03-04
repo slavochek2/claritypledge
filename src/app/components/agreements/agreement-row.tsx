@@ -4,12 +4,17 @@
  * Shows partner name, status badge, seal date, duration, and display ID.
  */
 
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { toast } from 'sonner';
 import type { ClarityAgreement } from '@/app/data/agreements-service.interface';
+import { agreementsService } from '@/app/data/agreements-service';
 
 export interface AgreementRowProps {
   agreement: ClarityAgreement;
   currentProfileId: string;
+  /** When true, shows an inline Resend button on pending rows (owner view only). */
+  resendable?: boolean;
   onClick?: () => void;
 }
 
@@ -81,14 +86,65 @@ function subLabel(agreement: ClarityAgreement): string {
   return '';
 }
 
+// ─── Inline resend button (pending rows, owner only) ──────────────────────────
+
+function ResendButton({ agreementId }: { agreementId: string }) {
+  const resendKey = `clarity-resend-${agreementId}`;
+  const [cooldownStart] = useState<number | null>(() => {
+    const stored = localStorage.getItem(resendKey);
+    return stored ? new Date(stored).getTime() : null;
+  });
+  const [sentAt, setSentAt] = useState<number | null>(cooldownStart);
+  const [isResending, setIsResending] = useState(false);
+
+  const isOnCooldown = sentAt !== null && Date.now() < sentAt + 86400000;
+  const remainingHours = isOnCooldown
+    ? Math.ceil((sentAt! + 86400000 - Date.now()) / 3600000)
+    : 0;
+
+  const handleClick = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (isResending || isOnCooldown) return;
+
+    setIsResending(true);
+    try {
+      const ok = await agreementsService.resendInvitation(agreementId);
+      if (ok) {
+        const now = Date.now();
+        setSentAt(now);
+        localStorage.setItem(resendKey, new Date(now).toISOString());
+        toast.success('Invitation resent.');
+      } else {
+        toast.error('Failed to resend. Try again.');
+      }
+    } catch {
+      toast.error('Failed to resend. Try again.');
+    } finally {
+      setIsResending(false);
+    }
+  };
+
+  return (
+    <button
+      onClick={handleClick}
+      disabled={isResending || isOnCooldown}
+      className="text-xs px-2.5 py-1 rounded-md border border-input text-muted-foreground hover:bg-muted disabled:opacity-50 flex-shrink-0 min-h-[32px]"
+    >
+      {isResending ? '...' : isOnCooldown ? `in ${remainingHours}h` : 'Resend'}
+    </button>
+  );
+}
+
 // ─── Component ────────────────────────────────────────────────────────────────
 
-export function AgreementRow({ agreement, currentProfileId, onClick }: AgreementRowProps) {
+export function AgreementRow({ agreement, currentProfileId, resendable, onClick }: AgreementRowProps) {
   const partnerName = getPartnerName(agreement, currentProfileId);
   const isTerminated =
     agreement.status === 'terminated' ||
     agreement.status === 'declined' ||
     agreement.status === 'expired';
+  const showResend = resendable && agreement.status === 'pending';
 
   const rowContent = (
     <div
@@ -102,11 +158,15 @@ export function AgreementRow({ agreement, currentProfileId, onClick }: Agreement
         <p className="text-xs text-muted-foreground truncate">{subLabel(agreement)}</p>
       </div>
 
-      {/* Right side: badge + display ID */}
-      <div className="flex flex-col items-end gap-0.5 flex-shrink-0">
-        <StatusBadge status={agreement.status} />
-        <span className="text-[10px] text-muted-foreground/60">{agreement.displayId}</span>
-      </div>
+      {/* Right side: resend button (pending) OR badge + display ID */}
+      {showResend ? (
+        <ResendButton agreementId={agreement.id} />
+      ) : (
+        <div className="flex flex-col items-end gap-0.5 flex-shrink-0">
+          <StatusBadge status={agreement.status} />
+          <span className="text-[10px] text-muted-foreground/60">{agreement.displayId}</span>
+        </div>
+      )}
     </div>
   );
 
