@@ -252,7 +252,7 @@ export function AcceptAgreementPage() {
           </h1>
         </div>
 
-        {/* Certificate */}
+        {/* Certificate — CTA lives inside as footer */}
         {agreement && (
           <AgreementCertificate
             variant="pending"
@@ -262,105 +262,83 @@ export function AcceptAgreementPage() {
             partnerName={certificatePartnerName}
             partnerSignedAt={agreement.partnerSignedAt}
             termsText={agreement.termsText}
+            footer={
+              pageState === 'unauthenticated' ? (
+                <div className="space-y-3">
+                  <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                    <Button asChild className="bg-[#002B5C] hover:bg-[#001f42] text-white">
+                      <Link to={`/signup?returnTo=${encodeURIComponent(returnTo)}&${tokenParam}`}>
+                        Create Account &amp; Sign
+                      </Link>
+                    </Button>
+                    <Button asChild variant="outline">
+                      <Link to={`/sign-in?returnTo=${encodeURIComponent(returnTo)}&${tokenParam}`}>
+                        Log In &amp; Sign
+                      </Link>
+                    </Button>
+                  </div>
+                  <div className="text-center">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="text-[#1A1A1A]/50 hover:text-[#1A1A1A]/70"
+                      onClick={handleUnauthDecline}
+                      disabled={isDeclining}
+                    >
+                      {isDeclining ? <Loader2Icon className="w-4 h-4 animate-spin mr-2" /> : null}
+                      Decline
+                    </Button>
+                  </div>
+                </div>
+              ) : pageState === 'partner' && currentUser ? (
+                <div className="space-y-3">
+                  <div>
+                    <label
+                      htmlFor="accept-partner-name"
+                      className="block text-sm font-medium text-[#1A1A1A]/70 mb-1"
+                    >
+                      Your name on this agreement
+                    </label>
+                    <Input
+                      id="accept-partner-name"
+                      type="text"
+                      aria-label="Partner's full name"
+                      value={partnerDisplayName}
+                      onChange={e => { setPartnerDisplayName(e.target.value); setNameError(null); }}
+                      placeholder="Your full name"
+                      maxLength={100}
+                    />
+                    {nameError && <p className="mt-1 text-xs text-red-600">{nameError}</p>}
+                  </div>
+                  <p className="text-sm text-[#1A1A1A]/70 text-center">
+                    Signing as: <span className="font-semibold text-[#1A1A1A]">{currentUser.name}</span>
+                  </p>
+                  <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                    <Button
+                      className="bg-[#002B5C] hover:bg-[#001f42] text-white"
+                      onClick={handleAccept}
+                      disabled={isAccepting}
+                    >
+                      {isAccepting ? <Loader2Icon className="w-4 h-4 animate-spin mr-2" /> : null}
+                      I Accept &amp; Co-Sign ✦
+                    </Button>
+                  </div>
+                  <div className="text-center">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="text-[#1A1A1A]/50 hover:text-[#1A1A1A]/70"
+                      onClick={() => setShowDeclineConfirm(true)}
+                      disabled={isDeclining}
+                    >
+                      {isDeclining ? <Loader2Icon className="w-4 h-4 animate-spin mr-2" /> : null}
+                      Decline
+                    </Button>
+                  </div>
+                </div>
+              ) : undefined
+            }
           />
-        )}
-
-        {/* Unauthenticated CTA */}
-        {pageState === 'unauthenticated' && (
-          <div className="rounded-lg border border-[#002B5C]/20 bg-white p-5 space-y-4">
-            <p className="text-sm text-[#1A1A1A]/70 text-center">
-              To co-sign this agreement, you'll need a Clarity Pledge account.
-            </p>
-            <div className="flex flex-col sm:flex-row gap-3 justify-center">
-              <Button
-                asChild
-                className="bg-[#002B5C] hover:bg-[#001f42] text-white"
-              >
-                <Link to={`/signup?returnTo=${encodeURIComponent(returnTo)}&${tokenParam}`}>
-                  Create Account &amp; Sign
-                </Link>
-              </Button>
-              <Button
-                asChild
-                variant="outline"
-              >
-                <Link to={`/sign-in?returnTo=${encodeURIComponent(returnTo)}&${tokenParam}`}>
-                  Log In &amp; Sign
-                </Link>
-              </Button>
-            </div>
-            <div className="text-center">
-              <Button
-                variant="ghost"
-                size="sm"
-                className="text-[#1A1A1A]/50 hover:text-[#1A1A1A]/70"
-                onClick={handleUnauthDecline}
-                disabled={isDeclining}
-              >
-                {isDeclining ? (
-                  <Loader2Icon className="w-4 h-4 animate-spin mr-2" />
-                ) : null}
-                Decline
-              </Button>
-            </div>
-          </div>
-        )}
-
-        {/* Authenticated partner CTA */}
-        {pageState === 'partner' && currentUser && (
-          <div className="rounded-lg border border-[#002B5C]/20 bg-white p-5 space-y-4">
-            {/* P466: Editable partner name field */}
-            <div>
-              <label
-                htmlFor="accept-partner-name"
-                className="block text-sm font-medium text-[#1A1A1A]/70 mb-1"
-              >
-                Your name on this agreement
-              </label>
-              <Input
-                id="accept-partner-name"
-                type="text"
-                aria-label="Partner's full name"
-                value={partnerDisplayName}
-                onChange={e => { setPartnerDisplayName(e.target.value); setNameError(null); }}
-                placeholder="Your full name"
-                maxLength={100}
-              />
-              {nameError && (
-                <p className="mt-1 text-xs text-red-600">{nameError}</p>
-              )}
-            </div>
-
-            <p className="text-sm text-[#1A1A1A]/70 text-center">
-              Signing as: <span className="font-semibold text-[#1A1A1A]">{currentUser.name}</span>
-            </p>
-            <div className="flex flex-col sm:flex-row gap-3 justify-center">
-              <Button
-                className="bg-[#002B5C] hover:bg-[#001f42] text-white"
-                onClick={handleAccept}
-                disabled={isAccepting}
-              >
-                {isAccepting ? (
-                  <Loader2Icon className="w-4 h-4 animate-spin mr-2" />
-                ) : null}
-                I Accept &amp; Co-Sign ✦
-              </Button>
-            </div>
-            <div className="text-center">
-              <Button
-                variant="ghost"
-                size="sm"
-                className="text-[#1A1A1A]/50 hover:text-[#1A1A1A]/70"
-                onClick={() => setShowDeclineConfirm(true)}
-                disabled={isDeclining}
-              >
-                {isDeclining ? (
-                  <Loader2Icon className="w-4 h-4 animate-spin mr-2" />
-                ) : null}
-                Decline
-              </Button>
-            </div>
-          </div>
         )}
       </div>
 
