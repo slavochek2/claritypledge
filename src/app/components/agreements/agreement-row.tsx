@@ -105,7 +105,11 @@ function ResendButton({ agreementId }: { agreementId: string }) {
   const handleClick = async (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    if (isResending || isOnCooldown) return;
+    if (isResending) return;
+    if (isOnCooldown) {
+      toast.info(`Already resent — can send again in ${remainingHours}h`);
+      return;
+    }
 
     setIsResending(true);
     try {
@@ -128,10 +132,10 @@ function ResendButton({ agreementId }: { agreementId: string }) {
   return (
     <button
       onClick={handleClick}
-      disabled={isResending || isOnCooldown}
+      disabled={isResending}
       className="text-xs px-2.5 py-1 rounded-md border border-input text-muted-foreground hover:bg-muted disabled:opacity-50 flex-shrink-0 min-h-[32px]"
     >
-      {isResending ? '...' : isOnCooldown ? `in ${remainingHours}h` : 'Resend'}
+      {isResending ? '...' : 'Resend'}
     </button>
   );
 }
