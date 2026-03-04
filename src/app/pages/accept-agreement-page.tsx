@@ -243,18 +243,13 @@ export function AcceptAgreementPage() {
       <div className="max-w-2xl mx-auto space-y-6">
 
         {/* Page title */}
-        <div className="text-center space-y-1">
+        <div className="text-center">
           <h1
             className="text-2xl md:text-3xl font-serif text-[#002B5C]"
             style={{ fontFamily: '"Playfair Display", Georgia, serif' }}
           >
             Clarity Partner Agreement
           </h1>
-          <p className="text-sm text-[#1A1A1A]/60">
-            {agreement?.creator?.name
-              ? `${agreement.creator.name} has invited you to co-sign this agreement.`
-              : 'You have been invited to co-sign this agreement.'}
-          </p>
         </div>
 
         {/* Certificate */}

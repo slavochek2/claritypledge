@@ -134,6 +134,20 @@ export function AgreementCertificate({
           </p>
         </div>
 
+        {/* Pending/active: read-only "We, X and Y, agree to:" */}
+        {(isPending || isActive) && (
+          <p
+            className="text-base md:text-lg leading-relaxed text-[#1A1A1A]"
+            style={{ fontFamily: '"Playfair Display", Georgia, serif' }}
+          >
+            We,{' '}
+            <span className="font-semibold">{creatorName}</span>
+            {' '}and{' '}
+            <span className="font-semibold">{partnerName || <span className="text-[#1A1A1A]/30 font-normal">their name</span>}</span>
+            , agree to:
+          </p>
+        )}
+
         {/* P466: Creation mode — "We, [creator] and [partner input], agree to:" */}
         {isCreation && onPartnerNameChange && (
           <div>
