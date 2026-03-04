@@ -2,6 +2,34 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-04 [process]: /falsify on /kdd meta-reflection = standard skill quality gate
+
+**Context:** After creating /tos-review, /kdd surfaced 5 skill quality proposals. Running /falsify on them identified 3 as misdirected (wrong layer), not just wrong proposals — and produced better fixes for each. All 6 proposals survived falsification but were improved.
+
+**Decision:** After creating or significantly modifying a skill, run `/kdd` → `/falsify` on the meta-reflection output before shipping. This is the standard quality gate. Not every /falsify session needs creative phase (Phase 4) — for process proposals, synthesis + better-fix identification is often sufficient.
+
+**Alternatives rejected:** Apply /kdd meta-reflection proposals directly — misdirected fixes (wrong layer) wouldn't be caught; e.g., P4 would fix kdd in isolation instead of the universal skills.md rule.
+
+**Consequences:** New skill creation flow: `/create-skill` → test it once → `/kdd` → `/falsify` on proposals → apply. The creative phase (30 proposals) is optional when the critique already identifies a clearly better layer for the fix.
+
+**References:** `.claude/commands/slava/maintain/kdd/SKILL.md` step 7, `.claude/rules/skills.md`, `.claude/commands/slava/maintain/tos-review/SKILL.md`
+
+---
+
+## 2026-03-04 [process]: Shell grep before agent file reading — structural discovery > instructional
+
+**Context:** /falsify review of `/tos-review` Stage 1 found that instructing an agent to "read edge function files" produces coverage gaps — the agent chooses which files to read and can miss services based on interpretation.
+
+**Decision:** Skills with a "discover what external services/patterns exist" step should start with a shell grep command, not a file-reading instruction. The grep runs before any agent prompt is evaluated, guaranteeing coverage independent of agent interpretation. Applied to tos-review Stage 1: `grep -rn "fetch\|MAILGUN\|GEMINI\|..." supabase/functions/`.
+
+**Alternatives rejected:** Instruction-only ("read all files in supabase/functions/") — relies on agent discipline; agent may read selectively. Hardcoded service list — goes stale as providers change; grep catches any `fetch()` call.
+
+**Consequences:** Any skill that needs to inventory external dependencies should open with a shell grep step (not a read instruction). This is a general pattern for audit-style skills. See also: `/falsify` Phase 1 recommendation "structural enforcement > instructional enforcement."
+
+**References:** `.claude/commands/slava/maintain/tos-review/SKILL.md` Stage 1
+
+---
+
 ## 2026-03-04 [technical]: Anonymous auth gate — context preservation via signInWithEmail callback URL params
 
 **Context:** P458 needed to preserve user intent (position, pointId, pointTitle) through the full magic link auth round-trip: button click → `/signup` → email → `/auth/callback` → auto-save → redirect to point.
