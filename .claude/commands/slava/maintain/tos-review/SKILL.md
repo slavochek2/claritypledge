@@ -1,0 +1,146 @@
+---
+name: tos-review
+description: Audit the ToS against all tech and features shipped since the last update, propose changes, review them, and apply with human approval.
+trigger: manual
+---
+
+# /tos-review — ToS Sync Skill
+
+Run this after batches of shipped features, especially when new APIs, data flows, or AI providers are introduced.
+
+---
+
+## When to Run
+
+- After any feature tagged `ai`, `data`, or `legal` ships
+- Before major product announcements or user growth pushes
+- After switching or adding a third-party provider (AI model, email, payment, etc.)
+- When `COPY.LEGAL_LAST_UPDATED` is more than 2 months old
+
+---
+
+## Inputs (read before starting)
+
+1. `src/app/content/copy.ts` → `LEGAL_LAST_UPDATED` — determines review window
+2. `src/app/pages/terms-of-service-page.tsx` — current ToS text (until migrated to `content/tos.md`)
+3. `features/done/INDEX.md` — all shipped features; filter by date > last ToS update
+4. `supabase/functions/` — edge functions (third-party API calls, data processing)
+5. `.env.local` / env var names in `vite.config.ts` — third-party service inventory
+
+---
+
+## Pipeline
+
+### Stage 1 — Tech Audit (run yourself)
+
+Inventory everything since `LEGAL_LAST_UPDATED`:
+
+1. Features shipped (from INDEX.md, filter by date)
+2. Third-party services in use: AI providers, email services, payment, analytics, CDN
+3. Data collected: what user data hits which external service
+4. New user flows: consent points, data visibility, public/private content
+
+Produce a structured list: `[Service] → [What user data it receives] → [Feature that introduced it]`
+
+### Stage 2 — ToS Audit (run yourself)
+
+Read the full ToS. For each section, note:
+- What it covers
+- What it implicitly excludes
+- Any language that's now technically inaccurate
+
+### Stage 3 — Gap Analysis (run yourself)
+
+Cross-reference Stage 1 vs Stage 2. Identify:
+- **Missing coverage**: tech/data flows not mentioned in ToS
+- **Stale language**: ToS mentions services/flows that no longer exist or changed
+- **Consent gaps**: any processing that requires explicit consent but ToS doesn't require it
+
+### Stage 4 — Propose Changes (spawn Agent A — Legal Drafter)
+
+Spawn a general-purpose agent with this prompt:
+
+```
+You are a legal drafter specializing in SaaS and GDPR-compliant terms of service for European startups.
+
+Company: TechSalesBox OÜ (Estonia), product: ClarityPledge — calibrated communication practice platform.
+Users: co-founder pairs. Target market: Europe. Legal jurisdiction: Estonian law + GDPR.
+
+Current ToS: [paste full ToS text]
+
+Gap analysis: [paste Stage 3 output]
+
+Task: Propose specific, minimal ToS changes to close the identified gaps. For each change:
+1. Section it belongs in (or new section name)
+2. The proposed text (complete paragraph, ready to publish)
+3. Legal rationale in 1-2 sentences
+4. GDPR article or Estonian e-commerce law reference if applicable
+
+Be minimal — don't rewrite sections that don't need it. Only close the gaps.
+```
+
+### Stage 5 — Review (spawn Agent B — Devil's Advocate + GDPR)
+
+Spawn a second general-purpose agent with this prompt:
+
+```
+You are a GDPR compliance advisor and devil's advocate reviewer for SaaS terms of service.
+Your job is to find problems in proposed ToS changes — not to approve them.
+
+Company: TechSalesBox OÜ (Estonia), product: ClarityPledge, users: co-founder pairs, jurisdiction: Estonian law + GDPR.
+
+Original ToS: [paste full ToS text]
+Proposed changes: [paste Stage 4 agent output]
+
+Review each proposed change for:
+1. GDPR compliance (data minimization, lawful basis, consent requirements, Art. 13/14 disclosures)
+2. Legal holes — ambiguities, overreaches, missing definitions, unenforceable promises
+3. User experience — anything a user could reasonably misinterpret
+4. Estonian e-commerce law specifics (Võlaõigusseadus, infoühiskonna teenuse seadus)
+
+For each issue: [Change ref] → [Issue type] → [Specific problem] → [Suggested fix]
+
+Also flag any proposed change you'd approve as-is with: ✓ [Change ref] — looks good.
+```
+
+### Stage 6 — Human Approval Gate 🛑
+
+Present to the user:
+- A clean diff view: what the ToS says now → what it would say after each change
+- Stage 5 review notes alongside each change
+- Ask: "Approve / Modify / Reject" per change
+
+Do NOT apply anything without explicit approval per change.
+
+### Stage 7 — Apply Changes
+
+For each approved change:
+- Edit `src/app/pages/terms-of-service-page.tsx` (or `content/tos.md` after P474 migration)
+- Update `COPY.LEGAL_LAST_UPDATED` in `src/app/content/copy.ts` to today's date
+
+### Stage 8 — Visual Review
+
+Use Claude in Chrome to load `/terms-of-service` on localhost and screenshot the updated sections.
+Confirm formatting, readability, no truncation.
+
+---
+
+## Output
+
+After completion, commit with message:
+```
+legal: update ToS — [brief summary of changes]
+
+Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>
+```
+
+Note: `/kdd` after this session to capture any process learnings.
+
+---
+
+## Related
+
+- ToS page: `src/app/pages/terms-of-service-page.tsx`
+- Last updated constant: `src/app/content/copy.ts` → `LEGAL_LAST_UPDATED`
+- Migration to markdown: P474 (makes Stage 7 cleaner — edit `content/tos.md` instead of JSX)
+- P436 (rejected): one-off predecessor to this skill
