@@ -122,7 +122,7 @@ export function AgreementCertificate({
     >
       <div className="space-y-6">
         {/* Header */}
-        <div className="text-center space-y-1.5 pb-5 border-b-2 border-[#002B5C]">
+        <div className="text-center space-y-2 pb-5 border-b-2 border-[#002B5C]">
           <h2
             className="text-2xl md:text-3xl font-serif tracking-wide text-[#1A1A1A]"
             style={{ fontFamily: '"Playfair Display", Georgia, serif' }}
@@ -132,15 +132,13 @@ export function AgreementCertificate({
           <p className="text-[10px] md:text-xs text-[#1A1A1A]/60 uppercase tracking-[0.2em] font-sans">
             A mutual commitment to clarity
           </p>
+          <p
+            className="text-center text-sm md:text-base text-[#1A1A1A]/70 pt-1"
+            style={{ fontFamily: '"Playfair Display", Georgia, serif' }}
+          >
+            We all crave being understood. Let&apos;s commit to listen.
+          </p>
         </div>
-
-        {/* Opening tagline — A4: above the creation block */}
-        <p
-          className="text-center text-sm md:text-base italic text-[#1A1A1A]/70"
-          style={{ fontFamily: '"Playfair Display", Georgia, serif' }}
-        >
-          We all crave being understood. Let&apos;s commit to listen.
-        </p>
 
         {/* P466: Creation mode — "We, [creator] and [partner input], agree to:" */}
         {isCreation && onPartnerNameChange && (
@@ -150,7 +148,7 @@ export function AgreementCertificate({
               style={{ fontFamily: '"Playfair Display", Georgia, serif' }}
             >
               We,{' '}
-              {creatorName}
+              <em>{creatorName}</em>
               {' '}and{' '}
               <input
                 type="text"
