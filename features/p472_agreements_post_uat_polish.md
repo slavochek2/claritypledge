@@ -1,5 +1,6 @@
 ---
 status: in-progress
+delivery_stage: uat
 type: task
 rank: 1000003
 tags:
@@ -26,38 +27,38 @@ Predecessor: P466 (agreement creation redesign)
 
 ### A — Certificate: creation mode (agreement-certificate.tsx)
 
-- [ ] A1: In creation mode, the **entire** bottom signature row (creator slot + seal + partner slot) is hidden. A single informational line — "Agreement becomes active when both parties sign" — replaces it. Guard: render the full signature row only when `!isCreation`. This single condition covers A2 (seal hidden) and A3 (partner slot hidden) — they're sub-items of A1.
-- [ ] A4: Tagline "We all crave being understood..." moved above the creation block (correct reading order: header → tagline → "We, X and Y, agree to:")
-- [ ] A5: Partner name input has subtle underline always visible when unfocused (`border-b-2 border-[#1A1A1A]/20`), blue on focus, red on error — field looks editable, not static text
-- [ ] A-terms: Terms textarea has light cream tinted background (`bg-[#F5F1E8]`) that disappears on focus (`focus:bg-transparent`) — editable signal, looks like a draft being written
-- [ ] D3: Terms textarea uses `font-sans` for edit state; read-only display keeps serif
+- [x] A1: In creation mode, the **entire** bottom signature row (creator slot + seal + partner slot) is hidden. A single informational line — "Agreement becomes active when both parties sign" — replaces it. Guard: render the full signature row only when `!isCreation`. This single condition covers A2 (seal hidden) and A3 (partner slot hidden) — they're sub-items of A1.
+- [x] A4: Tagline "We all crave being understood..." moved above the creation block (correct reading order: header → tagline → "We, X and Y, agree to:")
+- [x] A5: Partner name input has subtle underline always visible when unfocused (`border-b-2 border-[#1A1A1A]/20`), blue on focus, red on error — field looks editable, not static text
+- [x] A-terms: Terms textarea has light cream tinted background (`bg-[#F5F1E8]`) that disappears on focus (`focus:bg-transparent`) — editable signal, looks like a draft being written
+- [x] D3: Terms textarea uses `font-sans` for edit state; read-only display keeps serif
 
 ### A-active — Certificate: active/pending modes (agreement-certificate.tsx)
 
-- [ ] A-active-1: In active/celebration mode, signature row shows creator and partner identity blocks without "CREATOR"/"PARTNER" labels — just name (and avatar if available). One "Active since [date]" line below both names (using `partnerSignedAt`). Per-person "Signed on..." dates removed.
-- [ ] A-active-2: In pending mode, signature row shows creator name block (no label) + partner name (or placeholder) + seal in dashed/pending state. No signing dates.
-- [ ] A-active-3: Max width of the certificate page container in `create-agreement-page.tsx` increased from `max-w-2xl` to `max-w-3xl` (consistent with ProfileCertificate). Note: `agreement-page.tsx` (detail view) uses `max-w-xl` — leave it unchanged for now; the narrower width is acceptable for the read-only/active view.
+- [x] A-active-1: In active/celebration mode, signature row shows creator and partner identity blocks without "CREATOR"/"PARTNER" labels — just name (and avatar if available). One "Active since [date]" line below both names (using `partnerSignedAt`). Per-person "Signed on..." dates removed.
+- [x] A-active-2: In pending mode, signature row shows creator name block (no label) + partner name (or placeholder) + seal in dashed/pending state. No signing dates.
+- [x] A-active-3: Max width of the certificate page container in `create-agreement-page.tsx` increased from `max-w-2xl` to `max-w-3xl` (consistent with ProfileCertificate). Note: `agreement-page.tsx` (detail view) uses `max-w-xl` — leave it unchanged for now; the narrower width is acceptable for the read-only/active view.
 
 ### B — Bugs
 
-- [ ] B1: Partner count on profile page shows active agreements only ("N Clarity Partners") — pending, terminated excluded from count
-- [ ] B3: `DEFAULT_TERMS` has no placeholder brackets — `[X]` → `1`, `[month/quarter]` → `month`
-- [ ] B4: Pending state (`PendingView`) has "Resend Invitation" button — shown only when `isCreator === true`, same guard pattern as `ExpiredView`. Placement: below the info panel, same as `ExpiredView`.
-- [ ] B4+: Resend button disabled for 24h after click (client-side). localStorage key: `clarity-resend-${agreementId}`, value: ISO timestamp of last send. On mount: read key; if present and within 24h → button disabled with label "Invitation sent — can resend in Xh". Clears automatically after 24h.
+- [x] B1: Partner count on profile page shows active agreements only ("N Clarity Partners") — pending, terminated excluded from count
+- [x] B3: `DEFAULT_TERMS` has no placeholder brackets — `[X]` → `1`, `[month/quarter]` → `month`
+- [x] B4: Pending state (`PendingView`) has "Resend Invitation" button — shown only when `isCreator === true`, same guard pattern as `ExpiredView`. Placement: below the info panel, same as `ExpiredView`.
+- [x] B4+: Resend button disabled for 24h after click (client-side). localStorage key: `clarity-resend-${agreementId}`, value: ISO timestamp of last send. On mount: read key; if present and within 24h → button disabled with label "Invitation sent — can resend in Xh". Clears automatically after 24h.
 
 ### C — Behavioral gaps
 
-- [ ] C2: Invitation expiry check-at-read in `getAgreementsForProfile()` — presentation-layer only, **no DB write**. Logic: if `status === 'pending'` and `invitationExpiresAt < now()` → override returned status to `'expired'` in memory. `getAgreement()` may keep its existing write-on-read behavior; what matters is that list and detail views both display expired status consistently.
-- [ ] C4: `toast.success('Agreement sent — waiting for [partnerName] to co-sign.')` fires before `navigate()` on successful submission
-- [ ] C5: "Ready to practice? Start a /live session →" link in `CelebrationDialog` (below existing calendar link) and one-liner in `ActiveView`
-- [ ] C6: `TerminateDialog` copy updated to: title "End this agreement?", description "This will permanently end your Clarity Partner Agreement with [partnerName]. Both of you will be notified by email. You can still view it as history." Note: `TerminateDialog` needs a `partnerName: string` prop added (thread from `agreement.partner?.name ?? 'your partner'`). No service logic change — `terminateAgreement()` already calls `invokeAgreementEmails('terminated', ...)`.
+- [x] C2: Invitation expiry check-at-read in `getAgreementsForProfile()` — presentation-layer only, **no DB write**. Logic: if `status === 'pending'` and `invitationExpiresAt < now()` → override returned status to `'expired'` in memory. `getAgreement()` may keep its existing write-on-read behavior; what matters is that list and detail views both display expired status consistently.
+- [x] C4: `toast.success('Agreement sent — waiting for [partnerName] to co-sign.')` fires before `navigate()` on successful submission
+- [x] C5: "Ready to practice? Start a /live session →" link in `CelebrationDialog` (below existing calendar link) and one-liner in `ActiveView`
+- [x] C6: `TerminateDialog` copy updated to: title "End this agreement?", description "This will permanently end your Clarity Partner Agreement with [partnerName]. Both of you will be notified by email. You can still view it as history." Note: `TerminateDialog` needs a `partnerName: string` prop added (thread from `agreement.partner?.name ?? 'your partner'`). No service logic change — `terminateAgreement()` already calls `invokeAgreementEmails('terminated', ...)`.
 
 ### D — Design consistency
 
-- [ ] D1: `profile-connections-page.tsx` shows two sections: "Active" (N items) and "Pending invitation" (N items) — flat list becomes grouped. Sections with 0 items are hidden. Count badge = active only.
-- [ ] D2: CTA copy changed from "Seal & Send Invitation ✦" to "Seal & Send ✦" (drop "Invitation", keep "Seal" — bilateral commitment metaphor)
-- [ ] D-visibility: Default visibility changed from `private` to `public` in `create-agreement-page.tsx`. Visibility buttons reordered: Public first (left), Private second (right).
-- [ ] Calendar: `CelebrationDialog` replaces hardcoded Google Calendar text link with `<AddToCalendarButton>` — Google primary + dropdown (Outlook.com, Microsoft 365). ICS download hidden when no date provided (no start/end date pre-filled for this use case).
+- [x] D1: `profile-connections-page.tsx` shows two sections: "Active" (N items) and "Pending invitation" (N items) — flat list becomes grouped. Sections with 0 items are hidden. Count badge = active only.
+- [x] D2: CTA copy changed from "Seal & Send Invitation ✦" to "Seal & Send ✦" (drop "Invitation", keep "Seal" — bilateral commitment metaphor)
+- [x] D-visibility: Default visibility changed from `private` to `public` in `create-agreement-page.tsx`. Visibility buttons reordered: Public first (left), Private second (right).
+- [x] Calendar: `CelebrationDialog` replaces hardcoded Google Calendar text link with `<AddToCalendarButton>` — Google primary + dropdown (Outlook.com, Microsoft 365). ICS download hidden when no date provided (no start/end date pre-filled for this use case).
 
   **Calendar component interface:**
   - Define `CalendarEventData` with optional `startDate?: Date`, `endDate?: Date` (separate from events' `ICSEventData` which requires non-optional dates)
