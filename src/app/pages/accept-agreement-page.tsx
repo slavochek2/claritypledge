@@ -414,7 +414,7 @@ export function AcceptAgreementPage() {
                   <div className="flex flex-col sm:flex-row gap-3 justify-center">
                     <Button
                       className="bg-[#002B5C] hover:bg-[#001f42] text-white"
-                      onClick={handleAccept}
+                      onClick={() => handleAccept()}
                       disabled={isAccepting}
                     >
                       {isAccepting ? <Loader2Icon className="w-4 h-4 animate-spin mr-2" /> : null}
