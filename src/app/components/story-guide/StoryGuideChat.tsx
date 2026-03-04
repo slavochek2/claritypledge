@@ -718,10 +718,9 @@ export function StoryGuideChat({
     phase === 'streaming' ||
     inputValue.length > MAX_BRAIN_DUMP_LENGTH;
   // Empty state = before user has sent any message (AI opening bubble visible, no user input yet)
-  const isEmptyState = !messages.some(m => m.role === 'user');
 
   return (
-    <div className={`flex flex-col h-full${isEmptyState ? ' justify-center' : ''}`} data-testid="story-guide-chat">
+    <div className="flex flex-col h-full" data-testid="story-guide-chat">
       {/* P467: Slim context header (replaces PointCardWithLinks) */}
       {contextPoint && (
         <ChatContextHeader
@@ -739,7 +738,7 @@ export function StoryGuideChat({
       {/* Thread area */}
       <div
         ref={threadRef}
-        className={isEmptyState ? 'px-4 py-6 space-y-4' : 'flex-1 overflow-y-auto px-4 py-6 space-y-4'}
+        className="flex-1 overflow-y-auto px-4 py-6 space-y-4"
       >
         {/* Message list */}
         {messages.map(msg => {
@@ -868,11 +867,7 @@ export function StoryGuideChat({
 
       {/* Input bar (hidden during visibility/saving/saved phases) */}
       {showInputBar && (
-        <div className={
-          isEmptyState
-            ? 'px-4 py-3'
-            : 'sticky bottom-0 bg-background border-t border-border px-4 py-3 pb-safe'
-        }>
+        <div className="sticky bottom-0 bg-background border-t border-border px-4 py-3 pb-safe">
           <div className="rounded-2xl border border-border bg-background shadow-sm px-4 py-3 flex items-end gap-2">
             <textarea
               data-testid="story-guide-input"
