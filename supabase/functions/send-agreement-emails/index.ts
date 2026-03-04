@@ -142,13 +142,8 @@ async function handleInvitation(
       This invitation expires in 7 days. If you're new to Clarity Pledge,
       you'll be able to create an account as part of the signing flow.
     </p>
-    <p style="margin:12px 0 0;font-size:11px;color:#d1d5db;border-top:1px solid #f3f4f6;padding-top:12px;">
-      Sent on behalf of ${creatorName} via Clarity Pledge (agreements@claritypledge.com).
-      Your email is stored to deliver this invitation and deleted when it expires.
-      To remove your data: <a href="mailto:privacy@claritypledge.com" style="color:#d1d5db;">privacy@claritypledge.com</a>
-    </p>
   `);
-  const text = `${creatorName} invited you to a Clarity Partner Agreement.\n\nReview and sign: ${acceptUrl}\n\nThis invitation expires in 7 days.\n\nSent on behalf of ${creatorName} via Clarity Pledge. Your email is stored to deliver this invitation and deleted when it expires. To remove your data: privacy@claritypledge.com\nClarity Pledge`;
+  const text = `${creatorName} invited you to a Clarity Partner Agreement.\n\nReview and sign: ${acceptUrl}\n\nThis invitation expires in 7 days.\nClarity Pledge`;
 
   await sendEmail({ to: agreement.partner_email, subject, html, text });
 }
