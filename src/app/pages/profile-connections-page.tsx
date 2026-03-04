@@ -38,15 +38,10 @@ function PageSkeleton() {
 
 // ─── Empty state ──────────────────────────────────────────────────────────────
 
-function EmptyState({ isOwner }: { isOwner: boolean }) {
+function EmptyState() {
   return (
     <div className="px-4 py-12 text-center">
-      <p className="text-sm text-muted-foreground mb-4">No agreements to show.</p>
-      {isOwner && (
-        <Button asChild className="min-h-[44px] bg-[#0044CC] hover:bg-[#0044CC]/90 text-white">
-          <Link to="/agreements/new">Invite a new partner</Link>
-        </Button>
-      )}
+      <p className="text-sm text-muted-foreground">No agreements to show.</p>
     </div>
   );
 }
@@ -56,7 +51,7 @@ function EmptyState({ isOwner }: { isOwner: boolean }) {
 export function ProfileConnectionsPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { user: currentUser } = useAuth();
+  const { user: currentUser, isLoading: authLoading } = useAuth();
 
   const [profile, setProfile] = useState<Profile | null>(null);
   const [agreements, setAgreements] = useState<ClarityAgreement[]>([]);
@@ -64,7 +59,7 @@ export function ProfileConnectionsPage() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!id) return;
+    if (!id || authLoading) return;
 
     const load = async () => {
       setLoading(true);
@@ -101,7 +96,7 @@ export function ProfileConnectionsPage() {
     };
 
     load();
-  }, [id, currentUser?.id]);
+  }, [id, currentUser?.id, authLoading]);
 
   if (loading) return <PageSkeleton />;
 
@@ -153,7 +148,7 @@ export function ProfileConnectionsPage() {
 
       <section aria-label="Partner Agreements">
         {!hasAny ? (
-          <EmptyState isOwner={isOwner} />
+          <EmptyState />
         ) : (
           <div className="space-y-6">
             {activeAgreements.length > 0 && (
