@@ -248,7 +248,7 @@ export function AcceptAgreementPage() {
             className="text-2xl md:text-3xl font-serif text-[#1A1A1A]"
             style={{ fontFamily: '"Playfair Display", Georgia, serif' }}
           >
-            <span className="font-bold">{agreement?.creator?.name ?? 'Someone'}</span> invited you
+            {agreement?.creator?.name ?? 'Someone'} invited you
           </h1>
         </div>
 
