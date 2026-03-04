@@ -158,14 +158,11 @@ export function AgreementRow({ agreement, currentProfileId, resendable, onClick 
         <p className="text-xs text-muted-foreground truncate">{subLabel(agreement)}</p>
       </div>
 
-      {/* Right side: resend button (pending) OR badge + display ID */}
+      {/* Right side: resend button (pending) OR status badge */}
       {showResend ? (
         <ResendButton agreementId={agreement.id} />
       ) : (
-        <div className="flex flex-col items-end gap-0.5 flex-shrink-0">
-          <StatusBadge status={agreement.status} />
-          <span className="text-[10px] text-muted-foreground/60">{agreement.displayId}</span>
-        </div>
+        <StatusBadge status={agreement.status} />
       )}
     </div>
   );
@@ -176,7 +173,7 @@ export function AgreementRow({ agreement, currentProfileId, resendable, onClick 
         to={`/agreements/${agreement.id}`}
         onClick={onClick}
         className="block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-lg"
-        aria-label={`Agreement ${agreement.displayId} with ${partnerName}`}
+        aria-label={`Agreement with ${partnerName}`}
       >
         {rowContent}
       </Link>
