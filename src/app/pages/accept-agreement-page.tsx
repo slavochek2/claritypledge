@@ -325,7 +325,7 @@ export function AcceptAgreementPage() {
 
   return (
     <div className="min-h-screen bg-[#F5F3EF] py-10 px-4">
-      <div className="max-w-2xl mx-auto space-y-6">
+      <div className="max-w-3xl mx-auto space-y-6">
 
         {/* Page title */}
         <div className="text-center">
