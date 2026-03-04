@@ -281,8 +281,8 @@ export function AgreementCertificate({
           </div>
         ) : null}
 
-        {/* Signatures + seal */}
-        {isCreation ? null : (
+        {/* Signatures + seal — only once active */}
+        {isActive && (
           <div className="pt-5 border-t-2 border-[#002B5C]">
             <div className="flex items-start justify-between gap-4">
               {/* Creator signature */}
