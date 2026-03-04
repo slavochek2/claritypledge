@@ -107,7 +107,8 @@ interface ProfileRow {
 
 async function handleInvitation(
   supabase: ReturnType<typeof createClient>,
-  agreementId: string
+  agreementId: string,
+  appUrl: string
 ) {
   const { data: agreement } = await supabase
     .from('clarity_agreements')
@@ -124,7 +125,7 @@ async function handleInvitation(
     .single() as { data: ProfileRow | null };
 
   const creatorName = creator?.name ?? 'Someone';
-  const acceptUrl = `${APP_URL}/agreements/${agreementId}/accept?token=${agreement.invitation_token}`;
+  const acceptUrl = `${appUrl}/agreements/${agreementId}/accept?token=${agreement.invitation_token}`;
 
   const subject = `${creatorName} invited you to a Clarity Partner Agreement`;
   const html = htmlEmail(subject, `
@@ -279,7 +280,8 @@ async function handleTerminated(
 
 async function handleResend(
   supabase: ReturnType<typeof createClient>,
-  agreementId: string
+  agreementId: string,
+  appUrl: string
 ) {
   // Rotate token and extend expiry FIRST, then re-fetch and send
   await supabase
@@ -291,7 +293,7 @@ async function handleResend(
     .eq('id', agreementId);
 
   // handleInvitation re-fetches the agreement, so it picks up the new token
-  await handleInvitation(supabase, agreementId);
+  await handleInvitation(supabase, agreementId, appUrl);
 }
 
 // ── Entry point ───────────────────────────────────────────────────────────────
@@ -313,6 +315,12 @@ serve(async (req: Request) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
     );
 
+    // Derive app URL from request origin so local dev gets localhost links in emails
+    const requestOrigin = req.headers.get('origin');
+    const appUrl = (requestOrigin && requestOrigin.startsWith('http://localhost'))
+      ? requestOrigin
+      : APP_URL;
+
     const { action, agreementId } = await req.json() as {
       action: 'invitation' | 'accepted' | 'declined' | 'terminated' | 'resend';
       agreementId: string;
@@ -324,7 +332,7 @@ serve(async (req: Request) => {
 
     switch (action) {
       case 'invitation':
-        await handleInvitation(supabaseClient, agreementId);
+        await handleInvitation(supabaseClient, agreementId, appUrl);
         break;
       case 'accepted':
         await handleAccepted(supabaseClient, agreementId);
@@ -336,7 +344,7 @@ serve(async (req: Request) => {
         await handleTerminated(supabaseClient, agreementId);
         break;
       case 'resend':
-        await handleResend(supabaseClient, agreementId);
+        await handleResend(supabaseClient, agreementId, appUrl);
         break;
       default:
         return new Response(JSON.stringify({ error: 'Unknown action' }), { status: 400 });
