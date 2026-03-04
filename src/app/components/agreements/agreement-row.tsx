@@ -184,7 +184,7 @@ function CancelButton({ agreementId, onCancelled }: { agreementId: string; onCan
 
   if (confirming) {
     return (
-      <div className="flex items-center gap-1 flex-shrink-0" onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}>
+      <div role="group" className="flex items-center gap-1 flex-shrink-0">
         <button
           onClick={handleAbort}
           className="text-xs px-2 py-1 rounded-md border border-input text-muted-foreground hover:bg-muted min-h-[32px]"

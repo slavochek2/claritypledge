@@ -134,8 +134,50 @@ export function AgreementCertificate({
           </p>
         </div>
 
+        {/* Pending: editable inline name when onPartnerNameChange provided, else read-only */}
+        {isPending && onPartnerNameChange && (
+          <div>
+            <p
+              className="text-base md:text-lg leading-relaxed text-[#1A1A1A]"
+              style={{ fontFamily: '"Playfair Display", Georgia, serif' }}
+            >
+              We,{' '}
+              <span className="font-semibold">{creatorName}</span>
+              {' '}and{' '}
+              <input
+                type="text"
+                aria-label="Partner's full name"
+                aria-required="true"
+                aria-invalid={partnerNameError ? 'true' : undefined}
+                aria-describedby={partnerNameError ? 'partner-name-error' : undefined}
+                value={partnerNameValue}
+                onChange={e => onPartnerNameChange(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') e.preventDefault(); }}
+                placeholder={partnerNamePlaceholder}
+                maxLength={110}
+                className={`border-0 rounded-none bg-transparent focus-visible:outline-none focus-visible:ring-0 font-serif text-base md:text-lg font-semibold inline-block min-w-[180px] w-auto placeholder:text-[#1A1A1A]/30 placeholder:font-normal ${
+                  partnerNameError
+                    ? 'border-b-2 border-red-500 focus-visible:border-red-500'
+                    : 'border-b-2 border-[#1A1A1A]/20 focus-visible:border-[#0044CC]'
+                }`}
+                style={{
+                  fontFamily: '"Playfair Display", Georgia, serif',
+                  width: `${Math.max(180, (partnerNameValue?.length ?? 0) * 12)}px`,
+                  maxWidth: '100%',
+                }}
+              />,
+              {' '}agree to:
+            </p>
+            {partnerNameError && (
+              <p id="partner-name-error" role="alert" className="text-sm text-red-500 mt-1">
+                {partnerNameError}
+              </p>
+            )}
+          </div>
+        )}
+
         {/* Pending/active: read-only "We, X and Y, agree to:" */}
-        {(isPending || isActive) && (
+        {((isPending && !onPartnerNameChange) || isActive) && (
           <p
             className="text-base md:text-lg leading-relaxed text-[#1A1A1A]"
             style={{ fontFamily: '"Playfair Display", Georgia, serif' }}

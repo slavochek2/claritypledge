@@ -347,6 +347,9 @@ export function AcceptAgreementPage() {
             partnerName={certificatePartnerName}
             partnerSignedAt={agreement.partnerSignedAt}
             termsText={agreement.termsText}
+            onPartnerNameChange={pageState === 'partner' ? (name) => { setPartnerDisplayName(name); setNameError(null); } : undefined}
+            partnerNameValue={partnerDisplayName}
+            partnerNameError={nameError ?? undefined}
             footer={
               pageState === 'unauthenticated' ? (
                 signupEmailSent ? (
@@ -408,27 +411,6 @@ export function AcceptAgreementPage() {
                 )
               ) : pageState === 'partner' && currentUser ? (
                 <div className="space-y-3">
-                  <div>
-                    <label
-                      htmlFor="accept-partner-name"
-                      className="block text-sm font-medium text-[#1A1A1A]/70 mb-1"
-                    >
-                      Your name on this agreement
-                    </label>
-                    <Input
-                      id="accept-partner-name"
-                      type="text"
-                      aria-label="Partner's full name"
-                      value={partnerDisplayName}
-                      onChange={e => { setPartnerDisplayName(e.target.value); setNameError(null); }}
-                      placeholder="Your full name"
-                      maxLength={100}
-                    />
-                    {nameError && <p className="mt-1 text-xs text-red-600">{nameError}</p>}
-                  </div>
-                  <p className="text-sm text-[#1A1A1A]/70 text-center">
-                    Signing as: <span className="font-semibold text-[#1A1A1A]">{currentUser.name}</span>
-                  </p>
                   <div className="flex flex-col sm:flex-row gap-3 justify-center">
                     <Button
                       className="bg-[#002B5C] hover:bg-[#001f42] text-white"
