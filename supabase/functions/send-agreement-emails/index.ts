@@ -296,14 +296,14 @@ async function handleResend(
 
 // ── Entry point ───────────────────────────────────────────────────────────────
 
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+};
+
 serve(async (req: Request) => {
   if (req.method === 'OPTIONS') {
-    return new Response(null, {
-      headers: {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-      },
-    });
+    return new Response(null, { headers: corsHeaders });
   }
 
   try {
@@ -319,7 +319,7 @@ serve(async (req: Request) => {
     };
 
     if (!action || !agreementId) {
-      return new Response(JSON.stringify({ error: 'Missing action or agreementId' }), { status: 400 });
+      return new Response(JSON.stringify({ error: 'Missing action or agreementId' }), { status: 400, headers: corsHeaders });
     }
 
     switch (action) {
@@ -343,10 +343,10 @@ serve(async (req: Request) => {
     }
 
     return new Response(JSON.stringify({ ok: true }), {
-      headers: { 'Content-Type': 'application/json' },
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (err) {
     console.error('send-agreement-emails error:', err);
-    return new Response(JSON.stringify({ error: String(err) }), { status: 500 });
+    return new Response(JSON.stringify({ error: String(err) }), { status: 500, headers: corsHeaders });
   }
 });
