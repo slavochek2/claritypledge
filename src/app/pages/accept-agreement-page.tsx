@@ -245,10 +245,10 @@ export function AcceptAgreementPage() {
         {/* Page title */}
         <div className="text-center">
           <h1
-            className="text-2xl md:text-3xl font-serif text-[#002B5C]"
+            className="text-2xl md:text-3xl font-serif text-[#1A1A1A]"
             style={{ fontFamily: '"Playfair Display", Georgia, serif' }}
           >
-            Clarity Partner Agreement
+            <span className="font-bold">{agreement?.creator?.name ?? 'Someone'}</span> invited you
           </h1>
         </div>
 
