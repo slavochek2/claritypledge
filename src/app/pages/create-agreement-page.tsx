@@ -22,12 +22,10 @@ import { toast } from 'sonner';
 const TERMS_MAX = 1000;
 
 const DEFAULT_TERMS = `Scope: Professional partnership — all work-related communication.
+Request channel: Clarity session requests will happen via email.
+Frequency: At least 1 clarity live session(s) per month unless confirmed to skip by both parties.
 Session duration: Minimum 15 minutes per /live session.
-Frequency: At least 1 /live session(s) per month.
-First session: We commit to completing a /live session within 30 days of signing.
-Response time: Session requests must be acknowledged within 14 days.
-Channel: Session requests via ClarityPledge only.
-Renewal: This agreement auto-renews until either party terminates.`;
+Response time: Session requests must be acknowledged within 5 days.`;
 
 const VISIBILITY_OPTIONS: {
   value: AgreementVisibility;
@@ -281,7 +279,7 @@ export function CreateAgreementPage() {
       )}
 
       {/* Certificate — primary UI (IS the form) */}
-      <form onSubmit={handleSubmit} className="space-y-6">
+      <form onSubmit={handleSubmit}>
         <AgreementCertificate
           variant="creation"
           creatorName={creatorName ?? ''}
@@ -293,108 +291,105 @@ export function CreateAgreementPage() {
           partnerNamePlaceholder="their name"
           onTermsChange={handleTermsChange}
           termsError={errors.termsText}
-        />
+          footer={
+            <div className="space-y-5">
+              {/* Partner Email */}
+              <div>
+                <label htmlFor="partner-email" className="block text-sm font-medium mb-2">
+                  Partner&apos;s email <span className="text-red-500">*</span>
+                </label>
+                <div className="relative">
+                  <Input
+                    id="partner-email"
+                    type="email"
+                    value={partnerEmail}
+                    onChange={handleEmailChange}
+                    placeholder="email@example.com"
+                    aria-describedby={errors.partnerEmail ? 'partner-email-error' : undefined}
+                    aria-invalid={errors.partnerEmail ? 'true' : undefined}
+                    className={errors.partnerEmail ? 'border-red-500' : ''}
+                    autoComplete="email"
+                  />
+                  {isLookingUp && (
+                    <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                      <Loader2Icon className="w-4 h-4 animate-spin text-muted-foreground" />
+                    </div>
+                  )}
+                </div>
 
-        {/* ── Fields below the certificate ── */}
-
-        {/* Partner Email */}
-        <div>
-          <label htmlFor="partner-email" className="block text-sm font-medium mb-2">
-            Partner&apos;s email <span className="text-red-500">*</span>
-          </label>
-          <div className="relative">
-            <Input
-              id="partner-email"
-              type="email"
-              value={partnerEmail}
-              onChange={handleEmailChange}
-              placeholder="email@example.com"
-              aria-describedby={errors.partnerEmail ? 'partner-email-error' : undefined}
-              aria-invalid={errors.partnerEmail ? 'true' : undefined}
-              className={errors.partnerEmail ? 'border-red-500' : ''}
-              autoComplete="email"
-            />
-            {isLookingUp && (
-              <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                <Loader2Icon className="w-4 h-4 animate-spin text-muted-foreground" />
+                {!errors.partnerEmail && lookupResult === 'not-found' && (
+                  <p className="text-sm text-muted-foreground mt-2" role="status">
+                    No account found — they&apos;ll be invited to create one.
+                  </p>
+                )}
+                {!errors.partnerEmail && lookupResult !== null && lookupResult !== 'not-found' && (
+                  <div className="mt-2" role="status">
+                    <p className="text-sm text-green-700 font-medium mb-1">Account found ✓</p>
+                    <AvatarBadge party={lookupResult} />
+                  </div>
+                )}
+                {errors.partnerEmail && (
+                  <p id="partner-email-error" className="text-sm text-red-500 mt-1" role="alert">
+                    {errors.partnerEmail}
+                  </p>
+                )}
               </div>
-            )}
-          </div>
 
-          {/* Lookup result */}
-          {!errors.partnerEmail && lookupResult === 'not-found' && (
-            <p className="text-sm text-muted-foreground mt-2" role="status">
-              No account found — they&apos;ll be invited to create one.
-            </p>
-          )}
-          {!errors.partnerEmail && lookupResult !== null && lookupResult !== 'not-found' && (
-            <div className="mt-2" role="status">
-              <p className="text-sm text-green-700 font-medium mb-1">Account found ✓</p>
-              <AvatarBadge party={lookupResult} />
+              {/* Visibility Selector */}
+              <fieldset>
+                <legend className="block text-sm font-medium mb-2">Visibility</legend>
+                <div className="flex gap-2">
+                  {VISIBILITY_OPTIONS.map((opt) => {
+                    const Icon = opt.icon;
+                    const isSelected = visibility === opt.value;
+                    return (
+                      <MobileTooltip key={opt.value} content={opt.tooltip}>
+                        <button
+                          type="button"
+                          role="radio"
+                          aria-checked={isSelected}
+                          onClick={() => setVisibility(opt.value)}
+                          className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-md border text-sm font-medium transition-colors min-h-[44px] ${
+                            isSelected
+                              ? 'border-blue-500 bg-blue-50 text-blue-700'
+                              : 'border-input bg-background text-muted-foreground hover:bg-accent'
+                          }`}
+                        >
+                          <Icon className="w-4 h-4" />
+                          {opt.label}
+                        </button>
+                      </MobileTooltip>
+                    );
+                  })}
+                </div>
+              </fieldset>
+
+              {/* Submission error */}
+              {submitError && (
+                <p className="text-sm text-red-500" role="alert">
+                  {submitError}
+                </p>
+              )}
+
+              {/* Submit */}
+              <Button
+                type="submit"
+                disabled={isSubmitting || !!errors.partnerEmail || creatorHasNoName}
+                aria-disabled={creatorHasNoName ? 'true' : undefined}
+                className="bg-blue-500 hover:bg-blue-600 text-white w-full py-6 text-base"
+              >
+                {isSubmitting ? (
+                  <>
+                    <Loader2Icon className="w-4 h-4 animate-spin mr-2" />
+                    Sending...
+                  </>
+                ) : (
+                  'Seal & Send \u2726'
+                )}
+              </Button>
             </div>
-          )}
-
-          {errors.partnerEmail && (
-            <p id="partner-email-error" className="text-sm text-red-500 mt-1" role="alert">
-              {errors.partnerEmail}
-            </p>
-          )}
-        </div>
-
-        {/* Visibility Selector */}
-        <fieldset>
-          <legend className="block text-sm font-medium mb-2">Visibility</legend>
-          <div className="flex gap-2">
-            {VISIBILITY_OPTIONS.map((opt) => {
-              const Icon = opt.icon;
-              const isSelected = visibility === opt.value;
-              return (
-                <MobileTooltip key={opt.value} content={opt.tooltip}>
-                  <button
-                    type="button"
-                    role="radio"
-                    aria-checked={isSelected}
-                    onClick={() => setVisibility(opt.value)}
-                    className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-md border text-sm font-medium transition-colors min-h-[44px] ${
-                      isSelected
-                        ? 'border-blue-500 bg-blue-50 text-blue-700'
-                        : 'border-input bg-background text-muted-foreground hover:bg-accent'
-                    }`}
-                  >
-                    <Icon className="w-4 h-4" />
-                    {opt.label}
-                  </button>
-                </MobileTooltip>
-              );
-            })}
-          </div>
-        </fieldset>
-
-        {/* Submission error */}
-        {submitError && (
-          <p className="text-sm text-red-500" role="alert">
-            {submitError}
-          </p>
-        )}
-
-        {/* Submit */}
-        <div className="pt-4">
-          <Button
-            type="submit"
-            disabled={isSubmitting || !!errors.partnerEmail || creatorHasNoName}
-            aria-disabled={creatorHasNoName ? 'true' : undefined}
-            className="bg-blue-500 hover:bg-blue-600 text-white min-h-[44px] w-full sm:w-auto"
-          >
-            {isSubmitting ? (
-              <>
-                <Loader2Icon className="w-4 h-4 animate-spin mr-2" />
-                Sending...
-              </>
-            ) : (
-              'Seal & Send \u2726'
-            )}
-          </Button>
-        </div>
+          }
+        />
       </form>
     </div>
   );

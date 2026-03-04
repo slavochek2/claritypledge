@@ -11,6 +11,7 @@
  *   - Certificate outer element has role="region" aria-label for screen reader landmark
  */
 
+import React from 'react';
 import { ClarityLogoMark } from '@/components/ui/clarity-logo';
 
 export type CertificateVariant = 'creation' | 'pending' | 'active' | 'celebration';
@@ -26,6 +27,7 @@ export interface AgreementCertificateProps {
   partnerSignedAt?: string | null;
   termsText?: string;           // the agreement terms
   className?: string;
+  footer?: React.ReactNode;
 
   // P466: creation-mode props — omitting all = existing behavior unchanged
   onPartnerNameChange?: (name: string) => void;
@@ -95,6 +97,7 @@ export function AgreementCertificate({
   partnerSignedAt,
   termsText,
   className = '',
+  footer,
   onPartnerNameChange,
   partnerNameValue = '',
   partnerNameError,
@@ -273,11 +276,7 @@ export function AgreementCertificate({
         ) : null}
 
         {/* Signatures + seal */}
-        {isCreation ? (
-          <p className="text-xs text-[#1A1A1A]/40 font-sans mt-3">
-            Agreement becomes active when both parties sign.
-          </p>
-        ) : (
+        {isCreation ? null : (
           <div className="pt-5 border-t-2 border-[#002B5C]">
             <div className="flex items-start justify-between gap-4">
               {/* Creator signature */}
@@ -321,6 +320,12 @@ export function AgreementCertificate({
                 Active since {formatSignedDate(partnerSignedAt)}
               </p>
             )}
+          </div>
+        )}
+
+        {footer && (
+          <div className="pt-6 border-t border-[#1A1A1A]/10">
+            {footer}
           </div>
         )}
       </div>
