@@ -26,6 +26,16 @@ paths:
 
 Never issue `git commit` from inside a subagent. Subagents have an isolated staging area — their `git add` calls do not appear in the main session's index, and vice versa. Commit workflow: subagent stages → main session verifies with `git diff --cached --name-only` → main session commits.
 
+## Verify file has changes before staging
+
+Before `git add <file>`, run:
+```bash
+git diff HEAD -- <file>
+```
+Empty output = file matches HEAD = already committed. Do not stage.
+
+This catches the case where a subagent or prior session already committed the file — staging it again produces an empty commit with a misleading message.
+
 ## Always use explicit file names
 
 ```bash

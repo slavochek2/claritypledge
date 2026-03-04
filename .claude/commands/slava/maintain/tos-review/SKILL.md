@@ -25,7 +25,7 @@ Run this after batches of shipped features, especially when new APIs, data flows
 2. `src/app/pages/terms-of-service-page.tsx` — current ToS text (until migrated to `content/tos.md`)
 3. `features/done/INDEX.md` — all shipped features; filter by date > last ToS update
 4. `supabase/functions/` — edge functions (third-party API calls, data processing)
-5. `.env.local` / env var names in `vite.config.ts` — third-party service inventory
+5. `.env.local`, `vite.config.ts`, and `src/` — third-party service inventory (VITE_ vars + frontend service calls)
 
 ---
 
@@ -36,8 +36,13 @@ Run this after batches of shipped features, especially when new APIs, data flows
 First, grep for third-party service calls in edge functions — structural discovery before reading:
 
 ```bash
-grep -rn "fetch\|MAILGUN\|GEMINI\|STRIPE\|OPENAI\|SENTRY\|MIXPANEL" supabase/functions/ \
-  | grep -v "node_modules\|\.git" | sort -u
+# Edge functions + frontend source — catches all third-party calls:
+grep -rn "fetch\|MAILGUN\|GEMINI\|STRIPE\|OPENAI\|SENTRY\|MIXPANEL" \
+  supabase/functions/ src/ \
+  | grep -v "node_modules\|\.git\|\.snap\|test\|spec" | sort -u
+
+# VITE_ env vars — third-party service signals baked at build time:
+grep -r "VITE_\|import\.meta\.env\." src/ | grep -v "node_modules" | sort -u
 ```
 
 Then inventory everything since `LEGAL_LAST_UPDATED`:
@@ -65,6 +70,8 @@ Cross-reference Stage 1 vs Stage 2. Identify:
 
 ### Stage 4 — Propose Changes (spawn Agent A — Legal Drafter)
 
+**Before spawning:** Read `src/app/pages/terms-of-service-page.tsx` in full. In the prompt below, replace `[ToS file content]` with the full file text and `[Gap analysis]` with your Stage 3 structured list.
+
 Spawn a general-purpose agent with this prompt:
 
 ```
@@ -73,9 +80,9 @@ You are a legal drafter specializing in SaaS and GDPR-compliant terms of service
 Company: TechSalesBox OÜ (Estonia), product: ClarityPledge — calibrated communication practice platform.
 Users: co-founder pairs. Target market: Europe. Legal jurisdiction: Estonian law + GDPR.
 
-Current ToS: [paste full ToS text]
+Current ToS: [ToS file content]
 
-Gap analysis: [paste Stage 3 output]
+Gap analysis: [Gap analysis]
 
 Task: Propose specific, minimal ToS changes to close the identified gaps. For each change:
 1. Section it belongs in (or new section name)
@@ -88,6 +95,8 @@ Be minimal — don't rewrite sections that don't need it. Only close the gaps.
 
 ### Stage 5 — Review (spawn Agent B — Devil's Advocate + GDPR)
 
+**Before spawning:** Use the same `[ToS file content]` read in Stage 4. Replace `[Stage 4 output]` with the full output from the Stage 4 agent.
+
 Spawn a second general-purpose agent with this prompt:
 
 ```
@@ -96,8 +105,8 @@ Your job is to find problems in proposed ToS changes — not to approve them.
 
 Company: TechSalesBox OÜ (Estonia), product: ClarityPledge, users: co-founder pairs, jurisdiction: Estonian law + GDPR.
 
-Original ToS: [paste full ToS text]
-Proposed changes: [paste Stage 4 agent output]
+Original ToS: [ToS file content]
+Proposed changes: [Stage 4 output]
 
 Review each proposed change for:
 1. GDPR compliance (data minimization, lawful basis, consent requirements, Art. 13/14 disclosures)
@@ -139,8 +148,13 @@ For each approved change:
 
 ### Stage 8 — Visual Review
 
-Use Claude in Chrome to load `/terms-of-service` on localhost and screenshot the updated sections.
-Confirm formatting, readability, no truncation.
+Use Claude in Chrome to load `http://localhost:5173/terms-of-service` and screenshot the updated sections.
+
+**Pass criteria:** All new paragraphs render without truncation, spacing matches surrounding sections, no raw HTML visible, date in page header matches today.
+
+**Fallback (if Claude in Chrome unavailable):** Use any available browser automation tool — Chrome DevTools MCP, Playwright, or Claude in Chrome. If none is available, note "Visual review skipped — no browser tool available. Run manually before pushing."
+
+Do not mark Stage 8 complete based on code reading alone.
 
 ---
 

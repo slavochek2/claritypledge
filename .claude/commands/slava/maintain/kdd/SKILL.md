@@ -105,7 +105,7 @@ Recommendation: Remove from README.md, link to definitions.md instead.
    - Domain concepts changed? → `definitions.md`
    - Epistemological claims or WHY-this-works reasoning updated? → `docs/philosophy.md`
 
-3. **Propose updates** — before proposing, cross-check against the git log from step 1. If a commit already shows the doc was updated this session or in a recent prior commit, do NOT flag it as a gap — only propose updates for knowledge not yet captured. State what you'll update and why, then proceed.
+3. **Propose updates** — before proposing, cross-check against the git log from step 1. If a commit in the Step 1 log (`git log --oneline -10`) shows the doc file was updated AND the commit message references the same topic as the current KDD update — skip it; it's already captured. A doc file touched for a different feature in a prior commit does not count as captured. When in doubt, propose the update and note "may already be captured." State what you'll update and why, then proceed.
    - If no updates needed: "No knowledge updates needed" and skip to step 5
    - Don't ask repeatedly for confirmation — be decisive
 
@@ -253,7 +253,7 @@ Recommendation: Remove from README.md, link to definitions.md instead.
 
 7. **Skill-quality reflection** — always runs after step 6, output to chat only:
 
-   Spawn a second `general-purpose` subagent with the full conversation context AND the content of any skills that were invoked this session (read from `.claude/commands/slava/`). Task:
+   Before spawning: read each skill file that was invoked this session from `.claude/commands/slava/` and collect the full text. Pass the content inline in the subagent prompt — subagents cannot read from disk. Then spawn a second `general-purpose` subagent with the full conversation context AND the collected skill file contents. Task:
 
    > "You have the conversation transcript and the skill files that ran during it. Review each invoked skill for: (1) friction points or mistakes from the session — which skill instruction, CLAUDE.md rule, or prompt wording contributed? (2) clarity gaps — instructions that are ambiguous, underbounded, or could cause an agent to go off-scope even without visible friction. For each issue: quote the specific text, propose a concrete before/after rewrite. Before finalizing each proposed change: (a) confirm the quoted old text exists verbatim in the file — do not paraphrase, (b) confirm the proposed replacement does not introduce new errors. Flag any proposed change you cannot verify as [UNVERIFIED]. Also cross-reference proposals against the top 5 entries in docs/decisions.md (the file is append-only, newest at top — read only the first 100 lines) — if a proposed improvement is already captured there, flag it as 'already documented' rather than surfacing as new. Cap at 5 improvements. Skip issues caused by external factors (network, user typos, ambiguous requirements). Return a structured list: [skill/file] → [quoted problem text] → [proposed replacement]. Do NOT edit files, stage, or commit anything — return text only."
 

@@ -70,3 +70,16 @@ Fallback: curl with PROD_SUPABASE_SERVICE_ROLE_KEY from .env.local — see day-s
 3. **Supabase CLI** — migrations/schema only (`db push`, `db pull`, `projects api-keys`); cannot run ad-hoc SQL queries (`supabase db query` does not exist in v2.75.0)
 
 **Why:** Without an explicit fallback, agents in subagent/CI contexts improvise — burning 10–20 tool uses on dead ends before failing.
+
+## Subagent File Content — Always Inline
+
+When spawning a subagent that needs file content, the main agent must read the files first and pass their content inline in the subagent prompt. Subagents cannot read from disk — they only have what's in their prompt.
+
+**Pattern:**
+```
+# Main agent (before spawning):
+Read file_a.md and file_b.md.
+Then spawn subagent with prompt: "Here is the content of file_a.md: [content]. Here is file_b.md: [content]. Your task: ..."
+```
+
+**Why:** "Read the files yourself" in a subagent prompt is a no-op — subagents have no file access. Without inline content, the subagent either hallucinates or fails silently.
