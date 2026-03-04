@@ -4,19 +4,26 @@
  * Stateless display component — no service calls.
  */
 
+import type { ReactNode } from 'react';
+
 export interface ThreadMessageProps {
   role: 'user' | 'ai';
   content: string;
   isStreaming?: boolean;
+  /** Optional content rendered below the message text inside the bubble (e.g. rating buttons). */
+  children?: ReactNode;
+  /** Override data-testid on the outer article element. */
+  'data-testid'?: string;
 }
 
-export function ThreadMessage({ role, content, isStreaming = false }: ThreadMessageProps) {
+export function ThreadMessage({ role, content, isStreaming = false, children, 'data-testid': testId }: ThreadMessageProps) {
   const isAi = role === 'ai';
+  const defaultTestId = isAi ? 'thread-message-ai' : 'thread-message-user';
 
   return (
     <article
       aria-label={isAi ? 'AI message' : 'Your message'}
-      data-testid={isAi ? 'thread-message-ai' : 'thread-message-user'}
+      data-testid={testId ?? defaultTestId}
       className={`flex gap-2 ${isAi ? 'items-start' : 'items-start justify-end'}`}
     >
       {isAi && (
@@ -50,6 +57,11 @@ export function ThreadMessage({ role, content, isStreaming = false }: ThreadMess
           </span>
         ) : (
           content
+        )}
+        {children && (
+          <div className="mt-2">
+            {children}
+          </div>
         )}
       </div>
     </article>

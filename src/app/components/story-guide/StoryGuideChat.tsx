@@ -18,19 +18,17 @@ import { useNavigate } from 'react-router-dom';
 import type { StoryVisibility, Story } from '@/app/types';
 import { useAuth } from '@/auth';
 import { ThreadMessage } from './ThreadMessage';
+import { ChatContextHeader } from './ChatContextHeader';
 import { DraftCard } from './DraftCard';
 import { VisibilityAndSave } from './VisibilityAndSave';
 import { SavedStoryChatCard } from './SavedStoryChatCard';
-import { PointCardWithLinks } from '@/app/components/social/point-card-with-links';
 import type { PointProfileOwner } from '@/app/components/social/point-card-with-links';
-import type { Point as PrototypePoint, PositionEntry, Position } from '@/app/prototypes/shared/types';
+import type { PositionEntry, Position } from '@/app/prototypes/shared/types';
 import { mockStoryGuideStream } from '@/app/data/story-guide-chat-stub';
 import { storiesService } from '@/app/data/stories-service';
-import { pointsService } from '@/app/data/points-service';
 import { supabase } from '@/lib/supabase';
 import { toast } from 'sonner';
-import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription } from '@/components/ui/drawer';
-import { ChatRatingContent } from '@/app/components/partners/shared';
+import { RatingButtons } from '@/app/components/partners/shared';
 import { RemovePositionDialog, useRemovePositionGuard } from '@/app/components/shared/remove-position-dialog';
 
 // ---------------------------------------------------------------------------
@@ -59,6 +57,8 @@ type P425Message = {
   isSavedCard?: boolean;
   savedStoryId?: string;
   savedVisibility?: StoryVisibility;
+  /** P467: Rating prompt bubble — renders with inline 0–10 buttons as children. */
+  isRatingPrompt?: boolean;
   timestamp: number;
 };
 
@@ -168,7 +168,7 @@ const MOCK_AI = import.meta.env.VITE_MOCK_AI === 'true';
 
 function getPlaceholder(phase: ChatPhase): string {
   if (phase === 'idle' || phase === 'brain-dump') return "Tell me so I understand you";
-  if (phase === 'rating' || phase === 'iterating') return '0–10, or describe what\'s off...';
+  if (phase === 'rating' || phase === 'iterating') return "What's off? Or type 0–10...";
   if (phase === 'streaming') return 'Thinking...';
   return '';
 }
@@ -211,27 +211,12 @@ export function StoryGuideChat({
   }, [contextProfileOwner?.position]);
 
   // P451: Guard position removal with linked-stories warning + exit chat on confirm
-  const { dialogProps, guardedRemovePosition } = useRemovePositionGuard({
+  const { dialogProps } = useRemovePositionGuard({
     userId: user?.id ?? '',
     onAfterRemove: () => {
       navigate(-1); // Exit chat — telling a story about a removed position makes no sense
     },
   });
-
-  // P451: Handle position changes on the context card
-  const handlePositionSelect = useCallback(async (newPosition: Position) => {
-    if (!user?.id || !pointId) return;
-    if (newPosition === null) {
-      await guardedRemovePosition(pointId);
-    } else {
-      const success = await pointsService.setPosition(pointId, user.id, newPosition);
-      if (success) {
-        setLocalPosition(newPosition);
-      } else {
-        toast.error('Failed to update position. Please try again.');
-      }
-    }
-  }, [user, pointId, guardedRemovePosition]);
 
   // P446: Restore persisted chat state on mount (create mode only — not edit mode).
   // Use a ref to load once at mount; lazy useState initialisers run only on first render
@@ -265,7 +250,12 @@ export function StoryGuideChat({
     return getPersistedState()?.polishedContent ?? null;
   });
   const [ratingValue, setRatingValue] = useState<number | null>(null);
-  const [ratingComment, setRatingComment] = useState('');
+  /** P467: ID of the rating message whose buttons are currently frozen (rating submitted). */
+  const [frozenRatingId, setFrozenRatingId] = useState<string | null>(null);
+  /** P467: ID of the currently-active (latest) rating prompt message. */
+  const [activeRatingId, setActiveRatingId] = useState<string | null>(null);
+  /** P467: aria-live announcement text after rating button click. */
+  const [ratingAnnouncement, setRatingAnnouncement] = useState<string>('');
 
   const threadRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -533,11 +523,13 @@ export function StoryGuideChat({
       const ratingPrompt: P425Message = {
         id: makeId(),
         role: 'ai',
-        content: 'How well does this capture what you meant? Type 0–10 or describe what\'s off.',
+        content: 'How well does this capture what you meant?',
+        isRatingPrompt: true,
         timestamp: Date.now(),
       };
 
       setMessages(prev => [...prev, draftCard, ratingPrompt]);
+      setActiveRatingId(ratingPrompt.id);
       setPhase('rating');
     },
     [session, pointText, userPosition]
@@ -603,21 +595,20 @@ export function StoryGuideChat({
     setPhase('visibility');
   }, []);
 
-  const handleKeepRefining = useCallback(() => {
-    setPhase('brain-dump');
-    setRatingValue(null);
-    setRatingComment('');
-  }, []);
-
-  const handleRatingSubmit = useCallback(() => {
-    if (ratingValue === null) return;
-    const text = ratingComment.trim()
-      ? `${ratingValue} — ${ratingComment.trim()}`
-      : String(ratingValue);
-    handleSend(text);
-    setRatingValue(null);
-    setRatingComment('');
-  }, [ratingValue, ratingComment, handleSend]);
+  // ---------------------------------------------------------------------------
+  // P467: Inline rating button click — immediately sends the rating
+  // ---------------------------------------------------------------------------
+  const handleInlineRatingSelect = useCallback((ratingMsgId: string, value: number) => {
+    // Freeze the button row immediately
+    setFrozenRatingId(ratingMsgId);
+    setActiveRatingId(null);
+    // Announce to screen readers
+    setRatingAnnouncement(`Rating ${value} sent`);
+    // Clear announcement after a short delay so it can be re-announced if needed
+    setTimeout(() => setRatingAnnouncement(''), 3000);
+    // Send the rating as a user message
+    handleSend(String(value));
+  }, [handleSend]);
 
   // ---------------------------------------------------------------------------
   // Save handler
@@ -709,17 +700,10 @@ export function StoryGuideChat({
   // ---------------------------------------------------------------------------
   // Render helpers
   // ---------------------------------------------------------------------------
-  const latestDraft =
-    phase === 'rating' || phase === 'iterating'
-      ? [...messages].reverse().find(m => m.isDraftCard)
-      : null;
-
   const showInputBar =
     phase !== 'visibility' &&
     phase !== 'saving' &&
-    phase !== 'saved' &&
-    phase !== 'rating' &&
-    phase !== 'iterating';
+    phase !== 'saved';
   const sendDisabled =
     !inputValue.trim() ||
     phase === 'streaming' ||
@@ -729,24 +713,19 @@ export function StoryGuideChat({
 
   return (
     <div className={`flex flex-col h-full${isEmptyState ? ' justify-center' : ''}`} data-testid="story-guide-chat">
-      {/* Context card (only when full point data is available) */}
+      {/* P467: Slim context header (replaces PointCardWithLinks) */}
       {contextPoint && (
-        <div data-testid="context-card" className="sticky top-16 z-10 bg-background border-b border-border px-4 py-3">
-          <PointCardWithLinks
-            point={contextPoint as PrototypePoint}
-            profileOwner={contextProfileOwner ? { ...contextProfileOwner, position: localPosition } : undefined}
-            currentUserId={user?.id}
-            selectedPosition={localPosition}
-            onPositionSelect={handlePositionSelect}
-            disableNavigation
-            storyCTAOverride={localPosition ? (
-              <p className="mt-2 text-xs text-muted-foreground text-center">
-                ✓ Position saved — write your experience below ↓
-              </p>
-            ) : null}
-          />
-        </div>
+        <ChatContextHeader
+          pointId={contextPoint.id}
+          pointText={contextPoint.text}
+          userPosition={localPosition as 'agree' | 'disagree' | 'unsure' | null | undefined}
+        />
       )}
+
+      {/* P467: aria-live region for rating announcements */}
+      <div aria-live="polite" aria-atomic="true" className="sr-only">
+        {ratingAnnouncement}
+      </div>
 
       {/* Thread area */}
       <div
@@ -782,11 +761,47 @@ export function StoryGuideChat({
             );
           }
 
+          if (msg.isRatingPrompt) {
+            const isActive = msg.id === activeRatingId;
+            const isFrozen = msg.id === frozenRatingId || (!isActive && msg.id !== activeRatingId);
+            return (
+              <ThreadMessage
+                key={msg.id}
+                role="ai"
+                content={msg.content}
+                data-testid="rating-bubble"
+              >
+                <div className="mt-3">
+                  <RatingButtons
+                    selectedValue={ratingValue}
+                    onSelect={(value) => handleInlineRatingSelect(msg.id, value)}
+                    disabled={isFrozen}
+                    fullWidth
+                  />
+                  <div className="flex justify-between text-xs text-muted-foreground mt-1" aria-hidden="true">
+                    <span aria-hidden="true">not at all</span>
+                    <span aria-hidden="true">perfectly</span>
+                  </div>
+                  {iterationCount >= 1 && isActive && (
+                    <button
+                      type="button"
+                      onClick={handleEscapeHatchSave}
+                      className="mt-3 text-sm text-muted-foreground underline-offset-2 hover:underline py-2 block"
+                    >
+                      Save as-is →
+                    </button>
+                  )}
+                </div>
+              </ThreadMessage>
+            );
+          }
+
           return (
             <ThreadMessage
               key={msg.id}
               role={msg.role}
               content={msg.content}
+              data-testid={msg.content === 'Edit your story' ? 'edit-story-heading' : undefined}
             />
           );
         })}
@@ -882,45 +897,6 @@ export function StoryGuideChat({
           )}
         </div>
       )}
-
-      {/* Rating drawer — transparent overlay so thread history remains visible */}
-      <Drawer open={phase === 'rating' || phase === 'iterating'} dismissible={false}>
-        <DrawerContent overlayClassName="bg-transparent">
-          {/* Latest draft pinned above rating UI — user rates what they can see */}
-          {latestDraft && (
-            <div className="px-4 pt-3 pb-3 border-b border-border">
-              <p className="text-xs text-muted-foreground mb-1.5">
-                Draft v{latestDraft.draftVersion} · {latestDraft.draftStatus === 'polish' ? 'Polish' : 'Draft'} · not saved
-              </p>
-              <p className="text-sm text-foreground line-clamp-4 leading-relaxed">{latestDraft.content}</p>
-            </div>
-          )}
-          <DrawerHeader>
-            <DrawerTitle className="sr-only">Rate the draft</DrawerTitle>
-            <DrawerDescription className="text-base font-medium text-foreground">
-              {iterationCount > 0 ? `Revision ${iterationCount + 1} — how well does this capture what you meant?` : 'How well does this capture what you meant?'}
-            </DrawerDescription>
-          </DrawerHeader>
-          <div className="px-4 pt-4 pb-8">
-            <ChatRatingContent
-              ratingValue={ratingValue}
-              onRatingChange={setRatingValue}
-              comment={ratingComment}
-              onCommentChange={setRatingComment}
-              onSubmit={handleRatingSubmit}
-              onCommentKeyDown={e => {
-                if (e.key === 'Enter' && (e.ctrlKey || e.metaKey) && !e.nativeEvent.isComposing) {
-                  e.preventDefault();
-                  handleRatingSubmit();
-                }
-              }}
-              iterationCount={iterationCount}
-              onEscapeHatchSave={handleEscapeHatchSave}
-              onKeepRefining={handleKeepRefining}
-            />
-          </div>
-        </DrawerContent>
-      </Drawer>
 
       {/* P451: Remove position warning dialog */}
       <RemovePositionDialog {...dialogProps} />

@@ -134,18 +134,17 @@ test.describe('P425 Accessibility — /chat page structure', () => {
     ).toBeTruthy();
   });
 
-  // ── Context card accessibility ────────────────────────────────────────────
+  // ── Context header accessibility (P467: replaced context-card with chat-context-header) ──
 
-  test('context card region is present and labelled when position params provided', async ({ page }) => {
-    // Uses a fake pointId — card won't load real data but wrapper renders if contextPoint resolves.
-    // With a fake id the fetch returns null → contextPoint is undefined → card doesn't render.
-    // This is acceptable: the test confirms the card is absent rather than crashing.
+  test('context header is not present when position params resolve to no data', async ({ page }) => {
+    // Uses a fake pointId — chat-context-header won't render if contextPoint is undefined.
+    // This is acceptable: the test confirms the header is absent rather than crashing.
     await setTestSession(page, testUser.email);
     await page.goto(`${CHAT_PATH}?from=position&pointId=test-point-id`);
     await page.waitForLoadState('networkidle');
 
-    // With a non-existent pointId the context card should not render (graceful degradation).
-    await expect(page.getByTestId('context-card')).not.toBeVisible();
+    // With a non-existent pointId the context header should not render (graceful degradation).
+    await expect(page.getByTestId('chat-context-header')).not.toBeAttached();
   });
 
   // ── Draft card ARIA ──────────────────────────────────────────────────────

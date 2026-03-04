@@ -1,4 +1,9 @@
-import { useState } from 'react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { ChevronDownIcon } from 'lucide-react';
 
 export interface CalendarEventData {
@@ -50,10 +55,8 @@ interface AddToCalendarButtonProps {
 }
 
 export function AddToCalendarButton({ event }: AddToCalendarButtonProps) {
-  const [open, setOpen] = useState(false);
-
   return (
-    <div className="relative inline-flex">
+    <div className="inline-flex">
       <a
         href={getGoogleCalendarUrl(event)}
         target="_blank"
@@ -62,38 +65,37 @@ export function AddToCalendarButton({ event }: AddToCalendarButtonProps) {
       >
         Add to Google Calendar
       </a>
-      <button
-        type="button"
-        onClick={() => setOpen(v => !v)}
-        aria-expanded={open}
-        aria-label="More calendar options"
-        className="inline-flex items-center px-2 py-1.5 rounded-r-md border border-[#0044CC]/40 text-sm text-[#0044CC] hover:bg-[#0044CC]/5 transition-colors"
-      >
-        <ChevronDownIcon size={14} />
-      </button>
-
-      {open && (
-        <div className="absolute top-full left-0 mt-1 z-10 min-w-[180px] bg-white border border-border rounded-md shadow-md py-1">
-          <a
-            href={getOutlookUrl(event)}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="block px-3 py-2 text-sm text-foreground hover:bg-accent"
-            onClick={() => setOpen(false)}
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <button
+            type="button"
+            aria-label="More calendar options"
+            className="inline-flex items-center px-2 py-1.5 rounded-r-md border border-[#0044CC]/40 text-sm text-[#0044CC] hover:bg-[#0044CC]/5 transition-colors"
           >
-            Outlook.com
-          </a>
-          <a
-            href={getOffice365Url(event)}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="block px-3 py-2 text-sm text-foreground hover:bg-accent"
-            onClick={() => setOpen(false)}
-          >
-            Microsoft 365
-          </a>
-        </div>
-      )}
+            <ChevronDownIcon size={14} />
+          </button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="start">
+          <DropdownMenuItem asChild>
+            <a
+              href={getOutlookUrl(event)}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Outlook.com
+            </a>
+          </DropdownMenuItem>
+          <DropdownMenuItem asChild>
+            <a
+              href={getOffice365Url(event)}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Microsoft 365
+            </a>
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
     </div>
   );
 }
