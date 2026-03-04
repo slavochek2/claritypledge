@@ -139,4 +139,8 @@ export const mockAgreementsService: AgreementsService = {
     agreement.terminatedBy = 'mock-user-a';
     return true;
   },
+
+  async getIncomingInvitations(_email) {
+    return [];
+  },
 };

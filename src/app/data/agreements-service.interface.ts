@@ -55,4 +55,6 @@ export interface AgreementsService {
   hasActiveAgreementWith(creatorProfileId: string, partnerEmail: string): Promise<boolean>;
   resendInvitation(agreementId: string): Promise<boolean>;
   terminateAgreement(agreementId: string): Promise<boolean>;
+  /** Pending agreements addressed to `email` that haven't been accepted yet. */
+  getIncomingInvitations(email: string): Promise<ClarityAgreement[]>;
 }

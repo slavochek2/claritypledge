@@ -55,6 +55,7 @@ export function ProfileConnectionsPage() {
 
   const [profile, setProfile] = useState<Profile | null>(null);
   const [agreements, setAgreements] = useState<ClarityAgreement[]>([]);
+  const [incomingInvitations, setIncomingInvitations] = useState<ClarityAgreement[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -87,6 +88,13 @@ export function ProfileConnectionsPage() {
           viewerProfileId
         );
         setAgreements(fetchedAgreements);
+
+        // Incoming invitations: pending agreements sent to the current user's email
+        // where they haven't accepted yet (partner_profile_id is null)
+        if (viewerProfileId === profileData.id && currentUser?.email) {
+          const incoming = await agreementsService.getIncomingInvitations(currentUser.email);
+          setIncomingInvitations(incoming);
+        }
       } catch (err) {
         console.error('ProfileConnectionsPage: Failed to load:', err);
         setError('Failed to load connections. Please try again.');
@@ -121,7 +129,7 @@ export function ProfileConnectionsPage() {
 
   const activeAgreements = visibleAgreements.filter(a => a.status === 'active');
   const pendingAgreements = visibleAgreements.filter(a => a.status === 'pending');
-  const hasAny = activeAgreements.length > 0 || pendingAgreements.length > 0;
+  const hasAny = activeAgreements.length > 0 || pendingAgreements.length > 0 || incomingInvitations.length > 0;
 
   return (
     <div className="max-w-lg mx-auto px-4 mt-3 pb-20">
@@ -151,6 +159,35 @@ export function ProfileConnectionsPage() {
           <EmptyState />
         ) : (
           <div className="space-y-6">
+            {incomingInvitations.length > 0 && (
+              <div>
+                <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-2">
+                  Invited to sign ({incomingInvitations.length})
+                </h2>
+                <ul className="space-y-0.5">
+                  {incomingInvitations.map((agreement) => (
+                    <li key={agreement.id}>
+                      <Link
+                        to={`/agreements/${agreement.id}/accept?token=${encodeURIComponent(agreement.invitationToken)}`}
+                        className="flex items-center gap-3 px-4 py-3 min-h-[56px] rounded-lg hover:bg-muted/50 active:bg-muted transition-colors block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                        aria-label={`Invitation from ${agreement.creator?.name ?? 'someone'}`}
+                      >
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium text-sm truncate text-foreground">
+                            {agreement.creator?.name ?? 'Someone'}
+                          </p>
+                          <p className="text-xs text-muted-foreground truncate">Invited you to co-sign</p>
+                        </div>
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                          Review
+                        </span>
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
             {activeAgreements.length > 0 && (
               <div>
                 <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-2">

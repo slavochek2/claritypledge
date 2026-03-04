@@ -464,4 +464,33 @@ export const realAgreementsService: AgreementsService = {
 
     return true;
   },
+
+  async getIncomingInvitations(email: string): Promise<ClarityAgreement[]> {
+    log('getIncomingInvitations:', email);
+
+    const { data, error } = await supabase
+      .from('clarity_agreements')
+      .select('*')
+      .eq('status', 'pending')
+      .is('partner_profile_id', null)
+      .ilike('partner_email', email);
+
+    if (error || !data) {
+      log('ERROR: getIncomingInvitations error:', error);
+      return [];
+    }
+
+    const rows = data as DbAgreementRow[];
+    if (rows.length === 0) return [];
+
+    // Filter out expired invitations (check-at-read, no DB write)
+    const now = new Date();
+    const validRows = rows.filter(row => new Date(row.invitation_expires_at) >= now);
+    if (validRows.length === 0) return [];
+
+    const allProfileIds = Array.from(new Set(validRows.map(r => r.creator_profile_id)));
+    const profileMap = await fetchProfilesById(allProfileIds);
+
+    return validRows.map(row => mapDbRowToAgreement(row, profileMap[row.creator_profile_id] ?? null, null));
+  },
 };

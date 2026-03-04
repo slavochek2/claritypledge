@@ -9,7 +9,7 @@
  *   - Edited name passed to accept_agreement RPC
  */
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useParams, useSearchParams, useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '@/auth';
 import { agreementsService } from '@/app/data/agreements-service';
@@ -28,7 +28,7 @@ import {
   DialogTitle,
   DialogDescription,
 } from '@/components/ui/dialog';
-import { Loader2Icon } from 'lucide-react';
+import { Loader2Icon, MailCheckIcon } from 'lucide-react';
 
 type PageState = 'loading' | 'invalid' | 'unauthenticated' | 'partner' | 'wrong-user';
 
@@ -53,6 +53,33 @@ export function AcceptAgreementPage() {
   const [showDeclineConfirm, setShowDeclineConfirm] = useState(false);
   const [showCelebration, setShowCelebration] = useState(false);
   const [acceptedAgreement, setAcceptedAgreement] = useState<ClarityAgreement | null>(null);
+
+  // Inline signup (unauthenticated flow): magic link sent to partner email
+  const [isSigningUp, setIsSigningUp] = useState(false);
+  const [signupEmailSent, setSignupEmailSent] = useState(false);
+
+  // Auto-accept intent — set when returning from OTP email (via localStorage)
+  const [autoAcceptWith, setAutoAcceptWith] = useState<string | null>(null);
+
+  // Auto-accept intent stored before OTP redirect — consumed when user returns authenticated
+  const pendingAutoAcceptRef = useRef<string | false>(false); // false = none, string = partnerName (may be '')
+
+  // Check localStorage for a pending auto-accept intent (set before OTP redirect)
+  useEffect(() => {
+    if (!agreementId) return;
+    const key = `clarity-pending-accept-${agreementId}`;
+    const stored = localStorage.getItem(key);
+    if (stored !== null) {
+      localStorage.removeItem(key);
+      try {
+        const { partnerName } = JSON.parse(stored) as { partnerName: string };
+        pendingAutoAcceptRef.current = partnerName ?? '';
+      } catch {
+        pendingAutoAcceptRef.current = '';
+      }
+    }
+   
+  }, [agreementId]);
 
   // Load agreement by token once auth state is resolved
   useEffect(() => {
@@ -91,6 +118,14 @@ export function AcceptAgreementPage() {
       }
 
       setPageState('partner');
+
+      // Auto-accept if returning from inline signup OTP flow
+      if (pendingAutoAcceptRef.current !== false) {
+        const nameToUse = pendingAutoAcceptRef.current;
+        pendingAutoAcceptRef.current = false; // consume it
+        if (nameToUse) setPartnerDisplayName(nameToUse);
+        setAutoAcceptWith(nameToUse); // triggers auto-accept effect
+      }
     };
 
     load();
@@ -99,9 +134,10 @@ export function AcceptAgreementPage() {
 
   // ---- Handlers ----
 
-  const handleAccept = async () => {
+  const handleAccept = async (nameOverride?: string) => {
     if (!agreement || !currentUser || !agreementId) return;
-    if (partnerDisplayName.trim().length > 100) {
+    const nameToUse = nameOverride !== undefined ? nameOverride : partnerDisplayName;
+    if (nameToUse.trim().length > 100) {
       setNameError('Name must be 100 characters or fewer');
       return;
     }
@@ -112,7 +148,7 @@ export function AcceptAgreementPage() {
         agreementId,
         token,
         partnerId: currentUser.id,
-        partnerDisplayName: partnerDisplayName.trim() || undefined,
+        partnerDisplayName: nameToUse.trim() || undefined,
       });
 
       if (!accepted) {
@@ -181,6 +217,55 @@ export function AcceptAgreementPage() {
       navigate(`/agreements/${agreementId}/declined`);
     } finally {
       setIsDeclining(false);
+    }
+  };
+
+  // Auto-accept when returning from OTP email (inline signup flow)
+  // Using a ref to the latest handleAccept to avoid stale closure in the effect
+  const handleAcceptRef = useRef(handleAccept);
+  handleAcceptRef.current = handleAccept;
+  useEffect(() => {
+    if (autoAcceptWith === null || pageState !== 'partner') return;
+    setAutoAcceptWith(null);
+    handleAcceptRef.current(autoAcceptWith);
+   
+  }, [autoAcceptWith, pageState]);
+
+  // Inline signup: send magic link to the partner email we already have
+  const handleInlineSignup = async () => {
+    if (!agreement || !agreementId) return;
+    if (partnerDisplayName.trim().length > 100) {
+      setNameError('Name must be 100 characters or fewer');
+      return;
+    }
+    setNameError(null);
+    setIsSigningUp(true);
+    try {
+      // Store intent so we can auto-accept when they return after clicking the magic link
+      localStorage.setItem(
+        `clarity-pending-accept-${agreementId}`,
+        JSON.stringify({ partnerName: partnerDisplayName.trim() })
+      );
+
+      const redirectUrl = `${window.location.origin}${window.location.pathname}${window.location.search}`;
+      const { error } = await supabase.auth.signInWithOtp({
+        email: agreement.partnerEmail,
+        options: {
+          emailRedirectTo: redirectUrl,
+          data: { name: partnerDisplayName.trim() || undefined },
+          shouldCreateUser: true,
+        },
+      });
+
+      if (error) {
+        localStorage.removeItem(`clarity-pending-accept-${agreementId}`);
+        toast.error('Failed to send sign-in link. Please try again.');
+        return;
+      }
+
+      setSignupEmailSent(true);
+    } finally {
+      setIsSigningUp(false);
     }
   };
 
@@ -264,32 +349,63 @@ export function AcceptAgreementPage() {
             termsText={agreement.termsText}
             footer={
               pageState === 'unauthenticated' ? (
-                <div className="space-y-3">
-                  <div className="flex flex-col sm:flex-row gap-3 justify-center">
-                    <Button asChild className="bg-[#002B5C] hover:bg-[#001f42] text-white">
-                      <Link to={`/signup?returnTo=${encodeURIComponent(returnTo)}&${tokenParam}`}>
-                        Create Account &amp; Sign
-                      </Link>
-                    </Button>
-                    <Button asChild variant="outline">
-                      <Link to={`/sign-in?returnTo=${encodeURIComponent(returnTo)}&${tokenParam}`}>
-                        Log In &amp; Sign
-                      </Link>
-                    </Button>
+                signupEmailSent ? (
+                  <div className="text-center space-y-2 py-2">
+                    <MailCheckIcon className="w-8 h-8 text-[#002B5C]/60 mx-auto" />
+                    <p className="text-sm font-medium text-[#1A1A1A]">Check your email</p>
+                    <p className="text-sm text-[#1A1A1A]/60">
+                      We sent a sign-in link to <span className="font-medium">{agreement.partnerEmail}</span>.
+                      Click it and we&apos;ll complete the signing automatically.
+                    </p>
                   </div>
-                  <div className="text-center">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="text-[#1A1A1A]/50 hover:text-[#1A1A1A]/70"
-                      onClick={handleUnauthDecline}
-                      disabled={isDeclining}
-                    >
-                      {isDeclining ? <Loader2Icon className="w-4 h-4 animate-spin mr-2" /> : null}
-                      Decline
-                    </Button>
+                ) : (
+                  <div className="space-y-3">
+                    <div>
+                      <label
+                        htmlFor="unauth-partner-name"
+                        className="block text-sm font-medium text-[#1A1A1A]/70 mb-1"
+                      >
+                        Your name on this agreement
+                      </label>
+                      <Input
+                        id="unauth-partner-name"
+                        type="text"
+                        value={partnerDisplayName}
+                        onChange={e => { setPartnerDisplayName(e.target.value); setNameError(null); }}
+                        placeholder="Your full name"
+                        maxLength={100}
+                      />
+                      {nameError && <p className="mt-1 text-xs text-red-600">{nameError}</p>}
+                    </div>
+                    <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                      <Button
+                        className="bg-[#002B5C] hover:bg-[#001f42] text-white"
+                        onClick={handleInlineSignup}
+                        disabled={isSigningUp}
+                      >
+                        {isSigningUp ? <Loader2Icon className="w-4 h-4 animate-spin mr-2" /> : null}
+                        Seal &amp; Create Account ✦
+                      </Button>
+                      <Button asChild variant="outline">
+                        <Link to={`/sign-in?returnTo=${encodeURIComponent(returnTo)}&${tokenParam}`}>
+                          Log In &amp; Sign
+                        </Link>
+                      </Button>
+                    </div>
+                    <div className="text-center">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-[#1A1A1A]/50 hover:text-[#1A1A1A]/70"
+                        onClick={handleUnauthDecline}
+                        disabled={isDeclining}
+                      >
+                        {isDeclining ? <Loader2Icon className="w-4 h-4 animate-spin mr-2" /> : null}
+                        Decline
+                      </Button>
+                    </div>
                   </div>
-                </div>
+                )
               ) : pageState === 'partner' && currentUser ? (
                 <div className="space-y-3">
                   <div>
