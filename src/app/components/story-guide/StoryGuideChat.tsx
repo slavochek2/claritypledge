@@ -252,8 +252,17 @@ export function StoryGuideChat({
   const [ratingValue, setRatingValue] = useState<number | null>(null);
   /** P467: ID of the rating message whose buttons are currently frozen (rating submitted). */
   const [frozenRatingId, setFrozenRatingId] = useState<string | null>(null);
-  /** P467: ID of the currently-active (latest) rating prompt message. */
-  const [activeRatingId, setActiveRatingId] = useState<string | null>(null);
+  /** P467: ID of the currently-active (latest) rating prompt message.
+   * On session restore, derive from the last rating prompt in restored messages
+   * so buttons are interactive when phase is 'rating' or 'iterating'. */
+  const [activeRatingId, setActiveRatingId] = useState<string | null>(() => {
+    const persisted = getPersistedState();
+    if (!persisted) return null;
+    if (persisted.phase !== 'rating' && persisted.phase !== 'iterating') return null;
+    const msgs = persisted.messages;
+    const lastRating = [...msgs].reverse().find(m => m.isRatingPrompt);
+    return lastRating?.id ?? null;
+  });
   /** P467: aria-live announcement text after rating button click. */
   const [ratingAnnouncement, setRatingAnnouncement] = useState<string>('');
 
@@ -763,7 +772,7 @@ export function StoryGuideChat({
 
           if (msg.isRatingPrompt) {
             const isActive = msg.id === activeRatingId;
-            const isFrozen = msg.id === frozenRatingId || (!isActive && msg.id !== activeRatingId);
+            const isFrozen = msg.id === frozenRatingId || !isActive;
             return (
               <ThreadMessage
                 key={msg.id}

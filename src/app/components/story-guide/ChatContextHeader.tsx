@@ -69,12 +69,12 @@ export function ChatContextHeader({ pointId, pointText, userPosition }: ChatCont
   return (
     <div
       data-testid="chat-context-header"
-      className="sticky top-16 z-10 bg-background border-b border-border px-4 flex items-start gap-2 py-3 min-h-[48px]"
+      className="sticky top-16 z-10 bg-background border-b border-border px-4 flex items-center gap-2 py-2 min-h-[48px]"
     >
       {/* Pin icon */}
       <Pin
         size={16}
-        className="flex-shrink-0 text-muted-foreground mt-0.5"
+        className="flex-shrink-0 text-muted-foreground"
         aria-hidden="true"
       />
 
