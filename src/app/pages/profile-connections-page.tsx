@@ -124,6 +124,10 @@ export function ProfileConnectionsPage() {
   const isOwner = viewerProfileId === profile.id;
   const visibleAgreements = filterAgreementsForViewer(agreements, profile.id, viewerProfileId);
 
+  const activeAgreements = visibleAgreements.filter(a => a.status === 'active');
+  const pendingAgreements = visibleAgreements.filter(a => a.status === 'pending');
+  const hasAny = activeAgreements.length > 0 || pendingAgreements.length > 0;
+
   return (
     <div className="max-w-lg mx-auto px-4 mt-3 pb-20">
       {/* Back navigation */}
@@ -148,24 +152,44 @@ export function ProfileConnectionsPage() {
       </div>
 
       <section aria-label="Partner Agreements">
-        {visibleAgreements.length === 0 ? (
+        {!hasAny ? (
           <EmptyState isOwner={isOwner} />
         ) : (
-          <>
-            <ul
-              className="space-y-0.5"
-              aria-label={`${visibleAgreements.length} agreement${visibleAgreements.length !== 1 ? 's' : ''}`}
-            >
-              {visibleAgreements.map((agreement) => (
-                <AgreementRow
-                  key={agreement.id}
-                  agreement={agreement}
-                  currentProfileId={profile.id}
-                />
-              ))}
-            </ul>
+          <div className="space-y-6">
+            {activeAgreements.length > 0 && (
+              <div>
+                <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-2">
+                  Active ({activeAgreements.length})
+                </h2>
+                <ul className="space-y-0.5">
+                  {activeAgreements.map((agreement) => (
+                    <AgreementRow
+                      key={agreement.id}
+                      agreement={agreement}
+                      currentProfileId={profile.id}
+                    />
+                  ))}
+                </ul>
+              </div>
+            )}
 
-          </>
+            {pendingAgreements.length > 0 && (
+              <div>
+                <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-2">
+                  Pending invitation ({pendingAgreements.length})
+                </h2>
+                <ul className="space-y-0.5">
+                  {pendingAgreements.map((agreement) => (
+                    <AgreementRow
+                      key={agreement.id}
+                      agreement={agreement}
+                      currentProfileId={profile.id}
+                    />
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
         )}
       </section>
     </div>

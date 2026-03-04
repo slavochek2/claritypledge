@@ -91,7 +91,7 @@ export function TermsOfServicePage() {
             <p className="text-muted-foreground leading-relaxed mb-4">
               By using The Clarity Pledge platform, you grant us a non-exclusive, worldwide,
               royalty-free license to use your anonymized interactions (including audio recordings,
-              session content, and usage patterns) to:
+              session content, and usage patterns — excluding /chat conversations) to:
             </p>
             <ul className="list-disc list-inside space-y-2 text-muted-foreground">
               <li>Train and improve our AI/ML models</li>
@@ -101,6 +101,33 @@ export function TermsOfServicePage() {
             <p className="text-muted-foreground leading-relaxed mt-4">
               This license survives account deletion for data already incorporated into models,
               though we will delete your identifiable data upon request.
+            </p>
+            <h3 className="text-xl font-semibold mt-6 mb-3">AI-Assisted Story Creation (/chat)</h3>
+            <p className="text-muted-foreground leading-relaxed mb-4">
+              The /chat feature uses Google's Gemini API to help you turn raw experience into a
+              first-person story. When you use /chat, the text you type — including interpersonal
+              situations and context you share — is sent to Google in real-time for inference. This
+              content is not anonymized before transmission. ClarityPledge does not retain your
+              /chat conversations server-side.
+            </p>
+            <p className="text-muted-foreground leading-relaxed mb-4">
+              Google processes this data under their own terms and may also use it for safety and
+              service improvement purposes. See{" "}
+              <a
+                href="https://policies.google.com/privacy"
+                className="text-blue-600 dark:text-blue-400 hover:underline"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                Google's Privacy Policy
+              </a>{" "}
+              for details. We process this data to provide the /chat feature you've requested
+              (Art. 6(1)(b) GDPR).
+            </p>
+            <p className="text-muted-foreground leading-relaxed">
+              <strong className="text-foreground">Note:</strong> Avoid sharing health, religious,
+              or other sensitive personal data in /chat. If you prefer not to share content with
+              Google, the platform is fully usable without /chat.
             </p>
           </section>
 
@@ -147,6 +174,25 @@ export function TermsOfServicePage() {
           </section>
 
           <section>
+            <h2 className="text-2xl font-bold mb-4">Story Visibility</h2>
+            <p className="text-muted-foreground leading-relaxed mb-4">
+              Stories you create have three visibility levels, which you control:
+            </p>
+            <ul className="list-disc list-inside space-y-2 text-muted-foreground">
+              <li><strong className="text-foreground">Private</strong> — visible only to you</li>
+              <li><strong className="text-foreground">Shared</strong> — visible to participants in events you've both RSVPd to</li>
+              <li><strong className="text-foreground">Public</strong> — visible to anyone</li>
+            </ul>
+            <p className="text-muted-foreground leading-relaxed mt-4">
+              You can change a story's visibility at any time. "Shared" visibility is limited to
+              co-attendees of a specific event and is not publicly indexed. We do not change your
+              story's visibility without your action. Shared stories can be seen and further shared
+              by co-attendees — ClarityPledge does not control what co-attendees do with content
+              they access.
+            </p>
+          </section>
+
+          <section>
             <h2 className="text-2xl font-bold mb-4">Endorsements (Witnesses)</h2>
             <p className="text-muted-foreground leading-relaxed">
               The witness feature allows colleagues to publicly endorse your commitment to understanding.
@@ -157,6 +203,28 @@ export function TermsOfServicePage() {
               <li>Witnesses vouch for your professional commitment to clear communication</li>
               <li>You should only invite people who genuinely know your work</li>
             </ul>
+          </section>
+
+          <section>
+            <h2 className="text-2xl font-bold mb-4">Clarity Partner Agreements</h2>
+            <p className="text-muted-foreground leading-relaxed mb-4">
+              You can create a Clarity Partner Agreement with another person — a mutual commitment
+              to communicate clearly in your working relationship. When you create an agreement and
+              enter your partner's email address, the platform sends them an invitation email
+              identifying you as the initiator (sent from agreements@claritypledge.com).
+            </p>
+            <p className="text-muted-foreground leading-relaxed mb-4">
+              By creating an agreement, you confirm that you have a legitimate reason to contact
+              this person and are not using the feature to send unsolicited messages.
+            </p>
+            <p className="text-muted-foreground leading-relaxed">
+              We store your partner's email address to deliver the invitation. If they don't
+              accept, their email address is deleted when the invitation expires (7 days). Partners
+              can request deletion at any time by contacting{" "}
+              <span className="text-blue-600 dark:text-blue-400">
+                privacy AT claritypledge DOT com
+              </span>.
+            </p>
           </section>
 
           <section>

@@ -2,7 +2,7 @@
  * @file celebration-dialog.tsx
  * @description P422: Celebration dialog shown when a Clarity Partner Agreement
  * becomes active (partner signs). Renders the certificate in celebration variant
- * alongside a Google Calendar CTA and navigation action.
+ * alongside a calendar CTA and navigation action.
  */
 
 import {
@@ -12,8 +12,10 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
+import { Link } from 'react-router-dom';
 import { ClarityAgreement } from '@/app/data/agreements-service.interface';
 import { AgreementCertificate } from './agreement-certificate';
+import { AddToCalendarButton } from '@/app/components/shared/add-to-calendar-button';
 
 interface CelebrationDialogProps {
   open: boolean;
@@ -22,17 +24,14 @@ interface CelebrationDialogProps {
   onViewAgreement: () => void;
 }
 
-const CALENDAR_URL =
-  'https://calendar.google.com/calendar/render?action=TEMPLATE' +
-  '&text=Clarity+Partner+%2Flive+Session' +
-  '&details=Our+first+%2Flive+session+under+the+Clarity+Partner+Agreement';
-
 export function CelebrationDialog({
   open,
   onClose,
   agreement,
   onViewAgreement,
 }: CelebrationDialogProps) {
+  const partnerName = agreement.partner?.name ?? agreement.partnerDisplayName ?? 'your partner';
+
   return (
     <Dialog open={open} onOpenChange={(isOpen) => { if (!isOpen) onClose(); }}>
       <DialogContent className="max-w-2xl w-full max-h-[90vh] overflow-y-auto">
@@ -55,22 +54,25 @@ export function CelebrationDialog({
             displayId={agreement.displayId}
             creatorName={agreement.creator?.name ?? 'Creator'}
             creatorSignedAt={agreement.createdAt}
-            partnerName={agreement.partner?.name ?? 'Partner'}
+            partnerName={partnerName}
             partnerSignedAt={agreement.partnerSignedAt}
             termsText={agreement.termsText}
           />
         </div>
 
-        {/* Google Calendar CTA */}
-        <div className="text-center">
-          <a
-            href={CALENDAR_URL}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-sm text-[#0044CC] hover:underline"
-          >
-            Add /live session to Google Calendar →
-          </a>
+        {/* Calendar CTA */}
+        <div className="text-center space-y-3">
+          <AddToCalendarButton
+            event={{
+              title: `Clarity /live session with ${partnerName}`,
+              description: 'Our first /live session under the Clarity Partner Agreement',
+            }}
+          />
+          <div>
+            <Link to="/live" className="text-sm text-[#0044CC] hover:underline">
+              Ready to practice? Start a /live session →
+            </Link>
+          </div>
         </div>
 
         {/* Actions */}

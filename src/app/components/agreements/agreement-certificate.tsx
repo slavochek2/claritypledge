@@ -11,6 +11,7 @@
  *   - Certificate outer element has role="region" aria-label for screen reader landmark
  */
 
+import React from 'react';
 import { ClarityLogoMark } from '@/components/ui/clarity-logo';
 
 export type CertificateVariant = 'creation' | 'pending' | 'active' | 'celebration';
@@ -26,6 +27,7 @@ export interface AgreementCertificateProps {
   partnerSignedAt?: string | null;
   termsText?: string;           // the agreement terms
   className?: string;
+  footer?: React.ReactNode;
 
   // P466: creation-mode props — omitting all = existing behavior unchanged
   onPartnerNameChange?: (name: string) => void;
@@ -50,25 +52,25 @@ interface SignatureSlotProps {
   value?: string;   // P466: overrides `name` with a read-only display value (creation mirror)
   signedAt?: string | null;
   isPending?: boolean;
-  hideNameText?: boolean; // P466: suppress name <p> when name shown elsewhere (creation sentence)
+  hideLabel?: boolean; // P472: hide CREATOR/PARTNER label in active/pending views
 }
 
-function SignatureSlot({ label, name, value, signedAt, isPending, hideNameText }: SignatureSlotProps) {
+function SignatureSlot({ label, name, value, signedAt, isPending, hideLabel }: SignatureSlotProps) {
   const displayName = value !== undefined ? value : (name || 'Awaiting signature');
 
   return (
     <div className="flex flex-col gap-1.5 min-w-0">
-      <p className="text-[10px] uppercase tracking-[0.15em] text-[#1A1A1A]/50 font-sans">
-        {label}
-      </p>
-      {!hideNameText && (
-        <p
-          className="text-base font-semibold text-[#1A1A1A] leading-tight"
-          style={{ fontFamily: '"Playfair Display", Georgia, serif' }}
-        >
-          {displayName || <span className="text-[#1A1A1A]/30 font-normal">their name</span>}
+      {!hideLabel && (
+        <p className="text-[10px] uppercase tracking-[0.15em] text-[#1A1A1A]/50 font-sans">
+          {label}
         </p>
       )}
+      <p
+        className="text-base font-semibold text-[#1A1A1A] leading-tight"
+        style={{ fontFamily: '"Playfair Display", Georgia, serif' }}
+      >
+        {displayName || <span className="text-[#1A1A1A]/30 font-normal">their name</span>}
+      </p>
       {signedAt ? (
         <p className="text-xs text-[#1A1A1A]/60">
           Signed on {formatSignedDate(signedAt)}
@@ -95,6 +97,7 @@ export function AgreementCertificate({
   partnerSignedAt,
   termsText,
   className = '',
+  footer,
   onPartnerNameChange,
   partnerNameValue = '',
   partnerNameError,
@@ -119,7 +122,7 @@ export function AgreementCertificate({
     >
       <div className="space-y-6">
         {/* Header */}
-        <div className="text-center space-y-1.5 pb-5 border-b-2 border-[#002B5C]">
+        <div className="text-center space-y-2 pb-5 border-b-2 border-[#002B5C]">
           <h2
             className="text-2xl md:text-3xl font-serif tracking-wide text-[#1A1A1A]"
             style={{ fontFamily: '"Playfair Display", Georgia, serif' }}
@@ -139,7 +142,7 @@ export function AgreementCertificate({
               style={{ fontFamily: '"Playfair Display", Georgia, serif' }}
             >
               We,{' '}
-              {creatorName}
+              <em>{creatorName}</em>
               {' '}and{' '}
               <input
                 type="text"
@@ -152,14 +155,14 @@ export function AgreementCertificate({
                 onKeyDown={e => { if (e.key === 'Enter') e.preventDefault(); }}
                 placeholder={partnerNamePlaceholder}
                 maxLength={110}
-                className={`border-0 rounded-none bg-transparent focus-visible:outline-none focus-visible:ring-0 font-serif text-base md:text-lg font-semibold inline-block min-w-[120px] w-auto placeholder:text-[#1A1A1A]/30 placeholder:font-normal ${
+                className={`border-0 rounded-none bg-transparent focus-visible:outline-none focus-visible:ring-0 font-serif text-base md:text-lg font-semibold inline-block min-w-[220px] w-auto placeholder:text-[#1A1A1A]/30 placeholder:font-normal ${
                   partnerNameError
                     ? 'border-b-2 border-red-500 focus-visible:border-red-500'
-                    : 'border-b-2 border-transparent focus-visible:border-[#0044CC]'
+                    : 'border-b-2 border-[#1A1A1A]/20 focus-visible:border-[#0044CC]'
                 }`}
                 style={{
                   fontFamily: '"Playfair Display", Georgia, serif',
-                  width: `${Math.max(120, (partnerNameValue?.length ?? 0) * 12)}px`,
+                  width: `${Math.max(220, (partnerNameValue?.length ?? 0) * 12)}px`,
                   maxWidth: '100%',
                 }}
               />,
@@ -176,14 +179,6 @@ export function AgreementCertificate({
             )}
           </div>
         )}
-
-        {/* Opening tagline */}
-        <p
-          className="text-center text-sm md:text-base italic text-[#1A1A1A]/70"
-          style={{ fontFamily: '"Playfair Display", Georgia, serif' }}
-        >
-          We all crave being understood. Let&apos;s commit to listen.
-        </p>
 
         {/* YOUR RIGHT */}
         <div className="space-y-2">
@@ -241,10 +236,9 @@ export function AgreementCertificate({
               maxLength={TERMS_MAX}
               onChange={e => onTermsChange(e.target.value)}
               rows={8}
-              className={`w-full resize-y bg-transparent border-0 border-b text-sm leading-relaxed text-[#1A1A1A]/80 focus-visible:outline-none focus-visible:ring-0 placeholder:text-[#1A1A1A]/30 min-h-[120px] ${
+              className={`w-full resize-y bg-[#F5F1E8] focus:bg-transparent border-0 border-b text-sm leading-relaxed text-[#1A1A1A]/80 focus-visible:outline-none focus-visible:ring-0 placeholder:text-[#1A1A1A]/30 min-h-[120px] font-sans transition-colors ${
                 termsError ? 'border-red-400' : 'border-[#1A1A1A]/20 focus-visible:border-[#0044CC]'
               }`}
-              style={{ fontFamily: '"Playfair Display", Georgia, serif' }}
             />
             <div className="flex justify-between items-center">
               <span
@@ -274,50 +268,58 @@ export function AgreementCertificate({
         ) : null}
 
         {/* Signatures + seal */}
-        <div className="pt-5 border-t-2 border-[#002B5C]">
-          <div className="flex items-start justify-between gap-4">
-            {/* Creator signature */}
-            <SignatureSlot
-              label="Creator"
-              name={creatorName}
-              signedAt={creatorSignedAt}
-              isPending={false}
-              hideNameText={isCreation}
-            />
+        {isCreation ? null : (
+          <div className="pt-5 border-t-2 border-[#002B5C]">
+            <div className="flex items-start justify-between gap-4">
+              {/* Creator signature */}
+              <SignatureSlot
+                label="Creator"
+                name={creatorName}
+                signedAt={isActive || isPending ? null : creatorSignedAt}
+                isPending={false}
+                hideLabel={isActive || isPending}
+              />
 
-            {/* Center seal — only when active */}
-            {isActive ? (
-              <div className="flex-shrink-0 flex flex-col items-center gap-1 pt-1">
-                <div className="w-14 h-14 rounded-full border-[3px] border-[#D4AF37] flex items-center justify-center bg-[#FDFBF7] shadow-md">
-                  <ClarityLogoMark size={48} className="text-[#D4AF37]" />
+              {/* Center seal — only when active */}
+              {isActive ? (
+                <div className="flex-shrink-0 flex flex-col items-center gap-1 pt-1">
+                  <div className="w-14 h-14 rounded-full border-[3px] border-[#D4AF37] flex items-center justify-center bg-[#FDFBF7] shadow-md">
+                    <ClarityLogoMark size={48} className="text-[#D4AF37]" />
+                  </div>
+                  <p className="text-[9px] uppercase tracking-[0.15em] text-[#D4AF37] font-sans">
+                    Active
+                  </p>
                 </div>
-                <p className="text-[9px] uppercase tracking-[0.15em] text-[#D4AF37] font-sans">
-                  Active
-                </p>
-              </div>
-            ) : (
-              <div className="flex-shrink-0 w-14 h-14 rounded-full border-2 border-dashed border-[#1A1A1A]/20 flex items-center justify-center">
-                <ClarityLogoMark size={40} className="text-[#1A1A1A]/20" />
-              </div>
+              ) : (
+                <div className="flex-shrink-0 w-14 h-14 rounded-full border-2 border-dashed border-[#1A1A1A]/20 flex items-center justify-center">
+                  <ClarityLogoMark size={40} className="text-[#1A1A1A]/20" />
+                </div>
+              )}
+
+              {/* Partner signature */}
+              <SignatureSlot
+                label="Partner"
+                name={partnerName}
+                signedAt={isActive || isPending ? null : partnerSignedAt}
+                isPending={isPending}
+                hideLabel={isActive || isPending}
+              />
+            </div>
+
+            {/* A-active-1: Single "Active since" line below both names */}
+            {isActive && partnerSignedAt && (
+              <p className="text-xs text-[#1A1A1A]/60 text-center mt-3 font-sans">
+                Active since {formatSignedDate(partnerSignedAt)}
+              </p>
             )}
-
-            {/* Partner signature */}
-            <SignatureSlot
-              label="Partner"
-              name={partnerName}
-              value={isCreation ? partnerNameValue : undefined}
-              signedAt={partnerSignedAt}
-              isPending={isPending}
-            />
           </div>
+        )}
 
-          {/* Creation mode: "will sign upon acceptance" sub-label */}
-          {isCreation && (
-            <p className="text-xs text-[#1A1A1A]/40 font-sans mt-3 text-right">
-              will sign upon acceptance
-            </p>
-          )}
-        </div>
+        {footer && (
+          <div className="pt-6 border-t border-[#1A1A1A]/10">
+            {footer}
+          </div>
+        )}
       </div>
     </div>
   );

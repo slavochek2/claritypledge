@@ -11,7 +11,7 @@ tags:
   - rating
 created_date: 2026-03-02T00:00:00.000Z
 flow: dev
-delivery_stage: 2-ux-review
+delivery_stage: uat
 uat_file: features/uat/p467.md
 test_files:
   - e2e/p467-chat-context-header.spec.ts
@@ -135,12 +135,16 @@ Replace both with thread-native components:
 1. Replace `PointCardWithLinks` in `StoryGuideChat.tsx` with a new `ChatContextHeader` component
 2. `ChatContextHeader` renders: point text (truncated, expandable) + 1st-person position chip + open-in-point-detail link
 3. `ChatContextHeader` has no interactive position buttons, no share button, no story CTA
-4. Remove the `Drawer` from `StoryGuideChat.tsx` entirely
-5. Rating prompt (phase `rating` / `iterating`) renders as an AI message bubble with 0–10 button row
-6. Clicking a button sends the rating immediately; typing a number in input bar + send also works
-7. After 2nd iteration: "Save as-is →" escape hatch appears below buttons
-8. P465's edit mode (`existingStory` prop, `phase='visibility'` init) must continue working — do not touch that logic
-9. `PointCardWithLinks` is not changed — only its use in `StoryGuideChat` is replaced
+4. Remove the `Drawer` from `StoryGuideChat.tsx` entirely, including `ChatRatingContent` usage
+5. The freeform comment textarea from `ChatRatingContent` is removed; written feedback goes through the main input bar
+6. The "Keep refining" button from the current Drawer is removed — clicking a rating button or sending a typed rating IS the continue-iterating action; no separate "keep refining" affordance is needed
+7. Rating prompt (phase `rating` / `iterating`) renders as an AI message bubble with 0–10 button row; implemented by adding `children?: React.ReactNode` prop to `ThreadMessage` (see Technical Architecture below)
+8. Clicking a button sends the rating immediately; typing a number in input bar + send also works
+9. "Save as-is →" escape hatch appears below buttons when `iterationCount >= 1` — this fires after the user has submitted one rating and the AI has responded with a revision (the second rating bubble). The counter increments in `handleSubmit`: from 0→1 when leaving `rating` phase, from 1→2 when leaving `iterating` phase. `iterationCount >= 1` is correct.
+10. `RatingButtons` component (`src/app/components/partners/shared.tsx`): remove or override the `max-w-sm` cap when rendering inside a chat bubble — buttons must fill bubble width. Implement by adding an optional `fullWidth?: boolean` prop (when true, omit `max-w-sm`).
+11. P465's edit mode (`existingStory` prop, `phase='visibility'` init) must continue working — do not touch that logic
+12. Add `data-testid="edit-story-heading"` to the `ThreadMessage` that renders the "Edit your story" AI opening message in edit mode (the first message set in `useEffect` when `existingStory` is truthy)
+13. `PointCardWithLinks` is not changed — only its use in `StoryGuideChat` is replaced
 
 ## What Stays the Same
 
@@ -157,7 +161,10 @@ Replace both with thread-native components:
 **In scope:**
 - `src/app/components/story-guide/StoryGuideChat.tsx` — replace PointCardWithLinks + remove Drawer
 - `src/app/components/story-guide/ChatContextHeader.tsx` — new component (create)
+- `src/app/components/story-guide/ThreadMessage.tsx` — add `children?: React.ReactNode` prop
+- `src/app/components/partners/shared.tsx` — add `fullWidth?: boolean` prop to `RatingButtons` (remove `max-w-sm` when true)
 - `src/app/pages/story-guide-chat-page.tsx` — may need minor prop adjustments
+- `e2e/p425-story-filing.spec.ts` and `e2e/a11y/p425-accessibility.spec.ts` — these use `data-testid="context-card"` which will be removed by this change; update those tests to use `chat-context-header` or remove the assertion if the test no longer applies
 
 **Out of scope:**
 - `src/app/components/social/point-card-with-links.tsx` — not changing the component itself
@@ -165,6 +172,20 @@ Replace both with thread-native components:
 - P465's edit mode logic — preserve exactly as-is
 - Any `/live` session components
 - DB schema, RLS, API endpoints
+
+## Technical Architecture
+
+### `ThreadMessage` children prop contract
+
+Add `children?: React.ReactNode` to `ThreadMessageProps`. Render rules:
+- `children` renders **below** `content` inside the bubble, when provided
+- `content` is the rating question text (e.g. "How well does this capture what you meant?") — it is **never empty** when `children` is provided
+- `data-testid="rating-bubble"` attaches to the **outer `ThreadMessage` element** (the `article` tag) when `children` is present — pass it as a prop or derive from presence of children
+- When buttons are frozen (rating already submitted), `children` still renders — the button row handles its own disabled state internally
+
+### `RatingButtons` `fullWidth` prop
+
+In `shared.tsx`, `RatingButtons` currently has `className="flex gap-1 w-full max-w-sm"`. Add `fullWidth?: boolean` prop: when `true`, render `className="flex gap-1 w-full"` (no `max-w-sm`). Default `false` preserves existing behavior everywhere else.
 
 ## Acceptance Criteria
 
@@ -183,7 +204,7 @@ Replace both with thread-native components:
 
 ## Next Steps
 
-Run `/ux features/p467_chat_context_header_inline_rating.md` — `ChatContextHeader` is a net-new component; mobile layout for 0–10 button row needs a formal design pass before coding.
+Run `/dev features/p467_chat_context_header_inline_rating.md`.
 
 ---
 
@@ -569,7 +590,7 @@ The test files rely on these `data-testid` attributes that `/dev` must implement
 | `chat-context-header` | `ChatContextHeader` | Root element of new component |
 | `position-chip` | Inline span in `ChatContextHeader` | The "You agree" / "You disagree" / "You're unsure" pill |
 | `point-text-toggle` | Text region in `ChatContextHeader` | Present only when text is truncated; has `role="button"` and `aria-expanded` |
-| `rating-bubble` | `ThreadMessage` wrapping the rating prompt | The AI bubble containing 0–10 buttons |
+| `rating-bubble-{id}` | `ThreadMessage` wrapping the rating prompt | Per-message unique testid (e.g. `rating-bubble-abc123`). Use `[data-testid^="rating-bubble-"]` with `.last()` in E2E to target the active bubble. Changed from `rating-bubble` (code review fix: avoid duplicate testids across multiple rating bubbles). |
 | `thread-message-ai` | `ThreadMessage` (role=ai) | Already exists in current `ThreadMessage.tsx` |
 | `thread-message-user` | `ThreadMessage` (role=user) | Already exists in current `ThreadMessage.tsx` |
 | `story-guide-chat` | `StoryGuideChat` root | Already exists |

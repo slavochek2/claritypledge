@@ -35,6 +35,9 @@ export function AgreementsMetadataLine({
   // Non-owner with nothing visible → hide entirely
   if (filtered.length === 0 && !isOwner) return null;
 
+  // B1: count only active agreements for the "N Clarity Partners" display
+  const activeCount = filtered.filter(a => a.status === 'active').length;
+
   let label: string;
 
   if (filtered.length === 0) {
@@ -49,13 +52,11 @@ export function AgreementsMetadataLine({
     if (sharedCount > 0) {
       label = `You have ${sharedCount} agreement${sharedCount !== 1 ? 's' : ''} with this person`;
     } else {
-      const n = filtered.length;
-      label = `${n} Clarity Partner${n !== 1 ? 's' : ''}`;
+      label = `${activeCount} Clarity Partner${activeCount !== 1 ? 's' : ''}`;
     }
   } else {
     // Owner with agreements (or anonymous — handled above)
-    const n = filtered.length;
-    label = `${n} Clarity Partner${n !== 1 ? 's' : ''}`;
+    label = `${activeCount} Clarity Partner${activeCount !== 1 ? 's' : ''}`;
   }
 
   return (

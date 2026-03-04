@@ -11,7 +11,7 @@
  *   'terminated' → TerminatedView (muted certificate + history notice)
  */
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { Loader2, LockIcon } from 'lucide-react';
 import { FocusHeader } from '@/app/components/layout/focus-header';
@@ -84,20 +84,22 @@ function TerminateDialog({
   onConfirm,
   onCancel,
   isTerminating,
+  partnerName,
 }: {
   open: boolean;
   onConfirm: () => void;
   onCancel: () => void;
   isTerminating: boolean;
+  partnerName: string;
 }) {
   return (
     <Dialog open={open} onOpenChange={(isOpen) => { if (!isOpen) onCancel(); }}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Terminate this agreement?</DialogTitle>
+          <DialogTitle>End this agreement?</DialogTitle>
           <DialogDescription>
-            This will permanently end the Clarity Partner Agreement. Both parties will still be
-            able to view it as history, but it will no longer be active.
+            This will permanently end your Clarity Partner Agreement with {partnerName}. Both of
+            you will be notified by email. You can still view it as history.
           </DialogDescription>
         </DialogHeader>
         <DialogFooter>
@@ -125,15 +127,50 @@ function TerminateDialog({
 function PendingView({
   agreement,
   isPartner,
+  isCreator,
+  onResend,
+  isResending,
 }: {
   agreement: ClarityAgreement;
   isPartner: boolean;
+  isCreator: boolean;
+  onResend: () => void;
+  isResending: boolean;
 }) {
   const partnerName = resolvePartnerName(
     agreement.partner,
     agreement.partnerDisplayName,
     true,
   );
+
+  const resendKey = `clarity-resend-${agreement.id}`;
+  const [cooldownStart, setCooldownStart] = useState<number | null>(null);
+  // Prevents double-click state mismatch before React re-renders with cooldownStart
+  const sentRef = useRef(false);
+
+  useEffect(() => {
+    const stored = localStorage.getItem(resendKey);
+    if (stored) {
+      const t = new Date(stored).getTime();
+      if (Date.now() - t < 86400000) setCooldownStart(t);
+    }
+  }, [resendKey]);
+
+  const remainingHours = cooldownStart
+    ? Math.ceil((cooldownStart + 86400000 - Date.now()) / 3600000)
+    : 0;
+
+  const handleResendClick = () => {
+    if (sentRef.current) return;
+    sentRef.current = true;
+    const now = Date.now();
+    localStorage.setItem(resendKey, new Date(now).toISOString());
+    setCooldownStart(now);
+    onResend();
+  };
+
+  const isOnCooldown = cooldownStart !== null;
+
   return (
     <div className="space-y-6">
       <AgreementCertificate
@@ -150,6 +187,30 @@ function PendingView({
         <div className="flex justify-center">
           <Button asChild className="min-h-[44px] px-8">
             <Link to={`/agreements/${agreement.id}/accept?token=${encodeURIComponent(agreement.invitationToken)}`}>Review &amp; Sign</Link>
+          </Button>
+        </div>
+      )}
+
+      {isCreator && (
+        <div className="rounded-lg border border-border bg-muted/30 p-4 space-y-3 text-center">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleResendClick}
+            disabled={isResending || isOnCooldown}
+            className="min-h-[36px]"
+          >
+            {sentRef.current || !isOnCooldown
+              ? isResending
+                ? (
+                  <>
+                    <Loader2 size={14} className="animate-spin mr-1" />
+                    Resending...
+                  </>
+                )
+                : 'Resend Invitation'
+              : `Resend available in ${remainingHours}h`
+            }
           </Button>
         </div>
       )}
@@ -183,14 +244,11 @@ function ActiveView({
         termsText={agreement.termsText}
       />
 
-      {agreement.partnerSignedAt && (
-        <p className="text-sm text-center text-muted-foreground">
-          Active since{' '}
-          <span className="font-medium text-foreground">
-            {formatDate(agreement.partnerSignedAt)}
-          </span>
-        </p>
-      )}
+      <div className="text-center">
+        <Link to="/live" className="text-sm text-[#0044CC] hover:underline">
+          Ready to practice? Start a /live session →
+        </Link>
+      </div>
 
       {isParty && (
         <div className="flex justify-center pt-2">
@@ -479,11 +537,19 @@ export function AgreementPage() {
         <PendingView
           agreement={agreement}
           isPartner={isPartner}
+          isCreator={isCreator}
+          onResend={handleResend}
+          isResending={isResending}
         />
       );
       break;
 
-    case 'active':
+    case 'active': {
+      const activePartnerName = resolvePartnerName(
+        agreement.partner,
+        agreement.partnerDisplayName,
+        false,
+      );
       content = (
         <>
           <TerminateDialog
@@ -491,6 +557,7 @@ export function AgreementPage() {
             onConfirm={handleTerminateConfirm}
             onCancel={() => setTerminateOpen(false)}
             isTerminating={isTerminating}
+            partnerName={activePartnerName ?? 'your partner'}
           />
           <ActiveView
             agreement={agreement}
@@ -500,6 +567,7 @@ export function AgreementPage() {
         </>
       );
       break;
+    }
 
     case 'declined':
       content = (

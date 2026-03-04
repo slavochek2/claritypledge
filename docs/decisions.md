@@ -2,6 +2,48 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-04 [technical]: Anonymous auth gate — context preservation via signInWithEmail callback URL params
+
+**Context:** P458 needed to preserve user intent (position, pointId, pointTitle) through the full magic link auth round-trip: button click → `/signup` → email → `/auth/callback` → auto-save → redirect to point.
+
+**Decision:** Encode all context params into the `/auth/callback?...` URL via `signInWithEmail` options. `source` stays a positional param; `action`, `redirect`, `pointId`, `position`, `pointTitle` go in the options object and are encoded into the callback URL. `AuthCallbackPage` reads them from `urlParams` after auth completes and dispatches the side-effect. Pattern mirrors existing `action=rsvp` handler (lines 446–480 of AuthCallbackPage.tsx). sessionStorage was rejected — breaks when magic link opens in a different tab/browser, which is the common email client behavior. New auth gate utility functions live in `src/lib/auth-gate-utils.ts`: `buildAuthGateUrl`, `parseAuthGateIntent`, `isValidPosition`, `isValidPointId`.
+
+**Alternatives rejected:** sessionStorage — tab-local, breaks on email client → new tab flow. Redirect-back-to-page with `?pendingPosition=agree` — two round-trips, race condition with auth session propagation.
+
+**Consequences:** Any future feature preserving intent through auth should extend `signInWithEmail` options and add a handler to `AuthCallbackPage`. New post-auth destinations need to be added to `ALLOWED_REDIRECT_PREFIXES`. `position=unsure` (internal enum value) must NOT be used as a URL param — use `neutral` instead (`isValidPosition` enforces this).
+
+**References:** `src/app/data/api.ts` (signInWithEmail), `src/auth/AuthCallbackPage.tsx` (action handlers), `src/lib/auth-gate-utils.ts` (utility functions), `features/p458_anon_position_auth_gate.md`
+
+---
+
+## 2026-03-04 [process]: ToS review = specialist drafter + adversarial reviewer + human gate; not /falsify
+
+**Context:** P436 (one-off ToS check) was rejected in favor of a reusable `/tos-review` skill. Question arose whether /falsify was the right tool for legal review.
+
+**Decision:** Legal/ToS review uses a dedicated pipeline: (1) tech audit + gap analysis by the main agent, (2) legal drafter agent proposes minimal changes, (3) adversarial reviewer agent checks GDPR compliance + legal holes, (4) human approves line-by-line, (5) apply. This is intentionally separate from /falsify, which tests product/tech hypotheses before investment — a different problem. The pipeline is encoded in `/slava:maintain:tos-review`.
+
+**Alternatives rejected:** /falsify for legal review — wrong framing; /falsify asks "is this idea fundamentally flawed?" not "does this text close a GDPR gap?". One-off spec (P436) — not repeatable; ToS will drift again after every batch of features.
+
+**Consequences:** After any batch of features tagging `ai`, `data`, or `legal`, run `/tos-review` manually. Two-agent review (drafter + adversarial GDPR reviewer) is the canonical pattern for any legal text update. P474 (ToS markdown migration) would make future diffs cleaner.
+
+**References:** `.claude/commands/slava/maintain/tos-review/SKILL.md`, `features/archive/p436_tos_ai_processing_review.md`, `features/p474_tos_markdown_migration.md`
+
+---
+
+## 2026-03-04 [technical]: /chat conversations are not stored server-side (confirmed in code)
+
+**Context:** ToS review raised question of whether ClarityPledge retains /chat session content. Needed to disclose retention accurately.
+
+**Decision:** The `story-guide-chat` edge function does not persist message content. It records only `user_id + timestamp` in `ai_rate_limits` for rate limiting. The code comment explicitly states: "Log only safe metadata — never log message content." ToS now correctly discloses: "ClarityPledge does not retain your /chat conversations server-side."
+
+**Alternatives rejected:** N/A — this is a factual finding, not a choice.
+
+**Consequences:** If logging or debugging of /chat content is ever added, the ToS must be updated immediately (GDPR Art. 13 disclosure). Run `/tos-review` before deploying any such change.
+
+**References:** `supabase/functions/story-guide-chat/index.ts`, `src/app/pages/terms-of-service-page.tsx`
+
+---
+
 ## 2026-03-03 [process]: conversations-to-cp clarifying questions now classify as factual vs direction
 
 **Context:** /kdd session revealed that when conversations-to-cp step 3 asked 3 plain-text clarifying questions, the user invoked /simplify manually to get structured options — the questions didn't have enough format to answer inline. Two round-trips covered overlapping ground.

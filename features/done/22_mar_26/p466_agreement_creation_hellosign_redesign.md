@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: done
 type: change-request
 rank: 500001
 changes: p422
@@ -9,8 +9,8 @@ tags:
   - agreements
   - partners
 created_date: 2026-03-01T00:00:00.000Z
-delivery_stage: 4-test-review
-uat_file: features/uat/p466.md
+completed_at: "2026-03-04"
+uat_file: features/done/22_mar_26/uat/p466.md
 test_files:
   - e2e/integration/p466-partner-display-name-migration.spec.ts
   - e2e/p466-agreement-creation.spec.ts

@@ -21,12 +21,6 @@ describe('P461: AgreementCertificate — v3 bilateral text', () => {
     );
   });
 
-  it('shows opening tagline before YOUR RIGHT section', () => {
-    expect(
-      screen.getByText("We all crave being understood. Let's commit to listen.")
-    ).toBeInTheDocument();
-  });
-
   it('shows v3 YOUR RIGHT text', () => {
     expect(
       screen.getByText(

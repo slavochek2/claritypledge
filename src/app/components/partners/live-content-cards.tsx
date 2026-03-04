@@ -133,8 +133,8 @@ export function LiveStoryCard({
         {/* Rating Buttons */}
         <div className="mb-4">
           <RatingButtons
-            selectedRating={selectedRating}
-            onSelectRating={onRatingSelect}
+            selectedValue={selectedRating}
+            onSelect={onRatingSelect}
             disabled={isSubmitting}
           />
         </div>

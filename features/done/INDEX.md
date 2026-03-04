@@ -1,7 +1,7 @@
 # Done Features Index
 
 Quick reference for past completed work. Consult when starting work on a related topic.
-Last updated: 2026-03-03 (P445, P446, P126)
+Last updated: 2026-03-04 (P466)
 
 ---
 
@@ -81,6 +81,7 @@ Last updated: 2026-03-03 (P445, P446, P126)
 
 ## Agreements & Relationships
 
+- **P466** (Mar 04) Agreement Creation HelloSign Redesign — certificate-as-form layout; inline partner name input in "We, X and Y, agree to:" sentence; `partner_display_name` DB column; fallback chain: `partner.name` → `partnerDisplayName` → 'Invited party' (pending) / 'Partner' (other states)
 - **P445** (Mar 03) PII Email Masking — agreement row `getPartnerName()` falls back to `partnerDisplayName` → 'Invited party'; raw `partnerEmail` no longer rendered
 - **P463** (Mar 02) Agreement & Partner UI Polish — remove exposed internal IDs and double-rotation resend bug by deleting amber pending block entirely; CTA always at top-right
 - **P422** (Feb 26) Clarity Partner Agreement — two-party agreement flow; separate pages per state (create/pending/accepted/declined); edge function sends emails

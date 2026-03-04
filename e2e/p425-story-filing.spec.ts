@@ -166,18 +166,18 @@ test.describe('P425 Flow A — Position-triggered entry', () => {
     ).toHaveLength(0);
   });
 
-  test('context card is visible when ?from=position&pointId=XYZ is provided', async ({ page }) => {
+  test('context header is visible when ?from=position&pointId=XYZ is provided', async ({ page }) => {
     await setTestSession(page, testUser.email);
     await gotoChat(page, `${CHAT_PATH}?from=position&pointId=${pointId}`);
 
-    await expect(page.getByTestId('context-card')).toBeVisible({ timeout: 10000 });
+    await expect(page.getByTestId('chat-context-header')).toBeVisible({ timeout: 10000 });
   });
 
-  test('no context card on /chat without position params', async ({ page }) => {
+  test('no context header on /chat without position params', async ({ page }) => {
     await setTestSession(page, testUser.email);
     await gotoChat(page);
 
-    await expect(page.getByTestId('context-card')).not.toBeVisible();
+    await expect(page.getByTestId('chat-context-header')).not.toBeAttached();
   });
 
   test('AI sends an opening message when /chat loads with position context', async ({ page }) => {
