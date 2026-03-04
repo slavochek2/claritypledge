@@ -142,7 +142,7 @@ export function AgreementCertificate({
               style={{ fontFamily: '"Playfair Display", Georgia, serif' }}
             >
               We,{' '}
-              <em>{creatorName}</em>
+              <span className="font-semibold">{creatorName}</span>
               {' '}and{' '}
               <input
                 type="text"
