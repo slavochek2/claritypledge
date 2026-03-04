@@ -387,7 +387,7 @@ export function AcceptAgreementPage() {
                         Seal &amp; Create Account ✦
                       </Button>
                       <Button asChild variant="outline">
-                        <Link to={`/sign-in?returnTo=${encodeURIComponent(returnTo)}&${tokenParam}`}>
+                        <Link to={`/login?returnTo=${encodeURIComponent(returnTo)}&${tokenParam}`}>
                           Log In &amp; Sign
                         </Link>
                       </Button>
