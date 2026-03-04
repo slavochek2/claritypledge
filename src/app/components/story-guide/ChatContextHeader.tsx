@@ -9,6 +9,7 @@
  */
 
 import React, { useState, useRef, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { Pin, ExternalLink } from 'lucide-react';
 
 type UserPosition = 'agree' | 'disagree' | 'unsure' | null | undefined;
@@ -116,13 +117,15 @@ export function ChatContextHeader({ pointId, pointText, userPosition }: ChatCont
       )}
 
       {/* Open point detail link */}
-      <a
-        href={`/point/${pointId}`}
+      <Link
+        to={`/point/${pointId}`}
+        target="_blank"
+        rel="noopener noreferrer"
         aria-label="Open point detail"
         className="flex-shrink-0 flex items-center justify-center w-11 h-11 -mr-3 -my-1.5 text-muted-foreground hover:text-foreground transition-colors"
       >
         <ExternalLink size={16} aria-hidden="true" />
-      </a>
+      </Link>
     </div>
   );
 }

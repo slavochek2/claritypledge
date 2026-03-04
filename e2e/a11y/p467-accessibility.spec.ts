@@ -138,8 +138,9 @@ test.describe('P467 Accessibility — ChatContextHeader + inline rating', () => 
     await page.goto(`/chat?from=position&pointId=${testPoint.id}`);
     await page.waitForLoadState('networkidle');
 
-    const ratingBubble = page.getByTestId('rating-bubble');
-    const inRatingPhase = await ratingBubble.count() > 0;
+    // Use prefix match for per-message testid; .last() targets the active (latest) rating bubble
+    const ratingBubble = page.locator('[data-testid^="rating-bubble-"]').last();
+    const inRatingPhase = await page.locator('[data-testid^="rating-bubble-"]').count() > 0;
 
     if (!inRatingPhase) {
       // TODO: requires completing brain-dump + AI streaming to reach rating phase
@@ -157,8 +158,9 @@ test.describe('P467 Accessibility — ChatContextHeader + inline rating', () => 
     await page.goto(`/chat?from=position&pointId=${testPoint.id}`);
     await page.waitForLoadState('networkidle');
 
-    const ratingBubble = page.getByTestId('rating-bubble');
-    const inRatingPhase = await ratingBubble.count() > 0;
+    // Use prefix match for per-message testid; .last() targets the active (latest) rating bubble
+    const ratingBubble = page.locator('[data-testid^="rating-bubble-"]').last();
+    const inRatingPhase = await page.locator('[data-testid^="rating-bubble-"]').count() > 0;
 
     if (!inRatingPhase) {
       // TODO: requires completing brain-dump + AI streaming to reach rating phase
@@ -179,8 +181,9 @@ test.describe('P467 Accessibility — ChatContextHeader + inline rating', () => 
     await page.goto(`/chat?from=position&pointId=${testPoint.id}`);
     await page.waitForLoadState('networkidle');
 
-    const ratingBubble = page.getByTestId('rating-bubble');
-    const inRatingPhase = await ratingBubble.count() > 0;
+    // Use prefix match for per-message testid; .last() targets the active (latest) rating bubble
+    const ratingBubble = page.locator('[data-testid^="rating-bubble-"]').last();
+    const inRatingPhase = await page.locator('[data-testid^="rating-bubble-"]').count() > 0;
 
     if (!inRatingPhase) {
       // TODO: requires completing brain-dump + AI streaming to reach rating phase
@@ -210,8 +213,9 @@ test.describe('P467 Accessibility — ChatContextHeader + inline rating', () => 
     await page.goto(`/chat?from=position&pointId=${testPoint.id}`);
     await page.waitForLoadState('networkidle');
 
-    const ratingBubble = page.getByTestId('rating-bubble');
-    const inRatingPhase = await ratingBubble.count() > 0;
+    // Use prefix match for per-message testid; .last() targets the active (latest) rating bubble
+    const ratingBubble = page.locator('[data-testid^="rating-bubble-"]').last();
+    const inRatingPhase = await page.locator('[data-testid^="rating-bubble-"]').count() > 0;
 
     if (!inRatingPhase) {
       // TODO: requires completing brain-dump + AI streaming to reach rating phase
@@ -241,8 +245,9 @@ test.describe('P467 Accessibility — ChatContextHeader + inline rating', () => 
     await page.goto(`/chat?from=position&pointId=${testPoint.id}`);
     await page.waitForLoadState('networkidle');
 
-    const ratingBubble = page.getByTestId('rating-bubble');
-    const inRatingPhase = await ratingBubble.count() > 0;
+    // Use prefix match for per-message testid; .last() targets the active (latest) rating bubble
+    const ratingBubble = page.locator('[data-testid^="rating-bubble-"]').last();
+    const inRatingPhase = await page.locator('[data-testid^="rating-bubble-"]').count() > 0;
 
     if (!inRatingPhase) {
       // TODO: requires completing brain-dump + AI streaming to reach rating phase
@@ -268,8 +273,9 @@ test.describe('P467 Accessibility — ChatContextHeader + inline rating', () => 
     await page.goto(`/chat?from=position&pointId=${testPoint.id}`);
     await page.waitForLoadState('networkidle');
 
-    const ratingBubble = page.getByTestId('rating-bubble');
-    const inRatingPhase = await ratingBubble.count() > 0;
+    // Use prefix match for per-message testid; .last() targets the active (latest) rating bubble
+    const ratingBubble = page.locator('[data-testid^="rating-bubble-"]').last();
+    const inRatingPhase = await page.locator('[data-testid^="rating-bubble-"]').count() > 0;
 
     if (!inRatingPhase) {
       // TODO: requires completing brain-dump + AI streaming to reach rating phase
@@ -295,8 +301,9 @@ test.describe('P467 Accessibility — ChatContextHeader + inline rating', () => 
     await page.goto(`/chat?from=position&pointId=${testPoint.id}`);
     await page.waitForLoadState('networkidle');
 
-    const ratingBubble = page.getByTestId('rating-bubble');
-    const inRatingPhase = await ratingBubble.count() > 0;
+    // Use prefix match for per-message testid; .last() targets the active (latest) rating bubble
+    const ratingBubble = page.locator('[data-testid^="rating-bubble-"]').last();
+    const inRatingPhase = await page.locator('[data-testid^="rating-bubble-"]').count() > 0;
 
     if (!inRatingPhase) {
       // TODO: requires completing brain-dump + AI streaming to reach rating phase
@@ -326,8 +333,9 @@ test.describe('P467 Accessibility — ChatContextHeader + inline rating', () => 
     await page.goto(`/chat?from=position&pointId=${testPoint.id}`);
     await page.waitForLoadState('networkidle');
 
-    const ratingBubble = page.getByTestId('rating-bubble');
-    const inRatingPhase = await ratingBubble.count() > 0;
+    // Use prefix match for per-message testid; .last() targets the active (latest) rating bubble
+    const ratingBubble = page.locator('[data-testid^="rating-bubble-"]').last();
+    const inRatingPhase = await page.locator('[data-testid^="rating-bubble-"]').count() > 0;
 
     if (!inRatingPhase) {
       // TODO: requires completing brain-dump + AI streaming to reach rating phase

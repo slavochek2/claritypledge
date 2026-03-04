@@ -590,7 +590,7 @@ The test files rely on these `data-testid` attributes that `/dev` must implement
 | `chat-context-header` | `ChatContextHeader` | Root element of new component |
 | `position-chip` | Inline span in `ChatContextHeader` | The "You agree" / "You disagree" / "You're unsure" pill |
 | `point-text-toggle` | Text region in `ChatContextHeader` | Present only when text is truncated; has `role="button"` and `aria-expanded` |
-| `rating-bubble` | `ThreadMessage` wrapping the rating prompt | The AI bubble containing 0–10 buttons |
+| `rating-bubble-{id}` | `ThreadMessage` wrapping the rating prompt | Per-message unique testid (e.g. `rating-bubble-abc123`). Use `[data-testid^="rating-bubble-"]` with `.last()` in E2E to target the active bubble. Changed from `rating-bubble` (code review fix: avoid duplicate testids across multiple rating bubbles). |
 | `thread-message-ai` | `ThreadMessage` (role=ai) | Already exists in current `ThreadMessage.tsx` |
 | `thread-message-user` | `ThreadMessage` (role=user) | Already exists in current `ThreadMessage.tsx` |
 | `story-guide-chat` | `StoryGuideChat` root | Already exists |

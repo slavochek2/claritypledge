@@ -166,16 +166,17 @@ test.describe('P467 — ChatContextHeader + inline rating', () => {
     await page.waitForLoadState('networkidle');
 
     // When the page is in rating phase, we expect the rating bubble in the thread area
-    // data-testid="rating-bubble" should be inside data-testid="thread-area", not in a dialog
+    // data-testid="rating-bubble-{id}" should be inside data-testid="story-guide-chat", not in a dialog
     const threadArea = page.getByTestId('thread-area').or(page.locator('[data-testid="story-guide-chat"]'));
     await expect(threadArea).toBeVisible({ timeout: 10000 });
 
     // If rating phase is active: rating bubble is a child of thread, not dialog
-    const ratingBubble = threadArea.getByTestId('rating-bubble');
+    // Note: testid is per-message ("rating-bubble-{id}") — use prefix match and .last() for active one
+    const ratingBubble = page.locator('[data-testid^="rating-bubble-"]').last();
     const drawerDialog = page.locator('dialog');
 
     // Either we're not yet in rating phase (brain-dump), or rating is inline
-    const isRatingPhaseActive = await ratingBubble.count() > 0;
+    const isRatingPhaseActive = await page.locator('[data-testid^="rating-bubble-"]').count() > 0;
     if (isRatingPhaseActive) {
       await expect(ratingBubble).toBeVisible();
       await expect(drawerDialog).not.toBeAttached();
@@ -191,8 +192,9 @@ test.describe('P467 — ChatContextHeader + inline rating', () => {
     await page.goto(`/chat?from=position&pointId=${testPoint.id}`);
     await page.waitForLoadState('networkidle');
 
-    const ratingBubble = page.getByTestId('rating-bubble');
-    const inRatingPhase = await ratingBubble.count() > 0;
+    // Use prefix match for per-message testid; .last() targets the active (latest) rating bubble
+    const ratingBubble = page.locator('[data-testid^="rating-bubble-"]').last();
+    const inRatingPhase = await page.locator('[data-testid^="rating-bubble-"]').count() > 0;
 
     if (!inRatingPhase) {
       // Not yet in rating phase — skip interactive part
@@ -223,8 +225,8 @@ test.describe('P467 — ChatContextHeader + inline rating', () => {
     await page.goto(`/chat?from=position&pointId=${testPoint.id}`);
     await page.waitForLoadState('networkidle');
 
-    const ratingBubble = page.getByTestId('rating-bubble');
-    const inRatingPhase = await ratingBubble.count() > 0;
+    // Use prefix match for per-message testid
+    const inRatingPhase = await page.locator('[data-testid^="rating-bubble-"]').count() > 0;
 
     if (!inRatingPhase) {
       test.skip();
@@ -246,8 +248,9 @@ test.describe('P467 — ChatContextHeader + inline rating', () => {
     await page.goto(`/chat?from=position&pointId=${testPoint.id}`);
     await page.waitForLoadState('networkidle');
 
-    const ratingBubble = page.getByTestId('rating-bubble');
-    const inRatingPhase = await ratingBubble.count() > 0;
+    // Use prefix match for per-message testid; .last() targets the active (latest) rating bubble
+    const ratingBubble = page.locator('[data-testid^="rating-bubble-"]').last();
+    const inRatingPhase = await page.locator('[data-testid^="rating-bubble-"]').count() > 0;
 
     if (!inRatingPhase) {
       test.skip();
@@ -278,8 +281,8 @@ test.describe('P467 — ChatContextHeader + inline rating', () => {
     await page.goto(`/chat?from=position&pointId=${testPoint.id}`);
     await page.waitForLoadState('networkidle');
 
-    const ratingBubble = page.getByTestId('rating-bubble');
-    const inRatingPhase = await ratingBubble.count() > 0;
+    // Use prefix match for per-message testid
+    const inRatingPhase = await page.locator('[data-testid^="rating-bubble-"]').count() > 0;
 
     if (!inRatingPhase) {
       test.skip();

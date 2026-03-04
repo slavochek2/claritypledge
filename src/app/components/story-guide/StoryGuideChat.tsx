@@ -452,7 +452,6 @@ export function StoryGuideChat({
         setConsecutiveFailures(prev => prev + 1);
         setApiError('Something went wrong with the AI. Try again?');
         setRatingValue(null);
-        setRatingComment('');
         return; // Don't commit accumulated content as a message
       }
 
@@ -608,6 +607,8 @@ export function StoryGuideChat({
   // P467: Inline rating button click — immediately sends the rating
   // ---------------------------------------------------------------------------
   const handleInlineRatingSelect = useCallback((ratingMsgId: string, value: number) => {
+    // Highlight the selected button before sending
+    setRatingValue(value);
     // Freeze the button row immediately
     setFrozenRatingId(ratingMsgId);
     setActiveRatingId(null);
@@ -615,8 +616,9 @@ export function StoryGuideChat({
     setRatingAnnouncement(`Rating ${value} sent`);
     // Clear announcement after a short delay so it can be re-announced if needed
     setTimeout(() => setRatingAnnouncement(''), 3000);
-    // Send the rating as a user message
+    // Send the rating as a user message, then reset so next rating bubble starts fresh
     handleSend(String(value));
+    setRatingValue(null);
   }, [handleSend]);
 
   // ---------------------------------------------------------------------------
@@ -717,7 +719,6 @@ export function StoryGuideChat({
     !inputValue.trim() ||
     phase === 'streaming' ||
     inputValue.length > MAX_BRAIN_DUMP_LENGTH;
-  // Empty state = before user has sent any message (AI opening bubble visible, no user input yet)
 
   return (
     <div className="flex flex-col h-full" data-testid="story-guide-chat">
@@ -777,7 +778,7 @@ export function StoryGuideChat({
                 key={msg.id}
                 role="ai"
                 content={msg.content}
-                data-testid="rating-bubble"
+                data-testid={`rating-bubble-${msg.id}`}
               >
                 <div className="mt-3">
                   <RatingButtons
@@ -793,10 +794,11 @@ export function StoryGuideChat({
                   {iterationCount >= 1 && isActive && (
                     <button
                       type="button"
+                      data-testid="escape-hatch-save"
                       onClick={handleEscapeHatchSave}
                       className="mt-3 text-sm text-muted-foreground underline-offset-2 hover:underline py-2 block"
                     >
-                      Save as-is →
+                      Save as-is <span aria-hidden="true">→</span>
                     </button>
                   )}
                 </div>
