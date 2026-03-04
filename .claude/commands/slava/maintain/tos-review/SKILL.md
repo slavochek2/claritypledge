@@ -33,7 +33,14 @@ Run this after batches of shipped features, especially when new APIs, data flows
 
 ### Stage 1 — Tech Audit (run yourself)
 
-Inventory everything since `LEGAL_LAST_UPDATED`:
+First, grep for third-party service calls in edge functions — structural discovery before reading:
+
+```bash
+grep -rn "fetch\|MAILGUN\|GEMINI\|STRIPE\|OPENAI\|SENTRY\|MIXPANEL" supabase/functions/ \
+  | grep -v "node_modules\|\.git" | sort -u
+```
+
+Then inventory everything since `LEGAL_LAST_UPDATED`:
 
 1. Features shipped (from INDEX.md, filter by date)
 2. Third-party services in use: AI providers, email services, payment, analytics, CDN
@@ -98,17 +105,29 @@ Review each proposed change for:
 3. User experience — anything a user could reasonably misinterpret
 4. Estonian e-commerce law specifics (Võlaõigusseadus, infoühiskonna teenuse seadus)
 
-For each issue: [Change ref] → [Issue type] → [Specific problem] → [Suggested fix]
+**Output format — one entry per proposed change, verdict first:**
 
-Also flag any proposed change you'd approve as-is with: ✓ [Change ref] — looks good.
+```
+[APPROVE | BLOCK | MINOR] [Change ref]: [bottom line in plain English, 1 sentence]
+  Issue: [specific problem, if any]
+  Fix: [concrete fix, if any]
+```
+
+APPROVE = ship as-is. BLOCK = do not apply until fixed. MINOR = optional improvement, won't block.
+No legalese. Write as if explaining to a non-lawyer founder in 30 seconds.
 ```
 
 ### Stage 6 — Human Approval Gate 🛑
 
-Present to the user:
-- A clean diff view: what the ToS says now → what it would say after each change
-- Stage 5 review notes alongside each change
-- Ask: "Approve / Modify / Reject" per change
+Present to the user for each proposed change:
+- Stage 5 verdict (APPROVE / BLOCK / MINOR) and one-sentence summary
+- Diff: what ToS says now → what it would say after the change
+- Ask: "Approve / Modify / Reject"
+
+**Framing by change size:**
+- Single sentence addition → show inline diff only
+- New paragraph or section → show full before/after block
+- Multiple changes → group by BLOCK first, then APPROVE, then MINOR
 
 Do NOT apply anything without explicit approval per change.
 
