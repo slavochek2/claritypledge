@@ -111,6 +111,11 @@ If all scenarios are already tested, skip to Step 8 and produce the final report
 
 Fallback (tag not present in UAT file): detect two-party need from spec text containing "listener", "two participants", or "/live session".
 
+**CTA coverage check:** From the spec's acceptance criteria and UAT scenarios, identify every submission action introduced or modified by this feature (buttons that commit user intent — "Accept", "Create", "Submit", "Save", "Review", "Confirm", etc.). For each one, check whether a scenario both clicks it *and* verifies a specific expected outcome — not merely that *something* happened, but that the *right* thing happened (correct toast text, correct destination URL, correct DB state, dialog content). A screenshot after a click does not count — the expected outcome must be stated before clicking (see Step 5d) and the result must match that specific expectation. If any feature-introduced submission action is missing click-and-verify coverage, flag it:
+```
+⚠️ CTA "[button label]" has no scenario with outcome verification. Add one before proceeding.
+```
+
 Announce the plan. If > 8 scenarios, ask: "That's {N} scenarios. Run all, or pick specific ones? (all / 1,3,5 / etc.)"
 
 ---
@@ -150,6 +155,8 @@ Take a baseline screenshot. Assess:
 ```
 mcp__claude-in-chrome__read_console_messages(pattern="error|Error|TypeError|Uncaught")
 ```
+
+Record the error count as **`BASELINE_ERROR_COUNT = {N}`**. This is the reference for Step 5d — only errors that appear *after* a scenario action are new failures; pre-existing load errors are not.
 
 If baseline fails (blank page, 404, console errors at load) → **stop and report**. Don't run scenarios on a broken app.
 
@@ -318,22 +325,37 @@ Use these tools as needed:
 
 #### 5d. Capture & Assess
 
-Immediately after the action:
+**Before clicking the CTA**, state the expected outcome: *"I expect to see [specific result — toast text, navigation, state change]."* Write it down before acting. This prevents post-hoc rationalization of an ambiguous result.
+
+After clicking, wait for UI response before screenshotting:
+```
+mcp__claude-in-chrome__wait_for(selector="[role='dialog'], [data-sonner-toast]", timeout=2000)
+```
+(Fall back to a 1.5s wait if neither appears — navigation scenarios won't have a toast.)
+
+**For navigation scenarios:** also verify the destination URL matches what was pre-committed. Use `javascript_tool` — the return value is captured directly in the tool response:
+```javascript
+window.location.href
+```
+If the returned URL does not match the expected destination, mark ❌ — even if the page renders without errors. An error redirect looks identical to a success redirect without this check.
+
+Then take the screenshot:
 ```
 mcp__claude-in-chrome__take_screenshot()
 ```
 
-Check the result against the scenario's **Then** clause. Ask yourself:
+Check the result against what you stated above and the scenario's **Then** clause:
 
 1. **Functional:** Did the right thing happen? (toast appeared, navigation occurred, button changed state, etc.)
 2. **Message accuracy:** Is the toast/error text exactly what the spec says? (copy matters)
 3. **Visual quality:** Does it look clean? Right colors? Correct sizing? Nothing overflowing or misaligned?
 4. **Common sense:** Would a first-time user understand this? Does the feedback make the next step obvious?
 
-Check for unexpected console errors:
+Check for **new** console errors (diff from Step 4 baseline):
 ```
-mcp__claude-in-chrome__read_console_messages(pattern="error|Error|Uncaught", limit=5)
+mcp__claude-in-chrome__read_console_messages(pattern="error|Error|Uncaught")
 ```
+Compare count to `BASELINE_ERROR_COUNT`. Only errors **above** baseline are new failures. Pre-existing page-load errors do not count.
 
 #### 5e. Score the Scenario
 

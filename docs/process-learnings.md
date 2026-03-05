@@ -6,6 +6,19 @@ Open friction items — proposed fixes not yet implemented. Surfaced in `/weekly
 
 ---
 
+## Optional-param handler as onClick — TypeScript silent, runtime crash
+
+**Date:** 2026-03-05
+**Status:** proposed
+
+`onClick={handlerFn}` where `handlerFn(param?: string)` — React passes the MouseEvent as `param`. TypeScript allows it (MouseEvent satisfies the optional position). Runtime: `param.trim()` throws TypeError. No compile error, no lint warning, no pre-commit catch. P472: "I Accept & Co-Sign" button silently broken; passed /verify's full 7-scenario run.
+
+Pattern is documented in decisions.md [2026-03-05 technical]. No mechanical enforcement exists.
+
+**Fix options:** (A) Custom ESLint rule: flag any event prop where the handler function has a non-event first parameter type. Complex to write. (B) Code review pattern: check if optional-param functions are assigned directly to event props when reviewing handlers. Low overhead, relies on discipline. (C) Investigate `typescript-eslint` strict plugins (e.g., `no-unsafe-argument`) — may surface this class of error.
+
+---
+
 ## /dev pre-flight doesn't check branch lineage — /ship surprise risk
 
 **Friction:** Ran `/dev` while on `p422-p425-uat` (40+ commits ahead of main). `/dev` silently branched from it. After implementation + `/verify` pass, user asked about `/ship` — and only then discovered it would ship all 40+ commits, not just the new work. Fix was written to `dev.md` (warn when > 5 commits ahead of main, offer A/B/C) but the file was reverted before the session ended.

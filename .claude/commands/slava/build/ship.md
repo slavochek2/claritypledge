@@ -1,6 +1,6 @@
 ---
 name: ship
-description: Ship an approved feature to production. Merges feature/pN → main → pushes → Vercel deploys → closes spec (status: all-done, moves to features/done/).
+description: Ship an approved feature to production. Merges feature/pN → main → closes spec (status: all-done, moves to features/done/). Push is a separate step.
 when_to_use: When a feature is approved for production and lives on a feature branch.
 ---
 
@@ -22,9 +22,9 @@ Ship an approved feature to production.
 **1a. Divergence check** — run `git rev-list --count main..feature/pN-*` (ahead) and `git rev-list --count feature/pN-*..main` (behind).
 - If behind-count > 20: warn "Branch is N commits behind main — rebase or manual merge needed." Propose:
   **(A) Rebase:** `git rebase main` on feature branch, resolve conflicts, then proceed normally.
-  **(B) Already merged manually:** Ask "Was this already merged to main? If so, reply 'spec-only' to run spec closure + branch cleanup only (steps 7-9), skipping the merge."
-- Wait for user choice. **Step 7 (spec closure) is mandatory regardless of which path is chosen.**
-- If user replies 'spec-only': skip steps 2-6, jump directly to step 7.
+  **(B) Already merged manually:** Ask "Was this already merged to main? If so, reply 'spec-only' to run spec closure + branch cleanup only (steps 5-7), skipping the merge."
+- Wait for user choice. **Step 5 (spec closure) is mandatory regardless of which path is chosen.**
+- If user replies 'spec-only': skip steps 2-4, jump directly to step 5.
 
 2. **Verify clean state** — no uncommitted changes on the feature branch
 2.5. **Check spec status** — read the spec's `status` frontmatter field:
@@ -33,9 +33,7 @@ Ship an approved feature to production.
    - anything else (backlog, in-progress, etc.) → ask: "pN spec is in `{status}` — this doesn't look ready to ship. Proceed anyway? (y/n)"
 3. **Run pre-commit checks** — `./scripts/pre-commit-checks.sh`
 4. **Merge to main** — `git merge feature/pN --no-ff` (preserves branch history)
-5. **Push** — `git push origin main` → Vercel auto-deploys
-6. **Confirm** — report the deployment URL
-7. **Close the spec** — move spec to `features/done/`, update frontmatter:
+5. **Close the spec** — move spec to `features/done/`, update frontmatter:
    - `status: all-done`
    - `completed_at: YYYY-MM-DD`
    - Remove `delivery_stage: uat` line
@@ -54,10 +52,10 @@ Ship an approved feature to production.
    Expected: one `R` line showing `features/p422_name.md → features/done/{folder}/p422_name.md`.
    If the original still shows as `D` with no corresponding `A` in `done/`, the `git mv` failed — stop and investigate before committing.
    Commit: `chore: close pN — {title}`
-8. **Run fix-kanban** — Invoke `/slava:maintain:fix-kanban`
-9. **Clean up** — delete the local feature branch
-9a. **Worktree cleanup** — run `git worktree list | grep "feature/p{N}"` (substitute actual P-number, e.g. `feature/p470`). If a worktree for this feature branch exists (e.g., `.claude/worktrees/w2`), run `git worktree remove --force .claude/worktrees/wN` from the **main repo root** (never from inside the worktree). If it fails, report and skip — do not block the ship. For orphaned directories not in the list: `git worktree prune && rm -rf .claude/worktrees/wN`.
-10. **Ask — two questions in one message:**
+6. **Run fix-kanban** — Invoke `/slava:maintain:fix-kanban`
+7. **Clean up** — delete the local feature branch
+7a. **Worktree cleanup** — run `git worktree list | grep "feature/p{N}"` (substitute actual P-number, e.g. `feature/p470`). If a worktree for this feature branch exists (e.g., `.claude/worktrees/w2`), run `git worktree remove --force .claude/worktrees/wN` from the **main repo root** (never from inside the worktree). If it fails, report and skip — do not block the ship. For orphaned directories not in the list: `git worktree prune && rm -rf .claude/worktrees/wN`.
+8. **Ask — two questions in one message:**
     "Run /verify first? (y = visual QA of the live site against acceptance criteria, recommended for any UI change / n = skip)
     Capture learnings with /kdd? (y/n)"
 
@@ -78,7 +76,6 @@ Ship an approved feature to production.
 
 - Refuses if you're not on `main` after merge (something went wrong)
 - Refuses if pre-commit checks fail — fix first, then retry
-- The pre-push git hook will still prompt for final confirmation (human in the loop)
 
 ---
 
@@ -91,9 +88,9 @@ For small work committed directly to main, just say "push" — no need for /ship
 
 ## After shipping
 
-- Vercel deployment takes ~60s — check claritypledge.com
-- The spec is closed by /ship step 7 — /dev leaves it at `delivery_stage: uat`, NOT done. If the spec is still in `features/` after /ship completes, step 7 failed — investigate before continuing.
-- `/verify` is prompted at step 10 — run it for any UI change. Skipping is valid for backend-only changes.
+- The spec is closed by /ship step 5 — /dev leaves it at `delivery_stage: uat`, NOT done. If the spec is still in `features/` after /ship completes, step 5 failed — investigate before continuing.
+- `/verify` is prompted at step 8 — run it for any UI change. Skipping is valid for backend-only changes.
+- To deploy: `git push origin main` — push is blocked by a global hook, the user runs it explicitly. Vercel auto-deploys after push.
 
 ---
 

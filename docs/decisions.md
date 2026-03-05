@@ -2,6 +2,61 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-05 [process]: /verify skill — pre-commitment, post-click wait, console diff vs baseline
+
+**Context:** During P472 UAT, /verify passed all 7 scenarios but missed a broken button (onClick bug). The agent took a screenshot and described the UI without confirming the CTA actually triggered. Three root causes: (1) no stated expected outcome before acting, (2) no wait for toast/dialog after click, (3) console errors checked in absolute (any = fail) mode — pre-existing load errors would mask new ones.
+
+**Decision:** Three additions to /verify Step 4 and Step 5d:
+- **Pre-commitment**: Before clicking CTA, state "I expect to see [X]." Forces explicit prediction before action.
+- **Post-click wait**: `wait_for(selector="[role='dialog'], [data-sonner-toast]", timeout=2000)` between click and screenshot — ensures UI has responded before assessment.
+- **Console diff**: Record `BASELINE_ERROR_COUNT` at Step 4. In Step 5d, compare to baseline — only errors above baseline count. Pre-existing load errors do not fail a scenario.
+
+**Alternatives rejected:** "Primary CTA" category (undefined boundary — too subjective). Label format in Step 1b (wrong layer — didn't cause the miss).
+
+**Consequences:** /verify is now state-asserting, not post-hoc rationalizing. The wait eliminates timing races. Baseline diffing prevents false positives from pre-existing console noise.
+
+**References:** `.claude/commands/slava/build/verify/SKILL.md` Steps 4 and 5d
+
+---
+
+## 2026-03-05 [process]: /ship push step removed — push is always explicit user action
+
+**Context:** /ship previously included a "Push to origin" step that deployed to Vercel. But a global hook (`~/.claude/hooks/block-prod-deploy.sh`) already blocks `git push` unconditionally — requiring explicit user confirmation. Having both a "Push" step in /ship and a blocking hook created a misleading process (the step would hit the hook and stop anyway).
+
+**Decision:** Removed steps 5 (Push) and 6 (Confirm deployment URL) from /ship. Renumbered remaining steps (close spec → 5, fix-kanban → 6, clean up → 7, ask → 8). Added to "After shipping" section: push runs separately, blocked by global hook. /ship is now merge-only.
+
+**Alternatives rejected:** Remove the hook and let /ship push automatically — removes the human-in-the-loop safety gate. Keep both but clarify they work together — confusing; two contradictory "push" instructions.
+
+**Consequences:** /ship is now scope-correct: merge + close spec + cleanup. Push to prod is always a separate explicit user action. Step references in 1a updated accordingly.
+
+**References:** `.claude/commands/slava/build/ship.md`
+
+---
+
+## 2026-03-05 [product]: Revoked/cancelled pending invitations — hide entirely, not in terminated section
+
+**Context:** When a creator revokes a pending invitation, it sets status=terminated. Question: should it appear in a "terminated" or "cancelled" section on the partners page?
+
+**Decision:** No. Intentional revoke = clean removal from UI. Row disappears, toast confirms. No terminated section for cancelled invitations.
+
+**Alternatives rejected:** Show in terminated section — adds noise for something the user did on purpose. No value in surfacing it again.
+
+**Consequences:** Terminated section (if ever added) is for *agreements that were active and then ended*, not for invitations that never started.
+
+---
+
+## 2026-03-05 [technical]: onClick with optional-param handler — MouseEvent passed silently as arg
+
+**Context:** `onClick={handleAccept}` where `handleAccept(nameOverride?: string)` — React passes the MouseEvent as `nameOverride`. Since `nameOverride !== undefined` is true for an event, `nameToUse` becomes the MouseEvent, and `.trim()` throws TypeError. Silent at compile time (TypeScript allows it), crashes at runtime.
+
+**Decision:** Always wrap handlers with optional params in arrow functions: `onClick={() => handleAccept()}`. Never assign a handler with optional params directly to an event prop.
+
+**Alternatives rejected:** Typing the param as `string | undefined` doesn't help — the issue is that MouseEvent satisfies `object` which is assignable without strict checking.
+
+**Consequences:** /verify must test the primary CTA flow (button click → result), not just visual layout. Layout-only verification missed this.
+
+---
+
 ## 2026-03-04 [process]: /falsify on /kdd meta-reflection = standard skill quality gate
 
 **Context:** After creating /tos-review, /kdd surfaced 5 skill quality proposals. Running /falsify on them identified 3 as misdirected (wrong layer), not just wrong proposals — and produced better fixes for each. All 6 proposals survived falsification but were improved.
