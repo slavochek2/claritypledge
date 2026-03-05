@@ -78,15 +78,22 @@ Recommendation: Remove from README.md, link to definitions.md instead.
    git branch --show-current
    git worktree list
    ```
-   If the current branch is NOT `main`, warn:
+   If the current branch is NOT `main`, **STOP. Do not write to any doc or commit anything.**
 
-   > "Warning: You are on branch [{branch}] (or in detached HEAD state if branch is empty) — KDD entries written here will not reach main until this branch merges. To write KDD directly on main instead: stash or commit your current work, run `git checkout main`, write KDD there, then return with `git checkout {branch}`. Or proceed here if this branch will merge soon — KDD entries will land on main when it does."
+   Tell the user:
+   > "STOP: You are on branch [{branch}]. KDD commits on feature branches are stranded immediately — they are not on main right now and are invisible to other sessions. If the branch is deleted without merging, they are permanently lost. To fix:
+   > 1. If you have uncommitted changes: `git add -A && git commit -m "wip: [what you were doing]"` — saves your work safely (includes untracked files). If the working tree is already clean, skip this step.
+   > 2. `git checkout main`
+   > 3. Re-run `/kdd` from main (same conversation context is still available — /kdd will produce the same entries)
+   > 4. `git checkout {branch} && git reset HEAD~1` — restores your in-progress work (soft reset: files stay, commit is removed)
+   >
+   > Do NOT use `git stash` — stashes are invisible and can be lost. The wip-commit pattern is always safer."
 
-   If the current branch IS `main` but `git worktree list` shows active worktrees with uncommitted work, also warn:
+   Run `git branch --show-current` once at the start of /kdd. If the result is not `main`, emit the message above and terminate this /kdd invocation. Do not re-check, do not retry, do not proceed. The user must re-run /kdd after switching to main.
+
+   If the current branch IS `main` but `git worktree list` shows active worktrees with uncommitted work, warn (non-blocking):
 
    > "Warning: Active worktree(s) detected on [{branches}]. If this KDD session was triggered from a worktree context, confirm you are writing from the correct branch. KDD commits on main are correct only if the learning is not worktree-specific."
-
-   These are not blockers — just warnings. The user decides. But without the warning, KDD entries are silently stranded on feature or UAT branches and lost when the branch is deleted.
 
 1. **Review recent work:**
    ```bash

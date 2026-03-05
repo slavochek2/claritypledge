@@ -71,6 +71,36 @@ Fallback: curl with PROD_SUPABASE_SERVICE_ROLE_KEY from .env.local — see day-s
 
 **Why:** Without an explicit fallback, agents in subagent/CI contexts improvise — burning 10–20 tool uses on dead ends before failing.
 
+## Branch Guard for Skill File Commits
+
+Skill files (`.claude/commands/slava/**/*.md`) must be committed on `main`. A skill fix committed on a feature branch is stranded immediately — it is not on main right now, invisible to other sessions, and permanently lost if the branch is deleted.
+
+**Before committing any skill file change, run:**
+```bash
+git branch --show-current
+```
+
+If the result is NOT `main`, stop. Use the wip-commit pattern to switch safely:
+
+1. If you have uncommitted changes (run `git status --short` to check):
+   ```bash
+   git add -A && git commit -m "wip: [what you were doing on this branch]"
+   ```
+   If the working tree is already clean, skip this step.
+2. Switch to main:
+   ```bash
+   git checkout main
+   ```
+3. Make the skill file edit on main and commit it normally.
+4. Return to your feature branch and discard the wip commit:
+   ```bash
+   git checkout {feature-branch} && git reset HEAD~1
+   ```
+
+**Do NOT use `git stash`** — stashes are invisible and can be lost. The wip-commit appears in `git log`, survives any git operation, and is trivially reversible with `git reset HEAD~1`.
+
+---
+
 ## Subagent File Content — Always Inline
 
 When spawning a subagent that needs file content, the main agent must read the files first and pass their content inline in the subagent prompt. Subagents cannot read from disk — they only have what's in their prompt.
