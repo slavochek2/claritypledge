@@ -28,7 +28,7 @@ This file provides guidance for AI agents working with code in this repository.
 2. **Search codebase**: `grep -r "ComponentName" src/`
 3. **Read the feature spec completely** if working from a P-number
 4. **Scan `features/done/INDEX.md`** for related past work and prior decisions
-5. **Verify assumptions before building.** Before writing code that depends on a schema column, API response, or state invariant — verify it. Don't trust type definitions alone; check the migration or run a query. "I'll assume X" → stop and verify X.
+5. **Verify assumptions before building — at every phase.** Before writing code, a spec, or an architect plan that depends on a schema column, API response, or state invariant — verify it. Don't trust type definitions alone; check the migration or run a query. "I'll assume X" → stop and verify X.
 
 ---
 
@@ -64,7 +64,7 @@ Report: false-positive/negative scripts, flaky tests (don't retry until green), 
 
 ### Proactive Improvement
 
-When you encounter friction or repeated issues: (1) Identify the problem, (2) Propose a concrete fix, (3) Ask before applying. If you see the same manual step for the second time — name it: "This is automation debt. Want me to script it?"
+When you encounter friction or repeated issues: (1) Identify the problem, (2) Propose a concrete fix (draft the actual change), (3) Ask before applying. If you see the same manual step for the second time — name it: "This is automation debt. Want me to script it?"
 
 ---
 
@@ -177,6 +177,8 @@ Specificity of task + relevant context works. Role flattery doesn't. Add company
 
 Before any action visible to others or sending to external systems (email, social, Slack, GitHub PRs, forms): **draft → show → confirm → act.** Never collapse draft+send into one step, even when user says "send this." Show the final content first.
 
+**Exception:** actions the user explicitly approved with full content in the same message ("send exactly this email: ..."), or when user says "submit it", "go ahead", "do it" after seeing the draft.
+
 ---
 
 ### Debugging
@@ -205,7 +207,7 @@ See [git-workflow.md](docs/technical/git-workflow.md) and `.claude/rules/git.md`
 
 **Before acting on any infrastructure request:** Paraphrase the end-state in 1-2 sentences and wait for confirmation. If the user names a specific tool, search it first — never assume.
 
-**MCP configs:** Run `./scripts/mcp-backup.sh "before-<change>"` before any `.mcp.json` change. Full guide: [mcp-backup-recovery.md](docs/technical/mcp-backup-recovery.md).
+**MCP configs:** Run `./scripts/mcp-validate.sh` then `./scripts/mcp-backup.sh "before-<change>"` before any `.mcp.json` change. Full guide: [mcp-backup-recovery.md](docs/technical/mcp-backup-recovery.md).
 
 ---
 
@@ -214,6 +216,8 @@ See [git-workflow.md](docs/technical/git-workflow.md) and `.claude/rules/git.md`
 > **Principle:** Non-trivial work should be visible. Suggest tracking, never force it.
 
 Use `/slava:build:quick-feature` or `/slava:build:create-prd` — never create spec files manually. When starting non-trivial work, suggest: "Want me to create a tracking task?" If user declines, don't ask again.
+
+**Type classification:** `story` (user value) · `task` (technical) · `bug` (fix) · `comment` (decisions). Update to `status: done` when complete.
 
 Feature spec rules (frontmatter, status values, P-number, lifecycle) auto-load when editing `features/` via `.claude/rules/features.md`.
 
@@ -233,7 +237,7 @@ Before creating/updating files in `content/` or `docs/stories/`: check for perso
 
 **Skill namespaces:** `build/` (dev lifecycle) · `maintain/` (repo health) · `content/` · `think/` · `util/` · `archive/` (deprecated). Never create a skill without a namespace.
 
-**Approval required** before creating, modifying, or deleting skills, or installing MCP servers.
+**Approval required** before creating, modifying, or deleting skills, or installing MCP servers. Always ask first: "I'd like to create [X] for [reason]. OK?"
 
 **Before editing `CLAUDE.md` or `.claude/rules/*.md`:** Run `/claude-md "description of what you want to add"` first. It validates routing, redundancy, and phrasing. Never edit these files directly without running the gate.
 
