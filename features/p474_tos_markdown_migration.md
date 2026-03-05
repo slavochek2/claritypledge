@@ -1,5 +1,5 @@
 ---
-status: backlog
+status: in-progress
 type: task
 rank: 8
 tags: [legal, tos, content, maintenance]
