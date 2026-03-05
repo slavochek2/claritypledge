@@ -266,9 +266,10 @@ After creating the file, tell the user:
   - Status: `week`
   - Severity (bugs): `medium`
 
-**If filename already exists:**
-- Append `-2`, `-3`, etc.
-- Warn user about duplicate
+**If P-number already exists in any file in `features/`:**
+- Do NOT append `-2` or any suffix — a suffixed filename leaves the `p:` frontmatter field and `# P{N}:` heading unchanged, which still causes a duplicate P-number collision at pre-commit.
+- Re-run `./scripts/next-p-number.sh` immediately to get a fresh number.
+- Start the file creation over with the new number in all three places: filename (`p{N}_slug.md`), `p:` frontmatter field, and `# P{N}:` heading.
 
 ---
 
