@@ -166,16 +166,16 @@ P466's core AC (partner name pre-fill, editable name, `accept_agreement` RPC par
 
 ## Acceptance Criteria
 
-- [ ] After clicking "Seal & Create Account" and OTP is sent successfully, the user sees a full-screen email confirmation — not an inline message inside the certificate
-- [ ] Confirmation screen shows the partner's email address prominently
-- [ ] Copy says "complete signing the Clarity Partner Agreement" (or equivalent agreement-specific language) — not "complete your pledge"
-- [ ] Resend button sends a new OTP with `emailRedirectTo` pointing back to the original accept page URL
-- [ ] After resending, the `localStorage` key `clarity-pending-accept-${agreementId}` is re-set so auto-accept still fires on return
-- [ ] "Back" button returns to the accept page (partner can then decline or copy the link to try a different browser)
-- [ ] "Use different email" button is absent — no path to change the email
-- [ ] The pledge confirmation page (`/sign-pledge/confirm`) is visually and functionally unchanged
-- [ ] Authenticated accept flow (`pageState === 'partner'` + `CelebrationDialog`) is visually and functionally unchanged
-- [ ] All P466 AC for partner name pre-fill and editable name still pass
+- [x] After clicking "Seal & Create Account" and OTP is sent successfully, the user sees a full-screen email confirmation — not an inline message inside the certificate
+- [x] Confirmation screen shows the partner's email address prominently
+- [x] Copy says "complete signing the Clarity Partner Agreement" (or equivalent agreement-specific language) — not "complete your pledge"
+- [x] Resend button sends a new OTP with `emailRedirectTo` pointing back to the original accept page URL
+- [x] After resending, the `localStorage` key `clarity-pending-accept-${agreementId}` is re-set so auto-accept still fires on return
+- [x] "Back" button returns to the accept page (partner can then decline or copy the link to try a different browser)
+- [x] "Use different email" button is absent — no path to change the email
+- [x] The pledge confirmation page (`/sign-pledge/confirm`) is visually and functionally unchanged
+- [x] Authenticated accept flow (`pageState === 'partner'` + `CelebrationDialog`) is visually and functionally unchanged
+- [x] All P466 AC for partner name pre-fill and editable name still pass
 
 ## Next Steps
 
