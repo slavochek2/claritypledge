@@ -69,13 +69,21 @@ You're not just writing code — you're building something that will run in prod
    Name it `feature/pN-short-description`. Report: "Created branch feature/pN-... — commits will stay off main until you /ship."
    Skip this if already on a feature branch or if task is not a P-number feature (infra, docs, small fixes).
 
-0.1. **Pre-flight: index collision check** — Run `git status --short`. If modified or untracked files from a **different** feature exist, stop and present options before touching any code:
+0.1. **Pre-flight: worktree signal check** — If a spec file was provided, scan it for the word "worktree". If found (e.g., "Apply in a worktree", "Worktree recommended"), present the option proactively even if the tree is clean:
+   ```
+   Spec recommends a worktree for this change (high blast radius).
+   (A) Create worktree now — recommended
+   (B) Proceed on current branch
+   ```
+   Wait for decision. Skip if inline description mode (no spec file). Then proceed to the collision check below.
+
+0.2. **Pre-flight: index collision check** — Run `git status --short`. If modified or untracked files from a **different** feature exist, stop and present options before touching any code:
    - **(A) Create a worktree** for this feature (recommended — clean index, parallel isolation)
    - **(B) Commit the in-progress work first** (if it's at a safe checkpoint)
    - **(C) Proceed anyway** (only if user explicitly confirms both features are one logical changeset)
    Wait for user decision. Skip this check if the tree is clean or all changes belong to this feature.
 
-0.1. **Mark in-progress** — If a P-number spec was provided, update `status: in-progress` in frontmatter (skip silently if inline description mode)
+0.3. **Mark in-progress** — If a P-number spec was provided, update `status: in-progress` in frontmatter (skip silently if inline description mode)
 1. **Read tests** — UAT scenarios, E2E test stubs, acceptance criteria
 2. **Understand** — Read the spec fully in this order:
    - **Decisions** section first — every decision is a constraint, not a suggestion. Before writing a single line, internalize what the spec rules out (e.g., "edit detected via DB lookup, not URL param" means: do not add a URL param). Signal you skipped this: /review-all removes something because it contradicts a spec decision.

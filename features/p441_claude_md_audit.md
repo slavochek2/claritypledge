@@ -15,7 +15,7 @@ locked_at: '2026-02-28T09:34:18.312Z'
 
 ## Goal
 
-CLAUDE.md has grown to ~500 lines. Rules are diluting each other — the more that's added, the less each rule is weighted by the model. Audit the document, move path-specific directives to `.claude/rules/`, remove redundancy, and tighten what remains.
+CLAUDE.md has grown to ~575 lines (as of Mar 2026). Rules are diluting each other — the more that's added, the less each rule is weighted by the model. Audit the document, move path-specific directives to `.claude/rules/`, remove redundancy, and tighten what remains.
 
 **Root cause identified:** Every gap found → rule added to CLAUDE.md → document grows → each rule gets less attention → more gaps → repeat. Can't fix instruction compliance by adding more instructions to the same document.
 
@@ -33,9 +33,10 @@ CLAUDE.md has grown to ~500 lines. Rules are diluting each other — the more th
    - `.claude/rules/features.md` — features/**
    - `.claude/rules/database.md` — supabase/**
    - `.claude/rules/tests.md` — e2e/**, src/**/*.test.*
-   - Consider new rules files for: `.claude/commands/slava/**` (skills), `tools/kanban/**`
+   - `.claude/rules/skills.md` already exists — check for misrouted skill rules still in CLAUDE.md
 4. **Apply approved changes** — in a worktree (CLAUDE.md edits are high-blast-radius)
 5. **Verify** — confirm agent behavior unchanged after reduction
+6. **Improve /claude-md gate** — based on audit findings, add line-count awareness and tighter redirect defaults so the gate catches cumulative growth, not just per-change additions
 
 ## Done When
 
@@ -43,6 +44,7 @@ CLAUDE.md has grown to ~500 lines. Rules are diluting each other — the more th
 - [ ] All path-specific directives live in `.claude/rules/` not CLAUDE.md
 - [ ] No duplicate rules (same constraint stated twice)
 - [ ] All remaining rules pass the universal test (>80% of task types need it)
+- [ ] /claude-md gate updated with line-count awareness and tighter redirect defaults
 
 ## Context
 

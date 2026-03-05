@@ -2,6 +2,20 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-05 [process]: Worktree signal propagation — architect flags blast radius, dev detects it
+
+**Context:** /dev only asked about worktrees on dirty index collision. High-blast-radius tasks (CLAUDE.md, .claude/, package.json, build config) could start without isolation even with a clean tree.
+
+**Decision:** Three-layer signal path: (1) /architect writes `**Worktree recommended:** [reason]` in the Implementation Approach subsection when the spec touches CLAUDE.md, anything under .claude/, package.json, build config, or involves 10+ files to create/modify combined. (2) /dev step 0.1 scans the spec for the word "worktree" before the collision check — presents option proactively even with clean tree. (3) /spec-review is explicitly out of this loop (wrong layer — not a review concern).
+
+**Alternatives rejected:** Asking on every /dev run (too much friction for small changes). Putting signal in /spec-review (review layer, not execution layer).
+
+**Consequences:** Blast-radius decisions are now made at architecture time and surfaced at execution time — without requiring user discipline to remember to ask.
+
+**References:** `.claude/commands/slava/build/architect.md`, `.claude/commands/slava/build/dev.md`
+
+---
+
 ## 2026-03-05 [process]: /verify skill — pre-commitment, post-click wait, console diff vs baseline
 
 **Context:** During P472 UAT, /verify passed all 7 scenarios but missed a broken button (onClick bug). The agent took a screenshot and described the UI without confirming the CTA actually triggered. Three root causes: (1) no stated expected outcome before acting, (2) no wait for toast/dialog after click, (3) console errors checked in absolute (any = fail) mode — pre-existing load errors would mask new ones.

@@ -290,6 +290,8 @@ Include these subsections:
 - **Security Review** — placeholder only: `*Pending — Security agent completing in parallel.*`
 - **Implementation Approach** (Files to Create, Files to Modify, Build Sequence)
 
+At the top of the Implementation Approach subsection: if the spec touches `CLAUDE.md`, anything under `.claude/`, `package.json`, build config (`vite.config.*`, `tsconfig.*`), or involves 10+ files to create or modify combined, add a bolded note: `**Worktree recommended:** [one-line reason].` Skip this line otherwise.
+
 **Delivery Stage Tracking:**
 1. BEFORE starting architecture design, set delivery_stage (running /architect = UX approved):
    - Edit frontmatter: `delivery_stage: 3-arch-review` (overwrite whatever was there — running this skill is the approval signal)

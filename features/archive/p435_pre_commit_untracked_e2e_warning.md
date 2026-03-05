@@ -1,9 +1,10 @@
 ---
-status: backlog
+status: rejected
 type: task
 rank: 125468.0
 tags: [dx, pre-commit, testing]
 created_date: '2026-02-24'
+archived_reason: "nice-to-have DX improvement, not causing real incidents — no replacement"
 ---
 
 # P435: Pre-commit warning for untracked E2E test files

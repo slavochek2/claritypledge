@@ -30,12 +30,15 @@ If the argument contains "| why: ...", extract the incident context and use it f
 
 Read: /Users/slavochek/Projects/public/claritypledge/CLAUDE.md and .claude/rules/*.md
 
-Check 5 things:
+Before running the checks, count lines: `wc -l CLAUDE.md`. Report as: "CLAUDE.md is currently N lines."
+
+Check 6 things:
 1. Universal? Needed for >80% of task types? If not → .claude/rules/ or docs/technical/
 2. Routing: Principle → CLAUDE.md | File-specific → .claude/rules/X.md | Pattern → docs/technical/ | Decision → docs/decisions.md
 3. Redundant? Search for similar content first.
 4. Six-month test: still relevant?
 5. Root cause? (only if why: context provided) Does the rule prevent the incident described, or does it only address a symptom? If symptom-only, propose a sharper formulation.
+6. Budget: if CLAUDE.md is already over 500 lines, this addition requires a corresponding removal of comparable length. Flag: "CLAUDE.md is at N lines (over budget). What will you remove?"
 
 Output: ADD/REDIRECT/SKIP + exact markdown. If unambiguous, apply directly and report one line.
 ```
@@ -45,7 +48,9 @@ Output: ADD/REDIRECT/SKIP + exact markdown. If unambiguous, apply directly and r
 ```
 You are a documentation architect. Audit /Users/slavochek/Projects/public/claritypledge/CLAUDE.md and its .claude/rules/*.md files.
 
-Report only: (1) duplications, (2) misrouted content, (3) stubs that belong elsewhere.
+First run: `wc -l CLAUDE.md`. Include the line count in your first sentence.
+
+Report only: (1) current line count vs. 500-line target, (2) duplications, (3) misrouted content, (4) stubs that belong elsewhere.
 One paragraph max. Issues only — no praise.
 ```
 
