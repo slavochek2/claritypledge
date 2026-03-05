@@ -1,5 +1,5 @@
 ---
-status: week
+status: in-progress
 type: change-request
 rank: 1000006
 changes: p466
@@ -9,6 +9,12 @@ tags:
   - agreements
 created_date: 2026-03-05
 flow: dev
+delivery_stage: uat
+uat_file: features/uat/p476.md
+test_files:
+  - e2e/p476-accept-confirmation.spec.ts
+  - e2e/p476-smoke.spec.ts
+  - e2e/a11y/p476-accessibility.spec.ts
 ---
 
 # P476: Accept Page — Full-Screen Email Confirmation After Magic Link
@@ -173,4 +179,43 @@ P466's core AC (partner name pre-fill, editable name, `accept_agreement` RPC par
 
 ## Next Steps
 
-Run `/generate-tests features/p476_accept_page_email_confirmation_redesign.md` then `/dev`.
+Run `/dev features/p476_accept_page_email_confirmation_redesign.md`.
+
+## Test Coverage Strategy
+
+**What's Tested:**
+- Unauthenticated accept flow — redirect to full-screen confirmation (E2E) — primary AC
+- Confirmation page copy is agreement-specific, not pledge-specific (E2E)
+- Resend button present and functional (E2E)
+- Back navigation to accept page (E2E)
+- "Use different email" is absent (E2E)
+- Authenticated flow (CelebrationDialog) unchanged (E2E)
+- Old inline "Check your email" is gone (E2E)
+- New confirmation page loads (smoke)
+- /sign-pledge/confirm (PledgeConfirmationPage) still loads unchanged (smoke)
+- Keyboard accessibility of confirmation page elements (a11y)
+
+**What's NOT Tested:**
+- Actual OTP email delivery — mocked at network layer; real delivery is Supabase's responsibility
+- Auto-accept localStorage flow end-to-end — requires real magic link click; covered by UAT-3 manual check
+- Resend OTP emailRedirectTo correctness — cannot assert network param in Playwright without interception; covered by UAT-3
+- PledgeConfirmationPage visual regression — no code changes to that file; existing tests cover it
+
+**Test Pyramid:**
+```
+     /\
+    /  \   ~9 E2E tests
+   /____\
+  /  0 INT \
+ /___________\
+/   0 UNIT   \
+_______________
+```
+
+**Files Generated:**
+- `e2e/p476-accept-confirmation.spec.ts`
+- `e2e/p476-smoke.spec.ts`
+- `e2e/a11y/p476-accessibility.spec.ts`
+- `features/uat/p476.md`
+
+**Total:** ~18 automated tests + 7 UAT scenarios

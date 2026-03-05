@@ -37,6 +37,7 @@ const PointDetailPage = lazy(() => import("@/app/pages/point-detail-page").then(
 const CreateAgreementPage = lazy(() => import("@/app/pages/create-agreement-page").then(m => ({ default: m.CreateAgreementPage })));
 const AgreementPage = lazy(() => import("@/app/pages/agreement-page").then(m => ({ default: m.AgreementPage })));
 const AcceptAgreementPage = lazy(() => import("@/app/pages/accept-agreement-page").then(m => ({ default: m.AcceptAgreementPage })));
+const AgreementEmailConfirmationPage = lazy(() => import("@/app/pages/agreement-email-confirmation-page").then(m => ({ default: m.AgreementEmailConfirmationPage })));
 const DeclinedAgreementPage = lazy(() => import("@/app/pages/declined-agreement-page").then(m => ({ default: m.DeclinedAgreementPage })));
 const ProfileConnectionsPage = lazy(() => import("@/app/pages/profile-connections-page").then(m => ({ default: m.ProfileConnectionsPage })));
 
@@ -296,6 +297,18 @@ export default function ClarityPledgeApp() {
             <ClarityLandingLayout>
               <LazyRoute>
                 <AcceptAgreementPage />
+              </LazyRoute>
+            </ClarityLandingLayout>
+          }
+        />
+
+        {/* P476: Full-screen email confirmation after unauthenticated partner clicks "Seal & Create Account" */}
+        <Route
+          path="/agreements/confirm-email"
+          element={
+            <ClarityLandingLayout>
+              <LazyRoute>
+                <AgreementEmailConfirmationPage />
               </LazyRoute>
             </ClarityLandingLayout>
           }
