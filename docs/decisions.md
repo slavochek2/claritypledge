@@ -14,6 +14,14 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 **References:** `.claude/commands/slava/build/architect.md`, `.claude/commands/slava/build/dev.md`
 
+## 2026-03-05 [technical]: Content pages use .md?raw + ReactMarkdown with custom components
+
+**Context:** ToS page had all legal text inline in JSX, making /tos-review diffs noisy and requiring JSX knowledge to safely edit legal text.
+**Decision:** Extract content to `src/app/content/*.md`, import with `?raw`, render via ReactMarkdown with custom components that preserve exact Tailwind CSS classes (text-muted-foreground, text-foreground for bold, etc.).
+**Alternatives rejected:** Tailwind Typography prose-only (loses muted-foreground/foreground color contrast on body text and bold); structured content objects (more code, no cleaner diffs than markdown).
+**Consequences:** Future content-heavy pages follow this pattern. /tos-review now edits `tos.md` directly — no JSX knowledge needed. `full-article-page.tsx` was prior art for `?raw` import; this extends the pattern to legal/static content pages.
+**References:** `src/app/content/tos.md`, `src/app/pages/terms-of-service-page.tsx` (P474)
+
 ## 2026-03-05 [technical]: Auth redirect roundtrip — token must be embedded in redirect URL, not separate param
 
 **Context:** The accept-agreement page linked to `/login?returnTo=...&token=...`. The login page only reads `redirect` (not `returnTo`). `signInWithEmail` embeds only the `redirect` param inside `emailRedirectTo`. After login → auth/callback → redirect, the `token` param was silently dropped. The user landed on the accept page without the agreement token — showing "invalid invitation".

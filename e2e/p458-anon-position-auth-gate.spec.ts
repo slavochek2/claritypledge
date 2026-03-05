@@ -29,7 +29,7 @@ import {
   setTestSession,
   type TestUser,
 } from './helpers/test-user';
-import { createTestPoint, deleteTestPoint, type TestPoint } from './helpers/test-point';
+import { createTestPoint, deleteTestPoint, createTestPosition, type TestPoint } from './helpers/test-point';
 
 // ---------------------------------------------------------------------------
 // Fixtures
@@ -269,9 +269,11 @@ test.describe('P458 — Anon position click → redirect to /signup', () => {
       await page.goto(`/point/${f.point.id}`);
       await page.waitForLoadState('networkidle');
 
-      const neutralBtn = page.getByRole('button', { name: /^neutral$/i })
+      // The "neutral" position button is labeled "Unsure" in the UI (internal enum name).
+      // URL param is still 'neutral' per the auth-gate spec contract.
+      const neutralBtn = page.getByRole('button', { name: /unsure/i })
         .or(page.locator('[data-position="neutral"]'))
-        .or(page.getByText(/^Neutral$/));
+        .or(page.getByRole('button', { name: /neutral/i }));
 
       await neutralBtn.first().click();
       await page.waitForURL(/\/signup/, { timeout: 10000 });
@@ -547,9 +549,11 @@ test.describe('P458 — PointCardWithLinks: position buttons visible to anon', (
 
   test('position buttons are visible on profile page point cards for anonymous visitor', async ({ page }) => {
     const f = await buildFixtures();
+    // Profile page shows points where the user has taken a position — create one so the card appears
+    await createTestPosition(f.point.id, f.user.user.id, 'agree');
     try {
-      // Navigate to the profile page (profile shows points via PointCardWithLinks)
-      await page.goto(`/${f.user.slug}`);
+      // Profile route is /p/:id (accepts slug or UUID)
+      await page.goto(`/p/${f.user.slug}`);
       await page.waitForLoadState('networkidle');
 
       // Find the Points tab if present
@@ -572,8 +576,10 @@ test.describe('P458 — PointCardWithLinks: position buttons visible to anon', (
 
   test('anon click on position button in point card redirects to /signup', async ({ page }) => {
     const f = await buildFixtures();
+    // Profile page shows points where the user has taken a position — create one so the card appears
+    await createTestPosition(f.point.id, f.user.user.id, 'agree');
     try {
-      await page.goto(`/${f.user.slug}`);
+      await page.goto(`/p/${f.user.slug}`);
       await page.waitForLoadState('networkidle');
 
       const pointsTab = page.getByRole('tab', { name: /points/i });
