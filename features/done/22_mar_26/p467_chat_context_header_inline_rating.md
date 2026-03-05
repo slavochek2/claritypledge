@@ -1,5 +1,5 @@
 ---
-status: today
+status: all-done
 type: change-request
 rank: 1000002.5
 changes: p425
@@ -10,14 +10,13 @@ tags:
   - context-header
   - rating
 created_date: 2026-03-02T00:00:00.000Z
+completed_at: '2026-03-04'
 flow: dev
-delivery_stage: uat
 uat_file: features/uat/p467.md
 test_files:
   - e2e/p467-chat-context-header.spec.ts
   - e2e/p467-smoke.spec.ts
   - e2e/a11y/p467-accessibility.spec.ts
-locked_at: '2026-03-02T08:37:12.090Z'
 ---
 
 # P467: /chat — slim context header + inline rating (remove drawer)

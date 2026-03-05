@@ -317,8 +317,8 @@ export function AcceptAgreementPage() {
     );
   }
 
-  const returnTo = `/agreements/${agreementId}/accept`;
-  const tokenParam = `token=${encodeURIComponent(token)}`;
+  // Build the full redirect URL with token embedded so it survives the login → auth/callback → accept round-trip
+  const redirectAfterLogin = `/agreements/${agreementId}/accept?token=${encodeURIComponent(token)}`;
 
   // P466: name to show in certificate — live state only (pre-filled from ag.partnerDisplayName on load)
   const certificatePartnerName = partnerDisplayName || undefined;
@@ -389,9 +389,9 @@ export function AcceptAgreementPage() {
                         {isSigningUp ? <Loader2Icon className="w-4 h-4 animate-spin mr-2" /> : null}
                         Seal &amp; Create Account ✦
                       </Button>
-                      <Button asChild variant="outline">
-                        <Link to={`/login?returnTo=${encodeURIComponent(returnTo)}&${tokenParam}`}>
-                          Log In &amp; Sign
+                      <Button asChild variant="ghost" size="sm" className="text-[#1A1A1A]/50 hover:text-[#1A1A1A]/70 text-sm">
+                        <Link to={`/login?redirect=${encodeURIComponent(redirectAfterLogin)}`}>
+                          Already have an account? Log in
                         </Link>
                       </Button>
                     </div>
