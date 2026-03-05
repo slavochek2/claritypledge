@@ -2,6 +2,32 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-05 [technical]: Auth redirect roundtrip — token must be embedded in redirect URL, not separate param
+
+**Context:** The accept-agreement page linked to `/login?returnTo=...&token=...`. The login page only reads `redirect` (not `returnTo`). `signInWithEmail` embeds only the `redirect` param inside `emailRedirectTo`. After login → auth/callback → redirect, the `token` param was silently dropped. The user landed on the accept page without the agreement token — showing "invalid invitation".
+
+**Decision:** When linking to `/login` from a page that requires a token or context param, embed everything inside the `redirect` value: `/login?redirect=%2Fagreements%2F{id}%2Faccept%3Ftoken%3D{token}`. Any param not inside `redirect` is lost after the auth/callback round-trip. `ALLOWED_REDIRECT_PREFIXES` in `AuthCallbackPage.tsx` includes `/agreements` — the full accept URL passes validation.
+
+**Alternatives rejected:** Separate `token` param on the login URL — silently dropped by auth/callback. `returnTo` alias — login page doesn't read it (reads `redirect` only).
+
+**Consequences:** Any future feature linking to `/login` with context that must survive the OTP round-trip must embed that context inside the `redirect` param. Review other login links if they rely on separate params.
+
+**References:** `src/app/pages/accept-agreement-page.tsx` line 320, `src/auth/AuthCallbackPage.tsx` ALLOWED_REDIRECT_PREFIXES
+
+---
+
+## 2026-03-05 [product]: Decline reason capture — deferred; co-founders talk
+
+**Context:** After shipping decline functionality on the accept page, the question arose: should the decliner be prompted for a reason (to send context to the inviter)?
+
+**Decision:** No, for now. At co-founder scale: (1) decline is rare — invitations either get accepted or expire, (2) if someone declines, they almost certainly already have or will have a direct conversation. Capturing a reason adds friction at a sensitive moment with near-zero payoff. If 3+ declines happen in practice without the inviter having context, revisit with quick-select chips (1-tap options like "Let's discuss first", "Need more time", "Not for us") — lowest friction, highest signal.
+
+**Alternatives rejected:** Optional free text (adds textarea to confirmation dialog — cognitive friction), required reason (blocks an already-reluctant action). Quick-select chips are the preferred option if/when built.
+
+**Consequences:** `DeclinedAgreementPage` gets copy cleanup (P477) but no reason field. Creator gets email notification "X declined" with no additional context.
+
+---
+
 ## 2026-03-05 [process]: /verify skill — pre-commitment, post-click wait, console diff vs baseline
 
 **Context:** During P472 UAT, /verify passed all 7 scenarios but missed a broken button (onClick bug). The agent took a screenshot and described the UI without confirming the CTA actually triggered. Three root causes: (1) no stated expected outcome before acting, (2) no wait for toast/dialog after click, (3) console errors checked in absolute (any = fail) mode — pre-existing load errors would mask new ones.
