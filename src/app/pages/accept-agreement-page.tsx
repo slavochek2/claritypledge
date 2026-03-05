@@ -247,7 +247,7 @@ export function AcceptAgreementPage() {
         JSON.stringify({ partnerName: partnerDisplayName.trim() })
       );
 
-      const redirectUrl = `${window.location.origin}${window.location.pathname}${window.location.search}`;
+      const redirectUrl = `${window.location.origin}/auth/callback?redirect=${encodeURIComponent(window.location.pathname + window.location.search)}`;
       const { error } = await supabase.auth.signInWithOtp({
         email: agreement.partnerEmail,
         options: {
