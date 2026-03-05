@@ -2,6 +2,18 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-05 [process]: KDD hard stop + skill branch guard — prevent wrong-branch global commits
+
+**Context:** Two commits landed on feature branches instead of main in the same session: a KDD docs update (landed on `feature/p476`) and a skill file fix (landed on `feature/p458`). Root cause: multiple Claude sessions share a single working directory and its `.git/HEAD` — any `git checkout <branch>` changes the active branch for all concurrent sessions. The committing session didn't know the branch had drifted.
+
+**Decision:** Two mechanical guards: (1) `/kdd` step 0 upgraded from "warning, not a blocker" to a hard stop — emits recovery instructions and terminates the invocation if not on `main`. (2) `.claude/rules/skills.md` gained a "Branch Guard for Skill File Commits" section — auto-loads when editing skill files, tells the agent to check the branch before committing. Both use the wip-commit recovery pattern (`git add -A && git commit -m "wip:"` → checkout main → fix + commit → return + `git reset HEAD~1`). `git stash` is explicitly banned in both — stashes are invisible and can be permanently lost.
+
+**Alternatives rejected:** Warning only (proven ignorable — the bug that motivated this fix). Stash-based recovery (already banned in `.claude/rules/git.md` for agents). Pre-commit hook on all commits (too broad — would block legitimate feature commits from skill-file edits during /dev).
+
+**Consequences:** /kdd from a feature branch now fails loudly and gives exact recovery steps. Skill edits made during feature sessions must be committed separately on main. The stash ban in git.md is now reinforced at the skill and rules layer.
+
+**References:** `.claude/commands/slava/maintain/kdd/SKILL.md` step 0, `.claude/rules/skills.md` "Branch Guard" section, `.claude/rules/git.md` "Why stash is banned"
+
 ## 2026-03-05 [process]: Worktree signal propagation — architect flags blast radius, dev detects it
 
 **Context:** /dev only asked about worktrees on dirty index collision. High-blast-radius tasks (CLAUDE.md, .claude/, package.json, build config) could start without isolation even with a clean tree.
