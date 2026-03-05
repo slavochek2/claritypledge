@@ -280,6 +280,18 @@ export default function ClarityPledgeApp() {
           }
         />
 
+        {/* P476: Full-screen email confirmation — must come before /agreements/:id to prevent param capture */}
+        <Route
+          path="/agreements/confirm-email"
+          element={
+            <ClarityLandingLayout>
+              <LazyRoute>
+                <AgreementEmailConfirmationPage />
+              </LazyRoute>
+            </ClarityLandingLayout>
+          }
+        />
+
         <Route
           path="/agreements/:id"
           element={
@@ -297,18 +309,6 @@ export default function ClarityPledgeApp() {
             <ClarityLandingLayout>
               <LazyRoute>
                 <AcceptAgreementPage />
-              </LazyRoute>
-            </ClarityLandingLayout>
-          }
-        />
-
-        {/* P476: Full-screen email confirmation after unauthenticated partner clicks "Seal & Create Account" */}
-        <Route
-          path="/agreements/confirm-email"
-          element={
-            <ClarityLandingLayout>
-              <LazyRoute>
-                <AgreementEmailConfirmationPage />
               </LazyRoute>
             </ClarityLandingLayout>
           }

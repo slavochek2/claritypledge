@@ -376,7 +376,7 @@ export function AcceptAgreementPage() {
                     />
                     {nameError && <p className="mt-1 text-xs text-red-600">{nameError}</p>}
                   </div>
-                  <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                  <div className="flex justify-center">
                     <Button
                       className="bg-[#002B5C] hover:bg-[#001f42] text-white"
                       onClick={handleInlineSignup}
@@ -385,11 +385,14 @@ export function AcceptAgreementPage() {
                       {isSigningUp ? <Loader2Icon className="w-4 h-4 animate-spin mr-2" /> : null}
                       Seal &amp; Create Account ✦
                     </Button>
-                    <Button asChild variant="ghost" size="sm" className="text-[#1A1A1A]/50 hover:text-[#1A1A1A]/70 text-sm">
-                      <Link to={`/login?redirect=${encodeURIComponent(redirectAfterLogin)}`}>
-                        Already have an account? Log in
-                      </Link>
-                    </Button>
+                  </div>
+                  <div className="text-center">
+                    <Link
+                      to={`/login?redirect=${encodeURIComponent(redirectAfterLogin)}`}
+                      className="text-sm text-[#1A1A1A]/50 hover:text-[#1A1A1A]/70"
+                    >
+                      Already have an account? Log in
+                    </Link>
                   </div>
                   <div className="text-center">
                     <Button
