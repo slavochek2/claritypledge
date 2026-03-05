@@ -68,8 +68,8 @@ test.describe('P476 Smoke Tests', () => {
     );
     await page.waitForLoadState('networkidle');
 
-    // Certificate content should be visible
-    await expect(page.getByText(/We all crave being understood/i)).toBeVisible({ timeout: 10000 });
+    // Certificate content should be visible (terms text from the test agreement)
+    await expect(page.getByText(/We commit to at least one.*live session/i)).toBeVisible({ timeout: 10000 });
 
     // Unauthenticated CTA should be present
     await expect(
