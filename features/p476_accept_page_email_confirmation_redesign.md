@@ -1,5 +1,5 @@
 ---
-status: week
+status: qa
 type: change-request
 rank: 1000006
 changes: p466
@@ -9,6 +9,12 @@ tags:
   - agreements
 created_date: 2026-03-05
 flow: dev
+delivery_stage: uat
+uat_file: features/uat/p476.md
+test_files:
+  - e2e/p476-accept-confirmation.spec.ts
+  - e2e/p476-smoke.spec.ts
+  - e2e/a11y/p476-accessibility.spec.ts
 ---
 
 # P476: Accept Page — Full-Screen Email Confirmation After Magic Link
@@ -160,17 +166,56 @@ P466's core AC (partner name pre-fill, editable name, `accept_agreement` RPC par
 
 ## Acceptance Criteria
 
-- [ ] After clicking "Seal & Create Account" and OTP is sent successfully, the user sees a full-screen email confirmation — not an inline message inside the certificate
-- [ ] Confirmation screen shows the partner's email address prominently
-- [ ] Copy says "complete signing the Clarity Partner Agreement" (or equivalent agreement-specific language) — not "complete your pledge"
-- [ ] Resend button sends a new OTP with `emailRedirectTo` pointing back to the original accept page URL
-- [ ] After resending, the `localStorage` key `clarity-pending-accept-${agreementId}` is re-set so auto-accept still fires on return
-- [ ] "Back" button returns to the accept page (partner can then decline or copy the link to try a different browser)
-- [ ] "Use different email" button is absent — no path to change the email
-- [ ] The pledge confirmation page (`/sign-pledge/confirm`) is visually and functionally unchanged
-- [ ] Authenticated accept flow (`pageState === 'partner'` + `CelebrationDialog`) is visually and functionally unchanged
-- [ ] All P466 AC for partner name pre-fill and editable name still pass
+- [x] After clicking "Seal & Create Account" and OTP is sent successfully, the user sees a full-screen email confirmation — not an inline message inside the certificate
+- [x] Confirmation screen shows the partner's email address prominently
+- [x] Copy says "complete signing the Clarity Partner Agreement" (or equivalent agreement-specific language) — not "complete your pledge"
+- [x] Resend button sends a new OTP with `emailRedirectTo` pointing back to the original accept page URL
+- [x] After resending, the `localStorage` key `clarity-pending-accept-${agreementId}` is re-set so auto-accept still fires on return
+- [x] "Back" button returns to the accept page (partner can then decline or copy the link to try a different browser)
+- [x] "Use different email" button is absent — no path to change the email
+- [x] The pledge confirmation page (`/sign-pledge/confirm`) is visually and functionally unchanged
+- [x] Authenticated accept flow (`pageState === 'partner'` + `CelebrationDialog`) is visually and functionally unchanged
+- [x] All P466 AC for partner name pre-fill and editable name still pass
 
 ## Next Steps
 
-Run `/generate-tests features/p476_accept_page_email_confirmation_redesign.md` then `/dev`.
+Run `/dev features/p476_accept_page_email_confirmation_redesign.md`.
+
+## Test Coverage Strategy
+
+**What's Tested:**
+- Unauthenticated accept flow — redirect to full-screen confirmation (E2E) — primary AC
+- Confirmation page copy is agreement-specific, not pledge-specific (E2E)
+- Resend button present and functional (E2E)
+- Back navigation to accept page (E2E)
+- "Use different email" is absent (E2E)
+- Authenticated flow (CelebrationDialog) unchanged (E2E)
+- Old inline "Check your email" is gone (E2E)
+- New confirmation page loads (smoke)
+- /sign-pledge/confirm (PledgeConfirmationPage) still loads unchanged (smoke)
+- Keyboard accessibility of confirmation page elements (a11y)
+
+**What's NOT Tested:**
+- Actual OTP email delivery — mocked at network layer; real delivery is Supabase's responsibility
+- Auto-accept localStorage flow end-to-end — requires real magic link click; covered by UAT-3 manual check
+- Resend OTP emailRedirectTo correctness — cannot assert network param in Playwright without interception; covered by UAT-3
+- PledgeConfirmationPage visual regression — no code changes to that file; existing tests cover it
+
+**Test Pyramid:**
+```
+     /\
+    /  \   ~9 E2E tests
+   /____\
+  /  0 INT \
+ /___________\
+/   0 UNIT   \
+_______________
+```
+
+**Files Generated:**
+- `e2e/p476-accept-confirmation.spec.ts`
+- `e2e/p476-smoke.spec.ts`
+- `e2e/a11y/p476-accessibility.spec.ts`
+- `features/uat/p476.md`
+
+**Total:** ~18 automated tests + 7 UAT scenarios

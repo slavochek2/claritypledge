@@ -28,7 +28,7 @@ import {
   DialogTitle,
   DialogDescription,
 } from '@/components/ui/dialog';
-import { Loader2Icon, MailCheckIcon } from 'lucide-react';
+import { Loader2Icon } from 'lucide-react';
 
 type PageState = 'loading' | 'invalid' | 'unauthenticated' | 'partner' | 'wrong-user';
 
@@ -56,7 +56,6 @@ export function AcceptAgreementPage() {
 
   // Inline signup (unauthenticated flow): magic link sent to partner email
   const [isSigningUp, setIsSigningUp] = useState(false);
-  const [signupEmailSent, setSignupEmailSent] = useState(false);
 
   // Auto-accept intent — set when returning from OTP email (via localStorage)
   const [autoAcceptWith, setAutoAcceptWith] = useState<string | null>(null);
@@ -263,7 +262,14 @@ export function AcceptAgreementPage() {
         return;
       }
 
-      setSignupEmailSent(true);
+      navigate('/agreements/confirm-email', {
+        state: {
+          email: agreement.partnerEmail,
+          agreementId,
+          token,
+          partnerName: partnerDisplayName.trim(),
+        },
+      });
     } finally {
       setIsSigningUp(false);
     }
@@ -352,63 +358,55 @@ export function AcceptAgreementPage() {
             partnerNameError={nameError ?? undefined}
             footer={
               pageState === 'unauthenticated' ? (
-                signupEmailSent ? (
-                  <div className="text-center space-y-2 py-2">
-                    <MailCheckIcon className="w-8 h-8 text-[#002B5C]/60 mx-auto" />
-                    <p className="text-sm font-medium text-[#1A1A1A]">Check your email</p>
-                    <p className="text-sm text-[#1A1A1A]/60">
-                      We sent a sign-in link to <span className="font-medium">{agreement.partnerEmail}</span>.
-                      Click it and we&apos;ll complete the signing automatically.
-                    </p>
+                <div className="space-y-3">
+                  <div>
+                    <label
+                      htmlFor="unauth-partner-name"
+                      className="block text-sm font-medium text-[#1A1A1A]/70 mb-1"
+                    >
+                      Your name on this agreement
+                    </label>
+                    <Input
+                      id="unauth-partner-name"
+                      type="text"
+                      value={partnerDisplayName}
+                      onChange={e => { setPartnerDisplayName(e.target.value); setNameError(null); }}
+                      placeholder="Your full name"
+                      maxLength={100}
+                    />
+                    {nameError && <p className="mt-1 text-xs text-red-600">{nameError}</p>}
                   </div>
-                ) : (
-                  <div className="space-y-3">
-                    <div>
-                      <label
-                        htmlFor="unauth-partner-name"
-                        className="block text-sm font-medium text-[#1A1A1A]/70 mb-1"
-                      >
-                        Your name on this agreement
-                      </label>
-                      <Input
-                        id="unauth-partner-name"
-                        type="text"
-                        value={partnerDisplayName}
-                        onChange={e => { setPartnerDisplayName(e.target.value); setNameError(null); }}
-                        placeholder="Your full name"
-                        maxLength={100}
-                      />
-                      {nameError && <p className="mt-1 text-xs text-red-600">{nameError}</p>}
-                    </div>
-                    <div className="flex flex-col sm:flex-row gap-3 justify-center">
-                      <Button
-                        className="bg-[#002B5C] hover:bg-[#001f42] text-white"
-                        onClick={handleInlineSignup}
-                        disabled={isSigningUp}
-                      >
-                        {isSigningUp ? <Loader2Icon className="w-4 h-4 animate-spin mr-2" /> : null}
-                        Seal &amp; Create Account ✦
-                      </Button>
-                      <Button asChild variant="ghost" size="sm" className="text-[#1A1A1A]/50 hover:text-[#1A1A1A]/70 text-sm">
-                        <Link to={`/login?redirect=${encodeURIComponent(redirectAfterLogin)}`}>
-                          Already have an account? Log in
-                        </Link>
-                      </Button>
-                    </div>
-                    <div className="text-center">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="text-[#1A1A1A]/50 hover:text-[#1A1A1A]/70"
-                        onClick={handleUnauthDecline}
-                        disabled={isDeclining}
-                      >
-                        {isDeclining ? <Loader2Icon className="w-4 h-4 animate-spin mr-2" /> : null}
-                        Decline
-                      </Button>
-                    </div>
+                  <div className="flex justify-center">
+                    <Button
+                      className="bg-[#002B5C] hover:bg-[#001f42] text-white"
+                      onClick={handleInlineSignup}
+                      disabled={isSigningUp}
+                    >
+                      {isSigningUp ? <Loader2Icon className="w-4 h-4 animate-spin mr-2" /> : null}
+                      Seal &amp; Create Account ✦
+                    </Button>
                   </div>
-                )
+                  <div className="text-center">
+                    <Link
+                      to={`/login?redirect=${encodeURIComponent(redirectAfterLogin)}`}
+                      className="text-sm text-[#1A1A1A]/50 hover:text-[#1A1A1A]/70"
+                    >
+                      Already have an account? Log in
+                    </Link>
+                  </div>
+                  <div className="text-center">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="text-[#1A1A1A]/50 hover:text-[#1A1A1A]/70"
+                      onClick={handleUnauthDecline}
+                      disabled={isDeclining}
+                    >
+                      {isDeclining ? <Loader2Icon className="w-4 h-4 animate-spin mr-2" /> : null}
+                      Decline
+                    </Button>
+                  </div>
+                </div>
               ) : pageState === 'partner' && currentUser ? (
                 <div className="space-y-3">
                   <div className="flex flex-col sm:flex-row gap-3 justify-center">

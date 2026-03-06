@@ -189,6 +189,39 @@ export async function createMagicLinkToken(email: string): Promise<string> {
 }
 
 /**
+ * Generates a magic link URL via Supabase Admin API (no email sent).
+ * Returns the full action_link that, when navigated to, performs token
+ * verification and redirects to `redirectTo` with auth tokens in the hash.
+ *
+ * Use this for E2E tests that need the real Supabase token-exchange flow
+ * (UAT-4.x / UAT-5.x: position auto-save after magic link login).
+ */
+export async function generateMagicLinkUrl(
+  email: string,
+  redirectTo: string,
+): Promise<string> {
+  console.log(`[TEST HELPER] Generating magic link URL for: ${email}, redirectTo: ${redirectTo}`);
+
+  const { data, error } = await supabaseAdmin.auth.admin.generateLink({
+    type: 'magiclink',
+    email,
+    options: { redirectTo },
+  });
+
+  if (error) {
+    console.error('[TEST HELPER] Failed to generate magic link:', error);
+    throw error;
+  }
+
+  if (!data.properties?.action_link) {
+    throw new Error('[TEST HELPER] No action_link in generateLink response');
+  }
+
+  console.log('[TEST HELPER] Magic link URL generated successfully');
+  return data.properties.action_link;
+}
+
+/**
  * Sets a Supabase session directly in the browser for E2E tests
  * Uses password-based login to get a valid session instantly
  *

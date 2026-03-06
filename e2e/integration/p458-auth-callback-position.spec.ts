@@ -22,7 +22,7 @@
 import { test, expect } from '@playwright/test';
 import { supabaseAdmin } from '../../src/lib/supabase-admin';
 import { createClient } from '@supabase/supabase-js';
-import { createTestUser, generateTestEmail, deleteTestUser } from '../helpers/test-user';
+import { createTestUser, generateTestEmail, deleteTestUser, generateMagicLinkUrl } from '../helpers/test-user';
 import { createTestPoint, deleteTestPoint, type TestPoint } from '../helpers/test-point';
 import type { TestUser } from '../helpers/test-user';
 
@@ -403,5 +403,66 @@ test.describe('P458: AuthCallbackPage — position save and redirect', () => {
     const url = page.url();
     // Acceptable outcomes: redirect to /events (fallback), or to the point page, or to home
     expect(url).not.toMatch(/^.*\/auth\/callback.*error/i);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Full magic-link round-trip — UAT-4.x / UAT-5.x equivalent
+// ---------------------------------------------------------------------------
+// Uses generateLink (Supabase Admin API) to create a real magic link URL,
+// navigates Playwright to it, and verifies that:
+//   1. Supabase performs the token exchange (real auth, not session injection)
+//   2. AuthCallbackPage processes action=set-position
+//   3. Position is saved in point_positions table
+//   4. User is redirected to /point/:id (not /events)
+
+test.describe('P458: Full magic-link round-trip — position auto-save', () => {
+  test.describe.configure({ timeout: 90000 });
+
+  let user: TestUser;
+  let point: TestPoint;
+
+  test.beforeAll(async () => {
+    user = await createTestUser({ name: 'P458MagicLink', email: generateTestEmail() });
+    point = await createTestPoint(user.user.id, {
+      statement: `P458 magic link round-trip test ${Date.now()}`,
+    });
+  });
+
+  test.afterAll(async () => {
+    // Clean up position first, then point (CASCADE), then user
+    if (point?.id && user?.user?.id) {
+      await supabaseAdmin.from('point_positions').delete()
+        .eq('point_id', point.id).eq('user_id', user.user.id);
+    }
+    if (point?.id) await deleteTestPoint(point.id);
+    if (user?.user?.id) await deleteTestUser(user.user.id);
+  });
+
+  test('magic link → token exchange → position saved → redirect to /point/:id (UAT-4/5)', async ({ page }) => {
+    // Build the callback URL that AuthCallbackPage will receive after token exchange
+    const baseUrl = process.env.PLAYWRIGHT_BASE_URL || 'http://localhost:5001';
+    const callbackUrl = `${baseUrl}/auth/callback?action=set-position&pointId=${point.id}&position=agree&redirect=${encodeURIComponent(`/point/${point.id}`)}`;
+
+    // Generate a real magic link that redirects to our callback with action params
+    const magicLinkUrl = await generateMagicLinkUrl(user.email, callbackUrl);
+
+    // Navigate to the magic link — Supabase verifies the token and redirects
+    // to our callback URL with auth tokens in the hash fragment
+    await page.goto(magicLinkUrl);
+
+    // Wait for the full chain: Supabase verify → redirect to callback → process → redirect to point
+    await page.waitForURL(/\/point\//, { timeout: 30000 });
+    expect(page.url()).toContain(`/point/${point.id}`);
+
+    // Verify position was actually saved in the database (not just redirected)
+    const { data: saved } = await supabaseAdmin
+      .from('point_positions')
+      .select('position')
+      .eq('point_id', point.id)
+      .eq('user_id', user.user.id)
+      .single();
+
+    expect(saved?.position, 'Position must be saved as "agree" after magic link round-trip').toBe('agree');
   });
 });

@@ -22,7 +22,7 @@ Run this after batches of shipped features, especially when new APIs, data flows
 ## Inputs (read before starting)
 
 1. `src/app/content/copy.ts` → `LEGAL_LAST_UPDATED` — determines review window
-2. `src/app/pages/terms-of-service-page.tsx` — current ToS text (until migrated to `content/tos.md`)
+2. `src/app/content/tos.md` — current ToS text (markdown source of record)
 3. `features/done/INDEX.md` — all shipped features; filter by date > last ToS update
 4. `supabase/functions/` — edge functions (third-party API calls, data processing)
 5. `.env.local`, `vite.config.ts`, and `src/` — third-party service inventory (VITE_ vars + frontend service calls)
@@ -70,7 +70,7 @@ Cross-reference Stage 1 vs Stage 2. Identify:
 
 ### Stage 4 — Propose Changes (spawn Agent A — Legal Drafter)
 
-**Before spawning:** Read `src/app/pages/terms-of-service-page.tsx` in full. In the prompt below, replace `[ToS file content]` with the full file text and `[Gap analysis]` with your Stage 3 structured list.
+**Before spawning:** Read `src/app/content/tos.md` in full. In the prompt below, replace `[ToS file content]` with the full file text and `[Gap analysis]` with your Stage 3 structured list.
 
 Spawn a general-purpose agent with this prompt:
 
@@ -143,7 +143,7 @@ Do NOT apply anything without explicit approval per change.
 ### Stage 7 — Apply Changes
 
 For each approved change:
-- Edit `src/app/pages/terms-of-service-page.tsx` (or `content/tos.md` after P474 migration)
+- Edit `src/app/content/tos.md` (markdown source of record — no legal text lives in TSX)
 - Update `COPY.LEGAL_LAST_UPDATED` in `src/app/content/copy.ts` to today's date
 
 ### Stage 8 — Visual Review
@@ -173,7 +173,7 @@ Note: `/kdd` after this session to capture any process learnings.
 
 ## Related
 
-- ToS page: `src/app/pages/terms-of-service-page.tsx`
+- ToS content: `src/app/content/tos.md` (markdown source of record, migrated in P474)
+- ToS renderer: `src/app/pages/terms-of-service-page.tsx` (layout + chrome only, no legal text)
 - Last updated constant: `src/app/content/copy.ts` → `LEGAL_LAST_UPDATED`
-- Migration to markdown: P474 (makes Stage 7 cleaner — edit `content/tos.md` instead of JSX)
 - P436 (rejected): one-off predecessor to this skill

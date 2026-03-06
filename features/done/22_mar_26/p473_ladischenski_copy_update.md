@@ -1,9 +1,10 @@
 ---
-status: today
+status: done
 type: feature
 rank: 1000004
 workstream: C2
 created_date: 2026-03-03
+completed_at: "2026-03-05"
 tags: [ladischenski, copy, acquisition]
 # For complete frontmatter specification, see docs/technical/feature-specs.md
 ---

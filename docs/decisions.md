@@ -46,6 +46,7 @@ Append-only log of architectural and product decisions. Newest entries at top.
 **Consequences:** Future content-heavy pages follow this pattern. /tos-review now edits `tos.md` directly — no JSX knowledge needed. `full-article-page.tsx` was prior art for `?raw` import; this extends the pattern to legal/static content pages.
 **References:** `src/app/content/tos.md`, `src/app/pages/terms-of-service-page.tsx` (P474)
 
+
 ## 2026-03-05 [technical]: Auth redirect roundtrip — token must be embedded in redirect URL, not separate param
 
 **Context:** The accept-agreement page linked to `/login?returnTo=...&token=...`. The login page only reads `redirect` (not `returnTo`). `signInWithEmail` embeds only the `redirect` param inside `emailRedirectTo`. After login → auth/callback → redirect, the `token` param was silently dropped. The user landed on the accept page without the agreement token — showing "invalid invitation".
