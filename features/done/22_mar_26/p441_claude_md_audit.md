@@ -1,5 +1,5 @@
 ---
-status: week
+status: all-done
 type: task
 rank: 125500
 workstream: foundation
@@ -8,8 +8,7 @@ tags:
   - process
   - claude-md
   - agents
-locked_at: '2026-02-28T09:34:18.312Z'
-delivery_stage: uat
+completed_at: '2026-03-06'
 ---
 
 # TASK: P441 — CLAUDE.md Audit (Reduce Size, Fix Instruction Dilution)
