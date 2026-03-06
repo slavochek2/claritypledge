@@ -9,6 +9,7 @@ import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
 import type { ClarityAgreement } from '@/app/data/agreements-service.interface';
 import { agreementsService } from '@/app/data/agreements-service';
+import { ConfirmDialog } from '@/app/components/shared/confirm-dialog';
 
 export interface AgreementRowProps {
   agreement: ClarityAgreement;
@@ -144,26 +145,25 @@ function ResendButton({ agreementId }: { agreementId: string }) {
   );
 }
 
-// ─── Inline cancel button (pending rows, owner only) ──────────────────────────
+// ─── Cancel button with confirm dialog (pending rows, owner only) ────────────
 
-function CancelButton({ agreementId, onCancelled }: { agreementId: string; onCancelled?: (id: string) => void }) {
-  const [confirming, setConfirming] = useState(false);
+function CancelButton({ agreementId, partnerName, onCancelled }: { agreementId: string; partnerName: string; onCancelled?: (id: string) => void }) {
+  const [open, setOpen] = useState(false);
   const [isCancelling, setIsCancelling] = useState(false);
 
   const handleClick = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    setConfirming(true);
+    setOpen(true);
   };
 
-  const handleConfirm = async (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
+  const handleConfirm = async () => {
     setIsCancelling(true);
     try {
       const ok = await agreementsService.cancelInvitation(agreementId);
       if (ok) {
         toast.success('Invitation cancelled.');
+        setOpen(false);
         onCancelled?.(agreementId);
       } else {
         toast.error('Failed to cancel. Try again.');
@@ -172,43 +172,29 @@ function CancelButton({ agreementId, onCancelled }: { agreementId: string; onCan
       toast.error('Failed to cancel. Try again.');
     } finally {
       setIsCancelling(false);
-      setConfirming(false);
     }
   };
 
-  const handleAbort = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setConfirming(false);
-  };
-
-  if (confirming) {
-    return (
-      <div role="group" className="flex items-center gap-1 flex-shrink-0">
-        <button
-          onClick={handleAbort}
-          className="text-xs px-2 py-1 rounded-md border border-input text-muted-foreground hover:bg-muted min-h-[32px]"
-        >
-          Keep
-        </button>
-        <button
-          onClick={handleConfirm}
-          disabled={isCancelling}
-          className="text-xs px-2 py-1 rounded-md border border-red-300 text-red-600 hover:bg-red-50 disabled:opacity-50 min-h-[32px]"
-        >
-          {isCancelling ? '...' : 'Cancel'}
-        </button>
-      </div>
-    );
-  }
-
   return (
-    <button
-      onClick={handleClick}
-      className="text-xs px-2.5 py-1 rounded-md border border-input text-muted-foreground hover:bg-muted flex-shrink-0 min-h-[32px]"
-    >
-      Revoke
-    </button>
+    <>
+      <button
+        onClick={handleClick}
+        className="text-xs px-2.5 py-1 rounded-md border border-input text-muted-foreground hover:bg-muted flex-shrink-0 min-h-[32px]"
+      >
+        Revoke
+      </button>
+      <ConfirmDialog
+        open={open}
+        onOpenChange={setOpen}
+        title="Revoke invitation?"
+        description={`${partnerName} will no longer be able to accept this invite.`}
+        confirmLabel="Revoke"
+        cancelLabel="Keep"
+        variant="destructive"
+        onConfirm={handleConfirm}
+        isLoading={isCancelling}
+      />
+    </>
   );
 }
 
@@ -239,7 +225,7 @@ export function AgreementRow({ agreement, currentProfileId, resendable, cancelab
       {showResend || showCancel ? (
         <div className="flex items-center gap-1 flex-shrink-0">
           {showResend && <ResendButton agreementId={agreement.id} />}
-          {showCancel && <CancelButton agreementId={agreement.id} onCancelled={onCancelled} />}
+          {showCancel && <CancelButton agreementId={agreement.id} partnerName={partnerName} onCancelled={onCancelled} />}
         </div>
       ) : (
         <StatusBadge status={agreement.status} />

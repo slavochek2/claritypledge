@@ -24,7 +24,7 @@ import { useAuth } from '@/auth';
 import { extractBannerKeywords, regenerateUnsplashBanner } from '../banner-utils';
 import { formatTime, downloadICSFile, getGoogleCalendarUrl, getOutlookUrl, getOffice365Url, getTimezoneLabel } from '../utils';
 import type { EventWithHost, PersonRef } from '@/app/types';
-import { ConfirmDialog } from './ConfirmDialog';
+import { ConfirmDialog } from '@/app/components/shared/confirm-dialog';
 import { PersonRow } from '@/app/components/shared/PersonRow';
 import { PersonAvatar } from '@/components/ui/person-avatar';
 import { PracticeRooms } from './PracticeRooms';
