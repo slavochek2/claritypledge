@@ -65,7 +65,7 @@ export function GravatarAvatar({
       <div
         data-testid="gravatar-avatar"
         className={`rounded-full flex-shrink-0 overflow-hidden ${sizeClasses[size]} ${pledgerRingClass} ${className} ${!showImage ? "flex items-center justify-center text-white font-bold" : ""}`}
-        style={{ backgroundColor: showImage ? "transparent" : avatarColor }}
+        style={{ backgroundColor: showImage ? "transparent" : (avatarColor || "#0044CC") }}
       >
         {showImage ? (
           <img

@@ -2,6 +2,32 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-06 [technical]: Null-safe avatar color — fix invitation signup + GravatarAvatar
+
+**Context:** Users who signed up via agreement invitation (accept-agreement-page) had invisible nav avatars. Root cause: the invitation OTP signup passed `data: { name }` without `avatar_color`, unlike the normal signup flow in `api.ts` which includes `avatar_color: getRandomColor()`. This stored `avatar_color = NULL` in the profile. GravatarAvatar's default parameter `avatarColor = "#0044CC"` only activates for `undefined`, not `null` — so `backgroundColor: null` rendered an invisible circle. 15+ components pass `avatarColor` from DB without null guards.
+
+**Decision:** Two-layer fix: (1) Add `avatar_color` to all OTP signup paths (accept-agreement-page + agreement-email-confirmation-page). (2) Make GravatarAvatar null-safe with `avatarColor || "#0044CC"` in the style prop — handles existing NULL profiles and protects all 15+ callers at once.
+
+**Alternatives rejected:** (1) Fix only the signup paths — leaves existing users with NULL avatar_color broken. (2) Add `?? "#0044CC"` to every caller — 15+ files, fragile, violates DRY.
+
+**Consequences:** JS default params (`= value`) don't handle `null`, only `undefined`. When mapping DB columns that can be NULL to component props with defaults, use `||` or `??` in the style/render logic, not just the default parameter. This is a general pattern for any nullable DB field flowing to a React component default.
+
+**References:** `src/components/ui/gravatar-avatar.tsx`, `src/app/pages/accept-agreement-page.tsx`, `src/app/pages/agreement-email-confirmation-page.tsx`, `src/app/data/api.ts:434`
+
+## 2026-03-06 [technical]: All modals use Dialog (Radix), not Drawer (Vaul) — single modal primitive
+
+**Context:** P481 introduced `ConfirmDialog` using Vaul's `Drawer` (bottom-sheet), claiming it "matched the app-wide destructive confirmation pattern." Screenshot showed the revoke dialog pinned to the bottom of the viewport while every other dialog (RemovePositionDialog, CelebrationDialog, NameDialog, skip dialogs in live-mode) used Radix `Dialog` (centered). Architecture audit confirmed: Drawer was only used by this one component; all 6+ other modals use Dialog.
+
+**Decision:** Switch `ConfirmDialog` from Drawer to Dialog. Single modal primitive going forward: Radix Dialog for all modals/confirmations. Drawer primitive remains available for genuine bottom-sheet mobile UX (e.g., action sheets) but is not for confirmation dialogs. No broader refactoring needed — prototype custom modals are isolated experiments, not worth consolidating until they graduate.
+
+**Alternatives rejected:** (1) Keep Drawer for ConfirmDialog and convert other dialogs to match — wrong direction, Drawer is a mobile bottom-sheet pattern, not a centered confirmation pattern. (2) Broader refactoring to retire all custom modals in prototypes — premature; prototypes are disposable.
+
+**Consequences:** When creating new confirmation/modal components, use `Dialog` from `@/components/ui/dialog`. Reserve `Drawer` for mobile-native bottom-sheet interactions only (action menus, bottom navigation drawers).
+
+**References:** `src/app/components/shared/confirm-dialog.tsx`, `src/components/ui/dialog.tsx`
+
+---
+
 ## 2026-03-06 [product]: Don't modal what's already on the page — navigate instead (P478)
 
 **Context:** After partner signed an agreement, a `CelebrationDialog` modal showed `AgreementCertificate variant="celebration"` — visually identical to the pending certificate visible behind the modal. User feedback: "Why popup when same thing is behind it?" Closing the modal also exposed a stale-state bug (P479) — the page showed the unsigned state because `handleAccept()` didn't update the main state variable.
