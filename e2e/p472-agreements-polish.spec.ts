@@ -126,17 +126,6 @@ test.describe('Flow 1 — Create agreement page defaults and creation-mode certi
     await expect(partnerLabel).not.toBeVisible();
   });
 
-  test('A1: creation mode shows informational line about both-party signing', async ({ page }) => {
-    await setTestSession(page, creator.email);
-    await page.goto('/agreements/new');
-    await page.waitForLoadState('networkidle');
-
-    // A1 replacement line: "Agreement becomes active when both parties sign"
-    await expect(
-      page.getByText(/agreement becomes active when both parties sign/i)
-    ).toBeVisible({ timeout: 10000 });
-  });
-
   // ── A4: Tagline position ───────────────────────────────────────────────────
 
   test('A4: tagline appears before the "We, X and Y, agree to:" sentence in DOM order', async ({ page }) => {

@@ -323,11 +323,11 @@ export function AgreementCertificate({
                 termsError ? 'border-red-400' : 'border-[#1A1A1A]/20 focus-visible:border-[#0044CC]'
               }`}
             />
-            <div className="flex justify-between items-center">
+            <div className="flex justify-end">
               <span
                 id="terms-char-count"
                 aria-live="polite"
-                className="text-xs text-[#1A1A1A]/40 font-sans"
+                className="text-xs text-[#1A1A1A]/40 font-sans mt-1"
               >
                 {termsText?.length ?? 0}/{TERMS_MAX}
               </span>
@@ -350,12 +350,6 @@ export function AgreementCertificate({
           </div>
         ) : null}
 
-        {/* P472: Creation mode — informational line replacing signature row */}
-        {isCreation && (
-          <p className="text-xs text-[#1A1A1A]/50 text-center font-sans pt-4 border-t border-[#1A1A1A]/10">
-            Agreement becomes active when both parties sign
-          </p>
-        )}
 
         {/* Signatures + seal — only once active */}
         {isActive && (
