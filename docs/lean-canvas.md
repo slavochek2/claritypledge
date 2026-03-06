@@ -1,6 +1,6 @@
 # Lean Canvas: Clarity Pledge
 
-**Last updated:** 2026-03-02
+**Last updated:** 2026-03-06
 
 ---
 
@@ -114,9 +114,11 @@ Primary revenue track — founder coaching:
 
 **Target:** €5k/month by Month 6 validates coaching as revenue foundation.
 
-**Path (Track 2):** Free Calibration Lab → Co-founder pair sessions → Partner Agreement → Retainer → Cohorts
+**Path (Track 2):** Free facilitated session → "holy shit" moment (false agreement revealed) → Partner Agreement → Fractional Clarity Officer retainer → Automate over time
 
-**Partner agreement as retention mechanism (2026-03-02):** Once a partner agreement is created, it commits both parties to ongoing /live practice — generating positions and stories over time. This is what makes Calibration Lab different from a one-off event: the agreement operationalizes the commitment and keeps the pair in the product loop.
+**Service model (2026-03-06): Fractional Clarity Officer.** Slava reviews the pair's meeting transcripts, uses AI to identify false agreements and position divergence, then facilitates targeted sessions on the gaps found. Pairs don't learn /live — they send transcripts and show up. The retainer is the analysis, not the tool. Automate the analysis over time (transcription pipeline → AI gap detection → mirror agents).
+
+**Partner agreement as commitment mechanism (2026-03-02):** Once a partner agreement is created, it commits both parties to ongoing calibration practice. But the agreement alone may not drive independent /live usage — the Fractional Clarity Officer model ensures the pair gets value even without self-serve tool adoption.
 
 **Path (Track 1):** Real session data → Essays → Recognition → Personal AI adoption → Network effects
 
@@ -343,8 +345,8 @@ Secondary channels for thought leadership — built on real session data:
 - **Timeline:** Short-term revenue (Month 3+)
 - **Success metric:** Monthly recurring coaching revenue
 - **Role:** Validates tool UX, generates real founder data for recognition essays, NOT just safety net
-- **Retainer trigger (2026-03-02):** Coaching retainers are offered AFTER product usage is proven — pair has a partner agreement AND is using /live regularly. Not triggered by session value alone. The business is a software product; coaching retainers are the near-term bridge to product adoption.
-- **Long-term revenue path:** Software subscriptions as pairs scale usage (pairs that outgrow ad-hoc retainer → self-serve subscription tier)
+- **Retainer trigger (2026-03-06):** Retainers are offered AFTER the "holy shit" moment — pair experienced a false agreement revealed in a facilitated session AND booked session 2. Delivery model: Fractional Clarity Officer (transcript review → AI gap analysis → facilitated session). The business starts as a service; automate toward software over time.
+- **Long-term revenue path:** Automate the Fractional Clarity Officer (transcription pipeline → AI gap detection → mirror agents). As automation matures, shift from Slava-dependent service to self-serve software subscriptions.
 
 **Checkpoints (Unlock Gates):**
 
@@ -369,8 +371,7 @@ These are gates to unlock next level of ambition, not reasons to quit. If a chec
 **Track 2 (PRIMARY): Founder Coaching Pricing**
 - **Free Calibration Lab** — free acquisition (90 min group session, cast wide, route post-session). Workshops are NOT revenue drivers — they are cost/acquisition to get pairs into the product loop.
 - **€300–500** — single co-founder pair session (60-90 min). Valid entry point but not the primary model.
-- **€800–1,500/month** — ongoing retainer per pair (triggered after pair has partner agreement + active /live usage)
-- **€2,000/person** — 4-week founder cohort (one-off workshop, distinct from C3 monthly Cohort retainer tier)
+- **€800–1,500/month** — Fractional Clarity Officer retainer per pair (triggered after pair experiences "holy shit" moment + books session 2). Delivery: Slava reviews transcripts, finds gaps with AI, facilitates targeted sessions.
 - **€200–300/month** — founder community add-on (future C4)
 
 **Track 1 (SECONDARY): Recognition Path Pricing**

@@ -10,7 +10,7 @@ summary: "Founder pairs pay €800–1,500/month for structured calibration reta
 
 ## TL;DR
 
-**Hypothesis:** Founder pairs will pay €800–1,500/month for structured calibration retainers after validating session value in C2.
+**Hypothesis:** Founder pairs will pay €800–1,500/month for structured calibration retainers after validating session value in C1: First Pairs. See [H-Retainers-Sticky](../hypotheses.md#h-retainers-sticky-founder-pairs-retain-monthly-calibration-retainers-via-fractional-clarity-officer-model).
 
 **Test:** Launch retainer offers to C2 session participants + warm leads. Track signup rate and month-2 retention.
 
@@ -22,52 +22,53 @@ summary: "Founder pairs pay €800–1,500/month for structured calibration reta
 
 ## Deep Dive
 
-**What we're building:** Retainer product (recurring billing, monthly calls, team dashboard)
+**What we're building:** "Fractional Clarity Officer" retainer — Slava reviews meeting transcripts, identifies divergence with AI, facilitates targeted sessions on the gaps found. Pairs don't need to learn /live; they send transcripts and show up.
 
 **Done when:** 10+ founder pairs actively subscribed, month-2 retention >60%
 
-## Pricing Model
+## Delivery Model: Fractional Clarity Officer (Duct-Tape V1)
 
-**Per-Founder-Pair Retainer:**
+The retainer is NOT "access to /live tool." It's "Slava finds where you're misaligned and helps you fix it."
+
+**Monthly cycle:**
+1. Pair sends meeting transcript(s) or recording
+2. Slava + AI processes: identifies false agreements, position divergence, unverified assumptions
+3. Slava prepares 2-3 specific gaps to verify
+4. Facilitated session (45-60 min): run explain-back on the gaps found
+5. File stories/points from session (Slava does this, not the pair)
+6. Repeat monthly
+
+**Why this model:** Pairs won't use /live independently (they think they've internalized the protocol). But they WILL pay for someone to find their blind spots from their own conversations. The value is the analysis, not the tool.
+
+**Automation path:** Start manual → automate transcript processing → automate gap detection → eventually the AI does what Slava does. But duct-tape first.
+
+## Pricing Model
 
 | Tier | Price | Includes |
 |------|-------|----------|
-| Base | €800/month | Monthly calibration call (60 min) + /live access (unlimited) + session notes |
-| Team | €1,200/month | Base + team dashboard (up to 4 members) + optional extra calls (+€200 each) |
-| Cohort | €1,500/month | Team + monthly cohort call (all pairs together) + peer calibration |
+| Base | €800/month | Monthly gap analysis + 1 facilitated session (60 min) |
+| Team | €1,200/month | Base + bi-weekly sessions + team dashboard (up to 4 members) |
+| Cohort | €1,500/month | Team + monthly cohort call (all pairs together) |
 
-*Note: The 'Cohort' retainer tier (€1,500/month) is an ongoing subscription with group calls. This is distinct from the standalone 4-week founder cohort workshop (€2,000/person one-off) listed in lean-canvas.md.*
-
-**Revenue at success:** 10 pairs × €1,000 avg = €10k/month (by Month 6-7)
-
-## Why Retainers, Not Workshops
-
-The shift from C3 "paid workshops" ($100/person events) to retainers (€800-1,500/month) is deliberate:
-- Founders won't pay $100/person for a one-off event and return
-- They WILL pay monthly for ongoing calibration as founders make decisions constantly
-- Retainers create predictable MRR vs. unpredictable event revenue
-- Monthly cadence mirrors how co-founder tensions actually compound over time
-
-**Positioning:** See [lean-canvas.md](../lean-canvas.md) Track 2 for full positioning. Monthly retainer cadence mirrors how co-founder tensions compound — preventive maintenance, not crisis response.
+**Revenue at success:** 10 pairs x €1,000 avg = €10k/month (by Month 6-7)
 
 ## Precondition: Who Gets a Retainer Offer
 
-Retainers are offered only to pairs who meet both conditions:
-1. **Created a partner agreement** during or after a C2 Calibration Lab
-2. **Returned to /live at least 2-3 times** after the Lab — demonstrating the agreement translates to practice
+Retainers are offered only to pairs who:
+1. **Experienced the "holy shit" moment** in a First Pairs facilitated session
+2. **Booked and attended session 2** — demonstrating the gap matters enough to return
 
-"Experienced session value" is not sufficient. The retainer is facilitated calibration for pairs already using the product independently.
+"Experienced session value once" is not sufficient. They need to have returned at least once voluntarily.
 
 ## Go-to-Market
 
-**Phase 1 (Weeks 1-4):** Offer retainers to C2 pairs who have demonstrated /live return behavior (used /live at least twice after the Lab)
-- High conversion likely (they've experienced value and already self-motivated)
-- Target: 5-8 signups
+**Phase 1 (Weeks 1-4):** Offer retainers to First Pairs who booked session 2+
+- Target: 3-5 signups
 
-**Phase 2 (Weeks 5-8):** Expand to warm leads + referrals from Phase 1
+**Phase 2 (Weeks 5-8):** Expand to warm leads + referrals
 - Target: 10+ total signups
 
-**Acquisition:** Free Calibration Lab continues as top-of-funnel. Route co-founder pairs to C2 session → C3 retainer offer.
+**Acquisition:** Free facilitated session (direct outreach or Calibration Lab) → First Pairs → retainer offer.
 
 ## Success Metrics
 
@@ -110,8 +111,8 @@ By end of C3:
 
 **Track:** Coaching (C-track) — PRIMARY months 1-6
 
-**Depends on:** C2 (Calibration Labs validate agreement creation + /live return behavior)
+**Depends on:** C1: First Pairs (H-PairsReturn validated — ≥2 pairs book session 2 + quantify pain)
 
 **Next:** C4 (Founder Community — cohort add-on for €200-300/month)
 
-**Previous:** C2 (First Calibration Labs + Partner Agreements)
+**Previous:** C1: First Pairs (facilitated sessions validating the gap reveal)

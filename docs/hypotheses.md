@@ -8,22 +8,23 @@ Our active bets, in priority order. This is the map of what we still need to pro
 
 ## Active (Currently Testing)
 
-### H-Stories-ColdStart: Stories are the content layer for /live verification
-**Bet:** When users create and share stories, they have a concrete "what" to verify understanding against, making /live feel purposeful and triggering higher adoption and retention.
-**Testing via:** C1 (Stories + Live + Events) — 20-user pilot Feb–Mar 2026. Target ≥50% story creation rate, ≥30% verification rate.
-**Kill if:** <20% story creation after 4 weeks OR stories don't improve /live usage frequency.
-**Scope update (2026-02-27):** Stories are now understood as the **content layer**, not the primary cold start trigger. The cold start trigger is the briefing protocol invitation (H-BriefingProtocol-ColdStart below). C1 runs to completion as a content-layer test and comparison baseline. Key question revised: do stories provide useful "what to verify" context once a session is initiated — not whether they initiate sessions on their own.
-**Notes:** User feedback consistently asks "on what? when?" The briefing protocol solves the "when" (invitation trigger); stories solve the "what" (content to verify).
+### H-PairsReturn: Co-founder pairs recognize the clarity gap as a costly problem and return for ongoing facilitated calibration
+**Bet:** Co-founder pairs who experience a false agreement/disagreement revealed in a Slava-facilitated session will (1) recognize this as a costly, recurring problem, (2) create a partner agreement committing to ongoing calibration, and (3) return for facilitated sessions — either Slava-present /live or transcript-based review.
+**Testing via:** First Pairs milestone — run 3-5 free facilitated sessions with real co-founder pairs on real decisions. Measure: does the "holy shit" moment happen? Do they quantify pain? Do they book session 2?
+**Kill if:** Gap reveal doesn't surprise them ("we knew that") OR they find it interesting but not worth paying to prevent OR zero pairs book a second session.
+**Scary thing:** Run first facilitated session with one co-founder pair by March 14.
+**Current status (2026-03-06):** No sessions run yet. One prospect reached out to. Session format: Slava facilitates explain-back on a real decision, surfaces false agreements. Pairs don't need to learn /live — Slava uses it as his diagnostic tool.
+**Notes:** Merges previous H-CoFounders-WillPay + H-AgreementRetention. The prior framing assumed pairs would use /live independently — revised: Slava facilitates, pairs experience. Independent /live usage is downstream (see H-Stories-ColdStart). WTP tested after return is proven (H-Retainers-Sticky).
+**Session format:** (1) Pair discusses real decision, (2) Slava runs explain-back protocol, (3) gap revealed, (4) quantify pain, (5) if "holy shit" → create agreement → book session 2.
 
 ---
 
-### H-BriefingProtocol-ColdStart: Mirror agent invitation solves cold start
-**Bet:** When Person A's mirror agent reaches out to Person B ("Someone you care about wants you to understand them better — here's a 20-minute briefing"), Person B engages, comprehension is tested, and A+B meet at depth on day one rather than month six.
-**Testing via:** Manual briefing experiment — run full protocol with one real high-stakes Person B. Measure: does Person B accept? Does comprehension test surface a gap? Does the meeting start at depth?
-**Kill if:** Person B declines invitation OR finds mirror claims generic/unengaging OR meeting doesn't start noticeably deeper than without briefing.
-**Precondition:** Requires motivated Person B with pre-existing relationship stakes. Protocol channels existing motivation — doesn't create it from nothing.
-**Notes (2026-02-27):** Points surface the gap; stories explain the gap. This is the cold start trigger. H-Stories-ColdStart tests the content layer once a session is initiated.
-**Notes (2026-03-02):** V1 doesn't need story learning from /live sessions — AI generates mirror claims directly from story content. /live session history makes claims sharper over time (V2). This means the hypothesis is testable NOW.
+### H-Stories-ColdStart: Filed content gives /live a trigger — without it, pairs ask "on what?" and don't return independently
+**Bet:** Filed stories/points give /live sessions a concrete trigger ("verify understanding of THIS") that makes independent use feel purposeful. Without content, pairs who experienced the gap in a facilitated session still won't open /live on their own — the protocol adds friction and they'll think they've internalized it.
+**Testing via:** 2-step test within First Pairs milestone. Step 1: after facilitated session + agreement, observe if pair uses /live independently within 2 weeks. Step 2: if they DON'T return, file 2-3 stories/points FOR them from the session, send notification, observe if THAT triggers return.
+**Kill if:** Content-triggered notification doesn't increase return rate over bare agreement — means the problem isn't "on what?" but something deeper (motivation, product UX, wrong ICP).
+**Notes (2026-03-06):** Refined from original "stories as content layer" framing. The question isn't whether stories are useful (they are — they provide structure). The question is whether filed content is the missing TRIGGER for independent /live use. If pairs return only with Slava present regardless of content, the product is a coaching practice, not a tool. Filing friction is downstream — don't optimize filing before proving the gap reveal lands.
+**Precondition:** Requires at least one pair who experienced a facilitated session (H-PairsReturn step 1).
 
 ---
 
@@ -33,88 +34,78 @@ Our active bets, in priority order. This is the map of what we still need to pro
 **Kill if:** AI teaser creates confusion about what the product is FOR, or participants leave thinking "this is an AI tool" rather than "this is for my high-stakes relationships."
 **Notes (2026-03-03):** This is NOT a pivot to AI as a market. AI calibration is the demo vehicle; co-founder calibration is the product. Leading with AI calibration as primary positioning was considered and set aside — too diluted, no moat. The value is in the low-friction demo, not in the AI calibration market itself.
 **Precondition:** Workshop venue has AI-adjacent participants (AI meetups, AI-using founder communities) where AI examples land naturally.
+**Notes (2026-03-06):** Matters for group acquisition (sessions #3-10), not for the first 1-on-1 pair session. Park until First Pairs milestone validates the core gap reveal.
 
 ---
 
-### H-MetaEpistemic-Prerequisite: Meta-epistemological alignment deepens session quality
-**Bet:** If both participants understand the meta-epistemological foundation before a /live session — specifically WHY we actively listen (the 8 postulates in philosophy.md), anchored via the sister story (cognitive vs emotional understanding) — session depth increases measurably compared to sessions without this briefing.
-**Testing via:** C1 sessions — brief both participants on the 8 postulates using the sister story as entry point before the session. Measure: does the session start deeper? Qualitative signal: "We didn't have to spend the first 10 minutes establishing what we're trying to do."
-**Kill if:** Sessions without the meta-epistemological briefing reach equal depth OR participants find the briefing academic/off-putting and disengage.
-**Product implementation:** Mini Pledge (P421) — a pre-session commitment ritual grounded in Pinker's common knowledge framing. Both participants confirm: "In this session, I commit to reaching cognitive understanding — not agreement."
-**Notes (2026-03-01):** Surfaced from voice note analysis. Onboarding to ClarityPledge sessions isn't just "here's how the tool works" — it's "here's how knowledge works, and why we verify." Without meta-epistemological alignment, participants follow the ritual but miss the point.
-
----
-
-### H-FilingLoop-Propagation: Sessions without filed material are sterile — filing + agent follow-up is the growth mechanism
-**Bet:** A calibration session that produces filed stories/points + agent follow-up generates a new session without Slava present. A session that produces nothing filed generates nothing next — growth depends entirely on Slava showing up again.
-**Testing via:** Track post-session behavior in C2 — does filing happen? Does the agent follow up? Does a second session get initiated without direct outreach from Slava?
-**Kill if:** Filing happens but no new sessions result OR Slava's presence remains required to initiate every session.
-**Precondition:** Requires working filing mechanism (Person A can file insights post-session) and agent post-session engagement capability.
-**Blocked by:** H-BriefingProtocol-ColdStart (need validated sessions) AND H-AgreementRetention (need to confirm agreements drive /live return before testing propagation).
-**Notes (2026-02-28):** Structural constraint, not optional feature. Without this loop, C-track is a coaching practice (Slava-dependent), not a scalable product.
-
----
-
-### H-CoFounders-WillPay: Co-founder pairs value and return to preventive calibration
-**Bet:** Co-founder pairs who attend a free Calibration Lab and create a partner agreement will return to /live regularly — the agreement operationalizes the commitment, not just records it. If the pair returns, WTP for retainers (H-Retainers-Sticky) becomes testable.
-**Testing via:** C2 (First Calibration Labs) — 3–5 free Labs, track partner agreement creation rate and /live return rate. Target ≥50% of agreement-creating pairs return to /live within 30 days.
-**Kill if:** <30% agreement creation rate at Calibration Labs OR <30% of agreement-creating pairs return to /live within 30 days.
-**Notes:** High-stakes dyad with recurring calibration needs. ICP qualifier: relationship health + decision frequency, not funding stage. Validates positioning as preventive (not therapeutic). WTP itself is confirmed in C3 (H-Retainers-Sticky) — C2 tests engagement and return, not payment.
-**Scary thing:** Run first Calibration Lab with at least one co-founder pair by March 14.
-**Current status (2026-03-02):** No product yet — only a hypothesis. First pilot sessions are free in exchange for honest feedback. The session IS the product discovery. Goal of pilot: shift pair from "asking to paraphrase feels awkward" → "refusing to paraphrase feels wrong." Session prep: `pp/docs/business/cofounder-session-prep.md`.
-
----
-
-### H-AgreementRetention: Partner agreements drive recurring /live usage
-**Bet:** Co-founder pairs who create a partner agreement at a Calibration Lab continue using /live regularly (at least once a month) for 3+ months — because the agreement operationalizes the commitment, not just records it.
-**Testing via:** C2 — track /live session frequency for pairs who created agreements vs. those who didn't. Measure 30-day and 90-day return rates.
-**Success:** >50% of agreement-creating pairs use /live at least once in month 2 and month 3.
-**Kill if:** <30% of agreement-creating pairs use /live in month 2 — means agreements are symbolic, not behavioral.
-**Notes:** This is the foundational retention hypothesis. If agreements don't drive recurring /live usage, the entire product loop breaks: no /live = no positions = no stories = no briefing protocol material. Test this before building anything downstream.
-
----
-
-### H-Retainers-Sticky: Founder pairs retain monthly €800–1,500 calibration retainers
-**Bet:** Co-founder pairs who experience value in C2 sessions will subscribe to ongoing monthly retainers for continuous alignment calibration as they make decisions.
-**Testing via:** C3 (Paid Founder Retainers) — launch retainer offers to C2 participants, measure month-2 retention. Target 10+ pairs, >60% month-2 retention, €10k MRR.
+### H-Retainers-Sticky: Founder pairs retain monthly calibration retainers via "Fractional Clarity Officer" model
+**Bet:** Co-founder pairs who experience value in facilitated sessions will subscribe to ongoing monthly retainers (€800-1,500/month) for continuous alignment calibration — delivered as Slava reviewing their meeting transcripts, identifying divergence with AI, and facilitating targeted sessions on the gaps found.
+**Testing via:** C3 (Paid Founder Retainers) — offer retainer to pairs from First Pairs who booked 2+ sessions. Measure month-2 retention. Target 10+ pairs, >60% month-2 retention, €10k MRR.
 **Kill if:** <5 retainer signups OR <40% month-2 retention.
-**Notes:** Monthly cadence mirrors how co-founder tensions compound over time. Retainers create predictable MRR vs event-based revenue.
-
----
-
-### H-Community-Retention: Founder community adds moat and drives retention above 1:1 retainer baseline
-**Bet:** Adding a peer community layer (€200–300/month add-on) to individual retainers increases stickiness through group calibration, peer validation, and referral effects.
-**Testing via:** C4 (Founder Community) — monthly cohort calls for C3 retainer customers. Target 10+ members, >60% month-2 retention, visible peer calibration.
-**Kill if:** <5 community members OR <40% month-2 retention.
-**Notes:** Shifts from isolation (1:1) to network (group). Switching cost increases when peers are involved.
-
----
-
-### H-Essays-BuildRecognition: Evidence-based essays position us as calibration experts in aligned communities
-**Bet:** Essays grounded in real founder session data, framed as "calibration infrastructure for personal AI," can reach AI safety/rationalist communities and build recognition as "the calibration expert."
-**Testing via:** R1 (Essay Writing) — publish 3+ essays May–Aug 2026. Target ≥50 readers per essay, ≥5 meaningful discussions, ≥1 inbound "you're the expert" mention.
-**Kill if:** <50 readers per essay after 3 months OR zero engagement.
-**Notes:** Starts Month 5 AFTER C2/C3 generate real founder data. "We ran 10+ sessions and measured X" is 2x more credible than theory-first positioning.
+**Blocked by:** H-PairsReturn — need validated "holy shit" moment + return behavior first.
+**Notes (2026-03-06):** Delivery model updated from "pair uses /live independently" to "Fractional Clarity Officer" — Slava processes transcripts, finds misalignment, facilitates targeted sessions. Pairs don't need to learn the tool; they send transcripts and show up. Automate over time (transcription pipeline, AI gap analysis, mirror agents).
 
 ---
 
 ### H-CalibrationTrainable: Calibration accuracy is trainable and measurably improves through /live feedback loops
 **Bet:** Users practicing the explain-back protocol through /live will reduce their understanding gaps over repeated sessions, improving calibration accuracy (confidence matching reality).
-**Testing via:** C1–C3 sessions — track Understanding Gap reduction across sessions for the same user pairs.
+**Testing via:** First Pairs + C3 sessions — track Understanding Gap reduction across sessions for the same user pairs.
 **Kill if:** No measurable gap reduction across repeated sessions OR users report no improvement in "knowing what they know."
-**Notes:** Foundational assumption. Research evidence supports this (meta-analysis g=0.46–0.72), but workplace context differs from academia.
-
----
-
-### H-ProtocolSpreadsWithoutTool: The explain-back protocol spreads free; the tool captures value from users who want measurement
-**Bet:** The explain-back protocol is valuable enough to spread without our product. Product success comes from protocol users asking "How can I measure this?" — creating the funnel.
-**Testing via:** C2 workshops + coach feedback. Observe: Do coaches adopt protocol independently? Do participants ask about measurement?
-**Kill if:** Coaches don't teach protocol to clients OR participants don't ask about measurement tools after experiencing the protocol.
-**Notes:** This is Protocol-Led Growth. Healthcare parallel: teach-back spreads free, hospitals pay for electronic health records.
+**Notes:** Foundational assumption. Research evidence supports this (meta-analysis g=0.46–0.72), but workplace context differs from academia. Tested passively alongside active hypotheses — no dedicated experiment needed.
 
 ---
 
 ## Blocked (Waiting on Something Else)
+
+### H-MetaEpistemic-Prerequisite: Meta-epistemological alignment deepens session quality
+**Bet:** If both participants understand the meta-epistemological foundation before a /live session — specifically WHY we actively listen (the 8 postulates in philosophy.md) — session depth increases measurably.
+**Blocked by:** H-PairsReturn — need validated sessions before testing session quality enhancers.
+**Unblocked when:** 3+ facilitated sessions completed; can A/B test briefed vs. unbriefed sessions.
+**Kill if:** Sessions without the briefing reach equal depth OR participants find the briefing academic/off-putting.
+**Notes:** Moved from Active (2026-03-06). Quality enhancer, not a blocker. Test passively during First Pairs sessions.
+
+---
+
+### H-BriefingProtocol-ColdStart: Mirror agent invitation solves cold start
+**Bet:** When Person A's mirror agent reaches out to Person B ("Someone you care about wants you to understand them better — here's a 20-minute briefing"), Person B engages and A+B meet at depth on day one.
+**Blocked by:** H-PairsReturn — need validated session value before building growth mechanisms.
+**Unblocked when:** First Pairs milestone validates the "holy shit" moment + pairs return for session 2.
+**Kill if:** Person B declines invitation OR finds mirror claims generic/unengaging.
+**Notes (2026-03-06):** Moved from Active. Growth mechanism for a product loop not yet proven. The invitation requires filed stories — which requires validated filing (H-Stories-ColdStart). Two dependencies deep from current state.
+
+---
+
+### H-FilingLoop-Propagation: Sessions without filed material are sterile — filing + agent follow-up is the growth mechanism
+**Bet:** A calibration session that produces filed stories/points + agent follow-up generates a new session without Slava present.
+**Blocked by:** H-PairsReturn + H-Stories-ColdStart — need validated sessions AND confirmed that filing matters for return.
+**Unblocked when:** H-Stories-ColdStart confirms content is the missing trigger (not just motivation/UX).
+**Kill if:** Filing happens but no new sessions result.
+**Notes (2026-03-06):** Moved from Active. Structural constraint remains valid, but testing it before proving session value is premature.
+
+---
+
+### H-ProtocolSpreadsWithoutTool: The explain-back protocol spreads free; the tool captures value from users who want measurement
+**Bet:** The explain-back protocol is valuable enough to spread without our product.
+**Blocked by:** H-PairsReturn — need proven session value before testing viral spread.
+**Unblocked when:** 5+ pairs have experienced sessions; observe if protocol language appears in their conversations without prompting.
+**Notes (2026-03-06):** Moved from Active. Long-term distribution hypothesis. Currently zero pairs have used the protocol.
+
+---
+
+### H-Community-Retention: Founder community adds moat and drives retention above 1:1 retainer baseline
+**Bet:** Adding a peer community layer (€200–300/month add-on) to individual retainers increases stickiness.
+**Blocked by:** H-Retainers-Sticky — need 10+ retainer pairs before community layer makes sense.
+**Notes:** C4 timeline. Way downstream.
+
+---
+
+### H-Essays-BuildRecognition: Evidence-based essays position us as calibration experts in aligned communities
+**Bet:** Essays grounded in real founder session data can reach AI safety/rationalist communities.
+**Blocked by:** H-PairsReturn + H-Retainers-Sticky — need real session data (10+ pairs) for credible essays.
+**Unblocked when:** C3 generates case studies.
+**Notes:** R1 timeline (Month 5+). Unchanged.
+
+---
 
 ### H-InsightConversion: Surfacing repeated unacted insights increases behavior change
 **Bet:** When the mirror agent tracks that a person has had the same insight multiple times without acting on it and surfaces this explicitly ("You've had this insight 4 times and acted on it zero times — what's the actual blocker?"), it produces behavior change that neither therapy nor coaching currently achieves, because it combines insight with memory-backed accountability.
@@ -228,21 +219,22 @@ Our active bets, in priority order. This is the map of what we still need to pro
 ## Dependency Map
 
 ```
-COACHING TRACK (C) — Months 1-6, PRIMARY
-├─ H-CalibrationTrainable (foundational — test in C1–C3)
-├─ H-ProtocolSpreadsWithoutTool (test in C2)
-├─ H-Stories-ColdStart (C1) → unlocks C2
-├─ H-CoFounders-WillPay (C2) → unlocks C3
-├─ H-AgreementRetention (C2) → required before H-FilingLoop-Propagation
-├─ H-FilingLoop-Propagation (blocked by H-AgreementRetention + H-BriefingProtocol-ColdStart)
-├─ H-Retainers-Sticky (C3) → unlocks C4
-└─ H-Community-Retention (C4)
+ACTIVE NOW — First Pairs (March 2026)
+├─ H-PairsReturn (First Pairs) — do they recognize the gap as costly? do they return?
+│   ├─ if yes → H-Stories-ColdStart (do they need filed content for independent use?)
+│   └─ if yes → H-Retainers-Sticky (will they pay for ongoing "Fractional Clarity Officer"?)
+├─ H-Stories-ColdStart (First Pairs step 2) — is content the trigger, or is it Slava?
+├─ H-CalibrationTrainable (passive — measured across all sessions)
+└─ H-AICalib-EntryTeaser (park until group acquisition, sessions #3-10)
 
-RECOGNITION TRACK (R) — Months 5-12, SECONDARY
-├─ H-Essays-BuildRecognition (R1, after C2/C3 generate data)
-├─ H-SpecsReachResearchers (blocked by R1 success)
-├─ H-StoriesAITrainingData (blocked by R1 + story corpus)
-└─ H-AlignedFundersInbound (blocked by essay credibility)
+BLOCKED — Waiting on First Pairs validation
+├─ H-Retainers-Sticky (C3, blocked by H-PairsReturn)
+├─ H-MetaEpistemic-Prerequisite (session quality enhancer, test passively)
+├─ H-BriefingProtocol-ColdStart (growth mechanism, needs proven loop)
+├─ H-FilingLoop-Propagation (needs validated sessions + confirmed filing matters)
+├─ H-ProtocolSpreadsWithoutTool (distribution, needs proven value)
+├─ H-Community-Retention (C4, needs 10+ retainer pairs)
+└─ H-Essays-BuildRecognition (R1, needs session data for credibility)
 
 FUTURE SCALE — Months 12+
 ├─ H-AgentCoordination (parked)

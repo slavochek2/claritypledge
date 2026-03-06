@@ -201,9 +201,11 @@ Agreement commits them to recurring /live sessions
 Stage 1 begins (The Proof)
 ```
 
-**Key insight:** The workshop creates the "aha" moment; the Partner Agreement operationalizes it. Without the agreement, workshop enthusiasm dissipates. With it, /live practice becomes a standing commitment.
+**Key insight:** The workshop (or direct facilitated session) creates the "aha" moment — the "holy shit" reaction when a false agreement is revealed. The Partner Agreement operationalizes it. Without the agreement, enthusiasm dissipates. With it, the pair has a commitment artifact to return to.
 
-**Future path (coach-mediated):** Once coaches exist, the cascade extends: Coach learns explain-back → coach teaches clients → clients practice with teams. This is **Protocol-Led Growth** — protocol spreads free; product captures value from protocol users. The healthcare parallel holds: hospitals use "teach-back" (same mechanism), reducing readmissions by 60%. That path is valid but downstream; workshop → agreement is the near-term mechanism.
+**Near-term delivery (2026-03-06): Fractional Clarity Officer.** Slava facilitates directly — reviews transcripts, finds gaps with AI, runs targeted explain-back sessions. Pairs don't need to learn /live; they send transcripts and show up. Automate over time.
+
+**Future path (coach-mediated, deprioritized):** Coach-mediated cascading (coaches learn protocol → teach clients → Protocol-Led Growth) remains a valid long-term hypothesis but is not the near-term mechanism. Current focus is Slava-as-service validating session value before distributing through other facilitators.
 
 #### Stage 0b: Briefing Protocol (Mirror Agent-Led Activation) — PRIMARY COLD START
 
@@ -232,11 +234,13 @@ Stage 1 begins (The Proof)
 
 **Key insight:** Points surface the gap; stories explain the gap. Mirror claims create productive tension first; stories emerge to explain it. The invitation IS the product experience — Person B gets value before signing up.
 
-**Why this is primary:** Stage 0b requires no coaches, no workshops, no pre-existing community. It needs only filed stories and a motivated Person B. It is self-contained and scalable from day one.
+**Why this is the scalable path:** Stage 0b requires no coaches, no workshops, no pre-existing community. It needs only filed stories and a motivated Person B. It is self-contained and scalable.
 
-**The self-reinforcing loop:** Partner Agreement → recurring /live (agreement operationalizes the commitment) → positions and stories accumulate → briefing protocol activates → new Person B enters Stage 0b → loop repeats.
+**The self-reinforcing loop:** Partner Agreement → Fractional Clarity Officer sessions (Slava finds gaps from transcripts) → positions and stories accumulate (Slava files as scribe) → briefing protocol activates → new Person B enters Stage 0b → loop repeats.
 
-**Difference from 0a:** Stage 0a is workshop-mediated and spreads through in-person events. Stage 0b is product-mediated and activates through personal invitation to a specific high-stakes Person B. They are complementary — 0a seeds story content that makes 0b richer.
+**Relationship between 0a and 0b:** Stage 0a (facilitated sessions, workshops) is the NEAR-TERM mechanism for seeding the first pairs and generating story content. Stage 0b (briefing protocol) is the SCALABLE mechanism that activates once content exists. They are sequential, not parallel — 0a generates the content that makes 0b possible.
+
+**Current priority (2026-03-06):** Stage 0a — run facilitated sessions with real co-founder pairs to validate H-PairsReturn. Stage 0b is blocked until sessions produce filed stories and the core value proposition ("holy shit" moment = discovering a false agreement you didn't know existed) is validated.
 
 ### Dependent Path: Rationalist Community Cascade
 

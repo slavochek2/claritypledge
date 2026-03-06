@@ -1,119 +1,126 @@
 ---
 status: active
-priority: p1
+priority: p0
 track: C
 milestone: C1
-summary: "Stories give /live a purpose — verify understanding of specific stories, not abstract 'something'"
+summary: "Run 3-5 facilitated sessions with co-founder pairs, surface clarity gaps, test if they return"
 builds: []
 answers: [oq-6, oq-7]
 ---
 
-# C1: Stories + Live + Events (Coaching Foundation)
+# C1: First Pairs (Facilitated Calibration Sessions)
 
 ## TL;DR (30-second summary)
 
-**Hypothesis:** Stories solve the cold start problem — "verify understanding of THIS story" is clearer than "verify understanding of... something."
+**Hypothesis:** Co-founder pairs who experience a false agreement/disagreement revealed in a Slava-facilitated session will recognize it as a costly problem and return for more.
 
-**How we test:** 20-user pilot over 4 weeks (Feb 15 - Mar 15). Users create stories, verify via /live.
+**How we test:** Run 3-5 free facilitated sessions with real co-founder pairs on real decisions. Slava uses /live as his diagnostic tool — pairs don't need to learn the tool.
 
-**Success signal:** After 10 sessions — people create stories without prompting, /live sessions happen on those stories, and when asked "did having a specific story make /live feel more purposeful?" the answer is yes.
+**Success signal:** "Holy shit" reaction — pair discovers they thought they agreed but didn't. They quantify the cost. They book session 2.
 
-**Kill signal:** People don't create stories, or sessions happen but feel forced ("I still didn't know what to verify").
+**Kill signal:** Gap reveal doesn't surprise them, or they find it interesting but not worth paying to prevent, or zero pairs book a second session.
 
-**What we're building:** Story + point creation (done) + /live story verification (P272) + event room entry (before 1-to-many)
+**What we're building:** Nothing new. Use existing /live + stories/points. The session IS the product discovery.
 
 ---
 
 ## Hypothesis
 
-See [H-Stories-ColdStart](../hypotheses.md#h-stories-coldstart-stories-are-the-content-layer-for-live-verification) in hypotheses.md. Stories give /live a concrete "verify understanding of THIS" purpose.
+See [H-PairsReturn](../hypotheses.md#h-pairsreturn-co-founder-pairs-recognize-the-clarity-gap-as-a-costly-problem-and-return-for-ongoing-facilitated-calibration) in hypotheses.md. Core question: do co-founder pairs recognize false agreements as costly enough to pay for ongoing calibration?
 
-**Scope update (2026-02-27):** C1 now tests stories as the **content layer** — do they make /live feel purposeful once a session is initiated? The cold start trigger hypothesis has been separated out as H-BriefingProtocol-ColdStart (the mirror agent invitation). C1 runs to completion as a content-layer test and provides a comparison baseline.
-
-**Success:** After 10 sessions — stories created, /live sessions happened, qualitative: "purposeful." **Kill if:** stories don't trigger sessions, or sessions feel forced.
+**Secondary test (H-Stories-ColdStart):** After facilitated session + agreement, do pairs use /live independently? If not, does filing content FOR them trigger return? See [H-Stories-ColdStart](../hypotheses.md#h-stories-coldstart-filed-content-gives-live-a-trigger--without-it-pairs-ask-on-what-and-dont-return-independently).
 
 ---
 
-## How We're Testing
+## Session Format
 
-**Method:**
-1. Build story creation feature (P126)
-2. Invite 20 pilot users (10 previous /live users + 10 new)
-3. Prompt: "Share a story that matters to you"
-4. Observe: Do they create? Do they verify?
-- Brief both participants on the 8 postulates before the session (meta-epistemological alignment). Track qualitative depth signal.
+Slava is the doctor. /live is the stethoscope. Pairs don't need to learn the stethoscope.
 
-**Timeline:** Feb 15 - Mar 15 (4 weeks)
+**Session (45-60 min):**
+1. Ask Founder A: "Explain your position on [real decision]"
+2. Ask Founder B: "Tell me what A just said"
+3. Watch the gap appear
+4. A confirms: "...no, that's not what I meant"
+5. Both founders go "holy shit"
+6. Quantify: "How long have you been misaligned on this? What did it cost?"
+7. If strong reaction → create partner agreement → book session 2
 
-**Measurements:**
-- **Manual counts:** did the person create a story? did a /live session happen on it?
-- **One question after each session:** "Did having a specific story make /live feel more purposeful?" (yes/no + one sentence)
-- No dashboard. No Mixpanel. 20 people — count manually.
-
-**Key decisions:**
-- Manual story creation (test if people WANT to create before adding AI)
-- Holistic verification (0-10 "did they get it?" not Points-based)
-- Mix of returning + new users (test retention + cold start)
-- Decide after 10 sessions, not 4 weeks
+**Prep (optional, for session 2+):**
+- Pair shares a recent meeting transcript or decision context
+- Slava + AI processes it, identifies likely false agreements
+- Session targets the specific gaps found
 
 ---
 
 ## What We're Measuring
 
-**The question:** Did having a story to point to make /live feel purposeful?
-
-**After each session, record:**
-- Story existed before the session? (yes/no)
-- /live session happened on that story? (yes/no)
-- Their answer: "Did this feel more purposeful than a generic /live session?" (yes/no + quote)
-
-**Proceed to C2 if:** After 10 sessions — majority say yes, sessions are happening without heavy prompting.
-
-**Kill if:** Stories don't trigger sessions, or sessions happen but people still feel "I didn't know what to verify."
+| Metric | Target | How to Measure |
+|--------|--------|----------------|
+| Sessions run | 3-5 | Calendar |
+| "Holy shit" reaction | Present in ≥3 | Observation + notes |
+| Pain quantified | "This cost us X weeks/dollars" | Direct quote |
+| Agreement created | ≥50% of sessions | Agreement count |
+| Session 2 booked | ≥2 pairs | Calendar |
+| Independent /live use (H-Stories-ColdStart) | Observe | Session logs (30-day check) |
 
 ---
 
-## What We're Building
+## 2-Step Return Test (H-Stories-ColdStart)
 
-**Done:** Story + point creation on profiles, /live session flow, story verification in /live (P272), post-session magic link email (P274)
-**Before 1-to-many:** Event room entry (must be easy, not QR/link friction)
+After a facilitated session where agreement was created:
 
-**Done when:** Can run a workshop where participants create stories, verify in /live, enter rooms from event page, and at least one partner agreement created from a workshop participant.
+**Step 1 (weeks 1-2):** Observe — does the pair use /live independently without prompting?
 
-## Pilot Sequence
+**Step 2 (if no return):** File 2-3 stories/points FOR them from the session. Send: "Your co-founder filed a point about [topic]. Agree or disagree?" Observe if notification triggers return.
 
-Track current position:
-
-1. [x] Finish P272 (story verification in /live)
-2. [ ] Push to production
-3. [x] Create own stories (active listening) — test the loop yourself
-4. [ ] **Briefing protocol experiment** — identify one high-stakes Person B (pre-existing relationship stakes), run manual briefing with AI-generated mirror claims, measure whether meeting starts at depth. This precedes and runs in parallel with the 20-user pilot. See H-BriefingProtocol-ColdStart.
-5. [ ] **Meta-epistemological briefing** — before each /live session, brief both participants on WHY we actively listen (the 8 postulates in philosophy.md), using the sister story (cognitive vs emotional understanding) as the entry point. This is the product implementation of H-MetaEpistemic-Prerequisite. Track: does the session start deeper? Does the briefing feel natural or academic?
-6. [ ] 1-on-1 free sessions (invite 20 warm contacts)
-   → Entry channel: ladischenski.com → 15-min intake call (Google Calendar with qualifying questions)
-7. [ ] Partner agreement creation — after free sessions, invite pairs to formalize their commitment via a partner agreement. This is the retention mechanism that drives recurring /live usage.
-8. [ ] 1-on-1 paid, money-back guarantee
-9. [ ] Fix event room entry (before 1-to-many)
-10. [ ] 1-to-many free (Calibration Lab, lead gen)
-11. [ ] 1-to-many paid
-12. [ ] Offline events
+| Result | What it means | Next step |
+|--------|---------------|-----------|
+| Return WITHOUT content | Protocol + agreement is enough | Filing is enhancement (V2) |
+| Return only AFTER content filed | Content is the trigger | Build easy filing (AI-assisted) |
+| No return either way | Problem is deeper | Reassess: motivation, UX, or wrong ICP |
 
 ---
 
-## Open Questions Answered
+## Acquisition
 
-**OQ-6: What's the internal trigger?**
-Stories create natural triggers ("I have a story to share" or "Someone shared a story with me").
+**For first 1-3 pairs:** Direct warm outreach. Message:
 
-**OQ-7: Do we need Points for verification?**
-Decision: Start with holistic verification (0-10 rating). Add Points only if holistic proves too vague. Phase 4a tests holistic first.
+> "I'm testing a new format — 45 minutes, free. I sit with you and your co-founder while you discuss a real decision. I'll surface where you think you agree but don't. Interested?"
+
+**For pairs 3-10:** Calibration Lab workshops (group format, AI calibration teaser as opener — see H-AICalib-EntryTeaser).
+
+**Booking channel:** ladischenski.com → free Calibration Lab or direct session.
+
+---
+
+## Decision Points
+
+**If <2 pairs agree to session:** Outreach problem, not product problem. Try different channels.
+
+**If gap reveals don't surprise:** Wrong pairs (too aligned) or wrong framing. Try pairs with visible tension.
+
+**If "holy shit" but no session 2:** Value recognized but not enough to act on. Explore: is it friction? Cost? Timing?
+
+**If ≥2 pairs book session 2 + quantify pain:** Proceed to retainer offer (H-Retainers-Sticky / C3). Create first case study for R-track.
+
+---
+
+## History
+
+**Previously "C1: Stories + Live + Events"** — a 20-user pilot (Feb 15 - Mar 15) testing stories as cold start content. Pilot never ran. Merged with C2 (First Calibration Labs) on 2026-03-06. Rationale: the prior framing assumed pairs would use /live independently with filed stories. Revised understanding: Slava facilitates first, independent use is a downstream question (H-Stories-ColdStart step 2).
+
+**What carried forward from original C1:**
+- Stories/points architecture (built, working in prod)
+- /live session flow (built, working in prod)
+- Story verification in /live (P272, built)
+- The "on what? when?" insight → now tested explicitly in H-Stories-ColdStart
 
 ---
 
 ## Related Documents
 
-**Category:** Coaching track (C-workstream) — 0-6 month time horizon, coaching/workshops focus
+**Category:** Coaching track (C-workstream) — months 1-6
 
-**Features:** P126 (story creation), P128 (/live beginning screen), P124 (event rooms)
+**Next milestone:** C3 (Paid Founder Retainers / Fractional Clarity Officer) — gate: ≥2 pairs book session 2 + quantify pain
 
-**Next milestone:** C2 (First Founder Sessions) — gate: run ≥1 paid 1-on-1 session and hear "yes" to the purposeful question
+**Features in prod:** P126 (story creation), P272 (story verification in /live), P274 (magic link email), partner agreements

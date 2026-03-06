@@ -76,6 +76,17 @@ After context compaction, Claude resumed at "Step 4: proposing doc edits" and ap
 
 ---
 
+## Filing friction is downstream of session value — don't optimize filing before proving gap reveal
+
+**Date:** 2026-03-06
+**Status:** proposed
+
+Multiple sessions explored AI-assisted filing, transcription pipelines, mirror agents, and in-session 3-phase structures — all solving "how do we get content filed easily." But the prior question remains unanswered: does the gap reveal land hard enough that pairs return at all? Filing optimization is premature until H-PairsReturn is validated. If pairs don't return even with Slava present, no amount of filing UX will save the loop.
+
+**Decision:** Park P419 (add story to position), P428 (post-session filing), and transcription pipeline. Run First Pairs sessions manually. File content FOR them as Slava-the-scribe. Test whether content triggers return (H-Stories-ColdStart step 2) only after confirming session value.
+
+---
+
 ## Sessions end without filed material — propagation chain breaks
 
 **Date:** 2026-03-03 (confirmed across multiple Feb 28 sessions)
