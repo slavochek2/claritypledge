@@ -152,8 +152,8 @@ export function AgreementCertificate({
           </p>
         </div>
 
-        {/* Pending: editable inline name when onPartnerNameChange provided, else read-only */}
-        {isPending && onPartnerNameChange && (
+        {/* "We, X and Y, agree to:" — editable input when onPartnerNameChange provided, else read-only */}
+        {(isCreation || isPending) && onPartnerNameChange ? (
           <div>
             <p
               className="text-base md:text-lg leading-relaxed text-[#1A1A1A]"
@@ -173,14 +173,14 @@ export function AgreementCertificate({
                 onKeyDown={e => { if (e.key === 'Enter') e.preventDefault(); }}
                 placeholder={partnerNamePlaceholder}
                 maxLength={110}
-                className={`border-0 rounded-none bg-transparent focus-visible:outline-none focus-visible:ring-0 font-serif text-base md:text-lg font-semibold inline-block min-w-[180px] w-auto placeholder:text-[#1A1A1A]/30 placeholder:font-normal ${
+                className={`border-0 rounded-none bg-transparent focus-visible:outline-none focus-visible:ring-0 font-serif text-base md:text-lg font-semibold inline-block min-w-[200px] w-auto placeholder:text-[#1A1A1A]/30 placeholder:font-normal ${
                   partnerNameError
                     ? 'border-b-2 border-red-500 focus-visible:border-red-500'
                     : 'border-b-2 border-[#1A1A1A]/20 focus-visible:border-[#0044CC]'
                 }`}
                 style={{
                   fontFamily: '"Playfair Display", Georgia, serif',
-                  width: `${Math.max(180, (partnerNameValue?.length ?? 0) * 12)}px`,
+                  width: `${Math.max(200, (partnerNameValue?.length ?? 0) * 12)}px`,
                   maxWidth: '100%',
                 }}
               />,
@@ -192,10 +192,7 @@ export function AgreementCertificate({
               </p>
             )}
           </div>
-        )}
-
-        {/* Pending/active: read-only "We, X and Y, agree to:" */}
-        {((isPending && !onPartnerNameChange) || isActive) && (
+        ) : (isPending || isActive) && (
           <p
             className="text-base md:text-lg leading-relaxed text-[#1A1A1A]"
             style={{ fontFamily: '"Playfair Display", Georgia, serif' }}
@@ -206,61 +203,6 @@ export function AgreementCertificate({
             <span className="font-semibold">{partnerName || <span className="text-[#1A1A1A]/30 font-normal">their name</span>}</span>
             , agree to:
           </p>
-        )}
-
-        {/* P472: Creation mode tagline — appears above "We, X and Y, agree to:" */}
-        {isCreation && (
-          <p
-            className="text-sm text-[#1A1A1A]/60 italic text-center font-sans"
-          >
-            We all crave being understood.
-          </p>
-        )}
-
-        {/* P466: Creation mode — "We, [creator] and [partner input], agree to:" */}
-        {isCreation && onPartnerNameChange && (
-          <div>
-            <p
-              className="text-base md:text-lg leading-relaxed text-[#1A1A1A]"
-              style={{ fontFamily: '"Playfair Display", Georgia, serif' }}
-            >
-              We,{' '}
-              <span className="font-semibold">{creatorName}</span>
-              {' '}and{' '}
-              <input
-                type="text"
-                aria-label="Partner's full name"
-                aria-required="true"
-                aria-invalid={partnerNameError ? 'true' : undefined}
-                aria-describedby={partnerNameError ? 'partner-name-error' : undefined}
-                value={partnerNameValue}
-                onChange={e => onPartnerNameChange(e.target.value)}
-                onKeyDown={e => { if (e.key === 'Enter') e.preventDefault(); }}
-                placeholder={partnerNamePlaceholder}
-                maxLength={110}
-                className={`border-0 rounded-none bg-transparent focus-visible:outline-none focus-visible:ring-0 font-serif text-base md:text-lg font-semibold inline-block min-w-[220px] w-auto placeholder:text-[#1A1A1A]/30 placeholder:font-normal ${
-                  partnerNameError
-                    ? 'border-b-2 border-red-500 focus-visible:border-red-500'
-                    : 'border-b-2 border-[#1A1A1A]/20 focus-visible:border-[#0044CC]'
-                }`}
-                style={{
-                  fontFamily: '"Playfair Display", Georgia, serif',
-                  width: `${Math.max(220, (partnerNameValue?.length ?? 0) * 12)}px`,
-                  maxWidth: '100%',
-                }}
-              />,
-              {' '}agree to:
-            </p>
-            {partnerNameError && (
-              <p
-                id="partner-name-error"
-                role="alert"
-                className="text-sm text-red-500 mt-1"
-              >
-                {partnerNameError}
-              </p>
-            )}
-          </div>
         )}
 
         {/* YOUR RIGHT */}

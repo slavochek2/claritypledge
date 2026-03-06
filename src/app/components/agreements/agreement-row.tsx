@@ -197,9 +197,11 @@ export function AgreementRow({ agreement, currentProfileId, resendable, cancelab
     }
   };
 
+  const isPending = agreement.status === 'pending';
+
   const rowContent = (
     <div
-      className={`flex items-center gap-3 px-4 py-3 min-h-[56px] rounded-lg hover:bg-muted/50 active:bg-muted transition-colors ${isTerminated ? 'opacity-50' : ''}`}
+      className={`flex items-center gap-3 px-4 py-3 min-h-[56px] rounded-lg transition-colors ${isPending ? '' : 'hover:bg-muted/50 active:bg-muted'} ${isTerminated ? 'opacity-50' : ''}`}
     >
       {/* Partner name + sub-label */}
       <div className="flex-1 min-w-0">
@@ -223,15 +225,21 @@ export function AgreementRow({ agreement, currentProfileId, resendable, cancelab
 
   return (
     <li>
-      <Link
-        to={`/agreements/${agreement.id}`}
-        onClick={onClick}
-        className="block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-lg"
-        aria-label={`Agreement with ${partnerName}`}
-      >
-        {rowContent}
-      </Link>
-      {/* Dialog rendered OUTSIDE the Link to prevent click-through navigation */}
+      {isPending ? (
+        <div className="rounded-lg" aria-label={`Pending invitation for ${partnerName}`}>
+          {rowContent}
+        </div>
+      ) : (
+        <Link
+          to={`/agreements/${agreement.id}`}
+          onClick={onClick}
+          className="block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-lg"
+          aria-label={`Agreement with ${partnerName}`}
+        >
+          {rowContent}
+        </Link>
+      )}
+      {/* Dialog rendered OUTSIDE the Link/div to prevent click-through navigation */}
       {showCancel && (
         <ConfirmDialog
           open={revokeOpen}
