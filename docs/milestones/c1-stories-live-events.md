@@ -81,6 +81,21 @@ After a facilitated session where agreement was created:
 
 ---
 
+## Pilot Sequence
+
+1. [ ] Identify 3 co-founder pairs (warm intros, prospect, founder communities)
+2. [ ] Reach out to first pair — "45 min, free, I surface where you think you agree but don't"
+3. [ ] Run first facilitated session on a real decision they're facing
+4. [ ] Observe: did the "holy shit" moment happen? Did they quantify pain?
+5. [ ] Create partner agreement with the pair (if session landed)
+6. [ ] Book session 2 with first pair
+7. [ ] Observe 2-week window: does pair use /live independently? (H-Stories-ColdStart step 1)
+8. [ ] If no independent return: file 2-3 stories/points FOR them, send notification (step 2)
+9. [ ] Run sessions 2-3 with additional pairs
+10. [ ] Decision: proceed to C3 retainer offer (if ≥2 pairs book session 2) or reassess
+
+---
+
 ## Acquisition
 
 **For first 1-3 pairs:** Direct warm outreach. Message:
