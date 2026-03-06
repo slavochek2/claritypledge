@@ -2,6 +2,18 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-06 [product]: Pending invitation rows are non-clickable
+
+**Context:** Partners page (`AgreementRow`) wrapped every row in a `<Link>` to `/agreements/:id`, including pending invitations. Clicking a pending row navigated to an agreement detail page with no signed content — confusing UX that implied a signed agreement existed.
+
+**Decision:** Pending rows render in a plain `<div>` instead of `<Link>`. Hover/active background effects removed from pending rows. Active and terminated rows remain clickable. Pattern: don't link to entities that have no meaningful content to display yet.
+
+**Alternatives rejected:** (1) Show a "pending" state on the agreement detail page — adds complexity for no user value. (2) Disable the link visually but keep it — half-measures confuse more than they help.
+
+**Consequences:** Resend/Revoke buttons on pending rows still work (they use `e.stopPropagation()` internally). If pending agreements later gain a detail view, re-add the `<Link>` wrapper.
+
+**References:** [agreement-row.tsx](../src/app/components/agreements/agreement-row.tsx)
+
 ## 2026-03-06 [technical]: Null-safe avatar color — fix invitation signup + GravatarAvatar
 
 **Context:** Users who signed up via agreement invitation (accept-agreement-page) had invisible nav avatars. Root cause: the invitation OTP signup passed `data: { name }` without `avatar_color`, unlike the normal signup flow in `api.ts` which includes `avatar_color: getRandomColor()`. This stored `avatar_color = NULL` in the profile. GravatarAvatar's default parameter `avatarColor = "#0044CC"` only activates for `undefined`, not `null` — so `backgroundColor: null` rendered an invisible circle. 15+ components pass `avatarColor` from DB without null guards.
