@@ -145,56 +145,16 @@ function ResendButton({ agreementId }: { agreementId: string }) {
   );
 }
 
-// ─── Cancel button with confirm dialog (pending rows, owner only) ────────────
+// ─── Revoke trigger button (pending rows, owner only) ────────────────────────
 
-function CancelButton({ agreementId, partnerName, onCancelled }: { agreementId: string; partnerName: string; onCancelled?: (id: string) => void }) {
-  const [open, setOpen] = useState(false);
-  const [isCancelling, setIsCancelling] = useState(false);
-
-  const handleClick = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setOpen(true);
-  };
-
-  const handleConfirm = async () => {
-    setIsCancelling(true);
-    try {
-      const ok = await agreementsService.cancelInvitation(agreementId);
-      if (ok) {
-        toast.success('Invitation cancelled.');
-        setOpen(false);
-        onCancelled?.(agreementId);
-      } else {
-        toast.error('Failed to cancel. Try again.');
-      }
-    } catch {
-      toast.error('Failed to cancel. Try again.');
-    } finally {
-      setIsCancelling(false);
-    }
-  };
-
+function RevokeTrigger({ onClick }: { onClick: (e: React.MouseEvent) => void }) {
   return (
-    <>
-      <button
-        onClick={handleClick}
-        className="text-xs px-2.5 py-1 rounded-md border border-input text-muted-foreground hover:bg-muted flex-shrink-0 min-h-[32px]"
-      >
-        Revoke
-      </button>
-      <ConfirmDialog
-        open={open}
-        onOpenChange={setOpen}
-        title="Revoke invitation?"
-        description={`${partnerName} will no longer be able to accept this invite.`}
-        confirmLabel="Revoke"
-        cancelLabel="Keep"
-        variant="destructive"
-        onConfirm={handleConfirm}
-        isLoading={isCancelling}
-      />
-    </>
+    <button
+      onClick={onClick}
+      className="text-xs px-2.5 py-1 rounded-md border border-input text-muted-foreground hover:bg-muted flex-shrink-0 min-h-[32px]"
+    >
+      Revoke
+    </button>
   );
 }
 
@@ -208,6 +168,34 @@ export function AgreementRow({ agreement, currentProfileId, resendable, cancelab
     agreement.status === 'expired';
   const showResend = resendable && agreement.status === 'pending';
   const showCancel = cancelable && agreement.status === 'pending';
+
+  // Dialog state lifted to row level so ConfirmDialog renders outside the <Link>
+  const [revokeOpen, setRevokeOpen] = useState(false);
+  const [isCancelling, setIsCancelling] = useState(false);
+
+  const handleRevokeTrigger = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setRevokeOpen(true);
+  };
+
+  const handleRevokeConfirm = async () => {
+    setIsCancelling(true);
+    try {
+      const ok = await agreementsService.cancelInvitation(agreement.id);
+      if (ok) {
+        toast.success('Invitation cancelled.');
+        setRevokeOpen(false);
+        onCancelled?.(agreement.id);
+      } else {
+        toast.error('Failed to cancel. Try again.');
+      }
+    } catch {
+      toast.error('Failed to cancel. Try again.');
+    } finally {
+      setIsCancelling(false);
+    }
+  };
 
   const rowContent = (
     <div
@@ -225,7 +213,7 @@ export function AgreementRow({ agreement, currentProfileId, resendable, cancelab
       {showResend || showCancel ? (
         <div className="flex items-center gap-1 flex-shrink-0">
           {showResend && <ResendButton agreementId={agreement.id} />}
-          {showCancel && <CancelButton agreementId={agreement.id} partnerName={partnerName} onCancelled={onCancelled} />}
+          {showCancel && <RevokeTrigger onClick={handleRevokeTrigger} />}
         </div>
       ) : (
         <StatusBadge status={agreement.status} />
@@ -243,6 +231,20 @@ export function AgreementRow({ agreement, currentProfileId, resendable, cancelab
       >
         {rowContent}
       </Link>
+      {/* Dialog rendered OUTSIDE the Link to prevent click-through navigation */}
+      {showCancel && (
+        <ConfirmDialog
+          open={revokeOpen}
+          onOpenChange={setRevokeOpen}
+          title="Revoke invitation?"
+          description={`${partnerName} will no longer be able to accept this invite.`}
+          confirmLabel="Revoke"
+          cancelLabel="Keep"
+          variant="destructive"
+          onConfirm={handleRevokeConfirm}
+          isLoading={isCancelling}
+        />
+      )}
     </li>
   );
 }
