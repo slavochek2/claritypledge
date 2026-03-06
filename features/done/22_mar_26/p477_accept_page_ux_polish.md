@@ -1,12 +1,14 @@
 ---
-status: week
+status: done
+completed_at: '2026-03-06'
 type: story
-rank: 1000007
+rank: 1
 tags:
   - agreements
   - accept-page
   - ux-polish
-created_date: 2026-03-05
+created_date: 2026-03-05T00:00:00.000Z
+locked_at: '2026-03-06T03:36:18.360Z'
 ---
 
 # P477: Accept page UX polish

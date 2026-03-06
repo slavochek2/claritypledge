@@ -13,6 +13,7 @@ test_files:
   - e2e/a11y/p459-accessibility.spec.ts
   - e2e/p459-smoke.spec.ts
 locked_at: '2026-02-28T09:35:14.798Z'
+superseded_by: p481
 ---
 
 # P459: Move Partner Agreements to Connections Page

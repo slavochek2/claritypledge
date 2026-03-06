@@ -1,7 +1,7 @@
 ---
-status: blocked
+status: week
 type: story
-rank: 1
+rank: 500003.5
 flow: medium
 workstream: C2
 tags:
@@ -23,7 +23,7 @@ test_files:
   - e2e/p458-smoke.spec.ts
   - e2e/integration/p458-auth-callback-position.spec.ts
   - e2e/a11y/p458-accessibility.spec.ts
-locked_at: '2026-02-27T16:33:50.138Z'
+locked_at: '2026-03-06T03:36:14.491Z'
 created_date: 2026-02-27T00:00:00.000Z
 ---
 
