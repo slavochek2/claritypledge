@@ -48,20 +48,34 @@ ls -t ~/Screenshots | head -1   # find latest
 
 Read the file. Visually assess what's shown.
 
+**Common ambiguous elements** — check before interpreting:
+- `N/M` near an input → likely character counter (N chars of M max), not a date
+- Small text below/beside inputs → validation message or helper text
+- Colored badges/pills → status indicators, not decorative
+- Numbers near icons → counts (notifications, items), not IDs
+
+If any element's purpose is ambiguous, cross-reference the code before interpreting:
+```bash
+grep -r "visible-text-or-number" src/   # search for literals visible in the screenshot
+```
+Name uncertain elements as "unknown element showing [exact text]" in Step 2 rather than guessing their purpose. If grep returns no matches, note the element as unidentified and ask the user in Step 2.
+
 ---
 
 ### Step 2: Formulate Problem Statement
 
-State in plain terms:
+State in plain terms, separating raw observation from interpretation:
 ```
-**Observed:** [what you see — specific, not vague]
+**Visible:** [literal text, position, styling — no interpretation]
+**Interpretation:** [what you believe this element is — flag confidence: certain / uncertain]
+**Problem:** [what's wrong, given your interpretation]
 **Expected:** [what should be there instead]
 **Affected area:** [component / page / flow]
 ```
 
-Ask user: "Is this problem statement correct? Confirm or correct before I continue."
+Ask user: "Is this problem statement correct? Specifically, I interpreted [element] as [interpretation] — is that right? Confirm or correct before I continue."
 
-Wait for explicit confirmation. If user corrects it — revise and re-present. Loop until user explicitly confirms it's accurate. Do not advance to Step 3 on a rejection.
+Wait for explicit confirmation. If user corrects it — revise and re-present. Do not advance to Step 3 on a rejection. If the user says to skip or move on, proceed with their latest correction as the working hypothesis, flagged as unconfirmed.
 
 ---
 
@@ -110,10 +124,12 @@ If multiple surfaces affected, list all and ask which to fix now vs defer (with 
 Screenshot Debug: [brief label]
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-Observed: [what's visible]
+Visible: [literal text, position, styling]
+Interpretation: [what you believe it is + certain/uncertain]
+Problem: [what's wrong]
 Expected: [what should be there]
 
-[awaiting confirmation]
+"Is this correct? I interpreted [X] as [Y] — right?"
 
 — after confirmation —
 
@@ -126,6 +142,18 @@ Fix path:
   Spawn /fix? (y/n)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ```
+
+---
+
+## Visual Verification Fallback Chain
+
+When the user asks to verify a fix visually (or `/verify` is invoked after this skill):
+
+1. **Claude in Chrome** — try first (real browser, cookies, vision). Load `tabs_context_mcp` and take a screenshot.
+2. **If Claude in Chrome fails** (extension not connected, blank page) → **Chrome DevTools MCP** — headless, no extension dependency. Use `mcp__chrome-devtools__take_screenshot` on the dev server URL.
+3. **If both fail** → ask the user to verify manually. Don't retry the same tool.
+
+Never spend more than 2 attempts on a tool that returns errors or blank pages — move to the next in the chain.
 
 ---
 
