@@ -2,6 +2,18 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-06 [product]: Profile metadata line — always "N Clarity Partners", no viewer-specific copy
+
+**Context:** `AgreementsMetadataLine` had a "visitor-party" branch that changed the label to "You have N agreement(s) with this person" when the logged-in user was party to an agreement with the profile owner. All other viewers saw "N Clarity Partners →".
+
+**Decision:** Remove the visitor-party branch. Always display "N Clarity Partners →" regardless of viewer relationship. KISS — the copy switch added no user value and broke visual consistency across profiles.
+
+**Alternatives rejected:** (1) Keep personalized copy — adds complexity for marginal benefit, confuses the metaphor (agreements vs partners). (2) Show both counts — over-engineered for current scale.
+
+**Consequences:** One fewer code path in `agreements-metadata-line.tsx`. The `filterAgreementsForViewer` function still controls visibility — this change only affects the label text, not what's shown/hidden.
+
+**References:** [agreements-metadata-line.tsx](../src/app/components/agreements/agreements-metadata-line.tsx)
+
 ## 2026-03-06 [product]: Pending invitation rows are non-clickable
 
 **Context:** Partners page (`AgreementRow`) wrapped every row in a `<Link>` to `/agreements/:id`, including pending invitations. Clicking a pending row navigated to an agreement detail page with no signed content — confusing UX that implied a signed agreement existed.
