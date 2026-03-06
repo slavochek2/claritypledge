@@ -208,6 +208,15 @@ export function AgreementCertificate({
           </p>
         )}
 
+        {/* P472: Creation mode tagline — appears above "We, X and Y, agree to:" */}
+        {isCreation && (
+          <p
+            className="text-sm text-[#1A1A1A]/60 italic text-center font-sans"
+          >
+            We all crave being understood.
+          </p>
+        )}
+
         {/* P466: Creation mode — "We, [creator] and [partner input], agree to:" */}
         {isCreation && onPartnerNameChange && (
           <div>
@@ -340,6 +349,13 @@ export function AgreementCertificate({
             </p>
           </div>
         ) : null}
+
+        {/* P472: Creation mode — informational line replacing signature row */}
+        {isCreation && (
+          <p className="text-xs text-[#1A1A1A]/50 text-center font-sans pt-4 border-t border-[#1A1A1A]/10">
+            Agreement becomes active when both parties sign
+          </p>
+        )}
 
         {/* Signatures + seal — only once active */}
         {isActive && (
