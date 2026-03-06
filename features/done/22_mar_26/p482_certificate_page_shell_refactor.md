@@ -1,11 +1,12 @@
 ---
-status: in-progress
+status: done
 type: task
 rank: 500005.5
 workstream: foundation
 created_date: 2026-03-06
+completed_at: "2026-03-06"
 flow: dev
-delivery_stage: uat
+delivery_stage: shipped
 tags: [refactor, layout]
 uat_file: features/uat/p482.md
 test_files:

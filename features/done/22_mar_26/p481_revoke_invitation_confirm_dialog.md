@@ -1,6 +1,7 @@
 ---
-status: qa
-delivery_stage: uat
+status: done
+delivery_stage: shipped
+completed_at: "2026-03-06"
 type: change-request
 rank: 500004.5
 changes: p459

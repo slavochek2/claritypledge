@@ -2,6 +2,16 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-06 [technical]: CertificatePageShell — shared width wrapper for certificate pages (P482)
+
+**Context:** Agreement detail page (`/agreements/:id`) rendered at `max-w-xl` (576px) while create and accept pages used `max-w-3xl` (768px). Each page had its own inline width/padding classes, leading to visual inconsistency and redundancy across 4 certificate-rendering pages.
+
+**Decision:** Extract `CertificatePageShell` component (`src/app/components/layout/certificate-page-shell.tsx`) providing `max-w-3xl mx-auto px-4` with optional `parchment` prop for accept page's warm background (`min-h-screen bg-[#F5F3EF]`). Applied to: agreement-page, create-agreement-page, accept-agreement-page. Intentionally NOT applied to: pledge-page (different outer/inner width structure), declined page (no certificate), email confirm (no certificate).
+
+**Alternatives rejected:** (1) CSS utility class only — doesn't enforce structure or support parchment variant. (2) Making all pages identical width including non-certificate pages — over-homogenization, each page type has legitimate reasons for different widths.
+
+---
+
 ## 2026-03-06 [technical]: Dynamic OG tags via Vercel serverless function — SSR-lite for link previews
 
 **Context:** Sharing ClarityPledge URLs (events, stories, points, profiles) in WhatsApp, Telegram, Facebook, and Twitter showed the generic platform description ("Join professionals worldwide...") instead of content-specific metadata. Root cause: the app is a Vite SPA — `react-helmet-async` sets OG tags client-side, but social crawlers don't execute JavaScript. They only read static HTML from `index.html`. Migrating to Next.js (SSR) was considered previously but rejected as too large a rewrite for this benefit alone.
