@@ -1,5 +1,6 @@
 ---
-status: today
+status: done
+completed_at: '2026-03-06'
 type: change-request
 rank: 1
 tags:
