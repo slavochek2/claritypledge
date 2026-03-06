@@ -61,6 +61,26 @@
     }
   ],
   "rewrites": [
+    {
+      "source": "/events/:slug",
+      "has": [{ "type": "header", "key": "user-agent", "value": ".*(?:facebookexternalhit|Facebot|Twitterbot|TelegramBot|WhatsApp|LinkedInBot|Slackbot|Discordbot).*" }],
+      "destination": "/api/og?path=/events/:slug"
+    },
+    {
+      "source": "/story/:id",
+      "has": [{ "type": "header", "key": "user-agent", "value": ".*(?:facebookexternalhit|Facebot|Twitterbot|TelegramBot|WhatsApp|LinkedInBot|Slackbot|Discordbot).*" }],
+      "destination": "/api/og?path=/story/:id"
+    },
+    {
+      "source": "/point/:id",
+      "has": [{ "type": "header", "key": "user-agent", "value": ".*(?:facebookexternalhit|Facebot|Twitterbot|TelegramBot|WhatsApp|LinkedInBot|Slackbot|Discordbot).*" }],
+      "destination": "/api/og?path=/point/:id"
+    },
+    {
+      "source": "/p/:slug",
+      "has": [{ "type": "header", "key": "user-agent", "value": ".*(?:facebookexternalhit|Facebot|Twitterbot|TelegramBot|WhatsApp|LinkedInBot|Slackbot|Discordbot).*" }],
+      "destination": "/api/og?path=/p/:slug"
+    },
     { "source": "/((?!api|_next|.*\\..*).*)", "destination": "/index.html" }
   ],
   "headers": [
