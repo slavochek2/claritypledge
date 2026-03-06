@@ -9,6 +9,7 @@ tags:
   - claude-md
   - agents
 locked_at: '2026-02-28T09:34:18.312Z'
+delivery_stage: uat
 ---
 
 # TASK: P441 — CLAUDE.md Audit (Reduce Size, Fix Instruction Dilution)
@@ -40,11 +41,11 @@ CLAUDE.md has grown to ~575 lines (as of Mar 2026). Rules are diluting each othe
 
 ## Done When
 
-- [ ] CLAUDE.md is under 300 lines of actual content
-- [ ] All path-specific directives live in `.claude/rules/` not CLAUDE.md
-- [ ] No duplicate rules (same constraint stated twice)
-- [ ] All remaining rules pass the universal test (>80% of task types need it)
-- [ ] /claude-md gate updated with line-count awareness and tighter redirect defaults
+- [x] CLAUDE.md is under 300 lines of actual content (163 actual content lines, 352 total)
+- [x] All path-specific directives live in `.claude/rules/` not CLAUDE.md
+- [x] No duplicate rules (same constraint stated twice)
+- [x] All remaining rules pass the universal test (>80% of task types need it)
+- [x] /claude-md gate updated with line-count awareness and tighter redirect defaults
 
 ## Context
 
