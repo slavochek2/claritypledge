@@ -64,7 +64,7 @@ Name uncertain elements as "unknown element showing [exact text]" in Step 2 rath
 
 ### Step 2: Formulate Problem Statement
 
-State in plain terms, separating raw observation from interpretation:
+Use these exact five fields — do not rename, merge, or omit any:
 ```
 **Visible:** [literal text, position, styling — no interpretation]
 **Interpretation:** [what you believe this element is — flag confidence: certain / uncertain]
@@ -72,6 +72,8 @@ State in plain terms, separating raw observation from interpretation:
 **Expected:** [what should be there instead]
 **Affected area:** [component / page / flow]
 ```
+
+The Visible/Interpretation split is the core value of this step — collapsing them defeats the purpose.
 
 Ask user: "Is this problem statement correct? Specifically, I interpreted [element] as [interpretation] — is that right? Confirm or correct before I continue."
 
@@ -119,15 +121,14 @@ If multiple surfaces affected, list all and ask which to fix now vs defer (with 
 
 ## Output Format
 
+Use the five fields from Step 2 above, wrapped in the border below. Do not redefine or subset the fields here.
+
 ```
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 Screenshot Debug: [brief label]
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-Visible: [literal text, position, styling]
-Interpretation: [what you believe it is + certain/uncertain]
-Problem: [what's wrong]
-Expected: [what should be there]
+[Five fields from Step 2]
 
 "Is this correct? I interpreted [X] as [Y] — right?"
 
@@ -149,11 +150,11 @@ Fix path:
 
 When the user asks to verify a fix visually (or `/verify` is invoked after this skill):
 
-1. **Claude in Chrome** — try first (real browser, cookies, vision). Load `tabs_context_mcp` and take a screenshot.
-2. **If Claude in Chrome fails** (extension not connected, blank page) → **Chrome DevTools MCP** — headless, no extension dependency. Use `mcp__chrome-devtools__take_screenshot` on the dev server URL.
-3. **If both fail** → ask the user to verify manually. Don't retry the same tool.
+1. **Claude in Chrome** — try first. One attempt only.
+2. **If it fails** (error, blank page, no response) → **Chrome DevTools MCP** — headless, no extension needed. One attempt only.
+3. **If both fail** → ask the user to verify manually.
 
-Never spend more than 2 attempts on a tool that returns errors or blank pages — move to the next in the chain.
+**One-retry rule:** If a tool doesn't produce a usable screenshot on the first attempt, switch to the next tool immediately. Never retry the same tool twice.
 
 ---
 
