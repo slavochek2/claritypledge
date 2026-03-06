@@ -9,20 +9,24 @@ export function DeclinedAgreementPage() {
     <div className="min-h-screen flex items-center justify-center px-4">
       <div className="w-full max-w-md text-center">
         <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-muted mb-6">
-          <span className="text-2xl text-muted-foreground" aria-hidden="true">✕</span>
+          <span className="text-2xl text-muted-foreground" aria-hidden="true">—</span>
         </div>
 
-        <h1 className="text-2xl font-bold mb-3">Invitation Declined</h1>
+        <h1 className="text-2xl font-bold mb-3">You've declined the invitation</h1>
 
-        <p className="text-muted-foreground mb-8">
-          You declined this agreement. This page is no longer active.
+        <p className="text-muted-foreground mb-4">
+          This agreement has been closed. Your partner has been notified.
+        </p>
+
+        <p className="text-muted-foreground/70 text-sm mb-8">
+          If you change your mind, reach out to them directly — they can always send a new invitation.
         </p>
 
         <a
           href="https://claritypledge.com"
-          className="text-blue-600 dark:text-blue-400 hover:underline inline-flex items-center gap-1"
+          className="text-[#002B5C]/60 hover:text-[#002B5C] hover:underline inline-flex items-center gap-1 text-sm"
         >
-          Learn about Clarity Pledge →
+          What is ClarityPledge?
         </a>
       </div>
     </div>
