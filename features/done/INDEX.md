@@ -1,7 +1,7 @@
 # Done Features Index
 
 Quick reference for past completed work. Consult when starting work on a related topic.
-Last updated: 2026-03-06 (P441)
+Last updated: 2026-03-06 (P476, P474)
 
 ---
 
@@ -87,6 +87,7 @@ Last updated: 2026-03-06 (P441)
 - **P463** (Mar 02) Agreement & Partner UI Polish — remove exposed internal IDs and double-rotation resend bug by deleting amber pending block entirely; CTA always at top-right
 - **P422** (Feb 26) Clarity Partner Agreement — two-party agreement flow; separate pages per state (create/pending/accepted/declined); edge function sends emails
 - **P422** (Feb 26) Clarity Partner Agreement — UAT branch rescue pattern; revert-from-main wrong mechanism; use feature branch + /ship instead
+- **P476** (Mar 06) Accept Page Email Confirmation Redesign — full-screen confirmation page for unauthenticated partner sign; embed token inside `redirect` param to survive auth callback roundtrip
 - **P459** (Feb 27) Move Agreements to Connections Page — profile sub-page at `/p/:slug/connections`; service-layer filter for current user only (not creator); react-refresh requires named exports
 
 ## Events & Content
@@ -108,6 +109,7 @@ Last updated: 2026-03-06 (P441)
 
 ## Infrastructure / Process
 
+- **P474** (Mar 06) ToS Markdown Migration — `?raw` + ReactMarkdown with custom Tailwind components; separates legal text from JSX for clean /tos-review diffs
 - **P441** (Mar 06) CLAUDE.md Audit — exchange gate (ADD requires matching REMOVE when over 350 lines) + drift scan prevents silent instruction dilution
 - **P440** (Feb 26) QA Status + Delivery Stage Cleanup — `status: qa` column is the dev-complete signal; `/ship` closes it; `qa` is NOT a terminal status (don't add to PATCH exception list)
 - **P141** (Feb 5) Unified Rank System — test-first gate; no test modifications allowed, all E2E required before completion
