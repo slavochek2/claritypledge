@@ -2,6 +2,20 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-06 [product]: Don't modal what's already on the page — navigate instead (P478)
+
+**Context:** After partner signed an agreement, a `CelebrationDialog` modal showed `AgreementCertificate variant="celebration"` — visually identical to the pending certificate visible behind the modal. User feedback: "Why popup when same thing is behind it?" Closing the modal also exposed a stale-state bug (P479) — the page showed the unsigned state because `handleAccept()` didn't update the main state variable.
+
+**Decision:** Remove the celebration modal entirely. On successful acceptance: show a success toast ("Agreement Sealed — your Clarity Partner Agreement with [name] is now active") and navigate to `/agreements/:id` where the `ActiveView` already renders the gold-seal certificate, /live link, and terminate button. Two bugs fixed by removal: modal redundancy and stale state.
+
+**Alternatives rejected:** (1) Slim modal with just congratulations text (still duplicates the detail page). (2) Fix stale state by updating main state on modal close (treats symptom, not cause — the modal itself is the problem).
+
+**Consequences:** Pattern for future flows: if a success state has its own page/view, navigate there with a toast rather than showing a modal overlay. Keep `CelebrationDialog` component file — may be useful for other flows (e.g., creator notification when partner signs).
+
+**References:** `features/done/22_mar_26/p478_celebration-dialog-redesign.md`, `src/app/pages/accept-agreement-page.tsx`
+
+---
+
 ## 2026-03-06 [technical]: CertificatePageShell — shared width wrapper for certificate pages (P482)
 
 **Context:** Agreement detail page (`/agreements/:id`) rendered at `max-w-xl` (576px) while create and accept pages used `max-w-3xl` (768px). Each page had its own inline width/padding classes, leading to visual inconsistency and redundancy across 4 certificate-rendering pages.
