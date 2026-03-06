@@ -70,6 +70,15 @@ Stash is the most commonly misused command in agent contexts:
 - The user loses visibility into what was stashed
 - `git commit -m "wip: ..."` is always safer and equally reversible
 
+## After context compaction — verify HEAD before staging
+
+After a context compaction, run `git log --oneline -5` before staging anything. Compaction summaries describe repo state at compaction time, not current HEAD — commits may have landed since then. Staging a file that already matches HEAD produces an empty commit with a misleading message.
+
+```bash
+git log --oneline -5          # check what's already committed
+git diff HEAD -- <file>       # verify the file actually has uncommitted changes before staging
+```
+
 ## Cleaning up tracked files + .gitignore changes
 
 When removing tracked files AND adding them to `.gitignore` in the same operation:

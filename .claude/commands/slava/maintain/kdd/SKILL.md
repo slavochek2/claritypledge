@@ -105,7 +105,7 @@ Recommendation: Remove from README.md, link to definitions.md instead.
    - Domain concepts changed? → `definitions.md`
    - Epistemological claims or WHY-this-works reasoning updated? → `docs/philosophy.md`
 
-3. **Propose updates** — before proposing, cross-check against the git log from step 1. If a commit in the Step 1 log (`git log --oneline -10`) shows the doc file was updated AND the commit message references the same topic as the current KDD update — skip it; it's already captured. A doc file touched for a different feature in a prior commit does not count as captured. When in doubt, propose the update and note "may already be captured." State what you'll update and why, then proceed.
+3. **Propose updates** — before proposing, cross-check against the git log from step 1. If a commit in the Step 1 log (`git log --oneline -10`) shows the doc file was updated AND the commit message references the same topic as the current KDD update — skip it; it's already captured. A doc file touched for a different feature in a prior commit does not count as captured. When in doubt, read the target doc file directly and grep for the topic's key noun phrase. If the concept is found, do NOT propose — cite the existing entry instead. Only propose if the file read confirms the topic is absent. State what you'll update and why, then proceed.
    - If no updates needed: "No knowledge updates needed" and skip to step 5
    - Don't ask repeatedly for confirmation — be decisive
 
@@ -140,7 +140,7 @@ Recommendation: Remove from README.md, link to definitions.md instead.
    - Keep them accurate to current implementation
    - These are Claude's context shortcuts — save future re-reading
 
-4.5. **Update done-features index:**
+5. **Update done-features index:**
 
    After any feature is closed (moved to `features/done/`), append it to `features/done/INDEX.md`.
 
@@ -164,9 +164,9 @@ Recommendation: Remove from README.md, link to definitions.md instead.
 
    **Skip if:** No features were closed this session (running `/kdd` standalone on infra/docs work with no spec to close).
 
-5. **Feature housekeeping:**
+6. **Feature housekeeping:**
 
-   **Skip if running after `/dev` or `/fix`** — those auto-close features already. This step only applies when running `/kdd` standalone after work done outside the standard flow (e.g., direct code edits, infra changes, manual migrations).
+   **Skip if running after `/dev` or `/fix`** — those auto-close features already. This step only applies when running `/kdd` standalone after work done outside the standard flow (e.g., direct code edits, infra changes, manual migrations). To verify, run `git log --oneline -5` and look for commits matching `feat(pN)` or `fix(pN)`. If the spec is already in `features/done/`, skip this step.
 
    ```bash
    ls features/*.md
@@ -182,7 +182,7 @@ Recommendation: Remove from README.md, link to definitions.md instead.
    ```
    **Do NOT skip `completed_at`** — kanban "Done Today" column filters on this field.
 
-5.25. **Privacy gate — if session involved personal content:**
+6.25. **Privacy gate — if session involved personal content:**
 
    Run `/maintain:privacy` before committing if the session involved:
    - **claude-conversations:** doc updates synthesized from personal claude.ai conversations (reading from `~/projects/private/claude-conversations/` or user mentioned a conversation by name)
@@ -190,7 +190,7 @@ Recommendation: Remove from README.md, link to definitions.md instead.
 
    Both paths produce personal content in a code repo context.
 
-5.5. **Session wrap checklist:**
+6.5. **Session wrap checklist:**
 
    Run in parallel:
    ```bash
@@ -204,31 +204,33 @@ Recommendation: Remove from README.md, link to definitions.md instead.
    - If frontmatter drift detected: mention it. Offer to run `fix-kanban`.
    - Confirm: "Kanban refreshed."
 
-6. **Meta-reflection** — output to chat only (no file logging):
+7. **Meta-reflection** — output to chat only (no file logging):
 
    > **User-triggered only.** This step runs when `/kdd` is explicitly called by the user. Do NOT invoke `/kdd` autonomously to capture meta-reflection from your own session reasoning — only run when the user explicitly calls the skill.
 
-   **6.1 Extract problems (subagent):**
+   **7.1 Extract problems (subagent):**
+
+   Before spawning, collect key session events (files edited, errors encountered, decisions made, back-and-forth exchanges) as a concise summary and pass this inline in the subagent prompt prefixed with "Here is the session summary: [summary]."
 
    Spawn a `general-purpose` subagent with the full conversation context and this task:
    > "Read this conversation. Extract problems, friction points, mistakes, and inefficiencies. Consolidate near-identical incidents into one item. Cap at 10 items max. Exclude routine tool calls and confirmations — only report things a human would call a mistake or waste. For each item identify: (1) what happened — be concrete: name the P-number, file path, or exact claim that was wrong, not just the abstract category, (2) category: wrong-assumption / unnecessary-question / repeated-step / missed-signal / scope-creep / tool-fumble / missing-context / process-gap, (3) severity: minor / moderate / significant. Return a structured list only — no solutions yet. Do NOT edit files, stage, or commit anything."
 
-   **6.2 Triage each extracted problem:**
+   **7.2 Triage each extracted problem:**
 
    If subagent finds no problems — output "Clean session." and stop.
 
    If subagent returns more than 6 items, filter to the 3–4 highest-severity ones before triaging.
 
-   Present ALL items to the user — never auto-apply anything. The agent surfaces and recommends; the user decides what to act on.
+   Present all selected items to the user — never auto-apply anything. The agent surfaces and recommends; the user decides what to act on.
 
    For each item, classify and format as follows:
    - **Trivial / obvious fix**: single clear action, no real trade-off → report as: `- [What happened] → recommended action: [exact action + where]`
-   - **Requires decision**: multiple legitimate options with real trade-offs → generate a `/simplify` block (see 6.3)
+   - **Requires decision**: multiple legitimate options with real trade-offs → generate a `/simplify` block (see 7.3)
    - **No obvious fix, worth tracking**: problem is understood but no action is clear yet → report as: `- [What happened] → recommended: add to process-learnings.md as Status: proposed`
 
    Present all items in a single numbered message. If no /simplify blocks are present, end with: "Reply with what to act on, or 'skip all'." If /simplify blocks are present, their own reply prompts take precedence — omit the general prompt.
 
-   **6.3 `/simplify` block format for decisions:**
+   **7.3 `/simplify` block format for decisions:**
 
    ```
    **Situation:** [1 sentence — what friction occurred]
@@ -251,7 +253,7 @@ Recommendation: Remove from README.md, link to definitions.md instead.
 
    **process-learnings graduation rule:** When a `Status: proposed` item gets resolved (fix applied, decision made): (1) delete it from process-learnings.md, (2) add a `[process]` entry to decisions.md. Never leave `Status: done` entries in process-learnings.md — done = graduated. An empty file is healthy.
 
-7. **Skill-quality reflection** — always runs after step 6, output to chat only:
+8. **Skill-quality reflection** — always runs after step 7, output to chat only:
 
    Before spawning: read each skill file that was invoked this session from `.claude/commands/slava/` and collect the full text. Pass the content inline in the subagent prompt — subagents cannot read from disk. Then spawn a second `general-purpose` subagent with the full conversation context AND the collected skill file contents. Task:
 
