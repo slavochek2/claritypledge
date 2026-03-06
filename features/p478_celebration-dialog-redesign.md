@@ -27,10 +27,10 @@ After partner signs an agreement, the celebration dialog shows the same certific
 
 ## Acceptance Criteria
 
-- [ ] AC1: After successful acceptance, navigate directly to `/agreements/:id` (the detail page's `ActiveView`) instead of showing the celebration modal
-- [ ] AC2: Show a success toast: "Agreement Sealed — your Clarity Partner Agreement with [partnerName] is now active." before navigating
-- [ ] AC3: The detail page shows the active certificate (gold seal variant), /live session link, and terminate button — all already implemented in `ActiveView`
-- [ ] AC4: Remove `showCelebration` state and `CelebrationDialog` usage from `accept-agreement-page.tsx` (dead code after AC1)
+- [x] AC1: After successful acceptance, navigate directly to `/agreements/:id` (the detail page's `ActiveView`) instead of showing the celebration modal
+- [x] AC2: Show a success toast: "Agreement Sealed — your Clarity Partner Agreement with [partnerName] is now active." before navigating
+- [x] AC3: The detail page shows the active certificate (gold seal variant), /live session link, and terminate button — all already implemented in `ActiveView`
+- [x] AC4: Remove `showCelebration` state and `CelebrationDialog` usage from `accept-agreement-page.tsx` (dead code after AC1)
 
 ## Decisions Made
 

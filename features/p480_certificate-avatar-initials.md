@@ -18,10 +18,10 @@ The `AgreementCertificate` component renders only plain text names in signature 
 
 ## Acceptance Criteria
 
-- [ ] AC1: `SignatureSlot` in `agreement-certificate.tsx` renders a small avatar circle above or beside the name
-- [ ] AC2: When `avatarUrl` is available, show the image; when null, show initials via `GravatarAvatar` (or `getInitials()`)
-- [ ] AC3: Works for both creator and partner slots in active, pending, and celebration variants
-- [ ] AC4: No avatar shown in creation mode (signature row is hidden per P472 A1)
+- [x] AC1: `SignatureSlot` in `agreement-certificate.tsx` renders a small avatar circle above or beside the name
+- [x] AC2: When `avatarUrl` is available, show the image; when null, show initials via `GravatarAvatar` (or `getInitials()`)
+- [x] AC3: Works for both creator and partner slots in active, pending, and celebration variants
+- [x] AC4: No avatar shown in creation mode (signature row is hidden per P472 A1)
 
 ## Technical Notes
 

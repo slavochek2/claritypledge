@@ -72,6 +72,8 @@ function MutedCertificate({ agreement }: { agreement: ClarityAgreement }) {
         partnerName={partnerName}
         partnerSignedAt={agreement.partnerSignedAt}
         termsText={agreement.termsText}
+        creatorAvatarUrl={agreement.creator?.avatarUrl}
+        partnerAvatarUrl={agreement.partner?.avatarUrl}
       />
     </div>
   );
@@ -181,6 +183,8 @@ function PendingView({
         partnerName={partnerName}
         partnerSignedAt={null}
         termsText={agreement.termsText}
+        creatorAvatarUrl={agreement.creator?.avatarUrl}
+        partnerAvatarUrl={agreement.partner?.avatarUrl}
       />
 
       {isPartner && (
@@ -242,6 +246,8 @@ function ActiveView({
         partnerName={partnerName}
         partnerSignedAt={agreement.partnerSignedAt}
         termsText={agreement.termsText}
+        creatorAvatarUrl={agreement.creator?.avatarUrl}
+        partnerAvatarUrl={agreement.partner?.avatarUrl}
       />
 
       <div className="text-center">

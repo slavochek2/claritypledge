@@ -13,6 +13,7 @@
 
 import React from 'react';
 import { ClarityLogoMark } from '@/components/ui/clarity-logo';
+import { GravatarAvatar } from '@/components/ui/gravatar-avatar';
 
 export type CertificateVariant = 'creation' | 'pending' | 'active' | 'celebration';
 
@@ -28,6 +29,10 @@ export interface AgreementCertificateProps {
   termsText?: string;           // the agreement terms
   className?: string;
   footer?: React.ReactNode;
+
+  // P480: avatar URLs for signature slots (null = show initials via GravatarAvatar)
+  creatorAvatarUrl?: string | null;
+  partnerAvatarUrl?: string | null;
 
   // P466: creation-mode props — omitting all = existing behavior unchanged
   onPartnerNameChange?: (name: string) => void;
@@ -53,9 +58,10 @@ interface SignatureSlotProps {
   signedAt?: string | null;
   isPending?: boolean;
   hideLabel?: boolean; // P472: hide CREATOR/PARTNER label in active/pending views
+  avatarUrl?: string | null; // P480: photo URL; null = show initials via GravatarAvatar
 }
 
-function SignatureSlot({ label, name, value, signedAt, isPending, hideLabel }: SignatureSlotProps) {
+function SignatureSlot({ label, name, value, signedAt, isPending, hideLabel, avatarUrl }: SignatureSlotProps) {
   const displayName = value !== undefined ? value : (name || 'Awaiting signature');
 
   return (
@@ -64,6 +70,16 @@ function SignatureSlot({ label, name, value, signedAt, isPending, hideLabel }: S
         <p className="text-[10px] uppercase tracking-[0.15em] text-[#1A1A1A]/50 font-sans">
           {label}
         </p>
+      )}
+      {/* P480: avatar — shown only when a name is available (non-creation modes) */}
+      {displayName && displayName !== 'Awaiting signature' && (
+        <GravatarAvatar
+          name={displayName}
+          size="sm"
+          photoUrl={avatarUrl ?? undefined}
+          isPledger={false}
+          avatarColor="#002B5C"
+        />
       )}
       <p
         className="text-base font-semibold text-[#1A1A1A] leading-tight"
@@ -98,6 +114,8 @@ export function AgreementCertificate({
   termsText,
   className = '',
   footer,
+  creatorAvatarUrl,
+  partnerAvatarUrl,
   onPartnerNameChange,
   partnerNameValue = '',
   partnerNameError,
@@ -334,6 +352,7 @@ export function AgreementCertificate({
                 signedAt={isActive || isPending ? null : creatorSignedAt}
                 isPending={false}
                 hideLabel={isActive || isPending}
+                avatarUrl={creatorAvatarUrl}
               />
 
               {/* Center seal — only when active */}
@@ -359,6 +378,7 @@ export function AgreementCertificate({
                 signedAt={isActive || isPending ? null : partnerSignedAt}
                 isPending={isPending}
                 hideLabel={isActive || isPending}
+                avatarUrl={partnerAvatarUrl}
               />
             </div>
 

@@ -15,7 +15,6 @@ import { useAuth } from '@/auth';
 import { agreementsService } from '@/app/data/agreements-service';
 import type { ClarityAgreement } from '@/app/data/agreements-service';
 import { AgreementCertificate } from '@/app/components/agreements/agreement-certificate';
-import { CelebrationDialog } from '@/app/components/agreements/celebration-dialog';
 import { supabase } from '@/lib/supabase';
 import { invokeAgreementEmails } from '@/lib/agreement-emails';
 import { toast } from 'sonner';
@@ -51,9 +50,6 @@ export function AcceptAgreementPage() {
   const [nameError, setNameError] = useState<string | null>(null);
   const [isDeclining, setIsDeclining] = useState(false);
   const [showDeclineConfirm, setShowDeclineConfirm] = useState(false);
-  const [showCelebration, setShowCelebration] = useState(false);
-  const [acceptedAgreement, setAcceptedAgreement] = useState<ClarityAgreement | null>(null);
-
   // Inline signup (unauthenticated flow): magic link sent to partner email
   const [isSigningUp, setIsSigningUp] = useState(false);
 
@@ -158,10 +154,8 @@ export function AcceptAgreementPage() {
       // Fire-and-forget email
       invokeAgreementEmails('accepted', agreementId);
 
-      // Reload the updated agreement to show in celebration dialog
-      const updated = await agreementsService.getAgreement(agreementId);
-      setAcceptedAgreement(updated ?? agreement);
-      setShowCelebration(true);
+      toast.success(`Agreement Sealed — your Clarity Partner Agreement with ${nameToUse || 'your partner'} is now active.`);
+      navigate(`/agreements/${agreementId}`);
     } finally {
       setIsAccepting(false);
     }
@@ -354,6 +348,8 @@ export function AcceptAgreementPage() {
             partnerName={certificatePartnerName}
             partnerSignedAt={agreement.partnerSignedAt}
             termsText={agreement.termsText}
+            creatorAvatarUrl={agreement.creator?.avatarUrl}
+            partnerAvatarUrl={agreement.partner?.avatarUrl}
             onPartnerNameChange={pageState === 'partner' ? (name) => { setPartnerDisplayName(name); setNameError(null); } : undefined}
             partnerNameValue={partnerDisplayName}
             partnerNameError={nameError ?? undefined}
@@ -491,18 +487,6 @@ export function AcceptAgreementPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Celebration dialog — shown after successful acceptance */}
-      {acceptedAgreement && (
-        <CelebrationDialog
-          open={showCelebration}
-          onClose={() => setShowCelebration(false)}
-          agreement={acceptedAgreement}
-          onViewAgreement={() => {
-            setShowCelebration(false);
-            navigate(`/agreements/${agreementId}`);
-          }}
-        />
-      )}
     </div>
   );
 }
