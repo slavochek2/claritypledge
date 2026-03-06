@@ -1,7 +1,7 @@
 # Done Features Index
 
 Quick reference for past completed work. Consult when starting work on a related topic.
-Last updated: 2026-03-04 (P472)
+Last updated: 2026-03-06 (P441)
 
 ---
 
@@ -108,6 +108,7 @@ Last updated: 2026-03-04 (P472)
 
 ## Infrastructure / Process
 
+- **P441** (Mar 06) CLAUDE.md Audit — exchange gate (ADD requires matching REMOVE when over 350 lines) + drift scan prevents silent instruction dilution
 - **P440** (Feb 26) QA Status + Delivery Stage Cleanup — `status: qa` column is the dev-complete signal; `/ship` closes it; `qa` is NOT a terminal status (don't add to PATCH exception list)
 - **P141** (Feb 5) Unified Rank System — test-first gate; no test modifications allowed, all E2E required before completion
 - **P277** (Feb 26) E2E Parallelization — parallel test runners; worker isolation reduces flakiness

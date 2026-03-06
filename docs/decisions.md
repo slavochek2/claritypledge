@@ -2,6 +2,18 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-06 [process]: CLAUDE.md exchange gate + drift scan — mechanical growth control
+
+**Context:** P441 audit reduced CLAUDE.md from 576→352 lines (-39%). Root cause of bloat: each rule individually passes the 80% universality test, but aggregate growth dilutes all rules. No mechanism existed to enforce a budget or detect sections that decay below the 80% threshold over time.
+
+**Decision:** Two additions to `/claude-md` skill (v1.3.0): (1) **Exchange gate** — Step 0 counts lines and reports vs 350-line target. If over budget AND proposal is an ADD, requires a matching REMOVE/CONDENSE before approval. REMOVE/CONDENSE proposals always pass on budget grounds. (2) **Drift scan** — Step 6 reads `.claude/rules/*.md` first (to avoid false positives on correctly-delegated sections), then flags any CLAUDE.md section that now fails the >80% universality test. Background observation only — doesn't block the ADD.
+
+**Alternatives rejected:** Hard line limit with no exchange (blocks legitimate additions). Periodic manual audit (non-mechanical — relies on discipline). Auto-archival of old rules (too aggressive — removes context without human judgment).
+
+**Consequences:** CLAUDE.md growth is now mechanically gated. The 350-line target is enforced per-change, not just per-audit. Drift scan catches sections that should migrate to `.claude/rules/` as the project evolves. The old check 6 (budget at 500 lines) is superseded by Step 0 (budget at 350 lines with exchange requirement).
+
+**References:** `.claude/commands/slava/maintain/claude-md/SKILL.md` v1.3.0, `features/done/22_mar_26/p441_claude_md_audit.md`
+
 ## 2026-03-05 [process]: KDD hard stop + skill branch guard — prevent wrong-branch global commits
 
 **Context:** Two commits landed on feature branches instead of main in the same session: a KDD docs update (landed on `feature/p476`) and a skill file fix (landed on `feature/p458`). Root cause: multiple Claude sessions share a single working directory and its `.git/HEAD` — any `git checkout <branch>` changes the active branch for all concurrent sessions. The committing session didn't know the branch had drifted.
