@@ -2,6 +2,18 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-06 [technical]: Dynamic OG tags via Vercel serverless function — SSR-lite for link previews
+
+**Context:** Sharing ClarityPledge URLs (events, stories, points, profiles) in WhatsApp, Telegram, Facebook, and Twitter showed the generic platform description ("Join professionals worldwide...") instead of content-specific metadata. Root cause: the app is a Vite SPA — `react-helmet-async` sets OG tags client-side, but social crawlers don't execute JavaScript. They only read static HTML from `index.html`. Migrating to Next.js (SSR) was considered previously but rejected as too large a rewrite for this benefit alone.
+
+**Decision:** Vercel serverless function (`api/og.ts`) + conditional rewrites in `vercel.json`. Bot user-agents (WhatsApp, Telegram, Facebook, Twitter, LinkedIn, Slack, Discord) are detected via `has` conditions on the `user-agent` header in rewrite rules. Matching requests are routed to the function, which fetches content from Supabase REST API and returns minimal HTML with correct OG meta tags. Non-bot users are unaffected — they get the SPA as before. Covers: `/events/:slug`, `/story/:id`, `/point/:id`, `/p/:slug`.
+
+**Alternatives rejected:** (1) Next.js migration — massive rewrite for just OG tags. (2) Vercel Edge Middleware (`middleware.ts`) — Next.js-specific, not available for Vite projects. (3) Pre-rendering/SSG for specific routes — requires build-time knowledge of all content IDs, doesn't work for dynamic content.
+
+**Consequences:** Link previews now show content-specific titles, descriptions, and images. The function uses the same `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY` env vars already set in Vercel. Responses are cached at the edge (`s-maxage=3600`) to avoid hitting Supabase on every bot crawl. The `react-helmet-async` SEO component remains useful for Google (which does execute JS) and for in-app `<title>` updates.
+
+**References:** `api/og.ts`, `vercel.json` rewrites section
+
 ## 2026-03-06 [process]: CLAUDE.md exchange gate + drift scan — mechanical growth control
 
 **Context:** P441 audit reduced CLAUDE.md from 576→352 lines (-39%). Root cause of bloat: each rule individually passes the 80% universality test, but aggregate growth dilutes all rules. No mechanism existed to enforce a budget or detect sections that decay below the 80% threshold over time.
