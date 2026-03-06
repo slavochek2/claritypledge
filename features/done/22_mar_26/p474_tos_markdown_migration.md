@@ -1,9 +1,10 @@
 ---
-status: in-progress
+status: all-done
 type: task
 rank: 8
 tags: [legal, tos, content, maintenance]
 created_date: 2026-03-04
+completed_at: "2026-03-06"
 ---
 
 # P474: Migrate ToS from TSX to Markdown

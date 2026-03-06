@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: change-request
 rank: 1000006
 changes: p466
@@ -8,8 +8,8 @@ tags:
   - p466
   - agreements
 created_date: 2026-03-05
+completed_at: "2026-03-06"
 flow: dev
-delivery_stage: uat
 uat_file: features/uat/p476.md
 test_files:
   - e2e/p476-accept-confirmation.spec.ts
