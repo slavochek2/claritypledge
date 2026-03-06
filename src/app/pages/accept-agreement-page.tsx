@@ -28,7 +28,7 @@ import {
   DialogTitle,
   DialogDescription,
 } from '@/components/ui/dialog';
-import { Loader2Icon } from 'lucide-react';
+import { Loader2Icon, PenToolIcon } from 'lucide-react';
 
 type PageState = 'loading' | 'invalid' | 'unauthenticated' | 'partner' | 'wrong-user';
 
@@ -345,6 +345,7 @@ export function AcceptAgreementPage() {
 
         {/* Certificate — CTA lives inside as footer */}
         {agreement && (
+          <>
           <AgreementCertificate
             variant="pending"
             displayId={agreement.displayId}
@@ -376,23 +377,31 @@ export function AcceptAgreementPage() {
                     />
                     {nameError && <p className="mt-1 text-xs text-red-600">{nameError}</p>}
                   </div>
-                  <div className="flex justify-center">
+                  <div className="space-y-2">
                     <Button
-                      className="bg-[#002B5C] hover:bg-[#001f42] text-white"
+                      className="w-full bg-[#002B5C] hover:bg-[#001f45] text-white font-semibold text-base md:text-lg py-4 md:py-6 relative overflow-hidden group"
+                      size="lg"
                       onClick={handleInlineSignup}
                       disabled={isSigningUp}
                     >
-                      {isSigningUp ? <Loader2Icon className="w-4 h-4 animate-spin mr-2" /> : null}
-                      Seal &amp; Create Account ✦
+                      {isSigningUp ? (
+                        <span className="flex items-center justify-center gap-2">
+                          <Loader2Icon className="w-5 h-5 animate-spin" />
+                          Sealing...
+                        </span>
+                      ) : (
+                        <span className="flex items-center justify-center gap-2">
+                          <PenToolIcon className="w-5 h-5 group-hover:scale-110 transition-transform" />
+                          Seal &amp; Sign
+                        </span>
+                      )}
                     </Button>
-                  </div>
-                  <div className="text-center">
-                    <Link
-                      to={`/login?redirect=${encodeURIComponent(redirectAfterLogin)}`}
-                      className="text-sm text-[#1A1A1A]/50 hover:text-[#1A1A1A]/70"
-                    >
-                      Already have an account? Log in
-                    </Link>
+                    <p className="text-[10px] md:text-xs text-center text-[#1A1A1A]/60">
+                      By signing, you agree to our{" "}
+                      <Link to="/terms-of-service" className="underline hover:text-[#1A1A1A]">Terms</Link>{" "}
+                      &amp;{" "}
+                      <Link to="/privacy-policy" className="underline hover:text-[#1A1A1A]">Privacy</Link>.
+                    </p>
                   </div>
                   <div className="text-center">
                     <Button
@@ -435,6 +444,19 @@ export function AcceptAgreementPage() {
               ) : undefined
             }
           />
+
+          {/* "Already have an account?" — outside the certificate frame */}
+          {pageState === 'unauthenticated' && (
+            <div className="text-center pt-2">
+              <Link
+                to={`/login?redirect=${encodeURIComponent(redirectAfterLogin)}`}
+                className="text-sm text-muted-foreground hover:text-foreground underline"
+              >
+                Already have an account? Log in
+              </Link>
+            </div>
+          )}
+          </>
         )}
       </div>
 
