@@ -15,6 +15,7 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { Loader2, LockIcon } from 'lucide-react';
 import { FocusHeader } from '@/app/components/layout/focus-header';
+import { CertificatePageShell } from '@/app/components/layout/certificate-page-shell';
 import { useAuth } from '@/auth';
 import { agreementsService } from '@/app/data/agreements-service';
 import type { ClarityAgreement } from '@/app/data/agreements-service';
@@ -368,7 +369,7 @@ function TerminatedView({ agreement }: { agreement: ClarityAgreement }) {
 
 function LoadingSkeleton() {
   return (
-    <div className="max-w-xl mx-auto px-4 py-8">
+    <CertificatePageShell className="py-8">
       <div className="h-4 bg-muted rounded w-20 mb-6 animate-pulse" />
       <div className="rounded-lg border border-border overflow-hidden animate-pulse">
         <div className="p-8 space-y-4">
@@ -386,7 +387,7 @@ function LoadingSkeleton() {
           </div>
         </div>
       </div>
-    </div>
+    </CertificatePageShell>
   );
 }
 
@@ -498,7 +499,7 @@ export function AgreementPage() {
 
   if (isPrivate) {
     return (
-      <div className="max-w-xl mx-auto px-4 py-8">
+      <CertificatePageShell className="py-8">
         <FocusHeader onBack={handleBack} />
         <div className="text-center py-12 space-y-4">
           <LockIcon className="w-8 h-8 text-muted-foreground mx-auto" />
@@ -507,7 +508,7 @@ export function AgreementPage() {
             <Link to="/login">Sign in to view</Link>
           </Button>
         </div>
-      </div>
+      </CertificatePageShell>
     );
   }
 
@@ -515,12 +516,12 @@ export function AgreementPage() {
 
   if (notFound || !agreement) {
     return (
-      <div className="max-w-xl mx-auto px-4 py-8">
+      <CertificatePageShell className="py-8">
         <FocusHeader onBack={handleBack} />
         <div className="text-center py-12">
           <p className="text-muted-foreground">Agreement not found.</p>
         </div>
-      </div>
+      </CertificatePageShell>
     );
   }
 
@@ -605,9 +606,9 @@ export function AgreementPage() {
   }
 
   return (
-    <div className="max-w-xl mx-auto px-4 py-6">
+    <CertificatePageShell className="py-6">
       <FocusHeader onBack={handleBack} />
       {content}
-    </div>
+    </CertificatePageShell>
   );
 }

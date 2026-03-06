@@ -18,6 +18,7 @@ import { AgreementCertificate } from '@/app/components/agreements/agreement-cert
 import { supabase } from '@/lib/supabase';
 import { invokeAgreementEmails } from '@/lib/agreement-emails';
 import { toast } from 'sonner';
+import { CertificatePageShell } from '@/app/components/layout/certificate-page-shell';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -324,8 +325,7 @@ export function AcceptAgreementPage() {
   const certificatePartnerName = partnerDisplayName || undefined;
 
   return (
-    <div className="min-h-screen bg-[#F5F3EF] py-10 px-4">
-      <div className="max-w-3xl mx-auto space-y-6">
+    <CertificatePageShell parchment className="py-10 space-y-6">
 
         {/* Page title */}
         <div className="text-center">
@@ -454,7 +454,6 @@ export function AcceptAgreementPage() {
           )}
           </>
         )}
-      </div>
 
       {/* Decline confirmation dialog — used for both auth states */}
       <Dialog open={showDeclineConfirm} onOpenChange={setShowDeclineConfirm}>
@@ -487,6 +486,6 @@ export function AcceptAgreementPage() {
         </DialogContent>
       </Dialog>
 
-    </div>
+    </CertificatePageShell>
   );
 }

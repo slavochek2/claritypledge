@@ -17,6 +17,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { MobileTooltip } from '@/app/components/shared/mobile-tooltip';
 import { toast } from 'sonner';
+import { CertificatePageShell } from '@/app/components/layout/certificate-page-shell';
 
 const TERMS_MAX = 1000;
 
@@ -238,11 +239,11 @@ export function CreateAgreementPage() {
 
   if (authLoading) {
     return (
-      <div className="container mx-auto px-4 py-16 max-w-2xl">
+      <CertificatePageShell className="py-16">
         <div className="flex items-center justify-center">
           <Loader2Icon className="w-8 h-8 animate-spin text-muted-foreground" />
         </div>
-      </div>
+      </CertificatePageShell>
     );
   }
 
@@ -253,7 +254,7 @@ export function CreateAgreementPage() {
   const creatorHasNoName = creatorName !== undefined && !creatorName;
 
   return (
-    <div className="container mx-auto px-4 py-8 pb-24 md:py-12 md:pb-12 max-w-3xl">
+    <CertificatePageShell className="py-8 pb-24 md:py-12 md:pb-12">
       <Button
         variant="ghost"
         onClick={() => navigate(-1)}
@@ -386,7 +387,7 @@ export function CreateAgreementPage() {
           }
         />
       </form>
-    </div>
+    </CertificatePageShell>
   );
 }
 
