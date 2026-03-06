@@ -1,35 +1,40 @@
 ---
-status: backlog
+status: done
 type: story
 rank: 1000005
 workstream: C2
 created_date: 2026-03-04
+completed_at: "2026-03-06"
 tags: [ladischenski, tally, cco, acquisition]
 ---
 
 # P475: Update Tally form for CCO positioning
 
-## Why This Matters
+## Final Form Design (implemented 2026-03-06)
 
-The Tally form at `https://tally.so/r/xXd9Or` currently qualifies leads for co-founder calibration. After P473, ladischenski.com positions Slava as Fractional Chief Clarity Officer for any tech founder (pre-seed → Series A). The form questions will mismatch the new site copy until updated.
+**Title:** Reserve your 15-min call
 
-**Blocked by:** P473 (site must ship first so the form update is informed by live copy)
+**Q1:** What are you interested in? *(required, single choice)*
+- Co-founder De-risking
+- Fractional Chief Clarity Officer
+- Team Clarity Workshop
+- Not sure yet
 
-## What Needs to Change
+**Q2:** Tell me about your situation — what's going on, what you've already tried, and what a good outcome looks like for you. *(required, free text)*
 
-- **Form title/intro:** remove co-founder framing, replace with clarity conversation framing
-- **Questions:** qualify for CCO engagement (stage, challenge type, what clarity they're seeking) — not just "tell me about your co-founder"
-- **Confirmation message:** align with CCO framing (what happens next, what to expect from the call)
+**Q3:** How did you find Slava's work? *(required, single choice)*
+- LinkedIn / ClarityPledge / Personal referral / Search engine / Other
 
-## Steps
+## What Changed
 
-1. Review live Tally form after P473 ships
-2. Update questions to match CCO positioning
-3. Test the form flow end-to-end
-4. Confirm the Tally link on ladischenski.com still works (no URL change needed)
+- **Title:** "Before we talk — a few quick questions" → "Reserve your 15-min call"
+- **Q1:** Replaced 6 co-founder-specific questions with service selector matching ladischenski.com/services
+- **Q2:** Single free-text field replacing multiple narrow questions
+- **Q3:** Attribution question (retained from original)
+- **Removed:** "Any other comments?" block
 
-## Done When
+## Done
 
-- [ ] Tally form questions qualify for CCO clarity conversations (not co-founder-specific)
-- [ ] Confirmation message reflects what to expect from a 15-min clarity call
-- [ ] Form tested end-to-end
+- [x] Tally form questions are service-agnostic (not co-founder-specific)
+- [x] Form published at https://tally.so/r/xXd9Or
+- [x] URL unchanged — ladischenski.com links still work
