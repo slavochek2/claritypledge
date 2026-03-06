@@ -396,12 +396,6 @@ export function AcceptAgreementPage() {
                         </span>
                       )}
                     </Button>
-                    <p className="text-[10px] md:text-xs text-center text-[#1A1A1A]/60">
-                      By signing, you agree to our{" "}
-                      <Link to="/terms-of-service" className="underline hover:text-[#1A1A1A]">Terms</Link>{" "}
-                      &amp;{" "}
-                      <Link to="/privacy-policy" className="underline hover:text-[#1A1A1A]">Privacy</Link>.
-                    </p>
                   </div>
                   <div className="text-center">
                     <Button
@@ -415,6 +409,12 @@ export function AcceptAgreementPage() {
                       Decline
                     </Button>
                   </div>
+                  <p className="text-[10px] md:text-xs text-center text-[#1A1A1A]/60">
+                    By signing, you agree to our{" "}
+                    <Link to="/terms-of-service" className="underline hover:text-[#1A1A1A]">Terms</Link>{" "}
+                    &amp;{" "}
+                    <Link to="/privacy-policy" className="underline hover:text-[#1A1A1A]">Privacy</Link>.
+                  </p>
                 </div>
               ) : pageState === 'partner' && currentUser ? (
                 <div className="space-y-3">
