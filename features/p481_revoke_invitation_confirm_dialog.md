@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: qa
 delivery_stage: uat
 type: change-request
 rank: 500004.5
