@@ -21,6 +21,12 @@ import { CertificatePageShell } from '@/app/components/layout/certificate-page-s
 
 const TERMS_MAX = 1000;
 
+/** P483: Does this lookup result represent an existing user with a valid name? */
+function isExistingUserWithName(party: { name: string }): boolean {
+  const name = party.name?.trim();
+  return !!name && name !== 'Unknown';
+}
+
 const DEFAULT_TERMS = `Scope: Professional partnership — all work-related communication.
 Request channel: Clarity session requests will happen via email.
 Frequency: At least 1 clarity live session(s) per month unless confirmed to skip by both parties.
@@ -73,8 +79,8 @@ export function CreateAgreementPage() {
   const [visibility, setVisibility] = useState<AgreementVisibility>('public');
   const [termsText, setTermsText] = useState(DEFAULT_TERMS);
 
-  // Track whether user has manually typed a name (prevents auto-fill overwrite)
-  const userTypedNameRef = useRef(false);
+  // P483: lock partner name field when existing user found with valid profile name
+  const [isPartnerNameLocked, setIsPartnerNameLocked] = useState(false);
 
   // Lookup state
   const [lookupResult, setLookupResult] = useState<AgreementParty | null | 'not-found'>(null);
@@ -103,9 +109,8 @@ export function CreateAgreementPage() {
     }
   }, [authLoading, session, navigate]);
 
-  // Partner name change handler — sets the "user typed" flag to prevent auto-fill overwrite
+  // Partner name change handler
   const handlePartnerNameChange = useCallback((name: string) => {
-    if (name.length > 0) userTypedNameRef.current = true;
     setPartnerName(name);
     setErrors((prev) => prev.partnerName && name.trim() ? { ...prev, partnerName: undefined } : prev);
     setSubmitError(null);
@@ -119,6 +124,9 @@ export function CreateAgreementPage() {
       setLookupResult(null);
       setErrors((prev) => ({ ...prev, partnerEmail: undefined }));
       setSubmitError(null);
+      // P483: reset lock + clear name on email change
+      setIsPartnerNameLocked(false);
+      setPartnerName('');
 
       if (debounceRef.current) {
         clearTimeout(debounceRef.current);
@@ -139,9 +147,10 @@ export function CreateAgreementPage() {
           const party = await agreementsService.lookupUserByEmail(trimmed);
           setLookupResult(party ?? 'not-found');
 
-          // FD-1: Auto-fill partner name from lookup result if user hasn't typed yet
-          if (party && !userTypedNameRef.current) {
+          // P483: Always override name when existing user has valid profile name
+          if (party && isExistingUserWithName(party)) {
             setPartnerName(party.name);
+            setIsPartnerNameLocked(true);
           }
         } finally {
           setIsLookingUp(false);
@@ -285,6 +294,7 @@ export function CreateAgreementPage() {
           partnerNameValue={partnerName}
           partnerNameError={errors.partnerName}
           partnerNamePlaceholder="Full name of your partner"
+          partnerNameReadOnly={isPartnerNameLocked}
           onTermsChange={handleTermsChange}
           termsError={errors.termsText}
           footer={
@@ -322,6 +332,9 @@ export function CreateAgreementPage() {
                   <div className="mt-2" role="status">
                     <p className="text-sm text-green-700 font-medium mb-1">Account found ✓</p>
                     <AvatarBadge party={lookupResult} />
+                    {isPartnerNameLocked && (
+                      <p className="text-xs text-[#1A1A1A]/50 mt-1">Using their registered name</p>
+                    )}
                   </div>
                 )}
                 {errors.partnerEmail && (

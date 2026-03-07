@@ -21,6 +21,7 @@ interface ConfirmationState {
   agreementId: string;
   token: string;
   partnerName: string;
+  isExistingUser?: boolean; // P483: when true, show sign-in copy instead of account-creation copy
 }
 
 export function AgreementEmailConfirmationPage() {
@@ -44,7 +45,7 @@ export function AgreementEmailConfirmationPage() {
     return null;
   }
 
-  const { email, agreementId, token, partnerName } = state;
+  const { email, agreementId, token, partnerName, isExistingUser } = state;
 
   const handleResend = async () => {
     if (isResending) return;
@@ -105,7 +106,9 @@ export function AgreementEmailConfirmationPage() {
           </div>
         </div>
 
-        <h1 className="text-3xl md:text-4xl font-bold mb-6">Almost Done!</h1>
+        <h1 className="text-3xl md:text-4xl font-bold mb-6">
+          {isExistingUser ? 'Sign In to Co-Sign' : 'Almost Done!'}
+        </h1>
 
         <div className="bg-muted/50 p-6 rounded-lg mb-8 border border-border">
           <p className="text-xl mb-4">We've sent a sign-in link to:</p>
@@ -113,7 +116,10 @@ export function AgreementEmailConfirmationPage() {
         </div>
 
         <p className="text-lg text-muted-foreground mb-4 leading-relaxed">
-          Click the link to <strong>complete signing the Clarity Partner Agreement</strong>.
+          {isExistingUser
+            ? <>Click the link in your email to <strong>sign in and complete signing the Clarity Partner Agreement</strong>.</>
+            : <>Click the link to <strong>complete signing the Clarity Partner Agreement</strong>.</>
+          }
         </p>
 
         <p className="text-sm text-muted-foreground mb-8">

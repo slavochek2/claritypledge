@@ -39,6 +39,7 @@ export interface AgreementCertificateProps {
   partnerNameValue?: string;
   partnerNameError?: string;
   partnerNamePlaceholder?: string;
+  partnerNameReadOnly?: boolean; // P483: lock name field when existing user found
   onTermsChange?: (text: string) => void;
   termsError?: string;
 }
@@ -120,6 +121,7 @@ export function AgreementCertificate({
   partnerNameValue = '',
   partnerNameError,
   partnerNamePlaceholder = 'their name',
+  partnerNameReadOnly,
   onTermsChange,
   termsError,
 }: AgreementCertificateProps) {
@@ -168,15 +170,19 @@ export function AgreementCertificate({
                 aria-required="true"
                 aria-invalid={partnerNameError ? 'true' : undefined}
                 aria-describedby={partnerNameError ? 'partner-name-error' : undefined}
+                aria-readonly={partnerNameReadOnly ? 'true' : undefined}
+                readOnly={partnerNameReadOnly}
                 value={partnerNameValue}
                 onChange={e => onPartnerNameChange(e.target.value)}
                 onKeyDown={e => { if (e.key === 'Enter') e.preventDefault(); }}
                 placeholder={partnerNamePlaceholder}
                 maxLength={110}
                 className={`border-0 rounded-none bg-transparent focus-visible:outline-none focus-visible:ring-0 font-serif text-base md:text-lg font-semibold inline-block min-w-[200px] w-auto placeholder:text-[#1A1A1A]/30 placeholder:font-normal ${
-                  partnerNameError
-                    ? 'border-b-2 border-red-500 focus-visible:border-red-500'
-                    : 'border-b-2 border-[#1A1A1A]/20 focus-visible:border-[#0044CC]'
+                  partnerNameReadOnly
+                    ? 'cursor-default bg-[#F5F1E8]/50 border-b-2 border-[#1A1A1A]/20'
+                    : partnerNameError
+                      ? 'border-b-2 border-red-500 focus-visible:border-red-500'
+                      : 'border-b-2 border-[#1A1A1A]/20 focus-visible:border-[#0044CC]'
                 }`}
                 style={{
                   fontFamily: '"Playfair Display", Georgia, serif',
