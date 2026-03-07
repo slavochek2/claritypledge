@@ -65,7 +65,7 @@ function SignatureSlot({ label, name, value, signedAt, isPending, hideLabel, ava
   const displayName = value !== undefined ? value : (name || 'Awaiting signature');
 
   return (
-    <div className="flex flex-col gap-1.5 min-w-0">
+    <div className="flex flex-col items-center gap-1.5 min-w-0 flex-1">
       {!hideLabel && (
         <p className="text-[10px] uppercase tracking-[0.15em] text-[#1A1A1A]/50 font-sans">
           {label}
@@ -296,7 +296,7 @@ export function AgreementCertificate({
         {/* Signatures + seal — only once active */}
         {isActive && (
           <div className="pt-5 border-t-2 border-[#002B5C]">
-            <div className="flex items-start justify-between gap-4">
+            <div className="flex items-center justify-between gap-4">
               {/* Creator signature */}
               <SignatureSlot
                 label="Creator"
@@ -309,13 +309,8 @@ export function AgreementCertificate({
 
               {/* Center seal — only when active */}
               {isActive ? (
-                <div className="flex-shrink-0 flex flex-col items-center gap-1 pt-1">
-                  <div className="w-14 h-14 rounded-full border-[3px] border-[#D4AF37] flex items-center justify-center bg-[#FDFBF7] shadow-md">
-                    <ClarityLogoMark size={48} className="text-[#D4AF37]" />
-                  </div>
-                  <p className="text-[9px] uppercase tracking-[0.15em] text-[#D4AF37] font-sans">
-                    Active
-                  </p>
+                <div className="flex-shrink-0 w-14 h-14 rounded-full border-[3px] border-[#D4AF37] flex items-center justify-center bg-[#FDFBF7] shadow-md">
+                  <ClarityLogoMark size={48} className="text-[#D4AF37]" />
                 </div>
               ) : (
                 <div className="flex-shrink-0 w-14 h-14 rounded-full border-2 border-dashed border-[#1A1A1A]/20 flex items-center justify-center">

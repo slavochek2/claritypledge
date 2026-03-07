@@ -446,7 +446,7 @@ export function AgreementPage() {
   }, [id, authLoading, user]);
 
   const handleBack = useCallback(() => {
-    navigate(-1);
+    navigate('/me');
   }, [navigate]);
 
   const handleResend = useCallback(async () => {
