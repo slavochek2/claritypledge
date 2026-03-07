@@ -4,8 +4,8 @@
  * not only on the point-detail-page.
  *
  * P451: showStoryCTA is derived from userPosition, so it persists across refresh.
- * P456: StoryCardDetail uses position-aware copy (getPositionCTACopy) instead of generic text.
- *       For 'agree' position: ctaText = 'Why do you agree? →'
+ * P456: StoryCardDetail uses getPositionCTACopy for CTA copy.
+ * P487: Unified ctaText to 'Add your story →' across all positions.
  */
 
 import { describe, it, expect } from 'vitest';
@@ -49,8 +49,8 @@ const linkedPointWithPosition: Point = {
 };
 
 // P465: P451's "Tell your story →" blue button is removed from PointCardWithLinks.
-// The CTA is now inline text ("Why do you agree? →") in the footer row.
-const AGREE_CTA_LINKS = 'Why do you agree? →';
+// P487: CTA text unified to "Add your story →" across all surfaces.
+const AGREE_CTA_LINKS = 'Add your story →';
 
 describe('P451/P465: PointCardWithLinks story CTA', () => {
   it('does NOT show CTA before staking', () => {
@@ -132,8 +132,8 @@ const preloadedUserPositions = new Map<string, PointPosition>([
   [POINT_ID, { id: 'pos-1', pointId: POINT_ID, userId: CURRENT_USER, position: 'agree' as PositionType, createdAt: '2026-01-01T00:00:00Z', updatedAt: '2026-01-01T00:00:00Z' }],
 ]);
 
-// P456: StoryCardDetail uses position-aware CTA copy. For 'agree' → 'Why do you agree? →'
-const AGREE_CTA = 'Why do you agree? →';
+// P487: StoryCardDetail CTA unified to 'Add your story →'
+const AGREE_CTA = 'Add your story →';
 
 describe('P451/P456: StoryCardDetail QuotedPointForStory CTA', () => {
   it('does NOT show CTA before staking', () => {

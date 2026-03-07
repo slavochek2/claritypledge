@@ -90,8 +90,8 @@ test.describe('P456 Surface A — Own profile Points tab', () => {
       // Footer row must be visible — contains viewer's position label
       await expect(page.getByText(/✓\s*Agree/)).toBeVisible({ timeout: 10000 });
 
-      // CTA copy must be adaptive ("Why do you agree?") — not generic
-      await expect(page.getByText(/Why do you agree\?/)).toBeVisible();
+      // P487: CTA copy unified to "Add your story →"
+      await expect(page.getByText(/Add your story/)).toBeVisible();
 
       // Generic P451 copy must NOT appear
       await expect(page.getByText(/Tell your story →/)).not.toBeVisible();
@@ -114,9 +114,9 @@ test.describe('P456 Surface A — Own profile Points tab', () => {
       }
 
       // Footer copy phrases must be absent
-      await expect(page.getByText(/Why do you agree\?/)).not.toBeVisible();
-      await expect(page.getByText(/Why do you disagree\?/)).not.toBeVisible();
-      await expect(page.getByText(/Why are you unsure\?/)).not.toBeVisible();
+      await expect(page.getByText(/Add your story/)).not.toBeVisible();
+      await expect(page.getByText(/Add your story/)).not.toBeVisible();
+      await expect(page.getByText(/Add your story/)).not.toBeVisible();
     } finally {
       await cleanupFixtures(f);
     }
@@ -141,15 +141,15 @@ test.describe('P456 Surface A — Own profile Points tab', () => {
       // Split footer: right section shows "+ add story →"
       await expect(page.getByText(/\+ add story/i)).toBeVisible();
 
-      // Full-form CTA ("Why do you agree?") should NOT appear alongside split footer
-      await expect(page.getByText(/Why do you agree\?/)).not.toBeVisible();
+      // Full-form CTA should NOT appear alongside split footer
+      await expect(page.getByText(/Add your story/)).not.toBeVisible();
     } finally {
       await cleanupFixtures(f);
     }
   });
 
   // A-4: Disagree position shows correct adaptive copy
-  test('footer shows "Why do you disagree?" when viewer has disagreed', async ({ page }) => {
+  test('footer shows "Add your story" CTA when viewer has disagreed', async ({ page }) => {
     const f = await buildFixtures({ withPosition: 'disagree' });
     try {
       await setTestSession(page, f.viewer.email);
@@ -162,14 +162,14 @@ test.describe('P456 Surface A — Own profile Points tab', () => {
       }
 
       await expect(page.getByText(/✗\s*Disagree/)).toBeVisible({ timeout: 10000 });
-      await expect(page.getByText(/Why do you disagree\?/)).toBeVisible();
+      await expect(page.getByText(/Add your story/)).toBeVisible();
     } finally {
       await cleanupFixtures(f);
     }
   });
 
   // A-5: Unsure position shows correct adaptive copy
-  test('footer shows "Why are you unsure?" when viewer is unsure', async ({ page }) => {
+  test('footer shows "Add your story" CTA when viewer is unsure', async ({ page }) => {
     const f = await buildFixtures({ withPosition: 'unsure' });
     try {
       await setTestSession(page, f.viewer.email);
@@ -182,7 +182,7 @@ test.describe('P456 Surface A — Own profile Points tab', () => {
       }
 
       await expect(page.getByText(/~\s*Unsure/)).toBeVisible({ timeout: 10000 });
-      await expect(page.getByText(/Why are you unsure\?/)).toBeVisible();
+      await expect(page.getByText(/Add your story/)).toBeVisible();
     } finally {
       await cleanupFixtures(f);
     }
@@ -206,7 +206,7 @@ test.describe('P456 Surface E — Point detail page', () => {
       await page.waitForLoadState('networkidle');
 
       // Footer must be present WITHOUT taking a new position action
-      await expect(page.getByText(/Why do you agree\?/)).toBeVisible({ timeout: 10000 });
+      await expect(page.getByText(/Add your story/)).toBeVisible({ timeout: 10000 });
       await expect(page.getByText(/✓\s*Agree/)).toBeVisible();
     } finally {
       await cleanupFixtures(f);
@@ -221,8 +221,8 @@ test.describe('P456 Surface E — Point detail page', () => {
       await page.goto(`/point/${f.point.id}`);
       await page.waitForLoadState('networkidle');
 
-      await expect(page.getByText(/Why do you agree\?/)).toBeVisible({ timeout: 10000 });
-      await page.getByText(/Why do you agree\?/).click();
+      await expect(page.getByText(/Add your story/)).toBeVisible({ timeout: 10000 });
+      await page.getByText(/Add your story/).click();
 
       await page.waitForURL(/\/chat/, { timeout: 10000 });
       expect(page.url()).toContain('from=position');
@@ -242,7 +242,7 @@ test.describe('P456 Surface E — Point detail page', () => {
 
       await expect(page.getByText(/1 stor(y|ies)/i)).toBeVisible({ timeout: 10000 });
       await expect(page.getByText(/\+ add story/i)).toBeVisible();
-      await expect(page.getByText(/Why do you agree\?/)).not.toBeVisible();
+      await expect(page.getByText(/Add your story/)).not.toBeVisible();
     } finally {
       await cleanupFixtures(f);
     }
@@ -256,9 +256,9 @@ test.describe('P456 Surface E — Point detail page', () => {
       await page.goto(`/point/${f.point.id}`);
       await page.waitForLoadState('networkidle');
 
-      await expect(page.getByText(/Why do you agree\?/)).not.toBeVisible();
-      await expect(page.getByText(/Why do you disagree\?/)).not.toBeVisible();
-      await expect(page.getByText(/Why are you unsure\?/)).not.toBeVisible();
+      await expect(page.getByText(/Add your story/)).not.toBeVisible();
+      await expect(page.getByText(/Add your story/)).not.toBeVisible();
+      await expect(page.getByText(/Add your story/)).not.toBeVisible();
     } finally {
       await cleanupFixtures(f);
     }
@@ -319,7 +319,7 @@ test.describe('P456 Surface G — /live session disabled CTA', () => {
         await expect(hint).toBeVisible();
 
         // The CTA button should be disabled / non-interactive
-        const ctaButton = page.getByRole('button', { name: /why do you|tell your story/i });
+        const ctaButton = page.getByRole('button', { name: /add your story|tell your story/i });
         const isDisabled = await ctaButton.getAttribute('aria-disabled').catch(() => null);
         const isHTMLDisabled = await ctaButton.isDisabled().catch(() => false);
         expect(
@@ -351,7 +351,7 @@ test.describe('P456 Surface G — /live session disabled CTA', () => {
       const initialUrl = page.url();
 
       // Try to click the disabled CTA if it's present
-      const ctaButton = page.getByRole('button', { name: /why do you|tell your story/i });
+      const ctaButton = page.getByRole('button', { name: /add your story|tell your story/i });
       const buttonVisible = await ctaButton.isVisible({ timeout: 3000 }).catch(() => false);
 
       if (buttonVisible) {

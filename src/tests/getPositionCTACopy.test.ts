@@ -1,17 +1,15 @@
 /**
  * @file getPositionCTACopy.test.ts
- * @description Unit tests for the `getPositionCTACopy` utility function (P456).
+ * @description Unit tests for the `getPositionCTACopy` utility function.
  *
- * The function maps a PositionButtonGroup ('agree' | 'disagree' | 'unsure') to
- * the adaptive copy fields used by the story CTA footer:
+ * P456: introduced position-aware CTA copy.
+ * P487: unified ctaText to "Add your story →" across all positions.
+ *
+ * The function maps a PositionButtonGroup ('agree' | 'disagree' | 'unsure') to:
  *   { symbol, label, ctaText, ariaLabel }
  *
- * These tests are written against the contract defined in the spec's
- * Technical Analysis §Decision 2 and UX Requirements §Copy Variants.
- *
- * NOTE: The function lives in `src/app/prototypes/shared/types.ts`
- * (alongside `getPositionGroup`). Update this import path if it is moved
- * during implementation.
+ * Symbol and label remain position-specific (for the position indicator prefix).
+ * ctaText and ariaLabel are now unified across all positions.
  */
 
 import { describe, it, expect } from 'vitest';
@@ -34,14 +32,14 @@ describe('getPositionCTACopy — copy variants', () => {
       expect(copy.label).toBe('Agree');
     });
 
-    it("returns ctaText 'Why do you agree? →'", () => {
+    it("returns unified ctaText 'Add your story →'", () => {
       const copy = getPositionCTACopy('agree');
-      expect(copy.ctaText).toBe('Why do you agree? →');
+      expect(copy.ctaText).toBe('Add your story →');
     });
 
-    it('returns aria-label that mentions agreement (screen reader)', () => {
+    it('returns generic aria-label for screen readers', () => {
       const copy = getPositionCTACopy('agree');
-      expect(copy.ariaLabel).toBe('Tell your story about your agreement');
+      expect(copy.ariaLabel).toBe('Add your story for this point');
     });
   });
 
@@ -58,14 +56,14 @@ describe('getPositionCTACopy — copy variants', () => {
       expect(copy.label).toBe('Disagree');
     });
 
-    it("returns ctaText 'Why do you disagree? →'", () => {
+    it("returns unified ctaText 'Add your story →'", () => {
       const copy = getPositionCTACopy('disagree');
-      expect(copy.ctaText).toBe('Why do you disagree? →');
+      expect(copy.ctaText).toBe('Add your story →');
     });
 
-    it('returns aria-label that mentions disagreement (screen reader)', () => {
+    it('returns generic aria-label for screen readers', () => {
       const copy = getPositionCTACopy('disagree');
-      expect(copy.ariaLabel).toBe('Tell your story about your disagreement');
+      expect(copy.ariaLabel).toBe('Add your story for this point');
     });
   });
 
@@ -82,14 +80,14 @@ describe('getPositionCTACopy — copy variants', () => {
       expect(copy.label).toBe('Unsure');
     });
 
-    it("returns ctaText 'Why are you unsure? →'", () => {
+    it("returns unified ctaText 'Add your story →'", () => {
       const copy = getPositionCTACopy('unsure');
-      expect(copy.ctaText).toBe('Why are you unsure? →');
+      expect(copy.ctaText).toBe('Add your story →');
     });
 
-    it('returns aria-label that mentions being unsure (screen reader)', () => {
+    it('returns generic aria-label for screen readers', () => {
       const copy = getPositionCTACopy('unsure');
-      expect(copy.ariaLabel).toBe('Tell your story about being unsure');
+      expect(copy.ariaLabel).toBe('Add your story for this point');
     });
   });
 
@@ -123,38 +121,31 @@ describe('getPositionCTACopy — copy variants', () => {
       }
     });
 
-    it('all three variants have distinct ctaText (not the same copy)', () => {
+    it('P487: all three variants have the same unified ctaText', () => {
       const texts = (['agree', 'disagree', 'unsure'] as PositionButtonGroup[])
         .map(g => getPositionCTACopy(g).ctaText);
       const unique = new Set(texts);
-      expect(unique.size).toBe(3);
+      expect(unique.size).toBe(1);
+      expect(texts[0]).toBe('Add your story →');
     });
 
-    it('ctaText does not contain the generic "Tell your story" fallback copy', () => {
-      // The generic P451 copy should not appear in any P456 adaptive variant
-      for (const group of ['agree', 'disagree', 'unsure'] as PositionButtonGroup[]) {
-        const { ctaText } = getPositionCTACopy(group);
-        expect(ctaText.toLowerCase()).not.toContain('tell your story');
-      }
+    it('symbols remain position-specific (distinct across groups)', () => {
+      const symbols = (['agree', 'disagree', 'unsure'] as PositionButtonGroup[])
+        .map(g => getPositionCTACopy(g).symbol);
+      expect(new Set(symbols).size).toBe(3);
     });
 
-    it('ariaLabel values include enough context to distinguish positions (screen reader)', () => {
-      const agreeLabel = getPositionCTACopy('agree').ariaLabel.toLowerCase();
-      const disagreeLabel = getPositionCTACopy('disagree').ariaLabel.toLowerCase();
-      const unsureLabel = getPositionCTACopy('unsure').ariaLabel.toLowerCase();
-
-      expect(agreeLabel).not.toBe(disagreeLabel);
-      expect(agreeLabel).not.toBe(unsureLabel);
-      expect(disagreeLabel).not.toBe(unsureLabel);
+    it('labels remain position-specific (distinct across groups)', () => {
+      const labels = (['agree', 'disagree', 'unsure'] as PositionButtonGroup[])
+        .map(g => getPositionCTACopy(g).label);
+      expect(new Set(labels).size).toBe(3);
     });
   });
 
   // ── footer label line contract ────────────────────────────────────────────
   //
   // The rendered footer line is: "{symbol} {label} · {ctaText}"
-  // e.g. "✓ Agree · Why do you agree? →"
-  // These tests verify that symbol + label together form the spec's
-  // "✓ Agree" / "✗ Disagree" / "~ Unsure" position badge.
+  // e.g. "✓ Agree · Add your story →"
 
   describe('footer label line construction', () => {
     it("agree: '{symbol} {label}' forms '✓ Agree'", () => {

@@ -8,7 +8,7 @@
  *      announce "Agree" not "check mark Agree"
  *
  *   2. CTA button has aria-label that includes position context
- *      ("Tell your story about your agreement", etc.)
+ *      ("Add your story for this point", etc.)
  *
  *   3. /live disabled button:
  *      - aria-disabled="true"
@@ -109,8 +109,8 @@ test.describe('P456 Accessibility — ARIA contract on CTA footer', () => {
     await page.waitForLoadState('networkidle');
 
     // The CTA button should be discoverable by its aria-label
-    // Spec contract: aria-label="Tell your story about your agreement"
-    const ctaButton = page.getByRole('button', { name: /tell your story about your agreement/i });
+    // Spec contract: aria-label="Add your story for this point"
+    const ctaButton = page.getByRole('button', { name: /add your story for this pointment/i });
     await expect(ctaButton).toBeVisible({ timeout: 10000 });
   });
 
@@ -121,7 +121,7 @@ test.describe('P456 Accessibility — ARIA contract on CTA footer', () => {
     await page.goto(`/point/${point.id}`);
     await page.waitForLoadState('networkidle');
 
-    const ctaButton = page.getByRole('button', { name: /tell your story about your disagreement/i });
+    const ctaButton = page.getByRole('button', { name: /add your story for this pointment/i });
     await expect(ctaButton).toBeVisible({ timeout: 10000 });
   });
 
@@ -132,7 +132,7 @@ test.describe('P456 Accessibility — ARIA contract on CTA footer', () => {
     await page.goto(`/point/${point.id}`);
     await page.waitForLoadState('networkidle');
 
-    const ctaButton = page.getByRole('button', { name: /tell your story about being unsure/i });
+    const ctaButton = page.getByRole('button', { name: /add your story for this point/i });
     await expect(ctaButton).toBeVisible({ timeout: 10000 });
   });
 
@@ -183,7 +183,7 @@ test.describe('P456 Accessibility — ARIA contract on CTA footer', () => {
     await page.waitForTimeout(2000);
 
     const disabledCTA = page.locator('[aria-disabled="true"]', {
-      hasText: /why do you|tell your story|add story/i,
+      hasText: /add your story|tell your story|add story/i,
     });
     const ctaVisible = await disabledCTA.isVisible({ timeout: 5000 }).catch(() => false);
 
@@ -212,7 +212,7 @@ test.describe('P456 Accessibility — ARIA contract on CTA footer', () => {
     await page.waitForTimeout(2000);
 
     const disabledCTA = page.locator('[aria-disabled="true"]', {
-      hasText: /why do you|tell your story|add story/i,
+      hasText: /add your story|tell your story|add story/i,
     });
     const ctaVisible = await disabledCTA.isVisible({ timeout: 5000 }).catch(() => false);
 
@@ -244,7 +244,7 @@ test.describe('P456 Accessibility — ARIA contract on CTA footer', () => {
     await page.waitForLoadState('networkidle');
 
     // Locate the CTA element
-    const ctaElement = page.getByText(/Why do you agree\?/);
+    const ctaElement = page.getByText(/Add your story/);
     await expect(ctaElement).toBeVisible({ timeout: 10000 });
 
     // The CTA's nearest point-card ancestor must exist

@@ -187,7 +187,7 @@ test.describe('P456 Smoke — pages load without JS errors after implementation'
     await expect(page.getByText(point.statement)).toBeVisible({ timeout: 10000 });
 
     // No footer should render for anonymous viewer
-    await expect(page.getByText(/Why do you agree\?/)).not.toBeVisible();
+    await expect(page.getByText(/Add your story/)).not.toBeVisible();
 
     expect(
       consoleErrors,

@@ -3,7 +3,7 @@
  * @description Accessibility tests for P465: Point card footer redesign.
  *
  * P465 changes the footer ARIA contract from P456:
- *   - CTA button: no "✓ Agree ·" prefix → aria-label unchanged ("Tell your story about your agreement")
+ *   - CTA button: no "✓ Agree ·" prefix → aria-label unchanged ("Add your story for this point")
  *   - CTA position: before stories row → verify keyboard Tab order matches visual order
  *   - Edit icon: new button → must have aria-label="Edit your story for this point"
  *   - Delete icon: new button → must have aria-label="Delete your story for this point"
@@ -75,7 +75,7 @@ test.describe('P465 Accessibility — CTA button aria-label', () => {
     }
 
     // CTA button must be accessible by aria-label containing "agreement" (or equivalent)
-    const ctaButton = page.getByRole('button', { name: /tell your story about.*agree/i });
+    const ctaButton = page.getByRole('button', { name: /add your story for this point/i });
     await expect(ctaButton).toBeVisible({ timeout: 10000 });
   });
 
@@ -91,7 +91,7 @@ test.describe('P465 Accessibility — CTA button aria-label', () => {
       await pointsTab.click();
     }
 
-    const ctaButton = page.getByRole('button', { name: /tell your story about.*disagree/i });
+    const ctaButton = page.getByRole('button', { name: /add your story for this point/i });
     await expect(ctaButton).toBeVisible({ timeout: 10000 });
   });
 
@@ -107,7 +107,7 @@ test.describe('P465 Accessibility — CTA button aria-label', () => {
       await pointsTab.click();
     }
 
-    const ctaButton = page.getByRole('button', { name: /tell your story about.*unsure/i });
+    const ctaButton = page.getByRole('button', { name: /add your story for this point/i });
     await expect(ctaButton).toBeVisible({ timeout: 10000 });
   });
 });
@@ -129,13 +129,13 @@ test.describe('P465 Accessibility — no prefix symbols in CTA footer row', () =
       await pointsTab.click();
     }
 
-    await expect(page.getByText(/Why do you agree\?/)).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText(/Add your story/)).toBeVisible({ timeout: 10000 });
 
-    // The CTA row must not contain position symbols (no "✓ Agree · Why do you agree?")
+    // The CTA row must not contain position symbols (no "✓ Agree · Add your story")
     // P465 removes the symbol-label prefix — ctaText only
     const hasPrefixSymbol = await page.evaluate(() => {
       const ctaEl = Array.from(document.querySelectorAll('*')).find(el =>
-        el.textContent?.includes('Why do you agree?') && el.children.length === 0
+        el.textContent?.includes('Add your story') && el.children.length === 0
       );
       if (!ctaEl) return false;
 
@@ -238,10 +238,10 @@ test.describe('P465 Accessibility — keyboard navigation', () => {
       await pointsTab.click();
     }
 
-    await expect(page.getByText(/Why do you agree\?/)).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText(/Add your story/)).toBeVisible({ timeout: 10000 });
 
     // Tab to the CTA button
-    const ctaButton = page.getByRole('button', { name: /tell your story about.*agree/i });
+    const ctaButton = page.getByRole('button', { name: /add your story for this point/i });
     await ctaButton.focus();
 
     // Verify it received focus
@@ -267,7 +267,7 @@ test.describe('P465 Accessibility — keyboard navigation', () => {
       await pointsTab.click();
     }
 
-    await expect(page.getByText(/Why do you agree\?/)).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText(/Add your story/)).toBeVisible({ timeout: 10000 });
 
     const nestedButtonCount = await page.evaluate(() => {
       const allButtons = Array.from(document.querySelectorAll('button'));
@@ -298,9 +298,9 @@ test.describe('P465 Accessibility — focus rings on interactive elements', () =
       await pointsTab.click();
     }
 
-    await expect(page.getByText(/Why do you agree\?/)).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText(/Add your story/)).toBeVisible({ timeout: 10000 });
 
-    const ctaButton = page.getByRole('button', { name: /tell your story about.*agree/i });
+    const ctaButton = page.getByRole('button', { name: /add your story for this point/i });
     await ctaButton.focus();
 
     // Verify that the button has a focus ring (either via outline or ring class)

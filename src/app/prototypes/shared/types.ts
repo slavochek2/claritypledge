@@ -73,31 +73,18 @@ export interface PositionCTACopy {
   ariaLabel: string;
 }
 
-// Map position button group to adaptive story CTA copy (P456)
+// Map position button group to story CTA copy (P456, unified in P487)
 export function getPositionCTACopy(group: PositionButtonGroup): PositionCTACopy {
-  switch (group) {
-    case 'agree':
-      return {
-        symbol: '✓',
-        label: 'Agree',
-        ctaText: 'Why do you agree? →',
-        ariaLabel: 'Tell your story about your agreement',
-      };
-    case 'disagree':
-      return {
-        symbol: '✗',
-        label: 'Disagree',
-        ctaText: 'Why do you disagree? →',
-        ariaLabel: 'Tell your story about your disagreement',
-      };
-    case 'unsure':
-      return {
-        symbol: '~',
-        label: 'Unsure',
-        ctaText: 'Why are you unsure? →',
-        ariaLabel: 'Tell your story about being unsure',
-      };
-  }
+  const symbols: Record<PositionButtonGroup, { symbol: string; label: string }> = {
+    agree: { symbol: '✓', label: 'Agree' },
+    disagree: { symbol: '✗', label: 'Disagree' },
+    unsure: { symbol: '~', label: 'Unsure' },
+  };
+  return {
+    ...symbols[group],
+    ctaText: 'Add your story →',
+    ariaLabel: 'Add your story for this point',
+  };
 }
 
 // -----------------------------------------------------------------------------
