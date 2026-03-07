@@ -1,11 +1,11 @@
 ---
-status: in-progress
+status: all-done
 type: feature
 rank: 500004.5
 workstream: C1
 created_date: 2026-03-06
+completed_at: 2026-03-07
 flow: dev
-delivery_stage: uat
 tags: [simplification, story-creation]
 uat_file: features/uat/p486.md
 test_files:
