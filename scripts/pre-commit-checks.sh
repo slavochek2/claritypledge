@@ -46,13 +46,13 @@ else
 fi
 echo ""
 
-# 1.8: Auto-fix lint issues before checking (why report what we can fix?)
-echo ">>> Auto-fixing lint issues on staged files..."
+# 1.8: Lint check on staged files (report-only — never auto-fix)
+# Why report-only: eslint --fix silently reverts intentional changes (e.g., CSS overrides)
+# and re-stages the reverted version. Agent doesn't notice. Data loss. See decisions.md 2026-03-07.
+echo ">>> Checking lint on staged files..."
 STAGED_TS=$(git diff --cached --name-only 2>/dev/null | grep -E '\.(ts|tsx|js|jsx)$' || true)
 if [ -n "$STAGED_TS" ]; then
-  npx eslint --fix $STAGED_TS 2>/dev/null || true
-  echo "$STAGED_TS" | xargs git add 2>/dev/null || true
-  echo -e "${GREEN}✓ Lint auto-fix applied, files re-staged${NC}"
+  echo -e "${GREEN}✓ Staged TS/JS files will be checked by full lint below${NC}"
 else
   echo -e "${GREEN}✓ No TS/JS files staged${NC}"
 fi

@@ -115,7 +115,9 @@ Once problem is confirmed:
 **Suggested next step:** /fix p{N} OR inline fix
 ```
 
-If multiple surfaces affected, list all and ask which to fix now vs defer (with tickets).
+If multiple surfaces of the **same bug** are affected, list all and ask which to fix now vs defer (with tickets).
+
+**Scope boundary:** If the screenshot reveals **unrelated bugs** beyond the one being investigated, list them separately: "I also spotted [N] other issues: [list]. Create tickets, or investigate now?" Do not silently expand scope.
 
 ---
 

@@ -78,18 +78,12 @@ Recommendation: Remove from README.md, link to definitions.md instead.
    git branch --show-current
    git worktree list
    ```
-   If the current branch is NOT `main`, **STOP. Do not write to any doc or commit anything.**
+   If the current branch is NOT `main`, **STOP. Do not write to any doc or commit anything. Do not switch branches yourself.**
 
    Tell the user:
-   > "STOP: You are on branch [{branch}]. KDD commits on feature branches are stranded immediately — they are not on main right now and are invisible to other sessions. If the branch is deleted without merging, they are permanently lost. To fix:
-   > 1. If you have uncommitted changes: `git add -A && git commit -m "wip: [what you were doing]"` — saves your work safely (includes untracked files). If the working tree is already clean, skip this step.
-   > 2. `git checkout main`
-   > 3. Re-run `/kdd` from main (same conversation context is still available — /kdd will produce the same entries)
-   > 4. `git checkout {branch} && git reset HEAD~1` — restores your in-progress work (soft reset: files stay, commit is removed)
-   >
-   > Do NOT use `git stash` — stashes are invisible and can be lost. The wip-commit pattern is always safer."
+   > "KDD must run on main. You're on [{branch}]. Switch to main and re-run /kdd."
 
-   Run `git branch --show-current` once at the start of /kdd. If the result is not `main`, emit the message above and terminate this /kdd invocation. Do not re-check, do not retry, do not proceed. The user must re-run /kdd after switching to main.
+   **Hard stop.** Terminate this /kdd invocation immediately. Do not execute git commands (no stash, no checkout, no commit). Do not proceed. The user switches branches and re-invokes.
 
    If the current branch IS `main` but `git worktree list` shows active worktrees with uncommitted work, warn (non-blocking):
 
