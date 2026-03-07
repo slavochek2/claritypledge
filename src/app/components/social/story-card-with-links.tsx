@@ -572,7 +572,7 @@ function QuotedPoint({
         {userPosition && (() => {
           const positionGroup = getPositionGroup(userPosition);
           const copy = getPositionCTACopy(positionGroup);
-          const chatUrl = `/chat?from=position&pointId=${point.id}`;
+          const chatUrl = `/create?pointId=${point.id}`;
 
           return (
             <div

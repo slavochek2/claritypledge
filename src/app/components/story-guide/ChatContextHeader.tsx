@@ -18,6 +18,8 @@ interface ChatContextHeaderProps {
   pointId: string;
   pointText: string;
   userPosition?: UserPosition;
+  /** When false, renders static (not sticky). Default true for backward compat with /chat. */
+  sticky?: boolean;
 }
 
 function getPositionLabel(position: UserPosition): string | null {
@@ -28,7 +30,7 @@ function getPositionLabel(position: UserPosition): string | null {
   return null;
 }
 
-export function ChatContextHeader({ pointId, pointText, userPosition }: ChatContextHeaderProps) {
+export function ChatContextHeader({ pointId, pointText, userPosition, sticky = true }: ChatContextHeaderProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [isTruncated, setIsTruncated] = useState(false);
   const textRef = useRef<HTMLElement>(null);
@@ -70,7 +72,7 @@ export function ChatContextHeader({ pointId, pointText, userPosition }: ChatCont
   return (
     <div
       data-testid="chat-context-header"
-      className="sticky top-16 z-10 bg-background border-b border-border px-4 flex items-center gap-2 py-2 min-h-[48px]"
+      className={`${sticky ? 'sticky top-16 z-10' : ''} bg-background border-b border-border px-4 flex items-center gap-2 py-2 min-h-[48px]`}
     >
       {/* Pin icon */}
       <Pin

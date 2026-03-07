@@ -539,7 +539,7 @@ export function IdeaDetailPage() {
         {/* Discuss in Chat button */}
         <div className="mt-4">
           <Link
-            to={`/chat?ideaId=${idea.id}`}
+            to={`/create?ideaId=${idea.id}`}
             className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors"
           >
             <MessageCircle className="h-4 w-4" />
