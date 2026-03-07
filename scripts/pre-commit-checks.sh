@@ -534,9 +534,11 @@ fi
 echo ""
 
 # Summary
-echo "=== SUMMARY ==="
+CURRENT_BRANCH=$(git branch --show-current 2>/dev/null || echo "unknown")
+echo "=== SUMMARY === (branch: $CURRENT_BRANCH)"
 if [ $ERRORS -gt 0 ]; then
     echo -e "${RED}✗ $ERRORS error(s) - commit blocked${NC}"
+    echo -e "${YELLOW}  Branch: $CURRENT_BRANCH${NC}"
     exit 1
 elif [ $WARNINGS -gt 0 ]; then
     echo -e "${YELLOW}⚠ $WARNINGS warning(s) - review before committing${NC}"

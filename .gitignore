@@ -102,3 +102,4 @@ content/sifter/sessions/
 
 # Deploy queue — local operational state, cleared by /ship after running
 DEPLOY_QUEUE.md
+.claude/.expected-branch

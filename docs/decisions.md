@@ -2,6 +2,22 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-07 [process]: Lost edits root cause — branch drift during multi-branch sessions
+
+**Context:** Recurring problem: agent edits files, they "disappear." Happened 4+ times across sessions. This session: edits to `App.tsx` and `TreePage.tsx` re-applied 3 times before realizing the branch had drifted from P485 to P483. Past attempts to fix: index collision check in `/dev` (2026-02-25), worktree automation rejected (2026-02-26), KDD branch guard (2026-03-05). All discipline-based → all failed under cognitive load.
+
+**Root cause (5-why):** Multiple sessions/terminals share `.git/HEAD`. No per-edit branch assertion exists. Branch drifts between checkpoints (skill start, commit time). Failed pre-commit hooks don't display the branch name. Uncommitted edits are silently overwritten by `git checkout`.
+
+**Decision:** Implement **PreToolUse branch assertion hook** — lightweight bash hook (~20 lines) that fires before every `Write`/`Edit` tool call. Checks `git branch --show-current` against `.claude/.expected-branch` (set by `/dev` or agent at branch creation). Blocks and warns on mismatch. Also add branch name display to pre-commit hook failure output.
+
+**Alternatives rejected:**
+- Worktree-per-session automation — previously rejected (2026-02-26) due to `.env.local` showstopper + transparency. Could revisit as prompted (not auto) version.
+- "Commit more frequently" (discipline) — proven to fail 4 times. Not a mechanical fix.
+
+**Consequences:** Agents cannot silently edit files on the wrong branch. May occasionally false-positive when intentional branch switches happen without updating `.expected-branch` — acceptable trade-off vs losing work.
+
+**References:** [git-workflow.md](docs/technical/git-workflow.md), [worktree-setup.md](docs/technical/worktree-setup.md)
+
 ## 2026-03-06 [product]: Profile metadata line — always "N Clarity Partners", no viewer-specific copy
 
 **Context:** `AgreementsMetadataLine` had a "visitor-party" branch that changed the label to "You have N agreement(s) with this person" when the logged-in user was party to an agreement with the profile owner. All other viewers saw "N Clarity Partners →".
