@@ -1,7 +1,7 @@
 # Done Features Index
 
 Quick reference for past completed work. Consult when starting work on a related topic.
-Last updated: 2026-03-07 (P486)
+Last updated: 2026-03-07 (P487)
 
 ---
 
@@ -57,6 +57,7 @@ Last updated: 2026-03-07 (P486)
 - **P76** (Jan 27) Navigation Redirect Fixes — preserve intended destination URL after auth redirect
 - **P115** (Feb 5) Navigation and Data Fixes — correct route params, link semantics, data consistency
 - **P486** (Mar 07) Replace /chat with /create Form — 7-value positions map to 3-value for display; `hasPosition` boolean gates linkPointToStory (not position value); leave unreachable components for tree-shaking
+- **P487** (Mar 07) Unify Story CTA Copy — `getPositionCTACopy()` unified to return "Add your story →" for all positions (was position-specific "Why do you agree?" etc.); symbols/labels remain distinct per position group
 
 ## UI / Design System
 
