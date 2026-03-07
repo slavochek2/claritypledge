@@ -2,6 +2,26 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-07 [product]: Replace /chat AI-guided flow with simple /create form (P486)
+
+**Context:** The /chat route used a Gemini-powered StoryGuideChat for AI-assisted story creation. It was broken (streaming issues, state persistence bugs — P446), added friction for C1 pairs who just need to file stories quickly, and the AI guidance added no validated value.
+
+**Decision:** Replace /chat with a direct `/create` form page. Point context flows via `?pointId=` query param → parallel fetch of point + position → ChatContextHeader banner → story linked on save. /chat and /clarity-chat redirect to /create (preserving query params). StoryGuideChat components left in codebase but unreachable (lazy import removed).
+
+**Alternatives rejected:**
+- Fix StoryGuideChat (P446 bugs) — high cost, unvalidated value. AI guidance is a hypothesis, not a proven need.
+- Remove StoryGuideChat components entirely — unnecessary churn, tree-shaking makes them zero-cost.
+- Position ownership server-side check before linkPointToStory — deferred; RLS is sufficient for C1 trust level.
+
+**Technical notes:**
+- 7-value granular positions (strongly_agree, somewhat_agree, etc.) mapped to 3-value scale (agree/disagree/unsure) for ChatContextHeader display
+- Auth redirect preserves return URL via P76 pattern (`?redirect=` + `ALLOWED_REDIRECT_PREFIXES`)
+- `linkPointToStory` guarded by `hasPosition` boolean (not position value) — no position = no link attempt
+
+**Consequences:** Story creation is now a single-page form. AI-guided flow can be restored later if hypothesis is validated. 8 entry points rewired from /chat to /create.
+
+**References:** [features/done/22_mar_26/p486_replace_chat_with_simple_create.md](../features/done/22_mar_26/p486_replace_chat_with_simple_create.md)
+
 ## 2026-03-07 [process]: Lost edits root cause — branch drift during multi-branch sessions
 
 **Context:** Recurring problem: agent edits files, they "disappear." Happened 4+ times across sessions. This session: edits to `App.tsx` and `TreePage.tsx` re-applied 3 times before realizing the branch had drifted from P485 to P483. Past attempts to fix: index collision check in `/dev` (2026-02-25), worktree automation rejected (2026-02-26), KDD branch guard (2026-03-05). All discipline-based → all failed under cognitive load.
