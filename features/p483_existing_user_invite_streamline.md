@@ -1,6 +1,6 @@
 ---
 title: 'P483: Existing User Invite Path Streamlining'
-status: in-progress
+status: qa
 type: story
 rank: 8.0
 workstream: C1
