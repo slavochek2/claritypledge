@@ -2,19 +2,21 @@
 
 ## Overview
 
-Worktrees provide isolated working directories on separate branches. The active pattern is **agent worktrees** — created on demand when needed for isolation. Named worktrees (`claritypledge-1..5`) are legacy and not maintained.
+Worktrees are the **default isolation mechanism** for all `/dev` and `/fix` work. Every P-number feature gets a worktree; branches are the mechanism inside worktrees, not a standalone workflow.
+
+**Why worktrees over branches alone:** Worktrees provide parallel testing (fixed ports), visual tracking (`kanban w1`), and session isolation (separate directories). A branch-only experiment (P483–P488, March 2026) produced orphaned branches, cross-contaminated commits, and a "ship without testing" pattern within 10 days. See [decisions.md 2026-03-07](../decisions.md).
+
+**Exception — branch-only:** Single-file trivial fixes (typo, copy change, config tweak) where creating a worktree would be overhead. These can go directly on a feature branch or main.
 
 ---
 
-## When Worktrees Are Used
+## When Worktrees Are Created
 
-**1. Risky or experimental changes**
+**1. Any `/dev` or `/fix` run on a P-number feature** — default behavior, not a special case.
 
-Major refactors (10+ files), new frameworks, or anything labeled experimental. Easy rollback if the experiment fails.
+**2. Risky or experimental changes** — major refactors (10+ files), new frameworks, anything labeled experimental.
 
-**2. Index collision — parallel feature work**
-
-Two Claude sessions running simultaneously share the same git staging area. Uncommitted changes from one session can be swept into the other's commit. When `git status` shows uncommitted changes from a different feature, create a worktree for the new feature before starting.
+**3. Index collision** — `git status` shows uncommitted changes from a different feature.
 
 ---
 
@@ -45,7 +47,7 @@ Immediately after creating any worktree, run:
 
 **Why it's required:** New worktrees don't include gitignored files or installed dependencies. Without `.env.local`, any script that reads credentials (migrations, edge function deploys, test setup) will silently fail. Without `node_modules`, nothing runs.
 
-**Note:** The script has a hardcoded `MAIN_REPO` path (`/Users/slavochek/Projects/public/claritypledge`). If the repo is cloned elsewhere, update line 9 of `scripts/setup-worktree.sh` before running.
+**Note:** The script auto-detects `MAIN_REPO` from its own location (no hardcoded paths).
 
 ---
 

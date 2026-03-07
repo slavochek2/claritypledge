@@ -89,42 +89,51 @@ Bug reported
 
 ## Workflow
 
-### Phase 0.0: Collision check
+### Phase 0.0: Worktree setup
+
+If this is a P-number bug fix AND current branch is `main`:
+
+**Default: create a worktree.**
+```bash
+git worktree add .claude/worktrees/w1 -b feature/pN-short-description
+./scripts/setup-worktree.sh .claude/worktrees/w1
+cd .claude/worktrees/w1
+```
+Use the first available slot (`w1`, `w2`). Check `git worktree list` first — if both slots are occupied, STOP and ask: "Both worktree slots are in use (w1: feature/pX, w2: feature/pY). Remove one or proceed on a branch?" Report: "Created worktree {slot} on branch feature/pN-... — dev server will run on port {5100 for w1, 5200 for w2}."
+
+**Exception — skip worktree if ALL of these are true:** (a) fix is a trivial single-file change, (b) no other features are in progress on the index, (c) user explicitly says "just do it inline." In that case, create a feature branch instead: `git checkout -b feature/pN-short-description`.
+
+Skip entirely if already in a worktree on the correct feature branch, or if task is a non-P-number fix (infra, docs, urgent prod hotfix).
+
+---
+
+### Phase 0.1: Collision check
 
 Run `git status --short`. If modified or staged files from a **different** feature exist (files unrelated to this bug fix):
 
 Present options and wait for decision:
-- **(A) Create a worktree** for this fix — clean index, full isolation (recommended). Create under `.claude/worktrees/feature-name`, then run `./scripts/setup-worktree.sh .claude/worktrees/feature-name` (symlinks `.env.local` + `node_modules` — required, or credential scripts fail).
+- **(A) Create a worktree** for this fix — clean index, full isolation (recommended). Create under `.claude/worktrees/w1`, then run `./scripts/setup-worktree.sh .claude/worktrees/w1`.
 - **(B) Commit current work first** — if in-progress work is at a safe checkpoint
 - **(C) Proceed anyway** — only if user confirms both are one logical changeset
 
-Do NOT proceed until user chooses. Staging collision = one fix's files swept into the other's commit.
-
-Skip if: working tree is clean, or all dirty files belong to this fix.
+Do NOT proceed until user chooses. Skip if already in a worktree (isolation is structural) or if tree is clean.
 
 ---
 
-### Phase 0: Branch check
+### Phase 0.2: Branch distance check
 
-Check the current branch and its distance from `main`:
+If on a feature branch (not in a worktree), check distance from main:
 ```bash
-git branch --show-current
 git rev-list --count main..HEAD
 ```
 
-- **If on `main`** AND this is a P-number feature fix (not an urgent prod hotfix):
-  - Check if a `feature/pN*` branch already exists → if yes, `git checkout feature/pN-...` before starting
-  - If no branch exists, create one: `git checkout -b feature/pN-short-description`
-  - Report: "Switching to feature/pN-... — fix will stay off main until /ship."
-
-- **If on a feature branch with ≤ 5 commits ahead of main**: safe, proceed.
-
-- **If on a feature branch with > 5 commits ahead of main**: **STOP and warn**:
+- **≤ 5 commits ahead**: safe, proceed.
+- **> 5 commits ahead**: **STOP and warn**:
   ```
   ⚠️  You're on `{branch}` — {N} commits ahead of main.
   Running /ship later will ship ALL {N} commits, not just this work.
 
-  A) Create a new branch off main for this change (recommended — clean /ship path)
+  A) Create a worktree off main for this change (recommended — clean /ship path)
   B) Stay here — cherry-pick the commit to a main-based branch after implementation
   C) Proceed anyway — you intend to ship this whole branch
 
@@ -132,9 +141,7 @@ git rev-list --count main..HEAD
   ```
   Wait for decision. Do NOT proceed without confirmation.
 
-Skip the check entirely for non-P-number tasks (infra, docs, small inline fixes) or urgent prod hotfixes.
-
-### Phase 0.1: Mark in Progress
+### Phase 0.3: Mark in Progress
 
 If a P-number spec was provided (file path or short form like `p99`):
 1. Locate feature file: `features/p{N}_*.md`

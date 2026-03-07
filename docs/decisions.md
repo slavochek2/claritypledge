@@ -2,6 +2,20 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-07 [process]: Worktrees restored as primary isolation — branch-only experiment failed
+
+**Context:** After worktree slot naming was established (2026-03-02), a branch-only workflow crept in for P483–P488. In 10 days: P487 shipped directly on main (no branch), P488 committed onto P483's branch (cross-contamination), P484/P485 branches orphaned (never merged, no specs). The branch-assert hook (2026-03-06) was stale within a day (`.expected-branch` set to `main` while on `feature/p483`). Root cause: branches removed 3 capabilities worktrees provided — parallel testing (fixed ports w1=5100, w2=5200), visual tracking (kanban w1), and session isolation (separate directories). Without these, the path of least resistance became "ship without testing."
+
+**Decision:** Worktrees are the default for all `/dev` and `/fix` work. Branches are the mechanism inside worktrees, not a standalone workflow. `/dev` step 0 creates a worktree; branch-only is the exception for single-file trivial fixes.
+
+**Alternatives rejected:**
+- Branch-only with added tooling (kanban branch field, port conventions, stricter hooks) — reinvents what worktrees already provide; each guard is another thing that can go stale.
+- Hybrid (branches for small, worktrees for complex) — in practice, everything feels small in the moment; P487 "felt small" and shipped on main untested.
+
+**Consequences:** Update `/dev` and `/fix` skills to create worktrees by default. Update worktree-setup.md (remove "legacy" language), git-workflow.md (worktree = default in decision table), CLAUDE.md (promote worktree from "suggest" to "default"). Branch-assert hook becomes unnecessary (worktree isolation is structural, not discipline-based). Orphaned branches (p484, p485) to be cleaned up.
+
+**References:** [worktree-setup.md](docs/technical/worktree-setup.md), [git-workflow.md](docs/technical/git-workflow.md), branch-assert decision (2026-03-06)
+
 ## 2026-03-07 [product]: Unify story CTA copy to "Add your story" across all surfaces (P487)
 
 **Context:** P486 replaced CTA destinations (chat→create) and introduced "Add your story →" copy on 4 surfaces, but left `getPositionCTACopy()` returning position-specific text ("Why do you agree? →", "Why do you disagree? →", "What makes you unsure? →") on 4 other surfaces. Users saw inconsistent CTA copy depending on which surface they encountered.

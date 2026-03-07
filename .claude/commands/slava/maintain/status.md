@@ -12,15 +12,17 @@ This conversation only. No git commands, no scanning features/, no project-wide 
 
 ## Output format (≤15 lines, no preamble)
 
-Before outputting, run these two commands to get live state:
+Before outputting, run these commands to get live state:
 1. `git branch --show-current` — for the Branch line
-2. `git stash list` — to check for stashes (include ⚠ Stashes section if any exist)
+2. `git worktree list` — for active worktrees (include Worktrees section if any exist beyond main)
+3. `git stash list` — to check for stashes (include ⚠ Stashes section if any exist)
 
 ```
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 Session Status
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 Branch: {current branch from git}
+Worktrees: {w1 → feature/pN-... (port 5100), w2 → feature/pM-... (port 5200)} ← include only if worktrees exist beyond main; omit if none
 ⚠ Stashes: {stash@{0}: description} ← include only if stashes exist; omit section if none
 Done:
   ✓ Added ESLint auto-fix hook + wired into settings.json

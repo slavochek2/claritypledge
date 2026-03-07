@@ -8,9 +8,10 @@
 
 | Situation | Use | Why |
 |-----------|-----|-----|
-| Single feature, focused session | **Feature branch** | Simple, no extra setup, merges cleanly |
+| Any P-number feature (`/dev`, `/fix`) | **Worktree** (default) | Parallel testing, session isolation, fixed ports |
 | Risky change (10+ files, new framework, experimental) | **Worktree** | Easy rollback without touching main branch |
 | Agent parallelism (index collision risk) | **Worktree** | Each agent gets an isolated staging area |
+| Trivial fix (single file, typo, config tweak) | **Feature branch** | Worktree overhead not worth it |
 | Quick experiment that might be thrown away | **Worktree** | Reset without touching main branch |
 
 ### Feature branch workflow
@@ -61,18 +62,19 @@ done
 See [worktree-setup.md](worktree-setup.md) for full setup.
 
 ```bash
-# Create a worktree under .claude/worktrees/ (via git or EnterWorktree tool)
-git worktree add .claude/worktrees/feature-name -b feature/p422-clarity-partner-agreement
+# Create a worktree — always use slot name (w1, w2), not the feature name
+# The branch carries the feature identity
+git worktree add .claude/worktrees/w1 -b feature/p422-clarity-partner-agreement
 
 # Required after creation — symlinks .env.local and node_modules
-./scripts/setup-worktree.sh .claude/worktrees/feature-name
+./scripts/setup-worktree.sh .claude/worktrees/w1
 
-# Dev server — pick any free port (no pre-configured ports)
-cd .claude/worktrees/feature-name
-npm run dev -- --port 5101
+# Dev server — port is auto-detected from slot by vite.config.ts
+cd .claude/worktrees/w1
+npm run dev   # w1 = port 5100, w2 = 5200 (auto)
 ```
 
-**Note:** Named worktrees (`claritypledge-1..5`) are legacy — they exist as sibling directories but are no longer the active pattern. Use `.claude/worktrees/` for all new worktrees.
+Port reference: w0 (main) = 5001, w1 = 5100, w2 = 5200. See [worktree-setup.md](worktree-setup.md) for full details.
 
 ### Pre-push safety net
 

@@ -40,13 +40,11 @@ VITE_SUPABASE_ANON_KEY=your-anon-key
 
 ## Worktree Dev Servers
 
-Agent worktrees live under `.claude/worktrees/`. There are no pre-configured ports — pick any free port when starting a dev server in a worktree:
+Agent worktrees live under `.claude/worktrees/`, named by slot (`w1`, `w2`). Ports are auto-detected by `vite.config.ts` based on the slot:
 
 ```bash
-cd .claude/worktrees/feature-name
-npm run dev -- --port 5101
+cd .claude/worktrees/w1
+npm run dev   # w1 = port 5100, w2 = 5200 (auto)
 ```
 
-**Main repo:** `npm run dev` defaults to port 5001.
-
-**Legacy named worktrees** (`claritypledge-1..5`) used fixed ports (5100–5500). Those worktrees exist as sibling directories but are no longer the active pattern. See [worktree-setup.md](worktree-setup.md).
+Port reference: w0 (main) = 5001, w1 = 5100, w2 = 5200. See [worktree-setup.md](worktree-setup.md).

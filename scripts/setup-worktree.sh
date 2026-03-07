@@ -6,7 +6,7 @@
 
 set -euo pipefail
 
-MAIN_REPO="/Users/slavochek/Projects/public/claritypledge"
+MAIN_REPO="$(cd "$(dirname "$0")/.." && pwd)"
 
 if [[ $# -ne 1 ]]; then
   echo "Usage: $0 <worktree-path>"

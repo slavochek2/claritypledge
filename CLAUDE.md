@@ -199,7 +199,7 @@ See [git-workflow.md](docs/technical/git-workflow.md) and `.claude/rules/git.md`
 
 ### Risky Operations
 
-**Worktree protection:** For major refactors (10+ files), new frameworks, or anything experimental — suggest a worktree first. Worktrees named by slot (`w1`, `w2`), branch carries the feature: `git worktree add .claude/worktrees/w1 -b feature/pN-...`. See [worktree-setup.md](docs/technical/worktree-setup.md).
+**Worktrees are the default** for all `/dev` and `/fix` work on P-number features. Named by slot (`w1`, `w2`), branch carries the feature: `git worktree add .claude/worktrees/w1 -b feature/pN-...`. Exception: trivial single-file fixes can use a branch directly. See [worktree-setup.md](docs/technical/worktree-setup.md).
 
 **Index collision risk:** Before `/dev`, run `git status --short`. If files from a different feature exist: (A) create a worktree (recommended), (B) commit in-progress work first, or (C) user confirms both changes are one logical changeset.
 

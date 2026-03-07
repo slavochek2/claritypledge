@@ -62,26 +62,33 @@ You're not just writing code — you're building something that will run in prod
 
 ## Workflow
 
-0. **Pre-flight: branch check** — If current branch is `main` AND this is a P-number feature, create a feature branch before writing any code:
-   ```bash
-   git checkout -b feature/pN-short-description
-   ```
-   Name it `feature/pN-short-description`. Report: "Created branch feature/pN-... — commits will stay off main until you /ship."
-   Skip this if already on a feature branch or if task is not a P-number feature (infra, docs, small fixes).
+0. **Pre-flight: worktree setup** — If this is a P-number feature AND current branch is `main`:
 
-0.1. **Pre-flight: worktree signal check** — If a spec file was provided, scan it for the word "worktree". If found (e.g., "Apply in a worktree", "Worktree recommended"), present the option proactively even if the tree is clean:
+   **Default: create a worktree.**
+   ```bash
+   git worktree add .claude/worktrees/w1 -b feature/pN-short-description
+   ./scripts/setup-worktree.sh .claude/worktrees/w1
+   cd .claude/worktrees/w1
+   ```
+   Use the first available slot (`w1`, `w2`). Check `git worktree list` first — if both slots are occupied, STOP and ask: "Both worktree slots are in use (w1: feature/pX, w2: feature/pY). Remove one or proceed on a branch?" Report: "Created worktree {slot} on branch feature/pN-... — dev server will run on port {5100 for w1, 5200 for w2}."
+
+   **Exception — skip worktree if ALL of these are true:** (a) task is a trivial single-file fix (typo, copy change, config tweak), (b) no other features are in progress on the index, (c) user explicitly says "just do it inline." In that case, create a feature branch instead: `git checkout -b feature/pN-short-description`.
+
+   Skip entirely if already in a worktree on the correct feature branch, or if task is not a P-number feature (infra, docs).
+
+0.1. **Pre-flight: worktree signal check** — If a spec file was provided, scan it for the word "worktree". If found (e.g., "Apply in a worktree", "Worktree recommended"), confirm the worktree was created in step 0. If step 0 was skipped (exception case), present the option proactively:
    ```
    Spec recommends a worktree for this change (high blast radius).
    (A) Create worktree now — recommended
    (B) Proceed on current branch
    ```
-   Wait for decision. Skip if inline description mode (no spec file). Then proceed to the collision check below.
+   Wait for decision. Skip if inline description mode (no spec file).
 
 0.2. **Pre-flight: index collision check** — Run `git status --short`. If modified or untracked files from a **different** feature exist, stop and present options before touching any code:
    - **(A) Create a worktree** for this feature (recommended — clean index, parallel isolation)
    - **(B) Commit the in-progress work first** (if it's at a safe checkpoint)
    - **(C) Proceed anyway** (only if user explicitly confirms both features are one logical changeset)
-   Wait for user decision. Skip this check if the tree is clean or all changes belong to this feature.
+   Wait for user decision. Skip this check if already in a worktree (isolation is structural) or if the tree is clean.
 
 0.3. **Mark in-progress** — If a P-number spec was provided, update `status: in-progress` in frontmatter (skip silently if inline description mode)
 1. **Read tests** — UAT scenarios, E2E test stubs, acceptance criteria
