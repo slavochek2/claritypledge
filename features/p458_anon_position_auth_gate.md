@@ -1,5 +1,5 @@
 ---
-status: week
+status: backlog
 type: story
 rank: 500003.5
 flow: medium
@@ -11,7 +11,7 @@ tags:
   - embed
   - conversion
 prepped_date: '2026-02-27'
-delivery_stage: 4-tests-generated
+delivery_stage:
 reviews:
   ux: null
   architect: null
