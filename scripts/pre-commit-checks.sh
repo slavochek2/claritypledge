@@ -533,6 +533,35 @@ else
 fi
 echo ""
 
+# 19. Binary files check — prevent committing images/PDFs to docs/ or project root
+echo ">>> Checking for binary files being staged..."
+BINARY_STAGED=$(git diff --cached --name-only | \
+    grep -iE '\.(pdf|png|jpg|jpeg|gif|bmp|tiff|psd|ai|sketch|mp4|mov|zip|tar|gz)$' | \
+    grep -vE '^public/' || true)
+if [ -n "$BINARY_STAGED" ]; then
+    echo -e "${YELLOW}⚠ Binary file(s) staged outside public/ — use .private/ or external storage:${NC}"
+    echo "$BINARY_STAGED" | sed 's/^/  /'
+    WARNINGS=$((WARNINGS + 1))
+else
+    echo -e "${GREEN}✓ No binary files staged outside public/${NC}"
+fi
+echo ""
+
+# 20. UAT file naming check — all features/uat/ files must have P-number prefix
+echo ">>> Checking UAT file naming conventions..."
+BAD_UAT=$(git diff --cached --name-only | \
+    grep -E '^features/uat/' | \
+    grep -vE '^features/uat/p[0-9]+' || true)
+if [ -n "$BAD_UAT" ]; then
+    echo -e "${YELLOW}⚠ UAT file(s) without P-number prefix:${NC}"
+    echo "$BAD_UAT" | sed 's/^/  /'
+    echo -e "${YELLOW}  → UAT files must be named features/uat/p{N}.md${NC}"
+    WARNINGS=$((WARNINGS + 1))
+else
+    echo -e "${GREEN}✓ UAT file naming OK${NC}"
+fi
+echo ""
+
 # Summary
 CURRENT_BRANCH=$(git branch --show-current 2>/dev/null || echo "unknown")
 echo "=== SUMMARY === (branch: $CURRENT_BRANCH)"
