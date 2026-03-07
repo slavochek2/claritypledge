@@ -89,9 +89,8 @@ function AddPointForm({
   }, [autoFocus]);
 
   const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    if (e.target.value.length <= POINT_CHAR_MAX) {
-      setStatement(e.target.value);
-    }
+    const val = e.target.value;
+    setStatement(val.length <= POINT_CHAR_MAX ? val : val.slice(0, POINT_CHAR_MAX));
   };
 
   const handleRetryLink = async () => {
@@ -236,7 +235,7 @@ function AddPointForm({
           </p>
         )}
         {statement.length > 0 && (
-          <p className="text-xs text-muted-foreground">
+          <p className={`text-xs ${statement.length >= POINT_CHAR_MAX ? 'text-destructive font-medium' : statement.length >= POINT_CHAR_SOFT ? 'text-amber-600' : 'text-muted-foreground'}`}>
             {statement.length >= POINT_CHAR_SOFT
               ? <>Under 140 is punchiest · {statement.length}/{POINT_CHAR_MAX}</>
               : `${statement.length}/${POINT_CHAR_MAX}`}
@@ -499,9 +498,8 @@ function EditStoryCard({
         ref={textareaRef}
         value={content}
         onChange={(e) => {
-          if (e.target.value.length <= STORY_CHAR_MAX) {
-            onContentChange(e.target.value);
-          }
+          const val = e.target.value;
+          onContentChange(val.length <= STORY_CHAR_MAX ? val : val.slice(0, STORY_CHAR_MAX));
         }}
         onKeyDown={handleKeyDown}
         disabled={isSaving}
@@ -549,7 +547,7 @@ function EditStoryCard({
         </div>
         <span
           aria-live="polite"
-          className={`text-xs ${content.length >= STORY_CHAR_SOFT ? 'text-amber-600' : 'text-muted-foreground'}`}
+          className={`text-xs ${content.length >= STORY_CHAR_MAX ? 'text-destructive font-medium' : content.length >= STORY_CHAR_SOFT ? 'text-amber-600' : 'text-muted-foreground'}`}
         >
           {content.length} / {STORY_CHAR_MAX}
         </span>

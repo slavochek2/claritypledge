@@ -128,9 +128,7 @@ export function CreateStoryPage() {
   // Clear errors inline when user types
   const handleContentChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const val = e.target.value;
-    if (val.length <= CHAR_MAX) {
-      setContent(val);
-    }
+    setContent(val.length <= CHAR_MAX ? val : val.slice(0, CHAR_MAX));
     if (errors.content && val.trim()) {
       setErrors(prev => ({ ...prev, content: undefined }));
     }

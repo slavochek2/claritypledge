@@ -293,9 +293,8 @@ export function SettingsPage() {
             id="reason"
             value={reason}
             onChange={(e) => {
-              if (e.target.value.length <= 280) {
-                setReason(e.target.value);
-              }
+              const val = e.target.value;
+              setReason(val.length <= 280 ? val : val.slice(0, 280));
             }}
             maxLength={280}
             rows={4}
