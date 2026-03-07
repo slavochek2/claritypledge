@@ -6,7 +6,7 @@ rank: 8.0
 workstream: C1
 tags: [agreements, auth, ux, existing-users]
 prepped_date: '2026-03-06'
-delivery_stage: 4-tests-ready
+delivery_stage: uat
 flow: dev
 uat_file: features/uat/p483.md
 test_files:
