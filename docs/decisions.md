@@ -2,6 +2,20 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-07 [product]: Unify story CTA copy to "Add your story" across all surfaces (P487)
+
+**Context:** P486 replaced CTA destinations (chat→create) and introduced "Add your story →" copy on 4 surfaces, but left `getPositionCTACopy()` returning position-specific text ("Why do you agree? →", "Why do you disagree? →", "What makes you unsure? →") on 4 other surfaces. Users saw inconsistent CTA copy depending on which surface they encountered.
+
+**Decision:** Unify `getPositionCTACopy()` to return `ctaText: 'Add your story →'` and `ariaLabel: 'Add your story for this point'` for all three position groups. Position-specific symbols (✓/✗/~) and labels (Agree/Disagree/Unsure) remain distinct — only the action copy is unified.
+
+**Alternatives rejected:**
+- Keep position-specific questions ("Why do you agree?") — creates inconsistency with P486 surfaces that already use "Add your story". Users see two different CTAs for the same action.
+- Remove `getPositionCTACopy()` entirely — the function still provides value for position indicator prefixes (symbol + label).
+
+**Consequences:** All 8 CTA surfaces now show identical action copy. The position indicator prefix (e.g., "✓ Agree") still distinguishes context. Change-request pattern (`type: change-request`, `changes: p486`) used for traceability.
+
+**References:** [features/done/22_mar_26/p487_unify_story_cta_copy.md](../features/done/22_mar_26/p487_unify_story_cta_copy.md)
+
 ## 2026-03-07 [product]: Replace /chat AI-guided flow with simple /create form (P486)
 
 **Context:** The /chat route used a Gemini-powered StoryGuideChat for AI-assisted story creation. It was broken (streaming issues, state persistence bugs — P446), added friction for C1 pairs who just need to file stories quickly, and the AI guidance added no validated value.
