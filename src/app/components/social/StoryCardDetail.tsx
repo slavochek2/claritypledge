@@ -598,7 +598,7 @@ function QuotedPoint({
           const positionGroup = getPositionGroup(effectivePosition);
           const copy = getPositionCTACopy(positionGroup);
           const viewerStoryCount = linkedStories.filter(s => s.authorId === currentUserId).length;
-          const chatUrl = `/chat?from=position&pointId=${point.id}`;
+          const chatUrl = `/create?pointId=${point.id}`;
 
           return (
             <div

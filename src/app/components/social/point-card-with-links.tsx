@@ -296,7 +296,7 @@ export function PointCardWithLinks({
                         {/* Case D: viewer has position but no story yet on another's profile */}
                         {!liveSessionMode && !isOwnProfile && userPosition && effectiveViewerCount === 0 && (
                           <button
-                            onClick={(e) => { e.stopPropagation(); navigate(`/chat?from=position&pointId=${point.id}`); }}
+                            onClick={(e) => { e.stopPropagation(); navigate(`/create?pointId=${point.id}`); }}
                             className="text-sm text-blue-600 hover:text-blue-700 transition-colors"
                             aria-label="Add your story"
                           >
@@ -324,7 +324,7 @@ export function PointCardWithLinks({
                         <ChevronRight size={14} className="text-gray-400" />
                         <span className="text-sm text-gray-600">{storyLabel}</span>
                         <button
-                          onClick={(e) => { e.stopPropagation(); navigate(`/chat?from=position&pointId=${point.id}`); }}
+                          onClick={(e) => { e.stopPropagation(); navigate(`/create?pointId=${point.id}`); }}
                           className="text-sm text-blue-600 hover:text-blue-700 transition-colors"
                           aria-label="Add your story"
                         >
@@ -453,7 +453,7 @@ export function PointCardWithLinks({
                   {/* Case D: viewer has position but no story yet on another's profile */}
                   {!liveSessionMode && !isOwnProfile && userPosition && effectiveViewerCount === 0 && (
                     <button
-                      onClick={(e) => { e.stopPropagation(); navigate(`/chat?from=position&pointId=${point.id}`); }}
+                      onClick={(e) => { e.stopPropagation(); navigate(`/create?pointId=${point.id}`); }}
                       className="text-sm text-blue-600 hover:text-blue-700 transition-colors"
                       aria-label="Add your story"
                     >
@@ -513,7 +513,7 @@ export function PointCardWithLinks({
             >
               <div className="flex items-center gap-1 text-sm">
                 <button
-                  onClick={(e) => { e.stopPropagation(); navigate(`/chat?from=position&pointId=${point.id}`); }}
+                  onClick={(e) => { e.stopPropagation(); navigate(`/create?pointId=${point.id}`); }}
                   aria-label={copy.ariaLabel}
                   className="font-medium text-blue-600 hover:text-blue-700 transition-colors"
                 >

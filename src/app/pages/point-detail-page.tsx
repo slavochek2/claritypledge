@@ -418,7 +418,7 @@ export function PointDetailPage() {
                       key={holder.id}
                       holder={holder}
                       onProfileClick={() => navigate(`/p/${holder.userSlug}`)}
-                      ctaHref={showCta ? `/chat?from=position&pointId=${id}` : undefined}
+                      ctaHref={showCta ? `/create?pointId=${id}` : undefined}
                     />
                   );
                 })}

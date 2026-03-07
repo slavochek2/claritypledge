@@ -4,9 +4,10 @@
  * Route: /create
  */
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import { useAuth } from '@/auth';
 import { storiesService } from '@/app/data/stories-service';
+import { pointsService } from '@/app/data/points-service';
 import { toast } from 'sonner';
 import { useVerificationGate } from '@/app/hooks/useVerificationGate';
 import { Loader2Icon, ArrowLeft } from 'lucide-react';
@@ -15,6 +16,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { analytics } from '@/lib/mixpanel';
 import { MobileTooltip } from '@/app/components/shared/mobile-tooltip';
 import { VISIBILITY_OPTIONS } from '@/app/data/story-visibility-options';
+import { ChatContextHeader } from '@/app/components/story-guide/ChatContextHeader';
 
 /** Soft character marker — not a hard limit, just the sweet spot for verification */
 const CHAR_SOFT_MARKER = 280;
@@ -24,8 +26,13 @@ const CHAR_MAX = 10000;
 
 export function CreateStoryPage() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const [searchParams] = useSearchParams();
   const { user, session, isLoading: authLoading } = useAuth();
   const { checkVerified } = useVerificationGate();
+
+  // Point context from query params
+  const pointId = searchParams.get('pointId') || '';
 
   // Form state
   const [content, setContent] = useState('');
@@ -37,20 +44,61 @@ export function CreateStoryPage() {
   const hasTrackedPageView = useRef(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
+  // Point context state
+  const [pointLoading, setPointLoading] = useState(!!pointId);
+  const [pointText, setPointText] = useState<string | null>(null);
+  const [userPosition, setUserPosition] = useState<'agree' | 'disagree' | 'unsure' | null>(null);
+  const [pointLoadedId, setPointLoadedId] = useState<string | null>(null);
+
+  // Fetch point + position in parallel when pointId is present
+  useEffect(() => {
+    if (!pointId || !user?.id) return;
+
+    let cancelled = false;
+    setPointLoading(true);
+
+    Promise.all([
+      pointsService.getPoint(pointId),
+      pointsService.getMyPosition(pointId, user.id),
+    ]).then(([point, position]) => {
+      if (cancelled) return;
+      if (point) {
+        setPointText(point.statement);
+        setPointLoadedId(point.id);
+        setUserPosition(position?.position as 'agree' | 'disagree' | 'unsure' | null ?? null);
+      }
+      // If point is null (not found), graceful degradation — no banner
+      setPointLoading(false);
+    }).catch(() => {
+      if (!cancelled) setPointLoading(false);
+    });
+
+    return () => { cancelled = true; };
+  }, [pointId, user?.id]);
+
+  // Auto-focus textarea: after point loads (if pointId), or on mount (if no pointId)
+  useEffect(() => {
+    if (pointId && pointLoading) return; // Wait for point to load
+    if (authLoading || !session) return;
+    textareaRef.current?.focus();
+  }, [pointId, pointLoading, authLoading, session]);
+
   // Track page view
   useEffect(() => {
     if (!authLoading && session && user && !hasTrackedPageView.current) {
       hasTrackedPageView.current = true;
-      analytics.track('story_creation_started');
+      analytics.track('story_creation_started', pointId ? { linked_point_id: pointId } : undefined);
     }
-  }, [authLoading, session, user]);
+  }, [authLoading, session, user, pointId]);
 
   // Auth redirect — P396: unauthenticated users go to signup (not login)
+  // P486: preserve return URL via ?redirect= query param (P76 pattern)
   useEffect(() => {
     if (!authLoading && !session) {
-      navigate('/signup');
+      const returnUrl = location.pathname + location.search;
+      navigate(`/signup?redirect=${encodeURIComponent(returnUrl)}`);
     }
-  }, [authLoading, session, navigate]);
+  }, [authLoading, session, navigate, location.pathname, location.search]);
 
   // Auto-resize textarea
   const autoResize = useCallback(() => {
@@ -106,11 +154,23 @@ export function CreateStoryPage() {
         return;
       }
 
+      // Link story to point if we have a valid point context with a position
+      let linkFailed = false;
+      if (pointLoadedId && userPosition) {
+        try {
+          const linked = await storiesService.linkPointToStory(story.id, pointLoadedId, user.id);
+          if (!linked) linkFailed = true;
+        } catch {
+          linkFailed = true;
+        }
+      }
+
       const words = content.trim().split(/\s+/).filter(Boolean);
       analytics.track('story_created', {
         story_id: story.id,
-        has_points: false,
-        points_count: 0,
+        has_points: !!pointLoadedId,
+        points_count: pointLoadedId ? 1 : 0,
+        linked_point_id: pointLoadedId || undefined,
         word_count: words.length,
         visibility,
       });
@@ -121,8 +181,8 @@ export function CreateStoryPage() {
         visibility,
       });
 
-      toast.success('Story saved!');
-      navigate(`/story/${story.id}`, { state: { justCreated: true } });
+      toast.success(linkFailed ? 'Story saved! (Point link could not be saved)' : 'Story saved!');
+      navigate(`/story/${story.id}`, { state: { justCreated: true }, replace: true });
     } catch (err) {
       console.error('Error creating story:', err);
       toast.error('Save failed. Please check your connection and try again.');
@@ -158,6 +218,28 @@ export function CreateStoryPage() {
         Back
       </Button>
 
+      {/* Point context banner (P486) */}
+      {pointId && (
+        <div
+          role="region"
+          aria-label="Point context"
+          aria-live="polite"
+          aria-busy={pointLoading}
+          className="mb-4"
+        >
+          {pointLoading ? (
+            <div className="animate-pulse bg-muted rounded h-[48px]" />
+          ) : pointText && pointLoadedId ? (
+            <ChatContextHeader
+              pointId={pointLoadedId}
+              pointText={pointText}
+              userPosition={userPosition}
+              sticky={false}
+            />
+          ) : null}
+        </div>
+      )}
+
       {/* Header */}
       <div className="mb-8">
         <h1 className="text-3xl font-bold">Create a Story</h1>
@@ -178,7 +260,16 @@ export function CreateStoryPage() {
             id="story-content"
             value={content}
             onChange={handleContentChange}
+            onKeyDown={(e) => {
+              if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+                e.preventDefault();
+                handleSubmit(e as unknown as React.FormEvent);
+              }
+            }}
             rows={6}
+            disabled={pointLoading}
+            tabIndex={pointLoading ? -1 : undefined}
+            aria-disabled={pointLoading || undefined}
             aria-describedby={errors.content ? 'content-error' : 'content-hint'}
             aria-invalid={errors.content ? 'true' : undefined}
             className={`px-4 py-3 resize-y min-h-[150px] ${errors.content ? 'border-red-500' : ''}`}
@@ -233,7 +324,7 @@ export function CreateStoryPage() {
         <div className="pt-4">
           <Button
             type="submit"
-            disabled={isSaving}
+            disabled={isSaving || pointLoading}
             className="bg-blue-500 hover:bg-blue-600 text-white min-h-[44px]"
           >
             {isSaving ? (

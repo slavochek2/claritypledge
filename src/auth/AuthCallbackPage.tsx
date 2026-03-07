@@ -481,7 +481,7 @@ export function AuthCallbackPage() {
 
       // Redirect after auth: validate redirect against allowed prefixes
       setStatus("Redirecting...");
-      const ALLOWED_REDIRECT_PREFIXES = ['/events', '/settings', '/me', '/p/', '/about', '/pledgers', '/manifesto', '/live', '/agreements'];
+      const ALLOWED_REDIRECT_PREFIXES = ['/events', '/settings', '/me', '/p/', '/about', '/pledgers', '/manifesto', '/live', '/agreements', '/create'];
       const isValidRedirect = redirectPath
         && redirectPath.startsWith('/')
         && !redirectPath.startsWith('//')

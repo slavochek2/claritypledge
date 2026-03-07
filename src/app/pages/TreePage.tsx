@@ -7,9 +7,9 @@ const productionPages = [
     description: 'Browse and vote on ideas'
   },
   {
-    path: '/chat',
-    label: 'Chat',
-    description: 'Chat interface'
+    path: '/create',
+    label: 'Create Story',
+    description: 'Create a new story'
   },
   {
     path: '/demo',

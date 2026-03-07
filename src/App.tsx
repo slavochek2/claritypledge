@@ -1,4 +1,4 @@
-import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter as Router, Routes, Route, Navigate, useSearchParams } from "react-router-dom";
 import { lazy, Suspense, Component, ReactNode } from "react";
 import * as Sentry from "@sentry/react";
 import { HelmetProvider } from "react-helmet-async";
@@ -25,7 +25,6 @@ const PrivacyPolicyPage = lazy(() => import("@/app/pages/privacy-policy-page").t
 const TermsOfServicePage = lazy(() => import("@/app/pages/terms-of-service-page").then(m => ({ default: m.TermsOfServicePage })));
 const SettingsPage = lazy(() => import("@/app/pages/settings-page").then(m => ({ default: m.SettingsPage })));
 const ClarityDemoPage = lazy(() => import("@/app/pages/clarity-demo-page").then(m => ({ default: m.ClarityDemoPage })));
-const StoryGuideChatPage = lazy(() => import("@/app/pages/story-guide-chat-page").then(m => ({ default: m.StoryGuideChatPage })));
 const IdeaFeedPage = lazy(() => import("@/app/pages/idea-feed-page").then(m => ({ default: m.IdeaFeedPage })));
 const IdeaDetailPage = lazy(() => import("@/app/pages/idea-detail-page").then(m => ({ default: m.IdeaDetailPage })));
 const ClarityLivePage = lazy(() => import("@/app/pages/clarity-live-page").then(m => ({ default: m.ClarityLivePage })));
@@ -48,6 +47,13 @@ const ConvergedPrototype = lazy(() => import("@/app/prototypes/converged").then(
 const LinkedInLikePrototype = lazy(() => import("@/app/prototypes/linkedin-like").then(m => ({ default: m.LinkedInLikePrototype })));
 const EventsPrototype = lazy(() => import("@/app/prototypes/events").then(m => ({ default: m.EventsPrototype })));
 const EventsMockPrototype = lazy(() => import("@/app/prototypes/events-mock").then(m => ({ default: m.EventsMockPrototype })));
+
+/** P486: Redirect /chat → /create, forwarding all query params via useSearchParams */
+function ChatRedirect() {
+  const [searchParams] = useSearchParams();
+  const qs = searchParams.toString();
+  return <Navigate to={qs ? `/create?${qs}` : '/create'} replace />;
+}
 
 // Loading fallback for lazy routes
 function PageLoader() {
@@ -466,21 +472,9 @@ export default function ClarityPledgeApp() {
           element={<Navigate to="/demo" replace />}
         />
 
-        <Route
-          path="/chat"
-          element={
-            <ClarityLandingLayout>
-              <LazyRoute>
-                <StoryGuideChatPage />
-              </LazyRoute>
-            </ClarityLandingLayout>
-          }
-        />
-        {/* Redirect old route for backwards compatibility */}
-        <Route
-          path="/clarity-chat"
-          element={<Navigate to="/chat" replace />}
-        />
+        {/* P486: /chat → /create redirect (preserves query params) */}
+        <Route path="/chat" element={<ChatRedirect />} />
+        <Route path="/clarity-chat" element={<ChatRedirect />} />
 
         <Route
           path="/feed"
