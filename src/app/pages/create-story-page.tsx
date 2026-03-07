@@ -48,6 +48,7 @@ export function CreateStoryPage() {
   const [pointLoading, setPointLoading] = useState(!!pointId);
   const [pointText, setPointText] = useState<string | null>(null);
   const [userPosition, setUserPosition] = useState<'agree' | 'disagree' | 'unsure' | null>(null);
+  const [hasPosition, setHasPosition] = useState(false);
   const [pointLoadedId, setPointLoadedId] = useState<string | null>(null);
 
   // Fetch point + position in parallel when pointId is present
@@ -65,7 +66,18 @@ export function CreateStoryPage() {
       if (point) {
         setPointText(point.statement);
         setPointLoadedId(point.id);
-        setUserPosition(position?.position as 'agree' | 'disagree' | 'unsure' | null ?? null);
+        // Map granular 7-value positions to 3-value for ChatContextHeader display
+        const pos = position?.position;
+        if (pos) {
+          setHasPosition(true);
+          if (pos === 'agree' || pos === 'somewhat_agree' || pos === 'strongly_agree') {
+            setUserPosition('agree');
+          } else if (pos === 'disagree' || pos === 'somewhat_disagree' || pos === 'strongly_disagree') {
+            setUserPosition('disagree');
+          } else {
+            setUserPosition('unsure');
+          }
+        }
       }
       // If point is null (not found), graceful degradation — no banner
       setPointLoading(false);
@@ -156,7 +168,7 @@ export function CreateStoryPage() {
 
       // Link story to point if we have a valid point context with a position
       let linkFailed = false;
-      if (pointLoadedId && userPosition) {
+      if (pointLoadedId && hasPosition) {
         try {
           const linked = await storiesService.linkPointToStory(story.id, pointLoadedId, user.id);
           if (!linked) linkFailed = true;
@@ -218,8 +230,8 @@ export function CreateStoryPage() {
         Back
       </Button>
 
-      {/* Point context banner (P486) */}
-      {pointId && (
+      {/* Point context banner (P486) — only render region when loading or point found */}
+      {pointId && (pointLoading || (pointText && pointLoadedId)) && (
         <div
           role="region"
           aria-label="Point context"
