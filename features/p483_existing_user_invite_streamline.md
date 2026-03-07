@@ -13,6 +13,7 @@ reviews:
   architect: null
   alignment: null
 created_date: 2026-03-06
+superseded_by: p488
 ---
 
 # P483: Existing User Invite Path Streamlining
