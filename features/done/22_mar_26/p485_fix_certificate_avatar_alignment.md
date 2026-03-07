@@ -1,8 +1,9 @@
 ---
-status: qa
+status: done
 type: bug
 severity: low
 date_reported: 2026-03-06
+completed_at: "2026-03-07"
 p_number: 485
 title: Certificate signature block avatars visually misaligned
 date_resolved: 2026-03-06
