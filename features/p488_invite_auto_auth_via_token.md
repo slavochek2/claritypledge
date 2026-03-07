@@ -123,7 +123,7 @@ Eliminate the second email round-trip entirely for existing users. When an exist
 
 **Decision 3: Fallback for expired magic links -- reuse P483 C1 path**
 
-- **Chosen:** When an existing user clicks an invite link with an expired magic link token (>1 hour) but a still-valid invitation token (<7 days), Supabase's `/auth/v1/verify` will fail and redirect to the accept page without a session (Supabase redirects to `redirect_to` even on failure, with an error hash). The accept page detects the unauthenticated state and falls back to the P483 C1 path (`existingPartner` detected, "Sign In to Co-Sign" button shown).
+- **Chosen:** When an existing user clicks an invite link with an expired magic link token (>1 hour) but a still-valid invitation token (<7 days), Supabase's `/auth/v1/verify` returns HTTP 303 redirect to `redirect_to` with error hash: `#error=access_denied&error_code=otp_expired&error_description=Email+link+is+invalid+or+has+expired`. **Verified against test project** (2026-03-07). The accept page detects the unauthenticated state and falls back to the P483 C1 path (`existingPartner` detected, "Sign In to Co-Sign" button shown).
 - **Rationale:** This graceful degradation means P488 needs zero changes to the accept page's unauthenticated-existing-user handling. The P483 C1 path becomes the fallback, not the primary path.
 - **Trade-off:** Users who click after 1 hour still get one email round-trip. Acceptable -- the 1-hour window covers the vast majority of invitation responses.
 - **Alternative rejected:** Generating a new magic link on every accept page load for unauthenticated existing users -- adds latency, requires another edge function call, and introduces a loop risk if the magic link generation itself fails.
@@ -214,7 +214,7 @@ Eliminate the second email round-trip entirely for existing users. When an exist
    - If user not found (new user): use `acceptUrl` directly (no magic link).
 
 2. **Accept page: handle auth error hash + security hardening** (~15 lines)
-   - On mount, check `window.location.hash` for `#error=` (Supabase appends this when magic link verification fails — **NOTE: verify this behavior against the test Supabase project before implementing; if Supabase does NOT redirect to `redirect_to` on failure, this step is unnecessary and the fallback path needs investigation**).
+   - On mount, check `window.location.hash` for `#error=` (verified: Supabase returns 303 redirect to `redirect_to` with `#error=access_denied&error_code=otp_expired` on expired tokens).
    - If present, clear the hash (`window.history.replaceState(null, '', window.location.pathname + window.location.search)`) and let the page proceed to the unauthenticated flow (P483 C1 fallback).
    - When page loads with `pageState === 'partner'` (authenticated), clean up the URL: `window.history.replaceState(null, '', window.location.pathname)` to remove `?token=` from the address bar.
    - Add `<meta name="referrer" content="same-origin">` to the accept page head (or use react-helmet) to prevent invitation token leakage in Referer headers.
