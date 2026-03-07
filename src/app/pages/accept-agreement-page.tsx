@@ -29,6 +29,7 @@ import {
   DialogDescription,
 } from '@/components/ui/dialog';
 import { Loader2Icon, PenToolIcon } from 'lucide-react';
+import { Helmet } from 'react-helmet-async';
 import type { AgreementParty } from '@/app/data/agreements-service';
 
 type PageState = 'loading' | 'invalid' | 'unauthenticated' | 'partner' | 'wrong-user';
@@ -70,6 +71,14 @@ export function AcceptAgreementPage() {
   // Auto-accept intent stored before OTP redirect — consumed when user returns authenticated
   const pendingAutoAcceptRef = useRef<string | false>(false); // false = none, string = partnerName (may be '')
 
+  // P488: On mount, clear Supabase auth error hash fragments (e.g. expired magic link redirects)
+  // so the page proceeds cleanly to the unauthenticated fallback flow.
+  useEffect(() => {
+    if (window.location.hash.includes('#error=')) {
+      window.history.replaceState(null, '', window.location.pathname + window.location.search);
+    }
+  }, []);
+
   // Check localStorage for a pending auto-accept intent (set before OTP redirect)
   useEffect(() => {
     if (!agreementId) return;
@@ -84,7 +93,7 @@ export function AcceptAgreementPage() {
         pendingAutoAcceptRef.current = '';
       }
     }
-   
+
   }, [agreementId]);
 
   // Load agreement by token once auth state is resolved
@@ -136,6 +145,9 @@ export function AcceptAgreementPage() {
       }
 
       setPageState('partner');
+
+      // P488: Clean up ?token= from URL now that we're authenticated — prevents token leakage
+      window.history.replaceState(null, '', window.location.pathname);
 
       // P483: use profile name for existing user with valid name
       if (currentUser.name && currentUser.name.trim() && currentUser.name.trim() !== 'Unknown') {
@@ -393,6 +405,10 @@ export function AcceptAgreementPage() {
 
   return (
     <CertificatePageShell parchment className="py-10 space-y-6">
+      {/* P488: Prevent invitation token leakage in Referer headers */}
+      <Helmet>
+        <meta name="referrer" content="same-origin" />
+      </Helmet>
 
         {/* Page title */}
         <div className="text-center">
