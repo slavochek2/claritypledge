@@ -12,6 +12,7 @@ import { Button } from '@/components/ui/button';
 import type { StoryWithAuthor, StoryWithPoints, PointWithCreator, SessionHistoryItem } from '@/app/types';
 import { GravatarAvatar } from '@/components/ui/gravatar-avatar';
 import { analytics } from '@/lib/mixpanel';
+import { LinkedText } from '@/app/components/shared/linked-text';
 import { getFirstName, RatingButtons } from './shared';
 
 // ============================================================================
@@ -75,7 +76,7 @@ export function LiveStoryCard({
             isPledger={!!story.authorEarsCount}
           />
           <div className="flex-1">
-            <p className="text-sm font-medium text-foreground line-clamp-2">{preview}</p>
+            <p className="text-sm font-medium text-foreground line-clamp-2"><LinkedText text={preview} /></p>
             {story.content.length > 100 && (
               <p className="text-xs text-muted-foreground mt-0.5">Read more ↓</p>
             )}
@@ -111,7 +112,7 @@ export function LiveStoryCard({
           isPledger={!!story.authorEarsCount}
         />
         <div className="flex-1 max-h-[200px] overflow-y-auto">
-          <p className="text-sm font-medium text-foreground">{story.content}</p>
+          <p className="text-sm font-medium text-foreground"><LinkedText text={story.content} /></p>
         </div>
       </div>
 
@@ -193,9 +194,9 @@ export function LivePointCard({ point, onSelect, disabled }: LivePointCardProps)
       className="w-full text-left bg-card rounded-lg border-l-4 border-l-muted-foreground/50 border border-border shadow-sm p-4 hover:border-muted-foreground/70 hover:shadow-md transition-all disabled:opacity-50 disabled:cursor-not-allowed"
       data-testid={`live-point-card-${point.id}`}
     >
-      <p className="text-sm font-medium text-foreground line-clamp-2">{point.statement}</p>
+      <p className="text-sm font-medium text-foreground line-clamp-2"><LinkedText text={point.statement} /></p>
       {point.context && (
-        <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{point.context}</p>
+        <p className="text-xs text-muted-foreground mt-1 line-clamp-2"><LinkedText text={point.context} /></p>
       )}
     </button>
   );
@@ -478,7 +479,7 @@ export function StoryCardPreview({ story, showLinkedPoints = true }: StoryCardPr
           isPledger={!!story.authorEarsCount}
         />
         <div className="flex-1">
-          <p className="text-sm font-medium text-foreground line-clamp-2">{preview}</p>
+          <p className="text-sm font-medium text-foreground line-clamp-2"><LinkedText text={preview} /></p>
         </div>
       </div>
 
@@ -509,9 +510,9 @@ export function PointCardPreview({ point }: PointCardPreviewProps) {
       className="w-full max-w-sm bg-card rounded-lg border-l-4 border-l-muted-foreground/50 border border-border shadow-sm p-4"
       data-testid="point-card-preview"
     >
-      <p className="text-sm font-semibold text-foreground">{point.statement}</p>
+      <p className="text-sm font-semibold text-foreground"><LinkedText text={point.statement} /></p>
       {point.context && (
-        <p className="text-xs text-muted-foreground mt-2">{point.context}</p>
+        <p className="text-xs text-muted-foreground mt-2"><LinkedText text={point.context} /></p>
       )}
     </div>
   );
@@ -538,14 +539,14 @@ export function SelectedContentDisplay({ story, point }: SelectedContentDisplayP
     <div className="w-full max-w-sm" data-testid="selected-content-display">
       {story && (
         <div className="bg-muted border border-border rounded-lg p-4">
-          <p className="text-sm font-semibold text-foreground line-clamp-2">{story.content}</p>
+          <p className="text-sm font-semibold text-foreground line-clamp-2"><LinkedText text={story.content} /></p>
         </div>
       )}
       {point && (
         <div className="bg-muted border border-border rounded-lg p-4">
-          <p className="text-sm font-semibold text-foreground">{point.statement}</p>
+          <p className="text-sm font-semibold text-foreground"><LinkedText text={point.statement} /></p>
           {point.context && (
-            <p className="text-xs text-muted-foreground mt-1">{point.context}</p>
+            <p className="text-xs text-muted-foreground mt-1"><LinkedText text={point.context} /></p>
           )}
         </div>
       )}

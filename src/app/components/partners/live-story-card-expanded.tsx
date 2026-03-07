@@ -13,6 +13,7 @@ import {
   ThreadLineItem,
   type SevenPointCounts,
 } from '@/app/prototypes/linkedin-like/components/shared';
+import { LinkedText } from '@/app/components/shared/linked-text';
 
 function formatTimeAgo(dateStr: string): string {
   const date = new Date(dateStr);
@@ -112,7 +113,7 @@ export function LiveStoryCardExpanded({
                 {story.visibility && <VisibilityBadge visibility={story.visibility} />}
               </p>
             )}
-            <p id={`live-story-text-${story.id}`} className="text-sm text-gray-900 leading-snug">{displayText}</p>
+            <p id={`live-story-text-${story.id}`} className="text-sm text-gray-900 leading-snug"><LinkedText text={displayText} /></p>
             {isLongStory && (
               <button
                 type="button"

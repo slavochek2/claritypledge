@@ -19,6 +19,7 @@ import {
   ThreadLineItem,
   type SevenPointCounts,
 } from '@/app/prototypes/linkedin-like/components/shared';
+import { LinkedText } from '@/app/components/shared/linked-text';
 import type { Point, Position, Story, PositionType, PositionButtonGroup } from '@/app/prototypes/shared/types';
 import { getPositionGroup, getPositionCTACopy } from '@/app/prototypes/shared/types';
 
@@ -251,7 +252,7 @@ export function PointCardWithLinks({
                 <div className="flex-1 min-w-0">
                   {/* Point text */}
                   <p className={`text-gray-900 ${compact ? 'text-sm' : 'text-base'}`}>
-                    {point.text}
+                    <LinkedText text={point.text} />
                   </p>
 
                   {/* Position buttons */}
@@ -393,7 +394,7 @@ export function PointCardWithLinks({
 
               {/* Point text - same position as StoryCard text */}
               <p className={`text-gray-900 ${compact ? 'text-sm' : 'text-base'}`}>
-                {point.text}
+                <LinkedText text={point.text} />
               </p>
 
               {/* Position buttons */}
@@ -699,7 +700,7 @@ function QuotedStory({
       {/* Story text */}
       {!textExpanded && story.text.length > 100 ? (
         <p className="text-sm text-gray-800">
-          {story.text.slice(0, 100)}
+          <LinkedText text={story.text.slice(0, 100)} />
           <span
             data-testid="more-link"
             role="button"
@@ -710,7 +711,7 @@ function QuotedStory({
           > ...more</span>
         </p>
       ) : (
-        <p className="text-sm text-gray-800">{story.text}</p>
+        <p className="text-sm text-gray-800"><LinkedText text={story.text} /></p>
       )}
     </div>
   );

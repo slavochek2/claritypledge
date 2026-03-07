@@ -55,6 +55,7 @@ import {
   type SevenPointCounts,
 } from "@/app/prototypes/linkedin-like/components/shared";
 import { VisibilityBadge } from "@/app/components/shared/visibility-badge";
+import { LinkedText } from '@/app/components/shared/linked-text';
 import type { PositionType, Position } from "@/app/prototypes/shared/types";
 import type { StoryVisibility } from "@/app/types";
 import { getPositionGroup, type PositionButtonGroup } from "@/app/prototypes/shared/types";
@@ -1097,7 +1098,7 @@ function StoryCardFull({
             </div>
 
             {/* Story text */}
-            <p id={`story-text-${story.id}`} className="text-foreground text-base">{storyDisplayText}</p>
+            <p id={`story-text-${story.id}`} className="text-foreground text-base"><LinkedText text={storyDisplayText} /></p>
             {isLongStory && (
               <div role="presentation" onClick={(e) => e.stopPropagation()}>
                 <button
@@ -1349,7 +1350,7 @@ function QuotedPointCard({
 
           {/* Content column */}
           <div className="flex-1 min-w-0">
-            <p className="text-sm text-foreground">{point.statement}</p>
+            <p className="text-sm text-foreground"><LinkedText text={point.statement} /></p>
 
             {/* Position buttons - compact, only show for authenticated users */}
             {currentUserId && (
@@ -1465,7 +1466,7 @@ function PointCardFull({
 
             {/* Content column */}
             <div className="flex-1 min-w-0">
-              <p className="text-foreground text-base">{point.statement}</p>
+              <p className="text-foreground text-base"><LinkedText text={point.statement} /></p>
 
               {/* Position buttons */}
               <div role="presentation" className="mt-3" onClick={(e) => e.stopPropagation()}>

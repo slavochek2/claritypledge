@@ -7,6 +7,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { MessageCircle, ChevronDown, ChevronRight, ExternalLink, Pin } from 'lucide-react';
+import { LinkedText } from '@/app/components/shared/linked-text';
 import { EarBadge } from '@/components/ui/ear-badge';
 import { MobileTooltip } from '@/app/components/shared/mobile-tooltip';
 import { GravatarAvatar } from '@/components/ui/gravatar-avatar';
@@ -160,7 +161,7 @@ export function StoryCardWithLinks({
           {/* Story text */}
           {compact && !textExpanded && story.text.length > 150 ? (
             <p className="text-sm text-gray-900">
-              {story.text.slice(0, 150)}
+              <LinkedText text={story.text.slice(0, 150)} />
               <span
                 data-testid="more-link"
                 role="button"
@@ -172,7 +173,7 @@ export function StoryCardWithLinks({
             </p>
           ) : (
             <p className={`text-gray-900 ${compact ? 'text-sm' : 'text-base'}`}>
-              {story.text}
+              <LinkedText text={story.text} />
             </p>
           )}
         </div>
@@ -244,7 +245,7 @@ export function StoryCardWithLinks({
             {/* Story text - indented under author */}
             {compact && !textExpanded && story.text.length > 150 ? (
               <p className="text-sm text-gray-900">
-                {story.text.slice(0, 150)}
+                <LinkedText text={story.text.slice(0, 150)} />
                 <span
                   data-testid="more-link"
                   role="button"
@@ -256,7 +257,7 @@ export function StoryCardWithLinks({
               </p>
             ) : (
               <p className={`text-gray-900 ${compact ? 'text-sm' : 'text-base'}`}>
-                {story.text}
+                <LinkedText text={story.text} />
               </p>
             )}
 
@@ -552,7 +553,7 @@ function QuotedPoint({
           {/* Content column */}
           <div className="flex-1 min-w-0">
             {/* Point text */}
-            <p className="text-sm text-gray-800">{point.text}</p>
+            <p className="text-sm text-gray-800"><LinkedText text={point.text} /></p>
 
             {/* Position buttons - compact */}
             {currentUserId && (

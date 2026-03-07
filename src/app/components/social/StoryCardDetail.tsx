@@ -8,6 +8,7 @@
 
 import { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { LinkedText } from '@/app/components/shared/linked-text';
 import {
   ChevronDown,
   ChevronRight,
@@ -172,7 +173,7 @@ export function StoryCardDetail({
 
           {/* Story text */}
           <p className={`text-foreground ${compact ? 'text-sm line-clamp-3' : 'text-base'}`}>
-            {story.content}
+            <LinkedText text={story.content} />
           </p>
         </div>
       </div>
@@ -247,7 +248,7 @@ export function StoryCardDetail({
 
             {/* Story text - indented under author */}
             <p className={`text-foreground ${compact ? 'text-sm line-clamp-3' : 'text-base'}`}>
-              {story.content}
+              <LinkedText text={story.content} />
             </p>
 
             {/* Stats row - icon-only style */}
@@ -678,7 +679,7 @@ function LinkedStoryCard({
         <span className="text-xs font-medium text-muted-foreground">{story.authorName}</span>
         <EarBadge count={story.authorEarsCount ?? 0} name={story.authorName} size={11} />
       </div>
-      <p className="text-sm text-foreground line-clamp-2">{story.content}</p>
+      <p className="text-sm text-foreground line-clamp-2"><LinkedText text={story.content} /></p>
     </div>
   );
 }

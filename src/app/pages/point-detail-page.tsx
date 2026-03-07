@@ -29,6 +29,7 @@ import {
 import { RemovePositionDialog, useRemovePositionGuard } from '@/app/components/shared/remove-position-dialog';
 import { EarBadge } from '@/components/ui/ear-badge';
 import { StoryCardWithLinks, type StoryAuthor } from '@/app/components/social/story-card-with-links';
+import { LinkedText } from '@/app/components/shared/linked-text';
 
 /** Normalize positionCounts to SevenPointCounts (ensure all keys present) */
 function toSevenPointCounts(counts: Record<string, number>): SevenPointCounts {
@@ -299,7 +300,7 @@ export function PointDetailPage() {
             {/* Content column */}
             <div className="flex-1 min-w-0">
               {/* Point text */}
-              <p className="text-foreground font-medium text-lg mb-3">{point.statement}</p>
+              <p className="text-foreground font-medium text-lg mb-3"><LinkedText text={point.statement} /></p>
 
               {/* Context (if present) */}
               {point.context && (
