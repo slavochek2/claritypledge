@@ -1,6 +1,7 @@
 ---
-status: in-progress
-delivery_stage: 4-tests-generated
+status: done
+delivery_stage: done
+completed_at: '2026-03-07'
 type: change-request
 rank: 8.1
 workstream: C1

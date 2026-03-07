@@ -1,12 +1,14 @@
 ---
 title: 'P483: Existing User Invite Path Streamlining'
-status: qa
+status: done
 type: story
 rank: 8.0
 workstream: C1
 tags: [agreements, auth, ux, existing-users]
 prepped_date: '2026-03-06'
-delivery_stage: uat
+delivery_stage: done
+completed_at: '2026-03-07'
+superseded_by: p488
 flow: dev
 uat_file: features/uat/p483.md
 test_files:

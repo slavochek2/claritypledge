@@ -2,6 +2,21 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-07 [technical]: Invite auto-auth via server-side magic link for existing users (P483+P488)
+
+**Context:** P483 streamlined the invite flow for existing users (read-only name, skip OTP). P488 extended it: if the invited partner already has an account, generate a Supabase magic link server-side so they arrive on the accept page already authenticated — one-click signing instead of email→OTP→sign.
+
+**Decision:** Edge function `send-agreement-emails` detects existing users via `profiles` table lookup. For existing users: calls `auth.admin.generateLink({ type: 'magiclink', email, options: { redirectTo: acceptURL } })` to get a Supabase `/auth/v1/verify` URL, embeds it as the email CTA. For new users: falls back to direct accept URL (unchanged P483 OTP flow). Accept page cleans up `#error=` hash fragments (from expired magic links) via `history.replaceState` on mount, and strips `?token=` from URL after successful authentication. `<meta name="referrer" content="same-origin">` prevents token leakage via Referer header.
+
+**Alternatives rejected:**
+- Client-side magic link generation (via `supabase.auth.signInWithOtp`) — requires the accept page to detect existing users and trigger auth, adding a round-trip and complexity. Server-side generation is invisible to the user.
+- Custom token system instead of Supabase magic links — reinvents auth; Supabase handles expiry, rotation, and session creation.
+- Keeping OTP flow for all users regardless of account status — unnecessary friction for existing users who already have verified emails.
+
+**Consequences:** Existing users get one-click signing from invite email (magic link → authenticated → "I Accept & Co-Sign"). New users unchanged. Magic links expire after 1 hour; expired links redirect with `#error=access_denied` — accept page handles gracefully by falling back to unauthenticated state. Edge function requires `service_role` key (already deployed). P483 superseded by P488 (`type: change-request`).
+
+**References:** [P483](../features/p483_existing_user_invite_streamline.md), [P488](../features/p488_invite_auto_auth_via_token.md), [send-agreement-emails](../supabase/functions/send-agreement-emails/index.ts), [accept-agreement-page](../src/app/pages/accept-agreement-page.tsx)
+
 ## 2026-03-07 [process]: Worktrees restored as primary isolation — branch-only experiment failed
 
 **Context:** After worktree slot naming was established (2026-03-02), a branch-only workflow crept in for P483–P488. In 10 days: P487 shipped directly on main (no branch), P488 committed onto P483's branch (cross-contamination), P484/P485 branches orphaned (never merged, no specs). The branch-assert hook (2026-03-06) was stale within a day (`.expected-branch` set to `main` while on `feature/p483`). Root cause: branches removed 3 capabilities worktrees provided — parallel testing (fixed ports w1=5100, w2=5200), visual tracking (kanban w1), and session isolation (separate directories). Without these, the path of least resistance became "ship without testing."

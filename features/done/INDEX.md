@@ -1,7 +1,7 @@
 # Done Features Index
 
 Quick reference for past completed work. Consult when starting work on a related topic.
-Last updated: 2026-03-07 (P487)
+Last updated: 2026-03-07 (P488)
 
 ---
 
@@ -83,6 +83,8 @@ Last updated: 2026-03-07 (P487)
 
 ## Agreements & Relationships
 
+- **P488** (Mar 07) Invite Auto-Auth via Token — `auth.admin.generateLink` server-side for existing users; `history.replaceState` cleans `#error=` hash from expired magic links; referrer meta tag prevents token leakage
+- **P483** (Mar 07) Existing User Invite Streamline — read-only partner name from profile lookup; skip OTP for existing users; superseded by P488 (magic link auto-auth)
 - **P472** (Mar 04) Agreements Post-UAT Polish — signature row hidden in creation mode via single `isCreation` ternary; "Tell your story" CTA hidden in active mode via `!user` guard; `signInWithEmail` extended for context param forwarding; `AddToCalendarButton` extracted from prototypes; `B4+` localStorage cooldown pattern for rate-limited buttons
 - **P466** (Mar 04) Agreement Creation HelloSign Redesign — certificate-as-form layout; inline partner name input in "We, X and Y, agree to:" sentence; `partner_display_name` DB column; fallback chain: `partner.name` → `partnerDisplayName` → 'Invited party' (pending) / 'Partner' (other states)
 - **P445** (Mar 03) PII Email Masking — agreement row `getPartnerName()` falls back to `partnerDisplayName` → 'Invited party'; raw `partnerEmail` no longer rendered
