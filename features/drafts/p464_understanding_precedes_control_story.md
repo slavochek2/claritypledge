@@ -1,5 +1,5 @@
 ---
-status: backlog
+status: today
 type: story
 rank: 125470.0
 workstream: C1
@@ -11,82 +11,65 @@ tags: [onboarding, philosophy, meta-epistemology, stories]
 
 ## Origin
 
-Surfaced in voice note, 2026-03-01. Intended as an onboarding story / meta-epistemology entry point.
+Surfaced in voice note, 2026-03-01. Revised 2026-03-07 after conversation about what's minimally needed for /live calibration and onboarding to partner agreement.
 
-## The Core Insight
+## Approach: Objection-Driven, Not Sequential Curriculum
 
-The classic Stoic framework ("control what you can, accept what you can't") has a hidden prerequisite:
+The original plan was to file 8 ITT/RITT claims as sequential points. Revised approach: file points mapped to objections against a provocative proposal (Point 0). The /live session starts with Point 0; the participant's objection determines which points to calibrate on. Points are a **diagnostic toolkit**, not a curriculum.
 
-> **You can only know what you control if you first understand it.**
+**The /live conversation flow:**
+1. Propose Point 0
+2. Participant reacts — their objection routes to the relevant point
+3. Calibrate on that point (and subpoints as needed)
+4. Re-propose Point 0
+5. If they agree → help them create partner agreement with their person
+6. Success = they can onboard someone else using /live (RITT as graduation test, not calibration content)
 
-The chain:
-```
-What do I understand? → What can I actually control? → Accept or solve?
-```
+## Points & Objection Map
 
-If you don't understand something yet, any claim about whether it's "in your control" or not is premature — and leads to either:
-- False helplessness: accepting something you could actually change (you just didn't understand how)
-- Anxious grasping: trying to control something you can't (because you didn't understand what drives it)
+| Objection to Point 0 | # | Point (falsifiable claim) | Story |
+|---|---|---|---|
+| — (the proposal) | 0 | "Partners who refuse to formally commit to verifying understanding when their partner demands it will experience more false agreements, conflicts, errors, and higher chance of split." Formal commitment is qualitatively different from "we'll try." Links to partner agreement form. | TBD |
+| "We understand each other" | 1 | Three types of understanding exist (cognitive, emotional, agreement). People conflate them. | Sister story (written, private) |
+| "Why cognitive first?" / "What's in it for me?" | 2 | Cognitive understanding must come first — demanding emotional validation or agreement before it is wasted effort when differences are high. It's also the unique win-win: nobody loses their position. | TBD |
+| "How would you even check cognitive understanding?" | 3 | Ideological Turing Test — cognitive understanding is reached when a restatement is indistinguishable from the original. | TBD |
+| "Why does the sender decide?" | 4 | Information asymmetry — the sender knows more about their own idea than the receiver, which is why the sender evaluates. (Sender-receiver model implicit.) | TBD |
+| "Why formal? Trust should be enough" | 5 | Vulnerability asymmetry — sharing exposes you. Without verification, the exposed party bears all risk. | TBD |
+| "Why bother verifying if we already agree?" | 6 | Common knowledge (Pinker) — verified cognitive understanding is qualitatively different from unverified. Both know AND both know the other knows. This enables coordination and trust. | TBD |
+| "That sounds patronizing / weird" | 7 | Non-judgmental repeating is the only verification method that avoids creating false agreements. | TBD |
 
-## Why This Belongs in Meta-Epistemology Onboarding
+## What Was Cut (and why)
 
-This story is the **entry point** — the one that makes the meta-epistemology framework feel personally relevant *before* the framework is introduced.
+From the original 8 philosophy.md claims, the following are **not** calibration points:
+- **RITT** — it's the graduation test (can they onboard someone else?), not content to calibrate on
+- **PTS protocol** — discovered in practice, not a prerequisite concept
+- **Individual trustworthiness criteria** — network-scale theory, not needed for onboarding
+- **Idea credibility metrics** (fidelity/fecundity/longevity) — population-level, not personal calibration
+- **"Understanding precedes control"** — subsumed by Point 2 (cognitive first)
 
-It connects everyday experience ("I felt helpless / frustrated / stuck") to the meta-level claim ("the root cause was an understanding gap, not a control problem").
+## Subpoints (supporting material within points, not separate calibration items)
 
-It answers the implicit question every new user has: *Why does understanding matter this much?*
-
-## Relationship to Philosophy.md
-
-Extends the Point/Story Distinction and Understanding Imbalance Postulate from `docs/philosophy.md` into practical self-application:
-
-- The postulates describe how understanding works *between* people
-- This story applies the same logic *within* a person: you can't solve your own problem space without first mapping what you actually understand vs. don't
-
-## What This Story Should Do
-
-1. Resonate immediately (everyone has a "I thought I couldn't change X, then I understood it better, and it turned out I could")
-2. Introduce the concept that *understanding is prior to agency*
-3. Create a natural bridge to: "so let's practice understanding things more precisely"
+- Point 2 subpoint: everyone wants to feel understood; it's scarce — providing it is valuable
+- Point 4 subpoint: sender-receiver communication model (explains the structure)
+- Point 7 subpoints: role asymmetry, the three asymmetries collectively explain why the method is written as it is
 
 ## Open Questions
 
-- Does this become a story in the onboarding sequence (before/after the sister story)?
-- Is it presented as Slava's personal story, or as an abstract principle?
-- What's the specific narrative? (Need to draft a concrete version — not just the abstract point)
-
-## Scope: All Content to File
-
-This task covers **two sets** of content that need to be turned into profile stories and points:
-
-### Set 1: Entry Point Story (Understanding Precedes Control)
-The story described above. One story + one point.
-
-### Set 2: The 8 ITT/RITT Claims
-Each of the 8 formalized meta-epistemology claims (stored in `docs/philosophy.md` under "Formalized Claims") needs to become a profile story+point pair. Raw claims are there; they need:
-- A narrative story (first person or concrete example) for each
-- A clearly stated point (falsifiable, takes a position) for each
-- Sequencing: claims are numbered and build on each other — the profile order should follow the logic chain (#1 → #8)
-
-**The 8 claims:**
-1. We can't avoid problems — right knowledge helps solve them
-2. Knowledge exchange requires genuine shared understanding
-3. ITT (Idea Turing Test) predictably increases shared understanding
-4. PTS (Please, Thanks, Sorry) is an effective coordination protocol for ITTs
-5. RITT (Recursive ITT) checks if understanding is robust enough to teach forward
-6. Individual trustworthiness can be assessed via RITT criteria
-7. Idea credibility can be assessed via fidelity / fecundity / longevity / trusted-share
-8. Trust someone more if they've passed RITT on these 8 claims
+- **Partner agreement terms:** Slava can't commit N minutes/month to every /live participant. The real value is helping them create a partner agreement with *their* person (co-founder, spouse, colleague). Slava = onboarder, not permanent partner. Terms need separate design work.
+- **Stories:** All 7 TBD stories need to be written as first-person experiences of arriving at each point. Not abstract — concrete and personal.
+- **"I agree" (too fast) on Point 0:** This is itself a possible false agreement. Verify: "Can you restate what this commitment means?" If they can't → route to the point they're missing.
 
 ## Acceptance Criteria
 
-- [ ] "Understanding precedes control" story drafted (first person, concrete example) and filed in profile
-- [ ] Each of the 8 claims has a draft story + point
-- [ ] All 9 stories/points filed in profile in logical sequence
-- [ ] Points are falsifiable (someone could disagree) — not just descriptions
+- [ ] Point 0 story drafted (first person)
+- [ ] Points 2-7 stories drafted (first person, concrete)
+- [ ] All stories + points filed in profile
+- [ ] Points are falsifiable (someone could disagree)
+- [ ] Partner agreement form linked from Point 0
+- [ ] Partner agreement terms designed (separate task?)
 
 ## Related
 
-- `docs/philosophy.md` — source for the 8 claims (under "Formalized Claims" section)
-- `p421_presession_safety_check.md` — mini pledge references these stories for shared definitions
-- `~/.claude/personal-stories.md` — sister story full draft (private, already written — do not add to public repo)
+- `docs/philosophy.md` — original 8 claims (under "Formalized Claims" section), source material
+- `~/.claude/personal-stories.md` — sister story (Point 1, private)
+- `p421_presession_safety_check.md` — mini pledge references shared definitions
