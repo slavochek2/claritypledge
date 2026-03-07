@@ -5,7 +5,7 @@ rank: 500004.5
 workstream: C1
 created_date: 2026-03-06
 flow: dev
-delivery_stage: 4-tests-ready
+delivery_stage: uat
 tags: [simplification, story-creation]
 uat_file: features/uat/p486.md
 test_files:
@@ -558,14 +558,14 @@ Do NOT use `window.location.search` — it bypasses React Router and can be stal
 
 ## Acceptance Criteria
 
-- [ ] All "Add your story" CTAs navigate to `/create?pointId=X` instead of `/chat?...`
-- [ ] `/create?pointId=X` shows ChatContextHeader with point text + user position
-- [ ] `/create` (no pointId) works exactly as before — no banner
-- [ ] Saving with pointId creates story AND links it to the point
-- [ ] Loading state while fetching point data
-- [ ] Error state if point not found (graceful fallback to plain create)
-- [ ] `/chat` route handled (redirect or removal — per architect)
-- [ ] No new components created
+- [x] All "Add your story" CTAs navigate to `/create?pointId=X` instead of `/chat?...`
+- [x] `/create?pointId=X` shows ChatContextHeader with point text + user position
+- [x] `/create` (no pointId) works exactly as before — no banner
+- [x] Saving with pointId creates story AND links it to the point
+- [x] Loading state while fetching point data
+- [x] Error state if point not found (graceful fallback to plain create)
+- [x] `/chat` route handled (redirect or removal — per architect)
+- [x] No new components created
 
 ## Testing
 
