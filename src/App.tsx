@@ -42,6 +42,7 @@ const ProfileConnectionsPage = lazy(() => import("@/app/pages/profile-connection
 
 // Isolated prototypes - completely self-contained, no dependencies on main app
 const TreePage = lazy(() => import("@/app/pages/TreePage").then(m => ({ default: m.TreePage })));
+const DesignAuditPage = lazy(() => import("@/app/pages/design-audit-page").then(m => ({ default: m.DesignAuditPage })));
 const PremiumPrototype = lazy(() => import("@/app/prototypes/premium").then(m => ({ default: m.PremiumPrototype })));
 const ConvergedPrototype = lazy(() => import("@/app/prototypes/converged").then(m => ({ default: m.ConvergedPrototype })));
 const LinkedInLikePrototype = lazy(() => import("@/app/prototypes/linkedin-like").then(m => ({ default: m.LinkedInLikePrototype })));
@@ -527,6 +528,7 @@ export default function ClarityPledgeApp() {
             They do NOT import from main app code (api.ts, auth, etc.)
             ============================================================ */}
         <Route path="/tree" element={<LazyRoute><TreePage /></LazyRoute>} />
+        <Route path="/tree/design-audit" element={<LazyRoute><DesignAuditPage /></LazyRoute>} />
         <Route path="/prototype/premium/*" element={<LazyRoute><PremiumPrototype /></LazyRoute>} />
         <Route path="/prototype/converged/*" element={<LazyRoute><ConvergedPrototype /></LazyRoute>} />
         <Route path="/prototype/linkedin-like/*" element={<LazyRoute><LinkedInLikePrototype /></LazyRoute>} />

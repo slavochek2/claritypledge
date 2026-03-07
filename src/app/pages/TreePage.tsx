@@ -18,6 +18,14 @@ const productionPages = [
   },
 ];
 
+const devPages = [
+  {
+    path: '/tree/design-audit',
+    label: 'Design Audit: Certificates',
+    description: 'Pledge vs Agreement — side-by-side comparison of all states, buttons, inputs'
+  },
+];
+
 const prototypeRoutes = [
   {
     path: '/prototype/events-mock',
@@ -56,6 +64,30 @@ export function TreePage() {
         </h2>
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 divide-y divide-gray-100 mb-6">
           {productionPages.map((route) => (
+            <Link
+              key={route.path}
+              to={route.path}
+              className="block px-4 py-3 hover:bg-gray-50 transition-colors"
+            >
+              <div className="flex items-center justify-between">
+                <div>
+                  <span className="font-medium text-gray-900">{route.label}</span>
+                  <p className="text-sm text-gray-500 mt-0.5">{route.description}</p>
+                </div>
+                <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </div>
+            </Link>
+          ))}
+        </div>
+
+        {/* Dev Tools */}
+        <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-2">
+          Dev Tools
+        </h2>
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 divide-y divide-gray-100 mb-6">
+          {devPages.map((route) => (
             <Link
               key={route.path}
               to={route.path}

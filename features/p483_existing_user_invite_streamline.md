@@ -1,19 +1,22 @@
 ---
 title: 'P483: Existing User Invite Path Streamlining'
-status: in-progress
+status: qa
 type: story
 rank: 8.0
 workstream: C1
 tags: [agreements, auth, ux, existing-users]
 prepped_date: '2026-03-06'
-delivery_stage: 3-arch-review
+delivery_stage: uat
 flow: dev
+uat_file: features/uat/p483.md
+test_files:
+  - src/tests/p483-existing-user-invite.test.ts
+  - e2e/p483-existing-user-invite.spec.ts
+  - e2e/p483-smoke.spec.ts
 reviews:
   ux: null
   architect: null
   alignment: null
-created_date: 2026-03-06
-superseded_by: p488
 ---
 
 # P483: Existing User Invite Path Streamlining
@@ -59,8 +62,8 @@ The agreement flow shipped in P422/P466 and has been through multiple polish rou
 **BR-1: Profile name is authoritative for existing users.**
 When email lookup on the create page finds an existing user, their profile name overrides the partner name field — regardless of whether the creator has already typed something. The creator sees a clear notification that the partner's registered name is being used.
 
-**BR-2: Skip email confirmation interstitial for existing users.**
-When an existing user clicks the invite link from email and is not logged in, the system must authenticate them without requiring a second email round-trip. The "check your email" interstitial (`/agreements/confirm-email`) must not appear for existing users.
+**BR-2: Streamlined sign-in for existing users.**
+When an existing user clicks the invite link from email and is not logged in, the system must present a sign-in-specific CTA ("Sign In to Co-Sign") and messaging. The OTP flow still sends one magic link email, but the experience is framed as sign-in (not account creation), and the interstitial shows sign-in copy instead of the default "Almost Done" new-user copy. Total clicks reduced from 4 to 2.
 
 **BR-3: Direct-to-certificate after signing (existing user).**
 After an existing user signs the agreement, they proceed directly to the signed certificate page. No "go back to email" step.
@@ -73,7 +76,7 @@ The existing flow for new users (OTP, email confirmation interstitial, name edit
 
 ### Success Conditions
 
-- An existing user can go from clicking the invite link in email to a signed certificate in a single page load (after auth resolution).
+- An existing user can go from clicking the invite link to a signed certificate in 3 steps: click invite → click "Sign In to Co-Sign" → click magic link in email (auto-accept fires on return).
 - The partner name on every agreement involving an existing user matches that user's profile name at time of signing.
 - No regression in the new-user invitation path.
 
@@ -91,8 +94,8 @@ As a creator, when I type my partner's email and they are an existing user, I wa
 **US-2: Creator sees confirmation of auto-corrected name.**
 As a creator, when the partner name auto-corrects from a lookup, I want to see a clear notification (e.g., "Partner found — using their registered name") so I understand why the name changed.
 
-**US-3: Existing user clicks invite link — no second email.**
-As an existing user who received an agreement invitation email, when I click the invite link and I'm not logged in, I want to be authenticated without opening a second email, so I can sign immediately.
+**US-3: Existing user clicks invite link — sign-in framing.**
+As an existing user who received an agreement invitation email, when I click the invite link and I'm not logged in, I want to see a sign-in-appropriate experience (not account creation), so I understand I'm signing in to my existing account to co-sign.
 
 **US-4: Existing user signs — lands on certificate.**
 As an existing user, after I sign the agreement, I want to see the signed certificate page directly, not a "check your email" screen.
@@ -113,15 +116,15 @@ As a new user who does not have an account, I want the current flow (OTP, email 
 
 | Metric | Current | Target | How to Measure |
 |---|---|---|---|
-| Steps to sign (existing user, not logged in) | 4 (click invite, click Seal & Sign, open 2nd email, click magic link) | 1-2 (click invite, sign) | Manual flow walkthrough; count page transitions |
+| Steps to sign (existing user, not logged in) | 4 (click invite, click Seal & Sign, open 2nd email, click magic link) | 3 (click invite, click "Sign In to Co-Sign", click magic link in email) | Manual flow walkthrough; count page transitions |
 | Name mismatch rate (existing user agreements) | Unknown — no tracking | 0% | Compare `partner_display_name` to partner's `profiles.name` for agreements where partner had an account at creation time |
-| Email confirmation page views (existing users) | >0 per existing-user invite | 0 | Track `/agreements/confirm-email` page views segmented by user type |
+| Email confirmation interstitial copy (existing users) | Generic "Almost Done" account-creation copy | Sign-in-specific copy ("Sign in to complete signing") | Visual check on interstitial page for existing-user OTP flow |
 
 ## Acceptance Criteria
 
 - **AC-1:** On the create page, when email lookup finds an existing user, the partner name field updates to the profile name and the creator sees a notification — regardless of prior typing.
 - **AC-2:** On the create page, when email lookup finds an existing user, the partner name field is not editable (profile name is locked in).
-- **AC-3:** An existing user clicking the invite link from email who is not logged in is authenticated without visiting the email confirmation interstitial page.
+- **AC-3:** An existing user clicking the invite link from email who is not logged in sees a "Sign In to Co-Sign" CTA (not "Seal & Sign"). Clicking it triggers OTP with sign-in messaging. The email confirmation interstitial, if shown, uses sign-in copy (not account-creation copy).
 - **AC-4:** After an existing user signs, the app navigates directly to the certificate/agreement detail page.
 - **AC-5:** On the accept page, an authenticated existing user does not see an editable name field — their profile name appears as read-only on the certificate.
 - **AC-6:** A new user (no account) clicking the invite link sees the current flow unchanged: OTP trigger, email confirmation interstitial, name editing, auto-accept on return.
@@ -151,7 +154,7 @@ Before designing, each proposed change was tested against the question: "Does th
 |---|---|---|---|
 | Auto-override partner name on lookup | Creator must re-type if they intentionally wanted a different name | None — profile name is authoritative for formal documents | Ship it |
 | Read-only name on accept page (existing user) | Removes editable field that implies name might be wrong | None — profile name is already correct | Ship it |
-| Skip email interstitial (existing user, not logged in) | Eliminates a second email round-trip | None — the user already proved email ownership by clicking the invite link | Ship it |
+| Sign-in framing on interstitial (existing user, not logged in) | Replaces generic account-creation copy with sign-in messaging; CTA says "Sign In to Co-Sign" instead of "Seal & Sign" | Still requires one OTP email round-trip (C1 path) | Ship it — sign-in framing reduces confusion; OTP round-trip is minimal |
 | Direct-to-certificate after signing | Eliminates "check your email" dead-end | None | Ship it |
 
 No step adds friction before value. All four changes pass.
@@ -188,26 +191,19 @@ No step adds friction before value. All four changes pass.
 6. `handleAccept` fires. The `partnerDisplayName` sent to the RPC is the user's **profile name** (not the creator-typed name from the agreement record).
 7. On success: toast "Agreement Sealed" + navigate to `/agreements/{id}` (the certificate/detail page). This is the existing behavior — no change needed here.
 
-#### Flow C: Existing user accepts — NOT logged in
+#### Flow C: Existing user accepts — NOT logged in (C1 — button-click OTP)
+
+**Architecture decision (AD-1):** C2 (invite-link-as-magic-link) was rejected — infeasible under AC-7 constraint. C1 (button-click OTP) is the chosen path.
 
 1. Existing user clicks invite link from email. They are not logged in.
 2. Accept page loads. `pageState` resolves to `'unauthenticated'`.
-3. **Branching point:** The page must determine whether this email belongs to an existing user before showing the interstitial. Two sub-paths:
-   - **C1 (transparent auth):** The accept page detects the partner email is an existing user (via lookup or agreement metadata). Instead of showing the "Seal & Sign" button that triggers OTP + email interstitial, the page triggers OTP silently and navigates directly to a "check your email" state — but with messaging that this is a **sign-in** link, not an account creation. On return from the magic link, the user lands on the accept page authenticated, and Flow B takes over.
-   - **C2 (optimized — preferred if architect confirms feasibility):** The invite email link itself includes a magic-link-style token that authenticates the existing user on click. No OTP step at all. The user clicks the link, arrives authenticated, and Flow B takes over immediately.
-
-**Decision needed from architect:** Whether C2 is feasible without changing the invite link format (constraint from spec). If not, C1 is the fallback — it still eliminates the interstitial page but requires one email round-trip (the OTP), which is automatically triggered rather than user-initiated.
-
-**Minimum viable UX (C1 path):**
-1. User clicks invite link, arrives unauthenticated.
-2. Page recognizes the partner email belongs to an existing user.
-3. Page shows the certificate (read-only, partner name from profile) with a single CTA: **"Sign In to Co-Sign"** (instead of "Seal & Sign" which implies account creation).
-4. User clicks the button. OTP magic link is sent to their email. Page navigates to the email confirmation interstitial — but with **different copy**: "Sign in to complete signing" instead of "Almost Done! We've sent a sign-in link." The interstitial still shows for existing users **only if C2 is not feasible**.
-5. User clicks magic link in email, returns authenticated. Auto-accept fires (existing localStorage mechanism). Certificate page shown.
-
-**Ideal UX (C2 path):**
-1. User clicks invite link, arrives authenticated (token in URL handles it).
-2. Flow B takes over. One click to sign.
+3. Page calls `lookupUserByEmail(agreement.partnerEmail)` to detect existing user.
+4. Page shows the certificate (read-only, partner name from profile lookup) with:
+   - **No** editable name input field.
+   - **No** "Already have an account? Log in" link.
+   - CTA button: **"Sign In to Co-Sign"** (not "Seal & Sign").
+5. User clicks the button. OTP magic link is sent via `signInWithOtp({ shouldCreateUser: false })`. Page navigates to the email confirmation interstitial with **sign-in copy** ("Sign in to complete signing").
+6. User clicks magic link in email, returns authenticated. Auto-accept fires (existing localStorage mechanism). Certificate page shown.
 
 #### Flow D: New user accepts (unchanged)
 
@@ -274,7 +270,7 @@ When the email field value changes (user edits or clears it):
   - **Change** the CTA button label from "Seal & Sign" to **"Sign In to Co-Sign"**.
   - The button still triggers OTP, but the messaging acknowledges the user has an account.
   - The "Already have an account? Log in" link below the certificate becomes redundant and is hidden for this state.
-- If C2 (magic-link auth via invite URL) is feasible, this entire state is skipped — the user arrives authenticated.
+- *(C2 — invite-link-as-magic-link — was rejected by AD-1 as infeasible under AC-7. C1 button-click OTP is the chosen path.)*
 
 **Change 3: Post-signing navigation**
 
@@ -442,9 +438,9 @@ After `handleAccept` succeeds, `navigate(`/agreements/${agreementId}`)` already 
 
 ### 2. Architecture Decisions
 
-#### AD-1: C1 (silent OTP) — Chosen over C2
+#### AD-1: C1 (button-click OTP) — Chosen over C2
 
-**Chosen:** C1 — Silent OTP trigger on the accept page for existing users. The accept page detects the existing user via `lookupUserByEmail(agreement.partnerEmail)`, auto-triggers `signInWithOtp({ shouldCreateUser: false })`, and shows adjusted copy ("Sign in to co-sign" + email confirmation interstitial with sign-in messaging).
+**Chosen:** C1 — Button-click OTP on the accept page for existing users. The accept page detects the existing user via `lookupUserByEmail(agreement.partnerEmail)`, shows a "Sign In to Co-Sign" CTA button (instead of "Seal & Sign"), and hides the name input field. When the user clicks the button, it calls `signInWithOtp({ shouldCreateUser: false })` and navigates to the email confirmation interstitial with sign-in messaging.
 
 **Rationale:** C2 (invite-link-as-magic-link) is technically impossible without changing the invite link format. Here's why:
 
@@ -454,7 +450,7 @@ After `handleAccept` succeeds, `navigate(`/agreements/${agreementId}`)` already 
 
 3. **Admin API workaround** — Supabase Admin API (`generateLink`) can create magic links server-side. But this requires: (a) a new edge function to generate the link at invite-send time, (b) storing the auth token or embedding it in the invite URL (changes link format), (c) auth tokens expire in 1 hour while invitation tokens expire in 7 days — timing mismatch. This adds significant complexity for a marginal UX improvement over C1.
 
-**C1 achieves the key business requirement (BR-2):** The email confirmation interstitial is eliminated for the majority of cases. The user clicks the invite link, the page auto-triggers OTP, and they get a magic link in the same inbox where they received the invite. One extra click in email (the magic link), then they arrive authenticated and auto-accept fires. Total: 2 clicks (invite link + magic link), down from 4.
+**C1 achieves the key business requirement (BR-2):** The experience is reframed as sign-in rather than account creation. The user clicks the invite link, sees "Sign In to Co-Sign" CTA, clicks it, gets a magic link in the same inbox, and clicks it to arrive authenticated (auto-accept fires). Total: 3 clicks (invite link + CTA button + magic link), down from 4. The interstitial still appears but with sign-in-appropriate copy.
 
 **Trade-off:** C1 still requires one email round-trip (the OTP magic link). This is one more step than C2's ideal zero-email path. But C1 requires zero infrastructure changes, no new edge functions, no link format changes, and no new token management.
 
@@ -502,12 +498,13 @@ For the auto-accept path (returning from OTP), store `currentUser.name` in the l
 **Rationale:** `mapDbRowToAgreementParty` maps `null` DB name to `'Unknown'`. A user who never set their name will have `'Unknown'` — using this on a formal agreement is worse than letting the creator type it. The helper function:
 
 ```typescript
-function hasValidProfileName(name: string | undefined): boolean {
-  return !!name && name !== 'Unknown' && name.trim().length > 0;
+function isExistingUserWithName(party: { name: string }): boolean {
+  const name = party.name?.trim();
+  return !!name && name !== 'Unknown';
 }
 ```
 
-Reused on both create page (to decide read-only lock) and accept page (to decide which name to display).
+Reused on both create page (to decide read-only lock) and accept page (to decide which name to display). Companion function `shouldOverridePartnerName(lookupResult)` wraps this with null/not-found checks — see unit tests in `src/tests/p483-existing-user-invite.test.ts`.
 
 ---
 
@@ -557,7 +554,7 @@ Reused on both create page (to decide read-only lock) and accept page (to decide
 | File | Changes |
 |---|---|
 | `src/app/pages/create-agreement-page.tsx` | (1) Remove `userTypedNameRef` guard — always override name on lookup when profile name is valid. (2) Add `isPartnerNameLocked` state. (3) Pass `partnerNameReadOnly={isPartnerNameLocked}` to `AgreementCertificate`. (4) Add "Using their registered name" text in the lookup result `role="status"` container. (5) On email change: reset lock + clear name. |
-| `src/app/pages/accept-agreement-page.tsx` | (1) Add `existingPartner` state + `lookupUserByEmail` call when `pageState === 'unauthenticated'`. (2) When existing user detected + unauthenticated: auto-trigger `signInWithOtp({ shouldCreateUser: false })`, navigate to interstitial with sign-in messaging, hide name input, change CTA to "Sign In to Co-Sign". (3) When `pageState === 'partner'` + valid profile name: use `currentUser.name` for `partnerDisplayName`, don't pass `onPartnerNameChange` to certificate. (4) Hide "Already have an account?" link when existing user detected. |
+| `src/app/pages/accept-agreement-page.tsx` | (1) Add `existingPartner` state + `lookupUserByEmail` call when `pageState === 'unauthenticated'`. (2) When existing user detected + unauthenticated: hide name input, change CTA label to "Sign In to Co-Sign", hide "Already have an account?" link. On CTA click: call `signInWithOtp({ shouldCreateUser: false })` and navigate to interstitial with `{ isExistingUser: true }` in location state. (3) When `pageState === 'partner'` + valid profile name: use `currentUser.name` for `partnerDisplayName`, don't pass `onPartnerNameChange` to certificate. |
 | `src/app/components/agreements/agreement-certificate.tsx` | (1) Add `partnerNameReadOnly?: boolean` prop. (2) When `partnerNameReadOnly` is true: apply `readOnly`, `aria-readonly="true"`, `cursor-default`, `bg-[#F5F1E8]/50`, remove border-bottom animation classes on the inline input. |
 | `src/app/pages/agreement-email-confirmation-page.tsx` | (1) Accept optional `isExistingUser` in location state. (2) When `isExistingUser`: adjust heading from "Almost Done!" to "Sign In to Co-Sign" and body copy from "We've sent a sign-in link" to "Click the link in your email to sign in and complete signing." Minor copy changes only. |
 
@@ -583,9 +580,47 @@ Steps 1-2 are sequential (create page depends on new cert prop). Steps 3 and 4 a
 Extract to top of `accept-agreement-page.tsx` (or a small util if both pages import it — but given it's 3 lines, inline in each file is fine):
 
 ```typescript
-function hasValidProfileName(name: string | undefined): boolean {
-  return !!name && name !== 'Unknown' && name.trim().length > 0;
+function isExistingUserWithName(party: { name: string }): boolean {
+  const name = party.name?.trim();
+  return !!name && name !== 'Unknown';
 }
 ```
 
-Used in create page (lock decision), accept page (name source decision + flow branching).
+Used in create page (lock decision), accept page (name source decision + flow branching). On accept page when `pageState === 'partner'` and `isExistingUserWithName` returns false (empty/Unknown profile name): show editable name input (same as new-user path) so the user can enter their name before signing.
+
+---
+
+## Test Coverage Strategy
+
+**Files generated:**
+- Unit tests: `src/tests/p483-existing-user-invite.test.ts` (8 tests)
+- E2E tests: `e2e/p483-existing-user-invite.spec.ts` (9 tests)
+- Smoke tests: `e2e/p483-smoke.spec.ts` (3 tests)
+- UAT scenarios: `features/uat/p483.md` (12 scenarios)
+
+**Test pyramid:**
+```
+       /\
+      /  \    9 E2E tests
+     /____\
+    /      \
+   / 3 SMOKE \
+  /____________\
+ / 8 UNIT       \
+```
+
+**Total:** 20 automated tests + 12 UAT scenarios
+
+**What's tested (and WHY):**
+- Name override logic (unit) — Pure logic with edge cases (Unknown, empty, whitespace)
+- Create page: lookup auto-override + lock + notification + revert (E2E) — Core new behavior
+- Accept page: existing user logged in, no name input, profile name wins (E2E) — Core new behavior
+- Accept page: existing user not logged in, CTA change, no name input (E2E) — Core new behavior
+- New user regression: unchanged flow (E2E) — Must not break existing path
+- Page loads without console errors in all new states (smoke) — Fast regression
+
+**What's NOT tested (and WHY):**
+- Integration tests — No DB migrations, no new RPC, no schema changes
+- Accessibility tests — Changes are removing elements (fewer inputs) or setting readOnly (standard HTML), not introducing new interaction patterns
+- OTP email delivery — Supabase infra, not testable in E2E without email interception
+- Auto-accept after OTP return — Existing mechanism, already tested in P466 E2E

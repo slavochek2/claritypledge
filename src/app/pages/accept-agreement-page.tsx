@@ -29,8 +29,16 @@ import {
   DialogDescription,
 } from '@/components/ui/dialog';
 import { Loader2Icon, PenToolIcon } from 'lucide-react';
+import { Helmet } from 'react-helmet-async';
+import type { AgreementParty } from '@/app/data/agreements-service';
 
 type PageState = 'loading' | 'invalid' | 'unauthenticated' | 'partner' | 'wrong-user';
+
+/** P483: Does this lookup result represent an existing user with a valid name? */
+function isExistingUserWithName(party: { name: string }): boolean {
+  const name = party.name?.trim();
+  return !!name && name !== 'Unknown';
+}
 
 export function AcceptAgreementPage() {
   const { id: agreementId } = useParams<{ id: string }>();
@@ -46,6 +54,9 @@ export function AcceptAgreementPage() {
   // P466: editable partner name (pre-filled from partner_display_name)
   const [partnerDisplayName, setPartnerDisplayName] = useState('');
 
+  // P483: existing partner detected via email lookup (for unauthenticated flow)
+  const [existingPartner, setExistingPartner] = useState<AgreementParty | null>(null);
+
   // Action UI state
   const [isAccepting, setIsAccepting] = useState(false);
   const [nameError, setNameError] = useState<string | null>(null);
@@ -59,6 +70,14 @@ export function AcceptAgreementPage() {
 
   // Auto-accept intent stored before OTP redirect — consumed when user returns authenticated
   const pendingAutoAcceptRef = useRef<string | false>(false); // false = none, string = partnerName (may be '')
+
+  // P488: On mount, clear Supabase auth error hash fragments (e.g. expired magic link redirects)
+  // so the page proceeds cleanly to the unauthenticated fallback flow.
+  useEffect(() => {
+    if (window.location.hash.includes('#error=')) {
+      window.history.replaceState(null, '', window.location.pathname + window.location.search);
+    }
+  }, []);
 
   // Check localStorage for a pending auto-accept intent (set before OTP redirect)
   useEffect(() => {
@@ -74,7 +93,7 @@ export function AcceptAgreementPage() {
         pendingAutoAcceptRef.current = '';
       }
     }
-   
+
   }, [agreementId]);
 
   // Load agreement by token once auth state is resolved
@@ -101,6 +120,18 @@ export function AcceptAgreementPage() {
 
       if (!currentUser) {
         setPageState('unauthenticated');
+
+        // P483: detect existing user via email lookup
+        if (ag.partnerEmail) {
+          try {
+            const partner = await agreementsService.lookupUserByEmail(ag.partnerEmail);
+            if (partner && isExistingUserWithName(partner)) {
+              setExistingPartner(partner);
+            }
+          } catch {
+            // Lookup failure — fall back to new-user path
+          }
+        }
         return;
       }
 
@@ -114,6 +145,14 @@ export function AcceptAgreementPage() {
       }
 
       setPageState('partner');
+
+      // P488: Clean up ?token= from URL now that we're authenticated — prevents token leakage
+      window.history.replaceState(null, '', window.location.pathname);
+
+      // P483: use profile name for existing user with valid name
+      if (currentUser.name && currentUser.name.trim() && currentUser.name.trim() !== 'Unknown') {
+        setPartnerDisplayName(currentUser.name);
+      }
 
       // Auto-accept if returning from inline signup OTP flow
       if (pendingAutoAcceptRef.current !== false) {
@@ -225,6 +264,46 @@ export function AcceptAgreementPage() {
    
   }, [autoAcceptWith, pageState]);
 
+  // P483: Sign-in for existing user (unauthenticated) — OTP with shouldCreateUser: false
+  const handleExistingUserSignIn = async () => {
+    if (!agreement || !agreementId) return;
+    setIsSigningUp(true);
+    try {
+      // Store intent so we can auto-accept when they return after clicking the magic link
+      localStorage.setItem(
+        `clarity-pending-accept-${agreementId}`,
+        JSON.stringify({ partnerName: existingPartner?.name ?? '' })
+      );
+
+      const redirectUrl = `${window.location.origin}/auth/callback?redirect=${encodeURIComponent(window.location.pathname + window.location.search)}`;
+      const { error } = await supabase.auth.signInWithOtp({
+        email: agreement.partnerEmail,
+        options: {
+          emailRedirectTo: redirectUrl,
+          shouldCreateUser: false,
+        },
+      });
+
+      if (error) {
+        localStorage.removeItem(`clarity-pending-accept-${agreementId}`);
+        toast.error('Failed to send sign-in link. Please try again.');
+        return;
+      }
+
+      navigate('/agreements/confirm-email', {
+        state: {
+          email: agreement.partnerEmail,
+          agreementId,
+          token,
+          partnerName: existingPartner?.name ?? '',
+          isExistingUser: true,
+        },
+      });
+    } finally {
+      setIsSigningUp(false);
+    }
+  };
+
   // Inline signup: send magic link to the partner email we already have
   const handleInlineSignup = async () => {
     if (!agreement || !agreementId) return;
@@ -326,6 +405,10 @@ export function AcceptAgreementPage() {
 
   return (
     <CertificatePageShell parchment className="py-10 space-y-6">
+      {/* P488: Prevent invitation token leakage in Referer headers */}
+      <Helmet>
+        <meta name="referrer" content="same-origin" />
+      </Helmet>
 
         {/* Page title */}
         <div className="text-center">
@@ -350,48 +433,72 @@ export function AcceptAgreementPage() {
             termsText={agreement.termsText}
             creatorAvatarUrl={agreement.creator?.avatarUrl}
             partnerAvatarUrl={agreement.partner?.avatarUrl}
-            onPartnerNameChange={pageState === 'partner' ? (name) => { setPartnerDisplayName(name); setNameError(null); } : undefined}
+            onPartnerNameChange={pageState === 'partner' && currentUser && !(currentUser.name && currentUser.name.trim() && currentUser.name.trim() !== 'Unknown') ? (name) => { setPartnerDisplayName(name); setNameError(null); } : undefined}
             partnerNameValue={partnerDisplayName}
             partnerNameError={nameError ?? undefined}
             footer={
               pageState === 'unauthenticated' ? (
                 <div className="space-y-3">
-                  <div>
-                    <label
-                      htmlFor="unauth-partner-name"
-                      className="block text-sm font-medium text-[#1A1A1A]/70 mb-1"
-                    >
-                      Your name on this agreement
-                    </label>
-                    <Input
-                      id="unauth-partner-name"
-                      type="text"
-                      value={partnerDisplayName}
-                      onChange={e => { setPartnerDisplayName(e.target.value); setNameError(null); }}
-                      placeholder="Your full name"
-                      maxLength={100}
-                    />
-                    {nameError && <p className="mt-1 text-xs text-red-600">{nameError}</p>}
-                  </div>
+                  {/* P483: hide name input for existing users */}
+                  {!existingPartner && (
+                    <div>
+                      <label
+                        htmlFor="unauth-partner-name"
+                        className="block text-sm font-medium text-[#1A1A1A]/70 mb-1"
+                      >
+                        Your name on this agreement
+                      </label>
+                      <Input
+                        id="unauth-partner-name"
+                        type="text"
+                        value={partnerDisplayName}
+                        onChange={e => { setPartnerDisplayName(e.target.value); setNameError(null); }}
+                        placeholder="Your full name"
+                        maxLength={100}
+                      />
+                      {nameError && <p className="mt-1 text-xs text-red-600">{nameError}</p>}
+                    </div>
+                  )}
                   <div className="space-y-2">
-                    <Button
-                      className="w-full bg-[#002B5C] hover:bg-[#001f45] text-white font-semibold text-base md:text-lg py-4 md:py-6 relative overflow-hidden group"
-                      size="lg"
-                      onClick={handleInlineSignup}
-                      disabled={isSigningUp}
-                    >
-                      {isSigningUp ? (
-                        <span className="flex items-center justify-center gap-2">
-                          <Loader2Icon className="w-5 h-5 animate-spin" />
-                          Sealing...
-                        </span>
-                      ) : (
-                        <span className="flex items-center justify-center gap-2">
-                          <PenToolIcon className="w-5 h-5 group-hover:scale-110 transition-transform" />
-                          Seal &amp; Sign
-                        </span>
-                      )}
-                    </Button>
+                    {existingPartner ? (
+                      <Button
+                        className="w-full bg-[#002B5C] hover:bg-[#001f45] text-white font-semibold text-base md:text-lg py-4 md:py-6 relative overflow-hidden group"
+                        size="lg"
+                        onClick={handleExistingUserSignIn}
+                        disabled={isSigningUp}
+                      >
+                        {isSigningUp ? (
+                          <span className="flex items-center justify-center gap-2">
+                            <Loader2Icon className="w-5 h-5 animate-spin" />
+                            Signing in...
+                          </span>
+                        ) : (
+                          <span className="flex items-center justify-center gap-2">
+                            <PenToolIcon className="w-5 h-5 group-hover:scale-110 transition-transform" />
+                            Sign In to Co-Sign
+                          </span>
+                        )}
+                      </Button>
+                    ) : (
+                      <Button
+                        className="w-full bg-[#002B5C] hover:bg-[#001f45] text-white font-semibold text-base md:text-lg py-4 md:py-6 relative overflow-hidden group"
+                        size="lg"
+                        onClick={handleInlineSignup}
+                        disabled={isSigningUp}
+                      >
+                        {isSigningUp ? (
+                          <span className="flex items-center justify-center gap-2">
+                            <Loader2Icon className="w-5 h-5 animate-spin" />
+                            Sealing...
+                          </span>
+                        ) : (
+                          <span className="flex items-center justify-center gap-2">
+                            <PenToolIcon className="w-5 h-5 group-hover:scale-110 transition-transform" />
+                            Seal &amp; Sign
+                          </span>
+                        )}
+                      </Button>
+                    )}
                   </div>
                   <div className="text-center">
                     <Button
@@ -441,8 +548,8 @@ export function AcceptAgreementPage() {
             }
           />
 
-          {/* "Already have an account?" — outside the certificate frame */}
-          {pageState === 'unauthenticated' && (
+          {/* "Already have an account?" — outside the certificate frame, hidden for existing users (P483) */}
+          {pageState === 'unauthenticated' && !existingPartner && (
             <div className="text-center pt-2">
               <Link
                 to={`/login?redirect=${encodeURIComponent(redirectAfterLogin)}`}

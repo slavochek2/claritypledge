@@ -127,6 +127,36 @@ async function handleInvitation(
   const creatorName = creator?.name ?? 'Someone';
   const acceptUrl = `${appUrl}/agreements/${agreementId}/accept?token=${agreement.invitation_token}`;
 
+  // P488: For existing users, generate a magic link so they arrive authenticated.
+  // New users get the direct acceptUrl (unchanged).
+  let ctaUrl = acceptUrl;
+  const isCreatorEmail = agreement.partner_email === creator?.email;
+
+  if (!isCreatorEmail) {
+    const { data: existingUser } = await supabase
+      .from('profiles')
+      .select('id')
+      .eq('email', agreement.partner_email)
+      .maybeSingle();
+
+    if (existingUser) {
+      const { data: linkData, error: linkError } = await supabase.auth.admin.generateLink({
+        type: 'magiclink',
+        email: agreement.partner_email,
+        options: { redirectTo: acceptUrl },
+      });
+
+      if (!linkError && linkData?.properties?.action_link) {
+        ctaUrl = linkData.properties.action_link;
+        console.log(`[P488] Magic link generated for existing user (agreement ${agreementId})`);
+      } else {
+        console.log(`[P488] Magic link failed, falling back to direct URL (agreement ${agreementId})`, linkError?.message);
+      }
+    } else {
+      console.log(`[P488] New user — using direct accept URL (agreement ${agreementId})`);
+    }
+  }
+
   const subject = `${creatorName} invited you to a Clarity Partner Agreement`;
   const html = htmlEmail(subject, `
     <h1 style="margin:0 0 8px;font-size:24px;font-weight:700;color:#111827;">You've been invited</h1>
@@ -137,7 +167,7 @@ async function handleInvitation(
     <p style="margin:0 0 4px;font-size:14px;color:#6b7280;">
       You can review the full agreement terms before deciding to accept or decline.
     </p>
-    ${button('Review & Sign Agreement', acceptUrl)}
+    ${button('Review & Sign Agreement', ctaUrl)}
     <p style="margin:20px 0 0;font-size:13px;color:#9ca3af;">
       This invitation expires in 7 days. If you're new to Clarity Pledge,
       you'll be able to create an account as part of the signing flow.
@@ -146,7 +176,7 @@ async function handleInvitation(
       Your email was shared by ${creatorName} to send this invite. Remove it: <a href="mailto:privacy@claritypledge.com" style="color:#d1d5db;">privacy@claritypledge.com</a>
     </p>
   `);
-  const text = `${creatorName} invited you to a Clarity Partner Agreement.\n\nReview and sign: ${acceptUrl}\n\nThis invitation expires in 7 days.\n\nYour email was shared by ${creatorName} to send this invite. Remove it: privacy@claritypledge.com\nClarity Pledge`;
+  const text = `${creatorName} invited you to a Clarity Partner Agreement.\n\nReview and sign: ${ctaUrl}\n\nThis invitation expires in 7 days.\n\nYour email was shared by ${creatorName} to send this invite. Remove it: privacy@claritypledge.com\nClarity Pledge`;
 
   await sendEmail({ to: agreement.partner_email, subject, html, text });
 }
