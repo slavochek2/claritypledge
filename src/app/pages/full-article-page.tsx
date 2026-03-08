@@ -70,12 +70,22 @@ export function FullArticlePage() {
       referrer: document.referrer || 'direct',
     });
 
-    // Scroll to hash anchor after markdown content renders
+    // Scroll to hash anchor after markdown content renders.
+    // requestAnimationFrame alone is too early — the markdown may not be in the DOM yet.
+    // Poll briefly until the element appears (max 3s).
     if (window.location.hash) {
       const id = window.location.hash.slice(1);
-      requestAnimationFrame(() => {
-        document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
-      });
+      let attempts = 0;
+      const tryScroll = () => {
+        const el = document.getElementById(id);
+        if (el) {
+          el.scrollIntoView({ behavior: "smooth", block: "start" });
+        } else if (attempts < 30) {
+          attempts++;
+          setTimeout(tryScroll, 100);
+        }
+      };
+      tryScroll();
     }
   }, []);
 
