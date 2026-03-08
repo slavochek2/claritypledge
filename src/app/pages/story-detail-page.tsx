@@ -50,12 +50,19 @@ import {
 /** Soft character marker — nudge to keep points concise */
 const POINT_CHAR_SOFT = 140;
 /** Hard character max */
-const POINT_CHAR_MAX = 500;
+const POINT_CHAR_MAX = 1000;
 
 /** Story edit soft nudge */
 const STORY_CHAR_SOFT = 2000;
 /** Story edit hard max (mirrors DB CHECK constraint) */
 const STORY_CHAR_MAX = 10000;
+
+/** Display length: count only visible text, excluding URL portions of [text](url) links. */
+const LINK_RE = /\[([^\]]*)\]\(https?:\/\/[^)]+\)/g;
+function displayLength(text: string): number {
+  // Replace each [label](url) with just the label, then measure
+  return text.replace(LINK_RE, '$1').length;
+}
 
 // ---------------------------------------------------------------------------
 // Inline add-point form
@@ -90,7 +97,9 @@ function AddPointForm({
 
   const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const val = e.target.value;
-    setStatement(val.length <= POINT_CHAR_MAX ? val : val.slice(0, POINT_CHAR_MAX));
+    if (displayLength(val) <= POINT_CHAR_MAX) {
+      setStatement(val);
+    }
   };
 
   const handleRetryLink = async () => {
@@ -234,13 +243,17 @@ function AddPointForm({
             Please retry linking "{orphanPoint.statement}" or cancel before adding new points.
           </p>
         )}
-        {statement.length > 0 && (
-          <p className={`text-xs ${statement.length >= POINT_CHAR_MAX ? 'text-destructive font-medium' : statement.length >= POINT_CHAR_SOFT ? 'text-amber-600' : 'text-muted-foreground'}`}>
-            {statement.length >= POINT_CHAR_SOFT
-              ? <>Under 140 is punchiest · {statement.length}/{POINT_CHAR_MAX}</>
-              : `${statement.length}/${POINT_CHAR_MAX}`}
-          </p>
-        )}
+        {statement.length > 0 && (() => {
+          const dl = displayLength(statement);
+          const hasLinks = dl < statement.length;
+          return (
+            <p className={`text-xs ${dl >= POINT_CHAR_MAX ? 'text-destructive font-medium' : dl >= POINT_CHAR_SOFT ? 'text-amber-600' : 'text-muted-foreground'}`}>
+              {dl >= POINT_CHAR_SOFT
+                ? <>Under 140 is punchiest · {dl}/{POINT_CHAR_MAX}{hasLinks && ' (links excluded)'}</>
+                : <>{dl}/{POINT_CHAR_MAX}{hasLinks && ' (links excluded)'}</>}
+            </p>
+          );
+        })()}
         <div className="flex flex-wrap items-center gap-2">
           <PositionButtons
             userPosition={selectedPosition}
