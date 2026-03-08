@@ -69,6 +69,14 @@ export function FullArticlePage() {
     analytics.track('article_page_viewed', {
       referrer: document.referrer || 'direct',
     });
+
+    // Scroll to hash anchor after markdown content renders
+    if (window.location.hash) {
+      const id = window.location.hash.slice(1);
+      requestAnimationFrame(() => {
+        document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
+      });
+    }
   }, []);
 
   useEffect(() => {
@@ -379,6 +387,28 @@ export function FullArticlePage() {
                     const text = children?.toString() || "";
                     const id = text.toLowerCase().replace(/[^a-z0-9\s]/g, "").replace(/\s+/g, "-");
                     return <h3 id={id} {...props}>{children}</h3>;
+                  },
+                  p: ({ children, ...props }) => {
+                    // If paragraph starts with bold text matching "N. Title" pattern,
+                    // add an anchor id so it's deep-linkable (e.g. /manifesto#asymmetry-of-vulnerability)
+                    const firstChild = Array.isArray(children) ? children[0] : children;
+                    if (
+                      firstChild &&
+                      typeof firstChild === "object" &&
+                      "props" in firstChild &&
+                      firstChild.type === "strong"
+                    ) {
+                      const strongText = firstChild.props.children?.toString() || "";
+                      if (/^\d+\.\s/.test(strongText)) {
+                        const id = strongText
+                          .replace(/^\d+\.\s*/, "")
+                          .toLowerCase()
+                          .replace(/[^a-z0-9\s]/g, "")
+                          .replace(/\s+/g, "-");
+                        return <p id={id} className="scroll-mt-24" {...props}>{children}</p>;
+                      }
+                    }
+                    return <p {...props}>{children}</p>;
                   },
                 }}
               >
