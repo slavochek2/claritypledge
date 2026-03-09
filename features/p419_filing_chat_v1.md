@@ -1,7 +1,7 @@
 ---
-status: blocked
+status: backlog
 type: story
-rank: 2
+rank: 50
 workstream: C1
 tags:
   - filing
@@ -10,8 +10,6 @@ tags:
   - ai-chat
   - calibration
 prepped_date: '2026-02-24'
-blocked_by:
-  - p425
 delivery_stage: prd-review
 reviews:
   ux: null

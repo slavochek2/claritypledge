@@ -106,7 +106,7 @@ Recommendation: Remove from README.md, link to definitions.md instead.
    - Domain concepts changed? → `definitions.md`
    - Epistemological claims or WHY-this-works reasoning updated? → `docs/philosophy.md`
 
-3. **Propose updates** — before proposing, cross-check against the git log from step 1. If a commit in the Step 1 log (`git log --oneline -10`) shows the doc file was updated AND the commit message references the same topic as the current KDD update — skip it; it's already captured. A doc file touched for a different feature in a prior commit does not count as captured. When in doubt, read the target doc file directly and grep for the topic's key noun phrase. If the concept is found, do NOT propose — cite the existing entry instead. Only propose if the file read confirms the topic is absent. State what you'll update and why, then proceed.
+3. **Propose updates** — before proposing, cross-check against the git log from step 1. If a commit in the Step 1 log (`git log --oneline -10`) shows the doc file was updated AND the commit message references the same topic as the current KDD update — skip it; it's already captured. A doc file touched for a different feature in a prior commit does not count as captured. When in doubt, read the target doc file directly and grep for the topic's key noun phrase. If the concept is found with the same conclusion, do NOT propose — cite the existing entry instead. If the concept is found but the session produced a different conclusion, updated evidence, or changed direction — propose an update to the existing entry (not a new one). Only propose a new entry if the file read confirms the topic is absent entirely. State what you'll update and why, then proceed.
    - If no updates needed: "No knowledge updates needed" and skip to step 5
    - Don't ask repeatedly for confirmation — be decisive
 
@@ -197,13 +197,13 @@ Recommendation: Remove from README.md, link to definitions.md instead.
    ```bash
    git status --short          # uncommitted changes?
    python3 scripts/fix-frontmatter.py --dry-run 2>/dev/null | head -5   # frontmatter drift?
-   curl -s "http://localhost:9050/api/features?refresh=true" > /dev/null  # refresh kanban
+   curl -sf "http://localhost:9050/api/features?refresh=true" > /dev/null && echo "Kanban refreshed." || echo "Kanban not running — skip."
    ```
 
    Report:
    - If uncommitted changes exist: list them. Ask: "Commit now or leave for next session?"
    - If frontmatter drift detected: mention it. Offer to run `fix-kanban`.
-   - Confirm: "Kanban refreshed."
+   - Report kanban result as returned by the curl command.
 
 7. **Meta-reflection** — output to chat only (no file logging):
 

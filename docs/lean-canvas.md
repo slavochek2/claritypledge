@@ -376,6 +376,7 @@ Gates to unlock next level of ambition, not reasons to quit. If not met, extend 
 | Stage | Price | Deliverable | Status |
 |-------|-------|-------------|--------|
 | Free Calibration Workshop | Free | 1-to-many. You present calibration points, room calibrates against you. Everyone discovers comprehension gaps live. No pairing needed. | Active (lead gen) |
+| Co-founder Alignment Check | €199 | One session, one real decision. Surface false agreements hiding in plain sight and false disagreements burning energy for nothing. 60 min with both co-founders. Workshop attendees get up to 50% off with early booking + testimonial. | Active (C1) |
 | Co-founder De-risking | €950 | Two sessions + Clarity Partnership Agreement + /live habit established. Transcript-based — they record via /live, you file stories & points, surface the real map. | Active (C1) |
 | Fractional Clarity Officer | €1,500–3,000/mo (escalating) | You play the MCP. Weekly sessions, ongoing transcript analysis. 7 slots max — price rises €250/slot to manage capacity. | Future (C3) |
 | Direct Investor DD | €2,000+ | Pre-investment calibration assessment. Investor pays. Unfakeable — founders can't fake understanding without actually understanding. | Parked (H-InvestorDD) |
@@ -393,7 +394,7 @@ Gates to unlock next level of ambition, not reasons to quit. If not met, extend 
 
 ## Validation Status
 
-**Current state (2026-03-08):** Zero paid sessions run. Calibration points/stories filed and workshop-ready. First facilitated session target: March 14. See C1 milestone.
+**Current state (2026-03-09):** Zero paid sessions run. First facilitated session scheduled March 10. Calibration points/stories filed and workshop-ready. €199 Co-founder Alignment Check added to price ladder as entry point between free workshop and €950 de-risking. Article-as-qualifier channel: publish 8-points article → CTA "set positions" (requires registration) → reach out based on who engages. See C1 milestone.
 
 **Canvas G synthesis (2026-03-08):** Consolidated from 7 canvas iterations (A-G) in Claude Desktop. Key changes: €950 de-risking package, continuous price ladder, personal story as primary unfair advantage, "you are the MCP" framing, investor DD parked as future track.
 

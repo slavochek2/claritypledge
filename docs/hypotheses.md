@@ -13,7 +13,7 @@ Our active bets, in priority order. This is the map of what we still need to pro
 **Testing via:** First Pairs milestone — run 3-5 free facilitated sessions with real co-founder pairs on real decisions. Measure: does the "holy shit" moment happen? Do they quantify pain? Do they book session 2?
 **Kill if:** Gap reveal doesn't surprise them ("we knew that") OR they find it interesting but not worth paying to prevent OR zero pairs book a second session.
 **Scary thing:** Run first facilitated session with one co-founder pair by March 14.
-**Current status (2026-03-06):** No sessions run yet. One prospect reached out to. Session format: Slava facilitates explain-back on a real decision, surfaces false agreements. Pairs don't need to learn /live — Slava uses it as his diagnostic tool.
+**Current status (2026-03-09):** First facilitated session scheduled March 10. Article-as-qualifier channel validated reasoning: 30+ direct sessions with zero conversions → article pre-warm removes anti-humiliation barrier, readers who set positions self-select. Session format: Slava facilitates explain-back on a real decision, surfaces false agreements and false disagreements. Pairs don't need to learn /live — Slava uses it as his diagnostic tool.
 **Notes:** Merges previous H-CoFounders-WillPay + H-AgreementRetention. The prior framing assumed pairs would use /live independently — revised: Slava facilitates, pairs experience. Independent /live usage is downstream (see H-Stories-ColdStart). WTP tested after return is proven (H-Retainers-Sticky).
 **Session format:** (1) Pair discusses real decision, (2) Slava runs explain-back protocol, (3) gap revealed, (4) quantify pain, (5) if "holy shit" → create agreement → book session 2.
 
@@ -43,7 +43,7 @@ Our active bets, in priority order. This is the map of what we still need to pro
 **Testing via:** C3 (Paid Founder Retainers) — offer retainer to pairs from First Pairs who booked 2+ sessions. Measure month-2 retention. Target 10+ pairs, >60% month-2 retention, €10k MRR.
 **Kill if:** <5 retainer signups OR <40% month-2 retention.
 **Blocked by:** H-PairsReturn — need validated "holy shit" moment + return behavior first.
-**Notes (2026-03-06):** Delivery model updated from "pair uses /live independently" to "Fractional Clarity Officer" — Slava processes transcripts, finds misalignment, facilitates targeted sessions. Pairs don't need to learn the tool; they send transcripts and show up. Automate over time (transcription pipeline, AI gap analysis, mirror agents).
+**Notes (2026-03-09):** Delivery model updated from "pair uses /live independently" to "Fractional Clarity Officer" — Slava processes transcripts, finds misalignment, facilitates targeted sessions. Pairs don't need to learn the tool; they send transcripts and show up. Automate over time (transcription pipeline, AI gap analysis, mirror agents). Retainer value is finding WHERE to calibrate, not teaching HOW — pairs learn the meta-skill (common knowledge of calibration), but can't self-diagnose from inside their own conversations.
 
 ---
 
