@@ -6,7 +6,7 @@ when_to_use: After context compaction. Mid-session "where are we?". Before /kdd 
 
 # /status
 
-This conversation only. No git commands, no scanning features/, no project-wide view.
+This conversation only.
 
 > **Scope:** What happened since this chat opened. Not git history, not the backlog, not other sessions.
 
@@ -58,7 +58,7 @@ Next:
 - If nothing done yet: `Done: session just started`
 - If no problems: omit the Problems section entirely
 - If no open questions: omit that section
-- **Never** scan features/, git log, or external state — answer from conversation memory only
+- **Never** scan features/ or review the full backlog — the template's git state commands are the only external state allowed
 
 ## Related
 
