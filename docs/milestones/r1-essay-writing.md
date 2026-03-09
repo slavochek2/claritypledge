@@ -1,5 +1,5 @@
 ---
-status: running
+status: blocked
 priority: p0
 track: R
 milestone: R1
@@ -20,13 +20,13 @@ summary: "Essays positioning calibration as 'AI infrastructure' reach aligned co
 
 **Recognition model:** Essays → Recognition in target communities → Aligned funders notice → Potential €100-200k raise
 
-**Sequencing note:** R1 starts Month 5 (not Month 1). Reason: essays grounded in real C2/C3 founder session data are 2x more credible than theory-first pieces. First 4 months build the evidence; R1 publishes what was learned. "We ran sessions with 10+ founder pairs. Here's what we measured about calibration." is a far stronger hook than abstract theory.
+**Sequencing note:** R1 starts Month 5 (not Month 1). Reason: essays grounded in real C1/C3 founder session data are 2x more credible than theory-first pieces. First 4 months build the evidence; R1 publishes what was learned. "We ran sessions with 10+ founder pairs. Here's what we measured about calibration." is a far stronger hook than abstract theory.
 
 ---
 
 ## Hypothesis
 
-See [H-Essays-BuildRecognition](../hypotheses.md#h-essays-buildrecognition-evidence-based-essays-position-us-as-calibration-experts-in-aligned-communities) in hypotheses.md. Evidence-based essays grounded in real C2/C3 founder session data reach AI safety/rationalist communities and build recognition as "the calibration expert."
+See [H-Essays-BuildRecognition](../hypotheses.md#h-essays-buildrecognition-evidence-based-essays-position-us-as-calibration-experts-in-aligned-communities) in hypotheses.md. Evidence-based essays grounded in real C1/C3 founder session data reach AI safety/rationalist communities and build recognition as "the calibration expert."
 
 **Success:** ≥50 readers/essay, ≥5 discussions, ≥1 inbound "you're the expert" mention. **Kill if:** <50 readers after 3 months.
 
@@ -78,7 +78,7 @@ See [H-Essays-BuildRecognition](../hypotheses.md#h-essays-buildrecognition-evide
 
 ## Alignment with Dual-Track
 
-- **R1 is SECONDARY track (months 5-12). C-track coaching is PRIMARY (months 1-6). R1 uses coaching data as evidence. Runs after C2/C3 build real case studies.**
+- **R1 is SECONDARY track (months 5-12). C-track coaching is PRIMARY (months 1-6). R1 uses coaching data as evidence. Runs after C1/C3 build real case studies.**
 - Runs parallel to C3 retainer phase (after C2 workshops generate data)
 - If essays gain traction + aligned funders exist → consider fundraising
 - If coaching hits €5k but zero recognition → decision point at Month 12
@@ -90,6 +90,6 @@ See [H-Essays-BuildRecognition](../hypotheses.md#h-essays-buildrecognition-evide
 ## Related Documents
 
 **Track:** Recognition (R-workstream) — months 5-12
-**Depends on:** C2/C3 (founder session data)
+**Depends on:** C1/C3 (founder session data)
 **Previous:** C3 (Paid Founder Retainers)
 **Next:** R2 (Specification Essays) if R1 validates

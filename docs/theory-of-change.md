@@ -1,6 +1,7 @@
 # Theory of Change: From Fractured Realities to Common Knowledge
 
 **Status:** Source of truth — the causal chain from individual verification to civilizational transformation
+**Time horizons:** Near-term execution (0-12 months) is in [lean-canvas.md](lean-canvas.md), consolidated from Canvas G (March 2026). This doc describes the 1-10 year causal pathway and end state.
 **See also:** [philosophy.md](philosophy.md) for WHY this works (epistemology)
 
 ---
@@ -31,19 +32,24 @@ This section maps the logical chain from problem to impact, showing how our acti
 
 ### Activities (What We Do)
 
-**Core activities:**
-- Build /live verification tool (real-time explain-back protocol)
-- Teach explain-back protocol (healthcare teach-back applied to workplace)
-- Create Stories as context for verification (solves "on what?" cold start problem)
-- Run Calibration Lab workshops (free, in-person; participants experience the calibration gap firsthand)
-- Create Partner Agreements — formalize the commitment to ongoing /live practice between co-founder pairs
-- Publish essays to reach rationalist/AI safety communities (content-led recognition)
-- Build async verification tools (Slack integration, scale beyond real-time)
+**Near-term activities (0-12 months — "You are the MCP"):**
+- Facilitate calibration sessions with co-founder pairs (Slava uses /live as diagnostic tool)
+- Run free Calibration Workshops (1-to-many; you present calibration points, room calibrates against you)
+- Create Clarity Partnership Agreements — formalize commitment to ongoing calibration
+- Process meeting transcripts with AI to surface false agreements (Fractional Clarity Officer)
+- File stories & points from sessions (Slava as scribe, not the pair)
+
+**Long-term activities (12+ months — progressive automation):**
+- Automate transcript processing and gap detection
+- Build briefing protocol (mirror agents reach out to Person B)
+- Publish evidence-based essays to reach rationalist/AI safety communities
+- Build async verification tools (scale beyond real-time)
 
 **Distribution channels:**
-1. **Workshop-agreement cascade:** Calibration Lab → participants create partner agreements → agreements commit them to recurring /live → √N growth
-2. **Briefing protocol (primary cold start):** Person A files stories → Person B receives anon link → briefing activates Person B → Stage 1
-3. **Content cascade:** Essays → AI safety researchers → enterprise pilots → legitimacy effects
+1. **Workshop-agreement cascade (primary, now):** Free Workshop → "holy shit" moment → €950 De-risking → Clarity Partnership Agreement → €1,500/mo FCO Retainer
+2. **Investor distribution (future, parked):** Investors forward workshop invites to portfolio; investor DD as paid track
+3. **Briefing protocol (future):** Person A files stories → Person B receives anon link → briefing activates Person B → Stage 1
+4. **Content cascade (future, after Month 5):** Evidence-based essays → recognition → enterprise pilots
 
 ### Outputs (What We Produce)
 
@@ -52,7 +58,7 @@ This section maps the logical chain from problem to impact, showing how our acti
 - Certifications: Verified understanding records linking people to ideas
 - Protocol adoption: People using explain-back in daily conversations (with or without tool)
 - Content: Essays, specs, technical writing reaching aligned communities
-- Workshops delivered: Calibration Labs run, participants practice protocol
+- Workshops delivered: Calibration Workshops run, participants practice protocol
 - Partner Agreements created: Co-founder pairs with formalized /live practice commitments
 
 **Data artifacts:**
@@ -63,13 +69,13 @@ This section maps the logical chain from problem to impact, showing how our acti
 ### Outcomes (What Changes)
 
 **Short-term outcomes (0-6 months):**
-- Workshop participants report reduced miscommunication (qualitative feedback)
-- Essays reach 50+ readers in rationalist/AI safety communities (O-Essay-Reach)
-- First coaches adopt protocol and integrate into practice (O-Workshop-Retention)
-- €10K/month retainer MRR validates business model (C3 outcome) — Calibration Labs are free acquisition, not revenue
+- Co-founder pairs experience "holy shit" moment — false agreement revealed (C1 outcome)
+- Workshop participants discover comprehension gaps calibrating against your content
+- First €950 de-risking sessions convert to €1,500/mo FCO retainers (C3 outcome)
+- €5k/month revenue validates coaching as business model
 
 **Medium-term outcomes (6-12 months):**
-- Recognition as "calibration expert" in AI alignment space (R3 outcome)
+- Recognition as "calibration expert" in AI alignment space (R1 outcome)
 - Inbound requests from aligned funders (Lightcone, Protocol Labs, SFF)
 - Protocol spreads beyond initial coaches (early √N growth signals)
 - Stories dataset grows (training data for personal AI agents)
@@ -188,7 +194,7 @@ The **explain-back protocol** spreads through workshops and Partner Agreements, 
 ```
 STAGE 0a: WORKSHOP-AGREEMENT CASCADE
 ──────────────────────────────────────
-Calibration Lab (free workshop)
+Calibration Workshop (free workshop)
 Participants experience calibration gap firsthand
         ↓
 Participants create a Partner Agreement
@@ -203,9 +209,15 @@ Stage 1 begins (The Proof)
 
 **Key insight:** The workshop (or direct facilitated session) creates the "aha" moment — the "holy shit" reaction when a false agreement is revealed. The Partner Agreement operationalizes it. Without the agreement, enthusiasm dissipates. With it, the pair has a commitment artifact to return to.
 
-**Near-term delivery (2026-03-06): Fractional Clarity Officer.** Slava facilitates directly — reviews transcripts, finds gaps with AI, runs targeted explain-back sessions. Pairs don't need to learn /live; they send transcripts and show up. Automate over time.
+**Near-term delivery (2026-03-08): "You are the MCP."** Slava facilitates directly — reviews transcripts, finds gaps with AI, runs targeted explain-back sessions. Pairs don't need to learn /live; they send transcripts and show up. Every manual action is a spec for what to automate next. Service work IS live prototyping, not consulting while secretly wanting to build a platform.
 
-**Future path (coach-mediated, deprioritized):** Coach-mediated cascading (coaches learn protocol → teach clients → Protocol-Led Growth) remains a valid long-term hypothesis but is not the near-term mechanism. Current focus is Slava-as-service validating session value before distributing through other facilitators.
+**Workshop format (2026-03-08):** Two distinct formats serve different goals:
+- **Free Calibration Workshop (1-to-many, lead gen):** You present calibration points (stories & points curriculum), room calibrates against you. No pairing needed. Safe, fun, genuinely revealing. Content gets battle-tested before publishing.
+- **Direct facilitated session (1-to-2, value delivery):** You sit with the pair on their real decision. This is where the "holy shit" moment lives. Workshop creates awareness; facilitated session creates conversion.
+
+**Price ladder:** Free Workshop → €950 De-risking (2 sessions + Clarity Partnership Agreement) → €1,500/mo FCO Retainer. Continuous, no gaps. See [lean-canvas.md](lean-canvas.md) for full ladder.
+
+**Future path (coach-mediated, deprioritized):** Coach-mediated cascading remains a valid long-term hypothesis but is not the near-term mechanism.
 
 #### Stage 0b: Briefing Protocol (Mirror Agent-Led Activation) — PRIMARY COLD START
 
@@ -274,7 +286,7 @@ Enterprise adoption (12-month timeline)
 
 | Milestone | Coaching Path | Rationalist Path |
 |-----------|---------------|------------------|
-| First revenue | Month 1-2 (first coach) | Month 6-12 (first lab pilot) |
+| First revenue | Month 2-3 (first de-risking) | Month 6-12 (first lab pilot) |
 | Network effects visible | Month 6+ (√N kicks in) | Month 12+ (recognition threshold) |
 | Scale unlock | Year 2-3 (recursion) | Year 1-2 (enterprise deals) |
 
@@ -285,7 +297,7 @@ Enterprise adoption (12-month timeline)
 - **Recognition secondary, data-driven (months 7-12):** Essays leveraging real session data, framed as "what we learned from 10+ founder pairs"
 - **They reinforce:** Coaches validate UX; data validates theory; combined evidence unlocks AI alignment positioning
 
-**Next actions:**
+**Future actions (after Month 5, when C1/C3 data exists):**
 1. Publish AI calibration framing (LessWrong or Alignment Forum)
 2. Demo: "Here's how verified understanding prevents agent drift"
 3. Invite AI safety researchers to test with their teams
@@ -303,6 +315,8 @@ Enterprise adoption (12-month timeline)
 - Each level takes ~6 weeks to propagate
 
 ### The Seven-Stage Cascade
+
+> **Time horizons:** Stages 1-3 map to the current 0-12 month execution (Canvas G's price ladder). Stages 4-7 are the 1-5 year platform vision. The theory of change describes the end state; Canvas G (lean-canvas.md) describes how to get there from zero.
 
 ```
 STAGE 1: THE PROOF
@@ -587,6 +601,7 @@ Minimum ROI:                  2x
 
 ## Changelog
 
+- **2026-03-08:** Canvas G consolidation — added time-horizon labels (0-12mo execution vs. 1-10yr vision), updated activities/outcomes to match current "You are the MCP" service model, two workshop formats (1-to-many lead gen + 1-to-2 conversion), price ladder (Free → €950 → €1,500/mo), parked investor DD and recognition tracks
 - **2026-03-02:** Stage 0b promoted to primary cold start; partner agreement loop added; Stage 0a reframed from coach-cascade to workshop-agreement path
 - **2026-01-28:** Added Stage 0 (Protocol Propagation / Protocol-Led Growth), Evidence Base section with research citations
 - **2026-01-25:** Promoted from `docs/visions/v0_theory-of-change.md` to source of truth doc (P96)

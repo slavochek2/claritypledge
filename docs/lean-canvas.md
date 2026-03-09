@@ -1,18 +1,20 @@
 # Lean Canvas: Clarity Pledge
 
-**Last updated:** 2026-03-06
+**Last updated:** 2026-03-08
 
 ---
 
 ## Problem
 
-**People are miscalibrated about their understanding of each other.**
+**Co-founder teams carry hidden false agreements and false disagreements they can't detect.** These silently erode trust and cause blowups investors can't predict.
 
 Two calibration failures:
-1. **Speakers** overestimate how clearly they communicated
-2. **Listeners** overestimate how well they understood
+1. **Speakers** overestimate how clearly they communicated (illusion of transparency)
+2. **Listeners** overestimate how well they understood (illusion of knowing)
 
-No feedback loop exists — conversations end without checking if understanding actually happened. People think they understood, but didn't — and never find out. The result is **False Agreement** — both parties believe they've aligned, but neither has verified it. By the time the gap surfaces, it has become a conflict.
+No feedback loop exists — conversations end without checking if understanding actually happened. The result is **False Agreement** — both parties believe they've aligned, but neither has verified it. By the time the gap surfaces, it has become a conflict.
+
+**No alignment due diligence exists.** Legal DD has documents, financial DD has numbers. Team calibration has nothing. Self-diagnosis fails — founders don't self-identify as misaligned.
 
 **The measurement problem:** Existing tools don't help. 75% of research relies on self-reports (the miscalibration we're trying to fix). Gong measures talk-time ratio, not comprehension. 360 feedback buries "listening" as 1 item among 30. Meta-analysis shows metacomprehension accuracy is only r=0.24 — people are poor at knowing what they know.
 
@@ -40,42 +42,17 @@ The tools for talking got better. The tools for understanding didn't.
 
 ## Customer Segments
 
-### Dual-Track Strategy
+### Primary: Co-Founder Pairs (Coaching — months 1-12)
 
-**Sequencing (updated 2026-02-18):** Coaching track is PRIMARY months 1-6 (build real founder data). Recognition track is SECONDARY — starts months 5-12 using real session data as evidence for essays and AI alignment positioning. Essays written from data are 2x more credible than theory-first pieces.
-
-**Track 1 (RECOGNITION PATH — Primary months 5-12, Secondary months 1-4)**
-
-Primary audience for recognition and thought leadership:
-- **Rationalists & LessWrong community** — deeply interested in calibration, epistemics, AI alignment
-- **AI researchers & safety practitioners** — need verified understanding for alignment research
-- **Effective Altruism community** — optimize for impact through better coordination
-- **Technical founders** — building AI agents, need calibration infrastructure
-
-**Value hypothesis:** These communities will recognize calibration as core infrastructure for personal AI and digital twins. They provide visibility, credibility, and intellectual validation.
-
-**Jobs to be done:**
-| Job | Value |
-|-----|-------|
-| Verify my AI agent understands me | Trust that my digital twin represents my thinking |
-| Build calibration into personal AI | Infrastructure for agent-human alignment |
-| Signal calibration as identity | "I care about verified understanding" |
-| Explore epistemics through practice | Theory meets measurement |
-
-**Track 2 (COACHING PATH — Primary months 1-6)**
-
-Primary revenue track — founder coaching:
-- **Co-founder pairs** (functioning but misaligned — preventive, not in crisis) — PRIMARY ICP
-- **Solo founders + equity advisors** (solo founder is Person A, equity advisor is Person B — same high-stakes dyad, lower decision frequency) — SECONDARY, expand after C2 validates
-- **Early-stage executive teams** — FUTURE
+**Primary user:** Pre-seed / seed co-founder pairs (highest relationship fragility, most to lose).
 
 **ICP qualifier:** The right unit is a **high-stakes dyad** — two people where (1) decisions are made frequently, (2) trust hasn't broken yet, and (3) miscalibration is already costing them both. Funding stage is a proxy, not the criterion. Pre-seed to seed is typical, but relationship health + decision velocity matters more than funding label.
 
-**Protocol precondition:** The briefing protocol requires a **motivated Person B** — someone with pre-existing stakes in understanding Person A. Person B must have a real relationship where misunderstanding is costly and they'd accept the invitation because the relationship matters to them. The protocol doesn't create motivation; it channels motivation that already exists.
+**Protocol precondition:** The briefing protocol requires a **motivated Person B** — someone with pre-existing stakes in understanding Person A. The protocol doesn't create motivation; it channels motivation that already exists.
 
-**Positioning:** Preventive calibration for functioning-but-misaligned teams. Not crisis intervention or therapy. Works when both parties recognize the problem exists but trust isn't broken.
+**Positioning:** Preventive calibration for functioning-but-misaligned teams. Not crisis intervention or therapy.
 
-**Value hypothesis:** Founder coaching generates €5k/month revenue while building real session data to power recognition essays and AI alignment positioning.
+**Value hypothesis:** Founder coaching generates €5-10k/month revenue while building real session data. Session data powers future recognition essays and AI alignment positioning.
 
 **Jobs to be done:**
 | Job | Value |
@@ -85,62 +62,75 @@ Primary revenue track — founder coaching:
 | Track team alignment | See where understanding breaks down |
 | Reduce miscommunication costs | $12,506/employee/year problem |
 
+**Expansion segments (future):**
+- **Solo founders + equity advisors** — same high-stakes dyad, lower decision frequency. Expand after C1 validates.
+- **Full teams** — Team Clarity Workshops (€3,350, up to 8 people). Once co-founders are calibrated, extend to team. Co-founders become internal champions.
+- **Early-stage executive teams** — FUTURE
+
+### Future Buyer: Investors as Channel + Customer (parked, see H-InvestorDD)
+
+**Two investor roles (explore after coaching validates):**
+- **Track A — Investor as channel:** Investors forward free workshop invitations to portfolio founders. Low-friction, no ask. Calibration signal flows back to investor.
+- **Track B — Investor as buyer:** Direct pre-investment calibration DD (€2,000+). Investor pays for team assessment before writing a check.
+
+**Why parked:** Adding a second sales motion (B2B to investors) before the first (B2C to founders) has started doubles complexity. The lean path: validate with founders first, then offer investor DD when a founder says "can you share this with our investor?" Pull, not push.
+
+**Revisit when:** 5+ pairs completed sessions, at least one founder voluntarily shares report with investor.
+
+### Future: Recognition Track (parked until 10+ case studies)
+
+Audience for recognition and thought leadership — rationalists, AI researchers, EA community. **Parked:** Recognition essays without session data are theory-first and 2x less credible. See [hypotheses.md → Blocked](hypotheses.md#blocked-waiting-on-something-else) for unblock conditions.
+
 ### Promising Use Cases (to explore)
 
-| Use Case | Track | Why Promising |
-|----------|-------|---------------|
-| Co-founder pair alignment | 2 (COACHING — months 1-6) | High stakes, clear "when" to use, preventive not crisis |
-| Personal AI calibration | 1 (RECOGNITION — months 5-12) | Digital twin market growing (Viven $35M, Uare.ai $10M) |
-| AI alignment research | 1 (RECOGNITION — months 5-12) | Academic/research community needs verified understanding |
-| Team communication | 2 (COACHING — months 1-6) | Clear ROI, measurable cost savings |
+| Use Case | Status | Why Promising |
+|----------|--------|---------------|
+| Co-founder pair alignment | ACTIVE (C1) | High stakes, clear "when" to use, preventive not crisis |
+| Investor DD (pre-investment calibration) | PARKED | Investors lack team alignment signal; explore after coaching validates |
+| Team communication | FUTURE | Clear ROI after dyad model proves out |
+| Personal AI calibration | PARKED | Digital twin market growing; revisit after recognition track fires |
+| AI alignment research | PARKED | Needs session data corpus |
 
 ---
 
 ## Market Size
 
-**Track 1 (RECOGNITION PATH — Primary months 5-12): Personal AI / Digital Twins**
-- **Digital twin market:** Viven ($35M raised), Uare.ai ($10M raised) — emerging category for AI-powered personal representation
-- **AI alignment research:** Growing field with increasing funding (OpenAI, Anthropic, MIRI, etc.)
-- **Rationalist/EA community:** ~50k+ active members globally (LessWrong, EA Forum, adjacent communities)
-- **Personal AI market:** Rewind, Otter.ai, Mem raising significant capital for AI-powered personal memory/representation
-
-**Why this market matters:** Not immediate revenue, but recognition → credibility → opportunities. Being "the calibration person" in AI/rationalist circles creates asymmetric value (consulting, advisory roles, aligned funding).
-
-**Track 2 (COACHING PATH — Primary months 1-6): Founder Coaching**
+**Founder Coaching (primary):**
 - 71,000+ ICF-credentialed coaches worldwide
 - Executive coaching: $15B+ global market
 - Leadership development: $60B+ global market
-- Sales training: $4.6B US market (active listening = core skill)
+- Co-founder breakup rate: ~65% of startups fail due to co-founder conflict (Noam Wasserman)
 
-**Target:** €5k/month by Month 6 validates coaching as revenue foundation.
+**Target:** €5k/month by Month 6 (3 retainer pairs), €10k/month by Month 9 (5 pairs). Capacity ceiling: 7 pairs max (~€15.75k/mo with escalating pricing).
 
-**Path (Track 2):** Free facilitated session → "holy shit" moment (false agreement revealed) → Partner Agreement → Fractional Clarity Officer retainer → Automate over time
+**Path:** Free Workshop → "holy shit" moment (false agreement revealed) → €950 De-risking (2 sessions + Clarity Partnership Agreement) → €1,500–3,000/mo FCO retainer (escalating, 7 slots max) → Automate over time
 
-**Service model (2026-03-06): Fractional Clarity Officer.** Slava reviews the pair's meeting transcripts, uses AI to identify false agreements and position divergence, then facilitates targeted sessions on the gaps found. Pairs don't learn /live — they send transcripts and show up. The retainer is the analysis, not the tool. Automate the analysis over time (transcription pipeline → AI gap detection → mirror agents).
+**Service model (2026-03-08): Fractional Clarity Officer ("You are the MCP").** Slava reviews the pair's meeting transcripts, uses AI to identify false agreements and position divergence, then facilitates targeted sessions on the gaps found. Pairs don't learn /live — they send transcripts and show up. The retainer is the analysis, not the tool. Every manual step is a spec for automation.
 
-**Partner agreement as commitment mechanism (2026-03-02):** Once a partner agreement is created, it commits both parties to ongoing calibration practice. But the agreement alone may not drive independent /live usage — the Fractional Clarity Officer model ensures the pair gets value even without self-serve tool adoption.
+**Clarity Partnership Agreement as commitment mechanism:** Once created, it commits both parties to ongoing calibration practice. The agreement alone may not drive independent /live usage — the FCO model ensures the pair gets value even without self-serve tool adoption.
 
-**Path (Track 1):** Real session data → Essays → Recognition → Personal AI adoption → Network effects
+**Future markets (parked):**
+- **Investor DD:** No alignment due diligence exists. Legal DD has documents, financial DD has numbers. Team calibration has nothing. Investors protect €500k checks with no signal on whether the team actually agrees.
+- **Personal AI / Digital Twins:** Viven ($35M raised), Uare.ai ($10M raised). Calibration as infrastructure for AI agent alignment.
+- **AI alignment research:** Growing field. Revisit after recognition track fires.
 
 ---
 
 ## Unique Value Proposition
 
-### Track 1 (RECOGNITION PATH — Primary months 5-12, Secondary months 1-4)
-> **Calibration infrastructure for personal AI — verify your digital twin actually understands you.**
+### Primary (Coaching — months 1-12)
+> **"I don't ask founders if they're aligned. I test it. In real time. They can't fake it."**
 
-For rationalists, AI researchers, and those building personal AI agents: a systematic way to measure and improve the fidelity between your thinking and its AI representation.
-
-**Positioning:** Not "just a communication tool" but foundational infrastructure for the personal AI era. As digital twins and AI agents become extensions of ourselves, calibration becomes critical — how do you know your AI actually represents your thinking?
-
-### Track 2 (COACHING PATH — Primary months 1-6): Founder Coaching
-> **See your calibration gap with your co-founder — close it before it breaks you.**
-
-For co-founder pairs: experience where your mental models diverge — then build the shared understanding that functional alignment requires.
+The only alignment assessment that produces a number, not a feeling. Combines the safety of calibrating on intellectual claims with the precision of transcript-based disagreement detection.
 
 **Positioning:** Preventive calibration for functioning-but-misaligned teams. Not crisis intervention or therapy. Works when both parties recognize the problem exists but trust isn't broken.
 
 *External label: Co-founder De-Risking (jargon-free version of calibration coaching for external audiences)*
+
+### Future (Recognition — parked until 10+ case studies exist)
+> **Calibration infrastructure for personal AI — verify your digital twin actually understands you.**
+
+For rationalists, AI researchers, and those building personal AI agents. **Parked:** No essays or specs until coaching track generates real session data. Revisit after 10+ founder pairs produce measurable outcomes. See [hypotheses.md → H-Essays-BuildRecognition](hypotheses.md#h-essays-buildrecognition-evidence-based-essays-position-us-as-calibration-experts-in-aligned-communities).
 
 **Shared foundation:**
 > **Scale your inner world — know who understood you, how well, and where they diverge — without being present for every conversation.**
@@ -153,8 +143,11 @@ Stories let authors verify understanding at scale without repeating themselves.
 
 A **practice system for calibrated communication** — evolving toward **Stories that scale your inner world**.
 
-**Current:** Real-time verification via /live in meetings.
-**Next:** Stories that persist and can verify understanding on author's behalf.
+**Current:** Slava-facilitated calibration sessions using /live as diagnostic tool. Pairs don't need to learn the tool.
+**Next:** Progressive automation — transcript pipeline → AI gap detection → mirror agents.
+
+### 0. Stories & Points Curriculum (Prerequisite)
+Your calibration content: three types of understanding, sender-receiver asymmetries, implications. This IS the workshop material and the demo simultaneously. When the room miscalibrates on your claims, the product sells itself. Workshop format is battle-tested content — you learn which framings produce surprising gaps, then publish. Filed content tested live, not perfected in isolation.
 
 ### 1. The Pledge (Brand & Identity)
 A social contract that makes verification acceptable:
@@ -252,25 +245,36 @@ Track your accuracy over time:
 
 | Metric | What it measures |
 |--------|------------------|
+| **Workshop → de-risking conversion** | % of workshop attendees who book €950 de-risking |
+| **False agreements surfaced per session** | Proves value — concrete "holy shit" moments |
+| **Active /live pairs** | Behavioral commitment — pairs using the tool |
+| **FCO monthly recurring revenue** | €1,500/mo retainers |
 | **Understanding Gap** | Listener confidence minus speaker accuracy rating |
-| **Verification Rate** | % of event attendees who complete at least one /live |
-| **Calibration Accuracy** | How well users predict their own understanding |
+| **Team survival rate post-calibration vs baseline** | The killer stat (needs 20-30 teams) |
 
 ---
 
 ## Unfair Advantage
 
-1. **First to productize listening fidelity** — Academic scales (AELS, ALOS, Listening Fidelity) exist but aren't productized. We're building what research validated but no one built.
+1. **14 co-founders, 6 years, €398k raised, bankruptcy.** Nobody else has this depth of lived alignment failure research. The failure story IS the credential — "I lost everything to the problem I now diagnose."
 
-2. **Data moat** — Every /live session generates calibration data. Over time, we build the largest dataset on human understanding gaps. This powers insights, benchmarks, and better matching.
+2. **30+ real calibration sessions + stories & points ontology** — 9 years in development from the Ray Dalio cold email. Trained facilitator instinct for catching false agreement. Protocol is simple but facilitation is hard to replicate — you are the moat until automation catches up.
 
-3. **Network effects** — Your verified listener reputation only has value if others recognize it. The more people on the platform, the more valuable each profile becomes.
+3. **"You are the MCP" framing** — Not consulting while secretly wanting to build a platform. Explicitly being the beta version of your own software. Every manual action is a spec for what to automate next. Service work IS live prototyping.
 
-4. **Protocol-led growth** — The explain-back protocol spreads free (coaches → clients → teams). The measurement captures value. Protocol is the distribution; product is the proof.
+4. **First to productize listening fidelity** — Academic scales (AELS, ALOS, Listening Fidelity) exist but aren't productized. We're building what research validated but no one built.
 
-5. **Brand as standard** — "Clarity Pledge" can become the default certification for good-faith dialogue (like Creative Commons for content licensing).
+**Emerge over time (not current moats):**
 
-**On open source:** The code is open, but the moat is the network + data + brand, not the software. Open source actually accelerates adoption and builds trust.
+5. **Data moat** — Every /live session generates calibration data. Over time, builds the largest dataset on human understanding gaps.
+
+6. **Network effects** — Verified listener reputation gains value as more people recognize it.
+
+7. **Protocol-led growth** — The explain-back protocol spreads free. The measurement captures value.
+
+8. **Brand as standard** — "Clarity Pledge" as default certification for good-faith dialogue.
+
+**On open source:** The code is open, but the moat is the network + data + brand, not the software.
 
 ### Brand Separation
 
@@ -283,25 +287,29 @@ ClarityPledge is the platform brand (like Stripe). ladischenski.com is the found
 
 ## Channels
 
-### Track 2 (PRIMARY months 1-6): Coaching Path
+### Primary: Workshop + Direct Outreach (months 1-12)
 
-Primary channels for founder coaching revenue:
-- **Calibration Lab workshops:** PRIMARY acquisition channel — run in founder/AI communities (accelerators, AI business meetups, peer groups). Goal: pairs experience the gap → create partner agreement + first /live session. Cast wide: co-founder pairs, AI practitioners, solo founders. Route post-session based on who showed up.
-- **Content-led inbound:** Essays, build-in-public posts, and workshop recordings generate inbound inquiries without cold outreach. Starts after first Lab produces real data (~Month 2).
-- **Coach partnerships:** Partner with executive coaches who work with founders → referrals
+- **Free Calibration Workshops:** PRIMARY acquisition channel — 1-to-many format. You present calibration points (stories & points curriculum), room calibrates against you. No pairing needed. Safe, fun, genuinely revealing. Run in founder/AI communities (accelerators, AI business meetups, peer groups). Goal: participants experience their own comprehension gap → convert to €950 de-risking.
+- **Direct warm outreach:** For first 1-3 pairs. "I sit with you and your co-founder while you discuss a real decision. I'll surface where you think you agree but don't. 45 min, free."
+- **Content-led inbound:** "What I learned losing 14 co-founders" content. Build-in-public posts, workshop recordings. Starts after first workshop produces real data.
+- **Organic:** Accelerator partnerships. Koh Phangan founder/nomad community. LessWrong / rationalist crossover audience.
 
-**Success signals:** 10 Calibration Lab participants by Month 3, €3k/month by Month 6.
+**Success signals:** 10 workshop participants by Month 3, €5k/month by Month 6.
 
-### Track 1 (SECONDARY months 5-12): Recognition Path
+### Future: Investor Distribution (parked, see H-InvestorDD)
 
-Secondary channels for thought leadership — built on real session data:
-- **LessWrong:** Distribution channel for rationalist community — post calibration insights, epistemics, AI alignment angles (backed by real founder data)
-- **Hacker News:** Technical audience interested in AI, measurement, calibration infrastructure
-- **Build-in-public blog:** Essays on calibration, epistemology, building journey. Audience = "calibrated listeners" (practitioners frustrated others don't verify). Manifesto sequence (8 posts) first subscriber drip. See [content/strategy.md](../content/strategy.md).
-- **AI research community:** Engage directly with alignment researchers, frame calibration as infrastructure
-- **Technical writing:** Specs, technical essays, build-in-public updates shared in rationalist/AI circles
+- **Track A — Investor as channel:** Investors forward free workshop invitations to portfolio founders. Low-friction. Calibration signal flows back to investor.
+- **Track B — Investor as buyer:** Direct DD engagement. Investor pays €2,000+ per assessment. "14 co-founders and a bankruptcy" is the credential.
 
-**Success signals:** Essays reach 50+ readers, specs discussed on LW/X, inbound "you're the calibration expert" mentions.
+**Revisit when:** Coaching track validated (5+ pairs, at least one investor asks for signal).
+
+### Future: Recognition Path (parked until Month 5+)
+
+- **LessWrong, Hacker News, Twitter/X:** Evidence-based essays grounded in real session data
+- **Build-in-public blog:** See [content/strategy.md](../content/strategy.md)
+- **AI research community:** Frame calibration as alignment infrastructure
+
+**Revisit when:** 10+ case studies from coaching track exist.
 
 ---
 
@@ -309,78 +317,85 @@ Secondary channels for thought leadership — built on real session data:
 
 | Metric | Estimate |
 |--------|----------|
-| Calibration Lab cost to run | ~€0 (your time) |
-| Calibration Lab → partner agreement | Target: 50%+ |
-| Partner agreement → /live return (30d) | Target: 50%+ |
-| Pair retainer price | €800–1,500/pair/month |
+| Workshop cost to run | ~€0 (your time + Zoom) |
+| Workshop → €950 de-risking conversion | Target: 20%+ |
+| De-risking → FCO retainer conversion | Target: 50%+ |
+| FCO retainer price | €1,500–3,000/pair/month (escalating +€250/slot) |
 | Retainer month-2 retention | Target: 60%+ |
-| CAC | ~€0 (Calibration Labs are free acquisition) |
+| CAC | ~€0 (workshops are free acquisition) |
 
 ---
 
 ## Cost Structure
 
-- Engineering (primary)
-- Hosting (Supabase, Vercel — scales with users)
-- Your time (workshops, support)
+**Phase 1 (now):** Your time + Zoom + existing /live tool. Whisper API for transcription. Living costs ~€1,500-2,500/mo (Koh Phangan). Estonian OÜ ~€100/mo. Near zero operational.
+
+**Phase 2:** Investor report platform + story/point filing tools. Modest dev costs (you build it).
+
+**Phase 3:** Mirror agent infrastructure, LLM API costs. Standard SaaS economics.
 
 ---
 
 ## Revenue Streams
 
-### Dual-Track Model (2026-02-11)
+### Primary: Coaching Revenue (months 1-12)
 
-**Track 1 (RECOGNITION PATH — Primary months 5-12, Secondary months 1-4)**
-- **Revenue model:** Indirect, recognition-driven
-- **Goal:** Build credibility in rationalist/AI research communities — be recognized as "the calibration person"
-- **Monetization hypothesis:** Recognition → opportunities (consulting, advisory roles, aligned funding) OR Recognition → Personal AI adoption → premium features for AI integration
-- **Timeline:** Long-term play (months 5-12+ to recognition, 12+ months to revenue)
-- **Success metric:** Thought leadership, community adoption, "calibration = standard" perception
-- **Willing to raise:** €100-200k from aligned funders if coaching validation + case studies (10+ founder sessions with measurable outcomes) exist (not just recognition or essay traction)
+- **Revenue model:** Direct, service-based — "You are the MCP" (being the beta version of your own software)
+- **Target:** €5,000/month by Month 6 (3 pairs), €10,000/month by Month 9 (5 pairs). Capacity ceiling: 7 pairs = ~€15,750/mo.
+- **Path:** Free Workshop (lead gen) → €950 De-risking → €1,500–3,000/mo FCO Retainer (escalating +€250/slot, 7 max)
+- **Timeline:** First revenue Month 2-3 (de-risking sessions), recurring Month 4+ (retainers)
+- **Role:** Validates session value, generates real founder data for future recognition essays, NOT just safety net
+- **Retainer trigger:** Offered AFTER the "holy shit" moment — pair experienced a false agreement revealed in a facilitated session AND booked session 2. Delivery model: Fractional Clarity Officer (transcript review → AI gap analysis → facilitated session).
+- **Automation path:** Start manual → automate transcript processing → automate gap detection → eventually AI does what Slava does. Every manual action is a spec for what to automate next. Service work IS live prototyping.
 
-**Track 2 (COACHING PATH — Primary months 1-6): Founder Coaching Revenue**
-- **Revenue model:** Direct, coaching-based
-- **Target:** €5,000/month by Month 6 = "enough" (unlock point, not ceiling) to fund recognition work
-- **Path:** Free Calibration Lab (open acquisition) → Co-founder pair sessions → Retainer → Cohorts
-- **Timeline:** Short-term revenue (Month 3+)
-- **Success metric:** Monthly recurring coaching revenue
-- **Role:** Validates tool UX, generates real founder data for recognition essays, NOT just safety net
-- **Retainer trigger (2026-03-06):** Retainers are offered AFTER the "holy shit" moment — pair experienced a false agreement revealed in a facilitated session AND booked session 2. Delivery model: Fractional Clarity Officer (transcript review → AI gap analysis → facilitated session). The business starts as a service; automate toward software over time.
-- **Long-term revenue path:** Automate the Fractional Clarity Officer (transcription pipeline → AI gap detection → mirror agents). As automation matures, shift from Slava-dependent service to self-serve software subscriptions.
+### Future: Investor DD Revenue (parked)
+
+- **Revenue model:** Direct, high-margin — investor pays €2,000+ per pre-investment calibration assessment
+- **Why parked:** Validate founder track first. Investor DD adds a second sales motion; lean path is to let it emerge as pull ("can you share this with our investor?")
+- **Willing to raise:** €100-200k from aligned funders if coaching validation + case studies (10+ founder sessions with measurable outcomes) exist
+
+### Future: Recognition → Indirect Revenue (parked until Month 5+)
+
+- **Revenue model:** Indirect — recognition → consulting, advisory, aligned funding, personal AI adoption
+- **Why parked:** Essays without session data are theory-first and 2x less credible
 
 **Checkpoints (Unlock Gates):**
 
-These are gates to unlock next level of ambition, not reasons to quit. If a checkpoint isn't met, constraints remain — need to extend current phase before unlocking next level.
+Gates to unlock next level of ambition, not reasons to quit. If not met, extend current phase.
 
 | Milestone | Signal | Consequence |
 |-----------|--------|-------------|
-| Month 3 | <10 workshop participants AND essays <50 readers | **Can't unlock Month 4-6 psychology recovery** — both tracks need traction to lift fear constraints |
-| Month 6 | <€3k/month revenue OR zero engagement on specs/essays | **Can't unlock Month 7-12 self-worth restoration** — need revenue stability OR recognition signals to proceed. Note: €5k = minimum unlock gate; €10k is C3 retainer target by Month 6-7 (sequential, not conflicting). |
-| Month 12 | No Track 1 recognition (no inbound, no LW discussion, no "you're the expert") + <€5k/month Track 2 | **Can't unlock unbounded ambition phase** — trajectory insufficient for scaling, reassess strategy |
+| Month 3 | <10 workshop participants | **Can't unlock retainer offers** — need proven "holy shit" moment |
+| Month 6 | <€3k/month revenue | **Can't unlock recognition investment** — need revenue stability to proceed |
+| Month 12 | <€5k/month + zero recognition signals | **Reassess strategy** — trajectory insufficient for scaling |
 
-**Decision point (Month 12):** If recognition gains traction + aligned funders exist → raise capital, scale recognition. If coaching hits €5k but zero recognition → decide: continue or pivot.
+**30-day binary test (from Canvas G):** Can you build Stage 1 content (done — calibration points filed), run two workshops, and convert one pair to €950 de-risking — in 30 days — without changing the architecture? If yes, you have a business. If no, the bottleneck tells you what to fix.
 
-### Tiers
+### Price Ladder (continuous — no gaps)
 
-**Free tier (adoption & spread):**
+| Stage | Price | Deliverable | Status |
+|-------|-------|-------------|--------|
+| Free Calibration Workshop | Free | 1-to-many. You present calibration points, room calibrates against you. Everyone discovers comprehension gaps live. No pairing needed. | Active (lead gen) |
+| Co-founder De-risking | €950 | Two sessions + Clarity Partnership Agreement + /live habit established. Transcript-based — they record via /live, you file stories & points, surface the real map. | Active (C1) |
+| Fractional Clarity Officer | €1,500–3,000/mo (escalating) | You play the MCP. Weekly sessions, ongoing transcript analysis. 7 slots max — price rises €250/slot to manage capacity. | Future (C3) |
+| Direct Investor DD | €2,000+ | Pre-investment calibration assessment. Investor pays. Unfakeable — founders can't fake understanding without actually understanding. | Parked (H-InvestorDD) |
+| Team Clarity Workshop | €3,350 | Half-day workshop for up to 8. Co-founders become internal champions. | Future |
+| Mirror Agent SaaS | Subscription | Automated calibration agents. You're out of the loop. | Long-term |
+
+**Free tier (always):**
 - Individual /live use: free (forever)
 - Personal calibration profiles: free
 - Basic stories/points: free
-- Rationalist/researcher use: free (community building)
 
-**Track 2 (PRIMARY): Founder Coaching Pricing**
-- **Free Calibration Lab** — free acquisition (90 min group session, cast wide, route post-session). Workshops are NOT revenue drivers — they are cost/acquisition to get pairs into the product loop.
-- **€300–500** — single co-founder pair session (60-90 min). Valid entry point but not the primary model.
-- **€800–1,500/month** — Fractional Clarity Officer retainer per pair (triggered after pair experiences "holy shit" moment + books session 2). Delivery: Slava reviews transcripts, finds gaps with AI, facilitates targeted sessions.
-- **€200–300/month** — founder community add-on (future C4)
-
-**Track 1 (SECONDARY): Recognition Path Pricing**
-- **Future:** software subscriptions as pairs scale usage (long-term product revenue model)
-- **Future:** personal AI integration premium features, API access
+**Key principle:** Every price point has a concrete deliverable. Nobody pays for abstraction. They pay for agreements, reports, prevented blowups, and eventually automated calibration agents.
 
 ---
 
 ## Validation Status
+
+**Current state (2026-03-08):** Zero paid sessions run. Calibration points/stories filed and workshop-ready. First facilitated session target: March 14. See C1 milestone.
+
+**Canvas G synthesis (2026-03-08):** Consolidated from 7 canvas iterations (A-G) in Claude Desktop. Key changes: €950 de-risking package, continuous price ladder, personal story as primary unfair advantage, "you are the MCP" framing, investor DD parked as future track.
 
 **See [milestones/](milestones/)** — active workstreams (what we're building and testing).
 **See [hypotheses.md](hypotheses.md)** — what we believe and why.
@@ -444,5 +459,5 @@ If current approach doesn't validate, these are pivot options to consider:
 - [workstreams/](workstreams/) — Future tracks
 - [hypotheses.md](hypotheses.md) — Testable beliefs (what we're testing)
 - [theory-of-change.md](theory-of-change.md) — How change spreads (cascade, √N) + Evidence Base
-- [p105_sales_playbook.md](../features/p105_sales_playbook.md) — GTM tactics and pitches
+- [p105_sales_playbook.md](../features/archive/p105_sales_playbook.md) — GTM tactics and pitches (archived)
 - [philosophy.md](philosophy.md) — WHY this works (epistemology)

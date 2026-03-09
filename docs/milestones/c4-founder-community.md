@@ -38,7 +38,7 @@ summary: "Founder pairs in retainers add peer community layer at €200–300/mo
 
 ## The Model
 
-**C3 retainer (individual):** Monthly 1:1 calibration call + /live tooling
+**C3 retainer (individual):** Fractional Clarity Officer — Slava reviews transcripts, identifies divergence with AI, facilitates targeted sessions (€1,500/mo)
 
 **C4 community layer (add-on):**
 - Monthly cohort calibration call (all pairs together, 90 min)
@@ -47,7 +47,7 @@ summary: "Founder pairs in retainers add peer community layer at €200–300/mo
 
 **Pricing:**
 - Community add-on: €200–300/month (on top of C3 retainer)
-- Or bundled all-inclusive: €1,500/month (retainer + community)
+- Or bundled all-inclusive: €1,700/month (retainer + community)
 
 **Target:** 10 paying members by Month 9-10
 
@@ -77,16 +77,16 @@ summary: "Founder pairs in retainers add peer community layer at €200–300/mo
 ## Financial Model
 
 **Revenue at success (Month 9-10):**
-- 10 pairs × €1,000/month (retainer) = €10k
-- 7 pairs × €250/month (community add-on) = €1,750
-- **Total: ~€12k/month**
+- 7 pairs × €1,500/month (FCO retainer) = €10.5k
+- 5 pairs × €250/month (community add-on) = €1,250
+- **Total: ~€11.75k/month**
 
 Retention drives compounding: If >60% month-2, word-of-mouth + peer referrals grow. By Month 12: 20+ pairs possible.
 
 ## Connection to R-Track
 
 By Month 9-10 when C4 launches:
-- R1 essays have been live 4-5 months (using C2/C3 founder data)
+- R1 essays have been live 4-5 months (using C1/C3 founder data)
 - Community calls generate new insights for future essays
 - Creates positive feedback: community engagement → content → recognition → new members
 

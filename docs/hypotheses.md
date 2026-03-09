@@ -19,11 +19,11 @@ Our active bets, in priority order. This is the map of what we still need to pro
 
 ---
 
-### H-Stories-ColdStart: Filed content gives /live a trigger — without it, pairs ask "on what?" and don't return independently
-**Bet:** Filed stories/points give /live sessions a concrete trigger ("verify understanding of THIS") that makes independent use feel purposeful. Without content, pairs who experienced the gap in a facilitated session still won't open /live on their own — the protocol adds friction and they'll think they've internalized it.
-**Testing via:** 2-step test within First Pairs milestone. Step 1: after facilitated session + agreement, observe if pair uses /live independently within 2 weeks. Step 2: if they DON'T return, file 2-3 stories/points FOR them from the session, send notification, observe if THAT triggers return.
-**Kill if:** Content-triggered notification doesn't increase return rate over bare agreement — means the problem isn't "on what?" but something deeper (motivation, product UX, wrong ICP).
-**Notes (2026-03-06):** Refined from original "stories as content layer" framing. The question isn't whether stories are useful (they are — they provide structure). The question is whether filed content is the missing TRIGGER for independent /live use. If pairs return only with Slava present regardless of content, the product is a coaching practice, not a tool. Filing friction is downstream — don't optimize filing before proving the gap reveal lands.
+### H-Stories-ColdStart: Filed content creates a concrete reason for the next FCO session — without it, sessions lack direction
+**Bet:** Filed stories/points from session N give Slava (and the pair) concrete material for session N+1 — "here's what to calibrate next." Without filed content, sessions default to whatever's top-of-mind (reactive, not systematic). The Clarity Partnership Agreement includes a /live fallback ("use /live when conflict erupts"), but that's an emergency clause, not a return loop — you can't build recurring engagement on unpredictable crises.
+**Testing via:** 2-step test within First Pairs milestone. Step 1: after facilitated session + agreement, does Slava filing 2-3 stories/points create a natural "here's what we should verify next time" for session 2? Step 2: does the pair reference the filed content when discussing what to cover next, or do they bring entirely new topics?
+**Kill if:** Filed content doesn't shape subsequent sessions — pairs always bring fresh topics regardless of what was filed. Means the value is in Slava's facilitation, not in the content system.
+**Notes (2026-03-09):** Reframed from "do pairs use /live independently?" to "does filed content feed the FCO loop?" Under the FCO model, pairs don't self-serve — they send transcripts, Slava does the work. The question isn't independent /live usage (the business model doesn't require it), but whether filed content creates continuity between sessions. If yes, it's the engine of the retainer. If no, each session is a standalone engagement and the retainer model needs a different retention mechanism.
 **Precondition:** Requires at least one pair who experienced a facilitated session (H-PairsReturn step 1).
 
 ---
@@ -39,7 +39,7 @@ Our active bets, in priority order. This is the map of what we still need to pro
 ---
 
 ### H-Retainers-Sticky: Founder pairs retain monthly calibration retainers via "Fractional Clarity Officer" model
-**Bet:** Co-founder pairs who experience value in facilitated sessions will subscribe to ongoing monthly retainers (€800-1,500/month) for continuous alignment calibration — delivered as Slava reviewing their meeting transcripts, identifying divergence with AI, and facilitating targeted sessions on the gaps found.
+**Bet:** Co-founder pairs who experience value in facilitated sessions will subscribe to ongoing monthly retainers (€1,500/month) for continuous alignment calibration — delivered as Slava reviewing their meeting transcripts, identifying divergence with AI, and facilitating targeted sessions on the gaps found.
 **Testing via:** C3 (Paid Founder Retainers) — offer retainer to pairs from First Pairs who booked 2+ sessions. Measure month-2 retention. Target 10+ pairs, >60% month-2 retention, €10k MRR.
 **Kill if:** <5 retainer signups OR <40% month-2 retention.
 **Blocked by:** H-PairsReturn — need validated "holy shit" moment + return behavior first.
@@ -89,6 +89,24 @@ Our active bets, in priority order. This is the map of what we still need to pro
 **Blocked by:** H-PairsReturn — need proven session value before testing viral spread.
 **Unblocked when:** 5+ pairs have experienced sessions; observe if protocol language appears in their conversations without prompting.
 **Notes (2026-03-06):** Moved from Active. Long-term distribution hypothesis. Currently zero pairs have used the protocol.
+
+---
+
+### H-WorkshopFormat: 1-to-many calibration workshops where participants calibrate against your content produce "aha" moments and convert to de-risking sessions
+**Bet:** A workshop where you present calibration points (stories & points curriculum) and the room calibrates against YOU (not each other) produces surprising comprehension gaps that convert attendees to €950 de-risking sessions. Workshop format is safer (no pairing needed), more scalable, and battle-tests content before publishing.
+**Blocked by:** H-PairsReturn — need proven session value first; workshop is the acquisition channel, not the core product.
+**Unblocked when:** First 1-3 direct facilitated sessions validate the "holy shit" moment.
+**Kill if:** Workshop attendees find it intellectually interesting but don't convert to de-risking (<10% conversion after 3 workshops).
+**Notes (2026-03-08):** From Canvas G. Workshop = 1-to-many lead gen. Direct facilitated session = 1-to-2 value delivery. Different formats for different goals.
+
+---
+
+### H-InvestorDD: Investors will pay €2,000+ for pre-investment calibration assessment of founding teams
+**Bet:** Angel investors, micro-VCs, and accelerators will pay for a pre-investment calibration assessment — an unfakeable test of team alignment that fills the gap between financial DD and legal DD.
+**Blocked by:** H-PairsReturn + H-Retainers-Sticky — need proven session value + case studies before approaching investors as buyers.
+**Unblocked when:** 5+ pairs completed sessions, at least one founder voluntarily shares report with investor.
+**Kill if:** Zero investor interest after pitching 10 investors, OR investors want the signal but won't pay (expect it free as part of accelerator services).
+**Notes (2026-03-08):** From Canvas G. Two investor tracks: (A) investor distributes free workshop invites to portfolio = channel, (B) investor pays for DD = buyer. Track A is lower bar — test first. Track B is higher margin — test after coaching validates. The lean path: let investor DD emerge as pull ("can you share this with our investor?"), not push.
 
 ---
 
@@ -179,7 +197,7 @@ Our active bets, in priority order. This is the map of what we still need to pro
 ### H-InvestorDueDiligence: Investors pay for calibration sessions during founder due diligence
 **Bet:** VCs will pay for a /live session with a founder they're considering backing, to verify communication clarity before writing a check.
 **Why parked:** Coaching track not validated yet. VC sales cycle is slow (3–6 months) — premature before coaching traction.
-**Revisit when:** C2 hit (10+ Calibration Lab participants with agreements created), C3 hit (5+ retainer pairs with month-2 retention).
+**Revisit when:** C1 hit (3-5 facilitated sessions with "holy shit" moment + pairs return), C3 hit (5+ retainer pairs with month-2 retention).
 
 ---
 
@@ -212,7 +230,7 @@ Our active bets, in priority order. This is the map of what we still need to pro
 
 ## Killed / Abandoned
 
-*(None yet. No hypotheses have been definitively killed as of Feb 2026.)*
+*(None yet. No hypotheses have been definitively killed as of March 2026.)*
 
 ---
 
@@ -223,12 +241,14 @@ ACTIVE NOW — First Pairs (March 2026)
 ├─ H-PairsReturn (First Pairs) — do they recognize the gap as costly? do they return?
 │   ├─ if yes → H-Stories-ColdStart (do they need filed content for independent use?)
 │   └─ if yes → H-Retainers-Sticky (will they pay for ongoing "Fractional Clarity Officer"?)
-├─ H-Stories-ColdStart (First Pairs step 2) — is content the trigger, or is it Slava?
+├─ H-Stories-ColdStart (First Pairs step 2) — does filed content feed the FCO loop?
 ├─ H-CalibrationTrainable (passive — measured across all sessions)
 └─ H-AICalib-EntryTeaser (park until group acquisition, sessions #3-10)
 
 BLOCKED — Waiting on First Pairs validation
+├─ H-WorkshopFormat (1-to-many lead gen, blocked by H-PairsReturn)
 ├─ H-Retainers-Sticky (C3, blocked by H-PairsReturn)
+├─ H-InvestorDD (investor as buyer, blocked by H-PairsReturn + H-Retainers-Sticky)
 ├─ H-MetaEpistemic-Prerequisite (session quality enhancer, test passively)
 ├─ H-BriefingProtocol-ColdStart (growth mechanism, needs proven loop)
 ├─ H-FilingLoop-Propagation (needs validated sessions + confirmed filing matters)

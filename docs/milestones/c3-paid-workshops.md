@@ -3,18 +3,18 @@ milestone: C3
 status: future
 priority: p2
 track: C
-summary: "Founder pairs pay €800–1,500/month for structured calibration retainers"
+summary: "Founder pairs pay €1,500/month for Fractional Clarity Officer retainers"
 ---
 
 # C3: Paid Founder Retainers (Coaching Monetization)
 
 ## TL;DR
 
-**Hypothesis:** Founder pairs will pay €800–1,500/month for structured calibration retainers after validating session value in C1: First Pairs. See [H-Retainers-Sticky](../hypotheses.md#h-retainers-sticky-founder-pairs-retain-monthly-calibration-retainers-via-fractional-clarity-officer-model).
+**Hypothesis:** Founder pairs will pay €1,500/month for Fractional Clarity Officer retainers after validating session value via €950 de-risking in C1. See [H-Retainers-Sticky](../hypotheses.md#h-retainers-sticky-founder-pairs-retain-monthly-calibration-retainers-via-fractional-clarity-officer-model).
 
-**Test:** Launch retainer offers to C2 session participants + warm leads. Track signup rate and month-2 retention.
+**Test:** Launch retainer offers to C1 pairs who completed €950 de-risking + booked session 2. Track signup rate and month-2 retention.
 
-**Success:** 10+ founder pairs in paid retainers, >60% month-2 retention, €10k MRR.
+**Success:** 10+ founder pairs in paid retainers, >60% month-2 retention, €10k+ MRR.
 
 **Kill signal:** <5 retainer signups OR <40% month-2 retention.
 
@@ -42,15 +42,35 @@ The retainer is NOT "access to /live tool." It's "Slava finds where you're misal
 
 **Automation path:** Start manual → automate transcript processing → automate gap detection → eventually the AI does what Slava does. But duct-tape first.
 
+## Capacity Constraints
+
+**Hard ceiling: 7 concurrent retainer pairs.** Each pair costs ~3-4 hrs/week (transcript review + AI analysis + facilitated session + prep). At 7 pairs = 21-28 hrs/week on delivery alone, leaving minimal time for acquisition, product development, and content. This ceiling is expected, not a failure — it's the signal to start automating.
+
+**Escalating pricing** manages demand naturally: each new client slot costs €250 more than the previous. Transparent ("I take 7 clients max, current rate is €X"). Early adopters get a better deal. The constraint is real and honest — you're one person.
+
+| Slot | Price/month | Cumulative MRR |
+|------|-------------|----------------|
+| 1 | €1,500 | €1,500 |
+| 2 | €1,750 | €3,250 |
+| 3 | €2,000 | €5,250 |
+| 4 | €2,250 | €7,500 |
+| 5 | €2,500 | €10,000 |
+| 6 | €2,750 | €12,750 |
+| 7 | €3,000 | €15,750 |
+
+**Revenue at capacity (7 pairs): €15,750/month.** Revenue at 5 pairs: €10,000/month (hits €10k MRR target without maxing out).
+
+**When ceiling is hit:** (a) automate transcript analysis to reduce hours/pair, (b) raise prices further, or (c) bring on a second facilitator. Automation is the preferred path — it's also the product roadmap.
+
 ## Pricing Model
 
 | Tier | Price | Includes |
 |------|-------|----------|
-| Base | €800/month | Monthly gap analysis + 1 facilitated session (60 min) |
-| Team | €1,200/month | Base + bi-weekly sessions + team dashboard (up to 4 members) |
-| Cohort | €1,500/month | Team + monthly cohort call (all pairs together) |
+| FCO Retainer | €1,500–3,000/month (escalating) | Weekly transcript analysis + AI gap detection + facilitated session |
+| Team Expansion | €3,350 one-time | Half-day workshop for up to 8. Co-founders become internal champions. |
+| Community add-on | €200-300/month | Monthly cohort call (all pairs together) — C4 future |
 
-**Revenue at success:** 10 pairs x €1,000 avg = €10k/month (by Month 6-7)
+**Entry point:** Retainers are offered to pairs who completed the €950 de-risking package (2 sessions + Clarity Partnership Agreement) and returned for session 2.
 
 ## Precondition: Who Gets a Retainer Offer
 
@@ -68,13 +88,13 @@ Retainers are offered only to pairs who:
 **Phase 2 (Weeks 5-8):** Expand to warm leads + referrals
 - Target: 10+ total signups
 
-**Acquisition:** Free facilitated session (direct outreach or Calibration Lab) → First Pairs → retainer offer.
+**Acquisition:** Free facilitated session (direct outreach or Calibration Workshop) → First Pairs → retainer offer.
 
 ## Success Metrics
 
 | Metric | Target | How to Measure |
 |--------|--------|----------------|
-| Retainers offered (from C2) | 3-5 | Sales conversations |
+| Retainers offered (from C1) | 3-5 | Sales conversations |
 | Retainers signed | ≥5 | Stripe recurring |
 | Month-2 retention | >60% | Active subscriptions |
 | NPS / satisfaction | ≥7/10 | Monthly check-in |

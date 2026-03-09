@@ -65,19 +65,21 @@ Slava is the doctor. /live is the stethoscope. Pairs don't need to learn the ste
 
 ---
 
-## 2-Step Return Test (H-Stories-ColdStart)
+## Content Continuity Test (H-Stories-ColdStart)
 
 After a facilitated session where agreement was created:
 
-**Step 1 (weeks 1-2):** Observe — does the pair use /live independently without prompting?
+**Step 1:** Slava files 2-3 stories/points from session 1. Does this filed content create a natural "here's what to verify next" for session 2?
 
-**Step 2 (if no return):** File 2-3 stories/points FOR them from the session. Send: "Your co-founder filed a point about [topic]. Agree or disagree?" Observe if notification triggers return.
+**Step 2:** In session 2 prep, observe: does the pair reference filed content when discussing what to cover, or do they bring entirely new topics?
 
 | Result | What it means | Next step |
 |--------|---------------|-----------|
-| Return WITHOUT content | Protocol + agreement is enough | Filing is enhancement (V2) |
-| Return only AFTER content filed | Content is the trigger | Build easy filing (AI-assisted) |
-| No return either way | Problem is deeper | Reassess: motivation, UX, or wrong ICP |
+| Filed content shapes session 2 agenda | Content system feeds the FCO loop | Content filing IS the retention engine |
+| Pair ignores filed content, brings fresh topics | Value is in facilitation, not content system | Retainer model works but content isn't the driver — Slava's analysis is |
+| Pair doesn't return for session 2 regardless | Deeper problem (motivation, wrong ICP) | Reassess — see H-PairsReturn kill criteria |
+
+**Note:** The Clarity Partnership Agreement includes a /live fallback clause ("use /live when conflict erupts"), but this is an emergency mechanism, not a return loop. Sessions must be scheduled and content-driven, not crisis-triggered.
 
 ---
 
@@ -102,9 +104,15 @@ After a facilitated session where agreement was created:
 
 > "I'm testing a new format — 45 minutes, free. I sit with you and your co-founder while you discuss a real decision. I'll surface where you think you agree but don't. Interested?"
 
-**For pairs 3-10:** Calibration Lab workshops (group format, AI calibration teaser as opener — see H-AICalib-EntryTeaser).
+**For pairs 3-10:** Free Calibration Workshops (1-to-many format). You present calibration points (stories & points curriculum), room calibrates against you. No pairing needed. Attendees who experience their own comprehension gap convert to €950 de-risking sessions. See H-WorkshopFormat.
 
-**Booking channel:** ladischenski.com → free Calibration Lab or direct session.
+**Booking channel:** ladischenski.com → free workshop or direct session.
+
+## Pricing (updated 2026-03-08)
+
+**Free:** First facilitated session (direct outreach or workshop attendee).
+
+**€950:** Co-founder De-risking package — 2 sessions + Clarity Partnership Agreement + /live habit established. This is the conversion target from free sessions/workshops.
 
 ---
 
