@@ -182,9 +182,9 @@ export function PointDetailPage() {
         pointTitle: point?.statement,
       });
       if (isEmbed) {
-        // In embed mode, open the full point page in a new tab (not the signup URL)
-        // The redirect flow runs on the new tab's point page
-        window.open(`${window.location.origin}/point/${id}`, '_blank');
+        // In embed mode, open the full point page in a new tab with position context
+        // so the auth gate flow triggers on the new tab
+        window.open(`${window.location.origin}${url}`, '_blank');
       } else {
         navigate(url);
       }

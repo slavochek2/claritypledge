@@ -13,6 +13,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { CheckCircle2Icon, InfoIcon } from "lucide-react";
 import { signInWithEmail } from "@/app/data/api";
 import { analytics } from "@/lib/mixpanel";
+import { getPositionVerb } from "@/lib/auth-gate-utils";
 import { GoogleAuthButton } from "@/app/components/auth/google-auth-button";
 
 export function SignupPage() {
@@ -147,7 +148,7 @@ export function SignupPage() {
           <div role="alert" className="flex items-start gap-2 p-3 mb-6 bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-lg">
             <InfoIcon className="w-5 h-5 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
             <p className="text-sm text-blue-800 dark:text-blue-200">
-              You were about to {searchParams.get('position') === 'agree' ? 'agree with' : searchParams.get('position') === 'disagree' ? 'disagree with' : 'mark as unsure on'}: <strong>{searchParams.get('pointTitle') || 'a point'}</strong>. Create an account to save your position.
+              You were about to {getPositionVerb(searchParams.get('position') || '')}: <strong>{searchParams.get('pointTitle') || 'a point'}</strong>. Create an account to save your position.
             </p>
           </div>
         )}
