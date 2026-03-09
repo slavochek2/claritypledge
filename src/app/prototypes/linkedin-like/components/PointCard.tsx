@@ -188,6 +188,7 @@ export function PointCard({
                         userPosition={userPosition}
                         counts={counts}
                         onPositionClick={handlePositionClick}
+                        narrow
                       />
                     </div>
                   )}
@@ -275,6 +276,7 @@ export function PointCard({
                     userPosition={userPosition}
                     counts={counts}
                     onPositionClick={handlePositionClick}
+                    narrow
                   />
                 </div>
               )}

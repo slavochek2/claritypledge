@@ -805,7 +805,9 @@ export function ProfilePageV2() {
                   </p>
                 )}
                 {/* P459: Compact agreements metadata line — links to /p/:slug/partners */}
-                {!agreementsLoading && (
+                {agreementsLoading ? (
+                  <div className="h-[44px]" />
+                ) : (
                   <AgreementsMetadataLine
                     profileId={profile.id}
                     viewerProfileId={currentUser?.id ?? null}
@@ -1371,6 +1373,7 @@ function QuotedPointCard({
                   userPosition={userPosition}
                   counts={counts}
                   onPositionClick={handlePositionClick}
+                  narrow
                 />
               </div>
             )}
@@ -1485,6 +1488,7 @@ function PointCardFull({
                   userPosition={userPosition}
                   counts={counts}
                   onPositionClick={handlePositionClick}
+                  narrow
                 />
               </div>
             </div>

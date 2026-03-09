@@ -380,7 +380,7 @@ export function PositionButtons({ userPosition, counts, onPositionClick, compact
   // Segmented control: full-width on mobile, content-sized on desktop
   // Note: removed overflow-hidden to prevent dropdown chevrons from being clipped on narrow viewports
   return (
-    <div className={`inline-flex w-full sm:w-auto max-w-full rounded-lg border border-gray-200 bg-white${narrow ? ' [&>*]:min-w-0' : ''}`}>
+    <div className="inline-flex w-full sm:w-auto max-w-full rounded-lg border border-gray-200 bg-white [&>*]:min-w-0">
       {BUTTON_ORDER.map((group, index) => (
         <PositionSegment
           key={group}

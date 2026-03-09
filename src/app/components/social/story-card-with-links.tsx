@@ -563,6 +563,7 @@ function QuotedPoint({
                   counts={counts}
                   onPositionClick={handlePositionClick}
                   compact
+                  narrow
                 />
               </div>
             )}
