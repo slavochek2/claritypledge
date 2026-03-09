@@ -4,6 +4,7 @@ type: story
 rank: 125470.0
 workstream: C1
 created_date: '2026-03-01'
+completed_at: '2026-03-09'
 tags: [onboarding, philosophy, meta-epistemology, stories]
 ---
 

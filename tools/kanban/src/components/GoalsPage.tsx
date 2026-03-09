@@ -23,9 +23,16 @@ interface WeeklyCommitment {
   kill_date?: string
 }
 
+interface StrategicData {
+  steps: Array<{ index: number; text: string; done: boolean }>
+  dos: string[]
+  donts: string[]
+}
+
 export function GoalsPage() {
   const [data, setData] = useState<GoalsData | null>(null)
   const [weekly, setWeekly] = useState<WeeklyCommitment | null>(null)
+  const [strategic, setStrategic] = useState<StrategicData | null>(null)
   const [loading, setLoading] = useState(true)
   const [toggling, setToggling] = useState<number | null>(null)
   const [hoveringDone, setHoveringDone] = useState<number | null>(null)
@@ -33,12 +40,14 @@ export function GoalsPage() {
   const fetchGoals = useCallback(async () => {
     setLoading(true)
     try {
-      const [goalsRes, weeklyRes] = await Promise.all([
+      const [goalsRes, weeklyRes, strategicRes] = await Promise.all([
         fetch('/api/goals'),
         fetch('/api/weekly'),
+        fetch('/api/goals-strategic'),
       ])
       if (goalsRes.ok) setData(await goalsRes.json())
       if (weeklyRes.ok) setWeekly(await weeklyRes.json())
+      if (strategicRes.ok) setStrategic(await strategicRes.json())
     } catch {
       // leave state null
     } finally {
@@ -78,13 +87,12 @@ export function GoalsPage() {
   return (
     <div style={{ padding: '28px 36px', display: 'flex', gap: 36, alignItems: 'flex-start' }}>
 
-      {/* ── Left: mindset priming ── */}
+      {/* ── Left: weekly commitment ── */}
       <div style={{ width: 264, flexShrink: 0 }}>
         <SectionLabel text="This week" />
 
         {weekly ? (
           <>
-            {/* Scary thing */}
             {weekly.scary_thing && (
               <div style={{
                 padding: '10px 12px',
@@ -101,27 +109,9 @@ export function GoalsPage() {
               </div>
             )}
 
-            {/* Stop */}
-            {weekly.stop && (
-              <MindsetRow
-                label="Stop"
-                value={weekly.stop}
-                bg="var(--tag-red-bg)"
-                color="var(--tag-red-text)"
-              />
-            )}
+            {weekly.stop && <MindsetRow label="Stop" value={weekly.stop} bg="var(--tag-red-bg)" color="var(--tag-red-text)" />}
+            {weekly.start && <MindsetRow label="Start" value={weekly.start} bg="var(--tag-green-bg)" color="var(--tag-green-text)" />}
 
-            {/* Start */}
-            {weekly.start && (
-              <MindsetRow
-                label="Start"
-                value={weekly.start}
-                bg="var(--tag-green-bg)"
-                color="var(--tag-green-text)"
-              />
-            )}
-
-            {/* Hypothesis */}
             {weekly.hypothesis && (
               <div style={{ marginTop: 14 }}>
                 <div style={{
@@ -136,7 +126,6 @@ export function GoalsPage() {
               </div>
             )}
 
-            {/* Kill date */}
             {weekly.kill_date && (
               <div style={{
                 marginTop: 14, paddingTop: 12,
@@ -152,10 +141,84 @@ export function GoalsPage() {
             No commitment saved. Run <code>/weekly</code>.
           </div>
         )}
+
+        {/* Dos & Don'ts */}
+        {strategic && (strategic.dos.length > 0 || strategic.donts.length > 0) && (
+          <div style={{ marginTop: 24 }}>
+            {strategic.dos.length > 0 && (
+              <>
+                <SectionLabel text="Do" />
+                {strategic.dos.map((d, i) => (
+                  <div key={i} style={{ fontSize: 11, color: 'var(--tag-green-text)', marginBottom: 5, lineHeight: 1.5, paddingLeft: 8, borderLeft: '2px solid var(--tag-green-bg)' }}>
+                    {d}
+                  </div>
+                ))}
+              </>
+            )}
+            {strategic.donts.length > 0 && (
+              <div style={{ marginTop: 12 }}>
+                <SectionLabel text="Don't" />
+                {strategic.donts.map((d, i) => (
+                  <div key={i} style={{ fontSize: 11, color: 'var(--tag-red-text)', marginBottom: 5, lineHeight: 1.5, paddingLeft: 8, borderLeft: '2px solid var(--tag-red-bg)' }}>
+                    {d}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* ── Divider ── */}
       <div style={{ width: 1, background: 'var(--border-table)', alignSelf: 'stretch', flexShrink: 0 }} />
+
+      {/* ── Center: next steps from goals.md ── */}
+      {strategic && strategic.steps.length > 0 && (
+        <>
+          <div style={{ flex: 1, maxWidth: 360 }}>
+            <SectionLabel text="Next Steps" />
+            {strategic.steps.map((step, i) => {
+              const firstUndone = strategic.steps.findIndex((s) => !s.done)
+              const isFirstUndone = i === firstUndone
+              return (
+                <div key={i} style={{
+                  display: 'flex', alignItems: 'flex-start', gap: 10,
+                  padding: isFirstUndone ? '9px 12px' : '4px 6px',
+                  marginBottom: isFirstUndone ? 4 : 1,
+                  borderRadius: isFirstUndone ? 4 : 3,
+                  background: isFirstUndone ? 'var(--tag-blue-bg)' : 'transparent',
+                  opacity: step.done ? 0.5 : isFirstUndone ? 1 : i < firstUndone + 3 ? 0.7 : 0.45,
+                }}>
+                  <span style={{
+                    width: isFirstUndone ? 20 : 18, height: isFirstUndone ? 20 : 18,
+                    borderRadius: '50%', flexShrink: 0, marginTop: 1,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontSize: 10, fontWeight: 600,
+                    ...(step.done
+                      ? { background: 'var(--tag-green-bg)', color: 'var(--tag-green-text)' }
+                      : isFirstUndone
+                        ? { background: 'var(--tag-blue-text)', color: '#fff' }
+                        : { border: '1px solid var(--border-table)', color: 'var(--text-tertiary)' }),
+                  }}>
+                    {step.done ? '✓' : i + 1}
+                  </span>
+                  <span style={{
+                    fontSize: 13, lineHeight: 1.4, flex: 1,
+                    fontWeight: isFirstUndone ? 500 : 400,
+                    color: step.done ? 'var(--text-tertiary)' : isFirstUndone ? 'var(--tag-blue-text)' : 'var(--text-secondary)',
+                    textDecoration: step.done ? 'line-through' : 'none',
+                  }}>
+                    {step.text}
+                  </span>
+                </div>
+              )
+            })}
+          </div>
+
+          {/* Divider */}
+          <div style={{ width: 1, background: 'var(--border-table)', alignSelf: 'stretch', flexShrink: 0 }} />
+        </>
+      )}
 
       {/* ── Right: pilot sequence ── */}
       <div style={{ flex: 1, maxWidth: 400 }}>
@@ -163,7 +226,6 @@ export function GoalsPage() {
           <div style={{ color: 'var(--text-tertiary)', fontSize: 14, paddingTop: 2 }}>No active milestone.</div>
         ) : (
           <>
-            {/* Milestone header + progress */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 18 }}>
               <span style={{
                 fontSize: 11, fontWeight: 600, textTransform: 'uppercase',
@@ -186,7 +248,6 @@ export function GoalsPage() {
               </span>
             </div>
 
-            {/* Done steps */}
             {doneSteps.map((step) => (
               <div
                 key={step.index}
@@ -234,7 +295,6 @@ export function GoalsPage() {
               </div>
             )}
 
-            {/* Next step */}
             {nextStep && (
               <div
                 role="button"
@@ -264,7 +324,6 @@ export function GoalsPage() {
               </div>
             )}
 
-            {/* Upcoming steps */}
             {upcomingSteps.map((step, i) => (
               <div
                 key={step.index}
@@ -293,7 +352,6 @@ export function GoalsPage() {
               </div>
             ))}
 
-            {/* Gate */}
             <div style={{
               marginTop: 18, paddingTop: 12,
               borderTop: '1px solid var(--border-table)',

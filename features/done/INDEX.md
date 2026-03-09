@@ -1,7 +1,7 @@
 # Done Features Index
 
 Quick reference for past completed work. Consult when starting work on a related topic.
-Last updated: 2026-03-07 (P488)
+Last updated: 2026-03-09 (P464)
 
 ---
 
@@ -42,6 +42,7 @@ Last updated: 2026-03-07 (P488)
 - **P132** (Feb 5) Rich Story View — story detail context; linked points appear with context
 - **P134** (Feb 5) Profile Story-Point Links — separate story vs position views; RLS boundary correctness
 - **P136** (Feb 5) Consolidate Profile Pages — story/point joining correctness at RLS boundary
+- **P464** (Mar 09) Meta-Epistemology Framework — ITT/RITT concepts as content stories; philosophy concepts need onboarding entry points
 
 ## Database / RLS / Migrations
 
