@@ -67,7 +67,7 @@ export function EventsList() {
                   : 'text-muted-foreground hover:text-foreground'
               }`}
             >
-              Upcoming ({upcomingEvents.length})
+              Upcoming{!loading && ` (${upcomingEvents.length})`}
             </button>
             <button
               role="tab"
@@ -79,7 +79,7 @@ export function EventsList() {
                   : 'text-muted-foreground hover:text-foreground'
               }`}
             >
-              Past ({pastEvents.length})
+              Past{!loading && ` (${pastEvents.length})`}
             </button>
           </div>
 
