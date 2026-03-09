@@ -359,6 +359,7 @@ export function StoryCardDetail({
                       linkedStories={linkedStoriesForPoints?.get(pointsToShow[0].id) ?? []}
                       onStoryClick={storyId => navigate(storyRoute(storyId))}
                       currentUserId={currentUserId}
+                      hideLinkedStories
                     />
                   ) : (
                     // 2+ points - show thread lines
@@ -384,6 +385,7 @@ export function StoryCardDetail({
                             linkedStories={linkedStoriesForPoints?.get(point.id) ?? []}
                             onStoryClick={storyId => navigate(storyRoute(storyId))}
                             currentUserId={currentUserId}
+                            hideLinkedStories
                           />
                         </ThreadLineItem>
                       ))}
@@ -428,6 +430,7 @@ function QuotedPoint({
   linkedStories = [],
   onStoryClick,
   currentUserId,
+  hideLinkedStories = false,
 }: {
   point: PointSummary;
   authorName: string;
@@ -441,6 +444,7 @@ function QuotedPoint({
   linkedStories?: LinkedStory[];
   onStoryClick?: (storyId: string) => void;
   currentUserId?: string;
+  hideLinkedStories?: boolean;
 }) {
   const navigate = useNavigate();
   const [storiesExpanded, setStoriesExpanded] = useState(false);
@@ -553,18 +557,19 @@ function QuotedPoint({
             <p className="text-sm text-gray-800">{point.statement}</p>
 
             {/* Position buttons - scaled to 85% to fit within quoted card width while keeping button proportions */}
-            <div role="presentation" className="mt-2 origin-left scale-[0.85]" onClick={e => e.stopPropagation()}>
+            <div role="presentation" className="mt-2" onClick={e => e.stopPropagation()}>
               <PositionButtons
                 userPosition={effectivePosition}
                 counts={counts}
                 onPositionClick={handlePositionClick}
+                narrow
               />
             </div>
           </div>
         </div>
 
-        {/* P456: Linked stories toggle — moved inside quoted box (UX Gap 1 fix) */}
-        {linkedStories.length > 0 && (
+        {/* P456: Linked stories toggle — hidden on story detail (circular: shows the story you're reading) */}
+        {!hideLinkedStories && linkedStories.length > 0 && (
           <div
             role="presentation"
             className="mt-2 pt-2 border-t border-gray-200 pl-[44px]"
@@ -593,8 +598,8 @@ function QuotedPoint({
           </div>
         )}
 
-        {/* P456: Story CTA footer — shown when viewer has taken a position */}
-        {effectivePosition && (() => {
+        {/* P456: Story CTA footer — hidden on story detail (redundant: you're already on a story for this point) */}
+        {!hideLinkedStories && effectivePosition && (() => {
           const positionGroup = getPositionGroup(effectivePosition);
           const copy = getPositionCTACopy(positionGroup);
           const viewerStoryCount = linkedStories.filter(s => s.authorId === currentUserId).length;

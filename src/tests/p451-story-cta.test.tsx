@@ -151,7 +151,7 @@ describe('P451/P456: StoryCardDetail QuotedPointForStory CTA', () => {
     expect(screen.queryByText(AGREE_CTA)).toBeNull();
   });
 
-  it('shows position-aware CTA after staking a position on a linked point', () => {
+  it('suppresses CTA on story detail (circular: you are already on a story for this point)', () => {
     render(
       <BrowserRouter>
         <StoryCardDetail
@@ -164,10 +164,10 @@ describe('P451/P456: StoryCardDetail QuotedPointForStory CTA', () => {
       </BrowserRouter>
     );
     clickAgree();
-    expect(screen.getByText(AGREE_CTA)).toBeInTheDocument();
+    expect(screen.queryByText(AGREE_CTA)).toBeNull();
   });
 
-  it('shows position-aware CTA on load when position is pre-existing (refresh regression)', () => {
+  it('suppresses CTA even with pre-existing position on story detail', () => {
     render(
       <BrowserRouter>
         <StoryCardDetail
@@ -179,6 +179,6 @@ describe('P451/P456: StoryCardDetail QuotedPointForStory CTA', () => {
         />
       </BrowserRouter>
     );
-    expect(screen.getByText(AGREE_CTA)).toBeInTheDocument();
+    expect(screen.queryByText(AGREE_CTA)).toBeNull();
   });
 });

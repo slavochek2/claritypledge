@@ -764,17 +764,6 @@ export function StoryDetailPage() {
             setUserPositions(positions);
             // If viewer is the author, reuse viewer positions to avoid redundant state
             setStoryAuthorPositions(viewerIsAuthor ? positions : authorPositions);
-
-            // The query excludes the current story to avoid showing it in its own
-            // linked-stories list. But QuotedPoint uses linkedStories to compute
-            // viewerStoryCount for CTA suppression. Re-inject the current story
-            // so "Add your story" hides when the viewer already authored this story.
-            if (viewerIsAuthor) {
-              for (const pid of pointIds) {
-                const existing = linkedStories.get(pid) ?? [];
-                linkedStories.set(pid, [...existing, data]);
-              }
-            }
             setLinkedStoriesForPoints(linkedStories);
           } catch (err) {
             console.error('Error loading position data:', err);
