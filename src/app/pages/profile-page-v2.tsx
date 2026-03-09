@@ -299,7 +299,8 @@ export function ProfilePageV2() {
         const { data: pointLinks } = await supabase
           .from('story_points')
           .select('point_id, story_id')
-          .in('point_id', pointIds);
+          .in('point_id', pointIds)
+          .eq('author_id', profile.id);
 
         // Build map: point_id → story_ids[]
         const linksByPoint = new Map<string, string[]>();
@@ -1282,18 +1283,29 @@ function QuotedPointCard({
     strongly_disagree: point.positionCounts?.strongly_disagree ?? 0,
   }), [point.positionCounts]);
 
+  // DB counts already include the user's own position.
+  // Only adjust optimistically when position changes from the server-known value.
+  const initialPosition = (point.userPosition as PositionType | null) ?? null;
   const counts = useMemo((): SevenPointCounts => {
     const adjusted = { ...baseCounts };
     const getGroup = (pos: PositionType | null): PositionButtonGroup | null => {
       if (!pos) return null;
       return getPositionGroup(pos);
     };
+    const initialGroup = getGroup(initialPosition);
     const currentGroup = getGroup(userPosition as PositionType | null);
-    if (currentGroup === 'agree') adjusted.agree++;
-    else if (currentGroup === 'disagree') adjusted.disagree++;
-    else if (currentGroup === 'unsure') adjusted.unsure++;
+
+    if (initialGroup !== currentGroup) {
+      if (initialGroup === 'agree') adjusted.agree = Math.max(0, adjusted.agree - 1);
+      else if (initialGroup === 'disagree') adjusted.disagree = Math.max(0, adjusted.disagree - 1);
+      else if (initialGroup === 'unsure') adjusted.unsure = Math.max(0, adjusted.unsure - 1);
+
+      if (currentGroup === 'agree') adjusted.agree++;
+      else if (currentGroup === 'disagree') adjusted.disagree++;
+      else if (currentGroup === 'unsure') adjusted.unsure++;
+    }
     return adjusted;
-  }, [baseCounts, userPosition]);
+  }, [baseCounts, initialPosition, userPosition]);
 
   const handlePositionClick = (position: Position) => {
     const newPosition = userPosition === position ? null : position;
@@ -1352,14 +1364,13 @@ function QuotedPointCard({
           <div className="flex-1 min-w-0">
             <p className="text-sm text-foreground"><LinkedText text={point.statement} /></p>
 
-            {/* Position buttons - compact, only show for authenticated users */}
+            {/* Position buttons - show for authenticated users */}
             {currentUserId && (
               <div role="presentation" className="mt-2" onClick={(e) => e.stopPropagation()}>
                 <PositionButtons
                   userPosition={userPosition}
                   counts={counts}
                   onPositionClick={handlePositionClick}
-                  compact
                 />
               </div>
             )}

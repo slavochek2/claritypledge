@@ -144,15 +144,7 @@ export function PointCardWithLinks({
 
   // Compute adjusted counts based on user's current position vs initial
   const counts = useMemo((): SevenPointCounts => {
-    const adjusted: SevenPointCounts = {
-      strongly_agree: 0,
-      agree: baseCounts.agree,
-      somewhat_agree: 0,
-      unsure: baseCounts.unsure,
-      somewhat_disagree: 0,
-      disagree: baseCounts.disagree,
-      strongly_disagree: 0,
-    };
+    const adjusted: SevenPointCounts = { ...baseCounts };
 
     const getGroup = (pos: PositionType | null): PositionButtonGroup | null => {
       if (!pos) return null;
@@ -176,10 +168,8 @@ export function PointCardWithLinks({
     return adjusted;
   }, [baseCounts, initialPosition, userPosition]);
 
-  // Show all linked stories (max 3) - points can be referenced by anyone's stories
-  // Unlike StoryCard, we don't filter by profileOwner because:
-  // - Stories are authored by the profile owner (filter their content)
-  // - Points are validated by the profile owner (show who references them)
+  // On profile pages, linkedStories are pre-filtered to the profile owner's stories
+  // (filtered at data layer in profile-page-v2.tsx). In live session mode, all stories are passed.
   const filteredStories = linkedStories;
   const storiesToShow = filteredStories.slice(0, 3);
 
