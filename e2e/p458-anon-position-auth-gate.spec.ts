@@ -302,10 +302,9 @@ test.describe('P458 — Signup page context banner', () => {
 
       // The context banner should show the point title
       // Spec: "You were about to Agree with: [point title]"
+      // Use .first() to avoid strict mode violation (parent <p> and child <strong> both match)
       await expect(
-        page.getByText(/you were about to agree with/i)
-          .or(page.getByText(/agree with:/i))
-          .or(page.getByText(new RegExp(f.point.statement.slice(0, 40), 'i')))
+        page.getByText(/you were about to agree with/i).first()
       ).toBeVisible({ timeout: 10000 });
     } finally {
       await cleanupFixtures(f);

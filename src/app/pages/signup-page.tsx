@@ -142,6 +142,26 @@ export function SignupPage() {
           </div>
         )}
 
+        {/* P458: Context banner for position-gate redirects */}
+        {actionParam === 'set-position' && searchParams.get('position') && (
+          <div role="alert" className="flex items-start gap-2 p-3 mb-6 bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-lg">
+            <InfoIcon className="w-5 h-5 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
+            <p className="text-sm text-blue-800 dark:text-blue-200">
+              You were about to {searchParams.get('position') === 'agree' ? 'agree with' : searchParams.get('position') === 'disagree' ? 'disagree with' : 'mark as unsure on'}: <strong>{searchParams.get('pointTitle') || 'a point'}</strong>. Create an account to save your position.
+            </p>
+          </div>
+        )}
+
+        {/* P458: Context banner for start-story redirects */}
+        {actionParam === 'start-story' && (
+          <div role="alert" className="flex items-start gap-2 p-3 mb-6 bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-lg">
+            <InfoIcon className="w-5 h-5 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
+            <p className="text-sm text-blue-800 dark:text-blue-200">
+              Create an account to share your story.
+            </p>
+          </div>
+        )}
+
         <div className="space-y-6">
           {/* Google OAuth button */}
           <GoogleAuthButton

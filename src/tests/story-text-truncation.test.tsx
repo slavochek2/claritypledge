@@ -174,8 +174,10 @@ describe('Story text truncation with "...more" affordance', () => {
           />
         </MemoryRouter>
       );
-      // Expand the stories section
-      const expandBtn = container.querySelector('button[aria-expanded]');
+      // Expand the stories section — use aria-label to target the story expand
+      // button specifically (PositionButtons also render DropdownMenu triggers
+      // with aria-expanded for anonymous users since P458)
+      const expandBtn = container.querySelector('button[aria-label="Expand linked stories"]');
       if (expandBtn) fireEvent.click(expandBtn);
       return { container };
     }

@@ -6,6 +6,7 @@
 
 import { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { buildAuthGateUrl, toAuthGatePosition } from '@/lib/auth-gate-utils';
 import { Pin, ChevronDown, ChevronRight, ExternalLink } from 'lucide-react';
 import { EarBadge } from '@/components/ui/ear-badge';
 import { MobileTooltip } from '@/app/components/shared/mobile-tooltip';
@@ -189,6 +190,20 @@ export function PointCardWithLinks({
   };
 
   const handlePositionClick = (position: Position) => {
+    // P458: Anonymous user → redirect to signup with context
+    if (!currentUserId) {
+      const authGatePosition = toAuthGatePosition(position as string);
+      if (!authGatePosition) return;
+      navigate(buildAuthGateUrl({
+        action: 'set-position',
+        pointId: point.id,
+        position: authGatePosition,
+        redirect: `/point/${point.id}`,
+        pointTitle: point.text,
+      }));
+      return;
+    }
+
     // Toggle: clicking same position removes it
     const newPosition = userPosition === position ? null : position;
     // Only optimistically update for selection; removal waits for dialog confirm
@@ -256,7 +271,7 @@ export function PointCardWithLinks({
                   </p>
 
                   {/* Position buttons */}
-                  {!hideActions && currentUserId && (
+                  {!hideActions && (
                     <div role="presentation" className="mt-3" onClick={(e) => e.stopPropagation()}>
                       <PositionButtons
                         userPosition={userPosition}
@@ -398,7 +413,7 @@ export function PointCardWithLinks({
               </p>
 
               {/* Position buttons */}
-              {!hideActions && currentUserId && (
+              {!hideActions && (
                 <div role="presentation" className="mt-3" onClick={(e) => e.stopPropagation()}>
                   <PositionButtons
                     userPosition={userPosition}
@@ -499,6 +514,22 @@ export function PointCardWithLinks({
             </div>
           )}
         </div>
+
+        {/* P458: "Tell your story" CTA for anonymous users in feed view */}
+        {!currentUserId && !liveSessionMode && (
+          <div
+            role="presentation"
+            className="flex items-center pl-[52px] pr-4 py-2.5 border-t border-gray-100"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              onClick={(e) => { e.stopPropagation(); navigate(buildAuthGateUrl({ action: 'start-story', pointId: point.id, redirect: `/chat?from=position&pointId=${point.id}` })); }}
+              className="text-sm font-medium text-blue-600 hover:text-blue-700 transition-colors"
+            >
+              Tell your story →
+            </button>
+          </div>
+        )}
 
         {/* P465: Story CTA footer row for feed view — shown when viewer has taken a position + no story yet */}
         {userPosition && !liveSessionMode && (() => {
