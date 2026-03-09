@@ -93,7 +93,7 @@ Recommendation: Remove from README.md, link to definitions.md instead.
    ```bash
    git log --oneline -10
    ```
-   **Already-captured check:** Before proposing entries, scan recent commits (`git show <hash> --stat`) for any that already wrote the same topic to a doc file (decisions.md, INDEX.md, etc.). If already captured, skip — don't propose a duplicate.
+   **Already-captured check (speed filter):** Before the full doc read in step 3, scan recent commits (`git show <hash> --stat`) for any that already wrote the same topic to a doc file (decisions.md, INDEX.md, etc.). If the commit log confirms it, skip — don't propose a duplicate. When the commit log is unclear, step 3's file-level read is authoritative.
 
 2. **Analyze and classify** — what type of knowledge was created?
    - Decision made? → `decisions.md`
