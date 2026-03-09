@@ -28,6 +28,8 @@ import { generateSlug, getProfile, getEventBySlug, rsvpToEvent } from "@/app/dat
 import { CURRENT_TERMS_VERSION } from "@/lib/constants";
 import * as Sentry from "@sentry/react";
 import { analytics } from "@/lib/mixpanel";
+import { parseAuthGateIntent, fromAuthGatePosition, isValidPointId } from "@/lib/auth-gate-utils";
+import { pointsService } from "@/app/data/points-service";
 
 /** Maximum retry attempts for slug conflicts before using timestamp fallback */
 const MAX_SLUG_RETRIES = 3;
@@ -479,9 +481,50 @@ export function AuthCallbackPage() {
         }
       }
 
+      // Allowed redirect prefixes — used by set-position handler and generic redirect
+      const ALLOWED_REDIRECT_PREFIXES = ['/events', '/settings', '/me', '/p/', '/about', '/pledgers', '/manifesto', '/live', '/agreements', '/create', '/point/', '/chat'];
+
+      // P458: Handle position auto-save after signup via position-gate redirect
+      if (action === 'set-position') {
+        const intent = parseAuthGateIntent(urlParams);
+        if (intent && intent.action === 'set-position') {
+          console.log('📌 Auto-save position flow detected:', intent);
+          setStatus("Saving your position...");
+          try {
+            await pointsService.setPosition(intent.pointId, authUser.id, fromAuthGatePosition(intent.position));
+            console.log('✅ Position auto-saved:', intent.position);
+            analytics.track('position_auto_saved', {
+              point_id: intent.pointId,
+              position: intent.position,
+              registration_source: registrationSource,
+            });
+            // Validate redirect against allowlist before navigating
+            const intentRedirect = intent.redirect;
+            const isValidIntentRedirect = intentRedirect.startsWith('/')
+              && !intentRedirect.startsWith('//')
+              && ALLOWED_REDIRECT_PREFIXES.some(p => intentRedirect === p || intentRedirect.startsWith(p + '/') || intentRedirect.startsWith(p + '?'));
+            navigate(isValidIntentRedirect ? intentRedirect : `/point/${intent.pointId}`, { replace: true });
+            return;
+          } catch (error) {
+            console.error('❌ Position auto-save failed:', error);
+            // Explicit fallback: navigate to the point page so user can click again
+            navigate(`/point/${intent.pointId}`, { replace: true });
+            return;
+          }
+        }
+      }
+
+      // P458 Scope B: Handle start-story and open-chat actions
+      if (action === 'start-story' || action === 'open-chat') {
+        const pointId = urlParams.get('pointId');
+        if (pointId && isValidPointId(pointId)) {
+          navigate(`/chat?from=position&pointId=${pointId}`, { replace: true });
+          return;
+        }
+      }
+
       // Redirect after auth: validate redirect against allowed prefixes
       setStatus("Redirecting...");
-      const ALLOWED_REDIRECT_PREFIXES = ['/events', '/settings', '/me', '/p/', '/about', '/pledgers', '/manifesto', '/live', '/agreements', '/create'];
       const isValidRedirect = redirectPath
         && redirectPath.startsWith('/')
         && !redirectPath.startsWith('//')

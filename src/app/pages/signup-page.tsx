@@ -13,6 +13,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { CheckCircle2Icon, InfoIcon } from "lucide-react";
 import { signInWithEmail } from "@/app/data/api";
 import { analytics } from "@/lib/mixpanel";
+import { getPositionVerb } from "@/lib/auth-gate-utils";
 import { GoogleAuthButton } from "@/app/components/auth/google-auth-button";
 
 export function SignupPage() {
@@ -30,6 +31,13 @@ export function SignupPage() {
   // P76: Read redirect and action params for post-auth navigation
   const redirectParam = searchParams.get('redirect');
   const actionParam = searchParams.get('action');
+
+  // P458: Collect auth-gate params to forward through OAuth/magic-link callback
+  const authGateExtraParams: Record<string, string> = {};
+  for (const key of ['pointId', 'position', 'pointTitle']) {
+    const val = searchParams.get(key);
+    if (val) authGateExtraParams[key] = val;
+  }
 
   useEffect(() => {
     analytics.track('signup_page_viewed', {
@@ -77,6 +85,7 @@ export function SignupPage() {
         redirect: redirectParam || undefined,
         action: actionParam || undefined,
         name: name.trim(),
+        extraParams: Object.keys(authGateExtraParams).length > 0 ? authGateExtraParams : undefined,
       });
 
       if (error) {
@@ -142,6 +151,26 @@ export function SignupPage() {
           </div>
         )}
 
+        {/* P458: Context banner for position-gate redirects */}
+        {actionParam === 'set-position' && searchParams.get('position') && (
+          <div role="alert" className="flex items-start gap-2 p-3 mb-6 bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-lg">
+            <InfoIcon className="w-5 h-5 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
+            <p className="text-sm text-blue-800 dark:text-blue-200">
+              You were about to {getPositionVerb(searchParams.get('position') || '')}: <strong>{searchParams.get('pointTitle') || 'a point'}</strong>. Create an account to save your position.
+            </p>
+          </div>
+        )}
+
+        {/* P458: Context banner for start-story redirects */}
+        {actionParam === 'start-story' && (
+          <div role="alert" className="flex items-start gap-2 p-3 mb-6 bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-lg">
+            <InfoIcon className="w-5 h-5 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
+            <p className="text-sm text-blue-800 dark:text-blue-200">
+              Create an account to share your story.
+            </p>
+          </div>
+        )}
+
         <div className="space-y-6">
           {/* Google OAuth button */}
           <GoogleAuthButton
@@ -149,6 +178,7 @@ export function SignupPage() {
             source="signup"
             redirect={redirectParam || undefined}
             action={actionParam || undefined}
+            extraParams={Object.keys(authGateExtraParams).length > 0 ? authGateExtraParams : undefined}
           />
 
           {/* Divider */}

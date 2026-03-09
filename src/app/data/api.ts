@@ -414,12 +414,18 @@ export async function addWitness(
 export async function signInWithEmail(
   email: string,
   source?: 'signup' | 'pledge' | 'login',
-  options?: { redirect?: string; action?: string; name?: string }
+  options?: { redirect?: string; action?: string; name?: string; extraParams?: Record<string, string> }
 ): Promise<{ error: AuthError | null }> {
   const params = new URLSearchParams();
   if (source) params.set('source', source);
   if (options?.redirect) params.set('redirect', options.redirect);
   if (options?.action) params.set('action', options.action);
+  // P458: Forward auth-gate params (pointId, position, pointTitle) through callback URL
+  if (options?.extraParams) {
+    for (const [key, value] of Object.entries(options.extraParams)) {
+      params.set(key, value);
+    }
+  }
 
   const queryString = params.toString();
   const redirectUrl = queryString
@@ -461,12 +467,18 @@ export async function checkEmailExists(email: string): Promise<boolean> {
  */
 export async function signInWithGoogle(
   source?: 'login' | 'signup' | 'pledge',
-  options?: { redirect?: string; action?: string }
+  options?: { redirect?: string; action?: string; extraParams?: Record<string, string> }
 ): Promise<{ error: AuthError | null }> {
   const params = new URLSearchParams();
   if (source) params.set('source', source);
   if (options?.redirect) params.set('redirect', options.redirect);
   if (options?.action) params.set('action', options.action);
+  // P458: Forward auth-gate params (pointId, position, pointTitle) through callback URL
+  if (options?.extraParams) {
+    for (const [key, value] of Object.entries(options.extraParams)) {
+      params.set(key, value);
+    }
+  }
 
   const queryString = params.toString();
   const redirectUrl = queryString

@@ -8,7 +8,7 @@
  */
 
 import { useEffect, useState, useMemo, useCallback } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { Pin } from 'lucide-react';
 import { useAuth } from '@/auth';
 import { pointsService } from '@/app/data/points-service';
@@ -30,6 +30,7 @@ import { RemovePositionDialog, useRemovePositionGuard } from '@/app/components/s
 import { EarBadge } from '@/components/ui/ear-badge';
 import { StoryCardWithLinks, type StoryAuthor } from '@/app/components/social/story-card-with-links';
 import { LinkedText } from '@/app/components/shared/linked-text';
+import { buildAuthGateUrl, toAuthGatePosition } from '@/lib/auth-gate-utils';
 
 /** Normalize positionCounts to SevenPointCounts (ensure all keys present) */
 function toSevenPointCounts(counts: Record<string, number>): SevenPointCounts {
@@ -47,6 +48,8 @@ function toSevenPointCounts(counts: Record<string, number>): SevenPointCounts {
 export function PointDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const isEmbed = searchParams.get('embed') === 'true';
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -165,7 +168,28 @@ export function PointDetailPage() {
   }, [point]);
 
   const handlePositionClick = async (position: PositionType) => {
-    if (!user || !id) return;
+    if (!id) return;
+
+    // P458: Anonymous user → redirect to signup with context
+    if (!user) {
+      const authGatePosition = toAuthGatePosition(position);
+      if (!authGatePosition) return;
+      const url = buildAuthGateUrl({
+        action: 'set-position',
+        pointId: id,
+        position: authGatePosition,
+        redirect: `/point/${id}`,
+        pointTitle: point?.statement,
+      });
+      if (isEmbed) {
+        // In embed mode, open the full point page in a new tab with position context
+        // so the auth gate flow triggers on the new tab
+        window.open(`${window.location.origin}${url}`, '_blank');
+      } else {
+        navigate(url);
+      }
+      return;
+    }
 
     // Toggle: clicking same position removes it
     const newPosition = userPosition === position ? null : position;
@@ -313,6 +337,24 @@ export function PointDetailPage() {
                 counts={buttonCounts}
                 onPositionClick={handlePositionClick}
               />
+
+              {/* P458: "Tell your story" CTA for anonymous users */}
+              {!user && id && (
+                <div className="mt-3">
+                  <button
+                    onClick={() => {
+                      navigate(buildAuthGateUrl({
+                        action: 'start-story',
+                        pointId: id,
+                        redirect: `/chat?from=position&pointId=${id}`,
+                      }));
+                    }}
+                    className="text-sm font-medium text-blue-600 hover:text-blue-700 transition-colors"
+                  >
+                    Tell your story →
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </div>

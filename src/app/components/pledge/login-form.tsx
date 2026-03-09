@@ -14,9 +14,11 @@ interface LoginFormProps {
   redirect?: string;
   /** P76: Action to perform after auth (e.g., 'rsvp') */
   action?: string;
+  /** P458: Extra params to forward through auth callback (pointId, position, etc.) */
+  extraParams?: Record<string, string>;
 }
 
-export function LoginForm({ onSwitchToSign, redirect, action }: LoginFormProps) {
+export function LoginForm({ onSwitchToSign, redirect, action, extraParams }: LoginFormProps) {
   const location = useLocation();
   const [email, setEmail] = useState("");
   const [isSubmitted, setIsSubmitted] = useState(false);
@@ -57,7 +59,7 @@ export function LoginForm({ onSwitchToSign, redirect, action }: LoginFormProps) 
       }
 
       // P76: Include redirect and action params for post-auth navigation
-      const { error } = await signInWithEmail(email, 'login', { redirect, action });
+      const { error } = await signInWithEmail(email, 'login', { redirect, action, extraParams });
 
       if (error) {
         analytics.track('login_magic_link_error', {
@@ -107,7 +109,7 @@ export function LoginForm({ onSwitchToSign, redirect, action }: LoginFormProps) 
   return (
     <div className="space-y-6">
       {/* P63/P64: Google OAuth button - primary option */}
-      <GoogleAuthButton context="login" source="login" redirect={redirect} action={action} />
+      <GoogleAuthButton context="login" source="login" redirect={redirect} action={action} extraParams={extraParams} />
 
       {/* P63: Divider */}
       <div className="relative">
