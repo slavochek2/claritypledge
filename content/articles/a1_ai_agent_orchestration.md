@@ -1,7 +1,7 @@
 ---
-status: editing
+status: today
 title: Blog Article — AI Agent Orchestration for Solo Founders
-rank: 1
+rank: 0.75
 tags:
   - ai-agents
   - solo-founder

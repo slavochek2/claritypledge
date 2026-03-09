@@ -1,8 +1,12 @@
 ---
-status: editing
+status: idea
 title: The barriers nobody talks about after you stop vibe coding
-rank: 2
-tags: [ai-agents, solo-founder, orchestration, build-in-public]
+rank: 2.5
+tags:
+  - ai-agents
+  - solo-founder
+  - orchestration
+  - build-in-public
 created_at: 2026-02-27T00:00:00.000Z
 ---
 

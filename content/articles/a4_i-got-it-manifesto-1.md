@@ -1,7 +1,7 @@
 ---
-status: draft
+status: idea
 title: I Got It. We Don't Need to Waste Time on This.
-rank: 1.5
+rank: 1.25
 tags:
   - manifesto
   - clarity-tax

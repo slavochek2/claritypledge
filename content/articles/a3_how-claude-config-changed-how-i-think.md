@@ -1,8 +1,11 @@
 ---
-status: draft
+status: idea
 title: Your AI conversations know things about you that you don't
-rank: 3
-tags: [ai, process, claude]
+rank: 1.875
+tags:
+  - ai
+  - process
+  - claude
 created_at: 2026-02-26T00:00:00.000Z
 ---
 

@@ -1,5 +1,5 @@
 ---
-status: today
+status: done
 type: story
 rank: 125470.0
 workstream: C1
@@ -33,8 +33,8 @@ The original plan was to file 8 ITT/RITT claims as sequential points. Revised ap
 | "We understand each other" | 1 | Three types of understanding exist (cognitive, emotional, agreement). People conflate them. | Sister story (written, private) |
 | "Why cognitive first?" / "What's in it for me?" | 2 | Cognitive understanding must come first — demanding emotional validation or agreement before it is wasted effort when differences are high. It's also the unique win-win: nobody loses their position. | TBD |
 | "How would you even check cognitive understanding?" | 3 | Ideological Turing Test — cognitive understanding is reached when a restatement is indistinguishable from the original. | TBD |
-| "Why does the sender decide?" | 4 | Information asymmetry — the sender knows more about their own idea than the receiver, which is why the sender evaluates. (Sender-receiver model implicit.) | TBD |
-| "Why formal? Trust should be enough" | 5 | Vulnerability asymmetry — sharing exposes you. Without verification, the exposed party bears all risk. | TBD |
+| "Why does the sender decide?" | 4 | Information asymmetry — the sender knows more about their own idea than the receiver, which is why the sender evaluates. (Sender-receiver model implicit.) | Filed (see below) |
+| "Why formal? Trust should be enough" | 5 | Vulnerability asymmetry — sharing exposes you. Without verification, the exposed party bears all risk. | Filed (see below) |
 | "Why bother verifying if we already agree?" | 6 | Common knowledge (Pinker) — verified cognitive understanding is qualitatively different from unverified. Both know AND both know the other knows. This enables coordination and trust. | TBD |
 | "That sounds patronizing / weird" | 7 | Non-judgmental repeating is the only verification method that avoids creating false agreements. | TBD |
 
@@ -53,6 +53,20 @@ From the original 8 philosophy.md claims, the following are **not** calibration 
 - Point 4 subpoint: sender-receiver communication model (explains the structure)
 - Point 7 subpoints: role asymmetry, the three asymmetries collectively explain why the method is written as it is
 
+## Filed Content
+
+### Point 4 — Information Asymmetry
+
+**Point:** In the sender-receiver model, the speaker has direct access to what they meant to say, and the listener doesn't. The only way to find out if the listener has gaps in cognitively understanding the speaker is for the listener to explain back what they think the speaker meant. The only path to cognitive understanding: the listener must empower the speaker to retain the ultimate authority to correct or confirm their understanding.
+
+**Story:** I had a disagreement with someone. I asked them to explain back what they thought I meant. They refused — they already understand me well. I insisted. They refused again. This was their pattern. Repeated refusals to explain back structurally prevent verifying cognitive understanding. Preventable errors compound and trust deteriorates.
+
+### Point 5 — Vulnerability Asymmetry
+
+**Point:** In the sender-receiver model, the speaker is more vulnerable than the listener because they're exposing their thinking to judgment. (Unless the speaker is criticizing the listener.) If the listener reacts with judgment or criticism while paraphrasing what they think the speaker meant, the speaker shifts from clarifying to self-protecting. The error correction mechanism dies. Cognitive understanding is harder to reach while signaling disapproval. This is why, when the listener explains back what they think the speaker meant, they must withhold judgment and criticism.
+
+**Story:** I watched two people in an emotional conflict try to understand each other and fail. When the listener explained back what she thought the speaker meant, her criticism and judgmental emotions leaked into her paraphrasing attempt. The speaker felt judged and stopped clarifying. On the surface the listener was trying to cognitively understand the speaker, but the emotional leakage revealed the actual goal was emotional validation of her own feelings, not accurate understanding of the speaker. The error correction mechanism died. They remained with a false disagreement — thinking they disagreed while misunderstanding each other.
+
 ## Open Questions
 
 - **Partner agreement terms:** Slava can't commit N minutes/month to every /live participant. The real value is helping them create a partner agreement with *their* person (co-founder, spouse, colleague). Slava = onboarder, not permanent partner. Terms need separate design work.
@@ -62,8 +76,8 @@ From the original 8 philosophy.md claims, the following are **not** calibration 
 ## Acceptance Criteria
 
 - [ ] Point 0 story drafted (first person)
-- [ ] Points 2-7 stories drafted (first person, concrete)
-- [ ] All stories + points filed in profile
+- [ ] Points 2, 3, 6, 7 stories drafted (first person, concrete)
+- [x] Points 4-5 stories + points drafted and filed in profile
 - [ ] Points are falsifiable (someone could disagree)
 - [ ] Partner agreement form linked from Point 0
 - [ ] Partner agreement terms designed (separate task?)
