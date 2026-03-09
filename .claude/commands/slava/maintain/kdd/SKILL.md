@@ -255,17 +255,7 @@ Recommendation: Remove from README.md, link to definitions.md instead.
 
    **process-learnings graduation rule:** When a `Status: proposed` item gets resolved (fix applied, decision made): (1) delete it from process-learnings.md, (2) add a `[process]` entry to decisions.md. Never leave `Status: done` entries in process-learnings.md — done = graduated. An empty file is healthy.
 
-8. **Skill-quality reflection** — always runs after step 7, output to chat only:
-
-   Before spawning: (1) read each skill file that was invoked this session from `.claude/commands/slava/` and collect the full text, (2) read the first 100 lines of `docs/decisions.md` and collect that text. Pass all content inline in the subagent prompt — subagents cannot read from disk. Then spawn a second `general-purpose` subagent with the full conversation context AND the collected content. Task:
-
-   > "You have the conversation transcript, the skill files that ran during it, and the top entries from docs/decisions.md (provided inline below). Review each invoked skill for: (1) friction points or mistakes from the session — which skill instruction, CLAUDE.md rule, or prompt wording contributed? (2) clarity gaps — instructions that are ambiguous, underbounded, or could cause an agent to go off-scope even without visible friction. For each issue: quote the specific text, propose a concrete before/after rewrite. Before finalizing each proposed change: (a) confirm the quoted old text exists verbatim in the file — do not paraphrase, (b) confirm the proposed replacement does not introduce new errors. Flag any proposed change you cannot verify as [UNVERIFIED]. Cross-reference proposals against the decisions.md entries provided — if a proposed improvement is already captured there, flag it as 'already documented' rather than surfacing as new. Cap at 5 improvements. Skip issues caused by external factors (network, user typos, ambiguous requirements). Return a structured list: [skill/file] → [quoted problem text] → [proposed replacement]. Do NOT edit files, stage, or commit anything — return text only."
-
-   If subagent finds no skill-level improvements — output "Skill quality: clean." and stop.
-
-   Present each proposed improvement with the before/after diff. For changes touching CLAUDE.md or `.claude/rules/*.md`: flag as requiring `/claude-md` gate before applying. For skill files: apply directly if user approves.
-
-   End with: "Apply improvements? (list numbers, 'all', or 'skip')"
+8. **Skill-quality reflection** — dropped. Use `/falsify` explicitly when skill quality review is needed. KDD's core job is capturing decisions (Steps 1-7), not reviewing skill quality.
 
 ## Rules
 

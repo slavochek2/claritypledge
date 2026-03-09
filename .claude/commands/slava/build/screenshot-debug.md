@@ -15,7 +15,10 @@ Visual bug investigation from screenshot to fix path.
 ```bash
 /screenshot-debug           # Reads latest screenshot from ~/Screenshots
 /screenshot-debug p273      # Context: investigating issue in P273
+/screenshot-debug "note"    # Freeform note — context only, does NOT skip any step
 ```
+
+User args are additional context, not workflow overrides. All steps (0-4) execute in order regardless of arguments.
 
 ---
 
@@ -63,6 +66,8 @@ Name uncertain elements as "unknown element showing [exact text]" in Step 2 rath
 ---
 
 ### Step 2: Formulate Problem Statement
+
+**Step 2 is mandatory — never skip it.** Even if prior context, user args, or an existing spec make the problem seem obvious, produce the 5-field statement. The value is forcing precise observation before diagnosis.
 
 Use these exact five fields — do not rename, merge, or omit any:
 ```
@@ -149,6 +154,8 @@ Fix path:
 ---
 
 ## Visual Verification Fallback Chain
+
+**Data prerequisite:** Before launching browser verification, query the DB or check local state to confirm the scenario is reproducible in the dev environment. If the bug requires specific data (e.g., a user with a position + story on the same point), verify that data exists first. No data = no visual verification — report this and ask the user how to proceed.
 
 When the user asks to verify a fix visually (or `/verify` is invoked after this skill):
 
