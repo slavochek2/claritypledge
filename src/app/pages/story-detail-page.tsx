@@ -1124,6 +1124,7 @@ export function StoryDetailPage() {
           isDetailView={true}
           context="story-detail"
           linkedStoriesForPoints={linkedStoriesForPoints}
+          currentUserId={user?.id}
           footerActionsSlot={isAuthor ? (
             <>
               <button
