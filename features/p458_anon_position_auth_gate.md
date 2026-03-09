@@ -1,5 +1,5 @@
 ---
-status: backlog
+status: in-progress
 type: story
 rank: 500003.5
 flow: medium
@@ -11,7 +11,7 @@ tags:
   - embed
   - conversion
 prepped_date: '2026-02-27'
-delivery_stage:
+delivery_stage: uat
 reviews:
   ux: null
   architect: null
@@ -204,30 +204,30 @@ recorded automatically, so I don't have to retrace my steps or wonder if my acti
 
 ### Scope A — Position Buttons (Primary)
 
-- [ ] Position buttons are visible on point detail pages for users who are not logged in
-- [ ] Position buttons are visible in point card lists for users who are not logged in
-- [ ] Position buttons are visible inside embedded point widgets for users who are not logged in
-- [ ] Clicking a position button as an anonymous user navigates to the signup page (not silently fails)
-- [ ] The signup page shows a human-readable reminder of the pending action, including the point title and selected position
-- [ ] After signing up (new account), the selected position is automatically saved — user does not need to click again
-- [ ] After logging in (existing account) via this redirect, the selected position is automatically saved
-- [ ] After position is auto-saved, the user is redirected to the point they came from
-- [ ] Clicking a position button inside an embedded point opens claritypledge.com/point/{id} in a new tab
-- [ ] The new-tab flow on claritypledge.com preserves the intended position and follows the same signup redirect path
+- [x] Position buttons are visible on point detail pages for users who are not logged in
+- [x] Position buttons are visible in point card lists for users who are not logged in
+- [x] Position buttons are visible inside embedded point widgets for users who are not logged in
+- [x] Clicking a position button as an anonymous user navigates to the signup page (not silently fails)
+- [x] The signup page shows a human-readable reminder of the pending action, including the point title and selected position
+- [x] After signing up (new account), the selected position is automatically saved — user does not need to click again
+- [x] After logging in (existing account) via this redirect, the selected position is automatically saved
+- [x] After position is auto-saved, the user is redirected to the point they came from
+- [x] Clicking a position button inside an embedded point opens claritypledge.com/point/{id} in a new tab
+- [x] The new-tab flow on claritypledge.com preserves the intended position and follows the same signup redirect path
 
 ### Scope B — Other Gated Actions (Secondary)
 
-- [ ] "Tell your story" CTA is visible to anonymous users after the position section and redirects to signup with point context
+- [x] "Tell your story" CTA is visible to anonymous users after the position section and redirects to signup with point context
 - [ ] "Chat with AI guide" redirects anonymous users to signup with point context in the URL
 - [ ] "Join live session" redirects anonymous users to signup with session context preserved
 - [ ] After completing signup from any Scope B redirect, the user lands in the correct destination (story editor, chat, live session) rather than a generic dashboard
-- [ ] Story verification is NOT part of this feature — no acceptance criteria apply
+- [x] Story verification is NOT part of this feature — no acceptance criteria apply
 
 ### Quality Bar
 
-- [ ] The context reminder on the signup page is shown for every entry point in Scope A and Scope B — never a blank or generic signup screen when entering via a gated action
-- [ ] The auto-save behavior works for both new signups and existing users logging in
-- [ ] The behavior is consistent across all surfaces (point detail, point list, embed)
+- [x] The context reminder on the signup page is shown for every entry point in Scope A and Scope B — never a blank or generic signup screen when entering via a gated action
+- [x] The auto-save behavior works for both new signups and existing users logging in
+- [x] The behavior is consistent across all surfaces (point detail, point list, embed)
 
 ---
 
