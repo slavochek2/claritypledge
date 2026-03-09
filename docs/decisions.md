@@ -2,6 +2,20 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-09 [process]: /dev executes pre-deploy checklist; /screenshot-debug traces backend + checks ACTION_NEEDED
+
+**Context:** P489 had three prod-readiness failures discovered sequentially (edge function not deployed, secret missing, migration not applied) despite a Pre-deploy Checklist existing in the spec. Root cause: `/dev` never read or executed the checklist; `/ship` only asked "have you done this?" after the fact. Separately, `/screenshot-debug` anchored on frontend-only trace for a backend STORAGE_ERROR, and re-attempted known-broken Claude in Chrome extension.
+
+**Decision:** (1) `/dev` step 9.7: execute Pre-deploy Checklist items before UAT gate — mechanical, catches at implementation time. (2) `/screenshot-debug` Step 3 trace expanded: "Props → state → service → edge functions → storage → DB" with instruction to check server responses directly. (3) `/screenshot-debug` fallback chain: check MEMORY.md ACTION_NEEDED items before attempting browser tools — data-driven, self-corrects when tools are fixed.
+
+**Alternatives rejected:** Adding an `Environments:` field to decisions.md template — overhead for every decision to fix a deployment problem. Adding `incomplete-deployment` category to KDD subagent — too narrow; the real fix is executing the checklist. Session-level state tracking for broken tools — machinery for something a MEMORY.md check handles.
+
+**Consequences:** `/dev` now provisions infrastructure during implementation, not after. Screenshot debugging traces through the full stack. Browser tool fallback is data-driven from MEMORY.md.
+
+**References:** `.claude/commands/slava/build/dev.md` (step 9.7), `.claude/commands/slava/build/screenshot-debug.md` (Step 3, fallback chain)
+
+---
+
 ## 2026-03-09 [process]: Worktree merge guard — block /ship on dirty working tree
 
 **Context:** P458 `/review-all` applied fixes to worktree files but the merge to main happened before they were committed. The review fixes became orphaned — discovered only after worktree cleanup when `git diff` showed 3 modified files, 2 of which were already on main from other commits. Copying whole files from the diverged worktree to main reverted unrelated changes.

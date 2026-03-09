@@ -90,7 +90,7 @@ Once problem is confirmed:
    grep -r "ComponentName" src/
    ```
 
-2. **Trace the data flow** — where does the displayed value come from? Props → state → service → DB?
+2. **Trace the data flow** — where does the displayed value come from? Props → state → service → edge functions → storage → DB? If the trace reaches an API or edge function, check the response directly (curl, network tab, or `supabase functions logs`) before assuming a frontend bug.
 
 3. **Check for surface recurrence** — does this same issue likely exist elsewhere?
    ```bash
@@ -152,9 +152,10 @@ Fix path:
 
 When the user asks to verify a fix visually (or `/verify` is invoked after this skill):
 
-1. **Claude in Chrome** — try first. One attempt only.
-2. **If it fails** (error, blank page, no response) → **Chrome DevTools MCP** — headless, no extension needed. One attempt only.
-3. **If both fail** → ask the user to verify manually.
+1. **Check MEMORY.md ACTION_NEEDED items** for browser tools before attempting. If a tool is flagged as known-broken, skip it entirely.
+2. **Claude in Chrome** — try first (if not flagged). One attempt only.
+3. **If it fails** (error, blank page, no response, extension disconnected) → **Chrome DevTools MCP** — headless, no extension needed. One attempt only.
+4. **If both fail** → ask the user to verify manually.
 
 **One-retry rule:** If a tool doesn't produce a usable screenshot on the first attempt, switch to the next tool immediately. Never retry the same tool twice.
 

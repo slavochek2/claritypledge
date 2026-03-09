@@ -104,6 +104,7 @@ You're not just writing code — you're building something that will run in prod
 8. **Check** — Run `./scripts/pre-commit-checks.sh`
 9. **Commit** — Only if ALL tests pass
 9.5. **Review** — Spawn `/review-all` as a subagent with this explicit instruction: "Review all changes on this branch vs main. Spec: [current spec path]. Do NOT pause for scope selection — proceed directly with scope = all changes vs main." Present HIGH/MEDIUM findings to user. Ask: "Fix issues before closing? (all HIGH / select / skip)". Apply approved fixes and commit them.
+9.7. **Pre-deploy checklist** — If spec has a `## Pre-deploy Checklist` (or `## Deployment Checklist`) section, execute each item on the target environment now. Verify edge functions are deployed, secrets are set, and migrations are applied — don't defer to `/ship`. Report what was provisioned.
 10. **UAT gate** — Set `delivery_stage: uat` in spec frontmatter (keep `status: in-progress`, do NOT move to `features/done/`). Tell user: "Feature ready for UAT on branch feature/pN-xxx. Run `/ship pN` when you're satisfied."
 
 ---
