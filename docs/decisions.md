@@ -2,6 +2,20 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-09 [technical]: Position count display — three-surface bug class from optimistic-update mismatches
+
+**Context:** Position counts were broken across 3 surfaces: (1) PointCardWithLinks zeroed intensity positions (`strongly_agree: 0`) instead of spreading `baseCounts`, discarding DB-fetched granular counts. (2) Profile QuotedPointCard always added +1 for user's position on top of DB counts (which already include the user), causing double-counting. (3) StoryCardDetail and profile QuotedPointCard passed `compact` to PositionButtons, hiding counts entirely. Third recurrence of position-count bugs (see P155 in done-features INDEX).
+
+**Decision:** (1) `PointCardWithLinks`: replace hardcoded zeros with `{ ...baseCounts }` spread. (2) `profile-page-v2` QuotedPointCard: track `initialPosition` from server — only adjust counts optimistically when position *changes* from server-known value. (3) Remove `compact` from PositionButtons in profile QuotedPointCard and StoryCardDetail QuotedPoint.
+
+**Alternatives rejected:** Re-fetching counts on every position change (unnecessary network call — optimistic update is correct pattern when done right). Adding a `positionCountsIncludeUser` flag (adds indirection for something that should be a convention).
+
+**Consequences:** Convention: DB counts always include the user's own position — optimistic adjustment subtracts old group + adds new group only on *change*. `compact` should not be used on PositionButtons when counts are the primary information (acceptable only in truly space-constrained contexts like inline mentions). Pattern to watch: any component that copies a subset of `SevenPointCounts` fields instead of spreading the full object will zero the omitted intensity positions.
+
+**References:** `src/app/components/social/point-card-with-links.tsx`, `src/app/pages/profile-page-v2.tsx`, `src/app/components/social/StoryCardDetail.tsx`, P155 (prior position count bug)
+
+---
+
 ## 2026-03-09 [process]: /dev executes pre-deploy checklist; /screenshot-debug traces backend + checks ACTION_NEEDED
 
 **Context:** P489 had three prod-readiness failures discovered sequentially (edge function not deployed, secret missing, migration not applied) despite a Pre-deploy Checklist existing in the spec. Root cause: `/dev` never read or executed the checklist; `/ship` only asked "have you done this?" after the fact. Separately, `/screenshot-debug` anchored on frontend-only trace for a backend STORAGE_ERROR, and re-attempted known-broken Claude in Chrome extension.
