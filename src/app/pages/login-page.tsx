@@ -20,6 +20,13 @@ export function LoginPage() {
   const redirectParam = searchParams.get('redirect');
   const actionParam = searchParams.get('action');
 
+  // P458: Collect auth-gate params to forward through login callback
+  const authGateExtraParams: Record<string, string> = {};
+  for (const key of ['pointId', 'position', 'pointTitle']) {
+    const val = searchParams.get(key);
+    if (val) authGateExtraParams[key] = val;
+  }
+
   useEffect(() => {
     analytics.track('login_page_viewed', {
       referrer: document.referrer || 'direct',
@@ -42,6 +49,7 @@ export function LoginPage() {
           onSwitchToSign={handleSwitchToSignup}
           redirect={redirectParam || undefined}
           action={actionParam || undefined}
+          extraParams={Object.keys(authGateExtraParams).length > 0 ? authGateExtraParams : undefined}
         />
       </div>
     </div>

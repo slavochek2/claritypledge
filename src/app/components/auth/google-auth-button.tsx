@@ -21,6 +21,8 @@ interface GoogleAuthButtonProps {
   redirect?: string;
   /** P76: Action to perform after auth (e.g., 'rsvp') */
   action?: string;
+  /** P458: Extra params to forward through OAuth callback (pointId, position, etc.) */
+  extraParams?: Record<string, string>;
   /** Additional class names */
   className?: string;
   /** Whether button is disabled */
@@ -68,7 +70,7 @@ function GoogleLogo({ className = "" }: { className?: string }) {
   );
 }
 
-export function GoogleAuthButton({ context, source, redirect, action, className = "", disabled = false }: GoogleAuthButtonProps) {
+export function GoogleAuthButton({ context, source, redirect, action, extraParams, className = "", disabled = false }: GoogleAuthButtonProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -77,7 +79,7 @@ export function GoogleAuthButton({ context, source, redirect, action, className 
     setError(null);
     analytics.track('google_auth_initiated', { context, source, redirect, action });
 
-    const { error: authError } = await signInWithGoogle(source, { redirect, action });
+    const { error: authError } = await signInWithGoogle(source, { redirect, action, extraParams });
 
     if (authError) {
       console.error('Google auth error:', authError);

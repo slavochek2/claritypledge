@@ -32,6 +32,13 @@ export function SignupPage() {
   const redirectParam = searchParams.get('redirect');
   const actionParam = searchParams.get('action');
 
+  // P458: Collect auth-gate params to forward through OAuth/magic-link callback
+  const authGateExtraParams: Record<string, string> = {};
+  for (const key of ['pointId', 'position', 'pointTitle']) {
+    const val = searchParams.get(key);
+    if (val) authGateExtraParams[key] = val;
+  }
+
   useEffect(() => {
     analytics.track('signup_page_viewed', {
       referrer: document.referrer || 'direct',
@@ -78,6 +85,7 @@ export function SignupPage() {
         redirect: redirectParam || undefined,
         action: actionParam || undefined,
         name: name.trim(),
+        extraParams: Object.keys(authGateExtraParams).length > 0 ? authGateExtraParams : undefined,
       });
 
       if (error) {
@@ -170,6 +178,7 @@ export function SignupPage() {
             source="signup"
             redirect={redirectParam || undefined}
             action={actionParam || undefined}
+            extraParams={Object.keys(authGateExtraParams).length > 0 ? authGateExtraParams : undefined}
           />
 
           {/* Divider */}
