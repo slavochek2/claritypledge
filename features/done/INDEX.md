@@ -1,7 +1,7 @@
 # Done Features Index
 
 Quick reference for past completed work. Consult when starting work on a related topic.
-Last updated: 2026-03-09 (P458)
+Last updated: 2026-03-09 (P489)
 
 ---
 
@@ -104,6 +104,7 @@ Last updated: 2026-03-09 (P458)
 
 ## Events & Content
 
+- **P489** (Mar 09) AI-Generated Event Banners — Gemini PNGs average ~2MB; size storage buckets for actual model output not assumptions; fire-and-forget in createEvent() prevents blocking navigation
 - **P437** (Feb 26) Uncancel Event — host-only button; mirrors cancelEvent pattern; re-announcement email via edge function
 - **P416** (Feb 26) Event Auto Banner via Unsplash — extract keywords from event title; fallback to gradient
 - **P418** (Feb 26) Banner Search Fallback — inline input for custom Unsplash keywords when search returns zero results

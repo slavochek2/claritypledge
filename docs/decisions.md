@@ -2,6 +2,20 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-09 [technical]: AI banner generation — fire-and-forget with Gemini + Unsplash fallback + 5MB bucket
+
+**Context:** Events used Unsplash stock photos for banners. P489 replaced this with AI-generated banners via Gemini API (edge function). Initial implementation blocked `createEvent()` for 5-10s waiting for banner generation. Storage bucket was set to 2MB — Gemini generates ~2MB PNGs that exceeded this.
+
+**Decision:** (1) Banner generation runs as fire-and-forget IIFE in `createEvent()` — user navigates immediately, banner appears on next page load. (2) Fallback chain: Gemini AI → Unsplash → gradient. (3) Storage bucket `event-banners` set to 5MB (not 2MB) — Gemini PNG output averages 2-2.5MB. (4) Edge function deployed to both test and prod Supabase with `GEMINI_API_KEY` secret. (5) Rate limiting: 5/5min, 20/day per user via `ai_rate_limits` table.
+
+**Alternatives rejected:** Awaiting banner in `createEvent()` — blocks navigation 5-10s. Client-side image generation — no good browser APIs for this. Requesting JPEG from Gemini — API doesn't support format selection in `responseModalities: ['IMAGE']`.
+
+**Consequences:** New events show gradient initially, AI banner on refresh. Edge function pattern reusable for future AI image tasks. Bucket size must account for model output — don't assume 2MB is enough for AI-generated images.
+
+**References:** `supabase/functions/generate-event-banner/index.ts`, `src/app/data/events-service-real.ts`, `src/app/prototypes/events/banner-utils.ts`
+
+---
+
 ## 2026-03-09 [technical]: Auth-gate params must flow through BOTH signInWithEmail AND signInWithGoogle
 
 **Context:** P458 implementation initially only forwarded `pointId`, `position`, `pointTitle` through the magic link callback URL. Google OAuth used the same `signInWithGoogle` function which only passed `source`, `redirect`, and `action` — the auth-gate-specific params were silently dropped during the OAuth round-trip. User discovered the bug during UAT (Google sign-in didn't auto-save position).

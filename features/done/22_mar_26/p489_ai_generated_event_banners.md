@@ -1,11 +1,12 @@
 ---
-status: in-progress
+status: done
 type: story
 rank: 100
 tags: [events, banner, ai, gemini]
 prepped_date: '2026-03-09'
+completed_at: '2026-03-09'
 flow: dev
-delivery_stage: uat
+delivery_stage: shipped
 uat_file: features/uat/p489.md
 test_files:
   - src/tests/generateAIBanner.test.ts
