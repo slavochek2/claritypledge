@@ -2,6 +2,20 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-09 [technical]: Auth-gate params must flow through BOTH signInWithEmail AND signInWithGoogle
+
+**Context:** P458 implementation initially only forwarded `pointId`, `position`, `pointTitle` through the magic link callback URL. Google OAuth used the same `signInWithGoogle` function which only passed `source`, `redirect`, and `action` — the auth-gate-specific params were silently dropped during the OAuth round-trip. User discovered the bug during UAT (Google sign-in didn't auto-save position).
+
+**Decision:** Added `extraParams: Record<string, string>` option to both `signInWithEmail` and `signInWithGoogle`. The signup page and login page collect P458 params from their own URL and pass them as `extraParams`. This is a generic extension point — any future auth-gate action can add params without modifying the function signatures. Also: `intent.redirect` in the `set-position` handler must be validated against `ALLOWED_REDIRECT_PREFIXES` — the initial implementation navigated directly from `parseAuthGateIntent` output, bypassing the allowlist on the success path.
+
+**Alternatives rejected:** Forwarding the entire `location.search` — over-broad, leaks unrelated params. Adding named params (`pointId`, `position`) to function signatures — requires signature changes for every new action.
+
+**Consequences:** `extraParams` is the standard way to forward action-specific context through auth. Both OAuth and magic link paths must include it. Any new auth-gate action (e.g., `join-session`) follows the same pattern: add params to `extraParams` in the page, handle in `AuthCallbackPage`.
+
+**References:** `src/app/data/api.ts` (signInWithEmail, signInWithGoogle), `src/app/pages/signup-page.tsx`, `src/app/components/pledge/login-form.tsx`
+
+---
+
 ## 2026-03-09 [process]: Kanban Goals page reads from docs/goals.md — single source for execution priorities
 
 **Context:** Kanban Goals page previously read from the active milestone's `## Pilot Sequence` section and `~/.claude_weekly_last_run`. This created two problems: (1) pilot sequence is milestone-level, not execution-level — it doesn't reflect the agreed priority order (bugs → article → promote → events → infra), and (2) weekly commitment is a different concern. An initial attempt hardcoded data into `goals-data.ts`, violating dynamic discovery.

@@ -1,7 +1,7 @@
 # Done Features Index
 
 Quick reference for past completed work. Consult when starting work on a related topic.
-Last updated: 2026-03-09 (P464)
+Last updated: 2026-03-09 (P458)
 
 ---
 
@@ -78,6 +78,7 @@ Last updated: 2026-03-09 (P464)
 
 ## Auth & Verification
 
+- **P458** (Mar 09) Anonymous User Auth Gate — `extraParams` on both `signInWithEmail` and `signInWithGoogle` to forward context through OAuth round-trip; validate `intent.redirect` against allowlist on every path
 - **P396** (Feb 26) Eliminate Unverified State — instant email verification via one-time link in welcome email; no UNVERIFIED users
 - **P273** (Feb 26) Create Story Unverified Error — grant role/RLS access on instant verification; check verification before RLS errors surface
 - **P274** (Feb 26) Post-Session Verification Email — one-time verification reminder after first live session

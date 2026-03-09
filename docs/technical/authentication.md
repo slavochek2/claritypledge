@@ -199,13 +199,18 @@ Guest clicks the magic link in their email → `/auth/callback` → `AuthCallbac
 | `action` value | Required params | What it does |
 |----------------|-----------------|--------------|
 | `rsvp` | `redirect=/events/{id}` | Auto-RSVPs user to the event |
-| `set-position` | `redirect=/point/{id}`, `value=agree\|disagree\|neutral` | Auto-stakes position on the point (P458) |
+| `set-position` | `pointId`, `position=agree\|disagree\|neutral`, `redirect=/point/{id}` | Auto-saves position on the point (P458) |
+| `start-story` | `pointId` | Redirects to `/chat?from=position&pointId={id}` (P458) |
+| `open-chat` | `pointId` | Same as `start-story` (P458) |
 
-**Pattern:** Redirect target + action intent are encoded in URL when anon user clicks a gated action. After auth completes, `AuthCallbackPage` reads `action` param, executes it, then redirects to `redirect` target.
+**Pattern:** Redirect target + action intent are encoded in the auth callback URL. Both `signInWithEmail` and `signInWithGoogle` accept `extraParams: Record<string, string>` to forward action-specific params (pointId, position, pointTitle) through the auth round-trip. After auth completes, `AuthCallbackPage` reads `action` param, executes it, then redirects to `redirect` target.
 
-**Security:** `ALLOWED_REDIRECT_PREFIXES` whitelist in `AuthCallbackPage.tsx:484` must include the redirect target prefix. As of P458: `/point/` was missing — add it before implementing.
+**Security:**
+- `ALLOWED_REDIRECT_PREFIXES` whitelist in `AuthCallbackPage.tsx` validates all redirect destinations — including `intent.redirect` from `parseAuthGateIntent`.
+- `pointId` must pass `isValidPointId()` (UUID v4 format) before any DB call or URL interpolation.
+- Current whitelist: `/events`, `/settings`, `/me`, `/p/`, `/about`, `/pledgers`, `/manifesto`, `/live`, `/agreements`, `/create`, `/point/`, `/chat`.
 
-Current whitelist: `/events`, `/settings`, `/me`, `/p/`, `/about`, `/pledgers`, `/manifesto`, `/live`, `/point/` (to be added in P458).
+**Utility module:** `src/lib/auth-gate-utils.ts` — `buildAuthGateUrl`, `parseAuthGateIntent`, `isValidPosition`, `isValidPointId`, `toAuthGatePosition`, `fromAuthGatePosition`, `getPositionVerb`.
 
 ---
 

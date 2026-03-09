@@ -1,6 +1,6 @@
 -- Create event-banners storage bucket (public read)
 INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
-VALUES ('event-banners', 'event-banners', true, 2097152, ARRAY['image/png', 'image/jpeg', 'image/webp']::text[])
+VALUES ('event-banners', 'event-banners', true, 5242880, ARRAY['image/png', 'image/jpeg', 'image/webp']::text[])
 ON CONFLICT (id) DO NOTHING;
 
 -- Allow service_role to insert (edge function uploads)
