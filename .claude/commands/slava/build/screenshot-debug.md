@@ -122,6 +122,8 @@ Once problem is confirmed:
 
 If multiple surfaces of the **same bug** are affected, list all and ask which to fix now vs defer (with tickets).
 
+**Inline fix guard:** If proposing an inline fix (not handing off to `/fix`), verify you are not on `main` first. Create a feature branch before applying any changes.
+
 **Scope boundary:** If the screenshot reveals **unrelated bugs** beyond the one being investigated, list them separately: "I also spotted [N] other issues: [list]. Create tickets, or investigate now?" Do not silently expand scope.
 
 ---
