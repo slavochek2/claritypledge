@@ -341,30 +341,30 @@ export const realEventsService: EventsService = {
 
     const event = mapEventFromDb(created as DbEventWithHost);
 
-    // Auto-generate AI banner, fall back to Unsplash (awaited so banner is set before navigation)
-    let bannerUrl: string | null = null;
-    try {
-      bannerUrl = await generateAIBanner(event.id, data.title, data.location || '');
-    } catch {
-      // AI generation failed silently
-    }
+    // Fire-and-forget: generate banner in background so user navigates immediately
+    void (async () => {
+      let bannerUrl: string | null = null;
+      try {
+        bannerUrl = await generateAIBanner(event.id, data.title, data.location || '');
+      } catch {
+        // AI generation failed silently
+      }
 
-    if (!bannerUrl) {
-      // Fallback to Unsplash
-      const keywords = extractBannerKeywords(data.title);
-      if (keywords) {
-        try {
-          bannerUrl = await fetchUnsplashBanner(keywords);
-        } catch {
-          // Unsplash also failed silently
+      if (!bannerUrl) {
+        const keywords = extractBannerKeywords(data.title);
+        if (keywords) {
+          try {
+            bannerUrl = await fetchUnsplashBanner(keywords);
+          } catch {
+            // Unsplash also failed silently
+          }
         }
       }
-    }
 
-    if (bannerUrl) {
-      const { error: updateError } = await supabase.from('events').update({ banner_url: bannerUrl }).eq('id', event.id);
-      if (!updateError) event.bannerUrl = bannerUrl;
-    }
+      if (bannerUrl) {
+        await supabase.from('events').update({ banner_url: bannerUrl }).eq('id', event.id);
+      }
+    })();
 
     return event;
   },
