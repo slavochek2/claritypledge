@@ -2,6 +2,18 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-09 [technical]: Story-detail CTA suppression — re-inject excluded current story for viewerStoryCount
+
+**Context:** `getStoriesForPoints(pointIds, storyId)` deliberately excludes the current story from `linkedStoriesForPoints` to avoid self-reference in the linked-stories expansion. But `QuotedPoint` reuses that same map to compute `viewerStoryCount` for CTA suppression ("Add your story →" should hide when viewer already has a story for that point). When the viewer's only story for a point IS the current story being viewed, the count was 0 and the CTA incorrectly appeared. This is the same class of bug as the other-profile viewerStoryCount fix (2026-03-08 entry below) — a query scoped for one purpose being reused for CTA logic where the scope doesn't match.
+
+**Decision:** When `viewerIsAuthor`, re-inject `data` (the current story) into `linkedStoriesForPoints` for each linked point before setting state. This keeps the exclusion intact for the linked-stories UI while providing accurate counts for CTA suppression.
+
+**Alternatives rejected:** (1) Remove the exclusion from the query — would show the current story in its own linked-stories list (confusing UX). (2) Separate query for viewerStoryCount — unnecessary network call when the data is already available locally.
+
+**Consequences:** Pattern to watch: any query that excludes the current entity for display purposes but is reused for business logic (CTA visibility, counts, badges) can produce this class of bug. The fix mutates the Map before `setState` — acceptable since it's a fresh Map from the async call, not shared state.
+
+**References:** `src/app/pages/story-detail-page.tsx` lines 767-774
+
 ## 2026-03-09 [technical]: AI banner generation — fire-and-forget with Gemini + Unsplash fallback + 5MB bucket
 
 **Context:** Events used Unsplash stock photos for banners. P489 replaced this with AI-generated banners via Gemini API (edge function). Initial implementation blocked `createEvent()` for 5-10s waiting for banner generation. Storage bucket was set to 2MB — Gemini generates ~2MB PNGs that exceeded this.
