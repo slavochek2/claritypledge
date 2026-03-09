@@ -26,7 +26,7 @@ Ship an approved feature to production.
 - Wait for user choice. **Step 5 (spec closure) is mandatory regardless of which path is chosen.**
 - If user replies 'spec-only': skip steps 2-4, jump directly to step 5.
 
-2. **Verify clean state** — no uncommitted changes on the feature branch
+2. **Verify clean state** — run `git status --short` on the feature branch. If uncommitted changes exist, list them and ask: "These files have uncommitted changes. Commit them before merging, or discard? (commit / discard / abort)". Do not proceed to merge with a dirty worktree — uncommitted review fixes will be silently lost.
 2.5. **Check spec status** — read the spec's `status` frontmatter field:
    - `done` → proceed (spec was manually approved after UAT — happy path)
    - `qa` → ask: "pN spec is still in `qa` — you haven't marked it done after UAT. Ship anyway? (y/n)"

@@ -2,6 +2,20 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-09 [process]: Worktree merge guard — block /ship on dirty working tree
+
+**Context:** P458 `/review-all` applied fixes to worktree files but the merge to main happened before they were committed. The review fixes became orphaned — discovered only after worktree cleanup when `git diff` showed 3 modified files, 2 of which were already on main from other commits. Copying whole files from the diverged worktree to main reverted unrelated changes.
+
+**Decision:** (1) `/ship` step 2 now runs `git status --short` and blocks merge if uncommitted changes exist — prompts commit/discard/abort. (2) `/kdd` step 1 adds an already-captured check: scan recent commits with `git show` before proposing doc updates, preventing duplicate work after context compaction.
+
+**Alternatives rejected:** Relying on discipline (existing MEMORY.md rule about post-compaction git status was already ignored this session). Adding guidance without mechanical checks (same class of fix that failed).
+
+**Consequences:** `/ship` will catch orphaned review fixes before they're lost. `/kdd` won't waste cycles re-committing already-captured knowledge. Both are mechanical — no future discipline required.
+
+**References:** `.claude/commands/slava/build/ship.md` (step 2), `.claude/commands/slava/maintain/kdd/SKILL.md` (step 1)
+
+---
+
 ## 2026-03-09 [technical]: Story-detail CTA suppression — re-inject excluded current story for viewerStoryCount
 
 **Context:** `getStoriesForPoints(pointIds, storyId)` deliberately excludes the current story from `linkedStoriesForPoints` to avoid self-reference in the linked-stories expansion. But `QuotedPoint` reuses that same map to compute `viewerStoryCount` for CTA suppression ("Add your story →" should hide when viewer already has a story for that point). When the viewer's only story for a point IS the current story being viewed, the count was 0 and the CTA incorrectly appeared. This is the same class of bug as the other-profile viewerStoryCount fix (2026-03-08 entry below) — a query scoped for one purpose being reused for CTA logic where the scope doesn't match.
