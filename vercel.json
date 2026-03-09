@@ -36,6 +36,11 @@
       "permanent": true
     },
     {
+      "source": "/s/lab",
+      "destination": "/events/clarity-lab-koh-phangan-2026-03-12-ad3385",
+      "permanent": true
+    },
+    {
       "source": "/",
       "has": [{ "type": "host", "value": "understandingpledge.com" }],
       "destination": "https://claritypledge.com/",

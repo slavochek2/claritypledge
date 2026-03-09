@@ -2,6 +2,61 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-09 [process]: Event poster generation pipeline — `/gen-poster` skill
+
+**Context:** Needed promotional posters for Clarity Lab event (March 12). Manual design is slow; AI image generation (Gemini Nano Banana Pro) can produce hero images, but quality requires specific API params and per-aspect-ratio generation.
+
+**Decision:** Established a repeatable 7-step pipeline captured in `/slava:content:gen-poster`: (1) fetch event data, (2) shortlink + QR, (3) generate 3 hero images at 4K via Nano Banana Pro (one per aspect ratio: 3:4, 16:9, 1:1), (4) build 5 HTML templates using 3 layout patterns (portrait, landscape-split, square), (5) screenshot at 2x DPR via Playwright node script, (6) self-review loop against 8-point checklist, (7) zip + upload to ladischenski.com/temp/{slug}/. Also updated `/gen-image` with `imageConfig` params (`imageSize: "4K"`, `aspectRatio`).
+
+**Alternatives rejected:**
+- Single hero image cropped to all formats — quality loss on landscape crops from portrait source
+- 1x DPR screenshots — produces sub-1MB files that look pixelated on retina screens
+- Imagen 4 as primary — Nano Banana Pro produces higher quality natively within `generateContent` endpoint
+
+**Consequences:** Event promotion flow updated in `docs/events/process.md` (step 4: gen-poster before promotion). `push-enable`/`push-disable` hook extended to cover `vercel --prod` deploys. ladischenski.com gained a catch-all route for `/temp/` subfolders.
+
+**References:** [gen-poster.md](.claude/commands/slava/content/gen-poster.md), [gen-image.md](.claude/commands/slava/content/gen-image.md), [events/process.md](events/process.md)
+
+## 2026-03-09 [product]: 5-week roadmap adopted — article + 1-on-1 in parallel, not sequential
+
+**Context:** A 5-week execution roadmap was proposed (Week 1: bugs/polish, Week 2: article publish + promote, Week 3-4: events + workshops, Week 5: retainer conversion). Strategic docs previously assumed sequential flow: validate H-PairsReturn via 1-on-1 sessions first, then scale to workshops. Meanwhile, 30+ direct outreach sessions over 9 months produced zero conversions — article-as-qualifier removes the anti-humiliation barrier by framing as intellectual engagement, not vulnerability pitch.
+
+**Decision:** Adopt the 5-week energy/timeboxing structure with modified sequencing: run article publication AND facilitated 1-on-1 sessions in parallel, not sequentially. Article qualifies leads (readers who register + set positions self-select as serious). 1-on-1 sessions validate H-PairsReturn directly. Both feed the funnel independently.
+
+**Alternatives rejected:**
+- Article-first, then 1-on-1 (original roadmap) — delays H-PairsReturn validation unnecessarily. First session already scheduled March 10.
+- 1-on-1 first, article later (original doc sequencing) — ignores the 30+ failed cold-outreach signal. Article pre-warm is a validated channel insight.
+
+**Consequences:** P458 (anon position auth gate) promoted to week — needed for article "set positions" CTA. Kanban resequenced: bugs → article → promote → events → infra → transcription. Both acquisition channels tracked separately to avoid signal contamination.
+
+**References:** [C1 milestone](milestones/c1-stories-live-events.md), [hypotheses.md](hypotheses.md) H-PairsReturn, [lean-canvas.md](lean-canvas.md)
+
+## 2026-03-09 [product]: Don't send article before facilitated sessions — keep hypothesis signals separate
+
+**Context:** First co-founder pair session scheduled March 10. Temptation to send the article beforehand so they could "set positions" before the session.
+
+**Decision:** Don't send the article before facilitated sessions. H-PairsReturn tests whether pairs recognize false agreements as costly in a facilitated setting. Pre-exposing them to the article's framing would contaminate the signal — they'd arrive primed rather than naive. Article-as-qualifier is a separate experiment (H-WorkshopFormat territory).
+
+**Alternatives rejected:**
+- Send article as "homework" before session — contaminates H-PairsReturn signal. The "holy shit" moment requires naive discovery, not primed expectation.
+
+**Consequences:** Article publication proceeds independently of session scheduling. Sessions use their own prep (real decisions the pair is facing), not article content.
+
+**References:** [C1 milestone](milestones/c1-stories-live-events.md), [hypotheses.md](hypotheses.md) H-PairsReturn
+
+## 2026-03-09 [process]: Kanban priority resequence aligned to 5-week roadmap
+
+**Context:** Feature priorities were scattered across workstreams without clear sequencing. The 5-week roadmap crystallized execution order.
+
+**Decision:** Resequenced kanban: (1) bugs/polish first, (2) article infrastructure (P458 anon auth gate), (3) article promotion, (4) events/workshops, (5) infra improvements, (6) transcription feature + 1-to-many verification. P489 (AI banners) deprioritized to backlog (rank 100). P458 promoted to week (rank 3). P419 (filing chat) unblocked (P425 done).
+
+**Alternatives rejected:**
+- Keep priorities as-is — scattered priorities lead to context-switching without clear progress toward C1 validation.
+
+**Consequences:** Clear week-by-week execution focus. Features not aligned to 5-week roadmap parked in backlog.
+
+**References:** [features/p458](../features/p458_anon_position_auth_gate.md), [features/p489](../features/p489_ai_generated_event_banners.md), [features/p419](../features/p419_filing_chat_v1.md)
+
 ## 2026-03-07 [technical]: Invite auto-auth via server-side magic link for existing users (P483+P488)
 
 **Context:** P483 streamlined the invite flow for existing users (read-only name, skip OTP). P488 extended it: if the invited partner already has an account, generate a Supabase magic link server-side so they arrive on the accept page already authenticated — one-click signing instead of email→OTP→sign.

@@ -51,7 +51,8 @@ Longer format, structured agenda, specific learning outcome.
 1. Choose type → use the relevant skill
 2. Skill asks minimal questions → generates description → publishes to prod
 3. Review the live event page
-4. Promote (see promotion channels below)
+4. Generate posters → `/slava:content:gen-poster` (creates shortlink + QR + 5 formats)
+5. Promote (see promotion channels below)
 
 ## Promotion Channels
 
@@ -98,9 +99,43 @@ Promote as a Facebook Event in relevant local groups (expat, nomad, community, f
 
 ---
 
+### Posters ✓
+Generate visual assets for print and social media distribution.
+
+**Skill:** `/slava:content:gen-poster`
+**Input:** event slug + optional vibe keywords
+**Time:** ~10 minutes (includes AI image generation + self-review loop)
+**Output:** 5 formats (A5 print, Facebook, WhatsApp, LinkedIn, Square) + zip bundle
+**Hosted at:** `ladischenski.com/temp/{slug}/`
+
+**How it works:**
+- Generates 3 hero images at 4K via Nano Banana Pro (portrait, landscape, square)
+- Builds HTML templates with event data, QR code, shortlink
+- Screenshots at 2x DPR via Playwright for crisp output
+- Self-reviews against quality checklist, iterates if needed
+- Uploads folder + zip to ladischenski.com/temp/
+
+---
+
+### Direct Invites ✓
+Personalized messages to contacts via Beeper.
+
+**Skill:** `/event-promote` (global)
+**Input:** event URL + contact list or tags
+**Time:** ~15 minutes
+**Account:** Beeper (personal)
+
+**How it works:**
+- Generates templates in EN/RU/DE
+- Loads contacts from master CRM list
+- Searches Beeper, personalizes based on recent chat
+- Creates CSV for review → bulk send after approval
+- Can attach WhatsApp poster from gen-poster output
+
+---
+
 ### Pending documentation
 - [ ] Instagram
-- [ ] Direct invites
 
 ## Database
 

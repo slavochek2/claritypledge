@@ -16,6 +16,9 @@ export const shortLinks: Record<string, string> = {
   "article": "/manifesto",
   "manifesto": "/manifesto",
 
+  // Events
+  "lab": "/events/clarity-lab-koh-phangan-2026-03-12-ad3385",
+
   // Add more as needed...
 };
 

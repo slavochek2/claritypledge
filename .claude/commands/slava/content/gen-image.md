@@ -1,13 +1,13 @@
 ---
 name: gen-image
-description: Generate a post image using Imagen 4 (fast) and upload it to Postiz. Returns media ID + URL ready to attach to a post.
+description: Generate an AI image using Gemini native image generation (Nano Banana Pro) and upload it to Postiz. Returns media ID + URL ready to attach to a post.
 when_to_use: After drafting a LinkedIn or blog post, before posting via Postiz. Can also be run standalone to generate images for any topic.
-version: 1.0.0
+version: 2.0.0
 ---
 
 # Generate Post Image
 
-Generate an AI image for a LinkedIn post using Google's Imagen 4 Fast, upload it to Postiz, and return the media object.
+Generate an AI image using Google's Gemini native image generation (Nano Banana), upload it to Postiz, and return the media object.
 
 ## Usage
 
@@ -16,52 +16,80 @@ Generate an AI image for a LinkedIn post using Google's Imagen 4 Fast, upload it
 /slava:gen-image "AI behavioral drift"  # Generate image for specific topic
 ```
 
-## Step 1 — Build Image Prompt
+## Step 1 — Generate Image with Gemini Native Image Generation
 
-Use `gemini-2.0-flash` to craft an effective Imagen prompt from the post content or topic.
+**Model choice (Nano Banana family):**
+| Nickname | Model ID | Speed | Use when |
+|----------|----------|-------|----------|
+| Nano Banana Pro | `gemini-3-pro-image-preview` | ~5-10s | **Default.** Best quality — posters, print, hero images |
+| Nano Banana 2 | `gemini-3.1-flash-image-preview` | ~2-3s | Quick iterations, social posts |
+| Nano Banana (original) | `gemini-2.5-flash-image` | ~2s | Fallback if newer models unavailable |
+
+Default to **Pro** for best quality. Use **3.1 Flash** when iterating quickly.
+
+**How it works:** Unlike Imagen (separate model), Nano Banana generates images natively within Gemini's `generateContent` endpoint using `responseModalities: ["IMAGE"]`. No separate prompt-crafting step needed — just describe what you want directly.
+
+**Resolution & aspect ratio:** Control via `imageConfig` in `generationConfig`:
+
+| Parameter | Values | Default |
+|-----------|--------|---------|
+| `imageSize` | `"512px"`, `"1K"`, `"2K"`, `"4K"` | ~1K |
+| `aspectRatio` | `"1:1"`, `"3:4"`, `"4:3"`, `"9:16"`, `"16:9"` | `"1:1"` |
+
+**Always specify `imageSize: "4K"`** for production use — default ~1K looks pixelated at print or 2x screen sizes.
 
 ```bash
 source .env.local
 curl -s -X POST \
-  "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=$GEMINI_API_KEY" \
+  "https://generativelanguage.googleapis.com/v1beta/models/gemini-3-pro-image-preview:generateContent" \
+  -H "x-goog-api-key: $GEMINI_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
-    "contents": [{"parts": [{"text": "Create a concise Imagen image generation prompt for a LinkedIn post about: {TOPIC}.\n\nRequirements:\n- Professional, modern aesthetic suitable for LinkedIn\n- Abstract or conceptual — not literal text or faces\n- Dark or neutral background, clean composition\n- Max 50 words\n- No text, logos, or watermarks\n- Style: editorial photography or digital art\n\nReturn ONLY the prompt, no explanation."}]}]
-  }'
-```
-
-Extract the text from `candidates[0].content.parts[0].text`.
-
-## Step 2 — Generate Image with Imagen 4
-
-```bash
-source .env.local
-curl -s -X POST \
-  "https://generativelanguage.googleapis.com/v1beta/models/imagen-4.0-fast-generate-001:predict?key=$GEMINI_API_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "instances": [{"prompt": "{IMAGEN_PROMPT}"}],
-    "parameters": {
-      "sampleCount": 1,
-      "aspectRatio": "1:1",
-      "safetySetting": "block_low_and_above"
+    "contents": [{"parts": [{"text": "{PROMPT}"}]}],
+    "generationConfig": {
+      "responseModalities": ["IMAGE"],
+      "imageConfig": {
+        "imageSize": "4K",
+        "aspectRatio": "3:4"
+      }
     }
   }'
 ```
 
-Response: `predictions[0].bytesBase64Encoded` — base64-encoded PNG.
+Response: `candidates[0].content.parts[].inlineData.data` — base64-encoded image.
+Mime type: `candidates[0].content.parts[].inlineData.mimeType` (usually `image/jpeg` or `image/png`).
 
-Decode and save: `base64 -d <<< "$B64" > /tmp/post-image.png`
-
-**Fallback:** If Imagen returns an error, fall back to Unsplash search:
-```bash
-source .env.local
-curl -s "https://api.unsplash.com/search/photos?query={KEYWORDS}&per_page=1&orientation=squarish" \
-  -H "Authorization: Client-ID $UNSPLASH_ACCESS_KEY"
-# Download: urls.regular → /tmp/post-image.jpg
+**Extract and save:**
+```python
+import json, base64, sys
+r = json.load(sys.stdin)
+for p in r['candidates'][0]['content']['parts']:
+    if 'inlineData' in p:
+        ext = 'jpg' if 'jpeg' in p['inlineData']['mimeType'] else 'png'
+        with open(f'/tmp/post-image.{ext}', 'wb') as f:
+            f.write(base64.b64decode(p['inlineData']['data']))
+        break
 ```
 
-## Step 3 — Upload to Postiz
+**Fallback chain:** If Gemini native fails → try Imagen 4 (`imagen-4.0-generate-001` via `:predict` endpoint) → Unsplash search:
+```bash
+source .env.local
+# Imagen 4 fallback
+curl -s -X POST \
+  "https://generativelanguage.googleapis.com/v1beta/models/imagen-4.0-generate-001:predict?key=$GEMINI_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "instances": [{"prompt": "{PROMPT}"}],
+    "parameters": {"sampleCount": 1, "aspectRatio": "1:1", "safetySetting": "block_low_and_above"}
+  }'
+# Response: predictions[0].bytesBase64Encoded
+
+# Unsplash fallback
+curl -s "https://api.unsplash.com/search/photos?query={KEYWORDS}&per_page=1&orientation=squarish" \
+  -H "Authorization: Client-ID $UNSPLASH_ACCESS_KEY"
+```
+
+## Step 2 — Upload to Postiz
 
 Postiz auth uses cookies. If `/tmp/postiz-cookies.txt` already exists (from this session), skip login.
 
@@ -104,14 +132,16 @@ Use in post payload:
 
 | Variable | Purpose |
 |----------|---------|
-| `GEMINI_API_KEY` | Imagen 4 + Gemini prompt generation |
+| `GEMINI_API_KEY` | Gemini native image gen + Imagen fallback |
 | `UNSPLASH_ACCESS_KEY` | Fallback stock photos |
 | `POSTIZ_URL` | `https://postiz.claritypledge.com` |
 | `POSTIZ_EMAIL` / `POSTIZ_PASSWORD` | Cookie-based session auth |
 
 ## Notes
 
-- Imagen 4 Fast is cheap and fast — ~2 seconds, free tier has generous limits
-- `safetySetting: "block_low_and_above"` is the only accepted value (not `block_only_high`)
+- Gemini native image gen (Nano Banana) produces higher quality than Imagen 4 for most use cases
+- Auth header is `x-goog-api-key` (not `key=` query param) for `generateContent` endpoint
+- `responseModalities: ["IMAGE"]` for image-only output; use `["TEXT", "IMAGE"]` to get both
+- Preview models (`-preview` suffix) may change — check [Google AI docs](https://ai.google.dev/gemini-api/docs/image-generation) if errors occur
 - Cookie file `/tmp/postiz-cookies.txt` is reused across calls in the same session — no need to re-login
 - Images land at `$POSTIZ_URL/uploads/YYYY/MM/DD/{hash}.png`
