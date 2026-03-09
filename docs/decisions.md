@@ -2,6 +2,34 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-09 [technical]: DB backup/restore — local pg_dump capability and tested restore pipeline
+
+**Context:** Needed to wipe and replace prod stories/points data (8-point framework refresh). No local pg_dump/psql existed, and the daily GCS backup (`.github/workflows/db-backup.yml`) had never been restore-tested. Needed confidence that data could be recovered before any destructive operation.
+
+**Decision:** (1) Install `libpq` via Homebrew for local `pg_dump`/`psql` (`/opt/homebrew/opt/libpq/bin/`, keg-only). (2) Use session pooler (port 5432) for pg_dump — transaction pooler (6543) doesn't work. Region-specific hostnames: test=`aws-1-ap-northeast-1`, prod=`aws-1-ap-southeast-1`. (3) Restore requires `SET session_replication_role = replica` to disable triggers — without this, triggers like `create_initial_story_version` fire during INSERT and fail on FK ordering. (4) Before any destructive DB operation: pg_dump the affected tables to `.private/`, plus keep the self-contained spec with full text of old data for agent-readable comparison.
+
+**Alternatives rejected:** Testing via GCS download (gsutil needs interactive re-auth — blocked in non-interactive sessions). SELECT-based backup only (works for small data but doesn't prove the real pipeline). Skipping restore test ("it's only 15 rows" — true now but establishes bad habit).
+
+**Consequences:** Restore pipeline is proven end-to-end on test DB. Future destructive operations have a 2-step safety: (1) pg_dump snapshot, (2) daily GCS backup as independent fallback. The trigger-disable pattern is required for any table with INSERT triggers.
+
+**References:** `.private/backup-prod-20260309.sql`, `.private/docs/points-stories-refresh.md`, MEMORY.md "DB Backup & Restore"
+
+---
+
+## 2026-03-09 [product]: Points/stories refresh — wipe and re-enter 8-point framework
+
+**Context:** Prod had 5 untitled stories and 9 points (4 orphans, 3 near-duplicates) — all by Slava, 0 other users, 0 verifications. The 8-point framework (developed through falsification session with Sergej) represents a significant upgrade: cleaner formulations, intellectual lineage, two new points (stories/points distinction, common knowledge reflexivity). Old data is messy iteration artifacts, not deliberate content.
+
+**Decision:** Wipe all stories, points, story_points, point_positions on prod and re-enter the 8-point framework from the spec (`.private/docs/points-stories-refresh.md`). Each point gets one story containing: personal narrative + "Standing on" (intellectual lineage) + "Where ClarityPledge goes beyond" (contribution). Stories get proper titles. Context lives inside story content (approach A — long stories), not in separate tables or comments.
+
+**Alternatives rejected:** (A) Edit existing rows in-place — messy IDs, orphan cleanup, version history would show discontinuity. (B) Multiple stories per point for context separation — adds complexity for no current user benefit, schema supports it if needed later. (C) New "context" field on points — schema change for a problem long story content already solves. (D) Keep old data alongside new — noise with no value.
+
+**Consequences:** Prod starts clean with authoritative 8-point content. Same content serves both intellectual/challenger audience and co-founder pairs — context (lineage) is inline, not audience-segmented. Point editing feature not needed yet (single author, direct SQL). Spec preserves full old data text for comparison.
+
+**References:** `.private/docs/points-stories-refresh.md`, `.private/backup-prod-20260309.sql`
+
+---
+
 ## 2026-03-09 [technical]: Position count display — three-surface bug class from optimistic-update mismatches
 
 **Context:** Position counts were broken across 3 surfaces: (1) PointCardWithLinks zeroed intensity positions (`strongly_agree: 0`) instead of spreading `baseCounts`, discarding DB-fetched granular counts. (2) Profile QuotedPointCard always added +1 for user's position on top of DB counts (which already include the user), causing double-counting. (3) StoryCardDetail and profile QuotedPointCard passed `compact` to PositionButtons, hiding counts entirely. Third recurrence of position-count bugs (see P155 in done-features INDEX).
