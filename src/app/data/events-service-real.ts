@@ -2,7 +2,7 @@ import type { EventsService, CreateEventInput, UpdateEventInput } from './events
 import type { EventWithHost, EventAttendee, EventPracticeRoom } from '@/app/types';
 import { supabase } from '@/lib/supabase';
 import { invokeEventEmails } from '@/lib/event-emails';
-import { extractBannerKeywords, fetchUnsplashBanner } from '@/app/prototypes/events/banner-utils';
+import { extractBannerKeywords, fetchUnsplashBanner, generateAIBanner } from '@/app/prototypes/events/banner-utils';
 
 // Debug logging - only in development
 const DEBUG = import.meta.env.DEV;
@@ -341,18 +341,29 @@ export const realEventsService: EventsService = {
 
     const event = mapEventFromDb(created as DbEventWithHost);
 
-    // Auto-fetch banner from Unsplash (awaited so banner is set before navigation)
-    const keywords = extractBannerKeywords(data.title);
-    if (keywords) {
-      try {
-        const bannerUrl = await fetchUnsplashBanner(keywords);
-        if (bannerUrl) {
-          const { error: updateError } = await supabase.from('events').update({ banner_url: bannerUrl }).eq('id', event.id);
-          if (!updateError) event.bannerUrl = bannerUrl;
+    // Auto-generate AI banner, fall back to Unsplash (awaited so banner is set before navigation)
+    let bannerUrl: string | null = null;
+    try {
+      bannerUrl = await generateAIBanner(event.id, data.title, data.location || '');
+    } catch {
+      // AI generation failed silently
+    }
+
+    if (!bannerUrl) {
+      // Fallback to Unsplash
+      const keywords = extractBannerKeywords(data.title);
+      if (keywords) {
+        try {
+          bannerUrl = await fetchUnsplashBanner(keywords);
+        } catch {
+          // Unsplash also failed silently
         }
-      } catch {
-        // silent — banner failure is non-blocking
       }
+    }
+
+    if (bannerUrl) {
+      const { error: updateError } = await supabase.from('events').update({ banner_url: bannerUrl }).eq('id', event.id);
+      if (!updateError) event.bannerUrl = bannerUrl;
     }
 
     return event;

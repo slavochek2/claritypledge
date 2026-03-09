@@ -21,7 +21,7 @@ import { MobileTooltip } from '@/app/prototypes/linkedin-like/components/shared'
 import { Button } from '@/components/ui/button';
 import { eventsService } from '@/app/data/events-service';
 import { useAuth } from '@/auth';
-import { extractBannerKeywords, regenerateUnsplashBanner } from '../banner-utils';
+import { extractBannerKeywords, regenerateUnsplashBanner, generateAIBanner } from '../banner-utils';
 import { formatTime, downloadICSFile, getGoogleCalendarUrl, getOutlookUrl, getOffice365Url, getTimezoneLabel } from '../utils';
 import type { EventWithHost, PersonRef } from '@/app/types';
 import { ConfirmDialog } from '@/app/components/shared/confirm-dialog';
@@ -206,10 +206,19 @@ export function EventDetail() {
 
   const handleRegenerateBanner = async () => {
     if (!event || isBannerLoading) return;
-    const keywords = extractBannerKeywords(event.title);
-    if (!keywords) return;
     setIsBannerLoading(true);
-    const newUrl = await regenerateUnsplashBanner(keywords);
+
+    // Try AI generation first
+    let newUrl = await generateAIBanner(event.id, event.title, event.location || '');
+
+    // Fall back to Unsplash
+    if (!newUrl) {
+      const keywords = extractBannerKeywords(event.title);
+      if (keywords) {
+        newUrl = await regenerateUnsplashBanner(keywords);
+      }
+    }
+
     if (newUrl) {
       await eventsService.updateEvent(event.id, { bannerUrl: newUrl });
       setBannerUrl(newUrl);
@@ -226,7 +235,15 @@ export function EventDetail() {
     if (!event || isBannerLoading || !keywords.trim()) return;
     setIsBannerLoading(true);
     setBannerSearchError(false);
-    const newUrl = await regenerateUnsplashBanner(keywords);
+
+    // Try AI generation with custom keywords first
+    let newUrl = await generateAIBanner(event.id, event.title, event.location || '', keywords);
+
+    // Fall back to Unsplash
+    if (!newUrl) {
+      newUrl = await regenerateUnsplashBanner(keywords);
+    }
+
     if (newUrl) {
       await eventsService.updateEvent(event.id, { bannerUrl: newUrl });
       setBannerUrl(newUrl);
@@ -308,8 +325,8 @@ export function EventDetail() {
                 <div className="flex gap-1">
                   <input
                     type="text"
-                    aria-label="Search photos"
-                    placeholder={extractBannerKeywords(event.title) || 'keywords'}
+                    aria-label="Describe your banner"
+                    placeholder={extractBannerKeywords(event.title) || 'Describe your banner'}
                     value={bannerSearchKeywords}
                     onChange={e => setBannerSearchKeywords(e.target.value)}
                     onKeyDown={e => {

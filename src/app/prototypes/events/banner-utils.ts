@@ -1,3 +1,5 @@
+import { supabase } from '@/lib/supabase';
+
 const NOISE_WORDS = new Set([
   'clarity', 'lab', 'session', 'workshop', 'event',
   'the', 'a', 'an', 'in', 'on', 'at', 'of', 'and', 'or', 'for', 'with',
@@ -19,6 +21,41 @@ export function extractBannerKeywords(title: string): string {
     })
     .join(' ')
     .trim();
+}
+
+/**
+ * Generates an AI banner via the generate-event-banner edge function.
+ * Returns the public URL of the stored image, or null on failure.
+ */
+export async function generateAIBanner(
+  eventId: string,
+  title: string,
+  location: string,
+  keywords?: string,
+): Promise<string | null> {
+  try {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session?.access_token) return null;
+
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+    if (!supabaseUrl) return null;
+
+    const response = await fetch(`${supabaseUrl}/functions/v1/generate-event-banner`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${session.access_token}`,
+      },
+      body: JSON.stringify({ eventId, title, location, keywords }),
+    });
+
+    if (!response.ok) return null;
+
+    const data = await response.json();
+    return data.url || null;
+  } catch {
+    return null;
+  }
 }
 
 interface UnsplashPhoto {
