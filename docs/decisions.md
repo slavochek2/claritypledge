@@ -2,6 +2,21 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-09 [process]: Kanban Goals page reads from docs/goals.md — single source for execution priorities
+
+**Context:** Kanban Goals page previously read from the active milestone's `## Pilot Sequence` section and `~/.claude_weekly_last_run`. This created two problems: (1) pilot sequence is milestone-level, not execution-level — it doesn't reflect the agreed priority order (bugs → article → promote → events → infra), and (2) weekly commitment is a different concern. An initial attempt hardcoded data into `goals-data.ts`, violating dynamic discovery.
+
+**Decision:** Created `docs/goals.md` as a simple prioritized checklist + dos/don'ts guardrails. Kanban server parses it via `GET /api/goals-strategic`. GoalsPage.tsx stripped to just Next Steps — no tabs, no duplicated strategic data.
+
+**Alternatives rejected:**
+- Hardcoded `goals-data.ts` — violates dynamic discovery; data diverges from docs
+- Rich tabbed dashboard duplicating funnel/hypotheses/metrics from source docs
+- Keep pilot sequence + weekly on Goals page — different concerns, cluttered view
+
+**Consequences:** `docs/goals.md` is the single place to update execution priorities. `/kdd` updates it after sessions. Kanban Goals page auto-reflects on refresh.
+
+**References:** [docs/goals.md](goals.md), [tools/kanban/server/api.ts](../tools/kanban/server/api.ts)
+
 ## 2026-03-09 [product]: 5-week roadmap adopted — article + 1-on-1 in parallel, not sequential
 
 **Context:** A 5-week execution roadmap was proposed (Week 1: bugs/polish, Week 2: article publish + promote, Week 3-4: events + workshops, Week 5: retainer conversion). Strategic docs previously assumed sequential flow: validate H-PairsReturn via 1-on-1 sessions first, then scale to workshops. Meanwhile, 30+ direct outreach sessions over 9 months produced zero conversions — article-as-qualifier removes the anti-humiliation barrier by framing as intellectual engagement, not vulnerability pitch.

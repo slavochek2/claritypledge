@@ -812,6 +812,51 @@ app.patch('/api/goals/:index', async (req, res) => {
   }
 })
 
+// GET /api/goals-strategic - parse docs/goals.md for next steps + dos/don'ts
+app.get('/api/goals-strategic', async (_req, res) => {
+  try {
+    const goalsPath = join(DEFAULT_PROJECT_ROOT, 'docs', 'goals.md')
+    const raw = readFileSync(goalsPath, 'utf-8')
+
+    // Parse sections by ## headings
+    const sections: Record<string, string> = {}
+    let currentSection = ''
+    for (const line of raw.split('\n')) {
+      const heading = line.match(/^## (.+)/)
+      if (heading) {
+        currentSection = heading[1].trim()
+        sections[currentSection] = ''
+      } else if (currentSection) {
+        sections[currentSection] += line + '\n'
+      }
+    }
+
+    // Parse next steps (numbered checkboxes)
+    const steps: Array<{ index: number; text: string; done: boolean }> = []
+    const stepsBlock = sections['Next Steps'] || ''
+    for (const line of stepsBlock.split('\n')) {
+      const m = line.match(/^\d+\. \[([ x])\] (.+)/)
+      if (m) steps.push({ index: steps.length, text: m[2].trim(), done: m[1] === 'x' })
+    }
+
+    // Parse dos and don'ts (bullet lists)
+    const dos: string[] = []
+    for (const line of (sections['Dos'] || '').split('\n')) {
+      const m = line.match(/^- (.+)/)
+      if (m) dos.push(m[1].trim())
+    }
+    const donts: string[] = []
+    for (const line of (sections["Don'ts"] || '').split('\n')) {
+      const m = line.match(/^- (.+)/)
+      if (m) donts.push(m[1].trim())
+    }
+
+    res.json({ steps, dos, donts })
+  } catch {
+    res.json(null)
+  }
+})
+
 // GET /api/weekly - read weekly commitment from ~/.claude_weekly_last_run
 app.get('/api/weekly', (_req, res) => {
   try {
