@@ -267,6 +267,7 @@ export function PointCardWithLinks({
                         userPosition={userPosition}
                         counts={counts}
                         onPositionClick={handlePositionClick}
+                        narrow
                       />
                     </div>
                   )}
@@ -409,6 +410,7 @@ export function PointCardWithLinks({
                     userPosition={userPosition}
                     counts={counts}
                     onPositionClick={handlePositionClick}
+                    narrow
                   />
                 </div>
               )}
