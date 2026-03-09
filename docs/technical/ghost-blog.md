@@ -157,28 +157,32 @@ Custom CSS/JS injected via Ghost Admin → Settings → Advanced → Code Inject
 
 **What it does:**
 1. **Custom navigation** — Replaces Ghost's default header with a nav bar matching claritypledge.com (non-logged-in view)
-   - Desktop: C logo + "Clarity Pledge" wordmark, nav links (Events, Pledgers, Manifesto, About), "Start a Clarity Session" CTA, hamburger dropdown (Co-create, Take the Pledge, Log In, Create Account)
+   - Desktop: C logo + "Clarity Pledge" wordmark, nav links (Events, Blog), "Start a Clarity Session" CTA, hamburger dropdown (Pledgers, Manifesto, Co-create, About, Take the Pledge, Log In, Create Account)
    - Mobile: Logo + wordmark, hamburger → full-width panel with CTA, nav links, and menu items
    - All links point to `claritypledge.com/*` (blog is a satellite site)
    - Scroll effect: transparent → frosted glass with border on scroll
-2. **Layout** — Hero section fills full viewport height (`min-height: calc(100vh - nav)`) with centered content, pushing footer below the fold
-3. **Custom footer** — Replaces Ghost's default footer with a design matching claritypledge.com exactly:
-   - 3-column grid: Explore (Home, Blog, Pledgers, About) | Legal (Privacy Policy, Terms of Service) | empty
-   - Bottom section: centered divider, GitHub "Open Source (AGPL-3.0)" link, "© 2026 The Clarity Pledge"
-   - Mobile: single-column stacked layout
-4. **Conditional** — `body.no-posts` class hides empty feed (only when no posts exist)
+2. **Subscribe landing overlay** (homepage only, first visit) — Substack-style centered screen with author photo, blog title, description, email subscribe form, and "No thanks >" dismiss button
+   - Shown when no `cp-dismissed` cookie and no Ghost member cookie
+   - "No thanks" sets `cp-dismissed=1` cookie (30 days) and fades to content view
+   - Subscribe uses Ghost's `/members/api/send-magic-link/` endpoint
+3. **Homepage content layout** — Substack-inspired two-section layout:
+   - **Featured post** (full width): image left + title/excerpt/meta right (stacks on mobile)
+   - **Two-column below**: post list (65%) + sticky sidebar (35%) — single column on mobile
+   - **Sidebar**: blog description, compact subscribe form, personal CTA card ("Fractional Chief Clarity Officer")
+4. **Footer** — Ghost's default footer menu (Home, Privacy Policy, Terms of Service). "Powered by Ghost" hidden.
+5. **Conditional** — `body.no-posts` class hides empty feed (only when no posts exist)
 
 **Technical approach:**
-- Ghost's default `header.gh-navigation` is hidden via CSS (`display: none`)
+- Ghost's default `header.gh-navigation` and `.gh-header` are hidden via CSS (`display: none`)
+- `.gh-container.is-list` (original post feed) is hidden; custom layout elements are inserted into `.gh-viewport` before `.gh-footer`
 - Custom nav is built via JS `document.createElement` and prepended to `body`
 - `.gh-viewport` gets `padding-top` to account for the fixed nav (64px mobile, 80px desktop)
-- Ghost's default footer elements (`.gh-footer-menu`, `.gh-footer-copyright`, `.gh-footer-logo`) are hidden
-- Custom footer structure (`cp-footer-columns`, `cp-footer-col`, `cp-footer-bottom`) is built via JS and injected into `.gh-footer-bar`
+- Homepage JS reads `.gh-feed .gh-card` elements to extract post data, then builds custom featured post + post list + sidebar
 - All CSS classes use `.cp-` prefix to avoid Ghost conflicts
 - Link colors use `!important` to override Ghost theme defaults
 - Desktop dropdown and mobile panel are toggled via vanilla JS
 
-**Code is ~300 lines (CSS + JS).** Too large to embed here — edit via Ghost Admin → Code Injection.
+**Code is ~600 lines (CSS + JS).** Too large to embed here — edit via SQLite on VM.
 
 **Key CSS classes:**
 | Class | Purpose |
@@ -189,17 +193,21 @@ Custom CSS/JS injected via Ghost Admin → Settings → Advanced → Code Inject
 | `.cp-cta` | Blue CTA button |
 | `.cp-btn` / `.cp-drop` | Desktop hamburger + dropdown |
 | `.cp-mob-btn` / `.cp-mob` | Mobile hamburger + panel |
-| `.cp-footer-columns` | Footer 3-column grid |
-| `.cp-footer-col` | Footer column (Explore / Legal) |
-| `.cp-footer-bottom` | Footer bottom section (centered, with divider) |
+| `.cp-landing` | Subscribe landing overlay (first visit) |
+| `.cp-featured` | Featured post section |
+| `.cp-content-wrap` | Two-column layout wrapper |
+| `.cp-posts` | Post list column |
+| `.cp-sidebar` | Sidebar column (sticky on desktop) |
+| `.cp-personal-card` | Personal CTA card in sidebar |
 
 **Notes:**
-- `body.no-posts` rules are conditional — only apply when no posts exist. When posts are added, the JS won't add the class and normal theme styling applies.
-- `.gh-footer-signup` and `.gh-footer-logo` are always hidden (unconditional) — the hero subscribe form is sufficient.
+- `body.no-posts` rules are conditional — only apply when no posts exist.
+- `.gh-footer-signup`, `.gh-footer-logo`, and `.gh-footer-copyright` are always hidden.
 - CSS `:empty` does NOT work on Ghost templates (whitespace text nodes in `.gh-feed`). Use JS `children.length === 0` instead.
 - Footer links use `rgb(113, 113, 122)` — same zinc-500 palette as the main site's `text-muted-foreground`.
-- Ghost's default "Powered by Ghost" is hidden — replaced by our custom footer bottom section.
 - Ghost's built-in search is no longer accessible (hidden with the default header). Can be re-added later if needed.
+- Author photo at `/content/images/2026/03/slava.jpg` — uploaded to Ghost content volume, used by subscribe landing.
+- The old `.slava-cta` (orphaned `<body>` child from footer injection) is hidden via CSS; its content is replaced by `.cp-personal-card` in the sidebar.
 
 ### Code Injection Best Practices
 
