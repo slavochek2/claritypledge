@@ -120,16 +120,18 @@ export function PartnerLeftScreen({ partnerName, sessionEnded, onStartNew, isGue
       </div>
       <h2 className="text-xl font-semibold mb-2">{title}</h2>
       <p className="text-muted-foreground mb-6">{subtitle}</p>
-      <Button onClick={onStartNew} className="bg-blue-500 hover:bg-blue-600 text-white">
-        Start New Session
-      </Button>
+      {!isGuest && (
+        <Button onClick={onStartNew} className="bg-blue-500 hover:bg-blue-600 text-white">
+          Start New Session
+        </Button>
+      )}
 
-      {/* P396: Soft signup CTA for anonymous guests */}
+      {/* P396/P492: Soft signup CTA for anonymous guests */}
       {isGuest && (
-        <div className="mt-8 p-4 bg-muted rounded-lg text-left space-y-3 w-full">
-          <p className="text-sm font-medium">Save your calibration history</p>
+        <div className="mt-4 p-4 bg-muted rounded-lg text-left space-y-3 w-full">
+          <p className="text-sm font-medium">Keep your session insights</p>
           <p className="text-xs text-muted-foreground">
-            Create a free account to track your calibration scores over time, see your progress, and share your results.
+            You just practiced calibrated communication. Create a free account to save your positions, track your calibration over time, and join future sessions as a host.
           </p>
           <div className="flex flex-col gap-2">
             <Link

@@ -1,5 +1,5 @@
 import { ReactNode } from "react";
-import { useLocation } from "react-router-dom";
+import { useLocation, useSearchParams } from "react-router-dom";
 import { SimpleNavigation } from "@/app/components/layout/simple-navigation";
 import { BottomNav } from "@/app/components/layout/bottom-nav";
 import { LegalFooter } from "@/app/components/layout/legal-footer";
@@ -15,7 +15,15 @@ interface ClarityLandingLayoutProps {
 
 export function ClarityLandingLayout({ children }: ClarityLandingLayoutProps) {
   const location = useLocation();
+  const [searchParams] = useSearchParams();
   const { showUserMenu } = useNavAuthState();
+
+  // Embed mode: strip all page chrome (nav, footer, bottom nav)
+  const isEmbed = searchParams.get('embed') === 'true';
+
+  if (isEmbed) {
+    return <>{children}</>;
+  }
 
   const isLandingPage = location.pathname === "/";
   const isAlternativeLandingPage = location.pathname === "/alternative";
