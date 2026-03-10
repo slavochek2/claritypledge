@@ -103,7 +103,7 @@ describe('QuotedPoint dropdown visibility', () => {
     });
   });
 
-  it('should scale PositionButtons to fit within QuotedPoint card', () => {
+  it('should render PositionButtons within QuotedPoint card using narrow mode', () => {
     render(
       <BrowserRouter>
         <StoryCardDetail
@@ -116,9 +116,14 @@ describe('QuotedPoint dropdown visibility', () => {
       </BrowserRouter>
     );
 
-    // Find the PositionButtons wrapper inside QuotedPoint
-    // It should have scale transform (origin-left) to fit within the card
-    const scaledContainers = document.querySelectorAll('[class*="origin-left"]');
-    expect(scaledContainers.length).toBeGreaterThan(0);
+    // PositionButtons should be rendered inside the QuotedPoint card
+    // The component uses the `narrow` prop (instead of CSS scaling) to fit within the card
+    const agreeDropdown = screen.getByTestId('agree-dropdown');
+    const disagreeDropdown = screen.getByTestId('disagree-dropdown');
+
+    // Verify the buttons are inside a presentation wrapper (the QuotedPoint's click-stop div)
+    const positionWrapper = agreeDropdown.closest('[role="presentation"]');
+    expect(positionWrapper).not.toBeNull();
+    expect(positionWrapper).toContainElement(disagreeDropdown);
   });
 });

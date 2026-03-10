@@ -256,7 +256,7 @@ export function PointCardWithLinks({
                 {/* Content column */}
                 <div className="flex-1 min-w-0">
                   {/* Point text */}
-                  <p className={`text-gray-900 ${compact ? 'text-sm' : 'text-base'}`}>
+                  <p className={`text-gray-900 break-words ${compact ? 'text-sm' : 'text-base'}`}>
                     <LinkedText text={point.text} />
                   </p>
 
@@ -399,7 +399,7 @@ export function PointCardWithLinks({
               </div>
 
               {/* Point text - same position as StoryCard text */}
-              <p className={`text-gray-900 ${compact ? 'text-sm' : 'text-base'}`}>
+              <p className={`text-gray-900 break-words ${compact ? 'text-sm' : 'text-base'}`}>
                 <LinkedText text={point.text} />
               </p>
 
@@ -722,7 +722,7 @@ function QuotedStory({
       )}
       {/* Story text */}
       {!textExpanded && story.text.length > 100 ? (
-        <p className="text-sm text-gray-800">
+        <p className="text-sm text-gray-800 break-words">
           <LinkedText text={story.text.slice(0, 100)} />
           <span
             data-testid="more-link"
@@ -734,7 +734,7 @@ function QuotedStory({
           > ...more</span>
         </p>
       ) : (
-        <p className="text-sm text-gray-800"><LinkedText text={story.text} /></p>
+        <p className="text-sm text-gray-800 break-words"><LinkedText text={story.text} /></p>
       )}
     </div>
   );

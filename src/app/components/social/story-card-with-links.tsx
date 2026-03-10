@@ -160,7 +160,7 @@ export function StoryCardWithLinks({
 
           {/* Story text */}
           {compact && !textExpanded && story.text.length > 150 ? (
-            <p className="text-sm text-gray-900">
+            <p className="text-sm text-gray-900 break-words">
               <LinkedText text={story.text.slice(0, 150)} />
               <span
                 data-testid="more-link"
@@ -172,7 +172,7 @@ export function StoryCardWithLinks({
               > ...more</span>
             </p>
           ) : (
-            <p className={`text-gray-900 ${compact ? 'text-sm' : 'text-base'}`}>
+            <p className={`text-gray-900 break-words ${compact ? 'text-sm' : 'text-base'}`}>
               <LinkedText text={story.text} />
             </p>
           )}
@@ -244,7 +244,7 @@ export function StoryCardWithLinks({
 
             {/* Story text - indented under author */}
             {compact && !textExpanded && story.text.length > 150 ? (
-              <p className="text-sm text-gray-900">
+              <p className="text-sm text-gray-900 break-words">
                 <LinkedText text={story.text.slice(0, 150)} />
                 <span
                   data-testid="more-link"
@@ -256,7 +256,7 @@ export function StoryCardWithLinks({
                 > ...more</span>
               </p>
             ) : (
-              <p className={`text-gray-900 ${compact ? 'text-sm' : 'text-base'}`}>
+              <p className={`text-gray-900 break-words ${compact ? 'text-sm' : 'text-base'}`}>
                 <LinkedText text={story.text} />
               </p>
             )}
@@ -553,7 +553,7 @@ function QuotedPoint({
           {/* Content column */}
           <div className="flex-1 min-w-0">
             {/* Point text */}
-            <p className="text-sm text-gray-800"><LinkedText text={point.text} /></p>
+            <p className="text-sm text-gray-800 break-words"><LinkedText text={point.text} /></p>
 
             {/* Position buttons - compact */}
             {currentUserId && (

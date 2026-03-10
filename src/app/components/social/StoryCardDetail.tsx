@@ -172,7 +172,7 @@ export function StoryCardDetail({
           </p>
 
           {/* Story text */}
-          <p className={`text-foreground ${compact ? 'text-sm line-clamp-3' : 'text-base'}`}>
+          <p className={`text-foreground break-words ${compact ? 'text-sm line-clamp-3' : 'text-base'}`}>
             <LinkedText text={story.content} />
           </p>
         </div>
@@ -247,7 +247,7 @@ export function StoryCardDetail({
             </div>
 
             {/* Story text - indented under author */}
-            <p className={`text-foreground ${compact ? 'text-sm line-clamp-3' : 'text-base'}`}>
+            <p className={`text-foreground break-words ${compact ? 'text-sm line-clamp-3' : 'text-base'}`}>
               <LinkedText text={story.content} />
             </p>
 
@@ -554,7 +554,7 @@ function QuotedPoint({
           {/* Content column */}
           <div className="flex-1 min-w-0">
             {/* Point text */}
-            <p className="text-sm text-gray-800">{point.statement}</p>
+            <p className="text-sm text-gray-800 break-words">{point.statement}</p>
 
             {/* Position buttons - scaled to 85% to fit within quoted card width while keeping button proportions */}
             <div role="presentation" className="mt-2" onClick={e => e.stopPropagation()}>
@@ -683,7 +683,7 @@ function LinkedStoryCard({
         <span className="text-xs font-medium text-muted-foreground">{story.authorName}</span>
         <EarBadge count={story.authorEarsCount ?? 0} name={story.authorName} size={11} />
       </div>
-      <p className="text-sm text-foreground line-clamp-2"><LinkedText text={story.content} /></p>
+      <p className="text-sm text-foreground line-clamp-2 break-words"><LinkedText text={story.content} /></p>
     </div>
   );
 }
