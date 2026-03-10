@@ -1,5 +1,5 @@
 ---
-status: idea
+status: rejected
 title: The barriers nobody talks about after you stop vibe coding
 rank: 2.5
 tags:

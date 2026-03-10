@@ -1,5 +1,5 @@
 ---
-status: idea
+status: rejected
 title: Your AI conversations know things about you that you don't
 rank: 1.875
 tags:

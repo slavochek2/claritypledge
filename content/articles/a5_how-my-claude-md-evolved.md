@@ -1,8 +1,12 @@
 ---
-status: idea
-title: "Every line in my CLAUDE.md is a mistake that cost me time"
+status: rejected
+title: Every line in my CLAUDE.md is a mistake that cost me time
 rank: 5
-tags: [ai, process, claude, productivity]
+tags:
+  - ai
+  - process
+  - claude
+  - productivity
 created_at: 2026-02-28T00:00:00.000Z
 ---
 

@@ -1,5 +1,5 @@
 ---
-status: idea
+status: rejected
 title: I Got It. We Don't Need to Waste Time on This.
 rank: 1.25
 tags:

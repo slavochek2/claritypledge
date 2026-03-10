@@ -1,5 +1,5 @@
 ---
-status: today
+status: rejected
 title: Blog Article — AI Agent Orchestration for Solo Founders
 rank: 0.75
 tags:
