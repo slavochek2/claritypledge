@@ -75,8 +75,8 @@ export function LiveStoryCard({
             photoUrl={story.authorAvatarUrl}
             isPledger={!!story.authorEarsCount}
           />
-          <div className="flex-1">
-            <p className="text-sm font-medium text-foreground line-clamp-2"><LinkedText text={preview} /></p>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium text-foreground line-clamp-2 break-words"><LinkedText text={preview} /></p>
             {story.content.length > 100 && (
               <p className="text-xs text-muted-foreground mt-0.5">Read more ↓</p>
             )}
@@ -111,8 +111,8 @@ export function LiveStoryCard({
           photoUrl={story.authorAvatarUrl}
           isPledger={!!story.authorEarsCount}
         />
-        <div className="flex-1 max-h-[200px] overflow-y-auto">
-          <p className="text-sm font-medium text-foreground"><LinkedText text={story.content} /></p>
+        <div className="flex-1 min-w-0 max-h-[200px] overflow-y-auto">
+          <p className="text-sm font-medium text-foreground break-words"><LinkedText text={story.content} /></p>
         </div>
       </div>
 
