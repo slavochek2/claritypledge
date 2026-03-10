@@ -9,6 +9,7 @@ tags: [live, guest, ux]
 uat_file: features/uat/p492.md
 test_files:
   - src/tests/p492-guest-post-session-ui.test.tsx
+delivery_stage: uat
 ---
 
 # P492: Guest post-session UI: hide Start New Session + improve CTA copy
@@ -35,12 +36,12 @@ Single file change: `src/app/components/partners/live-mode-view.tsx`, lines 104-
 
 ## Acceptance Criteria
 
-- [ ] Guest user does NOT see "Start New Session" button after session ends
-- [ ] Guest user sees improved CTA copy: "Keep your session insights" heading
-- [ ] Guest user sees improved body text referencing calibrated communication practice
-- [ ] Registered user still sees "Start New Session" button
-- [ ] Registered user does NOT see the guest CTA
-- [ ] Spacing between session end message and CTA is tighter (mt-4 instead of mt-8)
+- [x] Guest user does NOT see "Start New Session" button after session ends
+- [x] Guest user sees improved CTA copy: "Keep your session insights" heading
+- [x] Guest user sees improved body text referencing calibrated communication practice
+- [x] Registered user still sees "Start New Session" button
+- [x] Registered user does NOT see the guest CTA
+- [x] Spacing between session end message and CTA is tighter (mt-4 instead of mt-8)
 
 ## Testing
 
