@@ -353,6 +353,7 @@ ClarityPledge is the platform brand (like Stripe). ladischenski.com is the found
 - **Revenue model:** Direct, high-margin — investor pays €2,000+ per pre-investment calibration assessment
 - **Why parked:** Validate founder track first. Investor DD adds a second sales motion; lean path is to let it emerge as pull ("can you share this with our investor?")
 - **Willing to raise:** €100-200k from aligned funders if coaching validation + case studies (10+ founder sessions with measurable outcomes) exist
+- **Aligned funders identified (2026-03-09):** Emergent Ventures (Tyler Cowen — lowest friction, highest alignment), Humans& ($480M raised, thesis nearly identical — ex-xAI, Google #7, ex-Anthropic, Stanford), Jaan Tallinn / SFF (Estonian connection, coordination focus). Also: Patrick Collison / Fast Grants, Open Philanthropy, EU Horizon Grants. Approach after C1 validates.
 
 ### Future: Recognition → Indirect Revenue (parked until Month 5+)
 
