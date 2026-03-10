@@ -12,10 +12,10 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Link } from 'react-router-dom';
 import { ClarityAgreement } from '@/app/data/agreements-service.interface';
 import { AgreementCertificate } from './agreement-certificate';
 import { AddToCalendarButton } from '@/app/components/shared/add-to-calendar-button';
+import { CelebrationInstallLink } from '@/app/components/pwa/celebration-install-link';
 
 interface CelebrationDialogProps {
   open: boolean;
@@ -68,11 +68,7 @@ export function CelebrationDialog({
               description: 'Our first /live session under the Clarity Partner Agreement',
             }}
           />
-          <div>
-            <Link to="/live" className="text-sm text-[#0044CC] hover:underline">
-              Ready to practice? Start a /live session →
-            </Link>
-          </div>
+          <CelebrationInstallLink />
         </div>
 
         {/* Actions */}

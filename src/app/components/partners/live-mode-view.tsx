@@ -47,6 +47,8 @@ import { PositionBadge } from '@/app/prototypes/linkedin-like/components/shared'
 import { storiesService } from '@/app/data/stories-service';
 import { pointsService } from '@/app/data/points-service';
 import { analytics } from '@/lib/mixpanel';
+import { InstallBanner } from '@/app/components/pwa/install-banner';
+import { usePwaInstall } from '@/hooks/use-pwa-install';
 
 // ============================================================================
 // P28.1: RECORDING INDICATOR (KISS: always show when session is live)
@@ -114,7 +116,10 @@ export function PartnerLeftScreen({ partnerName, sessionEnded, onStartNew, isGue
     : 'Clarity Session has ended.';
 
   return (
-    <div className="flex flex-col items-center justify-center p-8 text-center min-h-[300px] max-w-sm mx-auto">
+    <div className="flex flex-col items-center justify-center min-h-[300px]">
+      {/* P493: Install banner for registered users (guests see signup CTA instead) */}
+      {!isGuest && <PwaSessionEndBanner />}
+      <div className="p-8 text-center max-w-sm mx-auto">
       <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mb-4">
         <DoorOpen className="w-8 h-8 text-muted-foreground" />
       </div>
@@ -147,8 +152,15 @@ export function PartnerLeftScreen({ partnerName, sessionEnded, onStartNew, isGue
           </div>
         </div>
       )}
+      </div>
     </div>
   );
+}
+
+/** P493: Install banner for registered users at session end */
+function PwaSessionEndBanner() {
+  const { dismiss } = usePwaInstall();
+  return <InstallBanner source="session_end" onDismiss={() => dismiss('session_end')} />;
 }
 
 // ============================================================================

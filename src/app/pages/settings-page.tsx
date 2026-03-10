@@ -11,6 +11,7 @@ import { toast } from "sonner";
 import { ArrowLeftIcon, Loader2Icon, CheckIcon } from "lucide-react";
 import { analytics } from "@/lib/mixpanel";
 import { Button } from "@/components/ui/button";
+import { InstallCard } from "@/app/components/pwa/install-card";
 
 export function SettingsPage() {
   const navigate = useNavigate();
@@ -182,6 +183,12 @@ export function SettingsPage() {
         <p className="text-muted-foreground mt-2">
           Update your public profile information
         </p>
+      </div>
+
+      {/* P493: PWA install card */}
+      <div className="mb-8">
+        <h2 className="text-sm font-medium mb-3 text-muted-foreground">App</h2>
+        <InstallCard />
       </div>
 
       {/* Form */}

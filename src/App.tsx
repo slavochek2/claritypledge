@@ -5,6 +5,7 @@ import { HelmetProvider } from "react-helmet-async";
 import { ClarityLandingLayout } from "@/app/layouts/clarity-landing-layout";
 import { AuthCallbackPage, AuthProvider } from "@/auth";
 import { ScrollToTop } from "@/app/components/scroll-to-top";
+import { PwaInstallProvider } from "@/hooks/use-pwa-install";
 
 // Critical path pages - loaded synchronously for fast initial render
 import { ClarityPledgeLanding } from "@/app/pages/clarity-pledge-landing";
@@ -156,6 +157,7 @@ export default function ClarityPledgeApp() {
     <Sentry.ErrorBoundary fallback={<ErrorFallback />} showDialog>
     <Router>
       <ScrollToTop />
+      <PwaInstallProvider>
       <AuthProvider>
       <Routes>
         <Route
@@ -536,6 +538,7 @@ export default function ClarityPledgeApp() {
         <Route path="/events/*" element={<ClarityLandingLayout><LazyRoute><EventsPrototype /></LazyRoute></ClarityLandingLayout>} />
       </Routes>
       </AuthProvider>
+      </PwaInstallProvider>
     </Router>
     </Sentry.ErrorBoundary>
     </HelmetProvider>
