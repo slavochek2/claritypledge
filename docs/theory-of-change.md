@@ -527,9 +527,16 @@ The theory of change is built on research-backed facts and validated assumptions
 | Claim | Evidence | Source |
 |-------|----------|--------|
 | Miscommunication costs money | $1.2 trillion/year US; $12,506/employee/year (~21% of salary) | Grammarly & Harris Poll 2024 |
-| People are poorly calibrated | Baseline accuracy r=.178-.24 (predictions barely match reality) | Yang et al. 2023 meta-analysis (N=15,889) |
-| Speakers can't detect the gap | Listeners' minds wander 24% of time; speakers think they're heard when they're not | Collins et al. 2022 (Harvard/UCLA) |
+| People are poorly calibrated (reading) | Baseline accuracy r=.178 for reading comprehension — barely better than chance | Yang et al. 2023 meta-analysis (N=15,889). r=.24 from Prinz et al. 2020 mixed conditions. |
+| Speakers overestimate being understood | Speakers believed understood 72% of time; actual 61%. When NOT understood, speakers thought they were 46% of time | Keysar & Henly 2002, *Psychological Science* |
+| Closeness doesn't help | Spouses/friends understood no better than strangers — but speakers believed they were | Savitsky, Keysar, Epley et al. 2011, *J. Experimental Social Psychology* |
+| Speakers can't detect feigned listening | Speakers correctly identified real vs feigned listening only 70% of time | Collins, Minson, Kristal & Brooks 2024, *J. Exp. Psych: General* |
+| Internal states less visible than assumed | Speakers estimated 48.8% detection rate; actual 25.6% — nearly 2x overestimation | Gilovich, Savitsky & Medvec 1998, *JPSP* (illusion of transparency) |
 | Current tools don't measure understanding | Gong: talk ratios. 360: 1 checkbox of 30. All: no speaker verification | P110 competitive analysis |
+
+#### Literature Gap: Conversational Comprehension Calibration
+
+**No published study measures the listener's calibration in conversation.** All conversational studies above measure the *speaker* side (speaker overestimates being understood). Yang et al. measures the *listener* side but for reading, not conversation. The listener's metacognitive accuracy in conversation — "I think I understood you" vs. speaker-verified "you actually didn't" — has no published measurement. This is the exact ClarityPledge /live paradigm. The construct "conversational comprehension calibration" does not exist in the literature yet.
 
 ### The Mechanism (Solution Works)
 
@@ -553,7 +560,7 @@ The theory of change is built on research-backed facts and validated assumptions
 
 | Claim | Evidence | Source |
 |-------|----------|--------|
-| No commercial tool measures conversational understanding calibration | All tools measure speaker behavior or self-report; none verify listener understanding via speaker | P110 research |
+| No tool — or study — measures conversational comprehension calibration | All studies measure speaker-side overconfidence (Keysar, Gilovich) or reader self-assessment (Yang). No study measures listener's calibration in conversation verified by speaker. We're the first. | P110 research + 2026-03-10 literature review |
 | Explain-back is core active listening technique | Teach-back = explain-back; proven mechanism in healthcare and education | Literature review |
 | We measure + create feedback loop | Listener confidence vs speaker verification = calibration gap revealed | Our product |
 

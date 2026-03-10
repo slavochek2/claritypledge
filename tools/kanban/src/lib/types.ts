@@ -2,7 +2,7 @@
 export type Status = 'backlog' | 'week' | 'today' | 'in-progress' | 'blocked' | 'qa' | 'done' | 'all-done' | 'draft' | 'rejected'
 
 // Article pipeline statuses (content kanban — separate from feature board)
-export type ArticleStatus = 'idea' | 'draft' | 'editing' | 'ready' | 'published' | 'promoted'
+export type ArticleStatus = 'idea' | 'draft' | 'editing' | 'ready' | 'published' | 'promoted' | 'rejected'
 
 // Feature type badge (first-class badge)
 export type FeatureType = 'bug' | 'task' | 'story' | 'comment' | 'change-request'

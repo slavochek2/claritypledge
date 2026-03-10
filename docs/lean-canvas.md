@@ -16,7 +16,7 @@ No feedback loop exists — conversations end without checking if understanding 
 
 **No alignment due diligence exists.** Legal DD has documents, financial DD has numbers. Team calibration has nothing. Self-diagnosis fails — founders don't self-identify as misaligned.
 
-**The measurement problem:** Existing tools don't help. 75% of research relies on self-reports (the miscalibration we're trying to fix). Gong measures talk-time ratio, not comprehension. 360 feedback buries "listening" as 1 item among 30. Meta-analysis shows metacomprehension accuracy is only r=0.24 — people are poor at knowing what they know.
+**The measurement problem:** Existing tools don't help. 75% of research relies on self-reports (the miscalibration we're trying to fix). Gong measures talk-time ratio, not comprehension. 360 feedback buries "listening" as 1 item among 30. Meta-analysis of reading comprehension (Yang et al. 2023, N=15,889) shows people's self-assessed understanding correlates only r=.178 with actual comprehension — barely better than a coin toss. While this measures reading, not conversation, the same metacognitive blindspot likely applies to interpersonal communication.
 
 **What we measure:** Not listening (a behavior), but understanding calibration (metacognitive accuracy). The gap between "how well I think I understood" and "how well I actually understood" — as verified by the speaker.
 
@@ -262,7 +262,7 @@ Track your accuracy over time:
 
 3. **"You are the MCP" framing** — Not consulting while secretly wanting to build a platform. Explicitly being the beta version of your own software. Every manual action is a spec for what to automate next. Service work IS live prototyping.
 
-4. **First to productize listening fidelity** — Academic scales (AELS, ALOS, Listening Fidelity) exist but aren't productized. We're building what research validated but no one built.
+4. **First to measure conversational comprehension calibration** — The listener's metacognitive accuracy in conversation has no published measurement. Speaker-side overconfidence is documented (Keysar 2002, Gilovich 1998). Reader-side calibration is documented (Yang 2023, r=.178). But listener-side calibration in conversation — "I think I understood you" vs speaker-verified reality — doesn't exist in the literature. /live is the first instrument that measures it.
 
 **Emerge over time (not current moats):**
 

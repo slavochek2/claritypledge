@@ -13,6 +13,7 @@ interface CardDialogProps {
 
 // Options for single-select fields
 const STATUS_OPTIONS: Status[] = ['draft', 'backlog', 'week', 'today', 'in-progress', 'blocked', 'qa', 'done', 'all-done', 'rejected']
+const ARTICLE_STATUS_OPTIONS: string[] = ['idea', 'draft', 'editing', 'ready', 'published', 'promoted', 'rejected']
 const TYPE_OPTIONS: (FeatureType | null)[] = [null, 'bug', 'task', 'story', 'change-request']
 const SIZE_OPTIONS: (Size | null)[] = [null, 'xs', 's', 'm', 'l', 'xl']
 const DELIVERY_STAGE_OPTIONS: (DeliveryStage | null)[] = [
@@ -145,9 +146,11 @@ export function CardDialog({
   // Update feature on server
   const updateFeature = async (updates: Partial<Feature>) => {
     try {
+      const isArticle = /^a\d/.test(feature.id)
+      const apiBase = isArticle ? '/api/articles' : '/api/features'
       const url = effectiveWorktreePath
-        ? `/api/features/${encodeURIComponent(feature.id)}?worktree=${encodeURIComponent(effectiveWorktreePath)}`
-        : `/api/features/${encodeURIComponent(feature.id)}`
+        ? `${apiBase}/${encodeURIComponent(feature.id)}?worktree=${encodeURIComponent(effectiveWorktreePath)}`
+        : `${apiBase}/${encodeURIComponent(feature.id)}`
       const res = await fetch(url, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
@@ -497,10 +500,12 @@ export function CardDialog({
     )
   }
 
+  const isArticle = /^a\d/.test(feature.id)
+
   // Editable property definitions
   const editableProperties: { key: EditingField; options?: (string | null)[] }[] = [
     { key: 'type', options: TYPE_OPTIONS as (string | null)[] },
-    { key: 'status', options: STATUS_OPTIONS as string[] },
+    { key: 'status', options: isArticle ? ARTICLE_STATUS_OPTIONS : STATUS_OPTIONS as string[] },
     { key: 'rank' }, // P141: number input (not select)
     { key: 'size', options: SIZE_OPTIONS as (string | null)[] },
     { key: 'delivery_stage', options: DELIVERY_STAGE_OPTIONS as (string | null)[] },

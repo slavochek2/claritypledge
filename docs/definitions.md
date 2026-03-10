@@ -158,9 +158,9 @@ POSITION: "+2 (Agree) on this Point"
 
 **Key insight:** You don't verify Points (they're just claims). You verify understanding of the **Story behind someone's Position** on a Point.
 
-**Points are immutable shared objects.** Once a Point exists and others have staked positions on it, it cannot be edited — changing it would invalidate everyone else's positions. Points have no single owner: the first position-staker extracts the Point, but it belongs to the shared discourse.
+**Points become immutable once others engage.** The author can freely edit a Point's statement while they are the only position-holder. Once an external user stakes a position, the Point locks — changing it would invalidate their position. At that point, the Point belongs to the shared discourse, not the author.
 
-To "correct" a Point: file a new Story → extract a corrected Point → stake a fresh position. The old Point stays in the discourse; other positions on it remain valid.
+To "correct" a locked Point: file a new Story → extract a corrected Point → stake a fresh position. The old Point stays in the discourse; other positions on it remain valid.
 
 ---
 
@@ -315,7 +315,7 @@ Listening (behavior) → Understanding (outcome) → Confidence (metacognition) 
 **Academic terms for this construct:**
 | Term | Definition | Source |
 |------|------------|--------|
-| **Metacomprehension accuracy** | Correlation between predicted and actual comprehension | Yang et al. (2023) meta-analysis: r=0.24 |
+| **Metacomprehension accuracy** | Correlation between predicted and actual comprehension (reading texts, not conversation) | Yang et al. (2023) meta-analysis: r=0.178 (non-intervention baseline; Prinz et al. 2020 reported r=0.24 mixing intervention/non-intervention) |
 | **Illusion of knowing** | Belief that comprehension happened when it failed | Glenberg, Wilkinson & Epstein (1982) |
 | **Illusion of explanatory depth** | Thinking you understand causal systems better than you do | Sloman & Fernbach (2017) |
 | **Listening fidelity** | Congruence between listener's and speaker's cognitions | Powers & Lowry (1984) |

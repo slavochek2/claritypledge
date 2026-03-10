@@ -2,6 +2,48 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-10 [product]: 7-point framework replaces 8-point — executed on prod
+
+**Context:** Previous session (2026-03-09) planned an "8-point framework" refresh. During spec finalization, the framework was refined to 7 points + 7 stories. Old Points 3 and 4 merged into new Point 2. One planned new point (old "Point 4: cognitive understanding precedes genuine agreement") was absorbed into the merged Point 2. Result: 5 existing stories updated, 2 new stories inserted, 5 existing points rewritten, 2 new points inserted, 4 orphan points deleted.
+
+**Decision:** Execute as single idempotent SQL migration using `INSERT ... ON CONFLICT DO UPDATE` — same script runs on both test (empty) and prod (has existing data). Triggers disabled via `SET session_replication_role = replica` with manual `story_versions` inserts. Backup taken before execution.
+
+**Alternatives rejected:** (A) Separate test/prod scripts — doubles maintenance, prod script wouldn't be the one actually tested. (B) Wipe-and-reinsert on prod — unnecessarily destructive, loses created_at timestamps and version history for unchanged content. (C) Application-level migration via API — slower, RLS complications, harder to verify atomicity.
+
+**Consequences:** Prod now has clean 7/7/7/7 (stories/points/links/positions). The `ON CONFLICT DO UPDATE` pattern is proven for future content refreshes. Previous decisions.md entry (2026-03-09) references "8-point framework" — that was the plan; this is the execution at 7 points.
+
+**References:** `scripts/archive/migrations/20260310-points-stories-refresh.sql`, `pp/docs/business/points-stories-update-spec.md`, `.private/backup-prod-20260310.sql`
+
+---
+
+## 2026-03-10 [technical]: Idempotent data migration pattern — INSERT ON CONFLICT for cross-environment content updates
+
+**Context:** Needed to run the same migration on test (empty tables) and prod (existing data). Test DB has different user UUIDs and no matching stories/points. Writing separate scripts per environment means the prod script isn't actually tested.
+
+**Decision:** Use `INSERT ... ON CONFLICT (id) DO UPDATE SET` for all upserts. Same SQL, both environments. For stories: conflict on PK updates content/tags and increments `current_version`. For points: conflict on PK updates statement/tags. For story_points/positions: `ON CONFLICT DO NOTHING` (links are idempotent). Triggers disabled with `session_replication_role = replica` — requires manual `story_versions` inserts using `COALESCE(MAX(version_number), 0) + 1` for version numbering. Re-running the script is safe (idempotent) but creates additional story_versions rows on each run.
+
+**Alternatives rejected:** (A) `UPDATE WHERE id = ...` for existing + `INSERT` for new — not testable on empty DB. (B) Truncate + reinsert — loses version history, breaks any future FK references.
+
+**Consequences:** Pattern is reusable for any future content refresh. The `session_replication_role` approach bypasses RLS and triggers in one setting — cleaner than per-table policy changes. Caveat: re-runs create duplicate story_versions (harmless but noisy).
+
+**References:** `scripts/archive/migrations/20260310-points-stories-refresh.sql`
+
+---
+
+## 2026-03-10 [product]: Points are editable by author pre-discourse — immutability applies after others stake positions
+
+**Context:** `definitions.md` states "Points are immutable shared objects. Once a Point exists and others have staked positions on it, it cannot be edited." This session directly rewrote 5 existing point statements via SQL. No other users had staked positions on any of these points (0 external positions, 0 verifications). The immutability rule was designed to protect discourse integrity — other people's positions would become invalid if the point they agreed with changes underneath them.
+
+**Decision:** Clarify the immutability rule: Points become immutable once external users have staked positions. Before that (single-author, no external positions), the author can freely edit. This matches how early-stage content works — the author iterates until the first external engagement locks it.
+
+**Alternatives rejected:** (A) Treat all points as immutable from creation — forces "delete and recreate" even for typo fixes with no external impact. (B) Allow edits always with a "changed" flag — undermines position integrity.
+
+**Consequences:** Update `definitions.md` to clarify the immutability boundary. Future point edits by the author are safe as long as no external positions exist. Once a single external position is staked, the point locks.
+
+**References:** `docs/definitions.md` "Stories vs Points" section
+
+---
+
 ## 2026-03-09 [technical]: DB backup/restore — local pg_dump capability and tested restore pipeline
 
 **Context:** Needed to wipe and replace prod stories/points data (8-point framework refresh). No local pg_dump/psql existed, and the daily GCS backup (`.github/workflows/db-backup.yml`) had never been restore-tested. Needed confidence that data could be recovered before any destructive operation.
@@ -3380,7 +3422,7 @@ Coach (partner) + You → Co-organize events → Participants get value →
 **What we measure:** Understanding calibration — the gap between listener's confidence ("I understood") and speaker's verification ("they actually understood"). This is metacomprehension accuracy via speaker verification.
 
 **Why this was impossible before:**
-- Self-reports don't work (metacomprehension accuracy is only r=0.24 — people don't know what they don't know)
+- Self-reports don't work (metacomprehension accuracy is only r=0.178 in reading comprehension — barely better than chance; conversational understanding likely worse — people don't know what they don't know)
 - Talk-time ratios (Gong, Chorus) measure behavior, not comprehension
 - 360 feedback buries listening as 1 item of 30, rated by people guessing
 - No tool asked the speaker to verify understanding

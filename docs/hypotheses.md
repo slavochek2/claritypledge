@@ -166,9 +166,9 @@ Our active bets, in priority order. This is the map of what we still need to pro
 
 ---
 
-### H-Foundation-CalibrationDeficitReal: People can't accurately assess what they know (metacognitive accuracy r=.24)
-**Bet:** Baseline metacognitive accuracy is r=.24 — predictions barely match reality. This is the misalignment we're trying to surface and fix.
-**Evidence:** Yang et al. 2023 meta-analysis (N=15,889). 75% of self-report research relies on miscalibrated self-assessment.
+### H-Foundation-CalibrationDeficitReal: People can't accurately assess what they know (metacognitive accuracy r=.178)
+**Bet:** Baseline metacognitive accuracy is r=.178 — barely better than a coin toss. This is the misalignment we're trying to surface and fix.
+**Evidence:** Yang et al. 2023 meta-analysis (N=15,889, 115 studies). Note: measures reading comprehension self-assessment, not conversational understanding directly — but the same metacognitive blindspot (illusion of knowing) applies. 75% of self-report research relies on miscalibrated self-assessment.
 
 ---
 

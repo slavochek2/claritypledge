@@ -69,7 +69,7 @@ function getWorktrees(): { path: string; branch: string; isCurrent: boolean }[] 
 const VALID_MILESTONE_STATUS: MilestoneStatus[] = ['active', 'next', 'future']
 
 // Valid article status values (content pipeline — separate from feature board)
-const VALID_ARTICLE_STATUS: ArticleStatus[] = ['idea', 'draft', 'editing', 'ready', 'published', 'promoted']
+const VALID_ARTICLE_STATUS: ArticleStatus[] = ['idea', 'draft', 'editing', 'ready', 'published', 'promoted', 'rejected']
 
 // Articles directory (relative to project root)
 const DEFAULT_ARTICLES_DIR = join(DEFAULT_PROJECT_ROOT, 'content', 'articles')
