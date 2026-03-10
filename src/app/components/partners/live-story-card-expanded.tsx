@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { ChevronDown, ChevronRight, Pin, Ear } from 'lucide-react';
 import type { StoryWithPoints, PointSummary, PositionType } from '@/app/types';
-import { getPositionGroup, getPositionCTACopy } from '@/app/prototypes/shared/types';
+import { getPositionGroup, getPositionCTACopy, shouldShowStoryCTA } from '@/app/prototypes/shared/types';
 import { GravatarAvatar } from '@/components/ui/gravatar-avatar';
 import { VisibilityBadge } from '@/app/components/shared/visibility-badge';
 import {
@@ -46,7 +46,8 @@ function toSevenPointCounts(positionCounts?: Record<string, number>): SevenPoint
 
 interface LiveStoryCardExpandedProps {
   story: StoryWithPoints;
-  currentUserId?: string;
+  /** When true, the current user owns this story — suppresses the "Tell your story" CTA */
+  isOwnStory?: boolean;
   onPositionSelect?: (pointId: string, position: PositionType | null) => void;
   className?: string;
   /** When set, overrides authorName in the position badge (used in host view to show partner's name) */
@@ -61,6 +62,7 @@ const STORY_THRESHOLD = 100;
 
 export function LiveStoryCardExpanded({
   story,
+  isOwnStory = false,
   onPositionSelect,
   className,
   badgePersonName,
@@ -169,6 +171,7 @@ export function LiveStoryCardExpanded({
               onPositionSelect={onPositionSelect}
               badgePersonName={badgePersonName}
               badgePersonEarsCount={badgePersonEarsCount}
+              isOwnStory={isOwnStory}
             />
           ) : (
             <ThreadLineGroup>
@@ -184,6 +187,7 @@ export function LiveStoryCardExpanded({
                     onPositionSelect={onPositionSelect}
                     badgePersonName={badgePersonName}
                     badgePersonEarsCount={badgePersonEarsCount}
+                    isOwnStory={isOwnStory}
                   />
                 </ThreadLineItem>
               ))}
@@ -205,6 +209,7 @@ function PointRow({
   onPositionSelect,
   badgePersonName,
   badgePersonEarsCount,
+  isOwnStory = false,
 }: {
   point: PointSummary;
   authorName: string;
@@ -215,6 +220,7 @@ function PointRow({
   onPositionSelect?: (pointId: string, position: PositionType | null) => void;
   badgePersonName?: string;
   badgePersonEarsCount?: number;
+  isOwnStory?: boolean;
 }) {
   // Local state so button highlights immediately on click, independent of the
   // frozen selectedStoryData snapshot. Echoes to onPositionSelect for liveState sync.
@@ -273,9 +279,10 @@ function PointRow({
           narrow
         />
 
-        {/* P456: Disabled story CTA footer — visible but non-interactive in /live session */}
-        {userPosition && (() => {
-          const positionGroup = getPositionGroup(userPosition);
+        {/* P456: Disabled story CTA footer — visible but non-interactive in /live session.
+            P487+: Hidden on own story — use shouldShowStoryCTA shared utility. */}
+        {shouldShowStoryCTA({ userPosition, isOwnStory }) === 'show' && (() => {
+          const positionGroup = getPositionGroup(userPosition!);
           const copy = getPositionCTACopy(positionGroup);
 
           return (

@@ -87,6 +87,28 @@ export function getPositionCTACopy(group: PositionButtonGroup): PositionCTACopy 
   };
 }
 
+/**
+ * Determines whether the "Tell your story" CTA should appear on a point.
+ *
+ * Rules:
+ * - No position taken → hidden (nothing to attach a story to)
+ * - Viewing your OWN story → hidden (you don't prompt yourself)
+ * - Viewer already has a story for this point → hidden
+ *
+ * Usage: surfaces call this instead of reimplementing inline checks.
+ * Fixes the bug class documented in P451/P456/P465/P487.
+ */
+export function shouldShowStoryCTA(params: {
+  userPosition: PositionType | null;
+  isOwnStory: boolean;
+  viewerStoryCount?: number;
+}): 'show' | 'hidden' {
+  if (!params.userPosition) return 'hidden';
+  if (params.isOwnStory) return 'hidden';
+  if (params.viewerStoryCount !== undefined && params.viewerStoryCount > 0) return 'hidden';
+  return 'show';
+}
+
 // -----------------------------------------------------------------------------
 // User Types
 // -----------------------------------------------------------------------------

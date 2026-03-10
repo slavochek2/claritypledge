@@ -578,6 +578,7 @@ export function LiveModeView({
           isPrivate={isPrivate}
           badgePersonName={badgePersonName}
           badgePersonEarsCount={badgePersonEarsCount}
+          isStoryOwner={isAuthorOfSelected}
                   />
         {skipNotificationDialog}
         {confirmSkipDialog}
@@ -633,6 +634,7 @@ export function LiveModeView({
           isPrivate={isPrivate}
           badgePersonName={badgePersonName}
           badgePersonEarsCount={badgePersonEarsCount}
+          isStoryOwner={isAuthorOfSelected}
                   />
         {skipNotificationDialog}
         {confirmSkipDialog}
@@ -733,6 +735,7 @@ export function LiveModeView({
           selectedStory={selectedStory}
           onPositionSelect={onPositionSelect}
           onClearStory={onClearStory}
+          isStoryOwner={isAuthorOfSelected}
                   />
         {skipNotificationDialog}
         {confirmSkipDialog}
@@ -996,6 +999,7 @@ function IdleScreen({
             {selectedStory && (
               <LiveStoryCardExpanded
                 story={selectedStory}
+                isOwnStory={isStoryOwner}
                 onPositionSelect={onPositionSelect}
                 className="w-full max-w-sm mb-2"
                 badgePersonName={badgePersonName}
@@ -1186,6 +1190,8 @@ interface RatingScreenProps {
   badgePersonEarsCount?: number;
   /** P400: Clear selected story — Speak Freely must be present whenever story card is visible */
   onClearStory?: () => void;
+  /** When true, current user owns the selected story — suppresses the "Tell your story" CTA */
+  isStoryOwner?: boolean;
 }
 
 function RatingScreen({
@@ -1202,6 +1208,7 @@ function RatingScreen({
   badgePersonName,
   badgePersonEarsCount,
   onClearStory,
+  isStoryOwner = false,
 }: RatingScreenProps) {
   const displayPartnerName = getFirstName(partnerName);
   const checkerName = liveState.checkerName ? getFirstName(liveState.checkerName) : '';
@@ -1255,6 +1262,7 @@ function RatingScreen({
         {selectedStory && (
           <LiveStoryCardExpanded
             story={selectedStory}
+            isOwnStory={isStoryOwner}
             onPositionSelect={onPositionSelect}
             className="w-full max-w-sm mb-2"
             badgePersonName={badgePersonName}
@@ -1324,6 +1332,8 @@ interface RatingScreenWithOptionalDrawerProps {
   badgePersonEarsCount?: number;
   /** P400: Clear selected story — Speak Freely must be present whenever story card is visible */
   onClearStory?: () => void;
+  /** When true, current user owns the selected story — suppresses the "Tell your story" CTA */
+  isStoryOwner?: boolean;
 }
 
 function RatingScreenWithOptionalDrawer({
@@ -1342,6 +1352,7 @@ function RatingScreenWithOptionalDrawer({
   badgePersonName,
   badgePersonEarsCount,
   onClearStory,
+  isStoryOwner = false,
 }: RatingScreenWithOptionalDrawerProps) {
   const displayPartnerName = getFirstName(partnerName);
   const checkerName = liveState.checkerName ? getFirstName(liveState.checkerName) : displayPartnerName;
@@ -1405,6 +1416,7 @@ function RatingScreenWithOptionalDrawer({
         {selectedStory && (
           <LiveStoryCardExpanded
             story={selectedStory}
+            isOwnStory={isStoryOwner}
             onPositionSelect={onPositionSelect}
             className="w-full max-w-sm mb-2"
             badgePersonName={badgePersonName}
@@ -2000,6 +2012,8 @@ interface UnderstandingScreenProps {
   onPositionSelect?: (pointId: string, position: PositionType | null) => void;
   /** P400: Clear selected story — Speak Freely must be present in waiting phase when story is visible */
   onClearStory?: () => void;
+  /** When true, the current user owns the selected story — suppresses the "Tell your story" CTA */
+  isStoryOwner?: boolean;
 }
 
 function UnderstandingScreen({
@@ -2027,6 +2041,7 @@ function UnderstandingScreen({
   selectedStory,
   onPositionSelect,
   onClearStory,
+  isStoryOwner = false,
 }: UnderstandingScreenProps) {
   const displayPartnerName = getFirstName(partnerName);
   const checkerName = liveState.checkerName ? getFirstName(liveState.checkerName) : '';
@@ -2155,6 +2170,7 @@ function UnderstandingScreen({
               {selectedStory && (
                 <LiveStoryCardExpanded
                   story={selectedStory}
+                  isOwnStory={isStoryOwner}
                   onPositionSelect={onPositionSelect}
                   className="w-full max-w-sm mb-2"
                 />
@@ -2228,6 +2244,7 @@ function UnderstandingScreen({
             {selectedStory && (
               <LiveStoryCardExpanded
                 story={selectedStory}
+                isOwnStory={isStoryOwner}
                 onPositionSelect={onPositionSelect}
                 className="w-full max-w-sm mb-2"
               />
@@ -2316,6 +2333,7 @@ function UnderstandingScreen({
             {selectedStory && (
               <LiveStoryCardExpanded
                 story={selectedStory}
+                isOwnStory={isStoryOwner}
                 onPositionSelect={onPositionSelect}
                 className="w-full max-w-sm mb-2"
               />
@@ -2381,6 +2399,7 @@ function UnderstandingScreen({
           {selectedStory && (
             <LiveStoryCardExpanded
               story={selectedStory}
+              isOwnStory={isStoryOwner}
               onPositionSelect={onPositionSelect}
               className="w-full max-w-sm mb-2"
             />
@@ -2464,6 +2483,7 @@ function UnderstandingScreen({
           {selectedStory && (
             <LiveStoryCardExpanded
               story={selectedStory}
+              isOwnStory={isStoryOwner}
               onPositionSelect={onPositionSelect}
               className="w-full max-w-sm mb-2"
             />
@@ -2546,6 +2566,7 @@ function UnderstandingScreen({
           {selectedStory && !continueAcknowledged && (
             <LiveStoryCardExpanded
               story={selectedStory}
+              isOwnStory={isStoryOwner}
               onPositionSelect={onPositionSelect}
               className="w-full max-w-sm mb-2"
             />
@@ -2603,6 +2624,7 @@ function UnderstandingScreen({
           {selectedStory && (
             <LiveStoryCardExpanded
               story={selectedStory}
+              isOwnStory={isStoryOwner}
               onPositionSelect={onPositionSelect}
               className="w-full max-w-sm mb-2"
             />
@@ -2734,6 +2756,7 @@ function UnderstandingScreen({
           {selectedStory && (
             <LiveStoryCardExpanded
               story={selectedStory}
+              isOwnStory={isStoryOwner}
               onPositionSelect={onPositionSelect}
               className="w-full max-w-sm mb-2"
             />
@@ -2860,6 +2883,7 @@ function UnderstandingScreen({
           {selectedStory && (
             <LiveStoryCardExpanded
               story={selectedStory}
+              isOwnStory={isStoryOwner}
               onPositionSelect={onPositionSelect}
               className="w-full max-w-sm mb-2"
             />
@@ -2989,6 +3013,7 @@ function UnderstandingScreen({
         {selectedStory && (
           <LiveStoryCardExpanded
             story={selectedStory}
+            isOwnStory={isStoryOwner}
             onPositionSelect={onPositionSelect}
             className="w-full max-w-sm mb-2"
           />
