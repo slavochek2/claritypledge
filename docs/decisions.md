@@ -2,6 +2,34 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-10 [technical]: SW precache blocks iframe embeds — skipWaiting + clientsClaim required
+
+**Context:** Point embeds in Ghost blog (iframe `src="claritypledge.com/point/:id?embed=true"`) showed "refused to connect" despite correct Vercel CSP headers (`frame-ancestors 'self' https://blog.claritypledge.com`). Root cause: the Vite PWA service worker's `navigateFallback: '/index.html'` serves a precached copy of `/index.html` for all navigation requests — including iframe navigations. The precached response carries the old `X-Frame-Options: DENY` header from before the CSP deploy. Chrome enforces DENY and blocks the embed. Proof: unregistering the SW → embed renders immediately.
+
+**Decision:** Add `skipWaiting: true` and `clientsClaim: true` to the workbox config in `vite.config.ts`. This forces the new SW to activate immediately on next page visit, re-caching `/index.html` from Vercel CDN with correct headers. Combined with the Vercel header changes: catch-all `/(.*)`  sets `X-Frame-Options: DENY`, then `/point/(.*)` and `/story/(.*)` override with `X-Frame-Options: ALLOW-FROM` + CSP `frame-ancestors`. Vercel applies last-match-wins for duplicate header keys — specific rules MUST come after the catch-all.
+
+**Alternatives rejected:** (A) Remove SW navigate fallback entirely — breaks offline capability. (B) Add `?embed=true` to `navigateFallbackDenylist` — denylist tests pathname only, not query string; wouldn't match. (C) Use `/embed/point/:id` path prefix to bypass SW — adds route complexity for a one-time cache issue.
+
+**Consequences:** All future Vercel header changes affecting `/index.html` will take effect only after the SW re-caches. With `skipWaiting: true`, this happens on next page visit. Without it, users must close all tabs first. The `skipWaiting` trade-off (mid-session SW swap) is acceptable for an SPA with no critical offline state.
+
+**References:** `vercel.json` (headers section), `vite.config.ts` (workbox config)
+
+---
+
+## 2026-03-10 [technical]: Ghost HTML cards render iframes via Lexical `type: "html"` nodes
+
+**Context:** Needed to embed interactive point widgets from claritypledge.com inside Ghost blog posts. Ghost uses Lexical editor format. The Ghost Admin API accepts Lexical JSON with `type: "html"` nodes that render raw HTML in the published post.
+
+**Decision:** Use Ghost Lexical HTML cards for point embeds. Format: `{"type":"html","html":"<iframe src=\"...\">","version":1}`. This renders as `<!--kg-card-begin: html-->..<!--kg-card-end: html-->` in the published HTML. Embed URLs use full UUIDs (not short prefixes — the app requires full UUID for the `/point/:id` route).
+
+**Alternatives rejected:** (A) Ghost bookmark cards — can't embed interactive content. (B) Ghost embed/oembed cards — claritypledge.com doesn't implement oembed. (C) Ghost code injection — per-post injection not supported, only global.
+
+**Consequences:** Article a8 will use 7 HTML card iframes. Each needs the full point UUID. The embed currently shows the full page (header, nav, back button) — a future enhancement should strip layout when `?embed=true` is set.
+
+**References:** `content/articles/a8_seven-points-understanding.md` (embed codes), Ghost draft ID `69b0017d2d7b0e00017efe69`
+
+---
+
 ## 2026-03-10 [product]: 7-point framework replaces 8-point — executed on prod
 
 **Context:** Previous session (2026-03-09) planned an "8-point framework" refresh. During spec finalization, the framework was refined to 7 points + 7 stories. Old Points 3 and 4 merged into new Point 2. Result: 5 existing stories updated, 2 new stories inserted, 5 existing points rewritten, 2 new points inserted, 4 orphan points deleted.

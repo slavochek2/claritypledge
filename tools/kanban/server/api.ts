@@ -857,6 +857,25 @@ app.get('/api/goals-strategic', async (_req, res) => {
   }
 })
 
+// PATCH /api/goals-strategic/:index - toggle a strategic goal done/undone in docs/goals.md
+app.patch('/api/goals-strategic/:index', async (req, res) => {
+  try {
+    const stepIndex = parseInt(req.params.index, 10)
+    const { done } = req.body as { done: boolean }
+    const goalsPath = join(DEFAULT_PROJECT_ROOT, 'docs', 'goals.md')
+    let raw = readFileSync(goalsPath, 'utf-8')
+    let i = 0
+    raw = raw.replace(/^(\d+\. )\[([ x])\] (.+)$/gm, (full, num, _check, text) => {
+      if (i++ === stepIndex) return `${num}[${done ? 'x' : ' '}] ${text}`
+      return full
+    })
+    writeFileSync(goalsPath, raw, 'utf-8')
+    res.json({ success: true })
+  } catch {
+    res.status(500).json({ error: 'Failed to update strategic goal' })
+  }
+})
+
 // GET /api/weekly - read weekly commitment from ~/.claude_weekly_last_run
 app.get('/api/weekly', (_req, res) => {
   try {

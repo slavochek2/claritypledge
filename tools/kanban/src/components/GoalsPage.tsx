@@ -24,6 +24,24 @@ export function GoalsPage() {
 
   useEffect(() => { fetchGoals() }, [fetchGoals])
 
+  const toggleStep = useCallback(async (index: number, currentDone: boolean) => {
+    // Optimistic update
+    setStrategic(prev => prev ? {
+      ...prev,
+      steps: prev.steps.map((s, i) => i === index ? { ...s, done: !currentDone } : s),
+    } : prev)
+    try {
+      await fetch(`/api/goals-strategic/${index}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ done: !currentDone }),
+      })
+    } catch {
+      // Revert on failure
+      fetchGoals()
+    }
+  }, [fetchGoals])
+
   if (loading) {
     return <div style={{ padding: 40, color: 'var(--text-tertiary)', fontSize: 14 }}>Loading...</div>
   }
@@ -54,11 +72,13 @@ export function GoalsPage() {
             background: isFirstUndone ? 'var(--tag-blue-bg)' : 'transparent',
             opacity: step.done ? 0.5 : isFirstUndone ? 1 : i < firstUndone + 3 ? 0.7 : 0.45,
           }}>
-            <span style={{
+            <span
+              onClick={() => toggleStep(i, step.done)}
+              style={{
               width: isFirstUndone ? 20 : 18, height: isFirstUndone ? 20 : 18,
               borderRadius: '50%', flexShrink: 0, marginTop: 1,
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: 10, fontWeight: 600,
+              fontSize: 10, fontWeight: 600, cursor: 'pointer',
               ...(step.done
                 ? { background: 'var(--tag-green-bg)', color: 'var(--tag-green-text)' }
                 : isFirstUndone

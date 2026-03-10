@@ -97,6 +97,20 @@
         { "key": "X-XSS-Protection", "value": "1; mode=block" },
         { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" }
       ]
+    },
+    {
+      "source": "/point/(.*)",
+      "headers": [
+        { "key": "X-Frame-Options", "value": "ALLOW-FROM https://blog.claritypledge.com" },
+        { "key": "Content-Security-Policy", "value": "frame-ancestors 'self' https://blog.claritypledge.com" }
+      ]
+    },
+    {
+      "source": "/story/(.*)",
+      "headers": [
+        { "key": "X-Frame-Options", "value": "ALLOW-FROM https://blog.claritypledge.com" },
+        { "key": "Content-Security-Policy", "value": "frame-ancestors 'self' https://blog.claritypledge.com" }
+      ]
     }
   ]
 }

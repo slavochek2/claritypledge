@@ -92,6 +92,8 @@ export default defineConfig({
         lang: 'en',
       },
       workbox: {
+        skipWaiting: true,
+        clientsClaim: true,
         // Precache app shell
         globPatterns: ['**/*.{js,css,html,svg,woff,woff2}'],
         // Runtime caching strategies
