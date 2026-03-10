@@ -166,7 +166,7 @@ export function ProfilePageV2() {
   const [showShareDialog, setShowShareDialog] = useState(false);
 
   // P115: Stories/Points/Calibration state — all from real services
-  const [contentTab, setContentTab] = useState<ContentTab>('stories');
+  const [contentTab, setContentTab] = useState<ContentTab>('points');
   const [realStories, setRealStories] = useState<StoryWithPoints[]>([]);
   const [realPoints, setRealPoints] = useState<PointWithUserPosition[]>([]);
   const [realCalibration, setRealCalibration] = useState<UserCalibration | null>(null);
@@ -847,25 +847,8 @@ export function ProfilePageV2() {
 
           {/* Content tab selector */}
           <div className="bg-card border border-border mt-3 rounded-lg overflow-hidden">
-            {/* Stories / Points tabs */}
+            {/* Points / Stories tabs */}
             <div className="flex" role="tablist" aria-label="Profile content tabs">
-              <button
-                id="stories-tab"
-                role="tab"
-                aria-selected={contentTab === 'stories'}
-                aria-controls="stories-panel"
-                onClick={() => setContentTab('stories')}
-                className={`flex-1 py-3 text-sm font-medium text-center transition-colors relative ${
-                  contentTab === 'stories'
-                    ? 'text-blue-600'
-                    : 'text-muted-foreground hover:text-foreground'
-                }`}
-              >
-                Stories ({userStories.length})
-                {contentTab === 'stories' && (
-                  <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600" />
-                )}
-              </button>
               <button
                 id="points-tab"
                 role="tab"
@@ -880,6 +863,23 @@ export function ProfilePageV2() {
               >
                 Points ({userPoints.length})
                 {contentTab === 'points' && (
+                  <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600" />
+                )}
+              </button>
+              <button
+                id="stories-tab"
+                role="tab"
+                aria-selected={contentTab === 'stories'}
+                aria-controls="stories-panel"
+                onClick={() => setContentTab('stories')}
+                className={`flex-1 py-3 text-sm font-medium text-center transition-colors relative ${
+                  contentTab === 'stories'
+                    ? 'text-blue-600'
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                Stories ({userStories.length})
+                {contentTab === 'stories' && (
                   <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600" />
                 )}
               </button>
