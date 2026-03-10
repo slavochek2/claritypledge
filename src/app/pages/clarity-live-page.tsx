@@ -2253,7 +2253,7 @@ export function ClarityLivePage() {
                 <ShieldOff className="w-4 h-4 text-muted-foreground flex-shrink-0" />
                 <div>
                   <div className="text-sm font-medium text-muted-foreground">Private session</div>
-                  <div className="text-xs text-muted-foreground">Not recorded</div>
+                  <div className="text-xs text-muted-foreground">AI insights disabled</div>
                 </div>
               </div>
             )}
@@ -2455,7 +2455,7 @@ export function ClarityLivePage() {
                           {isPrivate ? (
                             <>
                               <span className="text-xs font-medium text-muted-foreground">Private session</span>
-                              <span className="text-xs text-muted-foreground">Not recorded</span>
+                              <span className="text-xs text-muted-foreground">AI insights disabled</span>
                             </>
                           ) : (
                             <span className="text-xs text-muted-foreground">Record for AI Insights</span>
@@ -2709,7 +2709,7 @@ export function ClarityLivePage() {
                   <ShieldOff className="w-4 h-4 text-muted-foreground flex-shrink-0" />
                   <div>
                     <div className="text-sm font-medium text-muted-foreground">Private session</div>
-                    <div className="text-xs text-muted-foreground">Not recorded</div>
+                    <div className="text-xs text-muted-foreground">AI insights disabled</div>
                   </div>
                 </>
               ) : (

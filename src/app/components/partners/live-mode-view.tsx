@@ -110,8 +110,8 @@ export function PartnerLeftScreen({ partnerName, sessionEnded, onStartNew, isGue
       : 'Your partner has left';
 
   const subtitle = sessionEnded
-    ? `${partnerName || 'The host'} ended the clarity check session.`
-    : 'The clarity check session has ended.';
+    ? `${partnerName || 'The host'} ended the Clarity Session.`
+    : 'Clarity Session has ended.';
 
   return (
     <div className="flex flex-col items-center justify-center p-8 text-center min-h-[300px] max-w-sm mx-auto">
