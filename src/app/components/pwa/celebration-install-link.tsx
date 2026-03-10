@@ -9,11 +9,11 @@ import { useState } from 'react';
 import { analytics } from '@/lib/mixpanel';
 
 export function CelebrationInstallLink() {
-  const { isInstalled, canPrompt, isIOS, promptInstall } = usePwaInstall();
+  const { isInstalled, canPrompt, isIOS, isDesktop, promptInstall } = usePwaInstall();
   const [iosDrawerOpen, setIosDrawerOpen] = useState(false);
 
-  // Don't render if already installed or can't install
-  if (isInstalled || (!canPrompt && !isIOS)) return null;
+  // Don't render if already installed, desktop, or can't install
+  if (isInstalled || isDesktop || (!canPrompt && !isIOS)) return null;
 
   const handleClick = async () => {
     analytics.track('pwa_install_prompted', { source: 'celebration' });

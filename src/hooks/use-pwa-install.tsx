@@ -37,12 +37,18 @@ const PwaInstallContext = createContext<PwaInstallContextValue | null>(null);
 
 function getIsIOS(): boolean {
   if (typeof navigator === 'undefined') return false;
-  return /iPhone|iPad|iPod/.test(navigator.userAgent) && !(window as unknown as Record<string, unknown>).MSStream;
+  const iOSLegacy = /iPhone|iPad|iPod/.test(navigator.userAgent) && !(window as unknown as Record<string, unknown>).MSStream;
+  // iPadOS 13+ presents as desktop Safari but has touch
+  const isiPadOS = /Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints > 1;
+  return iOSLegacy || isiPadOS;
 }
 
 function getIsDesktop(): boolean {
   if (typeof navigator === 'undefined') return false;
-  return !/Android|iPhone|iPad|iPod/.test(navigator.userAgent);
+  if (/Android|iPhone|iPad|iPod/.test(navigator.userAgent)) return false;
+  // iPadOS 13+ presents as Macintosh but has touch
+  if (/Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints > 1) return false;
+  return true;
 }
 
 function getIsInstalled(): boolean {
@@ -109,12 +115,11 @@ export function PwaInstallProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const promptInstall = useCallback(async (source: InstallSource) => {
-    analytics.track('pwa_install_accepted', { source });
-
     if (deferredPrompt.current) {
       await deferredPrompt.current.prompt();
       const { outcome } = await deferredPrompt.current.userChoice;
       if (outcome === 'accepted') {
+        analytics.track('pwa_install_accepted', { source });
         setIsInstalled(true);
       } else {
         analytics.track('pwa_install_dismissed', { source, via: 'native_prompt' });
