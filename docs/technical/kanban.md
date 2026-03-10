@@ -190,6 +190,50 @@ answers: [OQ-6, OQ-7]
 
 **Note:** `features/drafts/` is scanned (not excluded) — draft files appear on the board with a "draft" readiness badge
 
+## Why This Exists
+
+The kanban is a **visual interface to git-native task management**. Feature specs (`features/*.md`) are the source of truth — the kanban reads/writes their frontmatter. No external database, no cloud dependency, no API tokens.
+
+**Why not Notion/Linear/Jira?** AI agents (Claude Code, Cursor) read local markdown files at zero token cost. Querying a cloud tool through MCP costs 500-1000 tokens per interaction in schema overhead, plus network latency and rate limits (Notion: 180 req/min, search: 30 req/min). For solo + agent development, file-based wins on every axis except collaboration with non-technical people.
+
+**Industry validation (March 2026):** Three independent high-profile projects — Manus ($2B acquisition), OpenClaw (145K stars), and Claude Code itself — converged on the same markdown-in-git pattern without coordinating. Tools like Backlog.md, Vibe Kanban, and TaskMaster AI emerged in 2025 doing essentially what this kanban does. The pattern is now recognized as the dominant approach for AI-agent-driven development.
+
+**What this kanban adds beyond raw files:**
+- Visual drag-and-drop prioritization (the thing agents can't do)
+- 4 views: Board (kanban columns), Focus (milestone grouping), Goals (pilot checklist), Content (article pipeline)
+- Automatic file movement on status change (done → `features/done/{month}/`, rejected → `features/archive/`)
+- Git staging on moves (prevents revert on pull)
+- Card dialog with inline field editing (type, status, rank, size, tags, blocked_by, workstream, delivery_stage)
+- Worktree-aware (shows isolated backlog per branch)
+
+**What it costs:** ~3,800 lines of code (React + Express), 20 npm dependencies, manual refresh on file changes, occasional fix-kanban runs for frontmatter drift.
+
+**When cloud tools would make sense:** When a co-founder or advisor needs project visibility but won't use git. At that point, add one-way sync (files → Notion), not a migration.
+
+## Landscape Comparison (March 2026)
+
+| Tool | Pattern | Differentiator | Gap vs. this kanban |
+|------|---------|----------------|---------------------|
+| **Backlog.md** | Markdown + React kanban | Simplest setup, Claude Code MCP | No milestone grouping, goals, or content pipeline |
+| **Vibe Kanban** | MCP-first, multi-agent dispatch | Parallel agent orchestration | No visual board beyond basic status |
+| **TaskMaster AI** | PRD → JSON task tree | Auto-decomposition from specs | No kanban UI, JSON not human-friendly |
+| **Agent Kanban** | VS Code extension | Copilot Chat integration | VS Code only, no standalone views |
+| **Notion MCP** | Cloud database + MCP | Collaboration, search across apps | Token overhead, rate limits, vendor lock-in |
+| **Plane** | Open-source PM + MCP | First-class agent identity, audit trail | Heavy setup for solo use |
+| **This kanban** | Markdown files + React + Express | Focus/Goals/Content views, delivery stages, worktree-aware | No MCP server, no agent summary endpoint, no file watcher |
+
+## Opportunities
+
+**Agent-queryable layer** — an `/api/summary` endpoint returning compact project state (<200 tokens: counts by status, active milestones, blockers). Currently agents must read individual files to understand project state.
+
+**MCP server wrapper** — exposing the Express API as an MCP server so any MCP-compatible tool (Cursor, Copilot, etc.) can query project state. Low effort given the API already exists.
+
+**Board filtering** — workstream, milestone, and tag filters on the main Board view. The Focus page groups by milestone, but the Board (where most time is spent) has only type filter + search.
+
+**File watcher** — `chokidar` on `features/` to auto-refresh the board when specs change. Currently requires manual refresh button.
+
+**Auto-archive** — monthly sweep of done items older than 30 days. Currently manual via fix-kanban.
+
 ## Location
 
 `tools/kanban/` — local dev tool, not deployed

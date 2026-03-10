@@ -2,6 +2,20 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-10 [process]: Git-native kanban validated — no migration to cloud tools
+
+**Context:** Questioned whether the custom kanban (`tools/kanban/`, ~3,800 LOC) is worth maintaining vs. switching to Notion MCP, Linear MCP, or an off-the-shelf tool (Backlog.md, Vibe Kanban, TaskMaster AI). Deep research (28 sources) and full capability audit of the kanban codebase.
+
+**Decision:** Keep the git-native kanban as-is. No feature spec for improvements. The tool works, has no blocking problems, and the maintenance cost is lower than the token/latency overhead of cloud MCP alternatives. Improvement opportunities (agent summary endpoint, MCP server wrapper, board filtering, file watcher) are documented in `docs/technical/kanban.md` for when real friction surfaces — not proactively built.
+
+**Alternatives rejected:** (A) Switch to Notion MCP — 500-1000 token overhead per query, 180 req/min rate limit, network dependency, vendor lock-in. Makes sense only when non-technical collaborators need project visibility. (B) Extract as open-source tool — kanban is more feature-complete than competitors (Focus/Goals/Content views, delivery stages, worktree-aware) but packaging/community work directly competes with ClarityPledge product time. (C) Freeze UI, go headless — removes the visual board which is actually used for drag-and-drop prioritization.
+
+**Consequences:** Kanban doc (`docs/technical/kanban.md`) now includes rationale, landscape comparison, and improvement roadmap. Future sessions can reference this instead of re-analyzing. Cloud tools re-evaluated only when a co-founder/advisor needs project visibility. Industry context: Manus, OpenClaw, and Claude Code all independently converged on the same markdown-in-git pattern — the approach is validated beyond this project.
+
+**References:** [docs/technical/kanban.md](technical/kanban.md), research report saved to `~/Documents/AI_Agent_Task_Management_Research_20260310/`
+
+---
+
 ## 2026-03-10 [product]: 7-point framework replaces 8-point — executed on prod
 
 **Context:** Previous session (2026-03-09) planned an "8-point framework" refresh. During spec finalization, the framework was refined to 7 points + 7 stories. Old Points 3 and 4 merged into new Point 2. One planned new point (old "Point 4: cognitive understanding precedes genuine agreement") was absorbed into the merged Point 2. Result: 5 existing stories updated, 2 new stories inserted, 5 existing points rewritten, 2 new points inserted, 4 orphan points deleted.
