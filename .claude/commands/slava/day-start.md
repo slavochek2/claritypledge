@@ -130,27 +130,30 @@ If any check fails, flag it prominently before continuing. Do not skip the miles
 
 ---
 
-### 1. Milestone
+### 1. Goals & Milestone
 
-1. Read `docs/milestones/c1-stories-live-events.md`
-2. Parse the `## Pilot Sequence` section — identify steps marked `[ ]` (not done) vs `[x]` (done)
+**Primary source: `docs/goals.md`** (operational "what's next")
+
+1. Read `docs/goals.md`
+2. Parse the `## Next Steps` section — identify steps marked `[ ]` (not done) vs `[x]` (done)
 3. Output ONLY the next steps (not done). Do NOT list done items. Show max 5 upcoming.
-4. Show the gate to next milestone at the bottom.
-5. Ask: **"What did you complete since yesterday? (list step numbers, or press enter to skip)"**
-6. If user lists steps → use the Edit tool to change `[ ]` to `[x]` for those steps in the milestone file.
-7. Confirm what was updated.
+4. Parse `## Dos` and `## Don'ts` sections — show as compact reminders.
+5. Read `docs/milestones/c1-stories-live-events.md` — extract the milestone title, hypothesis (one line), and gate to next milestone.
 
-## Output format (step 3-4)
+## Output format (step 3-5)
 
 ```
 MILESTONE: [id] — [title]
 WHY: [hypothesis one line]
 
-WHAT'S NEXT:
+WHAT'S NEXT (from goals.md):
   → [step N] [text]       ← this is the immediate next
   ○ [step N+1] [text]
   ○ [step N+2] [text]
   ...
+
+DO: [comma-separated one-liners from ## Dos]
+DON'T: [comma-separated one-liners from ## Don'ts]
 
 GATE TO [next milestone]: [one line condition]
 ```
@@ -218,7 +221,6 @@ Ask: **"Apply, drop, or continue?"** Wait for response, then proceed.
 ## Notes
 
 - Never show done steps. Only what's coming.
-- Keep HEALTH + MILESTONE + BRANCHES blocks concise (15 lines total). Signup list is exempt — show all real signups.
-- The milestone file is at `docs/milestones/c1-stories-live-events.md`. Checkboxes are `[ ]` and `[x]`.
-- When updating: change `[ ] Step text` to `[x] Step text` for completed steps. Preserve the numbering and surrounding text exactly.
-- If user skips (no input), just say "OK — focus on the next step above."
+- Keep HEALTH + GOALS + BRANCHES blocks concise (15 lines total). Signup list is exempt — show all real signups.
+- Goals file is at `docs/goals.md`. Milestone file is at `docs/milestones/c1-stories-live-events.md`. Checkboxes are `[ ]` and `[x]`.
+- Completion tracking happens in `/day-end`, not here. Day-start only shows what's next.
