@@ -2,6 +2,48 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-10 [product]: 7-point framework replaces 8-point — executed on prod
+
+**Context:** Previous session (2026-03-09) planned an "8-point framework" refresh. During spec finalization, the framework was refined to 7 points + 7 stories. Old Points 3 and 4 merged into new Point 2. Result: 5 existing stories updated, 2 new stories inserted, 5 existing points rewritten, 2 new points inserted, 4 orphan points deleted.
+
+**Decision:** Execute as single idempotent SQL migration using `INSERT ... ON CONFLICT DO UPDATE` — same script runs on both test (empty) and prod (has existing data). Triggers disabled via `SET session_replication_role = replica` with manual `story_versions` inserts. Backup taken before execution.
+
+**Alternatives rejected:** (A) Separate test/prod scripts — doubles maintenance, prod script wouldn't be the one actually tested. (B) Wipe-and-reinsert on prod — unnecessarily destructive, loses created_at timestamps and version history. (C) Application-level migration via API — slower, RLS complications.
+
+**Consequences:** Prod now has clean 7/7/7/7 (stories/points/links/positions). The `ON CONFLICT DO UPDATE` pattern is proven for future content refreshes.
+
+**References:** `scripts/archive/migrations/20260310-points-stories-refresh.sql`, `.private/backup-prod-20260310.sql`
+
+---
+
+## 2026-03-10 [technical]: Content migration guardrails added to database rules
+
+**Context:** During the 7-point migration, several errors occurred: forgot to insert positions for all 7 points (only did 2 new ones), used `visibility` column without verifying it existed in schema, tried wrong pooler region, couldn't verify on test because synthetic profile had no auth.users entry. Root cause analysis showed these are information-gathering failures and missing pre-flight checks.
+
+**Decision:** Added Content Migration Checklist to `.claude/rules/database.md` (auto-loads when editing `supabase/`). Covers: auth.users pre-flight check, connection string from config (not manual), child row enumeration (story_versions, story_points, point_positions), idempotent ON CONFLICT pattern, live schema verification before writing INSERTs. Deferred building a mechanical solution (DB function) until next migration proves the advisory checklist insufficient.
+
+**Alternatives rejected:** (A) Full JS/TS migration script — overengineered for quarterly frequency, maintenance cost exceeds error cost. (B) `/content-migrate` skill — checklist-as-skill is still advisory, adds invocation overhead. (C) Documentation-only playbook — rots faster than rules files, agent already has too many docs.
+
+**Consequences:** Next content migration will auto-load the checklist. If same errors recur, escalate to mechanical solution (DB function `create_story_with_children(jsonb)`).
+
+**References:** `.claude/rules/database.md`
+
+---
+
+## 2026-03-10 [product]: Points are editable by author pre-discourse — immutability applies after others stake positions
+
+**Context:** `definitions.md` stated "Points are immutable shared objects." This session directly rewrote 5 existing point statements via SQL. No other users had staked positions (0 external positions, 0 verifications). The immutability rule was designed to protect discourse integrity.
+
+**Decision:** Clarify: Points become immutable once external users have staked positions. Before that, the author can freely edit.
+
+**Alternatives rejected:** (A) Treat all points as immutable from creation — forces "delete and recreate" even for typo fixes with no external impact. (B) Allow edits always with a "changed" flag — undermines position integrity.
+
+**Consequences:** `definitions.md` updated. Future point edits by the author are safe as long as no external positions exist.
+
+**References:** `docs/definitions.md` "Stories vs Points" section
+
+---
+
 ## 2026-03-10 [process]: Git-native kanban validated — no migration to cloud tools
 
 **Context:** Questioned whether the custom kanban (`tools/kanban/`, ~3,800 LOC) is worth maintaining vs. switching to Notion MCP, Linear MCP, or an off-the-shelf tool (Backlog.md, Vibe Kanban, TaskMaster AI). Deep research (28 sources) and full capability audit of the kanban codebase.

@@ -48,6 +48,16 @@ Extracts DB password from `.env.local` automatically. Run this — don't ask.
 
 Profile creation happens ONLY in `AuthCallbackPage.tsx` after email verification — not via trigger. Do not add triggers for this.
 
+## Content Migration Checklist
+
+When writing SQL to insert/update stories, points, or related content:
+
+- **Pre-flight:** Verify target `user_id` exists in `auth.users`, not just `profiles` — profiles alone don't enable login
+- **Connection:** Never construct pooler URLs manually — read from `SUPABASE_DB_URL` in `.env.local` / `.env.prod`
+- **Child rows:** Every INSERT into `stories` also needs: `story_versions`, `story_points`, `point_positions` for the author
+- **Idempotency:** Use `INSERT ... ON CONFLICT DO UPDATE` so the same script runs on both test (empty) and prod (existing data)
+- **Schema:** Query `\d tablename` on the live DB before writing INSERTs — migration files may not reflect all columns (e.g. `visibility` added in a later ALTER)
+
 ## Seed and Sync Scripts — Never Override User-Set State
 
 Seeds and sync scripts must be idempotent **and** non-destructive to values the user has explicitly set. Before writing a value, check if it already exists.
