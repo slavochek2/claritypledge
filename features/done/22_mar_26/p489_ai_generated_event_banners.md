@@ -17,6 +17,7 @@ reviews:
   ux: null
   architect: null
   alignment: null
+created_date: 2026-03-09
 ---
 
 # P489: AI-Generated Event Banners

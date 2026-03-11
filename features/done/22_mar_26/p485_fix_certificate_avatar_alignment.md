@@ -9,6 +9,9 @@ title: Certificate signature block avatars visually misaligned
 date_resolved: 2026-03-06
 root_cause: Flex container used items-start with no equal-width columns
 resolution: Changed to items-center + flex-1 on SignatureSlot for balanced layout
+tags: []
+rank: 1000010.0
+created_date: 2026-03-06
 ---
 
 # P485: Certificate signature block avatars visually misaligned

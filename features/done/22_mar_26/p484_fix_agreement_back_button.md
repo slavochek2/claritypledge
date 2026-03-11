@@ -9,6 +9,9 @@ p_number: 484
 title: Agreement page Back button navigates to expired invite URL
 root_cause: navigate(-1) returns to consumed invite token URL
 resolution: Replace navigate(-1) with deterministic navigate('/me')
+tags: []
+rank: 1000009.0
+created_date: 2026-03-06
 ---
 
 # P484: Agreement page Back button navigates to expired invite URL

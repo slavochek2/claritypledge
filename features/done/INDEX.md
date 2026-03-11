@@ -1,7 +1,7 @@
 # Done Features Index
 
 Quick reference for past completed work. Consult when starting work on a related topic.
-Last updated: 2026-03-09 (P489)
+Last updated: 2026-03-11 (P492)
 
 ---
 
@@ -18,6 +18,7 @@ Last updated: 2026-03-09 (P489)
 - **P275** (Feb 26) Live Positions Unverified RLS — RLS must require `verification_status IS NOT NULL`
 - **P276** (Feb 26) Two-Party E2E DB Polling — explicit waits reduce flakiness in multi-agent E2E coordination
 - **P469** (Mar 02) /live Layout Revert P455 + KISS Fixes — collapse threshold `> 1` fires with 2 rounds (hides 1 row); raise to `> 2`; `olderRounds` must always compute (don't gate on `hasOlderRounds` or it drops intermediate rounds)
+- **P492** (Mar 11) Guest Post-Session UI — hide "Start New Session" for guests (`isGuest` conditional); guests can't create sessions, only join via invite code
 
 ## Points & Stories
 
