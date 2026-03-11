@@ -6,7 +6,7 @@ rank: 8.0
 workstream: C2
 tags: [feed, hashtags, discovery, navigation]
 prepped_date: '2026-03-10'
-delivery_stage: 5-decomposed
+delivery_stage: uat
 flow: dev
 reviews:
   ux: '2026-03-10'
