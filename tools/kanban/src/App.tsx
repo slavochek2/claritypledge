@@ -30,6 +30,7 @@ export interface FocusDropIndicator {
 interface Worktree {
   path: string
   branch: string
+  name: string
   isCurrent: boolean
 }
 
@@ -661,11 +662,16 @@ export default function App() {
                 cursor: 'pointer',
               }}
             >
-              {worktrees.map((wt) => (
-                <option key={wt.path} value={wt.path}>
-                  {wt.branch}{wt.isCurrent ? ' (current)' : ''}
-                </option>
-              ))}
+              {worktrees.map((wt) => {
+                const label = wt.name === 'main'
+                  ? '(main) summary'
+                  : `(${wt.name}) ${wt.branch.replace('feature/', '')}`
+                return (
+                  <option key={wt.path} value={wt.path}>
+                    {label}{wt.isCurrent ? ' ✦' : ''}
+                  </option>
+                )
+              })}
             </select>
           )}
         </div>

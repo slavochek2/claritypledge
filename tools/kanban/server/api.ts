@@ -26,14 +26,14 @@ function getFeaturesDir(worktreePath?: string): string {
 }
 
 // Get list of git worktrees
-function getWorktrees(): { path: string; branch: string; isCurrent: boolean }[] {
+function getWorktrees(): { path: string; branch: string; name: string; isCurrent: boolean }[] {
   try {
     const output = execSync('git worktree list --porcelain', {
       cwd: DEFAULT_PROJECT_ROOT,
       encoding: 'utf-8',
     })
 
-    const worktrees: { path: string; branch: string; isCurrent: boolean }[] = []
+    const worktrees: { path: string; branch: string; name: string; isCurrent: boolean }[] = []
     const blocks = output.trim().split('\n\n')
 
     for (const block of blocks) {
@@ -50,9 +50,13 @@ function getWorktrees(): { path: string; branch: string; isCurrent: boolean }[] 
       }
 
       if (path) {
+        // Extract slot name: .claude/worktrees/w1 → "w1", main repo → "main"
+        const slotMatch = path.match(/\/worktrees\/(w\d+)$/)
+        const name = slotMatch ? slotMatch[1] : 'main'
         worktrees.push({
           path,
           branch: branch || 'detached',
+          name,
           isCurrent: path === DEFAULT_PROJECT_ROOT,
         })
       }
@@ -61,7 +65,7 @@ function getWorktrees(): { path: string; branch: string; isCurrent: boolean }[] 
     return worktrees
   } catch {
     // If git command fails, return just the current directory
-    return [{ path: DEFAULT_PROJECT_ROOT, branch: 'main', isCurrent: true }]
+    return [{ path: DEFAULT_PROJECT_ROOT, branch: 'main', name: 'main', isCurrent: true }]
   }
 }
 
