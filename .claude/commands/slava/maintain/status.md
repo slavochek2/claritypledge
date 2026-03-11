@@ -13,16 +13,16 @@ This conversation only.
 ## Output format (≤15 lines, no preamble)
 
 Before outputting, run these commands to get live state:
-1. `git branch --show-current` — for the Branch line
-2. `git worktree list` — for active worktrees (include Worktrees section if any exist beyond main)
+1. `git branch --show-current` — for the "Working on" line
+2. `git worktree list` — split into: worktrees used THIS session ("Working on") vs others ("Other worktrees")
 3. `git stash list` — to check for stashes (include ⚠ Stashes section if any exist)
 
 ```
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 Session Status
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Branch: {current branch from git}
-Worktrees: {w1 → feature/pN-... (port 5100), w2 → feature/pM-... (port 5200)} ← include only if worktrees exist beyond main; omit if none
+Working on: {branch or worktree where THIS session's changes landed} ← e.g. "main", "w1 → feature/p492-... (port 5100)", "main + w1"
+Other worktrees: {w2 → feature/pM-...} ← only worktrees NOT used in this session; omit line if none
 ⚠ Stashes: {stash@{0}: description} ← include only if stashes exist; omit section if none
 Done:
   ✓ Added ESLint auto-fix hook + wired into settings.json
