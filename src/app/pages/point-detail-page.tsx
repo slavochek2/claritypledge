@@ -241,33 +241,6 @@ export function PointDetailPage() {
     setRetryKey(k => k + 1);
   }, []);
 
-  if (loading && isEmbed) {
-    return (
-      <div className="p-3">
-        <div className="bg-white rounded-lg border border-gray-200 p-4 animate-pulse">
-          <div className="flex gap-3">
-            <div className="w-10 h-10 bg-gray-200 rounded-full" />
-            <div className="flex-1">
-              <div className="h-5 bg-gray-200 rounded w-3/4 mb-3" />
-              <div className="flex gap-2">
-                <div className="h-8 bg-gray-200 rounded w-20" />
-                <div className="h-8 bg-gray-200 rounded w-20" />
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if ((error || !point) && isEmbed) {
-    return (
-      <div className="p-3 text-center text-sm text-gray-500">
-        {error === 'network_error' ? 'Failed to load point.' : 'Point not found.'}
-      </div>
-    );
-  }
-
   if (loading) {
     return (
       <div className="max-w-lg mx-auto px-4 py-8">
@@ -311,7 +284,7 @@ export function PointDetailPage() {
 
     return (
       <div className="max-w-lg mx-auto px-4 py-8">
-        <FocusHeader onBack={handleBack} />
+        {!isEmbed && <FocusHeader onBack={handleBack} />}
         <div className="text-center py-12 space-y-4">
           <p className="text-muted-foreground">{errorMessage}</p>
           {isNetworkError && (
@@ -331,53 +304,12 @@ export function PointDetailPage() {
   const positionsToShow: PositionButtonGroup[] =
     positionFilter === 'all' ? ['agree', 'disagree', 'unsure'] : [positionFilter as PositionButtonGroup];
 
-  // Embed mode: render only the point card, no page chrome
-  if (isEmbed) {
-    return (
-      <div className="p-3" style={{ fontFamily: 'system-ui, -apple-system, sans-serif' }}>
-        <RemovePositionDialog {...dialogProps} />
-        <div className="bg-white rounded-lg border border-gray-200 shadow-sm border-l-4 border-l-slate-400 overflow-hidden">
-          <div className="p-4">
-            <div className="flex gap-3">
-              <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0 text-blue-600">
-                <Pin size={20} />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-gray-900 font-medium text-base mb-3 break-words">
-                  <LinkedText text={point.statement} />
-                </p>
-                <PositionButtons
-                  userPosition={userPosition}
-                  counts={buttonCounts}
-                  onPositionClick={handlePositionClick}
-                />
-              </div>
-            </div>
-          </div>
-          <div className="flex items-center justify-between px-4 py-2 border-t border-gray-100 bg-gray-50">
-            <a
-              href={`${window.location.origin}/point/${point.id}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-xs text-gray-500 hover:text-blue-600 transition-colors"
-            >
-              claritypledge.com
-            </a>
-            <span className="text-xs text-gray-400">
-              {point.totalPositions} position{point.totalPositions !== 1 ? 's' : ''}
-            </span>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="max-w-lg mx-auto px-4 py-6">
       {/* P401: Remove position warning dialog */}
       <RemovePositionDialog {...dialogProps} />
 
-      <FocusHeader onBack={handleBack} />
+      {!isEmbed && <FocusHeader onBack={handleBack} />}
 
       {/* Point card with full features */}
       <div className="bg-card border border-border rounded-lg shadow-sm border-l-4 border-l-slate-400 overflow-hidden mb-4">
@@ -411,11 +343,16 @@ export function PointDetailPage() {
                 <div className="mt-3">
                   <button
                     onClick={() => {
-                      navigate(buildAuthGateUrl({
+                      const url = buildAuthGateUrl({
                         action: 'start-story',
                         pointId: id,
                         redirect: `/chat?from=position&pointId=${id}`,
-                      }));
+                      });
+                      if (isEmbed) {
+                        window.open(`${window.location.origin}${url}`, '_blank');
+                      } else {
+                        navigate(url);
+                      }
                     }}
                     className="text-sm font-medium text-blue-600 hover:text-blue-700 transition-colors"
                   >
@@ -427,10 +364,12 @@ export function PointDetailPage() {
           </div>
         </div>
 
-        {/* Footer with share button */}
-        <div className="flex items-center justify-end px-4 py-3 border-t border-border">
-          <ShareButton type="point" id={point.id} description={point.statement.slice(0, 100)} />
-        </div>
+        {/* Footer with share button — hidden in embed mode */}
+        {!isEmbed && (
+          <div className="flex items-center justify-end px-4 py-3 border-t border-border">
+            <ShareButton type="point" id={point.id} description={point.statement.slice(0, 100)} />
+          </div>
+        )}
       </div>
 
 
