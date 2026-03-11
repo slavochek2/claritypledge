@@ -1,5 +1,6 @@
 ---
-status: in-progress
+status: all-done
+completed_at: "2026-03-11"
 type: bug
 rank: 250003.75
 workstream: E1
@@ -9,7 +10,6 @@ tags: [live, guest, ux]
 uat_file: features/uat/p492.md
 test_files:
   - src/tests/p492-guest-post-session-ui.test.tsx
-delivery_stage: uat
 ---
 
 # P492: Guest post-session UI: hide Start New Session + improve CTA copy
