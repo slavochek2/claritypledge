@@ -14,7 +14,7 @@ import {
   DropdownMenuContent,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { MenuIcon, XIcon, CalendarIcon, UserIcon, HistoryIcon } from "lucide-react";
+import { MenuIcon, XIcon, CalendarIcon, UserIcon, LayoutListIcon } from "lucide-react";
 import { ClarityLogo } from "@/components/ui/clarity-logo";
 import { GravatarAvatar } from "@/components/ui/gravatar-avatar";
 import { analytics } from "@/lib/mixpanel";
@@ -123,18 +123,18 @@ export function SimpleNavigation() {
             ) : showUserMenu ? (
               /* Logged-in: Icon nav with labels (LinkedIn-style) */
               <div className="flex items-center gap-3 transition-opacity duration-150">
-                {/* My Sessions — P405: hidden during active session */}
+                {/* P491: Feed link — hidden during active session */}
                 {!isLive && (
                   <Link
-                    to="/sessions"
+                    to="/feed"
                     className={`flex flex-col items-center justify-center px-4 py-2 min-w-[80px] rounded-md transition-colors ${
-                      location.pathname === "/sessions"
+                      location.pathname === "/feed"
                         ? "text-primary"
                         : "text-muted-foreground hover:text-foreground hover:bg-accent"
                     }`}
                   >
-                    <HistoryIcon className="w-5 h-5" />
-                    <span className="text-xs mt-1 font-medium">Session History</span>
+                    <LayoutListIcon className="w-5 h-5" />
+                    <span className="text-xs mt-1 font-medium">Feed</span>
                   </Link>
                 )}
                 {/* My Events */}

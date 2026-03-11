@@ -419,6 +419,42 @@ export const realStoriesService: StoriesService = {
     return (data as DbStoryWithAuthor[]).map(mapStoryFromDb);
   },
 
+  async getPublicStoriesFeed(limit: number, offset: number, tag?: string): Promise<StoryWithAuthor[]> {
+    log(' getPublicStoriesFeed:', { limit, offset, tag });
+
+    let query = supabase
+      .from('stories')
+      .select(`
+        *,
+        author:profiles!stories_author_id_fkey (
+          id,
+          name,
+          slug,
+          role,
+          avatar_color,
+          avatar_url,
+          ears_count,
+          has_pledged
+        )
+      `)
+      .eq('visibility', 'public');
+
+    if (tag) {
+      query = query.contains('tags', [tag]);
+    }
+
+    const { data, error } = await query
+      .order('created_at', { ascending: false })
+      .range(offset, offset + limit - 1);
+
+    if (error || !data) {
+      log('ERROR: getPublicStoriesFeed error:', error);
+      return [];
+    }
+
+    return (data as DbStoryWithAuthor[]).map(mapStoryFromDb);
+  },
+
   // ============================================================================
   // UPDATE
   // ============================================================================

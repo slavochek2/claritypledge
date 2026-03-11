@@ -13,6 +13,7 @@ import type { StoryWithAuthor, StoryWithPoints, PointWithCreator, SessionHistory
 import { GravatarAvatar } from '@/components/ui/gravatar-avatar';
 import { analytics } from '@/lib/mixpanel';
 import { LinkedText } from '@/app/components/shared/linked-text';
+import { TagPills } from '@/app/components/shared/tag-pills';
 import { getFirstName, RatingButtons } from './shared';
 
 // ============================================================================
@@ -87,6 +88,13 @@ export function LiveStoryCard({
         <p className="text-xs text-muted-foreground mb-3">
           {linkedPointsCount} {linkedPointsCount === 1 ? 'point' : 'points'} linked · {story.understoodCount} understood
         </p>
+
+        {/* P491: Tag pills (display-only in live context) */}
+        {story.tags && story.tags.length > 0 && (
+          <div className="mb-3">
+            <TagPills tags={story.tags} context="live" />
+          </div>
+        )}
 
         {/* CTA Button (visual emphasis, entire card is clickable) */}
         <div className="w-full px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white text-sm font-medium rounded-md text-center transition-colors">
@@ -197,6 +205,10 @@ export function LivePointCard({ point, onSelect, disabled }: LivePointCardProps)
       <p className="text-sm font-medium text-foreground line-clamp-2"><LinkedText text={point.statement} /></p>
       {point.context && (
         <p className="text-xs text-muted-foreground mt-1 line-clamp-2"><LinkedText text={point.context} /></p>
+      )}
+      {/* P491: Tag pills (display-only in live context) */}
+      {point.tags && point.tags.length > 0 && (
+        <TagPills tags={point.tags} context="live" className="mt-2" />
       )}
     </button>
   );

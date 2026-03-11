@@ -5,6 +5,7 @@ import { HelmetProvider } from "react-helmet-async";
 import { ClarityLandingLayout } from "@/app/layouts/clarity-landing-layout";
 import { AuthCallbackPage, AuthProvider } from "@/auth";
 import { ScrollToTop } from "@/app/components/scroll-to-top";
+import { useNavAuthState } from "@/hooks/use-nav-auth-state";
 
 // Critical path pages - loaded synchronously for fast initial render
 import { ClarityPledgeLanding } from "@/app/pages/clarity-pledge-landing";
@@ -25,8 +26,7 @@ const PrivacyPolicyPage = lazy(() => import("@/app/pages/privacy-policy-page").t
 const TermsOfServicePage = lazy(() => import("@/app/pages/terms-of-service-page").then(m => ({ default: m.TermsOfServicePage })));
 const SettingsPage = lazy(() => import("@/app/pages/settings-page").then(m => ({ default: m.SettingsPage })));
 const ClarityDemoPage = lazy(() => import("@/app/pages/clarity-demo-page").then(m => ({ default: m.ClarityDemoPage })));
-const IdeaFeedPage = lazy(() => import("@/app/pages/idea-feed-page").then(m => ({ default: m.IdeaFeedPage })));
-const IdeaDetailPage = lazy(() => import("@/app/pages/idea-detail-page").then(m => ({ default: m.IdeaDetailPage })));
+const FeedPage = lazy(() => import("@/app/pages/feed-page").then(m => ({ default: m.FeedPage })));
 const ClarityLivePage = lazy(() => import("@/app/pages/clarity-live-page").then(m => ({ default: m.ClarityLivePage })));
 const MySessionsPage = lazy(() => import("@/app/pages/my-sessions-page").then(m => ({ default: m.MySessionsPage })));
 const CollaboratePage = lazy(() => import("@/app/pages/collaborate-page").then(m => ({ default: m.CollaboratePage })));
@@ -48,6 +48,35 @@ const ConvergedPrototype = lazy(() => import("@/app/prototypes/converged").then(
 const LinkedInLikePrototype = lazy(() => import("@/app/prototypes/linkedin-like").then(m => ({ default: m.LinkedInLikePrototype })));
 const EventsPrototype = lazy(() => import("@/app/prototypes/events").then(m => ({ default: m.EventsPrototype })));
 const EventsMockPrototype = lazy(() => import("@/app/prototypes/events-mock").then(m => ({ default: m.EventsMockPrototype })));
+
+/** P491: Redirect authenticated+verified users from / to /feed. Show landing for everyone else. */
+function HomeRedirect() {
+  // useNavAuthState is only available inside AuthProvider+Router, which is the case here
+  const { showUserMenu, sessionChecked, isLoading } = useNavAuthState();
+
+  // While auth is resolving, show loading skeleton (avoid landing page flash)
+  if (!sessionChecked || isLoading) {
+    return (
+      <ClarityLandingLayout>
+        <div className="min-h-screen flex items-center justify-center">
+          <div className="animate-pulse text-muted-foreground">Loading...</div>
+        </div>
+      </ClarityLandingLayout>
+    );
+  }
+
+  // Authenticated + verified → redirect to feed
+  if (showUserMenu) {
+    return <Navigate to="/feed" replace />;
+  }
+
+  // Anonymous / unverified → show landing page
+  return (
+    <ClarityLandingLayout>
+      <ClarityPledgeLanding />
+    </ClarityLandingLayout>
+  );
+}
 
 /** P486: Redirect /chat → /create, forwarding all query params via useSearchParams */
 function ChatRedirect() {
@@ -158,13 +187,10 @@ export default function ClarityPledgeApp() {
       <ScrollToTop />
       <AuthProvider>
       <Routes>
+        {/* P491: Authenticated users → /feed, anonymous → landing page */}
         <Route
           path="/"
-          element={
-            <ClarityLandingLayout>
-              <ClarityPledgeLanding />
-            </ClarityLandingLayout>
-          }
+          element={<HomeRedirect />}
         />
 
         <Route
@@ -477,23 +503,13 @@ export default function ClarityPledgeApp() {
         <Route path="/chat" element={<ChatRedirect />} />
         <Route path="/clarity-chat" element={<ChatRedirect />} />
 
+        {/* P491: Hashtag Feed — public content discovery by tag */}
         <Route
           path="/feed"
           element={
             <ClarityLandingLayout>
               <LazyRoute>
-                <IdeaFeedPage />
-              </LazyRoute>
-            </ClarityLandingLayout>
-          }
-        />
-
-        <Route
-          path="/idea/:id"
-          element={
-            <ClarityLandingLayout>
-              <LazyRoute>
-                <IdeaDetailPage />
+                <FeedPage />
               </LazyRoute>
             </ClarityLandingLayout>
           }

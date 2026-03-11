@@ -159,6 +159,16 @@ export const mockStoriesService: StoriesService = {
       .slice(offset, offset + limit);
   },
 
+  async getPublicStoriesFeed(limit: number, offset: number, tag?: string): Promise<StoryWithAuthor[]> {
+    let filtered = [...mockStories].filter((s) => s.visibility === 'public');
+    if (tag) {
+      filtered = filtered.filter((s) => s.tags.includes(tag));
+    }
+    return filtered
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+      .slice(offset, offset + limit);
+  },
+
   async updateStory(
     storyId: string,
     updates: { content?: string; tags?: string[]; visibility?: StoryVisibility }

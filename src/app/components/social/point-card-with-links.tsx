@@ -23,6 +23,7 @@ import {
 import { LinkedText } from '@/app/components/shared/linked-text';
 import type { Point, Position, Story, PositionType, PositionButtonGroup } from '@/app/prototypes/shared/types';
 import { getPositionGroup, getPositionCTACopy } from '@/app/prototypes/shared/types';
+import { TagPills } from '@/app/components/shared/tag-pills';
 
 /** Author information for a story in quoted context */
 export interface StoryAuthor {
@@ -77,6 +78,8 @@ interface PointCardWithLinksProps {
 
   /** P470: Viewer's story ID for this point on another profile — used to render edit link */
   viewerStoryId?: string;
+  /** P491: Tags for tag pill display (prototype Point type lacks tags) */
+  tags?: string[];
 }
 
 /**
@@ -102,6 +105,7 @@ export function PointCardWithLinks({
   getStoryAuthor,
   onStoryClick,
   viewerStoryId,
+  tags,
 }: PointCardWithLinksProps) {
   const navigate = useNavigate();
   const isOwnProfile = !!(currentUserId && profileOwner?.id && currentUserId === profileOwner.id);
@@ -271,6 +275,11 @@ export function PointCardWithLinks({
                       />
                     </div>
                   )}
+
+                  {/* P491: Tag pills */}
+                  {tags && tags.length > 0 && (
+                    <TagPills tags={tags} context="detail" className="mt-2" />
+                  )}
                 </div>
               </div>
 
@@ -413,6 +422,11 @@ export function PointCardWithLinks({
                     narrow
                   />
                 </div>
+              )}
+
+              {/* P491: Tag pills */}
+              {tags && tags.length > 0 && (
+                <TagPills tags={tags} context="detail" className="mt-2" />
               )}
             </div>
           </div>

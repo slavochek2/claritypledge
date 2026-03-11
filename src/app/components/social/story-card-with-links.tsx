@@ -23,6 +23,7 @@ import {
 import type { Story, Point, PositionButtonGroup } from '@/app/prototypes/shared/types';
 import type { PositionType } from '@/app/prototypes/shared/types';
 import { getPositionGroup, getPositionCTACopy } from '@/app/prototypes/shared/types';
+import { TagPills } from '@/app/components/shared/tag-pills';
 
 /** Display context for StoryCard - controls what's shown */
 export type StoryCardContext = 'profile' | 'point-detail' | 'story-detail';
@@ -64,6 +65,8 @@ interface StoryCardWithLinksProps {
   currentUserId?: string;
   /** Map of pointId → viewer's story count for that point (P456) */
   viewerStoriesPerPoint?: Map<string, number>;
+  /** P491: Tags for tag pill display (prototype Story type lacks tags) */
+  tags?: string[];
 }
 
 /**
@@ -91,6 +94,7 @@ export function StoryCardWithLinks({
   onPointClick,
   currentUserId,
   viewerStoriesPerPoint,
+  tags,
 }: StoryCardWithLinksProps) {
   const navigate = useNavigate();
   const [pointsExpanded, setPointsExpanded] = useState(isDetailView);
@@ -285,6 +289,11 @@ export function StoryCardWithLinks({
                 </button>
               )}
             </div>
+
+            {/* P491: Tag pills */}
+            {tags && tags.length > 0 && (
+              <TagPills tags={tags} context="detail" className="mt-2" />
+            )}
 
             {/* point-detail context: Hide QuotedPoints entirely - Stories are already in Point context */}
           </div>

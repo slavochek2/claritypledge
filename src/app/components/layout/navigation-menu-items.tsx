@@ -30,6 +30,7 @@ import {
   InfoIcon,
   BookOpenIcon,
   CalendarIcon,
+  HistoryIcon,
 } from 'lucide-react';
 import { useNavAuthState } from '@/hooks/use-nav-auth-state';
 import { useLiveSession } from '@/app/contexts/live-session-context';
@@ -159,6 +160,14 @@ export function NavigationMenuItems({
             {!inActiveSession && (
               <>
                 <Link
+                  to="/sessions"
+                  className={mobileLinkClass}
+                  onClick={handleItemClick}
+                >
+                  <HistoryIcon className="w-4 h-4 inline mr-2" />
+                  Session History
+                </Link>
+                <Link
                   to="/pledgers"
                   className={mobileLinkClass}
                   onClick={handleItemClick}
@@ -282,6 +291,12 @@ export function NavigationMenuItems({
           {/* Hide navigation items during active session */}
           {!inActiveSession && (
             <>
+              <DropdownMenuItem asChild>
+                <Link to="/sessions" className="cursor-pointer">
+                  <HistoryIcon className="w-4 h-4 mr-2" />
+                  Session History
+                </Link>
+              </DropdownMenuItem>
               <DropdownMenuItem asChild>
                 <Link to="/pledgers" className="cursor-pointer">
                   <AwardIcon className="w-4 h-4 mr-2" />

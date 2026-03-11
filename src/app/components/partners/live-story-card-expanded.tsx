@@ -14,6 +14,7 @@ import {
   type SevenPointCounts,
 } from '@/app/prototypes/linkedin-like/components/shared';
 import { LinkedText } from '@/app/components/shared/linked-text';
+import { TagPills } from '@/app/components/shared/tag-pills';
 
 function formatTimeAgo(dateStr: string): string {
   const date = new Date(dateStr);
@@ -129,6 +130,11 @@ export function LiveStoryCardExpanded({
             )}
           </div>
         </div>
+
+        {/* P491: Tag pills (display-only in live context) */}
+        {story.tags && story.tags.length > 0 && (
+          <TagPills tags={story.tags} context="live" className="mt-2 pl-[52px]" />
+        )}
       </div>
 
       {/* Footer — "N points by Name" expand trigger */}

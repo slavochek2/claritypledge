@@ -351,6 +351,41 @@ export const mockPointsService: PointsService = {
     }));
   },
 
+  async getPublicPointsFeed(
+    limit: number,
+    offset: number,
+    tag?: string,
+    viewerUserId?: string
+  ): Promise<PointWithUserPosition[]> {
+    let sorted = [...mockPoints].sort(
+      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    );
+    if (tag) {
+      sorted = sorted.filter(p => p.tags.includes(tag));
+    }
+    const sliced = sorted.slice(offset, offset + limit);
+    if (sliced.length === 0) return [];
+
+    const pointsWithCounts = await Promise.all(
+      sliced.map(async (point) => {
+        const counts = await this.getPointWithCounts(point.id);
+        return counts!;
+      })
+    );
+
+    if (!viewerUserId) {
+      return pointsWithCounts.map(point => ({ ...point, userPosition: undefined }));
+    }
+
+    const pointIds = pointsWithCounts.map(p => p.id);
+    const positionsMap = await this.getMyPositionsForPoints(pointIds, viewerUserId);
+
+    return pointsWithCounts.map(point => ({
+      ...point,
+      userPosition: positionsMap.get(point.id),
+    }));
+  },
+
   async setPosition(
     _pointId: string,
     _userId: string,

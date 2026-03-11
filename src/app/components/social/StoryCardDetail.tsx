@@ -27,6 +27,7 @@ import {
   type SevenPointCounts,
 } from '@/app/prototypes/linkedin-like/components/shared';
 import type { StoryWithAuthor, PointSummary, PositionType, PointPosition } from '@/app/types';
+import { TagPills } from '@/app/components/shared/tag-pills';
 
 /** Minimal story shape needed to display a linked story card inside QuotedPoint */
 type LinkedStory = Pick<
@@ -274,6 +275,11 @@ export function StoryCardDetail({
                 </button>
               )}
             </div>
+
+            {/* P491: Tag pills */}
+            {story.tags && story.tags.length > 0 && (
+              <TagPills tags={story.tags} context="detail" className="mt-2" />
+            )}
           </div>
         </div>
       </div>
