@@ -2,6 +2,34 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-12 [process]: Auth-dependent UATs must have E2E coverage — not manual-only
+
+**Context:** P491 had 14 UAT scenarios. `/generate-tests` produced E2E specs that only covered anonymous flows. 4 auth-dependent UATs (home redirect, bottom nav, menu relocation) were left as "manual testing" despite `e2e/helpers/test-user.ts` providing `createTestUser()`, `setTestSession()`, and `deleteTestUser()` since P405. This pattern recurred across features — auth UATs accumulated as untested debt.
+
+**Decision:** Added "Auth E2E Coverage Rule" to `.claude/rules/tests.md`. Auth-dependent UATs must use `setTestSession()` in E2E specs. Only exception: scenarios requiring infrastructure that doesn't exist (e.g., two-party `/live` session fixtures). The rule auto-loads for all test file edits, so both `/generate-tests` subagents and `/dev` see it.
+
+**Alternatives rejected:** (A) Playwright `globalSetup` + `storageState` pattern — unnecessary; the per-test `setTestSession()` helper already exists and is simpler (no shared state file, no auth project dependency). (B) Adding the rule only to `/generate-tests` skill — too narrow; `/dev` also writes tests and would miss it.
+
+**Consequences:** Future features with auth UATs will get E2E coverage automatically. The 3 P491 auth tests (UAT-7, 9, 10) were written in 30 minutes using existing helpers — proving the infra was never the bottleneck, just the instruction to use it.
+
+**References:** `.claude/rules/tests.md`, `e2e/helpers/test-user.ts`, `e2e/p491-hashtag-feed.spec.ts`
+
+---
+
+## 2026-03-11 [process]: Plan mode is complementary to PRD pipeline — no compaction fix needed
+
+**Context:** Investigated whether Claude Code's built-in plan mode should replace the custom PRD pipeline (`/create-prd → /pick-flow → /dev`), and whether PRD spec content could be made to survive context compaction via hook injection.
+
+**Decision:** Keep current PRD pipeline as-is. Plan mode is complementary (useful for exploratory pre-work on unfamiliar code), not a replacement. Accept occasional manual "re-read features/pN.md" as the lean path when compaction hits during medium-tier `/dev` runs. Every proposed compaction fix failed `/falsify` — the problem isn't worth the machinery.
+
+**Alternatives rejected:** (A) CLAUDE.md instruction to auto-reload specs — soft prompt, not executable trigger; compact hook in `.claude/settings.json` already has a reorientation message doing exactly this. (B) Always decompose medium work — `/decompose` threshold (files < 5, concerns < 3, steps < 6) rejects medium work by design. (C) Use plan mode for medium tier — CLAUDE.md forbids spec content in plan artifacts. (D) Active-spec pointer file — worktree collision on shared `.claude/.active-spec`, stale state risk. (E) Branch-name derivation hook — `$CLAUDE_PROJECT_DIR` always points to main repo root (sees `main`, not worktree branch); `grep -oP` broken on macOS (BSD grep).
+
+**Consequences:** No workflow changes. PRD pipeline retains persistence, git tracking, and multi-agent coordination that plan mode lacks. If compaction pain recurs frequently on medium work, revisit worktree-local pointer (least-bad mechanical option). Key technical findings: compact hook runs from `$CLAUDE_PROJECT_DIR` (main root, not worktree); spec sizes up to 678 lines / 50KB make full-spec injection counterproductive; `/decompose` + subagents already solve compaction for complex work.
+
+**References:** `.claude/settings.json` (compact hook), `.claude/commands/slava/build/decompose.md` (threshold gate), `docs/technical/worktree-setup.md`
+
+---
+
 ## 2026-03-10 [technical]: SW precache blocks iframe embeds — skipWaiting + clientsClaim required
 
 **Context:** Point embeds in Ghost blog (iframe `src="claritypledge.com/point/:id?embed=true"`) showed "refused to connect" despite correct Vercel CSP headers (`frame-ancestors 'self' https://blog.claritypledge.com`). Root cause: the Vite PWA service worker's `navigateFallback: '/index.html'` serves a precached copy of `/index.html` for all navigation requests — including iframe navigations. The precached response carries the old `X-Frame-Options: DENY` header from before the CSP deploy. Chrome enforces DENY and blocks the embed. Proof: unregistering the SW → embed renders immediately.
