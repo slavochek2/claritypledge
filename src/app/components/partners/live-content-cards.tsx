@@ -14,6 +14,7 @@ import { GravatarAvatar } from '@/components/ui/gravatar-avatar';
 import { analytics } from '@/lib/mixpanel';
 import { LinkedText } from '@/app/components/shared/linked-text';
 import { TagPills } from '@/app/components/shared/tag-pills';
+import { stripHashtags } from '@/lib/utils';
 import { getFirstName, RatingButtons } from './shared';
 
 // ============================================================================
@@ -51,11 +52,12 @@ export function LiveStoryCard({
 }: LiveStoryCardProps) {
   const linkedPointsCount = story.points.length;
   const partnerFirstName = getFirstName(partnerName);
+  const strippedContent = stripHashtags(story.content, story.tags);
 
   // Truncate content preview to 2 lines (~100 chars) when collapsed
-  const preview = story.content.length > 100
-    ? story.content.slice(0, 100).trimEnd() + '…'
-    : story.content;
+  const preview = strippedContent.length > 100
+    ? strippedContent.slice(0, 100).trimEnd() + '…'
+    : strippedContent;
 
   // Collapsed state
   if (!isExpanded) {
@@ -78,7 +80,7 @@ export function LiveStoryCard({
           />
           <div className="flex-1 min-w-0">
             <p className="text-sm font-medium text-foreground line-clamp-2 break-words"><LinkedText text={preview} /></p>
-            {story.content.length > 100 && (
+            {strippedContent.length > 100 && (
               <p className="text-xs text-muted-foreground mt-0.5">Read more ↓</p>
             )}
           </div>
@@ -120,7 +122,7 @@ export function LiveStoryCard({
           isPledger={!!story.authorEarsCount}
         />
         <div className="flex-1 min-w-0 max-h-[200px] overflow-y-auto">
-          <p className="text-sm font-medium text-foreground break-words"><LinkedText text={story.content} /></p>
+          <p className="text-sm font-medium text-foreground break-words"><LinkedText text={strippedContent} /></p>
         </div>
       </div>
 
@@ -194,6 +196,7 @@ interface LivePointCardProps {
 }
 
 export function LivePointCard({ point, onSelect, disabled }: LivePointCardProps) {
+  const displayStatement = stripHashtags(point.statement, point.tags);
   return (
     <button
       type="button"
@@ -202,7 +205,7 @@ export function LivePointCard({ point, onSelect, disabled }: LivePointCardProps)
       className="w-full text-left bg-card rounded-lg border-l-4 border-l-muted-foreground/50 border border-border shadow-sm p-4 hover:border-muted-foreground/70 hover:shadow-md transition-all disabled:opacity-50 disabled:cursor-not-allowed"
       data-testid={`live-point-card-${point.id}`}
     >
-      <p className="text-sm font-medium text-foreground line-clamp-2"><LinkedText text={point.statement} /></p>
+      <p className="text-sm font-medium text-foreground line-clamp-2"><LinkedText text={displayStatement} /></p>
       {point.context && (
         <p className="text-xs text-muted-foreground mt-1 line-clamp-2"><LinkedText text={point.context} /></p>
       )}

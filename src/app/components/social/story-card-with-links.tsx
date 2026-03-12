@@ -24,6 +24,7 @@ import type { Story, Point, PositionButtonGroup } from '@/app/prototypes/shared/
 import type { PositionType } from '@/app/prototypes/shared/types';
 import { getPositionGroup, getPositionCTACopy } from '@/app/prototypes/shared/types';
 import { TagPills } from '@/app/components/shared/tag-pills';
+import { stripHashtags } from '@/lib/utils';
 
 /** Display context for StoryCard - controls what's shown */
 export type StoryCardContext = 'profile' | 'point-detail' | 'story-detail';
@@ -101,6 +102,7 @@ export function StoryCardWithLinks({
   const [textExpanded, setTextExpanded] = useState(false);
   useEffect(() => { setTextExpanded(false); }, [story.id]);
   const _isCurrentUserStory = currentUserId && story.authorId === currentUserId;
+  const displayText = stripHashtags(story.text, tags);
 
   const handleCardClick = () => {
     if (!isDetailView && !disableNavigation) {
@@ -163,9 +165,9 @@ export function StoryCardWithLinks({
           </p>
 
           {/* Story text */}
-          {compact && !textExpanded && story.text.length > 150 ? (
+          {compact && !textExpanded && displayText.length > 150 ? (
             <p className="text-sm text-gray-900 break-words">
-              <LinkedText text={story.text.slice(0, 150)} />
+              <LinkedText text={displayText.slice(0, 150)} />
               <span
                 data-testid="more-link"
                 role="button"
@@ -177,7 +179,7 @@ export function StoryCardWithLinks({
             </p>
           ) : (
             <p className={`text-gray-900 break-words ${compact ? 'text-sm' : 'text-base'}`}>
-              <LinkedText text={story.text} />
+              <LinkedText text={displayText} />
             </p>
           )}
         </div>
@@ -247,9 +249,9 @@ export function StoryCardWithLinks({
             </div>
 
             {/* Story text - indented under author */}
-            {compact && !textExpanded && story.text.length > 150 ? (
+            {compact && !textExpanded && displayText.length > 150 ? (
               <p className="text-sm text-gray-900 break-words">
-                <LinkedText text={story.text.slice(0, 150)} />
+                <LinkedText text={displayText.slice(0, 150)} />
                 <span
                   data-testid="more-link"
                   role="button"
@@ -261,7 +263,7 @@ export function StoryCardWithLinks({
               </p>
             ) : (
               <p className={`text-gray-900 break-words ${compact ? 'text-sm' : 'text-base'}`}>
-                <LinkedText text={story.text} />
+                <LinkedText text={displayText} />
               </p>
             )}
 

@@ -9,6 +9,7 @@ import { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Pin } from 'lucide-react';
 import { LinkedText } from '@/app/components/shared/linked-text';
+import { stripHashtags } from '@/lib/utils';
 import { TagPills } from '@/app/components/shared/tag-pills';
 import {
   PositionButtons,
@@ -128,7 +129,7 @@ export function FeedPointCard({ point, activeTag, onPositionChange }: FeedPointC
           <div className="flex-1 min-w-0">
             {/* Statement */}
             <p className="text-sm font-medium text-foreground break-words">
-              <LinkedText text={point.statement} />
+              <LinkedText text={stripHashtags(point.statement, point.tags)} />
             </p>
 
             {point.context && (

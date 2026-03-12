@@ -24,6 +24,7 @@ import { LinkedText } from '@/app/components/shared/linked-text';
 import type { Point, Position, Story, PositionType, PositionButtonGroup } from '@/app/prototypes/shared/types';
 import { getPositionGroup, getPositionCTACopy } from '@/app/prototypes/shared/types';
 import { TagPills } from '@/app/components/shared/tag-pills';
+import { stripHashtags } from '@/lib/utils';
 
 /** Author information for a story in quoted context */
 export interface StoryAuthor {
@@ -108,6 +109,7 @@ export function PointCardWithLinks({
   tags,
 }: PointCardWithLinksProps) {
   const navigate = useNavigate();
+  const displayText = stripHashtags(point.text, tags);
   const isOwnProfile = !!(currentUserId && profileOwner?.id && currentUserId === profileOwner.id);
   const [userPosition, setUserPosition] = useState<Position>(
     selectedPosition ?? (currentUserId ? point.positions[currentUserId]?.position ?? null : null)
@@ -261,7 +263,7 @@ export function PointCardWithLinks({
                 <div className="flex-1 min-w-0">
                   {/* Point text */}
                   <p className={`text-gray-900 break-words ${compact ? 'text-sm' : 'text-base'}`}>
-                    <LinkedText text={point.text} />
+                    <LinkedText text={displayText} />
                   </p>
 
                   {/* Position buttons */}
@@ -409,7 +411,7 @@ export function PointCardWithLinks({
 
               {/* Point text - same position as StoryCard text */}
               <p className={`text-gray-900 break-words ${compact ? 'text-sm' : 'text-base'}`}>
-                <LinkedText text={point.text} />
+                <LinkedText text={displayText} />
               </p>
 
               {/* Position buttons */}

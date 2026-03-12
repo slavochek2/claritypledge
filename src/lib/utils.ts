@@ -114,3 +114,29 @@ export function formatRelativeTime(dateString: string): string {
   if (diffDay < 7) return `${diffDay}d ago`;
   return date.toLocaleDateString();
 }
+
+/**
+ * Strip hashtag strings from content text when they match entries in a tags array.
+ * Used to avoid rendering tags twice — once as raw `#hashtag` in text and once as TagPill components.
+ *
+ * Uses word-boundary-aware matching: `#tag` is stripped only when followed by whitespace,
+ * punctuation, or end-of-string. This prevents `#st7` from stripping part of `#st77`.
+ *
+ * @param content - The raw content text potentially containing hashtag strings
+ * @param tags - Array of tag names (without #) that have structured TagPill components
+ * @returns Content with matching hashtag strings removed, trimmed, with collapsed whitespace
+ */
+export function stripHashtags(content: string, tags?: string[]): string {
+  if (!tags || tags.length === 0) return content;
+
+  let result = content;
+  for (const tag of tags) {
+    // Match #tag followed by word boundary (whitespace, punctuation, or end-of-string)
+    // The (?=[\\s.,;:!?)]|$) lookahead ensures we don't strip partial matches like #st7 from #st77
+    const pattern = new RegExp(`#${tag.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?=[\\s.,;:!?)]|$)`, 'gi');
+    result = result.replace(pattern, '');
+  }
+
+  // Collapse multiple spaces into one and trim
+  return result.replace(/\s{2,}/g, ' ').trim();
+}

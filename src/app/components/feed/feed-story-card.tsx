@@ -10,6 +10,7 @@ import { GravatarAvatar } from '@/components/ui/gravatar-avatar';
 import { EarBadge } from '@/components/ui/ear-badge';
 import { LinkedText } from '@/app/components/shared/linked-text';
 import { TagPills } from '@/app/components/shared/tag-pills';
+import { stripHashtags } from '@/lib/utils';
 import type { StoryWithAuthor } from '@/app/types';
 
 interface FeedStoryCardProps {
@@ -91,7 +92,7 @@ export function FeedStoryCard({ story, activeTag }: FeedStoryCardProps) {
 
             {/* Story text */}
             <p className="text-foreground break-words text-sm line-clamp-4">
-              <LinkedText text={story.content} />
+              <LinkedText text={stripHashtags(story.content, story.tags)} />
             </p>
 
             {/* Tag pills */}

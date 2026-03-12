@@ -15,6 +15,7 @@ import {
 } from '@/app/prototypes/linkedin-like/components/shared';
 import { LinkedText } from '@/app/components/shared/linked-text';
 import { TagPills } from '@/app/components/shared/tag-pills';
+import { stripHashtags } from '@/lib/utils';
 
 function formatTimeAgo(dateStr: string): string {
   const date = new Date(dateStr);
@@ -78,11 +79,12 @@ export function LiveStoryCardExpanded({
     setStoryExpanded(false);
   }, [story.id]);
 
-  const isLongStory = story.content.length > STORY_THRESHOLD;
+  const strippedContent = stripHashtags(story.content, story.tags);
+  const isLongStory = strippedContent.length > STORY_THRESHOLD;
   const displayText =
     isLongStory && !storyExpanded
-      ? story.content.slice(0, STORY_THRESHOLD) + '…'
-      : story.content;
+      ? strippedContent.slice(0, STORY_THRESHOLD) + '…'
+      : strippedContent;
 
   return (
     <div
