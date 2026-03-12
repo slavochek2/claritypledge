@@ -12,10 +12,12 @@ import { ArrowLeftIcon, Loader2Icon, CheckIcon } from "lucide-react";
 import { analytics } from "@/lib/mixpanel";
 import { Button } from "@/components/ui/button";
 import { InstallCard } from "@/app/components/pwa/install-card";
+import { usePwaInstall } from "@/hooks/use-pwa-install";
 
 export function SettingsPage() {
   const navigate = useNavigate();
   const { user, session, isLoading: authLoading, refreshProfile } = useAuth();
+  const { isDesktop } = usePwaInstall();
 
   // Form state
   const [name, setName] = useState("");
@@ -185,11 +187,13 @@ export function SettingsPage() {
         </p>
       </div>
 
-      {/* P493: PWA install card */}
-      <div className="mb-8">
-        <h2 className="text-sm font-medium mb-3 text-muted-foreground">App</h2>
-        <InstallCard />
-      </div>
+      {/* P493: PWA install card — mobile only */}
+      {!isDesktop && (
+        <div className="mb-8">
+          <h2 className="text-sm font-medium mb-3 text-muted-foreground">App</h2>
+          <InstallCard />
+        </div>
+      )}
 
       {/* Form */}
       <form onSubmit={handleSubmit} className="space-y-6">

@@ -11,8 +11,11 @@ import { useState } from 'react';
 import { analytics } from '@/lib/mixpanel';
 
 export function InstallCard() {
-  const { isInstalled, canPrompt, isIOS, promptInstall } = usePwaInstall();
+  const { isInstalled, canPrompt, isIOS, isDesktop, promptInstall } = usePwaInstall();
   const [iosDrawerOpen, setIosDrawerOpen] = useState(false);
+
+  // PWA install is mobile-only — hide entire card on desktop
+  if (isDesktop) return null;
 
   if (isInstalled) {
     return (
