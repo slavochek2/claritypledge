@@ -1,6 +1,5 @@
 ---
-status: done
-completed_at: '2026-03-09'
+status: all-done
 type: story
 rank: 3
 flow: medium
@@ -24,7 +23,7 @@ test_files:
   - e2e/p458-smoke.spec.ts
   - e2e/integration/p458-auth-callback-position.spec.ts
   - e2e/a11y/p458-accessibility.spec.ts
-locked_at: '2026-03-06T03:36:14.491Z'
+locked_at: '2026-03-12T10:52:36.713Z'
 created_date: 2026-02-27T00:00:00.000Z
 ---
 

@@ -1,12 +1,12 @@
 ---
 title: "P491: Hashtag Feed — Public Content Discovery by Tag"
-status: in-progress
+status: all-done
+completed_at: '2026-03-12'
 type: feature
 rank: 8.0
 workstream: C2
 tags: [feed, hashtags, discovery, navigation]
 prepped_date: '2026-03-10'
-delivery_stage: uat
 flow: dev
 reviews:
   ux: '2026-03-10'

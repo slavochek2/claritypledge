@@ -1,10 +1,13 @@
 ---
-status: done
+status: all-done
 type: story
 rank: 100
-tags: [events, banner, ai, gemini]
+tags:
+  - events
+  - banner
+  - ai
+  - gemini
 prepped_date: '2026-03-09'
-completed_at: '2026-03-09'
 flow: dev
 delivery_stage: shipped
 uat_file: features/uat/p489.md
@@ -17,7 +20,8 @@ reviews:
   ux: null
   architect: null
   alignment: null
-created_date: 2026-03-09
+created_date: 2026-03-09T00:00:00.000Z
+locked_at: '2026-03-12T10:52:41.113Z'
 ---
 
 # P489: AI-Generated Event Banners

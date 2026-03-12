@@ -1,11 +1,15 @@
 ---
-status: done
+status: all-done
 type: story
-rank: 125470.0
+rank: 125470
 workstream: C1
 created_date: '2026-03-01'
-completed_at: '2026-03-09'
-tags: [onboarding, philosophy, meta-epistemology, stories]
+tags:
+  - onboarding
+  - philosophy
+  - meta-epistemology
+  - stories
+locked_at: '2026-03-12T10:52:47.437Z'
 ---
 
 # P464: Stories & Points — Meta-Epistemology Framework (ITT/RITT + Entry Point)
