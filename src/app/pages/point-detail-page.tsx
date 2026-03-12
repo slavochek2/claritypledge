@@ -29,6 +29,8 @@ import {
 import { RemovePositionDialog, useRemovePositionGuard } from '@/app/components/shared/remove-position-dialog';
 import { EarBadge } from '@/components/ui/ear-badge';
 import { StoryCardWithLinks, type StoryAuthor } from '@/app/components/social/story-card-with-links';
+import { PointCardWithLinks, type PointProfileOwner } from '@/app/components/social/point-card-with-links';
+import type { Point as ProtoPoint, Story as ProtoStory } from '@/app/prototypes/shared/types';
 import { LinkedText } from '@/app/components/shared/linked-text';
 import { buildAuthGateUrl, toAuthGatePosition } from '@/lib/auth-gate-utils';
 
@@ -300,6 +302,85 @@ export function PointDetailPage() {
     );
   }
 
+  // Embed mode: render PointCardWithLinks as a compact person's card
+  if (isEmbed) {
+    const fromUserId = searchParams.get('from');
+    const fromHolder = fromUserId
+      ? positions.find(p => p.userId === fromUserId)
+      : undefined;
+
+    // Convert PointWithCounts → prototype Point type
+    const protoPoint: ProtoPoint = {
+      id: point.id,
+      text: point.statement,
+      createdAt: point.createdAt,
+      positions: Object.fromEntries(
+        positions.map(p => [p.userId, { position: p.position, timestamp: p.createdAt }])
+      ),
+      linkedStoryIds: [],
+    };
+
+    // Build profileOwner if `from` user found in positions
+    const embedProfileOwner: PointProfileOwner | undefined = fromHolder
+      ? {
+          id: fromHolder.userId,
+          name: fromHolder.userName,
+          hasPledged: fromHolder.userHasPledged,
+          ear: fromHolder.earCount,
+          position: fromHolder.position as PositionType,
+          avatarUrl: fromHolder.userAvatarUrl,
+        }
+      : undefined;
+
+    // Get linked stories for the `from` user (or all if no `from`)
+    const allStories = linkedStories.get(point.id) ?? [];
+    const embedStories: ProtoStory[] = (
+      fromUserId
+        ? allStories.filter(s => s.authorId === fromUserId)
+        : allStories
+    ).map(s => ({
+      id: s.id,
+      authorId: s.authorId,
+      text: s.content,
+      createdAt: s.createdAt,
+      visibility: s.visibility,
+      linkedPointIds: [],
+      verificationCount: s.understoodCount,
+    }));
+
+    return (
+      <div className="max-w-[550px] mx-auto p-3">
+        <RemovePositionDialog {...dialogProps} />
+        <PointCardWithLinks
+          point={protoPoint}
+          linkedStories={embedStories}
+          profileOwner={embedProfileOwner}
+          currentUserId={user?.id}
+          onPositionSelect={(pos) => {
+            if (pos === null) {
+              // Use guarded removal
+              if (id) guardedRemovePosition(id);
+            } else {
+              handlePositionClick(pos as PositionType);
+            }
+          }}
+          getPointPositionCounts={() => toSevenPointCounts(point.positionCounts)}
+          getStoryAuthor={(authorId) => {
+            const holder = positions.find(p => p.userId === authorId);
+            if (!holder) return undefined;
+            return {
+              id: holder.userId,
+              name: holder.userName,
+              hasPledged: holder.userHasPledged,
+              ear: holder.earCount,
+              avatarUrl: holder.userAvatarUrl,
+            };
+          }}
+        />
+      </div>
+    );
+  }
+
   // Which position groups to show based on filter
   const positionsToShow: PositionButtonGroup[] =
     positionFilter === 'all' ? ['agree', 'disagree', 'unsure'] : [positionFilter as PositionButtonGroup];
@@ -309,7 +390,7 @@ export function PointDetailPage() {
       {/* P401: Remove position warning dialog */}
       <RemovePositionDialog {...dialogProps} />
 
-      {!isEmbed && <FocusHeader onBack={handleBack} />}
+      <FocusHeader onBack={handleBack} />
 
       {/* Point card with full features */}
       <div className="bg-card border border-border rounded-lg shadow-sm border-l-4 border-l-slate-400 overflow-hidden mb-4">
@@ -348,11 +429,7 @@ export function PointDetailPage() {
                         pointId: id,
                         redirect: `/chat?from=position&pointId=${id}`,
                       });
-                      if (isEmbed) {
-                        window.open(`${window.location.origin}${url}`, '_blank');
-                      } else {
-                        navigate(url);
-                      }
+                      navigate(url);
                     }}
                     className="text-sm font-medium text-blue-600 hover:text-blue-700 transition-colors"
                   >
@@ -364,12 +441,10 @@ export function PointDetailPage() {
           </div>
         </div>
 
-        {/* Footer with share button — hidden in embed mode */}
-        {!isEmbed && (
-          <div className="flex items-center justify-end px-4 py-3 border-t border-border">
-            <ShareButton type="point" id={point.id} description={point.statement.slice(0, 100)} />
-          </div>
-        )}
+        {/* Footer with share button */}
+        <div className="flex items-center justify-end px-4 py-3 border-t border-border">
+          <ShareButton type="point" id={point.id} description={point.statement.slice(0, 100)} />
+        </div>
       </div>
 
 

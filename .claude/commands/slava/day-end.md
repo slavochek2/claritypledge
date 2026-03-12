@@ -30,6 +30,20 @@ Silent — no output needed. Ensures lid-close sleeps after the workday.
 - **Sentry today**: Sentry MCP (`mcp__sentry__search_issues`), org `22minds-llc`, project `javascript-react` — unresolved issues first seen in last 24h. Count only.
 - **CLAUDE.md health**: `git log --oneline --since="6am today" -- CLAUDE.md .claude/rules/` — if any commits found, collect the diff (`git diff HEAD~N HEAD -- CLAUDE.md .claude/rules/` where N = number of those commits) and spawn `/slava:maintain:claude-md` as a subagent with the diff as context. Get back: VALID / NEEDS REVISION + one-line recommendation.
 
+### 1b. KDD reminder check (auto, after data gathering)
+
+Scan today's git log for commits that touch:
+- `supabase/migrations/`
+- `.env.local`, `.env.prod`, `.env*`
+- `.mcp.json`, `mcp-*.json`
+- `.claude/rules/`, `CLAUDE.md`
+- `scripts/` (new scripts or significant rewrites)
+- `docs/technical/` (architecture changes)
+
+Also check: did today's KDD commits (`docs(kdd):` prefix) or `docs/decisions.md` changes already capture this work?
+
+**If infra-touching commits exist AND no KDD capture today:** add a `KDD REMINDER` section to the output (see step 3). Otherwise skip silently.
+
 ### 2. Synthesize (internal, don't show raw data)
 
 From the gathered data, form an honest picture:
@@ -78,6 +92,10 @@ AGENT CONFIG  (skip if CLAUDE.md and rules unchanged today)
 • [what changed — plain English, not file names]
 • /claude-md verdict: VALID ✅ / NEEDS REVISION ⚠️
 • [one-line recommendation if NEEDS REVISION, otherwise omit]
+
+KDD REMINDER  (skip if no uncaptured infra work — see step 1b)
+• [what was touched: migrations / env config / MCP / agent rules / scripts]
+• Run `/kdd` to capture before context is lost.
 
 TOMORROW
 → [one clear next move + why it matters now]

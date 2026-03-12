@@ -104,6 +104,16 @@ export function PointCardWithLinks({
   viewerStoryId,
 }: PointCardWithLinksProps) {
   const navigate = useNavigate();
+  const isEmbed = new URLSearchParams(window.location.search).get('embed') === 'true';
+
+  /** In embed mode, open links in a new tab instead of navigating in the iframe */
+  const embedNavigate = (path: string) => {
+    if (isEmbed) {
+      window.open(`${window.location.origin}${path}`, '_blank');
+    } else {
+      navigate(path);
+    }
+  };
   const isOwnProfile = !!(currentUserId && profileOwner?.id && currentUserId === profileOwner.id);
   const [userPosition, setUserPosition] = useState<Position>(
     selectedPosition ?? (currentUserId ? point.positions[currentUserId]?.position ?? null : null)
@@ -175,7 +185,7 @@ export function PointCardWithLinks({
 
   const handleCardClick = () => {
     if (!isDetailView && !disableNavigation) {
-      navigate(`/point/${point.id}`);
+      embedNavigate(`/point/${point.id}`);
     }
   };
 
@@ -184,7 +194,7 @@ export function PointCardWithLinks({
     if (!currentUserId) {
       const authGatePosition = toAuthGatePosition(position as string);
       if (!authGatePosition) return;
-      navigate(buildAuthGateUrl({
+      embedNavigate(buildAuthGateUrl({
         action: 'set-position',
         pointId: point.id,
         position: authGatePosition,
@@ -303,7 +313,7 @@ export function PointCardWithLinks({
                         {/* Case D: viewer has position but no story yet on another's profile */}
                         {!liveSessionMode && !isOwnProfile && userPosition && effectiveViewerCount === 0 && (
                           <button
-                            onClick={(e) => { e.stopPropagation(); navigate(`/create?pointId=${point.id}`); }}
+                            onClick={(e) => { e.stopPropagation(); embedNavigate(`/create?pointId=${point.id}`); }}
                             className="text-sm text-blue-600 hover:text-blue-700 transition-colors"
                             aria-label="Add your story"
                           >
@@ -313,7 +323,7 @@ export function PointCardWithLinks({
                         {/* Case E: viewer has a story on another profile's point */}
                         {!liveSessionMode && !isOwnProfile && viewerStoryId && (
                           <button
-                            onClick={(e) => { e.stopPropagation(); navigate(`/story/${viewerStoryId}?edit=true`); }}
+                            onClick={(e) => { e.stopPropagation(); embedNavigate(`/story/${viewerStoryId}?edit=true`); }}
                             className="text-sm text-blue-600 hover:text-blue-700 transition-colors"
                             aria-label="Edit your story"
                           >
@@ -331,7 +341,7 @@ export function PointCardWithLinks({
                         <ChevronRight size={14} className="text-gray-400" />
                         <span className="text-sm text-gray-600">{storyLabel}</span>
                         <button
-                          onClick={(e) => { e.stopPropagation(); navigate(`/create?pointId=${point.id}`); }}
+                          onClick={(e) => { e.stopPropagation(); embedNavigate(`/create?pointId=${point.id}`); }}
                           className="text-sm text-blue-600 hover:text-blue-700 transition-colors"
                           aria-label="Add your story"
                         >
@@ -366,7 +376,7 @@ export function PointCardWithLinks({
                     {!isDetailView && !disableNavigation && (
                       <MobileTooltip content="Open point">
                         <button
-                          onClick={() => navigate(`/point/${point.id}`)}
+                          onClick={() => embedNavigate(`/point/${point.id}`)}
                           className="min-w-[44px] min-h-[44px] flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors"
                           aria-label="Open point"
                         >
@@ -461,7 +471,7 @@ export function PointCardWithLinks({
                   {/* Case D: viewer has position but no story yet on another's profile */}
                   {!liveSessionMode && !isOwnProfile && userPosition && effectiveViewerCount === 0 && (
                     <button
-                      onClick={(e) => { e.stopPropagation(); navigate(`/create?pointId=${point.id}`); }}
+                      onClick={(e) => { e.stopPropagation(); embedNavigate(`/create?pointId=${point.id}`); }}
                       className="text-sm text-blue-600 hover:text-blue-700 transition-colors"
                       aria-label="Add your story"
                     >
@@ -471,7 +481,7 @@ export function PointCardWithLinks({
                   {/* Case E: viewer has a story on another profile's point */}
                   {!isOwnProfile && viewerStoryId && (
                     <button
-                      onClick={(e) => { e.stopPropagation(); navigate(`/story/${viewerStoryId}?edit=true`); }}
+                      onClick={(e) => { e.stopPropagation(); embedNavigate(`/story/${viewerStoryId}?edit=true`); }}
                       className="text-sm text-blue-600 hover:text-blue-700 transition-colors"
                       aria-label="Edit your story"
                     >
@@ -495,7 +505,7 @@ export function PointCardWithLinks({
               {!isDetailView && !disableNavigation && (
                 <MobileTooltip content="Open point">
                   <button
-                    onClick={() => navigate(`/point/${point.id}`)}
+                    onClick={() => embedNavigate(`/point/${point.id}`)}
                     className="min-w-[44px] min-h-[44px] flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors"
                     aria-label="Open point"
                   >
@@ -537,7 +547,7 @@ export function PointCardWithLinks({
             >
               <div className="flex items-center gap-1 text-sm">
                 <button
-                  onClick={(e) => { e.stopPropagation(); navigate(`/create?pointId=${point.id}`); }}
+                  onClick={(e) => { e.stopPropagation(); embedNavigate(`/create?pointId=${point.id}`); }}
                   aria-label={copy.ariaLabel}
                   className="font-medium text-blue-600 hover:text-blue-700 transition-colors"
                 >
@@ -574,12 +584,12 @@ export function PointCardWithLinks({
                       if (onStoryClick) {
                         onStoryClick(stories[0].id);
                       } else if (!liveSessionMode) {
-                        navigate(`/story/${stories[0].id}`);
+                        embedNavigate(`/story/${stories[0].id}`);
                       }
                     }}
                     onAuthorClick={(e) => {
                       e.stopPropagation();
-                      if (!liveSessionMode) navigate(`/p/${stories[0].authorId}`);
+                      if (!liveSessionMode) embedNavigate(`/p/${stories[0].authorId}`);
                     }}
                     getStoryAuthor={getStoryAuthor}
                   />
@@ -601,12 +611,12 @@ export function PointCardWithLinks({
                           if (onStoryClick) {
                             onStoryClick(story.id);
                           } else if (!liveSessionMode) {
-                            navigate(`/story/${story.id}`);
+                            embedNavigate(`/story/${story.id}`);
                           }
                         }}
                         onAuthorClick={(e) => {
                           e.stopPropagation();
-                          if (!liveSessionMode) navigate(`/p/${story.authorId}`);
+                          if (!liveSessionMode) embedNavigate(`/p/${story.authorId}`);
                         }}
                         getStoryAuthor={getStoryAuthor}
                       />
@@ -617,7 +627,7 @@ export function PointCardWithLinks({
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
-                          if (!liveSessionMode) navigate(`/point/${point.id}`);
+                          if (!liveSessionMode) embedNavigate(`/point/${point.id}`);
                         }}
                         className="text-xs text-blue-600 hover:underline"
                       >
