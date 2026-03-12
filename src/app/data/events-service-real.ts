@@ -4,6 +4,15 @@ import { supabase } from '@/lib/supabase';
 import { invokeEventEmails } from '@/lib/event-emails';
 import { extractBannerKeywords, fetchUnsplashBanner, generateAIBanner } from '@/app/prototypes/events/banner-utils';
 
+// P494: Events stay in "upcoming" for this many hours after their start time.
+// Covers running events, latecomers, and post-event registrations.
+export const EVENT_GRACE_HOURS = 5;
+
+/** Returns an ISO string for `now - EVENT_GRACE_HOURS`. */
+function getGraceCutoff(): string {
+  return new Date(Date.now() - EVENT_GRACE_HOURS * 60 * 60 * 1000).toISOString();
+}
+
 // Debug logging - only in development
 const DEBUG = import.meta.env.DEV;
 const log = (...args: unknown[]) => DEBUG && console.log('[events-service-real]', ...args);
@@ -96,7 +105,7 @@ export const realEventsService: EventsService = {
   async getUpcomingEvents(): Promise<EventWithHost[]> {
     log(' getUpcomingEvents');
 
-    const now = new Date().toISOString();
+    const graceCutoff = getGraceCutoff();
     const { data, error } = await supabase
       .from('events')
       .select(`
@@ -111,7 +120,7 @@ export const realEventsService: EventsService = {
           has_pledged
         )
       `)
-      .gte('datetime', now)
+      .gte('datetime', graceCutoff)
       .in('status', ['upcoming', 'cancelled'])  // Include cancelled future events
       .order('datetime', { ascending: true });
 
@@ -149,9 +158,9 @@ export const realEventsService: EventsService = {
   async getPastEvents(): Promise<EventWithHost[]> {
     log(' getPastEvents');
 
-    const now = new Date().toISOString();
-    // Past events: completed status OR (cancelled AND past datetime)
-    // This excludes upcoming events and cancelled future events
+    const graceCutoff = getGraceCutoff();
+    // Past events: completed status OR (cancelled/upcoming AND past grace cutoff)
+    // Grace cutoff = now - 5 hours, so recently-started events stay in "upcoming"
     const { data, error } = await supabase
       .from('events')
       .select(`
@@ -166,7 +175,7 @@ export const realEventsService: EventsService = {
           has_pledged
         )
       `)
-      .or(`status.eq.completed,and(status.eq.cancelled,datetime.lt.${now}),and(status.eq.upcoming,datetime.lt.${now})`)
+      .or(`status.eq.completed,and(status.eq.cancelled,datetime.lt.${graceCutoff}),and(status.eq.upcoming,datetime.lt.${graceCutoff})`)
       .order('datetime', { ascending: false });
 
     if (error) {
@@ -573,7 +582,7 @@ export const realEventsService: EventsService = {
   async getUserNextEvent(profileId: string): Promise<EventWithHost | null> {
     log(' getUserNextEvent:', profileId);
 
-    const now = new Date().toISOString();
+    const graceCutoff = getGraceCutoff();
 
     // First, get event IDs where user is RSVP'd
     const { data: rsvps, error: rsvpError } = await supabase
@@ -603,7 +612,7 @@ export const realEventsService: EventsService = {
           has_pledged
         )
       `)
-      .gte('datetime', now)
+      .gte('datetime', graceCutoff)
       .eq('status', 'upcoming')
       .or(`host_id.eq.${profileId}${rsvpEventIds.length > 0 ? `,id.in.(${rsvpEventIds.join(',')})` : ''}`)
       .order('datetime', { ascending: true })
@@ -897,7 +906,7 @@ export const realEventsService: EventsService = {
   async getUpcomingPublicEvents(excludeProfileId: string, limit: number): Promise<EventWithHost[]> {
     log(' getUpcomingPublicEvents:', { excludeProfileId, limit });
 
-    const now = new Date().toISOString();
+    const graceCutoff = getGraceCutoff();
 
     // Get event IDs user is already RSVP'd to
     const { data: rsvps } = await supabase
@@ -922,7 +931,7 @@ export const realEventsService: EventsService = {
           has_pledged
         )
       `)
-      .gte('datetime', now)
+      .gte('datetime', graceCutoff)
       .eq('status', 'upcoming')
       .neq('host_id', excludeProfileId)
       .order('datetime', { ascending: true })
