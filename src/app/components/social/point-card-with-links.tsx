@@ -533,21 +533,6 @@ export function PointCardWithLinks({
           )}
         </div>
 
-        {/* P458: "Tell your story" CTA for anonymous users in feed view */}
-        {!currentUserId && !liveSessionMode && (
-          <div
-            role="presentation"
-            className="flex items-center pl-[52px] pr-4 py-2.5 border-t border-gray-100"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <button
-              onClick={(e) => { e.stopPropagation(); navigate(buildAuthGateUrl({ action: 'start-story', pointId: point.id, redirect: `/chat?from=position&pointId=${point.id}` })); }}
-              className="text-sm font-medium text-blue-600 hover:text-blue-700 transition-colors"
-            >
-              Tell your story →
-            </button>
-          </div>
-        )}
 
         {/* P465: Story CTA footer row for feed view — shown when viewer has taken a position + no story yet */}
         {userPosition && !liveSessionMode && (() => {

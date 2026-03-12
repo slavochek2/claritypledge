@@ -426,24 +426,6 @@ export function PointDetailPage() {
                 onPositionClick={handlePositionClick}
               />
 
-              {/* P458: "Tell your story" CTA for anonymous users */}
-              {!user && id && (
-                <div className="mt-3">
-                  <button
-                    onClick={() => {
-                      const url = buildAuthGateUrl({
-                        action: 'start-story',
-                        pointId: id,
-                        redirect: `/chat?from=position&pointId=${id}`,
-                      });
-                      navigate(url);
-                    }}
-                    className="text-sm font-medium text-blue-600 hover:text-blue-700 transition-colors"
-                  >
-                    Tell your story →
-                  </button>
-                </div>
-              )}
             </div>
           </div>
         </div>
