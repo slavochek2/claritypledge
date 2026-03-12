@@ -2,6 +2,22 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-12 [technical]: Polling drift check must cover all mutable live state fields
+
+**Context:** P490 discovered that guest positions weren't syncing to the host because `livePositions` was missing from the polling drift check in `clarity-live-page.tsx`. The drift check compares 14+ fields between server and local state — any omission silently breaks sync for that field.
+**Decision:** When adding new mutable fields to live session state, always add a corresponding drift comparison (JSON.stringify for objects/arrays, direct comparison for primitives) AND include it in the `serverHasUpdate` OR chain AND add it to Mixpanel analytics. The `celebrationAcknowledgedBy` pattern (JSON.stringify comparison) is the template for object fields.
+**Alternatives rejected:** Replacing granular drift checks with a full-state hash (loses per-field analytics and makes debugging harder).
+**Consequences:** New live state fields require a 3-point checklist: (1) drift variable, (2) OR chain inclusion, (3) analytics label.
+**References:** [clarity-live-page.tsx](src/app/pages/clarity-live-page.tsx) ~line 791
+
+## 2026-03-12 [process]: skipMicCheck URL param for browser automation of /live sessions
+
+**Context:** `/verify` browser automation couldn't complete two-party /live session testing because `navigator.mediaDevices.getUserMedia()` triggers a native Chrome permission dialog that no MCP tool can dismiss. The mic check gates session entry via two code paths: `completeJoin()` (guest join flow) and `gateMicAndGoLive()` (authenticated user direct navigation).
+**Decision:** Added `?skipMicCheck=true` URL param that bypasses both mic gates. This follows the same pattern as `joinSessionIsPrivate` (P160 private sessions already skip mic). Not a security concern — mic is for UX quality, not access control.
+**Alternatives rejected:** Chrome DevTools `Browser.grantPermissions` (not exposed via MCP tools). Mocking `getUserMedia` globally (affects real audio recording). E2E tests already mock it differently.
+**Consequences:** `/verify` skill's two-party boot macro should always append `?skipMicCheck=true` to both host and guest URLs.
+**References:** [clarity-live-page.tsx](src/app/pages/clarity-live-page.tsx)
+
 ## 2026-03-12 [product]: Feed is the authenticated home page, auth default redirect → /feed
 
 **Context:** P491 Hashtag Feed introduced `/feed` as the public discovery surface. With feed as the primary content page, authenticated users landing on `/events` post-login felt wrong — events are secondary to the content discovery loop.

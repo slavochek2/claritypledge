@@ -1,7 +1,7 @@
 # Done Features Index
 
 Quick reference for past completed work. Consult when starting work on a related topic.
-Last updated: 2026-03-12 (P491)
+Last updated: 2026-03-12 (P490)
 
 ---
 
@@ -19,6 +19,7 @@ Last updated: 2026-03-12 (P491)
 - **P276** (Feb 26) Two-Party E2E DB Polling — explicit waits reduce flakiness in multi-agent E2E coordination
 - **P469** (Mar 02) /live Layout Revert P455 + KISS Fixes — collapse threshold `> 1` fires with 2 rounds (hides 1 row); raise to `> 2`; `olderRounds` must always compute (don't gate on `hasOlderRounds` or it drops intermediate rounds)
 - **P492** (Mar 11) Guest Post-Session UI — hide "Start New Session" for guests (`isGuest` conditional); guests can't create sessions, only join via invite code
+- **P490** (Mar 12) Guest Position Sync + Unsaved Hint — `livePositions` missing from polling drift check silently broke guest→host sync; `isGuest` prop threading follows `isStoryOwner` pattern (P487); mic permission has two gates (`completeJoin` + `gateMicAndGoLive`) — bypass must cover both
 
 ## Points & Stories
 
