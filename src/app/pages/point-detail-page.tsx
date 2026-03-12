@@ -351,16 +351,18 @@ export function PointDetailPage() {
     }));
 
     return (
-      <div className="max-w-[550px] mx-auto p-3" style={{ overflow: 'hidden' }} ref={(el) => {
-        // Hide body scroll in embed mode and report height to parent for auto-resize
+      <div className="max-w-[550px] mx-auto" style={{ overflow: 'hidden' }} ref={(el) => {
+        // Hide body scroll in embed mode and make background transparent
         if (el) {
           document.body.style.overflow = 'hidden';
           document.body.style.margin = '0';
+          document.body.style.padding = '0';
+          document.body.style.background = 'transparent';
+          document.documentElement.style.background = 'transparent';
           const reportHeight = () => {
-            const height = el.scrollHeight + 24; // 24 = p-3 padding
+            const height = el.scrollHeight;
             window.parent.postMessage({ type: 'claritypledge-embed-resize', height }, '*');
           };
-          // Report initial height and on mutations
           const observer = new ResizeObserver(reportHeight);
           observer.observe(el);
           reportHeight();
