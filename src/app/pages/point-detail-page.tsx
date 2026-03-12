@@ -32,6 +32,8 @@ import { StoryCardWithLinks, type StoryAuthor } from '@/app/components/social/st
 import { PointCardWithLinks, type PointProfileOwner } from '@/app/components/social/point-card-with-links';
 import type { Point as ProtoPoint, Story as ProtoStory } from '@/app/prototypes/shared/types';
 import { LinkedText } from '@/app/components/shared/linked-text';
+import { TagPills } from '@/app/components/shared/tag-pills';
+import { stripHashtags } from '@/lib/utils';
 import { buildAuthGateUrl, toAuthGatePosition } from '@/lib/auth-gate-utils';
 
 /** Normalize positionCounts to SevenPointCounts (ensure all keys present) */
@@ -228,7 +230,7 @@ export function PointDetailPage() {
     if (window.history.length > 1) {
       navigate(-1);
     } else {
-      navigate('/events');
+      navigate('/feed');
     }
   };
 
@@ -405,7 +407,12 @@ export function PointDetailPage() {
             {/* Content column */}
             <div className="flex-1 min-w-0">
               {/* Point text */}
-              <p className="text-foreground font-medium text-lg mb-3"><LinkedText text={point.statement} /></p>
+              <p className="text-foreground font-medium text-lg mb-3"><LinkedText text={stripHashtags(point.statement, point.tags)} /></p>
+
+              {/* Tag pills */}
+              {(point.tags?.length ?? 0) > 0 && (
+                <TagPills tags={point.tags!} context="detail" className="mb-3" />
+              )}
 
               {/* Context (if present) */}
               {point.context && (
@@ -503,6 +510,7 @@ export function PointDetailPage() {
                         author={storyAuthor}
                         context="point-detail"
                         profileSubjectPosition={holder.position}
+                        tags={viewerStory.tags}
                       />
                     );
                   }
@@ -532,6 +540,7 @@ export function PointDetailPage() {
                         author={storyAuthor}
                         context="point-detail"
                         profileSubjectPosition={holder.position}
+                        tags={linkedStory.tags}
                       />
                     );
                   }

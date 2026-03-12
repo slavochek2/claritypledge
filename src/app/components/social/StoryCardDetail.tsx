@@ -27,6 +27,8 @@ import {
   type SevenPointCounts,
 } from '@/app/prototypes/linkedin-like/components/shared';
 import type { StoryWithAuthor, PointSummary, PositionType, PointPosition } from '@/app/types';
+import { TagPills } from '@/app/components/shared/tag-pills';
+import { stripHashtags } from '@/lib/utils';
 
 /** Minimal story shape needed to display a linked story card inside QuotedPoint */
 type LinkedStory = Pick<
@@ -173,7 +175,7 @@ export function StoryCardDetail({
 
           {/* Story text */}
           <p className={`text-foreground break-words ${compact ? 'text-sm line-clamp-3' : 'text-base'}`}>
-            <LinkedText text={story.content} />
+            <LinkedText text={stripHashtags(story.content, story.tags)} />
           </p>
         </div>
       </div>
@@ -248,7 +250,7 @@ export function StoryCardDetail({
 
             {/* Story text - indented under author */}
             <p className={`text-foreground break-words ${compact ? 'text-sm line-clamp-3' : 'text-base'}`}>
-              <LinkedText text={story.content} />
+              <LinkedText text={stripHashtags(story.content, story.tags)} />
             </p>
 
             {/* Stats row - icon-only style */}
@@ -274,6 +276,11 @@ export function StoryCardDetail({
                 </button>
               )}
             </div>
+
+            {/* P491: Tag pills */}
+            {story.tags && story.tags.length > 0 && (
+              <TagPills tags={story.tags} context="detail" className="mt-2" />
+            )}
           </div>
         </div>
       </div>

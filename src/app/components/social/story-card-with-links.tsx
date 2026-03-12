@@ -23,6 +23,8 @@ import {
 import type { Story, Point, PositionButtonGroup } from '@/app/prototypes/shared/types';
 import type { PositionType } from '@/app/prototypes/shared/types';
 import { getPositionGroup, getPositionCTACopy } from '@/app/prototypes/shared/types';
+import { TagPills } from '@/app/components/shared/tag-pills';
+import { stripHashtags } from '@/lib/utils';
 
 /** Display context for StoryCard - controls what's shown */
 export type StoryCardContext = 'profile' | 'point-detail' | 'story-detail';
@@ -64,6 +66,8 @@ interface StoryCardWithLinksProps {
   currentUserId?: string;
   /** Map of pointId → viewer's story count for that point (P456) */
   viewerStoriesPerPoint?: Map<string, number>;
+  /** P491: Tags for tag pill display (prototype Story type lacks tags) */
+  tags?: string[];
 }
 
 /**
@@ -91,12 +95,14 @@ export function StoryCardWithLinks({
   onPointClick,
   currentUserId,
   viewerStoriesPerPoint,
+  tags,
 }: StoryCardWithLinksProps) {
   const navigate = useNavigate();
   const [pointsExpanded, setPointsExpanded] = useState(isDetailView);
   const [textExpanded, setTextExpanded] = useState(false);
   useEffect(() => { setTextExpanded(false); }, [story.id]);
   const _isCurrentUserStory = currentUserId && story.authorId === currentUserId;
+  const displayText = stripHashtags(story.text, tags);
 
   const handleCardClick = () => {
     if (!isDetailView && !disableNavigation) {
@@ -159,9 +165,9 @@ export function StoryCardWithLinks({
           </p>
 
           {/* Story text */}
-          {compact && !textExpanded && story.text.length > 150 ? (
+          {compact && !textExpanded && displayText.length > 150 ? (
             <p className="text-sm text-gray-900 break-words">
-              <LinkedText text={story.text.slice(0, 150)} />
+              <LinkedText text={displayText.slice(0, 150)} />
               <span
                 data-testid="more-link"
                 role="button"
@@ -173,7 +179,7 @@ export function StoryCardWithLinks({
             </p>
           ) : (
             <p className={`text-gray-900 break-words ${compact ? 'text-sm' : 'text-base'}`}>
-              <LinkedText text={story.text} />
+              <LinkedText text={displayText} />
             </p>
           )}
         </div>
@@ -243,9 +249,9 @@ export function StoryCardWithLinks({
             </div>
 
             {/* Story text - indented under author */}
-            {compact && !textExpanded && story.text.length > 150 ? (
+            {compact && !textExpanded && displayText.length > 150 ? (
               <p className="text-sm text-gray-900 break-words">
-                <LinkedText text={story.text.slice(0, 150)} />
+                <LinkedText text={displayText.slice(0, 150)} />
                 <span
                   data-testid="more-link"
                   role="button"
@@ -257,7 +263,7 @@ export function StoryCardWithLinks({
               </p>
             ) : (
               <p className={`text-gray-900 break-words ${compact ? 'text-sm' : 'text-base'}`}>
-                <LinkedText text={story.text} />
+                <LinkedText text={displayText} />
               </p>
             )}
 
@@ -285,6 +291,11 @@ export function StoryCardWithLinks({
                 </button>
               )}
             </div>
+
+            {/* P491: Tag pills */}
+            {tags && tags.length > 0 && (
+              <TagPills tags={tags} context="detail" className="mt-2" />
+            )}
 
             {/* point-detail context: Hide QuotedPoints entirely - Stories are already in Point context */}
           </div>

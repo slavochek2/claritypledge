@@ -23,6 +23,8 @@ import {
 import { LinkedText } from '@/app/components/shared/linked-text';
 import type { Point, Position, Story, PositionType, PositionButtonGroup } from '@/app/prototypes/shared/types';
 import { getPositionGroup, getPositionCTACopy } from '@/app/prototypes/shared/types';
+import { TagPills } from '@/app/components/shared/tag-pills';
+import { stripHashtags } from '@/lib/utils';
 
 /** Author information for a story in quoted context */
 export interface StoryAuthor {
@@ -77,6 +79,8 @@ interface PointCardWithLinksProps {
 
   /** P470: Viewer's story ID for this point on another profile — used to render edit link */
   viewerStoryId?: string;
+  /** P491: Tags for tag pill display (prototype Point type lacks tags) */
+  tags?: string[];
 }
 
 /**
@@ -102,6 +106,7 @@ export function PointCardWithLinks({
   getStoryAuthor,
   onStoryClick,
   viewerStoryId,
+  tags,
 }: PointCardWithLinksProps) {
   const navigate = useNavigate();
   const isEmbed = new URLSearchParams(window.location.search).get('embed') === 'true';
@@ -114,6 +119,7 @@ export function PointCardWithLinks({
       navigate(path);
     }
   };
+  const displayText = stripHashtags(point.text, tags);
   const isOwnProfile = !!(currentUserId && profileOwner?.id && currentUserId === profileOwner.id);
   const [userPosition, setUserPosition] = useState<Position>(
     selectedPosition ?? (currentUserId ? point.positions[currentUserId]?.position ?? null : null)
@@ -267,7 +273,7 @@ export function PointCardWithLinks({
                 <div className="flex-1 min-w-0">
                   {/* Point text */}
                   <p className={`text-gray-900 break-words ${compact ? 'text-sm' : 'text-base'}`}>
-                    <LinkedText text={point.text} />
+                    <LinkedText text={displayText} />
                   </p>
 
                   {/* Position buttons */}
@@ -280,6 +286,11 @@ export function PointCardWithLinks({
                         narrow
                       />
                     </div>
+                  )}
+
+                  {/* P491: Tag pills */}
+                  {tags && tags.length > 0 && (
+                    <TagPills tags={tags} context="detail" className="mt-2" />
                   )}
                 </div>
               </div>
@@ -410,7 +421,7 @@ export function PointCardWithLinks({
 
               {/* Point text - same position as StoryCard text */}
               <p className={`text-gray-900 break-words ${compact ? 'text-sm' : 'text-base'}`}>
-                <LinkedText text={point.text} />
+                <LinkedText text={displayText} />
               </p>
 
               {/* Position buttons */}
@@ -423,6 +434,11 @@ export function PointCardWithLinks({
                     narrow
                   />
                 </div>
+              )}
+
+              {/* P491: Tag pills */}
+              {tags && tags.length > 0 && (
+                <TagPills tags={tags} context="detail" className="mt-2" />
               )}
             </div>
           </div>
@@ -730,21 +746,27 @@ function QuotedStory({
           <EarBadge count={author.ear ?? 0} name={author.name} />
         </div>
       )}
-      {/* Story text */}
-      {!textExpanded && story.text.length > 100 ? (
-        <p className="text-sm text-gray-800 break-words">
-          <LinkedText text={story.text.slice(0, 100)} />
-          <span
-            data-testid="more-link"
-            role="button"
-            tabIndex={0}
-            className="text-blue-600 font-medium cursor-pointer"
-            onClick={(e) => { e.stopPropagation(); setTextExpanded(true); }}
-            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); setTextExpanded(true); } }}
-          > ...more</span>
-        </p>
-      ) : (
-        <p className="text-sm text-gray-800 break-words"><LinkedText text={story.text} /></p>
+      {/* Story text — strip hashtags that are rendered as TagPills */}
+      {(() => {
+        const cleanText = stripHashtags(story.text, story.tags ?? []);
+        return !textExpanded && cleanText.length > 100 ? (
+          <p className="text-sm text-gray-800 break-words">
+            <LinkedText text={cleanText.slice(0, 100)} />
+            <span
+              data-testid="more-link"
+              role="button"
+              tabIndex={0}
+              className="text-blue-600 font-medium cursor-pointer"
+              onClick={(e) => { e.stopPropagation(); setTextExpanded(true); }}
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); setTextExpanded(true); } }}
+            > ...more</span>
+          </p>
+        ) : (
+          <p className="text-sm text-gray-800 break-words"><LinkedText text={cleanText} /></p>
+        );
+      })()}
+      {(story.tags ?? []).length > 0 && (
+        <TagPills tags={story.tags ?? []} context="detail" className="mt-1.5" />
       )}
     </div>
   );

@@ -182,6 +182,18 @@ export interface PointsService {
     viewerUserId?: string
   ): Promise<PointWithUserPosition[]>;
 
+  /**
+   * P491: Get public points feed with optional tag filter.
+   * Returns points ordered by created_at desc with position counts and viewer positions.
+   * Optionally filters by tag using Supabase .contains() on the tags TEXT[] column.
+   */
+  getPublicPointsFeed(
+    limit: number,
+    offset: number,
+    tag?: string,
+    viewerUserId?: string
+  ): Promise<PointWithUserPosition[]>;
+
   // ============================================================================
   // MUTATIONS - Positions
   // ============================================================================

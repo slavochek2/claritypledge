@@ -722,6 +722,84 @@ export const realPointsService: PointsService = {
     }));
   },
 
+  /**
+   * P491: Get public points feed with optional tag filter.
+   * Similar to getPointsForFeedDisplay but adds tag filtering.
+   */
+  async getPublicPointsFeed(
+    limit: number,
+    offset: number,
+    tag?: string,
+    viewerUserId?: string
+  ): Promise<PointWithUserPosition[]> {
+    log('⚡ getPublicPointsFeed:', { limit, offset, tag, viewerUserId });
+
+    let query = supabase
+      .from('points')
+      .select(`
+        *,
+        creator:profiles!points_first_validator_id_fkey (
+          id,
+          name,
+          slug,
+          avatar_color,
+          avatar_url
+        )
+      `);
+
+    if (tag) {
+      query = query.contains('tags', [tag]);
+    }
+
+    const { data, error } = await query
+      .order('created_at', { ascending: false })
+      .range(offset, offset + limit - 1);
+
+    if (error || !data) {
+      log('ERROR: getPublicPointsFeed error:', error);
+      return [];
+    }
+
+    const points = (data as DbPointWithCreator[]).map(mapPointFromDb);
+    if (points.length === 0) return [];
+
+    // Batch fetch position counts
+    const pointIds = points.map(p => p.id);
+    const countsMap = new Map<string, Record<PositionType, number>>();
+
+    const { data: positions, error: posError } = await supabase
+      .from('point_positions')
+      .select('point_id, position')
+      .in('point_id', pointIds);
+
+    if (!posError && positions) {
+      pointIds.forEach(id => countsMap.set(id, emptyPositionCounts()));
+      positions.forEach(pos => {
+        const counts = countsMap.get(pos.point_id);
+        if (counts && pos.position) {
+          counts[pos.position as PositionType]++;
+        }
+      });
+    }
+
+    // Optionally fetch viewer positions
+    let viewerPositionsMap = new Map<string, PointPosition>();
+    if (viewerUserId) {
+      viewerPositionsMap = await this.getMyPositionsForPoints(pointIds, viewerUserId);
+    }
+
+    return points.map(point => {
+      const positionCounts = countsMap.get(point.id) || emptyPositionCounts();
+      const totalPositions = Object.values(positionCounts).reduce((sum, n) => sum + n, 0);
+      return {
+        ...point,
+        positionCounts,
+        totalPositions,
+        userPosition: viewerPositionsMap.get(point.id),
+      };
+    });
+  },
+
   // ============================================================================
   // MUTATIONS - Positions
   // ============================================================================

@@ -67,6 +67,13 @@ export interface StoriesService {
   getStoriesFeed(limit: number, offset: number): Promise<StoryWithAuthor[]>;
 
   /**
+   * P491: Get public stories feed with optional tag filter.
+   * Returns only stories with visibility='public', ordered by created_at desc.
+   * Optionally filters by tag using Supabase .contains() on the tags TEXT[] column.
+   */
+  getPublicStoriesFeed(limit: number, offset: number, tag?: string): Promise<StoryWithAuthor[]>;
+
+  /**
    * Get public stories that contain any of the given points.
    * Returns a Map<pointId, StoryWithAuthor[]>.
    * @param excludeStoryId - Omit this story from results (e.g., the currently-viewed story)

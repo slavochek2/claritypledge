@@ -529,7 +529,7 @@ export function AuthCallbackPage() {
         && redirectPath.startsWith('/')
         && !redirectPath.startsWith('//')
         && ALLOWED_REDIRECT_PREFIXES.some(prefix => redirectPath === prefix || redirectPath.startsWith(prefix + '/') || redirectPath.startsWith(prefix + '?'));
-      const finalRedirect = isValidRedirect ? redirectPath : '/events';
+      const finalRedirect = isValidRedirect ? redirectPath : '/feed';
       navigate(finalRedirect, { replace: true });
     };
 

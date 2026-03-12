@@ -196,7 +196,7 @@ describe('CRITICAL AUTH FLOW', () => {
         });
 
         // P62: Should redirect to dashboard
-        expect(mockNavigate).toHaveBeenCalledWith('/events', { replace: true });
+        expect(mockNavigate).toHaveBeenCalledWith('/feed', { replace: true });
       });
     });
 
@@ -250,7 +250,7 @@ describe('CRITICAL AUTH FLOW', () => {
         });
 
         // P62: Should redirect to dashboard
-        expect(mockNavigate).toHaveBeenCalledWith('/events', { replace: true });
+        expect(mockNavigate).toHaveBeenCalledWith('/feed', { replace: true });
       });
     });
 
@@ -293,7 +293,7 @@ describe('CRITICAL AUTH FLOW', () => {
         const secondCall = mockUpsert.mock.calls[1][0];
         expect(secondCall.slug).toBe('john-doe-2');
         // P62: Redirects to dashboard
-        expect(mockNavigate).toHaveBeenCalledWith('/events', { replace: true });
+        expect(mockNavigate).toHaveBeenCalledWith('/feed', { replace: true });
       });
     });
 
@@ -358,7 +358,7 @@ describe('CRITICAL AUTH FLOW', () => {
         const finalCall = mockUpsert.mock.calls[3][0];
         expect(finalCall.slug).toBe(`popular-name-${mockTimestamp}`);
         // P62: Redirects to dashboard
-        expect(mockNavigate).toHaveBeenCalledWith('/events', { replace: true });
+        expect(mockNavigate).toHaveBeenCalledWith('/feed', { replace: true });
       });
 
       vi.restoreAllMocks();
@@ -429,7 +429,7 @@ describe('CRITICAL AUTH FLOW', () => {
         expect(upsertData.has_pledged).toBe(false);
         expect(upsertData.is_verified).toBe(true);
         // Should redirect to dashboard, not signup
-        expect(mockNavigate).toHaveBeenCalledWith('/events', { replace: true });
+        expect(mockNavigate).toHaveBeenCalledWith('/feed', { replace: true });
       });
     });
 
@@ -463,7 +463,7 @@ describe('CRITICAL AUTH FLOW', () => {
         // P64: signup flow creates account with has_pledged=false
         expect(upsertData.has_pledged).toBe(false);
         // Should redirect to dashboard
-        expect(mockNavigate).toHaveBeenCalledWith('/events', { replace: true });
+        expect(mockNavigate).toHaveBeenCalledWith('/feed', { replace: true });
       });
     });
   });
