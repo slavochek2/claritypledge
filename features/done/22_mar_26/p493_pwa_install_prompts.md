@@ -1,10 +1,10 @@
 ---
-status: qa
+status: all-done
 type: feature
 rank: 250004.75
 workstream: E3
 created_date: 2026-03-11
-delivery_stage: uat
+completed_at: "2026-03-12"
 tags: [pwa, mobile, install]
 ---
 

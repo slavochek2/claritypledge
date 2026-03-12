@@ -14,6 +14,18 @@ import { render, screen } from '@testing-library/react';
 import { BrowserRouter } from 'react-router-dom';
 import { PartnerLeftScreen } from '@/app/components/partners/live-mode-view';
 
+// Mock usePwaInstall — P493 added InstallBanner to PartnerLeftScreen
+vi.mock('@/hooks/use-pwa-install', () => ({
+  usePwaInstall: () => ({
+    isInstalled: false,
+    canPrompt: false,
+    isIOS: false,
+    isDismissed: false,
+    isDesktop: true,
+    promptInstall: vi.fn(),
+  }),
+}));
+
 const renderPartnerLeft = (props: Partial<Parameters<typeof PartnerLeftScreen>[0]> = {}) => {
   return render(
     <BrowserRouter>
