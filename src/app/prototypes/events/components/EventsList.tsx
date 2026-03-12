@@ -51,7 +51,7 @@ export function EventsList() {
     <div className="min-h-screen bg-background">
       {/* Header */}
       <div className="max-w-5xl mx-auto px-4 pt-6 pb-4">
-        <h1 className="text-2xl font-bold mb-4">{isLoggedIn ? "My Events" : "Events"}</h1>
+        <h1 className="text-2xl font-bold mb-4">Events</h1>
 
         {/* Tabs and Action Buttons Row */}
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">

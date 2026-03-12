@@ -46,7 +46,7 @@ export function PrototypeHeader() {
   };
 
   const navItems: NavItem[] = [
-    { path: routes.myEvents, label: 'My Events', icon: CalendarDays },
+    { path: routes.myEvents, label: 'Events', icon: CalendarDays },
     { path: routes.sift, label: 'Create', icon: Sparkles },
     { path: routes.profile, label: 'My Profile', icon: User },
   ];

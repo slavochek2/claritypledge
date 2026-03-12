@@ -48,7 +48,7 @@ export function BottomNav() {
     },
     {
       icon: CalendarIcon,
-      label: "My Events",
+      label: "Events",
       to: "/events",
     },
     {

@@ -29,12 +29,12 @@ export const routes = {
 
 // Primary navigation for logged-in users (LinkedIn-style)
 export const primaryNav = [
-  { id: 'my-events', label: 'My Events', path: routes.myEvents },
+  { id: 'my-events', label: 'Events', path: routes.myEvents },
   { id: 'profile', label: 'My Profile', path: routes.profile },
 ] as const;
 
 // Legacy: old tabs config (kept for backward compat)
 export const navTabs = [
-  { id: 'my-events', label: 'My Events', path: routes.myEvents },
+  { id: 'my-events', label: 'Events', path: routes.myEvents },
   { id: 'profile', label: 'Profile', path: routes.profile },
 ] as const;

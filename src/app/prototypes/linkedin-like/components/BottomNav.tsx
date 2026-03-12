@@ -9,7 +9,7 @@ interface NavItem {
 }
 
 const navItems: NavItem[] = [
-  { path: routes.myEvents, label: 'My Events', icon: <CalendarDays size={20} /> },
+  { path: routes.myEvents, label: 'Events', icon: <CalendarDays size={20} /> },
   { path: routes.sift, label: 'Create', icon: <PenLine size={20} /> },
   { path: routes.profile, label: 'My Profile', icon: <User size={20} /> },
 ];
@@ -19,7 +19,7 @@ export function BottomNav() {
   const navigate = useNavigate();
 
   const isActive = (path: string) => {
-    // My Events is active for my-events, story, and point detail pages
+    // Events is active for my-events, story, and point detail pages
     if (path === routes.myEvents && (
       location.pathname.includes('/my-events') ||
       location.pathname.includes('/story/') ||
@@ -45,7 +45,7 @@ export function BottomNav() {
   return (
     <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 shadow-[0_-2px_10px_rgba(0,0,0,0.08)] z-50 lg:hidden">
       <div className="flex items-center justify-around h-14 max-w-lg mx-auto px-2 pb-[env(safe-area-inset-bottom)]">
-        {/* My Events */}
+        {/* Events */}
         <button
           onClick={() => navigate(navItems[0].path)}
           className={getButtonClasses(isActive(navItems[0].path))}
