@@ -47,7 +47,8 @@ export function ShareDialog({
   const isEmbed = new URLSearchParams(window.location.search).get('embed') === 'true';
   const showEmbedOption = !isEmbed && (type === 'story' || type === 'point');
 
-  const embedCode = `<iframe src="${url}?embed=true" width="100%" height="400" frameborder="0" style="border: none;"></iframe>`;
+  const embedCode = `<iframe id="cp-embed" src="${url}?embed=true" width="100%" height="400" frameborder="0" style="border: none;" scrolling="no"></iframe>
+<script>window.addEventListener("message",e=>{if(e.data?.type==="claritypledge-embed-resize")document.getElementById("cp-embed").height=e.data.height});</script>`;
 
   const handleCopy = async () => {
     try {

@@ -351,7 +351,21 @@ export function PointDetailPage() {
     }));
 
     return (
-      <div className="max-w-[550px] mx-auto p-3">
+      <div className="max-w-[550px] mx-auto p-3" style={{ overflow: 'hidden' }} ref={(el) => {
+        // Hide body scroll in embed mode and report height to parent for auto-resize
+        if (el) {
+          document.body.style.overflow = 'hidden';
+          document.body.style.margin = '0';
+          const reportHeight = () => {
+            const height = el.scrollHeight + 24; // 24 = p-3 padding
+            window.parent.postMessage({ type: 'claritypledge-embed-resize', height }, '*');
+          };
+          // Report initial height and on mutations
+          const observer = new ResizeObserver(reportHeight);
+          observer.observe(el);
+          reportHeight();
+        }
+      }}>
         <RemovePositionDialog {...dialogProps} />
         <PointCardWithLinks
           point={protoPoint}
