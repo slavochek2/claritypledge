@@ -1666,8 +1666,12 @@ export function ClarityLivePage() {
       // Note: We check permission directly, NOT via gateMicAndGoLive which also changes view
       console.log('[Join] Checking mic permission before joining session...');
 
+      // P490: Allow /verify browser automation to skip the native mic permission dialog
+      // (Chrome's getUserMedia dialog is not dismissible by automation tools)
+      const skipMicCheck = new URLSearchParams(window.location.search).get('skipMicCheck') === 'true';
+
       // Gate B (P160): private sessions don't need mic permission
-      let hasMicPermission = joinSessionIsPrivate || micStatus === 'granted';
+      let hasMicPermission = skipMicCheck || joinSessionIsPrivate || micStatus === 'granted';
       if (!hasMicPermission) {
         hasMicPermission = await requestMicPermission();
       }
@@ -2148,9 +2152,12 @@ export function ClarityLivePage() {
   // This ensures users grant microphone access BEFORE seeing the live meeting UI
   // Returns true if transitioned to live, false if blocked by permission dialog
   const gateMicAndGoLive = useCallback(async (): Promise<boolean> => {
+    // P490: Allow /verify browser automation to skip the native mic permission dialog
+    const skipMicCheck = new URLSearchParams(window.location.search).get('skipMicCheck') === 'true';
+
     // Gate D (P160): private sessions bypass mic check entirely
-    if (isPrivate) {
-      console.log('[B48] Private session — skipping mic check, transitioning to live');
+    if (isPrivate || skipMicCheck) {
+      console.log('[B48] Private session or skipMicCheck — skipping mic check, transitioning to live');
       setView('live');
       return true;
     }
