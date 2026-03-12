@@ -6,6 +6,7 @@ workstream: E2
 created_date: 2026-03-12
 flow: quick-feature
 tags: [events]
+delivery_stage: uat
 uat_file: features/uat/p494.md
 test_files:
   - src/tests/event-grace-period.test.ts
@@ -45,11 +46,11 @@ Also check: `getUserNextEvent()`, `getUpcomingPublicEvents()` in events-service-
 
 ## Acceptance Criteria
 
-- [ ] Events remain in "upcoming" section for 5 hours after their start time
-- [ ] Events appear in "past" section only after start time + 5 hours
-- [ ] Registration (RSVP) still works during grace period
-- [ ] Dashboard "next event" widget shows events during grace period
-- [ ] "Discover events" shows events during grace period
+- [x] Events remain in "upcoming" section for 5 hours after their start time
+- [x] Events appear in "past" section only after start time + 5 hours
+- [x] Registration (RSVP) still works during grace period
+- [x] Dashboard "next event" widget shows events during grace period
+- [x] "Discover events" shows events during grace period
 
 ## Testing
 
