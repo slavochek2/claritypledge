@@ -2,6 +2,14 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-12 [product]: PWA install surfaces are mobile-only — hide all on desktop
+
+**Context:** P493 added three PWA install surfaces (settings card, session-end banner, celebration link). Desktop users don't install web apps to home screens. Two surfaces already had `isDesktop` guards, but the settings card was missing one — and even after adding it, the parent "App" section heading in `settings-page.tsx` remained visible as an orphan.
+**Decision:** All PWA install UI returns `null` on desktop via `isDesktop` from `usePwaInstall()`. Parent wrappers that render section headings around PWA components must also be guarded — a child returning `null` doesn't hide its parent's heading/container.
+**Alternatives rejected:** (1) CSS `display:none` on desktop — keeps DOM weight. (2) Only guard at the component level — leaves orphaned headings.
+**Consequences:** Any future PWA surface must include `isDesktop` guard. Settings page wraps the "App" section in `{!isDesktop && (...)}` for defense in depth.
+**References:** [install-card.tsx](../src/app/components/pwa/install-card.tsx), [settings-page.tsx](../src/app/pages/settings-page.tsx)
+
 ## 2026-03-12 [process]: Auth-dependent UATs must have E2E coverage — not manual-only
 
 **Context:** P491 had 14 UAT scenarios. `/generate-tests` produced E2E specs that only covered anonymous flows. 4 auth-dependent UATs (home redirect, bottom nav, menu relocation) were left as "manual testing" despite `e2e/helpers/test-user.ts` providing `createTestUser()`, `setTestSession()`, and `deleteTestUser()` since P405. This pattern recurred across features — auth UATs accumulated as untested debt.

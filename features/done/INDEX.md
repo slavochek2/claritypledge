@@ -1,7 +1,7 @@
 # Done Features Index
 
 Quick reference for past completed work. Consult when starting work on a related topic.
-Last updated: 2026-03-11 (P492)
+Last updated: 2026-03-12 (P493)
 
 ---
 
@@ -63,6 +63,7 @@ Last updated: 2026-03-11 (P492)
 
 ## UI / Design System
 
+- **P493** (Mar 12) PWA Install Prompts — desktop `isDesktop` guard needed on both child component AND parent wrapper; child returning `null` leaves orphaned section headings
 - **P455** (Mar 02) Live Mobile Layout Story Compact Reorder — CSS line-clamp + character-slice on same element conflict silently; use one truncation system only
 - **P408** (Feb 26) Position Cancel Visual Glitch — only call `setUserPosition` for non-null positions on cancel
 - **P402** (Feb 26) Profile Points Tab Wrong Query — query by positions held, not points created; batch load to avoid N+1
