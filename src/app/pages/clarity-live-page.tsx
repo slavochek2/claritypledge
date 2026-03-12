@@ -789,8 +789,11 @@ export function ClarityLivePage() {
         // celebrationAcknowledgedBy must be in drift check so both parties can coordinate
         // the two-party Continue when Realtime is unavailable (mobile WebSocket dropout).
         const celebrationAcknowledgedByDrift = (serverState.celebrationAcknowledgedBy?.length ?? 0) !== (localState.celebrationAcknowledgedBy?.length ?? 0);
+        // P490: livePositions missing from drift check caused guest positions to never sync
+        // when Realtime WebSocket dropped. JSON.stringify comparison consistent with celebrationAcknowledgedBy pattern.
+        const livePositionsDrift = JSON.stringify(serverState.livePositions ?? {}) !== JSON.stringify(localState.livePositions ?? {});
 
-        const serverHasUpdate = phaseDrift || checkerNameDrift || checkerDrift || checkerRatingDrift || responderDrift || responderRatingDrift || explainBackDoneDrift || checksCountDrift || clarificationPhaseDrift || roleSwitchNegotiationDrift || selectedStoryIdDrift || selectedStoryDataDrift || selectedContentTitleDrift || celebrationAcknowledgedByDrift;
+        const serverHasUpdate = phaseDrift || checkerNameDrift || checkerDrift || checkerRatingDrift || responderDrift || responderRatingDrift || explainBackDoneDrift || checksCountDrift || clarificationPhaseDrift || roleSwitchNegotiationDrift || selectedStoryIdDrift || selectedStoryDataDrift || selectedContentTitleDrift || celebrationAcknowledgedByDrift || livePositionsDrift;
 
         if (serverHasUpdate) {
           // Track in Mixpanel (non-blocking - don't let analytics errors break the app)
@@ -803,6 +806,7 @@ export function ClarityLivePage() {
               checkerDrift,
               responderDrift,
               explainBackDoneDrift,
+              livePositionsDrift,
             });
           } catch (err) {
             // Analytics failure shouldn't break the app, but log for visibility
@@ -1662,8 +1666,12 @@ export function ClarityLivePage() {
       // Note: We check permission directly, NOT via gateMicAndGoLive which also changes view
       console.log('[Join] Checking mic permission before joining session...');
 
+      // P490: Allow /verify browser automation to skip the native mic permission dialog
+      // (Chrome's getUserMedia dialog is not dismissible by automation tools)
+      const skipMicCheck = new URLSearchParams(window.location.search).get('skipMicCheck') === 'true';
+
       // Gate B (P160): private sessions don't need mic permission
-      let hasMicPermission = joinSessionIsPrivate || micStatus === 'granted';
+      let hasMicPermission = skipMicCheck || joinSessionIsPrivate || micStatus === 'granted';
       if (!hasMicPermission) {
         hasMicPermission = await requestMicPermission();
       }
@@ -2144,9 +2152,12 @@ export function ClarityLivePage() {
   // This ensures users grant microphone access BEFORE seeing the live meeting UI
   // Returns true if transitioned to live, false if blocked by permission dialog
   const gateMicAndGoLive = useCallback(async (): Promise<boolean> => {
+    // P490: Allow /verify browser automation to skip the native mic permission dialog
+    const skipMicCheck = new URLSearchParams(window.location.search).get('skipMicCheck') === 'true';
+
     // Gate D (P160): private sessions bypass mic check entirely
-    if (isPrivate) {
-      console.log('[B48] Private session — skipping mic check, transitioning to live');
+    if (isPrivate || skipMicCheck) {
+      console.log('[B48] Private session or skipMicCheck — skipping mic check, transitioning to live');
       setView('live');
       return true;
     }

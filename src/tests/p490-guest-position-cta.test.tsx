@@ -60,7 +60,7 @@ const renderCard = (props: Partial<Parameters<typeof LiveStoryCardExpanded>[0]> 
 
 describe('P490: Guest position CTA in LiveStoryCardExpanded', () => {
   describe('Guest user (isGuest=true)', () => {
-    it.skip('shows "sign up to save" hint when guest has set a position', () => {
+    it('shows "sign up to save" hint when guest has set a position', () => {
       renderCard({
         story: makeStory({ userPosition: 'disagree' }),
         isGuest: true,
@@ -69,7 +69,7 @@ describe('P490: Guest position CTA in LiveStoryCardExpanded', () => {
       expect(screen.getByText(/sign up to save/i)).toBeInTheDocument();
     });
 
-    it.skip('does NOT show "Tell your story" CTA for guests', () => {
+    it('does NOT show "Tell your story" CTA for guests', () => {
       renderCard({
         story: makeStory({ userPosition: 'agree' }),
         isGuest: true,

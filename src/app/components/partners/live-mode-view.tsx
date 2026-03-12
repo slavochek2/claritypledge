@@ -387,6 +387,7 @@ export function LiveModeView({
   const prevSkippedByRef = useRef<string | undefined>(undefined);
   // Badge person name: host sees partner's name in badge; partner sees host's name (default)
   const isAuthorOfSelected = userId !== undefined && selectedStory?.authorId === userId;
+  const isGuest = userId === undefined;
   const badgePersonName = isAuthorOfSelected ? getFirstName(partnerName) : undefined;
   const badgePersonEarsCount = isAuthorOfSelected ? partnerEarsCount : undefined;
 
@@ -559,6 +560,7 @@ export function LiveModeView({
           badgePersonName={badgePersonName}
           badgePersonEarsCount={badgePersonEarsCount}
           isStoryOwner={isAuthorOfSelected}
+          isGuest={isGuest}
           currentUserName={currentUserName}
                   />
         {skipNotificationDialog}
@@ -593,6 +595,7 @@ export function LiveModeView({
           badgePersonName={badgePersonName}
           badgePersonEarsCount={badgePersonEarsCount}
           isStoryOwner={isAuthorOfSelected}
+          isGuest={isGuest}
                   />
         {skipNotificationDialog}
         {confirmSkipDialog}
@@ -622,6 +625,7 @@ export function LiveModeView({
           badgePersonName={badgePersonName}
           badgePersonEarsCount={badgePersonEarsCount}
           isStoryOwner={isAuthorOfSelected}
+          isGuest={isGuest}
           currentUserName={currentUserName}
                   />
         {skipNotificationDialog}
@@ -649,6 +653,7 @@ export function LiveModeView({
           badgePersonName={badgePersonName}
           badgePersonEarsCount={badgePersonEarsCount}
           isStoryOwner={isAuthorOfSelected}
+          isGuest={isGuest}
                   />
         {skipNotificationDialog}
         {confirmSkipDialog}
@@ -677,6 +682,7 @@ export function LiveModeView({
             badgePersonName={badgePersonName}
             badgePersonEarsCount={badgePersonEarsCount}
             isStoryOwner={isAuthorOfSelected}
+            isGuest={isGuest}
             currentUserName={currentUserName}
                       />
           {skipNotificationDialog}
@@ -713,6 +719,7 @@ export function LiveModeView({
           selectedStory={selectedStory}
           onPositionSelect={onPositionSelect}
           onClearStory={onClearStory}
+          isGuest={isGuest}
                   />
         {skipNotificationDialog}
         {confirmSkipDialog}
@@ -750,6 +757,7 @@ export function LiveModeView({
           onPositionSelect={onPositionSelect}
           onClearStory={onClearStory}
           isStoryOwner={isAuthorOfSelected}
+          isGuest={isGuest}
                   />
         {skipNotificationDialog}
         {confirmSkipDialog}
@@ -777,6 +785,7 @@ export function LiveModeView({
         badgePersonName={badgePersonName}
         badgePersonEarsCount={badgePersonEarsCount}
         isStoryOwner={isAuthorOfSelected}
+        isGuest={isGuest}
         currentUserName={currentUserName}
               />
       {skipNotificationDialog}
@@ -826,6 +835,8 @@ interface IdleScreenProps {
   isStoryOwner?: boolean;
   /** Current user's name — used to merge live positions into history story snapshots */
   currentUserName: string;
+  /** P490: When true, user is a guest (unauthenticated) — shows "sign up to save" hint instead of CTA */
+  isGuest?: boolean;
 }
 
 function IdleScreen({
@@ -850,6 +861,7 @@ function IdleScreen({
   badgePersonEarsCount,
   isStoryOwner = false,
   _currentUserName,
+  isGuest = false,
 }: IdleScreenProps) {
   const displayPartnerName = getFirstName(partnerName);
   const checkerName = liveState.checkerName ? getFirstName(liveState.checkerName) : '';
@@ -1014,6 +1026,7 @@ function IdleScreen({
               <LiveStoryCardExpanded
                 story={selectedStory}
                 isOwnStory={isStoryOwner}
+                isGuest={isGuest}
                 onPositionSelect={onPositionSelect}
                 className="w-full max-w-sm mb-2"
                 badgePersonName={badgePersonName}
@@ -1143,6 +1156,8 @@ interface ResponderWaitingWithDrawerProps {
   badgePersonEarsCount?: number;
   isStoryOwner?: boolean;
   currentUserName: string;
+  /** P490: When true, user is a guest (unauthenticated) — shows "sign up to save" hint instead of CTA */
+  isGuest?: boolean;
 }
 
 function ResponderWaitingWithDrawer({
@@ -1159,6 +1174,7 @@ function ResponderWaitingWithDrawer({
   badgePersonEarsCount,
   isStoryOwner,
   currentUserName,
+  isGuest = false,
 }: ResponderWaitingWithDrawerProps) {
   return (
     <IdleScreen
@@ -1176,6 +1192,7 @@ function ResponderWaitingWithDrawer({
       badgePersonEarsCount={badgePersonEarsCount}
       isStoryOwner={isStoryOwner}
       currentUserName={currentUserName}
+      isGuest={isGuest}
           />
   );
 }
@@ -1206,6 +1223,8 @@ interface RatingScreenProps {
   onClearStory?: () => void;
   /** When true, current user owns the selected story — suppresses the "Tell your story" CTA */
   isStoryOwner?: boolean;
+  /** P490: When true, user is a guest (unauthenticated) — shows "sign up to save" hint instead of CTA */
+  isGuest?: boolean;
 }
 
 function RatingScreen({
@@ -1223,6 +1242,7 @@ function RatingScreen({
   badgePersonEarsCount,
   onClearStory,
   isStoryOwner = false,
+  isGuest = false,
 }: RatingScreenProps) {
   const displayPartnerName = getFirstName(partnerName);
   const checkerName = liveState.checkerName ? getFirstName(liveState.checkerName) : '';
@@ -1277,6 +1297,7 @@ function RatingScreen({
           <LiveStoryCardExpanded
             story={selectedStory}
             isOwnStory={isStoryOwner}
+            isGuest={isGuest}
             onPositionSelect={onPositionSelect}
             className="w-full max-w-sm mb-2"
             badgePersonName={badgePersonName}
@@ -1348,6 +1369,8 @@ interface RatingScreenWithOptionalDrawerProps {
   onClearStory?: () => void;
   /** When true, current user owns the selected story — suppresses the "Tell your story" CTA */
   isStoryOwner?: boolean;
+  /** P490: When true, user is a guest (unauthenticated) — shows "sign up to save" hint instead of CTA */
+  isGuest?: boolean;
 }
 
 function RatingScreenWithOptionalDrawer({
@@ -1367,6 +1390,7 @@ function RatingScreenWithOptionalDrawer({
   badgePersonEarsCount,
   onClearStory,
   isStoryOwner = false,
+  isGuest = false,
 }: RatingScreenWithOptionalDrawerProps) {
   const displayPartnerName = getFirstName(partnerName);
   const checkerName = liveState.checkerName ? getFirstName(liveState.checkerName) : displayPartnerName;
@@ -1431,6 +1455,7 @@ function RatingScreenWithOptionalDrawer({
           <LiveStoryCardExpanded
             story={selectedStory}
             isOwnStory={isStoryOwner}
+            isGuest={isGuest}
             onPositionSelect={onPositionSelect}
             className="w-full max-w-sm mb-2"
             badgePersonName={badgePersonName}
@@ -2028,6 +2053,8 @@ interface UnderstandingScreenProps {
   onClearStory?: () => void;
   /** When true, the current user owns the selected story — suppresses the "Tell your story" CTA */
   isStoryOwner?: boolean;
+  /** P490: When true, user is a guest (unauthenticated) — shows "sign up to save" hint instead of CTA */
+  isGuest?: boolean;
 }
 
 function UnderstandingScreen({
@@ -2056,6 +2083,7 @@ function UnderstandingScreen({
   onPositionSelect,
   onClearStory,
   isStoryOwner = false,
+  isGuest = false,
 }: UnderstandingScreenProps) {
   const displayPartnerName = getFirstName(partnerName);
   const checkerName = liveState.checkerName ? getFirstName(liveState.checkerName) : '';
@@ -3028,6 +3056,7 @@ function UnderstandingScreen({
           <LiveStoryCardExpanded
             story={selectedStory}
             isOwnStory={isStoryOwner}
+            isGuest={isGuest}
             onPositionSelect={onPositionSelect}
             className="w-full max-w-sm mb-2"
           />

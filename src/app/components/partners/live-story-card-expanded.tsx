@@ -50,6 +50,8 @@ interface LiveStoryCardExpandedProps {
   story: StoryWithPoints;
   /** When true, the current user owns this story — suppresses the "Tell your story" CTA */
   isOwnStory?: boolean;
+  /** P490: When true, user is a guest (unauthenticated) — shows "sign up to save" hint instead of CTA */
+  isGuest?: boolean;
   onPositionSelect?: (pointId: string, position: PositionType | null) => void;
   className?: string;
   /** When set, overrides authorName in the position badge (used in host view to show partner's name) */
@@ -65,6 +67,7 @@ const STORY_THRESHOLD = 100;
 export function LiveStoryCardExpanded({
   story,
   isOwnStory = false,
+  isGuest = false,
   onPositionSelect,
   className,
   badgePersonName,
@@ -180,6 +183,7 @@ export function LiveStoryCardExpanded({
               badgePersonName={badgePersonName}
               badgePersonEarsCount={badgePersonEarsCount}
               isOwnStory={isOwnStory}
+              isGuest={isGuest}
             />
           ) : (
             <ThreadLineGroup>
@@ -196,6 +200,7 @@ export function LiveStoryCardExpanded({
                     badgePersonName={badgePersonName}
                     badgePersonEarsCount={badgePersonEarsCount}
                     isOwnStory={isOwnStory}
+                    isGuest={isGuest}
                   />
                 </ThreadLineItem>
               ))}
@@ -218,6 +223,7 @@ function PointRow({
   badgePersonName,
   badgePersonEarsCount,
   isOwnStory = false,
+  isGuest = false,
 }: {
   point: PointSummary;
   authorName: string;
@@ -229,6 +235,7 @@ function PointRow({
   badgePersonName?: string;
   badgePersonEarsCount?: number;
   isOwnStory?: boolean;
+  isGuest?: boolean;
 }) {
   // Local state so button highlights immediately on click, independent of the
   // frozen selectedStoryData snapshot. Echoes to onPositionSelect for liveState sync.
@@ -287,9 +294,18 @@ function PointRow({
           narrow
         />
 
+        {/* P490: Guest hint — positions are ephemeral, prompt to sign up */}
+        {isGuest && userPosition && (
+          <div className="border-t border-gray-200 pt-2">
+            <p className="text-xs text-gray-500">
+              Position shared live — sign up to save it
+            </p>
+          </div>
+        )}
+
         {/* P456: Disabled story CTA footer — visible but non-interactive in /live session.
             P487+: Hidden on own story — use shouldShowStoryCTA shared utility. */}
-        {shouldShowStoryCTA({ userPosition, isOwnStory }) === 'show' && (() => {
+        {!isGuest && shouldShowStoryCTA({ userPosition, isOwnStory }) === 'show' && (() => {
           const positionGroup = getPositionGroup(userPosition!);
           const copy = getPositionCTACopy(positionGroup);
 
