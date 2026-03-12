@@ -2,6 +2,22 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-12 [process]: Terms version bump must be enforced mechanically, not by memory
+
+**Context:** ToS was materially updated on 2026-03-04 (Gemini AI processing, partner agreements, story visibility) but `CURRENT_TERMS_VERSION` was never bumped from `v1.0`. Users who accepted before the update were never re-prompted — a legal compliance gap. Root cause: the `/tos-review` skill didn't include a version bump step, and no pre-commit check caught the drift.
+**Decision:** Three-layer enforcement: (1) `/tos-review` skill Stage 7b — mandatory version bump step, (2) pre-commit check in `scripts/pre-commit-checks.sh` — warns if `tos.md` or `copy.ts` changes without `constants.ts`, (3) unit test in `consent-api.test.ts` hardcodes expected version. Bumped to `v1.1`.
+**Alternatives rejected:** Manual discipline alone (already failed once). Automated version derivation from git hash (too opaque for legal audits — need human-readable version).
+**Consequences:** Next ToS update will trigger warnings at skill, pre-commit, and test levels. Version must be bumped explicitly, which creates a clear audit trail.
+**References:** [constants.ts](src/lib/constants.ts), [tos-review skill](.claude/commands/slava/maintain/tos-review/SKILL.md), [pre-commit-checks.sh](scripts/pre-commit-checks.sh)
+
+## 2026-03-12 [technical]: Google OAuth — use `select_account` not `consent` prompt
+
+**Context:** Google sign-in was noticeably slow. Root cause: `prompt: 'consent'` in `signInWithGoogle()` forced the full Google permissions consent screen on every login, even for returning users. Combined with `access_type: 'offline'` (requests refresh token, unnecessary for client-side SPA).
+**Decision:** Changed to `prompt: 'select_account'` (account picker only, skips consent if already granted) and removed `access_type: 'offline'`. Also scoped the `/live` user migration check to `isLiveRegistration` only (saves a DB query for 90%+ of OAuth flows).
+**Alternatives rejected:** Removing `prompt` entirely (would auto-select single-account users but confusing for multi-account). Keeping `access_type: 'offline'` (no server-side token refresh needed).
+**Consequences:** Returning Google users see account picker only (faster). First-time users still see consent once (automatic). Avatar fetching still works (profile scope granted on first consent).
+**References:** [api.ts signInWithGoogle](src/app/data/api.ts), [AuthCallbackPage.tsx](src/auth/AuthCallbackPage.tsx)
+
 ## 2026-03-12 [technical]: CTA visibility must use shouldShowStoryCTA utility — never inline conditions
 
 **Context:** P494 found two "Tell your story →" CTA blocks (in `point-detail-page.tsx` and `point-card-with-links.tsx`) with inverted visibility logic — showing for anonymous users (`!user`) instead of authenticated users with a position and no story. Root cause: P458 added these as anonymous signup nudges. When the product intent changed (CTA only for auth + position + no story), correct blocks were added alongside but the P458 blocks were never removed. The `shouldShowStoryCTA` utility in `types.ts` already enforces the correct three-condition gate and is used by `live-story-card-expanded.tsx`, but the two oldest surfaces predated it.

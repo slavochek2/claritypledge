@@ -17,60 +17,58 @@ NC='\033[0m' # No Color
 ERRORS=0
 WARNINGS=0
 
+# Helper: run a command, suppress output on success, show last 30 lines on failure.
+# This keeps total script output under ~5KB for passing runs (vs 100KB+ before).
+run_quiet() {
+    local label="$1"
+    shift
+    local tmpfile
+    tmpfile=$(mktemp)
+    echo -n ">>> $label... "
+    if "$@" > "$tmpfile" 2>&1; then
+        echo -e "${GREEN}✓${NC}"
+        rm -f "$tmpfile"
+        return 0
+    else
+        echo -e "${RED}✗${NC}"
+        echo "--- Last 30 lines of output ---"
+        tail -30 "$tmpfile"
+        echo "--- End output ---"
+        rm -f "$tmpfile"
+        return 1
+    fi
+}
+
 # 1. TypeScript Check (fastest, most fundamental - fail fast)
-echo ">>> Running TypeScript check..."
-if npx tsc --noEmit; then
-    echo -e "${GREEN}✓ TypeScript passed${NC}"
-else
-    echo -e "${RED}✗ TypeScript errors found${NC}"
+if ! run_quiet "TypeScript" npx tsc --noEmit; then
     ERRORS=$((ERRORS + 1))
 fi
-echo ""
 
 # Collect staged files for later checks
 STAGED_FILES=$(git diff --cached --name-only 2>/dev/null || echo "")
 
 # 2. Lint
-echo ">>> Running ESLint..."
-if npm run lint; then
-    echo -e "${GREEN}✓ Lint passed${NC}"
-else
-    echo -e "${RED}✗ Lint failed${NC}"
+if ! run_quiet "ESLint" npm run lint; then
     ERRORS=$((ERRORS + 1))
 fi
-echo ""
 
 # 3. Build
-echo ">>> Running build..."
-if npm run build; then
-    echo -e "${GREEN}✓ Build passed${NC}"
-else
-    echo -e "${RED}✗ Build failed${NC}"
+if ! run_quiet "Build" npm run build; then
     ERRORS=$((ERRORS + 1))
 fi
-echo ""
 
 # 4. Tests
-echo ">>> Running tests..."
-if npm test; then
-    echo -e "${GREEN}✓ Tests passed${NC}"
-else
-    echo -e "${RED}✗ Tests failed${NC}"
+if ! run_quiet "Tests" npm test; then
     ERRORS=$((ERRORS + 1))
 fi
-echo ""
 
 # 4.5. Kanban tool tests (catches type/enum regressions like P449 qa-column drop)
 KANBAN_STAGED=$(git diff --cached --name-only 2>/dev/null | grep '^tools/kanban/' || true)
 if [ -n "$KANBAN_STAGED" ]; then
-    echo ">>> Running kanban vitest — scanner/type tests (kanban files staged)..."
     # Scope: lib/__tests__ (scanner-rules) + scanner-smoke only.
     # api.test.ts and goals.test.ts are integration tests that depend on
     # runtime state (file I/O, milestone content) — excluded from pre-commit.
-    if (cd tools/kanban && npm test -- --run lib/__tests__ server/__tests__/scanner-smoke 2>&1); then
-        echo -e "${GREEN}✓ Kanban tests passed${NC}"
-    else
-        echo -e "${RED}✗ Kanban tests failed${NC}"
+    if ! run_quiet "Kanban tests" bash -c 'cd tools/kanban && npm test -- --run lib/__tests__ server/__tests__/scanner-smoke'; then
         ERRORS=$((ERRORS + 1))
     fi
 else
@@ -219,26 +217,17 @@ fi
 echo ""
 
 # 12. Doc links validation (for P142 information architecture)
-echo ">>> Validating doc links..."
 if [ -f "./scripts/validate-doc-links.cjs" ]; then
-    if ./scripts/validate-doc-links.cjs; then
-        echo -e "${GREEN}✓ All doc links valid${NC}"
-    else
-        echo -e "${RED}✗ Broken doc links found${NC}"
+    if ! run_quiet "Doc links" ./scripts/validate-doc-links.cjs; then
         ERRORS=$((ERRORS + 1))
     fi
 else
     echo -e "${YELLOW}⚠ Doc link validator not found (expected after P142)${NC}"
 fi
-echo ""
 
 # 13. Duplicate P-number check (prevents reused P-numbers)
-echo ">>> Checking for duplicate P-numbers..."
 if [ -f "./scripts/check-duplicate-p-numbers.sh" ]; then
-    if ./scripts/check-duplicate-p-numbers.sh; then
-        echo -e "${GREEN}✓ No duplicate P-numbers${NC}"
-    else
-        echo -e "${RED}✗ Duplicate P-numbers found${NC}"
+    if ! run_quiet "Duplicate P-numbers" ./scripts/check-duplicate-p-numbers.sh; then
         echo -e "${YELLOW}  → See docs/technical/duplicate-prevention.md for resolution${NC}"
         ERRORS=$((ERRORS + 1))
     fi

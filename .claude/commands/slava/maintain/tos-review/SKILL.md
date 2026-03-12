@@ -146,6 +146,14 @@ For each approved change:
 - Edit `src/app/content/tos.md` (markdown source of record — no legal text lives in TSX)
 - Update `COPY.LEGAL_LAST_UPDATED` in `src/app/content/copy.ts` to today's date
 
+### Stage 7b — Version Bump (MANDATORY)
+
+**This step is non-optional.** Without it, users won't be prompted to re-accept updated terms.
+
+1. Bump `CURRENT_TERMS_VERSION` in `src/lib/constants.ts` (e.g., v1.1 → v1.2)
+2. Update the test expectation in `src/tests/consent-api.test.ts` to match the new version
+3. Verify: `npm test -- consent-api.test.ts` — must pass
+
 ### Stage 8 — Visual Review
 
 Use Claude in Chrome to load `http://localhost:5173/terms-of-service` and screenshot the updated sections.

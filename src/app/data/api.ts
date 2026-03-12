@@ -490,9 +490,8 @@ export async function signInWithGoogle(
     options: {
       redirectTo: redirectUrl,
       queryParams: {
-        // Request profile scope to get avatar
-        access_type: 'offline',
-        prompt: 'consent',
+        // Let user pick account but skip consent if already granted
+        prompt: 'select_account',
       },
     },
   });

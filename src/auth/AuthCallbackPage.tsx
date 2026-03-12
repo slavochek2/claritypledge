@@ -110,7 +110,8 @@ export function AuthCallbackPage() {
       // Handle /live user migration: If no profile found by ID, check by email.
       // This handles the case where a /live user (anonymous auth) logs in via magic link
       // and gets a NEW auth ID. Their old profile exists under the anonymous ID.
-      if (!existingProfile && authUser.email) {
+      // Only run for /live registrations — other sources don't have anonymous profiles to migrate.
+      if (!existingProfile && isLiveRegistration && authUser.email) {
         const { data: profileByEmail } = await supabase
           .from('profiles')
           .select('*')
@@ -408,8 +409,7 @@ export function AuthCallbackPage() {
       // Clean up backup on success
       sessionStorage.removeItem('__profileMigrationBackup');
 
-      // Identify user and track successful auth
-      // P50: Include has_pledged and registration_source for user segmentation
+      // Fire analytics async — don't block the redirect on network I/O
       const registrationSource = source || (isReturningUser ? 'returning' : 'pledge');
       analytics.identify(authUser.id);
       analytics.setUserProperties({
@@ -419,7 +419,6 @@ export function AuthCallbackPage() {
         has_linkedin: !!upsertData.linkedin_url,
         profile_slug: slug,
         created_at: new Date().toISOString(),
-        // P50: User segmentation properties
         has_pledged: hasPledged,
         registration_source: registrationSource,
       });
@@ -428,7 +427,6 @@ export function AuthCallbackPage() {
         has_role: !!upsertData.role,
         has_linkedin: !!upsertData.linkedin_url,
         has_reason: !!upsertData.reason,
-        // P50: Include source in event tracking
         registration_source: registrationSource,
         has_pledged: hasPledged,
       });
