@@ -29,6 +29,18 @@ Tests are executable specifications. Modifying a test to make it pass = changing
 - Location: `src/tests/` or colocated with components
 - Run: `npm test`
 
+## Auth E2E Coverage Rule
+
+When a feature has UAT scenarios that require authenticated users (redirect, nav changes, role-based UI, session-dependent behavior), the E2E spec MUST include tests using `setTestSession()` from `e2e/helpers/test-user.ts`.
+
+Auth-dependent UATs must NOT be left as "manual testing only" unless they require infrastructure that doesn't exist (e.g., two-party /live session fixtures).
+
+Available auth helpers:
+- `createTestUser()` — creates auth user + profile
+- `setTestSession(page, email)` — injects browser session (call before navigation)
+- `deleteTestUser(userId)` — cleanup
+- `generateMagicLinkUrl(email)` — for token exchange flows
+
 ## Subagent Scope Constraint
 
 When a subagent is spawned to write tests, it MUST NOT modify source files.
