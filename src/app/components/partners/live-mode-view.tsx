@@ -985,6 +985,12 @@ function IdleScreen({
     onStartProve();
   };
 
+  // Reset inner scroll container to top on mount so /live doesn't load scrolled down
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    scrollContainerRef.current?.scrollTo(0, 0);
+  }, []);
+
   // P128: Wrap story/point selection to mark interaction
   const handleSelectStoryWithTracking = (storyId: string, title: string) => {
     setContentInteracted(true);
@@ -996,7 +1002,7 @@ function IdleScreen({
     <div className="flex flex-col h-full">
       <LiveHeader partnerName={partnerName} onExit={onExit} isPrivate={isPrivate} />
 
-      <div className={`${layoutClass} overflow-y-auto`}>
+      <div ref={scrollContainerRef} className={`${layoutClass} overflow-y-auto`}>
         {selectedHistoryIndex !== null && sessionHistory[selectedHistoryIndex] ? (
           <RoundSummaryScreen
             item={sessionHistory[selectedHistoryIndex]}

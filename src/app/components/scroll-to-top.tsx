@@ -9,7 +9,10 @@ export function ScrollToTop() {
   const { pathname } = useLocation();
 
   useEffect(() => {
-    window.scrollTo(0, 0);
+    // /live has its own inner scrollable container; global scroll reset doesn't reach it
+    if (!pathname.startsWith('/live')) {
+      window.scrollTo(0, 0);
+    }
   }, [pathname]);
 
   return null;
