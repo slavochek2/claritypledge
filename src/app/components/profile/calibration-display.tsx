@@ -144,13 +144,13 @@ export function InlineCalibration({
 
   return (
     <TooltipProvider delayDuration={100}>
-      <div className="mt-3 flex items-center gap-3">
-        <div className="flex items-center gap-1.5 shrink-0">
+      <div className="mt-3 flex flex-col gap-1">
+        <div className="flex items-center gap-1.5">
           <Ear size={12} className="text-muted-foreground" />
           <span className="text-xs font-medium text-muted-foreground">Understanding Calibration</span>
         </div>
 
-        <div className="flex-1">
+        <div>
           {calibration ? (
             <CalibrationTooltip
               side="top"
