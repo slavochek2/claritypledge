@@ -70,11 +70,11 @@ export function LiveSessionBanner({ partnerName: _partnerName, onExit, isLiveMee
                   onExit();
                 }
               }}
-              className="flex items-center gap-1.5 text-sm font-medium text-destructive hover:text-destructive/80 border border-destructive/30 hover:border-destructive/60 rounded-md px-3 h-9 transition-colors"
+              className="flex items-center gap-1.5 text-sm font-medium text-destructive hover:text-destructive/80 border border-destructive hover:border-destructive/80 rounded-md px-3 h-9 transition-colors"
               data-testid="leave-meeting"
             >
               <LogOut className="h-4 w-4" />
-              <span>Leave</span>
+              <span>End Session</span>
             </button>
           )}
 

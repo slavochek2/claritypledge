@@ -2844,9 +2844,9 @@ export function ClarityLivePage() {
         <Dialog open={showExitConfirm} onOpenChange={(open) => { setShowExitConfirm(open); if (!open) setPendingNavTo(null); }}>
           <DialogContent className="max-w-sm">
             <DialogHeader>
-              <DialogTitle>Leave session?</DialogTitle>
+              <DialogTitle>End session?</DialogTitle>
               <DialogDescription>
-                Are you sure you want to leave this session? Your progress will be lost.
+                Are you sure you want to end this session? Your progress will be lost.
               </DialogDescription>
             </DialogHeader>
             <DialogFooter className="flex-row gap-2 sm:justify-end">
@@ -2854,7 +2854,7 @@ export function ClarityLivePage() {
                 Cancel
               </Button>
               <Button variant="destructive" onClick={confirmExitMeeting}>
-                Leave
+                End Session
               </Button>
             </DialogFooter>
           </DialogContent>

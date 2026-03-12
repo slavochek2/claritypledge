@@ -417,7 +417,7 @@ export function SessionHistoryList({ history, className = '', onItemClick }: Ses
 
   return (
     <div className={`w-full max-w-sm ${className}`} data-testid="session-history">
-      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">
+      <p className="text-sm font-semibold text-foreground uppercase tracking-wide mb-2">
         This session
       </p>
       <div className="space-y-1">
@@ -443,7 +443,7 @@ export function SessionHistoryList({ history, className = '', onItemClick }: Ses
           }
 
           return (
-            <div key={i} className="flex items-center gap-2 text-sm min-h-[44px] px-1 opacity-60">
+            <div key={i} className="flex items-center gap-2 text-sm min-h-[44px] px-1 opacity-80">
               <CheckCircle2 className="w-4 h-4 text-muted-foreground flex-shrink-0" />
               {iconForType(item.type)}
               <span className="text-muted-foreground line-clamp-1 flex-1">{item.title}</span>

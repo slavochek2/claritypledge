@@ -291,7 +291,7 @@ describe('LiveSessionBanner', () => {
       renderWithRouter(<LiveSessionBanner isLiveMeeting={true} onExit={onExit} />);
 
       expect(screen.getByTestId('leave-meeting')).toBeInTheDocument();
-      expect(screen.getByText('Leave')).toBeInTheDocument();
+      expect(screen.getByText('End Session')).toBeInTheDocument();
     });
 
     it('calls onExit when Leave button clicked', async () => {
