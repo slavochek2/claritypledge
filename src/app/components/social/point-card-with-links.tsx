@@ -736,21 +736,27 @@ function QuotedStory({
           <EarBadge count={author.ear ?? 0} name={author.name} />
         </div>
       )}
-      {/* Story text */}
-      {!textExpanded && story.text.length > 100 ? (
-        <p className="text-sm text-gray-800 break-words">
-          <LinkedText text={story.text.slice(0, 100)} />
-          <span
-            data-testid="more-link"
-            role="button"
-            tabIndex={0}
-            className="text-blue-600 font-medium cursor-pointer"
-            onClick={(e) => { e.stopPropagation(); setTextExpanded(true); }}
-            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); setTextExpanded(true); } }}
-          > ...more</span>
-        </p>
-      ) : (
-        <p className="text-sm text-gray-800 break-words"><LinkedText text={story.text} /></p>
+      {/* Story text — strip hashtags that are rendered as TagPills */}
+      {(() => {
+        const cleanText = stripHashtags(story.text, story.tags ?? []);
+        return !textExpanded && cleanText.length > 100 ? (
+          <p className="text-sm text-gray-800 break-words">
+            <LinkedText text={cleanText.slice(0, 100)} />
+            <span
+              data-testid="more-link"
+              role="button"
+              tabIndex={0}
+              className="text-blue-600 font-medium cursor-pointer"
+              onClick={(e) => { e.stopPropagation(); setTextExpanded(true); }}
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); setTextExpanded(true); } }}
+            > ...more</span>
+          </p>
+        ) : (
+          <p className="text-sm text-gray-800 break-words"><LinkedText text={cleanText} /></p>
+        );
+      })()}
+      {(story.tags ?? []).length > 0 && (
+        <TagPills tags={story.tags ?? []} context="detail" className="mt-1.5" />
       )}
     </div>
   );
