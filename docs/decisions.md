@@ -2,6 +2,29 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-12 [process]: Git infrastructure pruning — keep worktrees, remove dead weight
+
+**Context:** Analyzed all 19 git/worktree decisions from Feb 25 - Mar 9. Found: 8/19 solved the same isolation need (converging on worktrees), 5 pre-commit sections were overhead, 3 active failures existed (push bypass left on, pre-commit symlink into worktree, stale `.expected-branch`). Ran /falsify on "radical simplify" (drop worktrees) — failed because branch-only was already tried Mar 3-7 and failed within 10 days.
+
+**Decision:** Keep worktree system (proven structural isolation for AI agents). Prune 5 overhead items: pre-commit sections 1.5 (conditional UI grep heuristic), 1.8 (no-op placeholder), 15 (sweep done/ — maintenance in commit path), 20 (UAT naming convention). Remove redundant `claude-md-gate.sh` PostToolUse hook (PreToolUse gate already blocks). Add auto-expire (10 min) to `push-enable` alias to prevent the "left bypass on" failure. Fix pre-commit symlink to point to main repo, not worktree.
+
+**Alternatives rejected:** (A) Drop worktrees entirely — branch-only experiment failed in 10 days (P487 shipped untested, P488 cross-contaminated P483). (B) Learn git/Cursor instead — user's knowledge gap is only staging; the infrastructure exists for AI agents, not the user. (C) Keep everything as-is — 3 active failures prove the system was silently degrading.
+
+**Consequences:** Pre-commit is faster (4 fewer sections). Push-enable auto-expires, preventing accidental bypass. Pre-commit symlink survives worktree removal. The git infrastructure is now: essentials (pre-push hook, pre-commit checks, worktrees, `.claude/rules/git.md`) + helpful warnings (console.log, TODOs, secrets, privacy). No overhead.
+
+**References:** `scripts/pre-commit-checks.sh`, `.claude/settings.json`, `~/.zshrc` (push-enable alias)
+
+---
+
+## 2026-03-12 [technical]: Reject Clean Architecture migration — no evidence of layer-caused bugs
+
+**Context:** External recommendation to adopt Clean Architecture (entities → use cases → interface adapters → frameworks) for "stability." Ran structured falsification: root-cause analysis of all real bugs (Jan–Mar 2026), independent critique, and simulation of each bug class under proposed architecture.
+**Decision:** Do not migrate. The codebase already has a service abstraction layer (interface → real → mock) for actively-changing domains (stories, points, events, calibration, agreements). Legacy `api.ts` (90+ functions, stable, low change rate) stays as-is. Migrate individual functions via strangler fig pattern only when they need modification.
+**Evidence:** 1,597 commits analyzed. 598 "fix" commits — ~60% UI polish, ~20% tooling, ~10% docs, ~10% real logic bugs. The 3 real bug classes (position sync across surfaces, missing adapter properties, null safety) were simulated under Clean Architecture — all 3 persist because they're function-body errors and state coordination problems, not layer boundary failures. Zero bugs in 90 days caused by missing architectural layers.
+**Alternatives rejected:** (1) Full Clean Architecture migration — 2–4 weeks effort, adds ongoing complexity tax (more files per feature), no measurable bug prevention. (2) Partial migration of api.ts into use cases — same cost/benefit problem for stable code.
+**Consequences:** Continue current two-tier pattern. Address actual root causes with targeted fixes when they surface (shared position cache for state sync, explicit return types on mappers for missing-property bugs). Revisit layering only if team grows or infrastructure swap is needed.
+**References:** [Falsification report](https://ladischenski.com/temp/clean-architecture-falsification.html), [architecture.md](technical/architecture.md)
+
 ## 2026-03-12 [product]: PWA install surfaces are mobile-only — hide all on desktop
 
 **Context:** P493 added three PWA install surfaces (settings card, session-end banner, celebration link). Desktop users don't install web apps to home screens. Two surfaces already had `isDesktop` guards, but the settings card was missing one — and even after adding it, the parent "App" section heading in `settings-page.tsx` remained visible as an orphan.

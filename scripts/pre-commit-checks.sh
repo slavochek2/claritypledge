@@ -27,36 +27,8 @@ else
 fi
 echo ""
 
-# 1.5. Conditional UI reminder (quick visual check)
-echo ">>> Checking for conditional UI changes..."
+# Collect staged files for later checks
 STAGED_FILES=$(git diff --cached --name-only 2>/dev/null || echo "")
-if [ -n "$STAGED_FILES" ]; then
-    # Check if any staged .tsx files have conditional rendering with text/UI classes
-    CONDITIONAL_UI=$(echo "$STAGED_FILES" | grep '\.tsx$' | xargs git diff --cached 2>/dev/null | grep -E '(\?.*:.*<|{.*\?.*className.*(text-|bg-|border-))' || true)
-    if [ -n "$CONDITIONAL_UI" ]; then
-        echo -e "${YELLOW}⚠ Conditional UI rendering changed${NC}"
-        echo -e "${YELLOW}  → Verify BOTH branches render correctly (no duplicate elements)${NC}"
-        echo -e "${YELLOW}  → See docs/technical/e2e-testing-guide.md#testing-conditional-rendering${NC}"
-        WARNINGS=$((WARNINGS + 1))
-    else
-        echo -e "${GREEN}✓ No conditional UI changes detected${NC}"
-    fi
-else
-    echo -e "${YELLOW}⚠ No staged files to check${NC}"
-fi
-echo ""
-
-# 1.8: Lint check on staged files (report-only — never auto-fix)
-# Why report-only: eslint --fix silently reverts intentional changes (e.g., CSS overrides)
-# and re-stages the reverted version. Agent doesn't notice. Data loss. See decisions.md 2026-03-07.
-echo ">>> Checking lint on staged files..."
-STAGED_TS=$(git diff --cached --name-only 2>/dev/null | grep -E '\.(ts|tsx|js|jsx)$' || true)
-if [ -n "$STAGED_TS" ]; then
-  echo -e "${GREEN}✓ Staged TS/JS files will be checked by full lint below${NC}"
-else
-  echo -e "${GREEN}✓ No TS/JS files staged${NC}"
-fi
-echo ""
 
 # 2. Lint
 echo ">>> Running ESLint..."
@@ -372,7 +344,7 @@ else
 fi
 echo ""
 
-# 14. Migration commit reminder (P270 — prevents P160-class bugs)
+# 15. Migration commit reminder (P270 — prevents P160-class bugs)
 # When a migration SQL file is staged, reminds developer to: (1) apply it,
 # (2) add an integration test. Cannot check if migration was applied (no
 # local Docker required). WARNING only — does not block commit.
@@ -436,15 +408,6 @@ if [ -n "$STAGED_MIGRATIONS" ]; then
     fi
 else
     echo -e "${GREEN}✓ No new migrations staged${NC}"
-fi
-echo ""
-
-# 15. Sweep loose done/ files into dated archive folders (silent when nothing to do)
-if [ -f "./scripts/sweep-done.sh" ]; then
-    if ! ./scripts/sweep-done.sh; then
-        echo -e "${YELLOW}⚠ Done archive sweep had an issue (non-blocking)${NC}"
-        WARNINGS=$((WARNINGS + 1))
-    fi
 fi
 echo ""
 
@@ -544,21 +507,6 @@ if [ -n "$BINARY_STAGED" ]; then
     WARNINGS=$((WARNINGS + 1))
 else
     echo -e "${GREEN}✓ No binary files staged outside public/${NC}"
-fi
-echo ""
-
-# 20. UAT file naming check — all features/uat/ files must have P-number prefix
-echo ">>> Checking UAT file naming conventions..."
-BAD_UAT=$(git diff --cached --name-only | \
-    grep -E '^features/uat/' | \
-    grep -vE '^features/uat/p[0-9]+' || true)
-if [ -n "$BAD_UAT" ]; then
-    echo -e "${YELLOW}⚠ UAT file(s) without P-number prefix:${NC}"
-    echo "$BAD_UAT" | sed 's/^/  /'
-    echo -e "${YELLOW}  → UAT files must be named features/uat/p{N}.md${NC}"
-    WARNINGS=$((WARNINGS + 1))
-else
-    echo -e "${GREEN}✓ UAT file naming OK${NC}"
 fi
 echo ""
 
