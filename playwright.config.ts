@@ -1,5 +1,6 @@
 import { defineConfig, devices } from '@playwright/test';
 import * as dotenv from 'dotenv';
+import * as fs from 'fs';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
 
@@ -35,6 +36,39 @@ function getWorktreePort(): number {
 }
 
 const PORT = getWorktreePort();
+
+/**
+ * Load saved auth storageState for authenticated-page testing.
+ *
+ * The file is produced by `npm run test:save-auth` and lives in
+ * .private/test-auth/local.json (gitignored, never committed).
+ * When present, all test contexts start with the saved cookies +
+ * localStorage so authenticated pages render actual content instead
+ * of login screens.
+ *
+ * Fallback behaviour:
+ * - File missing → skip silently (unauthenticated baseline tests still run)
+ * - File present but expired → Playwright will replay the stored tokens;
+ *   if Supabase rejects them the test will fail with a clear auth error
+ *   rather than silently showing the wrong state.  Re-run test:save-auth.
+ */
+function loadStorageState(): string | undefined {
+  const authFile = path.resolve(__dirname, '.private', 'test-auth', 'local.json');
+  if (fs.existsSync(authFile)) {
+    return authFile;
+  }
+  // Warn only when a developer is running tests locally (not in CI)
+  if (!process.env.CI) {
+    console.warn(
+      '[playwright.config] No saved auth state found at .private/test-auth/local.json\n' +
+        '  Run `npm run test:save-auth` to enable authenticated-page tests.\n' +
+        '  Unauthenticated tests will still run normally.',
+    );
+  }
+  return undefined;
+}
+
+const storageState = loadStorageState();
 
 /**
  * Playwright E2E Test Configuration
@@ -84,6 +118,10 @@ export default defineConfig({
 
     // Video on retry
     video: 'retain-on-failure',
+
+    // Inject saved auth state when available (produced by `npm run test:save-auth`)
+    // undefined → no storageState set, unauthenticated baseline
+    ...(storageState !== undefined ? { storageState } : {}),
   },
 
   // Test projects (browsers to test)
