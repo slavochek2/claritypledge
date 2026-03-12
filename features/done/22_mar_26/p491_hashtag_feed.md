@@ -19,6 +19,7 @@ test_files:
   - e2e/p491-hashtag-feed.spec.ts
   - e2e/p491-feed-smoke.spec.ts
   - e2e/a11y/p491-accessibility.spec.ts
+created_date: 2026-03-11
 ---
 
 # P491: Hashtag Feed — Public Content Discovery by Tag
