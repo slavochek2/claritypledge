@@ -18,6 +18,8 @@ import { useParams, useNavigate, useLocation, useSearchParams } from 'react-rout
 import { LockIcon, Loader2, Plus, ChevronDown, Pencil, Trash2 } from 'lucide-react';
 import { FocusHeader } from '@/app/components/layout/focus-header';
 import { VISIBILITY_OPTIONS } from '@/app/data/story-visibility-options';
+import { StoryCardWithLinks, type StoryAuthor } from '@/app/components/social/story-card-with-links';
+import type { Story as ProtoStory, Point as ProtoPoint } from '@/app/prototypes/shared/types';
 import { useAuth } from '@/auth';
 import { storiesService } from '@/app/data/stories-service';
 import { pointsService } from '@/app/data/points-service';
@@ -1055,7 +1057,66 @@ export function StoryDetailPage() {
     );
   }
 
+  const isEmbed = searchParams.get('embed') === 'true';
   const isAuthor = story.authorId === user?.id;
+
+  // Embed mode: render StoryCardWithLinks as a compact card
+  if (isEmbed) {
+    const protoStory: ProtoStory = {
+      id: story.id,
+      authorId: story.authorId,
+      text: story.content,
+      createdAt: story.createdAt,
+      visibility: story.visibility,
+      linkedPointIds: story.points.map(p => p.id),
+      verificationCount: story.understoodCount,
+    };
+
+    const embedAuthor: StoryAuthor = {
+      id: story.authorId,
+      name: story.authorName,
+      role: story.authorRole,
+      hasPledged: story.authorHasPledged,
+      ear: story.authorEarsCount,
+    };
+
+    // Convert linked points for display
+    const embedPoints: ProtoPoint[] = story.points.map(p => ({
+      id: p.id,
+      text: p.statement,
+      createdAt: p.createdAt,
+      positions: {},
+      linkedStoryIds: [],
+    }));
+
+    return (
+      <div className="max-w-[550px] mx-auto" style={{ overflow: 'hidden' }} ref={(el) => {
+        if (el) {
+          document.body.style.overflow = 'hidden';
+          document.body.style.margin = '0';
+          document.body.style.padding = '0';
+          document.body.style.background = 'transparent';
+          document.documentElement.style.background = 'transparent';
+          const reportHeight = () => {
+            const height = el.scrollHeight;
+            window.parent.postMessage({ type: 'claritypledge-embed-resize', height }, '*');
+          };
+          const observer = new ResizeObserver(reportHeight);
+          observer.observe(el);
+          reportHeight();
+        }
+      }}>
+        <StoryCardWithLinks
+          story={protoStory}
+          author={embedAuthor}
+          linkedPoints={embedPoints}
+          isDetailView={true}
+          currentUserId={user?.id}
+          tags={story.tags}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-lg mx-auto px-4 py-6">

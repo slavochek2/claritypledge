@@ -374,9 +374,9 @@ export function PointDetailPage() {
           linkedStories={embedStories}
           profileOwner={embedProfileOwner}
           currentUserId={user?.id}
+          tags={point.tags}
           onPositionSelect={(pos) => {
             if (pos === null) {
-              // Use guarded removal
               if (id) guardedRemovePosition(id);
             } else {
               handlePositionClick(pos as PositionType);

@@ -98,6 +98,14 @@ export function StoryCardWithLinks({
   tags,
 }: StoryCardWithLinksProps) {
   const navigate = useNavigate();
+  const isEmbed = new URLSearchParams(window.location.search).get('embed') === 'true';
+  const embedNavigate = (path: string) => {
+    if (isEmbed) {
+      window.open(`${window.location.origin}${path}`, '_blank');
+    } else {
+      navigate(path);
+    }
+  };
   const [pointsExpanded, setPointsExpanded] = useState(isDetailView);
   const [textExpanded, setTextExpanded] = useState(false);
   useEffect(() => { setTextExpanded(false); }, [story.id]);
@@ -106,7 +114,7 @@ export function StoryCardWithLinks({
 
   const handleCardClick = () => {
     if (!isDetailView && !disableNavigation) {
-      navigate(`/story/${story.id}`);
+      embedNavigate(`/story/${story.id}`);
     }
   };
 
@@ -213,7 +221,7 @@ export function StoryCardWithLinks({
           <button
             onClick={(e) => {
               e.stopPropagation();
-              navigate(`/p/${author.id}`);
+              embedNavigate(`/p/${author.id}`);
             }}
             className="flex-shrink-0 hover:opacity-80 transition-opacity self-start"
           >
@@ -232,7 +240,7 @@ export function StoryCardWithLinks({
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
-                    navigate(`/p/${author.id}`);
+                    embedNavigate(`/p/${author.id}`);
                   }}
                   className="font-semibold text-gray-900 hover:underline text-sm"
                 >
@@ -342,7 +350,7 @@ export function StoryCardWithLinks({
                 {!isDetailView && !disableNavigation && (
                   <MobileTooltip content="Open story">
                     <button
-                      onClick={() => navigate(`/story/${story.id}`)}
+                      onClick={() => embedNavigate(`/story/${story.id}`)}
                       className="min-w-[44px] min-h-[44px] flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors"
                       aria-label="Open story"
                     >
@@ -376,7 +384,7 @@ export function StoryCardWithLinks({
                         if (onPointClick) {
                           onPointClick(pointsToShow[0].id);
                         } else {
-                          navigate(`/point/${pointsToShow[0].id}`);
+                          embedNavigate(`/point/${pointsToShow[0].id}`);
                         }
                       }}
                       getPointPositionCounts={getPointPositionCounts}
@@ -401,7 +409,7 @@ export function StoryCardWithLinks({
                               if (onPointClick) {
                                 onPointClick(point.id);
                               } else {
-                                navigate(`/point/${point.id}`);
+                                embedNavigate(`/point/${point.id}`);
                               }
                             }}
                             getPointPositionCounts={getPointPositionCounts}
@@ -415,7 +423,7 @@ export function StoryCardWithLinks({
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
-                              navigate(`/story/${story.id}`);
+                              embedNavigate(`/story/${story.id}`);
                             }}
                             className="text-xs text-blue-600 hover:underline"
                           >
@@ -461,6 +469,14 @@ function QuotedPoint({
   viewerStoryCount?: number;
 }) {
   const navigate = useNavigate();
+  const isEmbed = new URLSearchParams(window.location.search).get('embed') === 'true';
+  const embedNavigate = (path: string) => {
+    if (isEmbed) {
+      window.open(`${window.location.origin}${path}`, '_blank');
+    } else {
+      navigate(path);
+    }
+  };
   const [userPosition, setUserPosition] = useState<PositionType | null>(
     currentUserId ? point.positions[currentUserId]?.position || null : null
   );
@@ -599,7 +615,7 @@ function QuotedPoint({
                   <span className="text-gray-600">{copy.label}</span>
                   <span aria-hidden="true" className="text-gray-400"> · </span>
                   <button
-                    onClick={e => { e.stopPropagation(); navigate(chatUrl); }}
+                    onClick={e => { e.stopPropagation(); embedNavigate(chatUrl); }}
                     aria-label={copy.ariaLabel}
                     className="font-medium text-blue-600 hover:text-blue-700 transition-colors"
                   >
@@ -609,14 +625,14 @@ function QuotedPoint({
               ) : (
                 <div className="flex items-center justify-between w-full">
                   <button
-                    onClick={e => { e.stopPropagation(); navigate(`/point/${point.id}`); }}
+                    onClick={e => { e.stopPropagation(); embedNavigate(`/point/${point.id}`); }}
                     className="flex items-center gap-1 text-sm text-gray-600 hover:text-blue-600 transition-colors"
                   >
                     <span aria-hidden="true">▶</span>
                     <span>{viewerStoryCount} {viewerStoryCount === 1 ? 'story' : 'stories'}</span>
                   </button>
                   <button
-                    onClick={e => { e.stopPropagation(); navigate(chatUrl); }}
+                    onClick={e => { e.stopPropagation(); embedNavigate(chatUrl); }}
                     className="text-sm font-medium text-blue-600 hover:text-blue-700 transition-colors"
                   >
                     + add story →
