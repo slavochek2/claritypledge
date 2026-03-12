@@ -47,7 +47,7 @@ export function ShareDialog({
   const isEmbed = new URLSearchParams(window.location.search).get('embed') === 'true';
   const showEmbedOption = !isEmbed && (type === 'story' || type === 'point');
 
-  const embedCode = `<iframe src="${url}?embed=true" width="100%" height="400" frameborder="0" style="border-radius: 8px; border: 1px solid #e5e7eb;"></iframe>`;
+  const embedCode = `<iframe src="${url}?embed=true" width="100%" height="400" frameborder="0" style="border: none;"></iframe>`;
 
   const handleCopy = async () => {
     try {
