@@ -789,8 +789,11 @@ export function ClarityLivePage() {
         // celebrationAcknowledgedBy must be in drift check so both parties can coordinate
         // the two-party Continue when Realtime is unavailable (mobile WebSocket dropout).
         const celebrationAcknowledgedByDrift = (serverState.celebrationAcknowledgedBy?.length ?? 0) !== (localState.celebrationAcknowledgedBy?.length ?? 0);
+        // P490: livePositions missing from drift check caused guest positions to never sync
+        // when Realtime WebSocket dropped. JSON.stringify comparison consistent with celebrationAcknowledgedBy pattern.
+        const livePositionsDrift = JSON.stringify(serverState.livePositions ?? {}) !== JSON.stringify(localState.livePositions ?? {});
 
-        const serverHasUpdate = phaseDrift || checkerNameDrift || checkerDrift || checkerRatingDrift || responderDrift || responderRatingDrift || explainBackDoneDrift || checksCountDrift || clarificationPhaseDrift || roleSwitchNegotiationDrift || selectedStoryIdDrift || selectedStoryDataDrift || selectedContentTitleDrift || celebrationAcknowledgedByDrift;
+        const serverHasUpdate = phaseDrift || checkerNameDrift || checkerDrift || checkerRatingDrift || responderDrift || responderRatingDrift || explainBackDoneDrift || checksCountDrift || clarificationPhaseDrift || roleSwitchNegotiationDrift || selectedStoryIdDrift || selectedStoryDataDrift || selectedContentTitleDrift || celebrationAcknowledgedByDrift || livePositionsDrift;
 
         if (serverHasUpdate) {
           // Track in Mixpanel (non-blocking - don't let analytics errors break the app)
@@ -803,6 +806,7 @@ export function ClarityLivePage() {
               checkerDrift,
               responderDrift,
               explainBackDoneDrift,
+              livePositionsDrift,
             });
           } catch (err) {
             // Analytics failure shouldn't break the app, but log for visibility
