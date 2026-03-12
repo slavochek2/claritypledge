@@ -1,12 +1,12 @@
 ---
-status: in-progress
+status: all-done
 type: feature
 rank: 250002.75
 workstream: E2
 created_date: 2026-03-12
+completed_at: "2026-03-12"
 flow: quick-feature
 tags: [events]
-delivery_stage: uat
 uat_file: features/uat/p494.md
 test_files:
   - src/tests/event-grace-period.test.ts
