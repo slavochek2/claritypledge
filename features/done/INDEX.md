@@ -1,7 +1,7 @@
 # Done Features Index
 
 Quick reference for past completed work. Consult when starting work on a related topic.
-Last updated: 2026-03-12 (P494)
+Last updated: 2026-03-12 (P494 grace period)
 
 ---
 
@@ -109,6 +109,7 @@ Last updated: 2026-03-12 (P494)
 
 ## Events & Content
 
+- **P494** (Mar 12) Event Grace Period — `EVENT_GRACE_HOURS=5` shifts upcoming/past cutoff to `now-5h`; practice room expiry stays real-time (different concern)
 - **P489** (Mar 09) AI-Generated Event Banners — Gemini PNGs average ~2MB; size storage buckets for actual model output not assumptions; fire-and-forget in createEvent() prevents blocking navigation
 - **P437** (Feb 26) Uncancel Event — host-only button; mirrors cancelEvent pattern; re-announcement email via edge function
 - **P416** (Feb 26) Event Auto Banner via Unsplash — extract keywords from event title; fallback to gradient
