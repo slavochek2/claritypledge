@@ -1,7 +1,7 @@
 # Done Features Index
 
 Quick reference for past completed work. Consult when starting work on a related topic.
-Last updated: 2026-03-12 (P490)
+Last updated: 2026-03-12 (P494)
 
 ---
 
@@ -23,6 +23,7 @@ Last updated: 2026-03-12 (P490)
 
 ## Points & Stories
 
+- **P494** (Mar 12) Tell Your Story Visibility Gate — zombie CTA from P458 (anonymous nudge) survived 6 feature iterations with inverted `!user` logic; use `shouldShowStoryCTA` utility for all CTA gates, never inline conditions
 - **P401** (Feb 26) Position-Story Integrity — DB trigger cascades story-point unlinking on position delete; warning shows affected count
 - **P407** (Feb 26) Unify Story Detail Points — position state must sync on dialog resolve; remove duplicate point list
 - **P411** (Feb 26) Position Breakdown — batch fetch via `getStoriesForPoints` to avoid N+1

@@ -2,6 +2,14 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-12 [technical]: CTA visibility must use shouldShowStoryCTA utility — never inline conditions
+
+**Context:** P494 found two "Tell your story →" CTA blocks (in `point-detail-page.tsx` and `point-card-with-links.tsx`) with inverted visibility logic — showing for anonymous users (`!user`) instead of authenticated users with a position and no story. Root cause: P458 added these as anonymous signup nudges. When the product intent changed (CTA only for auth + position + no story), correct blocks were added alongside but the P458 blocks were never removed. The `shouldShowStoryCTA` utility in `types.ts` already enforces the correct three-condition gate and is used by `live-story-card-expanded.tsx`, but the two oldest surfaces predated it.
+**Decision:** All "Tell your story" / story CTA visibility must go through the `shouldShowStoryCTA` utility (or its equivalent conditions). Never add inline `!user` or `!currentUserId` checks for CTA rendering — the utility is the single source of truth for the three-condition gate (logged in + position set + no existing story).
+**Alternatives rejected:** Keeping the anonymous CTA as a signup nudge (confusing UX — user can't write a story without logging in, so the CTA creates a dead-end experience).
+**Consequences:** When iterating on the same UI surface across multiple features (P451→P456→P458→P465→P487→P494), old conditional blocks can survive with stale or inverted logic. Pattern to watch: after changing CTA intent, grep for ALL surfaces showing the old CTA text and verify conditions on each.
+**References:** `src/app/prototypes/shared/types.ts` (shouldShowStoryCTA), P458, P494
+
 ## 2026-03-12 [technical]: Polling drift check must cover all mutable live state fields
 
 **Context:** P490 discovered that guest positions weren't syncing to the host because `livePositions` was missing from the polling drift check in `clarity-live-page.tsx`. The drift check compares 14+ fields between server and local state — any omission silently breaks sync for that field.
