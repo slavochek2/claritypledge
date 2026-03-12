@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { SettingsPage } from "./settings-page";
+import { PwaInstallProvider } from "@/hooks/use-pwa-install";
 import * as auth from "@/auth";
 import * as api from "@/app/data/api";
 import type { Profile } from "@/app/types";
@@ -68,10 +69,12 @@ describe("SettingsPage", () => {
   const renderSettingsPage = () => {
     return render(
       <MemoryRouter initialEntries={["/settings"]}>
-        <Routes>
-          <Route path="/settings" element={<SettingsPage />} />
-          <Route path="/sign-pledge" element={<div>Sign Pledge Page</div>} />
-        </Routes>
+        <PwaInstallProvider>
+          <Routes>
+            <Route path="/settings" element={<SettingsPage />} />
+            <Route path="/sign-pledge" element={<div>Sign Pledge Page</div>} />
+          </Routes>
+        </PwaInstallProvider>
       </MemoryRouter>
     );
   };
