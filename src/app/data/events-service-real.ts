@@ -44,6 +44,7 @@ interface DbRsvpWithProfile {
     avatar_color: string | null;
     avatar_url: string | null;
     has_pledged: boolean | null;
+    ears_count: number | null;
   } | null;
 }
 
@@ -246,7 +247,8 @@ export const realEventsService: EventsService = {
           slug,
           avatar_color,
           avatar_url,
-          has_pledged
+          has_pledged,
+          ears_count
         )
       `)
       .eq('event_id', eventId);
@@ -263,7 +265,7 @@ export const realEventsService: EventsService = {
       avatarColor: rsvp.profile?.avatar_color ?? '#3B82F6',
       avatarUrl: rsvp.profile?.avatar_url ?? undefined,
       hasPledged: rsvp.profile?.has_pledged ?? false,
-      earCount: 0,
+      earCount: rsvp.profile?.ears_count ?? 0,
     }));
   },
 
@@ -659,7 +661,8 @@ export const realEventsService: EventsService = {
           slug,
           avatar_color,
           avatar_url,
-          has_pledged
+          has_pledged,
+          ears_count
         )
       `)
       .eq('event_id', eventId)
@@ -677,7 +680,7 @@ export const realEventsService: EventsService = {
       avatarColor: rsvp.profile?.avatar_color ?? '#3B82F6',
       avatarUrl: rsvp.profile?.avatar_url ?? undefined,
       hasPledged: rsvp.profile?.has_pledged ?? false,
-      earCount: 0,
+      earCount: rsvp.profile?.ears_count ?? 0,
     }));
 
     // Include host if they're not the excluded user
