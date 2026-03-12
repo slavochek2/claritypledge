@@ -2,6 +2,30 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-12 [product]: Feed is the authenticated home page, auth default redirect → /feed
+
+**Context:** P491 Hashtag Feed introduced `/feed` as the public discovery surface. With feed as the primary content page, authenticated users landing on `/events` post-login felt wrong — events are secondary to the content discovery loop.
+**Decision:** (1) HomeRedirect sends authenticated+verified users from `/` to `/feed`. (2) AuthCallbackPage default redirect changed from `/events` to `/feed`. Both changes ensure feed is the first thing users see. History (sessions) moved to dropdown menu.
+**Alternatives rejected:** Keep `/events` as post-login default (breaks mental model of feed-as-home). Redirect to `/sessions` (too narrow — sessions are a subset of activity).
+**Consequences:** All login flows (magic link, Google, pledge signup) now land on `/feed`. Any feature that relied on post-login landing on `/events` needs updating. Auth flow tests updated to expect `/feed`.
+**References:** [AuthCallbackPage.tsx](src/auth/AuthCallbackPage.tsx), [App.tsx](src/App.tsx)
+
+## 2026-03-12 [product]: Tag pills render between text and action buttons, never below
+
+**Context:** Initial implementation placed tag pills below position buttons (Disagree/Unsure/Agree) on feed point cards. User feedback: tags are metadata about the content, not a response to it — they belong with the text.
+**Decision:** Tag pills always render immediately after the content text, before any interactive elements (position buttons, CTAs). Order: text → tags → actions.
+**Alternatives rejected:** Tags below actions (original — wrong visual hierarchy). Tags inline in text (Twitter-style — considered, but pills are clickable navigation elements, not inline content).
+**Consequences:** Applied to FeedPointCard. StoryCards already had correct order (no position buttons). Establishes pattern for any future card type.
+**References:** [feed-point-card.tsx](src/app/components/feed/feed-point-card.tsx)
+
+## 2026-03-12 [technical]: Tag ownership — cards show only their own entity's tags
+
+**Context:** Points and stories each have independent `tags[]` columns. When a point links to a story, should the point card show the story's tags too? Initial prototype leaked story tags onto point cards.
+**Decision:** Each card renders only its own entity's `tags[]`. A point card shows `point.tags`, a story card shows `story.tags`. No inheritance or aggregation across linked entities. The tag cloud on the feed page aggregates from all visible content.
+**Alternatives rejected:** Merge linked entity tags (confusing — user sees tags they didn't set on this entity). Show all tags but visually distinguish source (overengineered for current use case).
+**Consequences:** `StoryCardWithLinks` accepts `tags` as a separate prop because its internal Story type lacks `tags`. The caller must pass `story.tags` explicitly.
+**References:** [point-detail-page.tsx](src/app/pages/point-detail-page.tsx), [story-card-with-links.tsx](src/app/components/social/story-card-with-links.tsx)
+
 ## 2026-03-12 [process]: Git infrastructure pruning — keep worktrees, remove dead weight
 
 **Context:** Analyzed all 19 git/worktree decisions from Feb 25 - Mar 9. Found: 8/19 solved the same isolation need (converging on worktrees), 5 pre-commit sections were overhead, 3 active failures existed (push bypass left on, pre-commit symlink into worktree, stale `.expected-branch`). Ran /falsify on "radical simplify" (drop worktrees) — failed because branch-only was already tried Mar 3-7 and failed within 10 days.

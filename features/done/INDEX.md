@@ -1,7 +1,7 @@
 # Done Features Index
 
 Quick reference for past completed work. Consult when starting work on a related topic.
-Last updated: 2026-03-12 (P493)
+Last updated: 2026-03-12 (P491)
 
 ---
 
@@ -60,6 +60,7 @@ Last updated: 2026-03-12 (P493)
 - **P115** (Feb 5) Navigation and Data Fixes — correct route params, link semantics, data consistency
 - **P486** (Mar 07) Replace /chat with /create Form — 7-value positions map to 3-value for display; `hasPosition` boolean gates linkPointToStory (not position value); leave unreachable components for tree-shaking
 - **P487** (Mar 07) Unify Story CTA Copy — `getPositionCTACopy()` unified to return "Add your story →" for all positions (was position-specific "Why do you agree?" etc.); symbols/labels remain distinct per position group
+- **P491** (Mar 12) Hashtag Feed — tag pills between text and actions (not below); auth default redirect → /feed; tag ownership = entity's own tags only, no inheritance from linked content
 
 ## UI / Design System
 
