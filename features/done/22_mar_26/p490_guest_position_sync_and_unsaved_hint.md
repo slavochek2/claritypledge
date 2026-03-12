@@ -1,13 +1,13 @@
 ---
-status: today
+status: all-done
 type: bug
 rank: 250002.75
 workstream: C1
 severity: high
 date_reported: 2026-03-10
 created_date: 2026-03-10
+completed_at: "2026-03-12"
 flow: fix
-delivery_stage: 3-arch-review
 tags: [live, guest, positions]
 uat_file: features/uat/p490.md
 test_files:
