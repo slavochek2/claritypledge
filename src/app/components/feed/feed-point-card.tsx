@@ -138,6 +138,9 @@ export function FeedPointCard({ point, activeTag, onPositionChange }: FeedPointC
               </p>
             )}
 
+            {/* Tag pills */}
+            <TagPills tags={point.tags} context="feed" activeTag={activeTag} className="mt-2" />
+
             {/* Position buttons */}
             <div role="presentation" className="mt-2" onClick={(e) => e.stopPropagation()}>
               <PositionButtons
@@ -146,9 +149,6 @@ export function FeedPointCard({ point, activeTag, onPositionChange }: FeedPointC
                 onPositionClick={handlePositionClick}
               />
             </div>
-
-            {/* Tag pills */}
-            <TagPills tags={point.tags} context="feed" activeTag={activeTag} className="mt-2" />
           </div>
         </div>
       </div>

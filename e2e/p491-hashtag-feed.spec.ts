@@ -9,7 +9,7 @@
  */
 
 import { test, expect } from '@playwright/test';
-import { createTestUser, deleteTestUser, type TestUser } from './helpers/test-user';
+import { createTestUser, deleteTestUser, setTestSession, type TestUser } from './helpers/test-user';
 import { createTestStory, deleteTestStory, type TestStory } from './helpers/test-story';
 import { createTestPoint, deleteTestPoint, type TestPoint } from './helpers/test-point';
 
@@ -179,6 +179,59 @@ test.describe('P491: Hashtag Feed — User Flows', () => {
 
     // Should be back to unfiltered
     await expect(page).not.toHaveURL(/tag=/);
+  });
+});
+
+// ============================================================================
+// Flow D: Authenticated User Flows (UAT-7, UAT-9, UAT-10)
+// ============================================================================
+
+test.describe('P491: Authenticated User Flows', () => {
+  let author: TestUser;
+
+  test.beforeEach(async () => {
+    author = await createTestUser({ name: 'Feed Auth User' });
+  });
+
+  test.afterEach(async () => {
+    if (author?.user?.id) await deleteTestUser(author.user.id);
+  });
+
+  test('authenticated user visiting / is redirected to /feed (UAT-7)', async ({ page }) => {
+    await setTestSession(page, author.email);
+    await page.goto('/');
+    await page.waitForLoadState('networkidle');
+
+    await expect(page).toHaveURL(/\/feed/);
+    await expect(page.getByRole('heading', { name: /feed/i })).toBeVisible();
+  });
+
+  test('bottom nav shows Feed instead of History on mobile (UAT-9)', async ({ page }) => {
+    await page.setViewportSize({ width: 375, height: 667 });
+    await setTestSession(page, author.email);
+    await page.goto('/feed');
+    await page.waitForLoadState('networkidle');
+
+    // Feed should be in bottom nav (aria-label="Mobile navigation")
+    const bottomNav = page.locator('nav[aria-label="Mobile navigation"]');
+    await expect(bottomNav.getByText('Feed')).toBeVisible();
+
+    // History should NOT be in bottom nav
+    await expect(bottomNav.getByText('History')).not.toBeVisible();
+  });
+
+  test('History accessible from avatar/hamburger menu (UAT-10)', async ({ page }) => {
+    await page.setViewportSize({ width: 375, height: 667 });
+    await setTestSession(page, author.email);
+    await page.goto('/feed');
+    await page.waitForLoadState('networkidle');
+
+    // Open the mobile hamburger/avatar menu
+    const menuTrigger = page.getByRole('button', { name: /open menu/i });
+    await menuTrigger.click();
+
+    // Session History should be in the menu
+    await expect(page.getByText('Session History')).toBeVisible();
   });
 });
 
