@@ -60,3 +60,5 @@ useDefault = true
   description = "Catches hardcoded password values in variable assignments (e.g. const PASSWORD = 'abc123')"
   regex = '''(?i)(password|passwd|pwd)\s*=\s*['"][^'"]{8,}['"]'''
   keywords = ["password", "passwd", "pwd"]
+  [rules.allowlist]
+    paths = ['''e2e/''']  # E2E test helpers use known test passwords (not real credentials)

@@ -46,8 +46,8 @@ import { createClient } from '@supabase/supabase-js';
 import { Browser, BrowserContext } from '@playwright/test';
 import { createTestUser, deleteTestUser, type TestUser } from './test-user';
 
-/** All test users are created with this password by createTestUser */
-const TEST_PASSWORD = process.env.E2E_TEST_PASSWORD ?? 'e2e-test-pw';
+/** Must match the password in test-user.ts createTestUser */
+const TEST_PASSWORD = 'test-password-12345';
 
 /** Result returned by getTestAuthContext */
 export interface TestAuthContext {
