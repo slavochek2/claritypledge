@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { useParams, useNavigate, useSearchParams, Link } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
 import { toast } from 'sonner';
@@ -21,13 +21,14 @@ import { MobileTooltip } from '@/app/prototypes/linkedin-like/components/shared'
 import { Button } from '@/components/ui/button';
 import { eventsService } from '@/app/data/events-service';
 import { useAuth } from '@/auth';
-import { extractBannerKeywords, regenerateUnsplashBanner, generateAIBanner } from '../banner-utils';
+import { extractBannerKeywords } from '../banner-utils';
 import { formatTime, downloadICSFile, getGoogleCalendarUrl, getOutlookUrl, getOffice365Url, getTimezoneLabel } from '../utils';
 import type { EventWithHost, PersonRef } from '@/app/types';
 import { ConfirmDialog } from '@/app/components/shared/confirm-dialog';
 import { PersonRow } from '@/app/components/shared/PersonRow';
 import { PersonAvatar } from '@/components/ui/person-avatar';
 import { PracticeRooms } from './PracticeRooms';
+import { BannerDisplay, BannerControls, useBanner } from '@/app/components/shared/banner';
 
 export function EventDetail() {
   const { slug } = useParams<{ slug: string }>();
@@ -70,17 +71,18 @@ export function EventDetail() {
   const [calendarMenuOpen, setCalendarMenuOpen] = useState(false);
   const calendarMenuRef = useRef<HTMLDivElement>(null);
 
-  // Banner state (can change via Regenerate/Remove)
-  const [bannerUrl, setBannerUrl] = useState<string | undefined>(undefined);
-  const [isBannerLoading, setIsBannerLoading] = useState(false);
-  const [showBannerSearch, setShowBannerSearch] = useState(false);
-  const [bannerSearchError, setBannerSearchError] = useState(false);
-  const [bannerSearchKeywords, setBannerSearchKeywords] = useState('');
+  // Banner state — delegated to shared useBanner hook
+  const saveBanner = useCallback(async (newUrl: string | null) => {
+    if (!event) return;
+    await eventsService.updateEvent(event.id, { bannerUrl: newUrl });
+  }, [event]);
 
-  // Sync banner state when event loads
-  useEffect(() => {
-    setBannerUrl(event?.bannerUrl ?? undefined);
-  }, [event?.bannerUrl]);
+  const banner = useBanner({
+    entityType: 'event',
+    entityId: event?.id ?? '',
+    initialBannerUrl: event?.bannerUrl ?? null,
+    onSave: saveBanner,
+  });
 
   // Confirm dialog states
   const [showCancelRsvpDialog, setShowCancelRsvpDialog] = useState(false);
@@ -204,65 +206,6 @@ export function EventDetail() {
     }
   };
 
-  const handleRegenerateBanner = async () => {
-    if (!event || isBannerLoading) return;
-    setIsBannerLoading(true);
-
-    // Try AI generation first
-    let newUrl = await generateAIBanner(event.id, event.title, event.location || '');
-
-    // Fall back to Unsplash
-    if (!newUrl) {
-      const keywords = extractBannerKeywords(event.title);
-      if (keywords) {
-        newUrl = await regenerateUnsplashBanner(keywords);
-      }
-    }
-
-    if (newUrl) {
-      await eventsService.updateEvent(event.id, { bannerUrl: newUrl });
-      setBannerUrl(newUrl);
-      setShowBannerSearch(false);
-      setBannerSearchError(false);
-    } else {
-      setShowBannerSearch(true);
-      setBannerSearchError(false);
-    }
-    setIsBannerLoading(false);
-  };
-
-  const handleBannerSearch = async (keywords: string) => {
-    if (!event || isBannerLoading || !keywords.trim()) return;
-    setIsBannerLoading(true);
-    setBannerSearchError(false);
-
-    // Try AI generation with custom keywords first
-    let newUrl = await generateAIBanner(event.id, event.title, event.location || '', keywords);
-
-    // Fall back to Unsplash
-    if (!newUrl) {
-      newUrl = await regenerateUnsplashBanner(keywords);
-    }
-
-    if (newUrl) {
-      await eventsService.updateEvent(event.id, { bannerUrl: newUrl });
-      setBannerUrl(newUrl);
-      setShowBannerSearch(false);
-      setBannerSearchKeywords('');
-    } else {
-      setBannerSearchError(true);
-    }
-    setIsBannerLoading(false);
-  };
-
-  const handleRemoveBanner = async () => {
-    if (!event || isBannerLoading) return;
-    setIsBannerLoading(true);
-    await eventsService.updateEvent(event.id, { bannerUrl: null });
-    setBannerUrl(undefined);
-    setIsBannerLoading(false);
-  };
-
   // Event data for calendar utilities
   const calendarEventData = {
     id: event.id,
@@ -279,81 +222,24 @@ export function EventDetail() {
   return (
     <div className="min-h-screen bg-background">
       {/* Header - Banner image or gradient fallback, with host controls overlay */}
-      <div className="w-full h-48 md:h-64 relative overflow-hidden">
-        {bannerUrl ? (
-          <img
-            src={bannerUrl}
-            alt={event.title}
-            className="w-full h-full object-cover"
-          />
-        ) : (
-          <div
-            className="w-full h-full"
-            style={{
-              background: isCancelled
-                ? `radial-gradient(at 0% 0%, #9ca3af40 0%, transparent 50%), radial-gradient(at 100% 100%, #9ca3af30 0%, transparent 50%), linear-gradient(135deg, #9ca3af15 0%, #9ca3af08 100%)`
-                : `radial-gradient(at 0% 0%, ${event.hostAvatarColor}50 0%, transparent 50%), radial-gradient(at 100% 100%, ${event.hostAvatarColor}30 0%, transparent 50%), linear-gradient(135deg, ${event.hostAvatarColor}15 0%, ${event.hostAvatarColor}08 100%)`,
-            }}
-          />
-        )}
-
-        {/* Host banner controls - bottom-right, over image/gradient */}
+      <BannerDisplay
+        bannerUrl={banner.bannerUrl}
+        fallbackColor={isCancelled ? '#9ca3af' : event.hostAvatarColor}
+        altText={event.title}
+      >
         {isHost && (
-          <div className="absolute bottom-2 right-2 flex flex-col items-end gap-1">
-            <div className="flex gap-1">
-              <button
-                onClick={handleRegenerateBanner}
-                disabled={isBannerLoading}
-                className="flex items-center gap-1 bg-black/50 backdrop-blur-sm text-white rounded-full px-2 py-1 text-xs hover:bg-black/70 transition-colors disabled:opacity-50"
-              >
-                <RefreshCw className={`w-3 h-3 ${isBannerLoading ? 'animate-spin' : ''}`} />
-                New banner
-              </button>
-              {bannerUrl && (
-                <button
-                  onClick={handleRemoveBanner}
-                  disabled={isBannerLoading}
-                  className="flex items-center gap-1 bg-black/50 backdrop-blur-sm text-white rounded-full px-2 py-1 text-xs hover:bg-black/70 transition-colors disabled:opacity-50"
-                >
-                  <X className="w-3 h-3" />
-                  Remove banner
-                </button>
-              )}
-            </div>
-            {showBannerSearch && (
-              <div className="flex flex-col items-end gap-1">
-                <div className="flex gap-1">
-                  <input
-                    type="text"
-                    aria-label="Describe your banner"
-                    placeholder={extractBannerKeywords(event.title) || 'Describe your banner'}
-                    value={bannerSearchKeywords}
-                    onChange={e => setBannerSearchKeywords(e.target.value)}
-                    onKeyDown={e => {
-                      if (e.key === 'Enter') handleBannerSearch(bannerSearchKeywords);
-                    }}
-                    disabled={isBannerLoading}
-                    className="bg-black/50 backdrop-blur-sm text-white placeholder-white/60 rounded-full px-2 py-1 text-xs outline-none focus:ring-1 focus:ring-white/50 disabled:opacity-50 w-40"
-                  />
-                  <button
-                    onClick={() => handleBannerSearch(bannerSearchKeywords)}
-                    disabled={isBannerLoading || !bannerSearchKeywords.trim()}
-                    className="flex items-center gap-1 bg-black/50 backdrop-blur-sm text-white rounded-full px-2 py-1 text-xs hover:bg-black/70 transition-colors disabled:opacity-50"
-                    aria-label="Search"
-                  >
-                    Search
-                  </button>
-                </div>
-                {bannerSearchError && (
-                  <p className="text-xs text-white bg-black/50 backdrop-blur-sm rounded px-2 py-0.5">
-                    No photos found — try different keywords
-                  </p>
-                )}
-              </div>
-            )}
-          </div>
+          <BannerControls
+            onRegenerate={banner.handleRegenerate}
+            onRemove={banner.handleRemove}
+            isLoading={banner.isLoading}
+            hasBanner={!!banner.bannerUrl}
+            showSearch={banner.showSearch}
+            onSearch={banner.handleSearch}
+            searchError={banner.searchError || undefined}
+            defaultKeywords={extractBannerKeywords(event.title) || undefined}
+          />
         )}
-      </div>
+      </BannerDisplay>
 
       {/* Content - Two column layout on desktop */}
       <div className="max-w-6xl mx-auto px-4 py-6">
