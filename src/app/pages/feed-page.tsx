@@ -1,14 +1,15 @@
 /**
  * @file feed-page.tsx
- * @description P491: Hashtag Feed — public content discovery by tag.
+ * @description P491/P499: Home — public content discovery with creation CTA.
  *
  * Two tabs (Points default, Stories), tag cloud, search bar, URL-driven tag filter.
+ * Logged-in users see "Share a Story" button. Internal tags (st1, st2...) hidden from cloud.
  * Accessible to both authenticated and anonymous users (public content only).
  */
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { useSearchParams } from 'react-router-dom';
-import { Search, X } from 'lucide-react';
+import { Link, useSearchParams } from 'react-router-dom';
+import { Search, X, PenLine } from 'lucide-react';
 import { storiesService } from '@/app/data/stories-service';
 import { pointsService } from '@/app/data/points-service';
 import { useAuth } from '@/auth';
@@ -22,6 +23,9 @@ import type { StoryWithAuthor, PointWithUserPosition } from '@/app/types';
 type FeedTab = 'points' | 'stories';
 
 const FEED_LIMIT = 50;
+
+/** Internal tags used for content organization — hidden from public tag cloud */
+const INTERNAL_TAG_PATTERN = /^st\d+$/i;
 
 export function FeedPage() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -78,6 +82,7 @@ export function FeedPage() {
       }
     }
     return [...tagCounts.entries()]
+      .filter(([tag]) => !INTERNAL_TAG_PATTERN.test(tag))
       .sort((a, b) => b[1] - a[1])
       .map(([tag]) => tag);
   }, [stories, points]);
@@ -125,16 +130,27 @@ export function FeedPage() {
   const activeContent = activeTab === 'stories' ? filteredStories : filteredPoints;
 
   const seoTitle = activeTag
-    ? `#${activeTag} — ClarityPledge Feed`
-    : 'Feed — ClarityPledge';
+    ? `#${activeTag} — ClarityPledge`
+    : 'Home — ClarityPledge';
 
   return (
     <>
       <SEO title={seoTitle} description="Browse public stories and points shared by the ClarityPledge community." />
 
       <div className="container mx-auto px-4 lg:px-8 py-6 max-w-2xl">
-        {/* Page header */}
-        <h1 className="text-2xl font-bold text-foreground mb-4">Feed</h1>
+        {/* Page header + Write Story CTA */}
+        <div className="flex items-center justify-between mb-4">
+          <h1 className="text-2xl font-bold text-foreground">Home</h1>
+          {session && (
+            <Link
+              to="/create"
+              className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-500 hover:bg-blue-600 rounded-md transition-colors"
+            >
+              <PenLine className="w-4 h-4" />
+              Share a Story
+            </Link>
+          )}
+        </div>
 
         {/* Search bar */}
         <div className="relative mb-4">

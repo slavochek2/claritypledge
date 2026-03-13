@@ -14,7 +14,7 @@ import {
   DropdownMenuContent,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { MenuIcon, XIcon, CalendarIcon, UserIcon, LayoutListIcon } from "lucide-react";
+import { MenuIcon, XIcon, CalendarIcon, UserIcon, HomeIcon } from "lucide-react";
 import { ClarityLogo } from "@/components/ui/clarity-logo";
 import { GravatarAvatar } from "@/components/ui/gravatar-avatar";
 import { analytics } from "@/lib/mixpanel";
@@ -133,8 +133,8 @@ export function SimpleNavigation() {
                         : "text-muted-foreground hover:text-foreground hover:bg-accent"
                     }`}
                   >
-                    <LayoutListIcon className="w-5 h-5" />
-                    <span className="text-xs mt-1 font-medium">Feed</span>
+                    <HomeIcon className="w-5 h-5" />
+                    <span className="text-xs mt-1 font-medium">Home</span>
                   </Link>
                 )}
                 {/* Events */}

@@ -252,7 +252,7 @@ export function CreateStoryPage() {
 
       {/* Header */}
       <div className="mb-8">
-        <h1 className="text-3xl font-bold">Create a Story</h1>
+        <h1 className="text-3xl font-bold">Share a Story</h1>
         <p className="text-muted-foreground mt-2">
           Write a perspective. Others verify what they understood.
         </p>
