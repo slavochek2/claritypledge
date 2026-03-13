@@ -373,15 +373,17 @@ export function StoryCardWithLinks({
               <span /> /* Empty span for flexbox spacing */
             )}
 
-            {/* Action icons */}
+            {/* Action icons — embed: open button only (no share) */}
             {!hideActions && (
               <div className="flex items-center gap-1">
-                <ShareButton
-                  type="story"
-                  id={story.id}
-                  title={`${author.name}'s story`}
-                  description={story.text.slice(0, 100)}
-                />
+                {!isEmbed && (
+                  <ShareButton
+                    type="story"
+                    id={story.id}
+                    title={`${author.name}'s story`}
+                    description={story.text.slice(0, 100)}
+                  />
+                )}
                 {/* External link - only in feed (redundant in detail view) */}
                 {!isDetailView && !disableNavigation && (
                   <MobileTooltip content="Open story">

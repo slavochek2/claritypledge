@@ -350,7 +350,7 @@ export function PointCardWithLinks({
                           <span>{storyLabel}</span>
                         </button>
                         {/* Case D: viewer has position but no story yet on another's profile */}
-                        {!liveSessionMode && !isOwnProfile && userPosition && effectiveViewerCount === 0 && (
+                        {!isEmbed && !liveSessionMode && !isOwnProfile && userPosition && effectiveViewerCount === 0 && (
                           <button
                             onClick={(e) => { e.stopPropagation(); embedNavigate(`/create?pointId=${point.id}`); }}
                             className="text-sm text-blue-600 hover:text-blue-700 transition-colors"
@@ -360,7 +360,7 @@ export function PointCardWithLinks({
                           </button>
                         )}
                         {/* Case E: viewer has a story on another profile's point */}
-                        {!liveSessionMode && !isOwnProfile && viewerStoryId && (
+                        {!isEmbed && !liveSessionMode && !isOwnProfile && viewerStoryId && (
                           <button
                             onClick={(e) => { e.stopPropagation(); embedNavigate(`/story/${viewerStoryId}?edit=true`); }}
                             className="text-sm text-blue-600 hover:text-blue-700 transition-colors"
@@ -373,7 +373,7 @@ export function PointCardWithLinks({
                     );
                   }
 
-                  if (!liveSessionMode && userPosition && effectiveViewerCount === 0) {
+                  if (!isEmbed && !liveSessionMode && userPosition && effectiveViewerCount === 0) {
                     // Case B/F: 0 stories, viewer has position — show 0-stories label + Add CTA
                     return (
                       <div className="flex items-center gap-2">
@@ -404,14 +404,16 @@ export function PointCardWithLinks({
                   return <span />;
                 })()}
 
-                {/* Action icons - hidden in live session mode */}
+                {/* Action icons - hidden in live session mode; embed: open button only (no share) */}
                 {!hideActions && !liveSessionMode && (
                   <div className="flex items-center gap-1">
-                    <ShareButton
-                      type="point"
-                      id={point.id}
-                      description={point.text.slice(0, 100)}
-                    />
+                    {!isEmbed && (
+                      <ShareButton
+                        type="point"
+                        id={point.id}
+                        description={point.text.slice(0, 100)}
+                      />
+                    )}
                     {!isDetailView && !disableNavigation && (
                       <MobileTooltip content="Open point">
                         <button
@@ -521,7 +523,7 @@ export function PointCardWithLinks({
                     <span>{storyLabel}</span>
                   </button>
                   {/* Case D: viewer has position but no story yet on another's profile */}
-                  {!liveSessionMode && !isOwnProfile && userPosition && effectiveViewerCount === 0 && (
+                  {!isEmbed && !liveSessionMode && !isOwnProfile && userPosition && effectiveViewerCount === 0 && (
                     <button
                       onClick={(e) => { e.stopPropagation(); embedNavigate(`/create?pointId=${point.id}`); }}
                       className="text-sm text-blue-600 hover:text-blue-700 transition-colors"
@@ -531,7 +533,7 @@ export function PointCardWithLinks({
                     </button>
                   )}
                   {/* Case E: viewer has a story on another profile's point */}
-                  {!isOwnProfile && viewerStoryId && (
+                  {!isEmbed && !isOwnProfile && viewerStoryId && (
                     <button
                       onClick={(e) => { e.stopPropagation(); embedNavigate(`/story/${viewerStoryId}?edit=true`); }}
                       className="text-sm text-blue-600 hover:text-blue-700 transition-colors"
@@ -549,10 +551,12 @@ export function PointCardWithLinks({
             <span /> /* Empty span for flexbox spacing */
           )}
 
-          {/* Action icons - hidden in live session mode */}
+          {/* Action icons - hidden in live session mode; embed: open button only (no share) */}
           {!hideActions && !liveSessionMode && (
             <div className="flex items-center gap-1">
-              <ShareButton type="point" id={point.id} description={point.text.slice(0, 100)} />
+              {!isEmbed && (
+                <ShareButton type="point" id={point.id} description={point.text.slice(0, 100)} />
+              )}
               {/* External link - only in feed (redundant in detail view) */}
               {!isDetailView && !disableNavigation && (
                 <MobileTooltip content="Open point">
@@ -570,8 +574,8 @@ export function PointCardWithLinks({
         </div>
 
 
-        {/* P465: Story CTA footer row for feed view — shown when viewer has taken a position + no story yet */}
-        {userPosition && !liveSessionMode && (() => {
+        {/* P465: Story CTA footer row for feed view — shown when viewer has taken a position + no story yet (hidden in embed) */}
+        {userPosition && !isEmbed && !liveSessionMode && (() => {
           const positionGroup = getPositionGroup(userPosition as PositionType);
           const copy = getPositionCTACopy(positionGroup);
           const effectiveViewerStoryCount = viewerStoryCount ?? filteredStories.filter(s => s.authorId === currentUserId).length;

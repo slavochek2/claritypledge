@@ -88,6 +88,7 @@ const getUpsertData = () => {
 const mockGetProfile = vi.fn();
 vi.mock('@/app/data/api', () => ({
   getProfile: (id: string) => mockGetProfile(id),
+  getProfileResult: (id: string) => mockGetProfile(id).then((data: unknown) => ({ success: true, data })).catch(() => ({ success: false, data: null })),
   signOut: vi.fn(),
   // generateSlug is now imported by AuthCallbackPage for slug generation at profile creation time
   generateSlug: (name: string) => name.toLowerCase().replace(/\s+/g, '-'),
