@@ -518,7 +518,12 @@ export function AuthCallbackPage() {
       const anonPointIds = Object.keys(anonPositions);
       if (anonPointIds.length > 0) {
         console.log('📌 P502: Batch-restoring', anonPointIds.length, 'anonymous positions');
+        const VALID_POSITIONS = ['strongly_disagree','disagree','somewhat_disagree','unsure','somewhat_agree','agree','strongly_agree'];
         for (const pointId of anonPointIds) {
+          if (!isValidPointId(pointId) || !VALID_POSITIONS.includes(anonPositions[pointId])) {
+            console.warn('⚠️ P502: Skipping invalid anon position entry', pointId);
+            continue;
+          }
           try {
             await pointsService.setPosition(pointId, authUser.id, anonPositions[pointId]);
           } catch (err) {
