@@ -20,10 +20,11 @@ import {
   ThreadLineGroup,
   ThreadLineItem,
   type SevenPointCounts,
-} from '@/app/prototypes/linkedin-like/components/shared';
+} from '@/app/components/shared';
 import { LinkedText } from '@/app/components/shared/linked-text';
-import type { Point, Position, Story, PositionType, PositionButtonGroup } from '@/app/prototypes/shared/types';
-import { getPositionGroup, getPositionCTACopy } from '@/app/prototypes/shared/types';
+import type { PositionType, PositionButtonGroup } from '@/app/types';
+import { getPositionGroup, getPositionCTACopy } from '@/app/utils/position-helpers';
+import type { Point, Position, Story } from '@/app/components/shared/prototype-types';
 import { TagPills } from '@/app/components/shared/tag-pills';
 import { stripHashtags } from '@/lib/utils';
 

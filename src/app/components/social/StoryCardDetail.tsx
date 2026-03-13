@@ -25,7 +25,7 @@ import {
   ThreadLineGroup,
   ThreadLineItem,
   type SevenPointCounts,
-} from '@/app/prototypes/linkedin-like/components/shared';
+} from '@/app/components/shared';
 import type { StoryWithAuthor, PointSummary, PositionType, PointPosition } from '@/app/types';
 import { TagPills } from '@/app/components/shared/tag-pills';
 import { stripHashtags } from '@/lib/utils';
@@ -35,8 +35,8 @@ type LinkedStory = Pick<
   StoryWithAuthor,
   'id' | 'content' | 'authorId' | 'authorName' | 'authorSlug' | 'authorAvatarUrl' | 'authorEarsCount' | 'authorHasPledged'
 >;
-import type { PositionButtonGroup } from '@/app/prototypes/shared/types';
-import { getPositionGroup, getPositionCTACopy } from '@/app/prototypes/shared/types';
+import type { PositionButtonGroup } from '@/app/types';
+import { getPositionGroup, getPositionCTACopy } from '@/app/utils/position-helpers';
 
 /** Display context for StoryCard - controls what's shown */
 export type StoryCardContext = 'profile' | 'point-detail' | 'story-detail';

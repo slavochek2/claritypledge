@@ -890,6 +890,9 @@ export const POSITION_VALUES: Record<PositionType, number> = {
   strongly_agree: 3,
 };
 
+/** Button groups for 3-button UI (maps 7-point scale to 3 groups) */
+export type PositionButtonGroup = 'disagree' | 'unsure' | 'agree';
+
 /** Human-readable labels for position types */
 export const POSITION_LABELS: Record<PositionType, string> = {
   strongly_disagree: 'Strongly Disagree',

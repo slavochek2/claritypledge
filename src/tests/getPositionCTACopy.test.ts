@@ -15,7 +15,8 @@
 import { describe, it, expect } from 'vitest';
 
 // ─── Type & function under test ───────────────────────────────────────────────
-import { getPositionCTACopy, type PositionButtonGroup } from '../app/prototypes/shared/types';
+import { getPositionCTACopy } from '../app/utils/position-helpers';
+import type { PositionButtonGroup } from '../app/types';
 // ─────────────────────────────────────────────────────────────────────────────
 
 describe('getPositionCTACopy — copy variants', () => {

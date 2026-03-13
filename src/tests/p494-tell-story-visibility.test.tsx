@@ -13,7 +13,8 @@ import { describe, it, expect } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { BrowserRouter } from 'react-router-dom';
 import { PointCardWithLinks } from '@/app/components/social/point-card-with-links';
-import type { Point, PositionType } from '@/app/prototypes/shared/types';
+import type { PositionType } from '@/app/types';
+import type { Point } from '@/app/components/shared/prototype-types';
 
 const POINT_ID = 'point-1';
 const CURRENT_USER = 'user-1';

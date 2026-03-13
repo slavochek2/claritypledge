@@ -41,14 +41,10 @@ const AgreementEmailConfirmationPage = lazy(() => import("@/app/pages/agreement-
 const DeclinedAgreementPage = lazy(() => import("@/app/pages/declined-agreement-page").then(m => ({ default: m.DeclinedAgreementPage })));
 const ProfileConnectionsPage = lazy(() => import("@/app/pages/profile-connections-page").then(m => ({ default: m.ProfileConnectionsPage })));
 
-// Isolated prototypes - completely self-contained, no dependencies on main app
+// Dev/prototype pages
 const TreePage = lazy(() => import("@/app/pages/TreePage").then(m => ({ default: m.TreePage })));
 const DesignAuditPage = lazy(() => import("@/app/pages/design-audit-page").then(m => ({ default: m.DesignAuditPage })));
-const PremiumPrototype = lazy(() => import("@/app/prototypes/premium").then(m => ({ default: m.PremiumPrototype })));
-const ConvergedPrototype = lazy(() => import("@/app/prototypes/converged").then(m => ({ default: m.ConvergedPrototype })));
-const LinkedInLikePrototype = lazy(() => import("@/app/prototypes/linkedin-like").then(m => ({ default: m.LinkedInLikePrototype })));
 const EventsPrototype = lazy(() => import("@/app/prototypes/events").then(m => ({ default: m.EventsPrototype })));
-const EventsMockPrototype = lazy(() => import("@/app/prototypes/events-mock").then(m => ({ default: m.EventsMockPrototype })));
 
 /** P491: Redirect authenticated+verified users from / to /feed. Show landing for everyone else. */
 function HomeRedirect() {
@@ -547,10 +543,6 @@ export default function ClarityPledgeApp() {
             ============================================================ */}
         <Route path="/tree" element={<LazyRoute><TreePage /></LazyRoute>} />
         <Route path="/tree/design-audit" element={<LazyRoute><DesignAuditPage /></LazyRoute>} />
-        <Route path="/prototype/premium/*" element={<LazyRoute><PremiumPrototype /></LazyRoute>} />
-        <Route path="/prototype/converged/*" element={<LazyRoute><ConvergedPrototype /></LazyRoute>} />
-        <Route path="/prototype/linkedin-like/*" element={<LazyRoute><LinkedInLikePrototype /></LazyRoute>} />
-        <Route path="/prototype/events-mock/*" element={<LazyRoute><EventsMockPrototype /></LazyRoute>} />
         <Route path="/events/*" element={<ClarityLandingLayout><LazyRoute><EventsPrototype /></LazyRoute></ClarityLandingLayout>} />
       </Routes>
       </AuthProvider>

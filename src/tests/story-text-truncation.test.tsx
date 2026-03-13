@@ -3,7 +3,7 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { StoryCardWithLinks } from '@/app/components/social/story-card-with-links';
 import { PointCardWithLinks } from '@/app/components/social/point-card-with-links';
-import type { Story, Point } from '@/app/prototypes/shared/types';
+import type { Story, Point } from '@/app/components/shared/prototype-types';
 
 vi.mock('react-router-dom', async () => {
   const actual = await vi.importActual('react-router-dom');

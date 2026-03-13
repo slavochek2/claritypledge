@@ -7,7 +7,7 @@
  * override mechanism so those functions can access real production data.
  */
 
-import type { Story, Point } from '@/app/prototypes/shared/types';
+import type { Story, Point } from '@/app/components/shared/prototype-types';
 
 /**
  * Global data registry for profile page

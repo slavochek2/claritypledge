@@ -11,7 +11,7 @@
 import { useNavigate } from 'react-router-dom';
 import { Radio, Zap } from 'lucide-react';
 import { GravatarAvatar } from '@/components/ui/gravatar-avatar';
-import { RatingDots } from '@/app/prototypes/linkedin-like/components/shared';
+import { RatingDots } from '@/app/components/shared';
 
 /** User info for display */
 export interface ClarityUser {

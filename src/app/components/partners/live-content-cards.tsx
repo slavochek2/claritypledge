@@ -3,7 +3,7 @@
  * @description P128: Lightweight story/point cards for /live beginning screen content picker.
  * P133: Enhanced with inline expansion pattern + rich cards (avatar, metadata)
  * Uses production types (StoryWithPoints, PointWithCreator).
- * Design reference: prototype at src/app/prototypes/linkedin-like/components/
+ * Design reference: shared components at src/app/components/shared/
  */
 import { useState, useMemo } from 'react';
 import { Search, CheckCircle2, BookOpen, MessageSquare, Loader2, ChevronRight } from 'lucide-react';

@@ -7,7 +7,7 @@
  * Point IDs are shared: pt1, pt2
  */
 
-import type { Story, Point } from '@/app/prototypes/shared/types';
+import type { Story, Point } from '@/app/components/shared/prototype-types';
 import type { Profile } from '@/app/data/api';
 import type { UserCalibration } from '@/app/components/profile/calibration-display';
 

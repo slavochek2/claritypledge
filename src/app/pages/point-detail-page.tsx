@@ -13,9 +13,8 @@ import { Pin } from 'lucide-react';
 import { useAuth } from '@/auth';
 import { pointsService } from '@/app/data/points-service';
 import { storiesService } from '@/app/data/stories-service';
-import type { PointWithCounts, PointWithUserPosition, PointPositionWithUser, PositionType, StoryWithAuthor, Story as AppStory } from '@/app/types';
-import { getPositionGroup, type PositionButtonGroup } from '@/app/prototypes/shared/types';
-import type { Story } from '@/app/prototypes/shared/types';
+import type { PointWithCounts, PointWithUserPosition, PointPositionWithUser, PositionType, PositionButtonGroup, StoryWithAuthor, Story as AppStory } from '@/app/types';
+import { getPositionGroup } from '@/app/utils/position-helpers';
 import { GravatarAvatar } from '@/components/ui/gravatar-avatar';
 import { FocusHeader } from '@/app/components/layout/focus-header';
 import {
@@ -25,12 +24,12 @@ import {
   ShareButton,
   type PositionFilter,
   type SevenPointCounts,
-} from '@/app/prototypes/linkedin-like/components/shared';
+} from '@/app/components/shared';
 import { RemovePositionDialog, useRemovePositionGuard } from '@/app/components/shared/remove-position-dialog';
 import { EarBadge } from '@/components/ui/ear-badge';
 import { StoryCardWithLinks, type StoryAuthor } from '@/app/components/social/story-card-with-links';
 import { PointCardWithLinks, type PointProfileOwner } from '@/app/components/social/point-card-with-links';
-import type { Point as ProtoPoint, Story as ProtoStory } from '@/app/prototypes/shared/types';
+import type { Point as ProtoPoint, Story as ProtoStory } from '@/app/components/shared/prototype-types';
 import { LinkedText } from '@/app/components/shared/linked-text';
 import { TagPills } from '@/app/components/shared/tag-pills';
 import { stripHashtags } from '@/lib/utils';

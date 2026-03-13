@@ -17,7 +17,7 @@ import {
   RefreshCw,
 } from 'lucide-react';
 import { classifyLocation } from '../location-utils';
-import { MobileTooltip } from '@/app/prototypes/linkedin-like/components/shared';
+import { MobileTooltip } from '@/app/components/shared/mobile-tooltip';
 import { Button } from '@/components/ui/button';
 import { eventsService } from '@/app/data/events-service';
 import { useAuth } from '@/auth';
