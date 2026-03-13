@@ -1,5 +1,6 @@
 ---
 status: in-progress
+delivery_stage: uat
 type: bug
 rank: 250005.75
 workstream: E1
@@ -37,12 +38,12 @@ Import `stripHashtags` and `TagPills` into `profile-page-v2.tsx`. Apply the same
 
 ## Acceptance Criteria
 
-- [ ] Hashtags stripped from story body text on profile page
-- [ ] Hashtags stripped from point statement text on profile page
-- [ ] TagPills rendered as styled pill badges on profile story cards
-- [ ] TagPills rendered as styled pill badges on profile point cards
-- [ ] Tag pills link to `/feed?tag=X` (same as other surfaces)
-- [ ] No visual regression on stories/points without tags
+- [x] Hashtags stripped from story body text on profile page
+- [x] Hashtags stripped from point statement text on profile page
+- [x] TagPills rendered as styled pill badges on profile story cards
+- [x] TagPills rendered as styled pill badges on profile point cards
+- [x] Tag pills link to `/feed?tag=X` (same as other surfaces)
+- [x] No visual regression on stories/points without tags
 
 ## Test Coverage Strategy
 
