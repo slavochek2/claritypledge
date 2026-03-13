@@ -9,7 +9,7 @@
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { Search, X, PenLine } from 'lucide-react';
+import { Search, X, PenLine, ArrowUpDown } from 'lucide-react';
 import { storiesService } from '@/app/data/stories-service';
 import { pointsService } from '@/app/data/points-service';
 import { useAuth } from '@/auth';
@@ -35,6 +35,7 @@ export function FeedPage() {
   const activeTag = searchParams.get('tag') || undefined;
   const tabParam = searchParams.get('tab');
   const activeTab: FeedTab = tabParam === 'stories' ? 'stories' : 'points';
+  const ascending = searchParams.get('sort') === 'oldest';
 
   // Data state
   const [stories, setStories] = useState<StoryWithAuthor[]>([]);
@@ -52,8 +53,8 @@ export function FeedPage() {
     try {
       const viewerUserId = session?.user?.id;
       const [storiesData, pointsData] = await Promise.all([
-        storiesService.getPublicStoriesFeed(FEED_LIMIT, 0, activeTag),
-        pointsService.getPublicPointsFeed(FEED_LIMIT, 0, activeTag, viewerUserId),
+        storiesService.getPublicStoriesFeed(FEED_LIMIT, 0, activeTag, ascending),
+        pointsService.getPublicPointsFeed(FEED_LIMIT, 0, activeTag, viewerUserId, ascending),
       ]);
       setStories(storiesData);
       setPoints(pointsData);
@@ -62,7 +63,7 @@ export function FeedPage() {
     } finally {
       setLoading(false);
     }
-  }, [activeTag, session?.user?.id]);
+  }, [activeTag, session?.user?.id, ascending]);
 
   useEffect(() => {
     fetchData();
@@ -115,6 +116,17 @@ export function FeedPage() {
   const handleDismissTag = () => {
     const params = new URLSearchParams(searchParams);
     params.delete('tag');
+    setSearchParams(params, { replace: false });
+  };
+
+  // Sort toggle
+  const handleSortToggle = () => {
+    const params = new URLSearchParams(searchParams);
+    if (ascending) {
+      params.delete('sort');
+    } else {
+      params.set('sort', 'oldest');
+    }
     setSearchParams(params, { replace: false });
   };
 
@@ -204,8 +216,8 @@ export function FeedPage() {
           </div>
         )}
 
-        {/* Tab bar */}
-        <div role="tablist" className="flex gap-0 border-b border-border mb-4">
+        {/* Tab bar + sort toggle */}
+        <div role="tablist" className="flex items-center gap-0 border-b border-border mb-4">
           <button
             role="tab"
             aria-selected={activeTab === 'points'}
@@ -235,6 +247,14 @@ export function FeedPage() {
             {activeTab === 'stories' && (
               <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-foreground" />
             )}
+          </button>
+          <button
+            onClick={handleSortToggle}
+            className="ml-auto flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors pb-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-sm"
+            aria-label={ascending ? 'Switch to newest first' : 'Switch to oldest first'}
+          >
+            {ascending ? 'Newest first' : 'Oldest first'}
+            <ArrowUpDown className="w-3.5 h-3.5" />
           </button>
         </div>
 

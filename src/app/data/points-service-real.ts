@@ -730,7 +730,8 @@ export const realPointsService: PointsService = {
     limit: number,
     offset: number,
     tag?: string,
-    viewerUserId?: string
+    viewerUserId?: string,
+    ascending?: boolean
   ): Promise<PointWithUserPosition[]> {
     log('⚡ getPublicPointsFeed:', { limit, offset, tag, viewerUserId });
 
@@ -752,7 +753,7 @@ export const realPointsService: PointsService = {
     }
 
     const { data, error } = await query
-      .order('created_at', { ascending: false })
+      .order('created_at', { ascending: ascending ?? false })
       .range(offset, offset + limit - 1);
 
     if (error || !data) {
