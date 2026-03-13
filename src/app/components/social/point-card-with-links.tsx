@@ -119,12 +119,32 @@ export function PointCardWithLinks({
       navigate(path);
     }
   };
-  const displayText = stripHashtags(point.text, tags);
+  const fullText = stripHashtags(point.text, tags);
+  // In embed mode, truncate long point text (max 1000 chars) to fit fixed-height iframe
+  const EMBED_TRUNCATE = 200;
+  const displayText = isEmbed && fullText.length > EMBED_TRUNCATE
+    ? fullText.slice(0, EMBED_TRUNCATE).trimEnd() + '...'
+    : fullText;
+  const isTextTruncated = isEmbed && fullText.length > EMBED_TRUNCATE;
   const isOwnProfile = !!(currentUserId && profileOwner?.id && currentUserId === profileOwner.id);
   const [userPosition, setUserPosition] = useState<Position>(
     selectedPosition ?? (currentUserId ? point.positions[currentUserId]?.position ?? null : null)
   );
   const [storiesExpanded, setStoriesExpanded] = useState(false);
+
+  // In embed mode, clicking "N stories" navigates instead of expanding (iframe can't resize)
+  const handleStoriesToggle = () => {
+    if (isEmbed) {
+      // 1 story → open that story directly; N stories → open point page
+      if (linkedStories.length === 1) {
+        embedNavigate(`/story/${linkedStories[0].id}`);
+      } else {
+        embedNavigate(`/point/${point.id}`);
+      }
+    } else {
+      setStoriesExpanded(!storiesExpanded);
+    }
+  };
 
   // P154: Sync userPosition state when position prop changes (after refetch)
   useEffect(() => {
@@ -274,6 +294,14 @@ export function PointCardWithLinks({
                   {/* Point text */}
                   <p className={`text-gray-900 break-words ${compact ? 'text-sm' : 'text-base'}`}>
                     <LinkedText text={displayText} />
+                    {isTextTruncated && (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); embedNavigate(`/point/${point.id}`); }}
+                        className="ml-1 text-blue-600 hover:text-blue-700 text-sm"
+                      >
+                        read more →
+                      </button>
+                    )}
                   </p>
 
                   {/* Position buttons */}
@@ -313,7 +341,7 @@ export function PointCardWithLinks({
                     return (
                       <div className="flex items-center gap-2 flex-wrap">
                         <button
-                          onClick={() => setStoriesExpanded(!storiesExpanded)}
+                          onClick={handleStoriesToggle}
                           className="flex items-center gap-2 text-sm text-gray-600 hover:text-blue-600 transition-colors"
                           aria-expanded={storiesExpanded}
                           aria-label={`${storiesExpanded ? 'Collapse' : 'Expand'} linked stories`}
@@ -422,6 +450,14 @@ export function PointCardWithLinks({
               {/* Point text - same position as StoryCard text */}
               <p className={`text-gray-900 break-words ${compact ? 'text-sm' : 'text-base'}`}>
                 <LinkedText text={displayText} />
+                {isTextTruncated && (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); embedNavigate(`/point/${point.id}`); }}
+                    className="ml-1 text-blue-600 hover:text-blue-700 text-sm"
+                  >
+                    read more →
+                  </button>
+                )}
               </p>
 
               {/* Position buttons */}
@@ -459,7 +495,7 @@ export function PointCardWithLinks({
               if (allLinkedStories.length === 0) return <span />;
               return (
                 <button
-                  onClick={() => setStoriesExpanded(!storiesExpanded)}
+                  onClick={handleStoriesToggle}
                   className="flex items-center gap-2 text-sm text-gray-600 hover:text-blue-600 transition-colors"
                   aria-expanded={storiesExpanded}
                   aria-label={`${storiesExpanded ? 'Collapse' : 'Expand'} linked stories`}
@@ -476,7 +512,7 @@ export function PointCardWithLinks({
               return (
                 <div className="flex items-center gap-2 flex-wrap">
                   <button
-                    onClick={() => setStoriesExpanded(!storiesExpanded)}
+                    onClick={handleStoriesToggle}
                     className="flex items-center gap-2 text-sm text-gray-600 hover:text-blue-600 transition-colors"
                     aria-expanded={storiesExpanded}
                     aria-label={`${storiesExpanded ? 'Collapse' : 'Expand'} linked stories`}
@@ -561,8 +597,9 @@ export function PointCardWithLinks({
         </>
       )}
 
-      {/* Expanded linked stories - in feed view or live session mode */}
+      {/* Expanded linked stories - in feed view or live session mode (never in embed — opens new tab instead) */}
       {!isDetailView &&
+        !isEmbed &&
         storiesExpanded &&
         (liveSessionMode || profileOwner) &&
         (liveSessionMode ? allLinkedStories : storiesToShow).length > 0 && (

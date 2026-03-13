@@ -106,8 +106,22 @@ export function StoryCardWithLinks({
       navigate(path);
     }
   };
-  const [pointsExpanded, setPointsExpanded] = useState(isDetailView);
+  // In embed mode, never auto-expand points (iframe can't resize)
+  const [pointsExpanded, setPointsExpanded] = useState(isDetailView && !isEmbed);
   const [textExpanded, setTextExpanded] = useState(false);
+
+  // In embed mode, clicking "N points" navigates instead of expanding
+  const handlePointsToggle = () => {
+    if (isEmbed) {
+      if (linkedPoints.length === 1) {
+        embedNavigate(`/point/${linkedPoints[0].id}`);
+      } else {
+        embedNavigate(`/story/${story.id}`);
+      }
+    } else {
+      setPointsExpanded(!pointsExpanded);
+    }
+  };
   useEffect(() => { setTextExpanded(false); }, [story.id]);
   const _isCurrentUserStory = currentUserId && story.authorId === currentUserId;
   const displayText = stripHashtags(story.text, tags);
@@ -322,7 +336,7 @@ export function StoryCardWithLinks({
             {/* Collapsible trigger (if has linked points) */}
             {linkedPoints.length > 0 ? (
               <button
-                onClick={() => setPointsExpanded(!pointsExpanded)}
+                onClick={handlePointsToggle}
                 className="flex items-center gap-2 text-sm text-gray-600 hover:text-blue-600 transition-colors"
                 aria-expanded={pointsExpanded}
                 aria-label={`${pointsExpanded ? 'Collapse' : 'Expand'} linked points`}
@@ -362,8 +376,9 @@ export function StoryCardWithLinks({
             )}
           </div>
 
-          {/* Linked points - expanded content */}
-          {pointsExpanded &&
+          {/* Linked points - expanded content (never in embed — opens new tab instead) */}
+          {!isEmbed &&
+            pointsExpanded &&
             linkedPoints.length > 0 &&
             (() => {
               const pointsToShow = linkedPoints.slice(0, isDetailView ? undefined : 3);
