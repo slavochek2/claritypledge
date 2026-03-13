@@ -1,5 +1,6 @@
 ---
-status: week
+status: all-done
+completed_at: '2026-03-13'
 type: story
 rank: 250001.75
 tags:
@@ -9,11 +10,9 @@ tags:
   - p422
 created_date: 2026-02-28T00:00:00.000Z
 flow: dev
-locked_at: '2026-03-06T03:36:22.279Z'
 uat_file: features/uat/p462.md
 test_files:
   - e2e/p462-partner-count-prominence.spec.ts
-delivery_stage: uat
 ---
 
 # P462: Clarity Partners Count — Header Prominence
