@@ -5,6 +5,7 @@ rank: 250006.75
 workstream: E1
 created_date: 2026-03-13
 flow: dev
+delivery_stage: uat
 tags: [hashtags, extraction, backfill]
 uat_file: features/uat/p506.md
 test_files:
@@ -36,14 +37,14 @@ When a user types `#leadership` in story or point content, the `tags` array is h
 
 ## Acceptance Criteria
 
-- [ ] `extractHashtags("Hello #leadership #trust")` returns `["leadership", "trust"]`
-- [ ] `extractHashtags("No tags here")` returns `[]`
-- [ ] `extractHashtags("#dup #Dup #DUP")` returns `["dup"]` (deduplicated, lowercase)
-- [ ] New stories save with auto-extracted tags
-- [ ] New points save with auto-extracted tags
-- [ ] Existing stories with hashtags in content get tags backfilled via migration
-- [ ] Existing points with hashtags in content get tags backfilled via migration
-- [ ] Tag pills render on all surfaces for newly created stories/points
+- [x] `extractHashtags("Hello #leadership #trust")` returns `["leadership", "trust"]`
+- [x] `extractHashtags("No tags here")` returns `[]`
+- [x] `extractHashtags("#dup #Dup #DUP")` returns `["dup"]` (deduplicated, lowercase)
+- [x] New stories save with auto-extracted tags
+- [x] New points save with auto-extracted tags
+- [x] Existing stories with hashtags in content get tags backfilled via migration
+- [x] Existing points with hashtags in content get tags backfilled via migration
+- [x] Tag pills render on all surfaces for newly created stories/points
 
 ## Test Coverage Strategy
 
