@@ -2,6 +2,14 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-13 [technical]: Guard every removePosition call path — cascade destroys story links
+
+**Context:** Story 6 got silently delinked from its point on prod (2026-03-13 05:19 UTC). Forensic analysis: user toggled position off on feed card → `removePosition()` DELETE → cascade trigger `cascade_position_removal_to_story_points` fired → story_points row destroyed. Re-adding position doesn't restore the link. The detail page, profile page, and story-detail page all used `useRemovePositionGuard` (P401/P402) — but `feed-point-card.tsx` was the single unguarded path.
+**Decision:** (1) Added `useRemovePositionGuard` to feed-point-card.tsx — now every removePosition call path in the app shows the confirmation dialog. (2) Removed `onPositionChange={fetchData}` from feed-page.tsx — optimistic state in feed-point-card already adjusts counts correctly; the full refetch caused a loading flash on every position click.
+**Alternatives rejected:** (1) Remove the cascade trigger entirely — too risky, it protects data integrity for intentional removals. (2) Add a reverse trigger to restore links on re-add — complex, fragile, treats symptom not cause. (3) Skip dialog for 0-linked-stories on feed — guard always shows (profile warning path); consistent with detail page.
+**Consequences:** No unguarded removePosition paths remain. Feed position changes are instant (optimistic). Any future surface rendering position buttons must use `useRemovePositionGuard` for toggle-off.
+**References:** [feed-point-card.tsx](src/app/components/feed/feed-point-card.tsx), [remove-position-dialog.tsx](src/app/components/shared/remove-position-dialog.tsx), [feed-page.tsx](src/app/pages/feed-page.tsx)
+
 ## 2026-03-13 [process]: Worktree setup — resolve main repo via git, not dirname
 
 **Context:** All npm/npx commands (vite, vitest, eslint, playwright) failed with exit code 194 in worktree w2. Root cause: `setup-worktree.sh` computed `MAIN_REPO` as `dirname "$0"/..` — when invoked from a worktree's copy of the script (agent CWD = worktree), `$0` resolved to the worktree's scripts/ directory, making `MAIN_REPO` = worktree root. This created a circular `node_modules` symlink (pointing to itself), causing node to find no packages.
