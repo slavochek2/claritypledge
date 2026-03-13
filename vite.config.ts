@@ -8,25 +8,41 @@ import { fileURLToPath } from 'url'
 // ES Module equivalent of __dirname
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
+// Auto-detect worktree slot from cwd
+// Returns slot name (e.g. "w1", "w2") or null for main repo
+function getWorktreeSlot(): string | null {
+  const cwd = process.cwd()
+  const slotMatch = cwd.match(/[/\\](w\d+)$/)
+  if (slotMatch) return slotMatch[1]
+  const legacyMatch = cwd.match(/claritypledge-(\d+)$/)
+  if (legacyMatch) return `legacy${legacyMatch[1]}`
+  // Named worktrees (e.g. landing-v4-artistic)
+  const namedMatch = cwd.match(/[/\\]worktrees[/\\]([^/\\]+)$/)
+  if (namedMatch) return namedMatch[1]
+  return null
+}
+
 // Auto-detect port based on worktree
 // Main repo: 5001, Worktrees w1-w7: 5100-5700
 function getPort(): number {
-  const cwd = process.cwd()
-  // .claude/worktrees/w1, w2, ... (current naming convention)
-  const slotMatch = cwd.match(/[/\\]w(\d+)$/)
-  if (slotMatch) {
-    return 5000 + (parseInt(slotMatch[1], 10) * 100) // w1→5100, w2→5200, ...
-  }
-  // Legacy: claritypledge-1, claritypledge-2, ...
-  const legacyMatch = cwd.match(/claritypledge-(\d+)$/)
-  if (legacyMatch) {
-    return 5000 + (parseInt(legacyMatch[1], 10) * 100)
-  }
-  return 5001 // Main repo (5000 is blocked by macOS AirPlay)
+  const slot = getWorktreeSlot()
+  if (!slot) return 5001 // Main repo (5000 is blocked by macOS AirPlay)
+  const numMatch = slot.match(/^w(\d+)$/) || slot.match(/^legacy(\d+)$/)
+  if (numMatch) return 5000 + (parseInt(numMatch[1], 10) * 100)
+  // Named worktrees: hash to a port in 5800-5899 range
+  const hash = [...slot].reduce((h, c) => ((h << 5) - h + c.charCodeAt(0)) | 0, 0)
+  return 5800 + (Math.abs(hash) % 100)
+}
+
+// Isolate Vite dep cache per worktree to prevent concurrent corruption
+function getCacheDir(): string {
+  const slot = getWorktreeSlot()
+  return slot ? `node_modules/.vite-${slot}` : 'node_modules/.vite'
 }
 
 // https://vite.dev/config/
 export default defineConfig({
+  cacheDir: getCacheDir(),
   server: {
     port: getPort(),
     strictPort: true, // Fail if port is already in use

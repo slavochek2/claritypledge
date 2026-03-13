@@ -1148,7 +1148,7 @@ export function ClarityLivePage() {
           .eq('story_id', storyId)
           .order('version_number', { ascending: false })
           .limit(1)
-          .single();
+          .maybeSingle();
         versionId = versionRow?.id;
       }
 

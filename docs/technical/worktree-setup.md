@@ -8,6 +8,8 @@ Worktrees are the **default isolation mechanism** for all `/dev` and `/fix` work
 
 **Exception — branch-only:** Single-file trivial fixes (typo, copy change, config tweak) where creating a worktree would be overhead. These can go directly on a feature branch or main.
 
+**Vite cache isolation:** All worktrees symlink `node_modules/` to main. `vite.config.ts` sets `cacheDir` per worktree slot (`node_modules/.vite-w1`, `.vite-w2`, etc.) so concurrent dev servers don't corrupt each other's pre-bundled dependencies. See [decisions.md 2026-03-13](../decisions.md).
+
 ---
 
 ## When Worktrees Are Created

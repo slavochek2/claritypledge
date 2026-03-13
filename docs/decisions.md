@@ -2,6 +2,14 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-13 [technical]: Vite cacheDir isolation per worktree
+
+**Context:** With 5 concurrent worktrees (w1-w4 + named), all symlink `node_modules/` to the main repo. Vite's dep optimization cache (`node_modules/.vite/deps/`) was shared across all dev servers. Concurrent servers overwrote each other's pre-bundled dependencies, causing cascading React crashes (`useRef`/`useMemo` null — React dispatcher corruption from stale bundles) and 504 "Outdated Optimize Dep" errors.
+**Decision:** Set `cacheDir` in `vite.config.ts` per worktree slot using the existing `getWorktreeSlot()` detection. Main repo → `node_modules/.vite`, w1 → `.vite-w1`, named worktrees → `.vite-<name>`.
+**Alternatives rejected:** (1) Separate `node_modules` per worktree — wastes 500MB+ disk per slot, breaks the symlink convention. (2) Only run one dev server at a time — defeats the purpose of worktrees for parallel work.
+**Consequences:** Each Vite server has an isolated dep cache. No cross-contamination. Cache rebuilds on first start per worktree (few seconds). Named worktrees (e.g. `landing-v4-artistic`) also get isolated caches.
+**References:** [vite.config.ts](../vite.config.ts), [worktree-setup.md](technical/worktree-setup.md)
+
 ## 2026-03-13 [product]: Anonymous position — optimistic UI + localStorage, not redirect
 
 **Context:** P458 shipped an auth-gate redirect when anonymous users clicked position buttons. This redirect killed engagement — users got ripped away from content to a signup page, and embed visitors on Ghost blog left the article entirely. The 5-step funnel (click → signup → email → magic link → position saved) was too much friction for a low-commitment interaction.
