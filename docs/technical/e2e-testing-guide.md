@@ -368,6 +368,40 @@ Before committing conditional UI changes:
 
 ---
 
+### Auth Context Helper (`auth-context.ts`) — P496
+
+**Preferred pattern for authenticated E2E tests.** Returns a Playwright `BrowserContext` with Supabase auth pre-injected — no page navigation or `setTestSession` needed.
+
+```typescript
+import { test, expect } from '@playwright/test';
+import { getTestAuthContext } from './helpers/auth-context';
+
+test('authenticated user can access /live', async ({ browser }) => {
+  const { context, user, cleanup } = await getTestAuthContext('host', browser);
+  const page = await context.newPage();
+
+  try {
+    await page.goto('/live');
+    await expect(page).toHaveURL('/live'); // Not redirected to /signup
+  } finally {
+    await cleanup(); // Deletes test user + closes context
+  }
+});
+```
+
+**Roles:**
+- `'host'` — verified user (`is_verified: true`). Can access /live, /agreements, /stories.
+- `'guest'` — authenticated but not verified. Triggers verification gates.
+
+**How it works:** Creates a temporary user via Admin API → signs in with password → injects the Supabase session into `BrowserContext.addInitScript` (localStorage key `sb-{ref}-auth-token`). RLS is exercised realistically (user JWT, not service_role).
+
+**When to use which:**
+- `getTestAuthContext()` — tests that need a full authenticated browser (page navigation, visual assertions)
+- `setTestSession()` — tests that already have a page and just need to inject auth
+- `createTestUser()` — tests that only need DB-level user setup (no browser)
+
+---
+
 ### Multi-User Tests
 
 **Example: Testing two users interacting:**

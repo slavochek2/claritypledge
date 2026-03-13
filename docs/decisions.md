@@ -2,6 +2,14 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-13 [process]: Agent verification failures — root cause analysis and E2E auth infra
+
+**Context:** Analysis of 173 "can't verify" instances across 2 weeks (Feb 11 – Mar 12) revealed 67% trace to one root cause: agents lack authenticated browser sessions. Headless tools (Chrome DevTools MCP, Playwright) start fresh sessions without cookies. The only tool with real auth (Claude in Chrome) disconnects after ~5min (MV3 service worker timeout, upstream issues #26347/#27826). Secondary causes: two-user flows untestable (12 cases), chrome-extension:// URL errors (15 cases), subagent isolation (10 cases), macOS keychain (8 cases, already fixed).
+**Decision:** Three-tier fix: (1) P496 `getTestAuthContext()` — programmatic auth bypass via Supabase Admin API + password sign-in + localStorage injection into Playwright BrowserContext. Tests use real user JWTs (not service_role), so RLS is exercised. (2) P497 multi-user fixtures (depends on P496). (3) P498 Playwright storageState for manual visual QA sessions. Also added `.claude/rules/browser.md` to prevent chrome-extension:// navigation.
+**Alternatives rejected:** Waiting for Chrome extension MV3 fix (unknown timeline, external dependency). Mocking auth (defeats purpose — RLS wouldn't be tested). Expanding manual QA (doesn't scale, 67% of failures would persist).
+**Consequences:** Agents can now create authenticated browser sessions in E2E tests (5/5 smoke tests passing). P497/P498 in backlog for multi-user and visual QA coverage. Browser URL guard eliminates 9% of failures immediately.
+**References:** [auth-context.ts](e2e/helpers/auth-context.ts), [browser.md](.claude/rules/browser.md), P496/P497/P498 specs
+
 ## 2026-03-12 [process]: Terms version bump must be enforced mechanically, not by memory
 
 **Context:** ToS was materially updated on 2026-03-04 (Gemini AI processing, partner agreements, story visibility) but `CURRENT_TERMS_VERSION` was never bumped from `v1.0`. Users who accepted before the update were never re-prompted — a legal compliance gap. Root cause: the `/tos-review` skill didn't include a version bump step, and no pre-commit check caught the drift.

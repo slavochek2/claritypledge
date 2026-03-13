@@ -1,10 +1,11 @@
 ---
-status: in-progress
+status: done
 type: task
 rank: 1.0
 tags: [e2e, auth, testing, infrastructure]
 flow: dev
 delivery_stage: uat
+completed_at: '2026-03-13'
 ---
 
 # P496: E2E Programmatic Auth Bypass
