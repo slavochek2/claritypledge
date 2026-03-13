@@ -1,11 +1,11 @@
 ---
-status: qa
+status: all-done
 type: feature
 rank: 250006.75
 workstream: E1
 created_date: 2026-03-13
+completed_at: "2026-03-13"
 flow: dev
-delivery_stage: uat
 tags: [hashtags, extraction, backfill]
 uat_file: features/uat/p506.md
 test_files:

@@ -1,7 +1,7 @@
 # Done Features Index
 
 Quick reference for past completed work. Consult when starting work on a related topic.
-Last updated: 2026-03-13 (P502 Anon Position UX)
+Last updated: 2026-03-13 (P507 Remove Dead Prototypes)
 
 ---
 
@@ -134,6 +134,7 @@ Last updated: 2026-03-13 (P502 Anon Position UX)
 
 ## Infrastructure / Process
 
+- **P507** (Mar 13) Remove Dead Prototypes — extract production code from prototype folders before deleting; `prototype-types.ts` bridges divergent `Story.text` vs `Story.content` shapes; 19K lines deleted
 - **P496** (Mar 13) E2E Programmatic Auth Bypass — `getTestAuthContext()` injects real user JWT into Playwright BrowserContext via `addInitScript`; RLS exercised with user token not service_role; addresses 67% of agent "can't verify" failures
 - **P474** (Mar 06) ToS Markdown Migration — `?raw` + ReactMarkdown with custom Tailwind components; separates legal text from JSX for clean /tos-review diffs
 - **P441** (Mar 06) CLAUDE.md Audit — exchange gate (ADD requires matching REMOVE when over 350 lines) + drift scan prevents silent instruction dilution

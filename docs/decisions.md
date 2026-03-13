@@ -2,6 +2,14 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-13 [technical]: Prototype cleanup — extract production code, then delete
+
+**Context:** 4 prototype directories (premium, converged, events-mock, linkedin-like) plus `prototypes/shared/` were dead code on the `/tree` page, but production code had 47 imports reaching into prototype folders. The prototype `Story.text`/`Point.text` types diverged from production `Story.content`/`Point.statement` — production code was converting shapes before passing to shared UI components that lived in prototype folders.
+**Decision:** Three-phase approach: (1) delete zero-import prototypes (premium, converged, events-mock), (2) extract production code from `prototypes/shared/` → `utils/position-helpers.ts` + `utils/format-time.ts` + `types/index.ts`, (3) move linkedin-like shared components → `components/shared/` with a `prototype-types.ts` bridge file preserving the divergent type shapes. Clean Architecture was evaluated and rejected — existing folder structure already had homes for everything.
+**Alternatives rejected:** (1) Clean Architecture pattern — overkill for a React app where the problem is misplaced files, not missing layers. (2) Rewrite all consumers to use production types directly — risky, would require changing component prop signatures across 16 files simultaneously. (3) Delete everything and fix forward — too many production imports to break at once.
+**Consequences:** `prototypes/events/` remains (real production `/events` route, rename is a separate task). `prototype-types.ts` is tech debt — components still consume the old `Story.text`/`Point.text` shapes. Future cleanup: align component props to production types directly. 19K lines deleted, 6 new files created.
+**References:** [P507 spec](features/done/22_mar_26/p507_remove_dead_prototypes.md)
+
 ## 2026-03-13 [technical]: Vite cacheDir isolation per worktree
 
 **Context:** With 5 concurrent worktrees (w1-w4 + named), all symlink `node_modules/` to the main repo. Vite's dep optimization cache (`node_modules/.vite/deps/`) was shared across all dev servers. Concurrent servers overwrote each other's pre-bundled dependencies, causing cascading React crashes (`useRef`/`useMemo` null — React dispatcher corruption from stale bundles) and 504 "Outdated Optimize Dep" errors.
