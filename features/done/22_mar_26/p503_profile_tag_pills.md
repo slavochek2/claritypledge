@@ -1,6 +1,6 @@
 ---
-status: in-progress
-delivery_stage: uat
+status: all-done
+completed_at: "2026-03-13"
 type: bug
 rank: 250005.75
 workstream: E1
