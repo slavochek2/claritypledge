@@ -38,7 +38,7 @@ export function BottomNav() {
   const navItems: NavItem[] = [
     {
       icon: LayoutListIcon,
-      label: "Feed",
+      label: "Home",
       to: "/feed",
     },
     {

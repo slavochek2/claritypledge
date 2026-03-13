@@ -134,7 +134,7 @@ export function SimpleNavigation() {
                     }`}
                   >
                     <LayoutListIcon className="w-5 h-5" />
-                    <span className="text-xs mt-1 font-medium">Feed</span>
+                    <span className="text-xs mt-1 font-medium">Home</span>
                   </Link>
                 )}
                 {/* Events */}
