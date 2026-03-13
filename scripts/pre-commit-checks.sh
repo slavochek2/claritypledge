@@ -293,14 +293,12 @@ DUPLICATE_SPECS=$(find features -maxdepth 1 -name 'p*.md' 2>/dev/null | while re
 done || true)
 
 if [ -n "$DUPLICATE_SPECS" ]; then
-    echo -e "${YELLOW}⚠ Duplicate spec(s) found — original still in features/ but also in features/done/:${NC}"
+    echo -e "${RED}✗ Duplicate spec(s) found — original still in features/ but also in features/done/:${NC}"
     echo "$DUPLICATE_SPECS" | while read -r f; do
-        echo -e "${YELLOW}  → $f (auto-staging removal)${NC}"
-        git rm --cached "$f" 2>/dev/null || true
-        git rm "$f" 2>/dev/null || true
+        echo -e "${RED}  → $f${NC}"
+        echo -e "${RED}    Fix: git rm $f${NC}"
     done
-    echo -e "${YELLOW}  → Staged removal. Re-run commit.${NC}"
-    WARNINGS=$((WARNINGS + 1))
+    ERRORS=$((ERRORS + 1))
 else
     echo -e "${GREEN}✓ No duplicate specs${NC}"
 fi

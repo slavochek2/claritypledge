@@ -2,6 +2,14 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-13 [process]: Pre-commit hook must never mutate the git index
+
+**Context:** During a `git commit` with 2 files staged, section 13c of `pre-commit-checks.sh` ran `git rm --cached` and `git rm` to auto-fix duplicate specs (files in both `features/` and `features/done/`). This mutated the index during the hook, deleted files from disk, and exited with warnings (not errors) — so git committed the wrong files. Required manual recovery via `git reflog`. Investigated via `/falsify`: P2 (stash/restore) FAILS because `git stash --keep-index` doesn't protect the index from `git rm --cached`; P3 (snapshot guard) is marginal — detects after disk damage already happened.
+**Decision:** Replace `git rm` calls in section 13c with a hard error (`ERRORS++`) that prints the exact copy-pasteable fix command and blocks the commit. Pre-commit hooks must be read-only — no `git rm`, `git add`, `git mv`, or any index mutation. Also added `predev` npm hook (`scripts/check-worktree-env.sh`) to auto-detect worktrees missing `.env.local` and run `setup-worktree.sh`.
+**Alternatives rejected:** `git stash --keep-index` isolation (doesn't protect index, only working tree). Index snapshot guard at end (detect-and-abort after damage). Removing section 13c entirely (still want the check, just not the auto-fix). Post-commit hook (can't block). CI-only check (too late for local dev).
+**Consequences:** Commits with duplicate specs now fail with an actionable error instead of silently destroying files. Worktrees auto-heal on `npm run dev`. Rule: any future pre-commit check must be read-only — if it wants to fix something, print the command and block.
+**References:** `scripts/pre-commit-checks.sh` (section 13c), `scripts/check-worktree-env.sh`, `scripts/setup-worktree.sh`
+
 ## 2026-03-13 [technical]: Profile fetch failure silently logs out users across 12+ pages
 
 **Context:** Two-user /live flow: user B scans QR code, gets forced to re-login despite valid Supabase session. Root cause: `fetchProfileForUser` in `AuthContext.tsx` used `getProfile()` which flattens server errors and "not found" into the same `null`. On cold start (no cached profile in `previousUserRef`), a transient network error or 5xx → `user = null` → all 12+ pages that check `user` treat the user as logged out. Most failures are silent: forms render but submit does nothing, no error toast. The `previousUserRef` guard only protects warm sessions (profile loaded once already).
