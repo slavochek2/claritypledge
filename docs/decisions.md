@@ -2,6 +2,14 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-13 [technical]: Blank page from missing env vars — accepted residual risk
+
+**Context:** When `VITE_SUPABASE_URL` is undefined (missing `.env.local`), `supabase.ts` line 7 throws at ES module evaluation time — before `createRoot` or `root.render` execute. React error boundaries can't catch module-eval throws. Static imports are hoisted, so a pre-import check in `main.tsx` is structurally impossible without converting to dynamic `import()`. The only UI signal is a console error against a blank `<div id="root">`.
+**Decision:** Accept residual risk. The `predev` npm hook covers the systematic path (worktrees via `npm run dev`). Uncovered paths (direct `vite`, fresh clone without `.env.local`) produce a clear console error and self-correct in <60 seconds. No additional code change.
+**Alternatives rejected:** (1) Dev-only error banner in `main.tsx` — impossible with static imports; would require dynamic `import()` restructuring. (2) React error boundary — architecturally impossible; module-eval throws happen before React exists. (3) Converting `supabase.ts` throw to graceful fallback — would mask configuration errors in prod.
+**Consequences:** Developers who bypass `npm run dev` will see a blank page with console error. This is an acceptable DX trade-off — the error message is clear, the fix is obvious (create `.env.local`), and the `predev` hook prevents the most common trigger.
+**References:** `src/lib/supabase.ts` (line 7), `src/main.tsx` (static imports), `scripts/check-worktree-env.sh`
+
 ## 2026-03-13 [process]: Pre-commit hook must never mutate the git index
 
 **Context:** During a `git commit` with 2 files staged, section 13c of `pre-commit-checks.sh` ran `git rm --cached` and `git rm` to auto-fix duplicate specs (files in both `features/` and `features/done/`). This mutated the index during the hook, deleted files from disk, and exited with warnings (not errors) — so git committed the wrong files. Required manual recovery via `git reflog`. Investigated via `/falsify`: P2 (stash/restore) FAILS because `git stash --keep-index` doesn't protect the index from `git rm --cached`; P3 (snapshot guard) is marginal — detects after disk damage already happened.
