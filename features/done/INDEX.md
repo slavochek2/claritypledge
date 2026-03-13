@@ -1,7 +1,7 @@
 # Done Features Index
 
 Quick reference for past completed work. Consult when starting work on a related topic.
-Last updated: 2026-03-13 (P496 E2E auth)
+Last updated: 2026-03-13 (P501 understood pill)
 
 ---
 
@@ -23,6 +23,7 @@ Last updated: 2026-03-13 (P496 E2E auth)
 
 ## Points & Stories
 
+- **P501** (Mar 13) Unify Understood Pill — legacy `verificationCount` diverged from `understoodCount`; always show pill (even 0) so new surfaces don't need `> 0` guards
 - **P494** (Mar 12) Tell Your Story Visibility Gate — zombie CTA from P458 (anonymous nudge) survived 6 feature iterations with inverted `!user` logic; use `shouldShowStoryCTA` utility for all CTA gates, never inline conditions
 - **P401** (Feb 26) Position-Story Integrity — DB trigger cascades story-point unlinking on position delete; warning shows affected count
 - **P407** (Feb 26) Unify Story Detail Points — position state must sync on dialog resolve; remove duplicate point list

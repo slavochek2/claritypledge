@@ -2,6 +2,14 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-13 [product]: "X understood" pill always visible, even at zero
+
+**Context:** The understood pill was inconsistent — embeds always showed it (using legacy `verificationCount`), but feed/profile/detail hid it when count was 0 (using `understoodCount`). Two field names, two display policies.
+**Decision:** Always show the pill on all surfaces, even "0 understood". Unified field name to `understoodCount` everywhere. Legacy `verificationCount` eliminated from codebase.
+**Alternatives rejected:** (1) Keep hiding at zero — rejected because "0 understood" is informative (story hasn't been verified yet, invites action). (2) Rename to `verificationCount` everywhere — rejected because `understoodCount` matches the DB column `understood_count` and the product language.
+**Consequences:** Every story card now shows a count pill. Future surfaces don't need to add `> 0` guards. The prototype types (`prototypes/shared/types.ts`) now match production types.
+**References:** [P501 spec](features/done/22_mar_26/p501_unify_understood_pill.md)
+
 ## 2026-03-13 [technical]: Blank page from missing env vars — accepted residual risk
 
 **Context:** When `VITE_SUPABASE_URL` is undefined (missing `.env.local`), `supabase.ts` line 7 throws at ES module evaluation time — before `createRoot` or `root.render` execute. React error boundaries can't catch module-eval throws. Static imports are hoisted, so a pre-import check in `main.tsx` is structurally impossible without converting to dynamic `import()`. The only UI signal is a console error against a blank `<div id="root">`.
