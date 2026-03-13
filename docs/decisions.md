@@ -2,6 +2,14 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-13 [product]: Anonymous position — optimistic UI + localStorage, not redirect
+
+**Context:** P458 shipped an auth-gate redirect when anonymous users clicked position buttons. This redirect killed engagement — users got ripped away from content to a signup page, and embed visitors on Ghost blog left the article entirely. The 5-step funnel (click → signup → email → magic link → position saved) was too much friction for a low-commitment interaction.
+**Decision:** Replace the redirect with optimistic UI: anonymous click highlights the button visually (separate `anonPosition` state), shows an inline CTA ("Sign up or log in to save your position"), and stores the position in localStorage (`cp-anon-positions`). On signup, all stored positions are batch-restored before the P458 single-position handler runs. Aggregate counts are NOT adjusted for anonymous positions (no ghost data) — the `anonPosition` state is never fed into the count adjustment `useMemo`. CTA links carry auth-gate URL params as fallback for the specific point the user clicked.
+**Alternatives rejected:** (1) Keep redirect — high bounce rate, embed visitors lost. (2) Increment counts optimistically for anon — creates ghost data that inflates aggregates. (3) Show a modal/popup instead of inline CTA — too aggressive, contradicts the "soft hint" design ethos proven in P490 live sessions. (4) Cookie-based instead of localStorage — cookies sent to server on every request, unnecessary for client-only state.
+**Consequences:** Anonymous visitors can now interact with the core product action (position-taking) without friction. Signup conversion funnel shortened from 5 steps to 2 (click CTA → auth). Embed visitors stay on the blog article. Batch-restore must run BEFORE the P458 single-position handler in AuthCallbackPage (the handler does navigate+return, which would skip batch restore).
+**References:** [P502 spec](features/done/22_mar_26/p502_anon_position_optimistic_ui.md), predecessor [P458](features/done/22_mar_26/p458_anon_position_auth_gate.md)
+
 ## 2026-03-13 [product]: Feed sort toggle — URL-param approach, not auto-detect sequential tags
 
 **Context:** Stories #st1–#st9 form a teaching sequence that reads backwards when the feed defaults to newest-first. Blog embeds (blog.claritypledge.com) don't carry auth (localStorage isolation in cross-origin iframes), making the main feed the better sharing vehicle for interactive content. Question arose: should hashtag-filtered views auto-detect sequences and flip sort?

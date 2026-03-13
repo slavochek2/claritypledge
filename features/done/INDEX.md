@@ -1,7 +1,7 @@
 # Done Features Index
 
 Quick reference for past completed work. Consult when starting work on a related topic.
-Last updated: 2026-03-13 (P505 Feed Sort Toggle)
+Last updated: 2026-03-13 (P502 Anon Position UX)
 
 ---
 
@@ -88,6 +88,7 @@ Last updated: 2026-03-13 (P505 Feed Sort Toggle)
 
 ## Auth & Verification
 
+- **P502** (Mar 13) Anon Position Optimistic UI — batch-restore must run BEFORE P458 single-position handler (it does `navigate()+return`); separate `anonPosition` state prevents ghost data in aggregate counts
 - **P458** (Mar 09) Anonymous User Auth Gate — `extraParams` on both `signInWithEmail` and `signInWithGoogle` to forward context through OAuth round-trip; validate `intent.redirect` against allowlist on every path
 - **P396** (Feb 26) Eliminate Unverified State — instant email verification via one-time link in welcome email; no UNVERIFIED users
 - **P273** (Feb 26) Create Story Unverified Error — grant role/RLS access on instant verification; check verification before RLS errors surface
