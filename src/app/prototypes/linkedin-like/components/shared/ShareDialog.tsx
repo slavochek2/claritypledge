@@ -47,8 +47,8 @@ export function ShareDialog({
   const isEmbed = new URLSearchParams(window.location.search).get('embed') === 'true';
   const showEmbedOption = !isEmbed && (type === 'story' || type === 'point');
 
-  const embedCode = `<iframe id="cp-embed" src="${url}?embed=true" width="100%" height="450" frameborder="0" style="border: none;" scrolling="no"></iframe>
-<script>window.addEventListener("message",e=>{if(e.data?.type==="claritypledge-embed-resize")document.getElementById("cp-embed").height=e.data.height});</script>`;
+  const embedCode = `<iframe src="${url}?embed=true" width="100%" height="200" frameborder="0" style="border: none; overflow: hidden;" scrolling="no"></iframe>
+<script>window.addEventListener("message",function(e){if(e.data&&e.data.type==="claritypledge-embed-resize"){var frames=document.querySelectorAll('iframe[src*="claritypledge.com"]');frames.forEach(function(f){try{if(f.contentWindow===e.source){f.style.height=e.data.height+"px"}}catch(err){}})}});</script>`;
 
   const handleCopy = async () => {
     try {

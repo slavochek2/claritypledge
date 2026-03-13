@@ -1100,7 +1100,8 @@ export function StoryDetailPage() {
           document.body.style.background = 'transparent';
           document.documentElement.style.background = 'transparent';
           const reportHeight = () => {
-            const height = el.scrollHeight;
+            const height = el.scrollHeight + 4;
+            if (import.meta.env.DEV) console.log('[embed-resize]', height);
             window.parent.postMessage({ type: 'claritypledge-embed-resize', height }, '*');
           };
           const observer = new ResizeObserver(reportHeight);

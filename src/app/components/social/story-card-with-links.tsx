@@ -132,8 +132,8 @@ export function StoryCardWithLinks({
   const fullText = isEmbed
     ? rawText.replace(/\[([^\]]+)\]\([^)]+\)/g, '$1').replace(/https?:\/\/\S+/g, '').replace(/\s{2,}/g, ' ').trim()
     : rawText;
-  // In embed mode, truncate long story text to fit fixed-height iframe
-  const EMBED_TRUNCATE = 200;
+  // In embed mode, truncate long story text to keep embed compact
+  const EMBED_TRUNCATE = 750;
   const displayText = isEmbed && fullText.length > EMBED_TRUNCATE
     ? fullText.slice(0, EMBED_TRUNCATE).trimEnd() + '...'
     : fullText;
