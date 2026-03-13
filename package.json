@@ -35,6 +35,7 @@
     "date-fns": "^3.6.0",
     "framer-motion": "^11.3.24",
     "html-to-image": "^1.11.13",
+    "jsonwebtoken": "^9.0.3",
     "logrocket": "^10.1.1",
     "lucide-react": "^0.477.0",
     "qrcode.react": "^4.2.0",
