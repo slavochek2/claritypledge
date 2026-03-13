@@ -55,7 +55,7 @@ export function getMockDataForProfile(profile: Profile): ProfileMockData {
       createdAt: '2026-01-07T09:00:00Z',
       visibility: 'public',
       linkedPointIds: ['pt1', 'pt2'],
-      verificationCount: 2,
+      understoodCount: 2,
       crossDisagreementCount: 1,
     },
     {
@@ -65,7 +65,7 @@ export function getMockDataForProfile(profile: Profile): ProfileMockData {
       createdAt: '2026-01-08T14:00:00Z',
       visibility: 'shared',
       linkedPointIds: ['pt1', 'pt2'],
-      verificationCount: 3,
+      understoodCount: 3,
       crossDisagreementCount: 0,
     },
   ];

@@ -185,7 +185,7 @@ export function Chat() {
                           <p className="text-sm text-gray-900 line-clamp-2">{linkedIdea.text}</p>
                           <div className="flex items-center justify-between mt-2">
                             <span className="text-xs text-gray-500">
-                              {linkedIdea.verificationCount} verifications
+                              {linkedIdea.understoodCount} verifications
                             </span>
                             <button
                               onClick={(e) => {

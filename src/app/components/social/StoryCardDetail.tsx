@@ -256,16 +256,14 @@ export function StoryCardDetail({
             {/* Stats row - icon-only style */}
             <div className="flex items-center justify-between mt-3">
               <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                {/* People who understood the story author — hide when zero */}
-                {story.understoodCount > 0 && (
-                  <MobileTooltip
-                    content={`${story.authorName.split(' ')[0]} confirmed ${story.understoodCount} ${story.understoodCount === 1 ? 'person' : 'people'} understood this story`}
-                  >
-                    <span className="px-2.5 py-1 bg-gray-100 rounded-full text-sm text-muted-foreground">
-                      {story.understoodCount} understood
-                    </span>
-                  </MobileTooltip>
-                )}
+                {/* People who understood the story author */}
+                <MobileTooltip
+                  content={`${story.authorName.split(' ')[0]} confirmed ${story.understoodCount} ${story.understoodCount === 1 ? 'person' : 'people'} understood this story`}
+                >
+                  <span className="px-2.5 py-1 bg-gray-100 rounded-full text-sm text-muted-foreground">
+                    {story.understoodCount} understood
+                  </span>
+                </MobileTooltip>
               </div>
               {showVerifyButton && (
                 <button

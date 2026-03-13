@@ -139,7 +139,7 @@ export interface IdeaBase {
   text: string;
   createdBy: string;
   createdAt: string;
-  verificationCount: number;
+  understoodCount: number;
   crossDisagreementCount: number;
   commentCount: number;
 }
@@ -363,7 +363,7 @@ export interface Story {
   visibility: IdeaVisibility;
   eventId?: string;           // Required when visibility='shared' - which event this is shared with
   linkedPointIds: string[];   // Points this story relates to
-  verificationCount: number;  // How many people verified understanding
+  understoodCount: number;  // How many people verified understanding
   crossDisagreementCount?: number; // How many cross-disagreement verifications
 }
 

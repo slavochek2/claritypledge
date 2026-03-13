@@ -274,11 +274,11 @@ function StoryContent({
             <TooltipTrigger asChild>
               <span className="flex items-center gap-1 cursor-default">
                 <Mic size={14} />
-                {story.verificationCount}
+                {story.understoodCount}
               </span>
             </TooltipTrigger>
             <TooltipContent>
-              <p>{author?.name.split(' ')[0] || 'Author'} confirmed {story.verificationCount} {story.verificationCount === 1 ? 'person' : 'people'} understood this story</p>
+              <p>{author?.name.split(' ')[0] || 'Author'} confirmed {story.understoodCount} {story.understoodCount === 1 ? 'person' : 'people'} understood this story</p>
             </TooltipContent>
           </Tooltip>
         </div>

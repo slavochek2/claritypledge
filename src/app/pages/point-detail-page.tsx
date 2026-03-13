@@ -347,7 +347,7 @@ export function PointDetailPage() {
       createdAt: s.createdAt,
       visibility: s.visibility,
       linkedPointIds: [],
-      verificationCount: s.understoodCount,
+      understoodCount: s.understoodCount,
     }));
 
     return (
@@ -493,7 +493,7 @@ export function PointDetailPage() {
                       createdAt: viewerStory.createdAt,
                       visibility: viewerStory.visibility,
                       linkedPointIds: [],
-                      verificationCount: viewerStory.understoodCount,
+                      understoodCount: viewerStory.understoodCount,
                     };
                     const storyAuthor: StoryAuthor = {
                       id: holder.userId,
@@ -522,7 +522,7 @@ export function PointDetailPage() {
                       createdAt: linkedStory.createdAt,
                       visibility: linkedStory.visibility,
                       linkedPointIds: [],
-                      verificationCount: linkedStory.understoodCount,
+                      understoodCount: linkedStory.understoodCount,
                     };
                     const storyAuthor: StoryAuthor = {
                       id: linkedStory.authorId,

@@ -103,11 +103,9 @@ export function FeedStoryCard({ story, activeTag }: FeedStoryCardProps) {
 
             {/* Stats + share */}
             <div className="mt-2 flex items-center gap-2">
-              {story.understoodCount > 0 && (
-                <span className="px-2.5 py-1 bg-gray-100 rounded-full text-xs text-muted-foreground">
-                  {story.understoodCount} understood
-                </span>
-              )}
+              <span className="px-2.5 py-1 bg-gray-100 rounded-full text-xs text-muted-foreground">
+                {story.understoodCount} understood
+              </span>
               <div className="flex-1" />
               <button
                 onClick={async (e) => {

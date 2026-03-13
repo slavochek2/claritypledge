@@ -24,7 +24,7 @@ const BASE_STORY: Story = {
   text: SHORT_TEXT,
   authorId: 'author-1',
   createdAt: new Date().toISOString(),
-  verificationCount: 0,
+  understoodCount: 0,
   visibility: 'public',
 };
 

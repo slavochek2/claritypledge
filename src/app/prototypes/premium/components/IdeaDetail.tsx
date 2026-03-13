@@ -184,7 +184,7 @@ export function IdeaDetail() {
             <h2 className="text-[15px] font-semibold text-gray-900">Verified Understanding</h2>
             <div className="flex items-center gap-2 text-[13px] text-gray-500">
               <CheckCircle2 size={14} />
-              <span>{idea.verificationCount}</span>
+              <span>{idea.understoodCount}</span>
             </div>
           </div>
 
