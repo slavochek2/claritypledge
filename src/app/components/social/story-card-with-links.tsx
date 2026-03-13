@@ -640,7 +640,8 @@ function QuotedPoint({
           {/* Content column */}
           <div className="flex-1 min-w-0">
             {/* Point text */}
-            <p className="text-sm text-gray-800 break-words"><LinkedText text={point.text} /></p>
+            <p className="text-sm text-gray-800 break-words"><LinkedText text={stripHashtags(point.text, point.tags)} /></p>
+            {point.tags?.length > 0 && <TagPills tags={point.tags} context="detail" className="mt-1" />}
 
             {/* Position buttons - compact */}
             {currentUserId && (

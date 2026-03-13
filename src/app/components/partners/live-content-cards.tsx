@@ -474,10 +474,11 @@ interface StoryCardPreviewProps {
 export function StoryCardPreview({ story, showLinkedPoints = true }: StoryCardPreviewProps) {
   const linkedPointsCount = story.points.length;
 
-  // Truncate to 2 lines
-  const preview = story.content.length > 100
-    ? story.content.slice(0, 100).trimEnd() + '…'
-    : story.content;
+  // Truncate to 2 lines — strip hashtags first for clean preview
+  const stripped = stripHashtags(story.content, story.tags);
+  const preview = stripped.length > 100
+    ? stripped.slice(0, 100).trimEnd() + '…'
+    : stripped;
 
   return (
     <div
@@ -525,7 +526,7 @@ export function PointCardPreview({ point }: PointCardPreviewProps) {
       className="w-full max-w-sm bg-card rounded-lg border-l-4 border-l-muted-foreground/50 border border-border shadow-sm p-4"
       data-testid="point-card-preview"
     >
-      <p className="text-sm font-semibold text-foreground"><LinkedText text={point.statement} /></p>
+      <p className="text-sm font-semibold text-foreground"><LinkedText text={stripHashtags(point.statement, point.tags)} /></p>
       {point.context && (
         <p className="text-xs text-muted-foreground mt-2"><LinkedText text={point.context} /></p>
       )}
@@ -554,12 +555,12 @@ export function SelectedContentDisplay({ story, point }: SelectedContentDisplayP
     <div className="w-full max-w-sm" data-testid="selected-content-display">
       {story && (
         <div className="bg-muted border border-border rounded-lg p-4">
-          <p className="text-sm font-semibold text-foreground line-clamp-2"><LinkedText text={story.content} /></p>
+          <p className="text-sm font-semibold text-foreground line-clamp-2"><LinkedText text={stripHashtags(story.content, story.tags)} /></p>
         </div>
       )}
       {point && (
         <div className="bg-muted border border-border rounded-lg p-4">
-          <p className="text-sm font-semibold text-foreground"><LinkedText text={point.statement} /></p>
+          <p className="text-sm font-semibold text-foreground"><LinkedText text={stripHashtags(point.statement, point.tags)} /></p>
           {point.context && (
             <p className="text-xs text-muted-foreground mt-1"><LinkedText text={point.context} /></p>
           )}
