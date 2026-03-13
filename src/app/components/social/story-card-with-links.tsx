@@ -316,6 +316,11 @@ export function StoryCardWithLinks({
               </p>
             )}
 
+            {/* P491: Tag pills — after text, before stats (hidden in embed — hashtags stay inline) */}
+            {!isEmbed && tags && tags.length > 0 && (
+              <TagPills tags={tags} context="detail" className="mt-2" />
+            )}
+
             {/* Stats row - icon-only style */}
             <div className="flex items-center justify-between mt-3">
               <div className="flex items-center gap-1 text-sm text-gray-600">
@@ -340,11 +345,6 @@ export function StoryCardWithLinks({
                 </button>
               )}
             </div>
-
-            {/* P491: Tag pills (hidden in embed — hashtags stay inline in text) */}
-            {!isEmbed && tags && tags.length > 0 && (
-              <TagPills tags={tags} context="detail" className="mt-2" />
-            )}
 
             {/* point-detail context: Hide QuotedPoints entirely - Stories are already in Point context */}
           </div>

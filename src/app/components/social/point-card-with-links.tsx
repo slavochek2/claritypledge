@@ -309,6 +309,11 @@ export function PointCardWithLinks({
                     )}
                   </p>
 
+                  {/* P491: Tag pills — after text, before position buttons (hidden in embed) */}
+                  {!isEmbed && tags && tags.length > 0 && (
+                    <TagPills tags={tags} context="detail" className="mt-2" />
+                  )}
+
                   {/* Position buttons — display-only in embed (no auth flow from blog) */}
                   {!hideActions && (
                     <div role="presentation" className="mt-3" onClick={(e) => e.stopPropagation()}>
@@ -319,11 +324,6 @@ export function PointCardWithLinks({
                         narrow
                       />
                     </div>
-                  )}
-
-                  {/* P491: Tag pills */}
-                  {!isEmbed && tags && tags.length > 0 && (
-                    <TagPills tags={tags} context="detail" className="mt-2" />
                   )}
                 </div>
               </div>
@@ -479,6 +479,11 @@ export function PointCardWithLinks({
                 )}
               </p>
 
+              {/* P491: Tag pills — after text, before position buttons (hidden in embed — hashtags stay inline) */}
+              {!isEmbed && tags && tags.length > 0 && (
+                <TagPills tags={tags} context="detail" className="mt-2" />
+              )}
+
               {/* Position buttons — display-only in embed (no auth flow from blog) */}
               {!hideActions && (
                 <div role="presentation" className="mt-3" onClick={(e) => e.stopPropagation()}>
@@ -489,11 +494,6 @@ export function PointCardWithLinks({
                     narrow
                   />
                 </div>
-              )}
-
-              {/* P491: Tag pills */}
-              {tags && tags.length > 0 && (
-                <TagPills tags={tags} context="detail" className="mt-2" />
               )}
             </div>
           </div>
