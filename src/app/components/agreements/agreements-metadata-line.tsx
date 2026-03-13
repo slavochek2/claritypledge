@@ -1,11 +1,10 @@
 /**
  * @file agreements-metadata-line.tsx
- * @description P459: Compact profile header metadata line showing agreement count.
- * Links to /p/:slug/partners. Handles 3 viewer states:
- *   Owner with agreements        → "N Clarity Partners →"
- *   Owner with 0 agreements      → "0 Clarity Partners →" (always shown so owner can reach the page)
- *   Visitor with public visible  → "N Clarity Partners →"
- *   Non-owner, no visible        → null (renders nothing)
+ * @description P462: Prominent partner count in profile header.
+ * Links to /p/:slug/partners. Handles viewer states:
+ *   Any viewer, N>0 active     → "✦ N Clarity Partners →" (number bold navy xl)
+ *   Owner, 0 agreements        → "✦ 0 Clarity Partners →" (number muted xl)
+ *   Non-owner, no visible      → null (renders nothing)
  */
 
 import { Link } from 'react-router-dom';
@@ -37,18 +36,25 @@ export function AgreementsMetadataLine({
   // B1: count only active agreements for the "N Clarity Partners" display
   const activeCount = filtered.filter(a => a.status === 'active').length;
 
-  const label = filtered.length === 0
-    ? '0 Clarity Partners'
-    : `${activeCount} Clarity Partner${activeCount !== 1 ? 's' : ''}`;
+  const displayCount = filtered.length === 0 ? 0 : activeCount;
+  const partnersLabel = `Clarity Partner${displayCount !== 1 ? 's' : ''}`;
+  const isZeroState = displayCount === 0;
 
   return (
     <Link
       to={`/p/${slug}/partners`}
-      className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors min-h-[44px]"
+      className="inline-flex items-center gap-1.5 hover:opacity-80 transition-opacity min-h-[44px]"
     >
-      <span aria-hidden="true">✦</span>
-      {label}
-      <span aria-hidden="true">→</span>
+      <span aria-hidden="true" className="text-muted-foreground">✦</span>
+      <span className={isZeroState
+        ? 'text-xl text-muted-foreground'
+        : 'text-xl font-bold text-[#002B5C]'
+      }>
+        {displayCount}
+      </span>
+      <span className="text-sm text-muted-foreground">
+        {partnersLabel} →
+      </span>
     </Link>
   );
 }

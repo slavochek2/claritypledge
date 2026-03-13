@@ -13,6 +13,7 @@ locked_at: '2026-03-06T03:36:22.279Z'
 uat_file: features/uat/p462.md
 test_files:
   - e2e/p462-partner-count-prominence.spec.ts
+delivery_stage: uat
 ---
 
 # P462: Clarity Partners Count — Header Prominence
@@ -61,12 +62,12 @@ Renders nothing (existing behaviour unchanged).
 
 ## Acceptance Criteria
 
-- [ ] Partners number renders at `text-xl font-bold text-[#002B5C]` (any viewer, N>0) or `text-xl text-muted-foreground` (owner, 0 count)
-- [ ] Label "Clarity Partners →" renders at `text-sm text-muted-foreground` on same line as number
-- [ ] Full row is still a link to `/p/:slug/partners`
-- [ ] Min tap height 44px preserved
-- [ ] Non-owner with no visible agreements: renders nothing (unchanged)
-- [ ] Visitor with visible agreements: shows "N Clarity Partners" with bold navy styling (same as owner N>0 state)
+- [x] Partners number renders at `text-xl font-bold text-[#002B5C]` (any viewer, N>0) or `text-xl text-muted-foreground` (owner, 0 count)
+- [x] Label "Clarity Partners →" renders at `text-sm text-muted-foreground` on same line as number
+- [x] Full row is still a link to `/p/:slug/partners`
+- [x] Min tap height 44px preserved
+- [x] Non-owner with no visible agreements: renders nothing (unchanged)
+- [x] Visitor with visible agreements: shows "N Clarity Partners" with bold navy styling (same as owner N>0 state)
 
 ## Test Coverage Strategy
 
