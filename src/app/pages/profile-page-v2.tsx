@@ -81,7 +81,7 @@ interface AdaptedStory {
   authorId: string;
   createdAt: string;
   visibility: StoryVisibility;
-  verificationCount: number;
+  understoodCount: number;
   tags: string[];
   linkedPointIds: string[];
 }
@@ -360,7 +360,7 @@ export function ProfilePageV2() {
                 authorId: story.author_id,
                 createdAt: story.created_at,
                 visibility: (story.visibility as StoryVisibility) ?? 'public',
-                verificationCount: story.understood_count ?? 0,
+                understoodCount: story.understood_count ?? 0,
                 tags: story.tags || [],
                 linkedPointIds: [point.id],
               };
@@ -1119,13 +1119,11 @@ function StoryCardFull({
             )}
 
             {/* Stats row */}
-            {story.understoodCount > 0 && (
-              <div className="flex items-center gap-1 mt-3 text-sm text-muted-foreground">
-                <span className="px-2.5 py-1 bg-muted rounded-full text-sm">
-                  {story.understoodCount} understood
-                </span>
-              </div>
-            )}
+            <div className="flex items-center gap-1 mt-3 text-sm text-muted-foreground">
+              <span className="px-2.5 py-1 bg-muted rounded-full text-sm">
+                {story.understoodCount} understood
+              </span>
+            </div>
           </div>
         </div>
       </div>

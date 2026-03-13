@@ -2,13 +2,13 @@ import { ChevronDown, ChevronUp } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 interface VerifyButtonProps {
-  verificationCount: number;  // Total number of verifications
+  understoodCount: number;  // Total number of verifications
   onClick: (e: React.MouseEvent) => void;
   isOpen?: boolean;           // Whether the panel is expanded
 }
 
-export function VerifyButton({ verificationCount, onClick, isOpen = false }: VerifyButtonProps) {
-  const hasVerifications = verificationCount > 0;
+export function VerifyButton({ understoodCount, onClick, isOpen = false }: VerifyButtonProps) {
+  const hasVerifications = understoodCount > 0;
 
   // Determine visual styling based on state
   const getButtonStyle = () => {
@@ -32,12 +32,12 @@ export function VerifyButton({ verificationCount, onClick, isOpen = false }: Ver
             className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-sm font-medium transition-colors ${getButtonStyle()}`}
           >
             <span className="w-4 h-4 rounded-full bg-blue-600 flex items-center justify-center text-xs text-white font-bold">C</span>
-            <span>{verificationCount}</span>
+            <span>{understoodCount}</span>
             <ChevronIcon size={14} />
           </button>
         </TooltipTrigger>
         <TooltipContent>
-          <p>{verificationCount} {verificationCount === 1 ? 'understanding' : 'understandings'}</p>
+          <p>{understoodCount} {understoodCount === 1 ? 'understanding' : 'understandings'}</p>
         </TooltipContent>
       </Tooltip>
     </TooltipProvider>

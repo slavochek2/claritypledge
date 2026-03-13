@@ -117,7 +117,7 @@ export function IdeaCard({ idea, currentUserPosition, onPositionChange }: IdeaCa
       <div className="flex items-center gap-4 text-[13px] text-gray-400">
         <div className="flex items-center gap-1.5">
           <CheckCircle2 size={14} />
-          <span>{idea.verificationCount} verified</span>
+          <span>{idea.understoodCount} verified</span>
         </div>
         {idea.crossDisagreementCount > 0 && (
           <div className="flex items-center gap-1.5 text-[#007AFF]">

@@ -1375,7 +1375,7 @@ export function Live() {
                         <div className="p-4">
                           <p className="text-sm text-gray-900">{story.text}</p>
                           <p className="text-xs text-gray-500 mt-2">
-                            {points.length} {points.length === 1 ? 'point' : 'points'} · {story.verificationCount} understood
+                            {points.length} {points.length === 1 ? 'point' : 'points'} · {story.understoodCount} understood
                           </p>
                         </div>
 

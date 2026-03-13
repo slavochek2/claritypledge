@@ -115,7 +115,7 @@ export const mockIdeas: Idea[] = [
       '5': { position: 'disagree', timestamp: '2026-01-06T16:45:00Z' },
       'current': { position: 'agree', timestamp: '2026-01-07T08:30:00Z' },
     },
-    verificationCount: 3,
+    understoodCount: 3,
     crossDisagreementCount: 1,
     commentCount: 5,
   },
@@ -133,7 +133,7 @@ export const mockIdeas: Idea[] = [
       '5': { position: 'agree', timestamp: '2026-01-05T09:00:00Z' },
       'current': { position: 'disagree', timestamp: '2026-01-06T11:15:00Z' },
     },
-    verificationCount: 2,
+    understoodCount: 2,
     crossDisagreementCount: 2,
     commentCount: 12,
   },
@@ -151,7 +151,7 @@ export const mockIdeas: Idea[] = [
       '5': { position: 'disagree', timestamp: '2026-01-04T10:15:00Z' },
       'current': { position: 'agree', timestamp: '2026-01-05T16:30:00Z' },
     },
-    verificationCount: 1,
+    understoodCount: 1,
     crossDisagreementCount: 0,
     commentCount: 8,
   },
@@ -169,7 +169,7 @@ export const mockIdeas: Idea[] = [
       '5': { position: 'unsure', timestamp: '2026-01-02T14:45:00Z' },
       'current': { position: 'unsure', timestamp: '2026-01-03T10:00:00Z' },
     },
-    verificationCount: 4,
+    understoodCount: 4,
     crossDisagreementCount: 1,
     commentCount: 15,
   },
@@ -187,7 +187,7 @@ export const mockIdeas: Idea[] = [
       '5': { position: 'agree', timestamp: '2025-12-28T11:00:00Z' },
       'current': { position: 'agree', timestamp: '2026-01-01T08:00:00Z' },
     },
-    verificationCount: 5,
+    understoodCount: 5,
     crossDisagreementCount: 1,
     commentCount: 20,
   },
@@ -200,7 +200,7 @@ export const mockIdeas: Idea[] = [
     positions: {
       'current': { position: 'agree', timestamp: '2025-12-25T09:00:00Z' },
     },
-    verificationCount: 0,
+    understoodCount: 0,
     crossDisagreementCount: 0,
     commentCount: 0,
   },
@@ -216,7 +216,7 @@ export function getSimplifiedIdeas(): IdeaSimple[] {
     text: idea.text,
     createdBy: idea.createdBy,
     createdAt: idea.createdAt,
-    verificationCount: idea.verificationCount,
+    understoodCount: idea.understoodCount,
     crossDisagreementCount: idea.crossDisagreementCount,
     commentCount: idea.commentCount,
     positions: Object.fromEntries(
@@ -666,7 +666,7 @@ export function getUserCredibilityStats(userId: string): UserCredibilityStats {
   const calibration = mockCalibrationData[userId];
   const ear = calibration?.listener.sessionCount || 0;
 
-  // Mic: Sum of verificationCount across all stories authored by this user
+  // Mic: Sum of understoodCount across all stories authored by this user
   // This requires mockStories which is defined below, so we access it lazily
   const mic = getMicCount(userId);
 
@@ -684,9 +684,9 @@ function getMicCount(userId: string): number {
 const _micCountCache: Record<string, number> = {};
 
 // Call this after mockStories is defined to populate cache
-export function _initMicCountCache(stories: { authorId: string; verificationCount: number }[]) {
+export function _initMicCountCache(stories: { authorId: string; understoodCount: number }[]) {
   for (const story of stories) {
-    _micCountCache[story.authorId] = (_micCountCache[story.authorId] || 0) + story.verificationCount;
+    _micCountCache[story.authorId] = (_micCountCache[story.authorId] || 0) + story.understoodCount;
   }
 }
 
@@ -772,7 +772,7 @@ export const mockStories: Story[] = [
     createdAt: '2026-01-03T10:00:00Z',
     visibility: 'public',
     linkedPointIds: ['pt1', 'pt2'],
-    verificationCount: 3,
+    understoodCount: 3,
     crossDisagreementCount: 1,
   },
   {
@@ -782,7 +782,7 @@ export const mockStories: Story[] = [
     createdAt: '2026-01-03T14:30:00Z',
     visibility: 'public',
     linkedPointIds: ['pt1', 'pt2'], // Also relates to meetings culture
-    verificationCount: 2,
+    understoodCount: 2,
     crossDisagreementCount: 2,
   },
   {
@@ -792,7 +792,7 @@ export const mockStories: Story[] = [
     createdAt: '2026-01-04T09:15:00Z',
     visibility: 'public',
     linkedPointIds: ['pt1'],
-    verificationCount: 1,
+    understoodCount: 1,
     crossDisagreementCount: 0,
   },
   {
@@ -803,7 +803,7 @@ export const mockStories: Story[] = [
     visibility: 'shared',
     eventId: 'evt-1', // Shared within "Future of Work Summit"
     linkedPointIds: ['pt2'],
-    verificationCount: 4,
+    understoodCount: 4,
     crossDisagreementCount: 1,
   },
   {
@@ -813,7 +813,7 @@ export const mockStories: Story[] = [
     createdAt: '2026-01-05T14:00:00Z',
     visibility: 'public',
     linkedPointIds: ['pt3', 'pt4'], // AI affects both knowledge work and code review practices
-    verificationCount: 2,
+    understoodCount: 2,
     crossDisagreementCount: 1,
   },
   {
@@ -823,7 +823,7 @@ export const mockStories: Story[] = [
     createdAt: '2026-01-06T10:00:00Z',
     visibility: 'public',
     linkedPointIds: ['pt3'],
-    verificationCount: 5,
+    understoodCount: 5,
     crossDisagreementCount: 3,
   },
   {
@@ -833,7 +833,7 @@ export const mockStories: Story[] = [
     createdAt: '2026-01-06T15:00:00Z',
     visibility: 'public',
     linkedPointIds: ['pt4'],
-    verificationCount: 1,
+    understoodCount: 1,
     crossDisagreementCount: 0,
   },
   {
@@ -843,7 +843,7 @@ export const mockStories: Story[] = [
     createdAt: '2026-01-07T09:00:00Z',
     visibility: 'public',
     linkedPointIds: ['pt1', 'pt2'], // Remote work relates to meeting culture too
-    verificationCount: 2,
+    understoodCount: 2,
     crossDisagreementCount: 1,
   },
   {
@@ -854,7 +854,7 @@ export const mockStories: Story[] = [
     visibility: 'shared',
     eventId: 'evt-2', // Shared within "Team Productivity Workshop"
     linkedPointIds: ['pt1', 'pt2'], // Relates to both remote work and meeting culture
-    verificationCount: 3,
+    understoodCount: 3,
     crossDisagreementCount: 0,
   },
   {
@@ -864,7 +864,7 @@ export const mockStories: Story[] = [
     createdAt: '2026-01-09T10:00:00Z',
     visibility: 'private', // Draft - only author sees
     linkedPointIds: [],
-    verificationCount: 0,
+    understoodCount: 0,
     crossDisagreementCount: 0,
   },
 ];

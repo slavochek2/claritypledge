@@ -1069,7 +1069,7 @@ export function StoryDetailPage() {
       createdAt: story.createdAt,
       visibility: story.visibility,
       linkedPointIds: story.points.map(p => p.id),
-      verificationCount: story.understoodCount,
+      understoodCount: story.understoodCount,
     };
 
     const embedAuthor: StoryAuthor = {
