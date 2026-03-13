@@ -2,6 +2,14 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-13 [product]: Profile metadata — LinkedIn-style icon+link pairs, not bold numbers
+
+**Context:** P462 originally made the partner count a bold navy `text-xl` number, LinkedIn "500+ connections" style. User feedback: "big number looks ugly" — it broke the profile header's visual rhythm where everything else is `text-sm`.
+**Decision:** Profile metadata links (pledge, partners) use `text-sm text-blue-500 font-semibold` with a leading Lucide icon (ScrollText for pledge, Users for partners). No arrows, no oversized numbers. Links stacked vertically (not inline with dot separator) for mobile tap targets. Positioned as a cluster after role/LinkedIn, before calibration bar and bio.
+**Alternatives rejected:** (1) Bold navy `text-xl` number — too heavy, breaks hierarchy. (2) Same-line dot separator like LinkedIn ("Pledge · 6 Partners") — wraps awkwardly on mobile with two separate link targets. (3) Muted gray link — doesn't signal interactivity. (4) No icon — works but loses visual differentiation between the two links.
+**Consequences:** All future profile metadata links should follow this pattern: `text-sm text-blue-500` + Lucide icon + label. "See my X" verbs dropped — blue color signals clickability, verb is redundant.
+**References:** [P462 spec](features/done/22_mar_26/p462_partner_count_header_prominence.md)
+
 ## 2026-03-13 [product]: Conversation analysis — park positioning upgrades until revenue validates
 
 **Context:** `/claude-conversations-to-cp` analyzed 30 Claude.ai conversations (Mar 7-13). Three strategic questions surfaced: (1) should coaches/OD replace founders as primary channel? (2) should Pinker+Popper "common knowledge filtering" framing upgrade theory-of-change? (3) does capability transfer after one session contradict FCO retainer model?
