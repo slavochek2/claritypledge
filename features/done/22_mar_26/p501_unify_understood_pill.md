@@ -1,11 +1,11 @@
 ---
-status: qa
+status: all-done
 type: task
 rank: 250005.75
 workstream: E1
 flow: dev
 created_date: 2026-03-13
-delivery_stage: uat
+completed_at: "2026-03-13"
 tags: []
 uat_file: features/uat/p501.md
 test_files:
