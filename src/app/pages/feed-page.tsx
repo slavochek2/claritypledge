@@ -290,7 +290,7 @@ export function FeedPage() {
                       key={point.id}
                       point={point}
                       activeTag={activeTag}
-                      onPositionChange={fetchData}
+                      onPositionChange={undefined}
                     />
                   ))
                 : (filteredStories as StoryWithAuthor[]).map((story) => (
