@@ -23,30 +23,29 @@ export function extractBannerKeywords(title: string): string {
     .trim();
 }
 
+export type BannerEntityType = 'event' | 'story' | 'point' | 'profile';
+
 /**
- * Generates an AI banner via the generate-event-banner edge function.
+ * Generates an AI banner via the generate-banner edge function.
  * Returns the public URL of the stored image, or null on failure.
  */
 export async function generateAIBanner(
-  eventId: string,
-  title: string,
-  location: string,
+  entityType: BannerEntityType,
+  entityId: string,
+  authToken: string,
   keywords?: string,
 ): Promise<string | null> {
   try {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session?.access_token) return null;
-
     const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
     if (!supabaseUrl) return null;
 
-    const response = await fetch(`${supabaseUrl}/functions/v1/generate-event-banner`, {
+    const response = await fetch(`${supabaseUrl}/functions/v1/generate-banner`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${session.access_token}`,
+        'Authorization': `Bearer ${authToken}`,
       },
-      body: JSON.stringify({ eventId, title, location, keywords }),
+      body: JSON.stringify({ entityType, entityId, keywords }),
     });
 
     if (!response.ok) return null;
