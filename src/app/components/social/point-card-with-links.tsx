@@ -119,7 +119,8 @@ export function PointCardWithLinks({
       navigate(path);
     }
   };
-  const fullText = stripHashtags(point.text, tags);
+  // Embed: keep hashtags inline in text (no TagPills), saves vertical space
+  const fullText = isEmbed ? point.text : stripHashtags(point.text, tags);
   // In embed mode, truncate long point text (max 1000 chars) to fit fixed-height iframe
   const EMBED_TRUNCATE = 200;
   const displayText = isEmbed && fullText.length > EMBED_TRUNCATE
@@ -299,7 +300,7 @@ export function PointCardWithLinks({
                         onClick={(e) => { e.stopPropagation(); embedNavigate(`/point/${point.id}`); }}
                         className="ml-1 text-blue-600 hover:text-blue-700 text-sm"
                       >
-                        read more →
+                        show more
                       </button>
                     )}
                   </p>
@@ -317,7 +318,7 @@ export function PointCardWithLinks({
                   )}
 
                   {/* P491: Tag pills */}
-                  {tags && tags.length > 0 && (
+                  {!isEmbed && tags && tags.length > 0 && (
                     <TagPills tags={tags} context="detail" className="mt-2" />
                   )}
                 </div>

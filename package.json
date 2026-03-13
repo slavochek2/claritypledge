@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "postinstall": "bash scripts/install-hooks.sh && npx playwright install chromium",
+    "predev": "bash scripts/check-worktree-env.sh",
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint . --max-warnings 999",

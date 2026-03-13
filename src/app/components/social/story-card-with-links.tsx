@@ -124,7 +124,8 @@ export function StoryCardWithLinks({
   };
   useEffect(() => { setTextExpanded(false); }, [story.id]);
   const _isCurrentUserStory = currentUserId && story.authorId === currentUserId;
-  const fullText = stripHashtags(story.text, tags);
+  // Embed: keep hashtags inline in text (no TagPills), saves vertical space
+  const fullText = isEmbed ? story.text : stripHashtags(story.text, tags);
   // In embed mode, truncate long story text to fit fixed-height iframe
   const EMBED_TRUNCATE = 200;
   const displayText = isEmbed && fullText.length > EMBED_TRUNCATE
@@ -213,7 +214,7 @@ export function StoryCardWithLinks({
                   onClick={(e) => { e.stopPropagation(); embedNavigate(`/story/${story.id}`); }}
                   className="ml-1 text-blue-600 hover:text-blue-700 text-sm"
                 >
-                  read more →
+                  show more
                 </button>
               )}
             </p>
@@ -305,7 +306,7 @@ export function StoryCardWithLinks({
                     onClick={(e) => { e.stopPropagation(); embedNavigate(`/story/${story.id}`); }}
                     className="ml-1 text-blue-600 hover:text-blue-700 text-sm"
                   >
-                    read more →
+                    show more
                   </button>
                 )}
               </p>
@@ -336,8 +337,8 @@ export function StoryCardWithLinks({
               )}
             </div>
 
-            {/* P491: Tag pills */}
-            {tags && tags.length > 0 && (
+            {/* P491: Tag pills (hidden in embed — hashtags stay inline in text) */}
+            {!isEmbed && tags && tags.length > 0 && (
               <TagPills tags={tags} context="detail" className="mt-2" />
             )}
 
