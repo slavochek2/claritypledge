@@ -126,6 +126,18 @@ export function formatRelativeTime(dateString: string): string {
  * @param tags - Array of tag names (without #) that have structured TagPill components
  * @returns Content with matching hashtag strings removed, trimmed, with collapsed whitespace
  */
+/**
+ * Extracts hashtags from content text, returning deduplicated lowercase tag names.
+ * @param content - Text that may contain #hashtag patterns
+ * @returns Array of unique lowercase tag names (without the # prefix)
+ */
+export function extractHashtags(content: string): string[] {
+  const matches = content.match(/#(\w+)/g);
+  if (!matches) return [];
+  const tags = matches.map(m => m.slice(1).toLowerCase());
+  return [...new Set(tags)];
+}
+
 export function stripHashtags(content: string, tags?: string[]): string {
   if (!tags || tags.length === 0) return content;
 
