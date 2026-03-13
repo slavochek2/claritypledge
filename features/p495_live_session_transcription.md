@@ -5,7 +5,7 @@ rank: 1.0
 tags: [transcription, live, diarization, c3]
 prepped_date: '2026-03-12'
 flow: dev
-delivery_stage: 1-prd-review
+delivery_stage: uat
 reviews:
   ux: null
   architect: null
@@ -135,20 +135,20 @@ reviews:
 
 ## Acceptance Criteria
 
-- [ ] Every /live session with audio recording automatically produces a transcript
-- [ ] Transcript includes speaker-labeled segments with timestamps
+- [x] Every /live session with audio recording automatically produces a transcript
+- [x] Transcript includes speaker-labeled segments with timestamps
 - [ ] Speaker labels use participant display names (from session metadata), not generic "Speaker 0/1"
-- [ ] Session-level transcript available (full session, all rounds)
+- [x] Session-level transcript available (full session, all rounds)
 - [ ] Round-level transcripts available (one per completed round)
 - [ ] Language is auto-detected — no manual configuration needed
 - [ ] Works with 2-5 speakers (pair + facilitator + observers)
-- [ ] Transcript visible in session history UI alongside existing round data
-- [ ] Transcript is collapsible/expandable (doesn't overwhelm the session history view)
-- [ ] Only session participants (creator + joiner who were in the session) can see transcripts — existing "Session recorded for AI Insights" banner and join-time consent already cover user expectations
+- [x] Transcript visible in session history UI alongside existing round data
+- [x] Transcript is collapsible/expandable (doesn't overwhelm the session history view)
+- [x] Only session participants (creator + joiner who were in the session) can see transcripts — existing "Session recorded for AI Insights" banner and join-time consent already cover user expectations
 - [ ] Any participant can delete the session transcript (revocable — deletes for everyone)
-- [ ] Private sessions (`?insights=off`) produce no transcript (no audio = no transcript)
-- [ ] Transcript sharing with non-participants is a future feature (C3 retainer) — P495 RLS should be designed to support per-user grants later
-- [ ] Failed transcriptions are visible (not silently lost) and retryable
+- [x] Private sessions (`?insights=off`) produce no transcript (no audio = no transcript)
+- [x] Transcript sharing with non-participants is a future feature (C3 retainer) — P495 RLS should be designed to support per-user grants later
+- [x] Failed transcriptions are visible (not silently lost) and retryable
 - [ ] Processing completes within 15 minutes for a 60-minute session
 - [ ] Works with single-phone recordings (all speakers on one device) and two-phone recordings
 
