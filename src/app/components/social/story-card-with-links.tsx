@@ -384,8 +384,8 @@ export function StoryCardWithLinks({
                     description={story.text.slice(0, 100)}
                   />
                 )}
-                {/* External link - only in feed (redundant in detail view) */}
-                {!isDetailView && !disableNavigation && (
+                {/* External link - always in embed (need escape hatch), feed only otherwise */}
+                {(isEmbed || (!isDetailView && !disableNavigation)) && (
                   <MobileTooltip content="Open story">
                     <button
                       onClick={() => embedNavigate(`/story/${story.id}`)}

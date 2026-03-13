@@ -414,7 +414,7 @@ export function PointCardWithLinks({
                         description={point.text.slice(0, 100)}
                       />
                     )}
-                    {!isDetailView && !disableNavigation && (
+                    {(isEmbed || (!isDetailView && !disableNavigation)) && (
                       <MobileTooltip content="Open point">
                         <button
                           onClick={() => embedNavigate(`/point/${point.id}`)}

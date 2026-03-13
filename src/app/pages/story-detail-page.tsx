@@ -1110,7 +1110,7 @@ export function StoryDetailPage() {
           story={protoStory}
           author={embedAuthor}
           linkedPoints={embedPoints}
-          isDetailView={true}
+          isDetailView={false}
           currentUserId={user?.id}
           tags={story.tags}
         />
