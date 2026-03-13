@@ -43,7 +43,7 @@ import { RoundSummaryScreen } from './round-summary-screen';
 import { StorySearchPicker } from './story-search-picker';
 import { LiveStoryCardExpanded } from './live-story-card-expanded';
 import { GravatarAvatar } from '@/components/ui/gravatar-avatar';
-import { PositionBadge } from '@/app/prototypes/linkedin-like/components/shared';
+import { PositionBadge } from '@/app/components/shared';
 import { storiesService } from '@/app/data/stories-service';
 import { pointsService } from '@/app/data/points-service';
 import { analytics } from '@/lib/mixpanel';

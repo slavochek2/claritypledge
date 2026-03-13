@@ -16,10 +16,9 @@ import { TagPills } from '@/app/components/shared/tag-pills';
 import {
   PositionButtons,
   type SevenPointCounts,
-} from '@/app/prototypes/linkedin-like/components/shared';
-import { getPositionGroup } from '@/app/prototypes/shared/types';
-import type { PointWithUserPosition, PositionType } from '@/app/types';
-import type { PositionButtonGroup } from '@/app/prototypes/shared/types';
+} from '@/app/components/shared';
+import { getPositionGroup } from '@/app/utils/position-helpers';
+import type { PointWithUserPosition, PositionType, PositionButtonGroup } from '@/app/types';
 import { pointsService } from '@/app/data/points-service';
 import { useAuth } from '@/auth';
 import { RemovePositionDialog, useRemovePositionGuard } from '@/app/components/shared/remove-position-dialog';

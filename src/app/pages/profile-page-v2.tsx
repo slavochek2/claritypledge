@@ -54,13 +54,13 @@ import {
   PositionButtons,
   PositionBadge,
   type SevenPointCounts,
-} from "@/app/prototypes/linkedin-like/components/shared";
+} from "@/app/components/shared";
 import { VisibilityBadge } from "@/app/components/shared/visibility-badge";
 import { LinkedText } from '@/app/components/shared/linked-text';
-import type { PositionType, Position } from "@/app/prototypes/shared/types";
-import type { StoryVisibility } from "@/app/types";
-import { getPositionGroup, type PositionButtonGroup } from "@/app/prototypes/shared/types";
-import { formatTimeAgo } from "@/app/prototypes/shared/utils";
+import type { PositionType, PositionButtonGroup, StoryVisibility } from "@/app/types";
+import type { Position } from "@/app/components/shared/prototype-types";
+import { getPositionGroup } from "@/app/utils/position-helpers";
+import { formatTimeAgo } from "@/app/utils/format-time";
 // Profile owner context for card components
 interface ProfileOwner {
   id: string;

@@ -19,7 +19,7 @@ import { LockIcon, Loader2, Plus, ChevronDown, Pencil, Trash2 } from 'lucide-rea
 import { FocusHeader } from '@/app/components/layout/focus-header';
 import { VISIBILITY_OPTIONS } from '@/app/data/story-visibility-options';
 import { StoryCardWithLinks, type StoryAuthor } from '@/app/components/social/story-card-with-links';
-import type { Story as ProtoStory, Point as ProtoPoint } from '@/app/prototypes/shared/types';
+import type { Story as ProtoStory, Point as ProtoPoint } from '@/app/components/shared/prototype-types';
 import { useAuth } from '@/auth';
 import { storiesService } from '@/app/data/stories-service';
 import { pointsService } from '@/app/data/points-service';
@@ -39,7 +39,7 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { analytics } from '@/lib/mixpanel';
-import { PositionButtons, type SevenPointCounts } from '@/app/prototypes/linkedin-like/components/shared';
+import { PositionButtons, type SevenPointCounts } from '@/app/components/shared';
 import type { StoryWithPoints, StoryWithAuthor, PointSummary, PointPosition, PositionType, StoryVisibility } from '@/app/types';
 import {
   DropdownMenu,

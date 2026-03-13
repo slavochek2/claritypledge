@@ -13,9 +13,10 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import { BrowserRouter } from 'react-router-dom';
 import { PointCardWithLinks } from '@/app/components/social/point-card-with-links';
 import { StoryCardDetail } from '@/app/components/social/StoryCardDetail';
-import type { Point, PositionType, PointPosition } from '@/app/prototypes/shared/types';
+import type { PositionType, PointPosition } from '@/app/types';
+import type { Point } from '@/app/components/shared/prototype-types';
 import type { StoryWithAuthor, PointSummary } from '@/app/types';
-import type { SevenPointCounts } from '@/app/prototypes/linkedin-like/components/shared';
+import type { SevenPointCounts } from '@/app/components/shared';
 
 // ── Shared ────────────────────────────────────────────────────────────────────
 

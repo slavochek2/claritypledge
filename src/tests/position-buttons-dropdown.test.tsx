@@ -10,7 +10,7 @@
 
 import { describe, it, expect } from 'vitest';
 import { render, screen } from '@testing-library/react';
-import { PositionButtons, type SevenPointCounts } from '@/app/prototypes/linkedin-like/components/shared/PositionButton';
+import { PositionButtons, type SevenPointCounts } from '@/app/components/shared/PositionButton';
 
 const mockCounts: SevenPointCounts = {
   strongly_agree: 1,

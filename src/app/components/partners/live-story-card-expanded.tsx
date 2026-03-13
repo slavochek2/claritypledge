@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { ChevronDown, ChevronRight, Pin, Ear } from 'lucide-react';
 import type { StoryWithPoints, PointSummary, PositionType } from '@/app/types';
-import { getPositionGroup, getPositionCTACopy, shouldShowStoryCTA } from '@/app/prototypes/shared/types';
+import { getPositionGroup, getPositionCTACopy, shouldShowStoryCTA } from '@/app/utils/position-helpers';
 import { GravatarAvatar } from '@/components/ui/gravatar-avatar';
 import { VisibilityBadge } from '@/app/components/shared/visibility-badge';
 import {
@@ -12,7 +12,7 @@ import {
   ThreadLineGroup,
   ThreadLineItem,
   type SevenPointCounts,
-} from '@/app/prototypes/linkedin-like/components/shared';
+} from '@/app/components/shared';
 import { LinkedText } from '@/app/components/shared/linked-text';
 import { TagPills } from '@/app/components/shared/tag-pills';
 import { stripHashtags } from '@/lib/utils';

@@ -23,7 +23,7 @@ import { DraftCard } from './DraftCard';
 import { VisibilityAndSave } from './VisibilityAndSave';
 import { SavedStoryChatCard } from './SavedStoryChatCard';
 import type { PointProfileOwner } from '@/app/components/social/point-card-with-links';
-import type { PositionEntry, Position } from '@/app/prototypes/shared/types';
+import type { PositionEntry, Position } from '@/app/components/shared/prototype-types';
 import { mockStoryGuideStream } from '@/app/data/story-guide-chat-stub';
 import { storiesService } from '@/app/data/stories-service';
 import { supabase } from '@/lib/supabase';

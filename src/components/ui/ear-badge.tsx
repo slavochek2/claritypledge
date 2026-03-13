@@ -1,5 +1,5 @@
 import { Ear } from 'lucide-react';
-import { MobileTooltip } from '@/app/prototypes/linkedin-like/components/shared/MobileTooltip';
+import { MobileTooltip } from '@/app/components/shared/mobile-tooltip';
 
 interface EarBadgeProps {
   count: number;
