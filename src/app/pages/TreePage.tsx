@@ -2,16 +2,6 @@ import { Link } from 'react-router-dom';
 
 const productionPages = [
   {
-    path: '/feed',
-    label: 'Feed',
-    description: 'Browse and vote on ideas'
-  },
-  {
-    path: '/create',
-    label: 'Create Story',
-    description: 'Create a new story'
-  },
-  {
     path: '/demo',
     label: 'Demo',
     description: 'Original demo page'
