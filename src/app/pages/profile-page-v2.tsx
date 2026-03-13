@@ -965,6 +965,7 @@ export function ProfilePageV2() {
                           role: profile.role,
                           hasPledged: profile.hasPledged,
                           avatarUrl: profile.avatarUrl,
+                          avatarColor: profile.avatarColor,
                           ear: credibilityStats.ear,
                         };
                       }

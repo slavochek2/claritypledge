@@ -331,6 +331,7 @@ export function PointDetailPage() {
           ear: fromHolder.earCount,
           position: fromHolder.position as PositionType,
           avatarUrl: fromHolder.userAvatarUrl,
+          avatarColor: fromHolder.userAvatarColor,
         }
       : undefined;
 
@@ -392,6 +393,7 @@ export function PointDetailPage() {
               hasPledged: holder.userHasPledged,
               ear: holder.earCount,
               avatarUrl: holder.userAvatarUrl,
+              avatarColor: holder.userAvatarColor,
             };
           }}
         />
@@ -500,6 +502,8 @@ export function PointDetailPage() {
                       name: holder.userName,
                       hasPledged: holder.userHasPledged,
                       ear: holder.earCount,
+                      avatarUrl: holder.userAvatarUrl,
+                      avatarColor: holder.userAvatarColor,
                     };
                     return (
                       <StoryCardWithLinks
@@ -530,6 +534,8 @@ export function PointDetailPage() {
                       role: linkedStory.authorRole,
                       hasPledged: linkedStory.authorHasPledged,
                       ear: linkedStory.authorEarsCount ?? 0,
+                      avatarUrl: linkedStory.authorAvatarUrl,
+                      avatarColor: linkedStory.authorAvatarColor,
                     };
                     return (
                       <StoryCardWithLinks

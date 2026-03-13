@@ -34,6 +34,7 @@ export interface StoryAuthor {
   hasPledged?: boolean;
   ear?: number;
   avatarUrl?: string;
+  avatarColor?: string;
 }
 
 /** Profile owner information for point context */
@@ -44,6 +45,7 @@ export interface PointProfileOwner {
   ear?: number;
   position?: PositionType;
   avatarUrl?: string;
+  avatarColor?: string;
 }
 
 interface PointCardWithLinksProps {
@@ -276,6 +278,7 @@ export function PointCardWithLinks({
               <GravatarAvatar
                 name={profileOwner.name}
                 photoUrl={profileOwner.avatarUrl}
+                avatarColor={profileOwner.avatarColor}
                 size="sm"
                 isPledger={profileOwner.hasPledged ?? false}
                 className="!w-5 !h-5 !text-[10px]"
@@ -775,6 +778,7 @@ function QuotedStory({
             <GravatarAvatar
               name={author.name}
               photoUrl={author.avatarUrl}
+              avatarColor={author.avatarColor}
               size="sm"
               isPledger={author.hasPledged ?? false}
               className="!w-6 !h-6 !text-[11px]"

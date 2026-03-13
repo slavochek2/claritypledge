@@ -1078,6 +1078,8 @@ export function StoryDetailPage() {
       role: story.authorRole,
       hasPledged: story.authorHasPledged,
       ear: story.authorEarsCount,
+      avatarUrl: story.authorAvatarUrl,
+      avatarColor: story.authorAvatarColor,
     };
 
     // Convert linked points for display

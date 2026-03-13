@@ -36,6 +36,8 @@ export interface StoryAuthor {
   role?: string;
   hasPledged?: boolean;
   ear?: number; // Ear credibility count
+  avatarUrl?: string;
+  avatarColor?: string;
 }
 
 interface StoryCardWithLinksProps {
@@ -167,6 +169,8 @@ export function StoryCardWithLinks({
         <div className="flex items-center gap-1.5 mb-2 text-sm text-gray-700">
           <GravatarAvatar
             name={author.name}
+            photoUrl={author.avatarUrl}
+            avatarColor={author.avatarColor}
             size="sm"
             isPledger={author.hasPledged ?? false}
             className="!w-5 !h-5 !text-[10px]"
@@ -260,6 +264,8 @@ export function StoryCardWithLinks({
           >
             <GravatarAvatar
               name={author.name}
+              photoUrl={author.avatarUrl}
+              avatarColor={author.avatarColor}
               size="sm"
               isPledger={author.hasPledged ?? false}
             />
@@ -423,6 +429,8 @@ export function StoryCardWithLinks({
                       authorId={story.authorId}
                       authorEarCount={author.ear}
                       authorHasPledged={author.hasPledged}
+                      authorAvatarUrl={author.avatarUrl}
+                      authorAvatarColor={author.avatarColor}
                       onClick={(e) => {
                         e.stopPropagation();
                         if (onPointClick) {
@@ -448,6 +456,8 @@ export function StoryCardWithLinks({
                             authorName={author.name}
                             authorId={story.authorId}
                             authorEarCount={author.ear}
+                            authorAvatarUrl={author.avatarUrl}
+                            authorAvatarColor={author.avatarColor}
                             onClick={(e) => {
                               e.stopPropagation();
                               if (onPointClick) {
@@ -497,6 +507,8 @@ function QuotedPoint({
   authorId,
   authorEarCount,
   authorHasPledged,
+  authorAvatarUrl,
+  authorAvatarColor,
   onClick,
   getPointPositionCounts,
   currentUserId,
@@ -507,6 +519,8 @@ function QuotedPoint({
   authorId: string;
   authorEarCount?: number;
   authorHasPledged?: boolean;
+  authorAvatarUrl?: string;
+  authorAvatarColor?: string;
   onClick: (e: React.MouseEvent) => void;
   getPointPositionCounts?: (point: Point) => SevenPointCounts;
   currentUserId?: string;
@@ -591,6 +605,8 @@ function QuotedPoint({
         <div className="flex items-center gap-1.5 mb-1.5 text-sm text-gray-700">
           <GravatarAvatar
             name={authorName}
+            photoUrl={authorAvatarUrl}
+            avatarColor={authorAvatarColor}
             size="sm"
             isPledger={authorHasPledged ?? false}
             className="!w-5 !h-5 !text-[10px]"
