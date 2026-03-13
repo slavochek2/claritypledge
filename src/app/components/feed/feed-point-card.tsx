@@ -23,6 +23,7 @@ import type { PositionButtonGroup } from '@/app/prototypes/shared/types';
 import { pointsService } from '@/app/data/points-service';
 import { useAuth } from '@/auth';
 import { buildAuthGateUrl, toAuthGatePosition } from '@/lib/auth-gate-utils';
+import { RemovePositionDialog, useRemovePositionGuard } from '@/app/components/shared/remove-position-dialog';
 
 interface FeedPointCardProps {
   point: PointWithUserPosition;
@@ -33,6 +34,15 @@ interface FeedPointCardProps {
 export function FeedPointCard({ point, activeTag, onPositionChange }: FeedPointCardProps) {
   const navigate = useNavigate();
   const { session } = useAuth();
+
+  // P401: Guard position removal — only shows dialog when linked stories exist
+  const { dialogProps, guardedRemovePosition } = useRemovePositionGuard({
+    userId: session?.user?.id ?? '',
+    onAfterRemove: () => {
+      setLocalPosition(null);
+      onPositionChange?.();
+    },
+  });
 
   const handleClick = () => {
     navigate(`/point/${point.id}`);
@@ -93,14 +103,17 @@ export function FeedPointCard({ point, activeTag, onPositionChange }: FeedPointC
     }
 
     const newPosition = effectivePosition === position ? null : position;
+
+    if (newPosition === null) {
+      // Toggle-off: use guarded removal to warn about linked stories
+      await guardedRemovePosition(point.id);
+      return;
+    }
+
     setLocalPosition(newPosition);
 
     try {
-      if (newPosition) {
-        await pointsService.setPosition(point.id, session.user.id, newPosition);
-      } else {
-        await pointsService.removePosition(point.id, session.user.id);
-      }
+      await pointsService.setPosition(point.id, session.user.id, newPosition);
       onPositionChange?.();
     } catch {
       // Revert on error
@@ -109,6 +122,8 @@ export function FeedPointCard({ point, activeTag, onPositionChange }: FeedPointC
   };
 
   return (
+    <>
+    <RemovePositionDialog {...dialogProps} />
     <div
       role="button"
       tabIndex={0}
@@ -169,5 +184,6 @@ export function FeedPointCard({ point, activeTag, onPositionChange }: FeedPointC
         </div>
       </div>
     </div>
+    </>
   );
 }
