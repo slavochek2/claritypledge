@@ -294,7 +294,7 @@ export function PointCardWithLinks({
                 <div className="flex-1 min-w-0">
                   {/* Point text */}
                   <p className={`text-gray-900 break-words ${compact ? 'text-sm' : 'text-base'}`}>
-                    <LinkedText text={displayText} />
+                    {isEmbed ? displayText : <LinkedText text={displayText} />}
                     {isTextTruncated && (
                       <button
                         onClick={(e) => { e.stopPropagation(); embedNavigate(`/point/${point.id}`); }}

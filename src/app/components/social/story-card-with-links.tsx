@@ -208,7 +208,7 @@ export function StoryCardWithLinks({
             </p>
           ) : (
             <p className={`text-gray-900 break-words ${compact ? 'text-sm' : 'text-base'}`}>
-              <LinkedText text={displayText} />
+              {isEmbed ? displayText : <LinkedText text={displayText} />}
               {isStoryTextTruncated && (
                 <button
                   onClick={(e) => { e.stopPropagation(); embedNavigate(`/story/${story.id}`); }}
@@ -300,7 +300,7 @@ export function StoryCardWithLinks({
               </p>
             ) : (
               <p className={`text-gray-900 break-words ${compact ? 'text-sm' : 'text-base'}`}>
-                <LinkedText text={displayText} />
+                {isEmbed ? displayText : <LinkedText text={displayText} />}
                 {isStoryTextTruncated && (
                   <button
                     onClick={(e) => { e.stopPropagation(); embedNavigate(`/story/${story.id}`); }}
