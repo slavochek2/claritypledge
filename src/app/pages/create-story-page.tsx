@@ -8,6 +8,7 @@ import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import { useAuth } from '@/auth';
 import { storiesService } from '@/app/data/stories-service';
 import { pointsService } from '@/app/data/points-service';
+import { extractHashtags } from '@/lib/utils';
 import { toast } from 'sonner';
 import { useVerificationGate } from '@/app/hooks/useVerificationGate';
 import { Loader2Icon, ArrowLeft } from 'lucide-react';
@@ -151,10 +152,11 @@ export function CreateStoryPage() {
     setIsSaving(true);
 
     try {
+      const trimmedContent = content.trim();
       const story = await storiesService.createStory(
         user.id,
-        content.trim(),
-        [],
+        trimmedContent,
+        extractHashtags(trimmedContent),
         visibility
       );
 

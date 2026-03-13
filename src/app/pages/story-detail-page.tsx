@@ -14,6 +14,7 @@
  * - justCreated flow shows educational empty state with expanded form
  */
 import { useEffect, useState, useCallback, useRef } from 'react';
+import { extractHashtags } from '@/lib/utils';
 import { useParams, useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { LockIcon, Loader2, Plus, ChevronDown, Pencil, Trash2 } from 'lucide-react';
 import { FocusHeader } from '@/app/components/layout/focus-header';
@@ -153,7 +154,7 @@ function AddPointForm({
     setIsAdding(true);
     try {
       // Create point
-      const point = await pointsService.createPoint(trimmed, undefined, []);
+      const point = await pointsService.createPoint(trimmed, undefined, extractHashtags(trimmed));
       if (!point) {
         toast.error('Failed to create point. Please try again.');
         setIsAdding(false);
@@ -818,7 +819,7 @@ export function StoryDetailPage() {
       setUserPositions(prev => new Map([...prev, [point.id, entry]]));
       setStoryAuthorPositions(prev => new Map([...prev, [point.id, entry]]));
       setPositionCounts(prev => {
-        const current = prev.get(point.id) ?? { agree: 0, disagree: 0, unsure: 0 } as Record<PositionType, number>;
+        const current = prev.get(point.id) ?? { strongly_disagree: 0, disagree: 0, somewhat_disagree: 0, unsure: 0, somewhat_agree: 0, agree: 0, strongly_agree: 0 } as Record<PositionType, number>;
         return new Map([...prev, [point.id, { ...current, [position]: (current[position] ?? 0) + 1 }]]);
       });
     }

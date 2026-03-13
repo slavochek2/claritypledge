@@ -14,6 +14,7 @@
  */
 
 import { useState, useRef, useEffect, useCallback } from 'react';
+import { extractHashtags } from '@/lib/utils';
 import { useNavigate } from 'react-router-dom';
 import type { StoryVisibility, Story } from '@/app/types';
 import { useAuth } from '@/auth';
@@ -643,7 +644,7 @@ export function StoryGuideChat({
       // Step 1: Create or update story
       const story = existingStory
         ? await storiesService.updateStory(existingStory.id, { content: contentToSave, visibility: selectedVisibility })
-        : await storiesService.createStory(user.id, contentToSave, [], selectedVisibility);
+        : await storiesService.createStory(user.id, contentToSave, extractHashtags(contentToSave), selectedVisibility);
 
       if (!story) {
         // Save failed — re-enable UI
