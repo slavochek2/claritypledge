@@ -4,6 +4,7 @@ type: task
 rank: 7
 tags: [playwright, visual-qa, auth, tooling]
 flow: dev
+created_date: 2026-03-12
 ---
 
 # P498: Playwright StorageState for Visual QA

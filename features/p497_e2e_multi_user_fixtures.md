@@ -5,6 +5,7 @@ rank: 1.0
 tags: [e2e, testing, multi-user, fixtures]
 flow: dev
 depends_on: p496
+created_date: 2026-03-12
 ---
 
 # P497: E2E Multi-User Test Fixtures
