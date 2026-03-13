@@ -1,11 +1,11 @@
 ---
-status: in-progress
+status: all-done
 type: task
 rank: 250007.75
 workstream: foundation
 created_date: 2026-03-13
+completed_at: 2026-03-13
 flow: dev
-delivery_stage: uat
 tags: []
 ---
 
