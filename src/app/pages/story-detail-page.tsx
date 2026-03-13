@@ -819,7 +819,7 @@ export function StoryDetailPage() {
       setUserPositions(prev => new Map([...prev, [point.id, entry]]));
       setStoryAuthorPositions(prev => new Map([...prev, [point.id, entry]]));
       setPositionCounts(prev => {
-        const current = prev.get(point.id) ?? { agree: 0, disagree: 0, unsure: 0 } as Record<PositionType, number>;
+        const current = prev.get(point.id) ?? { strongly_disagree: 0, disagree: 0, somewhat_disagree: 0, unsure: 0, somewhat_agree: 0, agree: 0, strongly_agree: 0 } as Record<PositionType, number>;
         return new Map([...prev, [point.id, { ...current, [position]: (current[position] ?? 0) + 1 }]]);
       });
     }
