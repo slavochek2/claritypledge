@@ -125,7 +125,11 @@ export function StoryCardWithLinks({
   useEffect(() => { setTextExpanded(false); }, [story.id]);
   const _isCurrentUserStory = currentUserId && story.authorId === currentUserId;
   // Embed: keep hashtags inline in text (no TagPills), saves vertical space
-  const fullText = isEmbed ? story.text : stripHashtags(story.text, tags);
+  // Embed: keep hashtags inline, strip markdown links [text](url) → text and raw URLs
+  const rawText = isEmbed ? story.text : stripHashtags(story.text, tags);
+  const fullText = isEmbed
+    ? rawText.replace(/\[([^\]]+)\]\([^)]+\)/g, '$1').replace(/https?:\/\/\S+/g, '').replace(/\s{2,}/g, ' ').trim()
+    : rawText;
   // In embed mode, truncate long story text to fit fixed-height iframe
   const EMBED_TRUNCATE = 200;
   const displayText = isEmbed && fullText.length > EMBED_TRUNCATE
