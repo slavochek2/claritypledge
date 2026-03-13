@@ -304,13 +304,13 @@ export function PointCardWithLinks({
                     )}
                   </p>
 
-                  {/* Position buttons */}
+                  {/* Position buttons — display-only in embed (no auth flow from blog) */}
                   {!hideActions && (
                     <div role="presentation" className="mt-3" onClick={(e) => e.stopPropagation()}>
                       <PositionButtons
-                        userPosition={userPosition}
+                        userPosition={isEmbed ? null : userPosition}
                         counts={counts}
-                        onPositionClick={handlePositionClick}
+                        onPositionClick={isEmbed ? () => embedNavigate(`/point/${point.id}`) : handlePositionClick}
                         narrow
                       />
                     </div>
@@ -460,13 +460,13 @@ export function PointCardWithLinks({
                 )}
               </p>
 
-              {/* Position buttons */}
+              {/* Position buttons — display-only in embed (no auth flow from blog) */}
               {!hideActions && (
                 <div role="presentation" className="mt-3" onClick={(e) => e.stopPropagation()}>
                   <PositionButtons
-                    userPosition={userPosition}
+                    userPosition={isEmbed ? null : userPosition}
                     counts={counts}
-                    onPositionClick={handlePositionClick}
+                    onPositionClick={isEmbed ? () => embedNavigate(`/point/${point.id}`) : handlePositionClick}
                     narrow
                   />
                 </div>
