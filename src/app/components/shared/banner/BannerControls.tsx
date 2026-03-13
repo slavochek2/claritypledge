@@ -85,7 +85,7 @@ export function BannerControls({
               onClick={() => onSearch(keywords)}
               disabled={isLoading || !keywords.trim()}
               className={pillClass}
-              aria-label="Search"
+              aria-label="Generate banner from description"
             >
               Search
             </button>

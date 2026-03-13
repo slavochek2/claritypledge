@@ -431,9 +431,13 @@ export function ProfilePageV2() {
     if (!profile) return;
     await updateProfile(profile.id, {
       banner_url: newUrl,
-      banner_generation_attempted: true,
+      ...(newUrl !== null && { banner_generation_attempted: true }),
     });
-    setProfile(prev => prev ? { ...prev, bannerUrl: newUrl ?? undefined, bannerGenerationAttempted: true } : prev);
+    setProfile(prev => prev ? {
+      ...prev,
+      bannerUrl: newUrl ?? undefined,
+      ...(newUrl !== null && { bannerGenerationAttempted: true }),
+    } : prev);
   }, [profile]);
 
   const banner = useBanner({
@@ -451,11 +455,12 @@ export function ProfilePageV2() {
       lazyBannerTriggered.current ||
       profile.bannerUrl ||
       profile.bannerGenerationAttempted ||
-      !session?.access_token
+      !session?.access_token ||
+      currentUserId !== profile.id
     ) return;
     lazyBannerTriggered.current = true;
     banner.handleRegenerate();
-  }, [profile, session?.access_token]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [profile, session?.access_token, currentUserId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleCreateClick = useCallback(() => {
     navigate('/create');
