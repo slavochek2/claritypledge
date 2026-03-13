@@ -124,7 +124,13 @@ export function StoryCardWithLinks({
   };
   useEffect(() => { setTextExpanded(false); }, [story.id]);
   const _isCurrentUserStory = currentUserId && story.authorId === currentUserId;
-  const displayText = stripHashtags(story.text, tags);
+  const fullText = stripHashtags(story.text, tags);
+  // In embed mode, truncate long story text to fit fixed-height iframe
+  const EMBED_TRUNCATE = 200;
+  const displayText = isEmbed && fullText.length > EMBED_TRUNCATE
+    ? fullText.slice(0, EMBED_TRUNCATE).trimEnd() + '...'
+    : fullText;
+  const isStoryTextTruncated = isEmbed && fullText.length > EMBED_TRUNCATE;
 
   const handleCardClick = () => {
     if (!isDetailView && !disableNavigation) {
@@ -202,6 +208,14 @@ export function StoryCardWithLinks({
           ) : (
             <p className={`text-gray-900 break-words ${compact ? 'text-sm' : 'text-base'}`}>
               <LinkedText text={displayText} />
+              {isStoryTextTruncated && (
+                <button
+                  onClick={(e) => { e.stopPropagation(); embedNavigate(`/story/${story.id}`); }}
+                  className="ml-1 text-blue-600 hover:text-blue-700 text-sm"
+                >
+                  read more →
+                </button>
+              )}
             </p>
           )}
         </div>
@@ -286,6 +300,14 @@ export function StoryCardWithLinks({
             ) : (
               <p className={`text-gray-900 break-words ${compact ? 'text-sm' : 'text-base'}`}>
                 <LinkedText text={displayText} />
+                {isStoryTextTruncated && (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); embedNavigate(`/story/${story.id}`); }}
+                    className="ml-1 text-blue-600 hover:text-blue-700 text-sm"
+                  >
+                    read more →
+                  </button>
+                )}
               </p>
             )}
 
