@@ -28,6 +28,7 @@ import {
   ChevronRight,
   Pencil,
   Trash2,
+  ScrollText,
 } from "lucide-react";
 import { GravatarAvatar } from "@/components/ui/gravatar-avatar";
 
@@ -785,26 +786,21 @@ export function ProfilePageV2() {
                 {profile.hasPledged ? (
                   <Link
                     to={`/p/${profile.slug}/pledge`}
-                    className="text-sm text-blue-500 hover:text-blue-600 hover:underline mt-1 inline-block"
+                    className="inline-flex items-center gap-1 text-sm text-blue-500 hover:text-blue-600 hover:underline mt-1"
                   >
-                    {isOwner ? 'See my Clarity Pledge' : 'See their Clarity Pledge'}
+                    <ScrollText className="h-4 w-4" aria-hidden="true" />
+                    {isOwner ? 'My Clarity Pledge' : 'Their Clarity Pledge'}
                   </Link>
                 ) : isOwner ? (
                   <Link
                     to="/sign-pledge"
-                    className="text-sm text-blue-500 hover:text-blue-600 hover:underline mt-1 inline-block"
+                    className="inline-flex items-center gap-1 text-sm text-blue-500 hover:text-blue-600 hover:underline mt-1"
                   >
+                    <ScrollText className="h-4 w-4" aria-hidden="true" />
                     Take the Clarity Pledge
                   </Link>
                 ) : null}
-                {/* Calibration bar - inside text column for natural alignment */}
-                <InlineCalibration calibration={calibration} />
-                {profile.bio && (
-                  <p data-testid="profile-bio" className="text-sm text-muted-foreground mt-2 break-words">
-                    {linkifyText(profile.bio)}
-                  </p>
-                )}
-                {/* P459: Compact agreements metadata line — links to /p/:slug/partners */}
+                {/* P462: Partners count — grouped with pledge link as navigation cluster */}
                 {agreementsLoading ? (
                   <div className="h-[44px]" />
                 ) : (
@@ -814,6 +810,13 @@ export function ProfilePageV2() {
                     agreements={agreements}
                     slug={profile.slug}
                   />
+                )}
+                {/* Calibration bar - inside text column for natural alignment */}
+                <InlineCalibration calibration={calibration} />
+                {profile.bio && (
+                  <p data-testid="profile-bio" className="text-sm text-muted-foreground mt-2 break-words">
+                    {linkifyText(profile.bio)}
+                  </p>
                 )}
               </div>
 
