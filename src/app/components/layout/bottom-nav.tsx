@@ -6,7 +6,7 @@
  * Uses design system tokens only.
  */
 import { Link, useLocation } from "react-router-dom";
-import { CalendarIcon, UserIcon, MicIcon, LayoutListIcon } from "lucide-react";
+import { CalendarIcon, UserIcon, MicIcon, HomeIcon } from "lucide-react";
 import { useNavAuthState } from "@/hooks/use-nav-auth-state";
 import { useLiveSession } from "@/app/contexts/live-session-context";
 
@@ -37,7 +37,7 @@ export function BottomNav() {
 
   const navItems: NavItem[] = [
     {
-      icon: LayoutListIcon,
+      icon: HomeIcon,
       label: "Home",
       to: "/feed",
     },
