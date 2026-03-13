@@ -21,7 +21,7 @@ import {
   ArrowLeft,
   Share2,
   Ear,
-  Sparkles,
+  PenLine,
   ExternalLink,
   Pin,
   ChevronDown,
@@ -839,8 +839,8 @@ export function ProfilePageV2() {
                 onClick={handleCreateClick}
                 className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-blue-500 hover:bg-blue-600 rounded-lg text-white transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
               >
-                <Sparkles size={18} />
-                <span className="text-sm font-medium">Create a Story</span>
+                <PenLine size={18} />
+                <span className="text-sm font-medium">Share a Story</span>
               </button>
             </div>
           )}

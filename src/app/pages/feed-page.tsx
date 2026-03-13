@@ -3,7 +3,7 @@
  * @description P491/P499: Home — public content discovery with creation CTA.
  *
  * Two tabs (Points default, Stories), tag cloud, search bar, URL-driven tag filter.
- * Logged-in users see "Write a Story" button. Internal tags (st1, st2...) hidden from cloud.
+ * Logged-in users see "Share a Story" button. Internal tags (st1, st2...) hidden from cloud.
  * Accessible to both authenticated and anonymous users (public content only).
  */
 
@@ -147,7 +147,7 @@ export function FeedPage() {
               className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-500 hover:bg-blue-600 rounded-md transition-colors"
             >
               <PenLine className="w-4 h-4" />
-              Write a Story
+              Share a Story
             </Link>
           )}
         </div>
