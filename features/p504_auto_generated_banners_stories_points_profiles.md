@@ -11,11 +11,12 @@ tags:
   - og-image
 prepped_date: '2026-03-13'
 flow: dev
-delivery_stage: 2-ux-review
+delivery_stage: 3-arch-review
 reviews:
   ux: null
   architect: null
   alignment: null
+created_date: 2026-03-13
 ---
 
 # P504: Auto-Generated Banners for Stories, Points & Profiles
