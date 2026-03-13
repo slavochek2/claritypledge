@@ -5,6 +5,7 @@ rank: 250005.75
 workstream: E1
 flow: dev
 created_date: 2026-03-13
+delivery_stage: uat
 tags: []
 uat_file: features/uat/p501.md
 test_files:
@@ -39,13 +40,13 @@ The DB column is `understood_count` — already correct. Only the frontend mappi
 
 ## Acceptance Criteria
 
-- [ ] "0 understood" pill visible on feed story cards
-- [ ] "0 understood" pill visible on profile stories tab
-- [ ] "0 understood" pill visible on story detail page
-- [ ] Embed still shows pill (no regression)
-- [ ] No TypeScript errors (`npm run build`)
-- [ ] All tests pass (`npm test`)
-- [ ] `verificationCount` no longer used anywhere in codebase
+- [x] "0 understood" pill visible on feed story cards
+- [x] "0 understood" pill visible on profile stories tab
+- [x] "0 understood" pill visible on story detail page
+- [x] Embed still shows pill (no regression)
+- [x] No TypeScript errors (`npm run build`)
+- [x] All tests pass (`npm test`)
+- [x] `verificationCount` no longer used anywhere in codebase
 
 ## Testing
 
