@@ -1,5 +1,5 @@
 ---
-status: week
+status: in-progress
 type: story
 rank: 3
 flow: dev
@@ -12,7 +12,7 @@ tags:
   - embed
   - ux
 prepped_date: '2026-03-13'
-delivery_stage: 4-tests-ready
+delivery_stage: uat
 reviews:
   ux: null
   architect: null

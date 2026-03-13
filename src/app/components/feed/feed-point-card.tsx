@@ -22,8 +22,9 @@ import type { PointWithUserPosition, PositionType } from '@/app/types';
 import type { PositionButtonGroup } from '@/app/prototypes/shared/types';
 import { pointsService } from '@/app/data/points-service';
 import { useAuth } from '@/auth';
-import { buildAuthGateUrl, toAuthGatePosition } from '@/lib/auth-gate-utils';
 import { RemovePositionDialog, useRemovePositionGuard } from '@/app/components/shared/remove-position-dialog';
+import { getAnonPosition, setAnonPosition } from '@/app/hooks/useAnonPosition';
+import { AnonPositionCTA } from '@/app/components/shared/anon-position-cta';
 
 interface FeedPointCardProps {
   point: PointWithUserPosition;
@@ -50,14 +51,26 @@ export function FeedPointCard({ point, activeTag, onPositionChange }: FeedPointC
 
   // Optimistic position state
   const [localPosition, setLocalPosition] = useState<PositionType | null>(null);
+  // P502: Separate anon position state — used only for button highlight, never for count adjustment
+  const [anonPosition, setAnonPositionState] = useState<PositionType | null>(null);
   const serverPosition = point.userPosition?.position ?? null;
-  const effectivePosition = localPosition ?? serverPosition;
+  const effectivePosition = session?.user
+    ? (localPosition ?? serverPosition)
+    : anonPosition;
 
   useEffect(() => {
     if (localPosition !== null && localPosition === serverPosition) {
       setLocalPosition(null);
     }
   }, [serverPosition, localPosition]);
+
+  // P502: Load anon position from localStorage on mount
+  useEffect(() => {
+    if (!session?.user) {
+      const stored = getAnonPosition(point.id) as PositionType | null;
+      if (stored) setAnonPositionState(stored);
+    }
+  }, [session?.user, point.id]);
 
   const baseCounts = useMemo(
     () => point.positionCounts ?? {
@@ -68,6 +81,9 @@ export function FeedPointCard({ point, activeTag, onPositionChange }: FeedPointC
     [point.positionCounts]
   );
 
+  // P502: Count adjustment uses authedEffective (localPosition ?? serverPosition) —
+  // never anonPosition — so anonymous clicks don't inflate aggregates.
+  const authedEffective = localPosition ?? serverPosition;
   const counts = useMemo((): SevenPointCounts => {
     const adjusted: SevenPointCounts = { ...baseCounts };
     const getGroup = (pos: PositionType | null): PositionButtonGroup | null => {
@@ -75,7 +91,7 @@ export function FeedPointCard({ point, activeTag, onPositionChange }: FeedPointC
       return getPositionGroup(pos);
     };
     const serverGroup = getGroup(serverPosition);
-    const effectiveGroup = getGroup(effectivePosition);
+    const effectiveGroup = getGroup(authedEffective);
     if (serverGroup !== effectiveGroup) {
       if (serverGroup === 'agree') adjusted.agree = Math.max(0, adjusted.agree - 1);
       else if (serverGroup === 'disagree') adjusted.disagree = Math.max(0, adjusted.disagree - 1);
@@ -85,20 +101,14 @@ export function FeedPointCard({ point, activeTag, onPositionChange }: FeedPointC
       else if (effectiveGroup === 'unsure') adjusted.unsure++;
     }
     return adjusted;
-  }, [baseCounts, serverPosition, effectivePosition]);
+  }, [baseCounts, serverPosition, authedEffective]);
 
   const handlePositionClick = async (position: PositionType) => {
-    // Auth gate for anonymous users
+    // P502: Anonymous user → optimistic local position, no redirect
     if (!session?.user) {
-      const authGatePosition = toAuthGatePosition(position);
-      if (authGatePosition) {
-        navigate(buildAuthGateUrl({
-          action: 'set-position',
-          pointId: point.id,
-          position: authGatePosition,
-          redirect: `/feed${window.location.search}`,
-        }));
-      }
+      const newPosition = effectivePosition === position ? null : position;
+      setAnonPositionState(newPosition);
+      setAnonPosition(point.id, newPosition);
       return;
     }
 
@@ -180,6 +190,10 @@ export function FeedPointCard({ point, activeTag, onPositionChange }: FeedPointC
                 <Share2 size={14} />
               </button>
             </div>
+            {/* P502: Anonymous position CTA */}
+            {!session?.user && anonPosition && (
+              <AnonPositionCTA pointId={point.id} position={anonPosition} />
+            )}
           </div>
         </div>
       </div>

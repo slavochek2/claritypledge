@@ -30,6 +30,7 @@ import * as Sentry from "@sentry/react";
 import { analytics } from "@/lib/mixpanel";
 import { parseAuthGateIntent, fromAuthGatePosition, isValidPointId } from "@/lib/auth-gate-utils";
 import { pointsService } from "@/app/data/points-service";
+import { getAllAnonPositions, clearAllAnonPositions } from "@/app/hooks/useAnonPosition";
 
 /** Maximum retry attempts for slug conflicts before using timestamp fallback */
 const MAX_SLUG_RETRIES = 3;
@@ -510,6 +511,22 @@ export function AuthCallbackPage() {
             return;
           }
         }
+      }
+
+      // P502: Batch-restore anonymous positions from localStorage
+      const anonPositions = getAllAnonPositions();
+      const anonPointIds = Object.keys(anonPositions);
+      if (anonPointIds.length > 0) {
+        console.log('📌 P502: Batch-restoring', anonPointIds.length, 'anonymous positions');
+        for (const pointId of anonPointIds) {
+          try {
+            await pointsService.setPosition(pointId, authUser.id, anonPositions[pointId]);
+          } catch (err) {
+            console.error('⚠️ P502: Failed to restore anon position for', pointId, err);
+          }
+        }
+        clearAllAnonPositions();
+        console.log('✅ P502: Anonymous positions restored and cleared');
       }
 
       // P458 Scope B: Handle start-story and open-chat actions
