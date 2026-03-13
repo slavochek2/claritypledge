@@ -1,5 +1,5 @@
 ---
-status: week
+status: in-progress
 type: story
 rank: 1.0
 tags: [transcription, live, diarization, c3]

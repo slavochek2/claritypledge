@@ -36,6 +36,7 @@ import {
   recordTermsAcceptance,
   recordSessionConsent,
   needsTermsAcceptance,
+  createTranscriptionJob,
 } from '@/app/data/api';
 import { TermsUpdateDialog } from '@/app/components/live-meeting/terms-update-dialog';
 import { analytics } from '@/lib/mixpanel';
@@ -1973,6 +1974,11 @@ export function ClarityLivePage() {
       // The function handles this gracefully and uploads events.json
       const emptyBlob = new Blob([], { type: 'audio/webm' });
       await uploadSessionRecording(session.code, name, emptyBlob, events, metadata);
+
+      // P495: Trigger transcription job for non-private sessions
+      if (!isPrivate && session.id && session.code) {
+        await createTranscriptionJob(session.code, session.id);
+      }
     } catch (err) {
       console.error('[P28.1] Failed to stop/upload recording:', err);
       // Don't throw - recording failure shouldn't block session exit
