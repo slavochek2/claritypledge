@@ -10,10 +10,10 @@
  *
  * This separation prevents race conditions from multiple onAuthStateChange events.
  */
-import { createContext, useContext, useState, useEffect, useRef, ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, useRef, useCallback, ReactNode } from 'react';
 import { Session } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
-import { getProfile, signOut as apiSignOut, patchClaritySessionLiveState, clearSessionJoiner } from '@/app/data/api';
+import { getProfileResult, signOut as apiSignOut, patchClaritySessionLiveState, clearSessionJoiner } from '@/app/data/api';
 import { analytics } from '@/lib/mixpanel';
 import type { Profile } from '@/app/types';
 
@@ -93,22 +93,40 @@ export function AuthProvider({ children }: AuthProviderProps) {
   // This prevents re-fetching when Supabase fires multiple SIGNED_IN events
   const userId = session?.user?.id;
 
-  // Shared profile fetch logic - used by both effect and manual refresh
-  const fetchProfileForUser = async (id: string): Promise<Profile | null> => {
-    try {
-      const profile = await getProfile(id);
-      return profile;
-    } catch {
-      // Return null on error, but caller decides whether to update state
-      return null;
+  // Shared profile fetch logic with retry for transient errors.
+  // Uses getProfileResult to distinguish "not found" (no retry) from "server error" (retry).
+  const fetchProfileForUser = useCallback(async (id: string): Promise<Profile | null> => {
+    const MAX_RETRIES = 2;
+    const RETRY_DELAY_MS = 1000;
+
+    for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+      const result = await getProfileResult(id);
+
+      if (result.success) return result.data;
+
+      // Profile genuinely doesn't exist — don't retry
+      if (result.error === 'not_found') return null;
+
+      // Server error — retry after delay (except on last attempt)
+      if (attempt < MAX_RETRIES) {
+        console.warn(`Profile fetch attempt ${attempt + 1} failed, retrying in ${RETRY_DELAY_MS}ms...`);
+        await new Promise(resolve => setTimeout(resolve, RETRY_DELAY_MS));
+      }
     }
-  };
+
+    console.error(`Profile fetch failed after ${MAX_RETRIES + 1} attempts for user ${id}`);
+    return null;
+  }, []);
 
   useEffect(() => {
+    let isMounted = true;
+
     const fetchProfile = async () => {
       if (userId) {
         setIsLoading(true);
         const profile = await fetchProfileForUser(userId);
+
+        if (!isMounted) return;
 
         // Only update user state if we got a valid profile OR if user was null
         // This prevents wiping existing user data on transient network errors
@@ -136,7 +154,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
     };
 
     fetchProfile();
-  }, [userId]); // Only runs when user ID actually changes (primitive comparison)
+    return () => { isMounted = false; };
+  }, [userId, fetchProfileForUser]);
 
   // Manual refresh - called by AuthCallbackPage after profile upsert
   const refreshProfile = async () => {
