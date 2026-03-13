@@ -90,6 +90,7 @@ Audience for recognition and thought leadership — rationalists, AI researchers
 | Team communication | FUTURE | Clear ROI after dyad model proves out |
 | Personal AI calibration | PARKED | Digital twin market growing; revisit after recognition track fires |
 | AI alignment research | PARKED | Needs session data corpus |
+| Coach/OD calibration tool | EXPLORE | $100B+ market, coaches already have alignment vocabulary; ClarityPledge adds comprehension accuracy they lack (vs DISC/MBTI/360). Falsification-tested in Canvas v2. |
 
 ---
 

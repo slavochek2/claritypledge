@@ -99,3 +99,14 @@ Confirmed via: sessions run Feb 28 — participants reported insights during ses
 **Proposed fix:** File capture must happen IN session, not as homework. Either: (a) Slava files stories/points live during the session using the filing chat, or (b) end-of-session ritual includes explicit 5-min filing moment before closing. The filing chat UI is the tool; building the habit of using it in-session is the intervention.
 ---
 
+## Externality claim unproven despite 30+ sessions
+
+**Date:** 2026-03-13
+**Status:** proposed
+
+Core value proposition — closing the comprehension gap reduces downstream misalignment cost — has zero empirical evidence. 30+ facilitated sessions exist that could be retrospectively analyzed: did teams where the gap was surfaced make different decisions? Did they report fewer costly misalignments afterward? Neither question has been asked.
+
+**Fix:** After first 3 C1 paid sessions, run a structured follow-up (2-4 weeks post-session): "Did you make a different decision because of what we surfaced? Can you estimate what that saved?" Even anecdotal evidence from 2-3 pairs is stronger than the current zero.
+
+---
+

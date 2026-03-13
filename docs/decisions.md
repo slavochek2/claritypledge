@@ -2,6 +2,14 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-13 [product]: Conversation analysis — park positioning upgrades until revenue validates
+
+**Context:** `/claude-conversations-to-cp` analyzed 30 Claude.ai conversations (Mar 7-13). Three strategic questions surfaced: (1) should coaches/OD replace founders as primary channel? (2) should Pinker+Popper "common knowledge filtering" framing upgrade theory-of-change? (3) does capability transfer after one session contradict FCO retainer model?
+**Decision:** Park all three. (1) Coaches added as EXPLORE row in lean-canvas, not primary channel — one falsification session in Claude ≠ market signal. (2) Positioning upgrade parked — Claude literally named the pattern: "I make the seeing feel like the doing." No doc rewrite before a paying customer confirms framing. (3) Retainer model stands — 30 sessions of behavioral data (nobody self-serves) outweighs one philosophical conversation about capability transfer.
+**Alternatives rejected:** Encoding the coaching pivot or epistemological reframe into strategy docs now — each would be the 5th+ positioning iteration without market validation.
+**Consequences:** Strategy docs stay stable. Coach channel gets explored when a demo with one real coach exists. Workshop signal (participants want false-belief highlighting app) logged in H-PairsReturn for mirror agent roadmap. Externality claim gap added to process-learnings.
+**References:** [lean-canvas.md](docs/lean-canvas.md), [hypotheses.md](docs/hypotheses.md), [process-learnings.md](docs/process-learnings.md)
+
 ## 2026-03-13 [technical]: Guard every removePosition call path — cascade destroys story links
 
 **Context:** Story 6 got silently delinked from its point on prod (2026-03-13 05:19 UTC). Forensic analysis: user toggled position off on feed card → `removePosition()` DELETE → cascade trigger `cascade_position_removal_to_story_points` fired → story_points row destroyed. Re-adding position doesn't restore the link. The detail page, profile page, and story-detail page all used `useRemovePositionGuard` (P401/P402) — but `feed-point-card.tsx` was the single unguarded path.
