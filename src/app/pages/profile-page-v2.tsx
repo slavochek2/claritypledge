@@ -9,7 +9,8 @@
  */
 import { useEffect, useState, useRef, useMemo, useCallback } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
-import { getProfile, getProfileBySlug, createProfile, type Profile } from "@/app/data/api";
+import { getProfile, getProfileBySlug, createProfile, updateProfile, type Profile } from "@/app/data/api";
+import { BannerDisplay, BannerControls, useBanner } from '@/app/components/shared/banner';
 import { SEO } from "@/app/components/seo";
 import { Button } from "@/components/ui/button";
 import { PointCardWithLinks } from "@/app/components/social/point-card-with-links";
@@ -425,6 +426,37 @@ export function ProfilePageV2() {
     });
   }, [profile]);
 
+  // P504: Banner state — delegated to shared useBanner hook
+  const saveBanner = useCallback(async (newUrl: string | null) => {
+    if (!profile) return;
+    await updateProfile(profile.id, {
+      banner_url: newUrl,
+      banner_generation_attempted: true,
+    });
+    setProfile(prev => prev ? { ...prev, bannerUrl: newUrl ?? undefined, bannerGenerationAttempted: true } : prev);
+  }, [profile]);
+
+  const banner = useBanner({
+    entityType: 'profile',
+    entityId: profile?.id ?? '',
+    initialBannerUrl: profile?.bannerUrl ?? null,
+    onSave: saveBanner,
+  });
+
+  // P504: Lazy banner generation for profiles without banners
+  const lazyBannerTriggered = useRef(false);
+  useEffect(() => {
+    if (
+      !profile ||
+      lazyBannerTriggered.current ||
+      profile.bannerUrl ||
+      profile.bannerGenerationAttempted ||
+      !session?.access_token
+    ) return;
+    lazyBannerTriggered.current = true;
+    banner.handleRegenerate();
+  }, [profile, session?.access_token]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const handleCreateClick = useCallback(() => {
     navigate('/create');
   }, [navigate]);
@@ -699,6 +731,7 @@ export function ProfilePageV2() {
         title={profile.name}
         description={`${profile.name}'s profile on Clarity Pledge${profile.role ? ` - ${profile.role}` : ''}`}
         url={`/p/${profile.slug}`}
+        image={banner.bannerUrl || profile.avatarUrl || undefined}
         type="profile"
         profile={{
           name: profile.name,
@@ -718,23 +751,60 @@ export function ProfilePageV2() {
             Back
           </button>
 
-          {/* Profile header card - matches prototype compact-profile-card */}
-          <div className="bg-card rounded-lg border border-border shadow-sm p-6">
-            {/* Top row: Avatar + Name/Role + Share button */}
-            <div className="flex items-start gap-4">
-              {/* Avatar - blue ring if pledger */}
-              <div className="flex-shrink-0">
-                <GravatarAvatar
-                  name={profile.name}
-                  photoUrl={profile.avatarUrl ?? undefined}
-                  avatarColor={profile.avatarColor}
-                  size="lg"
-                  isPledger={profile.hasPledged}
+          {/* Profile header card - LinkedIn-style with banner + avatar overlap */}
+          <div className="bg-card rounded-lg border border-border shadow-sm overflow-hidden">
+            {/* P504: Banner image */}
+            <BannerDisplay
+              bannerUrl={banner.bannerUrl}
+              fallbackColor={profile.avatarColor}
+              altText={`${profile.name}'s profile banner`}
+            >
+              {isOwner && (
+                <BannerControls
+                  onRegenerate={banner.handleRegenerate}
+                  onRemove={banner.handleRemove}
+                  isLoading={banner.isLoading}
+                  hasBanner={!!banner.bannerUrl}
+                  showSearch={banner.showSearch}
+                  onSearch={banner.handleSearch}
+                  searchError={banner.searchError || undefined}
                 />
+              )}
+            </BannerDisplay>
+
+            {/* Avatar + info section with overlap */}
+            <div className="px-6 pb-6">
+              {/* Top row: Avatar (overlapping banner) + Share button */}
+              <div className="flex items-end justify-between">
+                {/* Avatar - overlapping banner edge */}
+                <div className="flex-shrink-0 mt-[-32px] relative z-10">
+                  <div className="ring-4 ring-white dark:ring-card rounded-full">
+                    <GravatarAvatar
+                      name={profile.name}
+                      photoUrl={profile.avatarUrl ?? undefined}
+                      avatarColor={profile.avatarColor}
+                      size="lg"
+                      isPledger={profile.hasPledged}
+                    />
+                  </div>
+                </div>
+
+                {/* Share button - only shown for profile owner */}
+                {isOwner && (
+                  <MobileTooltip content="Share profile">
+                    <button
+                      onClick={() => setShowShareDialog(true)}
+                      className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-muted rounded-full transition-colors flex-shrink-0 mt-2"
+                      aria-label="Share profile"
+                    >
+                      <Share2 size={16} />
+                    </button>
+                  </MobileTooltip>
+                )}
               </div>
 
               {/* Name and Role */}
-              <div className="flex-1 min-w-0">
+              <div className="flex-1 min-w-0 mt-2">
                 <div className="flex items-center gap-2">
                   <h2 className="text-xl font-bold text-foreground truncate">{profile.name}</h2>
                   <TooltipProvider delayDuration={100}>
@@ -819,19 +889,6 @@ export function ProfilePageV2() {
                   </p>
                 )}
               </div>
-
-              {/* Share button - only shown for profile owner */}
-              {isOwner && (
-                <MobileTooltip content="Share profile">
-                  <button
-                    onClick={() => setShowShareDialog(true)}
-                    className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-muted rounded-full transition-colors flex-shrink-0"
-                    aria-label="Share profile"
-                  >
-                    <Share2 size={16} />
-                  </button>
-                </MobileTooltip>
-              )}
             </div>
           </div>
 

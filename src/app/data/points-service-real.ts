@@ -15,6 +15,7 @@ import type {
   PositionType,
 } from '@/app/types';
 import { supabase } from '@/lib/supabase';
+import { generateAIBanner } from '@/app/prototypes/events/banner-utils';
 
 // Debug logging - only in development
 const DEBUG = import.meta.env.DEV;
@@ -40,6 +41,7 @@ interface DbPointWithCreator {
   created_at: string;
   updated_at: string;
   tags: string[];
+  banner_url?: string | null;
   creator: {
     id: string;
     name: string | null;
@@ -92,6 +94,7 @@ function mapPointFromDb(row: DbPointWithCreator): PointWithCreator {
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     tags: row.tags || [],
+    bannerUrl: row.banner_url ?? undefined,
     // Creator info from joined profile
     creatorName: row.creator?.name ?? 'Unknown',
     creatorSlug: row.creator?.slug ?? '',
@@ -209,7 +212,7 @@ export const realPointsService: PointsService = {
       return null;
     }
 
-    return {
+    const point: Point = {
       id: data.id,
       statement: data.statement,
       context: data.context ?? undefined,
@@ -217,7 +220,26 @@ export const realPointsService: PointsService = {
       createdAt: data.created_at,
       updatedAt: data.updated_at,
       tags: data.tags || [],
+      bannerUrl: data.banner_url ?? undefined,
     };
+
+    // P504: Fire-and-forget banner generation after successful insert
+    try {
+      supabase.auth.getSession().then(({ data: sessionData }) => {
+        const token = sessionData.session?.access_token;
+        if (token) {
+          generateAIBanner('point', point.id, token).catch(() => {
+            log('WARN: fire-and-forget banner generation failed for point', point.id);
+          });
+        }
+      }).catch(() => {
+        log('WARN: could not get session for banner generation');
+      });
+    } catch {
+      // Silently fail — banner is non-critical
+    }
+
+    return point;
   },
 
   // ============================================================================

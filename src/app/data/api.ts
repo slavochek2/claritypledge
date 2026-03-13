@@ -590,6 +590,8 @@ function mapProfileFromDb(dbProfile: DbProfile, reciprocations: number = 0): Pro
     pledgeVersion: dbProfile.pledge_version || 2,
     hasPledged: dbProfile.has_pledged ?? true, // P50: Default true for existing users
     bio: dbProfile.bio ?? null, // P414: Short self-description
+    bannerUrl: dbProfile.banner_url ?? undefined, // P504: AI-generated profile banner
+    bannerGenerationAttempted: dbProfile.banner_generation_attempted ?? false, // P504
   };
 }
 
@@ -680,6 +682,8 @@ export async function updateProfile(
     reason?: string;
     has_pledged?: boolean; // P50: Support upgrading non-pledgers to pledgers
     bio?: string; // P414: Short self-description, max 160 chars
+    banner_url?: string | null; // P504: AI-generated profile banner
+    banner_generation_attempted?: boolean; // P504: Whether banner generation was attempted
   }
 ): Promise<{ error: Error | null }> {
   const { error } = await supabase

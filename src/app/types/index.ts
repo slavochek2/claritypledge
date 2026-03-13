@@ -49,6 +49,8 @@ export interface Profile {
   pledgeVersion?: number; // 1 = v1, 2 = v2 ("without"), 3 = v3 ("withholding")
   hasPledged: boolean; // P50: false for /live registrations, true for /sign-pledge
   bio?: string | null; // P414: Optional self-description, max 160 chars
+  bannerUrl?: string; // P504: AI-generated profile banner image
+  bannerGenerationAttempted?: boolean; // P504: Whether banner generation was attempted
 }
 
 /**
@@ -99,6 +101,8 @@ export interface DbProfile {
   pledge_version?: number;
   has_pledged?: boolean; // P50: false for /live registrations, true for /sign-pledge
   bio?: string | null; // P414: Short self-description, max 160 chars
+  banner_url?: string | null; // P504: AI-generated profile banner image
+  banner_generation_attempted?: boolean; // P504: Whether banner generation was attempted
 }
 
 /**
@@ -985,6 +989,7 @@ export interface Point {
   createdAt: string;
   updatedAt: string;
   tags: string[];
+  bannerUrl?: string; // P504: AI-generated banner image
 }
 
 /** Point summary for embedding in other views */
@@ -1026,6 +1031,7 @@ export interface DbPoint {
   created_at: string;
   updated_at: string;
   tags: string[];
+  banner_url?: string | null; // P504: AI-generated banner image
 }
 
 // ----------------------------------------------------------------------------

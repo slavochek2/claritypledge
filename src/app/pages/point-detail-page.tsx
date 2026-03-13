@@ -18,6 +18,8 @@ import { getPositionGroup, type PositionButtonGroup } from '@/app/prototypes/sha
 import type { Story } from '@/app/prototypes/shared/types';
 import { GravatarAvatar } from '@/components/ui/gravatar-avatar';
 import { FocusHeader } from '@/app/components/layout/focus-header';
+import { BannerDisplay } from '@/app/components/shared/banner';
+import { SEO } from '@/app/components/seo';
 import {
   PositionBadge,
   PositionButtons,
@@ -406,10 +408,27 @@ export function PointDetailPage() {
     positionFilter === 'all' ? ['agree', 'disagree', 'unsure'] : [positionFilter as PositionButtonGroup];
 
   return (
-    <div className="max-w-lg mx-auto px-4 py-6">
+    <div className="max-w-lg mx-auto">
+      {/* P504: SEO meta tags */}
+      <SEO
+        title={point.statement.length > 70 ? point.statement.slice(0, 67) + '...' : point.statement}
+        description={`Shared on ClarityPledge — take a position.`}
+        url={`/point/${point.id}`}
+        image={point.bannerUrl || undefined}
+        type="article"
+      />
+
       {/* P401: Remove position warning dialog */}
       <RemovePositionDialog {...dialogProps} />
 
+      {/* P504: Banner image above the content */}
+      <BannerDisplay
+        bannerUrl={point.bannerUrl}
+        fallbackColor="#94a3b8"
+        altText={`Banner for point: ${point.statement?.substring(0, 50)}`}
+      />
+
+      <div className="px-4 py-6">
       <FocusHeader onBack={handleBack} />
 
       {/* Point card with full features */}
@@ -570,6 +589,7 @@ export function PointDetailPage() {
             </p>
           )}
         </div>
+      </div>
       </div>
     </div>
   );
