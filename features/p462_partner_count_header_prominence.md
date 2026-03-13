@@ -10,6 +10,9 @@ tags:
 created_date: 2026-02-28T00:00:00.000Z
 flow: dev
 locked_at: '2026-03-06T03:36:22.279Z'
+uat_file: features/uat/p462.md
+test_files:
+  - e2e/p462-partner-count-prominence.spec.ts
 ---
 
 # P462: Clarity Partners Count — Header Prominence
@@ -64,3 +67,33 @@ Renders nothing (existing behaviour unchanged).
 - [ ] Min tap height 44px preserved
 - [ ] Non-owner with no visible agreements: renders nothing (unchanged)
 - [ ] Visitor with shared agreement: still shows "You have N agreement(s) with this person" (unchanged copy, updated number styling)
+
+## Test Coverage Strategy
+
+**Files created:**
+- E2E tests: `e2e/p462-partner-count-prominence.spec.ts` (5 tests)
+- UAT scenarios: `features/uat/p462.md` (5 scenarios)
+
+**What's tested:**
+- ✅ Owner 0-count: muted styling, no bold/navy (TC-01)
+- ✅ Owner N-count: bold navy xl number, muted label (TC-02)
+- ✅ Non-owner no visible: line not rendered (TC-03)
+- ✅ Visitor with public agreement: count visible with bold styling (TC-04)
+- ✅ Diamond icon present and aria-hidden (TC-05)
+- ✅ Link target `/p/:slug/partners` (TC-01, TC-04)
+- ✅ Min tap height 44px (TC-02)
+
+**What's NOT tested (rationale):**
+- ❌ Unit tests — no new utility/service logic, just CSS class conditionals tested via E2E
+- ❌ Integration tests — no DB/API changes
+- ❌ Accessibility tests — no new interactive elements (existing link unchanged)
+- ❌ Smoke tests — no new routes
+
+**Test pyramid:**
+```
+  /\
+ /  \  5 E2E
+/____\
+```
+
+Total: 5 automated tests + 5 UAT scenarios
