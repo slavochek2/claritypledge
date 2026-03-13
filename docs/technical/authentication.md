@@ -50,6 +50,8 @@ const { user, profile, loading } = useAuth();
 - Never handles redirects (that's the Writer's job)
 - Import via `@/auth`, never from internal files
 
+**Resilience:** `fetchProfileForUser` uses `getProfileResult()` (discriminated union) to distinguish "not found" from "server error". On server errors, it retries up to 3 times with 1s delay. On "not found", it returns `null` immediately (no retry). The `previousUserRef` guard preserves cached user data on transient failures for warm sessions (profile loaded once). Cold start failures (no cached profile) will show loading state for up to 2s before falling through to null. See decisions.md entry 2026-03-13 for full context.
+
 ### Writer: AuthCallbackPage
 
 Location: [src/auth/AuthCallbackPage.tsx](../../src/auth/AuthCallbackPage.tsx)

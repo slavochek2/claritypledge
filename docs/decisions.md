@@ -2,6 +2,14 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-13 [technical]: Profile fetch failure silently logs out users across 12+ pages
+
+**Context:** Two-user /live flow: user B scans QR code, gets forced to re-login despite valid Supabase session. Root cause: `fetchProfileForUser` in `AuthContext.tsx` used `getProfile()` which flattens server errors and "not found" into the same `null`. On cold start (no cached profile in `previousUserRef`), a transient network error or 5xx → `user = null` → all 12+ pages that check `user` treat the user as logged out. Most failures are silent: forms render but submit does nothing, no error toast. The `previousUserRef` guard only protects warm sessions (profile loaded once already).
+**Decision:** Switch from `getProfile()` to `getProfileResult()` (discriminated union: `not_found` vs `server_error`). Retry up to 3 attempts with 1s delay on `server_error`; immediate return on `not_found`. Added `useCallback` for stable function identity and `isMounted` guard to prevent state updates after unmount during retry delays.
+**Alternatives rejected:** Adding retry at the `getProfile` level (would retry "not found" too). Adding a third auth state like `profileFetchFailed` (invasive — every consumer page would need updating). Retroactive unit test (closure inside AuthProvider makes direct testing involved; the logic is a simple retry loop covered by the type system).
+**Consequences:** Transient Supabase errors add up to 2s latency (worst case) instead of false logout. `console.warn` fires on retry, `console.error` on final failure — visible in Sentry. Happy path (profile exists, no error) has zero delay. Pattern: always distinguish "not found" from "server error" in auth-critical paths.
+**References:** [AuthContext.tsx](src/auth/AuthContext.tsx), [api.ts `getProfileResult`](src/app/data/api.ts)
+
 ## 2026-03-13 [process]: Agent verification failures — root cause analysis and E2E auth infra
 
 **Context:** Analysis of 173 "can't verify" instances across 2 weeks (Feb 11 – Mar 12) revealed 67% trace to one root cause: agents lack authenticated browser sessions. Headless tools (Chrome DevTools MCP, Playwright) start fresh sessions without cookies. The only tool with real auth (Claude in Chrome) disconnects after ~5min (MV3 service worker timeout, upstream issues #26347/#27826). Secondary causes: two-user flows untestable (12 cases), chrome-extension:// URL errors (15 cases), subagent isolation (10 cases), macOS keychain (8 cases, already fixed).
