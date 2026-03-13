@@ -2,6 +2,22 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-13 [technical]: Seven-point position scale requires full-key initialization everywhere
+
+**Context:** After adding a point to a story, position counts showed `NaN` on all buttons. The optimistic UI update in `handlePointAdded` initialized a 3-key default object (`{ agree: 0, disagree: 0, unsure: 0 }`) but the display component expects `SevenPointCounts` (7 keys: strongly_disagree through strongly_agree). `getGroupCount()` sums multiple keys per button — summing `undefined` values produces `NaN`.
+**Decision:** Every place that creates a default position-count object must use all 7 keys. The 3-key shorthand from the old 3-point scale is never safe — even if only 3 buttons are visible, the grouping logic reads all 7 keys.
+**Alternatives rejected:** Making `getGroupCount` tolerant of missing keys — masks the real bug and makes it harder to detect future mismatches.
+**Consequences:** Search for `agree: 0, disagree: 0, unsure: 0` patterns when touching position code — any 3-key init is a latent NaN bug.
+**References:** [P506 spec](features/done/22_mar_26/p506_auto_extract_hashtags.md), commit `b97dad42`
+
+## 2026-03-13 [technical]: Surface audit pattern — grep all consumers when adding display-layer features
+
+**Context:** P491 added tag pills to feed/detail/live cards but missed 5 surfaces: QuotedPoint in StoryCardDetail, story-card-with-links, live-story-card-expanded PointRow, and 2 preview components in live-content-cards. The pattern: main card components got updated, but quoted/embedded point sub-components were consistently skipped.
+**Decision:** When adding a display-layer feature (pills, badges, formatting), grep for ALL consumers of the underlying data field (e.g., `point.statement`, `story.content`) — not just the obvious top-level cards. QuotedPoint, preview, and embedded components are the most commonly missed surfaces.
+**Alternatives rejected:** Centralizing all point rendering into one component — too many context-specific layouts (profile, feed, live, detail) with different interaction models.
+**Consequences:** Future display features should start with `grep -r "point.statement\|point.text\|story.content" src/` to enumerate all render sites before coding.
+**References:** [P503 spec](features/done/22_mar_26/p503_profile_tag_pills.md)
+
 ## 2026-03-13 [technical]: Prototype cleanup — extract production code, then delete
 
 **Context:** 4 prototype directories (premium, converged, events-mock, linkedin-like) plus `prototypes/shared/` were dead code on the `/tree` page, but production code had 47 imports reaching into prototype folders. The prototype `Story.text`/`Point.text` types diverged from production `Story.content`/`Point.statement` — production code was converting shapes before passing to shared UI components that lived in prototype folders.

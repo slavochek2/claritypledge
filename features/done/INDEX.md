@@ -1,7 +1,7 @@
 # Done Features Index
 
 Quick reference for past completed work. Consult when starting work on a related topic.
-Last updated: 2026-03-13 (P507 Remove Dead Prototypes)
+Last updated: 2026-03-13 (P506 Auto-Extract Hashtags, P503 Profile Tag Pills)
 
 ---
 
@@ -23,6 +23,8 @@ Last updated: 2026-03-13 (P507 Remove Dead Prototypes)
 
 ## Points & Stories
 
+- **P506** (Mar 13) Auto-Extract Hashtags — `extractHashtags()` at save time; backfill migration for existing content; 3-key position init = NaN bug (use all 7 keys)
+- **P503** (Mar 13) Profile Tag Pills — grep ALL consumers of `point.statement`/`story.content` before adding display features; QuotedPoint sub-components are always missed
 - **P505** (Mar 13) Feed Sort Toggle — `?sort=oldest` URL param + UI toggle; sort at DB level not client-side (pagination); blog embeds don't carry auth (localStorage isolation)
 - **Fix** (Mar 13) Feed Card Position Guard — cascade trigger silently delinks stories on unguarded `removePosition`; every caller must use `useRemovePositionGuard`; feed uses optimistic counts, not refetch
 - **P501** (Mar 13) Unify Understood Pill — legacy `verificationCount` diverged from `understoodCount`; always show pill (even 0) so new surfaces don't need `> 0` guards
