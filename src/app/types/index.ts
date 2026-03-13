@@ -918,6 +918,7 @@ export interface Story {
   createdAt: string;
   updatedAt: string;
   tags: string[];
+  bannerUrl?: string; // P504: AI-generated banner image
 }
 
 /** Story with author profile info for display */
@@ -947,6 +948,7 @@ export interface DbStory {
   created_at: string;
   updated_at: string;
   tags: string[];
+  banner_url?: string | null; // P504: AI-generated banner image
 }
 
 // ----------------------------------------------------------------------------

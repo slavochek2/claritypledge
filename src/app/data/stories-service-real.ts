@@ -16,6 +16,7 @@ import type {
 } from '@/app/types';
 import { supabase } from '@/lib/supabase';
 import { pointsService } from './points-service';
+import { generateAIBanner } from '@/app/prototypes/events/banner-utils';
 
 // Debug logging - only in development
 const DEBUG = import.meta.env.DEV;
@@ -33,6 +34,7 @@ interface DbStoryWithAuthor {
   created_at: string;
   updated_at: string;
   tags: string[];
+  banner_url?: string | null;
   author: {
     id: string;
     name: string | null;
@@ -87,6 +89,7 @@ function mapStoryFromDb(row: DbStoryWithAuthor): StoryWithAuthor {
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     tags: row.tags || [],
+    bannerUrl: row.banner_url ?? undefined,
     // Author info from joined profile
     authorName: row.author?.name ?? 'Unknown',
     authorSlug: row.author?.slug ?? '',
@@ -167,7 +170,7 @@ export const realStoriesService: StoriesService = {
       return null;
     }
 
-    return {
+    const story: Story = {
       id: data.id,
       authorId: data.author_id,
       content: data.content,
@@ -177,7 +180,21 @@ export const realStoriesService: StoriesService = {
       createdAt: data.created_at,
       updatedAt: data.updated_at,
       tags: data.tags || [],
+      bannerUrl: data.banner_url ?? undefined,
     };
+
+    // P504: Fire-and-forget banner generation after successful insert
+    supabase.auth.getSession().then(({ data: sessionData }) => {
+      const token = sessionData.session?.access_token;
+      if (token) {
+        generateAIBanner('story', story.id, token).catch(() => {
+          // Silently fail — banner is non-critical
+          log('WARN: fire-and-forget banner generation failed for story', story.id);
+        });
+      }
+    });
+
+    return story;
   },
 
   // ============================================================================
@@ -461,7 +478,7 @@ export const realStoriesService: StoriesService = {
 
   async updateStory(
     storyId: string,
-    updates: { content?: string; tags?: string[]; visibility?: StoryVisibility }
+    updates: { content?: string; tags?: string[]; visibility?: StoryVisibility; bannerUrl?: string | null }
   ): Promise<Story | null> {
     log(' updateStory:', { storyId, updates });
 
@@ -469,6 +486,7 @@ export const realStoriesService: StoriesService = {
     if (updates.content !== undefined) updateData.content = updates.content;
     if (updates.tags !== undefined) updateData.tags = updates.tags;
     if (updates.visibility !== undefined) updateData.visibility = updates.visibility;
+    if (updates.bannerUrl !== undefined) updateData.banner_url = updates.bannerUrl;
 
     const { data, error } = await supabase
       .from('stories')
@@ -492,6 +510,7 @@ export const realStoriesService: StoriesService = {
       createdAt: data.created_at,
       updatedAt: data.updated_at,
       tags: data.tags || [],
+      bannerUrl: data.banner_url ?? undefined,
     };
   },
 
@@ -560,7 +579,7 @@ export const realStoriesService: StoriesService = {
     const s = data.stories as {
       id: string; author_id: string; title?: string; content: string;
       visibility: StoryVisibility; current_version: number; understood_count: number;
-      created_at: string; updated_at: string; tags: string[];
+      created_at: string; updated_at: string; tags: string[]; banner_url?: string | null;
     };
 
     return {
@@ -574,6 +593,7 @@ export const realStoriesService: StoriesService = {
       createdAt: s.created_at,
       updatedAt: s.updated_at,
       tags: s.tags ?? [],
+      bannerUrl: s.banner_url ?? undefined,
     };
   },
 
