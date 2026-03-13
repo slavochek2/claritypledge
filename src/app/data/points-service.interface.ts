@@ -191,7 +191,8 @@ export interface PointsService {
     limit: number,
     offset: number,
     tag?: string,
-    viewerUserId?: string
+    viewerUserId?: string,
+    ascending?: boolean
   ): Promise<PointWithUserPosition[]>;
 
   // ============================================================================

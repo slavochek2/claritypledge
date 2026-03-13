@@ -71,7 +71,7 @@ export interface StoriesService {
    * Returns only stories with visibility='public', ordered by created_at desc.
    * Optionally filters by tag using Supabase .contains() on the tags TEXT[] column.
    */
-  getPublicStoriesFeed(limit: number, offset: number, tag?: string): Promise<StoryWithAuthor[]>;
+  getPublicStoriesFeed(limit: number, offset: number, tag?: string, ascending?: boolean): Promise<StoryWithAuthor[]>;
 
   /**
    * Get public stories that contain any of the given points.

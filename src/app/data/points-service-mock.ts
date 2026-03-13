@@ -355,11 +355,13 @@ export const mockPointsService: PointsService = {
     limit: number,
     offset: number,
     tag?: string,
-    viewerUserId?: string
+    viewerUserId?: string,
+    ascending?: boolean
   ): Promise<PointWithUserPosition[]> {
-    let sorted = [...mockPoints].sort(
-      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-    );
+    let sorted = [...mockPoints].sort((a, b) => {
+      const diff = new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+      return ascending ? diff : -diff;
+    });
     if (tag) {
       sorted = sorted.filter(p => p.tags.includes(tag));
     }

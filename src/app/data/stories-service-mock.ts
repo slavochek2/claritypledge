@@ -159,13 +159,16 @@ export const mockStoriesService: StoriesService = {
       .slice(offset, offset + limit);
   },
 
-  async getPublicStoriesFeed(limit: number, offset: number, tag?: string): Promise<StoryWithAuthor[]> {
+  async getPublicStoriesFeed(limit: number, offset: number, tag?: string, ascending?: boolean): Promise<StoryWithAuthor[]> {
     let filtered = [...mockStories].filter((s) => s.visibility === 'public');
     if (tag) {
       filtered = filtered.filter((s) => s.tags.includes(tag));
     }
     return filtered
-      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+      .sort((a, b) => {
+        const diff = new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+        return ascending ? diff : -diff;
+      })
       .slice(offset, offset + limit);
   },
 

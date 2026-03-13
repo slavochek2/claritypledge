@@ -419,7 +419,7 @@ export const realStoriesService: StoriesService = {
     return (data as DbStoryWithAuthor[]).map(mapStoryFromDb);
   },
 
-  async getPublicStoriesFeed(limit: number, offset: number, tag?: string): Promise<StoryWithAuthor[]> {
+  async getPublicStoriesFeed(limit: number, offset: number, tag?: string, ascending?: boolean): Promise<StoryWithAuthor[]> {
     log(' getPublicStoriesFeed:', { limit, offset, tag });
 
     let query = supabase
@@ -444,7 +444,7 @@ export const realStoriesService: StoriesService = {
     }
 
     const { data, error } = await query
-      .order('created_at', { ascending: false })
+      .order('created_at', { ascending: ascending ?? false })
       .range(offset, offset + limit - 1);
 
     if (error || !data) {
