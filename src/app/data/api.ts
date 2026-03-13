@@ -3544,14 +3544,9 @@ export async function retryTranscription(sessionId: string): Promise<void> {
 /**
  * Create a transcription job after session recording upload.
  */
-export async function createTranscriptionJob(sessionCode: string, sessionId: string): Promise<void> {
+export async function createTranscriptionJob(_sessionCode: string, sessionId: string): Promise<void> {
   const { error } = await supabase
-    .from('transcription_jobs')
-    .insert({
-      session_code: sessionCode,
-      session_id: sessionId,
-      status: 'pending',
-    });
+    .rpc('create_transcription_job', { p_session_id: sessionId });
 
   if (error) {
     // Don't throw — transcription job creation failure shouldn't block session end
