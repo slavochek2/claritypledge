@@ -44,6 +44,9 @@ const ProfileConnectionsPage = lazy(() => import("@/app/pages/profile-connection
 // Dev/prototype pages
 const TreePage = lazy(() => import("@/app/pages/TreePage").then(m => ({ default: m.TreePage })));
 const DesignAuditPage = lazy(() => import("@/app/pages/design-audit-page").then(m => ({ default: m.DesignAuditPage })));
+const LandingV2 = lazy(() => import("@/app/pages/landing-v2").then(m => ({ default: m.LandingV2 })));
+const LandingV3 = lazy(() => import("@/app/pages/landing-v3").then(m => ({ default: m.LandingV3 })));
+const LandingV4 = lazy(() => import("@/app/pages/landing-v4").then(m => ({ default: m.LandingV4 })));
 const EventsPrototype = lazy(() => import("@/app/prototypes/events").then(m => ({ default: m.EventsPrototype })));
 
 /** P491: Redirect authenticated+verified users from / to /feed. Show landing for everyone else. */
@@ -543,6 +546,9 @@ export default function ClarityPledgeApp() {
             ============================================================ */}
         <Route path="/tree" element={<LazyRoute><TreePage /></LazyRoute>} />
         <Route path="/tree/design-audit" element={<LazyRoute><DesignAuditPage /></LazyRoute>} />
+        <Route path="/tree/landing-v2" element={<LazyRoute><LandingV2 /></LazyRoute>} />
+        <Route path="/tree/landing-v3" element={<LazyRoute><LandingV3 /></LazyRoute>} />
+        <Route path="/tree/landing-v4" element={<LazyRoute><LandingV4 /></LazyRoute>} />
         <Route path="/events/*" element={<ClarityLandingLayout><LazyRoute><EventsPrototype /></LazyRoute></ClarityLandingLayout>} />
       </Routes>
       </AuthProvider>

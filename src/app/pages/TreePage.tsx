@@ -14,6 +14,21 @@ const devPages = [
     label: 'Design Audit: Certificates',
     description: 'Pledge vs Agreement — side-by-side comparison of all states, buttons, inputs'
   },
+  {
+    path: '/tree/landing-v2',
+    label: 'Landing V2: "The Confession"',
+    description: 'Dark, narrative-driven landing — co-founder pairs, vulnerability-led, typography-first'
+  },
+  {
+    path: '/tree/landing-v3',
+    label: 'Landing V3: "Clarity Canvas"',
+    description: 'Constellation bg, Stories & Points map, explain-back test, calibration score — product-led'
+  },
+  {
+    path: '/tree/landing-v4',
+    label: 'Landing V4: "Step Through Clarity"',
+    description: 'Forward-nav cards: Point→Venn→Quadrant→Story→Explain-back→CTA. Design system, constellation dots'
+  },
 ];
 
 export function TreePage() {
