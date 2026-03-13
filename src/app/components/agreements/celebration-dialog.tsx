@@ -57,6 +57,8 @@ export function CelebrationDialog({
             partnerName={partnerName}
             partnerSignedAt={agreement.partnerSignedAt}
             termsText={agreement.termsText}
+            creatorProfileUrl={agreement.creator?.slug ? `/p/${agreement.creator.slug}` : null}
+            partnerProfileUrl={agreement.partner?.slug ? `/p/${agreement.partner.slug}` : null}
           />
         </div>
 

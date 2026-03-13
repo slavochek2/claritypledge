@@ -1,6 +1,4 @@
-import { Button } from "@/components/ui/button";
 import { Pledge } from "@/app/types";
-import { LinkedinIcon } from "lucide-react";
 import {
   PLEDGE_TEXT,
   YourRightTextTailwind,
@@ -17,7 +15,6 @@ interface PledgeCardProps extends Omit<Pledge, 'id' | 'reason' | 'signedAt'> {
 export function PledgeCard({ 
   name, 
   role, 
-  linkedinUrl,
   isSigned = false,
 }: PledgeCardProps) {
   return (
@@ -113,14 +110,6 @@ export function PledgeCard({
                       )}
                     </div>
                   </div>
-                  {linkedinUrl && (
-                    <a href={linkedinUrl} target="_blank" rel="noopener noreferrer">
-                      <Button variant="outline" size="sm" className="border-[#0A66C2] text-[#0A66C2] hover:bg-[#0A66C2]/10 hover:text-[#0A66C2]">
-                        <LinkedinIcon className="w-4 h-4 mr-2" />
-                        LinkedIn
-                      </Button>
-                    </a>
-                  )}
                   <div className="text-right">
                     <p className="text-sm font-semibold text-muted-foreground uppercase">
                       DATE

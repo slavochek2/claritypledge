@@ -34,6 +34,10 @@ export interface AgreementCertificateProps {
   creatorAvatarUrl?: string | null;
   partnerAvatarUrl?: string | null;
 
+  // Profile page URLs for linking names/avatars
+  creatorProfileUrl?: string | null;
+  partnerProfileUrl?: string | null;
+
   // P466: creation-mode props — omitting all = existing behavior unchanged
   onPartnerNameChange?: (name: string) => void;
   partnerNameValue?: string;
@@ -60,18 +64,15 @@ interface SignatureSlotProps {
   isPending?: boolean;
   hideLabel?: boolean; // P472: hide CREATOR/PARTNER label in active/pending views
   avatarUrl?: string | null; // P480: photo URL; null = show initials via GravatarAvatar
+  profileUrl?: string | null; // Profile page URL for linking name/avatar
 }
 
-function SignatureSlot({ label, name, value, signedAt, isPending, hideLabel, avatarUrl }: SignatureSlotProps) {
+function SignatureSlot({ label, name, value, signedAt, isPending, hideLabel, avatarUrl, profileUrl }: SignatureSlotProps) {
   const displayName = value !== undefined ? value : (name || 'Awaiting signature');
+  const hasProfile = profileUrl && displayName && displayName !== 'Awaiting signature';
 
-  return (
-    <div className="flex flex-col items-center gap-1.5 min-w-0 flex-1">
-      {!hideLabel && (
-        <p className="text-[10px] uppercase tracking-[0.15em] text-[#1A1A1A]/50 font-sans">
-          {label}
-        </p>
-      )}
+  const avatarAndName = (
+    <>
       {/* P480: avatar — shown only when a name is available (non-creation modes) */}
       {displayName && displayName !== 'Awaiting signature' && (
         <GravatarAvatar
@@ -83,11 +84,28 @@ function SignatureSlot({ label, name, value, signedAt, isPending, hideLabel, ava
         />
       )}
       <p
-        className="text-base font-semibold text-[#1A1A1A] leading-tight"
+        className={`text-base font-semibold text-[#1A1A1A] leading-tight ${hasProfile ? 'group-hover/slot:text-[#0044CC] group-hover/slot:underline transition-colors' : ''}`}
         style={{ fontFamily: '"Playfair Display", Georgia, serif' }}
       >
         {displayName || <span className="text-[#1A1A1A]/30 font-normal">their name</span>}
       </p>
+    </>
+  );
+
+  return (
+    <div className="flex flex-col items-center gap-1.5 min-w-0 flex-1">
+      {!hideLabel && (
+        <p className="text-[10px] uppercase tracking-[0.15em] text-[#1A1A1A]/50 font-sans">
+          {label}
+        </p>
+      )}
+      {hasProfile ? (
+        <a href={profileUrl} className="flex flex-col items-center gap-1.5 group/slot">
+          {avatarAndName}
+        </a>
+      ) : (
+        avatarAndName
+      )}
       {signedAt ? (
         <p className="text-xs text-[#1A1A1A]/60">
           Signed on {formatSignedDate(signedAt)}
@@ -117,6 +135,8 @@ export function AgreementCertificate({
   footer,
   creatorAvatarUrl,
   partnerAvatarUrl,
+  creatorProfileUrl,
+  partnerProfileUrl,
   onPartnerNameChange,
   partnerNameValue = '',
   partnerNameError,
@@ -162,7 +182,11 @@ export function AgreementCertificate({
               style={{ fontFamily: '"Playfair Display", Georgia, serif' }}
             >
               We,{' '}
-              <span className="font-semibold">{creatorName}</span>
+              {creatorProfileUrl ? (
+                <a href={creatorProfileUrl} className="font-semibold hover:text-[#0044CC] hover:underline transition-colors">{creatorName}</a>
+              ) : (
+                <span className="font-semibold">{creatorName}</span>
+              )}
               {' '}and{' '}
               <input
                 type="text"
@@ -204,9 +228,17 @@ export function AgreementCertificate({
             style={{ fontFamily: '"Playfair Display", Georgia, serif' }}
           >
             We,{' '}
-            <span className="font-semibold">{creatorName}</span>
+            {creatorProfileUrl ? (
+              <a href={creatorProfileUrl} className="font-semibold hover:text-[#0044CC] hover:underline transition-colors">{creatorName}</a>
+            ) : (
+              <span className="font-semibold">{creatorName}</span>
+            )}
             {' '}and{' '}
-            <span className="font-semibold">{partnerName || <span className="text-[#1A1A1A]/30 font-normal">their name</span>}</span>
+            {partnerProfileUrl && partnerName ? (
+              <a href={partnerProfileUrl} className="font-semibold hover:text-[#0044CC] hover:underline transition-colors">{partnerName}</a>
+            ) : (
+              <span className="font-semibold">{partnerName || <span className="text-[#1A1A1A]/30 font-normal">their name</span>}</span>
+            )}
             , agree to:
           </p>
         )}
@@ -311,6 +343,7 @@ export function AgreementCertificate({
                 isPending={false}
                 hideLabel={isActive || isPending}
                 avatarUrl={creatorAvatarUrl}
+                profileUrl={creatorProfileUrl}
               />
 
               {/* Center seal — only when active */}
@@ -332,6 +365,7 @@ export function AgreementCertificate({
                 isPending={isPending}
                 hideLabel={isActive || isPending}
                 avatarUrl={partnerAvatarUrl}
+                profileUrl={partnerProfileUrl}
               />
             </div>
 

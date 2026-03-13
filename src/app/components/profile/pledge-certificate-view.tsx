@@ -73,7 +73,6 @@ export function ProfileVisitorView({
           signedAt={profile.signedAt}
           isVerified={profile.isVerified}
           role={profile.role}
-          linkedinUrl={profile.linkedinUrl}
           avatarColor={profile.avatarColor}
           photoUrl={profile.avatarUrl}
           showQrCode={true}

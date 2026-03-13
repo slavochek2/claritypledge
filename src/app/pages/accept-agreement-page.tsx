@@ -433,6 +433,8 @@ export function AcceptAgreementPage() {
             termsText={agreement.termsText}
             creatorAvatarUrl={agreement.creator?.avatarUrl}
             partnerAvatarUrl={agreement.partner?.avatarUrl}
+            creatorProfileUrl={agreement.creator?.slug ? `/p/${agreement.creator.slug}` : null}
+            partnerProfileUrl={agreement.partner?.slug ? `/p/${agreement.partner.slug}` : null}
             onPartnerNameChange={pageState === 'partner' && currentUser && !(currentUser.name && currentUser.name.trim() && currentUser.name.trim() !== 'Unknown') ? (name) => { setPartnerDisplayName(name); setNameError(null); } : undefined}
             partnerNameValue={partnerDisplayName}
             partnerNameError={nameError ?? undefined}
