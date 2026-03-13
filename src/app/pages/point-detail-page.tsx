@@ -34,7 +34,8 @@ import type { Point as ProtoPoint, Story as ProtoStory } from '@/app/prototypes/
 import { LinkedText } from '@/app/components/shared/linked-text';
 import { TagPills } from '@/app/components/shared/tag-pills';
 import { stripHashtags } from '@/lib/utils';
-import { buildAuthGateUrl, toAuthGatePosition } from '@/lib/auth-gate-utils';
+import { getAnonPosition, setAnonPosition as setAnonPositionStorage } from '@/app/hooks/useAnonPosition';
+import { AnonPositionCTA } from '@/app/components/shared/anon-position-cta';
 
 /** Normalize positionCounts to SevenPointCounts (ensure all keys present) */
 function toSevenPointCounts(counts: Record<string, number>): SevenPointCounts {
@@ -62,6 +63,8 @@ export function PointDetailPage() {
   const [positionFilter, setPositionFilter] = useState<PositionFilter>('all');
   const [userPosition, setUserPosition] = useState<PositionType | null>(null);
   const [retryKey, setRetryKey] = useState(0);
+  // P502: Anonymous position state — visual only, no count adjustment
+  const [anonPosition, setAnonPositionState] = useState<PositionType | null>(null);
   const [linkedStories, setLinkedStories] = useState<Map<string, StoryWithAuthor[]>>(new Map());
   const [viewerStory, setViewerStory] = useState<AppStory | null>(null);
   // P401: Guard position removal with linked-stories warning dialog
@@ -123,6 +126,14 @@ export function PointDetailPage() {
     loadData();
   }, [id, user?.id, retryKey]);
 
+  // P502: Load anon position from localStorage on mount
+  useEffect(() => {
+    if (!user && id) {
+      const stored = getAnonPosition(id) as PositionType | null;
+      if (stored) setAnonPositionState(stored);
+    }
+  }, [user, id]);
+
   // Derive Map<userId, StoryWithAuthor> from the batch-fetched stories for this point.
   // RLS enforces visibility — trust what the query returns.
   const storyByAuthorId = useMemo(() => {
@@ -174,24 +185,12 @@ export function PointDetailPage() {
   const handlePositionClick = async (position: PositionType) => {
     if (!id) return;
 
-    // P458: Anonymous user → redirect to signup with context
+    // P502: Anonymous user → optimistic local position, no redirect
     if (!user) {
-      const authGatePosition = toAuthGatePosition(position);
-      if (!authGatePosition) return;
-      const url = buildAuthGateUrl({
-        action: 'set-position',
-        pointId: id,
-        position: authGatePosition,
-        redirect: `/point/${id}`,
-        pointTitle: point?.statement,
-      });
-      if (isEmbed) {
-        // In embed mode, open the full point page in a new tab with position context
-        // so the auth gate flow triggers on the new tab
-        window.open(`${window.location.origin}${url}`, '_blank');
-      } else {
-        navigate(url);
-      }
+      const currentAnon = anonPosition;
+      const newPosition = currentAnon === position ? null : position;
+      setAnonPositionState(newPosition);
+      setAnonPositionStorage(id, newPosition);
       return;
     }
 
@@ -440,10 +439,14 @@ export function PointDetailPage() {
 
               {/* Position buttons (interactive) */}
               <PositionButtons
-                userPosition={userPosition}
+                userPosition={user ? userPosition : anonPosition}
                 counts={buttonCounts}
                 onPositionClick={handlePositionClick}
               />
+              {/* P502: Anonymous position CTA */}
+              {!user && anonPosition && (
+                <AnonPositionCTA pointId={id!} position={anonPosition} isEmbed={isEmbed} />
+              )}
 
             </div>
           </div>

@@ -6,7 +6,8 @@
 
 import { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { buildAuthGateUrl, toAuthGatePosition } from '@/lib/auth-gate-utils';
+import { getAnonPosition, setAnonPosition as setAnonPositionStorage } from '@/app/hooks/useAnonPosition';
+import { AnonPositionCTA } from '@/app/components/shared/anon-position-cta';
 import { Pin, ChevronDown, ChevronRight, ExternalLink } from 'lucide-react';
 import { EarBadge } from '@/components/ui/ear-badge';
 import { MobileTooltip } from '@/app/components/shared/mobile-tooltip';
@@ -137,6 +138,13 @@ export function PointCardWithLinks({
   const [userPosition, setUserPosition] = useState<Position>(
     selectedPosition ?? (currentUserId ? point.positions[currentUserId]?.position ?? null : null)
   );
+  // P502: Anonymous position state — visual only, no count adjustment
+  const [anonPosition, setAnonPositionState] = useState<PositionType | null>(() => {
+    if (!currentUserId) {
+      return getAnonPosition(point.id) as PositionType | null;
+    }
+    return null;
+  });
   const [storiesExpanded, setStoriesExpanded] = useState(false);
 
   // In embed mode, clicking "N stories" navigates instead of expanding (iframe can't resize)
@@ -223,17 +231,12 @@ export function PointCardWithLinks({
   };
 
   const handlePositionClick = (position: Position) => {
-    // P458: Anonymous user → redirect to signup with context
+    // P502: Anonymous user → optimistic local position, no redirect
     if (!currentUserId) {
-      const authGatePosition = toAuthGatePosition(position as string);
-      if (!authGatePosition) return;
-      embedNavigate(buildAuthGateUrl({
-        action: 'set-position',
-        pointId: point.id,
-        position: authGatePosition,
-        redirect: `/point/${point.id}`,
-        pointTitle: point.text,
-      }));
+      const currentAnon = anonPosition;
+      const newPos = (currentAnon === position ? null : position) as PositionType | null;
+      setAnonPositionState(newPos);
+      setAnonPositionStorage(point.id, newPos);
       return;
     }
 
@@ -317,15 +320,19 @@ export function PointCardWithLinks({
                     <TagPills tags={tags} context="detail" className="mt-2" />
                   )}
 
-                  {/* Position buttons — display-only in embed (no auth flow from blog) */}
+                  {/* Position buttons */}
                   {!hideActions && (
                     <div role="presentation" className="mt-3" onClick={(e) => e.stopPropagation()}>
                       <PositionButtons
-                        userPosition={isEmbed ? null : userPosition}
+                        userPosition={currentUserId ? userPosition : anonPosition}
                         counts={counts}
-                        onPositionClick={isEmbed ? () => embedNavigate(`/point/${point.id}`) : handlePositionClick}
+                        onPositionClick={handlePositionClick}
                         narrow
                       />
+                      {/* P502: Anonymous position CTA */}
+                      {!currentUserId && anonPosition && (
+                        <AnonPositionCTA pointId={point.id} position={anonPosition} isEmbed={isEmbed} />
+                      )}
                     </div>
                   )}
                 </div>
@@ -487,15 +494,19 @@ export function PointCardWithLinks({
                 <TagPills tags={tags} context="detail" className="mt-2" />
               )}
 
-              {/* Position buttons — display-only in embed (no auth flow from blog) */}
+              {/* Position buttons */}
               {!hideActions && (
                 <div role="presentation" className="mt-3" onClick={(e) => e.stopPropagation()}>
                   <PositionButtons
-                    userPosition={isEmbed ? null : userPosition}
+                    userPosition={currentUserId ? userPosition : anonPosition}
                     counts={counts}
-                    onPositionClick={isEmbed ? () => embedNavigate(`/point/${point.id}`) : handlePositionClick}
+                    onPositionClick={handlePositionClick}
                     narrow
                   />
+                  {/* P502: Anonymous position CTA */}
+                  {!currentUserId && anonPosition && (
+                    <AnonPositionCTA pointId={point.id} position={anonPosition} isEmbed={isEmbed} />
+                  )}
                 </div>
               )}
             </div>

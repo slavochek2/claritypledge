@@ -30,6 +30,7 @@ import * as Sentry from "@sentry/react";
 import { analytics } from "@/lib/mixpanel";
 import { parseAuthGateIntent, fromAuthGatePosition, isValidPointId } from "@/lib/auth-gate-utils";
 import { pointsService } from "@/app/data/points-service";
+import { getAllAnonPositions, clearAllAnonPositions } from "@/app/hooks/useAnonPosition";
 
 /** Maximum retry attempts for slug conflicts before using timestamp fallback */
 const MAX_SLUG_RETRIES = 3;
@@ -482,7 +483,33 @@ export function AuthCallbackPage() {
       // Allowed redirect prefixes — used by set-position handler and generic redirect
       const ALLOWED_REDIRECT_PREFIXES = ['/events', '/settings', '/me', '/p/', '/about', '/pledgers', '/manifesto', '/live', '/agreements', '/create', '/point/', '/chat'];
 
+      // P502: Batch-restore anonymous positions from localStorage.
+      // Runs BEFORE P458 single-position handler so all anon positions are saved
+      // even when the user arrived via a CTA "Sign up" link (which carries action=set-position
+      // and would return early after saving only that one position).
+      const anonPositions = getAllAnonPositions();
+      const anonPointIds = Object.keys(anonPositions);
+      if (anonPointIds.length > 0) {
+        console.log('📌 P502: Batch-restoring', anonPointIds.length, 'anonymous positions');
+        const VALID_POSITIONS = ['strongly_disagree','disagree','somewhat_disagree','unsure','somewhat_agree','agree','strongly_agree'];
+        for (const pointId of anonPointIds) {
+          if (!isValidPointId(pointId) || !VALID_POSITIONS.includes(anonPositions[pointId])) {
+            console.warn('⚠️ P502: Skipping invalid anon position entry', pointId);
+            continue;
+          }
+          try {
+            await pointsService.setPosition(pointId, authUser.id, anonPositions[pointId]);
+          } catch (err) {
+            console.error('⚠️ P502: Failed to restore anon position for', pointId, err);
+          }
+        }
+        clearAllAnonPositions();
+        console.log('✅ P502: Anonymous positions restored and cleared');
+      }
+
       // P458: Handle position auto-save after signup via position-gate redirect
+      // (The CTA link also carries set-position params for the specific point the user clicked.
+      // If that position was already batch-restored above, setPosition upserts — no duplicate.)
       if (action === 'set-position') {
         const intent = parseAuthGateIntent(urlParams);
         if (intent && intent.action === 'set-position') {
