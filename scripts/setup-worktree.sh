@@ -6,7 +6,12 @@
 
 set -euo pipefail
 
-MAIN_REPO="$(cd "$(dirname "$0")/.." && pwd)"
+# Resolve main repo via git --git-common-dir, not relative path from $0.
+# --git-common-dir always returns the main repo's .git dir, even from worktrees.
+# Using dirname($0)/.. fails when this script is invoked from a worktree's copy,
+# creating circular symlinks (node_modules → itself, exit code 194 on all npm commands).
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+MAIN_REPO="$(dirname "$(cd "$SCRIPT_DIR" && git rev-parse --path-format=absolute --git-common-dir)")"
 
 if [[ $# -ne 1 ]]; then
   echo "Usage: $0 <worktree-path>"

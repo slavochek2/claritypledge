@@ -2,6 +2,14 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-13 [process]: Worktree setup — resolve main repo via git, not dirname
+
+**Context:** All npm/npx commands (vite, vitest, eslint, playwright) failed with exit code 194 in worktree w2. Root cause: `setup-worktree.sh` computed `MAIN_REPO` as `dirname "$0"/..` — when invoked from a worktree's copy of the script (agent CWD = worktree), `$0` resolved to the worktree's scripts/ directory, making `MAIN_REPO` = worktree root. This created a circular `node_modules` symlink (pointing to itself), causing node to find no packages.
+**Decision:** Replace `dirname "$0"/..` with `git rev-parse --path-format=absolute --git-common-dir | dirname` — this always returns the main repo's `.git` directory regardless of invocation context. One-liner, no conditionals needed.
+**Alternatives rejected:** (1) Document "always run from main repo" — fragile, agents forget. (2) Check if symlink is circular after creation — detection without prevention is backwards.
+**Consequences:** `setup-worktree.sh` is now safe to invoke from any directory (main repo, worktree, or absolute path). No behavioral change when invoked correctly from main repo.
+**References:** [setup-worktree.sh](scripts/setup-worktree.sh), [worktree-setup.md](docs/technical/worktree-setup.md)
+
 ## 2026-03-13 [product]: "X understood" pill always visible, even at zero
 
 **Context:** The understood pill was inconsistent — embeds always showed it (using legacy `verificationCount`), but feed/profile/detail hid it when count was 0 (using `understoodCount`). Two field names, two display policies.
