@@ -61,12 +61,12 @@ Renders nothing (existing behaviour unchanged).
 
 ## Acceptance Criteria
 
-- [ ] Partners number renders at `text-xl font-bold text-[#002B5C]` (owner) or `text-xl text-muted-foreground` (owner, 0 count)
+- [ ] Partners number renders at `text-xl font-bold text-[#002B5C]` (any viewer, N>0) or `text-xl text-muted-foreground` (owner, 0 count)
 - [ ] Label "Clarity Partners →" renders at `text-sm text-muted-foreground` on same line as number
 - [ ] Full row is still a link to `/p/:slug/partners`
 - [ ] Min tap height 44px preserved
 - [ ] Non-owner with no visible agreements: renders nothing (unchanged)
-- [ ] Visitor with shared agreement: still shows "You have N agreement(s) with this person" (unchanged copy, updated number styling)
+- [ ] Visitor with visible agreements: shows "N Clarity Partners" with bold navy styling (same as owner N>0 state)
 
 ## Test Coverage Strategy
 
