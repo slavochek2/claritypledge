@@ -2,6 +2,14 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-13 [product]: Feed sort toggle — URL-param approach, not auto-detect sequential tags
+
+**Context:** Stories #st1–#st9 form a teaching sequence that reads backwards when the feed defaults to newest-first. Blog embeds (blog.claritypledge.com) don't carry auth (localStorage isolation in cross-origin iframes), making the main feed the better sharing vehicle for interactive content. Question arose: should hashtag-filtered views auto-detect sequences and flip sort?
+**Decision:** Add `?sort=oldest` URL parameter + lightweight UI toggle in the tab bar row. No auto-detection of sequential tags, no per-tag sort memory. Button label shows the action ("Oldest first" / "Newest first"), not current state. Sort happens at DB level (not client-side array reversal) to handle pagination correctly.
+**Alternatives rejected:** (1) Auto-reverse for specific tags — fragile, requires hardcoding which tags are sequential. (2) Auto-reverse for all tag-filtered views — confusing for non-sequential hashtags like #communication. (3) Client-side sort reversal — breaks pagination when >50 items exist. (4) Blog embed auth fix — separate, bigger effort (cross-origin session relay).
+**Consequences:** Shareable teaching sequence links: `/feed?tag=understanding&sort=oldest`. Blog embed auth remains a separate future feature. The toggle is always visible (not tag-conditional) for general utility.
+**References:** [P505 spec](features/done/22_mar_26/p505_feed_sort_toggle.md)
+
 ## 2026-03-13 [product]: Profile metadata — LinkedIn-style icon+link pairs, not bold numbers
 
 **Context:** P462 originally made the partner count a bold navy `text-xl` number, LinkedIn "500+ connections" style. User feedback: "big number looks ugly" — it broke the profile header's visual rhythm where everything else is `text-sm`.

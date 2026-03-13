@@ -1,7 +1,7 @@
 # Done Features Index
 
 Quick reference for past completed work. Consult when starting work on a related topic.
-Last updated: 2026-03-13 (P462 Partner Count)
+Last updated: 2026-03-13 (P505 Feed Sort Toggle)
 
 ---
 
@@ -23,6 +23,7 @@ Last updated: 2026-03-13 (P462 Partner Count)
 
 ## Points & Stories
 
+- **P505** (Mar 13) Feed Sort Toggle — `?sort=oldest` URL param + UI toggle; sort at DB level not client-side (pagination); blog embeds don't carry auth (localStorage isolation)
 - **Fix** (Mar 13) Feed Card Position Guard — cascade trigger silently delinks stories on unguarded `removePosition`; every caller must use `useRemovePositionGuard`; feed uses optimistic counts, not refetch
 - **P501** (Mar 13) Unify Understood Pill — legacy `verificationCount` diverged from `understoodCount`; always show pill (even 0) so new surfaces don't need `> 0` guards
 - **P494** (Mar 12) Tell Your Story Visibility Gate — zombie CTA from P458 (anonymous nudge) survived 6 feature iterations with inverted `!user` logic; use `shouldShowStoryCTA` utility for all CTA gates, never inline conditions
