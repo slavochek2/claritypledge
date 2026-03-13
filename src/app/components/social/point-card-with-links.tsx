@@ -470,7 +470,7 @@ export function PointCardWithLinks({
                     onClick={(e) => { e.stopPropagation(); embedNavigate(`/point/${point.id}`); }}
                     className="ml-1 text-blue-600 hover:text-blue-700 text-sm"
                   >
-                    read more →
+                    show more
                   </button>
                 )}
               </p>
