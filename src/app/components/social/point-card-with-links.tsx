@@ -392,12 +392,24 @@ export function PointCardWithLinks({
 
                   if (profileOwner && filteredStories.length > 0) {
                     // Case G / no-position view: show story count without CTA
-                    // Only when there are stories to show — 0 stories + no position = empty left (Case G)
                     return (
                       <div className="flex items-center gap-2">
                         <ChevronRight size={14} className="text-gray-400" />
                         <span className="text-sm text-gray-600">{storyLabel}</span>
                       </div>
+                    );
+                  }
+
+                  // Embed: always show story count as a link (even 0) — opens full point page
+                  if (isEmbed) {
+                    return (
+                      <button
+                        onClick={() => embedNavigate(`/point/${point.id}`)}
+                        className="flex items-center gap-2 text-sm text-gray-600 hover:text-blue-600 transition-colors"
+                      >
+                        <ChevronRight size={14} />
+                        <span>{storyLabel}</span>
+                      </button>
                     );
                   }
 
@@ -543,6 +555,20 @@ export function PointCardWithLinks({
                     </button>
                   )}
                 </div>
+              );
+            }
+
+            // Embed: always show story count as a link (even 0) — opens full point page
+            if (isEmbed) {
+              const storyLabel = `${filteredStories.length} ${filteredStories.length === 1 ? 'story' : 'stories'} linked`;
+              return (
+                <button
+                  onClick={() => embedNavigate(`/point/${point.id}`)}
+                  className="flex items-center gap-2 text-sm text-gray-600 hover:text-blue-600 transition-colors"
+                >
+                  <ChevronRight size={14} />
+                  <span>{storyLabel}</span>
+                </button>
               );
             }
 
