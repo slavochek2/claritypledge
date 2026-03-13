@@ -1,13 +1,14 @@
 /**
  * @file agreements-metadata-line.tsx
- * @description P462: Prominent partner count in profile header.
+ * @description P462: Partner count in profile header as a blue link.
  * Links to /p/:slug/partners. Handles viewer states:
- *   Any viewer, N>0 active     → "✦ N Clarity Partners →" (number bold navy xl)
- *   Owner, 0 agreements        → "✦ 0 Clarity Partners →" (number muted xl)
+ *   Any viewer, N>0 active     → "✦ N Clarity Partners →" (blue link)
+ *   Owner, 0 agreements        → "✦ 0 Clarity Partners →" (blue link)
  *   Non-owner, no visible      → null (renders nothing)
  */
 
 import { Link } from 'react-router-dom';
+import { Users } from 'lucide-react';
 import type { ClarityAgreement } from '@/app/data/agreements-service.interface';
 import { filterAgreementsForViewer } from './filter-agreements';
 
@@ -38,23 +39,14 @@ export function AgreementsMetadataLine({
 
   const displayCount = filtered.length === 0 ? 0 : activeCount;
   const partnersLabel = `Clarity Partner${displayCount !== 1 ? 's' : ''}`;
-  const isZeroState = displayCount === 0;
 
   return (
     <Link
       to={`/p/${slug}/partners`}
-      className="inline-flex items-center gap-1.5 hover:opacity-80 transition-opacity min-h-[44px]"
+      className="flex items-center gap-1 text-sm font-semibold text-blue-500 hover:text-blue-600 hover:underline transition-colors min-h-[44px]"
     >
-      <span aria-hidden="true" className="text-muted-foreground">✦</span>
-      <span className={isZeroState
-        ? 'text-xl text-muted-foreground'
-        : 'text-xl font-bold text-[#002B5C]'
-      }>
-        {displayCount}
-      </span>
-      <span className="text-sm text-muted-foreground">
-        {partnersLabel} →
-      </span>
+      <Users className="h-4 w-4" aria-hidden="true" />
+      {displayCount} {partnersLabel}
     </Link>
   );
 }
