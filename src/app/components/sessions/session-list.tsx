@@ -59,8 +59,9 @@ function EmptyState() {
       </p>
       <Link
         to="/live"
-        className="inline-flex items-center justify-center text-sm font-semibold h-10 px-6 rounded-md bg-blue-500 hover:bg-blue-600 text-white transition-colors"
+        className="inline-flex items-center justify-center text-sm font-semibold h-10 px-6 rounded-md bg-blue-500 hover:bg-blue-600 text-white transition-colors gap-2"
       >
+        <MicIcon className="w-4 h-4" />
         Start a Clarity Session
       </Link>
     </div>

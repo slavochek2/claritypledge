@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import { MicIcon } from "lucide-react";
 import { useAuth } from "@/auth";
 
 interface DualCTAProps {
@@ -58,6 +59,7 @@ export function DualCTA({ size = "section", className = "", reversed = false }: 
         title="Start a live clarity session"
         className={`inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md bg-blue-500 hover:bg-blue-600 text-white font-semibold h-auto shadow-lg shadow-blue-500/20 hover:shadow-xl hover:shadow-blue-500/30 transition-all ${buttonClasses}`}
       >
+        <MicIcon className="w-5 h-5" />
         Start a Clarity Session
       </Link>
       {!canHost && (
