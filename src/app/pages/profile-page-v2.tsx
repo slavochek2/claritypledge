@@ -57,6 +57,8 @@ import {
 } from "@/app/components/shared";
 import { VisibilityBadge } from "@/app/components/shared/visibility-badge";
 import { LinkedText } from '@/app/components/shared/linked-text';
+import { TagPills } from '@/app/components/shared/tag-pills';
+import { stripHashtags } from '@/lib/utils';
 import type { PositionType, PositionButtonGroup, StoryVisibility } from "@/app/types";
 import type { Position } from "@/app/components/shared/prototype-types";
 import { getPositionGroup } from "@/app/utils/position-helpers";
@@ -94,6 +96,7 @@ interface AdaptedPoint {
   positionCounts: Record<string, number>;
   linkedStoryIds: string[];
   linkedStories: AdaptedStory[];
+  tags: string[];
 }
 
 /** Normalize real positionCounts to SevenPointCounts (ensure all keys present) */
@@ -376,6 +379,7 @@ export function ProfilePageV2() {
             positionCounts: point.positionCounts ?? {},
             linkedStoryIds,
             linkedStories,
+            tags: point.tags || [],
           };
         });
 
@@ -454,6 +458,7 @@ export function ProfilePageV2() {
           positionCounts: point.positionCounts ?? {},
           linkedStoryIds: existing?.linkedStoryIds ?? [],
           linkedStories: existing?.linkedStories ?? [],
+          tags: point.tags || [],
         };
       });
       setRealPoints(adaptedPoints as unknown as PointWithUserPosition[]);
@@ -545,6 +550,7 @@ export function ProfilePageV2() {
           positionCounts: point.positionCounts ?? {},
           linkedStoryIds: existing?.linkedStoryIds ?? [],
           linkedStories: existing?.linkedStories ?? [],
+          tags: point.tags || [],
         };
       });
 
@@ -974,6 +980,7 @@ export function ProfilePageV2() {
                       }
                       return undefined;
                     }}
+                    tags={point.tags}
                   />
                 ))
               )
@@ -1032,11 +1039,12 @@ function StoryCardFull({
   };
 
   const linkedPoints = story.points || [];
-  const isLongStory = story.content.length > STORY_THRESHOLD;
+  const strippedContent = stripHashtags(story.content, story.tags);
+  const isLongStory = strippedContent.length > STORY_THRESHOLD;
   const storyDisplayText =
     isLongStory && !storyExpanded
-      ? story.content.slice(0, STORY_THRESHOLD) + '…'
-      : story.content;
+      ? strippedContent.slice(0, STORY_THRESHOLD) + '…'
+      : strippedContent;
 
   return (
     <div
@@ -1119,6 +1127,11 @@ function StoryCardFull({
                   {storyExpanded ? 'Show less' : 'Show more'}
                 </button>
               </div>
+            )}
+
+            {/* P503: Tag pills */}
+            {story.tags && story.tags.length > 0 && (
+              <TagPills tags={story.tags} context="profile" className="mt-2" />
             )}
 
             {/* Stats row */}
@@ -1366,7 +1379,12 @@ function QuotedPointCard({
 
           {/* Content column */}
           <div className="flex-1 min-w-0">
-            <p className="text-sm text-foreground"><LinkedText text={point.statement} /></p>
+            <p className="text-sm text-foreground"><LinkedText text={stripHashtags(point.statement, point.tags)} /></p>
+
+            {/* P503: Tag pills */}
+            {point.tags && point.tags.length > 0 && (
+              <TagPills tags={point.tags} context="profile" className="mt-1.5" />
+            )}
 
             {/* Position buttons - show for authenticated users */}
             {currentUserId && (
@@ -1482,7 +1500,12 @@ function PointCardFull({
 
             {/* Content column */}
             <div className="flex-1 min-w-0">
-              <p className="text-foreground text-base"><LinkedText text={point.statement} /></p>
+              <p className="text-foreground text-base"><LinkedText text={stripHashtags(point.statement, point.tags)} /></p>
+
+              {/* P503: Tag pills */}
+              {point.tags && point.tags.length > 0 && (
+                <TagPills tags={point.tags} context="profile" className="mt-2" />
+              )}
 
               {/* Position buttons */}
               <div role="presentation" className="mt-3" onClick={(e) => e.stopPropagation()}>

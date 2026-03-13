@@ -559,7 +559,8 @@ function QuotedPoint({
           {/* Content column */}
           <div className="flex-1 min-w-0">
             {/* Point text */}
-            <p className="text-sm text-gray-800 break-words">{point.statement}</p>
+            <p className="text-sm text-gray-800 break-words"><LinkedText text={stripHashtags(point.statement, point.tags)} /></p>
+            {point.tags?.length > 0 && <TagPills tags={point.tags} context="detail" className="mt-1" />}
 
             {/* Position buttons - scaled to 85% to fit within quoted card width while keeping button proportions */}
             <div role="presentation" className="mt-2" onClick={e => e.stopPropagation()}>
