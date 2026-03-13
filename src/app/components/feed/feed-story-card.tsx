@@ -6,6 +6,9 @@
  */
 
 import { useNavigate } from 'react-router-dom';
+import { Share2 } from 'lucide-react';
+import { toast } from 'sonner';
+import { copyToClipboard } from '@/lib/utils';
 import { GravatarAvatar } from '@/components/ui/gravatar-avatar';
 import { EarBadge } from '@/components/ui/ear-badge';
 import { LinkedText } from '@/app/components/shared/linked-text';
@@ -98,14 +101,28 @@ export function FeedStoryCard({ story, activeTag }: FeedStoryCardProps) {
             {/* Tag pills */}
             <TagPills tags={story.tags} context="feed" activeTag={activeTag} className="mt-2" />
 
-            {/* Stats */}
-            {story.understoodCount > 0 && (
-              <div className="mt-2">
+            {/* Stats + share */}
+            <div className="mt-2 flex items-center gap-2">
+              {story.understoodCount > 0 && (
                 <span className="px-2.5 py-1 bg-gray-100 rounded-full text-xs text-muted-foreground">
                   {story.understoodCount} understood
                 </span>
-              </div>
-            )}
+              )}
+              <div className="flex-1" />
+              <button
+                onClick={async (e) => {
+                  e.stopPropagation();
+                  const url = `${window.location.origin}/story/${story.id}`;
+                  const ok = await copyToClipboard(url);
+                  if (ok) toast.success('Link copied!');
+                }}
+                className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                aria-label="Share story"
+                title="Copy link"
+              >
+                <Share2 size={14} />
+              </button>
+            </div>
           </div>
         </div>
       </div>

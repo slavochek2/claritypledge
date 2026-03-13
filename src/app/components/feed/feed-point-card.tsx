@@ -7,7 +7,9 @@
 
 import { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Pin } from 'lucide-react';
+import { Pin, Share2 } from 'lucide-react';
+import { toast } from 'sonner';
+import { copyToClipboard } from '@/lib/utils';
 import { LinkedText } from '@/app/components/shared/linked-text';
 import { stripHashtags } from '@/lib/utils';
 import { TagPills } from '@/app/components/shared/tag-pills';
@@ -141,13 +143,27 @@ export function FeedPointCard({ point, activeTag, onPositionChange }: FeedPointC
             {/* Tag pills */}
             <TagPills tags={point.tags} context="feed" activeTag={activeTag} className="mt-2" />
 
-            {/* Position buttons */}
-            <div role="presentation" className="mt-2" onClick={(e) => e.stopPropagation()}>
-              <PositionButtons
-                userPosition={effectivePosition}
-                counts={counts}
-                onPositionClick={handlePositionClick}
-              />
+            {/* Position buttons + share */}
+            <div role="presentation" className="mt-2 flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+              <div className="flex-1">
+                <PositionButtons
+                  userPosition={effectivePosition}
+                  counts={counts}
+                  onPositionClick={handlePositionClick}
+                />
+              </div>
+              <button
+                onClick={async () => {
+                  const url = `${window.location.origin}/point/${point.id}`;
+                  const ok = await copyToClipboard(url);
+                  if (ok) toast.success('Link copied!');
+                }}
+                className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                aria-label="Share point"
+                title="Copy link"
+              >
+                <Share2 size={14} />
+              </button>
             </div>
           </div>
         </div>
