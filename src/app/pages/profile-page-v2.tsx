@@ -326,6 +326,7 @@ export function ProfilePageV2() {
               .from('stories')
               .select('id, content, author_id, created_at, understood_count, tags, visibility')
               .in('id', allLinkedStoryIds)
+              .order('created_at', { ascending: false })
           : { data: [] as Array<{ id: string; content: string; author_id: string; created_at: string; understood_count: number; tags: string[]; visibility: string }> };
 
         const linkedStoriesById = new Map(

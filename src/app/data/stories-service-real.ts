@@ -229,7 +229,8 @@ export const realStoriesService: StoriesService = {
           id,
           statement,
           context,
-          tags
+          tags,
+          created_at
         )
       `)
       .eq('story_id', storyId);
@@ -239,6 +240,11 @@ export const realStoriesService: StoriesService = {
     }
 
     const points: PointSummary[] = (storyPoints || [])
+      .sort((a, b) => {
+        const aDate = (a as { point?: { created_at?: string } }).point?.created_at ?? '';
+        const bDate = (b as { point?: { created_at?: string } }).point?.created_at ?? '';
+        return bDate.localeCompare(aDate); // newest first
+      })
       .map(sp => mapPointSummaryFromDb(sp as DbStoryPointWithPoint))
       .filter((p): p is PointSummary => p !== null);
 
@@ -329,7 +335,8 @@ export const realStoriesService: StoriesService = {
           id,
           statement,
           context,
-          tags
+          tags,
+          created_at
         )
       `)
       .in('story_id', storyIds);
@@ -338,11 +345,19 @@ export const realStoriesService: StoriesService = {
       log('ERROR: getStoriesByAuthorWithPoints points error:', pointsError);
     }
 
+    // Sort by point creation date (newest first) before grouping — ensures
+    // consistent ordering regardless of when story_points links were created
+    const sortedStoryPoints = [...(storyPoints || [])].sort((a, b) => {
+      const aDate = (a as { point?: { created_at?: string } }).point?.created_at ?? '';
+      const bDate = (b as { point?: { created_at?: string } }).point?.created_at ?? '';
+      return bDate.localeCompare(aDate);
+    });
+
     // Group points by story ID
     const pointsByStory = new Map<string, PointSummary[]>();
     const allPointIds: string[] = [];
 
-    (storyPoints || []).forEach(sp => {
+    sortedStoryPoints.forEach(sp => {
       // Check if point exists before attempting to map (guards against orphaned story_points)
       if (!sp.point) {
         log('WARN: getStoriesByAuthorWithPoints found orphaned story_point (missing point):', sp);
@@ -653,6 +668,11 @@ export const realStoriesService: StoriesService = {
       const existing = result.get(row.point_id) ?? [];
       result.set(row.point_id, [...existing, story]);
     }
+    // Sort each point's stories newest first
+    result.forEach((stories, pointId) => {
+      stories.sort((a, b) => (b.createdAt ?? '').localeCompare(a.createdAt ?? ''));
+      result.set(pointId, stories);
+    });
     return result;
   },
 };
