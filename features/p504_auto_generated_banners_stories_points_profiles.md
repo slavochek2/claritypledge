@@ -17,6 +17,7 @@ reviews:
   architect: null
   alignment: null
 created_date: 2026-03-13
+superseded_by: p510, p519
 uat_file: features/uat/p504.md
 test_files:
   - e2e/integration/p504-banner-migration.spec.ts
