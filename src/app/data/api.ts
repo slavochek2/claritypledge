@@ -2597,14 +2597,19 @@ async function withRetry<T>(
     } catch (err) {
       lastError = err instanceof Error ? err : new Error(String(err));
 
-      // Don't retry on non-network errors (4xx responses, etc.)
-      if (lastError.message.includes('Failed to get signed URL:')) {
+      // Don't retry on non-network errors (4xx responses that aren't rate limits)
+      const isRateLimited = lastError.message.includes('429');
+      if (lastError.message.includes('Failed to get signed URL:') && !isRateLimited) {
         throw lastError;
       }
 
       if (attempt < maxAttempts) {
-        const delayMs = baseDelayMs * Math.pow(2, attempt - 1); // 1s, 2s, 4s
-        console.log(`[ML Upload] ${operation} attempt ${attempt} failed, retrying in ${delayMs}ms...`);
+        // Use Retry-After hint if available (attached by uploadToGCS), otherwise exponential backoff
+        const retryAfterMs = 'retryAfterMs' in lastError ? (lastError as Error & { retryAfterMs: number }).retryAfterMs : 0;
+        const backoffMs = baseDelayMs * Math.pow(2, attempt - 1); // 1s, 2s, 4s
+        const jitterMs = Math.random() * 500; // 0-500ms jitter to avoid thundering herd
+        const delayMs = Math.max(retryAfterMs, backoffMs) + jitterMs;
+        console.log(`[ML Upload] ${operation} attempt ${attempt} failed${isRateLimited ? ' (rate limited)' : ''}, retrying in ${Math.round(delayMs)}ms...`);
         await new Promise(resolve => setTimeout(resolve, delayMs));
       }
     }
@@ -2663,7 +2668,18 @@ async function uploadToGCS(uploadUrl: string, blob: Blob, contentType: string): 
     });
 
     if (!response.ok) {
-      throw new Error(`GCS upload failed: ${response.status} ${response.statusText}`);
+      const error = new Error(`GCS upload failed: ${response.status} ${response.statusText}`);
+      // Attach Retry-After hint for 429 responses so withRetry can respect it
+      if (response.status === 429) {
+        const retryAfter = response.headers.get('Retry-After');
+        if (retryAfter) {
+          const seconds = parseInt(retryAfter, 10);
+          (error as Error & { retryAfterMs: number }).retryAfterMs = isNaN(seconds)
+            ? Math.max(0, new Date(retryAfter).getTime() - Date.now())
+            : seconds * 1000;
+        }
+      }
+      throw error;
     }
   }, { operation: 'uploadToGCS' });
 }
@@ -2848,6 +2864,12 @@ export async function uploadSessionRecording(
     .replace(/[^a-z0-9]/g, '-')
     .replace(/-+/g, '-')
     .replace(/^-|-$/g, '');
+
+  // Skip upload entirely when there's no meaningful data (0 events + no audio)
+  if (events.length === 0 && audioBlob.size === 0) {
+    console.log('[ML Upload] Skipping upload — no events and no audio for session:', sessionCode);
+    return;
+  }
 
   console.log('[ML Upload] Starting GCS upload for session:', sessionCode, 'user:', sanitizedName);
 
