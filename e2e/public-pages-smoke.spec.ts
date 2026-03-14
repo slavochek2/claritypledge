@@ -15,6 +15,7 @@ const PUBLIC_PAGES = [
   { path: '/feed', label: 'Feed' },
   { path: '/demo', label: 'Demo' },
   { path: '/pledgers', label: 'Pledgers' },
+  { path: '/partner-template', label: 'Partner Template' },
 ] as const;
 
 for (const { path, label } of PUBLIC_PAGES) {
