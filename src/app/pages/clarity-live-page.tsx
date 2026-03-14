@@ -1527,6 +1527,17 @@ export function ClarityLivePage() {
     });
   }, [updateLiveState, session?.code, trackLiveEvent]);
 
+  // P515: Handle listener cancelling their "Speak freely" negotiation request
+  const handleCancelNegotiation = useCallback(() => {
+    trackLiveEvent('live_role_switch_cancel', {
+      session_code: session?.code,
+    });
+
+    updateLiveState({
+      roleSwitchNegotiation: undefined,
+    });
+  }, [updateLiveState, session?.code, trackLiveEvent]);
+
   // Handle listener insisting they need to speak (negotiation step 2 → 3)
   const handleInsistToSpeak = useCallback(() => {
     trackLiveEvent('live_role_switch_insist', {
@@ -2854,6 +2865,7 @@ export function ClarityLivePage() {
           onContinueAsListener={handleContinueAsListener}
           onInsistToSpeak={handleInsistToSpeak}
           onLetThemSpeak={handleLetThemSpeak}
+          onCancelNegotiation={handleCancelNegotiation}
           onClarifyStart={handleClarifyStart}
           onClarifyDone={handleClarifyDone}
           // P128: Content selection and navigation

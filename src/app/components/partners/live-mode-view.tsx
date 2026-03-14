@@ -204,6 +204,8 @@ interface LiveModeViewProps {
   onInsistToSpeak: () => void;
   /** Speaker lets listener speak after they insisted */
   onLetThemSpeak: () => void;
+  /** P515: Listener cancels their "Speak freely" negotiation request */
+  onCancelNegotiation: () => void;
   /** Speaker wants to clarify before listener tries again */
   onClarifyStart: () => void;
   /** Speaker finished clarifying */
@@ -247,6 +249,7 @@ export function LiveModeView({
   onContinueAsListener,
   onInsistToSpeak,
   onLetThemSpeak,
+  onCancelNegotiation,
   onClarifyStart,
   onClarifyDone,
   userId,
@@ -713,6 +716,7 @@ export function LiveModeView({
           onContinueAsListener={onContinueAsListener}
           onInsistToSpeak={onInsistToSpeak}
           onLetThemSpeak={onLetThemSpeak}
+          onCancelNegotiation={onCancelNegotiation}
           onClarifyStart={onClarifyStart}
           onClarifyDone={onClarifyDone}
           isPrivate={isPrivate}
@@ -750,6 +754,7 @@ export function LiveModeView({
           onContinueAsListener={onContinueAsListener}
           onInsistToSpeak={onInsistToSpeak}
           onLetThemSpeak={onLetThemSpeak}
+          onCancelNegotiation={onCancelNegotiation}
           onClarifyStart={onClarifyStart}
           onClarifyDone={onClarifyDone}
           isPrivate={isPrivate}
@@ -1092,7 +1097,7 @@ function IdleScreen({
             {liveState.selectedStoryId && !waitingForPartnerToContinue && (
               <button
                 onClick={onClearStory}
-                className="text-sm text-muted-foreground hover:text-foreground transition-colors mt-1"
+                className="text-sm text-muted-foreground hover:text-foreground transition-colors mt-1 min-h-[44px] px-4"
                 type="button"
               >
                 Speak freely
@@ -1315,7 +1320,7 @@ function RatingScreen({
         {selectedStory && onClearStory && (
           <button
             onClick={onClearStory}
-            className="text-sm text-muted-foreground hover:text-foreground transition-colors mt-1"
+            className="text-sm text-muted-foreground hover:text-foreground transition-colors mt-1 min-h-[44px] px-4"
             type="button"
           >
             Speak freely
@@ -1473,7 +1478,7 @@ function RatingScreenWithOptionalDrawer({
         {selectedStory && onClearStory && (
           <button
             onClick={onClearStory}
-            className="text-sm text-muted-foreground hover:text-foreground transition-colors mt-1"
+            className="text-sm text-muted-foreground hover:text-foreground transition-colors mt-1 min-h-[44px] px-4"
             type="button"
           >
             Speak freely
@@ -1567,7 +1572,7 @@ function RatingCard({ question, onSelect, className = '', onSkip, skipLabel = 'S
             variant="ghost"
             size="sm"
             onClick={onSkip}
-            className="text-muted-foreground"
+            className="text-muted-foreground min-h-[44px]"
           >
             {skipLabel}
           </Button>
@@ -1948,7 +1953,7 @@ function ActionArea({ icon, title, subtitle, children, className = '' }: ActionA
         </div>
       )}
       {/* Action buttons/content */}
-      <div className="flex flex-col gap-3 w-full max-w-xs" role="group">
+      <div className="flex flex-col gap-4 w-full max-w-xs" role="group">
         {children}
       </div>
     </section>
@@ -1974,7 +1979,7 @@ function WaitingIndicator({ message, onSkip, skipLabel = "Speak freely", showBac
         <p className="text-sm text-muted-foreground">{message}</p>
       </div>
       {onSkip && (
-        <Button variant="ghost" size="sm" onClick={onSkip} className="text-muted-foreground">
+        <Button variant="ghost" size="sm" onClick={onSkip} className="text-muted-foreground min-h-[44px]">
           {skipLabel}
         </Button>
       )}
@@ -2048,6 +2053,8 @@ interface UnderstandingScreenProps {
   onContinueAsListener: () => void;
   onInsistToSpeak: () => void;
   onLetThemSpeak: () => void;
+  /** P515: Listener cancels their "Speak freely" negotiation request */
+  onCancelNegotiation: () => void;
   /** Speaker clarification handlers */
   onClarifyStart: () => void;
   onClarifyDone: () => void;
@@ -2083,6 +2090,7 @@ function UnderstandingScreen({
   onContinueAsListener,
   onInsistToSpeak,
   onLetThemSpeak,
+  onCancelNegotiation,
   onClarifyStart,
   onClarifyDone,
   isPrivate = false,
@@ -2390,11 +2398,16 @@ function UnderstandingScreen({
             <ActionArea>
               {listenerWaitingForNegotiation ? (
                 // Listener clicked "Speak freely" and is waiting for speaker's decision
-                <WaitingIndicator
-                  message={`Waiting for ${checkerName} to allow skipping active listening...`}
-                  onSkip={onSkip}
-                  skipLabel="Skip without waiting"
-                />
+                <>
+                  <WaitingIndicator
+                    message={`Waiting for ${checkerName} to allow skipping active listening...`}
+                    onSkip={onSkip}
+                    skipLabel="Skip without waiting"
+                  />
+                  <Button variant="ghost" size="sm" onClick={onCancelNegotiation} className="text-muted-foreground min-h-[44px]">
+                    Cancel request
+                  </Button>
+                </>
               ) : (
                 // Default: waiting for speaker to rate
                 <WaitingIndicator
@@ -2458,11 +2471,16 @@ function UnderstandingScreen({
             title={listenerWaitingForNegotiation ? undefined : <>Explain back what you heard<br />OR ask a clarifying question</>}
           >
             {listenerWaitingForNegotiation ? (
-              <WaitingIndicator
-                message={`Waiting for ${checkerName} to allow skipping active listening...`}
-                onSkip={onSkip}
-                skipLabel="Skip without waiting"
-              />
+              <>
+                <WaitingIndicator
+                  message={`Waiting for ${checkerName} to allow skipping active listening...`}
+                  onSkip={onSkip}
+                  skipLabel="Skip without waiting"
+                />
+                <Button variant="ghost" size="sm" onClick={onCancelNegotiation} className="text-muted-foreground min-h-[44px]">
+                  Cancel request
+                </Button>
+              </>
             ) : (
               <>
                 <Button
@@ -2472,7 +2490,7 @@ function UnderstandingScreen({
                 >
                   I'm done with active listening
                 </Button>
-                <Button variant="ghost" size="sm" onClick={onSharePerspective} className="text-muted-foreground mx-auto">
+                <Button variant="ghost" size="sm" onClick={onSharePerspective} className="text-muted-foreground mx-auto min-h-[44px]">
                   Speak freely
                 </Button>
               </>
@@ -2541,7 +2559,7 @@ function UnderstandingScreen({
           {selectedStory && onClearStory && (
             <button
               onClick={onClearStory}
-              className="text-sm text-muted-foreground hover:text-foreground transition-colors mt-1"
+              className="text-sm text-muted-foreground hover:text-foreground transition-colors mt-1 min-h-[44px] px-4"
               type="button"
             >
               Speak freely
@@ -2696,11 +2714,16 @@ function UnderstandingScreen({
               />
             ) : listenerWaitingForNegotiation ? (
               // Listener waiting: they clicked "I want to speak freely", waiting for speaker's decision
-              <WaitingIndicator
-                message={`Waiting for ${checkerName} to allow skipping active listening...`}
-                onSkip={onSkip}
-                skipLabel="Skip without waiting"
-              />
+              <>
+                <WaitingIndicator
+                  message={`Waiting for ${checkerName} to allow skipping active listening...`}
+                  onSkip={onSkip}
+                  skipLabel="Skip without waiting"
+                />
+                <Button variant="ghost" size="sm" onClick={onCancelNegotiation} className="text-muted-foreground min-h-[44px]">
+                  Cancel request
+                </Button>
+              </>
             ) : (
               // Listener view in gap-revealed: offer to explain back or speak freely
               <>
@@ -2711,7 +2734,7 @@ function UnderstandingScreen({
                 >
                   Explain back what I heard
                 </Button>
-                <Button variant="ghost" size="sm" className="text-muted-foreground" onClick={onSharePerspective}>
+                <Button variant="ghost" size="sm" className="text-muted-foreground min-h-[44px]" onClick={onSharePerspective}>
                   Speak freely
                 </Button>
               </>
@@ -2828,11 +2851,16 @@ function UnderstandingScreen({
               />
             ) : listenerWaitingForNegotiation ? (
               // Listener waiting: they clicked "Speak freely", waiting for speaker's decision
-              <WaitingIndicator
-                message={`Waiting for ${checkerName} to allow skipping active listening...`}
-                onSkip={onSkip}
-                skipLabel="Skip without waiting"
-              />
+              <>
+                <WaitingIndicator
+                  message={`Waiting for ${checkerName} to allow skipping active listening...`}
+                  onSkip={onSkip}
+                  skipLabel="Skip without waiting"
+                />
+                <Button variant="ghost" size="sm" onClick={onCancelNegotiation} className="text-muted-foreground min-h-[44px]">
+                  Cancel request
+                </Button>
+              </>
             ) : (
               // Listener view: offer to explain back or speak freely (same as gap-revealed)
               <>
@@ -2843,7 +2871,7 @@ function UnderstandingScreen({
                 >
                   Explain back what I heard
                 </Button>
-                <Button variant="ghost" size="sm" className="text-muted-foreground" onClick={onSharePerspective}>
+                <Button variant="ghost" size="sm" className="text-muted-foreground min-h-[44px]" onClick={onSharePerspective}>
                   Speak freely
                 </Button>
               </>
@@ -2950,7 +2978,7 @@ function UnderstandingScreen({
               >
                 I'm done clarifying
               </Button>
-              <Button variant="ghost" size="sm" onClick={onSkip} className="text-muted-foreground mx-auto">
+              <Button variant="ghost" size="sm" onClick={onSkip} className="text-muted-foreground mx-auto min-h-[44px]">
                 Speak freely
               </Button>
             </ActionArea>
@@ -2965,6 +2993,9 @@ function UnderstandingScreen({
                 onSkip={onSkip}
                 skipLabel="Skip without waiting"
               />
+              <Button variant="ghost" size="sm" onClick={onCancelNegotiation} className="text-muted-foreground min-h-[44px]">
+                Cancel request
+              </Button>
             </ActionArea>
           ) : (
             // Listener view: waiting for speaker to finish clarifying
@@ -3095,7 +3126,7 @@ function UnderstandingScreen({
                 >
                   Share what's missing
                 </Button>
-                <Button variant="ghost" size="sm" className="text-muted-foreground" onClick={onSkip}>
+                <Button variant="ghost" size="sm" className="text-muted-foreground min-h-[44px]" onClick={onSkip}>
                   Speak freely
                 </Button>
               </>
@@ -3112,11 +3143,16 @@ function UnderstandingScreen({
             // 2. 'speaker-deciding': show waiting for speaker to decide
             // 3. undefined or 'listener-responding': show action buttons
             listenerWaitingForNegotiation ? (
-              <WaitingIndicator
-                message={`Waiting for ${checkerName} to allow skipping active listening...`}
-                onSkip={onSkip}
-                skipLabel="Skip without waiting"
-              />
+              <>
+                <WaitingIndicator
+                  message={`Waiting for ${checkerName} to allow skipping active listening...`}
+                  onSkip={onSkip}
+                  skipLabel="Skip without waiting"
+                />
+                <Button variant="ghost" size="sm" onClick={onCancelNegotiation} className="text-muted-foreground min-h-[44px]">
+                  Cancel request
+                </Button>
+              </>
             ) : clarificationPhase === 'speaker-deciding' ? (
               <WaitingIndicator
                 message={`${checkerName} is deciding whether to clarify...`}
@@ -3132,7 +3168,7 @@ function UnderstandingScreen({
                 >
                   Explain back what I heard
                 </Button>
-                <Button variant="ghost" size="sm" className="text-muted-foreground" onClick={onSharePerspective}>
+                <Button variant="ghost" size="sm" className="text-muted-foreground min-h-[44px]" onClick={onSharePerspective}>
                   Speak freely
                 </Button>
               </>
