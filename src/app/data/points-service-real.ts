@@ -40,6 +40,7 @@ interface DbPointWithCreator {
   created_at: string;
   updated_at: string;
   tags: string[];
+  banner_url?: string | null;
   creator: {
     id: string;
     name: string | null;
@@ -92,6 +93,7 @@ function mapPointFromDb(row: DbPointWithCreator): PointWithCreator {
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     tags: row.tags || [],
+    bannerUrl: row.banner_url ?? undefined,
     // Creator info from joined profile
     creatorName: row.creator?.name ?? 'Unknown',
     creatorSlug: row.creator?.slug ?? '',
@@ -209,7 +211,7 @@ export const realPointsService: PointsService = {
       return null;
     }
 
-    return {
+    const point: Point = {
       id: data.id,
       statement: data.statement,
       context: data.context ?? undefined,
@@ -217,7 +219,10 @@ export const realPointsService: PointsService = {
       createdAt: data.created_at,
       updatedAt: data.updated_at,
       tags: data.tags || [],
+      bannerUrl: data.banner_url ?? undefined,
     };
+
+    return point;
   },
 
   // ============================================================================

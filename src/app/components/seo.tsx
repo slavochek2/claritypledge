@@ -153,8 +153,8 @@ export function SEO({
       <meta property="og:title" content={fullTitle} />
       <meta property="og:description" content={description} />
       <meta property="og:image" content={image} />
-      <meta property="og:image:width" content="512" />
-      <meta property="og:image:height" content="512" />
+      <meta property="og:image:width" content={image?.includes('/banners/') ? "1200" : "512"} />
+      <meta property="og:image:height" content={image?.includes('/banners/') ? "630" : "512"} />
       <meta property="og:site_name" content="Clarity Pledge" />
 
       {/* Twitter */}

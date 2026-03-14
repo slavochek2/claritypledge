@@ -360,7 +360,11 @@ export const realEventsService: EventsService = {
     void (async () => {
       let bannerUrl: string | null = null;
       try {
-        bannerUrl = await generateAIBanner(event.id, data.title, data.location || '');
+        const { data: sessionData } = await supabase.auth.getSession();
+        const token = sessionData.session?.access_token;
+        if (token) {
+          bannerUrl = await generateAIBanner('event', event.id, token);
+        }
       } catch {
         // AI generation failed silently
       }

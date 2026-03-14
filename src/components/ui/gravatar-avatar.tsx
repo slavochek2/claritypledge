@@ -6,7 +6,7 @@ interface GravatarAvatarProps {
   /** @deprecated Unused - kept for API compatibility. TODO: Remove in future cleanup. */
   email?: string;
   name: string;
-  size?: "sm" | "md" | "lg";
+  size?: "sm" | "md" | "lg" | "xl";
   avatarColor?: string;
   className?: string;
   /** Direct photo URL (e.g., from Google OAuth) */
@@ -22,6 +22,7 @@ const sizeClasses = {
   sm: "w-10 h-10 text-sm",
   md: "w-14 h-14 text-lg",
   lg: "w-16 h-16 text-xl",
+  xl: "w-24 h-24 text-2xl",
 };
 
 // Static ring with white gap (Instagram/Telegram-style) - no animation
@@ -29,6 +30,7 @@ const ringClasses = {
   sm: "ring-2 ring-blue-500 ring-offset-2 ring-offset-background",
   md: "ring-2 ring-blue-500 ring-offset-2 ring-offset-background",
   lg: "ring-[3px] ring-blue-500 ring-offset-[3px] ring-offset-background",
+  xl: "ring-[3px] ring-blue-500 ring-offset-[3px] ring-offset-background",
 };
 
 // Badge sizes relative to avatar
@@ -36,12 +38,14 @@ const badgeClasses = {
   sm: "w-4 h-4 -bottom-0.5 -right-0.5",
   md: "w-5 h-5 -bottom-0.5 -right-0.5",
   lg: "w-6 h-6 -bottom-1 -right-1",
+  xl: "w-7 h-7 -bottom-1 -right-1",
 };
 
 const badgeIconClasses = {
   sm: "w-2.5 h-2.5",
   md: "w-3 h-3",
   lg: "w-3.5 h-3.5",
+  xl: "w-4 h-4",
 };
 
 export function GravatarAvatar({

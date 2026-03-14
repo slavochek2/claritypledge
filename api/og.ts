@@ -74,7 +74,7 @@ async function ogForEvent(slug: string): Promise<OgData | null> {
 async function ogForStory(id: string): Promise<OgData | null> {
   const row = await supabaseGet(
     'stories',
-    `id=eq.${encodeURIComponent(id)}&select=title,content,profiles!stories_author_id_fkey(name)`,
+    `id=eq.${encodeURIComponent(id)}&select=title,content,banner_url,profiles!stories_author_id_fkey(name)`,
   );
   if (!row) return null;
 
@@ -87,7 +87,7 @@ async function ogForStory(id: string): Promise<OgData | null> {
   return {
     title: `${title} \u2014 by ${authorName} | ClarityPledge`,
     description: excerpt || `A story shared on ClarityPledge by ${authorName}.`,
-    image: DEFAULT_IMAGE,
+    image: (row.banner_url as string) || DEFAULT_IMAGE,
     url: `${BASE_URL}/story/${id}`,
     type: 'article',
   };
@@ -96,7 +96,7 @@ async function ogForStory(id: string): Promise<OgData | null> {
 async function ogForPoint(id: string): Promise<OgData | null> {
   const row = await supabaseGet(
     'points',
-    `id=eq.${encodeURIComponent(id)}&select=statement,profiles!points_first_validator_id_fkey(name)`,
+    `id=eq.${encodeURIComponent(id)}&select=statement,banner_url,profiles!points_first_validator_id_fkey(name)`,
   );
   if (!row) return null;
 
@@ -108,7 +108,7 @@ async function ogForPoint(id: string): Promise<OgData | null> {
   return {
     title: `${short} | ClarityPledge`,
     description: `Shared by ${creatorName} \u2014 take a position on ClarityPledge.`,
-    image: DEFAULT_IMAGE,
+    image: (row.banner_url as string) || DEFAULT_IMAGE,
     url: `${BASE_URL}/point/${id}`,
     type: 'article',
   };
@@ -117,7 +117,7 @@ async function ogForPoint(id: string): Promise<OgData | null> {
 async function ogForProfile(slug: string): Promise<OgData | null> {
   const row = await supabaseGet(
     'profiles',
-    `slug=eq.${encodeURIComponent(slug)}&select=name,role,avatar_url`,
+    `slug=eq.${encodeURIComponent(slug)}&select=name,role,avatar_url,banner_url`,
   );
   if (!row) return null;
 
@@ -130,7 +130,7 @@ async function ogForProfile(slug: string): Promise<OgData | null> {
   return {
     title: `${name} | ClarityPledge`,
     description: desc,
-    image: (row.avatar_url as string) || DEFAULT_IMAGE,
+    image: (row.banner_url as string) || (row.avatar_url as string) || DEFAULT_IMAGE,
     url: `${BASE_URL}/p/${slug}`,
     type: 'profile',
   };

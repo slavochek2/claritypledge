@@ -14,11 +14,16 @@ const mockFrom = vi.fn(() => ({
   delete: mockDelete,
 }));
 
+vi.mock('@/app/prototypes/events/banner-utils', () => ({
+  generateAIBanner: vi.fn().mockResolvedValue(undefined),
+}));
+
 vi.mock('@/lib/supabase', () => ({
   supabase: {
     from: (table: string) => mockFrom(table),
     auth: {
       getUser: () => mockGetUser(),
+      getSession: () => Promise.resolve({ data: { session: { access_token: 'test-token' } } }),
     },
   },
 }));
