@@ -2,6 +2,14 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-14 [process]: Zombie Vite server prevention — kill-on-start + pre-commit scan + dev-mode error message
+
+**Context:** Multi-worktree development produces zombie Vite dev servers — processes that survive worktree deletion and hold ports indefinitely. An AI agent misidentified which port belonged to which worktree, killed the correct w0 server, and had to restart it. Root cause analysis (5-why + /falsify with 30 creative alternatives benchmarked) identified 5 root causes; the top two open risks were: (1) no cleanup on worktree teardown, (2) no port→worktree attribution for operators.
+**Decision:** Three mechanical fixes, zero new infrastructure: (1) `check-worktree-env.sh` (predev hook) now kills any existing process on the worktree's deterministic port before Vite starts — zombie never accumulates. (2) `pre-commit-checks.sh` section 19 scans all Vite-range ports for processes whose cwd no longer exists — catches edge cases. (3) `ChunkErrorBoundary` in `App.tsx` now shows "Module load failed — check your dev server terminal" in dev mode instead of the misleading "New version available" (which implied a deployment version mismatch).
+**Alternatives rejected:** (1) Standalone `scripts/worktree-ports.sh` diagnostic — failed MECHANICAL criterion (requires remembering to run). (2) pm2/systemd process supervisor — new infrastructure overhead for a ~weekly problem. (3) Skip ChunkErrorBoundary fix — falsification showed triggers exist beyond cache corruption (file renames, Vite restarts); P135 was historical evidence of this exact failure. (4) PID file registry — stale on crash, adds moving parts.
+**Consequences:** `npm run dev` is now self-healing: always kills stale occupant before binding. Combined with `strictPort: true` and `cacheDir` isolation (2026-03-13), the full zombie prevention chain is: deterministic port → isolated cache → kill-on-start → pre-commit scan → accurate error message.
+**References:** [vite.config.ts](vite.config.ts), [check-worktree-env.sh](scripts/check-worktree-env.sh), [pre-commit-checks.sh](scripts/pre-commit-checks.sh), [App.tsx ChunkErrorBoundary](src/App.tsx)
+
 ## 2026-03-13 [technical]: Seven-point position scale requires full-key initialization everywhere
 
 **Context:** After adding a point to a story, position counts showed `NaN` on all buttons. The optimistic UI update in `handlePointAdded` initialized a 3-key default object (`{ agree: 0, disagree: 0, unsure: 0 }`) but the display component expects `SevenPointCounts` (7 keys: strongly_disagree through strongly_agree). `getGroupCount()` sums multiple keys per button — summing `undefined` values produces `NaN`.

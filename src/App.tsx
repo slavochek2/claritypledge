@@ -121,13 +121,16 @@ class ChunkErrorBoundary extends Component<{ children: ReactNode }, ChunkErrorBo
 
   render() {
     if (this.state.hasError && this.state.isChunkError) {
+      const isDev = import.meta.env.DEV;
       return (
         <div className="min-h-[50vh] flex flex-col items-center justify-center px-4 text-center">
           <h2 className="text-xl font-semibold text-gray-900 mb-2">
-            New version available
+            {isDev ? 'Module load failed' : 'New version available'}
           </h2>
           <p className="text-gray-600 mb-4">
-            Please refresh to get the latest version.
+            {isDev
+              ? 'A dynamic import failed — check your dev server terminal for errors.'
+              : 'Please refresh to get the latest version.'}
           </p>
           <button
             onClick={() => window.location.reload()}

@@ -483,7 +483,32 @@ else
 fi
 echo ""
 
-# 19. Binary files check — prevent committing images/PDFs to docs/ or project root
+# 19. Zombie Vite server check — detect dev servers from deleted worktrees
+echo ">>> Checking for zombie Vite dev servers..."
+ZOMBIE_COUNT=0
+# Check all Vite-range ports (5001, 5100-5700, 5800-5899)
+VITE_PIDS=$(lsof -i -P -n 2>/dev/null | grep 'LISTEN' | grep 'node' | awk '{print $2, $9}' | grep -E ':(50[0-9]{2}|5[1-7]00|58[0-9]{2})$' || true)
+if [ -n "$VITE_PIDS" ]; then
+    while IFS= read -r line; do
+        PID=$(echo "$line" | awk '{print $1}')
+        PORT_INFO=$(echo "$line" | awk '{print $2}')
+        CWD=$(lsof -p "$PID" 2>/dev/null | grep cwd | awk '{print $NF}' || true)
+        if [ -n "$CWD" ] && [ ! -d "$CWD" ]; then
+            echo -e "${YELLOW}⚠ Zombie Vite server: PID $PID on $PORT_INFO (cwd $CWD no longer exists)${NC}"
+            echo -e "${YELLOW}  → Kill with: kill $PID${NC}"
+            ZOMBIE_COUNT=$((ZOMBIE_COUNT + 1))
+        fi
+    done <<< "$VITE_PIDS"
+fi
+if [ "$ZOMBIE_COUNT" -gt 0 ]; then
+    WARNINGS=$((WARNINGS + ZOMBIE_COUNT))
+else
+    echo -e "${GREEN}✓ No zombie Vite servers${NC}"
+fi
+echo ""
+
+# 20. Binary files check — prevent committing images/PDFs to docs/ or project root
+# (was section 19 — renumbered after zombie check insertion)
 echo ">>> Checking for binary files being staged..."
 BINARY_STAGED=$(git diff --cached --name-only | \
     grep -iE '\.(pdf|png|jpg|jpeg|gif|bmp|tiff|psd|ai|sketch|mp4|mov|zip|tar|gz)$' | \

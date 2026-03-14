@@ -55,20 +55,18 @@ Immediately after creating any worktree, run:
 
 ## Running a Dev Server in a Worktree
 
-Ports are fixed by slot — no hunting required:
+Ports are auto-detected from the worktree slot — just run `npm run dev`:
 
 ```bash
-# Ports are fixed by slot — no hunting required
 cd .claude/worktrees/w1
-npm run dev -- --port 5100   # w1 is always 5100
-
-cd .claude/worktrees/w2
-npm run dev -- --port 5200   # w2 is always 5200
+npm run dev   # auto-binds to 5100 (w1), kills any zombie on that port first
 ```
 
-Or use: `start w1` from terminal (handles this automatically).
+Port reference: w0 (main) = 5001, w1 = 5100, w2 = 5200, named worktrees = 5800-5899 (hash-based).
 
-Port reference: w0 (main) = 5001, w1 = 5100, w2 = 5200.
+**Kill-on-start:** The `predev` hook (`check-worktree-env.sh`) automatically kills any existing process on the worktree's port before Vite starts. This prevents zombie accumulation — no manual cleanup needed.
+
+**Pre-commit zombie scan:** `pre-commit-checks.sh` section 19 detects Vite processes whose cwd points to a deleted worktree directory and warns with the PID to kill.
 
 ---
 
