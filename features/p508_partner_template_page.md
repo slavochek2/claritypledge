@@ -6,6 +6,7 @@ workstream: C1
 created_date: 2026-03-14
 tags: []
 flow: quick-feature
+delivery_stage: uat
 uat_file: features/uat/p508.md
 test_files:
   - e2e/p508-partner-template.spec.ts
@@ -111,14 +112,14 @@ Key decisions from conversation:
 
 ## Acceptance Criteria
 
-- [ ] `/partner-template` loads without authentication
-- [ ] Certificate renders identically to a real active agreement (same component)
-- [ ] Terms section shows human-readable example text
-- [ ] "Customizable" hint + explanatory text visible below certificate
-- [ ] CTA "Create Your Agreement →" links to `/agreements/new/create`
-- [ ] "Sign in" link goes to `/login`
-- [ ] No "Creator"/"Partner" role labels on signature slots
-- [ ] Page is responsive (mobile + desktop)
+- [x] `/partner-template` loads without authentication
+- [x] Certificate renders identically to a real active agreement (same component)
+- [x] Terms section shows human-readable example text
+- [x] "Customizable" hint + explanatory text visible below certificate
+- [x] CTA "Create Your Agreement →" links to `/agreements/new/create`
+- [x] "Sign in" link goes to `/login`
+- [x] No "Creator"/"Partner" role labels on signature slots
+- [x] Page is responsive (mobile + desktop)
 
 ## Test Coverage Strategy
 
