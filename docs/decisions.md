@@ -2,6 +2,14 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-14 [technical]: Explicit `.order()` required on all Supabase queries rendering ordered lists
+
+**Context:** Stories and points on profile pages appeared in arbitrary order. Four `story_points` and `stories` sub-queries lacked `.order()`, so PostgreSQL returned rows in heap order — which silently shifted whenever rows were inserted, deleted, or vacuumed. Unlinking and re-linking a position created a new `story_points` row with a fresh `created_at`, changing its physical position.
+**Decision:** Added explicit sorting to all four surfaces: application-level sort by `point.created_at DESC` for linked points within story cards (both `getStoryWithPoints` and `getStoriesByAuthorWithPoints`), `story.createdAt DESC` for `getStoriesForPoints`, and `.order('created_at', { ascending: false })` for linked stories query in `profile-page-v2.tsx`. Used application-level sort (not just DB `.order()`) for junction table queries where the sort key comes from a joined table.
+**Alternatives rejected:** Adding a `sort_order` column to `story_points` (unnecessary complexity — `created_at` on the target table is the natural sort key). Using `referencedTable` in Supabase `.order()` (orders nested objects, not parent rows in 1:1 joins).
+**Consequences:** Rule: every Supabase `.select()` that feeds a rendered list must have an explicit `.order()` or an application-level sort. Relying on insertion order is a latent bug.
+**References:** `src/app/data/stories-service-real.ts`, `src/app/pages/profile-page-v2.tsx`
+
 ## 2026-03-14 [technical]: Event emails — split past-event guard, add name personalization, add send tracking
 
 **Context:** Post-event feedback emails (Tally form via Mailgun) never sent for the AI event (Mar 12, 11 attendees). Root cause: all 11 RSVPs were walk-in signups created *after* the event started. The edge function's past-event guard (`if (eventDatetime <= now) return`) blocked ALL emails — including feedback, which should always be sent. Additionally, emails had no personal greeting despite `profiles.name` being available. No mechanism to detect or recover from send failures.
