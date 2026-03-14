@@ -40,6 +40,7 @@ const AcceptAgreementPage = lazy(() => import("@/app/pages/accept-agreement-page
 const AgreementEmailConfirmationPage = lazy(() => import("@/app/pages/agreement-email-confirmation-page").then(m => ({ default: m.AgreementEmailConfirmationPage })));
 const DeclinedAgreementPage = lazy(() => import("@/app/pages/declined-agreement-page").then(m => ({ default: m.DeclinedAgreementPage })));
 const ProfileConnectionsPage = lazy(() => import("@/app/pages/profile-connections-page").then(m => ({ default: m.ProfileConnectionsPage })));
+const PartnerTemplatePage = lazy(() => import("@/app/pages/partner-template-page").then(m => ({ default: m.PartnerTemplatePage })));
 
 // Dev/prototype pages
 const TreePage = lazy(() => import("@/app/pages/TreePage").then(m => ({ default: m.TreePage })));
@@ -343,6 +344,18 @@ export default function ClarityPledgeApp() {
             <ClarityLandingLayout>
               <LazyRoute>
                 <AcceptAgreementPage />
+              </LazyRoute>
+            </ClarityLandingLayout>
+          }
+        />
+
+        {/* P508: Public Partner Agreement Template — no auth required */}
+        <Route
+          path="/partner-template"
+          element={
+            <ClarityLandingLayout>
+              <LazyRoute>
+                <PartnerTemplatePage />
               </LazyRoute>
             </ClarityLandingLayout>
           }
