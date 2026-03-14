@@ -291,6 +291,8 @@ export function ClarityLivePage() {
   const iAmLeavingRef = useRef(false);
   // P272: Guard against duplicate story verification inserts on re-renders
   const verificationFiredRef = useRef<Set<string>>(new Set());
+  // P516: Track last user action timestamp for exit telemetry
+  const lastActionTimestampRef = useRef<number>(Date.now());
 
   useEffect(() => {
     hasJoinerRef.current = !!session?.joinerName;
@@ -352,6 +354,15 @@ export function ClarityLivePage() {
       if (!sessionId || iAmLeavingRef.current) return;
       if (viewRef.current !== 'live') return; // waiting room close doesn't signal sessionEnded
       iAmLeavingRef.current = true;
+
+      // P516: Track session exit via pagehide (tab close / navigation away)
+      analytics.track('live_session_exited', {
+        session_code: sessionCodeRef.current,
+        exit_reason: 'pagehide',
+        time_since_last_action_ms: Date.now() - lastActionTimestampRef.current,
+        had_focus_when_exited: !document.hidden,
+        is_creator: isCreatorRef.current,
+      });
 
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
       const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
@@ -636,6 +647,7 @@ export function ClarityLivePage() {
         analytics.track('live_session_partner_left', {
           session_code: updatedSession.code,
           left_by: 'creator',
+          exit_reason: 'partner_departure',
         });
         return; // Don't process further updates after session ends
       }
@@ -650,6 +662,7 @@ export function ClarityLivePage() {
         analytics.track('live_session_partner_left', {
           session_code: updatedSession.code,
           left_by: 'joiner',
+          exit_reason: 'partner_departure',
         });
         return; // Don't process further updates after partner leaves
       }
@@ -738,6 +751,7 @@ export function ClarityLivePage() {
           analytics.track('live_session_partner_left', {
             session_code: freshSession.code,
             left_by: 'creator',
+            exit_reason: 'partner_departure',
           });
           return;
         }
@@ -753,6 +767,7 @@ export function ClarityLivePage() {
           analytics.track('live_session_partner_left', {
             session_code: freshSession.code,
             left_by: 'joiner',
+            exit_reason: 'partner_departure',
           });
           return;
         }
@@ -915,6 +930,7 @@ export function ClarityLivePage() {
       session_code: session?.code,
       flow_type: 'check',
     });
+    lastActionTimestampRef.current = Date.now(); // P516
 
     // P398: Signal partner to close history view immediately (before submission)
     updateLiveState({ ratingInitiatedBy: name });
@@ -941,6 +957,7 @@ export function ClarityLivePage() {
       session_code: session?.code,
       flow_type: 'prove',
     });
+    lastActionTimestampRef.current = Date.now(); // P516
 
     // P398: Signal partner to close history view immediately (before submission)
     updateLiveState({ ratingInitiatedBy: name });
@@ -963,6 +980,7 @@ export function ClarityLivePage() {
       session_code: session?.code,
       story_id: storyId,
     });
+    lastActionTimestampRef.current = Date.now(); // P516
     analytics.track('story_session_started', {
       story_id: storyId,
       session_code: session?.code,
@@ -1026,6 +1044,7 @@ export function ClarityLivePage() {
       session_code: session?.code,
       point_id: pointId,
     });
+    lastActionTimestampRef.current = Date.now(); // P516
 
     // Set selected content in shared state (partner will see it)
     updateLiveState({
@@ -2018,6 +2037,9 @@ export function ClarityLivePage() {
         checks_completed: checksCompleted,
         is_creator: isCreator,
         had_meaningful_engagement: hadMeaningfulEngagement,
+        exit_reason: 'button_click',
+        time_since_last_action_ms: Date.now() - lastActionTimestampRef.current,
+        had_focus_when_exited: !document.hidden,
       });
 
       // Track session completion separately for funnel analysis
