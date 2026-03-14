@@ -2,6 +2,22 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-14 [product]: On-page banners only where compositionally integrated — OG-only for stories, removed from points
+
+**Context:** P504 added AI-generated banners uniformly across stories, points, profiles, and events. On profiles, P510 redesigned the banner into a LinkedIn-style header (96px avatar overlap, name beside avatar, pencil icon controls) — compositionally integrated. On stories and points, banners sat as disconnected rectangular blocks above content cards: 29% mobile viewport consumed, no information value, no visual integration with the card below. Analysis of 30 layout variants via `/ascii-flows` confirmed no practical integration pattern exists for card-based detail pages.
+**Decision:** (1) Stories: remove `<BannerDisplay>` and `<BannerControls>` from story-detail-page.tsx; keep `bannerUrl` in OG meta tags for social sharing; keep fire-and-forget generation in `createStory()`. Add subtle 3px `border-top` with `authorAvatarColor` for visual identity. (2) Points: remove `<BannerDisplay>` from point-detail-page.tsx; remove `generateAIBanner()` from `createPoint()` — points have no sharing surface, generation is pure waste. (3) Profiles: P510 LinkedIn-style layout stays. (4) Events: unchanged.
+**Alternatives rejected:** (1) Keeping story banners on-page with card integration (no viable layout found across 30 variants). (2) Removing banner generation entirely from stories (OG value preserved for LinkedIn/Twitter previews). (3) Adding banner to point OG (points aren't shared externally).
+**Consequences:** Banner components (`BannerDisplay`, `BannerControls`, `useBanner`) remain shared — used by profiles and events. The rule: banners display on-page only when compositionally integrated with the content (profile avatar overlap, event header). Disconnected decorative blocks above cards are not banners — they're noise.
+**References:** `features/done/22_mar_26/p519_remove_story_point_on_page_banners.md`, `features/done/22_mar_26/p510_profile_banner_ux_polish.md`
+
+## 2026-03-14 [technical]: Shared banner component architecture — BannerDisplay, BannerControls, useBanner
+
+**Context:** P504 needed banners on 4 entity types (stories, points, profiles, events). Events already had inline banner code from P489. Rather than 4 independent implementations, extracted shared components.
+**Decision:** (1) `BannerDisplay` — renders banner image with gradient fallback, configurable height/rounded corners. (2) `BannerControls` — two variants: `default` (full buttons for profiles/events) and `pills` (compact for inline use). Supports regenerate, remove, and Unsplash search. (3) `useBanner` hook — manages banner state, generation, removal with optimistic updates and `banner_generation_attempted` guard (prevents re-triggering on every mount). (4) `generateAIBanner` edge function extended from event-only to support story/point/profile entity types with entity-specific prompts. (5) `overflow-hidden` must NOT be added to banner wrapper divs — StoryCardDetail deliberately removed it for dropdown menus.
+**Alternatives rejected:** Per-entity inline banner code (P489 pattern — works for one entity, doesn't scale to four).
+**Consequences:** Adding banners to a new entity type requires: add `banner_url` column, call `generateAIBanner` on creation, render `<BannerDisplay>` + optional `<BannerControls>` with `useBanner`. The `overflow-hidden` lesson: wrapper divs around components with dropdowns must not clip overflow.
+**References:** `src/app/components/shared/banner/`, `supabase/functions/generate-banner/index.ts`
+
 ## 2026-03-14 [technical]: Explicit `.order()` required on all Supabase queries rendering ordered lists
 
 **Context:** Stories and points on profile pages appeared in arbitrary order. Four `story_points` and `stories` sub-queries lacked `.order()`, so PostgreSQL returned rows in heap order — which silently shifted whenever rows were inserted, deleted, or vacuumed. Unlinking and re-linking a position created a new `story_points` row with a fresh `created_at`, changing its physical position.

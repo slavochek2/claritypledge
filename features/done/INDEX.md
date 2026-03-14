@@ -1,7 +1,7 @@
 # Done Features Index
 
 Quick reference for past completed work. Consult when starting work on a related topic.
-Last updated: 2026-03-13 (P506 Auto-Extract Hashtags, P503 Profile Tag Pills)
+Last updated: 2026-03-14 (P504 Auto Banners, P510 Profile Banner UX, P519 Remove Story/Point Banners)
 
 ---
 
@@ -72,6 +72,9 @@ Last updated: 2026-03-13 (P506 Auto-Extract Hashtags, P503 Profile Tag Pills)
 
 ## UI / Design System
 
+- **P504** (Mar 14) Auto-Generated Banners — shared `BannerDisplay`/`BannerControls`/`useBanner` components; `banner_generation_attempted` guard prevents re-triggering on mount; `overflow-hidden` on wrapper divs clips dropdown menus
+- **P510** (Mar 14) Profile Banner UX Polish — LinkedIn-style avatar overlap (96px, `-mt-12`); pencil icon toggle for controls; gradient fallback visible when no banner; name beside avatar not below
+- **P519** (Mar 14) Remove Story/Point On-Page Banners — banners only display where compositionally integrated (profiles); stories keep `bannerUrl` for OG only; points stop generating banners entirely; 3px `authorAvatarColor` accent replaces story banner
 - **P462** (Mar 13) Partner Count Header Prominence — bold numbers ugly; LinkedIn-style `text-sm font-semibold text-blue-500` + icon wins
 - **P493** (Mar 12) PWA Install Prompts — desktop `isDesktop` guard needed on both child component AND parent wrapper; child returning `null` leaves orphaned section headings
 - **P455** (Mar 02) Live Mobile Layout Story Compact Reorder — CSS line-clamp + character-slice on same element conflict silently; use one truncation system only
