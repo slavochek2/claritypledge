@@ -1202,7 +1202,7 @@ export function StoryDetailPage() {
           onCancel={handleEditCancel}
         />
       ) : (
-        <div className="rounded-t-lg overflow-hidden" style={{ borderTop: `3px solid ${story.authorAvatarColor || '#3b82f6'}` }}>
+        <div className="rounded-t-lg" style={{ borderTop: `3px solid ${story.authorAvatarColor || '#3b82f6'}` }}>
         <StoryCardDetail
           story={story}
           linkedPoints={story.points}
