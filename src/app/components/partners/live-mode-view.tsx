@@ -1003,7 +1003,7 @@ function IdleScreen({
     <div className="flex flex-col h-full">
       <LiveHeader partnerName={partnerName} onExit={onExit} isPrivate={isPrivate} />
 
-      <div ref={scrollContainerRef} className={`${layoutClass} overflow-y-auto`}>
+      <div ref={scrollContainerRef} className={`${layoutClass} overflow-y-auto`} style={{ overflowAnchor: 'none' }}>
         {selectedHistoryIndex !== null && sessionHistory[selectedHistoryIndex] ? (
           <RoundSummaryScreen
             item={sessionHistory[selectedHistoryIndex]}
