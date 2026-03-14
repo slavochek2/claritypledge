@@ -99,18 +99,6 @@ interface AdaptedPoint {
   tags: string[];
 }
 
-/** Normalize real positionCounts to SevenPointCounts (ensure all keys present) */
-function toSevenPointCounts(counts: Record<string, number>): SevenPointCounts {
-  return {
-    strongly_agree: counts.strongly_agree ?? 0,
-    agree: counts.agree ?? 0,
-    somewhat_agree: counts.somewhat_agree ?? 0,
-    unsure: counts.unsure ?? 0,
-    somewhat_disagree: counts.somewhat_disagree ?? 0,
-    disagree: counts.disagree ?? 0,
-    strongly_disagree: counts.strongly_disagree ?? 0,
-  };
-}
 
 
 import { storiesService } from "@/app/data/stories-service";
