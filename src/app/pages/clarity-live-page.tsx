@@ -143,6 +143,7 @@ export function ClarityLivePage() {
 
   // Exit confirmation dialog state
   const [showExitConfirm, setShowExitConfirm] = useState(false);
+  const [isExiting, setIsExiting] = useState(false);
 
   // Partner departure state
   const [partnerLeft, setPartnerLeft] = useState(false); // Joiner left (creator sees this)
@@ -1994,11 +1995,18 @@ export function ClarityLivePage() {
 
   // Actually exit meeting after confirmation
   const confirmExitMeeting = useCallback(async () => {
+    // P512: Prevent double-click and show loading state
+    if (isExiting) return;
+    setIsExiting(true);
+
     // Mark that I am leaving (prevents polling from detecting my own departure)
     iAmLeavingRef.current = true;
 
-    // P28.1: Stop recording and upload before exiting
-    await stopAndUploadRecording();
+    // P512: Stop recording with 5s timeout — exit must not be blocked by upload
+    await Promise.race([
+      stopAndUploadRecording(),
+      new Promise<void>((resolve) => setTimeout(resolve, 5000)),
+    ]);
 
     // Track session exit
     if (session) {
@@ -2050,6 +2058,7 @@ export function ClarityLivePage() {
     setView('start');
     setRoomCode('');
     setShowExitConfirm(false);
+    setIsExiting(false);
     // Reset all departure refs so future sessions can work properly
     // Critical: Without this, polling would be permanently disabled for new sessions
     iAmLeavingRef.current = false;
@@ -2064,7 +2073,7 @@ export function ClarityLivePage() {
     } else {
       navigate(returnTo ?? '/live', { replace: true });
     }
-  }, [session, liveState.checksCount, isCreator, isFromEvent, returnTo, navigate, stopAndUploadRecording, pendingNavTo, setPendingNavTo]);
+  }, [session, liveState.checksCount, isCreator, isFromEvent, returnTo, navigate, stopAndUploadRecording, pendingNavTo, setPendingNavTo, isExiting]);
 
   // Handle starting a new session after partner left
   const handleStartNewAfterPartnerLeft = useCallback(async () => {
@@ -2841,7 +2850,7 @@ export function ClarityLivePage() {
         <RemovePositionDialog {...liveRemoveDialogProps} />
 
         {/* Exit confirmation dialog */}
-        <Dialog open={showExitConfirm} onOpenChange={(open) => { setShowExitConfirm(open); if (!open) setPendingNavTo(null); }}>
+        <Dialog open={showExitConfirm} onOpenChange={(open) => { if (isExiting) return; setShowExitConfirm(open); if (!open) setPendingNavTo(null); }}>
           <DialogContent className="max-w-sm">
             <DialogHeader>
               <DialogTitle>End session?</DialogTitle>
@@ -2850,11 +2859,18 @@ export function ClarityLivePage() {
               </DialogDescription>
             </DialogHeader>
             <DialogFooter className="flex-row gap-2 sm:justify-end">
-              <Button variant="outline" onClick={() => { setShowExitConfirm(false); setPendingNavTo(null); }}>
+              <Button variant="outline" onClick={() => { setShowExitConfirm(false); setPendingNavTo(null); }} disabled={isExiting}>
                 Cancel
               </Button>
-              <Button variant="destructive" onClick={confirmExitMeeting}>
-                End Session
+              <Button variant="destructive" onClick={confirmExitMeeting} disabled={isExiting}>
+                {isExiting ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                    Ending...
+                  </>
+                ) : (
+                  'End Session'
+                )}
               </Button>
             </DialogFooter>
           </DialogContent>
