@@ -85,9 +85,9 @@ After a facilitated session where agreement was created:
 
 ## Pilot Sequence
 
-1. [ ] Identify 3 co-founder pairs (warm intros, prospect, founder communities)
-2. [ ] Reach out to first pair — "45 min, free, I surface where you think you agree but don't"
-3. [ ] Run first facilitated session on a real decision they're facing
+1. [x] Identify 3 co-founder pairs (warm intros, prospect, founder communities)
+2. [x] Reach out to first pair — "45 min, free, I surface where you think you agree but don't"
+3. [x] Run first facilitated session on a real decision they're facing (2026-03-13: first paid pair completed)
 4. [ ] Observe: did the "holy shit" moment happen? Did they quantify pain?
 5. [ ] Create partner agreement with the pair (if session landed)
 6. [ ] Book session 2 with first pair

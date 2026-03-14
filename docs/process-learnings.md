@@ -99,6 +99,43 @@ Confirmed via: sessions run Feb 28 — participants reported insights during ses
 **Proposed fix:** File capture must happen IN session, not as homework. Either: (a) Slava files stories/points live during the session using the filing chat, or (b) end-of-session ritual includes explicit 5-min filing moment before closing. The filing chat UI is the tool; building the habit of using it in-session is the intervention.
 ---
 
+## Framework iteration without execution progress
+
+**Date:** 2026-03-14
+**Status:** proposed
+
+9 canvas iterations (A-G + Clarity Canvas v1-v3) across ~3 weeks produced zero change in "distance to first euro." Claude observation: "marginal improvement from 3 weeks of canvas iteration is approximately 0 points on executability." Each canvas improved intellectual clarity but none advanced revenue. Pattern: architectural thinking substitutes for uncomfortable execution (asking for money, facilitating poorly in front of real people).
+
+**Fix:** Before starting any new framework/canvas iteration, answer: "What specific revenue-blocking question does this answer that the current canvas doesn't?" If the answer is about positioning/framing (not a concrete blocker), the iteration is avoidance.
+
+---
+
+## Gap reveal not yet reliable in paired exercises
+
+**Date:** 2026-03-14
+**Status:** proposed
+
+/falsify analysis revealed: the core product (reliably surfacing misalignment in a paired exercise) does not yet work on demand. Works when tension pre-exists (married couple, pair wanting de-risking). Doesn't work with healthy/proactive pairs ("searching for false agreements in a pair that has no issue is tiresome"). 30+ sessions but the "holy shit" moment is not reproducible. This is a facilitation skill gap, not a funnel/format problem.
+
+Recurring community events were falsified as an acquisition channel because the funnel breaks at step 2 (gap reveal). Volume at step 1 (more attendees) can't fix step 2.
+
+**Fix:** Ugly reps with high-gap pairs — 3 informal sessions/week with pairs who already feel tension. Vary technique each time. Debrief alone for 15 min after. Build the skill before building the funnel. Events come after the moment fires reliably, not before.
+
+---
+
+## Future event formats to test (parked)
+
+**Date:** 2026-03-14
+**Status:** proposed
+
+Two event format ideas emerged from Claude.ai conversations, parked until gap reveal is reliable:
+
+1. **Clarity Practice community (recurring)** — founders bring their lean canvas or Clarity Canvas (lean canvas + ikigai person-problem fit + externality checks), others verify comprehension of their problem/solution/market sections. Canvas provides the "on what?" that generic exercises lack. Test after facilitation skill is proven.
+
+2. **Clariton (one-off hackathon)** — €100 entry, participants build Clarity Canvases, invest in verified comprehension rather than code. Inverts hackathon model. Graduation event — run after recurring Clarity Practice has a waitlist.
+
+---
+
 ## Externality claim unproven despite 30+ sessions
 
 **Date:** 2026-03-13
