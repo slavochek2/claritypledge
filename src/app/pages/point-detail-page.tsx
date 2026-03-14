@@ -18,7 +18,6 @@ import { getPositionGroup, type PositionButtonGroup } from '@/app/prototypes/sha
 import type { Story } from '@/app/prototypes/shared/types';
 import { GravatarAvatar } from '@/components/ui/gravatar-avatar';
 import { FocusHeader } from '@/app/components/layout/focus-header';
-import { BannerDisplay } from '@/app/components/shared/banner';
 import { SEO } from '@/app/components/seo';
 import {
   PositionBadge,
@@ -420,13 +419,6 @@ export function PointDetailPage() {
 
       {/* P401: Remove position warning dialog */}
       <RemovePositionDialog {...dialogProps} />
-
-      {/* P504: Banner image above the content */}
-      <BannerDisplay
-        bannerUrl={point.bannerUrl}
-        fallbackColor="#94a3b8"
-        altText={`Banner for point: ${point.statement?.substring(0, 50)}`}
-      />
 
       <div className="px-4 py-6">
       <FocusHeader onBack={handleBack} />

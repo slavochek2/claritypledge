@@ -15,7 +15,6 @@ import type {
   PositionType,
 } from '@/app/types';
 import { supabase } from '@/lib/supabase';
-import { generateAIBanner } from '@/app/prototypes/events/banner-utils';
 
 // Debug logging - only in development
 const DEBUG = import.meta.env.DEV;
@@ -222,22 +221,6 @@ export const realPointsService: PointsService = {
       tags: data.tags || [],
       bannerUrl: data.banner_url ?? undefined,
     };
-
-    // P504: Fire-and-forget banner generation after successful insert
-    try {
-      supabase.auth.getSession().then(({ data: sessionData }) => {
-        const token = sessionData.session?.access_token;
-        if (token) {
-          generateAIBanner('point', point.id, token).catch(() => {
-            log('WARN: fire-and-forget banner generation failed for point', point.id);
-          });
-        }
-      }).catch(() => {
-        log('WARN: could not get session for banner generation');
-      });
-    } catch {
-      // Silently fail — banner is non-critical
-    }
 
     return point;
   },

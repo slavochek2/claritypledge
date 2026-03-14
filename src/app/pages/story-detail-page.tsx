@@ -26,7 +26,6 @@ import { pointsService } from '@/app/data/points-service';
 import { useVerificationGate } from '@/app/hooks/useVerificationGate';
 import { StoryCardDetail } from '@/app/components/social/StoryCardDetail';
 import { RemovePositionDialog, useRemovePositionGuard } from '@/app/components/shared/remove-position-dialog';
-import { BannerDisplay, BannerControls, useBanner } from '@/app/components/shared/banner';
 import { SEO } from '@/app/components/seo';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -672,19 +671,6 @@ export function StoryDetailPage() {
   const deleteButtonRef = useRef<HTMLButtonElement>(null);
   const popstateHandlerRef = useRef<(() => void) | null>(null);
 
-  // P504: Banner state — delegated to shared useBanner hook
-  const saveBanner = useCallback(async (newUrl: string | null) => {
-    if (!story) return;
-    await storiesService.updateStory(story.id, { bannerUrl: newUrl });
-    setStory(prev => prev ? { ...prev, bannerUrl: newUrl ?? undefined } : prev);
-  }, [story]);
-
-  const banner = useBanner({
-    entityType: 'story',
-    entityId: story?.id ?? '',
-    initialBannerUrl: story?.bannerUrl ?? null,
-    onSave: saveBanner,
-  });
 
   // Guard: reset edit mode if the loaded story is not owned by the current user
   // (prevents non-authors from opening edit mode via ?edit=true URL)
@@ -1149,7 +1135,7 @@ export function StoryDetailPage() {
         title={story.title || `Story by ${story.authorName}`}
         description={storyExcerpt || `A story shared on ClarityPledge by ${story.authorName}.`}
         url={`/story/${story.id}`}
-        image={banner.bannerUrl || undefined}
+        image={story.bannerUrl || undefined}
         type="article"
         article={{
           headline: story.title || `Story by ${story.authorName}`,
@@ -1202,25 +1188,6 @@ export function StoryDetailPage() {
         </DialogContent>
       </Dialog>
 
-      {/* P504: Banner image above the content */}
-      <BannerDisplay
-        bannerUrl={banner.bannerUrl}
-        fallbackColor={story.authorAvatarColor}
-        altText={story.title || `Story by ${story.authorName}`}
-      >
-        {isAuthor && (
-          <BannerControls
-            onRegenerate={banner.handleRegenerate}
-            onRemove={banner.handleRemove}
-            isLoading={banner.isLoading}
-            hasBanner={!!banner.bannerUrl}
-            showSearch={banner.showSearch}
-            onSearch={banner.handleSearch}
-            searchError={banner.searchError || undefined}
-          />
-        )}
-      </BannerDisplay>
-
       {/* Back button */}
       <div className="px-4 py-6">
       <FocusHeader onBack={handleBack} />
@@ -1235,6 +1202,7 @@ export function StoryDetailPage() {
           onCancel={handleEditCancel}
         />
       ) : (
+        <div className="rounded-t-lg overflow-hidden" style={{ borderTop: `3px solid ${story.authorAvatarColor || '#3b82f6'}` }}>
         <StoryCardDetail
           story={story}
           linkedPoints={story.points}
@@ -1271,6 +1239,7 @@ export function StoryDetailPage() {
             </>
           ) : undefined}
         />
+        </div>
       )}
 
       {/* P131/P424/P427: Author-only section */}
