@@ -4,6 +4,10 @@ import { supabase } from '@/lib/supabase';
 import { invokeEventEmails } from '@/lib/event-emails';
 import { extractBannerKeywords, fetchUnsplashBanner, generateAIBanner } from '@/app/prototypes/events/banner-utils';
 
+// `status` is NOT auto-managed (no trigger, no cron — intentional).
+// `datetime` is the source of truth for past/upcoming via the grace-period pattern below.
+// `status` is only authoritative for the `cancelled` state.
+
 // P494: Events stay in "upcoming" for this many hours after their start time.
 // Covers running events, latecomers, and post-event registrations.
 export const EVENT_GRACE_HOURS = 5;

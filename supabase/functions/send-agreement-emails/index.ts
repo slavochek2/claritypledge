@@ -56,6 +56,18 @@ function button(text: string, url: string): string {
   return `<a href="${url}" style="display:inline-block;background:#002B5C;color:#ffffff;text-decoration:none;padding:12px 24px;border-radius:6px;font-size:15px;font-weight:500;margin-top:20px;">${text}</a>`;
 }
 
+/** Extract first name from "First Last" or return null */
+function firstName(name: string | null | undefined): string | null {
+  if (!name) return null;
+  const first = name.trim().split(/\s+/)[0];
+  return first || null;
+}
+
+function greeting(name: string | null | undefined): string {
+  const first = firstName(name);
+  return first ? `Hi ${first},` : 'Hi,';
+}
+
 // ── Mailgun send ──────────────────────────────────────────────────────────────
 
 async function sendEmail(opts: {
@@ -159,6 +171,7 @@ async function handleInvitation(
 
   const subject = `${creatorName} invited you to a Clarity Partner Agreement`;
   const html = htmlEmail(subject, `
+    <p style="margin:0 0 16px;font-size:16px;color:#111827;">Hi,</p>
     <h1 style="margin:0 0 8px;font-size:24px;font-weight:700;color:#111827;">You've been invited</h1>
     <p style="margin:0 0 16px;font-size:16px;color:#4b5563;">
       <strong>${creatorName}</strong> has invited you to a Clarity Partner Agreement —
@@ -211,6 +224,7 @@ async function handleAccepted(
   const agreementUrl = `${APP_URL}/agreements/${agreementId}`;
   const subject = `${partnerName} co-signed your Clarity Partner Agreement`;
   const html = htmlEmail(subject, `
+    <p style="margin:0 0 16px;font-size:16px;color:#111827;">${greeting(creator?.name)}</p>
     <h1 style="margin:0 0 8px;font-size:24px;font-weight:700;color:#111827;">Agreement sealed</h1>
     <p style="margin:0 0 16px;font-size:16px;color:#4b5563;">
       <strong>${partnerName}</strong> has accepted and co-signed your Clarity Partner Agreement.
@@ -245,6 +259,7 @@ async function handleDeclined(
 
   const subject = 'Your Clarity Partner Agreement invitation was declined';
   const html = htmlEmail(subject, `
+    <p style="margin:0 0 16px;font-size:16px;color:#111827;">${greeting(creator?.name)}</p>
     <h1 style="margin:0 0 8px;font-size:24px;font-weight:700;color:#111827;">Invitation declined</h1>
     <p style="margin:0 0 16px;font-size:16px;color:#4b5563;">
       The recipient at <strong>${agreement.partner_email}</strong> declined your Clarity Partner Agreement invitation.
@@ -279,30 +294,34 @@ async function handleTerminated(
 
   const agreementUrl = `${APP_URL}/agreements/${agreementId}`;
   const subject = 'Your Clarity Partner Agreement has been terminated';
-  const html = htmlEmail(subject, `
-    <h1 style="margin:0 0 8px;font-size:24px;font-weight:700;color:#111827;">Agreement terminated</h1>
-    <p style="margin:0 0 16px;font-size:16px;color:#4b5563;">
-      One party has terminated this Clarity Partner Agreement.
-      The agreement is now archived and no longer active.
-    </p>
-    ${button('View Agreement History', agreementUrl)}
-  `);
-  const text = `Your Clarity Partner Agreement has been terminated.\n\nView history: ${agreementUrl}\nClarity Pledge`;
 
-  // Collect emails to notify
-  const emailsToNotify: string[] = [];
+  // Collect recipients with names for personalization
+  const recipients: { email: string; name: string | null }[] = [];
   if (profiles) {
     for (const p of profiles) {
-      if (p.email) emailsToNotify.push(p.email);
+      if (p.email) recipients.push({ email: p.email, name: p.name });
     }
   }
-  // If partner never registered, notify via partner_email
+  // If partner never registered, notify via partner_email (no name available)
   if (!agreement.partner_profile_id && agreement.partner_email) {
-    emailsToNotify.push(agreement.partner_email);
+    recipients.push({ email: agreement.partner_email, name: null });
   }
 
   await Promise.all(
-    emailsToNotify.map(email => sendEmail({ to: email, subject, html, text }))
+    recipients.map(r => {
+      const html = htmlEmail(subject, `
+        <p style="margin:0 0 16px;font-size:16px;color:#111827;">${greeting(r.name)}</p>
+        <h1 style="margin:0 0 8px;font-size:24px;font-weight:700;color:#111827;">Agreement terminated</h1>
+        <p style="margin:0 0 16px;font-size:16px;color:#4b5563;">
+          One party has terminated this Clarity Partner Agreement.
+          The agreement is now archived and no longer active.
+        </p>
+        ${button('View Agreement History', agreementUrl)}
+      `);
+      const first = firstName(r.name);
+      const text = `${first ? `Hi ${first},\n\n` : ''}Your Clarity Partner Agreement has been terminated.\n\nView history: ${agreementUrl}\nClarity Pledge`;
+      return sendEmail({ to: r.email, subject, html, text });
+    })
   );
 }
 

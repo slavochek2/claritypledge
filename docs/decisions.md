@@ -2,6 +2,30 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-14 [technical]: Event emails — split past-event guard, add name personalization, add send tracking
+
+**Context:** Post-event feedback emails (Tally form via Mailgun) never sent for the AI event (Mar 12, 11 attendees). Root cause: all 11 RSVPs were walk-in signups created *after* the event started. The edge function's past-event guard (`if (eventDatetime <= now) return`) blocked ALL emails — including feedback, which should always be sent. Additionally, emails had no personal greeting despite `profiles.name` being available. No mechanism to detect or recover from send failures.
+**Decision:** Three fixes: (1) Split the guard — confirmation+reminder skip for past events, feedback always scheduled (sent immediately if event already ended, or scheduled for 2h after event end using `duration_minutes`). (2) All email templates in both `send-event-emails` and `send-agreement-emails` now include "Hi {FirstName}," greeting via shared `greeting()` / `firstName()` helpers. (3) P509: new `email_send_log` table tracks every `sendEmail()` call (sent/failed + mailgun_message_id + error_message). Backfill script at `scripts/resend-feedback.sh` queries for missing feedback sends and resends.
+**Alternatives rejected:** Auto-retry queue (over-engineered at ~3 events/year), cron-based feedback sender (adds infrastructure for a problem the guard fix prevents).
+**Consequences:** Walk-in RSVPs now get feedback emails. Every email send is auditable. Manual backfill available for recovery. The `status` field on events was confirmed as non-authoritative — `datetime` is truth (comment added to `events-service-real.ts`). `api.ts` has broken status-only filtering but it's dead code (nothing imports those functions).
+**References:** `supabase/functions/send-event-emails/index.ts`, `supabase/functions/send-agreement-emails/index.ts`, `supabase/migrations/20260314123817_add_email_send_log.sql`, `scripts/resend-feedback.sh`, `features/p509_email_send_tracking.md`
+
+## 2026-03-14 [technical]: position-helpers.ts is the canonical home for all position utilities
+
+**Context:** `adjustPositionCounts()` (optimistic count adjustment) was copy-pasted in 5 files with identical 20-line `useMemo` blocks. `toSevenPointCounts()` was duplicated in 3 files. `useEmbedNavigation` (embed detection + navigation) was inline in 3 components. `StoryAuthor` interface was defined identically in 2 files. A 1-month git retrospective + `/falsify` (30 creative alternatives, 7 rejected as overkill) identified these as zero-risk extractions.
+**Decision:** (1) `adjustPositionCounts()` and `toSevenPointCounts()` live in `src/app/utils/position-helpers.ts` — this extends the 2026-03-13 seven-point init decision: not just "use 7 keys" but "use the shared function." (2) `useEmbedNavigation()` hook in `src/app/hooks/useEmbedNavigation.ts` — replaces embed detection + conditional `window.open` vs `navigate()` pattern. (3) `StoryAuthor` interface canonical in `point-card-with-links.tsx`, re-exported from `story-card-with-links.tsx`.
+**Alternatives rejected:** (1) `formatTimeAgo` extraction — 5 copies with 3 different output formats, needs UX decision first. (2) ShareDropdown/ShareHub consolidation — different interaction models per surface. (3) Skeleton component unification — low value, high blast radius.
+**Consequences:** Net -118 lines. Any new component needing position count adjustment imports `adjustPositionCounts` — no more copy-paste. `position-helpers.ts` is now the single file to check when position logic changes.
+**References:** commit `520a694a`
+
+## 2026-03-14 [process]: Retrospective duplication analysis — git lookback + /falsify filtering
+
+**Context:** Suspected component duplication across the codebase. Manual code review is slow; gut feeling said "we keep rebuilding the same thing."
+**Decision:** Method: (1) 1-month `git log` scan for new component creation, (2) parallel agents comparing current `src/` for duplicate patterns, (3) `/falsify` to challenge all proposals (root-cause → critique → falsification → synthesis). Of 10 original proposals, 7 were rejected as overkill or misdirected. Root cause was identified as prototype-to-production type fragmentation (already resolved by P507). Only zero-risk pure-function extractions survived falsification.
+**Alternatives rejected:** Full component audit without falsification — would have produced a long list of "could consolidate" items with no prioritization signal.
+**Consequences:** The `/falsify` filter is the key differentiator — without it, retrospective analysis produces noise. Future retrospectives should follow: gather → classify → falsify → extract only what survives.
+**References:** This session's conversation, commit `520a694a`
+
 ## 2026-03-14 [process]: Zombie Vite server prevention — kill-on-start + pre-commit scan + dev-mode error message
 
 **Context:** Multi-worktree development produces zombie Vite dev servers — processes that survive worktree deletion and hold ports indefinitely. An AI agent misidentified which port belonged to which worktree, killed the correct w0 server, and had to restart it. Root cause analysis (5-why + /falsify with 30 creative alternatives benchmarked) identified 5 root causes; the top two open risks were: (1) no cleanup on worktree teardown, (2) no port→worktree attribution for operators.

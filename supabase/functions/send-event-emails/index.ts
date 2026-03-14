@@ -142,10 +142,23 @@ interface EventRow {
   slug: string | null;
 }
 
-function buildConfirmation(event: EventRow): { subject: string; html: string; text: string } {
+/** Extract first name from "First Last" or return null */
+function firstName(name: string | null | undefined): string | null {
+  if (!name) return null;
+  const first = name.trim().split(/\s+/)[0];
+  return first || null;
+}
+
+function greeting(name: string | null | undefined): string {
+  const first = firstName(name);
+  return first ? `Hi ${first},` : 'Hi,';
+}
+
+function buildConfirmation(event: EventRow, name?: string | null): { subject: string; html: string; text: string } {
   const subject = `You're in: ${event.title}`;
   const eventLink = event.slug ? `<p style="margin:16px 0 0;font-size:14px;"><a href="${eventPageUrl(event.slug)}" style="color:#2563eb;">View event page →</a></p>` : '';
   const html = htmlEmail(subject, `
+    <p style="margin:0 0 16px;font-size:16px;color:#111827;">${greeting(name)}</p>
     <h1 style="margin:0 0 8px;font-size:24px;font-weight:700;color:#111827;">You're confirmed! 🎉</h1>
     <p style="margin:0 0 4px;font-size:16px;color:#4b5563;">We're looking forward to seeing you.</p>
     ${eventCard(event)}
@@ -155,14 +168,16 @@ function buildConfirmation(event: EventRow): { subject: string; html: string; te
       Questions? Reply to this email and we'll get back to you.
     </p>
   `);
-  const text = `You're going to: ${event.title}\n\n${formatDate(event.datetime, event.timezone)}\n${event.location ?? ''}\n\nSee you there!\nClarity Pledge`;
+  const first = firstName(name);
+  const text = `${first ? `Hi ${first},\n\n` : ''}You're going to: ${event.title}\n\n${formatDate(event.datetime, event.timezone)}\n${event.location ?? ''}\n\nSee you there!\nClarity Pledge`;
   return { subject, html, text };
 }
 
-function buildReminder(event: EventRow): { subject: string; html: string; text: string } {
+function buildReminder(event: EventRow, name?: string | null): { subject: string; html: string; text: string } {
   const subject = `Tomorrow: ${event.title}`;
   const eventLink = event.slug ? `<p style="margin:16px 0 0;font-size:14px;"><a href="${eventPageUrl(event.slug)}" style="color:#2563eb;">View event page →</a></p>` : '';
   const html = htmlEmail(subject, `
+    <p style="margin:0 0 16px;font-size:16px;color:#111827;">${greeting(name)}</p>
     <h1 style="margin:0 0 8px;font-size:24px;font-weight:700;color:#111827;">See you tomorrow! 👋</h1>
     <p style="margin:0 0 4px;font-size:16px;color:#4b5563;">Just a reminder about tomorrow's event.</p>
     ${eventCard(event)}
@@ -172,15 +187,17 @@ function buildReminder(event: EventRow): { subject: string; html: string; text: 
       Questions? Reply to this email.
     </p>
   `);
-  const text = `Reminder: ${event.title} is tomorrow.\n\n${formatDate(event.datetime, event.timezone)}\n${event.location ?? ''}\n\nSee you there!\nClarity Pledge`;
+  const first = firstName(name);
+  const text = `${first ? `Hi ${first},\n\n` : ''}Reminder: ${event.title} is tomorrow.\n\n${formatDate(event.datetime, event.timezone)}\n${event.location ?? ''}\n\nSee you there!\nClarity Pledge`;
   return { subject, html, text };
 }
 
-function buildFeedback(event: EventRow): { subject: string; html: string; text: string } {
+function buildFeedback(event: EventRow, name?: string | null): { subject: string; html: string; text: string } {
   const subject = `How was ${event.title}?`;
   const feedbackUrl = tallyUrl(event.id);
   const eventLink = event.slug ? `<p style="margin:16px 0 0;font-size:14px;"><a href="${eventPageUrl(event.slug)}" style="color:#2563eb;">View event page →</a></p>` : '';
   const html = htmlEmail(subject, `
+    <p style="margin:0 0 16px;font-size:16px;color:#111827;">${greeting(name)}</p>
     <h1 style="margin:0 0 8px;font-size:24px;font-weight:700;color:#111827;">Thanks for joining us!</h1>
     <p style="margin:0;font-size:16px;color:#4b5563;">
       We'd love to hear how <strong>${event.title}</strong> went for you.
@@ -192,14 +209,16 @@ function buildFeedback(event: EventRow): { subject: string; html: string; text: 
       Your feedback helps us make future events even better. Thank you!
     </p>
   `);
-  const text = `Thanks for joining ${event.title}!\n\nShare your feedback (1 min): ${feedbackUrl}\n\nClarity Pledge`;
+  const first = firstName(name);
+  const text = `${first ? `Hi ${first},\n\n` : ''}Thanks for joining ${event.title}!\n\nShare your feedback (1 min): ${feedbackUrl}\n\nClarity Pledge`;
   return { subject, html, text };
 }
 
-function buildCancellation(event: EventRow): { subject: string; html: string; text: string } {
+function buildCancellation(event: EventRow, name?: string | null): { subject: string; html: string; text: string } {
   const subject = `Event cancelled: ${event.title}`;
   const eventLink = event.slug ? `<p style="margin:16px 0 0;font-size:14px;"><a href="${eventPageUrl(event.slug)}" style="color:#2563eb;">View event page →</a></p>` : '';
   const html = htmlEmail(subject, `
+    <p style="margin:0 0 16px;font-size:16px;color:#111827;">${greeting(name)}</p>
     <h1 style="margin:0 0 8px;font-size:24px;font-weight:700;color:#111827;">Event cancelled</h1>
     <p style="margin:0;font-size:16px;color:#4b5563;">
       Unfortunately, <strong>${event.title}</strong> has been cancelled.
@@ -214,10 +233,11 @@ function buildCancellation(event: EventRow): { subject: string; html: string; te
   return { subject, html, text };
 }
 
-function buildUncancel(event: EventRow): { subject: string; html: string; text: string } {
+function buildUncancel(event: EventRow, name?: string | null): { subject: string; html: string; text: string } {
   const subject = `It's back on: ${event.title}`;
   const eventLink = event.slug ? `<p style="margin:16px 0 0;font-size:14px;"><a href="${eventPageUrl(event.slug)}" style="color:#2563eb;">View event page →</a></p>` : '';
   const html = htmlEmail(subject, `
+    <p style="margin:0 0 16px;font-size:16px;color:#111827;">${greeting(name)}</p>
     <h1 style="margin:0 0 8px;font-size:24px;font-weight:700;color:#111827;">Good news — the event is back on! 🎉</h1>
     <p style="margin:0;font-size:16px;color:#4b5563;">
       <strong>${event.title}</strong> is back on — here are the details:
@@ -233,10 +253,11 @@ function buildUncancel(event: EventRow): { subject: string; html: string; text: 
   return { subject, html, text };
 }
 
-function buildUpdate(event: EventRow): { subject: string; html: string; text: string } {
+function buildUpdate(event: EventRow, name?: string | null): { subject: string; html: string; text: string } {
   const subject = `Updated: ${event.title}`;
   const eventLink = event.slug ? `<p style="margin:16px 0 0;font-size:14px;"><a href="${eventPageUrl(event.slug)}" style="color:#2563eb;">View event page →</a></p>` : '';
   const html = htmlEmail(subject, `
+    <p style="margin:0 0 16px;font-size:16px;color:#111827;">${greeting(name)}</p>
     <h1 style="margin:0 0 8px;font-size:24px;font-weight:700;color:#111827;">Event updated</h1>
     <p style="margin:0;font-size:16px;color:#4b5563;">
       The details for <strong>${event.title}</strong> have changed. Here's what changed:
@@ -303,6 +324,41 @@ async function cancelScheduledEmail(messageId: string): Promise<void> {
   }
 }
 
+// ── Email send logging ────────────────────────────────────────────────────────
+
+interface LogEmailSendOpts {
+  eventId: string;
+  profileId: string | null;
+  emailType: 'confirmation' | 'reminder' | 'feedback' | 'cancellation' | 'update' | 'uncancel';
+  messageId: string | null;
+  errorMessage?: string;
+}
+
+/**
+ * Persists an email send attempt to email_send_log.
+ * Never throws — logging failures must not break the email flow.
+ */
+async function logEmailSend(
+  supabase: ReturnType<typeof createClient>,
+  opts: LogEmailSendOpts,
+): Promise<void> {
+  try {
+    const { error } = await supabase.from('email_send_log').insert({
+      event_id: opts.eventId,
+      profile_id: opts.profileId,
+      email_type: opts.emailType,
+      status: opts.messageId ? 'sent' : 'failed',
+      mailgun_message_id: opts.messageId,
+      error_message: opts.errorMessage ?? null,
+    });
+    if (error) {
+      console.error('logEmailSend insert error:', error.message);
+    }
+  } catch (err) {
+    console.error('logEmailSend unexpected error:', err);
+  }
+}
+
 // ── Action handlers ───────────────────────────────────────────────────────────
 
 async function handleRsvp(supabase: ReturnType<typeof createClient>, eventId: string, userId: string) {
@@ -315,41 +371,63 @@ async function handleRsvp(supabase: ReturnType<typeof createClient>, eventId: st
 
   if (!event) throw new Error('Event not found');
 
-  // Fetch attendee email from profiles
+  // Fetch attendee email and name from profiles
   const { data: profile } = await supabase
     .from('profiles')
-    .select('email')
+    .select('email, name')
     .eq('id', userId)
     .single();
 
   if (!profile?.email) throw new Error('Profile email not found');
 
   const email = profile.email;
+  const profileName = profile.name as string | null;
   const eventDatetime = new Date(event.datetime);
   const now = new Date();
+  const eventInPast = eventDatetime <= now;
 
-  // Guard: don't schedule emails for past events
-  if (eventDatetime <= now) {
-    console.log('Event is in the past — skipping email scheduling');
-    return;
-  }
-
-  // 1. Confirmation — immediate
-  const confirmation = buildConfirmation(event);
-  await sendEmail({ to: email, ...confirmation });
-
-  // 2. Reminder — 24h before event
-  const reminderTime = new Date(eventDatetime.getTime() - 24 * 60 * 60 * 1000);
   let reminderId: string | null = null;
-  if (reminderTime > now) {
-    const reminder = buildReminder(event);
-    reminderId = await sendEmail({ to: email, ...reminder, deliverAt: reminderTime });
+
+  if (!eventInPast) {
+    // 1. Confirmation — immediate (only for future events)
+    const confirmation = buildConfirmation(event, profileName);
+    const confirmationId = await sendEmail({ to: email, ...confirmation });
+    await logEmailSend(supabase, {
+      eventId,
+      profileId: userId,
+      emailType: 'confirmation',
+      messageId: confirmationId,
+      errorMessage: confirmationId ? undefined : 'Mailgun returned null message ID',
+    });
+
+    // 2. Reminder — 24h before event
+    const reminderTime = new Date(eventDatetime.getTime() - 24 * 60 * 60 * 1000);
+    if (reminderTime > now) {
+      const reminder = buildReminder(event, profileName);
+      reminderId = await sendEmail({ to: email, ...reminder, deliverAt: reminderTime });
+      await logEmailSend(supabase, {
+        eventId,
+        profileId: userId,
+        emailType: 'reminder',
+        messageId: reminderId,
+        errorMessage: reminderId ? undefined : 'Mailgun returned null message ID',
+      });
+    }
   }
 
-  // 3. Feedback — 2h after event
-  const feedbackTime = new Date(eventDatetime.getTime() + 2 * 60 * 60 * 1000);
-  const feedback = buildFeedback(event);
-  const feedbackId = await sendEmail({ to: email, ...feedback, deliverAt: feedbackTime });
+  // 3. Feedback — 2h after event (always scheduled, even for walk-in RSVPs)
+  const feedbackTime = new Date(eventDatetime.getTime() + (event.duration_minutes ?? 60) * 60 * 1000 + 2 * 60 * 60 * 1000);
+  const feedback = buildFeedback(event, profileName);
+  const feedbackId = feedbackTime > now
+    ? await sendEmail({ to: email, ...feedback, deliverAt: feedbackTime })
+    : await sendEmail({ to: email, ...feedback }); // past event — send immediately
+  await logEmailSend(supabase, {
+    eventId,
+    profileId: userId,
+    emailType: 'feedback',
+    messageId: feedbackId,
+    errorMessage: feedbackId ? undefined : 'Mailgun returned null message ID',
+  });
 
   // Store Mailgun message IDs on RSVP row
   if (reminderId || feedbackId) {
@@ -379,12 +457,10 @@ async function handleCancel(supabase: ReturnType<typeof createClient>, eventId: 
   // Fetch all RSVPs with stored message IDs and attendee emails
   const { data: rsvps } = await supabase
     .from('event_rsvps')
-    .select('id, profile_id, mailgun_message_ids, profiles(email)')
+    .select('id, profile_id, mailgun_message_ids, profiles(email, name)')
     .eq('event_id', eventId);
 
   if (!rsvps) return;
-
-  const cancellation = buildCancellation(event);
 
   await Promise.all(rsvps.map(async (rsvp) => {
     // Cancel scheduled emails
@@ -393,10 +469,18 @@ async function handleCancel(supabase: ReturnType<typeof createClient>, eventId: 
     if (ids?.feedback) await cancelScheduledEmail(ids.feedback);
 
     // Send cancellation notice
-    const profileData = rsvp.profiles as { email: string } | null;
+    const profileData = rsvp.profiles as { email: string; name: string | null } | null;
     const email = profileData?.email;
     if (email) {
-      await sendEmail({ to: email, ...cancellation });
+      const cancellation = buildCancellation(event, profileData?.name);
+      const cancellationId = await sendEmail({ to: email, ...cancellation });
+      await logEmailSend(supabase, {
+        eventId,
+        profileId: rsvp.profile_id ?? null,
+        emailType: 'cancellation',
+        messageId: cancellationId,
+        errorMessage: cancellationId ? undefined : 'Mailgun returned null message ID',
+      });
     }
   }));
 }
@@ -412,18 +496,24 @@ async function handleUncancel(supabase: ReturnType<typeof createClient>, eventId
 
   const { data: rsvps } = await supabase
     .from('event_rsvps')
-    .select('id, profile_id, profiles(email)')
+    .select('id, profile_id, profiles(email, name)')
     .eq('event_id', eventId);
 
   if (!rsvps) return;
 
-  const uncancel = buildUncancel(event);
-
   await Promise.all(rsvps.map(async (rsvp) => {
-    const profileData = rsvp.profiles as { email: string } | null;
+    const profileData = rsvp.profiles as { email: string; name: string | null } | null;
     const email = profileData?.email;
     if (email) {
-      await sendEmail({ to: email, ...uncancel });
+      const uncancel = buildUncancel(event, profileData?.name);
+      const uncancelId = await sendEmail({ to: email, ...uncancel });
+      await logEmailSend(supabase, {
+        eventId,
+        profileId: rsvp.profile_id ?? null,
+        emailType: 'uncancel',
+        messageId: uncancelId,
+        errorMessage: uncancelId ? undefined : 'Mailgun returned null message ID',
+      });
     }
   }));
 }
@@ -441,14 +531,13 @@ async function handleUpdate(supabase: ReturnType<typeof createClient>, eventId: 
   // Fetch all RSVPs
   const { data: rsvps } = await supabase
     .from('event_rsvps')
-    .select('id, profile_id, mailgun_message_ids, profiles(email)')
+    .select('id, profile_id, mailgun_message_ids, profiles(email, name)')
     .eq('event_id', eventId);
 
   if (!rsvps) return;
 
   const eventDatetime = new Date(event.datetime);
   const now = new Date();
-  const updateEmail = buildUpdate(event);
 
   await Promise.all(rsvps.map(async (rsvp) => {
     // Cancel old scheduled emails
@@ -456,12 +545,22 @@ async function handleUpdate(supabase: ReturnType<typeof createClient>, eventId: 
     if (ids?.reminder) await cancelScheduledEmail(ids.reminder);
     if (ids?.feedback) await cancelScheduledEmail(ids.feedback);
 
-    const profileData = rsvp.profiles as { email: string } | null;
+    const profileData = rsvp.profiles as { email: string; name: string | null } | null;
     const email = profileData?.email;
     if (!email) return;
 
+    const profileName = profileData?.name;
+
     // Send update notice
-    await sendEmail({ to: email, ...updateEmail });
+    const updateEmail = buildUpdate(event, profileName);
+    const updateId = await sendEmail({ to: email, ...updateEmail });
+    await logEmailSend(supabase, {
+      eventId,
+      profileId: rsvp.profile_id ?? null,
+      emailType: 'update',
+      messageId: updateId,
+      errorMessage: updateId ? undefined : 'Mailgun returned null message ID',
+    });
 
     // Reschedule emails if event is still in the future
     if (eventDatetime <= now) return;
@@ -469,13 +568,27 @@ async function handleUpdate(supabase: ReturnType<typeof createClient>, eventId: 
     const reminderTime = new Date(eventDatetime.getTime() - 24 * 60 * 60 * 1000);
     let reminderId: string | null = null;
     if (reminderTime > now) {
-      const reminder = buildReminder(event);
+      const reminder = buildReminder(event, profileName);
       reminderId = await sendEmail({ to: email, ...reminder, deliverAt: reminderTime });
+      await logEmailSend(supabase, {
+        eventId,
+        profileId: rsvp.profile_id ?? null,
+        emailType: 'reminder',
+        messageId: reminderId,
+        errorMessage: reminderId ? undefined : 'Mailgun returned null message ID',
+      });
     }
 
-    const feedbackTime = new Date(eventDatetime.getTime() + 2 * 60 * 60 * 1000);
-    const feedback = buildFeedback(event);
+    const feedbackTime = new Date(eventDatetime.getTime() + (event.duration_minutes ?? 60) * 60 * 1000 + 2 * 60 * 60 * 1000);
+    const feedback = buildFeedback(event, profileName);
     const feedbackId = await sendEmail({ to: email, ...feedback, deliverAt: feedbackTime });
+    await logEmailSend(supabase, {
+      eventId,
+      profileId: rsvp.profile_id ?? null,
+      emailType: 'feedback',
+      messageId: feedbackId,
+      errorMessage: feedbackId ? undefined : 'Mailgun returned null message ID',
+    });
 
     await supabase
       .from('event_rsvps')
