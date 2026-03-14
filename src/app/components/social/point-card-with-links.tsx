@@ -5,8 +5,8 @@
  */
 
 import { useState, useMemo, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { getAnonPosition, setAnonPosition as setAnonPositionStorage } from '@/app/hooks/useAnonPosition';
+import { useEmbedNavigation } from '@/app/hooks/useEmbedNavigation';
 import { AnonPositionCTA } from '@/app/components/shared/anon-position-cta';
 import { Pin, ChevronDown, ChevronRight, ExternalLink } from 'lucide-react';
 import { EarBadge } from '@/components/ui/ear-badge';
@@ -22,8 +22,8 @@ import {
   type SevenPointCounts,
 } from '@/app/components/shared';
 import { LinkedText } from '@/app/components/shared/linked-text';
-import type { PositionType, PositionButtonGroup } from '@/app/types';
-import { getPositionGroup, getPositionCTACopy } from '@/app/utils/position-helpers';
+import type { PositionType } from '@/app/types';
+import { getPositionGroup, getPositionCTACopy, adjustPositionCounts } from '@/app/utils/position-helpers';
 import type { Point, Position, Story } from '@/app/components/shared/prototype-types';
 import { TagPills } from '@/app/components/shared/tag-pills';
 import { stripHashtags } from '@/lib/utils';
@@ -112,17 +112,7 @@ export function PointCardWithLinks({
   viewerStoryId,
   tags,
 }: PointCardWithLinksProps) {
-  const navigate = useNavigate();
-  const isEmbed = new URLSearchParams(window.location.search).get('embed') === 'true';
-
-  /** In embed mode, open links in a new tab instead of navigating in the iframe */
-  const embedNavigate = (path: string) => {
-    if (isEmbed) {
-      window.open(`${window.location.origin}${path}`, '_blank');
-    } else {
-      navigate(path);
-    }
-  };
+  const { isEmbed, embedNavigate } = useEmbedNavigation();
   // Embed: keep hashtags inline in text (no TagPills), saves vertical space
   // Also strip markdown links [text](url) → text and raw URLs for clean plain-text display
   const rawText = isEmbed ? point.text : stripHashtags(point.text, tags);
@@ -195,30 +185,10 @@ export function PointCardWithLinks({
     : null;
 
   // Compute adjusted counts based on user's current position vs initial
-  const counts = useMemo((): SevenPointCounts => {
-    const adjusted: SevenPointCounts = { ...baseCounts };
-
-    const getGroup = (pos: PositionType | null): PositionButtonGroup | null => {
-      if (!pos) return null;
-      return getPositionGroup(pos);
-    };
-
-    const initialGroup = getGroup(initialPosition as PositionType | null);
-    const currentGroup = getGroup(userPosition as PositionType | null);
-
-    if (initialGroup !== currentGroup) {
-      if (initialGroup === 'agree') adjusted.agree = Math.max(0, adjusted.agree - 1);
-      else if (initialGroup === 'disagree')
-        adjusted.disagree = Math.max(0, adjusted.disagree - 1);
-      else if (initialGroup === 'unsure') adjusted.unsure = Math.max(0, adjusted.unsure - 1);
-
-      if (currentGroup === 'agree') adjusted.agree++;
-      else if (currentGroup === 'disagree') adjusted.disagree++;
-      else if (currentGroup === 'unsure') adjusted.unsure++;
-    }
-
-    return adjusted;
-  }, [baseCounts, initialPosition, userPosition]);
+  const counts = useMemo(
+    () => adjustPositionCounts(baseCounts, initialPosition as PositionType | null, userPosition as PositionType | null),
+    [baseCounts, initialPosition, userPosition],
+  );
 
   // On profile pages, linkedStories are pre-filtered to the profile owner's stories
   // (filtered at data layer in profile-page-v2.tsx). In live session mode, all stories are passed.

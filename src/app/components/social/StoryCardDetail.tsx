@@ -24,7 +24,6 @@ import {
   MobileTooltip,
   ThreadLineGroup,
   ThreadLineItem,
-  type SevenPointCounts,
 } from '@/app/components/shared';
 import type { StoryWithAuthor, PointSummary, PositionType, PointPosition } from '@/app/types';
 import { TagPills } from '@/app/components/shared/tag-pills';
@@ -35,8 +34,7 @@ type LinkedStory = Pick<
   StoryWithAuthor,
   'id' | 'content' | 'authorId' | 'authorName' | 'authorSlug' | 'authorAvatarUrl' | 'authorEarsCount' | 'authorHasPledged'
 >;
-import type { PositionButtonGroup } from '@/app/types';
-import { getPositionGroup, getPositionCTACopy } from '@/app/utils/position-helpers';
+import { getPositionCTACopy, adjustPositionCounts } from '@/app/utils/position-helpers';
 
 /** Display context for StoryCard - controls what's shown */
 export type StoryCardContext = 'profile' | 'point-detail' | 'story-detail';
@@ -486,29 +484,10 @@ function QuotedPoint({
   }, [serverPosition, localPosition]);
 
   // Compute adjusted counts based on effective position vs server position
-  const counts = useMemo((): SevenPointCounts => {
-    const adjusted: SevenPointCounts = { ...baseCounts };
-
-    const getGroup = (pos: PositionType | null): PositionButtonGroup | null => {
-      if (!pos) return null;
-      return getPositionGroup(pos);
-    };
-
-    const serverGroup = getGroup(serverPosition);
-    const effectiveGroup = getGroup(effectivePosition);
-
-    if (serverGroup !== effectiveGroup) {
-      if (serverGroup === 'agree') adjusted.agree = Math.max(0, adjusted.agree - 1);
-      else if (serverGroup === 'disagree') adjusted.disagree = Math.max(0, adjusted.disagree - 1);
-      else if (serverGroup === 'unsure') adjusted.unsure = Math.max(0, adjusted.unsure - 1);
-
-      if (effectiveGroup === 'agree') adjusted.agree++;
-      else if (effectiveGroup === 'disagree') adjusted.disagree++;
-      else if (effectiveGroup === 'unsure') adjusted.unsure++;
-    }
-
-    return adjusted;
-  }, [baseCounts, serverPosition, effectivePosition]);
+  const counts = useMemo(
+    () => adjustPositionCounts(baseCounts, serverPosition, effectivePosition),
+    [baseCounts, serverPosition, effectivePosition],
+  );
 
   const handlePositionClick = async (position: PositionType) => {
     const newPosition = effectivePosition === position ? null : position;

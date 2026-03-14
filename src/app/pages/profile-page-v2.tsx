@@ -59,9 +59,9 @@ import { VisibilityBadge } from "@/app/components/shared/visibility-badge";
 import { LinkedText } from '@/app/components/shared/linked-text';
 import { TagPills } from '@/app/components/shared/tag-pills';
 import { stripHashtags } from '@/lib/utils';
-import type { PositionType, PositionButtonGroup, StoryVisibility } from "@/app/types";
+import type { PositionType, StoryVisibility } from "@/app/types";
 import type { Position } from "@/app/components/shared/prototype-types";
-import { getPositionGroup } from "@/app/utils/position-helpers";
+import { adjustPositionCounts, toSevenPointCounts } from "@/app/utils/position-helpers";
 import { formatTimeAgo } from "@/app/utils/format-time";
 // Profile owner context for card components
 interface ProfileOwner {
@@ -1290,39 +1290,18 @@ function QuotedPointCard({
     setUserPosition((point.userPosition as Position) ?? null);
   }, [point.userPosition]);
 
-  const baseCounts = useMemo((): SevenPointCounts => ({
-    strongly_agree: point.positionCounts?.strongly_agree ?? 0,
-    agree: point.positionCounts?.agree ?? 0,
-    somewhat_agree: point.positionCounts?.somewhat_agree ?? 0,
-    unsure: point.positionCounts?.unsure ?? 0,
-    somewhat_disagree: point.positionCounts?.somewhat_disagree ?? 0,
-    disagree: point.positionCounts?.disagree ?? 0,
-    strongly_disagree: point.positionCounts?.strongly_disagree ?? 0,
-  }), [point.positionCounts]);
+  const baseCounts = useMemo(
+    () => toSevenPointCounts(point.positionCounts),
+    [point.positionCounts],
+  );
 
   // DB counts already include the user's own position.
   // Only adjust optimistically when position changes from the server-known value.
   const initialPosition = (point.userPosition as PositionType | null) ?? null;
-  const counts = useMemo((): SevenPointCounts => {
-    const adjusted = { ...baseCounts };
-    const getGroup = (pos: PositionType | null): PositionButtonGroup | null => {
-      if (!pos) return null;
-      return getPositionGroup(pos);
-    };
-    const initialGroup = getGroup(initialPosition);
-    const currentGroup = getGroup(userPosition as PositionType | null);
-
-    if (initialGroup !== currentGroup) {
-      if (initialGroup === 'agree') adjusted.agree = Math.max(0, adjusted.agree - 1);
-      else if (initialGroup === 'disagree') adjusted.disagree = Math.max(0, adjusted.disagree - 1);
-      else if (initialGroup === 'unsure') adjusted.unsure = Math.max(0, adjusted.unsure - 1);
-
-      if (currentGroup === 'agree') adjusted.agree++;
-      else if (currentGroup === 'disagree') adjusted.disagree++;
-      else if (currentGroup === 'unsure') adjusted.unsure++;
-    }
-    return adjusted;
-  }, [baseCounts, initialPosition, userPosition]);
+  const counts = useMemo(
+    () => adjustPositionCounts(baseCounts, initialPosition, userPosition as PositionType | null),
+    [baseCounts, initialPosition, userPosition],
+  );
 
   const handlePositionClick = (position: Position) => {
     const newPosition = userPosition === position ? null : position;

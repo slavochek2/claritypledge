@@ -5,10 +5,10 @@
  */
 
 import { useState, useMemo, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { MessageCircle, ChevronDown, ChevronRight, ExternalLink, Pin } from 'lucide-react';
 import { LinkedText } from '@/app/components/shared/linked-text';
 import { EarBadge } from '@/components/ui/ear-badge';
+import { useEmbedNavigation } from '@/app/hooks/useEmbedNavigation';
 import { MobileTooltip } from '@/app/components/shared/mobile-tooltip';
 import { GravatarAvatar } from '@/components/ui/gravatar-avatar';
 import {
@@ -20,25 +20,18 @@ import {
   ThreadLineItem,
   type SevenPointCounts,
 } from '@/app/components/shared';
-import type { PositionType, PositionButtonGroup } from '@/app/types';
-import { getPositionGroup, getPositionCTACopy } from '@/app/utils/position-helpers';
+import type { PositionType } from '@/app/types';
+import { getPositionGroup, getPositionCTACopy, adjustPositionCounts } from '@/app/utils/position-helpers';
 import type { Story, Point } from '@/app/components/shared/prototype-types';
 import { TagPills } from '@/app/components/shared/tag-pills';
 import { stripHashtags } from '@/lib/utils';
+import type { StoryAuthor } from '@/app/components/social/point-card-with-links';
 
 /** Display context for StoryCard - controls what's shown */
 export type StoryCardContext = 'profile' | 'point-detail' | 'story-detail';
 
-/** Author information for a story */
-export interface StoryAuthor {
-  id: string;
-  name: string;
-  role?: string;
-  hasPledged?: boolean;
-  ear?: number; // Ear credibility count
-  avatarUrl?: string;
-  avatarColor?: string;
-}
+// Re-export for consumers that import StoryAuthor from here
+export type { StoryAuthor };
 
 interface StoryCardWithLinksProps {
   story: Story;
@@ -99,15 +92,7 @@ export function StoryCardWithLinks({
   viewerStoriesPerPoint,
   tags,
 }: StoryCardWithLinksProps) {
-  const navigate = useNavigate();
-  const isEmbed = new URLSearchParams(window.location.search).get('embed') === 'true';
-  const embedNavigate = (path: string) => {
-    if (isEmbed) {
-      window.open(`${window.location.origin}${path}`, '_blank');
-    } else {
-      navigate(path);
-    }
-  };
+  const { isEmbed, embedNavigate } = useEmbedNavigation();
   // In embed mode, never auto-expand points (iframe can't resize)
   const [pointsExpanded, setPointsExpanded] = useState(isDetailView && !isEmbed);
   const [textExpanded, setTextExpanded] = useState(false);
@@ -526,15 +511,7 @@ function QuotedPoint({
   currentUserId?: string;
   viewerStoryCount?: number;
 }) {
-  const navigate = useNavigate();
-  const isEmbed = new URLSearchParams(window.location.search).get('embed') === 'true';
-  const embedNavigate = (path: string) => {
-    if (isEmbed) {
-      window.open(`${window.location.origin}${path}`, '_blank');
-    } else {
-      navigate(path);
-    }
-  };
+  const { embedNavigate } = useEmbedNavigation();
   const [userPosition, setUserPosition] = useState<PositionType | null>(
     currentUserId ? point.positions[currentUserId]?.position || null : null
   );
@@ -560,38 +537,10 @@ function QuotedPoint({
     : null;
 
   // Compute adjusted counts based on user's current position vs initial
-  const counts = useMemo((): SevenPointCounts => {
-    const adjusted: SevenPointCounts = {
-      strongly_agree: 0,
-      agree: baseCounts.agree,
-      somewhat_agree: 0,
-      unsure: baseCounts.unsure,
-      somewhat_disagree: 0,
-      disagree: baseCounts.disagree,
-      strongly_disagree: 0,
-    };
-
-    const getGroup = (pos: PositionType | null): PositionButtonGroup | null => {
-      if (!pos) return null;
-      return getPositionGroup(pos);
-    };
-
-    const initialGroup = getGroup(initialPosition);
-    const currentGroup = getGroup(userPosition);
-
-    if (initialGroup !== currentGroup) {
-      if (initialGroup === 'agree') adjusted.agree = Math.max(0, adjusted.agree - 1);
-      else if (initialGroup === 'disagree')
-        adjusted.disagree = Math.max(0, adjusted.disagree - 1);
-      else if (initialGroup === 'unsure') adjusted.unsure = Math.max(0, adjusted.unsure - 1);
-
-      if (currentGroup === 'agree') adjusted.agree++;
-      else if (currentGroup === 'disagree') adjusted.disagree++;
-      else if (currentGroup === 'unsure') adjusted.unsure++;
-    }
-
-    return adjusted;
-  }, [baseCounts, initialPosition, userPosition]);
+  const counts = useMemo(
+    () => adjustPositionCounts(baseCounts, initialPosition, userPosition),
+    [baseCounts, initialPosition, userPosition],
+  );
 
   const handlePositionClick = (position: PositionType) => {
     const newPosition = userPosition === position ? null : position;

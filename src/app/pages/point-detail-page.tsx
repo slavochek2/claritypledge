@@ -13,8 +13,8 @@ import { Pin } from 'lucide-react';
 import { useAuth } from '@/auth';
 import { pointsService } from '@/app/data/points-service';
 import { storiesService } from '@/app/data/stories-service';
-import type { PointWithCounts, PointWithUserPosition, PointPositionWithUser, PositionType, PositionButtonGroup, StoryWithAuthor, Story as AppStory } from '@/app/types';
-import { getPositionGroup } from '@/app/utils/position-helpers';
+import type { PointWithCounts, PointWithUserPosition, PointPositionWithUser, PositionType, StoryWithAuthor, Story as AppStory } from '@/app/types';
+import { toSevenPointCounts } from '@/app/utils/position-helpers';
 import { GravatarAvatar } from '@/components/ui/gravatar-avatar';
 import { FocusHeader } from '@/app/components/layout/focus-header';
 import {
@@ -23,7 +23,6 @@ import {
   FilterTabs,
   ShareButton,
   type PositionFilter,
-  type SevenPointCounts,
 } from '@/app/components/shared';
 import { RemovePositionDialog, useRemovePositionGuard } from '@/app/components/shared/remove-position-dialog';
 import { EarBadge } from '@/components/ui/ear-badge';
@@ -36,18 +35,6 @@ import { stripHashtags } from '@/lib/utils';
 import { getAnonPosition, setAnonPosition as setAnonPositionStorage } from '@/app/hooks/useAnonPosition';
 import { AnonPositionCTA } from '@/app/components/shared/anon-position-cta';
 
-/** Normalize positionCounts to SevenPointCounts (ensure all keys present) */
-function toSevenPointCounts(counts: Record<string, number>): SevenPointCounts {
-  return {
-    strongly_agree: counts.strongly_agree ?? 0,
-    agree: counts.agree ?? 0,
-    somewhat_agree: counts.somewhat_agree ?? 0,
-    unsure: counts.unsure ?? 0,
-    somewhat_disagree: counts.somewhat_disagree ?? 0,
-    disagree: counts.disagree ?? 0,
-    strongly_disagree: counts.strongly_disagree ?? 0,
-  };
-}
 
 export function PointDetailPage() {
   const { id } = useParams<{ id: string }>();

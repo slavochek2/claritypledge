@@ -15,10 +15,9 @@ import { stripHashtags } from '@/lib/utils';
 import { TagPills } from '@/app/components/shared/tag-pills';
 import {
   PositionButtons,
-  type SevenPointCounts,
 } from '@/app/components/shared';
-import { getPositionGroup } from '@/app/utils/position-helpers';
-import type { PointWithUserPosition, PositionType, PositionButtonGroup } from '@/app/types';
+import { adjustPositionCounts } from '@/app/utils/position-helpers';
+import type { PointWithUserPosition, PositionType } from '@/app/types';
 import { pointsService } from '@/app/data/points-service';
 import { useAuth } from '@/auth';
 import { RemovePositionDialog, useRemovePositionGuard } from '@/app/components/shared/remove-position-dialog';
@@ -83,24 +82,10 @@ export function FeedPointCard({ point, activeTag, onPositionChange }: FeedPointC
   // P502: Count adjustment uses authedEffective (localPosition ?? serverPosition) —
   // never anonPosition — so anonymous clicks don't inflate aggregates.
   const authedEffective = localPosition ?? serverPosition;
-  const counts = useMemo((): SevenPointCounts => {
-    const adjusted: SevenPointCounts = { ...baseCounts };
-    const getGroup = (pos: PositionType | null): PositionButtonGroup | null => {
-      if (!pos) return null;
-      return getPositionGroup(pos);
-    };
-    const serverGroup = getGroup(serverPosition);
-    const effectiveGroup = getGroup(authedEffective);
-    if (serverGroup !== effectiveGroup) {
-      if (serverGroup === 'agree') adjusted.agree = Math.max(0, adjusted.agree - 1);
-      else if (serverGroup === 'disagree') adjusted.disagree = Math.max(0, adjusted.disagree - 1);
-      else if (serverGroup === 'unsure') adjusted.unsure = Math.max(0, adjusted.unsure - 1);
-      if (effectiveGroup === 'agree') adjusted.agree++;
-      else if (effectiveGroup === 'disagree') adjusted.disagree++;
-      else if (effectiveGroup === 'unsure') adjusted.unsure++;
-    }
-    return adjusted;
-  }, [baseCounts, serverPosition, authedEffective]);
+  const counts = useMemo(
+    () => adjustPositionCounts(baseCounts, serverPosition, authedEffective),
+    [baseCounts, serverPosition, authedEffective],
+  );
 
   const handlePositionClick = async (position: PositionType) => {
     // P502: Anonymous user → optimistic local position, no redirect

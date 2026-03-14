@@ -7,6 +7,7 @@
  */
 
 import type { PositionType, PositionButtonGroup } from '@/app/types';
+import type { SevenPointCounts } from '@/app/components/shared/PositionButton';
 
 export interface PositionCTACopy {
   symbol: string;
@@ -43,6 +44,46 @@ export function getPositionCTACopy(group: PositionButtonGroup): PositionCTACopy 
     ctaText: 'Add your story \u2192',
     ariaLabel: 'Add your story for this point',
   };
+}
+
+/** Default zero-valued SevenPointCounts */
+export const ZERO_COUNTS: SevenPointCounts = {
+  strongly_agree: 0, agree: 0, somewhat_agree: 0,
+  unsure: 0,
+  somewhat_disagree: 0, disagree: 0, strongly_disagree: 0,
+};
+
+/** Normalize a partial Record to a full SevenPointCounts (missing keys → 0) */
+export function toSevenPointCounts(counts?: Record<string, number>): SevenPointCounts {
+  if (!counts) return { ...ZERO_COUNTS };
+  return { ...ZERO_COUNTS, ...counts } as SevenPointCounts;
+}
+
+/**
+ * Optimistic position count adjustment.
+ * When a user changes position locally (before server confirms),
+ * adjust the displayed counts: decrement old group, increment new group.
+ */
+export function adjustPositionCounts(
+  baseCounts: SevenPointCounts,
+  serverPosition: PositionType | null,
+  effectivePosition: PositionType | null,
+): SevenPointCounts {
+  const adjusted: SevenPointCounts = { ...baseCounts };
+  const serverGroup = serverPosition ? getPositionGroup(serverPosition) : null;
+  const effectiveGroup = effectivePosition ? getPositionGroup(effectivePosition) : null;
+
+  if (serverGroup !== effectiveGroup) {
+    if (serverGroup === 'agree') adjusted.agree = Math.max(0, adjusted.agree - 1);
+    else if (serverGroup === 'disagree') adjusted.disagree = Math.max(0, adjusted.disagree - 1);
+    else if (serverGroup === 'unsure') adjusted.unsure = Math.max(0, adjusted.unsure - 1);
+
+    if (effectiveGroup === 'agree') adjusted.agree++;
+    else if (effectiveGroup === 'disagree') adjusted.disagree++;
+    else if (effectiveGroup === 'unsure') adjusted.unsure++;
+  }
+
+  return adjusted;
 }
 
 /**

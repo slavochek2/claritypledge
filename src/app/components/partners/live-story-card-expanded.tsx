@@ -3,7 +3,8 @@
 import { useState, useEffect } from 'react';
 import { ChevronDown, ChevronRight, Pin, Ear } from 'lucide-react';
 import type { StoryWithPoints, PointSummary, PositionType } from '@/app/types';
-import { getPositionGroup, getPositionCTACopy, shouldShowStoryCTA } from '@/app/utils/position-helpers';
+import { getPositionGroup, getPositionCTACopy, shouldShowStoryCTA, toSevenPointCounts } from '@/app/utils/position-helpers';
+import { formatTimeAgo } from '@/app/utils/format-time';
 import { GravatarAvatar } from '@/components/ui/gravatar-avatar';
 import { VisibilityBadge } from '@/app/components/shared/visibility-badge';
 import {
@@ -11,40 +12,10 @@ import {
   PositionBadge,
   ThreadLineGroup,
   ThreadLineItem,
-  type SevenPointCounts,
 } from '@/app/components/shared';
 import { LinkedText } from '@/app/components/shared/linked-text';
 import { TagPills } from '@/app/components/shared/tag-pills';
 import { stripHashtags } from '@/lib/utils';
-
-function formatTimeAgo(dateStr: string): string {
-  const date = new Date(dateStr);
-  const now = new Date();
-  const diffMs = now.getTime() - date.getTime();
-  const diffMins = Math.floor(diffMs / 60000);
-  const diffHours = Math.floor(diffMs / 3600000);
-  const diffDays = Math.floor(diffMs / 86400000);
-  if (diffMins < 1) return 'Just now';
-  if (diffMins < 60) return `${diffMins}m`;
-  if (diffHours < 24) return `${diffHours}h`;
-  if (diffDays < 7) return `${diffDays}d`;
-  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-}
-
-const ZERO_COUNTS: SevenPointCounts = {
-  strongly_agree: 0,
-  agree: 0,
-  somewhat_agree: 0,
-  unsure: 0,
-  somewhat_disagree: 0,
-  disagree: 0,
-  strongly_disagree: 0,
-};
-
-function toSevenPointCounts(positionCounts?: Record<string, number>): SevenPointCounts {
-  if (!positionCounts) return ZERO_COUNTS;
-  return { ...ZERO_COUNTS, ...positionCounts } as SevenPointCounts;
-}
 
 interface LiveStoryCardExpandedProps {
   story: StoryWithPoints;
