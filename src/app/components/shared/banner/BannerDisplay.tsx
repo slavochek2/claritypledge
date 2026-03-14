@@ -5,6 +5,12 @@ interface BannerDisplayProps {
   fallbackColor?: string;
   altText: string;
   className?: string;
+  /** Override the default h-48 md:h-64 height classes */
+  heightClassName?: string;
+  /** Tailwind gradient classes for fallback (replaces inline style when provided) */
+  fallbackClassName?: string;
+  /** Accessibility: set true during banner generation */
+  'aria-busy'?: boolean;
   children?: ReactNode;
 }
 
@@ -17,19 +23,33 @@ export function BannerDisplay({
   fallbackColor = '#bfdbfe', // blue-100
   altText,
   className,
+  heightClassName,
+  fallbackClassName,
+  'aria-busy': ariaBusy,
   children,
 }: BannerDisplayProps) {
   const [imgError, setImgError] = useState(false);
   const showImage = !!bannerUrl && !imgError;
+  const heightClass = heightClassName ?? 'h-48 md:h-64';
 
   return (
-    <div className={`w-full h-48 md:h-64 relative overflow-hidden ${className ?? ''}`}>
+    <div
+      className={`w-full ${heightClass} relative overflow-hidden ${className ?? ''}`}
+      aria-busy={ariaBusy}
+      aria-live="polite"
+    >
       {showImage ? (
         <img
           src={bannerUrl}
           alt={altText}
           className="w-full h-full object-cover rounded-t-xl"
           onError={() => setImgError(true)}
+        />
+      ) : fallbackClassName ? (
+        <div
+          className={`w-full h-full rounded-t-xl ${fallbackClassName}`}
+          role="img"
+          aria-label="Decorative profile banner"
         />
       ) : (
         <div

@@ -61,8 +61,8 @@ export function useBanner({
         await onSave(newUrl);
         setShowSearch(false);
       } else {
-        // For stories/profiles, show search fallback; for points, do nothing
-        if (entityType === 'story' || entityType === 'profile' || entityType === 'event') {
+        // For stories/events, show search fallback; for profiles, do nothing (P510: controls are behind dropdown)
+        if (entityType === 'story' || entityType === 'event') {
           setShowSearch(true);
         }
       }

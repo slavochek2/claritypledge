@@ -1,5 +1,12 @@
-import { useState, useCallback } from 'react';
-import { RefreshCw, X } from 'lucide-react';
+import { useState, useCallback, useRef, useEffect } from 'react';
+import { Pencil, RefreshCw, Trash2, Search } from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+} from '@/components/ui/dropdown-menu';
 
 interface BannerControlsProps {
   onRegenerate: () => void;
@@ -10,11 +17,15 @@ interface BannerControlsProps {
   onSearch: (keywords: string) => void;
   searchError?: string;
   defaultKeywords?: string;
+  /** P510: Use minimal pencil icon + dropdown instead of always-visible pills */
+  variant?: 'pills' | 'minimal';
 }
 
 /**
  * Owner controls overlay for banner regeneration/removal/search.
- * Position: absolute bottom-right, renders inside BannerDisplay children slot.
+ *
+ * variant="pills" (default): legacy always-visible pill buttons (stories, points, events)
+ * variant="minimal" (P510): pencil icon → DropdownMenu (profiles)
  */
 export function BannerControls({
   onRegenerate,
@@ -25,7 +36,59 @@ export function BannerControls({
   onSearch,
   searchError,
   defaultKeywords,
+  variant = 'pills',
 }: BannerControlsProps) {
+  if (variant === 'minimal') {
+    return (
+      <MinimalBannerControls
+        onRegenerate={onRegenerate}
+        onRemove={onRemove}
+        isLoading={isLoading}
+        hasBanner={hasBanner}
+        onSearch={onSearch}
+        searchError={searchError}
+        defaultKeywords={defaultKeywords}
+      />
+    );
+  }
+
+  return (
+    <PillBannerControls
+      onRegenerate={onRegenerate}
+      onRemove={onRemove}
+      isLoading={isLoading}
+      hasBanner={hasBanner}
+      showSearch={showSearch}
+      onSearch={onSearch}
+      searchError={searchError}
+      defaultKeywords={defaultKeywords}
+    />
+  );
+}
+
+// ── Legacy pill controls (stories, points, events) ──────────────────────────
+
+interface PillControlsProps {
+  onRegenerate: () => void;
+  onRemove: () => void;
+  isLoading: boolean;
+  hasBanner: boolean;
+  showSearch: boolean;
+  onSearch: (keywords: string) => void;
+  searchError?: string;
+  defaultKeywords?: string;
+}
+
+function PillBannerControls({
+  onRegenerate,
+  onRemove,
+  isLoading,
+  hasBanner,
+  showSearch,
+  onSearch,
+  searchError,
+  defaultKeywords,
+}: PillControlsProps) {
   const [keywords, setKeywords] = useState('');
 
   const handleKeyDown = useCallback(
@@ -63,7 +126,7 @@ export function BannerControls({
             className={pillClass}
             aria-label="Remove banner image"
           >
-            <X className="w-3 h-3" />
+            <Trash2 className="w-3 h-3" />
             Remove banner
           </button>
         )}
@@ -94,6 +157,153 @@ export function BannerControls({
             <p
               role="alert"
               className="text-xs text-white bg-black/50 backdrop-blur-sm rounded px-2 py-0.5"
+            >
+              {searchError}
+            </p>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Minimal pencil icon + dropdown (P510: profiles) ─────────────────────────
+
+interface MinimalControlsProps {
+  onRegenerate: () => void;
+  onRemove: () => void;
+  isLoading: boolean;
+  hasBanner: boolean;
+  onSearch: (keywords: string) => void;
+  searchError?: string;
+  defaultKeywords?: string;
+}
+
+function MinimalBannerControls({
+  onRegenerate,
+  onRemove,
+  isLoading,
+  hasBanner,
+  onSearch,
+  searchError,
+  defaultKeywords,
+}: MinimalControlsProps) {
+  const [showSearchInput, setShowSearchInput] = useState(false);
+  const [keywords, setKeywords] = useState('');
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  const pencilRef = useRef<HTMLButtonElement>(null);
+
+  // Auto-focus search input when it appears
+  useEffect(() => {
+    if (showSearchInput && searchInputRef.current) {
+      searchInputRef.current.focus();
+    }
+  }, [showSearchInput]);
+
+  const handleSearchKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLInputElement>) => {
+      if (e.key === 'Enter' && keywords.trim()) {
+        onSearch(keywords);
+      }
+      if (e.key === 'Escape') {
+        setShowSearchInput(false);
+        setKeywords('');
+        // Return focus to pencil icon
+        pencilRef.current?.focus();
+      }
+    },
+    [keywords, onSearch],
+  );
+
+  const handleDescribeClick = useCallback(() => {
+    setShowSearchInput(true);
+  }, []);
+
+  const handleNewBanner = useCallback(() => {
+    onRegenerate();
+  }, [onRegenerate]);
+
+  const handleRemove = useCallback(() => {
+    onRemove();
+  }, [onRemove]);
+
+  const pillClass =
+    'rounded-full bg-black/40 backdrop-blur-sm text-white hover:bg-black/60 transition-colors';
+
+  return (
+    <div className="absolute top-2 right-2 md:top-3 md:right-3 flex flex-col items-end gap-1 z-10">
+      {isLoading ? (
+        /* Loading state: spinning RefreshCw replaces pencil */
+        <div
+          className={`p-2 ${pillClass} cursor-default`}
+          aria-label="Generating banner"
+        >
+          <RefreshCw className="w-4 h-4 animate-spin" />
+        </div>
+      ) : (
+        /* Pencil icon with dropdown */
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button
+              ref={pencilRef}
+              className={`p-2 ${pillClass}`}
+              aria-label="Banner options"
+            >
+              <Pencil className="w-4 h-4" />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-48">
+            <DropdownMenuItem onClick={handleNewBanner}>
+              <RefreshCw className="w-4 h-4 mr-2" />
+              New banner
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={handleDescribeClick}>
+              <Search className="w-4 h-4 mr-2" />
+              Describe your banner...
+            </DropdownMenuItem>
+            {hasBanner && (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={handleRemove}>
+                  <Trash2 className="w-4 h-4 mr-2" />
+                  Remove banner
+                </DropdownMenuItem>
+              </>
+            )}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      )}
+
+      {/* Search input — shown only after clicking "Describe your banner..." */}
+      {showSearchInput && !isLoading && (
+        <div className="flex flex-col items-end gap-1">
+          <div className="flex gap-1">
+            <input
+              ref={searchInputRef}
+              type="text"
+              aria-label="Describe your banner"
+              placeholder={defaultKeywords || 'Describe your banner'}
+              value={keywords}
+              onChange={(e) => setKeywords(e.target.value)}
+              onKeyDown={handleSearchKeyDown}
+              disabled={isLoading}
+              className="bg-black/50 backdrop-blur-sm text-white placeholder-white/60 rounded-full px-3 py-1.5 text-xs outline-none focus:ring-1 focus:ring-white/50 disabled:opacity-50 w-[180px] md:w-[200px]"
+            />
+            <button
+              onClick={() => {
+                if (keywords.trim()) onSearch(keywords);
+              }}
+              disabled={isLoading || !keywords.trim()}
+              className={`p-2 ${pillClass} disabled:opacity-50`}
+              aria-label="Generate banner from description"
+            >
+              <Search className="w-4 h-4" />
+            </button>
+          </div>
+          {searchError && (
+            <p
+              role="alert"
+              className="text-xs text-white bg-red-500/70 rounded px-2 py-0.5"
             >
               {searchError}
             </p>

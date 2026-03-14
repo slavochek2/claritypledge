@@ -756,16 +756,23 @@ export function ProfilePageV2() {
             Back
           </button>
 
-          {/* Profile header card - LinkedIn-style with banner + avatar overlap */}
+          {/* P510: Profile header card — banner + avatar overlap + name beside avatar */}
           <div className="bg-card rounded-lg border border-border shadow-sm overflow-hidden">
-            {/* P504: Banner image */}
+            {/* P510: Banner with visible gradient fallback, custom height */}
             <BannerDisplay
               bannerUrl={banner.bannerUrl}
-              fallbackColor={profile.avatarColor}
               altText={`${profile.name}'s profile banner`}
+              heightClassName="h-[120px] md:h-[160px]"
+              fallbackClassName="bg-gradient-to-r from-blue-500/20 via-indigo-400/15 to-purple-500/20"
+              aria-busy={banner.isLoading || undefined}
             >
+              {/* P510: Loading shimmer overlay during generation */}
+              {banner.isLoading && (
+                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent animate-pulse rounded-t-xl" />
+              )}
               {isOwner && (
                 <BannerControls
+                  variant="minimal"
                   onRegenerate={banner.handleRegenerate}
                   onRemove={banner.handleRemove}
                   isLoading={banner.isLoading}
@@ -777,20 +784,71 @@ export function ProfilePageV2() {
               )}
             </BannerDisplay>
 
-            {/* Avatar + info section with overlap */}
-            <div className="px-6 pb-6">
-              {/* Top row: Avatar (overlapping banner) + Share button */}
+            {/* P510: Avatar + name/role overlap row + details below */}
+            <div className="px-4 md:px-6 pb-6">
+              {/* Overlap row: avatar + name beside it + share button */}
               <div className="flex items-end justify-between">
-                {/* Avatar - overlapping banner edge */}
-                <div className="flex-shrink-0 mt-[-32px] relative z-10">
-                  <div className="ring-4 ring-white dark:ring-card rounded-full">
+                <div className="flex items-center gap-4 mt-[-48px] relative z-10">
+                  {/* Avatar - 96px, overlapping banner by 48px */}
+                  <div className="flex-shrink-0 ring-4 ring-white dark:ring-card rounded-full" data-testid="profile-avatar">
                     <GravatarAvatar
                       name={profile.name}
                       photoUrl={profile.avatarUrl ?? undefined}
                       avatarColor={profile.avatarColor}
-                      size="lg"
+                      size="xl"
                       isPledger={profile.hasPledged}
                     />
+                  </div>
+                  {/* Name + ear count + role beside avatar */}
+                  <div className="min-w-0 pt-[48px]">
+                    <div className="flex items-center gap-2">
+                      <h2 className="text-xl font-bold text-foreground truncate">{profile.name}</h2>
+                      <TooltipProvider delayDuration={100}>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <span className="inline-flex items-center gap-0.5 text-sm text-muted-foreground cursor-default flex-shrink-0">
+                              <Ear size={14} />
+                              {credibilityStats.ear}
+                            </span>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p>
+                              {credibilityStats.ear === 0
+                                ? (isOwner ? 'Stories you fully understood, as confirmed by their owners' : `Stories ${profile.name.split(' ')[0]} fully understood, as confirmed by their owners`)
+                                : (isOwner
+                                  ? `You understood ${credibilityStats.ear} ${credibilityStats.ear === 1 ? 'story' : 'stories'} as confirmed by their owners`
+                                  : `${profile.name.split(' ')[0]} understood ${credibilityStats.ear} ${credibilityStats.ear === 1 ? 'story' : 'stories'} as confirmed by their owners`)
+                              }
+                            </p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    </div>
+                    {(profile.role || profile.linkedinUrl) && (
+                      <div className="flex items-center gap-1.5">
+                        {profile.role && (
+                          <p className="text-sm text-muted-foreground truncate">{profile.role}</p>
+                        )}
+                        {profile.linkedinUrl && (
+                          <TooltipProvider delayDuration={300}>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <a
+                                  href={profile.linkedinUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  aria-label={`${profile.name}'s LinkedIn profile`}
+                                  className="flex-shrink-0 text-[#0A66C2] opacity-60 hover:opacity-100 transition-opacity"
+                                >
+                                  <LinkedInBrandIcon size={14} />
+                                </a>
+                              </TooltipTrigger>
+                              <TooltipContent>Open LinkedIn profile</TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -808,56 +866,8 @@ export function ProfilePageV2() {
                 )}
               </div>
 
-              {/* Name and Role */}
-              <div className="flex-1 min-w-0 mt-2">
-                <div className="flex items-center gap-2">
-                  <h2 className="text-xl font-bold text-foreground truncate">{profile.name}</h2>
-                  <TooltipProvider delayDuration={100}>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <span className="inline-flex items-center gap-0.5 text-sm text-muted-foreground cursor-default">
-                          <Ear size={14} />
-                          {credibilityStats.ear}
-                        </span>
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        <p>
-                          {credibilityStats.ear === 0
-                            ? (isOwner ? 'Stories you fully understood, as confirmed by their owners' : `Stories ${profile.name.split(' ')[0]} fully understood, as confirmed by their owners`)
-                            : (isOwner
-                              ? `You understood ${credibilityStats.ear} ${credibilityStats.ear === 1 ? 'story' : 'stories'} as confirmed by their owners`
-                              : `${profile.name.split(' ')[0]} understood ${credibilityStats.ear} ${credibilityStats.ear === 1 ? 'story' : 'stories'} as confirmed by their owners`)
-                          }
-                        </p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                </div>
-                {(profile.role || profile.linkedinUrl) && (
-                  <div className="flex items-center gap-1.5">
-                    {profile.role && (
-                      <p className="text-sm text-muted-foreground truncate">{profile.role}</p>
-                    )}
-                    {profile.linkedinUrl && (
-                      <TooltipProvider delayDuration={300}>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <a
-                              href={profile.linkedinUrl}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              aria-label={`${profile.name}'s LinkedIn profile`}
-                              className="flex-shrink-0 text-[#0A66C2] opacity-60 hover:opacity-100 transition-opacity"
-                            >
-                              <LinkedInBrandIcon size={14} />
-                            </a>
-                          </TooltipTrigger>
-                          <TooltipContent>Open LinkedIn profile</TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
-                    )}
-                  </div>
-                )}
+              {/* Details below avatar/name row - full width */}
+              <div className="mt-2">
                 {profile.hasPledged ? (
                   <Link
                     to={`/p/${profile.slug}/pledge`}
@@ -886,7 +896,7 @@ export function ProfilePageV2() {
                     slug={profile.slug}
                   />
                 )}
-                {/* Calibration bar - inside text column for natural alignment */}
+                {/* Calibration bar */}
                 <InlineCalibration calibration={calibration} />
                 {profile.bio && (
                   <p data-testid="profile-bio" className="text-sm text-muted-foreground mt-2 break-words">
