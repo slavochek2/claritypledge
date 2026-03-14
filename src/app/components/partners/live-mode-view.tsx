@@ -985,11 +985,12 @@ function IdleScreen({
     onStartProve();
   };
 
-  // Reset inner scroll container to top on mount so /live doesn't load scrolled down
+  // Reset inner scroll container to top on mount and after each round completes (P513)
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const roundCount = (liveState.sessionHistory ?? []).length;
   useLayoutEffect(() => {
     scrollContainerRef.current?.scrollTo(0, 0);
-  }, []);
+  }, [roundCount]);
 
   // P128: Wrap story/point selection to mark interaction
   const handleSelectStoryWithTracking = (storyId: string, title: string) => {
