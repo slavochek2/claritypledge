@@ -26,6 +26,7 @@ import {
   uploadAudioChunk,
   uploadEventsSnapshot,
   MAX_NAME_LENGTH,
+  SESSION_GRACE_PERIOD_SECONDS,
   type ClaritySession,
   recordTermsAcceptance,
   recordSessionConsent,
@@ -46,6 +47,7 @@ import { eventsService } from '@/app/data/events-service';
 import { calibrationService } from '@/app/data/calibration-service';
 import { supabase } from '@/lib/supabase';
 import { LiveModeView, PartnerLeftScreen } from '@/app/components/partners/live-mode-view';
+import { ReconnectingCountdown } from '@/app/components/session/reconnecting-countdown';
 import { useAudioRecorder } from '@/hooks/use-audio-recorder';
 import { useMicrophonePermission } from '@/hooks/useMicrophonePermission';
 import { MicrophonePermissionDialog } from '@/app/components/live-meeting/microphone-permission-dialog';
@@ -255,6 +257,9 @@ export function ClarityLivePage() {
   const [partnerLeft, setPartnerLeft] = useState(false); // Joiner left (creator sees this)
   const [sessionEnded, setSessionEnded] = useState(false); // Creator left (joiner sees this)
 
+  // P511 Task 6: Grace period state — when set, shows ReconnectingCountdown instead of instant PartnerLeftScreen
+  const [gracePeriodStart, setGracePeriodStart] = useState<Date | null>(null);
+
   // Sync live state to context so BottomNav can intercept nav during live sessions
   // Not live if: still on start screen, or session has ended (partner left / creator left)
   useEffect(() => {
@@ -389,6 +394,8 @@ export function ClarityLivePage() {
   // Refs to track partner departure (for polling to check without stale closure)
   const partnerLeftRef = useRef(false);
   const sessionEndedRef = useRef(false);
+  // P511 Task 6: Grace period ref (mirrors gracePeriodStart state for use in callbacks)
+  const gracePeriodStartRef = useRef<Date | null>(null);
   // Ref to track if I am leaving (prevents detecting my own departure as partner leaving)
   const iAmLeavingRef = useRef(false);
   // P272: Guard against duplicate story verification inserts on re-renders
@@ -731,11 +738,12 @@ export function ClarityLivePage() {
         return;
       }
 
-      // Check for session end (creator left) - handle via subscription for immediate response
+      // Check for session end (creator clicked "End Session") — immediate, no grace period
       const sessionEndedInLiveState = (updatedSession.liveState as Record<string, unknown>)?.sessionEnded;
       if (sessionEndedInLiveState) {
         // Update ref immediately to prevent any subsequent updates from processing
         sessionEndedRef.current = true;
+        setGracePeriodStart(null); // Cancel any active grace period
         setDepartedPartnerName(updatedSession.creatorName);
         setSessionEnded(true);
         analytics.track('live_session_partner_left', {
@@ -747,20 +755,30 @@ export function ClarityLivePage() {
         return; // Don't process further updates after session ends
       }
 
+      // P511 Task 6: Check if partner returned during grace period
+      if (updatedSession.joinerName && gracePeriodStartRef.current) {
+        gracePeriodStartRef.current = null;
+        setGracePeriodStart(null);
+        markJoinerDetected(updatedSession.joinerName);
+        analytics.track('live_session_partner_returned', {
+          session_code: updatedSession.code,
+        });
+      }
+
       // Check for joiner departure (I'm creator, joiner left)
-      if (!updatedSession.joinerName && hasJoinerRef.current && !partnerLeftRef.current) {
-        // Update ref immediately to prevent any subsequent updates from processing
-        partnerLeftRef.current = true;
+      // P511 Task 6: Enter grace period instead of immediate departure
+      if (!updatedSession.joinerName && hasJoinerRef.current && !partnerLeftRef.current && !gracePeriodStartRef.current) {
+        const now = new Date();
+        gracePeriodStartRef.current = now;
+        setGracePeriodStart(now);
         setDepartedPartnerName(lastJoinerNameRef.current);
-        setPartnerLeft(true);
         hasJoinerRef.current = false;
-        analytics.track('live_session_partner_left', {
+        analytics.track('live_session_grace_period_started', {
           session_code: updatedSession.code,
           left_by: 'joiner',
-          exit_reason: 'partner_departure',
           checks_completed_so_far: confirmedLiveStateRef.current.checksCount,
         });
-        return; // Don't process further updates after partner leaves
+        // Don't return — continue processing updates during grace period
       }
 
       setSession(updatedSession);
@@ -835,12 +853,14 @@ export function ClarityLivePage() {
         }
 
         // Check 1.5: Detect partner departure
-        // Case A: Session ended (creator left) - joiner sees this
+        // Case A: Session ended (creator clicked "End Session") — immediate, no grace period
         // Check live_state.sessionEnded since ended_at column doesn't exist
         const sessionEndedInLiveState = (freshSession.liveState as Record<string, unknown>)?.sessionEnded;
         if (sessionEndedInLiveState) {
           // Update ref immediately to prevent any subsequent updates from processing
           sessionEndedRef.current = true;
+          gracePeriodStartRef.current = null;
+          setGracePeriodStart(null);
           // Store the partner's name before we clear session
           setDepartedPartnerName(freshSession.creatorName);
           setSessionEnded(true);
@@ -853,21 +873,32 @@ export function ClarityLivePage() {
           return;
         }
 
-        // Case B: Joiner left (creator sees this) - joiner_name went from set to null
-        if (!freshSession.joinerName && hasJoinerRef.current) {
-          // Update ref immediately to prevent any subsequent updates from processing
-          partnerLeftRef.current = true;
-          // Use the ref which stored the joiner name before it was cleared
-          setDepartedPartnerName(lastJoinerNameRef.current);
-          setPartnerLeft(true);
-          hasJoinerRef.current = false;
-          analytics.track('live_session_partner_left', {
+        // P511 Task 6: Check if partner returned during grace period
+        if (freshSession.joinerName && gracePeriodStartRef.current) {
+          gracePeriodStartRef.current = null;
+          setGracePeriodStart(null);
+          markJoinerDetected(freshSession.joinerName);
+          setSession(freshSession);
+          analytics.track('live_session_partner_returned', {
             session_code: freshSession.code,
-            left_by: 'joiner',
-            exit_reason: 'partner_departure',
-            checks_completed_so_far: confirmedLiveStateRef.current.checksCount,
           });
           return;
+        }
+
+        // Case B: Joiner left (creator sees this) - joiner_name went from set to null
+        // P511 Task 6: Enter grace period instead of immediate departure
+        if (!freshSession.joinerName && hasJoinerRef.current && !gracePeriodStartRef.current) {
+          const now = new Date();
+          gracePeriodStartRef.current = now;
+          setGracePeriodStart(now);
+          setDepartedPartnerName(lastJoinerNameRef.current);
+          hasJoinerRef.current = false;
+          analytics.track('live_session_grace_period_started', {
+            session_code: freshSession.code,
+            left_by: 'joiner',
+            checks_completed_so_far: confirmedLiveStateRef.current.checksCount,
+          });
+          // Don't return — continue processing updates during grace period
         }
 
         // Check 2: Detect liveState drift (fixes lost signal bug)
@@ -1904,6 +1935,7 @@ export function ClarityLivePage() {
       sessionEndedRef.current = false;
       hasJoinerRef.current = false;
       lastJoinerNameRef.current = null;
+      gracePeriodStartRef.current = null;
       pendingJoinRef.current = null;
 
       setSession(joinedSession);
@@ -1975,6 +2007,7 @@ export function ClarityLivePage() {
       sessionEndedRef.current = false;
       hasJoinerRef.current = false;
       lastJoinerNameRef.current = null;
+      gracePeriodStartRef.current = null;
 
       setSession(newSession);
       setIsCreator(true);
@@ -2098,6 +2131,7 @@ export function ClarityLivePage() {
           sessionEndedRef.current = false;
           hasJoinerRef.current = false;
           lastJoinerNameRef.current = null;
+          gracePeriodStartRef.current = null;
           setSession(sessionInfo);
           setName(creatorName);
           setIsCreator(true);
@@ -2140,6 +2174,7 @@ export function ClarityLivePage() {
     sessionEndedRef.current = false;
     hasJoinerRef.current = false;
     lastJoinerNameRef.current = null;
+    gracePeriodStartRef.current = null;
   };
 
   // P28.1: Stop recording and upload final chunk + events
@@ -2283,6 +2318,8 @@ export function ClarityLivePage() {
     sessionEndedRef.current = false;
     hasJoinerRef.current = false;
     lastJoinerNameRef.current = null;
+    gracePeriodStartRef.current = null;
+    setGracePeriodStart(null);
     navigate(returnTo ?? '/live', { replace: true });
   }, [session, liveState.checksCount, isCreator, isFromEvent, returnTo, navigate, stopAndUploadRecording, clearActiveSession, isExiting]);
 
@@ -2319,6 +2356,8 @@ export function ClarityLivePage() {
     sessionEndedRef.current = false;
     hasJoinerRef.current = false;
     lastJoinerNameRef.current = null;
+    gracePeriodStartRef.current = null;
+    setGracePeriodStart(null);
     navigate(returnTo ?? '/live', { replace: true });
   }, [session, isFromEvent, returnTo, navigate, stopAndUploadRecording, clearActiveSession]);
 
@@ -2344,6 +2383,7 @@ export function ClarityLivePage() {
           sessionEndedRef.current = false;
           hasJoinerRef.current = false;
           lastJoinerNameRef.current = null;
+          gracePeriodStartRef.current = null;
 
           setSession(joinedSession);
           setIsCreator(false);
@@ -2423,6 +2463,24 @@ export function ClarityLivePage() {
     }
   }, [pendingLiveTransition, gateMicAndGoLive]);
 
+  // P511 Task 6: Grace period expired — transition to final partner-left state
+  const handleGracePeriodExpired = useCallback(() => {
+    // 5-second post-expiry delay before auto-transitioning
+    setTimeout(() => {
+      if (!gracePeriodStartRef.current) return; // Already cancelled (partner returned)
+      partnerLeftRef.current = true;
+      setPartnerLeft(true);
+      setGracePeriodStart(null);
+      gracePeriodStartRef.current = null;
+      analytics.track('live_session_partner_left', {
+        session_code: sessionCodeRef.current,
+        left_by: 'joiner',
+        exit_reason: 'grace_period_expired',
+        checks_completed_so_far: confirmedLiveStateRef.current.checksCount,
+      });
+    }, 5000);
+  }, []);
+
   // P28.2: Auto-stop recording when partner leaves (prevents orphan recordings)
   useEffect(() => {
     if ((partnerLeft || sessionEnded) && isRecording) {
@@ -2430,6 +2488,25 @@ export function ClarityLivePage() {
       stopAndUploadRecording();
     }
   }, [partnerLeft, sessionEnded, isRecording, stopAndUploadRecording]);
+
+  // P511 Task 6: Show reconnecting countdown during grace period (before final departure)
+  // Grace period only applies to joiner departure; sessionEnded (creator clicked End) is immediate.
+  if (gracePeriodStart && !sessionEnded && !partnerLeft) {
+    return (
+      <div className="flex flex-col min-h-[calc(100vh-4rem)] lg:min-h-[calc(100vh-5rem)]">
+        <div className="flex-1 flex items-center justify-center px-4">
+          <div className="w-full max-w-md">
+            <ReconnectingCountdown
+              partnerName={departedPartnerName ?? 'Partner'}
+              startTime={gracePeriodStart}
+              gracePeriodSeconds={SESSION_GRACE_PERIOD_SECONDS}
+              onExpired={handleGracePeriodExpired}
+            />
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   // Show partner left screen if partner departed
   if (sessionEnded || partnerLeft) {

@@ -1030,7 +1030,7 @@ export async function updateClarityDemoStatus(
 // ============================================================================
 
 /** Grace period in seconds — session is "active" if heartbeat within this window */
-const SESSION_GRACE_PERIOD_SECONDS = 120;
+export const SESSION_GRACE_PERIOD_SECONDS = 120;
 
 /**
  * Sends a heartbeat to keep the session alive.
