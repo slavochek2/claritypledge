@@ -28,13 +28,13 @@ import {
   deleteClaritySession,
   type TestUser,
 } from './helpers/test-user';
-import { _supabaseAdmin } from '../src/lib/supabase-admin';
+import { supabaseAdmin } from '../src/lib/supabase-admin';
 
 // ─── Error collector helper ──────────────────────────────────────────────────
 
-function _setupErrorCollector(_page: import('@playwright/test').Page) {
+function setupErrorCollector(page: import('@playwright/test').Page) {
   const errors: string[] = [];
-  _page.on('console', msg => {
+  page.on('console', msg => {
     if (
       msg.type() === 'error' &&
       !msg.text().match(/supabase.*realtime|WebSocket.*failed|net::ERR_|\[vite\]|favicon/i)
@@ -62,10 +62,10 @@ test.describe('P511: Flow 7 — Silent navigation (P410 removed)', () => {
     }
   });
 
-  test('navigating away from /live does not show confirmation dialog', async ({ _page }) => {
-    await setTestSession(_page, testUser.email);
-    await _page.goto('/live');
-    await _page.waitForLoadState('networkidle');
+  test('navigating away from /live does not show confirmation dialog', async ({ page }) => {
+    await setTestSession(page, testUser.email);
+    await page.goto('/live');
+    await page.waitForLoadState('networkidle');
 
     // TODO: This test is meaningful only when user has an active session.
     // Creating a session requires a second participant or mock.
@@ -74,13 +74,13 @@ test.describe('P511: Flow 7 — Silent navigation (P410 removed)', () => {
     // - The dialog with text "End session?" or "Leave session?" should not exist
 
     // Navigate away via clicking a nav link
-    const eventsLink = _page.locator('a[href="/events"], nav a:has-text("Events")').first();
+    const eventsLink = page.locator('a[href="/events"], nav a:has-text("Events")').first();
     if (await eventsLink.isVisible()) {
       await eventsLink.click();
-      await _page.waitForLoadState('networkidle');
+      await page.waitForLoadState('networkidle');
 
       // Should navigate directly — no dialog
-      const dialog = _page.locator('text=End session');
+      const dialog = page.locator('text=End session');
       await expect(dialog).not.toBeVisible({ timeout: 2000 });
     }
   });
@@ -108,45 +108,45 @@ test.describe('P511: Flow 9 — Active session banner', () => {
     }
   });
 
-  test('banner appears on non-/live pages when session is active', async ({ _page }) => {
+  test('banner appears on non-/live pages when session is active', async ({ page }) => {
     // TODO: Requires creating an active session in DB + setting localStorage
     // so the banner component detects it.
     //
     // Steps to implement once components exist:
-    // 1. Create session via _supabaseAdmin (creator = testUser)
+    // 1. Create session via supabaseAdmin (creator = testUser)
     // 2. Set localStorage: cp_active_session = { code, partnerName, role: 'creator' }
     // 3. Navigate to /events
     // 4. Verify banner with text "In session" is visible
     // 5. Verify "Rejoin Session" button is visible
     // 6. Verify "End Session" button/link is visible
     //
-    // await setTestSession(_page, testUser.email);
+    // await setTestSession(page, testUser.email);
     // const code = `P511-E2E-${Date.now()}`;
     // ... create session ...
-    // await _page.evaluate((sessionData) => {
+    // await page.evaluate((sessionData) => {
     //   localStorage.setItem('cp_active_session', JSON.stringify(sessionData));
     // }, { code, partnerName: 'Test Partner', role: 'creator' });
-    // await _page.goto('/events');
-    // await expect(_page.locator('[role="status"]')).toContainText('In session');
-    // await expect(_page.getByRole('button', { name: /rejoin/i })).toBeVisible();
+    // await page.goto('/events');
+    // await expect(page.locator('[role="status"]')).toContainText('In session');
+    // await expect(page.getByRole('button', { name: /rejoin/i })).toBeVisible();
 
     expect(true).toBe(true); // Placeholder
   });
 
-  test('banner does NOT appear on /live itself', async ({ _page }) => {
+  test('banner does NOT appear on /live itself', async ({ page }) => {
     // TODO: When on /live, the active session banner should not render
-    // (the user is already on the session _page).
+    // (the user is already on the session page).
     //
-    // await setTestSession(_page, testUser.email);
+    // await setTestSession(page, testUser.email);
     // ... set up active session in localStorage ...
-    // await _page.goto('/live');
-    // const banner = _page.locator('[data-testid="active-session-banner"]');
+    // await page.goto('/live');
+    // const banner = page.locator('[data-testid="active-session-banner"]');
     // await expect(banner).not.toBeVisible();
 
     expect(true).toBe(true); // Placeholder
   });
 
-  test('tapping "End Session" on banner ends session and removes banner', async ({ _page }) => {
+  test('tapping "End Session" on banner ends session and removes banner', async ({ page }) => {
     // TODO: Requires active session + banner rendering
     // 1. Set up active session
     // 2. Navigate to /events
@@ -158,13 +158,13 @@ test.describe('P511: Flow 9 — Active session banner', () => {
     expect(true).toBe(true); // Placeholder
   });
 
-  test('tapping "Rejoin" on banner navigates to /live', async ({ _page }) => {
+  test('tapping "Rejoin" on banner navigates to /live', async ({ page }) => {
     // TODO: Requires active session + banner rendering
     // 1. Set up active session
     // 2. Navigate to /events
     // 3. Click "Rejoin Session" on banner
     // 4. Verify navigation to /live
-    // 5. Verify session reconnects (or at minimum, /live _page loads)
+    // 5. Verify session reconnects (or at minimum, /live page loads)
 
     expect(true).toBe(true); // Placeholder
   });
@@ -192,11 +192,11 @@ test.describe('P511: Flow 8 — Rejoin prompt on /live landing', () => {
     }
   });
 
-  test('/live shows rejoin prompt when localStorage has active session', async ({ _page }) => {
+  test('/live shows rejoin prompt when localStorage has active session', async ({ page }) => {
     // TODO: Requires the rejoin-prompt component to exist
     //
     // Steps:
-    // 1. Create session via _supabaseAdmin
+    // 1. Create session via supabaseAdmin
     // 2. Set localStorage with session code
     // 3. Navigate to /live
     // 4. Verify "Your session is still running" text
@@ -206,17 +206,17 @@ test.describe('P511: Flow 8 — Rejoin prompt on /live landing', () => {
     //
     // const code = `P511-REJOIN-${Date.now()}`;
     // ... create session ...
-    // await _page.evaluate((data) => {
+    // await page.evaluate((data) => {
     //   localStorage.setItem('cp_active_session', JSON.stringify(data));
     // }, { code, partnerName: 'Partner', role: 'joiner' });
-    // await setTestSession(_page, testUser.email);
-    // await _page.goto('/live');
-    // await expect(_page.locator('text=Your session is still running')).toBeVisible();
+    // await setTestSession(page, testUser.email);
+    // await page.goto('/live');
+    // await expect(page.locator('text=Your session is still running')).toBeVisible();
 
     expect(true).toBe(true); // Placeholder
   });
 
-  test('/live shows normal landing when localStorage session is expired', async ({ _page }) => {
+  test('/live shows normal landing when localStorage session is expired', async ({ page }) => {
     // TODO: Test stale session detection
     // 1. Set localStorage with a session code that no longer exists in DB
     // 2. Navigate to /live
@@ -226,7 +226,7 @@ test.describe('P511: Flow 8 — Rejoin prompt on /live landing', () => {
     expect(true).toBe(true); // Placeholder
   });
 
-  test('rejoin prompt shows guest display name ("Rejoin as [Name]")', async ({ _page }) => {
+  test('rejoin prompt shows guest display name ("Rejoin as [Name]")', async ({ page }) => {
     // TODO: Test Flow 3 — guest display name persistence
     // 1. Set localStorage with session code AND guestDisplayName
     // 2. Navigate to /live (unauthenticated)
@@ -248,9 +248,9 @@ test.describe('P511: Flow 1 — Page refresh preserves session', () => {
     // 1. Creator (context A) creates a session on /live
     // 2. Joiner (context B) joins the session
     // 3. Both are in live view
-    // 4. Creator refreshes (_page.reload())
+    // 4. Creator refreshes (page.reload())
     // 5. Verify: session still exists in DB (live_state.sessionEnded !== true)
-    // 6. Verify: creator's /live _page reloads and reconnects to the same session
+    // 6. Verify: creator's /live page reloads and reconnects to the same session
     // 7. Verify: joiner does NOT see "Partner left" — either sees nothing or
     //    sees brief "Reconnecting..." that resolves quickly
     //
@@ -339,11 +339,11 @@ test.describe('P511: Edge cases', () => {
     }
   });
 
-  test('stale localStorage session code is cleared on /live load', async ({ _page }) => {
-    await setTestSession(_page, testUser.email);
+  test('stale localStorage session code is cleared on /live load', async ({ page }) => {
+    await setTestSession(page, testUser.email);
 
     // Inject a stale session code (session doesn't exist in DB)
-    await _page.evaluate(() => {
+    await page.evaluate(() => {
       localStorage.setItem('cp_active_session', JSON.stringify({
         code: 'STALE-CODE-NONEXISTENT',
         partnerName: 'Ghost Partner',
@@ -352,15 +352,15 @@ test.describe('P511: Edge cases', () => {
       }));
     });
 
-    await _page.goto('/live');
-    await _page.waitForLoadState('networkidle');
+    await page.goto('/live');
+    await page.waitForLoadState('networkidle');
 
     // TODO: Verify that after async DB validation:
     // - Rejoin prompt does NOT appear (session doesn't exist)
     // - localStorage entry is cleared
     // - Normal /live landing is shown
     //
-    // const storedSession = await _page.evaluate(() =>
+    // const storedSession = await page.evaluate(() =>
     //   localStorage.getItem('cp_active_session')
     // );
     // expect(storedSession).toBeNull(); // Cleaned up

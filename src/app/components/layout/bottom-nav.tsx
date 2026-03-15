@@ -8,7 +8,6 @@
 import { Link, useLocation } from "react-router-dom";
 import { CalendarIcon, UserIcon, MicIcon, HomeIcon } from "lucide-react";
 import { useNavAuthState } from "@/hooks/use-nav-auth-state";
-import { useLiveSession } from "@/app/contexts/live-session-context";
 
 interface NavItem {
   icon: typeof CalendarIcon;
@@ -21,8 +20,6 @@ interface NavItem {
 export function BottomNav() {
   const location = useLocation();
   const { showUserMenu, slug } = useNavAuthState();
-  const { isLive, setPendingNavTo } = useLiveSession();
-
   // Only show for logged-in users
   if (!showUserMenu) {
     return null;
@@ -102,20 +99,6 @@ export function BottomNav() {
               <div className={`w-1 h-1 rounded-full mt-0.5 transition-colors ${active ? "bg-blue-500" : "bg-transparent"}`} />
             </>
           );
-
-          // Guard: intercept nav away from live session, but not the /live item itself
-          if (isLive && item.to !== '/live') {
-            return (
-              <button
-                key={item.label}
-                onClick={() => setPendingNavTo(item.to!)}
-                className={itemClass}
-                aria-current={active ? "page" : undefined}
-              >
-                {itemInner}
-              </button>
-            );
-          }
 
           return (
             <Link

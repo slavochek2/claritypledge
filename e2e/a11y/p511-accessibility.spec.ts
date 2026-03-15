@@ -17,7 +17,7 @@
 import { test, expect } from '@playwright/test';
 import {
   createTestUser,
-  _setTestSession,
+  setTestSession,
   deleteTestUser,
   type TestUser,
 } from '../helpers/test-user';
@@ -35,78 +35,78 @@ test.describe('P511: Accessibility — Active Session Banner', () => {
     }
   });
 
-  test('banner has role="status" and aria-live="polite"', async ({ _page }) => {
+  test('banner has role="status" and aria-live="polite"', async ({ page }) => {
     // TODO: Requires active session + banner component rendered
     // Steps:
     // 1. Set up active session in localStorage
-    // 2. Navigate to /events (non-/live _page)
+    // 2. Navigate to /events (non-/live page)
     // 3. Verify banner container attributes
     //
-    // await _setTestSession(_page, testUser.email);
-    // await _page.evaluate(() => {
+    // await setTestSession(page, testUser.email);
+    // await page.evaluate(() => {
     //   localStorage.setItem('cp_active_session', JSON.stringify({
     //     code: 'A11Y-TEST', partnerName: 'Partner', role: 'creator',
     //     savedAt: new Date().toISOString(),
     //   }));
     // });
-    // await _page.goto('/events');
+    // await page.goto('/events');
     //
-    // const banner = _page.locator('[data-testid="active-session-banner"]');
+    // const banner = page.locator('[data-testid="active-session-banner"]');
     // await expect(banner).toHaveAttribute('role', 'status');
     // await expect(banner).toHaveAttribute('aria-live', 'polite');
 
     expect(true).toBe(true); // Placeholder
   });
 
-  test('banner has aria-label="Active session notification"', async ({ _page }) => {
+  test('banner has aria-label="Active session notification"', async ({ page }) => {
     // TODO: Verify aria-label on banner container
-    // const banner = _page.locator('[role="status"]');
+    // const banner = page.locator('[role="status"]');
     // await expect(banner).toHaveAttribute('aria-label', 'Active session notification');
 
     expect(true).toBe(true); // Placeholder
   });
 
-  test('pulsing dot is aria-hidden="true" (decorative)', async ({ _page }) => {
+  test('pulsing dot is aria-hidden="true" (decorative)', async ({ page }) => {
     // TODO: The blue pulsing dot indicator should not be announced
     // by screen readers.
     //
-    // const dot = _page.locator('[data-testid="session-pulse-dot"]');
+    // const dot = page.locator('[data-testid="session-pulse-dot"]');
     // await expect(dot).toHaveAttribute('aria-hidden', 'true');
 
     expect(true).toBe(true); // Placeholder
   });
 
-  test('Rejoin button has aria-label="Rejoin active session"', async ({ _page }) => {
+  test('Rejoin button has aria-label="Rejoin active session"', async ({ page }) => {
     // TODO:
-    // const rejoinBtn = _page.getByRole('button', { name: /rejoin/i });
+    // const rejoinBtn = page.getByRole('button', { name: /rejoin/i });
     // await expect(rejoinBtn).toHaveAttribute('aria-label', 'Rejoin active session');
 
     expect(true).toBe(true); // Placeholder
   });
 
-  test('End Session button has aria-label="End active session"', async ({ _page }) => {
+  test('End Session button has aria-label="End active session"', async ({ page }) => {
     // TODO:
-    // const endBtn = _page.locator('[aria-label="End active session"]');
+    // const endBtn = page.locator('[aria-label="End active session"]');
     // await expect(endBtn).toBeVisible();
 
     expect(true).toBe(true); // Placeholder
   });
 
-  test('banner buttons are keyboard accessible (Tab + Enter)', async ({ _page }) => {
+  test('banner buttons are keyboard accessible (Tab + Enter)', async ({ page }) => {
     // TODO:
-    // 1. Set up active session, navigate to non-/live _page
-    // 2. Tab through _page until banner buttons receive focus
+    // 1. Set up active session, navigate to non-/live page
+    // 2. Tab through page until banner buttons receive focus
     // 3. Verify "Rejoin Session" button is focusable
     // 4. Verify "End Session" button is focusable
     // 5. Press Enter on "Rejoin" → navigates to /live
     //
-    // await _page.keyboard.press('Tab');
+    // await page.keyboard.press('Tab');
     // ... tab until focus reaches banner area ...
-    // const rejoinBtn = _page.getByRole('button', { name: /rejoin/i });
+    // const rejoinBtn = page.getByRole('button', { name: /rejoin/i });
     // await rejoinBtn.focus();
     // await expect(rejoinBtn).toBeFocused();
-    // await _page.keyboard.press('Enter');
-    // await expect(_page).toHaveURL('/live');
+    // await page.keyboard.press('Enter');
+    // await expect(page).toHaveURL('/live');
 
     expect(true).toBe(true); // Placeholder
   });
@@ -123,19 +123,19 @@ test.describe('P511: Accessibility — Reconnecting Countdown', () => {
     }
   });
 
-  test('countdown region has role="timer"', async ({ _page }) => {
+  test('countdown region has role="timer"', async ({ page }) => {
     // TODO: Requires being in a live session where partner has disconnected
     // This is a TWO-PARTY scenario — mark as placeholder.
     //
     // When the reconnecting state is active on /live:
-    // const timer = _page.locator('[role="timer"]');
+    // const timer = page.locator('[role="timer"]');
     // await expect(timer).toBeVisible();
     // await expect(timer).toHaveAttribute('aria-label', 'Time remaining for partner to reconnect');
 
     expect(true).toBe(true); // Placeholder — requires two-party session
   });
 
-  test('countdown uses aria-live="assertive" for screen reader announcements', async ({ _page }) => {
+  test('countdown uses aria-live="assertive" for screen reader announcements', async ({ page }) => {
     // TODO: The countdown region should announce at 30-second intervals
     // via a visually-hidden element with aria-live="assertive".
     //
@@ -144,17 +144,17 @@ test.describe('P511: Accessibility — Reconnecting Countdown', () => {
     // - "about 1 minute remaining"
     // - "about 30 seconds remaining"
     //
-    // const announcer = _page.locator('[aria-live="assertive"]');
+    // const announcer = page.locator('[aria-live="assertive"]');
     // await expect(announcer).toBeAttached();
 
     expect(true).toBe(true); // Placeholder
   });
 
-  test('countdown uses tabular-nums to prevent layout shift', async ({ _page }) => {
+  test('countdown uses tabular-nums to prevent layout shift', async ({ page }) => {
     // TODO: The timer display should use font-variant-numeric: tabular-nums
     // to prevent digits from shifting as values change.
     //
-    // const timerText = _page.locator('[role="timer"] .countdown-text');
+    // const timerText = page.locator('[role="timer"] .countdown-text');
     // const fontVariant = await timerText.evaluate(
     //   el => getComputedStyle(el).fontVariantNumeric
     // );
@@ -175,7 +175,7 @@ test.describe('P511: Accessibility — Rejoin Prompt', () => {
     }
   });
 
-  test('rejoin prompt receives focus when it appears on /live', async ({ _page }) => {
+  test('rejoin prompt receives focus when it appears on /live', async ({ page }) => {
     // TODO: Per spec, focus should move to the rejoin prompt card when it
     // appears on /live landing (dialog-like focus management).
     //
@@ -183,20 +183,20 @@ test.describe('P511: Accessibility — Rejoin Prompt', () => {
     // 2. Navigate to /live
     // 3. Verify focus is on or inside the rejoin prompt card
     //
-    // await _setTestSession(_page, testUser.email);
+    // await setTestSession(page, testUser.email);
     // ... set localStorage ...
-    // await _page.goto('/live');
-    // const prompt = _page.locator('[data-testid="rejoin-prompt"]');
+    // await page.goto('/live');
+    // const prompt = page.locator('[data-testid="rejoin-prompt"]');
     // await expect(prompt).toBeVisible();
     //
     // // Focus should be within the prompt
-    // const focusedElement = _page.locator(':focus');
+    // const focusedElement = page.locator(':focus');
     // await expect(prompt).toContainElement(focusedElement);
 
     expect(true).toBe(true); // Placeholder
   });
 
-  test('End Session confirmation in rejoin prompt is keyboard accessible', async ({ _page }) => {
+  test('End Session confirmation in rejoin prompt is keyboard accessible', async ({ page }) => {
     // TODO: Per spec, "End Session" in the rejoin prompt uses inline confirmation:
     // first Enter shows "Are you sure?", second Enter confirms.
     // Both steps must be keyboard accessible.
@@ -210,13 +210,13 @@ test.describe('P511: Accessibility — Rejoin Prompt', () => {
 });
 
 test.describe('P511: Accessibility — Motion preferences', () => {
-  test('pulsing dot is static when prefers-reduced-motion is set', async ({ _page }) => {
+  test('pulsing dot is static when prefers-reduced-motion is set', async ({ page }) => {
     // TODO: Emulate prefers-reduced-motion: reduce
     // Verify the pulsing dot has no animation.
     //
-    // await _page.emulateMedia({ reducedMotion: 'reduce' });
+    // await page.emulateMedia({ reducedMotion: 'reduce' });
     // ... set up banner ...
-    // const dot = _page.locator('[data-testid="session-pulse-dot"]');
+    // const dot = page.locator('[data-testid="session-pulse-dot"]');
     // const animation = await dot.evaluate(
     //   el => getComputedStyle(el).animationName
     // );
@@ -225,13 +225,13 @@ test.describe('P511: Accessibility — Motion preferences', () => {
     expect(true).toBe(true); // Placeholder
   });
 
-  test('reconnecting spinner is static when prefers-reduced-motion is set', async ({ _page }) => {
+  test('reconnecting spinner is static when prefers-reduced-motion is set', async ({ page }) => {
     // TODO: Emulate prefers-reduced-motion: reduce
     // Verify spinner icon is replaced with a static icon.
     //
-    // await _page.emulateMedia({ reducedMotion: 'reduce' });
+    // await page.emulateMedia({ reducedMotion: 'reduce' });
     // ... set up reconnecting state (two-party) ...
-    // const spinner = _page.locator('[data-testid="reconnecting-spinner"]');
+    // const spinner = page.locator('[data-testid="reconnecting-spinner"]');
     // const animation = await spinner.evaluate(
     //   el => getComputedStyle(el).animationName
     // );

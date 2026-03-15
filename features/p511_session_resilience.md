@@ -863,7 +863,7 @@ Proceeding to task manifest.
 - **Tests:** `e2e/integration/p511-session-resilience-migration.spec.ts`
 - **Depends on:** None
 - **Verify:** `./scripts/migrate.sh` succeeds; integration tests pass (column exists, RPC works, authorization check blocks non-creators)
-- [ ] Complete
+- [x] Complete
 
 ### Task 2: API layer — heartbeat + active session query
 - **Files:** `src/app/data/api.ts` (modify)
@@ -910,7 +910,7 @@ Proceeding to task manifest.
 - **Tests:** `e2e/p511-session-resilience.spec.ts` (navigation without dialog)
 - **Depends on:** None (can run in parallel with Tasks 1-6)
 - **Verify:** All nav links work during active session; no confirmation dialog; no `pendingNavTo` references remain; all menu items visible regardless of session state
-- [ ] Complete
+- [x] Complete
 
 ### Task 8: Extend LiveSessionContext + active session hook
 - **Files:** `src/app/contexts/live-session-context.tsx` (modify), `src/hooks/use-active-session.ts` (create)
