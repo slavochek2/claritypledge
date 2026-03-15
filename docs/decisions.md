@@ -2,6 +2,28 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-15 [product]: Post-session offer system — personalized offer pages on ladischenski.com
+
+**Context:** First paid de-risking session conducted with a warm lead (couple, referred from a ClarityPledge event). Needed a follow-up offer system that: captures learnings from each interaction (not just converts), works for couples AND co-founders, and can be generated quickly for each new lead.
+**Decision:** (1) Personalized static HTML offer pages at `ladischenski.com/for/{name}/` — not PDFs, not generic landing pages. Each page is tailored with session observations and specific offer details. (2) Two-step reveal: observations visible on load → "I'm interested" / "Not right now" buttons. Price only shown after self-selection (micro-commitment). (3) Decline path captures rejection reason via Web3Forms (5 radio options + free text → email notification). (4) Payment via Wise payment links (lowest fees for EU, ~0.4-0.7% vs Stripe 1.5-2.5%). (5) Observations split into "Habits to keep" / "Habits to build" — actionable, not just feedback. (6) `/create-offer` skill created to generate future offers in ~10 minutes from session notes. (7) Legal infrastructure added to ladischenski.com: privacy policy, terms of service, footer with TechSalesBox OÜ entity.
+**Alternatives rejected:** (1) PDF one-pager (frozen once sent, can't update, no analytics potential). (2) Passphrase-gated page (adds friction without real security — the URL itself is private enough). (3) Stripe for payments (higher fees, more setup for the same outcome). (4) Price visible on load (SaaS conversion research shows interest-gating increases conversion for warm leads). (5) Tally embed for decline form (Web3Forms already integrated, one less dependency).
+**Consequences:** ladischenski.com now serves dual purpose: coaching landing page + personalized offer delivery. The `/create-offer` skill templates this for reuse. Wise Business account is the payment backbone. Future offers should reference and improve on this template. Each decline email feeds back into offer optimization.
+**References:** `~/Projects/public/ladischenski-com/public/for/victoria/index.html` (template), `.claude/commands/slava/content/create-offer.md` (skill)
+
+## 2026-03-15 [product]: Pricing structure — €950 for 2 sessions + bonus, with value anchoring
+
+**Context:** First coaching package needed pricing. The service is clarity practice sessions (90 min each) for couples or co-founders. The free initial session establishes trust and demonstrates value.
+**Decision:** (1) Core package: €950 for 2 sessions (90 min each). (2) Bonus third session offered free as "gift" (not discount — more value, not cheaper value). (3) Free session anchored at €250 value in the offer page copy. (4) Full refund guarantee after session 1 — "no form, no questions, no awkwardness." (5) Referral: friends get first session at €150 instead of €250 (mentioned only in feedback Tally, not on offer page). (6) Session format: "online or in person — flexible scheduling."
+**Alternatives rejected:** (1) Discount instead of bonus session (trains people to expect discounts). (2) Per-session pricing without package (no commitment, harder to build on session 1). (3) Higher anchor for free session (€475/session math exists but "I typically value" felt dishonest for a first-ever session).
+**Consequences:** The €950 price point needs validation — decline form data will show if price is the primary objection. If 4/5 declines cite price, consider a lighter package. The bonus session framing ("my gift to you") reinforces reciprocity without discounting.
+
+## 2026-03-15 [process]: Conversion psychology applied to offer pages — Cialdini principles for warm leads
+
+**Context:** Multiple agent passes (conversion copywriting, sales psychology, funnel design) were run against the offer page to optimize for a psychotherapist audience — someone who would see through cheap manipulation.
+**Decision:** (1) Reciprocity: name the gift value explicitly ("session worth €250"). (2) Loss aversion: "what you practiced starts to fade within 2-3 weeks without structure." (3) Commitment/consistency: identity statements about what they already did ("you chose to practice, not just talk"). (4) Scarcity with reason: honest schedule constraint, not arbitrary deadline. (5) Authority: link to published research (SSRN paper) — one line, not a CV dump. (6) Price last: only shown after "I'm interested" click (progressive disclosure). (7) Decline path equally dignified: "Completely fine" with no persuasion — the absence of pressure IS the persuasion for sophisticated audiences.
+**Alternatives rejected:** (1) Showing price upfront (loses micro-commitment opportunity). (2) Testimonials/case studies (impossible at n=1, don't fake it). (3) Countdown timer urgency (psychotherapist would see through it instantly). (4) Email capture on decline (already have their contact via WhatsApp).
+**Consequences:** These principles should be encoded in the `/create-offer` skill and refined with each offer. The decline form data will validate which principles land and which don't. Framework applies equally to co-founder offers — adjust framing, keep psychology.
+
 ## 2026-03-15 [process]: AI design tooling — Stitch 2.0 for prototyping, skip SuperDesign and Polymet
 
 **Context:** Evaluated three AI design tools (SuperDesign, Google Stitch 2.0, Polymet) for three use cases: CP landing page conversion optimization, ladischenski.com improvements, and P517 /live interaction redesign (sliders + turn-taking). Friend uses SuperDesign MCP in terminal-only workflow with Playwright verification.
