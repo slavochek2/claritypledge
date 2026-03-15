@@ -234,6 +234,21 @@ Our active bets, in priority order. This is the map of what we still need to pro
 
 ---
 
+## Open Questions
+
+### OQ: Onboarding timing — upfront vs contextual?
+**Surfaced:** 2026-03-14 live session observations
+**Question:** Should onboarding/background knowledge be delivered upfront (before first session) or contextually (when users make errors during a session)?
+**Evidence so far:** Users don't discover errors in points — likely because they don't know what to look for. But upfront onboarding risks front-loading friction that kills first-session engagement. Ania (NVC coach) didn't see the point of the protocol — the "why" didn't land upfront.
+**Possible answers:** (A) Contextual — trigger explanations when users make mistakes. (B) Brief upfront framing ("this is calibration, not therapy") + contextual detail. (C) Different for events vs self-serve.
+
+### OQ: Agreement slider on points — does showing agreement level help or distract?
+**Surfaced:** 2026-03-14 — participant requested a slider showing how much they agree with specific points
+**Question:** Should users have a real-time slider to express agreement/disagreement with points? Does this help calibration or create a false anchor?
+**Risk:** Agreement ≠ understanding. Showing agreement level might conflate "I agree" with "I understand" — the core anti-pattern we're trying to fix.
+
+---
+
 ## Dependency Map
 
 ```

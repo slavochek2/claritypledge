@@ -2,6 +2,37 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-15 [product]: Session resilience — pagehide must not kill sessions; grace period + rejoin is the correct model
+
+**Context:** Live session observations (2026-03-14) showed users repeatedly losing sessions and unable to return. 5-whys root cause analysis identified 7 session-killing paths, all tracing to one architectural flaw: the `pagehide` handler assumes "page closing = permanent departure." On mobile, pages are frequently *suspended* (not destroyed) — app backgrounding, pull-to-refresh, tab switching, memory pressure. The handler immediately patches the DB, destroying the session before the user can return.
+**Decision:** (1) Only the "End Session" button should immediately kill a session. (2) All other departures (refresh, navigate, tab close, network drop) get a 2-3 minute grace period. (3) Both creator AND joiner can rejoin within the grace period. (4) "Active session" banner on all pages with rejoin button. (5) Remove the P410 navigation confirmation dialog — sessions survive navigation. (6) Add `last_activity_timestamp` for grace period detection. Filed as P511.
+**Alternatives rejected:** (1) Keep current behavior, just add better error recovery (addresses symptoms, not root cause). (2) Use WebSocket heartbeat instead of grace period (fragile on mobile networks). (3) Never auto-expire sessions (creates zombie sessions).
+**Consequences:** P410 (nav guard) will be superseded. The departure detection system (P126) stays but its role changes: instead of signaling "partner left permanently," it signals "partner disconnected, starting grace timer." Session DB schema needs `last_activity_at` column.
+**References:** `features/p511_session_resilience.md`, `.private/docs/user-feedback.md` (2026-03-14 observations)
+
+## 2026-03-15 [product]: Target audience refined — "people whose conversations carry risk if they're wrong"
+
+**Context:** Live session observations showed that general "communication practice" framing doesn't land. Ania (NVC coach, Mar 12) didn't see the point. General audiences don't feel the friction is worth it. But people in high-stakes partnerships — where being wrong costs money, trust, or trajectory — immediately get it.
+**Decision:** Target audience is: co-founder partnerships, business partnerships, married couples making joint high-stakes decisions (finances, relocation, parenting strategy), professional pairs where miscommunication has real consequences. NOT: general communication practice, conflict resolution, relationship counseling (that's therapy/NVC territory). The differentiator: "Do your conversations carry risk if you're wrong?"
+**Alternatives rejected:** (1) Broad "communication skills" positioning (too generic, competes with NVC/therapy). (2) Only co-founders (too narrow — married couples with joint stakes have the same need).
+**Consequences:** Event positioning, landing page copy, and content strategy should lead with risk/stakes framing, not "better communication." The calibration framing ("smaller friction now prevents bigger problems later") resonates with this audience.
+**References:** `.private/docs/user-feedback.md` (2026-03-14, items #13-16)
+
+## 2026-03-15 [process]: User feedback pipeline — raw observations → .private → root cause analysis → specs with 5-whys
+
+**Context:** Session observations produced 16 items (product insights, UX bugs, event positioning learnings) but no structured process existed to turn them into actionable specs. Previous feedback (Ania, Mar 12) was captured but not systematically processed.
+**Decision:** Pipeline: (1) Capture raw observations in `.private/docs/user-feedback.md` with date and context. (2) Classify: bugs → `/create-bug` with 5-whys root cause analysis, product insights → `/quick-feature` or update hypotheses, event learnings → update session script. (3) Run 5-whys root cause analysis for ALL bugs before filing — not just the obvious ones. Filing symptoms without root causes leads to wrong fixes.
+**Alternatives rejected:** (1) File specs immediately from raw observations (skips root cause, leads to symptom-fixing). (2) Wait for a dedicated "feedback processing" skill (the pipeline works with existing skills). (3) Create a dedicated skill now (premature — run the pipeline manually 2-3 more times to learn the pattern first).
+**Consequences:** `.private/docs/user-feedback.md` is the intake. Each batch of observations should produce: root-cause-analyzed bug specs + feature ideas + doc updates. Consider creating a `/session-debrief` skill after 2-3 more manual runs.
+**References:** `.private/docs/user-feedback.md`
+
+## 2026-03-15 [technical]: Parallel bug fixes in isolated worktrees — 5 agents, 5 worktrees, sequential merge
+
+**Context:** 5 bugs identified from session observations (P512-P516) all touched overlapping files (`clarity-live-page.tsx`, `live-mode-view.tsx`). Needed to fix all simultaneously without merge conflicts during implementation.
+**Decision:** Each bug gets its own worktree (agent isolation). Agents work in parallel. Merge into main one at a time in order of least conflict risk (smallest changes first, largest last). Pre-commit checks run in each worktree. All 5 merged cleanly with no conflicts.
+**Alternatives rejected:** (1) Sequential fixes on main (slower, context switching). (2) All fixes in one branch (can't parallelize, harder to revert individual fixes). (3) One agent doing all 5 (serial, no speed benefit).
+**Consequences:** Pattern works well for 3-5 related bugs touching the same files. Key: merge in order of increasing file-touch surface. For >5 bugs or deep conflicts, may need a different strategy.
+
 ## 2026-03-15 [process]: Verify the user's naming scheme before diagnosing sorting bugs
 
 **Context:** User reported stories/points on profile were "not sorted top to bottom" with sequence 7,5,3,4,2,6,1. Investigation assumed "#st1–#st7" referred to creation order. In reality, stories contain `#stN` hashtags in their content representing a logical narrative sequence — and the stories were NOT created in that sequence. The `created_at`-based sort was working correctly; it just produced a different order than the `#stN` numbering.
