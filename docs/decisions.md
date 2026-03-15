@@ -2,6 +2,14 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-15 [process]: AI design tooling — Stitch 2.0 for prototyping, skip SuperDesign and Polymet
+
+**Context:** Evaluated three AI design tools (SuperDesign, Google Stitch 2.0, Polymet) for three use cases: CP landing page conversion optimization, ladischenski.com improvements, and P517 /live interaction redesign (sliders + turn-taking). Friend uses SuperDesign MCP in terminal-only workflow with Playwright verification.
+**Decision:** (1) Use Google Stitch 2.0 (free, 350 gen/month) for visual design exploration and interactive prototyping. Best design quality (Gemini-powered), only free tool with clickable prototypes. (2) Install `stitch-mcp` to bridge designs into Claude Code. (3) Skip SuperDesign — it's a "design orchestrator" that delegates generation to your IDE's LLM. On Opus, it adds workflow structure (`.superdesign/` folder, `style.md`) but not quality beyond what Claude already produces. (4) Skip Polymet — ~$50/mo for capabilities Stitch provides free. (5) For P517 specifically: interactive prototype in Stitch BEFORE `/ux` — static mockups can't validate whether sliders feel right.
+**Alternatives rejected:** (1) SuperDesign as primary tool (value proposition collapses when LLM is already strong — it's a recipe book, not a chef). (2) Polymet for React/shadcn output (cost unjustified when Claude Code generates equivalent React). (3) Build a custom `/design-explore` skill instead (premature — try Stitch first, build skill only if the workflow proves valuable).
+**Consequences:** `stitch-mcp` needs installation before P517 design work. P517 workflow becomes: `/ascii-flows` → Stitch 2.0 interactive prototype → `/ux` → `/architect` → `/dev`. Landing page redesign (CP, ladischenski.com) can use Stitch for visual exploration whenever prioritized.
+**References:** Research report at `~/Documents/AI_Design_Tools_Comparison_20260315/`
+
 ## 2026-03-15 [product]: Session resilience — pagehide must not kill sessions; grace period + rejoin is the correct model
 
 **Context:** Live session observations (2026-03-14) showed users repeatedly losing sessions and unable to return. 5-whys root cause analysis identified 7 session-killing paths, all tracing to one architectural flaw: the `pagehide` handler assumes "page closing = permanent departure." On mobile, pages are frequently *suspended* (not destroyed) — app backgrounding, pull-to-refresh, tab switching, memory pressure. The handler immediately patches the DB, destroying the session before the user can return.
