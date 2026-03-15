@@ -1,5 +1,5 @@
 ---
-status: backlog
+status: week
 type: story
 rank: 5.0
 tags: [live, ux, feedback, turn-taking]

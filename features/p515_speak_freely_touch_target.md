@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: qa
 type: bug
 rank: 4.0
 tags: [live, accessibility, wcag, mobile, touch]

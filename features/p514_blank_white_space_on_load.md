@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: qa
 type: bug
 rank: 3.0
 tags: [live, layout, scroll, mobile, b36-incomplete]

@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: qa
 type: bug
 rank: 2.0
 tags: [live, scroll, round, idle]

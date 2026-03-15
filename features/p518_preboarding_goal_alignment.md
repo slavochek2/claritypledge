@@ -1,5 +1,5 @@
 ---
-status: backlog
+status: week
 type: story
 rank: 5.5
 tags: [live, onboarding, psychological-safety]

@@ -1,8 +1,13 @@
 ---
-status: in-progress
+status: all-done
 type: bug
-rank: 2.0
-tags: [live, dialog, upload, timeout]
+rank: 2
+tags:
+  - live
+  - dialog
+  - upload
+  - timeout
+locked_at: '2026-03-15T08:13:39.586Z'
 ---
 
 # P512: Leave Session Dialog Gets Stuck — No Timeout, No Loading State

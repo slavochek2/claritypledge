@@ -1,14 +1,19 @@
 ---
-status: week
+status: today
 type: story
-rank: 1.0
-tags: [session, resilience, rejoin, mobile]
+rank: 1
+tags:
+  - session
+  - resilience
+  - rejoin
+  - mobile
 delivery_stage: 1-prd-review
 prepped_date: '2026-03-14'
 reviews:
   ux: null
   architect: null
   alignment: null
+locked_at: '2026-03-15T08:11:18.296Z'
 ---
 
 # P511: Session Resilience — Grace Period, Rejoin, and Active Session Banner

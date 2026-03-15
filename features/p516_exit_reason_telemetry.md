@@ -1,8 +1,12 @@
 ---
-status: week
+status: all-done
 type: task
 rank: 1.5
-tags: [telemetry, mixpanel, session]
+tags:
+  - telemetry
+  - mixpanel
+  - session
+locked_at: '2026-03-15T08:13:28.618Z'
 ---
 
 # P516: Add Exit Reason to Session Telemetry
