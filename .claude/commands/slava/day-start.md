@@ -62,20 +62,103 @@ Use Sentry MCP (`mcp__sentry__search_issues`):
 
 Show: `✓ Sentry: clean` or `⚠ Sentry: N new issues — [top title]`
 
-**c) New signups (last 24h — who, not just count)**
+**c) User Activity (last 24h)**
+
+Run all queries in parallel using the prod Supabase REST API:
+
 ```bash
 source "$(git rev-parse --show-toplevel)/.env.local"
 SINCE=$(date -u -v-24H +"%Y-%m-%dT%H:%M:%SZ")
-curl -s "https://besjtuodziykmjidubzw.supabase.co/rest/v1/profiles?select=name,email,created_at&created_at=gt.${SINCE}&order=created_at.desc" \
+PROD_URL="https://besjtuodziykmjidubzw.supabase.co/rest/v1"
+
+# 1. New signups
+curl -s "${PROD_URL}/profiles?select=id,name,email,created_at&created_at=gt.${SINCE}&order=created_at.desc" \
   -H "apikey: $PROD_SUPABASE_SERVICE_ROLE_KEY" \
   -H "Authorization: Bearer $PROD_SUPABASE_SERVICE_ROLE_KEY"
+
+# 2. Stories created in last 24h (by anyone)
+curl -s "${PROD_URL}/stories?select=author_id,title,created_at&created_at=gt.${SINCE}&order=created_at.desc" \
+  -H "apikey: $PROD_SUPABASE_SERVICE_ROLE_KEY" \
+  -H "Authorization: Bearer $PROD_SUPABASE_SERVICE_ROLE_KEY"
+
+# 3. Positions taken/changed in last 24h
+curl -s "${PROD_URL}/point_positions?select=user_id,updated_at&updated_at=gt.${SINCE}&order=updated_at.desc" \
+  -H "apikey: $PROD_SUPABASE_SERVICE_ROLE_KEY" \
+  -H "Authorization: Bearer $PROD_SUPABASE_SERVICE_ROLE_KEY"
+
+# 4. Story verifications (live session participation)
+curl -s "${PROD_URL}/story_verifications?select=speaker_id,listener_id,created_at&created_at=gt.${SINCE}" \
+  -H "apikey: $PROD_SUPABASE_SERVICE_ROLE_KEY" \
+  -H "Authorization: Bearer $PROD_SUPABASE_SERVICE_ROLE_KEY"
+
+# 5. Agreements created or signed
+curl -s "${PROD_URL}/clarity_agreements?select=creator_profile_id,partner_profile_id,status,created_at&or=(created_at.gt.${SINCE},partner_signed_at.gt.${SINCE})" \
+  -H "apikey: $PROD_SUPABASE_SERVICE_ROLE_KEY" \
+  -H "Authorization: Bearer $PROD_SUPABASE_SERVICE_ROLE_KEY"
+
+# 6. Resolve user IDs to names for any active returning users
+# (fetch profiles for user IDs found in queries 2-5 that are NOT in query 1)
 ```
 
-If the response is a JSON object with a `message` key (not an array), show: `⚠ Signups: query failed — check PROD_SUPABASE_SERVICE_ROLE_KEY in .env.local`
+Filter out `test-agent@claritypledge.com` from all results.
 
-Filter out `test-agent@claritypledge.com` from results.
+If the response is a JSON object with a `message` key (not an array), show: `⚠ User activity: query failed — check PROD_SUPABASE_SERVICE_ROLE_KEY in .env.local`
 
-Show: `✓ Signups: 0 in last 24h` or list each as `  · Name (email) — HH:MM UTC`
+Cross-reference: any user ID appearing in activity queries (2-5) but NOT in new signups (1) is a **returning user**.
+
+Show in this format:
+```
+USER ACTIVITY (last 24h)
+  New:       N signups
+    · Name (email) — HH:MM UTC → [what they did: story, N positions, pledge / "no activity ⚠"]
+  Returning: N
+    · Name — [what they did: N positions, story, /live verification]
+  Funnel:    A → B → C → D  (+Δ/+Δ/+Δ/+Δ)
+             signup  story  pos  agreement
+```
+
+On quiet days (no new signups, no returning users): collapse to one line:
+```
+  Users: no activity in last 24h | Funnel: A → B → C → D
+```
+
+**Funnel snapshot** — run cumulative counts right after user activity:
+
+```bash
+# Funnel totals (all-time, use Prefer: count=exact header)
+# Total profiles (exclude test-agent)
+curl -s "${PROD_URL}/profiles?select=id&email=neq.test-agent@claritypledge.com" \
+  -H "apikey: $PROD_SUPABASE_SERVICE_ROLE_KEY" \
+  -H "Authorization: Bearer $PROD_SUPABASE_SERVICE_ROLE_KEY" \
+  -H "Prefer: count=exact" -I 2>&1 | grep -i content-range
+
+# Profiles with stories (count distinct author_ids client-side)
+curl -s "${PROD_URL}/stories?select=author_id" \
+  -H "apikey: $PROD_SUPABASE_SERVICE_ROLE_KEY" \
+  -H "Authorization: Bearer $PROD_SUPABASE_SERVICE_ROLE_KEY"
+
+# Profiles with positions (count distinct user_ids client-side)
+curl -s "${PROD_URL}/point_positions?select=user_id" \
+  -H "apikey: $PROD_SUPABASE_SERVICE_ROLE_KEY" \
+  -H "Authorization: Bearer $PROD_SUPABASE_SERVICE_ROLE_KEY"
+
+# Active agreements
+curl -s "${PROD_URL}/clarity_agreements?select=id&status=eq.active" \
+  -H "apikey: $PROD_SUPABASE_SERVICE_ROLE_KEY" \
+  -H "Authorization: Bearer $PROD_SUPABASE_SERVICE_ROLE_KEY" \
+  -H "Prefer: count=exact" -I 2>&1 | grep -i content-range
+```
+
+Count distinct user IDs client-side for stories and positions (tables are small pre-PMF).
+
+**Optional daily CSV log** (append after computing funnel):
+```bash
+mkdir -p "$(git rev-parse --show-toplevel)/.private/metrics"
+echo "$(date -u +%Y-%m-%d),${SIGNUPS},${STORY_USERS},${POSITION_USERS},${AGREEMENTS}" >> \
+  "$(git rev-parse --show-toplevel)/.private/metrics/funnel-daily.csv"
+```
+
+If a previous day's entry exists in the CSV, show deltas in the funnel line. Otherwise show raw numbers only.
 
 **d) Repo health baseline (surfaces ambient debt before any implementation starts)**
 
