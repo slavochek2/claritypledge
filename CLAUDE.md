@@ -245,12 +245,12 @@ Before creating/updating files in `content/` or `docs/stories/`: check for perso
 
 Full pipeline — complex work (multiple concerns, auth/DB/UX, 5+ files):
 ```
-/create-prd → /challenge-prd* → /ux (if UI) → /architect → /generate-tests → /spec-review* → /decompose* → /dev
+/create-prd → /challenge-prd → /ux (if UI) → /architect → /generate-tests → /spec-review* → /decompose* → /dev
 ```
 
 Medium work — feature with clear scope, limited complexity:
 ```
-/create-prd → /challenge-prd* → /dev
+/create-prd → /challenge-prd → /dev
 ```
 
 Small work — bug with confirmed root cause, copy change, config tweak, single concern:
@@ -265,7 +265,7 @@ Design correction — shipped feature, design was wrong:
 
 When in doubt, go one tier up. Use `/pick-flow` if the right tier is unclear.
 
-`*` `/spec-review` mandatory after `/generate-tests`, before `/decompose` or `/dev`. A spec with BLOCK findings must not proceed. `/decompose` optional — complex features only (5+ files, 3+ concerns, 6+ build steps).
+`*` `/spec-review` mandatory after `/generate-tests`, before `/decompose` or `/dev`. A spec with BLOCK findings must not proceed. `/decompose` optional — complex features only (5+ files, 3+ concerns, 6+ build steps). `/challenge-prd` is mandatory for full and medium pipelines — it surfaces uncertainties as decisions with options and recommendations.
 
 `/dev` stops at UAT gate — sets `delivery_stage: uat`, keeps `status: in-progress`, code stays on feature branch. `/ship pN` (user-triggered) merges to prod and closes the spec. `/fix` closes inline.
 

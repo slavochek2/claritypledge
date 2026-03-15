@@ -165,10 +165,19 @@ Check for common PRD biases (especially critical when author = reviewer):
 | 1 | Users want X | Desirability | High | High | VALIDATE |
 | 2 | DB can handle Y | Feasibility | Medium | Low | DEFER to /architect |
 
-### Hard Questions
-1. [Most important unanswered question — the one that, if answered differently, changes everything]
-2. [Second most important]
-3. [Third]
+### Hard Questions (with Resolution Options)
+For each question: state the question, propose 2-3 resolution options with trade-offs, and recommend one.
+
+1. **[Question — the one that, if answered differently, changes everything]**
+   - Option A: [approach] — [trade-off]
+   - Option B: [approach] — [trade-off]
+   - **Recommended:** [A or B] because [reason]
+2. **[Second most important]**
+   - Option A: ... — ...
+   - Option B: ... — ...
+   - **Recommended:** ...
+3. **[Third]**
+   - ...
 
 ### Summary
 {2-3 sentences: What's the biggest risk? What should the founder think about before proceeding?}
@@ -270,11 +279,12 @@ Parse the entire PRD and list every implicit and explicit assumption. For each,
 rate importance (to feature success) and uncertainty (confidence it's true).
 Present as a table.
 
-**Phase 4 — Generate hard questions**
+**Phase 4 — Generate hard questions with resolution options**
 
 Write 3-5 questions that, if answered differently than the PRD assumes, would
-fundamentally change what should be built. These are the questions the founder
-should sit with before proceeding.
+fundamentally change what should be built. For each question, propose 2-3
+resolution options with concrete trade-offs, and recommend one. The founder
+should review the recommendations, not sit with open-ended questions.
 
 **Phase 5 — Synthesize**
 
@@ -284,7 +294,8 @@ Assign verdict: PASS / CHALLENGE / RETHINK.
 **Output rules:**
 - Be specific: quote exact PRD text, name the section
 - Be actionable: say what needs to change or what question needs answering
-- Do NOT propose solutions — surface the problems. The founder decides how to fix
+- For BLOCKs/WARNs: surface the problem, do NOT propose solutions — the founder decides how to fix
+- For Hard Questions: DO propose resolution options with trade-offs and a recommendation
 - Do NOT challenge product direction unless it contradicts documented strategy
 - Adversarial does not mean hostile — be direct and constructive, not dismissive
 - If the PRD is genuinely solid, say PASS and explain why it survived the challenge
