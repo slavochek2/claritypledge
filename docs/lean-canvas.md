@@ -144,6 +144,8 @@ Stories let authors verify understanding at scale without repeating themselves.
 
 A **practice system for calibrated communication** — evolving toward **Stories that scale your inner world**.
 
+**Long-term org model: Clarity Practice Community.** Not a SaaS company — a practice with a community around it (think NVC, Vipassana, rationality training). Practices spread through communities, not sales funnels. Near-term service revenue (FCO retainers, workshops) funds the transition. The Estonian OÜ is a vehicle, not the identity. The natural long-term home is a foundation or commons structure (see: Santa Fe Institute, Long Now Foundation, fiscal sponsorship models).
+
 **Current:** Slava-facilitated calibration sessions using /live as diagnostic tool. Pairs don't need to learn the tool.
 **Next:** Progressive automation — transcript pipeline → AI gap detection → mirror agents.
 

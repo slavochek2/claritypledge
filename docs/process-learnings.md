@@ -123,6 +123,42 @@ Recurring community events were falsified as an acquisition channel because the 
 
 ---
 
+## Mobile UX bugs are session-killers
+
+**Date:** 2026-03-14
+**Status:** proposed
+
+Observed during psychotherapist couple session. Three bugs that break the session flow:
+1. **Scroll bounce → accidental refresh:** On mobile, scrolling up causes the page to refresh, kicking the user out of the active /live session. Session state lost.
+2. **Tap targets too small:** Users with long nails miss the intended button and accidentally hit "speak freely" instead. Not clear what mode they're in afterward.
+3. **Position removal on click unclear:** Clicking on an already-taken position removes it, but there's no visual feedback or confirmation. Users don't realize they've un-positioned.
+
+**Fix:** These should be fixed before the next facilitated session — each one causes visible confusion and breaks the experience for channel partners evaluating the tool.
+
+---
+
+## Session goal alignment needed at start
+
+**Date:** 2026-03-14
+**Status:** proposed
+
+If two participants enter a clarity session with different goals (e.g., one wants to practice, the other wants to resolve a specific disagreement), the session becomes ineffective. The mismatch stays hidden until partway through when one person disengages.
+
+**Fix:** App should support an explicit goal-setting step before calibration begins. Even a simple "What are we here to do?" prompt that both participants answer and see each other's answer would surface the mismatch early.
+
+---
+
+## Listener needs exactly two choices: explain back OR ask a question
+
+**Date:** 2026-03-14
+**Status:** proposed
+
+Current /live UI has unclear mode states for the listener. Observation from session: the listener doesn't know what they're supposed to do. The clean interaction is exactly two options: (1) explain back what you understood, or (2) ask a clarifying question. Plus a visible "token" showing who is currently speaking.
+
+**Fix:** Simplify listener UI to two clearly labeled buttons. Add visual token indicator for whose turn it is. This maps to P517 (turn-taking feedback) and P518 (preboarding goal alignment).
+
+---
+
 ## Future event formats to test (parked)
 
 **Date:** 2026-03-14

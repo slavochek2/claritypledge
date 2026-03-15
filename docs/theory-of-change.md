@@ -516,6 +516,16 @@ LAYER 4: TOPOLOGY MAP
 
 ---
 
+## Rate Asymmetry Thesis (Novel Contribution)
+
+**Core claim (2026-03-15):** There is a structural asymmetry between the rate at which false beliefs propagate and crystallize into (false) common beliefs, and the rate at which verified common knowledge is generated to displace them. The bottleneck is the absence of low-cost verification protocols in ordinary human conversation. This asymmetry compounds over time, producing coordination failures at every scale.
+
+**Why this is original:** Nobody has framed this as a measurable rate asymmetry, or connected it to a missing verification protocol at the interpersonal level as the root bottleneck. Sits in the unclaimed intersection of Pinker (common knowledge structure), Chwe (ritual generation of CK), and the misinformation literature (belief perseverance). Deductively argued and falsification-tested. See [P522](../features/p522_rate_asymmetry_article.md) for the full article spec.
+
+**Implication for ClarityPledge:** The /live protocol is not a communication tool — it's a common knowledge accelerator. Every conversation is a potential CK generator, but because people fear the verification step, conversations fail to produce CK and instead produce divergent private beliefs that compound.
+
+---
+
 ## Evidence Base (Strategic Evidence)
 
 The theory of change is built on research-backed facts and validated assumptions. This is **strategic evidence** supporting core assumptions.
