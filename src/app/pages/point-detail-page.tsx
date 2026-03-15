@@ -618,7 +618,7 @@ function PositionHolderCard({
         <span className="font-medium text-foreground text-sm truncate">{holder.userName}</span>
         <EarBadge count={holder.earCount} name={holder.userName} />
         <PositionBadge position={holder.position} />
-        {ctaHref ? (
+        {ctaHref && (
           <a
             href={ctaHref}
             onClick={e => e.stopPropagation()}
@@ -626,8 +626,6 @@ function PositionHolderCard({
           >
             Add your story →
           </a>
-        ) : (
-          <span className="ml-auto text-xs text-muted-foreground italic shrink-0">No story yet</span>
         )}
       </div>
     </div>
