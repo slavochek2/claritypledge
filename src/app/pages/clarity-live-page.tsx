@@ -17,6 +17,7 @@ import {
   createClaritySession,
   joinClaritySession,
   getClaritySession,
+  getActiveSessionByCode,
   subscribeToClaritySession,
   updateClaritySessionLiveState,
   patchClaritySessionLiveState,
@@ -48,6 +49,7 @@ import { calibrationService } from '@/app/data/calibration-service';
 import { supabase } from '@/lib/supabase';
 import { LiveModeView, PartnerLeftScreen } from '@/app/components/partners/live-mode-view';
 import { ReconnectingCountdown } from '@/app/components/session/reconnecting-countdown';
+import { RejoinPrompt } from '@/app/components/session/rejoin-prompt';
 import { useAudioRecorder } from '@/hooks/use-audio-recorder';
 import { useMicrophonePermission } from '@/hooks/useMicrophonePermission';
 import { MicrophonePermissionDialog } from '@/app/components/live-meeting/microphone-permission-dialog';
@@ -55,7 +57,7 @@ import { SessionEventsCollector } from '@/lib/session-events-collector';
 import { GoogleAuthButton } from '@/app/components/auth/google-auth-button';
 import { toast } from 'sonner';
 import { RemovePositionDialog, useRemovePositionGuard } from '@/app/components/shared/remove-position-dialog';
-import { useLiveSession } from '@/app/contexts/live-session-context';
+import { useLiveSession, getActiveSessionFromStorage, clearActiveSessionFromStorage } from '@/app/contexts/live-session-context';
 import { useSessionHeartbeat } from '@/hooks/use-session-heartbeat';
 
 type ViewState = 'start' | 'waiting' | 'live';
@@ -259,6 +261,17 @@ export function ClarityLivePage() {
 
   // P511 Task 6: Grace period state — when set, shows ReconnectingCountdown instead of instant PartnerLeftScreen
   const [gracePeriodStart, setGracePeriodStart] = useState<Date | null>(null);
+
+  // P511 Task 10: Rejoin prompt state for /live landing
+  const [rejoinSession, setRejoinSession] = useState<{
+    code: string;
+    partnerName: string | null;
+    guestDisplayName: string | null;
+    role: 'creator' | 'joiner';
+    sessionId: string;
+  } | null>(null);
+  const [isCheckingRejoin, setIsCheckingRejoin] = useState(false);
+  const [isRejoining, setIsRejoining] = useState(false);
 
   // Sync live state to context so BottomNav can intercept nav during live sessions
   // Not live if: still on start screen, or session has ended (partner left / creator left)
@@ -679,6 +692,47 @@ export function ClarityLivePage() {
 
     restoreSession();
   }, [isJoinViaLink]);
+
+  // P511 Task 10: Check localStorage for active session to show rejoin prompt on /live landing
+  useEffect(() => {
+    // Only check on the landing page (not join-via-link) and when no session is already restored
+    if (isJoinViaLink || session) return;
+
+    const checkActiveSession = async () => {
+      const stored = getActiveSessionFromStorage();
+      if (!stored) return;
+
+      setIsCheckingRejoin(true);
+      try {
+        const activeSession = await getActiveSessionByCode(stored.code);
+        if (activeSession) {
+          // Session still active — show rejoin prompt
+          // Use partner name from DB (more up-to-date than localStorage)
+          const partnerName = stored.role === 'creator'
+            ? activeSession.joinerName ?? null
+            : activeSession.creatorName ?? null;
+          setRejoinSession({
+            code: stored.code,
+            partnerName,
+            guestDisplayName: stored.guestDisplayName ?? null,
+            role: stored.role,
+            sessionId: activeSession.id,
+          });
+        } else {
+          // Session expired or ended — clear stale localStorage silently
+          clearActiveSessionFromStorage();
+          clearActiveSession();
+        }
+      } catch {
+        // Network error — don't show rejoin prompt, fall through to normal landing
+        console.error('[Live] Failed to check active session for rejoin prompt');
+      } finally {
+        setIsCheckingRejoin(false);
+      }
+    };
+
+    checkActiveSession();
+  }, [isJoinViaLink, session, clearActiveSession]);
 
   // Fetch host name when joining via link (for personalized "Join X's Session" title)
   useEffect(() => {
@@ -1943,7 +1997,7 @@ export function ClarityLivePage() {
       // Save to localStorage for rejoin
       saveSessionToStorage(joinedSession.code, joinName, false);
       // P511: Persist active session to localStorage for banner on other pages
-      setActiveSession(joinedSession.code, joinedSession.creatorName ?? null, 'joiner');
+      setActiveSession(joinedSession.code, joinedSession.creatorName ?? null, 'joiner', !user ? joinName : null);
 
       analytics.track('live_session_joined', {
         session_code: joinedSession.code,
@@ -2025,6 +2079,104 @@ export function ClarityLivePage() {
       setError(err instanceof Error ? err.message : 'Failed to create session');
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  // P511 Task 10: Rejoin handler — restores the user into their active session
+  const handleRejoin = async () => {
+    if (!rejoinSession) return;
+    setIsRejoining(true);
+    try {
+      const activeSession = await getActiveSessionByCode(rejoinSession.code);
+      if (!activeSession) {
+        // Session expired between showing prompt and clicking rejoin
+        clearActiveSessionFromStorage();
+        clearActiveSession();
+        setRejoinSession(null);
+        setIsRejoining(false);
+        return;
+      }
+
+      if (rejoinSession.role === 'joiner') {
+        // Re-set joiner_name on the session row (joiner may have been cleared)
+        const guestName = rejoinSession.guestDisplayName;
+        const joinName = user?.name || guestName || name.trim();
+        if (!joinName) {
+          setError('Unable to rejoin — name not found');
+          setIsRejoining(false);
+          return;
+        }
+        const joinedSession = await joinClaritySession(rejoinSession.code, joinName, user?.id);
+        if (!joinedSession) {
+          // joinClaritySession may fail if session is already full with a different joiner
+          clearActiveSessionFromStorage();
+          clearActiveSession();
+          setRejoinSession(null);
+          setIsRejoining(false);
+          return;
+        }
+        setSession(joinedSession);
+        setIsCreator(false);
+        setName(joinName);
+        saveSessionToStorage(joinedSession.code, joinName, false);
+      } else {
+        // Creator — restore session state and navigate to live/waiting view
+        setSession(activeSession);
+        setIsCreator(true);
+        setName(activeSession.creatorName);
+        saveSessionToStorage(activeSession.code, activeSession.creatorName, true);
+      }
+
+      // Reset refs for clean state
+      iAmLeavingRef.current = false;
+      partnerLeftRef.current = false;
+      sessionEndedRef.current = false;
+      hasJoinerRef.current = false;
+      lastJoinerNameRef.current = null;
+      gracePeriodStartRef.current = null;
+
+      // Sync live state
+      if (activeSession.liveState) {
+        setLiveState({ ...DEFAULT_LIVE_STATE, ...activeSession.liveState } as LiveSessionState);
+      }
+
+      // Determine the right view
+      const liveStateRecord = activeSession.liveState as Record<string, unknown> | null;
+      const isSessionEnded = liveStateRecord?.sessionEnded === true;
+      if (activeSession.joinerName && !isSessionEnded) {
+        setPendingLiveTransition(true);
+      } else if (rejoinSession.role === 'creator') {
+        setView('waiting');
+      }
+
+      setRejoinSession(null);
+      analytics.track('live_session_rejoined', {
+        session_code: rejoinSession.code,
+        role: rejoinSession.role,
+      });
+    } catch (err) {
+      console.error('[Live] Failed to rejoin session:', err);
+      setError(err instanceof Error ? err.message : 'Failed to rejoin session');
+    } finally {
+      setIsRejoining(false);
+    }
+  };
+
+  // P511 Task 10: End session from rejoin prompt
+  const handleEndFromRejoin = async () => {
+    if (!rejoinSession) return;
+    try {
+      await endClaritySession(rejoinSession.sessionId);
+      clearActiveSessionFromStorage();
+      clearActiveSession();
+      clearStoredSession();
+      setRejoinSession(null);
+      analytics.track('live_session_ended_from_rejoin', {
+        session_code: rejoinSession.code,
+        role: rejoinSession.role,
+      });
+    } catch (err) {
+      console.error('[Live] Failed to end session from rejoin prompt:', err);
     }
   };
 
@@ -2389,7 +2541,7 @@ export function ClarityLivePage() {
           setIsCreator(false);
           saveSessionToStorage(joinedSession.code, pendingJoin.joinName, false);
           // P511: Persist active session to localStorage for banner on other pages
-          setActiveSession(joinedSession.code, joinedSession.creatorName ?? null, 'joiner');
+          setActiveSession(joinedSession.code, joinedSession.creatorName ?? null, 'joiner', !user ? pendingJoin.joinName : null);
 
           analytics.track('live_session_joined', {
             session_code: joinedSession.code,
@@ -2708,6 +2860,31 @@ export function ClarityLivePage() {
             <div className="animate-pulse text-muted-foreground">
               {isLoading ? 'Creating session...' : 'Loading...'}
             </div>
+          </div>
+        </div>
+      );
+    }
+
+    // P511 Task 10: Show rejoin prompt if active session detected in localStorage
+    if (rejoinSession || isCheckingRejoin) {
+      return (
+        <div className="flex flex-col min-h-[calc(100vh-4rem)] lg:min-h-[calc(100vh-5rem)]">
+          <div className="flex-1 container mx-auto px-4 flex flex-col justify-center">
+            {isCheckingRejoin ? (
+              <div className="flex items-center justify-center">
+                <div className="animate-pulse text-muted-foreground">Checking session...</div>
+              </div>
+            ) : rejoinSession ? (
+              <RejoinPrompt
+                sessionCode={rejoinSession.code}
+                partnerName={rejoinSession.partnerName}
+                guestDisplayName={rejoinSession.guestDisplayName}
+                onRejoin={handleRejoin}
+                onEndSession={handleEndFromRejoin}
+                isRejoining={isRejoining}
+              />
+            ) : null}
+            {error && <p className="text-sm text-red-600 text-center mt-4">{error}</p>}
           </div>
         </div>
       );

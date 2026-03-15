@@ -9,6 +9,8 @@ export interface StoredActiveSession {
   partnerName: string | null;
   role: 'creator' | 'joiner';
   timestamp: string; // ISO 8601
+  /** Guest's own display name (for anonymous joiners who need "Rejoin as [Name]") */
+  guestDisplayName?: string | null;
 }
 
 /** Save active session info to localStorage. */
@@ -56,11 +58,12 @@ interface LiveSessionContextValue {
   activeSessionCode: string | null;
   activeSessionPartnerName: string | null;
   activeSessionRole: 'creator' | 'joiner' | null;
+  activeSessionGuestDisplayName: string | null;
   isGracePeriod: boolean;
   gracePeriodPartnerName: string | null;
 
   // P511: Methods
-  setActiveSession: (code: string, partnerName: string | null, role: 'creator' | 'joiner') => void;
+  setActiveSession: (code: string, partnerName: string | null, role: 'creator' | 'joiner', guestDisplayName?: string | null) => void;
   clearActiveSession: () => void;
   setGracePeriod: (isGrace: boolean, partnerName?: string | null) => void;
 }
@@ -73,6 +76,7 @@ const LiveSessionContext = createContext<LiveSessionContextValue>({
   activeSessionCode: null,
   activeSessionPartnerName: null,
   activeSessionRole: null,
+  activeSessionGuestDisplayName: null,
   isGracePeriod: false,
   gracePeriodPartnerName: null,
   setActiveSession: () => {},
@@ -88,18 +92,21 @@ export function LiveSessionProvider({ children }: { children: ReactNode }) {
   const [activeSessionCode, setActiveSessionCode] = useState<string | null>(null);
   const [activeSessionPartnerName, setActiveSessionPartnerName] = useState<string | null>(null);
   const [activeSessionRole, setActiveSessionRole] = useState<'creator' | 'joiner' | null>(null);
+  const [activeSessionGuestDisplayName, setActiveSessionGuestDisplayName] = useState<string | null>(null);
   const [isGracePeriod, setIsGracePeriodState] = useState(false);
   const [gracePeriodPartnerName, setGracePeriodPartnerName] = useState<string | null>(null);
 
-  const setActiveSession = useCallback((code: string, partnerName: string | null, role: 'creator' | 'joiner') => {
+  const setActiveSession = useCallback((code: string, partnerName: string | null, role: 'creator' | 'joiner', guestDisplayName?: string | null) => {
     setActiveSessionCode(code);
     setActiveSessionPartnerName(partnerName);
     setActiveSessionRole(role);
+    setActiveSessionGuestDisplayName(guestDisplayName ?? null);
     saveActiveSessionToStorage({
       code,
       partnerName,
       role,
       timestamp: new Date().toISOString(),
+      guestDisplayName: guestDisplayName ?? null,
     });
   }, []);
 
@@ -107,6 +114,7 @@ export function LiveSessionProvider({ children }: { children: ReactNode }) {
     setActiveSessionCode(null);
     setActiveSessionPartnerName(null);
     setActiveSessionRole(null);
+    setActiveSessionGuestDisplayName(null);
     setIsGracePeriodState(false);
     setGracePeriodPartnerName(null);
     clearActiveSessionFromStorage();
@@ -127,6 +135,7 @@ export function LiveSessionProvider({ children }: { children: ReactNode }) {
         activeSessionCode,
         activeSessionPartnerName,
         activeSessionRole,
+        activeSessionGuestDisplayName,
         isGracePeriod,
         gracePeriodPartnerName,
         setActiveSession,

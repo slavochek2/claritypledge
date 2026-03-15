@@ -20,6 +20,7 @@ export function useActiveSession() {
     activeSessionCode,
     activeSessionPartnerName,
     activeSessionRole,
+    activeSessionGuestDisplayName,
     setActiveSession,
     clearActiveSession,
   } = useLiveSession();
@@ -45,7 +46,7 @@ export function useActiveSession() {
 
         if (session && !session.endedAt) {
           // Session is still active — restore context
-          setActiveSession(stored.code, stored.partnerName, stored.role);
+          setActiveSession(stored.code, stored.partnerName, stored.role, stored.guestDisplayName);
         } else {
           // Session ended or doesn't exist — clean up
           clearActiveSessionFromStorage();
@@ -74,6 +75,7 @@ export function useActiveSession() {
     activeSessionCode,
     activeSessionPartnerName,
     activeSessionRole,
+    activeSessionGuestDisplayName,
     isLoading,
   };
 }
