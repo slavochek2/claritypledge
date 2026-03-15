@@ -4,7 +4,7 @@
  * Links to /p/:slug/partners. Handles viewer states:
  *   Any viewer, N>0 active     → "✦ N Clarity Partners →" (blue link)
  *   Owner, 0 agreements        → "✦ 0 Clarity Partners →" (blue link)
- *   Non-owner, no visible      → null (renders nothing)
+ *   Non-owner, 0 active        → "✦ 0 Clarity Partners" (static muted text, not clickable)
  */
 
 import { Link } from 'react-router-dom';
@@ -31,14 +31,21 @@ export function AgreementsMetadataLine({
 
   const isOwner = viewerProfileId === profileId;
 
-  // Non-owner with nothing visible → hide entirely
-  if (filtered.length === 0 && !isOwner) return null;
-
   // B1: count only active agreements for the "N Clarity Partners" display
   const activeCount = filtered.filter(a => a.status === 'active').length;
 
   const displayCount = filtered.length === 0 ? 0 : activeCount;
   const partnersLabel = `Clarity Partner${displayCount !== 1 ? 's' : ''}`;
+
+  // Non-owner with 0 partners → show static text (like LinkedIn hidden connections)
+  if (displayCount === 0 && !isOwner) {
+    return (
+      <span className="flex items-center gap-1 text-sm font-semibold text-muted-foreground min-h-[44px]">
+        <Users className="h-4 w-4" aria-hidden="true" />
+        0 {partnersLabel}
+      </span>
+    );
+  }
 
   return (
     <Link
