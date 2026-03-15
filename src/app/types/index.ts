@@ -148,6 +148,8 @@ export interface ClaritySession {
   liveState?: Record<string, unknown>;
   // P160: Private session mode (no audio/events captured for ML training)
   isPrivate?: boolean;
+  // P511: Last heartbeat timestamp (for zombie session detection)
+  lastActivityAt?: string | null;
 }
 
 export interface ClaritySessionState {
@@ -178,6 +180,8 @@ export interface DbClaritySession {
   live_state?: Record<string, unknown>;
   // P160: Private session mode
   is_private?: boolean;
+  // P511: Last heartbeat timestamp
+  last_activity_at?: string | null;
 }
 
 // ============================================================================

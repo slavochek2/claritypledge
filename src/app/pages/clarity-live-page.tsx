@@ -2141,6 +2141,10 @@ export function ClarityLivePage() {
       }
 
       // Determine the right view
+      // P511 Task 12 (P495 recording integration): pendingLiveTransition triggers
+      // gateMicAndGoLive → mic re-acquisition → view='live' → recording start effect.
+      // MediaStream was released by browser on page unload; getUserMedia() runs again here.
+      // Gap in recording during disconnect is expected (Decision 4).
       const liveStateRecord = activeSession.liveState as Record<string, unknown> | null;
       const isSessionEnded = liveStateRecord?.sessionEnded === true;
       if (activeSession.joinerName && !isSessionEnded) {
@@ -2616,6 +2620,8 @@ export function ClarityLivePage() {
   }, [pendingLiveTransition, gateMicAndGoLive]);
 
   // P511 Task 6: Grace period expired — transition to final partner-left state
+  // P511 Task 12 (P495 recording): setPartnerLeft(true) triggers the P28.2 auto-stop
+  // effect below, which calls stopAndUploadRecording() to finalize with existing chunks.
   const handleGracePeriodExpired = useCallback(() => {
     // 5-second post-expiry delay before auto-transitioning
     setTimeout(() => {

@@ -790,6 +790,8 @@ function mapSessionFromDb(dbSession: DbClaritySession): ClaritySession {
     liveState: dbSession.live_state,
     // P160: Private session mode
     isPrivate: dbSession.is_private ?? false,
+    // P511: Last heartbeat timestamp (for zombie session detection)
+    lastActivityAt: dbSession.last_activity_at ?? null,
   };
 }
 
