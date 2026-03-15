@@ -14,14 +14,6 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 // P50: ConsentNotice import removed - replaced with inline consent checkbox
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
-import {
   createClaritySession,
   joinClaritySession,
   getClaritySession,
@@ -62,6 +54,7 @@ import { GoogleAuthButton } from '@/app/components/auth/google-auth-button';
 import { toast } from 'sonner';
 import { RemovePositionDialog, useRemovePositionGuard } from '@/app/components/shared/remove-position-dialog';
 import { useLiveSession } from '@/app/contexts/live-session-context';
+import { useSessionHeartbeat } from '@/hooks/use-session-heartbeat';
 
 type ViewState = 'start' | 'waiting' | 'live';
 
@@ -227,7 +220,7 @@ export function ClarityLivePage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const isJoinViaLink = !!urlCode;
-  const { setIsLive, pendingNavTo, setPendingNavTo } = useLiveSession();
+  const { setIsLive, setActiveSession, clearActiveSession } = useLiveSession();
 
   // P124: Get event context from URL params
   const returnTo = searchParams.get('returnTo');
@@ -255,8 +248,7 @@ export function ClarityLivePage() {
   // P144: Partner's ear count for credibility badge in host view
   const [partnerEarsCount, setPartnerEarsCount] = useState(0);
 
-  // Exit confirmation dialog state
-  const [showExitConfirm, setShowExitConfirm] = useState(false);
+  // Exit flow state (P512: prevents double-click on End Session)
   const [isExiting, setIsExiting] = useState(false);
 
   // Partner departure state
@@ -271,12 +263,8 @@ export function ClarityLivePage() {
     return () => { setIsLive(false); };
   }, [view, sessionEnded, partnerLeft, setIsLive]);
 
-  // When BottomNav sets a pending destination, show exit confirmation
-  useEffect(() => {
-    if (pendingNavTo) {
-      setShowExitConfirm(true);
-    }
-  }, [pendingNavTo]);
+  // P511: Heartbeat — creators only, only when in live view
+  useSessionHeartbeat(session?.id ?? null, isCreator && view === 'live');
 
   // P37.2a: Consent flow state
   const [showTermsUpdateDialog, setShowTermsUpdateDialog] = useState(false);
@@ -479,18 +467,6 @@ export function ClarityLivePage() {
     isCreatorRef.current = isCreator;
   }, [isCreator]);
 
-  // P126: Keep a current JWT ref so pagehide handler can use it for authenticated REST calls.
-  // The anon key alone is blocked by RLS on clarity_sessions for the joiner PATCH path.
-  const jwtRef = useRef<string | null>(null);
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      jwtRef.current = data.session?.access_token ?? null;
-    });
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      jwtRef.current = session?.access_token ?? null;
-    });
-    return () => subscription.unsubscribe();
-  }, []);
   const viewRef = useRef<ViewState>(view);
   useEffect(() => {
     viewRef.current = view;
@@ -500,20 +476,15 @@ export function ClarityLivePage() {
     }
   }, [view]);
 
-  // Fix A: Cleanup session on tab close / browser unload (pagehide is more reliable than beforeunload)
-  // Only fires when actually leaving (not on bfcache suspend) and only from live view.
-  //
-  // P126: Use fetch({ keepalive: true }) instead of normal async fetch calls.
-  // keepalive: true tells the browser to keep the request alive even after the page is
-  // torn down — equivalent to sendBeacon but supports custom headers (required for
-  // Supabase apikey/Authorization). Without keepalive, the browser kills in-flight
-  // fetch calls during pagehide, making departure detection unreliable.
+  // P511: pagehide handler — analytics only, no DB writes.
+  // DB cleanup is now handled by the heartbeat timeout (server-side reaper).
+  // DB writes in pagehide were unreliable (browser kills keepalive fetches inconsistently).
   useEffect(() => {
     const handlePageHide = (e: PageTransitionEvent) => {
-      if (e.persisted) return; // bfcache — page will be restored, skip cleanup
+      if (e.persisted) return; // bfcache — page will be restored, skip
       const sessionId = currentSessionIdRef.current;
       if (!sessionId || iAmLeavingRef.current) return;
-      if (viewRef.current !== 'live') return; // waiting room close doesn't signal sessionEnded
+      if (viewRef.current !== 'live') return;
       iAmLeavingRef.current = true;
 
       // P516: Track session exit via pagehide (tab close / navigation away)
@@ -527,47 +498,6 @@ export function ClarityLivePage() {
         checks_completed_so_far: confirmedLiveStateRef.current.checksCount,
         round_number: (confirmedLiveStateRef.current.sessionHistory ?? []).length,
       });
-
-      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
-      const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
-      // Use the user's JWT when available so RLS-protected tables (joiner PATCH) are
-      // authorised. Fall back to anon key — creator path uses SECURITY DEFINER RPC which
-      // bypasses RLS regardless.
-      const authToken = jwtRef.current ?? supabaseAnonKey;
-      const headers = {
-        'Content-Type': 'application/json',
-        'apikey': supabaseAnonKey,
-        'Authorization': `Bearer ${authToken}`,
-        'Prefer': 'return=minimal',
-      };
-
-      if (isCreatorRef.current) {
-        // Creator leaving: patch live_state to set sessionEnded=true so joiner sees "partner left"
-        // Fire-and-forget with keepalive so the browser completes this even after page teardown.
-        fetch(
-          `${supabaseUrl}/rest/v1/rpc/patch_live_state`,
-          {
-            method: 'POST',
-            headers,
-            body: JSON.stringify({
-              p_session_id: sessionId,
-              p_patch: { sessionEnded: true, sessionEndedAt: new Date().toISOString() },
-            }),
-            keepalive: true,
-          }
-        ).catch(() => {});
-      } else {
-        // Joiner leaving: clear joiner_name so creator sees "partner left"
-        fetch(
-          `${supabaseUrl}/rest/v1/clarity_sessions?id=eq.${sessionId}`,
-          {
-            method: 'PATCH',
-            headers,
-            body: JSON.stringify({ joiner_name: null }),
-            keepalive: true,
-          }
-        ).catch(() => {});
-      }
     };
     const handlePageShow = (e: PageTransitionEvent) => {
       if (e.persisted) {
@@ -1980,6 +1910,8 @@ export function ClarityLivePage() {
       setIsCreator(false);
       // Save to localStorage for rejoin
       saveSessionToStorage(joinedSession.code, joinName, false);
+      // P511: Persist active session to localStorage for banner on other pages
+      setActiveSession(joinedSession.code, joinedSession.creatorName ?? null, 'joiner');
 
       analytics.track('live_session_joined', {
         session_code: joinedSession.code,
@@ -2049,6 +1981,8 @@ export function ClarityLivePage() {
       setView('waiting');
       // HIGH #6: Save to localStorage for rejoin
       saveSessionToStorage(newSession.code, trimmedName, true);
+      // P511: Persist active session to localStorage for banner on other pages
+      setActiveSession(newSession.code, null, 'creator');
 
       // Track session creation
       analytics.track('live_session_created', {
@@ -2258,12 +2192,7 @@ export function ClarityLivePage() {
     userForChunks.current = null;
   }, [session, name, stopRecording]);
 
-  // Show exit confirmation dialog
-  const handleExitMeeting = useCallback(() => {
-    setShowExitConfirm(true);
-  }, []);
-
-  // Actually exit meeting after confirmation
+  // Actually exit meeting (P511: no confirmation dialog — session can be resumed via heartbeat)
   const confirmExitMeeting = useCallback(async () => {
     // P512: Prevent double-click and show loading state
     if (isExiting) return;
@@ -2340,12 +2269,12 @@ export function ClarityLivePage() {
     }
 
     clearStoredSession();
+    clearActiveSession();
     setSession(null);
     setLiveState(DEFAULT_LIVE_STATE);
     setIsLocallyRating(false);
     setView('start');
     setRoomCode('');
-    setShowExitConfirm(false);
     setIsExiting(false);
     // Reset all departure refs so future sessions can work properly
     // Critical: Without this, polling would be permanently disabled for new sessions
@@ -2354,14 +2283,13 @@ export function ClarityLivePage() {
     sessionEndedRef.current = false;
     hasJoinerRef.current = false;
     lastJoinerNameRef.current = null;
-    if (pendingNavTo) {
-      const destination = pendingNavTo;
-      setPendingNavTo(null);
-      navigate(destination, { replace: true });
-    } else {
-      navigate(returnTo ?? '/live', { replace: true });
-    }
-  }, [session, liveState.checksCount, isCreator, isFromEvent, returnTo, navigate, stopAndUploadRecording, pendingNavTo, setPendingNavTo, isExiting]);
+    navigate(returnTo ?? '/live', { replace: true });
+  }, [session, liveState.checksCount, isCreator, isFromEvent, returnTo, navigate, stopAndUploadRecording, clearActiveSession, isExiting]);
+
+  // P511: Exit directly — no confirmation dialog (session can be resumed via heartbeat)
+  const handleExitMeeting = useCallback(() => {
+    confirmExitMeeting();
+  }, [confirmExitMeeting]);
 
   // Handle starting a new session after partner left
   const handleStartNewAfterPartnerLeft = useCallback(async () => {
@@ -2379,6 +2307,7 @@ export function ClarityLivePage() {
     }
 
     clearStoredSession();
+    clearActiveSession();
     setSession(null);
     setLiveState(DEFAULT_LIVE_STATE);
     setView('start');
@@ -2391,7 +2320,7 @@ export function ClarityLivePage() {
     hasJoinerRef.current = false;
     lastJoinerNameRef.current = null;
     navigate(returnTo ?? '/live', { replace: true });
-  }, [session, isFromEvent, returnTo, navigate, stopAndUploadRecording]);
+  }, [session, isFromEvent, returnTo, navigate, stopAndUploadRecording, clearActiveSession]);
 
   // P40: Handle mic permission dialog retry
   // If we have pending join info, complete the join after mic is granted
@@ -2419,6 +2348,8 @@ export function ClarityLivePage() {
           setSession(joinedSession);
           setIsCreator(false);
           saveSessionToStorage(joinedSession.code, pendingJoin.joinName, false);
+          // P511: Persist active session to localStorage for banner on other pages
+          setActiveSession(joinedSession.code, joinedSession.creatorName ?? null, 'joiner');
 
           analytics.track('live_session_joined', {
             session_code: joinedSession.code,
@@ -3138,33 +3069,6 @@ export function ClarityLivePage() {
 
         {/* Remove position confirmation dialog */}
         <RemovePositionDialog {...liveRemoveDialogProps} />
-
-        {/* Exit confirmation dialog */}
-        <Dialog open={showExitConfirm} onOpenChange={(open) => { if (isExiting) return; setShowExitConfirm(open); if (!open) setPendingNavTo(null); }}>
-          <DialogContent className="max-w-sm">
-            <DialogHeader>
-              <DialogTitle>End session?</DialogTitle>
-              <DialogDescription>
-                Are you sure you want to end this session? Your progress will be lost.
-              </DialogDescription>
-            </DialogHeader>
-            <DialogFooter className="flex-row gap-2 sm:justify-end">
-              <Button variant="outline" onClick={() => { setShowExitConfirm(false); setPendingNavTo(null); }} disabled={isExiting}>
-                Cancel
-              </Button>
-              <Button variant="destructive" onClick={confirmExitMeeting} disabled={isExiting}>
-                {isExiting ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                    Ending...
-                  </>
-                ) : (
-                  'End Session'
-                )}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
 
         {/* P40: Microphone permission dialog */}
         <MicrophonePermissionDialog
