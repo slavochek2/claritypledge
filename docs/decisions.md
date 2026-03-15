@@ -2,6 +2,13 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-15 [process]: Verify the user's naming scheme before diagnosing sorting bugs
+
+**Context:** User reported stories/points on profile were "not sorted top to bottom" with sequence 7,5,3,4,2,6,1. Investigation assumed "#st1–#st7" referred to creation order. In reality, stories contain `#stN` hashtags in their content representing a logical narrative sequence — and the stories were NOT created in that sequence. The `created_at`-based sort was working correctly; it just produced a different order than the `#stN` numbering.
+**Decision:** Fixed by updating `created_at` timestamps on prod to match the intended `#stN` sequence (5 stories, 5 points). The earlier code fix (adding `.order()` to sub-queries) was still valid but addressed a secondary issue, not the user's complaint.
+**Alternatives rejected:** (A) Sort by `stN` tag at query time — fragile, couples display order to content hashtags. (C) Add `display_order` column — unnecessary schema change for 7 records with stable ordering.
+**Consequences:** When a user reports ordering issues, first ask: "What determines the expected order?" Don't assume `created_at` = intended sequence. The `#stN` tags in story content are the user's canonical numbering — content was authored out of sequence.
+
 ## 2026-03-14 [product]: On-page banners only where compositionally integrated — OG-only for stories, removed from points
 
 **Context:** P504 added AI-generated banners uniformly across stories, points, profiles, and events. On profiles, P510 redesigned the banner into a LinkedIn-style header (96px avatar overlap, name beside avatar, pencil icon controls) — compositionally integrated. On stories and points, banners sat as disconnected rectangular blocks above content cards: 29% mobile viewport consumed, no information value, no visual integration with the card below. Analysis of 30 layout variants via `/ascii-flows` confirmed no practical integration pattern exists for card-based detail pages.
