@@ -293,6 +293,8 @@ export function ClarityLivePage() {
   const verificationFiredRef = useRef<Set<string>>(new Set());
   // P516: Track last user action timestamp for exit telemetry
   const lastActionTimestampRef = useRef<number>(Date.now());
+  // P516: Track session start time for duration telemetry
+  const sessionStartTimestampRef = useRef<number>(Date.now());
 
   useEffect(() => {
     hasJoinerRef.current = !!session?.joinerName;
@@ -337,6 +339,10 @@ export function ClarityLivePage() {
   const viewRef = useRef<ViewState>(view);
   useEffect(() => {
     viewRef.current = view;
+    // P516: Reset session start timestamp when entering live view
+    if (view === 'live') {
+      sessionStartTimestampRef.current = Date.now();
+    }
   }, [view]);
 
   // Fix A: Cleanup session on tab close / browser unload (pagehide is more reliable than beforeunload)
@@ -362,6 +368,9 @@ export function ClarityLivePage() {
         time_since_last_action_ms: Date.now() - lastActionTimestampRef.current,
         had_focus_when_exited: !document.hidden,
         is_creator: isCreatorRef.current,
+        session_duration_seconds: Math.round((Date.now() - sessionStartTimestampRef.current) / 1000),
+        checks_completed_so_far: confirmedLiveStateRef.current.checksCount,
+        round_number: (confirmedLiveStateRef.current.sessionHistory ?? []).length,
       });
 
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
@@ -648,6 +657,7 @@ export function ClarityLivePage() {
           session_code: updatedSession.code,
           left_by: 'creator',
           exit_reason: 'partner_departure',
+          checks_completed_so_far: confirmedLiveStateRef.current.checksCount,
         });
         return; // Don't process further updates after session ends
       }
@@ -663,6 +673,7 @@ export function ClarityLivePage() {
           session_code: updatedSession.code,
           left_by: 'joiner',
           exit_reason: 'partner_departure',
+          checks_completed_so_far: confirmedLiveStateRef.current.checksCount,
         });
         return; // Don't process further updates after partner leaves
       }
@@ -752,6 +763,7 @@ export function ClarityLivePage() {
             session_code: freshSession.code,
             left_by: 'creator',
             exit_reason: 'partner_departure',
+            checks_completed_so_far: confirmedLiveStateRef.current.checksCount,
           });
           return;
         }
@@ -768,6 +780,7 @@ export function ClarityLivePage() {
             session_code: freshSession.code,
             left_by: 'joiner',
             exit_reason: 'partner_departure',
+            checks_completed_so_far: confirmedLiveStateRef.current.checksCount,
           });
           return;
         }
@@ -976,10 +989,6 @@ export function ClarityLivePage() {
       return;
     }
 
-    analytics.track('live_story_selected', {
-      session_code: session?.code,
-      story_id: storyId,
-    });
     lastActionTimestampRef.current = Date.now(); // P516
     analytics.track('story_session_started', {
       story_id: storyId,
@@ -1289,6 +1298,7 @@ export function ClarityLivePage() {
             gap_type: gap > 0 ? 'overconfidence' : gap < 0 ? 'underconfidence' : 'none',
             is_perfect: isPerfect,
             round: currentState.explainBackRatings.length,
+            flow_type: localFlowType,
           });
 
           // Track perfect understanding on first round
@@ -1298,6 +1308,7 @@ export function ClarityLivePage() {
               rounds_to_achieve: 0,
               initial_checker_rating: checkerRatingValue,
               initial_responder_rating: responderRatingValue,
+              has_explain_backs: currentState.explainBackRatings.length > 0,
             });
           }
         }
@@ -1628,6 +1639,7 @@ export function ClarityLivePage() {
           rounds_to_achieve: round,
           initial_checker_rating: currentState.checkerRating,
           initial_responder_rating: currentState.responderRating,
+          has_explain_backs: true,
         });
       }
 
@@ -2051,6 +2063,9 @@ export function ClarityLivePage() {
         exit_reason: 'button_click',
         time_since_last_action_ms: Date.now() - lastActionTimestampRef.current,
         had_focus_when_exited: !document.hidden,
+        session_duration_seconds: Math.round((Date.now() - sessionStartTimestampRef.current) / 1000),
+        checks_completed_so_far: checksCompleted,
+        round_number: (liveState.sessionHistory ?? []).length,
       });
 
       // Track session completion separately for funnel analysis
@@ -2059,6 +2074,7 @@ export function ClarityLivePage() {
           session_code: session.code,
           checks_completed: checksCompleted,
           is_creator: isCreator,
+          session_duration_seconds: Math.round((Date.now() - sessionStartTimestampRef.current) / 1000),
         });
       }
 
