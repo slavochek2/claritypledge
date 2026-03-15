@@ -14,6 +14,7 @@
 | Strategic docs | `docs/{name}.md` or `docs/milestones/` | Manual (ask first) |
 | Blog content | `content/blog/{slug}.md` | `/prepare-blog` |
 | Migration scripts | `scripts/archive/migrations/YYYYMMDD-{name}.{js,mjs,cjs,sh}` | Manual |
+| User feedback / session observations | `.private/docs/user-feedback.md` | Append dated entry |
 | Analysis outputs | **Terminal only** | Never create files |
 | Temporary files | `/tmp/` or system temp | Never project directories |
 
