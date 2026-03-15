@@ -61,6 +61,7 @@ Or with existing draft:
 - Simple typo fixes
 
 **Next steps after create-prd:**
+- Run `/challenge-prd` to stress-test business requirements (recommended for novel features)
 - Run `/ux` for UX design layer (if UI feature)
 - Run `/architect` for technical architecture layer
 - Run `/generate-tests` for test automation

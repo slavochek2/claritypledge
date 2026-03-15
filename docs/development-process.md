@@ -13,6 +13,9 @@ This document describes how features move from idea to production in the Clarity
 /create-prd "Feature idea"           # Business layer
 # [Review & approve business requirements]
 
+/challenge-prd features/pN_feature.md # Stress-test assumptions (recommended*)
+# [Resolve any BLOCK findings]
+
 /ux features/pN_feature.md           # UX layer (if UI)
 # [Review & approve UX design]
 
@@ -76,6 +79,8 @@ This document describes how features move from idea to production in the Clarity
 - File paths or architecture decisions
 
 **Review gate:** User reviews business requirements, approves or requests changes.
+
+**Optional next step:** Run `/challenge-prd` to adversarially stress-test assumptions, flows, and strategic fit before proceeding to design. Recommended for novel features; skip for incremental improvements.
 
 **Example:**
 ```bash
@@ -434,6 +439,7 @@ Need RLS policy or validation that userId matches authenticated user.
 | Skill | When to Use | Output |
 |-------|-------------|--------|
 | `/create-prd` | Starting any new feature | Business requirements only |
+| `/challenge-prd` | After `/create-prd` (recommended for novel features) | Adversarial stress-test: BLOCK/WARN/NOTE findings |
 | `/ux` | UI features (after business approved) | UX design (flows, screens, edge cases) |
 | `/architect` | All features (after UX approved if UI) | Technical architecture + security |
 | `/generate-tests` | All features (after architecture approved) | UAT + E2E stubs + smoke tests |
@@ -823,7 +829,7 @@ These skills can be used at any point during development when you need them:
 │ CORE FLOW                                           │
 │                                                     │
 │ Features:                                           │
-│ /create-prd → /ux → /architect → /generate-tests → /spec-review → /decompose* → /dev │
+│ /create-prd → /challenge-prd* → /ux → /architect → /generate-tests → /spec-review → /decompose* → /dev │
 │                                                     │
 │ * /decompose optional — 5+ files OR 3+ concerns OR 6+ build steps      │
 │   /decompose reads Test Coverage section from /generate-tests           │

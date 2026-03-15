@@ -98,7 +98,9 @@ Use this table to build the command chain directly. Each row maps a signal to a 
 | `type: change-request` in spec frontmatter | any | `/spec-review` mandatory (not optional) |
 | **Changes `.claude/commands/`, `.claude/rules/`, `.claude/hooks/`, `CLAUDE.md`, git workflow, or `scripts/` invoked by hooks/CI** | **Infra** | **See infrastructure tier below** |
 
-**Command ordering when multiple signals apply:** `/create-prd` → `/ux` → `/architect` → `/generate-tests` → `/decompose` → `/dev` → `/verify`
+**Command ordering when multiple signals apply:** `/create-prd` → `/challenge-prd`* → `/ux` → `/architect` → `/generate-tests` → `/decompose` → `/dev` → `/verify`
+
+`*` `/challenge-prd` recommended for novel features (new capability, new actor, unvalidated flow). Skip for incremental improvements.
 
 ## Infrastructure tier (skills / hooks / process changes)
 
@@ -123,6 +125,7 @@ These changes affect **all future work** — not a single feature. Risk is asymm
 - `/change-request` — redesign spec for a shipped feature whose design was wrong (wrong ordering, actor confusion, duplication, hierarchy); creates new P-number with predecessor linkage and superseded-sections table; use when code works as specified but UX/design is wrong; NOT for new capability (new user value → `/create-prd`)
 - `/quick-feature` — skeleton spec in `features/` (30 sec), use for tracking
 - `/create-prd` — full PRD with acceptance criteria (3-5 min)
+- `/challenge-prd` — adversarial stress-test of PRD assumptions, flows, strategic fit (5-10 min); recommended for novel features, skip for incremental improvements; use `--quick` for reduced depth (3-5 min)
 - `/ux` — wireframes/design decisions (UI features only, skip if design is resolved)
 - `/architect` — architecture plan + mandatory security review; include whenever task has DB columns, RLS, auth, API changes, or new patterns; skip only for trivial 1-2 file UI-only changes with no security surface
 - `/generate-tests` — writes test specs before implementation; include whenever a regression would be annoying to debug manually — this covers any conditional rendering (phase-based, auth-based, role-based), UI state that changes on user interaction or event, placeholder text or UI strings that could drift, button enable/disable logic, CSS class conditionals (e.g. centered vs sticky based on state), and all security/auth/DB cases; mandatory for any DB migration (P270 rule); also include when `/architect` is in the flow; skip only for pure CSS-only changes, single hardcoded strings with no logic, or one-liner typo fixes

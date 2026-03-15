@@ -245,12 +245,12 @@ Before creating/updating files in `content/` or `docs/stories/`: check for perso
 
 Full pipeline — complex work (multiple concerns, auth/DB/UX, 5+ files):
 ```
-/create-prd → /ux (if UI) → /architect → /generate-tests → /spec-review* → /decompose* → /dev
+/create-prd → /challenge-prd* → /ux (if UI) → /architect → /generate-tests → /spec-review* → /decompose* → /dev
 ```
 
 Medium work — feature with clear scope, limited complexity:
 ```
-/create-prd → /dev
+/create-prd → /challenge-prd* → /dev
 ```
 
 Small work — bug with confirmed root cause, copy change, config tweak, single concern:
