@@ -1,3 +1,7 @@
+---
+globs: "*"
+---
+
 # Visual QA Checklist
 
 After taking ANY verification screenshot during UI work, check every item. Do NOT skip items. Do NOT say "looks good" without completing the list.
@@ -14,6 +18,7 @@ VISUAL QA CHECKLIST (per screenshot):
 □ Edge data: What happens with count=0, count=999, very long text?
 □ Contrast: Is text readable against background?
 □ Compare to adjacent: Does visual weight match surrounding production components?
+□ State match: Does the screenshot depict the claimed application state? If a gate (auth, mic, feature flag) prevented reaching it, disclose what was verified vs. what was not.
 ```
 
 ## Anti-confirmation-bias rule
