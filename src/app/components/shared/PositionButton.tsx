@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import type { PositionType, PositionButtonGroup } from '@/app/types';
 import type { Position } from './prototype-types';
 import { getPositionGroup } from '@/app/utils/position-helpers';
@@ -192,8 +193,11 @@ const ICON_ONLY_THRESHOLD = 270;
 
 export function PositionButtons({ userPosition, counts, onPositionClick, compact = false, narrow = false }: PositionButtonsProps) {
   const [openDropdown, setOpenDropdown] = useState<PositionButtonGroup | null>(null);
+  const [dropdownPos, setDropdownPos] = useState<{ top: number; left: number; width: number } | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const segmentRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const portalDropdownRef = useRef<HTMLDivElement>(null);
   const [containerWidth, setContainerWidth] = useState<number>(9999);
 
   const iconOnly = containerWidth < ICON_ONLY_THRESHOLD;
@@ -212,11 +216,14 @@ export function PositionButtons({ userPosition, counts, onPositionClick, compact
     return () => observer.disconnect();
   }, []);
 
-  // Close dropdown on click outside
+  // Close dropdown on click outside (check both the button row AND the portal dropdown)
   useEffect(() => {
     if (!openDropdown) return;
     const handler = (e: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+      const target = e.target as Node;
+      const inButtonRow = dropdownRef.current?.contains(target);
+      const inPortalDropdown = portalDropdownRef.current?.contains(target);
+      if (!inButtonRow && !inPortalDropdown) {
         setOpenDropdown(null);
       }
     };
@@ -249,8 +256,21 @@ export function PositionButtons({ userPosition, counts, onPositionClick, compact
       onPositionClick(config.defaultPosition);
     }
 
-    // Toggle dropdown
-    setOpenDropdown(prev => prev === group ? null : group);
+    // Toggle dropdown + capture position for portal
+    setOpenDropdown(prev => {
+      if (prev === group) return null;
+      // Calculate dropdown position from the segment button
+      const segEl = segmentRefs.current[group];
+      if (segEl) {
+        const rect = segEl.getBoundingClientRect();
+        setDropdownPos({
+          top: rect.bottom + window.scrollY + 4,
+          left: rect.left + window.scrollX + rect.width / 2,
+          width: rect.width,
+        });
+      }
+      return group;
+    });
   }, [userPosition, onPositionClick]);
 
   const handleIntensityClick = useCallback((group: PositionButtonGroup, intensity: 'somewhat' | 'default' | 'strongly') => {
@@ -290,7 +310,7 @@ export function PositionButtons({ userPosition, counts, onPositionClick, compact
           ].filter(Boolean).join(' ');
 
           return (
-            <div key={group} className={segmentClass}>
+            <div key={group} className={segmentClass} ref={el => { segmentRefs.current[group] = el; }}>
               <TooltipProvider delayDuration={300}>
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -325,42 +345,47 @@ export function PositionButtons({ userPosition, counts, onPositionClick, compact
                 </Tooltip>
               </TooltipProvider>
 
-              {/* Auto-dropdown for intensity */}
-              {isOpen && config.positions.length > 1 && (
-                <div
-                  className="absolute top-full mt-1 z-50 bg-white rounded-lg border border-gray-200 shadow-lg py-1 min-w-[170px]"
-                  style={{
-                    left: '50%',
-                    transform: 'translateX(-50%)',
-                  }}
-                  role="listbox"
-                  aria-label={`${config.label} intensity options`}
-                >
-                  {config.positions.map((pos) => {
-                    const isSelected = userPosition === pos;
-                    return (
-                      <button
-                        key={pos}
-                        onClick={() => handleIntensityClick(group, positionToIntensity(pos))}
-                        role="option"
-                        aria-selected={isSelected}
-                        className={[
-                          'w-full text-left px-3 py-2 text-sm flex items-center gap-2 transition-colors',
-                          isSelected ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700 hover:bg-gray-50',
-                        ].join(' ')}
-                        style={{ minHeight: 40 }}
-                      >
-                        {isSelected && <Check className="h-3.5 w-3.5 flex-shrink-0" />}
-                        <span className={isSelected ? '' : 'pl-[22px]'}>{POSITION_LABELS[pos]}</span>
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
             </div>
           );
         })}
       </div>
+
+      {/* Intensity dropdown — rendered via portal to escape overflow:hidden containers */}
+      {openDropdown && BUTTON_GROUPS[openDropdown].positions.length > 1 && dropdownPos && createPortal(
+        <div
+          ref={portalDropdownRef}
+          className="fixed z-[9999] bg-white rounded-lg border border-gray-200 shadow-lg py-1 min-w-[170px]"
+          style={{
+            top: dropdownPos.top,
+            left: dropdownPos.left,
+            transform: 'translateX(-50%)',
+            position: 'absolute',
+          }}
+          role="listbox"
+          aria-label={`${BUTTON_GROUPS[openDropdown].label} intensity options`}
+        >
+          {BUTTON_GROUPS[openDropdown].positions.map((pos) => {
+            const isSelected = userPosition === pos;
+            return (
+              <button
+                key={pos}
+                onClick={() => handleIntensityClick(openDropdown, positionToIntensity(pos))}
+                role="option"
+                aria-selected={isSelected}
+                className={[
+                  'w-full text-left px-3 py-2 text-sm flex items-center gap-2 transition-colors',
+                  isSelected ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700 hover:bg-gray-50',
+                ].join(' ')}
+                style={{ minHeight: 40 }}
+              >
+                {isSelected && <Check className="h-3.5 w-3.5 flex-shrink-0" />}
+                <span className={isSelected ? '' : 'pl-[22px]'}>{POSITION_LABELS[pos]}</span>
+              </button>
+            );
+          })}
+        </div>,
+        document.body
+      )}
     </div>
   );
 }
