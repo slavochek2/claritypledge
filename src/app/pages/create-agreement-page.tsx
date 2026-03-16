@@ -17,6 +17,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { MobileTooltip } from '@/app/components/shared/mobile-tooltip';
 import { toast } from 'sonner';
+import { analytics } from '@/lib/mixpanel';
 import { CertificatePageShell } from '@/app/components/layout/certificate-page-shell';
 
 const TERMS_MAX = 1000;
@@ -147,6 +148,7 @@ export function CreateAgreementPage() {
         setIsLookingUp(true);
         try {
           const party = await agreementsService.lookupUserByEmail(trimmed);
+          analytics.track('agreement_email_lookup', { found: !!party });
           setLookupResult(party ?? 'not-found');
 
           // P483: Always override name when existing user has valid profile name
@@ -211,6 +213,11 @@ export function CreateAgreementPage() {
     setIsSubmitting(true);
     setSubmitError(null);
 
+    analytics.track('agreement_create_started', {
+      partner_email_found: lookupResult !== null && lookupResult !== 'not-found',
+      visibility,
+    });
+
     try {
       // Check for duplicate active/pending agreement
       const hasDuplicate = await agreementsService.hasActiveAgreementWith(
@@ -218,6 +225,7 @@ export function CreateAgreementPage() {
         partnerEmail.trim()
       );
       if (hasDuplicate) {
+        analytics.track('agreement_create_failed', { reason: 'duplicate' });
         setErrors((prev) => ({
           ...prev,
           partnerEmail: 'You already have an active agreement with this person',
@@ -234,15 +242,18 @@ export function CreateAgreementPage() {
       });
 
       if (!agreement) {
+        analytics.track('agreement_create_failed', { reason: 'insert_returned_null' });
         setSubmitError('Failed to create agreement. Please try again.');
         setIsSubmitting(false);
         return;
       }
 
+      analytics.track('agreement_create_success', { agreement_id: agreement.id });
       toast.success(`Agreement sent — waiting for ${partnerName.trim()} to co-sign.`);
       navigate(`/p/${creatorSlug ?? user.id}/partners`);
     } catch (err) {
       console.error('Error creating agreement:', err);
+      analytics.track('agreement_create_failed', { reason: 'exception', error: String(err) });
       setSubmitError('Failed to create agreement. Please check your connection and try again.');
       setIsSubmitting(false);
     }

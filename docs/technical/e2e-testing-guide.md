@@ -4,6 +4,22 @@ Complete guide for writing and running E2E tests for authenticated flows in Clar
 
 ---
 
+## Prod Verification
+
+A persistent test account (`e2e-agent@claritypledge.com`) exists on prod for agent-driven verification. This enables Playwright-based prod testing without manual browser interaction.
+
+```bash
+VERIFY_PROD=1 PROD_SERVICE_ROLE_KEY="<srk>" npx playwright test e2e/verify-prod-agreements.spec.ts
+```
+
+**Pattern:** Sign in as `e2e-agent` via password → inject session into Playwright BrowserContext → navigate `claritypledge.com` → interact → verify DB state → cleanup test data.
+
+**Template:** `e2e/verify-prod-agreements.spec.ts` — copy this pattern for new prod verification tests.
+
+**Guard:** Tests are skipped by default. Set `VERIFY_PROD=1` to enable. Always clean up test data in the test itself.
+
+---
+
 ## Overview
 
 E2E tests in this project use Playwright to test the full stack — from browser interactions to database state changes. All tests use real auth sessions and database interactions via Supabase.

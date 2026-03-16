@@ -120,6 +120,24 @@ Announce the plan. If > 8 scenarios, ask: "That's {N} scenarios. Run all, or pic
 
 ---
 
+### Step 2b: Prod Verification (Playwright)
+
+When verifying a feature **on prod** (after deploy), use Playwright instead of Claude in Chrome. Playwright doesn't suffer from the MV3 service worker timeout that kills Chrome extension sessions after ~5 minutes.
+
+**Pattern:** Use the persistent test account `e2e-agent@claritypledge.com` on prod. See `e2e/verify-prod-agreements.spec.ts` as a template.
+
+```bash
+VERIFY_PROD=1 PROD_SERVICE_ROLE_KEY="<srk>" npx playwright test e2e/verify-prod-<feature>.spec.ts
+```
+
+**When to use prod verification vs localhost:**
+- **Localhost (Steps 3–8):** Default. Use for visual QA, UX evaluation, interactive testing
+- **Prod Playwright:** Use when you need to confirm the deployed build works end-to-end (env var baked correctly, edge functions reachable, RLS working on prod)
+
+Both can be used together — localhost for visual pass, Playwright for prod DB confirmation.
+
+---
+
 ### Step 3: Pre-flight
 
 Check the dev server is running:

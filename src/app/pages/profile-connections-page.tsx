@@ -17,6 +17,7 @@ import { agreementsService } from '@/app/data/agreements-service';
 import type { ClarityAgreement } from '@/app/data/agreements-service.interface';
 import { filterAgreementsForViewer } from '@/app/components/agreements/filter-agreements';
 import { AgreementRow } from '@/app/components/agreements/agreement-row';
+import { analytics } from '@/lib/mixpanel';
 
 // ─── Skeleton ─────────────────────────────────────────────────────────────────
 
@@ -87,6 +88,11 @@ export function ProfileConnectionsPage() {
           profileData.id,
           viewerProfileId
         );
+        analytics.track('partners_page_loaded', {
+          profile_id: profileData.id,
+          is_owner: viewerProfileId === profileData.id,
+          agreement_count: fetchedAgreements.length,
+        });
         setAgreements(fetchedAgreements);
 
         // Incoming invitations: pending agreements sent to the current user's email

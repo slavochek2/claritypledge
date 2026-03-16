@@ -18,6 +18,7 @@ import { AgreementCertificate } from '@/app/components/agreements/agreement-cert
 import { supabase } from '@/lib/supabase';
 import { invokeAgreementEmails } from '@/lib/agreement-emails';
 import { toast } from 'sonner';
+import { analytics } from '@/lib/mixpanel';
 import { CertificatePageShell } from '@/app/components/layout/certificate-page-shell';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -178,6 +179,7 @@ export function AcceptAgreementPage() {
     }
     setNameError(null);
     setIsAccepting(true);
+    analytics.track('agreement_accept_started', { agreement_id: agreementId });
     try {
       const accepted = await agreementsService.acceptAgreement({
         agreementId,
@@ -187,9 +189,12 @@ export function AcceptAgreementPage() {
       });
 
       if (!accepted) {
+        analytics.track('agreement_accept_failed', { agreement_id: agreementId, reason: 'rpc_returned_false' });
         toast.error('Something went wrong. Please try again or use the link from your invitation email.');
         return;
       }
+
+      analytics.track('agreement_accept_success', { agreement_id: agreementId });
 
       // Fire-and-forget email
       invokeAgreementEmails('accepted', agreementId);
@@ -219,12 +224,15 @@ export function AcceptAgreementPage() {
     if (!agreement || !agreementId) return;
     setIsDeclining(true);
     setShowDeclineConfirm(false);
+    analytics.track('agreement_decline_started', { agreement_id: agreementId });
     try {
       const ok = await declineAgreement();
       if (!ok) {
+        analytics.track('agreement_decline_failed', { agreement_id: agreementId });
         toast.error('Failed to decline. Please try again.');
         return;
       }
+      analytics.track('agreement_decline_success', { agreement_id: agreementId });
       invokeAgreementEmails('declined', agreementId);
       navigate(`/agreements/${agreementId}/declined`);
     } finally {
