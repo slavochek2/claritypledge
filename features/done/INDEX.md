@@ -1,7 +1,7 @@
 # Done Features Index
 
 Quick reference for past completed work. Consult when starting work on a related topic.
-Last updated: 2026-03-16 (P521 Position Buttons Auto-Dropdown)
+Last updated: 2026-03-16 (ClarityLoader branded loading animation)
 
 ---
 
@@ -73,6 +73,7 @@ Last updated: 2026-03-16 (P521 Position Buttons Auto-Dropdown)
 
 ## UI / Design System
 
+- **ClarityLoader** (Mar 16) Branded loading animation — CSS-only anti-flash (300ms delay) prevents flash on fast loads; JS timers in loading components break auth flow tests via extra re-renders
 - **P504** (Mar 14) Auto-Generated Banners — shared `BannerDisplay`/`BannerControls`/`useBanner` components; `banner_generation_attempted` guard prevents re-triggering on mount; `overflow-hidden` on wrapper divs clips dropdown menus
 - **P510** (Mar 14) Profile Banner UX Polish — LinkedIn-style avatar overlap (96px, `-mt-12`); pencil icon toggle for controls; gradient fallback visible when no banner; name beside avatar not below
 - **P521** (Mar 16) Position Buttons Auto-Dropdown — portal dropdown escapes overflow:hidden; ResizeObserver for 2-mode responsive (full text / icon-only at 270px); Agree+/Agree− intensity labels; visual QA subagent process established after 5 rounds of author-as-reviewer failure

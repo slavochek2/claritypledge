@@ -2,6 +2,20 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-16 [technical]: ClarityLoader — Draw → Breathe animation, CSS-only anti-flash
+
+**Context:** All ~16 full-page loading states used generic Lucide `LoaderIcon` (spinning asterisk). No brand identity. Loading states flash for milliseconds on fast pages — jarring blue flash and disappear.
+**Decision:** (1) **Draw → Breathe animation:** C stroke draws once via `stroke-dashoffset` (1.2s), then settles into gentle opacity pulse. Blue rectangle stays solid, only C animates. Chosen via demo page with 11 variants + creative agent (8 more concepts) + neutral judge agent scoring 19 options on 6 criteria. (2) **Logo only, no text:** Removed "Completing Verification" / "Loading..." — flashes awkwardly on fast loads, the branded animation speaks for itself. Error states still show text. (3) **CSS-only anti-flash:** `.clarity-page-loader` has `opacity:0` + `animation: clarity-appear 200ms ease-out 300ms forwards`. Loads under 300ms = no loader shown. No JS timers — prevents test interference (JS useState timers caused auth flow tests to double-fire processAuth). (4) `data-status={status}` wrapper in AuthCallbackPage — keeps `status` in React's render tree to prevent render-skip optimization that changed useEffect firing pattern.
+**Alternatives rejected:** (1) JS setTimeout for delayed appearance — caused extra re-renders, broke critical auth flow tests. (2) Focus/Resolve (blur→sharp) on whole logo — too heavy visually. (3) Breathing Logo (scale pulse) — too subtle per user feedback. (4) Text labels on loading states — flash and disappear on fast loads.
+**Consequences:** Consistent branded loading experience across all pages. CSS anti-flash is zero-overhead (no JS, no state). Demo page at `/tree/loading-demo` for future animation explorations.
+
+## 2026-03-16 [process]: Creative → Judge agent pattern for subjective design decisions
+
+**Context:** Choosing a loading animation is subjective — "feeling of clarity" can't be evaluated with code review. Needed to explore creative space broadly, then evaluate objectively.
+**Decision:** Two-phase agent pattern: (1) **Creative agent** generates 6-8 bold concepts with metaphor analysis and CSS feasibility assessment. Give it brand context + explicit permission to think outside the box. (2) **Neutral judge agent** rates all options (existing + new) on weighted criteria (brand alignment 25%, loading affordance 20%, calm 20%, implementation 15%, versatility 10%, distinctiveness 10%) with verdicts for top/bottom 3 and a single final recommendation. Both agents are general-purpose, not specialized.
+**Alternatives rejected:** (1) Just pick one ourselves — misses creative options we wouldn't think of. (2) User picks from a small set — too narrow, confirmation bias. (3) Single agent does both — creative and critical thinking conflict in one prompt.
+**Consequences:** Reusable pattern for any subjective design decision (color palettes, copywriting tone, illustration style). The demo page pattern (build all variants on a /tree route) pairs well with this agent pattern.
+
 ## 2026-03-16 [process]: Visual QA — spawn separate subagent, never self-review
 
 **Context:** P521 position button redesign went through 5+ rounds of "it's ready" → user finds visual bugs. Root cause: the implementing agent reviewed its own screenshots with confirmation bias — checked "does it render" not "does it look right."
