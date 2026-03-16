@@ -258,7 +258,13 @@ This skill spawns TWO agents in parallel. After both complete:
 - The parent agent (you) replaces the placeholder with the Security agent's findings using the Edit tool.
 
 **Parent agent merge step:**
-After both agents return, use Edit to replace `*Pending — Security agent completing in parallel.*` in the spec with the Security Review text from the security agent's response.
+After both agents return:
+1. Use Edit to replace `*Pending — Security agent completing in parallel.*` in the spec with the Security Review text from the security agent's response.
+2. **Reconciliation check (mandatory):** Scan the Security Review for every ⚠️ finding. For each one, verify the Build Sequence in Implementation Approach does not contradict it. Specific checks:
+   - If Security says "never accept X from client" → Build Sequence must not include X in the client payload
+   - If Security says "check Y before Z" → Build Sequence must show Y before Z
+   - If Security says "add GRANT/migration for W" → Build Sequence must include that step
+   If any contradiction is found, fix the Build Sequence to match the Security Review before returning to the user. Do not leave contradictions for /spec-review to catch.
 
 This skill spawns TWO agents in parallel:
 

@@ -530,6 +530,14 @@ VERDICT: ❌ Not ready to ship
 Fix UAT-3.1 failure, then re-run `/verify p{N}` to confirm.
 ```
 
+**Pre-verdict completeness gate (mandatory):**
+Before printing the verdict, enumerate every obligated check from the verification plan:
+1. List every UAT scenario from Step 2. Each must be ✅, ❌, ⚠️, or ⏭️ (with reason). Any unmarked → STOP, do not print verdict.
+2. If `.tsx` or `.css` files changed (Step 6a check): mobile screenshot must be done or ⏭️ with reason. Missing → STOP.
+3. If CTA coverage check (Step 2) flagged unverified buttons: each must now be verified. Missing → STOP.
+
+If any item is missing, complete it before producing the verdict. Do NOT print a verdict with gaps — this gate exists because agents skip checks under completion pressure.
+
 **Verdict rules:**
 - `✅ Ready to ship` — All functional scenarios pass, visual quality ✅ or ⚠️ with only minor issues
 - `⚠️ Ship with caveats` — All functional pass, visual has real issues worth fixing but not blockers
