@@ -70,7 +70,7 @@ You're not just writing code — you're building something that will run in prod
    ./scripts/setup-worktree.sh .claude/worktrees/w1
    cd .claude/worktrees/w1
    ```
-   Use the first available slot (`w1`, `w2`). Check `git worktree list` first — if both slots are occupied, STOP and ask: "Both worktree slots are in use (w1: feature/pX, w2: feature/pY). Remove one or proceed on a branch?" Report: "Created worktree {slot} on branch feature/pN-... — dev server will run on port {5100 for w1, 5200 for w2}."
+   Check `git worktree list` to find existing slots. Use the next available number (`w1`, `w2`, `w3`, `w4`, etc.) — never stop to ask which worktree to free up. Report: "Created worktree {slot} on branch feature/pN-..."
 
    **Exception — skip worktree if ALL of these are true:** (a) task is a trivial single-file fix (typo, copy change, config tweak), (b) no other features are in progress on the index, (c) user explicitly says "just do it inline." In that case, create a feature branch instead: `git checkout -b feature/pN-short-description`.
 
@@ -90,7 +90,9 @@ You're not just writing code — you're building something that will run in prod
    - **(C) Proceed anyway** (only if user explicitly confirms both features are one logical changeset)
    Wait for user decision. Skip this check if already in a worktree (isolation is structural) or if the tree is clean.
 
-0.3. **Mark in-progress** — If a P-number spec was provided, update `status: in-progress` in frontmatter (skip silently if inline description mode)
+0.3. **Pre-flight: two-party test coverage** — If the spec references `/live`, `clarity_sessions`, `session_code`, `joiner`, or `LiveMeeting`, run `grep -rl 'joinerContext\|two-party\|getTestAuthContext.*guest' e2e/` and verify at least one file exercises this feature's code path. If none exists, add a two-party E2E test to the implementation plan. *Rationale: P495 shipped a bug where the RPC call was inside an early-returning function — no two-party test existed to catch it.*
+
+0.4. **Mark in-progress** — If a P-number spec was provided, update `status: in-progress` in frontmatter (skip silently if inline description mode)
 1. **Read tests** — UAT scenarios, E2E test stubs, acceptance criteria
 2. **Understand** — Read the spec fully in this order:
    - **Decisions** section first — every decision is a constraint, not a suggestion. Before writing a single line, internalize what the spec rules out (e.g., "edit detected via DB lookup, not URL param" means: do not add a URL param). Signal you skipped this: /review-all removes something because it contradicts a spec decision.
@@ -105,6 +107,7 @@ You're not just writing code — you're building something that will run in prod
 9. **Commit** — Only if ALL tests pass
 9.5. **Review** — Spawn `/review-all` as a subagent with this explicit instruction: "Review all changes on this branch vs main. Spec: [current spec path]. Do NOT pause for scope selection — proceed directly with scope = all changes vs main." Present HIGH/MEDIUM findings to user. Ask: "Fix issues before closing? (all HIGH / select / skip)". Apply approved fixes and commit them.
 9.7. **Pre-deploy checklist** — If spec has a `## Pre-deploy Checklist` (or `## Deployment Checklist`) section, execute each item on the target environment now. Verify edge functions are deployed, secrets are set, and migrations are applied — don't defer to `/ship`. Report what was provisioned.
+9.8. **Prod verification (optional)** — After deploy, if the feature touches DB/auth/edge functions, run a Playwright prod verification test using `e2e-agent@claritypledge.com`. See `e2e/verify-prod-agreements.spec.ts` as template. Command: `VERIFY_PROD=1 PROD_SERVICE_ROLE_KEY="<srk>" npx playwright test e2e/verify-prod-<feature>.spec.ts`
 10. **UAT gate** — Set `delivery_stage: uat` in spec frontmatter (keep `status: in-progress`, do NOT move to `features/done/`). Tell user: "Feature ready for UAT on branch feature/pN-xxx. Run `/ship pN` when you're satisfied."
 
 ---

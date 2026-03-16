@@ -117,10 +117,13 @@ describe('exportResponsesAsCSV', () => {
 - ✅ API endpoints (request → response)
 - ✅ Database operations (CRUD + RLS validation)
 - ✅ Service interactions (auth + profiles)
+- ✅ **Two-party session flows** — when spec references `/live`, `clarity_sessions`, `session_code`, `joiner`, or describes a multi-user session flow
 
 **When skipped:**
 - ❌ Simple database reads (covered by E2E)
 - ❌ Mocked services (defeats purpose)
+
+**Two-party test rule:** When the spec describes a two-party session flow, scaffold an E2E test under `chromium` using `getTestAuthContext` for both host and guest, with `supabaseAdmin` for DB assertions. Follow the existing pattern in `e2e/helpers/test-realtime.ts` (`mockMicPermission`, `waitForDBPresence`). The test MUST include: create session → partner join → trigger feature code path → assert state. See `e2e/integration/p495-transcription-trigger.spec.ts` as the reference pattern.
 
 **Example:**
 ```typescript

@@ -2,6 +2,13 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-16 [infrastructure]: Two-party test coverage guardrail in /dev and /generate-tests
+
+**Context:** P495 shipped a bug where `createTranscriptionJob` was inside `stopAndUploadRecording` which early-returned when no recording was active. The RPC never fired. No test caught it because no two-party E2E test existed for the session-end flow. The agent verified the fix by reading code but couldn't reproduce the failure — it was only caught by running the actual flow in a headless browser.
+**Decision:** Add structural guardrails in two skills: (1) `/dev` pre-flight step 0.3 runs a concrete `grep` for existing two-party tests when the spec touches `/live` or `clarity_sessions` — flags if none exist. (2) `/generate-tests` adds a "two-party test rule" that scaffolds host+guest E2E tests using existing helpers (`getTestAuthContext`, `mockMicPermission`, `waitForDBPresence`).
+**Alternatives rejected:** (1) `/self-test` skill using Chrome DevTools MCP — fragile, not repeatable by CI, duplicates Playwright capabilities. (2) Adding the check to `/dev` step 6 (skeptic check) — too vague; free-form thinking prompts aren't enforceable. Pre-flight with a concrete grep is mechanical. (3) Splitting tests between `integration` and `chromium` Playwright projects — diverges from existing pattern where all two-party tests run under `chromium` with inline `supabaseAdmin` assertions.
+**Consequences:** Every future `/live` feature will have the agent check for two-party test coverage before implementation begins. The P495 integration test (`e2e/integration/p495-transcription-trigger.spec.ts`) serves as the reference pattern.
+
 ## 2026-03-16 [technical]: Distinguish manually-entered vs auto-filled state before clearing
 
 **Context:** P483 added email-lookup auto-fill for partner name in agreement creation. The reset logic (`setPartnerName('')`) fired unconditionally on every email keystroke — wiping manually-entered names. Users who typed name first, email second had to re-enter the name.
