@@ -7,7 +7,7 @@ tags:
   - images
   - upload
   - gcs
-delivery_stage: 3-arch-review
+delivery_stage: 5-decomposed
 created_date: 2026-03-16
 prepped_date: null
 flow: dev
@@ -275,7 +275,6 @@ reviews:
 
 **Mobile (320px–767px):**
 - Image: `max-h-48` (192px), full card width minus padding
-- Thumbnail in list: `w-12 h-12` (48px) to save horizontal space
 - "Add image" button: full width below textarea, larger touch target (`h-10`)
 - Author controls (Change/Remove): always visible below image (no hover on touch)
 - Lightbox: full screen, close button top-right, pinch-to-zoom
@@ -285,7 +284,6 @@ reviews:
 
 **Desktop (1024px+):**
 - Image: `max-h-64` (256px), constrained to card width
-- Thumbnail in list: `w-16 h-16` (64px)
 - Author controls: appear on hover, always visible on focus
 - Lightbox: centered with dark backdrop, `max-w-4xl`
 
@@ -298,10 +296,32 @@ reviews:
 | Upload button (creation form) | **New** | `<ImageUpload>` — file input + preview + remove. Reusable for future story images. | No |
 | List card | **No change** | `point-card-with-links.tsx` — no thumbnail, card unchanged | No |
 | Toast notifications | **Reuse** | `sonner` toast — already used throughout | No |
-| Skeleton loading | **Reuse** | `src/app/components/ui/skeleton.tsx` — existing Skeleton component | No |
+| Skeleton loading | **New (inline)** | Use `animate-pulse` div pattern (existing pattern in point-detail-page.tsx) — no Skeleton component exists | No |
 | Author controls (Change/Remove) | **New** | Small inline buttons, standard `<Button variant="ghost" size="sm">`. No new component needed — just buttons. | No |
 
 **Decisions requiring founder input:** None — all patterns follow existing conventions.
+
+---
+
+## Pre-deploy Checklist
+
+### Secrets to provision
+- [ ] No new secrets required (GCS bucket uses existing GCP credentials, cloud function already deployed)
+
+### Deploy commands
+- [ ] `gsutil mb -l us-central1 gs://claritypledge-uploads` — create GCS bucket
+- [ ] `gsutil iam ch allUsers:objectViewer gs://claritypledge-uploads` — set public-read
+- [ ] `gsutil cors set cors.json gs://claritypledge-uploads` — set CORS (restrict to claritypledge.com + localhost)
+- [ ] `gcloud functions deploy gcs-signed-url --runtime nodejs20 --trigger-http --allow-unauthenticated --source cloud-functions/gcs-signed-url` — redeploy cloud function with bucket param + JWT auth
+- [ ] `./scripts/migrate.sh` — apply migration (image_url column + RPC function)
+- [ ] `npm install browser-image-compression` — install dependency
+- [ ] Trigger Vercel redeploy (new dependency requires rebuild)
+
+### Post-deploy verification
+- [ ] Create a point with image on prod — verify upload + display
+- [ ] Verify existing points still load without errors (no image = no broken state)
+- [ ] Check Sentry for new errors in first 10 minutes
+- [ ] Verify cloud function rejects unauthenticated requests (JWT check)
 
 ---
 
@@ -310,7 +330,9 @@ reviews:
 1. ~~**`/challenge-prd`**~~ — done. Verdict: RETHINK (strategic timing). Founder override: proceeding. OG demoted to future, "reasoning" → "evidence", kill signal added.
 2. ~~**`/ux`**~~ — done. Image below statement inside card, camera icon upload button, Dialog lightbox, no caption field.
 3. ~~**`/architect`**~~ — done. New `image_url` column, dedicated GCS bucket, parameterized cloud function, `browser-image-compression`, public-read GCS, accept orphans.
-4. **`/generate-tests`** → **`/spec-review`** → **`/decompose`** (if complex enough) → **`/dev`**
+4. ~~**`/generate-tests`**~~ — done. 5 test files + UAT + coverage strategy.
+5. ~~**`/spec-review`**~~ — done. 3 BLOCKs + 5 WARNs found, all fixed. Migration SQL → RPC, thumbnail refs removed, Skeleton → animate-pulse, pre-deploy checklist added.
+6. **`/decompose`** (12 build steps, 4 new + 7 modified files = worth decomposing) → **`/dev`**
 
 ---
 
@@ -501,7 +523,7 @@ No UPDATE RLS policy on `points` — immutability guarantee preserved.
 | `src/app/components/shared/image-upload.tsx` | `<ImageUpload>` component: file picker + validation + preview + remove |
 | `src/lib/image-resize.ts` | Wrapper around `browser-image-compression` with P526 defaults |
 | `src/lib/gcs-upload.ts` | Extracted GCS upload helpers (from `api.ts`) — `getSignedUploadUrl`, `uploadToGCS`, `withRetry` |
-| `supabase/migrations/YYYYMMDDHHMMSS_p526_point_image_url.sql` | Add `image_url` column + UPDATE RLS policy |
+| `supabase/migrations/YYYYMMDDHHMMSS_p526_point_image_url.sql` | Add `image_url` column + `update_point_image()` RPC function |
 
 #### Files to Modify
 
@@ -519,7 +541,7 @@ No UPDATE RLS policy on `points` — immutability guarantee preserved.
 
 1. **Create GCS bucket** — `gsutil mb -l us-central1 gs://claritypledge-uploads` + set public-read IAM + CORS config
 2. **Update cloud function** — parameterize bucket, deploy: `gcloud functions deploy gcs-signed-url ...`
-3. **Database migration** — add `image_url TEXT` column + UPDATE RLS policy
+3. **Database migration** — add `image_url TEXT` column + `update_point_image()` RPC function (no UPDATE policy)
 4. **Install dependency** — `npm install browser-image-compression`
 5. **Extract upload helpers** — create `src/lib/gcs-upload.ts` from `api.ts` upload code, update imports
 6. **Create image resize module** — `src/lib/image-resize.ts` wrapping `browser-image-compression`
@@ -537,24 +559,19 @@ No UPDATE RLS policy on `points` — immutability guarantee preserved.
 -- Separate from banner_url (P504 AI-generated, now unused per P519)
 ALTER TABLE public.points ADD COLUMN IF NOT EXISTS image_url TEXT;
 
--- P526: Allow point creators to update image_url (and only image_url)
--- Points are immutable (statement/context/tags never change),
--- but image is metadata — author can add/change/remove.
-DO $$ BEGIN
-  IF NOT EXISTS (
-    SELECT 1 FROM pg_policies
-    WHERE policyname = 'Point creators can update image_url'
-    AND tablename = 'points'
-  ) THEN
-    CREATE POLICY "Point creators can update image_url"
-      ON points FOR UPDATE
-      USING (auth.uid() = first_validator_id)
-      WITH CHECK (
-        auth.uid() = first_validator_id
-        AND statement IS NOT DISTINCT FROM (SELECT p.statement FROM points p WHERE p.id = points.id)
-        AND context IS NOT DISTINCT FROM (SELECT p.context FROM points p WHERE p.id = points.id)
-        AND tags IS NOT DISTINCT FROM (SELECT p.tags FROM points p WHERE p.id = points.id)
-      );
+-- P526: RPC function for updating image_url (SECURITY DEFINER)
+-- No UPDATE RLS policy on points — preserves statement immutability.
+-- Only this function can modify image_url; client calls supabase.rpc('update_point_image', ...).
+CREATE OR REPLACE FUNCTION update_point_image(p_point_id UUID, p_image_url TEXT)
+RETURNS void AS $$
+BEGIN
+  UPDATE points
+  SET image_url = p_image_url, updated_at = now()
+  WHERE id = p_point_id AND first_validator_id = auth.uid();
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Not authorized or point not found';
   END IF;
-END $$;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
 ```
