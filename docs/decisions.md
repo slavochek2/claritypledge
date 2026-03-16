@@ -2,6 +2,28 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-16 [technical]: Two-party coordination fields must use per-role keys, never shared arrays
+
+**Context:** P525 investigation revealed that `celebrationAcknowledgedBy` (a JSON array both users append to) caused permanent deadlocks via JSONB `||` merge — last writer wins, one user's acknowledgment lost. The initial fix used two boolean keys (`celebrationAcknowledgedByCreator`, `celebrationAcknowledgedByJoiner`) but the UI check was role-blind (checked either boolean instead of the current user's), creating a second deadlock. Fixed by threading `isCreator` prop + adding a reactive `useEffect` safety net.
+**Decision:** Any `live_state` field that both users write to must use per-role keys (one key per participant), never a shared array or accumulator. The JSONB `||` merge handles different keys atomically but overwrites same keys. Additionally, any UI that reads coordination state must be role-aware — check only the current user's key.
+**Alternatives rejected:** (1) Array-append RPC (`jsonb_set` with array concatenation) — adds DB-level complexity, new migration, still needs duplicate handling. (2) Optimistic client-side merge with retry — adds complexity, theoretical race window remains. (3) Version counter with compare-and-swap — over-engineered for a 2-participant system.
+**Consequences:** Pattern to follow for any future two-party coordination: use `fieldByCreator`/`fieldByJoiner` keys. Thread `isCreator` to any component that reads coordination state. Add reactive `useEffect` watching both keys as a safety net for simultaneous actions.
+**References:** `features/done/22_mar_26/p525_live_state_deadlock_prevention.md`, P399 (predecessor — JSONB `||` merge for story data)
+
+## 2026-03-16 [technical]: Sentry PII scrubbing required for live_state snapshots
+
+**Context:** P525 added Sentry exception capture for `updateLiveState` failures. `live_state` contains user display names (`checkerName`, `currentSpeaker`, etc.) and user-authored story content (`selectedStoryData`). Sentry's `sendDefaultPii: false` does NOT cover explicitly attached `extra` data — only auto-collected PII (IP, cookies).
+**Decision:** Create `sanitizeLiveStateForSentry()` utility that strips PII fields and keeps only structural/diagnostic fields (phase, round, submission flags, timestamps). All Sentry captures must use sanitized snapshots.
+**Alternatives rejected:** (1) Send full snapshots and rely on `sendDefaultPii` — doesn't work for `extra` data. (2) Don't send state at all — loses the debugging value.
+**Consequences:** Any future Sentry instrumentation that attaches user data must go through a sanitizer. Names in live_state are functional data within the app but become PII when sent to a third-party service.
+
+## 2026-03-16 [process]: Worktree slots are unlimited — use next available wN
+
+**Context:** `/dev` skill had a hardcoded two-slot limit (w1, w2) that stopped and asked the user when both were occupied. The user correctly pointed out this is artificial — git worktrees have no slot limit.
+**Decision:** Dynamic slot allocation: check `git worktree list`, pick the next available `wN` (w1, w2, w3, ...), create it without asking. Port formula: `5000 + N * 100` (w3 = 5300).
+**Alternatives rejected:** Asking user which worktree to free up — unnecessary friction.
+**Consequences:** `/dev` skill updated. No more blocking on "both slots occupied."
+
 ## 2026-03-16 [process]: Prod verification via Playwright with persistent test account
 
 **Context:** After fixing the agreements env var bug, we couldn't verify the fix on prod — Claude in Chrome dies after ~5min (MV3 service worker timeout), and Playwright was limited to the test project (P496 constraint: "Supabase test project only"). Manual browser verification is unreliable as a process.
