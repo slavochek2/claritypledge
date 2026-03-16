@@ -680,6 +680,108 @@ A /live session has a story selected as the subject for understanding verificati
 
 ---
 
+## PWA
+
+### `pwa_install_prompted`
+PWA install prompt was triggered.
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `source` | string | Where the prompt was triggered from |
+
+### `pwa_ios_instructions_shown`
+iOS PWA install instructions were shown to the user.
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `source` | string | Where the instructions were shown from |
+
+---
+
+## Feed
+
+### `feed_tag_filtered`
+User clicked a tag in the tag cloud to filter the feed.
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `tag` | string | Tag that was selected |
+| `source` | string | Where the tag was clicked: `tag_cloud` |
+
+### `feed_tag_cleared`
+User dismissed the active tag filter.
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `tag` | string | Tag that was cleared |
+
+### `feed_sort_changed`
+User toggled the feed sort order.
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `sort_order` | string | New sort order: `newest` or `oldest` |
+
+### `feed_card_shared`
+User clicked the share button on a feed card.
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `type` | string | Card type: `story` or `point` |
+| `id` | string | ID of the shared item |
+
+---
+
+## Partner Template
+
+### `partner_template_viewed`
+User views the partner agreement template page (`/partner-template`).
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `referrer` | string | Document referrer URL or `direct` |
+
+---
+
+## Anonymous Position CTA
+
+### `anon_position_cta_shown`
+Anonymous position CTA was shown to a user.
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `point_id` | string | ID of the point |
+
+### `anon_position_cta_clicked`
+User clicked a link in the anonymous position CTA.
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `point_id` | string | ID of the point |
+| `action` | string | Which link was clicked: `signup` or `login` |
+
+---
+
+## Auth Gate
+
+### `auth_gate_triggered`
+Auth gate redirected an anonymous user to signup/login.
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `context` | string | Gate action: `set-position`, `start-story`, `open-chat`, `join-session`, `create-story` |
+| `redirect_path` | string | Page path where the gate was triggered |
+
+### `auth_gate_completed`
+User completed auth and context was restored.
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `context` | string | Restored action: `set-position`, `start-story`, `open-chat` |
+| `redirect_path` | string | Path the user was redirected to after restoration |
+
+---
+
 ## Implementation
 
 All analytics go through the wrapper at [src/lib/mixpanel.ts](../../src/lib/mixpanel.ts):

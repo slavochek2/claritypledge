@@ -9,6 +9,7 @@ import { useNavigate } from 'react-router-dom';
 import { Share2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { copyToClipboard } from '@/lib/utils';
+import { analytics } from '@/lib/mixpanel';
 import { GravatarAvatar } from '@/components/ui/gravatar-avatar';
 import { EarBadge } from '@/components/ui/ear-badge';
 import { LinkedText } from '@/app/components/shared/linked-text';
@@ -110,6 +111,7 @@ export function FeedStoryCard({ story, activeTag }: FeedStoryCardProps) {
               <button
                 onClick={async (e) => {
                   e.stopPropagation();
+                  analytics.track('feed_card_shared', { type: 'story', id: story.id });
                   const url = `${window.location.origin}/story/${story.id}`;
                   const ok = await copyToClipboard(url);
                   if (ok) toast.success('Link copied!');

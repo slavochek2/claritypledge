@@ -523,6 +523,7 @@ export function AuthCallbackPage() {
               position: intent.position,
               registration_source: registrationSource,
             });
+            analytics.track('auth_gate_completed', { context: 'set-position', redirect_path: intent.redirect });
             // Validate redirect against allowlist before navigating
             const intentRedirect = intent.redirect;
             const isValidIntentRedirect = intentRedirect.startsWith('/')
@@ -543,6 +544,7 @@ export function AuthCallbackPage() {
       if (action === 'start-story' || action === 'open-chat') {
         const pointId = urlParams.get('pointId');
         if (pointId && isValidPointId(pointId)) {
+          analytics.track('auth_gate_completed', { context: action, redirect_path: `/chat?from=position&pointId=${pointId}` });
           navigate(`/chat?from=position&pointId=${pointId}`, { replace: true });
           return;
         }

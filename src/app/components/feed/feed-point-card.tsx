@@ -10,6 +10,7 @@ import { useNavigate } from 'react-router-dom';
 import { Pin, Share2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { copyToClipboard } from '@/lib/utils';
+import { analytics } from '@/lib/mixpanel';
 import { LinkedText } from '@/app/components/shared/linked-text';
 import { stripHashtags } from '@/lib/utils';
 import { TagPills } from '@/app/components/shared/tag-pills';
@@ -163,6 +164,7 @@ export function FeedPointCard({ point, activeTag, onPositionChange }: FeedPointC
               </div>
               <button
                 onClick={async () => {
+                  analytics.track('feed_card_shared', { type: 'point', id: point.id });
                   const url = `${window.location.origin}/point/${point.id}`;
                   const ok = await copyToClipboard(url);
                   if (ok) toast.success('Link copied!');
