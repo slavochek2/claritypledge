@@ -798,7 +798,7 @@ export function ProfilePageV2() {
                       <TooltipProvider delayDuration={100}>
                         <Tooltip>
                           <TooltipTrigger asChild>
-                            <span className="inline-flex items-center gap-0.5 text-sm text-muted-foreground cursor-default flex-shrink-0">
+                            <span className="inline-flex items-center gap-0.5 text-sm font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded-full px-2 py-0.5 cursor-default flex-shrink-0">
                               <Ear size={14} />
                               {credibilityStats.ear}
                             </span>
@@ -1160,7 +1160,7 @@ function StoryCardFull({
                   {author.name}
                 </button>
                 <MobileTooltip content={credibilityStats.ear === 0 ? `${author.name.split(' ')[0]} hasn't had any stories confirmed understood yet` : `${author.name.split(' ')[0]} understood ${credibilityStats.ear} ${credibilityStats.ear === 1 ? 'story' : 'stories'} as confirmed by their owners`}>
-                  <span className="inline-flex items-center gap-0.5 text-xs text-muted-foreground">
+                  <span className="inline-flex items-center gap-0.5 text-xs font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded-full px-1.5 py-0.5">
                     <Ear size={12} />
                     {credibilityStats.ear}
                   </span>
@@ -1387,7 +1387,7 @@ function QuotedPointCard({
           />
           <span className="font-medium">{authorName}</span>
           {authorEarCount !== undefined && authorEarCount > 0 && (
-            <span className="inline-flex items-center gap-0.5 text-muted-foreground">
+            <span className="inline-flex items-center gap-0.5 text-xs font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded-full px-1.5 py-0.5">
               <Ear size={14} />
               {authorEarCount}
             </span>
