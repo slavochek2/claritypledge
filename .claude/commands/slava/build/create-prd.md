@@ -438,11 +438,14 @@ After generating business requirements, tell user which skill to run next:
 - [ ] NO test templates included
 - [ ] Next steps documented
 
-**Before generating requirements — search for related work:**
+**Before generating requirements — search for related work AND existing implementation:**
 ```bash
 grep -ril "{key concept}" features/ features/drafts/ 2>/dev/null | head -10
+grep -ril "{key concept}" src/ 2>/dev/null | head -10
 ```
 If a related spec exists in `features/drafts/`, read it. Either (a) supersede it (note in the new spec), or (b) build on it instead of filing a duplicate. This step is required — filing a duplicate spec wastes a P-number and misses prior thinking.
+
+If `src/` search reveals the concept already exists in code (e.g., a field is already in the API, a component already handles the state), assess whether the request is a trivial extension of existing code. If so, flag it: "This may be an inline fix (~N min) rather than a PRD. The field/component already exists at [path]. Proceed with PRD or implement inline?" Let the user decide.
 
 If spec already exists at {spec_file}, read it first and extend the Business layer. DO NOT modify existing UX or Technical sections.
 

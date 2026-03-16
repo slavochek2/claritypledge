@@ -643,7 +643,8 @@ After successful commit, mark the feature ready for UAT — do NOT move to `feat
 3. Commit: `chore: pN ready for UAT — {title}`
 4. Run fix-kanban: Invoke `/slava:maintain:fix-kanban`
 5. If `*.tsx` files changed: Ask "Run `/verify` for visual QA? (y/n)"
-6. Tell user: "Feature ready for UAT on branch `feature/pN-xxx`. Run `/ship pN` when satisfied to merge to prod and close the spec. /ship closes the spec, moves it to features/done/, and cleans up the branch. Merging manually without running /ship leaves the spec stranded at delivery_stage: uat."
+6. **Determine test URL:** Run `pwd` to identify worktree slot. Look up port from `docs/technical/worktree-setup.md` (w0=5001, w1=5100, w2=5200, etc.). If on main (w0), port is 5001. Include the correct URL in the message.
+7. Tell user: "Feature ready for UAT on branch `feature/pN-xxx` at **http://localhost:{port}/**. Run `/ship pN` when satisfied to merge to prod and close the spec. /ship closes the spec, moves it to features/done/, and cleans up the branch. Merging manually without running /ship leaves the spec stranded at delivery_stage: uat."
 
 **Do NOT:**
 - Move spec to `features/done/` — that happens in `/ship`
