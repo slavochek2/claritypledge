@@ -6,7 +6,9 @@
  * Matches P490 live session hint style: text-xs text-gray-500, mt-1.5 spacing.
  */
 
+import { useEffect } from 'react';
 import { buildAuthGateUrl, toAuthGatePosition } from '@/lib/auth-gate-utils';
+import { analytics } from '@/lib/mixpanel';
 
 interface AnonPositionCTAProps {
   pointId: string;
@@ -16,6 +18,13 @@ interface AnonPositionCTAProps {
 
 export function AnonPositionCTA({ pointId, position, isEmbed }: AnonPositionCTAProps) {
   const authGatePosition = toAuthGatePosition(position);
+
+  useEffect(() => {
+    if (authGatePosition) {
+      analytics.track('anon_position_cta_shown', { point_id: pointId });
+    }
+  }, [pointId, authGatePosition]);
+
   if (!authGatePosition) return null;
 
   const signupUrl = buildAuthGateUrl({
@@ -34,11 +43,23 @@ export function AnonPositionCTA({ pointId, position, isEmbed }: AnonPositionCTAP
   return (
     <p className="mt-1.5 text-xs text-gray-500">
       {isEmbed && 'Join ClarityPledge \u2014 '}
-      <a href={signupUrl} className={linkClass} target={target} rel={rel}>
+      <a
+        href={signupUrl}
+        className={linkClass}
+        target={target}
+        rel={rel}
+        onClick={() => analytics.track('anon_position_cta_clicked', { story_id: undefined, point_id: pointId, action: 'signup' })}
+      >
         Sign up
       </a>
       {' or '}
-      <a href={loginUrl} className={linkClass} target={target} rel={rel}>
+      <a
+        href={loginUrl}
+        className={linkClass}
+        target={target}
+        rel={rel}
+        onClick={() => analytics.track('anon_position_cta_clicked', { story_id: undefined, point_id: pointId, action: 'login' })}
+      >
         log in
       </a>
       {' to save your position'}

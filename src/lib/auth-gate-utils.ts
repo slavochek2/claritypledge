@@ -12,6 +12,8 @@
  * - toAuthGatePosition/fromAuthGatePosition handle this translation
  */
 
+import { analytics } from '@/lib/mixpanel';
+
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
@@ -105,6 +107,8 @@ export function isValidPointId(id: string | null | undefined): boolean {
 // ---------------------------------------------------------------------------
 
 export function buildAuthGateUrl(params: AuthGateParams): string {
+  analytics.track('auth_gate_triggered', { context: params.action, redirect_path: window.location.pathname });
+
   const base = '/signup';
   const sp = new URLSearchParams();
   sp.set('action', params.action);

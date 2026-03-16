@@ -62,6 +62,13 @@ You're not just writing code — you're building something that will run in prod
 
 ## Workflow
 
+0. **Pre-flight: branch lineage check** — Before any branching or worktree creation:
+
+   **Branch lineage check:**
+   Run `git rev-list --count main..HEAD`. If >5 commits ahead of main:
+   - WARN: "Current branch is N commits ahead of main. /ship would merge all of them."
+   - Offer: A) Branch from main instead (recommended), B) Cherry-pick after implementation, C) Proceed knowingly
+
 0. **Pre-flight: worktree setup** — If this is a P-number feature AND current branch is `main`:
 
    **Default: create a worktree.**

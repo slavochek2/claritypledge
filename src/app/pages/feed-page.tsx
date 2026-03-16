@@ -18,6 +18,7 @@ import { FeedPointCard } from '@/app/components/feed/feed-point-card';
 import { ActiveTagFilter } from '@/app/components/feed/active-tag-filter';
 import { FeedSkeleton } from '@/app/components/feed/feed-skeleton';
 import { SEO } from '@/app/components/seo';
+import { analytics } from '@/lib/mixpanel';
 import type { StoryWithAuthor, PointWithUserPosition } from '@/app/types';
 
 type FeedTab = 'points' | 'stories';
@@ -121,6 +122,8 @@ export function FeedPage() {
 
   // Sort toggle
   const handleSortToggle = () => {
+    const newSort = ascending ? 'newest' : 'oldest';
+    analytics.track('feed_sort_changed', { sort_order: newSort });
     const params = new URLSearchParams(searchParams);
     if (ascending) {
       params.delete('sort');
@@ -133,6 +136,7 @@ export function FeedPage() {
   // Tag cloud chip click
   const handleTagCloudClick = (tag: string) => {
     if (tag === activeTag) return; // no-op
+    analytics.track('feed_tag_filtered', { tag, source: 'tag_cloud' });
     const params = new URLSearchParams(searchParams);
     params.set('tag', tag);
     setSearchParams(params, { replace: false });

@@ -2,6 +2,27 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-16 [process]: Privacy scanning must be principle-based, not pattern-based
+
+**Context:** Weekly review discovered real client first names (3 individuals) with identifying context (profession, relationship dynamics, behavioral observations) in 4 public docs. Pre-commit §17 only checks owner email patterns. The `/privacy` skill existed but was manual and optional — an info reminder, not a gate. Names leaked because the threat model covered credentials and owner PII but had no category for third-party personal information.
+**Decision:** (1) Expanded `/privacy` skill from pattern-matching to principle-based review: "Would this harm someone — anyone — if they found it?" Added third-party PII, behavioral observations, and session content as hard red flag categories. (2) Pre-push hook now blocks pushes with docs/ changes unless a fresh `.privacy-reviewed` timestamp exists. (3) `/privacy` stamps `.privacy-reviewed` on completion. The system now catches unknown privacy categories, not just enumerated patterns.
+**Alternatives rejected:** (1) Add a name list to pre-commit (brittle — needs updating after every session). (2) Heuristic regex for capitalized proper nouns (too many false positives — flags "Supabase", "Vercel", etc.).
+**Consequences:** Every push that touches docs/ requires `/privacy` review. Principle-based scanning means new categories of sensitive information are caught without updating the scanner. Trade-off: adds ~2 min to push flow for doc-heavy commits.
+
+## 2026-03-16 [technical]: Batch Mixpanel instrumentation for 7 shipped features
+
+**Context:** Mixpanel event audit (via /weekly) found 7 features shipped without analytics: P458 (auth gate), P491 (hashtag feed), P502 (anon position CTA), P505 (feed sort), P508 (partner template), feed card share buttons, and embed views. At 61 users, manual observation still works — but events enable answering "is anyone using what I built?" without checking prod manually.
+**Decision:** Added 10 analytics.track() calls across 10 source files: `auth_gate_triggered/completed`, `feed_tag_filtered/cleared`, `feed_sort_changed`, `anon_position_cta_shown/clicked`, `partner_template_viewed`, `feed_card_shared`. Updated `docs/technical/analytics.md` with all new events + documented existing PWA events (`pwa_install_prompted`, `pwa_ios_instructions_shown`).
+**Alternatives rejected:** (1) Skip all — valid at 61 users but misses the habit of instrumenting at ship time. (2) Add only P1 events — partial, same effort to add all 7 since the pattern is mechanical.
+**Consequences:** analytics.md is now the authoritative event catalog. Future features should add events at ship time, not in a batch audit.
+
+## 2026-03-16 [process]: Process-learnings.md graduation pattern
+
+**Context:** process-learnings.md accumulated 14 proposed items over 3 weeks with zero resolved. The file became a graveyard — items that were decisions (not tasks), behavioral observations (not process fixes), and already-specced features (P517, P518) mixed together.
+**Decision:** Established graduation pattern: (1) Items that are decisions → delete from process-learnings, capture in decisions.md with `[process]` tag. (2) Items that are behavioral patterns → move to `pp/docs/decisions.md`. (3) Items that map to existing specs → delete, add reference comment. (4) Items with no recurrence → defer (leave in file, monitor). Empty process-learnings.md is healthy. After cleanup: 14 → 4 items (3 deferred, 1 with active bugs filed as P528-530).
+**Alternatives rejected:** (1) Leave all items and add "resolved" status — file grows without bound, becomes noise. (2) Delete everything and start fresh — loses the deferred items that still matter.
+**Consequences:** process-learnings.md is now a short active queue, not an archive. /weekly step 2.5 checks for items >2 weeks old.
+
 ## 2026-03-16 [technical]: Two-party coordination fields must use per-role keys, never shared arrays
 
 **Context:** P525 investigation revealed that `celebrationAcknowledgedBy` (a JSON array both users append to) caused permanent deadlocks via JSONB `||` merge — last writer wins, one user's acknowledgment lost. The initial fix used two boolean keys (`celebrationAcknowledgedByCreator`, `celebrationAcknowledgedByJoiner`) but the UI check was role-blind (checked either boolean instead of the current user's), creating a second deadlock. Fixed by threading `isCreator` prop + adding a reactive `useEffect` safety net.
@@ -33,7 +54,7 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ## 2026-03-16 [technical]: Vercel env var `\n` corruption silently disables feature flags
 
-**Context:** `VITE_USE_REAL_AGREEMENTS_API` on Vercel prod had value `"true\n"` (literal backslash-n appended). The comparison `=== 'true'` evaluated false, causing the prod build to tree-shake the real agreements service and ship the mock instead. Agreements appeared to work (mock returned data, toast fired) but nothing hit the database. Jan + Nejc's real partnership agreement was lost. No Sentry errors, no Mixpanel events — completely silent.
+**Context:** `VITE_USE_REAL_AGREEMENTS_API` on Vercel prod had value `"true\n"` (literal backslash-n appended). The comparison `=== 'true'` evaluated false, causing the prod build to tree-shake the real agreements service and ship the mock instead. Agreements appeared to work (mock returned data, toast fired) but nothing hit the database. Pair B's real partnership agreement was lost. No Sentry errors, no Mixpanel events — completely silent.
 **Decision:** (1) Fixed the env var. (2) Added Mixpanel tracking to the full agreement flow (`agreement_create_started/success/failed`, `agreement_accept_*`, `partners_page_loaded`) so silent failures become visible. (3) Future env var additions should verify the deployed bundle contains the expected code path (`curl bundle.js | grep "table_name"`).
 **Alternatives rejected:** (1) Remove the feature flag entirely (always use real service) — premature; the mock is still useful for local dev when DB is down. (2) Use `startsWith('true')` instead of `===` — masks the real problem; env vars should be clean.
 **Consequences:** Any `VITE_*` env var set via CLI must be verified after setting. The `vercel env pull` command may show `\n` artifacts — verify via the deployed JS bundle, not the pull output.
@@ -70,9 +91,9 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ## 2026-03-15 [process]: Conversion psychology applied to offer pages — Cialdini principles for warm leads
 
-**Context:** Multiple agent passes (conversion copywriting, sales psychology, funnel design) were run against the offer page to optimize for a psychotherapist audience — someone who would see through cheap manipulation.
+**Context:** Multiple agent passes (conversion copywriting, sales psychology, funnel design) were run against the offer page to optimize for a therapist audience — someone who would see through cheap manipulation.
 **Decision:** (1) Reciprocity: name the gift value explicitly ("session worth €250"). (2) Loss aversion: "what you practiced starts to fade within 2-3 weeks without structure." (3) Commitment/consistency: identity statements about what they already did ("you chose to practice, not just talk"). (4) Scarcity with reason: honest schedule constraint, not arbitrary deadline. (5) Authority: link to published research (SSRN paper) — one line, not a CV dump. (6) Price last: only shown after "I'm interested" click (progressive disclosure). (7) Decline path equally dignified: "Completely fine" with no persuasion — the absence of pressure IS the persuasion for sophisticated audiences.
-**Alternatives rejected:** (1) Showing price upfront (loses micro-commitment opportunity). (2) Testimonials/case studies (impossible at n=1, don't fake it). (3) Countdown timer urgency (psychotherapist would see through it instantly). (4) Email capture on decline (already have their contact via WhatsApp).
+**Alternatives rejected:** (1) Showing price upfront (loses micro-commitment opportunity). (2) Testimonials/case studies (impossible at n=1, don't fake it). (3) Countdown timer urgency (a therapist would see through it instantly). (4) Email capture on decline (already have their contact via WhatsApp).
 **Consequences:** These principles should be encoded in the `/create-offer` skill and refined with each offer. The decline form data will validate which principles land and which don't. Framework applies equally to co-founder offers — adjust framing, keep psychology.
 
 ## 2026-03-15 [process]: AI design tooling — Stitch 2.0 for prototyping, skip SuperDesign and Polymet
@@ -93,7 +114,7 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ## 2026-03-15 [product]: Target audience refined — "people whose conversations carry risk if they're wrong"
 
-**Context:** Live session observations showed that general "communication practice" framing doesn't land. Ania (NVC coach, Mar 12) didn't see the point. General audiences don't feel the friction is worth it. But people in high-stakes partnerships — where being wrong costs money, trust, or trajectory — immediately get it.
+**Context:** Live session observations showed that general "communication practice" framing doesn't land. Participant C (NVC coach, Mar 12) didn't see the point. General audiences don't feel the friction is worth it. But people in high-stakes partnerships — where being wrong costs money, trust, or trajectory — immediately get it.
 **Decision:** Target audience is: co-founder partnerships, business partnerships, married couples making joint high-stakes decisions (finances, relocation, parenting strategy), professional pairs where miscommunication has real consequences. NOT: general communication practice, conflict resolution, relationship counseling (that's therapy/NVC territory). The differentiator: "Do your conversations carry risk if you're wrong?"
 **Alternatives rejected:** (1) Broad "communication skills" positioning (too generic, competes with NVC/therapy). (2) Only co-founders (too narrow — married couples with joint stakes have the same need).
 **Consequences:** Event positioning, landing page copy, and content strategy should lead with risk/stakes framing, not "better communication." The calibration framing ("smaller friction now prevents bigger problems later") resonates with this audience.
@@ -101,7 +122,7 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ## 2026-03-15 [process]: User feedback pipeline — raw observations → .private → root cause analysis → specs with 5-whys
 
-**Context:** Session observations produced 16 items (product insights, UX bugs, event positioning learnings) but no structured process existed to turn them into actionable specs. Previous feedback (Ania, Mar 12) was captured but not systematically processed.
+**Context:** Session observations produced 16 items (product insights, UX bugs, event positioning learnings) but no structured process existed to turn them into actionable specs. Previous feedback (Participant C, Mar 12) was captured but not systematically processed.
 **Decision:** Pipeline: (1) Capture raw observations in `.private/docs/user-feedback.md` with date and context. (2) Classify: bugs → `/create-bug` with 5-whys root cause analysis, product insights → `/quick-feature` or update hypotheses, event learnings → update session script. (3) Run 5-whys root cause analysis for ALL bugs before filing — not just the obvious ones. Filing symptoms without root causes leads to wrong fixes.
 **Alternatives rejected:** (1) File specs immediately from raw observations (skips root cause, leads to symptom-fixing). (2) Wait for a dedicated "feedback processing" skill (the pipeline works with existing skills). (3) Create a dedicated skill now (premature — run the pipeline manually 2-3 more times to learn the pattern first).
 **Consequences:** `.private/docs/user-feedback.md` is the intake. Each batch of observations should produce: root-cause-analyzed bug specs + feature ideas + doc updates. Consider creating a `/session-debrief` skill after 2-3 more manual runs.

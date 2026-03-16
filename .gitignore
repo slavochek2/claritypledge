@@ -101,3 +101,4 @@ private/personal/
 content/sifter/sessions/
 
 .claude/.expected-branch
+.privacy-reviewed
