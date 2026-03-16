@@ -2,6 +2,20 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-16 [process]: Prod verification via Playwright with persistent test account
+
+**Context:** After fixing the agreements env var bug, we couldn't verify the fix on prod — Claude in Chrome dies after ~5min (MV3 service worker timeout), and Playwright was limited to the test project (P496 constraint: "Supabase test project only"). Manual browser verification is unreliable as a process.
+**Decision:** Create a persistent test account on prod (`e2e-agent@claritypledge.com`) and write Playwright-based prod verification tests. Run with `VERIFY_PROD=1`. Documented in `/verify` (Step 2b), `/dev` (Step 9.8), `/fix`, and `docs/technical/e2e-testing-guide.md`. Template: `e2e/verify-prod-agreements.spec.ts`.
+**Alternatives rejected:** (1) Fix Claude in Chrome MV3 timeout — upstream Chrome issue, not in our control. (2) Programmatic user creation on prod per test — too risky, test user cleanup failures leave orphans. Persistent account avoids this.
+**Consequences:** Agents can now autonomously verify features on prod after deploy. The test account is permanent and should not be deleted. Future prod verification tests follow the same pattern: sign in as `e2e-agent`, inject session, navigate `claritypledge.com`, assert, cleanup test data.
+
+## 2026-03-16 [technical]: Vercel env var `\n` corruption silently disables feature flags
+
+**Context:** `VITE_USE_REAL_AGREEMENTS_API` on Vercel prod had value `"true\n"` (literal backslash-n appended). The comparison `=== 'true'` evaluated false, causing the prod build to tree-shake the real agreements service and ship the mock instead. Agreements appeared to work (mock returned data, toast fired) but nothing hit the database. Jan + Nejc's real partnership agreement was lost. No Sentry errors, no Mixpanel events — completely silent.
+**Decision:** (1) Fixed the env var. (2) Added Mixpanel tracking to the full agreement flow (`agreement_create_started/success/failed`, `agreement_accept_*`, `partners_page_loaded`) so silent failures become visible. (3) Future env var additions should verify the deployed bundle contains the expected code path (`curl bundle.js | grep "table_name"`).
+**Alternatives rejected:** (1) Remove the feature flag entirely (always use real service) — premature; the mock is still useful for local dev when DB is down. (2) Use `startsWith('true')` instead of `===` — masks the real problem; env vars should be clean.
+**Consequences:** Any `VITE_*` env var set via CLI must be verified after setting. The `vercel env pull` command may show `\n` artifacts — verify via the deployed JS bundle, not the pull output.
+
 ## 2026-03-16 [infrastructure]: Two-party test coverage guardrail in /dev and /generate-tests
 
 **Context:** P495 shipped a bug where `createTranscriptionJob` was inside `stopAndUploadRecording` which early-returned when no recording was active. The RPC never fired. No test caught it because no two-party E2E test existed for the session-end flow. The agent verified the fix by reading code but couldn't reproduce the failure — it was only caught by running the actual flow in a headless browser.

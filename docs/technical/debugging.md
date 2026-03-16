@@ -10,6 +10,7 @@
 
 | Issue type | First tool |
 |------------|-----------|
+| Works locally, broken on prod | **Step 0:** Verify `VITE_*` env vars in deployed bundle: `curl -s https://claritypledge.com/assets/index-*.js \| grep "expected_string"`. VITE vars are baked at build time — a missing or corrupted value silently disables features. |
 | DB data wrong | Supabase MCP: `execute_sql` on prod (ref: `besjtuodziykmjidubzw`) |
 | API misbehaving | `curl` the prod endpoint, read the actual response body |
 | Error in prod | Sentry MCP: `search_issues` |
