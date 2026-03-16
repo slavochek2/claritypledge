@@ -58,14 +58,18 @@ export function PointDetailPage() {
   const { dialogProps, guardedRemovePosition } = useRemovePositionGuard({
     userId: user?.id ?? '',
     onAfterRemove: async (pointId) => {
-      // After confirmed removal, reload to get updated counts
-      const updatedPoint = user?.id
-        ? await pointsService.getPointWithUserPosition(pointId, user.id)
-        : await pointsService.getPointWithCounts(pointId);
+      // After confirmed removal, reload to get updated counts + position holders
+      const [updatedPoint, updatedPositions] = await Promise.all([
+        user?.id
+          ? pointsService.getPointWithUserPosition(pointId, user.id)
+          : pointsService.getPointWithCounts(pointId),
+        pointsService.getPositionsForPoint(pointId),
+      ]);
       if (updatedPoint) {
         setPoint(updatedPoint);
         setUserPosition(null);
       }
+      setPositions(updatedPositions);
     },
   });
 
@@ -199,11 +203,15 @@ export function PointDetailPage() {
         await pointsService.setPosition(id, user.id, newPosition);
       }
 
-      // Reload point to get updated counts
-      const updatedPoint = await pointsService.getPointWithUserPosition(id, user.id);
+      // Reload point to get updated counts + position holders
+      const [updatedPoint, updatedPositions] = await Promise.all([
+        pointsService.getPointWithUserPosition(id, user.id),
+        pointsService.getPositionsForPoint(id),
+      ]);
       if (updatedPoint) {
         setPoint(updatedPoint);
       }
+      setPositions(updatedPositions);
     } catch (err) {
       console.error('Failed to update position:', err);
       // Revert optimistic update on error
