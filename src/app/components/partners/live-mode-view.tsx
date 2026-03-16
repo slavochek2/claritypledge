@@ -120,7 +120,7 @@ export function PartnerLeftScreen({ partnerName, sessionEnded, onStartNew, isGue
       {/* P493: Install banner for registered users (guests see signup CTA instead) */}
       {!isGuest && <PwaSessionEndBanner />}
       <div className="p-8 text-center max-w-sm mx-auto">
-      <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mb-4">
+      <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mb-4 mx-auto">
         <DoorOpen className="w-8 h-8 text-muted-foreground" />
       </div>
       <h2 className="text-xl font-semibold mb-2">{title}</h2>
