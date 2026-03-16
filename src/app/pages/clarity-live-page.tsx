@@ -105,6 +105,38 @@ export function raceWithTimeout<T>(promise: Promise<T>, ms: number): Promise<T> 
 }
 
 /**
+ * P525+: Determines whether a live state write should use full overwrite or JSONB merge (patch).
+ *
+ * Full overwrite (updateClaritySessionLiveState): rewrites the entire live_state column.
+ * JSONB merge (patchClaritySessionLiveState): atomically merges only the provided keys.
+ *
+ * Full overwrite is needed when:
+ * - Writing story fields (must be atomic with other state)
+ * - Clearing fields (undefined values are stripped by JSON.stringify, so patch ignores them)
+ *
+ * All other writes (ratings, celebration booleans, phase changes) use JSONB merge to prevent
+ * last-writer-wins clobbering when two users write concurrently.
+ *
+ * BUG FIX: Previously included `!storyIsActive` which routed ALL writes through full overwrite
+ * when no story was selected. This caused celebration booleans to clobber each other in
+ * free-conversation rounds (both users write simultaneously, last writer erases partner's boolean).
+ */
+export function shouldUseFullOverwrite(
+  updates: Partial<Record<string, unknown>>,
+  stateBeforeUpdate: Record<string, unknown>
+): boolean {
+  const touchesStory =
+    'selectedStoryId' in updates ||
+    'selectedStoryData' in updates ||
+    'selectedContentTitle' in updates;
+  const hasExplicitClears = Object.values(updates).some(v => v === undefined);
+  // Suppress unused parameter warning — stateBeforeUpdate is kept in signature for documentation:
+  // Previously `!Boolean(stateBeforeUpdate.selectedStoryId)` was included here, causing the bug.
+  void stateBeforeUpdate;
+  return touchesStory || hasExplicitClears;
+}
+
+/**
  * P525: Strips PII from live state before sending to Sentry.
  * Keeps only structural/diagnostic fields — no user names, story content, or name-keyed maps.
  */
@@ -999,24 +1031,9 @@ export function ClarityLivePage() {
       updateInFlightRef.current = true; // Prevent poll from overwriting
 
       try {
-        // P399: Use partial DB merge when the write doesn't touch story/content fields
-        // AND a story is currently active. The merge preserves selectedStoryData written
-        // by the partner when our confirmedLiveStateRef is stale.
-        //
-        // When no story is active, a full overwrite is safe — there is nothing to protect.
-        // This also serves as a fallback until the patch_live_state migration is applied.
-        const touchesStory =
-          'selectedStoryId' in updates ||
-          'selectedStoryData' in updates ||
-          'selectedContentTitle' in updates;
-        const storyIsActive = Boolean(stateBeforeUpdate.selectedStoryId);
-        // If any update value is explicitly undefined (clearing a field), use full overwrite.
-        // The patch path (JSONB ||) silently ignores undefined values — they get stripped by
-        // JSON.stringify before reaching the DB, so the old value stays. Full overwrite
-        // properly clears them by rewriting the entire live_state column.
-        const hasExplicitClears = Object.values(updates).some(v => v === undefined);
-        // P525: Wrap DB call with 5s timeout to prevent indefinite sync blackout
-        const dbCall = (touchesStory || !storyIsActive || hasExplicitClears)
+        // P525+: Route to full overwrite or JSONB merge based on write contents.
+        // See shouldUseFullOverwrite() for the decision logic and bug-fix history.
+        const dbCall = shouldUseFullOverwrite(updates, stateBeforeUpdate as Record<string, unknown>)
           ? updateClaritySessionLiveState(session.id, newState)
           : patchClaritySessionLiveState(session.id, updates as Record<string, unknown>);
         await raceWithTimeout(dbCall, UPDATE_TIMEOUT_MS);

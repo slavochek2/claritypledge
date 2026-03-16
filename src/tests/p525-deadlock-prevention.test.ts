@@ -4,6 +4,7 @@ import {
   isBothAcknowledged,
   isBothAcknowledgedCompat,
   raceWithTimeout,
+  shouldUseFullOverwrite,
 } from '../app/pages/clarity-live-page';
 
 /**
@@ -308,5 +309,67 @@ describe('P525: clickedContinue reverts on write failure', () => {
     const joinerAcknowledged = false;
     const noBooleans = !creatorAcknowledged && !joinerAcknowledged;
     expect(noBooleans).toBe(false);
+  });
+});
+
+// ===============================================================================
+// 6. DB write routing — celebration writes must use JSONB merge (patch)
+// ===============================================================================
+
+describe('P525+: shouldUseFullOverwrite — DB write routing', () => {
+  it('celebration-only write WITHOUT active story uses patch (not full overwrite)', () => {
+    // This is the exact scenario that caused the deadlock:
+    // Free conversation round → no story selected → celebration boolean write
+    // Previously routed to full overwrite, causing last-writer-wins clobbering.
+    const updates = { celebrationAcknowledgedByCreator: true };
+    const state = {}; // no selectedStoryId — free conversation
+
+    expect(shouldUseFullOverwrite(updates, state)).toBe(false);
+  });
+
+  it('celebration-only write WITH active story uses patch', () => {
+    const updates = { celebrationAcknowledgedByJoiner: true };
+    const state = { selectedStoryId: 'story-123' };
+
+    expect(shouldUseFullOverwrite(updates, state)).toBe(false);
+  });
+
+  it('rating write without story uses patch', () => {
+    const updates = { checkerRating: 8, checkerSubmitted: true };
+    const state = {};
+
+    expect(shouldUseFullOverwrite(updates, state)).toBe(false);
+  });
+
+  it('story selection write uses full overwrite', () => {
+    const updates = { selectedStoryId: 'story-123', selectedStoryData: { id: 'story-123' } };
+    const state = {};
+
+    expect(shouldUseFullOverwrite(updates, state)).toBe(true);
+  });
+
+  it('write with explicit undefined (clearing fields) uses full overwrite', () => {
+    const updates = {
+      selectedStoryId: undefined,
+      selectedStoryData: undefined,
+      ratingPhase: 'idle',
+    };
+    const state = { selectedStoryId: 'story-123' };
+
+    expect(shouldUseFullOverwrite(updates, state)).toBe(true);
+  });
+
+  it('phase change without story or clears uses patch', () => {
+    const updates = { ratingPhase: 'rating', checkerName: 'Alice' };
+    const state = {};
+
+    expect(shouldUseFullOverwrite(updates, state)).toBe(false);
+  });
+
+  it('content title write uses full overwrite (touches story field)', () => {
+    const updates = { selectedContentTitle: 'My story about trust' };
+    const state = {};
+
+    expect(shouldUseFullOverwrite(updates, state)).toBe(true);
   });
 });
