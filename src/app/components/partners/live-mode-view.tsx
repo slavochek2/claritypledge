@@ -224,6 +224,8 @@ interface LiveModeViewProps {
   isPrivate?: boolean;
   /** Ear count for the partner (used to show their credibility badge in the host view) */
   partnerEarsCount?: number;
+  /** P525: Whether the current user is the session creator (needed for role-aware celebration acknowledgment) */
+  isCreator?: boolean;
 }
 
 export function LiveModeView({
@@ -259,6 +261,7 @@ export function LiveModeView({
   onPositionSelect,
   isPrivate = false,
   partnerEarsCount = 0,
+  isCreator = false,
 }: LiveModeViewProps) {
 
   // Hide site-wide navigation when live session is active.
@@ -416,10 +419,12 @@ export function LiveModeView({
 
   // P525: Track celebration acknowledgment from new boolean keys (+ old array for backward compat)
   const oldAcknowledged = liveState.celebrationAcknowledgedBy || [];
-  // "I acknowledged" — either via old array or any new boolean (we don't know role in this component,
-  // so we check both booleans — the parent's duplicate-click guard handles role-specific logic)
-  const iHaveAcknowledgedAny = oldAcknowledged.includes(currentUserName) ||
-    liveState.celebrationAcknowledgedByCreator === true || liveState.celebrationAcknowledgedByJoiner === true;
+  // P525 fix: Check only MY role's boolean — checking both caused deadlock where
+  // Creator clicking Continue made Joiner think they also acknowledged
+  const myBoolean = isCreator
+    ? liveState.celebrationAcknowledgedByCreator
+    : liveState.celebrationAcknowledgedByJoiner;
+  const iHaveAcknowledgedAny = oldAcknowledged.includes(currentUserName) || myBoolean === true;
   // waitingForPartner: I clicked but both aren't done yet
   const bothBoolsDone = liveState.celebrationAcknowledgedByCreator === true && liveState.celebrationAcknowledgedByJoiner === true;
   const bothArrayDone = oldAcknowledged.includes(currentUserName) && oldAcknowledged.includes(partnerName);
@@ -728,6 +733,7 @@ export function LiveModeView({
           onPositionSelect={onPositionSelect}
           onClearStory={onClearStory}
           isGuest={isGuest}
+          isCreator={isCreator}
                   />
         {skipNotificationDialog}
         {confirmSkipDialog}
@@ -767,6 +773,7 @@ export function LiveModeView({
           onClearStory={onClearStory}
           isStoryOwner={isAuthorOfSelected}
           isGuest={isGuest}
+          isCreator={isCreator}
                   />
         {skipNotificationDialog}
         {confirmSkipDialog}
@@ -2073,6 +2080,8 @@ interface UnderstandingScreenProps {
   isStoryOwner?: boolean;
   /** P490: When true, user is a guest (unauthenticated) — shows "sign up to save" hint instead of CTA */
   isGuest?: boolean;
+  /** P525: Whether the current user is the session creator (for role-aware celebration acknowledgment) */
+  isCreator?: boolean;
 }
 
 function UnderstandingScreen({
@@ -2103,6 +2112,7 @@ function UnderstandingScreen({
   onClearStory,
   isStoryOwner = false,
   isGuest = false,
+  isCreator = false,
 }: UnderstandingScreenProps) {
   const displayPartnerName = getFirstName(partnerName);
   const checkerName = liveState.checkerName ? getFirstName(liveState.checkerName) : '';
@@ -2132,10 +2142,14 @@ function UnderstandingScreen({
   const gapType: GapType = gap > 0 ? 'overconfidence' : gap < 0 ? 'underconfidence' : 'none';
   const gapPoints = Math.abs(gap);
 
-  // P525: Check if current user has acknowledged the celebration (new booleans + old array backward compat)
+  // P525: Check if current user has acknowledged the celebration (role-aware boolean + old array backward compat)
   const celebrationOldArr = liveState.celebrationAcknowledgedBy || [];
   const userHasAcknowledgedViaArray = celebrationOldArr.includes(currentUserName);
-  const userHasAcknowledgedViaBool = liveState.celebrationAcknowledgedByCreator === true || liveState.celebrationAcknowledgedByJoiner === true;
+  // P525 fix: Check only MY role's boolean — checking both caused deadlock
+  const myBool = isCreator
+    ? liveState.celebrationAcknowledgedByCreator
+    : liveState.celebrationAcknowledgedByJoiner;
+  const userHasAcknowledgedViaBool = myBool === true;
   const userHasAcknowledged = userHasAcknowledgedViaArray || userHasAcknowledgedViaBool;
 
   // Local flag: hide story immediately on click, before server state propagates

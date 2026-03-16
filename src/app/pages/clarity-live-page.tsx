@@ -1601,6 +1601,66 @@ export function ClarityLivePage() {
     }
   }, [name, partnerName, isCreator, session?.creatorName, updateLiveState]);
 
+  // P525 safety net: reactive useEffect catches simultaneous acknowledgment
+  // When both users click Continue at the same time, handleCelebrationComplete may not see
+  // the partner's boolean (stale ref). This effect watches the live state and triggers reset
+  // when both booleans are true but the round hasn't been reset yet.
+  const reactiveResetFiredRef = useRef(false);
+  useEffect(() => {
+    const bothAcknowledged = isBothAcknowledged(liveState);
+    if (bothAcknowledged && liveState.ratingPhase !== 'idle' && !reactiveResetFiredRef.current) {
+      reactiveResetFiredRef.current = true;
+      // Trigger the same reset as handleCelebrationComplete's bothDone branch
+      const prevHistory = liveState.sessionHistory ?? [];
+      const contentTitle = liveState.selectedContentTitle;
+      const journeyData = {
+        checkerRating: liveState.checkerRating,
+        responderRating: liveState.responderRating,
+        explainBackRatings: [...(liveState.explainBackRatings ?? [])],
+        checkerName: liveState.checkerName,
+        partnerName: partnerName ?? undefined,
+        completedAt: new Date().toISOString(),
+        isChecker: liveState.checkerName === name,
+      };
+      const historyEntry = liveState.selectedStoryId
+        ? { title: contentTitle || 'Story verification', type: 'story' as const, ...journeyData, storyData: liveState.selectedStoryData }
+        : liveState.selectedPointId
+          ? { title: contentTitle || 'Point verification', type: 'point' as const, ...journeyData }
+          : { title: 'Free conversation', type: 'free' as const, ...journeyData };
+
+      updateLiveState({
+        currentRound: (liveState.currentRound ?? 1) + 1,
+        ratingPhase: 'idle',
+        ratingInitiatedBy: undefined,
+        checkerName: undefined,
+        checkerRating: undefined,
+        responderRating: undefined,
+        checkerSubmitted: false,
+        responderSubmitted: false,
+        proverName: undefined,
+        explainBackRound: 0,
+        explainBackRatings: [],
+        explainBackDone: false,
+        speakerSawExplainBackDone: false,
+        celebrationAcknowledgedByCreator: false,
+        celebrationAcknowledgedByJoiner: false,
+        celebrationAcknowledgedBy: [],
+        roleSwitchNegotiation: undefined,
+        clarificationPhase: undefined,
+        selectedStoryId: undefined,
+        selectedStoryData: undefined,
+        selectedPointId: undefined,
+        selectedContentTitle: undefined,
+        sessionHistory: [...prevHistory, historyEntry],
+      });
+      verificationFiredRef.current.clear();
+    }
+    // Reset the guard when round resets (ratingPhase goes back to idle)
+    if (liveState.ratingPhase === 'idle') {
+      reactiveResetFiredRef.current = false;
+    }
+  }, [liveState.celebrationAcknowledgedByCreator, liveState.celebrationAcknowledgedByJoiner, liveState.ratingPhase, liveState, name, partnerName, updateLiveState]);
+
   // Handle "Let me explain back" - listener starts explaining
   const handleExplainBackStart = useCallback(() => {
     const currentState = confirmedLiveStateRef.current;
@@ -3043,6 +3103,7 @@ export function ClarityLivePage() {
           // P160: Private session mode indicator
           isPrivate={session.isPrivate ?? false}
           partnerEarsCount={partnerEarsCount}
+          isCreator={isCreator}
         />
 
         {/* Remove position confirmation dialog */}
