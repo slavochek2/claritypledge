@@ -1,15 +1,14 @@
 /**
  * @file position-buttons-dropdown.test.tsx
- * @description Tests that dropdown chevrons on Agree/Disagree buttons are always visible,
- * even on narrow viewports and in nested/compact contexts.
+ * @description Tests for intensity dropdown behavior on position buttons.
  *
- * Bug: On narrow viewports (< 400px), the dropdown chevrons were getting clipped
- * due to overflow-hidden and insufficient width, removing the ability to select
- * intensity levels (Strongly Agree, Somewhat Agree, etc.)
+ * Updated for P521: Dropdown chevrons replaced with auto-dropdown on group click.
+ * Clicking Agree/Disagree now auto-opens intensity dropdown (no separate chevron trigger).
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { PositionButtons, type SevenPointCounts } from '@/app/components/shared/PositionButton';
 
 const mockCounts: SevenPointCounts = {
@@ -23,7 +22,8 @@ const mockCounts: SevenPointCounts = {
 };
 
 describe('PositionButtons dropdown visibility', () => {
-  it('renders dropdown triggers for Agree and Disagree buttons', () => {
+  it('clicking Agree opens intensity dropdown (auto-dropdown, no chevron)', async () => {
+    const user = userEvent.setup();
     render(
       <PositionButtons
         userPosition={null}
@@ -32,27 +32,32 @@ describe('PositionButtons dropdown visibility', () => {
       />
     );
 
-    // Agree and Disagree should have dropdown triggers (data-testid)
-    expect(screen.getByTestId('agree-dropdown')).toBeInTheDocument();
-    expect(screen.getByTestId('disagree-dropdown')).toBeInTheDocument();
+    const agreeButton = screen.getByText('Agree').closest('button')!;
+    await user.click(agreeButton);
+
+    // Intensity options should appear in the dropdown
+    expect(screen.getByText('Somewhat Agree')).toBeInTheDocument();
+    expect(screen.getByText('Strongly Agree')).toBeInTheDocument();
   });
 
-  it('renders dropdown triggers in compact mode', () => {
+  it('clicking Disagree opens intensity dropdown (auto-dropdown, no chevron)', async () => {
+    const user = userEvent.setup();
     render(
       <PositionButtons
         userPosition={null}
         counts={mockCounts}
         onPositionClick={() => {}}
-        compact
       />
     );
 
-    // Even in compact mode, dropdowns must be available
-    expect(screen.getByTestId('agree-dropdown')).toBeInTheDocument();
-    expect(screen.getByTestId('disagree-dropdown')).toBeInTheDocument();
+    const disagreeButton = screen.getByText('Disagree').closest('button')!;
+    await user.click(disagreeButton);
+
+    expect(screen.getByText('Somewhat Disagree')).toBeInTheDocument();
+    expect(screen.getByText('Strongly Disagree')).toBeInTheDocument();
   });
 
-  it('dropdown triggers have correct aria-labels', () => {
+  it('no dropdown chevrons are present (removed in P521)', () => {
     render(
       <PositionButtons
         userPosition={null}
@@ -61,21 +66,28 @@ describe('PositionButtons dropdown visibility', () => {
       />
     );
 
-    expect(screen.getByTestId('agree-dropdown')).toHaveAttribute('aria-label', 'agree options');
-    expect(screen.getByTestId('disagree-dropdown')).toHaveAttribute('aria-label', 'disagree options');
+    // Old chevron dropdown triggers should NOT exist
+    expect(screen.queryByTestId('agree-dropdown')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('disagree-dropdown')).not.toBeInTheDocument();
   });
 
-  it('Unsure button does NOT have a dropdown (only one option)', () => {
+  it('Unsure button does NOT have a dropdown (only one option)', async () => {
+    const user = userEvent.setup();
+    const handleClick = vi.fn();
     render(
       <PositionButtons
         userPosition={null}
         counts={mockCounts}
-        onPositionClick={() => {}}
+        onPositionClick={handleClick}
       />
     );
 
-    // Unsure should not have a dropdown - it only has one intensity level
-    expect(screen.queryByTestId('unsure-dropdown')).not.toBeInTheDocument();
+    const unsureButton = screen.getByText('Unsure').closest('button')!;
+    await user.click(unsureButton);
+
+    // Unsure selects immediately, no dropdown
+    expect(handleClick).toHaveBeenCalledWith('unsure');
+    expect(screen.queryByText('Somewhat')).not.toBeInTheDocument();
   });
 
   it('all three position button groups are rendered', () => {
@@ -87,12 +99,8 @@ describe('PositionButtons dropdown visibility', () => {
       />
     );
 
-    // Each group has a main button + dropdown trigger (except Unsure which has no dropdown)
-    // Check by data-testid for dropdown triggers
-    expect(screen.getByTestId('disagree-dropdown')).toBeInTheDocument();
-    expect(screen.getByTestId('agree-dropdown')).toBeInTheDocument();
-
-    // Unsure has no dropdown but should have a button with the text
+    expect(screen.getByText('Disagree')).toBeInTheDocument();
     expect(screen.getByText('Unsure')).toBeInTheDocument();
+    expect(screen.getByText('Agree')).toBeInTheDocument();
   });
 });

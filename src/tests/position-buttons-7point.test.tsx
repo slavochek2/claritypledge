@@ -8,7 +8,7 @@ vi.mock('react-router-dom', () => ({
   useNavigate: () => vi.fn(),
 }));
 
-describe('PositionButtons - 7-Point Scale with 3-Button Dropdown UI', () => {
+describe('PositionButtons - 7-Point Scale with 3-Button Auto-Dropdown UI', () => {
   const sevenPointCounts: SevenPointCounts = {
     strongly_agree: 5,      // +3
     agree: 10,              // +2
@@ -20,7 +20,7 @@ describe('PositionButtons - 7-Point Scale with 3-Button Dropdown UI', () => {
   };
 
   describe('Button rendering', () => {
-    it('renders 3 main button groups (Disagree/Agree have dropdown, Unsure is simple)', () => {
+    it('renders 3 main button groups (no separate dropdown triggers)', () => {
       render(
         <PositionButtons
           userPosition={null}
@@ -29,19 +29,16 @@ describe('PositionButtons - 7-Point Scale with 3-Button Dropdown UI', () => {
         />
       );
 
-      // Disagree and Agree have 2 buttons each (main + dropdown trigger)
-      // Unsure is a simple button (no dropdown since only one option)
-      // Total: 2 + 1 + 2 = 5 buttons
+      // P521: 3 group buttons only (no separate chevron triggers)
       const buttons = screen.getAllByRole('button');
-      expect(buttons).toHaveLength(5);
+      expect(buttons).toHaveLength(3);
 
-      // Check all 3 group labels are present
       expect(screen.getByText('Disagree')).toBeInTheDocument();
       expect(screen.getByText('Unsure')).toBeInTheDocument();
       expect(screen.getByText('Agree')).toBeInTheDocument();
     });
 
-    it('displays aggregated counts per button group in brackets', () => {
+    it('displays aggregated counts as badges (not in brackets)', () => {
       render(
         <PositionButtons
           userPosition={null}
@@ -50,14 +47,18 @@ describe('PositionButtons - 7-Point Scale with 3-Button Dropdown UI', () => {
         />
       );
 
-      // Disagree group: strongly_disagree (2) + disagree (8) + somewhat_disagree (4) = 14
-      expect(screen.getByText('(14)')).toBeInTheDocument();
+      // P521: counts shown as badge pills, not "(N)" format
+      // Disagree group: 2 + 8 + 4 = 14
+      expect(screen.getByText('14')).toBeInTheDocument();
+      // Unsure: 2
+      expect(screen.getByText('2')).toBeInTheDocument();
+      // Agree group: 3 + 10 + 5 = 18
+      expect(screen.getByText('18')).toBeInTheDocument();
 
-      // Unsure group: unsure (2)
-      expect(screen.getByText('(2)')).toBeInTheDocument();
-
-      // Agree group: somewhat_agree (3) + agree (10) + strongly_agree (5) = 18
-      expect(screen.getByText('(18)')).toBeInTheDocument();
+      // Old bracket format should NOT be present
+      expect(screen.queryByText('(14)')).not.toBeInTheDocument();
+      expect(screen.queryByText('(2)')).not.toBeInTheDocument();
+      expect(screen.queryByText('(18)')).not.toBeInTheDocument();
     });
   });
 
@@ -114,8 +115,8 @@ describe('PositionButtons - 7-Point Scale with 3-Button Dropdown UI', () => {
     });
   });
 
-  describe('Dropdown options', () => {
-    it('Disagree dropdown contains intensity options when opened', async () => {
+  describe('Auto-dropdown intensity options', () => {
+    it('Disagree auto-dropdown shows intensity options', async () => {
       const user = userEvent.setup();
 
       render(
@@ -126,12 +127,11 @@ describe('PositionButtons - 7-Point Scale with 3-Button Dropdown UI', () => {
         />
       );
 
-      const dropdownTrigger = screen.getByTestId('disagree-dropdown');
-      await user.click(dropdownTrigger);
+      const disagreeBtn = screen.getByText('Disagree').closest('button')!;
+      await user.click(disagreeBtn);
 
-      expect(screen.getByRole('menuitem', { name: /Strongly Disagree/i })).toBeInTheDocument();
-      expect(screen.getByRole('menuitem', { name: /^Disagree$/i })).toBeInTheDocument();
-      expect(screen.getByRole('menuitem', { name: /Somewhat Disagree/i })).toBeInTheDocument();
+      expect(screen.getByText('Strongly Disagree')).toBeInTheDocument();
+      expect(screen.getByText('Somewhat Disagree')).toBeInTheDocument();
     });
 
     it('Unsure is a simple button without dropdown (single option)', () => {
@@ -146,7 +146,7 @@ describe('PositionButtons - 7-Point Scale with 3-Button Dropdown UI', () => {
       expect(screen.queryByTestId('unsure-dropdown')).not.toBeInTheDocument();
     });
 
-    it('Agree dropdown contains intensity options when opened', async () => {
+    it('Agree auto-dropdown shows intensity options', async () => {
       const user = userEvent.setup();
 
       render(
@@ -157,12 +157,11 @@ describe('PositionButtons - 7-Point Scale with 3-Button Dropdown UI', () => {
         />
       );
 
-      const dropdownTrigger = screen.getByTestId('agree-dropdown');
-      await user.click(dropdownTrigger);
+      const agreeBtn = screen.getByText('Agree').closest('button')!;
+      await user.click(agreeBtn);
 
-      expect(screen.getByRole('menuitem', { name: /Somewhat Agree/i })).toBeInTheDocument();
-      expect(screen.getByRole('menuitem', { name: /^Agree$/i })).toBeInTheDocument();
-      expect(screen.getByRole('menuitem', { name: /Strongly Agree/i })).toBeInTheDocument();
+      expect(screen.getByText('Somewhat Agree')).toBeInTheDocument();
+      expect(screen.getByText('Strongly Agree')).toBeInTheDocument();
     });
 
     it('selecting Strongly Disagree from dropdown calls onPositionClick', async () => {
@@ -177,9 +176,12 @@ describe('PositionButtons - 7-Point Scale with 3-Button Dropdown UI', () => {
         />
       );
 
-      const dropdownTrigger = screen.getByTestId('disagree-dropdown');
-      await user.click(dropdownTrigger);
-      await user.click(screen.getByRole('menuitem', { name: /Strongly Disagree/i }));
+      // Click Disagree to open auto-dropdown
+      const disagreeBtn = screen.getByText('Disagree').closest('button')!;
+      await user.click(disagreeBtn);
+
+      // Select Strongly Disagree from dropdown
+      await user.click(screen.getByText('Strongly Disagree'));
 
       expect(handleClick).toHaveBeenCalledWith('strongly_disagree');
     });
@@ -195,9 +197,9 @@ describe('PositionButtons - 7-Point Scale with 3-Button Dropdown UI', () => {
         />
       );
 
-      const disagreeText = screen.getByText(/Disagree−/);
-      const container = disagreeText.closest('button')?.parentElement;
-      expect(container).toHaveClass('bg-blue-600');
+      const disagreeText = screen.getByText(/Disagree\u2212/);
+      const button = disagreeText.closest('button');
+      expect(button).toHaveAttribute('aria-pressed', 'true');
     });
 
     it('highlights Unsure button when user position is unsure', () => {
@@ -209,10 +211,9 @@ describe('PositionButtons - 7-Point Scale with 3-Button Dropdown UI', () => {
         />
       );
 
-      // Unsure button now uses same wrapper structure as Agree/Disagree
       const unsureText = screen.getByText('Unsure');
-      const container = unsureText.closest('button')?.parentElement;
-      expect(container).toHaveClass('bg-blue-600');
+      const button = unsureText.closest('button');
+      expect(button).toHaveAttribute('aria-pressed', 'true');
     });
 
     it('highlights Agree group when user has any agree position', () => {
@@ -224,9 +225,9 @@ describe('PositionButtons - 7-Point Scale with 3-Button Dropdown UI', () => {
         />
       );
 
-      const stronglyAgreeText = screen.getByText(/Agree\+/);
-      const container = stronglyAgreeText.closest('button')?.parentElement;
-      expect(container).toHaveClass('bg-blue-600');
+      const agreeText = screen.getByText(/Agree\+/);
+      const button = agreeText.closest('button');
+      expect(button).toHaveAttribute('aria-pressed', 'true');
     });
 
     it('shows abbreviated position label when user selected non-default', () => {
@@ -266,13 +267,12 @@ describe('PositionButtons - 7-Point Scale with 3-Button Dropdown UI', () => {
         />
       );
 
-      // Compact mode: 3 segments + 2 dropdown triggers (agree/disagree)
-      // Note: Dropdown triggers are now always shown for multi-option groups
+      // P521: compact mode = 3 group buttons only
       const buttons = screen.getAllByRole('button');
-      expect(buttons).toHaveLength(5);
+      expect(buttons).toHaveLength(3);
     });
 
-    it('compact mode still shows dropdown chevrons for intensity selection', () => {
+    it('compact mode hides count badges', () => {
       render(
         <PositionButtons
           userPosition={null}
@@ -282,32 +282,10 @@ describe('PositionButtons - 7-Point Scale with 3-Button Dropdown UI', () => {
         />
       );
 
-      // Dropdown triggers ARE present - behavior changed to always allow intensity selection
-      expect(screen.queryByTestId('agree-dropdown')).toBeInTheDocument();
-      expect(screen.queryByTestId('disagree-dropdown')).toBeInTheDocument();
-    });
-
-    it('compact mode hides counts to make room for dropdown chevrons', () => {
-      // In compact mode (nested/quoted views), counts are hidden to save space
-      // for the dropdown chevrons which provide essential intensity selection.
-      // This is an intentional trade-off: counts are nice-to-have, dropdowns are essential.
-      render(
-        <PositionButtons
-          userPosition={null}
-          counts={sevenPointCounts}
-          onPositionClick={vi.fn()}
-          compact
-        />
-      );
-
-      // Counts should NOT be visible in compact mode
-      expect(screen.queryByText('(14)')).not.toBeInTheDocument();
-      expect(screen.queryByText('(2)')).not.toBeInTheDocument();
-      expect(screen.queryByText('(18)')).not.toBeInTheDocument();
-
-      // But dropdown triggers should still be present
-      expect(screen.getByTestId('agree-dropdown')).toBeInTheDocument();
-      expect(screen.getByTestId('disagree-dropdown')).toBeInTheDocument();
+      // Count badges should be hidden in compact mode
+      expect(screen.queryByText('14')).not.toBeInTheDocument();
+      expect(screen.queryByText('2')).not.toBeInTheDocument();
+      expect(screen.queryByText('18')).not.toBeInTheDocument();
     });
 
     it('compact mode still calls onPositionClick with default values', async () => {
@@ -323,7 +301,6 @@ describe('PositionButtons - 7-Point Scale with 3-Button Dropdown UI', () => {
         />
       );
 
-      // Click Agree in compact mode - should use default 'agree' value
       const agreeBtn = screen.getByText('Agree').closest('button');
       await user.click(agreeBtn!);
       expect(handleClick).toHaveBeenCalledWith('agree');
