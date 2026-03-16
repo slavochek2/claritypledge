@@ -241,7 +241,7 @@ export function PointDetailPage() {
 
   if (loading) {
     return (
-      <div className="max-w-lg mx-auto px-4 py-8">
+      <div className="max-w-2xl mx-auto px-4 py-8">
         {/* Skeleton for back button */}
         <div className="h-4 bg-muted rounded w-20 mb-6 animate-pulse" />
         {/* Skeleton for point card */}
@@ -281,7 +281,7 @@ export function PointDetailPage() {
       : 'Point not found';
 
     return (
-      <div className="max-w-lg mx-auto px-4 py-8">
+      <div className="max-w-2xl mx-auto px-4 py-8">
         {!isEmbed && <FocusHeader onBack={handleBack} />}
         <div className="text-center py-12 space-y-4">
           <p className="text-muted-foreground">{errorMessage}</p>
@@ -401,7 +401,7 @@ export function PointDetailPage() {
     positionFilter === 'all' ? ['agree', 'disagree', 'unsure'] : [positionFilter as PositionButtonGroup];
 
   return (
-    <div className="max-w-lg mx-auto">
+    <div className="max-w-2xl mx-auto">
       {/* P504: SEO meta tags */}
       <SEO
         title={point.statement.length > 70 ? point.statement.slice(0, 67) + '...' : point.statement}
