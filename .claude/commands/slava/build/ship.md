@@ -37,6 +37,11 @@ Ship an approved feature to production.
    - Ask: "These infra steps must be done before pushing. Have they all been applied to prod? (y = proceed / n = stop and apply them first)"
    - If user says "n": stop. Do NOT merge. User applies the steps, then re-runs `/ship`.
    - If no Pre-deploy section exists: proceed silently.
+3.7. **Sync main into feature branch** — before merging to main, bring main's changes into the feature branch to prevent silent content loss in shared docs:
+   ```bash
+   git merge main
+   ```
+   If conflicts arise, resolve them now — these are changes made to main while the worktree was active. Resolving here is correct; skipping this step causes git to silently drop content added to main since the worktree was created.
 4. **Merge to main** — `git merge feature/pN --no-ff` (preserves branch history)
 5. **Close the spec** — move spec to `features/done/`, update frontmatter:
    - `status: all-done`
