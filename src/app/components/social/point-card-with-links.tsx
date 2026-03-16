@@ -313,7 +313,7 @@ export function PointCardWithLinks({
               {/* Footer - inside quoted box, pl-[44px] aligns with content column (32px icon + 12px gap) */}
               <div
                 role="presentation"
-                className="flex items-center justify-between mt-3 pt-3 border-t border-gray-200 pl-[44px]"
+                className="flex items-center justify-between flex-wrap gap-y-1 mt-3 pt-3 border-t border-gray-200 pl-[44px]"
                 onClick={(e) => e.stopPropagation()}
               >
                 {/* Collapsible trigger (if has linked stories) or 0-stories CTA */}
@@ -490,7 +490,7 @@ export function PointCardWithLinks({
         <>
         <div
           role="presentation"
-          className="flex items-center justify-between pl-[52px] pr-4 py-3 border-t border-gray-100"
+          className="flex items-center justify-between flex-wrap gap-y-1 pl-[52px] pr-4 py-3 border-t border-gray-100"
           onClick={(e) => e.stopPropagation()}
         >
           {/* Collapsible trigger - show in live session mode with all stories, or on profile/feed with any linked stories */}
