@@ -1,10 +1,10 @@
 ---
-status: in-progress
+status: all-done
 type: task
 rank: 250010.75
 workstream: E1
 created_date: 2026-03-16
-delivery_stage: uat
+completed_at: "2026-03-16"
 flow: dev
 tags: []
 ---
