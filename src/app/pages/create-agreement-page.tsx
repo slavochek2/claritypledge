@@ -124,9 +124,11 @@ export function CreateAgreementPage() {
       setLookupResult(null);
       setErrors((prev) => ({ ...prev, partnerEmail: undefined }));
       setSubmitError(null);
-      // P483: reset lock + clear name on email change
-      setIsPartnerNameLocked(false);
-      setPartnerName('');
+      // P483: only clear name if it was auto-filled by a previous lookup
+      if (isPartnerNameLocked) {
+        setIsPartnerNameLocked(false);
+        setPartnerName('');
+      }
 
       if (debounceRef.current) {
         clearTimeout(debounceRef.current);
@@ -157,7 +159,7 @@ export function CreateAgreementPage() {
         }
       }, 400);
     },
-    [user?.email]
+    [user?.email, isPartnerNameLocked]
   );
 
   const handleTermsChange = (text: string) => {
