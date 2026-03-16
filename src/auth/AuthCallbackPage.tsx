@@ -612,6 +612,9 @@ export function AuthCallbackPage() {
   }
 
   // Loading/processing state
+  // data-status keeps `status` in the render tree so React doesn't skip re-renders
+  // triggered by setStatus — without this, the processAuth useEffect fires extra times.
+  // P537 memoized useAuth refs but this wrapper is still needed for render-timing stability.
   return (
     <div data-status={status}>
       <ClarityPageLoader />
