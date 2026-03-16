@@ -143,6 +143,8 @@ if [ "$ENV_NAME" != "prod" ]; then
   if [ $PUSH_EXIT -eq 0 ]; then
     echo "$PUSH_OUTPUT"
     echo ""
+    # Stamp deploy manifest after successful migration
+    "$SCRIPT_DIR/stamp-deploy-manifest.sh" --env "$ENV_NAME" --migrations-only
     echo "Done."
     exit 0
   fi
@@ -227,5 +229,7 @@ if [ "$NEEDS_FALLBACK" = "true" ]; then
   fi
   echo "Applied $APPLIED_COUNT new migration(s) via Management API."
   echo ""
+  # Stamp deploy manifest after successful migration
+  "$SCRIPT_DIR/stamp-deploy-manifest.sh" --env "$ENV_NAME" --migrations-only
   echo "Done."
 fi

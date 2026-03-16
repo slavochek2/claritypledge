@@ -39,10 +39,21 @@ function PageSkeleton() {
 
 // ─── Empty state ──────────────────────────────────────────────────────────────
 
-function EmptyState() {
+function EmptyState({ isOwner }: { isOwner: boolean }) {
   return (
     <div className="px-4 py-12 text-center">
-      <p className="text-sm text-muted-foreground">No agreements to show.</p>
+      {isOwner ? (
+        <>
+          <p className="text-sm text-muted-foreground mb-4">
+            No partners yet. Invite your co-founder to get started.
+          </p>
+          <Button asChild className="min-h-[44px] bg-[#0044CC] hover:bg-[#0044CC]/90 text-white">
+            <Link to="/agreements/new">Invite a new partner</Link>
+          </Button>
+        </>
+      ) : (
+        <p className="text-sm text-muted-foreground">No agreements to show.</p>
+      )}
     </div>
   );
 }
@@ -153,7 +164,7 @@ export function ProfileConnectionsPage() {
         <h1 className="text-xl font-bold text-foreground">
           {isOwner ? 'My Partners' : `${(profile.name ?? 'User').split(' ')[0]}'s Partners`}
         </h1>
-        {isOwner && (
+        {isOwner && hasAny && (
           <Button asChild className="min-h-[44px] bg-[#0044CC] hover:bg-[#0044CC]/90 text-white">
             <Link to="/agreements/new">Invite a new partner</Link>
           </Button>
@@ -162,7 +173,7 @@ export function ProfileConnectionsPage() {
 
       <section aria-label="Partner Agreements">
         {!hasAny ? (
-          <EmptyState />
+          <EmptyState isOwner={isOwner} />
         ) : (
           <div className="space-y-6">
             {incomingInvitations.length > 0 && (

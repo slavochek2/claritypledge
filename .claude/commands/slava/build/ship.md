@@ -37,6 +37,7 @@ Ship an approved feature to production.
    - Ask: "These infra steps must be done before pushing. Have they all been applied to prod? (y = proceed / n = stop and apply them first)"
    - If user says "n": stop. Do NOT merge. User applies the steps, then re-runs `/ship`.
    - If no Pre-deploy section exists: proceed silently.
+3.6. **Deploy manifest check** — run `./scripts/check-deploy-manifest.sh --env prod`. If drift is detected (undeployed functions or unapplied migrations), show the output and the fix commands. Ask: "Deploy these before merging? (y = run the fix commands now / n = stop, I'll handle it manually)". If user says "y", run the suggested commands, then re-run the check to confirm. Do NOT merge with drift.
 3.7. **Sync main into feature branch** — before merging to main, bring main's changes into the feature branch to prevent silent content loss in shared docs:
    ```bash
    git merge main

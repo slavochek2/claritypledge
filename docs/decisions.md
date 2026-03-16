@@ -2,6 +2,13 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-16 [process]: Deploy manifest — catch undeployed infra before merge
+
+**Context:** P504 (AI-generated banners) shipped frontend code to prod but the edge function and DB migrations were never deployed. Result: silent 404s and missing columns. No error surfaced until manual testing days later. The env var corruption incident (same week) was a similar class — code shipped but infrastructure didn't follow.
+**Decision:** Added a deploy manifest system: `supabase/deploy-manifest.json` records SHA256 hashes of all edge functions and migration versions at deploy time. `/ship` step 3.6 diffs the manifest against local filesystem before merging — catches undeployed functions and unapplied migrations with zero API calls (auth-resilient, works offline). Scripts: `stamp-deploy-manifest.sh` (writes after deploy), `check-deploy-manifest.sh` (reads before merge), `deploy-functions.sh` (deploys + stamps).
+**Alternatives rejected:** (1) Check via Supabase Management API at merge time — requires auth token, fails when PAT expires, adds network dependency to the merge flow. (2) Manual checklist in /ship — relies on discipline, exactly what failed with P504.
+**Consequences:** Every `/ship` now validates infra parity before merging. New edge functions or migrations that aren't deployed will block the merge with a clear diff showing what's missing. The manifest is committed to git so drift is visible in PRs.
+
 ## 2026-03-16 [process]: Privacy scanning must be principle-based, not pattern-based
 
 **Context:** Weekly review discovered real client first names (3 individuals) with identifying context (profession, relationship dynamics, behavioral observations) in 4 public docs. Pre-commit §17 only checks owner email patterns. The `/privacy` skill existed but was manual and optional — an info reminder, not a gate. Names leaked because the threat model covered credentials and owner PII but had no category for third-party personal information.
