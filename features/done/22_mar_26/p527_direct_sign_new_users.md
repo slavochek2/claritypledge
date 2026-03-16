@@ -1,11 +1,11 @@
 ---
-status: in-progress
+status: all-done
 type: story
 rank: 8.0
 workstream: C1
 tags: [agreements, auth, new-users, friction]
 created_date: 2026-03-16
-delivery_stage: uat
+completed_at: '2026-03-16'
 flow: dev
 uat_file: features/uat/p527.md
 test_files:
