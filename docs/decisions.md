@@ -2,6 +2,16 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-16 [process]: Remove `.expected-branch` hook — worktrees are the concurrency mechanism
+
+**Context:** P495 shipping session: multiple concurrent Claude sessions fought over the repo — overwriting `.expected-branch`, causing HEAD lock errors, requiring emergency `git stash` and worktree w8 creation. `/falsify` confirmed the hook is a single-writer design used in a multi-writer environment (no session ID, no session-end lifecycle in Claude Code hooks). The hook only works for single-session scenarios, where worktrees already provide isolation.
+**Decision:** Deleted `branch-assert.sh`, the SessionStart hook that wrote `.expected-branch`, and the PreToolUse entry that checked it. Worktrees (`.claude/worktrees/w1`, `w2`, etc.) are the sole concurrency mechanism. Advisory `git status --short` check before `/dev` remains in CLAUDE.md.
+**Alternatives rejected:** (1) Per-worktree `.expected-branch-{slot}` files — adds complexity for a mechanism that worktrees make redundant. (2) Automated session-detection gate — impossible with current Claude Code hook primitives (no inter-session IPC, no session ID exposed to hooks). (3) Keep the hook — accepts recurring friction for zero safety benefit under concurrency.
+**Consequences:** No branch-drift protection for sessions that skip worktrees. Acceptable: worktree-first is already policy, and the hook was already broken in the multi-session case. If Claude Code adds session-aware hooks in the future, revisit.
+**References:** `.claude/settings.json`, `docs/technical/worktree-setup.md`
+
+---
+
 ## 2026-03-16 [technical]: JSONB merge is the default write path — full overwrite only for story fields and explicit clears
 
 **Context:** Celebration deadlock on prod: both users clicked Continue on a 10/10 round (free conversation, no story selected), both got stuck at "Waiting for partner to continue..." indefinitely. P525's per-role boolean fix (Mar 16) prevented array-level races but didn't fix the DB write routing. The P399 routing condition `(touchesStory || !storyIsActive || hasExplicitClears)` sent ALL writes through full overwrite when no story was active. Two simultaneous full overwrites = last-writer-wins = partner's celebration boolean erased. The reactive `useEffect` safety net couldn't recover because the DB never held both booleans as `true` simultaneously.
