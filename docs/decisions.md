@@ -2,6 +2,21 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-16 [process]: /ux should prototype experiential forks before spec lock-in
+
+**Context:** P521 ran the full pipeline for Option D (row replacement). User rejected D during prototype testing, chose Option A (auto-dropdown). Spec, UX, tests all rewritten. Root cause via /falsify: /challenge-prd treats all decisions as analytically resolvable, but interaction-pattern choices can only be evaluated by experiencing them.
+**Decision:** Strengthen `/ux` to detect "experiential forks" — when 2+ viable interaction patterns exist, `/ux` builds throwaway interactive comparisons in `/tree` before proceeding. No new pipeline stage.
+**Alternatives rejected:** (B) Prototype gate in /pick-flow — pipeline complexity. (C) Do nothing — P521 proved hours of rework.
+**Consequences:** `/ux` skill update needed. Status: proposed — implement via `/claude-md` gate.
+
+## 2026-03-16 [technical]: P495 Cloud Run GPU transcription pipeline — deployment pattern and gotchas
+
+**Context:** P495 adds automatic transcription of /live sessions using Whisper + pyannote diarization on Cloud Run with L4 GPU. Deployed to us-east4 (only region with GPU quota granted). Multiple dependency compatibility issues discovered during GPU builds.
+**Decision:** (1) Pin ML dependencies strictly: `torch>=2.1.0,<2.6.0` (pyannote JIT breaks on 2.6+), `numpy>=1.24.0,<2.0.0` (np.NaN removed in 2.0), `huggingface_hub>=0.20.0,<0.24.0` (use_auth_token removed in 0.24). (2) Cloud Scheduler polls every 5 min — not real-time, but adequate for async transcription. Max 1 GPU instance (quota). (3) DB stores `start_ms`/`end_ms` (milliseconds) — TypeScript types must match exactly or timestamps render as NaN. (4) Recording is gated by `import.meta.env.PROD` — dev servers never record audio, so transcription can only be tested on prod/preview builds.
+**Alternatives rejected:** (1) Real-time transcription via WebSocket — too complex for v1, polling is simpler and GPU cold start makes real-time impractical. (2) CPU-only transcription — too slow (10x+ slower than GPU for speaker diarization). (3) Storing timestamps as seconds — kept ms to match pyannote's native output and avoid precision loss.
+**Consequences:** GPU costs ~$0.50/hr but scale-to-zero means cost is per-transcription only. Future: backfill script can create pending jobs for 45 existing recorded sessions. Type/DB field name mismatches are a recurring gotcha — verify DB column names before defining TypeScript interfaces.
+**References:** [P495 spec](features/p495_live_session_transcription.md), `services/transcribe/requirements.txt`
+
 ## 2026-03-16 [technical]: Standardize core page widths to max-w-2xl (672px)
 
 **Context:** Profile page used `max-w-lg` (512px) while feed/settings/create-story used `max-w-2xl` (672px). On desktop, profile wasted ~60% of viewport as white space. Same card components rendered at different widths depending on which page hosted them.
