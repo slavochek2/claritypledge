@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: done
 type: story
 rank: 125002.875
 tags:
@@ -8,6 +8,7 @@ tags:
   - diarization
   - c3
 prepped_date: '2026-03-12'
+completed_at: '2026-03-16'
 flow: dev
 delivery_stage: uat
 reviews:
