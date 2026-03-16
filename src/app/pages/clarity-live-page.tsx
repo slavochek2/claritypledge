@@ -6,6 +6,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { Share2, Check, Keyboard, Mic, ShieldOff, Sparkles, Loader2 } from 'lucide-react';
+import * as Sentry from '@sentry/react';
 import { QRCodeSVG } from 'qrcode.react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -81,6 +82,85 @@ const POLL_INTERVAL_MS = 1000;
 
 /** Use sessionStorage for tab-isolated storage (each tab has its own session data) */
 const storage = typeof window !== 'undefined' ? window.sessionStorage : null;
+
+// ============================================================================
+// P525: Utility functions for deadlock prevention and observability
+// ============================================================================
+
+/** P525: Timeout constant for updateLiveState DB calls */
+const UPDATE_TIMEOUT_MS = 5000;
+
+/**
+ * P525: Race a promise against a timeout. Rejects with a descriptive error if the promise
+ * doesn't resolve within `ms` milliseconds. Cleans up the timer on success to prevent leaks.
+ */
+export function raceWithTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  let timeoutId: ReturnType<typeof setTimeout>;
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    timeoutId = setTimeout(() => reject(new Error(`Live state update timed out after ${ms}ms`)), ms);
+  });
+  return Promise.race([promise, timeoutPromise]).finally(() => clearTimeout(timeoutId));
+}
+
+/**
+ * P525: Strips PII from live state before sending to Sentry.
+ * Keeps only structural/diagnostic fields — no user names, story content, or name-keyed maps.
+ */
+export function sanitizeLiveStateForSentry(
+  state: Record<string, unknown> | null | undefined
+): Record<string, unknown> {
+  if (!state) return {};
+  // Allowlist of structural fields safe for Sentry
+  const safeKeys = [
+    'ratingPhase', 'currentRound', 'checkerSubmitted', 'responderSubmitted',
+    'explainBackRound', 'explainBackDone', 'checksCount', 'checksTotal',
+    'ideasDiscussed', 'ideasUnderstood', 'celebrationAcknowledgedByCreator',
+    'celebrationAcknowledgedByJoiner', 'clarificationPhase', 'speakerSawExplainBackDone',
+    'checkerRating', 'responderRating', 'isRecording',
+  ];
+  const sanitized: Record<string, unknown> = {};
+  for (const key of safeKeys) {
+    if (key in state) sanitized[key] = state[key];
+  }
+  // Include boolean indicator for story presence (not the content)
+  if (state.selectedStoryId) sanitized.hasSelectedStory = true;
+  return sanitized;
+}
+
+/**
+ * P525: Checks if both users have acknowledged the celebration, supporting both
+ * new boolean keys and old array format for backward compatibility.
+ */
+export function isBothAcknowledged(state: {
+  celebrationAcknowledgedByCreator?: boolean;
+  celebrationAcknowledgedByJoiner?: boolean;
+}): boolean {
+  return state.celebrationAcknowledgedByCreator === true && state.celebrationAcknowledgedByJoiner === true;
+}
+
+/**
+ * P525: Backward-compatible check — new booleans OR old array with both names.
+ * Used during deploy transition when one user may have old code.
+ */
+export function isBothAcknowledgedCompat(
+  state: {
+    celebrationAcknowledgedByCreator?: boolean;
+    celebrationAcknowledgedByJoiner?: boolean;
+    celebrationAcknowledgedBy?: string[];
+  },
+  creatorName: string,
+  joinerName: string
+): boolean {
+  // New booleans take priority
+  if (isBothAcknowledged(state)) return true;
+  // Old array fallback
+  const arr = state.celebrationAcknowledgedBy ?? [];
+  if (arr.includes(creatorName) && arr.includes(joinerName)) return true;
+  // Mixed: creator via boolean + joiner via array, or vice versa
+  const creatorAck = state.celebrationAcknowledgedByCreator === true || arr.includes(creatorName);
+  const joinerAck = state.celebrationAcknowledgedByJoiner === true || arr.includes(joinerName);
+  return creatorAck && joinerAck;
+}
 
 // ============================================================================
 // STATE SYNCHRONIZATION ARCHITECTURE
@@ -295,6 +375,47 @@ export function ClarityLivePage() {
   const lastActionTimestampRef = useRef<number>(Date.now());
   // P516: Track session start time for duration telemetry
   const sessionStartTimestampRef = useRef<number>(Date.now());
+  // P525: Track previous phase for Mixpanel live_phase_transition event
+  const previousPhaseRef = useRef<string | undefined>(undefined);
+
+  // P525: Sentry context — set on session join for retroactive debugging
+  useEffect(() => {
+    if (session?.code && name) {
+      Sentry.setContext('live_session', {
+        session_code: session.code,
+        session_id: session.id,
+        role: isCreator ? 'creator' : 'joiner',
+        current_user: name,
+        partner: partnerName ?? 'waiting',
+      });
+    }
+  }, [session?.code, session?.id, name, isCreator, partnerName]);
+
+  // P525: Phase transition observability — Sentry breadcrumbs + Mixpanel events
+  useEffect(() => {
+    const currentPhase = liveState.ratingPhase;
+    const prevPhase = previousPhaseRef.current;
+    if (prevPhase !== undefined && prevPhase !== currentPhase) {
+      // Sentry breadcrumb for the transition timeline
+      Sentry.addBreadcrumb({
+        category: 'live_session',
+        message: `Phase: ${prevPhase} → ${currentPhase}`,
+        level: 'info',
+        data: { round: liveState.currentRound, session_code: session?.code },
+      });
+      // Mixpanel event for funnel analysis
+      try {
+        analytics.track('live_phase_transition', {
+          session_code: session?.code,
+          from_phase: prevPhase,
+          to_phase: currentPhase,
+          round: liveState.currentRound,
+          timestamp: new Date().toISOString(),
+        });
+      } catch { /* never let analytics break the app */ }
+    }
+    previousPhaseRef.current = currentPhase;
+  }, [liveState.ratingPhase, liveState.currentRound, session?.code]);
 
   useEffect(() => {
     hasJoinerRef.current = !!session?.joinerName;
@@ -815,9 +936,10 @@ export function ClarityLivePage() {
         const selectedStoryIdDrift = serverState.selectedStoryId !== localState.selectedStoryId;
         const selectedStoryDataDrift = !!serverState.selectedStoryData !== !!localState.selectedStoryData;
         const selectedContentTitleDrift = serverState.selectedContentTitle !== localState.selectedContentTitle;
-        // celebrationAcknowledgedBy must be in drift check so both parties can coordinate
-        // the two-party Continue when Realtime is unavailable (mobile WebSocket dropout).
-        const celebrationAcknowledgedByDrift = (serverState.celebrationAcknowledgedBy?.length ?? 0) !== (localState.celebrationAcknowledgedBy?.length ?? 0);
+        // P525: Drift detection uses new boolean keys (+ old array for backward compat)
+        const celebrationCreatorDrift = (serverState.celebrationAcknowledgedByCreator ?? false) !== (localState.celebrationAcknowledgedByCreator ?? false);
+        const celebrationJoinerDrift = (serverState.celebrationAcknowledgedByJoiner ?? false) !== (localState.celebrationAcknowledgedByJoiner ?? false);
+        const celebrationAcknowledgedByDrift = celebrationCreatorDrift || celebrationJoinerDrift || ((serverState.celebrationAcknowledgedBy?.length ?? 0) !== (localState.celebrationAcknowledgedBy?.length ?? 0));
         // P490: livePositions missing from drift check caused guest positions to never sync
         // when Realtime WebSocket dropped. JSON.stringify comparison consistent with celebrationAcknowledgedBy pattern.
         const livePositionsDrift = JSON.stringify(serverState.livePositions ?? {}) !== JSON.stringify(localState.livePositions ?? {});
@@ -891,15 +1013,34 @@ export function ClarityLivePage() {
         // JSON.stringify before reaching the DB, so the old value stays. Full overwrite
         // properly clears them by rewriting the entire live_state column.
         const hasExplicitClears = Object.values(updates).some(v => v === undefined);
-        if (touchesStory || !storyIsActive || hasExplicitClears) {
-          await updateClaritySessionLiveState(session.id, newState);
-        } else {
-          await patchClaritySessionLiveState(session.id, updates as Record<string, unknown>);
-        }
+        // P525: Wrap DB call with 5s timeout to prevent indefinite sync blackout
+        const dbCall = (touchesStory || !storyIsActive || hasExplicitClears)
+          ? updateClaritySessionLiveState(session.id, newState)
+          : patchClaritySessionLiveState(session.id, updates as Record<string, unknown>);
+        await raceWithTimeout(dbCall, UPDATE_TIMEOUT_MS);
         // Update confirmed state on success
         confirmedLiveStateRef.current = newState;
       } catch (err) {
         console.error('[Live Update] Failed to update state:', err);
+        // P525: Capture failure in Sentry with sanitized state snapshot
+        try {
+          Sentry.captureException(err, {
+            extra: {
+              live_state: sanitizeLiveStateForSentry(stateBeforeUpdate as unknown as Record<string, unknown>),
+              attempted_keys: Object.keys(updates),
+              session_code: session.code,
+            },
+          });
+        } catch { /* never let Sentry break the app */ }
+        // P525: Track failure in Mixpanel
+        try {
+          analytics.track('live_state_update_failed', {
+            session_code: session.code,
+            error_message: err instanceof Error ? err.message : 'unknown',
+            attempted_keys: Object.keys(updates),
+            phase_at_failure: stateBeforeUpdate.ratingPhase,
+          });
+        } catch { /* never let analytics break the app */ }
         // Check if it's a migration error
         if (err instanceof Error && err.message.includes('migration')) {
           setError('Unable to save changes. Please refresh the page and try again.');
@@ -1367,6 +1508,7 @@ export function ClarityLivePage() {
       clarificationPhase: undefined,
       // P128: Clear content selection and update history
       selectedStoryId: undefined,
+      selectedStoryData: undefined, // P525: Fix stale story data leak
       selectedPointId: undefined,
       selectedContentTitle: undefined,
       sessionHistory: historyEntry ? [...prevHistory, historyEntry] : prevHistory,
@@ -1376,22 +1518,27 @@ export function ClarityLivePage() {
   }, [name, updateLiveState, session?.code, trackLiveEvent]);
 
   // Handle celebration complete - user clicked "Continue" on perfect rating celebration
+  // P525: Uses boolean keys per-role instead of array to prevent race condition
   // Both users must acknowledge before state resets (prevents forceful exit for partner)
   const handleCelebrationComplete = useCallback(() => {
     const currentState = confirmedLiveStateRef.current;
-    const acknowledged = currentState.celebrationAcknowledgedBy || [];
-
-    // If user already acknowledged, ignore duplicate clicks
-    if (acknowledged.includes(name)) {
-      return;
+    // P525: Determine role-based boolean key
+    const myBooleanKey = isCreator ? 'celebrationAcknowledgedByCreator' : 'celebrationAcknowledgedByJoiner';
+    const myAlreadyAcknowledged = currentState[myBooleanKey] === true;
+    // Backward compat: also check old array
+    const oldAcknowledged = currentState.celebrationAcknowledgedBy || [];
+    if (myAlreadyAcknowledged || oldAcknowledged.includes(name)) {
+      return; // Already acknowledged, ignore duplicate clicks
     }
 
-    const newAcknowledged = [...acknowledged, name];
+    // Write my boolean key — JSONB || merge of independent keys never collides
+    const myUpdate = { [myBooleanKey]: true } as Partial<LiveSessionState>;
 
-    // Check if both users have acknowledged
-    const bothAcknowledged = partnerName && newAcknowledged.includes(partnerName);
+    // P525: Check if both acknowledged using dual-read (backward compat)
+    const afterMyWrite = { ...currentState, ...myUpdate };
+    const bothDone = isBothAcknowledgedCompat(afterMyWrite, session?.creatorName ?? '', partnerName ?? '');
 
-    if (bothAcknowledged) {
+    if (bothDone) {
       // P128: Append to session history before clearing content
       const prevHistory = currentState.sessionHistory ?? [];
       const contentTitle = currentState.selectedContentTitle;
@@ -1412,10 +1559,11 @@ export function ClarityLivePage() {
           : { title: 'Free conversation', type: 'free' as const, ...journeyData };
 
       // Both done - reset to idle state for a fresh start
+      // Increment round counter for next round
       updateLiveState({
+        currentRound: (currentState.currentRound ?? 1) + 1,
         ratingPhase: 'idle',
         ratingInitiatedBy: undefined,
-        // Don't set skippedBy - this is a natural completion, not a skip
         // Clear checker/responder
         checkerName: undefined,
         checkerRating: undefined,
@@ -1428,8 +1576,10 @@ export function ClarityLivePage() {
         explainBackRound: 0,
         explainBackRatings: [],
         explainBackDone: false,
-        speakerSawExplainBackDone: false, // B32_2: Reset for new round
-        // Clear acknowledgment for next celebration
+        speakerSawExplainBackDone: false,
+        // P525: Clear both new boolean keys + old array for clean state
+        celebrationAcknowledgedByCreator: false,
+        celebrationAcknowledgedByJoiner: false,
         celebrationAcknowledgedBy: [],
         // Clear any pending role switch negotiation
         roleSwitchNegotiation: undefined,
@@ -1437,7 +1587,7 @@ export function ClarityLivePage() {
         clarificationPhase: undefined,
         // P128: Clear content selection and update history
         selectedStoryId: undefined,
-        selectedStoryData: undefined, // Bug 1: must clear data too — UI gate checks this field
+        selectedStoryData: undefined,
         selectedPointId: undefined,
         selectedContentTitle: undefined,
         sessionHistory: [...prevHistory, historyEntry],
@@ -1445,12 +1595,71 @@ export function ClarityLivePage() {
       // P272: Clear verification guard for next round
       verificationFiredRef.current.clear();
     } else {
-      // Just add this user to acknowledged list - waiting for partner
-      updateLiveState({
-        celebrationAcknowledgedBy: newAcknowledged,
-      });
+      // Just set my boolean key - waiting for partner
+      // Uses patch path (no explicit undefined values) so JSONB || merge works
+      updateLiveState(myUpdate);
     }
-  }, [name, partnerName, updateLiveState]);
+  }, [name, partnerName, isCreator, session?.creatorName, updateLiveState]);
+
+  // P525 safety net: reactive useEffect catches simultaneous acknowledgment
+  // When both users click Continue at the same time, handleCelebrationComplete may not see
+  // the partner's boolean (stale ref). This effect watches the live state and triggers reset
+  // when both booleans are true but the round hasn't been reset yet.
+  const reactiveResetFiredRef = useRef(false);
+  useEffect(() => {
+    const bothAcknowledged = isBothAcknowledged(liveState);
+    if (bothAcknowledged && liveState.ratingPhase !== 'idle' && !reactiveResetFiredRef.current) {
+      reactiveResetFiredRef.current = true;
+      // Trigger the same reset as handleCelebrationComplete's bothDone branch
+      const prevHistory = liveState.sessionHistory ?? [];
+      const contentTitle = liveState.selectedContentTitle;
+      const journeyData = {
+        checkerRating: liveState.checkerRating,
+        responderRating: liveState.responderRating,
+        explainBackRatings: [...(liveState.explainBackRatings ?? [])],
+        checkerName: liveState.checkerName,
+        partnerName: partnerName ?? undefined,
+        completedAt: new Date().toISOString(),
+        isChecker: liveState.checkerName === name,
+      };
+      const historyEntry = liveState.selectedStoryId
+        ? { title: contentTitle || 'Story verification', type: 'story' as const, ...journeyData, storyData: liveState.selectedStoryData }
+        : liveState.selectedPointId
+          ? { title: contentTitle || 'Point verification', type: 'point' as const, ...journeyData }
+          : { title: 'Free conversation', type: 'free' as const, ...journeyData };
+
+      updateLiveState({
+        currentRound: (liveState.currentRound ?? 1) + 1,
+        ratingPhase: 'idle',
+        ratingInitiatedBy: undefined,
+        checkerName: undefined,
+        checkerRating: undefined,
+        responderRating: undefined,
+        checkerSubmitted: false,
+        responderSubmitted: false,
+        proverName: undefined,
+        explainBackRound: 0,
+        explainBackRatings: [],
+        explainBackDone: false,
+        speakerSawExplainBackDone: false,
+        celebrationAcknowledgedByCreator: false,
+        celebrationAcknowledgedByJoiner: false,
+        celebrationAcknowledgedBy: [],
+        roleSwitchNegotiation: undefined,
+        clarificationPhase: undefined,
+        selectedStoryId: undefined,
+        selectedStoryData: undefined,
+        selectedPointId: undefined,
+        selectedContentTitle: undefined,
+        sessionHistory: [...prevHistory, historyEntry],
+      });
+      verificationFiredRef.current.clear();
+    }
+    // Reset the guard when round resets (ratingPhase goes back to idle)
+    if (liveState.ratingPhase === 'idle') {
+      reactiveResetFiredRef.current = false;
+    }
+  }, [liveState.celebrationAcknowledgedByCreator, liveState.celebrationAcknowledgedByJoiner, liveState.ratingPhase, liveState, name, partnerName, updateLiveState]);
 
   // Handle "Let me explain back" - listener starts explaining
   const handleExplainBackStart = useCallback(() => {
@@ -2894,6 +3103,7 @@ export function ClarityLivePage() {
           // P160: Private session mode indicator
           isPrivate={session.isPrivate ?? false}
           partnerEarsCount={partnerEarsCount}
+          isCreator={isCreator}
         />
 
         {/* Remove position confirmation dialog */}

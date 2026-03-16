@@ -647,7 +647,13 @@ export interface LiveSessionState {
 
   // Celebration acknowledgment - tracks who clicked "Continue" on celebration screen
   // Both users must acknowledge before state resets to allow independent dismissal
+  /** @deprecated P525: Use celebrationAcknowledgedByCreator/Joiner booleans instead. Kept for backward compat. */
   celebrationAcknowledgedBy?: string[];
+
+  // P525: Boolean celebration acknowledgment — each user writes their own key, no race possible.
+  // JSONB || merge of independent keys never collides.
+  celebrationAcknowledgedByCreator?: boolean;
+  celebrationAcknowledgedByJoiner?: boolean;
 
   // Perspective request - listener wants to share their own perspective instead of explaining back
   // When set, speaker sees dialog to accept the role swap

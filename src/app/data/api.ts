@@ -959,6 +959,8 @@ export async function updateClaritySessionLiveState(
 
   if (error) {
     console.error('[Live API] Error updating live state:', error.message, error.code, error.details);
+    // P525: Capture in Sentry for visibility
+    try { Sentry.captureException(new Error(`[Live API] updateLiveState: ${error.message}`), { extra: { code: error.code, details: error.details, sessionId } }); } catch { /* */ }
     // Check if this might be a missing column error
     if (error.message.includes('column') || error.code === '42703') {
       throw new Error('Database migration required: run supabase/migrations/20251223_p23_live_clarity_meetings.sql');
@@ -995,6 +997,8 @@ export async function patchClaritySessionLiveState(
 
   if (error) {
     console.error('[Live API] Error patching live state:', error.message, error.code, error.details);
+    // P525: Capture in Sentry for visibility
+    try { Sentry.captureException(new Error(`[Live API] patchLiveState: ${error.message}`), { extra: { code: error.code, details: error.details, sessionId } }); } catch { /* */ }
     throw new Error(error.message);
   }
   console.log('[Live API] Live state patched successfully');
