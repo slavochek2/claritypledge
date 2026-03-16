@@ -999,7 +999,7 @@ export function StoryDetailPage() {
   // Loading skeleton
   if (loading) {
     return (
-      <div className="max-w-lg mx-auto px-4 py-8">
+      <div className="max-w-2xl mx-auto px-4 py-8">
         <div className="h-4 bg-muted rounded w-20 mb-6 animate-pulse" />
         <div className="bg-card border border-border rounded-lg overflow-hidden animate-pulse">
           <div className="p-6">
@@ -1025,7 +1025,7 @@ export function StoryDetailPage() {
   // Private story error
   if (error === 'private') {
     return (
-      <div className="max-w-lg mx-auto px-4 py-8">
+      <div className="max-w-2xl mx-auto px-4 py-8">
         <FocusHeader onBack={handleBack} />
         <div className="text-center py-12 space-y-3">
           <LockIcon className="w-8 h-8 text-muted-foreground mx-auto" />
@@ -1039,7 +1039,7 @@ export function StoryDetailPage() {
   if (error || !story) {
     const isNetworkError = error === 'network_error';
     return (
-      <div className="max-w-lg mx-auto px-4 py-8">
+      <div className="max-w-2xl mx-auto px-4 py-8">
         <FocusHeader onBack={handleBack} />
         <div className="text-center py-12 space-y-4">
           <p className="text-muted-foreground">
@@ -1131,7 +1131,7 @@ export function StoryDetailPage() {
     .trim();
 
   return (
-    <div className="max-w-lg mx-auto">
+    <div className="max-w-2xl mx-auto">
       {/* P504: SEO meta tags */}
       <SEO
         title={story.title || `Story by ${story.authorName}`}

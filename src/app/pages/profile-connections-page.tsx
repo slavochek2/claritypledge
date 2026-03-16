@@ -23,7 +23,7 @@ import { analytics } from '@/lib/mixpanel';
 
 function PageSkeleton() {
   return (
-    <div className="max-w-lg mx-auto px-4 mt-3 animate-pulse">
+    <div className="max-w-2xl mx-auto px-4 mt-3 animate-pulse">
       <div className="flex items-center justify-between mb-4">
         <div className="h-8 bg-muted rounded w-32" />
         <div className="h-11 bg-muted rounded-md w-32" />
@@ -127,7 +127,7 @@ export function ProfileConnectionsPage() {
 
   if (error || !profile) {
     return (
-      <div className="max-w-lg mx-auto px-4 mt-3">
+      <div className="max-w-2xl mx-auto px-4 mt-3">
         <button
           onClick={() => navigate(-1)}
           className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground transition-colors mb-4"
@@ -149,7 +149,7 @@ export function ProfileConnectionsPage() {
   const hasAny = activeAgreements.length > 0 || pendingAgreements.length > 0 || incomingInvitations.length > 0;
 
   return (
-    <div className="max-w-lg mx-auto px-4 mt-3 pb-20">
+    <div className="max-w-2xl mx-auto px-4 mt-3 pb-20">
       {/* Back navigation */}
       <button
         onClick={() => navigate(`/p/${profile.slug ?? profile.id}`)}
