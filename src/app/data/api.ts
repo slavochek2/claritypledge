@@ -790,6 +790,8 @@ function mapSessionFromDb(dbSession: DbClaritySession): ClaritySession {
     liveState: dbSession.live_state,
     // P160: Private session mode
     isPrivate: dbSession.is_private ?? false,
+    // P511: Last heartbeat timestamp (for zombie session detection)
+    lastActivityAt: dbSession.last_activity_at ?? null,
   };
 }
 
@@ -1025,9 +1027,81 @@ export async function updateClarityDemoStatus(
   }
 }
 
+// ============================================================================
+// P511: Session Resilience — Heartbeat & Active Session Query
+// ============================================================================
+
+/** Grace period in seconds — session is "active" if heartbeat within this window */
+export const SESSION_GRACE_PERIOD_SECONDS = 120;
+
 /**
- * Clears the joiner from a session (when joiner leaves).
- * This signals to the creator that their partner has left.
+ * Sends a heartbeat to keep the session alive.
+ * Calls the `update_last_activity` RPC to update `last_activity_at`.
+ * Errors are silently swallowed — heartbeat failure must never crash the session.
+ * @param sessionId - The session UUID
+ */
+export async function updateSessionLastActivity(sessionId: string): Promise<void> {
+  try {
+    const { error } = await supabase.rpc('update_last_activity', {
+      p_session_id: sessionId,
+    });
+
+    if (error) {
+      // Silent — heartbeat failure is non-fatal
+      console.warn('[Heartbeat] Failed to update last activity:', error.message);
+    }
+  } catch {
+    // Silent — network errors during heartbeat are expected (offline, tab throttled)
+    console.warn('[Heartbeat] Network error updating last activity');
+  }
+}
+
+/**
+ * Gets an active session by room code — only if within the grace period.
+ * A session is "active" if:
+ *   1. `sessionEnded` is not true in `live_state`, AND
+ *   2. `last_activity_at` is within the last SESSION_GRACE_PERIOD_SECONDS, OR
+ *      `last_activity_at` is null (pre-migration sessions — treat as active).
+ *
+ * @param code - The 6-character room code
+ * @returns The session if active, null if expired or not found
+ */
+export async function getActiveSessionByCode(code: string): Promise<ClaritySession | null> {
+  const normalizedCode = code.toUpperCase().trim();
+
+  const { data, error } = await supabase
+    .from('clarity_sessions')
+    .select('*')
+    .eq('code', normalizedCode)
+    .maybeSingle();
+
+  if (error || !data) {
+    return null;
+  }
+
+  // Check if session was explicitly ended
+  const liveState = data.live_state as Record<string, unknown> | null;
+  if (liveState?.sessionEnded === true) {
+    return null;
+  }
+
+  // Check grace period: null last_activity_at = pre-migration, treat as active
+  const lastActivityAt = (data as Record<string, unknown>).last_activity_at as string | null;
+  if (lastActivityAt !== null && lastActivityAt !== undefined) {
+    const lastActivityTime = new Date(lastActivityAt).getTime();
+    const graceCutoff = Date.now() - SESSION_GRACE_PERIOD_SECONDS * 1000;
+    if (lastActivityTime < graceCutoff) {
+      return null; // Session expired — no heartbeat within grace period
+    }
+  }
+
+  return mapSessionFromDb(data);
+}
+
+/**
+ * Clears the joiner from a session.
+ * Only called from the explicit "End Session" button path — NOT from pagehide.
+ * (P511: pagehide no longer clears the joiner; the grace period handles departures.)
  * @param sessionId - The session UUID
  */
 export async function clearSessionJoiner(sessionId: string): Promise<void> {

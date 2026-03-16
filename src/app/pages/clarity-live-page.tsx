@@ -14,17 +14,10 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 // P50: ConsentNotice import removed - replaced with inline consent checkbox
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
-import {
   createClaritySession,
   joinClaritySession,
   getClaritySession,
+  getActiveSessionByCode,
   subscribeToClaritySession,
   updateClaritySessionLiveState,
   patchClaritySessionLiveState,
@@ -34,6 +27,7 @@ import {
   uploadAudioChunk,
   uploadEventsSnapshot,
   MAX_NAME_LENGTH,
+  SESSION_GRACE_PERIOD_SECONDS,
   type ClaritySession,
   recordTermsAcceptance,
   recordSessionConsent,
@@ -54,6 +48,8 @@ import { eventsService } from '@/app/data/events-service';
 import { calibrationService } from '@/app/data/calibration-service';
 import { supabase } from '@/lib/supabase';
 import { LiveModeView, PartnerLeftScreen } from '@/app/components/partners/live-mode-view';
+import { ReconnectingCountdown } from '@/app/components/session/reconnecting-countdown';
+import { RejoinPrompt } from '@/app/components/session/rejoin-prompt';
 import { useAudioRecorder } from '@/hooks/use-audio-recorder';
 import { useMicrophonePermission } from '@/hooks/useMicrophonePermission';
 import { MicrophonePermissionDialog } from '@/app/components/live-meeting/microphone-permission-dialog';
@@ -61,7 +57,8 @@ import { SessionEventsCollector } from '@/lib/session-events-collector';
 import { GoogleAuthButton } from '@/app/components/auth/google-auth-button';
 import { toast } from 'sonner';
 import { RemovePositionDialog, useRemovePositionGuard } from '@/app/components/shared/remove-position-dialog';
-import { useLiveSession } from '@/app/contexts/live-session-context';
+import { useLiveSession, getActiveSessionFromStorage, clearActiveSessionFromStorage } from '@/app/contexts/live-session-context';
+import { useSessionHeartbeat } from '@/hooks/use-session-heartbeat';
 
 type ViewState = 'start' | 'waiting' | 'live';
 
@@ -227,7 +224,7 @@ export function ClarityLivePage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const isJoinViaLink = !!urlCode;
-  const { setIsLive, pendingNavTo, setPendingNavTo } = useLiveSession();
+  const { setIsLive, setActiveSession, clearActiveSession } = useLiveSession();
 
   // P124: Get event context from URL params
   const returnTo = searchParams.get('returnTo');
@@ -255,13 +252,26 @@ export function ClarityLivePage() {
   // P144: Partner's ear count for credibility badge in host view
   const [partnerEarsCount, setPartnerEarsCount] = useState(0);
 
-  // Exit confirmation dialog state
-  const [showExitConfirm, setShowExitConfirm] = useState(false);
+  // Exit flow state (P512: prevents double-click on End Session)
   const [isExiting, setIsExiting] = useState(false);
 
   // Partner departure state
   const [partnerLeft, setPartnerLeft] = useState(false); // Joiner left (creator sees this)
   const [sessionEnded, setSessionEnded] = useState(false); // Creator left (joiner sees this)
+
+  // P511 Task 6: Grace period state — when set, shows ReconnectingCountdown instead of instant PartnerLeftScreen
+  const [gracePeriodStart, setGracePeriodStart] = useState<Date | null>(null);
+
+  // P511 Task 10: Rejoin prompt state for /live landing
+  const [rejoinSession, setRejoinSession] = useState<{
+    code: string;
+    partnerName: string | null;
+    guestDisplayName: string | null;
+    role: 'creator' | 'joiner';
+    sessionId: string;
+  } | null>(null);
+  const [isCheckingRejoin, setIsCheckingRejoin] = useState(false);
+  const [isRejoining, setIsRejoining] = useState(false);
 
   // Sync live state to context so BottomNav can intercept nav during live sessions
   // Not live if: still on start screen, or session has ended (partner left / creator left)
@@ -271,12 +281,8 @@ export function ClarityLivePage() {
     return () => { setIsLive(false); };
   }, [view, sessionEnded, partnerLeft, setIsLive]);
 
-  // When BottomNav sets a pending destination, show exit confirmation
-  useEffect(() => {
-    if (pendingNavTo) {
-      setShowExitConfirm(true);
-    }
-  }, [pendingNavTo]);
+  // P511: Heartbeat — creators only, only when in live view
+  useSessionHeartbeat(session?.id ?? null, isCreator && view === 'live');
 
   // P37.2a: Consent flow state
   const [showTermsUpdateDialog, setShowTermsUpdateDialog] = useState(false);
@@ -401,6 +407,8 @@ export function ClarityLivePage() {
   // Refs to track partner departure (for polling to check without stale closure)
   const partnerLeftRef = useRef(false);
   const sessionEndedRef = useRef(false);
+  // P511 Task 6: Grace period ref (mirrors gracePeriodStart state for use in callbacks)
+  const gracePeriodStartRef = useRef<Date | null>(null);
   // Ref to track if I am leaving (prevents detecting my own departure as partner leaving)
   const iAmLeavingRef = useRef(false);
   // P272: Guard against duplicate story verification inserts on re-renders
@@ -479,18 +487,6 @@ export function ClarityLivePage() {
     isCreatorRef.current = isCreator;
   }, [isCreator]);
 
-  // P126: Keep a current JWT ref so pagehide handler can use it for authenticated REST calls.
-  // The anon key alone is blocked by RLS on clarity_sessions for the joiner PATCH path.
-  const jwtRef = useRef<string | null>(null);
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      jwtRef.current = data.session?.access_token ?? null;
-    });
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      jwtRef.current = session?.access_token ?? null;
-    });
-    return () => subscription.unsubscribe();
-  }, []);
   const viewRef = useRef<ViewState>(view);
   useEffect(() => {
     viewRef.current = view;
@@ -500,20 +496,15 @@ export function ClarityLivePage() {
     }
   }, [view]);
 
-  // Fix A: Cleanup session on tab close / browser unload (pagehide is more reliable than beforeunload)
-  // Only fires when actually leaving (not on bfcache suspend) and only from live view.
-  //
-  // P126: Use fetch({ keepalive: true }) instead of normal async fetch calls.
-  // keepalive: true tells the browser to keep the request alive even after the page is
-  // torn down — equivalent to sendBeacon but supports custom headers (required for
-  // Supabase apikey/Authorization). Without keepalive, the browser kills in-flight
-  // fetch calls during pagehide, making departure detection unreliable.
+  // P511: pagehide handler — analytics only, no DB writes.
+  // DB cleanup is now handled by the heartbeat timeout (server-side reaper).
+  // DB writes in pagehide were unreliable (browser kills keepalive fetches inconsistently).
   useEffect(() => {
     const handlePageHide = (e: PageTransitionEvent) => {
-      if (e.persisted) return; // bfcache — page will be restored, skip cleanup
+      if (e.persisted) return; // bfcache — page will be restored, skip
       const sessionId = currentSessionIdRef.current;
       if (!sessionId || iAmLeavingRef.current) return;
-      if (viewRef.current !== 'live') return; // waiting room close doesn't signal sessionEnded
+      if (viewRef.current !== 'live') return;
       iAmLeavingRef.current = true;
 
       // P516: Track session exit via pagehide (tab close / navigation away)
@@ -527,47 +518,6 @@ export function ClarityLivePage() {
         checks_completed_so_far: confirmedLiveStateRef.current.checksCount,
         round_number: (confirmedLiveStateRef.current.sessionHistory ?? []).length,
       });
-
-      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
-      const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
-      // Use the user's JWT when available so RLS-protected tables (joiner PATCH) are
-      // authorised. Fall back to anon key — creator path uses SECURITY DEFINER RPC which
-      // bypasses RLS regardless.
-      const authToken = jwtRef.current ?? supabaseAnonKey;
-      const headers = {
-        'Content-Type': 'application/json',
-        'apikey': supabaseAnonKey,
-        'Authorization': `Bearer ${authToken}`,
-        'Prefer': 'return=minimal',
-      };
-
-      if (isCreatorRef.current) {
-        // Creator leaving: patch live_state to set sessionEnded=true so joiner sees "partner left"
-        // Fire-and-forget with keepalive so the browser completes this even after page teardown.
-        fetch(
-          `${supabaseUrl}/rest/v1/rpc/patch_live_state`,
-          {
-            method: 'POST',
-            headers,
-            body: JSON.stringify({
-              p_session_id: sessionId,
-              p_patch: { sessionEnded: true, sessionEndedAt: new Date().toISOString() },
-            }),
-            keepalive: true,
-          }
-        ).catch(() => {});
-      } else {
-        // Joiner leaving: clear joiner_name so creator sees "partner left"
-        fetch(
-          `${supabaseUrl}/rest/v1/clarity_sessions?id=eq.${sessionId}`,
-          {
-            method: 'PATCH',
-            headers,
-            body: JSON.stringify({ joiner_name: null }),
-            keepalive: true,
-          }
-        ).catch(() => {});
-      }
     };
     const handlePageShow = (e: PageTransitionEvent) => {
       if (e.persisted) {
@@ -743,6 +693,47 @@ export function ClarityLivePage() {
     restoreSession();
   }, [isJoinViaLink]);
 
+  // P511 Task 10: Check localStorage for active session to show rejoin prompt on /live landing
+  useEffect(() => {
+    // Only check on the landing page (not join-via-link) and when no session is already restored
+    if (isJoinViaLink || session) return;
+
+    const checkActiveSession = async () => {
+      const stored = getActiveSessionFromStorage();
+      if (!stored) return;
+
+      setIsCheckingRejoin(true);
+      try {
+        const activeSession = await getActiveSessionByCode(stored.code);
+        if (activeSession) {
+          // Session still active — show rejoin prompt
+          // Use partner name from DB (more up-to-date than localStorage)
+          const partnerName = stored.role === 'creator'
+            ? activeSession.joinerName ?? null
+            : activeSession.creatorName ?? null;
+          setRejoinSession({
+            code: stored.code,
+            partnerName,
+            guestDisplayName: stored.guestDisplayName ?? null,
+            role: stored.role,
+            sessionId: activeSession.id,
+          });
+        } else {
+          // Session expired or ended — clear stale localStorage silently
+          clearActiveSessionFromStorage();
+          clearActiveSession();
+        }
+      } catch {
+        // Network error — don't show rejoin prompt, fall through to normal landing
+        console.error('[Live] Failed to check active session for rejoin prompt');
+      } finally {
+        setIsCheckingRejoin(false);
+      }
+    };
+
+    checkActiveSession();
+  }, [isJoinViaLink, session, clearActiveSession]);
+
   // Fetch host name when joining via link (for personalized "Join X's Session" title)
   useEffect(() => {
     if (!isJoinViaLink || !urlCode) return;
@@ -801,11 +792,12 @@ export function ClarityLivePage() {
         return;
       }
 
-      // Check for session end (creator left) - handle via subscription for immediate response
+      // Check for session end (creator clicked "End Session") — immediate, no grace period
       const sessionEndedInLiveState = (updatedSession.liveState as Record<string, unknown>)?.sessionEnded;
       if (sessionEndedInLiveState) {
         // Update ref immediately to prevent any subsequent updates from processing
         sessionEndedRef.current = true;
+        setGracePeriodStart(null); // Cancel any active grace period
         setDepartedPartnerName(updatedSession.creatorName);
         setSessionEnded(true);
         analytics.track('live_session_partner_left', {
@@ -817,20 +809,30 @@ export function ClarityLivePage() {
         return; // Don't process further updates after session ends
       }
 
+      // P511 Task 6: Check if partner returned during grace period
+      if (updatedSession.joinerName && gracePeriodStartRef.current) {
+        gracePeriodStartRef.current = null;
+        setGracePeriodStart(null);
+        markJoinerDetected(updatedSession.joinerName);
+        analytics.track('live_session_partner_returned', {
+          session_code: updatedSession.code,
+        });
+      }
+
       // Check for joiner departure (I'm creator, joiner left)
-      if (!updatedSession.joinerName && hasJoinerRef.current && !partnerLeftRef.current) {
-        // Update ref immediately to prevent any subsequent updates from processing
-        partnerLeftRef.current = true;
+      // P511 Task 6: Enter grace period instead of immediate departure
+      if (!updatedSession.joinerName && hasJoinerRef.current && !partnerLeftRef.current && !gracePeriodStartRef.current) {
+        const now = new Date();
+        gracePeriodStartRef.current = now;
+        setGracePeriodStart(now);
         setDepartedPartnerName(lastJoinerNameRef.current);
-        setPartnerLeft(true);
         hasJoinerRef.current = false;
-        analytics.track('live_session_partner_left', {
+        analytics.track('live_session_grace_period_started', {
           session_code: updatedSession.code,
           left_by: 'joiner',
-          exit_reason: 'partner_departure',
           checks_completed_so_far: confirmedLiveStateRef.current.checksCount,
         });
-        return; // Don't process further updates after partner leaves
+        // Don't return — continue processing updates during grace period
       }
 
       setSession(updatedSession);
@@ -905,12 +907,14 @@ export function ClarityLivePage() {
         }
 
         // Check 1.5: Detect partner departure
-        // Case A: Session ended (creator left) - joiner sees this
+        // Case A: Session ended (creator clicked "End Session") — immediate, no grace period
         // Check live_state.sessionEnded since ended_at column doesn't exist
         const sessionEndedInLiveState = (freshSession.liveState as Record<string, unknown>)?.sessionEnded;
         if (sessionEndedInLiveState) {
           // Update ref immediately to prevent any subsequent updates from processing
           sessionEndedRef.current = true;
+          gracePeriodStartRef.current = null;
+          setGracePeriodStart(null);
           // Store the partner's name before we clear session
           setDepartedPartnerName(freshSession.creatorName);
           setSessionEnded(true);
@@ -923,21 +927,32 @@ export function ClarityLivePage() {
           return;
         }
 
-        // Case B: Joiner left (creator sees this) - joiner_name went from set to null
-        if (!freshSession.joinerName && hasJoinerRef.current) {
-          // Update ref immediately to prevent any subsequent updates from processing
-          partnerLeftRef.current = true;
-          // Use the ref which stored the joiner name before it was cleared
-          setDepartedPartnerName(lastJoinerNameRef.current);
-          setPartnerLeft(true);
-          hasJoinerRef.current = false;
-          analytics.track('live_session_partner_left', {
+        // P511 Task 6: Check if partner returned during grace period
+        if (freshSession.joinerName && gracePeriodStartRef.current) {
+          gracePeriodStartRef.current = null;
+          setGracePeriodStart(null);
+          markJoinerDetected(freshSession.joinerName);
+          setSession(freshSession);
+          analytics.track('live_session_partner_returned', {
             session_code: freshSession.code,
-            left_by: 'joiner',
-            exit_reason: 'partner_departure',
-            checks_completed_so_far: confirmedLiveStateRef.current.checksCount,
           });
           return;
+        }
+
+        // Case B: Joiner left (creator sees this) - joiner_name went from set to null
+        // P511 Task 6: Enter grace period instead of immediate departure
+        if (!freshSession.joinerName && hasJoinerRef.current && !gracePeriodStartRef.current) {
+          const now = new Date();
+          gracePeriodStartRef.current = now;
+          setGracePeriodStart(now);
+          setDepartedPartnerName(lastJoinerNameRef.current);
+          hasJoinerRef.current = false;
+          analytics.track('live_session_grace_period_started', {
+            session_code: freshSession.code,
+            left_by: 'joiner',
+            checks_completed_so_far: confirmedLiveStateRef.current.checksCount,
+          });
+          // Don't return — continue processing updates during grace period
         }
 
         // Check 2: Detect liveState drift (fixes lost signal bug)
@@ -1974,12 +1989,15 @@ export function ClarityLivePage() {
       sessionEndedRef.current = false;
       hasJoinerRef.current = false;
       lastJoinerNameRef.current = null;
+      gracePeriodStartRef.current = null;
       pendingJoinRef.current = null;
 
       setSession(joinedSession);
       setIsCreator(false);
       // Save to localStorage for rejoin
       saveSessionToStorage(joinedSession.code, joinName, false);
+      // P511: Persist active session to localStorage for banner on other pages
+      setActiveSession(joinedSession.code, joinedSession.creatorName ?? null, 'joiner', !user ? joinName : null);
 
       analytics.track('live_session_joined', {
         session_code: joinedSession.code,
@@ -2043,12 +2061,15 @@ export function ClarityLivePage() {
       sessionEndedRef.current = false;
       hasJoinerRef.current = false;
       lastJoinerNameRef.current = null;
+      gracePeriodStartRef.current = null;
 
       setSession(newSession);
       setIsCreator(true);
       setView('waiting');
       // HIGH #6: Save to localStorage for rejoin
       saveSessionToStorage(newSession.code, trimmedName, true);
+      // P511: Persist active session to localStorage for banner on other pages
+      setActiveSession(newSession.code, null, 'creator');
 
       // Track session creation
       analytics.track('live_session_created', {
@@ -2058,6 +2079,108 @@ export function ClarityLivePage() {
       setError(err instanceof Error ? err.message : 'Failed to create session');
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  // P511 Task 10: Rejoin handler — restores the user into their active session
+  const handleRejoin = async () => {
+    if (!rejoinSession) return;
+    setIsRejoining(true);
+    try {
+      const activeSession = await getActiveSessionByCode(rejoinSession.code);
+      if (!activeSession) {
+        // Session expired between showing prompt and clicking rejoin
+        clearActiveSessionFromStorage();
+        clearActiveSession();
+        setRejoinSession(null);
+        setIsRejoining(false);
+        return;
+      }
+
+      if (rejoinSession.role === 'joiner') {
+        // Re-set joiner_name on the session row (joiner may have been cleared)
+        const guestName = rejoinSession.guestDisplayName;
+        const joinName = user?.name || guestName || name.trim();
+        if (!joinName) {
+          setError('Unable to rejoin — name not found');
+          setIsRejoining(false);
+          return;
+        }
+        const joinedSession = await joinClaritySession(rejoinSession.code, joinName, user?.id);
+        if (!joinedSession) {
+          // joinClaritySession may fail if session is already full with a different joiner
+          clearActiveSessionFromStorage();
+          clearActiveSession();
+          setRejoinSession(null);
+          setIsRejoining(false);
+          return;
+        }
+        setSession(joinedSession);
+        setIsCreator(false);
+        setName(joinName);
+        saveSessionToStorage(joinedSession.code, joinName, false);
+      } else {
+        // Creator — restore session state and navigate to live/waiting view
+        setSession(activeSession);
+        setIsCreator(true);
+        setName(activeSession.creatorName);
+        saveSessionToStorage(activeSession.code, activeSession.creatorName, true);
+      }
+
+      // Reset refs for clean state
+      iAmLeavingRef.current = false;
+      partnerLeftRef.current = false;
+      sessionEndedRef.current = false;
+      hasJoinerRef.current = false;
+      lastJoinerNameRef.current = null;
+      gracePeriodStartRef.current = null;
+
+      // Sync live state
+      if (activeSession.liveState) {
+        setLiveState({ ...DEFAULT_LIVE_STATE, ...activeSession.liveState } as LiveSessionState);
+      }
+
+      // Determine the right view
+      // P511 Task 12 (P495 recording integration): pendingLiveTransition triggers
+      // gateMicAndGoLive → mic re-acquisition → view='live' → recording start effect.
+      // MediaStream was released by browser on page unload; getUserMedia() runs again here.
+      // Gap in recording during disconnect is expected (Decision 4).
+      const liveStateRecord = activeSession.liveState as Record<string, unknown> | null;
+      const isSessionEnded = liveStateRecord?.sessionEnded === true;
+      if (activeSession.joinerName && !isSessionEnded) {
+        setPendingLiveTransition(true);
+      } else if (rejoinSession.role === 'creator') {
+        setView('waiting');
+      }
+
+      setRejoinSession(null);
+      analytics.track('live_session_rejoined', {
+        session_code: rejoinSession.code,
+        role: rejoinSession.role,
+      });
+    } catch (err) {
+      console.error('[Live] Failed to rejoin session:', err);
+      setError(err instanceof Error ? err.message : 'Failed to rejoin session');
+    } finally {
+      setIsRejoining(false);
+    }
+  };
+
+  // P511 Task 10: End session from rejoin prompt
+  const handleEndFromRejoin = async () => {
+    if (!rejoinSession) return;
+    try {
+      await endClaritySession(rejoinSession.sessionId);
+      clearActiveSessionFromStorage();
+      clearActiveSession();
+      clearStoredSession();
+      setRejoinSession(null);
+      analytics.track('live_session_ended_from_rejoin', {
+        session_code: rejoinSession.code,
+        role: rejoinSession.role,
+      });
+    } catch (err) {
+      console.error('[Live] Failed to end session from rejoin prompt:', err);
     }
   };
 
@@ -2164,6 +2287,7 @@ export function ClarityLivePage() {
           sessionEndedRef.current = false;
           hasJoinerRef.current = false;
           lastJoinerNameRef.current = null;
+          gracePeriodStartRef.current = null;
           setSession(sessionInfo);
           setName(creatorName);
           setIsCreator(true);
@@ -2206,6 +2330,7 @@ export function ClarityLivePage() {
     sessionEndedRef.current = false;
     hasJoinerRef.current = false;
     lastJoinerNameRef.current = null;
+    gracePeriodStartRef.current = null;
   };
 
   // P28.1: Stop recording and upload final chunk + events
@@ -2258,12 +2383,7 @@ export function ClarityLivePage() {
     userForChunks.current = null;
   }, [session, name, stopRecording]);
 
-  // Show exit confirmation dialog
-  const handleExitMeeting = useCallback(() => {
-    setShowExitConfirm(true);
-  }, []);
-
-  // Actually exit meeting after confirmation
+  // Actually exit meeting (P511: no confirmation dialog — session can be resumed via heartbeat)
   const confirmExitMeeting = useCallback(async () => {
     // P512: Prevent double-click and show loading state
     if (isExiting) return;
@@ -2340,12 +2460,12 @@ export function ClarityLivePage() {
     }
 
     clearStoredSession();
+    clearActiveSession();
     setSession(null);
     setLiveState(DEFAULT_LIVE_STATE);
     setIsLocallyRating(false);
     setView('start');
     setRoomCode('');
-    setShowExitConfirm(false);
     setIsExiting(false);
     // Reset all departure refs so future sessions can work properly
     // Critical: Without this, polling would be permanently disabled for new sessions
@@ -2354,14 +2474,15 @@ export function ClarityLivePage() {
     sessionEndedRef.current = false;
     hasJoinerRef.current = false;
     lastJoinerNameRef.current = null;
-    if (pendingNavTo) {
-      const destination = pendingNavTo;
-      setPendingNavTo(null);
-      navigate(destination, { replace: true });
-    } else {
-      navigate(returnTo ?? '/live', { replace: true });
-    }
-  }, [session, liveState.checksCount, isCreator, isFromEvent, returnTo, navigate, stopAndUploadRecording, pendingNavTo, setPendingNavTo, isExiting]);
+    gracePeriodStartRef.current = null;
+    setGracePeriodStart(null);
+    navigate(returnTo ?? '/live', { replace: true });
+  }, [session, liveState.checksCount, isCreator, isFromEvent, returnTo, navigate, stopAndUploadRecording, clearActiveSession, isExiting]);
+
+  // P511: Exit directly — no confirmation dialog (session can be resumed via heartbeat)
+  const handleExitMeeting = useCallback(() => {
+    confirmExitMeeting();
+  }, [confirmExitMeeting]);
 
   // Handle starting a new session after partner left
   const handleStartNewAfterPartnerLeft = useCallback(async () => {
@@ -2379,6 +2500,7 @@ export function ClarityLivePage() {
     }
 
     clearStoredSession();
+    clearActiveSession();
     setSession(null);
     setLiveState(DEFAULT_LIVE_STATE);
     setView('start');
@@ -2390,8 +2512,10 @@ export function ClarityLivePage() {
     sessionEndedRef.current = false;
     hasJoinerRef.current = false;
     lastJoinerNameRef.current = null;
+    gracePeriodStartRef.current = null;
+    setGracePeriodStart(null);
     navigate(returnTo ?? '/live', { replace: true });
-  }, [session, isFromEvent, returnTo, navigate, stopAndUploadRecording]);
+  }, [session, isFromEvent, returnTo, navigate, stopAndUploadRecording, clearActiveSession]);
 
   // P40: Handle mic permission dialog retry
   // If we have pending join info, complete the join after mic is granted
@@ -2415,10 +2539,13 @@ export function ClarityLivePage() {
           sessionEndedRef.current = false;
           hasJoinerRef.current = false;
           lastJoinerNameRef.current = null;
+          gracePeriodStartRef.current = null;
 
           setSession(joinedSession);
           setIsCreator(false);
           saveSessionToStorage(joinedSession.code, pendingJoin.joinName, false);
+          // P511: Persist active session to localStorage for banner on other pages
+          setActiveSession(joinedSession.code, joinedSession.creatorName ?? null, 'joiner', !user ? pendingJoin.joinName : null);
 
           analytics.track('live_session_joined', {
             session_code: joinedSession.code,
@@ -2492,6 +2619,26 @@ export function ClarityLivePage() {
     }
   }, [pendingLiveTransition, gateMicAndGoLive]);
 
+  // P511 Task 6: Grace period expired — transition to final partner-left state
+  // P511 Task 12 (P495 recording): setPartnerLeft(true) triggers the P28.2 auto-stop
+  // effect below, which calls stopAndUploadRecording() to finalize with existing chunks.
+  const handleGracePeriodExpired = useCallback(() => {
+    // 5-second post-expiry delay before auto-transitioning
+    setTimeout(() => {
+      if (!gracePeriodStartRef.current) return; // Already cancelled (partner returned)
+      partnerLeftRef.current = true;
+      setPartnerLeft(true);
+      setGracePeriodStart(null);
+      gracePeriodStartRef.current = null;
+      analytics.track('live_session_partner_left', {
+        session_code: sessionCodeRef.current,
+        left_by: 'joiner',
+        exit_reason: 'grace_period_expired',
+        checks_completed_so_far: confirmedLiveStateRef.current.checksCount,
+      });
+    }, 5000);
+  }, []);
+
   // P28.2: Auto-stop recording when partner leaves (prevents orphan recordings)
   useEffect(() => {
     if ((partnerLeft || sessionEnded) && isRecording) {
@@ -2499,6 +2646,25 @@ export function ClarityLivePage() {
       stopAndUploadRecording();
     }
   }, [partnerLeft, sessionEnded, isRecording, stopAndUploadRecording]);
+
+  // P511 Task 6: Show reconnecting countdown during grace period (before final departure)
+  // Grace period only applies to joiner departure; sessionEnded (creator clicked End) is immediate.
+  if (gracePeriodStart && !sessionEnded && !partnerLeft) {
+    return (
+      <div className="flex flex-col min-h-[calc(100vh-4rem)] lg:min-h-[calc(100vh-5rem)]">
+        <div className="flex-1 flex items-center justify-center px-4">
+          <div className="w-full max-w-md">
+            <ReconnectingCountdown
+              partnerName={departedPartnerName ?? 'Partner'}
+              startTime={gracePeriodStart}
+              gracePeriodSeconds={SESSION_GRACE_PERIOD_SECONDS}
+              onExpired={handleGracePeriodExpired}
+            />
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   // Show partner left screen if partner departed
   if (sessionEnded || partnerLeft) {
@@ -2700,6 +2866,31 @@ export function ClarityLivePage() {
             <div className="animate-pulse text-muted-foreground">
               {isLoading ? 'Creating session...' : 'Loading...'}
             </div>
+          </div>
+        </div>
+      );
+    }
+
+    // P511 Task 10: Show rejoin prompt if active session detected in localStorage
+    if (rejoinSession || isCheckingRejoin) {
+      return (
+        <div className="flex flex-col min-h-[calc(100vh-4rem)] lg:min-h-[calc(100vh-5rem)]">
+          <div className="flex-1 container mx-auto px-4 flex flex-col justify-center">
+            {isCheckingRejoin ? (
+              <div className="flex items-center justify-center">
+                <div className="animate-pulse text-muted-foreground">Checking session...</div>
+              </div>
+            ) : rejoinSession ? (
+              <RejoinPrompt
+                sessionCode={rejoinSession.code}
+                partnerName={rejoinSession.partnerName}
+                guestDisplayName={rejoinSession.guestDisplayName}
+                onRejoin={handleRejoin}
+                onEndSession={handleEndFromRejoin}
+                isRejoining={isRejoining}
+              />
+            ) : null}
+            {error && <p className="text-sm text-red-600 text-center mt-4">{error}</p>}
           </div>
         </div>
       );
@@ -3138,33 +3329,6 @@ export function ClarityLivePage() {
 
         {/* Remove position confirmation dialog */}
         <RemovePositionDialog {...liveRemoveDialogProps} />
-
-        {/* Exit confirmation dialog */}
-        <Dialog open={showExitConfirm} onOpenChange={(open) => { if (isExiting) return; setShowExitConfirm(open); if (!open) setPendingNavTo(null); }}>
-          <DialogContent className="max-w-sm">
-            <DialogHeader>
-              <DialogTitle>End session?</DialogTitle>
-              <DialogDescription>
-                Are you sure you want to end this session? Your progress will be lost.
-              </DialogDescription>
-            </DialogHeader>
-            <DialogFooter className="flex-row gap-2 sm:justify-end">
-              <Button variant="outline" onClick={() => { setShowExitConfirm(false); setPendingNavTo(null); }} disabled={isExiting}>
-                Cancel
-              </Button>
-              <Button variant="destructive" onClick={confirmExitMeeting} disabled={isExiting}>
-                {isExiting ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                    Ending...
-                  </>
-                ) : (
-                  'End Session'
-                )}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
 
         {/* P40: Microphone permission dialog */}
         <MicrophonePermissionDialog

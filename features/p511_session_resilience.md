@@ -7,7 +7,7 @@ tags:
   - resilience
   - rejoin
   - mobile
-delivery_stage: 4-tests-ready
+delivery_stage: uat
 prepped_date: '2026-03-14'
 reviews:
   ux: null
@@ -863,7 +863,7 @@ Proceeding to task manifest.
 - **Tests:** `e2e/integration/p511-session-resilience-migration.spec.ts`
 - **Depends on:** None
 - **Verify:** `./scripts/migrate.sh` succeeds; integration tests pass (column exists, RPC works, authorization check blocks non-creators)
-- [ ] Complete
+- [x] Complete
 
 ### Task 2: API layer — heartbeat + active session query
 - **Files:** `src/app/data/api.ts` (modify)
@@ -871,7 +871,7 @@ Proceeding to task manifest.
 - **Tests:** `src/tests/sessionResilience.test.ts` (heartbeat interval tests)
 - **Depends on:** Task 1
 - **Verify:** `updateSessionLastActivity()` and `getActiveSessionByCode()` functions exist; TypeScript compiles
-- [ ] Complete
+- [x] Complete
 
 ### Task 3: Heartbeat hook
 - **Files:** `src/hooks/use-session-heartbeat.ts` (create)
@@ -879,7 +879,7 @@ Proceeding to task manifest.
 - **Tests:** `src/tests/sessionResilience.test.ts` (heartbeat start/stop/error tests)
 - **Depends on:** Task 2
 - **Verify:** Hook calls `updateSessionLastActivity` every 30s; stops on unmount
-- [ ] Complete
+- [x] Complete
 
 ### Task 4: Gut pagehide handler — remove DB writes
 - **Files:** `src/app/pages/clarity-live-page.tsx` (modify)
@@ -887,14 +887,14 @@ Proceeding to task manifest.
 - **Tests:** `e2e/p511-session-resilience.spec.ts` (page refresh doesn't kill session)
 - **Depends on:** Task 3 (heartbeat must be running before pagehide stops writing)
 - **Verify:** Page refresh does not set `sessionEnded=true` or null `joiner_name`; analytics still fire; heartbeat keeps session alive
-- [ ] Complete
+- [x] Complete
 
 ### Task 5: Wire heartbeat into live page
 - **Files:** `src/app/pages/clarity-live-page.tsx` (modify)
 - **Spec refs:** "Build Sequence > Phase 1 step 5 (line ~706)"
 - **Depends on:** Task 3, Task 4
 - **Verify:** During live session, `last_activity_at` updates every ~30s in DB
-- [ ] Complete
+- [x] Complete
 
 ### Task 6: Grace period detection — replace instant departure with countdown
 - **Files:** `src/app/pages/clarity-live-page.tsx` (modify), `src/app/components/session/reconnecting-countdown.tsx` (create)
@@ -902,7 +902,7 @@ Proceeding to task manifest.
 - **Tests:** `src/tests/sessionResilience.test.ts` (disconnect detection thresholds), `e2e/a11y/p511-accessibility.spec.ts` (countdown ARIA)
 - **Depends on:** Task 5
 - **Verify:** When partner's `last_activity_at` goes stale >10s, "Waiting for [Name] to return... M:SS remaining" appears with reassurance line; at 0:00, shows "Session timed out" message; 5s transition to summary
-- [ ] Complete
+- [x] Complete
 
 ### Task 7: Remove P410 nav guard from layout components
 - **Files:** `src/app/components/layout/simple-navigation.tsx` (modify), `src/app/components/layout/bottom-nav.tsx` (modify), `src/app/components/partners/live-session-banner.tsx` (modify), `src/app/components/layout/navigation-menu-items.tsx` (modify)
@@ -910,14 +910,14 @@ Proceeding to task manifest.
 - **Tests:** `e2e/p511-session-resilience.spec.ts` (navigation without dialog)
 - **Depends on:** None (can run in parallel with Tasks 1-6)
 - **Verify:** All nav links work during active session; no confirmation dialog; no `pendingNavTo` references remain; all menu items visible regardless of session state
-- [ ] Complete
+- [x] Complete
 
 ### Task 8: Extend LiveSessionContext + active session hook
 - **Files:** `src/app/contexts/live-session-context.tsx` (modify), `src/hooks/use-active-session.ts` (create)
 - **Spec refs:** "Implementation Approach > Files to Modify > LiveSessionContext (line ~681)", "Files to Create > use-active-session (line ~677)"
 - **Depends on:** Task 7 (pendingNavTo must be removed first)
 - **Verify:** Context provides `activeSessionCode`, `activeSessionPartnerName`, `activeSessionRole`, `isGracePeriod`; `pendingNavTo`/`setPendingNavTo` removed; `useActiveSession` hook validates localStorage against DB
-- [ ] Complete
+- [x] Complete
 
 ### Task 9: Active session banner component + layout wiring
 - **Files:** `src/app/components/session/active-session-banner.tsx` (create), `src/app/layouts/clarity-landing-layout.tsx` (modify)
@@ -925,7 +925,7 @@ Proceeding to task manifest.
 - **Tests:** `e2e/p511-session-resilience.spec.ts` (banner rendering), `e2e/a11y/p511-accessibility.spec.ts` (banner ARIA), `e2e/p511-smoke.spec.ts`
 - **Depends on:** Task 8
 - **Verify:** Banner appears on non-/live pages when session active; "In session with [Name]" + blue pulsing dot; Rejoin navigates to /live; End Session kills immediately; responsive stacking on mobile; `role="status"` + `aria-live="polite"`
-- [ ] Complete
+- [x] Complete
 
 ### Task 10: Rejoin prompt + localStorage persistence
 - **Files:** `src/app/components/session/rejoin-prompt.tsx` (create), `src/app/pages/clarity-live-page.tsx` (modify)
@@ -933,21 +933,21 @@ Proceeding to task manifest.
 - **Tests:** `e2e/p511-session-resilience.spec.ts` (rejoin prompt on /live), `e2e/a11y/p511-accessibility.spec.ts` (rejoin prompt focus)
 - **Depends on:** Task 8, Task 6
 - **Verify:** Navigating to /live with active session shows "Your session is still running" card; session code pre-filled; guest variant shows "Rejoin as [Name]"; "End Session" link with confirmation; joiner rejoin re-sets `joiner_name`; creator rejoin restores from sessionStorage; guest display name persists in localStorage
-- [ ] Complete
+- [x] Complete
 
 ### Task 11: AuthContext sign-out cleanup
 - **Files:** `src/auth/AuthContext.tsx` (modify)
 - **Spec refs:** "Implementation Approach > Files to Modify > AuthContext (line ~695)"
 - **Depends on:** Task 8
 - **Verify:** Sign-out ends session immediately AND clears localStorage session info
-- [ ] Complete
+- [x] Complete
 
 ### Task 12: P495 recording integration
 - **Files:** `src/app/pages/clarity-live-page.tsx` (modify — recording hooks)
 - **Spec refs:** "Architecture Decisions > Decision 4 (lines ~567-573)", "Build Sequence > Phase 6 (lines ~740-743)"
 - **Depends on:** Task 6, Task 10
 - **Verify:** Navigate away pauses recording + uploads pending chunks; rejoin re-acquires mic + continues chunk numbering; grace expiry finalizes recording
-- [ ] Complete
+- [x] Complete
 
 ### Task 13: Telemetry + zombie cleanup
 - **Files:** `src/app/pages/clarity-live-page.tsx` (modify — telemetry), `src/hooks/use-active-session.ts` (modify — stale cleanup)
@@ -955,6 +955,6 @@ Proceeding to task manifest.
 - **Tests:** `e2e/p511-smoke.spec.ts` (stale localStorage doesn't crash)
 - **Depends on:** Task 10
 - **Verify:** `exit_reason: 'grace_expired'` fires in Mixpanel; stale localStorage entries cleared on app load; sessions with `last_activity_at` > 10 min detected as zombies
-- [ ] Complete
+- [x] Complete
 
 **Total tasks:** 13 | **Can parallelize:** Task 7 with Tasks 1-6 (no shared dependencies) | **Must be sequential:** Task 1 → 2 → 3 → 4 → 5 → 6; Task 7 → 8 → 9, 10, 11; Task 10 + 6 → 12 → 13

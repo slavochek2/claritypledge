@@ -20,7 +20,6 @@ import { GravatarAvatar } from "@/components/ui/gravatar-avatar";
 import { analytics } from "@/lib/mixpanel";
 import { useNavAuthState } from "@/hooks/use-nav-auth-state";
 import { NavigationMenuItems } from "./navigation-menu-items";
-import { useLiveSession } from "@/app/contexts/live-session-context";
 
 const MOBILE_MENU_ID = "mobile-navigation-menu";
 
@@ -44,8 +43,6 @@ export function SimpleNavigation() {
     isLoading,
     sessionChecked,
   } = useNavAuthState();
-  const { isLive, setPendingNavTo } = useLiveSession();
-
   // Close mobile menu on route change (e.g., bottom nav, back button, page links)
   useEffect(() => {
     setIsMobileMenuOpen(false);
@@ -90,11 +87,6 @@ export function SimpleNavigation() {
               if (location.pathname === "/") {
                 e.preventDefault();
                 window.scrollTo({ top: 0, behavior: "smooth" });
-                return;
-              }
-              if (isLive) {
-                e.preventDefault();
-                setPendingNavTo('/');
               }
             }}
           >
@@ -129,20 +121,18 @@ export function SimpleNavigation() {
             ) : showUserMenu ? (
               /* Logged-in: Icon nav with labels (LinkedIn-style) */
               <div className="flex items-center gap-3 transition-opacity duration-150">
-                {/* P491: Feed link — hidden during active session */}
-                {!isLive && (
-                  <Link
-                    to="/feed"
-                    className={`flex flex-col items-center justify-center px-4 py-2 min-w-[80px] rounded-md transition-colors ${
-                      location.pathname === "/feed"
-                        ? "text-primary"
-                        : "text-muted-foreground hover:text-foreground hover:bg-accent"
-                    }`}
-                  >
-                    <HomeIcon className="w-5 h-5" />
-                    <span className="text-xs mt-1 font-medium">Home</span>
-                  </Link>
-                )}
+                {/* Feed link */}
+                <Link
+                  to="/feed"
+                  className={`flex flex-col items-center justify-center px-4 py-2 min-w-[80px] rounded-md transition-colors ${
+                    location.pathname === "/feed"
+                      ? "text-primary"
+                      : "text-muted-foreground hover:text-foreground hover:bg-accent"
+                  }`}
+                >
+                  <HomeIcon className="w-5 h-5" />
+                  <span className="text-xs mt-1 font-medium">Home</span>
+                </Link>
                 {/* Events */}
                 <Link
                   to="/events"
@@ -151,7 +141,6 @@ export function SimpleNavigation() {
                       ? "text-primary"
                       : "text-muted-foreground hover:text-foreground hover:bg-accent"
                   }`}
-                  onClick={isLive ? (e) => { e.preventDefault(); setPendingNavTo('/events'); } : undefined}
                 >
                   <CalendarIcon className="w-5 h-5" />
                   <span className="text-xs mt-1 font-medium">Events</span>
@@ -164,7 +153,6 @@ export function SimpleNavigation() {
                       ? "text-primary"
                       : "text-muted-foreground hover:text-foreground hover:bg-accent"
                   }`}
-                  onClick={isLive ? (e) => { e.preventDefault(); setPendingNavTo(slug ? `/p/${slug}` : '/me'); } : undefined}
                 >
                   <UserIcon className="w-5 h-5" />
                   <span className="text-xs mt-1 font-medium">My Profile</span>
@@ -203,7 +191,7 @@ export function SimpleNavigation() {
                     </button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" sideOffset={8} className="w-48">
-                    <NavigationMenuItems onSignOut={handleSignOut} inActiveSession={isLive} />
+                    <NavigationMenuItems onSignOut={handleSignOut} />
                   </DropdownMenuContent>
                 </DropdownMenu>
               </div>
@@ -245,7 +233,7 @@ export function SimpleNavigation() {
                     </button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" sideOffset={8} className="w-48">
-                    <NavigationMenuItems onSignOut={handleSignOut} inActiveSession={isLive} />
+                    <NavigationMenuItems onSignOut={handleSignOut} />
                   </DropdownMenuContent>
                 </DropdownMenu>
               </div>
@@ -327,7 +315,6 @@ export function SimpleNavigation() {
                 variant="mobile"
                 onSignOut={handleSignOut}
                 onItemClick={closeMobileMenu}
-                inActiveSession={isLive}
               />
             </div>
           </div>

@@ -2,13 +2,9 @@
  * @file navigation-menu-items.tsx
  * @description KISS Navigation Menu Items
  *
- * THREE STATES:
- * 1. Verified user (normal) → Events, Pledgers, Manifesto, Blog, About, Settings, Log Out
- * 2. Active /live session → Settings, Log Out ONLY (focused mode)
- * 3. Everyone else → Events, Pledgers, Manifesto, Blog, About, Log In, Create Account
- *
- * Unverified /live users see the same menu as anonymous users.
- * They can verify via /me page, email after meeting, or taking the pledge.
+ * TWO STATES:
+ * 1. Verified user → Events, Pledgers, Manifesto, Blog, About, Settings, Log Out
+ * 2. Everyone else → Events, Pledgers, Manifesto, Blog, About, Log In, Create Account
  *
  * Supports two variants:
  * - 'dropdown' (default): For desktop dropdown menus (uses DropdownMenuItem)
@@ -33,8 +29,6 @@ import {
   HistoryIcon,
 } from 'lucide-react';
 import { useNavAuthState } from '@/hooks/use-nav-auth-state';
-import { useLiveSession } from '@/app/contexts/live-session-context';
-
 interface NavigationMenuItemsProps {
   onSignOut: () => void;
   includeTestIds?: boolean;
@@ -42,15 +36,12 @@ interface NavigationMenuItemsProps {
   variant?: 'dropdown' | 'mobile';
   /** Called when a menu item is clicked (useful for closing mobile menu) */
   onItemClick?: () => void;
-  /** Hide navigation items during active /live session (only show Settings, Log Out) */
-  inActiveSession?: boolean;
 }
 
 /**
  * KISS Navigation Menu Items
  *
- * - Verified user (normal): Events, Pledgers, Manifesto, Blog, About, Settings, Log Out
- * - Active /live session: Settings, Log Out only (focused mode)
+ * - Verified user: Events, Pledgers, Manifesto, Blog, About, Settings, Log Out
  * - Everyone else: Events, Pledgers, Manifesto, Blog, About, Log In, Create Account
  */
 export function NavigationMenuItems({
@@ -58,10 +49,8 @@ export function NavigationMenuItems({
   includeTestIds = false,
   variant = 'dropdown',
   onItemClick,
-  inActiveSession = false,
 }: NavigationMenuItemsProps) {
   const { showUserMenu, showPublicCTAs } = useNavAuthState();
-  const { isLive, setPendingNavTo } = useLiveSession();
 
   const handleItemClick = () => {
     onItemClick?.();
@@ -156,9 +145,6 @@ export function NavigationMenuItems({
         {/* Verified user menu */}
         {showUserMenu && (
           <>
-            {/* Hide navigation items during active session */}
-            {!inActiveSession && (
-              <>
                 <Link
                   to="/sessions"
                   className={mobileLinkClass}
@@ -201,13 +187,11 @@ export function NavigationMenuItems({
                   <InfoIcon className="w-4 h-4 inline mr-2" />
                   About
                 </Link>
-              </>
-            )}
 
             <Link
               to="/settings"
               className={mobileLinkClass}
-              onClick={isLive ? (e) => { e.preventDefault(); setPendingNavTo('/settings'); handleItemClick(); } : handleItemClick}
+              onClick={handleItemClick}
               data-testid={includeTestIds ? 'settings' : undefined}
             >
               <SettingsIcon className="w-4 h-4 inline mr-2" />
@@ -288,9 +272,6 @@ export function NavigationMenuItems({
       {/* Verified user menu */}
       {showUserMenu && (
         <>
-          {/* Hide navigation items during active session */}
-          {!inActiveSession && (
-            <>
               <DropdownMenuItem asChild>
                 <Link to="/sessions" className="cursor-pointer">
                   <HistoryIcon className="w-4 h-4 mr-2" />
@@ -327,15 +308,12 @@ export function NavigationMenuItems({
                 </Link>
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-            </>
-          )}
 
           {/* Settings */}
           <DropdownMenuItem asChild data-testid={includeTestIds ? 'settings' : undefined}>
             <Link
               to="/settings"
               className="cursor-pointer"
-              onClick={isLive ? (e) => { e.preventDefault(); setPendingNavTo('/settings'); } : undefined}
             >
               <SettingsIcon className="w-4 h-4 mr-2" />
               Settings

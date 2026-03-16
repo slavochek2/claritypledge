@@ -15,6 +15,7 @@ import { Session } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
 import { getProfileResult, signOut as apiSignOut, patchClaritySessionLiveState, clearSessionJoiner } from '@/app/data/api';
 import { analytics } from '@/lib/mixpanel';
+import { clearActiveSessionFromStorage } from '@/app/contexts/live-session-context';
 import type { Profile } from '@/app/types';
 
 interface AuthState {
@@ -191,6 +192,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
       }
     }
     await apiSignOut();
+    // Clear localStorage session info so the banner doesn't show stale data after sign-out
+    clearActiveSessionFromStorage();
     // Reset analytics to clear user identity (prevents events attributed to wrong user)
     analytics.reset();
     // Only clear state after successful sign-out to prevent ghost sessions
