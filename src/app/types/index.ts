@@ -1218,8 +1218,8 @@ export interface TranscriptSegment {
   speaker_id: string;
   speaker_label: string;
   text: string;
-  start: number;  // seconds
-  end: number;    // seconds
+  start_ms: number;
+  end_ms: number;
 }
 
 export interface SessionTranscript {
