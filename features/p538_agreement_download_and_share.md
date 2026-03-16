@@ -6,6 +6,10 @@ workstream: R1
 created_date: 2026-03-16
 flow: dev
 tags: []
+uat_file: features/uat/p538.md
+test_files:
+  - e2e/p538-agreement-share.spec.ts
+  - e2e/p538-smoke.spec.ts
 ---
 
 # P538: Agreement Download Image & Share Dropdown
@@ -47,6 +51,34 @@ Dependencies: `html-to-image` (already installed for pledge export)
 - [ ] Toolbar hidden for non-active states (pending, declined, expired, terminated)
 - [ ] Toolbar hidden for non-parties (visitors)
 
-## Testing
+## Test Coverage Strategy
 
-_Generated via `/generate-tests`._
+**What's Tested:**
+- ✅ Toolbar visibility on active agreement for creator (E2E)
+- ✅ Toolbar visibility on active agreement for partner (E2E)
+- ✅ Share dropdown items present: Copy Link, LinkedIn, Email (E2E)
+- ✅ Toolbar hidden on pending agreement (E2E)
+- ✅ Toolbar hidden for non-party visitor (E2E)
+- ✅ Page loads without console errors (smoke)
+
+**What's NOT Tested (rationale):**
+- ❌ PNG export rendering — `html-to-image` is a browser API, real download verified via UAT
+- ❌ Clipboard copy — browser API, verified via UAT
+- ❌ LinkedIn/email link opens — external browser behavior, UAT only
+- ❌ Export certificate visual layout — no visual regression tooling, UAT covers
+
+**Test Pyramid:**
+```
+     /\
+    /  \   3 E2E flows (7 tests)
+   /____\
+  /      \  1 Smoke test
+ /________\
+```
+
+**Files:**
+- `e2e/p538-agreement-share.spec.ts` — 3 flows, 5 tests
+- `e2e/p538-smoke.spec.ts` — 1 test
+- `features/uat/p538.md` — 9 UAT scenarios
+
+Total: 6 automated tests + 9 UAT scenarios

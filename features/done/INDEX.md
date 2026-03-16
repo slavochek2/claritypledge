@@ -1,7 +1,7 @@
 # Done Features Index
 
 Quick reference for past completed work. Consult when starting work on a related topic.
-Last updated: 2026-03-16 (P495 live session transcription)
+Last updated: 2026-03-16 (P537 useAuth memoization)
 
 ---
 
@@ -100,6 +100,7 @@ Last updated: 2026-03-16 (P495 live session transcription)
 ## Auth & Verification
 
 - **P524** (Mar 16) Withdraw Pledge Toggle — `has_pledged: false` already handled by all queries; no new API needed; re-pledge via existing `/sign-pledge` upgrade flow
+- **P537** (Mar 16) Memoize useAuth() — useCallback on refreshProfile/signOut + useMemo on context value; data-status wrapper in AuthCallbackPage still needed (React render-skip is separate from unstable refs)
 - **P527** (Mar 16) Direct Sign for New Users — `verifyOtp` with server-generated `hashed_token` for instant auth; email pinning (client sends no email, edge function derives from DB)
 - **P502** (Mar 13) Anon Position Optimistic UI — batch-restore must run BEFORE P458 single-position handler (it does `navigate()+return`); separate `anonPosition` state prevents ghost data in aggregate counts
 - **P458** (Mar 09) Anonymous User Auth Gate — `extraParams` on both `signInWithEmail` and `signInWithGoogle` to forward context through OAuth round-trip; validate `intent.redirect` against allowlist on every path

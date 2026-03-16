@@ -2,6 +2,13 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-16 [technical]: P537 useAuth memoization — useCallback + useMemo on context providers, but data-status wrapper still needed
+
+**Context:** /falsify surfaced that `useAuth()` returned unstable references for `refreshProfile` and `signOut` (new function on every render). This caused AuthCallbackPage's `useEffect` to re-fire `processAuth()` when unrelated child re-renders occurred (root cause of the double-upsert bug found during ClarityLoader work).
+**Decision:** (1) Wrap `refreshProfile` in `useCallback([userId, fetchProfileForUser])`, `signOut` in `useCallback([])`, and the context value in `useMemo`. (2) The `data-status={status}` wrapper in AuthCallbackPage is **still required** even after memoization — removing it causes 2 auth tests to fail. Root cause: React's render-skip optimization when `status` isn't consumed in JSX is a separate issue from unstable refs. Both fixes are needed.
+**Alternatives rejected:** (1) Remove data-status wrapper after memoization — tested, fails (2/9 auth tests break). (2) Restructure AuthCallbackPage's useEffect to not depend on render timing — correct but high-risk refactor of critical auth code.
+**Consequences:** Pattern for all context providers: always wrap function values in useCallback and the value object in useMemo. The data-status wrapper is documented with a comment explaining why it's load-bearing.
+
 ## 2026-03-16 [process]: Remove `.expected-branch` hook — worktrees are the concurrency mechanism
 
 **Context:** P495 shipping session: multiple concurrent Claude sessions fought over the repo — overwriting `.expected-branch`, causing HEAD lock errors, requiring emergency `git stash` and worktree w8 creation. `/falsify` confirmed the hook is a single-writer design used in a multi-writer environment (no session ID, no session-end lifecycle in Claude Code hooks). The hook only works for single-session scenarios, where worktrees already provide isolation.
