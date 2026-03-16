@@ -651,7 +651,7 @@ export function ProfilePageV2() {
           url={`/p/${profile.slug}`}
         />
         <div className="min-h-screen bg-background flex items-center justify-center py-12 px-4">
-          <div className="container mx-auto max-w-lg">
+          <div className="container mx-auto max-w-2xl">
             <div className="bg-card border rounded-lg shadow-sm p-8 text-center space-y-6">
               <div className="flex justify-center">
                 <div className="w-16 h-16 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center">
@@ -741,7 +741,7 @@ export function ProfilePageV2() {
       />
       <div className="relative max-w-4xl mx-auto pb-20">
         {/* Main profile content - centered */}
-        <div className="max-w-lg mx-auto px-4 mt-3">
+        <div className="max-w-2xl mx-auto px-4 mt-3">
           {/* Back button - P114: uses history if from same site, fallback to /events */}
           <button
             onClick={() => navigate('/events')}
