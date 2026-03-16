@@ -173,15 +173,16 @@ function TranscriptRow({
 
 // ─── Transcript View (P495 — View 4) ────────────────────────────────────────
 
-function formatTimestamp(seconds: number): string {
-  const m = Math.floor(seconds / 60);
-  const s = Math.floor(seconds % 60);
+function formatTimestamp(ms: number): string {
+  const totalSec = Math.floor(ms / 1000);
+  const m = Math.floor(totalSec / 60);
+  const s = totalSec % 60;
   return `${m}:${s.toString().padStart(2, '0')}`;
 }
 
 function formatTranscriptForCopy(transcript: SessionTranscript): string {
   return transcript.segments
-    .map((seg) => `${seg.speaker_label} [${formatTimestamp(seg.start)}]: ${seg.text}`)
+    .map((seg) => `${seg.speaker_label} [${formatTimestamp(seg.start_ms)}]: ${seg.text}`)
     .join('\n');
 }
 
@@ -268,12 +269,12 @@ function TranscriptView({
         {transcript.segments.map((segment, i) => (
           <article
             key={i}
-            aria-label={`${segment.speaker_label} at ${formatTimestamp(segment.start)}`}
+            aria-label={`${segment.speaker_label} at ${formatTimestamp(segment.start_ms)}`}
             className="text-sm"
           >
             <div className="flex items-baseline gap-2 mb-0.5">
               <span className="font-semibold text-foreground">{segment.speaker_label}</span>
-              <span className="text-xs text-muted-foreground">{formatTimestamp(segment.start)}</span>
+              <span className="text-xs text-muted-foreground">{formatTimestamp(segment.start_ms)}</span>
             </div>
             <p className="text-foreground/90 leading-relaxed">{segment.text}</p>
           </article>
