@@ -1974,23 +1974,18 @@ export function ClarityLivePage() {
       // The function handles this gracefully and uploads events.json
       const emptyBlob = new Blob([], { type: 'audio/webm' });
       await uploadSessionRecording(session.code, name, emptyBlob, events, metadata);
-
-      // P495: Trigger transcription job for non-private sessions
-      if (!isPrivate && session.id && session.code) {
-        await createTranscriptionJob(session.code, session.id);
-      }
     } catch (err) {
       console.error('[P28.1] Failed to stop/upload recording:', err);
       // Don't throw - recording failure shouldn't block session exit
-    } finally {
-      // P28.2: Unregister ML collector so events outside session aren't captured
-      analytics.unregisterMLCollector();
-      eventsCollectorRef.current.reset();
-      sessionCodeForChunks.current = null;
-      userNameForChunks.current = null;
-      sessionForChunks.current = null;
-      userForChunks.current = null;
     }
+
+    // P28.2: Unregister ML collector so events outside session aren't captured
+    analytics.unregisterMLCollector();
+    eventsCollectorRef.current.reset();
+    sessionCodeForChunks.current = null;
+    userNameForChunks.current = null;
+    sessionForChunks.current = null;
+    userForChunks.current = null;
   }, [session, name, stopRecording]);
 
   // Show exit confirmation dialog
@@ -2005,6 +2000,17 @@ export function ClarityLivePage() {
 
     // P28.1: Stop recording and upload before exiting
     await stopAndUploadRecording();
+
+    // P495: Trigger transcription job — must be outside stopAndUploadRecording
+    // because that function early-returns when eventsCollector hasn't started
+    if (session && !session.isPrivate && session.id && session.code) {
+      try {
+        await createTranscriptionJob(session.code, session.id);
+        console.log('[P495] Transcription job created for session:', session.code);
+      } catch (err) {
+        console.error('[P495] Failed to create transcription job:', err);
+      }
+    }
 
     // Track session exit
     if (session) {
