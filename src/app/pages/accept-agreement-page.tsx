@@ -30,6 +30,7 @@ import {
   DialogDescription,
 } from '@/components/ui/dialog';
 import { Loader2Icon, PenToolIcon } from 'lucide-react';
+import { ClarityPageLoader } from '@/components/ui/clarity-loader';
 import { Helmet } from 'react-helmet-async';
 import type { AgreementParty } from '@/app/data/agreements-service';
 
@@ -429,11 +430,7 @@ export function AcceptAgreementPage() {
   // ---- Render helpers ----
 
   if (pageState === 'loading') {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <Loader2Icon className="w-6 h-6 animate-spin text-[#002B5C]/40" />
-      </div>
-    );
+    return <ClarityPageLoader />;
   }
 
   if (pageState === 'invalid') {

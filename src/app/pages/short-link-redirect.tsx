@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { useParams, Navigate } from "react-router-dom";
 import { resolveShortLink } from "@/app/data/short-links";
+import { ClarityPageLoader } from "@/components/ui/clarity-loader";
 
 /**
  * Redirect component for short links (/s/:code)
@@ -27,9 +28,5 @@ export function ShortLinkRedirect() {
   }
 
   // Show brief loading state while redirect happens
-  return (
-    <div className="min-h-screen flex items-center justify-center" role="status" aria-live="polite">
-      <div className="animate-pulse text-muted-foreground">Redirecting...</div>
-    </div>
-  );
+  return <ClarityPageLoader />;
 }

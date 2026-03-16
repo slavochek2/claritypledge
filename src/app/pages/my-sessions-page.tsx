@@ -6,6 +6,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ChevronLeft, CheckCircle2, XCircle, ChevronRight } from 'lucide-react';
+import { ClarityPageLoader } from '@/components/ui/clarity-loader';
 import { useAuth } from '@/auth';
 import { getUserSessions, type SessionSummary } from '@/app/data/sessions-service';
 import { SessionList } from '@/app/components/sessions/session-list';
@@ -107,11 +108,7 @@ export function MySessionsPage() {
   }, [user?.id, fetchSessions]);
 
   if (!sessionChecked || isLoading) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="animate-pulse text-muted-foreground">Loading...</div>
-      </div>
-    );
+    return <ClarityPageLoader />;
   }
 
   if (!user) return null;
