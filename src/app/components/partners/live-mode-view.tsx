@@ -414,12 +414,16 @@ export function LiveModeView({
     onSkip();
   };
 
-  // Track celebration acknowledgment from shared state
-  // User has acknowledged if their name is in the celebrationAcknowledgedBy array
-  const acknowledged = liveState.celebrationAcknowledgedBy || [];
-  const iHaveAcknowledged = acknowledged.includes(currentUserName);
-  const partnerHasAcknowledged = acknowledged.includes(partnerName);
-  const waitingForPartner = iHaveAcknowledged && !partnerHasAcknowledged;
+  // P525: Track celebration acknowledgment from new boolean keys (+ old array for backward compat)
+  const oldAcknowledged = liveState.celebrationAcknowledgedBy || [];
+  // "I acknowledged" — either via old array or any new boolean (we don't know role in this component,
+  // so we check both booleans — the parent's duplicate-click guard handles role-specific logic)
+  const iHaveAcknowledgedAny = oldAcknowledged.includes(currentUserName) ||
+    liveState.celebrationAcknowledgedByCreator === true || liveState.celebrationAcknowledgedByJoiner === true;
+  // waitingForPartner: I clicked but both aren't done yet
+  const bothBoolsDone = liveState.celebrationAcknowledgedByCreator === true && liveState.celebrationAcknowledgedByJoiner === true;
+  const bothArrayDone = oldAcknowledged.includes(currentUserName) && oldAcknowledged.includes(partnerName);
+  const waitingForPartner = iHaveAcknowledgedAny && !bothBoolsDone && !bothArrayDone;
 
   // Show dialog when partner clicks "Speak freely"
   // Dialog requires user acknowledgment before returning to idle
@@ -2128,17 +2132,22 @@ function UnderstandingScreen({
   const gapType: GapType = gap > 0 ? 'overconfidence' : gap < 0 ? 'underconfidence' : 'none';
   const gapPoints = Math.abs(gap);
 
-  // Check if current user has acknowledged the celebration (from shared state)
-  const acknowledged = liveState.celebrationAcknowledgedBy || [];
-  const userHasAcknowledged = acknowledged.includes(currentUserName);
+  // P525: Check if current user has acknowledged the celebration (new booleans + old array backward compat)
+  const celebrationOldArr = liveState.celebrationAcknowledgedBy || [];
+  const userHasAcknowledgedViaArray = celebrationOldArr.includes(currentUserName);
+  const userHasAcknowledgedViaBool = liveState.celebrationAcknowledgedByCreator === true || liveState.celebrationAcknowledgedByJoiner === true;
+  const userHasAcknowledged = userHasAcknowledgedViaArray || userHasAcknowledgedViaBool;
 
   // Local flag: hide story immediately on click, before server state propagates
   const [clickedContinue, setClickedContinue] = useState(false);
   useEffect(() => {
-    if (!liveState.celebrationAcknowledgedBy?.length) {
+    // P525: Reset clickedContinue when both booleans are cleared (round reset)
+    const noBooleans = !liveState.celebrationAcknowledgedByCreator && !liveState.celebrationAcknowledgedByJoiner;
+    const noArray = !liveState.celebrationAcknowledgedBy?.length;
+    if (noBooleans && noArray) {
       setClickedContinue(false);
     }
-  }, [liveState.celebrationAcknowledgedBy]);
+  }, [liveState.celebrationAcknowledgedByCreator, liveState.celebrationAcknowledgedByJoiner, liveState.celebrationAcknowledgedBy]);
   const continueAcknowledged = userHasAcknowledged || clickedContinue;
 
   // Determine which phase we're in
