@@ -2,6 +2,14 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-16 [technical]: Standardize core page widths to max-w-2xl (672px)
+
+**Context:** Profile page used `max-w-lg` (512px) while feed/settings/create-story used `max-w-2xl` (672px). On desktop, profile wasted ~60% of viewport as white space. Same card components rendered at different widths depending on which page hosted them.
+**Decision:** Standardize all core content pages to `max-w-2xl`: profile, point-detail, story-detail, profile-connections. Cards are width-agnostic (fill their parent) — fix is purely at the page container level. Embed containers (`max-w-[550px]`) left untouched.
+**Alternatives rejected:** (1) `max-w-3xl` (768px) — too wide for current content density (fewer sections than LinkedIn). (2) Cards self-constraining — more defensive but harder to maintain, pages should own layout. (3) Keep `max-w-lg` — status quo leaves cramped feel.
+**Consequences:** Consistent 672px content column across all core pages. Profile name no longer truncates on mobile (removed `truncate`, added `flex-wrap`). Point card action rows no longer overflow on narrow viewports (added `flex-wrap`).
+**References:** [P531 spec](features/done/23_mar_26/p531_standardize_page_widths.md), [P532 spec](features/done/23_mar_26/p532_point_card_actions_overflow_mobile.md)
+
 ## 2026-03-16 [technical]: ClarityLoader — Draw → Breathe animation, CSS-only anti-flash
 
 **Context:** All ~16 full-page loading states used generic Lucide `LoaderIcon` (spinning asterisk). No brand identity. Loading states flash for milliseconds on fast pages — jarring blue flash and disappear.
