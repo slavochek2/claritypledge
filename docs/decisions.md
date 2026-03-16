@@ -2,6 +2,14 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-16 [technical]: Distinguish manually-entered vs auto-filled state before clearing
+
+**Context:** P483 added email-lookup auto-fill for partner name in agreement creation. The reset logic (`setPartnerName('')`) fired unconditionally on every email keystroke — wiping manually-entered names. Users who typed name first, email second had to re-enter the name.
+**Decision:** Only clear `partnerName` when `isPartnerNameLocked` is true (i.e., the name was auto-filled by lookup). Manually-entered names are never cleared by email field changes. Added `isPartnerNameLocked` to `useCallback` dependency array to prevent stale closure reads.
+**Alternatives rejected:** (1) Track name source with a separate `nameSource: 'manual' | 'lookup'` state — over-engineered for a boolean distinction already captured by `isPartnerNameLocked`. (2) Reorder UI to force email-first flow — breaks the certificate's natural document hierarchy.
+**Consequences:** Pattern to follow: when a field can be populated by both user input and auto-fill, track the source before resetting. The `isPartnerNameLocked` boolean already served as this signal — the bug was not using it as the clear condition.
+**References:** `src/app/pages/create-agreement-page.tsx` (lines 127-131)
+
 ## 2026-03-15 [product]: Post-session offer system — personalized offer pages on ladischenski.com
 
 **Context:** First paid de-risking session conducted with a warm lead (couple, referred from a ClarityPledge event). Needed a follow-up offer system that: captures learnings from each interaction (not just converts), works for couples AND co-founders, and can be generated quickly for each new lead.
