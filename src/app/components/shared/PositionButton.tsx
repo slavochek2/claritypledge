@@ -1,14 +1,10 @@
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import type { PositionType, PositionButtonGroup } from '@/app/types';
 import type { Position } from './prototype-types';
 import { getPositionGroup } from '@/app/utils/position-helpers';
 import { Button } from '@/components/ui/button';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import { ChevronDown, Check, X, HelpCircle } from 'lucide-react';
+import { Check, X, HelpCircle } from 'lucide-react';
 import {
   Tooltip,
   TooltipContent,
@@ -41,13 +37,13 @@ const POSITION_LABELS: Record<PositionType, string> = {
   strongly_agree: 'Strongly Agree',
 };
 
-// Short labels for button display (abbreviated when selected)
+// Short labels for active button display (intensity notation)
 const POSITION_SHORT_LABELS: Record<PositionType, string> = {
   strongly_disagree: 'Disagree+',
   disagree: 'Disagree',
-  somewhat_disagree: 'Disagree−',
+  somewhat_disagree: 'Disagree\u2212',
   unsure: 'Unsure',
-  somewhat_agree: 'Agree−',
+  somewhat_agree: 'Agree\u2212',
   agree: 'Agree',
   strongly_agree: 'Agree+',
 };
@@ -55,14 +51,6 @@ const POSITION_SHORT_LABELS: Record<PositionType, string> = {
 // Button group configuration
 interface ButtonGroupConfig {
   label: string;
-  /** Progressive labels for narrower screens */
-  labels: {
-    full: string;    // >= 400px
-    short: string;   // 360-399px
-    shorter: string; // 320-359px
-    tiny: string;    // < 320px
-  };
-  /** Icon component for this position group */
   icon: typeof Check;
   defaultPosition: PositionType;
   positions: PositionType[];
@@ -73,28 +61,25 @@ interface ButtonGroupConfig {
 const BUTTON_GROUPS: Record<PositionButtonGroup, ButtonGroupConfig> = {
   disagree: {
     label: 'Disagree',
-    labels: { full: 'Disagree', short: 'Dis...', shorter: 'Di', tiny: 'D' },
     icon: X,
-    defaultPosition: 'disagree', // -2
-    positions: ['strongly_disagree', 'disagree', 'somewhat_disagree'],
+    defaultPosition: 'disagree',
+    positions: ['somewhat_disagree', 'disagree', 'strongly_disagree'],
     activeClass: 'bg-blue-600 text-white',
     inactiveClass: 'bg-white text-gray-700 hover:bg-gray-50',
   },
   unsure: {
     label: 'Unsure',
-    labels: { full: 'Unsure', short: 'Uns...', shorter: 'Un', tiny: 'U' },
     icon: HelpCircle,
-    defaultPosition: 'unsure', // 0
+    defaultPosition: 'unsure',
     positions: ['unsure'],
     activeClass: 'bg-blue-600 text-white',
     inactiveClass: 'bg-white text-gray-700 hover:bg-gray-50',
   },
   agree: {
     label: 'Agree',
-    labels: { full: 'Agree', short: 'Agr...', shorter: 'Ag', tiny: 'A' },
     icon: Check,
-    defaultPosition: 'agree', // +2
-    positions: ['strongly_agree', 'agree', 'somewhat_agree'], // Most intense at top
+    defaultPosition: 'agree',
+    positions: ['somewhat_agree', 'agree', 'strongly_agree'],
     activeClass: 'bg-blue-600 text-white',
     inactiveClass: 'bg-white text-gray-700 hover:bg-gray-50',
   },
@@ -115,46 +100,25 @@ function getGroupCount(counts: SevenPointCounts, group: PositionButtonGroup): nu
   }
 }
 
-// Progressive label type for responsive display
-interface ProgressiveLabels {
-  full: string;    // >= 400px
-  short: string;   // 360-399px
-  shorter: string; // 320-359px
-  tiny: string;    // < 320px
+// Map intensity key to PositionType for a given group
+function intensityToPosition(group: PositionButtonGroup, intensity: 'somewhat' | 'default' | 'strongly'): PositionType {
+  const map: Record<PositionButtonGroup, Record<string, PositionType>> = {
+    disagree: { somewhat: 'somewhat_disagree', default: 'disagree', strongly: 'strongly_disagree' },
+    unsure: { default: 'unsure', somewhat: 'unsure', strongly: 'unsure' },
+    agree: { somewhat: 'somewhat_agree', default: 'agree', strongly: 'strongly_agree' },
+  };
+  return map[group][intensity];
 }
 
-// Get display labels for button (progressive truncation for narrow screens)
-function getButtonLabel(group: PositionButtonGroup, userPosition: Position): ProgressiveLabels {
-  const config = BUTTON_GROUPS[group];
-
-  // If user has a position in this group, show the position-specific label for full,
-  // but use group abbreviations for narrow screens
-  if (userPosition && getPositionGroup(userPosition) === group) {
-    const fullLabel = POSITION_SHORT_LABELS[userPosition];
-    return {
-      full: fullLabel,
-      short: config.labels.short,
-      shorter: config.labels.shorter,
-      tiny: config.labels.tiny,
-    };
-  }
-
-  return config.labels;
-}
-
-interface PositionButtonGroupProps {
-  group: PositionButtonGroup;
-  userPosition: Position;
-  count: number;
-  onPositionClick: (position: PositionType) => void;
-  compact?: boolean;
-  /** Omit sm:min-w-[90px] so buttons fit in narrow containers (e.g. live story card) */
-  narrow?: boolean;
+// Map PositionType to intensity key for a given group
+function positionToIntensity(position: PositionType): 'somewhat' | 'default' | 'strongly' {
+  if (position.startsWith('somewhat_')) return 'somewhat';
+  if (position.startsWith('strongly_')) return 'strongly';
+  return 'default';
 }
 
 // Tooltip text - shows "You [position]" if selected, or default action
 function getTooltipText(group: PositionButtonGroup, userPosition: Position): string {
-  // If user has a position in this group, show "You [position]"
   if (userPosition && getPositionGroup(userPosition) === group) {
     const youLabels: Record<PositionType, string> = {
       strongly_disagree: 'You strongly disagree',
@@ -167,7 +131,6 @@ function getTooltipText(group: PositionButtonGroup, userPosition: Position): str
     };
     return youLabels[userPosition];
   }
-  // Default: show the group name (what clicking will do)
   const defaults: Record<PositionButtonGroup, string> = {
     disagree: 'Disagree',
     unsure: 'Unsure',
@@ -176,164 +139,12 @@ function getTooltipText(group: PositionButtonGroup, userPosition: Position): str
   return defaults[group];
 }
 
-/**
- * Shared button content with tooltip - extracted to reduce duplication.
- * Used by all segment variants (compact, simple, dropdown).
- *
- * Uses CSS to progressively truncate labels at multiple breakpoints:
- * - >= 400px: Full label (Disagree, Unsure, Agree)
- * - 360-399px: Short label (Dis..., Uns..., Agr...)
- * - 320-359px: Shorter label (Di, Un, Ag)
- * - < 320px: Icon only (✓, ✗, ?)
- */
-interface SegmentButtonContentProps {
-  buttonLabel: ProgressiveLabels;
-  icon: typeof Check;
-  count: number;
-  isActive: boolean;
-  tooltipText: string;
-  onClick: (e: React.MouseEvent) => void;
-  /** In compact mode, hide count to save space for dropdown chevron */
-  compact?: boolean;
-}
-
-function SegmentButtonContent({
-  buttonLabel,
-  icon: Icon,
-  count,
-  isActive,
-  tooltipText,
-  onClick,
-  compact = false,
-}: SegmentButtonContentProps) {
-  return (
-    <TooltipProvider delayDuration={300}>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <button
-            onClick={onClick}
-            aria-pressed={isActive}
-            className="flex items-center gap-0.5 sm:gap-1 px-1 min-[360px]:px-1.5 sm:px-3 py-1.5 sm:py-2 min-h-[32px] sm:min-h-[44px] hover:opacity-80 transition-opacity whitespace-nowrap text-[11px] sm:text-xs"
-          >
-            {/* Icon: shown at all sizes, but alone on ultra-narrow */}
-            <Icon className="h-3 w-3 sm:h-3.5 sm:w-3.5 flex-shrink-0" />
-            {/* Progressive label display based on viewport width */}
-            {/* Full: >= 400px */}
-            <span className="hidden min-[400px]:inline">{buttonLabel.full}</span>
-            {/* Short: 360-399px */}
-            <span className="hidden min-[360px]:inline min-[400px]:hidden">{buttonLabel.short}</span>
-            {/* Shorter: 320-359px */}
-            <span className="hidden min-[320px]:inline min-[360px]:hidden">{buttonLabel.shorter}</span>
-            {/* Below 320px: icon only, no text label */}
-            {/* In compact mode, hide count to save space for dropdown chevron */}
-            {!compact && (
-              <span className={isActive ? 'opacity-90' : 'opacity-60'}>({count})</span>
-            )}
-          </button>
-        </TooltipTrigger>
-        <TooltipContent side="bottom">
-          <p>{tooltipText}</p>
-        </TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
-  );
-}
-
-/**
- * Individual segment within the segmented control.
- * Connected segments share a single outer border (no gaps).
- */
-function PositionSegment({
-  group,
-  userPosition,
-  count,
-  onPositionClick,
-  compact = false,
-  narrow = false,
-  isFirst = false,
-  isLast = false,
-}: PositionButtonGroupProps & { isFirst?: boolean; isLast?: boolean }) {
-  const config = BUTTON_GROUPS[group];
-  const isActive = userPosition ? getPositionGroup(userPosition) === group : false;
-  const buttonLabel = getButtonLabel(group, userPosition);
-  const hasDropdown = config.positions.length > 1;
-  const showDropdown = hasDropdown; // Always show dropdown - intensity selection must be available everywhere
-
-  const handleQuickClick = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    onPositionClick(config.defaultPosition);
-  };
-
-  const handleDropdownSelect = (position: PositionType) => {
-    onPositionClick(position);
-  };
-
-  // Segment styling - flex-1 on mobile for equal width, min-width on desktop for consistency
-  // Border-l shown for all non-first segments (consistent regardless of active state)
-  // Rounded corners on first/last segments (since parent removed overflow-hidden to prevent chevron clipping)
-  const segmentClass = `
-    min-h-[32px] sm:min-h-[44px] flex flex-1 sm:flex-initial ${narrow ? '' : 'sm:min-w-[90px]'} items-center justify-center text-[11px] sm:text-xs font-medium transition-colors whitespace-nowrap
-    ${isActive ? config.activeClass : config.inactiveClass}
-    ${!isFirst ? 'border-l border-gray-200' : ''}
-    ${isFirst ? 'rounded-l-lg' : ''}
-    ${isLast ? 'rounded-r-lg' : ''}
-  `.trim().replace(/\s+/g, ' ');
-
-  // Single-option groups (Unsure) don't need a dropdown
-  if (!showDropdown) {
-    return (
-      <div className={segmentClass} onClick={(e) => e.stopPropagation()}>
-        <SegmentButtonContent
-          buttonLabel={buttonLabel}
-          icon={config.icon}
-          count={count}
-          isActive={isActive}
-          tooltipText={getTooltipText(group, userPosition)}
-          onClick={handleQuickClick}
-          compact={compact}
-        />
-      </div>
-    );
+// Get display label for a group button
+function getButtonLabel(group: PositionButtonGroup, userPosition: Position): string {
+  if (userPosition && getPositionGroup(userPosition) === group) {
+    return POSITION_SHORT_LABELS[userPosition];
   }
-
-  // Segment with dropdown for multiple options (Agree/Disagree in full mode)
-  return (
-    <div className={`${segmentClass} gap-0`} onClick={(e) => e.stopPropagation()}>
-      <SegmentButtonContent
-        buttonLabel={buttonLabel}
-        icon={config.icon}
-        count={count}
-        isActive={isActive}
-        tooltipText={getTooltipText(group, userPosition)}
-        onClick={handleQuickClick}
-        compact={compact}
-      />
-
-      {/* Dropdown trigger - separated from main button */}
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <button
-            className="flex-shrink-0 pl-0.5 sm:pl-1 pr-1.5 sm:pr-2 min-h-[32px] sm:min-h-[44px] hover:opacity-80 transition-opacity"
-            aria-label={`${group} options`}
-            data-testid={`${group}-dropdown`}
-          >
-            <ChevronDown className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
-          </button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="center">
-          {config.positions.map((pos) => (
-            <DropdownMenuItem
-              key={pos}
-              onClick={() => handleDropdownSelect(pos)}
-              className={`min-h-[44px] ${userPosition === pos ? 'bg-blue-50' : ''}`}
-            >
-              {POSITION_LABELS[pos]}
-            </DropdownMenuItem>
-          ))}
-        </DropdownMenuContent>
-      </DropdownMenu>
-    </div>
-  );
+  return BUTTON_GROUPS[group].label;
 }
 
 // Single position button (kept for backwards compatibility with existing code)
@@ -366,7 +177,7 @@ export function PositionButton({
   );
 }
 
-// 3-button + dropdown UI
+// 3-button + auto-dropdown UI
 interface PositionButtonsProps {
   userPosition: Position;
   counts: SevenPointCounts;
@@ -377,24 +188,211 @@ interface PositionButtonsProps {
   narrow?: boolean;
 }
 
+// Width threshold for icon-only mode
+const ICON_ONLY_THRESHOLD = 270;
+
 export function PositionButtons({ userPosition, counts, onPositionClick, compact = false, narrow = false }: PositionButtonsProps) {
-  // Segmented control: full-width on mobile, content-sized on desktop
-  // Note: removed overflow-hidden to prevent dropdown chevrons from being clipped on narrow viewports
+  const [openDropdown, setOpenDropdown] = useState<PositionButtonGroup | null>(null);
+  const [dropdownPos, setDropdownPos] = useState<{ top: number; left: number; width: number } | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+  const segmentRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const portalDropdownRef = useRef<HTMLDivElement>(null);
+  const [containerWidth, setContainerWidth] = useState<number>(9999);
+
+  const iconOnly = containerWidth < ICON_ONLY_THRESHOLD;
+
+  // ResizeObserver to measure container width
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+
+    const observer = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        setContainerWidth(entry.contentRect.width);
+      }
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
+  // Close dropdown on click outside (check both the button row AND the portal dropdown)
+  useEffect(() => {
+    if (!openDropdown) return;
+    const handler = (e: MouseEvent) => {
+      const target = e.target as Node;
+      const inButtonRow = dropdownRef.current?.contains(target);
+      const inPortalDropdown = portalDropdownRef.current?.contains(target);
+      if (!inButtonRow && !inPortalDropdown) {
+        setOpenDropdown(null);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [openDropdown]);
+
+  // Close on Escape
+  useEffect(() => {
+    if (!openDropdown) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setOpenDropdown(null);
+    };
+    document.addEventListener('keydown', handler);
+    return () => document.removeEventListener('keydown', handler);
+  }, [openDropdown]);
+
+  const handleGroupClick = useCallback((group: PositionButtonGroup) => {
+    const config = BUTTON_GROUPS[group];
+
+    // Unsure: single option, select immediately
+    if (group === 'unsure') {
+      onPositionClick(config.defaultPosition);
+      setOpenDropdown(null);
+      return;
+    }
+
+    // If user doesn't already have this group selected, select default immediately
+    if (!userPosition || getPositionGroup(userPosition) !== group) {
+      onPositionClick(config.defaultPosition);
+    }
+
+    // If dropdown is already open for this group, treat as removal toggle
+    if (openDropdown === group) {
+      onPositionClick(userPosition!);
+      setOpenDropdown(null);
+      return;
+    }
+
+    // Toggle dropdown + capture position for portal
+    setOpenDropdown(prev => {
+      if (prev === group) return null;
+      // Calculate dropdown position from the segment button
+      const segEl = segmentRefs.current[group];
+      if (segEl) {
+        const rect = segEl.getBoundingClientRect();
+        setDropdownPos({
+          top: rect.bottom + window.scrollY + 4,
+          left: rect.left + window.scrollX + rect.width / 2,
+          width: rect.width,
+        });
+      }
+      return group;
+    });
+  }, [userPosition, onPositionClick]);
+
+  const handleIntensityClick = useCallback((group: PositionButtonGroup, intensity: 'somewhat' | 'default' | 'strongly') => {
+    const position = intensityToPosition(group, intensity);
+    onPositionClick(position);
+    setOpenDropdown(null);
+  }, [onPositionClick]);
+
   return (
-    <div className="inline-flex w-full sm:w-auto max-w-full rounded-lg border border-gray-200 bg-white [&>*]:min-w-0">
-      {BUTTON_ORDER.map((group, index) => (
-        <PositionSegment
-          key={group}
-          group={group}
-          userPosition={userPosition}
-          count={getGroupCount(counts, group)}
-          onPositionClick={onPositionClick}
-          compact={compact}
-          narrow={narrow}
-          isFirst={index === 0}
-          isLast={index === BUTTON_ORDER.length - 1}
-        />
-      ))}
+    <div className="relative w-full sm:w-auto" ref={containerRef}>
+      <div
+        ref={dropdownRef}
+        className="relative inline-flex w-full sm:w-auto max-w-full rounded-lg border border-gray-200 bg-white"
+      >
+        {BUTTON_ORDER.map((group, index) => {
+          const config = BUTTON_GROUPS[group];
+          const Icon = config.icon;
+          const isActive = userPosition ? getPositionGroup(userPosition) === group : false;
+          const count = getGroupCount(counts, group);
+          const isOpen = openDropdown === group;
+          const buttonLabel = getButtonLabel(group, userPosition);
+          const tooltipText = getTooltipText(group, userPosition);
+
+          const segmentClass = [
+            'relative flex-1 sm:flex-initial min-w-0',
+            narrow ? '' : 'sm:min-w-[90px]',
+          ].filter(Boolean).join(' ');
+
+          const buttonClass = [
+            'w-full h-full flex items-center justify-center gap-1 px-1.5 sm:px-3 py-2',
+            'min-h-[40px] sm:min-h-[44px]',
+            'text-[11px] sm:text-xs font-medium transition-colors leading-none whitespace-nowrap',
+            index === 0 ? 'rounded-l-lg' : '',
+            index === BUTTON_ORDER.length - 1 ? 'rounded-r-lg' : '',
+            index > 0 ? 'border-l border-gray-200' : '',
+            isActive ? config.activeClass : config.inactiveClass,
+          ].filter(Boolean).join(' ');
+
+          return (
+            <div key={group} className={segmentClass} ref={el => { segmentRefs.current[group] = el; }}>
+              <TooltipProvider delayDuration={300}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      onClick={() => handleGroupClick(group)}
+                      aria-pressed={isActive}
+                      aria-expanded={config.positions.length > 1 ? isOpen : undefined}
+                      className={buttonClass}
+                      data-testid={`${group}-group`}
+                    >
+                      <Icon
+                        className={`h-3.5 w-3.5 flex-shrink-0 ${isActive ? '' : 'opacity-50'}`}
+                        strokeWidth={2.5}
+                      />
+                      {!iconOnly && <span>{buttonLabel}</span>}
+                      {count > 0 && !compact && !iconOnly && (
+                        <span
+                          className={[
+                            'flex-shrink-0 inline-flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full text-[9px] font-medium leading-none',
+                            isActive ? 'bg-white/30' : 'bg-gray-100 text-gray-500',
+                          ].join(' ')}
+                          data-testid={`${group}-count-badge`}
+                        >
+                          {count}
+                        </span>
+                      )}
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom">
+                    <p>{tooltipText}</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Intensity dropdown — rendered via portal to escape overflow:hidden containers */}
+      {openDropdown && BUTTON_GROUPS[openDropdown].positions.length > 1 && dropdownPos && createPortal(
+        <div
+          ref={portalDropdownRef}
+          className="fixed z-[9999] bg-white rounded-lg border border-gray-200 shadow-lg py-1 min-w-[170px]"
+          style={{
+            top: dropdownPos.top,
+            left: dropdownPos.left,
+            transform: 'translateX(-50%)',
+            position: 'absolute',
+          }}
+          role="listbox"
+          aria-label={`${BUTTON_GROUPS[openDropdown].label} intensity options`}
+        >
+          {BUTTON_GROUPS[openDropdown].positions.map((pos) => {
+            const isSelected = userPosition === pos;
+            return (
+              <button
+                key={pos}
+                onClick={() => handleIntensityClick(openDropdown, positionToIntensity(pos))}
+                role="option"
+                aria-selected={isSelected}
+                className={[
+                  'w-full text-left px-3 py-2 text-sm flex items-center gap-2 transition-colors',
+                  isSelected ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700 hover:bg-gray-50',
+                ].join(' ')}
+                style={{ minHeight: 40 }}
+              >
+                {isSelected && <Check className="h-3.5 w-3.5 flex-shrink-0" />}
+                <span className={isSelected ? '' : 'pl-[22px]'}>{POSITION_LABELS[pos]}</span>
+              </button>
+            );
+          })}
+        </div>,
+        document.body
+      )}
     </div>
   );
 }
