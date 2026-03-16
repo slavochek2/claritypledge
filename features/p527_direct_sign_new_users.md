@@ -1,11 +1,11 @@
 ---
-status: week
+status: in-progress
 type: story
 rank: 8.0
 workstream: C1
 tags: [agreements, auth, new-users, friction]
 created_date: 2026-03-16
-delivery_stage: 3-arch-review
+delivery_stage: uat
 flow: dev
 uat_file: features/uat/p527.md
 test_files:
