@@ -45,7 +45,7 @@ function EmptyState({ isOwner }: { isOwner: boolean }) {
       {isOwner ? (
         <>
           <p className="text-sm text-muted-foreground mb-4">
-            No partners yet. Invite your co-founder to get started.
+            No partners yet. Invite someone to get started.
           </p>
           <Button asChild className="min-h-[44px] bg-[#0044CC] hover:bg-[#0044CC]/90 text-white">
             <Link to="/agreements/new">Invite a new partner</Link>

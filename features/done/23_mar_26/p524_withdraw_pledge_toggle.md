@@ -1,11 +1,12 @@
 ---
-status: week
+status: done
 type: story
 rank: 2.0
 tags: [pledge, settings, off-boarding]
 flow: inline
-delivery_stage: 1-prd-review
+delivery_stage: done
 created_date: '2026-03-15'
+completed_at: '2026-03-16'
 ---
 
 # P524: Withdraw Pledge Toggle

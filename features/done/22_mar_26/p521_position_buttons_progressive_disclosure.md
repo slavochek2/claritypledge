@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: all-done
 type: change-request
 rank: 250009.75
 changes: none
@@ -8,7 +8,7 @@ tags:
   - ux
   - position-buttons
 created_date: 2026-03-15
-delivery_stage: uat
+completed_at: "2026-03-16"
 uat_file: features/uat/p521.md
 test_files:
   - src/tests/p521-position-buttons-progressive.test.tsx
