@@ -796,7 +796,7 @@ export function ProfilePageV2() {
                   </div>
                   {/* Name + ear count + role beside avatar */}
                   <div className="min-w-0 pt-[48px]">
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
                       <h2 className="text-xl font-bold text-foreground">{profile.name}</h2>
                       <TooltipProvider delayDuration={100}>
                         <Tooltip>
