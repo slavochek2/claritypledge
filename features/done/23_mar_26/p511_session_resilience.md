@@ -1,5 +1,5 @@
 ---
-status: today
+status: all-done
 type: story
 rank: 1
 tags:
@@ -7,13 +7,12 @@ tags:
   - resilience
   - rejoin
   - mobile
-delivery_stage: uat
+completed_at: '2026-03-16'
 prepped_date: '2026-03-14'
 reviews:
   ux: null
   architect: null
   alignment: null
-locked_at: '2026-03-15T08:11:18.296Z'
 uat_file: features/uat/p511.md
 test_files:
   - src/tests/sessionResilience.test.ts
