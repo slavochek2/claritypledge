@@ -16,7 +16,7 @@ export function ActiveSessionBanner() {
 
   const displayText = activeSessionPartnerName
     ? `In session with ${activeSessionPartnerName}`
-    : `In session — code ${activeSessionCode}`;
+    : 'Session in progress';
 
   function handleRejoin() {
     navigate('/live');
