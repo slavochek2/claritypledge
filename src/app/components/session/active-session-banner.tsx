@@ -47,7 +47,7 @@ export function ActiveSessionBanner() {
       role="status"
       aria-live="polite"
       aria-label="Active session notification"
-      className="sticky top-12 lg:top-16 z-40 bg-blue-50 border-b border-blue-200 px-4 py-2"
+      className="sticky top-12 lg:top-16 z-50 bg-blue-50 border-b border-blue-200 px-4 py-2"
     >
       <div className="max-w-4xl mx-auto flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-4">
         {/* Left: pulse dot + session text */}
