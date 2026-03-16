@@ -1,14 +1,14 @@
 ---
-status: in-progress
+status: all-done
 type: bug
 rank: 1
+completed_at: '2026-03-16'
 tags:
   - live-session
   - race-condition
   - deadlock
   - observability
   - state-machine
-delivery_stage: uat
 prepped_date: '2026-03-16'
 uat_file: features/uat/p525.md
 test_files:
