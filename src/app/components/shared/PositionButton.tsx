@@ -256,6 +256,13 @@ export function PositionButtons({ userPosition, counts, onPositionClick, compact
       onPositionClick(config.defaultPosition);
     }
 
+    // If dropdown is already open for this group, treat as removal toggle
+    if (openDropdown === group) {
+      onPositionClick(userPosition!);
+      setOpenDropdown(null);
+      return;
+    }
+
     // Toggle dropdown + capture position for portal
     setOpenDropdown(prev => {
       if (prev === group) return null;
