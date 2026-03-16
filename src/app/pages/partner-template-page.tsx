@@ -5,11 +5,13 @@
  * with mock data. No auth required. CTA drives to /agreements/new/create.
  */
 
+import { useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
 import { SEO } from '@/app/components/seo';
 import { AgreementCertificate } from '@/app/components/agreements/agreement-certificate';
 import { CertificatePageShell } from '@/app/components/layout/certificate-page-shell';
+import { analytics } from '@/lib/mixpanel';
 
 const MOCK_TERMS = `We'll focus on: our work conversations.
 How to request a session: via email.
@@ -18,6 +20,12 @@ How long: at least 15 minutes per session.
 Response time: acknowledge requests within 5 days.`;
 
 export function PartnerTemplatePage() {
+  useEffect(() => {
+    analytics.track('partner_template_viewed', {
+      referrer: document.referrer || 'direct',
+    });
+  }, []);
+
   return (
     <CertificatePageShell className="py-8 pb-24 md:py-12 md:pb-12">
       <SEO

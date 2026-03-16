@@ -16,17 +16,28 @@ This is a **privacy + personal harm** scan: things that are technically safe to 
 
 ## What to look for
 
+### Guiding principle
+
+> **Would this harm someone — anyone — if they found it?**
+
+Don't match patterns. Read with judgment. Ask: "If this person googled themselves and found this page, would they be hurt, embarrassed, or angry?" If yes, flag it. The categories below are examples, not an exhaustive list.
+
 ### Hard red flags (must flag, definitely move to `.private/`)
 - Personal email addresses (non-project addresses)
 - Phone numbers, home addresses, passport/ID info
 - Credentials, passwords, tokens (should also be caught by security scan)
 - Account usernames for personal services
+- **Third-party personal information** — real names of clients, session participants, leads, or partners alongside identifying context (profession, relationship status, behavioral observations, health details, financial situation)
+- **Behavioral observations about identifiable people** — "resists paraphrasing", "didn't see the point", "gets defensive when..." — even with first names only, context makes people identifiable
+- **Session/meeting content** — what someone said, how they reacted, private disagreements revealed during facilitated sessions
 
 ### Soft flags (use judgment — flag if in doubt)
 - **Private business strategy** that could help competitors if read (customer acquisition tactics, pricing rationale, pivot options not yet announced)
 - **Personal struggles or vulnerabilities** — founder reflections, health mentions, financial stress, relationship context
 - **Negative opinions about specific named people** (investors, partners, customers, collaborators)
 - **Unannounced product decisions** that could affect stakeholder trust if leaked
+- **Personal financial details** — living costs, salary expectations, burn rate specifics
+- **Funder targeting details** — named funders with strategic reasoning (awkward if they see it before being approached)
 - **Anything you'd be uncomfortable seeing quoted** in a critical article about you or the company
 
 ### Not a concern
@@ -68,6 +79,12 @@ This is a **privacy + personal harm** scan: things that are technically safe to 
    Soft flags for review: N
    Clean: N files reviewed, nothing found
    ```
+
+6. **Stamp the review** — after completing the review (whether clean or after fixes applied):
+   ```bash
+   date -u +%Y-%m-%dT%H:%M:%SZ > .privacy-reviewed
+   ```
+   This timestamp is checked by the pre-push hook. Without it, pushes that include docs/ changes are blocked.
 
 ---
 

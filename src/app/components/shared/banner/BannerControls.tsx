@@ -192,6 +192,7 @@ function MinimalBannerControls({
   const [keywords, setKeywords] = useState('');
   const searchInputRef = useRef<HTMLInputElement>(null);
   const pencilRef = useRef<HTMLButtonElement>(null);
+  const wasLoadingRef = useRef(false);
 
   // Auto-focus search input when it appears
   useEffect(() => {
@@ -199,6 +200,15 @@ function MinimalBannerControls({
       searchInputRef.current.focus();
     }
   }, [showSearchInput]);
+
+  // Auto-dismiss search input after successful generation
+  useEffect(() => {
+    if (wasLoadingRef.current && !isLoading && !searchError) {
+      setShowSearchInput(false);
+      setKeywords('');
+    }
+    wasLoadingRef.current = isLoading;
+  }, [isLoading, searchError]);
 
   const handleSearchKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLInputElement>) => {
