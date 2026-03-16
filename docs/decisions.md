@@ -2,6 +2,14 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-16 [technical]: Server-side account creation for agreement signing (P527)
+
+**Context:** New users invited to sign a partner agreement had to: click invite → enter name → click "Sign" → check email for magic link → click link → return to app. The email round-trip added zero security value (they clicked the invite FROM their email) and caused drop-off at the highest-engagement moment. P488 had already solved this for existing users via magic links embedded in the invitation email.
+**Decision:** New edge function `create-and-sign` handles the full flow server-side: validates invitation token + expiry → creates auth user via `auth.admin.createUser({ email_confirm: true })` → creates profile → calls `accept_agreement` RPC → generates session token via `auth.admin.generateLink()` → returns `hashed_token` to client. Client exchanges token via `supabase.auth.verifyOtp({ token_hash, type: 'magiclink' })` — no redirect, no email. Fallback: if edge function fails, client falls back to existing OTP flow (graceful degradation).
+**Key patterns established:** (1) `verifyOtp` with server-generated `hashed_token` for instant auth without email — new pattern, reusable for any flow where server knows user identity. (2) Email pinning: client sends `{ agreementId, token, partnerName }` only — edge function derives email from DB, never trusts client. (3) Dual profile creation (AuthCallbackPage + edge function) — accepted trade-off; edge function creates minimal profile, AuthCallbackPage upserts on subsequent login. ToS version (`'v1.1'`) hardcoded in edge function — must update on ToS bump.
+**Alternatives rejected:** (A) Client-side `signInWithOtp` without email — impossible, Supabase always sends email for new users. (B) Custom JWT — bypasses Supabase session management. (C) Redirect through AuthCallbackPage after createUser — reintroduces redirect chain.
+**Consequences:** Agreement signing is now instant for all users (new + existing). The `create-and-sign` edge function is a new deploy dependency — added to deploy manifest. The `verifyOtp` pattern can be reused for future flows needing server-side auth (e.g., event RSVP auto-login).
+
 ## 2026-03-16 [process]: Deploy manifest — catch undeployed infra before merge
 
 **Context:** P504 (AI-generated banners) shipped frontend code to prod but the edge function and DB migrations were never deployed. Result: silent 404s and missing columns. No error surfaced until manual testing days later. The env var corruption incident (same week) was a similar class — code shipped but infrastructure didn't follow.
