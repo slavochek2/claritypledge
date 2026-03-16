@@ -46,6 +46,11 @@ export function SimpleNavigation() {
   } = useNavAuthState();
   const { isLive, setPendingNavTo } = useLiveSession();
 
+  // Close mobile menu on route change (e.g., bottom nav, back button, page links)
+  useEffect(() => {
+    setIsMobileMenuOpen(false);
+  }, [location.pathname]);
+
   useEffect(() => {
     const handleScroll = () => {
       setIsScrolled(window.scrollY > 20);
