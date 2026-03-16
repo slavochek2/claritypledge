@@ -89,6 +89,8 @@ After a facilitated session where agreement was created:
 2. [x] Reach out to first pair — "45 min, free, I surface where you think you agree but don't"
 3. [x] Run first facilitated session on a real decision they're facing (2026-03-13: first paid pair completed)
 3b. [x] Run second session — psychotherapist couple (2026-03-14: she attended Inner Space event, brought husband who resists paraphrasing; potential channel partner)
+3c. [x] Run third session — Jan+Nejc co-founders (2026-03-16: protocol worked, value received, signing Clarity Partner Agreement. ICP learning: pre-revenue pair → WTP untested, de-risking feels optional without cashflow)
+3d. [ ] Ania (psychotherapist): personalized offer sent 2026-03-16, awaiting response. Exploring both client path and channel-partner path (therapist referring co-founder pairs)
 4. [ ] Observe: did the "holy shit" moment happen? Did they quantify pain?
 5. [ ] Create partner agreement with the pair (if session landed)
 6. [ ] Book session 2 with first pair

@@ -46,7 +46,7 @@ The tools for talking got better. The tools for understanding didn't.
 
 **Primary user:** Pre-seed / seed co-founder pairs (highest relationship fragility, most to lose).
 
-**ICP qualifier:** The right unit is a **high-stakes dyad** — two people where (1) decisions are made frequently, (2) trust hasn't broken yet, and (3) miscalibration is already costing them both. Funding stage is a proxy, not the criterion. Pre-seed to seed is typical, but relationship health + decision velocity matters more than funding label.
+**ICP qualifier:** The right unit is a **high-stakes dyad** — two people where (1) decisions are made frequently, (2) trust hasn't broken yet, and (3) miscalibration is already costing them both. Funding stage is a proxy, not the criterion. **Key learning (2026-03-16): pre-revenue pairs validate the protocol works but NOT willingness-to-pay. Cash + felt pain from misalignment is the real qualifier — de-risking feels optional when misalignment hasn't cost money yet.** Target pairs with revenue, employees, or active investor relationships where a blowup has concrete cost.
 
 **Protocol precondition:** The briefing protocol requires a **motivated Person B** — someone with pre-existing stakes in understanding Person A. The protocol doesn't create motivation; it channels motivation that already exists.
 
@@ -398,7 +398,7 @@ Gates to unlock next level of ambition, not reasons to quit. If not met, extend 
 
 ## Validation Status
 
-**Current state (2026-03-09):** Zero paid sessions run. First facilitated session scheduled March 10. Calibration points/stories filed and workshop-ready. €199 Co-founder Alignment Check added to price ladder as entry point between free workshop and €950 de-risking. Article-as-qualifier channel: publish 8-points article → CTA "set positions" (requires registration) → reach out based on who engages. See C1 milestone.
+**Current state (2026-03-16):** Three sessions run (paid pair Mar 13, psychotherapist couple Mar 14, Jan+Nejc Mar 16). Protocol validated — gap reveals land, pairs sign partner agreements. WTP untested — Jan+Nejc pre-revenue (de-risking feels optional), Ania offer pending. **Revenue model pivot (2026-03-16): donation-after-session.** Pairs donate what they felt the session was worth. Produces genuine WTP signal without the "ask" barrier. Transition to fixed pricing after donation data confirms value perception. Kill condition: if 5 pairs' total donations < €200, problem isn't painful enough to monetize. Article-as-qualifier channel: publish 8-points article → CTA "set positions" (requires registration) → reach out based on who engages. See C1 milestone.
 
 **Canvas G synthesis (2026-03-08):** Consolidated from 7 canvas iterations (A-G) in Claude Desktop. Key changes: €950 de-risking package, continuous price ladder, personal story as primary unfair advantage, "you are the MCP" framing, investor DD parked as future track.
 
