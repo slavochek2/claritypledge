@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
 import { generateAIBanner, type BannerEntityType } from '@/app/prototypes/events/banner-utils';
@@ -37,6 +37,12 @@ export function useBanner({
   onSave,
 }: UseBannerOptions): UseBannerReturn {
   const [bannerUrl, setBannerUrl] = useState<string | null>(initialBannerUrl ?? null);
+  // Sync when initialBannerUrl arrives async (e.g. after profile fetch on hard refresh)
+  useEffect(() => {
+    if (initialBannerUrl != null) {
+      setBannerUrl(initialBannerUrl);
+    }
+  }, [initialBannerUrl]);
   const [isLoading, setIsLoading] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
   const [searchError, setSearchError] = useState('');
