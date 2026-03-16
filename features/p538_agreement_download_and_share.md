@@ -22,12 +22,13 @@ The Clarity Pledge page has a "Download Image" button and a "Share" dropdown (co
 
 Copy the ShareDropdown pattern from the pledge page into a new `AgreementShareDropdown` component. Agreement-specific content:
 
-- **Export certificate**: New `ExportAgreementCertificate` — renders the agreement certificate (both names, terms, gold seal) as a PNG-exportable layout
+- **Export certificate**: New `ExportAgreementCertificate` — renders the agreement certificate (both names, terms, gold seal) as a 1080x1080 PNG-exportable layout with inline styles (html-to-image compatibility). Gold seal uses inline `#D4AF37` border, not Tailwind classes. QR code links to `https://claritypledge.com/agreements/{id}`.
 - **Download filename**: `clarity-agreement-{displayId}.png` (e.g. `clarity-agreement-A-0042.png`)
+- **Agreement URL**: Constructed as `${window.location.origin}/agreements/${agreement.id}` — passed as prop to `AgreementShareDropdown`
 - **Share text**: "We made a Clarity Partner Agreement — a mutual commitment to clarity in our communication." + both names + agreement URL
 - **LinkedIn post text**: Agreement-specific (both names, bilateral language)
-- **Email invite**: "See our Clarity Partner Agreement" with agreement URL
-- **Visibility**: Show only on `active` agreements, for either party
+- **Email invite**: Subject: "{currentUserName} wants to share a Clarity Partner Agreement". Body references both parties and agreement URL. Current user name resolved from `agreement.creator?.name` or `agreement.partner?.name` based on `isCreator`.
+- **Visibility**: Show only on `active` agreements, for either party. Non-party visitors see the certificate but not the toolbar (requires `visibility: 'public'` on the agreement for the page to render at all — private agreements show the locked/sign-in screen instead).
 
 Reuse the same toolbar layout (Download Image button + Share dropdown with chevron) positioned above the certificate, matching the pledge page pattern.
 
@@ -66,11 +67,12 @@ Dependencies: `html-to-image` (already installed for pledge export)
 - ❌ Clipboard copy — browser API, verified via UAT
 - ❌ LinkedIn/email link opens — external browser behavior, UAT only
 - ❌ Export certificate visual layout — no visual regression tooling, UAT covers
+- ❌ Declined/expired/terminated toolbar hidden — same code path as pending (toolbar only renders inside `ActiveView`); pending test covers the branch
 
 **Test Pyramid:**
 ```
      /\
-    /  \   3 E2E flows (7 tests)
+    /  \   3 E2E flows (5 tests)
    /____\
   /      \  1 Smoke test
  /________\
