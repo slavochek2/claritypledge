@@ -1,8 +1,12 @@
 ---
-status: week
+status: in-progress
 type: story
-rank: 1.0
-tags: [transcription, live, diarization, c3]
+rank: 125002.875
+tags:
+  - transcription
+  - live
+  - diarization
+  - c3
 prepped_date: '2026-03-12'
 flow: dev
 delivery_stage: 3-arch-review
@@ -10,13 +14,14 @@ reviews:
   ux: null
   architect: null
   alignment: null
-created_date: 2026-03-12
+created_date: 2026-03-12T00:00:00.000Z
 uat_file: features/uat/p495.md
 test_files:
   - e2e/integration/p495-transcription-migration.spec.ts
   - e2e/p495-transcription.spec.ts
   - e2e/a11y/p495-accessibility.spec.ts
   - e2e/p495-smoke.spec.ts
+locked_at: '2026-03-15T08:05:20.374Z'
 ---
 
 # P495: Automatic Live Session Transcription with Speaker Labels

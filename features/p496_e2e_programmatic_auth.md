@@ -1,12 +1,16 @@
 ---
-status: done
+status: all-done
 type: task
-rank: 1.0
-tags: [e2e, auth, testing, infrastructure]
+rank: 1
+tags:
+  - e2e
+  - auth
+  - testing
+  - infrastructure
 flow: dev
 delivery_stage: uat
-completed_at: '2026-03-13'
-created_date: 2026-03-12
+created_date: 2026-03-12T00:00:00.000Z
+locked_at: '2026-03-15T08:13:06.046Z'
 ---
 
 # P496: E2E Programmatic Auth Bypass

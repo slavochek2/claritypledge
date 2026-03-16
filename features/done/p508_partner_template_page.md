@@ -1,12 +1,13 @@
 ---
-status: in-progress
+status: all-done
 type: feature
 rank: 250005.75
 workstream: C1
 created_date: 2026-03-14
 tags: []
 flow: quick-feature
-delivery_stage: uat
+delivery_stage: done
+completed_at: 2026-03-15
 uat_file: features/uat/p508.md
 test_files:
   - e2e/p508-partner-template.spec.ts

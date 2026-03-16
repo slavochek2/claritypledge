@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: change-request
 rank: 250008.75
 changes: p504
@@ -7,9 +7,10 @@ tags:
   - redesign
   - p504
   - banners
-created_date: 2026-03-14
+created_date: 2026-03-14T00:00:00.000Z
 flow: dev
-delivery_stage: uat
+delivery_stage: done
+completed_at: 2026-03-15
 ---
 
 # P519: Remove On-Page Banners from Stories & Points

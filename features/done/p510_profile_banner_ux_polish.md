@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: change-request
 rank: 250007.75
 changes: p504
@@ -9,8 +9,9 @@ tags:
   - banner
   - profile
   - ux-polish
-created_date: 2026-03-14
-delivery_stage: uat
+created_date: 2026-03-14T00:00:00.000Z
+delivery_stage: done
+completed_at: 2026-03-15
 uat_file: features/uat/p510.md
 test_files:
   - e2e/p510-profile-banner-ux.spec.ts

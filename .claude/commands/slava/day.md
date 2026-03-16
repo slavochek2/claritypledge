@@ -83,6 +83,7 @@ Show: `✓ Prod smoke: all pass` or `✗ Prod smoke: N failed — [first failure
 Use Sentry MCP (`mcp__sentry__search_issues`):
 - Org: `22minds-llc`, Project: `javascript-react`
 - Query: unresolved issues first seen since `$SINCE`
+- Also search for `live_state_update_failed` specifically — these indicate /live session state failures that may cause orphaned sessions
 
 Fallback (if MCP unavailable): skip with `⚠ Sentry: MCP unavailable — check manually`
 
@@ -209,11 +210,26 @@ fi
 ```
 Flag only if broken: Ghost non-200, backup >2d old. gcloud unavailable → silent skip.
 
+**f) Session health (orphaned /live sessions)**
+```bash
+source "$(git rev-parse --show-toplevel)/.env.local"
+PROD_URL="https://besjtuodziykmjidubzw.supabase.co/rest/v1"
+CUTOFF=$(date -u -v-60M +"%Y-%m-%dT%H:%M:%SZ" 2>/dev/null || date -u -d "60 minutes ago" +"%Y-%m-%dT%H:%M:%SZ")
+
+# Sessions with a joiner that haven't been updated in >60min and aren't completed
+curl -s "${PROD_URL}/clarity_sessions?select=id,code,created_at,updated_at&joiner_id=not.is.null&updated_at=lt.${CUTOFF}&status=eq.active&order=updated_at.desc&limit=5" \
+  -H "apikey: $PROD_SUPABASE_SERVICE_ROLE_KEY" \
+  -H "Authorization: Bearer $PROD_SUPABASE_SERVICE_ROLE_KEY"
+```
+
+Show: `✓ Sessions: no orphans` or `⚠ ORPHANED SESSIONS: N sessions with joined users but no completion (possible deadlocks) — check Sentry for live_state errors`
+
 Output health block:
 ```
 HEALTH
   [✓/✗] Prod smoke
   [✓/⚠] Sentry
+  [✓/⚠] Sessions
   [user activity summary line]
   [nothing if cloud ok / ⚠ per issue]
 ```

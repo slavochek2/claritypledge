@@ -1,8 +1,13 @@
 ---
-status: week
+status: today
 type: story
-rank: 5.0
-tags: [live, ux, feedback, turn-taking]
+rank: 0.5
+tags:
+  - live
+  - ux
+  - feedback
+  - turn-taking
+locked_at: '2026-03-15T14:22:52.432Z'
 ---
 
 # P517: Turn-Taking, Listener Guidance, and Real-Time Feedback

@@ -10,6 +10,11 @@ const productionPages = [
 
 const devPages = [
   {
+    path: '/tree/position-buttons',
+    label: 'Position Buttons v2',
+    description: 'Two-step progressive disclosure — no hidden dropdowns, clean responsive scaling'
+  },
+  {
     path: '/tree/design-audit',
     label: 'Design Audit: Certificates',
     description: 'Pledge vs Agreement — side-by-side comparison of all states, buttons, inputs'
