@@ -2,6 +2,16 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-16 [technical]: JSONB merge is the default write path — full overwrite only for story fields and explicit clears
+
+**Context:** Celebration deadlock on prod: both users clicked Continue on a 10/10 round (free conversation, no story selected), both got stuck at "Waiting for partner to continue..." indefinitely. P525's per-role boolean fix (Mar 16) prevented array-level races but didn't fix the DB write routing. The P399 routing condition `(touchesStory || !storyIsActive || hasExplicitClears)` sent ALL writes through full overwrite when no story was active. Two simultaneous full overwrites = last-writer-wins = partner's celebration boolean erased. The reactive `useEffect` safety net couldn't recover because the DB never held both booleans as `true` simultaneously.
+**Decision:** Removed `!storyIsActive` from the routing condition. Extracted `shouldUseFullOverwrite()` as a testable pure function. New condition: `(touchesStory || hasExplicitClears)`. JSONB merge (`patch_live_state`) is now the default for all writes that don't touch story fields and don't clear fields. This aligns the code with P399's original stated intent ("partial merge when updates don't include story/content fields").
+**Alternatives rejected:** (1) Force-using patch path only for celebration writes — treats symptom, leaves rating writes and phase changes vulnerable to the same race. (2) Adding a server-side trigger to detect both booleans — adds DB complexity for a client-side routing bug.
+**Consequences:** Any `updateLiveState` call that doesn't include story keys or `undefined` values now uses atomic JSONB merge. This is strictly safer for concurrent writes. Full overwrite still fires for round resets (which include `undefined` for clearing fields) and story selection. The `storyIsActive` variable is removed from the routing path entirely — `stateBeforeUpdate` is passed to `shouldUseFullOverwrite()` for documentation but not used.
+**References:** P399 (original JSONB merge), P525 (per-role booleans), `src/app/pages/clarity-live-page.tsx:shouldUseFullOverwrite()`
+
+---
+
 ## 2026-03-16 [process]: /ux should prototype experiential forks before spec lock-in
 
 **Context:** P521 ran the full pipeline for Option D (row replacement). User rejected D during prototype testing, chose Option A (auto-dropdown). Spec, UX, tests all rewritten. Root cause via /falsify: /challenge-prd treats all decisions as analytically resolvable, but interaction-pattern choices can only be evaluated by experiencing them.
