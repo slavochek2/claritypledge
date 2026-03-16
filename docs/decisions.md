@@ -2,6 +2,15 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-16 [product]: Off-boarding split — withdraw pledge (P524) vs delete account (P520)
+
+**Context:** Gosha (first pledger exit request, March 2026) asked to leave via WhatsApp. Three-day back-and-forth ensued. `/challenge-prd` on the initial combined spec surfaced 3 BLOCKs: agreement termination flow undefined, post-withdrawal profile state undefined, PII inventory missing. Codebase investigation revealed `has_pledged: false` already works everywhere (pledgers page, featured profiles, badge, re-pledge upgrade flow).
+**Decision:** Split into two features. (1) **P524 — Withdraw pledge** (inline toggle, shipped): `updateProfile({ has_pledged: false })` in settings. All downstream queries already filter on `has_pledged: true`. Re-pledge via existing `/sign-pledge` upgrade flow. (2) **P520 — Delete account** (separate spec, not yet built): edge function for `auth.users` deletion, migration to orphan points/events (`SET NULL` instead of CASCADE), agreement termination, PII cleanup for non-FK'd tables.
+**Key insight — community data must survive user deletion:** Points have positions from other users. `ON DELETE CASCADE` on `first_validator_id` would destroy other people's contributions. Decision: orphan points and events (`SET NULL`), delete personal data (stories, positions, witnesses, agreements).
+**Alternatives rejected:** (A) Combined spec with both actions (over-scoped for C1 phase). (B) "Pause" as separate state (adds complexity — withdraw is already reversible). (C) Delete everything including community data (destroys other users' contributions).
+**Consequences:** P524 is shipped. P520 needs: migration (`ALTER TABLE points/events`), edge function (`delete-account`), explicit cleanup for `terms_acceptances` and `session_consents` (no FK constraints). Agreement termination: set `status: terminated` silently, then delete rows. Deleted profile slug shows "This profile no longer exists."
+**References:** `features/p520_pledge_withdrawal_account_deletion.md`, `features/p524_withdraw_pledge_toggle.md`, `claude-conversations/2026-03/2026-03-13-Отзыв карточки clarity pledge.md`
+
 ## 2026-03-16 [technical]: Server-side account creation for agreement signing (P527)
 
 **Context:** New users invited to sign a partner agreement had to: click invite → enter name → click "Sign" → check email for magic link → click link → return to app. The email round-trip added zero security value (they clicked the invite FROM their email) and caused drop-off at the highest-engagement moment. P488 had already solved this for existing users via magic links embedded in the invitation email.
