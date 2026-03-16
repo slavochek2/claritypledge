@@ -7,7 +7,7 @@ tags:
   - images
   - upload
   - gcs
-delivery_stage: 2-ux-review
+delivery_stage: 3-arch-review
 created_date: 2026-03-16
 prepped_date: null
 flow: dev
@@ -309,5 +309,252 @@ reviews:
 
 1. ~~**`/challenge-prd`**~~ — done. Verdict: RETHINK (strategic timing). Founder override: proceeding. OG demoted to future, "reasoning" → "evidence", kill signal added.
 2. ~~**`/ux`**~~ — done. Image below statement inside card, camera icon upload button, Dialog lightbox, no caption field.
-3. **`/architect`** — GCS bucket, signed URL parameterization, DB schema, RLS, client-side resize, cleanup strategy
+3. ~~**`/architect`**~~ — done. New `image_url` column, dedicated GCS bucket, parameterized cloud function, `browser-image-compression`, public-read GCS, accept orphans.
 4. **`/generate-tests`** → **`/spec-review`** → **`/decompose`** (if complex enough) → **`/dev`**
+
+---
+
+## Technical Architecture
+
+### Technical Analysis
+
+#### Current Points Schema
+
+The `points` table (from `20260204_stories_points_calibration.sql`) has columns: `id`, `statement`, `context`, `first_validator_id`, `created_at`, `updated_at`, `tags`. P504 added `banner_url TEXT` via `20260313141528_p504_banner_columns.sql`. The table has RLS enabled with SELECT (public) and INSERT (verified users) policies. **There is no UPDATE policy on `points`** — the original migration explicitly notes "Points are not editable after creation (statement is immutable)."
+
+TypeScript types: `Point` interface has `bannerUrl?: string`. `DbPoint` has `banner_url?: string | null`. `DbPointWithCreator` in `points-service-real.ts` includes `banner_url`. The mapper `mapPointFromDb` maps it to `bannerUrl`.
+
+#### GCS Signed URL Function
+
+`cloud-functions/gcs-signed-url/index.js` is a Cloud Function that:
+- Hardcodes `BUCKET_NAME = 'claritypledge-ml-training'`
+- Accepts `{ sessionCode, fileName, contentType }` via POST
+- Sanitizes inputs (alphanumeric + `-_` for sessionCode, + `.` for fileName)
+- Generates a write-only signed URL valid for 15 minutes
+- Stores at path `sessions/{sessionCode}/{fileName}`
+
+#### Audio Upload Pattern (Reusable)
+
+`src/app/data/api.ts` contains the proven upload flow:
+1. `getSignedUploadUrl(sessionCode, fileName, contentType)` — calls the cloud function
+2. `uploadToGCS(uploadUrl, blob, contentType)` — PUTs the file with retry + exponential backoff
+3. `withRetry()` — generic retry helper with jitter, respects 429 Retry-After headers
+
+The client calls these functions from `uploadAudioChunk()` and `uploadSessionData()`. Same pattern applies to image uploads.
+
+#### Point Detail Page
+
+`point-detail-page.tsx` renders point card with: Pin icon + statement + tags + context + position buttons. Image would insert between context and position buttons (per UX spec). The page already uses `point.bannerUrl` for SEO/OG image via `<SEO image={point.bannerUrl}>`.
+
+### Architecture Decisions
+
+#### Decision 1: Storage Bucket
+
+**Chosen:** Create a dedicated `claritypledge-uploads` GCS bucket. Parameterize the cloud function to accept a `bucket` field.
+
+**Rationale:** `claritypledge-ml-training` contains session audio recordings — mixing user-uploaded images into it creates a messy namespace. A dedicated bucket allows independent lifecycle policies (TTL, public access, CORS).
+
+**Trade-off:** One more bucket to manage. Acceptable — buckets are free, separation of concerns matters.
+
+**Alternative rejected:** Reusing `claritypledge-ml-training` — would require careful path conventions to avoid collisions with session data, and would inherit ML bucket's access controls which differ from what images need.
+
+#### Decision 2: Database Column
+
+**Chosen:** Add a new `image_url TEXT` column on `points`. Do not reuse `banner_url`.
+
+**Rationale:** `banner_url` was added by P504 for AI-generated decorative banners (removed in P519 but column remains). `image_url` is author-uploaded supporting evidence — different semantics, different lifecycle, different source. Using the same column would conflate AI-generated vs user-uploaded, making cleanup and migration ambiguous.
+
+**Trade-off:** Two URL columns on `points` (`banner_url` and `image_url`). `banner_url` is effectively dead (P519 removed its usage). Could drop `banner_url` later as cleanup.
+
+**Alternative rejected:** Reusing `banner_url` — would require repurposing a dead column with different semantics. `banner_url` is also used in SEO/OG metadata (`<SEO image={point.bannerUrl}>`), so repurposing would silently change OG image behavior.
+
+#### Decision 3: RLS Policy for Image Updates
+
+**Chosen:** ~~UPDATE policy with WITH CHECK guards~~ → **RPC function** (overridden by Security Review).
+
+**Rationale:** Security review found that PostgreSQL UPDATE policies apply to the entire row — there is no column-level restriction. The original `WITH CHECK` subquery approach is fragile and could allow statement mutation in edge cases. An RPC function (`update_point_image`) provides a hard guarantee: the client never gets UPDATE permission on `points`.
+
+**Implementation:** `SECURITY DEFINER` function:
+
+```sql
+CREATE OR REPLACE FUNCTION update_point_image(p_point_id UUID, p_image_url TEXT)
+RETURNS void AS $$
+BEGIN
+  UPDATE points
+  SET image_url = p_image_url, updated_at = now()
+  WHERE id = p_point_id AND first_validator_id = auth.uid();
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Not authorized or point not found';
+  END IF;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+```
+
+No UPDATE RLS policy on `points` — immutability guarantee preserved.
+
+**Trade-off:** RPC call instead of direct Supabase `.update()`. Slightly more code in the service layer, but the security guarantee is worth it.
+
+**Alternative rejected:** (a) UPDATE policy with `WITH CHECK` — fragile, relies on subquery reading current state mid-transaction. (b) Separate `point_images` table — adds join complexity for a single optional URL.
+
+#### Decision 4: Client-Side Resize
+
+**Chosen:** Use `browser-image-compression` library.
+
+**Rationale:** The canvas API approach requires manual code for: reading EXIF orientation, handling PNG transparency, dealing with browser differences in canvas max size, and memory management for large images. `browser-image-compression` handles all of this in ~15KB gzipped, is well-maintained (2.5M weekly downloads), and supports the exact API needed: `maxWidthOrHeight: 1200`, `maxSizeMB: 5`, `useWebWorker: true`.
+
+**Trade-off:** Adds a dependency. Acceptable — the alternative is 100+ lines of brittle canvas code.
+
+**Alternative rejected:** Raw canvas API — too many edge cases (EXIF rotation, iOS memory limits, PNG alpha handling). Not worth the maintenance burden for a solved problem.
+
+#### Decision 5: GCS Object Access (Public vs Signed URLs for Reads)
+
+**Chosen:** Public-read objects. Set bucket-level `allUsers` read access on `claritypledge-uploads`.
+
+**Rationale:** Point images are displayed on publicly readable pages (no auth required to view a point). Signed read URLs would require: (a) a cloud function to generate read URLs, (b) URL expiry management, (c) cache invalidation complexity, (d) broken images when URLs expire. The content is inherently public.
+
+**URL format:** `https://storage.googleapis.com/claritypledge-uploads/points/{point_id}/{filename}`
+
+**Trade-off:** Files are publicly accessible if someone knows the URL. Acceptable — the content is displayed publicly anyway. No private images in V1.
+
+**Alternative rejected:** Signed read URLs — unnecessary complexity for public content. Would also break CDN caching (signed URLs have unique query strings).
+
+#### Decision 6: Orphan/Deletion Cleanup Strategy
+
+**Chosen:** Accept orphans at low volume. No cleanup job in V1.
+
+**Rationale:** Orphans occur in two scenarios: (1) image uploaded but point DB save fails, (2) image replaced/removed but old GCS file not deleted. At current volume (single-digit users), orphaned images cost fractions of a cent in storage. Building a cleanup job is premature.
+
+**Deletion on remove/replace:** When a user removes or replaces an image, the old GCS file is NOT deleted. The `image_url` column is updated to the new URL (or NULL). The old file becomes an orphan.
+
+**Future cleanup:** If orphans become a cost concern, add a GCS lifecycle rule (e.g., delete objects not referenced in any `image_url` column after 30 days). Or a weekly cloud function.
+
+**Trade-off:** Some wasted storage. At ~200KB per resized image, even 1000 orphans = 200MB = negligible cost on GCP free credits.
+
+**Alternative rejected:** Immediate GCS deletion on remove/replace — requires a cloud function with Supabase webhook or a server-side delete call. Complexity not justified at current scale.
+
+#### Decision 7: Upload Flow
+
+**Chosen:** Signed URL write -> client PUT -> save URL to DB. Same pattern as audio uploads.
+
+**Flow:**
+
+1. User selects image -> client validates format/size -> `browser-image-compression` resizes
+2. Client calls `getSignedUploadUrl()` with `{ bucket: 'claritypledge-uploads', folder: 'points', entityId: pointId, fileName, contentType }`
+3. Cloud function returns signed write URL (15min expiry)
+4. Client PUTs resized image blob to signed URL (with retry/backoff)
+5. Client constructs public URL: `https://storage.googleapis.com/claritypledge-uploads/points/{pointId}/{fileName}`
+6. Client saves `image_url` to `points` table via Supabase update
+
+**For new point creation:** Steps 1-4 happen after the point is created (need `pointId` for the path). If upload fails, point exists without image — user can add later.
+
+**Cloud function changes:** Parameterize bucket name (accept `bucket` field, default to `claritypledge-ml-training` for backward compatibility). Add `folder` and `entityId` fields. New path pattern: `{folder}/{entityId}/{fileName}`.
+
+### Security Review
+
+### RLS Policies
+
+- ⚠️ **CRITICAL: UPDATE policy exposes all columns.** PostgreSQL `CREATE POLICY FOR UPDATE` applies to the entire row. The architect's `WITH CHECK` subquery approach (verifying immutable fields unchanged) is clever but fragile — it relies on the subquery reading current DB state mid-transaction. **Safer alternative: RPC function.** Create a `SECURITY DEFINER` function `update_point_image(point_id UUID, new_image_url TEXT)` that verifies `auth.uid() = first_validator_id` and only touches `image_url`. No UPDATE policy needed. The client never gets UPDATE permission on points.
+- **Decision: Use RPC function (Option A from security review).** This overrides architect Decision 3. The RPC approach provides a hard guarantee against statement mutation without fighting PostgreSQL's column-level permission model.
+- ✅ Existing SELECT policy: public read — unchanged
+- ✅ Existing INSERT policy: verified users — unchanged
+
+### Authentication
+
+- ⚠️ **CRITICAL: Existing cloud function (`gcs-signed-url`) has zero authentication.** No `Authorization` header check, no JWT validation, no API key. Anyone who knows the function URL can generate signed upload URLs. This is a pre-existing vulnerability — P526 must fix it.
+- **Required:** Add Supabase JWT verification to cloud function. Client passes access token in `Authorization: Bearer` header. Function decodes and verifies against Supabase JWT secret.
+
+### Input Validation
+
+- ⚠️ **MEDIUM: No server-side content-type allowlist.** Cloud function accepts any `contentType` from the request. Must allowlist `image/jpeg`, `image/png`, `image/webp` only.
+- ⚠️ **MEDIUM: No server-side file size enforcement.** Must add `X-Goog-Content-Length-Range: 0, 5242880` condition to signed URL to enforce 5MB server-side.
+- ✅ Filename sanitization exists (regex strips non-alphanumeric). For P526: use `point-images/{pointId}/{uuid}.{ext}` — no user-controlled path segments.
+
+### Data Protection
+
+- ✅ Images are intentionally public content (user chose to upload). No PII concern.
+- ⚠️ **LOW: CORS allows all origins (`*`).** Should restrict to `claritypledge.com` + `localhost` for dev.
+- ✅ `image_url` exposes bucket name in URL — acceptable for V1 given public content.
+
+### Upload Security
+
+- ✅ Signed URL scope: `write` action, 15-minute expiry — correct.
+- ⚠️ Add content-length restriction to signed URL (see Input Validation above).
+- ✅ Public-read for stored images — appropriate for user-chosen public content.
+
+### Security Summary
+
+| # | Severity | Finding | Action |
+|---|----------|---------|--------|
+| 1 | **CRITICAL** | UPDATE policy would expose all point columns | Use RPC function — never grant UPDATE on points |
+| 2 | **CRITICAL** | Cloud function has zero authentication | Add JWT verification |
+| 3 | **MEDIUM** | No server-side content-type allowlist | Allowlist 3 MIME types in cloud function |
+| 4 | **MEDIUM** | No server-side file size enforcement | Add content-length condition to signed URL |
+| 5 | **LOW** | CORS allows all origins | Restrict to claritypledge.com + localhost |
+
+### Implementation Approach
+
+#### Files to Create
+
+| File | Purpose |
+|------|---------|
+| `src/app/components/shared/image-upload.tsx` | `<ImageUpload>` component: file picker + validation + preview + remove |
+| `src/lib/image-resize.ts` | Wrapper around `browser-image-compression` with P526 defaults |
+| `src/lib/gcs-upload.ts` | Extracted GCS upload helpers (from `api.ts`) — `getSignedUploadUrl`, `uploadToGCS`, `withRetry` |
+| `supabase/migrations/YYYYMMDDHHMMSS_p526_point_image_url.sql` | Add `image_url` column + UPDATE RLS policy |
+
+#### Files to Modify
+
+| File | Change |
+|------|--------|
+| `cloud-functions/gcs-signed-url/index.js` | Accept `bucket`, `folder`, `entityId` params; default bucket to `claritypledge-ml-training` |
+| `src/app/types/index.ts` | Add `imageUrl?: string` to `Point`, `DbPoint`, and related interfaces |
+| `src/app/data/points-service.interface.ts` | Add `updatePointImage(pointId: string, imageUrl: string \| null): Promise<boolean>` |
+| `src/app/data/points-service-real.ts` | Implement `updatePointImage`; add `image_url` to `DbPointWithCreator`; update `mapPointFromDb` |
+| `src/app/pages/point-detail-page.tsx` | Add image display, lightbox, author controls (add/change/remove) |
+| `src/app/data/api.ts` | Update `getSignedUploadUrl` to accept bucket/folder/entityId (or extract to `gcs-upload.ts`) |
+| `package.json` | Add `browser-image-compression` dependency |
+
+#### Build Sequence
+
+1. **Create GCS bucket** — `gsutil mb -l us-central1 gs://claritypledge-uploads` + set public-read IAM + CORS config
+2. **Update cloud function** — parameterize bucket, deploy: `gcloud functions deploy gcs-signed-url ...`
+3. **Database migration** — add `image_url TEXT` column + UPDATE RLS policy
+4. **Install dependency** — `npm install browser-image-compression`
+5. **Extract upload helpers** — create `src/lib/gcs-upload.ts` from `api.ts` upload code, update imports
+6. **Create image resize module** — `src/lib/image-resize.ts` wrapping `browser-image-compression`
+7. **Create ImageUpload component** — file input + validation + preview + remove button
+8. **Update types** — add `imageUrl` to Point/DbPoint interfaces
+9. **Update points service** — add `updatePointImage` method + interface
+10. **Update point detail page** — image display + lightbox + author controls
+11. **Update point creation flow** — wire `<ImageUpload>` into creation form, upload after point created
+12. **Test end-to-end** — create point with image, view, change, remove
+
+#### Migration SQL
+
+```sql
+-- P526: Add image_url column for user-uploaded supporting images on points
+-- Separate from banner_url (P504 AI-generated, now unused per P519)
+ALTER TABLE public.points ADD COLUMN IF NOT EXISTS image_url TEXT;
+
+-- P526: Allow point creators to update image_url (and only image_url)
+-- Points are immutable (statement/context/tags never change),
+-- but image is metadata — author can add/change/remove.
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE policyname = 'Point creators can update image_url'
+    AND tablename = 'points'
+  ) THEN
+    CREATE POLICY "Point creators can update image_url"
+      ON points FOR UPDATE
+      USING (auth.uid() = first_validator_id)
+      WITH CHECK (
+        auth.uid() = first_validator_id
+        AND statement IS NOT DISTINCT FROM (SELECT p.statement FROM points p WHERE p.id = points.id)
+        AND context IS NOT DISTINCT FROM (SELECT p.context FROM points p WHERE p.id = points.id)
+        AND tags IS NOT DISTINCT FROM (SELECT p.tags FROM points p WHERE p.id = points.id)
+      );
+  END IF;
+END $$;
+```

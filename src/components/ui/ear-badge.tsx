@@ -22,7 +22,7 @@ export function EarBadge({ count, name, size = 12, className = '' }: EarBadgePro
 
   return (
     <MobileTooltip content={tooltip}>
-      <span className={`inline-flex items-center gap-0.5 text-xs text-muted-foreground ${className}`}>
+      <span className={`inline-flex items-center gap-0.5 text-xs font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded-full px-1.5 py-0.5 ${className}`}>
         <Ear size={size} />
         {count}
       </span>

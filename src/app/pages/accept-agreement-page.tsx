@@ -19,6 +19,7 @@ import { supabase } from '@/lib/supabase';
 import { invokeAgreementEmails } from '@/lib/agreement-emails';
 import { toast } from 'sonner';
 import { analytics } from '@/lib/mixpanel';
+import { triggerConfetti } from '@/lib/confetti';
 import { CertificatePageShell } from '@/app/components/layout/certificate-page-shell';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -200,6 +201,7 @@ export function AcceptAgreementPage() {
       // Fire-and-forget email
       invokeAgreementEmails('accepted', agreementId);
 
+      triggerConfetti();
       toast.success(`Agreement Sealed — your Clarity Partner Agreement with ${nameToUse || 'your partner'} is now active.`);
       navigate(`/agreements/${agreementId}`);
     } finally {
@@ -365,6 +367,7 @@ export function AcceptAgreementPage() {
 
       // Success — session established, agreement accepted, email sent by edge function
       analytics.track('agreement_direct_sign_success', { agreement_id: agreementId });
+      triggerConfetti();
       toast.success(`Agreement Sealed — your Clarity Partner Agreement is now active.`);
 
       // Clean up token from URL (security: prevent token leakage)
