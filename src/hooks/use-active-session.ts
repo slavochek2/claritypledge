@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import {
   useLiveSession,
   getActiveSessionFromStorage,
@@ -9,19 +9,19 @@ import { getClaritySession } from '@/app/data/api';
 /** Sessions with no heartbeat for 10+ minutes are treated as zombies */
 const ZOMBIE_THRESHOLD_MS = 10 * 60 * 1000;
 
+/** Poll interval for checking if session is still active (30s) */
+const POLL_INTERVAL_MS = 30 * 1000;
+
 /**
- * P511: Hook that restores active session state from localStorage on mount.
+ * P511: Hook that restores active session state from localStorage on mount,
+ * then polls every 30s to detect when partner ends the session.
  *
- * On mount, checks localStorage for `cp_active_session`. If found, validates
- * against the DB (session still active / not ended). Updates context if valid,
- * clears localStorage if stale/ended.
+ * Visibility-aware: pauses polling when tab is hidden, re-validates immediately
+ * on tab focus. This ensures the banner disappears promptly when the user
+ * returns to the tab after their partner ended the session.
  *
  * Zombie detection: if the session exists but `last_activity_at` is older than
- * 10 minutes, treat it as abandoned — clear localStorage and don't set context.
- * This prevents the banner from showing for sessions that were abandoned long
- * ago but never formally ended.
- *
- * Used by layout components to decide whether to show the active session banner.
+ * 10 minutes, treat it as abandoned.
  */
 export function useActiveSession() {
   const {
@@ -34,63 +34,82 @@ export function useActiveSession() {
   } = useLiveSession();
 
   const [isLoading, setIsLoading] = useState(true);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
+  const validateSession = useCallback(async () => {
+    const stored = getActiveSessionFromStorage();
+
+    if (!stored) {
+      clearActiveSession();
+      return false;
+    }
+
+    try {
+      const session = await getClaritySession(stored.code);
+
+      if (session && !session.endedAt) {
+        // Zombie detection
+        if (session.lastActivityAt) {
+          const lastActivity = new Date(session.lastActivityAt).getTime();
+          const age = Date.now() - lastActivity;
+          if (age > ZOMBIE_THRESHOLD_MS) {
+            clearActiveSessionFromStorage();
+            clearActiveSession();
+            return false;
+          }
+        }
+
+        // Session is still active — restore/keep context
+        setActiveSession(stored.code, stored.partnerName, stored.role, stored.guestDisplayName);
+        return true;
+      } else {
+        // Session ended or doesn't exist — clean up
+        clearActiveSessionFromStorage();
+        clearActiveSession();
+        return false;
+      }
+    } catch {
+      // Network error — keep localStorage but don't clear context
+      return true; // assume still active on network failure
+    }
+  }, [setActiveSession, clearActiveSession]);
+
+  // Initial validation + start polling
   useEffect(() => {
     let cancelled = false;
 
-    async function restoreSession() {
-      const stored = getActiveSessionFromStorage();
-
-      if (!stored) {
-        setIsLoading(false);
-        return;
-      }
-
-      try {
-        // Validate against DB — session must still exist and not be ended
-        const session = await getClaritySession(stored.code);
-
-        if (cancelled) return;
-
-        if (session && !session.endedAt) {
-          // P511 Task 13: Zombie detection — if last_activity_at is too old,
-          // the session was abandoned without being formally ended
-          if (session.lastActivityAt) {
-            const lastActivity = new Date(session.lastActivityAt).getTime();
-            const age = Date.now() - lastActivity;
-            if (age > ZOMBIE_THRESHOLD_MS) {
-              // Zombie session — clear localStorage, don't restore
-              clearActiveSessionFromStorage();
-              clearActiveSession();
-              setIsLoading(false);
-              return;
-            }
-          }
-
-          // Session is still active — restore context
-          setActiveSession(stored.code, stored.partnerName, stored.role, stored.guestDisplayName);
-        } else {
-          // Session ended or doesn't exist — clean up
-          clearActiveSessionFromStorage();
-          clearActiveSession();
-        }
-      } catch {
-        // Network error — keep localStorage but don't set context
-        // Next mount will retry
-        if (cancelled) return;
-      }
-
+    async function init() {
+      await validateSession();
       if (!cancelled) {
         setIsLoading(false);
       }
     }
 
-    restoreSession();
+    init();
+
+    // Start polling
+    intervalRef.current = setInterval(() => {
+      validateSession();
+    }, POLL_INTERVAL_MS);
+
+    // Visibility-aware: pause when hidden, re-validate on focus
+    function handleVisibilityChange() {
+      if (document.visibilityState === 'visible') {
+        // Tab became visible — re-validate immediately
+        validateSession();
+      }
+    }
+    document.addEventListener('visibilitychange', handleVisibilityChange);
 
     return () => {
       cancelled = true;
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps -- mount-only
+  }, [validateSession]);
 
   return {
     hasActiveSession: activeSessionCode !== null,

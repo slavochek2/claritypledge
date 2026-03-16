@@ -274,13 +274,14 @@ export function LiveModeView({
     if (nav) nav.style.display = 'none';
     if (main) {
       main.style.paddingTop = '0';
-      main.style.paddingBottom = '0';
+      // P511: Keep bottom padding so BottomNav remains visible during live sessions
+      // main.style.paddingBottom = '0';
     }
     return () => {
       if (nav) nav.style.display = '';
       if (main) {
         main.style.paddingTop = '';
-        main.style.paddingBottom = '';
+        // P511: bottom padding no longer removed, so no cleanup needed
       }
     };
   }, []);
