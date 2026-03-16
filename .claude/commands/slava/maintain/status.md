@@ -50,7 +50,7 @@ Next:
   2. If session looks like it's wrapping up (Done list is substantial, no clear next task):
      - If uncommitted changes exist → `→ commit, then /ship pN` (if P-number work) or `→ commit, then /kdd`
      - If everything committed and P-number work was done → `→ /ship pN to close spec + deploy` (if not yet shipped this session)
-     - If everything committed and already shipped → `→ /kdd` (if work worth capturing) or `→ /day-end` (only after 20:30 local time — before that, suggest the next feature or task instead)
+     - If everything committed and already shipped → `→ /kdd` (if work worth capturing) or `→ /day` (only after 20:30 local time — before that, suggest the next feature or task instead)
   3. If mid-session with clear next step → name it specifically
   - `.claude/` files or `CLAUDE.md` changed → also note `→ /claude-md "description"` to validate
   - UI files (`*.tsx`) modified → also note `→ /verify` for visual QA

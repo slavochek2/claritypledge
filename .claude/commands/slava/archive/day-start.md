@@ -1,3 +1,7 @@
+---
+archived_reason: "merged into /day — single daily skill that combines start + end reflection"
+---
+
 # Day Start (/day-start)
 
 Interactive daily check-in. Checks prod health, shows what's next, asks what's done, updates the milestone.

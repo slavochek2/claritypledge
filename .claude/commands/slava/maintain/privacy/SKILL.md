@@ -1,7 +1,7 @@
 ---
 name: privacy
 description: Privacy review — scan staged and recently modified public files for personal identifiers, sensitive business info, or anything that could be harmful if publicly visible on GitHub.
-when_to_use: Run before committing a batch of docs/infra changes, or as part of /day-end when working with docs. The pre-commit hook catches mechanical patterns; this skill applies judgment.
+when_to_use: Run before committing a batch of docs/infra changes, or as part of /day when working with docs. The pre-commit hook catches mechanical patterns; this skill applies judgment.
 version: 1.0.0
 ---
 

@@ -1,7 +1,7 @@
 ---
 name: insight-post
 description: Scans last 48hr of Claude conversations (CLI JSONL + downloaded claude.ai exports) for surprising, impactful, or emotionally charged moments. Generates 5 distinct LinkedIn post framings, tightens the best, presents for approval, schedules via Postiz for next morning.
-when_to_use: Run daily after /day-start to turn yesterday's thinking into a LinkedIn post. Prompted automatically at end of /day-start.
+when_to_use: Run daily after /day to turn yesterday's thinking into a LinkedIn post. Prompted automatically at end of /day.
 version: 1.0.0
 ---
 

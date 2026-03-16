@@ -1,3 +1,7 @@
+---
+archived_reason: "merged into /day — single daily skill that combines start + end reflection"
+---
+
 # Day End (/day-end)
 
 End-of-day reflection. No questions asked. Synthesizes what happened, surfaces insights,
