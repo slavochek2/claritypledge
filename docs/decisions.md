@@ -2,6 +2,58 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-16 [technical]: ClarityLoader — Draw → Breathe animation, CSS-only anti-flash
+
+**Context:** All ~16 full-page loading states used generic Lucide `LoaderIcon` (spinning asterisk). No brand identity. Loading states flash for milliseconds on fast pages — jarring blue flash and disappear.
+**Decision:** (1) **Draw → Breathe animation:** C stroke draws once via `stroke-dashoffset` (1.2s), then settles into gentle opacity pulse. Blue rectangle stays solid, only C animates. Chosen via demo page with 11 variants + creative agent (8 more concepts) + neutral judge agent scoring 19 options on 6 criteria. (2) **Logo only, no text:** Removed "Completing Verification" / "Loading..." — flashes awkwardly on fast loads, the branded animation speaks for itself. Error states still show text. (3) **CSS-only anti-flash:** `.clarity-page-loader` has `opacity:0` + `animation: clarity-appear 200ms ease-out 300ms forwards`. Loads under 300ms = no loader shown. No JS timers — prevents test interference (JS useState timers caused auth flow tests to double-fire processAuth). (4) `data-status={status}` wrapper in AuthCallbackPage — keeps `status` in React's render tree to prevent render-skip optimization that changed useEffect firing pattern.
+**Alternatives rejected:** (1) JS setTimeout for delayed appearance — caused extra re-renders, broke critical auth flow tests. (2) Focus/Resolve (blur→sharp) on whole logo — too heavy visually. (3) Breathing Logo (scale pulse) — too subtle per user feedback. (4) Text labels on loading states — flash and disappear on fast loads.
+**Consequences:** Consistent branded loading experience across all pages. CSS anti-flash is zero-overhead (no JS, no state). Demo page at `/tree/loading-demo` for future animation explorations.
+
+## 2026-03-16 [process]: Creative → Judge agent pattern for subjective design decisions
+
+**Context:** Choosing a loading animation is subjective — "feeling of clarity" can't be evaluated with code review. Needed to explore creative space broadly, then evaluate objectively.
+**Decision:** Two-phase agent pattern: (1) **Creative agent** generates 6-8 bold concepts with metaphor analysis and CSS feasibility assessment. Give it brand context + explicit permission to think outside the box. (2) **Neutral judge agent** rates all options (existing + new) on weighted criteria (brand alignment 25%, loading affordance 20%, calm 20%, implementation 15%, versatility 10%, distinctiveness 10%) with verdicts for top/bottom 3 and a single final recommendation. Both agents are general-purpose, not specialized.
+**Alternatives rejected:** (1) Just pick one ourselves — misses creative options we wouldn't think of. (2) User picks from a small set — too narrow, confirmation bias. (3) Single agent does both — creative and critical thinking conflict in one prompt.
+**Consequences:** Reusable pattern for any subjective design decision (color palettes, copywriting tone, illustration style). The demo page pattern (build all variants on a /tree route) pairs well with this agent pattern.
+
+## 2026-03-16 [process]: Visual QA — spawn separate subagent, never self-review
+
+**Context:** P521 position button redesign went through 5+ rounds of "it's ready" → user finds visual bugs. Root cause: the implementing agent reviewed its own screenshots with confirmation bias — checked "does it render" not "does it look right."
+**Decision:** After any UI change, spawn a SEPARATE subagent for visual QA. Give it ONLY screenshots + a 10-point checklist. Do NOT give it the code diff or intent. The implementing agent must NOT declare "ready" based on its own review. Added `.claude/rules/visual-qa.md`.
+**Alternatives rejected:** (1) Just "be more careful" — doesn't work, confirmation bias is structural. (2) Always run `/verify` — too heavy for prototype iteration.
+**Consequences:** Visual bugs caught before user sees them. Slight overhead (1 subagent spawn per UI change). Checklist is mechanical — prevents the "looks fine to me" failure mode.
+
+## 2026-03-16 [product]: P521 position buttons — auto-dropdown replaces hidden chevrons
+
+**Context:** Position buttons had tiny ChevronDown arrows for 7-point intensity selection that no user discovered. Progressive label truncation ("Dis...", "Ag") was ugly. Zero-counts "(0)" were noise. Explored 4 options: (A) auto-dropdown, (B) expand-below, (C) tooltip hint, (D) row replacement. User rejected D (disorienting) during prototype testing.
+**Decision:** Option A — click Agree/Disagree selects default immediately + auto-opens intensity dropdown. Click away = accept default (0 extra clicks). Pick intensity = 1 extra click. Unsure selects immediately (no dropdown). Intensity shown in button label: Agree+ (strongly), Agree− (somewhat), Agree (default).
+**Alternatives rejected:** (B) expand-below — layout shift in tight containers. (C) tooltip — not discoverable on mobile. (D) row replacement — user found it disorienting, lost context.
+**Consequences:** Intensity is discoverable (dropdown is RIGHT THERE) without requiring discovery of a tiny chevron. Same `onPositionClick(PositionType)` API — zero consumer changes needed.
+
+## 2026-03-16 [technical]: P521 portal dropdown + ResizeObserver for position buttons
+
+**Context:** Position buttons appear in 8+ surfaces (feed card, profile, story detail, quoted point, live session) with varying container widths (235px–500px). Parent cards use `overflow:hidden` for rounded corners, clipping absolutely-positioned dropdowns. CSS media queries don't work for simulated viewport widths in prototypes.
+**Decision:** (1) Dropdown rendered via `createPortal(dropdown, document.body)` — escapes any overflow:hidden container. Position calculated via `getBoundingClientRect()`. (2) `ResizeObserver` measures container width internally — component decides full-text vs icon-only without consumer involvement. Threshold: 270px. Two modes only, no intermediate truncation.
+**Alternatives rejected:** (1) CSS container queries (`@container`) — Tailwind v3.3+ feature, adds complexity. (2) `containerWidth` prop — requires consumers to know their own width.
+**Consequences:** Component is fully self-contained. Works in all 8+ surfaces without consumer changes. Portal dropdown needs click-outside handler that checks both button row AND portal element.
+
+## 2026-03-16 [product]: Off-boarding split — withdraw pledge (P524) vs delete account (P520)
+
+**Context:** Gosha (first pledger exit request, March 2026) asked to leave via WhatsApp. Three-day back-and-forth ensued. `/challenge-prd` on the initial combined spec surfaced 3 BLOCKs: agreement termination flow undefined, post-withdrawal profile state undefined, PII inventory missing. Codebase investigation revealed `has_pledged: false` already works everywhere (pledgers page, featured profiles, badge, re-pledge upgrade flow).
+**Decision:** Split into two features. (1) **P524 — Withdraw pledge** (inline toggle, shipped): `updateProfile({ has_pledged: false })` in settings. All downstream queries already filter on `has_pledged: true`. Re-pledge via existing `/sign-pledge` upgrade flow. (2) **P520 — Delete account** (separate spec, not yet built): edge function for `auth.users` deletion, migration to orphan points/events (`SET NULL` instead of CASCADE), agreement termination, PII cleanup for non-FK'd tables.
+**Key insight — community data must survive user deletion:** Points have positions from other users. `ON DELETE CASCADE` on `first_validator_id` would destroy other people's contributions. Decision: orphan points and events (`SET NULL`), delete personal data (stories, positions, witnesses, agreements).
+**Alternatives rejected:** (A) Combined spec with both actions (over-scoped for C1 phase). (B) "Pause" as separate state (adds complexity — withdraw is already reversible). (C) Delete everything including community data (destroys other users' contributions).
+**Consequences:** P524 is shipped. P520 needs: migration (`ALTER TABLE points/events`), edge function (`delete-account`), explicit cleanup for `terms_acceptances` and `session_consents` (no FK constraints). Agreement termination: set `status: terminated` silently, then delete rows. Deleted profile slug shows "This profile no longer exists."
+**References:** `features/p520_pledge_withdrawal_account_deletion.md`, `features/p524_withdraw_pledge_toggle.md`, `claude-conversations/2026-03/2026-03-13-Отзыв карточки clarity pledge.md`
+
+## 2026-03-16 [technical]: Server-side account creation for agreement signing (P527)
+
+**Context:** New users invited to sign a partner agreement had to: click invite → enter name → click "Sign" → check email for magic link → click link → return to app. The email round-trip added zero security value (they clicked the invite FROM their email) and caused drop-off at the highest-engagement moment. P488 had already solved this for existing users via magic links embedded in the invitation email.
+**Decision:** New edge function `create-and-sign` handles the full flow server-side: validates invitation token + expiry → creates auth user via `auth.admin.createUser({ email_confirm: true })` → creates profile → calls `accept_agreement` RPC → generates session token via `auth.admin.generateLink()` → returns `hashed_token` to client. Client exchanges token via `supabase.auth.verifyOtp({ token_hash, type: 'magiclink' })` — no redirect, no email. Fallback: if edge function fails, client falls back to existing OTP flow (graceful degradation).
+**Key patterns established:** (1) `verifyOtp` with server-generated `hashed_token` for instant auth without email — new pattern, reusable for any flow where server knows user identity. (2) Email pinning: client sends `{ agreementId, token, partnerName }` only — edge function derives email from DB, never trusts client. (3) Dual profile creation (AuthCallbackPage + edge function) — accepted trade-off; edge function creates minimal profile, AuthCallbackPage upserts on subsequent login. ToS version (`'v1.1'`) hardcoded in edge function — must update on ToS bump.
+**Alternatives rejected:** (A) Client-side `signInWithOtp` without email — impossible, Supabase always sends email for new users. (B) Custom JWT — bypasses Supabase session management. (C) Redirect through AuthCallbackPage after createUser — reintroduces redirect chain.
+**Consequences:** Agreement signing is now instant for all users (new + existing). The `create-and-sign` edge function is a new deploy dependency — added to deploy manifest. The `verifyOtp` pattern can be reused for future flows needing server-side auth (e.g., event RSVP auto-login).
+
 ## 2026-03-16 [process]: Deploy manifest — catch undeployed infra before merge
 
 **Context:** P504 (AI-generated banners) shipped frontend code to prod but the edge function and DB migrations were never deployed. Result: silent 404s and missing columns. No error surfaced until manual testing days later. The env var corruption incident (same week) was a similar class — code shipped but infrastructure didn't follow.

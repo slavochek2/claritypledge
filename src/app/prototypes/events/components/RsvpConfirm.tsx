@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { CheckCircle2, Calendar, MapPin, ArrowRight, Download, ChevronDown, Loader2 } from 'lucide-react';
+import { CheckCircle2, Calendar, MapPin, ArrowRight, Download, ChevronDown } from 'lucide-react';
+import { ClarityPageLoader } from '@/components/ui/clarity-loader';
 import { Button } from '@/components/ui/button';
 import { eventsService } from '@/app/data/events-service';
 import type { EventWithHost } from '@/app/types';
@@ -54,11 +55,7 @@ export function RsvpConfirm() {
 
   // Loading state
   if (loading) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
-      </div>
-    );
+    return <ClarityPageLoader />;
   }
 
   if (!event) {

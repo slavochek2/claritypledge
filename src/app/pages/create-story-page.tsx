@@ -12,6 +12,7 @@ import { extractHashtags } from '@/lib/utils';
 import { toast } from 'sonner';
 import { useVerificationGate } from '@/app/hooks/useVerificationGate';
 import { Loader2Icon, ArrowLeft } from 'lucide-react';
+import { ClarityLoader } from '@/components/ui/clarity-loader';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { analytics } from '@/lib/mixpanel';
@@ -207,7 +208,7 @@ export function CreateStoryPage() {
     return (
       <div className="container mx-auto px-4 py-16 max-w-2xl">
         <div className="flex items-center justify-center">
-          <Loader2Icon className="w-8 h-8 animate-spin text-muted-foreground" />
+          <ClarityLoader size="lg" />
         </div>
       </div>
     );

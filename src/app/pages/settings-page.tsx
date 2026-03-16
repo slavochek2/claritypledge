@@ -8,7 +8,8 @@ import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "@/auth";
 import { updateProfile } from "@/app/data/api";
 import { toast } from "sonner";
-import { ArrowLeftIcon, Loader2Icon, CheckIcon } from "lucide-react";
+import { ArrowLeftIcon, Loader2Icon, CheckIcon, ShieldOffIcon } from "lucide-react";
+import { ClarityLoader } from "@/components/ui/clarity-loader";
 import { analytics } from "@/lib/mixpanel";
 import { Button } from "@/components/ui/button";
 import { InstallCard } from "@/app/components/pwa/install-card";
@@ -29,6 +30,8 @@ export function SettingsPage() {
   // UI state
   const [isSaving, setIsSaving] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
+  const [showWithdrawConfirm, setShowWithdrawConfirm] = useState(false);
+  const [isWithdrawing, setIsWithdrawing] = useState(false);
   const [errors, setErrors] = useState<{ name?: string; linkedinUrl?: string }>({});
   const hasTrackedPageView = useRef(false);
 
@@ -159,7 +162,7 @@ export function SettingsPage() {
     return (
       <div className="container mx-auto px-4 py-16 max-w-2xl">
         <div className="flex items-center justify-center">
-          <Loader2Icon className="w-8 h-8 animate-spin text-muted-foreground" />
+          <ClarityLoader size="lg" />
         </div>
       </div>
     );
@@ -344,6 +347,74 @@ export function SettingsPage() {
           )}
         </div>
       </form>
+
+      {/* P524: Pledge management */}
+      <div className="mt-12 pt-8 border-t border-border">
+        <h2 className="text-sm font-medium mb-3 text-muted-foreground">Pledge</h2>
+
+        {user?.hasPledged ? (
+          <div>
+            {!showWithdrawConfirm ? (
+              <button
+                onClick={() => setShowWithdrawConfirm(true)}
+                className="text-sm text-muted-foreground hover:text-destructive transition-colors"
+              >
+                Withdraw my pledge
+              </button>
+            ) : (
+              <div className="rounded-lg border border-border p-4 space-y-3">
+                <p className="text-sm">
+                  Your pledge will be removed and you won&apos;t appear on the pledgers page.
+                  Your account and all your content stay. You can re-take the pledge anytime.
+                </p>
+                <div className="flex gap-3">
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    disabled={isWithdrawing}
+                    onClick={async () => {
+                      if (!user?.id) return;
+                      setIsWithdrawing(true);
+                      const { error } = await updateProfile(user.id, { has_pledged: false });
+                      if (error) {
+                        toast.error("Failed to withdraw pledge. Please try again.");
+                        setIsWithdrawing(false);
+                        return;
+                      }
+                      await refreshProfile();
+                      analytics.track('pledge_withdrawn', { profile_slug: user.slug });
+                      toast.success("Pledge withdrawn.");
+                      setShowWithdrawConfirm(false);
+                      setIsWithdrawing(false);
+                    }}
+                  >
+                    {isWithdrawing ? (
+                      <><Loader2Icon className="w-3 h-3 animate-spin" /> Withdrawing...</>
+                    ) : (
+                      <><ShieldOffIcon className="w-3 h-3" /> Withdraw pledge</>
+                    )}
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setShowWithdrawConfirm(false)}
+                    disabled={isWithdrawing}
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="text-sm">
+            <span className="text-muted-foreground">You don&apos;t have an active pledge. </span>
+            <Link to="/sign-pledge" className="text-primary hover:underline">
+              Take the Clarity Pledge
+            </Link>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

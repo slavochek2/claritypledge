@@ -27,6 +27,7 @@ import type {
   EventWithHost,
   EventAttendee,
   DbEvent,
+  SessionTranscript,
 } from '@/app/types';
 
 // Re-export types for convenience
@@ -3532,4 +3533,53 @@ export async function cancelEvent(eventId: string): Promise<boolean> {
 
   console.log('[Events API] Event canceled');
   return true;
+}
+
+// ============================================================================
+// TRANSCRIPTION API (P495)
+// ============================================================================
+
+/**
+ * Fetch the transcript for a session (if it exists and is completed).
+ */
+export async function fetchSessionTranscript(sessionId: string): Promise<SessionTranscript | null> {
+  const { data, error } = await supabase
+    .from('session_transcripts')
+    .select('id, session_id, session_code, language, segments, speaker_map, model_version, processing_time_ms, created_at')
+    .eq('session_id', sessionId)
+    .maybeSingle();
+
+  if (error) {
+    console.error('[Transcription API] Error fetching transcript:', error);
+    return null;
+  }
+
+  return data as SessionTranscript | null;
+}
+
+/**
+ * Retry a failed transcription by calling the retry_transcription RPC.
+ */
+export async function retryTranscription(sessionId: string): Promise<void> {
+  const { error } = await supabase.rpc('retry_transcription', {
+    p_session_id: sessionId,
+  });
+
+  if (error) {
+    console.error('[Transcription API] Error retrying transcription:', error);
+    throw error;
+  }
+}
+
+/**
+ * Create a transcription job after session recording upload.
+ */
+export async function createTranscriptionJob(_sessionCode: string, sessionId: string): Promise<void> {
+  const { error } = await supabase
+    .rpc('create_transcription_job', { p_session_id: sessionId });
+
+  if (error) {
+    // Don't throw — transcription job creation failure shouldn't block session end
+    console.error('[Transcription API] Error creating transcription job:', error);
+  }
 }

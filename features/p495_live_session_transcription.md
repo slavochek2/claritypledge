@@ -9,7 +9,7 @@ tags:
   - c3
 prepped_date: '2026-03-12'
 flow: dev
-delivery_stage: 3-arch-review
+delivery_stage: uat
 reviews:
   ux: null
   architect: null
@@ -157,24 +157,18 @@ Speaker name + timestamp + text. Native scroll. Copy in header.
 
 ## Acceptance Criteria
 
-- [ ] Every /live session with audio recording automatically produces a transcript
-- [ ] Transcript includes speaker-labeled segments with timestamps
-- [ ] Known participants (creator + joiner from session metadata) labeled by real name — mapped via volume heuristic + voice profiles
-- [ ] Voice profiles: pyannote speaker embeddings extracted and stored per user during each transcription
-- [ ] Voice profiles used for speaker matching on subsequent sessions (cosine similarity against stored embeddings)
-- [ ] Cold start (first session, no profiles): falls back to metadata + volume heuristic mapping
-- [ ] Additional speakers beyond the known two labeled as "Speaker 3", "Speaker 4", etc.
-- [ ] Speaker attribution ≥95% for two-phone sessions with voice profiles; ≥90% for single-phone cold-start
-- [ ] Session-level transcript available (full session)
-- [ ] Language auto-detected
-- [ ] Works with 2-5 speakers
-- [ ] Session detail view shows transcript row with Copy and Open buttons
-- [ ] Copy puts full transcript text in clipboard
-- [ ] Open navigates to full-page transcript view
-- [ ] Processing indicator shown when transcript is not yet ready
-- [ ] Only session participants can see transcripts
-- [ ] Private sessions produce no transcript
-- [ ] Failed transcriptions visible and retryable
+- [x] Every /live session with audio recording automatically produces a transcript
+- [x] Transcript includes speaker-labeled segments with timestamps
+- [ ] Speaker labels use participant display names (from session metadata), not generic "Speaker 0/1"
+- [x] Session-level transcript available (full session, all rounds)
+- [ ] Round-level transcripts available (one per completed round)
+- [x] Language auto-detected
+- [ ] Works with 2-5 speakers (pair + facilitator + observers)
+- [x] Transcript visible in session history UI alongside existing round data
+- [x] Transcript is collapsible/expandable (doesn't overwhelm the session history view)
+- [x] Only session participants can see transcripts
+- [x] Private sessions produce no transcript
+- [x] Failed transcriptions visible and retryable
 - [ ] Processing ≤15 minutes for 60-minute session
 - [ ] Works with single-phone and two-phone recordings
 
@@ -193,21 +187,200 @@ Speaker name + timestamp + text. Native scroll. Copy in header.
 
 ---
 
+## Phase 2: Transcription Pipeline
+
+Cloud Run service that processes session audio into speaker-attributed transcripts. Picks up `pending` jobs from `transcription_jobs`, downloads audio + events from GCS, runs Whisper + pyannote, and writes results to `session_transcripts` + `user_voice_profiles`.
+
+### Service Location
+
+`services/transcribe/` in the monorepo root. Self-contained Python project — no dependency on the TypeScript app code.
+
+### Files to Create
+
+| File | Description |
+|------|-------------|
+| `services/transcribe/Dockerfile` | Python 3.11, ffmpeg, torch, whisper (large-v3-turbo via MLX/transformers), pyannote-audio, google-cloud-storage. GPU-capable base image (`nvidia/cuda:12.1-runtime`). Multi-stage build: deps first (cached), app code second. |
+| `services/transcribe/requirements.txt` | Pinned deps: `openai-whisper`, `pyannote.audio==3.1.*`, `torch`, `google-cloud-storage`, `supabase-py`, `numpy`, `ffmpeg-python`, `scipy` |
+| `services/transcribe/main.py` | FastAPI app with two endpoints: `POST /transcribe` (single job by session_code) and `POST /poll` (Cloud Scheduler entry — queries pending jobs, processes one at a time) |
+| `services/transcribe/pipeline.py` | Core orchestration: `transcribe_session(session_code, session_id)` — download, decode, transcribe, diarize, merge, map speakers, store. Each step is a function; failures update `transcription_jobs.status = 'failed'` with `error_message`. |
+| `services/transcribe/audio.py` | Audio handling: `download_chunks(bucket, session_code)` → list + download `{user}_chunk_NNN.webm` per recorder. `concat_and_decode(chunks)` → cat raw bytes (only chunk_000 has WebM headers), ffmpeg decode to 16kHz mono WAV. Returns one WAV per recorder + a merged WAV for single-phone sessions. |
+| `services/transcribe/transcriber.py` | Whisper wrapper: `whisper_transcribe(wav_path)` → list of `Segment(text, start_ms, end_ms)`. Uses `--condition-on-previous-text False` to prevent hallucination loops. Auto-detects language (returns detected language code). |
+| `services/transcribe/diarizer.py` | pyannote wrapper: `diarize(wav_path, num_speakers)` → list of `DiarSegment(speaker_id, start_ms, end_ms)`. Requires `HF_TOKEN` env var for gated model access. |
+| `services/transcribe/merger.py` | Overlap-based alignment: merges Whisper transcript segments with pyannote diarization segments. Each output segment gets `{ speaker_id, text, start_ms, end_ms }`. Handles edge cases: speaker change mid-sentence (split at word boundary), silence gaps, overlapping speech. |
+| `services/transcribe/speaker_map.py` | Speaker-to-user mapping (two layers). **Layer 1 (metadata):** chunk filenames reveal recorder identity (`slava_chunk_000.webm` → Slava's phone). For two-phone sessions, volume cross-reference: recorder's phone captures them louder → map diarization labels. For single-phone: map using `events.json` participant list + order heuristics. **Layer 2 (voice profiles):** extract 512-dim pyannote embeddings per speaker, cosine similarity against `user_voice_profiles`. Confidence threshold: 0.75. Override metadata mapping when voice match is confident. |
+| `services/transcribe/round_splitter.py` | Splits full-session segments into per-round segments using `events.json` timestamps. Reads `live_round_started` and `live_round_ended` events, maps each segment to its round by `start_ms`. Returns dict of `{ round_index: [segments] }`. |
+| `services/transcribe/storage.py` | Supabase writes via service role key: `store_transcript(session_id, segments, speaker_map, language, model_version, processing_time_ms)` → INSERT into `session_transcripts`. `update_voice_profiles(speaker_map, embeddings)` → UPSERT into `user_voice_profiles` (running average of embeddings, increment `session_count`). `update_job_status(job_id, status, error_message?)` → UPDATE `transcription_jobs`. |
+| `services/transcribe/config.py` | Environment config: `GCS_BUCKET` (default: `claritypledge-ml-training`), `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `HF_TOKEN`, `WHISPER_MODEL` (default: `large-v3-turbo`), `GPU_ENABLED` (auto-detect torch.cuda). |
+| `services/transcribe/tests/test_pipeline.py` | Integration test: mock GCS + mock Supabase, feed real short WAV (5s, 2 speakers), verify full pipeline produces correct segment structure. |
+| `services/transcribe/tests/test_merger.py` | Unit tests for overlap-based alignment edge cases: speaker change mid-word, silence gaps, 3+ speakers. |
+| `services/transcribe/tests/test_round_splitter.py` | Unit tests: events.json with 3 rounds, verify segments split correctly at round boundaries. |
+| `services/transcribe/.dockerignore` | Exclude `tests/`, `__pycache__/`, `.venv/`, `*.pyc` |
+
+### Build Sequence
+
+1. **Create `services/transcribe/` directory structure** — all files listed above
+2. **Implement `audio.py`** — GCS download + WebM concat + ffmpeg decode. Test locally with benchmark session `h44q9h` audio.
+3. **Implement `transcriber.py` + `diarizer.py`** — Whisper and pyannote wrappers. Verify output format matches merger expectations.
+4. **Implement `merger.py`** — overlap-based alignment. Unit test with synthetic segments before real audio.
+5. **Implement `speaker_map.py`** — Layer 1 (metadata) first, Layer 2 (voice embeddings) second. Layer 2 needs pyannote embedding extraction (`model.get_embedding()`).
+6. **Implement `round_splitter.py`** — depends on `events.json` structure (see Contract below).
+7. **Implement `storage.py`** — Supabase writes. Test against test project (`gfjctyxqlwexxwsmkakq`).
+8. **Implement `pipeline.py`** — orchestrate all steps. Error handling: catch per-step, update job status on failure, continue to next job.
+9. **Implement `main.py`** — FastAPI endpoints. `/poll` queries `transcription_jobs WHERE status = 'pending' ORDER BY created_at LIMIT 1`, processes sequentially.
+10. **Build + test Docker image locally** — `docker build -t transcribe . && docker run -p 8080:8080 transcribe`
+11. **Deploy to Cloud Run** — see Deployment section below.
+12. **End-to-end test** — process benchmark session `h44q9h` through deployed service.
+
+### Contract
+
+**Reads:**
+
+| Source | Path / Query | Format |
+|--------|-------------|--------|
+| GCS audio | `gs://claritypledge-ml-training/sessions/{code}/{userName}_chunk_{NNN}.webm` | WebM (only chunk_000 has headers; subsequent chunks are raw continuation bytes — must `cat` in order before ffmpeg decode) |
+| GCS events | `gs://claritypledge-ml-training/sessions/{code}/{userName}_events_{NNN}.json` | JSON: `MLTrainingEvents` — contains `participants[].name`, `participants[].role`, `uploader.supabaseUserId`, `events[]` with `type` + `timestamp` (ms relative to `sessionStartedAt`) |
+| Supabase | `transcription_jobs WHERE status = 'pending' ORDER BY created_at LIMIT 1` | Row: `{ id, session_code, session_id, status, created_at }` |
+| Supabase | `user_voice_profiles WHERE user_id IN (...)` | Rows: `{ user_id, display_name, embedding (VECTOR 512) }` — for cosine similarity matching |
+
+**Writes:**
+
+| Target | Table / Action | Data |
+|--------|---------------|------|
+| `session_transcripts` | INSERT | `{ session_id, session_code, language, segments (JSONB), speaker_map (JSONB), model_version, processing_time_ms }` |
+| `user_voice_profiles` | UPSERT (on `user_id`) | `{ user_id, display_name, embedding (running average), session_count (increment), last_session_id }` |
+| `transcription_jobs` | UPDATE | `status → 'processing'` at start, `status → 'completed' + completed_at` on success, `status → 'failed' + error_message` on failure |
+
+**Segment JSONB format** (stored in `session_transcripts.segments`):
+```json
+[
+  {
+    "speaker_id": "SPEAKER_00",
+    "speaker_label": "Slava",
+    "text": "So let me explain back what I heard you say...",
+    "start_ms": 45200,
+    "end_ms": 52800,
+    "round_index": 1
+  }
+]
+```
+
+**Speaker map JSONB format** (stored in `session_transcripts.speaker_map`):
+```json
+{
+  "SPEAKER_00": {
+    "user_id": "uuid-or-null",
+    "display_name": "Slava",
+    "mapping_method": "voice_profile",
+    "confidence": 0.92
+  },
+  "SPEAKER_01": {
+    "user_id": null,
+    "display_name": "Jan",
+    "mapping_method": "metadata",
+    "confidence": 0.7
+  }
+}
+```
+
+### Local Development
+
+**CPU-mode Whisper (no GPU required):**
+```bash
+cd services/transcribe
+python -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt  # installs CPU torch by default
+GPU_ENABLED=false python main.py  # starts on port 8080
+```
+CPU mode uses the same Whisper model but runs ~3-4x slower (15-20 min for a 60-min session vs 5 min on GPU). Acceptable for local testing.
+
+**Mock pyannote (for fast iteration without HuggingFace token):**
+Set `MOCK_DIARIZATION=true` — `diarizer.py` returns synthetic diarization segments (alternating speakers every 10s) instead of running the real model. Useful for testing merger, round splitter, and storage without waiting for diarization.
+
+**Test with benchmark session:**
+```bash
+# Download benchmark audio locally (requires gcloud auth)
+gsutil cp -r gs://claritypledge-ml-training/sessions/h44q9h/ /tmp/test-audio/
+
+# Run pipeline against local files
+MOCK_GCS=true LOCAL_AUDIO_PATH=/tmp/test-audio/h44q9h \
+  python -c "from pipeline import transcribe_session; transcribe_session('h44q9h', 'test-session-id')"
+```
+
+**Run tests:**
+```bash
+cd services/transcribe
+pytest tests/ -v  # no GPU, no HF token, no GCS needed — all mocked
+```
+
+### Deployment
+
+**Cloud Run service:**
+```bash
+# Build and push container
+gcloud builds submit --tag gcr.io/gen-lang-client-0869694595/transcribe-session services/transcribe/
+
+# Deploy with L4 GPU, scale-to-zero
+gcloud run deploy transcribe-session \
+  --image gcr.io/gen-lang-client-0869694595/transcribe-session \
+  --region us-central1 \
+  --gpu 1 --gpu-type nvidia-l4 \
+  --cpu 4 --memory 16Gi \
+  --timeout 900 \
+  --min-instances 0 --max-instances 2 \
+  --no-allow-unauthenticated \
+  --set-env-vars "GCS_BUCKET=claritypledge-ml-training,SUPABASE_URL=<prod-url>,WHISPER_MODEL=large-v3-turbo" \
+  --set-secrets "SUPABASE_SERVICE_ROLE_KEY=supabase-service-role-key:latest,HF_TOKEN=hf-token:latest"
+```
+
+**Cloud Scheduler (polls for pending jobs every 5 min):**
+```bash
+gcloud scheduler jobs create http transcription-poll \
+  --location us-central1 \
+  --schedule "*/5 * * * *" \
+  --uri "https://transcribe-session-<hash>.run.app/poll" \
+  --http-method POST \
+  --oidc-service-account-email <service-account>@gen-lang-client-0869694595.iam.gserviceaccount.com \
+  --oidc-token-audience "https://transcribe-session-<hash>.run.app"
+```
+
+**Secrets (in GCP Secret Manager):**
+- `supabase-service-role-key` — prod Supabase service role key (bypasses RLS for writes)
+- `hf-token` — HuggingFace token for pyannote gated model access
+
+**IAM:**
+- Cloud Run service account needs `roles/storage.objectViewer` on `claritypledge-ml-training` bucket
+- Cloud Scheduler service account needs `roles/run.invoker` on the Cloud Run service
+
+**Cost estimate:** ~$0.11-0.17 per session-hour of audio (L4 GPU at $0.67/hr, 5-8 min processing per hr). Scale-to-zero means no cost when idle. Covered by $25k GCP credits.
+
+---
+
 ## Pre-deploy Checklist
 
-### Secrets to provision
-- [ ] `HF_TOKEN` — HuggingFace token for pyannote models (Cloud Run env var)
-- [ ] Supabase service role key in Cloud Run env
+### Phase 1 (UI + DB) — already built
+- [x] Run database migration (`20260313120000_p495_transcription_tables.sql` — 3 new tables + RLS + triggers)
+- [x] Client-side `createTranscriptionJob()` call in `stopAndUploadRecording()`
+- [x] Transcript viewer UI in session history
+- [x] Retry button for failed transcriptions
 
-### Deploy commands
-- [ ] Deploy Cloud Run transcription service
-- [ ] Create Cloud Scheduler job for polling transcription_jobs
-- [ ] Run database migration (session_transcripts + transcription_jobs + user_voice_profiles tables)
+### Phase 2 (Pipeline) — secrets to provision
+- [x] `HF_TOKEN` — HuggingFace token for pyannote gated models → GCP Secret Manager
+- [x] `SUPABASE_SERVICE_ROLE_KEY` — prod service role key → GCP Secret Manager (version 3)
+- [x] Cloud Run service account with `roles/storage.objectViewer` on `claritypledge-ml-training`
+- [x] Cloud Scheduler service account with `roles/run.invoker` on the transcription service
 
-### Post-deploy verification
+### Phase 2 — deploy commands
+- [ ] `gcloud builds submit` — build + push container image
+- [ ] `gcloud run deploy transcribe-session` — deploy Cloud Run service with L4 GPU
+- [ ] `gcloud scheduler jobs create http transcription-poll` — create 5-min polling schedule
+- [ ] Verify service is accessible: `curl -X POST https://<service-url>/poll` (with auth)
+
+### Phase 2 — post-deploy verification
 - [ ] Process benchmark session (h44q9h) through full pipeline
-- [ ] Verify transcript appears in /sessions UI
-- [ ] Check Sentry for errors
+- [x] Verify transcript appears in session history UI (tested with session 2D59JB)
+- [ ] Verify speaker labels use display names
+- [ ] Check Sentry for errors in first 24 hours
+- [ ] Verify scale-to-zero: no running instances after idle period
 
 ---
 

@@ -1,7 +1,7 @@
 # Done Features Index
 
 Quick reference for past completed work. Consult when starting work on a related topic.
-Last updated: 2026-03-16 (P525 Live State Deadlock Prevention)
+Last updated: 2026-03-16 (ClarityLoader branded loading animation)
 
 ---
 
@@ -73,8 +73,10 @@ Last updated: 2026-03-16 (P525 Live State Deadlock Prevention)
 
 ## UI / Design System
 
+- **ClarityLoader** (Mar 16) Branded loading animation — CSS-only anti-flash (300ms delay) prevents flash on fast loads; JS timers in loading components break auth flow tests via extra re-renders
 - **P504** (Mar 14) Auto-Generated Banners — shared `BannerDisplay`/`BannerControls`/`useBanner` components; `banner_generation_attempted` guard prevents re-triggering on mount; `overflow-hidden` on wrapper divs clips dropdown menus
 - **P510** (Mar 14) Profile Banner UX Polish — LinkedIn-style avatar overlap (96px, `-mt-12`); pencil icon toggle for controls; gradient fallback visible when no banner; name beside avatar not below
+- **P521** (Mar 16) Position Buttons Auto-Dropdown — portal dropdown escapes overflow:hidden; ResizeObserver for 2-mode responsive (full text / icon-only at 270px); Agree+/Agree− intensity labels; visual QA subagent process established after 5 rounds of author-as-reviewer failure
 - **P519** (Mar 14) Remove Story/Point On-Page Banners — banners only display where compositionally integrated (profiles); stories keep `bannerUrl` for OG only; points stop generating banners entirely; 3px `authorAvatarColor` accent replaces story banner
 - **P462** (Mar 13) Partner Count Header Prominence — bold numbers ugly; LinkedIn-style `text-sm font-semibold text-blue-500` + icon wins
 - **P493** (Mar 12) PWA Install Prompts — desktop `isDesktop` guard needed on both child component AND parent wrapper; child returning `null` leaves orphaned section headings
@@ -94,6 +96,8 @@ Last updated: 2026-03-16 (P525 Live State Deadlock Prevention)
 
 ## Auth & Verification
 
+- **P524** (Mar 16) Withdraw Pledge Toggle — `has_pledged: false` already handled by all queries; no new API needed; re-pledge via existing `/sign-pledge` upgrade flow
+- **P527** (Mar 16) Direct Sign for New Users — `verifyOtp` with server-generated `hashed_token` for instant auth; email pinning (client sends no email, edge function derives from DB)
 - **P502** (Mar 13) Anon Position Optimistic UI — batch-restore must run BEFORE P458 single-position handler (it does `navigate()+return`); separate `anonPosition` state prevents ghost data in aggregate counts
 - **P458** (Mar 09) Anonymous User Auth Gate — `extraParams` on both `signInWithEmail` and `signInWithGoogle` to forward context through OAuth round-trip; validate `intent.redirect` against allowlist on every path
 - **P396** (Feb 26) Eliminate Unverified State — instant email verification via one-time link in welcome email; no UNVERIFIED users

@@ -1,9 +1,9 @@
 /**
  * @file quoted-point-dropdown.test.tsx
- * @description Tests that dropdown arrows are visible in QuotedPoint cards.
+ * @description Tests that position buttons render correctly in QuotedPoint cards.
  *
- * Issue: overflow-hidden on the QuotedPoint container clips the dropdown chevron,
- * making it impossible to select intensity levels (Strongly Agree, Somewhat Agree, etc.)
+ * Updated for P521: Dropdown chevrons removed in favor of auto-dropdown on group click.
+ * Tests verify that position buttons render and are accessible within QuotedPoint.
  */
 
 import { describe, it, expect } from 'vitest';
@@ -58,8 +58,8 @@ const mockUserPositions = new Map<string, PointPosition>([
   }],
 ]);
 
-describe('QuotedPoint dropdown visibility', () => {
-  it('should render dropdown buttons for Agree and Disagree groups', () => {
+describe('QuotedPoint position buttons', () => {
+  it('should render position button groups (Disagree, Unsure, Agree)', () => {
     render(
       <BrowserRouter>
         <StoryCardDetail
@@ -72,12 +72,10 @@ describe('QuotedPoint dropdown visibility', () => {
       </BrowserRouter>
     );
 
-    // The dropdown buttons should be present with proper test IDs
-    const agreeDropdown = screen.getByTestId('agree-dropdown');
-    const disagreeDropdown = screen.getByTestId('disagree-dropdown');
-
-    expect(agreeDropdown).toBeInTheDocument();
-    expect(disagreeDropdown).toBeInTheDocument();
+    // P521: Position buttons render as group buttons (no separate chevron triggers)
+    expect(screen.getByText('Agree')).toBeInTheDocument();
+    expect(screen.getByText('Disagree')).toBeInTheDocument();
+    expect(screen.getByText('Unsure')).toBeInTheDocument();
   });
 
   it('should NOT have overflow-hidden on QuotedPoint container that would clip dropdowns', () => {
@@ -103,7 +101,7 @@ describe('QuotedPoint dropdown visibility', () => {
     });
   });
 
-  it('should render PositionButtons within QuotedPoint card using narrow mode', () => {
+  it('should render PositionButtons within QuotedPoint card', () => {
     render(
       <BrowserRouter>
         <StoryCardDetail
@@ -116,14 +114,9 @@ describe('QuotedPoint dropdown visibility', () => {
       </BrowserRouter>
     );
 
-    // PositionButtons should be rendered inside the QuotedPoint card
-    // The component uses the `narrow` prop (instead of CSS scaling) to fit within the card
-    const agreeDropdown = screen.getByTestId('agree-dropdown');
-    const disagreeDropdown = screen.getByTestId('disagree-dropdown');
-
-    // Verify the buttons are inside a presentation wrapper (the QuotedPoint's click-stop div)
-    const positionWrapper = agreeDropdown.closest('[role="presentation"]');
+    // P521: Verify position buttons exist inside the presentation wrapper
+    const agreeButton = screen.getByText('Agree').closest('button')!;
+    const positionWrapper = agreeButton.closest('[role="presentation"]');
     expect(positionWrapper).not.toBeNull();
-    expect(positionWrapper).toContainElement(disagreeDropdown);
   });
 });

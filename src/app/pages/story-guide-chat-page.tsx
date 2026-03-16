@@ -7,6 +7,7 @@
 import { useEffect, useState } from 'react';
 import { useSearchParams, Navigate, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/auth';
+import { ClarityLoader, ClarityPageLoader } from '@/components/ui/clarity-loader';
 import { FocusHeader } from '@/app/components/layout/focus-header';
 import { StoryGuideChat } from '@/app/components/story-guide/StoryGuideChat';
 import { pointsService } from '@/app/data/points-service';
@@ -58,11 +59,7 @@ export function StoryGuideChatPage() {
 
   // Auth gate — wait for auth to resolve
   if (isLoading) {
-    return (
-      <div className="flex items-center justify-center h-screen">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" />
-      </div>
-    );
+    return <ClarityPageLoader />;
   }
 
   if (!user) {
@@ -108,7 +105,7 @@ export function StoryGuideChatPage() {
       <div className="h-[calc(100vh-13rem)] lg:h-[calc(100vh-9rem)] flex flex-col">
         {pointLoading ? (
           <div className="flex-1 flex items-center justify-center">
-            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600" />
+            <ClarityLoader size="md" />
           </div>
         ) : (
           <StoryGuideChat

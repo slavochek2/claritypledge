@@ -6,6 +6,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { Share2, Check, Keyboard, Mic, ShieldOff, Sparkles, Loader2 } from 'lucide-react';
+import { ClarityLoader } from '@/components/ui/clarity-loader';
 import * as Sentry from '@sentry/react';
 import { QRCodeSVG } from 'qrcode.react';
 import { Button } from '@/components/ui/button';
@@ -37,6 +38,7 @@ import {
   recordTermsAcceptance,
   recordSessionConsent,
   needsTermsAcceptance,
+  createTranscriptionJob,
 } from '@/app/data/api';
 import { TermsUpdateDialog } from '@/app/components/live-meeting/terms-update-dialog';
 import { analytics } from '@/lib/mixpanel';
@@ -2228,15 +2230,15 @@ export function ClarityLivePage() {
     } catch (err) {
       console.error('[P28.1] Failed to stop/upload recording:', err);
       // Don't throw - recording failure shouldn't block session exit
-    } finally {
-      // P28.2: Unregister ML collector so events outside session aren't captured
-      analytics.unregisterMLCollector();
-      eventsCollectorRef.current.reset();
-      sessionCodeForChunks.current = null;
-      userNameForChunks.current = null;
-      sessionForChunks.current = null;
-      userForChunks.current = null;
     }
+
+    // P28.2: Unregister ML collector so events outside session aren't captured
+    analytics.unregisterMLCollector();
+    eventsCollectorRef.current.reset();
+    sessionCodeForChunks.current = null;
+    userNameForChunks.current = null;
+    sessionForChunks.current = null;
+    userForChunks.current = null;
   }, [session, name, stopRecording]);
 
   // Show exit confirmation dialog
@@ -2258,6 +2260,17 @@ export function ClarityLivePage() {
       stopAndUploadRecording(),
       new Promise<void>((resolve) => setTimeout(resolve, 5000)),
     ]);
+
+    // P495: Trigger transcription job — must be outside stopAndUploadRecording
+    // because that function early-returns when eventsCollector hasn't started
+    if (session && !session.isPrivate && session.id && session.code) {
+      try {
+        await createTranscriptionJob(session.code, session.id);
+        console.log('[P495] Transcription job created for session:', session.code);
+      } catch (err) {
+        console.error('[P495] Failed to create transcription job:', err);
+      }
+    }
 
     // Track session exit
     if (session) {
@@ -2491,7 +2504,7 @@ export function ClarityLivePage() {
     return (
       <div className="flex flex-col min-h-[calc(100vh-4rem)] lg:min-h-[calc(100vh-5rem)]">
         <div className="flex-1 flex items-center justify-center">
-          <div className="animate-pulse text-muted-foreground">Loading...</div>
+          <ClarityLoader size="lg" />
         </div>
       </div>
     );

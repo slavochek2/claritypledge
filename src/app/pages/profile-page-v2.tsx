@@ -31,6 +31,7 @@ import {
   Trash2,
   ScrollText,
 } from "lucide-react";
+import { ClarityPageLoader } from "@/components/ui/clarity-loader";
 import { GravatarAvatar } from "@/components/ui/gravatar-avatar";
 
 const LinkedInBrandIcon = ({ size = 14 }: { size?: number }) => (
@@ -588,11 +589,7 @@ export function ProfilePageV2() {
   };
 
   if (loading) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="animate-pulse text-muted-foreground">Loading profile...</div>
-      </div>
-    );
+    return <ClarityPageLoader />;
   }
 
   if (error) {
@@ -801,7 +798,7 @@ export function ProfilePageV2() {
                       <TooltipProvider delayDuration={100}>
                         <Tooltip>
                           <TooltipTrigger asChild>
-                            <span className="inline-flex items-center gap-0.5 text-sm text-muted-foreground cursor-default flex-shrink-0">
+                            <span className="inline-flex items-center gap-0.5 text-sm font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded-full px-2 py-0.5 cursor-default flex-shrink-0">
                               <Ear size={14} />
                               {credibilityStats.ear}
                             </span>
@@ -884,12 +881,14 @@ export function ProfilePageV2() {
                 {agreementsLoading ? (
                   <div className="h-[44px]" />
                 ) : (
-                  <AgreementsMetadataLine
-                    profileId={profile.id}
-                    viewerProfileId={currentUser?.id ?? null}
-                    agreements={agreements}
-                    slug={profile.slug}
-                  />
+                  <div className="animate-[clarity-appear_300ms_ease-out_forwards]">
+                    <AgreementsMetadataLine
+                      profileId={profile.id}
+                      viewerProfileId={currentUser?.id ?? null}
+                      agreements={agreements}
+                      slug={profile.slug}
+                    />
+                  </div>
                 )}
                 {/* Calibration bar */}
                 <InlineCalibration calibration={calibration} />
@@ -964,7 +963,7 @@ export function ProfilePageV2() {
             aria-labelledby={contentTab === 'stories' ? 'stories-tab' : 'points-tab'}
           >
             {contentLoading ? (
-              <div className="space-y-4 animate-pulse">
+              <div className="space-y-4 animate-pulse transition-opacity duration-300">
                 <div className="h-24 bg-muted rounded-lg" />
                 <div className="h-24 bg-muted rounded-lg" />
                 <div className="h-24 bg-muted rounded-lg" />
@@ -1161,7 +1160,7 @@ function StoryCardFull({
                   {author.name}
                 </button>
                 <MobileTooltip content={credibilityStats.ear === 0 ? `${author.name.split(' ')[0]} hasn't had any stories confirmed understood yet` : `${author.name.split(' ')[0]} understood ${credibilityStats.ear} ${credibilityStats.ear === 1 ? 'story' : 'stories'} as confirmed by their owners`}>
-                  <span className="inline-flex items-center gap-0.5 text-xs text-muted-foreground">
+                  <span className="inline-flex items-center gap-0.5 text-xs font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded-full px-1.5 py-0.5">
                     <Ear size={12} />
                     {credibilityStats.ear}
                   </span>
@@ -1388,7 +1387,7 @@ function QuotedPointCard({
           />
           <span className="font-medium">{authorName}</span>
           {authorEarCount !== undefined && authorEarCount > 0 && (
-            <span className="inline-flex items-center gap-0.5 text-muted-foreground">
+            <span className="inline-flex items-center gap-0.5 text-xs font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded-full px-1.5 py-0.5">
               <Ear size={14} />
               {authorEarCount}
             </span>

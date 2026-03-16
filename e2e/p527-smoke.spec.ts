@@ -6,7 +6,7 @@
  * and the create-and-sign edge function endpoint is reachable.
  */
 
-import { test, expect as _expect } from '@playwright/test';
+import { test, expect } from '@playwright/test';
 import {
   createTestUser,
   deleteTestUser,
@@ -35,30 +35,57 @@ test.describe('P527 — Smoke Tests', () => {
     if (creator?.user?.id) await deleteTestUser(creator.user.id);
   });
 
-  test('accept page loads for new user without console errors', async ({ page: _page }) => {
-    // TODO: Implement in /dev
-    // 1. Navigate to /agreements/:id/accept?token=<token>
-    // 2. Collect console errors
-    // 3. Assert: page renders (main heading visible)
-    // 4. Assert: no console errors
-    // 5. Assert: sign button visible (new user flow)
-    test.skip();
+  test('accept page loads for new user without console errors', async ({ page }) => {
+    const consoleErrors: string[] = [];
+    page.on('console', msg => {
+      if (msg.type() === 'error') consoleErrors.push(msg.text());
+    });
+
+    await page.goto(`/agreements/${agreement.id}/accept?token=${agreement.invitationToken}`);
+    await page.waitForLoadState('networkidle');
+
+    // Page should render the creator's invitation heading
+    await expect(page.getByText(/invited you/i)).toBeVisible({ timeout: 10000 });
+
+    // Filter out known benign console errors (e.g. Supabase realtime, favicon)
+    const realErrors = consoleErrors.filter(
+      e => !e.includes('favicon') && !e.includes('realtime') && !e.includes('WebSocket')
+    );
+    expect(realErrors).toHaveLength(0);
   });
 
-  test('accept page renders name input and sign button', async ({ page: _page }) => {
-    // TODO: Implement in /dev
-    // 1. Navigate to accept page
-    // 2. Assert: name input field visible
-    // 3. Assert: sign button visible
-    // 4. Assert: no "check your email" content visible
-    test.skip();
+  test('accept page renders name input and sign button', async ({ page }) => {
+    await page.goto(`/agreements/${agreement.id}/accept?token=${agreement.invitationToken}`);
+    await page.waitForLoadState('networkidle');
+
+    // Name input visible for new user
+    await expect(page.getByPlaceholder('Your full name')).toBeVisible({ timeout: 10000 });
+
+    // Sign button visible
+    await expect(page.getByRole('button', { name: /seal.*sign/i })).toBeVisible();
+
+    // No "check your email" content
+    await expect(page.getByText(/check your email/i)).not.toBeVisible();
   });
 
-  test('create-and-sign edge function endpoint is reachable', async ({ request: _request }) => {
-    // TODO: Implement in /dev
-    // 1. POST to the edge function with invalid body
-    // 2. Assert: returns 4xx (not 404 or 502)
-    // 3. This confirms the function is deployed and reachable
-    test.skip();
+  test('create-and-sign edge function endpoint is reachable', async ({ request }) => {
+    const supabaseUrl = process.env.VITE_SUPABASE_URL!;
+    const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY!;
+
+    // POST with invalid body — should get 400 (not 404 or 502)
+    const response = await request.post(`${supabaseUrl}/functions/v1/create-and-sign`, {
+      headers: {
+        'Content-Type': 'application/json',
+        apikey: supabaseAnonKey,
+        Authorization: `Bearer ${supabaseAnonKey}`,
+      },
+      data: {},
+    });
+
+    // 400 = function exists and validates input
+    // 404 or 502 = function not deployed
+    expect(response.status()).toBe(400);
+    const body = await response.json();
+    expect(body.error).toBe('INVALID_INPUT');
   });
 });

@@ -87,8 +87,8 @@ describe("SettingsPage", () => {
 
       renderSettingsPage();
 
-      // Should show loading spinner
-      expect(document.querySelector(".animate-spin")).toBeInTheDocument();
+      // Should show branded loading animation (CSS handles anti-flash delay)
+      expect(screen.getByRole('img', { name: 'Loading' })).toBeInTheDocument();
     });
 
     it("should redirect unauthenticated users to /sign-pledge", async () => {

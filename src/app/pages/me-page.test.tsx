@@ -61,7 +61,7 @@ describe('MePage', () => {
         </MemoryRouter>
       );
 
-      expect(screen.getByText('Loading...')).toBeInTheDocument();
+      expect(screen.getByRole('img', { name: 'Loading' })).toBeInTheDocument();
       expect(mockNavigate).not.toHaveBeenCalled();
     });
 
@@ -78,7 +78,7 @@ describe('MePage', () => {
         </MemoryRouter>
       );
 
-      expect(screen.getByText('Loading...')).toBeInTheDocument();
+      expect(screen.getByRole('img', { name: 'Loading' })).toBeInTheDocument();
     });
   });
 

@@ -1,5 +1,6 @@
 import { BrowserRouter as Router, Routes, Route, Navigate, useSearchParams } from "react-router-dom";
 import { lazy, Suspense, Component, ReactNode } from "react";
+import { ClarityPageLoader } from "@/components/ui/clarity-loader";
 import * as Sentry from "@sentry/react";
 import { HelmetProvider } from "react-helmet-async";
 import { ClarityLandingLayout } from "@/app/layouts/clarity-landing-layout";
@@ -50,6 +51,7 @@ const LandingV3 = lazy(() => import("@/app/pages/landing-v3").then(m => ({ defau
 const LandingV4 = lazy(() => import("@/app/pages/landing-v4").then(m => ({ default: m.LandingV4 })));
 const PositionButtonsPrototype = lazy(() => import("@/app/pages/position-buttons-prototype").then(m => ({ default: m.PositionButtonsPrototype })));
 const EventsPrototype = lazy(() => import("@/app/prototypes/events").then(m => ({ default: m.EventsPrototype })));
+const LoadingDemoPage = lazy(() => import("@/app/pages/loading-demo-page").then(m => ({ default: m.LoadingDemoPage })));
 
 /** P491: Redirect authenticated+verified users from / to /feed. Show landing for everyone else. */
 function HomeRedirect() {
@@ -60,9 +62,7 @@ function HomeRedirect() {
   if (!sessionChecked || isLoading) {
     return (
       <ClarityLandingLayout>
-        <div className="min-h-screen flex items-center justify-center">
-          <div className="animate-pulse text-muted-foreground">Loading...</div>
-        </div>
+        <ClarityPageLoader />
       </ClarityLandingLayout>
     );
   }
@@ -89,11 +89,7 @@ function ChatRedirect() {
 
 // Loading fallback for lazy routes
 function PageLoader() {
-  return (
-    <div className="min-h-screen flex items-center justify-center">
-      <div className="animate-pulse text-muted-foreground">Loading...</div>
-    </div>
-  );
+  return <ClarityPageLoader />;
 }
 
 // Error boundary for chunk loading failures (after deployments, users with stale cache)
@@ -568,6 +564,7 @@ export default function ClarityPledgeApp() {
         <Route path="/tree/landing-v3" element={<LazyRoute><LandingV3 /></LazyRoute>} />
         <Route path="/tree/landing-v4" element={<LazyRoute><LandingV4 /></LazyRoute>} />
         <Route path="/tree/position-buttons" element={<LazyRoute><PositionButtonsPrototype /></LazyRoute>} />
+        <Route path="/tree/loading-demo" element={<LazyRoute><LoadingDemoPage /></LazyRoute>} />
         <Route path="/events/*" element={<ClarityLandingLayout><LazyRoute><EventsPrototype /></LazyRoute></ClarityLandingLayout>} />
       </Routes>
       </AuthProvider>

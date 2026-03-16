@@ -13,6 +13,7 @@ import { agreementsService } from '@/app/data/agreements-service';
 import type { AgreementParty, AgreementVisibility } from '@/app/data/agreements-service';
 import { AgreementCertificate } from '@/app/components/agreements/agreement-certificate';
 import { Loader2Icon, GlobeIcon, LockIcon, ArrowLeft } from 'lucide-react';
+import { ClarityLoader } from '@/components/ui/clarity-loader';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { MobileTooltip } from '@/app/components/shared/mobile-tooltip';
@@ -263,7 +264,7 @@ export function CreateAgreementPage() {
     return (
       <CertificatePageShell className="py-16">
         <div className="flex items-center justify-center">
-          <Loader2Icon className="w-8 h-8 animate-spin text-muted-foreground" />
+          <ClarityLoader size="lg" />
         </div>
       </CertificatePageShell>
     );

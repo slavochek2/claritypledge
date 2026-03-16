@@ -19,6 +19,7 @@ import { supabase } from '@/lib/supabase';
 import { invokeAgreementEmails } from '@/lib/agreement-emails';
 import { toast } from 'sonner';
 import { analytics } from '@/lib/mixpanel';
+import { triggerConfetti } from '@/lib/confetti';
 import { CertificatePageShell } from '@/app/components/layout/certificate-page-shell';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -30,6 +31,7 @@ import {
   DialogDescription,
 } from '@/components/ui/dialog';
 import { Loader2Icon, PenToolIcon } from 'lucide-react';
+import { ClarityPageLoader } from '@/components/ui/clarity-loader';
 import { Helmet } from 'react-helmet-async';
 import type { AgreementParty } from '@/app/data/agreements-service';
 
@@ -199,6 +201,7 @@ export function AcceptAgreementPage() {
       // Fire-and-forget email
       invokeAgreementEmails('accepted', agreementId);
 
+      triggerConfetti();
       toast.success(`Agreement Sealed — your Clarity Partner Agreement with ${nameToUse || 'your partner'} is now active.`);
       navigate(`/agreements/${agreementId}`);
     } finally {
@@ -312,6 +315,76 @@ export function AcceptAgreementPage() {
     }
   };
 
+  // P527: Direct sign for new users — server-side user creation + agreement acceptance
+  const handleDirectSign = async () => {
+    if (!agreement || !agreementId) return;
+    if (!partnerDisplayName.trim()) {
+      setNameError('Please enter your name');
+      return;
+    }
+    if (partnerDisplayName.trim().length > 100) {
+      setNameError('Name must be 100 characters or fewer');
+      return;
+    }
+    setNameError(null);
+    setIsSigningUp(true);
+    analytics.track('agreement_direct_sign_started', { agreement_id: agreementId });
+    try {
+      const { data, error } = await supabase.functions.invoke('create-and-sign', {
+        body: { agreementId, token, partnerName: partnerDisplayName.trim() },
+      });
+
+      if (error || !data?.ok || !data?.hashedToken) {
+        // Check if this is a USER_EXISTS error — don't fall back, show appropriate message
+        if (data?.error === 'USER_EXISTS') {
+          analytics.track('agreement_direct_sign_user_exists', { agreement_id: agreementId });
+          // Fall through to existing user sign-in flow
+          await handleExistingUserSignIn();
+          return;
+        }
+        // For all other errors, fall back to OTP flow
+        console.warn('[P527] Direct sign failed, falling back to OTP:', error?.message || data?.error);
+        analytics.track('agreement_direct_sign_fallback', { agreement_id: agreementId, error: data?.error || error?.message });
+        await handleInlineSignup();
+        return;
+      }
+
+      // Exchange hashed token for a session
+      const { error: otpError } = await supabase.auth.verifyOtp({
+        token_hash: data.hashedToken,
+        type: 'magiclink',
+      });
+
+      if (otpError) {
+        console.error('[P527] verifyOtp failed:', otpError.message);
+        analytics.track('agreement_direct_sign_session_failed', { agreement_id: agreementId });
+        // Agreement is already accepted server-side; navigate to it anyway
+        // User may need to log in separately, but the agreement is signed
+        toast.success('Agreement sealed! You may need to log in to view it.');
+        navigate(`/agreements/${agreementId}`);
+        return;
+      }
+
+      // Success — session established, agreement accepted, email sent by edge function
+      analytics.track('agreement_direct_sign_success', { agreement_id: agreementId });
+      triggerConfetti();
+      toast.success(`Agreement Sealed — your Clarity Partner Agreement is now active.`);
+
+      // Clean up token from URL (security: prevent token leakage)
+      window.history.replaceState(null, '', window.location.pathname);
+
+      // Do NOT fire invokeAgreementEmails — the edge function already did
+      navigate(`/agreements/${agreementId}`);
+    } catch (err) {
+      console.error('[P527] Direct sign error:', err);
+      analytics.track('agreement_direct_sign_error', { agreement_id: agreementId });
+      // Fall back to existing OTP flow
+      await handleInlineSignup();
+    } finally {
+      setIsSigningUp(false);
+    }
+  };
+
   // Inline signup: send magic link to the partner email we already have
   const handleInlineSignup = async () => {
     if (!agreement || !agreementId) return;
@@ -360,11 +433,7 @@ export function AcceptAgreementPage() {
   // ---- Render helpers ----
 
   if (pageState === 'loading') {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <Loader2Icon className="w-6 h-6 animate-spin text-[#002B5C]/40" />
-      </div>
-    );
+    return <ClarityPageLoader />;
   }
 
   if (pageState === 'invalid') {
@@ -493,7 +562,7 @@ export function AcceptAgreementPage() {
                       <Button
                         className="w-full bg-[#002B5C] hover:bg-[#001f45] text-white font-semibold text-base md:text-lg py-4 md:py-6 relative overflow-hidden group"
                         size="lg"
-                        onClick={handleInlineSignup}
+                        onClick={handleDirectSign}
                         disabled={isSigningUp}
                       >
                         {isSigningUp ? (
