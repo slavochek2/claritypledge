@@ -2,6 +2,22 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-16 [technical]: P511 session resilience — implementation learnings (banner, polling, heartbeat)
+
+**Context:** P511 shipped session resilience (grace period, rejoin, banner). Implementation revealed three gotchas not in the original architecture.
+**Decision:** (1) **Banner must render inside `<main>`, not between nav and main.** The nav is `fixed z-50`. A banner between nav and main at any z-index either fights the nav (z-50 = overlaps avatar) or loses to page content (z-40 = profile images cover it). Inside `<main>` with `relative z-40` it's structurally below nav, above content. (2) **`useActiveSession` polling must use `getActiveSessionByCode` (not `getClaritySession`).** Session "ended" state lives in `live_state.sessionEnded` JSONB field — there is no `ended_at` column. `getClaritySession` doesn't check this; `getActiveSessionByCode` does. (3) **Creator-only heartbeats (Decision 5b).** Anonymous joiners can't call `update_last_activity` RPC (no `auth.uid()`). Creator's heartbeat keeps session alive for both participants. If creator disconnects, grace period starts for joiner — acceptable trade-off.
+**Alternatives rejected:** (1) Banner as `sticky` between nav and main — z-index conflict with fixed nav regardless of value chosen. (2) Both parties heartbeat — requires a second auth path for anonymous joiners (session token). Deferred complexity.
+**Consequences:** All future global banners (offline, install, session) must render inside `<main>` to avoid z-index fights with fixed nav. The `getActiveSessionByCode` function is the correct API for any code that needs to know if a session is "still active."
+**References:** `features/done/23_mar_26/p511_session_resilience.md`
+
+## 2026-03-16 [process]: Two-party test fixture built — P497 MVP after 3 sessions of deferral
+
+**Context:** P497 (multi-user test fixtures) was filed 2026-03-12 as a dependency of P496 (done). It sat in backlog while P504, P509, P510, P511 shipped — each hitting the same wall: "can't verify /live session state via automation." P511 was the third session where the agent proposed a workaround instead of fixing the root cause. The user broke the cycle by asking "how do we make sure this doesn't happen again?"
+**Decision:** Built `createTwoPartySession()` in `e2e/helpers/test-session.ts` — composes existing helpers (P496 `getTestAuthContext`, P276 `mockMicPermission` + `waitForDBPresence`, `supabaseAdmin` direct insert). Also `createTestSessionInDB()` for DB-only scenarios. Built inline on the P511 branch, not as a separate spec — the lean path for glue code that composes existing pieces.
+**Alternatives rejected:** (1) Full P497 Playwright fixture (`test.use({ users: 'host+guest' })`) — nice but over-engineered for current needs. (2) Filing a separate spec — would sit in backlog again. (3) Continuing to work around it with manual verification — the pattern that failed 3 times.
+**Consequences:** Every future `/live` E2E test can import `createTwoPartySession()`. The full P497 fixture (with Playwright `test.extend`) is a follow-up if the helper is used in 5+ test files. Process learning: when the same infrastructure gap blocks 3+ features, build it inline on the current feature — don't file it separately.
+**References:** `e2e/helpers/test-session.ts`, `features/p497_e2e_multi_user_fixtures.md` (still in backlog for full fixture)
+
 ## 2026-03-16 [technical]: P537 useAuth memoization — useCallback + useMemo on context providers, but data-status wrapper still needed
 
 **Context:** /falsify surfaced that `useAuth()` returned unstable references for `refreshProfile` and `signOut` (new function on every render). This caused AuthCallbackPage's `useEffect` to re-fire `processAuth()` when unrelated child re-renders occurred (root cause of the double-upsert bug found during ClarityLoader work).
