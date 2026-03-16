@@ -117,7 +117,7 @@ describe('exportResponsesAsCSV', () => {
 - ✅ API endpoints (request → response)
 - ✅ Database operations (CRUD + RLS validation)
 - ✅ Service interactions (auth + profiles)
-- ✅ **Two-party session flows** — when spec references `/live`, `clarity_sessions`, `session_code`, `joiner`, or describes a multi-user session flow
+- ✅ **Two-party session flows** — when spec references `/live`, `clarity_sessions`, `session_code`, `joiner`, or `LiveMeeting`
 
 **When skipped:**
 - ❌ Simple database reads (covered by E2E)

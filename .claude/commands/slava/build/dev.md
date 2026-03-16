@@ -90,7 +90,7 @@ You're not just writing code — you're building something that will run in prod
    - **(C) Proceed anyway** (only if user explicitly confirms both features are one logical changeset)
    Wait for user decision. Skip this check if already in a worktree (isolation is structural) or if the tree is clean.
 
-0.3. **Pre-flight: two-party test coverage** — If the spec references `/live`, `clarity_sessions`, `session_code`, `joiner`, or `LiveMeeting`, run `grep -rl 'joinerContext\|two-party\|getTestAuthContext.*guest' e2e/` and verify at least one file exercises this feature's code path. If none exists, add a two-party E2E test to the implementation plan. *Rationale: P495 shipped a bug where the RPC call was inside an early-returning function — no two-party test existed to catch it.*
+0.3. **Pre-flight: two-party test coverage** — If the spec references `/live`, `clarity_sessions`, `session_code`, `joiner`, or `LiveMeeting`, run `grep -rl 'p{N}\|{feature-keyword}' e2e/` (substituting the actual P-number and a feature-specific keyword) and verify at least one test file exercises *this feature's* code path. A generic two-party helper match (e.g., `test-realtime.ts`) does not count — look for the P-number or feature name. If none exists, add a two-party E2E test to the implementation plan. *Rationale: P495 shipped a bug where the RPC call was inside an early-returning function — no two-party test existed to catch it.*
 
 0.4. **Mark in-progress** — If a P-number spec was provided, update `status: in-progress` in frontmatter (skip silently if inline description mode)
 1. **Read tests** — UAT scenarios, E2E test stubs, acceptance criteria
@@ -324,6 +324,7 @@ The dev agent:
 - Reads UAT scenarios (features/uat/pN.md)
 - Reads E2E test stubs (e2e/pN-*.spec.ts)
 - Reads acceptance criteria
+- **Two-party check (step 0.3):** If spec references `/live`, `clarity_sessions`, `session_code`, `joiner`, or `LiveMeeting` — verify a feature-specific two-party test exists before implementing. See Workflow step 0.3.
 
 **2. Implementation:**
 - Implements feature code (follows technical requirements)
