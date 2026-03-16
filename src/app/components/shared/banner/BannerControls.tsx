@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { Pencil, RefreshCw, Trash2, Search } from 'lucide-react';
+import { Pencil, RefreshCw, Trash2, Search, Share2 } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -19,6 +19,8 @@ interface BannerControlsProps {
   defaultKeywords?: string;
   /** P510: Use minimal pencil icon + dropdown instead of always-visible pills */
   variant?: 'pills' | 'minimal';
+  /** Optional share callback — renders share icon to the right of controls */
+  onShare?: () => void;
 }
 
 /**
@@ -37,6 +39,7 @@ export function BannerControls({
   searchError,
   defaultKeywords,
   variant = 'pills',
+  onShare,
 }: BannerControlsProps) {
   if (variant === 'minimal') {
     return (
@@ -48,6 +51,7 @@ export function BannerControls({
         onSearch={onSearch}
         searchError={searchError}
         defaultKeywords={defaultKeywords}
+        onShare={onShare}
       />
     );
   }
@@ -177,6 +181,7 @@ interface MinimalControlsProps {
   onSearch: (keywords: string) => void;
   searchError?: string;
   defaultKeywords?: string;
+  onShare?: () => void;
 }
 
 function MinimalBannerControls({
@@ -187,6 +192,7 @@ function MinimalBannerControls({
   onSearch,
   searchError,
   defaultKeywords,
+  onShare,
 }: MinimalControlsProps) {
   const [showSearchInput, setShowSearchInput] = useState(false);
   const [keywords, setKeywords] = useState('');
@@ -242,47 +248,58 @@ function MinimalBannerControls({
 
   return (
     <div className="absolute top-2 right-2 md:top-3 md:right-3 flex flex-col items-end gap-1 z-10">
-      {isLoading ? (
-        /* Loading state: spinning RefreshCw replaces pencil */
-        <div
-          className={`p-2 ${pillClass} cursor-default`}
-          aria-label="Generating banner"
-        >
-          <RefreshCw className="w-4 h-4 animate-spin" />
-        </div>
-      ) : (
-        /* Pencil icon with dropdown */
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <button
-              ref={pencilRef}
-              className={`p-2 ${pillClass}`}
-              aria-label="Banner options"
-            >
-              <Pencil className="w-4 h-4" />
-            </button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-48">
-            <DropdownMenuItem onClick={handleNewBanner}>
-              <RefreshCw className="w-4 h-4 mr-2" />
-              New banner
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={handleDescribeClick}>
-              <Search className="w-4 h-4 mr-2" />
-              Describe your banner...
-            </DropdownMenuItem>
-            {hasBanner && (
-              <>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={handleRemove}>
-                  <Trash2 className="w-4 h-4 mr-2" />
-                  Remove banner
-                </DropdownMenuItem>
-              </>
-            )}
-          </DropdownMenuContent>
-        </DropdownMenu>
-      )}
+      <div className="flex items-center gap-1">
+        {isLoading ? (
+          /* Loading state: spinning RefreshCw replaces pencil */
+          <div
+            className={`p-2 ${pillClass} cursor-default`}
+            aria-label="Generating banner"
+          >
+            <RefreshCw className="w-4 h-4 animate-spin" />
+          </div>
+        ) : (
+          /* Pencil icon with dropdown */
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                ref={pencilRef}
+                className={`p-2 ${pillClass}`}
+                aria-label="Banner options"
+              >
+                <Pencil className="w-4 h-4" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48">
+              <DropdownMenuItem onClick={handleNewBanner}>
+                <RefreshCw className="w-4 h-4 mr-2" />
+                New banner
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={handleDescribeClick}>
+                <Search className="w-4 h-4 mr-2" />
+                Describe your banner...
+              </DropdownMenuItem>
+              {hasBanner && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={handleRemove}>
+                    <Trash2 className="w-4 h-4 mr-2" />
+                    Remove banner
+                  </DropdownMenuItem>
+                </>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
+        {onShare && (
+          <button
+            onClick={onShare}
+            className={`p-2 ${pillClass}`}
+            aria-label="Share profile"
+          >
+            <Share2 className="w-4 h-4" />
+          </button>
+        )}
+      </div>
 
       {/* Search input — shown only after clicking "Describe your banner..." */}
       {showSearchInput && !isLoading && (

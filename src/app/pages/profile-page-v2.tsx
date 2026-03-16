@@ -20,7 +20,6 @@ import { analytics } from "@/lib/mixpanel";
 import {
   MailIcon,
   ArrowLeft,
-  Share2,
   Ear,
   PenLine,
   ExternalLink,
@@ -772,14 +771,15 @@ export function ProfilePageV2() {
                   showSearch={banner.showSearch}
                   onSearch={banner.handleSearch}
                   searchError={banner.searchError || undefined}
+                  onShare={() => setShowShareDialog(true)}
                 />
               )}
             </BannerDisplay>
 
             {/* P510: Avatar + name/role overlap row + details below */}
             <div className="px-4 md:px-6 pb-6">
-              {/* Overlap row: avatar + name beside it + share button */}
-              <div className="flex items-end justify-between">
+              {/* Overlap row: avatar + name beside it */}
+              <div className="flex items-end">
                 <div className="flex items-center gap-4 mt-[-48px] relative z-10">
                   {/* Avatar - 96px, overlapping banner by 48px */}
                   <div className="flex-shrink-0 ring-4 ring-white dark:ring-card rounded-full" data-testid="profile-avatar">
@@ -844,18 +844,6 @@ export function ProfilePageV2() {
                   </div>
                 </div>
 
-                {/* Share button - only shown for profile owner */}
-                {isOwner && (
-                  <MobileTooltip content="Share profile">
-                    <button
-                      onClick={() => setShowShareDialog(true)}
-                      className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-muted rounded-full transition-colors flex-shrink-0 mt-2"
-                      aria-label="Share profile"
-                    >
-                      <Share2 size={16} />
-                    </button>
-                  </MobileTooltip>
-                )}
               </div>
 
               {/* Details below avatar/name row - full width */}
