@@ -10,7 +10,7 @@
  *
  * This separation prevents race conditions from multiple onAuthStateChange events.
  */
-import { createContext, useContext, useState, useEffect, useRef, useCallback, ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, useRef, useCallback, useMemo, ReactNode } from 'react';
 import { Session } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
 import { getProfileResult, signOut as apiSignOut, patchClaritySessionLiveState, clearSessionJoiner } from '@/app/data/api';
@@ -157,8 +157,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
     return () => { isMounted = false; };
   }, [userId, fetchProfileForUser]);
 
-  // Manual refresh - called by AuthCallbackPage after profile upsert
-  const refreshProfile = async () => {
+  // P537: useCallback keeps refreshProfile reference stable across renders
+  const refreshProfile = useCallback(async () => {
     if (!userId) {
       return;
     }
@@ -169,9 +169,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
       setUser(profile);
     }
     // On failure, keep existing user state (don't wipe on transient errors)
-  };
+  }, [userId, fetchProfileForUser]);
 
-  const signOut = async () => {
+  // P537: useCallback keeps signOut reference stable across renders
+  const signOut = useCallback(async () => {
     // Fix B: Clean up active live session before signing out
     const sessionId = sessionStorage.getItem('clarity_live_session_id');
     const isCreator = sessionStorage.getItem('clarity_live_is_creator') === 'true';
@@ -195,10 +196,16 @@ export function AuthProvider({ children }: AuthProviderProps) {
     // Only clear state after successful sign-out to prevent ghost sessions
     setUser(null);
     setSession(null);
-  };
+  }, []);
+
+  // P537: useMemo prevents context consumers from re-rendering when values haven't changed
+  const contextValue = useMemo(
+    () => ({ user, session, isLoading, sessionChecked, signOut, refreshProfile }),
+    [user, session, isLoading, sessionChecked, signOut, refreshProfile]
+  );
 
   return (
-    <AuthContext.Provider value={{ user, session, isLoading, sessionChecked, signOut, refreshProfile }}>
+    <AuthContext.Provider value={contextValue}>
       {children}
     </AuthContext.Provider>
   );
