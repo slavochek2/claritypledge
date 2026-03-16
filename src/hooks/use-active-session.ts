@@ -4,10 +4,7 @@ import {
   getActiveSessionFromStorage,
   clearActiveSessionFromStorage,
 } from '@/app/contexts/live-session-context';
-import { getClaritySession } from '@/app/data/api';
-
-/** Sessions with no heartbeat for 10+ minutes are treated as zombies */
-const ZOMBIE_THRESHOLD_MS = 10 * 60 * 1000;
+import { getActiveSessionByCode } from '@/app/data/api';
 
 /** Poll interval for checking if session is still active (30s) */
 const POLL_INTERVAL_MS = 30 * 1000;
@@ -20,8 +17,9 @@ const POLL_INTERVAL_MS = 30 * 1000;
  * on tab focus. This ensures the banner disappears promptly when the user
  * returns to the tab after their partner ended the session.
  *
- * Zombie detection: if the session exists but `last_activity_at` is older than
- * 10 minutes, treat it as abandoned.
+ * Uses `getActiveSessionByCode` which checks:
+ * - `live_state.sessionEnded` (the actual ended signal — no `ended_at` column exists)
+ * - Grace period on `last_activity_at` (zombie/stale session detection)
  */
 export function useActiveSession() {
   const {
@@ -45,25 +43,16 @@ export function useActiveSession() {
     }
 
     try {
-      const session = await getClaritySession(stored.code);
+      // getActiveSessionByCode checks live_state.sessionEnded and grace period.
+      // Returns null when session is ended, expired, or not found.
+      const session = await getActiveSessionByCode(stored.code);
 
-      if (session && !session.endedAt) {
-        // Zombie detection
-        if (session.lastActivityAt) {
-          const lastActivity = new Date(session.lastActivityAt).getTime();
-          const age = Date.now() - lastActivity;
-          if (age > ZOMBIE_THRESHOLD_MS) {
-            clearActiveSessionFromStorage();
-            clearActiveSession();
-            return false;
-          }
-        }
-
+      if (session) {
         // Session is still active — restore/keep context
         setActiveSession(stored.code, stored.partnerName, stored.role, stored.guestDisplayName);
         return true;
       } else {
-        // Session ended or doesn't exist — clean up
+        // Session ended, expired, or not found — clean up
         clearActiveSessionFromStorage();
         clearActiveSession();
         return false;
