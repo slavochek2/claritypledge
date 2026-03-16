@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { ArrowLeft, Calendar, Clock, MapPin, FileText, Globe, Loader2 } from 'lucide-react';
+import { ArrowLeft, Calendar, Clock, MapPin, FileText, Globe } from 'lucide-react';
+import { ClarityPageLoader } from '@/components/ui/clarity-loader';
 import { LocationHint } from './LocationHint';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -103,11 +104,7 @@ export function EditEvent() {
 
   // Loading state
   if (isLoading || authLoading) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
-      </div>
-    );
+    return <ClarityPageLoader />;
   }
 
   // Get tomorrow's date for min date attribute

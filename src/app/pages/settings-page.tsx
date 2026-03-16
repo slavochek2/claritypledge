@@ -9,6 +9,7 @@ import { useAuth } from "@/auth";
 import { updateProfile } from "@/app/data/api";
 import { toast } from "sonner";
 import { ArrowLeftIcon, Loader2Icon, CheckIcon } from "lucide-react";
+import { ClarityLoader } from "@/components/ui/clarity-loader";
 import { analytics } from "@/lib/mixpanel";
 import { Button } from "@/components/ui/button";
 import { InstallCard } from "@/app/components/pwa/install-card";
@@ -159,7 +160,7 @@ export function SettingsPage() {
     return (
       <div className="container mx-auto px-4 py-16 max-w-2xl">
         <div className="flex items-center justify-center">
-          <Loader2Icon className="w-8 h-8 animate-spin text-muted-foreground" />
+          <ClarityLoader size="lg" />
         </div>
       </div>
     );

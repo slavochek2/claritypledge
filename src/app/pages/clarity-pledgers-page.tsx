@@ -8,7 +8,8 @@
 import { useEffect, useState, useRef } from "react";
 import { getVerifiedProfiles, type Profile } from "@/app/data/api";
 import { SEO } from "@/app/components/seo";
-import { UsersIcon, LoaderIcon } from "lucide-react";
+import { UsersIcon } from "lucide-react";
+import { ClarityLoader } from "@/components/ui/clarity-loader";
 import { PledgerCard } from "@/app/components/social/pledger-card";
 import { analytics } from "@/lib/mixpanel";
 import { DualCTA } from "@/app/components/landing/dual-cta";
@@ -86,11 +87,8 @@ export function ClarityPledgersPage() {
 
         {/* Pledgers Grid */}
         {loading ? (
-          <div className="flex justify-center py-20">
-            <LoaderIcon
-              data-testid="loader"
-              className="w-8 h-8 animate-spin text-muted-foreground"
-            />
+          <div className="flex justify-center py-20" data-testid="loader">
+            <ClarityLoader size="lg" />
           </div>
         ) : verifiedProfiles.length > 0 ? (
           <>

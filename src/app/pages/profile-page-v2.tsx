@@ -31,6 +31,7 @@ import {
   Trash2,
   ScrollText,
 } from "lucide-react";
+import { ClarityPageLoader } from "@/components/ui/clarity-loader";
 import { GravatarAvatar } from "@/components/ui/gravatar-avatar";
 
 const LinkedInBrandIcon = ({ size = 14 }: { size?: number }) => (
@@ -588,11 +589,7 @@ export function ProfilePageV2() {
   };
 
   if (loading) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="animate-pulse text-muted-foreground">Loading profile...</div>
-      </div>
-    );
+    return <ClarityPageLoader />;
   }
 
   if (error) {
@@ -884,12 +881,14 @@ export function ProfilePageV2() {
                 {agreementsLoading ? (
                   <div className="h-[44px]" />
                 ) : (
-                  <AgreementsMetadataLine
-                    profileId={profile.id}
-                    viewerProfileId={currentUser?.id ?? null}
-                    agreements={agreements}
-                    slug={profile.slug}
-                  />
+                  <div className="animate-[clarity-appear_300ms_ease-out_forwards]">
+                    <AgreementsMetadataLine
+                      profileId={profile.id}
+                      viewerProfileId={currentUser?.id ?? null}
+                      agreements={agreements}
+                      slug={profile.slug}
+                    />
+                  </div>
                 )}
                 {/* Calibration bar */}
                 <InlineCalibration calibration={calibration} />
@@ -964,7 +963,7 @@ export function ProfilePageV2() {
             aria-labelledby={contentTab === 'stories' ? 'stories-tab' : 'points-tab'}
           >
             {contentLoading ? (
-              <div className="space-y-4 animate-pulse">
+              <div className="space-y-4 animate-pulse transition-opacity duration-300">
                 <div className="h-24 bg-muted rounded-lg" />
                 <div className="h-24 bg-muted rounded-lg" />
                 <div className="h-24 bg-muted rounded-lg" />

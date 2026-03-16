@@ -23,7 +23,8 @@ import { useEffect, useState } from "react";
 import { useNavigate, useLocation, Link } from "react-router-dom";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "./useAuth";
-import { LoaderIcon, AlertCircleIcon } from "lucide-react";
+import { AlertCircleIcon } from "lucide-react";
+import { ClarityPageLoader } from "@/components/ui/clarity-loader";
 import { generateSlug, getProfile, getEventBySlug, rsvpToEvent } from "@/app/data/api";
 import { CURRENT_TERMS_VERSION } from "@/lib/constants";
 import * as Sentry from "@sentry/react";
@@ -596,18 +597,22 @@ export function AuthCallbackPage() {
     );
   }
 
-  // Loading/processing state
-  return (
-    <div className="min-h-screen flex items-center justify-center p-4">
-      <div className="text-center space-y-6 max-w-md">
-        <div className="flex justify-center">
-          <LoaderIcon className="w-16 h-16 text-blue-600 dark:text-blue-400 animate-spin" />
-        </div>
-        <div className="space-y-2">
-          <h1 className="text-3xl font-bold">Completing Verification</h1>
-          <p className="text-lg text-muted-foreground">{status}</p>
+  // Error states (non-auth_error) — show the error text
+  if (status.startsWith("Error")) {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-4">
+        <div className="text-center space-y-4 max-w-md">
+          <AlertCircleIcon className="w-8 h-8 text-amber-600 dark:text-amber-400 mx-auto" />
+          <p className="text-muted-foreground">{status}</p>
         </div>
       </div>
+    );
+  }
+
+  // Loading/processing state
+  return (
+    <div data-status={status}>
+      <ClarityPageLoader />
     </div>
   );
 }

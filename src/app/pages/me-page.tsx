@@ -14,6 +14,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/auth";
 import { MailIcon, CheckCircleIcon, Loader2Icon } from "lucide-react";
+import { ClarityPageLoader } from "@/components/ui/clarity-loader";
 import { Button } from "@/components/ui/button";
 import { SEO } from "@/app/components/seo";
 import { supabase } from "@/lib/supabase";
@@ -74,11 +75,7 @@ export function MePage() {
 
   // Loading state
   if (!sessionChecked || isLoading) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="animate-pulse text-muted-foreground">Loading...</div>
-      </div>
-    );
+    return <ClarityPageLoader />;
   }
 
   // Not logged in (while redirecting)

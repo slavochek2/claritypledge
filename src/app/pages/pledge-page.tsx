@@ -16,6 +16,7 @@ import { SEO } from "@/app/components/seo";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { CheckCircleIcon, ArrowLeft } from "lucide-react";
+import { ClarityPageLoader } from "@/components/ui/clarity-loader";
 import { useAuth } from "@/auth";
 import { analytics } from "@/lib/mixpanel";
 
@@ -108,11 +109,7 @@ export function PledgePage() {
   // Only wait for profile loading, not auth loading
   // The profile page can render the public view while auth is still loading
   if (loading) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="animate-pulse text-muted-foreground">Loading Pledge...</div>
-      </div>
-    );
+    return <ClarityPageLoader />;
   }
 
   if (!profile) {
