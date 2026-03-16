@@ -1,7 +1,7 @@
 # Done Features Index
 
 Quick reference for past completed work. Consult when starting work on a related topic.
-Last updated: 2026-03-16 (P524 Withdraw Pledge Toggle)
+Last updated: 2026-03-16 (P521 Position Buttons Auto-Dropdown)
 
 ---
 
@@ -75,6 +75,7 @@ Last updated: 2026-03-16 (P524 Withdraw Pledge Toggle)
 
 - **P504** (Mar 14) Auto-Generated Banners — shared `BannerDisplay`/`BannerControls`/`useBanner` components; `banner_generation_attempted` guard prevents re-triggering on mount; `overflow-hidden` on wrapper divs clips dropdown menus
 - **P510** (Mar 14) Profile Banner UX Polish — LinkedIn-style avatar overlap (96px, `-mt-12`); pencil icon toggle for controls; gradient fallback visible when no banner; name beside avatar not below
+- **P521** (Mar 16) Position Buttons Auto-Dropdown — portal dropdown escapes overflow:hidden; ResizeObserver for 2-mode responsive (full text / icon-only at 270px); Agree+/Agree− intensity labels; visual QA subagent process established after 5 rounds of author-as-reviewer failure
 - **P519** (Mar 14) Remove Story/Point On-Page Banners — banners only display where compositionally integrated (profiles); stories keep `bannerUrl` for OG only; points stop generating banners entirely; 3px `authorAvatarColor` accent replaces story banner
 - **P462** (Mar 13) Partner Count Header Prominence — bold numbers ugly; LinkedIn-style `text-sm font-semibold text-blue-500` + icon wins
 - **P493** (Mar 12) PWA Install Prompts — desktop `isDesktop` guard needed on both child component AND parent wrapper; child returning `null` leaves orphaned section headings

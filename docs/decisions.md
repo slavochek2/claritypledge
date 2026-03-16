@@ -2,6 +2,27 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-16 [process]: Visual QA — spawn separate subagent, never self-review
+
+**Context:** P521 position button redesign went through 5+ rounds of "it's ready" → user finds visual bugs. Root cause: the implementing agent reviewed its own screenshots with confirmation bias — checked "does it render" not "does it look right."
+**Decision:** After any UI change, spawn a SEPARATE subagent for visual QA. Give it ONLY screenshots + a 10-point checklist. Do NOT give it the code diff or intent. The implementing agent must NOT declare "ready" based on its own review. Added `.claude/rules/visual-qa.md`.
+**Alternatives rejected:** (1) Just "be more careful" — doesn't work, confirmation bias is structural. (2) Always run `/verify` — too heavy for prototype iteration.
+**Consequences:** Visual bugs caught before user sees them. Slight overhead (1 subagent spawn per UI change). Checklist is mechanical — prevents the "looks fine to me" failure mode.
+
+## 2026-03-16 [product]: P521 position buttons — auto-dropdown replaces hidden chevrons
+
+**Context:** Position buttons had tiny ChevronDown arrows for 7-point intensity selection that no user discovered. Progressive label truncation ("Dis...", "Ag") was ugly. Zero-counts "(0)" were noise. Explored 4 options: (A) auto-dropdown, (B) expand-below, (C) tooltip hint, (D) row replacement. User rejected D (disorienting) during prototype testing.
+**Decision:** Option A — click Agree/Disagree selects default immediately + auto-opens intensity dropdown. Click away = accept default (0 extra clicks). Pick intensity = 1 extra click. Unsure selects immediately (no dropdown). Intensity shown in button label: Agree+ (strongly), Agree− (somewhat), Agree (default).
+**Alternatives rejected:** (B) expand-below — layout shift in tight containers. (C) tooltip — not discoverable on mobile. (D) row replacement — user found it disorienting, lost context.
+**Consequences:** Intensity is discoverable (dropdown is RIGHT THERE) without requiring discovery of a tiny chevron. Same `onPositionClick(PositionType)` API — zero consumer changes needed.
+
+## 2026-03-16 [technical]: P521 portal dropdown + ResizeObserver for position buttons
+
+**Context:** Position buttons appear in 8+ surfaces (feed card, profile, story detail, quoted point, live session) with varying container widths (235px–500px). Parent cards use `overflow:hidden` for rounded corners, clipping absolutely-positioned dropdowns. CSS media queries don't work for simulated viewport widths in prototypes.
+**Decision:** (1) Dropdown rendered via `createPortal(dropdown, document.body)` — escapes any overflow:hidden container. Position calculated via `getBoundingClientRect()`. (2) `ResizeObserver` measures container width internally — component decides full-text vs icon-only without consumer involvement. Threshold: 270px. Two modes only, no intermediate truncation.
+**Alternatives rejected:** (1) CSS container queries (`@container`) — Tailwind v3.3+ feature, adds complexity. (2) `containerWidth` prop — requires consumers to know their own width.
+**Consequences:** Component is fully self-contained. Works in all 8+ surfaces without consumer changes. Portal dropdown needs click-outside handler that checks both button row AND portal element.
+
 ## 2026-03-16 [product]: Off-boarding split — withdraw pledge (P524) vs delete account (P520)
 
 **Context:** Gosha (first pledger exit request, March 2026) asked to leave via WhatsApp. Three-day back-and-forth ensued. `/challenge-prd` on the initial combined spec surfaced 3 BLOCKs: agreement termination flow undefined, post-withdrawal profile state undefined, PII inventory missing. Codebase investigation revealed `has_pledged: false` already works everywhere (pledgers page, featured profiles, badge, re-pledge upgrade flow).
