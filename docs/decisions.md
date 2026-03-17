@@ -2,6 +2,14 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-17 [technical]: Replace react-markdown with marked — eliminate recurring Vite 504 "Outdated Optimize Dep"
+
+**Context:** 4 Vite 504 incidents in 5 weeks despite 4 layers of workarounds (optimizeDeps.include, holdUntilCrawlEnd, per-worktree cache isolation, postinstall cache nuke). Root cause: `optimizeDeps.include` is a hint, not a guarantee — lazy-loaded routes with deep ESM-only dep trees trigger mid-session re-optimization. `react-markdown` v10 (ESM-only) pulled 40+ transitive deps via unified/remark/rehype. The `postinstall` script (`rm -rf node_modules/.vite*`) nuked the cache on every `npm install`, ensuring cold starts.
+**Decision:** Replace `react-markdown` + `rehype-katex` + `remark-math` with `marked` (CJS, zero transitive deps) + `katex` (direct). Created `src/lib/markdown.ts` with 3 isolated `Marked` instances: `safeMd` (user content — strips HTML, validates link protocols), `trustedMd` (committed content like ToS), `articleMd` (manifesto — KaTeX, heading IDs, paragraph anchors, CTA injection markers). Removed `rm -rf node_modules/.vite*` from `postinstall` (Vite's cache hash auto-invalidates when deps change — the nuke was redundant and actively harmful).
+**Alternatives rejected:** (A) Remove deps from optimizeDeps.include (makes problem worse — falsification proved it), (B) Build-time Vite plugin (custom plugin maintenance across Vite versions), (C) Switch bundler entirely (absurd cost for a dev-only issue), plus 20 creative proposals tested via /falsify — all either failed falsification or scored lower than marked.
+**Consequences:** 98 packages removed from node_modules, 3 added. The structural condition for the 504 (deep ESM tree + lazy routes + cache nuke) no longer exists. `marked` is CJS with zero deps — Vite pre-bundles it in <10ms. Key learnings: (1) `marked` v17 custom renderers receive raw markdown in `text`, must use `this.parser.parseInline(tokens)` for rendered HTML, (2) `marked.use()` mutates global singleton — must use `new Marked()` for isolation, (3) `sanitizeHref()` needed for user-generated content (javascript:/data: URI XSS).
+**References:** `src/lib/markdown.ts`, `vite.config.ts` (optimizeDeps), `package.json` (postinstall)
+
 ## 2026-03-17 [product]: Transcript nudge guard — only on explicit session end
 
 **Context:** The transcript nudge ("Transcribing your session...") showed on `PartnerLeftScreen` for all cases. But `PartnerLeftScreen` renders in two scenarios: (1) creator clicks "End Session" (`sessionEnded=true`) — session is truly over, (2) partner leaves/disconnects (`sessionEnded=false`) — partner might rejoin via P511 grace period. Showing "Transcribing..." in case 2 is premature — the session isn't necessarily over.
