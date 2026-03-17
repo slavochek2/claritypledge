@@ -819,7 +819,7 @@ export function ProfilePageV2() {
                     {(profile.role || profile.linkedinUrl) && (
                       <div className="flex items-center gap-1.5">
                         {profile.role && (
-                          <p className="text-sm text-muted-foreground truncate">{profile.role}</p>
+                          <p className="text-sm text-muted-foreground break-words">{profile.role}</p>
                         )}
                         {profile.linkedinUrl && (
                           <TooltipProvider delayDuration={300}>

@@ -2,6 +2,14 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-17 [process]: KDD decisions without follow-up tasks — systematic gap
+
+**Context:** Screenshot debug session surfaced a calibration zero-state bug with a prior decision (2026-03-16) to make `/ux` build `/tree` preview pages. That decision was "Status: proposed" but never filed as a task. Investigation found 6-7 other orphaned decisions with the same pattern.
+**Decision:** Add a follow-up scan step to `/kdd` (Step 4.5) that detects actionable language in new decision Consequences and prompts spec creation. Filed as P541.
+**Alternatives rejected:** (1) Relying on `/day`/`/weekly` — already exist, missed 6-7 decisions. (2) Auto-creating specs — too aggressive for conditional items.
+**Consequences:** Every decision with follow-up work surfaced immediately. Existing orphans triaged in next `/weekly`.
+**References:** P541 (`features/p541_kdd_decision_followup_tracking.md`)
+
 ## 2026-03-17 [technical]: Embed iframe resize must include portal dropdown height
 
 **Context:** P521 portal dropdown fix (2026-03-16) worked in regular views but broke in Ghost blog embeds — the intensity dropdown was clipped at the iframe boundary. Root cause: `createPortal(dropdown, document.body)` escapes `overflow:hidden` containers but NOT iframe boundaries. The embed wrapper's `ResizeObserver` measured only `el.scrollHeight` of the wrapper div — the portal dropdown lives on `document.body` outside the wrapper's DOM tree, so its height was never reported to the parent iframe.
