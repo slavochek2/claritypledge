@@ -3,42 +3,15 @@
  * @description Terms of Service page for The Clarity Pledge.
  * Outlines the rules and expectations for using the platform.
  */
-import ReactMarkdown from "react-markdown";
 import { Link } from "react-router-dom";
 import { ScrollTextIcon } from "lucide-react";
 import { COPY } from "@/app/content/copy";
 import { SEO } from "@/app/components/seo";
+import { renderMarkdownTrusted } from "@/lib/markdown";
 import tosContent from "@/app/content/tos.md?raw";
 
-const mdComponents: React.ComponentProps<typeof ReactMarkdown>["components"] = {
-  h2: ({ children }) => (
-    <h2 className="text-2xl font-bold mb-4">{children}</h2>
-  ),
-  h3: ({ children }) => (
-    <h3 className="text-xl font-semibold mt-6 mb-3">{children}</h3>
-  ),
-  p: ({ children }) => (
-    <p className="text-muted-foreground leading-relaxed">{children}</p>
-  ),
-  ul: ({ children }) => (
-    <ul className="list-disc list-inside space-y-2 text-muted-foreground">
-      {children}
-    </ul>
-  ),
-  strong: ({ children }) => (
-    <strong className="text-foreground">{children}</strong>
-  ),
-  a: ({ href, children }) => (
-    <a
-      href={href}
-      className="text-blue-600 dark:text-blue-400 hover:underline"
-      target="_blank"
-      rel="noopener noreferrer"
-    >
-      {children}
-    </a>
-  ),
-};
+// Content is from a committed .md file in the repo — trusted, no XSS risk
+const tosHtml = renderMarkdownTrusted(tosContent);
 
 export function TermsOfServicePage() {
   return (
@@ -61,11 +34,17 @@ export function TermsOfServicePage() {
             </p>
           </div>
 
-          {/* Content */}
-          <div className="prose prose-lg dark:prose-invert max-w-none space-y-8">
-            <ReactMarkdown components={mdComponents}>
-              {tosContent}
-            </ReactMarkdown>
+          {/* Content — prose classes handle h2/h3/p/ul/a styling */}
+          <div className="prose prose-lg dark:prose-invert max-w-none space-y-8
+            prose-h2:text-2xl prose-h2:font-bold prose-h2:mb-4
+            prose-h3:text-xl prose-h3:font-semibold prose-h3:mt-6 prose-h3:mb-3
+            prose-p:text-muted-foreground prose-p:leading-relaxed
+            prose-ul:list-disc prose-ul:list-inside prose-ul:space-y-2 prose-ul:text-muted-foreground
+            prose-strong:text-foreground
+            prose-a:text-blue-600 dark:prose-a:text-blue-400 hover:prose-a:underline
+          ">
+            {/* Trusted content: committed tos.md file, not user input */}
+            <div dangerouslySetInnerHTML={{ __html: tosHtml }} />
 
             {/* Back link */}
             <div className="pt-8 border-t border-border">

@@ -10,15 +10,16 @@
 import { useEffect, useState, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
-import ReactMarkdown from "react-markdown";
-import remarkMath from "remark-math";
-import rehypeKatex from "rehype-katex";
 import "katex/dist/katex.min.css";
 import { BookOpenIcon, ArrowRightIcon, ChevronDownIcon } from "lucide-react";
 import articleContent from "../content/full-article.md?raw";
 import { SEO } from "@/app/components/seo";
 import { analytics } from "@/lib/mixpanel";
 import { useAuth } from "@/auth";
+import { renderArticle } from "@/lib/markdown";
+
+// Pre-render at module load — content is a committed .md file, trusted, no XSS risk
+const articleSegments = renderArticle(articleContent);
 
 export function FullArticlePage() {
   const { user: currentUser, isLoading, sessionChecked } = useAuth();
@@ -28,6 +29,7 @@ export function FullArticlePage() {
   const [showFloatingCTA, setShowFloatingCTA] = useState(false);
 
   const isLoadingUser = !sessionChecked || isLoading;
+  const showCTA = !isLoadingUser && !currentUser;
 
   // Extract headers for TOC
   const headers = useMemo(() => {
@@ -313,7 +315,7 @@ export function FullArticlePage() {
               </div>
 
               {/* Quick CTA for converters */}
-              {!isLoadingUser && !currentUser && (
+              {showCTA && (
                 <div className="mt-8 flex flex-col sm:flex-row gap-4 items-center">
                   <Link
                     to="/sign-pledge"
@@ -354,80 +356,31 @@ export function FullArticlePage() {
               prose-pre:bg-muted prose-pre:border prose-pre:border-border
               prose-hr:my-6 prose-hr:border-border
             ">
-              <ReactMarkdown
-                remarkPlugins={[remarkMath]}
-                rehypePlugins={[rehypeKatex]}
-                components={{
-                  h1: ({ children, ...props }) => {
-                    const text = children?.toString() || "";
-                    const id = text.toLowerCase().replace(/[^a-z0-9\s]/g, "").replace(/\s+/g, "-");
-                    return <h1 id={id} {...props}>{children}</h1>;
-                  },
-                  h2: ({ children, ...props }) => {
-                    const text = children?.toString() || "";
-                    const id = text.toLowerCase().replace(/[^a-z0-9\s]/g, "").replace(/\s+/g, "-");
-
-                    const shouldShowInlineCTA = [
-                      'the-hidden-cost-in-your-life',
-                      'the-clarity-principle-the-solution',
-                      'from-individual-pledge-to-societal-movement'
-                    ].includes(id);
-
-                    return (
-                      <>
-                        <h2 id={id} {...props}>{children}</h2>
-                        {shouldShowInlineCTA && !isLoadingUser && !currentUser && (
-                          <div className="not-prose my-8 p-6 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 border border-blue-200 dark:border-blue-800 rounded-xl">
-                            <p className="text-sm font-medium text-blue-900 dark:text-blue-100 mb-3">
-                              Ready to stop paying the Clarity Tax?
-                            </p>
-                            <Link
-                              to="/sign-pledge"
-                              className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md bg-blue-500 hover:bg-blue-600 text-white font-semibold text-sm h-9 px-3"
-                            >
-                              Take the Pledge
-                              <ArrowRightIcon className="ml-2 w-4 h-4" />
-                            </Link>
-                          </div>
-                        )}
-                      </>
-                    );
-                  },
-                  h3: ({ children, ...props }) => {
-                    const text = children?.toString() || "";
-                    const id = text.toLowerCase().replace(/[^a-z0-9\s]/g, "").replace(/\s+/g, "-");
-                    return <h3 id={id} {...props}>{children}</h3>;
-                  },
-                  p: ({ children, ...props }) => {
-                    // If paragraph starts with bold text matching "N. Title" pattern,
-                    // add an anchor id so it's deep-linkable (e.g. /manifesto#asymmetry-of-vulnerability)
-                    const firstChild = Array.isArray(children) ? children[0] : children;
-                    if (
-                      firstChild &&
-                      typeof firstChild === "object" &&
-                      "props" in firstChild &&
-                      firstChild.type === "strong"
-                    ) {
-                      const strongText = firstChild.props.children?.toString() || "";
-                      if (/^\d+\.\s/.test(strongText)) {
-                        const id = strongText
-                          .replace(/^\d+\.\s*/, "")
-                          .toLowerCase()
-                          .replace(/[^a-z0-9\s]/g, "")
-                          .replace(/\s+/g, "-");
-                        return <p id={id} className="scroll-mt-24" {...props}>{children}</p>;
-                      }
-                    }
-                    return <p {...props}>{children}</p>;
-                  },
-                }}
-              >
-                {articleContent}
-              </ReactMarkdown>
+              {/* Trusted content: committed full-article.md, not user input.
+                  Segments split at CTA injection points for React component interleaving. */}
+              {articleSegments.map((html, i) => (
+                <div key={i}>
+                  <div dangerouslySetInnerHTML={{ __html: html }} />
+                  {i < articleSegments.length - 1 && showCTA && (
+                    <div className="not-prose my-8 p-6 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 border border-blue-200 dark:border-blue-800 rounded-xl">
+                      <p className="text-sm font-medium text-blue-900 dark:text-blue-100 mb-3">
+                        Ready to stop paying the Clarity Tax?
+                      </p>
+                      <Link
+                        to="/sign-pledge"
+                        className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md bg-blue-500 hover:bg-blue-600 text-white font-semibold text-sm h-9 px-3"
+                      >
+                        Take the Pledge
+                        <ArrowRightIcon className="ml-2 w-4 h-4" />
+                      </Link>
+                    </div>
+                  )}
+                </div>
+              ))}
             </article>
 
             {/* Bottom CTA */}
-            {!isLoadingUser && !currentUser && (
+            {showCTA && (
               <div className="mt-16 p-8 bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 border-2 border-blue-200 dark:border-blue-800 rounded-2xl text-center">
                 <h2 className="text-3xl font-bold mb-4">Ready to Join the Movement?</h2>
                 <p className="text-lg text-muted-foreground mb-8 max-w-2xl mx-auto">
