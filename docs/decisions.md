@@ -2,6 +2,22 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-17 [product]: Agreement export certificate — remove QR, metadata, use navy seal
+
+**Context:** P538 agreement download/share feature added a PNG export of the agreement certificate. Initial design included a QR code next to the partner signature, an "Active since" date, agreement ID (A-NNNN), and a claritypledge.com footer. Screenshot review revealed: (1) QR cramped the signature area, (2) gold seal color didn't match brand navy, (3) metadata was noise on a clean certificate.
+**Decision:** Remove QR code entirely — digital exports are shared via messaging where the link is already in the share text (you can't scan a QR on the screen you're viewing). Remove "Active since", displayId, and claritypledge.com footer. Change seal from gold (#D4AF37) to brand navy (#002B5C).
+**Alternatives rejected:** (1) Move QR below signatures (still redundant for digital-only use). (2) Keep metadata in smaller font (still noise — the agreement page has this info already).
+**Consequences:** Export certificate is signatures + seal only. If physical printing becomes a use case, QR can be re-added behind a print-mode flag.
+**References:** `src/app/components/agreements/export-agreement-certificate.tsx`
+
+## 2026-03-17 [product]: Guest post-session CTA — single-line value prop over card
+
+**Context:** After a /live session ends, anonymous guests saw a bordered card titled "Keep your session insights" with a paragraph listing 3 benefits (save positions, track calibration, join as host). Screenshot review flagged it as overengineered for the context — too many words, unnecessary card wrapper.
+**Decision:** Replace the card with a single centered line: "Access your transcript and AI session insights" + the same Create Free Account button and login link. No card border, no paragraph, no multi-benefit copy. The button label already says what it does.
+**Alternatives rejected:** (1) Keep card but shorten copy — still unnecessary visual weight for a post-session nudge. (2) Remove CTA entirely — loses the signup conversion opportunity.
+**Consequences:** Cleaner post-session experience. Copy now promises transcript + AI insights — these features should exist when guests sign up (or the copy is misleading).
+**References:** `src/app/components/partners/live-mode-view.tsx`
+
 ## 2026-03-17 [process]: Playwright port detection must mirror Vite worktree patterns
 
 **Context:** `playwright.config.ts` only recognized legacy `claritypledge-N` worktree naming. `vite.config.ts` had 3 patterns (wN, claritypledge-N, named worktrees). Running E2E tests from `.claude/worktrees/w2` caused Playwright to fall back to port 5173 (Vite default), spawning a ghost dev server on the wrong port. Discovered via `/screenshot-debug` when `localhost:5173` showed a 404 — the real app runs on 5001.
