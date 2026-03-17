@@ -45,12 +45,19 @@ class TranscribeResponse(BaseModel):
     speakers: list[str]
 
 
-class PollResponse(BaseModel):
-    processed: bool
-    job_id: Optional[str] = None
-    session_code: Optional[str] = None
+class JobResult(BaseModel):
+    job_id: str
+    session_code: str
     result: Optional[TranscribeResponse] = None
     error: Optional[str] = None
+
+
+class PollResponse(BaseModel):
+    processed: int
+    jobs: list[JobResult] = []
+
+
+MAX_JOBS_PER_POLL = 10
 
 
 @app.get("/health")
@@ -85,44 +92,52 @@ async def transcribe(req: TranscribeRequest):
 @app.post("/poll", response_model=PollResponse)
 async def poll():
     """
-    Cloud Scheduler entry point: query for pending transcription jobs
-    and process the oldest one.
+    Cloud Scheduler entry point: process up to MAX_JOBS_PER_POLL pending
+    transcription jobs in one request. Amortizes GPU cold start across
+    the batch — one cold start instead of one per job.
 
     Returns immediately if no pending jobs.
     """
     logger.info("Poll: checking for pending jobs...")
 
-    job = get_pending_job()
-    if not job:
+    jobs_processed: list[JobResult] = []
+
+    for i in range(MAX_JOBS_PER_POLL):
+        job = get_pending_job()
+        if not job:
+            break
+
+        job_id = job["id"]
+        session_code = job["session_code"]
+        session_id = job["session_id"]
+
+        logger.info("Poll: processing job %d/%d — %s (session %s)",
+                     i + 1, MAX_JOBS_PER_POLL, job_id, session_code)
+
+        try:
+            result = transcribe_session(
+                session_code=session_code,
+                session_id=session_id,
+                job_id=job_id,
+            )
+            jobs_processed.append(JobResult(
+                job_id=job_id,
+                session_code=session_code,
+                result=TranscribeResponse(**result),
+            ))
+        except Exception as e:
+            logger.error("Poll: job %s failed: %s", job_id, e)
+            jobs_processed.append(JobResult(
+                job_id=job_id,
+                session_code=session_code,
+                error=str(e),
+            ))
+
+    if not jobs_processed:
         logger.info("Poll: no pending jobs")
-        return PollResponse(processed=False)
 
-    job_id = job["id"]
-    session_code = job["session_code"]
-    session_id = job["session_id"]
-
-    logger.info("Poll: processing job %s (session %s)", job_id, session_code)
-
-    try:
-        result = transcribe_session(
-            session_code=session_code,
-            session_id=session_id,
-            job_id=job_id,
-        )
-        return PollResponse(
-            processed=True,
-            job_id=job_id,
-            session_code=session_code,
-            result=TranscribeResponse(**result),
-        )
-    except Exception as e:
-        logger.error("Poll: job %s failed: %s", job_id, e)
-        return PollResponse(
-            processed=True,
-            job_id=job_id,
-            session_code=session_code,
-            error=str(e),
-        )
+    logger.info("Poll: processed %d jobs", len(jobs_processed))
+    return PollResponse(processed=len(jobs_processed), jobs=jobs_processed)
 
 
 if __name__ == "__main__":
