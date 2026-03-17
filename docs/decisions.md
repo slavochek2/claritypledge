@@ -2,6 +2,14 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-17 [process]: Playwright port detection must mirror Vite worktree patterns
+
+**Context:** `playwright.config.ts` only recognized legacy `claritypledge-N` worktree naming. `vite.config.ts` had 3 patterns (wN, claritypledge-N, named worktrees). Running E2E tests from `.claude/worktrees/w2` caused Playwright to fall back to port 5173 (Vite default), spawning a ghost dev server on the wrong port. Discovered via `/screenshot-debug` when `localhost:5173` showed a 404 — the real app runs on 5001.
+**Decision:** Synced `getWorktreePort()` in `playwright.config.ts` to match all 3 patterns from `vite.config.ts`. Added `PORT LOGIC: Must stay in sync with...` cross-reference comments in both files. Removed 5173 fallback — unknown directories now default to 5001 (main repo port).
+**Alternatives rejected:** (1) Shared utility module — over-engineering for 2 consumers with a function that changes ~yearly; cross-reference comments are sufficient. (2) Fix Playwright only without cross-reference — same divergence would recur on the next pattern addition.
+**Consequences:** Any future worktree pattern addition must update both files. Comments make this visible at edit time.
+**References:** `playwright.config.ts`, `vite.config.ts`
+
 ## 2026-03-17 [process]: KDD decisions without follow-up tasks — systematic gap
 
 **Context:** Screenshot debug session surfaced a calibration zero-state bug with a prior decision (2026-03-16) to make `/ux` build `/tree` preview pages. That decision was "Status: proposed" but never filed as a task. Investigation found 6-7 other orphaned decisions with the same pattern.

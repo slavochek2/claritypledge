@@ -49,7 +49,10 @@ function ClarityLandingLayoutInner({ children }: { children: ReactNode }) {
   // Pages that have their own navigation (skip layout nav)
   const hasOwnNavigation = isAlternativeLandingPage;
   // Landing page needs nav but no top padding (hero goes to top)
-  const needsTopPadding = !hasOwnNavigation && !isLandingPage;
+  // Exception: when active session banner is showing, landing page needs padding
+  // so the banner isn't hidden behind the fixed nav
+  const hasVisibleBanner = hasActiveSession && !isLivePage;
+  const needsTopPadding = !hasOwnNavigation && (!isLandingPage || hasVisibleBanner);
   // P113: Add bottom padding for mobile when logged in (for bottom nav)
   const needsBottomPadding = showUserMenu;
 

@@ -9,6 +9,7 @@ import { fileURLToPath } from 'url'
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
 // Auto-detect worktree slot from cwd
+// PORT LOGIC: Must stay in sync with playwright.config.ts getWorktreePort()
 // Returns slot name (e.g. "w1", "w2") or null for main repo
 function getWorktreeSlot(): string | null {
   const cwd = process.cwd()

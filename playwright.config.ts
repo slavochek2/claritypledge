@@ -11,28 +11,38 @@ dotenv.config({ path: path.resolve(__dirname, '.env.test.local') });
 
 /**
  * Determine the port based on the worktree.
- * Port pattern: 5{N}00 where N is the worktree number (1-7)
- * Main repo (polymet-clarity-pledge-app) uses port 5000
- * Worktrees (claritypledge-N) use port 5N00
+ * PORT LOGIC: Must stay in sync with vite.config.ts getWorktreeSlot()/getPort()
+ *
+ * Port scheme:
+ *   Main repo (claritypledge): 5001 (5000 blocked by macOS AirPlay)
+ *   Worktrees w1-w7 (.claude/worktrees/wN): 5100-5700
+ *   Legacy worktrees (claritypledge-N): 5100-5700
+ *   Named worktrees (.../worktrees/name): 5800-5899 (hashed)
  */
 function getWorktreePort(): number {
-  // Check if we're in a worktree by looking at the directory name
   const dirName = path.basename(__dirname);
 
-  // Match "claritypledge-N" pattern
-  const worktreeMatch = dirName.match(/^claritypledge-(\d+)$/);
-  if (worktreeMatch) {
-    const worktreeNum = parseInt(worktreeMatch[1], 10);
-    return 5000 + (worktreeNum * 100); // 5100, 5200, etc.
+  // Match new-style worktree: .claude/worktrees/wN
+  const slotMatch = dirName.match(/^w(\d+)$/);
+  if (slotMatch) {
+    return 5000 + (parseInt(slotMatch[1], 10) * 100);
   }
 
-  // Main repo uses port 5001 (5000 is blocked by macOS AirPlay)
-  if (dirName === 'polymet-clarity-pledge-app') {
-    return 5001;
+  // Match legacy worktree: claritypledge-N
+  const legacyMatch = dirName.match(/^claritypledge-(\d+)$/);
+  if (legacyMatch) {
+    return 5000 + (parseInt(legacyMatch[1], 10) * 100);
   }
 
-  // Fallback to 5173 (Vite default) for unknown directories
-  return 5173;
+  // Match named worktrees: .../worktrees/any-name
+  const parentDir = path.basename(path.dirname(__dirname));
+  if (parentDir === 'worktrees') {
+    const hash = [...dirName].reduce((h, c) => ((h << 5) - h + c.charCodeAt(0)) | 0, 0);
+    return 5800 + (Math.abs(hash) % 100);
+  }
+
+  // Main repo — 5001
+  return 5001;
 }
 
 const PORT = getWorktreePort();
