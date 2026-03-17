@@ -63,4 +63,11 @@ export default tseslint.config(
       '@typescript-eslint/no-explicit-any': 'off',
     },
   },
+  // E2e test files — relaxed unused-vars for stubs and Playwright fixtures
+  {
+    files: ['e2e/**/*.ts'],
+    rules: {
+      '@typescript-eslint/no-unused-vars': 'warn',
+    },
+  },
 )

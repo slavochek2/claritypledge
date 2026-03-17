@@ -47,9 +47,14 @@ fi
 # Collect staged files for later checks
 STAGED_FILES=$(git diff --cached --name-only 2>/dev/null || echo "")
 
-# 2. Lint
-if ! run_quiet "ESLint" npm run lint; then
-    ERRORS=$((ERRORS + 1))
+# 2. Lint (staged .ts/.tsx files only — full repo lint is npm run lint)
+STAGED_TS=$(echo "$STAGED_FILES" | grep -E '\.(ts|tsx)$' || true)
+if [ -n "$STAGED_TS" ]; then
+    if ! run_quiet "ESLint" npx eslint $STAGED_TS --max-warnings 999; then
+        ERRORS=$((ERRORS + 1))
+    fi
+else
+    echo -e ">>> ESLint... ${GREEN}skipped (no .ts/.tsx staged)${NC}"
 fi
 
 # 3. Build

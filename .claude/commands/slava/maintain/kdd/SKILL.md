@@ -186,11 +186,14 @@ Recommendation: Remove from README.md, link to definitions.md instead.
 
 6.25. **Privacy gate — if session involved personal content:**
 
+   **Universal rule:** This is a public repo. Never write client names, phone numbers, WhatsApp links, session details, or any personally identifiable information into docs, decisions, or feature specs. Use generic references ("a client", "the feedback form") instead of names. Private details belong in `.private/` only.
+
    Run `/maintain:privacy` before committing if the session involved:
    - **claude-conversations:** doc updates synthesized from personal claude.ai conversations (reading from `~/projects/private/claude-conversations/` or user mentioned a conversation by name)
    - **sifter sessions:** any use of `/slava:sifter-story` or `/slava:sifter-point` — brain dumps contain real names and private context; verify no session file landed in `content/sifter/` before committing
+   - **client/sales sessions:** any work involving client names, testimonials, referral flows, WhatsApp messages, or post-session follow-ups. Decisions about the *model* (pay-what-it's-worth, referral structure) go in decisions.md; client-specific details (names, links, templates) go in `.private/docs/client-lifecycle.md` only.
 
-   Both paths produce personal content in a code repo context.
+   All three paths produce personal content in a public repo context.
 
 6.5. **Session wrap checklist:**
 

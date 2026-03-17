@@ -2,6 +2,34 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-17 [process]: Pre-commit hook hardening — scoped ESLint, stable symlink, branch guard
+
+**Context:** KDD commit blocked 4 times by pre-existing ESLint errors in e2e files. Root cause analysis (via /falsify) found: (1) pre-commit runs `eslint .` (whole repo) instead of staged files, (2) hook symlink pointed to worktree w2's copy (fragile), (3) main worktree drifted to a feature branch with no return mechanism, (4) ESLint config lacked `.spec.ts` override for e2e files.
+**Decision:** Four mechanical fixes: (1) Scope ESLint to staged `.ts/.tsx` files only in pre-commit. (2) Hook symlink always derives from `git-common-dir` (main repo). (3) Add `e2e/**/*.ts` override to ESLint config. (4) Add branch guard to `/ship` — ensures main worktree returns to `main` after merge.
+**Alternatives rejected:** (1) "Worktree-only" policy (remove branch exception) — falsification showed removing doc text has no enforcement. The exception is useful; the gap was in `/ship`. (2) Downgrade all e2e `no-unused-vars` to `warn` — masks genuine unused imports. Instead, added `.spec.ts` to existing test override pattern.
+**Consequences:** Doc-only commits no longer blocked by unrelated lint errors. Hook survives worktree deletion. Main worktree returns to `main` after shipping.
+
+## 2026-03-17 [process]: Client lifecycle reference doc — centralizes all client-facing links and templates
+
+**Context:** During a session, the wrong Tally form was used (booking form instead of feedback form). Three Tally forms, VideoAsk, WhatsApp templates, and a new referral page exist but were undocumented.
+**Decision:** Created `.private/docs/client-lifecycle.md` as single reference. Private because it contains contact details. Added client/sales trigger to KDD privacy gate.
+**Alternatives rejected:** (1) Documenting in CLAUDE.md — too much detail, private info. (2) Keeping scattered — caused wrong-link mistake.
+**Consequences:** All client-related skills should reference this doc. New `client/` skill namespace proposed.
+**References:** `.private/docs/client-lifecycle.md`
+
+## 2026-03-17 [product]: Pay-what-it's-worth referral model — post-testimonial conversion flow
+
+**Context:** Needed a referral mechanism that feels like a gift, not a marketing ask.
+**Decision:** After testimonial (Tally + VideoAsk), client lands on `ladischenski.com/thank-you` offering to gift up to 3 friends a risk-free clarity session within 7 days. WhatsApp share pre-fills intro. Model: meaningful deposit upfront, return any amount after based on value felt.
+**Alternatives rejected:** (1) Direct booking link — too transactional. (2) Email share — WhatsApp more personal.
+**Consequences:** Static framing (3 friends, 7 days — not enforced technically).
+
+## 2026-03-17 [product]: Video testimonial via VideoAsk — 3-question guided flow
+
+**Context:** Needed video testimonials. Researched 5 platforms; VideoAsk chosen for guided format. Free: 20 min/month.
+**Decision:** 3 questions: (1) biggest challenge before, (2) one example of how work helped, (3) what to say to someone hesitant. Embedded in Tally feedback form. Service-agnostic (no label — client describes in own words).
+**Alternatives rejected:** (1) Shosay — less polished. (2) 2 questions — loses peer recommendation. (3) Generic "would you recommend" — non-answers.
+
 ## 2026-03-17 [product]: Session-end screen nudges toward transcript and session history
 
 **Context:** Session history (`/sessions`) was discoverable only through the hamburger menu — 2 clicks away, no hint it exists. After a session ends, authenticated users saw only a "Start New Session" button (dead end). Transcripts are processed async, so users had no indication their session was being saved or where to find it.

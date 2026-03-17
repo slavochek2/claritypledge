@@ -66,6 +66,11 @@ Ship an approved feature to production.
 6. **Run fix-kanban** — Invoke `/slava:maintain:fix-kanban`
 7. **Clean up** — delete the local feature branch
 7a. **Worktree cleanup** — run `git worktree list | grep "feature/p{N}"` (substitute actual P-number, e.g. `feature/p470`). If a worktree for this feature branch exists (e.g., `.claude/worktrees/w2`), run `git worktree remove --force .claude/worktrees/wN` from the **main repo root** (never from inside the worktree). If it fails, report and skip — do not block the ship. For orphaned directories not in the list: `git worktree prune && rm -rf .claude/worktrees/wN`.
+7b. **Main worktree branch guard** — verify the main worktree is on `main`:
+   ```bash
+   git branch --show-current  # must be "main"
+   ```
+   If not on `main`, run `git checkout main`. This prevents the main worktree from drifting to a feature branch after branch-only fixes that don't use worktrees.
 8. **Ask — two questions in one message:**
     "Run /verify first? (y = visual QA of the live site against acceptance criteria, recommended for any UI change / n = skip)
     Capture learnings with /kdd? (y/n)"
