@@ -2,6 +2,38 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-17 [product]: Zero-position points hidden from listings ("graveyard")
+
+**Context:** Points with zero positions (all positions withdrawn or abandoned after creation) polluted the feed, profile, and live session picker with content nobody engaged with.
+**Decision:** Filter zero-position points at query level — hidden from all listing surfaces (feed, profile, live picker) but still accessible via direct URL and story-linked quotes. No DB schema change; no `is_archived` column. Points are kept in the database for reference.
+**Alternatives rejected:** (A) DB status column (`active`/`archived`) — schema migration + new concept to maintain for a problem solvable with a WHERE clause. (B) Feed + profile only (keep live picker unfiltered) — abandoned points have no social proof, no value as session content.
+**Consequences:** Any future listing surface must use the filtered service methods (`getPublicPointsFeed`, `getPointsForProfileDisplay`). Direct access (`getPoint`, `getPointWithCounts`) deliberately bypasses the filter. The P523 standalone creation flow has a transient zero-position window — this is expected and correct.
+**References:** [features/done/23_mar_26/p543_hide_zero_position_points.md](../features/done/23_mar_26/p543_hide_zero_position_points.md)
+
+## 2026-03-17 [technical]: Feed position changes use optimistic UI, not refetch
+
+**Context:** The feed page previously disabled `onPositionChange` callback entirely (commit 840250d4) to avoid flash-reload. P543 made this a correctness bug — without a callback, removed positions never triggered the graveyard filter.
+**Decision:** Surgical optimistic updates: position removal → parent `setPoints` either removes card (if last position) or decrements count. Position setting → card's local state (`localPosition` + `adjustPositionCounts`) handles the visual update. No full `fetchData()` call on position change.
+**Alternatives rejected:** (A) Re-enable `fetchData` as callback — works but causes visible flash/reload of entire feed. (B) SWR/React Query cache invalidation — over-engineering for a single mutation path.
+**Consequences:** Position counts on feed cards can drift from server truth between page loads. This is acceptable — counts are approximate social signals, not financial data. Next page load resyncs from DB.
+**References:** `src/app/pages/feed-page.tsx`, `src/app/components/feed/feed-point-card.tsx`
+
+## 2026-03-17 [product]: Transcript corpus analysis — Protocol Anthropologist + Blindspot Hunter design
+
+**Context:** 34 past sessions batch-transcribed. Need to extract product insights from the corpus — but running everything through a hypothesis lens risks confirmation bias (only seeing what you expect).
+**Decision:** Three-agent pipeline: (1) Protocol Anthropologist — tests transcripts against `hypotheses.md` + `lean-canvas.md`, (2) Blindspot Hunter — reads same transcripts with NO hypothesis access, finds surprises, (3) Synthesis — merges both + generates per-pair FCO recommendations. Single output mode (not PM vs FCO split — same person). Mixpanel events available on-demand as enrichment tool, not always loaded. Pair linkage via `creator_profile_id + joiner_profile_id` (no formal pairs table needed yet).
+**Alternatives rejected:** (A) Single-agent analysis — confirmation bias, sees only what hypotheses predict. (B) Two output modes (PM + FCO) — same person, same output. (C) Skip Mixpanel entirely — easy to pull, enriches timing questions. (D) Formal pairs table — overkill, profile ID combination query is sufficient.
+**Consequences:** Skill at `.claude/commands/slava/maintain/analyze-transcripts.md`. Run monthly or after batch transcription. Output to `.private/docs/analysis/` (PII in transcripts — never committed). The Blindspot Hunter's independence is the key design constraint — it must never see hypotheses.md.
+**References:** `.claude/commands/slava/maintain/analyze-transcripts.md`, `docs/hypotheses.md`
+
+## 2026-03-17 [technical]: Transcription pipeline robustness — detect at backend, defer prevention to frontend
+
+**Context:** Batch transcription of 34 sessions: 1 failed (VD8SNS) due to 5-byte corrupt `chunk_000.webm`. /falsify analysis identified 8 failure modes, triaged via critique + falsification agents.
+**Decision:** Apply 3 backend detection fixes now (skip recorder with corrupt chunk_000 < 1KB, try/except on events.json parse, log chunk gap warnings). Defer frontend upload reliability (retry logic + chunk manifest) — it's the true root cause but requires multi-file feature work for a 3% failure rate. GPU quota increase requested (1→5 L4 instances in us-east4) for event parallelism.
+**Alternatives rejected:** (A) Comprehensive validation at every boundary — /falsify proved 7 of 8 items are detection (post-hoc), not prevention. Only upload reliability (#8) addresses the root cause, and it needs both frontend retry + backend manifest. (B) Skip corrupt chunks instead of skipping the recorder — fails because chunk_000 carries WebM headers; subsequent chunks are headerless continuation bytes. (C) Fix all 8 failure modes now — 5 are non-issues (name collision near-zero probability, chunk_000 race impossible with 30x timing margin, audio-too-short handled by Whisper, missing recorder already graceful).
+**Consequences:** Pipeline handles corrupt uploads gracefully (skips recorder, processes the other). VD8SNS retry succeeded. Future: if failure rate exceeds ~5%, file a spec for frontend upload reliability (retry queue + manifest).
+**References:** `services/transcribe/audio.py`, GCP quota case #705d0068a
+
 ## 2026-03-17 [technical]: Replace react-markdown with marked — eliminate recurring Vite 504 "Outdated Optimize Dep"
 
 **Context:** 4 Vite 504 incidents in 5 weeks despite 4 layers of workarounds (optimizeDeps.include, holdUntilCrawlEnd, per-worktree cache isolation, postinstall cache nuke). Root cause: `optimizeDeps.include` is a hint, not a guarantee — lazy-loaded routes with deep ESM-only dep trees trigger mid-session re-optimization. `react-markdown` v10 (ESM-only) pulled 40+ transitive deps via unified/remark/rehype. The `postinstall` script (`rm -rf node_modules/.vite*`) nuked the cache on every `npm install`, ensuring cold starts.
