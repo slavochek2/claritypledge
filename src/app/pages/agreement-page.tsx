@@ -20,6 +20,7 @@ import { useAuth } from '@/auth';
 import { agreementsService } from '@/app/data/agreements-service';
 import type { ClarityAgreement } from '@/app/data/agreements-service';
 import { AgreementCertificate } from '@/app/components/agreements/agreement-certificate';
+import { AgreementShareDropdown } from '@/app/components/agreements/agreement-share-dropdown';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -230,23 +231,45 @@ function PendingView({
 function ActiveView({
   agreement,
   isParty,
+  isCreator,
   onTerminate,
 }: {
   agreement: ClarityAgreement;
   isParty: boolean;
+  isCreator: boolean;
   onTerminate: () => void;
 }) {
+  const creatorName = agreement.creator?.name ?? 'Creator';
   const partnerName = resolvePartnerName(
     agreement.partner,
     agreement.partnerDisplayName,
     false,
   );
+  const agreementUrl = `${window.location.origin}/agreements/${agreement.id}`;
+  const currentUserName = isCreator ? creatorName : partnerName;
+
   return (
     <div className="space-y-6">
+      {isParty && (
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 px-4 py-3 rounded-lg bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800">
+          <p className="text-sm font-medium text-blue-900 dark:text-blue-100 text-center sm:text-left">Your Agreement</p>
+          <AgreementShareDropdown
+            agreementUrl={agreementUrl}
+            agreementId={agreement.id}
+            displayId={agreement.displayId}
+            creatorName={creatorName}
+            partnerName={partnerName}
+            partnerSignedAt={agreement.partnerSignedAt ?? agreement.createdAt}
+            termsText={agreement.termsText}
+            currentUserName={currentUserName}
+          />
+        </div>
+      )}
+
       <AgreementCertificate
         variant="active"
         displayId={agreement.displayId}
-        creatorName={agreement.creator?.name ?? 'Creator'}
+        creatorName={creatorName}
         creatorSignedAt={agreement.createdAt}
         partnerName={partnerName}
         partnerSignedAt={agreement.partnerSignedAt}
@@ -575,6 +598,7 @@ export function AgreementPage() {
           <ActiveView
             agreement={agreement}
             isParty={isParty}
+            isCreator={isCreator}
             onTerminate={() => setTerminateOpen(true)}
           />
         </>
