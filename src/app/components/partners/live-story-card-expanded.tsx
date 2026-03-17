@@ -134,48 +134,29 @@ export function LiveStoryCardExpanded({
         </div>
       )}
 
-      {/* Expanded points.
-          Single point: pl-[40px] gives visible "shift" matching profile, and leaves
-          exactly 308px for the position buttons (306px needed).
-          Multiple points: px-3 because ThreadLine indentation (~28px extra left) would
-          push buttons over budget; ThreadLines themselves provide visual hierarchy. */}
+      {/* Expanded points — ThreadLine for all counts (even single point needs
+          the connecting line to visually anchor it to the parent story card). */}
       {isExpanded && story.points.length > 0 && (
-        <div className={story.points.length === 1 ? 'pl-[40px] pr-3 pb-3' : 'px-3 pb-3'}>
-          {story.points.length === 1 ? (
-            <PointRow
-              point={story.points[0]}
-              authorName={story.authorName}
-              authorAvatarUrl={story.authorAvatarUrl}
-              authorAvatarColor={story.authorAvatarColor}
-              authorHasPledged={story.authorHasPledged}
-              authorEarsCount={story.authorEarsCount}
-              onPositionSelect={onPositionSelect}
-              badgePersonName={badgePersonName}
-              badgePersonEarsCount={badgePersonEarsCount}
-              isOwnStory={isOwnStory}
-              isGuest={isGuest}
-            />
-          ) : (
-            <ThreadLineGroup>
-              {story.points.map((point, index) => (
-                <ThreadLineItem key={point.id} isLast={index === story.points.length - 1}>
-                  <PointRow
-                    point={point}
-                    authorName={story.authorName}
-                    authorAvatarUrl={story.authorAvatarUrl}
-                    authorAvatarColor={story.authorAvatarColor}
-                    authorHasPledged={story.authorHasPledged}
-                    authorEarsCount={story.authorEarsCount}
-                    onPositionSelect={onPositionSelect}
-                    badgePersonName={badgePersonName}
-                    badgePersonEarsCount={badgePersonEarsCount}
-                    isOwnStory={isOwnStory}
-                    isGuest={isGuest}
-                  />
-                </ThreadLineItem>
-              ))}
-            </ThreadLineGroup>
-          )}
+        <div className="px-3 pb-3">
+          <ThreadLineGroup>
+            {story.points.map((point, index) => (
+              <ThreadLineItem key={point.id} isLast={index === story.points.length - 1}>
+                <PointRow
+                  point={point}
+                  authorName={story.authorName}
+                  authorAvatarUrl={story.authorAvatarUrl}
+                  authorAvatarColor={story.authorAvatarColor}
+                  authorHasPledged={story.authorHasPledged}
+                  authorEarsCount={story.authorEarsCount}
+                  onPositionSelect={onPositionSelect}
+                  badgePersonName={badgePersonName}
+                  badgePersonEarsCount={badgePersonEarsCount}
+                  isOwnStory={isOwnStory}
+                  isGuest={isGuest}
+                />
+              </ThreadLineItem>
+            ))}
+          </ThreadLineGroup>
         </div>
       )}
     </div>
