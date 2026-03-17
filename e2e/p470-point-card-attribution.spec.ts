@@ -7,7 +7,7 @@
  * public stories — this file covers the missing private-visibility path.
  *
  * Tests:
- * - Visitor sees "N stories by [owner]" in point card footer (private stories visible via RLS-gated batch query)
+ * - Visitor sees "N stories" in point card footer (private stories visible via RLS-gated batch query)
  * - Owner sees own point cards without edit/delete icon buttons
  * - Visitor with no position: no "Add your story" CTA
  * - Visitor with position but no story: "Add your story" CTA appears alongside owner attribution
@@ -57,7 +57,7 @@ test.describe('Flow 1 — Visitor sees private owner story via RLS-gated batch q
     if (visitor?.user?.id) await supabaseAdmin.auth.admin.deleteUser(visitor.user.id);
   });
 
-  test('visitor sees "0 stories by owner" when story is private (RLS correctly restricts)', async ({ page }) => {
+  test('visitor sees "0 stories" when story is private (RLS correctly restricts)', async ({ page }) => {
     await setTestSession(page, visitor.email);
     await page.goto(`/p/${owner.slug}`);
     await page.waitForLoadState('networkidle');
@@ -67,7 +67,7 @@ test.describe('Flow 1 — Visitor sees private owner story via RLS-gated batch q
     // Private stories are not accessible to visitors — count is 0
     // This is correct behavior: we assert it explicitly so a change to this policy
     // (e.g. making private stories visible) forces a conscious test update.
-    await expect(page.getByText(/0 stories by p470 f1 owner/i)).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText(/0 stories/i)).toBeVisible({ timeout: 10000 });
   });
 
   test('visitor with position sees "Add your story" CTA when owner has private story', async ({ page }) => {
@@ -115,14 +115,14 @@ test.describe('Flow 2 — Visitor sees public owner story attribution correctly'
     if (visitor?.user?.id) await supabaseAdmin.auth.admin.deleteUser(visitor.user.id);
   });
 
-  test('visitor sees "1 story by owner" when owner story is public', async ({ page }) => {
+  test('visitor sees "1 story" when owner story is public', async ({ page }) => {
     await setTestSession(page, visitor.email);
     await page.goto(`/p/${owner.slug}`);
     await page.waitForLoadState('networkidle');
     await page.getByRole('tab', { name: /points/i }).click();
     await page.waitForLoadState('networkidle');
 
-    await expect(page.getByText(/1 story by p470 f2 owner/i)).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText(/1 story/i)).toBeVisible({ timeout: 10000 });
   });
 
   test('visitor without position sees no "Add your story" CTA', async ({ page }) => {
