@@ -28,10 +28,11 @@ import { AnonPositionCTA } from '@/app/components/shared/anon-position-cta';
 interface FeedPointCardProps {
   point: PointWithUserPosition;
   activeTag?: string;
-  onPositionChange?: () => void;
+  /** P543: Notify parent that a position was removed — parent decides whether to filter or decrement */
+  onPointRemoved?: (pointId: string, removedPosition: PositionType | null) => void;
 }
 
-export function FeedPointCard({ point, activeTag, onPositionChange }: FeedPointCardProps) {
+export function FeedPointCard({ point, activeTag, onPointRemoved }: FeedPointCardProps) {
   const navigate = useNavigate();
   const { session } = useAuth();
 
@@ -39,8 +40,10 @@ export function FeedPointCard({ point, activeTag, onPositionChange }: FeedPointC
   const { dialogProps, guardedRemovePosition } = useRemovePositionGuard({
     userId: session?.user?.id ?? '',
     onAfterRemove: () => {
+      const removedPosition = localPosition ?? serverPosition;
       setLocalPosition(null);
-      onPositionChange?.();
+      // P543: Always delegate to parent — it uses functional setState for current totalPositions
+      onPointRemoved?.(point.id, removedPosition);
     },
   });
 
@@ -109,7 +112,8 @@ export function FeedPointCard({ point, activeTag, onPositionChange }: FeedPointC
 
     try {
       await pointsService.setPosition(point.id, session.user.id, newPosition);
-      onPositionChange?.();
+      // P543: Card's local optimistic state (localPosition + adjustPositionCounts) handles
+      // the visual update — no parent callback needed for set-position path
     } catch {
       // Revert on error
       setLocalPosition(null);
