@@ -2,7 +2,7 @@
 name: claude-conversations-to-cp
 description: Analyze recent Claude conversations (or any input source) to surface strategic signals and propose updates to cp strategy docs. Reads both sides of conversations. Never writes without explicit confirmation.
 when_to_use: After a sprint, a week of sessions, or any period where you want to surface unresolved tensions and update lean-canvas, hypotheses, theory-of-change, milestones, or process-learnings.
-version: 1.1.0
+version: 1.2.0
 ---
 
 # /claude-conversations-to-cp
@@ -12,12 +12,28 @@ Analyzes Claude conversations (or alternative sources) and proposes updates to c
 **Default input:** Exported Claude.ai conversations at `~/Projects/private/claude-conversations/` (markdown files, synced via claude-sync).
 **Alternative input:** Pass `--source` with a Google Drive folder ID or local path.
 
+## Last-Run Tracking
+
+**Marker file:** `.private/claude-conversations-to-cp-last-run.txt`
+
+After each successful run (step 5 completes — edits applied OR user declines), write:
+```
+last_run: 2026-03-17T14:30:00Z
+files_processed: 12
+source: claude-conversations
+window: 7d
+```
+
+**Smart default:** If no explicit time arg is passed AND the marker file exists, use `since last run` as the window instead of `7d`. Report: `"Last run: 2026-03-10 (7 days ago). Analyzing conversations since then. Pass '14d' to override."`
+
+If the marker is missing or corrupted, fall back to `7d` silently.
+
 ## Usage
 
 ```
-/claude-conversations-to-cp           # last 7 days, exported Claude.ai conversations
-/claude-conversations-to-cp 14d       # last 14 days
-/claude-conversations-to-cp 30d       # last 30 days
+/claude-conversations-to-cp           # since last run (or 7d if never run)
+/claude-conversations-to-cp 14d       # last 14 days (ignores marker)
+/claude-conversations-to-cp 30d       # last 30 days (ignores marker)
 /claude-conversations-to-cp --source gdrive:FOLDER_ID
 /claude-conversations-to-cp --source /absolute/path/to/files
 ```
@@ -72,12 +88,20 @@ JSONL format: each line is a JSON object. Conversation messages have `type: "use
 
   <step n="0" goal="Parse args, guard inputs, collect files">
     <parse_args>
-      - First positional arg: time window (e.g. "7d", "14d") — default "7d"
+      - First positional arg: time window (e.g. "7d", "14d") — default: "since last run" if marker exists, else "7d"
       - "--source VALUE": alternative input source
         - gdrive:ID → use Google Workspace MCP to list + read files in folder
         - /path → read all files in that local directory (plain text, markdown, or jsonl)
         - (none) → read Claude conversation logs (default)
     </parse_args>
+
+    <read_marker>
+      - Read `.private/claude-conversations-to-cp-last-run.txt`
+      - If exists and parseable: extract `last_run` timestamp
+      - If no explicit time arg was passed: use `last_run` as the start of the window. Report: "Last run: [date] ([N] days ago). Analyzing conversations since then. Pass '14d' to override."
+      - If marker missing or corrupted: fall back to 7d silently
+      - If explicit time arg was passed (e.g. "14d"): ignore marker, use the explicit window
+    </read_marker>
 
     <guard name="pp-path-block">
       <if condition="--source path contains '/Projects/private' AND path is NOT ~/Projects/private/claude-conversations">
@@ -160,6 +184,7 @@ JSONL format: each line is a JSON object. Conversation messages have `type: "use
     <output>
       ## Claude Conversations → Strategy Analysis
       **Period:** [date range] | **Source:** [N files / gdrive] | **Processed:** [date]
+      **Since last run:** [N new conversations] (or "First run" if no marker)
 
       ---
 
@@ -254,10 +279,12 @@ JSONL format: each line is a JSON object. Conversation messages have `type: "use
       <action>Read each target file</action>
       <action>Apply only the confirmed changes using Edit tool</action>
       <action>Report each edit as it's applied</action>
+      <action>Write marker: `.private/claude-conversations-to-cp-last-run.txt` with current ISO timestamp, files_processed count, source, and window used</action>
       <action>Output summary: "Applied [N] changes. Modified: [file list]."</action>
       <action>Suggest: "These are strategy doc changes worth committing. Run /kdd if any decisions surfaced. Want to commit?"</action>
     </on_confirm>
     <on_reject>
+      <action>Write marker: `.private/claude-conversations-to-cp-last-run.txt` with current ISO timestamp, files_processed count, source, and window used (analysis was done, just no edits applied)</action>
       <action>Report "No changes applied."</action>
     </on_reject>
   </step>
