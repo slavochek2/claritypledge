@@ -1,9 +1,10 @@
 ---
-status: week
+status: all-done
 type: feature
 rank: 250007.75
 workstream: R1
 created_date: 2026-03-16
+completed_at: "2026-03-17"
 flow: dev
 tags: []
 uat_file: features/uat/p538.md
