@@ -281,6 +281,11 @@ export function ClarityLivePage() {
     return () => { setIsLive(false); };
   }, [view, sessionEnded, partnerLeft, setIsLive]);
 
+  // Scroll to top on view transitions (prevents mid-page render after join, restore, refresh)
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [view]);
+
   // P511: Heartbeat — creators only, only when in live view
   useSessionHeartbeat(session?.id ?? null, isCreator && view === 'live');
 
