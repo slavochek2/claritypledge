@@ -5,7 +5,6 @@ interface ExportAgreementCertificateProps {
   partnerName: string;
   partnerSignedAt: string;
   termsText?: string;
-  displayId?: string;
 }
 
 function formatDate(isoDate: string): string {
@@ -226,16 +225,16 @@ export const ExportAgreementCertificate = forwardRef<HTMLDivElement, ExportAgree
                   width: '80px',
                   height: '80px',
                   borderRadius: '50%',
-                  border: '4px solid #D4AF37',
+                  border: '4px solid #002B5C',
                   backgroundColor: '#FDFBF7',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  boxShadow: '0 4px 12px rgba(212, 175, 55, 0.3)',
+                  boxShadow: '0 4px 12px rgba(0, 43, 92, 0.3)',
                 }}
               >
                 <svg width="48" height="48" viewBox="0 0 128 128" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <circle cx="64" cy="64" r="64" fill="#D4AF37" />
+                  <circle cx="64" cy="64" r="64" fill="#002B5C" />
                   <path
                     d="M88 40.5 C 82 35 73 32 64 32 C 44 32 32 48 32 64 C 32 80 44 96 64 96 C 73 96 82 93 88 87.5"
                     stroke="white"
@@ -275,32 +274,6 @@ export const ExportAgreementCertificate = forwardRef<HTMLDivElement, ExportAgree
             </div>
           </div>
 
-          {/* Active since + watermark */}
-          <div style={{ textAlign: 'center', paddingTop: '12px', borderTop: '1px solid rgba(26,26,26,0.1)' }}>
-            <p style={{ fontSize: '16px', color: '#0044CC', fontWeight: '500', margin: '0 0 8px 0' }}>
-              Active since {formatDate(partnerSignedAt)}
-            </p>
-            {displayId && (
-              <p style={{ fontSize: '13px', color: 'rgba(26,26,26,0.4)', margin: '0 0 8px 0' }}>
-                {displayId}
-              </p>
-            )}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
-              <svg width="20" height="20" viewBox="0 0 128 128" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <circle cx="64" cy="64" r="64" fill="#3b82f6" />
-                <path
-                  d="M88 40.5 C 82 35 73 32 64 32 C 44 32 32 48 32 64 C 32 80 44 96 64 96 C 73 96 82 93 88 87.5"
-                  stroke="white"
-                  strokeWidth="14"
-                  strokeLinecap="round"
-                  fill="none"
-                />
-              </svg>
-              <p style={{ fontSize: '14px', color: 'rgba(26,26,26,0.5)', letterSpacing: '0.1em', margin: 0 }}>
-                claritypledge.com
-              </p>
-            </div>
-          </div>
         </div>
       </div>
     );
