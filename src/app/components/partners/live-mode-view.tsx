@@ -17,7 +17,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { Link, useSearchParams } from 'react-router-dom';
-import { DoorOpen, ShieldOff, Sparkles } from 'lucide-react';
+import { DoorOpen, Loader2 as Loader2Icon, ShieldOff, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Drawer,
@@ -126,9 +126,21 @@ export function PartnerLeftScreen({ partnerName, sessionEnded, onStartNew, isGue
       <h2 className="text-xl font-semibold mb-2">{title}</h2>
       <p className="text-muted-foreground mb-6">{subtitle}</p>
       {!isGuest && (
-        <Button onClick={onStartNew} className="bg-blue-500 hover:bg-blue-600 text-white">
-          Start New Session
-        </Button>
+        <>
+          <Button onClick={onStartNew} className="bg-blue-500 hover:bg-blue-600 text-white">
+            Start New Session
+          </Button>
+          <div className="mt-4 flex items-center gap-2 text-sm text-muted-foreground">
+            <Loader2Icon className="w-4 h-4 animate-spin flex-shrink-0" />
+            <span>Transcribing your session...</span>
+          </div>
+          <p className="mt-1 text-xs text-muted-foreground">
+            It will be available shortly in{' '}
+            <Link to="/sessions" className="text-primary hover:underline">
+              Session History
+            </Link>
+          </p>
+        </>
       )}
 
       {/* P396/P492: Soft signup CTA for anonymous guests */}
