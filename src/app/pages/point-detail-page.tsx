@@ -628,11 +628,11 @@ function PositionHolderCard({
             ref={toggleRef}
             data-testid="story-toggle"
             onClick={e => { e.stopPropagation(); onToggle(); }}
-            className="ml-auto flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors shrink-0 min-h-[28px] px-1"
+            className="ml-auto flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400 transition-colors shrink-0 min-h-[28px] px-1"
             aria-label={isExpanded ? `Collapse story by ${holder.userName}` : `Expand story by ${holder.userName}`}
           >
             {isExpanded ? <ChevronDown size={16} className="transition-transform" /> : <ChevronRight size={16} className="transition-transform" />}
-            <span>story</span>
+            <span className="hover:underline">story</span>
           </button>
         )}
         {ctaHref && (
