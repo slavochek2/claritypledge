@@ -141,7 +141,7 @@ Skill archiving checklist and frontmatter requirements auto-load when editing `.
 
 **Commit flow is zero-question.** When user says "commit": fix blockers inline (lint → `npx eslint --fix`; TS errors → fix the type; frontmatter → `python3 scripts/fix-frontmatter.py`), then commit. Only pause for genuine ambiguity (test failure that could mean the fix is wrong).
 
-**Before cleanup/deletion commits:** Run `git diff --cached --name-only`. Unstage bystanders with `git reset HEAD -- <file>`.
+**Before EVERY commit:** Run `git diff --cached --name-only`. Only files you changed in THIS session should be staged. Unstage bystanders with `git reset HEAD -- <file>`. Multiple sessions run in parallel — the working tree contains other sessions' modifications. Never stage a file just because it shows as modified.
 
 **Subagent staging does not transfer.** Verify with `git diff --cached --name-only` before committing — re-stage explicitly if needed.
 
