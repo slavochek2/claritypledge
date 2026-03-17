@@ -19,7 +19,7 @@ import { ActiveTagFilter } from '@/app/components/feed/active-tag-filter';
 import { FeedSkeleton } from '@/app/components/feed/feed-skeleton';
 import { SEO } from '@/app/components/seo';
 import { analytics } from '@/lib/mixpanel';
-import type { StoryWithAuthor, PointWithUserPosition } from '@/app/types';
+import type { StoryWithAuthor, PointWithUserPosition, PositionType } from '@/app/types';
 
 type FeedTab = 'points' | 'stories';
 
@@ -69,6 +69,26 @@ export function FeedPage() {
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+
+  // P543: Surgical callbacks — avoid full refetch on position changes
+  const handlePointRemoved = useCallback((pointId: string) => {
+    setPoints(prev => prev.filter(p => p.id !== pointId));
+  }, []);
+
+  const handlePointPositionUpdated = useCallback((
+    pointId: string,
+    oldPosition: PositionType | null,
+    newPosition: PositionType | null,
+  ) => {
+    setPoints(prev => prev.map(p => {
+      if (p.id !== pointId) return p;
+      const updatedCounts = { ...p.positionCounts };
+      if (oldPosition) updatedCounts[oldPosition] = Math.max(0, (updatedCounts[oldPosition] || 0) - 1);
+      if (newPosition) updatedCounts[newPosition] = (updatedCounts[newPosition] || 0) + 1;
+      const delta = (newPosition ? 1 : 0) - (oldPosition ? 1 : 0);
+      return { ...p, positionCounts: updatedCounts, totalPositions: Math.max(0, p.totalPositions + delta) };
+    }));
+  }, []);
 
   // Tag cloud: extract from both stories + points (client-side, Decision 8)
   const tagCloud = useMemo(() => {
@@ -314,7 +334,8 @@ export function FeedPage() {
                       key={point.id}
                       point={point}
                       activeTag={activeTag}
-                      onPositionChange={fetchData}
+                      onPointRemoved={handlePointRemoved}
+                      onPointPositionUpdated={handlePointPositionUpdated}
                     />
                   ))
                 : (filteredStories as StoryWithAuthor[]).map((story) => (

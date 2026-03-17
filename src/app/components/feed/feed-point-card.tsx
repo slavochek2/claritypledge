@@ -28,10 +28,13 @@ import { AnonPositionCTA } from '@/app/components/shared/anon-position-cta';
 interface FeedPointCardProps {
   point: PointWithUserPosition;
   activeTag?: string;
-  onPositionChange?: () => void;
+  /** P543: Remove this point from the feed list (e.g., last position removed) */
+  onPointRemoved?: (pointId: string) => void;
+  /** P543: Update position counts locally without refetch */
+  onPointPositionUpdated?: (pointId: string, oldPosition: PositionType | null, newPosition: PositionType | null) => void;
 }
 
-export function FeedPointCard({ point, activeTag, onPositionChange }: FeedPointCardProps) {
+export function FeedPointCard({ point, activeTag, onPointRemoved, onPointPositionUpdated }: FeedPointCardProps) {
   const navigate = useNavigate();
   const { session } = useAuth();
 
@@ -39,8 +42,14 @@ export function FeedPointCard({ point, activeTag, onPositionChange }: FeedPointC
   const { dialogProps, guardedRemovePosition } = useRemovePositionGuard({
     userId: session?.user?.id ?? '',
     onAfterRemove: () => {
+      const removedPosition = localPosition ?? serverPosition;
       setLocalPosition(null);
-      onPositionChange?.();
+      // P543: If this was the last position on the point, remove from feed; otherwise update counts
+      if (point.totalPositions <= 1) {
+        onPointRemoved?.(point.id);
+      } else {
+        onPointPositionUpdated?.(point.id, removedPosition, null);
+      }
     },
   });
 
@@ -105,11 +114,13 @@ export function FeedPointCard({ point, activeTag, onPositionChange }: FeedPointC
       return;
     }
 
+    const oldPosition = localPosition ?? serverPosition;
     setLocalPosition(newPosition);
 
     try {
       await pointsService.setPosition(point.id, session.user.id, newPosition);
-      onPositionChange?.();
+      // P543: Update counts locally — no full refetch
+      onPointPositionUpdated?.(point.id, oldPosition, newPosition);
     } catch {
       // Revert on error
       setLocalPosition(null);
