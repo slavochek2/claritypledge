@@ -83,11 +83,9 @@ Use `type: change-request` (first-class kanban type, shown in purple). The `chan
 - New capability, new user value → `/create-prd`
 - Shipped feature, design was wrong → `/change-request`
 
-## Hook Side-Effect: Re-read Required After First Edit
+## Re-read After Editing Feature Files
 
-A PostToolUse hook (`features-frontmatter-fix.sh`) runs `fix-frontmatter.py` on every Write or Edit to `features/p*.md`, modifying the file on disk immediately after your tool call completes.
-
-**Rule:** If you make more than one Edit to the same feature file in a single task, re-read the file before each subsequent Edit. The hook may have altered frontmatter, making your previous copy stale. Skipping the re-read causes Edit to fail with an `old_string` mismatch.
+**Rule:** If you make more than one Edit to the same feature file in a single task, re-read the file before each subsequent Edit. The frontmatter fixer (`scripts/fix-frontmatter.py`) may run between edits (via pre-commit or manual invocation), altering the file on disk and making your previous copy stale. Skipping the re-read causes Edit to fail with an `old_string` mismatch.
 
 ## Secrets & External Services in Specs
 
