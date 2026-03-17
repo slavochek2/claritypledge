@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: all-done
 type: change-request
 rank: 250010.75
 changes: p411
@@ -8,7 +8,7 @@ tags:
   - p411
   - p103
 created_date: 2026-03-17
-delivery_stage: uat
+completed_at: 2026-03-17
 uat_file: features/uat/p542.md
 test_files:
   - e2e/p542-story-collapse.spec.ts
