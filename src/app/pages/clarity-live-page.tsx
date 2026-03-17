@@ -540,16 +540,24 @@ export function ClarityLivePage() {
     if (isRestoring) return; // Don't redirect while checking for saved session
     if (user) return;
     if (isJoinViaLink) return;
-    // Check for a stored session — guest may have refreshed mid-session
+    // Check for a stored session — guest may have refreshed mid-session (sessionStorage)
     const storedCode = storage?.getItem(STORAGE_KEYS.SESSION_CODE);
     if (storedCode) return; // Restoration will handle this
+    // Check localStorage for active session — guest may have closed tab and reopened /live
+    const activeStored = getActiveSessionFromStorage();
+    if (activeStored) return; // Rejoin prompt effect will handle this
     navigate('/signup');
   }, [isAuthLoading, isRestoring, user, isJoinViaLink, navigate]);
 
-  // Pre-fill name from logged-in user (if authenticated and name is empty)
+  // Pre-fill name from logged-in user, or from last guest session (localStorage)
   useEffect(() => {
     if (user?.name && !name) {
       setName(user.name);
+    } else if (!user && !name) {
+      const stored = getActiveSessionFromStorage();
+      if (stored?.guestDisplayName) {
+        setName(stored.guestDisplayName);
+      }
     }
   }, [user?.name, name]);
 
@@ -665,7 +673,7 @@ export function ClarityLivePage() {
             // Determine view based on session state
             // B48: Use pendingLiveTransition to trigger mic permission gate
             const restoredLiveState = restoredSession.liveState as Record<string, unknown> | null;
-            const sessionAlreadyEnded = restoredLiveState?.sessionEnded === true;
+            const sessionAlreadyEnded = restoredLiveState?.sessionEnded === true || restoredLiveState?.joinerEnded === true;
             if (restoredSession.joinerName && !sessionAlreadyEnded) {
               setPendingLiveTransition(true);
             } else if (restoredSession.joinerName && sessionAlreadyEnded) {
@@ -809,6 +817,24 @@ export function ClarityLivePage() {
         return; // Don't process further updates after session ends
       }
 
+      // Check for joiner deliberately ending session — immediate, no grace period
+      // (mirrors the sessionEnded pattern for creator exit)
+      const joinerEndedInLiveState = (updatedSession.liveState as Record<string, unknown>)?.joinerEnded;
+      if (joinerEndedInLiveState && !partnerLeftRef.current) {
+        partnerLeftRef.current = true;
+        setGracePeriodStart(null);
+        gracePeriodStartRef.current = null;
+        setDepartedPartnerName(lastJoinerNameRef.current);
+        setPartnerLeft(true);
+        analytics.track('live_session_partner_left', {
+          session_code: updatedSession.code,
+          left_by: 'joiner',
+          exit_reason: 'deliberate_end',
+          checks_completed_so_far: confirmedLiveStateRef.current.checksCount,
+        });
+        return;
+      }
+
       // P511 Task 6: Check if partner returned during grace period
       if (updatedSession.joinerName && gracePeriodStartRef.current) {
         gracePeriodStartRef.current = null;
@@ -821,6 +847,7 @@ export function ClarityLivePage() {
 
       // Check for joiner departure (I'm creator, joiner left)
       // P511 Task 6: Enter grace period instead of immediate departure
+      // Skip if joiner deliberately ended (joinerEnded already handled above)
       if (!updatedSession.joinerName && hasJoinerRef.current && !partnerLeftRef.current && !gracePeriodStartRef.current) {
         const now = new Date();
         gracePeriodStartRef.current = now;
@@ -927,6 +954,23 @@ export function ClarityLivePage() {
           return;
         }
 
+        // Case A.5: Joiner deliberately ended session — immediate, no grace period
+        const joinerEndedInLiveState = (freshSession.liveState as Record<string, unknown>)?.joinerEnded;
+        if (joinerEndedInLiveState && !partnerLeftRef.current) {
+          partnerLeftRef.current = true;
+          gracePeriodStartRef.current = null;
+          setGracePeriodStart(null);
+          setDepartedPartnerName(lastJoinerNameRef.current);
+          setPartnerLeft(true);
+          analytics.track('live_session_partner_left', {
+            session_code: freshSession.code,
+            left_by: 'joiner',
+            exit_reason: 'deliberate_end',
+            checks_completed_so_far: confirmedLiveStateRef.current.checksCount,
+          });
+          return;
+        }
+
         // P511 Task 6: Check if partner returned during grace period
         if (freshSession.joinerName && gracePeriodStartRef.current) {
           gracePeriodStartRef.current = null;
@@ -941,6 +985,7 @@ export function ClarityLivePage() {
 
         // Case B: Joiner left (creator sees this) - joiner_name went from set to null
         // P511 Task 6: Enter grace period instead of immediate departure
+        // Skip if joiner deliberately ended (joinerEnded already handled above)
         if (!freshSession.joinerName && hasJoinerRef.current && !gracePeriodStartRef.current) {
           const now = new Date();
           gracePeriodStartRef.current = now;
@@ -2146,7 +2191,7 @@ export function ClarityLivePage() {
       // MediaStream was released by browser on page unload; getUserMedia() runs again here.
       // Gap in recording during disconnect is expected (Decision 4).
       const liveStateRecord = activeSession.liveState as Record<string, unknown> | null;
-      const isSessionEnded = liveStateRecord?.sessionEnded === true;
+      const isSessionEnded = liveStateRecord?.sessionEnded === true || liveStateRecord?.joinerEnded === true;
       if (activeSession.joinerName && !isSessionEnded) {
         setPendingLiveTransition(true);
       } else if (rejoinSession.role === 'creator') {
@@ -2659,6 +2704,7 @@ export function ClarityLivePage() {
               startTime={gracePeriodStart}
               gracePeriodSeconds={SESSION_GRACE_PERIOD_SECONDS}
               onExpired={handleGracePeriodExpired}
+              sessionCode={session?.code}
             />
           </div>
         </div>

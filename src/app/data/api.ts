@@ -1099,7 +1099,9 @@ export async function getActiveSessionByCode(code: string): Promise<ClaritySessi
 }
 
 /**
- * Clears the joiner from a session.
+ * Clears the joiner from a session (joiner clicked "End Session").
+ * Sets joinerEnded flag in live_state so the creator skips the grace period
+ * and sees the immediate session-ended screen (same pattern as endClaritySession).
  * Only called from the explicit "End Session" button path — NOT from pagehide.
  * (P511: pagehide no longer clears the joiner; the grace period handles departures.)
  * @param sessionId - The session UUID
@@ -1107,9 +1109,25 @@ export async function getActiveSessionByCode(code: string): Promise<ClaritySessi
 export async function clearSessionJoiner(sessionId: string): Promise<void> {
   console.log('[Live] Clearing joiner from session:', sessionId);
 
+  // First get current live_state to merge with
+  const { data: current } = await supabase
+    .from('clarity_sessions')
+    .select('live_state')
+    .eq('id', sessionId)
+    .single();
+
+  const currentLiveState = current?.live_state || {};
+
   const { error } = await supabase
     .from('clarity_sessions')
-    .update({ joiner_name: null })
+    .update({
+      joiner_name: null,
+      live_state: {
+        ...currentLiveState,
+        joinerEnded: true,
+        joinerEndedAt: new Date().toISOString(),
+      },
+    })
     .eq('id', sessionId);
 
   if (error) {

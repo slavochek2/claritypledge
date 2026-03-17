@@ -36,6 +36,18 @@ Empty output = file matches HEAD = already committed. Do not stage.
 
 This catches the case where a subagent or prior session already committed the file — staging it again produces an empty commit with a misleading message.
 
+## Only stage files YOU changed in THIS session
+
+Multiple Claude sessions often run in parallel (worktrees). The working tree may contain modifications from other sessions. **Only stage files you personally modified.** Never stage a file just because `git status` shows it as modified.
+
+**Before every commit:**
+```bash
+git diff --cached --name-only   # review — every file here must be yours
+git reset HEAD -- <file>        # unstage any bystanders
+```
+
+This is the #1 cause of "wrong files in wrong commit" — a session stages all modified files instead of only its own changes.
+
 ## Always use explicit file names
 
 ```bash

@@ -4,9 +4,10 @@
  * Gives the partner up to 120s to return (refresh, network blip, app switch)
  * before the session is considered ended.
  */
-import { useState, useEffect, useRef } from 'react';
-import { Loader2, WifiOff } from 'lucide-react';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { Loader2, WifiOff, Check, Copy } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { QRCodeSVG } from 'qrcode.react';
 
 interface ReconnectingCountdownProps {
   /** Display name of the disconnected partner */
@@ -19,6 +20,8 @@ interface ReconnectingCountdownProps {
   onExpired: () => void;
   /** Called if partner returns during grace period (optional) */
   onPartnerReturned?: () => void;
+  /** Session code for generating the rejoin link + QR */
+  sessionCode?: string;
 }
 
 /**
@@ -30,6 +33,7 @@ export function ReconnectingCountdown({
   startTime,
   gracePeriodSeconds,
   onExpired,
+  sessionCode,
 }: ReconnectingCountdownProps) {
   const [secondsRemaining, setSecondsRemaining] = useState(() => {
     const elapsed = Math.floor((Date.now() - startTime.getTime()) / 1000);
@@ -61,13 +65,29 @@ export function ReconnectingCountdown({
   const seconds = secondsRemaining % 60;
   const timeDisplay = `${minutes}:${seconds.toString().padStart(2, '0')}`;
 
-  // Color escalation: amber normally, orange below 30s
+  // Rejoin link + copy state
+  const [copied, setCopied] = useState(false);
+  const rejoinLink = sessionCode ? `${window.location.origin}/live/${sessionCode}` : '';
+  const displayLink = rejoinLink.replace(/^https?:\/\//, '');
+
+  const handleCopy = useCallback(async () => {
+    if (!rejoinLink) return;
+    try {
+      await navigator.clipboard.writeText(rejoinLink);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // Clipboard API may fail in some contexts — silent
+    }
+  }, [rejoinLink]);
+
+  // Color escalation: muted normally, orange below 30s
   const isUrgent = secondsRemaining <= 30 && !expired;
   const countdownColor = expired
     ? 'text-muted-foreground'
     : isUrgent
       ? 'text-orange-600'
-      : 'text-amber-600';
+      : 'text-muted-foreground';
 
   // Screen reader announcements at 30s intervals
   const lastAnnouncedRef = useRef(secondsRemaining);
@@ -109,16 +129,16 @@ export function ReconnectingCountdown({
 
   return (
     <div
-      className="rounded-lg bg-amber-50/50 p-4 space-y-2"
+      className="rounded-lg bg-muted/50 p-4 space-y-2"
       role="timer"
       aria-label="Time remaining for partner to reconnect"
     >
       {/* Main line: spinner + message + countdown */}
-      <div className="flex items-center gap-2 text-amber-700">
+      <div className="flex items-center gap-2 text-foreground">
         {prefersReducedMotion ? (
-          <WifiOff className="w-4 h-4 text-amber-500 flex-shrink-0" />
+          <WifiOff className="w-4 h-4 text-muted-foreground flex-shrink-0" />
         ) : (
-          <Loader2 className="w-4 h-4 text-amber-500 flex-shrink-0 animate-spin" />
+          <Loader2 className="w-4 h-4 text-muted-foreground flex-shrink-0 animate-spin" />
         )}
         <span>
           Waiting for {partnerName} to return...
@@ -132,6 +152,36 @@ export function ReconnectingCountdown({
       <p className="text-muted-foreground text-sm pl-6">
         They may be refreshing or switching apps. You can keep reviewing your notes.
       </p>
+
+      {/* Rejoin link + QR so the remaining user can help their partner return */}
+      {sessionCode && (
+        <div className="mt-4 pt-4 border-t border-border/50 space-y-3">
+          <p className="text-sm text-muted-foreground text-center">
+            Help them rejoin — share this link:
+          </p>
+
+          {/* Link row with copy */}
+          <div className="flex items-center gap-2 p-2 bg-background rounded-lg border">
+            <span className="text-xs font-mono text-muted-foreground truncate flex-1 text-left pl-1">
+              {displayLink}
+            </span>
+            <button
+              onClick={handleCopy}
+              className="flex-shrink-0 inline-flex items-center gap-1 px-2 py-1 text-xs rounded bg-blue-500 hover:bg-blue-600 text-white transition-colors"
+            >
+              {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+              {copied ? 'Copied!' : 'Copy'}
+            </button>
+          </div>
+
+          {/* QR code */}
+          <div className="flex justify-center">
+            <div className="p-3 bg-white rounded-lg border inline-block">
+              <QRCodeSVG value={rejoinLink} size={120} level="M" />
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Screen reader announcements */}
       <span className="sr-only" aria-live="assertive">{srAnnouncement}</span>
