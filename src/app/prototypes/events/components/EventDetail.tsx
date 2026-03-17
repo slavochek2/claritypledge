@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useParams, useNavigate, useSearchParams, Link } from 'react-router-dom';
-import ReactMarkdown from 'react-markdown';
+import { renderMarkdownSafe } from '@/lib/markdown';
 import { toast } from 'sonner';
 import {
   ArrowLeft,
@@ -424,14 +424,11 @@ export function EventDetail() {
                 </div>
               )}
 
-              {/* Description - Markdown rendered */}
-              <div className="prose prose-sm max-w-none text-muted-foreground mb-6 pt-4 border-t border-border">
-                <ReactMarkdown components={{
-                  a: ({ href, children }) => (
-                    <a href={href} target="_blank" rel="noopener noreferrer">{children}</a>
-                  )
-                }}>{event.description}</ReactMarkdown>
-              </div>
+              {/* Description - Markdown rendered (renderMarkdownSafe strips raw HTML to prevent XSS) */}
+              <div
+                className="prose prose-sm max-w-none text-muted-foreground mb-6 pt-4 border-t border-border"
+                dangerouslySetInnerHTML={{ __html: renderMarkdownSafe(event.description) }}
+              />
 
               {/* RSVP Section - Hidden for host and cancelled events */}
               {!isHost && !isCancelled && (
