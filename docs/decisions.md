@@ -2,6 +2,30 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-17 [product]: Point embed includes sharer's position via `?from=userId`
+
+**Context:** When sharing a point from your profile, the embed showed a neutral point with no position selected. But you're sharing *your position*, not just the point.
+**Decision:** `ShareButton` accepts `fromUserId` prop. When on a profile page, `PointCardWithLinks` passes `profileOwner.id`. Embed URL becomes `?embed=true&from={userId}`. The existing `point-detail-page.tsx` embed mode already reads `?from` and shows that user's position + linked stories.
+**Alternatives rejected:** Screenshot of position (static, doesn't let reader interact); separate "position card" component (overengineered for one param addition).
+**Consequences:** Any shared embed from a profile context now shows the sharer's stance. Blog embeds can include `?from=` to show the author's position.
+**References:** `src/app/components/shared/ShareDialog.tsx`, `src/app/pages/point-detail-page.tsx:302-330`
+
+## 2026-03-17 [process]: Image redaction uses Vision OCR substring bounding boxes (v3)
+
+**Context:** Needed to redact email addresses from a Gmail screenshot for blog use. Three approaches tried: (1) pixel coordinate guessing with CoreGraphics — wrong every time, 5+ iterations; (2) Vision OCR line-level bounding boxes — still guessing which portion of a line to cover; (3) `VNRecognizedText.boundingBox(for: Range<String.Index>)` — exact pixel coordinates for any substring within a recognized line.
+**Decision:** v3 — single Swift script, pass text patterns as CLI args, Vision finds exact bounding boxes per substring, draws redaction rectangles. Single pass, no iteration.
+**Alternatives rejected:** v1 coordinate guessing (fundamentally broken — agent can't know pixel positions); v2 line-level OCR (still guessing within lines); installing ImageMagick/PIL (unnecessary dependency when native API exists).
+**Consequences:** `/redact-image` skill v3 is reusable for any screenshot. Key lesson: when a tool-based approach fails twice with the same symptom, research the API instead of improvising.
+**References:** `.claude/commands/slava/content/redact-image.md`
+
+## 2026-03-17 [process]: draft-blog uses Nano Banana Pro instead of Unsplash
+
+**Context:** Blog feature images were sourced from Unsplash (stock photos, requires attribution). AI-generated images are unique, on-brand, and attribution-free.
+**Decision:** `/draft-blog` now uses Gemini native image gen (`gemini-3-pro-image-preview`) with 16:9 aspect ratio for blog headers. Fallback chain: Gemini → Imagen 4 → skip. Also added iframe embed support (Ghost `html` card nodes) and `content/articles/` search path.
+**Alternatives rejected:** Keep Unsplash (generic, attribution overhead); DALL-E (separate API key, not on GCP credits).
+**Consequences:** Feature images are generated per-article. No Unsplash key needed. Embeds of ClarityPledge points/stories work in Ghost posts.
+**References:** `.claude/commands/slava/content/draft-blog.md`, `.claude/commands/slava/content/gen-image.md`
+
 ## 2026-03-17 [technical]: CTA color is bg-blue-500, not bg-primary
 
 **Context:** 404 page used `bg-primary text-primary-foreground` for buttons. In the design system, `--primary` resolves to near-black (`240 5.9% 10%`), which looked generic. The actual CTA pattern (nav bar "Start a Clarity Session") uses `bg-blue-500 hover:bg-blue-600 text-white`.
