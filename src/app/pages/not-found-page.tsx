@@ -37,7 +37,7 @@ export function NotFoundDrift() {
 
       <Link
         to="/"
-        className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors"
+        className="text-sm font-medium text-blue-500 hover:text-blue-600 transition-colors"
       >
         Back to home
       </Link>
@@ -77,7 +77,7 @@ export function NotFoundGlitch() {
 
       <Link
         to="/"
-        className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors animate-glitch-reveal"
+        className="text-sm font-medium text-blue-500 hover:text-blue-600 transition-colors animate-glitch-reveal"
         style={{ animationDelay: "0.4s" }}
       >
         Back to home
@@ -140,7 +140,7 @@ export function NotFoundCompass() {
           className="absolute top-1/2 left-1/2 w-0.5 h-12 -mt-6 -ml-px origin-bottom animate-compass-spin"
           style={{ transformOrigin: "center bottom" }}
         >
-          <div className="w-0 h-0 border-l-[4px] border-r-[4px] border-b-[20px] border-l-transparent border-r-transparent border-b-primary/60" />
+          <div className="w-0 h-0 border-l-[4px] border-r-[4px] border-b-[20px] border-l-transparent border-r-transparent border-b-blue-500/60" />
         </div>
 
         {/* Center dot */}
@@ -156,7 +156,7 @@ export function NotFoundCompass() {
 
       <Link
         to="/"
-        className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors"
+        className="text-sm font-medium text-blue-500 hover:text-blue-600 transition-colors"
       >
         Find your way home
       </Link>
