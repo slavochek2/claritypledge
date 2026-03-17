@@ -2,7 +2,7 @@
 name: day
 description: Single daily skill — health checks, reflection on what shipped since last run, goals and branches forward. Replaces /day-start and /day-end.
 when_to_use: Start of any work session, or end of day before closing laptop. Run instead of /day-start or /day-end.
-version: 1.0.0
+version: 1.1.0
 ---
 
 # Day (/day)
@@ -71,65 +71,119 @@ Output immediately:
 
 ---
 
-### 1. Health Checks (run in parallel)
+### 1. Health Checks (3 sequential waves — NOT all in parallel)
 
-**a) Prod smoke test**
+**IMPORTANT:** Execute as 3 sequential waves to prevent permission prompt floods.
+Each wave = at most 2 tool calls. Process results between waves.
+
+#### Wave 1: Local + Git + Smoke + Cloud (1 bash call)
+
+Combine ALL local operations into a single bash script:
+
 ```bash
-node scripts/prod-smoke-test.mjs
+cd "$(git rev-parse --show-toplevel)"
+
+echo "=== PROD SMOKE ==="
+node scripts/prod-smoke-test.mjs 2>&1 || echo "SMOKE_FAILED"
+
+echo "=== GIT LOG ==="
+git log --oneline --since="$SINCE" --author-date-order
+
+echo "=== GIT BRANCHES ==="
+git branch --format='%(refname:short) %(upstream:track)' | grep -v "^main"
+git log --oneline origin/main..HEAD 2>/dev/null | wc -l | tr -d ' '
+
+echo "=== STRANDED SPECS ==="
+grep -rl "delivery_stage: uat\|status: in-progress" features/p*.md 2>/dev/null || echo "none"
+
+echo "=== STASH ==="
+git stash list 2>/dev/null || echo "none"
+
+echo "=== KDD CHECK ==="
+git log --oneline --since="$SINCE" -- CLAUDE.md .claude/rules/ supabase/migrations/ .env.local .env.prod .mcp.json scripts/ docs/technical/
+
+echo "=== CLAUDE.MD CHANGES ==="
+git log --oneline --since="$SINCE" -- CLAUDE.md .claude/rules/
+
+echo "=== ACTIVITY LOG ==="
+grep -E "^$(date +%Y-%m-%d)" .private/logs/activity.log 2>/dev/null || echo "no activity log"
+
+echo "=== CLOUD ==="
+gcloud compute instances list --filter="name=clarity-agent" --format="value(name,status,zone)" 2>/dev/null || echo "gcloud unavailable"
+echo -n "ghost_status="
+curl -s -o /dev/null -w "%{http_code}" https://claritypledge.com/blog --max-time 5
+echo ""
+LATEST=$(gcloud storage ls gs://claritypledge-db-backups/ 2>/dev/null | sort | tail -1)
+DATE=$(echo "$LATEST" | grep -oE '[0-9]{8}' | head -1)
+if [ -n "$DATE" ]; then
+  DATE_EPOCH=$(date -j -f "%Y%m%d" "$DATE" +%s 2>/dev/null)
+  if [ -n "$DATE_EPOCH" ]; then
+    echo "backup_age_days=$(( ( $(date +%s) - DATE_EPOCH ) / 86400 ))"
+  fi
+fi
 ```
+
+Process Wave 1 results before proceeding.
 Show: `✓ Prod smoke: all pass` or `✗ Prod smoke: N failed — [first failure]`
+Flag cloud only if broken: Ghost non-200, backup >2d old. gcloud unavailable → silent skip.
 
-**b) Sentry: new issues since last run**
-Use Sentry MCP (`mcp__sentry__search_issues`):
-- Org: `22minds-llc`, Project: `javascript-react`
-- Query: unresolved issues first seen since `$SINCE`
-- Also search for `live_state_update_failed` specifically — these indicate /live session state failures that may cause orphaned sessions
+#### Wave 2: Supabase + Sentry (2 calls max, parallel)
 
+Run these two in parallel:
+
+**a) Sentry MCP** — single call:
+Use `mcp__sentry__search_issues`: org `22minds-llc`, project `javascript-react`, unresolved issues first seen since `$SINCE`. Also look for `live_state_update_failed` in results.
 Fallback (if MCP unavailable): skip with `⚠ Sentry: MCP unavailable — check manually`
-
 Show: `✓ Sentry: clean` or `⚠ Sentry: N new issues — [top title]`
 
-**c) User Activity (since last run)**
-
-Run all queries in parallel using the prod Supabase REST API:
+**b) All Supabase queries** — single bash call with all curls:
 
 ```bash
 source "$(git rev-parse --show-toplevel)/.env.local"
 PROD_URL="https://besjtuodziykmjidubzw.supabase.co/rest/v1"
+H1="apikey: $PROD_SUPABASE_SERVICE_ROLE_KEY"
+H2="Authorization: Bearer $PROD_SUPABASE_SERVICE_ROLE_KEY"
+CUTOFF=$(date -u -v-60M +"%Y-%m-%dT%H:%M:%SZ" 2>/dev/null || date -u -d "60 minutes ago" +"%Y-%m-%dT%H:%M:%SZ")
 
-# 1. New signups
-curl -s "${PROD_URL}/profiles?select=id,name,email,created_at&created_at=gt.${SINCE}&order=created_at.desc" \
-  -H "apikey: $PROD_SUPABASE_SERVICE_ROLE_KEY" \
-  -H "Authorization: Bearer $PROD_SUPABASE_SERVICE_ROLE_KEY"
+echo "=== SIGNUPS ==="
+curl -s "${PROD_URL}/profiles?select=id,name,email,created_at&created_at=gt.${SINCE}&email=neq.test-agent@claritypledge.com&order=created_at.desc" -H "$H1" -H "$H2"
 
-# 2. Stories created
-curl -s "${PROD_URL}/stories?select=author_id,title,created_at&created_at=gt.${SINCE}&order=created_at.desc" \
-  -H "apikey: $PROD_SUPABASE_SERVICE_ROLE_KEY" \
-  -H "Authorization: Bearer $PROD_SUPABASE_SERVICE_ROLE_KEY"
+echo -e "\n=== STORIES ==="
+curl -s "${PROD_URL}/stories?select=author_id,title,created_at&created_at=gt.${SINCE}&order=created_at.desc" -H "$H1" -H "$H2"
 
-# 3. Positions taken/changed
-curl -s "${PROD_URL}/point_positions?select=user_id,updated_at&updated_at=gt.${SINCE}&order=updated_at.desc" \
-  -H "apikey: $PROD_SUPABASE_SERVICE_ROLE_KEY" \
-  -H "Authorization: Bearer $PROD_SUPABASE_SERVICE_ROLE_KEY"
+echo -e "\n=== POSITIONS ==="
+curl -s "${PROD_URL}/point_positions?select=user_id,updated_at&updated_at=gt.${SINCE}&order=updated_at.desc" -H "$H1" -H "$H2"
 
-# 4. Story verifications (live session participation)
-curl -s "${PROD_URL}/story_verifications?select=speaker_id,listener_id,created_at&created_at=gt.${SINCE}" \
-  -H "apikey: $PROD_SUPABASE_SERVICE_ROLE_KEY" \
-  -H "Authorization: Bearer $PROD_SUPABASE_SERVICE_ROLE_KEY"
+echo -e "\n=== VERIFICATIONS ==="
+curl -s "${PROD_URL}/story_verifications?select=speaker_id,listener_id,created_at&created_at=gt.${SINCE}" -H "$H1" -H "$H2"
 
-# 5. Agreements created or signed
-curl -s "${PROD_URL}/clarity_agreements?select=creator_profile_id,partner_profile_id,status,created_at&or=(created_at.gt.${SINCE},partner_signed_at.gt.${SINCE})" \
-  -H "apikey: $PROD_SUPABASE_SERVICE_ROLE_KEY" \
-  -H "Authorization: Bearer $PROD_SUPABASE_SERVICE_ROLE_KEY"
+echo -e "\n=== AGREEMENTS ==="
+curl -s "${PROD_URL}/clarity_agreements?select=creator_profile_id,partner_profile_id,status,created_at&or=(created_at.gt.${SINCE},partner_signed_at.gt.${SINCE})" -H "$H1" -H "$H2"
 
-# 6. Resolve user IDs to names for any active returning users
+echo -e "\n=== FUNNEL: PROFILES ==="
+curl -s "${PROD_URL}/profiles?select=id&email=neq.test-agent@claritypledge.com" -H "$H1" -H "$H2" | python3 -c "import json,sys; print(len(json.load(sys.stdin)))" 2>/dev/null || echo "?"
+
+echo -e "\n=== FUNNEL: STORY AUTHORS ==="
+curl -s "${PROD_URL}/stories?select=author_id" -H "$H1" -H "$H2" | python3 -c "import json,sys; print(len(set(x['author_id'] for x in json.load(sys.stdin))))" 2>/dev/null || echo "?"
+
+echo -e "\n=== FUNNEL: POSITION USERS ==="
+curl -s "${PROD_URL}/point_positions?select=user_id" -H "$H1" -H "$H2" | python3 -c "import json,sys; print(len(set(x['user_id'] for x in json.load(sys.stdin))))" 2>/dev/null || echo "?"
+
+echo -e "\n=== FUNNEL: AGREEMENTS ==="
+curl -s "${PROD_URL}/clarity_agreements?select=id&status=eq.active" -H "$H1" -H "$H2" | python3 -c "import json,sys; print(len(json.load(sys.stdin)))" 2>/dev/null || echo "?"
+
+echo -e "\n=== ORPHANED SESSIONS ==="
+curl -s "${PROD_URL}/clarity_sessions?select=id,code,created_at,last_activity_at&joiner_name=not.is.null&last_activity_at=lt.${CUTOFF}&demo_status=neq.completed&ended_at=is.null&order=last_activity_at.desc&limit=5" -H "$H1" -H "$H2"
+
+echo -e "\n=== FUNNEL CSV ==="
+mkdir -p "$(git rev-parse --show-toplevel)/.private/metrics"
 ```
 
 Filter out `test-agent@claritypledge.com` from all results.
 
 If response is a JSON object with `message` key (not array): `⚠ User activity: query failed — check PROD_SUPABASE_SERVICE_ROLE_KEY in .env.local`
 
-Cross-reference: user IDs in activity (2-5) but NOT in new signups (1) = **returning users**.
+Cross-reference: user IDs in activity but NOT in new signups = **returning users**.
 
 Show:
 ```
@@ -144,87 +198,34 @@ USER ACTIVITY (since last /day)
 
 Quiet period (no signups, no returning): collapse to `Users: no activity since last /day | Funnel: A → B → C → D`
 
-**Funnel snapshot** — cumulative counts:
-```bash
-# Total profiles (exclude test-agent)
-curl -s "${PROD_URL}/profiles?select=id&email=neq.test-agent@claritypledge.com" \
-  -H "apikey: $PROD_SUPABASE_SERVICE_ROLE_KEY" \
-  -H "Authorization: Bearer $PROD_SUPABASE_SERVICE_ROLE_KEY" \
-  -H "Prefer: count=exact" -I 2>&1 | grep -i content-range
-
-# Distinct story authors (count client-side)
-curl -s "${PROD_URL}/stories?select=author_id" \
-  -H "apikey: $PROD_SUPABASE_SERVICE_ROLE_KEY" \
-  -H "Authorization: Bearer $PROD_SUPABASE_SERVICE_ROLE_KEY"
-
-# Distinct position users (count client-side)
-curl -s "${PROD_URL}/point_positions?select=user_id" \
-  -H "apikey: $PROD_SUPABASE_SERVICE_ROLE_KEY" \
-  -H "Authorization: Bearer $PROD_SUPABASE_SERVICE_ROLE_KEY"
-
-# Active agreements
-curl -s "${PROD_URL}/clarity_agreements?select=id&status=eq.active" \
-  -H "apikey: $PROD_SUPABASE_SERVICE_ROLE_KEY" \
-  -H "Authorization: Bearer $PROD_SUPABASE_SERVICE_ROLE_KEY" \
-  -H "Prefer: count=exact" -I 2>&1 | grep -i content-range
-```
-
 **Optional daily CSV log** (append after computing funnel):
 ```bash
-mkdir -p "$(git rev-parse --show-toplevel)/.private/metrics"
 echo "$(date -u +%Y-%m-%d),${SIGNUPS},${STORY_USERS},${POSITION_USERS},${AGREEMENTS}" >> \
   "$(git rev-parse --show-toplevel)/.private/metrics/funnel-daily.csv"
 ```
 If previous entry exists, show deltas in funnel line.
 
-**d) Repo health baseline**
+Show: `✓ Sessions: no orphans` or `⚠ ORPHANED SESSIONS: N sessions with joined users but no completion (possible deadlocks) — check Sentry for live_state errors`
 
-Run as background subagent:
+#### Wave 3: Repo health + file reads (2-3 calls, after processing Wave 1-2)
+
+**a) Repo health** (1 bash call):
 ```bash
 cd "$(git rev-parse --show-toplevel)"
-git stash -q --include-untracked 2>/dev/null || true
+echo "=== LINT ==="
 npm run lint 2>&1 | grep -c "error" || echo "0"
+echo "=== TEST ==="
 npm test -- --run 2>&1 | tail -5
-git stash pop -q 2>/dev/null || true
 ```
 Show: `✓ Repo baseline: clean` or `⚠ Repo baseline: N lint errors, M test failures — fix before starting new work`
 
-**e) Cloud systems (silent on green)**
-```bash
-# clarity-agent VM status (used in Step 5)
-gcloud compute instances list --filter="name=clarity-agent" --format="value(name,status,zone)" 2>/dev/null
+**b) Read goals + milestone** (2 Read calls, can be parallel):
+- `docs/goals.md`
+- `docs/milestones/c1-stories-live-events.md`
 
-# Ghost blog
-curl -s -o /dev/null -w "%{http_code}" https://claritypledge.com/blog --max-time 5
+#### Health output block
 
-# DB backup freshness
-LATEST=$(gcloud storage ls gs://claritypledge-db-backups/ --account=$GCP_ACCOUNT 2>/dev/null | sort | tail -1)
-DATE=$(echo "$LATEST" | grep -oE '[0-9]{8}' | head -1)
-if [ -n "$DATE" ]; then
-  DATE_EPOCH=$(date -j -f "%Y%m%d" "$DATE" +%s 2>/dev/null)
-  if [ -n "$DATE_EPOCH" ]; then
-    DAYS_OLD=$(( ( $(date +%s) - DATE_EPOCH ) / 86400 ))
-    echo "backup_age_days=$DAYS_OLD"
-  fi
-fi
-```
-Flag only if broken: Ghost non-200, backup >2d old. gcloud unavailable → silent skip.
-
-**f) Session health (orphaned /live sessions)**
-```bash
-source "$(git rev-parse --show-toplevel)/.env.local"
-PROD_URL="https://besjtuodziykmjidubzw.supabase.co/rest/v1"
-CUTOFF=$(date -u -v-60M +"%Y-%m-%dT%H:%M:%SZ" 2>/dev/null || date -u -d "60 minutes ago" +"%Y-%m-%dT%H:%M:%SZ")
-
-# Sessions with a joiner that haven't been updated in >60min and aren't completed
-curl -s "${PROD_URL}/clarity_sessions?select=id,code,created_at,updated_at&joiner_id=not.is.null&updated_at=lt.${CUTOFF}&status=eq.active&order=updated_at.desc&limit=5" \
-  -H "apikey: $PROD_SUPABASE_SERVICE_ROLE_KEY" \
-  -H "Authorization: Bearer $PROD_SUPABASE_SERVICE_ROLE_KEY"
-```
-
-Show: `✓ Sessions: no orphans` or `⚠ ORPHANED SESSIONS: N sessions with joined users but no completion (possible deadlocks) — check Sentry for live_state errors`
-
-Output health block:
+After all 3 waves, output:
 ```
 HEALTH
   [✓/✗] Prod smoke
@@ -240,12 +241,10 @@ HEALTH
 
 This section looks backward at what happened since `$SINCE`. Gather data, then synthesize.
 
-**2a. Gather (run in parallel)**
+**2a. Gather**
 
-- **Git log since last run**: `git log --oneline --since="$SINCE" --author-date-order`
-- **Activity log**: `grep -E "^$(date +%Y-%m-%d)" .private/logs/activity.log 2>/dev/null || echo "no activity log"` — count entries, detect attention shifts (P-number changes in `active:` field) and persistent blockers (same keyword in `blocked:` across 2+ entries).
-- **KDD check**: scan git log for `docs(kdd):` commits since `$SINCE`, check `docs/decisions.md` changes.
-- **CLAUDE.md health**: `git log --oneline --since="$SINCE" -- CLAUDE.md .claude/rules/` — if any commits, diff them and spawn `/slava:maintain:claude-md` subagent. Get: VALID / NEEDS REVISION + recommendation.
+Use the git log, activity log, KDD check, and CLAUDE.md change data already collected in Wave 1 (no additional tool calls needed).
+If CLAUDE.md/rules were changed (per Wave 1 output), spawn a single `/slava:maintain:claude-md` subagent. Get: VALID / NEEDS REVISION + recommendation.
 
 **2b. KDD reminder check**
 
@@ -335,18 +334,7 @@ GATE TO [next milestone]: [one line condition]
 
 ### 4. Branch Status
 
-```bash
-git branch --format='%(refname:short) %(upstream:track)' | grep -v "^main"
-git log --oneline origin/main..HEAD 2>/dev/null | wc -l | tr -d ' '
-```
-
-**4b. Stranded spec check:**
-```bash
-OPEN=$(grep -rl "delivery_stage: uat\|status: in-progress" features/p*.md 2>/dev/null | grep -oP 'p\d+' | sort -u)
-BRANCHES=$(git branch -a | grep -oP '(?<=feature/|origin/feature/)p\d+' | sort -u)
-comm -23 <(echo "$OPEN") <(echo "$BRANCHES")
-```
-If stranded: `⚠ STRANDED SPECS: pN — run /ship pN spec-only to close`
+Use the branch, stranded spec, and stash data already collected in Wave 1 (no additional tool calls).
 
 Output:
 ```
@@ -415,5 +403,5 @@ date -u +"%Y-%m-%dT%H:%M:%SZ" > ~/.claude-day-last-run
 
 - Never show done steps in goals. Only what's coming.
 - Only interactive prompts: open items (step 0), stash (step 4c), cloud VM (step 5).
-- Run data gathering in parallel where possible.
+- Run data gathering in 3 sequential waves (Wave 1: local/git, Wave 2: Supabase+Sentry, Wave 3: lint/test+file reads). Max 2-3 tool calls per wave to prevent permission prompt floods.
 - First run (no timestamp file): behaves like old /day-start with 24h lookback.
