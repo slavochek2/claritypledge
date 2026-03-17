@@ -2,6 +2,14 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-17 [product]: Drop "by {name}" from all card footer labels — context already in header
+
+**Context:** Point card footers showed "N stories by {name}" and story card footers showed "N points by {name}". On mobile with long names (e.g. "Vyacheslav Ladischenski"), the label consumed most of the row width, pushing share/open icons to wrap. User flagged via screenshot: "is this the best we can do?"
+**Decision:** Remove "by {name}" suffix everywhere — label is now just "N stories" / "N points". The author is already shown in the card header above (avatar + name + position badge). Live session mode already used this pattern ("N stories" without attribution), making this consistent. Found in 4 surfaces: `point-card-with-links.tsx` (2 footer variants), `story-card-with-links.tsx`, `live-story-card-expanded.tsx`, and `profile-page-v2.tsx` (inline story card rendering that bypasses the shared component — caught only after user reported the fix didn't work).
+**Alternatives rejected:** (1) Conditional — drop "by {name}" on own profile only, keep on others. Creates two code paths for the same label, every new surface needs "which variant?" decision. (2) Move icons to separate row — bigger DOM change, more visual complexity, solves spacing but not redundancy. (3) First name only — still redundant with header, still needs conditional logic for own vs others.
+**Consequences:** All card footer labels are now short and consistent across own profile, other profiles, feed, live session, and embed. The `profile-page-v2.tsx` inline story card rendering is a known duplication surface — any future footer label changes need to check both the shared component AND the profile page inline version.
+**References:** `src/app/components/social/point-card-with-links.tsx`, `src/app/components/social/story-card-with-links.tsx`, `src/app/components/partners/live-story-card-expanded.tsx`, `src/app/pages/profile-page-v2.tsx:1210`
+
 ## 2026-03-17 [product]: Agreement export certificate — remove QR, metadata, use navy seal
 
 **Context:** P538 agreement download/share feature added a PNG export of the agreement certificate. Initial design included a QR code next to the partner signature, an "Active since" date, agreement ID (A-NNNN), and a claritypledge.com footer. Screenshot review revealed: (1) QR cramped the signature area, (2) gold seal color didn't match brand navy, (3) metadata was noise on a clean certificate.
