@@ -78,7 +78,7 @@ export default defineConfig({
       'remark-math',
       'katex/dist/katex.min.css',
     ],
-    holdUntilCrawlEnd: false, // Serve deps immediately, re-optimize incrementally if needed
+    holdUntilCrawlEnd: true, // Wait for full crawl — prevents 504 if a dep is missing from include list
   },
   server: {
     port: getPort(),
