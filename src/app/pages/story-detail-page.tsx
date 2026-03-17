@@ -1103,12 +1103,22 @@ export function StoryDetailPage() {
           document.body.style.background = 'transparent';
           document.documentElement.style.background = 'transparent';
           const reportHeight = () => {
-            const height = el.scrollHeight + 4;
+            let height = el.scrollHeight;
+            // Include portal dropdowns (rendered on document.body, outside this wrapper)
+            const portalDropdown = document.querySelector<HTMLElement>('[role="listbox"]');
+            if (portalDropdown) {
+              const dropdownBottom = portalDropdown.getBoundingClientRect().bottom + window.scrollY;
+              height = Math.max(height, dropdownBottom);
+            }
+            height += 4;
             if (import.meta.env.DEV) console.log('[embed-resize]', height);
             window.parent.postMessage({ type: 'claritypledge-embed-resize', height }, '*');
           };
           const observer = new ResizeObserver(reportHeight);
           observer.observe(el);
+          // Watch for portal elements added/removed on body (e.g., intensity dropdowns)
+          const bodyObserver = new MutationObserver(reportHeight);
+          bodyObserver.observe(document.body, { childList: true });
           reportHeight();
         }
       }}>
