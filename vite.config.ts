@@ -48,6 +48,7 @@ export default defineConfig({
     include: [
       'react',
       'react-dom',
+      'react-dom/client',
       'react-router-dom',
       '@supabase/supabase-js',
       '@sentry/react',
