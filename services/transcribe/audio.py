@@ -134,11 +134,34 @@ def _process_downloaded_files(session_code: str, tmp_dir: str) -> SessionAudio:
     # Load events from highest-numbered events file
     events = _load_events(tmp_dir, events_files)
 
-    # Concatenate and decode per recorder
+    # Detect chunk gaps per recorder
+    for recorder, chunk_files in chunks_by_recorder.items():
+        nums = sorted(int(f.split("_chunk_")[1].split(".")[0]) for f in chunk_files)
+        expected = list(range(nums[0], nums[-1] + 1))
+        missing = set(expected) - set(nums)
+        if missing:
+            logger.warning("Recorder %s has gaps in chunks: missing %s (audio will have gaps)", recorder, sorted(missing))
+
+    # Concatenate and decode per recorder, skipping recorders with corrupt chunk_000
     recorder_wavs: dict[str, str] = {}
     for recorder, chunk_files in chunks_by_recorder.items():
+        # Check chunk_000 viability — it carries the WebM container headers
+        chunk_files.sort()
+        first_chunk = chunk_files[0]
+        first_chunk_path = os.path.join(tmp_dir, first_chunk)
+        first_chunk_size = os.path.getsize(first_chunk_path)
+        if "_chunk_000" in first_chunk and first_chunk_size < 1024:
+            logger.warning(
+                "Recorder %s has corrupt chunk_000 (%d bytes < 1KB) — skipping this recorder",
+                recorder, first_chunk_size,
+            )
+            continue
+
         wav_path = _concat_and_decode(tmp_dir, recorder, chunk_files)
         recorder_wavs[recorder] = wav_path
+
+    if not recorder_wavs:
+        raise RuntimeError("All recorders have corrupt audio — cannot transcribe")
 
     # For single-phone sessions, the single WAV is also the merged WAV
     merged_wav = None
@@ -167,8 +190,12 @@ def _load_events(tmp_dir: str, events_files: list[str]) -> Optional[dict]:
     events_files.sort()
     latest = events_files[-1]
 
-    with open(os.path.join(tmp_dir, latest), "r") as f:
-        events = json.load(f)
+    try:
+        with open(os.path.join(tmp_dir, latest), "r") as f:
+            events = json.load(f)
+    except (json.JSONDecodeError, ValueError) as e:
+        logger.warning("Failed to parse events file %s: %s (continuing without events)", latest, e)
+        return None
 
     logger.info("Loaded events from %s (%d events)", latest, len(events.get("events", [])))
     return events
