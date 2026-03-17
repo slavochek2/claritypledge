@@ -7,17 +7,15 @@
 
 import { useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowLeft } from 'lucide-react';
 import { SEO } from '@/app/components/seo';
 import { AgreementCertificate } from '@/app/components/agreements/agreement-certificate';
 import { CertificatePageShell } from '@/app/components/layout/certificate-page-shell';
 import { analytics } from '@/lib/mixpanel';
 
-const MOCK_TERMS = `We'll focus on: our work conversations.
-How to request a session: via email.
-How often: at least once a month, unless we both agree to skip.
-How long: at least 15 minutes per session.
-Response time: acknowledge requests within 5 days.`;
+const MOCK_TERMS = `We will use clarity sessions for our work conversations and decisions.
+Either of us can request a session by email. The other person will respond within 5 days.
+We commit to at least one session per month, unless we both agree to skip.
+Each session will last at least 15 minutes.`;
 
 export function PartnerTemplatePage() {
   useEffect(() => {
@@ -34,30 +32,45 @@ export function PartnerTemplatePage() {
         url="/partner-template"
       />
 
-      <Link
-        to="/"
-        className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-6 -ml-2 min-h-[44px] px-3"
-        aria-label="Back to home"
-      >
-        <ArrowLeft size={16} />
-        claritypledge.com
-      </Link>
-
-      <AgreementCertificate
-        variant="active"
-        creatorName="Alex Walker"
-        partnerName="Jordan Rivera"
-        creatorSignedAt="2026-03-01T00:00:00Z"
-        partnerSignedAt="2026-03-01T00:00:00Z"
-        termsText={MOCK_TERMS}
-      />
-
-      {/* Customizable hint + CTA — below the certificate */}
-      <div className="mt-8 text-center space-y-6">
-        <p className="text-sm md:text-base text-muted-foreground leading-relaxed max-w-lg mx-auto">
-          &#9999;&#65039; The terms section is fully customizable. This is a template — when you create your own, you and your partner write the terms together.
+      {/* Hero intro */}
+      <div className="text-center mb-8 space-y-2">
+        <h1
+          className="text-2xl md:text-3xl font-serif text-[#1A1A1A]"
+          style={{ fontFamily: '"Playfair Display", Georgia, serif' }}
+        >
+          What does a Clarity Partner Agreement look like?
+        </h1>
+        <p className="text-base text-muted-foreground max-w-md mx-auto">
+          We all crave being understood. Let's commit to listen.
         </p>
+        <p className="text-sm text-muted-foreground/70 italic">
+          Takes 1 minute to create
+        </p>
+      </div>
 
+      {/* Certificate with TEMPLATE stamp */}
+      <div className="relative">
+        <AgreementCertificate
+          variant="active"
+          creatorName="Alex Walker"
+          partnerName="Jordan Rivera"
+          creatorSignedAt="2026-03-01T00:00:00Z"
+          partnerSignedAt="2026-03-01T00:00:00Z"
+          termsText={MOCK_TERMS}
+        />
+        {/* Stamp overlay */}
+        <div
+          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 -rotate-12 pointer-events-none select-none"
+          aria-hidden="true"
+        >
+          <span className="text-5xl md:text-6xl font-bold uppercase tracking-[0.2em] text-[#002B5C]/10 whitespace-nowrap">
+            Template
+          </span>
+        </div>
+      </div>
+
+      {/* CTA */}
+      <div className="mt-8 text-center space-y-4">
         <Link
           to="/agreements/new/create"
           className="inline-block bg-blue-500 hover:bg-blue-600 text-white font-semibold px-8 py-3 rounded-md transition-colors text-base"

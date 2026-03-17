@@ -10,6 +10,21 @@ If no argument: prompt "Which session?" and list `.private/sifter/sessions/`.
 
 Read: `.private/sifter/sessions/{session-name}.md`
 
+## Input Detection (before generating)
+
+**Check: Did the user arrive with their own rough formulation?**
+
+Look at the session file's brain dump, context block, or the invocation arguments. If the user has written a draft point in first-person ("I prefer...", "I won't...", "I always...", "my rule is..."), treat it as a rough draft to be sharpened — not a signal to generate from scratch.
+
+**Two modes:**
+
+| User arrives with... | Your job |
+|----------------------|----------|
+| A story only — no draft point | Generate 3 candidates from scratch |
+| A rough first-person draft | Ask ONE question before generating: "Is your intent a personal stance (what you do/won't do) or a universal mechanism (how this works for anyone)?" — then proceed accordingly |
+
+**Do not silently convert a personal stance into a universal mechanism.** If the user wrote "I won't partner with them because..." — that's a stance, not a mechanism. Generating third-person universal points in response is the wrong move.
+
 ## Process (invisible to user)
 
 1. Read story + context (brain dump, NVC extraction, user vocabulary, previous feedback if any)
@@ -25,7 +40,7 @@ Read: `.private/sifter/sessions/{session-name}.md`
 
 ## What Makes a Good Point
 
-**A Point is a falsifiable claim about the world, not a personal feeling.**
+**A Point is a falsifiable claim — either about the world (mechanism) or about the narrator's standard (stance).**
 
 | Story (first-person) | Other's view | Point (addresses both) |
 |---------------------|--------------|------------------------|
@@ -49,12 +64,24 @@ Read: `.private/sifter/sessions/{session-name}.md`
 - Blindspots ("The speaker can't see Z")
 - Trade-offs ("You can't have A and B")
 - Structural explanations ("This happens not because of character, but because of position")
+- Stances ("I [do/won't/require] X because Y — and here's what that test reveals")
 
 **Use user's vocabulary.** Quote their words. No academic jargon.
 
 **No dashes.** Break into separate sentences instead. Short sentences preferred — if a sentence can be two, make it two.
 
-**Points are written in third person.** No "I", no "you" directed at a specific person. The subject should be a mechanism, pattern, or category of people — never the narrator. First-person makes a claim sound like a personal belief; third-person makes it a testable observation.
+**Two valid point types — do not conflate them:**
+
+| Type | Voice | When to use | Example |
+|------|-------|-------------|---------|
+| **Mechanism** | Third-person | Story reveals how something works for anyone | "The listener can't know what they missed — they only have access to what they received." |
+| **Stance** | First-person | User's own criterion, rule, or decision about how they act | "I treat every partner agreement as a test of intellectual integrity: can you explain back what I propose to sign?" |
+
+**Mechanism points:** No "I", no "you" directed at a specific person. Subject is a pattern, category, or structural force. First-person weakens it — makes it sound like opinion rather than testable claim.
+
+**Stance points:** First-person is required. The claim IS personal — it's about what the narrator does, won't do, or requires. Third-person strips the authority ("people who do X" ≠ "I do X"). These are also falsifiable: anyone can observe whether the person actually holds the line.
+
+**The user's rough draft voice is your signal.** "I prefer...", "I won't...", "I require..." → Stance mode. "When X happens, Y results..." → Mechanism mode. When unclear, ask before generating.
 
 ## Connected to Story (internal requirement)
 
@@ -135,7 +162,7 @@ Then: **"more"** or **"done"**
 
 **The "why" is the signal.** Use it to understand direction — what angle resonates, what's missing, what's off.
 
-**The user may bypass ratings entirely** and state their own formulation ("my point is actually..."). Welcome this — it's more useful than a numeric rating. Treat it as the new starting point and refine from there, don't restart from scratch.
+**The user may bypass ratings entirely** and state their own formulation ("my point is actually..."). Welcome this — it's more useful than a numeric rating. Treat it as the new starting point and refine from there, don't restart from scratch. The skill's job is to help the user sharpen *their* formulation — not replace it with a generated one.
 
 ## Iteration Loop
 
@@ -144,6 +171,10 @@ Each round:
 2. Generate 3 new points that respond to the feedback
 3. Avoid repeating angles already rejected
 4. Go deeper on angles that scored +2/+3
+
+**After 2 rejected rounds:** Stop generating. Instead, reflect back in one sentence what you understand the user is trying to say — then ask: "Is that right?" Only proceed when they confirm. This costs one exchange and saves five.
+
+Example: "It sounds like you want a first-person stance about using the agreement as a filter — not a universal mechanism. The test is whether someone can explain it back. And the consequence is: if they can't or won't, you don't partner. Is that the shape?"
 
 **Escape hatch:** After 3 rounds (9 points shown), offer: "We've covered a lot of ground. Save what we have, or keep going?"
 
