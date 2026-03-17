@@ -2,6 +2,13 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-17 [product]: Session-end screen nudges toward transcript and session history
+
+**Context:** Session history (`/sessions`) was discoverable only through the hamburger menu — 2 clicks away, no hint it exists. After a session ends, authenticated users saw only a "Start New Session" button (dead end). Transcripts are processed async, so users had no indication their session was being saved or where to find it.
+**Decision:** (1) Session-end screen shows "Transcribing your session..." with spinner + link to Session History for authenticated users. (2) Session history page promotes TranscriptRow above rounds (was buried at the bottom). (3) Consistent copy across both surfaces: "Transcribing your session..." instead of "Transcript processing...". Guests still see signup CTA (unchanged).
+**Alternatives rejected:** Deep-linking to `/sessions/{id}` — transcript isn't ready immediately, so the specific session page would show a processing state that feels broken. Toast notification — adds a new UI pattern and disappears quickly, easy to miss. The end screen is the natural high-attention moment.
+**Consequences:** Session history becomes discoverable at the moment users are most likely to want it. The pattern can extend to other post-session surfaces if needed.
+
 ## 2026-03-16 [technical]: P511 session resilience — implementation learnings (banner, polling, heartbeat)
 
 **Context:** P511 shipped session resilience (grace period, rejoin, banner). Implementation revealed three gotchas not in the original architecture.
