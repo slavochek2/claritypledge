@@ -2,6 +2,30 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-17 [product]: ThreadLine is the universal "belongs to" visual pattern — use for ALL expanded children, including single items
+
+**Context:** P542 introduced ThreadLine for stories expanded from point page positions. Audit found `PointCardWithLinks` and `LiveStoryCardExpanded` had `if (items.length === 1)` branches skipping ThreadLine for single items. On mobile, single expanded items looked indistinguishable from the next card.
+**Decision:** ThreadLine wraps ALL expanded children, regardless of count. Removed all `length === 1` special-case branches. The connecting line communicates "belongs to the thing above" — needed even with one child.
+**Alternatives rejected:** ThreadLine only for 2+ items (lost hierarchy for singles); indentation without lines (ambiguous).
+**Consequences:** Any future expand-to-show-children pattern should use ThreadLineGroup/ThreadLineItem. The `length === 1` bypass is a known anti-pattern.
+**References:** `point-card-with-links.tsx`, `live-story-card-expanded.tsx`, `profile-page-v2.tsx`
+
+## 2026-03-17 [product]: Position list stories collapse behind chevron with accordion (P542)
+
+**Context:** P411's inline story cards on point page position list created "double duty" — name row was both position entry and story header. In long lists, position badges detached from the point they referred to.
+**Decision:** Stories collapse behind blue `> story` chevron. Accordion (one at a time). ThreadLine when expanded. Avatar+name repeated in card header. Viewer's "Add your story" CTA replaces chevron when no story.
+**Alternatives rejected:** Indent group (confuses list), card-wrap (heavy), always-visible inline (the problem).
+**Consequences:** Position list scannable regardless of story count. Profile pages unchanged. `showQuotePattern` superseded for `context="point-detail"`.
+**References:** `features/done/23_mar_26/p542_point_page_story_collapse.md`, P411, P103
+
+## 2026-03-17 [process]: Pick-flow must include /challenge-prd for redesigns and enforce /ux drop rule strictly
+
+**Context:** `/pick-flow` for P542 missed `/challenge-prd` and recommended dropping `/ux` despite net-new interaction pattern. Drop-/ux rule requires ALL three conditions but hard rule was too permissive.
+**Decision:** Three fixes: (1) redesign template includes `/challenge-prd`; (2) `/ux` rule rewritten for explicit ALL-three check; (3) `/challenge-prd` rule includes redesigns.
+**Alternatives rejected:** Relying on user to catch missed steps (fragile).
+**Consequences:** Pick-flow stricter for redesigns. "ASCII covers happy path" ≠ UX resolved.
+**References:** `.claude/commands/slava/build/pick-flow/SKILL.md`
+
 ## 2026-03-17 [product]: Point embed includes sharer's position via `?from=userId`
 
 **Context:** When sharing a point from your profile, the embed showed a neutral point with no position selected. But you're sharing *your position*, not just the point.
