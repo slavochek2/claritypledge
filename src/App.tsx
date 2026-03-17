@@ -52,6 +52,10 @@ const LandingV4 = lazy(() => import("@/app/pages/landing-v4").then(m => ({ defau
 const PositionButtonsPrototype = lazy(() => import("@/app/pages/position-buttons-prototype").then(m => ({ default: m.PositionButtonsPrototype })));
 const EventsPrototype = lazy(() => import("@/app/prototypes/events").then(m => ({ default: m.EventsPrototype })));
 const LoadingDemoPage = lazy(() => import("@/app/pages/loading-demo-page").then(m => ({ default: m.LoadingDemoPage })));
+const NotFoundPage = lazy(() => import("@/app/pages/not-found-page").then(m => ({ default: m.NotFoundPage })));
+const NotFoundDrift = lazy(() => import("@/app/pages/not-found-page").then(m => ({ default: m.NotFoundDrift })));
+const NotFoundGlitch = lazy(() => import("@/app/pages/not-found-page").then(m => ({ default: m.NotFoundGlitch })));
+const NotFoundCompass = lazy(() => import("@/app/pages/not-found-page").then(m => ({ default: m.NotFoundCompass })));
 
 /** P491: Redirect authenticated+verified users from / to /feed. Show landing for everyone else. */
 function HomeRedirect() {
@@ -565,7 +569,13 @@ export default function ClarityPledgeApp() {
         <Route path="/tree/landing-v4" element={<LazyRoute><LandingV4 /></LazyRoute>} />
         <Route path="/tree/position-buttons" element={<LazyRoute><PositionButtonsPrototype /></LazyRoute>} />
         <Route path="/tree/loading-demo" element={<LazyRoute><LoadingDemoPage /></LazyRoute>} />
+        <Route path="/tree/404-drift" element={<ClarityLandingLayout><LazyRoute><NotFoundDrift /></LazyRoute></ClarityLandingLayout>} />
+        <Route path="/tree/404-glitch" element={<ClarityLandingLayout><LazyRoute><NotFoundGlitch /></LazyRoute></ClarityLandingLayout>} />
+        <Route path="/tree/404-compass" element={<ClarityLandingLayout><LazyRoute><NotFoundCompass /></LazyRoute></ClarityLandingLayout>} />
         <Route path="/events/*" element={<ClarityLandingLayout><LazyRoute><EventsPrototype /></LazyRoute></ClarityLandingLayout>} />
+
+        {/* Catch-all: 404 for unknown routes */}
+        <Route path="*" element={<ClarityLandingLayout><LazyRoute><NotFoundPage /></LazyRoute></ClarityLandingLayout>} />
       </Routes>
       </AuthProvider>
       </PwaInstallProvider>

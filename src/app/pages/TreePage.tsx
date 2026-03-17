@@ -36,6 +36,24 @@ const devPages = [
   },
 ];
 
+const notFoundVariants = [
+  {
+    path: '/tree/404-drift',
+    label: '404: Drift',
+    description: 'Floating letters — gentle, ambient feel'
+  },
+  {
+    path: '/tree/404-glitch',
+    label: '404: Glitch',
+    description: 'Text scramble + blur reveal — techy, modern'
+  },
+  {
+    path: '/tree/404-compass',
+    label: '404: Compass',
+    description: 'Spinning needle that can\'t find north — playful, on-brand'
+  },
+];
+
 export function TreePage() {
   return (
     <div className="min-h-screen bg-gray-50 py-12 px-4">
@@ -75,6 +93,30 @@ export function TreePage() {
         </h2>
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 divide-y divide-gray-100 mb-6">
           {devPages.map((route) => (
+            <Link
+              key={route.path}
+              to={route.path}
+              className="block px-4 py-3 hover:bg-gray-50 transition-colors"
+            >
+              <div className="flex items-center justify-between">
+                <div>
+                  <span className="font-medium text-gray-900">{route.label}</span>
+                  <p className="text-sm text-gray-500 mt-0.5">{route.description}</p>
+                </div>
+                <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </div>
+            </Link>
+          ))}
+        </div>
+
+        {/* 404 Variants */}
+        <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-2">
+          404 Page Variants
+        </h2>
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 divide-y divide-gray-100 mb-6">
+          {notFoundVariants.map((route) => (
             <Link
               key={route.path}
               to={route.path}
