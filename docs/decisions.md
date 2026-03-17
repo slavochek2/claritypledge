@@ -2,6 +2,14 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-17 [technical]: Embed iframe resize must include portal dropdown height
+
+**Context:** P521 portal dropdown fix (2026-03-16) worked in regular views but broke in Ghost blog embeds — the intensity dropdown was clipped at the iframe boundary. Root cause: `createPortal(dropdown, document.body)` escapes `overflow:hidden` containers but NOT iframe boundaries. The embed wrapper's `ResizeObserver` measured only `el.scrollHeight` of the wrapper div — the portal dropdown lives on `document.body` outside the wrapper's DOM tree, so its height was never reported to the parent iframe.
+**Decision:** Add `MutationObserver` on `document.body` (childList only) to detect portal additions/removals. In `reportHeight`, query `document.querySelector('[role="listbox"]')` and include its `getBoundingClientRect().bottom + window.scrollY` in the max height calculation. Applied to both `point-detail-page.tsx` and `story-detail-page.tsx` embed wrappers.
+**Alternatives rejected:** (1) Render dropdown inline (not portal) in embed mode — reverts the overflow:hidden clipping P521 fixed. (2) Increase iframe height to 450px — wastes space, defeats auto-resize. (3) Flip dropdown upward — complex positioning logic for marginal UX gain.
+**Consequences:** Embed iframes auto-expand when dropdown opens and shrink when it closes. Pattern applies to any future portal elements in embeds — the `[role="listbox"]` selector is specific to the intensity dropdown; new portals need their own selector or a generic approach.
+**References:** `src/app/pages/point-detail-page.tsx`, `src/app/pages/story-detail-page.tsx`, P521 decision below
+
 ## 2026-03-17 [technical]: Vite optimizeDeps.include — eliminate recurring 504 "Outdated Optimize Dep"
 
 **Context:** "Module load failed" errors on `/live` started occurring regularly. The March 13 fix (`cacheDir` per worktree) solved multi-worktree cache corruption, but a single long-running dev server still hit 504s when Vite lazily discovered new deps mid-session and re-optimized, invalidating all previously served bundles. Research confirmed 3 commits (Mar 13-14) addressing the same root family, plus Vite upstream issues (#14284, #13506).
