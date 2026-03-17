@@ -2,6 +2,13 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-17 [product]: Transcript nudge guard — only on explicit session end
+
+**Context:** The transcript nudge ("Transcribing your session...") showed on `PartnerLeftScreen` for all cases. But `PartnerLeftScreen` renders in two scenarios: (1) creator clicks "End Session" (`sessionEnded=true`) — session is truly over, (2) partner leaves/disconnects (`sessionEnded=false`) — partner might rejoin via P511 grace period. Showing "Transcribing..." in case 2 is premature — the session isn't necessarily over.
+**Decision:** Guard the transcript nudge on `sessionEnded === true`. When a partner just leaves, only "Start New Session" shows. Transcription is only triggered by the person who exits (line 2401 of clarity-live-page), and the grace period allows rejoin, so the nudge should wait for a definitive end.
+**Alternatives rejected:** Always showing the nudge — misleading when session might resume. Showing a conditional message ("Your partner left, but the session is still open") — adds complexity for a rare edge case.
+**Consequences:** Clean separation: explicit end = transcript + history nudge. Partner left = just the button. Consistent with P511 grace period semantics.
+
 ## 2026-03-17 [product]: Drop "by {name}" from all card footer labels — context already in header
 
 **Context:** Point card footers showed "N stories by {name}" and story card footers showed "N points by {name}". On mobile with long names (e.g. "Vyacheslav Ladischenski"), the label consumed most of the row width, pushing share/open icons to wrap. User flagged via screenshot: "is this the best we can do?"
