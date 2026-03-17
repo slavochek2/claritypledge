@@ -2,6 +2,21 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-17 [technical]: CTA color is bg-blue-500, not bg-primary
+
+**Context:** 404 page used `bg-primary text-primary-foreground` for buttons. In the design system, `--primary` resolves to near-black (`240 5.9% 10%`), which looked generic. The actual CTA pattern (nav bar "Start a Clarity Session") uses `bg-blue-500 hover:bg-blue-600 text-white`.
+**Decision:** All page-level CTAs and action links use `bg-blue-500`/`text-blue-500` (blue-500 family), not `bg-primary`. `bg-primary` is reserved for form elements and shadcn components.
+**Alternatives rejected:** Updating `--primary` CSS variable to blue (would break shadcn defaults globally).
+**Consequences:** When adding new standalone pages, use `text-blue-500` for links and `bg-blue-500` for filled buttons. Check `simple-navigation.tsx` for the canonical CTA pattern.
+
+## 2026-03-17 [technical]: 404 catch-all route with animated variants
+
+**Context:** Any misspelled URL (e.g., `/agreement-template` instead of `/partner-template`) rendered a blank white page — React Router's `No routes matched` warning appeared only in console. Zero user feedback.
+**Decision:** Add `<Route path="*">` as last route in App.tsx, rendering a 404 page inside `ClarityLandingLayout`. Three CSS-only animation variants built at `/tree/404-*` for comparison. Production default: "Drift" (floating ghost 404 letters). Alternatives kept as prototypes.
+**Alternatives rejected:** Redirect-to-home (loses the "you made a typo" signal). Static text only (missed opportunity for personality).
+**Consequences:** All unknown URLs now show a friendly 404 with nav + footer. Variants live at `/tree/404-drift`, `/tree/404-glitch`, `/tree/404-compass` for future A/B or redesign.
+**References:** [not-found-page.tsx](src/app/pages/not-found-page.tsx)
+
 ## 2026-03-17 [product]: Zero-position points hidden from listings ("graveyard")
 
 **Context:** Points with zero positions (all positions withdrawn or abandoned after creation) polluted the feed, profile, and live session picker with content nobody engaged with.
