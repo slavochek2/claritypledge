@@ -14,9 +14,10 @@ export function ActiveSessionBanner() {
 
   if (!activeSessionCode) return null;
 
-  const displayText = activeSessionPartnerName
+  const hasPartner = !!activeSessionPartnerName;
+  const displayText = hasPartner
     ? `In session with ${activeSessionPartnerName}`
-    : 'Session in progress';
+    : 'Waiting for partner…';
 
   function handleRejoin() {
     navigate('/live');
@@ -68,7 +69,7 @@ export function ActiveSessionBanner() {
             onClick={handleRejoin}
             className="w-full sm:w-auto bg-blue-500 text-white text-sm font-medium rounded-md h-8 px-4 hover:bg-blue-600 transition-colors"
           >
-            Rejoin Session
+            {hasPartner ? 'Rejoin Session' : 'Return to Session'}
           </button>
           <button
             type="button"
