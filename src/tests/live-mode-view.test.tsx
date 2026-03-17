@@ -613,10 +613,10 @@ describe('LiveModeView', () => {
       );
 
       // Footer expand button must be present (story has 1 point)
-      expect(screen.getByText(/1 point by/i)).toBeInTheDocument();
+      expect(screen.getByText(/1 point/i)).toBeInTheDocument();
 
       // Expand and check point text
-      fireEvent.click(screen.getByRole('button', { name: /1 point by/i }));
+      fireEvent.click(screen.getByRole('button', { name: /1 point/i }));
       expect(screen.getByText('Remote work helps productivity')).toBeInTheDocument();
     });
 
@@ -631,8 +631,8 @@ describe('LiveModeView', () => {
         <LiveModeView {...defaultProps} currentUserName="alice" liveState={state} />
       );
 
-      expect(screen.getByText(/1 point by/i)).toBeInTheDocument();
-      fireEvent.click(screen.getByRole('button', { name: /1 point by/i }));
+      expect(screen.getByText(/1 point/i)).toBeInTheDocument();
+      fireEvent.click(screen.getByRole('button', { name: /1 point/i }));
       expect(screen.getByText('Remote work helps productivity')).toBeInTheDocument();
     });
 
@@ -649,7 +649,7 @@ describe('LiveModeView', () => {
       );
 
       // No points remain → expand button is gone → point text not visible
-      expect(screen.queryByText(/1 point by/i)).not.toBeInTheDocument();
+      expect(screen.queryByText(/1 point/i)).not.toBeInTheDocument();
       expect(screen.queryByText('Remote work helps productivity')).not.toBeInTheDocument();
     });
 
@@ -674,8 +674,8 @@ describe('LiveModeView', () => {
       );
 
       // 1 point remains
-      expect(screen.getByText(/1 point by/i)).toBeInTheDocument();
-      fireEvent.click(screen.getByRole('button', { name: /1 point by/i }));
+      expect(screen.getByText(/1 point/i)).toBeInTheDocument();
+      fireEvent.click(screen.getByRole('button', { name: /1 point/i }));
       expect(screen.queryByText('Remote work helps productivity')).not.toBeInTheDocument();
       expect(screen.getByText('Async tools reduce meeting fatigue')).toBeInTheDocument();
     });

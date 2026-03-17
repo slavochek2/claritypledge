@@ -113,7 +113,7 @@ export function LiveStoryCardExpanded({
         )}
       </div>
 
-      {/* Footer — "N points by Name" expand trigger */}
+      {/* Footer — "N points" expand trigger */}
       {story.points.length > 0 && (
         <div
           role="presentation"
@@ -128,8 +128,7 @@ export function LiveStoryCardExpanded({
           >
             {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
             <span>
-              {story.points.length} {story.points.length === 1 ? 'point' : 'points'} by{' '}
-              {story.authorName}
+              {story.points.length} {story.points.length === 1 ? 'point' : 'points'}
             </span>
           </button>
         </div>

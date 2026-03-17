@@ -316,8 +316,8 @@ test.describe('Position Persistence on Profile Page (P154)', () => {
     // Stories tab is default — story card should be visible
     await expect(page.getByText('Test story for expand regression test')).toBeVisible({ timeout: 10000 });
 
-    // Click "N points by..." to expand — this triggered ReferenceError before fix
-    const expandButton = page.getByRole('button', { name: /point.* by /i }).first();
+    // Click "N points" to expand — this triggered ReferenceError before fix
+    const expandButton = page.getByRole('button', { name: /\d+ points?/i }).first();
     await expandButton.click();
 
     // Verify no crash: page still alive, expanded points visible

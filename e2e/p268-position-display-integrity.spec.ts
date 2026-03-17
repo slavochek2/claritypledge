@@ -105,8 +105,8 @@ test.describe('P268: Position display — detail page + stories expanded', () =>
 
     // Expand the story's linked points
     // Filter by text to avoid matching the user-avatar dropdown button (also button[aria-expanded])
-    // Story expand button text: "1 point by <author>" — outer story card div[role="button"] has no aria-expanded
-    const expandBtn = page.locator('button[aria-expanded]').filter({ hasText: /point.*by/i }).first();
+    // Story expand button text: "1 point" — outer story card div[role="button"] has no aria-expanded
+    const expandBtn = page.locator('button[aria-expanded]').filter({ hasText: /\d+ points?/i }).first();
     await expect(expandBtn).toBeVisible();
     await expandBtn.click();
 
@@ -130,7 +130,7 @@ test.describe('P268: Position display — detail page + stories expanded', () =>
     }
 
     // Filter by text to avoid matching the user-avatar dropdown button (also button[aria-expanded])
-    const expandBtn = page.locator('button[aria-expanded]').filter({ hasText: /point.*by/i }).first();
+    const expandBtn = page.locator('button[aria-expanded]').filter({ hasText: /\d+ points?/i }).first();
     await expandBtn.click(); // expand
     await expandBtn.click(); // collapse
     await expandBtn.click(); // re-expand

@@ -199,7 +199,7 @@ test.describe('P275: Point positions in /live', () => {
 
       // Story card visible — expand points
       await expect(speakerPage.getByTestId('live-story-card-expanded')).toBeVisible({ timeout: 5000 });
-      const expandBtn = speakerPage.getByRole('button', { name: /1 point by/i });
+      const expandBtn = speakerPage.getByRole('button', { name: /1 point/i });
       await expect(expandBtn).toBeVisible({ timeout: 5000 });
       await expandBtn.click();
 
@@ -281,7 +281,7 @@ test.describe('P275: Point positions in /live', () => {
       await speakerPage.getByRole('button', { name: new RegExp(uniqueFragment) }).click();
 
       await expect(speakerPage.getByTestId('live-story-card-expanded')).toBeVisible({ timeout: 5000 });
-      const expandBtn = speakerPage.getByRole('button', { name: /1 point by/i });
+      const expandBtn = speakerPage.getByRole('button', { name: /1 point/i });
       await expect(expandBtn).toBeVisible({ timeout: 5000 });
       await expandBtn.click();
 
@@ -367,7 +367,7 @@ test.describe('P275: Point positions in /live', () => {
       await speakerPage.getByRole('button', { name: new RegExp(uniqueFragment) }).click();
 
       await expect(speakerPage.getByTestId('live-story-card-expanded')).toBeVisible({ timeout: 5000 });
-      const expandBtn = speakerPage.getByRole('button', { name: /1 point by/i });
+      const expandBtn = speakerPage.getByRole('button', { name: /1 point/i });
       await expect(expandBtn).toBeVisible({ timeout: 5000 });
       await expandBtn.click();
 

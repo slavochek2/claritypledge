@@ -164,7 +164,7 @@ test.describe('P407 Smoke: Story Detail Points', () => {
 
       // The points count label should appear in the card footer
       await expect(
-        page.getByText(/1 point by/i)
+        page.getByText(/1 point/i)
       ).toBeVisible({ timeout: 5000 });
     } finally {
       if (pointId) await deleteTestPoint(pointId);

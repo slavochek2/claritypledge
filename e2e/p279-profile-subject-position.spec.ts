@@ -170,7 +170,7 @@ test.describe('P279: Stories tab — author position visible on linked points', 
 
     // Expand the story's linked points
     // Filter by text to avoid matching the user-avatar dropdown (also button[aria-expanded])
-    const expandBtn = page.locator('button[aria-expanded]').filter({ hasText: /point.*by/i }).first();
+    const expandBtn = page.locator('button[aria-expanded]').filter({ hasText: /\d+ points?/i }).first();
     await expect(expandBtn).toBeVisible({ timeout: 10000 });
     await expandBtn.click();
 

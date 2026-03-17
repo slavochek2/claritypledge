@@ -133,8 +133,8 @@ test.describe('P412: Reviewer removing position should not hide owner story poin
       // Reviewer sees the story card too (live_state propagated)
       await expect(reviewerPage.getByTestId('live-story-card-expanded')).toBeVisible({ timeout: 15000 });
 
-      // Reviewer expands the points — should see "2 points by P412Owner"
-      const reviewerExpandBtn = reviewerPage.getByRole('button', { name: /2 points by/i });
+      // Reviewer expands the points — should see "2 points"
+      const reviewerExpandBtn = reviewerPage.getByRole('button', { name: /2 points/i });
       await expect(reviewerExpandBtn).toBeVisible({ timeout: 10000 });
       await reviewerExpandBtn.click();
 
@@ -158,7 +158,7 @@ test.describe('P412: Reviewer removing position should not hide owner story poin
       // ── REGRESSION ASSERTION ──────────────────────────────────────────────
       // Before fix: reviewer sees only 1 point (the filter hid the point)
       // After fix:  reviewer still sees both points (count stays at 2)
-      await expect(reviewerPage.getByRole('button', { name: /2 points by/i })).toBeVisible({ timeout: 5000 });
+      await expect(reviewerPage.getByRole('button', { name: /2 points/i })).toBeVisible({ timeout: 5000 });
 
       // The Agree button on point 1 is now inactive (badge cleared — correct behavior)
       await expect(agreeBtn).toHaveAttribute('aria-pressed', 'false', { timeout: 3000 });
