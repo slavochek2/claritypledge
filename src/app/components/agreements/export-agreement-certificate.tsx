@@ -3,16 +3,7 @@ import { forwardRef } from 'react';
 interface ExportAgreementCertificateProps {
   creatorName: string;
   partnerName: string;
-  partnerSignedAt: string;
   termsText?: string;
-}
-
-function formatDate(isoDate: string): string {
-  return new Date(isoDate).toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  });
 }
 
 function truncate(str: string, max: number): string {
@@ -25,7 +16,7 @@ function truncate(str: string, max: number): string {
  * Mirrors the on-screen AgreementCertificate visual language.
  */
 export const ExportAgreementCertificate = forwardRef<HTMLDivElement, ExportAgreementCertificateProps>(
-  ({ creatorName, partnerName, partnerSignedAt, termsText, displayId }, ref) => {
+  ({ creatorName, partnerName, termsText }, ref) => {
     const displayCreator = truncate(creatorName, 30);
     const displayPartner = truncate(partnerName, 30);
 
