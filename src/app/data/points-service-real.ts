@@ -369,15 +369,17 @@ export const realPointsService: PointsService = {
       }
     }
 
-    return points.map((point) => {
-      const positionCounts = countsMap.get(point.id) || emptyPositionCounts();
-      const totalPositions = Object.values(positionCounts).reduce((sum, count) => sum + count, 0);
-      return {
-        ...point,
-        positionCounts,
-        totalPositions,
-      };
-    });
+    return points
+      .map((point) => {
+        const positionCounts = countsMap.get(point.id) || emptyPositionCounts();
+        const totalPositions = Object.values(positionCounts).reduce((sum, count) => sum + count, 0);
+        return {
+          ...point,
+          positionCounts,
+          totalPositions,
+        };
+      })
+      .filter((point) => point.totalPositions > 0);  // P543: exclude zero-position points
   },
 
   async getPositionCounts(pointId: string): Promise<Record<PositionType, number>> {
@@ -677,22 +679,24 @@ export const realPointsService: PointsService = {
       this.getMyPositionsForPoints(pointIds, validatorId),   // always fetch subject
     ]);
 
-    return points.map(point => {
-      const positionCounts = countsMap.get(point.id) || emptyPositionCounts();
-      const totalPositions = Object.values(positionCounts).reduce((sum, n) => sum + n, 0);
-      const profileSubjectPosition = subjectPositionsMap.get(point.id);
-      const userPosition = viewerIsSubject
-        ? profileSubjectPosition
-        : viewerPositionsMap.get(point.id);
+    return points
+      .map(point => {
+        const positionCounts = countsMap.get(point.id) || emptyPositionCounts();
+        const totalPositions = Object.values(positionCounts).reduce((sum, n) => sum + n, 0);
+        const profileSubjectPosition = subjectPositionsMap.get(point.id);
+        const userPosition = viewerIsSubject
+          ? profileSubjectPosition
+          : viewerPositionsMap.get(point.id);
 
-      return {
-        ...point,
-        positionCounts,
-        totalPositions,
-        userPosition,
-        profileSubjectPosition,   // always the profile owner's position
-      };
-    });
+        return {
+          ...point,
+          positionCounts,
+          totalPositions,
+          userPosition,
+          profileSubjectPosition,   // always the profile owner's position
+        };
+      })
+      .filter(point => point.totalPositions > 0);  // P543: exclude zero-position points
   },
 
   /**
@@ -794,16 +798,18 @@ export const realPointsService: PointsService = {
       viewerPositionsMap = await this.getMyPositionsForPoints(pointIds, viewerUserId);
     }
 
-    return points.map(point => {
-      const positionCounts = countsMap.get(point.id) || emptyPositionCounts();
-      const totalPositions = Object.values(positionCounts).reduce((sum, n) => sum + n, 0);
-      return {
-        ...point,
-        positionCounts,
-        totalPositions,
-        userPosition: viewerPositionsMap.get(point.id),
-      };
-    });
+    return points
+      .map(point => {
+        const positionCounts = countsMap.get(point.id) || emptyPositionCounts();
+        const totalPositions = Object.values(positionCounts).reduce((sum, n) => sum + n, 0);
+        return {
+          ...point,
+          positionCounts,
+          totalPositions,
+          userPosition: viewerPositionsMap.get(point.id),
+        };
+      })
+      .filter(point => point.totalPositions > 0);  // P543: exclude zero-position points
   },
 
   // ============================================================================
