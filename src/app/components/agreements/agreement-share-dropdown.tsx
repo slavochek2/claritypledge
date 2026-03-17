@@ -318,7 +318,6 @@ ${firstName}`,
           partnerSignedAt={partnerSignedAt}
           termsText={termsText}
           displayId={displayId}
-          agreementId={agreementId}
         />
       </div>
     </>

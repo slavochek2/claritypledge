@@ -1,5 +1,4 @@
 import { forwardRef } from 'react';
-import { QRCodeSVG } from 'qrcode.react';
 
 interface ExportAgreementCertificateProps {
   creatorName: string;
@@ -7,7 +6,6 @@ interface ExportAgreementCertificateProps {
   partnerSignedAt: string;
   termsText?: string;
   displayId?: string;
-  agreementId: string;
 }
 
 function formatDate(isoDate: string): string {
@@ -28,8 +26,7 @@ function truncate(str: string, max: number): string {
  * Mirrors the on-screen AgreementCertificate visual language.
  */
 export const ExportAgreementCertificate = forwardRef<HTMLDivElement, ExportAgreementCertificateProps>(
-  ({ creatorName, partnerName, partnerSignedAt, termsText, displayId, agreementId }, ref) => {
-    const agreementUrl = `https://claritypledge.com/agreements/${agreementId}`;
+  ({ creatorName, partnerName, partnerSignedAt, termsText, displayId }, ref) => {
     const displayCreator = truncate(creatorName, 30);
     const displayPartner = truncate(partnerName, 30);
 
@@ -250,8 +247,8 @@ export const ExportAgreementCertificate = forwardRef<HTMLDivElement, ExportAgree
               </div>
             </div>
 
-            {/* Right: Partner + QR */}
-            <div style={{ flex: 1, display: 'flex', justifyContent: 'flex-end', alignItems: 'flex-start', gap: '16px' }}>
+            {/* Right: Partner */}
+            <div style={{ flex: 1, display: 'flex', justifyContent: 'flex-end' }}>
               <div style={{ textAlign: 'right' }}>
                 <div
                   style={{
@@ -274,17 +271,6 @@ export const ExportAgreementCertificate = forwardRef<HTMLDivElement, ExportAgree
                 <p style={{ fontSize: '18px', fontWeight: '600', color: '#1A1A1A', margin: '0 0 2px 0' }}>
                   {displayPartner}
                 </p>
-              </div>
-              <div
-                style={{
-                  backgroundColor: 'white',
-                  padding: '8px',
-                  borderRadius: '8px',
-                  boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
-                  flexShrink: 0,
-                }}
-              >
-                <QRCodeSVG value={agreementUrl} size={120} level="M" />
               </div>
             </div>
           </div>
