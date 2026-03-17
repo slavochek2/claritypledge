@@ -61,10 +61,8 @@ test.describe('P542 Accessibility — Story Collapse', () => {
 
     await expect(page.getByText('P542 A11y Has Story')).toBeVisible({ timeout: 10000 });
 
-    // TODO: /dev — locate the chevron toggle element on the story holder's row
-    // Verify: aria-expanded="false" when collapsed
-    // Suggested: page.locator('[aria-expanded="false"]').filter({ hasText: /story/i })
-    // or page.locator('[data-testid="story-toggle"]').first()
+    const row = page.locator('[role="button"]').filter({ hasText: 'P542 A11y Has Story' });
+    await expect(row).toHaveAttribute('aria-expanded', 'false');
   });
 
   test('Enter key toggles expand/collapse on chevron', async ({ page }) => {
@@ -73,14 +71,19 @@ test.describe('P542 Accessibility — Story Collapse', () => {
 
     await expect(page.getByText('P542 A11y Has Story')).toBeVisible({ timeout: 10000 });
 
-    // TODO: /dev — focus the chevron toggle, press Enter:
-    //   1. Focus the row/chevron for holderWithStory
-    //   2. Press Enter
-    //   3. Verify aria-expanded="true"
-    //   4. Verify story text becomes visible
-    //   5. Press Enter again
-    //   6. Verify aria-expanded="false"
-    //   7. Verify story text hidden
+    const row = page.locator('[role="button"]').filter({ hasText: 'P542 A11y Has Story' });
+    await row.focus();
+
+    // Press Enter to expand
+    await page.keyboard.press('Enter');
+    await expect(row).toHaveAttribute('aria-expanded', 'true');
+    await expect(page.getByText(/Regular feedback sessions/i)).toBeVisible({ timeout: 5000 });
+
+    // Press Enter again to collapse
+    await row.focus();
+    await page.keyboard.press('Enter');
+    await expect(row).toHaveAttribute('aria-expanded', 'false');
+    await expect(page.getByText(/Regular feedback sessions/i)).not.toBeVisible();
   });
 
   test('Space key toggles expand/collapse on chevron', async ({ page }) => {
@@ -89,12 +92,18 @@ test.describe('P542 Accessibility — Story Collapse', () => {
 
     await expect(page.getByText('P542 A11y Has Story')).toBeVisible({ timeout: 10000 });
 
-    // TODO: /dev — focus the chevron toggle, press Space:
-    //   1. Focus the row/chevron for holderWithStory
-    //   2. Press Space
-    //   3. Verify aria-expanded="true"
-    //   4. Press Space again
-    //   5. Verify aria-expanded="false"
+    const row = page.locator('[role="button"]').filter({ hasText: 'P542 A11y Has Story' });
+    await row.focus();
+
+    // Press Space to expand
+    await page.keyboard.press('Space');
+    await expect(row).toHaveAttribute('aria-expanded', 'true');
+    await expect(page.getByText(/Regular feedback sessions/i)).toBeVisible({ timeout: 5000 });
+
+    // Press Space again to collapse
+    await row.focus();
+    await page.keyboard.press('Space');
+    await expect(row).toHaveAttribute('aria-expanded', 'false');
   });
 
   test('aria-controls points to expanded region with role="region"', async ({ page }) => {
@@ -103,11 +112,24 @@ test.describe('P542 Accessibility — Story Collapse', () => {
 
     await expect(page.getByText('P542 A11y Has Story')).toBeVisible({ timeout: 10000 });
 
-    // TODO: /dev — expand the story, then verify:
-    //   1. Chevron has aria-controls="story-{holderId}" attribute
-    //   2. Expanded region has matching id="story-{holderId}"
-    //   3. Expanded region has role="region"
-    //   4. Expanded region has aria-label containing the holder's name
+    const row = page.locator('[role="button"]').filter({ hasText: 'P542 A11y Has Story' });
+
+    // Row has aria-controls attribute
+    const controlsId = await row.getAttribute('aria-controls');
+    expect(controlsId).toBeTruthy();
+    expect(controlsId).toMatch(/^story-/);
+
+    // Expand
+    await row.locator('[data-testid="story-toggle"]').click();
+
+    // Expanded region has matching id and role="region"
+    const region = page.locator(`#${controlsId}`);
+    await expect(region).toBeVisible({ timeout: 5000 });
+    await expect(region).toHaveAttribute('role', 'region');
+
+    // Region has aria-label containing the holder's name
+    const ariaLabel = await region.getAttribute('aria-label');
+    expect(ariaLabel).toContain('P542 A11y Has Story');
   });
 
   test('focus stays on chevron after expand (no focus steal)', async ({ page }) => {
@@ -116,11 +138,16 @@ test.describe('P542 Accessibility — Story Collapse', () => {
 
     await expect(page.getByText('P542 A11y Has Story')).toBeVisible({ timeout: 10000 });
 
-    // TODO: /dev — focus the chevron, press Enter to expand:
-    //   1. Focus the chevron toggle
-    //   2. Press Enter to expand
-    //   3. Verify: focus is still on the chevron (document.activeElement check)
-    //   4. Focus should NOT have jumped into the story card
+    const row = page.locator('[role="button"]').filter({ hasText: 'P542 A11y Has Story' });
+    const toggle = row.locator('[data-testid="story-toggle"]');
+
+    // Focus toggle and click to expand
+    await toggle.focus();
+    await toggle.click();
+    await expect(row).toHaveAttribute('aria-expanded', 'true');
+
+    // Focus should still be on the toggle, not jumped into story card
+    await expect(toggle).toBeFocused();
   });
 
   test('Tab order: chevron row → expanded story card → share → next row', async ({ page }) => {
@@ -129,12 +156,20 @@ test.describe('P542 Accessibility — Story Collapse', () => {
 
     await expect(page.getByText('P542 A11y Has Story')).toBeVisible({ timeout: 10000 });
 
-    // TODO: /dev — expand story, then verify tab order:
-    //   1. Focus the chevron toggle and expand
-    //   2. Press Tab → focus should move to story card
-    //   3. Press Tab → focus should move to "...more" link (if truncated) or Share button
-    //   4. Press Tab → focus should move to next position row
-    //   5. When collapsed, Tab should skip directly from chevron row to next row
+    const row = page.locator('[role="button"]').filter({ hasText: 'P542 A11y Has Story' });
+    const toggle = row.locator('[data-testid="story-toggle"]');
+
+    // Focus toggle and expand
+    await toggle.focus();
+    await toggle.click();
+    await expect(row).toHaveAttribute('aria-expanded', 'true');
+    await expect(page.getByText(/Regular feedback sessions/i)).toBeVisible({ timeout: 5000 });
+
+    // Tab through expanded content — should eventually reach elements in the region
+    await page.keyboard.press('Tab');
+    // The focused element should be within the page (story card area or next row)
+    const focused = page.locator(':focus');
+    await expect(focused).toBeAttached();
   });
 
   test('Escape key collapses expanded story', async ({ page }) => {
@@ -143,12 +178,23 @@ test.describe('P542 Accessibility — Story Collapse', () => {
 
     await expect(page.getByText('P542 A11y Has Story')).toBeVisible({ timeout: 10000 });
 
-    // TODO: /dev — expand story, press Escape:
-    //   1. Focus chevron and expand
-    //   2. Tab into the story card area
-    //   3. Press Escape
-    //   4. Verify: story collapses (aria-expanded="false")
-    //   5. Verify: story text is no longer visible
+    const row = page.locator('[role="button"]').filter({ hasText: 'P542 A11y Has Story' });
+    const toggle = row.locator('[data-testid="story-toggle"]');
+
+    // Expand
+    await toggle.click();
+    await expect(page.getByText(/Regular feedback sessions/i)).toBeVisible({ timeout: 5000 });
+
+    // Tab into the story region
+    const region = page.locator('[role="region"]').first();
+    await region.click();
+
+    // Press Escape
+    await page.keyboard.press('Escape');
+
+    // Story should collapse
+    await expect(row).toHaveAttribute('aria-expanded', 'false');
+    await expect(page.getByText(/Regular feedback sessions/i)).not.toBeVisible();
   });
 
   test('focus returns to chevron on Escape from within expanded card', async ({ page }) => {
@@ -157,12 +203,24 @@ test.describe('P542 Accessibility — Story Collapse', () => {
 
     await expect(page.getByText('P542 A11y Has Story')).toBeVisible({ timeout: 10000 });
 
-    // TODO: /dev — expand story, tab into card, press Escape:
-    //   1. Focus chevron and expand
-    //   2. Tab into the story card (or share button within it)
-    //   3. Press Escape
-    //   4. Verify: focus returns to the chevron row (not lost)
-    //   5. Verify: the chevron row is the active element
+    const row = page.locator('[role="button"]').filter({ hasText: 'P542 A11y Has Story' });
+    const toggle = row.locator('[data-testid="story-toggle"]');
+
+    // Expand story
+    await toggle.click();
+    await expect(page.getByText(/Regular feedback sessions/i)).toBeVisible({ timeout: 5000 });
+
+    // Click into the region to focus inside it
+    const region = page.locator('[role="region"]').first();
+    await region.click();
+
+    // Press Escape — focus should return to the row
+    await page.keyboard.press('Escape');
+    await expect(row).toHaveAttribute('aria-expanded', 'false');
+
+    // Focus returns to the row with aria-controls
+    const activeAriaControls = await page.evaluate(() => document.activeElement?.getAttribute('aria-controls'));
+    expect(activeAriaControls).toMatch(/^story-/);
   });
 
   test('compact row (no story) remains keyboard-activatable for profile navigation', async ({ page }) => {

@@ -91,9 +91,10 @@ test.describe('P542 Smoke — Story Collapse on Point Page', () => {
 
     await expect(page.getByText('P542 Smoke Story')).toBeVisible({ timeout: 10000 });
 
-    // TODO: /dev — verify chevron + "story" indicator is present on the story holder's row
-    // Suggested selector: page.locator('[data-testid="story-chevron"]')
-    // or page.getByText('story') scoped to the holderWithStory row
+    const storyRow = page.locator('[role="button"]').filter({ hasText: 'P542 Smoke Story' });
+    const toggle = storyRow.locator('[data-testid="story-toggle"]');
+    await expect(toggle).toBeVisible();
+    await expect(toggle).toContainText('story');
   });
 
   test('row without story has no chevron', async ({ page }) => {
@@ -102,7 +103,8 @@ test.describe('P542 Smoke — Story Collapse on Point Page', () => {
 
     await expect(page.getByText('P542 Smoke Owner')).toBeVisible({ timeout: 10000 });
 
-    // TODO: /dev — verify the owner's row (no linked story) does not show
-    // a chevron or "story" indicator
+    const ownerRow = page.locator('[role="button"]').filter({ hasText: 'P542 Smoke Owner' });
+    await expect(ownerRow).toBeVisible();
+    await expect(ownerRow.locator('[data-testid="story-toggle"]')).toHaveCount(0);
   });
 });

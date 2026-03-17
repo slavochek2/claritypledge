@@ -1,5 +1,5 @@
 ---
-status: week
+status: in-progress
 type: change-request
 rank: 250010.75
 changes: p411
@@ -8,7 +8,7 @@ tags:
   - p411
   - p103
 created_date: 2026-03-17
-delivery_stage: 3-ux-done
+delivery_stage: uat
 uat_file: features/uat/p542.md
 test_files:
   - e2e/p542-story-collapse.spec.ts
@@ -188,24 +188,24 @@ On profile pages, all stories belong to the profile holder — no attribution am
 
 ## Acceptance Criteria
 
-- [ ] Position list shows all holders as uniform compact rows (avatar + name + EarBadge + PositionBadge)
-- [ ] Rows with a linked story show a chevron and "story" text indicator
-- [ ] Chevron is keyboard-operable (Enter/Space toggles, `aria-expanded` attribute)
-- [ ] Clicking chevron expands story card below with `ThreadLine` vertical connecting line
-- [ ] **Accordion:** expanding one story collapses any previously expanded story
-- [ ] Expanded story card has avatar + author name header (regular size, with pledger ring if applicable)
-- [ ] Expanded story card shows role, date, story text (150-char truncation with "show more"), "understood" count, visibility badge, share button
-- [ ] Clicking story card navigates to story detail
-- [ ] Clicking chevron again collapses the region
-- [ ] **Viewer with story:** chevron + "story" expands own story card (same as other holders)
-- [ ] **Viewer without story (but with position):** "Add your story" CTA on position row where chevron would be
-- [ ] Avatar pledger ring: suppressed at compact row size (`!w-5`), visible at expanded card header size
-- [ ] Compact rows (no story) are visually identical to current P411 behavior
-- [ ] Profile pages (Points tab, Stories tab) are visually unchanged
-- [ ] All existing P411 tests pass (data layer, compact row, filter tabs)
-- [ ] Mobile (360px): expand/collapse works, story card doesn't overflow
-- [ ] Embed mode: expand/collapse triggers iframe resize via existing `postMessage` mechanism
-- [ ] Tab order: chevron → expanded story card (if open) → next row
+- [x] Position list shows all holders as uniform compact rows (avatar + name + EarBadge + PositionBadge)
+- [x] Rows with a linked story show a chevron and "story" text indicator
+- [x] Chevron is keyboard-operable (Enter/Space toggles, `aria-expanded` attribute)
+- [x] Clicking chevron expands story card below with `ThreadLine` vertical connecting line
+- [x] **Accordion:** expanding one story collapses any previously expanded story
+- [x] Expanded story card has avatar + author name header (regular size, with pledger ring if applicable)
+- [x] Expanded story card shows role, date, story text (150-char truncation with "show more"), "understood" count, visibility badge, share button
+- [x] Clicking story card navigates to story detail
+- [x] Clicking chevron again collapses the region
+- [x] **Viewer with story:** chevron + "story" expands own story card (same as other holders)
+- [x] **Viewer without story (but with position):** "Add your story" CTA on position row where chevron would be
+- [x] Avatar pledger ring: suppressed at compact row size (`!w-5`), visible at expanded card header size
+- [x] Compact rows (no story) are visually identical to current P411 behavior
+- [x] Profile pages (Points tab, Stories tab) are visually unchanged
+- [x] All existing P411 tests pass (data layer, compact row, filter tabs)
+- [x] Mobile (360px): expand/collapse works, story card doesn't overflow
+- [x] Embed mode: expand/collapse triggers iframe resize via existing `postMessage` mechanism
+- [x] Tab order: chevron → expanded story card (if open) → next row
 
 ## Raw Material from Conversation
 

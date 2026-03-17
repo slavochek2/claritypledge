@@ -14,6 +14,9 @@ interface GravatarAvatarProps {
   /** Shows static blue ring around avatar (Instagram/Telegram-style with white gap).
    * REQUIRED — pass false explicitly for non-pledgers. Never omit. */
   isPledger: boolean;
+  /** Override ring visibility. Defaults to isPledger value.
+   * Use showRing={false} to suppress ring at small sizes where it clips. */
+  showRing?: boolean;
   /** Shows checkmark badge at bottom-right */
   showPledgeBadge?: boolean;
 }
@@ -55,6 +58,7 @@ export function GravatarAvatar({
   className = "",
   photoUrl,
   isPledger,
+  showRing,
   showPledgeBadge = false,
 }: GravatarAvatarProps) {
   const [imageError, setImageError] = useState(false);
@@ -62,7 +66,8 @@ export function GravatarAvatar({
   // Show photo if we have a URL and it hasn't errored
   const showImage = photoUrl && !imageError;
 
-  const pledgerRingClass = isPledger ? ringClasses[size] : "";
+  const ringVisible = showRing ?? isPledger;
+  const pledgerRingClass = ringVisible ? ringClasses[size] : "";
 
   return (
     <div className="relative inline-block" data-testid="gravatar-avatar-wrapper">
