@@ -105,12 +105,12 @@ function TranscriptRow({
   if (session.transcriptStatus === 'processing' || session.transcriptStatus === 'pending') {
     return (
       <div
-        className="flex items-center gap-3 py-3 px-4 border-t"
+        className="flex items-center gap-3 py-3 px-4 border-b"
         aria-label="Session transcript, status: processing"
         aria-busy="true"
       >
         <Loader2 className="w-4 h-4 text-muted-foreground animate-spin flex-shrink-0" />
-        <span className="text-sm text-muted-foreground">Transcript processing...</span>
+        <span className="text-sm text-muted-foreground">Transcribing your session...</span>
       </div>
     );
   }
@@ -119,7 +119,7 @@ function TranscriptRow({
   if (session.transcriptStatus === 'failed') {
     return (
       <div
-        className="flex items-center gap-3 py-3 px-4 border-t"
+        className="flex items-center gap-3 py-3 px-4 border-b"
         aria-label="Session transcript, status: failed"
       >
         <XCircle className="w-4 h-4 text-destructive flex-shrink-0" />
@@ -140,7 +140,7 @@ function TranscriptRow({
   // Completed/ready state
   return (
     <div
-      className="flex items-center gap-3 py-3 px-4 border-t"
+      className="flex items-center gap-3 py-3 px-4 border-b"
       aria-label="Session transcript, status: ready"
     >
       <CheckCircle2 className="w-4 h-4 text-primary flex-shrink-0" />
@@ -410,6 +410,14 @@ export function MySessionsPage() {
 
       {view.type === 'session' && (
         <div>
+          {/* Transcript row — above rounds for prominence */}
+          <TranscriptRow
+            session={view.session}
+            onCopy={() => handleCopyTranscript(view.session.id)}
+            onOpen={() => setView({ type: 'transcript', session: view.session })}
+            onRetry={() => handleRetryTranscription(view.session.id)}
+          />
+
           {view.session.sessionHistory.length === 0 ? (
             <p className="text-sm text-muted-foreground px-4 py-3">No round details available for this session.</p>
           ) : (
@@ -424,14 +432,6 @@ export function MySessionsPage() {
               ))}
             </ul>
           )}
-
-          {/* P495: Transcript row */}
-          <TranscriptRow
-            session={view.session}
-            onCopy={() => handleCopyTranscript(view.session.id)}
-            onOpen={() => setView({ type: 'transcript', session: view.session })}
-            onRetry={() => handleRetryTranscription(view.session.id)}
-          />
         </div>
       )}
 
