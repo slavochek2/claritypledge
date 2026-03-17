@@ -141,8 +141,6 @@ Skill archiving checklist and frontmatter requirements auto-load when editing `.
 
 **Commit flow is zero-question.** When user says "commit": fix blockers inline (lint → `npx eslint --fix`; TS errors → fix the type; frontmatter → `python3 scripts/fix-frontmatter.py`), then commit. Only pause for genuine ambiguity (test failure that could mean the fix is wrong).
 
-**Before EVERY commit:** Run `git diff --cached --name-only`. Only files you changed in THIS session should be staged. Unstage bystanders with `git reset HEAD -- <file>`. Multiple sessions run in parallel — the working tree contains other sessions' modifications. Never stage a file just because it shows as modified.
-
 **Subagent staging does not transfer.** Verify with `git diff --cached --name-only` before committing — re-stage explicitly if needed.
 
 Full workflow: [git-workflow.md](docs/technical/git-workflow.md). Banned commands in `.claude/rules/git.md`.
@@ -185,7 +183,7 @@ Before any action visible to others or sending to external systems (email, socia
 
 See [docs/technical/debugging.md](docs/technical/debugging.md) for full protocol.
 
-**Quick rules:** (1) Verify current code before acting on screenshots. (2) For DB issues: check RLS → migrations → columns. (3) Fix ONE root cause at a time. (4) For runtime issues, query prod first — read static code only after you have real data. (5) UI fixes are not done until a browser check confirms it — "tests pass" isn't enough. (6) Second patch in the same area = wrong root cause — re-diagnose from scratch.
+**Quick rules:** (1) Verify current code before acting on screenshots. (2) For DB issues: check RLS → migrations → columns. (3) Fix ONE root cause at a time. (4) For runtime issues, query prod first — read static code only after you have real data. (5) UI fixes are not done until a browser check confirms it — "tests pass" isn't enough. (6) Second patch in the same area = wrong root cause — re-diagnose from scratch. (7) Two failures with the same symptom = wrong abstraction level — stop executing and research the API docs before retrying.
 
 ---
 
