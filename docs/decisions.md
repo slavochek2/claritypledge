@@ -2,6 +2,14 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-17 [technical]: Vite optimizeDeps.include — eliminate recurring 504 "Outdated Optimize Dep"
+
+**Context:** "Module load failed" errors on `/live` started occurring regularly. The March 13 fix (`cacheDir` per worktree) solved multi-worktree cache corruption, but a single long-running dev server still hit 504s when Vite lazily discovered new deps mid-session and re-optimized, invalidating all previously served bundles. Research confirmed 3 commits (Mar 13-14) addressing the same root family, plus Vite upstream issues (#14284, #13506).
+**Decision:** Three layered fixes: (1) `optimizeDeps.include` listing all 36 project deps — prevents lazy discovery entirely (canonical fix per Vite docs). (2) `holdUntilCrawlEnd: false` — Vite 6 option, serves deps immediately and re-optimizes incrementally for any unlisted dep. (3) `postinstall` clears `node_modules/.vite*` — prevents stale cache after dependency upgrades. Docker was considered and rejected — the 504 is internal to a single Vite process, not an environment isolation problem.
+**Alternatives rejected:** (1) Docker — solves environment isolation, not Vite's internal dep optimization lifecycle. (2) `server.force: true` — forces full re-optimization on every server start, slower and doesn't prevent mid-session invalidation. (3) Status quo + manual `rm -rf .vite` — treats symptoms, not cause.
+**Consequences:** Dev server should no longer produce 504 errors during normal development. The `include` list must be updated when new heavy dependencies are added (low maintenance — happens rarely).
+**References:** `vite.config.ts`, [vitejs/vite#14284](https://github.com/vitejs/vite/issues/14284)
+
 ## 2026-03-17 [process]: Pre-commit hook hardening — scoped ESLint, stable symlink, branch guard
 
 **Context:** KDD commit blocked 4 times by pre-existing ESLint errors in e2e files. Root cause analysis (via /falsify) found: (1) pre-commit runs `eslint .` (whole repo) instead of staged files, (2) hook symlink pointed to worktree w2's copy (fragile), (3) main worktree drifted to a feature branch with no return mechanism, (4) ESLint config lacked `.spec.ts` override for e2e files.

@@ -43,6 +43,48 @@ function getCacheDir(): string {
 // https://vite.dev/config/
 export default defineConfig({
   cacheDir: getCacheDir(),
+  // Pre-bundle all heavy deps so Vite never re-optimizes mid-session (prevents 504 "Outdated Optimize Dep")
+  optimizeDeps: {
+    include: [
+      'react',
+      'react-dom',
+      'react-router-dom',
+      '@supabase/supabase-js',
+      '@sentry/react',
+      'framer-motion',
+      'react-markdown',
+      'lucide-react',
+      '@radix-ui/react-dialog',
+      '@radix-ui/react-dropdown-menu',
+      '@radix-ui/react-accordion',
+      '@radix-ui/react-tooltip',
+      '@radix-ui/react-scroll-area',
+      '@radix-ui/react-slider',
+      '@radix-ui/react-checkbox',
+      '@radix-ui/react-label',
+      '@radix-ui/react-slot',
+      'class-variance-authority',
+      'clsx',
+      'date-fns',
+      'react-hook-form',
+      '@hookform/resolvers',
+      'react-helmet-async',
+      'canvas-confetti',
+      'qrcode.react',
+      'html-to-image',
+      'react-intersection-observer',
+      'react-type-animation',
+      'sonner',
+      'tailwind-merge',
+      'vaul',
+      'zod',
+      'logrocket',
+      'jsonwebtoken',
+      'rehype-katex',
+      'remark-math',
+    ],
+    holdUntilCrawlEnd: false, // Serve deps immediately, re-optimize incrementally if needed
+  },
   server: {
     port: getPort(),
     strictPort: true, // Fail if port is already in use

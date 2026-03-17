@@ -4,7 +4,7 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "postinstall": "bash scripts/install-hooks.sh && npx playwright install chromium",
+    "postinstall": "bash scripts/install-hooks.sh && npx playwright install chromium && rm -rf node_modules/.vite*",
     "predev": "bash scripts/check-worktree-env.sh",
     "dev": "vite",
     "build": "vite build",
