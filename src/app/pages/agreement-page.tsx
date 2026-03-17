@@ -251,8 +251,8 @@ function ActiveView({
   return (
     <div className="space-y-6">
       {isParty && (
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
-          <p className="text-sm font-medium text-muted-foreground">Your Agreement</p>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 px-4 py-3 rounded-lg bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800">
+          <p className="text-sm font-medium text-blue-900 dark:text-blue-100 text-center sm:text-left">Your Agreement</p>
           <AgreementShareDropdown
             agreementUrl={agreementUrl}
             agreementId={agreement.id}
