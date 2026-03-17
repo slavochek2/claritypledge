@@ -147,13 +147,16 @@ export function PartnerLeftScreen({ partnerName, sessionEnded, onStartNew, isGue
         </>
       )}
 
-      {/* P396/P492: Soft signup CTA for anonymous guests */}
+      {/* P396/P492: Soft signup CTA for anonymous guests — lead with value prop */}
       {isGuest && (
-        <div className="mt-2 text-center space-y-3">
-          <p className="text-sm text-muted-foreground">Access your transcript and AI session insights</p>
+        <div className="mt-2 text-center space-y-4">
+          <div className="rounded-lg bg-blue-50 border border-blue-100 p-4 space-y-1">
+            <p className="text-sm font-medium text-blue-900">Your session transcript is ready</p>
+            <p className="text-xs text-blue-700">Create a free account to access AI-powered insights from this session</p>
+          </div>
           <Link
             to="/signup"
-            className="inline-flex items-center justify-center rounded-md bg-blue-500 hover:bg-blue-600 text-white text-sm font-medium h-9 px-4 transition-colors"
+            className="inline-flex items-center justify-center rounded-md bg-blue-500 hover:bg-blue-600 text-white text-sm font-medium h-10 px-6 transition-colors w-full"
           >
             Create Free Account
           </Link>

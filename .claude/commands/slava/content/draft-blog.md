@@ -23,9 +23,10 @@ Does NOT publish. Does NOT send emails.
 
 ## Before Starting
 
-Search for the post with `status: review` (or `status: preparing` if user specified a slug directly):
-1. `content/stories/` — check first (newer dated posts)
-2. `content/blog/` — fallback (older posts)
+Search for the post with `status: review` (or `status: preparing` / `status: editing` if user specified a slug directly):
+1. `content/articles/` — check first (article drafts)
+2. `content/stories/` — newer dated posts
+3. `content/blog/` — fallback (older posts)
 
 If no post is ready, tell the user: "No post ready to draft. Run `/slava:prepare-blog` first."
 
@@ -124,17 +125,13 @@ This step runs **during** the Lexical conversion, not after. The `## Sources` se
 
 ### Step 3: Feature Image
 
-Search Unsplash for a photo matching the article topic. Use the Unsplash API:
+Generate an AI image using `/slava:gen-image` (Nano Banana Pro / Gemini native image generation). This replaces Unsplash — AI-generated images are unique, on-brand, and require no attribution.
 
-```
-GET https://api.unsplash.com/search/photos?query={topic}&orientation=landscape&per_page=5
-Authorization: Client-ID {UNSPLASH_ACCESS_KEY}
-```
-
-`UNSPLASH_ACCESS_KEY` from `.env.local`. If not set, skip image with a note to user.
-
-Pick the photo with highest relevance (first result is usually best). Download it and upload to Ghost:
-
+**Process:**
+1. Derive a visual prompt from the article title + core theme (e.g., "Abstract visualization of two founders calibrating understanding, clean editorial style, warm tones")
+2. Generate via Gemini native image gen (`gemini-3-pro-image-preview`), aspect ratio `16:9` for blog feature images, `imageSize: "4K"`
+3. Save to `/tmp/post-image.{ext}`
+4. Upload to Ghost:
 ```
 POST /ghost/api/admin/images/upload/
 Content-Type: multipart/form-data
@@ -144,15 +141,33 @@ purpose: image
 
 Use the returned `url` as `feature_image` on the post.
 
-**Attribution (required):** Set `feature_image_caption` on the Ghost post:
-```
-Photo by {photographer name} on Unsplash
-```
-Capture `photo.user.name` and `photo.user.links.html` at download time. Pass as `feature_image_caption` in the Ghost create/update API call.
+**No attribution needed** — AI-generated images have no photographer credit. Set `feature_image_caption` to a brief thematic caption if desired (e.g., "Calibration meets orchestration"), or leave empty.
 
-**If Unsplash fails or key is missing:** Create the post without a feature image, note it to user.
+**Fallback chain:** Gemini native → Imagen 4 → skip image with note to user. See `/slava:gen-image` for full fallback details and curl commands.
 
-### Step 3: SEO Metadata
+**Skip Postiz upload** — gen-image uploads to Postiz by default, but for Ghost drafts we upload directly to Ghost's image endpoint instead.
+
+### Step 2b: Embed Widgets (Points & Stories)
+
+If the post's markdown contains `<iframe>` tags (for embedding ClarityPledge points or stories), convert them to Ghost's `html` card nodes in the Lexical JSON:
+
+```json
+{
+  "type": "html",
+  "version": 1,
+  "html": "<iframe src=\"https://claritypledge.com/point/{id}?embed=true\" width=\"100%\" height=\"400\" frameborder=\"0\" style=\"border-radius: 8px; border: 1px solid #e5e7eb;\"></iframe>"
+}
+```
+
+**Rules:**
+- Preserve the iframe exactly as written in the markdown — don't modify src, dimensions, or styles
+- Each iframe becomes its own `html` card node (not inside a paragraph)
+- Surrounding text (e.g., "Take a position:") becomes a normal paragraph node before the html card
+- Both `/point/{id}?embed=true` and `/story/{id}?embed=true` URLs are valid
+
+**If no iframes in the post:** Skip this step silently.
+
+### Step 4: SEO Metadata
 
 Auto-populate from the post content:
 
@@ -213,7 +228,7 @@ Then report:
 ```
 ✓ Ghost draft ready
   Editor: https://blog.claritypledge.com/ghost/#/editor/post/{id}
-  Feature image: {unsplash photographer name on Unsplash}
+  Feature image: AI-generated (Nano Banana Pro)
   Tags: AI, Calibration, Communication
   Excerpt: "{first 100 chars}..."
   Published at: 2026-02-05

@@ -50,7 +50,8 @@ describe('P492: PartnerLeftScreen guest vs registered user', () => {
     it('shows CTA text about transcript and AI insights', () => {
       renderPartnerLeft({ isGuest: true });
 
-      expect(screen.getByText(/access your transcript and ai session insights/i)).toBeInTheDocument();
+      expect(screen.getByText(/your session transcript is ready/i)).toBeInTheDocument();
+      expect(screen.getByText(/create a free account to access ai-powered insights/i)).toBeInTheDocument();
     });
 
     it('shows "Create Free Account" link', () => {

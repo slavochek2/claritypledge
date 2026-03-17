@@ -1079,9 +1079,9 @@ export async function getActiveSessionByCode(code: string): Promise<ClaritySessi
     return null;
   }
 
-  // Check if session was explicitly ended
+  // Check if session was explicitly ended (by creator or joiner)
   const liveState = data.live_state as Record<string, unknown> | null;
-  if (liveState?.sessionEnded === true) {
+  if (liveState?.sessionEnded === true || liveState?.joinerEnded === true) {
     return null;
   }
 

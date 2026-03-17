@@ -23,6 +23,8 @@ interface ShareDialogProps {
   title?: string;
   /** Optional description for native share */
   description?: string;
+  /** Optional user ID to include in embed URL (?from=userId) — shows their position on the point */
+  fromUserId?: string;
 }
 
 /**
@@ -40,6 +42,7 @@ export function ShareDialog({
   url,
   title,
   description,
+  fromUserId,
 }: ShareDialogProps) {
   const [activeTab, setActiveTab] = useState<ShareTab>('link');
   const [copied, setCopied] = useState(false);
@@ -47,7 +50,8 @@ export function ShareDialog({
   const isEmbed = new URLSearchParams(window.location.search).get('embed') === 'true';
   const showEmbedOption = !isEmbed && (type === 'story' || type === 'point');
 
-  const embedCode = `<iframe src="${url}?embed=true" width="100%" height="200" frameborder="0" style="border: none; overflow: hidden;" scrolling="no"></iframe>
+  const embedParams = fromUserId ? `embed=true&from=${fromUserId}` : 'embed=true';
+  const embedCode = `<iframe src="${url}?${embedParams}" width="100%" height="200" frameborder="0" style="border: none; overflow: hidden;" scrolling="no"></iframe>
 <script>window.addEventListener("message",function(e){if(e.data&&e.data.type==="claritypledge-embed-resize"){var frames=document.querySelectorAll('iframe[src*="claritypledge.com"]');frames.forEach(function(f){try{if(f.contentWindow===e.source){f.style.height=e.data.height+"px"}}catch(err){}})}});</script>`;
 
   const handleCopy = async () => {
@@ -174,13 +178,15 @@ interface ShareButtonProps {
   title?: string;
   /** Optional description for native share */
   description?: string;
+  /** Optional user ID — embed will show this user's position on the point */
+  fromUserId?: string;
 }
 
 /**
  * ShareButton - Button that opens ShareDialog
  * Drop-in replacement for ShareDropdown
  */
-export function ShareButton({ type, id, url, className, title, description }: ShareButtonProps) {
+export function ShareButton({ type, id, url, className, title, description, fromUserId }: ShareButtonProps) {
   const [open, setOpen] = useState(false);
 
   const getShareUrl = () => {
@@ -215,6 +221,7 @@ export function ShareButton({ type, id, url, className, title, description }: Sh
         url={getShareUrl()}
         title={title}
         description={description}
+        fromUserId={fromUserId}
       />
     </>
   );

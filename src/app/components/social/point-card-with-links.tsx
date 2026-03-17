@@ -571,7 +571,7 @@ export function PointCardWithLinks({
           {!hideActions && !liveSessionMode && (
             <div className="flex items-center gap-1">
               {!isEmbed && (
-                <ShareButton type="point" id={point.id} description={point.text.slice(0, 100)} />
+                <ShareButton type="point" id={point.id} description={point.text.slice(0, 100)} fromUserId={profileOwner?.id} />
               )}
               {/* External link - only in feed (redundant in detail view) */}
               {!isDetailView && !disableNavigation && (
@@ -632,29 +632,8 @@ export function PointCardWithLinks({
               const stories = liveSessionMode ? allLinkedStories.slice(0, 3) : storiesToShow;
               const totalStories = liveSessionMode ? allLinkedStories.length : filteredStories.length;
 
-              if (stories.length === 1) {
-                // Single story - no thread lines
-                return (
-                  <QuotedStory
-                    story={stories[0]}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      if (onStoryClick) {
-                        onStoryClick(stories[0].id);
-                      } else if (!liveSessionMode) {
-                        embedNavigate(`/story/${stories[0].id}`);
-                      }
-                    }}
-                    onAuthorClick={(e) => {
-                      e.stopPropagation();
-                      if (!liveSessionMode) embedNavigate(`/p/${stories[0].authorId}`);
-                    }}
-                    getStoryAuthor={getStoryAuthor}
-                  />
-                );
-              }
-
-              // 2+ stories - show thread lines
+              // All stories get ThreadLine — even single items need the
+              // connecting line to visually anchor them to the parent card
               return (
                 <ThreadLineGroup>
                   {stories.map((story, index) => (
