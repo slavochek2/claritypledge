@@ -130,16 +130,20 @@ export function PartnerLeftScreen({ partnerName, sessionEnded, onStartNew, isGue
           <Button onClick={onStartNew} className="bg-blue-500 hover:bg-blue-600 text-white">
             Start New Session
           </Button>
-          <div className="mt-4 flex items-center gap-2 text-sm text-muted-foreground">
-            <Loader2Icon className="w-4 h-4 animate-spin flex-shrink-0" />
-            <span>Transcribing your session...</span>
-          </div>
-          <p className="mt-1 text-xs text-muted-foreground">
-            It will be available shortly in{' '}
-            <Link to="/sessions" className="text-primary hover:underline">
-              Session History
-            </Link>
-          </p>
+          {sessionEnded && (
+            <>
+              <div className="mt-4 flex items-center gap-2 text-sm text-muted-foreground">
+                <Loader2Icon className="w-4 h-4 animate-spin flex-shrink-0" />
+                <span>Transcribing your session...</span>
+              </div>
+              <p className="mt-1 text-xs text-muted-foreground">
+                It will be available shortly in{' '}
+                <Link to="/sessions" className="text-primary hover:underline">
+                  Session History
+                </Link>
+              </p>
+            </>
+          )}
         </>
       )}
 
