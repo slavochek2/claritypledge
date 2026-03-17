@@ -320,7 +320,7 @@ export function PointCardWithLinks({
                 {(() => {
                   if (isDetailView) return <span />;
                   const effectiveViewerCount = viewerStoryCount ?? filteredStories.filter(s => s.authorId === currentUserId).length;
-                  const storyLabel = `${filteredStories.length} ${filteredStories.length === 1 ? 'story' : 'stories'}${profileOwner ? ` by ${profileOwner.name}` : ''}`;
+                  const storyLabel = `${filteredStories.length} ${filteredStories.length === 1 ? 'story' : 'stories'}`;
 
                   if (filteredStories.length > 0) {
                     // Expand chevron button always rendered when stories exist
@@ -510,7 +510,7 @@ export function PointCardWithLinks({
               );
             }
             const effectiveViewerCount = viewerStoryCount ?? filteredStories.filter(s => s.authorId === currentUserId).length;
-            const storyLabel = `${filteredStories.length} ${filteredStories.length === 1 ? 'story' : 'stories'}${profileOwner ? ` by ${profileOwner.name}` : ''}`;
+            const storyLabel = `${filteredStories.length} ${filteredStories.length === 1 ? 'story' : 'stories'}`;
 
             if (filteredStories.length > 0) {
               return (
