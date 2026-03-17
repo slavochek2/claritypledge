@@ -49,7 +49,7 @@ version: 1.0.0
 ---
 ```
 
-Namespace placement: `build/` · `maintain/` · `content/` · `think/` · `util/` · `events/`
+Namespace placement: `build/` · `maintain/` · `content/` · `client/` · `think/` · `util/` · `events/`
 No skill without a namespace — if none fits, propose a new one first.
 
 ---
