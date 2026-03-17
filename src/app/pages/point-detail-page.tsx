@@ -7,9 +7,9 @@
  * the view, or show a generic view if no referrer.
  */
 
-import { useEffect, useState, useMemo, useCallback } from 'react';
+import { useEffect, useState, useMemo, useCallback, useRef } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
-import { Pin } from 'lucide-react';
+import { Pin, ChevronRight, ChevronDown } from 'lucide-react';
 import { useAuth } from '@/auth';
 import { pointsService } from '@/app/data/points-service';
 import { storiesService } from '@/app/data/stories-service';
@@ -23,6 +23,8 @@ import {
   PositionButtons,
   FilterTabs,
   ShareButton,
+  ThreadLineGroup,
+  ThreadLineItem,
   type PositionFilter,
 } from '@/app/components/shared';
 import { RemovePositionDialog, useRemovePositionGuard } from '@/app/components/shared/remove-position-dialog';
@@ -54,6 +56,8 @@ export function PointDetailPage() {
   const [anonPosition, setAnonPositionState] = useState<PositionType | null>(null);
   const [linkedStories, setLinkedStories] = useState<Map<string, StoryWithAuthor[]>>(new Map());
   const [viewerStory, setViewerStory] = useState<AppStory | null>(null);
+  // P542: Accordion state — only one story expanded at a time
+  const [expandedHolderId, setExpandedHolderId] = useState<string | null>(null);
   // P401: Guard position removal with linked-stories warning dialog
   const { dialogProps, guardedRemovePosition } = useRemovePositionGuard({
     userId: user?.id ?? '',
@@ -479,7 +483,7 @@ export function PointDetailPage() {
         {/* Filter tabs */}
         <FilterTabs
           activeFilter={positionFilter}
-          onFilterChange={setPositionFilter}
+          onFilterChange={(filter) => { setPositionFilter(filter); setExpandedHolderId(null); }}
           counts={positionCounts}
         />
 
@@ -505,78 +509,40 @@ export function PointDetailPage() {
                 {holdersInGroup.map(holder => {
                   const isViewer = user?.id === holder.userId;
 
-                  // Req 6: viewer has a story — render full StoryCardWithLinks
-                  if (isViewer && viewerStory) {
-                    const protoStory: Story = {
-                      id: viewerStory.id,
-                      authorId: viewerStory.authorId,
-                      text: viewerStory.content,
-                      createdAt: viewerStory.createdAt,
-                      visibility: viewerStory.visibility,
-                      linkedPointIds: [],
-                      understoodCount: viewerStory.understoodCount,
-                    };
-                    const storyAuthor: StoryAuthor = {
-                      id: holder.userId,
-                      name: holder.userName,
-                      hasPledged: holder.userHasPledged,
-                      ear: holder.earCount,
-                      avatarUrl: holder.userAvatarUrl,
-                      avatarColor: holder.userAvatarColor,
-                    };
-                    return (
-                      <StoryCardWithLinks
-                        key={holder.id}
-                        story={protoStory}
-                        author={storyAuthor}
-                        context="point-detail"
-                        profileSubjectPosition={holder.position}
-                        tags={viewerStory.tags}
-                      />
-                    );
-                  }
+                  // P542: Determine story data — viewer's story takes priority
+                  const holderStory = isViewer && viewerStory
+                    ? viewerStory
+                    : storyByAuthorId.get(holder.userId) ?? null;
+                  const hasStory = holderStory !== null;
+                  const isExpanded = expandedHolderId === holder.userId;
 
-                  const linkedStory = storyByAuthorId.get(holder.userId);
-                  if (linkedStory) {
-                    const protoStory: Story = {
-                      id: linkedStory.id,
-                      authorId: linkedStory.authorId,
-                      text: linkedStory.content,
-                      createdAt: linkedStory.createdAt,
-                      visibility: linkedStory.visibility,
-                      linkedPointIds: [],
-                      understoodCount: linkedStory.understoodCount,
-                    };
-                    const storyAuthor: StoryAuthor = {
-                      id: linkedStory.authorId,
-                      name: linkedStory.authorName,
-                      role: linkedStory.authorRole,
-                      hasPledged: linkedStory.authorHasPledged,
-                      ear: linkedStory.authorEarsCount ?? 0,
-                      avatarUrl: linkedStory.authorAvatarUrl,
-                      avatarColor: linkedStory.authorAvatarColor,
-                    };
-                    return (
-                      <StoryCardWithLinks
-                        key={holder.id}
-                        story={protoStory}
-                        author={storyAuthor}
-                        context="point-detail"
-                        profileSubjectPosition={holder.position}
-                        tags={linkedStory.tags}
-                      />
-                    );
-                  }
+                  // Viewer with position but no story → show "Add your story" CTA
+                  const showCta = isViewer && userPosition !== null && !viewerStory && !hasStory;
 
-                  // Req 7: viewer has a position but no story — show CTA
-                  const showCta = isViewer && userPosition !== null && !viewerStory;
                   return (
-                    <PositionHolderCard
-                      key={holder.id}
-                      holder={holder}
-                      onProfileClick={() => navigate(`/p/${holder.userSlug}`)}
-                      ctaHref={showCta ? `/create?pointId=${id}` : undefined}
-                    />
+                    <div key={holder.id}>
+                      <PositionHolderCard
+                        holder={holder}
+                        onProfileClick={() => navigate(`/p/${holder.userSlug}`)}
+                        hasStory={hasStory}
+                        isExpanded={isExpanded}
+                        onToggle={() => {
+                          setExpandedHolderId(prev =>
+                            prev === holder.userId ? null : holder.userId
+                          );
+                        }}
+                        ctaHref={showCta ? `/create?pointId=${id}` : undefined}
+                      />
+                      {/* P542: Expandable story region */}
+                      {hasStory && isExpanded && (
+                        <ExpandableStoryRegion
+                          holder={holder}
+                          story={holderStory!}
+                          isViewer={isViewer}
+                          onCollapse={() => setExpandedHolderId(null)}
+                        />
+                      )}
+                    </div>
                   );
                 })}
               </div>
@@ -596,17 +562,26 @@ export function PointDetailPage() {
 }
 
 /**
- * Compact row for a position holder who has no linked story.
+ * Compact row for a position holder. Shows chevron + "story" when hasStory is true.
+ * P542: All holders render as uniform compact rows.
  */
 function PositionHolderCard({
   holder,
   onProfileClick,
+  hasStory = false,
+  isExpanded = false,
+  onToggle,
   ctaHref,
 }: {
   holder: PointPositionWithUser;
   onProfileClick: () => void;
+  hasStory?: boolean;
+  isExpanded?: boolean;
+  onToggle?: () => void;
   ctaHref?: string;
 }) {
+  const toggleRef = useRef<HTMLButtonElement>(null);
+
   return (
     <div
       role="button"
@@ -616,26 +591,50 @@ function PositionHolderCard({
       onKeyDown={e => {
         if (e.key === 'Enter' || e.key === ' ') {
           e.preventDefault();
-          onProfileClick();
+          // If this row has a story, Enter/Space toggles expand instead of navigating
+          if (hasStory && onToggle) {
+            onToggle();
+          } else {
+            onProfileClick();
+          }
         }
       }}
       className="group flex items-center gap-3 p-3 bg-muted rounded-lg border border-border cursor-pointer hover:bg-accent hover:border-border focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none transition-colors"
+      {...(hasStory ? {
+        'aria-expanded': isExpanded,
+        'aria-controls': `story-${holder.userId}`,
+      } : {})}
     >
-      {/* Avatar */}
+      {/* Avatar — ring suppressed at compact size */}
       <GravatarAvatar
         name={holder.userName}
         photoUrl={holder.userAvatarUrl}
         avatarColor={holder.userAvatarColor}
         size="sm"
         isPledger={holder.userHasPledged}
+        showRing={false}
         className="!w-5 !h-5 !text-[10px]"
       />
 
       {/* Content */}
-      <div className="flex-1 min-w-0 flex items-center gap-1.5">
+      <div className="flex-1 min-w-0 flex items-center gap-1.5 flex-wrap">
         <span className="font-medium text-foreground text-sm truncate">{holder.userName}</span>
         <EarBadge count={holder.earCount} name={holder.userName} />
         <PositionBadge position={holder.position} />
+
+        {/* Chevron + "story" toggle — or "Add your story" CTA */}
+        {hasStory && onToggle && (
+          <button
+            ref={toggleRef}
+            data-testid="story-toggle"
+            onClick={e => { e.stopPropagation(); onToggle(); }}
+            className="ml-auto flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors shrink-0 min-h-[28px] px-1"
+            aria-label={isExpanded ? `Collapse story by ${holder.userName}` : `Expand story by ${holder.userName}`}
+          >
+            {isExpanded ? <ChevronDown size={16} className="transition-transform" /> : <ChevronRight size={16} className="transition-transform" />}
+            <span>story</span>
+          </button>
+        )}
         {ctaHref && (
           <a
             href={ctaHref}
@@ -646,6 +645,96 @@ function PositionHolderCard({
           </a>
         )}
       </div>
+    </div>
+  );
+}
+
+/**
+ * P542: Expanded story region with ThreadLine connecting line.
+ * Shows story card below the position row with vertical connector.
+ */
+function ExpandableStoryRegion({
+  holder,
+  story,
+  isViewer,
+  onCollapse,
+}: {
+  holder: PointPositionWithUser;
+  story: StoryWithAuthor | AppStory;
+  isViewer: boolean;
+  onCollapse: () => void;
+}) {
+  const regionRef = useRef<HTMLDivElement>(null);
+
+  // Build proto story and author for StoryCardWithLinks
+  const protoStory: ProtoStory = {
+    id: story.id,
+    authorId: 'authorId' in story ? story.authorId : (story as AppStory).authorId,
+    text: 'content' in story ? story.content : (story as StoryWithAuthor).content,
+    createdAt: story.createdAt,
+    visibility: story.visibility,
+    linkedPointIds: [],
+    understoodCount: story.understoodCount,
+  };
+
+  // Author info — differs for viewer (uses holder data) vs others (uses StoryWithAuthor)
+  const storyAuthor: StoryAuthor = isViewer || !('authorName' in story)
+    ? {
+        id: holder.userId,
+        name: holder.userName,
+        hasPledged: holder.userHasPledged,
+        ear: holder.earCount,
+        avatarUrl: holder.userAvatarUrl,
+        avatarColor: holder.userAvatarColor,
+      }
+    : {
+        id: (story as StoryWithAuthor).authorId,
+        name: (story as StoryWithAuthor).authorName,
+        role: (story as StoryWithAuthor).authorRole,
+        hasPledged: (story as StoryWithAuthor).authorHasPledged,
+        ear: (story as StoryWithAuthor).authorEarsCount ?? 0,
+        avatarUrl: (story as StoryWithAuthor).authorAvatarUrl,
+        avatarColor: (story as StoryWithAuthor).authorAvatarColor,
+      };
+
+  const storyTags = 'tags' in story ? story.tags : undefined;
+
+  // Handle Escape key to collapse and return focus
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onCollapse();
+        // Return focus to the toggle button in the row
+        const toggle = document.querySelector(`[aria-controls="story-${holder.userId}"]`);
+        if (toggle instanceof HTMLElement) toggle.focus();
+      }
+    };
+
+    const region = regionRef.current;
+    if (region) {
+      region.addEventListener('keydown', handleKeyDown);
+      return () => region.removeEventListener('keydown', handleKeyDown);
+    }
+  }, [holder.userId, onCollapse]);
+
+  return (
+    <div
+      id={`story-${holder.userId}`}
+      role="region"
+      aria-label={`${holder.userName}'s story`}
+      ref={regionRef}
+    >
+      <ThreadLineGroup>
+        <ThreadLineItem isLast>
+          <StoryCardWithLinks
+            story={protoStory}
+            author={storyAuthor}
+            context="point-detail"
+            compact
+            tags={storyTags}
+          />
+        </ThreadLineItem>
+      </ThreadLineGroup>
     </div>
   );
 }

@@ -97,12 +97,14 @@ test.describe('P542 — Collapse Stories Behind Chevron', () => {
 
     await expect(page.getByText('P542 Story Holder A')).toBeVisible({ timeout: 10000 });
 
-    // TODO: /dev — verify chevron icon and "story" text indicator are present
-    // on rows for holderWithStory1 and holderWithStory2.
-    // Suggested selectors:
-    //   page.locator('[data-testid="story-chevron"]') or
-    //   page.getByText('story').filter({ has: page.getByText('P542 Story Holder A') })
-    // Verify: exactly 2 chevrons visible (two holders with stories)
+    // Exactly 2 story toggles visible (two holders with stories)
+    const toggles = page.locator('[data-testid="story-toggle"]');
+    await expect(toggles).toHaveCount(2);
+
+    // Each toggle shows "story" text
+    for (const toggle of await toggles.all()) {
+      await expect(toggle).toContainText('story');
+    }
   });
 
   test('compact rows without stories have no chevron', async ({ page }) => {
@@ -111,9 +113,10 @@ test.describe('P542 — Collapse Stories Behind Chevron', () => {
 
     await expect(page.getByText('P542 No Story')).toBeVisible({ timeout: 10000 });
 
-    // TODO: /dev — verify the row for "P542 No Story" does NOT have a chevron
-    // or "story" indicator. It should look like a standard compact row
-    // identical to current P411 behavior.
+    // The row for "P542 No Story" should not have a story toggle
+    const noStoryRow = page.locator('[role="button"]').filter({ hasText: 'P542 No Story' });
+    await expect(noStoryRow).toBeVisible();
+    await expect(noStoryRow.locator('[data-testid="story-toggle"]')).toHaveCount(0);
   });
 
   // ── Expand/collapse interaction ──────────────────────────────────────
@@ -124,11 +127,20 @@ test.describe('P542 — Collapse Stories Behind Chevron', () => {
 
     await expect(page.getByText('P542 Story Holder A')).toBeVisible({ timeout: 10000 });
 
-    // TODO: /dev — click the chevron on holderWithStory1's row
-    // Verify:
-    //   1. Story text becomes visible: "Switching to async-first..."
-    //   2. ThreadLine connecting line is rendered (data-testid="thread-line" or similar)
-    //   3. Chevron rotates (aria-expanded="true")
+    // Click the chevron on holderWithStory1's row
+    const row = page.locator('[role="button"]').filter({ hasText: 'P542 Story Holder A' });
+    const toggle = row.locator('[data-testid="story-toggle"]');
+    await toggle.click();
+
+    // Story text becomes visible
+    await expect(page.getByText(/Switching to async-first/i)).toBeVisible({ timeout: 5000 });
+
+    // Expanded region exists with role="region"
+    const region = page.locator('[role="region"]').filter({ hasText: /Switching to async-first/i });
+    await expect(region).toBeVisible();
+
+    // Row has aria-expanded="true"
+    await expect(row).toHaveAttribute('aria-expanded', 'true');
   });
 
   test('expanded story card shows author header, role, date, text, understood count', async ({ page }) => {
@@ -137,13 +149,24 @@ test.describe('P542 — Collapse Stories Behind Chevron', () => {
 
     await expect(page.getByText('P542 Story Holder A')).toBeVisible({ timeout: 10000 });
 
-    // TODO: /dev — expand holderWithStory1's story, then verify:
-    //   1. Author name repeated in story card header
-    //   2. Role text visible (e.g., "Test Engineer")
-    //   3. Time ago text visible (e.g., "Xd ago")
-    //   4. Story text: "Switching to async-first..."
-    //   5. "understood" count visible (even if 0)
-    //   6. Share button visible
+    // Expand holderWithStory1's story
+    const row = page.locator('[role="button"]').filter({ hasText: 'P542 Story Holder A' });
+    await row.locator('[data-testid="story-toggle"]').click();
+
+    // Author name repeated in story card header (inside the expanded region)
+    const region = page.locator('[role="region"]').filter({ hasText: /Switching to async-first/i });
+    await expect(region).toBeVisible({ timeout: 5000 });
+    await expect(region.getByText('P542 Story Holder A')).toBeVisible();
+
+    // Role/date metadata visible (Member · Xm/h/d ago)
+    await expect(region.getByText(/Member/)).toBeVisible();
+    await expect(region.getByText(/ago/)).toBeVisible();
+
+    // Story text visible
+    await expect(region.getByText(/Switching to async-first/i)).toBeVisible();
+
+    // "understood" count visible (even if 0)
+    await expect(region.getByText(/understood/)).toBeVisible();
   });
 
   test('clicking story card navigates to story detail page', async ({ page }) => {
@@ -152,9 +175,17 @@ test.describe('P542 — Collapse Stories Behind Chevron', () => {
 
     await expect(page.getByText('P542 Story Holder A')).toBeVisible({ timeout: 10000 });
 
-    // TODO: /dev — expand holderWithStory1's story, then click the story card body
-    // Verify: page navigates away from /point/{pointId} to /story/{storyId}
-    // await expect(page).not.toHaveURL(`/point/${pointId}`, { timeout: 5000 });
+    // Expand holderWithStory1's story
+    const row = page.locator('[role="button"]').filter({ hasText: 'P542 Story Holder A' });
+    await row.locator('[data-testid="story-toggle"]').click();
+    await expect(page.getByText(/Switching to async-first/i)).toBeVisible({ timeout: 5000 });
+
+    // Click the story card body (the card itself is a button)
+    const storyCard = page.locator('[role="region"]').filter({ hasText: /Switching to async-first/i }).locator('[role="button"]').first();
+    await storyCard.click();
+
+    // Should navigate to story detail page
+    await expect(page).toHaveURL(/\/story\//, { timeout: 5000 });
   });
 
   test('clicking chevron again collapses the expanded story', async ({ page }) => {
@@ -163,11 +194,21 @@ test.describe('P542 — Collapse Stories Behind Chevron', () => {
 
     await expect(page.getByText('P542 Story Holder A')).toBeVisible({ timeout: 10000 });
 
-    // TODO: /dev — expand holderWithStory1's story, verify text visible,
-    // then click chevron again:
-    //   1. Story text becomes hidden
-    //   2. Chevron rotates back (aria-expanded="false")
-    //   3. ThreadLine is removed
+    const row = page.locator('[role="button"]').filter({ hasText: 'P542 Story Holder A' });
+    const toggle = row.locator('[data-testid="story-toggle"]');
+
+    // Expand
+    await toggle.click();
+    await expect(page.getByText(/Switching to async-first/i)).toBeVisible({ timeout: 5000 });
+    await expect(row).toHaveAttribute('aria-expanded', 'true');
+
+    // Collapse
+    await toggle.click();
+    await expect(page.getByText(/Switching to async-first/i)).not.toBeVisible({ timeout: 3000 });
+    await expect(row).toHaveAttribute('aria-expanded', 'false');
+
+    // Region should be removed
+    await expect(page.locator('[role="region"]').filter({ hasText: /Switching to async-first/i })).not.toBeVisible();
   });
 
   // ── Accordion behavior ───────────────────────────────────────────────
@@ -179,12 +220,19 @@ test.describe('P542 — Collapse Stories Behind Chevron', () => {
     await expect(page.getByText('P542 Story Holder A')).toBeVisible({ timeout: 10000 });
     await expect(page.getByText('P542 Story Holder B')).toBeVisible({ timeout: 10000 });
 
-    // TODO: /dev — expand holderWithStory1's story:
-    //   1. Verify "Switching to async-first..." is visible
-    //   2. Click chevron on holderWithStory2's row
-    //   3. Verify "Our distributed team ships faster..." is now visible
-    //   4. Verify "Switching to async-first..." is no longer visible (collapsed)
-    //   5. Only one story card visible at a time
+    // Expand story A
+    const rowA = page.locator('[role="button"]').filter({ hasText: 'P542 Story Holder A' });
+    await rowA.locator('[data-testid="story-toggle"]').click();
+    await expect(page.getByText(/Switching to async-first/i)).toBeVisible({ timeout: 5000 });
+
+    // Expand story B — A should auto-collapse
+    const rowB = page.locator('[role="button"]').filter({ hasText: 'P542 Story Holder B' });
+    await rowB.locator('[data-testid="story-toggle"]').click();
+    await expect(page.getByText(/Our distributed team ships faster/i)).toBeVisible({ timeout: 5000 });
+    await expect(page.getByText(/Switching to async-first/i)).not.toBeVisible();
+
+    // Only one region visible
+    await expect(page.locator('[role="region"]')).toHaveCount(1);
   });
 
   // ── Viewer-specific behavior ─────────────────────────────────────────
@@ -197,8 +245,14 @@ test.describe('P542 — Collapse Stories Behind Chevron', () => {
     // Viewer's own row should have chevron + "story" indicator
     await expect(page.getByText('P542 Story Holder A')).toBeVisible({ timeout: 10000 });
 
-    // TODO: /dev — verify viewer's row has chevron, click it,
-    // verify own story expands with same behavior as any other holder
+    const row = page.locator('[role="button"]').filter({ hasText: 'P542 Story Holder A' });
+    const toggle = row.locator('[data-testid="story-toggle"]');
+    await expect(toggle).toBeVisible();
+
+    // Click to expand own story
+    await toggle.click();
+    await expect(page.getByText(/Switching to async-first/i)).toBeVisible({ timeout: 5000 });
+    await expect(row).toHaveAttribute('aria-expanded', 'true');
   });
 
   test('authenticated viewer without story shows "Add your story" CTA', async ({ page }) => {
@@ -209,11 +263,18 @@ test.describe('P542 — Collapse Stories Behind Chevron', () => {
     // Viewer's row should show "Add your story" instead of chevron
     await expect(page.getByText('P542 No Story')).toBeVisible({ timeout: 10000 });
 
-    // TODO: /dev — verify "Add your story" CTA is visible on the viewer's row
-    // Verify: no chevron on this row
-    // Verify: clicking CTA navigates to /create?pointId={pointId}
-    // await page.getByText(/add your story/i).click();
-    // await expect(page).toHaveURL(/\/create\?pointId=/, { timeout: 5000 });
+    const viewerRow = page.locator('[role="button"]').filter({ hasText: 'P542 No Story' });
+    await expect(viewerRow).toBeVisible();
+
+    // "Add your story" CTA visible
+    await expect(viewerRow.getByText(/add your story/i)).toBeVisible();
+
+    // No chevron on this row
+    await expect(viewerRow.locator('[data-testid="story-toggle"]')).toHaveCount(0);
+
+    // Clicking CTA navigates to create page
+    await viewerRow.getByText(/add your story/i).click();
+    await expect(page).toHaveURL(/\/create\?pointId=/, { timeout: 5000 });
   });
 
   // ── Filter tabs interaction ──────────────────────────────────────────
@@ -224,10 +285,20 @@ test.describe('P542 — Collapse Stories Behind Chevron', () => {
 
     await expect(page.getByText('P542 Story Holder A')).toBeVisible({ timeout: 10000 });
 
-    // TODO: /dev — expand a story, then switch filter tab:
-    //   1. Expand holderWithStory1's story
-    //   2. Click a different filter tab (e.g., Disagree then back to Agree)
-    //   3. Verify all stories are collapsed again (expandedHolderId reset to null)
+    // Expand holderWithStory1's story
+    const row = page.locator('[role="button"]').filter({ hasText: 'P542 Story Holder A' });
+    await row.locator('[data-testid="story-toggle"]').click();
+    await expect(page.getByText(/Switching to async-first/i)).toBeVisible({ timeout: 5000 });
+
+    // Switch to Disagree tab and back to Agree
+    await page.getByRole('button', { name: /disagree/i }).first().click();
+    await page.waitForTimeout(300);
+    await page.getByRole('button', { name: /agree/i }).first().click();
+    await page.waitForTimeout(300);
+
+    // All stories should be collapsed (expandedHolderId reset to null)
+    await expect(page.getByText(/Switching to async-first/i)).not.toBeVisible();
+    await expect(row).toHaveAttribute('aria-expanded', 'false');
   });
 
   // ── Profile page regression ──────────────────────────────────────────
@@ -237,11 +308,17 @@ test.describe('P542 — Collapse Stories Behind Chevron', () => {
     await page.waitForLoadState('networkidle');
 
     // Profile page should still show stories in their existing format
-    // (no chevron/accordion pattern — that's point-page only)
     await expect(page.getByText('P542 Story Holder A')).toBeVisible({ timeout: 10000 });
 
-    // TODO: /dev — verify story content is visible on profile WITHOUT needing
-    // to click any chevron. Profile pages use the existing stories tab layout.
-    // The story text or a "Stories" tab should be directly accessible.
+    // Navigate to Stories tab if visible
+    const storiesTab = page.getByRole('button', { name: /stories/i }).first();
+    if (await storiesTab.isVisible()) {
+      await storiesTab.click();
+      await page.waitForTimeout(500);
+    }
+
+    // Story content visible on profile WITHOUT needing a chevron click
+    // No story-toggle elements should be on the profile page
+    await expect(page.locator('[data-testid="story-toggle"]')).toHaveCount(0);
   });
 });

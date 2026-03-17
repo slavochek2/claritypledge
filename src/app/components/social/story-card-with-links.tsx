@@ -326,15 +326,26 @@ export function StoryCardWithLinks({
                   </span>
                 </MobileTooltip>
               </div>
-              {showVerifyButton && onVerify && (
-                <button
-                  onClick={onVerify}
-                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-blue-600 rounded-full hover:bg-blue-700 transition-colors"
-                >
-                  <MessageCircle size={12} />
-                  Verify
-                </button>
-              )}
+              <div className="flex items-center gap-1">
+                {showVerifyButton && onVerify && (
+                  <button
+                    onClick={onVerify}
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-blue-600 rounded-full hover:bg-blue-700 transition-colors"
+                  >
+                    <MessageCircle size={12} />
+                    Verify
+                  </button>
+                )}
+                {/* P542: Share button in stats row for point-detail context (footer is hidden) */}
+                {context === 'point-detail' && !hideActions && !isEmbed && (
+                  <ShareButton
+                    type="story"
+                    id={story.id}
+                    title={`${author.name}'s story`}
+                    description={story.text.slice(0, 100)}
+                  />
+                )}
+              </div>
             </div>
 
             {/* point-detail context: Hide QuotedPoints entirely - Stories are already in Point context */}
