@@ -28,11 +28,11 @@ import {
   deleteClaritySession,
   type TestUser,
 } from './helpers/test-user';
-import { supabaseAdmin } from '../src/lib/supabase-admin';
+import { supabaseAdmin as _supabaseAdmin } from '../src/lib/supabase-admin';
 
 // ─── Error collector helper ──────────────────────────────────────────────────
 
-function setupErrorCollector(page: import('@playwright/test').Page) {
+function _setupErrorCollector(page: import('@playwright/test').Page) {
   const errors: string[] = [];
   page.on('console', msg => {
     if (
@@ -62,7 +62,7 @@ test.describe('P511: Flow 7 — Silent navigation (P410 removed)', () => {
     }
   });
 
-  test('navigating away from /live does not show confirmation dialog', async ({ page }) => {
+  test('navigating away from /live does not show confirmation dialog', async ({ page: _page }) => {
     await setTestSession(page, testUser.email);
     await page.goto('/live');
     await page.waitForLoadState('networkidle');
@@ -108,7 +108,7 @@ test.describe('P511: Flow 9 — Active session banner', () => {
     }
   });
 
-  test('banner appears on non-/live pages when session is active', async ({ page }) => {
+  test('banner appears on non-/live pages when session is active', async ({ page: _page }) => {
     // TODO: Requires creating an active session in DB + setting localStorage
     // so the banner component detects it.
     //
@@ -133,7 +133,7 @@ test.describe('P511: Flow 9 — Active session banner', () => {
     expect(true).toBe(true); // Placeholder
   });
 
-  test('banner does NOT appear on /live itself', async ({ page }) => {
+  test('banner does NOT appear on /live itself', async ({ page: _page }) => {
     // TODO: When on /live, the active session banner should not render
     // (the user is already on the session page).
     //
@@ -146,7 +146,7 @@ test.describe('P511: Flow 9 — Active session banner', () => {
     expect(true).toBe(true); // Placeholder
   });
 
-  test('tapping "End Session" on banner ends session and removes banner', async ({ page }) => {
+  test('tapping "End Session" on banner ends session and removes banner', async ({ page: _page }) => {
     // TODO: Requires active session + banner rendering
     // 1. Set up active session
     // 2. Navigate to /events
@@ -158,7 +158,7 @@ test.describe('P511: Flow 9 — Active session banner', () => {
     expect(true).toBe(true); // Placeholder
   });
 
-  test('tapping "Rejoin" on banner navigates to /live', async ({ page }) => {
+  test('tapping "Rejoin" on banner navigates to /live', async ({ page: _page }) => {
     // TODO: Requires active session + banner rendering
     // 1. Set up active session
     // 2. Navigate to /events
@@ -192,7 +192,7 @@ test.describe('P511: Flow 8 — Rejoin prompt on /live landing', () => {
     }
   });
 
-  test('/live shows rejoin prompt when localStorage has active session', async ({ page }) => {
+  test('/live shows rejoin prompt when localStorage has active session', async ({ page: _page }) => {
     // TODO: Requires the rejoin-prompt component to exist
     //
     // Steps:
@@ -216,7 +216,7 @@ test.describe('P511: Flow 8 — Rejoin prompt on /live landing', () => {
     expect(true).toBe(true); // Placeholder
   });
 
-  test('/live shows normal landing when localStorage session is expired', async ({ page }) => {
+  test('/live shows normal landing when localStorage session is expired', async ({ page: _page }) => {
     // TODO: Test stale session detection
     // 1. Set localStorage with a session code that no longer exists in DB
     // 2. Navigate to /live
@@ -226,7 +226,7 @@ test.describe('P511: Flow 8 — Rejoin prompt on /live landing', () => {
     expect(true).toBe(true); // Placeholder
   });
 
-  test('rejoin prompt shows guest display name ("Rejoin as [Name]")', async ({ page }) => {
+  test('rejoin prompt shows guest display name ("Rejoin as [Name]")', async ({ page: _page }) => {
     // TODO: Test Flow 3 — guest display name persistence
     // 1. Set localStorage with session code AND guestDisplayName
     // 2. Navigate to /live (unauthenticated)
@@ -339,7 +339,7 @@ test.describe('P511: Edge cases', () => {
     }
   });
 
-  test('stale localStorage session code is cleared on /live load', async ({ page }) => {
+  test('stale localStorage session code is cleared on /live load', async ({ page: _page }) => {
     await setTestSession(page, testUser.email);
 
     // Inject a stale session code (session doesn't exist in DB)

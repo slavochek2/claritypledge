@@ -17,7 +17,7 @@
 import { test, expect } from '@playwright/test';
 import {
   createTestUser,
-  setTestSession,
+_setTestSession,
   deleteTestUser,
   type TestUser,
 } from '../helpers/test-user';
@@ -35,7 +35,7 @@ test.describe('P511: Accessibility — Active Session Banner', () => {
     }
   });
 
-  test('banner has role="status" and aria-live="polite"', async ({ page }) => {
+  test('banner has role="status" and aria-live="polite"', async ({ page: _page }) => {
     // TODO: Requires active session + banner component rendered
     // Steps:
     // 1. Set up active session in localStorage
@@ -58,7 +58,7 @@ test.describe('P511: Accessibility — Active Session Banner', () => {
     expect(true).toBe(true); // Placeholder
   });
 
-  test('banner has aria-label="Active session notification"', async ({ page }) => {
+  test('banner has aria-label="Active session notification"', async ({ page: _page }) => {
     // TODO: Verify aria-label on banner container
     // const banner = page.locator('[role="status"]');
     // await expect(banner).toHaveAttribute('aria-label', 'Active session notification');
@@ -66,7 +66,7 @@ test.describe('P511: Accessibility — Active Session Banner', () => {
     expect(true).toBe(true); // Placeholder
   });
 
-  test('pulsing dot is aria-hidden="true" (decorative)', async ({ page }) => {
+  test('pulsing dot is aria-hidden="true" (decorative)', async ({ page: _page }) => {
     // TODO: The blue pulsing dot indicator should not be announced
     // by screen readers.
     //
@@ -76,7 +76,7 @@ test.describe('P511: Accessibility — Active Session Banner', () => {
     expect(true).toBe(true); // Placeholder
   });
 
-  test('Rejoin button has aria-label="Rejoin active session"', async ({ page }) => {
+  test('Rejoin button has aria-label="Rejoin active session"', async ({ page: _page }) => {
     // TODO:
     // const rejoinBtn = page.getByRole('button', { name: /rejoin/i });
     // await expect(rejoinBtn).toHaveAttribute('aria-label', 'Rejoin active session');
@@ -84,7 +84,7 @@ test.describe('P511: Accessibility — Active Session Banner', () => {
     expect(true).toBe(true); // Placeholder
   });
 
-  test('End Session button has aria-label="End active session"', async ({ page }) => {
+  test('End Session button has aria-label="End active session"', async ({ page: _page }) => {
     // TODO:
     // const endBtn = page.locator('[aria-label="End active session"]');
     // await expect(endBtn).toBeVisible();
@@ -92,7 +92,7 @@ test.describe('P511: Accessibility — Active Session Banner', () => {
     expect(true).toBe(true); // Placeholder
   });
 
-  test('banner buttons are keyboard accessible (Tab + Enter)', async ({ page }) => {
+  test('banner buttons are keyboard accessible (Tab + Enter)', async ({ page: _page }) => {
     // TODO:
     // 1. Set up active session, navigate to non-/live page
     // 2. Tab through page until banner buttons receive focus
@@ -123,7 +123,7 @@ test.describe('P511: Accessibility — Reconnecting Countdown', () => {
     }
   });
 
-  test('countdown region has role="timer"', async ({ page }) => {
+  test('countdown region has role="timer"', async ({ page: _page }) => {
     // TODO: Requires being in a live session where partner has disconnected
     // This is a TWO-PARTY scenario — mark as placeholder.
     //
@@ -135,7 +135,7 @@ test.describe('P511: Accessibility — Reconnecting Countdown', () => {
     expect(true).toBe(true); // Placeholder — requires two-party session
   });
 
-  test('countdown uses aria-live="assertive" for screen reader announcements', async ({ page }) => {
+  test('countdown uses aria-live="assertive" for screen reader announcements', async ({ page: _page }) => {
     // TODO: The countdown region should announce at 30-second intervals
     // via a visually-hidden element with aria-live="assertive".
     //
@@ -150,7 +150,7 @@ test.describe('P511: Accessibility — Reconnecting Countdown', () => {
     expect(true).toBe(true); // Placeholder
   });
 
-  test('countdown uses tabular-nums to prevent layout shift', async ({ page }) => {
+  test('countdown uses tabular-nums to prevent layout shift', async ({ page: _page }) => {
     // TODO: The timer display should use font-variant-numeric: tabular-nums
     // to prevent digits from shifting as values change.
     //
@@ -175,7 +175,7 @@ test.describe('P511: Accessibility — Rejoin Prompt', () => {
     }
   });
 
-  test('rejoin prompt receives focus when it appears on /live', async ({ page }) => {
+  test('rejoin prompt receives focus when it appears on /live', async ({ page: _page }) => {
     // TODO: Per spec, focus should move to the rejoin prompt card when it
     // appears on /live landing (dialog-like focus management).
     //
@@ -196,7 +196,7 @@ test.describe('P511: Accessibility — Rejoin Prompt', () => {
     expect(true).toBe(true); // Placeholder
   });
 
-  test('End Session confirmation in rejoin prompt is keyboard accessible', async ({ page }) => {
+  test('End Session confirmation in rejoin prompt is keyboard accessible', async ({ page: _page }) => {
     // TODO: Per spec, "End Session" in the rejoin prompt uses inline confirmation:
     // first Enter shows "Are you sure?", second Enter confirms.
     // Both steps must be keyboard accessible.
@@ -210,7 +210,7 @@ test.describe('P511: Accessibility — Rejoin Prompt', () => {
 });
 
 test.describe('P511: Accessibility — Motion preferences', () => {
-  test('pulsing dot is static when prefers-reduced-motion is set', async ({ page }) => {
+  test('pulsing dot is static when prefers-reduced-motion is set', async ({ page: _page }) => {
     // TODO: Emulate prefers-reduced-motion: reduce
     // Verify the pulsing dot has no animation.
     //
@@ -225,7 +225,7 @@ test.describe('P511: Accessibility — Motion preferences', () => {
     expect(true).toBe(true); // Placeholder
   });
 
-  test('reconnecting spinner is static when prefers-reduced-motion is set', async ({ page }) => {
+  test('reconnecting spinner is static when prefers-reduced-motion is set', async ({ page: _page }) => {
     // TODO: Emulate prefers-reduced-motion: reduce
     // Verify spinner icon is replaced with a static icon.
     //

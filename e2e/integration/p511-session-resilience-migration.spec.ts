@@ -46,7 +46,7 @@ let otherEmail: string;
 let otherId: string;
 
 let sessionId: string;
-let sessionCode: string;
+let _sessionCode: string;
 
 test.beforeAll(async () => {
   // Create three test users: session creator, session joiner, and an outsider
