@@ -17,6 +17,7 @@ decisions:
   pin_icon_column: remove
   position_only_row: no-change (no Point box to quote)
 tags: []
+superseded_by: p542  # point-detail context only; profile pages unchanged
 rank: 125341.0
 created_date: 2026-01-26
 ---

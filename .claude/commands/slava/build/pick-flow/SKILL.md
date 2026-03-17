@@ -78,7 +78,7 @@ Before applying the scoring table, classify the task:
 | **Feature** (new user-facing capability) | Apply scoring table below |
 | **Bug** (broken behavior, root cause known) | `/fix` → done |
 | **Bug** (root cause unclear) | Investigate first, then `/fix` |
-| **Redesign** (shipped feature, code works, design was wrong) | `/change-request` → then `/ux` / `/architect` / `/generate-tests` / `/dev` / `/verify` per scoring table hard rules (DB column → `/architect` mandatory; net-new visual pattern → `/ux` mandatory — apply drop-`/ux` rule from scoring table; ASCII in conversation ≠ UX resolved for new interaction patterns); if redesign also adds new capability, file `/create-prd` for that portion separately |
+| **Redesign** (shipped feature, code works, design was wrong) | `/change-request` → `/challenge-prd` → then `/ux` / `/architect` / `/generate-tests` / `/spec-review` / `/dev` / `/verify` per scoring table hard rules (DB column → `/architect` mandatory; net-new visual pattern → `/ux` mandatory — apply drop-`/ux` rule from scoring table; ASCII in conversation ≠ UX resolved for new interaction patterns); `/challenge-prd` mandatory for redesigns (same as medium pipeline); if redesign also adds new capability, file `/create-prd` for that portion separately; if ASCII exploration exists in conversation, `/change-request` must capture it as raw material so `/ux` has context |
 | **Refactor** (restructuring, no behavior change) | `/quick-feature` (skeleton for tracking) → `/dev` — no `/create-prd`, no `/ux` |
 | **Data migration** (one-time SQL script) | `/dev` + `/generate-tests` mandatory (P270 rule) |
 | **Dependency upgrade** | Inline or `/dev` — apply scoring if upgrade touches auth/DB/build |
@@ -210,12 +210,12 @@ Apply this to every step. Don't default to "might help a bit" — default to "cl
 - `/verify` is mandatory when ANY `/verify`-mandatory signal fires (see scoring table). This includes: state machine bugs, multi-user flows, UI recovery/reconnection, realtime behavior, visual regression risk, and any "user should see X when Y" that unit tests can't cover. Not for every `.tsx` change, not for component extraction with identical output.
 - `/generate-tests` whenever a regression would be annoying to debug manually — includes any conditional rendering, UI state change, interactive behavior, placeholder copy that could drift, button enable/disable logic, CSS class conditionals, and all security/auth/DB cases; mandatory for any DB migration (P270); skip only for pure CSS-only changes, single hardcoded strings with no logic, or one-liner typo fixes
 - `/spec-review` is mandatory after `/generate-tests` when the flow includes `/architect` (architecture decisions need validation against test expectations)
-- `/ux` only if visual/interaction design is unresolved — skip if ASCII/mockup already decided
+- `/ux` — apply drop-`/ux` rule strictly: skip ONLY when ALL three conditions are met: (a) ASCII covers ALL states (happy, edge, empty, loading, responsive), (b) no net-new visual component/pattern, (c) no mobile concerns. If ANY condition fails, include `/ux`. "ASCII in conversation covers happy path" ≠ "UX resolved"
 - `/decompose` only for 5+ files or 3+ independent concerns
 - If spec exists: check `delivery_stage:` first — it takes precedence (see scoring table rows for all 5 stages: `1-prd` through `5-decomposed`); if absent, fall back to `test_files:` — present → start from `/dev`; absent → `/generate-tests` → `/dev`
 - `/review-all` runs automatically inside `/dev` and `/fix` — never list it as a step in any flow
 - **`/spec-review` is mandatory (not optional) for `type: change-request` specs.** Redesigns have pre-existing elements that can silently conflict with new AC — spec-review catches these before implementation. The `*` optional marker applies to new features only.
-- **`/challenge-prd` is mandatory** for full and medium pipeline flows (see CLAUDE.md Sequential Flow). Skip only for small/inline work.
+- **`/challenge-prd` is mandatory** for full and medium pipeline flows AND for all redesigns (`/change-request`). Redesigns inherit assumptions from the predecessor spec that need stress-testing. Skip only for small/inline work.
 - After user confirms flow: set `flow:` in spec frontmatter if spec exists
 - When writing `flow:` to spec frontmatter, write exactly one of: `fix`, `dev`, `inline`, `quick-feature` — never the command chain string
 - If you are currently in a worktree (not w0/main), remind the user: spec creation skills (/create-prd, /quick-feature, /change-request, /create-bug) must be run from the main repo.
