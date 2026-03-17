@@ -1,6 +1,6 @@
 ---
-status: in-progress
-delivery_stage: uat
+status: all-done
+completed_at: "2026-03-17"
 type: feature
 rank: 250011.75
 workstream: E1

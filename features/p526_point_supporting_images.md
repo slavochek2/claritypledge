@@ -1,26 +1,30 @@
 ---
-status: today
+status: blocked
 type: story
-rank: 1.0
+rank: 1
+blocked_by: p523
 tags:
   - points
   - images
   - upload
   - gcs
 delivery_stage: 5-decomposed
-created_date: 2026-03-16
+created_date: 2026-03-16T00:00:00.000Z
 prepped_date: null
 flow: dev
 reviews:
   ux: null
   architect: null
   alignment: null
+locked_at: '2026-03-17T10:54:56.332Z'
 ---
 
 # P526: Point Supporting Images
 
 **Prior art:** P504 (Auto-Generated Banners), P519 (Remove On-Page Banners from Stories & Points)
-**Related:** P523 (Standalone Point Creation & Point Evolution) — coordinate, no hard dependency
+**Blocked by:** P523 (Standalone Point Creation & Point Evolution)
+
+> **2026-03-17 — Parked.** P523 establishes the immutability model: "never edit, always evolve via inspired-by." P526's editable image metadata contradicts this. After P523 ships, revisit P526 with simplified scope: image at creation only, no edit-after-creation, no RPC function, no author Change/Remove controls. This cuts ~4 tasks from the current decomposition.
 
 ---
 
