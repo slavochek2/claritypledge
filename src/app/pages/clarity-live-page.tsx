@@ -645,12 +645,17 @@ export function ClarityLivePage() {
   useEffect(() => {
     const restoreSession = async () => {
       try {
-        // If user clicked a join link (/live/ABCD12), don't restore old session
-        // They intend to join the new session from the URL
+        // If user clicked a join link (/live/ABCD12), check if it matches the stored session.
+        // Same code = guest refreshed mid-session → restore. Different code = new session intent → clear.
         if (isJoinViaLink) {
-          clearStoredSession(); // Clear old session to avoid confusion
-          setIsRestoring(false);
-          return;
+          const savedCode = storage?.getItem(STORAGE_KEYS.SESSION_CODE);
+          if (savedCode && savedCode.toUpperCase() === urlCode?.toUpperCase()) {
+            // Same session — fall through to restoration below
+          } else {
+            clearStoredSession(); // Different session — clear old data
+            setIsRestoring(false);
+            return;
+          }
         }
 
         const savedCode = storage?.getItem(STORAGE_KEYS.SESSION_CODE);
