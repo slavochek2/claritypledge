@@ -70,24 +70,17 @@ export function FeedPage() {
     fetchData();
   }, [fetchData]);
 
-  // P543: Surgical callbacks — avoid full refetch on position changes
-  const handlePointRemoved = useCallback((pointId: string) => {
-    setPoints(prev => prev.filter(p => p.id !== pointId));
-  }, []);
-
-  const handlePointPositionUpdated = useCallback((
-    pointId: string,
-    oldPosition: PositionType | null,
-    newPosition: PositionType | null,
-  ) => {
+  // P543: Surgical callback — avoid full refetch on position removal
+  const handlePointRemoved = useCallback((pointId: string, removedPosition: PositionType | null) => {
     setPoints(prev => prev.map(p => {
       if (p.id !== pointId) return p;
+      // Use CURRENT totalPositions from state (not stale closure from card)
       const updatedCounts = { ...p.positionCounts };
-      if (oldPosition) updatedCounts[oldPosition] = Math.max(0, (updatedCounts[oldPosition] || 0) - 1);
-      if (newPosition) updatedCounts[newPosition] = (updatedCounts[newPosition] || 0) + 1;
-      const delta = (newPosition ? 1 : 0) - (oldPosition ? 1 : 0);
-      return { ...p, positionCounts: updatedCounts, totalPositions: Math.max(0, p.totalPositions + delta) };
-    }));
+      if (removedPosition) updatedCounts[removedPosition] = Math.max(0, (updatedCounts[removedPosition] || 0) - 1);
+      const newTotal = Math.max(0, p.totalPositions - 1);
+      if (newTotal === 0) return null; // mark for removal
+      return { ...p, positionCounts: updatedCounts, totalPositions: newTotal };
+    }).filter((p): p is PointWithUserPosition => p !== null));
   }, []);
 
   // Tag cloud: extract from both stories + points (client-side, Decision 8)
@@ -335,7 +328,6 @@ export function FeedPage() {
                       point={point}
                       activeTag={activeTag}
                       onPointRemoved={handlePointRemoved}
-                      onPointPositionUpdated={handlePointPositionUpdated}
                     />
                   ))
                 : (filteredStories as StoryWithAuthor[]).map((story) => (

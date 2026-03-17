@@ -28,13 +28,11 @@ import { AnonPositionCTA } from '@/app/components/shared/anon-position-cta';
 interface FeedPointCardProps {
   point: PointWithUserPosition;
   activeTag?: string;
-  /** P543: Remove this point from the feed list (e.g., last position removed) */
-  onPointRemoved?: (pointId: string) => void;
-  /** P543: Update position counts locally without refetch */
-  onPointPositionUpdated?: (pointId: string, oldPosition: PositionType | null, newPosition: PositionType | null) => void;
+  /** P543: Notify parent that a position was removed — parent decides whether to filter or decrement */
+  onPointRemoved?: (pointId: string, removedPosition: PositionType | null) => void;
 }
 
-export function FeedPointCard({ point, activeTag, onPointRemoved, onPointPositionUpdated }: FeedPointCardProps) {
+export function FeedPointCard({ point, activeTag, onPointRemoved }: FeedPointCardProps) {
   const navigate = useNavigate();
   const { session } = useAuth();
 
@@ -44,12 +42,8 @@ export function FeedPointCard({ point, activeTag, onPointRemoved, onPointPositio
     onAfterRemove: () => {
       const removedPosition = localPosition ?? serverPosition;
       setLocalPosition(null);
-      // P543: If this was the last position on the point, remove from feed; otherwise update counts
-      if (point.totalPositions <= 1) {
-        onPointRemoved?.(point.id);
-      } else {
-        onPointPositionUpdated?.(point.id, removedPosition, null);
-      }
+      // P543: Always delegate to parent — it uses functional setState for current totalPositions
+      onPointRemoved?.(point.id, removedPosition);
     },
   });
 
@@ -114,13 +108,12 @@ export function FeedPointCard({ point, activeTag, onPointRemoved, onPointPositio
       return;
     }
 
-    const oldPosition = localPosition ?? serverPosition;
     setLocalPosition(newPosition);
 
     try {
       await pointsService.setPosition(point.id, session.user.id, newPosition);
-      // P543: Update counts locally — no full refetch
-      onPointPositionUpdated?.(point.id, oldPosition, newPosition);
+      // P543: Card's local optimistic state (localPosition + adjustPositionCounts) handles
+      // the visual update — no parent callback needed for set-position path
     } catch {
       // Revert on error
       setLocalPosition(null);
