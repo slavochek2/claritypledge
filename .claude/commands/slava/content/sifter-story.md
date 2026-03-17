@@ -12,6 +12,18 @@ User provides a brain dump (messy thoughts, any length).
 
 If no argument provided, prompt: "Paste your brain dump — messy thoughts, any length. I'll help sift it into a Story."
 
+## Input Modes
+
+**Mode 1 — Brain dump (default):** User provides messy thoughts. Use NVC to decompose and synthesize.
+
+**Mode 2 — Point-supporting story:** User provides a specific Point and asks for a story that supports it.
+
+In Mode 2:
+- The Point is the destination. Every sentence must earn its place by moving toward it.
+- After drafting, run a **relevance check** before presenting: for each sentence, ask "does this serve the Point or just explain the problem?" Cut sentences that only describe the problem without connecting to the Point's claim.
+- Story arc: [setup: what happened] → [turn: what changed] → [resolution: the Point, in personal terms].
+- Do NOT expand problem details beyond what's needed for the turn. The user lived it — they don't need a thorough retelling.
+
 ## Background Processing (invisible to user)
 
 Use NVC framework to identify components in the brain dump:
@@ -19,6 +31,15 @@ Use NVC framework to identify components in the brain dump:
 - **Feeling** — What emotions arose?
 - **Need** — What underlying need is present?
 - **Request** — What does the person want?
+
+## Fact Extraction (when source material exists)
+
+If the user references a source document (article, doc, prior session):
+1. Read the source and extract **only concrete facts** — numbers, sequences, outcomes. List them.
+2. Present the fact list to the user BEFORE drafting: "I found these facts in [source]. Which are accurate for this story? Anything missing or wrong?"
+3. Only draft after the user confirms the facts.
+
+One confirmation round is cheaper than five correction rounds.
 
 ## Path Guard (hard stop before creating any file)
 
@@ -88,14 +109,22 @@ Synthesize into ONE cohesive **first-person narrative**:
 - NO labels, NO structure tags, NO "Observation:", "Feeling:" etc.
 - Contains the NVC elements naturally woven in
 - First person voice, conversational tone
+- Start sentences with "I" — not the topic. "I had fourteen co-founders" not "Fourteen co-founders over six years." The story belongs to a person.
 - No swear words
 - No dashes (em dash, en dash) — break into separate sentences instead
 - Short sentences preferred — if a sentence can be two, make it two
+- Default to dense, beat-driven style. User can ask for expansion.
 
-**Good example:**
-> I ask people "How well do you think you understood me?" They look confused. Then they say "Totally, I got it." But when I ask them to explain back, it falls apart. They never learned that communication has gaps. I'm tired of being the only one who checks.
+**Good example (dense, beat-driven):**
+> I had fourteen co-founders. Nine separations. None of us wanted them. Most of the friction was unnecessary. After enough of this I stopped hoping. I designed a clarity partner agreement. And seven points that both partners need to understand the same way. Then I built a tool to check that we actually do. Most people agree to things they can't explain back. I want partners who can.
 
-**Bad example:**
+**Good example (conversational):**
+> I ask people "How well do you think you understood me?" They look confused. Then they say "Totally, I got it." But when I ask them to explain back, it falls apart.
+
+**Bad example (verbose, essay-like):**
+> Over the course of six years building my startup, I had the experience of working with fourteen different co-founders, and what I discovered through this process was that...
+
+**Bad example (labels):**
 > Observation: People claim to understand. Feeling: Frustrated. Need: Mutuality. Request: Learn the model.
 
 Present it: "Here's what I understood: [Story]"
@@ -175,6 +204,8 @@ Session: `.private/sifter/sessions/{session-name}.md`
 - Options should be genuinely different interpretations, not minor wording changes
 - No swear words in output
 - **Preserve everything** — the full conversation is the context for points
+- **Neutral framing of others.** Never assign one-sided agency ("they left," "they couldn't"). Use mutual framing unless the user explicitly assigns blame. "We separated" not "they left." "None of us wanted it" not "they walked away."
+- **Don't impose patterns.** If the user describes varied experiences, don't flatten them into one clean narrative ("same pattern every time," "always the same problem"). Use the user's own level of specificity. If they say "sometimes X, sometimes Y" — keep both.
 
 ## Note on URLs
 
