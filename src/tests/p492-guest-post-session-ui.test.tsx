@@ -4,7 +4,7 @@
  *
  * PartnerLeftScreen component should:
  * - Hide "Start New Session" button for guest users
- * - Show improved CTA copy for guest users ("Keep your session insights")
+ * - Show CTA copy for guest users ("Access your transcript and AI session insights")
  * - Show "Start New Session" button for registered users
  * - NOT show guest CTA for registered users
  */
@@ -47,16 +47,10 @@ describe('P492: PartnerLeftScreen guest vs registered user', () => {
       expect(screen.queryByRole('button', { name: /start new session/i })).not.toBeInTheDocument();
     });
 
-    it('shows improved CTA heading "Keep your session insights"', () => {
+    it('shows CTA text about transcript and AI insights', () => {
       renderPartnerLeft({ isGuest: true });
 
-      expect(screen.getByText(/keep your session insights/i)).toBeInTheDocument();
-    });
-
-    it('shows improved body text mentioning calibrated communication', () => {
-      renderPartnerLeft({ isGuest: true });
-
-      expect(screen.getByText(/you just practiced calibrated communication/i)).toBeInTheDocument();
+      expect(screen.getByText(/access your transcript and ai session insights/i)).toBeInTheDocument();
     });
 
     it('shows "Create Free Account" link', () => {
@@ -76,14 +70,14 @@ describe('P492: PartnerLeftScreen guest vs registered user', () => {
     it('does NOT show guest CTA', () => {
       renderPartnerLeft({ isGuest: false });
 
-      expect(screen.queryByText(/keep your session insights/i)).not.toBeInTheDocument();
+      expect(screen.queryByText(/access your transcript and ai session insights/i)).not.toBeInTheDocument();
     });
 
     it('defaults to registered behavior when isGuest is omitted', () => {
       renderPartnerLeft({});
 
       expect(screen.getByRole('button', { name: /start new session/i })).toBeInTheDocument();
-      expect(screen.queryByText(/keep your session insights/i)).not.toBeInTheDocument();
+      expect(screen.queryByText(/access your transcript and ai session insights/i)).not.toBeInTheDocument();
     });
   });
 

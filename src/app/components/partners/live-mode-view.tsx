@@ -145,25 +145,20 @@ export function PartnerLeftScreen({ partnerName, sessionEnded, onStartNew, isGue
 
       {/* P396/P492: Soft signup CTA for anonymous guests */}
       {isGuest && (
-        <div className="mt-4 p-4 bg-muted rounded-lg text-left space-y-3 w-full">
-          <p className="text-sm font-medium">Keep your session insights</p>
-          <p className="text-xs text-muted-foreground">
-            You just practiced calibrated communication. Create a free account to save your positions, track your calibration over time, and join future sessions as a host.
-          </p>
-          <div className="flex flex-col gap-2">
-            <Link
-              to="/signup"
-              className="inline-flex items-center justify-center rounded-md bg-blue-500 hover:bg-blue-600 text-white text-sm font-medium h-9 px-4 transition-colors"
-            >
-              Create Free Account
-            </Link>
-            <Link
-              to="/login"
-              className="inline-flex items-center justify-center text-xs text-muted-foreground hover:text-foreground transition-colors"
-            >
-              Already have an account? Log in
-            </Link>
-          </div>
+        <div className="mt-2 text-center space-y-3">
+          <p className="text-sm text-muted-foreground">Access your transcript and AI session insights</p>
+          <Link
+            to="/signup"
+            className="inline-flex items-center justify-center rounded-md bg-blue-500 hover:bg-blue-600 text-white text-sm font-medium h-9 px-4 transition-colors"
+          >
+            Create Free Account
+          </Link>
+          <Link
+            to="/login"
+            className="block text-xs text-muted-foreground hover:text-foreground transition-colors"
+          >
+            Already have an account? Log in
+          </Link>
         </div>
       )}
       </div>

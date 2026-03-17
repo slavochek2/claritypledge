@@ -25,7 +25,7 @@
  */
 
 import { Browser, BrowserContext, Page } from '@playwright/test';
-import { getTestAuthContext, type _TestAuthContext } from './auth-context';
+import { getTestAuthContext } from './auth-context';
 import { deleteClaritySession, type TestUser } from './test-user';
 import { mockMicPermission } from './test-realtime';
 import { supabaseAdmin } from '../../src/lib/supabase-admin';

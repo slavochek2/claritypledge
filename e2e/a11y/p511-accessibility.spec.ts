@@ -17,7 +17,6 @@
 import { test, expect } from '@playwright/test';
 import {
   createTestUser,
-_setTestSession,
   deleteTestUser,
   type TestUser,
 } from '../helpers/test-user';

@@ -79,7 +79,7 @@ test.beforeAll(async () => {
 
   if (sessionErr || !session) throw new Error(`Failed to create test session: ${sessionErr?.message}`);
   sessionId = session.id;
-  sessionCode = session.code;
+  _sessionCode = session.code;
 });
 
 test.afterAll(async () => {
