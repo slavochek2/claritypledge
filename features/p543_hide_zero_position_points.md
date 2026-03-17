@@ -1,5 +1,6 @@
 ---
 status: in-progress
+delivery_stage: uat
 type: feature
 rank: 250011.75
 workstream: E1
@@ -37,12 +38,12 @@ Each listing method adds an INNER JOIN on `point_positions` (or equivalent `IN` 
 
 ## Acceptance Criteria
 
-- [ ] Feed page shows no points with 0 positions
-- [ ] Profile points tab shows no points with 0 positions
-- [ ] Live session content picker shows no points with 0 positions
-- [ ] Direct URL `/point/:id` still works for zero-position points
-- [ ] Story-linked point quotes still render for zero-position points
-- [ ] Newly created point (P523 flow) is visible during creation before first position is taken
+- [x] Feed page shows no points with 0 positions
+- [x] Profile points tab shows no points with 0 positions
+- [x] Live session content picker shows no points with 0 positions
+- [x] Direct URL `/point/:id` still works for zero-position points
+- [x] Story-linked point quotes still render for zero-position points
+- [x] Newly created point (P523 flow) is visible during creation before first position is taken
 
 ## Testing
 
