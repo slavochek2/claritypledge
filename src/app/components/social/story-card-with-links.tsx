@@ -92,9 +92,9 @@ export function StoryCardWithLinks({
   viewerStoriesPerPoint,
   tags,
 }: StoryCardWithLinksProps) {
-  const { isEmbed, embedNavigate } = useEmbedNavigation();
+  const { isEmbed, isExpanded, embedNavigate } = useEmbedNavigation();
   // Points collapsed by default — position badge outside quoted box already shows author's stance
-  const [pointsExpanded, setPointsExpanded] = useState(isDetailView);
+  const [pointsExpanded, setPointsExpanded] = useState(isDetailView || isExpanded);
   const [textExpanded, setTextExpanded] = useState(false);
 
   // Toggle linked points expansion (works in both embed and regular mode)

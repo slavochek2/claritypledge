@@ -1,5 +1,5 @@
-import { useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useCallback, useMemo } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 
 /**
  * Detects embed mode and provides navigation that opens links in new tabs
@@ -7,7 +7,10 @@ import { useNavigate } from 'react-router-dom';
  */
 export function useEmbedNavigation() {
   const navigate = useNavigate();
-  const isEmbed = new URLSearchParams(window.location.search).get('embed') === 'true';
+  const { search } = useLocation();
+  const params = useMemo(() => new URLSearchParams(search), [search]);
+  const isEmbed = params.get('embed') === 'true';
+  const isExpanded = isEmbed && params.get('expanded') === 'true';
 
   const embedNavigate = useCallback((path: string) => {
     if (isEmbed) {
@@ -17,5 +20,5 @@ export function useEmbedNavigation() {
     }
   }, [isEmbed, navigate]);
 
-  return { isEmbed, embedNavigate };
+  return { isEmbed, isExpanded, embedNavigate };
 }
