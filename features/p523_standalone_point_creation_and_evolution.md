@@ -172,16 +172,16 @@ Key decisions from discovery (V1-V4):
 - [ ] Form includes: statement text + position selection (matches existing AddPointForm)
 - [ ] Created point appears in feed and on user's profile
 
-### Point References
-- [ ] Verified user can create a reference between two existing points from point detail page
-- [ ] When creating a new point, user can optionally select existing point(s) to reference
-- [ ] Both source and target point detail pages show "N related points" with navigation
-- [ ] "N related points" is clickable → shows list of linked points (truncated statements, navigable)
-- [ ] Creating a reference does not affect positions, stories, or any data on either point
-- [ ] A point can have multiple references (N:N)
-- [ ] Duplicate references prevented
-- [ ] Any verified user can create references (not limited to point authors)
-- [ ] References are unlabeled — no type selection required
+### Point Responses (References)
+- [ ] Point detail page shows "Respond" button → opens inline form that creates a new point with implicit reference to the original
+- [ ] When creating a standalone point, user can optionally select an existing point to respond to (via search/select)
+- [ ] Both responding and responded-to point detail pages show "N responses" with navigation
+- [ ] "N responses" is clickable → shows list of responding/responded-to points (truncated statements, navigable)
+- [ ] Creating a response does not affect positions, stories, or any data on the original point
+- [ ] A point can have multiple responses (N:N)
+- [ ] Duplicate references prevented (same pair linked once)
+- [ ] Any verified user can respond to any point
+- [ ] No standalone "link two existing points" action — references only created during point creation
 
 ### Directionality
 - [ ] When user has positions on both linked points: system infers aligned vs tension from position signs
@@ -192,6 +192,27 @@ Key decisions from discovery (V1-V4):
 
 ## Next Steps
 
-1. **Run `/ux`** — design all three flows (standalone creation, create-with-reference, link-existing), "N related points" display, directionality indicator, entry points
+1. **Run `/ux`** — design two flows (standalone creation with optional reference, respond from point detail), "N responses" display, directionality indicator, create button coexistence
 2. **Run `/architect`** — design `point_references` junction table, standalone point creation service, RLS
 3. **Run `/generate-tests`** → **`/spec-review`** → **`/dev`** → **`/verify`**
+
+---
+
+## Open Questions (for /ux and /architect)
+
+### Terminology (resolved in discovery)
+- Action button: **"Respond"** (not "Link" or "Reference")
+- Display section: **"N responses"** (not "related points" — must connect to the "Respond" verb)
+- Create form label: "Responding to: [original point]"
+- Standalone creation: optional "Responding to: [search/select]" field
+
+### Visual Consistency (must check in /ux)
+1. **Colored left borders** (green=aligned, red=tension, grey=neutral) — does the current design system use colored borders? If not, should we introduce them or use a different pattern?
+2. **Position summary text** ("8 agree · 2 dis") — current UI uses PositionButtons component with counts. Response cards should reuse PositionButtons for consistency, not text summaries.
+3. **Nesting rule:** "N responses" section shows ONLY on point detail page. Not on point cards nested inside story cards (would create nested-nested). Feed point cards show response count as a number only.
+4. **Two create buttons problem:** Feed and profile currently have "Create Story" only. How do "Create Story" and "Create Point" coexist? Options: toggle, dropdown, two separate buttons, unified "Create" with type selection.
+5. **Response cards:** Should response point cards in the "N responses" section look identical to feed point cards, or should they be more compact (no position buttons, just summary)?
+
+### Flow Simplification (resolved in discovery)
+- **No standalone "Link" action.** References are created only during point creation (either via "Respond" on point detail or optional reference picker during standalone creation).
+- **Two flows, not three:** (1) Standalone creation with optional reference, (2) Respond from point detail (implicit reference).

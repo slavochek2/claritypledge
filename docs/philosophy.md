@@ -114,7 +114,7 @@ This hypothesis makes truth **measurable** without requiring anyone to be the ar
 
 How to operationalize this framework:
 
-### 1. Point Quality (AI-Evaluated)
+### 1. Point Quality (AI-Evaluated — Feedback, Not Gate)
 
 AI assesses whether a Point meets the criteria for a good explanation:
 
@@ -122,6 +122,8 @@ AI assesses whether a Point meets the criteria for a good explanation:
 - **Hard to vary** — Changing one detail breaks the explanation
 - **Counter-factual** — Explains what would be different if false
 - **Antifragile** — Strengthened by criticism
+
+These quality criteria function as feedback signals, not publication gates. Any claim can enter the system; quality scores are advisory metadata shown to authors and readers. This follows directly from the Popperian principle: bold conjectures should be freely offered. The network's error correction mechanism (position shifts after story exposure, asymmetric conversion) is what surfaces truth — not pre-filtering at the point of entry. Gating would suppress exactly the kind of "wrong enough to be interesting" claims that drive the deepest calibration.
 
 ### 2. Position Scale
 
