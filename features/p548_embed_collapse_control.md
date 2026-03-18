@@ -5,6 +5,7 @@ rank: 250013.75
 workstream: E3
 created_date: 2026-03-18
 flow: dev
+delivery_stage: uat
 tags: [embed, share-dialog]
 uat_file: features/uat/p548.md
 test_files:
