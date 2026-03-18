@@ -7,7 +7,9 @@ import { useNavigate } from 'react-router-dom';
  */
 export function useEmbedNavigation() {
   const navigate = useNavigate();
-  const isEmbed = new URLSearchParams(window.location.search).get('embed') === 'true';
+  const params = new URLSearchParams(window.location.search);
+  const isEmbed = params.get('embed') === 'true';
+  const isExpanded = isEmbed && params.get('expanded') === 'true';
 
   const embedNavigate = useCallback((path: string) => {
     if (isEmbed) {
@@ -17,5 +19,5 @@ export function useEmbedNavigation() {
     }
   }, [isEmbed, navigate]);
 
-  return { isEmbed, embedNavigate };
+  return { isEmbed, isExpanded, embedNavigate };
 }

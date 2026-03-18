@@ -10,7 +10,7 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 
-type ShareTab = 'link' | 'embed';
+type EmbedPreset = 'collapsed' | 'expanded';
 
 interface ShareDialogProps {
   open: boolean;
@@ -30,9 +30,9 @@ interface ShareDialogProps {
 /**
  * ShareDialog - Unified share dialog for Stories, Points, and Profiles
  *
- * Design: Tabs approach (YouTube-inspired)
- * - Link tab: URL with copy button
- * - Embed tab: iframe code with copy button (story/point only)
+ * Design: Stacked layout — Link + Embed sections always visible (no tabs)
+ * - Link section: URL with copy button
+ * - Embed section: iframe code with copy button + Collapsed/Expanded preset (story/point only)
  * - Native share on mobile
  */
 export function ShareDialog({
@@ -44,22 +44,39 @@ export function ShareDialog({
   description,
   fromUserId,
 }: ShareDialogProps) {
-  const [activeTab, setActiveTab] = useState<ShareTab>('link');
-  const [copied, setCopied] = useState(false);
+  const [linkCopied, setLinkCopied] = useState(false);
+  const [embedCopied, setEmbedCopied] = useState(false);
+  const [embedPreset, setEmbedPreset] = useState<EmbedPreset>('collapsed');
   const hasNativeShare = typeof navigator !== 'undefined' && 'share' in navigator;
   const isEmbed = new URLSearchParams(window.location.search).get('embed') === 'true';
   const showEmbedOption = !isEmbed && (type === 'story' || type === 'point');
 
-  const embedParams = fromUserId ? `embed=true&from=${fromUserId}` : 'embed=true';
+  const buildEmbedParams = () => {
+    const parts = ['embed=true'];
+    if (fromUserId) parts.push(`from=${fromUserId}`);
+    if (embedPreset === 'expanded') parts.push('expanded=true');
+    return parts.join('&');
+  };
+
+  const embedParams = buildEmbedParams();
   const embedCode = `<iframe src="${url}?${embedParams}" width="100%" height="200" frameborder="0" style="border: none; overflow: hidden;" scrolling="no"></iframe>
 <script>window.addEventListener("message",function(e){if(e.data&&e.data.type==="claritypledge-embed-resize"){var frames=document.querySelectorAll('iframe[src*="claritypledge.com"]');frames.forEach(function(f){try{if(f.contentWindow===e.source){f.style.height=e.data.height+"px"}}catch(err){}})}});</script>`;
 
-  const handleCopy = async () => {
+  const handleCopyLink = async () => {
     try {
-      const textToCopy = activeTab === 'link' ? url : embedCode;
-      await navigator.clipboard.writeText(textToCopy);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+      await navigator.clipboard.writeText(url);
+      setLinkCopied(true);
+      setTimeout(() => setLinkCopied(false), 2000);
+    } catch (err) {
+      console.error('Failed to copy:', err);
+    }
+  };
+
+  const handleCopyEmbed = async () => {
+    try {
+      await navigator.clipboard.writeText(embedCode);
+      setEmbedCopied(true);
+      setTimeout(() => setEmbedCopied(false), 2000);
     } catch (err) {
       console.error('Failed to copy:', err);
     }
@@ -87,8 +104,9 @@ export function ShareDialog({
     <Dialog open={open} onOpenChange={(isOpen) => {
       onOpenChange(isOpen);
       if (!isOpen) {
-        setCopied(false);
-        setActiveTab('link');
+        setLinkCopied(false);
+        setEmbedCopied(false);
+        setEmbedPreset('collapsed');
       }
     }}>
       <DialogContent className="w-[calc(100%-2rem)] max-w-md mx-auto">
@@ -99,65 +117,93 @@ export function ShareDialog({
           </DialogDescription>
         </DialogHeader>
 
-        {/* Tabs - only show if embed option available */}
-        {showEmbedOption && (
-          <div className="flex gap-1 p-1 bg-gray-100 rounded-lg">
-            <button
-              onClick={() => { setActiveTab('link'); setCopied(false); }}
-              className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium rounded-md transition-colors ${
-                activeTab === 'link'
-                  ? 'bg-white text-gray-900 shadow-sm'
-                  : 'text-gray-600 hover:text-gray-900'
-              }`}
-            >
+        <div className="space-y-4">
+          {/* Link section */}
+          <div>
+            <div className="flex items-center gap-1.5 mb-1.5 text-sm font-medium text-gray-700">
               <Link2 size={14} />
               Link
-            </button>
-            <button
-              onClick={() => { setActiveTab('embed'); setCopied(false); }}
-              className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium rounded-md transition-colors ${
-                activeTab === 'embed'
-                  ? 'bg-white text-gray-900 shadow-sm'
-                  : 'text-gray-600 hover:text-gray-900'
-              }`}
-            >
-              <Code size={14} />
-              Embed
-            </button>
-          </div>
-        )}
-
-        {/* Content area */}
-        <div className="space-y-3">
-          {/* URL/Code display with inline copy button */}
-          <div className="flex items-stretch bg-gray-100 rounded-lg overflow-hidden">
-            <div className="flex-1 p-3 text-sm text-gray-600 font-mono overflow-x-auto max-h-24">
-              <pre className="whitespace-pre-wrap break-all">
-                {activeTab === 'link' ? url : embedCode}
-              </pre>
             </div>
-            <button
-              onClick={handleCopy}
-              className={`flex-shrink-0 px-3 flex items-center justify-center border-l border-gray-200 transition-colors ${
-                copied
-                  ? 'bg-green-100 text-green-700'
-                  : 'bg-gray-50 text-gray-500 hover:bg-gray-200 hover:text-gray-700'
-              }`}
-              aria-label={copied ? 'Copied' : (activeTab === 'link' ? 'Copy link' : 'Copy embed code')}
-            >
-              {copied ? <Check size={18} /> : <Copy size={18} />}
-            </button>
+            <div className="flex items-stretch bg-gray-100 rounded-lg overflow-hidden">
+              <div className="flex-1 p-3 text-sm text-gray-600 font-mono overflow-x-auto max-h-24">
+                <pre className="whitespace-pre-wrap break-all">{url}</pre>
+              </div>
+              <button
+                onClick={handleCopyLink}
+                className={`flex-shrink-0 px-3 flex items-center justify-center border-l border-gray-200 transition-colors ${
+                  linkCopied
+                    ? 'bg-green-100 text-green-700'
+                    : 'bg-gray-50 text-gray-500 hover:bg-gray-200 hover:text-gray-700'
+                }`}
+                aria-label={linkCopied ? 'Copied' : 'Copy link'}
+              >
+                {linkCopied ? <Check size={18} /> : <Copy size={18} />}
+              </button>
+            </div>
+
+            {/* Native share button (mobile) */}
+            {hasNativeShare && (
+              <Button
+                onClick={handleNativeShare}
+                className="w-full mt-2 bg-blue-500 hover:bg-blue-600"
+              >
+                <Share2 size={16} className="mr-2" />
+                Share...
+              </Button>
+            )}
           </div>
 
-          {/* Native share button (mobile) - only for link tab */}
-          {hasNativeShare && activeTab === 'link' && (
-            <Button
-              onClick={handleNativeShare}
-              className="w-full bg-blue-500 hover:bg-blue-600"
-            >
-              <Share2 size={16} className="mr-2" />
-              Share...
-            </Button>
+          {/* Embed section */}
+          {showEmbedOption && (
+            <div>
+              <div className="flex items-center gap-1.5 mb-1.5 text-sm font-medium text-gray-700">
+                <Code size={14} />
+                {'</>'} Embed
+              </div>
+              <div className="flex items-stretch bg-gray-100 rounded-lg overflow-hidden">
+                <div className="flex-1 p-3 text-sm text-gray-600 font-mono overflow-x-auto max-h-24">
+                  <pre className="whitespace-pre-wrap break-all">{embedCode}</pre>
+                </div>
+                <button
+                  onClick={handleCopyEmbed}
+                  className={`flex-shrink-0 px-3 flex items-center justify-center border-l border-gray-200 transition-colors ${
+                    embedCopied
+                      ? 'bg-green-100 text-green-700'
+                      : 'bg-gray-50 text-gray-500 hover:bg-gray-200 hover:text-gray-700'
+                  }`}
+                  aria-label={embedCopied ? 'Copied' : 'Copy embed code'}
+                >
+                  {embedCopied ? <Check size={18} /> : <Copy size={18} />}
+                </button>
+              </div>
+
+              {/* Preset row: Collapsed / Expanded */}
+              <div className="mt-2">
+                <span className="text-xs text-gray-500">Linked content:</span>
+                <div className="flex gap-1 mt-1 p-1 bg-gray-100 rounded-lg">
+                  <button
+                    onClick={() => { setEmbedPreset('collapsed'); setEmbedCopied(false); }}
+                    className={`flex-1 px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
+                      embedPreset === 'collapsed'
+                        ? 'bg-white text-gray-900 shadow-sm'
+                        : 'text-gray-600 hover:text-gray-900'
+                    }`}
+                  >
+                    Collapsed
+                  </button>
+                  <button
+                    onClick={() => { setEmbedPreset('expanded'); setEmbedCopied(false); }}
+                    className={`flex-1 px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
+                      embedPreset === 'expanded'
+                        ? 'bg-white text-gray-900 shadow-sm'
+                        : 'text-gray-600 hover:text-gray-900'
+                    }`}
+                  >
+                    Expanded
+                  </button>
+                </div>
+              </div>
+            </div>
           )}
         </div>
       </DialogContent>

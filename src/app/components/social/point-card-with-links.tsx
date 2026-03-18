@@ -112,7 +112,7 @@ export function PointCardWithLinks({
   viewerStoryId,
   tags,
 }: PointCardWithLinksProps) {
-  const { isEmbed, embedNavigate } = useEmbedNavigation();
+  const { isEmbed, isExpanded, embedNavigate } = useEmbedNavigation();
   const rawText = stripHashtags(point.text, tags);
   const fullText = rawText;
   // Truncate long point text in embeds to keep iframe compact
@@ -132,7 +132,7 @@ export function PointCardWithLinks({
     }
     return null;
   });
-  const [storiesExpanded, setStoriesExpanded] = useState(isEmbed);
+  const [storiesExpanded, setStoriesExpanded] = useState(isExpanded);
 
   const handleStoriesToggle = () => {
     setStoriesExpanded(!storiesExpanded);
