@@ -93,8 +93,8 @@ export function StoryCardWithLinks({
   tags,
 }: StoryCardWithLinksProps) {
   const { isEmbed, embedNavigate } = useEmbedNavigation();
-  // In embed mode, auto-expand points so the author's position is visible
-  const [pointsExpanded, setPointsExpanded] = useState(isDetailView || isEmbed);
+  // Points collapsed by default — position badge outside quoted box already shows author's stance
+  const [pointsExpanded, setPointsExpanded] = useState(isDetailView);
   const [textExpanded, setTextExpanded] = useState(false);
 
   // Toggle linked points expansion (works in both embed and regular mode)
@@ -508,7 +508,7 @@ function QuotedPoint({
   currentUserId?: string;
   viewerStoryCount?: number;
 }) {
-  const { embedNavigate } = useEmbedNavigation();
+  const { isEmbed, embedNavigate } = useEmbedNavigation();
   const [userPosition, setUserPosition] = useState<PositionType | null>(
     currentUserId ? point.positions[currentUserId]?.position || null : null
   );
@@ -604,8 +604,8 @@ function QuotedPoint({
           </div>
         </div>
 
-        {/* P456: Story CTA footer — shown when viewer has taken a position */}
-        {userPosition && (() => {
+        {/* P456: Story CTA footer — hidden in embeds (read-only previews) */}
+        {!isEmbed && userPosition && (() => {
           const positionGroup = getPositionGroup(userPosition);
           const copy = getPositionCTACopy(positionGroup);
           const chatUrl = `/create?pointId=${point.id}`;
