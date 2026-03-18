@@ -1,12 +1,15 @@
 ---
-status: done
+status: all-done
 type: story
-rank: 2.0
-tags: [pledge, settings, off-boarding]
+rank: 2
+tags:
+  - pledge
+  - settings
+  - off-boarding
 flow: inline
 delivery_stage: done
 created_date: '2026-03-15'
-completed_at: '2026-03-16'
+locked_at: '2026-03-18T08:10:22.410Z'
 ---
 
 # P524: Withdraw Pledge Toggle

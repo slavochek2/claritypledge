@@ -1,6 +1,5 @@
 ---
-status: done
-completed_at: '2026-03-17'
+status: all-done
 type: task
 rank: 0.875
 workstream: foundation
@@ -9,7 +8,7 @@ tags:
   - process
   - kdd
   - skills
-locked_at: '2026-03-17T08:27:44.802Z'
+locked_at: '2026-03-18T08:10:19.882Z'
 ---
 
 # P541 — /kdd Decision Follow-up Tracking

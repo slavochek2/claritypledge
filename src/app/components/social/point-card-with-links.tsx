@@ -400,6 +400,7 @@ export function PointCardWithLinks({
                         type="point"
                         id={point.id}
                         description={point.text.slice(0, 100)}
+                        fromUserId={profileOwner?.id}
                       />
                     )}
                     {(isEmbed || (!isDetailView && !disableNavigation)) && (

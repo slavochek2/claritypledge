@@ -1,5 +1,5 @@
 ---
-status: done
+status: all-done
 type: story
 rank: 125002.875
 tags:
@@ -8,7 +8,6 @@ tags:
   - diarization
   - c3
 prepped_date: '2026-03-12'
-completed_at: '2026-03-16'
 flow: dev
 delivery_stage: uat
 reviews:
@@ -22,7 +21,7 @@ test_files:
   - e2e/p495-transcription.spec.ts
   - e2e/a11y/p495-accessibility.spec.ts
   - e2e/p495-smoke.spec.ts
-locked_at: '2026-03-15T08:05:20.374Z'
+locked_at: '2026-03-18T08:10:26.420Z'
 ---
 
 # P495: Automatic Live Session Transcription with Speaker Labels

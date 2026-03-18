@@ -1,6 +1,5 @@
 ---
-status: done
-completed_at: '2026-03-16'
+status: all-done
 type: task
 rank: 250012.75
 workstream: foundation
@@ -11,6 +10,7 @@ tags:
   - refactor
 test_files:
   - src/tests/p537-useauth-reference-stability.test.tsx
+locked_at: '2026-03-18T08:10:39.926Z'
 ---
 
 # TASK: P537 — Memoize useAuth() return values
