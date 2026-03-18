@@ -1,7 +1,7 @@
 # Done Features Index
 
 Quick reference for past completed work. Consult when starting work on a related topic.
-Last updated: 2026-03-17 (P542 story collapse chevron)
+Last updated: 2026-03-18 (P548 embed collapse control)
 
 ---
 
@@ -77,6 +77,7 @@ Last updated: 2026-03-17 (P542 story collapse chevron)
 
 ## UI / Design System
 
+- **P548** (Mar 18) Embed Collapse Control — `window.location.search` is non-reactive in hooks; swap for `useLocation`; ShareDialog tabs were invisible (gray-on-gray) → stacked layout with always-visible sections; /falsify killed "just remove auto-expand" for foreclosing future flexibility
 - **P531** (Mar 16) Standardize page widths to max-w-2xl — cards are width-agnostic (fill parent); fix page containers not cards; `/review-all` caught missed `profile-connections-page`
 - **P532** (Mar 16) Point card action row overflow — `flex-wrap` on footer rows; always check 320px viewport for flex layouts with variable-width text
 - **ClarityLoader** (Mar 16) Branded loading animation — CSS-only anti-flash (300ms delay) prevents flash on fast loads; JS timers in loading components break auth flow tests via extra re-renders

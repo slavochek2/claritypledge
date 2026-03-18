@@ -2,6 +2,14 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-18 [technical]: Embed default collapsed + expanded URL param (P548)
+
+**Context:** Story and point embeds auto-expanded linked content, taking excessive vertical space in blog posts. Both components hardcoded `isEmbed` into `useState` initializers. /innovate generated 30 alternatives; /falsify tested top 3 against first principles.
+**Decision:** Default both embeds to collapsed. Add `?expanded=true` URL param for opt-in expansion. ShareDialog generates the param — user never types it manually. The /falsify critique ("permanent API surface for one author") was resolved because the dialog handles URL construction, not the user.
+**Alternatives rejected:** (A) Just remove auto-expand, no param — forecloses ability to ever have expanded embeds. (B) Remove linked content from embeds entirely — non-proportional, loses value of showing author's stance on linked points.
+**Consequences:** `useEmbedNavigation` hook now returns `{ isEmbed, isExpanded, embedNavigate }`. Existing `?embed=true` URLs become collapsed (intentional). ShareDialog redesigned: stacked Link + Embed sections (no tabs), Collapsed/Expanded preset row under embed code.
+**References:** `features/done/24_mar_26/p548_embed_collapse_control.md`
+
 ## 2026-03-18 [product]: Coach-as-channel — filed as hypothesis (H-CoachChannel), not promoted to primary
 
 **Context:** Conversation analysis (36 Claude.ai conversations, Mar 10-18) surfaced consistent signal: Canvas v2 falsification rejected EA investors (pool too small), validated coaching market ($100B+, existing alignment vocabulary, active tool adoption). Multiple conversations positioned coaches as PRIMARY distribution channel.
