@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Share2, Copy, Check, Link2, Code } from 'lucide-react';
 import { MobileTooltip } from './mobile-tooltip';
 import {
@@ -51,16 +51,14 @@ export function ShareDialog({
   const isEmbed = new URLSearchParams(window.location.search).get('embed') === 'true';
   const showEmbedOption = !isEmbed && (type === 'story' || type === 'point');
 
-  const buildEmbedParams = () => {
+  const embedCode = useMemo(() => {
     const parts = ['embed=true'];
     if (fromUserId) parts.push(`from=${fromUserId}`);
     if (embedPreset === 'expanded') parts.push('expanded=true');
-    return parts.join('&');
-  };
-
-  const embedParams = buildEmbedParams();
-  const embedCode = `<iframe src="${url}?${embedParams}" width="100%" height="200" frameborder="0" style="border: none; overflow: hidden;" scrolling="no"></iframe>
+    const params = parts.join('&');
+    return `<iframe src="${url}?${params}" width="100%" height="200" frameborder="0" style="border: none; overflow: hidden;" scrolling="no"></iframe>
 <script>window.addEventListener("message",function(e){if(e.data&&e.data.type==="claritypledge-embed-resize"){var frames=document.querySelectorAll('iframe[src*="claritypledge.com"]');frames.forEach(function(f){try{if(f.contentWindow===e.source){f.style.height=e.data.height+"px"}}catch(err){}})}});</script>`;
+  }, [url, fromUserId, embedPreset]);
 
   const handleCopyLink = async () => {
     try {
