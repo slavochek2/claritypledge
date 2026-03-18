@@ -72,6 +72,7 @@ locked_at: '2026-03-15T14:22:58.149Z'
 13. **Point detail page:** "Responses" section shown BELOW "Positions" section. Section header includes "Respond" button. Response cards are standard point cards with PositionButtons (differentiator from story cards).
 14. **Feed cards:** Show 💬 count badge only (no "Responding to" text). Click navigates to point detail.
 15. **Profile Points tab:** No change — responses ARE points, appear naturally. No new tab.
+16a. **Response point icon:** Response points show a small ↩ reply arrow overlay (12px, `CornerDownLeft` lucide icon) at bottom-right of the pin circle. Standalone points: pin only. Works on all card contexts (feed, profile, responses section). No color change — arrow is `text-slate-500` on `bg-white rounded-full` backing.
 16. **Flat display:** Each point shows only its DIRECT responses. No tree view. Follow chains by clicking through.
 17. **Scale (200+ responses):** Progressive disclosure — first 3 chronological, "Show N more" with count. (Dropped "position-diverse" — no diversity algorithm exists; if interleaving is wanted later, define real requirements.)
 18. **Empty state (0 responses):** Show section header + Respond button. No list area, no "No responses yet" text.
@@ -141,7 +142,7 @@ locked_at: '2026-03-15T14:22:58.149Z'
 - [ ] Profile "Share a Story" becomes "Share ▾" with same dropdown
 - [ ] "📌 Point" navigates to `/create-point`
 - [ ] `/create-point` page: statement textarea (1000 chars) + PositionButtons + "Publish Point" button
-- [ ] When navigated from "Respond" button: "Responding to" field pre-filled and read-only. When standalone: no reference field (search deferred to V2)
+- [ ] Optional "Responding to" field: pre-filled and read-only when from "Respond" button; client-side search/filter when standalone (same pattern as StorySearchPicker — load all points, filter by text match, ~20 lines)
 - [ ] Created point appears in feed and profile Points tab
 
 ### Point Responses
@@ -154,6 +155,7 @@ locked_at: '2026-03-15T14:22:58.149Z'
 - [ ] "Responding to" NOT shown on feed cards or profile cards
 - [ ] Feed cards: 💬 count badge when responses > 0 (new data requirement — response count needed in feed queries)
 - [ ] Response cards in Responses section: standard point cards with PositionButtons
+- [ ] Response point cards show ↩ reply arrow overlay on pin icon (all contexts: feed, profile, responses section)
 - [ ] First 3 responses chronological, "Show N more" with count when > 3
 - [ ] Self-reference prevented (CHECK source_point_id != target_point_id)
 - [ ] Unverified user clicks Respond → redirect to auth (useVerificationGate pattern)
@@ -303,12 +305,18 @@ Click [Respond] → /create-point?respondTo=<id>
 │ Your position:                     │
 │ [Dis][?][Agree]                    │
 │                                    │
+│ Responding to: (optional)          │
+│ [🔍 Search points...]             │
+│                                    │
+│ (when selected:)                   │
+│ 📌 "Climate policy…"  [✕ remove]  │
+│                                    │
 │           [Publish Point]          │
 └────────────────────────────────────┘
 
-(No reference field on standalone create.
- Search deferred to V2. References only via
- "Respond" button on point detail page.)
+(Client-side search: loads all points, filters
+ by statement text match. Same pattern as
+ StorySearchPicker. ~20 lines of code.)
 ```
 
 ### Chain Example — A → B → C (Flat Display)
@@ -333,15 +341,21 @@ No tree view. Follow chains by clicking through.
 │ Points (5) | Stories (3)           │
 │                                    │
 │ ┌──────────────────────────────┐   │
-│ │📌 "Nuclear is the bridge…"  │   │
+│ │📌  "Nuclear is the bridge…" │   │  standalone point (pin only)
 │ │ [Dis][?][Agree]    💬2 [🔗] │   │  response count visible
 │ └──────────────────────────────┘   │
 │ ┌──────────────────────────────┐   │
-│ │📌 "Remote work reduces…"    │   │
-│ │ [Dis][?][Agree]        [🔗] │   │  no 💬 = no responses
+│ │📌↩ "Transition costs are     │   │  response point (pin + ↩ overlay)
+│ │     overestimated"           │   │
+│ │ [Dis][?][Agree]        [🔗] │   │
+│ └──────────────────────────────┘   │
+│ ┌──────────────────────────────┐   │
+│ │📌  "Remote work reduces…"   │   │  standalone (no ↩)
+│ │ [Dis][?][Agree]        [🔗] │   │
 │ └──────────────────────────────┘   │
 
 Responses ARE points — appear naturally in Points tab.
-No "Responding to" shown on profile cards.
+↩ overlay on pin icon distinguishes responses from standalone.
+No "Responding to" text on profile cards. Click through for context.
 No new tab needed.
 ```
