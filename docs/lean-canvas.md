@@ -90,7 +90,7 @@ Audience for recognition and thought leadership — rationalists, AI researchers
 | Team communication | FUTURE | Clear ROI after dyad model proves out |
 | Personal AI calibration | PARKED | Digital twin market growing; revisit after recognition track fires |
 | AI alignment research | PARKED | Needs session data corpus |
-| Coach/OD calibration tool | EXPLORE | $100B+ market, coaches already have alignment vocabulary; ClarityPledge adds comprehension accuracy they lack (vs DISC/MBTI/360). Falsification-tested in Canvas v2. |
+| Coach/OD calibration tool | EXPLORE (see H-CoachChannel) | $100B+ market, coaches already have alignment vocabulary; ClarityPledge adds comprehension accuracy they lack (vs DISC/MBTI/360). Falsification-tested in Canvas v2. Coaching channel survived falsification (large market, active tool adoption, existing problem awareness); EA investor channel rejected (too small). |
 
 ---
 
@@ -137,6 +137,8 @@ For rationalists, AI researchers, and those building personal AI agents. **Parke
 > **Scale your inner world — know who understood you, how well, and where they diverge — without being present for every conversation.**
 
 Stories let authors verify understanding at scale without repeating themselves.
+
+**Strategic through-line (2026-03-18):** Every coaching session, workshop, and facilitated conversation generates labeled calibration data — measured gaps between perceived and actual understanding. The coaching service IS the data collection mechanism. Long-term, this dataset powers mirror agents and predictive misunderstanding detection. "Intelligence infrastructure for human understanding" is what connects service revenue to platform vision.
 
 ---
 

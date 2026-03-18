@@ -47,6 +47,16 @@ Our active bets, in priority order. This is the map of what we still need to pro
 
 ---
 
+### H-CoachChannel: Executive coaches adopt calibration protocol as differentiated tool and become primary distribution channel
+**Bet:** Executive/leadership coaches will adopt the calibration protocol because it gives them something DISC/MBTI/360 miss — measured comprehension accuracy, not self-reported personality. Coaches deploy it in their existing client relationships, becoming the distribution channel for ClarityPledge.
+**Testing via:** Identify 3-5 coaches (executive coaches, OD consultants). Offer free protocol training + tool access. Measure: do they use it with clients? Do clients convert to ClarityPledge sessions or retainers?
+**Kill if:** Zero coaches adopt after training 5, OR coaches commodify it to a personality-quiz-like checkbox (depth not preserved).
+**Blocked by:** H-PairsReturn — need proven session value before approaching coaches. Slava must demonstrate coaching with the protocol himself first.
+**Unblocked when:** 3+ facilitated sessions completed with measurable outcomes. At least one case study ready to show coaches.
+**Notes (2026-03-18):** Surfaced from Canvas v2 falsification process. EA investor channel rejected (pool too small). Coaching market ($100B+) has existing alignment vocabulary, active tool adoption, and problem awareness. Key risk: commodification — coaches may reduce calibration to a checkbox if depth isn't structurally preserved. Key question: "Does selling a coach-deployed assessment tool lead toward or away from the mirror agent vision?"
+
+---
+
 ### H-CalibrationTrainable: Calibration accuracy is trainable and measurably improves through /live feedback loops
 **Bet:** Users practicing the explain-back protocol through /live will reduce their understanding gaps over repeated sessions, improving calibration accuracy (confidence matching reality).
 **Testing via:** First Pairs + C3 sessions — track Understanding Gap reduction across sessions for the same user pairs.
@@ -264,6 +274,7 @@ ACTIVE NOW — First Pairs (March 2026)
 │   └─ if yes → H-Retainers-Sticky (will they pay for ongoing "Fractional Clarity Officer"?)
 ├─ H-Stories-ColdStart (First Pairs step 2) — does filed content feed the FCO loop?
 ├─ H-CalibrationTrainable (passive — measured across all sessions)
+├─ H-CoachChannel (coaches as distribution — blocked by H-PairsReturn)
 └─ H-AICalib-EntryTeaser (park until group acquisition, sessions #3-10)
 
 BLOCKED — Waiting on First Pairs validation

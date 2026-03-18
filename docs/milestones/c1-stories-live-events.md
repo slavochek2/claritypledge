@@ -36,6 +36,8 @@ See [H-PairsReturn](../hypotheses.md#h-pairsreturn-co-founder-pairs-recognize-th
 
 Slava is the doctor. /live is the stethoscope. Pairs don't need to learn the stethoscope.
 
+**Two session archetypes (2026-03-18):** (1) **Crisis pairs** with felt gaps — session reveals the existing gap, emotion is already present. (2) **Proactive healthy pairs** with no felt gap yet — session teaches the protocol so they have the instrument before pressure hits. Design differs: crisis pairs need contained reveal; proactive pairs need compelling demonstration that gaps exist even in "aligned" teams.
+
 **Session (45-60 min):**
 1. Ask Founder A: "Explain your position on [real decision]"
 2. Ask Founder B: "Tell me what A just said"
