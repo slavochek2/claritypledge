@@ -124,6 +124,12 @@ vi.mock('@/app/data/calibration-service', () => ({
   },
 }));
 
+vi.mock('@/app/data/agreements-service', () => ({
+  agreementsService: {
+    getAgreementsForProfile: vi.fn().mockResolvedValue([]),
+  },
+}));
+
 describe('ProfilePageV2 - Points Tab Regression (P136)', () => {
   const mockProfile = {
     id: 'user-1',
