@@ -1085,14 +1085,19 @@ export function StoryDetailPage() {
       avatarColor: story.authorAvatarColor,
     };
 
-    // Convert linked points for display
-    const embedPoints: ProtoPoint[] = story.points.map(p => ({
-      id: p.id,
-      text: p.statement,
-      createdAt: p.createdAt,
-      positions: {},
-      linkedStoryIds: [],
-    }));
+    // Convert linked points for display — include story author's position so QuotedPoint shows their stance
+    const embedPoints: ProtoPoint[] = story.points.map(p => {
+      const authorPos = storyAuthorPositions.get(p.id);
+      return {
+        id: p.id,
+        text: p.statement,
+        createdAt: p.createdAt,
+        positions: authorPos
+          ? { [story.authorId]: { position: authorPos.position, timestamp: authorPos.createdAt } }
+          : {},
+        linkedStoryIds: [],
+      };
+    });
 
     return (
       <div className="max-w-[550px] mx-auto" style={{ overflow: 'hidden' }} ref={(el) => {

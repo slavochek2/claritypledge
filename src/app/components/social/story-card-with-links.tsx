@@ -93,9 +93,11 @@ export function StoryCardWithLinks({
   tags,
 }: StoryCardWithLinksProps) {
   const { isEmbed, embedNavigate } = useEmbedNavigation();
-  const [pointsExpanded, setPointsExpanded] = useState(isDetailView);
+  // In embed mode, auto-expand points so the author's position is visible
+  const [pointsExpanded, setPointsExpanded] = useState(isDetailView || isEmbed);
   const [textExpanded, setTextExpanded] = useState(false);
 
+  // Toggle linked points expansion (works in both embed and regular mode)
   const handlePointsToggle = () => {
     setPointsExpanded(!pointsExpanded);
   };
@@ -396,7 +398,7 @@ export function StoryCardWithLinks({
             )}
           </div>
 
-          {/* Linked points - expanded content */}
+          {/* Linked points - expanded content (shown in embed to display author's stance) */}
           {pointsExpanded &&
             linkedPoints.length > 0 &&
             (() => {
