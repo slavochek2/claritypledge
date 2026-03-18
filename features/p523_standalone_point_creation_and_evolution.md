@@ -1,7 +1,7 @@
 ---
 status: today
 type: story
-rank: 0.75
+rank: 0.024
 tags:
   - points
   - references
@@ -179,3 +179,168 @@ See conversation history for full ASCII wireframes. Key screens:
 1. **Run `/ux`** — formalize flows, edge cases, accessibility, responsive, component analysis
 2. **Run `/architect`** — junction table, RLS, service layer, create-point route
 3. **Run `/generate-tests`** → **`/spec-review`** → **`/dev`** → **`/verify`**
+
+## ASCII Wireframes
+
+### Feed — Create Dropdown + Response Count
+
+```
+┌────────────────────────────────────┐
+│ Home                [+ Create ▾]   │
+│                     ┌────────────┐ │
+│                     │ 📝 Story   │ │
+│                     │ 📌 Point   │ │
+│                     └────────────┘ │
+│ Points | Stories                   │
+├────────────────────────────────────┤
+│ ┌──────────────────────────────┐   │
+│ │📌 "Climate policy must..."  │   │
+│ │ [Dis][?][Agree]    💬3 [🔗] │   │
+│ └──────────────────────────────┘   │
+│ ┌──────────────────────────────┐   │
+│ │📌 "Remote work reduces..."  │   │
+│ │ [Dis][?][Agree]        [🔗] │   │
+│ └──────────────────────────────┘   │
+└────────────────────────────────────┘
+```
+
+### Point Detail — Full Page (Corrected Order)
+
+```
+┌────────────────────────────────────┐
+│ ← Back                            │
+│                                    │
+│ Responding to:                     │  ← only if this point
+│ 📌 "Climate policy must…"         │     responds to another
+│ · Disagree →                       │  ← author's position on original
+│                                    │
+│ 📌 "Nuclear is the bridge         │
+│    we're ignoring"                 │
+│ #energy #nuclear                   │
+│                                    │
+│ [Dis][?][Agree]                    │
+│────────────────────────────────────│
+│                            [🔗]   │  ← share only in footer
+│                                    │
+│ ── Positions (8) ─────────────── │  ← POSITIONS FIRST
+│ [All][Agree][Dis][?]               │
+│ ┌──────────────────────────────┐   │
+│ │ @bob  Strongly Agree         │   │
+│ │ └─ Story: "I researched..."  │   │
+│ └──────────────────────────────┘   │
+│ ┌──────────────────────────────┐   │
+│ │ @carol  Disagree             │   │
+│ └──────────────────────────────┘   │
+│                                    │
+│ ── Responses (2) ─── [Respond] ── │  ← RESPONSES BELOW
+│ ┌──────────────────────────────┐   │
+│ │📌 "Nuclear waste storage     │   │
+│ │    remains unsolved"         │   │  standard point card
+│ │ [Dis][?][Agree]        [🔗] │   │  with PositionButtons
+│ └──────────────────────────────┘   │
+│ ┌──────────────────────────────┐   │
+│ │📌 "Thorium reactors solve    │   │
+│ │    the waste problem"        │   │
+│ │ [Dis][?][Agree]        [🔗] │   │
+│ └──────────────────────────────┘   │
+│                                    │
+│ Show 44 more                       │
+│ (12 agree, 8 disagree, 24 unsure) │
+└────────────────────────────────────┘
+```
+
+### Point Detail — Empty Responses (0)
+
+```
+│ ── Positions (3) ─────────────── │
+│ [holders...]                       │
+│                                    │
+│ ── Responses (0) ─── [Respond] ── │  ← header + button visible
+│                                    │     no list, no empty text
+│                                    │
+```
+
+### Respond Flow — Navigate to /create-point
+
+```
+Click [Respond] → /create-point?respondTo=<id>
+
+┌────────────────────────────────────┐
+│ ← Back                            │
+│                                    │
+│ Make a Point                       │
+│                                    │
+│ Responding to:                     │
+│ 📌 "Nuclear is the bridge…"       │  ← read-only, pre-filled
+│                                    │
+│ ┌──────────────────────────────┐   │
+│ │ State your claim...          │   │
+│ └──────────────────────────────┘   │
+│ 0/1000                             │
+│                                    │
+│ Your position:                     │
+│ [Dis][?][Agree]                    │
+│                                    │
+│           [Publish Point]          │
+└────────────────────────────────────┘
+```
+
+### /create-point — Standalone (from Create dropdown)
+
+```
+┌────────────────────────────────────┐
+│ ← Back                            │
+│                                    │
+│ Make a Point                       │
+│ ┌──────────────────────────────┐   │
+│ │ State your claim...          │   │
+│ └──────────────────────────────┘   │
+│ 0/1000                             │
+│                                    │
+│ Your position:                     │
+│ [Dis][?][Agree]                    │
+│                                    │
+│ Responding to: (optional)          │
+│ [🔍 Search points...]             │
+│                                    │
+│ (when selected:)                   │
+│ 📌 "Climate policy…"  [✕ remove]  │
+│                                    │
+│           [Publish Point]          │
+└────────────────────────────────────┘
+```
+
+### Chain Example — A → B → C (Flat Display)
+
+```
+Point A: "Climate policy must account for transition costs"
+  └─ Response B: "Nuclear is the bridge we're ignoring"
+       └─ Response C: "Nuclear waste storage remains unsolved"
+
+Each shows only DIRECT responses:
+
+Point A detail → Responses: [B]
+Point B detail → Responding to: A | Responses: [C]
+Point C detail → Responding to: B | Responses: (none)
+
+No tree view. Follow chains by clicking through.
+```
+
+### Profile — Points Tab (No Change)
+
+```
+│ Points (5) | Stories (3)           │
+│                                    │
+│ ┌──────────────────────────────┐   │
+│ │📌 "Nuclear is the bridge…"  │   │
+│ │ [Dis][?][Agree]    💬2 [🔗] │   │  response count visible
+│ └──────────────────────────────┘   │
+│ ┌──────────────────────────────┐   │
+│ │📌 "Remote work reduces…"    │   │
+│ │ [Dis][?][Agree]        [🔗] │   │  no 💬 = no responses
+│ └──────────────────────────────┘   │
+
+Responses ARE points — appear naturally in Points tab.
+No "Responding to" shown on profile cards.
+No new tab needed.
+```
