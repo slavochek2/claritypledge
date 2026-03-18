@@ -2,6 +2,14 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-18 [product]: Prod points must pass sifter-point quality gate — audit found 7 of 9 failing
+
+**Context:** Audited all 9 prod points against the sifter-point skill's own criteria (falsifiable, counterfactual, hard-to-vary, stranger test, disagreement filter, mechanism/stance type). Only Points 3 and 4 pass. Issues: Point 7 is a CTA (not a point), Points 8 & 9 are duplicates, Point 5 mixes mechanism with stance, Point 6 is near-redundant with Point 3, Point 2 hedges its claim into unfalsifiability, and 6 of 9 use em dashes (banned). Four points contain marketing hyperlinks (fails stranger test).
+**Decision:** Two distinct point types are now explicit: **mechanism** (third-person, impersonal — "The speaker knows what they meant") and **stance** (first-person, personal rule — "I treat every agreement as a test"). These must not be conflated in a single point. Prod insertion requires passing the same quality gate that sifter-point applies during extraction. P544 tracks the cleanup work (blocked by P523).
+**Alternatives rejected:** (1) Leave prod points as-is — they're the first thing users see; quality matters. (2) Rewrite now before P523 — P523 may change point schema/versioning; rewrites should land on the new schema.
+**Consequences:** Future point creation (whether via sifter or manual) must pass: falsifiable, counterfactual, hard-to-vary, stranger test, no marketing links in statement text. The mechanism/stance distinction should be reflected in definitions.md when P523 lands.
+**References:** [sifter-point.md](../.claude/commands/slava/content/sifter-point.md), [sifter-definitions.md](../.claude/commands/slava/content/sifter-definitions.md), [P544](../features/p544_prod_point_quality_audit.md)
+
 ## 2026-03-18 [technical]: Remove stale embed expand guards — ResizeObserver already handles iframe height
 
 **Context:** Blog embeds showed "1 point" / "1 story" as clickable labels, but clicking navigated to a new tab instead of expanding inline. The code had `isEmbed` guards with comments saying "iframe can't resize." Meanwhile, a `ResizeObserver` + `postMessage` resize mechanism had been added to both `story-detail-page.tsx` and `point-detail-page.tsx` — and was already working (position dropdown proved it).

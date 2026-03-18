@@ -140,6 +140,8 @@ Both can be used together — localhost for visual pass, Playwright for prod DB 
 
 ### Step 3: Pre-flight
 
+**Data prerequisite:** Before opening the browser, confirm the scenario's test entity has the required data shape (e.g., a story with linked points, a user with positions). Query the DB or check local state. No valid entity = no visual verification — report what's missing and ask.
+
 Check the dev server is running:
 ```bash
 curl -s http://localhost:5001 -o /dev/null -w "%{http_code}" 2>/dev/null
