@@ -32,18 +32,18 @@ Each session is ONE file: `.private/sifter/sessions/{session-name}.md`
 
 ## Story vs Point (Core Distinction)
 
-| | Story | Point |
-|---|-------|-------|
-| **Voice** | First-person ("I") | Third-person / impersonal |
-| **Contains** | Feelings, needs, personal observations | Claims about shared reality |
-| **Ownership** | Has an author with lived experience | Anyone can evaluate independently |
-| **Test** | "Does this capture MY experience?" | "Is this true about the world?" |
-| **Agreement** | Not applicable — it's their experience | Anyone can agree or disagree |
+| | Story | Point (Mechanism) | Point (Stance) |
+|---|-------|-------------------|----------------|
+| **Voice** | First-person ("I") | Third-person / impersonal | First-person ("I do/won't/require") |
+| **Contains** | Feelings, needs, personal observations | Claims about how things work | Personal rules, criteria, commitments |
+| **Ownership** | Has an author with lived experience | Anyone can evaluate independently | Author's standard — anyone can observe if they hold the line |
+| **Test** | "Does this capture MY experience?" | "Is this true about the world?" | "Does this person actually do what they claim?" |
+| **Agreement** | Not applicable — it's their experience | Anyone can agree or disagree | Anyone can agree or disagree with the standard |
 
 **Why this matters:**
 - Stories express subjective experience → owned by the author, validated by the author
-- Points describe shared reality → anyone can agree/disagree, testable by anyone
-- A "Point" in first-person is actually a story fragment
+- Mechanism points describe shared reality → testable by anyone
+- Stance points describe personal standards → falsifiable by observing the person's behavior
 - A "Story" that nobody can disagree with is too abstract
 
 ---
@@ -79,21 +79,26 @@ A story is first-person, personal, experiential. It has an OWNER.
 
 **The test:** Does it explain WHY something happens, or just describe WHAT happens?
 
-A point is third-person, impersonal. It has NO owner — anyone can evaluate it.
+**Two valid point types:**
 
-### Structural Gate (checked BEFORE scoring)
+| Type | Voice | Example |
+|------|-------|---------|
+| **Mechanism** | Third-person, impersonal | "The speaker knows what they meant, so they can't detect when their words failed" |
+| **Stance** | First-person, personal rule | "I treat every agreement as a test of intellectual integrity" |
 
-**Automatic disqualification if Point contains:**
-- "I" statements (unless quoting dialogue as example)
-- Feelings or needs ("I'm tired," "I want," "frustrating")
-- Personal observations that can't be generalized
-
-**Valid Point structures:**
+**Mechanism point structures:**
 - "The speaker... the listener..." (role-based)
 - "When X happens, Y follows" (mechanism)
 - "Without X, you can't Y" (dependency)
 - Impersonal "you" meaning "one" or "anyone"
 - "People who... tend to..." (generalizable observation)
+
+**Stance point structures:**
+- "I [do/won't/require] X because Y" (personal rule with reasoning)
+- "I treat X as Y" (personal criterion)
+- First-person is required — third-person strips the authority
+
+Both types are falsifiable. Both are valid. Quality scores are feedback on how testable the claim is, not a gate on whether it can be published.
 
 ### The Agreement Test
 
