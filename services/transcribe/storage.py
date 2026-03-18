@@ -152,10 +152,35 @@ def update_job_status(
     logger.info("Job %s → %s", job_id, status)
 
 
+STALE_JOB_MINUTES = 30
+
+
 def get_pending_job() -> Optional[dict]:
-    """Get the oldest pending transcription job."""
+    """Get the oldest pending transcription job.
+
+    Also resets jobs stuck in 'processing' for >30 min back to 'pending'
+    (instance crashed without updating status).
+    """
     client = _get_client()
 
+    # Reset stale processing jobs
+    from datetime import datetime, timezone, timedelta
+    cutoff = (datetime.now(timezone.utc) - timedelta(minutes=STALE_JOB_MINUTES)).isoformat()
+    stale = (
+        client.table("transcription_jobs")
+        .select("id, session_code")
+        .eq("status", "processing")
+        .lt("updated_at", cutoff)
+        .execute()
+    )
+    for job in (stale.data or []):
+        logger.warning("Resetting stale job %s (session %s) — stuck in processing >%d min",
+                        job["id"], job["session_code"], STALE_JOB_MINUTES)
+        client.table("transcription_jobs").update(
+            {"status": "pending", "error_message": None}
+        ).eq("id", job["id"]).execute()
+
+    # Get oldest pending job
     result = (
         client.table("transcription_jobs")
         .select("*")
