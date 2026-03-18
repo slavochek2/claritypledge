@@ -7,12 +7,12 @@ tags:
   - references
   - discourse
   - ux
-delivery_stage: 1-prd-review
+delivery_stage: 2-ux-review
 created_date: 2026-03-15T00:00:00.000Z
 prepped_date: null
 flow: dev
 reviews:
-  ux: null
+  ux: done
   architect: null
   alignment: null
 locked_at: '2026-03-15T14:22:58.149Z'
@@ -376,6 +376,203 @@ No tree view. Follow chains by clicking through.
 
 ## Next Steps
 
-1. **Run `/ux`** — formalize flows, edge cases, accessibility, responsive, component analysis (read and REFINE existing ASCII wireframes, don't duplicate)
+1. ~~**Run `/ux`**~~ — done (see UX Design section below)
 2. **Run `/architect`** — junction table, RPC function, RLS, service layer, `/create-point` route
 3. **Run `/generate-tests`** → **`/spec-review`** → **`/dev`** → **`/verify`**
+
+---
+
+## UX Design
+
+### 1. User Flows
+
+#### Flow A: Standalone Point Creation (from Create dropdown)
+
+1. **Entry:** User is on `/feed` or `/p/:slug` (own profile). Clicks `[+ Create ▾]` button (feed) or `[Share ▾]` button (profile).
+2. **Dropdown opens:** Two options — "Story" and "Point". Dropdown is a simple `<div>` positioned below the button, not a portal (avoids z-index complexity).
+3. **User clicks "Point":** Navigate to `/create-point`. Dropdown closes.
+4. **Page loads:** Title "Make a Point". Optional "Responding to" search field (empty, with placeholder "Search points..."). Textarea with placeholder "State your claim...". Character counter shows `0/1000`. PositionButtons below (all unselected). "Publish Point" button disabled.
+5. **User types statement:** Counter updates live. At 950+ chars, counter turns amber (`text-amber-600`). At 1000, input is hard-capped (same pattern as `CHAR_MAX` in `create-story-page.tsx`).
+6. **User selects position:** One of Disagree/Unsure/Agree (with intensity dropdown for Disagree/Agree). "Publish Point" button becomes enabled.
+7. **User clicks "Publish Point":** Button shows spinner + "Publishing..." (disabled). RPC `create_point_with_position` fires.
+8. **Success:** Toast "Point published!" Navigate to `/point/<newId>` with `{ state: { justCreated: true }, replace: true }` (matches create-story-page pattern).
+9. **Error:** Toast "Failed to publish. Please try again." Button re-enables. Form state preserved.
+
+#### Flow B: Respond to a Point (from point detail)
+
+1. **Entry:** User is on `/point/:id`. Scrolls to "Responses" section.
+2. **User clicks "Respond" button** in section header.
+3. **Auth check:** `useVerificationGate` fires. Unverified user redirected to `/signup?redirect=/create-point?respondTo=<id>`.
+4. **Verified user:** Navigate to `/create-point?respondTo=<pointId>`.
+5. **Page loads:** "Responding to" area shows loading skeleton (single `animate-pulse` bar, 48px height — same pattern as `create-story-page.tsx` line 243).
+6. **Original point fetched:** "Responding to" preview renders: pin icon + truncated text (max 120 chars) + link arrow. Read-only, not dismissible. Search field hidden (reference is locked).
+7. **User fills form:** Same as Flow A steps 5-6.
+8. **User clicks "Publish Point":** Same submission as Flow A, but RPC also creates the `point_references` row atomically.
+9. **Success:** Navigate to new point's detail page. "Responding to" line visible at top showing the original.
+
+#### Flow C: Search and Select Reference on Standalone Create
+
+1. **Entry:** User is on `/create-point` (no `respondTo` param). "Responding to" shows search field.
+2. **User types in search field:** Client-side filter over all loaded points (same pattern as `StorySearchPicker` — load all, filter by `statement.toLowerCase().includes(query)`). Results appear in dropdown below search field.
+3. **Results appear:** Max 6 results shown (matches `StorySearchPicker` limit). Each result shows pin icon + truncated statement (80 chars). Click outside closes dropdown.
+4. **User selects a point:** Search field replaced by selected point preview: pin icon + truncated text + `[x remove]` button.
+5. **User clicks remove:** Preview removed, search field returns. Reference is optional — form remains valid without it.
+6. **User publishes:** If reference selected, same atomic creation as Flow B. If no reference, standalone point (no `point_references` row).
+
+### 2. Edge Cases
+
+**Network failure during create (mid-RPC):**
+- "Publish Point" button already disabled + spinner showing. On network error, toast "Failed to publish. Please check your connection and try again." Button re-enables. All form state (text, position, reference) preserved. No partial data created (RPC is atomic — DB transaction rolls back).
+
+**Original point deleted while user is writing response:**
+- On publish, the RPC will fail because `target_point_id` FK constraint fails. Toast: "The original point no longer exists. Your point was not published." User can remove the reference and publish as standalone, or navigate back.
+- On page load with `respondTo` param: if fetch returns null, show inline message "This point is no longer available" in the "Responding to" area (same graceful degradation as `create-story-page.tsx` line 84 — no banner). Search field appears so user can pick a different reference or proceed without one.
+
+**Search returns 0 results:**
+- Show "No points match [query]" text in dropdown (matches `StorySearchPicker` empty state). Dropdown stays open so user can modify query.
+
+**User navigates back without publishing (unsaved work):**
+- No `beforeunload` prompt. Points are short (1000 chars max) and positions are a single click — the cost of re-entry is low. This matches the existing `create-story-page.tsx` pattern which also has no unsaved-work warning.
+
+**Same user responds to same point twice:**
+- Allowed. The `point_references` junction table prevents duplicate pairs (same `source_point_id` + `target_point_id`), but a user can create multiple different response points to the same original. Each response is a distinct point with its own text and position.
+
+**Point at max char limit (1000):**
+- Counter displays `1000/1000` in red (`text-red-500`). Textarea rejects further input (same hard-cap pattern as `CHAR_MAX` in create-story-page). No error message needed — the visual counter is sufficient feedback.
+- Thresholds: 0-949 = `text-muted-foreground`, 950-999 = `text-amber-600`, 1000 = `text-red-500`.
+
+**Very long point text in "Responding to" preview:**
+- Truncate at 120 characters with ellipsis. Single line, `line-clamp-2` as safety net. Full text visible by clicking the arrow link to navigate to the original point.
+
+**User creates point then immediately wants to respond to it:**
+- After publish, user lands on the new point's detail page. The Responses section is visible (with "Responses (0)" header + "Respond" button). User can immediately click "Respond" to create a response to their own point. Self-response is not prevented — only self-reference (a point referencing itself) is blocked by the DB CHECK constraint.
+
+**Dropdown dismissal:**
+- Create dropdown closes on: (a) click outside, (b) Escape key, (c) selecting an option. Same behavior as PositionButtons intensity dropdown.
+
+**Profile button for non-own profiles:**
+- The "Share" dropdown only appears on the user's own profile (matches current "Share a Story" behavior — only shown to the profile owner). Other users see no create button on someone else's profile.
+
+### 3. Loading States
+
+**`/create-point` page load (with `respondTo` query param):**
+- Page shell renders immediately (title, back button, textarea, position buttons all visible but textarea is `disabled` and `tabIndex={-1}` until reference loads — matches `create-story-page.tsx` `pointLoading` pattern).
+- "Responding to" area shows skeleton: `<div className="animate-pulse bg-muted rounded h-[48px]" />`.
+- On load complete: skeleton replaced with point preview. Textarea enabled and auto-focused.
+- On load failure (point not found): skeleton replaced with "This point is no longer available" message. Textarea enabled.
+
+**Search results loading:**
+- No separate loading state needed. Points are loaded eagerly on page mount (all points fetched once, filtered client-side). If the initial fetch is slow, the search field is simply empty until data arrives. The search field `placeholder` text is sufficient — no spinner needed for client-side filtering.
+
+**Publish button during submission:**
+- Button text changes: "Publish Point" to spinner icon (`Loader2Icon` with `animate-spin`) + "Publishing..." (same pattern as create-story-page line 343-348). Button is `disabled` throughout.
+
+**Response count on feed cards:**
+- The response count badge (`💬3`) loads as part of the existing feed query (requires adding `response_count` to the feed point query). No separate loading state — if the count is 0, no badge renders. The badge appears inline with the share button in the action row.
+
+**Responses section on point detail:**
+- Section header ("Responses (N)") renders immediately with the count from the point query.
+- Response cards below: if responses haven't loaded yet, show 1-2 skeleton cards (same skeleton pattern as feed: `animate-pulse` rectangles). On load, replace with actual cards.
+- "Show N more" button: static text, no loading state. Clicking it fetches remaining responses and replaces the button with the full list. During fetch, button text changes to "Loading..." with spinner.
+
+### 4. Accessibility
+
+**Create dropdown:**
+- Button: `aria-haspopup="true"`, `aria-expanded={isOpen}`. Dropdown: `role="menu"`. Items: `role="menuitem"`.
+- Keyboard: Enter/Space opens dropdown. Arrow keys navigate items. Escape closes. Tab moves focus out and closes.
+- Screen reader: Button reads "Create, menu" (or "Share, menu" on profile). On open: "Story, menu item" / "Point, menu item".
+
+**Search field (Responding to):**
+- Input: `role="combobox"`, `aria-expanded={resultsVisible}`, `aria-controls="point-search-results"`, `aria-autocomplete="list"`.
+- Results list: `role="listbox"`, `id="point-search-results"`. Each result: `role="option"`.
+- Active descendant tracking: `aria-activedescendant` updates as user arrows through results.
+- Screen reader: "Search points, combo box. N results available." On selection: "Selected: [truncated point text]. Press delete to remove."
+
+**Publish button:**
+- During submission: `aria-disabled="true"`, `aria-busy="true"`. Screen reader announces "Publishing" via the button text change.
+- On success: toast is announced via `role="status"` (Sonner handles this).
+
+**Reply overlay icon (↩):**
+- The `CornerDownLeft` overlay is decorative (the card itself is the interactive element). Use `aria-hidden="true"` on the overlay icon.
+- The card's `aria-label` should include "response" when the point has a reference: `aria-label="Response point: [truncated text]"` vs `aria-label="Point: [truncated text]"`.
+
+**Focus management after publish:**
+- On successful publish, user navigates to the new point's detail page. Focus lands on the page's `<h1>` equivalent (the point statement) or the back button — whichever is the first focusable element. This matches existing navigation behavior (React Router does not manage focus; the page's first interactive element receives focus naturally).
+
+**Respond button (point detail):**
+- Standard `<button>` element. `aria-label="Respond to this point"`. Keyboard accessible via Tab + Enter/Space.
+
+**"Responding to" preview on point detail:**
+- `role="complementary"`, `aria-label="This point responds to another point"`. The link to the original point is a standard `<a>` with descriptive text.
+
+**Responses section:**
+- Section: `role="region"`, `aria-label="Responses"`.
+- "Show N more" button: `aria-label="Show N more responses"`.
+- Response cards: same accessibility as existing feed point cards (already have `role="button"`, `tabIndex={0}`, keyboard handlers).
+
+### 5. Responsive Design
+
+**Create dropdown (320px-1024px+):**
+- At 320px: the `[+ Create ▾]` button fits comfortably — it is ~120px wide (similar to the current "Share a Story" button which is ~140px). The dropdown menu items are fixed-width (`min-w-[160px]`), right-aligned to the button so they don't overflow left edge.
+- On profile (full-width button): "Share ▾" replaces "Share a Story" — same full-width styling. Dropdown appears below, full-width on mobile (`w-full` below `sm:`, `w-auto` at `sm:+`).
+
+**Position buttons at narrow widths:**
+- The existing `PositionButtons` component already handles this via `ResizeObserver` + `ICON_ONLY_THRESHOLD` (270px). Below 270px container width, buttons show icons only (no labels, no counts). This works unchanged on `/create-point`.
+
+**Search field on mobile:**
+- Full-width input field. Results dropdown also full-width. Max 6 results visible — on very small screens, results may require scrolling within the dropdown (`max-h-[240px] overflow-y-auto`).
+
+**/create-point page layout:**
+- Single column, `max-w-2xl mx-auto px-4` (matches `create-story-page.tsx`). All elements stack vertically. No horizontal layout concerns at any breakpoint.
+- Textarea: `min-h-[120px]` (shorter than story's `min-h-[150px]` since points are shorter). Auto-resize on content.
+
+**"Responding to" preview truncation at narrow widths:**
+- At 320px: the preview area is ~288px wide (320 - 2*16px padding). Pin icon takes 32px + 12px gap = 44px. Text area is ~244px. At this width, 120 chars of truncated text wraps to 2-3 lines — acceptable. `line-clamp-2` applied as a safety net.
+- The `[x remove]` button (for standalone search selection) is positioned inline after the text, wrapping below on narrow screens. Alternative: position absolutely at top-right of the preview box.
+
+**Feed cards with response count badge:**
+- The `💬3` badge sits next to the share button in the action row. At narrow widths, the action row already uses `flex-wrap` — the badge and share button wrap to a second line if needed. The badge itself is compact (~40px including icon + number).
+
+**Point detail — Responses section:**
+- Response cards are standard feed point cards — already responsive. The "Respond" button in the section header is right-aligned via `flex justify-between`. At narrow widths, the header wraps: "Responses (N)" on line 1, "Respond" button on line 2 — achieved with `flex-wrap gap-2`.
+
+### 6. Component Analysis
+
+#### Reuse (no changes needed)
+
+| Component | File | Usage |
+|-----------|------|-------|
+| `PositionButtons` | `src/app/components/shared/PositionButton.tsx` | Position selection on `/create-point` form — identical to existing usage in `AddPointForm`, `FeedPointCard`, `PointCardWithLinks` |
+| `FocusHeader` | `src/app/components/layout/focus-header.tsx` | Back button on `/create-point` page |
+| `Button` | `src/components/ui/button.tsx` | "Publish Point" submit button |
+| `Textarea` | `src/components/ui/textarea.tsx` | Statement input field |
+| `ShareButton` | `src/app/components/shared/share-button.tsx` (via barrel) | Share on response point cards |
+| `LinkedText` | `src/app/components/shared/linked-text.tsx` | Rendering point text with URL detection in "Responding to" preview |
+| `TagPills` | `src/app/components/shared/tag-pills.tsx` | Tags on response point cards |
+| `ClarityLoader` | `src/components/ui/clarity-loader.tsx` | Auth loading state on `/create-point` |
+| `SEO` | `src/app/components/seo.tsx` | Meta tags for `/create-point` page |
+| `useVerificationGate` | `src/app/hooks/useVerificationGate.ts` | Auth gate for "Respond" button click |
+| `useAuth` | `src/auth/` | Session check for create dropdown visibility |
+| `toast` (Sonner) | (library) | Success/error notifications |
+
+#### Extend (modify existing components)
+
+| Component | File | Change |
+|-----------|------|--------|
+| `FeedPointCard` | `src/app/components/feed/feed-point-card.tsx` | (1) Add `💬 N` response count badge in action row next to share button. New prop: `responseCount?: number`. Badge: `MessageSquare` lucide icon (14px) + count text. Only renders when count > 0. (2) Add ↩ reply overlay on pin icon. New prop: `isResponse?: boolean`. When true, render `CornerDownLeft` (12px) absolutely positioned at bottom-right of pin circle with white backing circle. |
+| `PointCardWithLinks` | `src/app/components/social/point-card-with-links.tsx` | Same ↩ overlay support via new `isResponse?: boolean` prop. Applied in profile Points tab and in Responses section on point detail. |
+| `PointDetailPage` | `src/app/pages/point-detail-page.tsx` | (1) Add "Responding to" section above the point card — fetches reference data, renders preview with pin icon + truncated text + author's position badge + link arrow. (2) Add "Responses" section below "Positions" section — new region with section header, "Respond" button, response card list with progressive disclosure (first 3 + "Show N more"). |
+| Feed page (`FeedPage`) | `src/app/pages/feed-page.tsx` | Replace `<Link to="/create">` button with a dropdown trigger component. "Share a Story" becomes `[+ Create ▾]` with dropdown offering "Story" (→ `/create`) and "Point" (→ `/create-point`). |
+| Profile page (`ProfilePageV2`) | `src/app/pages/profile-page-v2.tsx` | Replace "Share a Story" button with `[Share ▾]` dropdown. Same two options: "Share a Story" (→ `/create`) and "Make a Point" (→ `/create-point`). |
+
+#### New (create from scratch)
+
+| Component | Proposed file | Description |
+|-----------|---------------|-------------|
+| `CreatePointPage` | `src/app/pages/create-point-page.tsx` | New page component. Route: `/create-point`. Auth-gated (same pattern as `create-story-page.tsx`). Contains: "Responding to" area (search or pre-filled), textarea, char counter, PositionButtons, "Publish Point" button. ~150-200 lines, follows `create-story-page.tsx` structure closely. |
+| `PointSearchPicker` | `src/app/components/shared/point-search-picker.tsx` | Client-side search/filter for points. Modeled after `StorySearchPicker` (`src/app/components/partners/story-search-picker.tsx`). Props: `points: PointWithCounts[]`, `onSelectPoint: (pointId, preview) => void`, `disabled?: boolean`. Renders search input + dropdown results (max 6). ~80 lines. |
+| `CreateDropdown` | `src/app/components/shared/create-dropdown.tsx` | Reusable dropdown with "Story" and "Point" options. Props: `variant: 'feed' | 'profile'` (controls button label: "+ Create" vs "Share"). Renders trigger button + dropdown menu. Used by both FeedPage and ProfilePageV2. ~60 lines. |
+| `RespondingToPreview` | `src/app/components/shared/responding-to-preview.tsx` | Read-only preview of the referenced point. Props: `pointId: string`, `pointText: string`, `removable?: boolean`, `onRemove?: () => void`. Renders pin icon + truncated text (120 chars) + optional remove button. Used on both `/create-point` (form) and point detail page (header). ~40 lines. |
+| `ResponsesSection` | `src/app/components/point-detail/responses-section.tsx` | Section for point detail page. Props: `pointId: string`, `responseCount: number`. Fetches and renders response cards with progressive disclosure. Contains "Respond" button in header. ~100 lines. |
+| `ResponseCountBadge` | `src/app/components/shared/response-count-badge.tsx` | Small inline badge showing `💬 N`. Props: `count: number`. Renders only when count > 0. Used in `FeedPointCard` action row. ~15 lines. |
+| `ReplyOverlayIcon` | `src/app/components/shared/reply-overlay-icon.tsx` | Absolutely positioned ↩ overlay for pin icon. Renders `CornerDownLeft` (12px) at bottom-right of pin circle on a white backing. `aria-hidden="true"`. Used by `FeedPointCard` and `PointCardWithLinks`. ~20 lines. |
