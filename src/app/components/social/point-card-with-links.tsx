@@ -138,18 +138,8 @@ export function PointCardWithLinks({
   });
   const [storiesExpanded, setStoriesExpanded] = useState(false);
 
-  // In embed mode, clicking "N stories" navigates instead of expanding (iframe can't resize)
   const handleStoriesToggle = () => {
-    if (isEmbed) {
-      // 1 story → open that story directly; N stories → open point page
-      if (linkedStories.length === 1) {
-        embedNavigate(`/story/${linkedStories[0].id}`);
-      } else {
-        embedNavigate(`/point/${point.id}`);
-      }
-    } else {
-      setStoriesExpanded(!storiesExpanded);
-    }
+    setStoriesExpanded(!storiesExpanded);
   };
 
   // P154: Sync userPosition state when position prop changes (after refetch)
@@ -617,9 +607,8 @@ export function PointCardWithLinks({
         </>
       )}
 
-      {/* Expanded linked stories - in feed view or live session mode (never in embed — opens new tab instead) */}
+      {/* Expanded linked stories - in feed view or live session mode */}
       {!isDetailView &&
-        !isEmbed &&
         storiesExpanded &&
         (liveSessionMode || profileOwner) &&
         (liveSessionMode ? allLinkedStories : storiesToShow).length > 0 && (
