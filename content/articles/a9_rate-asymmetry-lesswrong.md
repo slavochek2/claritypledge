@@ -1,14 +1,12 @@
 ---
-id: p522
+status: draft
 title: "Rate Asymmetry Article (LessWrong)"
-type: content
-status: in-progress
-priority: p1
-delivery_stage: drafting
-created: 2026-03-15
+rank: 1
+tags: [lesswrong, rate-asymmetry, common-knowledge, verification]
+created_at: 2026-03-15T00:00:00.000Z
 ---
 
-# P522: Rate Asymmetry Article — False Beliefs vs Common Knowledge
+# Rate Asymmetry Article — False Beliefs vs Common Knowledge
 
 ## Summary
 
@@ -43,7 +41,7 @@ Nobody has framed this as a **rate asymmetry** between two measurable quantities
 - **Format:** Long-form essay with deductive structure
 - **CTA:** Implicit — positions ClarityPledge as the protocol that addresses the bottleneck
 
-## Status
+## Progress
 
 - [x] Thesis deductively argued and falsification-tested (Claude.ai, Mar 14-15)
 - [x] Prior art survey completed (deep research)
