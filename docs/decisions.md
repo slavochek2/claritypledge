@@ -2,6 +2,22 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-18 [technical]: Unmocked services in component tests cause phantom unhandled rejections
+
+**Context:** `profile-page-v2-points-regression.test.tsx` blocked pre-commit hooks with `window is not defined` — but only in the full suite, never in isolation. 5-why traced it to: agreements-service (added in P422) was never mocked, so the real supabase client ran inside `Promise.all()`, its async chain outlived the test, resolved after jsdom teardown destroyed `window`, and React's scheduler hit the missing `window` in `resolveUpdatePriority`.
+**Decision:** When a component test mocks N-1 of N services in a `Promise.all`, the Nth unmocked service runs real network calls that outlive the test. Mock ALL services a component calls, not just the ones being tested. The fix for this instance: add `vi.mock('@/app/data/agreements-service')` returning empty arrays.
+**Alternatives rejected:** (A) Adding `@vitest-environment jsdom` directive — already present, wasn't the issue. (B) Increasing test timeout — masks the real problem (unmocked async outliving teardown).
+**Consequences:** Pattern for future component tests: grep for all service imports in the component under test, ensure every one is mocked. When a new service is added to a component (like P422 adding agreements), existing tests for that component need a new `vi.mock` line.
+**References:** `src/tests/profile-page-v2-points-regression.test.tsx`
+
+## 2026-03-18 [product]: Quality criteria are feedback signals, not publication gates
+
+**Context:** Audited 9 prod points against sifter-point criteria. Initial framing: separate point types (feed vs pedagogical vs branded), gate creation, enforce different quality standards per context. User pushback revealed this was wrong on three fronts: (1) the line between "community" and "pedagogical" content is subjective — who decides? (2) gating contradicts Popperian epistemology — conjectures should be freely offered, refutation improves them (3) positions on ALL content create common knowledge, and position shifts after story exposure = the story performance metric (error correction made visible).
+**Decision:** Point quality criteria (falsifiable, counterfactual, hard-to-vary, voice) become AI-generated feedback shown to authors at creation time — not publication gates. Any claim can enter the system. Scores are advisory metadata visible to authors and optionally to readers. Story performance is operationally defined as position shifts on connected points after story exposure. P544 rewritten to reflect this. P550 filed for visual quality indicators.
+**Alternatives rejected:** (1) Separate content types with different quality criteria per context — subjective line, adds schema complexity for 9 points. (2) Gate publication with minimum score threshold — contradicts epistemology, suppresses "wrong enough to be interesting" claims. (3) Remove pedagogical/branded points from DB, make static — forecloses position-taking which IS the product mechanism.
+**Consequences:** philosophy.md updated to make this principle explicit. Sifter skills (sifter-point.md, sifter-definitions.md) need updating: show scores to user, remove "structural gate" language. Future point creation flow shows AI quality feedback before publish. No score blocks publication.
+**References:** [P544](../features/p544_prod_point_quality_audit.md), [P550](../features/p550_point_story_quality_indicators.md), [sifter-point.md](../.claude/commands/slava/content/sifter-point.md)
+
 ## 2026-03-18 [technical]: Embed default collapsed + expanded URL param (P548)
 
 **Context:** Story and point embeds auto-expanded linked content, taking excessive vertical space in blog posts. Both components hardcoded `isEmbed` into `useState` initializers. /innovate generated 30 alternatives; /falsify tested top 3 against first principles.
