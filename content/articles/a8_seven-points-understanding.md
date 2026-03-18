@@ -1,8 +1,12 @@
 ---
 status: draft
-title: "Seven Things I Believe About Understanding"
-rank: 1
-tags: [calibration, points, falsification, understanding]
+title: Seven Things I Believe About Understanding
+rank: 0.25
+tags:
+  - calibration
+  - points
+  - falsification
+  - understanding
 created_at: 2026-03-10T00:00:00.000Z
 ---
 

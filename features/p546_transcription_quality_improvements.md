@@ -12,7 +12,7 @@ tags:
 
 ## Problem
 
-Transcript corpus audit (2026-03-18, 28 sessions) revealed systematic quality issues that make transcripts unreliable for analysis, content extraction, and calibration data:
+Transcript corpus audit (2026-03-18, 28 sessions) revealed systematic quality issues that make transcripts unreliable for the FCO workflow — specifically, Slava's post-session transcript review to identify false agreements and prepare targeted follow-up sessions (H-Stories-ColdStart). The `/analyze-transcripts` skill also depends on accurate speaker attribution and clean text to extract product insights from session data.
 
 1. **Broken speaker diarization** — 70-99% of words attributed to one speaker. Florrie session: Slava gets 12,302 words, Florrie gets 27. Root cause: merger operates at segment-level, not word-level. Whisper segments span 10-60 seconds covering both speakers; entire segment assigned to dominant speaker.
 
@@ -53,6 +53,13 @@ From /innovate (30 alternatives) + /falsify (adversarial stress-test):
 **P546 all 7 items at once** — REJECTED as a unit. Items 1+2 solve 90%+ of issues. Items 3-7 are premature without post-fix measurement. Hallucination post-filter with hardcoded patterns is brittle. Round correction creates a second-opinion system that fights pyannote. Multi-phone separation is an architecture change deserving its own spec.
 
 ## Changes (Phased — Measure Before Expanding)
+
+### Phase 0: Timestamp Verification Gate (30 min — before any code)
+
+Spot-check word timestamp accuracy on one benchmark session (GB7JWW/Florrie):
+- Extract 20 word timestamps from Whisper output
+- Compare against audio playback
+- **Go/no-go:** median offset <200ms → proceed with word-level merger. If >500ms → reconsider approach (forced alignment via wav2vec2 or segment subdivision instead).
 
 ### Phase 1: Core Fixes (1-1.5 days — fixes all 5 problems)
 
@@ -106,8 +113,9 @@ Re-process 3 benchmark sessions (GB7JWW/Florrie, E7QDTX/Jb, H44Q9H/Jan+Nejc). Me
 
 ## Done When
 
+- [ ] Phase 0: Word timestamp accuracy verified (<200ms median offset on 20 spot-checked words)
 - [ ] Re-processed Florrie session (GB7JWW) shows balanced speaker split (within 60/40)
 - [ ] Zero hallucinated repetitions in re-processed Q7BBEA
 - [ ] No foreign script hallucinations in re-processed 78PRAC
-- [ ] DER < 20% on 3 benchmark sessions
+- [ ] Speaker word-count ratio within 60/40 on all 3 benchmark sessions
 - [ ] Phase 2 measurements documented — decision on Phase 3 items recorded

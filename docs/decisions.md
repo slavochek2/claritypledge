@@ -2,6 +2,22 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-18 [process]: Validate manually before building — P518, P546, P547 all start with manual testing
+
+**Context:** Transcript analysis produced 3 specs (P518 session bookends, P546 diarization, P547 AI post-session coach). Each could be built immediately. But the underlying signals (is the qualifying question useful? is the pipeline worth fixing vs. buying? do education emails change behavior?) are all unvalidated.
+**Decision:** Manual-first for all three: (1) P518 — ask the qualifying question verbally in next 3 sessions before coding it into the app. (2) P546 — benchmark Deepgram API on 3 sessions (half-day) before committing to pipeline rewrite (multi-day). (3) P547 — manually read 5 transcripts and send personalized education emails before automating detection+sending.
+**Alternatives rejected:** Build all three immediately — would produce code for signals that might be wrong. The qualifying question might not produce useful data. Deepgram might be good enough. Education emails might not change behavior.
+**Consequences:** P518/P547 implementation delayed by 1-2 weeks. P546 implementation depends on Deepgram benchmark result. All three specs remain in today/week status as written specs, not in-progress code.
+**References:** P518, P546, P547
+
+## 2026-03-18 [technical]: Embed symmetry — point embeds auto-expand stories, ShareButton wires fromUserId
+
+**Context:** Story embeds already auto-expanded linked points (`useState(isEmbed)`) and passed `fromUserId` for position badges. Point embeds had neither: stories started collapsed, and the quote-pattern ShareButton (used on profile pages) omitted `fromUserId` from the generated embed URL. The `from` param handling in `point-detail-page.tsx` already worked — it was just never triggered.
+**Decision:** (1) Point card `storiesExpanded` initializes to `isEmbed` (matching story card pattern). (2) Quote-pattern ShareButton passes `fromUserId={profileOwner?.id}`. Both embed types are now symmetric: author position visible, linked content expanded.
+**Alternatives rejected:** (1) Keep stories collapsed in embeds — defeats the purpose of showing context. (2) Add `from` param only to point-detail-page ShareButton — profile page is where most embeds originate.
+**Consequences:** Embed system is now complete and symmetric. Any new linked content type in embeds should follow: auto-expand + pass context user via `from` param.
+**References:** `src/app/components/social/point-card-with-links.tsx`, `src/app/components/shared/ShareDialog.tsx`
+
 ## 2026-03-18 [product]: Problem statement refined — "can't distinguish agreement from understanding" not just "listeners overestimate"
 
 **Context:** First systematic transcript corpus analysis (28 sessions, 68K words, 18+ pairs). Jb explicitly asked: "Is it about clarity or is it about agreement?" Stefan proved the conflation by accidentally giving a 5 when he cognitively understood at 9+ but disagreed. ~60% of sessions show surface paraphrase (repeating words, not interpreting meaning). The lean-canvas Problem section says "listeners overestimate comprehension" — true but incomplete.

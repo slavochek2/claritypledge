@@ -1,10 +1,13 @@
 ---
 id: P545
-title: "ladischenski.com positioning update — values & alignment over de-risking"
+title: ladischenski.com positioning update — values & alignment over de-risking
 status: today
 type: task
-rank: 0.5
-tags: [content, positioning, ladischenski]
+rank: 0.032
+tags:
+  - content
+  - positioning
+  - ladischenski
 ---
 
 ## Why

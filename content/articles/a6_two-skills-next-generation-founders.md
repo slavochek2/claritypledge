@@ -1,8 +1,8 @@
 ---
-status: draft-ready
+status: editing
 ghost_post_id: 69b958bbe3bc500001e4f00d
 title: The Two Skills That Will Define the Next Generation of Founders
-rank: 0.5
+rank: 1
 tags:
   - calibration
   - ai-orchestration

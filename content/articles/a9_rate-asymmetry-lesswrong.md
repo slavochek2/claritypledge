@@ -1,8 +1,12 @@
 ---
 status: draft
-title: "Rate Asymmetry Article (LessWrong)"
-rank: 1
-tags: [lesswrong, rate-asymmetry, common-knowledge, verification]
+title: Rate Asymmetry Article (LessWrong)
+rank: 0.5
+tags:
+  - lesswrong
+  - rate-asymmetry
+  - common-knowledge
+  - verification
 created_at: 2026-03-15T00:00:00.000Z
 ---
 
