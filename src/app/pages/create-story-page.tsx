@@ -297,6 +297,9 @@ export function CreateStoryPage() {
                 : '\u00A0'}
             </span>
           </div>
+          <p className="text-xs text-muted-foreground mt-1">
+            Paste URLs or write <code className="text-xs bg-muted px-1 py-0.5 rounded">[click here](https://...)</code> for named links
+          </p>
           {errors.content && (
             <p id="content-error" className="text-sm text-red-500 mt-1" role="alert">
               {errors.content}
