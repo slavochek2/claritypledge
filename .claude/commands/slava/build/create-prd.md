@@ -112,7 +112,7 @@ Or with existing draft:
 ```
 1. LAUNCH AGENT → PRD Creator agent starts
        ↓
-2. CLARIFY → Agent asks business questions
+2. CLARIFY → Agent paraphrases problem framing back to user, then asks business questions
        ↓
 3. GENERATE → Agent creates business layer
        ↓

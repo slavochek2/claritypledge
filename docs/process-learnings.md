@@ -54,17 +54,6 @@ Two separate sessions involved processing voice notes into structured product/ph
 
 ---
 
-## Settle conceptual frame before creating specs
-
-**Date:** 2026-03-18
-**Status:** proposed
-
-P544 was created with a "gating" framing (audit points, enforce quality criteria, gate creation). User pushed back twice — the conceptual question ("should quality criteria be gates or feedback?") wasn't settled. P544 had to be fully rewritten after the frame shifted to "feedback, not gates." One round of spec creation wasted.
-
-**Pattern:** If the user is pushing back on the problem statement or framing, the conceptual question is unsettled. Don't file a spec yet — settle the frame first, then spec.
-
-**Fix options:** (A) Add to `/create-prd` pre-flight: "Is the user aligned on the problem statement? If pushback exists on framing, resolve before filing." (B) Add to `/quick-feature`: same check. (C) Discipline-only — remember to ask "are we aligned on the frame?" before spec creation.
-
 ---
 
 <!-- Removed 2026-03-16: "Session goal alignment needed at start" — see P518 -->

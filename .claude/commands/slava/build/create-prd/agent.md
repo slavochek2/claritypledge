@@ -306,6 +306,12 @@ Which would you like?
    - If file path provided → Read the file
    - If problem statement → Parse it
 
+1.5. **Confirm problem framing**
+   - Paraphrase the problem statement back to the user in 1-2 sentences
+   - Ask: "Is this the right framing, or should we adjust before I structure the spec?"
+   - If the user pushes back on the framing → resolve before proceeding
+   - If confirmed → continue
+
 2. **Identify feature type**
    - UI feature? (user-facing interface changes)
    - Data migration? (database schema/data changes)

@@ -2,6 +2,14 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-18 [process]: Confirm problem framing before creating specs (/create-prd step 1.5)
+
+**Context:** P544 was created with a "gating" framing, then fully rewritten after user pushed back twice and the frame shifted to "feedback not gates." One round of spec creation wasted. Root cause via /falsify: neither `/create-prd` nor its agent had a pre-flight check for whether the user agrees on the problem framing.
+**Decision:** Added step 1.5 to `/create-prd` agent: paraphrase the problem statement back, ask "is this the right framing?", resolve pushback before structuring. Skipped `/quick-feature` — it's a 30-second skeleton where framing checks add inappropriate friction.
+**Alternatives rejected:** (A) Add to `/quick-feature` too — defeats its purpose as fast idea capture. (B) Discipline-only (process-learnings entry) — /falsify proved it doesn't wire into any agent workflow.
+**Consequences:** One additional exchange at the start of `/create-prd`. Prevents wasted spec rewrites when the problem framing is unsettled. Process-learnings entry graduated (removed).
+**References:** [create-prd agent](../.claude/commands/slava/build/create-prd/agent.md), [create-prd.md](../.claude/commands/slava/build/create-prd.md)
+
 ## 2026-03-18 [technical]: Unmocked services in component tests cause phantom unhandled rejections
 
 **Context:** `profile-page-v2-points-regression.test.tsx` blocked pre-commit hooks with `window is not defined` — but only in the full suite, never in isolation. 5-why traced it to: agreements-service (added in P422) was never mocked, so the real supabase client ran inside `Promise.all()`, its async chain outlived the test, resolved after jsdom teardown destroyed `window`, and React's scheduler hit the missing `window` in `resolveUpdatePriority`.
