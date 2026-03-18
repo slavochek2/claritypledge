@@ -113,13 +113,9 @@ export function PointCardWithLinks({
   tags,
 }: PointCardWithLinksProps) {
   const { isEmbed, embedNavigate } = useEmbedNavigation();
-  // Embed: keep hashtags inline in text (no TagPills), saves vertical space
-  // Also strip markdown links [text](url) → text and raw URLs for clean plain-text display
-  const rawText = isEmbed ? point.text : stripHashtags(point.text, tags);
-  const fullText = isEmbed
-    ? rawText.replace(/\[([^\]]+)\]\([^)]+\)/g, '$1').replace(/https?:\/\/\S+/g, '').replace(/\s{2,}/g, ' ').trim()
-    : rawText;
-  // In embed mode, truncate long point text to keep embed compact
+  const rawText = stripHashtags(point.text, tags);
+  const fullText = rawText;
+  // Truncate long point text in embeds to keep iframe compact
   const EMBED_TRUNCATE = 750;
   const displayText = isEmbed && fullText.length > EMBED_TRUNCATE
     ? fullText.slice(0, EMBED_TRUNCATE).trimEnd() + '...'
@@ -265,7 +261,7 @@ export function PointCardWithLinks({
                 <div className="flex-1 min-w-0">
                   {/* Point text */}
                   <p className={`text-gray-900 break-words ${compact ? 'text-sm' : 'text-base'}`}>
-                    {isEmbed ? displayText : <LinkedText text={displayText} />}
+                    <LinkedText text={displayText} />
                     {isTextTruncated && (
                       <button
                         onClick={(e) => { e.stopPropagation(); embedNavigate(`/point/${point.id}`); }}
@@ -276,8 +272,8 @@ export function PointCardWithLinks({
                     )}
                   </p>
 
-                  {/* P491: Tag pills — after text, before position buttons (hidden in embed) */}
-                  {!isEmbed && tags && tags.length > 0 && (
+                  {/* P491: Tag pills — after text, before position buttons */}
+                  {tags && tags.length > 0 && (
                     <TagPills tags={tags} context="detail" className="mt-2" />
                   )}
 
@@ -451,8 +447,8 @@ export function PointCardWithLinks({
                 )}
               </p>
 
-              {/* P491: Tag pills — after text, before position buttons (hidden in embed — hashtags stay inline) */}
-              {!isEmbed && tags && tags.length > 0 && (
+              {/* P491: Tag pills — after text, before position buttons */}
+              {tags && tags.length > 0 && (
                 <TagPills tags={tags} context="detail" className="mt-2" />
               )}
 

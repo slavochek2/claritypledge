@@ -103,12 +103,8 @@ export function StoryCardWithLinks({
   };
   useEffect(() => { setTextExpanded(false); }, [story.id]);
   const _isCurrentUserStory = currentUserId && story.authorId === currentUserId;
-  // Embed: keep hashtags inline in text (no TagPills), saves vertical space
-  // Embed: keep hashtags inline, strip markdown links [text](url) → text and raw URLs
-  const rawText = isEmbed ? story.text : stripHashtags(story.text, tags);
-  const fullText = isEmbed
-    ? rawText.replace(/\[([^\]]+)\]\([^)]+\)/g, '$1').replace(/https?:\/\/\S+/g, '').replace(/\s{2,}/g, ' ').trim()
-    : rawText;
+  const rawText = stripHashtags(story.text, tags);
+  const fullText = rawText;
   // In embed mode, truncate long story text to keep embed compact
   const EMBED_TRUNCATE = 750;
   const displayText = isEmbed && fullText.length > EMBED_TRUNCATE
@@ -193,7 +189,7 @@ export function StoryCardWithLinks({
             </p>
           ) : (
             <p className={`text-gray-900 break-words ${compact ? 'text-sm' : 'text-base'}`}>
-              {isEmbed ? displayText : <LinkedText text={displayText} />}
+              <LinkedText text={displayText} />
               {isStoryTextTruncated && (
                 <button
                   onClick={(e) => { e.stopPropagation(); embedNavigate(`/story/${story.id}`); }}
@@ -287,7 +283,7 @@ export function StoryCardWithLinks({
               </p>
             ) : (
               <p className={`text-gray-900 break-words ${compact ? 'text-sm' : 'text-base'}`}>
-                {isEmbed ? displayText : <LinkedText text={displayText} />}
+                <LinkedText text={displayText} />
                 {isStoryTextTruncated && (
                   <button
                     onClick={(e) => { e.stopPropagation(); embedNavigate(`/story/${story.id}`); }}
@@ -299,8 +295,8 @@ export function StoryCardWithLinks({
               </p>
             )}
 
-            {/* P491: Tag pills — after text, before stats (hidden in embed — hashtags stay inline) */}
-            {!isEmbed && tags && tags.length > 0 && (
+            {/* P491: Tag pills — after text, before stats */}
+            {tags && tags.length > 0 && (
               <TagPills tags={tags} context="detail" className="mt-2" />
             )}
 
