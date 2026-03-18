@@ -2,6 +2,8 @@
 
 Shared definitions for Stories and Points. Referenced by all sifter skills.
 
+> **Quality criteria are feedback signals, not publication gates.** Scores (falsifiable, counterfactual, hard-to-vary, voice) are advisory metadata shown to authors and optionally readers. They help improve points but never block creation. See `docs/philosophy.md` Measurement Stack.
+
 ---
 
 ## Session File

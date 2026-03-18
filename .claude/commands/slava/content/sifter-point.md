@@ -2,6 +2,8 @@
 
 Extract falsifiable Points from a completed Story. Run after `/slava:sifter-story`.
 
+> **Quality criteria are feedback signals, not publication gates.** Show scores and improvement suggestions to the author. Never block publication based on scores. Any claim can enter the system — the network's error correction mechanism (positions, position shifts after story exposure) surfaces truth, not pre-filtering. See `docs/philosophy.md` Measurement Stack.
+
 ## Input
 
 Session name as argument (e.g., `/sifter-point sender-receiver-gaps`).
