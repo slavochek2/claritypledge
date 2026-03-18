@@ -138,18 +138,24 @@ def update_job_status(
     status: str,
     error_message: Optional[str] = None,
 ) -> None:
-    """Update transcription job status."""
+    """Update transcription job status.
+
+    error_message is also used for progress tracking during processing:
+    set to "step: <name> (<elapsed>s)" at each pipeline stage.
+    Cleared (set to None) on successful completion.
+    """
     client = _get_client()
 
     data = {"status": status}
     if status == "completed":
         from datetime import datetime, timezone
         data["completed_at"] = datetime.now(timezone.utc).isoformat()
-    if error_message:
-        data["error_message"] = error_message
+    # Always write error_message (including None to clear it on success)
+    data["error_message"] = error_message
 
     client.table("transcription_jobs").update(data).eq("id", job_id).execute()
-    logger.info("Job %s → %s", job_id, status)
+    logger.info("Job %s → %s%s", job_id, status,
+                f" ({error_message})" if error_message else "")
 
 
 STALE_JOB_MINUTES = 30

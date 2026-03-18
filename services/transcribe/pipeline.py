@@ -52,40 +52,63 @@ def transcribe_session(
     t0 = time.time()
     audio: Optional[SessionAudio] = None
 
+    def _progress(step: str):
+        """Report pipeline progress — logs + DB (if job_id exists)."""
+        elapsed = int(time.time() - t0)
+        logger.info("=== PROGRESS [%ds] %s: %s ===", elapsed, session_code, step)
+        if job_id:
+            try:
+                # Write current step to error_message field (repurposed as progress).
+                # On success, it gets cleared. On crash, it shows the last step reached.
+                update_job_status(job_id, "processing", error_message=f"step: {step} ({elapsed}s)")
+            except Exception:
+                pass  # Non-fatal — don't crash pipeline for progress tracking
+
     try:
         # Mark job as processing
         if job_id:
             update_job_status(job_id, "processing")
 
         # Step 1: Download and decode audio
-        logger.info("=== Step 1: Download audio for session %s ===", session_code)
+        _progress("downloading_audio")
         audio = download_session_audio(session_code)
 
         if not audio.merged_wav:
             raise RuntimeError("No audio WAV produced")
 
+        # Step 1.5: VAD — strip non-speech regions before Whisper
+        _progress("vad_preprocessing")
+        vad_wav = _apply_vad(audio.merged_wav)
+
         # Step 2: Transcribe with Whisper
-        logger.info("=== Step 2: Transcribe with Whisper ===")
-        transcript_segments, language = whisper_transcribe(audio.merged_wav)
+        _progress("whisper_transcribing")
+        language_hint = _get_language_hint(audio.events)
+        transcript_segments, language = whisper_transcribe(
+            vad_wav, language_hint=language_hint
+        )
 
         if not transcript_segments:
             raise RuntimeError("Whisper produced no segments")
 
+        _progress(f"whisper_done ({len(transcript_segments)} segments)")
+
         # Step 3: Diarize with pyannote
-        logger.info("=== Step 3: Diarize speakers ===")
+        _progress("diarizing")
         num_speakers = _estimate_num_speakers(audio)
         diar_segments = diarize(audio.merged_wav, num_speakers=num_speakers)
 
+        _progress(f"diarization_done ({len(diar_segments)} segments)")
+
         # Step 4: Extract speaker embeddings
-        logger.info("=== Step 4: Extract speaker embeddings ===")
+        _progress("extracting_embeddings")
         embeddings = extract_embeddings(audio.merged_wav, diar_segments)
 
         # Step 5: Merge transcript + diarization
-        logger.info("=== Step 5: Merge transcript with diarization ===")
+        _progress("merging")
         merged = merge_segments(transcript_segments, diar_segments)
 
         # Step 6: Map speakers to users
-        logger.info("=== Step 6: Map speakers to users ===")
+        _progress("mapping_speakers")
         speaker_ids = list(set(s.speaker_id for s in merged))
         recorder_names = list(audio.recorder_wavs.keys())
 
@@ -102,7 +125,7 @@ def transcribe_session(
         )
 
         # Step 7: Assign round indices and build segment dicts
-        logger.info("=== Step 7: Split by rounds ===")
+        _progress("splitting_rounds")
         # Add speaker_label from speaker_map to merged segments
         for seg in merged:
             seg_info = speaker_map.get(seg.speaker_id, {})
@@ -117,7 +140,7 @@ def transcribe_session(
             seg_dict["speaker_label"] = info.get("display_name", seg_dict["speaker_id"])
 
         # Step 8: Store transcript
-        logger.info("=== Step 8: Store transcript ===")
+        _progress("storing_transcript")
         processing_time_ms = int((time.time() - t0) * 1000)
 
         transcript_id = store_transcript(
@@ -131,16 +154,17 @@ def transcribe_session(
         )
 
         # Step 9: Update voice profiles
-        logger.info("=== Step 9: Update voice profiles ===")
+        _progress("updating_voice_profiles")
         try:
             update_voice_profiles(speaker_map, embeddings, session_id)
         except Exception as e:
             # Voice profile update is non-fatal
             logger.warning("Voice profile update failed (non-fatal): %s", e)
 
-        # Step 10: Mark job as completed
+        # Step 10: Mark job as completed (clears progress from error_message)
+        _progress("complete")
         if job_id:
-            update_job_status(job_id, "completed")
+            update_job_status(job_id, "completed", error_message=None)
 
         result = {
             "transcript_id": transcript_id,
@@ -204,3 +228,36 @@ def _extract_user_ids(events: Optional[dict]) -> list[str]:
         ids.append(uploader["supabaseUserId"])
 
     return ids
+
+
+def _apply_vad(wav_path: str) -> str:
+    """
+    Apply Voice Activity Detection to strip non-speech regions.
+
+    Returns path to a new WAV with only speech regions, or the original
+    path if VAD fails or strips too much audio.
+    """
+    try:
+        from vad import strip_silence
+        result_path = strip_silence(wav_path)
+        if result_path:
+            return result_path
+        logger.warning("VAD returned no result — using original audio")
+        return wav_path
+    except Exception as e:
+        logger.warning("VAD failed (non-fatal, using original audio): %s", e)
+        return wav_path
+
+
+def _get_language_hint(events: Optional[dict]) -> Optional[str]:
+    """
+    Extract language hint from session metadata.
+
+    Returns a language code (e.g., "en") if available in events.json.
+    """
+    if not events:
+        return None
+    language = events.get("language")
+    if language:
+        return language
+    return None
