@@ -2,6 +2,14 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-18 [technical]: Remove stale embed expand guards — ResizeObserver already handles iframe height
+
+**Context:** Blog embeds showed "1 point" / "1 story" as clickable labels, but clicking navigated to a new tab instead of expanding inline. The code had `isEmbed` guards with comments saying "iframe can't resize." Meanwhile, a `ResizeObserver` + `postMessage` resize mechanism had been added to both `story-detail-page.tsx` and `point-detail-page.tsx` — and was already working (position dropdown proved it).
+**Decision:** Remove all `!isEmbed` guards on expand behavior in `story-card-with-links.tsx` and `point-card-with-links.tsx`. Let the existing resize mechanism handle height changes.
+**Alternatives rejected:** (1) Keep navigation-to-new-tab behavior — worse UX, breaks flow for blog readers. (2) Add a separate "embed expand" mode with height limits — overengineering when ResizeObserver already works.
+**Consequences:** Points and stories now expand inline in blog embeds. The pattern is established: any new expandable content in embeds should rely on ResizeObserver, not add `isEmbed` guards.
+**References:** [story-card-with-links.tsx](../src/app/components/social/story-card-with-links.tsx), [point-card-with-links.tsx](../src/app/components/social/point-card-with-links.tsx)
+
 ## 2026-03-18 [technical]: Verify point IDs against position data before embedding
 
 **Context:** Blog article embedded Point `333cf3a3` but user's position was on duplicate Point `76f003ef` (same statement text, different IDs). Embed showed no position.
