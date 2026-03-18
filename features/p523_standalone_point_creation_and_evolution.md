@@ -16,6 +16,13 @@ reviews:
   architect: null
   alignment: null
 locked_at: '2026-03-15T14:22:58.149Z'
+uat_file: features/uat/p523.md
+test_files:
+  - src/tests/p523-point-references.test.ts
+  - e2e/integration/p523-point-references-migration.spec.ts
+  - e2e/p523-point-creation-responses.spec.ts
+  - e2e/a11y/p523-accessibility.spec.ts
+  - e2e/p523-smoke.spec.ts
 ---
 
 # P523: Point-to-Point References & Standalone Point Creation
@@ -974,3 +981,75 @@ getResponseCounts(pointIds: string[]): Promise<Map<string, number>>;
 /** P523: Get the reference for a source point (what it responds to) */
 getReference(sourcePointId: string): Promise<PointReference | null>;
 ```
+
+---
+
+## Test Coverage Strategy
+
+### Test Pyramid
+
+```
+          ┌─────────┐
+          │  E2E    │  7 user flow tests + 6 smoke tests
+          │ (13)    │  Covers: full user journeys, page loads
+         ─┴─────────┴─
+        ┌─────────────┐
+        │ Integration │  9 tests (P270-mandatory for migration)
+        │    (9)      │  Covers: schema, RPC, RLS, constraints, CASCADE
+       ─┴─────────────┴─
+      ┌─────────────────┐
+      │   Unit Tests    │  15 tests
+      │     (15)        │  Covers: service layer, data mapping, search
+     ─┴─────────────────┴─
+    ┌───────────────────────┐
+    │  Accessibility (a11y) │  10 tests
+    │       (10)            │  Covers: ARIA, keyboard nav, focus mgmt
+    └───────────────────────┘
+```
+
+### What IS Tested
+
+| Area | Test File | Coverage |
+|------|-----------|----------|
+| **DB schema** | `e2e/integration/p523-*` | `point_references` table exists, correct columns, indexes |
+| **RPC function** | `e2e/integration/p523-*` | `create_point_with_position` callable, returns UUID, atomic creation |
+| **RLS policies** | `e2e/integration/p523-*` | Verified user allowed, unverified blocked, public SELECT |
+| **CHECK constraints** | `e2e/integration/p523-*` | Self-reference blocked, statement > 1000 chars blocked |
+| **UNIQUE constraint** | `e2e/integration/p523-*` | Duplicate reference pair blocked |
+| **CASCADE** | `e2e/integration/p523-*` | Deleting point cascades to references |
+| **Service: RPC wrapper** | `src/tests/p523-*` | Correct params passed, error handling, all position types |
+| **Service: response counts** | `src/tests/p523-*` | Batch count aggregation, empty input, error fallback |
+| **Service: data mapping** | `src/tests/p523-*` | snake_case → camelCase, reference lookup, responses query |
+| **Client-side search** | `src/tests/p523-*` | Case-insensitive filter, empty query, no match, max 6 limit |
+| **Standalone creation** | `e2e/p523-point-creation-*` | Dropdown → /create-point → fill → publish → detail page |
+| **Response creation** | `e2e/p523-point-creation-*` | Point detail → Respond → fill → publish → linked back |
+| **Response chain** | `e2e/p523-point-creation-*` | A→B→C navigation via "Responding to" links |
+| **Progressive disclosure** | `e2e/p523-point-creation-*` | First 3 shown, "Show N more" for overflow |
+| **Empty state** | `e2e/p523-point-creation-*` | 0 responses: header + button, no empty text |
+| **Page loads** | `e2e/p523-smoke` | /create-point, /create-point?respondTo, point detail, feed dropdown |
+| **Graceful degradation** | `e2e/p523-smoke` | Invalid respondTo ID, unauthenticated redirect |
+| **ARIA attributes** | `e2e/a11y/p523-*` | Dropdown (haspopup, expanded, menuitem), combobox, listbox, reply icon |
+| **Keyboard navigation** | `e2e/a11y/p523-*` | Enter/Space/Escape on dropdown, Arrow keys, Tab order |
+| **Screen reader** | `e2e/a11y/p523-*` | aria-live counter, aria-hidden overlay, aria-label on buttons |
+| **Manual UAT** | `features/uat/p523.md` | 20 scenarios covering all acceptance criteria |
+
+### What is NOT Tested (and Why)
+
+| Area | Reason |
+|------|--------|
+| **Realtime subscription for new responses** | Not in V1 scope (no realtime subscription specified) |
+| **Concurrent RPC calls (race conditions)** | DB transaction isolation handles this; no application-level concern |
+| **Feed ordering with response count** | Feed ordering is `created_at desc` (unchanged); response count is display-only |
+| **Profile "Share" dropdown on mobile** | Same component as feed dropdown; responsive CSS tested visually in UAT |
+| **StorySearchPicker regression** | Existing component not modified; PointSearchPicker is net-new following same pattern |
+| **Position intensity dropdown on /create-point** | Reuses existing PositionButtons component unchanged; covered by existing tests |
+| **Unsplash banner on response points** | Banner generation is a separate feature (P504); not P523 scope |
+| **Notifications on response creation** | Explicitly out of scope (deferred) |
+| **Multi-reference per point** | V2 feature; V1 enforces single reference at application level |
+| **Performance at scale (200+ responses)** | Progressive disclosure tested; load testing deferred until >500 points |
+
+### Test Dependencies
+
+- **Integration tests** require a running Supabase instance with the P523 migration applied
+- **E2E tests** require dev server + Supabase with migration + at least one verified test user
+- **Unit tests** are fully mocked — no external dependencies
