@@ -55,8 +55,9 @@ locked_at: '2026-03-15T14:22:58.149Z'
 1. Verified users can create a point independently (not tied to story creation)
 2. Entry point: `[+ Create ▾]` dropdown replacing current "Share a Story" button on feed and profile — dropdown offers "Story" and "Point"
 3. Navigates to `/create-point` page
-4. Form: statement text (1000 char hard limit) + position selection (matches AddPointForm)
+4. Form: statement text (1000 char hard limit) + position selection (reuses existing AddPointForm pattern — position required before submit, same as story-detail-page.tsx line 207)
 5. Button: "Publish Point" (matches existing "Publish Story")
+6. Point + position created atomically (Supabase RPC `create_point_with_position` — prevents orphan points with 0 positions that are invisible in feeds)
 
 ### Point Responses (References)
 6. Point detail page shows "Respond" button in the Responses section header
@@ -72,7 +73,7 @@ locked_at: '2026-03-15T14:22:58.149Z'
 14. **Feed cards:** Show 💬 count badge only (no "Responding to" text). Click navigates to point detail.
 15. **Profile Points tab:** No change — responses ARE points, appear naturally. No new tab.
 16. **Flat display:** Each point shows only its DIRECT responses. No tree view. Follow chains by clicking through.
-17. **Scale (200+ responses):** Progressive disclosure — first 3 position-diverse (not chronological), "Show N more" with position breakdown.
+17. **Scale (200+ responses):** Progressive disclosure — first 3 chronological, "Show N more" with count. (Dropped "position-diverse" — no diversity algorithm exists; if interleaving is wanted later, define real requirements.)
 18. **Empty state (0 responses):** Show section header + Respond button. No list area, no "No responses yet" text.
 
 ### Auth & Constraints
@@ -101,8 +102,8 @@ locked_at: '2026-03-15T14:22:58.149Z'
 - Killed: @mention (needs short IDs, power-user pattern), Fork (developer jargon), Thread (implies hierarchy), Citation `[P-1234]` (non-technical users can't), AI-suggest (trust issues)
 
 ### Scale: Progressive Disclosure (won over Adaptive UI, Featured+Overflow, Split View)
-- First 3 responses position-diverse (one agree, one disagree, one nuanced)
-- "Show N more" with breakdown: "(12 agree, 8 disagree, 24 unsure)"
+- First 3 responses chronological (dropped "position-diverse" — no diversity algorithm, define later if needed)
+- "Show N more" with count
 - Killed: Adaptive threshold (inconsistent UX), Featured (algorithmic favoritism), Tension/Aligned split (contradicts position-neutral design)
 
 ### Direction Display: None in V1 (won over dual labels, chips, tooltips, numbers)
@@ -140,7 +141,7 @@ locked_at: '2026-03-15T14:22:58.149Z'
 - [ ] Profile "Share a Story" becomes "Share ▾" with same dropdown
 - [ ] "📌 Point" navigates to `/create-point`
 - [ ] `/create-point` page: statement textarea (1000 chars) + PositionButtons + "Publish Point" button
-- [ ] Optional "Responding to" search field (empty when standalone, pre-filled when from Respond)
+- [ ] When navigated from "Respond" button: "Responding to" field pre-filled and read-only. When standalone: no reference field (search deferred to V2)
 - [ ] Created point appears in feed and profile Points tab
 
 ### Point Responses
@@ -148,12 +149,14 @@ locked_at: '2026-03-15T14:22:58.149Z'
 - [ ] Section header: "Responses (N)" + "Respond" button
 - [ ] "Respond" navigates to `/create-point?respondTo=<pointId>` with reference pre-filled
 - [ ] Response creates new point + entry in `point_references` junction table
-- [ ] Both source and target point detail pages show the reference
+- [ ] Reference visible from both directions: source point's Responses section lists the response; response's detail shows "Responding to" header linking back to source
 - [ ] On response's detail page: "Responding to: 📌 [text] · [author position] →" shown above statement
 - [ ] "Responding to" NOT shown on feed cards or profile cards
-- [ ] Feed cards: 💬 count badge when responses > 0
+- [ ] Feed cards: 💬 count badge when responses > 0 (new data requirement — response count needed in feed queries)
 - [ ] Response cards in Responses section: standard point cards with PositionButtons
-- [ ] First 3 responses position-diverse, "Show N more" with breakdown when > 3
+- [ ] First 3 responses chronological, "Show N more" with count when > 3
+- [ ] Self-reference prevented (CHECK source_point_id != target_point_id)
+- [ ] Unverified user clicks Respond → redirect to auth (useVerificationGate pattern)
 - [ ] 0 responses: section header + Respond button visible, no empty list
 - [ ] A point can respond to a response (chains allowed)
 - [ ] One reference per point (V1)
@@ -245,7 +248,7 @@ See conversation history for full ASCII wireframes. Key screens:
 │ └──────────────────────────────┘   │
 │                                    │
 │ Show 44 more                       │
-│ (12 agree, 8 disagree, 24 unsure) │
+│ (44 more responses) │
 └────────────────────────────────────┘
 ```
 
@@ -300,14 +303,12 @@ Click [Respond] → /create-point?respondTo=<id>
 │ Your position:                     │
 │ [Dis][?][Agree]                    │
 │                                    │
-│ Responding to: (optional)          │
-│ [🔍 Search points...]             │
-│                                    │
-│ (when selected:)                   │
-│ 📌 "Climate policy…"  [✕ remove]  │
-│                                    │
 │           [Publish Point]          │
 └────────────────────────────────────┘
+
+(No reference field on standalone create.
+ Search deferred to V2. References only via
+ "Respond" button on point detail page.)
 ```
 
 ### Chain Example — A → B → C (Flat Display)
