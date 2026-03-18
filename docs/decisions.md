@@ -2,6 +2,14 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-18 [technical]: Verify point IDs against position data before embedding
+
+**Context:** Blog article embedded Point `333cf3a3` but user's position was on duplicate Point `76f003ef` (same statement text, different IDs). Embed showed no position.
+**Decision:** Swapped embed to correct ID. Before embedding any point, verify the ID has actual position data via `point_positions` query.
+**Alternatives rejected:** Deleting duplicate now (deferred to `/abandoned-points` sweep).
+**Consequences:** Duplicate points exist in prod. Use `/maintain:abandoned-points` periodically.
+**References:** `content/articles/a6_two-skills-next-generation-founders.md`
+
 ## 2026-03-18 [product]: Story embeds show author's position on linked points (extend embed-position pattern)
 
 **Context:** Story embeds on Ghost blog and Videoask showed linked points as generic cards — no author name, no position badge. The `?from=userId` mechanism (decision 2026-03-17) solved point embeds, but story embeds had two separate gaps: (1) `embedPoints[].positions` was hardcoded to `{}`, stripping the author's position data; (2) linked points were hidden in embed mode (`!isEmbed` guard on the expand section).
