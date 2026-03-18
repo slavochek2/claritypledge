@@ -26,10 +26,20 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
+# Pre-download Whisper model at build time to avoid fragile runtime downloads.
+# Without this, every cold start downloads 1.5GB from HuggingFace CDN,
+# which fails intermittently (SHA256 checksum mismatch).
+RUN python -c "import whisper; whisper.load_model('large-v3-turbo', download_root='/app/models')"
+ENV WHISPER_CACHE_DIR=/app/models
+
 # Stage 2: Application code
 FROM deps AS app
 
 WORKDIR /app
+
+# Copy pre-downloaded model from deps stage
+COPY --from=deps /app/models /app/models
+ENV WHISPER_CACHE_DIR=/app/models
 
 # Copy application code
 COPY *.py ./

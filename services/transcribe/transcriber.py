@@ -37,14 +37,24 @@ class Segment:
 
 
 def _get_model():
-    """Load Whisper model (lazy singleton)."""
+    """Load Whisper model (lazy singleton).
+
+    Uses WHISPER_CACHE_DIR if set (model pre-baked in Docker image),
+    otherwise falls back to Whisper's default download location.
+    """
     global _model
     if _model is None:
         import whisper
+        import os
         device = "cuda" if GPU_ENABLED else "cpu"
-        logger.info("Loading Whisper model '%s' on %s...", WHISPER_MODEL, device)
+        cache_dir = os.environ.get("WHISPER_CACHE_DIR")
+        logger.info("Loading Whisper model '%s' on %s (cache=%s)...",
+                     WHISPER_MODEL, device, cache_dir or "default")
         t0 = time.time()
-        _model = whisper.load_model(WHISPER_MODEL, device=device)
+        kwargs = {"device": device}
+        if cache_dir:
+            kwargs["download_root"] = cache_dir
+        _model = whisper.load_model(WHISPER_MODEL, **kwargs)
         logger.info("Model loaded in %.1fs", time.time() - t0)
     return _model
 
