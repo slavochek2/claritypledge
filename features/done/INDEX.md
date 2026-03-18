@@ -1,7 +1,7 @@
 # Done Features Index
 
 Quick reference for past completed work. Consult when starting work on a related topic.
-Last updated: 2026-03-18 (P548 embed collapse control)
+Last updated: 2026-03-18 (P546 transcription quality)
 
 ---
 
@@ -153,6 +153,7 @@ Last updated: 2026-03-18 (P548 embed collapse control)
 
 ## Infrastructure / Process
 
+- **P546** (Mar 18) Transcription Quality Improvements — bake Whisper model into Docker image (eliminates cold start SHA256 failures); P546 code (word-level merger, VAD, language hint) written+tested but deployment blocked by observability gap; add DB progress tracking before re-attempting
 - **P507** (Mar 13) Remove Dead Prototypes — extract production code from prototype folders before deleting; `prototype-types.ts` bridges divergent `Story.text` vs `Story.content` shapes; 19K lines deleted
 - **P496** (Mar 13) E2E Programmatic Auth Bypass — `getTestAuthContext()` injects real user JWT into Playwright BrowserContext via `addInitScript`; RLS exercised with user token not service_role; addresses 67% of agent "can't verify" failures
 - **P474** (Mar 06) ToS Markdown Migration — `?raw` + ReactMarkdown with custom Tailwind components; separates legal text from JSX for clean /tos-review diffs

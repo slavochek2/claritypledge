@@ -2,6 +2,30 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-18 [process]: Cloud Run GPU pipeline needs DB progress tracking before deploying new code
+
+**Context:** P546 (transcription quality improvements) deployed to Cloud Run revision 011. The pipeline started processing H44Q9H — Whisper completed (10495 words in 186s), diarization started — then silence. No transcript stored, no error logged, no way to determine what happened. 30+ minutes of blind polling. Root cause analysis: the pipeline runs as a synchronous HTTP handler doing 20-70 min GPU work with no progress reporting, no crash recovery, and no observability past the HTTP timeout. Without visibility, debugging a new code change that crashes mid-pipeline is a guessing game.
+**Decision:** Revert to pre-P546 pipeline code (proven on 28 sessions) + baked Whisper model. Before re-attempting P546: add `processing_status` tracking (write status at each pipeline stage to DB). Only then redeploy P546 changes — any failure will show exactly where it died.
+**Alternatives rejected:** (A) Increase timeout and retry blindly — if it's a code bug, wastes GPU time. (B) Wait for scheduler to pick it up — could fail the same way with no visibility. (C) Switch to Cloud Run Jobs — right long-term but scope creep for 3-5 sessions/month.
+**Consequences:** P546 code changes (word-level merger, VAD, language hint) are written, tested (13 unit tests pass), committed to git, but NOT deployed. Next step: add progress tracking (~30 min work), then redeploy P546.
+**References:** [P546 spec](features/done/23_mar_26/p546_transcription_quality_improvements.md), `services/transcribe/pipeline.py`
+
+## 2026-03-18 [technical]: Bake Whisper model into Docker image — eliminates Cloud Run cold start failures
+
+**Context:** Cloud Run GPU instances download the 1.5GB Whisper large-v3-turbo model on every cold start from HuggingFace CDN. Download intermittently fails with SHA256 checksum mismatch, killing the instance with no recovery (maxScale=1, GPU quota=1). This caused all E7QDTX/H44Q9H reprocessing attempts to fail on revision 010.
+**Decision:** Pre-download model at Docker build time (`RUN python -c "import whisper; whisper.load_model('large-v3-turbo', download_root='/app/models')"`) and set `WHISPER_CACHE_DIR=/app/models`. Image grows from ~2GB to ~4GB but cold start is reliable — model loads from local cache in 6s instead of 25s+ network download.
+**Alternatives rejected:** (A) Retry loop on download — still fragile, adds cold start latency. (B) GCS model cache — faster than HuggingFace but still a network download. (C) min-instances=1 (keep warm) — $730/mo for 3-5 sessions.
+**Consequences:** Cold start is reliable. Build time increased by ~5min (model download). All future revisions include the model. `transcriber.py` checks `WHISPER_CACHE_DIR` env var and passes `download_root` to `whisper.load_model()`.
+**References:** `services/transcribe/Dockerfile`, `services/transcribe/transcriber.py`
+
+## 2026-03-18 [technical]: P546 transcription quality — innovate→falsify→challenge narrowed 7 items to 3
+
+**Context:** Corpus audit of 28 sessions revealed 5 transcription quality problems (broken diarization, hallucinations, language misattribution, mega-segments, ambient noise). Original P546 spec proposed 7 fixes. The /innovate skill generated 30 alternatives (including WhisperX, Deepgram API, Gemini audio-native analysis). The /falsify skill stress-tested top 5 candidates.
+**Decision:** Narrowed to 3 changes: (1) word-level diarization alignment in merger.py (the core fix — word timestamps exist but were thrown away), (2) pyannote VAD preprocessing to eliminate hallucinations on silence, (3) language hint to Whisper. Rejected: WhisperX (stale lib, Oct 2023), Deepgram (recurring cost when $25k GCP credits exist, destroys voice profiles), Gemini audio (incompatible with structured pipeline), hallucination post-filter (brittle hardcoded patterns), round structure correction (fights pyannote). Phased approach: fix, measure, then decide on remaining items.
+**Alternatives rejected:** Deepgram API ($0.26/session recurring cost vs $0 self-hosted with GCP credits, no speaker embeddings). WhisperX (last release Oct 2023, 326 open issues, pyannote 3.0 vs our 3.1). All-7-items-at-once (items 3-7 premature without measurement).
+**Consequences:** P546 code written and unit-tested but deployment blocked by observability gap (see decision above). The /innovate→/falsify→/challenge-prd sequence proved effective for infrastructure decisions — not just product features.
+**References:** [P546 spec](features/done/23_mar_26/p546_transcription_quality_improvements.md)
+
 ## 2026-03-18 [process]: Confirm problem framing before creating specs (/create-prd step 1.5)
 
 **Context:** P544 was created with a "gating" framing, then fully rewritten after user pushed back twice and the frame shifted to "feedback not gates." One round of spec creation wasted. Root cause via /falsify: neither `/create-prd` nor its agent had a pre-flight check for whether the user agrees on the problem framing.
