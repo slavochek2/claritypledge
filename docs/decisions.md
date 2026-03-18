@@ -2,6 +2,38 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-18 [product]: Coach-as-channel — filed as hypothesis (H-CoachChannel), not promoted to primary
+
+**Context:** Conversation analysis (36 Claude.ai conversations, Mar 10-18) surfaced consistent signal: Canvas v2 falsification rejected EA investors (pool too small), validated coaching market ($100B+, existing alignment vocabulary, active tool adoption). Multiple conversations positioned coaches as PRIMARY distribution channel.
+**Decision:** File as new hypothesis (H-CoachChannel) with EXPLORE status, not promote to primary channel. Evidence is strong but untested — zero coaches have been approached. Coaches need proof (events + paid sessions) before being pitched. Sequence: prove model yourself → events → paid sessions → THEN approach coaches.
+**Alternatives rejected:** (A) Promote immediately to primary channel in lean-canvas — premature commitment to untested bet.
+**Consequences:** H-CoachChannel added to hypotheses.md, blocked by H-PairsReturn. Coach/OD use case in lean-canvas updated with Canvas v2 falsification results. Approach coaches after events + PWIW sessions produce proof.
+**References:** `docs/hypotheses.md` (H-CoachChannel), `docs/lean-canvas.md` (Promising Use Cases)
+
+## 2026-03-18 [product]: Pay-what-it's-worth replaces €199 fixed price for C1 entry point
+
+**Context:** €199 Alignment Check was stripped from ladischenski.com because (1) 4 services was 1 too many on the page, (2) Slava started offering free/PWIW sessions. ladischenski.com/thank-you page now shows PWIW model: deposit upfront based on expected value, refund any amount after based on perceived value. This generates genuine WTP signal without the "ask" barrier. Aligns with donation-after-session model in lean-canvas validation status.
+**Decision:** Replace €199 fixed price with pay-what-it's-worth in the price ladder. Communicate PWIW upfront (not retroactively — asking completed pairs after the fact is a trust breaker). Kill condition unchanged: if 5 pairs' total voluntary payments < €200, problem isn't painful enough to monetize.
+**Alternatives rejected:** (1) Keep €199 — creates ask barrier that blocks WTP signal. (2) Pure donation (no upfront framing) — loses anchoring and feels ambiguous.
+**Consequences:** Lean-canvas price ladder updated. Future sessions must communicate PWIW before the session, not after. Data from PWIW sessions directly instruments H-WTP-Pain.
+**References:** `docs/lean-canvas.md` (Price Ladder), ladischenski.com/thank-you
+
+## 2026-03-18 [product]: Intelligence infrastructure as strategic through-line — coaching IS data collection
+
+**Context:** Multiple conversations converged on reframing ClarityPledge from "calibration coaching service" to "building the world's first dataset of measured human misunderstanding." This connects the coaching service (data collection) to mirror agents (data application) and explains why service revenue is strategic, not just survival.
+**Decision:** Add "intelligence infrastructure" through-line to lean-canvas UVP shared foundation. Every session generates labeled calibration data — measured gaps between perceived and actual understanding. This isn't a pivot; it's naming what the coaching service already produces. The dataset powers future mirror agents and predictive misunderstanding detection.
+**Alternatives rejected:** (1) Keep as future direction only — loses the strategic thread. (2) Replace coaching UVP — premature, coaching is current reality.
+**Consequences:** Added to lean-canvas UVP. Reframes progress metric: session count and labeled data volume matter alongside revenue.
+**References:** `docs/lean-canvas.md` (UVP Shared Foundation)
+
+## 2026-03-18 [product]: Individual is buyer, pair is delivery — messaging targets the frustrated founder
+
+**Context:** Conversation analysis surfaced: "The frustrated half of the pair reaches for the wallet. The other person is delivery context." Current lean-canvas and ladischenski.com address the pair jointly. But deductively: both co-founders rarely feel equal urgency. One person feels misaligned; they seek help; both arrive for the session.
+**Decision:** Accept as messaging insight — message the frustrated individual ("I help founders who feel misunderstood by their co-founder"), deliver to the pair. Not a product change (delivery is still dyadic). Applies to P545 positioning and outreach copy.
+**Alternatives rejected:** (1) Redesign product for individual use — protocol requires a dyad. (2) Keep pair-addressed messaging only — misses the buyer's emotional state.
+**Consequences:** P545 ladischenski.com copy should speak to the frustrated individual. Outreach messages target one person. Both arrive for delivery. Verify in next sessions: do both actually show up, or does one drop?
+**References:** P545, `docs/lean-canvas.md` (Customer Segments)
+
 ## 2026-03-18 [process]: Validate manually before building — P518, P546, P547 all start with manual testing
 
 **Context:** Transcript analysis produced 3 specs (P518 session bookends, P546 diarization, P547 AI post-session coach). Each could be built immediately. But the underlying signals (is the qualifying question useful? is the pipeline worth fixing vs. buying? do education emails change behavior?) are all unvalidated.
