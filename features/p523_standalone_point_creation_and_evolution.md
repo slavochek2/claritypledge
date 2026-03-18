@@ -1,7 +1,7 @@
 ---
 status: today
 type: story
-rank: 0.063
+rank: 0.75
 tags:
   - points
   - references
@@ -20,199 +20,162 @@ locked_at: '2026-03-15T14:22:58.149Z'
 
 # P523: Point-to-Point References & Standalone Point Creation
 
-**Supersedes:** P433 (Correct a Point — draft), P535 (Point Link Types — absorbed, deferred as V2)
+**Supersedes:** P433, P535 (absorbed as V2)
 **Related:** P536 (Short IDs — separate, backlog)
 
 ---
 
 ## Design History
 
-**V1 (2026-03-15):** "Inspired By" single FK parent-child model. Challenged: too restrictive.
-**V2 (2026-03-16):** Narrowed to "Suggest a different version" button. Challenged: still too narrow.
-**V3 (2026-03-17):** Generic N:N point references. Challenged: no user demand evidence, C1 tension.
-**V4 (2026-03-18):** Resolved challenge BLOCKs. Added standalone point creation, clarified three distinct actions, resolved auth and directionality questions.
-
-Key decisions from discovery (V1-V4):
-1. Every response is a point (not a comment) — people can agree/disagree with it
-2. References are bi-directional and passive ("N related points")
-3. Unlabeled links in V1. Direction inferred from positions when available, "related" when not
-4. Point-to-point only (stories already link via `story_points`)
-5. Verified users only (matches existing point creation auth)
-6. "False premise" is a referenced counter-point, not a position value — no scale change
-7. Standalone point creation is a prerequisite (currently only possible via story-author flow)
+**V1 (Mar 15):** "Inspired By" single FK. Challenged: too restrictive.
+**V2 (Mar 16):** "Suggest a different version." Challenged: still too narrow.
+**V3 (Mar 17):** Generic N:N references. Challenged: no demand evidence, C1 tension.
+**V4 (Mar 18):** Resolved BLOCKs, added standalone creation, clarified flows.
+**V5 (Mar 18):** Full design exploration — 4 innovation agents + falsification. Resolved all major UX decisions through adversarial testing.
 
 ---
 
 ## Problem Statement
 
-**Current state:** Points can only be created by story authors inline on their story detail page. Points exist as isolated claims with no connections to each other. When session participants reformulate, contradict, or build on points — the new point has no visible relationship to the original.
+**Current state:** Points can only be created via story-author flow. Points exist as isolated claims with no connections. When session participants reformulate, contradict, or build on points — the new point has no visible relationship to the original.
 
 **Pain points:**
-- **No standalone point creation.** Users must create a story first to create a point. No "Create Point" equivalent of "Create Story" in the nav/feed.
-- **No way to say "this responds to that."** Points from the same discourse float separately.
-- **Contradictions and evolution are invisible.** Related points look unrelated.
-- **The founder needs SQL** to create or evolve points outside the story-author flow.
+- No standalone point creation (must create story first)
+- No way to say "this responds to that"
+- Contradictions and evolution invisible
+- Founder needs SQL to create/evolve points
 
-**Who's affected:**
-- **Session participants** — the founder captures their claims as points during sessions, needs them connected
-- **Event/workshop participants** — self-serve, encounter points they'd respond to
-- **The founder** — needs to create and link points from the UI
-- **Visitors** — see isolated claims without discourse context
-
----
-
-## Intention (Why This Matters)
-
-**Strategic importance:** ClarityPledge measures asymmetric conversion — do opponents convert after understanding? For that to work, opposing and related points must be visibly connected. Currently the product shows individual claims but not the discourse between them.
-
-**Why now:** Sessions are running. Points emerge from conversations. The founder captures them via SQL. Participants want their claims captured and connected. This is blocking the session output loop.
+**Who's affected:** Session participants, event attendees, the founder, visitors browsing discourse
 
 ---
 
 ## Business Requirements
 
-**Must-haves:**
-
 ### Standalone Point Creation
 1. Verified users can create a point independently (not tied to story creation)
-2. Entry points: point detail page ("Respond to this point"), plus at least one top-level entry (nav, feed, or profile)
-3. When creating a point, user takes a position on it (same as existing AddPointForm)
+2. Entry point: `[+ Create ▾]` dropdown replacing current "Share a Story" button on feed and profile — dropdown offers "Story" and "Point"
+3. Navigates to `/create-point` page
+4. Form: statement text (1000 char hard limit) + position selection (matches AddPointForm)
+5. Button: "Publish Point" (matches existing "Publish Story")
 
-### Point References
-4. Any verified user can create a reference (link) between two existing points
-5. When creating a new point, user can optionally reference existing point(s) as context
-6. References are bi-directional — both points show the connection ("N related points")
-7. Creating a reference does NOT affect positions or stories on either point
-8. References are unlabeled in V1 (no type taxonomy)
-9. N:N — a point can have multiple references (both as source and target)
-10. Duplicate references prevented (same pair cannot be linked twice)
+### Point Responses (References)
+6. Point detail page shows "Respond" button in the Responses section header
+7. Clicking "Respond" navigates to `/create-point?respondTo=<pointId>` (reuses same create-point page with reference pre-filled)
+8. Created point is linked to the original via `point_references` junction table
+9. Response IS a point — same entity, same capabilities, same 1000 char limit
+10. One reference per point in V1 (multi-reference is V2)
+11. Responses can respond to responses (chains are natural: A → B → C)
 
-### Directionality (derived, not user-input)
-11. When a user has positions on both referenced points, the system infers direction (same-sign = aligned, opposite-sign = tension)
-12. When positions don't exist on both, display as "related" (no direction)
-13. Visual treatment of direction deferred to /ux
+### Display Rules
+12. **Point detail page:** "Responding to" line shown above the point statement (author's position on original + link). Format: `Responding to: 📌 "Original text…" · Disagree →`
+13. **Point detail page:** "Responses" section shown BELOW "Positions" section. Section header includes "Respond" button. Response cards are standard point cards with PositionButtons (differentiator from story cards).
+14. **Feed cards:** Show 💬 count badge only (no "Responding to" text). Click navigates to point detail.
+15. **Profile Points tab:** No change — responses ARE points, appear naturally. No new tab.
+16. **Flat display:** Each point shows only its DIRECT responses. No tree view. Follow chains by clicking through.
+17. **Scale (200+ responses):** Progressive disclosure — first 3 position-diverse (not chronological), "Show N more" with position breakdown.
+18. **Empty state (0 responses):** Show section header + Respond button. No list area, no "No responses yet" text.
+
+### Auth & Constraints
+19. Verified users only (matches existing point creation rules)
+20. Creating a response does NOT affect positions/stories on either point
+21. Points remain immutable — responses are new points, not edits
+22. Duplicate references prevented (same pair linked once)
 
 **Out of scope (deferred):**
-- Link type labels (refines, contradicts, extends) — V2 after 10+ links show clustering
-- Story-to-story or story-to-point references (existing `story_points` handles this)
-- Notifications when someone references your point
-- Feed grouping by reference clusters
-- Position scale changes (no "false premise" position — handled via referenced counter-points)
+- Link type labels (V2 after 10+ links)
+- Multi-reference per point (V2)
+- Direction indicator (V1: PositionButtons already show everything; add explicit direction if users can't infer)
+- Story-to-story references (stories connect through shared points)
+- Notifications when someone responds to your point
+- Feed grouping by response clusters
+- "False premise" as position value (handled via counter-points)
+- Short IDs (P536)
 
-**Success conditions:**
-- Create a standalone point in under 30 seconds
-- Create a reference between two points in under 30 seconds
-- Both points show the reference (bi-directional, passive)
-- Discourse structure is browsable — visitors can follow reference links
+---
 
-**Constraints:**
-- Verified users only (matches existing point creation auth)
-- Points remain immutable — references are metadata alongside, not modifications
-- No forced position changes on either point
+## Design Decisions (from innovation + falsification)
+
+### Interaction Model: Quote-Point (won over @mention, Fork, Thread, Citation, AI-suggest)
+- Reference shown as single-line preview of the original point
+- Context travels with the response — readers see what was responded to
+- Killed: @mention (needs short IDs, power-user pattern), Fork (developer jargon), Thread (implies hierarchy), Citation `[P-1234]` (non-technical users can't), AI-suggest (trust issues)
+
+### Scale: Progressive Disclosure (won over Adaptive UI, Featured+Overflow, Split View)
+- First 3 responses position-diverse (one agree, one disagree, one nuanced)
+- "Show N more" with breakdown: "(12 agree, 8 disagree, 24 unsure)"
+- Killed: Adaptive threshold (inconsistent UX), Featured (algorithmic favoritism), Tension/Aligned split (contradicts position-neutral design)
+
+### Direction Display: None in V1 (won over dual labels, chips, tooltips, numbers)
+- PositionButtons on response cards already show aggregate positions
+- User can see their own highlighted positions on both points
+- Direction inference is implicit — no explicit label needed
+- Add explicit direction indicator in V2 only if users can't figure it out
+
+### Response vs Story Differentiation: PositionButtons as differentiator (won over accordion headers, GitHub-style bar, pill links)
+- Response cards have PositionButtons (stories don't)
+- Section labels "Positions" and "Responses" make the distinction explicit
+- Killed: Same accordion pattern with different headers (perceptually identical), pill links (too compact)
+
+### Create Button Coexistence: Dropdown (won over two buttons, toggle, FAB, type-selector page)
+- Single `[+ Create ▾]` replaces "Share a Story"
+- Dropdown: "📝 Story" / "📌 Point"
+- Same position, same style, minimal change to existing UI
+- Profile: full-width button becomes "Share ▾" with same dropdown
 
 ---
 
 ## User Stories
 
-**As a facilitator capturing session output:**
-- I want to create points directly (without stories), so I can capture claims as they emerge in conversation
-- I want to link a new point to an existing one, so the discourse relationship is visible
-
-**As a session participant:**
-- I want my claim captured as a point that others can engage with (agree, disagree, reference)
-- I want to see how my point relates to others in the discourse
-
-**As a user responding to a point:**
-- I want to create a new point from the point detail page referencing the original, so my response is connected
-- I want to create a counter-point and have the system show the tension (inferred from my positions)
-
-**As a user who sees two related points:**
-- I want to link them, so visitors can see the relationship (without creating a new point)
-
-**As a visitor browsing points:**
-- I want to see "N related points" and navigate between them
-- I want to understand whether related points agree or challenge each other (when derivable from positions)
-
----
-
-## Jobs to Be Done
-
-**When I'm facilitating a session and a participant makes a claim:**
-- I want to capture it as a point directly, linked to the point we were discussing (motivation: preserving session discourse)
-
-**When I see a point I'd word differently:**
-- I want to create my version and link it (motivation: contributing without overwriting)
-
-**When a session surfaces a contradiction:**
-- I want both sides as linked points (motivation: making disagreement visible and falsifiable)
-
-**When I'm curating discourse and find related points:**
-- I want to link existing points together (motivation: organizing the discourse graph)
-
----
-
-## Outcomes (Success Metrics)
-
-**Unblock metric:**
-- Founder can create points and references from the UI — binary pass/fail
-
-**Usage metrics (observe, no targets):**
-- Standalone points created vs story-linked points
-- References created per point
-- Click-through rate on "N related points"
-- Direction inference accuracy (do inferred directions match actual relationship?)
+**As a facilitator:** I want to create points directly and link them to capture session discourse.
+**As a participant:** I want my claim captured as a point that others can respond to.
+**As a user responding to a point:** I want to create my response from the point detail page, connected to the original.
+**As a visitor:** I want to see responses below positions and follow the conversation chain.
 
 ---
 
 ## Acceptance Criteria
 
 ### Standalone Point Creation
-- [ ] Verified user can create a point from a dedicated entry point (not tied to story creation)
-- [ ] Point creation available from: (a) point detail page, (b) at least one top-level location
-- [ ] Form includes: statement text + position selection (matches existing AddPointForm)
-- [ ] Created point appears in feed and on user's profile
+- [ ] `[+ Create ▾]` dropdown on feed replaces "Share a Story" with two options
+- [ ] Profile "Share a Story" becomes "Share ▾" with same dropdown
+- [ ] "📌 Point" navigates to `/create-point`
+- [ ] `/create-point` page: statement textarea (1000 chars) + PositionButtons + "Publish Point" button
+- [ ] Optional "Responding to" search field (empty when standalone, pre-filled when from Respond)
+- [ ] Created point appears in feed and profile Points tab
 
-### Point Responses (References)
-- [ ] Point detail page shows "Respond" button → opens inline form that creates a new point with implicit reference to the original
-- [ ] When creating a standalone point, user can optionally select an existing point to respond to (via search/select)
-- [ ] Both responding and responded-to point detail pages show "N responses" with navigation
-- [ ] "N responses" is clickable → shows list of responding/responded-to points (truncated statements, navigable)
-- [ ] Creating a response does not affect positions, stories, or any data on the original point
-- [ ] A point can have multiple responses (N:N)
-- [ ] Duplicate references prevented (same pair linked once)
-- [ ] Any verified user can respond to any point
-- [ ] No standalone "link two existing points" action — references only created during point creation
+### Point Responses
+- [ ] Point detail page: "Responses" section below "Positions" section
+- [ ] Section header: "Responses (N)" + "Respond" button
+- [ ] "Respond" navigates to `/create-point?respondTo=<pointId>` with reference pre-filled
+- [ ] Response creates new point + entry in `point_references` junction table
+- [ ] Both source and target point detail pages show the reference
+- [ ] On response's detail page: "Responding to: 📌 [text] · [author position] →" shown above statement
+- [ ] "Responding to" NOT shown on feed cards or profile cards
+- [ ] Feed cards: 💬 count badge when responses > 0
+- [ ] Response cards in Responses section: standard point cards with PositionButtons
+- [ ] First 3 responses position-diverse, "Show N more" with breakdown when > 3
+- [ ] 0 responses: section header + Respond button visible, no empty list
+- [ ] A point can respond to a response (chains allowed)
+- [ ] One reference per point (V1)
+- [ ] Duplicate references prevented
+- [ ] Verified users only
 
-### Directionality
-- [ ] When user has positions on both linked points: system infers aligned vs tension from position signs
-- [ ] When positions don't exist on both: shown as "related" (no direction indicator)
-- [ ] Direction is display-only — not stored, derived at render time
+---
+
+## ASCII Design Reference
+
+See conversation history for full ASCII wireframes. Key screens:
+
+1. **Feed** — `[+ Create ▾]` dropdown, 💬N badge on point cards
+2. **Point Detail** — "Responding to" header, Positions section, Responses section with Respond button
+3. **Respond Flow** — navigates to `/create-point?respondTo=id`, reference pre-filled
+4. **/create-point** — standalone page, optional reference search
+5. **Chain** — A→B→C, flat display, each shows direct responses only
 
 ---
 
 ## Next Steps
 
-1. **Run `/ux`** — design two flows (standalone creation with optional reference, respond from point detail), "N responses" display, directionality indicator, create button coexistence
-2. **Run `/architect`** — design `point_references` junction table, standalone point creation service, RLS
+1. **Run `/ux`** — formalize flows, edge cases, accessibility, responsive, component analysis
+2. **Run `/architect`** — junction table, RLS, service layer, create-point route
 3. **Run `/generate-tests`** → **`/spec-review`** → **`/dev`** → **`/verify`**
-
----
-
-## Open Questions (for /ux and /architect)
-
-### Terminology (resolved in discovery)
-- Action button: **"Respond"** (not "Link" or "Reference")
-- Display section: **"N responses"** (not "related points" — must connect to the "Respond" verb)
-- Create form label: "Responding to: [original point]"
-- Standalone creation: optional "Responding to: [search/select]" field
-
-### Visual Consistency (must check in /ux)
-1. **Colored left borders** (green=aligned, red=tension, grey=neutral) — does the current design system use colored borders? If not, should we introduce them or use a different pattern?
-2. **Position summary text** ("8 agree · 2 dis") — current UI uses PositionButtons component with counts. Response cards should reuse PositionButtons for consistency, not text summaries.
-3. **Nesting rule:** "N responses" section shows ONLY on point detail page. Not on point cards nested inside story cards (would create nested-nested). Feed point cards show response count as a number only.
-4. **Two create buttons problem:** Feed and profile currently have "Create Story" only. How do "Create Story" and "Create Point" coexist? Options: toggle, dropdown, two separate buttons, unified "Create" with type selection.
-5. **Response cards:** Should response point cards in the "N responses" section look identical to feed point cards, or should they be more compact (no position buttons, just summary)?
-
-### Flow Simplification (resolved in discovery)
-- **No standalone "Link" action.** References are created only during point creation (either via "Respond" on point detail or optional reference picker during standalone creation).
-- **Two flows, not three:** (1) Standalone creation with optional reference, (2) Respond from point detail (implicit reference).
