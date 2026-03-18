@@ -2,6 +2,38 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-18 [product]: Problem statement refined — "can't distinguish agreement from understanding" not just "listeners overestimate"
+
+**Context:** First systematic transcript corpus analysis (28 sessions, 68K words, 18+ pairs). Jb explicitly asked: "Is it about clarity or is it about agreement?" Stefan proved the conflation by accidentally giving a 5 when he cognitively understood at 9+ but disagreed. ~60% of sessions show surface paraphrase (repeating words, not interpreting meaning). The lean-canvas Problem section says "listeners overestimate comprehension" — true but incomplete.
+**Decision:** The core problem is the metacognitive distinction itself: people conflate agreeing with understanding. "We're on the same page" means "I agree" not "I verified comprehension." This must be named explicitly in every session's first 2 minutes and reflected in lean-canvas Problem section.
+**Alternatives rejected:** Keep "listeners overestimate" as primary framing — it's accurate but misses that the deeper issue is categorical (two concepts conflated), not quantitative (one number too high).
+**Consequences:** Lean-canvas Problem section needs a "conflation problem" paragraph. Onboarding must lead with the agree/understand distinction before any protocol interaction. P518 pre-session nudge and P547 post-session coach both reference this.
+**References:** `.private/docs/analysis/transcript-analysis-2026-03-18.md`, P518, P547
+
+## 2026-03-18 [product]: Positioning shift — "co-founder de-risking" → "alignment on values, vision, and lean canvas"
+
+**Context:** Transcript analysis showed deepest sessions are about fears, values, and identity — not business strategy. David called it "like a counselor." Victoria shared social anxiety. Jan surfaced fear of repeating past patterns. Sessions positioned as business calibration stayed shallow. The energy is in relationship depth at the values layer.
+**Decision:** Reposition ladischenski.com from fear-based "prevent co-founder split" to generative "get explicitly aligned on values, vision, lean canvas." Same ICP (co-founders with active decisions), different entry point (values, not strategy). Conflict-prevention proof points stay as supporting evidence, not the lead.
+**Alternatives rejected:** (1) Keep "de-risking" framing — fights against where the protocol naturally goes. (2) Pivot to "relationship tool" for all dyads — too broad, loses co-founder ICP specificity.
+**Consequences:** P545 tracks the ladischenski.com copy changes. Lean-canvas Customer Segments ICP qualifier should note: "facilitation dependency confirmed — self-serve pairs default to surface paraphrase."
+**References:** P545, `.private/docs/analysis/transcript-analysis-2026-03-18.md`
+
+## 2026-03-18 [product]: Session bookends model — pre-session goal+depth, post-session qualifying question
+
+**Context:** ~40% of sessions fail due to topic inadequacy. Zero pairs expressed that their gap was costing them anything (H-WTP-Pain signal). No data exists on whether sessions produce meaningful value vs. polite demos. P518 originally covered only pre-session goal alignment.
+**Decision:** Expand P518 to "Session Bookends": (1) pre-session: goal alignment + topic depth ladder (4 levels, default Level 3/values), (2) post-session: one qualifying question — "Did this reveal something you didn't know?" (binary Yes/No/Not sure). Both optional. Post-session signal instruments H-WTP-Pain and enables discarding trivial sessions from calibration data.
+**Alternatives rejected:** (1) Multi-question survey post-session — feels like a form, users skip. (2) Mandatory pre-session — kills momentum for event demos. (3) No post-session signal — can't distinguish meaningful sessions from polite ones.
+**Consequences:** P518 revised. Topic depth ladder becomes a facilitator tool. Post-session data feeds H-WTP-Pain analysis.
+**References:** P518, `.private/docs/analysis/transcript-analysis-2026-03-18.md`
+
+## 2026-03-18 [technical]: Diarization root cause — segment-level merger discards word timestamps
+
+**Context:** Transcript quality audit found 70-99% of words attributed to one speaker (e.g., Florrie session: Slava 12,302 words, Florrie 27). Whisper hallucinations ("Thank you" x53, "Продолжение следует..." x54). Language misattribution from noise.
+**Decision:** Root cause is `merger.py` operating at segment-level (entire 10-60s Whisper segments assigned to one speaker) when word-level timestamps already exist (`word_timestamps=True`) but are discarded. Fix priority: (1) word-level alignment in merger, (2) VAD pre-processing to eliminate hallucinations, (3) hallucination post-filter, (4) round structure as ground truth correction. Also benchmark Deepgram Nova-2 ($0.13/session) as buy-vs-build alternative.
+**Alternatives rejected:** Switching to large-v3 model (problems are pipeline architecture, not model accuracy — 2-3x slower for marginal improvement).
+**Consequences:** P546 tracks implementation. Transcripts are currently unreliable for automated analysis (P547 AI coach depends on P546 shipping first). Stay with large-v3-turbo.
+**References:** P546, `services/transcribe/merger.py`, `services/transcribe/transcriber.py`
+
 ## 2026-03-18 [technical]: Embeds render identically to regular views — no special text stripping
 
 **Context:** Blog embeds previously stripped markdown links (`[text](url)` → `text`), removed raw URLs, and hid TagPills to save vertical space. This created two rendering paths (embed vs regular) with subtle divergence — links weren't clickable in embeds, tags were invisible.

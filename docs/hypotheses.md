@@ -16,6 +16,7 @@ Our active bets, in priority order. This is the map of what we still need to pro
 **Current status (2026-03-16):** Pair A completed March 13. Pair C session run March 14 — one partner attended Inner Space event, brought the other who resisted paraphrasing; potential channel partner (therapist who experiences protocol on own relationship). Pair B session run March 16 — protocol worked, value received, signing Clarity Partner Agreement. However: Pair B is pre-revenue with no cashflow, so WTP is untested (de-risking feels optional when misalignment hasn't cost money yet). **ICP learning: pre-revenue pairs validate protocol but not WTP. The real ICP qualifier is cash + felt pain from misalignment, not funding stage.** Participant C (therapist): personalized offer sent, awaiting response — exploring both client and channel-partner paths. Article-as-qualifier channel validated reasoning: 30+ direct sessions with zero conversions → article pre-warm removes anti-humiliation barrier, readers who set positions self-select. Session format: Slava facilitates explain-back on a real decision, surfaces false agreements and false disagreements. Pairs don't need to learn /live — Slava uses it as his diagnostic tool. Workshop signal (March 2026): participants asked for an app that highlights their false beliefs / potential false beliefs — maps to mirror agent roadmap, not near-term build.
 **Notes:** Merges previous H-CoFounders-WillPay + H-AgreementRetention. The prior framing assumed pairs would use /live independently — revised: Slava facilitates, pairs experience. Independent /live usage is downstream (see H-Stories-ColdStart). WTP tested after return is proven (H-Retainers-Sticky).
 **Session format:** (1) Pair discusses real decision, (2) Slava runs explain-back protocol, (3) gap revealed, (4) quantify pain, (5) if "holy shit" → create agreement → book session 2.
+**Transcript evidence (2026-03-18, 28 sessions):** INSUFFICIENT DATA with warning signs. Corpus is predominantly event demos, not facilitated co-founder sessions. Jan/Nejc (Pair B) is the only real co-founder pair with sustained engagement — they brought a genuine business decision (reducing complexity, dividing roles). Jan internalized the facilitator role. But: zero pairs in the corpus expressed that their gap was costing them anything. Reactions are curiosity, not alarm. The "holy shit" moment has not been observed in transcript data. See H-WTP-Pain for the commercial risk this implies.
 
 ---
 
@@ -62,6 +63,25 @@ Our active bets, in priority order. This is the map of what we still need to pro
 **Testing via:** First Pairs + C3 sessions — track Understanding Gap reduction across sessions for the same user pairs.
 **Kill if:** No measurable gap reduction across repeated sessions OR users report no improvement in "knowing what they know."
 **Notes:** Foundational assumption. Research evidence supports this (meta-analysis g=0.46–0.72), but workplace context differs from academia. Tested passively alongside active hypotheses — no dedicated experiment needed.
+**Evidence (2026-03-18 transcript analysis):** WEAK POSITIVE. Within-session improvement visible (Jb: confusion → 10 on "objective reality" claim over multiple cycles; Florrie: 2 → progressively higher). No cross-session improvement observable — almost no repeat pairs doing real calibration work. N too small.
+
+---
+
+### H-WTP-Pain: Gap reveal produces curiosity, not urgency — curiosity alone doesn't drive WTP
+**Bet:** Participants find the gap reveal interesting and intellectually engaging, but "interesting" doesn't open wallets. Without felt pain ("this misunderstanding cost us X"), willingness-to-pay will remain near zero. The gap is entertainment, not a painkiller.
+**Testing via:** In every facilitated session, after the gap reveal, ask: "When was the last time a misunderstanding like this cost you something — time, money, a decision?" Track answers in structured data (P518 post-session qualifying question).
+**Kill if:** 10 pairs cannot name a concrete cost of misalignment after experiencing their gap → the coaching model needs repositioning from "de-risking" to something else (education, practice community, or vitamin pricing).
+**Surfaced:** 2026-03-18 transcript corpus analysis. 28 sessions, zero pairs expressed that their gap was costing them anything. Reactions are curiosity ("that's cool"), intellectual engagement ("I like it"), social warmth ("safe place to share"). No alarm, no urgency, no "holy shit."
+**Notes:** This is the single most important hypothesis for commercial viability. H-PairsReturn's kill condition (5 pairs, <€200 donations) tests the same thing from the payment side. H-WTP-Pain tests it from the experience side. Both must be monitored.
+
+---
+
+### H-TopicDepthGate: Topic selection determines session value more than protocol compliance
+**Bet:** Sessions with emotionally meaningful topics (values, fears, identity) produce deep engagement and genuine gap reveals. Sessions with abstract or trivial topics (facts, philosophical claims) produce confusion about the claim itself, not insight about understanding. The facilitator's topic selection skill is the primary value driver.
+**Testing via:** Topic depth ladder (Level 1: facts → Level 2: opinions → Level 3: values → Level 4: fears/identity). Default to Level 3 in facilitated sessions. Track which level produces the first genuine gap. Correlate with post-session qualifying signal (P518).
+**Kill if:** Level 3-4 topics produce the same shallow results as Level 1-2 — meaning topic depth doesn't matter and the problem is elsewhere.
+**Surfaced:** 2026-03-18 transcript analysis. ~40% of sessions failed due to topic inadequacy. Noah refused to share anything personal. Jb defaulted to abstract philosophy. When Olena/K and Victoria engaged on genuine emotional topics, protocol reached depth fast.
+**Notes:** Implies the facilitator's primary skill is topic steering, not protocol administration. Pre-written "topic packs" could partially automate this for self-serve pairs.
 
 ---
 
