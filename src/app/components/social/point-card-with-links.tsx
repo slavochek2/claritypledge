@@ -132,7 +132,7 @@ export function PointCardWithLinks({
     }
     return null;
   });
-  const [storiesExpanded, setStoriesExpanded] = useState(false);
+  const [storiesExpanded, setStoriesExpanded] = useState(isEmbed);
 
   const handleStoriesToggle = () => {
     setStoriesExpanded(!storiesExpanded);
