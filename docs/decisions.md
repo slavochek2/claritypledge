@@ -2,6 +2,14 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-18 [technical]: Pyannote diarization is 100x slower than benchmarks — separate-channel transcription eliminates it
+
+**Context:** Pyannote 3.1 diarization on Cloud Run L4 GPU takes 76 minutes for 30 min audio (2.5x real-time). Pyannote's own benchmark is ~45 seconds — we're 100x slower (likely ONNX CPU fallback or disk I/O). But the deeper insight: we already have separate phone recordings per speaker (`recorder_wavs` in `audio.py`), but `_merge_wavs()` mixes them into one stream via `amix`. Diarization then spends 76 min recovering what we already had.
+**Decision:** (1) Build separate-channel transcription as primary path — transcribe each phone independently, interleave by timestamp. Drops pipeline from 79 min to ~4 min. (2) Fix pyannote speed (verify GPU, remove ONNX) as fallback for single-phone sessions. (3) Use round structure from events.json for structured portions.
+**Alternatives rejected:** (A) Accept 76 min diarization — unusable for regular workflow. (B) Switch to Deepgram API — unnecessary now that separate-channel eliminates diarization. (C) Skip pyannote fix — still needed as fallback for single-phone recordings.
+**Consequences:** P546's word-level merger code is still correct and deployed (revision 013). The merger works regardless of whether speaker labels come from diarization or channel separation. The architecture change is in `audio.py` (stop mixing) and `pipeline.py` (transcribe channels separately).
+**References:** Research report at `~/Documents/Speaker_Diarization_Speed_Research_20260318/`, `services/transcribe/audio.py`
+
 ## 2026-03-18 [process]: Cloud Run GPU pipeline needs DB progress tracking before deploying new code
 
 **Context:** P546 (transcription quality improvements) deployed to Cloud Run revision 011. The pipeline started processing H44Q9H — Whisper completed (10495 words in 186s), diarization started — then silence. No transcript stored, no error logged, no way to determine what happened. 30+ minutes of blind polling. Root cause analysis: the pipeline runs as a synchronous HTTP handler doing 20-70 min GPU work with no progress reporting, no crash recovery, and no observability past the HTTP timeout. Without visibility, debugging a new code change that crashes mid-pipeline is a guessing game.
