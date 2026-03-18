@@ -164,6 +164,7 @@ export function ProfilePageV2() {
   const [realStories, setRealStories] = useState<StoryWithPoints[]>([]);
   const [realPoints, setRealPoints] = useState<PointWithUserPosition[]>([]);
   const [realCalibration, setRealCalibration] = useState<UserCalibration | null>(null);
+  const [sessionsCompleted, setSessionsCompleted] = useState<number>(0);
 
   // P465: Viewer story count map for other profiles (fetched async)
   const [viewerStoryCountMap, setViewerStoryCountMap] = useState<Map<string, number>>(new Map());
@@ -274,6 +275,7 @@ export function ProfilePageV2() {
       // Set stories (already have linked points from getStoriesByAuthorWithPoints)
       setRealStories(stories);
       setRealCalibration(toUserCalibration(calibration));
+      setSessionsCompleted(calibration.sessionsCompleted);
 
       // P422: Set agreements
       setAgreements(fetchedAgreements);
@@ -880,7 +882,7 @@ export function ProfilePageV2() {
                   </div>
                 )}
                 {/* Calibration bar */}
-                <InlineCalibration calibration={calibration} />
+                <InlineCalibration calibration={calibration} sessionsCompleted={sessionsCompleted} isOwner={isOwner} />
                 {profile.bio && (
                   <p data-testid="profile-bio" className="text-sm text-muted-foreground mt-2 break-words">
                     {linkifyText(profile.bio)}

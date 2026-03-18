@@ -114,13 +114,23 @@ const TOOLTIP_TEXT = {
 /**
  * Inline calibration display for embedding in profile cards.
  * Shows only listener calibration (how well they understand others).
- * When calibration is null (< 5 sessions), shows an empty bar with a hint.
+ *
+ * P539: Three display modes:
+ * - Calibrated (calibration !== null): existing bar with blue dot
+ * - Insufficient, own profile: segmented dots showing progress toward 5-session threshold
+ * - Insufficient, guest profile: "Not yet calibrated" text
  */
 export function InlineCalibration({
   calibration,
+  sessionsCompleted,
+  isOwner = true,
 }: {
   calibration: UserCalibration | null;
+  sessionsCompleted?: number;
+  isOwner?: boolean;
 }) {
+  const sessions = sessionsCompleted ?? 0;
+
   const gapToPosition = (g: number) => {
     const clamped = Math.max(-3, Math.min(3, g));
     return ((clamped + 3) / 6) * 100;
@@ -140,6 +150,42 @@ export function InlineCalibration({
         />
       )}
     </div>
+  );
+
+  // P539: Build the insufficient-state content based on own/guest view
+  const filled = Math.min(sessions, 5);
+  const remaining = 5 - filled;
+
+  const progressText = remaining > 0
+    ? (sessions === 0 ? '5 sessions for calibration' : `${remaining} more for calibration`)
+    : null; // At 5+ sessions with insufficient status, suppress text
+
+  const dotContent = (
+    <div className="flex items-center gap-2">
+      <div
+        className="flex items-center gap-1"
+        aria-label={`${filled} of 5 sessions completed for calibration`}
+      >
+        {Array.from({ length: 5 }, (_, i) => (
+          <span
+            key={i}
+            aria-hidden="true"
+            className={`w-2.5 h-2.5 rounded-full ${
+              i < filled
+                ? 'bg-blue-500 border border-blue-500'
+                : 'border border-muted-foreground/40'
+            }`}
+          />
+        ))}
+      </div>
+      {progressText && (
+        <span className="text-xs text-muted-foreground/60">{progressText}</span>
+      )}
+    </div>
+  );
+
+  const guestContent = (
+    <span className="text-xs text-muted-foreground/60">Not yet calibrated</span>
   );
 
   return (
@@ -171,7 +217,7 @@ export function InlineCalibration({
               side="top"
               content={<p className="text-xs">Complete 5 live sessions to unlock your calibration score</p>}
             >
-              {barContent}
+              {isOwner ? dotContent : guestContent}
             </CalibrationTooltip>
           )}
         </div>
