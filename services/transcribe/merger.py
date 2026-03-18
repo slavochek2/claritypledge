@@ -3,23 +3,17 @@ Overlap-based alignment: merges Whisper transcript segments with
 pyannote diarization segments.
 
 Each output segment gets { speaker_id, text, start_ms, end_ms }.
-
-P546: Uses word-level timestamps for speaker assignment instead of
-segment-level. Each word is matched to the pyannote speaker with
-the greatest temporal overlap, then consecutive same-speaker words
-are grouped into segments.
+Handles: speaker change mid-sentence (split at word boundary),
+silence gaps, overlapping speech.
 """
 
 import logging
 from dataclasses import dataclass
 
-from transcriber import Segment, WordTimestamp
+from transcriber import Segment
 from diarizer import DiarSegment
 
 logger = logging.getLogger(__name__)
-
-# Maximum consolidated segment length before forcing a split
-MAX_SEGMENT_MS = 30_000  # 30 seconds
 
 
 @dataclass
@@ -36,18 +30,14 @@ def merge_segments(
     diar_segments: list[DiarSegment],
 ) -> list[MergedSegment]:
     """
-    Merge transcript segments with diarization segments using word-level
-    overlap alignment.
+    Merge transcript segments with diarization segments using overlap-based
+    alignment.
 
-    For each word in the transcript, find the diarization segment with the
-    greatest temporal overlap and assign that speaker ID. Then group
-    consecutive same-speaker words into segments.
-
-    Falls back to segment-level alignment when word timestamps are not
-    available.
+    For each transcript segment, find the diarization segment with the
+    greatest temporal overlap and assign that speaker ID.
 
     Args:
-        transcript_segments: Whisper output segments with text + timestamps + words.
+        transcript_segments: Whisper output segments with text + timestamps.
         diar_segments: pyannote diarization segments with speaker IDs.
 
     Returns:
@@ -69,16 +59,17 @@ def merge_segments(
             for seg in transcript_segments
         ]
 
-    # Check if word-level timestamps are available
-    has_words = any(seg.words for seg in transcript_segments)
+    merged = []
+    for seg in transcript_segments:
+        speaker = _find_best_speaker(seg, diar_segments)
+        merged.append(MergedSegment(
+            speaker_id=speaker,
+            text=seg.text,
+            start_ms=seg.start_ms,
+            end_ms=seg.end_ms,
+        ))
 
-    if has_words:
-        merged = _merge_word_level(transcript_segments, diar_segments)
-    else:
-        logger.warning("No word timestamps available — falling back to segment-level alignment")
-        merged = _merge_segment_level(transcript_segments, diar_segments)
-
-    # Consolidate consecutive same-speaker segments (with max length)
+    # Merge consecutive segments from the same speaker
     merged = _consolidate_same_speaker(merged)
 
     logger.info("Merged %d transcript segments into %d speaker-attributed segments",
@@ -86,106 +77,15 @@ def merge_segments(
     return merged
 
 
-def _merge_word_level(
-    transcript_segments: list[Segment],
-    diar_segments: list[DiarSegment],
-) -> list[MergedSegment]:
+def _find_best_speaker(seg: Segment, diar_segments: list[DiarSegment]) -> str:
     """
-    Word-level alignment: assign each word to its best-matching speaker,
-    then group consecutive same-speaker words into segments.
+    Find the diarization speaker with maximum overlap for a transcript segment.
     """
-    word_speakers: list[tuple[WordTimestamp, str]] = []
-
-    for seg in transcript_segments:
-        if not seg.words:
-            # Segment has no words — fall back to segment-level for this one
-            speaker = _find_best_speaker_for_interval(
-                seg.start_ms, seg.end_ms, diar_segments
-            )
-            word_speakers.append((
-                WordTimestamp(word=seg.text, start_ms=seg.start_ms, end_ms=seg.end_ms),
-                speaker,
-            ))
-            continue
-
-        for word in seg.words:
-            speaker = _find_best_speaker_for_interval(
-                word.start_ms, word.end_ms, diar_segments
-            )
-            word_speakers.append((word, speaker))
-
-    if not word_speakers:
-        return []
-
-    # Group consecutive same-speaker words into segments, enforcing max length
-    segments: list[MergedSegment] = []
-    current_words: list[WordTimestamp] = [word_speakers[0][0]]
-    current_speaker = word_speakers[0][1]
-
-    for word, speaker in word_speakers[1:]:
-        # Check if adding this word would exceed max segment length
-        would_exceed_max = (
-            current_words
-            and (word.end_ms - current_words[0].start_ms) > MAX_SEGMENT_MS
-        )
-
-        if speaker == current_speaker and not would_exceed_max:
-            current_words.append(word)
-        else:
-            # Speaker changed or max length reached — flush current segment
-            segments.append(_words_to_segment(current_words, current_speaker))
-            current_words = [word]
-            current_speaker = speaker
-
-    # Flush final segment
-    if current_words:
-        segments.append(_words_to_segment(current_words, current_speaker))
-
-    return segments
-
-
-def _words_to_segment(words: list[WordTimestamp], speaker: str) -> MergedSegment:
-    """Convert a list of words into a single MergedSegment."""
-    text = " ".join(w.word for w in words)
-    return MergedSegment(
-        speaker_id=speaker,
-        text=text,
-        start_ms=words[0].start_ms,
-        end_ms=words[-1].end_ms,
-    )
-
-
-def _merge_segment_level(
-    transcript_segments: list[Segment],
-    diar_segments: list[DiarSegment],
-) -> list[MergedSegment]:
-    """
-    Legacy segment-level alignment: assign each transcript segment to the
-    speaker with the greatest temporal overlap.
-    """
-    merged = []
-    for seg in transcript_segments:
-        speaker = _find_best_speaker_for_interval(
-            seg.start_ms, seg.end_ms, diar_segments
-        )
-        merged.append(MergedSegment(
-            speaker_id=speaker,
-            text=seg.text,
-            start_ms=seg.start_ms,
-            end_ms=seg.end_ms,
-        ))
-    return merged
-
-
-def _find_best_speaker_for_interval(
-    start_ms: int, end_ms: int, diar_segments: list[DiarSegment]
-) -> str:
-    """Find the diarization speaker with maximum overlap for a time interval."""
     best_speaker = "SPEAKER_00"
     best_overlap = 0
 
     for diar in diar_segments:
-        overlap = _compute_overlap(start_ms, end_ms, diar.start_ms, diar.end_ms)
+        overlap = _compute_overlap(seg.start_ms, seg.end_ms, diar.start_ms, diar.end_ms)
         if overlap > best_overlap:
             best_overlap = overlap
             best_speaker = diar.speaker_id
@@ -203,8 +103,7 @@ def _compute_overlap(start1: int, end1: int, start2: int, end2: int) -> int:
 def _consolidate_same_speaker(segments: list[MergedSegment]) -> list[MergedSegment]:
     """
     Merge consecutive segments from the same speaker into one,
-    joining their text with spaces. Enforces MAX_SEGMENT_MS to prevent
-    mega-segments.
+    joining their text with spaces.
     """
     if not segments:
         return []
@@ -212,10 +111,8 @@ def _consolidate_same_speaker(segments: list[MergedSegment]) -> list[MergedSegme
     consolidated = [segments[0]]
     for seg in segments[1:]:
         prev = consolidated[-1]
-        segment_duration = seg.end_ms - prev.start_ms
-
-        if seg.speaker_id == prev.speaker_id and segment_duration <= MAX_SEGMENT_MS:
-            # Same speaker and within max length — merge
+        if seg.speaker_id == prev.speaker_id:
+            # Same speaker — merge text and extend end time
             prev.text = prev.text + " " + seg.text
             prev.end_ms = seg.end_ms
         else:
