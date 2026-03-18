@@ -64,9 +64,16 @@ def transcribe_session(
         if not audio.merged_wav:
             raise RuntimeError("No audio WAV produced")
 
+        # Step 1.5: VAD — strip non-speech regions before Whisper
+        logger.info("=== Step 1.5: Voice Activity Detection ===")
+        vad_wav = _apply_vad(audio.merged_wav)
+
         # Step 2: Transcribe with Whisper
         logger.info("=== Step 2: Transcribe with Whisper ===")
-        transcript_segments, language = whisper_transcribe(audio.merged_wav)
+        language_hint = _get_language_hint(audio.events)
+        transcript_segments, language = whisper_transcribe(
+            vad_wav, language_hint=language_hint
+        )
 
         if not transcript_segments:
             raise RuntimeError("Whisper produced no segments")
@@ -204,3 +211,41 @@ def _extract_user_ids(events: Optional[dict]) -> list[str]:
         ids.append(uploader["supabaseUserId"])
 
     return ids
+
+
+def _apply_vad(wav_path: str) -> str:
+    """
+    Apply Voice Activity Detection to strip non-speech regions.
+
+    Uses pyannote VAD (already available as a dependency). Returns path
+    to a new WAV with only speech regions, or the original path if VAD
+    fails or strips too much audio.
+    """
+    try:
+        from vad import strip_silence
+        result_path = strip_silence(wav_path)
+        if result_path:
+            return result_path
+        logger.warning("VAD returned no result — using original audio")
+        return wav_path
+    except Exception as e:
+        logger.warning("VAD failed (non-fatal, using original audio): %s", e)
+        return wav_path
+
+
+def _get_language_hint(events: Optional[dict]) -> Optional[str]:
+    """
+    Extract language hint from session metadata.
+
+    Returns a language code (e.g., "en") if available in events.json,
+    None otherwise (Whisper will auto-detect).
+    """
+    if not events:
+        return None
+
+    # Check for explicit language in session metadata
+    language = events.get("language")
+    if language:
+        return language
+
+    return None
