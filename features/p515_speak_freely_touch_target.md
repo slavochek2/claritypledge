@@ -1,8 +1,14 @@
 ---
-status: qa
+status: all-done
 type: bug
-rank: 4.0
-tags: [live, accessibility, wcag, mobile, touch]
+rank: 4
+tags:
+  - live
+  - accessibility
+  - wcag
+  - mobile
+  - touch
+locked_at: '2026-03-18T08:11:00.217Z'
 ---
 
 # P515: Speak Freely Button — Undersized Touch Target and Missing Clicker Feedback

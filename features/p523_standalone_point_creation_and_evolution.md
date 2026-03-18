@@ -1,7 +1,7 @@
 ---
 status: today
 type: story
-rank: 0.75
+rank: 0.063
 tags:
   - points
   - references

@@ -1,18 +1,56 @@
 ---
-status: draft
+status: rejected
 type: story
-workstream: C2
 rank: 18
-tags: []
+tags:
+  - ai-coach
+  - post-session
+  - onboarding
+superseded_by: p547
 created_date: 2026-02-17
 ---
-# P41: AI Coaching Teaser (Email + Page)
+# P41: AI Post-Session Coach — Transcript-Based Education Trigger
 
-**Status:** Ready for Implementation
-**Priority:** Medium (demand validation)
-**Est. Effort:** 1 day
+**Status:** Backlog — revised 2026-03-18 based on transcript corpus analysis
+**Priority:** Medium (blocks self-serve quality)
 **Created:** 2026-01-07
-**Revised:** 2026-01-09 (merged email flow + page into single story)
+**Revised:** 2026-03-18 — reframed from "teaser/landing page" to "transcript-based coaching trigger"
+
+## Revision Context (2026-03-18)
+
+Transcript analysis of 28 sessions revealed that users consistently hit the same confusion patterns:
+- **Agree/understand conflation** — users can't distinguish "do you agree?" from "do you understand?" (Jb session: "Is it about clarity or agreement?")
+- **Surface paraphrase** — repeating words instead of interpreting meaning (~60% of sessions)
+- **Premature agreement / "False 10"** — social pressure to rate high (~30% of sessions)
+
+The original P41 was a demand-validation landing page. The revised concept: an AI coach that reads the session transcript, detects confusion patterns, and sends a **personalized education email** walking the user through the relevant ClarityPledge points (from the 8-point framework).
+
+### Revised Concept
+
+1. After a /live session ends, AI analyzes the transcript for confusion signals
+2. If confusion detected → trigger a personalized email based on what went wrong
+3. Email walks user through the relevant points (e.g., Point 1: agree ≠ understand, Point 2: calibration concept)
+4. For deeper confusion → link to all 7 points as a guided walkthrough
+5. Goal: users who complete the walkthrough produce deeper sessions next time
+
+### Confusion Detection Signals
+
+| Signal | Detection Method | Points to Teach |
+|--------|-----------------|-----------------|
+| Agree/understand conflation | Rating given when listener says "I agree" instead of explaining back | Point 1, Point 2 |
+| Surface paraphrase | Listener repeats speaker's exact words (high text similarity) | Point 3 (explain-back protocol) |
+| Premature 10 | Score of 10 given within first 30 seconds, or without explain-back | Point 3, Point 4 |
+| Role confusion | Multiple role swaps, "who goes first?" patterns | Point 4 (PTS protocol) |
+
+### Relationship to P518
+
+P518 (Session Bookends) handles pre/post session UX within the app. P41 handles the **asynchronous education email** sent after the session. They complement each other:
+- P518 post-session question → captures whether the session was meaningful
+- P41 post-session email → educates when the session hit confusion
+
+---
+
+## Original Spec (January 2026) — preserved below for reference
 **Depends On:** P50 Phase 1 (has_pledged infrastructure)
 
 note to self: - [***https://www.assemblyai.com/pricing](https://www.assemblyai.com/pricing)***

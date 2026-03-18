@@ -1,12 +1,15 @@
 ---
 status: week
 type: change-request
-rank: 250008.75
+rank: 125002.375
 workstream: E1
-created_date: 2026-03-17
+created_date: 2026-03-17T00:00:00.000Z
 predecessor: p152
 flow: dev
-tags: [profile, calibration, ux]
+tags:
+  - profile
+  - calibration
+  - ux
 ---
 
 # P539 — Calibration Zero-State Redesign

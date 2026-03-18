@@ -1,8 +1,13 @@
 ---
-status: qa
+status: all-done
 type: bug
-rank: 2.0
-tags: [live, scroll, round, idle]
+rank: 2
+tags:
+  - live
+  - scroll
+  - round
+  - idle
+locked_at: '2026-03-18T08:10:48.321Z'
 ---
 
 # P513: Story Stuck at Top After Round Ends

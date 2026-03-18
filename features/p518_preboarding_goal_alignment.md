@@ -1,8 +1,12 @@
 ---
-status: week
+status: today
 type: story
-rank: 5.5
-tags: [live, onboarding, psychological-safety]
+rank: 0.25
+tags:
+  - live
+  - onboarding
+  - psychological-safety
+locked_at: '2026-03-18T08:09:31.570Z'
 ---
 
 # P518: Preboarding — Goal Alignment Before Live Session

@@ -17,7 +17,7 @@ Use Supabase MCP if available (main conversation context):
 
 ```sql
 SELECT p.id, p.statement, p.context, p.created_at,
-       pr.display_name, pr.slug
+       pr.name, pr.slug
 FROM points p
 LEFT JOIN profiles pr ON pr.id = p.first_validator_id
 WHERE NOT EXISTS (SELECT 1 FROM point_positions pp WHERE pp.point_id = p.id)
@@ -35,7 +35,7 @@ H2="Authorization: Bearer $PROD_SUPABASE_SERVICE_ROLE_KEY"
 # Get all points with creator info — use RPC or filter server-side
 # IMPORTANT: PostgREST has a 1000-row default limit. Use pagination headers
 # (Range: 0-999, then 1000-1999, etc.) if point_positions exceeds 1000 rows.
-curl -s "$PROD_URL/points?select=id,statement,context,first_validator_id,created_at,profiles!points_first_validator_id_fkey(display_name,slug),point_positions(count)&point_positions.count=eq.0&order=created_at.asc" \
+curl -s "$PROD_URL/points?select=id,statement,context,first_validator_id,created_at,profiles!points_first_validator_id_fkey(name,slug),point_positions(count)&point_positions.count=eq.0&order=created_at.asc" \
   -H "$H1" -H "$H2" -H "Prefer: count=exact"
 ```
 
@@ -70,7 +70,9 @@ PROD_URL="https://besjtuodziykmjidubzw.supabase.co/rest/v1"
 H1="apikey: $PROD_SUPABASE_SERVICE_ROLE_KEY"
 H2="Authorization: Bearer $PROD_SUPABASE_SERVICE_ROLE_KEY"
 TIMESTAMP=$(date +%Y%m%d-%H%M%S)
-BACKUP_FILE="/tmp/abandoned-points-backup-${TIMESTAMP}.json"
+BACKUP_DIR="$(git rev-parse --show-toplevel)/.private/backups"
+mkdir -p "$BACKUP_DIR"
+BACKUP_FILE="$BACKUP_DIR/abandoned-points-${TIMESTAMP}.json"
 
 # Export each confirmed point + all FK children
 echo "[" > "$BACKUP_FILE"
@@ -113,7 +115,7 @@ Report what was deleted and where the backup file is.
 
 - This queries **prod** (`besjtuodziykmjidubzw`), not test.
 - Points are hidden from feeds by P543 zero-position filter, but still exist in the database.
-- Deletion is irreversible — JSON backup is created in `/tmp/` before any DELETE.
+- Deletion is irreversible — JSON backup is created in `.private/backups/` before any DELETE (gitignored, survives reboots, included in encrypted system backup).
 - Daily full DB backup also runs via GitHub Actions to `gs://claritypledge-db-backups/` (7-day retention).
 - Never execute steps 3-4 without explicit user confirmation.
 - FK child tables: `point_positions`, `point_position_history`, `story_points`, `story_point_history` — all CASCADE on delete.

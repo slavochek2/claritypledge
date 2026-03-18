@@ -1,8 +1,14 @@
 ---
-status: qa
+status: all-done
 type: bug
-rank: 3.0
-tags: [live, layout, scroll, mobile, b36-incomplete]
+rank: 3
+tags:
+  - live
+  - layout
+  - scroll
+  - mobile
+  - b36-incomplete
+locked_at: '2026-03-18T08:10:54.753Z'
 ---
 
 # P514: Blank White Space on Live Session Page Load
