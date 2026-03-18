@@ -301,8 +301,7 @@ export function StoryCardDetail({
               >
                 {pointsExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
                 <span>
-                  {linkedPoints.length} {linkedPoints.length === 1 ? 'point' : 'points'} by{' '}
-                  {story.authorName}
+                  {linkedPoints.length} {linkedPoints.length === 1 ? 'point' : 'points'}
                 </span>
               </button>
             ) : (
