@@ -145,7 +145,7 @@ Dalio told me to spread the principles further. I spent nine years compressing w
 
 <iframe src="https://claritypledge.com/story/7293c1d6-d7d1-41ab-b74d-990cfb2a6e3d?embed=true" width="100%" height="400" frameborder="0" style="border-radius: 8px; border: 1px solid #e5e7eb;"></iframe>
 
-<iframe src="https://claritypledge.com/point/333cf3a3-4d33-4e87-a911-0d9fe6ac8659?embed=true&from=a99042ef-e740-446a-8734-389c8589cc17" width="100%" height="400" frameborder="0" style="border-radius: 8px; border: 1px solid #e5e7eb;"></iframe>
+<iframe src="https://claritypledge.com/point/76f003ef-6f7e-40b6-ba5b-17b42874226d?embed=true&from=a99042ef-e740-446a-8734-389c8589cc17" width="100%" height="400" frameborder="0" style="border-radius: 8px; border: 1px solid #e5e7eb;"></iframe>
 
 ## Sources
 
