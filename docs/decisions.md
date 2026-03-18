@@ -2,6 +2,14 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-18 [technical]: Embeds render identically to regular views — no special text stripping
+
+**Context:** Blog embeds previously stripped markdown links (`[text](url)` → `text`), removed raw URLs, and hid TagPills to save vertical space. This created two rendering paths (embed vs regular) with subtle divergence — links weren't clickable in embeds, tags were invisible.
+**Decision:** Remove all embed-specific text processing. Embeds now use `LinkedText` (clickable links) and show `TagPills` everywhere. Truncation at 750 chars still applies for compact iframes.
+**Alternatives rejected:** Keep stripping for "cleaner" embed look — adds maintenance burden for marginal space savings, and clickable links in embeds are valuable for engagement.
+**Consequences:** One rendering path for all contexts. Embeds may be slightly taller due to TagPills, but `ResizeObserver` handles iframe height automatically.
+**References:** `src/app/components/social/point-card-with-links.tsx`, `src/app/components/social/story-card-with-links.tsx`
+
 ## 2026-03-18 [product]: Prod points must pass sifter-point quality gate — audit found 7 of 9 failing
 
 **Context:** Audited all 9 prod points against the sifter-point skill's own criteria (falsifiable, counterfactual, hard-to-vary, stranger test, disagreement filter, mechanism/stance type). Only Points 3 and 4 pass. Issues: Point 7 is a CTA (not a point), Points 8 & 9 are duplicates, Point 5 mixes mechanism with stance, Point 6 is near-redundant with Point 3, Point 2 hedges its claim into unfalsifiability, and 6 of 9 use em dashes (banned). Four points contain marketing hyperlinks (fails stranger test).
