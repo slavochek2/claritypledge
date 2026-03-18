@@ -2,6 +2,14 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-18 [product]: Story embeds show author's position on linked points (extend embed-position pattern)
+
+**Context:** Story embeds on Ghost blog and Videoask showed linked points as generic cards — no author name, no position badge. The `?from=userId` mechanism (decision 2026-03-17) solved point embeds, but story embeds had two separate gaps: (1) `embedPoints[].positions` was hardcoded to `{}`, stripping the author's position data; (2) linked points were hidden in embed mode (`!isEmbed` guard on the expand section).
+**Decision:** Three changes: (1) `story-detail-page.tsx` populates `embedPoints` with the story author's position from `storyAuthorPositions` state; (2) `story-card-with-links.tsx` auto-expands linked points in embed mode; (3) points toggle in embed mode collapses/expands instead of navigating away. This means a single story embed is self-contained — shows the story text AND the author's stance on linked points via the QuotedPoint quote pattern (name + position badge above quoted box).
+**Alternatives rejected:** Requiring users to embed story + point as separate iframes (fragile, position context lost); adding a new "story+position" embed type (overengineered).
+**Consequences:** Story embeds are now richer — suitable for blog posts and feedback forms where the author's stance is the point. Embed height auto-adjusts via existing ResizeObserver. The embed resize script in the iframe snippet handles the taller content automatically.
+**References:** `src/app/pages/story-detail-page.tsx`, `src/app/components/social/story-card-with-links.tsx`, branch `feature/embed-position-context`
+
 ## 2026-03-17 [product]: ThreadLine is the universal "belongs to" visual pattern — use for ALL expanded children, including single items
 
 **Context:** P542 introduced ThreadLine for stories expanded from point page positions. Audit found `PointCardWithLinks` and `LiveStoryCardExpanded` had `if (items.length === 1)` branches skipping ThreadLine for single items. On mobile, single expanded items looked indistinguishable from the next card.
@@ -118,7 +126,7 @@ Append-only log of architectural and product decisions. Newest entries at top.
 **Decision:** Remove "by {name}" suffix everywhere — label is now just "N stories" / "N points". The author is already shown in the card header above (avatar + name + position badge). Live session mode already used this pattern ("N stories" without attribution), making this consistent. Found in 4 surfaces: `point-card-with-links.tsx` (2 footer variants), `story-card-with-links.tsx`, `live-story-card-expanded.tsx`, and `profile-page-v2.tsx` (inline story card rendering that bypasses the shared component — caught only after user reported the fix didn't work).
 **Alternatives rejected:** (1) Conditional — drop "by {name}" on own profile only, keep on others. Creates two code paths for the same label, every new surface needs "which variant?" decision. (2) Move icons to separate row — bigger DOM change, more visual complexity, solves spacing but not redundancy. (3) First name only — still redundant with header, still needs conditional logic for own vs others.
 **Consequences:** All card footer labels are now short and consistent across own profile, other profiles, feed, live session, and embed. The `profile-page-v2.tsx` inline story card rendering is a known duplication surface — any future footer label changes need to check both the shared component AND the profile page inline version.
-**References:** `src/app/components/social/point-card-with-links.tsx`, `src/app/components/social/story-card-with-links.tsx`, `src/app/components/partners/live-story-card-expanded.tsx`, `src/app/pages/profile-page-v2.tsx:1210`
+**References:** `src/app/components/social/point-card-with-links.tsx`, `src/app/components/social/story-card-with-links.tsx`, `src/app/components/social/StoryCardDetail.tsx:304`, `src/app/components/partners/live-story-card-expanded.tsx`, `src/app/pages/profile-page-v2.tsx:1210`
 
 ## 2026-03-17 [product]: Agreement export certificate — remove QR, metadata, use navy seal
 
