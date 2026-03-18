@@ -1,7 +1,8 @@
 ---
-status: in-progress
+status: all-done
 type: task
 rank: 0.3
+completed_at: "2026-03-18"
 tags:
   - transcription
   - infrastructure
