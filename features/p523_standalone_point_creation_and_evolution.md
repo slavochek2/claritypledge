@@ -7,7 +7,7 @@ tags:
   - references
   - discourse
   - ux
-delivery_stage: 2-ux-review
+delivery_stage: 3-arch-review
 created_date: 2026-03-15T00:00:00.000Z
 prepped_date: null
 flow: dev
@@ -576,3 +576,401 @@ No tree view. Follow chains by clicking through.
 | `ResponsesSection` | `src/app/components/point-detail/responses-section.tsx` | Section for point detail page. Props: `pointId: string`, `responseCount: number`. Fetches and renders response cards with progressive disclosure. Contains "Respond" button in header. ~100 lines. |
 | `ResponseCountBadge` | `src/app/components/shared/response-count-badge.tsx` | Small inline badge showing `💬 N`. Props: `count: number`. Renders only when count > 0. Used in `FeedPointCard` action row. ~15 lines. |
 | `ReplyOverlayIcon` | `src/app/components/shared/reply-overlay-icon.tsx` | Absolutely positioned ↩ overlay for pin icon. Renders `CornerDownLeft` (12px) at bottom-right of pin circle on a white backing. `aria-hidden="true"`. Used by `FeedPointCard` and `PointCardWithLinks`. ~20 lines. |
+
+---
+
+## Technical Architecture
+
+### 1. Technical Analysis — Current State
+
+**Points table** (`supabase/migrations/20260204_stories_points_calibration.sql`):
+- `points` table: `id UUID PK`, `statement TEXT`, `context TEXT`, `first_validator_id UUID FK→profiles`, `created_at`, `updated_at`, `tags TEXT[]`, `banner_url TEXT`
+- `point_positions` table: one position per user per point (`UNIQUE(point_id, user_id)`)
+- `story_points` junction: M:N between stories and points
+- No `point_references` table exists — this is net-new schema
+
+**Points service** (`src/app/data/points-service-real.ts`):
+- `createPoint(statement, context?, tags[])` — inserts into `points` using `auth.getUser()`. Returns `Point` (no counts, no position). Does NOT create an initial position — caller must separately call `setPosition()`.
+- `getPublicPointsFeed(limit, offset, tag?, viewerUserId?, ascending?)` — batch fetches points + creator profiles + position counts + viewer positions. Filters out zero-position points (P543).
+- `getPointsForProfileDisplay(validatorId, viewerUserId?)` — queries by positions held (not created). Batch loads counts + viewer + subject positions.
+- `getPointWithCounts(pointId)` — single point + aggregated position counts.
+- `setPosition(pointId, userId, position, reasoning?)` — upsert on `(point_id, user_id)`.
+
+**Key gap**: `createPoint` + `setPosition` are two separate DB operations. If the second fails, an orphan point with 0 positions exists but is invisible in feeds (P543 filter). The spec requires atomic creation via RPC.
+
+**Feed page** (`src/app/pages/feed-page.tsx`, line 173-181):
+- "Share a Story" button: `<Link to="/create">` with `PenLine` icon. Conditionally rendered when `session` exists.
+
+**Profile page** (`src/app/pages/profile-page-v2.tsx`, line 898-902):
+- "Share a Story" button: full-width `<button>` that navigates to `/create?pointId=...`. Only shown to own profile.
+
+**Point detail page** (`src/app/pages/point-detail-page.tsx`):
+- Layout: FocusHeader → Point card (pin icon, statement, tags, PositionButtons) → Footer (ShareButton) → Positions section (FilterTabs + PositionHolderCards with expandable stories).
+- "Responses" section does not exist — this is net-new UI.
+
+**Create story page** (`src/app/pages/create-story-page.tsx`):
+- Pattern to follow: auth-gated, `useVerificationGate`, `useSearchParams` for `pointId`, skeleton loading for point context, `Loader2Icon` spinner on submit, `toast.success/error`, `navigate()` with `{ state: { justCreated: true }, replace: true }`.
+
+**Story search picker** (`src/app/components/partners/story-search-picker.tsx`):
+- ~100 lines. Loads all stories client-side, filters by `content.toLowerCase().includes(query)`. Max 6 results. Click-outside dismissal via `containerRef`. Same pattern needed for `PointSearchPicker`.
+
+**Routing** (`src/App.tsx`):
+- Lazy-loaded pages use `lazy(() => import(...).then(m => ({ default: m.ComponentName })))`.
+- Wrapped in `<ClarityLandingLayout>` + `<LazyRoute>`.
+- No `/create-point` route exists — net-new.
+
+**Type definitions** (`src/app/types/index.ts`):
+- `Point`: `{ id, statement, context?, firstValidatorId, createdAt, updatedAt, tags, bannerUrl? }`
+- `PointWithCounts`: extends `PointWithCreator` with `positionCounts` + `totalPositions`
+- `PointWithUserPosition`: extends `PointWithCounts` with `userPosition?` + `profileSubjectPosition?`
+- No reference/response types exist — net-new.
+
+### 2. Architecture Decisions
+
+#### AD-1: Supabase RPC `create_point_with_position`
+
+**Decision**: Single RPC function wrapping point INSERT + position INSERT in a transaction.
+
+**Rationale**: Two separate client calls (`createPoint` → `setPosition`) risk orphan points if the second call fails. The spec mandates atomic creation (requirement #6). An RPC function runs server-side in one transaction — if the position insert fails, the point insert rolls back.
+
+**Signature**:
+```sql
+CREATE OR REPLACE FUNCTION create_point_with_position(
+  p_statement TEXT,
+  p_position position_type,
+  p_context TEXT DEFAULT NULL,
+  p_tags TEXT[] DEFAULT '{}',
+  p_target_point_id UUID DEFAULT NULL  -- for response reference
+)
+RETURNS UUID  -- returns new point ID
+```
+
+**Logic**:
+1. Insert into `points` (statement, context, tags, `first_validator_id = auth.uid()`)
+2. Insert into `point_positions` (new point ID, `auth.uid()`, position)
+3. If `p_target_point_id` is not NULL, insert into `point_references` (new point → target)
+4. Return new point ID
+
+**RLS bypass**: RPC runs as `SECURITY DEFINER` with `SET search_path = public`. Caller must still be authenticated (checked via `auth.uid() IS NOT NULL` inside the function body, plus verified-user check).
+
+#### AD-2: `point_references` Junction Table
+
+**Decision**: New table for N:N point-to-point references with V1 constraint of one reference per source point.
+
+**Schema**:
+```sql
+CREATE TABLE point_references (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  source_point_id UUID NOT NULL REFERENCES points(id) ON DELETE CASCADE,
+  target_point_id UUID NOT NULL REFERENCES points(id) ON DELETE CASCADE,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  UNIQUE(source_point_id, target_point_id),
+  CHECK(source_point_id != target_point_id)
+);
+```
+
+**V1 constraint**: One reference per source point enforced at application level (not DB constraint), so V2 multi-reference needs no migration.
+
+**RLS**:
+- SELECT: public (`USING (true)`)
+- INSERT: via RPC only (`SECURITY DEFINER`), no direct insert policy needed
+- DELETE: not needed in V1 (references are immutable after creation)
+
+**Indexes**:
+- `idx_point_refs_source ON point_references(source_point_id)` — for "get responses to this point"
+- `idx_point_refs_target ON point_references(target_point_id)` — for "get what this point responds to"
+
+#### AD-3: Response Count in Feed Queries
+
+**Decision**: Compute response count via a LEFT JOIN subquery in the feed query, not a cached column.
+
+**Rationale**: At current scale (~50 points), the subquery adds negligible cost. A cached `response_count` column would need a trigger and introduces staleness risk. When scale exceeds ~500 points, revisit with a materialized column.
+
+**Implementation**: Add a second batch query in `getPublicPointsFeed` and `getPointsForProfileDisplay` — after fetching points, query `point_references` grouped by `target_point_id` to get response counts. Merge into results. Same pattern as the existing `getPositionCountsForPoints` batch.
+
+#### AD-4: "Responding to" Data on Point Detail
+
+**Decision**: Fetch the reference and target point text in `PointDetailPage`'s existing `loadData()`.
+
+**Implementation**: After loading the point, query `point_references` where `source_point_id = pointId`. If a row exists, fetch the target point via `getPoint(targetPointId)`. Also fetch the current user's position on the target point (for the "Responding to: ... · Disagree →" display). All three queries can run in parallel.
+
+#### AD-5: Routing
+
+**Decision**: New route `/create-point` with lazy-loaded `CreatePointPage`. Follows existing pattern.
+
+```tsx
+const CreatePointPage = lazy(() => import("@/app/pages/create-point-page").then(m => ({ default: m.CreatePointPage })));
+
+<Route
+  path="/create-point"
+  element={
+    <ClarityLandingLayout>
+      <LazyRoute>
+        <CreatePointPage />
+      </LazyRoute>
+    </ClarityLandingLayout>
+  }
+/>
+```
+
+#### AD-6: Client-Side Point Search
+
+**Decision**: Eagerly load all points on `/create-point` mount, filter client-side. Same pattern as `StorySearchPicker`.
+
+**Rationale**: At current scale (~50 points), loading all is cheaper than building a server-side search endpoint. The `getPublicPointsFeed` with a high limit (200) provides the dataset. Filtered by `statement.toLowerCase().includes(query)`.
+
+**When to revisit**: If point count exceeds 500, switch to server-side search (Supabase `textSearch` or `ilike`).
+
+### 3. Security Review
+
+**RLS on `point_references` table:**
+- ✅ SELECT: `USING (true)` — public read (points are public)
+- ⚠️ INSERT: Must require `source_point_id` creator == `auth.uid()`. Without this, any user could create fake response links between arbitrary points. Policy: `WITH CHECK (EXISTS (SELECT 1 FROM points WHERE id = source_point_id AND first_validator_id = auth.uid()) AND EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND is_verified = true))`
+- ✅ No UPDATE/DELETE policies — references are immutable
+
+**RLS on existing `points` table:**
+- ✅ Existing INSERT policy (verified users only) is adequate
+- ✅ No UPDATE/DELETE — enforces immutability at DB level
+
+**RPC `create_point_with_position` security:**
+- ⚠️ **HIGH:** Architect chose SECURITY DEFINER (for cross-table atomicity). The function body MUST include manual auth checks: (a) caller authenticated, (b) caller verified, (c) `first_validator_id = auth.uid()`, (d) position `user_id = auth.uid()`. These checks are documented in the migration SQL in AD-1.
+
+**Input Validation:**
+- ✅ UNIQUE constraint on `(source_point_id, target_point_id)` — prevents duplicates
+- ✅ CHECK `source_point_id != target_point_id` — prevents self-reference
+- ⚠️ **MEDIUM:** No `CHECK (char_length(statement) <= 1000)` on `points` table. Must be added in the P523 migration.
+- ✅ FKs with `ON DELETE CASCADE` — cleaning up references when points are deleted
+
+**Data Protection:**
+- ✅ Points are public by design. No PII in `point_references`.
+- ✅ Client-side full-point-load for search is acceptable (all point data is already public).
+
+**Summary:** 1 HIGH (RPC auth checks — already addressed in migration SQL), 2 MEDIUM (INSERT RLS policy + statement length CHECK — must be in migration).
+
+### 4. Implementation Approach
+
+#### 4.1 New Files
+
+| File | Description | ~Lines |
+|------|-------------|--------|
+| `supabase/migrations/YYYYMMDDHHMMSS_point_references.sql` | `point_references` table + `create_point_with_position` RPC + RLS + indexes | ~80 |
+| `src/app/pages/create-point-page.tsx` | `/create-point` page — auth-gated form with optional "Responding to" | ~200 |
+| `src/app/components/shared/point-search-picker.tsx` | Client-side point search (modeled on `StorySearchPicker`) | ~80 |
+| `src/app/components/shared/create-dropdown.tsx` | Reusable `[+ Create ▾]` / `[Share ▾]` dropdown | ~60 |
+| `src/app/components/shared/responding-to-preview.tsx` | Read-only preview of referenced point | ~40 |
+| `src/app/components/point-detail/responses-section.tsx` | Responses section for point detail page | ~100 |
+| `src/app/components/shared/response-count-badge.tsx` | `💬 N` inline badge for feed cards | ~15 |
+| `src/app/components/shared/reply-overlay-icon.tsx` | ↩ overlay on pin icon for response points | ~20 |
+
+#### 4.2 Modified Files
+
+| File | Change |
+|------|--------|
+| `src/App.tsx` | Add `/create-point` route (lazy-loaded) |
+| `src/app/types/index.ts` | Add `PointReference` and `DbPointReference` types; add `responseCount?` to `PointWithCounts`; add `respondingTo?` to `PointWithCounts` |
+| `src/app/data/points-service.interface.ts` | Add `createPointWithPosition()`, `getResponsesForPoint()`, `getResponseCounts()`, `getReference()` methods |
+| `src/app/data/points-service-real.ts` | Implement new interface methods using Supabase RPC + `point_references` queries |
+| `src/app/data/points-service-mock.ts` | Implement mock versions of new methods |
+| `src/app/pages/feed-page.tsx` | Replace "Share a Story" `<Link>` (line 173-181) with `<CreateDropdown variant="feed" />` |
+| `src/app/pages/profile-page-v2.tsx` | Replace "Share a Story" button (line 898-902) with `<CreateDropdown variant="profile" />` |
+| `src/app/pages/point-detail-page.tsx` | (1) Add "Responding to" section above point card; (2) Add `<ResponsesSection>` below Positions section |
+| `src/app/components/feed/feed-point-card.tsx` | Add `responseCount?` and `isResponse?` props; render `ResponseCountBadge` + `ReplyOverlayIcon` |
+| `src/app/components/social/point-card-with-links.tsx` | Add `isResponse?` prop for `ReplyOverlayIcon` |
+
+#### 4.3 Migration SQL
+
+```sql
+-- Migration: Point references and atomic point creation
+-- P523: Point-to-Point References & Standalone Point Creation
+
+-- ============================================================================
+-- SECURITY: Statement length constraint (from security review)
+-- Protects against direct INSERTs bypassing the RPC
+-- ============================================================================
+
+ALTER TABLE points ADD CONSTRAINT IF NOT EXISTS chk_points_statement_length
+  CHECK (char_length(statement) <= 1000);
+ALTER TABLE points ADD CONSTRAINT IF NOT EXISTS chk_points_statement_not_empty
+  CHECK (char_length(trim(statement)) > 0);
+
+-- ============================================================================
+-- JUNCTION TABLE: point_references
+-- ============================================================================
+
+CREATE TABLE IF NOT EXISTS point_references (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  source_point_id UUID NOT NULL REFERENCES points(id) ON DELETE CASCADE,
+  target_point_id UUID NOT NULL REFERENCES points(id) ON DELETE CASCADE,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  UNIQUE(source_point_id, target_point_id),
+  CHECK(source_point_id != target_point_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_point_refs_source ON point_references(source_point_id);
+CREATE INDEX IF NOT EXISTS idx_point_refs_target ON point_references(target_point_id);
+
+-- RLS
+ALTER TABLE point_references ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Point references are publicly readable"
+  ON point_references FOR SELECT USING (true);
+
+-- No direct INSERT policy — inserts happen via SECURITY DEFINER RPC only.
+-- No UPDATE/DELETE policies in V1 — references are immutable.
+
+-- ============================================================================
+-- RPC: create_point_with_position
+-- Atomic: point + position + optional reference in one transaction
+-- ============================================================================
+
+CREATE OR REPLACE FUNCTION create_point_with_position(
+  p_statement TEXT,
+  p_position position_type,
+  p_context TEXT DEFAULT NULL,
+  p_tags TEXT[] DEFAULT '{}',
+  p_target_point_id UUID DEFAULT NULL
+)
+RETURNS UUID
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_user_id UUID;
+  v_point_id UUID;
+BEGIN
+  -- Auth check
+  v_user_id := auth.uid();
+  IF v_user_id IS NULL THEN
+    RAISE EXCEPTION 'Not authenticated';
+  END IF;
+
+  -- Verified-user check
+  IF NOT EXISTS (SELECT 1 FROM profiles WHERE id = v_user_id AND is_verified = true) THEN
+    RAISE EXCEPTION 'User not verified';
+  END IF;
+
+  -- Statement length check
+  IF length(p_statement) > 1000 THEN
+    RAISE EXCEPTION 'Statement exceeds 1000 characters';
+  END IF;
+
+  -- Create the point
+  INSERT INTO points (statement, context, first_validator_id, tags)
+  VALUES (p_statement, p_context, v_user_id, p_tags)
+  RETURNING id INTO v_point_id;
+
+  -- Create the initial position
+  INSERT INTO point_positions (point_id, user_id, position)
+  VALUES (v_point_id, v_user_id, p_position);
+
+  -- Create reference if responding to another point
+  IF p_target_point_id IS NOT NULL THEN
+    INSERT INTO point_references (source_point_id, target_point_id)
+    VALUES (v_point_id, p_target_point_id);
+  END IF;
+
+  RETURN v_point_id;
+END;
+$$;
+
+-- Realtime (optional — enable if needed for live updates)
+-- ALTER PUBLICATION supabase_realtime ADD TABLE point_references;
+```
+
+#### 4.4 Build Sequence
+
+**Phase 1 — Database (no UI changes)**
+1. Create migration file with `point_references` table + `create_point_with_position` RPC
+2. Run `./scripts/migrate.sh`
+3. Verify: test RPC via Supabase SQL editor
+
+**Phase 2 — Service layer (no UI changes)**
+4. Add types: `PointReference`, `DbPointReference` to `src/app/types/index.ts`
+5. Add interface methods to `points-service.interface.ts`
+6. Implement in `points-service-real.ts`: `createPointWithPosition()` (calls RPC), `getResponsesForPoint()`, `getResponseCounts()`, `getReference()`
+7. Implement mock versions in `points-service-mock.ts`
+
+**Phase 3 — Create Point page**
+8. Create `create-point-page.tsx` (follows `create-story-page.tsx` pattern)
+9. Create `point-search-picker.tsx` (follows `story-search-picker.tsx` pattern)
+10. Create `responding-to-preview.tsx`
+11. Add route in `App.tsx`
+12. Test: standalone point creation, point creation with response
+
+**Phase 4 — Create Dropdown**
+13. Create `create-dropdown.tsx`
+14. Replace "Share a Story" in `feed-page.tsx` (line 173-181)
+15. Replace "Share a Story" in `profile-page-v2.tsx` (line 898-902)
+
+**Phase 5 — Point Detail Enhancements**
+16. Create `responses-section.tsx`
+17. Add "Responding to" header in `point-detail-page.tsx` (above point card, inside `px-4 py-6` div)
+18. Add `<ResponsesSection>` below Positions section in `point-detail-page.tsx`
+
+**Phase 6 — Feed & Profile Card Enhancements**
+19. Create `response-count-badge.tsx` and `reply-overlay-icon.tsx`
+20. Add `responseCount` + `isResponse` props to `feed-point-card.tsx`
+21. Add `isResponse` prop to `point-card-with-links.tsx`
+22. Wire response count data into feed queries (batch fetch from `point_references`)
+23. Wire `isResponse` flag into feed/profile queries (batch check `source_point_id` existence)
+
+#### 4.5 Key Type Additions
+
+```typescript
+// In src/app/types/index.ts
+
+export interface PointReference {
+  id: string;
+  sourcePointId: string;
+  targetPointId: string;
+  createdAt: string;
+}
+
+export interface DbPointReference {
+  id: string;
+  source_point_id: string;
+  target_point_id: string;
+  created_at: string;
+}
+```
+
+Extend `PointWithCounts`:
+```typescript
+export interface PointWithCounts extends PointWithCreator {
+  positionCounts: Record<PositionType, number>;
+  totalPositions: number;
+  responseCount?: number;    // P523: count of direct responses
+  isResponse?: boolean;      // P523: true if this point references another
+  respondingToId?: string;   // P523: target point ID (if response)
+}
+```
+
+#### 4.6 Service Interface Additions
+
+```typescript
+// In points-service.interface.ts
+
+/** P523: Create point + position + optional reference atomically */
+createPointWithPosition(
+  statement: string,
+  position: PositionType,
+  context?: string,
+  tags?: string[],
+  targetPointId?: string
+): Promise<string | null>;  // returns new point ID
+
+/** P523: Get direct responses to a point */
+getResponsesForPoint(
+  pointId: string,
+  limit?: number,
+  offset?: number,
+  viewerUserId?: string
+): Promise<PointWithUserPosition[]>;
+
+/** P523: Get response counts for multiple points (batch) */
+getResponseCounts(pointIds: string[]): Promise<Map<string, number>>;
+
+/** P523: Get the reference for a source point (what it responds to) */
+getReference(sourcePointId: string): Promise<PointReference | null>;
+```
