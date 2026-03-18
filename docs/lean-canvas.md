@@ -382,8 +382,8 @@ Gates to unlock next level of ambition, not reasons to quit. If not met, extend 
 | Stage | Price | Deliverable | Status |
 |-------|-------|-------------|--------|
 | Free Calibration Workshop | Free | 1-to-many. You present calibration points, room calibrates against you. Everyone discovers comprehension gaps live. No pairing needed. | Active (lead gen) |
-| Co-founder Alignment Check | €199 | One session, one real decision. Surface false agreements hiding in plain sight and false disagreements burning energy for nothing. 60 min with both co-founders. Workshop attendees get up to 50% off with early booking + testimonial. | Active (C1) |
-| Co-founder De-risking | €950 | Two sessions + Clarity Partnership Agreement + /live habit established. Transcript-based — they record via /live, you file stories & points, surface the real map. | Active (C1) |
+| Co-founder Clarity Session | Pay what it's worth | One session, one real decision. Surface false agreements and false disagreements. 60 min with both co-founders. Price communicated upfront: deposit based on expected value, refund any amount after based on perceived value. Generates genuine WTP signal. | Active (C1) |
+| Co-founder De-risking | €950 (repositioning via P545) | Two sessions + Clarity Partnership Agreement + /live habit established. Transcript-based — they record via /live, you file stories & points, surface the real map. Framing shifting from "de-risking" to "alignment on values and vision." | Active (C1) |
 | Fractional Clarity Officer | €1,500–3,000/mo (escalating) | You play the MCP. Weekly sessions, ongoing transcript analysis. 7 slots max — price rises €250/slot to manage capacity. | Future (C3) |
 | Direct Investor DD | €2,000+ | Pre-investment calibration assessment. Investor pays. Unfakeable — founders can't fake understanding without actually understanding. | Parked (H-InvestorDD) |
 | Team Clarity Workshop | €3,350 | Half-day workshop for up to 8. Co-founders become internal champions. | Future |
