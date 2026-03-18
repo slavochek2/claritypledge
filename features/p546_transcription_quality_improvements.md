@@ -1,5 +1,5 @@
 ---
-status: today
+status: in-progress
 type: task
 rank: 0.3
 tags:
@@ -48,7 +48,7 @@ From /innovate (30 alternatives) + /falsify (adversarial stress-test):
 
 **Gemini audio-native analysis** — REJECTED. Incompatible with existing structured data pipeline (`{speaker_id, text, start_ms, end_ms}`). Cannot map speakers to user IDs (no embedding support). Non-deterministic output format. Sidesteps the problem instead of solving it.
 
-**Deepgram API complete replacement** — REJECTED (for now). Destroys the voice profile system — Deepgram does not expose speaker embeddings, making `user_voice_profiles` (pgvector, cosine matching) unusable. Premature vendor lock-in for a pipeline processing <1 session/day. The primary problem is a 50-line local fix. **Revisit as benchmark** after fixing merger.py — valid comparison, not panic replacement.
+**Deepgram API complete replacement** — REJECTED. Recurring cost ($0.26/session) when we have $25k GCP credits and a self-hosted pipeline that needs a ~50-line bug fix. Also destroys the voice profile system (no speaker embeddings exposed) and adds vendor lock-in.
 
 **P546 all 7 items at once** — REJECTED as a unit. Items 1+2 solve 90%+ of issues. Items 3-7 are premature without post-fix measurement. Hallucination post-filter with hardcoded patterns is brittle. Round correction creates a second-opinion system that fights pyannote. Multi-phone separation is an architecture change deserving its own spec.
 
@@ -89,9 +89,9 @@ This is the single highest-impact change. Word timestamps already exist but are 
 ### Phase 2: Measure and Decide (after Phase 1)
 
 Re-process 3 benchmark sessions (GB7JWW/Florrie, E7QDTX/Jb, H44Q9H/Jan+Nejc). Measure:
-- **DER** (Diarization Error Rate) — target < 20%
-- **Speaker purity** — target balanced split within 60/40 for Florrie session
-- **Hallucination rate** — target zero repeated hallucinations
+- **Speaker word-count ratio** — target within 60/40 for all known two-speaker sessions
+- **Hallucination rate** — target zero repeated phrases (grep for 3+ consecutive duplicates)
+- **Foreign script count** — target zero non-Latin fragments in English-tagged sessions
 
 **Only proceed to Phase 3 items if Phase 1 metrics show residual issues:**
 
@@ -101,9 +101,8 @@ Re-process 3 benchmark sessions (GB7JWW/Florrie, E7QDTX/Jb, H44Q9H/Jan+Nejc). Me
 |------|----------------------|--------|
 | Hallucination post-filter | If VAD doesn't eliminate all hallucinations | ~100 lines, new file |
 | Whisper param tuning (`no_speech_threshold`, `compression_ratio_threshold`) | If hallucination rate > 1% after VAD | 3 lines in transcriber.py |
-| Round structure as diarization correction | If DER > 20% after word-level merger | Careful design needed — avoid fighting pyannote |
+| Round structure as diarization correction | If speaker ratio still >70/30 after word-level merger | Careful design needed — avoid fighting pyannote |
 | Multi-phone channel separation | If multi-phone sessions still have poor diarization | Architecture change, own spec |
-| Deepgram benchmark | Always — run as comparison after Phase 1 baselines exist | API integration, ~half day |
 
 ## Files to Change (Phase 1)
 
