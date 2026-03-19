@@ -217,6 +217,8 @@ Story evolves through corrections
 3. Human verification (holistic first, points later if needed)
 4. AI verification (scale without author present)
 
+**Story-first architecture (2026-03-19):** Stories and Points are two distinct entity types entering different calibration protocols. Stories → comprehension verified (understanding axis). Points → positions taken (agreement axis). Points are only extracted from stories — never created standalone. An optional comprehension assessment (two-sided 0-10) lets authors and readers surface understanding gaps asynchronously from cards, without /live. This delivers the "holy shit" moment through the product itself — scaling the facilitated session experience. Assessment is optional: users can take positions without it, but unassessed positions show as "thin." See [H-StoryFirst](hypotheses.md#h-storyfirst-story-first-content-model-with-optional-comprehension-assessment-delivers-async-gap-revelations). Falsification-tested: mandatory gate fails, optional gate with async card assessment survives.
+
 See [decisions.md](decisions.md) "2026-02-02" entry for full sequence.
 
 ### 5. Calibration Profile

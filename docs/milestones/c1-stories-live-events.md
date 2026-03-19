@@ -83,6 +83,8 @@ After a facilitated session where agreement was created:
 
 **Note:** The Clarity Partnership Agreement includes a /live fallback clause ("use /live when conflict erupts"), but this is an emergency mechanism, not a return loop. Sessions must be scheduled and content-driven, not crisis-triggered.
 
+**Story-first implication (2026-03-19):** If P523 revision ships story-first (H-StoryFirst), the filing question changes. Stories filed from sessions will automatically produce extractable points. The test becomes: does the story-first flow make filing feel natural enough that Slava doesn't need to be the scribe? If participants file their own stories post-session, the content flywheel self-sustains. Additionally, the optional comprehension assessment on stories creates a new return trigger: author sees a gap between their assessment and the reader's self-assessment → wants to verify → schedules next session.
+
 ---
 
 ## Pilot Sequence

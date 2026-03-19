@@ -26,6 +26,7 @@ Our active bets, in priority order. This is the map of what we still need to pro
 **Kill if:** Filed content doesn't shape subsequent sessions — pairs always bring fresh topics regardless of what was filed. Means the value is in Slava's facilitation, not in the content system.
 **Notes (2026-03-09):** Reframed from "do pairs use /live independently?" to "does filed content feed the FCO loop?" Under the FCO model, pairs don't self-serve — they send transcripts, Slava does the work. The question isn't independent /live usage (the business model doesn't require it), but whether filed content creates continuity between sessions. If yes, it's the engine of the retainer. If no, each session is a standalone engagement and the retainer model needs a different retention mechanism.
 **Precondition:** Requires at least one pair who experienced a facilitated session (H-PairsReturn step 1).
+**Update (2026-03-19):** Story-first architecture (H-StoryFirst) changes this hypothesis. If points can only be extracted from stories, then filing stories IS the primary content creation act — not an afterthought. The question shifts from "does filed content feed the FCO loop?" to "does the story-first creation flow naturally produce content that feeds return?" The comprehension assessment creates a new trigger: author sees a gap → wants to verify → schedules session. Content feeds return through the gap signal, not just through "here's what to discuss next."
 
 ---
 
@@ -82,6 +83,16 @@ Our active bets, in priority order. This is the map of what we still need to pro
 **Kill if:** Level 3-4 topics produce the same shallow results as Level 1-2 — meaning topic depth doesn't matter and the problem is elsewhere.
 **Surfaced:** 2026-03-18 transcript analysis. ~40% of sessions failed due to topic inadequacy. Noah refused to share anything personal. Jb defaulted to abstract philosophy. When Olena/K and Victoria engaged on genuine emotional topics, protocol reached depth fast.
 **Notes:** Implies the facilitator's primary skill is topic steering, not protocol administration. Pre-written "topic packs" could partially automate this for self-serve pairs.
+
+---
+
+### H-StoryFirst: Story-first content model with optional comprehension assessment delivers async gap revelations
+**Bet:** When stories are the primary entity and points are extracted from them, the two-sided comprehension assessment (reader self-assesses 0-10, author counter-assesses from cards) produces "holy shit" moments asynchronously — without Slava present or /live session required. This scales the facilitated session experience into the product itself. The content flywheel: gap revealed → /live confirms → transcript → new story drafts → point extraction → new engagement → new gaps.
+**Testing via:** Revise P523 — implement story-first creation flow with optional comprehension gate. Measure: do authors counter-assess? Does the gap produce curiosity or action? Do users file stories when prompted after taking a position?
+**Kill if:** Authors don't counter-assess (bottleneck) OR comprehension gaps don't produce any behavioral response (users ignore the signal) OR story filing adds friction that reduces point engagement below current baseline.
+**Key design decisions (2026-03-19, falsification-tested):** (1) Gate is optional — users can take positions without story assessment, but unassessed positions show as "thin." (2) Assessment happens from cards, not just /live — author reads someone's position/story and counter-assesses async. (3) Primary context is orchestrated settings (workshops, facilitated sessions) where "read and assess" IS the activity, not friction. (4) Points only extracted from stories, never standalone. (5) False premise = story without position.
+**Depends on:** Existing story infrastructure (built), existing verification infrastructure (built, underutilized).
+**Notes:** Emerged from validator bias conversation. Falsification initially failed story-first (mandatory gate blocks adoption, /live bottleneck, cold start paradox). User counter-argued: optional gate dissolves adoption barrier, async card-based assessment dissolves /live bottleneck, orchestrated settings dissolve cold start. Updated architecture survives falsification. Architecture Decision Record and Clarity Canvas v4.0 document the full reasoning.
 
 ---
 
@@ -289,12 +300,7 @@ Our active bets, in priority order. This is the map of what we still need to pro
 **Evidence so far:** Three separate pipeline revisions (008, 013, 014) all produce 99.7%/0.3% split on H44Q9H despite: segment-level merger (rev 008), word-level merger (rev 013), and pre-loaded audio (rev 014). The split is identical regardless of merger granularity or processing speed. `amix` averages channels to mono — this removes any spatial differentiation between the two phone positions. The research report notes "each phone picks up both speakers, with the holder's voice louder" — but after `amix`, that volume difference is averaged away.
 **Possible answers:** (A) Pass separate channels as stereo instead of `amix` mono — preserves spatial info for pyannote. (B) Use energy-based gating per channel before mixing — identify active speaker by volume comparison. (C) Use Deepgram multichannel API ($0.13/session) — they handle this natively. (D) Voice enrollment with sliding-window embedding matching (existing infrastructure). (E) Diarization on same-room mono audio is a known hard problem — may need a fundamentally different approach.
 
-### OQ: Story-first content model — should points only be extracted from stories?
-**Surfaced:** 2026-03-19 conversation exploring validator bias and entanglement
-**Question:** Should ClarityPledge switch to a "story-first" model where stories are the primary entity (understanding verified in /live), points are always extracted from stories (never created standalone), and a two-sided comprehension gate (self-assess 0-10, author counter-assesses) replaces entanglement labels? The verification chain itself would become the entanglement signal.
-**Evidence so far:** Theoretical architecture only — zero user testing, zero implementation. The model resolves three persistent design problems (entanglement visibility, false premise, understanding/agreement conflation) with one structural move. Canvas v4.0 documents the full reasoning chain. But Box 7 warns: insight-to-evidence ratio has worsened for the third consecutive canvas version.
-**Possible answers:** (A) Story-first is the right architecture — revise P523 and implement. (B) Story-first is theoretically elegant but operationally too heavy — keep flat points, add lightweight entanglement signals. (C) Test via paper prototype workshop before any code — participants write stories on paper, extract points on sticky notes, exchange comprehension scores on index cards.
-**Key artifacts:** Architecture Decision Record (story-first model with comprehension gating), Clarity Canvas v4.0 — both produced in Claude.ai conversation 2026-03-19.
+*Promoted to active hypothesis H-StoryFirst on 2026-03-19. See Active section.*
 
 ---
 
@@ -306,6 +312,7 @@ ACTIVE NOW — First Pairs (March 2026)
 │   ├─ if yes → H-Stories-ColdStart (do they need filed content for independent use?)
 │   └─ if yes → H-Retainers-Sticky (will they pay for ongoing "Fractional Clarity Officer"?)
 ├─ H-Stories-ColdStart (First Pairs step 2) — does filed content feed the FCO loop?
+├─ H-StoryFirst (P523 revision) — can async gap revelations scale the facilitated experience?
 ├─ H-CalibrationTrainable (passive — measured across all sessions)
 ├─ H-CoachChannel (coaches as distribution — blocked by H-PairsReturn)
 └─ H-AICalib-EntryTeaser (park until group acquisition, sessions #3-10)
