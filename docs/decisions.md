@@ -2,6 +2,27 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-19 [product]: Ghost blog typography — match Substack's visual density via font-size compensation
+
+**Context:** Blog articles on blog.claritypledge.com were visually different from Substack despite matching computed CSS values (19px, 728px width, 20px paragraph spacing). Side-by-side comparison revealed Inter font renders 9% wider per character than SF Pro Display — same px size, different visual density.
+**Decision:** Use 17px Inter to match 19px SF Pro Display visual weight. Override Ghost's CSS Grid layout (`display: block !important`) to eliminate the hidden 48px gutters constraining paragraphs to 632px inside a 728px container. Kill `margin-top` on paragraphs (Ghost theme added 28px, doubling the 20px gap). Text color `rgb(54,55,55)` (dark gray, not black). All changes via Ghost code injection CSS.
+**Alternatives rejected:** (1) Switch font to SF Pro Display — not available on non-Apple devices. (2) Keep 19px Inter — visually heavier than reference. (3) Change Ghost theme — brittle, theme updates would overwrite.
+**Consequences:** Blog typography now matches Substack's reading experience. Code injection is the entire styling layer — Ghost theme provides structure, we override everything visual. Font-size compensation is a reusable pattern when matching designs across different typefaces.
+
+## 2026-03-19 [product]: Ghost blog nav — "Clarity Pledge · Blog" identity with Subscribe + Log in
+
+**Context:** Blog used the same nav as claritypledge.com main site (Events, Blog, Start a Clarity Session). Readers couldn't tell they were on the blog vs the main site. Ghost's built-in portal modal showed a confusing "Sign in" link for Ghost membership, not ClarityPledge accounts.
+**Decision:** Custom nav: "Clarity Pledge · Blog" logo (left), Subscribe button + Log in link (right). Subscribe links to blog homepage (landing overlay handles the form). Log in links to claritypledge.com/login. Removed tag labels, excerpt, and author byline from article pages. Hamburger menu retains cross-nav links to main site.
+**Alternatives rejected:** (1) Ghost portal signup modal — shows "Sign in" for Ghost membership, confusing since we want ClarityPledge login. (2) Inline subscribe dropdown in nav — unusual UX pattern, no established sites do this. (3) Keep main site nav — doesn't signal "you're reading a blog."
+**Consequences:** Blog has clear identity separate from main site. Subscribe flow goes through our controlled landing overlay (no Ghost portal confusion). All article metadata (tag, excerpt, byline) hidden — clean title → image → content layout.
+
+## 2026-03-19 [technical]: Ghost code injection as full styling layer — override theme, don't modify it
+
+**Context:** Multiple iterative fixes to Ghost blog layout required: content width, paragraph spacing, grid layout override, typography, nav changes. All done via Ghost's `codeinjection_head` setting in the SQLite DB.
+**Decision:** Ghost code injection CSS is the complete visual layer. Pattern: `docker cp` DB out → Python sqlite3 update → `docker cp` back → `docker restart`. Theme provides structural HTML; code injection overrides all visual properties with `!important` where needed. Key overrides: `display: block !important` (kills Ghost grid), `margin-top: 0 !important` (kills theme paragraph margins), `letter-spacing: normal` (overrides theme's negative tracking).
+**Alternatives rejected:** (1) Edit Ghost theme files directly — fragile, lost on theme updates. (2) Create custom Ghost theme — high maintenance for what's essentially CSS overrides. (3) Use Ghost Admin UI settings — limited to basic colors/fonts, can't override grid layout.
+**Consequences:** All blog visual changes are in one place (code injection). Deployment is: edit Python script → SCP → run → restart. Takes ~15 seconds per change + 12s Ghost restart. The entire code injection block is now ~1200 lines (CSS + JS for nav, layout, subscribe).
+
 ## 2026-03-19 [process]: Content pipeline — /enhance-blog skill added after /draft-blog
 
 **Context:** First blog post enhanced with interactive visuals manually. Process was repeatable: fetch → brainstorm ideas → falsify to budget → build blocks → preview → insert. Created as a skill to avoid ad-hoc work next time.

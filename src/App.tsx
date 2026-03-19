@@ -40,6 +40,7 @@ const AgreementPage = lazy(() => import("@/app/pages/agreement-page").then(m => 
 const AcceptAgreementPage = lazy(() => import("@/app/pages/accept-agreement-page").then(m => ({ default: m.AcceptAgreementPage })));
 const AgreementEmailConfirmationPage = lazy(() => import("@/app/pages/agreement-email-confirmation-page").then(m => ({ default: m.AgreementEmailConfirmationPage })));
 const DeclinedAgreementPage = lazy(() => import("@/app/pages/declined-agreement-page").then(m => ({ default: m.DeclinedAgreementPage })));
+const BlogSubscribedPage = lazy(() => import("@/app/pages/blog-subscribed-page").then(m => ({ default: m.BlogSubscribedPage })));
 const ProfileConnectionsPage = lazy(() => import("@/app/pages/profile-connections-page").then(m => ({ default: m.ProfileConnectionsPage })));
 const PartnerTemplatePage = lazy(() => import("@/app/pages/partner-template-page").then(m => ({ default: m.PartnerTemplatePage })));
 
@@ -372,6 +373,16 @@ export default function ClarityPledgeApp() {
             <ClarityLandingLayout>
               <LazyRoute>
                 <DeclinedAgreementPage />
+              </LazyRoute>
+            </ClarityLandingLayout>
+          }
+        />
+        <Route
+          path="/blog-subscribed"
+          element={
+            <ClarityLandingLayout>
+              <LazyRoute>
+                <BlogSubscribedPage />
               </LazyRoute>
             </ClarityLandingLayout>
           }
