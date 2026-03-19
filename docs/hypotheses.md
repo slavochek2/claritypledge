@@ -289,6 +289,13 @@ Our active bets, in priority order. This is the map of what we still need to pro
 **Evidence so far:** Three separate pipeline revisions (008, 013, 014) all produce 99.7%/0.3% split on H44Q9H despite: segment-level merger (rev 008), word-level merger (rev 013), and pre-loaded audio (rev 014). The split is identical regardless of merger granularity or processing speed. `amix` averages channels to mono — this removes any spatial differentiation between the two phone positions. The research report notes "each phone picks up both speakers, with the holder's voice louder" — but after `amix`, that volume difference is averaged away.
 **Possible answers:** (A) Pass separate channels as stereo instead of `amix` mono — preserves spatial info for pyannote. (B) Use energy-based gating per channel before mixing — identify active speaker by volume comparison. (C) Use Deepgram multichannel API ($0.13/session) — they handle this natively. (D) Voice enrollment with sliding-window embedding matching (existing infrastructure). (E) Diarization on same-room mono audio is a known hard problem — may need a fundamentally different approach.
 
+### OQ: Story-first content model — should points only be extracted from stories?
+**Surfaced:** 2026-03-19 conversation exploring validator bias and entanglement
+**Question:** Should ClarityPledge switch to a "story-first" model where stories are the primary entity (understanding verified in /live), points are always extracted from stories (never created standalone), and a two-sided comprehension gate (self-assess 0-10, author counter-assesses) replaces entanglement labels? The verification chain itself would become the entanglement signal.
+**Evidence so far:** Theoretical architecture only — zero user testing, zero implementation. The model resolves three persistent design problems (entanglement visibility, false premise, understanding/agreement conflation) with one structural move. Canvas v4.0 documents the full reasoning chain. But Box 7 warns: insight-to-evidence ratio has worsened for the third consecutive canvas version.
+**Possible answers:** (A) Story-first is the right architecture — revise P523 and implement. (B) Story-first is theoretically elegant but operationally too heavy — keep flat points, add lightweight entanglement signals. (C) Test via paper prototype workshop before any code — participants write stories on paper, extract points on sticky notes, exchange comprehension scores on index cards.
+**Key artifacts:** Architecture Decision Record (story-first model with comprehension gating), Clarity Canvas v4.0 — both produced in Claude.ai conversation 2026-03-19.
+
 ---
 
 ## Dependency Map

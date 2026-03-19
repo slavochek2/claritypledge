@@ -21,6 +21,8 @@ user reviews locally
       ↓
 user reviews in Ghost Admin (visual preview)
       ↓
+/enhance-blog            →  interactive visuals      (optional — brainstorm → falsify → build → preview → insert)
+      ↓
 /ship-blog               →  send to subscribers
       ↓
 published at blog.claritypledge.com
@@ -106,6 +108,24 @@ series_total: 7
 **Output:** Ghost draft URL + updates frontmatter `status: draft-ready`
 
 **Ghost API:** JWT auth via `GHOST_ADMIN_API_KEY` from `.env.local`.
+
+---
+
+### 5.5. `/enhance-blog` — Interactive Visuals (optional)
+
+**What:** Adds interactive visual blocks (animated counters, matrices, flow diagrams, etc.) to the Ghost draft. Brainstorms 60 ideas, falsifies to a text-based budget, builds survivors, previews locally for review.
+
+**When to use:** After `/draft-blog` creates the Ghost draft, before publishing. Skip for short posts (<800 words) or posts where text alone is the right format.
+
+**Does:**
+1. Calculates visual budget (1 block per 400-600 words, max 5)
+2. Brainstorms 60 visual ideas (subagent)
+3. Falsifies to budget (subagent — kills decorative, redundant, tone-breaking ideas)
+4. Builds approved blocks as self-contained HTML/CSS/JS
+5. Serves local preview page for user review
+6. Inserts into Ghost via Admin API after user approval
+
+**Output:** Interactive blocks embedded in Ghost post. Files in `.private/blog-visuals/`.
 
 ---
 
@@ -214,5 +234,6 @@ Tags keep them visually distinct on the blog (`manifesto-series`).
 | Interview | `/slava:interview` | Extract insight from raw story (optional) |
 | Shape for blog | `/slava:prepare-blog` | Raw story → polished draft in `content/blog/` |
 | Polish & preview | `/slava:draft-blog` | Blog draft → Ghost draft with image + SEO |
+| Interactive visuals | `/slava:enhance-blog` | Brainstorm → falsify → build → preview → insert (optional) |
 | Send to subscribers | `/slava:ship-blog` | Publish approved Ghost draft to newsletter |
 | Sifter UX content | `/slava:sifter-story` | App content → `content/sifter/sessions/` (NOT blog) |

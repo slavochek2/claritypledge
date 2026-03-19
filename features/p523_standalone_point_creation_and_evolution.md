@@ -1,7 +1,7 @@
 ---
-status: today
+status: in-progress
 type: story
-rank: 0.024
+rank: 2
 tags:
   - points
   - references
@@ -15,7 +15,7 @@ reviews:
   ux: done
   architect: null
   alignment: null
-locked_at: '2026-03-15T14:22:58.149Z'
+locked_at: '2026-03-19T10:18:41.767Z'
 uat_file: features/uat/p523.md
 test_files:
   - src/tests/p523-point-references.test.ts
