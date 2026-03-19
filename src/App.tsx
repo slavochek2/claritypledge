@@ -4,10 +4,9 @@ import { ClarityPageLoader } from "@/components/ui/clarity-loader";
 import * as Sentry from "@sentry/react";
 import { HelmetProvider } from "react-helmet-async";
 import { ClarityLandingLayout } from "@/app/layouts/clarity-landing-layout";
-import { AuthCallbackPage, AuthProvider } from "@/auth";
+import { AuthCallbackPage, AuthProvider, useAuth } from "@/auth";
 import { ScrollToTop } from "@/app/components/scroll-to-top";
 import { PwaInstallProvider } from "@/hooks/use-pwa-install";
-import { useNavAuthState } from "@/hooks/use-nav-auth-state";
 
 // P553: All pages lazy-loaded to reduce initial bundle size
 const ClarityPledgeLanding = lazy(() => import("@/app/pages/clarity-pledge-landing").then(m => ({ default: m.ClarityPledgeLanding })));
@@ -58,13 +57,14 @@ const NotFoundDrift = lazy(() => import("@/app/pages/not-found-page").then(m => 
 const NotFoundGlitch = lazy(() => import("@/app/pages/not-found-page").then(m => ({ default: m.NotFoundGlitch })));
 const NotFoundCompass = lazy(() => import("@/app/pages/not-found-page").then(m => ({ default: m.NotFoundCompass })));
 
-/** P491: Redirect authenticated+verified users from / to /feed. Show landing for everyone else. */
+/** P555: Redirect on session check (not profile fetch) — eliminates ~300-500ms loader.
+ *  Previously waited for profile via useNavAuthState; now uses useAuth() directly.
+ *  Supabase caches sessions in localStorage, so sessionChecked resolves in ~10ms. */
 function HomeRedirect() {
-  // useNavAuthState is only available inside AuthProvider+Router, which is the case here
-  const { showUserMenu, sessionChecked, isLoading } = useNavAuthState();
+  const { session, sessionChecked } = useAuth();
 
-  // While auth is resolving, show loading skeleton (avoid landing page flash)
-  if (!sessionChecked || isLoading) {
+  // While session is resolving (~10ms from localStorage), show loader
+  if (!sessionChecked) {
     return (
       <ClarityLandingLayout>
         <ClarityPageLoader />
@@ -72,17 +72,17 @@ function HomeRedirect() {
     );
   }
 
-  // Authenticated + verified → redirect to feed
-  if (showUserMenu) {
+  // Has session → redirect to feed immediately (profile loads in background)
+  if (session) {
     return <Navigate to="/feed" replace />;
   }
 
-  // Anonymous / unverified → show landing page
+  // Anonymous → show landing page
   return (
     <ClarityLandingLayout>
-      <Suspense fallback={<ClarityPageLoader />}>
+      <LazyRoute>
         <ClarityPledgeLanding />
-      </Suspense>
+      </LazyRoute>
     </ClarityLandingLayout>
   );
 }

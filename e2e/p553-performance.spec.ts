@@ -125,16 +125,11 @@ test.describe('P553 — Preconnect hints', () => {
       return Array.from(links).map(l => (l as HTMLLinkElement).href);
     });
 
-    // After P553: these preconnect hints should exist
-    // Supabase project URL
+    // After P553: preconnect for Supabase should exist
+    // P555: Google Fonts preconnects removed (fonts self-hosted)
     const hasSupabase = preconnectHrefs.some(h => h.includes('supabase.co'));
-    // Google Fonts
-    const hasGoogleFonts = preconnectHrefs.some(h => h.includes('fonts.googleapis.com'));
-    const hasGstatic = preconnectHrefs.some(h => h.includes('fonts.gstatic.com'));
 
     expect(hasSupabase, 'Missing preconnect for Supabase').toBe(true);
-    expect(hasGoogleFonts, 'Missing preconnect for Google Fonts stylesheet').toBe(true);
-    expect(hasGstatic, 'Missing preconnect for Google Fonts files (gstatic)').toBe(true);
   });
 });
 
