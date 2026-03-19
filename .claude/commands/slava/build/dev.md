@@ -111,6 +111,11 @@ You're not just writing code — you're building something that will run in prod
 6. **Skeptic check** — What could break? What did I assume?
 7. **Mark** — Change `[ ]` to `[x]` after task passes
 8. **Check** — Run `./scripts/pre-commit-checks.sh`
+8.5. **Spec fidelity check (mandatory for UI features)** — If `.tsx` files were modified AND the spec has a `## UI Contract` section:
+   a. Read the UI Contract table from the spec
+   b. Spawn a SEPARATE subagent with ONLY the UI Contract table + the code diff (not implementation rationale). Prompt: "For each row in this UI Contract, verify the exact value exists in the code diff. Report PASS/FAIL per row with the line of code where found or 'NOT FOUND'."
+   c. Any FAIL → fix the code, re-run check. Max 3 iterations.
+   d. Skip this step if no `## UI Contract` section exists (non-UI features, older specs).
 9. **Commit** — Only if ALL tests pass
 9.5. **Review** — Spawn `/review-all` as a subagent with this explicit instruction: "Review all changes on this branch vs main. Spec: [current spec path]. Do NOT pause for scope selection — proceed directly with scope = all changes vs main." Present HIGH/MEDIUM findings to user. Ask: "Fix issues before closing? (all HIGH / select / skip)". Apply approved fixes and commit them.
 9.7. **Pre-deploy checklist** — If spec has a `## Pre-deploy Checklist` (or `## Deployment Checklist`) section, execute each item on the target environment now. Verify edge functions are deployed, secrets are set, and migrations are applied — don't defer to `/ship`. Report what was provisioned.

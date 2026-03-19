@@ -293,6 +293,22 @@ reviews:
 
 ---
 
+## UI Contract
+
+**Exact strings, colors, and measurements that downstream skills must reproduce verbatim.**
+Every button label, page title, placeholder, toast message, and color listed here is a hard constraint — not a suggestion. Downstream skills (/ux, /architect, /generate-tests, /dev) must reference this table directly.
+
+| Element | Value | Context |
+|---------|-------|---------|
+| Button label | "Export CSV" | Results page CTA |
+| Button state | disabled | When no responses exist |
+| File name | `sifter_responses_YYYY-MM-DD.csv` | Downloaded file |
+| Error toast | "Export failed. Please try again." | Network error |
+
+*(Omit this section for non-UI features like infra, migrations, or backend-only work.)*
+
+---
+
 ## Next Steps
 
 **After user approves business requirements:**
