@@ -204,6 +204,14 @@ export function SimpleNavigation() {
                 >
                   Events
                 </Link>
+                <a
+                  href="https://blog.claritypledge.com"
+                  className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  Blog
+                </a>
                 {/* Start a Clarity Session CTA */}
                 {/* Analytics: Keep 'try_meeting' event name for historical continuity (P66 decision) */}
                 <Link
