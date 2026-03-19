@@ -3,14 +3,14 @@ milestone: C3
 status: future
 priority: p2
 track: C
-summary: "Founder pairs pay €1,500/month for Fractional Clarity Officer retainers"
+summary: "Founder pairs pay from €1,950/month for Fractional Clarity Officer retainers"
 ---
 
 # C3: Paid Founder Retainers (Coaching Monetization)
 
 ## TL;DR
 
-**Hypothesis:** Founder pairs will pay €1,500/month for Fractional Clarity Officer retainers after validating session value via €950 de-risking in C1. See [H-Retainers-Sticky](../hypotheses.md#h-retainers-sticky-founder-pairs-retain-monthly-calibration-retainers-via-fractional-clarity-officer-model).
+**Hypothesis:** Founder pairs will pay from €1,950/month for Fractional Clarity Officer retainers after validating session value via €950 de-risking in C1. See [H-Retainers-Sticky](../hypotheses.md#h-retainers-sticky-founder-pairs-retain-monthly-calibration-retainers-via-fractional-clarity-officer-model).
 
 **Test:** Launch retainer offers to C1 pairs who completed €950 de-risking + booked session 2. Track signup rate and month-2 retention.
 
@@ -50,15 +50,15 @@ The retainer is NOT "access to /live tool." It's "Slava finds where you're misal
 
 | Slot | Price/month | Cumulative MRR |
 |------|-------------|----------------|
-| 1 | €1,500 | €1,500 |
-| 2 | €1,750 | €3,250 |
-| 3 | €2,000 | €5,250 |
-| 4 | €2,250 | €7,500 |
-| 5 | €2,500 | €10,000 |
-| 6 | €2,750 | €12,750 |
-| 7 | €3,000 | €15,750 |
+| 1 | €1,950 | €1,950 |
+| 2 | €2,200 | €4,150 |
+| 3 | €2,450 | €6,600 |
+| 4 | €2,700 | €9,300 |
+| 5 | €2,950 | €12,250 |
+| 6 | €3,200 | €15,450 |
+| 7 | €3,450 | €18,900 |
 
-**Revenue at capacity (7 pairs): €15,750/month.** Revenue at 5 pairs: €10,000/month (hits €10k MRR target without maxing out).
+**Revenue at capacity (7 pairs): €18,900/month.** Revenue at 5 pairs: €12,250/month.
 
 **When ceiling is hit:** (a) automate transcript analysis to reduce hours/pair, (b) raise prices further, or (c) bring on a second facilitator. Automation is the preferred path — it's also the product roadmap.
 
@@ -66,8 +66,8 @@ The retainer is NOT "access to /live tool." It's "Slava finds where you're misal
 
 | Tier | Price | Includes |
 |------|-------|----------|
-| FCO Retainer | €1,500–3,000/month (escalating) | Weekly transcript analysis + AI gap detection + facilitated session |
-| Team Expansion | €3,350 one-time | Half-day workshop for up to 8. Co-founders become internal champions. |
+| FCO Retainer | from €1,950/month (escalating +€250/slot) | Weekly transcript analysis + AI gap detection + facilitated session |
+| Team Clarity Workshop | €2,950 one-time | Full-day workshop for teams of up to 8. Values, vision, lean canvas alignment. |
 | Community add-on | €200-300/month | Monthly cohort call (all pairs together) — C4 future |
 
 **Entry point:** Retainers are offered to pairs who completed the €950 de-risking package (2 sessions + Clarity Partnership Agreement) and returned for session 2.

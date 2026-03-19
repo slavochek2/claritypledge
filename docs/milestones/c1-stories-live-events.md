@@ -111,17 +111,15 @@ After a facilitated session where agreement was created:
 
 **Article-as-qualifier channel (validated reasoning, 2026-03-09):** Publish 8-points article with CTA "set your position" (requires claritypledge.com registration). Readers who register and set positions self-select as serious. Slava reaches out based on who engages — invite to calibration event, 15-min qualification call, or direct session depending on context. Rationale: 30+ direct sessions over 9 months produced zero conversions — article pre-warm removes anti-humiliation barrier by framing as intellectual engagement, not vulnerability pitch.
 
-**For pairs 3-10:** Free Calibration Workshops (1-to-many format). You present calibration points (stories & points curriculum), room calibrates against you. No pairing needed. Attendees who experience their own comprehension gap convert to €199 Co-founder Alignment Check (50% off with early booking + testimonial) → €950 de-risking. See H-WorkshopFormat.
+**For pairs 3-10:** Free Calibration Workshops (1-to-many format). You present calibration points (stories & points curriculum), room calibrates against you. No pairing needed. Attendees who experience their own comprehension gap convert to €950 De-risking Package. See H-WorkshopFormat.
 
-**Booking channel:** ladischenski.com/services → free 15-min call or direct booking.
+**Booking channel:** ladischenski.com → "Get in touch" contact form (Web3Forms). Slava qualifies before scheduling. No self-serve booking.
 
-## Pricing (updated 2026-03-08)
+## Pricing (updated 2026-03-19)
 
 **Free:** First facilitated session (direct outreach or workshop attendee).
 
-**€199:** Co-founder Alignment Check — one session, one real decision. Surface false agreements and false disagreements in 60 min. Workshop attendees get up to 50% off (€99) with early booking + testimonial permission + recording consent.
-
-**€950:** Co-founder De-risking package — 2 sessions + Clarity Partnership Agreement + /live habit established. Upsell from €199 session when gaps are confirmed and pair wants systematic de-risking.
+**€950:** Co-founder De-risking Package — 2 sessions + Clarity Partnership Agreement + habit established. Full refund if not satisfied after first session.
 
 ---
 

@@ -1,6 +1,6 @@
 # Lean Canvas: Clarity Pledge
 
-**Last updated:** 2026-03-08
+**Last updated:** 2026-03-19
 
 ---
 
@@ -64,7 +64,7 @@ The tools for talking got better. The tools for understanding didn't.
 
 **Expansion segments (future):**
 - **Solo founders + equity advisors** — same high-stakes dyad, lower decision frequency. Expand after C1 validates.
-- **Full teams** — Team Clarity Workshops (€3,350, up to 8 people). Once co-founders are calibrated, extend to team. Co-founders become internal champions.
+- **Full teams** — Team Clarity Workshops (€2,950, full-day, up to 8 people). Once co-founders are calibrated, extend to team. Co-founders become internal champions.
 - **Early-stage executive teams** — FUTURE
 
 ### Future Buyer: Investors as Channel + Customer (parked, see H-InvestorDD)
@@ -91,6 +91,7 @@ Audience for recognition and thought leadership — rationalists, AI researchers
 | Personal AI calibration | PARKED | Digital twin market growing; revisit after recognition track fires |
 | AI alignment research | PARKED | Needs session data corpus |
 | Coach/OD calibration tool | EXPLORE (see H-CoachChannel) | $100B+ market, coaches already have alignment vocabulary; ClarityPledge adds comprehension accuracy they lack (vs DISC/MBTI/360). Falsification-tested in Canvas v2. Coaching channel survived falsification (large market, active tool adoption, existing problem awareness); EA investor channel rejected (too small). |
+| Civic dialogue facilitation | EXPLORE | $2B+ civic engagement market (Braver Angels, Living Room Conversations). They already know the problem; they lack measurement. Grant-fundable. Surfaced in Canvas v3.0 political epistemology reframe (2026-03-19). |
 
 ---
 
@@ -104,7 +105,7 @@ Audience for recognition and thought leadership — rationalists, AI researchers
 
 **Target:** €5k/month by Month 6 (3 retainer pairs), €10k/month by Month 9 (5 pairs). Capacity ceiling: 7 pairs max (~€15.75k/mo with escalating pricing).
 
-**Path:** Free Workshop → "holy shit" moment (false agreement revealed) → €950 De-risking (2 sessions + Clarity Partnership Agreement) → €1,500–3,000/mo FCO retainer (escalating, 7 slots max) → Automate over time
+**Path:** Free Workshop → "holy shit" moment (false agreement revealed) → €950 De-risking Package (2 sessions + Clarity Partnership Agreement) → from €1,950/mo FCO retainer (escalating, 7 slots max) → Automate over time
 
 **Service model (2026-03-08): Fractional Clarity Officer ("You are the MCP").** Slava reviews the pair's meeting transcripts, uses AI to identify false agreements and position divergence, then facilitates targeted sessions on the gaps found. Pairs don't learn /live — they send transcripts and show up. The retainer is the analysis, not the tool. Every manual step is a spec for automation.
 
@@ -253,7 +254,7 @@ Track your accuracy over time:
 | **Workshop → de-risking conversion** | % of workshop attendees who book €950 de-risking |
 | **False agreements surfaced per session** | Proves value — concrete "holy shit" moments |
 | **Active /live pairs** | Behavioral commitment — pairs using the tool |
-| **FCO monthly recurring revenue** | €1,500/mo retainers |
+| **FCO monthly recurring revenue** | from €1,950/mo retainers |
 | **Understanding Gap** | Listener confidence minus speaker accuracy rating |
 | **Team survival rate post-calibration vs baseline** | The killer stat (needs 20-30 teams) |
 
@@ -286,7 +287,7 @@ Track your accuracy over time:
 ClarityPledge is the platform brand (like Stripe). ladischenski.com is the founder's personal coaching brand (like Patrick Collison at Stripe). Coaching revenue flows through the personal brand; product adoption through the platform brand. Cross-link but never conflate — each has a distinct audience and purpose.
 
 - **ClarityPledge:** The tool, the movement, the community. About page links to ladischenski.com for coaching inquiries.
-- **ladischenski.com:** Slava's personal coaching site. Co-founder De-Risking sessions, intake via Google Calendar.
+- **ladischenski.com:** Slava's personal coaching site. Co-founder De-Risking Package, Fractional CCO, Team Workshops. Intake via Web3Forms contact form ("Get in touch" → qualification before scheduling).
 
 ---
 
@@ -325,7 +326,7 @@ ClarityPledge is the platform brand (like Stripe). ladischenski.com is the found
 | Workshop cost to run | ~€0 (your time + Zoom) |
 | Workshop → €950 de-risking conversion | Target: 20%+ |
 | De-risking → FCO retainer conversion | Target: 50%+ |
-| FCO retainer price | €1,500–3,000/pair/month (escalating +€250/slot) |
+| FCO retainer price | from €1,950/pair/month (escalating +€250/slot) |
 | Retainer month-2 retention | Target: 60%+ |
 | CAC | ~€0 (workshops are free acquisition) |
 
@@ -347,7 +348,7 @@ ClarityPledge is the platform brand (like Stripe). ladischenski.com is the found
 
 - **Revenue model:** Direct, service-based — "You are the MCP" (being the beta version of your own software)
 - **Target:** €5,000/month by Month 6 (3 pairs), €10,000/month by Month 9 (5 pairs). Capacity ceiling: 7 pairs = ~€15,750/mo.
-- **Path:** Free Workshop (lead gen) → €950 De-risking → €1,500–3,000/mo FCO Retainer (escalating +€250/slot, 7 max)
+- **Path:** Free Workshop (lead gen) → €950 De-risking Package → from €1,950/mo FCO Retainer (escalating +€250/slot, 7 max)
 - **Timeline:** First revenue Month 2-3 (de-risking sessions), recurring Month 4+ (retainers)
 - **Role:** Validates session value, generates real founder data for future recognition essays, NOT just safety net
 - **Retainer trigger:** Offered AFTER the "holy shit" moment — pair experienced a false agreement revealed in a facilitated session AND booked session 2. Delivery model: Fractional Clarity Officer (transcript review → AI gap analysis → facilitated session).
@@ -382,11 +383,10 @@ Gates to unlock next level of ambition, not reasons to quit. If not met, extend 
 | Stage | Price | Deliverable | Status |
 |-------|-------|-------------|--------|
 | Free Calibration Workshop | Free | 1-to-many. You present calibration points, room calibrates against you. Everyone discovers comprehension gaps live. No pairing needed. | Active (lead gen) |
-| Co-founder Clarity Session | Pay what it's worth | One session, one real decision. Surface false agreements and false disagreements. 60 min with both co-founders. Price communicated upfront: deposit based on expected value, refund any amount after based on perceived value. Generates genuine WTP signal. | Active (C1) |
-| Co-founder De-risking | €950 (repositioning via P545) | Two sessions + Clarity Partnership Agreement + /live habit established. Transcript-based — they record via /live, you file stories & points, surface the real map. Framing shifting from "de-risking" to "alignment on values and vision." | Active (C1) |
-| Fractional Clarity Officer | €1,500–3,000/mo (escalating) | You play the MCP. Weekly sessions, ongoing transcript analysis. 7 slots max — price rises €250/slot to manage capacity. | Future (C3) |
+| Co-founder De-risking Package | €950 | Two sessions. Map mental model divergence, leave with written Clarity Partnership Agreement, establish the habit that prevents false disagreements. Full refund if not satisfied after first session. | Active (C1) |
+| Fractional Chief Clarity Officer | from €1,950/mo (escalating) | You play the MCP. Weekly sessions, ongoing transcript analysis. 7 slots max — price rises €250/slot to manage capacity. | Future (C3) |
+| Team Clarity Workshop | €2,950 | Full-day workshop for teams of up to 8. Values, vision, lean canvas alignment. Decision & conflict frameworks. | Future |
 | Direct Investor DD | €2,000+ | Pre-investment calibration assessment. Investor pays. Unfakeable — founders can't fake understanding without actually understanding. | Parked (H-InvestorDD) |
-| Team Clarity Workshop | €3,350 | Half-day workshop for up to 8. Co-founders become internal champions. | Future |
 | Mirror Agent SaaS | Subscription | Automated calibration agents. You're out of the loop. | Long-term |
 
 **Free tier (always):**
