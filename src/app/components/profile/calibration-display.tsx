@@ -145,7 +145,7 @@ export function InlineCalibration({
   const header = (
     <div className="flex items-center gap-1.5">
       <Ear size={12} className="text-muted-foreground" />
-      <span className="text-xs font-medium text-muted-foreground">Calibration</span>
+      <span className="text-xs font-medium text-muted-foreground">Listening calibration</span>
     </div>
   );
 
@@ -167,16 +167,13 @@ export function InlineCalibration({
               </>
             }
           >
-            <div>
-              <div className="relative h-6 w-full">
-                <div className="absolute top-1/2 -translate-y-1/2 left-0 right-0 h-2.5 rounded-full bg-muted border border-border" />
-                <div className="absolute left-1/2 top-1/2 -translate-y-1/2 w-0.5 h-3.5 bg-muted-foreground -translate-x-px rounded-full" />
-                <span
-                  className="absolute top-1/2 -translate-y-1/2 w-5 h-5 rounded-full bg-blue-500 border-2 border-white shadow-sm -translate-x-1/2 cursor-pointer"
-                  style={{ left: `${listenerPos}%` }}
-                />
-              </div>
-              <span className="text-xs text-muted-foreground/70">{listenerLabel}</span>
+            <div className="relative h-6 w-full">
+              <div className="absolute top-1/2 -translate-y-1/2 left-0 right-0 h-2.5 rounded-full bg-muted border border-border" />
+              <div className="absolute left-1/2 top-1/2 -translate-y-1/2 w-0.5 h-3.5 bg-muted-foreground -translate-x-px rounded-full" />
+              <span
+                className="absolute top-1/2 -translate-y-1/2 w-5 h-5 rounded-full bg-blue-500 border-2 border-white shadow-sm -translate-x-1/2 cursor-pointer"
+                style={{ left: `${listenerPos}%` }}
+              />
             </div>
           </CalibrationTooltip>
         </div>

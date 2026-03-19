@@ -24,12 +24,12 @@ describe('P539: InlineCalibration', () => {
   describe('Consistent header', () => {
     it('shows "Calibration" header for uncalibrated state', () => {
       render(<InlineCalibration calibration={null} sessionsCompleted={0} />);
-      expect(screen.getByText('Calibration')).toBeTruthy();
+      expect(screen.getByText('Listening calibration')).toBeTruthy();
     });
 
     it('shows "Calibration" header for calibrated state', () => {
       render(<InlineCalibration calibration={CALIBRATED_DATA} sessionsCompleted={7} />);
-      expect(screen.getByText('Calibration')).toBeTruthy();
+      expect(screen.getByText('Listening calibration')).toBeTruthy();
     });
   });
 
@@ -74,12 +74,7 @@ describe('P539: InlineCalibration', () => {
   // ESTIMATION AVAILABLE — FULL BAR + LABEL
   // =========================================================================
 
-  describe('Estimation available — bar + label', () => {
-    it('shows calibration label text below bar', () => {
-      render(<InlineCalibration calibration={CALIBRATED_DATA} sessionsCompleted={7} />);
-      expect(screen.getByText('Well calibrated')).toBeTruthy();
-    });
-
+  describe('Estimation available — bar (label in tooltip only)', () => {
     it('renders full-width bar with blue position dot', () => {
       const { container } = render(
         <InlineCalibration calibration={CALIBRATED_DATA} sessionsCompleted={7} />
