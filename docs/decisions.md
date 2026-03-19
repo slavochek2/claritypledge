@@ -2,6 +2,20 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-19 [technical]: Ghost code injection — stop before DB edit, never restart
+
+**Context:** Ghost caches settings (including `codeinjection_head`) in memory. When using `docker restart`, Ghost writes its in-memory cache back to SQLite on shutdown, overwriting any direct DB edits made while Ghost was running. Three rounds of `docker cp` → edit → `docker restart` were silently lost before discovering this.
+**Decision:** Correct deployment pattern: `docker stop` → `docker cp` DB out → edit via Python/sqlite3 → `docker cp` DB back → `docker start`. Never use `docker restart` for code injection changes. This supersedes the pattern documented in the 2026-03-19 "Ghost code injection as full styling layer" entry (which said `docker restart`).
+**Alternatives rejected:** (1) Ghost Admin API PUT `/settings/` — returns 501 NotImplementedError on Ghost v5.130 with our API key. (2) Ghost Admin UI — works but not scriptable.
+**Consequences:** All future Ghost code injection updates must stop the container first. ~15s downtime per deploy (13s Ghost boot). The `/tmp/fix-ghost-subscribe.py` pattern (uploaded script, stop→edit→start) is the reference implementation.
+
+## 2026-03-19 [product]: Blog Subscribe button — Ghost Portal modal, not page navigation
+
+**Context:** The header "Subscribe" button on blog.claritypledge.com linked to `BL + '/'` (the blog homepage) — effectively a no-op. The 2026-03-19 nav entry previously rejected Ghost Portal because it showed "Already a member? Sign in" (confusing: Ghost login ≠ ClarityPledge login). This session found a way to fix the blocker.
+**Decision:** Subscribe button now uses `href="#/portal/signup"` + `data-portal="signup"` to trigger Ghost's native Portal signup modal. Three customizations applied via polling JS (200ms interval, injecting into Portal's same-origin iframe): (1) hide `.gh-portal-signup-message` ("Already a member? Sign in"), (2) rename "Sign up" → "Subscribe" on `.gh-portal-btn-main`, (3) existing disclaimer text ("subscribing to newsletter, not creating platform account") remains. Polling was necessary because MutationObserver fires before the iframe's internal DOM renders.
+**Alternatives rejected:** (1) Page navigation to `/#subscribe` — only works on landing page, not from article pages. (2) MutationObserver on portal root — fires too early, before iframe content renders. (3) Custom modal (no Ghost Portal) — reinvents what Ghost already provides.
+**Consequences:** Subscribe is now accessible from every blog page via the header button. Ghost Portal handles email collection, magic link flow, and member creation. The polling script adds ~0ms overhead (200ms interval, exits after first injection). Reversal of the earlier "rejected" status for Ghost Portal — the iframe CSS injection technique unblocked it.
+
 ## 2026-03-19 [product]: Ghost blog — reduce self-branding to one functional mention
 
 **Context:** Blog homepage showed the author's name 3 times in a single viewport: "FEATURED" label (hardcoded in JS), "BY VYACHESLAV LADISCHENSKI" byline on the featured post, and the bio card at the bottom. Plus "By Vyacheslav Ladischenski" on the subscribe landing overlay. With only one published article, "FEATURED" was meaningless and "More posts coming soon" signaled incompleteness.

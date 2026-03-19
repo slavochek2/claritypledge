@@ -1,9 +1,10 @@
 ---
-status: in-progress
+status: all-done
 type: story
 rank: 250008.75
 workstream: foundation
 created_date: 2026-03-19
+completed_at: "2026-03-19"
 flow: dev
 tags: [performance, ux]
 ---

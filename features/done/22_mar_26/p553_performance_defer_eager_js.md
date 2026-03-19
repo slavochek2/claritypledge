@@ -1,12 +1,12 @@
 ---
-status: in-progress
+status: all-done
 type: task
 rank: 250007.75
 workstream: foundation
 created_date: 2026-03-19
+completed_at: "2026-03-19"
 flow: dev
 tags: [performance]
-delivery_stage: uat
 test_files:
   - e2e/p553-performance.spec.ts
 ---
