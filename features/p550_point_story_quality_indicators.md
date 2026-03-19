@@ -1,14 +1,14 @@
 ---
 status: week
 type: story
-rank: 0.5
+rank: 144533.996
 tags:
   - points
   - stories
   - ux
   - quality-signals
 blocked_by: p544
-created_date: 2026-03-18
+created_date: 2026-03-18T00:00:00.000Z
 flow: quick-feature
 ---
 

@@ -1,11 +1,11 @@
 ---
-status: in-progress
+status: all-done
+completed_at: "2026-03-19"
 type: feature
 rank: 140627.672
 workstream: E1
 created_date: 2026-03-17T00:00:00.000Z
 flow: dev
-delivery_stage: uat
 tags:
   - ux
   - links
