@@ -338,6 +338,7 @@ The integration test MUST include a schema existence check using the **two-clien
 - ✅ Include edge cases (errors, loading, empty states)
 - ✅ Have concrete assertions (not vague "verify it works")
 - ✅ Are runnable immediately (filled in by `/dev`, but structure is complete)
+- ✅ If spec has `## UI Contract`: every string literal in test assertions (button labels, toast text, placeholders, page titles) must be copied verbatim from the UI Contract table — not paraphrased
 
 ---
 

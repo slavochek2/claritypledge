@@ -274,6 +274,8 @@ This skill spawns TWO agents in parallel:
 ```
 You are an Architect agent. Read business + UX requirements from {spec_file} and design the technical architecture.
 
+If the spec has a `## UI Contract` section, treat every value in that table as a hard constraint. Use the exact component names, route paths, and labels from the UI Contract — do not substitute synonyms. If your architecture requires overriding a UI Contract value, flag it explicitly as a deviation.
+
 Explore current codebase:
 - Use Grep, Glob, Read to understand what exists
 - Identify files that need to change

@@ -155,6 +155,7 @@ The UX agent:
 - [ ] Component analysis complete (Reuse/Extend/New for every major element)
 - [ ] Decisions requiring founder input surfaced explicitly
 - [ ] No technical implementation details (just UX)
+- [ ] If spec has `## UI Contract`: update the table with any new strings/colors discovered during UX design (button labels from flows, toast messages from edge cases, placeholder text). The UI Contract is the authoritative reference for all downstream skills — every concrete string in UX flows must appear in it.
 
 ---
 
