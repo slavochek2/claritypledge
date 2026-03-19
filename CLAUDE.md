@@ -233,7 +233,7 @@ Before creating/updating files in `content/` or `docs/stories/`: check for perso
 
 **All skills live in `.claude/commands/slava/`** — visible in IDE, version controlled with project.
 
-**Skill namespaces:** `build/` (dev lifecycle) · `maintain/` (repo health) · `content/` · `client/` (post-session, referral, offers) · `think/` · `util/` · `events/` · `archive/` (deprecated). Never create a skill without a namespace.
+**Skill namespaces:** `build/` (dev lifecycle) · `maintain/` (repo health) · `content/` · `client/` (post-session offers, subscriber management, outreach) · `think/` · `util/` · `events/` · `archive/` (deprecated). Never create a skill without a namespace.
 
 **Approval required** before creating, modifying, or deleting skills, or installing MCP servers. Always ask first: "I'd like to create [X] for [reason]. OK?"
 

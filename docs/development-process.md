@@ -814,6 +814,18 @@ These skills can be used at any point during development when you need them:
 
 ---
 
+### Client & Outreach Skills
+
+Skills for managing subscribers, post-session follow-ups, and personalized outreach.
+
+| Skill | When to Use | What It Does |
+|-------|-------------|--------------|
+| `/sync-ghost-members` | Before a newsletter, after new signups, periodic maintenance | Syncs verified Supabase users (name + email) to Ghost as named subscribers. Idempotent — skips existing members. |
+| `/create-offer` | After a coaching session | Generates a personalized offer page + WhatsApp message. Deploys to ladischenski.com/for/{name}/. |
+| `/draft-email` | Cold/warm outbound on behalf of ClarityPledge | Drafts email in Slava's voice, iterates until approved, sends via slava@claritypledge.com. |
+
+---
+
 ### Complete Workflow Map
 
 **Full development lifecycle:**

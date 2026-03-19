@@ -2,6 +2,52 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-19 [process]: Content pipeline — /enhance-blog skill added after /draft-blog
+
+**Context:** First blog post enhanced with interactive visuals manually. Process was repeatable: fetch → brainstorm ideas → falsify to budget → build blocks → preview → insert. Created as a skill to avoid ad-hoc work next time.
+**Decision:** New skill `/enhance-blog` in `content/` namespace. Position in pipeline: after `/draft-blog`, before `/ship-blog` (optional step). Brainstorms 60 ideas via subagent, falsifies to text-based budget (1 block per 400-600 words, max 5) via second subagent, builds in parallel, serves local preview page for user review before inserting into Ghost.
+**Alternatives rejected:** (1) No skill — do manually each time. (2) Simpler skill without brainstorm/falsify — would produce the same 4 obvious ideas every time instead of discovering creative options.
+**Consequences:** Content pipeline is now: `/story` → `/prepare-blog` → `/draft-blog` → `/enhance-blog` (optional) → `/ship-blog`. Updated in `docs/content-process.md`.
+**References:** [content-process.md](content-process.md), [.claude/commands/slava/content/enhance-blog.md](../.claude/commands/slava/content/enhance-blog.md)
+
+## 2026-03-19 [technical]: Ghost SQLite write contention — 1s delay required for Admin API member creation
+
+**Context:** Syncing 36 verified ClarityPledge users to Ghost as named newsletter subscribers. Ghost on Docker uses SQLite. First run sent rapid-fire POST requests — all returned HTTP 201 with valid member IDs, but data was silently lost (only 2 of 36 persisted). Second run with 500ms delay lost data after ~12 creates (JSON parse error from Ghost). Third run with 1s delay succeeded: all 34 new members persisted.
+**Decision:** All Ghost Admin API write operations must include a minimum 1s delay between requests. This applies to member creation, post updates, and any sequential write pattern. The delay is documented in `/sync-ghost-members` skill.
+**Alternatives rejected:** (1) No delay — returns 201 but silently drops data. (2) 500ms delay — still causes intermittent failures under sustained writes. (3) Batch endpoint — Ghost Admin API has no bulk member creation endpoint.
+**Consequences:** Member sync for ~36 users takes ~40s. Acceptable for current scale. If user count grows significantly, consider migrating Ghost to MySQL/Postgres to eliminate SQLite contention.
+**References:** [sync-ghost-members.md](.claude/commands/slava/client/sync-ghost-members.md)
+
+## 2026-03-19 [product]: Sync verified users to Ghost — overrides "defer until 100+" decision
+
+**Context:** Wanted to personalize Ghost newsletter outreach with subscriber names. Prior decision (2026-01-28) deferred user→subscriber sync until 100+ subscribers. With 36 verified users and Ghost newsletters becoming the primary outreach channel, the sync is now valuable.
+**Decision:** Sync all verified ClarityPledge users (name + email) to Ghost as free members. Exclude: unverified users (never confirmed email — hurts deliverability), test accounts (`*@claritypledge.com`). Created `/sync-ghost-members` skill in `client/` namespace for repeatable execution.
+**Alternatives rejected:** (1) Include unverified users — risk of bounces and spam reports from unconfirmed addresses. (2) Keep deferring — prevents personalized newsletters, no cost to syncing now. (3) Automated webhook sync — premature; manual skill invocation sufficient at current scale.
+**Consequences:** Ghost now has 36 named subscribers ready for `{{name}}` personalization in newsletters. Run `/sync-ghost-members` before each newsletter to pick up new signups. Automated sync (Supabase webhook → Ghost) becomes worthwhile at ~100+ users with regular newsletter cadence.
+**References:** [sync-ghost-members.md](.claude/commands/slava/client/sync-ghost-members.md), [development-process.md](docs/development-process.md) "Client & Outreach Skills" section
+
+## 2026-03-19 [product]: Blog visual enhancement — interactive JS blocks over static images
+
+**Context:** First long-form blog post ("Two Skills That Will Define the Next Generation of Founders") needed visual breaks in a 2000+ word essay. Options: static images, AI-generated infographics, or interactive JS.
+**Decision:** Self-contained HTML/CSS/JS blocks embedded as Ghost HTML cards. Three block types: (1) animated number counters (IntersectionObserver-triggered), (2) interactive 2×2 matrix (hover/tap to reveal descriptions), (3) animated circular flow diagram (auto-advancing, click to pause). No external dependencies — everything inline.
+**Alternatives rejected:** (1) Static images — no engagement, feel decorative on a raw personal essay. (2) AI-generated infographics — risk looking "produced" and undercut the honest tone. (3) Publish text-only first, add visuals later — user chose to build visuals now.
+**Consequences:** Blog posts can now include interactive JS blocks. Pattern established: analytical visuals (diagrams, matrices, counters) fit the brand; decorative imagery doesn't. Blocks stored in `.private/blog-visuals/` for reuse. Ghost HTML cards preserve `<script>` tags.
+
+## 2026-03-19 [product]: Blog embed strategy — point-only at article end, no story embed
+
+**Context:** Blog post had both a story embed and a point embed at the end. The story compressed the same narrative the reader just spent 8 minutes reading.
+**Decision:** Show only the point embed (collapsed) at article end. Remove the story iframe. The blog article IS the story — the story embed is redundant. Point = action CTA ("agree or disagree").
+**Alternatives rejected:** (1) Both embeds — visual clutter, unclear which to engage first. (2) Story only — no engagement hook, read-only format. (3) Point expanded — too heavy after a long article.
+**Consequences:** Blog→ClarityPledge conversion funnel is: read article → take position on point → explore linked story from within the point. One CTA, one action.
+
+## 2026-03-19 [technical]: Ghost Admin API — lexical HTML card format and post-level CSS injection
+
+**Context:** Needed to insert interactive HTML blocks into a Ghost blog post programmatically and apply post-scoped CSS overrides.
+**Decision:** Lexical HTML card node format: `{type: 'html', version: 1, html: '<full html>'}`. Post-level CSS via `codeinjection_head` field on the post object. Ghost theme class names for read-more cards: `article.gh-card.post` with children `.gh-card-image`, `.gh-card-excerpt`, `.gh-card-meta`.
+**Alternatives rejected:** None — this is the only documented path for Ghost's lexical editor API.
+**Consequences:** Future blog posts can be enhanced via API. Inline `style="opacity:0"` on elements breaks CSS class-based transitions (inline beats ID+class specificity) — use CSS-only initial state. Race conditions on `updated_at` can silently drop changes — always fetch fresh `updated_at` before PUT.
+**References:** [Ghost Admin API docs](https://ghost.org/docs/admin-api/)
+
 ## 2026-03-19 [product]: P539 — Calibration zero-state: "Listening calibration" on all profiles, segmented bar, neutral text
 
 **Context:** P152's calibration display showed the same empty bar for both "no data" and "mid-calibration" — misleading. P539 redesigned the zero-state through iterative exploration: dots → segmented bar → metadata-line → final design. Multiple design rounds surfaced key product decisions.
