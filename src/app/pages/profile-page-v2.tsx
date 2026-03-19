@@ -163,6 +163,8 @@ export function ProfilePageV2() {
   const [realStories, setRealStories] = useState<StoryWithPoints[]>([]);
   const [realPoints, setRealPoints] = useState<PointWithUserPosition[]>([]);
   const [realCalibration, setRealCalibration] = useState<UserCalibration | null>(null);
+  const [sessionsCompleted, setSessionsCompleted] = useState<number>(0);
+  const [calibrationLoaded, setCalibrationLoaded] = useState(false);
 
   // P465: Viewer story count map for other profiles (fetched async)
   const [viewerStoryCountMap, setViewerStoryCountMap] = useState<Map<string, number>>(new Map());
@@ -252,6 +254,7 @@ export function ProfilePageV2() {
 
     // Reset all content state when profile changes (e.g. navigating between profiles)
     setContentLoading(true);
+    setCalibrationLoaded(false);
     setAgreementsLoading(true);
     setRealStories([]);
     setRealPoints([]);
@@ -273,6 +276,8 @@ export function ProfilePageV2() {
       // Set stories (already have linked points from getStoriesByAuthorWithPoints)
       setRealStories(stories);
       setRealCalibration(toUserCalibration(calibration));
+      setSessionsCompleted(calibration.sessionsCompleted);
+      setCalibrationLoaded(true);
 
       // P422: Set agreements
       setAgreements(fetchedAgreements);
@@ -878,8 +883,13 @@ export function ProfilePageV2() {
                     />
                   </div>
                 )}
-                {/* Calibration bar */}
-                <InlineCalibration calibration={calibration} />
+                {/* P539: Calibration — shown on all profiles (own + guest).
+                     Estimation available: header + bar + label. Not enough data: header + segmented bar + "N more needed". */}
+                {calibrationLoaded && (
+                  <div className="animate-[clarity-appear_300ms_ease-out_forwards]">
+                    <InlineCalibration calibration={calibration} sessionsCompleted={sessionsCompleted} />
+                  </div>
+                )}
                 {profile.bio && (
                   <p data-testid="profile-bio" className="text-sm text-muted-foreground mt-2 break-words">
                     {linkifyText(profile.bio)}

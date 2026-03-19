@@ -1,11 +1,11 @@
 ---
-status: week
+status: in-progress
 type: change-request
 rank: 125002.375
 workstream: E1
 created_date: 2026-03-17T00:00:00.000Z
 predecessor: p152
-delivery_stage: 4-tests-ready
+delivery_stage: uat
 flow: dev
 uat_file: features/uat/p539.md
 test_files:
@@ -86,16 +86,16 @@ Dots→bar transition gates on `status !== 'insufficient'` (status-based), not o
 
 ## Acceptance Criteria
 
-- [ ] Own profile: zero sessions shows 5 empty dots + "5 sessions for calibration" — no bar, no center marker
-- [ ] Own profile: 1–4 sessions shows correct filled/empty dot ratio + correct "N more for calibration" text
-- [ ] Own profile: singular form used for "1 more for calibration"
-- [ ] Guest profile: 0–4 sessions shows "Not yet calibrated" — no dots, no progress indicator
-- [ ] Both views: calibrated state (status !== insufficient) renders the existing bar with blue dot — no visual regression
-- [ ] Transition gate is status-based (`status !== 'insufficient'`), not count-based
-- [ ] Dot sizing matches spec: `w-2.5 h-2.5 rounded-full`
-- [ ] Empty dots use `border border-muted-foreground/40`, filled use `bg-blue-500 border-blue-500`
-- [ ] Text uses `text-xs text-muted-foreground/60`
-- [ ] `toUserCalibration()` passes `sessionsCompleted` through for insufficient status
+- [x] Own profile: zero sessions shows 5 empty dots + "5 sessions for calibration" — no bar, no center marker
+- [x] Own profile: 1–4 sessions shows correct filled/empty dot ratio + correct "N more for calibration" text
+- [x] Own profile: singular form used for "1 more for calibration"
+- [x] Guest profile: 0–4 sessions shows "Not yet calibrated" — no dots, no progress indicator
+- [x] Both views: calibrated state (status !== insufficient) renders the existing bar with blue dot — no visual regression
+- [x] Transition gate is status-based (`status !== 'insufficient'`), not count-based
+- [x] Dot sizing matches spec: `w-2.5 h-2.5 rounded-full`
+- [x] Empty dots use `border border-muted-foreground/40`, filled use `bg-blue-500 border-blue-500`
+- [x] Text uses `text-xs text-muted-foreground/60`
+- [x] `toUserCalibration()` passes `sessionsCompleted` through for insufficient status
 
 ## Testing
 

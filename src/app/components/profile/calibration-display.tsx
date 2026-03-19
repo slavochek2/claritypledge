@@ -106,75 +106,122 @@ function getCalibrationLabel(gap: number): string {
   return 'Very underconfident';
 }
 
+// Used by CalibrationDisplay (full card view on /live results)
 const TOOLTIP_TEXT = {
-  listener: 'Knowing how well you understood — do you know when you "got it" vs. missed something? (your confidence vs. speaker\'s verification)',
-  speaker: 'Knowing how well others understood you — do they know when they got it? (their confidence vs. your verification)',
+  listener: 'Confidence vs. verified understanding as a listener.',
+  speaker: 'Confidence vs. verified understanding as a speaker.',
 };
 
+/** Tooltip description for each calibration label — states the measurement, no judgment. */
+function getCalibrationTooltip(gap: number): string {
+  if (gap < -2) return 'Confidence much higher than verified understanding.';
+  if (gap < -1) return 'Confidence higher than verified understanding.';
+  if (gap < -0.5) return 'Confidence slightly higher than verified understanding.';
+  if (gap <= 0.5) return 'Confidence matches verified understanding.';
+  if (gap <= 1) return 'Confidence slightly lower than verified understanding.';
+  if (gap <= 2) return 'Confidence lower than verified understanding.';
+  return 'Confidence much lower than verified understanding.';
+}
+
 /**
- * Inline calibration display for embedding in profile cards.
- * Shows only listener calibration (how well they understand others).
- * When calibration is null (< 5 sessions), shows an empty bar with a hint.
+ * Inline calibration display as a metadata section on profile pages.
+ * Consistent structure for both states — always shows "Calibration" header.
+ *
+ * P539: Two states, same visual structure:
+ * - Estimation available (≥5 sessions): "Calibration" header + full bar + label
+ * - Not enough data (<5 sessions): "Calibration" header + segmented bar + "N more clarity sessions needed"
+ * Shown on ALL profiles (own + guest) — enables social pressure.
  */
 export function InlineCalibration({
   calibration,
+  sessionsCompleted,
 }: {
   calibration: UserCalibration | null;
+  sessionsCompleted?: number;
 }) {
+  const sessions = sessionsCompleted ?? 0;
+  const listenerLabel = calibration ? getCalibrationLabel(calibration.listener.avgGap) : null;
+
   const gapToPosition = (g: number) => {
     const clamped = Math.max(-3, Math.min(3, g));
     return ((clamped + 3) / 6) * 100;
   };
 
-  const listenerPos = calibration ? gapToPosition(calibration.listener.avgGap) : null;
-  const listenerLabel = calibration ? getCalibrationLabel(calibration.listener.avgGap) : null;
+  const filled = Math.min(sessions, 5);
+  const remaining = 5 - filled;
+  const progressText = remaining > 0
+    ? (sessions === 0 ? '5 clarity sessions needed' : `${remaining} more clarity session${remaining === 1 ? '' : 's'} needed`)
+    : null;
 
-  const barContent = (
-    <div className="relative h-6 w-full">
-      <div className="absolute top-1/2 -translate-y-1/2 left-0 right-0 h-2.5 rounded-full bg-muted border border-border" />
-      <div className="absolute left-1/2 top-1/2 -translate-y-1/2 w-0.5 h-3.5 bg-muted-foreground -translate-x-px rounded-full" />
-      {listenerPos !== null && (
-        <span
-          className="absolute top-1/2 -translate-y-1/2 w-5 h-5 rounded-full bg-blue-500 border-2 border-white shadow-sm -translate-x-1/2 cursor-pointer"
-          style={{ left: `${listenerPos}%` }}
-        />
-      )}
+  // Common header for both states
+  const header = (
+    <div className="flex items-center gap-1.5">
+      <Ear size={12} className="text-muted-foreground" />
+      <span className="text-xs font-medium text-muted-foreground">Listening calibration</span>
     </div>
   );
 
+  if (calibration) {
+    const listenerPos = gapToPosition(calibration.listener.avgGap);
+    return (
+      <TooltipProvider delayDuration={100}>
+        <div className="mt-3 flex flex-col gap-1">
+          {header}
+          <CalibrationTooltip
+            side="top"
+            content={
+              <>
+                <p className="text-xs font-medium">{listenerLabel}</p>
+                <p className="text-xs text-muted-foreground">{getCalibrationTooltip(calibration.listener.avgGap)}</p>
+                <p className="text-xs text-muted-foreground/70 mt-1">
+                  Based on {calibration.listener.sessionCount} session{calibration.listener.sessionCount !== 1 ? 's' : ''}.
+                </p>
+              </>
+            }
+          >
+            <div className="relative h-6 w-full">
+              <div className="absolute top-1/2 -translate-y-1/2 left-0 right-0 h-2.5 rounded-full bg-muted border border-border" />
+              <div className="absolute left-1/2 top-1/2 -translate-y-1/2 w-0.5 h-3.5 bg-muted-foreground -translate-x-px rounded-full" />
+              <span
+                className="absolute top-1/2 -translate-y-1/2 w-5 h-5 rounded-full bg-blue-500 border-2 border-white shadow-sm -translate-x-1/2 cursor-pointer"
+                style={{ left: `${listenerPos}%` }}
+              />
+            </div>
+          </CalibrationTooltip>
+        </div>
+      </TooltipProvider>
+    );
+  }
+
+  // Not enough data: segmented bar + progress text
   return (
     <TooltipProvider delayDuration={100}>
       <div className="mt-3 flex flex-col gap-1">
-        <div className="flex items-center gap-1.5">
-          <Ear size={12} className="text-muted-foreground" />
-          <span className="text-xs font-medium text-muted-foreground">Understanding Calibration</span>
-        </div>
-
-        <div>
-          {calibration ? (
-            <CalibrationTooltip
-              side="top"
-              content={
-                <>
-                  <p className="text-xs font-medium">{listenerLabel}</p>
-                  <p className="text-xs text-muted-foreground">{TOOLTIP_TEXT.listener}</p>
-                  <p className="text-xs text-muted-foreground/70 mt-1">
-                    Avg (their rating − your confidence) over {calibration.listener.sessionCount} session{calibration.listener.sessionCount !== 1 ? 's' : ''}
-                  </p>
-                </>
-              }
+        {header}
+        <CalibrationTooltip
+          side="top"
+          content={<p className="text-xs">{remaining} more clarity session{remaining === 1 ? '' : 's'} needed to estimate.</p>}
+        >
+          <div className="flex items-center gap-2">
+            <div
+              className="flex items-center gap-px w-24"
+              aria-label={`${filled} of 5 sessions completed for calibration`}
             >
-              {barContent}
-            </CalibrationTooltip>
-          ) : (
-            <CalibrationTooltip
-              side="top"
-              content={<p className="text-xs">Complete 5 live sessions to unlock your calibration score</p>}
-            >
-              {barContent}
-            </CalibrationTooltip>
-          )}
-        </div>
+              {Array.from({ length: 5 }, (_, i) => (
+                <span
+                  key={i}
+                  aria-hidden="true"
+                  className={`h-1.5 flex-1 rounded-sm ${
+                    i < filled ? 'bg-blue-400/70' : 'bg-muted'
+                  }`}
+                />
+              ))}
+            </div>
+            {progressText && (
+              <span className="text-xs text-muted-foreground/70">{progressText}</span>
+            )}
+          </div>
+        </CalibrationTooltip>
       </div>
     </TooltipProvider>
   );
