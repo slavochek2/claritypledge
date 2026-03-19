@@ -2,6 +2,14 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-19 [product]: P539 — Calibration zero-state: "Listening calibration" on all profiles, segmented bar, neutral text
+
+**Context:** P152's calibration display showed the same empty bar for both "no data" and "mid-calibration" — misleading. P539 redesigned the zero-state through iterative exploration: dots → segmented bar → metadata-line → final design. Multiple design rounds surfaced key product decisions.
+**Decision:** (1) Header: "Listening calibration" (coach-facing term from definitions.md). Not "Understanding Calibration" (too long) or "Calibration" (too vague). (2) Show on ALL profiles (own + guest) — social accountability ("you have 2/5, do 3 more"). Originally hid on guest profiles, reversed after realizing the progress display creates peer pressure. (3) Tooltip text is neutral — states the measurement ("Confidence matches verified understanding"), no judgment or encouragement. Works identically for own and guest profile views. (4) Segmented bar (thin, h-1.5, bg-blue-400/70) for <5 sessions — visual continuity with the calibration bar it becomes. Dots rejected (looked like gamification/punch card). (5) Text: "N more clarity sessions needed" — "clarity sessions" anchors the term, "needed" is action-framing. (6) Separate `calibrationLoaded` flag — calibration renders as soon as its data arrives, not after all content loads.
+**Alternatives rejected:** (A) Dots (w-2.5 circles) — looked cheap/gamified, like a loyalty punch card. (B) Tiny inline bar (w-16) for calibrated state — too small to show meaningful position differences. (C) Hide on guest profiles — lost the social accountability benefit. (D) "Well calibrated" label below bar — redundant with tooltip. (E) "Understanding Calibration" header — too wordy, "Listening calibration" matches coach vocabulary.
+**Consequences:** Ears count redesign surfaced as follow-up: ears should require rating=10 (not ≥8), cap at 10 per person (not 1 per distinct person). Separate change-request needed.
+**References:** [P539 spec](features/done/22_mar_26/p539_calibration_zero_state_redesign.md), `src/app/components/profile/calibration-display.tsx`
+
 ## 2026-03-19 [technical]: Pyannote pre-load fix: 71 min → 8 min. Speaker split still broken (99.7%/0.3%)
 
 **Context:** Pyannote diarization on Cloud Run L4 GPU took 76 min for 30 min audio. Root cause identified from GitHub issues #1403, #1452, #1453: pyannote's internal `crop()` reads thousands of tiny audio slices from disk. Fix: pre-load entire WAV into memory, pass `{"waveform": tensor, "sample_rate": int}` instead of file path. Result: **8 min** (10x speedup). However, speaker attribution is still 99.7%/0.3% — pyannote assigns nearly all speech to one speaker on `amix`-mixed two-phone audio. The speed was never the real problem; the diarization quality on mixed same-room audio is fundamentally broken.
