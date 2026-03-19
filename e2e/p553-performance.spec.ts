@@ -74,7 +74,9 @@ test.describe('P553 — Analytics deferred loading', () => {
     await page.addInitScript(() => {
       // Capture state at DOMContentLoaded — before idle callbacks
       document.addEventListener('DOMContentLoaded', () => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (window as any).__p553_logrocket_at_domready = !!(window as any).LogRocket?._isInitialized
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           || !!(window as any)._lr_loaded;
       });
     });
@@ -82,6 +84,7 @@ test.describe('P553 — Analytics deferred loading', () => {
     await page.goto('/');
     await page.waitForLoadState('domcontentloaded');
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const logrocketAtDomReady = await page.evaluate(() => (window as any).__p553_logrocket_at_domready);
     // After P553 implementation, LogRocket should NOT be initialized at DOMContentLoaded
     // This test documents the DESIRED state. If it fails, LogRocket is still eager.
@@ -183,6 +186,7 @@ test.describe('P553 — Cache headers (vercel.json)', () => {
     const headers = config.headers || [];
 
     // Look for a header rule targeting hashed assets (e.g., /assets/*)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const hashedAssetRule = headers.find((h: any) => {
       const source = h.source || '';
       // Common patterns: /assets/(.*), /_next/static/(.*), or files with hash patterns
@@ -194,8 +198,9 @@ test.describe('P553 — Cache headers (vercel.json)', () => {
     expect(hashedAssetRule, 'No cache header rule found for hashed assets in vercel.json').toBeDefined();
 
     if (hashedAssetRule) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const cacheHeader = hashedAssetRule.headers?.find(
-        (h: any) => h.key.toLowerCase() === 'cache-control'
+        (h: any) => h.key.toLowerCase() === 'cache-control' // eslint-disable-line @typescript-eslint/no-explicit-any
       );
       expect(cacheHeader, 'Cache-Control header missing from hashed asset rule').toBeDefined();
       expect(cacheHeader?.value).toContain('immutable');

@@ -10,9 +10,14 @@ import "./index.css";
 // Initialize Sentry for error tracking (production only)
 const sentryDsn = import.meta.env.VITE_SENTRY_DSN;
 
-// Initialize LogRocket for session replay (production only)
+// P553: Defer LogRocket init until after first paint to avoid blocking render
 if (import.meta.env.PROD) {
-  LogRocket.init("alblur/claritypledge");
+  const initLogRocket = () => LogRocket.init("alblur/claritypledge");
+  if ('requestIdleCallback' in window) {
+    requestIdleCallback(initLogRocket);
+  } else {
+    setTimeout(initLogRocket, 2000);
+  }
 }
 
 if (sentryDsn && import.meta.env.PROD) {
