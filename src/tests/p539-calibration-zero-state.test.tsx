@@ -57,13 +57,21 @@ describe('P539: InlineCalibration metadata-line', () => {
   });
 
   // =========================================================================
-  // CALIBRATED — LABEL ONLY (tooltip shows full details)
+  // CALIBRATED — LABEL + FULL BAR
   // =========================================================================
 
-  describe('Calibrated — metadata label', () => {
+  describe('Calibrated — label + bar', () => {
     it('shows calibration label text', () => {
       render(<InlineCalibration calibration={CALIBRATED_DATA} sessionsCompleted={7} />);
       expect(screen.getByText('Well calibrated')).toBeTruthy();
+    });
+
+    it('renders full-width bar with blue position dot', () => {
+      const { container } = render(
+        <InlineCalibration calibration={CALIBRATED_DATA} sessionsCompleted={7} />
+      );
+      const dot = container.querySelector('.bg-blue-500.rounded-full.w-5');
+      expect(dot).toBeTruthy();
     });
 
     it('does not show progress text when calibrated', () => {

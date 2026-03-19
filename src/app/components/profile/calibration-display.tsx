@@ -130,6 +130,11 @@ export function InlineCalibration({
   const sessions = sessionsCompleted ?? 0;
   const listenerLabel = calibration ? getCalibrationLabel(calibration.listener.avgGap) : null;
 
+  const gapToPosition = (g: number) => {
+    const clamped = Math.max(-3, Math.min(3, g));
+    return ((clamped + 3) / 6) * 100;
+  };
+
   // P539: Segmented bar for insufficient state
   const filled = Math.min(sessions, 5);
   const remaining = 5 - filled;
@@ -138,26 +143,39 @@ export function InlineCalibration({
     : null;
 
   if (calibration) {
-    // Calibrated: metadata line with label + tiny inline bar
+    // Calibrated: metadata label line + full-width bar below
+    const listenerPos = gapToPosition(calibration.listener.avgGap);
     return (
       <TooltipProvider delayDuration={100}>
-        <CalibrationTooltip
-          side="top"
-          content={
-            <>
-              <p className="text-xs font-medium">{listenerLabel}</p>
-              <p className="text-xs text-muted-foreground">{TOOLTIP_TEXT.listener}</p>
-              <p className="text-xs text-muted-foreground/70 mt-1">
-                Avg (their rating − your confidence) over {calibration.listener.sessionCount} session{calibration.listener.sessionCount !== 1 ? 's' : ''}
-              </p>
-            </>
-          }
-        >
-          <span className="inline-flex items-center gap-1.5 text-sm text-muted-foreground mt-1">
-            <Ear className="h-4 w-4" aria-hidden="true" />
-            <span>{listenerLabel}</span>
-          </span>
-        </CalibrationTooltip>
+        <div className="mt-1 flex flex-col gap-1">
+          <CalibrationTooltip
+            side="top"
+            content={
+              <>
+                <p className="text-xs font-medium">{listenerLabel}</p>
+                <p className="text-xs text-muted-foreground">{TOOLTIP_TEXT.listener}</p>
+                <p className="text-xs text-muted-foreground/70 mt-1">
+                  Avg (their rating − your confidence) over {calibration.listener.sessionCount} session{calibration.listener.sessionCount !== 1 ? 's' : ''}
+                </p>
+              </>
+            }
+          >
+            <div>
+              <span className="inline-flex items-center gap-1.5 text-sm text-muted-foreground">
+                <Ear className="h-4 w-4" aria-hidden="true" />
+                <span>{listenerLabel}</span>
+              </span>
+              <div className="relative h-6 w-full">
+                <div className="absolute top-1/2 -translate-y-1/2 left-0 right-0 h-2.5 rounded-full bg-muted border border-border" />
+                <div className="absolute left-1/2 top-1/2 -translate-y-1/2 w-0.5 h-3.5 bg-muted-foreground -translate-x-px rounded-full" />
+                <span
+                  className="absolute top-1/2 -translate-y-1/2 w-5 h-5 rounded-full bg-blue-500 border-2 border-white shadow-sm -translate-x-1/2 cursor-pointer"
+                  style={{ left: `${listenerPos}%` }}
+                />
+              </div>
+            </div>
+          </CalibrationTooltip>
+        </div>
       </TooltipProvider>
     );
   }
