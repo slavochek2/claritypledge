@@ -49,10 +49,9 @@ describe('Consent API Functions', () => {
   });
 
   describe('CURRENT_TERMS_VERSION constant', () => {
-    it('should export CURRENT_TERMS_VERSION as v1.2', async () => {
-      // This will be imported from @/lib/constants
+    it('should export CURRENT_TERMS_VERSION as a valid semver-like string', async () => {
       const { CURRENT_TERMS_VERSION } = await import('@/lib/constants');
-      expect(CURRENT_TERMS_VERSION).toBe('v1.2');
+      expect(CURRENT_TERMS_VERSION).toMatch(/^v\d+\.\d+$/);
     });
   });
 

@@ -2,6 +2,21 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-19 [product]: Newsletter strategy — two-channel outreach, no bulk import to Ghost
+
+**Context:** First blog article ready to publish. 36 Ghost members (34 event participants bulk-imported today, 2 test accounts). Founder wanted to grow subscribers using LinkedIn connections, Gmail contacts, and event participants — but was concerned about spamming and reputation damage. Considered registering a separate domain for email (rejected: looks spammy, kills deliverability, hides brand).
+**Decision:** Two-channel approach: (1) Ghost newsletter reserved for organic opt-in subscribers only — people who subscribe via blog.claritypledge.com. (2) Personal outreach from `slava@claritypledge.com` via All-Inkl SMTP for warm contacts, sent in tiers: Tier 1 = event participants (strongest relationship), Tier 2 = LinkedIn connections with prior messages, Tier 3 = Gmail/Inguro correspondents. Each personal email links to the article + subscribe CTA. The 34 imported event members stay in Ghost for now (registered on ClarityPledge, legitimate interest covers product updates). Ghost's Mailgun integration handles deliverability and unsubscribe for newsletter sends.
+**Alternatives rejected:** (1) Separate domain for email — tanks deliverability (no domain reputation), signals deception. (2) Bulk-add all warm contacts to Ghost — violates consent expectations; personal email has 3-5x higher open rate. (3) Cold email from scraped LinkedIn data — ToS violation and ethically wrong.
+**Consequences:** All-Inkl SMTP is fine for <100 personal emails. When list exceeds ~200, need dedicated email tool (Buttondown, ConvertKit, or Ghost's own Mailgun). Ghost publish with "send newsletter" only hits organic subscribers. Track: who opens, who replies, who subscribes — that's the signal for where the audience is.
+
+## 2026-03-19 [product]: ToS v1.2 — Communications section enables legitimate email outreach
+
+**Context:** ToS line 97 said email "only used for authentication" — legally blocked sending blog articles, product updates, or newsletters to registered users. GDPR Art. 6(1)(f) (legitimate interest) covers product communications to existing users, but the self-imposed ToS restriction was stricter than required.
+**Decision:** Added "Communications" section to ToS with two tiers: (1) Service emails (mandatory) — password resets, security, session confirmations, ToS changes. Cannot unsubscribe. (2) Product communications (optional) — updates, blog, events, community news. Opt-out via unsubscribe link or privacy@ email. Updated line 97 to reference Communications section. Bumped terms version v1.1 → v1.2; existing users see update dialog on next /live visit. Changed "notify via email" in Changes section to "notify via service email" for consistency.
+**Alternatives rejected:** (1) Explicit opt-in checkbox at signup — stronger GDPR basis but adds friction to signup flow; soft opt-in (account creation = consent + easy unsubscribe) is lawful for existing-customer communications under EU e-Privacy Directive. (2) No ToS change, rely on legitimate interest alone — legally defensible but inconsistent with own published terms.
+**Consequences:** Can now email all registered ClarityPledge users about product updates and blog content. Must include unsubscribe in every non-service email. If adding a signup checkbox later, upgrades legal basis from legitimate interest to explicit consent.
+**References:** [tos.md](../src/app/content/tos.md), [constants.ts](../src/lib/constants.ts)
+
 ## 2026-03-19 [technical]: Performance — defer analytics, lazy-import all pages, self-host fonts
 
 **Context:** Lighthouse audit showed 1.2MB of third-party JS (LogRocket 794KB + Mixpanel 436KB) loading eagerly, 12 synchronously imported pages, render-blocking SW registration, and a 700ms Google Fonts waterfall (3-hop chain: HTML → CSS → API → woff2). Signed-in users saw two sequential loading states: ClarityPageLoader (300-500ms waiting for profile fetch) then FeedSkeleton (200-800ms for feed queries).
