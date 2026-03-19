@@ -14,9 +14,9 @@ import time
 from typing import Optional
 
 from audio import download_session_audio, SessionAudio
-from transcriber import whisper_transcribe
+from transcriber import whisper_transcribe, Segment
 from diarizer import diarize, extract_embeddings
-from merger import merge_segments
+from merger import merge_segments, MergedSegment
 from speaker_map import build_speaker_map
 from round_splitter import assign_round_indices
 from storage import (
@@ -73,56 +73,23 @@ def transcribe_session(
         _progress("downloading_audio")
         audio = download_session_audio(session_code)
 
-        if not audio.merged_wav:
+        if not audio.recorder_wavs:
             raise RuntimeError("No audio WAV produced")
 
-        # Step 1.5: VAD — strip non-speech regions before Whisper
-        _progress("vad_preprocessing")
-        vad_wav = _apply_vad(audio.merged_wav)
-
-        # Step 2: Transcribe with Whisper
-        _progress("whisper_transcribing")
         language_hint = _get_language_hint(audio.events)
-        transcript_segments, language = whisper_transcribe(
-            vad_wav, language_hint=language_hint
-        )
 
-        if not transcript_segments:
-            raise RuntimeError("Whisper produced no segments")
-
-        _progress(f"whisper_done ({len(transcript_segments)} segments)")
-
-        # Step 3: Diarize with pyannote
-        _progress("diarizing")
-        num_speakers = _estimate_num_speakers(audio)
-        diar_segments = diarize(audio.merged_wav, num_speakers=num_speakers)
-
-        _progress(f"diarization_done ({len(diar_segments)} segments)")
-
-        # Step 4: Extract speaker embeddings
-        _progress("extracting_embeddings")
-        embeddings = extract_embeddings(audio.merged_wav, diar_segments)
-
-        # Step 5: Merge transcript + diarization
-        _progress("merging")
-        merged = merge_segments(transcript_segments, diar_segments)
-
-        # Step 6: Map speakers to users
-        _progress("mapping_speakers")
-        speaker_ids = list(set(s.speaker_id for s in merged))
-        recorder_names = list(audio.recorder_wavs.keys())
-
-        # Fetch existing voice profiles for matching
-        participant_user_ids = _extract_user_ids(audio.events)
-        existing_profiles = get_voice_profiles(participant_user_ids) if participant_user_ids else []
-
-        speaker_map = build_speaker_map(
-            speaker_ids=speaker_ids,
-            events=audio.events,
-            recorder_names=recorder_names,
-            embeddings=embeddings,
-            voice_profiles=existing_profiles,
-        )
+        if audio.num_recorders >= 2:
+            # === MULTI-PHONE PATH: skip diarization entirely ===
+            # Each phone IS one speaker. Transcribe each independently.
+            _progress(f"multi_phone ({audio.num_recorders} recorders)")
+            merged, language, speaker_map = _transcribe_multi_phone(
+                audio, language_hint, _progress
+            )
+        else:
+            # === SINGLE-PHONE PATH: use diarization ===
+            merged, language, speaker_map = _transcribe_single_phone(
+                audio, language_hint, _progress
+            )
 
         # Step 7: Assign round indices and build segment dicts
         _progress("splitting_rounds")
@@ -197,6 +164,147 @@ def transcribe_session(
                 logger.info("Cleaned up temp dir: %s", audio.tmp_dir)
             except Exception as e:
                 logger.warning("Failed to clean up %s: %s", audio.tmp_dir, e)
+
+
+def _transcribe_multi_phone(
+    audio: SessionAudio,
+    language_hint: Optional[str],
+    _progress,
+) -> tuple[list[MergedSegment], str, dict]:
+    """
+    Multi-phone path: transcribe each recorder's WAV independently,
+    interleave by timestamp. No diarization needed — each phone IS one speaker.
+
+    Returns (merged_segments, language, speaker_map).
+    """
+    all_segments: list[tuple[str, MergedSegment]] = []  # (recorder_name, segment)
+    language = "en"
+
+    recorder_names = sorted(audio.recorder_wavs.keys())
+
+    for recorder_name in recorder_names:
+        wav_path = audio.recorder_wavs[recorder_name]
+
+        _progress(f"whisper_{recorder_name}")
+        vad_wav = _apply_vad(wav_path)
+        segments, lang = whisper_transcribe(vad_wav, language_hint=language_hint)
+        language = lang  # Use last detected language
+
+        _progress(f"whisper_{recorder_name}_done ({len(segments)} segments)")
+
+        # Convert to MergedSegments with recorder as speaker_id
+        for seg in segments:
+            all_segments.append((recorder_name, MergedSegment(
+                speaker_id=recorder_name,
+                text=seg.text,
+                start_ms=seg.start_ms,
+                end_ms=seg.end_ms,
+            )))
+
+    # Interleave by timestamp
+    all_segments.sort(key=lambda x: x[1].start_ms)
+    merged = [seg for _, seg in all_segments]
+
+    _progress(f"interleaved ({len(merged)} segments from {len(recorder_names)} recorders)")
+
+    # Build speaker map: recorder name = speaker identity
+    speaker_map = {}
+    participants = _extract_participants(audio.events)
+
+    for recorder_name in recorder_names:
+        user_id = _find_user_id_from_participants(recorder_name, participants)
+        speaker_map[recorder_name] = {
+            "user_id": user_id,
+            "display_name": _capitalize_recorder_name(recorder_name),
+            "mapping_method": "recorder",
+            "confidence": 1.0,
+        }
+
+    return merged, language, speaker_map
+
+
+def _transcribe_single_phone(
+    audio: SessionAudio,
+    language_hint: Optional[str],
+    _progress,
+) -> tuple[list[MergedSegment], str, dict]:
+    """
+    Single-phone path: VAD → Whisper → pyannote diarization → merge.
+
+    Returns (merged_segments, language, speaker_map).
+    """
+    if not audio.merged_wav:
+        raise RuntimeError("No merged WAV for single-phone session")
+
+    # VAD
+    _progress("vad_preprocessing")
+    vad_wav = _apply_vad(audio.merged_wav)
+
+    # Whisper
+    _progress("whisper_transcribing")
+    transcript_segments, language = whisper_transcribe(
+        vad_wav, language_hint=language_hint
+    )
+
+    if not transcript_segments:
+        raise RuntimeError("Whisper produced no segments")
+
+    _progress(f"whisper_done ({len(transcript_segments)} segments)")
+
+    # Diarize
+    _progress("diarizing")
+    num_speakers = _estimate_num_speakers(audio)
+    diar_segments = diarize(audio.merged_wav, num_speakers=num_speakers)
+
+    _progress(f"diarization_done ({len(diar_segments)} segments)")
+
+    # Extract embeddings
+    _progress("extracting_embeddings")
+    embeddings = extract_embeddings(audio.merged_wav, diar_segments)
+
+    # Merge
+    _progress("merging")
+    merged = merge_segments(transcript_segments, diar_segments)
+
+    # Speaker map
+    _progress("mapping_speakers")
+    speaker_ids = list(set(s.speaker_id for s in merged))
+    recorder_names = list(audio.recorder_wavs.keys())
+
+    participant_user_ids = _extract_user_ids(audio.events)
+    existing_profiles = get_voice_profiles(participant_user_ids) if participant_user_ids else []
+
+    speaker_map_result = build_speaker_map(
+        speaker_ids=speaker_ids,
+        events=audio.events,
+        recorder_names=recorder_names,
+        embeddings=embeddings,
+        voice_profiles=existing_profiles,
+    )
+
+    return merged, language, speaker_map_result
+
+
+def _extract_participants(events: Optional[dict]) -> list[dict]:
+    """Extract participant list from events.json."""
+    if not events:
+        return []
+    return events.get("participants", [])
+
+
+def _find_user_id_from_participants(recorder_name: str, participants: list[dict]) -> Optional[str]:
+    """Find user_id for a recorder name in the participant list."""
+    name_lower = recorder_name.lower().replace("-", " ")
+    for p in participants:
+        p_name = p.get("name", "").lower()
+        if p_name == name_lower or name_lower.startswith(p_name.split()[0].lower() if p_name else ""):
+            return p.get("supabaseUserId") or p.get("user_id")
+    return None
+
+
+def _capitalize_recorder_name(name: str) -> str:
+    """Capitalize a sanitized recorder filename to display name."""
+    return name.replace("-", " ").title()
 
 
 def _estimate_num_speakers(audio: SessionAudio) -> Optional[int]:
