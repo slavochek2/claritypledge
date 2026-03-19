@@ -1,5 +1,6 @@
 ---
-status: today
+status: all-done
+completed_at: "2026-03-19"
 type: task
 rank: 0.2
 flow: dev
