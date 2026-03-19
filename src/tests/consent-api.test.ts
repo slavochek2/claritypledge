@@ -49,10 +49,10 @@ describe('Consent API Functions', () => {
   });
 
   describe('CURRENT_TERMS_VERSION constant', () => {
-    it('should export CURRENT_TERMS_VERSION as v1.1', async () => {
+    it('should export CURRENT_TERMS_VERSION as v1.2', async () => {
       // This will be imported from @/lib/constants
       const { CURRENT_TERMS_VERSION } = await import('@/lib/constants');
-      expect(CURRENT_TERMS_VERSION).toBe('v1.1');
+      expect(CURRENT_TERMS_VERSION).toBe('v1.2');
     });
   });
 

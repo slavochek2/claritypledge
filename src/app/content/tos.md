@@ -94,7 +94,17 @@ By signing the pledge, you understand and agree that:
 - Others can **endorse** your commitment as witnesses
 - Your profile URL can be **shared** on social media and professional networks
 
-Your email address is **never displayed publicly** and is only used for authentication.
+Your email address is **never displayed publicly**. We use it for authentication and to send you service-related communications as described in the Communications section below.
+
+## Communications
+
+We send two types of email:
+
+**Service emails (mandatory):** Password resets, security notices, session confirmations, partner agreement invitations, and other messages necessary to operate the service. You cannot unsubscribe from these.
+
+**Product communications (optional):** Product updates, new features, blog articles, event invitations, and community news. By creating an account, you agree to receive these. You can unsubscribe at any time using the link in any email or by contacting us at privacy AT claritypledge DOT com. Unsubscribing does not affect service emails.
+
+We do not sell or share your email address with third parties for their marketing purposes.
 
 ## Story Visibility
 
@@ -177,7 +187,7 @@ protection laws of your country of residence.
 ## Changes to These Terms
 
 We may update these terms from time to time. If we make significant changes,
-we'll notify you via email or a notice on our website. Continued use of the
+we'll notify you via service email or a notice on our website. Continued use of the
 platform after changes constitutes acceptance of the new terms.
 
 ## Contact
