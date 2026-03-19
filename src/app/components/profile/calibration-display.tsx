@@ -106,10 +106,22 @@ function getCalibrationLabel(gap: number): string {
   return 'Very underconfident';
 }
 
+// Used by CalibrationDisplay (full card view on /live results)
 const TOOLTIP_TEXT = {
-  listener: 'Knowing how well you understood — do you know when you "got it" vs. missed something? (your confidence vs. speaker\'s verification)',
-  speaker: 'Knowing how well others understood you — do they know when they got it? (their confidence vs. your verification)',
+  listener: 'Confidence vs. verified understanding as a listener.',
+  speaker: 'Confidence vs. verified understanding as a speaker.',
 };
+
+/** Tooltip description for each calibration label — states the measurement, no judgment. */
+function getCalibrationTooltip(gap: number): string {
+  if (gap < -2) return 'Confidence much higher than verified understanding.';
+  if (gap < -1) return 'Confidence higher than verified understanding.';
+  if (gap < -0.5) return 'Confidence slightly higher than verified understanding.';
+  if (gap <= 0.5) return 'Confidence matches verified understanding.';
+  if (gap <= 1) return 'Confidence slightly lower than verified understanding.';
+  if (gap <= 2) return 'Confidence lower than verified understanding.';
+  return 'Confidence much lower than verified understanding.';
+}
 
 /**
  * Inline calibration display as a metadata section on profile pages.
@@ -160,9 +172,9 @@ export function InlineCalibration({
             content={
               <>
                 <p className="text-xs font-medium">{listenerLabel}</p>
-                <p className="text-xs text-muted-foreground">{TOOLTIP_TEXT.listener}</p>
+                <p className="text-xs text-muted-foreground">{getCalibrationTooltip(calibration.listener.avgGap)}</p>
                 <p className="text-xs text-muted-foreground/70 mt-1">
-                  Avg (their rating − your confidence) over {calibration.listener.sessionCount} session{calibration.listener.sessionCount !== 1 ? 's' : ''}
+                  Based on {calibration.listener.sessionCount} session{calibration.listener.sessionCount !== 1 ? 's' : ''}.
                 </p>
               </>
             }
@@ -188,7 +200,7 @@ export function InlineCalibration({
         {header}
         <CalibrationTooltip
           side="top"
-          content={<p className="text-xs">Complete 5 clarity sessions to see calibration estimation</p>}
+          content={<p className="text-xs">{remaining} more clarity session{remaining === 1 ? '' : 's'} needed to estimate.</p>}
         >
           <div className="flex items-center gap-2">
             <div
