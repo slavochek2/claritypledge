@@ -74,7 +74,9 @@ test.describe('P553 — Analytics deferred loading', () => {
     await page.addInitScript(() => {
       // Capture state at DOMContentLoaded — before idle callbacks
       document.addEventListener('DOMContentLoaded', () => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (window as any).__p553_logrocket_at_domready = !!(window as any).LogRocket?._isInitialized
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           || !!(window as any)._lr_loaded;
       });
     });
@@ -82,6 +84,7 @@ test.describe('P553 — Analytics deferred loading', () => {
     await page.goto('/');
     await page.waitForLoadState('domcontentloaded');
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const logrocketAtDomReady = await page.evaluate(() => (window as any).__p553_logrocket_at_domready);
     // After P553 implementation, LogRocket should NOT be initialized at DOMContentLoaded
     // This test documents the DESIRED state. If it fails, LogRocket is still eager.
@@ -122,16 +125,11 @@ test.describe('P553 — Preconnect hints', () => {
       return Array.from(links).map(l => (l as HTMLLinkElement).href);
     });
 
-    // After P553: these preconnect hints should exist
-    // Supabase project URL
+    // After P553: preconnect for Supabase should exist
+    // P555: Google Fonts preconnects removed (fonts self-hosted)
     const hasSupabase = preconnectHrefs.some(h => h.includes('supabase.co'));
-    // Google Fonts
-    const hasGoogleFonts = preconnectHrefs.some(h => h.includes('fonts.googleapis.com'));
-    const hasGstatic = preconnectHrefs.some(h => h.includes('fonts.gstatic.com'));
 
     expect(hasSupabase, 'Missing preconnect for Supabase').toBe(true);
-    expect(hasGoogleFonts, 'Missing preconnect for Google Fonts stylesheet').toBe(true);
-    expect(hasGstatic, 'Missing preconnect for Google Fonts files (gstatic)').toBe(true);
   });
 });
 
@@ -183,6 +181,7 @@ test.describe('P553 — Cache headers (vercel.json)', () => {
     const headers = config.headers || [];
 
     // Look for a header rule targeting hashed assets (e.g., /assets/*)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const hashedAssetRule = headers.find((h: any) => {
       const source = h.source || '';
       // Common patterns: /assets/(.*), /_next/static/(.*), or files with hash patterns
@@ -194,8 +193,9 @@ test.describe('P553 — Cache headers (vercel.json)', () => {
     expect(hashedAssetRule, 'No cache header rule found for hashed assets in vercel.json').toBeDefined();
 
     if (hashedAssetRule) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const cacheHeader = hashedAssetRule.headers?.find(
-        (h: any) => h.key.toLowerCase() === 'cache-control'
+        (h: any) => h.key.toLowerCase() === 'cache-control' // eslint-disable-line @typescript-eslint/no-explicit-any
       );
       expect(cacheHeader, 'Cache-Control header missing from hashed asset rule').toBeDefined();
       expect(cacheHeader?.value).toContain('immutable');

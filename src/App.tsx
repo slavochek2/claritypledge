@@ -4,22 +4,21 @@ import { ClarityPageLoader } from "@/components/ui/clarity-loader";
 import * as Sentry from "@sentry/react";
 import { HelmetProvider } from "react-helmet-async";
 import { ClarityLandingLayout } from "@/app/layouts/clarity-landing-layout";
-import { AuthCallbackPage, AuthProvider } from "@/auth";
+import { AuthCallbackPage, AuthProvider, useAuth } from "@/auth";
 import { ScrollToTop } from "@/app/components/scroll-to-top";
 import { PwaInstallProvider } from "@/hooks/use-pwa-install";
-import { useNavAuthState } from "@/hooks/use-nav-auth-state";
 
-// Critical path pages - loaded synchronously for fast initial render
-import { ClarityPledgeLanding } from "@/app/pages/clarity-pledge-landing";
-import { SignPledgePage } from "@/app/pages/sign-pledge-page";
-import { PledgeConfirmationPage } from "@/app/pages/pledge-confirmation-page";
-import { ProfilePageV2 } from "@/app/pages/profile-page-v2";
-import { PledgePage } from "@/app/pages/pledge-page";
-import { MePage } from "@/app/pages/me-page";
-import { ClarityPledgersPage } from "@/app/pages/clarity-pledgers-page";
-import { LoginPage } from "@/app/pages/login-page";
-import { SignupPage } from "@/app/pages/signup-page";
-import { ShortLinkRedirect } from "@/app/pages/short-link-redirect";
+// P553: All pages lazy-loaded to reduce initial bundle size
+const ClarityPledgeLanding = lazy(() => import("@/app/pages/clarity-pledge-landing").then(m => ({ default: m.ClarityPledgeLanding })));
+const SignPledgePage = lazy(() => import("@/app/pages/sign-pledge-page").then(m => ({ default: m.SignPledgePage })));
+const PledgeConfirmationPage = lazy(() => import("@/app/pages/pledge-confirmation-page").then(m => ({ default: m.PledgeConfirmationPage })));
+const ProfilePageV2 = lazy(() => import("@/app/pages/profile-page-v2").then(m => ({ default: m.ProfilePageV2 })));
+const PledgePage = lazy(() => import("@/app/pages/pledge-page").then(m => ({ default: m.PledgePage })));
+const MePage = lazy(() => import("@/app/pages/me-page").then(m => ({ default: m.MePage })));
+const ClarityPledgersPage = lazy(() => import("@/app/pages/clarity-pledgers-page").then(m => ({ default: m.ClarityPledgersPage })));
+const LoginPage = lazy(() => import("@/app/pages/login-page").then(m => ({ default: m.LoginPage })));
+const SignupPage = lazy(() => import("@/app/pages/signup-page").then(m => ({ default: m.SignupPage })));
+const ShortLinkRedirect = lazy(() => import("@/app/pages/short-link-redirect").then(m => ({ default: m.ShortLinkRedirect })));
 
 // Lazy loaded pages - split into separate chunks
 const AboutPage = lazy(() => import("@/app/pages/about-page").then(m => ({ default: m.AboutPage })));
@@ -58,13 +57,14 @@ const NotFoundDrift = lazy(() => import("@/app/pages/not-found-page").then(m => 
 const NotFoundGlitch = lazy(() => import("@/app/pages/not-found-page").then(m => ({ default: m.NotFoundGlitch })));
 const NotFoundCompass = lazy(() => import("@/app/pages/not-found-page").then(m => ({ default: m.NotFoundCompass })));
 
-/** P491: Redirect authenticated+verified users from / to /feed. Show landing for everyone else. */
+/** P555: Redirect on session check (not profile fetch) — eliminates ~300-500ms loader.
+ *  Previously waited for profile via useNavAuthState; now uses useAuth() directly.
+ *  Supabase caches sessions in localStorage, so sessionChecked resolves in ~10ms. */
 function HomeRedirect() {
-  // useNavAuthState is only available inside AuthProvider+Router, which is the case here
-  const { showUserMenu, sessionChecked, isLoading } = useNavAuthState();
+  const { session, sessionChecked } = useAuth();
 
-  // While auth is resolving, show loading skeleton (avoid landing page flash)
-  if (!sessionChecked || isLoading) {
+  // While session is resolving (~10ms from localStorage), show loader
+  if (!sessionChecked) {
     return (
       <ClarityLandingLayout>
         <ClarityPageLoader />
@@ -72,15 +72,17 @@ function HomeRedirect() {
     );
   }
 
-  // Authenticated + verified → redirect to feed
-  if (showUserMenu) {
+  // Has session → redirect to feed immediately (profile loads in background)
+  if (session) {
     return <Navigate to="/feed" replace />;
   }
 
-  // Anonymous / unverified → show landing page
+  // Anonymous → show landing page
   return (
     <ClarityLandingLayout>
-      <ClarityPledgeLanding />
+      <LazyRoute>
+        <ClarityPledgeLanding />
+      </LazyRoute>
     </ClarityLandingLayout>
   );
 }
@@ -205,7 +207,7 @@ export default function ClarityPledgeApp() {
           path="/login"
           element={
             <ClarityLandingLayout>
-              <LoginPage />
+              <LazyRoute><LoginPage /></LazyRoute>
             </ClarityLandingLayout>
           }
         />
@@ -214,7 +216,7 @@ export default function ClarityPledgeApp() {
           path="/signup"
           element={
             <ClarityLandingLayout>
-              <SignupPage />
+              <LazyRoute><SignupPage /></LazyRoute>
             </ClarityLandingLayout>
           }
         />
@@ -223,7 +225,7 @@ export default function ClarityPledgeApp() {
           path="/sign-pledge"
           element={
             <ClarityLandingLayout>
-              <SignPledgePage />
+              <LazyRoute><SignPledgePage /></LazyRoute>
             </ClarityLandingLayout>
           }
         />
@@ -232,7 +234,7 @@ export default function ClarityPledgeApp() {
           path="/sign-pledge/confirm"
           element={
             <ClarityLandingLayout>
-              <PledgeConfirmationPage />
+              <LazyRoute><PledgeConfirmationPage /></LazyRoute>
             </ClarityLandingLayout>
           }
         />
@@ -241,7 +243,7 @@ export default function ClarityPledgeApp() {
           path="/me"
           element={
             <ClarityLandingLayout>
-              <MePage />
+              <LazyRoute><MePage /></LazyRoute>
             </ClarityLandingLayout>
           }
         />
@@ -272,7 +274,7 @@ export default function ClarityPledgeApp() {
           path="/p/:id"
           element={
             <ClarityLandingLayout>
-              <ProfilePageV2 />
+              <LazyRoute><ProfilePageV2 /></LazyRoute>
             </ClarityLandingLayout>
           }
         />
@@ -281,7 +283,7 @@ export default function ClarityPledgeApp() {
           path="/p/:id/pledge"
           element={
             <ClarityLandingLayout>
-              <PledgePage />
+              <LazyRoute><PledgePage /></LazyRoute>
             </ClarityLandingLayout>
           }
         />
@@ -414,13 +416,13 @@ export default function ClarityPledgeApp() {
           path="/pledgers"
           element={
             <ClarityLandingLayout>
-              <ClarityPledgersPage />
+              <LazyRoute><ClarityPledgersPage /></LazyRoute>
             </ClarityLandingLayout>
           }
         />
 
         {/* Short link redirects (claritypledge.com/s/code) */}
-        <Route path="/s/:code" element={<ShortLinkRedirect />} />
+        <Route path="/s/:code" element={<LazyRoute><ShortLinkRedirect /></LazyRoute>} />
 
         {/* Redirect old routes for backwards compatibility */}
         <Route

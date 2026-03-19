@@ -102,6 +102,7 @@ export default defineConfig({
     }),
     // PWA configuration
     VitePWA({
+      injectRegister: 'script-defer', // P553: defer SW registration to avoid blocking first paint
       registerType: 'autoUpdate',
       manifest: {
         name: 'Clarity Pledge',

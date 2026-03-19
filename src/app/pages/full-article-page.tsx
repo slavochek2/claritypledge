@@ -10,7 +10,6 @@
 import { useEffect, useState, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
-import "katex/dist/katex.min.css";
 import { BookOpenIcon, ArrowRightIcon, ChevronDownIcon } from "lucide-react";
 import articleContent from "../content/full-article.md?raw";
 import { SEO } from "@/app/components/seo";
@@ -65,6 +64,11 @@ export function FullArticlePage() {
       return lowerText.startsWith('appendix') || lowerText === 'references';
     });
   }, [headers]);
+
+  // P553: Load KaTeX CSS only when /manifesto is visited
+  useEffect(() => {
+    import("katex/dist/katex.min.css");
+  }, []);
 
   useEffect(() => {
     // Track page view
