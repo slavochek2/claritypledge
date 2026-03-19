@@ -2,6 +2,14 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-19 [technical]: Pyannote pre-load fix: 71 min → 8 min. Speaker split still broken (99.7%/0.3%)
+
+**Context:** Pyannote diarization on Cloud Run L4 GPU took 76 min for 30 min audio. Root cause identified from GitHub issues #1403, #1452, #1453: pyannote's internal `crop()` reads thousands of tiny audio slices from disk. Fix: pre-load entire WAV into memory, pass `{"waveform": tensor, "sample_rate": int}` instead of file path. Result: **8 min** (10x speedup). However, speaker attribution is still 99.7%/0.3% — pyannote assigns nearly all speech to one speaker on `amix`-mixed two-phone audio. The speed was never the real problem; the diarization quality on mixed same-room audio is fundamentally broken.
+**Decision:** Keep the pre-load fix (deployed as rev 014). P552 separate-channel approach was wrong (both phones in same room capture both speakers — "recorder = speaker" assumption fails). Next step: research whether diarization on same-room mixed audio is solvable, or if the approach needs to change entirely (energy-based gating, voice enrollment, or external API like Deepgram multichannel).
+**Alternatives rejected:** (A) P552 separate-channel "skip diarization" — reverted, wrong assumption. (B) Accept 99.7%/0.3% — unusable for FCO workflow. (C) Increase timeout further — speed is now 8 min, not the bottleneck.
+**Consequences:** Speed problem solved. Quality problem is the open blocker. Requires research: how do Deepgram, AssemblyAI, and others handle diarization of mixed same-room audio? Is pyannote's 99.7%/0.3% a configuration issue (e.g., `amix` destroys phase information that pyannote needs) or a fundamental limitation? The `amix` filter averages channels — this may remove the spatial cues pyannote relies on. Alternative: pass separate channels as stereo (preserving spatial information) instead of mixing to mono.
+**References:** `services/transcribe/diarizer.py`, pyannote GitHub #1403
+
 ## 2026-03-19 [technical]: Unify link systems — auto-URL + markdown in one function, hints survive /falsify
 
 **Context:** Two parallel link systems: `linkifyText()` (auto-URL, bio only) and `<LinkedText>` (markdown `[text](url)`, stories/points). Different syntax, different colors (`text-blue-500` vs `text-blue-600`), inconsistent documentation. Users paste raw URLs in stories → plain text. /innovate recommended dropping form hints ("auto-URL is the discoverability") but /falsify killed all 3 proposals: (1) the bio's own hint proves auto-detection alone was deemed insufficient, (2) auto-URL actively suppresses markdown discovery — users stop exploring once basic case works, (3) `[text](url)` is not a power-user feature — it's the only named link mechanism.

@@ -283,6 +283,12 @@ Our active bets, in priority order. This is the map of what we still need to pro
 **Question:** Should users have a real-time slider to express agreement/disagreement with points? Does this help calibration or create a false anchor?
 **Risk:** Agreement ≠ understanding. Showing agreement level might conflate "I agree" with "I understand" — the core anti-pattern we're trying to fix.
 
+### OQ: Is speaker diarization on amix-mixed same-room audio fundamentally broken?
+**Surfaced:** 2026-03-19 transcription pipeline debugging (P546/P552)
+**Question:** Pyannote diarization attributes 99.7% of words to one speaker on `amix`-mixed two-phone audio. Is this fixable with better configuration, or does `amix` destroy the spatial/phase cues pyannote needs? How do Deepgram and AssemblyAI solve this for same-room recordings?
+**Evidence so far:** Three separate pipeline revisions (008, 013, 014) all produce 99.7%/0.3% split on H44Q9H despite: segment-level merger (rev 008), word-level merger (rev 013), and pre-loaded audio (rev 014). The split is identical regardless of merger granularity or processing speed. `amix` averages channels to mono — this removes any spatial differentiation between the two phone positions. The research report notes "each phone picks up both speakers, with the holder's voice louder" — but after `amix`, that volume difference is averaged away.
+**Possible answers:** (A) Pass separate channels as stereo instead of `amix` mono — preserves spatial info for pyannote. (B) Use energy-based gating per channel before mixing — identify active speaker by volume comparison. (C) Use Deepgram multichannel API ($0.13/session) — they handle this natively. (D) Voice enrollment with sliding-window embedding matching (existing infrastructure). (E) Diarization on same-room mono audio is a known hard problem — may need a fundamentally different approach.
+
 ---
 
 ## Dependency Map

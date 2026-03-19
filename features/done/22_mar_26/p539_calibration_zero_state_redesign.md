@@ -1,11 +1,11 @@
 ---
-status: in-progress
+status: all-done
+completed_at: "2026-03-19"
 type: change-request
 rank: 125002.375
 workstream: E1
 created_date: 2026-03-17T00:00:00.000Z
 predecessor: p152
-delivery_stage: uat
 flow: dev
 uat_file: features/uat/p539.md
 test_files:
