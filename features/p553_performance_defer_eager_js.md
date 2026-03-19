@@ -6,7 +6,7 @@ workstream: foundation
 created_date: 2026-03-19
 flow: dev
 tags: [performance]
-delivery_stage: 4-tests-ready
+delivery_stage: uat
 test_files:
   - e2e/p553-performance.spec.ts
 ---
@@ -63,10 +63,10 @@ ClarityPledge loads too slowly. Root cause analysis identified 1.2MB of third-pa
 
 ## Done When
 
-- [ ] LogRocket and Mixpanel deferred to after first paint
-- [ ] All non-landing pages lazy-loaded
-- [ ] Preconnect hints added for Supabase + Google Fonts
-- [ ] registerSW.js deferred
-- [ ] Hashed assets have immutable cache headers
-- [ ] KaTeX fonts only load on /manifesto
+- [x] LogRocket and Mixpanel deferred to after first paint
+- [x] All non-landing pages lazy-loaded
+- [x] Preconnect hints added for Supabase + Google Fonts
+- [x] registerSW.js deferred
+- [x] Hashed assets have immutable cache headers
+- [x] KaTeX fonts only load on /manifesto
 - [ ] Lighthouse re-audit shows improvement
