@@ -884,9 +884,9 @@ export function ProfilePageV2() {
                     />
                   </div>
                 )}
-                {/* P539: Calibration metadata line — between partners and bio.
-                     Own uncalibrated: segmented bar. Guest uncalibrated: hidden. Calibrated: label + tiny bar (both views). */}
-                {calibrationLoaded && (calibration || isOwner) && (
+                {/* P539: Calibration — shown on all profiles (own + guest).
+                     Estimation available: header + bar + label. Not enough data: header + segmented bar + "N more needed". */}
+                {calibrationLoaded && (
                   <div className="animate-[clarity-appear_300ms_ease-out_forwards]">
                     <InlineCalibration calibration={calibration} sessionsCompleted={sessionsCompleted} />
                   </div>

@@ -112,13 +112,13 @@ const TOOLTIP_TEXT = {
 };
 
 /**
- * Inline calibration display as a metadata line on profile pages.
- * Matches the visual style of pledge link and partners count.
+ * Inline calibration display as a metadata section on profile pages.
+ * Consistent structure for both states — always shows "Calibration" header.
  *
- * P539 V10: Metadata-line treatment — two modes:
- * - Calibrated: "👂 Well calibrated" + tiny inline bar (tooltip shows full details)
- * - Insufficient (own only): "👂 ██░░░░░ N more for calibration" segmented bar
- * - Insufficient (guest): component not rendered (parent hides it)
+ * P539: Two states, same visual structure:
+ * - Estimation available (≥5 sessions): "Calibration" header + full bar + label
+ * - Not enough data (<5 sessions): "Calibration" header + segmented bar + "N more clarity sessions needed"
+ * Shown on ALL profiles (own + guest) — enables social pressure.
  */
 export function InlineCalibration({
   calibration,
@@ -135,19 +135,26 @@ export function InlineCalibration({
     return ((clamped + 3) / 6) * 100;
   };
 
-  // P539: Segmented bar for insufficient state
   const filled = Math.min(sessions, 5);
   const remaining = 5 - filled;
   const progressText = remaining > 0
-    ? (sessions === 0 ? '5 sessions for calibration' : `${remaining} more for calibration`)
+    ? (sessions === 0 ? '5 clarity sessions needed' : `${remaining} more clarity session${remaining === 1 ? '' : 's'} needed`)
     : null;
 
+  // Common header for both states
+  const header = (
+    <div className="flex items-center gap-1.5">
+      <Ear size={12} className="text-muted-foreground" />
+      <span className="text-xs font-medium text-muted-foreground">Calibration</span>
+    </div>
+  );
+
   if (calibration) {
-    // Calibrated: metadata label line + full-width bar below
     const listenerPos = gapToPosition(calibration.listener.avgGap);
     return (
       <TooltipProvider delayDuration={100}>
-        <div className="mt-1 flex flex-col gap-1">
+        <div className="mt-3 flex flex-col gap-1">
+          {header}
           <CalibrationTooltip
             side="top"
             content={
@@ -161,10 +168,6 @@ export function InlineCalibration({
             }
           >
             <div>
-              <span className="inline-flex items-center gap-1.5 text-sm text-muted-foreground">
-                <Ear className="h-4 w-4" aria-hidden="true" />
-                <span>{listenerLabel}</span>
-              </span>
               <div className="relative h-6 w-full">
                 <div className="absolute top-1/2 -translate-y-1/2 left-0 right-0 h-2.5 rounded-full bg-muted border border-border" />
                 <div className="absolute left-1/2 top-1/2 -translate-y-1/2 w-0.5 h-3.5 bg-muted-foreground -translate-x-px rounded-full" />
@@ -173,6 +176,7 @@ export function InlineCalibration({
                   style={{ left: `${listenerPos}%` }}
                 />
               </div>
+              <span className="text-xs text-muted-foreground/70">{listenerLabel}</span>
             </div>
           </CalibrationTooltip>
         </div>
@@ -180,34 +184,36 @@ export function InlineCalibration({
     );
   }
 
-  // Insufficient: metadata line with segmented bar + progress text
+  // Not enough data: segmented bar + progress text
   return (
     <TooltipProvider delayDuration={100}>
-      <CalibrationTooltip
-        side="top"
-        content={<p className="text-xs">Complete 5 live sessions to unlock your calibration score</p>}
-      >
-        <span className="inline-flex items-center gap-1.5 text-sm text-muted-foreground mt-1">
-          <Ear className="h-4 w-4 shrink-0" aria-hidden="true" />
-          <span
-            className="inline-flex items-center gap-px w-16"
-            aria-label={`${filled} of 5 sessions completed for calibration`}
-          >
-            {Array.from({ length: 5 }, (_, i) => (
-              <span
-                key={i}
-                aria-hidden="true"
-                className={`h-1.5 flex-1 rounded-sm ${
-                  i < filled ? 'bg-blue-400/70' : 'bg-muted'
-                }`}
-              />
-            ))}
-          </span>
-          {progressText && (
-            <span className="text-xs text-muted-foreground/70">{progressText}</span>
-          )}
-        </span>
-      </CalibrationTooltip>
+      <div className="mt-3 flex flex-col gap-1">
+        {header}
+        <CalibrationTooltip
+          side="top"
+          content={<p className="text-xs">Complete 5 clarity sessions to see calibration estimation</p>}
+        >
+          <div className="flex items-center gap-2">
+            <div
+              className="flex items-center gap-px w-24"
+              aria-label={`${filled} of 5 sessions completed for calibration`}
+            >
+              {Array.from({ length: 5 }, (_, i) => (
+                <span
+                  key={i}
+                  aria-hidden="true"
+                  className={`h-1.5 flex-1 rounded-sm ${
+                    i < filled ? 'bg-blue-400/70' : 'bg-muted'
+                  }`}
+                />
+              ))}
+            </div>
+            {progressText && (
+              <span className="text-xs text-muted-foreground/70">{progressText}</span>
+            )}
+          </div>
+        </CalibrationTooltip>
+      </div>
     </TooltipProvider>
   );
 }
