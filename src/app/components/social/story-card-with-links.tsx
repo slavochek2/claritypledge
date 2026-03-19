@@ -6,7 +6,7 @@
 
 import { useState, useMemo, useEffect } from 'react';
 import { MessageCircle, ChevronDown, ChevronRight, ExternalLink, Pin } from 'lucide-react';
-import { LinkedText } from '@/app/components/shared/linked-text';
+import { linkifyText } from '@/app/utils/linkify';
 import { EarBadge } from '@/components/ui/ear-badge';
 import { useEmbedNavigation } from '@/app/hooks/useEmbedNavigation';
 import { MobileTooltip } from '@/app/components/shared/mobile-tooltip';
@@ -177,7 +177,7 @@ export function StoryCardWithLinks({
           {/* Story text */}
           {compact && !textExpanded && displayText.length > 150 ? (
             <p className="text-sm text-gray-900 break-words">
-              <LinkedText text={displayText.slice(0, 150)} />
+              {linkifyText(displayText.slice(0, 150))}
               <span
                 data-testid="more-link"
                 role="button"
@@ -189,7 +189,7 @@ export function StoryCardWithLinks({
             </p>
           ) : (
             <p className={`text-gray-900 break-words ${compact ? 'text-sm' : 'text-base'}`}>
-              <LinkedText text={displayText} />
+              {linkifyText(displayText)}
               {isStoryTextTruncated && (
                 <button
                   onClick={(e) => { e.stopPropagation(); embedNavigate(`/story/${story.id}`); }}
@@ -271,7 +271,7 @@ export function StoryCardWithLinks({
             {/* Story text - indented under author */}
             {compact && !textExpanded && displayText.length > 150 ? (
               <p className="text-sm text-gray-900 break-words">
-                <LinkedText text={displayText.slice(0, 150)} />
+                {linkifyText(displayText.slice(0, 150))}
                 <span
                   data-testid="more-link"
                   role="button"
@@ -283,7 +283,7 @@ export function StoryCardWithLinks({
               </p>
             ) : (
               <p className={`text-gray-900 break-words ${compact ? 'text-sm' : 'text-base'}`}>
-                <LinkedText text={displayText} />
+                {linkifyText(displayText)}
                 {isStoryTextTruncated && (
                   <button
                     onClick={(e) => { e.stopPropagation(); embedNavigate(`/story/${story.id}`); }}
@@ -586,7 +586,7 @@ function QuotedPoint({
           {/* Content column */}
           <div className="flex-1 min-w-0">
             {/* Point text */}
-            <p className="text-sm text-gray-800 break-words"><LinkedText text={stripHashtags(point.text, point.tags)} /></p>
+            <p className="text-sm text-gray-800 break-words">{linkifyText(stripHashtags(point.text, point.tags))}</p>
             {point.tags?.length > 0 && <TagPills tags={point.tags} context="detail" className="mt-1" />}
 
             {/* Position buttons - compact */}

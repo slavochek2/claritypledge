@@ -8,7 +8,7 @@
 
 import { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { LinkedText } from '@/app/components/shared/linked-text';
+import { linkifyText } from '@/app/utils/linkify';
 import {
   ChevronDown,
   ChevronRight,
@@ -173,7 +173,7 @@ export function StoryCardDetail({
 
           {/* Story text */}
           <p className={`text-foreground break-words ${compact ? 'text-sm line-clamp-3' : 'text-base'}`}>
-            <LinkedText text={stripHashtags(story.content, story.tags)} />
+            {linkifyText(stripHashtags(story.content, story.tags))}
           </p>
         </div>
       </div>
@@ -248,7 +248,7 @@ export function StoryCardDetail({
 
             {/* Story text - indented under author */}
             <p className={`text-foreground break-words ${compact ? 'text-sm line-clamp-3' : 'text-base'}`}>
-              <LinkedText text={stripHashtags(story.content, story.tags)} />
+              {linkifyText(stripHashtags(story.content, story.tags))}
             </p>
 
             {/* Stats row - icon-only style */}
@@ -537,7 +537,7 @@ function QuotedPoint({
           {/* Content column */}
           <div className="flex-1 min-w-0">
             {/* Point text */}
-            <p className="text-sm text-gray-800 break-words"><LinkedText text={stripHashtags(point.statement, point.tags)} /></p>
+            <p className="text-sm text-gray-800 break-words">{linkifyText(stripHashtags(point.statement, point.tags))}</p>
             {point.tags?.length > 0 && <TagPills tags={point.tags} context="detail" className="mt-1" />}
 
             {/* Position buttons - scaled to 85% to fit within quoted card width while keeping button proportions */}
@@ -667,7 +667,7 @@ function LinkedStoryCard({
         <span className="text-xs font-medium text-muted-foreground">{story.authorName}</span>
         <EarBadge count={story.authorEarsCount ?? 0} name={story.authorName} size={11} />
       </div>
-      <p className="text-sm text-foreground line-clamp-2 break-words"><LinkedText text={story.content} /></p>
+      <p className="text-sm text-foreground line-clamp-2 break-words">{linkifyText(story.content)}</p>
     </div>
   );
 }

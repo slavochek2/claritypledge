@@ -1,7 +1,7 @@
 ---
 status: week
 type: story
-rank: 0.4
+rank: 148440.32
 tags:
   - ai-coach
   - post-session

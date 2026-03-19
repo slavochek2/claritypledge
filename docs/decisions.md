@@ -2,6 +2,22 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-19 [technical]: Unify link systems — auto-URL + markdown in one function, hints survive /falsify
+
+**Context:** Two parallel link systems: `linkifyText()` (auto-URL, bio only) and `<LinkedText>` (markdown `[text](url)`, stories/points). Different syntax, different colors (`text-blue-500` vs `text-blue-600`), inconsistent documentation. Users paste raw URLs in stories → plain text. /innovate recommended dropping form hints ("auto-URL is the discoverability") but /falsify killed all 3 proposals: (1) the bio's own hint proves auto-detection alone was deemed insufficient, (2) auto-URL actively suppresses markdown discovery — users stop exploring once basic case works, (3) `[text](url)` is not a power-user feature — it's the only named link mechanism.
+**Decision:** (1) Extend `linkifyText()` with two-phase parsing: markdown first (regex), then auto-URL on remaining segments. (2) Keep form hints with concrete examples ("Paste URLs or write `[click here](https://...)` for named links") — not abstract syntax. (3) Replace all `<LinkedText>` consumers (8 files), delete component. (4) Standardize to `text-blue-500`, `text-muted-foreground` for hints.
+**Alternatives rejected:** (A) Drop hints entirely (auto-URL is enough) — /falsify killed this: named links undiscoverable, bio hint is standing counter-evidence. (B) Abstract syntax in hints (`[text](url)`) — intimidating for non-technical co-founders, concrete example teaches better. (C) Rich text editor (Tiptap) — massive scope increase for a problem solvable with regex.
+**Consequences:** One link system everywhere. Any new text surface uses `linkifyText()` — no decision needed. Pre-commit script fix: `--diff-filter=d` excludes deleted files from ESLint (bug found during P540).
+**References:** [P540 spec](features/done/22_mar_26/p540_hyperlink_consistency.md)
+
+## 2026-03-18 [technical]: Pyannote diarization is 100x slower than benchmarks — separate-channel transcription eliminates it
+
+**Context:** Pyannote 3.1 diarization on Cloud Run L4 GPU takes 76 minutes for 30 min audio (2.5x real-time). Pyannote's own benchmark is ~45 seconds — we're 100x slower (likely ONNX CPU fallback or disk I/O). But the deeper insight: we already have separate phone recordings per speaker (`recorder_wavs` in `audio.py`), but `_merge_wavs()` mixes them into one stream via `amix`. Diarization then spends 76 min recovering what we already had.
+**Decision:** (1) Build separate-channel transcription as primary path — transcribe each phone independently, interleave by timestamp. Drops pipeline from 79 min to ~4 min. (2) Fix pyannote speed (verify GPU, remove ONNX) as fallback for single-phone sessions. (3) Use round structure from events.json for structured portions.
+**Alternatives rejected:** (A) Accept 76 min diarization — unusable for regular workflow. (B) Switch to Deepgram API — unnecessary now that separate-channel eliminates diarization. (C) Skip pyannote fix — still needed as fallback for single-phone recordings.
+**Consequences:** P546's word-level merger code is still correct and deployed (revision 013). The merger works regardless of whether speaker labels come from diarization or channel separation. The architecture change is in `audio.py` (stop mixing) and `pipeline.py` (transcribe channels separately).
+**References:** Research report at `~/Documents/Speaker_Diarization_Speed_Research_20260318/`, `services/transcribe/audio.py`
+
 ## 2026-03-18 [process]: Cloud Run GPU pipeline needs DB progress tracking before deploying new code
 
 **Context:** P546 (transcription quality improvements) deployed to Cloud Run revision 011. The pipeline started processing H44Q9H — Whisper completed (10495 words in 186s), diarization started — then silence. No transcript stored, no error logged, no way to determine what happened. 30+ minutes of blind polling. Root cause analysis: the pipeline runs as a synchronous HTTP handler doing 20-70 min GPU work with no progress reporting, no crash recovery, and no observability past the HTTP timeout. Without visibility, debugging a new code change that crashes mid-pipeline is a guessing game.

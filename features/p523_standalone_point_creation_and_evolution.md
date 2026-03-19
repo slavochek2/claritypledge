@@ -7,7 +7,7 @@ tags:
   - references
   - discourse
   - ux
-delivery_stage: 3-arch-review
+delivery_stage: 4-tests-ready
 created_date: 2026-03-15T00:00:00.000Z
 prepped_date: null
 flow: dev
@@ -16,6 +16,13 @@ reviews:
   architect: null
   alignment: null
 locked_at: '2026-03-15T14:22:58.149Z'
+uat_file: features/uat/p523.md
+test_files:
+  - src/tests/p523-point-references.test.ts
+  - e2e/integration/p523-point-references-migration.spec.ts
+  - e2e/p523-point-creation-responses.spec.ts
+  - e2e/a11y/p523-accessibility.spec.ts
+  - e2e/p523-smoke.spec.ts
 ---
 
 # P523: Point-to-Point References & Standalone Point Creation
@@ -974,3 +981,218 @@ getResponseCounts(pointIds: string[]): Promise<Map<string, number>>;
 /** P523: Get the reference for a source point (what it responds to) */
 getReference(sourcePointId: string): Promise<PointReference | null>;
 ```
+
+---
+
+## Test Coverage Strategy
+
+### Test Pyramid
+
+```
+          ┌─────────┐
+          │  E2E    │  7 user flow tests + 6 smoke tests
+          │ (13)    │  Covers: full user journeys, page loads
+         ─┴─────────┴─
+        ┌─────────────┐
+        │ Integration │  9 tests (P270-mandatory for migration)
+        │    (9)      │  Covers: schema, RPC, RLS, constraints, CASCADE
+       ─┴─────────────┴─
+      ┌─────────────────┐
+      │   Unit Tests    │  15 tests
+      │     (15)        │  Covers: service layer, data mapping, search
+     ─┴─────────────────┴─
+    ┌───────────────────────┐
+    │  Accessibility (a11y) │  10 tests
+    │       (10)            │  Covers: ARIA, keyboard nav, focus mgmt
+    └───────────────────────┘
+```
+
+### What IS Tested
+
+| Area | Test File | Coverage |
+|------|-----------|----------|
+| **DB schema** | `e2e/integration/p523-*` | `point_references` table exists, correct columns, indexes |
+| **RPC function** | `e2e/integration/p523-*` | `create_point_with_position` callable, returns UUID, atomic creation |
+| **RLS policies** | `e2e/integration/p523-*` | Verified user allowed, unverified blocked, public SELECT |
+| **CHECK constraints** | `e2e/integration/p523-*` | Self-reference blocked, statement > 1000 chars blocked |
+| **UNIQUE constraint** | `e2e/integration/p523-*` | Duplicate reference pair blocked |
+| **CASCADE** | `e2e/integration/p523-*` | Deleting point cascades to references |
+| **Service: RPC wrapper** | `src/tests/p523-*` | Correct params passed, error handling, all position types |
+| **Service: response counts** | `src/tests/p523-*` | Batch count aggregation, empty input, error fallback |
+| **Service: data mapping** | `src/tests/p523-*` | snake_case → camelCase, reference lookup, responses query |
+| **Client-side search** | `src/tests/p523-*` | Case-insensitive filter, empty query, no match, max 6 limit |
+| **Standalone creation** | `e2e/p523-point-creation-*` | Dropdown → /create-point → fill → publish → detail page |
+| **Response creation** | `e2e/p523-point-creation-*` | Point detail → Respond → fill → publish → linked back |
+| **Response chain** | `e2e/p523-point-creation-*` | A→B→C navigation via "Responding to" links |
+| **Progressive disclosure** | `e2e/p523-point-creation-*` | First 3 shown, "Show N more" for overflow |
+| **Empty state** | `e2e/p523-point-creation-*` | 0 responses: header + button, no empty text |
+| **Page loads** | `e2e/p523-smoke` | /create-point, /create-point?respondTo, point detail, feed dropdown |
+| **Graceful degradation** | `e2e/p523-smoke` | Invalid respondTo ID, unauthenticated redirect |
+| **ARIA attributes** | `e2e/a11y/p523-*` | Dropdown (haspopup, expanded, menuitem), combobox, listbox, reply icon |
+| **Keyboard navigation** | `e2e/a11y/p523-*` | Enter/Space/Escape on dropdown, Arrow keys, Tab order |
+| **Screen reader** | `e2e/a11y/p523-*` | aria-live counter, aria-hidden overlay, aria-label on buttons |
+| **Manual UAT** | `features/uat/p523.md` | 20 scenarios covering all acceptance criteria |
+
+### What is NOT Tested (and Why)
+
+| Area | Reason |
+|------|--------|
+| **Realtime subscription for new responses** | Not in V1 scope (no realtime subscription specified) |
+| **Concurrent RPC calls (race conditions)** | DB transaction isolation handles this; no application-level concern |
+| **Feed ordering with response count** | Feed ordering is `created_at desc` (unchanged); response count is display-only |
+| **Profile "Share" dropdown on mobile** | Same component as feed dropdown; responsive CSS tested visually in UAT |
+| **StorySearchPicker regression** | Existing component not modified; PointSearchPicker is net-new following same pattern |
+| **Position intensity dropdown on /create-point** | Reuses existing PositionButtons component unchanged; covered by existing tests |
+| **Unsplash banner on response points** | Banner generation is a separate feature (P504); not P523 scope |
+| **Notifications on response creation** | Explicitly out of scope (deferred) |
+| **Multi-reference per point** | V2 feature; V1 enforces single reference at application level |
+| **Performance at scale (200+ responses)** | Progressive disclosure tested; load testing deferred until >500 points |
+
+### Test Dependencies
+
+- **Integration tests** require a running Supabase instance with the P523 migration applied
+- **E2E tests** require dev server + Supabase with migration + at least one verified test user
+- **Unit tests** are fully mocked — no external dependencies
+
+---
+
+## Implementation Tasks
+
+**Summary:** 11 tasks, 4 parallelizable pairs (Tasks 2-3, Tasks 5-6, Tasks 7-8, Tasks 10-11), 6 sequential dependencies. Estimated: ~595 lines new code + ~100 lines modifications.
+
+### AC Coverage Matrix
+
+| AC | Task(s) |
+|----|---------|
+| Create dropdown on feed/profile | T6 |
+| `/create-point` route, page, form | T4, T5 |
+| Optional "Responding to" search/pre-fill | T4, T5 |
+| Atomic point+position creation (RPC) | T1, T3 |
+| Point appears in feed/profile | T3 (service), T9 (wiring) |
+| Responses section on point detail | T7 |
+| "Responding to" header on detail | T8 |
+| `point_references` junction table | T1 |
+| Reference visible both directions | T7, T8 |
+| 💬 count badge on feed cards | T9, T10 |
+| ↩ reply overlay on response cards | T9, T10, T11 |
+| Progressive disclosure (3 + Show N more) | T7 |
+| Verified-only, auth gate | T1 (DB), T4 (UI) |
+| Self-reference/duplicate prevention | T1 |
+| CASCADE on delete | T1 |
+
+### Security Findings Addressed
+
+| Finding | Severity | Task |
+|---------|----------|------|
+| RPC auth checks (SECURITY DEFINER) | HIGH | T1 — auth.uid() + is_verified checks in function body |
+| INSERT RLS on point_references | MEDIUM | T1 — no direct INSERT policy; inserts via SECURITY DEFINER RPC only |
+| Statement length CHECK constraint | MEDIUM | T1 — `chk_points_statement_length` added to `points` table |
+
+---
+
+### Task 1: Database migration — point_references table + RPC
+- **Files:** `supabase/migrations/YYYYMMDDHHMMSS_point_references.sql` (create)
+- **Spec refs:** "Technical Architecture > AD-1, AD-2" (lines ~636-698), "Implementation Approach > 4.3 Migration SQL" (lines ~787-886), "Security Review" (lines ~731-755)
+- **Tests:** `e2e/integration/p523-point-references-migration.spec.ts`
+- **Depends on:** None
+- **Verify:** `./scripts/migrate.sh` succeeds; RPC callable via SQL editor returning UUID
+- [ ] Complete
+
+### Task 2: Types — PointReference, DbPointReference, PointWithCounts extensions
+- **Files:** `src/app/types/index.ts` (modify)
+- **Spec refs:** "Implementation Approach > 4.5 Key Type Additions" (lines ~925-953)
+- **Tests:** `src/tests/p523-point-references.test.ts` (data mapping tests)
+- **Depends on:** None
+- **Verify:** `npm run build` — no type errors
+- [ ] Complete
+
+### Task 3: Service layer — interface + real + mock implementations
+- **Files:** `src/app/data/points-service.interface.ts` (modify), `src/app/data/points-service-real.ts` (modify), `src/app/data/points-service-mock.ts` (modify)
+- **Spec refs:** "Implementation Approach > 4.6 Service Interface Additions" (lines ~956-983), "Architecture Decisions > AD-3" (lines ~690-696)
+- **Tests:** `src/tests/p523-point-references.test.ts` (RPC wrapper, response counts, data mapping, reference lookup)
+- **Depends on:** Task 1 (migration), Task 2 (types)
+- **Verify:** Unit tests pass; `npm test -- p523`
+- [ ] Complete
+
+### Task 4: Create Point page + route
+- **Files:** `src/app/pages/create-point-page.tsx` (create), `src/App.tsx` (modify)
+- **Spec refs:** "UX Design > Flow A" (lines ~396-406), "UX Design > Flow B" (lines ~408-419), "Architecture Decisions > AD-5 Routing" (lines ~704-721), "Component Analysis > New > CreatePointPage" (line ~579)
+- **Tests:** `e2e/p523-point-creation-responses.spec.ts`, `e2e/p523-smoke.spec.ts`
+- **Depends on:** Task 3 (service layer)
+- **Verify:** Navigate to `/create-point`, fill form, publish — point created and redirected to detail
+- [ ] Complete
+
+### Task 5: PointSearchPicker + RespondingToPreview components
+- **Files:** `src/app/components/shared/point-search-picker.tsx` (create), `src/app/components/shared/responding-to-preview.tsx` (create)
+- **Spec refs:** "UX Design > Flow C" (lines ~421-427), "Architecture Decisions > AD-6 Client-Side Search" (lines ~723-729), "Component Analysis > New > PointSearchPicker" (line ~580), "Component Analysis > New > RespondingToPreview" (line ~582)
+- **Tests:** `src/tests/p523-point-references.test.ts` (client-side search tests), `e2e/a11y/p523-accessibility.spec.ts` (combobox ARIA)
+- **Depends on:** Task 2 (types)
+- **Verify:** On `/create-point` (standalone), search field filters points, selection shows preview with remove button
+- [ ] Complete
+
+### Task 6: CreateDropdown + feed/profile wiring
+- **Files:** `src/app/components/shared/create-dropdown.tsx` (create), `src/app/pages/feed-page.tsx` (modify), `src/app/pages/profile-page-v2.tsx` (modify)
+- **Spec refs:** "UX Design > Flow A steps 1-3" (lines ~396-400), "Component Analysis > New > CreateDropdown" (line ~581), "Component Analysis > Extend > FeedPage" (line ~572), "Component Analysis > Extend > ProfilePageV2" (line ~573)
+- **Tests:** `e2e/p523-smoke.spec.ts` (feed dropdown), `e2e/a11y/p523-accessibility.spec.ts` (dropdown ARIA, keyboard nav)
+- **Depends on:** None (UI component, no service dependency)
+- **Verify:** Feed and profile show dropdown with "Story" and "Point" options; both navigate correctly
+- [ ] Complete
+
+### Task 7: ResponsesSection component
+- **Files:** `src/app/components/point-detail/responses-section.tsx` (create)
+- **Spec refs:** "UX Design > Point Detail wireframe" (lines ~224-266), "UX Design > Empty Responses" (lines ~268-276), "Component Analysis > New > ResponsesSection" (line ~583), "Loading States > Responses section" (lines ~480-483)
+- **Tests:** `e2e/p523-point-creation-responses.spec.ts` (progressive disclosure, empty state, respond button)
+- **Depends on:** Task 3 (service layer — getResponsesForPoint)
+- **Verify:** Point detail shows "Responses (N)" section with cards, progressive disclosure, and Respond button
+- [ ] Complete
+
+### Task 8: Point Detail — "Responding to" header + ResponsesSection wiring
+- **Files:** `src/app/pages/point-detail-page.tsx` (modify)
+- **Spec refs:** "UX Design > Point Detail wireframe" (lines ~224-266), "Architecture Decisions > AD-4" (lines ~698-702), "Component Analysis > Extend > PointDetailPage" (line ~571)
+- **Tests:** `e2e/p523-point-creation-responses.spec.ts` (response chain navigation, "Responding to" display)
+- **Depends on:** Task 3 (service layer — getReference), Task 5 (RespondingToPreview), Task 7 (ResponsesSection)
+- **Verify:** Response point detail shows "Responding to" header with link to original; ResponsesSection renders below Positions
+- [ ] Complete
+
+### Task 9: ResponseCountBadge + ReplyOverlayIcon components
+- **Files:** `src/app/components/shared/response-count-badge.tsx` (create), `src/app/components/shared/reply-overlay-icon.tsx` (create)
+- **Spec refs:** "Component Analysis > New > ResponseCountBadge" (line ~584), "Component Analysis > New > ReplyOverlayIcon" (line ~585), "Accessibility > Reply overlay icon" (lines ~502-504)
+- **Tests:** `e2e/a11y/p523-accessibility.spec.ts` (aria-hidden on overlay), `src/tests/p523-point-references.test.ts`
+- **Depends on:** None
+- **Verify:** Components render correctly in isolation; badge hidden when count=0; overlay has aria-hidden
+- [ ] Complete
+
+### Task 10: FeedPointCard — badge + overlay + feed query wiring
+- **Files:** `src/app/components/feed/feed-point-card.tsx` (modify), `src/app/pages/feed-page.tsx` (modify — wire response counts into feed query)
+- **Spec refs:** "Component Analysis > Extend > FeedPointCard" (line ~569), "Architecture Decisions > AD-3" (lines ~690-696), build sequence steps 20, 22-23 (lines ~920-923)
+- **Tests:** `e2e/p523-point-creation-responses.spec.ts` (response count badge visible, ↩ overlay on response cards)
+- **Depends on:** Task 3 (service — getResponseCounts), Task 9 (badge + overlay components)
+- **Verify:** Feed cards show 💬N badge for points with responses; response points show ↩ overlay
+- [ ] Complete
+
+### Task 11: PointCardWithLinks — overlay + profile wiring
+- **Files:** `src/app/components/social/point-card-with-links.tsx` (modify), `src/app/pages/profile-page-v2.tsx` (modify — wire isResponse flag)
+- **Spec refs:** "Component Analysis > Extend > PointCardWithLinks" (line ~570), "UX Design > Profile wireframe" (lines ~349-379), build sequence step 21 (line ~921)
+- **Tests:** `e2e/p523-point-creation-responses.spec.ts` (profile points tab shows ↩ overlay)
+- **Depends on:** Task 3 (service), Task 9 (overlay component)
+- **Verify:** Profile Points tab shows ↩ overlay on response points
+- [ ] Complete
+
+### Dependency Graph
+
+```
+T1 (DB) ──────┐
+               ├──→ T3 (Service) ──→ T4 (Create Page) ──→ [wire T5 into T4]
+T2 (Types) ───┤                  ──→ T7 (ResponsesSection)
+               │                  ──→ T8 (Detail wiring) ←── T5, T7
+               │                  ──→ T10 (Feed cards) ←── T9
+               │                  ──→ T11 (Profile cards) ←── T9
+T5 (Search+Preview) ←── T2
+T6 (Dropdown) ──── independent
+T9 (Badge+Overlay) ── independent
+```
+
+**Parallelizable pairs:**
+- T1 + T2 + T6 + T9 (all independent — can run simultaneously)
+- T4 + T7 (both depend on T3 only)
+- T10 + T11 (both depend on T3 + T9)

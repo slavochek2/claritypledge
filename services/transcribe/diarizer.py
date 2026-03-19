@@ -57,6 +57,10 @@ def diarize(wav_path: str, num_speakers: Optional[int] = None) -> list[DiarSegme
     """
     Run speaker diarization on a WAV file.
 
+    Pre-loads audio into memory to avoid pyannote's per-slice disk I/O
+    bottleneck (GitHub #1403 — thousands of individual torchaudio.load()
+    calls on tiny slices). This alone can reduce 76 min → 1-3 min.
+
     Args:
         wav_path: Path to 16kHz mono WAV file.
         num_speakers: Optional hint for number of speakers.
@@ -70,13 +74,48 @@ def diarize(wav_path: str, num_speakers: Optional[int] = None) -> list[DiarSegme
     pipeline = _get_pipeline()
 
     logger.info("Diarizing %s (num_speakers=%s)...", wav_path, num_speakers)
+
+    # Pre-load audio into memory — critical for performance.
+    # Passing a file path causes pyannote to read thousands of tiny slices
+    # from disk individually, which is 50-100x slower than reading once.
+    import torchaudio
     t0 = time.time()
+    waveform, sample_rate = torchaudio.load(wav_path)
+    logger.info("Pre-loaded audio into memory: %.1f MB, %d Hz, %.1fs duration (%.2fs to load)",
+                waveform.nelement() * 4 / (1024 * 1024),
+                sample_rate,
+                waveform.shape[1] / sample_rate,
+                time.time() - t0)
+
+    # Log GPU status for diagnostics
+    import torch
+    if GPU_ENABLED and torch.cuda.is_available():
+        logger.info("GPU confirmed: %s, VRAM: %.1f GB free / %.1f GB total",
+                     torch.cuda.get_device_name(0),
+                     torch.cuda.mem_get_info()[0] / (1024**3),
+                     torch.cuda.mem_get_info()[1] / (1024**3))
+    else:
+        logger.warning("GPU NOT available — diarization will be slow (CPU mode)")
+
+    # Check for ONNX runtime (can cause silent CPU fallback)
+    try:
+        import onnxruntime
+        providers = onnxruntime.get_available_providers()
+        logger.info("ONNX runtime present: providers=%s", providers)
+        if "CUDAExecutionProvider" not in providers:
+            logger.warning("ONNX runtime lacks CUDA provider — may cause CPU fallback")
+    except ImportError:
+        logger.info("No ONNX runtime installed (good — pyannote 3.1 uses pure PyTorch)")
+
+    t1 = time.time()
 
     kwargs = {}
     if num_speakers is not None:
         kwargs["num_speakers"] = num_speakers
 
-    diarization = pipeline(wav_path, **kwargs)
+    # Pass waveform dict instead of file path — pyannote accepts this format
+    audio_input = {"waveform": waveform, "sample_rate": sample_rate}
+    diarization = pipeline(audio_input, **kwargs)
 
     segments = []
     for turn, _, speaker in diarization.itertracks(yield_label=True):
@@ -86,10 +125,10 @@ def diarize(wav_path: str, num_speakers: Optional[int] = None) -> list[DiarSegme
             end_ms=int(turn.end * 1000),
         ))
 
-    elapsed = time.time() - t0
+    elapsed = time.time() - t1
     speakers = set(s.speaker_id for s in segments)
     logger.info(
-        "Diarized %d segments, %d speakers in %.1fs",
+        "Diarized %d segments, %d speakers in %.1fs (was 76 min with file path)",
         len(segments), len(speakers), elapsed,
     )
     return segments

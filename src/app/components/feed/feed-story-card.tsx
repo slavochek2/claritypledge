@@ -12,7 +12,7 @@ import { copyToClipboard } from '@/lib/utils';
 import { analytics } from '@/lib/mixpanel';
 import { GravatarAvatar } from '@/components/ui/gravatar-avatar';
 import { EarBadge } from '@/components/ui/ear-badge';
-import { LinkedText } from '@/app/components/shared/linked-text';
+import { linkifyText } from '@/app/utils/linkify';
 import { TagPills } from '@/app/components/shared/tag-pills';
 import { stripHashtags } from '@/lib/utils';
 import type { StoryWithAuthor } from '@/app/types';
@@ -96,7 +96,7 @@ export function FeedStoryCard({ story, activeTag }: FeedStoryCardProps) {
 
             {/* Story text */}
             <p className="text-foreground break-words text-sm line-clamp-4">
-              <LinkedText text={stripHashtags(story.content, story.tags)} />
+              {linkifyText(stripHashtags(story.content, story.tags))}
             </p>
 
             {/* Tag pills */}

@@ -1,10 +1,11 @@
 ---
-status: week
+status: blocked
 type: feature
-rank: 250004.75
+rank: 2
 workstream: E1
-created_date: 2026-03-13
+created_date: 2026-03-13T00:00:00.000Z
 tags: []
+locked_at: '2026-03-18T13:40:51.190Z'
 ---
 
 # P500: Harmonize feed cards with profile card style

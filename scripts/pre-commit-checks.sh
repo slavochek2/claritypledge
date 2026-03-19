@@ -45,7 +45,7 @@ if ! run_quiet "TypeScript" npx tsc --noEmit; then
 fi
 
 # Collect staged files for later checks
-STAGED_FILES=$(git diff --cached --name-only 2>/dev/null || echo "")
+STAGED_FILES=$(git diff --cached --name-only --diff-filter=d 2>/dev/null || echo "")
 
 # 2. Lint (staged .ts/.tsx files only — full repo lint is npm run lint)
 STAGED_TS=$(echo "$STAGED_FILES" | grep -E '\.(ts|tsx)$' || true)

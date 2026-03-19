@@ -13,7 +13,7 @@ import {
   ThreadLineGroup,
   ThreadLineItem,
 } from '@/app/components/shared';
-import { LinkedText } from '@/app/components/shared/linked-text';
+import { linkifyText } from '@/app/utils/linkify';
 import { TagPills } from '@/app/components/shared/tag-pills';
 import { stripHashtags } from '@/lib/utils';
 
@@ -92,7 +92,7 @@ export function LiveStoryCardExpanded({
                 {story.visibility && <VisibilityBadge visibility={story.visibility} />}
               </p>
             )}
-            <p id={`live-story-text-${story.id}`} className="text-sm text-gray-900 leading-snug break-words"><LinkedText text={displayText} /></p>
+            <p id={`live-story-text-${story.id}`} className="text-sm text-gray-900 leading-snug break-words">{linkifyText(displayText)}</p>
             {isLongStory && (
               <button
                 type="button"
@@ -235,7 +235,7 @@ function PointRow({
           <div className="w-6 h-6 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0 text-blue-600 mt-0.5">
             <Pin size={12} className="rotate-45" />
           </div>
-          <p className="text-sm text-gray-800 flex-1 min-w-0 break-words"><LinkedText text={stripHashtags(point.statement, point.tags)} /></p>
+          <p className="text-sm text-gray-800 flex-1 min-w-0 break-words">{linkifyText(stripHashtags(point.statement, point.tags))}</p>
           {point.tags?.length > 0 && <TagPills tags={point.tags} context="live" className="mt-1" />}
         </div>
         <PositionButtons

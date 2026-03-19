@@ -11,7 +11,7 @@ import { Pin, Share2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { copyToClipboard } from '@/lib/utils';
 import { analytics } from '@/lib/mixpanel';
-import { LinkedText } from '@/app/components/shared/linked-text';
+import { linkifyText } from '@/app/utils/linkify';
 import { stripHashtags } from '@/lib/utils';
 import { TagPills } from '@/app/components/shared/tag-pills';
 import {
@@ -145,12 +145,12 @@ export function FeedPointCard({ point, activeTag, onPointRemoved }: FeedPointCar
           <div className="flex-1 min-w-0">
             {/* Statement */}
             <p className="text-sm font-medium text-foreground break-words">
-              <LinkedText text={stripHashtags(point.statement, point.tags)} />
+              {linkifyText(stripHashtags(point.statement, point.tags))}
             </p>
 
             {point.context && (
               <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
-                <LinkedText text={point.context} />
+                {linkifyText(point.context)}
               </p>
             )}
 
