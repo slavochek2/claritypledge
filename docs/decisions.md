@@ -106,6 +106,14 @@ Append-only log of architectural and product decisions. Newest entries at top.
 **Consequences:** Ears count redesign surfaced as follow-up: ears should require rating=10 (not ≥8), cap at 10 per person (not 1 per distinct person). Separate change-request needed.
 **References:** [P539 spec](features/done/22_mar_26/p539_calibration_zero_state_redesign.md), `src/app/components/profile/calibration-display.tsx`
 
+## 2026-03-19 [technical]: Energy-based cross-channel speaker attribution validated — replace pyannote diarization
+
+**Context:** Full-day investigation. Pyannote on amix mono = 99.7%/0.3% (broken). Voice enrollment: excellent quality (0.82 self-consistency) but cross-device similarity too low (delta 0.11) for per-window classification. Deepgram multichannel doesn't help (joint stereo → duplicates). LLM zero-shot correction published as worse than nothing (Google DiarizationLM 2024).
+**Decision:** Energy-based cross-channel comparison is the solution. Compare RMS energy between two phone recordings per window — closer phone = higher energy. Local test on GB7JWW: 70%/30% split, only 2% ambiguous, clear turn-taking. No ML, no enrollment, no API cost, works for any two strangers first session. Next: `/create-prd` → `/challenge-prd` → `/dev`.
+**Alternatives rejected:** (A) Voice enrollment — cross-device mismatch, requires pre-session setup, doesn't work for strangers. (B) Deepgram multichannel — both phones capture both speakers. (C) Gemini zero-shot correction — research says worse than nothing without fine-tuning. (D) amerge stereo — pyannote downmixes to mono anyway. (E) P552 "recorder = speaker" — wrong: both phones hear both speakers.
+**Consequences:** Energy-based is primary for multi-phone. Pyannote stays as fallback for single-phone (8 min with pre-load). Voice enrollment is a future enhancement for returning participants, not core.
+**References:** Research at `~/Documents/Diarization_TwoPhone_Research_20260319/`, `~/Documents/Speaker_Identification_Research_20260319/`, `~/Documents/Voice_Enrollment_Best_Practices_20260319/`
+
 ## 2026-03-19 [technical]: Pyannote pre-load fix: 71 min → 8 min. Speaker split still broken (99.7%/0.3%)
 
 **Context:** Pyannote diarization on Cloud Run L4 GPU took 76 min for 30 min audio. Root cause identified from GitHub issues #1403, #1452, #1453: pyannote's internal `crop()` reads thousands of tiny audio slices from disk. Fix: pre-load entire WAV into memory, pass `{"waveform": tensor, "sample_rate": int}` instead of file path. Result: **8 min** (10x speedup). However, speaker attribution is still 99.7%/0.3% — pyannote assigns nearly all speech to one speaker on `amix`-mixed two-phone audio. The speed was never the real problem; the diarization quality on mixed same-room audio is fundamentally broken.
