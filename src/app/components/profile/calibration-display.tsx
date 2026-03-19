@@ -128,13 +128,6 @@ export function InlineCalibration({
   sessionsCompleted?: number;
 }) {
   const sessions = sessionsCompleted ?? 0;
-
-  const gapToPosition = (g: number) => {
-    const clamped = Math.max(-3, Math.min(3, g));
-    return ((clamped + 3) / 6) * 100;
-  };
-
-  const listenerPos = calibration ? gapToPosition(calibration.listener.avgGap) : null;
   const listenerLabel = calibration ? getCalibrationLabel(calibration.listener.avgGap) : null;
 
   // P539: Segmented bar for insufficient state
@@ -163,15 +156,6 @@ export function InlineCalibration({
           <span className="inline-flex items-center gap-1.5 text-sm text-muted-foreground mt-1">
             <Ear className="h-4 w-4" aria-hidden="true" />
             <span>{listenerLabel}</span>
-            {listenerPos !== null && (
-              <span className="inline-flex items-center w-16 h-2 rounded-full bg-muted relative ml-0.5">
-                <span className="absolute left-1/2 top-0 w-px h-full bg-muted-foreground/30" />
-                <span
-                  className="absolute top-1/2 -translate-y-1/2 w-2.5 h-2.5 rounded-full bg-blue-500 -translate-x-1/2"
-                  style={{ left: `${listenerPos}%` }}
-                />
-              </span>
-            )}
           </span>
         </CalibrationTooltip>
       </TooltipProvider>

@@ -57,22 +57,13 @@ describe('P539: InlineCalibration metadata-line', () => {
   });
 
   // =========================================================================
-  // CALIBRATED — LABEL + TINY INLINE BAR
+  // CALIBRATED — LABEL ONLY (tooltip shows full details)
   // =========================================================================
 
   describe('Calibrated — metadata label', () => {
     it('shows calibration label text', () => {
       render(<InlineCalibration calibration={CALIBRATED_DATA} sessionsCompleted={7} />);
       expect(screen.getByText('Well calibrated')).toBeTruthy();
-    });
-
-    it('renders tiny inline bar with position dot', () => {
-      const { container } = render(
-        <InlineCalibration calibration={CALIBRATED_DATA} sessionsCompleted={7} />
-      );
-      // Tiny position dot (w-2.5 h-2.5 bg-blue-500)
-      const dot = container.querySelector('.bg-blue-500.rounded-full');
-      expect(dot).toBeTruthy();
     });
 
     it('does not show progress text when calibrated', () => {
