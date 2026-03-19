@@ -259,7 +259,7 @@ export function SettingsPage() {
             aria-describedby="bio-counter"
           />
           <div className="flex justify-between mt-1">
-            <span className="text-xs text-muted-foreground">Links auto-detected and made clickable.</span>
+            <span className="text-xs text-muted-foreground">Paste URLs or write <code className="text-xs bg-muted px-1 py-0.5 rounded">[click here](https://...)</code> for named links</span>
             <span
               id="bio-counter"
               aria-live="polite"

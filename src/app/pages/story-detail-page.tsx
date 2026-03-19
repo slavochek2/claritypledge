@@ -258,6 +258,9 @@ function AddPointForm({
             </p>
           );
         })()}
+        <p className="text-xs text-muted-foreground">
+          Paste URLs or write <code className="text-xs bg-muted px-1 py-0.5 rounded">[click here](https://...)</code> for named links
+        </p>
         <div className="flex flex-wrap items-center gap-2">
           <PositionButtons
             userPosition={selectedPosition}

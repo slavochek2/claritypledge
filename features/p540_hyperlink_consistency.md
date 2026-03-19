@@ -1,11 +1,20 @@
 ---
-status: week
+status: in-progress
 type: feature
-rank: 250009.75
+rank: 140627.672
 workstream: E1
-created_date: 2026-03-17
+created_date: 2026-03-17T00:00:00.000Z
 flow: dev
-tags: [ux, links, consistency]
+delivery_stage: uat
+tags:
+  - ux
+  - links
+  - consistency
+uat_file: features/uat/p540.md
+test_files:
+  - src/tests/p540-linkify-markdown.test.ts
+  - e2e/p540-hyperlink-consistency.spec.ts
+  - e2e/p540-smoke.spec.ts
 ---
 
 # P540: Hyperlink Consistency Across All Text Surfaces
@@ -58,13 +67,13 @@ After migration, deprecate and remove `<LinkedText>`.
 
 ### Concern 2: Add Form Hints
 
-Add helper text to entry forms that accept links:
+Add helper text to entry forms that accept links. Use concrete examples instead of abstract syntax — non-technical users learn from seeing, not from notation.
 
-- **Story creation** (`create-story-page.tsx`): hint below textarea — "Links supported: paste URLs or use `[text](url)`"
-- **Point creation** (`story-detail-page.tsx`): hint below point input — "Links supported: paste URLs or use `[text](url)`"
-- **Bio editing** (`settings-page.tsx`): update existing hint from "Links auto-detected" to "Links supported: paste URLs or use `[text](url)`"
+- **Story creation** (`create-story-page.tsx`): hint below textarea — "Paste URLs or write `[click here](https://...)` for named links"
+- **Point creation** (inline point input on story detail): hint below point input — "Paste URLs or write `[click here](https://...)` for named links"
+- **Bio editing** (`settings-page.tsx`): update existing hint from "Links auto-detected" to "Paste URLs or write `[click here](https://...)` for named links"
 
-Hint styling: `text-xs text-gray-400` — subtle, doesn't compete with the input.
+Hint styling: `text-xs text-muted-foreground` — matches existing bio hint class, theme-aware (works in dark mode).
 
 ### Concern 3: Consistent Styling
 
@@ -79,33 +88,43 @@ Links open in new tabs (`target="_blank" rel="noopener noreferrer"`) — this is
 - `src/app/components/shared/linked-text.tsx` — deprecate and remove after all callers migrate
 
 ### Display surfaces (switch LinkedText → linkifyText)
-- `src/app/pages/profile-page-v2.tsx` — update LinkedText usage to linkifyText
-- `src/app/components/profile/compact-profile-card.tsx` — same
+
+**Migration note:** All call sites change from `<LinkedText text={foo} />` (component) to `{linkifyText(foo)}` (expression). `linkifyText` is in a `.ts` file using `createElement` — keep using `createElement` for new code (no rename to `.tsx` needed).
+
+- `src/app/components/partners/live-content-cards.tsx` — **heaviest consumer** (~11 LinkedText usages including story text, point statements, point context)
 - `src/app/components/social/story-card-with-links.tsx` — switch to linkifyText
-- `src/app/components/social/point-card-with-links.tsx` — switch to linkifyText
+- `src/app/components/social/point-card-with-links.tsx` — switch to linkifyText (includes `point.context` surface)
+- `src/app/components/social/StoryCardDetail.tsx` — switch to linkifyText (~4 usage sites)
+- `src/app/components/feed/feed-story-card.tsx` — switch to linkifyText (1 usage)
+- `src/app/components/feed/feed-point-card.tsx` — switch to linkifyText (2 usages: statement + context)
+- `src/app/components/partners/live-story-card-expanded.tsx` — switch to linkifyText (2 usages)
+- `src/app/pages/profile-page-v2.tsx` — already uses linkifyText for bio; verify no LinkedText imports
+- `src/app/pages/point-detail-page.tsx` — switch to linkifyText (1 usage)
+- `src/app/components/profile/compact-profile-card.tsx` — already uses linkifyText; verify no LinkedText imports
 
 ### Entry forms (Concern 2 — add hints)
 - `src/app/pages/settings-page.tsx` — update bio help text
 - `src/app/pages/create-story-page.tsx` — add link hint to story textarea
-- `src/app/pages/story-detail-page.tsx` — add link hint to point input
+- `src/app/pages/story-detail-page.tsx` — add link hint to `AddPointForm` component (point creation input)
 
 ### Styling (Concern 3)
 - All display surface files above — ensure `text-blue-500 hover:underline` consistently
+- Scope: only link elements (`<a>` tags from linkifyText). `text-blue-600` on non-link elements (e.g., pin icons) is out of scope.
 
 ## Acceptance Criteria
 
-- [ ] `linkifyText()` handles raw URLs (existing behavior preserved)
-- [ ] `linkifyText()` handles `[text](url)` markdown — renders named link
-- [ ] `linkifyText()` handles mixed content: markdown links + raw URLs + plain text in same string
-- [ ] `[text](url)` inside markdown is not double-processed as a raw URL
-- [ ] `<LinkedText>` component removed; no remaining imports
-- [ ] All link surfaces render `text-blue-500 hover:underline` — no `text-blue-600` anywhere
-- [ ] All links open in new tab with `rel="noopener noreferrer"`
-- [ ] Bio entry form shows updated hint mentioning both syntaxes
-- [ ] Story creation form shows link hint
-- [ ] Point creation form shows link hint
-- [ ] Hints are styled `text-xs text-gray-400`
-- [ ] No regressions in existing link rendering (bio URLs, story markdown links, point markdown links)
+- [x] `linkifyText()` handles raw URLs (existing behavior preserved)
+- [x] `linkifyText()` handles `[text](url)` markdown — renders named link
+- [x] `linkifyText()` handles mixed content: markdown links + raw URLs + plain text in same string
+- [x] `[text](url)` inside markdown is not double-processed as a raw URL
+- [x] `<LinkedText>` component removed; no remaining imports
+- [x] All link elements render `text-blue-500 hover:underline` — no `text-blue-600` on link `<a>` tags
+- [x] All links open in new tab with `rel="noopener noreferrer"`
+- [x] Bio entry form shows updated hint mentioning both syntaxes
+- [x] Story creation form shows link hint
+- [x] Point creation form shows link hint
+- [x] Hints are styled `text-xs text-muted-foreground`
+- [x] No regressions in existing link rendering (bio URLs, story markdown links, point markdown links)
 
 ## Testing
 
@@ -129,3 +148,83 @@ Links open in new tabs (`target="_blank" rel="noopener noreferrer"`) — this is
 - Hover state (underline) works on all links
 - Hints don't crowd the input fields
 - Links in long text wrap correctly without layout breakage
+
+## Test Coverage Strategy
+
+**What's Tested:**
+- ✅ Markdown `[text](url)` parsing — 15 unit tests covering basic, mixed, edge cases
+- ✅ Processing order (no double-processing) — 2 unit tests
+- ✅ XSS prevention in markdown hrefs — 3 unit tests (javascript:, data:, vbscript:)
+- ✅ Malformed markdown graceful fallback — 4 unit tests
+- ✅ Existing auto-URL behavior preserved — 4 regression unit tests
+- ✅ Link attributes consistency (color, target, rel) — 4 unit tests
+- ✅ Bio link rendering (E2E) — raw URL regression + new markdown support
+- ✅ Color consistency (E2E) — text-blue-500, no text-blue-600
+- ✅ Form hints visible (E2E) — settings + story creation
+- ✅ Smoke tests — profile, settings, create, feed pages load without errors
+- ✅ UAT — 14 manual scenarios covering all surfaces + security + regressions
+
+**What's NOT Tested (and why):**
+- ❌ Story/point link rendering (E2E) — TODO stubs, depends on story creation helpers (filled in during /dev)
+- ❌ Integration tests — no DB/API/RLS changes in this feature
+- ❌ Accessibility tests — no new interaction patterns; links already exist, just changing renderer
+- ❌ Point creation form hint (E2E) — exact form location TBD (verify during /dev)
+
+**Test Pyramid:**
+```
+     /\
+    /  \   7 E2E tests (2 TODO)
+   /    \
+  /______\
+ /  0 INT  \
+/____________\
+/ 32 UNIT     \
+```
+
+**Total:** 32 unit tests + 7 E2E tests (2 TODO) + 4 smoke tests + 14 UAT scenarios
+
+**Files:**
+- `src/tests/p540-linkify-markdown.test.ts` — 32 new unit tests for markdown parsing
+- `src/tests/linkify.test.ts` — 27 existing unit tests (unchanged, regression suite)
+- `e2e/p540-hyperlink-consistency.spec.ts` — 7 E2E tests
+- `e2e/p540-smoke.spec.ts` — 4 smoke tests
+- `features/uat/p540.md` — 14 UAT scenarios
+
+## Implementation Tasks
+
+> Generated by /decompose. Each task is scoped to 1–3 files and independently verifiable.
+> Run /dev to execute — it will dispatch one subagent per task.
+
+### Task 1: Extend linkifyText with markdown [text](url) support
+- **Files:** `src/app/utils/linkify.ts` (modify)
+- **Spec refs:** "Solution > Concern 1 (lines ~59-65)", "Acceptance Criteria (lines ~115-118)"
+- **Tests:** `src/tests/p540-linkify-markdown.test.ts`, `src/tests/linkify.test.ts`
+- **Depends on:** None
+- **Verify:** All 32 new unit tests pass + all 27 existing regression tests pass. `npm test -- --run src/tests/p540-linkify-markdown.test.ts src/tests/linkify.test.ts`
+- [x] Complete
+
+### Task 2: Migrate social/feed LinkedText consumers to linkifyText
+- **Files:** `src/app/components/social/story-card-with-links.tsx` (modify), `src/app/components/social/point-card-with-links.tsx` (modify), `src/app/components/social/StoryCardDetail.tsx` (modify), `src/app/components/feed/feed-story-card.tsx` (modify), `src/app/components/feed/feed-point-card.tsx` (modify)
+- **Spec refs:** "Files to Change > Display surfaces (lines ~89-102)", "Solution > Concern 3 (lines ~77-81)"
+- **Tests:** `e2e/p540-smoke.spec.ts`
+- **Depends on:** Task 1
+- **Verify:** `grep -r "LinkedText" src/app/components/social/ src/app/components/feed/` returns zero results. Build passes (`npm run build`). No `text-blue-600` on link elements in these files.
+- [x] Complete
+
+### Task 3: Migrate partners/profile/page LinkedText consumers + remove LinkedText component
+- **Files:** `src/app/components/partners/live-content-cards.tsx` (modify), `src/app/components/partners/live-story-card-expanded.tsx` (modify), `src/app/pages/point-detail-page.tsx` (modify), `src/app/pages/profile-page-v2.tsx` (modify — verify no LinkedText import), `src/app/components/profile/compact-profile-card.tsx` (modify — verify no LinkedText import), `src/app/components/shared/linked-text.tsx` (delete)
+- **Spec refs:** "Files to Change > Display surfaces (lines ~89-102)", "Files to Change > Core (lines ~85-87)"
+- **Tests:** `e2e/p540-smoke.spec.ts`, `e2e/p540-hyperlink-consistency.spec.ts`
+- **Depends on:** Task 1, Task 2
+- **Verify:** `grep -r "LinkedText" src/` returns zero results (component fully removed). `grep -r "linked-text" src/` returns zero import paths. Build passes. AC: "LinkedText component removed; no remaining imports."
+- [x] Complete
+
+### Task 4: Add form hints to story creation, point creation, and bio editing
+- **Files:** `src/app/pages/create-story-page.tsx` (modify), `src/app/pages/story-detail-page.tsx` (modify — AddPointForm component), `src/app/pages/settings-page.tsx` (modify)
+- **Spec refs:** "Solution > Concern 2 (lines ~67-75)", "Acceptance Criteria (lines ~122-125)"
+- **Tests:** `e2e/p540-hyperlink-consistency.spec.ts`
+- **Depends on:** None (independent of Tasks 1-3)
+- **Verify:** All 3 forms show hint text "Paste URLs or write [click here](https://...) for named links" styled `text-xs text-muted-foreground`. E2E hint tests pass.
+- [x] Complete
+
+**Total tasks:** 4 | **Can parallelize:** Task 1 + Task 4 (no shared dependencies) | **Must be sequential:** Task 1 → Task 2 → Task 3

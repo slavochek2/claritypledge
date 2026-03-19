@@ -12,7 +12,7 @@ import { Button } from '@/components/ui/button';
 import type { StoryWithAuthor, StoryWithPoints, PointWithCreator, SessionHistoryItem } from '@/app/types';
 import { GravatarAvatar } from '@/components/ui/gravatar-avatar';
 import { analytics } from '@/lib/mixpanel';
-import { LinkedText } from '@/app/components/shared/linked-text';
+import { linkifyText } from '@/app/utils/linkify';
 import { TagPills } from '@/app/components/shared/tag-pills';
 import { stripHashtags } from '@/lib/utils';
 import { getFirstName, RatingButtons } from './shared';
@@ -79,7 +79,7 @@ export function LiveStoryCard({
             isPledger={!!story.authorEarsCount}
           />
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-foreground line-clamp-2 break-words"><LinkedText text={preview} /></p>
+            <p className="text-sm font-medium text-foreground line-clamp-2 break-words">{linkifyText(preview)}</p>
             {strippedContent.length > 100 && (
               <p className="text-xs text-muted-foreground mt-0.5">Read more ↓</p>
             )}
@@ -122,7 +122,7 @@ export function LiveStoryCard({
           isPledger={!!story.authorEarsCount}
         />
         <div className="flex-1 min-w-0 max-h-[200px] overflow-y-auto">
-          <p className="text-sm font-medium text-foreground break-words"><LinkedText text={strippedContent} /></p>
+          <p className="text-sm font-medium text-foreground break-words">{linkifyText(strippedContent)}</p>
         </div>
       </div>
 
@@ -205,9 +205,9 @@ export function LivePointCard({ point, onSelect, disabled }: LivePointCardProps)
       className="w-full text-left bg-card rounded-lg border-l-4 border-l-muted-foreground/50 border border-border shadow-sm p-4 hover:border-muted-foreground/70 hover:shadow-md transition-all disabled:opacity-50 disabled:cursor-not-allowed"
       data-testid={`live-point-card-${point.id}`}
     >
-      <p className="text-sm font-medium text-foreground line-clamp-2"><LinkedText text={displayStatement} /></p>
+      <p className="text-sm font-medium text-foreground line-clamp-2">{linkifyText(displayStatement)}</p>
       {point.context && (
-        <p className="text-xs text-muted-foreground mt-1 line-clamp-2"><LinkedText text={point.context} /></p>
+        <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{linkifyText(point.context)}</p>
       )}
       {/* P491: Tag pills (display-only in live context) */}
       {point.tags && point.tags.length > 0 && (
@@ -495,7 +495,7 @@ export function StoryCardPreview({ story, showLinkedPoints = true }: StoryCardPr
           isPledger={!!story.authorEarsCount}
         />
         <div className="flex-1">
-          <p className="text-sm font-medium text-foreground line-clamp-2"><LinkedText text={preview} /></p>
+          <p className="text-sm font-medium text-foreground line-clamp-2">{linkifyText(preview)}</p>
         </div>
       </div>
 
@@ -526,9 +526,9 @@ export function PointCardPreview({ point }: PointCardPreviewProps) {
       className="w-full max-w-sm bg-card rounded-lg border-l-4 border-l-muted-foreground/50 border border-border shadow-sm p-4"
       data-testid="point-card-preview"
     >
-      <p className="text-sm font-semibold text-foreground"><LinkedText text={stripHashtags(point.statement, point.tags)} /></p>
+      <p className="text-sm font-semibold text-foreground">{linkifyText(stripHashtags(point.statement, point.tags))}</p>
       {point.context && (
-        <p className="text-xs text-muted-foreground mt-2"><LinkedText text={point.context} /></p>
+        <p className="text-xs text-muted-foreground mt-2">{linkifyText(point.context)}</p>
       )}
     </div>
   );
@@ -555,14 +555,14 @@ export function SelectedContentDisplay({ story, point }: SelectedContentDisplayP
     <div className="w-full max-w-sm" data-testid="selected-content-display">
       {story && (
         <div className="bg-muted border border-border rounded-lg p-4">
-          <p className="text-sm font-semibold text-foreground line-clamp-2"><LinkedText text={stripHashtags(story.content, story.tags)} /></p>
+          <p className="text-sm font-semibold text-foreground line-clamp-2">{linkifyText(stripHashtags(story.content, story.tags))}</p>
         </div>
       )}
       {point && (
         <div className="bg-muted border border-border rounded-lg p-4">
-          <p className="text-sm font-semibold text-foreground"><LinkedText text={stripHashtags(point.statement, point.tags)} /></p>
+          <p className="text-sm font-semibold text-foreground">{linkifyText(stripHashtags(point.statement, point.tags))}</p>
           {point.context && (
-            <p className="text-xs text-muted-foreground mt-1"><LinkedText text={point.context} /></p>
+            <p className="text-xs text-muted-foreground mt-1">{linkifyText(point.context)}</p>
           )}
         </div>
       )}

@@ -21,7 +21,7 @@ import {
   ThreadLineItem,
   type SevenPointCounts,
 } from '@/app/components/shared';
-import { LinkedText } from '@/app/components/shared/linked-text';
+import { linkifyText } from '@/app/utils/linkify';
 import type { PositionType } from '@/app/types';
 import { getPositionGroup, getPositionCTACopy, adjustPositionCounts } from '@/app/utils/position-helpers';
 import type { Point, Position, Story } from '@/app/components/shared/prototype-types';
@@ -261,7 +261,7 @@ export function PointCardWithLinks({
                 <div className="flex-1 min-w-0">
                   {/* Point text */}
                   <p className={`text-gray-900 break-words ${compact ? 'text-sm' : 'text-base'}`}>
-                    <LinkedText text={displayText} />
+                    {linkifyText(displayText)}
                     {isTextTruncated && (
                       <button
                         onClick={(e) => { e.stopPropagation(); embedNavigate(`/point/${point.id}`); }}
@@ -436,7 +436,7 @@ export function PointCardWithLinks({
 
               {/* Point text - same position as StoryCard text */}
               <p className={`text-gray-900 break-words ${compact ? 'text-sm' : 'text-base'}`}>
-                <LinkedText text={displayText} />
+                {linkifyText(displayText)}
                 {isTextTruncated && (
                   <button
                     onClick={(e) => { e.stopPropagation(); embedNavigate(`/point/${point.id}`); }}
@@ -759,7 +759,7 @@ function QuotedStory({
         const cleanText = stripHashtags(story.text, story.tags ?? []);
         return !textExpanded && cleanText.length > 100 ? (
           <p className="text-sm text-gray-800 break-words">
-            <LinkedText text={cleanText.slice(0, 100)} />
+            {linkifyText(cleanText.slice(0, 100))}
             <span
               data-testid="more-link"
               role="button"
@@ -770,7 +770,7 @@ function QuotedStory({
             > ...more</span>
           </p>
         ) : (
-          <p className="text-sm text-gray-800 break-words"><LinkedText text={cleanText} /></p>
+          <p className="text-sm text-gray-800 break-words">{linkifyText(cleanText)}</p>
         );
       })()}
       {(story.tags ?? []).length > 0 && (

@@ -57,7 +57,6 @@ import {
   type SevenPointCounts,
 } from "@/app/components/shared";
 import { VisibilityBadge } from "@/app/components/shared/visibility-badge";
-import { LinkedText } from '@/app/components/shared/linked-text';
 import { TagPills } from '@/app/components/shared/tag-pills';
 import { stripHashtags } from '@/lib/utils';
 import type { PositionType, StoryVisibility } from "@/app/types";
@@ -1162,7 +1161,7 @@ function StoryCardFull({
             </div>
 
             {/* Story text */}
-            <p id={`story-text-${story.id}`} className="text-foreground text-base"><LinkedText text={storyDisplayText} /></p>
+            <p id={`story-text-${story.id}`} className="text-foreground text-base">{linkifyText(storyDisplayText)}</p>
             {isLongStory && (
               <div role="presentation" onClick={(e) => e.stopPropagation()}>
                 <button
@@ -1417,7 +1416,7 @@ function QuotedPointCard({
 
           {/* Content column */}
           <div className="flex-1 min-w-0">
-            <p className="text-sm text-foreground"><LinkedText text={stripHashtags(point.statement, point.tags)} /></p>
+            <p className="text-sm text-foreground">{linkifyText(stripHashtags(point.statement, point.tags))}</p>
 
             {/* P503: Tag pills */}
             {point.tags && point.tags.length > 0 && (
@@ -1538,7 +1537,7 @@ function PointCardFull({
 
             {/* Content column */}
             <div className="flex-1 min-w-0">
-              <p className="text-foreground text-base"><LinkedText text={stripHashtags(point.statement, point.tags)} /></p>
+              <p className="text-foreground text-base">{linkifyText(stripHashtags(point.statement, point.tags))}</p>
 
               {/* P503: Tag pills */}
               {point.tags && point.tags.length > 0 && (

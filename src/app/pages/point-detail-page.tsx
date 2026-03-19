@@ -32,7 +32,7 @@ import { EarBadge } from '@/components/ui/ear-badge';
 import { StoryCardWithLinks, type StoryAuthor } from '@/app/components/social/story-card-with-links';
 import { PointCardWithLinks, type PointProfileOwner } from '@/app/components/social/point-card-with-links';
 import type { Point as ProtoPoint, Story as ProtoStory } from '@/app/components/shared/prototype-types';
-import { LinkedText } from '@/app/components/shared/linked-text';
+import { linkifyText } from '@/app/utils/linkify';
 import { TagPills } from '@/app/components/shared/tag-pills';
 import { stripHashtags } from '@/lib/utils';
 import { getAnonPosition, setAnonPosition as setAnonPositionStorage } from '@/app/hooks/useAnonPosition';
@@ -444,7 +444,7 @@ export function PointDetailPage() {
             {/* Content column */}
             <div className="flex-1 min-w-0">
               {/* Point text */}
-              <p className="text-foreground font-medium text-lg mb-3"><LinkedText text={stripHashtags(point.statement, point.tags)} /></p>
+              <p className="text-foreground font-medium text-lg mb-3">{linkifyText(stripHashtags(point.statement, point.tags))}</p>
 
               {/* Tag pills */}
               {(point.tags?.length ?? 0) > 0 && (
