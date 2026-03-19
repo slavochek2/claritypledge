@@ -881,15 +881,17 @@ export function ProfilePageV2() {
                     />
                   </div>
                 )}
+                {/* P539: Calibration metadata line — between partners and bio.
+                     Own uncalibrated: segmented bar. Guest uncalibrated: hidden. Calibrated: label + tiny bar (both views). */}
+                {!contentLoading && (calibration || isOwner) && (
+                  <div className="animate-[clarity-appear_300ms_ease-out_forwards]">
+                    <InlineCalibration calibration={calibration} sessionsCompleted={sessionsCompleted} />
+                  </div>
+                )}
                 {profile.bio && (
                   <p data-testid="profile-bio" className="text-sm text-muted-foreground mt-2 break-words">
                     {linkifyText(profile.bio)}
                   </p>
-                )}
-                {/* P539: Calibration — render only after data loaded, below bio.
-                     Own uncalibrated: segmented bar. Guest uncalibrated: hidden. Calibrated: bar (both views). */}
-                {!contentLoading && (calibration || isOwner) && (
-                  <InlineCalibration calibration={calibration} sessionsCompleted={sessionsCompleted} />
                 )}
               </div>
             </div>

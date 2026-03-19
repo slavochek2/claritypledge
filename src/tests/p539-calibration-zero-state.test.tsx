@@ -1,11 +1,10 @@
 /**
  * @file p539-calibration-zero-state.test.tsx
- * P539 — Calibration Zero-State Redesign
+ * P539 — Calibration Zero-State Redesign (V10: Metadata-line treatment)
  *
- * Tests InlineCalibration component rendering across all states:
- * - Own profile: 0, 1, 2, 4 sessions (segmented bar), 5+ (calibration bar)
- * - Guest uncalibrated: component not rendered by parent (no test needed here)
- * - Guest calibrated: existing bar
+ * Tests InlineCalibration component rendering:
+ * - Uncalibrated: segmented bar + progress text as metadata line
+ * - Calibrated: label + tiny inline bar as metadata line
  * - Edge cases: undefined sessionsCompleted, sessionsCompleted > 5 with insufficient status
  */
 import { describe, it, expect } from 'vitest';
@@ -17,122 +16,69 @@ const CALIBRATED_DATA: UserCalibration = {
   speaker: { avgGap: -0.5, state: 'overconfident', sessionCount: 7 },
 };
 
-describe('P539: InlineCalibration zero-state redesign', () => {
+describe('P539: InlineCalibration metadata-line', () => {
   // =========================================================================
-  // OWN PROFILE — SEGMENTED BAR STATES (0-4 sessions)
+  // UNCALIBRATED — SEGMENTED BAR (own profile only, parent hides for guest)
   // =========================================================================
 
-  describe('Own profile — segmented bar states', () => {
-    it('shows 5 empty segments and "5 sessions for calibration" at 0 sessions', () => {
-      render(
-        <InlineCalibration
-          calibration={null}
-          sessionsCompleted={0}
-        />
-      );
-
+  describe('Uncalibrated — segmented bar', () => {
+    it('shows "5 sessions for calibration" at 0 sessions', () => {
+      render(<InlineCalibration calibration={null} sessionsCompleted={0} />);
       expect(screen.getByText('5 sessions for calibration')).toBeTruthy();
-
       const container = screen.getByLabelText('0 of 5 sessions completed for calibration');
-      expect(container).toBeTruthy();
-
-      const segments = container.querySelectorAll('[aria-hidden="true"]');
-      expect(segments.length).toBe(5);
-
-      // No filled segments (blue-400 background)
-      const filledSegments = container.querySelectorAll('[class*="bg-blue-400"]');
-      expect(filledSegments.length).toBe(0);
+      expect(container.querySelectorAll('[aria-hidden="true"]').length).toBe(5);
     });
 
     it('shows 1 filled segment and "4 more for calibration" at 1 session', () => {
-      render(
-        <InlineCalibration
-          calibration={null}
-          sessionsCompleted={1}
-        />
-      );
-
+      render(<InlineCalibration calibration={null} sessionsCompleted={1} />);
       expect(screen.getByText('4 more for calibration')).toBeTruthy();
-
       const container = screen.getByLabelText('1 of 5 sessions completed for calibration');
-      const filledSegments = container.querySelectorAll('[class*="bg-blue-400"]');
-      expect(filledSegments.length).toBe(1);
+      expect(container.querySelectorAll('[class*="bg-blue-400"]').length).toBe(1);
     });
 
-    it('shows 2 filled segments and "3 more for calibration" at 2 sessions', () => {
-      render(
-        <InlineCalibration
-          calibration={null}
-          sessionsCompleted={2}
-        />
-      );
-
+    it('shows 2 filled segments and "3 more for calibration"', () => {
+      render(<InlineCalibration calibration={null} sessionsCompleted={2} />);
       expect(screen.getByText('3 more for calibration')).toBeTruthy();
-
       const container = screen.getByLabelText('2 of 5 sessions completed for calibration');
-      const filledSegments = container.querySelectorAll('[class*="bg-blue-400"]');
-      expect(filledSegments.length).toBe(2);
+      expect(container.querySelectorAll('[class*="bg-blue-400"]').length).toBe(2);
     });
 
-    it('shows 4 filled segments and singular "1 more for calibration" at 4 sessions', () => {
-      render(
-        <InlineCalibration
-          calibration={null}
-          sessionsCompleted={4}
-        />
-      );
-
+    it('uses singular "1 more for calibration" at 4 sessions', () => {
+      render(<InlineCalibration calibration={null} sessionsCompleted={4} />);
       expect(screen.getByText('1 more for calibration')).toBeTruthy();
-
       const container = screen.getByLabelText('4 of 5 sessions completed for calibration');
-      const filledSegments = container.querySelectorAll('[class*="bg-blue-400"]');
-      expect(filledSegments.length).toBe(4);
+      expect(container.querySelectorAll('[class*="bg-blue-400"]').length).toBe(4);
     });
 
-    it('does not render calibration bar for insufficient status', () => {
-      const { container } = render(
-        <InlineCalibration
-          calibration={null}
-          sessionsCompleted={2}
-        />
-      );
-
-      // No bar position indicator (blue dot)
-      const blueDot = container.querySelector('.bg-blue-500.rounded-full.w-5');
-      expect(blueDot).toBeNull();
+    it('does not render calibration position dot for insufficient status', () => {
+      const { container } = render(<InlineCalibration calibration={null} sessionsCompleted={2} />);
+      expect(container.querySelector('.bg-blue-500.rounded-full')).toBeNull();
     });
   });
 
   // =========================================================================
-  // CALIBRATED STATE (both own and guest — existing bar)
+  // CALIBRATED — LABEL + TINY INLINE BAR
   // =========================================================================
 
-  describe('Calibrated state — existing bar unchanged', () => {
-    it('renders calibration bar with blue dot when calibration data exists (own profile)', () => {
-      const { container } = render(
-        <InlineCalibration
-          calibration={CALIBRATED_DATA}
-          sessionsCompleted={7}
-        />
-      );
-
-      const blueDot = container.querySelector('.bg-blue-500.rounded-full.w-5');
-      expect(blueDot).toBeTruthy();
-
-      // No progress text
-      expect(screen.queryByText(/for calibration/)).toBeNull();
+  describe('Calibrated — metadata label', () => {
+    it('shows calibration label text', () => {
+      render(<InlineCalibration calibration={CALIBRATED_DATA} sessionsCompleted={7} />);
+      expect(screen.getByText('Well calibrated')).toBeTruthy();
     });
 
-    it('renders same bar for guest viewing calibrated profile', () => {
+    it('renders tiny inline bar with position dot', () => {
       const { container } = render(
-        <InlineCalibration
-          calibration={CALIBRATED_DATA}
-          sessionsCompleted={7}
-        />
+        <InlineCalibration calibration={CALIBRATED_DATA} sessionsCompleted={7} />
       );
+      // Tiny position dot (w-2.5 h-2.5 bg-blue-500)
+      const dot = container.querySelector('.bg-blue-500.rounded-full');
+      expect(dot).toBeTruthy();
+    });
 
-      const blueDot = container.querySelector('.bg-blue-500.rounded-full.w-5');
-      expect(blueDot).toBeTruthy();
+    it('does not show progress text when calibrated', () => {
+      render(<InlineCalibration calibration={CALIBRATED_DATA} sessionsCompleted={7} />);
+      expect(screen.queryByText(/for calibration/)).toBeNull();
+      expect(screen.queryByLabelText(/of 5 sessions completed/)).toBeNull();
     });
   });
 
@@ -142,45 +88,21 @@ describe('P539: InlineCalibration zero-state redesign', () => {
 
   describe('Transition gate', () => {
     it('shows segmented bar when sessionsCompleted >= 5 but calibration is null', () => {
-      render(
-        <InlineCalibration
-          calibration={null}
-          sessionsCompleted={5}
-        />
-      );
-
+      render(<InlineCalibration calibration={null} sessionsCompleted={5} />);
       const container = screen.getByLabelText('5 of 5 sessions completed for calibration');
-      const filledSegments = container.querySelectorAll('[class*="bg-blue-400"]');
-      expect(filledSegments.length).toBe(5);
-
-      // No "more for calibration" text (5-5=0)
+      expect(container.querySelectorAll('[class*="bg-blue-400"]').length).toBe(5);
       expect(screen.queryByText(/more for calibration/)).toBeNull();
     });
 
-    it('caps filled segments at 5 when sessionsCompleted > 5 but still insufficient', () => {
-      render(
-        <InlineCalibration
-          calibration={null}
-          sessionsCompleted={8}
-        />
-      );
-
+    it('caps filled segments at 5 when sessionsCompleted > 5', () => {
+      render(<InlineCalibration calibration={null} sessionsCompleted={8} />);
       const container = screen.getByLabelText('5 of 5 sessions completed for calibration');
-      const filledSegments = container.querySelectorAll('[class*="bg-blue-400"]');
-      expect(filledSegments.length).toBe(5);
+      expect(container.querySelectorAll('[class*="bg-blue-400"]').length).toBe(5);
     });
 
-    it('renders bar (not segments) when calibration data exists regardless of count', () => {
-      const { container } = render(
-        <InlineCalibration
-          calibration={CALIBRATED_DATA}
-          sessionsCompleted={5}
-        />
-      );
-
-      const blueDot = container.querySelector('.bg-blue-500.rounded-full.w-5');
-      expect(blueDot).toBeTruthy();
-
+    it('renders label (not segments) when calibration data exists', () => {
+      render(<InlineCalibration calibration={CALIBRATED_DATA} sessionsCompleted={5} />);
+      expect(screen.getByText('Well calibrated')).toBeTruthy();
       expect(screen.queryByLabelText(/of 5 sessions completed/)).toBeNull();
     });
   });
@@ -191,38 +113,15 @@ describe('P539: InlineCalibration zero-state redesign', () => {
 
   describe('Edge cases', () => {
     it('defaults to 0 sessions when sessionsCompleted is undefined', () => {
-      render(
-        <InlineCalibration
-          calibration={null}
-        />
-      );
-
+      render(<InlineCalibration calibration={null} />);
       expect(screen.getByText('5 sessions for calibration')).toBeTruthy();
-      const container = screen.getByLabelText('0 of 5 sessions completed for calibration');
-      expect(container).toBeTruthy();
+      expect(screen.getByLabelText('0 of 5 sessions completed for calibration')).toBeTruthy();
     });
 
-    it('always renders ear icon and "Understanding Calibration" header', () => {
-      render(
-        <InlineCalibration
-          calibration={null}
-          sessionsCompleted={0}
-        />
-      );
-
-      expect(screen.getByText('Understanding Calibration')).toBeTruthy();
-    });
-
-    it('uses segmented bar with h-1.5 and rounded-sm classes', () => {
-      const { container } = render(
-        <InlineCalibration
-          calibration={null}
-          sessionsCompleted={2}
-        />
-      );
-
-      const segments = container.querySelectorAll('.h-1\\.5.rounded-sm');
-      expect(segments.length).toBe(5);
+    it('renders as inline element (not block)', () => {
+      const { container } = render(<InlineCalibration calibration={null} sessionsCompleted={0} />);
+      const wrapper = container.querySelector('.inline-flex');
+      expect(wrapper).toBeTruthy();
     });
   });
 
@@ -231,28 +130,21 @@ describe('P539: InlineCalibration zero-state redesign', () => {
   // =========================================================================
 
   describe('Accessibility', () => {
-    it('segment container has correct aria-label for screen readers', () => {
-      render(
-        <InlineCalibration
-          calibration={null}
-          sessionsCompleted={3}
-        />
-      );
-
+    it('segmented bar container has aria-label for screen readers', () => {
+      render(<InlineCalibration calibration={null} sessionsCompleted={3} />);
       expect(screen.getByLabelText('3 of 5 sessions completed for calibration')).toBeTruthy();
     });
 
     it('individual segments are aria-hidden', () => {
-      render(
-        <InlineCalibration
-          calibration={null}
-          sessionsCompleted={2}
-        />
-      );
+      render(<InlineCalibration calibration={null} sessionsCompleted={2} />);
+      const container = screen.getByLabelText('2 of 5 sessions completed for calibration');
+      expect(container.querySelectorAll('[aria-hidden="true"]').length).toBe(5);
+    });
 
-      const segmentContainer = screen.getByLabelText('2 of 5 sessions completed for calibration');
-      const segments = segmentContainer.querySelectorAll('[aria-hidden="true"]');
-      expect(segments.length).toBe(5);
+    it('ear icon is aria-hidden (decorative)', () => {
+      const { container } = render(<InlineCalibration calibration={null} sessionsCompleted={0} />);
+      const ear = container.querySelector('[aria-hidden="true"].h-4');
+      expect(ear).toBeTruthy();
     });
   });
 });
