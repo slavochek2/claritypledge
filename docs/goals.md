@@ -6,13 +6,13 @@ Concrete next steps in priority order. Updated 2026-03-18 (conversation analysis
 
 ## Next Steps
 
-1. [ ] P545: ladischenski.com positioning update (alignment framing before next outreach)
-2. [ ] P517: Polish /live — sliders, turn-taking, listener guidance (pre-event essential)
-3. [ ] 1-to-many /live for events (no spec yet — file as quick-feature, then build)
-4. [ ] Run next event with polished /live + 1-to-many
-5. [ ] Run next facilitated session with pay-what-it's-worth communicated upfront
-6. [ ] Publish 7-points article on blog (IN PROGRESS)
-7. [ ] Promote article via LinkedIn, communities
+1. [ ] Publish 7-points article on blog (IN PROGRESS)
+2. [ ] Promote article via LinkedIn, communities
+3. [x] P545: ladischenski.com positioning update (alignment framing before next outreach)
+4. [ ] P517: Polish /live — sliders, turn-taking, listener guidance (pre-event essential)
+5. [ ] 1-to-many /live for events (no spec yet — file as quick-feature, then build)
+6. [ ] Run next event with polished /live + 1-to-many
+7. [ ] Run next facilitated session with pay-what-it's-worth communicated upfront
 8. [ ] P518: Session Bookends — after 5+ sessions (measures H-WTP-Pain + H-TopicDepthGate)
 9. [ ] Approach 1-2 coaches — AFTER events + paid sessions prove model (H-CoachChannel)
 10. [ ] Publish first finding blog post (content → awareness → sessions loop)
