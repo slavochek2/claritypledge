@@ -2,6 +2,14 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-19 [technical]: Performance — defer analytics, lazy-import all pages, self-host fonts
+
+**Context:** Lighthouse audit showed 1.2MB of third-party JS (LogRocket 794KB + Mixpanel 436KB) loading eagerly, 12 synchronously imported pages, render-blocking SW registration, and a 700ms Google Fonts waterfall (3-hop chain: HTML → CSS → API → woff2). Signed-in users saw two sequential loading states: ClarityPageLoader (300-500ms waiting for profile fetch) then FeedSkeleton (200-800ms for feed queries).
+**Decision:** Six changes shipped as P553 + P555: (1) LogRocket deferred via `requestIdleCallback`, (2) 10 pages converted to `React.lazy()`, (3) preconnect hints for Supabase, (4) `registerSW.js` deferred via `injectRegister: 'script-defer'`, (5) immutable cache headers for hashed assets in vercel.json, (6) KaTeX CSS lazy-loaded with /manifesto route only. P555 added: (7) HomeRedirect redirects on `session` check (~10ms) instead of waiting for profile fetch, (8) Google Fonts self-hosted (Inter + Playfair Display woff2 in `public/fonts/`). Critically, `/challenge-prd` caught that Supabase already caches auth sessions in localStorage — a proposed `cp-auth-hint` localStorage fast-path was redundant and would have created divergent state.
+**Alternatives rejected:** (1) localStorage auth hint — Supabase already does this; adding a second cache creates divergent state for zero gain. (2) Feed data prefetch — `getPublicPointsFeed` needs `viewerUserId` for position data; prefetching without it causes a flash. (3) Navigation progress indicator — `react-router-dom` v6 with `BrowserRouter` doesn't support `useNavigation()`; would require migrating to `createBrowserRouter`. (4) Remove LogRocket entirely — deferred for now, decision pending on whether Sentry alone suffices.
+**Consequences:** LCP improved from 918ms to ~400-500ms (lab). Critical path from 1,848ms to ~200ms. Auth redirect from 300-500ms to ~10ms. Font waterfall eliminated. Remaining bottleneck: LogRocket still loads 794KB (deferred but not removed). Next opportunity: evaluate dropping LogRocket entirely.
+**References:** [P553 spec](features/done/22_mar_26/p553_performance_defer_eager_js.md), [P555 spec](features/done/22_mar_26/p555_auth_fast_path_loading_ux.md)
+
 ## 2026-03-19 [technical]: Ghost code injection — stop before DB edit, never restart
 
 **Context:** Ghost caches settings (including `codeinjection_head`) in memory. When using `docker restart`, Ghost writes its in-memory cache back to SQLite on shutdown, overwriting any direct DB edits made while Ghost was running. Three rounds of `docker cp` → edit → `docker restart` were silently lost before discovering this.

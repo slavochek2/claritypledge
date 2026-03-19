@@ -1,7 +1,7 @@
 # Done Features Index
 
 Quick reference for past completed work. Consult when starting work on a related topic.
-Last updated: 2026-03-19 (P539 calibration zero-state)
+Last updated: 2026-03-19 (P553+P555 performance optimization)
 
 ---
 
@@ -155,6 +155,8 @@ Last updated: 2026-03-19 (P539 calibration zero-state)
 
 ## Infrastructure / Process
 
+- **P553** (Mar 19) Defer Eager JS — `/challenge-prd` caught that Supabase already caches auth in localStorage, killing a redundant `cp-auth-hint`; `requestIdleCallback` for LogRocket; `injectRegister: 'script-defer'` for SW; KaTeX CSS must load inside component `useEffect`, not module scope
+- **P555** (Mar 19) Auth Fast-Path + Self-Host Fonts — redirect on `session` not `isLoading` (profile fetch was the real 300-500ms bottleneck, not `getSession()`); self-hosted woff2 eliminates 3-hop Google Fonts waterfall (700ms → 0ms)
 - **P546** (Mar 18) Transcription Quality Improvements — bake Whisper model into Docker image (eliminates cold start SHA256 failures); P546 code (word-level merger, VAD, language hint) written+tested but deployment blocked by observability gap; add DB progress tracking before re-attempting
 - **P507** (Mar 13) Remove Dead Prototypes — extract production code from prototype folders before deleting; `prototype-types.ts` bridges divergent `Story.text` vs `Story.content` shapes; 19K lines deleted
 - **P496** (Mar 13) E2E Programmatic Auth Bypass — `getTestAuthContext()` injects real user JWT into Playwright BrowserContext via `addInitScript`; RLS exercised with user token not service_role; addresses 67% of agent "can't verify" failures
