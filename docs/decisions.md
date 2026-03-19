@@ -2,6 +2,13 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-19 [product]: Ghost blog — reduce self-branding to one functional mention
+
+**Context:** Blog homepage showed the author's name 3 times in a single viewport: "FEATURED" label (hardcoded in JS), "BY VYACHESLAV LADISCHENSKI" byline on the featured post, and the bio card at the bottom. Plus "By Vyacheslav Ladischenski" on the subscribe landing overlay. With only one published article, "FEATURED" was meaningless and "More posts coming soon" signaled incompleteness.
+**Decision:** Remove all redundant self-branding: (1) "FEATURED" label — deleted from JS, (2) author byline on featured post and post list — show date only, (3) "By Vyacheslav Ladischenski" on landing overlay — removed, (4) "More posts coming soon" — removed entirely. Keep the bio card ("Fractional Chief Clarity Officer") as the sole name-adjacent element — it's functional (drives to ladischenski.com services page). Also fixed sidebar layout: when no additional posts exist, sidebar was centered due to empty flex sibling; now pinned right via `justify-content: flex-end` + `width: 100%` on the wrapper.
+**Alternatives rejected:** (1) Keep all branding — looks like territory-marking on a solo blog. (2) Remove bio card too — loses the services CTA, the one place where self-reference serves the reader. (3) Replace full name with "Slava" — still redundant when it appears 3 times.
+**Consequences:** Author identity conveyed once via bio card (role + CTA), not repeated. Pattern: on a solo creator blog, let content establish authority — explicit bylines add noise. Sidebar layout now handles the 1-post state gracefully; will auto-switch to two-column when more posts are published.
+
 ## 2026-03-19 [product]: Ghost blog typography — match Substack's visual density via font-size compensation
 
 **Context:** Blog articles on blog.claritypledge.com were visually different from Substack despite matching computed CSS values (19px, 728px width, 20px paragraph spacing). Side-by-side comparison revealed Inter font renders 9% wider per character than SF Pro Display — same px size, different visual density.
