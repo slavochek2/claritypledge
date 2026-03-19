@@ -165,6 +165,7 @@ export function ProfilePageV2() {
   const [realPoints, setRealPoints] = useState<PointWithUserPosition[]>([]);
   const [realCalibration, setRealCalibration] = useState<UserCalibration | null>(null);
   const [sessionsCompleted, setSessionsCompleted] = useState<number>(0);
+  const [calibrationLoaded, setCalibrationLoaded] = useState(false);
 
   // P465: Viewer story count map for other profiles (fetched async)
   const [viewerStoryCountMap, setViewerStoryCountMap] = useState<Map<string, number>>(new Map());
@@ -254,6 +255,7 @@ export function ProfilePageV2() {
 
     // Reset all content state when profile changes (e.g. navigating between profiles)
     setContentLoading(true);
+    setCalibrationLoaded(false);
     setAgreementsLoading(true);
     setRealStories([]);
     setRealPoints([]);
@@ -276,6 +278,7 @@ export function ProfilePageV2() {
       setRealStories(stories);
       setRealCalibration(toUserCalibration(calibration));
       setSessionsCompleted(calibration.sessionsCompleted);
+      setCalibrationLoaded(true);
 
       // P422: Set agreements
       setAgreements(fetchedAgreements);
@@ -883,7 +886,7 @@ export function ProfilePageV2() {
                 )}
                 {/* P539: Calibration metadata line — between partners and bio.
                      Own uncalibrated: segmented bar. Guest uncalibrated: hidden. Calibrated: label + tiny bar (both views). */}
-                {!contentLoading && (calibration || isOwner) && (
+                {calibrationLoaded && (calibration || isOwner) && (
                   <div className="animate-[clarity-appear_300ms_ease-out_forwards]">
                     <InlineCalibration calibration={calibration} sessionsCompleted={sessionsCompleted} />
                   </div>
