@@ -2,6 +2,14 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-21 [process]: Email skills split — daily triage vs quarterly cleanup, Chrome unsub as default
+
+**Context:** Running `/process-email` on personal Gmail revealed that archiving + filters doesn't stop emails — senders keep sending. The 3-table format (decisions/archive/unsub) was too complex; user immediately asked for one table. A 90-day sender frequency analysis surfaced patterns invisible in daily triage (e.g., 33 emails from one Substack).
+**Decision:** (1) `/process-email` v2.0: single table with YES/archive/unsub column, inline row responses ("1 yes; 3 unsub; go"), Chrome extension for actual unsubscribe clicks. (2) New `/email-cleanup` skill: 90-day deep analysis, sender frequency ranking, mass Chrome unsub. Run quarterly. Both are global skills (`~/.claude/commands/slava/util/`).
+**Alternatives rejected:** (1) Keep 3-table format — user found it too verbose. (2) Filters-only approach — doesn't actually stop emails, just hides them.
+**Consequences:** `/process-email` now requires Chrome extension for unsub rows. Fallback to filters if extension unavailable. `/email-cleanup` is a separate quarterly operation, not part of daily triage.
+**References:** `~/.claude/commands/slava/util/process-email.md`, `~/.claude/commands/slava/util/email-cleanup.md`
+
 ## 2026-03-21 [technical]: Ghost HTML cards are fragile — editor re-save drops them from lexical JSON
 
 **Context:** Four interactive blocks (animated counters, calibration loop, 2x2 matrix, pull quote) were inserted into a blog post via Ghost Admin API as `{type: 'html'}` lexical nodes. Two days later, all four were gone — only the two iframe embeds remained. The blocks were saved locally in `.private/blog-visuals/` and successfully re-inserted.
