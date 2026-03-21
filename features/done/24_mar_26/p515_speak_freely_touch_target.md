@@ -9,6 +9,7 @@ tags:
   - mobile
   - touch
 locked_at: '2026-03-18T08:11:00.217Z'
+created_date: 2026-03-14
 ---
 
 # P515: Speak Freely Button — Undersized Touch Target and Missing Clicker Feedback

@@ -8,6 +8,7 @@ tags:
   - psychological-safety
   - wtp
 locked_at: '2026-03-18T08:09:31.570Z'
+created_date: 2026-03-14
 ---
 
 # P518: Session Bookends — Goal Alignment + Qualifying Signal

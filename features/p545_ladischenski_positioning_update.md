@@ -1,14 +1,15 @@
 ---
 id: P545
 title: ladischenski.com positioning update — values & alignment over de-risking
-status: done
+status: all-done
 type: task
 rank: 0.5
-completed_at: "2026-03-19"
 tags:
   - content
   - positioning
   - ladischenski
+created_date: 2026-03-18T00:00:00.000Z
+locked_at: '2026-03-21T07:46:51.137Z'
 ---
 
 ## Why

@@ -8,6 +8,7 @@ tags:
   - live
   - events
   - workshop
+created_date: 2026-03-18
 ---
 
 # P549: 1-to-Many /Live Verification for Events

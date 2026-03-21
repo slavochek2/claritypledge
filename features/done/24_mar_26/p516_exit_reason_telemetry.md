@@ -7,6 +7,7 @@ tags:
   - mixpanel
   - session
 locked_at: '2026-03-15T08:13:28.618Z'
+created_date: 2026-03-14
 ---
 
 # P516: Add Exit Reason to Session Telemetry

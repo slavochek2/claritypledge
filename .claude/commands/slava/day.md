@@ -109,7 +109,11 @@ echo "=== ACTIVITY LOG ==="
 grep -E "^$(date +%Y-%m-%d)" .private/logs/activity.log 2>/dev/null || echo "no activity log"
 
 echo "=== CLOUD ==="
-gcloud compute instances list --filter="name=clarity-agent" --format="value(name,status,zone)" 2>/dev/null || echo "gcloud unavailable"
+if ! gcloud auth list --filter=status:ACTIVE --format="value(account)" 2>/dev/null | grep -q .; then
+  echo "GCLOUD_NOT_AUTHENTICATED"
+else
+  gcloud compute instances list --filter="name=clarity-agent" --format="value(name,status,zone)" 2>/dev/null || echo "gcloud unavailable"
+fi
 echo -n "ghost_status="
 curl -s -o /dev/null -w "%{http_code}" https://claritypledge.com/blog --max-time 5
 echo ""
@@ -125,7 +129,12 @@ fi
 
 Process Wave 1 results before proceeding.
 Show: `✓ Prod smoke: all pass` or `✗ Prod smoke: N failed — [first failure]`
-Flag cloud only if broken: Ghost non-200, backup >2d old. gcloud unavailable → silent skip.
+Flag cloud only if broken: Ghost non-200, backup >2d old.
+
+**gcloud auth gate:** If output contains `GCLOUD_NOT_AUTHENTICATED`, stop and prompt:
+> ⚠ gcloud is not authenticated. Run `! gcloud auth login` to authenticate, then say "done" to continue.
+
+Wait for user response before proceeding to Wave 2. Cloud checks (VM status, backup age) and Step 5 (cloud server check) depend on gcloud.
 
 #### Wave 2: Supabase + Sentry (2 calls max, parallel)
 
@@ -173,7 +182,7 @@ echo -e "\n=== FUNNEL: AGREEMENTS ==="
 curl -s "${PROD_URL}/clarity_agreements?select=id&status=eq.active" -H "$H1" -H "$H2" | python3 -c "import json,sys; print(len(json.load(sys.stdin)))" 2>/dev/null || echo "?"
 
 echo -e "\n=== ORPHANED SESSIONS ==="
-curl -s "${PROD_URL}/clarity_sessions?select=id,code,created_at,last_activity_at&joiner_name=not.is.null&last_activity_at=lt.${CUTOFF}&demo_status=neq.completed&ended_at=is.null&order=last_activity_at.desc&limit=5" -H "$H1" -H "$H2"
+curl -s "${PROD_URL}/clarity_sessions?select=id,code,created_at,expires_at&joiner_name=not.is.null&expires_at=lt.${CUTOFF}&demo_status=neq.completed&order=expires_at.desc&limit=5" -H "$H1" -H "$H2"
 
 echo -e "\n=== FUNNEL CSV ==="
 mkdir -p "$(git rev-parse --show-toplevel)/.private/metrics"

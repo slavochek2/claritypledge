@@ -5,6 +5,8 @@ status: backlog
 priority: high
 created_date: 2026-03-16
 p_number: P528
+tags: []
+rank: 1000020.0
 ---
 
 # Mobile scroll bounce causes page refresh in /live

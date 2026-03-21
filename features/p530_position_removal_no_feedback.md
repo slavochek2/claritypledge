@@ -5,6 +5,8 @@ status: backlog
 priority: medium
 created_date: 2026-03-16
 p_number: P530
+tags: []
+rank: 1000022.0
 ---
 
 # Position removal on click has no visual feedback

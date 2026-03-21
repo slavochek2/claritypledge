@@ -18,6 +18,7 @@ reviews:
   ux: null
   architect: null
   alignment: null
+created_date: 2026-03-16
 ---
 
 # P525: Live State Deadlock Prevention — Atomic Updates, Observability, Recovery

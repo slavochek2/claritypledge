@@ -5,6 +5,8 @@ status: backlog
 priority: medium
 created_date: 2026-03-16
 p_number: P529
+tags: []
+rank: 1000021.0
 ---
 
 # Speak freely tap target too small for mobile users
