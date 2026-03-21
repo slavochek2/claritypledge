@@ -228,9 +228,8 @@ npm test -- --run 2>&1 | tail -5
 ```
 Show: `✓ Repo baseline: clean` or `⚠ Repo baseline: N lint errors, M test failures — fix before starting new work`
 
-**b) Read goals + milestone** (2 Read calls, can be parallel):
+**b) Read goals** (1 Read call):
 - `docs/goals.md`
-- `docs/milestones/c1-stories-live-events.md`
 
 #### Health output block
 
@@ -322,12 +321,8 @@ If git log is empty: "No commits since last /day." Reflect on non-code work from
 2. Parse `## Next Steps` — identify `[ ]` (not done) vs `[x]` (done)
 3. Show max 5 upcoming (not done). Never show done items.
 4. Parse `## Dos` and `## Don'ts` — compact reminders.
-5. Read `docs/milestones/c1-stories-live-events.md` — extract milestone title, hypothesis, gate.
 
 ```
-MILESTONE: [id] — [title]
-WHY: [hypothesis one line]
-
 WHAT'S NEXT (from goals.md):
   → [step N] [text]       ← immediate next
   ○ [step N+1] [text]
@@ -335,8 +330,6 @@ WHAT'S NEXT (from goals.md):
 
 DO: [comma-separated one-liners]
 DON'T: [comma-separated one-liners]
-
-GATE TO [next milestone]: [one line condition]
 ```
 
 ---

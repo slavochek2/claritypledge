@@ -1,7 +1,7 @@
 ---
 name: claude-conversations-to-cp
 description: Analyze recent Claude conversations (or any input source) to surface strategic signals and propose updates to cp strategy docs. Reads both sides of conversations. Never writes without explicit confirmation.
-when_to_use: After a sprint, a week of sessions, or any period where you want to surface unresolved tensions and update lean-canvas, hypotheses, theory-of-change, milestones, or process-learnings.
+when_to_use: After a sprint, a week of sessions, or any period where you want to surface unresolved tensions and update lean-canvas, hypotheses, theory-of-change, or process-learnings.
 version: 1.2.0
 ---
 
@@ -45,7 +45,7 @@ If the marker is missing or corrupted, fall back to `7d` silently.
 | Problem framing, solution, channels, market | `docs/lean-canvas.md` |
 | Causal logic, theory of impact | `docs/theory-of-change.md` |
 | Assumptions being tested/invalidated | `docs/hypotheses.md` |
-| What's being tested, milestone progress | `docs/milestones/` |
+| What's being tested, hypothesis progress | `docs/hypotheses.md` |
 | Workflow friction, recurring manual steps | `docs/process-learnings.md` |
 | Features mentioned repeatedly but unspecced, priority shifts | `features/` (note only, no auto-edit) |
 
@@ -139,7 +139,7 @@ JSONL format: each line is a JSON object. Conversation messages have `type: "use
   </step>
 
   <step n="0b" goal="Pre-read target docs for contradiction detection">
-    <action>Read current content of all target docs: docs/lean-canvas.md, docs/hypotheses.md, docs/theory-of-change.md, docs/process-learnings.md, and all docs/milestones/*.md</action>
+    <action>Read current content of all target docs: docs/lean-canvas.md, docs/hypotheses.md, docs/theory-of-change.md, docs/process-learnings.md</action>
     <action>Hold this content in context for contradiction detection in step 2 and diff generation in step 4</action>
   </step>
 
@@ -196,9 +196,6 @@ JSONL format: each line is a JSON object. Conversation messages have `type: "use
       **[HYPOTHESIS]**
       [list each — flag if contradicts or validates existing hypotheses.md entries]
 
-      **[MILESTONE]**
-      [list each — flag if suggests priority shift vs current milestones]
-
       **[PROCESS]**
       [list each — flag if same friction appeared in process-learnings.md already]
 
@@ -240,8 +237,6 @@ JSONL format: each line is a JSON object. Conversation messages have `type: "use
   <step n="4" goal="Plan — propose doc updates, terminal only, no writes">
     <action>Draft specific proposed edits — concrete additions, replacements, or removals — using the pre-read target doc content from step 0b</action>
 
-    <action>For docs/milestones/: map each signal to the correct milestone file by matching on the milestone's stated hypothesis or workstream name. If ambiguous, propose the edit to the most active milestone and note the ambiguity.</action>
-
     <output>
       ## Proposed Updates
 
@@ -257,9 +252,6 @@ JSONL format: each line is a JSON object. Conversation messages have `type: "use
 
       ### docs/theory-of-change.md
       [same format — or "No changes proposed"]
-
-      ### docs/milestones/[specific-file].md
-      [same format]
 
       ### docs/process-learnings.md
       [same format]

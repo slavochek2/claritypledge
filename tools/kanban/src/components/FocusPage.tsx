@@ -1,9 +1,8 @@
-import { useMemo, useState, useEffect, useCallback } from 'react'
-import { useDroppable } from '@dnd-kit/core'
+import { useMemo, useState } from 'react'
 import { SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { CardDialog } from './CardDialog'
-import { Feature, FeatureType, Status, Milestone } from '../lib/types'
+import { Feature, FeatureType, Status } from '../lib/types'
 import type { FocusDropIndicator } from '../App'
 
 const TYPE_PREFIX: Record<FeatureType, string> = {
@@ -21,7 +20,7 @@ interface FocusPageProps {
   currentWorktree?: string
 }
 
-// Status priority for sorting within groups
+// Status priority for sorting
 const STATUS_ORDER: Record<Status, number> = {
   'in-progress': 0,
   'today': 1,
@@ -121,7 +120,6 @@ function FocusRow({ feature, onFeatureUpdate }: FocusRowProps) {
 
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: feature.id,
-    data: { workstream: feature.workstream || '__unlinked__' },
   })
 
   const style: React.CSSProperties = {
@@ -226,33 +224,14 @@ function FocusRow({ feature, onFeatureUpdate }: FocusRowProps) {
   )
 }
 
-// --- MilestoneGroup: droppable group with header + rows ---
-interface MilestoneGroupProps {
-  groupId: string
-  name: string
-  icon: string
-  features: Feature[]
-  milestone?: Milestone
-  onFeatureUpdate?: () => void
-  dropIndicator?: FocusDropIndicator | null
-}
-
-function MilestoneGroup({ groupId, name, icon, features, milestone, onFeatureUpdate, dropIndicator }: MilestoneGroupProps) {
+// --- FocusPage ---
+export function FocusPage({ features, onFeatureUpdate, dropIndicator }: FocusPageProps) {
   const sorted = useMemo(() => sortFeatures(features), [features])
   const summary = useMemo(() => getStatusSummary(features), [features])
-  const { setNodeRef, isOver } = useDroppable({ id: `group:${groupId}` })
 
   return (
-    <div
-      ref={setNodeRef}
-      style={{
-        marginBottom: 'var(--spacing-16)',
-        borderRadius: 4,
-        border: isOver ? '1px solid rgba(35, 131, 226, 0.4)' : '1px solid transparent',
-        transition: 'border-color 0.15s',
-      }}
-    >
-      {/* Group header */}
+    <div style={{ padding: 'var(--spacing-12) var(--spacing-16)' }}>
+      {/* Header */}
       <div
         style={{
           display: 'flex',
@@ -264,7 +243,7 @@ function MilestoneGroup({ groupId, name, icon, features, milestone, onFeatureUpd
           borderBottom: '1px solid var(--border-table)',
         }}
       >
-        <span style={{ fontSize: 14 }}>{icon}</span>
+        <span style={{ fontSize: 14 }}>{'\u{1F3AF}'}</span>
         <span
           style={{
             fontSize: 'var(--font-size-14)',
@@ -272,13 +251,8 @@ function MilestoneGroup({ groupId, name, icon, features, milestone, onFeatureUpd
             color: 'var(--text-primary)',
           }}
         >
-          {name}
+          Features
         </span>
-        {milestone?.summary && (
-          <span style={{ fontSize: 'var(--font-size-12)', color: 'var(--text-secondary)', fontStyle: 'italic' }}>
-            {milestone.summary}
-          </span>
-        )}
         <span style={{ fontSize: 'var(--font-size-12)', color: 'var(--text-tertiary)' }}>
           {features.length} feature{features.length !== 1 ? 's' : ''}
           {summary && ` (${summary})`}
@@ -307,11 +281,11 @@ function MilestoneGroup({ groupId, name, icon, features, milestone, onFeatureUpd
       <SortableContext items={sorted.map((f) => f.id)} strategy={verticalListSortingStrategy}>
         {sorted.map((feature) => (
           <div key={feature.id}>
-            {dropIndicator?.groupId === groupId && dropIndicator?.beforeId === feature.id && <DropLine />}
+            {dropIndicator?.beforeId === feature.id && <DropLine />}
             <FocusRow feature={feature} onFeatureUpdate={onFeatureUpdate} />
           </div>
         ))}
-        {dropIndicator?.groupId === groupId && dropIndicator?.beforeId === null && <DropLine />}
+        {dropIndicator?.beforeId === null && sorted.length > 0 && <DropLine />}
       </SortableContext>
 
       {features.length === 0 && (
@@ -324,140 +298,6 @@ function MilestoneGroup({ groupId, name, icon, features, milestone, onFeatureUpd
           }}
         >
           Drop features here
-        </div>
-      )}
-    </div>
-  )
-}
-
-// --- FocusPage ---
-export function FocusPage({ features, onFeatureUpdate, dropIndicator, currentWorktree }: FocusPageProps) {
-  const [milestones, setMilestones] = useState<Milestone[]>([])
-  const [milestoneError, setMilestoneError] = useState<string | null>(null)
-
-  const fetchMilestones = useCallback(async () => {
-    setMilestoneError(null)
-    try {
-      // Use relative URL - Vite proxy routes /api/* to backend (see vite.config.ts)
-      const url = currentWorktree
-        ? `/api/milestones?worktree=${encodeURIComponent(currentWorktree)}`
-        : '/api/milestones'
-      const response = await fetch(url)
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`)
-      }
-      const data = await response.json()
-      setMilestones(data)
-    } catch (error) {
-      console.error('Failed to fetch milestones:', error)
-      const message = error instanceof Error ? error.message : 'Failed to load milestones'
-      setMilestoneError(message)
-    }
-  }, [currentWorktree])
-
-  useEffect(() => {
-    fetchMilestones()
-  }, [fetchMilestones])
-
-  const groups = useMemo(() => {
-    const milestoneMap = new Map<string, Feature[]>()
-    const unlinked: Feature[] = []
-
-    for (const feature of features) {
-      if (feature.milestone) {
-        const existing = milestoneMap.get(feature.milestone)
-        if (existing) {
-          existing.push(feature)
-        } else {
-          milestoneMap.set(feature.milestone, [feature])
-        }
-      } else {
-        unlinked.push(feature)
-      }
-    }
-
-    // Sort groups by milestone status (active → next → future, then by ID)
-    const milestoneStatusOrder = { active: 0, next: 1, future: 2 }
-    const sortedGroups = Array.from(milestoneMap.entries()).sort(([aId], [bId]) => {
-      const aMilestone = milestones.find(m => m.id === aId)
-      const bMilestone = milestones.find(m => m.id === bId)
-
-      // Sort by status first
-      if (aMilestone && bMilestone) {
-        const statusDiff = milestoneStatusOrder[aMilestone.status] - milestoneStatusOrder[bMilestone.status]
-        if (statusDiff !== 0) return statusDiff
-      }
-
-      // Fallback to ID
-      return aId.localeCompare(bId)
-    })
-
-    return { sortedGroups, unlinked }
-  }, [features, milestones])
-
-  return (
-    <div style={{ padding: 'var(--spacing-12) var(--spacing-16)' }}>
-      {milestoneError && (
-        <div
-          style={{
-            padding: 'var(--spacing-12)',
-            marginBottom: 'var(--spacing-16)',
-            background: 'var(--status-red-bg)',
-            border: '1px solid var(--status-red-text)',
-            borderRadius: 4,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-          }}
-        >
-          <span style={{ color: 'var(--status-red-text)', fontSize: 'var(--font-size-14)' }}>
-            {milestoneError}
-          </span>
-          <button
-            onClick={fetchMilestones}
-            style={{
-              padding: '6px 12px',
-              background: 'var(--status-red-text)',
-              color: 'white',
-              border: 'none',
-              borderRadius: 4,
-              fontSize: 'var(--font-size-12)',
-              fontWeight: 'var(--font-weight-medium)',
-              cursor: 'pointer',
-            }}
-          >
-            Retry
-          </button>
-        </div>
-      )}
-      {groups.sortedGroups.map(([milestoneId, feats]) => {
-        const milestone = milestones.find(m => m.id === milestoneId)
-        return (
-          <MilestoneGroup
-            key={milestoneId}
-            groupId={milestoneId}
-            name={milestone?.title || milestoneId}
-            icon={'\u{1F3AF}'}
-            features={feats}
-            milestone={milestone}
-            onFeatureUpdate={onFeatureUpdate}
-            dropIndicator={dropIndicator}
-          />
-        )
-      })}
-
-      <MilestoneGroup
-        groupId="__unlinked__"
-        name="Unlinked"
-        icon={'\u{1F4E6}'}
-        features={groups.unlinked}
-        onFeatureUpdate={onFeatureUpdate}
-        dropIndicator={dropIndicator}
-      />
-
-      {groups.sortedGroups.length === 0 && groups.unlinked.length === 0 && (
-        <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-tertiary)' }}>
-          No features found.
         </div>
       )}
     </div>

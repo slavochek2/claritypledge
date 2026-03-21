@@ -5,7 +5,7 @@ import { writeFileSync, readFileSync } from 'fs'
 import { join, basename, extname, sep, resolve } from 'path'
 import matter from 'gray-matter'
 import { exec, execSync, spawnSync } from 'child_process'
-import type { Feature, Status, FeatureType, Size, Milestone, MilestoneStatus, Article, ArticleStatus } from '../src/lib/types'
+import type { Feature, Status, FeatureType, Size, Article, ArticleStatus } from '../src/lib/types'
 import { shouldSkipFolder, isFeatureFile, VALID_STATUS, VALID_TYPE, VALID_SIZE, VALID_DELIVERY_STAGE } from '../lib/scanner-rules'
 
 const app = express()
@@ -15,8 +15,6 @@ app.use(express.json())
 // Default features directory (relative to project root)
 const DEFAULT_PROJECT_ROOT = join(process.cwd(), '..', '..')
 const DEFAULT_FEATURES_DIR = join(DEFAULT_PROJECT_ROOT, 'features')
-const DEFAULT_MILESTONES_DIR = join(DEFAULT_PROJECT_ROOT, 'docs', 'milestones')
-
 // Get features directory for a given worktree path
 function getFeaturesDir(worktreePath?: string): string {
   if (worktreePath) {
@@ -69,9 +67,6 @@ function getWorktrees(): { path: string; branch: string; name: string; isCurrent
   }
 }
 
-// Valid values for enum fields (milestone status is kanban-specific, not in scanner-rules)
-const VALID_MILESTONE_STATUS: MilestoneStatus[] = ['active', 'next', 'future']
-
 // Valid article status values (content pipeline — separate from feature board)
 const VALID_ARTICLE_STATUS: ArticleStatus[] = ['idea', 'draft', 'editing', 'ready', 'published', 'promoted', 'rejected']
 
@@ -88,9 +83,6 @@ const featuresCacheByWorktree: Map<string, Feature[]> = new Map()
 
 // Articles cache per worktree
 const articlesCacheByWorktree: Map<string, Article[]> = new Map()
-
-// Milestone cache per worktree
-const milestonesCacheByWorktree: Map<string, Milestone[]> = new Map()
 
 // Content cache - keyed by file path, invalidated on PATCH
 const contentCache: Map<string, { frontmatter: unknown; content: string }> = new Map()
@@ -167,11 +159,9 @@ async function parseFeatureFile(filePath: string): Promise<Feature | null> {
       console.warn(`Feature ${filename}: invalid rank type (${data.rank}), using default`)
     }
 
-    // Parse optional milestone — explicit field takes precedence, falls back to workstream
-    // (workstream values like "C1", "R1" match milestone IDs; "foundation" does not → Unlinked)
+    // Legacy field — kept in frontmatter but unused by UI
     const milestone: string | undefined =
-      typeof data.milestone === 'string' && data.milestone ? data.milestone :
-      typeof data.workstream === 'string' && data.workstream ? data.workstream : undefined
+      typeof data.milestone === 'string' && data.milestone ? data.milestone : undefined
 
     return {
       id: filename,
@@ -228,101 +218,6 @@ async function getFeatures(worktreePath?: string): Promise<Feature[]> {
 
   await scanDir(featuresDir)
   return features.sort((a, b) => a.id.localeCompare(b.id))
-}
-
-// Get milestones directory for a given worktree path
-function getMilestonesDir(worktreePath?: string): string {
-  if (worktreePath) {
-    return join(worktreePath, 'docs', 'milestones')
-  }
-  return DEFAULT_MILESTONES_DIR
-}
-
-// Parse milestone file
-async function parseMilestoneFile(filePath: string): Promise<Milestone | null> {
-  try {
-    const content = readFileSync(filePath, 'utf-8')
-    const { data, content: body } = matter(content)
-
-    // Extract title from first heading
-    const titleMatch = body.match(/^#\s+(.+)$/m)
-    const filename = basename(filePath)
-    const title = titleMatch?.[1] || filename
-
-    // Extract milestone ID: frontmatter.milestone > title pattern > filename-derived
-    let id: string
-    if (typeof data.milestone === 'string' && data.milestone) {
-      id = data.milestone.toUpperCase()
-    } else {
-      // Match patterns like "C1:", "R1:", "M1:" at the start of the title
-      const milestoneIdMatch = title.match(/^([A-Z]\d*)/)
-      id = milestoneIdMatch?.[1] || filename.replace('.md', '').split('-')[0].toUpperCase()
-    }
-
-    // Parse status — map aliases to valid MilestoneStatus values
-    let status: MilestoneStatus = 'future'
-    const rawStatus = data.status
-    if (rawStatus === 'active' || rawStatus === 'running') {
-      status = 'active'
-    } else if (rawStatus === 'next') {
-      status = 'next'
-    } else if (rawStatus && VALID_MILESTONE_STATUS.includes(rawStatus)) {
-      status = rawStatus
-    }
-
-    // Parse optional fields
-    const summary = typeof data.summary === 'string' ? data.summary : undefined
-    const tests = Array.isArray(data.tests) ? data.tests : undefined
-    const answers = Array.isArray(data.answers) ? data.answers : undefined
-
-    return {
-      id,
-      title,
-      filename,
-      path: filePath,
-      status,
-      summary,
-      tests,
-      answers,
-    }
-  } catch {
-    return null
-  }
-}
-
-// Get all milestones
-async function getMilestones(worktreePath?: string): Promise<Milestone[]> {
-  const milestonesDir = getMilestonesDir(worktreePath)
-  const milestones: Milestone[] = []
-
-  try {
-    const entries = await readdir(milestonesDir, { withFileTypes: true })
-
-    for (const entry of entries) {
-      if (entry.isFile() && entry.name.endsWith('.md')) {
-        const fullPath = join(milestonesDir, entry.name)
-        const milestone = await parseMilestoneFile(fullPath)
-        if (milestone) milestones.push(milestone)
-      }
-    }
-  } catch {
-    // Directory doesn't exist, return empty
-  }
-
-  // Sort by milestone ID alphanumerically (C1, C2, R, R1, ...)
-  return milestones.sort((a, b) => a.id.localeCompare(b.id, undefined, { numeric: true }))
-}
-
-// Get cached milestones
-async function getCachedMilestones(worktreePath?: string): Promise<Milestone[]> {
-  const cacheKey = worktreePath || DEFAULT_PROJECT_ROOT
-  const cached = milestonesCacheByWorktree.get(cacheKey)
-  if (cached) {
-    return cached
-  }
-  const milestones = await getMilestones(worktreePath)
-  milestonesCacheByWorktree.set(cacheKey, milestones)
-  return milestones
 }
 
 // Parse a single article file into an Article object
@@ -467,18 +362,6 @@ app.get('/api/features', async (req, res) => {
     res.json(features)
   } catch {
     res.status(500).json({ error: 'Failed to read features' })
-  }
-})
-
-// GET /api/milestones - list all milestones
-// Query param: ?worktree=/path/to/worktree
-app.get('/api/milestones', async (req, res) => {
-  try {
-    const worktreePath = req.query.worktree as string | undefined
-    const milestones = await getCachedMilestones(worktreePath)
-    res.json(milestones)
-  } catch {
-    res.status(500).json({ error: 'Failed to read milestones' })
   }
 })
 
@@ -764,56 +647,14 @@ app.post('/api/open', (req, res) => {
   })
 })
 
-// GET /api/goals - parse pilot sequence from active milestone
+// GET /api/goals - milestone-based goals removed; returns empty
 app.get('/api/goals', async (_req, res) => {
-  try {
-    const milestones = await getCachedMilestones()
-    const active = milestones.find((m) => m.status === 'active')
-    if (!active) return res.json({ steps: [], hypothesis: '', question: '' })
-
-    const raw = readFileSync(active.path, 'utf-8')
-    const { content } = matter(raw)
-
-    const hypothesisMatch = content.match(/\*\*Hypothesis:\*\*\s*(.+)/m)
-    const hypothesis = hypothesisMatch?.[1]?.trim() || ''
-
-    const questionMatch = content.match(/\*\*The question:\*\*\s*(.+)/m)
-    const question = questionMatch?.[1]?.trim() || ''
-
-    const seqMatch = content.match(/## Pilot Sequence([\s\S]*?)(?=\n##|$)/)
-    const seqBlock = seqMatch?.[1] || ''
-    const stepMatches = [...seqBlock.matchAll(/^\d+\. \[([ x])\] (.+)$/gm)]
-    const steps = stepMatches.map((m, i) => ({ index: i, text: m[2].trim(), done: m[1] === 'x' }))
-
-    res.json({ steps, hypothesis, question, milestoneId: active.id, milestoneTitle: active.title })
-  } catch {
-    res.status(500).json({ error: 'Failed to read goals' })
-  }
+  res.json({ steps: [], hypothesis: '', question: '' })
 })
 
-// PATCH /api/goals/:index - toggle a pilot sequence step done/undone
-app.patch('/api/goals/:index', async (req, res) => {
-  try {
-    const stepIndex = parseInt(req.params.index, 10)
-    const { done } = req.body as { done: boolean }
-
-    const milestones = await getCachedMilestones()
-    const active = milestones.find((m) => m.status === 'active')
-    if (!active) return res.status(404).json({ error: 'No active milestone' })
-
-    let raw = readFileSync(active.path, 'utf-8')
-    let i = 0
-    raw = raw.replace(/^(\d+\. )\[([ x])\] (.+)$/gm, (full, num, _check, text) => {
-      if (i++ === stepIndex) return `${num}[${done ? 'x' : ' '}] ${text}`
-      return full
-    })
-
-    writeFileSync(active.path, raw, 'utf-8')
-    milestonesCacheByWorktree.clear()
-    res.json({ success: true })
-  } catch {
-    res.status(500).json({ error: 'Failed to update goal' })
-  }
+// PATCH /api/goals/:index - milestone-based goals removed; noop
+app.patch('/api/goals/:index', async (_req, res) => {
+  res.status(404).json({ error: 'Milestone-based goals removed — use docs/goals.md via /api/goals-strategic' })
 })
 
 // GET /api/goals-strategic - parse docs/goals.md for next steps + dos/don'ts

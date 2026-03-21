@@ -66,8 +66,6 @@ type EditingField =
   | 'rank'
   | 'tags'
   | 'blocked_by'
-  | 'workstream'
-  | 'hypothesis'
   | 'delivery_stage'
   | null
 
@@ -138,7 +136,7 @@ export function CardDialog({
 
   // Focus input when editing text fields
   useEffect(() => {
-    if (editingField && ['workstream', 'hypothesis', 'rank'].includes(editingField)) {
+    if (editingField && ['rank'].includes(editingField)) {
       inputRef.current?.focus()
     }
   }, [editingField])
@@ -283,43 +281,6 @@ export function CardDialog({
             </div>
           )
         })}
-      </div>
-    )
-  }
-
-  // Render text input for editing
-  const renderTextInput = (field: 'workstream' | 'hypothesis') => {
-    return (
-      <div ref={dropdownRef} style={{ flex: 1 }}>
-        <input
-          ref={inputRef}
-          type="text"
-          value={textInputValue}
-          onChange={(e) => setTextInputValue(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') {
-              updateFeature({ [field]: textInputValue || null })
-              setEditingField(null)
-            }
-            if (e.key === 'Escape') {
-              setEditingField(null)
-            }
-          }}
-          onBlur={() => {
-            updateFeature({ [field]: textInputValue || null })
-            setEditingField(null)
-          }}
-          placeholder={`Enter ${formatPropertyName(field).toLowerCase()}...`}
-          style={{
-            width: '100%',
-            padding: '4px 8px',
-            fontSize: 'var(--font-size-14)',
-            border: '1px solid rgba(55, 53, 47, 0.16)',
-            borderRadius: '4px',
-            outline: 'none',
-            fontFamily: 'var(--font-family)',
-          }}
-        />
       </div>
     )
   }
@@ -511,8 +472,6 @@ export function CardDialog({
     { key: 'delivery_stage', options: DELIVERY_STAGE_OPTIONS as (string | null)[] },
     { key: 'tags' },
     { key: 'blocked_by' },
-    { key: 'workstream' },
-    { key: 'hypothesis' },
   ]
 
   return createPortal(
@@ -680,9 +639,7 @@ export function CardDialog({
                   onClick={() => {
                     if (!isEditing) {
                       setEditingField(key)
-                      if (key === 'workstream' || key === 'hypothesis') {
-                        setTextInputValue((value as string) || '')
-                      } else if (key === 'rank') {
+                      if (key === 'rank') {
                         setTextInputValue(value !== undefined ? String(value) : '')
                       }
                     }
@@ -690,9 +647,7 @@ export function CardDialog({
                   onKeyDown={(e) => {
                     if ((e.key === 'Enter' || e.key === ' ') && !isEditing) {
                       setEditingField(key)
-                      if (key === 'workstream' || key === 'hypothesis') {
-                        setTextInputValue((value as string) || '')
-                      } else if (key === 'rank') {
+                      if (key === 'rank') {
                         setTextInputValue(value !== undefined ? String(value) : '')
                       }
                     }
@@ -724,10 +679,7 @@ export function CardDialog({
                       ) : key === 'rank' ? (
                         // Number input for rank
                         renderNumberInput()
-                      ) : (
-                        // Text input
-                        renderTextInput(key as 'workstream' | 'hypothesis')
-                      )
+                      ) : null
                     ) : (
                       // Display mode
                       renderValue(value)
