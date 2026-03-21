@@ -74,3 +74,14 @@ Observed during Pair C session. Three bugs that break the session flow:
 **Fix:** These should be fixed before the next facilitated session — each one causes visible confusion and breaks the experience for channel partners evaluating the tool.
 
 ---
+
+## Synchronous sales calls as acquisition bottleneck
+
+**Date:** 2026-03-21
+**Status:** proposed
+
+Intro calls that don't directly deliver session value get deprioritized under bandwidth constraints. Fix: default to async distribution (booking links, forwardable offers) instead of scheduling exploratory calls. Batch scheduled calls into one day/week.
+
+**Related:** ladischenski.com pricing page needs improvements — comparison anchoring, explicit session length, ROI story, FCO price range. See customer price evaluation conversation 2026-03-20.
+
+---

@@ -225,7 +225,7 @@ Feature spec rules (frontmatter, status values, P-number, lifecycle) auto-load w
 
 This repo is public (AGPL-3.0). Use `.private/` (gitignored) for: service accounts, credentials, personal decisions, private notes. When creating docs about accounts or internal tooling → `.private/docs/` by default.
 
-Before creating/updating files in `content/` or `docs/stories/`: check for personal addresses, phones, private business details. **When in doubt, ask:** "Is this safe to publish openly?"
+**Before creating/updating ANY file in this public repo:** check for personal addresses, phones, private business details, and personal life circumstances (health, legal/financial situation, relationships, living situation). Strategy docs (`docs/`, `features/`) are public too — write about the product decision, not the personal reason behind it. **When in doubt, ask:** "Is this safe to publish openly?"
 
 ---
 
