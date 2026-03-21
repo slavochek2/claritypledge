@@ -71,9 +71,13 @@ Execute a Node.js script inline that:
 
 **Important:** Members created without the `newsletters` array exist as accounts but are NOT newsletter subscribers. Ghost's publish dialog only counts subscribers, not all members. Always include the newsletter ID.
 
-### Step 3: Verify
+### Step 3: Verify subscriber count
 
-After all creates, wait 2s then fetch `GET /members/?limit=all` and report the final count.
+After all creates, fetch `GET /members/?limit=all` and count:
+- Total members (all entries)
+- Newsletter subscribers (members where `newsletters` array is non-empty)
+
+If members > subscribers → **WARNING**: some members lack newsletter subscriptions. List the unsubscribed emails and offer to fix them via PUT.
 
 ### Step 4: Report
 
@@ -84,7 +88,10 @@ Ghost sync complete:
   Newly created: N
   Errors: N
   Total Ghost members: N
+  Newsletter subscribers: N  ← must match total (minus errors)
 ```
+
+If subscriber count doesn't match member count, flag it — don't silently succeed.
 
 ---
 
