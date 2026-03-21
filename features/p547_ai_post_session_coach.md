@@ -1,13 +1,13 @@
 ---
 status: week
 type: story
-rank: 148440.32
+rank: 3
 tags:
   - ai-coach
   - post-session
   - onboarding
 supersedes: p41
-created_date: 2026-03-18
+created_date: 2026-03-18T00:00:00.000Z
 ---
 # P547: AI Post-Session Coach — Transcript-Based Education Trigger
 

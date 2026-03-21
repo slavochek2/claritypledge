@@ -3,12 +3,12 @@ id: P549
 title: 1-to-many /live verification for events
 status: today
 type: story
-rank: 0.14
+rank: 0.035
 tags:
   - live
   - events
   - workshop
-created_date: 2026-03-18
+created_date: 2026-03-18T00:00:00.000Z
 ---
 
 # P549: 1-to-Many /Live Verification for Events

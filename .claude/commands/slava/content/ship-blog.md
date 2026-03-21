@@ -4,6 +4,8 @@ Publish an approved Ghost draft to all subscribers. One action — no conversion
 
 Run `/slava:draft-blog` first to create and polish the Ghost draft. This skill just sends it.
 
+If the post contains embeds (iframes), run `/slava:prep-email` first to add email fallback cards — otherwise embeds appear as blank space in the newsletter.
+
 After shipping, run `/slava:promote-blog` to distribute to LinkedIn (copy + image approval required).
 
 ## Usage

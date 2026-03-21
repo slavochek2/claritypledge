@@ -1,11 +1,11 @@
 ---
-status: blocked
+status: backlog
 type: feature
 rank: 2
 workstream: E1
 created_date: 2026-03-13T00:00:00.000Z
 tags: []
-locked_at: '2026-03-18T13:40:51.190Z'
+locked_at: '2026-03-21T13:37:47.079Z'
 ---
 
 # P500: Harmonize feed cards with profile card style

@@ -1,14 +1,14 @@
 ---
-status: today
+status: week
 type: story
-rank: 0.047
+rank: 2
 tags:
   - live
   - onboarding
   - psychological-safety
   - wtp
-locked_at: '2026-03-18T08:09:31.570Z'
-created_date: 2026-03-14
+locked_at: '2026-03-21T13:37:15.543Z'
+created_date: 2026-03-14T00:00:00.000Z
 ---
 
 # P518: Session Bookends — Goal Alignment + Qualifying Signal

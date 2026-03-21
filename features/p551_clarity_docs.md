@@ -1,7 +1,7 @@
 ---
 status: week
 type: story
-rank: 7.0
+rank: 3.5
 tags:
   - docs
   - privacy
@@ -12,8 +12,11 @@ reviews:
   ux: null
   architect: null
   alignment: null
-created_date: 2026-03-18
-related: [p431, p422, p547]
+created_date: 2026-03-18T00:00:00.000Z
+related:
+  - p431
+  - p422
+  - p547
 ---
 
 # P551: Clarity Docs — Private Shared Pages
