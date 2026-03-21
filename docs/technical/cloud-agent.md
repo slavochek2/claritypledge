@@ -6,7 +6,7 @@ Run AI coding tasks in the cloud. Works even when you close your laptop. Support
 
 ## Desktop Access (Chrome Remote Desktop)
 
-Connect at **remotedesktop.google.com** (login as `slavochek@googlemail.com`, PIN in `.env.local` as `CRD_PIN`).
+Connect at **remotedesktop.google.com** (login with personal Google account — see global CLAUDE.md, PIN in `.env.local` as `CRD_PIN`).
 
 **What auto-starts on VM boot:**
 - `xvfb.service` — virtual display `:99` (systemd, always on)

@@ -386,7 +386,7 @@ Per-page meta tags, Open Graph, Twitter cards, canonical URLs, and JSON-LD are h
 
 **Sitemap rule:** `public/sitemap.xml` must use canonical routes only — never redirect aliases. See `decisions.md` 2026-02-25 for the `/clarity-champions` gotcha.
 
-**Search Console:** Verified under `slavochek@googlemail.com` for `claritypledge.com`. Sitemap submitted Dec 18 2025, status: Success.
+**Search Console:** Verified under personal Google account (see global CLAUDE.md) for `claritypledge.com`. Sitemap submitted Dec 18 2025, status: Success.
 
 ---
 

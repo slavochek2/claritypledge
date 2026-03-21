@@ -42,7 +42,7 @@ Claude.ai will send an email — **do not wait in browser**.
 
 Note the current time before polling — **only accept emails that arrived after you triggered the export** in step 1. Stale emails from previous runs have the same subject line and will cause downloading an old zip.
 
-Use **`mcp__slavochek-gmail__*`** — this is the dedicated personal Gmail MCP for `slavochek@googlemail.com`.
+Use **`mcp__slavochek-gmail__*`** — this is the dedicated personal Gmail MCP (see global CLAUDE.md User Profile for account).
 
 Poll every 60 seconds (Bash `sleep 60`), up to 10 minutes total:
 
