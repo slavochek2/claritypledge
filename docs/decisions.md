@@ -2,6 +2,29 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-21 [technical]: Ghost HTML cards are fragile — editor re-save drops them from lexical JSON
+
+**Context:** Four interactive blocks (animated counters, calibration loop, 2x2 matrix, pull quote) were inserted into a blog post via Ghost Admin API as `{type: 'html'}` lexical nodes. Two days later, all four were gone — only the two iframe embeds remained. The blocks were saved locally in `.private/blog-visuals/` and successfully re-inserted.
+**Decision:** Ghost's Koenig editor re-serializes the full lexical JSON when editing in the visual editor. HTML card nodes can be silently dropped during this process, especially when editing text adjacent to them. Mitigation: (1) always keep block source files in `.private/blog-visuals/`, (2) after inserting HTML cards via API, avoid editing surrounding text in the visual editor — use the HTML card's own edit mode, (3) the `/enhance-blog` skill already saves blocks locally; this is now a critical safety net, not just a preview artifact.
+**Alternatives rejected:** None — this is a Ghost editor limitation, not a design choice.
+**Consequences:** Any Ghost API-inserted HTML content should be treated as fragile. Keep source files. Re-insertion takes <30 seconds with the saved blocks.
+**References:** `.private/blog-visuals/`, `/enhance-blog` skill
+
+## 2026-03-21 [technical]: Ghost members without newsletter array are invisible — "silent data loss" was a misdiagnosis
+
+**Context:** `/sync-ghost-members` created 36 members via `POST /members/` with `{email, name}` but no `newsletters` array. Ghost's publish dialog showed "All 2 subscribers" — only the two manually-created accounts with newsletter subscriptions. The skill previously blamed "SQLite write contention" and added a 1-second delay as a workaround. Investigation revealed: Ghost distinguishes *members* (accounts) from *subscribers* (members with newsletter opt-in). The 34 "lost" members existed as accounts but weren't newsletter subscribers.
+**Decision:** Updated `/sync-ghost-members` v1.1.0: (1) fetch newsletter ID via `GET /newsletters/`, (2) create members with `newsletters: [{id}]`, (3) on 422 duplicate, PUT-update existing member to add newsletter subscription, (4) use `PROD_SUPABASE_SERVICE_ROLE_KEY` instead of anon key (RLS blocks profile reads). Removed the misleading SQLite contention warning.
+**Alternatives rejected:** (1) Keep the 1-second delay "just in case" — removed because it was solving a non-existent problem, and the real fix (newsletter array) is what matters.
+**Consequences:** Future syncs will correctly create newsletter subscribers. The Ghost Admin API newsletter endpoint is `GET /newsletters/` — newsletter ID is `6983f1a58ab82f0001e253d0`.
+**References:** `.claude/commands/slava/client/sync-ghost-members.md`
+
+## 2026-03-21 [product]: Blog feature image — match content tone, replace generic AI imagery
+
+**Context:** The blog post "The Two Skills That Will Define the Next Generation of Founders" — a raw personal bankruptcy essay — had a sci-fi wireframe banner (two holographic humanoids exchanging geometric shapes). Visually disconnected from the content's vulnerable, personal tone.
+**Decision:** Generated a new banner via Gemini Pro (Nano Banana): close-up of a coffee-stained napkin with handwritten "6 years. 14 co-founders. €398K raised. €3K revenue." in blue ballpoint pen. 16:9 aspect ratio, warm cafe lighting, photorealistic. Uploaded to Ghost and set as feature image. Also removed: (1) the pull quote block ("That's the tell") — decorative, not analytical, (2) the story iframe embed — kept only the point embed, (3) "If you want the full vision: claritypledge.com/manifesto" paragraph.
+**Alternatives rejected:** Five other concepts brainstormed (two chairs, cracked mirror, compass, Venn diagram, founder at table). Napkin won because it directly mirrors the stark-numbers interactive block and signals raw vulnerability in feed thumbnails — stands out against generic AI/startup imagery.
+**Consequences:** Feature image now at `blog.claritypledge.com/content/images/2026/03/blog-banner.jpg`. Source prompt saved in conversation history. For future articles: match banner to article tone, not to "startup aesthetic."
+
 ## 2026-03-21 [process]: Falsify agents must read actual code — feasibility verdicts without code access are wrong
 
 **Context:** /falsify agent rejected energy-gated Whisper feeding as "Phase 3 architecture work — requires per-phone streams that don't exist." But `SessionAudio.recorder_wavs` already contains per-phone WAVs at line 29 of `audio.py` — the streams exist, `_merge_wavs()` at line 172 just destroys them. The agent reasoned from the spec description ("current pipeline uses amix") without reading the code, producing a demonstrably wrong feasibility verdict that would have blocked the correct approach.

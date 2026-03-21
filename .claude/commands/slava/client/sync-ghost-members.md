@@ -2,7 +2,7 @@
 name: sync-ghost-members
 description: Sync verified ClarityPledge users (name + email) to Ghost as newsletter subscribers.
 when_to_use: "When you need to update Ghost members list with new ClarityPledge signups — e.g., before sending a newsletter, after a batch of new users, or on periodic maintenance."
-version: 1.0.0
+version: 1.1.0
 ---
 
 # /sync-ghost-members
@@ -40,7 +40,7 @@ Sync verified Supabase users to Ghost as named newsletter subscribers.
 
 These must exist in `.env.local`:
 - `GHOST_ADMIN_API_KEY` — format `{id}:{secret}`
-- `PROD_SUPABASE_ANON_KEY` — prod anon key
+- `PROD_SUPABASE_SERVICE_ROLE_KEY` — prod service role key (anon key can't read profiles due to RLS)
 
 Ghost blog URL: `https://blog.claritypledge.com`
 Prod Supabase ref: `besjtuodziykmjidubzw`
@@ -65,11 +65,11 @@ Execute a Node.js script inline that:
 2. **Filters out test accounts** — skip any email ending in `@claritypledge.com`
 3. **Fetches existing Ghost members** — `GET /ghost/api/admin/members/?limit=all`
 4. **Diffs** — only create members not already in Ghost (case-insensitive email match)
-5. **Creates each member** — `POST /ghost/api/admin/members/` with `{ members: [{ email, name }] }`
+5. **Fetches Ghost newsletters** — `GET /ghost/api/admin/newsletters/` to get the newsletter ID
+6. **Creates each member with newsletter subscription** — `POST /ghost/api/admin/members/` with `{ members: [{ email, name, newsletters: [{ id: newsletterId }] }] }`
+7. **If member already exists (422)**, update them via PUT to add the newsletter subscription (members created without `newsletters` are invisible in the publish dialog)
 
-**Critical: 1-second delay between Ghost API calls.** Ghost uses SQLite — rapid writes cause silent data loss. This was discovered empirically (34 members created with 201 responses but lost without delay).
-
-**Retry on parse error:** If Ghost returns a malformed response, wait 3s and retry once. If the retry also fails, log the error and continue.
+**Important:** Members created without the `newsletters` array exist as accounts but are NOT newsletter subscribers. Ghost's publish dialog only counts subscribers, not all members. Always include the newsletter ID.
 
 ### Step 3: Verify
 
@@ -107,9 +107,9 @@ const token = header + '.' + payload + '.' + signature;
 
 ## Known constraints
 
-- **SQLite write contention**: Ghost on Docker uses SQLite. Without the 1s delay, POST returns 201 but data is silently lost. Never remove the delay.
+- **Newsletter subscription is required for publish visibility.** Members without a `newsletters` array are Ghost accounts but NOT subscribers — they won't appear in the publish dialog count and won't receive email newsletters. This was the root cause of the "silent data loss" initially attributed to SQLite contention.
 - **No bulk endpoint**: Ghost Admin API only supports single-member creation. For 36 users this takes ~40s; plan accordingly for larger user bases.
-- **Duplicate handling**: Ghost returns 422 ValidationError for existing emails. The script skips these pre-flight via the diff step, but the 422 is harmless if it occurs.
+- **Duplicate handling**: Ghost returns 422 for existing emails. On 422, the script should PUT-update the member to add the newsletter subscription (fixes members that were previously created without it).
 - **Unverified users excluded**: Deliberate choice — sending to unconfirmed emails hurts sender reputation (bounces, spam reports).
 
 ---
