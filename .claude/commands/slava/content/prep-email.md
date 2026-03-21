@@ -176,10 +176,24 @@ Content-Type: application/json
 }
 ```
 
-### Step 6: Verify and report
+### Step 6: Append email signature card
+
+Append a styled signature card as the last element in the post (email-only). This replaces the web version's personal card for email readers.
+
+```json
+{
+  "type": "email",
+  "version": 1,
+  "html": "<div style=\"margin:32px 0 16px;padding:24px;border:1px solid #e5e7eb;border-radius:12px;background:#fafafa;\"><p style=\"margin:0 0 4px;font-size:16px;font-weight:700;color:#1a1a1a;\">Vyacheslav Ladischenski</p><p style=\"margin:0 0 12px;font-size:14px;color:#6b7280;font-style:italic;\">I&rsquo;ve lost co-founders. I help you keep yours.</p><a href=\"https://ladischenski.com/#services\" style=\"font-size:14px;color:#3b82f6;text-decoration:none;\">Learn more &rarr;</a></div>"
+}
+```
+
+**Idempotency:** Check if the last node is already an email card containing "Vyacheslav Ladischenski" — skip if so.
+
+### Step 7: Verify and report
 
 1. GET the post again with `?formats=lexical`
-2. Count email nodes in `root.children` — should match expected count
+2. Count email nodes in `root.children` — should match expected count (embeds + 1 signature)
 3. Report:
 
 ```
