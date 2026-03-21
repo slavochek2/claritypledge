@@ -1,17 +1,27 @@
 ---
 status: today
 type: story
-rank: 0.125
+rank: 0.024
 tags:
   - live
   - ux
   - feedback
   - turn-taking
 locked_at: '2026-03-15T14:22:52.432Z'
-created_date: 2026-03-14
+created_date: 2026-03-14T00:00:00.000Z
 ---
 
 # P517: Turn-Taking, Listener Guidance, and Real-Time Feedback
+
+**Partially superseded by:** P562 (/live simplification — strips rigid protocol, moves ratings to story cards)
+
+**What remains in P517:** Mobile bug fixes (accidental mode switch, position removal feedback) — these are independent of the story-first epic and still pre-event blockers.
+
+**What moves to P562:** Turn-taking UX (#4), real-time feedback sliders (#3), listener guidance (#2) — the /live protocol redesign replaces the rigid 3-click system with comprehension sliders on story cards. Improving the old protocol is moot when the protocol itself is being replaced.
+
+**What moves to P561:** Agreement vs understanding slider (#3) — comprehension slider on story cards IS this, implemented as screening tool.
+
+---
 
 ## Why This Is Urgent
 

@@ -92,6 +92,7 @@ Audience for recognition and thought leadership — rationalists, AI researchers
 | AI alignment research | PARKED | Needs session data corpus |
 | Coach/OD calibration tool | EXPLORE (see H-CoachChannel) | $100B+ market, coaches already have alignment vocabulary; ClarityPledge adds comprehension accuracy they lack (vs DISC/MBTI/360). Falsification-tested in Canvas v2. Coaching channel survived falsification (large market, active tool adoption, existing problem awareness); EA investor channel rejected (too small). |
 | Civic dialogue facilitation | EXPLORE | $2B+ civic engagement market (Braver Angels, Living Room Conversations). They already know the problem; they lack measurement. Grant-fundable. Surfaced in Canvas v3.0 political epistemology reframe (2026-03-19). |
+| Embeddable calibration protocol | EXPLORED (P559) | Protocol layer on any text (browser extension). Comprehension gap without author via "spot the distortion." Blocked by H-WTP-Pain + P523 validation. |
 
 ---
 
@@ -301,6 +302,8 @@ ClarityPledge is the platform brand (like Stripe). ladischenski.com is the found
 - **Direct warm outreach:** For first 1-3 pairs. "I sit with you and your co-founder while you discuss a real decision. I'll surface where you think you agree but don't. 45 min, free."
 - **Content-led inbound:** "What I learned losing 14 co-founders" content. Build-in-public posts, workshop recordings. Starts after first workshop produces real data.
 - **Organic:** Accelerator partnerships. Koh Phangan founder/nomad community. LessWrong / rationalist crossover audience.
+
+- **Async-first distribution (learned 2026-03-21):** Default to booking links, written offers, forwardable one-pagers instead of synchronous intro calls. Batch scheduled calls into one day/week.
 
 **Success signals:** 10 workshop participants by Month 3, €5k/month by Month 6.
 

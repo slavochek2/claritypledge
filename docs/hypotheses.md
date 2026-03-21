@@ -44,6 +44,7 @@ Session logs, architecture notes, and strategic commentary belong in [decisions.
 **Test:** After every gap reveal, ask: "When did a misunderstanding like this cost you something?" Track answers via P518 qualifying question.
 **Kill if:** 10 pairs cannot name a concrete cost after experiencing their gap.
 **Status (2026-03-18):** 28 sessions, zero pairs expressed that their gap was costing them anything. Reactions: curiosity, intellectual engagement, social warmth. No alarm, no urgency. This is the single most important hypothesis for commercial viability.
+**Update (2026-03-21):** CE distribution channel deferred — will return with concrete forwardable offer. Async-first go-to-market adaptation: booking links and written offers instead of scheduling calls. Compounds the delay in testing WTP with revenue-qualified pairs.
 
 ---
 

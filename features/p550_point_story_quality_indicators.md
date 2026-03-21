@@ -1,20 +1,23 @@
 ---
-status: week
+status: rejected
 type: story
-rank: 144533.996
+rank: 3.75
 tags:
   - points
   - stories
   - ux
   - quality-signals
 blocked_by: p544
+superseded_by: p563
 created_date: 2026-03-18T00:00:00.000Z
 flow: quick-feature
 ---
 
 # P550: Visual Quality Indicators for Points & Stories
 
-**Blocked by:** P544 (quality scores must exist on points before they can be displayed)
+**Status: Superseded by P563 (Position Provenance)**
+
+**Supersession rationale (2026-03-21):** The story-first architecture replaces AI quality scores with engagement depth as the visual signal. Instead of "falsifiability: 80" on a point card, the card shows "4 verified · 6 unverified" — how many position-holders deeply engaged (read stories, assessed comprehension, got author confirmation). Same card space, better signal: quality emerges from how people engage, not from an AI score.
 
 ---
 

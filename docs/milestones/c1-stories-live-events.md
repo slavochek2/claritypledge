@@ -95,6 +95,7 @@ After a facilitated session where agreement was created:
 3b. [x] Run second session — Pair C (2026-03-14: one partner attended Inner Space event, brought the other who resisted paraphrasing; potential channel partner)
 3c. [x] Run third session — Pair B co-founders (2026-03-16: protocol worked, value received, signing Clarity Partner Agreement. ICP learning: pre-revenue pair → WTP untested, de-risking feels optional without cashflow)
 3d. [ ] Participant C (therapist): personalized offer sent 2026-03-16, awaiting response. Exploring both client path and channel-partner path (therapist referring co-founder pairs)
+3e. [ ] CE channel (Charity Entrepreneurship): deferred 2026-03-21. Will return with forwardable offer when ready.
 4. [ ] Observe: did the "holy shit" moment happen? Did they quantify pain?
 5. [ ] Create partner agreement with the pair (if session landed)
 6. [ ] Book session 2 with first pair

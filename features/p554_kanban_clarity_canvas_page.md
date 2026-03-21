@@ -1,13 +1,14 @@
 ---
-status: today
+status: backlog
 type: task
-rank: 5
+rank: 3
 tags:
   - kanban
   - canvas
   - ikigai
 flow: quick-feature
 created_date: 2026-03-19T00:00:00.000Z
+locked_at: '2026-03-21T13:37:37.778Z'
 ---
 
 # P554: Clarity Canvas Page in Kanban

@@ -8,6 +8,7 @@ tags:
   - sifter
   - ai-feedback
 blocked_by: p523
+superseded_by: p563,p564
 created_date: 2026-03-18T00:00:00.000Z
 flow: dev
 locked_at: '2026-03-18T07:47:12.103Z'
@@ -15,7 +16,12 @@ locked_at: '2026-03-18T07:47:12.103Z'
 
 # P544: Point & Story Quality Signals (Feedback, Not Gates)
 
-**Blocked by:** P523 (Point-to-Point References) — P523 redesigns point creation flow. Quality signals should integrate with the new creation UX.
+**Blocked by:** P523 (story-first epic)
+**Superseded by:** P563 (position provenance — engagement depth replaces AI quality scores) + P564 (point-story attribution — provenance replaces falsifiability scores as the quality signal)
+
+**Supersession rationale (2026-03-21):** The story-first architecture (P523 V7) replaces AI-generated quality scores with emergent quality signals: how many stories a position-holder read, how many they assessed, author verification depth. Quality emerges from engagement depth, not from AI scoring falsifiability/counterfactual/hard-to-vary. The P544 insight — "feedback not gates" — survives in P563's approach: provenance is shown as information, not as a filter.
+
+**What survives:** The data hygiene items (delete duplicate points) and the sifter skill updates are independent and can be done anytime.
 
 ---
 

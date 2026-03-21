@@ -129,6 +129,9 @@ locked_at: '2026-03-21T07:58:30.352Z'
 **When I facilitate a workshop:**
 - I want participants to write stories and extract points during the session, so the workshop produces lasting artifacts for ongoing calibration (motivation: sessions that compound, not one-off events)
 
+**When I import a real conversation (future — validates architecture):**
+- I want each person's statements treated as stories so we can assess comprehension gaps asynchronously before a /live session (motivation: prepared calibration on real relationship tension, not cold-start topics). See P559.
+
 ---
 
 ## Outcomes (Success Metrics)
@@ -221,9 +224,28 @@ locked_at: '2026-03-21T07:58:30.352Z'
 
 ---
 
+## Epic Decomposition
+
+P523 is the vision spec. Implementation is decomposed into incremental specs tagged `epic-story-first`:
+
+| # | Spec | What | Status | Priority |
+|---|------|------|--------|----------|
+| 1 | P560 | Story filing on any point (no position required) | today | Must-have for workshop |
+| 2 | P561 | Comprehension slider on story cards (screening) | today | Core async mechanism |
+| 3 | P562 | /live simplification — strip to orchestration | week | Responds to "too clunky" feedback |
+| 4 | P563 | Position provenance — engagement depth visibility | week | Entanglement transparency |
+| 5 | P564 | Point-to-story attribution — prevent orphan points | week | Story-first at data level |
+| 6 | P565 | Response evolution — stories bridging points | week | Discourse evolution |
+| — | TBD | AI-assisted point extraction | backlog | Uses existing Gemini /chat |
+| — | TBD | Assessment notifications (email) | backlog | Uses existing SMTP |
+
+**Build order:** P560 → P561 → P562 (parallel with P563) → P564 → P565
+
+**Challenge-PRD outcome (2026-03-21):** Initial BLOCK on strategic fit dissolved — P523 serves workshops (distribution channel), not product-instead-of-distribution. Core mechanism reframed as screening (not verification). /live simplification responds to real user feedback ("too clunky"). Remaining concerns: author counter-assessment without notifications (accept low rate in V1), 0-10 self-report framed as screening not verification.
+
 ## Next Steps
 
-1. Run `/challenge-prd` to stress-test business requirements
-2. Run `/ux features/p523_standalone_point_creation_and_evolution.md` to design user flows
-3. Run `/architect` for technical architecture
-4. Run `/generate-tests` → `/dev`
+P560 is ready for `/dev` (scope is 1-2 hours, single concern).
+P561 needs `/ux` then `/architect` (new UI component + new DB table).
+P562 needs `/ux` exploration (how much of /live to keep vs strip).
+P563-P565 need `/ux` after P561 ships.
