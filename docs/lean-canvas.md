@@ -79,7 +79,7 @@ The tools for talking got better. The tools for understanding didn't.
 
 ### Future: Recognition Track (parked until 10+ case studies)
 
-Audience for recognition and thought leadership — rationalists, AI researchers, EA community. **Parked:** Recognition essays without session data are theory-first and 2x less credible. See [hypotheses.md → Blocked](hypotheses.md#blocked-waiting-on-something-else) for unblock conditions.
+Audience for recognition and thought leadership — rationalists, AI researchers, EA community. **Parked:** Recognition essays without session data are theory-first and 2x less credible. See [hypotheses.md → Blocked](hypotheses.md#blocked) for unblock conditions.
 
 ### Promising Use Cases (to explore)
 
@@ -132,7 +132,7 @@ The only alignment assessment that produces a number, not a feeling. Combines th
 ### Future (Recognition — parked until 10+ case studies exist)
 > **Calibration infrastructure for personal AI — verify your digital twin actually understands you.**
 
-For rationalists, AI researchers, and those building personal AI agents. **Parked:** No essays or specs until coaching track generates real session data. Revisit after 10+ founder pairs produce measurable outcomes. See [hypotheses.md → H-Essays-BuildRecognition](hypotheses.md#h-essays-buildrecognition-evidence-based-essays-position-us-as-calibration-experts-in-aligned-communities).
+For rationalists, AI researchers, and those building personal AI agents. **Parked:** No essays or specs until coaching track generates real session data. Revisit after 10+ founder pairs produce measurable outcomes. See [hypotheses.md → H-Essays-BuildRecognition](hypotheses.md#h-essays-buildrecognition-evidence-based-essays-build-recognition).
 
 **Shared foundation:**
 > **Scale your inner world — know who understood you, how well, and where they diverge — without being present for every conversation.**
