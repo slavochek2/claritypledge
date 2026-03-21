@@ -2,6 +2,22 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-21 [process]: Falsify agents must read actual code — feasibility verdicts without code access are wrong
+
+**Context:** /falsify agent rejected energy-gated Whisper feeding as "Phase 3 architecture work — requires per-phone streams that don't exist." But `SessionAudio.recorder_wavs` already contains per-phone WAVs at line 29 of `audio.py` — the streams exist, `_merge_wavs()` at line 172 just destroys them. The agent reasoned from the spec description ("current pipeline uses amix") without reading the code, producing a demonstrably wrong feasibility verdict that would have blocked the correct approach.
+**Decision:** When /falsify evaluates feasibility claims ("this requires X that doesn't exist"), the falsification agent MUST read the relevant source files. Principle-level critique (no code reading) is valid for the critique agent. Evidence-level falsification (must read code) is valid for the falsification agent. These were correctly separated in the /falsify skill spec — the agent just didn't follow through.
+**Alternatives rejected:** (A) Accept principle-level falsification for feasibility — produces wrong verdicts when the principle misrepresents the code. (B) Always spawn code-reading agents — overkill for non-feasibility challenges.
+**Consequences:** When spawning /falsify, include explicit instruction: "For any claim about what code does or doesn't support, READ the actual files before rendering a verdict."
+**References:** `/falsify` skill at `~/.claude/commands/slava/think/falsify.md`, `services/transcribe/audio.py`
+
+## 2026-03-21 [technical]: Transcription speaker attribution — 5-layer pipeline (P556 + P558)
+
+**Context:** Two-day investigation of speaker attribution. Pyannote on amix mono = 99.7/0.3 (broken). Energy comparison on per-phone WAVs = 70/30 with 2% ambiguous (validated locally). Gemini zero-shot correction published as worse than nothing, but informed correction with structural priors (round structure, facilitator/participant roles) is a different problem.
+**Decision:** Build a 5-layer speaker attribution pipeline: (1) Energy comparison between per-phone WAVs per VAD segment — primary signal. (2) Events.json round structure — ground truth for structured portions. (3) Whisper confidence tiebreaker — for ambiguous energy windows. (4) Recorder-name prior — phone owner identity as fallback. (5) Gemini post-processing (P558) — informed correction using conversational context. Layers 1-4 in P556, Layer 5 in P558 (backlog, ships after P556 data is available).
+**Alternatives rejected:** See P556 spec — voice enrollment, Deepgram multichannel, stereo pyannote, LLM zero-shot.
+**Consequences:** P556 next session (`/dev`). P558 after P556 ships and produces real data. Energy-gating before Whisper (not after) eliminates the crosstalk deduplication problem entirely.
+**References:** [P556](features/p556_energy_speaker_attribution.md), [P558](features/p558_gemini_transcript_speaker_correction.md), research reports in `~/Documents/`
+
 ## 2026-03-19 [product]: Newsletter strategy — two-channel outreach, no bulk import to Ghost
 
 **Context:** First blog article ready to publish. 36 Ghost members (34 event participants bulk-imported today, 2 test accounts). Founder wanted to grow subscribers using LinkedIn connections, Gmail contacts, and event participants — but was concerned about spamming and reputation damage. Considered registering a separate domain for email (rejected: looks spammy, kills deliverability, hides brand).
