@@ -329,7 +329,7 @@ Database migration rules, RLS debugging, and schema decisions auto-load when edi
 ## Reference Guide
 
 **Product:** Calibrated communication practice via /live. Target: co-founder pairs.
-Docs: [definitions.md](docs/definitions.md) | [lean-canvas.md](docs/lean-canvas.md) | [milestones/](docs/milestones/)
+Docs: [definitions.md](docs/definitions.md) | [lean-canvas.md](docs/lean-canvas.md) | [hypotheses.md](docs/hypotheses.md)
 
 **Key commands:**
 ```bash
@@ -342,7 +342,7 @@ npm run dev && npm test && npm run build  # Standard dev loop
 
 **Where things live:** `docs/technical/` (guides) · `features/` (specs) · `src/app/` (source) · `e2e/` (tests) · `supabase/` (database) · `.claude/rules/` (path-specific agent rules)
 
-**Source of truth docs:** `definitions.md` (concepts) · `lean-canvas.md` (business) · `milestones/` (hypothesis + metrics) · `decisions.md` (trade-offs) · `philosophy.md` (WHY).
+**Source of truth docs:** `definitions.md` (concepts) · `lean-canvas.md` (business) · `hypotheses.md` (active bets) · `decisions.md` (trade-offs) · `philosophy.md` (WHY).
 
 **Post-feature:** `/kdd` — captures knowledge in strategic + technical docs.
 

@@ -226,5 +226,4 @@ Literature-backed assumptions underpinning the product thesis. Not hypotheses we
 
 - [lean-canvas.md](lean-canvas.md) — Problem, solution, customer segments, business model
 - [theory-of-change.md](theory-of-change.md) — Causal chain; validated assumptions and research evidence
-- [milestones/](milestones/) — C1-C4 and R1 testing protocols and kill criteria
 - [decisions.md](decisions.md) — Strategic decisions shaping hypothesis priority

@@ -58,13 +58,13 @@ it through?"
 
 ### 1. Strategic Fit — "Does this belong in the product right now?"
 
-Read the current milestone and lean canvas. Check:
+Read hypotheses.md for relevant hypothesis context and the lean canvas. Check:
 - Does this PRD map to at least one lean canvas element (Problem, Solution, Key Metrics, Unfair Advantage)?
-- Does it advance the **current** milestone, or does it serve a future one?
+- Does it advance an **active** hypothesis, or does it serve a blocked/parked one?
 - Is this the highest-leverage thing to build right now?
 - Does it reinforce or dilute the unique value proposition?
 
-**Key question:** "By building this, we are choosing NOT to build [alternatives]. Is that the right trade-off given our current milestone?"
+**Key question:** "By building this, we are choosing NOT to build [alternatives]. Is that the right trade-off given our active hypotheses?"
 
 ### 2. Assumption Validity — "What beliefs, if wrong, invalidate this?"
 
@@ -136,7 +136,7 @@ Check for common PRD biases (especially critical when author = reviewer):
 ### 7. Opportunity Cost — "What are we NOT building by building this?"
 
 - Name 2-3 alternative features or improvements that would use the same capacity
-- Would any of those alternatives advance the current milestone more directly?
+- Would any of those alternatives advance the active hypotheses more directly?
 - Is there a cheaper experiment that validates the same hypothesis? (landing page, manual process, Wizard of Oz)
 - Could we learn the same thing by building half?
 
@@ -197,9 +197,8 @@ For each question: state the question, propose 2-3 resolution options with trade
 Before running the seven dimensions, read these project context files:
 
 ```
-docs/milestones/          — Current milestone (what we're trying to validate NOW)
-docs/lean-canvas.md       — Business model alignment
 docs/hypotheses.md        — Active hypotheses (does this PRD test one?)
+docs/lean-canvas.md       — Business model alignment
 docs/decisions.md         — Past decisions (does this PRD conflict?)
 docs/definitions.md       — Terminology accuracy
 docs/philosophy.md        — Mission alignment
@@ -217,10 +216,9 @@ evaluated properly.
 
 Before spawning the subagent, the main agent MUST:
 1. Read the PRD at `{spec_file}`
-2. Read all six context files:
-   - `docs/milestones/` — scan for the current active milestone file and read it
-   - `docs/lean-canvas.md`
+2. Read all five context files:
    - `docs/hypotheses.md`
+   - `docs/lean-canvas.md`
    - `docs/decisions.md`
    - `docs/definitions.md`
    - `docs/philosophy.md`
@@ -240,7 +238,6 @@ the author couldn't see because they wrote it.
 
 **Context provided inline:**
 - PRD content: [inlined by main agent]
-- Current milestone: [inlined by main agent]
 - Lean canvas: [inlined by main agent]
 - Hypotheses: [inlined by main agent]
 - Decisions: [inlined by main agent]
@@ -249,8 +246,8 @@ the author couldn't see because they wrote it.
 
 **Phase 1 — Orient (using inlined context)**
 
-1. Identify the current milestone goal — every challenge in Dimension 1 is relative to this
-2. Note which hypotheses are active
+1. Identify the active P0/P1 hypotheses — every challenge in Dimension 1 is relative to these
+2. Note hypothesis dependencies and blocking chains
 3. Note relevant past decisions
 
 **Phase 2 — Run the seven challenge dimensions**
@@ -269,9 +266,9 @@ For each dimension:
 - An acceptance criterion is untestable or ambiguous enough that two developers would build different things
 - A past decision is directly contradicted without acknowledgment
 
-**WARN threshold for strategic fit:** A feature that doesn't connect to the current milestone
-is WARN, not BLOCK — legitimate incremental improvements (UX polish, stability, tracked workstream
-items) may not map directly to a milestone hypothesis but are still valid work.
+**WARN threshold for strategic fit:** A feature that doesn't connect to an active hypothesis
+is WARN, not BLOCK — legitimate incremental improvements (UX polish, stability) may not map
+directly to a hypothesis but are still valid work.
 
 **Phase 3 — Extract assumptions**
 
@@ -349,8 +346,8 @@ PRD says: "Enable users to export sifter responses as CSV for coach review"
 
 Challenge might find:
 ```
-[WARN] Strategic Fit: Current milestone is "validate co-founder pairs return for second
-  session." CSV export serves the coach segment — a future milestone. Building this now
+[WARN] Strategic Fit: Active P0 hypothesis is "pairs recognize gap as costly and return."
+  CSV export serves the coach segment — a blocked hypothesis. Building this now
   consumes capacity that could go toward retention validation.
 
 [NOTE] Opportunity Cost: Could we validate coach demand with a manual export

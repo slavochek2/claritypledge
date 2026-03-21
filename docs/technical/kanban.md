@@ -68,7 +68,6 @@ status: backlog | week | today | in-progress | blocked | done | draft | rejected
 type: bug | task | story | comment
 rank: number                   # Lower = higher priority (see Rank System below)
 size: xs | s | m | l | xl
-milestone: M1                  # Links to docs/milestones/m1-*.md (groups on Focus page)
 blocked_by: [p105, p106]
 tags: [validation, dx]
 completed_at: '2026-02-04'  # Set automatically when moving to done
@@ -120,7 +119,7 @@ completed_at: '2026-02-04'  # Set automatically when moving to done
 - Blocked_by chips (red outline)
 
 **Display-if-present** (gray):
-- Size, Milestone (M1, M2, etc. — hover shows "Milestone: M1"), Tags
+- Size, Tags
 
 ## Drag & Drop
 
@@ -131,41 +130,15 @@ completed_at: '2026-02-04'  # Set automatically when moving to done
 
 Click 📝 on any card to open in Cursor. Press `⌘⇧V` for markdown preview.
 
-## Focus Page — Milestone Grouping
+## Focus Page — Flat Feature List
 
-The Focus page groups active features by milestone, showing all non-done work organized by validation phase.
+The Focus page shows all active features in a flat sorted table, ordered by rank.
 
 **How it works:**
-- Features are grouped by their `milestone:` field (e.g., M1, M2, M3)
-- Each group shows:
-  - Milestone title (from `docs/milestones/m{N}-{name}.md`)
-  - Milestone summary (one-line description)
-  - Feature count and status breakdown
-- Groups are sorted by:
-  1. Milestone status (active → next → future)
-  2. Milestone priority (p0 → p1 → p2 → p3)
-  3. Milestone ID (M1 → M2 → M3)
-  4. Feature rank (within milestone)
-- Features without milestones appear in "Unlinked" group at the bottom
-
-**Milestone files** (`docs/milestones/`):
-```yaml
----
-status: active | next | future
-priority: p0 | p1 | p2 | p3
-summary: "One line — shown on Focus page"
-tests: [H-Stories]
-answers: [OQ-6, OQ-7]
----
-
-# M1: Stories + Live + Events
-
-**Build:** P126 → P128 → P124
-**Done when:** [exit criteria]
-**Kill signal:** [when to abandon]
-```
-
-**Why milestones?** They replace hypotheses (P130) as the organizational unit. A milestone = hypothesis + build plan + done signal + kill signal. They answer: what are we building, why, and when do we stop?
+- All features displayed in a single flat list sorted by rank
+- Each row shows: name, status badge, spec readiness, tags
+- Drag-and-drop reordering updates rank
+- Feature count and status breakdown shown in header
 
 ## Architecture
 
@@ -200,10 +173,10 @@ The kanban is a **visual interface to git-native task management**. Feature spec
 
 **What this kanban adds beyond raw files:**
 - Visual drag-and-drop prioritization (the thing agents can't do)
-- 4 views: Board (kanban columns), Focus (milestone grouping), Goals (pilot checklist), Content (article pipeline)
+- 4 views: Board (kanban columns), Focus (flat sorted table), Goals (strategic checklist), Content (article pipeline)
 - Automatic file movement on status change (done → `features/done/{month}/`, rejected → `features/archive/`)
 - Git staging on moves (prevents revert on pull)
-- Card dialog with inline field editing (type, status, rank, size, tags, blocked_by, workstream, delivery_stage)
+- Card dialog with inline field editing (type, status, rank, size, tags, blocked_by, delivery_stage)
 - Worktree-aware (shows isolated backlog per branch)
 
 **What it costs:** ~3,800 lines of code (React + Express), 20 npm dependencies, manual refresh on file changes, occasional fix-kanban runs for frontmatter drift.
@@ -214,7 +187,7 @@ The kanban is a **visual interface to git-native task management**. Feature spec
 
 | Tool | Pattern | Differentiator | Gap vs. this kanban |
 |------|---------|----------------|---------------------|
-| **Backlog.md** | Markdown + React kanban | Simplest setup, Claude Code MCP | No milestone grouping, goals, or content pipeline |
+| **Backlog.md** | Markdown + React kanban | Simplest setup, Claude Code MCP | No focus view, goals, or content pipeline |
 | **Vibe Kanban** | MCP-first, multi-agent dispatch | Parallel agent orchestration | No visual board beyond basic status |
 | **TaskMaster AI** | PRD → JSON task tree | Auto-decomposition from specs | No kanban UI, JSON not human-friendly |
 | **Agent Kanban** | VS Code extension | Copilot Chat integration | VS Code only, no standalone views |
@@ -224,11 +197,11 @@ The kanban is a **visual interface to git-native task management**. Feature spec
 
 ## Opportunities
 
-**Agent-queryable layer** — an `/api/summary` endpoint returning compact project state (<200 tokens: counts by status, active milestones, blockers). Currently agents must read individual files to understand project state.
+**Agent-queryable layer** — an `/api/summary` endpoint returning compact project state (<200 tokens: counts by status, blockers). Currently agents must read individual files to understand project state.
 
 **MCP server wrapper** — exposing the Express API as an MCP server so any MCP-compatible tool (Cursor, Copilot, etc.) can query project state. Low effort given the API already exists.
 
-**Board filtering** — workstream, milestone, and tag filters on the main Board view. The Focus page groups by milestone, but the Board (where most time is spent) has only type filter + search.
+**Board filtering** — tag filters on the main Board view. Currently only type filter + search exist.
 
 **File watcher** — `chokidar` on `features/` to auto-refresh the board when specs change. Currently requires manual refresh button.
 

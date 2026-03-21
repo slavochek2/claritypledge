@@ -409,9 +409,7 @@ Gates to unlock next level of ambition, not reasons to quit. If not met, extend 
 
 **Canvas G synthesis (2026-03-08):** Consolidated from 7 canvas iterations (A-G) in Claude Desktop. Key changes: €950 de-risking package, continuous price ladder, personal story as primary unfair advantage, "you are the MCP" framing, investor DD parked as future track.
 
-**See [milestones/](milestones/)** — active workstreams (what we're building and testing).
 **See [hypotheses.md](hypotheses.md)** — what we believe and why.
-**See [workstreams/](workstreams/)** — future tracks.
 
 **See [theory-of-change.md](theory-of-change.md) Evidence Base** — validated learnings and research evidence.
 
@@ -467,8 +465,6 @@ If current approach doesn't validate, these are pivot options to consider:
 
 ## Related Documents
 
-- [milestones/](milestones/) — Active workstreams (what we're building)
-- [workstreams/](workstreams/) — Future tracks
 - [hypotheses.md](hypotheses.md) — Testable beliefs (what we're testing)
 - [theory-of-change.md](theory-of-change.md) — How change spreads (cascade, √N) + Evidence Base
 - [p105_sales_playbook.md](../features/archive/p105_sales_playbook.md) — GTM tactics and pitches (archived)

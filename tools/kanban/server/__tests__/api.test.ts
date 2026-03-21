@@ -21,7 +21,6 @@ import { tmpdir } from 'os';
  * - Full scanDir() flow (folder exclusions, file filtering, frontmatter parsing)
  * - completed_at and locked_at transitions
  * - File move logic (done/, archive/, back to features/)
- * - GET /api/milestones
  */
 
 // Shared server — spun up once for all test suites
@@ -113,18 +112,6 @@ async function fetchFeatureContent(id: string, worktreePath?: string): Promise<{
   if (worktreePath) params.set('worktree', worktreePath);
 
   const url = `${API_BASE_URL}/api/features/${id}/content${params.toString() ? '?' + params.toString() : ''}`;
-  const response = await fetch(url);
-  return { status: response.status, data: await response.json() };
-}
-
-/**
- * Helper: Make GET request to /api/milestones
- */
-async function fetchMilestones(worktreePath?: string): Promise<{ status: number; data: any }> {
-  const params = new URLSearchParams();
-  if (worktreePath) params.set('worktree', worktreePath);
-
-  const url = `${API_BASE_URL}/api/milestones${params.toString() ? '?' + params.toString() : ''}`;
   const response = await fetch(url);
   return { status: response.status, data: await response.json() };
 }
@@ -780,101 +767,6 @@ describe('P147: File Move Logic', () => {
 
     const fileContent = await readFile(newPath, 'utf-8');
     expect(fileContent).toContain('status: week');
-  });
-});
-
-// ─────────────────────────────────────────────────────────────────────────────
-// P147: GET /api/milestones
-// ─────────────────────────────────────────────────────────────────────────────
-
-describe('P147: GET /api/milestones', () => {
-  useTestWorktree();
-
-  async function createMilestone(
-    filename: string,
-    frontmatter: Record<string, unknown>,
-    content: string
-  ): Promise<string> {
-    const milestonesDir = join(TEST_WORKTREE_PATH, 'docs', 'milestones');
-    await mkdir(milestonesDir, { recursive: true });
-    const filePath = join(milestonesDir, filename);
-    const yaml = Object.entries(frontmatter)
-      .map(([key, value]) => `${key}: ${typeof value === 'string' ? `"${value}"` : value}`)
-      .join('\n');
-    await writeFile(filePath, `---\n${yaml}\n---\n\n${content}`, 'utf-8');
-    return filePath;
-  }
-
-  it('returns empty array when milestones dir does not exist', async () => {
-    // TEST_WORKTREE_PATH has no docs/milestones/ directory
-    const { status, data } = await fetchMilestones(TEST_WORKTREE_PATH);
-
-    expect(status).toBe(200);
-    expect(Array.isArray(data)).toBe(true);
-    expect(data.length).toBe(0);
-  });
-
-  it('returns parsed milestone with correct fields', async () => {
-    await createMilestone(
-      'm1-test.md',
-      { status: 'active', summary: 'First milestone for testing' },
-      '# M1: Test Milestone'
-    );
-
-    const { status, data } = await fetchMilestones(TEST_WORKTREE_PATH);
-
-    expect(status).toBe(200);
-    expect(data.length).toBe(1);
-
-    const m = data[0];
-    expect(m.id).toBe('M1');
-    expect(m.title).toBe('M1: Test Milestone');
-    expect(m.status).toBe('active');
-    expect(m.summary).toBe('First milestone for testing');
-    expect(m.filename).toBe('m1-test.md');
-  });
-
-  it('maps status running to active', async () => {
-    await createMilestone(
-      'm2-running.md',
-      { status: 'running' },
-      '# M2: Running Milestone'
-    );
-
-    const { status, data } = await fetchMilestones(TEST_WORKTREE_PATH);
-
-    expect(status).toBe(200);
-    const m = data.find((x: any) => x.id === 'M2');
-    expect(m).toBeDefined();
-    expect(m.status).toBe('active');
-  });
-
-  it('extracts milestone ID from title pattern', async () => {
-    await createMilestone(
-      'c1-conversion.md',
-      { status: 'next' },
-      '# C1: Conversion Milestone'
-    );
-
-    const { status, data } = await fetchMilestones(TEST_WORKTREE_PATH);
-
-    expect(status).toBe(200);
-    const m = data.find((x: any) => x.id === 'C1');
-    expect(m).toBeDefined();
-    expect(m.title).toBe('C1: Conversion Milestone');
-  });
-
-  it('milestones are sorted alphanumerically by ID', async () => {
-    await createMilestone('m3-third.md', { status: 'future' }, '# M3: Third');
-    await createMilestone('m1-first.md', { status: 'active' }, '# M1: First');
-    await createMilestone('m2-second.md', { status: 'next' }, '# M2: Second');
-
-    const { status, data } = await fetchMilestones(TEST_WORKTREE_PATH);
-
-    expect(status).toBe(200);
-    expect(data.length).toBe(3);
-    const ids = data.map((m: any) => m.id);
-    expect(ids).toEqual(['M1', 'M2', 'M3']);
   });
 });
 

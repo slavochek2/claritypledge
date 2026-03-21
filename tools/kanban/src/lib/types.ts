@@ -38,12 +38,9 @@ export interface Feature {
   blocked_by?: string[] // AI-managed, display only
   // Display-if-present badges
   size?: Size // AI-managed
-  workstream?: string // AI-managed (e.g., "C1", "C2", "R1")
-  /**
-   * @deprecated Use workstream field instead. Hypotheses were merged into workstreams (P130).
-   * See docs/decisions.md "2026-02-07: Workstreams replace hypotheses"
-   */
-  hypothesis?: string // e.g., "H-Biz", "H2"
+  // Legacy fields — kept in frontmatter but unused by UI
+  workstream?: string
+  hypothesis?: string
   delivery_stage?: DeliveryStage // Software delivery process stage (AI-managed)
   tags: string[]
   created?: string
@@ -53,8 +50,8 @@ export interface Feature {
   rank: number // Fractional rank for ordering (e.g., 1.0, 1.5, 2.0)
   // Spec readiness (derived from prepped_date)
   prepped?: boolean // true if prepped_date is set
-  // Milestone association (for focus page grouping)
-  milestone?: string // e.g., "M1", "M2"
+  // Legacy field — kept in frontmatter but unused by UI
+  milestone?: string
   // Manual status lock — set by kanban UI when user changes status; agents must not override
   locked_at?: string // ISO timestamp of last manual status change
   // Implementation flow chosen by /pick-flow or agent (P451)
@@ -73,17 +70,3 @@ export interface Article {
   published_at?: string // ISO date set when status → published
 }
 
-// Milestone status
-export type MilestoneStatus = 'active' | 'next' | 'future'
-
-// Milestone metadata from docs/milestones/
-export interface Milestone {
-  id: string // e.g., "M1", "M2"
-  title: string // from first # heading
-  filename: string // e.g., "m1-stories-live-events.md"
-  path: string // full path to file
-  status: MilestoneStatus
-  summary?: string // One-line description for hover
-  tests?: string[] // e.g., ["H-Stories"]
-  answers?: string[] // e.g., ["OQ-6", "OQ-7"]
-}

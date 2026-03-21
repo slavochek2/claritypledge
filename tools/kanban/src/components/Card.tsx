@@ -230,22 +230,6 @@ export function Card({ feature, onFeatureUpdate }: CardProps) {
           </div>
         )}
 
-        {/* Workstream */}
-        {feature.workstream && (
-          <span
-            style={{ ...tagStyle, background: 'var(--tag-purple-bg)', color: 'var(--tag-purple-text)' }}
-            title={`Workstream: ${feature.workstream}`}
-          >
-            {feature.workstream}
-          </span>
-        )}
-
-        {/* Hypothesis */}
-        {feature.hypothesis && (
-          <span style={{ ...tagStyle, background: 'var(--tag-yellow-bg)', color: 'var(--tag-yellow-text)' }}>
-            {feature.hypothesis}
-          </span>
-        )}
       </div>
 
       {/* Card detail dialog */}

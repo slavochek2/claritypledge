@@ -56,7 +56,7 @@ Read these files and include their content in agent prompts:
 - `docs/lean-canvas.md` (Problem section especially)
 - `docs/definitions.md`
 - `docs/philosophy.md`
-- `docs/milestones/` (list and read active milestones)
+- `docs/hypotheses.md` (active hypotheses and their status)
 
 ### Step 5 (optional): Mixpanel enrichment
 

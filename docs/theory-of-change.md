@@ -11,7 +11,7 @@
 > By making understanding verifiable at the individual level and visible at the network level, we convert humanity's fractured private realities into a shared common reality — not by forcing agreement, but by making disagreement informed.
 
 **For problem/solution context:** See [lean-canvas.md](lean-canvas.md)
-**For what we're testing:** See [hypotheses.md](hypotheses.md) · [milestones/](milestones/)
+**For what we're testing:** See [hypotheses.md](hypotheses.md)
 **For epistemological foundation:** See [philosophy.md](philosophy.md)
 
 ---
@@ -530,7 +530,7 @@ LAYER 4: TOPOLOGY MAP
 
 The theory of change is built on research-backed facts and validated assumptions. This is **strategic evidence** supporting core assumptions.
 
-**For hypothesis-specific evidence:** See `/docs/hypotheses.md` (all active bets) or the relevant workstream file in `/docs/milestones/`
+**For hypothesis-specific evidence:** See `/docs/hypotheses.md` (all active bets)
 
 ### The Problem (Pain)
 
@@ -608,7 +608,7 @@ Minimum ROI:                  2x
 
 - [lean-canvas.md](lean-canvas.md) — Problem, solution, customer segments
 - [hypotheses.md](hypotheses.md) — All bets: active, blocked, validated, parked
-- [milestones/](milestones/) — What we're building and how we're testing each hypothesis
+- [hypotheses.md](hypotheses.md) — What we're testing and why
 - [decisions.md](decisions.md) — Strategic decisions shaping the approach
 - [philosophy.md](philosophy.md) — Epistemological foundation (Asymmetric Conversion)
 - [The Clarity Tax Manifesto](../src/app/content/full-article.md) — Public-facing article

@@ -426,7 +426,7 @@ git log --since="$SINCE" --diff-filter=A --name-only --pretty="" -- "features/p*
 
 # Strategy docs touched
 git log --since="$SINCE" --name-only --pretty="" \
-  -- "docs/milestones/" "docs/lean-canvas.md" "docs/decisions.md" \
+  -- "docs/hypotheses.md" "docs/lean-canvas.md" "docs/decisions.md" \
      "docs/philosophy.md" "CLAUDE.md" ".claude/" | sort -u
 
 # Repeated fix areas (same scope fixed 2+ times = smell; refactors excluded)

@@ -451,50 +451,6 @@ See [authentication.md](technical/authentication.md#guest--unverified-users) for
 
 ## Strategic Planning Concepts
 
-### Workstream
-
-> **One-liner:** A work stream containing related hypotheses, experiments, builds, and key results — like an album of related strategic work.
-
-**Definition:** A Workstream is a thematically coherent collection of work testing a cluster of related hypotheses. Workstreams have timelines (0-24+ months), resource requirements, and priority levels.
-
-**Five workstream categories:**
-
-| Workstream | Focus | Time Horizon | Resource Needs |
-|-------|-------|--------------|----------------|
-| **C (Coaching)** | Workshop revenue, skill building | 0-6 months | Facilitation skills |
-| **R (Recognition)** | Thought leadership, positioning | 3-12 months | Writing, technical depth |
-| **E (Enhancement)** | Product improvements requiring validation | 3-9 months | Engineering, existing users |
-| **X (Exploratory)** | Ideas requiring scale to test | 12-24 months | User base at scale (10K+) |
-| **V (Vision)** | Far-future ideas requiring new capabilities | 24+ months | ML/AI, transcription, advanced tech |
-
-**What a Workstream contains:**
-- **tests:** Hypotheses being tested (e.g., `[h-stories]`)
-- **builds:** Features being shipped (e.g., `[p126, p305]`)
-- **measures:** Key Results being tracked (e.g., `[kr-story-usage]`)
-- **answers:** Open questions being resolved
-
-**Key distinction:** Workstreams are **work streams**, not achievements. See Milestone for observable achievements.
-
-### Milestone
-
-> **One-liner:** An observable achievement — something planned to happen or already achieved.
-
-**Definition:** A Milestone is a specific event or achievement with a target date. Milestones can be planned (future) or achieved (past). The `status` field tracks whether it's planned, achieved, or missed.
-
-**Examples:**
-- "First essay published" (status: achieved, date: 2026-02-10)
-- "First workshop delivered" (status: planned, date: 2026-02-28)
-- "€5K monthly revenue achieved" (status: planned, date: TBD)
-
-**What a Milestone contains:**
-- **date:** When it happened or is planned (YYYY-MM-DD)
-- **status:** planned / achieved / missed
-- **workstream:** Which workstream it belongs to (C/R/E/X/V)
-- **type:** launch / checkpoint / achievement
-- **related_key_results:** Which key results this milestone represents
-
-**Key distinction:** Milestones are **observable events** with dates and status, not ongoing goals. See Key Result for forward-looking measurable goals.
-
 ### Hypothesis
 
 > **One-liner:** A testable belief about what will work — what we think is true and why.
@@ -565,24 +521,17 @@ See [authentication.md](technical/authentication.md#guest--unverified-users) for
 
 | Concept | Nature | Tense | Example |
 |---------|--------|-------|---------|
-| **Workstream** | Work stream | Ongoing | C1: Stories + Live + Events |
 | **Hypothesis** | Testable belief | Present | "Stories solve cold start problem" |
 | **Experiment** | Testing protocol | Present/Future | "20-user pilot over 4 weeks" |
 | **Key Result** | Measurable goal | Ongoing | "≥50% story creation rate" |
-| **Milestone** | Observable achievement | Past/Future | "First essay published (achieved: 2026-02-10)" |
 
 **Key relationships:**
-- Workstreams **test** Hypotheses
 - Hypotheses are **tested by** Experiments
 - Experiments **measure** Key Results
-- Key Results are **tracked by** Milestones (when date-specific)
-- Workstreams **build** Features (from `/features/`)
+- Features (from `/features/`) implement experiments
 
 **File locations:**
-- Active workstreams: `/docs/milestones/` (c1, c2, r1, etc.)
-- Future tracks: `/docs/workstreams/` (e1, x1, etc.)
-- Hypotheses: `/docs/hypotheses.md` (all active bets in one file)
-- Experiments + Key Results: tracked inline within each workstream file
+- Hypotheses: `/docs/hypotheses.md` (single source of truth for all active bets)
 - Achievements: `/docs/achievements/` (date-stamped events)
 
 ---
@@ -590,8 +539,6 @@ See [authentication.md](technical/authentication.md#guest--unverified-users) for
 ## Related Documents
 
 - [lean-canvas.md](lean-canvas.md) — Business model and customer segments
-- [milestones/](milestones/) — Active workstreams (c1, c2, r1, etc.)
-- [workstreams/](workstreams/) — Future tracks (e1, x1, etc.)
 - [hypotheses.md](hypotheses.md) — All active bets and their status
 - [achievements/](achievements/) — Date-stamped achievements
 - [philosophy.md](philosophy.md) — Epistemological foundations

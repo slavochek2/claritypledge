@@ -23,8 +23,7 @@ export interface DropIndicator {
 }
 
 export interface FocusDropIndicator {
-  groupId: string
-  beforeId: string | null // Show indicator before this row (null = at end of group)
+  beforeId: string | null // Show indicator before this row (null = at end of list)
 }
 
 interface Worktree {
@@ -254,19 +253,13 @@ export default function App() {
 
     const overId = over.id as string
 
-    // Focus page: show drop indicator between rows
+    // Focus page: show drop indicator between rows (flat list)
     if (currentPage === 'focus') {
-      if (overId.startsWith('group:')) {
-        const groupId = overId.slice('group:'.length)
-        setFocusDropIndicator({ groupId, beforeId: null })
+      const overFeature = features.find((f) => f.id === overId)
+      if (overFeature) {
+        setFocusDropIndicator({ beforeId: overId })
       } else {
-        const overFeature = features.find((f) => f.id === overId)
-        if (overFeature) {
-          const groupId = overFeature.milestone || '__unlinked__'
-          setFocusDropIndicator({ groupId, beforeId: overId })
-        } else {
-          setFocusDropIndicator(null)
-        }
+        setFocusDropIndicator({ beforeId: null })
       }
       return
     }
@@ -303,79 +296,42 @@ export default function App() {
     const feature = features.find((f) => f.id === featureId)
     if (!feature) return
 
-    // Focus page: drag between milestone groups or reorder within group
+    // Focus page: flat list reorder
     if (currentPage === 'focus') {
       setFocusDropIndicator(null)
 
-      let targetMilestone: string | null = null
-      if (overId.startsWith('group:')) {
-        targetMilestone = overId.slice('group:'.length)
+      const allSorted = [...features]
+        .sort((a, b) => getEffectiveOrder(a) - getEffectiveOrder(b))
+
+      const oldIndex = allSorted.findIndex((f) => f.id === featureId)
+      const newIndex = allSorted.findIndex((f) => f.id === overId)
+
+      if (oldIndex === -1 || newIndex === -1 || oldIndex === newIndex) return
+
+      const reordered = arrayMove(allSorted, oldIndex, newIndex)
+      const newPosition = reordered.findIndex((f) => f.id === featureId)
+
+      let finalSortOrder: number
+      if (newPosition === 0) {
+        finalSortOrder = getEffectiveOrder(reordered[1]) / 2
+      } else if (newPosition === reordered.length - 1) {
+        finalSortOrder = getEffectiveOrder(reordered[newPosition - 1]) + 1
       } else {
-        const targetRow = features.find((f) => f.id === overId)
-        if (targetRow) {
-          targetMilestone = targetRow.milestone || '__unlinked__'
-        }
-      }
-      if (!targetMilestone) return
-      const currentMilestone = feature.milestone || '__unlinked__'
-
-      // Cross-group: change milestone (write to workstream — the field all files use)
-      if (targetMilestone !== currentMilestone) {
-        const newMilestone = targetMilestone === '__unlinked__' ? null : targetMilestone
-
-        setFeatures((prev) =>
-          prev.map((f) => (f.id === featureId ? { ...f, milestone: newMilestone ?? undefined, workstream: newMilestone ?? undefined } : f))
-        )
-
-        try {
-          const res = await fetch(buildUrl(`/api/features/${encodeURIComponent(featureId)}`), {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ workstream: newMilestone }),
-          })
-          if (!res.ok) throw new Error('Failed to update')
-        } catch {
-          fetchFeatures()
-        }
-        return
+        finalSortOrder =
+          (getEffectiveOrder(reordered[newPosition - 1]) + getEffectiveOrder(reordered[newPosition + 1])) / 2
       }
 
-      // Same group: reorder within milestone
-      if (!overId.startsWith('group:')) {
-        const groupFeatures = features
-          .filter((f) => (f.milestone || '__unlinked__') === currentMilestone)
-          .sort((a, b) => getEffectiveOrder(a) - getEffectiveOrder(b))
+      setFeatures((prev) => prev.map((f) => (f.id === featureId ? { ...f, rank: finalSortOrder } : f)))
 
-        const oldIndex = groupFeatures.findIndex((f) => f.id === featureId)
-        const newIndex = groupFeatures.findIndex((f) => f.id === overId)
-
-        if (oldIndex === -1 || newIndex === -1 || oldIndex === newIndex) return
-
-        const reordered = arrayMove(groupFeatures, oldIndex, newIndex)
-        const newPosition = reordered.findIndex((f) => f.id === featureId)
-
-        let finalSortOrder: number
-        if (newPosition === 0) {
-          finalSortOrder = getEffectiveOrder(reordered[1]) / 2
-        } else if (newPosition === reordered.length - 1) {
-          finalSortOrder = getEffectiveOrder(reordered[newPosition - 1]) + 1
-        } else {
-          finalSortOrder =
-            (getEffectiveOrder(reordered[newPosition - 1]) + getEffectiveOrder(reordered[newPosition + 1])) / 2
-        }
-
-        setFeatures((prev) => prev.map((f) => (f.id === featureId ? { ...f, rank: finalSortOrder } : f)))
-
-        try {
-          const res = await fetch(buildUrl(`/api/features/${encodeURIComponent(featureId)}`), {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ rank: finalSortOrder }),
-          })
-          if (!res.ok) throw new Error('Failed to update')
-        } catch {
-          fetchFeatures()
-        }
+      try {
+        const res = await fetch(buildUrl(`/api/features/${encodeURIComponent(featureId)}`), {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ rank: finalSortOrder }),
+        })
+        if (!res.ok) throw new Error('Failed to update')
+      } catch {
+        fetchFeatures()
       }
       return
     }
