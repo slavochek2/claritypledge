@@ -1,30 +1,39 @@
 /**
  * @file use-audio-recorder.ts
- * @description P28.1: Audio recording hook for ML training data capture
+ * @description P28.1/P566: Audio recording hook for ML training data capture
  *
  * Uses MediaRecorder API to capture user's microphone input during live sessions.
  * Records in webm/opus format (native browser format) for efficient storage.
  *
  * Supports two modes:
  * 1. Single-file mode (default): Records entire session, uploads on stop
- * 2. Chunked mode: Uploads 30-second chunks periodically for reliability
+ * 2. Chunked mode: Produces 5-second chunks for IndexedDB persistence + queued upload
  */
 import { useState, useRef, useCallback, useEffect } from 'react';
 
-/** Callback type for chunk uploads */
+/** Callback type for chunk uploads (legacy — kept for backward compat) */
 export type ChunkUploadCallback = (
   chunkBlob: Blob,
   chunkNumber: number,
   isLastChunk: boolean
 ) => Promise<void>;
 
+/** P566: Synchronous callback when a chunk is produced (no async — just persist + enqueue) */
+export type ChunkProducedCallback = (
+  blob: Blob,
+  chunkNumber: number,
+  isLastChunk: boolean
+) => void;
+
 /** Maximum recording duration: 90 minutes (180 chunks at 30s each) */
 const MAX_RECORDING_DURATION_MS = 90 * 60 * 1000;
 
 interface UseAudioRecorderOptions {
-  /** If provided, enables chunked upload mode with 30s intervals */
+  /** If provided, enables chunked upload mode with 30s intervals (legacy) */
   onChunkReady?: ChunkUploadCallback;
-  /** Chunk interval in milliseconds (default: 30000 = 30 seconds) */
+  /** P566: Synchronous chunk produced callback (preferred over onChunkReady) */
+  onChunkProduced?: ChunkProducedCallback;
+  /** Chunk interval in milliseconds (default: 5000 = 5 seconds) */
   chunkIntervalMs?: number;
   /** Maximum recording duration in ms (default: 90 minutes) */
   maxDurationMs?: number;
@@ -41,39 +50,28 @@ interface UseAudioRecorderReturn {
   error: string | null;
   /** Current chunk number (for chunked mode) */
   chunkNumber: number;
+  /** P566: Force an immediate chunk flush (e.g., on visibilitychange) */
+  requestImmediateFlush: () => void;
 }
 
 /**
  * Hook for recording audio from the user's microphone.
  *
- * Usage (single-file mode - default):
+ * Usage (chunked mode with P566 queue):
  * ```tsx
- * const { isRecording, startRecording, stopRecording, error } = useAudioRecorder();
- *
- * // On session start
- * await startRecording();
- *
- * // On session end
- * const audioBlob = await stopRecording();
- * if (audioBlob) {
- *   await uploadSessionRecording(sessionCode, userName, audioBlob, events, metadata);
- * }
- * ```
- *
- * Usage (chunked mode - for reliability):
- * ```tsx
- * const handleChunk = async (blob: Blob, chunkNum: number, isLast: boolean) => {
- *   await uploadAudioChunk(sessionCode, userName, blob, chunkNum, isLast);
+ * const onChunkProduced = (blob, chunkNum, isLast) => {
+ *   store.saveChunk(key, blob, metadata);
+ *   queue.enqueue(key);
  * };
  *
- * const { isRecording, startRecording, stopRecording } = useAudioRecorder({
- *   onChunkReady: handleChunk,
- *   chunkIntervalMs: 30000, // 30 seconds
+ * const { isRecording, startRecording, stopRecording, requestImmediateFlush } = useAudioRecorder({
+ *   onChunkProduced,
+ *   chunkIntervalMs: 5000,
  * });
  * ```
  */
 export function useAudioRecorder(options: UseAudioRecorderOptions = {}): UseAudioRecorderReturn {
-  const { onChunkReady, chunkIntervalMs = 30000, maxDurationMs = MAX_RECORDING_DURATION_MS } = options;
+  const { onChunkReady, onChunkProduced, chunkIntervalMs = 5000, maxDurationMs = MAX_RECORDING_DURATION_MS } = options;
 
   const [isRecording, setIsRecording] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -88,9 +86,12 @@ export function useAudioRecorder(options: UseAudioRecorderOptions = {}): UseAudi
   const currentChunkRef = useRef<number>(0);
   const stopRecordingRef = useRef<(() => Promise<Blob | null>) | null>(null);
 
-  // Function to flush current chunks and upload
-  const flushAndUploadChunk = useCallback(async (isLastChunk: boolean) => {
-    if (!onChunkReady || audioChunksRef.current.length === 0) return;
+  // Determine which callback to use (P566 onChunkProduced takes priority)
+  const isChunkedMode = !!(onChunkProduced || onChunkReady);
+
+  // Function to flush current chunks and dispatch
+  const flushAndUploadChunk = useCallback((isLastChunk: boolean) => {
+    if (!isChunkedMode || audioChunksRef.current.length === 0) return;
 
     const chunkBlob = new Blob(audioChunksRef.current, { type: mimeTypeRef.current });
     const chunkNum = currentChunkRef.current;
@@ -102,11 +103,28 @@ export function useAudioRecorder(options: UseAudioRecorderOptions = {}): UseAudi
     currentChunkRef.current++;
     setChunkNumber(currentChunkRef.current);
 
-    // Upload in background (don't await to avoid blocking recording)
-    onChunkReady(chunkBlob, chunkNum, isLastChunk).catch((err) => {
-      console.error(`[AudioRecorder] Failed to upload chunk ${chunkNum}:`, err);
-    });
-  }, [onChunkReady]);
+    // P566: Use synchronous onChunkProduced if available
+    if (onChunkProduced) {
+      onChunkProduced(chunkBlob, chunkNum, isLastChunk);
+    } else if (onChunkReady) {
+      // Legacy path: fire-and-forget async upload
+      onChunkReady(chunkBlob, chunkNum, isLastChunk).catch((err) => {
+        console.error(`[AudioRecorder] Failed to upload chunk ${chunkNum}:`, err);
+      });
+    }
+  }, [isChunkedMode, onChunkProduced, onChunkReady]);
+
+  const requestImmediateFlush = useCallback(() => {
+    const mediaRecorder = mediaRecorderRef.current;
+    if (mediaRecorder && mediaRecorder.state === 'recording') {
+      // requestData() triggers ondataavailable with buffered data
+      mediaRecorder.requestData();
+      // Flush after a small delay to let ondataavailable fire
+      setTimeout(() => {
+        flushAndUploadChunk(false);
+      }, 100);
+    }
+  }, [flushAndUploadChunk]);
 
   const startRecording = useCallback(async () => {
     // Reset state
@@ -159,8 +177,8 @@ export function useAudioRecorder(options: UseAudioRecorderOptions = {}): UseAudi
       mediaRecorder.start(1000);
       setIsRecording(true);
 
-      // If in chunked mode, set up periodic uploads
-      if (onChunkReady) {
+      // If in chunked mode, set up periodic flushes
+      if (isChunkedMode) {
         console.log(`[AudioRecorder] Chunked mode enabled, interval: ${chunkIntervalMs}ms`);
         chunkIntervalRef.current = setInterval(() => {
           flushAndUploadChunk(false);
@@ -194,7 +212,7 @@ export function useAudioRecorder(options: UseAudioRecorderOptions = {}): UseAudi
         setError('Failed to start recording');
       }
     }
-  }, [onChunkReady, chunkIntervalMs, flushAndUploadChunk, maxDurationMs]);
+  }, [isChunkedMode, chunkIntervalMs, flushAndUploadChunk, maxDurationMs]);
 
   const stopRecording = useCallback(async (): Promise<Blob | null> => {
     const mediaRecorder = mediaRecorderRef.current;
@@ -218,11 +236,11 @@ export function useAudioRecorder(options: UseAudioRecorderOptions = {}): UseAudi
     }
 
     return new Promise((resolve) => {
-      mediaRecorder.onstop = async () => {
+      mediaRecorder.onstop = () => {
         // In chunked mode, flush remaining data as final chunk
-        if (onChunkReady && audioChunksRef.current.length > 0) {
-          await flushAndUploadChunk(true);
-          console.log('[AudioRecorder] Recording stopped (chunked mode). All chunks uploaded.');
+        if (isChunkedMode && audioChunksRef.current.length > 0) {
+          flushAndUploadChunk(true);
+          console.log('[AudioRecorder] Recording stopped (chunked mode). Final chunk dispatched.');
 
           // Clean up
           audioChunksRef.current = [];
@@ -262,7 +280,7 @@ export function useAudioRecorder(options: UseAudioRecorderOptions = {}): UseAudi
 
       mediaRecorder.stop();
     });
-  }, [onChunkReady, flushAndUploadChunk]);
+  }, [isChunkedMode, flushAndUploadChunk]);
 
   // Keep stopRecording ref updated for max duration timeout
   useEffect(() => {
@@ -278,19 +296,13 @@ export function useAudioRecorder(options: UseAudioRecorderOptions = {}): UseAudi
       if (maxDurationTimeoutRef.current) {
         clearTimeout(maxDurationTimeoutRef.current);
       }
-      // Attempt final upload on unmount if in chunked mode
-      if (onChunkReady && audioChunksRef.current.length > 0) {
-        const finalBlob = new Blob(audioChunksRef.current, { type: mimeTypeRef.current });
-        onChunkReady(finalBlob, currentChunkRef.current, true).catch(() => {
-          // Ignore errors on unmount - best effort
-        });
-      }
+      // P566: No unmount upload — the queue + IndexedDB handles persistence
       // Release microphone
       if (streamRef.current) {
         streamRef.current.getTracks().forEach((track) => track.stop());
       }
     };
-  }, [onChunkReady]);
+  }, []);
 
   return {
     isRecording,
@@ -298,5 +310,6 @@ export function useAudioRecorder(options: UseAudioRecorderOptions = {}): UseAudi
     stopRecording,
     error,
     chunkNumber,
+    requestImmediateFlush,
   };
 }

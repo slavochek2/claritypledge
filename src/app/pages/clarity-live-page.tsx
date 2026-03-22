@@ -24,8 +24,10 @@ import {
   clearSessionJoiner,
   endClaritySession,
   uploadSessionRecording,
-  uploadAudioChunk,
+  // uploadAudioChunk is replaced by uploadSingleChunk + queue (P566)
   uploadEventsSnapshot,
+  uploadSingleChunk,
+  recordChunkUploadComplete,
   MAX_NAME_LENGTH,
   SESSION_GRACE_PERIOD_SECONDS,
   type ClaritySession,
@@ -47,7 +49,7 @@ import { pointsService } from '@/app/data/points-service';
 import { eventsService } from '@/app/data/events-service';
 import { calibrationService } from '@/app/data/calibration-service';
 import { supabase } from '@/lib/supabase';
-import { LiveModeView, PartnerLeftScreen } from '@/app/components/partners/live-mode-view';
+import { LiveModeView, PartnerLeftScreen, type UploadProgressState } from '@/app/components/partners/live-mode-view';
 import { ReconnectingCountdown } from '@/app/components/session/reconnecting-countdown';
 import { RejoinPrompt } from '@/app/components/session/rejoin-prompt';
 import { useAudioRecorder } from '@/hooks/use-audio-recorder';
@@ -59,6 +61,9 @@ import { toast } from 'sonner';
 import { RemovePositionDialog, useRemovePositionGuard } from '@/app/components/shared/remove-position-dialog';
 import { useLiveSession, getActiveSessionFromStorage, clearActiveSessionFromStorage } from '@/app/contexts/live-session-context';
 import { useSessionHeartbeat } from '@/hooks/use-session-heartbeat';
+import { createChunkStore, type ChunkStore, type ChunkMetadata } from '@/lib/chunk-store';
+import { ChunkUploadQueue } from '@/lib/chunk-upload-queue';
+import { useUploadHealth } from '@/hooks/use-upload-health';
 
 type ViewState = 'start' | 'waiting' | 'live';
 
@@ -330,51 +335,118 @@ export function ClarityLivePage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps -- calibrationService is a module singleton; setPartnerEarsCount is a stable state setter; both are referentially stable
   }, [session?.joinerProfileId, session?.creatorProfileId, isCreator]);
 
-  // P28.1: Audio recording and events collection for ML training
-  // Uses chunked mode (30s uploads) for reliability - data is saved even if user closes browser
+  // P28.1/P566: Audio recording and events collection for ML training
+  // Uses chunked mode (5s uploads) with IndexedDB persistence + upload queue
   const sessionCodeForChunks = useRef<string | null>(null);
   const userNameForChunks = useRef<string | null>(null);
   const sessionForChunks = useRef<ClaritySession | null>(null);
   const userForChunks = useRef<{ id: string; email?: string } | null>(null); // For Mixpanel correlation
   const eventsCollectorRef = useRef(new SessionEventsCollector());
+  const recordingStartTimeRef = useRef<number>(0);
 
-  const handleChunkReady = useCallback(async (
+  // P566: Chunk store + upload queue
+  const chunkStoreRef = useRef<ChunkStore | null>(null);
+  const uploadQueueRef = useRef<ChunkUploadQueue | null>(null);
+  const [uploadProgress, setUploadProgress] = useState<UploadProgressState | null>(null);
+
+  // P566: Initialize chunk store on mount
+  useEffect(() => {
+    let cancelled = false;
+    createChunkStore().then((store) => {
+      if (cancelled) return;
+      chunkStoreRef.current = store;
+
+      // Create upload queue
+      const queue = new ChunkUploadQueue(store);
+      uploadQueueRef.current = queue;
+
+      // Upload function for the queue
+      const uploadFn = async (chunkKey: string, blob: Blob, metadata: ChunkMetadata) => {
+        await uploadSingleChunk(metadata.sessionCode, metadata.userName, blob, metadata.chunkNumber);
+      };
+
+      queue.start(uploadFn);
+
+      // Upload orphaned chunks from previous sessions
+      ChunkUploadQueue.uploadOrphanedChunks(store, 24 * 60 * 60 * 1000, uploadFn).catch((err) => {
+        console.error('[P566] Failed to upload orphaned chunks:', err);
+      });
+    });
+
+    return () => {
+      cancelled = true;
+      uploadQueueRef.current?.destroy();
+    };
+  }, []);
+
+  // P566: Upload health hook
+  const { uploadHealth } = useUploadHealth(uploadQueueRef.current);
+
+  // P566: onChunkProduced callback — persist to IndexedDB + enqueue
+  const handleChunkProduced = useCallback((
     chunkBlob: Blob,
     chunkNumber: number,
-    isLastChunk: boolean
+    _isLastChunk: boolean,
   ) => {
     const code = sessionCodeForChunks.current;
     const userName = userNameForChunks.current;
     const currentSession = sessionForChunks.current;
     const currentUser = userForChunks.current;
-    if (!code || !userName) {
-      console.warn('[P28.1] Cannot upload chunk - missing session code or user name');
+    const store = chunkStoreRef.current;
+    const queue = uploadQueueRef.current;
+
+    if (!code || !userName || !store || !queue) {
+      console.warn('[P566] Cannot process chunk - missing session code, user name, store, or queue');
       return;
     }
 
-    // Upload audio chunk
-    await uploadAudioChunk(code, userName, chunkBlob, chunkNumber, isLastChunk);
+    const chunkKey = `${code}_${userName}_${chunkNumber}`;
+    const metadata: ChunkMetadata = {
+      sessionCode: code,
+      userName,
+      chunkNumber,
+      createdAt: Date.now(),
+      blobSize: chunkBlob.size,
+      mimeType: chunkBlob.type || 'audio/webm',
+    };
 
-    // P28.2: Upload events snapshot with each chunk
-    // This ensures events are saved even if user closes browser
-    // Each user uploads their own events file (prefixed with username) to avoid overwrites
+    // Save to IndexedDB then enqueue (async but fire-and-forget from recorder's perspective)
+    store.saveChunk(chunkKey, chunkBlob, metadata).then(() => {
+      queue.enqueue(chunkKey);
+    }).catch((err) => {
+      console.error(`[P566] Failed to save chunk ${chunkKey} to store:`, err);
+    });
+
+    // P28.2: Upload events snapshot alongside each chunk (fire-and-forget)
     if (currentSession && eventsCollectorRef.current.isStarted()) {
       const participants: { name: string; role: 'creator' | 'joiner' }[] = [
         { name: currentSession.creatorName, role: 'creator' },
         ...(currentSession.joinerName ? [{ name: currentSession.joinerName, role: 'joiner' as const }] : []),
       ];
-      // Include uploader info for Mixpanel correlation (if logged in)
       const uploader = currentUser
         ? { supabaseUserId: currentUser.id, email: currentUser.email, name: userName }
         : { name: userName };
-      await uploadEventsSnapshot(code, userName, chunkNumber, eventsCollectorRef.current, participants, uploader);
+      uploadEventsSnapshot(code, userName, chunkNumber, eventsCollectorRef.current, participants, uploader).catch((err) => {
+        console.error('[P566] Events snapshot upload failed:', err);
+      });
     }
   }, []);
 
-  const { isRecording, startRecording, stopRecording } = useAudioRecorder({
-    onChunkReady: handleChunkReady,
-    chunkIntervalMs: 30000, // 30 seconds
+  const { isRecording, startRecording, stopRecording, requestImmediateFlush } = useAudioRecorder({
+    onChunkProduced: handleChunkProduced,
+    chunkIntervalMs: 5000, // P566: 5 seconds for faster persistence
   });
+
+  // P566: Flush on visibility change (tab switch / phone lock)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.hidden && isRecording) {
+        requestImmediateFlush();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, [isRecording, requestImmediateFlush]);
 
   // P40: Microphone permission handling
   const {
@@ -590,6 +662,7 @@ export function ClarityLivePage() {
       eventsCollectorRef.current.start();
       // P28.2: Register collector so ALL analytics.track() calls are captured for ML
       analytics.registerMLCollector(eventsCollectorRef.current);
+      recordingStartTimeRef.current = Date.now();
       startRecording().catch((err) => {
         console.error('[P28.1] Failed to start recording:', err);
       });
@@ -2390,7 +2463,7 @@ export function ClarityLivePage() {
 
   // P28.1: Stop recording and upload final chunk + events
   // In chunked mode, audio is already uploaded in 30s intervals
-  // This function just stops recording (triggers final chunk) and uploads events.json
+  // This function stops recording, drains the upload queue, and uploads events.json
   const stopAndUploadRecording = useCallback(async () => {
     if (!session || !eventsCollectorRef.current.isStarted()) {
       console.log('[P28.1] No recording to stop');
@@ -2398,8 +2471,42 @@ export function ClarityLivePage() {
     }
 
     try {
-      // Stop recording - this triggers final chunk upload via the hook's cleanup
+      // Stop recording - this triggers final chunk via onChunkProduced
       await stopRecording();
+
+      // P566: Drain the upload queue (wait for all chunks to finish uploading)
+      const queue = uploadQueueRef.current;
+      if (queue) {
+        setUploadProgress({ pending: queue.getPendingCount(), total: queue.getTotalCount(), status: 'uploading' });
+
+        // Subscribe to progress updates for the drain phase
+        const originalOnProgress = queue.onProgress;
+        queue.onProgress = (progress) => {
+          originalOnProgress?.(progress);
+          setUploadProgress({
+            pending: progress.total - progress.uploaded,
+            total: progress.total,
+            status: 'uploading',
+          });
+        };
+
+        try {
+          // Wait up to 5 minutes for all chunks to upload
+          await Promise.race([
+            queue.drain(),
+            new Promise<void>((_, reject) => setTimeout(() => reject(new Error('Drain timeout')), 5 * 60 * 1000)),
+          ]);
+
+          const durationMs = Date.now() - recordingStartTimeRef.current;
+          await recordChunkUploadComplete(session.code, name, queue.getTotalCount(), durationMs);
+          setUploadProgress({ pending: 0, total: queue.getTotalCount(), status: 'complete' });
+        } catch (err) {
+          console.error('[P566] Queue drain failed or timed out:', err);
+          setUploadProgress({ pending: queue.getPendingCount(), total: queue.getTotalCount(), status: 'failed' });
+        }
+
+        queue.onProgress = originalOnProgress;
+      }
 
       // Upload events.json separately (audio chunks are already uploaded)
       const events = eventsCollectorRef.current.getEvents();
@@ -2732,6 +2839,7 @@ export function ClarityLivePage() {
             sessionEnded={sessionEnded}
             onStartNew={handleStartNewAfterPartnerLeft}
             isGuest={!user}
+            uploadProgress={uploadProgress}
           />
         </div>
       </div>
@@ -3381,6 +3489,7 @@ export function ClarityLivePage() {
           isPrivate={session.isPrivate ?? false}
           partnerEarsCount={partnerEarsCount}
           isCreator={isCreator}
+          uploadHealth={uploadHealth}
         />
 
         {/* Remove position confirmation dialog */}
