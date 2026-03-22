@@ -516,8 +516,8 @@ export function PointDetailPage() {
                   const hasStory = holderStory !== null;
                   const isExpanded = expandedHolderId === holder.userId;
 
-                  // Viewer with position but no story → show "Add your story" CTA
-                  const showCta = isViewer && userPosition !== null && !viewerStory && !hasStory;
+                  // P560: Viewer with no story → show "Add your story" CTA (position not required)
+                  const showCta = isViewer && !viewerStory && !hasStory;
 
                   return (
                     <div key={holder.id}>
@@ -556,6 +556,16 @@ export function PointDetailPage() {
           )}
         </div>
       </div>
+
+      {/* P560: CTA for verified users without a position (not in holders list) */}
+      {user && userPosition === null && !viewerStory && (
+        <a
+          href={`/create?pointId=${id}`}
+          className="block text-center text-sm text-blue-600 dark:text-blue-400 hover:underline py-3"
+        >
+          Add your story →
+        </a>
+      )}
       </div>
     </div>
   );

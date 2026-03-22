@@ -54,7 +54,8 @@ const linkedPointWithPosition: Point = {
 const AGREE_CTA_LINKS = 'Add your story →';
 
 describe('P451/P465: PointCardWithLinks story CTA', () => {
-  it('does NOT show CTA before staking', () => {
+  // P560: CTA now shows even without a position (position gate removed)
+  it('shows CTA even before staking (P560)', () => {
     render(
       <BrowserRouter>
         <PointCardWithLinks
@@ -64,9 +65,8 @@ describe('P451/P465: PointCardWithLinks story CTA', () => {
         />
       </BrowserRouter>
     );
-    // P465: P451 blue button removed; P456 inline CTA also absent before staking
-    expect(screen.queryByText('Tell your story →')).toBeNull();
-    expect(screen.queryByText(AGREE_CTA_LINKS)).toBeNull();
+    // P560: "Add your story →" CTA visible regardless of position state
+    expect(screen.queryByText(AGREE_CTA_LINKS)).not.toBeNull();
   });
 
   it('shows position-aware CTA after staking a position (no P451 blue button)', () => {
