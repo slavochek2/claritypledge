@@ -2,6 +2,30 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-22 [technical]: Multi-phone transcription — parallel Whisper + LLM merge (supersedes energy approach)
+
+**Context:** Full-day P556 implementation and testing. Energy-gated Whisper feeding (the 5-layer pipeline from 2026-03-21) was built, deployed, and tested on 3 benchmark sessions. Five critical discoveries invalidated the approach and shaped the new one:
+
+1. **Recordings are misaligned.** Each phone starts recording at a different time (up to 9+ minutes apart). All prior benchmarks compared different conversation moments. Fix: cross-correlation alignment using numpy (timestamps from capturedAt are unreliable — off by 15+ min). This bug affected ALL multi-phone transcription since P495, not just energy.
+
+2. **Energy comparison fails.** Even after alignment, one phone's mic is systematically louder — energy comparison gives 92% to one speaker regardless of who's actually talking. Hardware/positioning variance defeats the energy assumption.
+
+3. **amix merge degrades audio.** Merging two recordings of the same conversation via ffmpeg amix creates phase interference — muddier signal, Whisper misses content, pyannote can't separate speakers. Both approaches tested on aligned amix gave 97/3 split.
+
+4. **Parallel Whisper on clean per-phone audio works.** Transcribing each phone separately (no merge) produces good text — complete sentences, fine-grained segments. But phone-based speaker labels are 51% accurate (coin flip — both phones capture both speakers).
+
+5. **LLM merge fixes attribution.** Sending both per-phone transcripts to an LLM (Claude tested, Gemini planned) with conversational context achieves 76% speaker attribution accuracy — up from 51% mechanical and ~50% pyannote/energy.
+
+6. **Recording chunks are missing.** Slava's E7QDTX recording has 35% chunk loss (57 of 87 expected chunks). This is a client-side upload reliability problem, not a transcription problem. Creates audio gaps that no pipeline can fix.
+
+**Decision:** Multi-phone pipeline = (1) align recordings via cross-correlation, (2) Whisper each phone separately on clean audio, (3) LLM merge using conversational context for speaker attribution. No amix. No pyannote for multi-phone. No energy comparison. Single-phone continues with pyannote (unchanged). Chunk loss is a separate client-side issue (new spec needed).
+
+**Alternatives rejected:** (A) Energy-gated Whisper — one mic systematically louder, 92/8 split. (B) Pyannote on aligned amix — phase interference degrades both Whisper and diarization, 97/3. (C) Google STT multichannel — not tested, but same crosstalk problem (both channels have both speakers). (D) Pyannote on unaligned amix — the "50/50" result was an artifact of misalignment, user confirmed labels were wrong.
+
+**Consequences:** P556 spec needs rewrite to reflect parallel Whisper + LLM merge approach. P558 (Gemini correction) is no longer a post-processing layer — it's the core attribution mechanism. New spec needed for client-side chunk upload reliability. `benchmark_energy.py` and `compare_transcripts.py` in services/transcribe/ are useful as ongoing benchmarking tools. Cross-correlation alignment in audio.py is production-ready (keep regardless of approach).
+
+**References:** [P556](features/p556_energy_speaker_attribution.md), [P558](features/p558_gemini_transcript_speaker_correction.md), benchmark audio at `/tmp/e7qdtx-benchmark/`, `/tmp/GB7JWW-benchmark/`, `/tmp/H44Q9H-benchmark/`
+
 ## 2026-03-21 [product]: Story-first architecture — P523 V7 replaces flat points model
 
 **Context:** P523 V1-V6 (standalone point creation + point-to-point references) reached delivery_stage 4 (tests ready). Conversation exploring validator bias and entanglement revealed a deeper architectural issue: points conflate subjective experience with falsifiable claims, the system has one entity type doing two jobs requiring different calibration protocols (comprehension vs agreement). The story-first model emerged from this analysis and was falsification-tested.
