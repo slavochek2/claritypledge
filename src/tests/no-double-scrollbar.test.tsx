@@ -9,11 +9,18 @@
  * Solution: Use overflow-x: clip with overflow-y: visible instead.
  * The 'clip' value clips overflow without affecting the other axis.
  */
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { render } from '@testing-library/react';
 import { BrowserRouter } from 'react-router-dom';
 import { ClarityPledgeLanding } from '@/app/pages/clarity-pledge-landing';
 import { AuthProvider } from '@/auth';
+
+// Mock API to prevent real network calls — SignatureWall calls getFeaturedProfiles()
+// which causes "window is not defined" when the async callback fires after JSDOM teardown
+vi.mock('@/app/data/api', () => ({
+  getFeaturedProfiles: vi.fn().mockResolvedValue([]),
+  getVerifiedProfileCount: vi.fn().mockResolvedValue(0),
+}));
 
 describe('Landing Page - No Double Scrollbar', () => {
   it('root div should not use overflow-x-hidden (causes overflow-y: auto)', () => {
