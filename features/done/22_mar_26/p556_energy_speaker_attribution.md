@@ -1,5 +1,5 @@
 ---
-status: today
+status: all-done
 type: task
 rank: 0.1
 flow: dev
