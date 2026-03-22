@@ -91,7 +91,7 @@ describe('sessionsService', () => {
       expect(result[0].roundCount).toBe(1);
     });
 
-    it('shows sessions with completed transcript even without rounds', async () => {
+    it('filters out sessions with zero rounds AND no transcript', async () => {
       const profileId = 'user-1';
       const mockRows = [
         {
@@ -108,7 +108,7 @@ describe('sessionsService', () => {
           transcription_jobs: null,
         },
         {
-          id: 'sess-transcript-only',
+          id: 'sess-zero-rounds-with-transcript',
           code: 'TRN456',
           creator_profile_id: profileId,
           joiner_profile_id: 'user-2',
@@ -119,7 +119,7 @@ describe('sessionsService', () => {
           transcription_jobs: [{ status: 'completed' }],
         },
         {
-          id: 'sess-empty',
+          id: 'sess-zero-rounds-no-transcript',
           code: 'ZER456',
           creator_profile_id: profileId,
           joiner_profile_id: null,
@@ -127,6 +127,22 @@ describe('sessionsService', () => {
           joiner_name: null,
           created_at: '2026-02-18T09:00:00Z',
           live_state: { sessionHistory: [] },
+          transcription_jobs: null,
+        },
+        {
+          id: 'sess-all-skipped',
+          code: 'SKP789',
+          creator_profile_id: profileId,
+          joiner_profile_id: 'user-3',
+          creator_name: 'Alice',
+          joiner_name: 'Carol',
+          created_at: '2026-02-17T11:00:00Z',
+          live_state: {
+            sessionHistory: [
+              { skipped: true, title: 'Story X' },
+              { skipped: true, title: 'Story Y' },
+            ],
+          },
           transcription_jobs: null,
         },
       ];
@@ -140,10 +156,10 @@ describe('sessionsService', () => {
       const module = await import('@/app/data/sessions-service');
       const result = await module.getUserSessions(profileId);
 
-      // Sessions with rounds OR completed transcript pass
+      // Sessions with rounds OR completed transcript pass the filter
       expect(result).toHaveLength(2);
       expect(result[0].id).toBe('sess-has-rounds');
-      expect(result[1].id).toBe('sess-transcript-only');
+      expect(result[1].id).toBe('sess-zero-rounds-with-transcript');
     });
 
     it('handles null live_state (no history) — session is filtered out', async () => {
