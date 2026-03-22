@@ -98,6 +98,8 @@ Adds Technical layer to feature spec:
 
 ✅ **Business requirements exist** in spec file (from /create-prd)
 
+✅ **Technical Research Brief exists** (if `/research-arch` was run) — consume findings as input, don't re-research what's already covered
+
 ✅ **UX section exists** (if UI feature) OR **Frontmatter marks as backend**
 - UI features: Must run /ux first, then /architect
 - Backend features: Can skip /ux, run /architect directly
@@ -272,7 +274,7 @@ This skill spawns TWO agents in parallel:
 
 **Prompt:**
 ```
-You are an Architect agent. Read business + UX requirements from {spec_file} and design the technical architecture.
+You are an Architect agent. Read business + UX requirements from {spec_file} and design the technical architecture. If the spec contains a `## Technical Research Brief` section, treat its findings as pre-validated research — use its recommendations and avoid re-researching the same questions.
 
 If the spec has a `## UI Contract` section, treat every value in that table as a hard constraint. Use the exact component names, route paths, and labels from the UI Contract — do not substitute synonyms. If your architecture requires overriding a UI Contract value, flag it explicitly as a deviation.
 

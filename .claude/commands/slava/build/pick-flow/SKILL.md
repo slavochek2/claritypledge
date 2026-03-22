@@ -102,6 +102,20 @@ Use this table to build the command chain directly. Each row maps a signal to a 
 | 3-5 files, no DB/auth/API changes | A or B | `/quick-feature` → `/dev` |
 | 5+ files or 3+ independent concerns | B or C | + `/decompose` (after `/generate-tests`) |
 
+### `/research-arch` signals
+
+Any ONE of these fires → include `/research-arch` before `/architect`. Optional but recommended.
+
+| Signal | Commands to include |
+|--------|---------------------|
+| Novel technology not yet in codebase (new library, protocol, or service category) | + `/research-arch` before `/architect` |
+| Multiple viable architectural approaches with non-obvious trade-offs (e.g., 3+ ways to solve, no clear winner from codebase) | + `/research-arch` before `/architect` |
+| External API/service integration where pitfalls aren't well-known | + `/research-arch` before `/architect` |
+| Performance-critical decision (caching strategy, concurrency model, data structure choice at scale) | + `/research-arch` before `/architect` |
+| `/challenge-prd` surfaced technical unknowns that need research before design | + `/research-arch` before `/architect` |
+
+**Skip when:** Codebase already has established patterns for this kind of work, or architect can resolve unknowns by exploring existing code alone.
+
 ### `/architect`-mandatory signals
 
 Any ONE of these fires → `/architect` is required. Do not skip.
@@ -149,7 +163,7 @@ Any ONE of these fires → `/verify` is required. Do not skip.
 | Spec exists, `delivery_stage: 5-decomposed` | — | resume from `/dev` |
 | Spec exists, `delivery_stage: 4-tests-ready` | — | resume from `/spec-review` → `/decompose`* → `/dev` |
 | Spec exists, `delivery_stage: 3-arch-review` | — | resume from `/generate-tests` → `/spec-review` → `/dev` |
-| Spec exists, `delivery_stage: 2-ux-done` | — | resume from `/architect` → `/generate-tests` → `/spec-review` → `/dev` |
+| Spec exists, `delivery_stage: 2-ux-done` | — | resume from `/research-arch`* (if novel tech) → `/architect` → `/generate-tests` → `/spec-review` → `/dev` |
 | Spec exists, `delivery_stage: 1-prd` | — | resume from `/ux` (if UI changes) or `/architect` → `/generate-tests` → `/spec-review` → `/dev` |
 
 ### Drop/skip signals
@@ -160,9 +174,9 @@ Any ONE of these fires → `/verify` is required. Do not skip.
 | `type: change-request` in spec frontmatter | any | `/spec-review` mandatory (not optional) |
 | **Changes `.claude/commands/`, `.claude/rules/`, `.claude/hooks/`, `CLAUDE.md`, git workflow, or `scripts/` invoked by hooks/CI** | **Infra** | **See infrastructure tier below** |
 
-**Command ordering when multiple signals apply:** `/create-prd` → `/challenge-prd`* → `/ux` → `/architect` → `/generate-tests` → `/decompose` → `/dev` → `/verify`
+**Command ordering when multiple signals apply:** `/create-prd` → `/challenge-prd`* → `/ux` → `/research-arch`* → `/architect` → `/generate-tests` → `/decompose` → `/dev` → `/verify`
 
-`*` `/challenge-prd` recommended for novel features (new capability, new actor, unvalidated flow). Skip for incremental improvements.
+`*` `/challenge-prd` recommended for novel features (new capability, new actor, unvalidated flow). Skip for incremental improvements. `/research-arch` optional — only when feature involves novel technology, unfamiliar integrations, or technical unknowns surfaced by `/challenge-prd`.
 
 ## Infrastructure tier (skills / hooks / process changes)
 
@@ -189,6 +203,7 @@ These changes affect **all future work** — not a single feature. Risk is asymm
 - `/create-prd` — full PRD with acceptance criteria (3-5 min)
 - `/challenge-prd` — adversarial stress-test of PRD assumptions, flows, strategic fit (5-10 min); recommended for novel features, skip for incremental improvements; use `--quick` for reduced depth (3-5 min)
 - `/ux` — wireframes/design decisions (UI features only, skip if design is resolved)
+- `/research-arch` — pre-architect research for novel tech, unfamiliar integrations, or technical unknowns; spawns parallel research agents + benchmarking synthesis; skip when codebase has established patterns
 - `/architect` — architecture plan + mandatory security review; include whenever task has DB columns, RLS, auth, API changes, or new patterns; skip only for trivial 1-2 file UI-only changes with no security surface
 - `/generate-tests` — writes test specs before implementation; include whenever a regression would be annoying to debug manually — this covers any conditional rendering (phase-based, auth-based, role-based), UI state that changes on user interaction or event, placeholder text or UI strings that could drift, button enable/disable logic, CSS class conditionals (e.g. centered vs sticky based on state), and all security/auth/DB cases; mandatory for any DB migration (P270 rule); also include when `/architect` is in the flow; skip only for pure CSS-only changes, single hardcoded strings with no logic, or one-liner typo fixes
 - `/decompose` — splits into sub-stories (5+ files or 3+ concerns only, run after `/generate-tests`)
