@@ -2,6 +2,18 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-22 [technical]: Energy post-validation blocked by hardware bias — needs P568 phone placement first (P569)
+
+**Context:** P569 implemented Gemini LLM merge (replaces mechanical coinflip merge) + energy post-validation for multi-phone speaker attribution. Energy scan of 17 multi-phone sessions revealed Slava's phone is consistently louder in all sessions (hardware/placement bias). Benchmark on R8FUEQ (Jeromm + Slava, 8.1dB delta): LLM-only gets 87% overall but only 80% on Jeromm (10 segments, 26% of conversation). Naive "always Slava" baseline = 74%. Energy validation on R8FUEQ: 7 false flags (correct Jeromm segments disputed), 2 catches, 3 misses — net negative. Energy only works when the dominant phone ALTERNATES between speakers, which requires intentional phone placement.
+
+**Decision:** (1) LLM merge (Gemini) replaces mechanical text-overlap merge — ready to deploy independently. Fallback chain: gemini-2.5-flash → 2.0-flash → 1.5-flash → raw transcript with speaker="unknown" (no coinflip). (2) Energy post-validation blocked on P568 (phone placement guidance). Adaptive gates implemented: symmetry gate skips when one phone dominates >75% of clear segments (hardware bias). (3) Benchmark accuracy must be measured per-speaker, not overall — skewed conversations (74% one speaker) inflate headline accuracy.
+
+**Alternatives rejected:** (A) Ship energy validation without the symmetry gate — would degrade quality on all current recordings. (B) Use global energy delta as gate — wrong signal, alternating energy produces ~0dB global delta. (C) Mechanical merge as fallback — 51% accuracy (coinflip) is worse than no attribution.
+
+**Consequences:** P569 blocked by P568. The LLM merge module (`llm_merge.py`) is independently valuable and ready to ship with P556. Energy post-validation code (`energy_validator.py`) is complete with adaptive gates — will auto-activate when recordings have alternating energy (post-P568). Need to re-benchmark after first P568 session.
+
+**References:** [P569](features/p569_energy_post_validation.md), [P568](features/p568_phone_placement_guidance.md), [P556](features/p556_energy_speaker_attribution.md), branch `feature/p569-energy-post-validation`, R8FUEQ ground truth at `~/Downloads/r8fueq_ground_truth.json`
+
 ## 2026-03-22 [technical]: Mailgun evaluation period blocks Ghost newsletter batch sends
 
 **Context:** Ghost newsletter send to 36 subscribers failed with `403 Forbidden — "Domain mg.claritypledge.com is not allowed to send large batches yet"`. Test emails delivered fine. Ghost API showed `email status: failed, delivered_count: 0, email_count: 36`. Mailgun events showed zero subscriber events — Ghost never handed off the batch.
