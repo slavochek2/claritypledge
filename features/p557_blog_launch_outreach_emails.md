@@ -6,6 +6,7 @@ tags:
   - content
   - outreach
 locked_at: '2026-03-21T07:46:44.934Z'
+created_date: 2026-03-21
 ---
 
 # P557: Blog Launch — Outreach Email Templates + Tier 1 Contact List

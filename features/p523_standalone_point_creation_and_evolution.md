@@ -213,6 +213,8 @@ locked_at: '2026-03-21T07:58:30.352Z'
 | D4 | AI extraction scope? | V1: manual extraction only. AI-assisted extraction is a separate follow-up story. |
 | D5 | How are authors notified of assessments? | OUT OF SCOPE for P523. Separate story to be filed for notifications. V1: authors check their story detail page. |
 | D6 | Minimum story length? | 50 characters (~1 sentence). |
+| D7 | Speaker/listener roles on stories? | Roles are defined by which story you're interacting with: story author = speaker (they made the claim), reader = listener (they're trying to understand). If the reader also has a story on the same point, roles flip when viewing THEIR story. /live's speaker/listener assignment is redundant for async interactions — the story itself defines the roles. /live adds value for sync gap bridging (recording, paraphrasing out loud). See P570. |
+| D8 | Workshop curriculum as use case? | Pre-filed "false belief" stories + extracted points serve as structured workshop material (P567). Participants position on false belief → read counter-story → verify understanding → position switch. The story-first architecture supports this without modification. |
 
 ## Open Questions (remaining)
 

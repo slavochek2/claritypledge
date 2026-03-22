@@ -1,14 +1,14 @@
 ---
-status: today
+status: week
 type: story
-rank: 0.021
+rank: 0.406
 tags:
   - epic-story-first
   - live
   - simplification
 flow: dev
 created_date: 2026-03-21T00:00:00.000Z
-locked_at: '2026-03-21T13:36:05.704Z'
+locked_at: '2026-03-22T08:51:17.448Z'
 ---
 
 # P562: /live Simplification — Strip to Orchestration

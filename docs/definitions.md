@@ -538,7 +538,7 @@ See [authentication.md](technical/authentication.md#guest--unverified-users) for
 
 ## Related Documents
 
-- [lean-canvas.md](lean-canvas.md) — Business model and customer segments
+- [lean-canvas.md](lean-canvas.md) — Platform strategy and customer segments. Coaching business model in `.private/docs/lean-canvas-coaching.md`
 - [hypotheses.md](hypotheses.md) — All active bets and their status
 - [achievements/](achievements/) — Date-stamped achievements
 - [philosophy.md](philosophy.md) — Epistemological foundations

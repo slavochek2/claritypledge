@@ -167,10 +167,253 @@ related:
 - Removing a member from a doc
 - Doc deletion
 
+## UX Flows (from /ascii-flows — winning hybrid)
+
+### Flow 1: Doc List + Creation (`/docs`)
+
+```
++============================================================+
+|  nav: [Logo]  Feed  Practice  Docs  [Avatar]               |
++============================================================+
+|                                                             |
+|  Your Docs                                         [+ New] |
+|                                                             |
+|  +-------------------------------------------------------+ |
+|  | [lock]  Session Notes with Anna                    [>] | |
+|  |         3 items  ·  Updated 2h ago                     | |
+|  +-------------------------------------------------------+ |
+|  | [lock]  Therapy Log with Dr. K                     [>] | |
+|  |         7 items  ·  Updated 3 days ago                 | |
+|  +-------------------------------------------------------+ |
+|                                                             |
++============================================================+
+
+CREATE MODAL (triggered by [+ New]):
++------------------------------------------+
+|  New Doc                            [X]  |
+|                                          |
+|  Title                                   |
+|  [Session Notes — Mar 2026_________]     |
+|                                          |
+|  [Cancel]              [Create Doc]      |
++------------------------------------------+
+```
+
+- Entry: standalone `/docs` route (not nested under profile)
+- Creation: modal with title only — one field, get in fast
+- List shows lock icon on every row, partner name once joined, item count + recency
+
+### Flow 2: Doc Page (desktop)
+
+```
++============================================================+
+| +--------------------------------------------------------+ |
+| | [lock]  PRIVATE DOC  ·  Only you & Anna can see this   | |
+| +--------------------------------------------------------+ |
+|                                                             |
+|  Session Notes                                    [Share]   |
+|  Members:  (S) (A)  2 people                                |
+|                                                             |
+|  === Session 1 — Mar 15 ================================== |
+|                                                             |
+|  +-------------------------------------------------------+ |
+|  | POINT                                           [...] | |
+|  | "I feel unheard when we discuss finances"              | |
+|  |                                                       | |
+|  | [SA] [A] [LA] [N] [LD] [D] [SD]                      | |
+|  |                                                       | |
+|  | added by Anna  ·  Mar 15                              | |
+|  +-------------------------------------------------------+ |
+|                                                             |
+|  +-------------------------------------------------------+ |
+|  | STORY                                           [...] | |
+|  | "Last Tuesday when we reviewed the budget, I tried    | |
+|  |  to explain my concern but felt like the conversation | |
+|  |  moved on before I finished."                         | |
+|  |                                                       | |
+|  | by Slava  ·  Mar 15                                   | |
+|  +-------------------------------------------------------+ |
+|                                                             |
+|  === Session 2 — Mar 22 ================================== |
+|                                                             |
+|  +-------------------------------------------------------+ |
+|  | POINT                                           [...] | |
+|  | "Trust requires consistent follow-through"             | |
+|  |                                                       | |
+|  | Slava: [Strongly Agree]   Anna: [Agree]               | |
+|  |                                                       | |
+|  | added by Slava  ·  Mar 22                             | |
+|  +-------------------------------------------------------+ |
+|                                                             |
++-------------------------------------------------------------+
+| [Point] [Story] [---]   [________________________] [Add]   |
++============================================================+
+```
+
+- Persistent privacy banner at top (warm amber bg, lock icon) — never scrolls away
+- Avatar row under title (reuses sign-pledge overlapping avatar pattern)
+- Section headers as horizontal rules with session date — user-created, reorderable
+- Point cards show 7-point position scale with both members' positions visible
+- `...` menu on each card (publish own items, reorder, delete)
+- Bottom input bar: type toggle (Point/Story/Header) + text field + Add button
+
+### Flow 2b: Doc Page (mobile)
+
+```
++-------------------------------+
+| < Docs    Session Notes  [...] |
++================================+
+| [lock] Private · 2 members     |
++================================+
+|                                 |
+| === Session 1 — Mar 15 ======= |
+|                                 |
+| +-----------------------------+ |
+| | POINT                       | |
+| | "I feel unheard when we     | |
+| |  discuss finances"          | |
+| | [SA][A][LA][N][LD][D][SD]   | |
+| | Anna · Mar 15         [...] | |
+| +-----------------------------+ |
+|                                 |
+| +-----------------------------+ |
+| | STORY                       | |
+| | "Last Tuesday when we..."   | |
+| | Slava · Mar 15        [...] | |
+| +-----------------------------+ |
+|                                 |
+|                          (+)    |
++================================+
+```
+
+- FAB replaces bottom form on mobile
+- FAB opens bottom sheet: Add Point / Add Story / Section Header
+
+### Flow 3: Adding Content (bottom form expands)
+
+```
++============================================================+
+| [Point *] [Story] [---]                                     |
+|                                                             |
+| Statement:                                                  |
+| [I believe that trust requires consistent__________]        |
+|                                                             |
+| Context (optional):                                         |
+| [Based on our discussion about the missed deadline___]      |
+|                                                             |
+| Your position:                                              |
+| [SA] [A] [LA] [N] [LD] [D] [SD]                           |
+|                                                             |
+| [Cancel]                                     [Add to Doc]   |
++============================================================+
+```
+
+- Type toggle at top (Point/Story/Header) with active state
+- Point: statement + optional context + position pre-selection
+- Story: text area only
+- Header: single-line input
+- On mobile: same form as bottom sheet triggered by FAB
+
+### Flow 4: Share Dialog
+
+```
++------------------------------------------+
+|  Share "Session Notes"              [X]  |
+|                                          |
+|  Anyone with this link can join          |
+|  as a member and see all content.        |
+|                                          |
+|  +------------------------------------+  |
+|  | [copy]  Copy Link                  |  |
+|  |   claritypledge.com/d/abc123       |  |
+|  +------------------------------------+  |
+|  | [mail]  Send by Email              |  |
+|  |   Open email with invite link      |  |
+|  +------------------------------------+  |
+|                                          |
+|  Current members:                        |
+|  (S) Slava (creator)                     |
+|  (A) Anna                               |
++------------------------------------------+
+```
+
+- Matches ShareHub pattern (card-based buttons)
+- No social options (private docs should not go social)
+- Shows current member list in dialog
+- Copy Link is primary action
+
+### Flow 5: Join Flow
+
+```
+Logged-in user: click link → spinner → instant access (no gate)
+
+Anonymous visitor:
++==================================================+
+| +----------------------------------------------+ |
+| |  [scroll + lock icon]                        | |
+| |                                              | |
+| |  You've been invited to a private doc        | |
+| |                                              | |
+| |  "Session Notes"                             | |
+| |  by Slava                                    | |
+| |                                              | |
+| |  Sign in to join                             | |
+| |                                              | |
+| |  [Sign In]    [Take the Pledge]              | |
+| +----------------------------------------------+ |
++==================================================+
+```
+
+- Certificate frame wraps anonymous invite card (ceremony moment)
+- Short URL: `/d/abc123`
+
+### Flow 6: Publish to Feed
+
+```
+Step 1: [...] menu on OWN items only → "Publish to Feed"
+
+Step 2: Ceremony confirmation dialog
++==================================================+
+| +----------------------------------------------+ |
+| |  Publish to Public Feed?                     | |
+| |                                              | |
+| |  "Trust requires consistent                  | |
+| |   follow-through on small commitments"       | |
+| |                                              | |
+| |  [lock] -----> [globe]                      | |
+| |  Private        Public                      | |
+| |                                              | |
+| |  This point will become visible to           | |
+| |  everyone. This cannot be undone.            | |
+| |                                              | |
+| |  [Cancel]              [Publish to Feed]     | |
+| +----------------------------------------------+ |
++==================================================+
+```
+
+- Only own items show publish option (DB-enforced)
+- Certificate frame on confirmation (matches pledge ceremony weight)
+- Lock→globe icon transition communicates the privacy change
+- One item at a time, no bulk publish
+
+### Design Decisions
+
+| Decision | Choice | Why |
+|----------|--------|-----|
+| Entry point | `/docs` standalone route | Docs are relational, not individual — don't nest under profiles |
+| Creation | Title-only modal | One field, instant. No description, no initial content needed |
+| Layout | Sequential cards + section headers | Reuses profile card components. Canvas is a future CSS renderer |
+| Privacy indicator | Persistent amber banner + lock icons | Ambient trust signal, never scrolls away |
+| Members | Avatar row under title | Reuses sign-pledge social proof pattern |
+| Content addition | Bottom form (desktop) / FAB (mobile) | Lowest friction — no modal, no page nav |
+| Sharing | ShareHub-style dialog (Copy Link + Email) | No social options for private docs |
+| Join | Immediate for logged-in, sign-in gate for anonymous | Frictionless for existing users |
+| Publish | Per-item `...` menu + ceremony dialog | Own items only. Irreversible feels irreversible |
+
 ## Next Steps
 
-1. **Run `/challenge-prd`** — stress-test business requirements before design
-2. **Run `/ux`** — design user flows, doc page layout, share flow, creation flow
-3. **Run `/architect`** — data model (`docs`, `doc_members`, `doc_items`), RLS policies, point `doc_id` FK
+1. ~~**Run `/challenge-prd`**~~ — done, 2 of 3 BLOCKs dismissed by /falsify, consent gap fixed
+2. ~~**Run `/ascii-flows`**~~ — done, winning hybrid documented above
+3. **Run `/architect`** — data model, RLS policies, point `doc_id` FK
 4. **Run `/generate-tests`** — acceptance criteria → E2E test stubs
 5. **Run `/dev`** — implement

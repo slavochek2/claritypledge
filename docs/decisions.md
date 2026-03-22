@@ -2,6 +2,16 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-22 [technical]: Mailgun evaluation period blocks Ghost newsletter batch sends
+
+**Context:** Ghost newsletter send to 36 subscribers failed with `403 Forbidden — "Domain mg.claritypledge.com is not allowed to send large batches yet"`. Test emails delivered fine. Ghost API showed `email status: failed, delivered_count: 0, email_count: 36`. Mailgun events showed zero subscriber events — Ghost never handed off the batch.
+**Decision:** Filed Mailgun support ticket #3995215 requesting evaluation restriction lift. No plan change needed — Mailgun free tier (3K emails/mo) is sufficient for 36 subscribers once the restriction is removed.
+**Key learning:** Ghost uses two completely separate email code paths: (1) **test emails** use SMTP (transactional, `GhostMailer.js`), (2) **bulk newsletters** use Mailgun HTTP batch API (`bulk-email` service). Test emails working proves nothing about newsletter delivery. Mailgun's evaluation period limits new accounts to max 9 recipients per API call — Ghost sends all recipients in one call, triggering the 403.
+**Diagnostic path:** Ghost Admin API (`GET /posts/{id}/?include=email`) shows email status + error. Actual stack trace only in Ghost server logs — for Docker: `docker logs ghost-ghost-1`. Ghost VM: `ghost-prod` (e2e-micro, GCP, `35.224.81.21`).
+**Alternatives rejected:** (A) Upgrade to Mailgun Foundation ($35/mo) — doesn't auto-lift evaluation either. (B) Switch to Amazon SES with community Ghost adapter — viable fallback if Mailgun doesn't lift restriction.
+**Consequences:** Newsletter retry blocked until Mailgun responds (typically 24h). Secondary bug found: Ghost email analytics throws `begin.toISOString is not a function` — cosmetic, doesn't affect sending.
+**References:** Mailgun support ticket #3995215, Ghost VM `ghost-prod` Docker logs
+
 ## 2026-03-22 [technical]: Local-first audio upload with IndexedDB WAL — Riverside model (P566)
 
 **Context:** Session E7QDTX revealed 35% chunk loss (57 of 87 expected chunks missing). Root cause: `uploadAudioChunk()` in `api.ts:2850-2858` silently swallowed all upload errors ("Don't throw - recording failure shouldn't break the session"). 6 failure modes identified via 5-why analysis: silent error swallow, fire-and-forget upload (not awaited), no fetch timeout (no AbortController), no visibilitychange handling, unmount fire-and-forget, no upload state exposed to UI. Prior decision (batch transcription entry below) deferred this fix for "3% failure rate" — actual rate was 10x worse.

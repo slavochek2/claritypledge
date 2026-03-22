@@ -1,13 +1,14 @@
 ---
-status: week
+status: today
 type: story
-rank: 4
+rank: 0.019
 tags:
   - epic-story-first
   - entanglement
   - provenance
 flow: dev
 created_date: 2026-03-21T00:00:00.000Z
+locked_at: '2026-03-22T08:11:02.612Z'
 ---
 
 # P563: Position Provenance — Engagement Depth Visibility

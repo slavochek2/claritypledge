@@ -1,7 +1,7 @@
 ---
 status: week
 type: story
-rank: 2
+rank: 0.5
 tags:
   - live
   - onboarding
@@ -11,15 +11,15 @@ locked_at: '2026-03-21T13:37:15.543Z'
 created_date: 2026-03-14T00:00:00.000Z
 ---
 
-# P518: Session Bookends — Goal Alignment + Qualifying Signal
+# P518: Emotional Safety Self-Assessment — Pre-Session Readiness Check
+
+**Reframed 2026-03-22:** Stripped qualifying question (done manually by facilitator post-session) and topic depth nudge (solved by false-belief curriculum P567). What remains: emotional readiness self-assessment as product infrastructure.
 
 ## Problem
 
-Two problems compound each other:
+Paraphrasing requires emotional regulation — the listener must hold their own reactions while accurately restating the speaker's position. Without awareness of their current emotional state, participants enter sessions unable to do the core protocol work. Without shared visibility into each other's readiness, neither the facilitator nor the partner can calibrate expectations.
 
-1. **Pre-session:** Pairs start /live with no alignment on goals and default to trivial topics. ~40% of sessions fail due to topic inadequacy (transcript corpus, 2026-03-18). When the topic is shallow, the gap revealed is shallow — interesting but not painful.
-
-2. **Post-session:** We have no signal about whether a session produced meaningful value. The gap score tells us *how big* the misunderstanding was, but not *whether it mattered*. Without this signal, we can't distinguish sessions that changed something from sessions that were polite demos. This blocks testing H-WTP-Pain.
+This is a prerequisite for the verification protocol, not a nice-to-have.
 
 ## Concept
 

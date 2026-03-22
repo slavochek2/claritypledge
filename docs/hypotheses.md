@@ -17,7 +17,7 @@ Session logs, architecture notes, and strategic commentary belong in [decisions.
 | H-AICalib-EntryTeaser | AI demo lowers trust barrier before co-founder offer | Active | P2 | — | Parked until group acquisition phase. |
 | H-CoachChannel | Coaches adopt protocol as distribution channel | Active | P2 | H-PairsReturn | Falsification-tested. Market large. Key risk: commodification. |
 | H-Retainers-Sticky | Pairs retain monthly FCO retainers | Blocked | — | H-PairsReturn | Not yet testable. |
-| H-WorkshopFormat | 1-to-many workshops convert to sessions | Blocked | — | H-PairsReturn | Not yet testable. |
+| H-WorkshopFormat | 1-to-many workshops convert to sessions | Active | P2 | — | Unblocked: false-belief curriculum testable independently. |
 | H-MetaEpistemic | Meta-epistemological briefing deepens sessions | Blocked | — | H-PairsReturn | Test passively. |
 | H-BriefingProtocol-ColdStart | Mirror agent invitation solves cold start | Blocked | — | H-PairsReturn + H-Stories-ColdStart | Two deps deep. |
 | H-ProtocolSpreadsWithoutTool | Protocol spreads free; tool captures value | Blocked | — | H-PairsReturn | Zero pairs have used protocol. |
@@ -45,6 +45,7 @@ Session logs, architecture notes, and strategic commentary belong in [decisions.
 **Kill if:** 10 pairs cannot name a concrete cost after experiencing their gap.
 **Status (2026-03-18):** 28 sessions, zero pairs expressed that their gap was costing them anything. Reactions: curiosity, intellectual engagement, social warmth. No alarm, no urgency. This is the single most important hypothesis for commercial viability.
 **Update (2026-03-21):** CE distribution channel deferred — will return with concrete forwardable offer. Async-first go-to-market adaptation: booking links and written offers instead of scheduling calls. Compounds the delay in testing WTP with revenue-qualified pairs.
+**Update (2026-03-22):** False-belief facilitation technique identified as concrete testing mechanism. Workshop flow: surface participant's false belief via question → they position on false-belief point → present counter-story → verify understanding (P561 slider) → position switch → **reflection prompt: "What situations would have been different? What did holding this cost you?"** → they file story about their past false belief + cost. The reflection prompt IS the H-WTP-Pain test — not passively hoping pairs name a cost, but actively engineering the moment where broken belief connects to their relationship. See P567 (false belief curriculum) and [facilitator-guide.md](facilitator-guide.md).
 
 ---
 
@@ -53,6 +54,7 @@ Session logs, architecture notes, and strategic commentary belong in [decisions.
 **Test:** First Pairs milestone — 3-5 free facilitated sessions. Measure: does the "holy shit" moment happen? Do they book session 2?
 **Kill if:** Gap doesn't surprise them, OR they find it interesting but not worth paying to prevent, OR zero pairs book session 2. Pre-committed (2026-03-16): if 5 pairs + <€200 combined donations → kill.
 **Status (2026-03-16):** 3 pairs run (A: Mar 13, C: Mar 14, B: Mar 16). Protocol works, value received. But: Pair B is pre-revenue (WTP untested), transcript corpus shows no "holy shit" moment observed. ICP learning: pre-revenue pairs validate protocol but not WTP — real ICP qualifier is cash + felt pain.
+**Update (2026-03-22):** First Clarity Partner Agreement signed publicly (Jan + Nejc — every 2 days, 15 min explain-back right). Agreement committed to; usage not yet observed. Key test: does the agreement artifact drive recurring practice without facilitator involvement?
 **Notes:** Session format: Slava facilitates explain-back on real decisions. Pairs don't learn /live — Slava uses it as diagnostic tool. Merges previous H-CoFounders-WillPay + H-AgreementRetention.
 
 ---
@@ -64,6 +66,7 @@ Session logs, architecture notes, and strategic commentary belong in [decisions.
 **Test:** Topic depth ladder (L1: facts → L2: opinions → L3: values → L4: fears/identity). Default to L3. Correlate depth level with P518 qualifying signal.
 **Kill if:** L3-4 topics produce the same shallow results as L1-2.
 **Status (2026-03-18):** ~40% of sessions failed due to topic inadequacy. When genuine emotional topics engaged, protocol reached depth fast.
+**Update (2026-03-22):** Mechanism identified — false-belief facilitation (P567) engineers depth instead of hoping for it. Start from participant's existing false belief → depth is immediate, no topic drift needed. This shifts H-TopicDepthGate from "is depth the gate?" (yes, confirmed) to "does engineered depth via false beliefs produce felt pain?" (feeds into H-WTP-Pain testing). Standard Socratic technique; ClarityPledge differentiator is measuring the gap + filing position switches as data.
 
 ---
 
@@ -115,7 +118,7 @@ Session logs, architecture notes, and strategic commentary belong in [decisions.
 Waiting on upstream hypotheses. Each entry lists what must happen before testing can begin.
 
 #### H-Retainers-Sticky: Pairs retain monthly FCO retainers
-**Bet:** Pairs subscribe to €1,500/month retainers — Slava reviews transcripts, identifies divergence with AI, facilitates targeted sessions.
+**Bet:** Pairs subscribe to from-€1,950/month retainers — Slava reviews transcripts, identifies divergence with AI, facilitates targeted sessions.
 **Test:** Offer retainer to pairs from First Pairs who booked 2+ sessions. Target 10+ pairs, >60% month-2 retention, €10k MRR.
 **Kill if:** <5 signups OR <40% month-2 retention.
 **Blocked by:** H-PairsReturn.
@@ -123,9 +126,10 @@ Waiting on upstream hypotheses. Each entry lists what must happen before testing
 ---
 
 #### H-WorkshopFormat: 1-to-many workshops convert to sessions
-**Bet:** Workshop where participants calibrate against YOUR content produces gaps that convert to €950 de-risking sessions.
+**Bet:** Workshop where participants calibrate against YOUR content (false-belief curriculum, P567) produces position switches and felt pain that convert to €950 de-risking sessions.
 **Kill if:** <10% conversion after 3 workshops.
-**Blocked by:** H-PairsReturn.
+**Unblocked (2026-03-22):** False-belief workshops where participants calibrate against Slava's pre-filed points can be tested independently of H-PairsReturn — no pair dependency. Moved from Blocked to Active P2.
+**Test:** Run 3 workshops with P567 curriculum. Measure: position switches, reflection stories filed, conversion to de-risking.
 
 ---
 
@@ -224,6 +228,6 @@ Literature-backed assumptions underpinning the product thesis. Not hypotheses we
 
 ## Related Docs
 
-- [lean-canvas.md](lean-canvas.md) — Problem, solution, customer segments, business model
+- [lean-canvas.md](lean-canvas.md) — Problem, solution, customer segments (platform). Coaching business model in `.private/docs/lean-canvas-coaching.md`
 - [theory-of-change.md](theory-of-change.md) — Causal chain; validated assumptions and research evidence
 - [decisions.md](decisions.md) — Strategic decisions shaping hypothesis priority

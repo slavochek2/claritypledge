@@ -1,7 +1,7 @@
 # Theory of Change: From Fractured Realities to Common Knowledge
 
 **Status:** Source of truth — the causal chain from individual verification to civilizational transformation
-**Time horizons:** Near-term execution (0-12 months) is in [lean-canvas.md](lean-canvas.md), consolidated from Canvas G (March 2026). This doc describes the 1-10 year causal pathway and end state.
+**Time horizons:** Platform strategy is in [lean-canvas.md](lean-canvas.md). Coaching execution (price ladder, unit economics) is in `.private/docs/lean-canvas-coaching.md`. This doc describes the 1-10 year causal pathway and end state.
 **See also:** [philosophy.md](philosophy.md) for WHY this works (epistemology)
 
 ---
@@ -46,7 +46,7 @@ This section maps the logical chain from problem to impact, showing how our acti
 - Build async verification tools (scale beyond real-time)
 
 **Distribution channels:**
-1. **Workshop-agreement cascade (primary, now):** Free Workshop → "holy shit" moment → €950 De-risking → Clarity Partnership Agreement → €1,500/mo FCO Retainer
+1. **Workshop-agreement cascade (primary, now):** Free Workshop → "holy shit" moment → €950 De-risking → Clarity Partnership Agreement → from-€1,950/mo FCO Retainer
 2. **Investor distribution (future, parked):** Investors forward workshop invites to portfolio; investor DD as paid track
 3. **Briefing protocol (future):** Person A files stories → Person B receives anon link → briefing activates Person B → Stage 1
 4. **Content cascade (future, after Month 5):** Evidence-based essays → recognition → enterprise pilots
@@ -215,7 +215,7 @@ Stage 1 begins (The Proof)
 - **Free Calibration Workshop (1-to-many, lead gen):** You present calibration points (stories & points curriculum), room calibrates against you. No pairing needed. Safe, fun, genuinely revealing. Content gets battle-tested before publishing.
 - **Direct facilitated session (1-to-2, value delivery):** You sit with the pair on their real decision. This is where the "holy shit" moment lives. Workshop creates awareness; facilitated session creates conversion.
 
-**Price ladder:** Free Workshop → €950 De-risking (2 sessions + Clarity Partnership Agreement) → €1,500/mo FCO Retainer. Continuous, no gaps. See [lean-canvas.md](lean-canvas.md) for full ladder.
+**Price ladder:** Free Workshop → €950 De-risking (2 sessions + Clarity Partnership Agreement) → from-€1,950/mo FCO Retainer. Continuous, no gaps. See `.private/docs/lean-canvas-coaching.md` for full ladder.
 
 **Future path (coach-mediated, deprioritized):** Coach-mediated cascading remains a valid long-term hypothesis but is not the near-term mechanism.
 
@@ -316,7 +316,7 @@ Enterprise adoption (12-month timeline)
 
 ### The Seven-Stage Cascade
 
-> **Time horizons:** Stages 1-3 map to the current 0-12 month execution (Canvas G's price ladder). Stages 4-7 are the 1-5 year platform vision. The theory of change describes the end state; Canvas G (lean-canvas.md) describes how to get there from zero.
+> **Time horizons:** Stages 1-3 map to the current 0-12 month execution (Canvas G's price ladder). Stages 4-7 are the 1-5 year platform vision. The theory of change describes the end state; the coaching canvas (`.private/docs/lean-canvas-coaching.md`) describes how to get there from zero.
 
 ```
 STAGE 1: THE PROOF
@@ -524,6 +524,12 @@ LAYER 4: TOPOLOGY MAP
 
 **Implication for ClarityPledge:** The /live protocol is not a communication tool — it's a common knowledge accelerator. Every conversation is a potential CK generator, but because people fear the verification step, conversations fail to produce CK and instead produce divergent private beliefs that compound.
 
+**Empirical grounding (2026-03-22, per Edmonds' Modelling Ready Levels):** The /live protocol is at approximately MRL 6 — shown to be applicable via 30+ real sessions. The rate asymmetry *theory* (why the protocol matters at civilizational scale) is at MRL 1-2 — concepts described, not yet empirically tested. This gap should be explicitly acknowledged in any published writing, especially for the LessWrong audience. Session data grounds the protocol; it does not yet ground the rate claim itself.
+
+**Protocol precision (2026-03-22):** ClarityPledge currently implements **Rapoport-verified challenges** — comprehension is verified before disagreement is filed. This is NOT Popper-grade falsification, which would require an additional step: the challenger must formulate a specific falsification test ("if your claim is true, then X should follow; here's why X doesn't hold") and the claim holder must address that specific test. "Not conceded after comprehension-verified challenge" ≠ "survived falsification." Both are valuable and likely unprecedented as visible metrics — but conflating them risks the false common knowledge the protocol is designed to prevent.
+
+**Recursive application — critical rationalism as testable epistemology (2026-03-22):** If participants predictably adopt the 7-8 calibration points after verified understanding, a second layer of points about epistemology itself (critical rationalism) can be filed and tested using the same mechanism. Stories about failed falsification attempts become particularly compelling for people who've adopted CR — the product becomes a meta-epistemological instrument testing whether epistemology can be transmitted via verified understanding. This is a future direction, not current scope.
+
 ---
 
 ## Evidence Base (Strategic Evidence)
@@ -618,7 +624,7 @@ Minimum ROI:                  2x
 
 ## Changelog
 
-- **2026-03-08:** Canvas G consolidation — added time-horizon labels (0-12mo execution vs. 1-10yr vision), updated activities/outcomes to match current "You are the MCP" service model, two workshop formats (1-to-many lead gen + 1-to-2 conversion), price ladder (Free → €950 → €1,500/mo), parked investor DD and recognition tracks
+- **2026-03-08:** Canvas G consolidation — added time-horizon labels (0-12mo execution vs. 1-10yr vision), updated activities/outcomes to match current "You are the MCP" service model, two workshop formats (1-to-many lead gen + 1-to-2 conversion), price ladder (Free → €950 → from-€1,950/mo), parked investor DD and recognition tracks
 - **2026-03-02:** Stage 0b promoted to primary cold start; partner agreement loop added; Stage 0a reframed from coach-cascade to workshop-agreement path
 - **2026-01-28:** Added Stage 0 (Protocol Propagation / Protocol-Led Growth), Evidence Base section with research citations
 - **2026-01-25:** Promoted from `docs/visions/v0_theory-of-change.md` to source of truth doc (P96)

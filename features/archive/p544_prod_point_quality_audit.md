@@ -1,5 +1,5 @@
 ---
-status: blocked
+status: rejected
 type: story
 rank: 0.5
 tags:
@@ -7,8 +7,7 @@ tags:
   - content-quality
   - sifter
   - ai-feedback
-blocked_by: p523
-superseded_by: p563,p564
+superseded_by: p561,p563,p564
 created_date: 2026-03-18T00:00:00.000Z
 flow: dev
 locked_at: '2026-03-18T07:47:12.103Z'

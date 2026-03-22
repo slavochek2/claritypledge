@@ -1,13 +1,12 @@
 ---
-status: today
+status: rejected
 type: story
-rank: 0.024
+rank: 0.438
 tags:
   - live
   - ux
   - feedback
   - turn-taking
-locked_at: '2026-03-15T14:22:52.432Z'
 created_date: 2026-03-14T00:00:00.000Z
 ---
 
