@@ -19,6 +19,9 @@ This document describes how features move from idea to production in the Clarity
 /ux features/pN_feature.md           # UX layer (if UI)
 # [Review & approve UX design]
 
+/research-arch features/pN_feature.md # Technical research (if novel tech/unknowns*)
+# [Scan brief for surprises]
+
 /architect features/pN_feature.md    # Technical layer
 # [Review & approve architecture]
 
@@ -33,6 +36,8 @@ This document describes how features move from idea to production in the Clarity
 /dev features/pN_feature.md          # Implementation
 # [Agent tests itself until all pass]
 ```
+
+**/research-arch is optional** — only when the feature involves novel technology, unfamiliar integrations, or technical unknowns that `/challenge-prd` surfaced.
 
 **/decompose is optional** — only for complex features: 5+ files OR 3+ concerns OR 6+ build steps.
 
@@ -133,6 +138,65 @@ This document describes how features move from idea to production in the Clarity
 
 # User reviews, approves
 ```
+
+---
+
+### Layer 2.5: Technical Research (`/research-arch`) — Optional
+
+**What it does:** Researches best practices, pitfalls, and trade-offs for technical unknowns before architecture design. Spawns parallel research agents, then a benchmarking agent synthesizes findings.
+
+**When to use:** When the feature involves technology, patterns, or integrations the codebase hasn't used before and the architect would otherwise be guessing.
+
+**Triggers (any ONE):**
+- Novel technology not yet in the codebase (new library, new protocol, new service)
+- Multiple viable architectural approaches with non-obvious trade-offs
+- External API/service integration where pitfalls aren't well-known to the team
+- Performance-critical decision (caching strategy, concurrency model, data structure)
+- `/challenge-prd` surfaced technical unknowns that need research before design
+
+**Skip when:** The codebase already has established patterns for this kind of work, or the architect can resolve unknowns by exploring existing code.
+
+**Input:** Reads spec + challenge-prd findings to identify technical unknowns.
+
+**Workflow:**
+```
+1. IDENTIFY UNKNOWNS → Extract 2-4 technical questions from spec + challenge-prd
+     ↓
+2. PARALLEL RESEARCH → Spawn one research agent per unknown (best practices, pitfalls, prior art)
+     ↓
+3. BENCHMARK → Synthesis agent compares findings, scores approaches against project constraints
+     ↓
+4. APPEND BRIEF → Write "Technical Research Brief" section to spec
+```
+
+**Output:** `## Technical Research Brief` appended to spec:
+- Per unknown: findings summary, recommended approach, pitfalls to avoid
+- Comparison matrix when multiple approaches were researched
+- Links to authoritative sources (docs, RFCs, benchmarks)
+
+**Review gate:** User scans brief for surprises. No formal approval needed — architect consumes it as input.
+
+**Example:**
+```bash
+/research-arch features/p200_realtime_cursors.md
+
+# Agent identifies unknowns from spec:
+# 1. "Supabase Realtime vs Ably vs Liveblocks for cursor sharing"
+# 2. "Cursor throttling strategies for 10+ concurrent users"
+
+# Spawns 2 research agents in parallel:
+# - Agent 1: Compares realtime providers (latency, pricing, Supabase integration)
+# - Agent 2: Researches cursor throttling (requestAnimationFrame vs debounce vs spatial hashing)
+
+# Benchmark agent synthesizes:
+# - Supabase Realtime wins (already in stack, no new dependency, adequate for <50 users)
+# - requestAnimationFrame + 50ms throttle is the consensus approach
+# - Pitfall: Supabase presence has 1KB payload limit per key
+
+# Brief appended to spec → /architect reads it
+```
+
+**Next:** If brief has surprises → discuss with user. Otherwise → Run `/architect`.
 
 ---
 
@@ -441,6 +505,7 @@ Need RLS policy or validation that userId matches authenticated user.
 | `/create-prd` | Starting any new feature | Business requirements only |
 | `/challenge-prd` | After `/create-prd` (recommended for novel features) | Adversarial stress-test: BLOCK/WARN/NOTE findings |
 | `/ux` | UI features (after business approved) | UX design (flows, screens, edge cases) |
+| `/research-arch` | Novel tech, unfamiliar integrations, technical unknowns from `/challenge-prd` (optional) | Technical Research Brief (best practices, pitfalls, comparison matrix) |
 | `/architect` | All features (after UX approved if UI) | Technical architecture + security |
 | `/generate-tests` | All features (after architecture approved) | UAT + E2E stubs + smoke tests |
 | `/spec-review` | Optional — use when spec evolved since architect review, or for pre-dev sanity check | Findings report: BLOCK / WARN / NOTE + READY or NEEDS FIXES verdict |
@@ -841,7 +906,7 @@ Skills for managing subscribers, post-session follow-ups, and personalized outre
 │ CORE FLOW                                           │
 │                                                     │
 │ Features:                                           │
-│ /create-prd → /challenge-prd* → /ux → /architect → /generate-tests → /spec-review → /decompose* → /dev │
+│ /create-prd → /challenge-prd* → /ux → /research-arch* → /architect → /generate-tests → /spec-review → /decompose* → /dev │
 │                                                     │
 │ * /decompose optional — 5+ files OR 3+ concerns OR 6+ build steps      │
 │   /decompose reads Test Coverage section from /generate-tests           │
