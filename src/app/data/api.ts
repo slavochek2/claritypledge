@@ -2737,18 +2737,26 @@ async function getSignedUploadUrl(
   contentType: string
 ): Promise<{ uploadUrl: string; filePath: string }> {
   return withRetry(async () => {
-    const response = await fetch(GCS_SIGNED_URL_FUNCTION, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ sessionCode, fileName, contentType }),
-    });
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000);
 
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({ error: 'Unknown error' }));
-      throw new Error(`Failed to get signed URL: ${error.error}`);
+    try {
+      const response = await fetch(GCS_SIGNED_URL_FUNCTION, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sessionCode, fileName, contentType }),
+        signal: controller.signal,
+      });
+
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({ error: 'Unknown error' }));
+        throw new Error(`Failed to get signed URL: ${error.error}`);
+      }
+
+      return response.json();
+    } finally {
+      clearTimeout(timeoutId);
     }
-
-    return response.json();
   }, { operation: 'getSignedUploadUrl' });
 }
 
@@ -2758,11 +2766,20 @@ async function getSignedUploadUrl(
  */
 async function uploadToGCS(uploadUrl: string, blob: Blob, contentType: string): Promise<void> {
   return withRetry(async () => {
-    const response = await fetch(uploadUrl, {
-      method: 'PUT',
-      headers: { 'Content-Type': contentType },
-      body: blob,
-    });
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000);
+
+    let response: Response;
+    try {
+      response = await fetch(uploadUrl, {
+        method: 'PUT',
+        headers: { 'Content-Type': contentType },
+        body: blob,
+        signal: controller.signal,
+      });
+    } finally {
+      clearTimeout(timeoutId);
+    }
 
     if (!response.ok) {
       const error = new Error(`GCS upload failed: ${response.status} ${response.statusText}`);
@@ -2854,7 +2871,73 @@ export async function uploadAudioChunk(
       tags: { feature: 'ml_training', operation: 'chunk_upload' },
       extra: { sessionCode, chunkNumber, isLastChunk, blobSize: chunkBlob.size },
     });
-    // Don't throw - recording failure shouldn't break the session
+    throw err;
+  }
+}
+
+/**
+ * P566: Uploads a single audio chunk to GCS without error handling or DB writes.
+ * Errors propagate to the caller (the upload queue handles retries).
+ *
+ * @param sessionCode - The 6-character session code
+ * @param userName - Name of the user
+ * @param chunkBlob - The audio chunk blob
+ * @param chunkNumber - Zero-based chunk index
+ */
+export async function uploadSingleChunk(
+  sessionCode: string,
+  userName: string,
+  chunkBlob: Blob,
+  chunkNumber: number,
+): Promise<void> {
+  const sanitizedName = userName
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '');
+
+  const paddedChunkNum = String(chunkNumber).padStart(3, '0');
+  const chunkFileName = `${sanitizedName}_chunk_${paddedChunkNum}.webm`;
+  const contentType = chunkBlob.type || 'audio/webm';
+
+  console.log(`[ML Upload] uploadSingleChunk ${chunkNumber} for ${sanitizedName}, size: ${chunkBlob.size}`);
+
+  const { uploadUrl, filePath } = await getSignedUploadUrl(
+    sessionCode,
+    chunkFileName,
+    contentType
+  );
+
+  await uploadToGCS(uploadUrl, chunkBlob, contentType);
+  console.log(`[ML Upload] Chunk ${chunkNumber} uploaded: ${filePath}`);
+}
+
+/**
+ * P566: Records that chunk uploads are complete in the DB.
+ * Extracted from uploadAudioChunk so the queue can call it after all chunks drain.
+ */
+export async function recordChunkUploadComplete(
+  sessionCode: string,
+  userName: string,
+  chunkCount: number,
+  durationMs: number,
+): Promise<void> {
+  const sanitizedName = userName
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '');
+
+  const { error: dbError } = await supabase.from('ml_training_sessions').insert({
+    session_code: sessionCode,
+    user_name: userName,
+    audio_path: `gs://claritypledge-ml-training/sessions/${sessionCode}/${sanitizedName}_chunk_*.webm`,
+    duration_ms: durationMs,
+    chunk_count: chunkCount,
+  });
+
+  if (dbError) {
+    console.warn('[ML Upload] DB record failed (non-fatal):', dbError.message);
   }
 }
 

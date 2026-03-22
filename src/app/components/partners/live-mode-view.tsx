@@ -60,7 +60,7 @@ import { usePwaInstall } from '@/hooks/use-pwa-install';
  * The banner's purpose is transparency for users, not a technical indicator.
  */
 
-function RecordingIndicator({ isPrivate = false }: { isPrivate?: boolean }) {
+function RecordingIndicator({ isPrivate = false, uploadHealth }: { isPrivate?: boolean; uploadHealth?: 'healthy' | 'degraded' | 'critical' }) {
   if (isPrivate) {
     return (
       <div className="flex items-center justify-center gap-2 py-1.5 bg-muted border-b border-border" aria-live="polite">
@@ -69,10 +69,25 @@ function RecordingIndicator({ isPrivate = false }: { isPrivate?: boolean }) {
       </div>
     );
   }
+
   return (
-    <div className="flex items-center justify-center gap-2 py-1.5 bg-blue-50 border-b border-blue-200">
-      <Sparkles className="w-3.5 h-3.5 text-blue-500" />
-      <span className="text-xs text-blue-700">Session recorded for AI Insights</span>
+    <div aria-live="polite">
+      {uploadHealth === 'critical' && (
+        <div className="flex items-center justify-center gap-2 py-1.5 bg-red-50 border-b border-red-200">
+          <span className="text-xs text-red-700">❌ Audio upload failing — check your connection</span>
+        </div>
+      )}
+      {uploadHealth === 'degraded' && (
+        <div className="flex items-center justify-center gap-2 py-1.5 bg-yellow-50 border-b border-yellow-200">
+          <span className="text-xs text-yellow-800">⚠️ Weak connection — retrying audio upload</span>
+        </div>
+      )}
+      {(!uploadHealth || uploadHealth === 'healthy') && (
+        <div className="flex items-center justify-center gap-2 py-1.5 bg-blue-50 border-b border-blue-200">
+          <Sparkles className="w-3.5 h-3.5 text-blue-500" />
+          <span className="text-xs text-blue-700">Session recorded for AI Insights</span>
+        </div>
+      )}
     </div>
   );
 }
@@ -90,12 +105,21 @@ const CONTENT_LAYOUT_CENTERED = "flex-1 flex flex-col items-center justify-cente
 // PARTNER LEFT SCREEN
 // ============================================================================
 
+/** P566: Upload progress state for PartnerLeftScreen */
+export interface UploadProgressState {
+  pending: number;
+  total: number;
+  status: 'uploading' | 'complete' | 'failed';
+}
+
 interface PartnerLeftScreenProps {
   partnerName: string | null;
   sessionEnded: boolean; // true = creator ended session, false = joiner left
   onStartNew: () => void;
   /** P396: True when user is an anonymous guest (not a verified account) */
   isGuest?: boolean;
+  /** P566: Upload progress to show during post-session drain */
+  uploadProgress?: UploadProgressState | null;
 }
 
 /**
@@ -103,7 +127,7 @@ interface PartnerLeftScreenProps {
  * Displays different messaging based on whether the creator ended the session
  * or the joiner left. Shows signup prompt for anonymous guests.
  */
-export function PartnerLeftScreen({ partnerName, sessionEnded, onStartNew, isGuest }: PartnerLeftScreenProps) {
+export function PartnerLeftScreen({ partnerName, sessionEnded, onStartNew, isGuest, uploadProgress }: PartnerLeftScreenProps) {
   // Different messaging based on what happened
   const title = sessionEnded
     ? 'Session ended'
@@ -132,6 +156,36 @@ export function PartnerLeftScreen({ partnerName, sessionEnded, onStartNew, isGue
           </Button>
           {sessionEnded && (
             <>
+              {/* P566: Upload progress indicator */}
+              {uploadProgress && uploadProgress.status === 'uploading' && (
+                <div className="mt-4 w-full space-y-2">
+                  <p className="text-sm font-medium">Uploading session audio...</p>
+                  <div className="w-full bg-muted rounded-full h-2">
+                    <div
+                      className="bg-blue-500 rounded-full h-2"
+                      style={{ width: `${uploadProgress.total > 0 ? Math.round(((uploadProgress.total - uploadProgress.pending) / uploadProgress.total) * 100) : 0}%` }}
+                      role="progressbar"
+                      aria-valuenow={uploadProgress.total - uploadProgress.pending}
+                      aria-valuemin={0}
+                      aria-valuemax={uploadProgress.total}
+                    />
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    {uploadProgress.total - uploadProgress.pending} of {uploadProgress.total} chunks uploaded
+                  </p>
+                  <p className="text-sm text-muted-foreground">Don&apos;t close this tab until upload completes</p>
+                </div>
+              )}
+              {uploadProgress && uploadProgress.status === 'complete' && (
+                <p className="mt-4 text-sm text-green-600">✓ Audio upload complete</p>
+              )}
+              {uploadProgress && uploadProgress.status === 'failed' && (
+                <div className="mt-4 space-y-1">
+                  <p className="text-sm text-red-600">Some audio could not be uploaded</p>
+                  <p className="text-sm text-muted-foreground">Your session was partially recorded. The transcription will use available audio.</p>
+                </div>
+              )}
+
               <div className="mt-4 flex items-center gap-2 text-sm text-muted-foreground">
                 <Loader2Icon className="w-4 h-4 animate-spin flex-shrink-0" />
                 <span>Transcribing your session...</span>
@@ -240,6 +294,8 @@ interface LiveModeViewProps {
   partnerEarsCount?: number;
   /** P525: Whether the current user is the session creator (needed for role-aware celebration acknowledgment) */
   isCreator?: boolean;
+  /** P566: Upload health indicator for RecordingIndicator */
+  uploadHealth?: 'healthy' | 'degraded' | 'critical';
 }
 
 export function LiveModeView({
@@ -276,6 +332,7 @@ export function LiveModeView({
   isPrivate = false,
   partnerEarsCount = 0,
   isCreator = false,
+  uploadHealth,
 }: LiveModeViewProps) {
 
   // Hide site-wide navigation when live session is active.
@@ -589,6 +646,7 @@ export function LiveModeView({
           isStoryOwner={isAuthorOfSelected}
           isGuest={isGuest}
           currentUserName={currentUserName}
+          uploadHealth={uploadHealth}
                   />
         {skipNotificationDialog}
         {confirmSkipDialog}
@@ -623,6 +681,7 @@ export function LiveModeView({
           badgePersonEarsCount={badgePersonEarsCount}
           isStoryOwner={isAuthorOfSelected}
           isGuest={isGuest}
+          uploadHealth={uploadHealth}
                   />
         {skipNotificationDialog}
         {confirmSkipDialog}
@@ -654,6 +713,7 @@ export function LiveModeView({
           isStoryOwner={isAuthorOfSelected}
           isGuest={isGuest}
           currentUserName={currentUserName}
+          uploadHealth={uploadHealth}
                   />
         {skipNotificationDialog}
         {confirmSkipDialog}
@@ -681,6 +741,7 @@ export function LiveModeView({
           badgePersonEarsCount={badgePersonEarsCount}
           isStoryOwner={isAuthorOfSelected}
           isGuest={isGuest}
+          uploadHealth={uploadHealth}
                   />
         {skipNotificationDialog}
         {confirmSkipDialog}
@@ -711,6 +772,7 @@ export function LiveModeView({
             isStoryOwner={isAuthorOfSelected}
             isGuest={isGuest}
             currentUserName={currentUserName}
+            uploadHealth={uploadHealth}
                       />
           {skipNotificationDialog}
           {confirmSkipDialog}
@@ -749,6 +811,7 @@ export function LiveModeView({
           onClearStory={onClearStory}
           isGuest={isGuest}
           isCreator={isCreator}
+          uploadHealth={uploadHealth}
                   />
         {skipNotificationDialog}
         {confirmSkipDialog}
@@ -789,6 +852,7 @@ export function LiveModeView({
           isStoryOwner={isAuthorOfSelected}
           isGuest={isGuest}
           isCreator={isCreator}
+          uploadHealth={uploadHealth}
                   />
         {skipNotificationDialog}
         {confirmSkipDialog}
@@ -818,6 +882,7 @@ export function LiveModeView({
         isStoryOwner={isAuthorOfSelected}
         isGuest={isGuest}
         currentUserName={currentUserName}
+        uploadHealth={uploadHealth}
               />
       {skipNotificationDialog}
       {confirmSkipDialog}
@@ -868,6 +933,8 @@ interface IdleScreenProps {
   currentUserName: string;
   /** P490: When true, user is a guest (unauthenticated) — shows "sign up to save" hint instead of CTA */
   isGuest?: boolean;
+  /** P566: Upload health for recording indicator */
+  uploadHealth?: 'healthy' | 'degraded' | 'critical';
 }
 
 function IdleScreen({
@@ -893,6 +960,7 @@ function IdleScreen({
   isStoryOwner = false,
   _currentUserName,
   isGuest = false,
+  uploadHealth,
 }: IdleScreenProps) {
   const displayPartnerName = getFirstName(partnerName);
   const checkerName = liveState.checkerName ? getFirstName(liveState.checkerName) : '';
@@ -1032,7 +1100,7 @@ function IdleScreen({
 
   return (
     <div className="flex flex-col h-full">
-      <LiveHeader partnerName={partnerName} onExit={onExit} isPrivate={isPrivate} />
+      <LiveHeader partnerName={partnerName} onExit={onExit} isPrivate={isPrivate} uploadHealth={uploadHealth} />
 
       <div ref={scrollContainerRef} className={`${layoutClass} overflow-y-auto`} style={{ overflowAnchor: 'none' }}>
         {selectedHistoryIndex !== null && sessionHistory[selectedHistoryIndex] ? (
@@ -1196,6 +1264,8 @@ interface ResponderWaitingWithDrawerProps {
   currentUserName: string;
   /** P490: When true, user is a guest (unauthenticated) — shows "sign up to save" hint instead of CTA */
   isGuest?: boolean;
+  /** P566: Upload health for recording indicator */
+  uploadHealth?: 'healthy' | 'degraded' | 'critical';
 }
 
 function ResponderWaitingWithDrawer({
@@ -1213,6 +1283,7 @@ function ResponderWaitingWithDrawer({
   isStoryOwner,
   currentUserName,
   isGuest = false,
+  uploadHealth,
 }: ResponderWaitingWithDrawerProps) {
   return (
     <IdleScreen
@@ -1231,6 +1302,7 @@ function ResponderWaitingWithDrawer({
       isStoryOwner={isStoryOwner}
       currentUserName={currentUserName}
       isGuest={isGuest}
+      uploadHealth={uploadHealth}
           />
   );
 }
@@ -1263,6 +1335,8 @@ interface RatingScreenProps {
   isStoryOwner?: boolean;
   /** P490: When true, user is a guest (unauthenticated) — shows "sign up to save" hint instead of CTA */
   isGuest?: boolean;
+  /** P566: Upload health for recording indicator */
+  uploadHealth?: 'healthy' | 'degraded' | 'critical';
 }
 
 function RatingScreen({
@@ -1281,6 +1355,7 @@ function RatingScreen({
   onClearStory,
   isStoryOwner = false,
   isGuest = false,
+  uploadHealth,
 }: RatingScreenProps) {
   const displayPartnerName = getFirstName(partnerName);
   const checkerName = liveState.checkerName ? getFirstName(liveState.checkerName) : '';
@@ -1312,7 +1387,7 @@ function RatingScreen({
 
   return (
     <div className="flex flex-col h-full">
-      <LiveHeader partnerName={partnerName} onExit={onExit} isPrivate={isPrivate} />
+      <LiveHeader partnerName={partnerName} onExit={onExit} isPrivate={isPrivate} uploadHealth={uploadHealth} />
 
       <div className={CONTENT_LAYOUT}>
         {/* Only show journey card if there's history from previous rounds */}
@@ -1409,6 +1484,8 @@ interface RatingScreenWithOptionalDrawerProps {
   isStoryOwner?: boolean;
   /** P490: When true, user is a guest (unauthenticated) — shows "sign up to save" hint instead of CTA */
   isGuest?: boolean;
+  /** P566: Upload health for recording indicator */
+  uploadHealth?: 'healthy' | 'degraded' | 'critical';
 }
 
 function RatingScreenWithOptionalDrawer({
@@ -1429,6 +1506,7 @@ function RatingScreenWithOptionalDrawer({
   onClearStory,
   isStoryOwner = false,
   isGuest = false,
+  uploadHealth,
 }: RatingScreenWithOptionalDrawerProps) {
   const displayPartnerName = getFirstName(partnerName);
   const checkerName = liveState.checkerName ? getFirstName(liveState.checkerName) : displayPartnerName;
@@ -1470,7 +1548,7 @@ function RatingScreenWithOptionalDrawer({
 
   return (
     <div className="flex flex-col h-full">
-      <LiveHeader partnerName={partnerName} onExit={onExit} isPrivate={isPrivate} />
+      <LiveHeader partnerName={partnerName} onExit={onExit} isPrivate={isPrivate} uploadHealth={uploadHealth} />
 
       <div className={CONTENT_LAYOUT}>
         {/* Only show journey card if there's history from previous rounds */}
@@ -2097,6 +2175,8 @@ interface UnderstandingScreenProps {
   isGuest?: boolean;
   /** P525: Whether the current user is the session creator (for role-aware celebration acknowledgment) */
   isCreator?: boolean;
+  /** P566: Upload health for recording indicator */
+  uploadHealth?: 'healthy' | 'degraded' | 'critical';
 }
 
 function UnderstandingScreen({
@@ -2128,6 +2208,7 @@ function UnderstandingScreen({
   isStoryOwner = false,
   isGuest = false,
   isCreator = false,
+  uploadHealth,
 }: UnderstandingScreenProps) {
   const displayPartnerName = getFirstName(partnerName);
   const checkerName = liveState.checkerName ? getFirstName(liveState.checkerName) : '';
@@ -2248,7 +2329,7 @@ function UnderstandingScreen({
       if (!listenerDone) {
         return (
           <div className="flex flex-col h-full">
-            <LiveHeader partnerName={partnerName} onExit={onExit} isPrivate={isPrivate} />
+            <LiveHeader partnerName={partnerName} onExit={onExit} isPrivate={isPrivate} uploadHealth={uploadHealth} />
             <div className={CONTENT_LAYOUT}>
               {/* P400 Bug 3: journey FIRST, story SECOND (correct order) */}
               <JourneyToUnderstanding
@@ -2322,7 +2403,7 @@ function UnderstandingScreen({
       const explainBackPrompt = `How well do you believe ${displayPartnerName} understands your intention?`;
       return (
         <div className="flex flex-col h-full">
-          <LiveHeader partnerName={partnerName} onExit={onExit} isPrivate={isPrivate} />
+          <LiveHeader partnerName={partnerName} onExit={onExit} isPrivate={isPrivate} uploadHealth={uploadHealth} />
           <div className={CONTENT_LAYOUT}>
             {/* P400 Bug 3: journey FIRST, story SECOND (correct order) */}
             <JourneyToUnderstanding
@@ -2411,7 +2492,7 @@ function UnderstandingScreen({
     if (hasTappedDone) {
       return (
         <div className="flex flex-col h-full">
-          <LiveHeader partnerName={partnerName} onExit={onExit} isPrivate={isPrivate} />
+          <LiveHeader partnerName={partnerName} onExit={onExit} isPrivate={isPrivate} uploadHealth={uploadHealth} />
           <div className={CONTENT_LAYOUT}>
             {/* P400 Bug 3: journey FIRST, story SECOND (correct order) */}
             <JourneyToUnderstanding
@@ -2482,7 +2563,7 @@ function UnderstandingScreen({
     // BEFORE tapping "Done Explaining" - show microphone/speaking state
     return (
       <div className="flex flex-col h-full">
-        <LiveHeader partnerName={partnerName} onExit={onExit} isPrivate={isPrivate} />
+        <LiveHeader partnerName={partnerName} onExit={onExit} isPrivate={isPrivate} uploadHealth={uploadHealth} />
         <div className={CONTENT_LAYOUT}>
           {/* P400 Bug 3: journey FIRST, story SECOND (correct order) */}
           <JourneyToUnderstanding
@@ -2569,7 +2650,7 @@ function UnderstandingScreen({
 
     return (
       <div className="flex flex-col h-full">
-        <LiveHeader partnerName={partnerName} onExit={onExit} isPrivate={isPrivate} />
+        <LiveHeader partnerName={partnerName} onExit={onExit} isPrivate={isPrivate} uploadHealth={uploadHealth} />
         <div className={CONTENT_LAYOUT}>
           {/* Hide ratings until both submit to prevent bias */}
           {/* P400 Bug 3: journey FIRST, story SECOND (correct order) */}
@@ -2642,7 +2723,7 @@ function UnderstandingScreen({
 
     return (
       <div className="flex flex-col h-full">
-        <LiveHeader partnerName={partnerName} onExit={onExit} isPrivate={isPrivate} />
+        <LiveHeader partnerName={partnerName} onExit={onExit} isPrivate={isPrivate} uploadHealth={uploadHealth} />
         <div className={CONTENT_LAYOUT}>
           {/* Celebration header */}
           <div className="text-center space-y-2">
@@ -2712,7 +2793,7 @@ function UnderstandingScreen({
 
     return (
       <div className="flex flex-col h-full">
-        <LiveHeader partnerName={partnerName} onExit={onExit} isPrivate={isPrivate} />
+        <LiveHeader partnerName={partnerName} onExit={onExit} isPrivate={isPrivate} uploadHealth={uploadHealth} />
         <div className={CONTENT_LAYOUT}>
           {/* Result-first: journey → gap badge (bonded) → CTA → story (reference, scrollable) */}
           <JourneyToUnderstanding
@@ -2849,7 +2930,7 @@ function UnderstandingScreen({
 
     return (
       <div className="flex flex-col h-full">
-        <LiveHeader partnerName={partnerName} onExit={onExit} isPrivate={isPrivate} />
+        <LiveHeader partnerName={partnerName} onExit={onExit} isPrivate={isPrivate} uploadHealth={uploadHealth} />
         <div className={CONTENT_LAYOUT}>
           {/* Result-first: journey → calibrated badge (bonded) → CTA → story (reference, scrollable) */}
           <JourneyToUnderstanding
@@ -2982,7 +3063,7 @@ function UnderstandingScreen({
   if (clarificationPhase === 'speaker-clarifying') {
     return (
       <div className="flex flex-col h-full">
-        <LiveHeader partnerName={partnerName} onExit={onExit} isPrivate={isPrivate} />
+        <LiveHeader partnerName={partnerName} onExit={onExit} isPrivate={isPrivate} uploadHealth={uploadHealth} />
         <div className={CONTENT_LAYOUT}>
           <JourneyToUnderstanding
             checkerRating={checkerRating}
@@ -3114,7 +3195,7 @@ function UnderstandingScreen({
 
   return (
     <div className="flex flex-col h-full">
-      <LiveHeader partnerName={partnerName} onExit={onExit} isPrivate={isPrivate} />
+      <LiveHeader partnerName={partnerName} onExit={onExit} isPrivate={isPrivate} uploadHealth={uploadHealth} />
       <div className={CONTENT_LAYOUT}>
         {/* P400 Bug 3: journey FIRST, story SECOND (correct order) */}
         <JourneyToUnderstanding
@@ -3310,10 +3391,12 @@ interface LiveHeaderProps {
   partnerName: string;
   onExit: () => void;
   isPrivate?: boolean;
+  /** P566: Upload health indicator */
+  uploadHealth?: 'healthy' | 'degraded' | 'critical';
 }
 
 /** Header with banner + recording indicator. Reads returnTo from URL directly. */
-function LiveHeader({ partnerName, onExit, isPrivate = false }: LiveHeaderProps) {
+function LiveHeader({ partnerName, onExit, isPrivate = false, uploadHealth }: LiveHeaderProps) {
   const [searchParams] = useSearchParams();
   const rawReturnTo = searchParams.get('returnTo');
   const returnTo = rawReturnTo && rawReturnTo.startsWith('/') && !rawReturnTo.startsWith('//')
@@ -3322,7 +3405,7 @@ function LiveHeader({ partnerName, onExit, isPrivate = false }: LiveHeaderProps)
   return (
     <>
       <LiveSessionBanner partnerName={partnerName} onExit={onExit} returnTo={returnTo} />
-      <RecordingIndicator isPrivate={isPrivate} />
+      <RecordingIndicator isPrivate={isPrivate} uploadHealth={uploadHealth} />
     </>
   );
 }
