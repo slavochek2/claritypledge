@@ -2,6 +2,14 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-22 [product]: P568 phone placement deferred — self-serve without facilitator doesn't exist yet
+
+**Context:** Deep UX exploration for P568 (30 ASCII flow variants, 50 innovation approaches, falsification analysis). Converged on a strong design: cross-phone sequential mic check ("say your name" while partner stays quiet, share RMS via realtime channel, compare ratios). Then asked: who needs this? Speaker attribution without a facilitator only matters for self-serve pairs. All 28+ sessions have been facilitator-led. The 30-day priority is workshops + €950 de-risking conversion (lean canvas coaching), neither of which needs phone placement guidance or automated diarization.
+**Decision:** P568 moved to backlog. Unblock condition: self-serve /live sessions happening without facilitator AND attribution quality reported as a problem. Full design (cross-phone mic check flow, killed alternatives, implementation notes) preserved in spec for when it's needed.
+**Alternatives rejected:** (A) Build it now as infrastructure — premature optimization for a use case that doesn't exist. (B) Build just the static tooltip (simpler) — even a tooltip is solving a problem nobody has today. (C) Combine with P518 preboarding — considered merging "say your name" with goal alignment, but P518 is about emotional readiness (interface taps), P568 about audio quality (spoken voice). Kept separate.
+**Consequences:** P569 (energy post-validation) remains blocked — but by the same root cause: no self-serve sessions exist. The entire speaker attribution pipeline (P556 → P568 → P569) is premature for current phase. LLM merge (Gemini) from P569 is independently valuable and can ship without P568. Key design artifact: cross-phone RMS comparison via existing realtime channel is ~30 lines when needed.
+**References:** [P568](features/p568_phone_placement_guidance.md), [P569](features/p569_energy_post_validation.md), [lean-canvas-coaching](.private/docs/lean-canvas-coaching.md)
+
 ## 2026-03-22 [product]: Split lean canvas — platform and coaching are separate businesses
 
 **Context:** Superdesign AI design tool generated confused landing page variations when given the combined lean-canvas.md. Root cause: one canvas described two businesses — a free open-source platform AND a €1,950/mo coaching practice. The UVP was simultaneously "calibration infrastructure for personal AI" and "I test if founders are aligned in real time." An AI design tool can't resolve this; neither can a human visitor.
