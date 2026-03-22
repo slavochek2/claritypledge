@@ -191,6 +191,7 @@ export async function getFeaturedProfiles(): Promise<ProfileSummary[]> {
       .select(selectFields)
       .eq('is_verified', true)
       .eq('has_pledged', true) // P50: Filter out non-pledgers (e.g., /live guests)
+      .eq('is_test_account', false) // P571: Hide test accounts from public listing
       .order('created_at', { ascending: false })
       .limit(MAX_FEATURED_PROFILES * 3);
 
@@ -254,7 +255,8 @@ export async function getVerifiedProfileCount(): Promise<number> {
       .from('profiles')
       .select('*', { count: 'exact', head: true })
       .eq('is_verified', true)
-      .eq('has_pledged', true); // P50: Filter out non-pledgers
+      .eq('has_pledged', true) // P50: Filter out non-pledgers
+      .eq('is_test_account', false); // P571: Hide test accounts from count
 
     if (error) {
       console.error('Error fetching verified profile count:', error.message);
@@ -283,6 +285,7 @@ export async function getVerifiedProfiles(): Promise<Profile[]> {
       .select('*')
       .eq('is_verified', true)
       .eq('has_pledged', true) // P50: Filter out non-pledgers (e.g., /live guests)
+      .eq('is_test_account', false) // P571: Hide test accounts from public listing
       .order('created_at', { ascending: false });
 
     if (profilesError) {

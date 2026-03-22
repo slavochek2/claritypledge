@@ -1,11 +1,11 @@
 ---
-status: today
+status: in-progress
 type: task
 rank: 1000023.0
 workstream: foundation
 created_date: 2026-03-22
 flow: dev
-delivery_stage: 4-tests-ready
+delivery_stage: uat
 uat_file: features/uat/p571.md
 test_files:
   - e2e/integration/p571-is-test-account-migration.spec.ts
@@ -30,10 +30,10 @@ Add `is_test_account` boolean column (default `false`) to `profiles` table. Set 
 
 ## Acceptance Criteria
 
-- [ ] `is_test_account` column exists on `profiles` with default `false`
-- [ ] Known test accounts have `is_test_account = true`
-- [ ] `/pledgers` page does not show test accounts
-- [ ] Test accounts can still log in and use the app normally
+- [x] `is_test_account` column exists on `profiles` with default `false`
+- [x] Known test accounts have `is_test_account = true`
+- [x] `/pledgers` page does not show test accounts
+- [x] Test accounts can still log in and use the app normally
 
 ## Testing
 

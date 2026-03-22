@@ -103,6 +103,7 @@ export interface DbProfile {
   bio?: string | null; // P414: Short self-description, max 160 chars
   banner_url?: string | null; // P504: AI-generated profile banner image
   banner_generation_attempted?: boolean; // P504: Whether banner generation was attempted
+  is_test_account?: boolean; // P571: Excludes account from public /pledgers listing
 }
 
 /**
