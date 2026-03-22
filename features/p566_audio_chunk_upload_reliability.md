@@ -3,7 +3,7 @@ status: in-progress
 type: bug
 rank: 5
 flow: dev
-delivery_stage: 4-tests-ready
+delivery_stage: uat
 tags:
   - recording
   - infrastructure
