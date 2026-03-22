@@ -2,6 +2,25 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-22 [technical]: Local-first audio upload with IndexedDB WAL — Riverside model (P566)
+
+**Context:** Session E7QDTX revealed 35% chunk loss (57 of 87 expected chunks missing). Root cause: `uploadAudioChunk()` in `api.ts:2850-2858` silently swallowed all upload errors ("Don't throw - recording failure shouldn't break the session"). 6 failure modes identified via 5-why analysis: silent error swallow, fire-and-forget upload (not awaited), no fetch timeout (no AbortController), no visibilitychange handling, unmount fire-and-forget, no upload state exposed to UI. Prior decision (batch transcription entry below) deferred this fix for "3% failure rate" — actual rate was 10x worse.
+
+**Decision:** Adopted the "Riverside model" — industry-standard pattern used by Riverside.fm, SquadCast, Zencastr for browser-based recording:
+1. **IndexedDB write-ahead log (WAL):** Chunks persisted to IndexedDB before any upload attempt. Upload reads from IndexedDB. Delete only after confirmed GCS upload.
+2. **Sequential upload queue with state machine:** `ChunkUploadQueue` class manages `idle → uploading → retrying → stalled` states. Health tracking: healthy/degraded (3 consecutive failures)/critical (30s all retries exhausted). Exponential backoff 1s–30s, max 10 attempts per chunk.
+3. **5-second chunk interval** (down from 30s): ~80KB per chunk at 128kbps. Maximum data at risk per failure = 5s of audio vs. 30s previously.
+4. **Fresh signed URL per retry:** GCS signed URLs expire (15min). Extended outages would cause retry against expired URL.
+5. **Post-session upload gate:** "Don't close this tab" screen with progress bar, 5-minute stall timeout → failure message → release user.
+6. **Safari Private Browsing fallback:** In-memory queue (same interface, no persistence across tab close).
+7. **Orphaned chunk recovery:** On next /live page load, upload chunks <24h, discard >24h.
+
+**Alternatives rejected:** (A) Just fix the catch block + add retry — doesn't fix tab backgrounding, unmount loss, or network outages >5min. (B) Service Worker with Background Sync — spec prohibits SW requirement; Safari doesn't support Background Sync. (C) `idb` npm package — unnecessary dependency for simple put/get/delete operations. (D) Parallel uploads with concurrency limit — adds complexity for 80KB chunks where sequential processing drains faster than it fills.
+
+**Consequences:** New files: `src/lib/chunk-store.ts`, `src/lib/chunk-upload-queue.ts`, `src/hooks/use-upload-health.ts`. Modified: `api.ts` (AbortController timeouts, error propagation, extracted `uploadSingleChunk`), `use-audio-recorder.ts` (5s interval, `onChunkProduced` callback, `requestImmediateFlush`), `live-mode-view.tsx` (RecordingIndicator degraded/critical states, PartnerLeftScreen upload progress), `clarity-live-page.tsx` (full wiring). Security review found 3 pre-existing risks to track separately: unauthenticated GCS Cloud Function, no server-side session membership verification, no content-type allowlist. Audio data in IndexedDB is unencrypted PII — mitigated by 24h TTL and cleanup-after-upload. Supersedes the "defer frontend upload reliability" decision from batch transcription entry below.
+
+**References:** [P566](features/done/24_mar_26/p566_audio_chunk_upload_reliability.md)
+
 ## 2026-03-22 [technical]: Multi-phone transcription — parallel Whisper + LLM merge (supersedes energy approach)
 
 **Context:** Full-day P556 implementation and testing. Energy-gated Whisper feeding (the 5-layer pipeline from 2026-03-21) was built, deployed, and tested on 3 benchmark sessions. Five critical discoveries invalidated the approach and shaped the new one:
