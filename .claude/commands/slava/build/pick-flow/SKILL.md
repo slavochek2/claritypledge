@@ -163,7 +163,7 @@ Any ONE of these fires → `/verify` is required. Do not skip.
 | Spec exists, `delivery_stage: 5-decomposed` | — | resume from `/dev` |
 | Spec exists, `delivery_stage: 4-tests-ready` | — | resume from `/spec-review` → `/decompose`* → `/dev` |
 | Spec exists, `delivery_stage: 3-arch-review` | — | resume from `/generate-tests` → `/spec-review` → `/dev` |
-| Spec exists, `delivery_stage: 2-ux-done` | — | resume from `/architect` → `/generate-tests` → `/spec-review` → `/dev` |
+| Spec exists, `delivery_stage: 2-ux-done` | — | resume from `/research-arch`* (if novel tech) → `/architect` → `/generate-tests` → `/spec-review` → `/dev` |
 | Spec exists, `delivery_stage: 1-prd` | — | resume from `/ux` (if UI changes) or `/architect` → `/generate-tests` → `/spec-review` → `/dev` |
 
 ### Drop/skip signals
@@ -176,7 +176,7 @@ Any ONE of these fires → `/verify` is required. Do not skip.
 
 **Command ordering when multiple signals apply:** `/create-prd` → `/challenge-prd`* → `/ux` → `/research-arch`* → `/architect` → `/generate-tests` → `/decompose` → `/dev` → `/verify`
 
-`*` `/challenge-prd` recommended for novel features (new capability, new actor, unvalidated flow). Skip for incremental improvements.
+`*` `/challenge-prd` recommended for novel features (new capability, new actor, unvalidated flow). Skip for incremental improvements. `/research-arch` optional — only when feature involves novel technology, unfamiliar integrations, or technical unknowns surfaced by `/challenge-prd`.
 
 ## Infrastructure tier (skills / hooks / process changes)
 

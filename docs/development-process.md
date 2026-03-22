@@ -741,7 +741,7 @@ If agent iterates 5+ times without progress, it will ask for help.
 
 ## Skills Ecosystem: Beyond the Core Flow
 
-The sequential flow (`/create-prd → /ux → /architect → /generate-tests → /spec-review → /decompose* → /dev`) is the core, but there are other skills that help optimize your workflow.
+The sequential flow (`/create-prd → /challenge-prd → /ux → /research-arch* → /architect → /generate-tests → /spec-review → /decompose* → /dev`) is the core, but there are other skills that help optimize your workflow.
 
 ### Pre-Work Skills (Optional - Use When Needed)
 
@@ -908,7 +908,8 @@ Skills for managing subscribers, post-session follow-ups, and personalized outre
 │ Features:                                           │
 │ /create-prd → /challenge-prd* → /ux → /research-arch* → /architect → /generate-tests → /spec-review → /decompose* → /dev │
 │                                                     │
-│ * /decompose optional — 5+ files OR 3+ concerns OR 6+ build steps      │
+│ * /research-arch optional — novel tech or technical unknowns            │
+│   /decompose optional — 5+ files OR 3+ concerns OR 6+ build steps      │
 │   /decompose reads Test Coverage section from /generate-tests           │
 │                                                     │
 │ Bugs:                                               │
