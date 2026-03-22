@@ -17,6 +17,25 @@ description: >
 
 Analyze the task in context and output exactly this structure — no preamble, no padding.
 
+## Step -2: Lean viability check
+
+Before analyzing scope, ask: **does the prerequisite use case for this feature exist today?**
+
+Read `docs/lean-canvas.md` (and `.private/docs/lean-canvas-coaching.md` if relevant). Check:
+1. **Who needs this?** — which customer segment from the lean canvas?
+2. **Are they using the product today?** — or is this building for a future segment that hasn't been validated?
+3. **Does it help the current 30-day priority?** — check Validation Status section.
+
+If the feature builds for a use case that doesn't exist yet (e.g., self-serve without facilitator, coach adoption before pairs validate), say so:
+
+```
+⚠️ Lean check: This feature serves [segment/use case] which doesn't exist yet.
+Current priority: [what the lean canvas says].
+Recommend: backlog. Update spec with "Why Backlog" section and unblock condition.
+```
+
+**Skip this check for:** bugs, refactors, infrastructure, and features where the user has already stated the use case exists.
+
 ## Step -1: Signal scan
 
 Before building options, explicitly list which signals from the scoring table fire for this task.

@@ -1,7 +1,7 @@
 ---
 name: ascii-flows
-description: Pre-UX exploration tool for complex multi-flow features. Generates 30 ASCII wireframe flow variants, scores them against weighted criteria, identifies the top 5, then iterates to produce one recommended hybrid flow for user approval. Run before /ux when a feature has multiple distinct user flows, bilateral interactions, or unclear navigation structure. Usage: /ascii-flows features/p422_foo.md
-when_to_use: Optional step before /ux for complex multi-flow features. Skip for simple single-flow features.
+description: Pre-UX exploration tool for layout and navigation structure of complex multi-flow features. Generates 30 ASCII wireframe flow variants, scores them against weighted criteria, identifies the top 5, then iterates to produce one recommended hybrid flow for user approval. Run before /ux when a feature has multiple distinct user flows, bilateral interactions, or unclear navigation structure. NOT for interaction design (how a component behaves, what feedback it gives) — that's /ux territory. Usage: /ascii-flows features/p422_foo.md
+when_to_use: Optional step before /ux for complex multi-flow features with unclear layout/navigation. Skip for simple single-flow features and for interaction design questions (use /ux instead).
 version: 1.0.0
 ---
 
