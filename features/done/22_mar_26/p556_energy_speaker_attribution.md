@@ -1,6 +1,5 @@
 ---
-status: in-progress
-delivery_stage: uat
+status: today
 type: task
 rank: 0.1
 flow: dev
@@ -8,7 +7,6 @@ tags:
   - transcription
   - infrastructure
   - speaker-attribution
-created_date: 2026-03-21
 ---
 
 # P556: Energy-Based Speaker Attribution for Multi-Phone Sessions
@@ -84,14 +82,14 @@ Local test on GB7JWW (Florrie+Slava, ~5 min sample):
 
 ## Acceptance Criteria
 
-- [x] Multi-phone sessions use energy-gated Whisper feeding (not pyannote diarization)
+- [ ] Multi-phone sessions use energy-gated Whisper feeding (not pyannote diarization)
 - [ ] Speaker split on H44Q9H within 60/40 (was 99.7/0.3)
 - [ ] Validated against events.json round boundaries (energy speaker = designated speaker ≥80% of time)
-- [x] Ambiguous segments (< 3dB delta) explicitly marked
-- [x] Single-phone sessions unchanged (pyannote fallback)
+- [ ] Ambiguous segments (< 3dB delta) explicitly marked
+- [ ] Single-phone sessions unchanged (pyannote fallback)
 - [ ] Re-processing GB7JWW, E7QDTX, H44Q9H all show balanced splits
 - [ ] Processing time < 10 min for 30-min multi-phone session
-- [x] No duplicate text in output (energy-gate prevents double transcription)
+- [ ] No duplicate text in output (energy-gate prevents double transcription)
 
 ## Files to Change
 
