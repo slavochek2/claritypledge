@@ -1,10 +1,11 @@
 ---
-status: today
+status: blocked
 type: task
-rank: 3
+rank: 0.5
 tags:
   - transcription
   - speaker-attribution
+locked_at: '2026-03-22T10:35:27.795Z'
 ---
 
 # P569: Energy Post-Validation for LLM Speaker Attribution

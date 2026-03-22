@@ -1,5 +1,5 @@
 ---
-status: editing
+status: ready
 ghost_post_id: 69b958bbe3bc500001e4f00d
 title: The Two Skills That Will Define the Next Generation of Founders
 rank: 1

@@ -1,12 +1,12 @@
 ---
 status: in-progress
 type: task
-rank: 0.5
+rank: 0.05
 tags:
   - content
   - outreach
 locked_at: '2026-03-21T07:46:44.934Z'
-created_date: 2026-03-21
+created_date: 2026-03-21T00:00:00.000Z
 ---
 
 # P557: Blog Launch — Outreach Email Templates + Tier 1 Contact List

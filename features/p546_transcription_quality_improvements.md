@@ -1,13 +1,11 @@
 ---
-status: in-progress
+status: backlog
 type: task
 rank: 1
-completed_at: '2026-03-18'
 tags:
   - transcription
   - infrastructure
   - data-quality
-locked_at: '2026-03-18T10:04:39.490Z'
 created_date: 2026-03-18
 ---
 
