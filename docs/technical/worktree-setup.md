@@ -45,11 +45,15 @@ Immediately after creating any worktree, run:
 ./scripts/setup-worktree.sh .claude/worktrees/w1
 ```
 
-**What it does:** Symlinks `.env.local` and `node_modules` from the main repo into the worktree.
+**What it does:** Symlinks `.env.local`, `.env.test.local`, and `node_modules` from the main repo into the worktree.
 
-**Why it's required:** New worktrees don't include gitignored files or installed dependencies. Without `.env.local`, any script that reads credentials (migrations, edge function deploys, test setup) will silently fail. Without `node_modules`, nothing runs.
+**Why it's required:** New worktrees don't include gitignored files or installed dependencies. Without `.env.local`, any script that reads credentials (migrations, edge function deploys, test setup) will silently fail. Without `node_modules`, nothing runs. Without `.env.test.local`, integration tests (Playwright + supabase-admin) fail with missing env var errors.
 
 **Note:** The script auto-detects `MAIN_REPO` from its own location (no hardcoded paths).
+
+### Known Limitations
+
+- **Supabase CLI not linked in worktrees.** `supabase` CLI is linked to the main repo directory (via `supabase link`). Running `./scripts/migrate.sh` from a worktree fails with "Cannot find project ref." **Workaround:** Copy the migration file to the main repo and run `./scripts/migrate.sh` from there, or run `supabase link` in the worktree (creates a `.supabase` dir).
 
 ---
 

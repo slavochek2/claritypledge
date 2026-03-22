@@ -43,5 +43,10 @@ symlink() {
   fi
 }
 
-symlink "$MAIN_REPO/.env.local"   "$WORKTREE/.env.local"   ".env.local"
-symlink "$MAIN_REPO/node_modules" "$WORKTREE/node_modules" "node_modules"
+symlink "$MAIN_REPO/.env.local"      "$WORKTREE/.env.local"      ".env.local"
+symlink "$MAIN_REPO/node_modules"   "$WORKTREE/node_modules"   "node_modules"
+
+# .env.test.local is needed for integration tests (Playwright + supabase-admin)
+if [[ -f "$MAIN_REPO/.env.test.local" ]]; then
+  symlink "$MAIN_REPO/.env.test.local" "$WORKTREE/.env.test.local" ".env.test.local"
+fi
