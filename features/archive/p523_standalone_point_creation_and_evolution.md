@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: rejected
 type: story
 rank: 0.75
 tags:
@@ -16,11 +16,11 @@ reviews:
   ux: null
   architect: null
   alignment: null
-locked_at: '2026-03-21T07:58:30.352Z'
 ---
 
 # P523: Story-First Content Model with Optional Comprehension Assessment
 
+**Status:** Rejected — superseded by epic decomposition (P560–P565, P572, P573). This spec served as the vision doc; all implementation lives in sub-specs tagged `epic-story-first`.
 **Supersedes:** P523 V1-V6 (standalone point creation + point-to-point references — dumped 2026-03-19)
 **Related:** H-StoryFirst hypothesis, Clarity Canvas v4.0, Architecture Decision Record (story-first model)
 **Falsification-tested:** 2026-03-19 — mandatory gate fails, optional gate with async card assessment survives
