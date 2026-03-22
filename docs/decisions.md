@@ -2,6 +2,14 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-22 [technical]: P571 — hide test accounts via DB column, not RLS
+
+**Context:** Test accounts (e2e-agent, slava@inguro.com) visible on public /pledgers page. Three options considered: email filter in query, DB column flag, RLS-level filter.
+**Decision:** Added `is_test_account boolean NOT NULL DEFAULT false` to profiles. Filtered in `getVerifiedProfiles`, `getVerifiedProfileCount`, and `getFeaturedProfiles`. RLS WITH CHECK prevents test accounts from self-clearing the flag via direct REST. Personal email (`slava@inguro.com`) flagged via dashboard only — never in public migration SQL.
+**Alternatives rejected:** (1) Email-domain filter — brittle, hardcodes emails. (2) RLS policy hiding rows — breaks E2E tests and manual QA that need full account access. (3) Soft-delete/deactivation — breaks test workflows entirely.
+**Consequences:** Any new test account just needs `is_test_account = true` set via dashboard. No code changes needed. Pattern: use query-level filters for display concerns, not RLS (which is for access control).
+**References:** [P571 spec](features/done/22_mar_26/p571_hide_test_accounts_from_pledgers.md)
+
 ## 2026-03-22 [product]: P568 phone placement deferred — self-serve without facilitator doesn't exist yet
 
 **Context:** Deep UX exploration for P568 (30 ASCII flow variants, 50 innovation approaches, falsification analysis). Converged on a strong design: cross-phone sequential mic check ("say your name" while partner stays quiet, share RMS via realtime channel, compare ratios). Then asked: who needs this? Speaker attribution without a facilitator only matters for self-serve pairs. All 28+ sessions have been facilitator-led. The 30-day priority is workshops + €950 de-risking conversion (lean canvas coaching), neither of which needs phone placement guidance or automated diarization.

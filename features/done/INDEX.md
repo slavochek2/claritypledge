@@ -64,6 +64,7 @@ Last updated: 2026-03-22 (P566 audio chunk upload reliability)
 - **P139** (Feb 5) E2E Cleanup FK Constraint — foreign key cascade needed for test isolation
 - **P138** (Feb 5) E2E Test Infrastructure — Supabase client setup, transaction handling, data cleanup between tests
 - **P271** (Feb 5) Missing Column After Migration — regenerate types via `supabase gen types` after schema changes
+- **P571** (Mar 26) Hide Test Accounts from Pledgers — use query-level filter (not RLS) for display concerns; WITH CHECK prevents flag self-clearing; personal emails via dashboard only, never in public SQL
 
 ## Navigation & Routing
 
