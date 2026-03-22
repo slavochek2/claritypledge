@@ -90,7 +90,7 @@ export function adjustPositionCounts(
  * Determines whether the "Tell your story" CTA should appear on a point.
  *
  * Rules:
- * - No position taken → hidden (nothing to attach a story to)
+ * - P560: Position is no longer required — story filing works without one
  * - Viewing your OWN story → hidden (you don't prompt yourself)
  * - Viewer already has a story for this point → hidden
  *
@@ -102,7 +102,6 @@ export function shouldShowStoryCTA(params: {
   isOwnStory: boolean;
   viewerStoryCount?: number;
 }): 'show' | 'hidden' {
-  if (!params.userPosition) return 'hidden';
   if (params.isOwnStory) return 'hidden';
   if (params.viewerStoryCount !== undefined && params.viewerStoryCount > 0) return 'hidden';
   return 'show';

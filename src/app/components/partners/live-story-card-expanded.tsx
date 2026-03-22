@@ -257,24 +257,31 @@ function PointRow({
 
         {/* P456: Disabled story CTA footer — visible but non-interactive in /live session.
             P487+: Hidden on own story — use shouldShowStoryCTA shared utility. */}
+        {/* P560: Position no longer required for story CTA */}
         {!isGuest && shouldShowStoryCTA({ userPosition, isOwnStory }) === 'show' && (() => {
-          const positionGroup = getPositionGroup(userPosition!);
-          const copy = getPositionCTACopy(positionGroup);
+          // Use position-specific copy when available, generic fallback otherwise
+          const copy = userPosition
+            ? getPositionCTACopy(getPositionGroup(userPosition))
+            : null;
 
           return (
             <div className="border-t border-gray-200 pt-2">
               {/* CTA row — disabled, decorative only */}
               <div className="flex items-center gap-1 opacity-50 pointer-events-none">
-                <span aria-hidden="true" className="text-sm text-gray-600">{copy.symbol}</span>
-                <span className="text-sm text-gray-600">{copy.label}</span>
-                <span aria-hidden="true" className="text-sm text-gray-400"> · </span>
+                {copy && (
+                  <>
+                    <span aria-hidden="true" className="text-sm text-gray-600">{copy.symbol}</span>
+                    <span className="text-sm text-gray-600">{copy.label}</span>
+                    <span aria-hidden="true" className="text-sm text-gray-400"> · </span>
+                  </>
+                )}
                 <button
                   disabled
                   aria-disabled="true"
                   aria-describedby={`live-cta-hint-${point.id}`}
                   className="text-sm font-medium text-blue-600"
                 >
-                  Tell your story →
+                  Add your story →
                 </button>
               </div>
               {/* Hint row */}

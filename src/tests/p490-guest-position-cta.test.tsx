@@ -3,8 +3,8 @@
  * @description Tests for P490: Guest position CTA in LiveStoryCardExpanded
  *
  * When a guest (unauthenticated user) sets a position during a /live session:
- * - They should see "Position shared live — sign up to save it" instead of "Tell your story"
- * - The "Tell your story" CTA should still appear for authenticated users
+ * - They should see "Position shared live — sign up to save it" instead of "Add your story"
+ * - The "Add your story" CTA should still appear for authenticated users
  * - Own-story suppression (isOwnStory) should still work for authenticated users
  */
 
@@ -69,13 +69,13 @@ describe('P490: Guest position CTA in LiveStoryCardExpanded', () => {
       expect(screen.getByText(/sign up to save/i)).toBeInTheDocument();
     });
 
-    it('does NOT show "Tell your story" CTA for guests', () => {
+    it('does NOT show "Add your story" CTA for guests', () => {
       renderCard({
         story: makeStory({ userPosition: 'agree' }),
         isGuest: true,
       });
 
-      expect(screen.queryByText(/Tell your story/i)).not.toBeInTheDocument();
+      expect(screen.queryByText(/Add your story/i)).not.toBeInTheDocument();
     });
 
     it('does NOT show guest hint when no position is set', () => {
@@ -89,13 +89,13 @@ describe('P490: Guest position CTA in LiveStoryCardExpanded', () => {
   });
 
   describe('Authenticated user (isGuest=false or undefined)', () => {
-    it('shows "Tell your story" CTA when position is set', () => {
+    it('shows "Add your story" CTA when position is set', () => {
       renderCard({
         story: makeStory({ userPosition: 'agree' }),
         isGuest: false,
       });
 
-      expect(screen.getByText(/Tell your story/i)).toBeInTheDocument();
+      expect(screen.getByText(/Add your story/i)).toBeInTheDocument();
     });
 
     it('hides CTA on own story (isOwnStory=true)', () => {
@@ -105,7 +105,7 @@ describe('P490: Guest position CTA in LiveStoryCardExpanded', () => {
         isOwnStory: true,
       });
 
-      expect(screen.queryByText(/Tell your story/i)).not.toBeInTheDocument();
+      expect(screen.queryByText(/Add your story/i)).not.toBeInTheDocument();
       expect(screen.queryByText(/sign up to save/i)).not.toBeInTheDocument();
     });
 
@@ -115,7 +115,7 @@ describe('P490: Guest position CTA in LiveStoryCardExpanded', () => {
         // isGuest not passed — should default to false
       });
 
-      expect(screen.getByText(/Tell your story/i)).toBeInTheDocument();
+      expect(screen.getByText(/Add your story/i)).toBeInTheDocument();
       expect(screen.queryByText(/sign up to save/i)).not.toBeInTheDocument();
     });
   });
