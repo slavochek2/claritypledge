@@ -2,6 +2,22 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-22 [product]: Split lean canvas — platform and coaching are separate businesses
+
+**Context:** Superdesign AI design tool generated confused landing page variations when given the combined lean-canvas.md. Root cause: one canvas described two businesses — a free open-source platform AND a €1,950/mo coaching practice. The UVP was simultaneously "calibration infrastructure for personal AI" and "I test if founders are aligned in real time." An AI design tool can't resolve this; neither can a human visitor.
+**Decision:** Split into two canvases: (1) `docs/lean-canvas.md` — platform only (free tool, practice community, open-source movement), (2) `.private/docs/lean-canvas-coaching.md` — coaching business (pricing, FCO retainer, unit economics, alternative approaches). Coaching canvas is gitignored (private). Cross-referenced via "Relationship" sections in each. Canonical price: €1,950/mo FCO retainer (from ladischenski.com production — overrides €1,500 in older docs).
+**Alternatives rejected:** (A) Keep one canvas with clear sections — tried this for months, the bleed was constant. (B) Put coaching canvas in pp — too far from cp docs that reference it heavily. (C) Put coaching canvas in public `docs/` — exposes pricing strategy and personal financials.
+**Consequences:** All docs referencing lean-canvas.md updated (hypotheses.md, theory-of-change.md, definitions.md, future-directions.md, kdd skill). decisions.md historical entries left as-is (they were accurate at the time). Platform canvas is ~170 lines (down from 472). The coaching canvas inherits Alternative Approaches (pivot options). Services page on ladischenski.com (€1,500) is outdated — prod homepage shows €1,950.
+**References:** [docs/lean-canvas.md](lean-canvas.md), `.private/docs/lean-canvas-coaching.md`
+
+## 2026-03-22 [product]: Landing page redesign is not the current bottleneck
+
+**Context:** Session started with goal of improving claritypledge.com landing page via Superdesign CLI. After extracting brand guide, creating project, generating 9 design variations (3 rounds), and splitting the lean canvas for cleaner context — the honest assessment: the landing page isn't the entrance. Nobody discovers ClarityPledge cold through the landing page and converts. The actual conversion path is: Slava runs workshop → person experiences gap → Slava offers de-risking. The landing page is a credibility check page for people who've already met Slava.
+**Decision:** Don't implement any Superdesign variations now. Landing page redesign becomes worth doing AFTER: (1) workshops produce repeatable "holy shit" moments, (2) testimonials from pairs who experienced real cost exist, (3) coach/facilitator adoption starts and they need a professional page to send clients to. Until then, the current landing page is adequate.
+**Alternatives rejected:** (A) Pick best Superdesign variation and implement — polish on a door that isn't the entrance. (B) Redesign for coaches specifically — premature, H-CoachChannel is blocked by H-PairsReturn.
+**Consequences:** Superdesign project preserved at `superdesign-playground` with 9 variations for future use. Focus stays on H-WTP-Pain testing via false-belief workshops.
+**References:** [docs/lean-canvas.md](lean-canvas.md), Superdesign project `18daef89-573f-40cd-b81f-defe6ede13bc`
+
 ## 2026-03-22 [technical]: Energy post-validation blocked by hardware bias — needs P568 phone placement first (P569)
 
 **Context:** P569 implemented Gemini LLM merge (replaces mechanical coinflip merge) + energy post-validation for multi-phone speaker attribution. Energy scan of 17 multi-phone sessions revealed Slava's phone is consistently louder in all sessions (hardware/placement bias). Benchmark on R8FUEQ (Jeromm + Slava, 8.1dB delta): LLM-only gets 87% overall but only 80% on Jeromm (10 segments, 26% of conversation). Naive "always Slava" baseline = 74%. Energy validation on R8FUEQ: 7 false flags (correct Jeromm segments disputed), 2 catches, 3 misses — net negative. Energy only works when the dominant phone ALTERNATES between speakers, which requires intentional phone placement.
