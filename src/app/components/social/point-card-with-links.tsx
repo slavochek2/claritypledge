@@ -326,9 +326,9 @@ export function PointCardWithLinks({
                           <button
                             onClick={(e) => { e.stopPropagation(); embedNavigate(`/create?pointId=${point.id}`); }}
                             className="text-sm text-blue-600 hover:text-blue-700 transition-colors"
-                            aria-label="Share your perspective"
+                            aria-label="Add your story"
                           >
-                            · Share your perspective →
+                            · Add your story →
                           </button>
                         )}
                         {/* Case E: viewer has a story on another profile's point */}
@@ -346,7 +346,7 @@ export function PointCardWithLinks({
                   }
 
                   if (!isEmbed && !liveSessionMode && currentUserId && effectiveViewerCount === 0) {
-                    // P560: Case B/F: 0 stories, viewer logged in — show 0-stories label + Share CTA
+                    // P560: Case B/F: 0 stories, viewer logged in — show 0-stories label + Add story CTA
                     return (
                       <div className="flex items-center gap-2">
                         <ChevronRight size={14} className="text-gray-400" />
@@ -354,9 +354,9 @@ export function PointCardWithLinks({
                         <button
                           onClick={(e) => { e.stopPropagation(); embedNavigate(`/create?pointId=${point.id}`); }}
                           className="text-sm text-blue-600 hover:text-blue-700 transition-colors"
-                          aria-label="Share your perspective"
+                          aria-label="Add your story"
                         >
-                          · Share your perspective →
+                          · Add your story →
                         </button>
                       </div>
                     );
@@ -516,9 +516,9 @@ export function PointCardWithLinks({
                     <button
                       onClick={(e) => { e.stopPropagation(); embedNavigate(`/create?pointId=${point.id}`); }}
                       className="text-sm text-blue-600 hover:text-blue-700 transition-colors"
-                      aria-label="Share your perspective"
+                      aria-label="Add your story"
                     >
-                      · Share your perspective →
+                      · Add your story →
                     </button>
                   )}
                   {/* Case E: viewer has a story on another profile's point */}
@@ -581,13 +581,13 @@ export function PointCardWithLinks({
         {currentUserId && !isEmbed && !liveSessionMode && (() => {
           const effectiveViewerStoryCount = viewerStoryCount ?? filteredStories.filter(s => s.authorId === currentUserId).length;
           if (effectiveViewerStoryCount > 0) return null;
-          // Use position-specific copy when available, generic fallback otherwise
+          // Use position-specific copy when available, unified fallback otherwise
           const ctaText = userPosition
             ? getPositionCTACopy(getPositionGroup(userPosition as PositionType)).ctaText
-            : 'Share your perspective →';
+            : 'Add your story \u2192';
           const ariaLabel = userPosition
             ? getPositionCTACopy(getPositionGroup(userPosition as PositionType)).ariaLabel
-            : 'Share your perspective';
+            : 'Add your story for this point';
           return (
             <div
               role="presentation"
