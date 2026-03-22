@@ -67,5 +67,5 @@ export async function getUserSessions(profileId: string): Promise<SessionSummary
 
   return (data as unknown as SessionRow[])
     .map((row) => mapSessionFromDb(row, profileId))
-    .filter((s) => s.roundCount > 0);
+    .filter((s) => s.roundCount > 0 || s.transcriptStatus === 'completed');
 }
