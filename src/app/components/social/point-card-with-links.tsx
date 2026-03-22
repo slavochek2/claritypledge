@@ -321,14 +321,14 @@ export function PointCardWithLinks({
                           {storiesExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
                           <span>{storyLabel}</span>
                         </button>
-                        {/* Case D: viewer has position but no story yet on another's profile */}
-                        {!isEmbed && !liveSessionMode && !isOwnProfile && userPosition && effectiveViewerCount === 0 && (
+                        {/* P560: Case D: viewer has no story yet on another's profile (position not required) */}
+                        {!isEmbed && !liveSessionMode && !isOwnProfile && currentUserId && effectiveViewerCount === 0 && (
                           <button
                             onClick={(e) => { e.stopPropagation(); embedNavigate(`/create?pointId=${point.id}`); }}
                             className="text-sm text-blue-600 hover:text-blue-700 transition-colors"
-                            aria-label="Add your story"
+                            aria-label="Share your perspective"
                           >
-                            · Add your story →
+                            · Share your perspective →
                           </button>
                         )}
                         {/* Case E: viewer has a story on another profile's point */}
@@ -345,8 +345,8 @@ export function PointCardWithLinks({
                     );
                   }
 
-                  if (!isEmbed && !liveSessionMode && userPosition && effectiveViewerCount === 0) {
-                    // Case B/F: 0 stories, viewer has position — show 0-stories label + Add CTA
+                  if (!isEmbed && !liveSessionMode && currentUserId && effectiveViewerCount === 0) {
+                    // P560: Case B/F: 0 stories, viewer logged in — show 0-stories label + Share CTA
                     return (
                       <div className="flex items-center gap-2">
                         <ChevronRight size={14} className="text-gray-400" />
@@ -354,9 +354,9 @@ export function PointCardWithLinks({
                         <button
                           onClick={(e) => { e.stopPropagation(); embedNavigate(`/create?pointId=${point.id}`); }}
                           className="text-sm text-blue-600 hover:text-blue-700 transition-colors"
-                          aria-label="Add your story"
+                          aria-label="Share your perspective"
                         >
-                          · Add your story →
+                          · Share your perspective →
                         </button>
                       </div>
                     );
@@ -511,14 +511,14 @@ export function PointCardWithLinks({
                     {storiesExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
                     <span>{storyLabel}</span>
                   </button>
-                  {/* Case D: viewer has position but no story yet on another's profile */}
-                  {!isEmbed && !liveSessionMode && !isOwnProfile && userPosition && effectiveViewerCount === 0 && (
+                  {/* P560: Case D: viewer has no story yet on another's profile (position not required) */}
+                  {!isEmbed && !liveSessionMode && !isOwnProfile && currentUserId && effectiveViewerCount === 0 && (
                     <button
                       onClick={(e) => { e.stopPropagation(); embedNavigate(`/create?pointId=${point.id}`); }}
                       className="text-sm text-blue-600 hover:text-blue-700 transition-colors"
-                      aria-label="Add your story"
+                      aria-label="Share your perspective"
                     >
-                      · Add your story →
+                      · Share your perspective →
                     </button>
                   )}
                   {/* Case E: viewer has a story on another profile's point */}
@@ -577,12 +577,17 @@ export function PointCardWithLinks({
         </div>
 
 
-        {/* P465: Story CTA footer row for feed view — shown when viewer has taken a position + no story yet (hidden in embed) */}
-        {userPosition && !isEmbed && !liveSessionMode && (() => {
-          const positionGroup = getPositionGroup(userPosition as PositionType);
-          const copy = getPositionCTACopy(positionGroup);
+        {/* P560: Story CTA footer row for feed view — shown when viewer is logged in + no story yet (position not required, hidden in embed) */}
+        {currentUserId && !isEmbed && !liveSessionMode && (() => {
           const effectiveViewerStoryCount = viewerStoryCount ?? filteredStories.filter(s => s.authorId === currentUserId).length;
           if (effectiveViewerStoryCount > 0) return null;
+          // Use position-specific copy when available, generic fallback otherwise
+          const ctaText = userPosition
+            ? getPositionCTACopy(getPositionGroup(userPosition as PositionType)).ctaText
+            : 'Share your perspective →';
+          const ariaLabel = userPosition
+            ? getPositionCTACopy(getPositionGroup(userPosition as PositionType)).ariaLabel
+            : 'Share your perspective';
           return (
             <div
               role="presentation"
@@ -592,10 +597,10 @@ export function PointCardWithLinks({
               <div className="flex items-center gap-1 text-sm">
                 <button
                   onClick={(e) => { e.stopPropagation(); embedNavigate(`/create?pointId=${point.id}`); }}
-                  aria-label={copy.ariaLabel}
+                  aria-label={ariaLabel}
                   className="font-medium text-blue-600 hover:text-blue-700 transition-colors"
                 >
-                  {copy.ctaText}
+                  {ctaText}
                 </button>
               </div>
             </div>

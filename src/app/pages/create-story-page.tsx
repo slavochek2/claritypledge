@@ -50,7 +50,6 @@ export function CreateStoryPage() {
   const [pointLoading, setPointLoading] = useState(!!pointId);
   const [pointText, setPointText] = useState<string | null>(null);
   const [userPosition, setUserPosition] = useState<'agree' | 'disagree' | 'unsure' | null>(null);
-  const [hasPosition, setHasPosition] = useState(false);
   const [pointLoadedId, setPointLoadedId] = useState<string | null>(null);
 
   // Fetch point + position in parallel when pointId is present
@@ -71,7 +70,6 @@ export function CreateStoryPage() {
         // Map granular 7-value positions to 3-value for ChatContextHeader display
         const pos = position?.position;
         if (pos) {
-          setHasPosition(true);
           if (pos === 'agree' || pos === 'somewhat_agree' || pos === 'strongly_agree') {
             setUserPosition('agree');
           } else if (pos === 'disagree' || pos === 'somewhat_disagree' || pos === 'strongly_disagree') {
@@ -167,9 +165,9 @@ export function CreateStoryPage() {
         return;
       }
 
-      // Link story to point if we have a valid point context with a position
+      // P560: Link story to point if we have a valid point context (position not required)
       let linkFailed = false;
-      if (pointLoadedId && hasPosition) {
+      if (pointLoadedId) {
         try {
           const linked = await storiesService.linkPointToStory(story.id, pointLoadedId, user.id);
           if (!linked) linkFailed = true;
