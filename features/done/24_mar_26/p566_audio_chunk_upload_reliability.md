@@ -1,9 +1,9 @@
 ---
-status: in-progress
+status: all-done
 type: bug
 rank: 5
 flow: dev
-delivery_stage: uat
+completed_at: '2026-03-22'
 tags:
   - recording
   - infrastructure
