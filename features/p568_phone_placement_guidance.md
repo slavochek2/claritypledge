@@ -6,6 +6,7 @@ tags:
   - recording
   - ux
   - live
+created_date: 2026-03-22
 ---
 
 # P568: Phone Placement Guidance for /live Sessions

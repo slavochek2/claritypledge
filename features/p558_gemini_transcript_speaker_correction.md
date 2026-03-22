@@ -6,6 +6,7 @@ tags:
   - transcription
   - ai
   - speaker-attribution
+created_date: 2026-03-21
 ---
 
 # P558: Gemini Post-Processing for Transcript Speaker Correction
