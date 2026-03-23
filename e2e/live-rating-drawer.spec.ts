@@ -103,9 +103,14 @@ async function setupTwoPartySession(
 test.describe('Rating drawer appears for responder', () => {
   test.describe.configure({ timeout: 90000 });
 
-  test('When creator submits rating, joiner sees rating drawer', async ({ browser }) => {
-    const creatorContext = await browser.newContext();
-    const joinerContext = await browser.newContext();
+  // Mobile viewport
+  const MOBILE_VIEWPORT = { width: 375, height: 812 };
+  // Desktop viewport — matches user's actual setup (two windows side by side)
+  const DESKTOP_VIEWPORT = { width: 768, height: 900 };
+
+  test('On DESKTOP: when creator submits rating, joiner sees rating drawer', async ({ browser }) => {
+    const creatorContext = await browser.newContext({ viewport: DESKTOP_VIEWPORT });
+    const joinerContext = await browser.newContext({ viewport: DESKTOP_VIEWPORT });
     const creatorPage = await creatorContext.newPage();
     const joinerPage = await joinerContext.newPage();
 
@@ -117,8 +122,10 @@ test.describe('Rating drawer appears for responder', () => {
     let joinerUser: Awaited<ReturnType<typeof createTestUser>> | null = null;
 
     try {
-      creatorUser = await createTestUser({ name: 'DrawerCreator' });
-      joinerUser = await createTestUser({ name: 'DrawerJoiner' });
+      // Both users have the SAME name — this is the bug scenario.
+      // Name collision caused isChecker to be true for both sides.
+      creatorUser = await createTestUser({ name: 'SameName' });
+      joinerUser = await createTestUser({ name: 'SameName' });
 
       await setTestSession(creatorPage, creatorUser.email);
       await setTestSession(joinerPage, joinerUser.email);
@@ -126,13 +133,14 @@ test.describe('Rating drawer appears for responder', () => {
       roomCode = await setupTwoPartySession(creatorPage, joinerPage, creatorUser.email, joinerUser);
 
       // ── Step 1: Wait for both to see idle screen ──
+      // Both users see "Does SameName understand you?" since names are identical
       const creatorCheckButton = creatorPage.getByRole('button', {
-        name: `Does ${joinerUser.name} understand you?`,
+        name: /Does.*understand you/,
       });
       await expect(creatorCheckButton).toBeVisible({ timeout: 15000 });
 
       const joinerCheckButton = joinerPage.getByRole('button', {
-        name: `Does ${creatorUser.name} understand you?`,
+        name: /Does.*understand you/,
       });
       await expect(joinerCheckButton).toBeVisible({ timeout: 15000 });
 
@@ -165,52 +173,45 @@ test.describe('Rating drawer appears for responder', () => {
       console.log('[drawer-test] Live state after creator rating:', JSON.stringify(stateAfterRating, null, 2));
 
       // ── Step 4: Joiner should see rating drawer ──
-      // The drawer contains a rating question like "How confident are you that you understand DrawerCreator?"
       // Give the app's polling interval time to pick up the change (1s poll + render)
-      await joinerPage.waitForTimeout(3000);
+      // The drawer should appear as a bottom sheet with a rating question
 
-      // Dump joiner's console logs for debugging
-      const joinerLogs: string[] = [];
-      joinerPage.on('console', msg => {
-        if (msg.text().includes('[LiveModeView]')) {
-          joinerLogs.push(msg.text());
-        }
-      });
-      // Trigger a re-render by waiting a bit more
-      await joinerPage.waitForTimeout(2000);
+      // Wait for the drawer to appear (polls every 1s, give it time)
+      const drawerText = joinerPage.getByText(/How confident are you/i);
+      const waitingText = joinerPage.getByText(/Waiting for.*to share their confidence/i);
 
-      // Check what the joiner sees
-      // The drawer should show a rating question
-      const drawerVisible = await joinerPage
-        .getByText(/How confident are you/i)
-        .isVisible()
-        .catch(() => false);
+      // Wait up to 10s for either drawer or waiting message to appear
+      const result = await Promise.race([
+        drawerText.waitFor({ state: 'visible', timeout: 10000 }).then(() => 'drawer' as const),
+        waitingText.waitFor({ state: 'visible', timeout: 10000 }).then(() => 'waiting' as const),
+      ]).catch(() => 'neither' as const);
 
-      // Also check if joiner is stuck in "Waiting" (the bug)
-      const waitingVisible = await joinerPage
-        .getByText(/Waiting for.*to share their confidence/i)
-        .isVisible()
-        .catch(() => false);
+      // Take screenshot of joiner's screen for evidence
+      await joinerPage.screenshot({ path: 'test-results/drawer-test-joiner.png' });
+      console.log('[drawer-test] Joiner sees:', result);
 
-      // Log joiner's LiveModeView debug output
-      console.log('[drawer-test] Joiner console logs:', joinerLogs);
-      console.log('[drawer-test] Drawer visible:', drawerVisible);
-      console.log('[drawer-test] Waiting message visible:', waitingVisible);
-
-      // THE ACTUAL ASSERTION: joiner should see the drawer, not the waiting message
-      if (waitingVisible && !drawerVisible) {
-        // Dump the full live state and joiner's page content for debugging
+      if (result !== 'drawer') {
+        // Dump state for debugging
         const finalState = await dumpLiveState(roomCode);
-        console.error('[drawer-test] BUG REPRODUCED: Joiner stuck in waiting, no drawer');
-        console.error('[drawer-test] Final live_state:', JSON.stringify(finalState, null, 2));
-
-        // Get page text for debugging
+        console.error('[drawer-test] Live state:', JSON.stringify(finalState, null, 2));
         const pageText = await joinerPage.textContent('body');
         console.error('[drawer-test] Joiner page text:', pageText?.substring(0, 500));
       }
 
-      expect(drawerVisible, 'Joiner should see rating drawer').toBe(true);
-      expect(waitingVisible, 'Joiner should NOT see waiting message').toBe(false);
+      expect(result, 'Joiner should see rating drawer, not waiting message').toBe('drawer');
+
+      // ── Step 5: Verify drawer is rendered (bounding box exists) ──
+      const drawerBox = await drawerText.boundingBox();
+      expect(drawerBox, 'Drawer text should have a bounding box').not.toBeNull();
+      console.log('[drawer-test] Drawer position:', drawerBox);
+
+      // Verify rating buttons exist and are rendered
+      const ratingBtn = joinerPage.getByRole('button', { name: '5' });
+      await expect(ratingBtn).toBeVisible({ timeout: 3000 });
+
+      // Take final screenshot
+      await joinerPage.screenshot({ path: 'test-results/drawer-test-joiner-final.png' });
+      console.log('[drawer-test] Drawer and rating buttons rendered ✓');
 
     } finally {
       await creatorContext.close();

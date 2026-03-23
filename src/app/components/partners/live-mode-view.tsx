@@ -537,7 +537,11 @@ export function LiveModeView({
 
   // P23.2: Determine role using new checker/responder model
   // The checker is the person who tapped "Check if partner gets me"
-  const isChecker = liveState.checkerName === currentUserName;
+  // Use session position (creator/joiner) for role comparison — name comparison
+  // breaks when two users share the same display name.
+  const isChecker = liveState.checkerIsCreator !== undefined
+    ? liveState.checkerIsCreator === isCreator
+    : liveState.checkerName === currentUserName; // backward compat for old sessions
 
   // Get submission status using new model
   const myRatingSubmitted = isChecker
@@ -659,7 +663,7 @@ export function LiveModeView({
   // This is purely local, doesn't affect partner's screen
   // BUT: if partner already submitted, show the drawer notification on top
   if (isLocallyRating) {
-    const partnerAlreadySubmitted = liveState.checkerSubmitted && liveState.checkerName !== currentUserName;
+    const partnerAlreadySubmitted = liveState.checkerSubmitted && !isChecker;
 
     return (
       <>

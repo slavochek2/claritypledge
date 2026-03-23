@@ -1521,7 +1521,7 @@ export function ClarityLivePage() {
       const isFirstSubmitter = !currentState.checkerName;
       const role = isFirstSubmitter
         ? (localFlowType === 'prove' ? 'responder' : 'checker')
-        : (currentState.checkerName === name ? 'checker' : 'responder');
+        : (currentState.checkerIsCreator === isCreator ? 'checker' : 'responder');
 
       // Track rating submission (P28.1: also collect for ML training)
       trackLiveEvent('live_rating_submitted', {
@@ -1544,17 +1544,19 @@ export function ClarityLivePage() {
         if (localFlowType === 'prove') {
           updates.proverName = name;           // Track who initiated "Did I get it?"
           updates.checkerName = partnerName;   // Partner (speaker) is the checker
+          updates.checkerIsCreator = !isCreator; // Partner's role is opposite of mine
           updates.responderRating = rating;    // Prover's confidence rating
           updates.responderSubmitted = true;
         } else {
           // "Did you get it?" flow - first person becomes checker (speaker)
           updates.checkerName = name;
+          updates.checkerIsCreator = isCreator;
           updates.checkerRating = rating;
           updates.checkerSubmitted = true;
         }
       } else {
-        // Checker already exists - determine role based on name match
-        const isChecker = currentState.checkerName === name;
+        // Checker already exists - determine role using session position (not name)
+        const isChecker = currentState.checkerIsCreator === isCreator;
 
         if (isChecker) {
           // Checker is submitting (either first time in prove flow, or re-submitting)
@@ -1653,6 +1655,7 @@ export function ClarityLivePage() {
       skippedBy: name,
       // Clear checker/responder
       checkerName: undefined,
+      checkerIsCreator: undefined,
       checkerRating: undefined,
       responderRating: undefined,
       checkerSubmitted: false,
@@ -1712,7 +1715,7 @@ export function ClarityLivePage() {
         checkerName: currentState.checkerName,
         partnerName: partnerName ?? undefined,
         completedAt: new Date().toISOString(),
-        isChecker: currentState.checkerName === name,
+        isChecker: currentState.checkerIsCreator === isCreator,
       };
       const historyEntry = currentState.selectedStoryId
         ? { title: contentTitle || 'Story verification', type: 'story' as const, ...journeyData, storyData: currentState.selectedStoryData }
@@ -1728,6 +1731,7 @@ export function ClarityLivePage() {
         ratingInitiatedBy: undefined,
         // Clear checker/responder
         checkerName: undefined,
+        checkerIsCreator: undefined,
         checkerRating: undefined,
         responderRating: undefined,
         checkerSubmitted: false,
@@ -1782,7 +1786,7 @@ export function ClarityLivePage() {
         checkerName: liveState.checkerName,
         partnerName: partnerName ?? undefined,
         completedAt: new Date().toISOString(),
-        isChecker: liveState.checkerName === name,
+        isChecker: liveState.checkerIsCreator === isCreator,
       };
       const historyEntry = liveState.selectedStoryId
         ? { title: contentTitle || 'Story verification', type: 'story' as const, ...journeyData, storyData: liveState.selectedStoryData }
@@ -1795,6 +1799,7 @@ export function ClarityLivePage() {
         ratingPhase: 'idle',
         ratingInitiatedBy: undefined,
         checkerName: undefined,
+        checkerIsCreator: undefined,
         checkerRating: undefined,
         responderRating: undefined,
         checkerSubmitted: false,
@@ -1947,6 +1952,7 @@ export function ClarityLivePage() {
       checkerRating: undefined,
       responderRating: undefined,
       checkerName: undefined,
+      checkerIsCreator: undefined,
       proverName: undefined,
       checkerSubmitted: false,
       responderSubmitted: false,

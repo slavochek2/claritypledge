@@ -613,6 +613,10 @@ export interface LiveSessionState {
   // The checker is the person being understood
   checkerName?: string;
 
+  // Whether the checker is the session creator (true) or joiner (false).
+  // Used for role determination instead of name comparison (names can collide).
+  checkerIsCreator?: boolean;
+
   // "Did I get it?" — listener-initiated check (P23.3)
   // When set, indicates listener initiated (proverName = listener who wants to prove understanding)
   // When undefined, indicates speaker initiated via "Did you get it?"
