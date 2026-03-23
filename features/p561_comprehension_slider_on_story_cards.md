@@ -1,7 +1,7 @@
 ---
-status: blocked
+status: today
 type: story
-rank: 0.125
+rank: 1
 tags:
   - epic-story-first
   - comprehension
@@ -9,7 +9,7 @@ tags:
   - screening
 flow: dev
 created_date: 2026-03-21T00:00:00.000Z
-locked_at: '2026-03-22T12:56:42.021Z'
+locked_at: '2026-03-23T08:07:28.127Z'
 ---
 
 # P561: Comprehension Slider on Story Cards (Screening)
