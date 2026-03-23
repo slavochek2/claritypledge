@@ -63,7 +63,7 @@ import { usePwaInstall } from '@/hooks/use-pwa-install';
 function RecordingIndicator({ isPrivate = false, uploadHealth }: { isPrivate?: boolean; uploadHealth?: 'healthy' | 'degraded' | 'critical' }) {
   if (isPrivate) {
     return (
-      <div className="flex items-center justify-center gap-2 py-1.5 bg-muted border-b border-border" aria-live="polite">
+      <div className="sticky top-16 lg:top-20 z-40 flex items-center justify-center gap-2 py-1.5 bg-muted border-b border-border" aria-live="polite">
         <ShieldOff className="w-3.5 h-3.5 text-muted-foreground" />
         <span className="text-xs text-muted-foreground">Private session</span>
       </div>
@@ -71,7 +71,7 @@ function RecordingIndicator({ isPrivate = false, uploadHealth }: { isPrivate?: b
   }
 
   return (
-    <div aria-live="polite">
+    <div className="sticky top-16 lg:top-20 z-40" aria-live="polite">
       {uploadHealth === 'critical' && (
         <div className="flex items-center justify-center gap-2 py-1.5 bg-red-50 border-b border-red-200">
           <span className="text-xs text-red-700">❌ Audio upload failing — check your connection</span>
