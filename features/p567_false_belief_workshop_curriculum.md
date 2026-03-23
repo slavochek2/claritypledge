@@ -1,7 +1,7 @@
 ---
-status: today
+status: in-progress
 type: story
-rank: 0.005
+rank: 0.125
 tags:
   - workshop
   - content
@@ -10,6 +10,7 @@ tags:
   - facilitation
 flow: inline
 created_date: 2026-03-22T00:00:00.000Z
+locked_at: '2026-03-22T13:03:16.451Z'
 ---
 
 # P567: False Belief Workshop Curriculum — File 8 Inverse Points as Stories

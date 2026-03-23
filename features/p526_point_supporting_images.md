@@ -1,7 +1,7 @@
 ---
 status: blocked
 type: story
-rank: 1
+rank: 0.438
 blocked_by: p523
 tags:
   - points
@@ -16,7 +16,7 @@ reviews:
   ux: null
   architect: null
   alignment: null
-locked_at: '2026-03-17T10:54:56.332Z'
+locked_at: '2026-03-22T12:52:02.597Z'
 ---
 
 # P526: Point Supporting Images

@@ -1,29 +1,28 @@
 # Goals
 
-Concrete next steps in priority order. Updated 2026-03-22 (conversation analysis + false-belief curriculum insight).
+Concrete next steps in priority order. Updated 2026-03-23 (workshop-first reordering).
 
-**Last updated:** 2026-03-22
+**Last updated:** 2026-03-23
 
 ## Flywheel
 
 ```
-Blog (7-points + false beliefs) → Distribution (LinkedIn, communities)
-    → Workshops (false-belief curriculum on cards)
+Workshop (false-belief curriculum on cards) → Participant stories filed (testimonials + data)
+    → Blog article describing workshop experience → Distribution (LinkedIn, communities)
     → De-risking package (co-founder pairs)
-    → Transcript data + testimonials (filed participant stories)
     → New blog content + FCO retainer material → Flywheel
 ```
 
 ## Next Steps
 
-1. [ ] P560: Story filing without position — prerequisite for workshop (epic-story-first)
-2. [ ] P561: Comprehension slider on story cards — core async gap mechanism
-3. [ ] P567: File 8 false belief stories + points as workshop curriculum
-4. [ ] Publish 7-points article on blog — include false-belief inverses (IN PROGRESS)
-5. [ ] Promote article via LinkedIn, communities
-6. [ ] Run first false-belief workshop using cards + sliders
-7. [ ] Run facilitated co-founder session with pay-what-it's-worth upfront
-8. [x] P545: ladischenski.com positioning update
+1. [x] P560: Story filing without position — prerequisite for workshop (epic-story-first)
+2. [x] P545: ladischenski.com positioning update
+3. [ ] P561: Comprehension slider on story cards — core async gap mechanism
+4. [ ] P567: File 8 false belief stories + points as workshop curriculum
+5. [ ] Run first false-belief workshop using cards + sliders (H-WTP-Pain test)
+6. [ ] Write blog article from workshop experience — real data, not theory
+7. [ ] Promote article via LinkedIn, communities
+8. [ ] Run facilitated co-founder session with pay-what-it's-worth upfront
 9. [ ] Approach 1-2 coaches — AFTER workshops + paid sessions prove model (H-CoachChannel)
 
 ## Dos

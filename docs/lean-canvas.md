@@ -123,12 +123,13 @@ Track accuracy over time. Public credential for professional reputation.
 
 ## Channels
 
-**Primary flywheel (2026-03-22):**
+**Primary flywheel (2026-03-23):**
 ```
-Blog (7-points + false beliefs) → Distribution (LinkedIn, communities)
-    → Workshops (false-belief curriculum on cards, P567)
+Workshop (false-belief curriculum on cards, P567)
     → Participant stories filed (testimonials + calibration data + social proof)
-    → New blog content → Flywheel
+    → Blog article describing workshop experience → Distribution (LinkedIn, communities)
+    → De-risking package (co-founder pairs)
+    → New blog content + FCO retainer material → Flywheel
 ```
 Workshop → coaching conversion (de-risking package, FCO retainer) is in the coaching canvas.
 

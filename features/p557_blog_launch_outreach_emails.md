@@ -1,11 +1,11 @@
 ---
-status: in-progress
+status: blocked
 type: task
-rank: 0.05
+rank: 0.25
 tags:
   - content
   - outreach
-locked_at: '2026-03-21T07:46:44.934Z'
+locked_at: '2026-03-22T12:40:35.645Z'
 created_date: 2026-03-21T00:00:00.000Z
 ---
 
