@@ -483,8 +483,18 @@ export function PointDetailPage() {
           </div>
         </div>
 
-        {/* Footer with share button */}
-        <div className="flex items-center justify-end px-4 py-3 border-t border-border">
+        {/* Footer: story CTA (left) + share (right) — matches profile story card pattern */}
+        <div className="flex items-center justify-between px-4 py-3 border-t border-border">
+          {user && !viewerStory ? (
+            <a
+              href={`/create?pointId=${id}`}
+              className="text-sm font-medium text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition-colors"
+            >
+              Add your story →
+            </a>
+          ) : (
+            <span />
+          )}
           <ShareButton type="point" id={point.id} description={point.statement.slice(0, 100)} />
         </div>
       </div>
@@ -528,9 +538,6 @@ export function PointDetailPage() {
                   const hasStory = holderStory !== null;
                   const isExpanded = expandedHolderId === holder.userId;
 
-                  // P560: Viewer with no story → show "Add your story" CTA (position not required)
-                  const showCta = isViewer && !viewerStory && !hasStory;
-
                   return (
                     <div key={holder.id}>
                       <PositionHolderCard
@@ -543,7 +550,6 @@ export function PointDetailPage() {
                             prev === holder.userId ? null : holder.userId
                           );
                         }}
-                        ctaHref={showCta ? `/create?pointId=${id}` : undefined}
                       />
                       {/* P542: Expandable story region */}
                       {hasStory && isExpanded && (
@@ -567,6 +573,7 @@ export function PointDetailPage() {
             </p>
           )}
         </div>
+
       </div>
 
       {/* P574: Positionless stories section */}
@@ -604,15 +611,6 @@ export function PointDetailPage() {
         </div>
       )}
 
-      {/* P560: CTA for verified users without a position (not in holders list) */}
-      {user && userPosition === null && !viewerStory && (
-        <a
-          href={`/create?pointId=${id}`}
-          className="block text-center text-sm text-blue-600 dark:text-blue-400 hover:underline py-3"
-        >
-          Add your story →
-        </a>
-      )}
       </div>
     </div>
   );
@@ -628,14 +626,12 @@ function PositionHolderCard({
   hasStory = false,
   isExpanded = false,
   onToggle,
-  ctaHref,
 }: {
   holder: PointPositionWithUser;
   onProfileClick: () => void;
   hasStory?: boolean;
   isExpanded?: boolean;
   onToggle?: () => void;
-  ctaHref?: string;
 }) {
   const toggleRef = useRef<HTMLButtonElement>(null);
 
@@ -691,15 +687,6 @@ function PositionHolderCard({
             {isExpanded ? <ChevronDown size={14} className="transition-transform" /> : <ChevronRight size={14} className="transition-transform" />}
             <span>story</span>
           </button>
-        )}
-        {ctaHref && (
-          <a
-            href={ctaHref}
-            onClick={e => e.stopPropagation()}
-            className="ml-auto text-xs font-medium text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-700 rounded-full px-2.5 py-1 hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-colors shrink-0"
-          >
-            Add your story →
-          </a>
         )}
       </div>
     </div>
