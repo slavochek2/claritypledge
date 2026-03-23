@@ -51,8 +51,8 @@ export function RemovePositionDialog({
               <p>Removing your position will remove this point from your profile.</p>
               {linkedStoryCount > 0 && (
                 <p>
-                  It will also unlink{' '}
-                  <strong>{linkedStoryCount} {storyWord}</strong> from this point.
+                  Your <strong>{linkedStoryCount} {storyWord}</strong> will stay
+                  linked to this point without a position.
                 </p>
               )}
             </div>
