@@ -143,6 +143,18 @@ export function PointDetailPage() {
     return map;
   }, [linkedStories, id]);
 
+  // P574: Stories whose authors have no position on this point
+  const positionlessStories = useMemo(() => {
+    const positionUserIds = new Set(positions.map(p => p.userId));
+    const stories: StoryWithAuthor[] = [];
+    for (const [authorId, story] of storyByAuthorId) {
+      if (!positionUserIds.has(authorId)) {
+        stories.push(story);
+      }
+    }
+    return stories;
+  }, [storyByAuthorId, positions]);
+
   // Group positions by stance
   const positionGroups = useMemo(() => {
     const groups: Record<PositionButtonGroup, PointPositionWithUser[]> = {
@@ -557,6 +569,41 @@ export function PointDetailPage() {
         </div>
       </div>
 
+      {/* P574: Positionless stories section */}
+      {positionlessStories.length > 0 && (
+        <div className="bg-card border border-border rounded-lg overflow-hidden mt-4">
+          <div className="px-4 py-3 border-b border-border">
+            <h3 className="text-sm font-medium text-muted-foreground">Perspectives without position</h3>
+          </div>
+          <div className="p-4 space-y-3">
+            {positionlessStories.map(story => {
+              const isExpanded = expandedHolderId === story.authorId;
+
+              return (
+                <div key={story.id}>
+                  <PositionlessStoryRow
+                    story={story}
+                    isExpanded={isExpanded}
+                    onToggle={() => {
+                      setExpandedHolderId(prev =>
+                        prev === story.authorId ? null : story.authorId
+                      );
+                    }}
+                    onProfileClick={() => navigate(`/p/${story.authorSlug}`)}
+                  />
+                  {isExpanded && (
+                    <PositionlessStoryRegion
+                      story={story}
+                      onCollapse={() => setExpandedHolderId(null)}
+                    />
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {/* P560: CTA for verified users without a position (not in holders list) */}
       {user && userPosition === null && !viewerStory && (
         <a
@@ -732,6 +779,137 @@ function ExpandableStoryRegion({
       id={`story-${holder.userId}`}
       role="region"
       aria-label={`${holder.userName}'s story`}
+      ref={regionRef}
+    >
+      <ThreadLineGroup>
+        <ThreadLineItem isLast>
+          <StoryCardWithLinks
+            story={protoStory}
+            author={storyAuthor}
+            context="point-detail"
+            compact
+            tags={storyTags}
+          />
+        </ThreadLineItem>
+      </ThreadLineGroup>
+    </div>
+  );
+}
+
+/**
+ * P574: Compact row for a positionless story author.
+ * Similar to PositionHolderCard but without a position badge.
+ */
+function PositionlessStoryRow({
+  story,
+  isExpanded,
+  onToggle,
+  onProfileClick,
+}: {
+  story: StoryWithAuthor;
+  isExpanded: boolean;
+  onToggle: () => void;
+  onProfileClick: () => void;
+}) {
+  return (
+    <div
+      role="button"
+      tabIndex={0}
+      aria-label={`${story.authorName}'s profile`}
+      aria-expanded={isExpanded}
+      aria-controls={`story-${story.authorId}`}
+      onClick={onProfileClick}
+      onKeyDown={e => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onToggle();
+        }
+      }}
+      className="group flex items-center gap-3 p-3 bg-muted rounded-lg border border-border cursor-pointer hover:bg-accent hover:border-border focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none transition-colors"
+    >
+      <GravatarAvatar
+        name={story.authorName}
+        photoUrl={story.authorAvatarUrl}
+        avatarColor={story.authorAvatarColor}
+        size="sm"
+        isPledger={story.authorHasPledged ?? false}
+        showRing={false}
+        className="!w-5 !h-5 !text-[10px]"
+      />
+      <div className="flex-1 min-w-0 flex items-center gap-1.5 flex-wrap">
+        <span className="font-medium text-foreground text-sm truncate">{story.authorName}</span>
+        <EarBadge count={story.authorEarsCount ?? 0} name={story.authorName} />
+
+        <button
+          data-testid="story-toggle"
+          onClick={e => { e.stopPropagation(); onToggle(); }}
+          className="ml-auto flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400 transition-colors shrink-0 min-h-[28px] px-1"
+          aria-label={isExpanded ? `Collapse story by ${story.authorName}` : `Expand story by ${story.authorName}`}
+        >
+          {isExpanded ? <ChevronDown size={16} className="transition-transform" /> : <ChevronRight size={16} className="transition-transform" />}
+          <span className="hover:underline">story</span>
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * P574: Expanded story region for a positionless story.
+ * Mirrors ExpandableStoryRegion but derives author from StoryWithAuthor.
+ */
+function PositionlessStoryRegion({
+  story,
+  onCollapse,
+}: {
+  story: StoryWithAuthor;
+  onCollapse: () => void;
+}) {
+  const regionRef = useRef<HTMLDivElement>(null);
+
+  const protoStory: ProtoStory = {
+    id: story.id,
+    authorId: story.authorId,
+    text: story.content,
+    createdAt: story.createdAt,
+    visibility: story.visibility,
+    linkedPointIds: [],
+    understoodCount: story.understoodCount,
+  };
+
+  const storyAuthor: StoryAuthor = {
+    id: story.authorId,
+    name: story.authorName,
+    role: story.authorRole,
+    hasPledged: story.authorHasPledged ?? false,
+    ear: story.authorEarsCount ?? 0,
+    avatarUrl: story.authorAvatarUrl,
+    avatarColor: story.authorAvatarColor,
+  };
+
+  const storyTags = story.tags;
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onCollapse();
+        const toggle = document.querySelector(`[aria-controls="story-${story.authorId}"]`);
+        if (toggle instanceof HTMLElement) toggle.focus();
+      }
+    };
+
+    const region = regionRef.current;
+    if (region) {
+      region.addEventListener('keydown', handleKeyDown);
+      return () => region.removeEventListener('keydown', handleKeyDown);
+    }
+  }, [story.authorId, onCollapse]);
+
+  return (
+    <div
+      id={`story-${story.authorId}`}
+      role="region"
+      aria-label={`${story.authorName}'s story`}
       ref={regionRef}
     >
       <ThreadLineGroup>
