@@ -1,14 +1,19 @@
 ---
 status: in-progress
 type: story
-rank: 7.0
-tags: [consistency, point-card, ux, profile]
+rank: 3.5
+tags:
+  - consistency
+  - point-card
+  - ux
+  - profile
 prepped_date: '2026-03-23'
 delivery_stage: 1-prd-review
 reviews:
   ux: null
   architect: null
   alignment: null
+locked_at: '2026-03-23T14:37:33.088Z'
 ---
 
 # P579: Remove "Add your story" CTA from point cards on other profiles
