@@ -25,9 +25,9 @@ export function BottomNav() {
     return null;
   }
 
-  // Hide on focus/detail pages — these use FocusHeader instead.
-  // See docs/ux-patterns.md — "Navigation Architecture" pattern.
-  const focusRoutes = ['/story/', '/point/', '/agreements/', '/create'];
+  // Hide on creation/focus pages — these use FocusHeader instead.
+  // Content pages (/story/, /point/) keep bottom nav for navigation.
+  const focusRoutes = ['/agreements/', '/create'];
   if (focusRoutes.some(r => location.pathname.startsWith(r))) {
     return null;
   }
