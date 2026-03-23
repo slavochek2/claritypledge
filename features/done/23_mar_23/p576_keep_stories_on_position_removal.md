@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: all-done
 type: bug
 rank: 1
 tags:
@@ -137,7 +137,26 @@ DROP FUNCTION IF EXISTS cascade_position_removal_to_story_points();
 
 ## Security Review
 
-*Pending — Security agent completing in parallel.*
+**RLS Policies:**
+- ✅ `story_points` RLS unchanged. INSERT restricted to story authors, DELETE restricted to story authors, SELECT public.
+- ✅ `story_point_history` RLS preserved (public read, trigger-only insert).
+- ✅ `point_positions` RLS unaffected — users can only delete own positions.
+- ✅ Dropping the `SECURITY DEFINER` cascade trigger is a security improvement — no more elevated-privilege deletions of `story_points`.
+
+**Authentication:**
+- ✅ `removePosition` enforced by RLS (`auth.uid() = user_id`). Only authenticated users remove own positions.
+
+**Authorization:**
+- ✅ No cross-user impact. Pre-P576 cascade only targeted own stories. Post-P576, no `story_points` touched at all.
+
+**Input Validation:**
+- ✅ No new inputs. Migration is `DROP TRIGGER` + `DROP FUNCTION`. Dialog copy is static string.
+
+**Data Protection:**
+- ✅ No PII concerns. Change preserves data rather than deleting it.
+- ✅ Audit trail (`story_point_history`) preserved. Historical entries remain intact.
+
+**Summary:** No security concerns. Strictly a removal of a `SECURITY DEFINER` cascade trigger — reduces attack surface.
 
 ---
 
