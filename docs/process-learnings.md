@@ -6,6 +6,17 @@ Open friction items — proposed fixes not yet implemented. Surfaced in `/weekly
 
 ---
 
+## Default to e2e test for verification — never delegate manual testing to user
+
+**Date:** 2026-03-23
+**Status:** proposed
+
+Agent asked user to manually test /live session flow 4+ times instead of writing an e2e test. Playwright two-party infrastructure exists (`e2e/helpers/test-user.ts`, `test-realtime.ts`) and can reproduce any session scenario. When writing a reproducer, extract exact conditions from screenshots/bug reports — don't assume the happy path (this session: the bug was same-name users, but the first e2e test used different names and got a false green).
+
+**Fix:** (A) When investigating a /live bug, write the e2e reproducer FIRST before theorizing. (B) Always extract the exact user conditions from evidence (screenshot names, console output) into test parameters. (C) After CSS changes on /live, run `npx playwright test e2e/live-rating-drawer.spec.ts` before reporting success.
+
+---
+
 ## Optional-param handler as onClick — TypeScript silent, runtime crash
 
 **Date:** 2026-03-05

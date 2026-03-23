@@ -2,6 +2,14 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-23 [technical]: Live session roles use session position, not name comparison
+
+**Context:** The live session state machine used `liveState.checkerName === currentUserName` to determine who is checker vs responder. When testing with two accounts both named "Vyacheslav", both sides evaluated `isChecker = true`, both showed the "waiting for partner" screen, neither saw the rating drawer. The bug was latent in prod — any two users with the same display name would hit it.
+**Decision:** Store `checkerIsCreator: boolean` in `live_state` JSONB. Compare against the session's `isCreator` flag (derived from creator/joiner role) instead of name strings. Backward-compatible: falls back to name comparison when `checkerIsCreator` is absent (old sessions).
+**Alternatives rejected:** (A) Use user ID instead of name — guests don't have stable IDs. (B) Use composite key (name + sessionRole) — unnecessary complexity when a boolean suffices. (C) Enforce unique names per session — terrible UX.
+**Consequences:** All name-based role comparisons in `clarity-live-page.tsx` and `live-mode-view.tsx` replaced. E2E test uses same-name users as regression guard. Pattern: anywhere live state identifies "who did what", use session position (creator/joiner), never display name.
+**References:** [live-mode-view.tsx](src/app/components/partners/live-mode-view.tsx), [e2e/live-rating-drawer.spec.ts](e2e/live-rating-drawer.spec.ts)
+
 ## 2026-03-23 [product]: Re-merge lean canvas — one business, two brands
 
 **Context:** Split on 2026-03-22 into platform + coaching canvases caused immediate drift — flywheel duplicated in 3 places, cross-references between two docs, confusion about where strategy lives. The split was motivated by "exposes pricing strategy and personal financials" — but ladischenski.com pricing is public on the website, and there are no actual private financials in the doc.
