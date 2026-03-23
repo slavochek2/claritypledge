@@ -41,7 +41,7 @@ export function getPositionCTACopy(group: PositionButtonGroup): PositionCTACopy 
   };
   return {
     ...symbols[group],
-    ctaText: 'Add your story \u2192',
+    ctaText: '+ Add your story',
     ariaLabel: 'Add your story for this point',
   };
 }

@@ -486,12 +486,12 @@ export function PointDetailPage() {
         {/* Footer: story CTA (left) + share (right) — matches profile story card pattern */}
         <div className="flex items-center justify-between px-4 py-3 border-t border-border">
           {user && !viewerStory ? (
-            <a
-              href={`/create?pointId=${id}`}
-              className="inline-flex px-3 py-1 text-xs font-medium text-white bg-blue-600 rounded-full hover:bg-blue-700 transition-colors"
+            <button
+              onClick={() => navigate(`/create?pointId=${id}`)}
+              className="px-3 py-1 text-xs font-medium text-white bg-blue-600 rounded-full hover:bg-blue-700 transition-colors"
             >
               + Add your story
-            </a>
+            </button>
           ) : (
             <span />
           )}

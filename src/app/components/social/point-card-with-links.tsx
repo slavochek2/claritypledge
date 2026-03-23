@@ -488,7 +488,6 @@ export function PointCardWithLinks({
                 </button>
               );
             }
-            const _effectiveViewerCount = viewerStoryCount ?? filteredStories.filter(s => s.authorId === currentUserId).length;
             const storyLabel = `${filteredStories.length} ${filteredStories.length === 1 ? 'story' : 'stories'}`;
 
             if (filteredStories.length > 0) {

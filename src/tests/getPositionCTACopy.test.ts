@@ -3,7 +3,7 @@
  * @description Unit tests for the `getPositionCTACopy` utility function.
  *
  * P456: introduced position-aware CTA copy.
- * P487: unified ctaText to "Add your story →" across all positions.
+ * P487: unified ctaText to "+ Add your story" across all positions.
  *
  * The function maps a PositionButtonGroup ('agree' | 'disagree' | 'unsure') to:
  *   { symbol, label, ctaText, ariaLabel }
@@ -33,9 +33,9 @@ describe('getPositionCTACopy — copy variants', () => {
       expect(copy.label).toBe('Agree');
     });
 
-    it("returns unified ctaText 'Add your story →'", () => {
+    it("returns unified ctaText '+ Add your story'", () => {
       const copy = getPositionCTACopy('agree');
-      expect(copy.ctaText).toBe('Add your story →');
+      expect(copy.ctaText).toBe('+ Add your story');
     });
 
     it('returns generic aria-label for screen readers', () => {
@@ -57,9 +57,9 @@ describe('getPositionCTACopy — copy variants', () => {
       expect(copy.label).toBe('Disagree');
     });
 
-    it("returns unified ctaText 'Add your story →'", () => {
+    it("returns unified ctaText '+ Add your story'", () => {
       const copy = getPositionCTACopy('disagree');
-      expect(copy.ctaText).toBe('Add your story →');
+      expect(copy.ctaText).toBe('+ Add your story');
     });
 
     it('returns generic aria-label for screen readers', () => {
@@ -81,9 +81,9 @@ describe('getPositionCTACopy — copy variants', () => {
       expect(copy.label).toBe('Unsure');
     });
 
-    it("returns unified ctaText 'Add your story →'", () => {
+    it("returns unified ctaText '+ Add your story'", () => {
       const copy = getPositionCTACopy('unsure');
-      expect(copy.ctaText).toBe('Add your story →');
+      expect(copy.ctaText).toBe('+ Add your story');
     });
 
     it('returns generic aria-label for screen readers', () => {
@@ -115,10 +115,10 @@ describe('getPositionCTACopy — copy variants', () => {
       }
     });
 
-    it('all ctaText variants end with the rightwards arrow →', () => {
+    it('all ctaText variants start with + prefix', () => {
       for (const group of ['agree', 'disagree', 'unsure'] as PositionButtonGroup[]) {
         const { ctaText } = getPositionCTACopy(group);
-        expect(ctaText).toMatch(/→$/);
+        expect(ctaText).toMatch(/^\+ /);
       }
     });
 
@@ -127,7 +127,7 @@ describe('getPositionCTACopy — copy variants', () => {
         .map(g => getPositionCTACopy(g).ctaText);
       const unique = new Set(texts);
       expect(unique.size).toBe(1);
-      expect(texts[0]).toBe('Add your story →');
+      expect(texts[0]).toBe('+ Add your story');
     });
 
     it('symbols remain position-specific (distinct across groups)', () => {
@@ -146,7 +146,7 @@ describe('getPositionCTACopy — copy variants', () => {
   // ── footer label line contract ────────────────────────────────────────────
   //
   // The rendered footer line is: "{symbol} {label} · {ctaText}"
-  // e.g. "✓ Agree · Add your story →"
+  // e.g. "✓ Agree · + Add your story"
 
   describe('footer label line construction', () => {
     it("agree: '{symbol} {label}' forms '✓ Agree'", () => {
