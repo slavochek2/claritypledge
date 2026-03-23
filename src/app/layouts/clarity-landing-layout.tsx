@@ -66,7 +66,7 @@ function ClarityLandingLayoutInner({ children }: { children: ReactNode }) {
         {hasActiveSession && !isLivePage && <ActiveSessionBanner />}
         {children}
       </main>
-      {isLandingPage ? <ClarityFooter /> : <LegalFooter />}
+      {!isLivePage && (isLandingPage ? <ClarityFooter /> : <LegalFooter />)}
       {/* P113: Mobile bottom nav for logged-in users */}
       <BottomNav />
       <Toaster />
