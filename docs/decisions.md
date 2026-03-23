@@ -2,6 +2,22 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-23 [product]: Ritual direction over gamification for story/point card UX
+
+**Context:** Claude.ai UX exploration sessions (2026-03-22/23) iterated through game mechanics (12-level progression, particle effects, scoring, surprise simulations) then deliberately abandoned them. The product direction converged on ritual: deliberate slowness, full-screen single-step reading, cinematic gap reveal, cream paper aesthetic, serif typography. "The moment before a meditation teacher rings the bell."
+**Decision:** Card-based experiences (P561 slider, P563 provenance, P575 letters) use ritual design language, not gamification. Gap reveal is a "moment of truth" — suspense, held breath, motion — not a score screen.
+**Alternatives rejected:** (A) Game mechanics with levels and progression — explored extensively, felt like it trivialized the gap reveal. (B) Hybrid (ritual reading + game scoring) — mixing signals; the slowness IS the point.
+**Consequences:** P561 UX should feel like opening a letter, not playing a quiz. P575 letter concept inherits this direction. Any future "engagement" features should use depth (repeat visits, story filing) not breadth (points, badges, streaks).
+**References:** [P561](features/p561_comprehension_slider_on_story_cards.md), [P563](features/p563_position_provenance.md), [P575](features/p575_letter_story_delivery.md)
+
+## 2026-03-23 [product]: P575 — Letter is delivery container, separate from P561
+
+**Context:** Claude.ai conversations showed extensive exploration of a "letter" concept — a curated container for sending stories to someone as a reading ritual. Initially unclear whether this was how P561 (comprehension slider) would be operationalized or a separate feature. Analysis: P561 is the slider mechanic on cards. The letter is the *envelope* — how stories reach someone with intention, producing a gap map as pre-work for /live.
+**Decision:** Letter is a separate feature (P575, backlog). Depends on P561 (slider exists) and P567 (content exists). The letter operationalizes the briefing protocol (Stage 0b in theory-of-change) and serves as workshop follow-up, partnership prep, and async gap revelation without facilitator.
+**Alternatives rejected:** (A) Merge into P561 — would bloat the slider spec with delivery/packaging concerns. (B) Treat as part of briefing protocol spec — briefing protocol is the mechanism; letter is the product artifact.
+**Consequences:** P561 stays focused on the slider mechanic. P575 picks up after P561/P567 ship and workshop validates. Letter concept connects to Clarity Partnership prep (between sessions) and workshop follow-up (return trigger).
+**References:** [P575](features/p575_letter_story_delivery.md), [P561](features/p561_comprehension_slider_on_story_cards.md), [P567](features/p567_false_belief_workshop_curriculum.md)
+
 ## 2026-03-22 [technical]: P571 — hide test accounts via DB column, not RLS
 
 **Context:** Test accounts (e2e-agent, slava@inguro.com) visible on public /pledgers page. Three options considered: email filter in query, DB column flag, RLS-level filter.

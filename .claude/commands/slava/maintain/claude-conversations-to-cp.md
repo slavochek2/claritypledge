@@ -138,8 +138,9 @@ JSONL format: each line is a JSON object. Conversation messages have `type: "use
     </guard>
   </step>
 
-  <step n="0b" goal="Pre-read target docs for contradiction detection">
+  <step n="0b" goal="Pre-read target docs AND current priorities for contradiction detection">
     <action>Read current content of all target docs: docs/lean-canvas.md, docs/hypotheses.md, docs/theory-of-change.md, docs/process-learnings.md</action>
+    <action>Read docs/goals.md — the current build sequence and priorities. Use this to contextualize conversation signals: distinguish "blocked by unbuilt prerequisite" from "avoidance" and "UX iteration on existing spec" from "strategy shift"</action>
     <action>Hold this content in context for contradiction detection in step 2 and diff generation in step 4</action>
   </step>
 
