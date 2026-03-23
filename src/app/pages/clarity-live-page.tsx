@@ -2645,24 +2645,14 @@ export function ClarityLivePage() {
       });
     }
 
+    // P583: Show session-end screen instead of immediate redirect
+    // Clear stored session to prevent rejoin prompts on refresh
     clearStoredSession();
     clearActiveSession();
-    setSession(null);
-    setLiveState(DEFAULT_LIVE_STATE);
-    setIsLocallyRating(false);
-    setView('start');
-    setRoomCode('');
+    // Set sessionEnded so PartnerLeftScreen renders with transcription info
+    sessionEndedRef.current = true;
+    setSessionEnded(true);
     setIsExiting(false);
-    // Reset all departure refs so future sessions can work properly
-    // Critical: Without this, polling would be permanently disabled for new sessions
-    iAmLeavingRef.current = false;
-    partnerLeftRef.current = false;
-    sessionEndedRef.current = false;
-    hasJoinerRef.current = false;
-    lastJoinerNameRef.current = null;
-    gracePeriodStartRef.current = null;
-    setGracePeriodStart(null);
-    navigate(returnTo ?? '/live', { replace: true });
   }, [session, liveState.checksCount, isCreator, isFromEvent, returnTo, navigate, stopAndUploadRecording, clearActiveSession, isExiting]);
 
   // P511: Exit directly — no confirmation dialog (session can be resumed via heartbeat)
@@ -2864,6 +2854,7 @@ export function ClarityLivePage() {
             onStartNew={handleStartNewAfterPartnerLeft}
             isGuest={!user}
             uploadProgress={uploadProgress}
+            isCreator={isCreator}
           />
         </div>
       </div>
