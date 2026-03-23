@@ -14,13 +14,12 @@ Capture knowledge that matters. Git tracks *what* changed; this captures *why* a
 | Knowledge type | Goes in |
 |----------------|---------|
 | Concepts (Stories, Points, Verification, etc.) | `docs/definitions.md` |
-| Platform problem/solution/segments | `docs/lean-canvas.md` |
-| Coaching business model/pricing | `.private/docs/lean-canvas-coaching.md` |
+| Business strategy (platform + coaching) | `docs/lean-canvas.md` |
 | What we're testing + evidence base | `docs/hypotheses.md` |
 | Open questions (unresolved) | `docs/hypotheses.md` "Open Questions" section |
 | Build sequence, priorities, trade-offs | `docs/decisions.md` |
 | GTM, sales tactics, pitches | `features/archive/p105_sales_playbook.md` (archived) |
-| Pivot options | `.private/docs/lean-canvas-coaching.md` "Alternative Approaches" section |
+| Pivot options | `docs/lean-canvas.md` "Alternative Approaches" section |
 | Epistemology (WHY this works) | `docs/philosophy.md` |
 | Cascade, √N, network effects | `docs/theory-of-change.md` |
 | Service layer, component patterns | `docs/technical/architecture.md` |
@@ -102,8 +101,7 @@ Recommendation: Remove from README.md, link to definitions.md instead.
    - New open question surfaced? → `hypotheses.md` "Open Questions" section
    - Open question answered? → Update or remove from Open Questions
    - Phase complete / focus shifted? → `decisions.md`
-   - Platform strategy changed? → `lean-canvas.md`
-   - Coaching business model changed? → `.private/docs/lean-canvas-coaching.md`
+   - Business strategy changed (platform or coaching)? → `lean-canvas.md`
    - GTM/sales approach changed? → `features/archive/p105_sales_playbook.md` (archived — or capture in decisions.md if new direction)
    - Schema/auth/testing changed? → relevant technical doc
    - Domain concepts changed? → `definitions.md`

@@ -1,7 +1,7 @@
 # Theory of Change: From Fractured Realities to Common Knowledge
 
 **Status:** Source of truth — the causal chain from individual verification to civilizational transformation
-**Time horizons:** Platform strategy is in [lean-canvas.md](lean-canvas.md). Coaching execution (price ladder, unit economics) is in `.private/docs/lean-canvas-coaching.md`. This doc describes the 1-10 year causal pathway and end state.
+**Time horizons:** Business strategy (platform + coaching) is in [lean-canvas.md](lean-canvas.md). This doc describes the 1-10 year causal pathway and end state.
 **See also:** [philosophy.md](philosophy.md) for WHY this works (epistemology)
 
 ---
@@ -215,7 +215,7 @@ Stage 1 begins (The Proof)
 - **Free Calibration Workshop (1-to-many, lead gen):** You present calibration points (stories & points curriculum), room calibrates against you. No pairing needed. Safe, fun, genuinely revealing. Content gets battle-tested before publishing.
 - **Direct facilitated session (1-to-2, value delivery):** You sit with the pair on their real decision. This is where the "holy shit" moment lives. Workshop creates awareness; facilitated session creates conversion.
 
-**Price ladder:** Free Workshop → €950 De-risking (2 sessions + Clarity Partnership Agreement) → from-€1,950/mo FCO Retainer. Continuous, no gaps. See `.private/docs/lean-canvas-coaching.md` for full ladder.
+**Price ladder:** Free Workshop → €950 De-risking (2 sessions + Clarity Partnership Agreement) → from-€1,950/mo FCO Retainer. Continuous, no gaps. See [lean-canvas.md](lean-canvas.md#coaching-ladischenskicom--price-ladder) for full ladder.
 
 **Future path (coach-mediated, deprioritized):** Coach-mediated cascading remains a valid long-term hypothesis but is not the near-term mechanism.
 
@@ -316,7 +316,7 @@ Enterprise adoption (12-month timeline)
 
 ### The Seven-Stage Cascade
 
-> **Time horizons:** Stages 1-3 map to the current 0-12 month execution (Canvas G's price ladder). Stages 4-7 are the 1-5 year platform vision. The theory of change describes the end state; the coaching canvas (`.private/docs/lean-canvas-coaching.md`) describes how to get there from zero.
+> **Time horizons:** Stages 1-3 map to the current 0-12 month execution (Canvas G's price ladder). Stages 4-7 are the 1-5 year platform vision. The theory of change describes the end state; [lean-canvas.md](lean-canvas.md) describes how to get there from zero.
 
 ```
 STAGE 1: THE PROOF

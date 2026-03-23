@@ -4,14 +4,7 @@ Concrete next steps in priority order. Updated 2026-03-23 (workshop-first reorde
 
 **Last updated:** 2026-03-23
 
-## Flywheel
-
-```
-Workshop (false-belief curriculum on cards) → Participant stories filed (testimonials + data)
-    → Blog article describing workshop experience → Distribution (LinkedIn, communities)
-    → De-risking package (co-founder pairs)
-    → New blog content + FCO retainer material → Flywheel
-```
+Flywheel: see [lean-canvas.md](lean-canvas.md#channels--flywheel). Steps below follow that sequence.
 
 ## Next Steps
 

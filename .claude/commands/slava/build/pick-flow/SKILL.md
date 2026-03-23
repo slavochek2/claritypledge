@@ -21,7 +21,7 @@ Analyze the task in context and output exactly this structure — no preamble, n
 
 Before analyzing scope, ask: **does the prerequisite use case for this feature exist today?**
 
-Read `docs/lean-canvas.md` (and `.private/docs/lean-canvas-coaching.md` if relevant). Check:
+Read `docs/lean-canvas.md`. Check:
 1. **Who needs this?** — which customer segment from the lean canvas?
 2. **Are they using the product today?** — or is this building for a future segment that hasn't been validated?
 3. **Does it help the current 30-day priority?** — check Validation Status section.

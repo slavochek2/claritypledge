@@ -2,6 +2,14 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-23 [product]: Re-merge lean canvas — one business, two brands
+
+**Context:** Split on 2026-03-22 into platform + coaching canvases caused immediate drift — flywheel duplicated in 3 places, cross-references between two docs, confusion about where strategy lives. The split was motivated by "exposes pricing strategy and personal financials" — but ladischenski.com pricing is public on the website, and there are no actual private financials in the doc.
+**Decision:** Merge back into single `docs/lean-canvas.md`. Two brands (ClarityPledge platform + ladischenski.com coaching) handled via `*(brand: X)*` markers within sections, not separate documents. Flywheel lives once in lean-canvas.md; goals.md references it. Removed `.private/docs/lean-canvas-coaching.md`.
+**Alternatives rejected:** (A) Keep split with better cross-refs — the problem is structural, not referential. (B) Move both to .private — the business model isn't secret. (C) Single canvas in .private with public excerpt — unnecessary indirection.
+**Consequences:** All references updated (theory-of-change, hypotheses, definitions, future-directions, kdd skill, pick-flow skill). One source of truth for strategy.
+**References:** [docs/lean-canvas.md](lean-canvas.md)
+
 ## 2026-03-23 [product]: Ritual direction over gamification for story/point card UX
 
 **Context:** Claude.ai UX exploration sessions (2026-03-22/23) iterated through game mechanics (12-level progression, particle effects, scoring, surprise simulations) then deliberately abandoned them. The product direction converged on ritual: deliberate slowness, full-screen single-step reading, cinematic gap reveal, cream paper aesthetic, serif typography. "The moment before a meditation teacher rings the bell."
@@ -32,7 +40,7 @@ Append-only log of architectural and product decisions. Newest entries at top.
 **Decision:** P568 moved to backlog. Unblock condition: self-serve /live sessions happening without facilitator AND attribution quality reported as a problem. Full design (cross-phone mic check flow, killed alternatives, implementation notes) preserved in spec for when it's needed.
 **Alternatives rejected:** (A) Build it now as infrastructure — premature optimization for a use case that doesn't exist. (B) Build just the static tooltip (simpler) — even a tooltip is solving a problem nobody has today. (C) Combine with P518 preboarding — considered merging "say your name" with goal alignment, but P518 is about emotional readiness (interface taps), P568 about audio quality (spoken voice). Kept separate.
 **Consequences:** P569 (energy post-validation) remains blocked — but by the same root cause: no self-serve sessions exist. The entire speaker attribution pipeline (P556 → P568 → P569) is premature for current phase. LLM merge (Gemini) from P569 is independently valuable and can ship without P568. Key design artifact: cross-phone RMS comparison via existing realtime channel is ~30 lines when needed.
-**References:** [P568](features/p568_phone_placement_guidance.md), [P569](features/p569_energy_post_validation.md), [lean-canvas-coaching](.private/docs/lean-canvas-coaching.md)
+**References:** [P568](features/p568_phone_placement_guidance.md), [P569](features/p569_energy_post_validation.md), [lean-canvas.md](lean-canvas.md)
 
 ## 2026-03-22 [product]: Split lean canvas — platform and coaching are separate businesses
 

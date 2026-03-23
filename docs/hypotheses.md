@@ -229,6 +229,6 @@ Literature-backed assumptions underpinning the product thesis. Not hypotheses we
 
 ## Related Docs
 
-- [lean-canvas.md](lean-canvas.md) — Problem, solution, customer segments (platform). Coaching business model in `.private/docs/lean-canvas-coaching.md`
+- [lean-canvas.md](lean-canvas.md) — Problem, solution, customer segments, coaching price ladder
 - [theory-of-change.md](theory-of-change.md) — Causal chain; validated assumptions and research evidence
 - [decisions.md](decisions.md) — Strategic decisions shaping hypothesis priority
