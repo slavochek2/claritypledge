@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: all-done
 type: story
 rank: 1
 tags:
