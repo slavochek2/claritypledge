@@ -78,6 +78,8 @@ interface StoryCardDetailProps {
   currentUserId?: string;
   /** Suppress share + external-link action icons in the footer (default: false) */
   hideActions?: boolean;
+  /** Callback when author clicks "+ Add a point" — used on story-detail to expand inline form instead of navigating */
+  onAddPoint?: () => void;
 }
 
 /**
@@ -104,6 +106,7 @@ export function StoryCardDetail({
   footerActionsSlot,
   currentUserId,
   hideActions = false,
+  onAddPoint,
 }: StoryCardDetailProps) {
   const navigate = useNavigate();
   const [pointsExpanded, setPointsExpanded] = useState(isDetailView);
@@ -309,17 +312,18 @@ export function StoryCardDetail({
               ) : (
                 <span className="text-sm text-muted-foreground">0 points</span>
               )}
-              {/* Author CTA — shown when currentUserId is the story author (not on story-detail where KeyPointsSection handles it) */}
-              {context !== 'story-detail' && currentUserId === story.authorId && (
+              {/* Author CTA — shown when currentUserId is the story author */}
+              {currentUserId === story.authorId && (
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
-                    navigate(`/story/${story.id}?addPoint=true`);
+                    if (onAddPoint) onAddPoint();
+                    else navigate(`/story/${story.id}?addPoint=true`);
                   }}
-                  className="text-sm font-medium text-blue-600 hover:text-blue-700 transition-colors"
+                  className="px-3 py-1 text-xs font-medium text-white bg-blue-600 rounded-full hover:bg-blue-700 transition-colors"
                   aria-label="Add a point to this story"
                 >
-                  + add a point
+                  + Add a point
                 </button>
               )}
             </div>
@@ -635,9 +639,9 @@ function QuotedPoint({
                   </button>
                   <button
                     onClick={e => { e.stopPropagation(); navigate(chatUrl); }}
-                    className="text-sm font-medium text-blue-600 hover:text-blue-700 transition-colors"
+                    className="px-3 py-1 text-xs font-medium text-white bg-blue-600 rounded-full hover:bg-blue-700 transition-colors"
                   >
-                    + add story →
+                    + Add your story
                   </button>
                 </div>
               )}

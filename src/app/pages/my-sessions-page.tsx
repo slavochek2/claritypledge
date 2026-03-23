@@ -11,6 +11,7 @@ import { ClarityPageLoader } from '@/components/ui/clarity-loader';
 import { useAuth } from '@/auth';
 import { getUserSessions, type SessionSummary } from '@/app/data/sessions-service';
 import { fetchSessionTranscript, retryTranscription } from '@/app/data/api';
+import { analytics } from '@/lib/mixpanel';
 import { SessionList } from '@/app/components/sessions/session-list';
 import { RoundSummaryScreen } from '@/app/components/partners/round-summary-screen';
 import type { SessionHistoryItem, SessionTranscript } from '@/app/types';
@@ -82,6 +83,18 @@ function TranscriptRow({
 }) {
   const [copied, setCopied] = useState(false);
   const [retrying, setRetrying] = useState(false);
+
+  // P578: Track transcript nudge shown when row is visible
+  const hasTranscript = session.transcriptStatus === 'completed' || session.transcriptStatus === 'ready';
+  const shouldShow = !session.isPrivate && session.transcriptStatus !== null;
+  useEffect(() => {
+    if (shouldShow) {
+      analytics.track('transcript_nudge_shown', {
+        session_id: session.id,
+        has_transcript: hasTranscript,
+      });
+    }
+  }, [shouldShow, session.id, hasTranscript]);
 
   // Don't show for private sessions or sessions with no transcription job
   if (session.isPrivate || session.transcriptStatus === null) return null;
@@ -155,7 +168,10 @@ function TranscriptRow({
           {copied ? 'Copied' : 'Copy'}
         </button>
         <button
-          onClick={onOpen}
+          onClick={() => {
+            analytics.track('transcript_nudge_clicked', { session_id: session.id });
+            onOpen();
+          }}
           className="flex items-center gap-1 text-xs text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded px-2 py-1"
           aria-label="Open full transcript"
         >

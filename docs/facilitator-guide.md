@@ -14,9 +14,22 @@
 - Take "strongly disagree" position on each false belief point
 - Select 3-4 false beliefs for the workshop (don't try all 8 — depth > breadth)
 
+### Opening Questions (Per False Belief)
+
+| # | Open Question | False Belief It Surfaces |
+|---|---|---|
+| 1 | "When someone says 'you don't understand me,' what do they really want?" | Understanding = empathy; you feel it or you don't |
+| 2 | "When interests clash, what should you aim for first?" | Make the other person feel what you feel |
+| 3 | "How do you know someone understood what you said?" | Intuition is the most reliable indicator |
+| 4 | "Does expressing your emotions freely while listening help or hurt reaching understanding?" | Expressing freely = engaged; holding back = withholding |
+| 5 | "Is it OK to decline a paraphrasing request without saying why?" | It's patronizing; you shouldn't have to prove you listened |
+| 6 | "Should partners formalize how they reach clarity — or just figure it out naturally?" | No formal process needed if both people care |
+| 7 | "What is the most effective way to inspire others to practice verified cognitive understanding?" | Actions are enough; public declarations don't matter |
+| 8 | "How do you test a potential partner's capacity to learn and admit mistakes?" | No way to test upfront; only experience tells |
+
 ### Flow (Per False Belief — ~15 min each)
 
-1. **SURFACE:** Ask the opening question (e.g., "When someone says 'you don't understand me,' what do they mean?"). Let participants answer naturally.
+1. **SURFACE:** Ask the opening question (see table above). Let participants answer naturally.
 2. **POSITION:** Show the false belief point on screen. Ask participants to rate agreement. Most will agree 8-10. This is their current belief.
 3. **STORY:** Present your counter-story. Let them read it on their device (card UI) or present it verbally. The story explains WHY the false belief is wrong — with evidence, personal experience, or both.
 4. **VERIFY:** Participants use comprehension slider on your story (P561). "How well do you understand Slava's reasoning?" This is NOT agreement — it's comprehension.

@@ -7,6 +7,7 @@ tags:
   - transcription
   - infrastructure
   - speaker-attribution
+created_date: 2026-03-21
 ---
 
 # P556: Energy-Based Speaker Attribution for Multi-Phone Sessions

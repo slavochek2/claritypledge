@@ -38,6 +38,9 @@ Events are categorized by feature area:
 - [Article/Content](#articlecontent) - Manifesto engagement
 - [Social Features](#social-features) - Pledgers page, endorsements
 - [Live Meetings](#live-meetings) - Real-time understanding verification
+- [Audio Upload Reliability](#audio-upload-reliability) - Chunk upload failures and recovery (P578)
+- [404 Page](#404-page) - Not-found page tracking (P578)
+- [Session Transcripts](#session-transcripts) - Transcript nudge engagement (P578)
 
 ---
 
@@ -779,6 +782,64 @@ User completed auth and context was restored.
 |----------|------|-------------|
 | `context` | string | Restored action: `set-position`, `start-story`, `open-chat` |
 | `redirect_path` | string | Path the user was redirected to after restoration |
+
+---
+
+## Audio Upload Reliability
+
+Events for monitoring audio chunk upload reliability during /live recording (P566/P578).
+
+### `audio_chunk_upload_failed`
+A chunk upload attempt failed (fired per retry attempt).
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `session_code` | string | 6-character room code |
+| `chunk_number` | number | Chunk sequence number |
+| `error_type` | string | Error message from the failed upload |
+| `retry_count` | number | Number of retries before this attempt (0 = first try) |
+
+### `audio_chunk_recovered`
+A chunk was successfully uploaded after failure (retry or IndexedDB recovery).
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `session_code` | string | 6-character room code |
+| `chunk_number` | number | Chunk sequence number |
+| `recovery_source` | string | How recovered: `retry` (succeeded after failed attempts) or `indexeddb` (orphaned chunk from previous session) |
+
+---
+
+## 404 Page
+
+### `not_found_page_viewed`
+User landed on a non-existent route.
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `attempted_path` | string | The path + query string that was attempted |
+| `referrer` | string | Document referrer URL or `direct` |
+
+---
+
+## Session Transcripts
+
+Events for transcript engagement on the sessions page (P578).
+
+### `transcript_nudge_shown`
+Transcript row was rendered in session detail view (any status: processing, failed, or ready).
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `session_id` | string | Session UUID |
+| `has_transcript` | boolean | Whether transcript is completed/ready |
+
+### `transcript_nudge_clicked`
+User clicked "Open" on a completed transcript row.
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `session_id` | string | Session UUID |
 
 ---
 

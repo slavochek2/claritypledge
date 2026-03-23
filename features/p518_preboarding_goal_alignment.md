@@ -1,7 +1,7 @@
 ---
 status: week
 type: story
-rank: 0.5
+rank: 0.125
 tags:
   - live
   - onboarding

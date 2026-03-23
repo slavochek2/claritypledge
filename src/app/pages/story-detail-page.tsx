@@ -41,7 +41,7 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { analytics } from '@/lib/mixpanel';
-import { PositionButtons, type SevenPointCounts } from '@/app/components/shared';
+import { PositionButtons, VisibilityBadge, type SevenPointCounts } from '@/app/components/shared';
 import type { StoryWithPoints, StoryWithAuthor, PointSummary, PointPosition, PositionType, StoryVisibility } from '@/app/types';
 import {
   DropdownMenu,
@@ -367,36 +367,33 @@ function AuthorActionRow({
   const CurrentIcon = current.icon;
 
   return (
-    <div className="mt-3">
-      {/* Visibility dropdown */}
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <button
-            type="button"
-            disabled={saving || disabled}
-            aria-label={`Story visibility: ${current.label}`}
-            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md border border-input bg-background text-sm text-muted-foreground hover:bg-accent transition-colors disabled:opacity-50"
-          >
-            <CurrentIcon className="w-3.5 h-3.5" />
-            {current.label}
-            <ChevronDown className="w-3 h-3 opacity-60" />
-          </button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="start">
-          <DropdownMenuRadioGroup value={currentVisibility} onValueChange={handleVisibilityChange}>
-            {VISIBILITY_OPTIONS.map(opt => {
-              const Icon = opt.icon;
-              return (
-                <DropdownMenuRadioItem key={opt.value} value={opt.value}>
-                  <Icon className="w-3.5 h-3.5 mr-1.5" />
-                  {opt.label}
-                </DropdownMenuRadioItem>
-              );
-            })}
-          </DropdownMenuRadioGroup>
-        </DropdownMenuContent>
-      </DropdownMenu>
-    </div>
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button
+          type="button"
+          disabled={saving || disabled}
+          aria-label={`Story visibility: ${current.label}`}
+          className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
+        >
+          <CurrentIcon className="w-3 h-3" />
+          {current.label}
+          <ChevronDown className="w-2.5 h-2.5 opacity-60" />
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start">
+        <DropdownMenuRadioGroup value={currentVisibility} onValueChange={handleVisibilityChange}>
+          {VISIBILITY_OPTIONS.map(opt => {
+            const Icon = opt.icon;
+            return (
+              <DropdownMenuRadioItem key={opt.value} value={opt.value}>
+                <Icon className="w-3.5 h-3.5 mr-1.5" />
+                {opt.label}
+              </DropdownMenuRadioItem>
+            );
+          })}
+        </DropdownMenuRadioGroup>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
 
@@ -409,15 +406,26 @@ function KeyPointsSection({
   currentUserId,
   pointCount,
   justCreated,
+  addPointRequested,
+  showFormTrigger,
   onPointAdded,
 }: {
   storyId: string;
   currentUserId: string;
   pointCount: number;
   justCreated: boolean;
+  /** When true (from ?addPoint=true query param), auto-expand the form */
+  addPointRequested: boolean;
+  /** Incrementing counter — each bump opens the form (used by in-card CTA) */
+  showFormTrigger: number;
   onPointAdded: (point: PointSummary, position?: PositionType) => void;
 }) {
   const [showForm, setShowForm] = useState(false);
+
+  // Open form when triggered from in-card CTA
+  useEffect(() => {
+    if (showFormTrigger > 0) setShowForm(true);
+  }, [showFormTrigger]);
 
   // Auto-expand form on justCreated with 0 points
   const autoExpand = justCreated && pointCount === 0;
@@ -431,25 +439,8 @@ function KeyPointsSection({
         </div>
       )}
 
-      {/* Author: empty state (non-justCreated) */}
-      {pointCount === 0 && !autoExpand && !showForm && (
-        <div className="border-2 border-dashed border-border rounded-lg p-6 text-center mb-4">
-          <p className="text-sm text-muted-foreground mb-3">
-            No points yet. Points are claims others can agree or disagree with.
-          </p>
-          <Button
-            variant="outline"
-            className="min-h-[44px] w-full"
-            onClick={() => setShowForm(true)}
-          >
-            <Plus size={16} />
-            Add a Point
-          </Button>
-        </div>
-      )}
-
-      {/* Author: form (auto-expanded on justCreated, or toggled) */}
-      {(autoExpand || showForm) && (
+      {/* Author: form (auto-expanded on justCreated or addPoint query param, or toggled) */}
+      {(autoExpand || addPointRequested || showForm) && (
         <AddPointForm
           storyId={storyId}
           currentUserId={currentUserId}
@@ -457,23 +448,13 @@ function KeyPointsSection({
             onPointAdded(point, position);
             // Keep form open for sequential adds
           }}
-          autoFocus={autoExpand}
+          autoFocus={autoExpand || addPointRequested}
           showCancel={showForm && !autoExpand}
           onCancel={() => setShowForm(false)}
         />
       )}
 
-      {/* Author: expand button (when there are already points and form is hidden) */}
-      {pointCount > 0 && !showForm && !autoExpand && (
-        <Button
-          variant="outline"
-          className="min-h-[44px] w-full"
-          onClick={() => setShowForm(true)}
-        >
-          <Plus size={16} />
-          Add a Point
-        </Button>
-      )}
+      {/* Expand button removed — CTA is now in the card footer via onAddPoint */}
     </div>
   );
 }
@@ -649,6 +630,8 @@ export function StoryDetailPage() {
   const { checkVerified } = useVerificationGate();
 
   const justCreated = !!(location.state as { justCreated?: boolean } | null)?.justCreated;
+  // Counter — each bump opens the add-point form via KeyPointsSection
+  const [addPointTrigger, setAddPointTrigger] = useState(0);
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<'not_found' | 'private' | 'network_error' | null>(null);
@@ -1234,6 +1217,16 @@ export function StoryDetailPage() {
           context="story-detail"
           linkedStoriesForPoints={linkedStoriesForPoints}
           currentUserId={user?.id}
+          visibilitySlot={isAuthor ? (
+            <AuthorActionRow
+              storyId={story.id}
+              currentVisibility={story.visibility}
+              onVisibilityChanged={(v) => setStory(prev => prev ? { ...prev, visibility: v } : prev)}
+              disabled={isDeleting}
+            />
+          ) : (
+            <VisibilityBadge visibility={story.visibility} />
+          )}
           footerActionsSlot={isAuthor ? (
             <>
               <button
@@ -1258,6 +1251,7 @@ export function StoryDetailPage() {
               </button>
             </>
           ) : undefined}
+          onAddPoint={isAuthor ? () => setAddPointTrigger(n => n + 1) : undefined}
         />
         </div>
       )}
@@ -1265,17 +1259,13 @@ export function StoryDetailPage() {
       {/* P131/P424/P427: Author-only section */}
       {isAuthor && (
         <>
-          <AuthorActionRow
-            storyId={story.id}
-            currentVisibility={story.visibility}
-            onVisibilityChanged={(v) => setStory(prev => prev ? { ...prev, visibility: v } : prev)}
-            disabled={isDeleting}
-          />
           <KeyPointsSection
             storyId={story.id}
             currentUserId={user?.id ?? ''}
             pointCount={story.points.length}
             justCreated={justCreated}
+            addPointRequested={searchParams.get('addPoint') === 'true'}
+            showFormTrigger={addPointTrigger}
             onPointAdded={handlePointAdded}
           />
         </>

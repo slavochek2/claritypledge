@@ -1,4 +1,6 @@
-import { Link } from "react-router-dom";
+import { useEffect } from "react";
+import { Link, useLocation } from "react-router-dom";
+import { analytics } from "@/lib/mixpanel";
 
 /**
  * 404 page — catch-all for unknown routes.
@@ -183,5 +185,14 @@ export function NotFoundCompass() {
 
 // Default export = production 404
 export function NotFoundPage() {
+  const location = useLocation();
+
+  useEffect(() => {
+    analytics.track('not_found_page_viewed', {
+      attempted_path: location.pathname + location.search,
+      referrer: document.referrer || 'direct',
+    });
+  }, [location.pathname, location.search]);
+
   return <NotFoundDrift />;
 }

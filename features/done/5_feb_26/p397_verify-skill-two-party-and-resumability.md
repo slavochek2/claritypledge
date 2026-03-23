@@ -222,7 +222,7 @@ At Step 2, parse Test Execution Log table. Rows with ✅, ❌, or ⏭️ are com
 ## Security Review
 
 **Credential Handling:**
-- ⚠️ `e2e-verify-listener@gmail.com` / `ClarityVerify-L2026!` are hardcoded in the current SKILL.md (`5a-TWO-PARTY` block) — a public repo. This was introduced during P272, not P397, but P397 makes the boot sequence executable, making it a first-class concern.
+- ⚠️ Test account credentials were hardcoded in SKILL.md (`5a-TWO-PARTY` block) — a public repo. This was introduced during P272, not P397, but P397 makes the boot sequence executable, making it a first-class concern. Credentials now live in `.env.test.local` only.
 - ✅ Blast radius is narrow — this is a dedicated test account with normal user permissions only. It cannot access admin functions or other users' data.
 - ✅ `.env.test.local` is correctly gitignored. The spec's design (read from env vars) is correct.
 - **Required action:** Remove the inline credential values from SKILL.md. The boot macro instructions should reference credential names only (`TEST_LISTENER_EMAIL` / `TEST_LISTENER_PASSWORD`), not values. Rotate the password after removing from file.

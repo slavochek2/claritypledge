@@ -1,7 +1,10 @@
 ---
+status: backlog
 feature: p523
 type: uat
 created_date: 2026-03-18
+tags: []
+rank: 1000024.0
 ---
 
 # UAT: P523 — Point-to-Point References & Standalone Point Creation

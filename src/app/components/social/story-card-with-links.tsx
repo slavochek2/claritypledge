@@ -102,7 +102,7 @@ export function StoryCardWithLinks({
     setPointsExpanded(!pointsExpanded);
   };
   useEffect(() => { setTextExpanded(false); }, [story.id]);
-  const _isCurrentUserStory = currentUserId && story.authorId === currentUserId;
+  const isAuthor = currentUserId ? story.authorId === currentUserId : false;
   const rawText = stripHashtags(story.text, tags);
   const fullText = rawText;
   // In embed mode, truncate long story text to keep embed compact
@@ -350,22 +350,37 @@ export function StoryCardWithLinks({
             className="flex items-center justify-between pl-[52px] pr-4 py-3 border-t border-gray-100"
             onClick={(e) => e.stopPropagation()}
           >
-            {/* Collapsible trigger (if has linked points) */}
-            {linkedPoints.length > 0 ? (
-              <button
-                onClick={handlePointsToggle}
-                className="flex items-center gap-2 text-sm text-gray-600 hover:text-blue-600 transition-colors"
-                aria-expanded={pointsExpanded}
-                aria-label={`${pointsExpanded ? 'Collapse' : 'Expand'} linked points`}
-              >
-                {pointsExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-                <span>
-                  {linkedPoints.length} {linkedPoints.length === 1 ? 'point' : 'points'}
-                </span>
-              </button>
-            ) : (
-              <span /> /* Empty span for flexbox spacing */
-            )}
+            {/* Point count (always shown) + author CTA */}
+            <div className="flex items-center gap-2">
+              {linkedPoints.length > 0 ? (
+                <button
+                  onClick={handlePointsToggle}
+                  className="flex items-center gap-2 text-sm text-gray-600 hover:text-blue-600 transition-colors"
+                  aria-expanded={pointsExpanded}
+                  aria-label={`${pointsExpanded ? 'Collapse' : 'Expand'} linked points`}
+                >
+                  {pointsExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                  <span>
+                    {linkedPoints.length} {linkedPoints.length === 1 ? 'point' : 'points'}
+                  </span>
+                </button>
+              ) : (
+                <span className="text-sm text-gray-600">0 points</span>
+              )}
+              {/* Author CTA — hidden in embed and live session modes */}
+              {!isEmbed && !hideActions && isAuthor && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    embedNavigate(`/story/${story.id}?addPoint=true`);
+                  }}
+                  className="px-3 py-1 text-xs font-medium text-white bg-blue-600 rounded-full hover:bg-blue-700 transition-colors"
+                  aria-label="Add a point to this story"
+                >
+                  + Add a point
+                </button>
+              )}
+            </div>
 
             {/* Action icons — embed: open button only (no share) */}
             {!hideActions && (
@@ -640,9 +655,9 @@ function QuotedPoint({
                   </button>
                   <button
                     onClick={e => { e.stopPropagation(); embedNavigate(chatUrl); }}
-                    className="text-sm font-medium text-blue-600 hover:text-blue-700 transition-colors"
+                    className="px-3 py-1 text-xs font-medium text-white bg-blue-600 rounded-full hover:bg-blue-700 transition-colors"
                   >
-                    + add story →
+                    + Add your story
                   </button>
                 </div>
               )}

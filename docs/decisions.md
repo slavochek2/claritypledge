@@ -28,8 +28,8 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ## 2026-03-22 [technical]: P571 — hide test accounts via DB column, not RLS
 
-**Context:** Test accounts (e2e-agent, slava@inguro.com) visible on public /pledgers page. Three options considered: email filter in query, DB column flag, RLS-level filter.
-**Decision:** Added `is_test_account boolean NOT NULL DEFAULT false` to profiles. Filtered in `getVerifiedProfiles`, `getVerifiedProfileCount`, and `getFeaturedProfiles`. RLS WITH CHECK prevents test accounts from self-clearing the flag via direct REST. Personal email (`slava@inguro.com`) flagged via dashboard only — never in public migration SQL.
+**Context:** Test accounts (e2e-agent, founder's personal account) visible on public /pledgers page. Three options considered: email filter in query, DB column flag, RLS-level filter.
+**Decision:** Added `is_test_account boolean NOT NULL DEFAULT false` to profiles. Filtered in `getVerifiedProfiles`, `getVerifiedProfileCount`, and `getFeaturedProfiles`. RLS WITH CHECK prevents test accounts from self-clearing the flag via direct REST. Personal email (`founder's personal account`) flagged via dashboard only — never in public migration SQL.
 **Alternatives rejected:** (1) Email-domain filter — brittle, hardcodes emails. (2) RLS policy hiding rows — breaks E2E tests and manual QA that need full account access. (3) Soft-delete/deactivation — breaks test workflows entirely.
 **Consequences:** Any new test account just needs `is_test_account = true` set via dashboard. No code changes needed. Pattern: use query-level filters for display concerns, not RLS (which is for access control).
 **References:** [P571 spec](features/done/22_mar_26/p571_hide_test_accounts_from_pledgers.md)

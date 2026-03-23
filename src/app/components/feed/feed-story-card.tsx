@@ -20,6 +20,8 @@ import type { StoryWithAuthor } from '@/app/types';
 interface FeedStoryCardProps {
   story: StoryWithAuthor;
   activeTag?: string;
+  /** Optional point count — when available, shown in footer */
+  pointCount?: number;
 }
 
 function formatTimeAgo(dateStr: string): string {
@@ -34,7 +36,7 @@ function formatTimeAgo(dateStr: string): string {
   return `${Math.floor(diffDays / 30)}mo ago`;
 }
 
-export function FeedStoryCard({ story, activeTag }: FeedStoryCardProps) {
+export function FeedStoryCard({ story, activeTag, pointCount }: FeedStoryCardProps) {
   const navigate = useNavigate();
 
   const handleClick = () => {
@@ -126,6 +128,19 @@ export function FeedStoryCard({ story, activeTag }: FeedStoryCardProps) {
           </div>
         </div>
       </div>
+
+      {/* Footer: point count */}
+      {pointCount !== undefined && (
+        <div
+          role="presentation"
+          className="flex items-center justify-between px-4 py-2.5 border-t border-border"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <span className="text-sm text-muted-foreground">
+            {pointCount} {pointCount === 1 ? 'point' : 'points'}
+          </span>
+        </div>
+      )}
     </div>
   );
 }

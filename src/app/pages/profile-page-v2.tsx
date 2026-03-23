@@ -13,6 +13,7 @@ import { getProfile, getProfileBySlug, createProfile, updateProfile, type Profil
 import { BannerDisplay, BannerControls, useBanner } from '@/app/components/shared/banner';
 import { SEO } from "@/app/components/seo";
 import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
 import { PointCardWithLinks } from "@/app/components/social/point-card-with-links";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/auth";
@@ -29,6 +30,7 @@ import {
   Pencil,
   Trash2,
   ScrollText,
+  Loader2,
 } from "lucide-react";
 import { ClarityPageLoader } from "@/components/ui/clarity-loader";
 import { GravatarAvatar } from "@/components/ui/gravatar-avatar";
@@ -57,8 +59,16 @@ import {
   type SevenPointCounts,
 } from "@/app/components/shared";
 import { VisibilityBadge } from "@/app/components/shared/visibility-badge";
+import { VISIBILITY_OPTIONS } from "@/app/data/story-visibility-options";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { TagPills } from '@/app/components/shared/tag-pills';
-import { stripHashtags } from '@/lib/utils';
+import { stripHashtags, extractHashtags } from '@/lib/utils';
 import type { PositionType, StoryVisibility } from "@/app/types";
 import type { Position } from "@/app/components/shared/prototype-types";
 import { adjustPositionCounts, toSevenPointCounts } from "@/app/utils/position-helpers";
@@ -378,9 +388,9 @@ export function ProfilePageV2() {
           };
         });
 
-          setRealPoints(adaptedPoints);
-
           // P465: Fetch viewer's own story links for other profiles
+          // Must complete BEFORE setRealPoints to avoid race condition where
+          // cards render with empty viewerStoryCountMap showing false "Add your story" CTA
           if (currentUserId && profile && currentUserId !== profile.id) {
             const pointIds = adaptedPoints.map(p => p.id);
             if (pointIds.length > 0) {
@@ -402,6 +412,8 @@ export function ProfilePageV2() {
               setViewerStoryIdForPoint(idMap);
             }
           }
+
+          setRealPoints(adaptedPoints);
         } else {
           setRealPoints(validPoints);
         }
@@ -988,6 +1000,7 @@ export function ProfilePageV2() {
                     currentUserId={currentUser?.id}
                     onPointPositionSelect={handleProfilePointPosition}
                     onDelete={(storyId) => setRealStories(prev => prev.filter(s => s.id !== storyId))}
+                    onUpdate={(storyId, content) => setRealStories(prev => prev.map(s => s.id === storyId ? { ...s, content, tags: extractHashtags(content) } : s))}
                   />
                 ))
               )
@@ -1075,9 +1088,13 @@ interface StoryCardFullProps {
   currentUserId?: string;
   onPointPositionSelect?: (pointId: string, pos: Position | null) => void;
   onDelete?: (storyId: string) => void;
+  onUpdate?: (storyId: string, content: string) => void;
 }
 
 const STORY_THRESHOLD = 180;
+
+/** Hard character max for story editing (mirrors DB CHECK constraint) */
+const STORY_EDIT_CHAR_MAX = 10000;
 
 function StoryCardFull({
   story,
@@ -1086,13 +1103,67 @@ function StoryCardFull({
   currentUserId,
   onPointPositionSelect,
   onDelete,
+  onUpdate,
 }: StoryCardFullProps) {
   const navigate = useNavigate();
   const [pointsExpanded, setPointsExpanded] = useState(false);
   const [storyExpanded, setStoryExpanded] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editContent, setEditContent] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
+  const [localVisibility, setLocalVisibility] = useState(story.visibility);
+  const [savingVisibility, setSavingVisibility] = useState(false);
+  const editTextareaRef = useRef<HTMLTextAreaElement>(null);
+
+  const handleEditStart = () => {
+    setEditContent(story.content);
+    setIsEditing(true);
+    // Focus textarea after render
+    setTimeout(() => editTextareaRef.current?.focus(), 0);
+  };
+
+  const handleEditCancel = () => {
+    setIsEditing(false);
+    setEditContent('');
+  };
+
+  const handleEditSave = async () => {
+    const trimmed = editContent.trim();
+    if (!trimmed || trimmed === story.content) {
+      handleEditCancel();
+      return;
+    }
+    setIsSaving(true);
+    const tags = extractHashtags(trimmed);
+    const result = await storiesService.updateStory(story.id, { content: trimmed, tags });
+    setIsSaving(false);
+    if (result) {
+      setIsEditing(false);
+      setEditContent('');
+      onUpdate?.(story.id, trimmed);
+      toast.success('Story updated');
+    } else {
+      toast.error('Failed to update story');
+    }
+  };
+
+  const handleVisibilityChange = async (newVisibility: string) => {
+    const v = newVisibility as StoryVisibility;
+    if (v === localVisibility || savingVisibility) return;
+    setSavingVisibility(true);
+    const updated = await storiesService.updateStory(story.id, { visibility: v });
+    setSavingVisibility(false);
+    if (updated) {
+      setLocalVisibility(v);
+      toast.success('Visibility updated');
+    } else {
+      toast.error('Failed to update visibility');
+    }
+  };
 
   const handleCardClick = () => {
+    if (isEditing) return;
     navigate(detailRoutes.story(story.id));
   };
 
@@ -1164,31 +1235,87 @@ function StoryCardFull({
                   </span>
                 </MobileTooltip>
               </div>
-              <p className="text-xs text-muted-foreground flex items-center gap-1">
+              <div className="flex items-center gap-1 text-xs text-muted-foreground">
                 <span>{author.role} · {formatTimeAgo(story.createdAt)}</span>
-                <VisibilityBadge visibility={story.visibility} />
-              </p>
+                {currentUserId === story.authorId ? (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button
+                        type="button"
+                        disabled={savingVisibility}
+                        onClick={(e) => e.stopPropagation()}
+                        aria-label={`Story visibility: ${VISIBILITY_OPTIONS.find(o => o.value === localVisibility)?.label}`}
+                        className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
+                      >
+                        {(() => { const opt = VISIBILITY_OPTIONS.find(o => o.value === localVisibility) ?? VISIBILITY_OPTIONS[0]; const Icon = opt.icon; return <><Icon className="w-3 h-3" />{opt.label}<ChevronDown className="w-2.5 h-2.5 opacity-60" /></>; })()}
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="start">
+                      <DropdownMenuRadioGroup value={localVisibility} onValueChange={handleVisibilityChange}>
+                        {VISIBILITY_OPTIONS.map(opt => {
+                          const Icon = opt.icon;
+                          return (
+                            <DropdownMenuRadioItem key={opt.value} value={opt.value}>
+                              <Icon className="w-3.5 h-3.5 mr-1.5" />
+                              {opt.label}
+                            </DropdownMenuRadioItem>
+                          );
+                        })}
+                      </DropdownMenuRadioGroup>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                ) : (
+                  <VisibilityBadge visibility={story.visibility} />
+                )}
+              </div>
             </div>
 
-            {/* Story text */}
-            <p id={`story-text-${story.id}`} className="text-foreground text-base">{linkifyText(storyDisplayText)}</p>
-            {isLongStory && (
-              <div role="presentation" onClick={(e) => e.stopPropagation()}>
-                <button
-                  type="button"
-                  data-story-toggle="true"
-                  onClick={() => setStoryExpanded((prev) => !prev)}
-                  aria-expanded={storyExpanded}
-                  aria-controls={`story-text-${story.id}`}
-                  className="text-sm text-blue-600 hover:text-blue-700 mt-1"
-                >
-                  {storyExpanded ? 'Show less' : 'Show more'}
-                </button>
+            {/* Story text / inline edit */}
+            {isEditing ? (
+              <div role="presentation" onClick={(e) => e.stopPropagation()} className="space-y-2">
+                <Textarea
+                  ref={editTextareaRef}
+                  value={editContent}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setEditContent(val.length <= STORY_EDIT_CHAR_MAX ? val : val.slice(0, STORY_EDIT_CHAR_MAX));
+                  }}
+                  onKeyDown={(e) => {
+                    if ((e.metaKey || e.ctrlKey) && e.key === 'Enter' && editContent.trim()) handleEditSave();
+                    if (e.key === 'Escape') handleEditCancel();
+                  }}
+                  disabled={isSaving}
+                  className="min-h-[100px] resize-y"
+                />
+                <div className="flex gap-2">
+                  <Button variant="ghost" size="sm" onClick={handleEditCancel} disabled={isSaving}>Cancel</Button>
+                  <Button size="sm" onClick={handleEditSave} disabled={!editContent.trim() || isSaving} className="bg-blue-500 hover:bg-blue-600 text-white">
+                    {isSaving ? <><Loader2 size={14} className="animate-spin mr-1" />Saving…</> : 'Save'}
+                  </Button>
+                </div>
               </div>
+            ) : (
+              <>
+                <p id={`story-text-${story.id}`} className="text-foreground text-base">{linkifyText(storyDisplayText)}</p>
+                {isLongStory && (
+                  <div role="presentation" onClick={(e) => e.stopPropagation()}>
+                    <button
+                      type="button"
+                      data-story-toggle="true"
+                      onClick={() => setStoryExpanded((prev) => !prev)}
+                      aria-expanded={storyExpanded}
+                      aria-controls={`story-text-${story.id}`}
+                      className="text-sm text-blue-600 hover:text-blue-700 mt-1"
+                    >
+                      {storyExpanded ? 'Show less' : 'Show more'}
+                    </button>
+                  </div>
+                )}
+              </>
             )}
 
             {/* P503: Tag pills */}
-            {story.tags && story.tags.length > 0 && (
+            {!isEditing && story.tags && story.tags.length > 0 && (
               <TagPills tags={story.tags} context="profile" className="mt-2" />
             )}
 
@@ -1208,21 +1335,31 @@ function StoryCardFull({
         className="flex items-center justify-between pl-[52px] pr-4 py-3 border-t border-border"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Collapsible trigger (if has linked points) */}
-        {linkedPoints.length > 0 ? (
-          <button
-            onClick={() => setPointsExpanded(!pointsExpanded)}
-            className="flex items-center gap-2 text-sm text-muted-foreground hover:text-blue-600 transition-colors"
-            aria-expanded={pointsExpanded}
-          >
-            {pointsExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-            <span>
-              {linkedPoints.length} {linkedPoints.length === 1 ? 'point' : 'points'}
-            </span>
-          </button>
-        ) : (
-          <span />
-        )}
+        {/* Point count + author CTA (P580: always show count, author gets "+ add a point") */}
+        <div className="flex items-center gap-2">
+          {linkedPoints.length > 0 ? (
+            <button
+              onClick={() => setPointsExpanded(!pointsExpanded)}
+              className="flex items-center gap-2 text-sm text-muted-foreground hover:text-blue-600 transition-colors"
+              aria-expanded={pointsExpanded}
+            >
+              {pointsExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+              <span>
+                {linkedPoints.length} {linkedPoints.length === 1 ? 'point' : 'points'}
+              </span>
+            </button>
+          ) : (
+            <span className="text-sm text-muted-foreground">0 points</span>
+          )}
+          {currentUserId === story.authorId && (
+            <button
+              onClick={(e) => { e.stopPropagation(); navigate(`/story/${story.id}?addPoint=true`); }}
+              className="px-3 py-1 text-xs font-medium text-white bg-blue-600 rounded-full hover:bg-blue-700 transition-colors"
+            >
+              + Add a point
+            </button>
+          )}
+        </div>
 
         {/* Action icons */}
         <div className="flex items-center gap-1">
@@ -1231,7 +1368,7 @@ function StoryCardFull({
             <>
               <MobileTooltip content="Edit story">
                 <button
-                  onClick={(e) => { e.stopPropagation(); navigate(`/story/${story.id}?edit=true`); }}
+                  onClick={(e) => { e.stopPropagation(); handleEditStart(); }}
                   className="min-w-[44px] min-h-[44px] flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted rounded-full transition-colors"
                   aria-label="Edit story"
                 >

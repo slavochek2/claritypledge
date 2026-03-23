@@ -7,6 +7,7 @@
  */
 
 import type { ChunkStore, ChunkMetadata } from './chunk-store';
+import { analytics } from './mixpanel';
 
 /** Queue processing state */
 export type QueueState = 'idle' | 'uploading' | 'retrying' | 'stalled';
@@ -129,6 +130,11 @@ export class ChunkUploadQueue {
             console.log(`[UploadQueue] Uploading orphan: ${key}`);
             await uploadFn(key, chunk.blob, chunk.metadata);
             await store.deleteChunk(key);
+            analytics.track('audio_chunk_recovered', {
+              session_code: chunk.metadata.sessionCode,
+              chunk_number: chunk.metadata.chunkNumber,
+              recovery_source: 'indexeddb',
+            });
           } catch (err) {
             console.error(`[UploadQueue] Failed to upload orphan ${key}:`, err);
             // Leave in store for next attempt
@@ -180,6 +186,15 @@ export class ChunkUploadQueue {
         await this.store.deleteChunk(chunkKey);
         uploaded = true;
 
+        // Track recovery if this succeeded after at least one retry
+        if (attempts > 1) {
+          analytics.track('audio_chunk_recovered', {
+            session_code: chunk.metadata.sessionCode,
+            chunk_number: chunk.metadata.chunkNumber,
+            recovery_source: 'retry',
+          });
+        }
+
         // Update health on success
         this.consecutiveSuccesses++;
         this.consecutiveFailures = 0;
@@ -190,6 +205,13 @@ export class ChunkUploadQueue {
         }
       } catch (err) {
         console.error(`[UploadQueue] Upload attempt ${attempts}/${MAX_ATTEMPTS} for ${chunkKey}:`, err);
+
+        analytics.track('audio_chunk_upload_failed', {
+          session_code: chunk?.metadata.sessionCode ?? 'unknown',
+          chunk_number: chunk?.metadata.chunkNumber ?? -1,
+          error_type: err instanceof Error ? err.message : 'unknown',
+          retry_count: attempts - 1,
+        });
 
         this.consecutiveFailures++;
         this.consecutiveSuccesses = 0;

@@ -16,7 +16,7 @@ tags: []
 
 ## Problem
 
-Test accounts (e2e-agent@claritypledge.com, slava@inguro.com) appear on the public /pledgers page alongside real users, undermining credibility.
+Test accounts (e2e-agent@claritypledge.com, founder's personal account) appear on the public /pledgers page alongside real users, undermining credibility.
 
 ## Solution
 
@@ -26,7 +26,7 @@ Add `is_test_account` boolean column (default `false`) to `profiles` table. Set 
 
 - Migration: add column `is_test_account boolean default false`, UPDATE for known test emails
 - Query change: `src/app/data/api.ts` → `getVerifiedProfiles()` — add `.eq('is_test_account', false)`
-- Test accounts to flag: `e2e-agent@claritypledge.com`, `slava@inguro.com`
+- Test accounts to flag: `e2e-agent@claritypledge.com`, `founder's personal account`
 
 ## Acceptance Criteria
 
@@ -87,7 +87,7 @@ Add `is_test_account` boolean column (default `false`) to `profiles` table. Set 
 - ✅ No user input involved. Column set by migration only.
 
 **Data Protection:**
-- ⚠️ `slava@inguro.com` must NOT appear in public migration SQL (public GitHub repo). Use Supabase dashboard or a separate admin script for that account. Only `e2e-agent@claritypledge.com` in the committed migration.
+- ⚠️ `founder's personal account` must NOT appear in public migration SQL (public GitHub repo). Use Supabase dashboard or a separate admin script for that account. Only `e2e-agent@claritypledge.com` in the committed migration.
 
 ---
 
@@ -113,7 +113,7 @@ Add `is_test_account` boolean column (default `false`) to `profiles` table. Set 
 ALTER TABLE profiles
   ADD COLUMN IF NOT EXISTS is_test_account BOOLEAN NOT NULL DEFAULT false;
 
--- Flag known test account (slava@inguro.com flagged via dashboard — not in public SQL)
+-- Flag known test account (founder's personal account flagged via dashboard — not in public SQL)
 UPDATE profiles SET is_test_account = true
   WHERE email = 'e2e-agent@claritypledge.com';
 
@@ -127,12 +127,12 @@ CREATE POLICY "Users can update own profile" ON profiles
 ### Build Sequence
 
 1. Create migration file and run `./scripts/migrate.sh` (test DB)
-2. Flag `slava@inguro.com` via Supabase dashboard (not in migration)
+2. Flag `founder's personal account` via Supabase dashboard (not in migration)
 3. Add `is_test_account?: boolean` to `DbProfile` in `src/app/types/index.ts`
 4. Add `.eq('is_test_account', false)` to `getVerifiedProfiles()`, `getVerifiedProfileCount()`, AND `getFeaturedProfiles()` in `src/app/data/api.ts`
 5. Run `./scripts/pre-commit-checks.sh`
 6. Run `./scripts/migrate.sh --env prod`
-7. Flag `slava@inguro.com` via prod Supabase dashboard
+7. Flag `founder's personal account` via prod Supabase dashboard
 8. Verify `/pledgers` on prod: test accounts absent, real pledgers present
 
 ---

@@ -32,12 +32,6 @@ export function FilterTabs({ activeFilter, onFilterChange, counts }: FilterTabsP
       <p className="px-4 pt-3 pb-1 text-xs text-gray-500">Filter by position:</p>
       <div className="flex border-b border-gray-200">
         <FilterTab
-          label="Agree"
-          count={counts.agree}
-          active={activeFilter === 'agree'}
-          onClick={() => handleTabClick('agree')}
-        />
-        <FilterTab
           label="Disagree"
           count={counts.disagree}
           active={activeFilter === 'disagree'}
@@ -48,6 +42,12 @@ export function FilterTabs({ activeFilter, onFilterChange, counts }: FilterTabsP
           count={counts.unsure}
           active={activeFilter === 'unsure'}
           onClick={() => handleTabClick('unsure')}
+        />
+        <FilterTab
+          label="Agree"
+          count={counts.agree}
+          active={activeFilter === 'agree'}
+          onClick={() => handleTabClick('agree')}
         />
       </div>
     </div>

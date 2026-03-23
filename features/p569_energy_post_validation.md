@@ -5,6 +5,7 @@ rank: 0.5
 tags:
   - transcription
   - speaker-attribution
+created_date: 2026-03-22
 ---
 
 # P569: Energy Post-Validation for LLM Speaker Attribution

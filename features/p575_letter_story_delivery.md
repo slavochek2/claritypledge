@@ -7,6 +7,7 @@ tags:
   - letters
   - async
   - briefing
+created_date: 2026-03-23
 ---
 
 # P575: Letters — Story Delivery as Pre-Session Ritual

@@ -54,8 +54,9 @@ const linkedPointWithPosition: Point = {
 const AGREE_CTA_LINKS = 'Add your story →';
 
 describe('P451/P465: PointCardWithLinks story CTA', () => {
-  // P560: CTA now shows even without a position (position gate removed)
-  it('shows CTA even before staking (P560)', () => {
+  // P579: CTA removed from non-own-profile cards (broken feedback loop — result invisible on card)
+  // P560 originally added position-gate-free CTA, but P579 removes it from other profiles
+  it('hides CTA on non-own-profile cards (P579)', () => {
     render(
       <BrowserRouter>
         <PointCardWithLinks
@@ -65,8 +66,8 @@ describe('P451/P465: PointCardWithLinks story CTA', () => {
         />
       </BrowserRouter>
     );
-    // P560: "Add your story →" CTA visible regardless of position state
-    expect(screen.queryByText(AGREE_CTA_LINKS)).not.toBeNull();
+    // P579: CTA not visible on cards without profileOwner (non-own-profile context)
+    expect(screen.queryByText(AGREE_CTA_LINKS)).toBeNull();
   });
 
   it('shows position-aware CTA after staking a position (no P451 blue button)', () => {

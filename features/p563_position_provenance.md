@@ -1,7 +1,7 @@
 ---
 status: today
 type: story
-rank: 2
+rank: 1.25
 tags:
   - epic-story-first
   - entanglement

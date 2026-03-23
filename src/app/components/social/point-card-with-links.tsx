@@ -321,16 +321,6 @@ export function PointCardWithLinks({
                           {storiesExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
                           <span>{storyLabel}</span>
                         </button>
-                        {/* P560: Case D: viewer has no story yet on another's profile (position not required) */}
-                        {!isEmbed && !liveSessionMode && !isOwnProfile && currentUserId && effectiveViewerCount === 0 && (
-                          <button
-                            onClick={(e) => { e.stopPropagation(); embedNavigate(`/create?pointId=${point.id}`); }}
-                            className="text-sm text-blue-600 hover:text-blue-700 transition-colors"
-                            aria-label="Add your story"
-                          >
-                            · Add your story →
-                          </button>
-                        )}
                         {/* Case E: viewer has a story on another profile's point */}
                         {!isEmbed && !liveSessionMode && !isOwnProfile && viewerStoryId && (
                           <button
@@ -345,19 +335,21 @@ export function PointCardWithLinks({
                     );
                   }
 
-                  if (!isEmbed && !liveSessionMode && currentUserId && effectiveViewerCount === 0) {
-                    // P560: Case B/F: 0 stories, viewer logged in — show 0-stories label + Add story CTA
+                  if (!isEmbed && !liveSessionMode && userPosition && effectiveViewerCount === 0) {
+                    // Case B/F: 0 stories, viewer has position — show 0-stories label + Add CTA (own profile only)
                     return (
                       <div className="flex items-center gap-2">
                         <ChevronRight size={14} className="text-gray-400" />
                         <span className="text-sm text-gray-600">{storyLabel}</span>
-                        <button
-                          onClick={(e) => { e.stopPropagation(); embedNavigate(`/create?pointId=${point.id}`); }}
-                          className="text-sm text-blue-600 hover:text-blue-700 transition-colors"
-                          aria-label="Add your story"
-                        >
-                          · Add your story →
-                        </button>
+                        {isOwnProfile && (
+                          <button
+                            onClick={(e) => { e.stopPropagation(); embedNavigate(`/create?pointId=${point.id}`); }}
+                            className="px-3 py-1 text-xs font-medium text-white bg-blue-600 rounded-full hover:bg-blue-700 transition-colors"
+                            aria-label="Add your story"
+                          >
+                            + Add your story
+                          </button>
+                        )}
                       </div>
                     );
                   }
@@ -496,7 +488,7 @@ export function PointCardWithLinks({
                 </button>
               );
             }
-            const effectiveViewerCount = viewerStoryCount ?? filteredStories.filter(s => s.authorId === currentUserId).length;
+            const _effectiveViewerCount = viewerStoryCount ?? filteredStories.filter(s => s.authorId === currentUserId).length;
             const storyLabel = `${filteredStories.length} ${filteredStories.length === 1 ? 'story' : 'stories'}`;
 
             if (filteredStories.length > 0) {
@@ -511,16 +503,6 @@ export function PointCardWithLinks({
                     {storiesExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
                     <span>{storyLabel}</span>
                   </button>
-                  {/* P560: Case D: viewer has no story yet on another's profile (position not required) */}
-                  {!isEmbed && !liveSessionMode && !isOwnProfile && currentUserId && effectiveViewerCount === 0 && (
-                    <button
-                      onClick={(e) => { e.stopPropagation(); embedNavigate(`/create?pointId=${point.id}`); }}
-                      className="text-sm text-blue-600 hover:text-blue-700 transition-colors"
-                      aria-label="Add your story"
-                    >
-                      · Add your story →
-                    </button>
-                  )}
                   {/* Case E: viewer has a story on another profile's point */}
                   {!isEmbed && !isOwnProfile && viewerStoryId && (
                     <button
@@ -577,17 +559,12 @@ export function PointCardWithLinks({
         </div>
 
 
-        {/* P560: Story CTA footer row for feed view — shown when viewer is logged in + no story yet (position not required, hidden in embed) */}
-        {currentUserId && !isEmbed && !liveSessionMode && (() => {
+        {/* P465: Story CTA footer row for feed view — shown when viewer has taken a position + no story yet (hidden in embed) */}
+        {userPosition && !isEmbed && !liveSessionMode && (() => {
+          const positionGroup = getPositionGroup(userPosition as PositionType);
+          const copy = getPositionCTACopy(positionGroup);
           const effectiveViewerStoryCount = viewerStoryCount ?? filteredStories.filter(s => s.authorId === currentUserId).length;
           if (effectiveViewerStoryCount > 0) return null;
-          // Use position-specific copy when available, unified fallback otherwise
-          const ctaText = userPosition
-            ? getPositionCTACopy(getPositionGroup(userPosition as PositionType)).ctaText
-            : 'Add your story \u2192';
-          const ariaLabel = userPosition
-            ? getPositionCTACopy(getPositionGroup(userPosition as PositionType)).ariaLabel
-            : 'Add your story for this point';
           return (
             <div
               role="presentation"
@@ -597,10 +574,10 @@ export function PointCardWithLinks({
               <div className="flex items-center gap-1 text-sm">
                 <button
                   onClick={(e) => { e.stopPropagation(); embedNavigate(`/create?pointId=${point.id}`); }}
-                  aria-label={ariaLabel}
+                  aria-label={copy.ariaLabel}
                   className="font-medium text-blue-600 hover:text-blue-700 transition-colors"
                 >
-                  {ctaText}
+                  {copy.ctaText}
                 </button>
               </div>
             </div>

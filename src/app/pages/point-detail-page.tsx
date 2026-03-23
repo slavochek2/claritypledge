@@ -488,9 +488,9 @@ export function PointDetailPage() {
           {user && !viewerStory ? (
             <a
               href={`/create?pointId=${id}`}
-              className="text-sm font-medium text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition-colors"
+              className="inline-flex px-3 py-1 text-xs font-medium text-white bg-blue-600 rounded-full hover:bg-blue-700 transition-colors"
             >
-              Add your story →
+              + Add your story
             </a>
           ) : (
             <span />

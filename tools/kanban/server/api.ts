@@ -696,7 +696,31 @@ app.get('/api/goals-strategic', async (_req, res) => {
       if (m) donts.push(m[1].trim())
     }
 
-    res.json({ steps, dos, donts })
+    // Parse weekly review section
+    let weeklyReview: { date: string; metrics: Record<string, string>; commitment: string; insight: string } | null = null
+    const weeklyBlock = Object.entries(sections).find(([key]) => key.startsWith('Last Weekly Review'))
+    if (weeklyBlock) {
+      const [heading, content] = weeklyBlock
+      const dateMatch = heading.match(/\((\d{4}-\d{2}-\d{2})\)/)
+      const metrics: Record<string, string> = {}
+      const tableLines = content.split('\n').filter(l => l.startsWith('|') && !l.includes('---'))
+      for (const line of tableLines.slice(1)) { // skip header row
+        const cells = line.split('|').map(c => c.trim()).filter(Boolean)
+        if (cells.length >= 2) metrics[cells[0]] = cells[1]
+      }
+      // Extract commitment block (between ``` fences)
+      const commitMatch = content.match(/```\n([\s\S]*?)```/)
+      // Extract insight line
+      const insightMatch = content.match(/\*\*Key insight:\*\*\s*(.+)/)
+      weeklyReview = {
+        date: dateMatch?.[1] || '',
+        metrics,
+        commitment: commitMatch?.[1]?.trim() || '',
+        insight: insightMatch?.[1]?.trim() || '',
+      }
+    }
+
+    res.json({ steps, dos, donts, weeklyReview })
   } catch {
     res.json(null)
   }
