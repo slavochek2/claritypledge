@@ -1,7 +1,7 @@
 ---
 status: draft
 title: Rate Asymmetry Article (LessWrong)
-rank: 0.5
+rank: 0.125
 tags:
   - lesswrong
   - rate-asymmetry

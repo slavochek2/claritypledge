@@ -1,5 +1,5 @@
 ---
-status: backlog
+status: rejected
 type: story
 rank: 7
 tags:
@@ -11,6 +11,8 @@ created_date: 2026-03-23
 ---
 
 # P575: Letters — Story Delivery as Pre-Session Ritual
+
+**Status:** Rejected — superseded by P581 (Letters with Comprehension Assessment). Letter concept merged with comprehension slider into one feature.
 
 **Epic:** story-first (P523 vision)
 **Depends on:** P561 (comprehension slider), P567 (false belief content exists)

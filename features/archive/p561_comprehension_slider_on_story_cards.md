@@ -1,5 +1,5 @@
 ---
-status: today
+status: rejected
 type: story
 rank: 1
 tags:
@@ -9,10 +9,11 @@ tags:
   - screening
 flow: dev
 created_date: 2026-03-21T00:00:00.000Z
-locked_at: '2026-03-23T08:07:28.127Z'
 ---
 
 # P561: Comprehension Slider on Story Cards (Screening)
+
+**Status:** Rejected — superseded by P581 (Letters with Comprehension Assessment). Slider lives inside the letter context, not on feed cards.
 
 **Epic:** story-first (P523 vision)
 **Priority:** 2 of 6 — core mechanism for async gap screening
