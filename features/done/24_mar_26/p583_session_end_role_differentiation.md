@@ -1,11 +1,15 @@
 ---
 title: Session end screen missing for creator, wrong CTA for joiner
-status: in-progress
+status: all-done
 type: bug
 priority: 2
 severity: medium
 date_reported: 2026-03-23
+date_resolved: 2026-03-23
+completed_at: "2026-03-23"
 flow: fix
+root_cause: confirmExitMeeting immediately clears state and navigates to /live, bypassing PartnerLeftScreen; component doesn't differentiate creator vs joiner CTA
+resolution: Creator now sees session-end screen with transcription info; joiner CTA changed to "Back to Home"
 ---
 
 # P583: Session End Screen Missing for Creator, Wrong CTA for Joiner
