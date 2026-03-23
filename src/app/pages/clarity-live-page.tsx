@@ -825,6 +825,24 @@ export function ClarityLivePage() {
     checkActiveSession();
   }, [isJoinViaLink, session, clearActiveSession]);
 
+  // P582: Subscribe to realtime updates while rejoin prompt is visible.
+  // The main subscription (line ~867) requires `session` to be non-null, but
+  // the rejoin prompt is a pre-session state (session=null). Without this,
+  // the prompt never clears when the session ends remotely.
+  useEffect(() => {
+    if (!rejoinSession) return;
+
+    const unsubscribe = subscribeToClaritySession(rejoinSession.sessionId, (updatedSession) => {
+      const liveState = updatedSession.liveState as Record<string, unknown> | null;
+      if (liveState?.sessionEnded === true || liveState?.joinerEnded === true) {
+        clearActiveSession(); // also clears localStorage via clearActiveSessionFromStorage()
+        setRejoinSession(null);
+      }
+    });
+
+    return unsubscribe;
+  }, [rejoinSession?.sessionId, clearActiveSession]);
+
   // Fetch host name when joining via link (for personalized "Join X's Session" title)
   useEffect(() => {
     if (!isJoinViaLink || !urlCode) return;
@@ -3438,7 +3456,7 @@ export function ClarityLivePage() {
   // LIVE/REVIEW VIEW
   if ((view === 'live') && session && partnerName) {
     return (
-      <div className="flex flex-col min-h-screen">
+      <div className="flex flex-col h-full">
         <LiveModeView
           liveState={liveState}
           currentUserName={name}
