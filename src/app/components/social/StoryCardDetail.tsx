@@ -27,7 +27,7 @@ import {
 } from '@/app/components/shared';
 import type { StoryWithAuthor, PointSummary, PositionType, PointPosition } from '@/app/types';
 import { TagPills } from '@/app/components/shared/tag-pills';
-import { stripHashtags } from '@/lib/utils';
+import { stripHashtags, extractHashtags } from '@/lib/utils';
 
 /** Minimal story shape needed to display a linked story card inside QuotedPoint */
 type LinkedStory = Pick<
@@ -273,10 +273,11 @@ export function StoryCardDetail({
               )}
             </div>
 
-            {/* P491: Tag pills */}
-            {story.tags && story.tags.length > 0 && (
-              <TagPills tags={story.tags} context="detail" className="mt-2" />
-            )}
+            {/* P491: Tag pills — fallback to extracting from text for pre-P491 content */}
+            {(() => {
+              const effectiveTags = story.tags && story.tags.length > 0 ? story.tags : extractHashtags(story.content);
+              return effectiveTags.length > 0 ? <TagPills tags={effectiveTags} context="detail" className="mt-2" /> : null;
+            })()}
           </div>
         </div>
       </div>
@@ -291,22 +292,37 @@ export function StoryCardDetail({
             onClick={e => e.stopPropagation()}
             onKeyDown={e => e.stopPropagation()}
           >
-            {/* Collapsible trigger (if has linked points) */}
-            {linkedPoints.length > 0 ? (
-              <button
-                onClick={() => setPointsExpanded(!pointsExpanded)}
-                className="flex items-center gap-2 text-sm text-muted-foreground hover:text-blue-600 transition-colors"
-                aria-expanded={pointsExpanded}
-                aria-label={`${pointsExpanded ? 'Collapse' : 'Expand'} linked points`}
-              >
-                {pointsExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-                <span>
-                  {linkedPoints.length} {linkedPoints.length === 1 ? 'point' : 'points'}
-                </span>
-              </button>
-            ) : (
-              <span /> /* Empty span for flexbox spacing */
-            )}
+            {/* Point count (always shown) + author CTA */}
+            <div className="flex items-center gap-2">
+              {linkedPoints.length > 0 ? (
+                <button
+                  onClick={() => setPointsExpanded(!pointsExpanded)}
+                  className="flex items-center gap-2 text-sm text-muted-foreground hover:text-blue-600 transition-colors"
+                  aria-expanded={pointsExpanded}
+                  aria-label={`${pointsExpanded ? 'Collapse' : 'Expand'} linked points`}
+                >
+                  {pointsExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                  <span>
+                    {linkedPoints.length} {linkedPoints.length === 1 ? 'point' : 'points'}
+                  </span>
+                </button>
+              ) : (
+                <span className="text-sm text-muted-foreground">0 points</span>
+              )}
+              {/* Author CTA — shown when currentUserId is the story author (not on story-detail where KeyPointsSection handles it) */}
+              {context !== 'story-detail' && currentUserId === story.authorId && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    navigate(`/story/${story.id}?addPoint=true`);
+                  }}
+                  className="text-sm font-medium text-blue-600 hover:text-blue-700 transition-colors"
+                  aria-label="Add a point to this story"
+                >
+                  + add a point
+                </button>
+              )}
+            </div>
 
             {/* Action icons */}
             <div className="flex items-center gap-1">

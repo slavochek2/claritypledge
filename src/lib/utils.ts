@@ -139,10 +139,12 @@ export function extractHashtags(content: string): string[] {
 }
 
 export function stripHashtags(content: string, tags?: string[]): string {
-  if (!tags || tags.length === 0) return content;
+  // Fallback: extract tags from text when DB tags field is empty (pre-P491 content)
+  const effectiveTags = tags && tags.length > 0 ? tags : extractHashtags(content);
+  if (effectiveTags.length === 0) return content;
 
   let result = content;
-  for (const tag of tags) {
+  for (const tag of effectiveTags) {
     // Match #tag followed by word boundary (whitespace, punctuation, or end-of-string)
     // The (?=[\\s.,;:!?)]|$) lookahead ensures we don't strip partial matches like #st7 from #st77
     const pattern = new RegExp(`#${tag.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?=[\\s.,;:!?)]|$)`, 'gi');
