@@ -7,6 +7,7 @@ tags:
   - stories
   - points
 flow: dev
+delivery_stage: uat
 created_date: 2026-03-23T00:00:00.000Z
 ---
 
@@ -25,10 +26,10 @@ Add a section on the point detail page for stories filed without a position. Ren
 
 ## Acceptance Criteria
 
-- [ ] Stories linked to a point where the author has no position appear in a separate section below position holders
-- [ ] Section only renders when such stories exist (no empty state)
-- [ ] Story cards look identical to position-grouped stories (same expand/collapse, same styling)
-- [ ] "Add your story →" CTA for positionless users links to this section context
+- [x] Stories linked to a point where the author has no position appear in a separate section below position holders
+- [x] Section only renders when such stories exist (no empty state)
+- [x] Story cards look identical to position-grouped stories (same expand/collapse, same styling)
+- [x] "Add your story →" CTA for positionless users links to this section context
 
 ## Scope
 
