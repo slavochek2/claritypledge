@@ -118,6 +118,8 @@ interface PartnerLeftScreenProps {
   onStartNew: () => void;
   /** P396: True when user is an anonymous guest (not a verified account) */
   isGuest?: boolean;
+  /** P583: True when current user is the session creator */
+  isCreator?: boolean;
   /** P566: Upload progress to show during post-session drain */
   uploadProgress?: UploadProgressState | null;
 }
@@ -127,7 +129,7 @@ interface PartnerLeftScreenProps {
  * Displays different messaging based on whether the creator ended the session
  * or the joiner left. Shows signup prompt for anonymous guests.
  */
-export function PartnerLeftScreen({ partnerName, sessionEnded, onStartNew, isGuest, uploadProgress }: PartnerLeftScreenProps) {
+export function PartnerLeftScreen({ partnerName, sessionEnded, onStartNew, isGuest, uploadProgress, isCreator }: PartnerLeftScreenProps) {
   // Different messaging based on what happened
   const title = sessionEnded
     ? 'Session ended'
@@ -136,7 +138,7 @@ export function PartnerLeftScreen({ partnerName, sessionEnded, onStartNew, isGue
       : 'Your partner has left';
 
   const subtitle = sessionEnded
-    ? `${partnerName || 'The host'} ended the Clarity Session.`
+    ? (isCreator ? 'You ended the Clarity Session.' : `${partnerName || 'The host'} ended the Clarity Session.`)
     : 'Clarity Session has ended.';
 
   return (
@@ -152,7 +154,7 @@ export function PartnerLeftScreen({ partnerName, sessionEnded, onStartNew, isGue
       {!isGuest && (
         <>
           <Button onClick={onStartNew} className="bg-blue-500 hover:bg-blue-600 text-white">
-            Start New Session
+            {isCreator ? 'Start New Session' : 'Back to Home'}
           </Button>
           {sessionEnded && (
             <>

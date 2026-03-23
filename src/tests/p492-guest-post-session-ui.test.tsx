@@ -62,10 +62,16 @@ describe('P492: PartnerLeftScreen guest vs registered user', () => {
   });
 
   describe('Registered user (isGuest=false or undefined)', () => {
-    it('renders "Start New Session" button', () => {
-      renderPartnerLeft({ isGuest: false });
+    it('renders "Start New Session" button for creator', () => {
+      renderPartnerLeft({ isGuest: false, isCreator: true });
 
       expect(screen.getByRole('button', { name: /start new session/i })).toBeInTheDocument();
+    });
+
+    it('renders "Back to Home" button for joiner', () => {
+      renderPartnerLeft({ isGuest: false, isCreator: false });
+
+      expect(screen.getByRole('button', { name: /back to home/i })).toBeInTheDocument();
     });
 
     it('does NOT show guest CTA', () => {
@@ -75,7 +81,7 @@ describe('P492: PartnerLeftScreen guest vs registered user', () => {
     });
 
     it('defaults to registered behavior when isGuest is omitted', () => {
-      renderPartnerLeft({});
+      renderPartnerLeft({ isCreator: true });
 
       expect(screen.getByRole('button', { name: /start new session/i })).toBeInTheDocument();
       expect(screen.queryByText(/access your transcript and ai session insights/i)).not.toBeInTheDocument();
