@@ -1,7 +1,7 @@
 ---
 status: week
 type: story
-rank: 3.5
+rank: 0.063
 tags:
   - docs
   - privacy

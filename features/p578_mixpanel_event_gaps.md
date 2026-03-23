@@ -6,6 +6,7 @@ priority: low
 created: 2026-03-23
 tags: []
 rank: 1000025.0
+created_date: 2026-03-23
 ---
 
 # Mixpanel Event Gaps

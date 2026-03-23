@@ -9,6 +9,7 @@ reviews:
   ux: null
   architect: null
   alignment: null
+created_date: 2026-03-23
 ---
 
 # P580: Story Card Point Footer — Consistent Count + Author CTA

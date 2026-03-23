@@ -11,6 +11,7 @@ date_reported: 2026-03-23
 date_resolved: 2026-03-23
 root_cause: "Rejoin prompt had no realtime subscription — main subscription gated on session!=null, but rejoin is pre-session state"
 resolution: "Added useEffect with subscribeToClaritySession while rejoinSession is non-null"
+created_date: 2026-03-23
 ---
 
 # P582: Rejoin prompt stays visible after session ends remotely

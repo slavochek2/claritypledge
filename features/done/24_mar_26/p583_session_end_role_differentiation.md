@@ -10,6 +10,9 @@ completed_at: "2026-03-23"
 flow: fix
 root_cause: confirmExitMeeting immediately clears state and navigates to /live, bypassing PartnerLeftScreen; component doesn't differentiate creator vs joiner CTA
 resolution: Creator now sees session-end screen with transcription info; joiner CTA changed to "Back to Home"
+tags: []
+rank: 1000027.0
+created_date: 2026-03-23
 ---
 
 # P583: Session End Screen Missing for Creator, Wrong CTA for Joiner

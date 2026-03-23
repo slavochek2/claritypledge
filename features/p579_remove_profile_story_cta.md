@@ -9,6 +9,7 @@ reviews:
   ux: null
   architect: null
   alignment: null
+created_date: 2026-03-23
 ---
 
 # P579: Remove "Add your story" CTA from point cards on other profiles
