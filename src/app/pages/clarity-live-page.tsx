@@ -2813,7 +2813,7 @@ export function ClarityLivePage() {
   // Grace period only applies to joiner departure; sessionEnded (creator clicked End) is immediate.
   if (gracePeriodStart && !sessionEnded && !partnerLeft) {
     return (
-      <div className="flex flex-col min-h-[calc(100vh-4rem)] lg:min-h-[calc(100vh-5rem)]">
+      <div className="flex flex-col min-h-[calc(100vh-9rem)] lg:min-h-[calc(100vh-5rem)]">
         <div className="flex-1 flex items-center justify-center px-4">
           <div className="w-full max-w-md">
             <ReconnectingCountdown
@@ -2832,7 +2832,7 @@ export function ClarityLivePage() {
   // Show partner left screen if partner departed
   if (sessionEnded || partnerLeft) {
     return (
-      <div className="flex flex-col min-h-[calc(100vh-4rem)] lg:min-h-[calc(100vh-5rem)]">
+      <div className="flex flex-col min-h-[calc(100vh-9rem)] lg:min-h-[calc(100vh-5rem)]">
         <div className="flex-1 flex items-center justify-center">
           <PartnerLeftScreen
             partnerName={departedPartnerName}
@@ -2849,7 +2849,7 @@ export function ClarityLivePage() {
   // Show loading while restoring session
   if (isRestoring) {
     return (
-      <div className="flex flex-col min-h-[calc(100vh-4rem)] lg:min-h-[calc(100vh-5rem)]">
+      <div className="flex flex-col min-h-[calc(100vh-9rem)] lg:min-h-[calc(100vh-5rem)]">
         <div className="flex-1 flex items-center justify-center">
           <ClarityLoader size="lg" />
         </div>
@@ -2868,7 +2868,7 @@ export function ClarityLivePage() {
       const sessionRedirectUrl = `/live/${urlCode}`;
 
       return (
-        <div className="flex flex-col min-h-[calc(100vh-4rem)] lg:min-h-[calc(100vh-5rem)]">
+        <div className="flex flex-col min-h-[calc(100vh-9rem)] lg:min-h-[calc(100vh-5rem)]">
           <div className="flex-1 container mx-auto px-4 max-w-md flex flex-col justify-center">
             <div className="text-center mb-8">
               {/* Prominent heading inside form area for context clarity */}
@@ -3025,7 +3025,7 @@ export function ClarityLivePage() {
     // (auth state updates -> isLoggedIn becomes true -> form would briefly show logged-in view)
     if (isAuthLoading || isLoading) {
       return (
-        <div className="flex flex-col min-h-[calc(100vh-4rem)] lg:min-h-[calc(100vh-5rem)]">
+        <div className="flex flex-col min-h-[calc(100vh-9rem)] lg:min-h-[calc(100vh-5rem)]">
           <div className="flex-1 flex items-center justify-center">
             <div className="animate-pulse text-muted-foreground">
               {isLoading ? 'Creating session...' : 'Loading...'}
@@ -3038,7 +3038,7 @@ export function ClarityLivePage() {
     // P511 Task 10: Show rejoin prompt if active session detected in localStorage
     if (rejoinSession || isCheckingRejoin) {
       return (
-        <div className="flex flex-col min-h-[calc(100vh-4rem)] lg:min-h-[calc(100vh-5rem)]">
+        <div className="flex flex-col min-h-[calc(100vh-9rem)] lg:min-h-[calc(100vh-5rem)]">
           <div className="flex-1 container mx-auto px-4 flex flex-col justify-center">
             {isCheckingRejoin ? (
               <div className="flex items-center justify-center">
@@ -3064,7 +3064,7 @@ export function ClarityLivePage() {
     const guestCanProceed = isLoggedIn || !validateName(name);
 
     return (
-      <div className="flex flex-col min-h-[calc(100vh-4rem)] lg:min-h-[calc(100vh-5rem)]">
+      <div className="flex flex-col min-h-[calc(100vh-9rem)] lg:min-h-[calc(100vh-5rem)]">
         <div className="flex-1 container mx-auto px-4 max-w-md md:max-w-2xl flex flex-col justify-center">
           <div className="space-y-6">
             {/* Page title - always shows "Clarity Session" */}
@@ -3317,7 +3317,7 @@ export function ClarityLivePage() {
       : 'Waiting for partner to join...';
 
     return (
-      <div className="flex flex-col min-h-[calc(100vh-4rem)] lg:min-h-[calc(100vh-5rem)]">
+      <div className="flex flex-col min-h-[calc(100vh-9rem)] lg:min-h-[calc(100vh-5rem)]">
         <div className="flex-1 container mx-auto px-4 max-w-md flex flex-col justify-center">
           <div className="text-center space-y-6">
             {isFromEvent && partnerNameFromUrl ? (

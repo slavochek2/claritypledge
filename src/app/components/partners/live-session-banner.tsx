@@ -41,7 +41,7 @@ export function LiveSessionBanner({ partnerName: _partnerName, onExit, isLiveMee
   // P67: user and showUserMenu needed for avatar display
   const { signOut, user, showUserMenu, hasPledged } = useNavAuthState();
   return (
-    <div className="h-16 lg:h-20 bg-background">
+    <div className="sticky top-0 z-50 h-16 lg:h-20 bg-background border-b border-border">
       <div className="container mx-auto px-4 lg:px-8 h-full">
         <div className="relative flex items-center justify-between h-full">
           {/* Left: Logo - P52: Aligned styling with SimpleNavigation */}
