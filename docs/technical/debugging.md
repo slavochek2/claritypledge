@@ -126,3 +126,16 @@ If two separate debug sessions (different context windows, not the same session)
 Before proposing removal, ask: is this a **failed approach**, or a **failed implementation of a sound approach**? If the latter, fix the spec first, not just the code.
 
 Sunk cost is not a reason to keep perpetually broken things. Reliability is binary for users — "works 70% of the time" is broken.
+
+---
+
+## Known Crash Patterns
+
+### "Invalid hook call" / "Cannot read properties of null (reading 'useEffect')"
+
+**Diagnostic tree (follow in order):**
+1. **Duplicate React instances** — most common. Check: `find node_modules -path "*/react/package.json" -not -path "*/@*" | wc -l`. If >1, or if worktree `node_modules/react/` exists, Vite may resolve two copies. Fix: add the package to `resolve.dedupe` in `vite.config.ts`.
+2. **Stale Vite dep cache** — `rm -rf node_modules/.vite && npm run dev`. Fixes corrupted pre-bundled deps.
+3. **Mismatched react/react-dom versions** — `node -e "console.log(require('./node_modules/react/package.json').version, require('./node_modules/react-dom/package.json').version)"`. Must match.
+
+**Do NOT start by:** reading the component source (the error is environmental, not a code bug), checking git log, or checking package.json diff.

@@ -2,6 +2,14 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-23 [technical]: Vite resolve.dedupe prevents worktree React crashes
+
+**Context:** Dev server (port 5001, main branch) crashed with "Invalid hook call — Cannot read properties of null (reading 'useEffect')" in `<ScrollToTop>`. Root cause: Vite's dependency optimizer resolved React from the worktree's `node_modules/react/` (`.claude/worktrees/w1/`) alongside the main `node_modules/react/`, creating two React instances. Two Reacts = hooks break silently.
+**Decision:** Added `resolve.dedupe: ['react', 'react-dom', 'react-router-dom']` to `vite.config.ts`. This forces Vite to always resolve these packages from the project root, regardless of any nested `node_modules/` paths.
+**Alternatives rejected:** (A) Clearing `.vite` cache on each `npm run dev` — treats symptom, not cause; adds startup time. (B) Symlinking worktree `node_modules/react` back to main — fragile, manual. (C) No worktree `node_modules/` at all — breaks worktree independence.
+**Consequences:** Standard Vite monorepo practice. Any future package that must be a singleton (e.g., `zustand`, `@tanstack/react-query`) should be added to the `dedupe` array.
+**References:** [vite.config.ts](vite.config.ts) `resolve.dedupe`, [worktree-setup.md](docs/technical/worktree-setup.md)
+
 ## 2026-03-23 [technical]: Pre-session states need their own realtime subscriptions
 
 **Context:** The rejoin prompt ("Your session is still running") on `/live` never cleared when the session ended remotely. Root cause: the main Supabase realtime subscription is gated on `session` being non-null, but the rejoin prompt is a pre-session state where `session=null`. No subscription, no polling, no `storage` event listener — the prompt was a dead end.

@@ -206,6 +206,8 @@ export default defineConfig({
     }),
   ],
   resolve: {
+    // Prevent duplicate React instances when worktree node_modules/ exists
+    dedupe: ['react', 'react-dom', 'react-router-dom'],
     alias: {
       '@': path.resolve(__dirname, './src'),
       '@components': path.resolve(__dirname, './src/components'),
