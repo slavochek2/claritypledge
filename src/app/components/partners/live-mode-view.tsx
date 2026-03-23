@@ -63,7 +63,7 @@ import { usePwaInstall } from '@/hooks/use-pwa-install';
 function RecordingIndicator({ isPrivate = false, uploadHealth }: { isPrivate?: boolean; uploadHealth?: 'healthy' | 'degraded' | 'critical' }) {
   if (isPrivate) {
     return (
-      <div className="flex items-center justify-center gap-2 py-1.5 bg-muted border-b border-border" aria-live="polite">
+      <div className="sticky top-16 lg:top-20 z-40 flex items-center justify-center gap-2 py-1.5 bg-muted border-b border-border" aria-live="polite">
         <ShieldOff className="w-3.5 h-3.5 text-muted-foreground" />
         <span className="text-xs text-muted-foreground">Private session</span>
       </div>
@@ -71,7 +71,7 @@ function RecordingIndicator({ isPrivate = false, uploadHealth }: { isPrivate?: b
   }
 
   return (
-    <div aria-live="polite">
+    <div className="sticky top-16 lg:top-20 z-40" aria-live="polite">
       {uploadHealth === 'critical' && (
         <div className="flex items-center justify-center gap-2 py-1.5 bg-red-50 border-b border-red-200">
           <span className="text-xs text-red-700">❌ Audio upload failing — check your connection</span>
@@ -156,50 +156,46 @@ export function PartnerLeftScreen({ partnerName, sessionEnded, onStartNew, isGue
           <Button onClick={onStartNew} className="bg-blue-500 hover:bg-blue-600 text-white">
             {isCreator ? 'Start New Session' : 'Back to Home'}
           </Button>
-          {sessionEnded && (
-            <>
-              {/* P566: Upload progress indicator */}
-              {uploadProgress && uploadProgress.status === 'uploading' && (
-                <div className="mt-4 w-full space-y-2">
-                  <p className="text-sm font-medium">Uploading session audio...</p>
-                  <div className="w-full bg-muted rounded-full h-2">
-                    <div
-                      className="bg-blue-500 rounded-full h-2"
-                      style={{ width: `${uploadProgress.total > 0 ? Math.round(((uploadProgress.total - uploadProgress.pending) / uploadProgress.total) * 100) : 0}%` }}
-                      role="progressbar"
-                      aria-valuenow={uploadProgress.total - uploadProgress.pending}
-                      aria-valuemin={0}
-                      aria-valuemax={uploadProgress.total}
-                    />
-                  </div>
-                  <p className="text-sm text-muted-foreground">
-                    {uploadProgress.total - uploadProgress.pending} of {uploadProgress.total} chunks uploaded
-                  </p>
-                  <p className="text-sm text-muted-foreground">Don&apos;t close this tab until upload completes</p>
-                </div>
-              )}
-              {uploadProgress && uploadProgress.status === 'complete' && (
-                <p className="mt-4 text-sm text-green-600">✓ Audio upload complete</p>
-              )}
-              {uploadProgress && uploadProgress.status === 'failed' && (
-                <div className="mt-4 space-y-1">
-                  <p className="text-sm text-red-600">Some audio could not be uploaded</p>
-                  <p className="text-sm text-muted-foreground">Your session was partially recorded. The transcription will use available audio.</p>
-                </div>
-              )}
-
-              <div className="mt-4 flex items-center gap-2 text-sm text-muted-foreground">
-                <Loader2Icon className="w-4 h-4 animate-spin flex-shrink-0" />
-                <span>Transcribing your session...</span>
+          {/* P566: Upload progress — shown for both host and participant */}
+          {uploadProgress && uploadProgress.status === 'uploading' && (
+            <div className="mt-4 w-full space-y-2">
+              <p className="text-sm font-medium">Uploading session audio...</p>
+              <div className="w-full bg-muted rounded-full h-2">
+                <div
+                  className="bg-blue-500 rounded-full h-2"
+                  style={{ width: `${uploadProgress.total > 0 ? Math.round(((uploadProgress.total - uploadProgress.pending) / uploadProgress.total) * 100) : 0}%` }}
+                  role="progressbar"
+                  aria-valuenow={uploadProgress.total - uploadProgress.pending}
+                  aria-valuemin={0}
+                  aria-valuemax={uploadProgress.total}
+                />
               </div>
-              <p className="mt-1 text-xs text-muted-foreground">
-                It will be available shortly in{' '}
-                <Link to="/sessions" className="text-primary hover:underline">
-                  Session History
-                </Link>
+              <p className="text-sm text-muted-foreground">
+                {uploadProgress.total - uploadProgress.pending} of {uploadProgress.total} chunks uploaded
               </p>
-            </>
+              <p className="text-sm text-muted-foreground">Don&apos;t close this tab until upload completes</p>
+            </div>
           )}
+          {uploadProgress && uploadProgress.status === 'complete' && (
+            <p className="mt-4 text-sm text-green-600">✓ Audio upload complete</p>
+          )}
+          {uploadProgress && uploadProgress.status === 'failed' && (
+            <div className="mt-4 space-y-1">
+              <p className="text-sm text-red-600">Some audio could not be uploaded</p>
+              <p className="text-sm text-muted-foreground">Your session was partially recorded. The transcription will use available audio.</p>
+            </div>
+          )}
+
+          <div className="mt-4 flex items-center gap-2 text-sm text-muted-foreground">
+            <Loader2Icon className="w-4 h-4 animate-spin flex-shrink-0" />
+            <span>Transcribing your session...</span>
+          </div>
+          <p className="mt-1 text-xs text-muted-foreground">
+            It will be available shortly in{' '}
+            <Link to="/sessions" className="text-primary hover:underline">
+              Session History
+            </Link>
+          </p>
         </>
       )}
 

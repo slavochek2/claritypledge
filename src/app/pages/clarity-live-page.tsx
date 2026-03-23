@@ -3456,7 +3456,7 @@ export function ClarityLivePage() {
   // LIVE/REVIEW VIEW
   if ((view === 'live') && session && partnerName) {
     return (
-      <div className="flex flex-col h-full">
+      <div className="flex flex-col h-screen overflow-hidden">
         <LiveModeView
           liveState={liveState}
           currentUserName={name}
