@@ -1,6 +1,7 @@
 ---
 title: "Rejoin prompt stays visible after session ends remotely"
-status: qa
+status: done
+completed_at: "2026-03-23"
 type: bug
 severity: medium
 flow: fix

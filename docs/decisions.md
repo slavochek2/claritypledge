@@ -2,6 +2,14 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-23 [technical]: Pre-session states need their own realtime subscriptions
+
+**Context:** The rejoin prompt ("Your session is still running") on `/live` never cleared when the session ended remotely. Root cause: the main Supabase realtime subscription is gated on `session` being non-null, but the rejoin prompt is a pre-session state where `session=null`. No subscription, no polling, no `storage` event listener — the prompt was a dead end.
+**Decision:** Any UI state that displays session-derived information outside the active session lifecycle must have its own realtime subscription. Added a `useEffect` that subscribes via `subscribeToClaritySession` while `rejoinSession` is non-null and clears the prompt when `sessionEnded`/`joinerEnded` is detected.
+**Alternatives rejected:** (A) `window.storage` event listener — only fires in other tabs, misses server-side session timeout. (B) Polling interval — unnecessary overhead when realtime already exists. (C) Clearing on `visibilitychange` — stale until user switches tabs.
+**Consequences:** Pattern: when adding any "you have an active X" banner/prompt, always wire a realtime subscription for that X's lifecycle events, even if the main feature subscription hasn't started yet. The subscription's cleanup function handles unsubscribe automatically.
+**References:** [clarity-live-page.tsx](src/app/pages/clarity-live-page.tsx) line 828, [P582 spec](features/p582_rejoin_prompt_stale_after_end.md)
+
 ## 2026-03-23 [technical]: Live session roles use session position, not name comparison
 
 **Context:** The live session state machine used `liveState.checkerName === currentUserName` to determine who is checker vs responder. When testing with two accounts both named "Vyacheslav", both sides evaluated `isChecker = true`, both showed the "waiting for partner" screen, neither saw the rating drawer. The bug was latent in prod — any two users with the same display name would hit it.

@@ -1,7 +1,7 @@
 # Done Features Index
 
 Quick reference for past completed work. Consult when starting work on a related topic.
-Last updated: 2026-03-22 (P566 audio chunk upload reliability)
+Last updated: 2026-03-23 (P582 rejoin prompt realtime subscription)
 
 ---
 
@@ -23,6 +23,7 @@ Last updated: 2026-03-22 (P566 audio chunk upload reliability)
 - **P490** (Mar 12) Guest Position Sync + Unsaved Hint — `livePositions` missing from polling drift check silently broke guest→host sync; `isGuest` prop threading follows `isStoryOwner` pattern (P487); mic permission has two gates (`completeJoin` + `gateMicAndGoLive`) — bypass must cover both
 - **P495** (Mar 16) Live Session Transcription — Cloud Run GPU (L4) with Whisper large-v3-turbo + pyannote; type field names must match DB exactly (`start_ms`/`end_ms` not `start`/`end`); `import.meta.env.PROD` gate means dev never records audio
 - **P511** (Mar 16) Session Resilience — banner must render inside `<main>` (not between nav/main) to avoid z-index fights; `ended_at` column doesn't exist — use `live_state.sessionEnded`; creator-only heartbeats; `createTwoPartySession()` test fixture built as P497 MVP
+- **P582** (Mar 23) Rejoin Prompt Stale After End — pre-session UI states need their own realtime subscriptions; main sub gated on `session!=null` leaves rejoin prompt as dead end
 
 ## Points & Stories
 
