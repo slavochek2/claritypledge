@@ -685,18 +685,18 @@ function PositionHolderCard({
             ref={toggleRef}
             data-testid="story-toggle"
             onClick={e => { e.stopPropagation(); onToggle(); }}
-            className="ml-auto flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400 transition-colors shrink-0 min-h-[28px] px-1"
+            className="ml-auto flex items-center gap-1 text-xs font-medium text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-700 rounded-full px-2.5 py-1 hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-colors shrink-0"
             aria-label={isExpanded ? `Collapse story by ${holder.userName}` : `Expand story by ${holder.userName}`}
           >
-            {isExpanded ? <ChevronDown size={16} className="transition-transform" /> : <ChevronRight size={16} className="transition-transform" />}
-            <span className="hover:underline">story</span>
+            {isExpanded ? <ChevronDown size={14} className="transition-transform" /> : <ChevronRight size={14} className="transition-transform" />}
+            <span>story</span>
           </button>
         )}
         {ctaHref && (
           <a
             href={ctaHref}
             onClick={e => e.stopPropagation()}
-            className="ml-auto text-xs text-blue-600 dark:text-blue-400 hover:underline shrink-0"
+            className="ml-auto text-xs font-medium text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-700 rounded-full px-2.5 py-1 hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-colors shrink-0"
           >
             Add your story →
           </a>
@@ -843,11 +843,11 @@ function PositionlessStoryRow({
         <button
           data-testid="story-toggle"
           onClick={e => { e.stopPropagation(); onToggle(); }}
-          className="ml-auto flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400 transition-colors shrink-0 min-h-[28px] px-1"
+          className="ml-auto flex items-center gap-1 text-xs font-medium text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-700 rounded-full px-2.5 py-1 hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-colors shrink-0"
           aria-label={isExpanded ? `Collapse story by ${story.authorName}` : `Expand story by ${story.authorName}`}
         >
-          {isExpanded ? <ChevronDown size={16} className="transition-transform" /> : <ChevronRight size={16} className="transition-transform" />}
-          <span className="hover:underline">story</span>
+          {isExpanded ? <ChevronDown size={14} className="transition-transform" /> : <ChevronRight size={14} className="transition-transform" />}
+          <span>story</span>
         </button>
       </div>
     </div>
