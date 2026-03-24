@@ -401,7 +401,7 @@ The integration test MUST include a schema existence check using the **two-clien
 **A:** Yes, but usually not needed. If acceptance criteria change, update the spec and re-run `/generate-tests`.
 
 ### Q: What if tests are missing edge cases?
-**A:** Add edge cases to spec (UX Requirements section), re-run `/generate-tests`. Or add tests manually after `/dev`.
+**A:** Add edge cases to spec (UX Design section), re-run `/generate-tests`. Or add tests manually after `/dev`.
 
 ### Q: Do all features need all test types?
 **A:** No. The skill is adaptive — only generates test types that make sense for the feature. Backend features skip E2E/a11y, UI features skip integration tests, etc.

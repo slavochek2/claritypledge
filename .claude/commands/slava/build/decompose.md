@@ -25,14 +25,14 @@ Convert the architect's build sequence into a structured task manifest so /dev c
 
 **Required before generating the task manifest:**
 
-1. `## Technical Analysis` section must exist (architect ran and was approved).
+1. `## Technical Architecture` section must exist (architect ran and was approved).
 2. `/spec-review` must have run and returned `READY` (zero BLOCK findings). Check the spec for a `## Spec Review` section with verdict `READY`.
 3. `delivery_stage:` must be `4-tests-ready` (or spec-review just completed in this session). If `delivery_stage: 5-decomposed` → decompose already ran, check with user before re-running. If `status: in-progress` → implementation already started, run `/dev` instead.
 
 If any check fails:
 ```
 ERROR: Cannot run /decompose
-- Missing Technical Analysis section → Run /architect first
+- Missing Technical Architecture section → Run /architect first
 - No spec-review section or verdict is NEEDS FIXES → Run /spec-review and fix all BLOCK findings first
 - delivery_stage is 5-decomposed → already decomposed; confirm before re-running
 - status is in-progress → implementation started; run /dev instead
@@ -44,7 +44,7 @@ Do not generate a task manifest for a spec with outstanding BLOCK findings. BLOC
 
 ## Complexity Check
 
-Read ONLY the `### Implementation Approach` section (and its `#### Build Sequence` / `**Build Sequence:**` subsection plus `**Files to Create:**` / `**Files to Modify:**`). Do NOT load the full spec.
+Read ONLY the `### Implementation Approach` section (and its `#### Build Sequence`, `#### Files to Create`, `#### Files to Modify` subsections — see `.claude/rules/spec-sections.md` for canonical names). Do NOT load the full spec.
 
 Count:
 - **Files** = total files to create + files to modify
@@ -78,7 +78,7 @@ The following acceptance criteria have no corresponding build step:
 
 ### Check 2: UX–Architecture Drift
 
-Read the `## UX Design` section headers and any explicitly dropped/locked decisions. Scan the `## Technical Analysis` architecture decisions for references to things the UX layer explicitly removed or changed. Flag conflicts:
+Read the `## UX Design` section headers and any explicitly dropped/locked decisions. Scan the `### Architecture Decisions` subsection (under `## Technical Architecture`) for references to things the UX layer explicitly removed or changed. Flag conflicts:
 
 ```
 ⚠️  UX–ARCH DRIFT

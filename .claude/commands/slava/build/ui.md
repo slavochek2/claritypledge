@@ -130,7 +130,7 @@ When `/ui` discovers a problem with an upstream decision:
 ```markdown
 ## Challenge Notes
 
-> **`/ui` challenges `/ux` (Section: Screen Designs)**
+> **`/ui` challenges `/ux` (Section: UX Design)**
 > UX specifies a full-width card grid on mobile. At 320px with the required
 > avatar + name + date + action button, elements will clip or wrap.
 >
