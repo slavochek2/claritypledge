@@ -2,6 +2,14 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-24 [process]: Mandatory context load gates in /dev, /fix, /refactor, /verify
+
+**Context:** Analysis of 277 sessions (2 weeks) revealed /dev reads specs only 16% of the time and /fix reads them 0%. The instructions already existed (Step 2 in /dev: "Read the spec fully") but were buried after 5 mechanical steps (worktree, collision check, branch distance). Claude treated them as skippable when the spec was "already discussed" — which works until context compaction erases that knowledge. Post-compaction recovery was also poor: only 43% re-check git status, 10% re-read specs.
+**Decision:** Added Step/Phase -1 (Context Load) as the first action in each skill, before worktree setup. Existing duplicate spec-read steps (e.g., /dev Step 2) converted to verification checkpoints that reference Step -1. Added Post-Compaction Recovery rule to CLAUDE.md Agent Behavior section. Pattern follows /screenshot-debug's Step 0 (orient) — the gold standard for context gathering.
+**Alternatives rejected:** (A) Hooks-based enforcement (would need tooling, adds complexity) — prompt-level discipline matches existing pattern. (B) Separate "Context Gate" section in each skill — adds yet another thing to skip; restructuring existing steps is less additive. (C) Only updating CLAUDE.md without skill changes — CLAUDE.md rules are weaker than in-skill instructions.
+**Consequences:** Skills now have a consistent "load context first" pattern. The -1 numbering avoids renumbering existing steps. Review agents caught and fixed duplication between new Step -1 and existing spec-read steps before commit.
+**References:** [dev.md](.claude/commands/slava/build/dev.md), [fix.md](.claude/commands/slava/build/fix.md), [refactor.md](.claude/commands/slava/build/refactor.md), [verify/SKILL.md](.claude/commands/slava/build/verify/SKILL.md)
+
 ## 2026-03-23 [technical]: Vite resolve.dedupe prevents worktree React crashes
 
 **Context:** Dev server (port 5001, main branch) crashed with "Invalid hook call — Cannot read properties of null (reading 'useEffect')" in `<ScrollToTop>`. Root cause: Vite's dependency optimizer resolved React from the worktree's `node_modules/react/` (`.claude/worktrees/w1/`) alongside the main `node_modules/react/`, creating two React instances. Two Reacts = hooks break silently.
