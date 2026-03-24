@@ -48,7 +48,7 @@ const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
 async function run() {
   console.log('Checking for existing verify agent account...');
 
-  const { data: { users }, error: listError } = await admin.auth.admin.listUsers();
+  const { data: { users }, error: listError } = await admin.auth.admin.listUsers({ perPage: 1000 });
   if (listError) throw listError;
 
   const existing = users.find(u => u.email === AGENT_EMAIL);

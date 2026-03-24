@@ -145,7 +145,21 @@ Both can be used together — localhost for visual pass, Playwright for prod DB 
 
 ### Step 3: Pre-flight
 
-**Data prerequisite:** Before opening the browser, confirm the scenario's test entity has the required data shape (e.g., a story with linked points, a user with positions). Query the DB or check local state. No valid entity = no visual verification — report what's missing and ask.
+**Data prerequisite:** Before opening the browser, confirm the scenario's test entity has the required data shape (e.g., a story with linked points, a user with positions). Query the DB or check local state.
+
+**If data is missing — create it programmatically (don't ask the user):**
+- Read `SUPABASE_SERVICE_ROLE_KEY` and `VITE_SUPABASE_URL` from `.env.local`
+- Create minimal test entities via REST API using the service role key:
+  ```bash
+  curl -s -X POST "${VITE_SUPABASE_URL}/rest/v1/{table}" \
+    -H "apikey: ${VITE_SUPABASE_ANON_KEY}" \
+    -H "Authorization: Bearer ${SUPABASE_SERVICE_ROLE_KEY}" \
+    -H "Content-Type: application/json" \
+    -d '{"field": "test_value", ...}'
+  ```
+- Use `test_verify_` prefix on slugs/titles for easy cleanup identification
+- Follow the same patterns as `e2e/helpers/test-point.ts` and `test-story.ts`
+- **Fallback:** If service role key is unavailable, report what's missing and ask the user
 
 Check the dev server is running:
 ```bash
@@ -260,6 +274,9 @@ If HTTP error or no `access_token` → stop and report "Auth injection failed �
 **Step A3 — Inject into browser tab:**
 Use `mcp__claude-in-chrome__javascript_tool` on the target tab:
 ```javascript
+// Derive storage key from Supabase URL (works for test + prod)
+const projectRef = '${url}'.split('//')[1].split('.')[0];
+const storageKey = 'sb-' + projectRef + '-auth-token';
 const sessionPayload = JSON.stringify({
   access_token: '${access_token}',
   refresh_token: '${refresh_token}',
@@ -268,7 +285,7 @@ const sessionPayload = JSON.stringify({
   token_type: 'bearer',
   user: ${JSON.stringify(user)}
 });
-localStorage.setItem('sb-gfjctyxqlwexxwsmkakq-auth-token', sessionPayload);
+localStorage.setItem(storageKey, sessionPayload);
 location.reload();
 ```
 Wait 2 seconds for reload.
@@ -701,8 +718,8 @@ If ⚠️ verdict (visual issues only):
 |-----------|----------|
 | No UAT file exists | Auto-create `features/uat/p{N}.md` (Step 1b), then proceed |
 | No acceptance criteria section | Derive from any "Given/When/Then" or "must/should" statements in spec |
-| Scenario needs unauthenticated state | Ask user to open incognito tab, use that for that scenario |
-| Scenario requires DB setup (create N records) | Tell user what to set up, wait for confirmation |
+| Scenario needs unauthenticated state | Clear auth from localStorage + reload: `localStorage.removeItem(Object.keys(localStorage).find(k => k.startsWith('sb-') && k.endsWith('-auth-token'))); location.reload();` — no incognito needed |
+| Scenario requires DB setup (create N records) | Auto-create via service role key (see Step 3 data prerequisite). Fall back to asking user only if key unavailable |
 | Page doesn't exist yet | ❌ Fail immediately — page not found is a functional failure |
 | Dev server on different port (worktree) | Auto-detect from vite.config.ts |
 
