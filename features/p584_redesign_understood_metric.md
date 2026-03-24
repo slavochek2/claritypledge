@@ -4,7 +4,7 @@ type: change-request
 rank: 250006.0
 workstream: E1
 flow: dev
-delivery_stage: 3.5-ui-review
+delivery_stage: uat
 changes: p501
 created_date: 2026-03-24
 tags:
@@ -103,16 +103,16 @@ Tooltip text:
 
 ## Acceptance Criteria
 
-- [ ] New `<UnderstoodBadge>` component exists with ear icon, "N understood" label, MobileTooltip
-- [ ] All 4 pill locations replaced with `<UnderstoodBadge>`
-- [ ] Live content cards uses `<UnderstoodBadge>`
-- [ ] "0 understood" still visible (with tooltip explaining "No one has verified understanding yet")
-- [ ] Ear icon (👂) appears on all surfaces, visually linking to profile-level EarBadge
-- [ ] Consistent styling across all surfaces (same color tokens, same structure)
-- [ ] Tooltip present on ALL surfaces (was missing on feed card and profile)
-- [ ] No TypeScript errors (`npm run build`)
-- [ ] All tests pass (`npm test`)
-- [ ] E2E tests updated for new component structure
+- [x] New `<UnderstoodBadge>` component exists with ear icon, "N understood" label, MobileTooltip
+- [x] All 4 pill locations replaced with `<UnderstoodBadge>`
+- [x] Live content cards uses `<UnderstoodBadge>`
+- [x] "0 understood" still visible (with tooltip explaining "No one has verified understanding yet")
+- [x] Ear icon (👂) appears on all surfaces, visually linking to profile-level EarBadge
+- [x] Consistent styling across all surfaces (same color tokens, same structure)
+- [x] Tooltip present on ALL surfaces (was missing on feed card and profile)
+- [x] No TypeScript errors (`npm run build`)
+- [x] All tests pass (`npm test`)
+- [x] E2E tests updated for new component structure
 
 ## No DB or Auth Changes
 
