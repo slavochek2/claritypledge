@@ -184,7 +184,9 @@ Add to spec frontmatter: `feature_type: backend`
 
 ### Output (Technical section added to spec)
 ```markdown
-## Technical Analysis
+## Technical Architecture
+
+### Technical Analysis
 
 **Current State:**
 - Sifter responses stored in `responses` table (Supabase)
@@ -196,9 +198,7 @@ Add to spec frontmatter: `feature_type: backend`
 - CSV library (need to install: papaparse)
 - Browser download API (built-in)
 
----
-
-## Architecture Decisions
+### Architecture Decisions
 
 **Decision 1: Client-side CSV generation**
 - **Chosen:** Generate CSV in browser (no server endpoint)
@@ -210,9 +210,7 @@ Add to spec frontmatter: `feature_type: backend`
 - **Chosen:** papaparse (lightweight, well-tested)
 - **Alternative rejected:** Manual CSV generation (error-prone, reinventing wheel)
 
----
-
-## Security Review
+### Security Review
 
 **RLS Policies:**
 - ✅ Existing RLS on `responses` table enforces user can only export own data
@@ -230,18 +228,16 @@ Add to spec frontmatter: `feature_type: backend`
 - ✅ Mitigation: File saved locally, not uploaded anywhere
 - ✅ No sensitive data in file name
 
----
+### Implementation Approach
 
-## Implementation Approach
-
-**Files to Create:**
+#### Files to Create
 1. `src/lib/csv/export.ts` - CSV export utility function
 
-**Files to Modify:**
+#### Files to Modify
 1. `src/app/sifter/[id]/results/page.tsx` - Add export button, wire up logic
 2. `package.json` - Add papaparse dependency
 
-**Build Sequence:**
+#### Build Sequence
 1. Install papaparse dependency
 2. Create export utility (src/lib/csv/export.ts)
 3. Add button to results page
@@ -294,11 +290,12 @@ After completing your analysis, use the Edit tool to append your Technical secti
 - Do NOT modify any existing content above
 - Inside the Security Review subsection, write only the placeholder text: `*Pending — Security agent completing in parallel.*`
 
-Include these subsections:
-- **Technical Analysis** (current code state, dependencies)
-- **Architecture Decisions** (Decision 1, Decision 2, etc. — each with: Chosen / Rationale / Trade-off / Alternative rejected)
-- **Security Review** — placeholder only: `*Pending — Security agent completing in parallel.*`
-- **Implementation Approach** (Files to Create, Files to Modify, Build Sequence)
+Use the canonical section structure (see .claude/rules/spec-sections.md):
+- `## Technical Architecture` — parent heading for entire technical layer
+- `### Technical Analysis` (current code state, dependencies)
+- `### Architecture Decisions` (Decision 1, Decision 2, etc. — each with: Chosen / Rationale / Trade-off / Alternative rejected)
+- `### Security Review` — placeholder only: `*Pending — Security agent completing in parallel.*`
+- `### Implementation Approach` (contains `#### Build Sequence`, `#### Files to Create`, `#### Files to Modify`)
 
 At the top of the Implementation Approach subsection: if the spec touches `CLAUDE.md`, anything under `.claude/`, `package.json`, build config (`vite.config.*`, `tsconfig.*`), or involves 10+ files to create or modify combined, add a bolded note: `**Worktree recommended:** [one-line reason].` Skip this line otherwise.
 
@@ -365,18 +362,20 @@ Also check:
 ## After Architecture
 
 **Next steps:**
-1. **Review Architecture** - User confirms approach, security, files to change
-2. **Run /generate-tests** - Tests generated from architecture
-3. **Implement** - Run `/dev` with full spec
+1. **Review Architecture** — User confirms approach, security, files to change
+2. **Run /ui** — Component strategy maps UX + architecture to concrete component choices (UI features only)
+3. **Run /generate-tests** — Tests generated from full spec
+4. **Implement** — Run `/dev` with full spec
 
 ---
 
 ## Related Skills
 
-- `/create-prd` - Business requirements (run before /architect)
-- `/ux` - UX design (run before /architect if UI feature)
-- `/generate-tests` - Test generation (run after /architect)
-- `/dev` - Implementation (run after /generate-tests)
+- `/create-prd` — Business requirements (run before /architect)
+- `/ux` — UX design (run before /architect if UI feature)
+- `/ui` — Component strategy (run after /architect, UI features only)
+- `/generate-tests` — Test generation (run after /ui)
+- `/dev` — Implementation (run after /generate-tests)
 
 ---
 

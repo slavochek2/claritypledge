@@ -27,9 +27,9 @@ Pre-dev spec quality audit — catches redundancy, consistency gaps, blindspots,
 
 ## What This Skill Does
 
-Reads the fully prepared spec (Business + UX + Technical + Tests) and audits it across seven dimensions. Returns a structured findings report with severity ratings. Does NOT auto-fix — surfaces issues for the user to decide.
+Reads the fully prepared spec (Business + UX + Technical + Component Strategy + Tests) and audits it across nine dimensions. Returns a structured findings report with severity ratings. Does NOT auto-fix — surfaces issues for the user to decide.
 
-**Seven audit dimensions:**
+**Nine audit dimensions:**
 
 1. **Redundancy** — Content repeated across sections (same requirement in business + UX + tech)
 2. **Consistency** — Contradictions between layers (UX wireframe says X, arch decision says Y)
@@ -37,7 +37,9 @@ Reads the fully prepared spec (Business + UX + Technical + Tests) and audits it 
 4. **Blindspots** — Unvalidated assumptions that could break during implementation (auth assumed, state not tracked, component not yet built)
 5. **Under-specification** — Vague requirements ("TBD", "as needed", "similar to X") that a dev agent cannot implement without guessing
 6. **Over-specification** — Implementation details in UX layer, pixel measurements in business layer, or tech decisions that constrain without rationale
-7. **Cross-spec conflicts** — Contradictions with related features referenced in `blocked_by`, `related_to`, or frontmatter tags (reads related specs to verify)
+7. **Component Strategy consistency** — Component Map classifications match codebase reality, no contradictions with Architecture Decisions (UI features only)
+8. **Cross-spec conflicts** — Contradictions with related features referenced in `blocked_by`, `related_to`, or frontmatter tags (reads related specs to verify)
+9. **Prior decisions conflict** — Contradictions with entries in `docs/decisions.md`
 
 ---
 
@@ -89,13 +91,14 @@ Do not begin dimension analysis until Phase 1 is complete. A finding about a nam
 
 **Phase 2 — Check layers are present.**
 
-All layers should be present: Business Requirements, UX Requirements (if UI feature), Technical Architecture, and Test Coverage Strategy.
+All layers should be present: Business Requirements, UX Design (if UI feature), Technical Architecture, Component Strategy (if UI feature), and Test Coverage Strategy. See `.claude/rules/spec-sections.md` for canonical header names.
 
-To determine feature type: check frontmatter for `feature_type: backend`. If absent, check whether the spec contains a "UX Requirements" or "UX Design" section. If neither frontmatter flag nor UX section exists, add BLOCK: "Cannot determine feature type — add `feature_type: backend` to frontmatter (if backend-only) or run /ux first (if UI feature)."
+To determine feature type: check frontmatter for `feature_type: backend`. If absent, check whether the spec contains a `## UX Design` section. If neither frontmatter flag nor UX section exists, add BLOCK: "Cannot determine feature type — add `feature_type: backend` to frontmatter (if backend-only) or run /ux first (if UI feature)."
 
 If any mandatory layer is missing for the feature type:
-- UI feature missing UX section → BLOCK: "UX layer not found — run /ux first"
-- Any feature missing Technical Architecture → BLOCK: "Technical layer not found — run /architect first"
+- UI feature missing `## UX Design` → BLOCK: "UX layer not found — run /ux first"
+- Any feature missing `## Technical Architecture` → BLOCK: "Technical layer not found — run /architect first"
+- UI feature missing Component Strategy → BLOCK: "Component Strategy not found — run /ui first"
 - Any feature missing Test Coverage Strategy → BLOCK: "Tests layer not found — run /generate-tests first"
 
 **Phase 3 — Audit across all seven dimensions:**
@@ -146,13 +149,21 @@ Flag constraints that limit implementation without justification:
 - Business requirements that dictate HOW instead of WHAT
 - Test files that specify implementation internals (test behavior, not code)
 
-### 7. Cross-spec conflicts
+### 7. Component Strategy consistency (UI features only)
+If a `## Component Strategy` section exists:
+- Verify every "Reuse" component actually exists at the named file path (Glob check)
+- Verify every "Extend" component has the base file and the proposed change is feasible
+- Verify every "New" component has a justification for why existing patterns don't apply
+- Check for Challenge Notes — if any are marked "Blocking", flag as BLOCK
+- Cross-check Component Map against Architecture Decisions: if Architecture says "create new file X" but Component Map says "Reuse Y", flag the contradiction
+
+### 8. Cross-spec conflicts (renumbered from 7)
 Read the frontmatter `blocked_by` and `tags` fields. For each referenced feature (pN), read that feature's spec and check:
 - Does this spec's architecture contradict a decision made in a dependency?
 - Does this spec add a DB column/table that a dependency already added (collision)?
 - Does this spec's UX flow assume a component or page that a dependency has designed differently?
 
-### 8. Prior decisions conflict
+### 9. Prior decisions conflict
 ```bash
 grep "\[technical\]" docs/decisions.md
 grep "\[product\]" docs/decisions.md

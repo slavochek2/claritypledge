@@ -45,6 +45,58 @@
 
 ---
 
+## Workshop Format: Three-Letter Compressed Session
+
+**Requires:** P581 (Clarity Letters) shipped. Enhanced version of the false-belief workshop above.
+
+### Overview
+
+Compresses the full Clarity Letter acquisition sequence into one 90-120 min session. Participants experience all three letters: receive, create, assess value.
+
+### Flow
+
+**Phase 1 — Letter 1: Receive (30 min)**
+- Participants open a pre-composed Clarity Letter on their devices (3-4 false-belief stories selected by facilitator)
+- They read each story, rate understanding (0-10 dot picker), take positions on points
+- Gap reveals happen per-story as they go (sealed-bid: facilitator's prediction revealed after participant rates)
+- Outcome: each participant has a personal gap map
+
+**Phase 2 — /live Verification (30 min)**
+- Facilitator runs 1-to-many /live on the stories with biggest gaps (from Letter 1 data)
+- Participants explain back. Facilitator verifies or corrects.
+- Position switches happen live — the "holy shit" moment
+- Reflection: "What situations would have been different?"
+
+**Phase 3 — Letter 2: Create (20 min, upsell)**
+- For participants who verified well: "Now create YOUR Clarity Letter about what you just learned"
+- They select which false-belief stories resonated, write their own framing, set predictions for their audience
+- This is the comprehension-transfer test: can they teach it?
+- Upsell framing: "Use this with your co-founder / team / clients"
+
+**Phase 4 — Letter 3: Value Assessment (10 min)**
+- "What was this experience worth to you?" — PWIW with full comprehension context
+- Participant rates understanding of the value proposition (meta-calibration)
+- Distributor CTA for coaches/facilitators: "Want to run this with your own audience? Here's how."
+- Payment link / booking link for de-risking package
+
+### Key Differences from Basic Workshop
+
+| | Basic (P567) | Compressed (Three-Letter) |
+|---|---|---|
+| Instrument | Verbal + screen | Clarity Letters on device |
+| Pre-work | None | Letter 1 (can be sent before) |
+| Outcome artifact | Filed stories (optional) | Gap map per participant |
+| Upsells | De-risking only | De-risking + "Create your own" |
+| Distributor path | None | Letter 3 CTA |
+| Requires | P567 content filed | P567 + P581 shipped |
+
+### When to Use
+
+- Use **basic workshop** when P581 isn't shipped yet, or for very informal settings (cowork meetup, small group)
+- Use **compressed three-letter** when P581 is live and you want the full acquisition sequence in one session
+
+---
+
 ## Emotional Safety
 
 Before any verification exercise, check emotional readiness:

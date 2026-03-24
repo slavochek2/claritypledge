@@ -181,7 +181,8 @@ Any ONE of these fires → `/verify` is required. Do not skip.
 | Spec already written — `test_files:` absent | — | start from `/generate-tests` → `/dev` |
 | Spec exists, `delivery_stage: 5-decomposed` | — | resume from `/dev` |
 | Spec exists, `delivery_stage: 4-tests-ready` | — | resume from `/spec-review` → `/decompose`* → `/dev` |
-| Spec exists, `delivery_stage: 3-arch-review` | — | resume from `/generate-tests` → `/spec-review` → `/dev` |
+| Spec exists, `delivery_stage: 3-arch-review` | — | resume from `/ui` (if UI) → `/generate-tests` → `/spec-review` → `/dev` |
+| Spec exists, `delivery_stage: 3.5-ui-review` | — | resume from `/generate-tests` → `/spec-review` → `/dev` |
 | Spec exists, `delivery_stage: 2-ux-done` | — | resume from `/research-arch`* (if novel tech) → `/architect` → `/generate-tests` → `/spec-review` → `/dev` |
 | Spec exists, `delivery_stage: 1-prd` | — | resume from `/ux` (if UI changes) or `/architect` → `/generate-tests` → `/spec-review` → `/dev` |
 
@@ -193,7 +194,7 @@ Any ONE of these fires → `/verify` is required. Do not skip.
 | `type: change-request` in spec frontmatter | any | `/spec-review` mandatory (not optional) |
 | **Changes `.claude/commands/`, `.claude/rules/`, `.claude/hooks/`, `CLAUDE.md`, git workflow, or `scripts/` invoked by hooks/CI** | **Infra** | **See infrastructure tier below** |
 
-**Command ordering when multiple signals apply:** `/create-prd` → `/challenge-prd`* → `/ux` → `/research-arch`* → `/architect` → `/generate-tests` → `/decompose` → `/dev` → `/verify`
+**Command ordering when multiple signals apply:** `/create-prd` → `/challenge-prd`* → `/ux` → `/research-arch`* → `/architect` → `/ui` → `/generate-tests` → `/decompose` → `/dev` → `/verify`
 
 `*` `/challenge-prd` recommended for novel features (new capability, new actor, unvalidated flow). Skip for incremental improvements. `/research-arch` optional — only when feature involves novel technology, unfamiliar integrations, or technical unknowns surfaced by `/challenge-prd`.
 
@@ -224,6 +225,7 @@ These changes affect **all future work** — not a single feature. Risk is asymm
 - `/ux` — wireframes/design decisions (UI features only, skip if design is resolved)
 - `/research-arch` — pre-architect research for novel tech, unfamiliar integrations, or technical unknowns; spawns parallel research agents + benchmarking synthesis; skip when codebase has established patterns
 - `/architect` — architecture plan + mandatory security review; include whenever task has DB columns, RLS, auth, API changes, or new patterns; skip only for trivial 1-2 file UI-only changes with no security surface
+- `/ui` — component strategy mapping UX + architecture to concrete component choices; mandatory for all UI features (full and medium pipeline); maximizes reuse of existing design system; skip for backend-only, pure CSS, single-file copy changes
 - `/generate-tests` — writes test specs before implementation; include whenever a regression would be annoying to debug manually — this covers any conditional rendering (phase-based, auth-based, role-based), UI state that changes on user interaction or event, placeholder text or UI strings that could drift, button enable/disable logic, CSS class conditionals (e.g. centered vs sticky based on state), and all security/auth/DB cases; mandatory for any DB migration (P270 rule); also include when `/architect` is in the flow; skip only for pure CSS-only changes, single hardcoded strings with no logic, or one-liner typo fixes
 - `/decompose` — splits into sub-stories (5+ files or 3+ concerns only, run after `/generate-tests`)
 - `/dev` — implements from spec, stops at QA gate on success (run `/ship` to close)

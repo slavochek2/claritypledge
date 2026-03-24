@@ -66,6 +66,12 @@ The entire feature optimizes for one moment: **a visible position switch through
 
 **Impact if not solved:** ClarityPledge remains a facilitator-dependent service with zero standalone product value. Workshops produce intellectual surprise but no follow-up instrument. Partner agreements have no async practice tool. The product can't test H-StoryFirst (async gap revelations) because the measurement mechanism doesn't exist. H-WTP-Pain testing stalls because the workshop flow's step 4 has no implementation.
 
+**Architectural context — Clarity Doc → Clarity Letter relationship (2026-03-24):**
+Long-term, a Clarity Letter is an immutable snapshot of content from a Clarity Doc (P551). The Doc is the mutable source — stories and points accumulate there between sessions. The Letter is the delivery mechanism — "send this selection as a reading experience with assessment." Editing a letter = editing the doc, then sending a new letter (version N+1). V1 letters are standalone (sender selects from profile stories, no doc integration), but the data model should anticipate a nullable `source_doc_id` FK so the relationship can be added when P551 ships.
+
+**Three-letter acquisition sequence (2026-03-24):**
+Letters serve a larger acquisition flywheel: Letter 1 (educate — recipient reads, rates, gaps revealed) → /live verification → Letter 2 (reproduce — recipient creates their own letter using same points, own stories) → Letter 3 (value assessment + PWIW + distributor CTA). In a compressed workshop, all three happen in one 90-120 min session. V1 builds Letter 1 only. Letter 2 uses the same composition flow (recipient is now a registered user). Letter 3 is a future post-completion screen. See [facilitator-guide.md](../../docs/facilitator-guide.md#workshop-format-three-letter-compressed-session).
+
 ---
 
 ## Business Requirements
@@ -109,9 +115,13 @@ The entire feature optimizes for one moment: **a visible position switch through
 **Constraints:**
 - Must not break existing story/point/position functionality
 - Must work on mobile (workshop participants on phones)
-- Receiver must have a ClarityPledge account (no anonymous rating — assessments are tied to identity for gap tracking)
+- Receiver can complete the entire letter experience WITHOUT an account — reading, rating, positioning all work in local state. Registration required only to persist results. The experience IS the conversion funnel.
 - Assessment is mandatory within the letter context, but receiving a letter is not mandatory (no one is forced to open a letter)
 - Author prediction is sealed until receiver rates (prevents anchoring)
+
+**Letter sharing methods:**
+- **Link (QR code, WhatsApp, etc.):** Anonymous access. Receiver completes letter → sees gap map → "Save your results?" → email input → account created → data persisted. Registration gate at EXIT, not entrance.
+- **Email:** Facilitator enters receiver's email when composing. Receiver gets email with letter link. Email is pre-filled at registration gate — one click to save, no re-entry needed. If email matches an existing account, results auto-attach on login.
 
 ---
 
@@ -185,11 +195,20 @@ The entire feature optimizes for one moment: **a visible position switch through
 
 ### Letter Composition
 - [ ] Sender can create a letter by selecting existing stories OR creating new stories inline
-- [ ] Sender addresses a letter to a specific ClarityPledge user
+- [ ] Sender addresses a letter to a specific person — by ClarityPledge username, email, or generates a shareable link
 - [ ] Sender predicts understanding (0-10) for each story using dot picker
 - [ ] Sender's predictions are sealed — not visible to receiver until receiver rates
-- [ ] Letter can be sent (receiver can access it from their account)
+- [ ] Letter accessible via link — no account required to open and complete
 - [ ] Sender can send letters to multiple receivers (same content, individual predictions per receiver)
+
+### Unregistered Receiver Flow
+- [ ] Receiver can open letter link without an account (anonymous access)
+- [ ] All letter interactions (reading, rating, positioning, story filing) work in local state without registration
+- [ ] After completing letter, gap map displays before any registration prompt
+- [ ] "Save your results?" gate appears after gap map — email input + one-click signup
+- [ ] If letter was sent via email, receiver's email is pre-filled at the save gate (one click to persist)
+- [ ] If receiver's email matches existing account, results auto-attach on login
+- [ ] If receiver closes browser before saving, local state persists (sessionStorage) for return within same session
 
 ### Letter Reading
 - [ ] Receiver sees a dedicated letter view (not a feed — a focused, sequential experience)
@@ -198,7 +217,7 @@ The entire feature optimizes for one moment: **a visible position switch through
 - [ ] For each story, receiver must rate understanding (0-10) via dot picker before proceeding
 - [ ] Rating prompt: "How well do you believe you understood this?"
 - [ ] After receiver rates, the author's prediction is revealed as dual progress bars
-- [ ] Gap severity framed: "A gap of N — worth noting/exploring" (not raw numbers only)
+- [ ] Gap framed honestly: "A gap of N — both guessing, neither knows yet" (not claiming knowledge we don't have)
 - [ ] After rating a story, extracted points from that story appear sequentially
 - [ ] Three-button position pattern: ✕ (disagree) / ? (maybe) / ✓ (agree with degree dropdown)
 - [ ] Author's position on each point is LOCKED until receiver engages (position OR story)
@@ -254,8 +273,8 @@ The entire feature optimizes for one moment: **a visible position switch through
 | Grid quadrants | Genuine consensus (green, top-right), Genuine disagreement (red, top-left), False consensus ⚠️ (amber, bottom-right), Noise (gray, bottom-left) | Grid component |
 | Grid Y-axis | "UNDERSTANDING ↑" (0-10) | Always visible, no negatives |
 | Grid X-axis | "← DISAGREE ... AGREE →" (-3 to +3) | Toggleable in some contexts |
-| Paraphrase toggle | "Show/Hide paraphrase movement (N/M)" | Author view, gap map |
-| Risk ranking | Points sorted by: false consensus × 2 + disagreement | Author gap map |
+| Paraphrase toggle | "Show/Hide paraphrase movement (N/M)" | Author view, after /live verification (future) |
+| Point sorting | Points sorted by gap size (largest first) | Author gap map |
 | Ready for live CTA | "Start live session → [highest-risk point]" | Bottom of author gap map |
 | Letter status (sender view) | "Sent · Opened · 2 of 4 rated · Completed" | Sender's letter list |
 | Gap map header | "Gap map — N listeners" | Post-letter summary / author view |
@@ -280,6 +299,10 @@ The entire feature optimizes for one moment: **a visible position switch through
 | D12 | Gap map = list or grid? | Understanding × agreement grid (four quadrants). Both parties as dots. Arrows show movement. Grid is the core visualization across letters and /live. |
 | D13 | Relationship to P551 clarity docs? | Separate specs, shared grid component. Letter = addressed reading experience with measurement. Clarity doc = persistent private shared container. A letter could eventually be a "reading mode" of a clarity doc, but V1 they're independent. |
 | D14 | Can receiver file stories? | Yes. On any point — to explain position, explain false premise, or explain non-position. Uses P560 story-filing mechanic inline. |
+| D15 | Account required to read a letter? | No. The entire letter experience works without an account. Registration gate at EXIT (after gap map), not entrance. The experience is the conversion funnel. Local state (sessionStorage) holds all data until persisted. |
+| D16 | How does facilitator share the letter? | Two paths: (a) Link — QR code, WhatsApp, etc. Anonymous access, email entered at save gate. (b) Email — facilitator enters receiver's email at composition. Email pre-filled at save gate, one click to persist. Email-sent letters have lower registration friction. |
+| D17 | What is the feature called? | "Clarity Letter." Not "letter," not "doc in reading mode." Clarity Letter is a first-class entity — related to clarity docs (P551) but distinct. |
+| D18 | Where does the understanding map live? | Session history. A completed clarity letter = a session history entry (async type). Same data structure as /live rounds, new source. The understanding map IS session history — viewed on `/sessions` alongside /live rounds. |
 
 ---
 
@@ -292,6 +315,8 @@ The entire feature optimizes for one moment: **a visible position switch through
 5. **Does the grid replace JourneyToUnderstanding in /live?** The grid is a superset (shows both understanding AND agreement). Long-term yes. V1: grid lives in letters, JourneyToUnderstanding stays in /live. Migration is a future task.
 6. **Can a letter document external paraphrase?** (e.g., "we already discussed this in person, I just want to record it") — async /live alternative. Likely future, not V1.
 7. **Guess-line → collapse mechanic:** Both parties' guesses form a line segment on the grid (uncertainty band). After paraphrase, Y collapses to verified number. Visually compelling but may be too complex for V1. Explore in /ux.
+8. **Should composition create an implicit Clarity Doc?** V1 composition = ad-hoc selection from profile. But this IS what a doc is — a curated collection of stories + points with scoped visibility. If the data model uses a `doc_id` FK from the start, a letter's content selection becomes "create a doc, then send it as a letter." This unifies the compose/edit model but adds P551 as a dependency. Decision: V1 standalone, but include nullable `source_doc_id` in the schema.
+9. **Remix flow for Letter 2:** After completing a letter, can the receiver create their own letter reusing the same *points* but with their own *stories*? This is the distribution mechanism — personalized onboarding for their audience. V1: receiver uses standard composition flow (they're registered now). Future: "Create your own letter from these points" button on gap map.
 
 ---
 
@@ -319,13 +344,350 @@ Key patterns from prototypes: dot picker (not slider), three-button (not Likert)
 - Reply letters / ping-pong calibration (future)
 - Replacing JourneyToUnderstanding in /live with the grid (future migration)
 - Async /live mode (documenting external paraphrases) (future)
+- Clarity Doc integration — sourcing letter content from a doc instead of profile (P551, future)
+- Letter editing / versioning — edit the source doc, send new letter version (requires P551)
+- "Create your own letter" CTA on gap map — remix flow for Letter 2 (future post-V1)
+- Three-letter workshop sequence automation — V1 is manual facilitation with individual letters
+- Value assessment / PWIW screen after letter completion — Letter 3 (future)
+- Distributor CTA on Letter 3 completion (future)
+
+---
+
+## ASCII Flow: "Sealed Slides" (from /ascii-flows, corrected)
+
+Winner from 30 variants. Scored 84/100. Corrections applied from founder review.
+
+### Naming question (open)
+
+Is this a "Clarity Letter"? Or is it a "Clarity Doc in reading mode"? Or just "letter"? The seal metaphor works for the ritual — but the relationship to P551 clarity docs needs a name decision before /ux. See D13.
+
+### COMPOSITION (Sender — 2 steps, combined)
+
+```
+┌──────────────────────┐
+│ ╔════════════════════╗│
+│ ║  CRAFT A LETTER   ║│
+│ ╚════════════════════╝│
+│                       │
+│  Step 1 of 2  ●○     │
+│                       │
+│  Your Stories         │
+│  ┌───────────────────┐│
+│  │ ☑ Hiring stance   ││
+│  │   ●●●●●●○○○○ 6   ││
+│  │   "How well will  ││
+│  │    they get it?"  ││
+│  ├───────────────────┤│
+│  │ ☑ Funding views   ││
+│  │   ●●●●○○○○○○ 4   ││
+│  └───────────────────┘│
+│  [ + Create story ]   │
+│                       │
+│       [ Next → ]      │
+└───────────────────────┘
+
+┌──────────────────────┐
+│  Step 2 of 2  ○●     │
+│                       │
+│  Send to:             │
+│  ┌───────────────────┐│
+│  │ alex@co.com       ││
+│  └───────────────────┘│
+│  [ + Add person ]     │
+│                       │
+│  ╔════════════════════╗
+│  ║  2 stories        ║
+│  ║  To: Alex         ║
+│  ║  Predictions: 6, 4║
+│  ╚════════════════════╝
+│                       │
+│  ╔══════════════════╗ │
+│  ║  ✦ Seal & Send  ║ │
+│  ╚══════════════════╝ │
+└───────────────────────┘
+```
+
+### READING — ACT 1: COVER
+
+```
+┌──────────────────────┐
+│                      │
+│ ╔════════════════════╗
+│ ║                    ║
+│ ║       ✉            ║
+│ ║                    ║
+│ ║  A CLARITY LETTER  ║
+│ ║  FROM SARAH        ║
+│ ║                    ║
+│ ║  2 stories         ║
+│ ║  ~ 5 minutes       ║
+│ ║                    ║
+│ ╚════════════════════╝
+│                      │
+│  [ Open the Letter ] │
+│                      │
+└──────────────────────┘
+```
+
+### READING — ACT 2: PER STORY (5 slides, forward-only)
+
+**Slide 1: READ** (scroll within slide for long stories)
+
+```
+┌──────────────────────┐
+│ ■□  Story 1 of 2     │
+│──────────────────────│
+│                      │
+│  "My co-founder's    │
+│   position on        │
+│   hiring is that     │
+│   we should only     │
+│   hire senior        │
+│   engineers.         │
+│                      │
+│   The reasoning is   │
+│   that seniors       │
+│   reduce onboarding  │
+│   cost and ship      │
+│   faster..."         │
+│                      │
+│  [ I've read it → ]  │
+│                      │
+└──────────────────────┘
+```
+
+**Slide 2: RATE** (dot picker — same as prototype)
+
+```
+┌──────────────────────┐
+│ ■□  Story 1 of 2     │
+│──────────────────────│
+│                      │
+│  How well do you     │
+│  believe you         │
+│  understood this?    │
+│                      │
+│  ● ● ● ● ● ● ● ● ○ ○│
+│                    8 │
+│                      │
+│  [ Submit → ]        │
+│                      │
+└──────────────────────┘
+```
+
+Note: Dot picker, not slider. Tapping a dot fills up to that point (like prototype). Submit commits — no going back.
+
+Confidence slide REMOVED — the rating itself IS the confidence. Adding "how confident are you in your confidence?" is a loop.
+
+**Slide 3: REVEAL** (reuses calibration history pattern)
+
+```
+┌──────────────────────┐
+│ ■□  Story 1 of 2     │
+│──────────────────────│
+│                      │
+│  ┌──────────────────┐│
+│  │ Your guess       ││
+│  │ ████████░░  8/10 ││
+│  │                  ││
+│  │ Sarah's guess    ││
+│  │ ██████░░░░  6/10 ││
+│  │                  ││
+│  │ Gap: 2           ││
+│  └──────────────────┘│
+│                      │
+│  A gap of 2 —        │
+│  both guessing,      │
+│  neither knows yet.  │
+│                      │
+│  [ See the points → ]│
+│                      │
+└──────────────────────┘
+```
+
+Note: Reuses dual-bar pattern from JourneyToUnderstanding / CalibCard. Language says "guesses" — we don't pretend to know what we don't know. No false-consensus labeling at this stage (that requires the grid, which comes in Act 3 after positions are taken).
+
+**Slide 4: POINTS** (one at a time, locked author)
+
+```
+┌──────────────────────┐
+│ ■□  Story 1 of 2     │
+│ Point 1 of 3         │
+│──────────────────────│
+│                      │
+│  "Seniors reduce     │
+│   onboarding cost"   │
+│                      │
+│  ┌────┐ ┌────┐ ┌────┐│
+│  │ ✕  │ │ ?  │ │ ✓  ││
+│  └────┘ └────┘ └────┘│
+│                      │
+│  🔒 Sarah's position │
+│  (engage to reveal)  │
+│                      │
+│  [+ Add a story —    │
+│     explain your     │
+│     view]            │
+│                      │
+│  [ Skip · Next → ]   │
+│                      │
+└──────────────────────┘
+```
+
+Note: Engagement = taking position OR filing a story. Either unlocks author position. "Skip" is always available — skipping is itself a signal. Story filing explains position, non-position, or false premise ("I reject this framing because...").
+
+After engagement:
+
+```
+┌──────────────────────┐
+│ ■□  Story 1 of 2     │
+│ Point 1 of 3         │
+│──────────────────────│
+│                      │
+│  "Seniors reduce     │
+│   onboarding cost"   │
+│                      │
+│  You:   ✓ Agree      │
+│  Sarah: ✓ Agree      │
+│                      │
+│  [ Next point → ]    │
+│                      │
+└──────────────────────┘
+```
+
+**Slide 5: TRANSITION** (between stories — simple, not meditation)
+
+```
+┌──────────────────────┐
+│                      │
+│  ■■ □□               │
+│  Story 1 complete    │
+│                      │
+│  [ Next story → ]    │
+│                      │
+└──────────────────────┘
+```
+
+Note: Clean break. Shows progress. No enforced breathing timer — just a natural pause before tapping. Not a meditation app.
+
+→ Story 2 begins at Slide 1.
+
+### READING — ACT 3: GAP MAP (after all stories)
+
+```
+┌──────────────────────┐
+│                      │
+│ ╔════════════════════╗
+│ ║  ✦ YOUR           ║
+│ ║  UNDERSTANDING     ║
+│ ║  MAP               ║
+│ ╚════════════════════╝
+│                      │
+│  Understanding (Y)   │
+│  10│  ●         ●   │
+│    │                │
+│   5│         ●      │
+│    │                │
+│   0├────────────────│
+│   -3   0   +3       │
+│   Agreement (X)      │
+│                      │
+│──────────────────────│
+│                      │
+│  Per point:          │
+│                      │
+│  ┌──────────────────┐│
+│  │ "Seniors reduce  ││
+│  │  onboarding"     ││
+│  │                  ││
+│  │  You: ✓ Agree    ││
+│  │  Sarah: ✓ Agree  ││
+│  │  Understanding   ││
+│  │  gap: 2          ││
+│  │  Quadrant: ??    ││
+│  │  (verify in /live││
+│  │   to find out)   ││
+│  └──────────────────┘│
+│                      │
+│  2 stories read      │
+│  5 positions taken   │
+│  3 gaps > 2          │
+│                      │
+│ ╔════════════════════╗│
+│ ║  Worth checking   ║│
+│ ║  in /live?        ║│
+│ ║ [ Schedule Live ] ║│
+│ ╚════════════════════╝│
+│                      │
+│──────────────────────│
+│                      │
+│  Save your results?  │
+│  ┌──────────────────┐│
+│  │ your@email.com   ││
+│  └──────────────────┘│
+│  [ Save & Sign Up ]  │
+│                      │
+└──────────────────────┘
+```
+
+Note: No "position shifted" claims — nothing shifted yet. These are guesses from both sides. The grid shows where each party THINKS they are. Quadrant labels are tentative ("??") because verification hasn't happened. The arrows and shift proof come AFTER /live paraphrase cycles — that's a future update to this same grid, not shown in the letter flow itself. The letter is triage: "here's where to look." /live is verification: "here's what's real."
+
+### AUTHOR GAP MAP VIEW
+
+```
+┌──────────────────────┐
+│  LETTER RESULTS      │
+│  To: Alex            │
+│  Status: Completed   │
+│──────────────────────│
+│                      │
+│  Understanding (Y)   │
+│  10│  ●         ●   │
+│   5│      ●         │
+│   0├────────────────│
+│   -3   0   +3       │
+│                      │
+│  (tap dot to inspect)│
+│                      │
+│──────────────────────│
+│  Per point:          │
+│                      │
+│  1. "Funding runway" │
+│     Gap: 3           │
+│     You guessed: 4   │
+│     Alex guessed: 7  │
+│                      │
+│  2. "Hiring seniors" │
+│     Gap: 2           │
+│                      │
+│  3. "Speed vs cost"  │
+│     Gap: 0 — aligned │
+│──────────────────────│
+│                      │
+│  Linked stories:     │
+│  ┌──────────────────┐│
+│  │ 📖 Alex: "I      ││
+│  │  actually think  ││
+│  │  mentorship..."  ││
+│  └──────────────────┘│
+│                      │
+│ ╔════════════════════╗│
+│ ║ Worth checking    ║│
+│ ║ in /live?         ║│
+│ ║ [ Schedule Live ] ║│
+│ ╚════════════════════╝│
+└──────────────────────┘
+```
+
+Note: No risk ranking formula. Just points sorted by gap size (largest first). Simple. Author sees gaps + linked stories + "worth checking in /live?" CTA.
 
 ---
 
 ## Next Steps
 
-1. Run `/challenge-prd` to stress-test business requirements
-2. Run `/ux` to design the letter composition, reading, and gap map flows
-3. Run `/architect` to design data model (letters table, assessments, sealed-bid mechanics)
-4. Run `/generate-tests` for test automation
-5. Run `/dev` for implementation
+1. ~~Run `/challenge-prd`~~ — done (verdict: RETHINK → addressed by scope decisions)
+2. ~~Run `/ascii-flows`~~ — done (winner: Sealed Slides, corrected above)
+3. Run `/ux` — detailed interaction design iterating on Sealed Slides flow
+4. Run `/architect` — data model (letters, assessments, sealed-bid, local state → persist)
+5. Run `/generate-tests` — acceptance criteria → test stubs
+6. Run `/dev` — implement

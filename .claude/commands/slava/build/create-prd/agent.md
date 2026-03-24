@@ -322,7 +322,7 @@ Which would you like?
 
 3. **Determine required sections** (adaptive)
    - ALL features need: Business Requirements, Technical Analysis, Technical Requirements, Verification
-   - UI features need: UX Requirements
+   - UI features need: UX Design
    - Data migrations need: Migration Scripts, Validation
    - Bug fixes need: Root Cause Analysis
    - API endpoints need: API Specification
@@ -545,11 +545,11 @@ Document:
 
 ---
 
-#### 4.4 UX Requirements (if UI feature)
+#### 4.4 UX Design (if UI feature)
 
 **Only include if feature has user-facing UI changes:**
 ```markdown
-## UX Requirements
+## UX Design
 
 **User Flow:**
 {Step-by-step user interaction}
@@ -902,6 +902,8 @@ created: 2026-02-12
 
 ## Acceptance Criteria
 
+**IMPORTANT:** `## Acceptance Criteria` must always be a standalone level-2 heading (see `.claude/rules/spec-sections.md`). Never nest it under `## Business Requirements`.
+
 - [ ] {Criterion 1}
 - [ ] {Criterion 2}
 - [ ] All E2E tests passing
@@ -965,7 +967,7 @@ find features -type f -name "p[0-9]*.md" 2>/dev/null | grep -oE 'p[0-9]+' | sort
 - ✅ Business Requirements (WHY users want dark mode)
 - ✅ Technical Analysis (current theme system)
 - ✅ Technical Requirements (how to implement)
-- ✅ **UX Requirements** (toggle placement, accessibility)
+- ✅ **UX Design** (toggle placement, accessibility)
 - ✅ Verification (E2E tests for toggle)
 
 ### Example 2: Data Migration
@@ -976,7 +978,7 @@ find features -type f -name "p[0-9]*.md" 2>/dev/null | grep -oE 'p[0-9]+' | sort
 - ✅ Technical Analysis (current localStorage structure)
 - ✅ Technical Requirements (migration script)
 - ✅ **Migration Scripts** (SQL, validation)
-- ❌ UX Requirements (not needed - no UI changes)
+- ❌ UX Design (not needed - no UI changes)
 - ✅ Verification (migration validation tests)
 
 ### Example 3: Bug Fix
@@ -986,7 +988,7 @@ find features -type f -name "p[0-9]*.md" 2>/dev/null | grep -oE 'p[0-9]+' | sort
 - ✅ Business Requirements (WHY fix - users can't log in)
 - ✅ **Root Cause Analysis** (event listener not firing)
 - ✅ Technical Requirements (fix approach)
-- ❌ UX Requirements (optional - unless redesigning login flow)
+- ❌ UX Design (optional - unless redesigning login flow)
 - ✅ Verification (E2E tests on Safari mobile)
 
 ### Example 4: Refactor
@@ -996,7 +998,7 @@ find features -type f -name "p[0-9]*.md" 2>/dev/null | grep -oE 'p[0-9]+' | sort
 - ❌ Business Requirements (no user-facing change)
 - ✅ Technical Analysis (current auth implementation)
 - ✅ Technical Requirements (migration to new SDK)
-- ❌ UX Requirements (no UI changes)
+- ❌ UX Design (no UI changes)
 - ✅ Verification (unit + integration tests, no regressions)
 
 ---

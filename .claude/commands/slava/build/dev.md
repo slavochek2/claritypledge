@@ -60,6 +60,18 @@ You're not just writing code — you're building something that will run in prod
 
 ---
 
+## Step -1: Context Load (NEVER SKIP when a spec exists — even if you discussed it earlier)
+
+Before ANY other step — including worktree setup:
+1. Read the full spec file (`features/pN*.md`) — Decisions section first, then Acceptance Criteria, then tasks
+2. If spec references DB columns/tables: verify they exist (`curl` the REST API or check migration files)
+
+**Why this is step -1:** After context compaction, the conversation summary says "working on pN" but the spec details are gone. This step costs 10 seconds and prevents 30-minute wrong-direction implementations.
+
+Skip if no spec exists (inline description mode like `/dev refactor the auth module`).
+
+---
+
 ## Workflow
 
 0. **Pre-flight: branch lineage check** — Before any branching or worktree creation:
@@ -101,10 +113,8 @@ You're not just writing code — you're building something that will run in prod
 
 0.4. **Mark in-progress** — If a P-number spec was provided, update `status: in-progress` in frontmatter (skip silently if inline description mode)
 1. **Read tests** — UAT scenarios, E2E test stubs, acceptance criteria
-2. **Understand** — Read the spec fully in this order:
-   - **Decisions** section first — every decision is a constraint, not a suggestion. Before writing a single line, internalize what the spec rules out (e.g., "edit detected via DB lookup, not URL param" means: do not add a URL param). Signal you skipped this: /review-all removes something because it contradicts a spec decision.
-   - **Acceptance Criteria** — what done looks like
-   - **`[ ]` tasks** — what to build (skip `[x]` done)
+1.5. **Read Component Strategy** — If spec has `## Component Strategy`, read the Component Map table. Every Reuse/Extend/Extract/New classification is a constraint — follow it. Do not create new components when the map says Reuse or Extend. If the Extraction Plan lists a prerequisite refactor, do it first.
+2. **Verify context** — Confirm Step -1 context is loaded (re-read spec if post-compaction or if >10 tool calls since Step -1). Key check: can you state (a) the top constraint from Decisions, (b) what "done" looks like from Acceptance Criteria, and (c) the next unchecked task? If not, re-read now. Every decision is a constraint, not a suggestion — if you can't name what the spec rules out, you haven't internalized it.
 3. **Implement** — Feature code + fill in test stubs
 4. **Run tests** — Execute test suite, check results
 5. **Iterate** — Fix code until ALL tests pass (max 5 attempts)
@@ -118,7 +128,7 @@ You're not just writing code — you're building something that will run in prod
    d. Skip this step if no `## UI Contract` section exists (non-UI features, older specs).
 9. **Commit** — Only if ALL tests pass
 9.5. **Review** — Spawn `/review-all` as a subagent with this explicit instruction: "Review all changes on this branch vs main. Spec: [current spec path]. Do NOT pause for scope selection — proceed directly with scope = all changes vs main." Present HIGH/MEDIUM findings to user. Ask: "Fix issues before closing? (all HIGH / select / skip)". Apply approved fixes and commit them.
-9.7. **Pre-deploy checklist** — If spec has a `## Pre-deploy Checklist` (or `## Deployment Checklist`) section, execute each item on the target environment now. Verify edge functions are deployed, secrets are set, and migrations are applied — don't defer to `/ship`. Report what was provisioned.
+9.7. **Pre-deploy checklist** — If spec has a `## Pre-deploy Checklist` section, execute each item on the target environment now. Verify edge functions are deployed, secrets are set, and migrations are applied — don't defer to `/ship`. Report what was provisioned.
 9.8. **Prod verification (optional)** — After deploy, if the feature touches DB/auth/edge functions, run a Playwright prod verification test using `e2e-agent@claritypledge.com`. See `e2e/verify-prod-agreements.spec.ts` as template. Command: `VERIFY_PROD=1 PROD_SERVICE_ROLE_KEY="<srk>" npx playwright test e2e/verify-prod-<feature>.spec.ts`
 10. **UAT gate** — Set `delivery_stage: uat` in spec frontmatter (keep `status: in-progress`, do NOT move to `features/done/`). Tell user: "Feature ready for UAT on branch feature/pN-xxx. Run `/ship pN` when you're satisfied."
 

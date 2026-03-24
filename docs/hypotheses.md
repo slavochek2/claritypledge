@@ -47,6 +47,7 @@ Session logs, architecture notes, and strategic commentary belong in [decisions.
 **Update (2026-03-21):** CE distribution channel deferred — will return with concrete forwardable offer. Async-first go-to-market adaptation: booking links and written offers instead of scheduling calls. Compounds the delay in testing WTP with revenue-qualified pairs.
 **Update (2026-03-22):** False-belief facilitation technique identified as concrete testing mechanism. Workshop flow: surface participant's false belief via question → they position on false-belief point → present counter-story → verify understanding (P561 slider) → position switch → **reflection prompt: "What situations would have been different? What did holding this cost you?"** → they file story about their past false belief + cost. The reflection prompt IS the H-WTP-Pain test — not passively hoping pairs name a cost, but actively engineering the moment where broken belief connects to their relationship. See P567 (false belief curriculum) and [facilitator-guide.md](facilitator-guide.md).
 **Risk (2026-03-23):** Purchase frame itself may repel — "buying a de-risking package = admitting our relationship might break." The "sophistication/prenup" reframe works only for founders who already self-identify as high-performing. Workshop reflection tests pain; conversion tests whether pain overcomes the frame resistance. Watch for this in workshop debrief.
+**Insight (2026-03-24):** Clarity Letter three-step sequence may resolve the pricing chicken-and-egg. Letter 1 (opened during workshop) demonstrates value. /live verifies understanding and produces gap map. Letter 3 calibrates the commercial exchange using the skill just learned — PWIW with full comprehension context. The workshop participant prices the experience AFTER having experienced calibration, not before. Test: does a workshop that uses Letters 1-3 produce higher PWIW amounts than one without the letter instrument?
 
 ---
 
@@ -131,6 +132,7 @@ Waiting on upstream hypotheses. Each entry lists what must happen before testing
 **Kill if:** <10% conversion after 3 workshops.
 **Unblocked (2026-03-22):** False-belief workshops where participants calibrate against Slava's pre-filed points can be tested independently of H-PairsReturn — no pair dependency. Moved from Blocked to Active P2.
 **Test:** Run 3 workshops with P567 curriculum. Measure: position switches, reflection stories filed, conversion to de-risking.
+**Variant (2026-03-24):** Compressed three-letter workshop — Letters 1-3 + /live in one session. Letter 1 = pre-work/in-session reading; /live = gap verification; Letter 2 = "create your own" upsell; Letter 3 = PWIW + distributor CTA. Tests H-WorkshopFormat AND H-WTP-Pain simultaneously. Requires P581 shipped.
 
 ---
 

@@ -89,6 +89,17 @@ Bug reported
 
 ---
 
+## Phase -1: Context Load (NEVER SKIP)
+
+Before worktree setup or any code changes:
+1. If a P-number spec exists: read it fully (reproduction steps, root cause if documented, acceptance criteria)
+2. Read the source file(s) mentioned in the spec or user description — verify current state matches your assumptions
+3. If bug involves DB: check the actual schema (`curl` REST API with `?select=column&limit=1`)
+
+Skip steps 1 and 3 in inline mode (`/fix "description"`) — but always do step 2 (using the user description to identify source files).
+
+---
+
 ## Workflow
 
 ### Phase 0.0: Worktree setup
@@ -159,7 +170,7 @@ Skip silently if no feature file exists (inline description mode, e.g. `/fix "Lo
 **Goal:** Confirm the bug exists and understand how to trigger it
 
 **Steps:**
-1. Read bug description from spec
+1. Confirm Phase -1 context is loaded (re-read spec if post-compaction). Focus on reproduction steps.
 2. Identify reproduction steps (from bug report or spec)
 3. Execute reproduction steps in test/dev environment
 4. Document actual vs expected behavior

@@ -145,7 +145,7 @@ tags: []
 
 # P{N}: {Title}
 
-## Problem
+## Problem Statement
 
 {Problem from user}
 
@@ -157,7 +157,7 @@ tags: []
 
 {If ASCII mockups were already produced in the conversation — paste them here with brief labels. Otherwise omit this section entirely.}
 
-## Technical Notes
+## Technical Architecture
 
 {If specific files, patterns, or implementation approach were already discussed — summarize them here. Otherwise write: _Implementation details, architecture decisions._}
 
@@ -166,7 +166,7 @@ tags: []
 - [ ] _Criteria 1_
 - [ ] _Criteria 2_
 
-## Testing
+## Test Coverage Strategy
 
 _How to verify this works._
 ```

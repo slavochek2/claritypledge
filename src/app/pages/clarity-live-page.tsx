@@ -49,6 +49,13 @@ import { pointsService } from '@/app/data/points-service';
 import { eventsService } from '@/app/data/events-service';
 import { calibrationService } from '@/app/data/calibration-service';
 import { supabase } from '@/lib/supabase';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { LiveModeView, PartnerLeftScreen, type UploadProgressState } from '@/app/components/partners/live-mode-view';
 import { ReconnectingCountdown } from '@/app/components/session/reconnecting-countdown';
 import { RejoinPrompt } from '@/app/components/session/rejoin-prompt';
@@ -347,7 +354,48 @@ export function ClarityLivePage() {
   // P566: Chunk store + upload queue
   const chunkStoreRef = useRef<ChunkStore | null>(null);
   const uploadQueueRef = useRef<ChunkUploadQueue | null>(null);
-  const [uploadProgress, setUploadProgress] = useState<UploadProgressState | null>(null);
+  const [uploadProgress, setUploadProgress] = useState<UploadProgressState | null>(() => {
+    // Debug: ?debugUpload=uploading|complete|failed simulates upload states on localhost
+    if (!import.meta.env.PROD) {
+      const debugUpload = new URLSearchParams(window.location.search).get('debugUpload');
+      if (debugUpload === 'uploading') return { status: 'uploading', pending: 3, total: 10 };
+      if (debugUpload === 'complete') return { status: 'complete', pending: 0, total: 10 };
+      if (debugUpload === 'failed') return { status: 'failed', pending: 2, total: 10 };
+    }
+    return null;
+  });
+
+  // P584: Navigation guard state — prevents navigating away during upload
+  const [showUploadNavGuard, setShowUploadNavGuard] = useState(false);
+  const uploadNavGuardRef = useRef<(() => void) | null>(null);
+
+  // P584: Navigation guard — popstate + pushState pattern (proven in P427/story-detail-page)
+  // BrowserRouter doesn't support useBlocker; use popstate + history.pushState instead.
+  useEffect(() => {
+    const isUploading = uploadProgress?.status === 'uploading';
+
+    // Remove any previously-registered handler
+    if (uploadNavGuardRef.current) {
+      window.removeEventListener('popstate', uploadNavGuardRef.current, true);
+      uploadNavGuardRef.current = null;
+    }
+
+    if (!isUploading) return;
+
+    const handler = () => {
+      // Re-push the current URL to keep the browser on this page
+      window.history.pushState(null, '', window.location.href);
+      setShowUploadNavGuard(true);
+    };
+
+    uploadNavGuardRef.current = handler;
+    window.addEventListener('popstate', handler, { capture: true });
+
+    return () => {
+      window.removeEventListener('popstate', handler, { capture: true });
+      uploadNavGuardRef.current = null;
+    };
+  }, [uploadProgress?.status]);
 
   // P566: Initialize chunk store on mount
   useEffect(() => {
@@ -2845,6 +2893,12 @@ export function ClarityLivePage() {
 
   // Show partner left screen if partner departed
   if (sessionEnded || partnerLeft) {
+    // P584: Count completed (non-skipped) rounds for transcript messaging
+    const realRounds = (liveState.sessionHistory ?? []).filter(r => !r.skipped).length;
+    // Debug: ?debugRounds=N simulates completed rounds on localhost
+    const debugRounds = !import.meta.env.PROD ? parseInt(new URLSearchParams(window.location.search).get('debugRounds') ?? '', 10) : NaN;
+    const completedRounds = !isNaN(debugRounds) ? debugRounds : realRounds;
+
     return (
       <div className="flex flex-col min-h-[calc(100vh-9rem)] lg:min-h-[calc(100vh-5rem)]">
         <div className="flex-1 flex items-center justify-center">
@@ -2855,8 +2909,46 @@ export function ClarityLivePage() {
             isGuest={!user}
             uploadProgress={uploadProgress}
             isCreator={isCreator}
+            completedRounds={completedRounds}
           />
         </div>
+        {/* P584: Navigation guard dialog — shown when user tries to navigate during upload */}
+        <Dialog open={showUploadNavGuard} onOpenChange={setShowUploadNavGuard}>
+          <DialogContent
+            hideCloseButton
+            className="max-w-sm"
+            onPointerDownOutside={(e) => e.preventDefault()}
+          >
+            <DialogHeader>
+              <DialogTitle className="sr-only">Upload in progress</DialogTitle>
+              <DialogDescription className="text-base text-foreground">
+                Audio is still uploading. Leaving may lose your recording.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="flex flex-col gap-3">
+              <Button
+                className="bg-blue-500 hover:bg-blue-600 text-white w-full"
+                onClick={() => setShowUploadNavGuard(false)}
+              >
+                Stay on this page
+              </Button>
+              <button
+                className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+                onClick={() => {
+                  // Remove popstate guard before navigating
+                  if (uploadNavGuardRef.current) {
+                    window.removeEventListener('popstate', uploadNavGuardRef.current, true);
+                    uploadNavGuardRef.current = null;
+                  }
+                  setShowUploadNavGuard(false);
+                  navigate('/live', { replace: true });
+                }}
+              >
+                Leave anyway
+              </button>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
     );
   }

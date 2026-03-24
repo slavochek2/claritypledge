@@ -318,9 +318,14 @@ If git log is empty: "No commits since last /day." Reflect on non-code work from
 **Primary source: `docs/goals.md`**
 
 1. Read `docs/goals.md`
-2. Parse `## Next Steps` — identify `[ ]` (not done) vs `[x]` (done)
-3. Show max 5 upcoming (not done). Never show done items.
-4. Parse `## Dos` and `## Don'ts` — compact reminders.
+2. **Auto-crossout**: For each `[ ] P<N>` in Next Steps, check if the spec is done:
+   - File exists in `features/done/` (any subfolder): mark `[x]`
+   - File exists in `features/` with `status: done` or `status: all-done`: mark `[x]`
+   - File exists in `features/archive/` with `status: rejected`: mark `[x]` and append `(rejected)`
+   If any items were crossed out, edit `docs/goals.md` silently (no confirmation needed).
+3. Parse `## Next Steps` — identify `[ ]` (not done) vs `[x]` (done)
+4. Show max 5 upcoming (not done). Never show done items.
+5. Parse `## Dos` and `## Don'ts` — compact reminders.
 
 ```
 WHAT'S NEXT (from goals.md):

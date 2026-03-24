@@ -194,6 +194,17 @@ Workshop (false-belief curriculum on cards, P567)
     → New blog content + FCO retainer material → Flywheel
 ```
 
+**Three-letter workshop compression (2026-03-24):**
+Workshop sessions can compress the full Clarity Letter sequence (P581) into one sitting:
+1. **Letter 1** (opened during workshop) — participants read pre-selected false-belief stories, rate understanding
+2. **/live 1-to-many** — facilitator verifies understanding, gap map produced (= workshop outcome artifact)
+3. **Letter 2** (upsell for verified participants) — "Create your own Clarity Letter" for their audience
+4. **Letter 3** (end of workshop) — value assessment + PWIW + distributor CTA
+
+Two upsell paths from workshop:
+- **Upsell A:** De-risking package (€950, co-founder pairs) — existing
+- **Upsell B:** "Create your own Clarity Letter" — for coaches/facilitators who want to run this with their own clients. Completers of Letter 3 see distributor CTA (revenue share). Gate is proven comprehension, not professional credential.
+
 ### Acquisition *(both brands)*
 
 - **Free Calibration Workshops** *(ladischenski.com)* — PRIMARY acquisition channel. False-belief curriculum (P567): participants position on false beliefs, experience gap reveal, file stories. 1-to-many, no pairing needed. Goal: participants experience their gap → convert to €950 de-risking.

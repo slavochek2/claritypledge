@@ -2,6 +2,62 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-24 [technical]: Debug URL params for /live session-end testing (P584)
+
+**Context:** Session end screen states (upload progress, transcript notification, nav guard) require real audio recording, which only runs in `import.meta.env.PROD`. This made localhost verification impossible — agents couldn't reach the end screen states they needed to test.
+**Decision:** Added dev-only URL params: `?debugUpload=uploading|complete|failed` (simulates upload state), `?debugRounds=N` (simulates completed rounds), alongside existing `?skipMicCheck=true` (bypasses mic permission prompt). All gated on `!import.meta.env.PROD`.
+**Alternatives rejected:** (A) Removing the prod gate for recording — pollutes training data with dev sessions. (B) Mocking at component level only — doesn't test the full integration. (C) Testing only on prod — too slow for iteration.
+**Consequences:** Agents running `/verify` on /live features should use these params. Pattern: `http://localhost:5173/live?debugUpload=uploading&debugRounds=3&skipMicCheck=true`. The three params together unlock full end-screen testing on localhost.
+**References:** `src/app/pages/clarity-live-page.tsx` (useState initializer + completedRounds computation)
+
+## 2026-03-24 [technical]: useBlocker incompatible with BrowserRouter — use popstate+pushState pattern (P584)
+
+**Context:** P584 needed a navigation guard to prevent users from leaving during audio upload. Spec initially called for React Router's `useBlocker`.
+**Decision:** `useBlocker` requires `createBrowserRouter` (data router). This app uses `BrowserRouter`. Use popstate+pushState pattern instead (push dummy history entry, intercept popstate, show Dialog). This pattern was already proven in P427 (`story-detail-page.tsx:878`).
+**Alternatives rejected:** (A) `useBlocker` — doesn't work with BrowserRouter. (B) Migrating to `createBrowserRouter` — massive scope creep. (C) Only intercepting bottom nav clicks — misses browser back button.
+**Consequences:** Any future navigation guards in this app must use the popstate pattern, not `useBlocker`. The `ConfirmDialog` shared component has inverted emphasis (primary = destructive) — for guards where primary = "stay safe", build Dialog inline.
+**References:** `src/app/pages/clarity-live-page.tsx` lines 363-389, `src/app/pages/story-detail-page.tsx:878`
+
+## 2026-03-24 [product]: Session end screen is an upload gate, not a celebration screen (P584)
+
+**Context:** The old session end screen showed stats ("3 rounds practiced"), transcript promises (even when nothing would appear in Session History), and role-differentiated buttons (host: "Start New Session", participant: "Back to Home"). The founder asked: "what do we actually want people to do here?"
+**Decision:** The screen's job is: (1) protect the recording during upload (CTA hidden, nav guard), (2) give honest conditional transcript info (only when rounds > 0), (3) single unified CTA to re-enter the practice loop. No stats, no celebration, no role differentiation. Upload failure shown honestly ("Recording could not be saved") not silently.
+**Alternatives rejected:** (A) Celebratory stats card — user doesn't care, they just lived it. (B) Silent upload failure — contradicts the honesty goal. (C) Auto-redirect with toast — no upload protection. (D) "Practice Again" CTA — inconsistent with "Start a Clarity Session" used everywhere else.
+**Consequences:** Guest variant uses transcript as conversion hook ("Create an account to access your transcript"). The false-promise bug (showing "check Session History" for 0-round sessions) is permanently fixed by the `completedRounds > 0` conditional.
+**References:** `features/done/24_mar_26/p584_session_end_screen_redesign.md`
+
+## 2026-03-24 [process]: /ship-blog email image gate — block publishing when email cards lack screenshots
+
+**Context:** First newsletter sent after Mailgun limitation lift-off ("The Two Skills That Will Define the Next Generation of Founders") arrived with blank spaces where interactive element previews should be. Investigation found: `/prep-email` partially executed — it correctly set visibility flags on HTML cards and inserted email-only cards + signature, but the Playwright screenshot pipeline failed silently. Email cards contained only text links ("View interactive version →") with zero `<img>` tags. The skill's self-check gate was a soft markdown checklist, not enforced code. Ghost correctly rendered the image-less cards into the Mailgun payload — the problem was upstream.
+**Decision:** Add a hard validation gate to `/ship-blog` pre-flight checks: before publishing, parse the post's Lexical JSON, find all `type: "email"` cards, and verify each non-signature card contains an `<img` tag. If any card lacks an image, block publishing with a specific error listing which cards are broken. The gate belongs in `/ship-blog` (last step before send), not `/prep-email` (which already has the soft checklist).
+**Alternatives rejected:** (A) Gate in `/prep-email` only — doesn't prevent publishing if someone edits the post manually in Ghost editor after prep. (B) No gate, rely on test-send verification — test sends are manual and the image presence wasn't caught this time.
+**Consequences:** Next newsletter cannot ship with image-less email fallback cards. If screenshots genuinely can't be taken (e.g., embed requires auth), the user must either fix the screenshots or explicitly remove the email cards before publishing.
+**References:** [ship-blog.md](.claude/commands/slava/content/ship-blog.md), [prep-email.md](.claude/commands/slava/content/prep-email.md)
+
+## 2026-03-24 [product]: Event feedback emails — host-gated, first-person voice, new tally form
+
+**Context:** Post-event feedback email for "Thinking Clearly About AI" (Mar 12) was never delivered. Investigation found: all 11 RSVPs had `mailgun_message_ids: null`, `email_send_log` was empty (table migration post-dated the event by 2 days), and no trace in Mailgun logs (3-day retention). The edge function `send-event-emails` was either never invoked or failed silently — fire-and-forget design (`event-emails.ts` line 7) means errors don't surface to the user. Feedback was manually re-sent to all 11 attendees via Mailgun API with an apology for the delay.
+**Decision:** Three changes to the event feedback system: (1) **Host gate** — feedback emails only send when `event.host_id` matches the founder's profile (`a99042ef-...`). Other hosts manage their own feedback. Applied in `handleRsvp`, `handleUpdate`, and the `resend-feedback.sh` script. (2) **First-person voice** — all feedback templates changed from "We'd love to hear" / "helps us" to "I'd love to hear" / "helps me". ClarityPledge events are personal, not corporate. (3) **Tally form** — switched from `wa7RRq` to `QKDN91` as the event feedback form ID (fallback in code + env var).
+**Alternatives rejected:** (A) Per-host tally form configuration in DB — over-engineering for current single-host reality. (B) Keeping "we" voice for brand consistency — the founder hosts personally, "we" feels dishonest at this stage.
+**Consequences:** Non-founder-hosted events get confirmation + reminder emails but no feedback email. If multi-host feedback is needed later, extend by adding a `feedback_form_url` column to `events` table. The silent failure that caused this issue (edge function not invoked) is still not root-caused — email delivery monitoring (Mailgun webhooks → `email_send_log` status updates) is the next step.
+**References:** [send-event-emails/index.ts](supabase/functions/send-event-emails/index.ts), [resend-feedback.sh](scripts/resend-feedback.sh)
+
+## 2026-03-24 [process]: Canonical spec section headers — standardize via rules file, not format migration
+
+**Context:** Research into whether XML/JSON formatting improves Claude's spec parsing (prompted by community claims) found: (1) Anthropic recommends Markdown for static instruction files — XML helps only for dynamic API prompts with variable injection, (2) the real problem was 5 concrete header mismatches where skills wrote one name and downstream skills searched for another (e.g., `/architect` wrote `## Technical Analysis` as level-2, `/spec-review` searched for `## Technical Architecture`), (3) no spec structure reference existed — each skill invented its own header names.
+**Decision:** Created `.claude/rules/spec-sections.md` as single canonical reference (auto-loaded for `features/**/*.md`). Updated 13 skill files to use canonical names. Forward-only: new specs use canonical names, old specs updated opportunistically when next edited. Added legacy alias fallback guidance for `/spec-review` on pre-2026-03-24 specs. No XML, no JSON, no batch migration.
+**Alternatives rejected:** (A) XML tags for spec sections — adds ~15% token overhead, harder to maintain, no evidence of parsing improvement for static files. (B) JSON sidecars per spec — doubles file count, creates sync problems. (C) Full batch migration of existing specs — 40+ files to touch, high churn for low ROI since old specs are rarely re-processed. (D) Extended frontmatter with `layers_present`, structured assumptions — Option B for later if `/spec-review` keeps hitting ambiguity; not justified by current pain.
+**Consequences:** All build skills now agree on header names. The `.claude/rules/spec-sections.md` file is the single place to check or update. Future skills reference it instead of inventing names. The legacy alias fallback prevents false BLOCKs on old specs without requiring migration.
+**References:** [spec-sections.md](.claude/rules/spec-sections.md), [feature-specs.md](docs/technical/feature-specs.md)
+
+## 2026-03-24 [process]: Mandatory context load gates in /dev, /fix, /refactor, /verify
+
+**Context:** Analysis of 277 sessions (2 weeks) revealed /dev reads specs only 16% of the time and /fix reads them 0%. The instructions already existed (Step 2 in /dev: "Read the spec fully") but were buried after 5 mechanical steps (worktree, collision check, branch distance). Claude treated them as skippable when the spec was "already discussed" — which works until context compaction erases that knowledge. Post-compaction recovery was also poor: only 43% re-check git status, 10% re-read specs.
+**Decision:** Added Step/Phase -1 (Context Load) as the first action in each skill, before worktree setup. Existing duplicate spec-read steps (e.g., /dev Step 2) converted to verification checkpoints that reference Step -1. Added Post-Compaction Recovery rule to CLAUDE.md Agent Behavior section. Pattern follows /screenshot-debug's Step 0 (orient) — the gold standard for context gathering.
+**Alternatives rejected:** (A) Hooks-based enforcement (would need tooling, adds complexity) — prompt-level discipline matches existing pattern. (B) Separate "Context Gate" section in each skill — adds yet another thing to skip; restructuring existing steps is less additive. (C) Only updating CLAUDE.md without skill changes — CLAUDE.md rules are weaker than in-skill instructions.
+**Consequences:** Skills now have a consistent "load context first" pattern. The -1 numbering avoids renumbering existing steps. Review agents caught and fixed duplication between new Step -1 and existing spec-read steps before commit.
+**References:** [dev.md](.claude/commands/slava/build/dev.md), [fix.md](.claude/commands/slava/build/fix.md), [refactor.md](.claude/commands/slava/build/refactor.md), [verify/SKILL.md](.claude/commands/slava/build/verify/SKILL.md)
+
 ## 2026-03-23 [technical]: Vite resolve.dedupe prevents worktree React crashes
 
 **Context:** Dev server (port 5001, main branch) crashed with "Invalid hook call — Cannot read properties of null (reading 'useEffect')" in `<ScrollToTop>`. Root cause: Vite's dependency optimizer resolved React from the worktree's `node_modules/react/` (`.claude/worktrees/w1/`) alongside the main `node_modules/react/`, creating two React instances. Two Reacts = hooks break silently.

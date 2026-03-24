@@ -73,12 +73,10 @@ Adds UX layer to feature spec:
 - Tablet layout (768px-1023px)
 - Desktop layout (1024px+)
 
-**Component Analysis:**
-- Every major UI element classified: Reuse / Extend / New
-- Reuse = existing component, no changes needed
-- Extend = existing component + new props, variants, or styles
-- New = no existing equivalent — net-new component required
-- Decisions that need founder input surfaced explicitly (e.g., "disable vs hide", "generalize vs one-off")
+**Challenge Notes (if any):**
+- Flag upstream concerns from `/create-prd` with evidence, options, and recommendation
+- Non-blocking by default — proceed with current spec
+- Only blocking when proceeding would produce broken UX output
 
 ---
 
@@ -152,10 +150,10 @@ The UX agent:
 - [ ] Edge cases identified (errors, loading, empty)
 - [ ] Accessibility requirements specified
 - [ ] Responsive design considered
-- [ ] Component analysis complete (Reuse/Extend/New for every major element)
 - [ ] Decisions requiring founder input surfaced explicitly
-- [ ] No technical implementation details (just UX)
+- [ ] No technical implementation details (just UX) — component choices are deferred to `/ui`
 - [ ] If spec has `## UI Contract`: update the table with any new strings/colors discovered during UX design (button labels from flows, toast messages from edge cases, placeholder text). The UI Contract is the authoritative reference for all downstream skills — every concrete string in UX flows must appear in it.
+- [ ] Challenge Notes written for any upstream PRD concerns (if any)
 
 ---
 
@@ -168,7 +166,7 @@ The UX agent:
 
 ### Output (UX section added to spec)
 ```markdown
-## UX Requirements
+## UX Design
 
 ### User Flow
 1. User completes sifter → navigates to results page
@@ -194,19 +192,21 @@ The UX agent:
 ## After UX Design
 
 **Next steps:**
-1. **Review UX** - User confirms flows, screens, edge cases
-2. **Run /architect** - Technical design informed by UX
-3. **Run /generate-tests** - Tests generated from UX flows
-4. **Implement** - Run `/dev` with full spec
+1. **Review UX** — User confirms flows, screens, edge cases
+2. **Run /architect** — Technical design informed by UX
+3. **Run /ui** — Component strategy maps UX to concrete components (after /architect)
+4. **Run /generate-tests** — Tests generated from full spec
+5. **Implement** — Run `/dev` with full spec
 
 ---
 
 ## Related Skills
 
-- `/create-prd` - Business requirements (run before /ux)
-- `/architect` - Technical design (run after /ux)
-- `/generate-tests` - Test generation (run after /architect)
-- `/dev` - Implementation (run after /generate-tests)
+- `/create-prd` — Business requirements (run before /ux)
+- `/architect` — Technical design (run after /ux)
+- `/ui` — Component strategy (run after /architect)
+- `/generate-tests` — Test generation (run after /ui)
+- `/dev` — Implementation (run after /generate-tests)
 
 ---
 
@@ -278,23 +278,19 @@ Generate a complete UX section covering:
 
 ---
 
-**Section 6 — Component Analysis** *(different rules: codebase references are required here)*
+**Section 6 — Challenge Notes** *(optional — only when upstream concerns are found)*
 
-Before writing this section, use Glob/Grep to scan `src/app/components/` and `src/app/pages/`.
+If during UX design you discover a problem with a `/create-prd` decision (e.g., a user story that can't map to a coherent flow, acceptance criteria that conflict):
 
-For every major UI element in this feature, classify it:
-- **Reuse** — existing component, no changes needed. Name the file.
-- **Extend** — existing component needs new props, a new variant, or style tweaks. Name the file and describe the change.
-- **New** — no existing equivalent. Name the proposed component and describe it.
+Write a Challenge Note:
+- Which section of `/create-prd` is challenged
+- The evidence (what you discovered during UX design)
+- Options (A/B/C) with recommendation
+- Whether it's blocking (rarely) or non-blocking (usually)
 
-Surface any decisions that require founder input, for example:
-- "Disable vs. hide an option that doesn't apply in this context?"
-- "Generalize an existing component to handle both old and new cases, or keep them separate?"
-- "Add this new pattern to the design system, or treat it as a one-off?"
+If no upstream concerns: omit Section 6 entirely.
 
-Format as a table:
-| Element | Classification | File / Notes | Decision needed? |
-|---------|---------------|--------------|-----------------|
+**Note:** Component-level decisions (which components to reuse, extend, or create) are handled by `/ui`, which runs after `/architect`. Do NOT include component analysis here — focus on UX flows, screens, and interactions.
 
 ---
 
@@ -304,15 +300,14 @@ Format as a table:
 - [ ] Edge cases identified for: errors, loading, empty states, validation
 - [ ] Accessibility requirements specified: screen reader, keyboard, ARIA, color contrast
 - [ ] Responsive design considered: mobile, tablet, desktop breakpoints
-- [ ] Component Analysis table complete — every major element classified as Reuse/Extend/New
-- [ ] No component names in sections 1–5 that were not verified in Section 6 Component Analysis
 - [ ] Decisions requiring founder input surfaced explicitly
-- [ ] Sections 1–5 contain no file paths or code patterns
+- [ ] Sections 1–5 contain no file paths, code patterns, or component names — component mapping is deferred to `/ui`
+- [ ] Challenge Notes written for any upstream `/create-prd` concerns (if any)
 - [ ] Flows are specific enough that developer can implement without guessing
 
 If UX is unclear (e.g., "Where does toggle appear?"), ask user BEFORE generating incomplete UX.
 
-Before writing: check if a `## UX` or `## UX Design` or `## UX Requirements` section already exists in the spec (use Read tool).
+Before writing: check if a `## UX Design` section already exists in the spec (use Read tool). The canonical header is `## UX Design` (see .claude/rules/spec-sections.md). Never use "UX Requirements" or "Screen Designs".
 - If NO existing UX section → append at end of file.
 - If YES existing UX section → replace it in-place using Edit tool. Do NOT leave two UX sections in the file.
 Do NOT modify any content before the UX section.
@@ -324,6 +319,6 @@ Do NOT modify any content before the UX section.
 2. AFTER appending UX section, the delivery_stage is already set to `2-ux-review` from step 1 — no further change needed.
 
 3. CONFIRM the write succeeded — read back the last 10 lines of {spec_file} and output exactly:
-   "UX section written to {spec_file} — [first 5 words of the last ## heading]. Ready for /generate-tests."
+   "UX section written to {spec_file} — [first 5 words of the last ## heading]. Ready for /architect."
    This is the final step. If the read-back shows no UX section, re-append and confirm again.
 ```

@@ -171,6 +171,18 @@ Specificity of task + relevant context works. Role flattery doesn't. Add company
 
 ---
 
+### Post-Compaction Recovery
+
+After context compaction, before resuming ANY implementation work:
+1. `git status --short` — verify worktree state matches what you expect
+2. Re-read the active spec file (if working on a P-number feature)
+3. Re-read the last source file you were editing — verify your changes are there
+4. Report: "Context was compacted. Re-gathered: [list]. Resuming from [step]."
+
+Never continue implementation from a compaction summary alone.
+
+---
+
 ### Approval Gate for External Actions
 
 Before any action visible to others or sending to external systems (email, social, Slack, GitHub PRs, forms): **draft → show → confirm → act.** Never collapse draft+send into one step, even when user says "send this." Show the final content first.
@@ -243,12 +255,12 @@ This repo is public (AGPL-3.0). Use `.private/` (gitignored) for: service accoun
 
 Full pipeline — complex work (multiple concerns, auth/DB/UX, 5+ files):
 ```
-/create-prd → /challenge-prd → /ux (if UI) → /research-arch* → /architect → /generate-tests → /spec-review* → /decompose* → /dev
+/create-prd → /challenge-prd → /ux (if UI) → /research-arch* → /architect → /ui (if UI) → /generate-tests → /spec-review* → /decompose* → /dev
 ```
 
 Medium work — feature with clear scope, limited complexity:
 ```
-/create-prd → /challenge-prd → /dev
+/create-prd → /challenge-prd → /ui (if UI) → /dev
 ```
 
 Small work — bug with confirmed root cause, copy change, config tweak, single concern:
