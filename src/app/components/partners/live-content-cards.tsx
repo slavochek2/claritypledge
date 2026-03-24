@@ -14,6 +14,7 @@ import { GravatarAvatar } from '@/components/ui/gravatar-avatar';
 import { analytics } from '@/lib/mixpanel';
 import { linkifyText } from '@/app/utils/linkify';
 import { TagPills } from '@/app/components/shared/tag-pills';
+import { UnderstoodBadge } from '@/components/ui/understood-badge';
 import { stripHashtags } from '@/lib/utils';
 import { getFirstName, RatingButtons } from './shared';
 
@@ -88,7 +89,7 @@ export function LiveStoryCard({
 
         {/* Metadata Row */}
         <p className="text-xs text-muted-foreground mb-3">
-          {linkedPointsCount} {linkedPointsCount === 1 ? 'point' : 'points'} linked · {story.understoodCount} understood
+          {linkedPointsCount} {linkedPointsCount === 1 ? 'point' : 'points'} linked · <UnderstoodBadge count={story.understoodCount} size="xs" />
         </p>
 
         {/* P491: Tag pills (display-only in live context) */}

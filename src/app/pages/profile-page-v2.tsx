@@ -34,6 +34,7 @@ import {
 } from "lucide-react";
 import { ClarityPageLoader } from "@/components/ui/clarity-loader";
 import { GravatarAvatar } from "@/components/ui/gravatar-avatar";
+import { UnderstoodBadge } from "@/components/ui/understood-badge";
 
 const LinkedInBrandIcon = ({ size = 14 }: { size?: number }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
@@ -1321,9 +1322,7 @@ function StoryCardFull({
 
             {/* Stats row */}
             <div className="flex items-center gap-1 mt-3 text-sm text-muted-foreground">
-              <span className="px-2.5 py-1 bg-muted rounded-full text-sm">
-                {story.understoodCount} understood
-              </span>
+              <UnderstoodBadge count={story.understoodCount} />
             </div>
           </div>
         </div>
