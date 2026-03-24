@@ -2,6 +2,14 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-24 [product]: "N verified" label for per-story understood count badge (P585)
+
+**Context:** P501 unified the "X understood" pill across all surfaces. P585 extracted it into a shared `<UnderstoodBadge>` component. During `/challenge-prd`, two proposals were blocked: (1) hide-at-zero contradicted documented decisions (P501 2026-03-13, P269 2026-02-18: "empty state over hidden"), (2) relabeling to "verified" would split terminology from DB column and all other product surfaces that say "understood." The label was then debated: "0 understood" is cryptic, "0 verified" is action-oriented.
+**Decision:** Badge label is "N verified" — describes the action (someone went through /live), while tooltip still says "understanding" for semantic context. Component name remains `UnderstoodBadge` (matches DB column `understood_count`). Blue styling (`bg-blue-50, text-blue-700`) matches `EarBadge` to create visual kinship between verification metrics.
+**Alternatives rejected:** (1) Hide at zero — contradicts "empty state over hidden" principle. (2) Keep "N understood" label — cryptic without explanation. (3) "N verified understanding" — too long for a pill badge in `text-xs`. (4) Full relabel of all surfaces to "verified" — would require renaming DB column, all service mappings, EarBadge copy, profile page, share copy.
+**Consequences:** The product now has a small terminology split: badge says "verified", tooltip/DB/service say "understood". This is intentional — the badge communicates action, the tooltip communicates meaning. If confusing in practice, consolidate toward "verified" across all surfaces in a future pass.
+**References:** [P585 spec](features/done/24_mar_26/p585_redesign_understood_metric.md), [P501 spec](features/done/22_mar_26/p501_unify_understood_pill.md)
+
 ## 2026-03-24 [technical]: Debug URL params for /live session-end testing (P584)
 
 **Context:** Session end screen states (upload progress, transcript notification, nav guard) require real audio recording, which only runs in `import.meta.env.PROD`. This made localhost verification impossible — agents couldn't reach the end screen states they needed to test.

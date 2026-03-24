@@ -1,7 +1,7 @@
 # Done Features Index
 
 Quick reference for past completed work. Consult when starting work on a related topic.
-Last updated: 2026-03-24 (P584 session end screen redesign)
+Last updated: 2026-03-24 (P585 UnderstoodBadge extraction)
 
 ---
 
@@ -80,6 +80,7 @@ Last updated: 2026-03-24 (P584 session end screen redesign)
 
 ## UI / Design System
 
+- **P585** (Mar 24) UnderstoodBadge Extraction — `/challenge-prd` blocked hide-at-zero (contradicted 2 prior decisions) and "verified" relabel (terminology split); scoped down to extract + ear icon + tooltip; blue styling matches EarBadge for visual kinship; label landed on "N verified" (action-oriented) while component/DB stay "understood"
 - **P539** (Mar 19) Calibration Zero-State Redesign — dots look gamified, use segmented bar; show on all profiles for social pressure; separate `calibrationLoaded` flag prevents waiting for unrelated content; "Listening calibration" is the coach-facing term
 - **P540** (Mar 19) Hyperlink Consistency — two-phase linkifyText (markdown first, auto-URL second) prevents double-processing; /innovate said drop hints, /falsify killed it — auto-URL suppresses markdown discovery; concrete examples beat abstract syntax for non-technical users; pre-commit must `--diff-filter=d` to exclude deleted files from ESLint
 - **P548** (Mar 18) Embed Collapse Control — `window.location.search` is non-reactive in hooks; swap for `useLocation`; ShareDialog tabs were invisible (gray-on-gray) → stacked layout with always-visible sections; /falsify killed "just remove auto-expand" for foreclosing future flexibility
