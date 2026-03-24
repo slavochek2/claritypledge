@@ -1,12 +1,12 @@
 ---
-status: week
+status: today
 type: story
-rank: 0.063
+rank: 0.313
 tags:
   - docs
   - privacy
-  - shared-artifact
   - container
+  - letters
 delivery_stage: 1-prd-review
 reviews:
   ux: null
@@ -17,157 +17,176 @@ related:
   - p431
   - p422
   - p547
+  - p581
+locked_at: '2026-03-24T14:45:28.211Z'
 ---
 
-# P551: Clarity Docs — Private Shared Pages
+# P551: Clarity Docs — Curated Story Collections
 
 ## Problem Statement
 
 **Current state:** ClarityPledge has two surfaces for content — profiles (stories, points) and the feed. Both are individual. Stories belong to an author's profile. Points are globally public and ownerless. After a /live session, each person walks away with their own artifacts on their own profile.
 
 **Pain points:**
-- **No "ours."** Co-founder pairs produce shared understanding through sessions but have no place to put it. Session outputs scatter across two individual profiles instead of building a shared knowledge base.
+- **No curation surface.** Stories accumulate on profiles as a flat list. There's no way to group stories by theme, session, or relationship — no "this is the collection I want to send to my co-founder" or "these are the stories from our therapy work."
 - **Privacy insecurity.** Stories are created within profile context and feel like they could leak to the feed. The founder himself (the first user) doesn't trust the current privacy model for sensitive content. If the product's creator feels insecure, no therapy client or vulnerable co-founder pair will trust it either.
 - **Points are always public.** A point like "I feel unheard when we discuss finances" created in a therapy context is immediately visible to everyone (RLS: `USING(true)`). There is no mechanism for private claims.
-- **No pair entity.** Sessions aren't grouped by pair. `clarity_agreements` exists (P422) but is disconnected from sessions. The system cannot answer "what have these two people worked on together?"
+- **No composition surface for letters.** P581 (Clarity Letters) needs a source — a curated collection that becomes the letter's content. Without docs, letter composition requires an ad-hoc story selector that duplicates what docs already provide.
+- **Private use cases have no home.** Therapy, pair prep, family contexts — any situation where understanding needs to be verified privately. These users need private stories that exist only within a doc, sent as letters to specific people (who may not have accounts).
 
 **Who's affected:**
-- Co-founder pairs (current target market) who want to accumulate session-by-session shared understanding
+- Co-founder pairs who want to accumulate session-by-session understanding in one place
 - Therapy/couples dyads who need claims that never touch the public feed
+- Workshop facilitators who curate false-belief stories into letters for participants
 - Slava (founder) who wants to use the platform with his own psychotherapist
-- Future: workshop groups, advisory relationships
 
 ## Intention (Why This Matters)
 
-**Strategic importance:** Docs is the third surface area that makes ClarityPledge a complete platform — feed (social), profile (individual), docs (relational). It unlocks the therapy/couples market by solving the trust problem architecturally, not with toggles. It also creates the container that will host the Clarity Canvas (strategic assumption grid for co-founders) without requiring a separate build.
+**Strategic importance:** A Clarity Doc is the compose/edit surface for Clarity Letters (P581). The Doc is where stories accumulate and get curated; the Letter is the delivery mechanism with assessment. Without docs, letters require a throwaway composition flow that gets replaced when docs ship. Building docs first means letters have a proper source from day one.
+
+Docs also unlock the therapy/couples market by solving the trust problem architecturally — private docs contain private stories that are invisible outside the doc/letter context. No toggles, no "are you sure?" — private by construction.
 
 **Why now:**
-- Slava mediates all sessions and manually tracks pair progress in his head. This doesn't scale past ~10 active pairs.
+- P581 (Letters) is next in the build sequence. Letters need a content source. Building docs first avoids throwaway composition UI.
+- First Clarity Partner Agreement signed (Jan + Nejc, Mar 22). They need a place to accumulate stories between sessions.
 - The therapy use case is Slava's personal need — dog-fooding drives urgency and quality.
-- P547 (AI Post-Session Coach) will need somewhere to put its draft outputs. Docs is that container. Building docs first means P547 has a target when it ships.
-- The Clarity Canvas vision (9-box strategic grid for co-founders) is a layout template applied to a doc — building docs now means canvas is a renderer, not a product.
 
 **Impact if not solved:**
+- P581 builds a standalone composition flow that gets replaced when docs ship (migration debt)
 - Therapy/couples use case stays permanently blocked (no private claims possible)
-- Co-founder pairs get no accumulating shared artifact — every session is ephemeral
-- P547 outputs have nowhere to land except email (dead end)
-- Clarity Canvas requires building a separate product instead of a layout over existing primitives
+- Co-founder pairs get no accumulating artifact — every session is ephemeral
 
 ## Business Requirements
 
 **Must-haves:**
-- Users can create a private document page (a "doc") accessible at its own URL
-- Users can add points and stories to a doc — content created inside a doc is private to doc members by default
-- Users can share a doc with another person via link (recipient clicks → becomes member)
-- Doc members can see all content in the doc and add their own content
-- Content in a doc never appears in the public feed, on profiles, or in any search/discovery surface
-- Doc content is invisible to non-members at every level (database, API, UI)
-- A doc member can explicitly "publish" their own points/stories from a doc to the public feed (private → public, one-directional, intentional act). Publishing another member's content is not possible.
+- Users can create a doc with a title and visibility (`public` or `private`)
+- Users can add their own stories to a doc (stories only — no standalone points as doc items in V1)
+- Stories created inside a private doc are automatically `visibility: 'private'`
+- Stories must match doc visibility (private doc = private stories only, public doc = public stories only)
+- Doc content is displayed in sequential order (top to bottom)
+- Doc page is accessible at its own URL (`/d/:docId`)
+- "Send as letter" button on doc page header opens the letter composition wizard (P581)
+- Doc page shows sent letters and their delivery statuses
+- Private doc content is invisible to non-owners at every level (database, API, UI)
+- Each person owns their own doc — no co-ownership, no shared editing
 
 **Success conditions:**
-- Two people can leave a session with one private, co-owned record that neither can accidentally expose
-- The founder feels confident using it for his own therapy work (the ultimate trust test)
-- Content created inside a doc stays inside the doc unless explicitly published
+- A facilitator can curate stories into a doc and send them as a letter in one flow
+- The founder feels confident using private docs for therapy work (the ultimate trust test)
+- Content created inside a private doc stays invisible outside the doc/letter context
 
 **Constraints:**
-- Points remain ownerless (the "wiki article" paradigm is preserved) — the doc scopes who can SEE a point, not who OWNS it
-- No new content primitives (no "claims" entity) — docs contain points and stories, same as profiles/feed
-- Stories already have visibility (`public`/`shared`/`private`) — doc stories use the existing `private` visibility + doc scoping
-- v1 does NOT include auto-fill from /live sessions (that's P547 + future work)
-- v1 does NOT include canvas/grid layout (sequential blocks only — canvas is a future renderer)
-- v1 does NOT require the connections model (P431) — link sharing is sufficient
+- Points come through story-point links (existing `story_points` junction) — no standalone points as doc items
+- Stories have visibility (`public`/`private`) — `shared` is cut (see D16 in plan)
+- Story visibility is immutable after creation (D13) — want to "unpublish"? Delete and recreate
+- No co-ownership in V1 — each partner has their own doc with their own stories on shared points
+- The gap map emerges from letter exchanges between docs, not from co-editing one doc (D2)
+- v1 does NOT include auto-fill from /live sessions (future — P547 integration)
+- v1 does NOT include canvas/grid layout (sequential blocks only)
 
 ## User Stories
 
-**As a co-founder in a pair:**
-- I want to create a shared doc with my co-founder, so we have one place to accumulate what we've verified together
-- I want to add a claim (point) to our doc after a session, so our shared understanding is captured
-- I want to see my co-founder's claims alongside mine in the same doc, so we can see where we agree and disagree
-- I want to be certain nothing in our doc appears on my profile or in any feed, so I can be honest about sensitive topics
+**As a facilitator preparing a workshop:**
+- I want to create a doc with curated false-belief stories, so I can send them as a letter to each participant after the group session
+
+**As a co-founder (partner A):**
+- I want to create a doc with stories about our key decisions, so I have a curated collection to send my partner before our next /live session
 
 **As a therapy client:**
-- I want to create a doc shared only with my therapist, so I can file claims about my beliefs and schemas in a trusted space
-- I want my therapist to add her own observations as points in the same doc, so I can see her perspective alongside mine
-- I want to feel that this doc is architecturally separate from any public surface, so I trust the platform with vulnerable content
+- I want to create a private doc with stories about my beliefs and schemas, so I can send them as a letter to my therapist in a trusted space
 
-**As a doc creator:**
-- I want to share my doc via a link, so I don't need the other person's account details upfront
-- I want to see who has access to my doc, so I know exactly who can see the content
-- I want to later publish a point from my doc to the public feed, so validated insights can benefit others (only when I choose)
+**As a doc owner:**
+- I want to add stories to my doc over time, so my collection grows session by session
+- I want to see which letters I've sent from this doc and their status, so I know who has received and completed the reading
 
-**As a doc member (invited):**
-- I want to click a share link and immediately see the doc, so joining is frictionless
-- I want to add my own points and stories to the doc, so the artifact is co-owned
-- I want to know I can't accidentally make doc content public, so the trust is built into the system
+**As a private doc owner:**
+- I want stories I create inside my private doc to be automatically private, so I don't have to think about visibility settings
+- I want to be certain nothing in my private doc appears on my profile or in any feed
 
 ## Jobs to Be Done
 
 **When I finish a coaching session with my co-founder:**
-- I want to capture the key claims we discussed in a shared private space, so they don't evaporate and we can build on them next session (motivation: accumulation of shared understanding over time)
+- I want to file stories from the session into a doc, so they accumulate over time and I can send the collection as a letter before our next meeting (motivation: the doc is the working surface, the letter is the delivery moment)
 
 **When I'm working through something sensitive with my therapist:**
-- I want to file beliefs and observations in a space only she and I can see, so I can be fully honest without fear of exposure (motivation: psychological safety enables deeper work)
+- I want to file beliefs and observations in a private doc, so I can send them as a letter only to her — even if she doesn't have an account yet (motivation: the unregistered receiver flow in P581 must work for this)
 
-**When I've validated a claim in our private doc and want to share it publicly:**
-- I want to deliberately publish that one point to the feed, so I can share verified insights without exposing the rest of our private work (motivation: selective transparency)
-
-**When my partner sends me a link to our shared doc:**
-- I want to open it and immediately start adding content, so the shared artifact starts building from the first interaction (motivation: low-friction co-creation)
+**When I've curated stories for a workshop:**
+- I want to send the same doc as a letter to each participant with individual predictions, so they each get a personalized assessment experience (motivation: one doc, many letters)
 
 ## Outcomes (Success Metrics)
 
 **Adoption:**
-- At least 1 doc created and shared within 2 weeks of launch (Slava's own therapy use case)
-- At least 2 co-founder pairs using docs within 4 weeks
+- At least 1 doc created and used as letter source within 2 weeks of launch
+- At least 2 co-founder pairs using docs to accumulate stories within 4 weeks
 
 **Trust:**
-- Founder (Slava) uses docs for personal therapy work and reports feeling secure (qualitative)
-- Zero instances of doc content appearing in feed, profile, or search (absolute — any leak is a critical bug)
+- Founder (Slava) uses private docs for personal therapy work and reports feeling secure (qualitative)
+- Zero instances of private doc content appearing in feed, profile, or search (absolute — any leak is a critical bug)
 
-**Engagement:**
-- Doc members return to add content after the initial creation (not a one-time artifact)
-- Average doc has ≥3 items (points or stories) after 2 weeks
-
-**Publish flow:**
-- At least 1 point published from a doc to the feed within 4 weeks (validates the private → public path)
+**Letter integration:**
+- At least 1 letter sent from a doc within the first week (validates the doc → letter flow)
 
 ## Acceptance Criteria
 
-- [ ] User can create a new doc with a title
-- [ ] User can add a point to a doc (statement + optional context)
-- [ ] User can add a story to a doc (text content)
-- [ ] User can take a position (stance) on any point in the doc
-- [ ] Doc content is displayed in sequential order (top to bottom, reorderable)
-- [ ] Section headers can be added between items for organization
-- [ ] User can generate a share link for their doc
-- [ ] Recipient of a share link can join the doc as a member
-- [ ] Doc members can see all items and add their own
-- [ ] Doc page shows who has access (member list)
-- [ ] Doc content does NOT appear in the public feed under any circumstance
-- [ ] Doc content does NOT appear on any member's public profile
-- [ ] Doc content does NOT appear in any search or discovery feature
-- [ ] Non-members cannot see doc content even if they guess the URL (auth + membership check)
-- [ ] User can publish a point/story from a doc to the public feed ONLY if they authored it (explicit action, confirmation required)
-- [ ] Publishing another member's content is not possible (enforced at DB level, not just UI)
-- [ ] Published point loses its doc scoping and becomes globally visible (standard point behavior)
-- [ ] Doc page shows lock icon and "Only [members] can see this" indicator
-- [ ] Doc page is accessible at its own URL (not nested under a profile)
-- [ ] Creating content inside a doc does NOT require choosing visibility (it's always private to the doc)
+### Doc List & Creation
+- [ ] User can see their docs at `/docs` route
+- [ ] User can create a new doc with a title and visibility (`public` or `private`)
+- [ ] Doc list shows visibility icon (lock for private, globe for public), title, item count, last updated
+- [ ] Creation modal: title field + visibility toggle, defaults to private
+
+### Doc Detail Page
+- [ ] Doc page accessible at `/d/:docId`
+- [ ] Doc page shows title, visibility indicator, story count
+- [ ] Stories displayed in sequential order (top to bottom)
+- [ ] Each story card shows content, author, date
+- [ ] Privacy banner at top for private docs ("Only you can see this")
+
+### Adding Content
+- [ ] User can add an existing story to a doc (from their own stories)
+- [ ] User can create a new story inline and add it to the doc
+- [ ] Stories created inside a private doc get `visibility: 'private'` automatically
+- [ ] Cannot add a public story to a private doc (visibility mismatch blocked)
+- [ ] Cannot add a private story to a public doc (visibility mismatch blocked)
+- [ ] Bottom input form for adding stories (desktop) / FAB (mobile)
+- [ ] UNIQUE constraint: same story cannot appear twice in the same doc
+
+### Letter Integration
+- [ ] "Send as letter" button on doc page header
+- [ ] Button opens letter composition wizard (P581): confirm stories → add receivers → set predictions → seal & send
+- [ ] Sent letters section on doc page showing letter status per delivery (sent/opened/in_progress/completed)
+
+### Privacy & Visibility
+- [ ] Private doc content does NOT appear in the public feed
+- [ ] Private doc content does NOT appear on owner's public profile
+- [ ] Private doc content does NOT appear in any search or discovery
+- [ ] Non-owners cannot see private doc content even if they guess the URL (auth + ownership check)
+- [ ] Story visibility is immutable after creation — no UI to change it
+- [ ] Doc visibility is set at creation — no UI to change it in V1
+
+### Points Visibility (via stories)
+- [ ] Points are visible to a viewer only if they can see at least one linked story (RLS update)
+- [ ] No standalone point browsing — points encountered through story context
+- [ ] Positions on private points visible only within doc/letter context (not on public profile)
 
 ## Out of Scope (v1)
 
+- Co-ownership / shared editing (future — each person owns their own doc)
+- Section headers between items (future — V1 is stories only)
+- Publish-to-feed flow (story visibility is immutable — create with the right visibility from the start)
+- Remix flow ("copy points to your own doc, write your own stories") — future
 - Auto-fill from /live sessions (future — P547 integration)
 - Canvas/grid layout (future — CSS renderer over sequential blocks)
-- Connections model for sharing (P431 — link sharing sufficient for v1)
+- Doc-to-doc linking (future)
+- Version history UI (future)
 - Importing existing public points into a doc
-- Point editing/versioning within docs
-- Real-time collaborative editing (async is fine for v1)
+- Real-time collaborative editing (not needed — single owner)
 - Doc templates (e.g., "Clarity Canvas template") — future
-- Doc-level permissions beyond owner/member (e.g., read-only, admin)
-- Removing a member from a doc
-- Doc deletion
+- Doc deletion (V1: docs persist)
+- Reordering stories within a doc (V1: chronological add order)
+- "Shared" visibility value — cut per D16. Two modes only: public, private
 
-## UX Flows (from /ascii-flows — winning hybrid)
+## UX Flows
 
 ### Flow 1: Doc List + Creation (`/docs`)
 
@@ -179,11 +198,11 @@ related:
 |  Your Docs                                         [+ New] |
 |                                                             |
 |  +-------------------------------------------------------+ |
-|  | [lock]  Session Notes with Anna                    [>] | |
-|  |         3 items  ·  Updated 2h ago                     | |
+|  | [lock]  Therapy Notes                            [>] | |
+|  |         3 stories  ·  Updated 2h ago                  | |
 |  +-------------------------------------------------------+ |
-|  | [lock]  Therapy Log with Dr. K                     [>] | |
-|  |         7 items  ·  Updated 3 days ago                 | |
+|  | [globe] Workshop: False Beliefs                  [>] | |
+|  |         7 stories  ·  Updated 3 days ago              | |
 |  +-------------------------------------------------------+ |
 |                                                             |
 +============================================================+
@@ -195,35 +214,27 @@ CREATE MODAL (triggered by [+ New]):
 |  Title                                   |
 |  [Session Notes — Mar 2026_________]     |
 |                                          |
+|  Visibility                              |
+|  (•) Private [lock]  ( ) Public [globe]  |
+|                                          |
 |  [Cancel]              [Create Doc]      |
 +------------------------------------------+
 ```
 
 - Entry: standalone `/docs` route (not nested under profile)
-- Creation: modal with title only — one field, get in fast
-- List shows lock icon on every row, partner name once joined, item count + recency
+- Creation: title + visibility toggle, defaults to private
+- List shows visibility icon, story count + recency
 
-### Flow 2: Doc Page (desktop)
+### Flow 2: Doc Page
 
 ```
 +============================================================+
 | +--------------------------------------------------------+ |
-| | [lock]  PRIVATE DOC  ·  Only you & Anna can see this   | |
+| | [lock]  PRIVATE DOC  ·  Only you can see this          | |
 | +--------------------------------------------------------+ |
 |                                                             |
-|  Session Notes                                    [Share]   |
-|  Members:  (S) (A)  2 people                                |
-|                                                             |
-|  === Session 1 — Mar 15 ================================== |
-|                                                             |
-|  +-------------------------------------------------------+ |
-|  | POINT                                           [...] | |
-|  | "I feel unheard when we discuss finances"              | |
-|  |                                                       | |
-|  | [SA] [A] [LA] [N] [LD] [D] [SD]                      | |
-|  |                                                       | |
-|  | added by Anna  ·  Mar 15                              | |
-|  +-------------------------------------------------------+ |
+|  Therapy Notes                          [Send as Letter]   |
+|  3 stories                                                  |
 |                                                             |
 |  +-------------------------------------------------------+ |
 |  | STORY                                           [...] | |
@@ -231,189 +242,108 @@ CREATE MODAL (triggered by [+ New]):
 |  |  to explain my concern but felt like the conversation | |
 |  |  moved on before I finished."                         | |
 |  |                                                       | |
-|  | by Slava  ·  Mar 15                                   | |
+|  | Mar 15                                                | |
 |  +-------------------------------------------------------+ |
 |                                                             |
-|  === Session 2 — Mar 22 ================================== |
+|  +-------------------------------------------------------+ |
+|  | STORY                                           [...] | |
+|  | "I believe that trust requires consistent             | |
+|  |  follow-through on small commitments before big ones  | |
+|  |  can be attempted."                                   | |
+|  |                                                       | |
+|  | Mar 22                                                | |
+|  +-------------------------------------------------------+ |
 |                                                             |
-|  +-------------------------------------------------------+ |
-|  | POINT                                           [...] | |
-|  | "Trust requires consistent follow-through"             | |
-|  |                                                       | |
-|  | Slava: [Strongly Agree]   Anna: [Agree]               | |
-|  |                                                       | |
-|  | added by Slava  ·  Mar 22                             | |
-|  +-------------------------------------------------------+ |
+|  --- Letters -------------------------------------------- |
+|  | To: anna@example.com  ·  Completed  ·  3/3 rated     | |
+|  | To: Dr. K             ·  Sent       ·  0/3 rated     | |
+|  -------------------------------------------------------- |
 |                                                             |
 +-------------------------------------------------------------+
-| [Point] [Story] [---]   [________________________] [Add]   |
+| [________________________] [Add Story]                      |
 +============================================================+
 ```
 
-- Persistent privacy banner at top (warm amber bg, lock icon) — never scrolls away
-- Avatar row under title (reuses sign-pledge overlapping avatar pattern)
-- Section headers as horizontal rules with session date — user-created, reorderable
-- Point cards show 7-point position scale with both members' positions visible
-- `...` menu on each card (publish own items, reorder, delete)
-- Bottom input bar: type toggle (Point/Story/Header) + text field + Add button
+- Privacy banner at top for private docs (warm amber bg, lock icon) — never scrolls away
+- "Send as Letter" button in header opens P581 composition wizard
+- Sent letters section shows delivery statuses
+- Bottom input for adding stories
+- `...` menu on each card (remove from doc, delete story)
 
 ### Flow 2b: Doc Page (mobile)
 
 ```
 +-------------------------------+
-| < Docs    Session Notes  [...] |
+| < Docs    Therapy Notes  [...] |
 +================================+
-| [lock] Private · 2 members     |
+| [lock] Private · 3 stories     |
 +================================+
-|                                 |
-| === Session 1 — Mar 15 ======= |
-|                                 |
-| +-----------------------------+ |
-| | POINT                       | |
-| | "I feel unheard when we     | |
-| |  discuss finances"          | |
-| | [SA][A][LA][N][LD][D][SD]   | |
-| | Anna · Mar 15         [...] | |
-| +-----------------------------+ |
 |                                 |
 | +-----------------------------+ |
 | | STORY                       | |
 | | "Last Tuesday when we..."   | |
-| | Slava · Mar 15        [...] | |
+| | Mar 15                [...] | |
 | +-----------------------------+ |
 |                                 |
+| +-----------------------------+ |
+| | STORY                       | |
+| | "I believe that trust..."   | |
+| | Mar 22                [...] | |
+| +-----------------------------+ |
+|                                 |
+| --- Letters ------------------- |
+| anna@  Completed  3/3          |
+| Dr. K  Sent       0/3          |
+|                                 |
+|                  [Send Letter]  |
 |                          (+)    |
 +================================+
 ```
 
-- FAB replaces bottom form on mobile
-- FAB opens bottom sheet: Add Point / Add Story / Section Header
+- FAB for adding stories, "Send Letter" button above FAB
+- Compact letter status rows
 
 ### Flow 3: Adding Content (bottom form expands)
 
 ```
 +============================================================+
-| [Point *] [Story] [---]                                     |
+| Add a story to this doc                                     |
 |                                                             |
-| Statement:                                                  |
-| [I believe that trust requires consistent__________]        |
+| [________________________                                   |
+|  ________________________                                   |
+|  ________________________]                                  |
 |                                                             |
-| Context (optional):                                         |
-| [Based on our discussion about the missed deadline___]      |
+| Or select from your existing stories:                       |
+| +-------------------------------------------------------+  |
+| | "I believe that trust requires..."            [Add]   |  |
+| | "When we discussed the budget..."             [Add]   |  |
+| +-------------------------------------------------------+  |
 |                                                             |
-| Your position:                                              |
-| [SA] [A] [LA] [N] [LD] [D] [SD]                           |
-|                                                             |
-| [Cancel]                                     [Add to Doc]   |
+| [Cancel]                                  [Add to Doc]      |
 +============================================================+
 ```
 
-- Type toggle at top (Point/Story/Header) with active state
-- Point: statement + optional context + position pre-selection
-- Story: text area only
-- Header: single-line input
-- On mobile: same form as bottom sheet triggered by FAB
-
-### Flow 4: Share Dialog
-
-```
-+------------------------------------------+
-|  Share "Session Notes"              [X]  |
-|                                          |
-|  Anyone with this link can join          |
-|  as a member and see all content.        |
-|                                          |
-|  +------------------------------------+  |
-|  | [copy]  Copy Link                  |  |
-|  |   claritypledge.com/d/abc123       |  |
-|  +------------------------------------+  |
-|  | [mail]  Send by Email              |  |
-|  |   Open email with invite link      |  |
-|  +------------------------------------+  |
-|                                          |
-|  Current members:                        |
-|  (S) Slava (creator)                     |
-|  (A) Anna                               |
-+------------------------------------------+
-```
-
-- Matches ShareHub pattern (card-based buttons)
-- No social options (private docs should not go social)
-- Shows current member list in dialog
-- Copy Link is primary action
-
-### Flow 5: Join Flow
-
-```
-Logged-in user: click link → spinner → instant access (no gate)
-
-Anonymous visitor:
-+==================================================+
-| +----------------------------------------------+ |
-| |  [scroll + lock icon]                        | |
-| |                                              | |
-| |  You've been invited to a private doc        | |
-| |                                              | |
-| |  "Session Notes"                             | |
-| |  by Slava                                    | |
-| |                                              | |
-| |  Sign in to join                             | |
-| |                                              | |
-| |  [Sign In]    [Take the Pledge]              | |
-| +----------------------------------------------+ |
-+==================================================+
-```
-
-- Certificate frame wraps anonymous invite card (ceremony moment)
-- Short URL: `/d/abc123`
-
-### Flow 6: Publish to Feed
-
-```
-Step 1: [...] menu on OWN items only → "Publish to Feed"
-
-Step 2: Ceremony confirmation dialog
-+==================================================+
-| +----------------------------------------------+ |
-| |  Publish to Public Feed?                     | |
-| |                                              | |
-| |  "Trust requires consistent                  | |
-| |   follow-through on small commitments"       | |
-| |                                              | |
-| |  [lock] -----> [globe]                      | |
-| |  Private        Public                      | |
-| |                                              | |
-| |  This point will become visible to           | |
-| |  everyone. This cannot be undone.            | |
-| |                                              | |
-| |  [Cancel]              [Publish to Feed]     | |
-| +----------------------------------------------+ |
-+==================================================+
-```
-
-- Only own items show publish option (DB-enforced)
-- Certificate frame on confirmation (matches pledge ceremony weight)
-- Lock→globe icon transition communicates the privacy change
-- One item at a time, no bulk publish
+- Write new story inline OR select from existing stories
+- Only shows stories matching doc visibility (private doc = private stories + new)
+- New stories created here inherit doc visibility automatically
 
 ### Design Decisions
 
 | Decision | Choice | Why |
 |----------|--------|-----|
-| Entry point | `/docs` standalone route | Docs are relational, not individual — don't nest under profiles |
-| Creation | Title-only modal | One field, instant. No description, no initial content needed |
-| Layout | Sequential cards + section headers | Reuses profile card components. Canvas is a future CSS renderer |
+| Entry point | `/docs` standalone route | Docs are personal curation, not profile subsection |
+| Creation | Title + visibility modal | Two fields, get in fast. Visibility is a first-class decision |
+| Layout | Sequential story cards | Reuses profile card components. Canvas is a future renderer |
 | Privacy indicator | Persistent amber banner + lock icons | Ambient trust signal, never scrolls away |
-| Members | Avatar row under title | Reuses sign-pledge social proof pattern |
+| Ownership | Single owner, no co-editing | Gap map emerges from letter exchanges, not shared editing (D2) |
+| Letter integration | "Send as Letter" header button + status section | Doc is compose surface, letter is delivery (D4) |
 | Content addition | Bottom form (desktop) / FAB (mobile) | Lowest friction — no modal, no page nav |
-| Sharing | ShareHub-style dialog (Copy Link + Email) | No social options for private docs |
-| Join | Immediate for logged-in, sign-in gate for anonymous | Frictionless for existing users |
-| Publish | Per-item `...` menu + ceremony dialog | Own items only. Irreversible feels irreversible |
+| Story visibility | Immutable, matches doc | Eliminates cascading edge cases (D13, D14) |
+| Points | Via story-point links only | No standalone points as doc items — points visible through stories (D6) |
 
 ## Next Steps
 
-1. ~~**Run `/challenge-prd`**~~ — done, 2 of 3 BLOCKs dismissed by /falsify, consent gap fixed
-2. ~~**Run `/ascii-flows`**~~ — done, winning hybrid documented above
-3. **Run `/architect`** — data model, RLS policies, point `doc_id` FK
-4. **Run `/generate-tests`** — acceptance criteria → E2E test stubs
-5. **Run `/dev`** — implement
+1. **Run `/architect`** — unified data model with P581 (4 new tables + story_verifications extension)
+2. **Run `/ux`** — doc page + send wizard interaction design
+3. **Run `/generate-tests`** — acceptance criteria → test stubs
+4. **Run `/dev`** — implement (Phase 1: schema, Phase 2: doc CRUD)

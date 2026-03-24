@@ -24,7 +24,7 @@ locked_at: '2026-03-23T14:36:41.737Z'
 **Epic:** story-first (P523 vision)
 **Supersedes:** P561 (comprehension slider on story cards), P575 (letter/story delivery)
 **Depends on:** P560 (story filing without position — shipped)
-**Related:** P551 (clarity docs — letter shares the grid component but remains a separate spec)
+**Related:** P551 (clarity docs — letter is an immutable snapshot of a doc; unified data model, separate specs)
 **Tests:** H-StoryFirst (async gap revelations), H-WTP-Pain (gap → felt cost), H-Stories-ColdStart (filed content as return trigger)
 
 ---
@@ -67,7 +67,7 @@ The entire feature optimizes for one moment: **a visible position switch through
 **Impact if not solved:** ClarityPledge remains a facilitator-dependent service with zero standalone product value. Workshops produce intellectual surprise but no follow-up instrument. Partner agreements have no async practice tool. The product can't test H-StoryFirst (async gap revelations) because the measurement mechanism doesn't exist. H-WTP-Pain testing stalls because the workshop flow's step 4 has no implementation.
 
 **Architectural context — Clarity Doc → Clarity Letter relationship (2026-03-24):**
-Long-term, a Clarity Letter is an immutable snapshot of content from a Clarity Doc (P551). The Doc is the mutable source — stories and points accumulate there between sessions. The Letter is the delivery mechanism — "send this selection as a reading experience with assessment." Editing a letter = editing the doc, then sending a new letter (version N+1). V1 letters are standalone (sender selects from profile stories, no doc integration), but the data model should anticipate a nullable `source_doc_id` FK so the relationship can be added when P551 ships.
+A Clarity Letter is an immutable snapshot of content from a Clarity Doc (P551). The Doc is the mutable compose/edit surface — stories accumulate there between sessions. The Letter is the delivery mechanism — "send this collection as a reading experience with assessment." Editing a letter = editing the doc, then sending a new letter (new snapshot from current doc state). V1 builds both together: P551 provides doc CRUD, P581 provides the letter composition wizard triggered from the doc page ("Send as Letter" button). The `source_doc_id` FK on `clarity_letters` is NOT NULL — every letter comes from a doc.
 
 **Three-letter acquisition sequence (2026-03-24):**
 Letters serve a larger acquisition flywheel: Letter 1 (educate — recipient reads, rates, gaps revealed) → /live verification → Letter 2 (reproduce — recipient creates their own letter using same points, own stories) → Letter 3 (value assessment + PWIW + distributor CTA). In a compressed workshop, all three happen in one 90-120 min session. V1 builds Letter 1 only. Letter 2 uses the same composition flow (recipient is now a registered user). Letter 3 is a future post-completion screen. See [facilitator-guide.md](../../docs/facilitator-guide.md#workshop-format-three-letter-compressed-session).
@@ -78,7 +78,7 @@ Letters serve a larger acquisition flywheel: Letter 1 (educate — recipient rea
 
 **Must-haves:**
 
-1. **Letter as container.** A person (facilitator, partner A) can select existing stories OR create new ones, and package them into a letter addressed to a specific person. The letter is a deliberately curated collection — not a share link, not a feed filter.
+1. **Letter as snapshot of a doc.** A person (facilitator, partner A) opens or creates a Clarity Doc (P551), curates stories there, then clicks "Send as Letter" on the doc page. The composition wizard confirms stories, adds receivers, sets per-story predictions, and seals. The letter snapshots the doc's current stories via `story_versions` — the doc remains mutable, the letter is immutable. No standalone composition flow — the doc IS the editing surface.
 
 2. **Author prediction per story.** When composing a letter, the sender predicts (0-10) how well the receiver will understand each included story. This prediction is hidden from the receiver until they rate themselves. The prediction is the speaker's half of the gap equation.
 
@@ -193,13 +193,17 @@ Letters serve a larger acquisition flywheel: Letter 1 (educate — recipient rea
 
 ## Acceptance Criteria
 
-### Letter Composition
-- [ ] Sender can create a letter by selecting existing stories OR creating new stories inline
-- [ ] Sender addresses a letter to a specific person — by ClarityPledge username, email, or generates a shareable link
-- [ ] Sender predicts understanding (0-10) for each story using dot picker
+### Letter Composition (Doc-Sourced)
+- [ ] "Send as Letter" button on doc page header opens composition wizard
+- [ ] Wizard Step 1: confirm stories from the doc (all included by default, sender can deselect)
+- [ ] Wizard Step 2: add receivers — by email, ClarityPledge username, or generate a shareable link
+- [ ] Wizard Step 3: set per-story predictions (0-10) using dot picker — "How well will [Receiver] understand this?"
 - [ ] Sender's predictions are sealed — not visible to receiver until receiver rates
-- [ ] Letter accessible via link — no account required to open and complete
-- [ ] Sender can send letters to multiple receivers (same content, individual predictions per receiver)
+- [ ] "Seal & Send" commits the letter — snapshots story content via `story_versions`, creates `clarity_letters` + `letter_deliveries` rows
+- [ ] Letter accessible via unique link (access_token) — no account required to open and complete
+- [ ] Sender can send to multiple receivers (same content, individual predictions per receiver)
+- [ ] If sender needs to add a story mid-composition: close wizard → add to doc → reopen wizard (accepted friction)
+- [ ] Reuses P422 `clarity_agreements` email delivery pattern (enter email → check if user exists → show name or send invitation)
 
 ### Unregistered Receiver Flow
 - [ ] Receiver can open letter link without an account (anonymous access)
@@ -245,10 +249,14 @@ Letters serve a larger acquisition flywheel: Letter 1 (educate — recipient rea
 - [ ] Linked stories visible per point (receiver and listener stories)
 
 ### Data & Integration
-- [ ] Assessment data persists — visible on story detail page for both sender and receiver
+- [ ] Assessment data persists in `story_verifications` with `source='letter'`, `verified=false`
 - [ ] Letter status visible to sender: sent, opened, in-progress (N of M stories rated), completed
 - [ ] Works on mobile (touch-friendly dot picker, full-screen reading)
 - [ ] Grid component exportable for future use in /live and clarity docs (P551)
+- [ ] After completing letter, receiver sees "Add a story" CTA on each point (optional, D19)
+- [ ] Receiver-filed stories + predictions visible on sender's gap map
+- [ ] Multiple deliveries + public doc: subscribe to Supabase Realtime on `story_verifications` (workshop mode, D20)
+- [ ] Single delivery or private doc: static query, no subscription needed
 
 ### Integrity
 - [ ] Receiver cannot see author's prediction before submitting their own rating (sealed-bid)
@@ -262,7 +270,7 @@ Letters serve a larger acquisition flywheel: Letter 1 (educate — recipient rea
 
 | Element | Value | Context |
 |---------|-------|---------|
-| Letter composition CTA | "Send a letter" | Profile page or story detail page |
+| Letter composition CTA | "Send as Letter" | Doc page header (P551) |
 | Prediction prompt | "How well will [Receiver] understand this?" | Composition, per story, dot picker 0-10 |
 | Understanding prompt | "How well do you believe you understood this?" | Letter reading, per story, dot picker 0-10 |
 | Gap display | Dual progress bars (blue=receiver, orange=author) + "A gap of N — worth noting" | After receiver commits, per story |
@@ -297,12 +305,15 @@ Letters serve a larger acquisition flywheel: Letter 1 (educate — recipient rea
 | D10 | Author position visible or locked? | Locked until receiver engages (takes position OR files story). Incentivizes engagement. Unlocking is animated (fade-in). |
 | D11 | Three-button or 7-point Likert? | Three-button (✕/?/✓) with agree-degree dropdown on ✓. Lower cognitive load. From prototype. |
 | D12 | Gap map = list or grid? | Understanding × agreement grid (four quadrants). Both parties as dots. Arrows show movement. Grid is the core visualization across letters and /live. |
-| D13 | Relationship to P551 clarity docs? | Separate specs, shared grid component. Letter = addressed reading experience with measurement. Clarity doc = persistent private shared container. A letter could eventually be a "reading mode" of a clarity doc, but V1 they're independent. |
+| D13 | Relationship to P551 clarity docs? | Unified in V1. Letter = immutable snapshot of a doc, delivered as a reading experience with assessment. Doc = mutable compose/edit surface where stories accumulate. "Send as Letter" on doc page triggers composition wizard. Separate specs, shared grid component, unified data model (4 new tables + story_verifications extension). |
 | D14 | Can receiver file stories? | Yes. On any point — to explain position, explain false premise, or explain non-position. Uses P560 story-filing mechanic inline. |
 | D15 | Account required to read a letter? | No. The entire letter experience works without an account. Registration gate at EXIT (after gap map), not entrance. The experience is the conversion funnel. Local state (sessionStorage) holds all data until persisted. |
 | D16 | How does facilitator share the letter? | Two paths: (a) Link — QR code, WhatsApp, etc. Anonymous access, email entered at save gate. (b) Email — facilitator enters receiver's email at composition. Email pre-filled at save gate, one click to persist. Email-sent letters have lower registration friction. |
 | D17 | What is the feature called? | "Clarity Letter." Not "letter," not "doc in reading mode." Clarity Letter is a first-class entity — related to clarity docs (P551) but distinct. |
-| D18 | Where does the understanding map live? | Session history. A completed clarity letter = a session history entry (async type). Same data structure as /live rounds, new source. The understanding map IS session history — viewed on `/sessions` alongside /live rounds. |
+| D18 | Where does the understanding map live? | Deferred. Letters have their own `/letters` route (receiver inbox showing received letters). Not `/sessions` in V1. |
+| D19 | Bidirectional letter — receiver adds stories? | V1 optional: after completing a letter, receiver sees "Add a story" CTA on each point. Receiver files own stories + sets predictions. Sender views on gap map. V1.5: sender formally reads + rates receiver's stories (sealed-bid Phase 4). |
+| D20 | Workshop shared view? | Facilitator projects their screen (sender's gap map = group view). Real-time: facilitator's screen updates as participants submit (Supabase Realtime). No privacy feature needed V1. |
+| D21 | Unified calibration data? | One `story_verifications` table serves both /live and letters. Add `source TEXT DEFAULT 'live'`, `verified BOOLEAN DEFAULT true`, `sort_order INTEGER`. Letters write with `source='letter'`, `verified=false`. When pair does /live on same story: new row with `source='live'`, `verified=true`. Grid shows both: dashed dot (letter) → solid dot (live) → arrow = movement. |
 
 ---
 
@@ -315,8 +326,8 @@ Letters serve a larger acquisition flywheel: Letter 1 (educate — recipient rea
 5. **Does the grid replace JourneyToUnderstanding in /live?** The grid is a superset (shows both understanding AND agreement). Long-term yes. V1: grid lives in letters, JourneyToUnderstanding stays in /live. Migration is a future task.
 6. **Can a letter document external paraphrase?** (e.g., "we already discussed this in person, I just want to record it") — async /live alternative. Likely future, not V1.
 7. **Guess-line → collapse mechanic:** Both parties' guesses form a line segment on the grid (uncertainty band). After paraphrase, Y collapses to verified number. Visually compelling but may be too complex for V1. Explore in /ux.
-8. **Should composition create an implicit Clarity Doc?** V1 composition = ad-hoc selection from profile. But this IS what a doc is — a curated collection of stories + points with scoped visibility. If the data model uses a `doc_id` FK from the start, a letter's content selection becomes "create a doc, then send it as a letter." This unifies the compose/edit model but adds P551 as a dependency. Decision: V1 standalone, but include nullable `source_doc_id` in the schema.
-9. **Remix flow for Letter 2:** After completing a letter, can the receiver create their own letter reusing the same *points* but with their own *stories*? This is the distribution mechanism — personalized onboarding for their audience. V1: receiver uses standard composition flow (they're registered now). Future: "Create your own letter from these points" button on gap map.
+8. **~~Should composition create an implicit Clarity Doc?~~ RESOLVED (2026-03-24).** Yes — docs are V1, not future. Every letter is sourced from a doc. `source_doc_id` is NOT NULL. The doc page IS the composition surface. "Send as Letter" button on doc header opens the wizard. No standalone composition flow.
+9. **Remix flow for Letter 2:** After completing a letter, can the receiver create their own letter reusing the same *points* but with their own *stories*? V1: receiver uses standard flow — create own doc, add stories on same points, send as letter. Future: "Create your own letter from these points" CTA on gap map that auto-creates a doc pre-populated with the sender's points.
 
 ---
 
@@ -344,8 +355,7 @@ Key patterns from prototypes: dot picker (not slider), three-button (not Likert)
 - Reply letters / ping-pong calibration (future)
 - Replacing JourneyToUnderstanding in /live with the grid (future migration)
 - Async /live mode (documenting external paraphrases) (future)
-- Clarity Doc integration — sourcing letter content from a doc instead of profile (P551, future)
-- Letter editing / versioning — edit the source doc, send new letter version (requires P551)
+- Letter editing / versioning — edit the source doc, send new letter as new snapshot (future V1.5)
 - "Create your own letter" CTA on gap map — remix flow for Letter 2 (future post-V1)
 - Three-letter workshop sequence automation — V1 is manual facilitation with individual letters
 - Value assessment / PWIW screen after letter completion — Letter 3 (future)
@@ -357,43 +367,61 @@ Key patterns from prototypes: dot picker (not slider), three-button (not Likert)
 
 Winner from 30 variants. Scored 84/100. Corrections applied from founder review.
 
-### Naming question (open)
+### Naming (resolved)
 
-Is this a "Clarity Letter"? Or is it a "Clarity Doc in reading mode"? Or just "letter"? The seal metaphor works for the ritual — but the relationship to P551 clarity docs needs a name decision before /ux. See D13.
+"Clarity Letter" — a first-class entity, distinct from the Clarity Doc it snapshots. The doc is the editing surface; the letter is the sealed reading experience with assessment. D13 resolved: unified in V1, but separate concepts.
 
-### COMPOSITION (Sender — 2 steps, combined)
+### COMPOSITION (Sender — 3 steps, triggered from doc page)
 
 ```
+DOC PAGE (P551) — sender clicks "Send as Letter" in header
+
 ┌──────────────────────┐
 │ ╔════════════════════╗│
-│ ║  CRAFT A LETTER   ║│
+│ ║  SEND AS LETTER   ║│
 │ ╚════════════════════╝│
 │                       │
-│  Step 1 of 2  ●○     │
+│  Step 1 of 3  ●○○    │
+│  Confirm stories      │
 │                       │
-│  Your Stories         │
+│  From: "Therapy Notes"│
 │  ┌───────────────────┐│
 │  │ ☑ Hiring stance   ││
-│  │   ●●●●●●○○○○ 6   ││
-│  │   "How well will  ││
-│  │    they get it?"  ││
-│  ├───────────────────┤│
 │  │ ☑ Funding views   ││
-│  │   ●●●●○○○○○○ 4   ││
+│  │ ☐ Budget concern  ││
 │  └───────────────────┘│
-│  [ + Create story ]   │
+│  (deselect to exclude)│
 │                       │
 │       [ Next → ]      │
 └───────────────────────┘
 
 ┌──────────────────────┐
-│  Step 2 of 2  ○●     │
+│  Step 2 of 3  ○●○    │
+│  Add receivers        │
 │                       │
 │  Send to:             │
 │  ┌───────────────────┐│
 │  │ alex@co.com       ││
 │  └───────────────────┘│
 │  [ + Add person ]     │
+│                       │
+│       [ Next → ]      │
+└───────────────────────┘
+
+┌──────────────────────┐
+│  Step 3 of 3  ○○●    │
+│  Set predictions      │
+│                       │
+│  For: Alex            │
+│  ┌───────────────────┐│
+│  │ Hiring stance     ││
+│  │   ●●●●●●○○○○ 6   ││
+│  │   "How well will  ││
+│  │    Alex get it?"  ││
+│  ├───────────────────┤│
+│  │ Funding views     ││
+│  │   ●●●●○○○○○○ 4   ││
+│  └───────────────────┘│
 │                       │
 │  ╔════════════════════╗
 │  ║  2 stories        ║
@@ -687,7 +715,7 @@ Note: No risk ranking formula. Just points sorted by gap size (largest first). S
 
 1. ~~Run `/challenge-prd`~~ — done (verdict: RETHINK → addressed by scope decisions)
 2. ~~Run `/ascii-flows`~~ — done (winner: Sealed Slides, corrected above)
-3. Run `/ux` — detailed interaction design iterating on Sealed Slides flow
-4. Run `/architect` — data model (letters, assessments, sealed-bid, local state → persist)
+3. **Run `/architect`** — unified data model with P551 (4 new tables + story_verifications extension). One `/architect` run on both specs.
+4. **Run `/ux`** — doc page + send wizard + reading + grid (combined P551+P581 interaction design)
 5. Run `/generate-tests` — acceptance criteria → test stubs
-6. Run `/dev` — implement
+6. Run `/dev` — Phase 1: schema + migration, Phase 2: doc CRUD (P551), Phase 3: letter composition + delivery, Phase 4: letter reading WITH grid, Phase 5: gap map + sender view
