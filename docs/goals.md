@@ -12,14 +12,15 @@ Flywheel: see [lean-canvas.md](lean-canvas.md#channels--flywheel). Steps below f
 
 1. [x] P560: Story filing without position — prerequisite for workshop (epic-story-first)
 2. [x] P545: ladischenski.com positioning update
-3. [ ] P581: Letters with comprehension assessment — core async gap screening (supersedes P561)
-4. [ ] P562: /live simplification — strip to orchestration, reduce drop-off in group settings
-5. [ ] P567: File 8 false belief stories + points as workshop curriculum
-6. [ ] Run first false-belief workshop (offline, cowork in Koh Lanta) — test: do participants want to establish verified understanding and create Clarity Partner Agreements?
-7. [ ] Write blog article from workshop experience — real data, not theory
-8. [ ] Promote article via LinkedIn, communities
-9. [ ] Run facilitated co-founder session with pay-what-it's-worth upfront
-10. [ ] Approach 1-2 coaches — AFTER workshops + paid sessions prove model (H-CoachChannel)
+3. [ ] P551: Clarity Docs — curated story collections, compose/edit surface for letters
+4. [ ] P581: Letters with comprehension assessment — core async gap screening (doc-sourced, unified with P551)
+5. [ ] P562: /live simplification — strip to orchestration, reduce drop-off in group settings
+6. [ ] P567: File 8 false belief stories + points as workshop curriculum
+7. [ ] Run first false-belief workshop (offline, cowork in Koh Lanta) — test: do participants want to establish verified understanding and create Clarity Partner Agreements?
+8. [ ] Write blog article from workshop experience — real data, not theory
+9. [ ] Promote article via LinkedIn, communities
+10. [ ] Run facilitated co-founder session with pay-what-it's-worth upfront
+11. [ ] Approach 1-2 coaches — AFTER workshops + paid sessions prove model (H-CoachChannel)
 
 ## Dos
 
@@ -37,7 +38,7 @@ Flywheel: see [lean-canvas.md](lean-canvas.md#channels--flywheel). Steps below f
 
 - Don't ask completed pairs for payment retroactively (trust breaker)
 - Don't approach coaches before having workshops + paid sessions as proof
-- Don't build features not on the P581 → P562 → P567 → workshop path
+- Don't build features not on the P551 → P581 → P562 → P567 → workshop path
 - Don't run sessions on abstract/philosophical topics — values and real decisions only
 - Don't confuse curiosity ("that's cool") with pain ("this cost us X")
 - Don't present your points as truth — present as your position, let the protocol work
@@ -47,8 +48,8 @@ Flywheel: see [lean-canvas.md](lean-canvas.md#channels--flywheel). Steps below f
 ## Last Weekly Review (2026-03-23)
 
 ```
-STOP:        Any feature work not on P581 → P562 → P567 → workshop path
-START:       /dev P581, ship all three by March 28
+STOP:        Any feature work not on P551 → P581 → P562 → P567 → workshop path
+START:       /architect P551+P581 unified, then /dev both
 SCARY THING: Post workshop invite at Koh Lanta cowork by March 29
 HYPOTHESIS:  Workshop participants take de-risking package (PWIW) + sign
              Clarity Partner Agreement — at least 1 pair from first workshop
