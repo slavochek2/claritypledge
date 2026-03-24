@@ -47,7 +47,7 @@ test.describe('P584: UnderstoodBadge with ear icon + tooltip', () => {
     const card = page.locator('text=P584 test story zero understood').locator('..');
     await expect(card).toBeVisible();
     // Badge text present
-    const badge = card.locator('text=0 understood');
+    const badge = card.locator('text=0 verified');
     await expect(badge).toBeVisible();
     // Ear icon (SVG) should be present within the badge's parent
     const earIcon = badge.locator('..').locator('svg');
@@ -58,7 +58,7 @@ test.describe('P584: UnderstoodBadge with ear icon + tooltip', () => {
     await page.goto('/feed?tab=stories');
     const card = page.locator('text=P584 test story positive understood').locator('..');
     await expect(card).toBeVisible();
-    const badge = card.locator('text=3 understood');
+    const badge = card.locator('text=3 verified');
     await expect(badge).toBeVisible();
     const earIcon = badge.locator('..').locator('svg');
     await expect(earIcon).toBeVisible();
@@ -68,7 +68,7 @@ test.describe('P584: UnderstoodBadge with ear icon + tooltip', () => {
     await page.goto('/feed?tab=stories');
     const card = page.locator('text=P584 test story zero understood').locator('..');
     await expect(card).toBeVisible();
-    const badge = card.locator('text=0 understood');
+    const badge = card.locator('text=0 verified');
     await badge.hover();
     // Tooltip should appear with explanatory text
     const tooltip = page.locator('text=No one has verified understanding');
@@ -81,7 +81,7 @@ test.describe('P584: UnderstoodBadge with ear icon + tooltip', () => {
     await page.click('text=Stories');
     const card = page.locator('text=P584 test story zero understood').locator('..');
     await expect(card).toBeVisible();
-    const badge = card.locator('text=0 understood');
+    const badge = card.locator('text=0 verified');
     await expect(badge).toBeVisible();
     // Ear icon
     const earIcon = badge.locator('..').locator('svg');
@@ -90,7 +90,7 @@ test.describe('P584: UnderstoodBadge with ear icon + tooltip', () => {
 
   test('story detail: badge shows ear icon + tooltip', async ({ page }) => {
     await page.goto(`/story/${storyPositive.id}`);
-    const badge = page.locator('text=3 understood');
+    const badge = page.locator('text=3 verified');
     await expect(badge).toBeVisible();
     // Ear icon
     const earIcon = badge.locator('..').locator('svg');

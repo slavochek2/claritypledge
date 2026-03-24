@@ -28,7 +28,7 @@ export function UnderstoodBadge({ count, size = 'sm', className = '' }: Understo
     <MobileTooltip content={tooltip}>
       <span className={`inline-flex items-center gap-0.5 font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded-full ${sizeClasses} ${className}`}>
         <Ear size={iconSize} />
-        {count} understood
+        {count} verified
       </span>
     </MobileTooltip>
   );

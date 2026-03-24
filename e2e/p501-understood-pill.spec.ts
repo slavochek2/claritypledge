@@ -45,44 +45,44 @@ test.describe('P501: Understood pill always visible', () => {
     if (author?.user?.id) await deleteTestUser(author.user.id);
   });
 
-  test('feed shows "0 understood" pill when count is zero', async ({ page }) => {
+  test('feed shows "0 verified" badge when count is zero', async ({ page }) => {
     await page.goto('/feed?tab=stories');
     // Find our test story card
     const card = page.locator('text=P501 test story zero understood').locator('..');
     await expect(card).toBeVisible();
-    // The "0 understood" pill should be present
-    const pill = card.locator('text=0 understood');
+    // The "0 verified" badge should be present (P584: relabeled from "understood")
+    const pill = card.locator('text=0 verified');
     await expect(pill).toBeVisible();
   });
 
-  test('feed shows "3 understood" pill when count is positive', async ({ page }) => {
+  test('feed shows "3 verified" badge when count is positive', async ({ page }) => {
     await page.goto('/feed?tab=stories');
     const card = page.locator('text=P501 test story positive understood').locator('..');
     await expect(card).toBeVisible();
-    const pill = card.locator('text=3 understood');
+    const pill = card.locator('text=3 verified');
     await expect(pill).toBeVisible();
   });
 
-  test('profile stories tab shows "0 understood" pill', async ({ page }) => {
+  test('profile stories tab shows "0 verified" badge', async ({ page }) => {
     const slug = author.profile?.slug;
     await page.goto(`/p/${slug}`);
     // Switch to stories tab
     await page.click('text=Stories');
     const card = page.locator('text=P501 test story zero understood').locator('..');
     await expect(card).toBeVisible();
-    const pill = card.locator('text=0 understood');
+    const pill = card.locator('text=0 verified');
     await expect(pill).toBeVisible();
   });
 
-  test('story detail page shows "0 understood" pill', async ({ page }) => {
+  test('story detail page shows "0 verified" badge', async ({ page }) => {
     await page.goto(`/story/${storyZero.id}`);
-    const pill = page.locator('text=0 understood');
+    const pill = page.locator('text=0 verified');
     await expect(pill).toBeVisible();
   });
 
-  test('story detail page shows "3 understood" pill', async ({ page }) => {
+  test('story detail page shows "3 verified" badge', async ({ page }) => {
     await page.goto(`/story/${storyPositive.id}`);
-    const pill = page.locator('text=3 understood');
+    const pill = page.locator('text=3 verified');
     await expect(pill).toBeVisible();
   });
 });
