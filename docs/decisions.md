@@ -2,6 +2,30 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-24 [product]: Clarity Doc → Clarity Letter unified architecture (P551 + P581)
+
+**Context:** P581 (Clarity Letters) was designed as a standalone feature with its own composition flow. P551 (Clarity Docs) was a separate spec for private shared pages. Design discussion revealed: a Clarity Letter is an immutable snapshot of a Clarity Doc — building P581 standalone creates a throwaway composition flow. The bottleneck was decisions, not build time.
+**Decision:** Unify P551 and P581: Doc = mutable compose/edit surface (author-owned, no co-ownership V1). Letter = immutable snapshot of a doc ("Send as letter" from doc page). Doc visibility explicit (`public`|`private`), stories inherit and are immutable after creation. "Shared" visibility cut — two modes only. Gap map emerges from letter exchanges. Receiver never enters sender's doc. Bidirectional in one letter (V1, optional): receiver can "Add a story" on sender's points.
+**Alternatives rejected:** (A) P581 standalone — throwaway composition flow. (B) Full P551 first — too heavy for March 28. (C) Lightweight collections without decisions — deferred decisions backfire.
+**Consequences:** P551 dramatically simplified (cut co-ownership, join flow, publish-to-feed). P581 composition rewrites to doc-sourced. Both share one `/architect` run. Schema: 4 new tables + story_verifications extended.
+**References:** Plan `~/.claude/plans/immutable-baking-mccarthy.md` (D1-D5, D12, D14, D17)
+
+## 2026-03-24 [product]: Privacy simplification — immutable visibility, cut "shared", points visible through stories
+
+**Context:** Three-tier story visibility (`public`/`shared`/`private`) created cascading edge cases when stories change visibility. "Shared" (all event co-participants) was imprecise and untested. Points globally public leaked private context.
+**Decision:** Story visibility immutable after creation. Cut "shared" entirely (two modes: public, private). Points visible through their stories (RLS checks linked stories). Private stories in docs only — profile shows public. Positions on private points = doc/letter scoped, not on profile.
+**Alternatives rejected:** (A) Visibility changes with warnings — complexity for zero value. (B) Visibility field on points — breaks ownerless model. (C) Keep "shared" — letters do it better.
+**Consequences:** Simplifies RLS to two branches. Requires migration: `shared` → `public`. Point RLS changes from `USING(true)` to story-linked.
+**References:** Plan (D6, D7, D13, D15, D16)
+
+## 2026-03-24 [technical]: Unified calibration data — extend story_verifications for both /live and letters
+
+**Context:** P581 proposed separate `letter_assessments` table, but /live and letters produce the same data structure (two scores on a story version between two people). Only quality differs (verified vs screening).
+**Decision:** Extend `story_verifications` with 3 columns: `source DEFAULT 'live'`, `verified DEFAULT true`, `sort_order`. Zero migration risk — existing /live code unchanged. Letters write with `source='letter'`, `verified=false`. /live builds on letter data (shows screening → verification arrow). Grid built once, reused everywhere. X-axis range: -3 to +3.
+**Alternatives rejected:** (A) Separate table — duplicates structure, prevents /live building on letter data. (B) Rename table — touches all existing code. (C) New table + dual-write — unnecessary complexity.
+**Consequences:** Column semantics map: speaker_id=sender, listener_id=receiver, speaker_rating=prediction, listener_rating=self-rating. Grid component queries one table regardless of source.
+**References:** Plan (D5, D8, D10, D11)
+
 ## 2026-03-24 [product]: "N verified" label for per-story understood count badge (P585)
 
 **Context:** P501 unified the "X understood" pill across all surfaces. P585 extracted it into a shared `<UnderstoodBadge>` component. During `/challenge-prd`, two proposals were blocked: (1) hide-at-zero contradicted documented decisions (P501 2026-03-13, P269 2026-02-18: "empty state over hidden"), (2) relabeling to "verified" would split terminology from DB column and all other product surfaces that say "understood." The label was then debated: "0 understood" is cryptic, "0 verified" is action-oriented.

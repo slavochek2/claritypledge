@@ -118,7 +118,8 @@ JSONL format: each line is a JSON object. Conversation messages have `type: "use
     <if source="claude conversations (default)">
       <action>Glob for .md files in ~/Projects/private/claude-conversations/ recursively — these are exported Claude.ai conversations in markdown format</action>
       <action>Filter by file mtime OR by the "Created:" / "Updated:" date in the frontmatter to match the time window</action>
-      <action>Count files</action>
+      <action>Early relevance filter: read the title (first H1) and first user message of each file. Classify as CP-relevant or personal. Skip files that are clearly personal (relationships, personal finance, philosophy unrelated to CP). Report: "Found N files, M relevant to ClarityPledge, skipping K personal." Only fully read the relevant files.</action>
+      <action>Count relevant files</action>
     </if>
 
     <if source="gdrive:ID">
