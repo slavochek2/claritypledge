@@ -2,6 +2,14 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-24 [product]: Workshop shared view = facilitator projects their screen
+
+**Context:** Workshop mode needs participants to see group data (gap map with all responses). Options ranged from a dedicated participant-visible dashboard with privacy controls to the simplest possible approach.
+**Decision:** Each participant sees only their own data on their device. The facilitator's sender gap map IS the group view — projected on wall/screen. Real-time: facilitator's screen updates as participants submit (Supabase Realtime subscription on `story_verifications`). No privacy settings needed V1. Participant opts in by showing their own phone.
+**Alternatives rejected:** (A) Shared dashboard with privacy toggles — overengineered for 5-15 person workshops. (B) Anonymous aggregate view — loses individual inspection. (C) No shared view — facilitator can't debrief with group.
+**Consequences:** No privacy feature to build. Component prop not needed — query-time decision: multiple deliveries + public doc = Realtime subscription; single delivery or private doc = static query. Workshop facilitation guide should document "project your screen."
+**References:** Plan `~/.claude/plans/immutable-baking-mccarthy.md` (D9, D20)
+
 ## 2026-03-24 [product]: Clarity Doc → Clarity Letter unified architecture (P551 + P581)
 
 **Context:** P581 (Clarity Letters) was designed as a standalone feature with its own composition flow. P551 (Clarity Docs) was a separate spec for private shared pages. Design discussion revealed: a Clarity Letter is an immutable snapshot of a Clarity Doc — building P581 standalone creates a throwaway composition flow. The bottleneck was decisions, not build time.

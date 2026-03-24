@@ -2,7 +2,7 @@
 
 Core concepts of the Clarity Pledge platform. This is the product's conceptual foundation.
 
-**Last Updated:** 2026-02-03
+**Last Updated:** 2026-03-24
 
 ---
 
@@ -37,7 +37,7 @@ Author creates story once → Story verifies many listeners → Author only revi
 **What a Story contains:**
 - **Text:** The narrative (lived experience, reasoning, context)
 - **Author:** Who created it
-- **Visibility:** Private / Shared / Public
+- **Visibility:** Private / Public (immutable after creation; "shared" cut in 2026-03-24 decision)
 - **Extracted Points:** Falsifiable claims extracted from the story (AI-guided, author-approved)
 
 **Relationship to Points (2026-03-19):** Stories are the primary entity. Points are always extracted from stories — never created standalone. Stories enter the comprehension protocol (understanding verified). Points enter the position protocol (agree/disagree). These are fundamentally different calibration loops: understanding someone's story ≠ agreeing with their point. The hypothesis "comprehension precedes calibration" — verified understanding of a story predictably moves positions on related points — is ClarityPledge's thesis applied at the content-type level. See H-StoryFirst.
@@ -116,6 +116,39 @@ Authors see verification results across all listeners:
 | **HOW WELL** | Distribution of understanding ratings |
 | **WHERE gaps** | Common misunderstandings, corrections given |
 | **Evolution** | How story improved through corrections |
+
+---
+
+## Clarity Doc
+
+> **One-liner:** A Clarity Doc is a curated collection of stories — the compose/edit surface for Clarity Letters.
+
+**What it is:** An author-owned collection of stories, organized sequentially. Each doc has a visibility (`public` or `private`) that constrains which stories it can contain. Stories accumulate in a doc over time — session by session, theme by theme.
+
+**What it is NOT:** A shared document. No co-ownership, no co-editing. Each person owns their own doc with their own stories. The gap map emerges from letter exchanges between docs, not from editing one doc together.
+
+**Relationship to Letters:** A doc is where content lives and grows. A Clarity Letter is a snapshot of a doc — "send this collection as a reading experience with assessment." One doc can produce many letters to different receivers. Editing happens in the doc; delivery happens through letters.
+
+**URL:** `/d/:docId`
+
+*See also: P551 spec, [decisions.md](decisions.md) — "Clarity Doc → Clarity Letter unified architecture"*
+
+---
+
+## Clarity Letter
+
+> **One-liner:** A Clarity Letter is an immutable snapshot of a Clarity Doc, delivered as a reading experience with comprehension assessment.
+
+**What it is:** A sealed reading experience. The sender curates stories in a doc, then sends them as a letter with per-story predictions ("How well will they understand this?"). The receiver reads stories one at a time, rates their understanding (sealed-bid — neither sees the other's number until both commit), and engages with extracted points. The gap between prediction and self-rating IS the product — it reveals miscalibration.
+
+**Key properties:**
+- **Immutable:** Content is frozen at send time via `story_versions`. The doc can keep changing; the letter preserves what was sent.
+- **Sealed-bid:** Author prediction and receiver rating are committed independently — no anchoring.
+- **Assessment is screening, not verification.** Both parties guessing high does NOT confirm understanding. A large gap means /live is probably needed. Frame as triage, never as proof. Verification happens in /live through paraphrase.
+
+**The hell-yes moment:** On the understanding × agreement grid, a dot moves — from false consensus to genuine disagreement, or from noise to consensus — and both parties can SEE the arrow. That arrow is proof that a false belief was corrected through understanding, not persuasion.
+
+*See also: P581 spec, [decisions.md](decisions.md) — "Clarity Doc → Clarity Letter unified architecture"*
 
 ---
 
@@ -437,15 +470,18 @@ See [authentication.md](technical/authentication.md#guest--unverified-users) for
 
 | Level | Who sees | Where it appears |
 |-------|----------|-----------------|
-| **Private** | Author only (explicit per-user grant UI is a future spec) | Only author's own views |
-| **Shared** | Author + anyone who has registered for the same event as the author — past or future signups (co-registration, not just attendance) | Point pages, profiles — via RLS. NOT in the global feed. |
+| **Private** | Author only; visible within Clarity Docs and Clarity Letters where the story is included | Only in doc/letter context — never on profile, feed, or search |
 | **Public** | Anyone, logged in or not | Global feed, profiles, point pages |
 
-**Key "Shared" detail:** Scope is event co-registration, not event attendance. If the author and reader both registered for the same event at any point in time (including future RSVPs), the story is readable. Audience expands as new people sign up — authors should be aware the audience grows over time.
+**"Shared" visibility was cut (2026-03-24).** It was imprecise (all event co-participants across all events), untested, and letters deliver scoped sharing better. Existing `shared` stories migrate to `public`. See [decisions.md](decisions.md) — "Privacy simplification."
+
+**Visibility is immutable after creation.** Cannot change after creation — eliminates cascading edge cases. Want to "unpublish"? Delete the story. Want to "publish" private? Create a new public copy. No UI for visibility change.
+
+**Stories must match doc visibility.** Private doc = only private stories. Public doc = only public stories. Stories created inside a private doc get `visibility: 'private'` automatically.
 
 **Default:** `private` (changed from `public` in P424 — safer for new users and workshop participants).
 
-**Global feed rule:** Only `public` stories appear in the discovery feed. Shared stories surface only on specific point pages and profiles, where RLS evaluates co-registration.
+**Global feed rule:** Only `public` stories appear in the discovery feed.
 
 ---
 
