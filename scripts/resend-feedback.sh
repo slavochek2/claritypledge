@@ -43,7 +43,7 @@ source "$ENV_FILE"
 
 : "${MAILGUN_API_KEY:?MAILGUN_API_KEY not set in .env.local}"
 : "${MAILGUN_DOMAIN:?MAILGUN_DOMAIN not set in .env.local}"
-: "${TALLY_FORM_ID:=wa7RRq}"
+: "${TALLY_FORM_ID:=QKDN91}"
 
 # Prod project credentials
 : "${SUPABASE_PROD_URL:?SUPABASE_PROD_URL not set in .env.local}"
@@ -57,7 +57,7 @@ FROM="Clarity Pledge Events <events@${MAILGUN_DOMAIN}>"
 echo "Fetching event $EVENT_ID from prod..."
 
 EVENT_JSON=$(curl -sf \
-  "${SUPABASE_PROD_URL}/rest/v1/events?id=eq.${EVENT_ID}&select=id,title,datetime,duration_minutes,timezone,location,slug&limit=1" \
+  "${SUPABASE_PROD_URL}/rest/v1/events?id=eq.${EVENT_ID}&select=id,title,datetime,duration_minutes,timezone,location,slug,host_id&limit=1" \
   -H "apikey: ${SUPABASE_PROD_ANON_KEY}" \
   -H "Authorization: Bearer ${SUPABASE_PROD_ANON_KEY}")
 
@@ -65,6 +65,15 @@ EVENT_TITLE=$(echo "$EVENT_JSON" | python3 -c "import sys,json; d=json.load(sys.
 
 if [[ -z "$EVENT_TITLE" ]]; then
   echo "Error: event $EVENT_ID not found in prod" >&2
+  exit 1
+fi
+
+# Only send feedback for events hosted by the configured host
+FEEDBACK_HOST_ID="a99042ef-e740-446a-8734-389c8589cc17"
+EVENT_HOST=$(echo "$EVENT_JSON" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d[0].get('host_id',''))" 2>/dev/null || echo "")
+if [[ "$EVENT_HOST" != "$FEEDBACK_HOST_ID" ]]; then
+  echo "Error: feedback emails are only sent for events hosted by profile $FEEDBACK_HOST_ID" >&2
+  echo "This event is hosted by: $EVENT_HOST" >&2
   exit 1
 fi
 
@@ -144,13 +153,13 @@ def send_feedback(to_email: str, name: str | None) -> str | None:
 </td></tr>
 <tr><td style="padding:32px 40px 40px;">
   <p style="margin:0 0 16px;font-size:16px;color:#111827;">{greeting}</p>
-  <h1 style="margin:0 0 8px;font-size:24px;font-weight:700;color:#111827;">Thanks for joining us!</h1>
+  <h1 style="margin:0 0 8px;font-size:24px;font-weight:700;color:#111827;">Thanks for joining!</h1>
   <p style="margin:0;font-size:16px;color:#4b5563;">
-    We'd love to hear how <strong>{event['title']}</strong> went for you.
+    I'd love to hear how <strong>{event['title']}</strong> went for you.
     It takes about 1 minute.
   </p>
   <a href="{feedback_url}" style="display:inline-block;background:#2563eb;color:#fff;text-decoration:none;padding:12px 24px;border-radius:6px;font-size:15px;font-weight:500;margin-top:20px;">Share your feedback</a>
-  <p style="margin:24px 0 0;font-size:14px;color:#6b7280;">Your feedback helps us make future events even better. Thank you!</p>
+  <p style="margin:24px 0 0;font-size:14px;color:#6b7280;">Your feedback helps me make future events even better. Thank you!</p>
 </td></tr>
 <tr><td style="padding:20px 40px;border-top:1px solid #e5e7eb;">
   <p style="margin:0;font-size:12px;color:#9ca3af;">Clarity Pledge · <a href="https://claritypledge.com" style="color:#9ca3af;">claritypledge.com</a></p>

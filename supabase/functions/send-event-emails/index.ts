@@ -4,13 +4,17 @@ import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 const MAILGUN_API_KEY = Deno.env.get('MAILGUN_API_KEY')!;
 const MAILGUN_DOMAIN = Deno.env.get('MAILGUN_DOMAIN')!;
 const MAILGUN_REGION = Deno.env.get('MAILGUN_REGION') ?? 'us';
-const TALLY_FORM_ID = Deno.env.get('TALLY_FORM_ID') ?? 'wa7RRq';
+const TALLY_FORM_ID = Deno.env.get('TALLY_FORM_ID') ?? 'QKDN91';
 
 const MAILGUN_BASE = MAILGUN_REGION === 'eu'
   ? 'https://api.eu.mailgun.net/v3'
   : 'https://api.mailgun.net/v3';
 
 const FROM = `Clarity Pledge Events <events@${MAILGUN_DOMAIN}>`;
+
+// Only send feedback emails for events hosted by this profile.
+// Other hosts manage their own feedback flow.
+const FEEDBACK_HOST_ID = 'a99042ef-e740-446a-8734-389c8589cc17';
 
 // ── HTML email base template ──────────────────────────────────────────────────
 
@@ -140,6 +144,7 @@ interface EventRow {
   location: string | null;
   description: string | null;
   slug: string | null;
+  host_id: string | null;
 }
 
 /** Extract first name from "First Last" or return null */
@@ -198,15 +203,15 @@ function buildFeedback(event: EventRow, name?: string | null): { subject: string
   const eventLink = event.slug ? `<p style="margin:16px 0 0;font-size:14px;"><a href="${eventPageUrl(event.slug)}" style="color:#2563eb;">View event page →</a></p>` : '';
   const html = htmlEmail(subject, `
     <p style="margin:0 0 16px;font-size:16px;color:#111827;">${greeting(name)}</p>
-    <h1 style="margin:0 0 8px;font-size:24px;font-weight:700;color:#111827;">Thanks for joining us!</h1>
+    <h1 style="margin:0 0 8px;font-size:24px;font-weight:700;color:#111827;">Thanks for joining!</h1>
     <p style="margin:0;font-size:16px;color:#4b5563;">
-      We'd love to hear how <strong>${event.title}</strong> went for you.
+      I'd love to hear how <strong>${event.title}</strong> went for you.
       It takes about 1 minute.
     </p>
     ${button('Share your feedback', feedbackUrl)}
     ${eventLink}
     <p style="margin:24px 0 0;font-size:14px;color:#6b7280;">
-      Your feedback helps us make future events even better. Thank you!
+      Your feedback helps me make future events even better. Thank you!
     </p>
   `);
   const first = firstName(name);
@@ -362,10 +367,10 @@ async function logEmailSend(
 // ── Action handlers ───────────────────────────────────────────────────────────
 
 async function handleRsvp(supabase: ReturnType<typeof createClient>, eventId: string, userId: string) {
-  // Fetch event
+  // Fetch event (include host_id to gate feedback emails)
   const { data: event } = await supabase
     .from('events')
-    .select('id, title, datetime, duration_minutes, timezone, location, description, slug')
+    .select('id, title, datetime, duration_minutes, timezone, location, description, slug, host_id')
     .eq('id', eventId)
     .single();
 
@@ -415,19 +420,22 @@ async function handleRsvp(supabase: ReturnType<typeof createClient>, eventId: st
     }
   }
 
-  // 3. Feedback — 2h after event (always scheduled, even for walk-in RSVPs)
-  const feedbackTime = new Date(eventDatetime.getTime() + (event.duration_minutes ?? 60) * 60 * 1000 + 2 * 60 * 60 * 1000);
-  const feedback = buildFeedback(event, profileName);
-  const feedbackId = feedbackTime > now
-    ? await sendEmail({ to: email, ...feedback, deliverAt: feedbackTime })
-    : await sendEmail({ to: email, ...feedback }); // past event — send immediately
-  await logEmailSend(supabase, {
-    eventId,
-    profileId: userId,
-    emailType: 'feedback',
-    messageId: feedbackId,
-    errorMessage: feedbackId ? undefined : 'Mailgun returned null message ID',
-  });
+  // 3. Feedback — 2h after event, only for events hosted by the configured host
+  let feedbackId: string | null = null;
+  if (event.host_id === FEEDBACK_HOST_ID) {
+    const feedbackTime = new Date(eventDatetime.getTime() + (event.duration_minutes ?? 60) * 60 * 1000 + 2 * 60 * 60 * 1000);
+    const feedback = buildFeedback(event, profileName);
+    feedbackId = feedbackTime > now
+      ? await sendEmail({ to: email, ...feedback, deliverAt: feedbackTime })
+      : await sendEmail({ to: email, ...feedback }); // past event — send immediately
+    await logEmailSend(supabase, {
+      eventId,
+      profileId: userId,
+      emailType: 'feedback',
+      messageId: feedbackId,
+      errorMessage: feedbackId ? undefined : 'Mailgun returned null message ID',
+    });
+  }
 
   // Store Mailgun message IDs on RSVP row
   if (reminderId || feedbackId) {
@@ -445,10 +453,10 @@ async function handleRsvp(supabase: ReturnType<typeof createClient>, eventId: st
 }
 
 async function handleCancel(supabase: ReturnType<typeof createClient>, eventId: string) {
-  // Fetch event
+  // Fetch event (host_id included for consistency with other handlers)
   const { data: event } = await supabase
     .from('events')
-    .select('id, title, datetime, duration_minutes, timezone, location, description, slug')
+    .select('id, title, datetime, duration_minutes, timezone, location, description, slug, host_id')
     .eq('id', eventId)
     .single();
 
@@ -488,7 +496,7 @@ async function handleCancel(supabase: ReturnType<typeof createClient>, eventId: 
 async function handleUncancel(supabase: ReturnType<typeof createClient>, eventId: string) {
   const { data: event } = await supabase
     .from('events')
-    .select('id, title, datetime, duration_minutes, timezone, location, description, slug')
+    .select('id, title, datetime, duration_minutes, timezone, location, description, slug, host_id')
     .eq('id', eventId)
     .single();
 
@@ -519,10 +527,10 @@ async function handleUncancel(supabase: ReturnType<typeof createClient>, eventId
 }
 
 async function handleUpdate(supabase: ReturnType<typeof createClient>, eventId: string) {
-  // Fetch updated event
+  // Fetch updated event (include host_id to gate feedback emails)
   const { data: event } = await supabase
     .from('events')
-    .select('id, title, datetime, duration_minutes, timezone, location, description, slug')
+    .select('id, title, datetime, duration_minutes, timezone, location, description, slug, host_id')
     .eq('id', eventId)
     .single();
 
@@ -579,16 +587,19 @@ async function handleUpdate(supabase: ReturnType<typeof createClient>, eventId: 
       });
     }
 
-    const feedbackTime = new Date(eventDatetime.getTime() + (event.duration_minutes ?? 60) * 60 * 1000 + 2 * 60 * 60 * 1000);
-    const feedback = buildFeedback(event, profileName);
-    const feedbackId = await sendEmail({ to: email, ...feedback, deliverAt: feedbackTime });
-    await logEmailSend(supabase, {
-      eventId,
-      profileId: rsvp.profile_id ?? null,
-      emailType: 'feedback',
-      messageId: feedbackId,
-      errorMessage: feedbackId ? undefined : 'Mailgun returned null message ID',
-    });
+    let feedbackId: string | null = null;
+    if (event.host_id === FEEDBACK_HOST_ID) {
+      const feedbackTime = new Date(eventDatetime.getTime() + (event.duration_minutes ?? 60) * 60 * 1000 + 2 * 60 * 60 * 1000);
+      const feedback = buildFeedback(event, profileName);
+      feedbackId = await sendEmail({ to: email, ...feedback, deliverAt: feedbackTime });
+      await logEmailSend(supabase, {
+        eventId,
+        profileId: rsvp.profile_id ?? null,
+        emailType: 'feedback',
+        messageId: feedbackId,
+        errorMessage: feedbackId ? undefined : 'Mailgun returned null message ID',
+      });
+    }
 
     await supabase
       .from('event_rsvps')

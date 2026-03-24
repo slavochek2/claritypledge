@@ -2,6 +2,14 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-24 [product]: Event feedback emails — host-gated, first-person voice, new tally form
+
+**Context:** Post-event feedback email for "Thinking Clearly About AI" (Mar 12) was never delivered. Investigation found: all 11 RSVPs had `mailgun_message_ids: null`, `email_send_log` was empty (table migration post-dated the event by 2 days), and no trace in Mailgun logs (3-day retention). The edge function `send-event-emails` was either never invoked or failed silently — fire-and-forget design (`event-emails.ts` line 7) means errors don't surface to the user. Feedback was manually re-sent to all 11 attendees via Mailgun API with an apology for the delay.
+**Decision:** Three changes to the event feedback system: (1) **Host gate** — feedback emails only send when `event.host_id` matches the founder's profile (`a99042ef-...`). Other hosts manage their own feedback. Applied in `handleRsvp`, `handleUpdate`, and the `resend-feedback.sh` script. (2) **First-person voice** — all feedback templates changed from "We'd love to hear" / "helps us" to "I'd love to hear" / "helps me". ClarityPledge events are personal, not corporate. (3) **Tally form** — switched from `wa7RRq` to `QKDN91` as the event feedback form ID (fallback in code + env var).
+**Alternatives rejected:** (A) Per-host tally form configuration in DB — over-engineering for current single-host reality. (B) Keeping "we" voice for brand consistency — the founder hosts personally, "we" feels dishonest at this stage.
+**Consequences:** Non-founder-hosted events get confirmation + reminder emails but no feedback email. If multi-host feedback is needed later, extend by adding a `feedback_form_url` column to `events` table. The silent failure that caused this issue (edge function not invoked) is still not root-caused — email delivery monitoring (Mailgun webhooks → `email_send_log` status updates) is the next step.
+**References:** [send-event-emails/index.ts](supabase/functions/send-event-emails/index.ts), [resend-feedback.sh](scripts/resend-feedback.sh)
+
 ## 2026-03-24 [process]: Canonical spec section headers — standardize via rules file, not format migration
 
 **Context:** Research into whether XML/JSON formatting improves Claude's spec parsing (prompted by community claims) found: (1) Anthropic recommends Markdown for static instruction files — XML helps only for dynamic API prompts with variable injection, (2) the real problem was 5 concrete header mismatches where skills wrote one name and downstream skills searched for another (e.g., `/architect` wrote `## Technical Analysis` as level-2, `/spec-review` searched for `## Technical Architecture`), (3) no spec structure reference existed — each skill invented its own header names.
