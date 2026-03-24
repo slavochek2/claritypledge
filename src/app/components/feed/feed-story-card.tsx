@@ -12,6 +12,7 @@ import { copyToClipboard } from '@/lib/utils';
 import { analytics } from '@/lib/mixpanel';
 import { GravatarAvatar } from '@/components/ui/gravatar-avatar';
 import { EarBadge } from '@/components/ui/ear-badge';
+import { UnderstoodBadge } from '@/components/ui/understood-badge';
 import { linkifyText } from '@/app/utils/linkify';
 import { TagPills } from '@/app/components/shared/tag-pills';
 import { stripHashtags } from '@/lib/utils';
@@ -106,9 +107,7 @@ export function FeedStoryCard({ story, activeTag, pointCount }: FeedStoryCardPro
 
             {/* Stats + share */}
             <div className="mt-2 flex items-center gap-2">
-              <span className="px-2.5 py-1 bg-gray-100 rounded-full text-xs text-muted-foreground">
-                {story.understoodCount} understood
-              </span>
+              <UnderstoodBadge count={story.understoodCount} size="xs" />
               <div className="flex-1" />
               <button
                 onClick={async (e) => {
