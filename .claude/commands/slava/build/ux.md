@@ -166,7 +166,7 @@ The UX agent:
 
 ### Output (UX section added to spec)
 ```markdown
-## UX Requirements
+## UX Design
 
 ### User Flow
 1. User completes sifter → navigates to results page
@@ -307,7 +307,7 @@ If no upstream concerns: omit Section 6 entirely.
 
 If UX is unclear (e.g., "Where does toggle appear?"), ask user BEFORE generating incomplete UX.
 
-Before writing: check if a `## UX` or `## UX Design` or `## UX Requirements` section already exists in the spec (use Read tool).
+Before writing: check if a `## UX Design` section already exists in the spec (use Read tool). The canonical header is `## UX Design` (see .claude/rules/spec-sections.md). Never use "UX Requirements" or "Screen Designs".
 - If NO existing UX section → append at end of file.
 - If YES existing UX section → replace it in-place using Edit tool. Do NOT leave two UX sections in the file.
 Do NOT modify any content before the UX section.

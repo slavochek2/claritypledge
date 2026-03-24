@@ -91,13 +91,13 @@ Do not begin dimension analysis until Phase 1 is complete. A finding about a nam
 
 **Phase 2 — Check layers are present.**
 
-All layers should be present: Business Requirements, UX Requirements (if UI feature), Technical Architecture, Component Strategy (if UI feature), and Test Coverage Strategy.
+All layers should be present: Business Requirements, UX Design (if UI feature), Technical Architecture, Component Strategy (if UI feature), and Test Coverage Strategy. See `.claude/rules/spec-sections.md` for canonical header names.
 
-To determine feature type: check frontmatter for `feature_type: backend`. If absent, check whether the spec contains a "UX Requirements" or "UX Design" section. If neither frontmatter flag nor UX section exists, add BLOCK: "Cannot determine feature type — add `feature_type: backend` to frontmatter (if backend-only) or run /ux first (if UI feature)."
+To determine feature type: check frontmatter for `feature_type: backend`. If absent, check whether the spec contains a `## UX Design` section. If neither frontmatter flag nor UX section exists, add BLOCK: "Cannot determine feature type — add `feature_type: backend` to frontmatter (if backend-only) or run /ux first (if UI feature)."
 
 If any mandatory layer is missing for the feature type:
-- UI feature missing UX section → BLOCK: "UX layer not found — run /ux first"
-- Any feature missing Technical Architecture → BLOCK: "Technical layer not found — run /architect first"
+- UI feature missing `## UX Design` → BLOCK: "UX layer not found — run /ux first"
+- Any feature missing `## Technical Architecture` → BLOCK: "Technical layer not found — run /architect first"
 - UI feature missing Component Strategy → BLOCK: "Component Strategy not found — run /ui first"
 - Any feature missing Test Coverage Strategy → BLOCK: "Tests layer not found — run /generate-tests first"
 

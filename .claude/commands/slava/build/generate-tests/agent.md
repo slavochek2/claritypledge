@@ -36,8 +36,8 @@ features/p142_dark_mode.md
 
 The spec will have these sections (created by previous skills):
 - **Business Requirements** (from `/create-prd`)
-- **UX Requirements** (from `/ux`, if UI feature)
-- **Technical Requirements** (from `/architect`)
+- **UX Design** (from `/ux`, if UI feature)
+- **Technical Architecture** (from `/architect`)
 
 ---
 
@@ -61,7 +61,7 @@ The spec will have these sections (created by previous skills):
    - What database changes? (tables, columns, policies)
 
 3. **User flows:**
-   - What can users do? (from UX Requirements)
+   - What can users do? (from UX Design)
    - What edge cases? (errors, loading, empty states)
    - What accessibility needs? (keyboard, screen reader)
 

@@ -66,6 +66,12 @@ The entire feature optimizes for one moment: **a visible position switch through
 
 **Impact if not solved:** ClarityPledge remains a facilitator-dependent service with zero standalone product value. Workshops produce intellectual surprise but no follow-up instrument. Partner agreements have no async practice tool. The product can't test H-StoryFirst (async gap revelations) because the measurement mechanism doesn't exist. H-WTP-Pain testing stalls because the workshop flow's step 4 has no implementation.
 
+**Architectural context — Clarity Doc → Clarity Letter relationship (2026-03-24):**
+Long-term, a Clarity Letter is an immutable snapshot of content from a Clarity Doc (P551). The Doc is the mutable source — stories and points accumulate there between sessions. The Letter is the delivery mechanism — "send this selection as a reading experience with assessment." Editing a letter = editing the doc, then sending a new letter (version N+1). V1 letters are standalone (sender selects from profile stories, no doc integration), but the data model should anticipate a nullable `source_doc_id` FK so the relationship can be added when P551 ships.
+
+**Three-letter acquisition sequence (2026-03-24):**
+Letters serve a larger acquisition flywheel: Letter 1 (educate — recipient reads, rates, gaps revealed) → /live verification → Letter 2 (reproduce — recipient creates their own letter using same points, own stories) → Letter 3 (value assessment + PWIW + distributor CTA). In a compressed workshop, all three happen in one 90-120 min session. V1 builds Letter 1 only. Letter 2 uses the same composition flow (recipient is now a registered user). Letter 3 is a future post-completion screen. See [facilitator-guide.md](../../docs/facilitator-guide.md#workshop-format-three-letter-compressed-session).
+
 ---
 
 ## Business Requirements
@@ -309,6 +315,8 @@ The entire feature optimizes for one moment: **a visible position switch through
 5. **Does the grid replace JourneyToUnderstanding in /live?** The grid is a superset (shows both understanding AND agreement). Long-term yes. V1: grid lives in letters, JourneyToUnderstanding stays in /live. Migration is a future task.
 6. **Can a letter document external paraphrase?** (e.g., "we already discussed this in person, I just want to record it") — async /live alternative. Likely future, not V1.
 7. **Guess-line → collapse mechanic:** Both parties' guesses form a line segment on the grid (uncertainty band). After paraphrase, Y collapses to verified number. Visually compelling but may be too complex for V1. Explore in /ux.
+8. **Should composition create an implicit Clarity Doc?** V1 composition = ad-hoc selection from profile. But this IS what a doc is — a curated collection of stories + points with scoped visibility. If the data model uses a `doc_id` FK from the start, a letter's content selection becomes "create a doc, then send it as a letter." This unifies the compose/edit model but adds P551 as a dependency. Decision: V1 standalone, but include nullable `source_doc_id` in the schema.
+9. **Remix flow for Letter 2:** After completing a letter, can the receiver create their own letter reusing the same *points* but with their own *stories*? This is the distribution mechanism — personalized onboarding for their audience. V1: receiver uses standard composition flow (they're registered now). Future: "Create your own letter from these points" button on gap map.
 
 ---
 
@@ -336,6 +344,12 @@ Key patterns from prototypes: dot picker (not slider), three-button (not Likert)
 - Reply letters / ping-pong calibration (future)
 - Replacing JourneyToUnderstanding in /live with the grid (future migration)
 - Async /live mode (documenting external paraphrases) (future)
+- Clarity Doc integration — sourcing letter content from a doc instead of profile (P551, future)
+- Letter editing / versioning — edit the source doc, send new letter version (requires P551)
+- "Create your own letter" CTA on gap map — remix flow for Letter 2 (future post-V1)
+- Three-letter workshop sequence automation — V1 is manual facilitation with individual letters
+- Value assessment / PWIW screen after letter completion — Letter 3 (future)
+- Distributor CTA on Letter 3 completion (future)
 
 ---
 

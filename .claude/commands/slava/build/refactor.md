@@ -88,6 +88,17 @@ Never:
 
 ---
 
+## Phase -1: Context Load (NEVER SKIP when refactoring a P-number feature)
+
+Before running tests or changing code:
+1. If refactoring a feature (P-number): read the spec — understand constraints and decisions that shaped the current code
+2. Read `git log --oneline -10 -- <files>` for the files you'll refactor — don't undo intentional patterns from recent work
+3. `git status --short` — verify the working tree state matches what you expect
+
+**Why this is Phase -1:** Refactoring often happens in a later session than implementation. The original decisions and constraints may not be in context.
+
+---
+
 ## Workflow
 
 ### Phase 0: Pre-Flight Safety Check

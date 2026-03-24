@@ -17,6 +17,12 @@ Never compute this manually — the script handles exclusions correctly (`uat/` 
 - `p117_backend_api.md`
 - `p118_auth_refactor.md`
 
+## Spec Body Structure
+
+For canonical section header names (what agents generate and search for), see [`.claude/rules/spec-sections.md`](../../.claude/rules/spec-sections.md).
+
+---
+
 ## Frontmatter Specification
 
 **All feature files MUST include YAML frontmatter.**
