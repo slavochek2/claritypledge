@@ -654,12 +654,32 @@ Feature implementation complete.
 After successful commit, mark the feature ready for UAT — do NOT move to `features/done/` yet.
 
 1. Mark all `## Acceptance Criteria` checkboxes `[x]` in the spec file.
-2. Update frontmatter: `delivery_stage: uat` (keep `status: in-progress`)
-3. Commit: `chore: pN ready for UAT — {title}`
-4. Run fix-kanban: Invoke `/slava:maintain:fix-kanban`
-5. If `*.tsx` files changed: Ask "Run `/verify` for visual QA? (y/n)"
-6. **Determine test URL:** Run `pwd` to identify worktree slot. Look up port from `docs/technical/worktree-setup.md` (w0=5001, w1=5100, w2=5200, etc.). If on main (w0), port is 5001. Include the correct URL in the message.
-7. Tell user: "Feature ready for UAT on branch `feature/pN-xxx` at **http://localhost:{port}/**. Run `/ship pN` when satisfied to merge to prod and close the spec. /ship closes the spec, moves it to features/done/, and cleans up the branch. Merging manually without running /ship leaves the spec stranded at delivery_stage: uat."
+2. **Determine test URL:** Run `pwd` to identify worktree slot. Look up port from `docs/technical/worktree-setup.md` (w0=5001, w1=5100, w2=5200, etc.). If on main (w0), port is 5001.
+3. **If `*.tsx` files changed: Auto-run visual verification** (do not ask — just do it).
+   - **Pre-check:** Run `mcp__claude-in-chrome__tabs_context_mcp` to verify Chrome MCP is available. If it errors → skip to fallback immediately (don't spawn).
+   - Take screenshots of the affected pages at desktop and 390px mobile widths
+   - Read the visual QA checklist from `.claude/rules/visual-qa.md`
+   - **Spawn a SEPARATE visual QA subagent** (anti-confirmation-bias: it must NOT see the spec or code diff):
+     ```
+     You are a visual QA reviewer. You succeed by FINDING problems, not confirming quality.
+
+     Here are screenshots of a feature at http://localhost:{port}/{relevant-path}.
+     {attach all screenshots taken above}
+
+     Apply this visual QA checklist to every screenshot:
+     {inlined visual-qa.md checklist}
+
+     Return exactly one of:
+     - PASS: no visual issues found. List what you checked.
+     - FAIL: list each issue found (overflow, clipping, spacing, contrast, etc.) with which screenshot.
+     ```
+   - If subagent returns **PASS**: proceed to step 4
+   - If subagent returns **FAIL**: report findings to the user. Tell them: "Visual QA found issues — fix them and re-run `/dev`, or run `/verify` for full UAT." Do NOT proceed to step 4.
+   - **Fallback** (Chrome MCP unavailable): tell user "Chrome unavailable — run `/verify` manually for visual QA" and proceed to step 4.
+4. Update frontmatter: `delivery_stage: uat` (keep `status: in-progress`)
+5. Commit: `chore: pN ready for UAT — {title}`
+6. Run fix-kanban: Invoke `/slava:maintain:fix-kanban`
+7. Tell user: "Feature ready for UAT on branch `feature/pN-xxx` at **http://localhost:{port}/**. Visual QA: {✅ passed / ⚠️ issues found — see above / ⏭️ skipped (Chrome unavailable)}. Run `/ship pN` when satisfied to merge to prod and close the spec."
 
 **Do NOT:**
 - Move spec to `features/done/` — that happens in `/ship`

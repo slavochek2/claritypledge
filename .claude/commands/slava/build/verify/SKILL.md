@@ -718,7 +718,7 @@ If ⚠️ verdict (visual issues only):
 |-----------|----------|
 | No UAT file exists | Auto-create `features/uat/p{N}.md` (Step 1b), then proceed |
 | No acceptance criteria section | Derive from any "Given/When/Then" or "must/should" statements in spec |
-| Scenario needs unauthenticated state | Clear auth from localStorage + reload: `localStorage.removeItem(Object.keys(localStorage).find(k => k.startsWith('sb-') && k.endsWith('-auth-token'))); location.reload();` — no incognito needed |
+| Scenario needs unauthenticated state | Clear all Supabase state from localStorage + reload: `Object.keys(localStorage).filter(k => k.startsWith('sb-')).forEach(k => localStorage.removeItem(k)); location.reload();` — removes auth-token, code-verifier, and any cached session state. No incognito needed |
 | Scenario requires DB setup (create N records) | Auto-create via service role key (see Step 3 data prerequisite). Fall back to asking user only if key unavailable |
 | Page doesn't exist yet | ❌ Fail immediately — page not found is a functional failure |
 | Dev server on different port (worktree) | Auto-detect from vite.config.ts |
