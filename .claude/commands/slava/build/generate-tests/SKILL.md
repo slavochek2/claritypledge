@@ -59,7 +59,7 @@ Generate comprehensive test strategy: unit, integration, E2E, accessibility, smo
 
 **In the sequential flow:**
 ```
-/create-prd → /ux (if UI) → /architect → /generate-tests → /spec-review → /decompose* → /dev
+/create-prd → /ux (if UI) → /architect → /ui (if UI) → /generate-tests → /spec-review → /decompose* → /dev
 ```
 
 **Run this after:**
@@ -372,7 +372,7 @@ The integration test MUST include a schema existence check using the **two-clien
 ## Integration with Sequential Flow
 
 ```
-/architect → /generate-tests → /spec-review → /decompose* → /dev
+/architect → /ui (if UI) → /generate-tests → /spec-review → /decompose* → /dev
 ```
 
 * /decompose optional — run AFTER /spec-review (not before). /decompose reads the
@@ -462,6 +462,7 @@ The integration test MUST include a schema existence check using the **two-clien
 - `/create-prd` → Business requirements (layer 1)
 - `/ux` → UX design (layer 2, if UI)
 - `/architect` → Technical architecture (layer 3)
+- `/ui` → Component strategy (layer 3.5, if UI)
 - `/generate-tests` → Test strategy (layer 4) ← **YOU ARE HERE**
 - `/dev` → Implementation + testing (layer 5)
 

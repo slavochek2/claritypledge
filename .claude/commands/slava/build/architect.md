@@ -365,18 +365,20 @@ Also check:
 ## After Architecture
 
 **Next steps:**
-1. **Review Architecture** - User confirms approach, security, files to change
-2. **Run /generate-tests** - Tests generated from architecture
-3. **Implement** - Run `/dev` with full spec
+1. **Review Architecture** — User confirms approach, security, files to change
+2. **Run /ui** — Component strategy maps UX + architecture to concrete component choices (UI features only)
+3. **Run /generate-tests** — Tests generated from full spec
+4. **Implement** — Run `/dev` with full spec
 
 ---
 
 ## Related Skills
 
-- `/create-prd` - Business requirements (run before /architect)
-- `/ux` - UX design (run before /architect if UI feature)
-- `/generate-tests` - Test generation (run after /architect)
-- `/dev` - Implementation (run after /generate-tests)
+- `/create-prd` — Business requirements (run before /architect)
+- `/ux` — UX design (run before /architect if UI feature)
+- `/ui` — Component strategy (run after /architect, UI features only)
+- `/generate-tests` — Test generation (run after /ui)
+- `/dev` — Implementation (run after /generate-tests)
 
 ---
 

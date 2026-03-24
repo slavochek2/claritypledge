@@ -101,6 +101,7 @@ You're not just writing code — you're building something that will run in prod
 
 0.4. **Mark in-progress** — If a P-number spec was provided, update `status: in-progress` in frontmatter (skip silently if inline description mode)
 1. **Read tests** — UAT scenarios, E2E test stubs, acceptance criteria
+1.5. **Read Component Strategy** — If spec has `## Component Strategy`, read the Component Map table. Every Reuse/Extend/Extract/New classification is a constraint — follow it. Do not create new components when the map says Reuse or Extend. If the Extraction Plan lists a prerequisite refactor, do it first.
 2. **Understand** — Read the spec fully in this order:
    - **Decisions** section first — every decision is a constraint, not a suggestion. Before writing a single line, internalize what the spec rules out (e.g., "edit detected via DB lookup, not URL param" means: do not add a URL param). Signal you skipped this: /review-all removes something because it contradicts a spec decision.
    - **Acceptance Criteria** — what done looks like

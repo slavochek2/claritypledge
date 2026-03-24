@@ -243,12 +243,12 @@ This repo is public (AGPL-3.0). Use `.private/` (gitignored) for: service accoun
 
 Full pipeline — complex work (multiple concerns, auth/DB/UX, 5+ files):
 ```
-/create-prd → /challenge-prd → /ux (if UI) → /research-arch* → /architect → /generate-tests → /spec-review* → /decompose* → /dev
+/create-prd → /challenge-prd → /ux (if UI) → /research-arch* → /architect → /ui (if UI) → /generate-tests → /spec-review* → /decompose* → /dev
 ```
 
 Medium work — feature with clear scope, limited complexity:
 ```
-/create-prd → /challenge-prd → /dev
+/create-prd → /challenge-prd → /ui (if UI) → /dev
 ```
 
 Small work — bug with confirmed root cause, copy change, config tweak, single concern:
