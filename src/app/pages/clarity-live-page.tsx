@@ -354,7 +354,16 @@ export function ClarityLivePage() {
   // P566: Chunk store + upload queue
   const chunkStoreRef = useRef<ChunkStore | null>(null);
   const uploadQueueRef = useRef<ChunkUploadQueue | null>(null);
-  const [uploadProgress, setUploadProgress] = useState<UploadProgressState | null>(null);
+  const [uploadProgress, setUploadProgress] = useState<UploadProgressState | null>(() => {
+    // Debug: ?debugUpload=uploading|complete|failed simulates upload states on localhost
+    if (!import.meta.env.PROD) {
+      const debugUpload = new URLSearchParams(window.location.search).get('debugUpload');
+      if (debugUpload === 'uploading') return { status: 'uploading', pending: 3, total: 10 };
+      if (debugUpload === 'complete') return { status: 'complete', pending: 0, total: 10 };
+      if (debugUpload === 'failed') return { status: 'failed', pending: 2, total: 10 };
+    }
+    return null;
+  });
 
   // P584: Navigation guard state — prevents navigating away during upload
   const [showUploadNavGuard, setShowUploadNavGuard] = useState(false);
@@ -2885,7 +2894,10 @@ export function ClarityLivePage() {
   // Show partner left screen if partner departed
   if (sessionEnded || partnerLeft) {
     // P584: Count completed (non-skipped) rounds for transcript messaging
-    const completedRounds = (liveState.sessionHistory ?? []).filter(r => !r.skipped).length;
+    const realRounds = (liveState.sessionHistory ?? []).filter(r => !r.skipped).length;
+    // Debug: ?debugRounds=N simulates completed rounds on localhost
+    const debugRounds = !import.meta.env.PROD ? parseInt(new URLSearchParams(window.location.search).get('debugRounds') ?? '', 10) : NaN;
+    const completedRounds = !isNaN(debugRounds) ? debugRounds : realRounds;
 
     return (
       <div className="flex flex-col min-h-[calc(100vh-9rem)] lg:min-h-[calc(100vh-5rem)]">
