@@ -10,13 +10,13 @@ created_date: 2026-03-24
 tags:
   - redesign
   - p501
-uat_file: features/uat/p584.md
+uat_file: features/uat/p585.md
 test_files:
   - src/tests/understood-badge.test.tsx
-  - e2e/p584-understood-badge.spec.ts
+  - e2e/p585-understood-badge.spec.ts
 ---
 
-# P584: Extract shared `<UnderstoodBadge>` component + add ear icon and tooltip
+# P585: Extract shared `<UnderstoodBadge>` component + add ear icon and tooltip
 
 ## Problem
 
@@ -37,7 +37,7 @@ P501 unified field name (`verificationCount` → `understoodCount`) and standard
 
 ## /challenge-prd Resolution
 
-Original P584 scope included hide-at-zero and relabel to "verified." Both were blocked:
+Original P585 scope included hide-at-zero and relabel to "verified." Both were blocked:
 - **Hide-at-zero** contradicts two documented decisions (P501 2026-03-13, P269 2026-02-18: "empty state over hidden")
 - **Relabel "verified"** splits terminology — entire product says "understood" (DB column, EarBadge, profile, share copy)
 

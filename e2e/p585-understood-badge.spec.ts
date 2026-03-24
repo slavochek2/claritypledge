@@ -1,5 +1,5 @@
 /**
- * P584: UnderstoodBadge — shared component with ear icon + tooltip
+ * P585: UnderstoodBadge — shared component with ear icon + tooltip
  *
  * Extends P501 coverage: verifies the unified UnderstoodBadge component
  * renders consistently across all surfaces with ear icon and tooltip.
@@ -9,7 +9,7 @@ import { createTestUser, deleteTestUser } from './helpers/test-user';
 import { createTestStory, deleteTestStory } from './helpers/test-story';
 import { supabaseAdmin } from '../src/lib/supabase-admin';
 
-test.describe('P584: UnderstoodBadge with ear icon + tooltip', () => {
+test.describe('P585: UnderstoodBadge with ear icon + tooltip', () => {
   test.describe.configure({ timeout: 90000 });
 
   let author: Awaited<ReturnType<typeof createTestUser>>;
@@ -17,16 +17,16 @@ test.describe('P584: UnderstoodBadge with ear icon + tooltip', () => {
   let storyPositive: Awaited<ReturnType<typeof createTestStory>>;
 
   test.beforeAll(async () => {
-    author = await createTestUser({ name: 'P584 Author' });
+    author = await createTestUser({ name: 'P585 Author' });
     const authorId = author.user.id;
 
     storyZero = await createTestStory(authorId, {
-      content: 'P584 test story zero understood',
+      content: 'P585 test story zero understood',
       visibility: 'public',
     });
 
     storyPositive = await createTestStory(authorId, {
-      content: 'P584 test story positive understood',
+      content: 'P585 test story positive understood',
       visibility: 'public',
     });
 
@@ -44,7 +44,7 @@ test.describe('P584: UnderstoodBadge with ear icon + tooltip', () => {
 
   test('feed: badge shows ear icon SVG for zero count', async ({ page }) => {
     await page.goto('/feed?tab=stories');
-    const card = page.locator('text=P584 test story zero understood').locator('..');
+    const card = page.locator('text=P585 test story zero understood').locator('..');
     await expect(card).toBeVisible();
     // Badge text present
     const badge = card.locator('text=0 verified');
@@ -56,7 +56,7 @@ test.describe('P584: UnderstoodBadge with ear icon + tooltip', () => {
 
   test('feed: badge shows ear icon SVG for positive count', async ({ page }) => {
     await page.goto('/feed?tab=stories');
-    const card = page.locator('text=P584 test story positive understood').locator('..');
+    const card = page.locator('text=P585 test story positive understood').locator('..');
     await expect(card).toBeVisible();
     const badge = card.locator('text=3 verified');
     await expect(badge).toBeVisible();
@@ -66,7 +66,7 @@ test.describe('P584: UnderstoodBadge with ear icon + tooltip', () => {
 
   test('feed: badge has tooltip on hover', async ({ page }) => {
     await page.goto('/feed?tab=stories');
-    const card = page.locator('text=P584 test story zero understood').locator('..');
+    const card = page.locator('text=P585 test story zero understood').locator('..');
     await expect(card).toBeVisible();
     const badge = card.locator('text=0 verified');
     await badge.hover();
@@ -79,7 +79,7 @@ test.describe('P584: UnderstoodBadge with ear icon + tooltip', () => {
     const slug = author.profile?.slug;
     await page.goto(`/p/${slug}`);
     await page.click('text=Stories');
-    const card = page.locator('text=P584 test story zero understood').locator('..');
+    const card = page.locator('text=P585 test story zero understood').locator('..');
     await expect(card).toBeVisible();
     const badge = card.locator('text=0 verified');
     await expect(badge).toBeVisible();
