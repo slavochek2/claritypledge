@@ -96,7 +96,7 @@ Before applying the scoring table, classify the task:
 |-----------|-------------|
 | **Feature** (new user-facing capability) | Apply scoring table below |
 | **Bug** (broken behavior, root cause known) | `/fix` → done |
-| **Bug** (root cause unclear) | Investigate first, then `/fix` |
+| **Bug** (root cause unclear) | `/diagnose` first (see below), then `/fix` |
 | **Redesign** (shipped feature, code works, design was wrong) | `/change-request` → `/challenge-prd` → then `/ux` / `/architect` / `/generate-tests` / `/spec-review` / `/dev` / `/verify` per scoring table hard rules (DB column → `/architect` mandatory; net-new visual pattern → `/ux` mandatory — apply drop-`/ux` rule from scoring table; ASCII in conversation ≠ UX resolved for new interaction patterns); `/challenge-prd` mandatory for redesigns (same as medium pipeline); if redesign also adds new capability, file `/create-prd` for that portion separately; if ASCII exploration exists in conversation, `/change-request` must capture it as raw material so `/ux` has context |
 | **Refactor** (restructuring, no behavior change) | `/quick-feature` (skeleton for tracking) → `/dev` — no `/create-prd`, no `/ux` |
 | **Data migration** (one-time SQL script) | `/dev` + `/generate-tests` mandatory (P270 rule) |
@@ -108,6 +108,32 @@ Before applying the scoring table, classify the task:
 **Redesign test:** "Is the code broken, or is the design wrong?" Broken → `/fix`. Wrong design → `/change-request`. Both (design wrong AND fix requires new capability) → `/change-request` for the redesign + `/create-prd` for the new capability, filed separately.
 
 If task type is non-feature/non-bug, state the type and give the default flow directly. Skip the scoring table.
+
+## Diagnose protocol (bugs with unclear root cause)
+
+When the user reports a symptom but root cause is unknown, run structured diagnosis before choosing a fix path. Do NOT jump to `/fix` or `/create-bug`.
+
+**Spawn a general-purpose subagent with this prompt template:**
+
+```
+You are a root-cause analyst. Investigate this problem using a structured 5-Why analysis.
+
+## Symptom
+{user's description of what's broken}
+
+## User claims (CONSTRAINTS — your conclusion must be consistent with these, or explicitly explain why not)
+{any observations the user has shared — e.g., "it worked in test", "I saw X yesterday"}
+
+## Instructions
+1. Investigate the actual system state (read files, query APIs, check logs)
+2. At each "why" level, gather evidence before concluding
+3. If your finding contradicts a user claim, flag it explicitly — do not silently ignore
+4. Output: structured 5-Why with evidence at each level, root cause, and recommended fix path
+
+Do NOT edit files or make changes. Diagnosis only.
+```
+
+**After diagnosis completes**, present findings and recommend which build flow to take (`/fix`, `/create-bug`, or escalate to `/create-prd` if the problem is a design issue).
 
 ## Scope scoring (features and bugs only)
 

@@ -39,6 +39,27 @@ GET /ghost/api/admin/members/?limit=1
 
 Report both counts to user: "Ready to send to {N} subscribers. Confirm?"
 
+3. **Email card image gate** — if the post contains `type: "email"` cards (from `/prep-email`), verify each non-signature card has an `<img` tag. Signature card (contains "Vyacheslav Ladischenski") is exempt.
+
+   ```
+   GET /ghost/api/admin/posts/{id}/?formats=lexical
+   ```
+   Parse Lexical JSON → walk `root.children` → find all `type: "email"` nodes → for each:
+   - Skip if HTML contains "Vyacheslav Ladischenski" (signature card)
+   - **BLOCK** if HTML does NOT contain `<img` — this means `/prep-email` ran but screenshots are missing
+
+   If blocked:
+   ```
+   ⛔ Email cards found but {N} are missing screenshot images.
+   These will appear as text-only links in the newsletter.
+
+   Cards without images:
+     - Index {i}: "{first 60 chars of HTML}..."
+
+   Run /prep-email to add screenshots, or remove the email cards to send without fallbacks.
+   ```
+   Do NOT proceed to publish. Wait for user to fix and re-confirm.
+
 Wait for explicit confirmation before publishing.
 
 ## Publish

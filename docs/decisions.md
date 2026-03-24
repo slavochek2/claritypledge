@@ -2,6 +2,14 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-24 [process]: Newsletter image disappearance — unresolved root cause (Status: proposed)
+
+**Context:** First newsletter ("Two Skills") sent after Mailgun limitation lift showed images in test email but not in final send. Current Ghost Lexical JSON has email cards with text-only links (no `<img>` tags). User confirmed test email DID have images. Most likely cause: Ghost editor round-trip stripped email card `<img>` content when post was re-saved between test send and publish.
+**Decision:** Unresolved. Verify on next blog post by comparing Lexical JSON before and after any Ghost editor save. If Ghost editor strips `<img>` from `type: "email"` cards on save, the fix is: never open the Ghost editor after `/prep-email` runs.
+**Alternatives rejected:** N/A — diagnosis incomplete.
+**Consequences:** The `/ship-blog` image gate (added this session) prevents shipping without images going forward. But the root cause of *why* images disappeared between test and final send remains unconfirmed.
+**References:** [ship-blog.md](.claude/commands/slava/content/ship-blog.md)
+
 ## 2026-03-24 [product]: Workshop shared view = facilitator projects their screen
 
 **Context:** Workshop mode needs participants to see group data (gap map with all responses). Options ranged from a dedicated participant-visible dashboard with privacy controls to the simplest possible approach.

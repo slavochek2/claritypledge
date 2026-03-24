@@ -244,7 +244,7 @@ Recommendation: Remove from README.md, link to definitions.md instead.
    For each item, classify and format as follows:
    - **Trivial / obvious fix**: single clear action, no real trade-off → report as: `- [What happened] → recommended action: [exact action + where]`
    - **Requires decision**: multiple legitimate options with real trade-offs → generate a `/simplify` block (see 7.3)
-   - **No obvious fix, worth tracking**: problem is understood but no action is clear yet → report as: `- [What happened] → recommended: add to process-learnings.md as Status: proposed`
+   - **No obvious fix, worth tracking**: problem is understood but no action is clear yet → report as: `- [What happened] → recommended: add to decisions.md as (Status: proposed)` — use standard decisions.md format with tag, append `(Status: proposed)` to title. When resolved: update the entry title to remove `(Status: proposed)` and fill in the Decision/Consequences fields.
 
    Present all items in a single numbered message. If no /simplify blocks are present, end with: "Reply with what to act on, or 'skip all'." If /simplify blocks are present, their own reply prompts take precedence — omit the general prompt.
 
@@ -269,7 +269,7 @@ Recommendation: Remove from README.md, link to definitions.md instead.
 
    If it requires `/claude-md` gate or user judgement: flag as a block, don't act unilaterally.
 
-   **process-learnings graduation rule:** When a `Status: proposed` item gets resolved (fix applied, decision made): (1) delete it from process-learnings.md, (2) add a `[process]` entry to decisions.md. Never leave `Status: done` entries in process-learnings.md — done = graduated. An empty file is healthy.
+   **Proposed → resolved:** When a `(Status: proposed)` entry in decisions.md gets resolved (fix applied, root cause confirmed), update the entry in-place: remove `(Status: proposed)` from title, fill in Decision and Consequences fields. One file, no graduation step.
 
 8. **Skill-quality reflection** — dropped. Use `/falsify` explicitly when skill quality review is needed. KDD's core job is capturing decisions (Steps 1-7), not reviewing skill quality.
 
