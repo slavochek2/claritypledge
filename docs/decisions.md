@@ -2,6 +2,38 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-24 [technical]: Debug URL params for /live session-end testing (P584)
+
+**Context:** Session end screen states (upload progress, transcript notification, nav guard) require real audio recording, which only runs in `import.meta.env.PROD`. This made localhost verification impossible — agents couldn't reach the end screen states they needed to test.
+**Decision:** Added dev-only URL params: `?debugUpload=uploading|complete|failed` (simulates upload state), `?debugRounds=N` (simulates completed rounds), alongside existing `?skipMicCheck=true` (bypasses mic permission prompt). All gated on `!import.meta.env.PROD`.
+**Alternatives rejected:** (A) Removing the prod gate for recording — pollutes training data with dev sessions. (B) Mocking at component level only — doesn't test the full integration. (C) Testing only on prod — too slow for iteration.
+**Consequences:** Agents running `/verify` on /live features should use these params. Pattern: `http://localhost:5173/live?debugUpload=uploading&debugRounds=3&skipMicCheck=true`. The three params together unlock full end-screen testing on localhost.
+**References:** `src/app/pages/clarity-live-page.tsx` (useState initializer + completedRounds computation)
+
+## 2026-03-24 [technical]: useBlocker incompatible with BrowserRouter — use popstate+pushState pattern (P584)
+
+**Context:** P584 needed a navigation guard to prevent users from leaving during audio upload. Spec initially called for React Router's `useBlocker`.
+**Decision:** `useBlocker` requires `createBrowserRouter` (data router). This app uses `BrowserRouter`. Use popstate+pushState pattern instead (push dummy history entry, intercept popstate, show Dialog). This pattern was already proven in P427 (`story-detail-page.tsx:878`).
+**Alternatives rejected:** (A) `useBlocker` — doesn't work with BrowserRouter. (B) Migrating to `createBrowserRouter` — massive scope creep. (C) Only intercepting bottom nav clicks — misses browser back button.
+**Consequences:** Any future navigation guards in this app must use the popstate pattern, not `useBlocker`. The `ConfirmDialog` shared component has inverted emphasis (primary = destructive) — for guards where primary = "stay safe", build Dialog inline.
+**References:** `src/app/pages/clarity-live-page.tsx` lines 363-389, `src/app/pages/story-detail-page.tsx:878`
+
+## 2026-03-24 [product]: Session end screen is an upload gate, not a celebration screen (P584)
+
+**Context:** The old session end screen showed stats ("3 rounds practiced"), transcript promises (even when nothing would appear in Session History), and role-differentiated buttons (host: "Start New Session", participant: "Back to Home"). The founder asked: "what do we actually want people to do here?"
+**Decision:** The screen's job is: (1) protect the recording during upload (CTA hidden, nav guard), (2) give honest conditional transcript info (only when rounds > 0), (3) single unified CTA to re-enter the practice loop. No stats, no celebration, no role differentiation. Upload failure shown honestly ("Recording could not be saved") not silently.
+**Alternatives rejected:** (A) Celebratory stats card — user doesn't care, they just lived it. (B) Silent upload failure — contradicts the honesty goal. (C) Auto-redirect with toast — no upload protection. (D) "Practice Again" CTA — inconsistent with "Start a Clarity Session" used everywhere else.
+**Consequences:** Guest variant uses transcript as conversion hook ("Create an account to access your transcript"). The false-promise bug (showing "check Session History" for 0-round sessions) is permanently fixed by the `completedRounds > 0` conditional.
+**References:** `features/done/24_mar_26/p584_session_end_screen_redesign.md`
+
+## 2026-03-24 [process]: /ship-blog email image gate — block publishing when email cards lack screenshots
+
+**Context:** First newsletter sent after Mailgun limitation lift-off ("The Two Skills That Will Define the Next Generation of Founders") arrived with blank spaces where interactive element previews should be. Investigation found: `/prep-email` partially executed — it correctly set visibility flags on HTML cards and inserted email-only cards + signature, but the Playwright screenshot pipeline failed silently. Email cards contained only text links ("View interactive version →") with zero `<img>` tags. The skill's self-check gate was a soft markdown checklist, not enforced code. Ghost correctly rendered the image-less cards into the Mailgun payload — the problem was upstream.
+**Decision:** Add a hard validation gate to `/ship-blog` pre-flight checks: before publishing, parse the post's Lexical JSON, find all `type: "email"` cards, and verify each non-signature card contains an `<img` tag. If any card lacks an image, block publishing with a specific error listing which cards are broken. The gate belongs in `/ship-blog` (last step before send), not `/prep-email` (which already has the soft checklist).
+**Alternatives rejected:** (A) Gate in `/prep-email` only — doesn't prevent publishing if someone edits the post manually in Ghost editor after prep. (B) No gate, rely on test-send verification — test sends are manual and the image presence wasn't caught this time.
+**Consequences:** Next newsletter cannot ship with image-less email fallback cards. If screenshots genuinely can't be taken (e.g., embed requires auth), the user must either fix the screenshots or explicitly remove the email cards before publishing.
+**References:** [ship-blog.md](.claude/commands/slava/content/ship-blog.md), [prep-email.md](.claude/commands/slava/content/prep-email.md)
+
 ## 2026-03-24 [product]: Event feedback emails — host-gated, first-person voice, new tally form
 
 **Context:** Post-event feedback email for "Thinking Clearly About AI" (Mar 12) was never delivered. Investigation found: all 11 RSVPs had `mailgun_message_ids: null`, `email_send_log` was empty (table migration post-dated the event by 2 days), and no trace in Mailgun logs (3-day retention). The edge function `send-event-emails` was either never invoked or failed silently — fire-and-forget design (`event-emails.ts` line 7) means errors don't surface to the user. Feedback was manually re-sent to all 11 attendees via Mailgun API with an apology for the delay.

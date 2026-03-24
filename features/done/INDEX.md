@@ -1,7 +1,7 @@
 # Done Features Index
 
 Quick reference for past completed work. Consult when starting work on a related topic.
-Last updated: 2026-03-23 (P582 rejoin prompt realtime subscription)
+Last updated: 2026-03-24 (P584 session end screen redesign)
 
 ---
 
@@ -24,6 +24,7 @@ Last updated: 2026-03-23 (P582 rejoin prompt realtime subscription)
 - **P495** (Mar 16) Live Session Transcription — Cloud Run GPU (L4) with Whisper large-v3-turbo + pyannote; type field names must match DB exactly (`start_ms`/`end_ms` not `start`/`end`); `import.meta.env.PROD` gate means dev never records audio
 - **P511** (Mar 16) Session Resilience — banner must render inside `<main>` (not between nav/main) to avoid z-index fights; `ended_at` column doesn't exist — use `live_state.sessionEnded`; creator-only heartbeats; `createTwoPartySession()` test fixture built as P497 MVP
 - **P582** (Mar 23) Rejoin Prompt Stale After End — pre-session UI states need their own realtime subscriptions; main sub gated on `session!=null` leaves rejoin prompt as dead end
+- **P584** (Mar 24) Session End Screen Redesign — `useBlocker` requires data router (use popstate+pushState); `?debugUpload`/`?debugRounds` params unlock localhost testing of prod-only states; session history only counts non-skipped rounds
 
 ## Points & Stories
 
