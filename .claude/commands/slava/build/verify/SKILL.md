@@ -215,6 +215,76 @@ Wait for confirmation before continuing.
 
 ---
 
+#### 5a-AUTH: Auto-Inject Test Account Session
+
+Run this macro **automatically** when Step 5a detects no authenticated session in the Chrome tab and the scenario needs a verified user. Do not ask the human — inject the test account directly.
+
+**When to use:**
+- Scenario needs any verified user for visual QA (feed, profile, story detail, etc.)
+- No session is present in the Chrome tab (blank page or redirect to login)
+
+**When to ask the human instead:**
+- Scenario specifically needs the user's own data (their stories, their positions, their profile page as they see it)
+
+**Step A1 — Read credentials from .env.test.local:**
+```bash
+node -e "
+  const fs = require('fs');
+  const env = fs.readFileSync('.env.test.local', 'utf8')
+    .split('\n')
+    .reduce((acc, line) => {
+      const eq = line.indexOf('=');
+      if (eq > 0 && !line.startsWith('#')) acc[line.slice(0, eq).trim()] = line.slice(eq + 1).trim();
+      return acc;
+    }, {});
+  console.log(JSON.stringify({
+    url: env.VITE_SUPABASE_URL,
+    anonKey: env.VITE_SUPABASE_ANON_KEY,
+    email: env.VERIFY_AGENT_EMAIL,
+    password: env.VERIFY_AGENT_PASSWORD,
+  }));
+"
+```
+Parse the JSON output. If `VERIFY_AGENT_EMAIL` is empty → fall back to asking the human (Step 5a default behavior).
+
+**Step A2 — Fetch JWT:**
+```bash
+curl -s -X POST "${url}/auth/v1/token?grant_type=password" \
+  -H "apikey: ${anonKey}" \
+  -H "Content-Type: application/json" \
+  -d "{\"email\":\"${email}\",\"password\":\"${password}\"}"
+```
+Parse the response. Extract `access_token`, `refresh_token`, and `user` object.
+If HTTP error or no `access_token` → stop and report "Auth injection failed — check VERIFY_AGENT credentials in .env.test.local."
+
+**Step A3 — Inject into browser tab:**
+Use `mcp__claude-in-chrome__javascript_tool` on the target tab:
+```javascript
+const sessionPayload = JSON.stringify({
+  access_token: '${access_token}',
+  refresh_token: '${refresh_token}',
+  expires_at: Math.floor(Date.now()/1000) + 3600,
+  expires_in: 3600,
+  token_type: 'bearer',
+  user: ${JSON.stringify(user)}
+});
+localStorage.setItem('sb-gfjctyxqlwexxwsmkakq-auth-token', sessionPayload);
+location.reload();
+```
+Wait 2 seconds for reload.
+
+**Step A4 — Verify:**
+```javascript
+const key = Object.keys(localStorage).find(k => k.startsWith('sb-') && k.endsWith('-auth-token'));
+const s = key ? JSON.parse(localStorage.getItem(key)) : null;
+console.log('Logged in as:', s?.user?.email);
+```
+If email matches `VERIFY_AGENT_EMAIL` → continue. Otherwise → stop and report "Auth injection failed."
+
+Announce: "Injected verify agent session ({email}). Proceeding with authenticated scenarios."
+
+---
+
 #### 5a-TWO-PARTY: Two-Party Session Boot Macro
 
 Run this macro once, automatically, before the first scenario tagged `**Requires:** two-party`.
