@@ -1,6 +1,6 @@
 ---
-status: week
-delivery_stage: 3.5-ui-review
+status: in-progress
+delivery_stage: dev
 type: feature
 rank: 1000026.0
 workstream: E

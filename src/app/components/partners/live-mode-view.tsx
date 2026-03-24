@@ -17,7 +17,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { Link, useSearchParams } from 'react-router-dom';
-import { DoorOpen, Loader2 as Loader2Icon, ShieldOff, Sparkles } from 'lucide-react';
+import { CheckCircle2, ShieldOff, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Drawer,
@@ -122,104 +122,108 @@ interface PartnerLeftScreenProps {
   isCreator?: boolean;
   /** P566: Upload progress to show during post-session drain */
   uploadProgress?: UploadProgressState | null;
+  /** P584: Number of completed (non-skipped) rounds in this session */
+  completedRounds?: number;
 }
 
 /**
- * Screen shown when the partner has left the meeting.
- * Displays different messaging based on whether the creator ended the session
- * or the joiner left. Shows signup prompt for anonymous guests.
+ * P584: Session end screen — upload gate + single CTA.
+ * Unified layout for host, participant, and guest.
+ * Upload progress shown for ALL users. CTA hidden during upload.
+ * Transcript messaging conditional on completedRounds > 0.
  */
-export function PartnerLeftScreen({ partnerName, sessionEnded, onStartNew, isGuest, uploadProgress, isCreator }: PartnerLeftScreenProps) {
-  // Different messaging based on what happened
+export function PartnerLeftScreen({ partnerName, sessionEnded, onStartNew, isGuest, uploadProgress, isCreator: _isCreator, completedRounds = 0 }: PartnerLeftScreenProps) {
+  // Title logic (Option A — keep existing distinction)
   const title = sessionEnded
     ? 'Session ended'
     : partnerName
       ? `${partnerName} has left`
       : 'Your partner has left';
 
-  const subtitle = sessionEnded
-    ? (isCreator ? 'You ended the Clarity Session.' : `${partnerName || 'The host'} ended the Clarity Session.`)
-    : 'Clarity Session has ended.';
+  const isUploading = uploadProgress?.status === 'uploading';
+  const uploadDone = !uploadProgress || uploadProgress.status === 'complete' || uploadProgress.status === 'failed';
+  const uploadFailed = uploadProgress?.status === 'failed';
+  const uploadPercent = uploadProgress && uploadProgress.total > 0
+    ? Math.round(((uploadProgress.total - uploadProgress.pending) / uploadProgress.total) * 100)
+    : 0;
 
   return (
     <div className="flex flex-col items-center justify-center min-h-[300px]">
       {/* P493: Install banner for registered users (guests see signup CTA instead) */}
       {!isGuest && <PwaSessionEndBanner />}
-      <div className="p-8 text-center max-w-sm mx-auto">
-      <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mb-4 mx-auto">
-        <DoorOpen className="w-8 h-8 text-muted-foreground" />
-      </div>
-      <h2 className="text-xl font-semibold mb-2">{title}</h2>
-      <p className="text-muted-foreground mb-6">{subtitle}</p>
-      {!isGuest && (
-        <>
-          <Button onClick={onStartNew} className="bg-blue-500 hover:bg-blue-600 text-white">
-            {isCreator ? 'Start New Session' : 'Back to Home'}
-          </Button>
-          {/* P566: Upload progress — shown for both host and participant */}
-          {uploadProgress && uploadProgress.status === 'uploading' && (
-            <div className="mt-4 w-full space-y-2">
-              <p className="text-sm font-medium">Uploading session audio...</p>
-              <div className="w-full bg-muted rounded-full h-2">
-                <div
-                  className="bg-blue-500 rounded-full h-2"
-                  style={{ width: `${uploadProgress.total > 0 ? Math.round(((uploadProgress.total - uploadProgress.pending) / uploadProgress.total) * 100) : 0}%` }}
-                  role="progressbar"
-                  aria-valuenow={uploadProgress.total - uploadProgress.pending}
-                  aria-valuemin={0}
-                  aria-valuemax={uploadProgress.total}
-                />
-              </div>
-              <p className="text-sm text-muted-foreground">
-                {uploadProgress.total - uploadProgress.pending} of {uploadProgress.total} chunks uploaded
-              </p>
-              <p className="text-sm text-muted-foreground">Don&apos;t close this tab until upload completes</p>
-            </div>
-          )}
-          {uploadProgress && uploadProgress.status === 'complete' && (
-            <p className="mt-4 text-sm text-green-600">✓ Audio upload complete</p>
-          )}
-          {uploadProgress && uploadProgress.status === 'failed' && (
-            <div className="mt-4 space-y-1">
-              <p className="text-sm text-red-600">Some audio could not be uploaded</p>
-              <p className="text-sm text-muted-foreground">Your session was partially recorded. The transcription will use available audio.</p>
-            </div>
-          )}
+      <div className="p-8 text-center max-w-sm mx-auto space-y-6">
+        {/* P584: CheckCircle icon — replaces DoorOpen + muted circle */}
+        <CheckCircle2 className="w-12 h-12 text-blue-500 mx-auto" />
 
-          <div className="mt-4 flex items-center gap-2 text-sm text-muted-foreground">
-            <Loader2Icon className="w-4 h-4 animate-spin flex-shrink-0" />
-            <span>Transcribing your session...</span>
+        <h2 className="text-xl font-semibold">{title}</h2>
+
+        {/* P584: Upload progress — shown for ALL users including guests */}
+        {isUploading && (
+          <div className="w-full space-y-2">
+            <p className="text-sm font-medium">Uploading session audio...</p>
+            <div className="w-full bg-muted rounded-full h-2">
+              <div
+                className="bg-blue-500 rounded-full h-2 transition-all duration-300"
+                style={{ width: `${uploadPercent}%` }}
+                role="progressbar"
+                aria-valuenow={uploadProgress!.total - uploadProgress!.pending}
+                aria-valuemin={0}
+                aria-valuemax={uploadProgress!.total}
+              />
+            </div>
+            <p className="text-sm text-muted-foreground">{uploadPercent}%</p>
+            <p className="text-sm text-muted-foreground">Don&apos;t close this tab yet.</p>
           </div>
-          <p className="mt-1 text-xs text-muted-foreground">
-            It will be available shortly in{' '}
+        )}
+
+        {/* P584: Upload failed — subtle one-liner */}
+        {uploadFailed && (
+          <p className="text-sm text-muted-foreground">Recording could not be saved</p>
+        )}
+
+        {/* P584: Transcript notification — conditional on completedRounds > 0 AND upload done */}
+        {uploadDone && completedRounds > 0 && !isGuest && (
+          <p className="text-sm text-muted-foreground">
+            Your transcript is being generated. Check{' '}
             <Link to="/sessions" className="text-primary hover:underline">
               Session History
-            </Link>
+            </Link>{' '}
+            in a few minutes.
           </p>
-        </>
-      )}
+        )}
 
-      {/* P396/P492: Soft signup CTA for anonymous guests — lead with value prop */}
-      {isGuest && (
-        <div className="mt-2 text-center space-y-4">
-          <div className="rounded-lg bg-blue-50 border border-blue-100 p-4 space-y-1">
-            <p className="text-sm font-medium text-blue-900">Your session transcript is ready</p>
-            <p className="text-xs text-blue-700">Create a free account to access AI-powered insights from this session</p>
+        {/* P584: Guest transcript message — conditional on completedRounds > 0 AND upload done */}
+        {uploadDone && completedRounds > 0 && isGuest && (
+          <p className="text-sm text-muted-foreground">
+            Your session was recorded. Create an account to access your transcript and AI insights.
+          </p>
+        )}
+
+        {/* P584: CTA — hidden while uploading */}
+        {!isUploading && !isGuest && (
+          <Button
+            asChild
+            className="bg-blue-500 hover:bg-blue-600 text-white w-full"
+            onClick={onStartNew}
+          >
+            <Link to="/live">Start a Clarity Session</Link>
+          </Button>
+        )}
+
+        {/* P584: Guest CTA — hidden while uploading */}
+        {!isUploading && isGuest && (
+          <div className="space-y-3">
+            <Button asChild className="bg-blue-500 hover:bg-blue-600 text-white w-full">
+              <Link to="/signup">Create Free Account</Link>
+            </Button>
+            <Link
+              to="/login"
+              className="block text-xs text-muted-foreground hover:text-foreground transition-colors"
+            >
+              Already have an account? Log in
+            </Link>
           </div>
-          <Link
-            to="/signup"
-            className="inline-flex items-center justify-center rounded-md bg-blue-500 hover:bg-blue-600 text-white text-sm font-medium h-10 px-6 transition-colors w-full"
-          >
-            Create Free Account
-          </Link>
-          <Link
-            to="/login"
-            className="block text-xs text-muted-foreground hover:text-foreground transition-colors"
-          >
-            Already have an account? Log in
-          </Link>
-        </div>
-      )}
+        )}
       </div>
     </div>
   );
