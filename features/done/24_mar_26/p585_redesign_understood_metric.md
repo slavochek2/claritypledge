@@ -1,10 +1,10 @@
 ---
-status: in-progress
+status: all-done
 type: change-request
 rank: 250006.0
 workstream: E1
 flow: dev
-delivery_stage: uat
+completed_at: "2026-03-24"
 changes: p501
 created_date: 2026-03-24
 tags:
