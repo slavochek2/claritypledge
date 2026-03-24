@@ -2,6 +2,14 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-24 [process]: Canonical spec section headers — standardize via rules file, not format migration
+
+**Context:** Research into whether XML/JSON formatting improves Claude's spec parsing (prompted by community claims) found: (1) Anthropic recommends Markdown for static instruction files — XML helps only for dynamic API prompts with variable injection, (2) the real problem was 5 concrete header mismatches where skills wrote one name and downstream skills searched for another (e.g., `/architect` wrote `## Technical Analysis` as level-2, `/spec-review` searched for `## Technical Architecture`), (3) no spec structure reference existed — each skill invented its own header names.
+**Decision:** Created `.claude/rules/spec-sections.md` as single canonical reference (auto-loaded for `features/**/*.md`). Updated 13 skill files to use canonical names. Forward-only: new specs use canonical names, old specs updated opportunistically when next edited. Added legacy alias fallback guidance for `/spec-review` on pre-2026-03-24 specs. No XML, no JSON, no batch migration.
+**Alternatives rejected:** (A) XML tags for spec sections — adds ~15% token overhead, harder to maintain, no evidence of parsing improvement for static files. (B) JSON sidecars per spec — doubles file count, creates sync problems. (C) Full batch migration of existing specs — 40+ files to touch, high churn for low ROI since old specs are rarely re-processed. (D) Extended frontmatter with `layers_present`, structured assumptions — Option B for later if `/spec-review` keeps hitting ambiguity; not justified by current pain.
+**Consequences:** All build skills now agree on header names. The `.claude/rules/spec-sections.md` file is the single place to check or update. Future skills reference it instead of inventing names. The legacy alias fallback prevents false BLOCKs on old specs without requiring migration.
+**References:** [spec-sections.md](.claude/rules/spec-sections.md), [feature-specs.md](docs/technical/feature-specs.md)
+
 ## 2026-03-24 [process]: Mandatory context load gates in /dev, /fix, /refactor, /verify
 
 **Context:** Analysis of 277 sessions (2 weeks) revealed /dev reads specs only 16% of the time and /fix reads them 0%. The instructions already existed (Step 2 in /dev: "Read the spec fully") but were buried after 5 mechanical steps (worktree, collision check, branch distance). Claude treated them as skippable when the spec was "already discussed" — which works until context compaction erases that knowledge. Post-compaction recovery was also poor: only 43% re-check git status, 10% re-read specs.
