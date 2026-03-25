@@ -171,9 +171,10 @@ export function StoryCardDetail({
             }
           }}
         >
-          {/* Role + date (name/avatar already shown outside) */}
-          <p className="text-xs text-muted-foreground mb-2">
-            {formatTimeAgo(story.createdAt)}
+          {/* Role + date + visibility (name/avatar already shown outside) */}
+          <p className="text-xs text-muted-foreground mb-2 inline-flex items-center gap-1">
+            <span>{story.authorRole ? `${story.authorRole} · ` : ''}{formatTimeAgo(story.createdAt)}</span>
+            <InlineVisibilityIcon visibility={story.visibility} />
           </p>
 
           {/* Story text */}
@@ -246,7 +247,7 @@ export function StoryCardDetail({
                 <EarBadge count={story.authorEarsCount ?? 0} name={story.authorName} />
               </div>
               <div className="text-xs text-muted-foreground inline-flex items-center gap-1">
-                <span>{formatTimeAgo(story.createdAt)}</span>
+                <span>{story.authorRole ? `${story.authorRole} · ` : ''}{formatTimeAgo(story.createdAt)}</span>
                 <InlineVisibilityIcon visibility={story.visibility} />
               </div>
             </div>
@@ -552,7 +553,7 @@ function QuotedPoint({
           {/* Content column */}
           <div className="flex-1 min-w-0">
             {/* Point text */}
-            <p className="text-sm text-gray-800 break-words">{linkifyText(stripHashtags(point.statement, point.tags))}</p>
+            <p className="text-sm text-gray-800 break-words"><InlineVisibilityIcon visibility={point.visibility} />{' '}{linkifyText(stripHashtags(point.statement, point.tags))}</p>
             {point.tags?.length > 0 && <TagPills tags={point.tags} context="detail" className="mt-1" />}
 
             {/* Position buttons - scaled to 85% to fit within quoted card width while keeping button proportions */}

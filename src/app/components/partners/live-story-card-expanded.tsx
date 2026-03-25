@@ -233,7 +233,7 @@ function PointRow({
           <div className="w-6 h-6 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0 text-blue-600 mt-0.5">
             <Pin size={12} className="rotate-45" />
           </div>
-          <p className="text-sm text-gray-800 flex-1 min-w-0 break-words">{linkifyText(stripHashtags(point.statement, point.tags))}</p>
+          <p className="text-sm text-gray-800 flex-1 min-w-0 break-words"><InlineVisibilityIcon visibility={point.visibility} />{' '}{linkifyText(stripHashtags(point.statement, point.tags))}</p>
           {point.tags?.length > 0 && <TagPills tags={point.tags} context="live" className="mt-1" />}
         </div>
         <PositionButtons
