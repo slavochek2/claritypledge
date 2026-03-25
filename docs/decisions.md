@@ -2,6 +2,38 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-25 [technical]: Triggers over RLS WITH CHECK for immutability + cross-visibility constraints
+
+**Context:** P586 needed to enforce (1) visibility immutability on stories and points, (2) cross-visibility constraint (public story cannot link to private point). Two implementation paths: RLS `WITH CHECK` or BEFORE INSERT/UPDATE triggers.
+**Decision:** Triggers. BEFORE UPDATE on stories + points raises exception if visibility changes. BEFORE INSERT on `story_points` rejects public→private linking. Triggers protect all code paths including SECURITY DEFINER functions (which bypass RLS). Triggers also produce descriptive error messages.
+**Alternatives rejected:** RLS WITH CHECK — bypassed by SECURITY DEFINER, produces generic "new row violates RLS" errors. CHECK constraints — cannot reference other tables (needed for cross-visibility join).
+**Consequences:** Three trigger functions in the P586 migration. Belt-and-suspenders: also added WITH CHECK on stories UPDATE as backup. Pattern established for future immutability needs.
+**References:** [P586 spec](features/done/22_mar_26/p586_visibility_privacy_foundation.md) Architecture Decision 1, 4
+
+## 2026-03-25 [technical]: content_visibility shared enum for stories + points
+
+**Context:** P586 removes `shared` from the story visibility enum. Points also need a visibility column. Two options: separate enum per table, or one shared enum.
+**Decision:** Single `content_visibility` enum (`public`, `private`) shared by `stories.visibility` and `points.visibility`. Simplifies future tables (docs, letters) that also need visibility.
+**Alternatives rejected:** Separate `point_visibility` enum — redundant, same values, harder to keep in sync.
+**Consequences:** Migration drops `story_visibility`, creates `content_visibility`, alters both columns. All RLS policies reference the new type.
+**References:** [P586 spec](features/done/22_mar_26/p586_visibility_privacy_foundation.md) Architecture Decision 3
+
+## 2026-03-25 [technical]: RLS hardened on story_versions + story_verifications (P586 security review finding)
+
+**Context:** P586 security review discovered `story_versions` and `story_verifications` had `USING(true)` SELECT policies. Both contain private story content or leak story existence.
+**Decision:** `story_versions` already had a P427 policy — updated to remove `shared` branch. `story_verifications` got a new story-visibility-scoped SELECT policy. Both now filter by story visibility.
+**Alternatives rejected:** Leave as-is — unacceptable for therapy/couples use case (private story content leaks through version history and verification records).
+**Consequences:** 8 tables total hardened in P586 migration (was 5 in original spec, security review added 3 more). Pattern: any table with FK to stories must have story-visibility-scoped SELECT.
+**References:** [P586 spec](features/done/22_mar_26/p586_visibility_privacy_foundation.md) Security Review
+
+## 2026-03-25 [product]: Visibility badge position — inline with content, not absolute corner
+
+**Context:** P586 added globe/lock visibility indicators to all card types. Iterated through 3 positions: (1) metadata line only, (2) absolute top-right corner of every card, (3) inline with content.
+**Decision:** Inline positioning. Stories: globe in metadata line after timestamp (`CEO · Today 🌐`). Points: globe between pin icon and statement text (`📌 🌐 text`). Not absolute-positioned — that looked "floaty/ugly" per founder feedback.
+**Alternatives rejected:** (A) Top-right absolute — consistent but visually disconnected from content. (B) Metadata-only — worked for stories but no natural metadata line on point cards.
+**Consequences:** Two component patterns: `InlineVisibilityIcon` for inline use, `CardVisibilityCornerBadge` kept as unused export for future use. Amber-600 for private lock, muted-foreground for public globe.
+**References:** [P586 spec](features/done/22_mar_26/p586_visibility_privacy_foundation.md) UX Design
+
 ## 2026-03-25 [process]: Spec retirement contracts — skills clean up ephemeral sections
 
 **Context:** Feature specs grew to 800-1200+ lines by /dev time because every skill appended but nothing ever cleaned up. Root cause analysis (via /falsify with 25 proposals) identified two structural causes: (A) explicit "append only, do NOT modify" instructions in every write-skill, (B) no canonical registry for cross-cutting sections (Next Steps, Open Questions, Challenge Notes).

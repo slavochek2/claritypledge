@@ -1,7 +1,7 @@
 # Done Features Index
 
 Quick reference for past completed work. Consult when starting work on a related topic.
-Last updated: 2026-03-24 (P585 UnderstoodBadge extraction)
+Last updated: 2026-03-25 (P586 Visibility & Privacy Foundation)
 
 ---
 
@@ -61,6 +61,7 @@ Last updated: 2026-03-24 (P585 UnderstoodBadge extraction)
 
 ## Database / RLS / Migrations
 
+- **P586** (Mar 25) Visibility & Privacy Foundation — `content_visibility` enum, point visibility column, BEFORE triggers for immutability + cross-visibility, 8 tables RLS-hardened, amber=private color system
 - **P403** (Feb 26) Position Cascade DB Migrations — on position delete, trigger auto-unlinks stories and records in history table
 - **P417** (Feb 26) migrate.sh Silent Schema Drift — HTTP 200 ≠ success; parse body (JSON array=success, object with message=failure)
 - **P139** (Feb 5) E2E Cleanup FK Constraint — foreign key cascade needed for test isolation
