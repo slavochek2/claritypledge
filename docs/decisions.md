@@ -2,6 +2,30 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-25 [product]: Asymmetric doc visibility — private docs can contain public stories
+
+**Context:** P551 originally enforced strict visibility matching: private doc = private stories only, public doc = public stories only. During spec review, the question surfaced: "if a doc is private, why can't it contain public stories?" A doc is a *view/collection*, not a visibility container. A private doc with public stories = a private reading list of publicly available content.
+**Decision:** Asymmetric model. Private docs can contain both private AND public stories. Public docs can only contain public stories (private stories in a public doc would expose private content). Only one direction is blocked: private → public doc.
+**Alternatives rejected:** (A) Strict bidirectional matching — unnecessarily restrictive, forces users to recreate public stories as private to include them in private docs. (B) No restrictions — private stories in public docs would leak private content.
+**Consequences:** Doc-level privacy means "this collection is invisible," not "everything in it is private." Public stories in a private doc remain visible on the owner's profile independently. UX must make this clear — the privacy banner on private docs should communicate what's private (the collection) vs. what's not (individual public stories within it).
+**References:** [P551 spec](features/p551_clarity_docs.md) AC "Adding Content" section
+
+## 2026-03-25 [technical]: P586 extracted as prerequisite for P551 — privacy foundation spec
+
+**Context:** During P551 spec review, codebase investigation revealed 5 gaps blocking P551's privacy promises: (1) points fully public (`USING(true)`), (2) `story_points` junction leaks private story associations, (3) story visibility mutable on 3 surfaces, (4) `shared` enum unused by downstream features, (5) no visual privacy indicators on point cards. These are foundational issues — not doc-specific. Fixing them inside P551 would bloat the spec and tangle privacy infrastructure with doc CRUD.
+**Decision:** Extract P586 (Visibility & Privacy Foundation) as a standalone prerequisite. Scope: point visibility RLS (inherit from linked stories), junction RLS fix, story visibility immutability, `shared` enum removal, visual privacy indicators. Dependency chain: P586 → P551 → P581.
+**Alternatives rejected:** (A) Fix inside P551 — bloated spec, two concerns entangled. (B) Fix piecemeal across features — each downstream spec reinvents the same RLS fixes. (C) Defer — P551 ships with false privacy promise.
+**Consequences:** P551 is now leaner (doc CRUD + ordering only). P586 must ship first. Story guide chat edit flow (line 646) passes visibility in `updateStory()` — must be fixed in P586 to drop visibility from update payload.
+**References:** [P586 spec](features/p586_visibility_privacy_foundation.md), [P551 spec](features/p551_clarity_docs.md)
+
+## 2026-03-25 [product]: Visibility cascade model — open question (Status: proposed)
+
+**Context:** P586 currently uses dynamic computation: "one public link = public point" (point visible if ANY linked story is public). An alternative cascade model was proposed: points get their own immutable `visibility` column, set by the first story that links them, cascading downstream — new stories linking to a private point must also be private. The cascade model is "private by construction" and prevents accidental privacy leaks, but adds a column to `points` and changes the inheritance direction.
+**Decision:** Unresolved. To be stress-tested by `/challenge-prd` on P586. Key tension: under dynamic model, if User A's public story makes Point X visible and A later deletes the story, Point X may vanish for User B (whose private story also links to it). Under cascade model, the point's visibility is immutable — simpler but less flexible.
+**Alternatives rejected:** N/A — decision pending.
+**Consequences:** This decision affects P586's core RLS design. If cascade model wins, `points` table gets a `visibility` column (breaking the "ownerless" model — but points already have `created_by`). If dynamic model wins, RLS is more complex but points stay column-free.
+**References:** [P586 spec](features/p586_visibility_privacy_foundation.md) "Open Questions" section
+
 ## 2026-03-25 [technical]: Strict ESLint + noUncheckedIndexedAccess + zero-warning enforcement
 
 **Context:** Codebase had `tseslint.configs.recommended` (permissive) with `--max-warnings 999`, accumulating 21 unaddressed warnings. Goal: long-term code quality over dev speed. Research compared `strict` vs `strictTypeChecked` (type-aware) configs.

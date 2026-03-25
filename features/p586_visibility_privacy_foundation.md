@@ -31,6 +31,8 @@ related:
 - **Story visibility is mutable.** Users can change a story's visibility after creation via dropdowns on the story detail page, profile page, and story guide chat. P551 requires immutability (D13) — "want to unpublish? Delete and recreate." Current mutability creates cascading edge cases when stories are linked to docs with fixed visibility.
 - **`shared` visibility is underused and confusing.** P551 cuts `shared` (D16) — two modes only: public and private. The `shared` enum value, RLS branch, and UI options remain in the codebase, adding complexity for a value that no downstream feature uses.
 - **No visual privacy indicators on point cards.** Story cards show a `VisibilityBadge`, but point cards have no indicator. Users can't tell at a glance whether a point is accessible to others or scoped to their private context. P551 requires clear private/public badges on both story and point cards.
+- **No display boundary for private content.** Private stories and their linked points could theoretically appear in profile pages and public feeds. Private content must be confined to its context (docs/letters) and never surface in public-facing views.
+- **Border color inconsistency across card types.** Story cards on the story detail page use a blue left border, but point cards, profile tab cards, and feed cards do not. This inconsistency makes it harder to layer meaningful visual privacy treatment (e.g., amber border for private) on top of a system that isn't consistent to begin with.
 
 **Who's affected:**
 - P551 (Clarity Docs) — blocked. Cannot deliver private docs without private points.
@@ -61,6 +63,8 @@ related:
 - Story visibility cannot be changed after creation — edit controls are removed from all surfaces
 - The `shared` visibility value is removed — only `public` and `private` remain
 - Story cards and point cards both show clear privacy indicators (lock for private, globe for public)
+- Private stories and points never appear in profile pages or public feeds — only inside their doc/letter context
+- Private story creation is only available from within Clarity Docs (P551) — existing creation flows (/live, create-story-page) remain public-only
 - All changes are backward-compatible — existing public stories and points continue working
 
 **Success conditions:**
@@ -69,6 +73,8 @@ related:
 - No visibility edit controls exist anywhere in the app
 - Only `public` and `private` appear in visibility selectors
 - Privacy indicators are visually clear on both story and point cards
+- Private stories and points return zero results when queried from profile/feed contexts
+- Existing public creation flows (/live, create-story-page) have no private option
 
 **Constraints:**
 - Must not break existing public content (public stories, public points, public positions)
@@ -84,6 +90,10 @@ related:
 
 **As a user viewing point cards:**
 - I want to see a clear lock/globe indicator on each point card, so I know at a glance whether others can see it
+- I want visual treatment (not just an icon) that makes private vs public feel distinct — e.g., border color, background tint — so the privacy state is ambient, not something I have to read
+
+**As a user creating a story linked to a private point (inside a doc):**
+- I want it to be clear that my story will also be private, so I don't accidentally create public content about a sensitive topic
 
 **As a story author:**
 - I want visibility to be set once at creation and never change, so I don't accidentally make a private story public (or vice versa)
@@ -103,7 +113,10 @@ related:
 - I want instant visual confirmation of what's private and what's public, so I don't have to remember or check each item (motivation: ambient trust — the UI should reassure without requiring action)
 
 **When I'm filing a story from a /live session:**
-- I want to pick public or private and be done, so the visibility decision is simple and permanent (motivation: decision fatigue — fewer options, higher confidence)
+- I want the process to stay simple — public only, no privacy decision needed, so the live flow stays fast (motivation: /live is a public practice tool; privacy belongs in docs)
+
+**When I'm creating a story inside a private doc:**
+- I want it to be obvious that my story and its points will be private, so I don't second-guess whether my sensitive content might leak (motivation: trust by construction — the context I'm in determines privacy, not a selector I might forget)
 
 ## Outcomes (Success Metrics)
 
