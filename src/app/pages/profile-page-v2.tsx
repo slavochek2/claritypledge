@@ -60,14 +60,6 @@ import {
   type SevenPointCounts,
 } from "@/app/components/shared";
 import { VisibilityBadge } from "@/app/components/shared/visibility-badge";
-import { VISIBILITY_OPTIONS } from "@/app/data/story-visibility-options";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { TagPills } from '@/app/components/shared/tag-pills';
 import { stripHashtags, extractHashtags } from '@/lib/utils';
 import type { PositionType, StoryVisibility } from "@/app/types";
@@ -1114,8 +1106,6 @@ function StoryCardFull({
   const [isEditing, setIsEditing] = useState(false);
   const [editContent, setEditContent] = useState('');
   const [isSaving, setIsSaving] = useState(false);
-  const [localVisibility, setLocalVisibility] = useState(story.visibility);
-  const [savingVisibility, setSavingVisibility] = useState(false);
   const editTextareaRef = useRef<HTMLTextAreaElement>(null);
 
   const handleEditStart = () => {
@@ -1150,19 +1140,6 @@ function StoryCardFull({
     }
   };
 
-  const handleVisibilityChange = async (newVisibility: string) => {
-    const v = newVisibility as StoryVisibility;
-    if (v === localVisibility || savingVisibility) return;
-    setSavingVisibility(true);
-    const updated = await storiesService.updateStory(story.id, { visibility: v });
-    setSavingVisibility(false);
-    if (updated) {
-      setLocalVisibility(v);
-      toast.success('Visibility updated');
-    } else {
-      toast.error('Failed to update visibility');
-    }
-  };
 
   const handleCardClick = () => {
     if (isEditing) return;
@@ -1239,36 +1216,7 @@ function StoryCardFull({
               </div>
               <div className="flex items-center gap-1 text-xs text-muted-foreground">
                 <span>{author.role} · {formatTimeAgo(story.createdAt)}</span>
-                {currentUserId === story.authorId ? (
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <button
-                        type="button"
-                        disabled={savingVisibility}
-                        onClick={(e) => e.stopPropagation()}
-                        aria-label={`Story visibility: ${VISIBILITY_OPTIONS.find(o => o.value === localVisibility)?.label}`}
-                        className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
-                      >
-                        {(() => { const opt = VISIBILITY_OPTIONS.find(o => o.value === localVisibility) ?? VISIBILITY_OPTIONS[0]; const Icon = opt.icon; return <><Icon className="w-3 h-3" />{opt.label}<ChevronDown className="w-2.5 h-2.5 opacity-60" /></>; })()}
-                      </button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="start">
-                      <DropdownMenuRadioGroup value={localVisibility} onValueChange={handleVisibilityChange}>
-                        {VISIBILITY_OPTIONS.map(opt => {
-                          const Icon = opt.icon;
-                          return (
-                            <DropdownMenuRadioItem key={opt.value} value={opt.value}>
-                              <Icon className="w-3.5 h-3.5 mr-1.5" />
-                              {opt.label}
-                            </DropdownMenuRadioItem>
-                          );
-                        })}
-                      </DropdownMenuRadioGroup>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                ) : (
-                  <VisibilityBadge visibility={story.visibility} />
-                )}
+                <VisibilityBadge visibility={story.visibility} />
               </div>
             </div>
 

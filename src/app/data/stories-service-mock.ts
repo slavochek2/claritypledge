@@ -174,7 +174,7 @@ export const mockStoriesService: StoriesService = {
 
   async updateStory(
     storyId: string,
-    updates: { content?: string; tags?: string[]; visibility?: StoryVisibility; bannerUrl?: string | null }
+    updates: { content?: string; tags?: string[]; bannerUrl?: string | null }
   ): Promise<Story | null> {
     const story = mockStories.find((s) => s.id === storyId);
     if (!story) return null;

@@ -12,6 +12,7 @@ import type {
   PointPositionWithUser,
   PointPositionHistory,
   PositionType,
+  ContentVisibility,
 } from '@/app/types';
 
 export interface PointsService {
@@ -26,7 +27,8 @@ export interface PointsService {
   createPoint(
     statement: string,
     context?: string,
-    tags?: string[]
+    tags?: string[],
+    visibility?: ContentVisibility
   ): Promise<Point | null>;
 
   // ============================================================================
@@ -228,4 +230,5 @@ export interface CreatePointInput {
   statement: string;
   context?: string;
   tags?: string[];
+  visibility?: ContentVisibility;
 }

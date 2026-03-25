@@ -25,7 +25,7 @@ export interface PositionEntry {
 }
 
 /** Visibility levels for ideas/stories */
-export type IdeaVisibility = 'public' | 'shared' | 'private';
+export type IdeaVisibility = 'public' | 'private';
 
 /**
  * Prototype Story shape — uses `.text` (not `.content`).
@@ -53,4 +53,5 @@ export interface Point {
   createdAt: string;
   positions: Record<string, PositionEntry | null>;
   linkedStoryIds: string[];
+  visibility?: IdeaVisibility;
 }

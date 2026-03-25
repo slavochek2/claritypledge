@@ -12,6 +12,8 @@ interface VisibilityAndSaveProps {
   onSave: () => void;
   onBack: () => void;
   isSaving: boolean;
+  /** When true, visibility is shown as a read-only pill (editing existing story). */
+  isEditMode?: boolean;
 }
 
 function getSaveLabel(visibility: StoryVisibility | 'draft'): string {
@@ -26,34 +28,53 @@ export function VisibilityAndSave({
   onSave,
   onBack,
   isSaving,
+  isEditMode = false,
 }: VisibilityAndSaveProps) {
   return (
     <div className="space-y-3">
-      <fieldset data-testid="visibility-selector">
-        <legend className="text-sm font-medium mb-2">Choose visibility</legend>
-        <div className="flex gap-2 flex-wrap">
-          {VISIBILITY_OPTIONS.map((opt) => {
+      {isEditMode ? (
+        /* Read-only visibility pill for existing stories (P586) */
+        <div data-testid="visibility-selector">
+          <p className="text-sm font-medium mb-2">Visibility</p>
+          {(() => {
+            const opt = VISIBILITY_OPTIONS.find(o => o.value === selectedVisibility) ?? VISIBILITY_OPTIONS[0];
             const Icon = opt.icon;
-            const isSelected = selectedVisibility === opt.value;
             return (
-              <button
-                key={opt.value}
-                type="button"
-                aria-pressed={isSelected}
-                onClick={() => onVisibilityChange(opt.value)}
-                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-sm min-h-[44px] transition-colors ${
-                  isSelected
-                    ? 'border-blue-500 bg-blue-50 text-blue-700 font-medium'
-                    : 'border-border text-muted-foreground hover:bg-muted'
-                }`}
-              >
+              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-border bg-muted text-muted-foreground text-sm cursor-default">
                 <Icon className="w-4 h-4" />
                 {opt.label}
-              </button>
+              </span>
             );
-          })}
+          })()}
+          <p className="text-xs text-muted-foreground mt-1.5">Visibility cannot be changed after creation.</p>
         </div>
-      </fieldset>
+      ) : (
+        <fieldset data-testid="visibility-selector">
+          <legend className="text-sm font-medium mb-2">Choose visibility</legend>
+          <div className="flex gap-2 flex-wrap">
+            {VISIBILITY_OPTIONS.map((opt) => {
+              const Icon = opt.icon;
+              const isSelected = selectedVisibility === opt.value;
+              return (
+                <button
+                  key={opt.value}
+                  type="button"
+                  aria-pressed={isSelected}
+                  onClick={() => onVisibilityChange(opt.value)}
+                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-sm min-h-[44px] transition-colors ${
+                    isSelected
+                      ? 'border-blue-500 bg-blue-50 text-blue-700 font-medium'
+                      : 'border-border text-muted-foreground hover:bg-muted'
+                  }`}
+                >
+                  <Icon className="w-4 h-4" />
+                  {opt.label}
+                </button>
+              );
+            })}
+          </div>
+        </fieldset>
+      )}
 
       <button
         type="button"

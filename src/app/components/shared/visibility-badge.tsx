@@ -1,4 +1,4 @@
-import { Globe, Lock, Users } from 'lucide-react';
+import { Globe, Lock } from 'lucide-react';
 import { MobileTooltip } from './mobile-tooltip';
 import type { StoryVisibility } from '@/app/types';
 
@@ -17,7 +17,6 @@ const config: Record<StoryVisibility, {
   labelClassName: string;
 }> = {
   public: { icon: Globe, label: 'Public', description: 'Anyone can view this.', labelClassName: 'text-muted-foreground bg-muted' },
-  shared: { icon: Users, label: 'Shared', description: 'Visible to anyone who has registered for an event you\'ve also registered for or hosted — including future registrants.', labelClassName: 'text-muted-foreground bg-muted' },
   private: { icon: Lock, label: 'Private', description: 'Only people you explicitly share with can view this.', labelClassName: 'text-muted-foreground bg-muted' },
 };
 

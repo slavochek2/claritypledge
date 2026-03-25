@@ -8,7 +8,7 @@ import { useState, useMemo, useEffect } from 'react';
 import { getAnonPosition, setAnonPosition as setAnonPositionStorage } from '@/app/hooks/useAnonPosition';
 import { useEmbedNavigation } from '@/app/hooks/useEmbedNavigation';
 import { AnonPositionCTA } from '@/app/components/shared/anon-position-cta';
-import { Pin, ChevronDown, ChevronRight, ExternalLink } from 'lucide-react';
+import { Pin, ChevronDown, ChevronRight, ExternalLink, Globe, Lock } from 'lucide-react';
 import { EarBadge } from '@/components/ui/ear-badge';
 import { MobileTooltip } from '@/app/components/shared/mobile-tooltip';
 import { GravatarAvatar } from '@/components/ui/gravatar-avatar';
@@ -206,9 +206,13 @@ export function PointCardWithLinks({
     onPositionSelect?.(newPosition);
   };
 
+  const isPrivate = point.visibility === 'private';
+  const borderColor = isPrivate ? 'border-l-amber-400' : 'border-l-slate-400';
+  const bgTint = isPrivate ? 'bg-amber-50/50' : 'bg-white';
+
   const cardClassName = isDetailView
-    ? 'bg-white rounded-lg shadow-sm border-l-4 border-l-slate-400 border border-gray-200 overflow-hidden'
-    : 'group bg-white rounded-lg shadow-sm border-l-4 border-l-slate-400 border border-gray-200 overflow-hidden cursor-pointer hover:border-slate-300 hover:shadow-md transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-500 focus-visible:ring-offset-2';
+    ? `${bgTint} rounded-lg shadow-sm border-l-4 ${borderColor} border border-gray-200 overflow-hidden`
+    : `group ${bgTint} rounded-lg shadow-sm border-l-4 ${borderColor} border border-gray-200 overflow-hidden cursor-pointer hover:border-slate-300 hover:shadow-md transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-500 focus-visible:ring-offset-2`;
 
   // Quote pattern: when on profile, show position label outside, Point in quoted box
   const showQuotePattern =
@@ -259,6 +263,19 @@ export function PointCardWithLinks({
 
                 {/* Content column */}
                 <div className="flex-1 min-w-0">
+                  {/* Visibility badge - right-aligned in quote pattern */}
+                  {point.visibility && (
+                    <div className="float-right ml-2">
+                      <MobileTooltip content={isPrivate ? 'Private — only you can see it' : 'Visible to everyone'}>
+                        <span
+                          className={`inline-flex items-center ${isPrivate ? 'text-amber-600' : 'text-muted-foreground'}`}
+                          aria-label={isPrivate ? 'Point visibility: Private — only you can see it' : 'Point visibility: Public'}
+                        >
+                          {isPrivate ? <Lock size={14} /> : <Globe size={14} />}
+                        </span>
+                      </MobileTooltip>
+                    </div>
+                  )}
                   {/* Point text */}
                   <p className={`text-gray-900 break-words ${compact ? 'text-sm' : 'text-base'}`}>
                     {linkifyText(displayText)}
@@ -418,12 +435,22 @@ export function PointCardWithLinks({
             {/* Content column - aligned with StoryCard */}
             <div className="flex-1 min-w-0">
               {/* Header row - matches StoryCard's author info structure */}
-              <div className="mb-2">
+              <div className="mb-2 flex items-center justify-between">
                 <PointHeader
                   authorPosition={profileOwner?.position}
                   authorName={profileOwner?.name}
                   authorEarCount={profileOwner?.ear}
                 />
+                {point.visibility && (
+                  <MobileTooltip content={isPrivate ? 'Private — only you can see it' : 'Visible to everyone'}>
+                    <span
+                      className={`inline-flex items-center ${isPrivate ? 'text-amber-600' : 'text-muted-foreground'}`}
+                      aria-label={isPrivate ? 'Point visibility: Private — only you can see it' : 'Point visibility: Public'}
+                    >
+                      {isPrivate ? <Lock size={14} /> : <Globe size={14} />}
+                    </span>
+                  </MobileTooltip>
+                )}
               </div>
 
               {/* Point text - same position as StoryCard text */}

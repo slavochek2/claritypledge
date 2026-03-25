@@ -10,7 +10,6 @@ const SHOW_MORE_THRESHOLD = 180;
 
 const VISIBILITY_BADGE: Record<StoryVisibility, { icon: string; label: string }> = {
   private: { icon: '🔒', label: 'Private' },
-  shared: { icon: '👥', label: 'Shared' },
   public: { icon: '🌐', label: 'Public' },
 };
 

@@ -337,8 +337,37 @@ export const realStoriesService: StoriesService = {
   async getStoriesByAuthorWithPoints(authorId: string, userId?: string): Promise<StoryWithPoints[]> {
     log(' getStoriesByAuthorWithPoints:', authorId);
 
-    // Get all stories by author first
-    const stories = await this.getStoriesByAuthor(authorId);
+    // Get stories by author — defense-in-depth: hide private stories from non-owners
+    let query = supabase
+      .from('stories')
+      .select(`
+        *,
+        author:profiles!stories_author_id_fkey (
+          id,
+          name,
+          slug,
+          role,
+          avatar_color,
+          avatar_url,
+          ears_count,
+          has_pledged
+        )
+      `)
+      .eq('author_id', authorId);
+
+    // When viewing someone else's profile, only show public stories (backup for RLS)
+    if (userId !== authorId) {
+      query = query.eq('visibility', 'public');
+    }
+
+    const { data, error } = await query.order('created_at', { ascending: false });
+
+    if (error || !data) {
+      log('ERROR: getStoriesByAuthorWithPoints stories error:', error);
+      return [];
+    }
+
+    const stories = (data as DbStoryWithAuthor[]).map(mapStoryFromDb);
     if (stories.length === 0) return [];
 
     // Get all points for these stories in one query
@@ -493,14 +522,13 @@ export const realStoriesService: StoriesService = {
 
   async updateStory(
     storyId: string,
-    updates: { content?: string; tags?: string[]; visibility?: StoryVisibility; bannerUrl?: string | null }
+    updates: { content?: string; tags?: string[]; bannerUrl?: string | null }
   ): Promise<Story | null> {
     log(' updateStory:', { storyId, updates });
 
     const updateData: Record<string, unknown> = {};
     if (updates.content !== undefined) updateData.content = updates.content;
     if (updates.tags !== undefined) updateData.tags = updates.tags;
-    if (updates.visibility !== undefined) updateData.visibility = updates.visibility;
     if (updates.bannerUrl !== undefined) updateData.banner_url = updates.bannerUrl;
 
     const { data, error } = await supabase

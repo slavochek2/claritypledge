@@ -93,7 +93,7 @@ export interface StoriesService {
    */
   updateStory(
     storyId: string,
-    updates: { content?: string; tags?: string[]; visibility?: StoryVisibility; bannerUrl?: string | null }
+    updates: { content?: string; tags?: string[]; bannerUrl?: string | null }
   ): Promise<Story | null>;
 
   /**
