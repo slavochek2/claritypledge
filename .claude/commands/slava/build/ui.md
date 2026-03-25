@@ -294,7 +294,8 @@ If you discover any upstream decision that will cause problems at the component 
 **MANDATORY FINAL STEP — WRITE TO FILE**
 Use the Edit tool to append the Component Strategy section to {spec_file}:
 - Append after the last line
-- Do NOT modify any existing content
+- Do NOT modify Business, UX, or Technical layer content
+- **Retirement step (after appending):** Remove any `## Open Questions for /ui` section — you answered those in your Component Strategy. If `## Next Steps` lists only completed steps (check delivery_stage), remove it
 - Use heading: `## Component Strategy`
 - Include all subsections: Component Inventory (summary), Component Map (table), Composition Tree, Visual Refinements, Extraction Plan, Challenge Notes (if any)
 

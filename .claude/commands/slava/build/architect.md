@@ -287,7 +287,8 @@ Generate Technical section covering:
 **MANDATORY FINAL STEP — YOU MUST WRITE TO THE FILE.**
 After completing your analysis, use the Edit tool to append your Technical section to {spec_file}.
 - Append after the last line of the file
-- Do NOT modify any existing content above
+- Do NOT modify Business or UX layer content above
+- **Retirement step (after appending):** Remove any `## Open Questions for /architect` section — you answered those in your Technical Architecture. If `## Next Steps` lists only completed steps (check delivery_stage), remove it. Remove Challenge Notes from prior sections that your architecture decisions explicitly address
 - Inside the Security Review subsection, write only the placeholder text: `*Pending — Security agent completing in parallel.*`
 
 Use the canonical section structure (see .claude/rules/spec-sections.md):
@@ -386,4 +387,4 @@ Also check:
 - **Concrete file paths** - Not "update the auth module", but "src/lib/auth/session.ts"
 - **Trade-offs documented** - Why we chose X over Y
 - **Parallel execution** - Architect and Security agents run simultaneously for efficiency
-- **Append only** - Agents append Technical section, never modify existing Business/UX content
+- **Append + retire** - Agents append Technical section, never modify existing Business/UX content, but retire resolved ephemeral sections (Open Questions, Next Steps)

@@ -322,6 +322,28 @@ When in doubt, use full depth. The 5-minute difference is cheap insurance.
 
 ---
 
+## Post-Resolution Writeback
+
+After the user resolves BLOCK/WARN findings (by updating the PRD or making decisions), the main agent performs a **retirement step**:
+
+1. **Write `## Resolved Decisions` section** to the spec (append after the last Business layer section, before any UX/Technical content). Format:
+   ```markdown
+   ## Resolved Decisions
+
+   | # | Source | Finding | Resolution | Rationale |
+   |---|--------|---------|-----------|-----------|
+   | 1 | /challenge-prd | [BLOCK] ... | Chose Option A | [why] |
+   | 2 | /challenge-prd | [WARN] ... | Accepted risk | [why] |
+   ```
+
+2. **Remove `## Open Questions for /challenge-prd`** section if it exists — the questions have been answered.
+
+3. **Remove `## Next Steps`** if all listed steps are completed (check delivery_stage). If some steps remain actionable, leave the section.
+
+This ensures challenge decisions persist in the spec for downstream skills to reference.
+
+---
+
 ## What This Skill Does NOT Do
 
 - Does not fix the PRD (surfaces problems for the founder to resolve)

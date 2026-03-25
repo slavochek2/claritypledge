@@ -69,3 +69,16 @@ Existing specs may use older header variants (e.g., `## UX Requirements`, `## Te
 | Header | Level | Notes |
 |--------|-------|-------|
 | `## Pre-deploy Checklist` | 2 | Not "Deployment Checklist" |
+
+## Ephemeral Sections (cross-cutting, lifecycle-managed)
+
+These sections are generated during the pipeline but have a finite lifespan. Each has an **owner skill** responsible for removing it.
+
+| Header | Level | Created by | Removed by | Rule |
+|--------|-------|-----------|-----------|------|
+| `## Next Steps` | 2 | /create-prd | Next skill that runs | Remove when the listed steps are no longer actionable (check `delivery_stage`) |
+| `## Open Questions for /X` | 2 | /create-prd or founder | Skill /X when it runs | Skill /X reads the questions, incorporates answers into its section, then deletes the Open Questions block |
+| `## Challenge Notes` | 3 (subsection) | /ux, /architect, /ui | /spec-review | /spec-review consolidates all Challenge Notes into its findings. Non-blocking notes that were addressed by later sections should be removed by the skill that addressed them |
+| `## Resolved Decisions` | 2 | /challenge-prd | Never (permanent) | Persists resolved BLOCK/WARN decisions for downstream reference |
+
+**Rule for all write-skills:** After appending your section, check for ephemeral sections you own (per table above) and remove them. This is part of your write contract — not a separate cleanup step.

@@ -2,6 +2,29 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-25 [process]: Spec retirement contracts — skills clean up ephemeral sections
+
+**Context:** Feature specs grew to 800-1200+ lines by /dev time because every skill appended but nothing ever cleaned up. Root cause analysis (via /falsify with 25 proposals) identified two structural causes: (A) explicit "append only, do NOT modify" instructions in every write-skill, (B) no canonical registry for cross-cutting sections (Next Steps, Open Questions, Challenge Notes).
+**Decision:** Replace append-only instructions with retirement contracts. Each skill appends its section, then removes ephemeral sections it resolves (Open Questions for /X removed by skill X, stale Next Steps removed when delivery_stage confirms completion). Registered ephemeral sections in spec-sections.md with lifecycle rules. /challenge-prd gains a writeback step for resolved decisions.
+**Alternatives rejected:** (1) Janitor skill before /dev — treats symptoms not cause, ~5-10% reduction, maintenance coupling. (2) Multi-file spec split — correct in theory, massive migration cost (8+ skill rewrites, kanban/tooling breakage). (3) Compiler pass model — lossy summarization corrupts content. (4) Making /decompose mandatory — wrong tool, /decompose is a task-splitter not a cleanup tool. All 25 alternatives tested via /falsify; none clearly dominated the scoped P26 approach.
+**Consequences:** Spec bloat reduced ~7% from ephemeral cleanup. Cross-layer redundancy (the bulk of bloat) remains — it's a judgment call, not mechanically fixable. Follow-up needed: add retirement to /spec-review (Challenge Notes consolidation) and /dev (final ephemeral sweep).
+**References:** [spec-sections.md](.claude/rules/spec-sections.md), [architect.md](.claude/commands/slava/build/architect.md), [challenge-prd.md](.claude/commands/slava/build/challenge-prd.md)
+
+## 2026-03-25 [product]: Visibility model resolved — column-based with cross-visibility constraint
+
+**Context:** P586 needed to decide between two point visibility models: (A) dynamic derivation — point visibility computed at query time from linked stories ("one public link = public point"), or (B) column-based — points get their own immutable `visibility` column set at creation. The therapy scenario broke Model A: a therapist creating a public story linking to a patient's private point would make that point public. Model B prevents this by construction.
+**Decision:** Column-based (Model B). Points get `visibility` column (`public`|`private`), set at creation, immutable. Public stories cannot link to private points (DB constraint on `story_points` INSERT). Private stories can link to public points (no leak — story is hidden, point was already public). Badge reads directly from `point.visibility` — no JOIN needed.
+**Alternatives rejected:** (A) Dynamic derivation — third-party public story linking to a private point makes it public; unacceptable for therapy/coaching. Also requires expensive JOIN for every badge render.
+**Consequences:** `points` table gets a `visibility` column. All existing points migrate as `public`. Cross-visibility constraint on `story_points` INSERT. RLS simplified: public points visible to all, private points visible to creator only. Supersedes the "proposed" entry below.
+**References:** [P586 spec](features/p586_visibility_privacy_foundation.md)
+
+## 2026-03-25 [product]: Shared stories migrate to public (not private)
+
+**Context:** P586 removes the `shared` visibility enum value. Migration direction was debated: shared → private (safer default) vs shared → public (preserves current visibility). definitions.md already stated shared → public.
+**Decision:** Migrate `shared` → `public`. Shared stories were visible to event co-participants — closer to public than private. Migrating to private would hide content users currently expect to see.
+**Consequences:** definitions.md and P586 spec aligned on `shared` → `public`. Zero user-facing surprise from migration.
+**References:** [P586 spec](features/p586_visibility_privacy_foundation.md), [definitions.md](definitions.md)
+
 ## 2026-03-25 [product]: Asymmetric doc visibility — private docs can contain public stories
 
 **Context:** P551 originally enforced strict visibility matching: private doc = private stories only, public doc = public stories only. During spec review, the question surfaced: "if a doc is private, why can't it contain public stories?" A doc is a *view/collection*, not a visibility container. A private doc with public stories = a private reading list of publicly available content.
@@ -18,13 +41,9 @@ Append-only log of architectural and product decisions. Newest entries at top.
 **Consequences:** P551 is now leaner (doc CRUD + ordering only). P586 must ship first. Story guide chat edit flow (line 646) passes visibility in `updateStory()` — must be fixed in P586 to drop visibility from update payload.
 **References:** [P586 spec](features/p586_visibility_privacy_foundation.md), [P551 spec](features/p551_clarity_docs.md)
 
-## 2026-03-25 [product]: Visibility cascade model — open question (Status: proposed)
+## 2026-03-25 [product]: ~~Visibility cascade model — open question~~ SUPERSEDED
 
-**Context:** P586 currently uses dynamic computation: "one public link = public point" (point visible if ANY linked story is public). An alternative cascade model was proposed: points get their own immutable `visibility` column, set by the first story that links them, cascading downstream — new stories linking to a private point must also be private. The cascade model is "private by construction" and prevents accidental privacy leaks, but adds a column to `points` and changes the inheritance direction.
-**Decision:** Unresolved. To be stress-tested by `/challenge-prd` on P586. Key tension: under dynamic model, if User A's public story makes Point X visible and A later deletes the story, Point X may vanish for User B (whose private story also links to it). Under cascade model, the point's visibility is immutable — simpler but less flexible.
-**Alternatives rejected:** N/A — decision pending.
-**Consequences:** This decision affects P586's core RLS design. If cascade model wins, `points` table gets a `visibility` column (breaking the "ownerless" model — but points already have `created_by`). If dynamic model wins, RLS is more complex but points stay column-free.
-**References:** [P586 spec](features/p586_visibility_privacy_foundation.md) "Open Questions" section
+**Superseded by:** "Visibility model resolved — column-based with cross-visibility constraint" (above). Column-based model (Model B) was chosen. See that entry for full rationale.
 
 ## 2026-03-25 [technical]: Strict ESLint + noUncheckedIndexedAccess + zero-warning enforcement
 
@@ -61,8 +80,8 @@ Append-only log of architectural and product decisions. Newest entries at top.
 ## 2026-03-24 [product]: Privacy simplification — immutable visibility, cut "shared", points visible through stories
 
 **Context:** Three-tier story visibility (`public`/`shared`/`private`) created cascading edge cases when stories change visibility. "Shared" (all event co-participants) was imprecise and untested. Points globally public leaked private context.
-**Decision:** Story visibility immutable after creation. Cut "shared" entirely (two modes: public, private). Points visible through their stories (RLS checks linked stories). Private stories in docs only — profile shows public. Positions on private points = doc/letter scoped, not on profile.
-**Alternatives rejected:** (A) Visibility changes with warnings — complexity for zero value. (B) Visibility field on points — breaks ownerless model. (C) Keep "shared" — letters do it better.
+**Decision:** Story visibility immutable after creation. Cut "shared" entirely (two modes: public, private). Points get their own `visibility` column (updated 2026-03-25 — see "Visibility model resolved" entry above). Private stories in docs only — profile shows public. Positions on private points = doc/letter scoped, not on profile.
+**Alternatives rejected:** (A) Visibility changes with warnings — complexity for zero value. (B) ~~Visibility field on points — breaks ownerless model~~ (reversed 2026-03-25: column-based model chosen to prevent third-party privacy leaks). (C) Keep "shared" — letters do it better.
 **Consequences:** Simplifies RLS to two branches. Requires migration: `shared` → `public`. Point RLS changes from `USING(true)` to story-linked.
 **References:** Plan (D6, D7, D13, D15, D16)
 

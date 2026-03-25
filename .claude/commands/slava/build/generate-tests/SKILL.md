@@ -348,7 +348,7 @@ The integration test MUST include a schema existence check using the **two-clien
 2. **Agent analyzes:** Business + UX + Technical requirements
 3. **Agent determines:** What test types are needed (unit + integration + E2E + a11y + smoke + UAT)
 4. **Agent generates:** 7 test files + coverage report — **the 6 file types are independent after analysis; dispatch them as parallel subagents for large features**
-5. **Agent appends:** Test strategy to spec
+5. **Agent appends:** Test strategy to spec. **Retirement step:** Remove `## Open Questions for /generate-tests` if present. Remove `## Next Steps` if all listed steps are completed (check delivery_stage)
 6. **Agent updates frontmatter** — adds generated file paths to spec frontmatter using the Edit tool (insert before the closing `---`):
    - `uat_file: features/uat/p{N}.md` (always)
    - `test_files:` list of all generated automated test files (e2e, unit, integration, a11y, smoke)

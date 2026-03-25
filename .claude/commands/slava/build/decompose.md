@@ -169,7 +169,10 @@ This ensures subagents implementing a task know exactly which test files to run 
 
 ## Output Format
 
-Append the following section to the spec file using the Edit tool (after the last line):
+Append the following section to the spec file using the Edit tool (after the last line).
+**Retirement step (after appending):** Remove `## Next Steps` if all listed steps are completed (check delivery_stage) — by this point all pipeline steps before /dev should be complete.
+
+Format:
 
 ```markdown
 ## Implementation Tasks

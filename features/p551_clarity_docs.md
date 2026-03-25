@@ -342,6 +342,16 @@ CREATE MODAL (triggered by [+ New]):
 | Points | Via story-point links only | No standalone points as doc items — points visible through stories |
 | Letter integration | Deferred to P581 | Doc is compose surface; letter is delivery. Clean boundary. |
 
+## P586 UX Dependencies (Inheritance Communication)
+
+The following UX flows are deferred from P586 to P551 because they only arise when P551 creates private content. P586 ships the DB infrastructure; P551 must design the user-facing communication.
+
+**Must design during P551 `/ux`:**
+- **AddPointForm on private story:** When user adds a point to a private story, pre-creation banner must communicate that the point inherits private visibility (amber banner + "This point will be private — only you can see it" + button label "Add Private Point")
+- **Cross-visibility error toast:** When a public story tries to link to a private point, the DB trigger rejects it. P551 must surface a helpful toast: "This point is private and cannot be linked to a public story. To discuss this topic publicly, create a new public point."
+- **Private story creation context:** When creating a story inside a private doc, the UI must communicate that the story (and its extracted points) will be private. Context determines privacy, not a selector.
+- **Point inheritance indicator:** How to explain to users why a point is private ("Created inside a private doc"). Options: (a) tooltip, (b) just the badge, (c) badge + label text. `/ux` agent decides.
+
 ## Next Steps
 
 **Prerequisite:** P586 (Visibility & Privacy Foundation) must ship first.

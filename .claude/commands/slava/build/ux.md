@@ -310,7 +310,8 @@ If UX is unclear (e.g., "Where does toggle appear?"), ask user BEFORE generating
 Before writing: check if a `## UX Design` section already exists in the spec (use Read tool). The canonical header is `## UX Design` (see .claude/rules/spec-sections.md). Never use "UX Requirements" or "Screen Designs".
 - If NO existing UX section → append at end of file.
 - If YES existing UX section → replace it in-place using Edit tool. Do NOT leave two UX sections in the file.
-Do NOT modify any content before the UX section.
+Do NOT modify Business layer content before the UX section.
+**Retirement step (after writing UX section):** Remove any `## Open Questions for /ux` section — you answered those in your UX Design. If `## Next Steps` lists only completed steps (check delivery_stage), remove it.
 
 **IMPORTANT - Delivery Stage Tracking:**
 1. BEFORE starting UX design, clear the prd-review stage (running /ux = PRD approved):
