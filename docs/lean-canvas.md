@@ -102,6 +102,8 @@ Professionals who need a comprehension measurement tool — something DISC/MBTI/
 
 Open-source, free, community-driven. A practice, not a SaaS — like NVC or Vipassana, a practice with a community around it. Practices spread through communities, not sales funnels.
 
+**Alternative framing (2026-03-25):** "Find and remove false beliefs about whether you understand each other." Narrower than Byron Katie ("find false beliefs" = existing market: CBT, The Work, Street Epistemology). The meta-false-belief — "I already understand you" — is the one that prevents all other error correction between people from starting. Every other false belief correction method assumes the communication channel is clean. ClarityPledge tests the channel itself.
+
 ### Coaching *(ladischenski.com)*
 
 > **"I don't ask founders if they're aligned. I test it. In real time. They can't fake it."**
@@ -109,6 +111,8 @@ Open-source, free, community-driven. A practice, not a SaaS — like NVC or Vipa
 The only alignment assessment that produces a number, not a feeling. Combines lived failure experience (14 co-founders, bankruptcy) with a measurement tool (/live) and structured facilitation.
 
 **"You are the MCP" framing:** Explicitly being the beta version of your own software. Every manual action is a spec for what to automate next. Service work IS live prototyping.
+
+**Identity (2026-03-25):** Independent applied epistemologist building instrumentation for false belief detection between humans. Not a startup founder, not an academic, not a coach — the person who builds the measurement instrument AND is the first practitioner who wields it. ladischenski.com is the R&D lab that funds and validates ClarityPledge: every paid session generates revenue, protocol refinements, and case studies.
 
 ### Shared Foundation
 
@@ -232,6 +236,16 @@ Two upsell paths from workshop:
 
 **Revisit when:** 10+ case studies exist.
 
+### Future: Research/Grant Distribution (explore after 10 clarity letters sent)
+
+- **Emergent Ventures** (Tyler Cowen, Mercatus Center) — rolling grants for "zero to one" ideas. Solo founder with novel epistemic tool + positive externality fits.
+- **Jaan Tallinn / Ambient Sound Investments** — "find bugs in arguments" investment philosophy aligns directly. Send clarity letter AS the pitch.
+- **John Templeton Foundation** — $150M/yr grants. Intellectual humility + human flourishing program areas.
+- **Michael O'Rourke (Toolbox Dialogue Initiative, MSU)** — closest academic parallel. Has institutional legitimacy; lacks instrumentation. Collaboration opportunity.
+- **Frame as:** researcher with working instrument, not startup seeking funding.
+
+**Revisit when:** 10+ clarity letters sent to strangers and legibility data collected.
+
 ---
 
 ## Revenue
@@ -346,6 +360,8 @@ Hosting, Supabase, LLM API costs (Gemini via GCP credits). Founder's development
 **Breakthrough (2026-03-22):** False-belief facilitation identified as active mechanism to engineer the "felt cost" moment — don't passively hope pairs name a cost, actively create the moment where a broken belief connects to their relationship. See P567.
 
 **30-day binary test:** Can you run two workshops and convert one pair to €950 de-risking — in 30 days? If yes, you have a business. If no, the bottleneck tells you what to fix.
+
+**Illegibility diagnosis (2026-03-25):** Product and service illegibility identified as the single root blocker for revenue. Evidence: coaching sold at €250/hr when the offer was legible (lead gen, sales coaching). ClarityPledge doesn't sell because session participants can't name what they experienced afterward. The same pattern repeated at Inguro (Philip's feedback: "the value proposition needs to be simple and clear"). Revised hypothesis ranking: (1) illegibility — value is real but unreadable, (2) low embeddedness — amplifier, not root cause, (3) pre-market timing — partially true, category doesn't exist. **Test:** send 10 clarity letters to strangers. If 3+ can explain what happened in their own words → legibility solved. Their descriptions become the marketing copy. Byron Katie distinction critical: "find false beliefs" = crowded market; "find false beliefs about whether you understand each other" = empty space.
 
 ---
 
