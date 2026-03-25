@@ -67,14 +67,12 @@ related:
 - Private story creation is only available from within Clarity Docs (P551) — existing creation flows (/live, create-story-page) remain public-only
 - All changes are backward-compatible — existing public stories and points continue working
 
-**Success conditions:**
-- A private story's linked points are invisible to non-authors (verified via direct API query)
-- The `story_points` junction returns no rows for private stories when queried by non-authors
-- No visibility edit controls exist anywhere in the app
-- Only `public` and `private` appear in visibility selectors
-- Privacy indicators are visually clear on both story and point cards
-- Private stories and points return zero results when queried from profile/feed contexts
-- Existing public creation flows (/live, create-story-page) have no private option
+**Success conditions:** *(UAT validation checklist — detailed criteria in Acceptance Criteria section)*
+- Zero privacy leaks: private points/junctions invisible to non-authors (verified via direct API query)
+- Zero `shared` references anywhere in codebase
+- Privacy indicators on 100% of story and point cards
+- Private content excluded from profile/feed
+- Public creation flows (/live, create-story-page) have no private option
 
 **Constraints:**
 - Must not break existing public content (public stories, public points, public positions)
@@ -92,7 +90,7 @@ related:
 - I want to see a clear lock/globe indicator on each point card, so I know at a glance whether others can see it
 - I want visual treatment (not just an icon) that makes private vs public feel distinct — e.g., border color, background tint — so the privacy state is ambient, not something I have to read
 
-**As a user creating a story linked to a private point (inside a doc):**
+**As a user creating a story linked to a private point (inside a doc):** *(delivered by P551 — listed here because P586 enables it)*
 - I want it to be clear that my story will also be private, so I don't accidentally create public content about a sensitive topic
 
 **As a story author:**
@@ -142,10 +140,12 @@ related:
 - [ ] Points linked only to private stories of other users are invisible to non-authors
 - [ ] Points linked to at least one public story remain visible to all (one public link = public point)
 - [ ] Point positions follow the same visibility as the point
+- [ ] Badge rule: if a point is linked to both public and private stories, the point is considered **public** (one public link = public). Badge shows globe, not lock.
 
 ### Junction Table RLS
 - [ ] `story_points` SELECT returns rows only when the viewer can see the linked story
 - [ ] `story_point_history` SELECT follows the same visibility rules
+- [ ] `story_point_history` INSERT restricted to story author (prevents audit trail from accumulating records that leak private link events)
 - [ ] INSERT/DELETE permissions unchanged (story author can still link/unlink)
 
 ### Story Visibility Immutability
@@ -154,13 +154,15 @@ related:
 - [ ] Visibility selector removed from story guide chat edit mode (`VisibilityAndSave` shows current visibility as read-only badge)
 - [ ] StoryGuideChat line 646: `updateStory()` call must drop `visibility` from payload (currently passes `{ content, visibility }` — must become `{ content }` only)
 - [ ] `updateStory()` service method no longer accepts `visibility` in the update payload (content edits still work)
+- [ ] All `updateStory()` call sites audited — grep for callers that pass `visibility` and remove or guard them
 - [ ] Database: UPDATE policy prevents changing the `visibility` column after INSERT
 - [ ] Visibility is still selectable at creation time (create-story-page, story guide new story flow)
 
 ### Remove `shared` Visibility
-- [ ] `shared` removed from `story_visibility` PostgreSQL enum
-- [ ] RLS policy simplified to two branches: `public` (anyone) and `private` (author only)
+- [ ] Run `grep -r 'shared' src/ supabase/ e2e/` to enumerate all removal targets before writing migration (TypeScript types, service layer, chat prompts, test fixtures, edge functions)
 - [ ] Existing stories with `visibility = 'shared'` migrated to `private`
+- [ ] `shared` removed from `story_visibility` PostgreSQL enum (note: requires new type → migrate → drop old type — not a simple ALTER)
+- [ ] RLS policy simplified to two branches: `public` (anyone) and `private` (author only)
 - [ ] UI `VISIBILITY_OPTIONS` array reduced to two options: public and private
 - [ ] `VisibilityBadge` component no longer renders the "shared" variant (Users icon)
 
@@ -170,12 +172,35 @@ related:
 - [ ] Indicators use existing `VisibilityBadge` component (extended to points)
 - [ ] Private indicator: lock icon, muted/amber styling
 - [ ] Public indicator: globe icon, default styling
+- [ ] `/ui` agent audits current border color usage (blue left border on story detail, absent elsewhere) and proposes consistent system — border color may reinforce privacy state (e.g., amber border for private cards)
+- [ ] Visual privacy treatment is ambient (visible without reading text) — not just a small icon badge
+
+### Private Content Display Boundaries
+- [ ] Private stories are excluded from profile page story lists (all tabs)
+- [ ] Private stories are excluded from public feed
+- [ ] Private points (inherited from private-only stories) are excluded from profile point lists
+- [ ] Private points are excluded from public feed / explore surfaces
+- [ ] Private content is only displayed within its doc/letter context (P551/P581 responsibility to render — this spec ensures the query-level exclusion)
+- [ ] Display boundary exclusions verified via RLS-level queries and DB-seeded integration tests (no P586 UI flow produces private stories — tests must seed data directly)
+
+### Creation Flow Constraints
+- [ ] `/live` session flow remains public-only — no private option in story filing
+- [ ] `create-story-page` remains public-only — no private option
+- [ ] Story guide chat (new story flow) remains public-only — no private option
+- [ ] P586 delivers RLS + data model support for private stories; creation UI that produces them is P551 scope
+
+**P551 dependencies (not P586 ACs — tracked here for traceability):**
+- P551 must implement private story creation UI within doc context
+- P551 creation flow must communicate that stories inside a private doc inherit private visibility
+- P551 creation flow must warn when linking to a private-only point from a public context (would make the point visible)
 
 ## Out of Scope
 
 - Encrypted storage for private content (separate future spec)
 - Doc-level visibility (P551 scope — builds on this foundation)
 - Letter-level privacy (P581 scope)
+- Private story creation UI (P551 scope — this spec only ensures RLS and data model support it)
+- Private content rendering inside docs/letters (P551/P581 scope). Query-level exclusion from profile/feed is P586 scope (defense in depth)
 - Ordering of stories or points (P551 scope)
 - Grant-based sharing ("share with specific person") — removed with `shared`; future spec if needed
 - Grid component for story/point display (P581 scope — may be extracted as shared component)
@@ -186,11 +211,15 @@ related:
 |---------|-------|---------|
 | Private badge — icon | Lock icon (existing) | Story cards, point cards |
 | Private badge — style | Muted amber background | Consistent with P551 privacy banner |
+| Private card — border | `/ui` agent to propose (e.g., amber left border) | Must be consistent across all card types |
 | Public badge — icon | Globe icon (existing) | Story cards, point cards |
 | Public badge — style | Default/subtle | Doesn't compete for attention |
-| Visibility selector — options | "Private" (lock), "Public" (globe) | Story creation only |
-| Visibility selector — default | Private | Safer default (unchanged from current) |
+| Card border audit | `/ui` agent audits current inconsistency | Blue left border on story detail only — normalize across all card types before layering privacy |
+| Visibility selector — options | "Private" (lock), "Public" (globe) | Story creation only (deferred to P551 for private) |
+| Visibility selector — default | Public | Public creation flows only — private is docs-only |
 | Removed UI element | Visibility dropdown | Story detail page, profile page, story guide chat |
+| Removed UI element | Private option in /live, create-story-page | Public flows have no private selector |
+| Inheritance indicator | `/ui` agent to propose | Point cards: communicate that privacy is inherited from linked stories, not set directly |
 
 ## Open Questions for `/challenge-prd`
 
@@ -201,16 +230,35 @@ Current spec: "one public link = public point" (dynamic computation from linked 
 
 **Decision needed:** Dynamic computation (current spec) vs. point-level visibility column (cascade model)?
 
-### `shared` Removal — Codebase Scope
-The `/architect` phase must enumerate ALL `shared` references beyond DB/RLS/UI: TypeScript types (`StoryVisibility`), service layer validation, story guide chat prompt templates, test fixtures, edge functions, and any string literals. Add a grep-all step to the build sequence.
+### `shared` Removal — Codebase Scope — RESOLVED (promoted to AC)
+The grep-all step is now an AC under "Remove `shared` Visibility." The `/architect` phase must still plan the migration sequence (new type → migrate → drop old type).
 
-### Orphan Points
-Points created in /live with no linked stories are currently public. After this spec ships, should orphan points default to private? Or remain public for backward compatibility? The timing gap (public until linked to a story) is a known privacy gap.
+### Orphan Points — RESOLVED
+Points created in /live with no linked stories remain **public** (backward compatibility). This is codified in Point Visibility RLS AC: "Points with no linked stories remain visible." The timing gap (public until linked to a private story) is accepted as a known constraint — `/live` is a public flow anyway.
+
+### Private Content Display Boundary — RESOLVED
+P586 owns the query-level exclusion from profile/feed (defense in depth). Codified in Display Boundaries ACs. Tests use DB-seeded private stories since no P586 UI creates them.
+
+### Border Color Consistency Audit
+The screenshot shows a blue left border on the story card (story detail page), but point cards below have no border. Profile tab cards and feed cards also lack it. Before layering privacy-aware border colors, the `/ui` agent needs to:
+1. Audit all card types across all surfaces for current border treatment
+2. Propose a consistent base border system
+3. Layer privacy treatment on top (e.g., amber for private, neutral for public)
+
+This is a `/ui` concern but must be flagged at PRD level so `/ui` knows to address it.
+
+### Visibility Inheritance Communication
+Points inherit visibility from their linked stories — they have no `visibility` column of their own. This means a point's privacy state can change (e.g., when the last private-only story is deleted, or when a new public story links to it). How should the UI communicate that a point's privacy is inherited and potentially dynamic?
+
+Options: (a) tooltip on the badge explaining inheritance, (b) no explanation — just show the current state, (c) show a count of "linked to N private / M public stories" on hover.
+
+**Recommendation:** `/ui` agent decides, but the spec should note that (b) is the simplest and (a) is the most honest.
 
 ## Next Steps
 
-1. **Run `/challenge-prd`** — stress-test cascade model, orphan points decision, asymmetric doc visibility
-2. **Run `/architect`** — RLS migration design, enum removal strategy, UPDATE policy, full `shared` grep
-3. **Run `/generate-tests`** — RLS leak tests, visibility immutability tests, migration tests
-4. **Run `/spec-review`** — validate before implementation
-5. **Run `/dev`** — implement (Phase 1: migration + RLS, Phase 2: UI cleanup)
+1. **Run `/challenge-prd`** — stress-test cascade model, orphan points, display boundary split, border consistency, inheritance communication
+2. **Run `/architect`** — RLS migration design, enum removal strategy, UPDATE policy, full `shared` grep, query-level exclusion from profile/feed
+3. **Run `/ux`** — border color audit, privacy visual treatment, inheritance indicator design
+4. **Run `/generate-tests`** — RLS leak tests, visibility immutability tests, migration tests, display boundary tests
+5. **Run `/spec-review`** — validate before implementation
+6. **Run `/dev`** — implement (Phase 1: migration + RLS, Phase 2: UI cleanup + display boundaries)
