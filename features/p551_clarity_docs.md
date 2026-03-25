@@ -1,7 +1,7 @@
 ---
-status: today
+status: blocked
 type: story
-rank: 0.313
+rank: 0.219
 tags:
   - docs
   - privacy
@@ -19,7 +19,7 @@ related:
   - p547
   - p581
   - p586
-locked_at: '2026-03-24T14:45:28.211Z'
+locked_at: '2026-03-25T13:45:42.566Z'
 ---
 
 # P551: Clarity Docs — Curated Story Collections

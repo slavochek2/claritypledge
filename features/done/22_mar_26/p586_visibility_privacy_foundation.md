@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: today
 type: story
 rank: 0.312
 tags:
@@ -7,7 +7,7 @@ tags:
   - rls
   - visibility
   - foundation
-delivery_stage: 5-decomposed
+delivery_stage: 4-tests-ready
 reviews:
   ux: null
   architect: null
@@ -725,28 +725,28 @@ See P551 spec dependencies section for full list.
 - **Tests:** `e2e/integration/p586-visibility-privacy.spec.ts`
 - **Depends on:** None
 - **Verify:** `./scripts/migrate.sh` succeeds; integration tests pass (schema checks, RLS, triggers, immutability, shared removal)
-- [x] Complete
+- [ ] Complete
 
 ### Task 2: Remove `shared` from TypeScript types and configs
 - **Files:** `src/app/types/index.ts` (modify), `src/app/data/story-visibility-options.ts` (modify), `src/app/data/mock-profile-data.ts` (modify)
 - **Spec refs:** "Implementation Approach > Build Sequence Phase 2 steps 19-24 (lines ~483-488)", "UX Design > Change 1 (lines ~567-580)"
 - **Depends on:** Task 1 (DB must accept `public`/`private` only before TS types change)
 - **Verify:** `npm run build` succeeds with zero TS errors; no `'shared'` in type unions
-- [x] Complete
+- [ ] Complete
 
 ### Task 3: Remove `shared` from UI components
 - **Files:** `src/app/components/shared/visibility-badge.tsx` (modify), `src/app/components/story-guide/SavedStoryChatCard.tsx` (modify), `src/app/components/shared/prototype-types.ts` (modify)
 - **Spec refs:** "Implementation Approach > Build Sequence Phase 2 steps 21-23 (lines ~485-487)"
 - **Depends on:** Task 2 (types must be updated before components consuming them)
 - **Verify:** `npm run build` succeeds; `VisibilityBadge` renders only public/private; no "Shared" text in UI
-- [x] Complete
+- [ ] Complete
 
 ### Task 4: Story visibility immutability — service layer
 - **Files:** `src/app/data/stories-service.interface.ts` (modify), `src/app/data/stories-service-real.ts` (modify), `src/app/data/stories-service-mock.ts` (modify)
 - **Spec refs:** "Implementation Approach > Build Sequence Phase 3 steps 29-32 (lines ~496-499)", "AC: Story Visibility Immutability (lines ~170-178)"
 - **Depends on:** Task 1 (DB trigger must enforce immutability before UI removes controls)
 - **Verify:** `npm run build` succeeds; `updateStory` signature no longer accepts `visibility`; grep confirms zero callers pass visibility
-- [x] Complete
+- [ ] Complete
 
 ### Task 5: Story visibility immutability — remove UI dropdowns
 - **Files:** `src/app/pages/story-detail-page.tsx` (modify), `src/app/pages/profile-page-v2.tsx` (modify), `src/app/components/story-guide/StoryGuideChat.tsx` (modify), `src/app/components/story-guide/VisibilityAndSave.tsx` (modify)
@@ -754,27 +754,27 @@ See P551 spec dependencies section for full list.
 - **Tests:** `e2e/p586-smoke.spec.ts`
 - **Depends on:** Task 4 (service no longer accepts visibility — UI must stop passing it)
 - **Verify:** Story detail page shows static badge (no dropdown); profile page shows static badge; story guide chat edit mode shows read-only pill; smoke tests pass
-- [x] Complete
+- [ ] Complete
 
 ### Task 6: Point visibility — types and service API
 - **Files:** `src/app/types/index.ts` (modify), `src/app/data/points-service.interface.ts` (modify), `src/app/data/points-service-real.ts` (modify), `src/app/data/points-service-mock.ts` (modify)
 - **Spec refs:** "Implementation Approach > Build Sequence Phase 4 steps 33-36 (lines ~503-506)", "AC: Point Visibility Column-Based Model (lines ~145-153)"
 - **Depends on:** Task 1 (visibility column must exist in DB)
 - **Verify:** `npm run build` succeeds; `createPoint()` accepts optional `visibility` param; point queries select `visibility` column
-- [x] Complete
+- [ ] Complete
 
 ### Task 7: Point card badge + amber border treatment
 - **Files:** `src/app/components/social/point-card-with-links.tsx` (modify)
 - **Spec refs:** "Implementation Approach > Build Sequence Phase 4 steps 37-38 (lines ~507-508)", "UX Design > Change 3 (lines ~615-644)", "UX Design > Change 4 (lines ~646-672)"
 - **Depends on:** Task 6 (visibility prop must be available on point data)
 - **Verify:** Point cards render globe icon (all existing points are public); amber border class present in component (conditional on `visibility === 'private'`)
-- [x] Complete
+- [ ] Complete
 
 ### Task 8: Defense-in-depth query filters
 - **Files:** `src/app/data/stories-service-real.ts` (modify), `src/app/data/points-service-real.ts` (modify)
 - **Spec refs:** "Implementation Approach > Build Sequence Phase 5 steps 39-41 (lines ~512-514)", "AC: Private Content Display Boundaries (lines ~197-203)"
 - **Depends on:** Task 1 (visibility column must exist), Task 4 (service layer updated)
 - **Verify:** `getStoriesByAuthorWithPoints` excludes private stories for non-self; `getPointsForProfileDisplay` excludes private points for non-owners; `getPointsForFeedDisplay` filters `.eq('visibility', 'public')`
-- [x] Complete
+- [ ] Complete
 
 **Total tasks:** 8 | **Can parallelize:** Task 2+6 (after Task 1; no shared files), Task 3+4 (after Task 2; no shared files), Task 7+8 (after Task 6; different files) | **Must be sequential:** Task 1 → 2 → 3, Task 1 → 4 → 5, Task 1 → 6 → 7
