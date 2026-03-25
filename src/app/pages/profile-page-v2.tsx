@@ -378,6 +378,7 @@ export function ProfilePageV2() {
             linkedStoryIds,
             linkedStories,
             tags: point.tags || [],
+            visibility: point.visibility ?? 'public',
           };
         });
 
@@ -496,6 +497,7 @@ export function ProfilePageV2() {
           linkedStoryIds: existing?.linkedStoryIds ?? [],
           linkedStories: existing?.linkedStories ?? [],
           tags: point.tags || [],
+          visibility: point.visibility ?? 'public',
         };
       });
       setRealPoints(adaptedPoints as unknown as PointWithUserPosition[]);
@@ -588,6 +590,7 @@ export function ProfilePageV2() {
           linkedStoryIds: existing?.linkedStoryIds ?? [],
           linkedStories: existing?.linkedStories ?? [],
           tags: point.tags || [],
+          visibility: point.visibility ?? 'public',
         };
       });
 

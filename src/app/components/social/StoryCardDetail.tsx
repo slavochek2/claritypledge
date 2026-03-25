@@ -185,10 +185,15 @@ export function StoryCardDetail({
   }
 
   // Standard rendering (non-quote pattern)
+  // P586: amber border for private stories, blue for public
+  const isPrivateStory = story.visibility === 'private';
+  const storyBorderColor = isPrivateStory ? 'border-l-amber-400' : 'border-l-blue-500';
+  const storyBgTint = isPrivateStory ? 'bg-amber-50/50' : 'bg-card';
+  const storyHoverBorder = isPrivateStory ? 'hover:border-amber-300' : 'hover:border-blue-300';
   // Note: removed overflow-hidden to prevent dropdown menus from being clipped
   const cardClassName = isDetailView
-    ? 'bg-card rounded-lg shadow-sm border-l-4 border-l-blue-500 border border-border'
-    : 'group bg-card rounded-lg shadow-sm border-l-4 border-l-blue-500 border border-border cursor-pointer hover:border-blue-300 hover:shadow-md transition-all focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none';
+    ? `${storyBgTint} rounded-lg shadow-sm border-l-4 ${storyBorderColor} border border-border`
+    : `group ${storyBgTint} rounded-lg shadow-sm border-l-4 ${storyBorderColor} border border-border cursor-pointer ${storyHoverBorder} hover:shadow-md transition-all focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none`;
 
   return (
     <div

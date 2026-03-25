@@ -16,6 +16,7 @@ import { UnderstoodBadge } from '@/components/ui/understood-badge';
 import { linkifyText } from '@/app/utils/linkify';
 import { TagPills } from '@/app/components/shared/tag-pills';
 import { stripHashtags } from '@/lib/utils';
+import { VisibilityBadge } from '@/app/components/shared';
 import type { StoryWithAuthor } from '@/app/types';
 
 interface FeedStoryCardProps {
@@ -94,6 +95,7 @@ export function FeedStoryCard({ story, activeTag, pointCount }: FeedStoryCardPro
                 {story.authorRole && <span>{story.authorRole}</span>}
                 {story.authorRole && <span className="opacity-40">·</span>}
                 <span>{formatTimeAgo(story.createdAt)}</span>
+                <VisibilityBadge visibility={story.visibility ?? 'public'} size={12} />
               </div>
             </div>
 

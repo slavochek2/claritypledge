@@ -331,6 +331,7 @@ export function PointDetailPage() {
         positions.map(p => [p.userId, { position: p.position, timestamp: p.createdAt }])
       ),
       linkedStoryIds: [],
+      visibility: point.visibility ?? 'public',
     };
 
     // Build profileOwner if `from` user found in positions

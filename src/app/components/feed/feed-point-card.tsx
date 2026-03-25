@@ -18,6 +18,7 @@ import {
   PositionButtons,
 } from '@/app/components/shared';
 import { adjustPositionCounts } from '@/app/utils/position-helpers';
+import { VisibilityBadge } from '@/app/components/shared';
 import type { PointWithUserPosition, PositionType } from '@/app/types';
 import { pointsService } from '@/app/data/points-service';
 import { useAuth } from '@/auth';
@@ -143,10 +144,13 @@ export function FeedPointCard({ point, activeTag, onPointRemoved }: FeedPointCar
           </div>
 
           <div className="flex-1 min-w-0">
-            {/* Statement */}
-            <p className="text-sm font-medium text-foreground break-words">
-              {linkifyText(stripHashtags(point.statement, point.tags))}
-            </p>
+            {/* Statement + visibility badge */}
+            <div className="flex items-start justify-between gap-1">
+              <p className="text-sm font-medium text-foreground break-words flex-1">
+                {linkifyText(stripHashtags(point.statement, point.tags))}
+              </p>
+              <VisibilityBadge visibility={point.visibility ?? 'public'} size={12} />
+            </div>
 
             {point.context && (
               <p className="text-xs text-muted-foreground mt-1 line-clamp-2">

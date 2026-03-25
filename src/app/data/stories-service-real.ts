@@ -355,10 +355,9 @@ export const realStoriesService: StoriesService = {
       `)
       .eq('author_id', authorId);
 
-    // When viewing someone else's profile, only show public stories (backup for RLS)
-    if (userId !== authorId) {
-      query = query.eq('visibility', 'public');
-    }
+    // P586: Profile is a public surface — always filter to public stories only.
+    // Private stories belong in docs/letters context, never on profile pages.
+    query = query.eq('visibility', 'public');
 
     const { data, error } = await query.order('created_at', { ascending: false });
 

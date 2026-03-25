@@ -264,7 +264,7 @@ export function PointCardWithLinks({
                 {/* Content column */}
                 <div className="flex-1 min-w-0">
                   {/* Visibility badge - right-aligned in quote pattern */}
-                  {point.visibility && (
+                  {(
                     <div className="float-right ml-2">
                       <MobileTooltip content={isPrivate ? 'Private — only you can see it' : 'Visible to everyone'}>
                         <span
@@ -441,7 +441,7 @@ export function PointCardWithLinks({
                   authorName={profileOwner?.name}
                   authorEarCount={profileOwner?.ear}
                 />
-                {point.visibility && (
+                {(
                   <MobileTooltip content={isPrivate ? 'Private — only you can see it' : 'Visible to everyone'}>
                     <span
                       className={`inline-flex items-center ${isPrivate ? 'text-amber-600' : 'text-muted-foreground'}`}
