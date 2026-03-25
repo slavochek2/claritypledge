@@ -24,7 +24,8 @@ locked_at: '2026-03-23T14:36:41.737Z'
 **Epic:** story-first (P523 vision)
 **Supersedes:** P561 (comprehension slider on story cards), P575 (letter/story delivery)
 **Depends on:** P560 (story filing without position — shipped)
-**Related:** P551 (clarity docs — letter is an immutable snapshot of a doc; unified data model, separate specs)
+**Related:** P551 (clarity docs — letter is an immutable snapshot of a doc; unified data model, separate specs), P586 (visibility & privacy foundation — prerequisite for P551; point RLS, story immutability, `shared` removal)
+**Blocked by:** P586 → P551 → P581 (chain dependency: privacy foundation → doc CRUD → letter delivery)
 **Tests:** H-StoryFirst (async gap revelations), H-WTP-Pain (gap → felt cost), H-Stories-ColdStart (filed content as return trigger)
 
 ---
