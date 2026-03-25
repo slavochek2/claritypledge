@@ -643,7 +643,7 @@ export function StoryGuideChat({
     try {
       // Step 1: Create or update story
       const story = existingStory
-        ? await storiesService.updateStory(existingStory.id, { content: contentToSave, visibility: selectedVisibility })
+        ? await storiesService.updateStory(existingStory.id, { content: contentToSave })
         : await storiesService.createStory(user.id, contentToSave, extractHashtags(contentToSave), selectedVisibility);
 
       if (!story) {
@@ -865,6 +865,7 @@ export function StoryGuideChat({
             onSave={handleSave}
             onBack={() => setPhase('brain-dump')}
             isSaving={isSaving}
+            isEditMode={!!existingStory}
           />
         )}
       </div>

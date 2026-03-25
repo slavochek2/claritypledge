@@ -59,15 +59,7 @@ import {
   PositionBadge,
   type SevenPointCounts,
 } from "@/app/components/shared";
-import { VisibilityBadge } from "@/app/components/shared/visibility-badge";
-import { VISIBILITY_OPTIONS } from "@/app/data/story-visibility-options";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import { InlineVisibilityIcon } from "@/app/components/shared/visibility-badge";
 import { TagPills } from '@/app/components/shared/tag-pills';
 import { stripHashtags, extractHashtags } from '@/lib/utils';
 import type { PositionType, StoryVisibility } from "@/app/types";
@@ -386,6 +378,7 @@ export function ProfilePageV2() {
             linkedStoryIds,
             linkedStories,
             tags: point.tags || [],
+            visibility: point.visibility ?? 'public',
           };
         });
 
@@ -504,6 +497,7 @@ export function ProfilePageV2() {
           linkedStoryIds: existing?.linkedStoryIds ?? [],
           linkedStories: existing?.linkedStories ?? [],
           tags: point.tags || [],
+          visibility: point.visibility ?? 'public',
         };
       });
       setRealPoints(adaptedPoints as unknown as PointWithUserPosition[]);
@@ -596,6 +590,7 @@ export function ProfilePageV2() {
           linkedStoryIds: existing?.linkedStoryIds ?? [],
           linkedStories: existing?.linkedStories ?? [],
           tags: point.tags || [],
+          visibility: point.visibility ?? 'public',
         };
       });
 
@@ -1114,8 +1109,6 @@ function StoryCardFull({
   const [isEditing, setIsEditing] = useState(false);
   const [editContent, setEditContent] = useState('');
   const [isSaving, setIsSaving] = useState(false);
-  const [localVisibility, setLocalVisibility] = useState(story.visibility);
-  const [savingVisibility, setSavingVisibility] = useState(false);
   const editTextareaRef = useRef<HTMLTextAreaElement>(null);
 
   const handleEditStart = () => {
@@ -1150,19 +1143,6 @@ function StoryCardFull({
     }
   };
 
-  const handleVisibilityChange = async (newVisibility: string) => {
-    const v = newVisibility as StoryVisibility;
-    if (v === localVisibility || savingVisibility) return;
-    setSavingVisibility(true);
-    const updated = await storiesService.updateStory(story.id, { visibility: v });
-    setSavingVisibility(false);
-    if (updated) {
-      setLocalVisibility(v);
-      toast.success('Visibility updated');
-    } else {
-      toast.error('Failed to update visibility');
-    }
-  };
 
   const handleCardClick = () => {
     if (isEditing) return;
@@ -1181,7 +1161,7 @@ function StoryCardFull({
     <div
       role="button"
       tabIndex={0}
-      className="group bg-card rounded-lg shadow-sm border-l-4 border-l-blue-500 border border-border overflow-hidden cursor-pointer hover:border-blue-300 hover:shadow-md transition-all focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none"
+      className="relative group bg-card rounded-lg shadow-sm border-l-4 border-l-blue-500 border border-border overflow-hidden cursor-pointer hover:border-blue-300 hover:shadow-md transition-all focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none"
       aria-label={`Story by ${author.name}`}
       onClick={(e) => {
         if ((e.target as HTMLElement).closest('[data-story-toggle]')) return;
@@ -1237,38 +1217,9 @@ function StoryCardFull({
                   </span>
                 </MobileTooltip>
               </div>
-              <div className="flex items-center gap-1 text-xs text-muted-foreground">
+              <div className="text-xs text-muted-foreground inline-flex items-center gap-1">
                 <span>{author.role} · {formatTimeAgo(story.createdAt)}</span>
-                {currentUserId === story.authorId ? (
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <button
-                        type="button"
-                        disabled={savingVisibility}
-                        onClick={(e) => e.stopPropagation()}
-                        aria-label={`Story visibility: ${VISIBILITY_OPTIONS.find(o => o.value === localVisibility)?.label}`}
-                        className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
-                      >
-                        {(() => { const opt = VISIBILITY_OPTIONS.find(o => o.value === localVisibility) ?? VISIBILITY_OPTIONS[0]; const Icon = opt.icon; return <><Icon className="w-3 h-3" />{opt.label}<ChevronDown className="w-2.5 h-2.5 opacity-60" /></>; })()}
-                      </button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="start">
-                      <DropdownMenuRadioGroup value={localVisibility} onValueChange={handleVisibilityChange}>
-                        {VISIBILITY_OPTIONS.map(opt => {
-                          const Icon = opt.icon;
-                          return (
-                            <DropdownMenuRadioItem key={opt.value} value={opt.value}>
-                              <Icon className="w-3.5 h-3.5 mr-1.5" />
-                              {opt.label}
-                            </DropdownMenuRadioItem>
-                          );
-                        })}
-                      </DropdownMenuRadioGroup>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                ) : (
-                  <VisibilityBadge visibility={story.visibility} />
-                )}
+                <InlineVisibilityIcon visibility={story.visibility} />
               </div>
             </div>
 
@@ -1563,7 +1514,7 @@ function QuotedPointCard({
 
           {/* Content column */}
           <div className="flex-1 min-w-0">
-            <p className="text-sm text-foreground">{linkifyText(stripHashtags(point.statement, point.tags))}</p>
+            <p className="text-sm text-foreground"><InlineVisibilityIcon visibility={point.visibility} />{' '}{linkifyText(stripHashtags(point.statement, point.tags))}</p>
 
             {/* P503: Tag pills */}
             {point.tags && point.tags.length > 0 && (

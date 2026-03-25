@@ -23,6 +23,7 @@ import {
   PositionBadge,
   ShareButton,
   MobileTooltip,
+  InlineVisibilityIcon,
   ThreadLineGroup,
   ThreadLineItem,
 } from '@/app/components/shared';
@@ -103,7 +104,7 @@ export function StoryCardDetail({
   authorPosition,
   routes = {},
   linkedStoriesForPoints,
-  visibilitySlot,
+  visibilitySlot: _visibilitySlot,
   footerActionsSlot,
   currentUserId,
   hideActions = false,
@@ -170,9 +171,10 @@ export function StoryCardDetail({
             }
           }}
         >
-          {/* Role + date (name/avatar already shown outside) */}
-          <p className="text-xs text-muted-foreground mb-2">
-            {formatTimeAgo(story.createdAt)}
+          {/* Role + date + visibility (name/avatar already shown outside) */}
+          <p className="text-xs text-muted-foreground mb-2 inline-flex items-center gap-1">
+            <span>{story.authorRole ? `${story.authorRole} · ` : ''}{formatTimeAgo(story.createdAt)}</span>
+            <InlineVisibilityIcon visibility={story.visibility} />
           </p>
 
           {/* Story text */}
@@ -185,10 +187,15 @@ export function StoryCardDetail({
   }
 
   // Standard rendering (non-quote pattern)
+  // P586: amber border for private stories, blue for public
+  const isPrivateStory = story.visibility === 'private';
+  const storyBorderColor = isPrivateStory ? 'border-l-amber-400' : 'border-l-blue-500';
+  const storyBgTint = isPrivateStory ? 'bg-amber-50/50' : 'bg-card';
+  const storyHoverBorder = isPrivateStory ? 'hover:border-amber-300' : 'hover:border-blue-300';
   // Note: removed overflow-hidden to prevent dropdown menus from being clipped
   const cardClassName = isDetailView
-    ? 'bg-card rounded-lg shadow-sm border-l-4 border-l-blue-500 border border-border'
-    : 'group bg-card rounded-lg shadow-sm border-l-4 border-l-blue-500 border border-border cursor-pointer hover:border-blue-300 hover:shadow-md transition-all focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none';
+    ? `relative ${storyBgTint} rounded-lg shadow-sm border-l-4 ${storyBorderColor} border border-border`
+    : `relative group ${storyBgTint} rounded-lg shadow-sm border-l-4 ${storyBorderColor} border border-border cursor-pointer ${storyHoverBorder} hover:shadow-md transition-all focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none`;
 
   return (
     <div
@@ -239,14 +246,9 @@ export function StoryCardDetail({
                 {/* Credibility stats */}
                 <EarBadge count={story.authorEarsCount ?? 0} name={story.authorName} />
               </div>
-              <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                <span>{formatTimeAgo(story.createdAt)}</span>
-                {visibilitySlot && (
-                  <>
-                    <span className="opacity-40">·</span>
-                    {visibilitySlot}
-                  </>
-                )}
+              <div className="text-xs text-muted-foreground inline-flex items-center gap-1">
+                <span>{story.authorRole ? `${story.authorRole} · ` : ''}{formatTimeAgo(story.createdAt)}</span>
+                <InlineVisibilityIcon visibility={story.visibility} />
               </div>
             </div>
 
@@ -551,7 +553,7 @@ function QuotedPoint({
           {/* Content column */}
           <div className="flex-1 min-w-0">
             {/* Point text */}
-            <p className="text-sm text-gray-800 break-words">{linkifyText(stripHashtags(point.statement, point.tags))}</p>
+            <p className="text-sm text-gray-800 break-words"><InlineVisibilityIcon visibility={point.visibility} />{' '}{linkifyText(stripHashtags(point.statement, point.tags))}</p>
             {point.tags?.length > 0 && <TagPills tags={point.tags} context="detail" className="mt-1" />}
 
             {/* Position buttons - scaled to 85% to fit within quoted card width while keeping button proportions */}

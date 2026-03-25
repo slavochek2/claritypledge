@@ -927,7 +927,8 @@ export const POSITION_LABELS: Record<PositionType, string> = {
 // Stories
 // ----------------------------------------------------------------------------
 
-export type StoryVisibility = 'public' | 'shared' | 'private';
+export type StoryVisibility = 'public' | 'private';
+export type ContentVisibility = 'public' | 'private';
 
 export interface Story {
   id: string;
@@ -1008,6 +1009,7 @@ export interface Point {
   updatedAt: string;
   tags: string[];
   bannerUrl?: string; // P504: AI-generated banner image
+  visibility?: ContentVisibility; // P586: public/private visibility
 }
 
 /** Point summary for embedding in other views */
@@ -1019,6 +1021,7 @@ export interface PointSummary {
   positionCounts?: Record<string, number>;
   userPosition?: PositionType | null;
   profileSubjectPosition?: PositionType | null;
+  visibility?: ContentVisibility; // P586: public/private visibility
 }
 
 /** Point with creator profile info */

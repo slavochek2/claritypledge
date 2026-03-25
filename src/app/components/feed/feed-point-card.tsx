@@ -18,6 +18,7 @@ import {
   PositionButtons,
 } from '@/app/components/shared';
 import { adjustPositionCounts } from '@/app/utils/position-helpers';
+import { InlineVisibilityIcon } from '@/app/components/shared';
 import type { PointWithUserPosition, PositionType } from '@/app/types';
 import { pointsService } from '@/app/data/points-service';
 import { useAuth } from '@/auth';
@@ -143,8 +144,9 @@ export function FeedPointCard({ point, activeTag, onPointRemoved }: FeedPointCar
           </div>
 
           <div className="flex-1 min-w-0">
-            {/* Statement */}
+            {/* Statement with inline visibility icon */}
             <p className="text-sm font-medium text-foreground break-words">
+              <InlineVisibilityIcon visibility={point.visibility ?? 'public'} />{' '}
               {linkifyText(stripHashtags(point.statement, point.tags))}
             </p>
 

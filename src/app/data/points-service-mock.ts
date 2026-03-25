@@ -13,6 +13,7 @@ import type {
   PointPositionWithUser,
   PointPositionHistory,
   PositionType,
+  ContentVisibility,
 } from '@/app/types';
 
 // All position types for counting
@@ -113,7 +114,8 @@ export const mockPointsService: PointsService = {
   async createPoint(
     statement: string,
     context?: string,
-    tags: string[] = []
+    tags: string[] = [],
+    visibility?: ContentVisibility
   ): Promise<Point | null> {
     const now = new Date().toISOString();
     return {
@@ -124,6 +126,7 @@ export const mockPointsService: PointsService = {
       createdAt: now,
       updatedAt: now,
       tags,
+      visibility,
     };
   },
 

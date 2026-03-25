@@ -16,9 +16,9 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { extractHashtags } from '@/lib/utils';
 import { useParams, useNavigate, useLocation, useSearchParams } from 'react-router-dom';
-import { LockIcon, Loader2, Plus, ChevronDown, Pencil, Trash2 } from 'lucide-react';
+import { LockIcon, Loader2, Plus, Pencil, Trash2 } from 'lucide-react';
 import { FocusHeader } from '@/app/components/layout/focus-header';
-import { VISIBILITY_OPTIONS } from '@/app/data/story-visibility-options';
+
 import { StoryCardWithLinks, type StoryAuthor } from '@/app/components/social/story-card-with-links';
 import type { Story as ProtoStory, Point as ProtoPoint } from '@/app/components/shared/prototype-types';
 import { useAuth } from '@/auth';
@@ -41,15 +41,8 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { analytics } from '@/lib/mixpanel';
-import { PositionButtons, VisibilityBadge, type SevenPointCounts } from '@/app/components/shared';
-import type { StoryWithPoints, StoryWithAuthor, PointSummary, PointPosition, PositionType, StoryVisibility } from '@/app/types';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
+import { PositionButtons, type SevenPointCounts } from '@/app/components/shared';
+import type { StoryWithPoints, StoryWithAuthor, PointSummary, PointPosition, PositionType } from '@/app/types';
 
 /** Soft character marker — nudge to keep points concise */
 const POINT_CHAR_SOFT = 140;
@@ -327,75 +320,9 @@ const EMPTY_COUNTS: SevenPointCounts = {
 };
 
 // ---------------------------------------------------------------------------
-// Author action row (author-only): visibility dropdown + edit + delete
+// Author action row (author-only): read-only visibility badge
+// Visibility is set at creation and cannot be changed (P586).
 // ---------------------------------------------------------------------------
-
-
-function AuthorActionRow({
-  storyId,
-  currentVisibility,
-  onVisibilityChanged,
-  disabled,
-}: {
-  storyId: string;
-  currentVisibility: StoryVisibility;
-  onVisibilityChanged: (v: StoryVisibility) => void;
-  disabled?: boolean;
-}) {
-  const [saving, setSaving] = useState(false);
-
-  const handleVisibilityChange = async (newVisibility: string) => {
-    const v = newVisibility as StoryVisibility;
-    if (v === currentVisibility || saving) return;
-    setSaving(true);
-    try {
-      const updated = await storiesService.updateStory(storyId, { visibility: v });
-      if (updated) {
-        onVisibilityChanged(v);
-        toast.success('Visibility updated');
-      } else {
-        toast.error('Failed to update visibility');
-      }
-    } catch {
-      toast.error('Failed to update visibility');
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const current = VISIBILITY_OPTIONS.find(o => o.value === currentVisibility) ?? VISIBILITY_OPTIONS[0];
-  const CurrentIcon = current.icon;
-
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <button
-          type="button"
-          disabled={saving || disabled}
-          aria-label={`Story visibility: ${current.label}`}
-          className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
-        >
-          <CurrentIcon className="w-3 h-3" />
-          {current.label}
-          <ChevronDown className="w-2.5 h-2.5 opacity-60" />
-        </button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="start">
-        <DropdownMenuRadioGroup value={currentVisibility} onValueChange={handleVisibilityChange}>
-          {VISIBILITY_OPTIONS.map(opt => {
-            const Icon = opt.icon;
-            return (
-              <DropdownMenuRadioItem key={opt.value} value={opt.value}>
-                <Icon className="w-3.5 h-3.5 mr-1.5" />
-                {opt.label}
-              </DropdownMenuRadioItem>
-            );
-          })}
-        </DropdownMenuRadioGroup>
-      </DropdownMenuContent>
-    </DropdownMenu>
-  );
-}
 
 // ---------------------------------------------------------------------------
 // Key Points section
@@ -1218,16 +1145,6 @@ export function StoryDetailPage() {
           context="story-detail"
           linkedStoriesForPoints={linkedStoriesForPoints}
           currentUserId={user?.id}
-          visibilitySlot={isAuthor ? (
-            <AuthorActionRow
-              storyId={story.id}
-              currentVisibility={story.visibility}
-              onVisibilityChanged={(v) => setStory(prev => prev ? { ...prev, visibility: v } : prev)}
-              disabled={isDeleting}
-            />
-          ) : (
-            <VisibilityBadge visibility={story.visibility} />
-          )}
           footerActionsSlot={isAuthor ? (
             <>
               <button

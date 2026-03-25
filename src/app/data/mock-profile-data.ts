@@ -63,7 +63,7 @@ export function getMockDataForProfile(profile: Profile): ProfileMockData {
       text: 'Our team tried a "no meetings Wednesday" experiment. Productivity went through the roof - I finished a project that had been stalled for weeks.',
       authorId: profile.id,
       createdAt: '2026-01-08T14:00:00Z',
-      visibility: 'shared',
+      visibility: 'public',
       linkedPointIds: ['pt1', 'pt2'],
       understoodCount: 3,
       crossDisagreementCount: 0,

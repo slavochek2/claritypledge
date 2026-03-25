@@ -426,10 +426,12 @@ describe('realPointsService', () => {
         .mockReturnValueOnce({
           eq: vi.fn().mockResolvedValue({ data: mockPositionRows, error: null }),
         })
-        // Call 2: points IN (point-ids) with creator join
+        // Call 2: points IN (point-ids) with creator join + visibility filter (no viewer)
         .mockReturnValueOnce({
           in: vi.fn().mockReturnValue({
-            order: vi.fn().mockResolvedValue({ data: mockPointRows, error: null }),
+            eq: vi.fn().mockReturnValue({
+              order: vi.fn().mockResolvedValue({ data: mockPointRows, error: null }),
+            }),
           }),
         })
         // Call 3: getPositionCountsForPoints — point_positions WHERE point_id IN (...)
@@ -512,10 +514,12 @@ describe('realPointsService', () => {
         .mockReturnValueOnce({
           eq: vi.fn().mockResolvedValue({ data: mockPositionRows, error: null }),
         })
-        // Call 2: points fetch
+        // Call 2: points fetch + visibility filter (viewer !== subject)
         .mockReturnValueOnce({
           in: vi.fn().mockReturnValue({
-            order: vi.fn().mockResolvedValue({ data: mockPointRows, error: null }),
+            eq: vi.fn().mockReturnValue({
+              order: vi.fn().mockResolvedValue({ data: mockPointRows, error: null }),
+            }),
           }),
         })
         // Call 3: getPositionCountsForPoints

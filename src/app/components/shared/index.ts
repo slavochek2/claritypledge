@@ -13,4 +13,4 @@ export { VerifyButton } from './VerifyButton';
 export { ShareButton, ShareDialog } from './ShareDialog';
 export { ThreadLineItem, ThreadLineGroup } from './ThreadLine';
 export { MobileTooltip } from './mobile-tooltip';
-export { VisibilityBadge } from './visibility-badge';
+export { VisibilityBadge, CardVisibilityCornerBadge, InlineVisibilityIcon } from './visibility-badge';

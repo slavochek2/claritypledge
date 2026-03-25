@@ -16,6 +16,7 @@ import { UnderstoodBadge } from '@/components/ui/understood-badge';
 import { linkifyText } from '@/app/utils/linkify';
 import { TagPills } from '@/app/components/shared/tag-pills';
 import { stripHashtags } from '@/lib/utils';
+import { InlineVisibilityIcon } from '@/app/components/shared';
 import type { StoryWithAuthor } from '@/app/types';
 
 interface FeedStoryCardProps {
@@ -90,10 +91,10 @@ export function FeedStoryCard({ story, activeTag, pointCount }: FeedStoryCardPro
                 </button>
                 <EarBadge count={story.authorEarsCount ?? 0} name={story.authorName} />
               </div>
-              <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                {story.authorRole && <span>{story.authorRole}</span>}
-                {story.authorRole && <span className="opacity-40">·</span>}
+              <div className="text-xs text-muted-foreground inline-flex items-center gap-1">
+                {story.authorRole && <span>{story.authorRole} · </span>}
                 <span>{formatTimeAgo(story.createdAt)}</span>
+                <InlineVisibilityIcon visibility={story.visibility ?? 'public'} />
               </div>
             </div>
 

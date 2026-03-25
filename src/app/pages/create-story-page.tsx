@@ -16,8 +16,6 @@ import { ClarityLoader } from '@/components/ui/clarity-loader';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { analytics } from '@/lib/mixpanel';
-import { MobileTooltip } from '@/app/components/shared/mobile-tooltip';
-import { VISIBILITY_OPTIONS } from '@/app/data/story-visibility-options';
 import { ChatContextHeader } from '@/app/components/story-guide/ChatContextHeader';
 
 /** Soft character marker — not a hard limit, just the sweet spot for verification */
@@ -38,7 +36,8 @@ export function CreateStoryPage() {
 
   // Form state
   const [content, setContent] = useState('');
-  const [visibility, setVisibility] = useState<StoryVisibility>('public');
+  // P586: create-story-page is always public — private creation only via Clarity Docs
+  const visibility = 'public' as const;
 
   // UI state
   const [isSaving, setIsSaving] = useState(false);
@@ -305,34 +304,8 @@ export function CreateStoryPage() {
           )}
         </div>
 
-        {/* Visibility Selector */}
-        <fieldset>
-          <legend className="block text-sm font-medium mb-2">Visibility</legend>
-          <div className="flex gap-2" role="radiogroup" aria-label="Story visibility">
-            {VISIBILITY_OPTIONS.map((opt) => {
-              const Icon = opt.icon;
-              const isSelected = visibility === opt.value;
-              return (
-                <MobileTooltip key={opt.value} content={opt.tooltip}>
-                  <button
-                    type="button"
-                    role="radio"
-                    aria-checked={isSelected}
-                    onClick={() => setVisibility(opt.value)}
-                    className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-md border text-sm font-medium transition-colors min-h-[44px] ${
-                      isSelected
-                        ? 'border-blue-500 bg-blue-50 text-blue-700'
-                        : 'border-input bg-background text-muted-foreground hover:bg-accent'
-                    }`}
-                  >
-                    <Icon className="w-4 h-4" />
-                    {opt.label}
-                  </button>
-                </MobileTooltip>
-              );
-            })}
-          </div>
-        </fieldset>
+        {/* P586: Visibility selector removed — create-story-page is always public.
+           Private story creation is only available from within Clarity Docs (P551). */}
 
         {/* Submit Button */}
         <div className="pt-4">

@@ -150,15 +150,17 @@ describe('P543: Zero-position point filtering', () => {
             error: null,
           }),
         })
-        // Step 2: fetch point rows
+        // Step 2: fetch point rows (with defense-in-depth visibility filter when no viewer)
         .mockReturnValueOnce({
           in: vi.fn().mockReturnValue({
-            order: vi.fn().mockResolvedValue({
-              data: [
-                mockPointRow('point-A', 'Point A'),
-                mockPointRow('point-B', 'Point B'),
-              ],
-              error: null,
+            eq: vi.fn().mockReturnValue({
+              order: vi.fn().mockResolvedValue({
+                data: [
+                  mockPointRow('point-A', 'Point A'),
+                  mockPointRow('point-B', 'Point B'),
+                ],
+                error: null,
+              }),
             }),
           }),
         })
@@ -214,8 +216,10 @@ describe('P543: Zero-position point filtering', () => {
 
       mockSelect
         .mockReturnValueOnce({
-          order: vi.fn().mockReturnValue({
-            range: vi.fn().mockResolvedValue({ data: allPoints, error: null }),
+          eq: vi.fn().mockReturnValue({
+            order: vi.fn().mockReturnValue({
+              range: vi.fn().mockResolvedValue({ data: allPoints, error: null }),
+            }),
           }),
         })
         .mockReturnValueOnce({

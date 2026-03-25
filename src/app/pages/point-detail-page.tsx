@@ -33,6 +33,7 @@ import { StoryCardWithLinks, type StoryAuthor } from '@/app/components/social/st
 import { PointCardWithLinks, type PointProfileOwner } from '@/app/components/social/point-card-with-links';
 import type { Point as ProtoPoint, Story as ProtoStory } from '@/app/components/shared/prototype-types';
 import { linkifyText } from '@/app/utils/linkify';
+import { InlineVisibilityIcon } from '@/app/components/shared';
 import { TagPills } from '@/app/components/shared/tag-pills';
 import { stripHashtags } from '@/lib/utils';
 import { getAnonPosition, setAnonPosition as setAnonPositionStorage } from '@/app/hooks/useAnonPosition';
@@ -331,6 +332,7 @@ export function PointDetailPage() {
         positions.map(p => [p.userId, { position: p.position, timestamp: p.createdAt }])
       ),
       linkedStoryIds: [],
+      visibility: point.visibility ?? 'public',
     };
 
     // Build profileOwner if `from` user found in positions
@@ -457,7 +459,7 @@ export function PointDetailPage() {
             {/* Content column */}
             <div className="flex-1 min-w-0">
               {/* Point text */}
-              <p className="text-foreground font-medium text-lg mb-3">{linkifyText(stripHashtags(point.statement, point.tags))}</p>
+              <p className="text-foreground font-medium text-lg mb-3"><InlineVisibilityIcon visibility={point.visibility ?? 'public'} />{' '}{linkifyText(stripHashtags(point.statement, point.tags))}</p>
 
               {/* Tag pills */}
               {(point.tags?.length ?? 0) > 0 && (

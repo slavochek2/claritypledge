@@ -17,6 +17,7 @@ import {
   PositionButtons,
   PositionBadge,
   ShareButton,
+  InlineVisibilityIcon,
   ThreadLineGroup,
   ThreadLineItem,
   type SevenPointCounts,
@@ -206,9 +207,13 @@ export function PointCardWithLinks({
     onPositionSelect?.(newPosition);
   };
 
+  const isPrivate = point.visibility === 'private';
+  const borderColor = isPrivate ? 'border-l-amber-400' : 'border-l-slate-400';
+  const bgTint = isPrivate ? 'bg-amber-50/50' : 'bg-white';
+
   const cardClassName = isDetailView
-    ? 'bg-white rounded-lg shadow-sm border-l-4 border-l-slate-400 border border-gray-200 overflow-hidden'
-    : 'group bg-white rounded-lg shadow-sm border-l-4 border-l-slate-400 border border-gray-200 overflow-hidden cursor-pointer hover:border-slate-300 hover:shadow-md transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-500 focus-visible:ring-offset-2';
+    ? `relative ${bgTint} rounded-lg shadow-sm border-l-4 ${borderColor} border border-gray-200 overflow-hidden`
+    : `relative group ${bgTint} rounded-lg shadow-sm border-l-4 ${borderColor} border border-gray-200 overflow-hidden cursor-pointer hover:border-slate-300 hover:shadow-md transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-500 focus-visible:ring-offset-2`;
 
   // Quote pattern: when on profile, show position label outside, Point in quoted box
   const showQuotePattern =
@@ -259,8 +264,9 @@ export function PointCardWithLinks({
 
                 {/* Content column */}
                 <div className="flex-1 min-w-0">
-                  {/* Point text */}
+                  {/* Point text with inline visibility icon */}
                   <p className={`text-gray-900 break-words ${compact ? 'text-sm' : 'text-base'}`}>
+                    <InlineVisibilityIcon visibility={point.visibility} />{' '}
                     {linkifyText(displayText)}
                     {isTextTruncated && (
                       <button
@@ -426,8 +432,9 @@ export function PointCardWithLinks({
                 />
               </div>
 
-              {/* Point text - same position as StoryCard text */}
+              {/* Point text with inline visibility icon */}
               <p className={`text-gray-900 break-words ${compact ? 'text-sm' : 'text-base'}`}>
+                <InlineVisibilityIcon visibility={point.visibility} />{' '}
                 {linkifyText(displayText)}
                 {isTextTruncated && (
                   <button

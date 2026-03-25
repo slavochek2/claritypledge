@@ -13,6 +13,7 @@ import type {
   PointPositionWithUser,
   PointPositionHistory,
   PositionType,
+  ContentVisibility,
 } from '@/app/types';
 import { supabase } from '@/lib/supabase';
 
@@ -41,6 +42,7 @@ interface DbPointWithCreator {
   updated_at: string;
   tags: string[];
   banner_url?: string | null;
+  visibility?: 'public' | 'private';
   creator: {
     id: string;
     name: string | null;
@@ -94,6 +96,7 @@ function mapPointFromDb(row: DbPointWithCreator): PointWithCreator {
     updatedAt: row.updated_at,
     tags: row.tags || [],
     bannerUrl: row.banner_url ?? undefined,
+    visibility: row.visibility ?? undefined,
     // Creator info from joined profile
     creatorName: row.creator?.name ?? 'Unknown',
     creatorSlug: row.creator?.slug ?? '',
@@ -182,7 +185,8 @@ export const realPointsService: PointsService = {
   async createPoint(
     statement: string,
     context?: string,
-    tags: string[] = []
+    tags: string[] = [],
+    visibility?: ContentVisibility
   ): Promise<Point | null> {
     log(' createPoint:', { statement });
 
@@ -202,6 +206,7 @@ export const realPointsService: PointsService = {
         context: context ?? null,
         first_validator_id: user.id,
         tags,
+        ...(visibility ? { visibility } : {}),
       })
       .select('*')
       .single();
@@ -220,6 +225,7 @@ export const realPointsService: PointsService = {
       updatedAt: data.updated_at,
       tags: data.tags || [],
       bannerUrl: data.banner_url ?? undefined,
+      visibility: data.visibility ?? undefined,
     };
 
     return point;
@@ -335,6 +341,7 @@ export const realPointsService: PointsService = {
         )
       `
       )
+      .eq('visibility', 'public')  // Defense-in-depth: feed never shows private points
       .order('created_at', { ascending: false })
       .range(offset, offset + limit - 1);
 
@@ -650,7 +657,8 @@ export const realPointsService: PointsService = {
     const pointIds = positionRows.map(p => p.point_id);
 
     // Fetch point rows with creator profiles
-    const { data: pointRows, error: pointsError } = await supabase
+    // Defense-in-depth: hide private points when viewer is not the profile owner
+    let pointsQuery = supabase
       .from('points')
       .select(`
         *,
@@ -658,7 +666,13 @@ export const realPointsService: PointsService = {
           id, name, slug, avatar_color, avatar_url
         )
       `)
-      .in('id', pointIds)
+      .in('id', pointIds);
+
+    if (viewerUserId !== validatorId) {
+      pointsQuery = pointsQuery.eq('visibility', 'public');
+    }
+
+    const { data: pointRows, error: pointsError } = await pointsQuery
       .order('created_at', { ascending: false });
 
     if (pointsError || !pointRows) {

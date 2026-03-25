@@ -1,4 +1,4 @@
-import { Globe, Lock, Users } from 'lucide-react';
+import { Globe, Lock } from 'lucide-react';
 import { MobileTooltip } from './mobile-tooltip';
 import type { StoryVisibility } from '@/app/types';
 
@@ -14,11 +14,12 @@ const config: Record<StoryVisibility, {
   icon: typeof Globe;
   label: string;
   description: string;
+  tooltip: string;
   labelClassName: string;
+  colorClassName: string;
 }> = {
-  public: { icon: Globe, label: 'Public', description: 'Anyone can view this.', labelClassName: 'text-muted-foreground bg-muted' },
-  shared: { icon: Users, label: 'Shared', description: 'Visible to anyone who has registered for an event you\'ve also registered for or hosted — including future registrants.', labelClassName: 'text-muted-foreground bg-muted' },
-  private: { icon: Lock, label: 'Private', description: 'Only people you explicitly share with can view this.', labelClassName: 'text-muted-foreground bg-muted' },
+  public: { icon: Globe, label: 'Public', description: 'Anyone can view this.', tooltip: 'Visible to everyone', labelClassName: 'text-muted-foreground bg-muted', colorClassName: 'text-muted-foreground' },
+  private: { icon: Lock, label: 'Private', description: 'Only people you explicitly share with can view this.', tooltip: 'Private — only you can see it', labelClassName: 'text-muted-foreground bg-muted', colorClassName: 'text-amber-600' },
 };
 
 export function VisibilityBadge({ visibility, showLabel = false, size = 12 }: VisibilityBadgeProps) {
@@ -42,6 +43,50 @@ export function VisibilityBadge({ visibility, showLabel = false, size = 12 }: Vi
     <MobileTooltip content={description}>
       <span className="text-muted-foreground inline-flex items-center min-w-[24px] min-h-[24px] justify-center">
         <Icon size={size} aria-label={`${label}: ${description}`} />
+      </span>
+    </MobileTooltip>
+  );
+}
+
+/**
+ * P586: Visibility badge positioned in the top-right corner of a card.
+ * The parent card must have `position: relative` (Tailwind: `relative`).
+ * Renders a small globe (public) or lock (private) icon with tooltip.
+ * NOTE: Currently unused — kept as export for potential future use.
+ */
+export function CardVisibilityCornerBadge({ visibility }: { visibility?: StoryVisibility }) {
+  const v = visibility ?? 'public';
+  const { icon: Icon, tooltip, colorClassName } = config[v];
+
+  return (
+    <div className="absolute top-2 right-2 z-10">
+      <MobileTooltip content={tooltip}>
+        <span
+          className={`inline-flex items-center ${colorClassName}`}
+          aria-label={tooltip}
+        >
+          <Icon size={14} />
+        </span>
+      </MobileTooltip>
+    </div>
+  );
+}
+
+/**
+ * P586: Inline visibility icon for use within metadata lines or flex rows.
+ * Renders a small globe (public, gray) or lock (private, amber) with tooltip.
+ */
+export function InlineVisibilityIcon({ visibility }: { visibility?: StoryVisibility }) {
+  const v = visibility ?? 'public';
+  const { icon: Icon, tooltip, colorClassName } = config[v];
+
+  return (
+    <MobileTooltip content={tooltip}>
+      <span
+        className={`inline-flex items-center ${colorClassName}`}
+        aria-label={tooltip}
+      >
+        <Icon size={14} />
       </span>
     </MobileTooltip>
   );
