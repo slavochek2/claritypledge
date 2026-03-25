@@ -1,15 +1,16 @@
 ---
-status: in-progress
+status: done
 type: story
 rank: 7.0
 tags: [consistency, story-card, footer, ux]
 prepped_date: '2026-03-23'
-delivery_stage: 1-prd-review
+delivery_stage: done
 reviews:
   ux: null
   architect: null
   alignment: null
 created_date: 2026-03-23
+completed_at: '2026-03-25'
 ---
 
 # P580: Story Card Point Footer — Consistent Count + Author CTA
