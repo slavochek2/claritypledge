@@ -48,6 +48,15 @@ is **adversarial** — the agent tries to find flaws, not validate quality.
 requirements themselves. The requirements are rarely wrong in their own terms — the unstated
 beliefs underneath them are where real defects hide.
 
+**Constraint origin rule:** Every stated constraint in the spec must be tagged with its origin:
+- `[user-stated]` — the user explicitly chose this constraint in conversation
+- `[copied from PX]` — inherited from a parent or related spec
+- `[inferred]` — the spec author assumed this without explicit evidence
+
+Constraints tagged `[copied]` or `[inferred]` get automatic skepticism: generate one counterexample
+where violating the constraint would be beneficial. If the counterexample is plausible, flag for review.
+`[user-stated]` constraints get lighter scrutiny (user had context the agent lacks).
+
 **This is NOT a spec quality audit** (that's `/spec-review`, which runs later on the full spec).
 This is a business logic and strategic challenge — "should we build this, and have we thought
 it through?"
