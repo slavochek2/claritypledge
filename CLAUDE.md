@@ -279,7 +279,7 @@ When in doubt, go one tier up. Use `/pick-flow` if the right tier is unclear.
 
 `/dev` stops at UAT gate — sets `delivery_stage: uat`, keeps `status: in-progress`, code stays on feature branch. `/ship pN` (user-triggered) merges to prod and closes the spec. `/fix` closes inline.
 
-**Optional post-work:** `/verify` · `/kdd` · `/review-all` (after non-trivial features: multi-file, auth/RLS, or unsupervised code).
+**Post-work:** `/verify` · `/kdd` · `/review-all` — optional for skill-driven work (skills include review gates). **Mandatory for ad-hoc bulk changes:** any refactor, migration, or automated fix touching 5+ files outside `/dev` or `/fix` must run `/review-all code` before committing. Mechanical checks (lint, TS, tests) do not catch semantic correctness — review agents do.
 
 **Deprecated:** `/prep-spec`, `/done` — in archive for backward compatibility only.
 

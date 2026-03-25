@@ -527,6 +527,12 @@ else
 fi
 echo ""
 
+# Large changeset review reminder
+STAGED_COUNT=$(echo "$STAGED_FILES" | grep -c '.' || true)
+if [ "$STAGED_COUNT" -ge 5 ]; then
+    echo -e "${YELLOW}ℹ Large changeset ($STAGED_COUNT files) — if this was a bulk/automated change, confirm /review-all ran${NC}"
+fi
+
 # Summary
 CURRENT_BRANCH=$(git branch --show-current 2>/dev/null || echo "unknown")
 echo "=== SUMMARY === (branch: $CURRENT_BRANCH)"
