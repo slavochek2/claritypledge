@@ -52,6 +52,7 @@ export function VisibilityBadge({ visibility, showLabel = false, size = 12 }: Vi
  * P586: Visibility badge positioned in the top-right corner of a card.
  * The parent card must have `position: relative` (Tailwind: `relative`).
  * Renders a small globe (public) or lock (private) icon with tooltip.
+ * NOTE: Currently unused — kept as export for potential future use.
  */
 export function CardVisibilityCornerBadge({ visibility }: { visibility?: StoryVisibility }) {
   const v = visibility ?? 'public';
@@ -68,5 +69,25 @@ export function CardVisibilityCornerBadge({ visibility }: { visibility?: StoryVi
         </span>
       </MobileTooltip>
     </div>
+  );
+}
+
+/**
+ * P586: Inline visibility icon for use within metadata lines or flex rows.
+ * Renders a small globe (public, gray) or lock (private, amber) with tooltip.
+ */
+export function InlineVisibilityIcon({ visibility }: { visibility?: StoryVisibility }) {
+  const v = visibility ?? 'public';
+  const { icon: Icon, tooltip, colorClassName } = config[v];
+
+  return (
+    <MobileTooltip content={tooltip}>
+      <span
+        className={`inline-flex items-center ${colorClassName}`}
+        aria-label={tooltip}
+      >
+        <Icon size={14} />
+      </span>
+    </MobileTooltip>
   );
 }

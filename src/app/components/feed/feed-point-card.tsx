@@ -18,7 +18,7 @@ import {
   PositionButtons,
 } from '@/app/components/shared';
 import { adjustPositionCounts } from '@/app/utils/position-helpers';
-import { CardVisibilityCornerBadge } from '@/app/components/shared';
+import { InlineVisibilityIcon } from '@/app/components/shared';
 import type { PointWithUserPosition, PositionType } from '@/app/types';
 import { pointsService } from '@/app/data/points-service';
 import { useAuth } from '@/auth';
@@ -127,7 +127,7 @@ export function FeedPointCard({ point, activeTag, onPointRemoved }: FeedPointCar
     <div
       role="button"
       tabIndex={0}
-      className="relative bg-card rounded-lg shadow-sm border-l-4 border-l-muted-foreground/50 border border-border cursor-pointer hover:border-muted-foreground/70 hover:shadow-md transition-all focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none"
+      className="bg-card rounded-lg shadow-sm border-l-4 border-l-muted-foreground/50 border border-border cursor-pointer hover:border-muted-foreground/70 hover:shadow-md transition-all focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none"
       onClick={handleClick}
       onKeyDown={(e) => {
         if (e.key === 'Enter' || e.key === ' ') {
@@ -136,7 +136,6 @@ export function FeedPointCard({ point, activeTag, onPointRemoved }: FeedPointCar
         }
       }}
     >
-      <CardVisibilityCornerBadge visibility={point.visibility ?? 'public'} />
       <div className="p-4">
         <div className="flex items-start gap-3">
           {/* Pin icon */}
@@ -145,10 +144,13 @@ export function FeedPointCard({ point, activeTag, onPointRemoved }: FeedPointCar
           </div>
 
           <div className="flex-1 min-w-0">
-            {/* Statement */}
-            <p className="text-sm font-medium text-foreground break-words pr-6">
-              {linkifyText(stripHashtags(point.statement, point.tags))}
-            </p>
+            {/* Statement with inline visibility icon */}
+            <div className="flex items-start gap-1.5">
+              <InlineVisibilityIcon visibility={point.visibility ?? 'public'} />
+              <p className="text-sm font-medium text-foreground break-words">
+                {linkifyText(stripHashtags(point.statement, point.tags))}
+              </p>
+            </div>
 
             {point.context && (
               <p className="text-xs text-muted-foreground mt-1 line-clamp-2">

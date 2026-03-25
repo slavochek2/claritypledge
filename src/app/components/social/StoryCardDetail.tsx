@@ -23,7 +23,7 @@ import {
   PositionBadge,
   ShareButton,
   MobileTooltip,
-  CardVisibilityCornerBadge,
+  InlineVisibilityIcon,
   ThreadLineGroup,
   ThreadLineItem,
 } from '@/app/components/shared';
@@ -213,7 +213,6 @@ export function StoryCardDetail({
           : undefined
       }
     >
-      <CardVisibilityCornerBadge visibility={story.visibility} />
       {/* Main content */}
       <div className="p-4">
         {/* Author row with avatar */}
@@ -246,8 +245,9 @@ export function StoryCardDetail({
                 {/* Credibility stats */}
                 <EarBadge count={story.authorEarsCount ?? 0} name={story.authorName} />
               </div>
-              <div className="text-xs text-muted-foreground">
+              <div className="text-xs text-muted-foreground inline-flex items-center gap-1">
                 <span>{formatTimeAgo(story.createdAt)}</span>
+                <InlineVisibilityIcon visibility={story.visibility} />
               </div>
             </div>
 

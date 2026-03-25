@@ -17,7 +17,7 @@ import {
   PositionButtons,
   PositionBadge,
   ShareButton,
-  CardVisibilityCornerBadge,
+  InlineVisibilityIcon,
   ThreadLineGroup,
   ThreadLineItem,
   type SevenPointCounts,
@@ -233,7 +233,6 @@ export function PointCardWithLinks({
         }
       } : undefined}
     >
-      <CardVisibilityCornerBadge visibility={point.visibility} />
       {/* Main content */}
       <div className="p-4">
         {showQuotePattern && profileOwner && profileOwner.position ? (
@@ -265,18 +264,21 @@ export function PointCardWithLinks({
 
                 {/* Content column */}
                 <div className="flex-1 min-w-0">
-                  {/* Point text */}
-                  <p className={`text-gray-900 break-words ${compact ? 'text-sm' : 'text-base'}`}>
-                    {linkifyText(displayText)}
-                    {isTextTruncated && (
-                      <button
-                        onClick={(e) => { e.stopPropagation(); embedNavigate(`/point/${point.id}`); }}
-                        className="ml-1 text-blue-600 hover:text-blue-700 text-sm"
-                      >
-                        show more
-                      </button>
-                    )}
-                  </p>
+                  {/* Point text with inline visibility icon */}
+                  <div className="flex items-start gap-1.5">
+                    <InlineVisibilityIcon visibility={point.visibility} />
+                    <p className={`text-gray-900 break-words ${compact ? 'text-sm' : 'text-base'}`}>
+                      {linkifyText(displayText)}
+                      {isTextTruncated && (
+                        <button
+                          onClick={(e) => { e.stopPropagation(); embedNavigate(`/point/${point.id}`); }}
+                          className="ml-1 text-blue-600 hover:text-blue-700 text-sm"
+                        >
+                          show more
+                        </button>
+                      )}
+                    </p>
+                  </div>
 
                   {/* P491: Tag pills — after text, before position buttons */}
                   {tags && tags.length > 0 && (
@@ -432,18 +434,21 @@ export function PointCardWithLinks({
                 />
               </div>
 
-              {/* Point text - same position as StoryCard text */}
-              <p className={`text-gray-900 break-words ${compact ? 'text-sm' : 'text-base'}`}>
-                {linkifyText(displayText)}
-                {isTextTruncated && (
-                  <button
-                    onClick={(e) => { e.stopPropagation(); embedNavigate(`/point/${point.id}`); }}
-                    className="ml-1 text-blue-600 hover:text-blue-700 text-sm"
-                  >
-                    show more
-                  </button>
-                )}
-              </p>
+              {/* Point text with inline visibility icon */}
+              <div className="flex items-start gap-1.5">
+                <InlineVisibilityIcon visibility={point.visibility} />
+                <p className={`text-gray-900 break-words ${compact ? 'text-sm' : 'text-base'}`}>
+                  {linkifyText(displayText)}
+                  {isTextTruncated && (
+                    <button
+                      onClick={(e) => { e.stopPropagation(); embedNavigate(`/point/${point.id}`); }}
+                      className="ml-1 text-blue-600 hover:text-blue-700 text-sm"
+                    >
+                      show more
+                    </button>
+                  )}
+                </p>
+              </div>
 
               {/* P491: Tag pills — after text, before position buttons */}
               {tags && tags.length > 0 && (

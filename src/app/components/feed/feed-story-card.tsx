@@ -16,7 +16,7 @@ import { UnderstoodBadge } from '@/components/ui/understood-badge';
 import { linkifyText } from '@/app/utils/linkify';
 import { TagPills } from '@/app/components/shared/tag-pills';
 import { stripHashtags } from '@/lib/utils';
-import { CardVisibilityCornerBadge } from '@/app/components/shared';
+import { InlineVisibilityIcon } from '@/app/components/shared';
 import type { StoryWithAuthor } from '@/app/types';
 
 interface FeedStoryCardProps {
@@ -49,7 +49,7 @@ export function FeedStoryCard({ story, activeTag, pointCount }: FeedStoryCardPro
     <div
       role="button"
       tabIndex={0}
-      className="relative bg-card rounded-lg shadow-sm border-l-4 border-l-blue-500 border border-border cursor-pointer hover:border-blue-300 hover:shadow-md transition-all focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none"
+      className="bg-card rounded-lg shadow-sm border-l-4 border-l-blue-500 border border-border cursor-pointer hover:border-blue-300 hover:shadow-md transition-all focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none"
       onClick={handleClick}
       onKeyDown={(e) => {
         if (e.key === 'Enter' || e.key === ' ') {
@@ -58,7 +58,6 @@ export function FeedStoryCard({ story, activeTag, pointCount }: FeedStoryCardPro
         }
       }}
     >
-      <CardVisibilityCornerBadge visibility={story.visibility ?? 'public'} />
       <div className="p-4">
         {/* Author row */}
         <div className="flex items-start gap-3">
@@ -92,9 +91,10 @@ export function FeedStoryCard({ story, activeTag, pointCount }: FeedStoryCardPro
                 </button>
                 <EarBadge count={story.authorEarsCount ?? 0} name={story.authorName} />
               </div>
-              <div className="text-xs text-muted-foreground">
+              <div className="text-xs text-muted-foreground inline-flex items-center gap-1">
                 {story.authorRole && <span>{story.authorRole} · </span>}
                 <span>{formatTimeAgo(story.createdAt)}</span>
+                <InlineVisibilityIcon visibility={story.visibility ?? 'public'} />
               </div>
             </div>
 

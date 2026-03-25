@@ -59,7 +59,7 @@ import {
   PositionBadge,
   type SevenPointCounts,
 } from "@/app/components/shared";
-import { CardVisibilityCornerBadge } from "@/app/components/shared/visibility-badge";
+import { InlineVisibilityIcon } from "@/app/components/shared/visibility-badge";
 import { TagPills } from '@/app/components/shared/tag-pills';
 import { stripHashtags, extractHashtags } from '@/lib/utils';
 import type { PositionType, StoryVisibility } from "@/app/types";
@@ -1175,7 +1175,6 @@ function StoryCardFull({
         }
       }}
     >
-      <CardVisibilityCornerBadge visibility={story.visibility} />
       {/* Main content */}
       <div className="p-4">
         {/* Author row with avatar */}
@@ -1218,8 +1217,9 @@ function StoryCardFull({
                   </span>
                 </MobileTooltip>
               </div>
-              <div className="text-xs text-muted-foreground">
-                {author.role} · {formatTimeAgo(story.createdAt)}
+              <div className="text-xs text-muted-foreground inline-flex items-center gap-1">
+                <span>{author.role} · {formatTimeAgo(story.createdAt)}</span>
+                <InlineVisibilityIcon visibility={story.visibility} />
               </div>
             </div>
 

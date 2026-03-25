@@ -16,7 +16,7 @@ import {
   PositionButtons,
   PositionBadge,
   ShareButton,
-  CardVisibilityCornerBadge,
+  InlineVisibilityIcon,
   ThreadLineGroup,
   ThreadLineItem,
   type SevenPointCounts,
@@ -167,10 +167,10 @@ export function StoryCardWithLinks({
             }
           }}
         >
-          {!hideActions && <CardVisibilityCornerBadge visibility={story.visibility} />}
           {/* Role + date (name/avatar already shown outside) */}
           <p className="text-xs text-gray-500 mb-2">
             {author.role || 'Member'} · {formatTimeAgo(story.createdAt)}
+            {!hideActions && <> · <InlineVisibilityIcon visibility={story.visibility} /></>}
           </p>
 
           {/* Story text */}
@@ -227,7 +227,6 @@ export function StoryCardWithLinks({
         }
       } : undefined}
     >
-      {!hideActions && <CardVisibilityCornerBadge visibility={story.visibility} />}
       {/* Main content */}
       <div className="p-4">
         {/* Author row with avatar */}
@@ -265,8 +264,9 @@ export function StoryCardWithLinks({
                 </button>
                 <EarBadge count={author.ear ?? 0} name={author.name} />
               </div>
-              <p className="text-xs text-gray-500">
-                {author.role || 'Member'} · {formatTimeAgo(story.createdAt)}
+              <p className="text-xs text-gray-500 inline-flex items-center gap-1">
+                <span>{author.role || 'Member'} · {formatTimeAgo(story.createdAt)}</span>
+                {!hideActions && <InlineVisibilityIcon visibility={story.visibility} />}
               </p>
             </div>
 
