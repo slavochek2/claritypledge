@@ -469,7 +469,7 @@ export function PointCardWithLinks({
         <>
         <div
           role="presentation"
-          className="flex items-center justify-between flex-wrap gap-y-1 pl-[52px] pr-4 py-3 border-t border-gray-100"
+          className="flex items-center justify-between flex-wrap gap-y-1 pl-[68px] pr-4 py-3 border-t border-gray-100"
           onClick={(e) => e.stopPropagation()}
         >
           {/* Collapsible trigger - show in live session mode with all stories, or on profile/feed with any linked stories */}
@@ -567,7 +567,7 @@ export function PointCardWithLinks({
           return (
             <div
               role="presentation"
-              className="flex items-center pl-[52px] pr-4 py-2.5 border-t border-gray-100"
+              className="flex items-center pl-[68px] pr-4 py-2.5 border-t border-gray-100"
               onClick={(e) => e.stopPropagation()}
             >
               <div className="flex items-center gap-1 text-sm">

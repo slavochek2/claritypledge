@@ -1,11 +1,11 @@
 ---
-status: blocked
+status: today
 type: task
-rank: 0.25
+rank: 0.938
 tags:
   - content
   - outreach
-locked_at: '2026-03-22T12:40:35.645Z'
+locked_at: '2026-03-25T05:26:01.910Z'
 created_date: 2026-03-21T00:00:00.000Z
 ---
 
