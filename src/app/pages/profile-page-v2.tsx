@@ -59,7 +59,7 @@ import {
   PositionBadge,
   type SevenPointCounts,
 } from "@/app/components/shared";
-import { VisibilityBadge } from "@/app/components/shared/visibility-badge";
+import { CardVisibilityCornerBadge } from "@/app/components/shared/visibility-badge";
 import { TagPills } from '@/app/components/shared/tag-pills';
 import { stripHashtags, extractHashtags } from '@/lib/utils';
 import type { PositionType, StoryVisibility } from "@/app/types";
@@ -1161,7 +1161,7 @@ function StoryCardFull({
     <div
       role="button"
       tabIndex={0}
-      className="group bg-card rounded-lg shadow-sm border-l-4 border-l-blue-500 border border-border overflow-hidden cursor-pointer hover:border-blue-300 hover:shadow-md transition-all focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none"
+      className="relative group bg-card rounded-lg shadow-sm border-l-4 border-l-blue-500 border border-border overflow-hidden cursor-pointer hover:border-blue-300 hover:shadow-md transition-all focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none"
       aria-label={`Story by ${author.name}`}
       onClick={(e) => {
         if ((e.target as HTMLElement).closest('[data-story-toggle]')) return;
@@ -1175,6 +1175,7 @@ function StoryCardFull({
         }
       }}
     >
+      <CardVisibilityCornerBadge visibility={story.visibility} />
       {/* Main content */}
       <div className="p-4">
         {/* Author row with avatar */}
@@ -1217,9 +1218,8 @@ function StoryCardFull({
                   </span>
                 </MobileTooltip>
               </div>
-              <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                <span>{author.role} · {formatTimeAgo(story.createdAt)}</span>
-                <VisibilityBadge visibility={story.visibility} />
+              <div className="text-xs text-muted-foreground">
+                {author.role} · {formatTimeAgo(story.createdAt)}
               </div>
             </div>
 

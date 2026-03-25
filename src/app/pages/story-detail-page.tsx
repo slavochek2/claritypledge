@@ -41,7 +41,7 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { analytics } from '@/lib/mixpanel';
-import { PositionButtons, VisibilityBadge, type SevenPointCounts } from '@/app/components/shared';
+import { PositionButtons, type SevenPointCounts } from '@/app/components/shared';
 import type { StoryWithPoints, StoryWithAuthor, PointSummary, PointPosition, PositionType } from '@/app/types';
 
 /** Soft character marker — nudge to keep points concise */
@@ -1145,9 +1145,6 @@ export function StoryDetailPage() {
           context="story-detail"
           linkedStoriesForPoints={linkedStoriesForPoints}
           currentUserId={user?.id}
-          visibilitySlot={
-            <VisibilityBadge visibility={story.visibility} />
-          }
           footerActionsSlot={isAuthor ? (
             <>
               <button

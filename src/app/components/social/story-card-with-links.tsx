@@ -16,7 +16,7 @@ import {
   PositionButtons,
   PositionBadge,
   ShareButton,
-  VisibilityBadge,
+  CardVisibilityCornerBadge,
   ThreadLineGroup,
   ThreadLineItem,
   type SevenPointCounts,
@@ -158,7 +158,7 @@ export function StoryCardWithLinks({
         <div
           role="button"
           tabIndex={0}
-          className="bg-gray-50 border border-gray-200 rounded-lg p-3 cursor-pointer hover:bg-gray-100 hover:border-gray-300 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
+          className="relative bg-gray-50 border border-gray-200 rounded-lg p-3 cursor-pointer hover:bg-gray-100 hover:border-gray-300 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
           onClick={handleCardClick}
           onKeyDown={(e) => {
             if (e.key === 'Enter' || e.key === ' ') {
@@ -167,12 +167,10 @@ export function StoryCardWithLinks({
             }
           }}
         >
+          {!hideActions && <CardVisibilityCornerBadge visibility={story.visibility} />}
           {/* Role + date (name/avatar already shown outside) */}
-          <p className="text-xs text-gray-500 mb-2 flex items-center gap-1">
-            <span>
-              {author.role || 'Member'} · {formatTimeAgo(story.createdAt)}
-            </span>
-            {!hideActions && <VisibilityBadge visibility={story.visibility} />}
+          <p className="text-xs text-gray-500 mb-2">
+            {author.role || 'Member'} · {formatTimeAgo(story.createdAt)}
           </p>
 
           {/* Story text */}
@@ -213,8 +211,8 @@ export function StoryCardWithLinks({
   const storyBgTint = isPrivateStory ? 'bg-amber-50/50' : 'bg-white';
   const storyHoverBorder = isPrivateStory ? 'hover:border-amber-300' : 'hover:border-blue-300';
   const cardClassName = isDetailView
-    ? `${storyBgTint} rounded-lg shadow-sm border-l-4 ${storyBorderColor} border border-gray-200 overflow-hidden`
-    : `group ${storyBgTint} rounded-lg shadow-sm border-l-4 ${storyBorderColor} border border-gray-200 overflow-hidden cursor-pointer ${storyHoverBorder} hover:shadow-md transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2`;
+    ? `relative ${storyBgTint} rounded-lg shadow-sm border-l-4 ${storyBorderColor} border border-gray-200 overflow-hidden`
+    : `relative group ${storyBgTint} rounded-lg shadow-sm border-l-4 ${storyBorderColor} border border-gray-200 overflow-hidden cursor-pointer ${storyHoverBorder} hover:shadow-md transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2`;
 
   return (
     <div
@@ -229,6 +227,7 @@ export function StoryCardWithLinks({
         }
       } : undefined}
     >
+      {!hideActions && <CardVisibilityCornerBadge visibility={story.visibility} />}
       {/* Main content */}
       <div className="p-4">
         {/* Author row with avatar */}
@@ -266,11 +265,8 @@ export function StoryCardWithLinks({
                 </button>
                 <EarBadge count={author.ear ?? 0} name={author.name} />
               </div>
-              <p className="text-xs text-gray-500 flex items-center gap-1">
-                <span>
-                  {author.role || 'Member'} · {formatTimeAgo(story.createdAt)}
-                </span>
-                {!hideActions && <VisibilityBadge visibility={story.visibility} />}
+              <p className="text-xs text-gray-500">
+                {author.role || 'Member'} · {formatTimeAgo(story.createdAt)}
               </p>
             </div>
 

@@ -6,7 +6,7 @@ import type { StoryWithPoints, PointSummary, PositionType } from '@/app/types';
 import { getPositionGroup, getPositionCTACopy, shouldShowStoryCTA, toSevenPointCounts } from '@/app/utils/position-helpers';
 import { formatTimeAgo } from '@/app/utils/format-time';
 import { GravatarAvatar } from '@/components/ui/gravatar-avatar';
-import { VisibilityBadge } from '@/app/components/shared/visibility-badge';
+import { CardVisibilityCornerBadge } from '@/app/components/shared/visibility-badge';
 import {
   PositionButtons,
   PositionBadge,
@@ -63,8 +63,9 @@ export function LiveStoryCardExpanded({
   return (
     <div
       data-testid="live-story-card-expanded"
-      className={`rounded-lg border-l-4 border-l-blue-500 border border-gray-200 bg-white shadow-sm overflow-hidden ${className ?? ''}`}
+      className={`relative rounded-lg border-l-4 border-l-blue-500 border border-gray-200 bg-white shadow-sm overflow-hidden ${className ?? ''}`}
     >
+      {story.visibility && <CardVisibilityCornerBadge visibility={story.visibility} />}
       {/* Main content */}
       <div className="p-4">
         <div className="flex items-start gap-3">
@@ -85,11 +86,8 @@ export function LiveStoryCardExpanded({
               </span>
             </div>
             {(story.authorRole || story.createdAt) && (
-              <p className="text-xs text-gray-500 flex items-center gap-1 mb-1">
-                <span>
-                  {story.authorRole ? `${story.authorRole} · ` : ''}{story.createdAt ? formatTimeAgo(story.createdAt) : ''}
-                </span>
-                {story.visibility && <VisibilityBadge visibility={story.visibility} />}
+              <p className="text-xs text-gray-500 mb-1">
+                {story.authorRole ? `${story.authorRole} · ` : ''}{story.createdAt ? formatTimeAgo(story.createdAt) : ''}
               </p>
             )}
             <p id={`live-story-text-${story.id}`} className="text-sm text-gray-900 leading-snug break-words">{linkifyText(displayText)}</p>

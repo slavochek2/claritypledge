@@ -23,6 +23,7 @@ import {
   PositionBadge,
   ShareButton,
   MobileTooltip,
+  CardVisibilityCornerBadge,
   ThreadLineGroup,
   ThreadLineItem,
 } from '@/app/components/shared';
@@ -103,7 +104,7 @@ export function StoryCardDetail({
   authorPosition,
   routes = {},
   linkedStoriesForPoints,
-  visibilitySlot,
+  visibilitySlot: _visibilitySlot,
   footerActionsSlot,
   currentUserId,
   hideActions = false,
@@ -192,8 +193,8 @@ export function StoryCardDetail({
   const storyHoverBorder = isPrivateStory ? 'hover:border-amber-300' : 'hover:border-blue-300';
   // Note: removed overflow-hidden to prevent dropdown menus from being clipped
   const cardClassName = isDetailView
-    ? `${storyBgTint} rounded-lg shadow-sm border-l-4 ${storyBorderColor} border border-border`
-    : `group ${storyBgTint} rounded-lg shadow-sm border-l-4 ${storyBorderColor} border border-border cursor-pointer ${storyHoverBorder} hover:shadow-md transition-all focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none`;
+    ? `relative ${storyBgTint} rounded-lg shadow-sm border-l-4 ${storyBorderColor} border border-border`
+    : `relative group ${storyBgTint} rounded-lg shadow-sm border-l-4 ${storyBorderColor} border border-border cursor-pointer ${storyHoverBorder} hover:shadow-md transition-all focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none`;
 
   return (
     <div
@@ -212,6 +213,7 @@ export function StoryCardDetail({
           : undefined
       }
     >
+      <CardVisibilityCornerBadge visibility={story.visibility} />
       {/* Main content */}
       <div className="p-4">
         {/* Author row with avatar */}
@@ -244,14 +246,8 @@ export function StoryCardDetail({
                 {/* Credibility stats */}
                 <EarBadge count={story.authorEarsCount ?? 0} name={story.authorName} />
               </div>
-              <div className="flex items-center gap-1 text-xs text-muted-foreground">
+              <div className="text-xs text-muted-foreground">
                 <span>{formatTimeAgo(story.createdAt)}</span>
-                {visibilitySlot && (
-                  <>
-                    <span className="opacity-40">·</span>
-                    {visibilitySlot}
-                  </>
-                )}
               </div>
             </div>
 
