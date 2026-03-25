@@ -325,7 +325,7 @@ function Scenario({ title, description, initialCounts, initialPosition, pointTex
             <ProposedPositionButtons userPosition={posV2} counts={cntV2} onSelect={selectV2} containerWidth={vp.width - 24} />
             {posV2.group && (
               <p className="text-[10px] text-gray-400 mt-2">
-                Selected: {getFullLabel(posV2.group, posV2.intensity!)}
+                Selected: {getFullLabel(posV2.group, posV2.intensity ?? 'moderate')}
               </p>
             )}
           </div>
@@ -559,7 +559,7 @@ function LiveTest() {
       {pos.group && (
         <div className="flex items-center gap-2">
           <p className="text-xs text-gray-500">
-            Your position: <strong>{getFullLabel(pos.group, pos.intensity!)}</strong>
+            Your position: <strong>{getFullLabel(pos.group, pos.intensity ?? 'moderate')}</strong>
             {' '}(button shows: {getShortLabel(pos.group, pos.intensity)})
           </p>
           <button onClick={handleClear} className="text-[10px] text-red-500 hover:text-red-700 underline">Clear</button>

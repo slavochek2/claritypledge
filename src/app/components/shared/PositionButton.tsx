@@ -258,7 +258,7 @@ export function PositionButtons({ userPosition, counts, onPositionClick, compact
 
     // If dropdown is already open for this group, treat as removal toggle
     if (openDropdown === group) {
-      onPositionClick(userPosition!);
+      if (userPosition) onPositionClick(userPosition);
       setOpenDropdown(null);
       return;
     }
@@ -278,7 +278,7 @@ export function PositionButtons({ userPosition, counts, onPositionClick, compact
       }
       return group;
     });
-  }, [userPosition, onPositionClick]);
+  }, [userPosition, onPositionClick, openDropdown]);
 
   const handleIntensityClick = useCallback((group: PositionButtonGroup, intensity: 'somewhat' | 'default' | 'strongly') => {
     const position = intensityToPosition(group, intensity);

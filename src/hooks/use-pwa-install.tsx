@@ -146,6 +146,7 @@ export function PwaInstallProvider({ children }: { children: ReactNode }) {
   );
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function usePwaInstall(): PwaInstallContextValue {
   const ctx = useContext(PwaInstallContext);
   if (!ctx) {

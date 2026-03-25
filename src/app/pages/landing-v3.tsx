@@ -628,8 +628,9 @@ function StoryPointsMap() {
       <svg ref={svgRef} viewBox="0 0 800 500" className="w-full">
         {/* Edges */}
         {edges.map(([a, b]) => {
-          const na = nodes.find((n) => n.id === a)!;
-          const nb = nodes.find((n) => n.id === b)!;
+          const na = nodes.find((n) => n.id === a);
+          const nb = nodes.find((n) => n.id === b);
+          if (!na || !nb) return null;
           return (
             <line
               key={`${a}-${b}`}

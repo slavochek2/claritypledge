@@ -45,6 +45,7 @@ const POSITION_FULL_LABELS: Record<PositionType, string> = {
  * - 'strongly_agree' → 'strongly agrees'
  * - 'unsure' → 'unsure' (no "is" prefix for natural reading)
  */
+// eslint-disable-next-line react-refresh/only-export-components
 export function getPositionVerb(position: PositionType): string {
   return POSITION_FULL_LABELS[position].toLowerCase();
 }

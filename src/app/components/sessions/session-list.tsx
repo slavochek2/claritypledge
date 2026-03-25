@@ -20,7 +20,7 @@ function groupByDay(sessions: SessionSummary[]): Array<{ label: string; items: S
   for (const s of sessions) {
     const key = new Date(s.date).toDateString();
     if (!map.has(key)) map.set(key, []);
-    map.get(key)!.push(s);
+    map.get(key)?.push(s);
   }
   return Array.from(map.entries()).map(([, items]) => ({
     label: formatGroupDate(items[0].date),

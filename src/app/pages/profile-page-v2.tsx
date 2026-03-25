@@ -424,6 +424,7 @@ export function ProfilePageV2() {
       console.error('Failed to load profile data:', err);
       setContentLoading(false);
     });
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- currentUserId is derived from currentUser?.id which is already tracked
   }, [profile, currentUser?.id]);
 
   // Load ears count separately
@@ -1331,7 +1332,7 @@ function StoryCardFull({
       {/* Footer row with linked points and action icons */}
       <div
         role="presentation"
-        className="flex items-center justify-between pl-[52px] pr-4 py-3 border-t border-border"
+        className="flex items-center justify-between pl-[68px] pr-4 py-3 border-t border-border"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Point count + author CTA (P580: always show count, author gets "+ add a point") */}

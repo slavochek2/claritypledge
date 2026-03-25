@@ -104,7 +104,7 @@ test.describe('Rating drawer appears for responder', () => {
   test.describe.configure({ timeout: 90000 });
 
   // Mobile viewport
-  const MOBILE_VIEWPORT = { width: 375, height: 812 };
+  const _MOBILE_VIEWPORT = { width: 375, height: 812 };
   // Desktop viewport — matches user's actual setup (two windows side by side)
   const DESKTOP_VIEWPORT = { width: 768, height: 900 };
 

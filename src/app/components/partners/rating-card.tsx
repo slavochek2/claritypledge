@@ -70,7 +70,7 @@ export function RatingCard({
 
   const isSpeaker = role === 'speaker';
   const bothRated = myRating !== undefined && otherRating !== undefined;
-  const calibrationGap = bothRated ? (myRating - otherRating) : null;
+  const calibrationGap = (myRating !== undefined && otherRating !== undefined) ? (myRating - otherRating) : null;
 
   // Silence unused variable warning
   void _isWaiting;
@@ -94,7 +94,7 @@ export function RatingCard({
 
   // Show results view when both have rated
   if (bothRated) {
-    const gapInfo = getGapLabel(calibrationGap!);
+    const gapInfo = getGapLabel(calibrationGap ?? 0);
 
     return (
       <div className="space-y-4 p-4 bg-muted/50 rounded-lg">

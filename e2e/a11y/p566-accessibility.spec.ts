@@ -9,7 +9,7 @@
  * - Screen reader announcements for health transitions
  */
 
-import { test, expect } from '@playwright/test';
+import { test, expect as _expect } from '@playwright/test';
 import {
   createTestUser,
   deleteTestUser,
@@ -20,7 +20,7 @@ import { mockMicPermission } from '../helpers/test-realtime';
 
 // ─── UI Contract Strings (VERBATIM from spec) ────────────────────────────────
 
-const UI = {
+const _UI = {
   healthy: '✨ Session recorded for AI Insights',
   degraded: '⚠️ Weak connection — retrying audio upload',
   critical: '❌ Audio upload failing — check your connection',

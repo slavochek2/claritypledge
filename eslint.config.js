@@ -8,7 +8,7 @@ import tseslint from 'typescript-eslint'
 export default tseslint.config(
   { ignores: ['dist', '.bmad', '.claude', '.local', 'src/app/prototypes/**', 'test-results/**'] },
   {
-    extends: [js.configs.recommended, ...tseslint.configs.recommended],
+    extends: [js.configs.recommended, ...tseslint.configs.strict],
     files: ['**/*.{ts,tsx}'],
     languageOptions: {
       ecmaVersion: 2020,
@@ -34,12 +34,12 @@ export default tseslint.config(
       // Accessibility rules - catch common issues
       'jsx-a11y/alt-text': 'error',
       'jsx-a11y/anchor-has-content': 'error',
-      'jsx-a11y/click-events-have-key-events': 'warn',
-      'jsx-a11y/no-static-element-interactions': 'warn',
+      'jsx-a11y/click-events-have-key-events': 'error',
+      'jsx-a11y/no-static-element-interactions': 'error',
       // Allow autoFocus - often intentional UX for modals/dialogs
       'jsx-a11y/no-autofocus': 'off',
       // Allow redundant roles - sometimes needed for older screen readers
-      'jsx-a11y/no-redundant-roles': 'warn',
+      'jsx-a11y/no-redundant-roles': 'error',
       // Hidden audio (className="hidden") doesn't need captions - warn only
       'jsx-a11y/media-has-caption': 'warn',
       // Label wrapping control is valid - allow Radix UI patterns
@@ -49,25 +49,27 @@ export default tseslint.config(
         controlComponents: ['Checkbox', 'Input', 'Select', 'Textarea', 'Switch'],
       }],
       // Dynamic headings (props spreading) are valid - warn only for shadcn/ui
-      'jsx-a11y/heading-has-content': 'warn',
+      'jsx-a11y/heading-has-content': 'error',
       // Component prop `role` conflicts with ARIA role - common in UI libs
       'jsx-a11y/aria-role': ['error', {
         ignoreNonDOM: true,
       }],
     },
   },
-  // Test files - allow 'any' for mocking
+  // Test files - allow 'any' and non-null assertions for mocking/assertions
   {
     files: ['**/*.test.{ts,tsx}', '**/tests/**/*.{ts,tsx}'],
     rules: {
       '@typescript-eslint/no-explicit-any': 'off',
+      '@typescript-eslint/no-non-null-assertion': 'off',
     },
   },
-  // E2e test files — relaxed unused-vars for stubs and Playwright fixtures
+  // E2e test files — relaxed rules for Playwright patterns
   {
     files: ['e2e/**/*.ts'],
     rules: {
       '@typescript-eslint/no-unused-vars': 'warn',
+      '@typescript-eslint/no-non-null-assertion': 'off',
     },
   },
 )

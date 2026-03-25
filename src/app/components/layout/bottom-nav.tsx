@@ -100,10 +100,11 @@ export function BottomNav() {
             </>
           );
 
+          if (!item.to) return null; // Non-disabled items always have `to`; guard satisfies TS
           return (
             <Link
               key={item.label}
-              to={item.to!}
+              to={item.to}
               className={itemClass}
               aria-current={active ? "page" : undefined}
             >

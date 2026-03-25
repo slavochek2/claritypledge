@@ -150,10 +150,11 @@ export function parseAuthGateIntent(searchParams: URLSearchParams): ParsedIntent
     if (!isValidPointId(pointId) || !isValidPosition(position) || !redirect) {
       return null;
     }
+    if (!pointId) return null; // Unreachable after isValidPointId, but satisfies TS narrowing
 
     return {
       action: 'set-position',
-      pointId: pointId!,
+      pointId,
       position: position as PositionValue,
       redirect,
     };

@@ -114,7 +114,7 @@ export function GoalsPage() {
   // Pick highlight metrics
   const highlightMetrics = HIGHLIGHT_METRICS
     .filter(k => review?.metrics[k])
-    .map(k => ({ key: k, value: review!.metrics[k] }))
+    .map(k => ({ key: k, value: review?.metrics[k] ?? '' }))
 
   // Parse commitment
   const commitmentLines = review?.commitment ? parseCommitmentLines(review.commitment) : []
@@ -142,7 +142,10 @@ export function GoalsPage() {
             opacity: step.done ? 0.5 : isFirstUndone ? 1 : i < firstUndone + 3 ? 0.7 : 0.45,
           }}>
             <span
+              role="button"
+              tabIndex={0}
               onClick={() => toggleStep(i, step.done)}
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleStep(i, step.done); } }}
               style={{
               width: isFirstUndone ? 20 : 18, height: isFirstUndone ? 20 : 18,
               borderRadius: '50%', flexShrink: 0, marginTop: 1,

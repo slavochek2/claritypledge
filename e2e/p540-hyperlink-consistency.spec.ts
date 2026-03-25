@@ -64,7 +64,7 @@ test.describe('P540 — Hyperlink Consistency', () => {
   // TODO: Requires creating a story with a raw URL via supabaseAdmin
   // and navigating to the story page to verify the URL is linkified.
   // Implementation depends on story creation helper — fill in during /dev.
-  test.skip('story with raw URL renders as clickable link', async ({ page }) => {
+  test.skip('story with raw URL renders as clickable link', async ({ page: _page }) => {
     // TODO: Create story with text containing "Check https://example.com"
     // Navigate to story page
     // Verify link with href https://example.com is visible
@@ -73,7 +73,7 @@ test.describe('P540 — Hyperlink Consistency', () => {
   // ── Stories: markdown link (migrated behavior) ─────────────────────────────
   // TODO: Same pattern — create story with [text](url) markdown,
   // verify named link renders correctly after migration to linkifyText.
-  test.skip('story with [text](url) renders as named link', async ({ page }) => {
+  test.skip('story with [text](url) renders as named link', async ({ page: _page }) => {
     // TODO: Create story with text containing "[read more](https://example.com/article)"
     // Navigate to story page
     // Verify link with text "read more" and correct href

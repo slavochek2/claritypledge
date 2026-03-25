@@ -105,10 +105,10 @@ function VerificationThread({
           {isExpanded ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
           <CheckCircle2 className="h-3 w-3" />
           <span className="font-medium">
-            {isPerfect ? 'Fully understood' : `${latestVerification.accuracyRating! / 10}/10 understood`}
-            {showCalibration && latestVerification.selfRating !== latestVerification.accuracyRating && (
+            {isPerfect ? 'Fully understood' : `${(latestVerification.accuracyRating != null ? latestVerification.accuracyRating : 0) / 10}/10 understood`}
+            {showCalibration && latestVerification.selfRating != null && latestVerification.selfRating !== latestVerification.accuracyRating && (
               <span className={`font-normal ml-1 ${isPerfect ? 'text-green-600/70' : 'text-blue-600/70'}`}>
-                (guessed {latestVerification.selfRating! / 10}/10)
+                (guessed {latestVerification.selfRating / 10}/10)
               </span>
             )}
             {totalRounds > 1 && ` · ${totalRounds} tries`}
@@ -144,7 +144,7 @@ function VerificationThread({
           <span>
             Waiting for {messageAuthorName} to rate your understanding
             {showSelfRating && (
-              <span className="text-blue-600/70"> · you rated yourself {latestVerification.selfRating! / 10}/10</span>
+              <span className="text-blue-600/70"> · you rated yourself {(latestVerification.selfRating != null ? latestVerification.selfRating : 0) / 10}/10</span>
             )}
             {totalRounds > 1 && ` · attempt ${totalRounds}`}
           </span>
@@ -231,7 +231,7 @@ function VerificationThread({
                       {/* Show calibration comparison if self-rating exists */}
                       {v.selfRating !== undefined && (
                         <p className="text-xs text-muted-foreground">
-                          {v.verifierName} predicted {v.selfRating / 10}/10; {messageAuthorName} rated {v.accuracyRating! / 10}/10
+                          {v.verifierName} predicted {v.selfRating / 10}/10; {messageAuthorName} rated {(v.accuracyRating != null ? v.accuracyRating : 0) / 10}/10
                           {v.calibrationGap !== undefined && v.calibrationGap !== 0 && (
                             <span className="text-blue-600">
                               {' '}({v.calibrationGap > 0 ? '+' : ''}{v.calibrationGap / 10})

@@ -121,7 +121,7 @@ export function ProfileConnectionsPage() {
     };
 
     load();
-  }, [id, currentUser?.id, authLoading]);
+  }, [id, currentUser?.id, currentUser?.email, authLoading]);
 
   if (loading) return <PageSkeleton />;
 

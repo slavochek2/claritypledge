@@ -71,7 +71,7 @@ function katexExtension(): MarkedExtension {
           // or opening paren — NOT preceded by a digit (avoids "$1.2 trillion")
           const match = src.match(/(?:^|[\s(])(\$)/);
           if (match) {
-            return match.index! + match[0].length - 1; // position of the $
+            return (match.index ?? 0) + match[0].length - 1; // position of the $
           }
           return -1;
         },

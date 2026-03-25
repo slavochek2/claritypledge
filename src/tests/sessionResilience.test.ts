@@ -136,8 +136,8 @@ describe('P511: localStorage session persistence', () => {
     vi.stubGlobal('localStorage', {
       getItem: vi.fn((key: string) => store[key] ?? null),
       setItem: vi.fn((key: string, value: string) => { store[key] = value; }),
-      removeItem: vi.fn((key: string) => { delete store[key]; }),
-      clear: vi.fn(() => { Object.keys(store).forEach(k => delete store[k]); }),
+      removeItem: vi.fn((key: string) => { Reflect.deleteProperty(store, key); }),
+      clear: vi.fn(() => { Object.keys(store).forEach(k => Reflect.deleteProperty(store, k)); }),
     });
   });
 

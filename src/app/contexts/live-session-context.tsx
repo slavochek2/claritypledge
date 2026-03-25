@@ -14,6 +14,7 @@ export interface StoredActiveSession {
 }
 
 /** Save active session info to localStorage. */
+// eslint-disable-next-line react-refresh/only-export-components
 export function saveActiveSessionToStorage(session: StoredActiveSession): void {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(session));
@@ -23,6 +24,7 @@ export function saveActiveSessionToStorage(session: StoredActiveSession): void {
 }
 
 /** Read active session info from localStorage. Returns null on missing/malformed data. */
+// eslint-disable-next-line react-refresh/only-export-components
 export function getActiveSessionFromStorage(): StoredActiveSession | null {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -37,6 +39,7 @@ export function getActiveSessionFromStorage(): StoredActiveSession | null {
 }
 
 /** Remove active session info from localStorage. */
+// eslint-disable-next-line react-refresh/only-export-components
 export function clearActiveSessionFromStorage(): void {
   try {
     localStorage.removeItem(STORAGE_KEY);

@@ -23,7 +23,7 @@ test.describe('P555 — Authenticated user fast redirect', () => {
       const page = await context.newPage();
 
       // Track whether the loader was ever visible
-      let loaderSeen = false;
+      let _loaderSeen = false;
       await page.addInitScript(() => {
         // Use MutationObserver to detect if clarity-page-loader class ever appears
         const observer = new MutationObserver(() => {
@@ -38,7 +38,7 @@ test.describe('P555 — Authenticated user fast redirect', () => {
       await page.goto('/');
       await page.waitForURL('**/feed', { timeout: 5000 });
 
-      loaderSeen = await page.evaluate(
+      _loaderSeen = await page.evaluate(
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         () => !!(window as any).__p555_loader_seen
       );

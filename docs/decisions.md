@@ -2,6 +2,14 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-25 [technical]: Strict ESLint + noUncheckedIndexedAccess + zero-warning enforcement
+
+**Context:** Codebase had `tseslint.configs.recommended` (permissive) with `--max-warnings 999`, accumulating 21 unaddressed warnings. Goal: long-term code quality over dev speed. Research compared `strict` vs `strictTypeChecked` (type-aware) configs.
+**Decision:** (1) `tseslint.configs.recommended` → `tseslint.configs.strict` — adds `no-non-null-assertion`, `no-dynamic-delete`, `no-unnecessary-condition`. (2) `noUncheckedIndexedAccess: true` in tsconfig — forces `T | undefined` on all index access. (3) Zero-warning policy: `--max-warnings 0` in package.json and pre-commit. (4) All a11y `warn` rules promoted to `error`. (5) Test/e2e files exempt from `no-non-null-assertion` — `result!` is standard test assertion pattern.
+**Alternatives rejected:** `strictTypeChecked` (type-aware linting with `parserOptions.projectService`) — research showed codebase already has 0 floating promises and 0 explicit `any`, so incremental safety is minimal while adding 2-5x slower lint runs + SemVer instability (typescript-eslint docs explicitly say `strictTypeChecked` rules may change between minor versions). Individual type-aware rules (e.g., `no-floating-promises`) can be added later if async code grows.
+**Consequences:** Every future PR must pass with 0 warnings. Non-null assertions (`!`) are banned in production code — use type guards, optional chaining, or early returns instead. Array/object index access returns `T | undefined` — forces explicit null handling. Review process: three parallel review agents (code-reviewer, silent-failure-hunter, code-simplifier) caught critical issues — env var `?? ''` patterns that masked missing config were upgraded to fail-fast guards.
+**References:** [eslint.config.js](../eslint.config.js) | [tsconfig.app.json](../tsconfig.app.json)
+
 ## 2026-03-24 [process]: Newsletter image disappearance — unresolved root cause (Status: proposed)
 
 **Context:** First newsletter ("Two Skills") sent after Mailgun limitation lift showed images in test email but not in final send. Current Ghost Lexical JSON has email cards with text-only links (no `<img>` tags). User confirmed test email DID have images. Most likely cause: Ghost editor round-trip stripped email card `<img>` content when post was re-saved between test send and publish.

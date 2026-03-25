@@ -191,12 +191,10 @@ export const mockPointsService: PointsService = {
 
     const sliced = sorted.slice(offset, offset + limit);
 
-    return Promise.all(
-      sliced.map(async (point) => {
-        const counts = await this.getPointWithCounts(point.id);
-        return counts!;
-      })
+    const results = await Promise.all(
+      sliced.map((point) => this.getPointWithCounts(point.id))
     );
+    return results.filter((r): r is PointWithCounts => r !== null);
   },
 
   async getPositionCounts(pointId: string): Promise<Record<PositionType, number>> {
@@ -368,12 +366,10 @@ export const mockPointsService: PointsService = {
     const sliced = sorted.slice(offset, offset + limit);
     if (sliced.length === 0) return [];
 
-    const pointsWithCounts = await Promise.all(
-      sliced.map(async (point) => {
-        const counts = await this.getPointWithCounts(point.id);
-        return counts!;
-      })
+    const pointsWithCountsRaw = await Promise.all(
+      sliced.map((point) => this.getPointWithCounts(point.id))
     );
+    const pointsWithCounts = pointsWithCountsRaw.filter((r): r is PointWithCounts => r !== null);
 
     if (!viewerUserId) {
       return pointsWithCounts.map(point => ({ ...point, userPosition: undefined }));

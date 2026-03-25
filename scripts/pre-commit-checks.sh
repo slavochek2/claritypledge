@@ -50,7 +50,7 @@ STAGED_FILES=$(git diff --cached --name-only --diff-filter=d 2>/dev/null || echo
 # 2. Lint (staged .ts/.tsx files only — full repo lint is npm run lint)
 STAGED_TS=$(echo "$STAGED_FILES" | grep -E '\.(ts|tsx)$' || true)
 if [ -n "$STAGED_TS" ]; then
-    if ! run_quiet "ESLint" npx eslint $STAGED_TS --max-warnings 999; then
+    if ! run_quiet "ESLint" npx eslint $STAGED_TS --max-warnings 0; then
         ERRORS=$((ERRORS + 1))
     fi
 else

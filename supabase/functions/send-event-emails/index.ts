@@ -1,8 +1,8 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 
-const MAILGUN_API_KEY = Deno.env.get('MAILGUN_API_KEY')!;
-const MAILGUN_DOMAIN = Deno.env.get('MAILGUN_DOMAIN')!;
+const MAILGUN_API_KEY = Deno.env.get('MAILGUN_API_KEY') ?? '';
+const MAILGUN_DOMAIN = Deno.env.get('MAILGUN_DOMAIN') ?? '';
 const MAILGUN_REGION = Deno.env.get('MAILGUN_REGION') ?? 'us';
 const TALLY_FORM_ID = Deno.env.get('TALLY_FORM_ID') ?? 'QKDN91';
 
@@ -626,6 +626,11 @@ serve(async (req: Request) => {
   }
 
   try {
+    // Guard: Mailgun env vars (module-level ?? '' for Deno, checked here)
+    if (!MAILGUN_API_KEY || !MAILGUN_DOMAIN) {
+      return new Response(JSON.stringify({ error: 'Missing required env vars' }), { status: 500 });
+    }
+
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
       return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 });
@@ -634,10 +639,13 @@ serve(async (req: Request) => {
     // Use service role for DB operations — bypasses RLS so we can read all
     // attendee emails and update mailgun_message_ids across all RSVPs.
     // Auth header is still validated to ensure caller is authenticated.
-    const supabaseClient = createClient(
-      Deno.env.get('SUPABASE_URL')!,
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
-    );
+    const supabaseUrl = Deno.env.get('SUPABASE_URL');
+    const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+    if (!supabaseUrl || !serviceRoleKey) {
+      return new Response(JSON.stringify({ error: 'Missing required env vars' }), { status: 500 });
+    }
+
+    const supabaseClient = createClient(supabaseUrl, serviceRoleKey);
 
     const { action, eventId, userId } = await req.json() as {
       action: 'rsvp' | 'cancel' | 'uncancel' | 'update';

@@ -21,8 +21,8 @@ const mockStorage: Record<string, string> = {};
 const localStorageMock = {
   getItem: vi.fn((key: string) => mockStorage[key] ?? null),
   setItem: vi.fn((key: string, value: string) => { mockStorage[key] = value; }),
-  removeItem: vi.fn((key: string) => { delete mockStorage[key]; }),
-  clear: vi.fn(() => { Object.keys(mockStorage).forEach(k => delete mockStorage[k]); }),
+  removeItem: vi.fn((key: string) => { Reflect.deleteProperty(mockStorage, key); }),
+  clear: vi.fn(() => { Object.keys(mockStorage).forEach(k => Reflect.deleteProperty(mockStorage, k)); }),
 };
 
 describe('useAnonPosition — localStorage operations', () => {

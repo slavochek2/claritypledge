@@ -670,7 +670,8 @@ export function StoryDetailPage() {
     } else if (isEditMode && !editContent) {
       setEditContent(story.content);
     }
-  }, [story, user?.id]); // intentionally omits isEditMode/editContent — only fires on story/user load
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally omits isEditMode/editContent — only fires on story/user load
+  }, [story, user?.id]);
 
   // P132: Guard for position removal — shows confirmation dialog with linked-story count
   const { dialogProps, guardedRemovePosition } = useRemovePositionGuard({

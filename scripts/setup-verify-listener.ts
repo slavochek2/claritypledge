@@ -19,9 +19,9 @@ import { fileURLToPath } from 'url';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: path.join(__dirname, '..', '.env.test.local') });
 
-const SUPABASE_URL = process.env.VITE_SUPABASE_URL!;
-const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-const ANON_KEY = process.env.VITE_SUPABASE_ANON_KEY!;
+const SUPABASE_URL = process.env.VITE_SUPABASE_URL ?? '';
+const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY ?? '';
+const ANON_KEY = process.env.VITE_SUPABASE_ANON_KEY ?? '';
 
 const LISTENER_EMAIL = process.env.TEST_LISTENER_EMAIL;
 if (!LISTENER_EMAIL) {
@@ -37,7 +37,12 @@ const LISTENER_NAME = 'Test Listener';
 const LISTENER_SLUG = 'test-listener-verify';
 
 if (!SUPABASE_URL || !SERVICE_ROLE_KEY || !ANON_KEY) {
-  console.error('Missing required env vars. Check .env.test.local');
+  const missing = [
+    !SUPABASE_URL && 'VITE_SUPABASE_URL',
+    !SERVICE_ROLE_KEY && 'SUPABASE_SERVICE_ROLE_KEY',
+    !ANON_KEY && 'VITE_SUPABASE_ANON_KEY',
+  ].filter(Boolean).join(', ');
+  console.error(`Missing required env vars: ${missing}. Check .env.test.local`);
   process.exit(1);
 }
 

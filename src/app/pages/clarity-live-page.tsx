@@ -105,6 +105,7 @@ const UPDATE_TIMEOUT_MS = 5000;
  * P525: Race a promise against a timeout. Rejects with a descriptive error if the promise
  * doesn't resolve within `ms` milliseconds. Cleans up the timer on success to prevent leaks.
  */
+// eslint-disable-next-line react-refresh/only-export-components
 export function raceWithTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
   let timeoutId: ReturnType<typeof setTimeout>;
   const timeoutPromise = new Promise<never>((_, reject) => {
@@ -130,6 +131,7 @@ export function raceWithTimeout<T>(promise: Promise<T>, ms: number): Promise<T> 
  * when no story was selected. This caused celebration booleans to clobber each other in
  * free-conversation rounds (both users write simultaneously, last writer erases partner's boolean).
  */
+// eslint-disable-next-line react-refresh/only-export-components
 export function shouldUseFullOverwrite(
   updates: Partial<Record<string, unknown>>,
   stateBeforeUpdate: Record<string, unknown>
@@ -149,6 +151,7 @@ export function shouldUseFullOverwrite(
  * P525: Strips PII from live state before sending to Sentry.
  * Keeps only structural/diagnostic fields — no user names, story content, or name-keyed maps.
  */
+// eslint-disable-next-line react-refresh/only-export-components
 export function sanitizeLiveStateForSentry(
   state: Record<string, unknown> | null | undefined
 ): Record<string, unknown> {
@@ -174,6 +177,7 @@ export function sanitizeLiveStateForSentry(
  * P525: Checks if both users have acknowledged the celebration, supporting both
  * new boolean keys and old array format for backward compatibility.
  */
+// eslint-disable-next-line react-refresh/only-export-components
 export function isBothAcknowledged(state: {
   celebrationAcknowledgedByCreator?: boolean;
   celebrationAcknowledgedByJoiner?: boolean;
@@ -185,6 +189,7 @@ export function isBothAcknowledged(state: {
  * P525: Backward-compatible check — new booleans OR old array with both names.
  * Used during deploy transition when one user may have old code.
  */
+// eslint-disable-next-line react-refresh/only-export-components
 export function isBothAcknowledgedCompat(
   state: {
     celebrationAcknowledgedByCreator?: boolean;
@@ -684,6 +689,7 @@ export function ClarityLivePage() {
         setName(stored.guestDisplayName);
       }
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- user object used for null check; user?.name already tracked
   }, [user?.name, name]);
 
   // B48: Old P40 effect removed - mic permission is now checked BEFORE transitioning to live
@@ -830,6 +836,7 @@ export function ClarityLivePage() {
     };
 
     restoreSession();
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- session restore runs once on mount; urlCode is stable from URL
   }, [isJoinViaLink]);
 
   // P511 Task 10: Check localStorage for active session to show rejoin prompt on /live landing
@@ -889,6 +896,7 @@ export function ClarityLivePage() {
     });
 
     return unsubscribe;
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- rejoinSession?.sessionId is the stable identity; adding full object would re-subscribe on every state change
   }, [rejoinSession?.sessionId, clearActiveSession]);
 
   // Fetch host name when joining via link (for personalized "Join X's Session" title)
@@ -1687,7 +1695,7 @@ export function ClarityLivePage() {
 
       updateLiveState(updates);
     },
-    [name, partnerName, localFlowType, updateLiveState, session?.code, session?.id, trackLiveEvent, writeVerification]
+    [name, partnerName, localFlowType, updateLiveState, session?.code, session?.id, trackLiveEvent, writeVerification, isCreator]
   );
 
   // V7: Handle skip (resets to idle state for next check)
@@ -1892,7 +1900,7 @@ export function ClarityLivePage() {
     if (liveState.ratingPhase === 'idle') {
       reactiveResetFiredRef.current = false;
     }
-  }, [liveState.celebrationAcknowledgedByCreator, liveState.celebrationAcknowledgedByJoiner, liveState.ratingPhase, liveState, name, partnerName, updateLiveState]);
+  }, [liveState.celebrationAcknowledgedByCreator, liveState.celebrationAcknowledgedByJoiner, liveState.ratingPhase, liveState, name, partnerName, updateLiveState, isCreator]);
 
   // Handle "Let me explain back" - listener starts explaining
   const handleExplainBackStart = useCallback(() => {
@@ -2701,7 +2709,7 @@ export function ClarityLivePage() {
     sessionEndedRef.current = true;
     setSessionEnded(true);
     setIsExiting(false);
-  }, [session, liveState.checksCount, isCreator, isFromEvent, returnTo, navigate, stopAndUploadRecording, clearActiveSession, isExiting]);
+  }, [session, liveState.checksCount, liveState.sessionHistory, isCreator, isFromEvent, stopAndUploadRecording, clearActiveSession, isExiting]);
 
   // P511: Exit directly — no confirmation dialog (session can be resumed via heartbeat)
   const handleExitMeeting = useCallback(() => {
@@ -2784,7 +2792,7 @@ export function ClarityLivePage() {
       // Recording will start automatically via the useEffect when micStatus becomes 'granted'
       // Note: Do NOT call resetMic() here - it would clear the 'granted' status
     }
-  }, [requestMicPermission, user?.id]);
+  }, [requestMicPermission, setActiveSession, user]);
 
   // P40: Handle mic permission dialog cancel
   // B48: Cancel returns user to start view (they can't join without mic permission)

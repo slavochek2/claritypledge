@@ -104,7 +104,7 @@ function ResendButton({ agreementId }: { agreementId: string }) {
 
   const isOnCooldown = sentAt !== null && Date.now() < sentAt + 86400000;
   const remainingHours = isOnCooldown
-    ? Math.ceil((sentAt! + 86400000 - Date.now()) / 3600000)
+    ? Math.ceil((sentAt + 86400000 - Date.now()) / 3600000)
     : 0;
 
   const handleClick = async (e: React.MouseEvent) => {

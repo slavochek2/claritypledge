@@ -166,9 +166,9 @@ export function PartnerLeftScreen({ partnerName, sessionEnded, onStartNew, isGue
                 className="bg-blue-500 rounded-full h-2 transition-all duration-300"
                 style={{ width: `${uploadPercent}%` }}
                 role="progressbar"
-                aria-valuenow={uploadProgress!.total - uploadProgress!.pending}
+                aria-valuenow={(uploadProgress?.total ?? 0) - (uploadProgress?.pending ?? 0)}
                 aria-valuemin={0}
-                aria-valuemax={uploadProgress!.total}
+                aria-valuemax={uploadProgress?.total ?? 0}
               />
             </div>
             <p className="text-sm text-muted-foreground">{uploadPercent}%</p>

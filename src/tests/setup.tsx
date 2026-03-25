@@ -14,9 +14,7 @@ class IntersectionObserverMock {
   readonly root: Element | null = null;
   readonly rootMargin: string = '';
   readonly thresholds: ReadonlyArray<number> = [];
-  
-  constructor() {}
-  
+
   disconnect = vi.fn();
   observe = vi.fn();
   takeRecords = vi.fn();
@@ -27,7 +25,6 @@ vi.stubGlobal('IntersectionObserver', IntersectionObserverMock);
 
 // Mock ResizeObserver (not available in JSDOM)
 class ResizeObserverMock {
-  constructor() {}
   disconnect = vi.fn();
   observe = vi.fn();
   unobserve = vi.fn();
@@ -62,7 +59,7 @@ const localStorageMock = (() => {
   return {
     getItem: (key: string) => store[key] || null,
     setItem: (key: string, value: string) => { store[key] = value; },
-    removeItem: (key: string) => { delete store[key]; },
+    removeItem: (key: string) => { Reflect.deleteProperty(store, key); },
     clear: () => { store = {}; },
     get length() { return Object.keys(store).length; },
     key: (index: number) => Object.keys(store)[index] || null,

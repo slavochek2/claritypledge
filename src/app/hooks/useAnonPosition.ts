@@ -48,7 +48,9 @@ export function setAnonPosition(pointId: string, position: AnonPositionValue | n
       }
     }
     if (position === null) {
-      delete positions[pointId];
+      const { [pointId]: _, ...rest } = positions;
+      void _;
+      positions = rest;
     } else {
       positions[pointId] = position;
     }

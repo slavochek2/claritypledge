@@ -42,10 +42,13 @@ serve(async (req: Request) => {
   }
 
   try {
-    const supabase = createClient(
-      Deno.env.get('SUPABASE_URL')!,
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
-    );
+    const supabaseUrl = Deno.env.get('SUPABASE_URL');
+    const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+    if (!supabaseUrl || !serviceRoleKey) {
+      return jsonResponse({ error: 'INTERNAL', message: 'Missing required env vars' }, 500);
+    }
+
+    const supabase = createClient(supabaseUrl, serviceRoleKey);
 
     const { agreementId, token, partnerName } = await req.json() as {
       agreementId?: string;
@@ -217,13 +220,11 @@ serve(async (req: Request) => {
     // ── Fire-and-forget: notify creator ───────────────────────────────────
 
     // Trigger send-agreement-emails with action 'accepted' — the ONLY email trigger for this flow
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     fetch(`${supabaseUrl}/functions/v1/send-agreement-emails`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${serviceKey}`,
+        Authorization: `Bearer ${serviceRoleKey}`,
       },
       body: JSON.stringify({ action: 'accepted', agreementId }),
     }).catch(err => console.error('[create-and-sign] email notification failed:', err));

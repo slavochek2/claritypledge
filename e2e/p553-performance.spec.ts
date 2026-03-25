@@ -193,7 +193,6 @@ test.describe('P553 — Cache headers (vercel.json)', () => {
     expect(hashedAssetRule, 'No cache header rule found for hashed assets in vercel.json').toBeDefined();
 
     if (hashedAssetRule) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const cacheHeader = hashedAssetRule.headers?.find(
         (h: any) => h.key.toLowerCase() === 'cache-control' // eslint-disable-line @typescript-eslint/no-explicit-any
       );

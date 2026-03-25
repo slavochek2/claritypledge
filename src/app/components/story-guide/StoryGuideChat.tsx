@@ -748,7 +748,7 @@ export function StoryGuideChat({
             return (
               <DraftCard
                 key={msg.id}
-                version={msg.draftVersion!}
+                version={msg.draftVersion ?? 1}
                 content={msg.content}
                 status={msg.draftStatus ?? 'draft'}
                 linkedPointText={pointText}
@@ -758,10 +758,11 @@ export function StoryGuideChat({
           }
 
           if (msg.isSavedCard) {
+            if (!msg.savedStoryId) return null; // Domain invariant: saved cards always have a storyId
             return (
               <SavedStoryChatCard
                 key={msg.id}
-                storyId={msg.savedStoryId!}
+                storyId={msg.savedStoryId}
                 content={msg.content}
                 authorName={authorName}
                 visibility={msg.savedVisibility ?? 'private'}

@@ -386,7 +386,7 @@ export const realStoriesService: StoriesService = {
         if (!pointsByStory.has(storyId)) {
           pointsByStory.set(storyId, []);
         }
-        pointsByStory.get(storyId)!.push(mapped);
+        pointsByStory.get(storyId)?.push(mapped);
         allPointIds.push(mapped.id);
       }
     });

@@ -108,7 +108,8 @@ export function PointDetailPage() {
         setLinkedStories(storiesData);
         setViewerStory(viewerStoryData);
         if (user?.id && (pointData as PointWithUserPosition).userPosition) {
-          setUserPosition((pointData as PointWithUserPosition).userPosition!.position);
+          const up = (pointData as PointWithUserPosition).userPosition;
+          if (up) setUserPosition(up.position);
         }
         setLoading(false);
       } catch (err) {
@@ -460,7 +461,7 @@ export function PointDetailPage() {
 
               {/* Tag pills */}
               {(point.tags?.length ?? 0) > 0 && (
-                <TagPills tags={point.tags!} context="detail" className="mb-3" />
+                <TagPills tags={point.tags ?? []} context="detail" className="mb-3" />
               )}
 
               {/* Context (if present) */}
@@ -476,7 +477,7 @@ export function PointDetailPage() {
               />
               {/* P502: Anonymous position CTA */}
               {!user && anonPosition && (
-                <AnonPositionCTA pointId={id!} position={anonPosition} isEmbed={isEmbed} />
+                <AnonPositionCTA pointId={id ?? ''} position={anonPosition} isEmbed={isEmbed} />
               )}
 
             </div>
@@ -552,10 +553,10 @@ export function PointDetailPage() {
                         }}
                       />
                       {/* P542: Expandable story region */}
-                      {hasStory && isExpanded && (
+                      {holderStory && isExpanded && (
                         <ExpandableStoryRegion
                           holder={holder}
-                          story={holderStory!}
+                          story={holderStory}
                           isViewer={isViewer}
                           onCollapse={() => setExpandedHolderId(null)}
                         />
