@@ -25,6 +25,7 @@ import type { PositionType } from '@/app/types';
 import { getPositionGroup, getPositionCTACopy, adjustPositionCounts } from '@/app/utils/position-helpers';
 import type { Story, Point } from '@/app/components/shared/prototype-types';
 import { TagPills } from '@/app/components/shared/tag-pills';
+import { StoryImage } from '@/app/components/shared/story-image';
 import { stripHashtags } from '@/lib/utils';
 import type { StoryAuthor } from '@/app/components/social/point-card-with-links';
 
@@ -269,6 +270,17 @@ export function StoryCardWithLinks({
                 {!hideActions && <InlineVisibilityIcon visibility={story.visibility} />}
               </p>
             </div>
+
+            {/* Supporting image */}
+            {story.imageUrl && (
+              <StoryImage
+                src={story.imageUrl}
+                authorName={author.name}
+                maxHeight="200px"
+                onClick={!isDetailView && !disableNavigation ? () => embedNavigate(`/story/${story.id}`) : undefined}
+                className="mt-1 mb-2"
+              />
+            )}
 
             {/* Story text - indented under author */}
             {compact && !textExpanded && displayText.length > 280 ? (

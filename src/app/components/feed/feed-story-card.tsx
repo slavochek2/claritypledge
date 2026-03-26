@@ -17,6 +17,7 @@ import { linkifyText } from '@/app/utils/linkify';
 import { TagPills } from '@/app/components/shared/tag-pills';
 import { stripHashtags } from '@/lib/utils';
 import { InlineVisibilityIcon } from '@/app/components/shared';
+import { StoryImage } from '@/app/components/shared/story-image';
 import type { StoryWithAuthor } from '@/app/types';
 
 interface FeedStoryCardProps {
@@ -97,6 +98,17 @@ export function FeedStoryCard({ story, activeTag, pointCount }: FeedStoryCardPro
                 <InlineVisibilityIcon visibility={story.visibility ?? 'public'} />
               </div>
             </div>
+
+            {/* Supporting image */}
+            {story.imageUrl && (
+              <StoryImage
+                src={story.imageUrl}
+                authorName={story.authorName}
+                maxHeight="200px"
+                onClick={() => navigate(`/story/${story.id}`)}
+                className="mt-2 mb-2"
+              />
+            )}
 
             {/* Story text */}
             <p className="text-foreground break-words text-sm line-clamp-6">

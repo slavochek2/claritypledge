@@ -41,6 +41,7 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { analytics } from '@/lib/mixpanel';
+import { uploadStoryImage } from '@/app/data/story-image-service';
 import { PositionButtons, type SevenPointCounts } from '@/app/components/shared';
 import type { StoryWithPoints, StoryWithAuthor, PointSummary, PointPosition, PositionType } from '@/app/types';
 
@@ -553,7 +554,7 @@ export function StoryDetailPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const [searchParams] = useSearchParams();
-  const { user, isLoading: authLoading } = useAuth();
+  const { user, session, isLoading: authLoading } = useAuth();
   const { checkVerified } = useVerificationGate();
 
   const justCreated = !!(location.state as { justCreated?: boolean } | null)?.justCreated;
@@ -584,6 +585,8 @@ export function StoryDetailPage() {
   const editButtonRef = useRef<HTMLButtonElement>(null);
   const deleteButtonRef = useRef<HTMLButtonElement>(null);
   const popstateHandlerRef = useRef<(() => void) | null>(null);
+  // P591: Hidden file input for image change/add
+  const imageInputRef = useRef<HTMLInputElement>(null);
 
 
   // Guard: reset edit mode if the loaded story is not owned by the current user
@@ -801,6 +804,59 @@ export function StoryDetailPage() {
       setIsDeleting(false);
     }
   }, [story, navigate]);
+
+  // P591: Image handlers (author only)
+  const handleChangeImage = useCallback(() => {
+    imageInputRef.current?.click();
+  }, []);
+
+  const handleRemoveImage = useCallback(async () => {
+    if (!story) return;
+    const previousUrl = story.imageUrl;
+    // Optimistic update
+    setStory(prev => prev ? { ...prev, imageUrl: undefined } : prev);
+    try {
+      await storiesService.updateStory(story.id, { imageUrl: null });
+      toast('Image removed', {
+        duration: 5000,
+        action: {
+          label: 'Undo',
+          onClick: async () => {
+            // Restore previous image URL
+            setStory(prev => prev ? { ...prev, imageUrl: previousUrl } : prev);
+            await storiesService.updateStory(story.id, { imageUrl: previousUrl });
+          },
+        },
+      });
+      analytics.track('story_image_removed', { story_id: story.id });
+    } catch {
+      // Revert optimistic update
+      setStory(prev => prev ? { ...prev, imageUrl: previousUrl } : prev);
+      toast.error('Failed to remove image. Please try again.');
+    }
+  }, [story]);
+
+  const handleImageFileSelected = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    // Reset input so the same file can be re-selected
+    if (imageInputRef.current) imageInputRef.current.value = '';
+    if (!file || !story || !session?.access_token) return;
+
+    try {
+      const publicUrl = await uploadStoryImage(story.id, file, session.access_token);
+      await storiesService.updateStory(story.id, { imageUrl: publicUrl });
+      setStory(prev => prev ? { ...prev, imageUrl: publicUrl } : prev);
+      toast.success('Image updated');
+      analytics.track('story_image_changed', { story_id: story.id });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Upload failed';
+      if (message.includes('format') || message.includes('5MB')) {
+        toast.error('Please use JPEG, PNG, or WebP format (max 5MB)');
+      } else {
+        toast.error('Failed to upload image. Please try again.');
+      }
+    }
+  }, [story, session?.access_token]);
 
   // P427: Navigation guard — intercept browser back when edit mode is dirty.
   // BrowserRouter doesn't support useBlocker; use popstate + history.pushState instead.
@@ -1079,6 +1135,19 @@ export function StoryDetailPage() {
 
       <RemovePositionDialog {...dialogProps} />
 
+      {/* P591: Hidden file input for image upload/change */}
+      {isAuthor && (
+        <input
+          ref={imageInputRef}
+          type="file"
+          accept="image/jpeg,image/png,image/webp,image/heic,.heic,.HEIC"
+          className="hidden"
+          onChange={handleImageFileSelected}
+          tabIndex={-1}
+          aria-hidden="true"
+        />
+      )}
+
       {/* P427: Delete story dialog */}
       {isAuthor && (
         <DeleteStoryDialog
@@ -1170,6 +1239,9 @@ export function StoryDetailPage() {
             </>
           ) : undefined}
           onAddPoint={isAuthor ? () => setAddPointTrigger(n => n + 1) : undefined}
+          imageUrl={story.imageUrl}
+          onChangeImage={isAuthor ? handleChangeImage : undefined}
+          onRemoveImage={isAuthor ? handleRemoveImage : undefined}
         />
         </div>
       )}

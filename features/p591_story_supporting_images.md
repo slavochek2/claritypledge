@@ -811,7 +811,7 @@ These are implementation-level details below UX wireframe resolution:
 - **Spec refs:** "Technical Architecture > Build Sequence step 5 (lines ~537)"
 - **Depends on:** Task 3 (edge function must exist), Task 4 (image processing utility)
 - **Verify:** `uploadStoryImage(storyId, file)` returns a public GCS URL when given a valid image file
-- [ ] Complete
+- [x] Complete
 
 ### Task 7: ImageLightbox component
 - **Files:** `src/app/components/shared/image-lightbox.tsx` (create)
@@ -835,7 +835,7 @@ These are implementation-level details below UX wireframe resolution:
 - **Tests:** `e2e/p591-story-supporting-images.spec.ts` (author controls), `e2e/a11y/p591-accessibility.spec.ts` (keyboard nav)
 - **Depends on:** Task 4 (image processing), Task 6 (upload service)
 - **Verify:** File selection → preview → progress → done/error state machine works; "Change image" and "Remove" actions functional
-- [ ] Complete
+- [x] Complete
 
 ### Task 10: Create story page integration
 - **Files:** `src/app/pages/create-story-page.tsx` (modify)
@@ -843,7 +843,7 @@ These are implementation-level details below UX wireframe resolution:
 - **Tests:** `e2e/p591-story-supporting-images.spec.ts` (creation flow), `e2e/p591-smoke.spec.ts` (creation page button)
 - **Depends on:** Task 5 (service accepts imageUrl), Task 9 (upload widget)
 - **Verify:** "Add image" button visible below textarea; upload → publish → image visible on detail page
-- [ ] Complete
+- [x] Complete
 
 ### Task 11: Story detail page + StoryCardDetail integration
 - **Files:** `src/app/pages/story-detail-page.tsx` (modify), `src/app/components/social/StoryCardDetail.tsx` (modify)
@@ -851,7 +851,7 @@ These are implementation-level details below UX wireframe resolution:
 - **Tests:** `e2e/p591-story-supporting-images.spec.ts` (visitor view, author controls), `e2e/p591-smoke.spec.ts` (detail page image)
 - **Depends on:** Task 5 (type has imageUrl), Task 8 (StoryImage), Task 9 (upload widget for author add)
 - **Verify:** Image renders between author row and text; author sees add/change/remove controls; non-author sees image only
-- [ ] Complete
+- [x] Complete
 
 ### Task 12: Feed card integration
 - **Files:** `src/app/components/feed/feed-story-card.tsx` (modify), `src/app/components/social/story-card-with-links.tsx` (modify)
@@ -859,14 +859,14 @@ These are implementation-level details below UX wireframe resolution:
 - **Tests:** `e2e/p591-story-supporting-images.spec.ts` (feed card rendering)
 - **Depends on:** Task 5 (type has imageUrl), Task 8 (StoryImage component)
 - **Verify:** Compact image preview (max-h 200px) appears above text in feed cards; click navigates to story detail
-- [ ] Complete
+- [x] Complete
 
 ### Task 13: Analytics events
 - **Files:** `src/app/pages/create-story-page.tsx` (modify — add to existing), `src/app/pages/story-detail-page.tsx` (modify — add to existing), `src/app/components/shared/image-lightbox.tsx` (modify — add to existing)
 - **Spec refs:** "Technical Architecture > Build Sequence step 14 (lines ~546)"
 - **Depends on:** Task 10, Task 11 (pages must have image integration)
 - **Verify:** Mixpanel events fire: `story_image_uploaded`, `story_image_removed`, `story_image_viewed`
-- [ ] Complete
+- [x] Complete
 
 **Total tasks:** 13 | **Can parallelize:** Task 1, 2, 4, 7 (no shared dependencies) | **Must be sequential:** 2→3→6, 1→5, 4+6→9, 7→8, 5+8+9→10→11→12→13
 

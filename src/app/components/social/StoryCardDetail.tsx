@@ -27,6 +27,7 @@ import {
   ThreadLineGroup,
   ThreadLineItem,
 } from '@/app/components/shared';
+import { StoryImage } from '@/app/components/shared/story-image';
 import type { StoryWithAuthor, PointSummary, PositionType, PointPosition } from '@/app/types';
 import { TagPills } from '@/app/components/shared/tag-pills';
 import { stripHashtags, extractHashtags } from '@/lib/utils';
@@ -82,6 +83,12 @@ interface StoryCardDetailProps {
   hideActions?: boolean;
   /** Callback when author clicks "+ Add a point" — used on story-detail to expand inline form instead of navigating */
   onAddPoint?: () => void;
+  /** P591: Story supporting image URL */
+  imageUrl?: string;
+  /** P591: Author callback to change image */
+  onChangeImage?: () => void;
+  /** P591: Author callback to remove image */
+  onRemoveImage?: () => void;
 }
 
 /**
@@ -109,6 +116,9 @@ export function StoryCardDetail({
   currentUserId,
   hideActions = false,
   onAddPoint,
+  imageUrl,
+  onChangeImage,
+  onRemoveImage,
 }: StoryCardDetailProps) {
   const navigate = useNavigate();
   const [pointsExpanded, setPointsExpanded] = useState(isDetailView);
@@ -251,6 +261,21 @@ export function StoryCardDetail({
                 <InlineVisibilityIcon visibility={story.visibility} />
               </div>
             </div>
+
+            {/* P591: Story supporting image */}
+            {imageUrl && (
+              <div className="mb-3">
+                <StoryImage
+                  src={imageUrl}
+                  authorName={story.authorName}
+                  maxHeight={isDetailView ? '400px' : '200px'}
+                  onClick={!isDetailView && !disableNavigation ? handleCardClick : undefined}
+                  onChangeImage={isDetailView ? onChangeImage : undefined}
+                  onRemoveImage={isDetailView ? onRemoveImage : undefined}
+                  className="mt-1"
+                />
+              </div>
+            )}
 
             {/* Story text - indented under author */}
             <p className={`text-foreground break-words ${compact ? 'text-sm line-clamp-5' : 'text-base'}`}>

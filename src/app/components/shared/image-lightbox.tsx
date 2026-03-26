@@ -1,7 +1,9 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { X } from "lucide-react";
+import { analytics } from "@/lib/mixpanel";
 
 interface ImageLightboxProps {
   src: string;
@@ -16,6 +18,15 @@ export function ImageLightbox({
   open,
   onOpenChange,
 }: ImageLightboxProps) {
+  const tracked = useRef(false);
+  useEffect(() => {
+    if (open && !tracked.current) {
+      tracked.current = true;
+      analytics.track("story_image_viewed", { src });
+    }
+    if (!open) tracked.current = false;
+  }, [open, src]);
+
   return (
     <DialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
       <DialogPrimitive.Portal>
