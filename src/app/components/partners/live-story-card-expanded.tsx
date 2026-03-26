@@ -48,10 +48,11 @@ export function LiveStoryCardExpanded({
   const [isExpanded, setIsExpanded] = useState(defaultExpanded);
   const [storyExpanded, setStoryExpanded] = useState(false);
 
-  // Reset expand state when the story changes (e.g. live session rotates to next story)
+  // P588: Reset both expand states when the story changes (phase change / story rotation)
   useEffect(() => {
     setStoryExpanded(false);
-  }, [story.id]);
+    setIsExpanded(defaultExpanded);
+  }, [story.id, defaultExpanded]);
 
   const strippedContent = stripHashtags(story.content, story.tags);
   const isLongStory = strippedContent.length > STORY_THRESHOLD;
@@ -94,7 +95,7 @@ export function LiveStoryCardExpanded({
             {isLongStory && (
               <button
                 type="button"
-                onClick={() => setStoryExpanded((prev) => !prev)}
+                onClick={() => { setStoryExpanded((prev) => { if (!prev) setIsExpanded(false); return !prev; }); }}
                 aria-expanded={storyExpanded}
                 aria-controls={`live-story-text-${story.id}`}
                 className="text-sm text-blue-600 hover:text-blue-700 mt-1"
@@ -120,7 +121,7 @@ export function LiveStoryCardExpanded({
         >
           <button
             type="button"
-            onClick={() => setIsExpanded((prev) => !prev)}
+            onClick={() => { setIsExpanded((prev) => { if (!prev) setStoryExpanded(false); return !prev; }); }}
             className="flex items-center gap-2 text-sm text-gray-600 hover:text-blue-600 transition-colors"
             aria-expanded={isExpanded}
           >
