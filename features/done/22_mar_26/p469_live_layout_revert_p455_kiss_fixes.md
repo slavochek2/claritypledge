@@ -12,6 +12,7 @@ tags:
   - mobile
   - layout
 created_date: 2026-03-02
+superseded_by: p588
 test_files:
   - e2e/p469-live-layout-kiss.spec.ts
 ---
