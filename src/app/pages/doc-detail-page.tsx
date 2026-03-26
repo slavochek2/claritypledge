@@ -94,6 +94,36 @@ function SortableStoryCard({
   // All linked points (including hidden) — needed for renderPointRow to show eye controls on all
   const allPoints = useMemo(() => docStory.story.points || [], [docStory.story.points]);
 
+  // Ordered point IDs for up/down arrow controls
+  const orderedPointIds = useMemo(() => {
+    if (pointConfig.order?.length) {
+      const orderMap = new Map(pointConfig.order.map((id: string, i: number) => [id, i]));
+      return [...allPoints].sort((a, b) => (orderMap.get(a.id) ?? 999) - (orderMap.get(b.id) ?? 999)).map(p => p.id);
+    }
+    return allPoints.map(p => p.id);
+  }, [allPoints, pointConfig.order]);
+
+  const handleMovePoint = useCallback(async (pointId: string, direction: 'up' | 'down') => {
+    const currentOrder = pointConfig.order?.length
+      ? pointConfig.order
+      : allPoints.map(p => p.id);
+    const idx = currentOrder.indexOf(pointId);
+    if (idx < 0) return;
+    const swapIdx = direction === 'up' ? idx - 1 : idx + 1;
+    if (swapIdx < 0 || swapIdx >= currentOrder.length) return;
+
+    const newOrder = [...currentOrder];
+    [newOrder[idx], newOrder[swapIdx]] = [newOrder[swapIdx], newOrder[idx]];
+    const newConfig = { ...pointConfig, order: newOrder };
+    setPointConfig(newConfig);
+    try {
+      await docsService.updatePointConfig(docId, docStory.story_id, newConfig);
+    } catch {
+      setPointConfig(docStory.point_config || {});
+      toast.error('Failed to reorder points');
+    }
+  }, [pointConfig, docId, docStory.story_id, docStory.point_config, allPoints]);
+
   return (
     <div ref={setNodeRef} style={style} className="group">
       {/* Block controls — visible on hover (desktop) or always (mobile) */}
@@ -126,23 +156,29 @@ function SortableStoryCard({
           disableNavigation
           onAddPoint={() => onNavigate(docStory.story_id)}
           pointOrder={pointConfig.order}
-          hiddenPointIds={isOwner ? undefined : pointConfig.hidden}
-          renderPointRow={isOwner ? (point, quotedPointElement) => (
-            <div
-              key={point.id}
-              role="toolbar"
-              className="group/point flex items-start gap-1"
-              onClick={(e) => e.stopPropagation()}
-              onKeyDown={(e) => e.stopPropagation()}
-            >
-              <DocBlockControls
-                variant="point"
-                isHidden={(pointConfig.hidden || []).includes(point.id)}
-                onToggleHidden={() => handleTogglePointHidden(point.id)}
-              />
-              <div className="flex-1">{quotedPointElement}</div>
-            </div>
-          ) : undefined}
+          renderPointRow={isOwner ? (point, quotedPointElement) => {
+            const idx = orderedPointIds.indexOf(point.id);
+            return (
+              <div
+                key={point.id}
+                role="toolbar"
+                className="group/point flex items-start gap-1"
+                onClick={(e) => e.stopPropagation()}
+                onKeyDown={(e) => e.stopPropagation()}
+              >
+                <DocBlockControls
+                  variant="point"
+                  isHidden={(pointConfig.hidden || []).includes(point.id)}
+                  onToggleHidden={() => handleTogglePointHidden(point.id)}
+                  onMoveUp={() => handleMovePoint(point.id, 'up')}
+                  onMoveDown={() => handleMovePoint(point.id, 'down')}
+                  isFirst={idx === 0}
+                  isLast={idx === orderedPointIds.length - 1}
+                />
+                <div className="flex-1">{quotedPointElement}</div>
+              </div>
+            );
+          } : undefined}
         />
       </div>
     </div>

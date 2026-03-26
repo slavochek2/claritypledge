@@ -4,7 +4,7 @@
  * and hide/show toggle (point). Desktop: appear on hover. Mobile: always visible.
  */
 
-import { GripVertical, X, Eye, EyeOff } from 'lucide-react';
+import { GripVertical, X, Eye, EyeOff, ChevronUp, ChevronDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
@@ -19,16 +19,20 @@ interface StoryControlsProps extends DragHandleProps {
   onRemove: () => void;
 }
 
-interface PointControlsProps extends DragHandleProps {
+interface PointControlsProps {
   variant: 'point';
   isHidden: boolean;
   onToggleHidden: () => void;
+  onMoveUp?: () => void;
+  onMoveDown?: () => void;
+  isFirst?: boolean;
+  isLast?: boolean;
 }
 
 type DocBlockControlsProps = StoryControlsProps | PointControlsProps;
 
 export function DocBlockControls(props: DocBlockControlsProps) {
-  const { variant, dragAttributes, dragListeners } = props;
+  const { variant } = props;
 
   return (
     <div
@@ -37,45 +41,69 @@ export function DocBlockControls(props: DocBlockControlsProps) {
         'opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity duration-150'
       )}
     >
-      {/* Drag handle */}
-      <Button
-        variant="ghost"
-        size="icon"
-        className="min-w-[44px] min-h-[44px] flex items-center justify-center cursor-grab"
-        aria-label="Drag to reorder"
-        aria-roledescription="draggable"
-        {...dragAttributes}
-        {...(dragListeners as React.HTMLAttributes<HTMLButtonElement>)}
-      >
-        <GripVertical className="h-4 w-4 text-muted-foreground" />
-      </Button>
-
-      {/* Variant-specific action */}
       {variant === 'story' ? (
-        <Button
-          variant="ghost"
-          size="icon"
-          className="min-w-[44px] min-h-[44px] flex items-center justify-center"
-          aria-label="Remove from this doc"
-          onClick={(e) => { e.stopPropagation(); props.onRemove(); }}
-        >
-          <X className="h-4 w-4 text-muted-foreground" />
-        </Button>
+        <>
+          {/* Drag handle — story reorder via dnd-kit */}
+          <Button
+            variant="ghost"
+            size="icon"
+            className="min-w-[44px] min-h-[44px] flex items-center justify-center cursor-grab"
+            aria-label="Drag to reorder"
+            aria-roledescription="draggable"
+            {...props.dragAttributes}
+            {...(props.dragListeners as React.HTMLAttributes<HTMLButtonElement>)}
+          >
+            <GripVertical className="h-4 w-4 text-muted-foreground" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="min-w-[44px] min-h-[44px] flex items-center justify-center"
+            aria-label="Remove from this doc"
+            onClick={(e) => { e.stopPropagation(); props.onRemove(); }}
+          >
+            <X className="h-4 w-4 text-muted-foreground" />
+          </Button>
+        </>
       ) : (
-        <Button
-          variant="ghost"
-          size="icon"
-          className="min-w-[44px] min-h-[44px] flex items-center justify-center"
-          aria-pressed={props.isHidden}
-          aria-label={props.isHidden ? 'Show in this doc' : 'Hide in this doc'}
-          onClick={(e) => { e.stopPropagation(); props.onToggleHidden(); }}
-        >
-          {props.isHidden ? (
-            <EyeOff className="h-4 w-4 text-muted-foreground" />
-          ) : (
-            <Eye className="h-4 w-4 text-muted-foreground" />
-          )}
-        </Button>
+        <>
+          {/* Up/down arrows — point reorder */}
+          <Button
+            variant="ghost"
+            size="icon"
+            className="min-w-[44px] min-h-[44px] flex items-center justify-center"
+            aria-label="Move up"
+            disabled={props.isFirst}
+            onClick={(e) => { e.stopPropagation(); props.onMoveUp?.(); }}
+          >
+            <ChevronUp className="h-4 w-4 text-muted-foreground" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="min-w-[44px] min-h-[44px] flex items-center justify-center"
+            aria-label="Move down"
+            disabled={props.isLast}
+            onClick={(e) => { e.stopPropagation(); props.onMoveDown?.(); }}
+          >
+            <ChevronDown className="h-4 w-4 text-muted-foreground" />
+          </Button>
+          {/* Eye toggle — hide/show for letter composition */}
+          <Button
+            variant="ghost"
+            size="icon"
+            className="min-w-[44px] min-h-[44px] flex items-center justify-center"
+            aria-pressed={props.isHidden}
+            aria-label={props.isHidden ? 'Show in this doc' : 'Hide in this doc'}
+            onClick={(e) => { e.stopPropagation(); props.onToggleHidden(); }}
+          >
+            {props.isHidden ? (
+              <EyeOff className="h-4 w-4 text-muted-foreground" />
+            ) : (
+              <Eye className="h-4 w-4 text-muted-foreground" />
+            )}
+          </Button>
+        </>
       )}
     </div>
   );
