@@ -18,7 +18,7 @@ export function DocPrivacyBanner({ visibility }: DocPrivacyBannerProps) {
     <div
       role="status"
       aria-live="polite"
-      className={`-mx-4 px-4 py-2 flex items-center justify-center gap-2 text-sm border-b ${
+      className={`w-full px-4 py-2 flex items-center justify-center gap-2 text-sm border-b ${
         isPrivate
           ? 'bg-amber-50 border-amber-200'
           : 'bg-blue-50 border-blue-200'

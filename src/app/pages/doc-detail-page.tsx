@@ -251,6 +251,9 @@ export function DocDetailPage() {
       aria-label={`Clarity Doc: ${doc.title}`}
       className="min-h-screen bg-background"
     >
+      {/* Privacy banner — full width, outside container */}
+      <DocPrivacyBanner visibility={doc.visibility} />
+
       <div className="max-w-2xl mx-auto px-4 py-6 space-y-6">
         {/* Header with back link, title, visibility, and overflow menu */}
         <DocHeader
@@ -258,9 +261,6 @@ export function DocDetailPage() {
           isOwner={isOwner}
           onDocUpdated={handleDocUpdated}
         />
-
-        {/* Privacy banner */}
-        <DocPrivacyBanner visibility={doc.visibility} />
 
         {/* Action buttons — only for owner */}
         {isOwner && (
@@ -283,9 +283,6 @@ export function DocDetailPage() {
           <div className="flex flex-col items-center justify-center py-12 text-center space-y-3">
             <FileText size={48} className="text-muted-foreground/40" />
             <p className="text-lg font-medium text-foreground">Add your first story</p>
-            <p className="text-sm text-muted-foreground">
-              Stories bring your Clarity Doc to life. Write one or select from your existing stories.
-            </p>
           </div>
         ) : (
           <DndContext
