@@ -1,28 +1,13 @@
 /**
  * @file doc-header.tsx
  * @description P551: Doc detail page header — back link, inline title editing,
- * visibility dropdown, and overflow menu with delete.
+ * and action button slot (children).
  */
 
 import { useState, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Lock, Globe, MoreHorizontal, Trash2 } from 'lucide-react';
+import { ArrowLeft } from 'lucide-react';
 import { toast } from 'sonner';
-import { Button } from '@/components/ui/button';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
 import { docsService } from '@/app/data/docs-service';
 import type { ClarityDoc } from '@/app/types';
 
@@ -32,14 +17,14 @@ interface DocHeaderProps {
   isOwner: boolean;
   /** Callback after doc is updated (title or visibility) */
   onDocUpdated: (updated: ClarityDoc) => void;
+  /** Action buttons rendered top-right next to title */
+  children?: React.ReactNode;
 }
 
-export function DocHeader({ doc, isOwner, onDocUpdated }: DocHeaderProps) {
+export function DocHeader({ doc, isOwner, onDocUpdated, children }: DocHeaderProps) {
   const navigate = useNavigate();
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [titleValue, setTitleValue] = useState(doc.title);
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [isDeleting, setIsDeleting] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const handleTitleClick = useCallback(() => {
@@ -79,19 +64,6 @@ export function DocHeader({ doc, isOwner, onDocUpdated }: DocHeaderProps) {
     [saveTitle, doc.title]
   );
 
-  const handleDelete = useCallback(async () => {
-    setIsDeleting(true);
-    try {
-      await docsService.deleteDoc(doc.id);
-      toast.success('Doc deleted');
-      navigate('/docs');
-    } catch {
-      toast.error('Failed to delete doc');
-      setIsDeleting(false);
-      setDeleteDialogOpen(false);
-    }
-  }, [doc.id, navigate]);
-
   return (
     <div className="space-y-3">
       {/* Back link */}
@@ -103,7 +75,7 @@ export function DocHeader({ doc, isOwner, onDocUpdated }: DocHeaderProps) {
         <span>Back</span>
       </button>
 
-      {/* Title + controls row */}
+      {/* Title + action buttons row */}
       <div className="flex items-start justify-between gap-3">
         {/* Title */}
         <div className="flex-1 min-w-0">
@@ -136,68 +108,9 @@ export function DocHeader({ doc, isOwner, onDocUpdated }: DocHeaderProps) {
           )}
         </div>
 
-        {/* Controls — only for owner */}
-        {isOwner && (
-          <div className="flex items-center gap-1 flex-shrink-0">
-            {/* Visibility badge (static) */}
-            <span className="inline-flex items-center gap-1.5 text-sm text-muted-foreground px-2 py-1">
-              {doc.visibility === 'private' ? (
-                <Lock size={14} className="text-amber-600" />
-              ) : (
-                <Globe size={14} />
-              )}
-              <span className="capitalize">{doc.visibility}</span>
-            </span>
-
-            {/* Overflow menu */}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" aria-label="More options">
-                  <MoreHorizontal size={16} />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem
-                  onClick={() => setDeleteDialogOpen(true)}
-                  className="text-red-600 focus:text-red-600 gap-2"
-                >
-                  <Trash2 size={14} />
-                  <span>Delete this Clarity Doc</span>
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-        )}
+        {/* Action buttons — passed as children */}
+        {children}
       </div>
-
-      {/* Delete confirmation dialog */}
-      <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-        <DialogContent hideCloseButton>
-          <DialogHeader>
-            <DialogTitle>Delete this Clarity Doc?</DialogTitle>
-            <DialogDescription>
-              This will permanently delete &ldquo;{doc.title}&rdquo; and remove all story links.
-              The stories themselves will not be deleted.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setDeleteDialogOpen(false)}
-              disabled={isDeleting}
-            >
-              Cancel
-            </Button>
-            <Button
-              variant="destructive"
-              onClick={handleDelete}
-              disabled={isDeleting}
-            >
-              {isDeleting ? 'Deleting...' : 'Delete'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

@@ -255,28 +255,27 @@ export function DocDetailPage() {
       <DocPrivacyBanner visibility={doc.visibility} />
 
       <div className="max-w-2xl mx-auto px-4 py-6 space-y-6">
-        {/* Header with back link, title, visibility, and overflow menu */}
+        {/* Header with back link, title, and action buttons */}
         <DocHeader
           doc={doc}
           isOwner={isOwner}
           onDocUpdated={handleDocUpdated}
-        />
-
-        {/* Action buttons — only for owner */}
-        {isOwner && (
-          <div className="flex flex-wrap gap-3">
-            <Button asChild className="bg-blue-500 hover:bg-blue-600 text-white">
-              <Link to={`/create?docId=${doc.id}`}>
+        >
+          {isOwner && (
+            <div className="flex items-center gap-2 flex-shrink-0">
+              <Button asChild size="sm" className="bg-blue-500 hover:bg-blue-600 text-white">
+                <Link to={`/create?docId=${doc.id}`}>
+                  {doc.visibility === 'private' ? <Lock size={16} /> : <Globe size={16} />}
+                  Write a story
+                </Link>
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => setPickerOpen(true)}>
                 {doc.visibility === 'private' ? <Lock size={16} /> : <Globe size={16} />}
-                Write a story
-              </Link>
-            </Button>
-            <Button variant="outline" onClick={() => setPickerOpen(true)}>
-              {doc.visibility === 'private' ? <Lock size={16} /> : <Globe size={16} />}
-              Select your story
-            </Button>
-          </div>
-        )}
+                Select your story
+              </Button>
+            </div>
+          )}
+        </DocHeader>
 
         {/* Stories or empty state */}
         {stories.length === 0 ? (
