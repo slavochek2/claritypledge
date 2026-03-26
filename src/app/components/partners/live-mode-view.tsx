@@ -97,9 +97,9 @@ function RecordingIndicator({ isPrivate = false, uploadHealth }: { isPrivate?: b
 // ============================================================================
 
 /** Standard content container layout - centered, max-width, top-aligned */
-const CONTENT_LAYOUT = "flex-1 flex flex-col items-center justify-start pt-8 p-6 space-y-6 max-w-lg mx-auto w-full overflow-y-auto";
+const CONTENT_LAYOUT = "flex-1 min-h-0 flex flex-col items-center justify-start pt-8 p-6 space-y-6 max-w-lg mx-auto w-full overflow-y-auto";
 /** Content layout variant - vertically centered (for idle state without history) */
-const CONTENT_LAYOUT_CENTERED = "flex-1 flex flex-col items-center justify-center px-6 pb-6 pt-16 space-y-8 max-w-lg mx-auto w-full overflow-y-auto";
+const CONTENT_LAYOUT_CENTERED = "flex-1 min-h-0 flex flex-col items-center justify-center px-6 pb-6 pt-16 space-y-8 max-w-lg mx-auto w-full overflow-y-auto";
 
 // ============================================================================
 // PARTNER LEFT SCREEN
@@ -1105,7 +1105,7 @@ function IdleScreen({
   };
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full min-h-0">
       <LiveHeader partnerName={partnerName} onExit={onExit} isPrivate={isPrivate} uploadHealth={uploadHealth} />
 
       <div ref={scrollContainerRef} className={layoutClass} style={{ overflowAnchor: 'none' }}>
@@ -1395,7 +1395,7 @@ function RatingScreen({
   const hasHistory = liveState.explainBackRatings.length > 0;
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full min-h-0">
       <LiveHeader partnerName={partnerName} onExit={onExit} isPrivate={isPrivate} uploadHealth={uploadHealth} />
 
       <div className={CONTENT_LAYOUT}>
@@ -1551,7 +1551,7 @@ function RatingScreenWithOptionalDrawer({
   const hasHistory = liveState.explainBackRatings.length > 0;
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full min-h-0">
       <LiveHeader partnerName={partnerName} onExit={onExit} isPrivate={isPrivate} uploadHealth={uploadHealth} />
 
       <div className={CONTENT_LAYOUT}>
@@ -2362,7 +2362,7 @@ function UnderstandingScreen({
       // Branch 1: Listener hasn't tapped "Done Explaining" yet - show listening state
       if (!listenerDone) {
         return (
-          <div className="flex flex-col h-full">
+          <div className="flex flex-col h-full min-h-0">
             <LiveHeader partnerName={partnerName} onExit={onExit} isPrivate={isPrivate} uploadHealth={uploadHealth} />
             <div className={CONTENT_LAYOUT}>
               {/* P400 Bug 3: journey FIRST, story SECOND (correct order) */}
@@ -2437,7 +2437,7 @@ function UnderstandingScreen({
       // Branch 2: Listener tapped Done - show rating in drawer
       const explainBackPrompt = `How well do you believe ${displayPartnerName} understands your intention?`;
       return (
-        <div className="flex flex-col h-full">
+        <div className="flex flex-col h-full min-h-0">
           <LiveHeader partnerName={partnerName} onExit={onExit} isPrivate={isPrivate} uploadHealth={uploadHealth} />
           <div className={CONTENT_LAYOUT}>
             {/* P400 Bug 3: journey FIRST, story SECOND (correct order) */}
@@ -2524,7 +2524,7 @@ function UnderstandingScreen({
     // AFTER tapping "Done Explaining" - show waiting state (no microphone)
     if (hasTappedDone) {
       return (
-        <div className="flex flex-col h-full">
+        <div className="flex flex-col h-full min-h-0">
           <LiveHeader partnerName={partnerName} onExit={onExit} isPrivate={isPrivate} uploadHealth={uploadHealth} />
           <div className={CONTENT_LAYOUT}>
             {/* P400 Bug 3: journey FIRST, story SECOND (correct order) */}
@@ -2596,7 +2596,7 @@ function UnderstandingScreen({
 
     // BEFORE tapping "Done Explaining" - show microphone/speaking state
     return (
-      <div className="flex flex-col h-full">
+      <div className="flex flex-col h-full min-h-0">
         <LiveHeader partnerName={partnerName} onExit={onExit} isPrivate={isPrivate} uploadHealth={uploadHealth} />
         <div className={CONTENT_LAYOUT}>
           {/* P400 Bug 3: journey FIRST, story SECOND (correct order) */}
@@ -2684,7 +2684,7 @@ function UnderstandingScreen({
       : `Waiting for ${checkerName} to share their confidence...`;
 
     return (
-      <div className="flex flex-col h-full">
+      <div className="flex flex-col h-full min-h-0">
         <LiveHeader partnerName={partnerName} onExit={onExit} isPrivate={isPrivate} uploadHealth={uploadHealth} />
         <div className={CONTENT_LAYOUT}>
           {/* Hide ratings until both submit to prevent bias */}
@@ -2758,7 +2758,7 @@ function UnderstandingScreen({
       : null;
 
     return (
-      <div className="flex flex-col h-full">
+      <div className="flex flex-col h-full min-h-0">
         <LiveHeader partnerName={partnerName} onExit={onExit} isPrivate={isPrivate} uploadHealth={uploadHealth} />
         <div className={CONTENT_LAYOUT}>
           {/* Celebration header */}
@@ -2828,7 +2828,7 @@ function UnderstandingScreen({
     const gapBadgeText = `${gapPoints} ${pointLabel} gap`;
 
     return (
-      <div className="flex flex-col h-full">
+      <div className="flex flex-col h-full min-h-0">
         <LiveHeader partnerName={partnerName} onExit={onExit} isPrivate={isPrivate} uploadHealth={uploadHealth} />
         <div className={CONTENT_LAYOUT}>
           {/* P588: Journey → calibration banner (no gap) → story card → CTA */}
@@ -2966,7 +2966,7 @@ function UnderstandingScreen({
       : <>{checkerName} believes you understand <span className="font-bold">exactly as much</span> as you think</>;
 
     return (
-      <div className="flex flex-col h-full">
+      <div className="flex flex-col h-full min-h-0">
         <LiveHeader partnerName={partnerName} onExit={onExit} isPrivate={isPrivate} uploadHealth={uploadHealth} />
         <div className={CONTENT_LAYOUT}>
           {/* P588: Journey → calibration banner (no gap) → story card → CTA */}
@@ -3100,7 +3100,7 @@ function UnderstandingScreen({
   // Speaker clarifying state - show different UI
   if (clarificationPhase === 'speaker-clarifying') {
     return (
-      <div className="flex flex-col h-full">
+      <div className="flex flex-col h-full min-h-0">
         <LiveHeader partnerName={partnerName} onExit={onExit} isPrivate={isPrivate} uploadHealth={uploadHealth} />
         <div className={CONTENT_LAYOUT}>
           <JourneyToUnderstanding
@@ -3233,7 +3233,7 @@ function UnderstandingScreen({
   // - "Perfectly calibrated" messaging removed entirely - was causing bugs and not essential
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full min-h-0">
       <LiveHeader partnerName={partnerName} onExit={onExit} isPrivate={isPrivate} uploadHealth={uploadHealth} />
       <div className={CONTENT_LAYOUT}>
         {/* P400 Bug 3: journey FIRST, story SECOND (correct order) */}
