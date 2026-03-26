@@ -1,7 +1,7 @@
 ---
-status: week
+status: all-done
 type: change-request
-rank: 1000026.0
+rank: 0.25
 changes: p469
 tags:
   - redesign
@@ -9,9 +9,14 @@ tags:
   - live-session
   - mobile
   - layout
-created_date: 2026-03-26
+created_date: 2026-03-26T00:00:00.000Z
+completed_at: 2026-03-26
 flow: dev
-delivery_stage: 2-ux-review
+uat_file: features/uat/p588.md
+test_files:
+  - e2e/p588-live-layout-sticky-cta.spec.ts
+  - e2e/p588-smoke.spec.ts
+  - e2e/a11y/p588-accessibility.spec.ts
 ---
 
 # P588: /live Layout — Sticky CTA, Merged Header, Accordion Story, Peek Points
@@ -22,7 +27,7 @@ delivery_stage: 2-ux-review
 
 ## Problem Statement
 
-In /live result phases (gap-revealed, calibrated), the page stacks: Journey card → Calibration banner → Story card (with expandable points) → Helper text → CTA buttons → Bottom nav. On a 375px mobile viewport (~500px usable), even the collapsed state barely fits — CTA buttons sit at the bottom edge. When the user expands "N points" on the story card, the content grows by ~100px per point, pushing CTAs behind the fixed bottom nav with no way to scroll to them.
+In /live result phases (gap-revealed, calibrated), the page stacks: Journey card → Story card (with expandable points) → Calibration banner → Helper text → CTA buttons → Bottom nav. On a 375px mobile viewport (~500px usable), even the collapsed state barely fits — CTA buttons sit at the bottom edge. When the user expands "N points" on the story card, the content grows by ~100px per point, pushing CTAs behind the fixed bottom nav with no way to scroll to them.
 
 This was confirmed via screenshots (Mar 26, 12:42-12:43) showing: (1) CTA hidden behind bottom nav in collapsed state, (2) content completely cut off when points expanded, (3) wasted whitespace between Journey and Story card.
 
@@ -35,7 +40,7 @@ The root issue is structural: P455/P468/P469 all treated component ordering and 
 - **Preserved from P469:** Component positions are stable across all /live phases
 - **Preserved from P469:** Journey card history is collapsed by default when multiple rounds exist
 - **Corrected:** CTA buttons are ALWAYS reachable regardless of how many points are expanded (0, 5, or 15)
-- **Corrected:** Journey + Calibration occupy less vertical space by merging into one compact row
+- **Corrected:** Journey + Calibration have no wasted gap between them (tightened spacing)
 - **New:** Points expand one at a time with 2-line previews (peek mode) — user sees point context without vertical blowout
 - **New:** Story card accordion — story text and points list are mutually exclusive expanded sections
 
@@ -82,7 +87,7 @@ Bottom nav (fixed)
 The layout uses a single scrollable container for all content. CTA buttons are inline at the bottom of the flow. The fixed bottom navigation bar (~56px) overlaps the last ~56px of content. There is no bottom padding to compensate, and no mechanism to keep CTAs visible when content grows.
 
 Additionally:
-- Journey card (~80px) and Calibration banner (~60px) are separate full-width blocks — 140px for what could be ~48px merged
+- Journey card (~80px) and Calibration banner (~60px) are separate full-width blocks with ~24px gap — recoverable space
 - Points expand inline with no height cap, pushing everything below them off-screen
 - No accordion behavior — story text AND points can both be fully expanded simultaneously
 
@@ -104,12 +109,19 @@ Since users lose the BottomNav as their navigation exit, make the "End Session" 
 
 Pin the ActionArea (helper text + CTA buttons) to the actual bottom of the viewport with safe-area insets. No BottomNav to clear — the sticky bar IS the bottom element.
 
+**Implementation strategy:** Add a `sticky` prop to the `ActionArea` component (default `true`). When `sticky={true}`, ActionArea renders with `fixed bottom-0 left-0 right-0 z-40 bg-background border-t border-border pb-[env(safe-area-inset-bottom)]`. When `sticky={false}`, it renders inline as today. Pass `sticky={false}` for: perfect celebration phase, free-form idle (no story). All other phases use the default `sticky={true}`.
+
+**ActionArea is used 10+ times** across IdleScreen, UnderstandingScreen phases, and other sub-components. The prop approach means each call site opts in by default — no wrapper needed at each site.
+
+**"Speak freely" and other elements outside ActionArea:** On IdleScreen, "Speak freely" button, StorySearchPicker, and SessionHistoryList currently render OUTSIDE ActionArea. These must remain in the scroll area (not in the sticky bar). Only ActionArea's own children (title + primary CTA buttons) go in the sticky bar. "Speak freely" must be moved INSIDE ActionArea's children on all screens where it currently renders outside.
+
 ```
 ┌─────────────────────────────┐
 │ Scrollable content area     │
 │ (journey, calibration,      │
-│  story, points)             │
-│                             │
+│  story, points,             │
+│  StorySearchPicker,         │
+│  SessionHistoryList)        │
 ├─────────────────────────────┤ ← sticky boundary
 │ Help X understand you       │ ← fixed, always visible
 │ [Explain back] [Speak free] │
@@ -117,9 +129,17 @@ Pin the ActionArea (helper text + CTA buttons) to the actual bottom of the viewp
 └─────────────────────────────┘
 ```
 
-### Change 3 — Tighten Spacing (No Merge)
+### Change 3 — Move Calibration Banner Above Story Card, Tighten Spacing
 
-Keep Journey card and Calibration banner as separate components (no merge). Remove the ~24px gap between them. Remove any extra margin between calibration banner and story card. The vertical stack is:
+Currently the calibration banner renders BELOW the story card, between story and ActionArea. Move it to render directly after the Journey card, before the story card. This groups the result (dots + interpretation) together, with the story as reference context below.
+
+**Implementation note:** The calibration banner is NOT a component — it is duplicated inline JSX in two separate phase branches:
+- **Gap-revealed phase** (~line 2824): `<div className="border-blue-200 bg-blue-50 ...">` with blue pill badge
+- **Calibrated phase** (~line 2961): `<div className="border-input bg-muted/50 ...">` with green pill badge
+
+Both blocks must be relocated. Moving one and missing the other is the most likely implementation error.
+
+Also remove the ~24px gap between Journey and Calibration. The vertical stack becomes:
 
 Journey card → Calibration banner (tight, no gap) → Story card
 
@@ -210,7 +230,7 @@ CALIBRATED — 3 points, story collapsed
 | Redesign: "CTA visibility problem is solved by space savings, not repositioning" | Single scroll flow with KISS space savings | **Superseded** | CTA pinned via sticky positioning; space savings alone can't solve expandable points |
 | AC #6 | "Component order is stable: journey at top, story below, CTA below story" | **Superseded** | CTA is now sticky at bottom, not inline below story |
 | AC #7 | "On 375px viewport with 2+ explain-back rounds, primary CTA is visible without scrolling" | **Superseded** | CTA visible via sticky bar, not via fitting in viewport |
-| What Stays the Same: Journey card min-h-[180px] | Preserved | **Superseded** | Journey merged with calibration into ~48px compact row |
+| What Stays the Same: Journey card min-h-[180px] | Preserved | **Preserved** | Journey card kept as-is (no merge), calibration stays separate |
 
 ## Requirements
 
@@ -222,12 +242,14 @@ CALIBRATED — 3 points, story collapsed
 6. Each point in the expanded list must show a 2-line preview; only one point may be fully expanded at a time
 7. Bottom padding must account for the sticky CTA bar to prevent content overlap
 8. iOS Safari safe-area insets must be handled (`env(safe-area-inset-bottom)`) on the sticky CTA bar
+9. ActionArea emoji icons (`🎤`, `👂`) must be hidden when in sticky mode to save vertical space
+10. RatingScreen keeps its existing inline ActionArea (no sticky) — BottomNav hidden is the only change affecting it
 
 ## What Stays the Same
 
 - Story card character threshold (STORY_THRESHOLD=100 from P469)
 - ActionArea icon size (48px from P469)
-- Journey card history collapse (from P469) — still applies within the merged header
+- Journey card history collapse (from P469) — still applies within the journey card
 - "Speak freely" placement immediately below primary CTA
 - Free-form idle screen (no story selected)
 - Database, API, auth logic — no changes
@@ -247,7 +269,7 @@ CALIBRATED — 3 points, story collapsed
 - RatingScreen layout
 - Database, API, auth, edge functions
 - Bottom nav component itself
-- LiveSessionBanner / header
+- LiveSessionBanner layout/structure (End Session button styling IS in scope)
 - Story content or point data fetching
 
 ## Acceptance Criteria
@@ -269,11 +291,11 @@ CALIBRATED — 3 points, story collapsed
 
 ## UX Design
 
-### Critical Discovery: BottomNav Overlap
+### Key Decision: Hide BottomNav on /live
 
-The global `BottomNav` renders on `/live` routes (`fixed bottom-0 z-50`, `h-16` + safe-area padding). Current /live content has **zero bottom padding** — this is why CTA buttons are hidden behind it even today. The sticky CTA bar must sit ABOVE the BottomNav, not replace it.
+The global `BottomNav` renders on `/live` routes (`fixed bottom-0 z-50`, `h-16` + safe-area padding). Current /live content has **zero bottom padding** — this is the direct cause of CTA buttons being hidden behind it.
 
-**Decision:** Position the sticky CTA bar at `bottom-[calc(4rem+env(safe-area-inset-bottom))]` to clear the BottomNav. This is the same pattern used by `StoryGuideChat` input bar.
+**Decision:** Hide BottomNav on `/live` by adding it to `focusRoutes` in `bottom-nav.tsx`. This recovers ~98px and lets the sticky CTA bar sit at `bottom-0` with its own safe-area padding. The "End Session" button (red filled) provides the exit affordance.
 
 ---
 
@@ -282,23 +304,25 @@ The global `BottomNav` renders on `/live` routes (`fixed bottom-0 z-50`, `h-16` 
 **Entry:** User enters any /live phase where ActionArea is rendered (all phases except `perfect` celebration).
 
 **Interaction:**
-1. Page loads → ActionArea renders as sticky bar above BottomNav
-2. User scrolls content (journey, story, points) → CTA bar stays pinned
+1. Page loads → ActionArea renders as sticky bar at viewport bottom (with `pb-[env(safe-area-inset-bottom)]`)
+2. User scrolls content (journey, calibration, story, points) → CTA bar stays pinned
 3. User taps CTA → action fires (explain-back, rate, etc.) → phase transitions
 4. "Speak freely" secondary button sits immediately below primary CTA inside the sticky bar
 
 **Sticky bar content varies by phase:**
 
-| Phase | Icon | Title | Primary CTA | Secondary |
-|-------|------|-------|-------------|-----------|
-| idle (owner) | — | "Help {partner} understand you better." | "Does {partner} understand you?" | "Do you understand {partner}?" |
-| idle (reviewer) | — | — | — (no CTA for reviewer) | — |
-| waiting | — | WaitingIndicator | — | "Speak freely" |
-| gap-revealed (listener) | 🎤 | "Help {checker} understand you better.\nWithhold premature judgment." | "Explain back what I heard" | "Speak freely" |
-| calibrated (listener) | 🎤 | Same as gap-revealed | "Explain back what I heard" | "Speak freely" |
-| explain-back (listener) | 🎤 | "Explain back what you heard" | "I'm done with active listening" | "Speak freely" |
-| explain-back (checker) | 👂 | "Rate {partner}'s explanation" | "[Rate the explanation]" | "Speak freely" |
-| results | Varies | Varies by clarification sub-phase | Varies | "Speak freely" |
+| Phase | Title | Primary CTA | Secondary |
+|-------|-------|-------------|-----------|
+| idle (owner) | "Help {partner} understand you better." | "Does {partner} understand you?" | "Do you understand {partner}?" |
+| idle (reviewer) | — | — (no CTA for reviewer) | — |
+| waiting | WaitingIndicator | — | "Speak freely" |
+| gap-revealed (listener) | "Help {checker} understand you better.\nWithhold premature judgment." | "Explain back what I heard" | "Speak freely" |
+| calibrated (listener) | Same as gap-revealed | "Explain back what I heard" | "Speak freely" |
+| explain-back (listener) | "Explain back what you heard" | "I'm done with active listening" | "Speak freely" |
+| explain-back (checker) | "Rate {partner}'s explanation" | "[Rate the explanation]" | "Speak freely" |
+| results | Varies by clarification sub-phase | Varies | "Speak freely" |
+
+**No icon in sticky bar** — icons (`🎤`, `👂`) are dropped from the sticky bar to save ~52px height. The title text already conveys context.
 
 **Sticky bar layout (375px mobile):**
 ```
@@ -313,62 +337,54 @@ The global `BottomNav` renders on `/live` routes (`fixed bottom-0 z-50`, `h-16` 
 │  ┌─────────────────────────────┐    │
 │  │      Speak freely           │    │  ← secondary (ghost btn)
 │  └─────────────────────────────┘    │
-├─────────────────────────────────────┤  ← border-t
-│  🏠 Home   🎙 Start   📅   👤     │  ← BottomNav (existing)
-│             [safe-area]             │
+│           [safe-area]               │
 └─────────────────────────────────────┘
+                                       ← NO BottomNav
 ```
 
-**Height estimate:** Title (~40px) + primary button (~44px) + secondary button (~44px) + padding (~16px) = **~144px** for the sticky bar. With BottomNav (64px + 34px safe-area) = **~242px total fixed area**.
+**Height estimate:** Title (~40px) + primary button (~44px) + secondary button (~44px) + padding (~16px) + safe-area (~34px) = **~178px** for the sticky bar.
 
-On 667px viewport (iPhone SE): ~425px remaining for scroll content. Tight but workable — the merged Journey+Calibration header (~48px) + story card (collapsed ~100px) fits in ~148px, leaving ~277px of breathing room.
-
-**Optimization:** When the phase has no icon and short title, the sticky bar is shorter (~100px). When there's no title at all (idle reviewer), it's just the buttons (~88px).
+On 667px viewport (iPhone SE): ~489px remaining for scroll content. Journey (~80px) + calibration (~60px) + story card (~100px) = ~240px → ~249px breathing room. Comfortable.
 
 ---
 
-### User Flow: Merged Journey + Calibration Header
+### User Flow: "End Session" Button
 
-**Design:**
-```
-┌──────────────────────────────────────────────┐
-│  Your journey to understand Vyacheslav       │  ← heading (text-sm)
-│                                              │
-│  Your confidence    ●●●●●●●○○○  7           │  ← dot row 1
-│  Vyacheslav's belief ●●●●●○○○○○  5          │  ← dot row 2
-│                          [3 point gap]       │  ← calibration badge (inline)
-└──────────────────────────────────────────────┘
-```
+With BottomNav hidden, users need a clear way to leave the /live session.
 
-**Decision on calibration placement:**
+**Current:** "End Session" button in the header bar, styled as a red outline button (`text-destructive border-destructive`). Visible but not filled.
 
-The original spec proposed merging everything into one ~48px row. After examining the actual JourneyToUnderstanding component, the heading + 2 dot rows + history collapse already exist as a well-tested unit. The lean approach:
-
-- **Keep JourneyToUnderstanding as-is** (it already has compact mode, history collapse)
-- **Move calibration badge INSIDE the journey card** as a row after the dot rows, instead of a separate block below the story card
-- **Remove the standalone calibration banner block** (the `<div>` with insight text)
-- **Keep insight text as a subtitle** under the badge inside the journey card
-
-This saves the full ~60px of the standalone calibration block + ~24px gap, while reusing the existing component. Total saving: ~84px.
+**Redesign:** `bg-red-500 text-white font-medium rounded-lg px-3 py-1.5` — red filled button, unmistakable exit affordance. Same position (header, right side).
 
 ```
-BEFORE (2 blocks, ~164px):          AFTER (1 block, ~80px):
-┌─ Journey (~80px) ────────┐       ┌─ Journey + Calibration ──────────┐
-│ Your confidence    ●●● 7 │       │ Your journey to understand V.    │
-│ V's belief         ●●● 5 │       │ Your confidence    ●●●●●●● 7    │
-└──────────────────────────┘       │ V's belief         ●●●●● 5      │
-    ~24px gap                      │ [3 point gap] You think V.       │
-┌─ Calibration (~60px) ───┐       │   understands less than they think│
-│ [3 point gap]            │       └───────────────────────────────────┘
-│ Insight text...          │
-└──────────────────────────┘
+[C] Clarity Pledge         [End Session]  ← red filled
+    🔒 Private session
+```
+
+---
+
+### User Flow: Journey + Calibration (Separate, Tight)
+
+Journey card and Calibration banner stay as separate components. Two changes: (1) move calibration banner from after the story card to directly after the journey card, (2) remove the gap between them.
+
+```
+┌─ Journey card ────────────────────────┐
+│ Your journey to understand Vyacheslav │
+│ Your confidence    ●●●●●●●○○○  7     │
+│ Vyacheslav's belief ●●●●●○○○○○  5    │
+└───────────────────────────────────────┘  ← no gap (margin-0)
+┌─ Calibration banner ─────────────────┐
+│ [3 point gap]                        │
+│ You think Vyacheslav understands     │
+│ less than they think                 │
+└───────────────────────────────────────┘
 ```
 
 **States:**
-- **No calibration yet** (waiting, explain-back): Journey card with dots only, no badge
-- **Gap detected**: Blue badge `"N point gap"` + insight text row appended
-- **Perfectly calibrated**: Green badge `"Perfectly calibrated"` + insight text row appended
-- **Perfect (checker rated 10)**: Not applicable — `perfect` phase uses a celebration screen, not this layout
+- **No calibration yet** (waiting, explain-back before results): Journey card only, no calibration banner
+- **Gap detected**: Blue badge + insight text
+- **Perfectly calibrated**: Green badge + insight text
+- **Perfect (checker rated 10)**: Celebration screen, neither component shown in this layout
 
 ---
 
@@ -480,8 +496,8 @@ Points collapse back to "2 points" summary. Story expands. Mutual exclusion.
 
 **Phase: idle (story selected, owner, no history)**
 ```
-Header: [C] Clarity Pledge    [End Session]
-        🔒 Private session
+[C] Clarity Pledge    [End Session]  ← red filled
+    🔒 Private session
 
 ┌─ Story card (default) ───────────┐
 │ 👤 Vyacheslav · Mar 17  🌐      │
@@ -495,19 +511,20 @@ Header: [C] Clarity Pledge    [End Session]
 ┌─ Sticky CTA bar ─────────────────┐
 │ [Does Gosha understand you?]     │
 │ [Do you understand Gosha?]       │
-├──────────────────────────────────┤
-│ 🏠  🎙  📅  👤                   │
+│         [safe-area]              │
 └──────────────────────────────────┘
 ```
 
 **Phase: idle (story selected, after round 1, history visible)**
 ```
-Header
+Header (red End Session)
 
-┌─ Journey + Calibration ──────────┐
+┌─ Journey card ───────────────────┐
 │ Your journey to understand V.    │
 │ Your confidence    ●●●●●●● 7    │
 │ V.'s belief        ●●●●● 5      │
+└──────────────────────────────────┘
+┌─ Calibration banner ─────────────┐  ← tight, no gap
 │ [3 point gap] You think V.       │
 │   understands less than they...  │
 └──────────────────────────────────┘
@@ -521,19 +538,20 @@ Header
 ┌─ Sticky CTA bar ─────────────────┐
 │ [Does Gosha understand you?]     │
 │ [Do you understand Gosha?]       │
-├──────────────────────────────────┤
-│ 🏠  🎙  📅  👤                   │
+│         [safe-area]              │
 └──────────────────────────────────┘
 ```
 
 **Phase: gap-revealed (listener view, 3 points expanded)**
 ```
-Header
+Header (red End Session)
 
-┌─ Journey + Calibration ──────────┐
+┌─ Journey card ───────────────────┐
 │ Gosha's journey to understand you│
 │ Gosha's confidence  ●●●●● 5     │
 │ Your belief         ●●●●●●●● 8  │
+└──────────────────────────────────┘
+┌─ Calibration banner ─────────────┐
 │ [3 point gap] You think Gosha    │
 │   understands less than they...  │
 └──────────────────────────────────┘
@@ -550,13 +568,14 @@ Header
 │  "I see both sides..."           │
 └──────────────────────────────────┘
 
+    ← content scrolls if needed
+
 ┌─ Sticky CTA bar ─────────────────┐
 │ Help Gosha understand you better │
 │ Withhold premature judgment.     │
 │ [Explain back what I heard]      │
 │ [Speak freely]                   │
-├──────────────────────────────────┤
-│ 🏠  🎙  📅  👤                   │
+│         [safe-area]              │
 └──────────────────────────────────┘
 ```
 
@@ -570,9 +589,9 @@ Header
 
 **Phase: waiting (user submitted, partner hasn't)**
 ```
-Header
+Header (red End Session)
 
-┌─ Journey (sealed-bid) ───────────┐
+┌─ Journey card (sealed-bid) ──────┐
 │ Your journey to understand V.    │
 │ Your confidence    ●●●●●●● 7    │
 │ V.'s belief        ○○○○○○○○○○ ? │  ← hidden until both submit
@@ -587,26 +606,53 @@ Header
 ┌─ Sticky CTA bar ─────────────────┐
 │ [⏳ Waiting for Gosha...]        │
 │ [Speak freely]                   │
-├──────────────────────────────────┤
-│ 🏠  🎙  📅  👤                   │
+│         [safe-area]              │
 └──────────────────────────────────┘
 ```
 
 **Phase: explain-back (listener active listening)**
 ```
+(journey + story cards above, scrollable)
+
 ┌─ Sticky CTA bar ─────────────────┐
-│ 🎤 Explain back what you heard   │
+│ Explain back what you heard      │
 │ or ask a clarifying question     │
 │ [I'm done with active listening] │
 │ [Speak freely]                   │
-├──────────────────────────────────┤
-│ 🏠  🎙  📅  👤                   │
+│         [safe-area]              │
 └──────────────────────────────────┘
 ```
 
+**Phase: explain-back (checker — rating partner's explanation)**
+```
+(journey + story cards above, scrollable)
+
+┌─ Sticky CTA bar ─────────────────┐
+│ Rate Gosha's explanation         │
+│ [Rate the explanation]           │
+│ [Speak freely]                   │
+│         [safe-area]              │
+└──────────────────────────────────┘
+```
+
+**Phase: results (post explain-back)**
+```
+(journey + story cards above, scrollable)
+
+┌─ Sticky CTA bar ─────────────────┐
+│ [content varies by clarification │
+│  sub-phase — follows existing    │
+│  ActionArea content, no layout   │
+│  change beyond sticky positioning│
+│ [Speak freely]                   │
+│         [safe-area]              │
+└──────────────────────────────────┘
+```
+Results phase sticky bar follows existing ActionArea content — no layout change beyond sticky positioning.
+
 **Phase: perfect (celebration) — NO STICKY BAR**
 ```
-Header
+Header (red End Session)
 
         🎉
   Perfectly understood!
@@ -616,19 +662,15 @@ Header
 └──────────────────────────────────┘
 
   [Continue]                        ← inline, not sticky (special phase)
-
-┌─ BottomNav ──────────────────────┐
 ```
 The `perfect` phase is a celebration screen — no sticky bar needed. CTA is a single "Continue" button centered on screen.
 
-**Phase: idle (free-form, no story) — UNCHANGED**
+**Phase: idle (free-form, no story) — MINIMAL CHANGE**
 ```
-Header
+Header (red End Session)
 
-  [Does Gosha understand you?]
+  [Does Gosha understand you?]     ← inline, centered (no sticky needed)
   [Do you understand Gosha?]
-
-┌─ BottomNav ──────────────────────┐
 ```
 No story card, no journey (no data). Simple centered layout. Sticky bar not applicable — there's no content that could push CTAs off screen.
 
@@ -655,7 +697,7 @@ No story card, no journey (no data). Simple centered layout. Sticky bar not appl
 - Story card's `story.points.length` updates via real-time subscription. The "N points" count updates. If points are collapsed, only the count changes. If expanded, new point appears at end of peek list (no forced collapse).
 
 **Session history (multiple rounds):**
-- Journey card's existing collapse behavior (from P469) still applies inside the merged Journey+Calibration block. "Show N earlier rounds" button handles 3+ rounds.
+- Journey card's existing collapse behavior (from P469) still applies. "Show N earlier rounds" button handles 3+ rounds.
 
 **Loading state:**
 - No new loading state needed. Journey and story data are already loaded when the phase renders. The sticky bar renders with the phase content — no separate loading.
@@ -693,15 +735,15 @@ No story card, no journey (no data). Simple centered layout. Sticky bar not appl
 **Color contrast:**
 - Green "Perfectly calibrated" badge: white text on green-500 (#22c55e) → 3.15:1 against white. **Below WCAG AA for small text (4.5:1).** Use green-700 (#15803d) for the badge background to achieve 4.64:1.
 - Blue "N point gap" badge: white text on blue-500 (#3b82f6) → 3.01:1. **Below WCAG AA.** Use blue-700 (#1d4ed8) for 5.83:1.
-- Existing issue — note for implementation.
+- Pre-existing issue — **out of scope for P588**. Fix separately if desired.
 
 ---
 
 ### Responsive Design
 
 **Mobile (320px-767px) — Primary target:**
-- Sticky CTA bar full-width, above BottomNav
-- Journey+Calibration merged block spans full width
+- BottomNav hidden on /live. Sticky CTA bar full-width at viewport bottom.
+- Journey card + calibration banner span full width
 - Story card spans full width
 - Single column layout throughout
 
@@ -710,8 +752,9 @@ No story card, no journey (no data). Simple centered layout. Sticky bar not appl
 - Sticky bar may have slightly more horizontal padding
 
 **Desktop (1024px+):**
-- BottomNav is hidden (`lg:hidden`). Sticky CTA bar becomes `fixed bottom-0` spanning full width (or centered to max-w-sm for consistency with current ActionArea width)
-- Consider: on desktop, the viewport is tall enough that sticky bar may not be necessary. Could render inline on desktop and sticky on mobile only. **Recommendation:** keep sticky on all viewports for consistency — it's simpler and the behavior is correct regardless.
+- BottomNav is already hidden (`lg:hidden`), so the /live focusRoutes change has no desktop effect
+- Sticky CTA bar at `bottom-0`, centered to `max-w-sm` for consistency with current ActionArea width
+- Keep sticky on all viewports for consistency — it's simpler and correct regardless
 
 ---
 
@@ -719,14 +762,54 @@ No story card, no journey (no data). Simple centered layout. Sticky bar not appl
 
 **Challenge: Sticky bar height on small phones.**
 
-The sticky CTA bar + BottomNav together consume ~242px on an iPhone SE (667px viewport). That leaves ~425px for content. The merged Journey card (~80px) + story card collapsed (~100px) = ~180px, leaving ~245px breathing room. This is fine.
+The sticky CTA bar alone (no BottomNav) consumes ~178px on iPhone (title + 2 buttons + safe-area). On 667px viewport (iPhone SE): ~489px for content. Journey (~80px) + calibration (~60px) + story card (~100px) = ~240px → ~249px breathing room. Comfortable.
 
-However, on the **smallest viewport** (320px width, ~480px height — old Android phones): ~238px for content. Journey (~80px) + story (~100px) = ~180px → only ~58px breathing room. Points expansion would require scrolling immediately.
+On smallest viewport (320px width, ~480px height): ~302px for content. Still fits the core components with room for 2-3 peek points.
 
-**Recommendation:** Accept this trade-off. The sticky bar's primary job (CTA always reachable) is more important than fitting everything in the initial viewport. Users on very small phones scroll naturally. The alternative (hiding the sticky bar on tiny screens) reintroduces the original bug.
+**Recommendation:** Accept. The math works better now that BottomNav is hidden.
 
 **Challenge: ActionArea icon in sticky bar.**
 
-Some phases render an emoji icon (`🎤`, `👂`) inside ActionArea as a 48px circle. In the sticky bar, this adds ~64px of height (circle + gap). Consider dropping the icon in sticky mode — the title text already conveys the context.
+Some phases render an emoji icon (`🎤`, `👂`) inside ActionArea as a 48px circle. In the sticky bar, this adds ~64px of height.
 
-**Recommendation:** Remove the icon from the sticky bar. It saves ~52px of height and the icon was never essential — it was decorative. The text "Explain back what you heard" is sufficient without `🎤`.
+**Recommendation:** Remove the icon from the sticky bar. Saves ~52px. The title text is sufficient. This is a viewport space vs. decoration trade-off — space wins on mobile.
+
+## Test Coverage Strategy
+
+**What's Tested:**
+- ✅ BottomNav hidden on /live (E2E + smoke) — Change 1
+- ✅ End Session red filled button (E2E + smoke) — Change 1
+- ✅ Sticky CTA always visible: on load, after expand, after scroll (E2E) — Change 2
+- ✅ Calibration banner DOM position: after journey, before story (E2E) — Change 3
+- ✅ Accordion mutual exclusion: expand points → story collapses, expand story → points collapse (E2E) — Change 4
+- ✅ Peek mode: 2-line preview, one-at-a-time expand, PositionButtons visible (E2E) — Change 5
+- ✅ Free-form idle unchanged (E2E regression)
+- ✅ Keyboard navigation: Tab/Enter/Escape for points and CTA (a11y)
+- ✅ ARIA: region role, aria-expanded, aria-live announcements (a11y)
+- ✅ Page loads without errors (smoke)
+
+**What's NOT Tested (rationale):**
+- ❌ Unit tests — no new utility functions or business logic; all changes are component layout/interaction
+- ❌ Integration tests — no DB/API/auth changes
+- ❌ iOS Safari safe-area rendering — requires real device; verified via UAT-11.1 manual check
+- ❌ Multi-user live session flow — existing session tests cover this; P588 only changes layout, not session logic
+- ❌ Phase transition state reset — implementation detail; covered implicitly by E2E phase-specific tests
+
+**Test Pyramid:**
+```
+      /\
+     /  \    12 E2E tests
+    /    \
+   /──────\
+  / 5 A11Y \
+ /──────────\
+/ 3 SMOKE    \
+```
+
+**Files:**
+- `e2e/p588-live-layout-sticky-cta.spec.ts` — 12 E2E tests (5 changes + regression)
+- `e2e/p588-smoke.spec.ts` — 3 smoke tests
+- `e2e/a11y/p588-accessibility.spec.ts` — 5 accessibility tests
+- `features/uat/p588.md` — 27 UAT scenarios
+
+**Total:** 20 automated tests + 27 UAT scenarios
