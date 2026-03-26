@@ -49,10 +49,11 @@ export function LiveStoryCardExpanded({
   const [isExpanded, setIsExpanded] = useState(defaultExpanded);
   const [storyExpanded, setStoryExpanded] = useState(false);
 
-  // Reset expand state when the story changes (e.g. live session rotates to next story)
+  // Reset expand states when the story changes (phase change / story rotation)
   useEffect(() => {
     setStoryExpanded(false);
-  }, [story.id]);
+    setIsExpanded(defaultExpanded);
+  }, [story.id, defaultExpanded]);
 
   const strippedContent = stripHashtags(story.content, story.tags);
   const isLongStory = strippedContent.length > STORY_THRESHOLD;
@@ -64,7 +65,7 @@ export function LiveStoryCardExpanded({
   return (
     <div
       data-testid="live-story-card-expanded"
-      className={`rounded-lg border-l-4 border-l-blue-500 border border-gray-200 bg-white shadow-sm overflow-hidden ${className ?? ''}`}
+      className={`rounded-lg border-l-4 border-l-blue-500 border border-gray-200 bg-white shadow-sm shrink-0 ${className ?? ''}`}
     >
       {/* Main content */}
       <div className="p-4">
@@ -104,7 +105,7 @@ export function LiveStoryCardExpanded({
             {isLongStory && (
               <button
                 type="button"
-                onClick={() => setStoryExpanded((prev) => !prev)}
+                onClick={() => { setStoryExpanded((prev) => { if (!prev) setIsExpanded(false); return !prev; }); }}
                 aria-expanded={storyExpanded}
                 aria-controls={`live-story-text-${story.id}`}
                 className="text-sm text-blue-600 hover:text-blue-700 mt-1"
@@ -130,7 +131,7 @@ export function LiveStoryCardExpanded({
         >
           <button
             type="button"
-            onClick={() => setIsExpanded((prev) => !prev)}
+            onClick={() => { setIsExpanded((prev) => { if (!prev) setStoryExpanded(false); return !prev; }); }}
             className="flex items-center gap-2 text-sm text-gray-600 hover:text-blue-600 transition-colors"
             aria-expanded={isExpanded}
           >
@@ -237,15 +238,18 @@ function PointRow({
         </div>
       )}
 
-      {/* Quoted point box — buttons on own row so they get full box width */}
+      {/* Point content — full text, always visible */}
       <div className="p-3 rounded-lg border border-gray-200 bg-gray-50 space-y-2">
         <div className="flex items-start gap-2">
           <div className="w-6 h-6 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0 text-blue-600 mt-0.5">
             <Pin size={12} className="rotate-45" />
           </div>
-          <p className="text-sm text-gray-800 flex-1 min-w-0 break-words"><InlineVisibilityIcon visibility={point.visibility} />{' '}{linkifyText(stripHashtags(point.statement, point.tags))}</p>
-          {point.tags?.length > 0 && <TagPills tags={point.tags} context="live" className="mt-1" />}
+          <p className="text-sm text-gray-800 flex-1 min-w-0 break-words">
+            <InlineVisibilityIcon visibility={point.visibility} />{' '}{linkifyText(stripHashtags(point.statement, point.tags))}
+          </p>
         </div>
+
+        {point.tags?.length > 0 && <TagPills tags={point.tags} context="live" className="mt-1" />}
         <PositionButtons
           userPosition={userPosition}
           counts={toSevenPointCounts(point.positionCounts)}
@@ -283,14 +287,9 @@ function PointRow({
                     <span aria-hidden="true" className="text-sm text-gray-400"> · </span>
                   </>
                 )}
-                <button
-                  disabled
-                  aria-disabled="true"
-                  aria-describedby={`live-cta-hint-${point.id}`}
-                  className="text-sm font-medium text-blue-600"
-                >
+                <span className="text-sm font-medium text-blue-600">
                   Add your story →
-                </button>
+                </span>
               </div>
               {/* Hint row */}
               <p id={`live-cta-hint-${point.id}`} className="text-xs text-gray-400 mt-1">

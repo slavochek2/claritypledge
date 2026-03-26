@@ -65,7 +65,7 @@ export function LiveSessionBanner({ partnerName: _partnerName, onExit, isLiveMee
                   onExit();
                 }
               }}
-              className="flex items-center gap-1.5 text-sm font-medium text-destructive hover:text-destructive/80 border border-destructive hover:border-destructive/80 rounded-md px-3 h-9 transition-colors"
+              className="flex items-center gap-1.5 text-sm font-medium bg-red-500 text-white hover:bg-red-600 rounded-lg px-3 h-9 transition-colors"
               data-testid="leave-meeting"
             >
               <LogOut className="h-4 w-4" />

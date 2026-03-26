@@ -97,9 +97,9 @@ function RecordingIndicator({ isPrivate = false, uploadHealth }: { isPrivate?: b
 // ============================================================================
 
 /** Standard content container layout - centered, max-width, top-aligned */
-const CONTENT_LAYOUT = "flex-1 flex flex-col items-center justify-start pt-8 p-6 space-y-6 max-w-lg mx-auto w-full";
+const CONTENT_LAYOUT = "flex-1 min-h-0 flex flex-col items-center justify-start pt-8 p-6 space-y-6 max-w-lg mx-auto w-full overflow-y-auto live-scroll";
 /** Content layout variant - vertically centered (for idle state without history) */
-const CONTENT_LAYOUT_CENTERED = "flex-1 flex flex-col items-center justify-center px-6 pb-6 pt-16 space-y-8 max-w-lg mx-auto w-full";
+const CONTENT_LAYOUT_CENTERED = "flex-1 min-h-0 flex flex-col items-center justify-center px-6 pb-6 pt-16 space-y-8 max-w-lg mx-auto w-full overflow-y-auto live-scroll";
 
 // ============================================================================
 // PARTNER LEFT SCREEN
@@ -1105,10 +1105,10 @@ function IdleScreen({
   };
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full min-h-0">
       <LiveHeader partnerName={partnerName} onExit={onExit} isPrivate={isPrivate} uploadHealth={uploadHealth} />
 
-      <div ref={scrollContainerRef} className={`${layoutClass} overflow-y-auto`} style={{ overflowAnchor: 'none' }}>
+      <div ref={scrollContainerRef} className={layoutClass} style={{ overflowAnchor: 'none' }}>
         {selectedHistoryIndex !== null && sessionHistory[selectedHistoryIndex] ? (
           <RoundSummaryScreen
             item={sessionHistory[selectedHistoryIndex]}
@@ -1147,11 +1147,10 @@ function IdleScreen({
               />
             )}
 
-            <ActionArea
-              className={showRatingDrawer || hasRatingData ? '' : '!pt-0'}
-            >
-              {/* Check button: always shown in free session; owner-only when story is selected */}
-              {!showRatingDrawer && (!selectedStory || isStoryOwner) && (
+
+            {/* P588: Buttons INSIDE scroll container when no story (above search picker) */}
+            {!selectedStory && !showRatingDrawer && (selectedHistoryIndex === null) && (
+              <div className="flex flex-col gap-3 w-full max-w-sm mx-auto">
                 <Button
                   size="lg"
                   className="bg-blue-500 hover:bg-blue-600 w-full"
@@ -1161,10 +1160,6 @@ function IdleScreen({
                 >
                   Does <span className="font-bold">{displayPartnerName}</span> understand you?
                 </Button>
-              )}
-
-              {/* Prove button: only shown in free session (no story selected) */}
-              {!showRatingDrawer && !selectedStory && (
                 <Button
                   variant="outline"
                   size="lg"
@@ -1175,13 +1170,11 @@ function IdleScreen({
                 >
                   Do you understand <span className="font-bold">{displayPartnerName}</span>?
                 </Button>
-              )}
-
-              {/* Waiting for partner to continue indicator */}
-              {waitingForPartnerToContinue && (
-                <WaitingIndicator message={`Waiting for ${displayPartnerName} to continue...`} />
-              )}
-            </ActionArea>
+                {waitingForPartnerToContinue && (
+                  <WaitingIndicator message={`Waiting for ${displayPartnerName} to continue...`} />
+                )}
+              </div>
+            )}
 
             {/* P272: StorySearchPicker — only when no story selected AND user has stories */}
             {!liveState.selectedStoryId && userId && contentLoaded && stories.length > 0 && onSelectStory && (
@@ -1192,28 +1185,50 @@ function IdleScreen({
               />
             )}
 
-            {/* P272: Speak freely pre-round — clears story from both screens when story selected */}
-            {/* P400: removed !showRatingDrawer gate — Speak Freely must show whenever story card is visible */}
-            {liveState.selectedStoryId && !waitingForPartnerToContinue && (
-              <button
-                onClick={onClearStory}
-                className="text-sm text-muted-foreground hover:text-foreground transition-colors mt-1 min-h-[44px] px-4"
-                type="button"
-              >
-                Speak freely
-              </button>
-            )}
-
-            {/* P398: Session history — clickable rows for completed rounds */}
-            {sessionHistory.length > 0 && (
+            {/* P398: Session history — only on clean idle (no story selected, no active flow) */}
+            {sessionHistory.length > 0 && !selectedStory && !showRatingDrawer && (
               <SessionHistoryList
                 history={sessionHistory}
-                onItemClick={showRatingDrawer ? undefined : (i) => setSelectedHistoryIndex(i)}
+                onItemClick={(i) => setSelectedHistoryIndex(i)}
               />
             )}
+
           </>
         )}
       </div>
+
+      {/* P588: Sticky ActionArea OUTSIDE scroll container — only when story selected */}
+      {selectedStory && (selectedHistoryIndex === null || !sessionHistory[selectedHistoryIndex]) && (
+        <ActionArea
+          sticky={true}
+          className={showRatingDrawer || hasRatingData ? '' : '!pt-0'}
+        >
+          {!showRatingDrawer && isStoryOwner && (
+            <Button
+              size="lg"
+              className="bg-blue-500 hover:bg-blue-600 w-full"
+              onClick={handleStartCheckWithTracking}
+              disabled={waitingForPartnerToContinue}
+              data-testid="start-check"
+            >
+              Does <span className="font-bold">{displayPartnerName}</span> understand you?
+            </Button>
+          )}
+
+          {waitingForPartnerToContinue && (
+            <WaitingIndicator message={`Waiting for ${displayPartnerName} to continue...`} />
+          )}
+          {liveState.selectedStoryId && !waitingForPartnerToContinue && (
+            <button
+              onClick={onClearStory}
+              className="text-sm text-muted-foreground hover:text-foreground transition-colors min-h-[44px] px-4"
+              type="button"
+            >
+              Speak freely
+            </button>
+          )}
+        </ActionArea>
+      )}
 
       {/* Responder notification drawer - slides up from bottom */}
       {/* Only render when showRatingDrawer is true AND onRatingSubmit is provided */}
@@ -1222,10 +1237,10 @@ function IdleScreen({
           {/* overlayClassName="bg-transparent" keeps story card visible behind drawer. */}
           <DrawerContent overlayClassName="bg-transparent">
             <DrawerHeader className="text-center pb-2">
-              <DrawerDescription className="text-sm text-muted-foreground">
+              <DrawerDescription className="sr-only">
                 {isProverInitiated
-                  ? <>{proverName} wants to know how well <span className="font-semibold text-foreground">they</span> understood you</>
-                  : <>{checkerName} wants to know how well <span className="font-semibold text-foreground">you understood them</span></>}
+                  ? `${proverName} wants to know how well they understood you`
+                  : `${checkerName} wants to know how well you understood them`}
               </DrawerDescription>
               <DrawerTitle className="sr-only">
                 {isProverInitiated
@@ -1392,7 +1407,7 @@ function RatingScreen({
   const hasHistory = liveState.explainBackRatings.length > 0;
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full min-h-0">
       <LiveHeader partnerName={partnerName} onExit={onExit} isPrivate={isPrivate} uploadHealth={uploadHealth} />
 
       <div className={CONTENT_LAYOUT}>
@@ -1443,7 +1458,7 @@ function RatingScreen({
         <DrawerContent overlayClassName="bg-transparent">
           <DrawerHeader className="sr-only">
             <DrawerTitle>Rate your understanding</DrawerTitle>
-            <DrawerDescription>{prompt}</DrawerDescription>
+            <DrawerDescription>Submit your rating on the scale below</DrawerDescription>
           </DrawerHeader>
           <div className="px-4 pb-8 pt-4 space-y-4">
             <RatingCard
@@ -1547,13 +1562,8 @@ function RatingScreenWithOptionalDrawer({
   // Only show journey card if there's prior history (not on first rating submission)
   const hasHistory = liveState.explainBackRatings.length > 0;
 
-  // When partner already submitted (showDrawer), show their request in drawer header
-  const drawerDescription = showDrawer
-    ? <>{checkerName} wants to know how well <span className="font-semibold text-foreground">you understood them</span></>
-    : null;
-
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full min-h-0">
       <LiveHeader partnerName={partnerName} onExit={onExit} isPrivate={isPrivate} uploadHealth={uploadHealth} />
 
       <div className={CONTENT_LAYOUT}>
@@ -1602,13 +1612,9 @@ function RatingScreenWithOptionalDrawer({
           overlayClassName="bg-transparent" keeps story card visible behind drawer. */}
       <Drawer open={true} dismissible={false}>
         <DrawerContent overlayClassName="bg-transparent">
-          <DrawerHeader className={drawerDescription ? "text-center pb-2" : "sr-only"}>
-            {drawerDescription && (
-              <DrawerDescription className="text-sm text-muted-foreground">
-                {drawerDescription}
-              </DrawerDescription>
-            )}
-            <DrawerTitle className="sr-only">Rate your understanding</DrawerTitle>
+          <DrawerHeader className="sr-only">
+            <DrawerTitle>Rate your understanding</DrawerTitle>
+            <DrawerDescription>Submit your rating on the scale below</DrawerDescription>
           </DrawerHeader>
           <div className="px-4 pb-8 pt-4 space-y-4">
             <RatingCard
@@ -2022,7 +2028,7 @@ export function JourneyToUnderstanding({
 // ============================================================================
 
 interface ActionAreaProps {
-  /** Optional emoji icon (e.g., "🎤", "👂") */
+  /** Optional emoji icon (e.g., "🎤", "👂") — hidden when sticky */
   icon?: string;
   /** Optional title text */
   title?: React.ReactNode;
@@ -2032,16 +2038,45 @@ interface ActionAreaProps {
   children: React.ReactNode;
   /** Additional CSS classes */
   className?: string;
+  /** P588: When true, renders as fixed bottom bar. Default true. */
+  sticky?: boolean;
 }
 
 /**
  * ActionArea - Wrapper component for action content below the history card.
- * Provides consistent spacing, optional icon with circular background, and title styling.
- * Use for presenting action choices (buttons) or waiting states with visual context.
+ * P588: When sticky (default), renders as a fixed bottom bar so CTAs are always reachable.
+ * When not sticky, renders inline as before (used for celebration and free-form idle).
  */
-function ActionArea({ icon, title, subtitle, children, className = '' }: ActionAreaProps) {
+function ActionArea({ icon, title, subtitle, children, className = '', sticky = true }: ActionAreaProps) {
+  if (sticky) {
+    return (
+      <section
+        className={`flex-shrink-0 w-full bg-background/95 backdrop-blur-md border-t border-border shadow-[0_-4px_12px_rgba(0,0,0,0.08)] pb-[env(safe-area-inset-bottom)] ${className}`}
+        data-testid="action-area"
+      >
+        <div className="flex flex-col items-center gap-2 w-full max-w-sm mx-auto px-4 py-3">
+          {/* Title only (no icon in sticky mode) */}
+          {title && (
+            <p className="text-lg font-semibold text-center max-w-xs whitespace-pre-line">
+              {title}
+            </p>
+          )}
+          {subtitle && (
+            <p className="text-xs text-muted-foreground text-center">
+              {subtitle}
+            </p>
+          )}
+          {/* Action buttons/content */}
+          <div className="flex flex-col gap-2 w-full max-w-xs" role="group">
+            {children}
+          </div>
+        </div>
+      </section>
+    );
+  }
+
   return (
-    <section className={`flex flex-col items-center gap-3 w-full max-w-sm pt-4 ${className}`} data-testid="action-area">
+    <section className={`flex flex-col items-center gap-3 w-full max-w-sm mx-auto pt-4 ${className}`} data-testid="action-area">
       {/* Icon + Title block */}
       {(icon || title) && (
         <div className="flex flex-col items-center gap-2">
@@ -2051,7 +2086,7 @@ function ActionArea({ icon, title, subtitle, children, className = '' }: ActionA
             </div>
           )}
           {title && (
-            <p className="text-base font-semibold text-center max-w-xs whitespace-pre-line">
+            <p className="text-lg font-semibold text-center max-w-xs whitespace-pre-line">
               {title}
             </p>
           )}
@@ -2069,6 +2104,7 @@ function ActionArea({ icon, title, subtitle, children, className = '' }: ActionA
     </section>
   );
 }
+
 
 // ============================================================================
 // WAITING INDICATOR - Reusable component for "Waiting for X..." messages
@@ -2334,7 +2370,7 @@ function UnderstandingScreen({
       // Branch 1: Listener hasn't tapped "Done Explaining" yet - show listening state
       if (!listenerDone) {
         return (
-          <div className="flex flex-col h-full">
+          <div className="flex flex-col h-full min-h-0">
             <LiveHeader partnerName={partnerName} onExit={onExit} isPrivate={isPrivate} uploadHealth={uploadHealth} />
             <div className={CONTENT_LAYOUT}>
               {/* P400 Bug 3: journey FIRST, story SECOND (correct order) */}
@@ -2357,16 +2393,17 @@ function UnderstandingScreen({
                   className="w-full max-w-sm mb-2"
                 />
               )}
-              <ActionArea
-                icon="👂"
-                title={`Hear what's missing for a perfect 10`}
-              >
-                <WaitingIndicator
-                  message={`Waiting for ${displayPartnerName} to finish clarifying...`}
-                  onSkip={onSkip}
-                />
-              </ActionArea>
             </div>
+
+            <ActionArea
+              icon="👂"
+              title={`Hear what's missing for a perfect 10`}
+            >
+              <WaitingIndicator
+                message={`Waiting for ${displayPartnerName} to finish clarifying...`}
+                onSkip={onSkip}
+              />
+            </ActionArea>
 
             {/* Negotiation Dialog 1: Speaker sees when listener wants to skip active listening */}
             <Dialog open={showPendingNegotiationDialog} onOpenChange={() => {}}>
@@ -2408,7 +2445,7 @@ function UnderstandingScreen({
       // Branch 2: Listener tapped Done - show rating in drawer
       const explainBackPrompt = `How well do you believe ${displayPartnerName} understands your intention?`;
       return (
-        <div className="flex flex-col h-full">
+        <div className="flex flex-col h-full min-h-0">
           <LiveHeader partnerName={partnerName} onExit={onExit} isPrivate={isPrivate} uploadHealth={uploadHealth} />
           <div className={CONTENT_LAYOUT}>
             {/* P400 Bug 3: journey FIRST, story SECOND (correct order) */}
@@ -2438,11 +2475,9 @@ function UnderstandingScreen({
               User must tap explicit skip button to end the round. */}
           <Drawer open={true} dismissible={false}>
             <DrawerContent overlayClassName="bg-transparent">
-              <DrawerHeader className="text-center pb-2">
-                <DrawerDescription className="text-sm text-muted-foreground">
-                  {displayPartnerName} finished listening actively to you
-                </DrawerDescription>
-                <DrawerTitle className="sr-only">{explainBackPrompt}</DrawerTitle>
+              <DrawerHeader className="sr-only">
+                <DrawerTitle>Rate understanding</DrawerTitle>
+                <DrawerDescription>Submit your rating on the scale below</DrawerDescription>
               </DrawerHeader>
               <div className="px-4 pb-8 pt-4 space-y-4">
                 <RatingCard
@@ -2497,7 +2532,7 @@ function UnderstandingScreen({
     // AFTER tapping "Done Explaining" - show waiting state (no microphone)
     if (hasTappedDone) {
       return (
-        <div className="flex flex-col h-full">
+        <div className="flex flex-col h-full min-h-0">
           <LiveHeader partnerName={partnerName} onExit={onExit} isPrivate={isPrivate} uploadHealth={uploadHealth} />
           <div className={CONTENT_LAYOUT}>
             {/* P400 Bug 3: journey FIRST, story SECOND (correct order) */}
@@ -2520,28 +2555,29 @@ function UnderstandingScreen({
                 className="w-full max-w-sm mb-2"
               />
             )}
-            <ActionArea>
-              {listenerWaitingForNegotiation ? (
-                // Listener clicked "Speak freely" and is waiting for speaker's decision
-                <>
-                  <WaitingIndicator
-                    message={`Waiting for ${checkerName} to allow skipping active listening...`}
-                    onSkip={onSkip}
-                    skipLabel="Skip without waiting"
-                  />
-                  <Button variant="ghost" size="sm" onClick={onCancelNegotiation} className="text-muted-foreground min-h-[44px]">
-                    Cancel request
-                  </Button>
-                </>
-              ) : (
-                // Default: waiting for speaker to rate
-                <WaitingIndicator
-                  message={`Waiting for ${checkerName} to evaluate how well you captured their idea...`}
-                  onSkip={onSharePerspective}
-                />
-              )}
-            </ActionArea>
           </div>
+
+          <ActionArea>
+            {listenerWaitingForNegotiation ? (
+              // Listener clicked "Speak freely" and is waiting for speaker's decision
+              <>
+                <WaitingIndicator
+                  message={`Waiting for ${checkerName} to allow skipping active listening...`}
+                  onSkip={onSkip}
+                  skipLabel="Skip without waiting"
+                />
+                <Button variant="ghost" size="sm" onClick={onCancelNegotiation} className="text-muted-foreground min-h-[44px]">
+                  Cancel request
+                </Button>
+              </>
+            ) : (
+              // Default: waiting for speaker to rate
+              <WaitingIndicator
+                message={`Waiting for ${checkerName} to evaluate how well you captured their idea...`}
+                onSkip={onSharePerspective}
+              />
+            )}
+          </ActionArea>
 
           {/* Negotiation Dialog 2: Listener sees when speaker asked them to explain back */}
           <Dialog open={showAskedToExplainDialog} onOpenChange={() => {}}>
@@ -2568,7 +2604,7 @@ function UnderstandingScreen({
 
     // BEFORE tapping "Done Explaining" - show microphone/speaking state
     return (
-      <div className="flex flex-col h-full">
+      <div className="flex flex-col h-full min-h-0">
         <LiveHeader partnerName={partnerName} onExit={onExit} isPrivate={isPrivate} uploadHealth={uploadHealth} />
         <div className={CONTENT_LAYOUT}>
           {/* P400 Bug 3: journey FIRST, story SECOND (correct order) */}
@@ -2591,37 +2627,38 @@ function UnderstandingScreen({
               className="w-full max-w-sm mb-2"
             />
           )}
-          <ActionArea
-            icon="🎤"
-            title={listenerWaitingForNegotiation ? undefined : <>Explain back what you heard<br />OR ask a clarifying question</>}
-          >
-            {listenerWaitingForNegotiation ? (
-              <>
-                <WaitingIndicator
-                  message={`Waiting for ${checkerName} to allow skipping active listening...`}
-                  onSkip={onSkip}
-                  skipLabel="Skip without waiting"
-                />
-                <Button variant="ghost" size="sm" onClick={onCancelNegotiation} className="text-muted-foreground min-h-[44px]">
-                  Cancel request
-                </Button>
-              </>
-            ) : (
-              <>
-                <Button
-                  size="lg"
-                  className="bg-blue-500 hover:bg-blue-600 w-full"
-                  onClick={onExplainBackDone}
-                >
-                  I'm done with active listening
-                </Button>
-                <Button variant="ghost" size="sm" onClick={onSharePerspective} className="text-muted-foreground mx-auto min-h-[44px]">
-                  Speak freely
-                </Button>
-              </>
-            )}
-          </ActionArea>
         </div>
+
+        <ActionArea
+          icon="🎤"
+          title={listenerWaitingForNegotiation ? undefined : <>Explain back what you heard<br />OR ask a clarifying question</>}
+        >
+          {listenerWaitingForNegotiation ? (
+            <>
+              <WaitingIndicator
+                message={`Waiting for ${checkerName} to allow skipping active listening...`}
+                onSkip={onSkip}
+                skipLabel="Skip without waiting"
+              />
+              <Button variant="ghost" size="sm" onClick={onCancelNegotiation} className="text-muted-foreground min-h-[44px]">
+                Cancel request
+              </Button>
+            </>
+          ) : (
+            <>
+              <Button
+                size="lg"
+                className="bg-blue-500 hover:bg-blue-600 w-full"
+                onClick={onExplainBackDone}
+              >
+                I'm done with active listening
+              </Button>
+              <Button variant="ghost" size="sm" onClick={onSharePerspective} className="text-muted-foreground mx-auto min-h-[44px]">
+                Speak freely
+              </Button>
+            </>
+          )}
+        </ActionArea>
 
         {/* Negotiation Dialog 2: Listener sees when speaker asked them to explain back */}
         <Dialog open={showAskedToExplainDialog} onOpenChange={() => {}}>
@@ -2655,7 +2692,7 @@ function UnderstandingScreen({
       : `Waiting for ${checkerName} to share their confidence...`;
 
     return (
-      <div className="flex flex-col h-full">
+      <div className="flex flex-col h-full min-h-0">
         <LiveHeader partnerName={partnerName} onExit={onExit} isPrivate={isPrivate} uploadHealth={uploadHealth} />
         <div className={CONTENT_LAYOUT}>
           {/* Hide ratings until both submit to prevent bias */}
@@ -2691,15 +2728,16 @@ function UnderstandingScreen({
             </button>
           )}
 
-          {/* Waiting indicator below the card */}
-          <ActionArea>
-            <WaitingIndicator
-              message={waitingMessage}
-              onSkip={onBackToIdle}
-              skipLabel="Cancel"
-            />
-          </ActionArea>
         </div>
+
+        {/* Waiting indicator below the card */}
+        <ActionArea>
+          <WaitingIndicator
+            message={waitingMessage}
+            onSkip={onBackToIdle}
+            skipLabel="Cancel"
+          />
+        </ActionArea>
       </div>
     );
   }
@@ -2728,7 +2766,7 @@ function UnderstandingScreen({
       : null;
 
     return (
-      <div className="flex flex-col h-full">
+      <div className="flex flex-col h-full min-h-0">
         <LiveHeader partnerName={partnerName} onExit={onExit} isPrivate={isPrivate} uploadHealth={uploadHealth} />
         <div className={CONTENT_LAYOUT}>
           {/* Celebration header */}
@@ -2763,7 +2801,7 @@ function UnderstandingScreen({
               className="w-full max-w-sm mb-2"
             />
           )}
-          <ActionArea>
+          <ActionArea sticky={false}>
             <Button
               size="lg"
               className="bg-blue-500 hover:bg-blue-600 w-full"
@@ -2798,10 +2836,10 @@ function UnderstandingScreen({
     const gapBadgeText = `${gapPoints} ${pointLabel} gap`;
 
     return (
-      <div className="flex flex-col h-full">
+      <div className="flex flex-col h-full min-h-0">
         <LiveHeader partnerName={partnerName} onExit={onExit} isPrivate={isPrivate} uploadHealth={uploadHealth} />
         <div className={CONTENT_LAYOUT}>
-          {/* Result-first: journey → gap badge (bonded) → CTA → story (reference, scrollable) */}
+          {/* P588: Journey → calibration banner (no gap) → story card → CTA */}
           <JourneyToUnderstanding
             checkerRating={checkerRating}
             responderRating={responderRating}
@@ -2812,6 +2850,12 @@ function UnderstandingScreen({
             proverName={liveState.proverName ? getFirstName(liveState.proverName) : undefined}
             className="w-full max-w-sm"
           />
+          <div className="border border-blue-200 bg-blue-50 rounded-lg px-4 py-3 w-full max-w-sm -mt-3">
+            <div className="flex items-center justify-center gap-2 mb-1">
+              <span className="bg-blue-500 text-white text-xs font-semibold px-2 py-0.5 rounded-full">{gapBadgeText}</span>
+            </div>
+            <p className="text-blue-700 text-sm text-center">{insightMessage}</p>
+          </div>
           {/* P272: Story card visible throughout round */}
           {selectedStory && (
             <LiveStoryCardExpanded
@@ -2821,51 +2865,46 @@ function UnderstandingScreen({
               className="w-full max-w-sm mb-2"
             />
           )}
-          <div className="border border-blue-200 bg-blue-50 rounded-lg px-4 py-3 w-full max-w-sm">
-            <div className="flex items-center justify-center gap-2 mb-1">
-              <span className="bg-blue-500 text-white text-xs font-semibold px-2 py-0.5 rounded-full">{gapBadgeText}</span>
-            </div>
-            <p className="text-blue-700 text-sm text-center">{insightMessage}</p>
-          </div>
-          <ActionArea
-            title={!isChecker && !listenerWaitingForNegotiation ? `Help ${checkerName} understand you better. Withhold premature judgment.` : undefined}
-          >
-            {isChecker ? (
-              // Speaker view in gap-revealed: wait for listener to decide
-              <WaitingIndicator
-                message={`${displayPartnerName} is deciding whether to listen actively...`}
-                onSkip={onSkip}
-                skipLabel="Speak freely"
-              />
-            ) : listenerWaitingForNegotiation ? (
-              // Listener waiting: they clicked "I want to speak freely", waiting for speaker's decision
-              <>
-                <WaitingIndicator
-                  message={`Waiting for ${checkerName} to allow skipping active listening...`}
-                  onSkip={onSkip}
-                  skipLabel="Skip without waiting"
-                />
-                <Button variant="ghost" size="sm" onClick={onCancelNegotiation} className="text-muted-foreground min-h-[44px]">
-                  Cancel request
-                </Button>
-              </>
-            ) : (
-              // Listener view in gap-revealed: offer to explain back or speak freely
-              <>
-                <Button
-                  size="lg"
-                  className="bg-blue-500 hover:bg-blue-600 w-full"
-                  onClick={onExplainBackStart}
-                >
-                  Explain back what I heard
-                </Button>
-                <Button variant="ghost" size="sm" className="text-muted-foreground min-h-[44px]" onClick={onSharePerspective}>
-                  Speak freely
-                </Button>
-              </>
-            )}
-          </ActionArea>
         </div>
+
+        <ActionArea
+          title={!isChecker && !listenerWaitingForNegotiation ? `Help ${checkerName} understand you better. Withhold premature judgment.` : undefined}
+        >
+          {isChecker ? (
+            // Speaker view in gap-revealed: wait for listener to decide
+            <WaitingIndicator
+              message={`${displayPartnerName} is deciding whether to listen actively...`}
+              onSkip={onSkip}
+              skipLabel="Speak freely"
+            />
+          ) : listenerWaitingForNegotiation ? (
+            // Listener waiting: they clicked "I want to speak freely", waiting for speaker's decision
+            <>
+              <WaitingIndicator
+                message={`Waiting for ${checkerName} to allow skipping active listening...`}
+                onSkip={onSkip}
+                skipLabel="Skip without waiting"
+              />
+              <Button variant="ghost" size="sm" onClick={onCancelNegotiation} className="text-muted-foreground min-h-[44px]">
+                Cancel request
+              </Button>
+            </>
+          ) : (
+            // Listener view in gap-revealed: offer to explain back or speak freely
+            <>
+              <Button
+                size="lg"
+                className="bg-blue-500 hover:bg-blue-600 w-full"
+                onClick={onExplainBackStart}
+              >
+                Explain back what I heard
+              </Button>
+              <Button variant="ghost" size="sm" className="text-muted-foreground min-h-[44px]" onClick={onSharePerspective}>
+                Speak freely
+              </Button>
+            </>
+          )}
+        </ActionArea>
 
         {/* Negotiation Dialog 1: Speaker sees when listener wants to share perspective */}
         <Dialog open={showPendingNegotiationDialog} onOpenChange={() => {}}>
@@ -2935,10 +2974,10 @@ function UnderstandingScreen({
       : <>{checkerName} believes you understand <span className="font-bold">exactly as much</span> as you think</>;
 
     return (
-      <div className="flex flex-col h-full">
+      <div className="flex flex-col h-full min-h-0">
         <LiveHeader partnerName={partnerName} onExit={onExit} isPrivate={isPrivate} uploadHealth={uploadHealth} />
         <div className={CONTENT_LAYOUT}>
-          {/* Result-first: journey → calibrated badge (bonded) → CTA → story (reference, scrollable) */}
+          {/* P588: Journey → calibration banner (no gap) → story card → CTA */}
           <JourneyToUnderstanding
             checkerRating={checkerRating}
             responderRating={responderRating}
@@ -2949,6 +2988,12 @@ function UnderstandingScreen({
             proverName={liveState.proverName ? getFirstName(liveState.proverName) : undefined}
             className="w-full max-w-sm"
           />
+          <div className="border border-input bg-muted/50 rounded-lg px-4 py-3 w-full max-w-sm -mt-3">
+            <div className="flex items-center justify-center gap-2 mb-1">
+              <span className="bg-green-500 text-white text-xs font-semibold px-2 py-0.5 rounded-full">Perfectly calibrated</span>
+            </div>
+            <p className="text-muted-foreground text-sm text-center">{insightMessage}</p>
+          </div>
           {/* P272: Story card visible throughout round */}
           {selectedStory && (
             <LiveStoryCardExpanded
@@ -2958,51 +3003,46 @@ function UnderstandingScreen({
               className="w-full max-w-sm mb-2"
             />
           )}
-          <div className="border border-input bg-muted/50 rounded-lg px-4 py-3 w-full max-w-sm">
-            <div className="flex items-center justify-center gap-2 mb-1">
-              <span className="bg-green-500 text-white text-xs font-semibold px-2 py-0.5 rounded-full">Perfectly calibrated</span>
-            </div>
-            <p className="text-muted-foreground text-sm text-center">{insightMessage}</p>
-          </div>
-          <ActionArea
-            title={!isChecker && !listenerWaitingForNegotiation ? `Help ${checkerName} understand you better. Withhold premature judgment.` : undefined}
-          >
-            {isChecker ? (
-              // Speaker view: wait for listener to decide (same as gap-revealed)
-              <WaitingIndicator
-                message={`${displayPartnerName} is deciding whether to listen actively...`}
-                onSkip={onSkip}
-                skipLabel="Speak freely"
-              />
-            ) : listenerWaitingForNegotiation ? (
-              // Listener waiting: they clicked "Speak freely", waiting for speaker's decision
-              <>
-                <WaitingIndicator
-                  message={`Waiting for ${checkerName} to allow skipping active listening...`}
-                  onSkip={onSkip}
-                  skipLabel="Skip without waiting"
-                />
-                <Button variant="ghost" size="sm" onClick={onCancelNegotiation} className="text-muted-foreground min-h-[44px]">
-                  Cancel request
-                </Button>
-              </>
-            ) : (
-              // Listener view: offer to explain back or speak freely (same as gap-revealed)
-              <>
-                <Button
-                  size="lg"
-                  className="bg-blue-500 hover:bg-blue-600 w-full"
-                  onClick={onExplainBackStart}
-                >
-                  Explain back what I heard
-                </Button>
-                <Button variant="ghost" size="sm" className="text-muted-foreground min-h-[44px]" onClick={onSharePerspective}>
-                  Speak freely
-                </Button>
-              </>
-            )}
-          </ActionArea>
         </div>
+
+        <ActionArea
+          title={!isChecker && !listenerWaitingForNegotiation ? `Help ${checkerName} understand you better. Withhold premature judgment.` : undefined}
+        >
+          {isChecker ? (
+            // Speaker view: wait for listener to decide (same as gap-revealed)
+            <WaitingIndicator
+              message={`${displayPartnerName} is deciding whether to listen actively...`}
+              onSkip={onSkip}
+              skipLabel="Speak freely"
+            />
+          ) : listenerWaitingForNegotiation ? (
+            // Listener waiting: they clicked "Speak freely", waiting for speaker's decision
+            <>
+              <WaitingIndicator
+                message={`Waiting for ${checkerName} to allow skipping active listening...`}
+                onSkip={onSkip}
+                skipLabel="Skip without waiting"
+              />
+              <Button variant="ghost" size="sm" onClick={onCancelNegotiation} className="text-muted-foreground min-h-[44px]">
+                Cancel request
+              </Button>
+            </>
+          ) : (
+            // Listener view: offer to explain back or speak freely (same as gap-revealed)
+            <>
+              <Button
+                size="lg"
+                className="bg-blue-500 hover:bg-blue-600 w-full"
+                onClick={onExplainBackStart}
+              >
+                Explain back what I heard
+              </Button>
+              <Button variant="ghost" size="sm" className="text-muted-foreground min-h-[44px]" onClick={onSharePerspective}>
+                Speak freely
+              </Button>
+            </>
+          )}
+        </ActionArea>
 
         {/* Negotiation Dialog 1: Speaker sees when listener wants to share perspective */}
         <Dialog open={showPendingNegotiationDialog} onOpenChange={() => {}}>
@@ -3068,7 +3108,7 @@ function UnderstandingScreen({
   // Speaker clarifying state - show different UI
   if (clarificationPhase === 'speaker-clarifying') {
     return (
-      <div className="flex flex-col h-full">
+      <div className="flex flex-col h-full min-h-0">
         <LiveHeader partnerName={partnerName} onExit={onExit} isPrivate={isPrivate} uploadHealth={uploadHealth} />
         <div className={CONTENT_LAYOUT}>
           <JourneyToUnderstanding
@@ -3090,52 +3130,53 @@ function UnderstandingScreen({
               className="w-full max-w-sm mb-2"
             />
           )}
-          {isChecker ? (
-            // Speaker view: "Clarifying..." with microphone icon
-            <ActionArea
-              icon="🎤"
-              title={`Clarify what's missing OR\ntest: 'If X happened, ...'`}
-            >
-              <Button
-                size="lg"
-                className="bg-blue-500 hover:bg-blue-600 w-full"
-                onClick={onClarifyDone}
-              >
-                I'm done clarifying
-              </Button>
-              <Button variant="ghost" size="sm" onClick={onSkip} className="text-muted-foreground mx-auto min-h-[44px]">
-                Speak freely
-              </Button>
-            </ActionArea>
-          ) : listenerWaitingForNegotiation ? (
-            // B32_4: Listener clicked "Speak freely" during clarify phase, waiting for speaker's decision
-            <ActionArea
-              icon="👂"
-              title="Hear what's missing for a perfect 10"
-            >
-              <WaitingIndicator
-                message={`Waiting for ${checkerName} to allow skipping active listening...`}
-                onSkip={onSkip}
-                skipLabel="Skip without waiting"
-              />
-              <Button variant="ghost" size="sm" onClick={onCancelNegotiation} className="text-muted-foreground min-h-[44px]">
-                Cancel request
-              </Button>
-            </ActionArea>
-          ) : (
-            // Listener view: waiting for speaker to finish clarifying
-            <ActionArea
-              icon="👂"
-              title="Hear what's missing for a perfect 10"
-            >
-              <WaitingIndicator
-                message={`Waiting for ${checkerName} to finish clarifying...`}
-                onSkip={onSharePerspective}
-                skipLabel="Speak freely"
-              />
-            </ActionArea>
-          )}
         </div>
+
+        {isChecker ? (
+          // Speaker view: "Clarifying..." with microphone icon
+          <ActionArea
+            icon="🎤"
+            title={`Clarify what's missing OR\ntest: 'If X happened, ...'`}
+          >
+            <Button
+              size="lg"
+              className="bg-blue-500 hover:bg-blue-600 w-full"
+              onClick={onClarifyDone}
+            >
+              I'm done clarifying
+            </Button>
+            <Button variant="ghost" size="sm" onClick={onSkip} className="text-muted-foreground mx-auto min-h-[44px]">
+              Speak freely
+            </Button>
+          </ActionArea>
+        ) : listenerWaitingForNegotiation ? (
+          // B32_4: Listener clicked "Speak freely" during clarify phase, waiting for speaker's decision
+          <ActionArea
+            icon="👂"
+            title="Hear what's missing for a perfect 10"
+          >
+            <WaitingIndicator
+              message={`Waiting for ${checkerName} to allow skipping active listening...`}
+              onSkip={onSkip}
+              skipLabel="Skip without waiting"
+            />
+            <Button variant="ghost" size="sm" onClick={onCancelNegotiation} className="text-muted-foreground min-h-[44px]">
+              Cancel request
+            </Button>
+          </ActionArea>
+        ) : (
+          // Listener view: waiting for speaker to finish clarifying
+          <ActionArea
+            icon="👂"
+            title="Hear what's missing for a perfect 10"
+          >
+            <WaitingIndicator
+              message={`Waiting for ${checkerName} to finish clarifying...`}
+              onSkip={onSharePerspective}
+              skipLabel="Speak freely"
+            />
+          </ActionArea>
+        )}
 
         {/* B32_4: Negotiation Dialog 1 - Speaker sees when listener wants to skip during clarify phase */}
         <Dialog open={showPendingNegotiationDialog} onOpenChange={() => {}}>
@@ -3200,7 +3241,7 @@ function UnderstandingScreen({
   // - "Perfectly calibrated" messaging removed entirely - was causing bugs and not essential
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full min-h-0">
       <LiveHeader partnerName={partnerName} onExit={onExit} isPrivate={isPrivate} uploadHealth={uploadHealth} />
       <div className={CONTENT_LAYOUT}>
         {/* P400 Bug 3: journey FIRST, story SECOND (correct order) */}
@@ -3224,83 +3265,84 @@ function UnderstandingScreen({
             className="w-full max-w-sm mb-2"
           />
         )}
-        <ActionArea
-          title={isChecker && clarificationPhase === 'speaker-deciding' && hasExplainBackHappened
-            ? `What is missing to a perfect 10?`
-            : !isChecker && clarificationPhase !== 'speaker-deciding' && !listenerWaitingForNegotiation && negotiation?.requestedBy !== currentUserName
-              ? `Help ${checkerName} understand you better. Withhold premature judgment.`
-              : undefined}
-        >
-          {isChecker ? (
-            // Speaker view - states based on clarificationPhase:
-            // 1. 'listener-responding': speaker waits, listener's turn to explain back
-            // 2. 'speaker-deciding' (hasExplainBackHappened): show "Share what's missing" / "Speak freely" choice
-            // 3. undefined: show waiting for listener
-            clarificationPhase === 'listener-responding' ? (
-              <WaitingIndicator
-                message={`${displayPartnerName} is deciding whether to listen actively...`}
-                onSkip={onSkip}
-                skipLabel="Speak freely"
-              />
-            ) : clarificationPhase === 'speaker-deciding' && hasExplainBackHappened ? (
-              <>
-                <Button
-                  size="lg"
-                  className="bg-blue-500 hover:bg-blue-600 w-full"
-                  onClick={onClarifyStart}
-                >
-                  Share what's missing
-                </Button>
-                <Button variant="ghost" size="sm" className="text-muted-foreground min-h-[44px]" onClick={onSkip}>
-                  Speak freely
-                </Button>
-              </>
-            ) : (
-              <WaitingIndicator
-                message={`${displayPartnerName} is deciding whether to listen actively...`}
-                onSkip={onSkip}
-                skipLabel="Speak freely"
-              />
-            )
-          ) : (
-            // Listener view - states based on clarificationPhase:
-            // 1. listenerWaitingForNegotiation: listener clicked "Speak freely", waiting for speaker's response
-            // 2. 'speaker-deciding': show waiting for speaker to decide
-            // 3. undefined or 'listener-responding': show action buttons
-            listenerWaitingForNegotiation ? (
-              <>
-                <WaitingIndicator
-                  message={`Waiting for ${checkerName} to allow skipping active listening...`}
-                  onSkip={onSkip}
-                  skipLabel="Skip without waiting"
-                />
-                <Button variant="ghost" size="sm" onClick={onCancelNegotiation} className="text-muted-foreground min-h-[44px]">
-                  Cancel request
-                </Button>
-              </>
-            ) : clarificationPhase === 'speaker-deciding' ? (
-              <WaitingIndicator
-                message={`${checkerName} is deciding whether to clarify...`}
-                onSkip={onSharePerspective}
-                skipLabel="Speak freely"
-              />
-            ) : (
-              <>
-                <Button
-                  size="lg"
-                  className="bg-blue-500 hover:bg-blue-600 w-full"
-                  onClick={onExplainBackStart}
-                >
-                  Explain back what I heard
-                </Button>
-                <Button variant="ghost" size="sm" className="text-muted-foreground min-h-[44px]" onClick={onSharePerspective}>
-                  Speak freely
-                </Button>
-              </>
-            )
-          )}
-        </ActionArea>
       </div>
+
+      <ActionArea
+        title={isChecker && clarificationPhase === 'speaker-deciding' && hasExplainBackHappened
+          ? `What is missing to a perfect 10?`
+          : !isChecker && clarificationPhase !== 'speaker-deciding' && !listenerWaitingForNegotiation && negotiation?.requestedBy !== currentUserName
+            ? `Help ${checkerName} understand you better. Withhold premature judgment.`
+            : undefined}
+      >
+        {isChecker ? (
+          // Speaker view - states based on clarificationPhase:
+          // 1. 'listener-responding': speaker waits, listener's turn to explain back
+          // 2. 'speaker-deciding' (hasExplainBackHappened): show "Share what's missing" / "Speak freely" choice
+          // 3. undefined: show waiting for listener
+          clarificationPhase === 'listener-responding' ? (
+            <WaitingIndicator
+              message={`${displayPartnerName} is deciding whether to listen actively...`}
+              onSkip={onSkip}
+              skipLabel="Speak freely"
+            />
+          ) : clarificationPhase === 'speaker-deciding' && hasExplainBackHappened ? (
+            <>
+              <Button
+                size="lg"
+                className="bg-blue-500 hover:bg-blue-600 w-full"
+                onClick={onClarifyStart}
+              >
+                Share what's missing
+              </Button>
+              <Button variant="ghost" size="sm" className="text-muted-foreground min-h-[44px]" onClick={onSkip}>
+                Speak freely
+              </Button>
+            </>
+          ) : (
+            <WaitingIndicator
+              message={`${displayPartnerName} is deciding whether to listen actively...`}
+              onSkip={onSkip}
+              skipLabel="Speak freely"
+            />
+          )
+        ) : (
+          // Listener view - states based on clarificationPhase:
+          // 1. listenerWaitingForNegotiation: listener clicked "Speak freely", waiting for speaker's response
+          // 2. 'speaker-deciding': show waiting for speaker to decide
+          // 3. undefined or 'listener-responding': show action buttons
+          listenerWaitingForNegotiation ? (
+            <>
+              <WaitingIndicator
+                message={`Waiting for ${checkerName} to allow skipping active listening...`}
+                onSkip={onSkip}
+                skipLabel="Skip without waiting"
+              />
+              <Button variant="ghost" size="sm" onClick={onCancelNegotiation} className="text-muted-foreground min-h-[44px]">
+                Cancel request
+              </Button>
+            </>
+          ) : clarificationPhase === 'speaker-deciding' ? (
+            <WaitingIndicator
+              message={`${checkerName} is deciding whether to clarify...`}
+              onSkip={onSharePerspective}
+              skipLabel="Speak freely"
+            />
+          ) : (
+            <>
+              <Button
+                size="lg"
+                className="bg-blue-500 hover:bg-blue-600 w-full"
+                onClick={onExplainBackStart}
+              >
+                Explain back what I heard
+              </Button>
+              <Button variant="ghost" size="sm" className="text-muted-foreground min-h-[44px]" onClick={onSharePerspective}>
+                Speak freely
+              </Button>
+            </>
+          )
+        )}
+      </ActionArea>
 
       {/* Negotiation Dialog 1: Speaker sees when listener wants to share perspective */}
       <Dialog open={showPendingNegotiationDialog} onOpenChange={() => {}}>

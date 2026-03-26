@@ -8,6 +8,7 @@
 import { Link, useLocation } from "react-router-dom";
 import { CalendarIcon, UserIcon, FileTextIcon, HomeIcon } from "lucide-react";
 import { useNavAuthState } from "@/hooks/use-nav-auth-state";
+import { useLiveSession } from "@/app/contexts/live-session-context";
 
 interface NavItem {
   icon: typeof CalendarIcon;
@@ -20,8 +21,16 @@ interface NavItem {
 export function BottomNav() {
   const location = useLocation();
   const { showUserMenu, slug } = useNavAuthState();
+  const { isLive } = useLiveSession();
   // Only show for logged-in users
   if (!showUserMenu) {
+    return null;
+  }
+
+  // P588: Hide during active live sessions (context-based, not route-based).
+  // isLive is true when view='live' && !sessionEnded && !partnerLeft.
+  // Lobby (/live), join form, session ended → isLive=false → BottomNav shows.
+  if (isLive) {
     return null;
   }
 
