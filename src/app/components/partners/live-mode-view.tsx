@@ -1446,7 +1446,7 @@ function RatingScreen({
         <DrawerContent overlayClassName="bg-transparent">
           <DrawerHeader className="sr-only">
             <DrawerTitle>Rate your understanding</DrawerTitle>
-            <DrawerDescription>{prompt}</DrawerDescription>
+            <DrawerDescription>Submit your rating on the scale below</DrawerDescription>
           </DrawerHeader>
           <div className="px-4 pb-8 pt-4 space-y-4">
             <RatingCard
@@ -1550,11 +1550,6 @@ function RatingScreenWithOptionalDrawer({
   // Only show journey card if there's prior history (not on first rating submission)
   const hasHistory = liveState.explainBackRatings.length > 0;
 
-  // When partner already submitted (showDrawer), show their request in drawer header
-  const drawerDescription = showDrawer
-    ? <>{checkerName} wants to know how well <span className="font-semibold text-foreground">you understood them</span></>
-    : null;
-
   return (
     <div className="flex flex-col h-full">
       <LiveHeader partnerName={partnerName} onExit={onExit} isPrivate={isPrivate} uploadHealth={uploadHealth} />
@@ -1605,13 +1600,9 @@ function RatingScreenWithOptionalDrawer({
           overlayClassName="bg-transparent" keeps story card visible behind drawer. */}
       <Drawer open={true} dismissible={false}>
         <DrawerContent overlayClassName="bg-transparent">
-          <DrawerHeader className={drawerDescription ? "text-center pb-2" : "sr-only"}>
-            {drawerDescription && (
-              <DrawerDescription className="text-sm text-muted-foreground">
-                {drawerDescription}
-              </DrawerDescription>
-            )}
-            <DrawerTitle className="sr-only">Rate your understanding</DrawerTitle>
+          <DrawerHeader className="sr-only">
+            <DrawerTitle>Rate your understanding</DrawerTitle>
+            <DrawerDescription>Submit your rating on the scale below</DrawerDescription>
           </DrawerHeader>
           <div className="px-4 pb-8 pt-4 space-y-4">
             <RatingCard
@@ -2048,7 +2039,7 @@ function ActionArea({ icon, title, subtitle, children, className = '', sticky = 
   if (sticky) {
     return (
       <section
-        className={`fixed bottom-0 left-0 right-0 z-40 bg-background border-t border-border pb-[env(safe-area-inset-bottom)] ${className}`}
+        className={`fixed bottom-0 left-0 right-0 z-40 bg-background/95 backdrop-blur-md border-t border-border shadow-[0_-4px_12px_rgba(0,0,0,0.08)] pb-[env(safe-area-inset-bottom)] ${className}`}
         data-testid="action-area"
       >
         <div className="flex flex-col items-center gap-2 w-full max-w-sm mx-auto px-4 py-3">
@@ -2476,11 +2467,9 @@ function UnderstandingScreen({
               User must tap explicit skip button to end the round. */}
           <Drawer open={true} dismissible={false}>
             <DrawerContent overlayClassName="bg-transparent">
-              <DrawerHeader className="text-center pb-2">
-                <DrawerDescription className="text-sm text-muted-foreground">
-                  {displayPartnerName} finished listening actively to you
-                </DrawerDescription>
-                <DrawerTitle className="sr-only">{explainBackPrompt}</DrawerTitle>
+              <DrawerHeader className="sr-only">
+                <DrawerTitle>Rate understanding</DrawerTitle>
+                <DrawerDescription>Submit your rating on the scale below</DrawerDescription>
               </DrawerHeader>
               <div className="px-4 pb-8 pt-4 space-y-4">
                 <RatingCard
