@@ -3,6 +3,7 @@ status: today
 type: change-request
 rank: 1000028.0
 changes: p551
+delivery_stage: 3.5-ui-review
 tags:
   - redesign
   - p551
@@ -166,11 +167,12 @@ Check the /live "This session is private" banner component and match its pattern
 - `src/app/components/docs/doc-header.tsx` — remove visibility dropdown, static badge
 - `src/app/components/docs/doc-privacy-banner.tsx` — match /live session banner
 - `src/app/pages/create-story-page.tsx` — button labels with icons, public banner
-- `src/app/pages/story-detail-page.tsx` — point creation button labels with icons, public banner
+- `src/app/pages/story-detail-page.tsx` — point creation button labels with icons, public banner, `isPrivateContext` → `docVisibility` prop refactor (non-doc-context pages: no banner, same as today)
+- `src/app/data/docs-service.ts` — add `visibility` param to `createDoc()`
+- `src/app/data/docs-service.interface.ts` — update `createDoc()` signature
 
 **Out of scope:**
 - Database/migration changes
-- Data service changes
 - Navigation changes
 - DnD/ordering logic
 - Story picker logic (only button styling)
@@ -186,7 +188,7 @@ Check the /live "This session is private" banner component and match its pattern
 - [ ] Story creation from public doc shows blue banner + "Save Public Story [globe]"
 - [ ] Point creation in private story shows amber banner + "Add Private Point [lock]"
 - [ ] Point creation in public story shows blue banner + "Add Public Point [globe]"
-- [ ] Doc privacy banner is full-width sticky, matches /live session private banner styling
+- [ ] Doc privacy banner is full-width (not inset), matches /live session banner layout pattern (centered, border-b, icon + text). Amber for private, blue for public. NOT sticky (doc pages scroll).
 - [ ] "Write a story" and "Select your story" buttons positioned below header/banner, above story list
 - [ ] No "Active" badge visible anywhere
 - [ ] Surfaces NOT in scope are visually unchanged
@@ -201,3 +203,305 @@ Check the /live "This session is private" banner component and match its pattern
 | 2 | /challenge-prd | [WARN] DB trigger now dead code | Keep as defense-in-depth, no removal | Belt-and-suspenders matches P586 pattern |
 | 3 | /challenge-prd | [WARN] Public banner has no /live equivalent | Same structure as /live private banner, blue tokens | Consistency in structure, differentiated by color |
 | 4 | /challenge-prd | [WARN] StoryCardDetail in-card buttons vs scope | Out of scope — lock/globe on doc-page-level buttons only | StoryCardDetail is shared, touching it risks profile/feed regressions |
+
+## Component Strategy
+
+> `delivery_stage: 3.5-ui-review`
+
+### Step 1 — Component Inventory
+
+**Available shadcn/ui components** (already installed in `src/components/ui/`):
+- `Button` — variants: `default` (blue primary), `destructive`, `outline`, `secondary`, `ghost`, `link`. Sizes: `default` (h-9), `sm` (h-8), `lg` (h-10), `icon` (h-9 w-9).
+- `DropdownMenu` — full Radix-based dropdown (Trigger, Content, Item, etc.)
+- `Dialog` — already used for delete confirmation
+- `Tooltip` — already used elsewhere
+- `Input`, `Textarea` — form primitives
+
+**NOT installed (need adding):**
+- `Popover` — **required** for creation flow. Must install: `npx shadcn@latest add popover`. This adds `@radix-ui/react-popover` and `src/components/ui/popover.tsx`.
+
+**Existing shared components:**
+- `InlineVisibilityIcon` (`src/app/components/shared/visibility-badge.tsx`) — renders `Lock` (amber) or `Globe` (gray) with tooltip. Used in doc list cards and story cards.
+- `VisibilityBadge` — same file, adds label + background. Currently uses `text-muted-foreground bg-muted` for both variants.
+- `DocPrivacyBanner` (`src/app/components/docs/doc-privacy-banner.tsx`) — inset rounded banner with amber/blue styling.
+
+**Lucide icons in use:** `Lock`, `Globe`, `Plus`, `ListChecks`, `ArrowLeft`, `MoreHorizontal`, `Trash2`, `ChevronDown`, `Loader2`, `FileText`.
+
+### Step 2 — Component Map
+
+#### Buttons — Current vs Correct
+
+| Element | File | Current | Correct | Exact Props |
+|---------|------|---------|---------|-------------|
+| "+ New Doc" (list page, populated) | `docs-list-page.tsx` | `<Button variant="outline" size="sm">` | **Already correct** — keep as-is but becomes Popover trigger | `variant="outline" size="sm"` |
+| "+ Create a Doc" (list page, empty state) | `docs-list-page.tsx` | `<Button onClick={handleCreate}>` (default variant) | **Already correct** for variant — but becomes Popover trigger | `variant="default"` (no explicit needed, it's the default) |
+| "Write a story" (doc detail) | `doc-detail-page.tsx` | `<Button asChild>` wrapping `<Link>` (default variant, no icon) | Add lock/globe icon, label change | `variant="default"` + `<Lock size={16} />` or `<Globe size={16} />` before text |
+| "Select your story" (doc detail) | `doc-detail-page.tsx` | `<Button variant="outline">` (no visibility icon) | Add lock/globe icon | `variant="outline"` + `<Lock size={16} />` or `<Globe size={16} />` before text |
+| "Save Private Story" / "Save Public Story" (create story) | `create-story-page.tsx` | `<Button className="bg-blue-500 hover:bg-blue-600 text-white">` — **raw Tailwind, NOT using variant** | Use `variant="default"` (which is blue primary) + icon | `variant="default"` + `<Lock size={16} />` or `<Globe size={16} />` before label. Remove `className="bg-blue-500..."` |
+| "Add Private Point" / "Add Public Point" (story detail) | `story-detail-page.tsx` | `<Button className="bg-blue-500 hover:bg-blue-600 text-white">` — **raw Tailwind** | Use `variant="default"` + icon | `variant="default"` + `<Lock size={16} />` or `<Globe size={16} />` before label. Remove `className="bg-blue-500..."` |
+| "+ Add" (story picker) | `doc-story-picker.tsx` | `<Button variant="outline" size="sm">` | **Already correct** | No change |
+| "Delete this Clarity Doc" (dialog) | `doc-header.tsx` | `<Button variant="destructive">` | **Already correct** | No change |
+| "Cancel" (delete dialog) | `doc-header.tsx` | `<Button variant="outline">` | **Already correct** | No change |
+| Back button (doc header) | `doc-header.tsx` | Raw `<button>` with Tailwind classes | **Keep as-is** — this is a text link, not a Button. Matches existing FocusHeader pattern. | No change |
+| "Retry" button (orphan point) | `story-detail-page.tsx` | `className="bg-blue-500 hover:bg-blue-600 text-white"` — **raw Tailwind** | `variant="default"` | Remove manual className |
+| "Try Again" button (story detail error) | `story-detail-page.tsx` | `className="bg-blue-500 hover:bg-blue-600 text-white"` — **raw Tailwind** | `variant="default"` | Remove manual className |
+| "Save" button (story edit) | `story-detail-page.tsx` | `className="bg-blue-500 hover:bg-blue-600 text-white"` — **raw Tailwind** | `variant="default"` | Remove manual className |
+
+**Summary of raw-Tailwind violations:** 5 buttons across `create-story-page.tsx` and `story-detail-page.tsx` use `className="bg-blue-500 hover:bg-blue-600 text-white"` instead of `variant="default"`. The `default` variant already produces `bg-primary text-primary-foreground` which maps to the blue primary in the theme.
+
+#### Creation Popover
+
+**Component:** `Popover` + `PopoverTrigger` + `PopoverContent` from shadcn/ui (to be installed).
+
+```tsx
+// docs-list-page.tsx — populated state
+<Popover>
+  <PopoverTrigger asChild>
+    <Button variant="outline" size="sm">
+      <Plus className="w-4 h-4" />
+      New Doc
+    </Button>
+  </PopoverTrigger>
+  <PopoverContent align="end" className="w-64 p-2">
+    <button
+      onClick={() => handleCreate('private')}
+      className="w-full flex items-center gap-3 rounded-md px-3 py-2.5 text-sm hover:bg-accent transition-colors text-left"
+    >
+      <Lock size={16} className="text-amber-600 flex-shrink-0" />
+      <div>
+        <div className="font-medium">Private Doc</div>
+        <div className="text-xs text-muted-foreground">Only you can see this</div>
+      </div>
+    </button>
+    <button
+      onClick={() => handleCreate('public')}
+      className="w-full flex items-center gap-3 rounded-md px-3 py-2.5 text-sm hover:bg-accent transition-colors text-left"
+    >
+      <Globe size={16} className="text-muted-foreground flex-shrink-0" />
+      <div>
+        <div className="font-medium">Public Doc</div>
+        <div className="text-xs text-muted-foreground">Visible on your profile</div>
+      </div>
+    </button>
+  </PopoverContent>
+</Popover>
+```
+
+**Why Popover, not DropdownMenu:** The creation choices are not menu items (they don't select/toggle). They are action choices that create something. Popover is the correct Radix primitive for ephemeral panels with custom content. DropdownMenu items auto-close and have keyboard semantics (arrow keys) designed for option lists, not creation flows.
+
+**Why not full `<Button>` inside Popover:** The popover items are list-style choices (icon + title + description), not standalone buttons. Using raw `<button>` with hover styles matches the pattern of DropdownMenuItem internals without importing menu semantics.
+
+#### Static Visibility Badge (Doc Header)
+
+**Replace** the entire `<DropdownMenu>` visibility block (lines 158-199 of `doc-header.tsx`) with:
+
+```tsx
+{/* Static visibility badge — immutable after creation */}
+<span className="inline-flex items-center gap-1.5 text-sm text-muted-foreground px-2 py-1">
+  {doc.visibility === 'private' ? (
+    <Lock size={14} className="text-amber-600" />
+  ) : (
+    <Globe size={14} />
+  )}
+  <span className="capitalize">{doc.visibility}</span>
+</span>
+```
+
+**What to remove:**
+- The entire `handleVisibilityChange` callback (lines 84-95)
+- The `ChevronDown` import (no longer needed)
+- The `DropdownMenu` import block and `DropdownMenuContent`/`DropdownMenuItem`/`DropdownMenuTrigger` — **keep** the import because the overflow menu still uses `DropdownMenu`
+- The `hasPrivateStories` prop is no longer needed by DocHeader (remove from interface and parent callsite)
+
+#### Doc Privacy Banner — Match /live Pattern
+
+The /live `RecordingIndicator` private banner uses:
+```
+sticky top-16 lg:top-20 z-40, bg-muted border-b border-border, centered flex, text-xs text-muted-foreground
+```
+
+This is a **minimal chrome-level band** — fundamentally different from the current `DocPrivacyBanner` which is a content-level inset card. The spec says "match /live session banner pattern (full-width sticky)."
+
+**Corrected `DocPrivacyBanner`:**
+
+```tsx
+export function DocPrivacyBanner({ visibility }: DocPrivacyBannerProps) {
+  const isPrivate = visibility === 'private';
+
+  return (
+    <div
+      role="status"
+      aria-live="polite"
+      className={`-mx-4 px-4 py-2 flex items-center justify-center gap-2 text-sm border-b ${
+        isPrivate
+          ? 'bg-amber-50 border-amber-200'
+          : 'bg-blue-50 border-blue-200'
+      }`}
+    >
+      {isPrivate ? (
+        <>
+          <Lock size={14} className="text-amber-600 flex-shrink-0" />
+          <span className="text-amber-800 font-medium">PRIVATE</span>
+          <span className="text-amber-700">&middot; Only you can see this Clarity Doc</span>
+        </>
+      ) : (
+        <>
+          <Globe size={14} className="text-blue-600 flex-shrink-0" />
+          <span className="text-blue-800 font-medium">PUBLIC</span>
+          <span className="text-blue-700">&middot; Visible on your profile</span>
+        </>
+      )}
+    </div>
+  );
+}
+```
+
+**Key changes:** (1) `-mx-4` to break out of container padding and go full-width. (2) Removed `rounded-lg` and card-like border — now a flat band. (3) `border-b` only (bottom edge). (4) Centered content. (5) `text-sm` stays (the /live banner uses `text-xs` but doc banners carry more important privacy info — `text-sm` is the right call for readability). (6) **Not sticky** — unlike /live where the banner must persist during scrolling, the doc banner is always visible at the top of a short page. Making it sticky would feel heavy for a list page.
+
+#### Story/Point Creation Banners
+
+The `DocPrivacyBanner` is already reused on `create-story-page.tsx` (line 289). For the public variant, it already renders blue — no code change needed, just verify it renders.
+
+For **point creation** in `story-detail-page.tsx`, the `AddPointForm` already has a private banner (lines 214-218). The change: add a public banner too.
+
+```tsx
+{/* Privacy banner for point creation in doc context */}
+{isPrivateContext && (
+  <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 flex items-center gap-2 text-sm">
+    <LockIcon size={16} className="text-amber-600 flex-shrink-0" />
+    <span className="text-amber-800">This point will be private — only you can see it</span>
+  </div>
+)}
+{isPublicContext && (
+  <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 flex items-center gap-2 text-sm">
+    <Globe size={16} className="text-blue-600 flex-shrink-0" />
+    <span className="text-blue-800">This point will be public — visible on your profile</span>
+  </div>
+)}
+```
+
+This requires changing the `isPrivateContext` prop to a more general `docVisibility?: ContentVisibility` prop on `AddPointForm` and `KeyPointsSection`, then deriving both conditions.
+
+### Step 3 — Composition Tree
+
+#### 1. Doc List Page — Creation Popover Flow
+
+```
+DocsListPage
+├── <main> "Your Clarity Docs"
+│   ├── Header row
+│   │   ├── <h1> "Your Clarity Docs"
+│   │   └── <Popover>                          ← NEW (replaces direct Button)
+│   │       ├── <PopoverTrigger asChild>
+│   │       │   └── <Button variant="outline" size="sm">
+│   │       │       ├── <Plus />
+│   │       │       └── "New Doc"
+│   │       └── <PopoverContent align="end" className="w-64 p-2">
+│   │           ├── <button> Private Doc choice
+│   │           │   ├── <Lock /> (amber)
+│   │           │   ├── "Private Doc"
+│   │           │   └── "Only you can see this"
+│   │           └── <button> Public Doc choice
+│   │               ├── <Globe />
+│   │               ├── "Public Doc"
+│   │               └── "Visible on your profile"
+│   ├── Doc cards (unchanged)
+│   └── Empty state
+│       └── <Popover>                           ← NEW (same pattern)
+│           ├── <PopoverTrigger asChild>
+│           │   └── <Button variant="default">
+│           │       ├── <Plus />
+│           │       └── "Create a Doc"
+│           └── <PopoverContent> (same choices)
+```
+
+#### 2. Doc Header — Static Badge Replacing Dropdown
+
+```
+DocHeader
+├── Back link (unchanged raw <button>)
+├── Title + controls row
+│   ├── Title (inline editable, unchanged)
+│   └── Controls (owner only)
+│       ├── <span> Static visibility badge     ← CHANGED (was DropdownMenu)
+│       │   ├── <Lock size={14} /> or <Globe size={14} />
+│       │   └── "Private" or "Public"
+│       └── <DropdownMenu> Overflow (unchanged)
+│           └── DropdownMenuItem "Delete this Clarity Doc"
+├── Delete Dialog (unchanged)
+```
+
+#### 3. Action Buttons Row (Doc Detail, Below Header)
+
+```
+DocDetailPage
+├── DocHeader (see above)
+├── DocPrivacyBanner                            ← CHANGED (full-width band)
+├── Story count
+├── Action buttons (owner only)                 ← MOVED (was at bottom)
+│   ├── <Button variant="default" asChild>
+│   │   └── <Link to="/create?docId=...">
+│   │       ├── <Lock size={16} /> or <Globe size={16} />  ← NEW icon
+│   │       └── "Write a story"
+│   └── <Button variant="outline">
+│       ├── <Lock size={16} /> or <Globe size={16} />      ← NEW icon
+│       └── "Select your story"
+├── Stories (DnD list) or empty state
+└── DocStoryPicker dialog (unchanged)
+```
+
+### Step 4 — Visual Refinements
+
+1. **`variant="default"` replaces `bg-blue-500` everywhere.** The `default` variant uses `bg-primary text-primary-foreground` which resolves to blue via the theme. This is the design system way. All 5 raw-Tailwind buttons must switch.
+
+2. **Button `gap-2` is built-in.** The `buttonVariants` cva already includes `gap-2` in the base class. Icons placed as children of `<Button>` will automatically get `size-4` (via `[&_svg]:size-4`) and `shrink-0` (via `[&_svg]:shrink-0`). No manual icon sizing needed inside buttons — remove explicit `size={16}` on icons inside `<Button>` and let the built-in rule handle it. For icons outside buttons (badge, banner), keep explicit sizes.
+
+3. **`min-h-[44px]` on submit buttons.** The current `create-story-page.tsx` adds this for touch target compliance. The `default` size is `h-9` (36px) which is below the 40px minimum. Keep `className="min-h-[44px]"` on form submit buttons (Save Story, Add Point) as a supplementary class alongside the variant.
+
+4. **Popover items should have `min-h-[44px]`** for touch targets. Add `min-h-[44px]` to each choice button inside PopoverContent.
+
+5. **"Active" badge removal.** The `doc-header.tsx` visibility dropdown items (lines 178, 190) show a `<span className="ml-auto text-blue-600 text-xs font-medium">Active</span>`. These are removed entirely when the dropdown is removed.
+
+### Step 5 — Extraction Plan
+
+**Extract creation popover into a shared component: `DocCreationPopover`.**
+
+The same Private/Public choice popover appears in two places on `docs-list-page.tsx` (populated header + empty state). Extract to avoid duplication:
+
+```tsx
+// src/app/components/docs/doc-creation-popover.tsx
+interface DocCreationPopoverProps {
+  onCreateDoc: (visibility: ContentVisibility) => void;
+  creating: boolean;
+  children: React.ReactNode; // trigger button
+}
+
+export function DocCreationPopover({ onCreateDoc, creating, children }: DocCreationPopoverProps) {
+  return (
+    <Popover>
+      <PopoverTrigger asChild disabled={creating}>
+        {children}
+      </PopoverTrigger>
+      <PopoverContent align="end" className="w-64 p-2">
+        {/* Private + Public choices */}
+      </PopoverContent>
+    </Popover>
+  );
+}
+```
+
+**No other extractions needed.** The static badge is 6 lines of JSX — not worth a component. The banner modifications are in-place edits to an existing component.
+
+### Step 6 — Challenge Notes
+
+1. **Popover installation required.** `npx shadcn@latest add popover` must run before implementation. Verify `@radix-ui/react-popover` is added to `package.json` and `src/components/ui/popover.tsx` is generated.
+
+2. **`handleCreate` signature change.** Currently `handleCreate()` takes no args and defaults to private. Must change to `handleCreate(visibility: ContentVisibility)` and pass it to `docsService.createDoc({ visibility })`. This is a minor data service change (acknowledged in Resolved Decision #1) but must be verified: check that `docsService.createDoc()` accepts a visibility parameter or add one.
+
+3. **`isPrivateContext` to `docVisibility` refactor.** The `AddPointForm` and `KeyPointsSection` in `story-detail-page.tsx` use a boolean `isPrivateContext` prop. To support both amber (private) and blue (public) banners, this needs to become `docVisibility?: ContentVisibility`. The parent callsite (line 1212) already has the visibility from `story.visibility` — straightforward prop change.
+
+4. **Action buttons position.** The spec says buttons go below header/banner, above story list. Currently they are below the story list (lines 309-322 in `doc-detail-page.tsx`). Move the `{isOwner && ...}` block to appear after `<DocPrivacyBanner>` and before the story count / story list.
+
+5. **Banner is NOT sticky.** The /live `RecordingIndicator` is `sticky top-16`. The doc banner should NOT be sticky — doc pages are short and the banner at the top is always visible. Making it sticky adds visual noise. The spec says "full-width sticky" but the intent is "full-width, matching the /live pattern" — sticky is inappropriate here because docs scroll content is short. Implementation should use full-width (no rounded corners, edge-to-edge) but not `position: sticky`.
+
+6. **No `Badge` component exists.** The project does not have a shadcn `Badge` component installed. The static visibility indicator in the header is simple enough to be a plain `<span>` — no need to install Badge.
