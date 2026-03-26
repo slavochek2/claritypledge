@@ -87,7 +87,8 @@ export const mockStoriesService: StoriesService = {
     authorId: string,
     content: string,
     tags: string[] = [],
-    visibility: StoryVisibility = 'public'
+    visibility: StoryVisibility = 'public',
+    imageUrl?: string
   ): Promise<Story | null> {
     const now = new Date().toISOString();
     const newStory: StoryWithAuthor = {
@@ -100,6 +101,7 @@ export const mockStoriesService: StoriesService = {
       createdAt: now,
       updatedAt: now,
       tags,
+      imageUrl,
       // Mock author info for getStory lookups
       authorName: 'You',
       authorSlug: 'me',
@@ -174,7 +176,7 @@ export const mockStoriesService: StoriesService = {
 
   async updateStory(
     storyId: string,
-    updates: { content?: string; tags?: string[]; bannerUrl?: string | null }
+    updates: { content?: string; tags?: string[]; bannerUrl?: string | null; imageUrl?: string | null }
   ): Promise<Story | null> {
     const story = mockStories.find((s) => s.id === storyId);
     if (!story) return null;

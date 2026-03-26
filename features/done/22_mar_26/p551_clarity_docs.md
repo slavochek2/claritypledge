@@ -1,13 +1,13 @@
 ---
-status: today
+status: all-done
 type: story
-rank: 0.156
+rank: 1
 tags:
   - docs
   - privacy
   - container
   - letters
-delivery_stage: 5-decomposed
+delivery_stage: uat
 reviews:
   ux: null
   architect: null
@@ -19,7 +19,8 @@ related:
   - p547
   - p581
   - p586
-locked_at: '2026-03-26T05:41:19.555Z'
+superseded_by: p590
+locked_at: '2026-03-26T13:39:53.386Z'
 uat_file: features/uat/p551.md
 test_files:
   - e2e/integration/p551-clarity-docs-migration.spec.ts

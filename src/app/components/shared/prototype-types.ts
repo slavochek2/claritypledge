@@ -41,6 +41,7 @@ export interface Story {
   linkedPointIds: string[];
   understoodCount: number;
   crossDisagreementCount?: number;
+  imageUrl?: string;
 }
 
 /**

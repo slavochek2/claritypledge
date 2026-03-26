@@ -1,7 +1,7 @@
 ---
-status: today
+status: rejected
 type: story
-rank: 0.235
+rank: 0.059
 blocked_by: p523
 tags:
   - points

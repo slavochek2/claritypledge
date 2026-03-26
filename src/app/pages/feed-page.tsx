@@ -9,7 +9,7 @@
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { Search, X, PenLine, ArrowUpDown } from 'lucide-react';
+import { Search, X, Globe, ArrowUpDown } from 'lucide-react';
 import { storiesService } from '@/app/data/stories-service';
 import { pointsService } from '@/app/data/points-service';
 import { useAuth } from '@/auth';
@@ -175,7 +175,7 @@ export function FeedPage() {
               to="/create"
               className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-500 hover:bg-blue-600 rounded-md transition-colors"
             >
-              <PenLine className="w-4 h-4" />
+              <Globe className="w-4 h-4" />
               Share a Story
             </Link>
           )}

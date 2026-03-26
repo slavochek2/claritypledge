@@ -27,6 +27,7 @@ import type { PositionType } from '@/app/types';
 import { getPositionGroup, getPositionCTACopy, adjustPositionCounts } from '@/app/utils/position-helpers';
 import type { Point, Position, Story } from '@/app/components/shared/prototype-types';
 import { TagPills } from '@/app/components/shared/tag-pills';
+import { StoryImage } from '@/app/components/shared/story-image';
 import { stripHashtags } from '@/lib/utils';
 
 /** Author information for a story in quoted context */
@@ -305,7 +306,7 @@ export function PointCardWithLinks({
               {/* Footer - inside quoted box, pl-[44px] aligns with content column (32px icon + 12px gap) */}
               <div
                 role="presentation"
-                className="flex items-center justify-between flex-wrap gap-y-1 mt-3 pt-3 border-t border-gray-200 pl-[44px]"
+                className="flex items-center justify-between mt-3 pt-3 border-t border-gray-200 pl-4 sm:pl-[44px]"
                 onClick={(e) => e.stopPropagation()}
               >
                 {/* Collapsible trigger (if has linked stories) or 0-stories CTA */}
@@ -476,7 +477,7 @@ export function PointCardWithLinks({
         <>
         <div
           role="presentation"
-          className="flex items-center justify-between flex-wrap gap-y-1 pl-[68px] pr-4 py-3 border-t border-gray-100"
+          className="flex items-center justify-between pl-4 sm:pl-[68px] pr-4 py-3 border-t border-gray-100"
           onClick={(e) => e.stopPropagation()}
         >
           {/* Collapsible trigger - show in live session mode with all stories, or on profile/feed with any linked stories */}
@@ -574,7 +575,7 @@ export function PointCardWithLinks({
           return (
             <div
               role="presentation"
-              className="flex items-center pl-[68px] pr-4 py-2.5 border-t border-gray-100"
+              className="flex items-center pl-4 sm:pl-[68px] pr-4 py-2.5 border-t border-gray-100"
               onClick={(e) => e.stopPropagation()}
             >
               <div className="flex items-center gap-1 text-sm">
@@ -740,6 +741,16 @@ function QuotedStory({
           </span>
           {/* Ear indicator - understanding credibility */}
           <EarBadge count={author.ear ?? 0} name={author.name} />
+        </div>
+      )}
+      {/* Story image — compact in quoted context */}
+      {story.imageUrl && (
+        <div className="mb-2">
+          <StoryImage
+            src={story.imageUrl}
+            authorName={author?.name ?? 'Author'}
+            maxHeight="120px"
+          />
         </div>
       )}
       {/* Story text — strip hashtags that are rendered as TagPills */}

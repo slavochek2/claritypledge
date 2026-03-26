@@ -22,7 +22,7 @@ import {
   MailIcon,
   ArrowLeft,
   Ear,
-  PenLine,
+  Globe,
   ExternalLink,
   Pin,
   ChevronDown,
@@ -61,6 +61,7 @@ import {
 } from "@/app/components/shared";
 import { InlineVisibilityIcon } from "@/app/components/shared/visibility-badge";
 import { TagPills } from '@/app/components/shared/tag-pills';
+import { StoryImage } from '@/app/components/shared/story-image';
 import { stripHashtags, extractHashtags } from '@/lib/utils';
 import type { PositionType, StoryVisibility } from "@/app/types";
 import type { Position } from "@/app/components/shared/prototype-types";
@@ -915,7 +916,7 @@ export function ProfilePageV2() {
                 onClick={handleCreateClick}
                 className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-blue-500 hover:bg-blue-600 rounded-lg text-white transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
               >
-                <PenLine size={18} />
+                <Globe size={18} />
                 <span className="text-sm font-medium">Share a Story</span>
               </button>
             </div>
@@ -1245,6 +1246,16 @@ function StoryCardFull({
               </div>
             ) : (
               <>
+                {story.imageUrl && (
+                  <div className="mb-2">
+                    <StoryImage
+                      src={story.imageUrl}
+                      authorName={author.name}
+                      maxHeight="200px"
+                      onClick={() => navigate(detailRoutes.story(story.id))}
+                    />
+                  </div>
+                )}
                 <p id={`story-text-${story.id}`} className={`text-foreground text-base break-words ${!storyExpanded ? 'line-clamp-8' : ''}`}>{linkifyText(strippedContent)}</p>
                 {strippedContent.length > STORY_THRESHOLD && (
                   <div role="presentation" onClick={(e) => e.stopPropagation()}>
@@ -1279,7 +1290,7 @@ function StoryCardFull({
       {/* Footer row with linked points and action icons */}
       <div
         role="presentation"
-        className="flex flex-wrap items-center justify-between gap-y-1 pl-[68px] pr-4 py-3 border-t border-border"
+        className="flex items-center justify-between pl-4 sm:pl-[68px] pr-4 py-3 border-t border-border"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Point count + author CTA (P580: always show count, author gets "+ add a point") */}
