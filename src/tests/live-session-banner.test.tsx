@@ -346,7 +346,7 @@ describe('LiveSessionBanner', () => {
     it('renders logo linking to home', () => {
       renderWithRouter(<LiveSessionBanner />);
 
-      const logoLink = screen.getByRole('link', { name: /clarity pledge/i });
+      const logoLink = screen.getByRole('link', { name: /claritypledge/i });
       expect(logoLink).toHaveAttribute('href', '/');
     });
   });

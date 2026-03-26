@@ -51,7 +51,7 @@ export function ClarityLogo({
 
       {!iconOnly && (
         <span className={cn("font-bold tracking-tight", text)}>
-          Clarity Pledge
+          ClarityPledge
         </span>
       )}
     </span>

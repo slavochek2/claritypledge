@@ -82,7 +82,7 @@ export function SimpleNavigation() {
           {/* Logo */}
           <Link
             to="/"
-            className="hover:opacity-80 transition-opacity"
+            className="hover:opacity-80 transition-opacity shrink-0"
             onClick={(e) => {
               if (location.pathname === "/") {
                 e.preventDefault();
@@ -90,7 +90,9 @@ export function SimpleNavigation() {
               }
             }}
           >
-            <ClarityLogo size="sm" />
+            {/* Mobile: icon only to prevent text wrapping in cramped header */}
+            <ClarityLogo size="sm" iconOnly className="lg:hidden" />
+            <ClarityLogo size="sm" className="hidden lg:inline-flex" />
           </Link>
 
           {/* Desktop: Nav links + CTA + Menu */}
@@ -273,7 +275,7 @@ export function SimpleNavigation() {
                 <Link
                   to="/live"
                   title="Start a live clarity session"
-                  className="inline-flex items-center gap-1.5 bg-blue-500 hover:bg-blue-600 text-white text-xs font-semibold rounded-full px-3 py-1.5"
+                  className="inline-flex items-center gap-1.5 bg-blue-500 hover:bg-blue-600 text-white text-sm font-semibold rounded-full px-4 py-2"
                   onClick={() => analytics.track('nav_cta_clicked', { cta: 'try_meeting', device: 'mobile' })}
                 >
                   <MicIcon className="w-3.5 h-3.5" />

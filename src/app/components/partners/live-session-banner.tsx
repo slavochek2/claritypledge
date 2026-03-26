@@ -47,7 +47,7 @@ export function LiveSessionBanner({ partnerName: _partnerName, onExit, isLiveMee
           {/* Left: Logo - P52: Aligned styling with SimpleNavigation */}
           <Link
             to="/"
-            className="hover:opacity-80 transition-opacity"
+            className="hover:opacity-80 transition-opacity shrink-0"
           >
             <ClarityLogo size="sm" />
           </Link>
