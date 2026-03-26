@@ -61,6 +61,7 @@ import {
 } from "@/app/components/shared";
 import { InlineVisibilityIcon } from "@/app/components/shared/visibility-badge";
 import { TagPills } from '@/app/components/shared/tag-pills';
+import { StoryImage } from '@/app/components/shared/story-image';
 import { stripHashtags, extractHashtags } from '@/lib/utils';
 import type { PositionType, StoryVisibility } from "@/app/types";
 import type { Position } from "@/app/components/shared/prototype-types";
@@ -1245,6 +1246,16 @@ function StoryCardFull({
               </div>
             ) : (
               <>
+                {story.imageUrl && (
+                  <div className="mb-2">
+                    <StoryImage
+                      src={story.imageUrl}
+                      authorName={author.name}
+                      maxHeight="200px"
+                      onClick={() => navigate(detailRoutes.story(story.id))}
+                    />
+                  </div>
+                )}
                 <p id={`story-text-${story.id}`} className={`text-foreground text-base break-words ${!storyExpanded ? 'line-clamp-8' : ''}`}>{linkifyText(strippedContent)}</p>
                 {strippedContent.length > STORY_THRESHOLD && (
                   <div role="presentation" onClick={(e) => e.stopPropagation()}>

@@ -776,21 +776,21 @@ These are implementation-level details below UX wireframe resolution:
 - **Tests:** `e2e/integration/p591-story-image-migration.spec.ts`
 - **Depends on:** None
 - **Verify:** Migration applies cleanly via `./scripts/migrate.sh`; integration tests pass (schema check, RLS author/non-author, banner_url independence)
-- [ ] Complete
+- [x] Complete
 
 ### Task 2: GCS bucket setup
 - **Files:** Manual CLI commands (no code file)
 - **Spec refs:** "Technical Architecture > Build Sequence step 2 (lines ~534)", "Pre-deploy Checklist (lines ~584-586)"
 - **Depends on:** None
 - **Verify:** `gsutil ls gs://claritypledge-story-images` succeeds; CORS config verified with `gsutil cors get`
-- [ ] Complete
+- [x] Complete
 
 ### Task 3: Supabase Edge Function — generate-story-image-url
 - **Files:** `supabase/functions/generate-story-image-url/index.ts` (create)
 - **Spec refs:** "Technical Architecture > Build Sequence step 3 (lines ~535)", "Security Review (lines ~494-527)"
 - **Depends on:** Task 2 (bucket must exist)
 - **Verify:** Edge function deployed; returns signed URL for authenticated author; rejects non-author, invalid MIME types, and unauthenticated requests
-- [ ] Complete
+- [x] Complete
 
 ### Task 4: Client image processing utility
 - **Files:** `src/lib/image-upload.ts` (create), `package.json` (modify — add `heic2any`)
@@ -798,21 +798,21 @@ These are implementation-level details below UX wireframe resolution:
 - **Tests:** `src/tests/image-upload.test.ts`
 - **Depends on:** None
 - **Verify:** All 28 unit tests pass (HEIC detection, format validation, size validation, resize logic)
-- [ ] Complete
+- [x] Complete
 
 ### Task 5: Type updates + stories service updates
 - **Files:** `src/app/types/index.ts` (modify), `src/app/components/shared/prototype-types.ts` (modify), `src/app/data/stories-service.interface.ts` (modify), `src/app/data/stories-service-real.ts` (modify), `src/app/data/stories-service-mock.ts` (modify)
 - **Spec refs:** "Technical Architecture > Build Sequence steps 6-7 (lines ~538-539)"
 - **Depends on:** Task 1 (DB column must exist for real service to map)
 - **Verify:** TypeScript compiles; `imageUrl` available on `Story` type; `createStory()` and `updateStory()` accept imageUrl param
-- [ ] Complete
+- [x] Complete
 
 ### Task 6: Image upload service
 - **Files:** `src/app/data/story-image-service.ts` (create)
 - **Spec refs:** "Technical Architecture > Build Sequence step 5 (lines ~537)"
 - **Depends on:** Task 3 (edge function must exist), Task 4 (image processing utility)
 - **Verify:** `uploadStoryImage(storyId, file)` returns a public GCS URL when given a valid image file
-- [ ] Complete
+- [x] Complete
 
 ### Task 7: ImageLightbox component
 - **Files:** `src/app/components/shared/image-lightbox.tsx` (create)
@@ -820,7 +820,7 @@ These are implementation-level details below UX wireframe resolution:
 - **Tests:** `e2e/a11y/p591-accessibility.spec.ts` (dialog role, focus trap, Escape close)
 - **Depends on:** None
 - **Verify:** Lightbox opens on trigger, closes on Escape/backdrop click, focus trapped within, accessible
-- [ ] Complete
+- [x] Complete
 
 ### Task 8: StoryImage display component
 - **Files:** `src/app/components/shared/story-image.tsx` (create)
@@ -828,7 +828,7 @@ These are implementation-level details below UX wireframe resolution:
 - **Tests:** `e2e/p591-story-supporting-images.spec.ts` (visitor view, lightbox), `e2e/a11y/p591-accessibility.spec.ts` (alt text, keyboard)
 - **Depends on:** Task 7 (lightbox component)
 - **Verify:** Renders image with correct aspect ratio constraints; click opens lightbox; author overlay shows when callbacks provided
-- [ ] Complete
+- [x] Complete
 
 ### Task 9: ImageUploadWidget component
 - **Files:** `src/app/components/shared/image-upload-widget.tsx` (create)
@@ -836,7 +836,7 @@ These are implementation-level details below UX wireframe resolution:
 - **Tests:** `e2e/p591-story-supporting-images.spec.ts` (author controls), `e2e/a11y/p591-accessibility.spec.ts` (keyboard nav)
 - **Depends on:** Task 4 (image processing), Task 6 (upload service)
 - **Verify:** File selection → preview → progress → done/error state machine works; "Change image" and "Remove" actions functional
-- [ ] Complete
+- [x] Complete
 
 ### Task 10: Create story page integration
 - **Files:** `src/app/pages/create-story-page.tsx` (modify)
@@ -844,7 +844,7 @@ These are implementation-level details below UX wireframe resolution:
 - **Tests:** `e2e/p591-story-supporting-images.spec.ts` (creation flow), `e2e/p591-smoke.spec.ts` (creation page button)
 - **Depends on:** Task 5 (service accepts imageUrl), Task 9 (upload widget)
 - **Verify:** "Add image" button visible below textarea; upload → publish → image visible on detail page
-- [ ] Complete
+- [x] Complete
 
 ### Task 11: Story detail page + StoryCardDetail integration
 - **Files:** `src/app/pages/story-detail-page.tsx` (modify), `src/app/components/social/StoryCardDetail.tsx` (modify)
@@ -852,7 +852,7 @@ These are implementation-level details below UX wireframe resolution:
 - **Tests:** `e2e/p591-story-supporting-images.spec.ts` (visitor view, author controls), `e2e/p591-smoke.spec.ts` (detail page image)
 - **Depends on:** Task 5 (type has imageUrl), Task 8 (StoryImage), Task 9 (upload widget for author add)
 - **Verify:** Image renders between author row and text; author sees add/change/remove controls; non-author sees image only
-- [ ] Complete
+- [x] Complete
 
 ### Task 12: Feed card integration
 - **Files:** `src/app/components/feed/feed-story-card.tsx` (modify), `src/app/components/social/story-card-with-links.tsx` (modify)
@@ -860,14 +860,14 @@ These are implementation-level details below UX wireframe resolution:
 - **Tests:** `e2e/p591-story-supporting-images.spec.ts` (feed card rendering)
 - **Depends on:** Task 5 (type has imageUrl), Task 8 (StoryImage component)
 - **Verify:** Compact image preview (max-h 200px) appears above text in feed cards; click navigates to story detail
-- [ ] Complete
+- [x] Complete
 
 ### Task 13: Analytics events
 - **Files:** `src/app/pages/create-story-page.tsx` (modify — add to existing), `src/app/pages/story-detail-page.tsx` (modify — add to existing), `src/app/components/shared/image-lightbox.tsx` (modify — add to existing)
 - **Spec refs:** "Technical Architecture > Build Sequence step 14 (lines ~546)"
 - **Depends on:** Task 10, Task 11 (pages must have image integration)
 - **Verify:** Mixpanel events fire: `story_image_uploaded`, `story_image_removed`, `story_image_viewed`
-- [ ] Complete
+- [x] Complete
 
 **Total tasks:** 13 | **Can parallelize:** Task 1, 2, 4, 7 (no shared dependencies) | **Must be sequential:** 2→3→6, 1→5, 4+6→9, 7→8, 5+8+9→10→11→12→13
 

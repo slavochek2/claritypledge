@@ -41,6 +41,7 @@
     "clsx": "^2.1.1",
     "date-fns": "^3.6.0",
     "framer-motion": "^11.3.24",
+    "heic2any": "^0.0.4",
     "html-to-image": "^1.11.13",
     "jsonwebtoken": "^9.0.3",
     "katex": "^0.16.38",

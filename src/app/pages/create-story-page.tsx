@@ -6,6 +6,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import { useAuth } from '@/auth';
+import { supabase } from '@/lib/supabase';
 import { storiesService } from '@/app/data/stories-service';
 import { docsService } from '@/app/data/docs-service';
 import { pointsService } from '@/app/data/points-service';
@@ -20,6 +21,7 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { analytics } from '@/lib/mixpanel';
 import { ChatContextHeader } from '@/app/components/story-guide/ChatContextHeader';
+import { ImageUploadWidget } from '@/app/components/shared/image-upload-widget';
 
 /** Soft character marker — not a hard limit, just the sweet spot for verification */
 const CHAR_SOFT_MARKER = 280;
@@ -49,6 +51,10 @@ export function CreateStoryPage() {
   const [content, setContent] = useState('');
   // P586: create-story-page is always public — unless within doc context (P551)
   const visibility = isDocContext && docVisibility ? docVisibility : 'public' as const;
+
+  // Image state (P591)
+  const [imageBlob, setImageBlob] = useState<Blob | null>(null);
+  const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null);
 
   // UI state
   const [isSaving, setIsSaving] = useState(false);
@@ -186,6 +192,80 @@ export function CreateStoryPage() {
         }
       }
 
+      // P591: Upload supporting image if one was selected
+      let imageUploadFailed = false;
+      if (imageBlob) {
+        try {
+          // Get a fresh token — the React state `session` may be stale after createStory()
+          const { data: { session: freshSession } } = await supabase.auth.getSession();
+          const token = freshSession?.access_token;
+          if (!token) throw new Error('No auth session for image upload');
+
+          const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+          const edgeFunctionUrl = `${supabaseUrl}/functions/v1/generate-story-image-url`;
+
+          // Step 1: Get signed URL from edge function
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 10000);
+          let signedUrl: string;
+          let publicUrl: string;
+          try {
+            const contentType = imageBlob.type || 'image/jpeg';
+            const reqBody = {
+              storyId: story.id,
+              contentType,
+              fileName: 'story-image',
+            };
+            const response = await fetch(edgeFunctionUrl, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${token}`,
+              },
+              body: JSON.stringify(reqBody),
+              signal: controller.signal,
+            });
+            if (!response.ok) {
+              const errBody = await response.text();
+              console.error('[P591] Edge function error:', response.status, errBody);
+              throw new Error(`Signed URL request failed: ${response.status}`);
+            }
+            const urlData = await response.json();
+            signedUrl = urlData.signedUrl;
+            publicUrl = urlData.publicUrl;
+          } finally {
+            clearTimeout(timeoutId);
+          }
+
+          // Step 2: PUT processed blob to GCS
+          const uploadController = new AbortController();
+          const uploadTimeoutId = setTimeout(() => uploadController.abort(), 30000);
+          try {
+            const uploadResponse = await fetch(signedUrl, {
+              method: 'PUT',
+              headers: {
+                'Content-Type': imageBlob.type || 'image/jpeg',
+                'x-goog-content-length-range': '1,5242880',
+              },
+              body: imageBlob,
+              signal: uploadController.signal,
+            });
+            if (!uploadResponse.ok) {
+              throw new Error(`Image upload failed: ${uploadResponse.status}`);
+            }
+          } finally {
+            clearTimeout(uploadTimeoutId);
+          }
+
+          // Step 3: Update story with public image URL
+          await storiesService.updateStory(story.id, { imageUrl: publicUrl });
+          analytics.track('story_image_uploaded', { story_id: story.id });
+        } catch (err) {
+          console.error('Image upload failed:', err);
+          imageUploadFailed = true;
+        }
+      }
+
       const words = content.trim().split(/\s+/).filter(Boolean);
       analytics.track('story_created', {
         story_id: story.id,
@@ -194,6 +274,7 @@ export function CreateStoryPage() {
         linked_point_id: pointLoadedId || undefined,
         word_count: words.length,
         visibility,
+        has_image: !!imageBlob,
       });
       // Legacy event kept for backward compatibility with existing Mixpanel charts
       analytics.track('story_saved', {
@@ -212,12 +293,18 @@ export function CreateStoryPage() {
         }
       }
 
-      const toastMsg = linkFailed
-        ? 'Story saved! (Point link could not be saved)'
-        : docLinkFailed
-          ? 'Story saved! (Could not add to doc)'
-          : 'Story saved!';
+      // Build toast message based on what succeeded/failed
+      const issues: string[] = [];
+      if (linkFailed) issues.push('point link could not be saved');
+      if (docLinkFailed) issues.push('could not add to doc');
+      if (imageUploadFailed) issues.push('image upload failed — you can add it later');
+      const toastMsg = issues.length > 0
+        ? `Story saved! (${issues.join('; ')})`
+        : 'Story saved!';
       toast.success(toastMsg);
+      if (imageUploadFailed) {
+        toast.error('Image could not be uploaded. You can add it by editing the story.');
+      }
 
       navigate(`/story/${story.id}`, {
         state: {
@@ -346,6 +433,20 @@ export function CreateStoryPage() {
 
         {/* P586: Visibility selector removed — create-story-page is always public.
            Private story creation is only available from within Clarity Docs (P551). */}
+
+        {/* P591: Supporting image upload */}
+        <ImageUploadWidget
+          imageUrl={imagePreviewUrl}
+          onImageReady={(blob, previewUrl) => {
+            setImageBlob(blob);
+            setImagePreviewUrl(previewUrl);
+          }}
+          onImageRemoved={() => {
+            setImageBlob(null);
+            setImagePreviewUrl(null);
+          }}
+          disabled={isSaving}
+        />
 
         {/* Submit Button */}
         <div className="pt-4">
