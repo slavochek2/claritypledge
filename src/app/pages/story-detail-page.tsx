@@ -13,7 +13,7 @@
  * - Author can add points (inline form) and unlink points (with undo toast)
  * - justCreated flow shows educational empty state with expanded form
  */
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import { extractHashtags } from '@/lib/utils';
 import { useParams, useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { LockIcon, Loader2, Plus, Pencil, Trash2 } from 'lucide-react';
@@ -72,6 +72,7 @@ function AddPointForm({
   autoFocus,
   onCancel,
   showCancel,
+  isPrivateContext,
 }: {
   storyId: string;
   currentUserId: string;
@@ -79,6 +80,8 @@ function AddPointForm({
   autoFocus?: boolean;
   onCancel?: () => void;
   showCancel?: boolean;
+  /** P551: When true, show privacy banner and "Add Private Point" label */
+  isPrivateContext?: boolean;
 }) {
   const [statement, setStatement] = useState('');
   const [selectedPosition, setSelectedPosition] = useState<PositionType | null>(null);
@@ -191,8 +194,14 @@ function AddPointForm({
 
       // Return focus to textarea for sequential adds
       textareaRef.current?.focus();
-    } catch {
-      toast.error('Failed to add point. Please try again.');
+    } catch (err: unknown) {
+      // P551: Cross-visibility error — DB trigger rejects linking private point to public story
+      const message = err instanceof Error ? err.message : String(err);
+      if (message.toLowerCase().includes('visibility')) {
+        toast.error('This point is private and cannot be linked to a public story. To discuss this topic publicly, create a new public point.');
+      } else {
+        toast.error('Failed to add point. Please try again.');
+      }
       setIsAdding(false);
     }
   };
@@ -201,6 +210,13 @@ function AddPointForm({
 
   return (
     <div className="space-y-2">
+      {/* P551: Privacy banner when adding points to a private story in doc context */}
+      {isPrivateContext && (
+        <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 flex items-center gap-2 text-sm">
+          <LockIcon size={16} className="text-amber-600 flex-shrink-0" />
+          <span className="text-amber-800">This point will be private — only you can see it</span>
+        </div>
+      )}
       {orphanPoint && (
         <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-sm">
           <p className="text-amber-900 mb-2">Point created but linking failed. Retry to link it to your story.</p>
@@ -285,7 +301,7 @@ function AddPointForm({
                       ) : (
                         <>
                           <Plus size={16} />
-                          Add Point
+                          {isPrivateContext ? 'Add Private Point' : 'Add Point'}
                         </>
                       )}
                     </Button>
@@ -336,6 +352,7 @@ function KeyPointsSection({
   addPointRequested,
   showFormTrigger,
   onPointAdded,
+  isPrivateContext,
 }: {
   storyId: string;
   currentUserId: string;
@@ -346,6 +363,8 @@ function KeyPointsSection({
   /** Incrementing counter — each bump opens the form (used by in-card CTA) */
   showFormTrigger: number;
   onPointAdded: (point: PointSummary, position?: PositionType) => void;
+  /** P551: When true, show privacy banner in the add-point form */
+  isPrivateContext?: boolean;
 }) {
   const [showForm, setShowForm] = useState(false);
 
@@ -378,6 +397,7 @@ function KeyPointsSection({
           autoFocus={autoExpand || addPointRequested}
           showCancel={showForm && !autoExpand}
           onCancel={() => setShowForm(false)}
+          isPrivateContext={isPrivateContext}
         />
       )}
 
@@ -556,7 +576,10 @@ export function StoryDetailPage() {
   const { user, isLoading: authLoading } = useAuth();
   const { checkVerified } = useVerificationGate();
 
-  const justCreated = !!(location.state as { justCreated?: boolean } | null)?.justCreated;
+  // P551: Doc context — passed from doc detail or create-story page
+  const locationState = location.state as { justCreated?: boolean; docId?: string; docTitle?: string } | null;
+  const justCreated = !!locationState?.justCreated;
+  const docContext = useMemo(() => locationState?.docId ? { docId: locationState.docId, docTitle: locationState.docTitle ?? 'Doc' } : null, [locationState?.docId, locationState?.docTitle]);
   // Counter — each bump opens the add-point form via KeyPointsSection
   const [addPointTrigger, setAddPointTrigger] = useState(0);
 
@@ -703,14 +726,15 @@ export function StoryDetailPage() {
 
   const handleBack = useCallback(() => {
     const isDirty = isEditMode && editContent !== (story?.content ?? '');
-    const target = story?.authorSlug ? `/p/${story.authorSlug}` : '/events';
+    // P551: If navigated from a doc, go back to that doc
+    const target = docContext ? `/d/${docContext.docId}` : (story?.authorSlug ? `/p/${story.authorSlug}` : '/events');
     if (isDirty) {
       pendingNavigateRef.current = target;
       setShowUnsavedPrompt(true);
       return;
     }
     navigate(target);
-  }, [isEditMode, editContent, story?.content, story?.authorSlug, navigate]);
+  }, [isEditMode, editContent, story?.content, story?.authorSlug, navigate, docContext]);
 
   const handleRetry = useCallback(() => {
     setRetryKey(k => k + 1);
@@ -1121,7 +1145,7 @@ export function StoryDetailPage() {
 
       {/* Back button */}
       <div className="px-4 py-6">
-      <FocusHeader onBack={handleBack} />
+      <FocusHeader onBack={handleBack} label={docContext ? docContext.docTitle : undefined} />
 
       {/* P132: Rich story view / P427: swap for edit card in edit mode */}
       {isEditMode ? (
@@ -1185,6 +1209,7 @@ export function StoryDetailPage() {
             addPointRequested={searchParams.get('addPoint') === 'true'}
             showFormTrigger={addPointTrigger}
             onPointAdded={handlePointAdded}
+            isPrivateContext={!!docContext && story.visibility === 'private'}
           />
         </>
       )}
