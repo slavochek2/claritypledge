@@ -2066,7 +2066,7 @@ function ActionArea({ icon, title, subtitle, children, className = '', sticky = 
   }
 
   return (
-    <section className={`flex flex-col items-center gap-3 w-full max-w-sm pt-4 ${className}`} data-testid="action-area">
+    <section className={`flex flex-col items-center gap-3 w-full max-w-sm mx-auto pt-4 ${className}`} data-testid="action-area">
       {/* Icon + Title block */}
       {(icon || title) && (
         <div className="flex flex-col items-center gap-2">
