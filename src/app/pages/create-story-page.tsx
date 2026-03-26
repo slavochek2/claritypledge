@@ -7,12 +7,15 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import { useAuth } from '@/auth';
 import { storiesService } from '@/app/data/stories-service';
+import { docsService } from '@/app/data/docs-service';
 import { pointsService } from '@/app/data/points-service';
 import { extractHashtags } from '@/lib/utils';
 import { toast } from 'sonner';
 import { useVerificationGate } from '@/app/hooks/useVerificationGate';
+import { useDocContext } from '@/app/hooks/use-doc-context';
 import { Loader2Icon, ArrowLeft } from 'lucide-react';
 import { ClarityLoader } from '@/components/ui/clarity-loader';
+import { DocPrivacyBanner } from '@/app/components/docs/doc-privacy-banner';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { analytics } from '@/lib/mixpanel';
@@ -30,14 +33,22 @@ export function CreateStoryPage() {
   const [searchParams] = useSearchParams();
   const { user, session, isLoading: authLoading } = useAuth();
   const { checkVerified } = useVerificationGate();
+  const {
+    docId,
+    docTitle,
+    docVisibility,
+    isDocContext,
+    isLoading: docLoading,
+    backPath,
+  } = useDocContext();
 
   // Point context from query params
   const pointId = searchParams.get('pointId') || '';
 
   // Form state
   const [content, setContent] = useState('');
-  // P586: create-story-page is always public — private creation only via Clarity Docs
-  const visibility = 'public' as const;
+  // P586: create-story-page is always public — unless within doc context (P551)
+  const visibility = isDocContext && docVisibility ? docVisibility : 'public' as const;
 
   // UI state
   const [isSaving, setIsSaving] = useState(false);
@@ -191,8 +202,30 @@ export function CreateStoryPage() {
         visibility,
       });
 
-      toast.success(linkFailed ? 'Story saved! (Point link could not be saved)' : 'Story saved!');
-      navigate(`/story/${story.id}`, { state: { justCreated: true }, replace: true });
+      // P551: Link story to doc if in doc context
+      let docLinkFailed = false;
+      if (isDocContext && docId) {
+        try {
+          await docsService.addStoryToDoc(docId, story.id);
+        } catch {
+          docLinkFailed = true;
+        }
+      }
+
+      const toastMsg = linkFailed
+        ? 'Story saved! (Point link could not be saved)'
+        : docLinkFailed
+          ? 'Story saved! (Could not add to doc)'
+          : 'Story saved!';
+      toast.success(toastMsg);
+
+      navigate(`/story/${story.id}`, {
+        state: {
+          justCreated: true,
+          ...(isDocContext && docId ? { docId, docTitle } : {}),
+        },
+        replace: true,
+      });
     } catch (err) {
       console.error('Error creating story:', err);
       toast.error('Save failed. Please check your connection and try again.');
@@ -220,12 +253,12 @@ export function CreateStoryPage() {
     <div className="container mx-auto px-4 py-8 md:py-12 max-w-2xl">
       <Button
         variant="ghost"
-        onClick={() => navigate(-1)}
+        onClick={() => isDocContext ? navigate(backPath) : navigate(-1)}
         className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-4 -ml-2 min-h-[44px] px-3"
-        aria-label="Go back"
+        aria-label={isDocContext ? `Back to ${docTitle}` : 'Go back'}
       >
         <ArrowLeft size={16} />
-        Back
+        {isDocContext ? docTitle || 'Back' : 'Back'}
       </Button>
 
       {/* Point context banner (P486) — only render region when loading or point found */}
@@ -247,6 +280,13 @@ export function CreateStoryPage() {
               sticky={false}
             />
           ) : null}
+        </div>
+      )}
+
+      {/* Doc privacy banner (P551) */}
+      {isDocContext && docVisibility && (
+        <div className="mb-4">
+          <DocPrivacyBanner visibility={docVisibility} />
         </div>
       )}
 
@@ -311,7 +351,7 @@ export function CreateStoryPage() {
         <div className="pt-4">
           <Button
             type="submit"
-            disabled={isSaving || pointLoading}
+            disabled={isSaving || pointLoading || docLoading}
             className="bg-blue-500 hover:bg-blue-600 text-white min-h-[44px]"
           >
             {isSaving ? (
@@ -319,6 +359,10 @@ export function CreateStoryPage() {
                 <Loader2Icon className="w-4 h-4 animate-spin" />
                 Saving...
               </>
+            ) : isDocContext && docVisibility === 'private' ? (
+              'Save Private Story'
+            ) : isDocContext ? (
+              'Save Story'
             ) : (
               'Publish Story'
             )}

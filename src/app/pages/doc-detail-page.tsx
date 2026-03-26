@@ -8,6 +8,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { FileText, Plus, ListChecks } from 'lucide-react';
+import { DocStoryPicker } from '@/app/components/docs/doc-story-picker';
 import { ClarityPageLoader } from '@/components/ui/clarity-loader';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/auth';
@@ -25,6 +26,7 @@ export function DocDetailPage() {
   const [doc, setDoc] = useState<ClarityDoc | null>(null);
   const [stories, setStories] = useState<DocStory[]>([]);
   const [fetchState, setFetchState] = useState<'loading' | 'done' | 'not-found'>('loading');
+  const [pickerOpen, setPickerOpen] = useState(false);
 
   const fetchDoc = useCallback(async () => {
     if (!docId) return;
@@ -153,13 +155,24 @@ export function DocDetailPage() {
                 Write a story
               </Link>
             </Button>
-            <Button variant="outline" disabled>
+            <Button variant="outline" onClick={() => setPickerOpen(true)}>
               <ListChecks size={16} />
               Select your story
             </Button>
           </div>
         )}
       </div>
+
+      {/* Story picker dialog */}
+      {isOwner && (
+        <DocStoryPicker
+          docId={doc.id}
+          docVisibility={doc.visibility}
+          open={pickerOpen}
+          onOpenChange={setPickerOpen}
+          onStoryAdded={fetchDoc}
+        />
+      )}
     </main>
   );
 }
