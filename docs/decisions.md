@@ -2,6 +2,14 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-26 [product]: P564 rejected — "orphan points" is not a real problem
+
+**Context:** P564 (Point-to-Story Attribution) proposed preventing orphan points by forcing point creation through stories, adding a "legacy" badge to orphaned points, and tracking `link_type` (authored vs responded) on `story_points`. Analysis revealed: (1) standalone point creation was already removed — the only `createPoint` call in the UI is inside `AddPointForm` on `story-detail-page.tsx`, which immediately links to a story. (2) P576 (Mar 23) intentionally decoupled stories from positions, making stories and points more independent. (3) The "orphan" framing assumes points need stories to have meaning, but positions + reasoning ARE the epistemology — a point with 5 positions is valuable regardless of whether the originating story exists.
+**Decision:** Reject P564. Points are first-class entities. Stories enrich them but aren't required. When a story is deleted, linked `story_points` rows cascade-delete but the point and all positions survive — this is correct behavior, not a bug. No legacy badge, no deletion blocking, no `link_type` column needed.
+**Alternatives rejected:** (A) Implement P564 as written — solves a non-problem, adds UI complexity (legacy badges) users don't need. (B) Block story deletion when others have positions on linked points — restricts content ownership for no user benefit. (C) Snapshot originating story text onto the point — over-engineering; positions carry their own reasoning. (D) Keep just the `link_type` column — marginal provenance value doesn't justify schema change with no consumer.
+**Consequences:** P564 closed as rejected. The existing data model (points independent, stories optional context, positions carry epistemology) is the correct architecture. No schema changes needed.
+**References:** [P564 spec](../features/p564_point_story_attribution.md), [P576 migration](supabase/migrations/20260323075949_p576_drop_position_story_cascade.sql)
+
 ## 2026-03-26 [process]: lint-after-edit hook — auto-fix over block, drop tsc
 
 **Context:** The `lint-after-edit.sh` hook ran `tsc --noEmit` (whole project, ~0.6s) + `eslint` (~1.8s) after every Edit to `src/*.ts(x)` files. During multi-file refactors (e.g., Sentry logging across 5 service files), this added ~100s of hook overhead for 13 edits. Intermediate states during batch work always have false-positive type errors (file A imports from file B not yet created).
