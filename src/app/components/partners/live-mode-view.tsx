@@ -97,9 +97,9 @@ function RecordingIndicator({ isPrivate = false, uploadHealth }: { isPrivate?: b
 // ============================================================================
 
 /** Standard content container layout - centered, max-width, top-aligned */
-const CONTENT_LAYOUT = "flex-1 flex flex-col items-center justify-start pt-8 p-6 space-y-6 max-w-lg mx-auto w-full";
+const CONTENT_LAYOUT = "flex-1 flex flex-col items-center justify-start pt-8 p-6 space-y-6 max-w-lg mx-auto w-full overflow-y-auto";
 /** Content layout variant - vertically centered (for idle state without history) */
-const CONTENT_LAYOUT_CENTERED = "flex-1 flex flex-col items-center justify-center px-6 pb-6 pt-16 space-y-8 max-w-lg mx-auto w-full";
+const CONTENT_LAYOUT_CENTERED = "flex-1 flex flex-col items-center justify-center px-6 pb-6 pt-16 space-y-8 max-w-lg mx-auto w-full overflow-y-auto";
 
 // ============================================================================
 // PARTNER LEFT SCREEN
@@ -1108,7 +1108,7 @@ function IdleScreen({
     <div className="flex flex-col h-full">
       <LiveHeader partnerName={partnerName} onExit={onExit} isPrivate={isPrivate} uploadHealth={uploadHealth} />
 
-      <div ref={scrollContainerRef} className={`${layoutClass} overflow-y-auto`} style={{ overflowAnchor: 'none' }}>
+      <div ref={scrollContainerRef} className={layoutClass} style={{ overflowAnchor: 'none' }}>
         {selectedHistoryIndex !== null && sessionHistory[selectedHistoryIndex] ? (
           <RoundSummaryScreen
             item={sessionHistory[selectedHistoryIndex]}
