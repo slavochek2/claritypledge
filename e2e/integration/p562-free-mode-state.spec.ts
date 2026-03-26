@@ -157,15 +157,9 @@ test.describe('P562: Free Mode State Machine — Integration', () => {
 
   test('freePhase transitions follow valid sequence', async () => {
     // Valid transition sequence: sealed-bid → waiting → reveal → paraphrase → unlocked
-    const phases: Array<{ phase: string; description: string }> = [
-      { phase: 'sealed-bid', description: 'Both users see sealed-bid drawer' },
-      { phase: 'waiting', description: 'First user submitted, waiting for second' },
-      { phase: 'reveal', description: 'Both submitted, numbers revealed' },
-      { phase: 'paraphrase', description: 'Listener prompted to paraphrase' },
-      { phase: 'unlocked', description: 'Sliders freely movable' },
-    ];
+    const phases = ['sealed-bid', 'waiting', 'reveal', 'paraphrase', 'unlocked'];
 
-    for (const { phase, description } of phases) {
+    for (const phase of phases) {
       await supabaseAdmin
         .from('clarity_sessions')
         .update({
