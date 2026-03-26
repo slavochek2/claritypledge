@@ -36,6 +36,7 @@ interface DbStoryWithAuthor {
   updated_at: string;
   tags: string[];
   banner_url?: string | null;
+  image_url?: string | null;
   author: {
     id: string;
     name: string | null;
@@ -91,6 +92,7 @@ function mapStoryFromDb(row: DbStoryWithAuthor): StoryWithAuthor {
     updatedAt: row.updated_at,
     tags: row.tags || [],
     bannerUrl: row.banner_url ?? undefined,
+    imageUrl: row.image_url ?? undefined,
     // Author info from joined profile
     authorName: row.author?.name ?? 'Unknown',
     authorSlug: row.author?.slug ?? '',
@@ -137,7 +139,8 @@ export const realStoriesService: StoriesService = {
     _authorId: string,
     content: string,
     tags: string[] = [],
-    visibility: StoryVisibility = 'public'
+    visibility: StoryVisibility = 'public',
+    imageUrl?: string
   ): Promise<Story | null> {
     // Use authenticated user, not caller-supplied authorId (RLS requires auth.uid() match)
     const { data: { user }, error: authError } = await supabase.auth.getUser();
@@ -152,14 +155,17 @@ export const realStoriesService: StoriesService = {
 
     log(' createStory:', { authorId: user.id, visibility });
 
+    const insertData: Record<string, unknown> = {
+      author_id: user.id,
+      content,
+      tags,
+      visibility,
+    };
+    if (imageUrl !== undefined) insertData.image_url = imageUrl;
+
     const { data, error } = await supabase
       .from('stories')
-      .insert({
-        author_id: user.id,
-        content,
-        tags,
-        visibility,
-      })
+      .insert(insertData)
       .select('*')
       .single();
 
@@ -182,6 +188,7 @@ export const realStoriesService: StoriesService = {
       updatedAt: data.updated_at,
       tags: data.tags || [],
       bannerUrl: data.banner_url ?? undefined,
+      imageUrl: data.image_url ?? undefined,
     };
 
     // P504: Fire-and-forget banner generation after successful insert
@@ -522,7 +529,7 @@ export const realStoriesService: StoriesService = {
 
   async updateStory(
     storyId: string,
-    updates: { content?: string; tags?: string[]; bannerUrl?: string | null }
+    updates: { content?: string; tags?: string[]; bannerUrl?: string | null; imageUrl?: string | null }
   ): Promise<Story | null> {
     log(' updateStory:', { storyId, updates });
 
@@ -530,6 +537,7 @@ export const realStoriesService: StoriesService = {
     if (updates.content !== undefined) updateData.content = updates.content;
     if (updates.tags !== undefined) updateData.tags = updates.tags;
     if (updates.bannerUrl !== undefined) updateData.banner_url = updates.bannerUrl;
+    if (updates.imageUrl !== undefined) updateData.image_url = updates.imageUrl;
 
     const { data, error } = await supabase
       .from('stories')
@@ -554,6 +562,7 @@ export const realStoriesService: StoriesService = {
       updatedAt: data.updated_at,
       tags: data.tags || [],
       bannerUrl: data.banner_url ?? undefined,
+      imageUrl: data.image_url ?? undefined,
     };
   },
 
@@ -637,6 +646,7 @@ export const realStoriesService: StoriesService = {
       updatedAt: s.updated_at,
       tags: s.tags ?? [],
       bannerUrl: s.banner_url ?? undefined,
+      imageUrl: (s as { image_url?: string | null }).image_url ?? undefined,
     };
   },
 

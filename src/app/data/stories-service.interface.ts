@@ -24,7 +24,8 @@ export interface StoriesService {
     authorId: string,
     content: string,
     tags?: string[],
-    visibility?: StoryVisibility
+    visibility?: StoryVisibility,
+    imageUrl?: string
   ): Promise<Story | null>;
 
   // ============================================================================
@@ -93,7 +94,7 @@ export interface StoriesService {
    */
   updateStory(
     storyId: string,
-    updates: { content?: string; tags?: string[]; bannerUrl?: string | null }
+    updates: { content?: string; tags?: string[]; bannerUrl?: string | null; imageUrl?: string | null }
   ): Promise<Story | null>;
 
   /**
