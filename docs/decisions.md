@@ -2,6 +2,32 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-26 [product]: Story/point narrative reorder — st1 through st9 pedagogical sequence
+
+**Context:** The 8-story sequence (st1-st8) had a pedagogical gap: st1 named the 3 types of understanding, then st2 jumped to "cognitive is the win-win first goal" without establishing WHY verification matters or HOW it works. A real conversation with someone who rejected the system ("I communicate fine, it's too complex") surfaced the missing bridge: people can't assess their own understanding accuracy without verification — their self-assessment has no error signal.
+**Decision:** (1) Added new story st2 (calibration admission — "my estimates are unreliable, verification is prerequisite for belief correction"). (2) Reordered: st1 (3 types) → st2 (calibration) → st3 (mechanism: explain-back) → st4 (failure mode: judgment) → st5 (sequence: cognitive first) → st6 (social contract: refusing without reason) → st7 (formalization: partnership agreement) → st8 (proof: 14 co-founders) → st9 (public commitment: ClarityPledge). (3) Renumbered all tags from st1-st8+st1.5 to clean st1-st9. (4) Revised st7 understanding point to focus on formalization value (old version restated the mechanism).
+**Alternatives rejected:** (A) Keep original order — the gap between "types" and "win-win" was too large; real-world objection confirmed this. (B) Add st2 without reordering — mechanism (old st3) before payoff (old st2) is pedagogically stronger.
+**Consequences:** 9 stories, 9 point pairs, clean st1-st9 numbering. Feed displays oldest-first as the intended reading order. The calibration admission (st2) serves as the objection-handler for "I don't need this" — the most common rejection pattern.
+
+## 2026-03-26 [product]: Point versioning — create new point, don't edit in place
+
+**Context:** Revised st7's understanding point statement after 4 users had already taken positions on the original. In-place edit would make existing positions misleading — "Agrees+" on text the user never saw.
+**Decision:** Revert original point to its previous text (positions stay truthful), create a new point with the revised statement, link both to the same story. Tag old point `#v1`, new point `#v2`. Users discover the new point naturally on their next visit and position fresh.
+**Alternatives rejected:** (A) Edit in place — misleads existing position-holders. (B) Mark positions as "on previous version" — requires schema change + UI work, not justified at current scale (3 users). (C) Reset positions — aggressive, loses data.
+**Consequences:** Pattern established: never edit a point statement that has positions. Create v2 instead. At scale, this becomes a versioning feature with notifications. At 3 users, natural discovery is sufficient.
+
+## 2026-03-26 [product]: Feed sort label shows current state, not future action
+
+**Context:** Feed page sort toggle label said "Newest first" when the feed was showing oldest first (the label described what clicking would do, not what the user was seeing). Caused confusion about actual sort order.
+**Decision:** Flipped the label to show current state: "Newest first" when showing newest first, "Oldest first" when showing oldest first.
+**Consequences:** One-line fix in feed-page.tsx. The aria-label still describes the action for accessibility.
+
+## 2026-03-26 [process]: /quick-blog skill + content/articles A-number pipeline
+
+**Context:** Captured a blog idea during conversation but it went to features/ (P-number) instead of content/articles/ (A-number). The content pipeline kanban has its own columns (idea → draft → editing → ready → published → promoted) separate from the feature kanban.
+**Decision:** Created `/slava:content:quick-blog` skill — captures blog ideas with proper A-number, frontmatter, and status:idea. Analogous to `/quick-feature` for features. Uses `./scripts/next-a-number.sh` for deduplication.
+**Consequences:** Blog ideas now land in the Article Pipeline kanban, not the feature kanban. Workflow: `/quick-blog` (capture) → `/prepare-blog` (outline) → `/draft-blog` (write) → `/ship-blog` (publish).
+
 ## 2026-03-25 [technical]: Triggers over RLS WITH CHECK for immutability + cross-visibility constraints
 
 **Context:** P586 needed to enforce (1) visibility immutability on stories and points, (2) cross-visibility constraint (public story cannot link to private point). Two implementation paths: RLS `WITH CHECK` or BEFORE INSERT/UPDATE triggers.

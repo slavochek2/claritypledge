@@ -2,7 +2,23 @@
 
 Core concepts of the Clarity Pledge platform. This is the product's conceptual foundation.
 
-**Last Updated:** 2026-03-24
+**Last Updated:** 2026-03-26
+
+---
+
+## Common Knowledge (Pinker)
+
+> **One-liner:** Common knowledge is when both people know X, both know the other knows X, and both know the other knows they know — recursively.
+
+**Formal definition (Steven Pinker, David Lewis, Michael Chwe):** A fact is common knowledge between two people when it is known to both, each knows the other knows, and each knows the other knows they know. This recursive structure is what distinguishes verified understanding from private belief.
+
+**Why it matters for ClarityPledge:** Verified cognitive understanding produces common knowledge. Without the explain-back protocol, what each person "understood" remains a private guess — not common knowledge. A belief that isn't common knowledge can't be properly challenged, because neither party can confirm they're discussing the same thing. This is the logical foundation for why verification is a prerequisite for belief correction, not just a nice-to-have.
+
+**The calibration problem:** People carry an implicit self-assessment of how well they understand others. Without verification, there is no error signal — the self-assessment defaults to "I understood." The ratio of perceived understanding to actual understanding stays unchallenged. The explain-back protocol is the only mechanism that provides this error signal in ordinary conversation.
+
+**Relationship to stories/points:** Story st2 encodes this as a personal admission ("my estimates are unreliable"). The calibration display on profiles is the quantitative version — measured gap between self-assessed and speaker-verified understanding.
+
+*See also: [philosophy.md](philosophy.md), [theory-of-change.md](theory-of-change.md)*
 
 ---
 

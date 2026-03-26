@@ -268,9 +268,9 @@ export function FeedPage() {
           <button
             onClick={handleSortToggle}
             className="ml-auto flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors pb-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-sm"
-            aria-label={ascending ? 'Switch to newest first' : 'Switch to oldest first'}
+            aria-label={ascending ? 'Currently oldest first, click for newest' : 'Currently newest first, click for oldest'}
           >
-            {ascending ? 'Newest first' : 'Oldest first'}
+            {ascending ? 'Oldest first' : 'Newest first'}
             <ArrowUpDown className="w-3.5 h-3.5" />
           </button>
         </div>
