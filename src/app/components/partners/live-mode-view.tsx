@@ -1148,6 +1148,7 @@ function IdleScreen({
             )}
 
             <ActionArea
+              sticky={!!selectedStory}
               className={showRatingDrawer || hasRatingData ? '' : '!pt-0'}
             >
               {/* Check button: always shown in free session; owner-only when story is selected */}
@@ -1181,7 +1182,21 @@ function IdleScreen({
               {waitingForPartnerToContinue && (
                 <WaitingIndicator message={`Waiting for ${displayPartnerName} to continue...`} />
               )}
+
+              {/* P588: Speak freely moved inside ActionArea for sticky layout */}
+              {/* P272: Speak freely pre-round — clears story from both screens when story selected */}
+              {liveState.selectedStoryId && !waitingForPartnerToContinue && (
+                <button
+                  onClick={onClearStory}
+                  className="text-sm text-muted-foreground hover:text-foreground transition-colors min-h-[44px] px-4"
+                  type="button"
+                >
+                  Speak freely
+                </button>
+              )}
             </ActionArea>
+            {/* P588: Spacer for sticky ActionArea */}
+            {!!selectedStory && <ActionAreaSpacer />}
 
             {/* P272: StorySearchPicker — only when no story selected AND user has stories */}
             {!liveState.selectedStoryId && userId && contentLoaded && stories.length > 0 && onSelectStory && (
@@ -1190,18 +1205,6 @@ function IdleScreen({
                 onSelectStory={handleSelectStoryWithTracking}
                 disabled={showRatingDrawer || waitingForPartnerToContinue}
               />
-            )}
-
-            {/* P272: Speak freely pre-round — clears story from both screens when story selected */}
-            {/* P400: removed !showRatingDrawer gate — Speak Freely must show whenever story card is visible */}
-            {liveState.selectedStoryId && !waitingForPartnerToContinue && (
-              <button
-                onClick={onClearStory}
-                className="text-sm text-muted-foreground hover:text-foreground transition-colors mt-1 min-h-[44px] px-4"
-                type="button"
-              >
-                Speak freely
-              </button>
             )}
 
             {/* P398: Session history — clickable rows for completed rounds */}
@@ -2022,7 +2025,7 @@ export function JourneyToUnderstanding({
 // ============================================================================
 
 interface ActionAreaProps {
-  /** Optional emoji icon (e.g., "🎤", "👂") */
+  /** Optional emoji icon (e.g., "🎤", "👂") — hidden when sticky */
   icon?: string;
   /** Optional title text */
   title?: React.ReactNode;
@@ -2032,14 +2035,43 @@ interface ActionAreaProps {
   children: React.ReactNode;
   /** Additional CSS classes */
   className?: string;
+  /** P588: When true, renders as fixed bottom bar. Default true. */
+  sticky?: boolean;
 }
 
 /**
  * ActionArea - Wrapper component for action content below the history card.
- * Provides consistent spacing, optional icon with circular background, and title styling.
- * Use for presenting action choices (buttons) or waiting states with visual context.
+ * P588: When sticky (default), renders as a fixed bottom bar so CTAs are always reachable.
+ * When not sticky, renders inline as before (used for celebration and free-form idle).
  */
-function ActionArea({ icon, title, subtitle, children, className = '' }: ActionAreaProps) {
+function ActionArea({ icon, title, subtitle, children, className = '', sticky = true }: ActionAreaProps) {
+  if (sticky) {
+    return (
+      <section
+        className={`fixed bottom-0 left-0 right-0 z-40 bg-background border-t border-border pb-[env(safe-area-inset-bottom)] ${className}`}
+        data-testid="action-area"
+      >
+        <div className="flex flex-col items-center gap-2 w-full max-w-sm mx-auto px-4 py-3">
+          {/* Title only (no icon in sticky mode) */}
+          {title && (
+            <p className="text-sm font-medium text-center max-w-xs whitespace-pre-line text-muted-foreground">
+              {title}
+            </p>
+          )}
+          {subtitle && (
+            <p className="text-xs text-muted-foreground text-center">
+              {subtitle}
+            </p>
+          )}
+          {/* Action buttons/content */}
+          <div className="flex flex-col gap-2 w-full max-w-xs" role="group">
+            {children}
+          </div>
+        </div>
+      </section>
+    );
+  }
+
   return (
     <section className={`flex flex-col items-center gap-3 w-full max-w-sm pt-4 ${className}`} data-testid="action-area">
       {/* Icon + Title block */}
@@ -2068,6 +2100,11 @@ function ActionArea({ icon, title, subtitle, children, className = '' }: ActionA
       </div>
     </section>
   );
+}
+
+/** P588: Spacer to prevent content from being hidden behind the sticky ActionArea */
+function ActionAreaSpacer() {
+  return <div className="h-40 flex-shrink-0" aria-hidden="true" />;
 }
 
 // ============================================================================
@@ -2366,6 +2403,7 @@ function UnderstandingScreen({
                   onSkip={onSkip}
                 />
               </ActionArea>
+              <ActionAreaSpacer />
             </div>
 
             {/* Negotiation Dialog 1: Speaker sees when listener wants to skip active listening */}
@@ -2541,6 +2579,7 @@ function UnderstandingScreen({
                 />
               )}
             </ActionArea>
+            <ActionAreaSpacer />
           </div>
 
           {/* Negotiation Dialog 2: Listener sees when speaker asked them to explain back */}
@@ -2621,6 +2660,7 @@ function UnderstandingScreen({
               </>
             )}
           </ActionArea>
+          <ActionAreaSpacer />
         </div>
 
         {/* Negotiation Dialog 2: Listener sees when speaker asked them to explain back */}
@@ -2699,6 +2739,7 @@ function UnderstandingScreen({
               skipLabel="Cancel"
             />
           </ActionArea>
+          <ActionAreaSpacer />
         </div>
       </div>
     );
@@ -2763,7 +2804,7 @@ function UnderstandingScreen({
               className="w-full max-w-sm mb-2"
             />
           )}
-          <ActionArea>
+          <ActionArea sticky={false}>
             <Button
               size="lg"
               className="bg-blue-500 hover:bg-blue-600 w-full"
@@ -2865,6 +2906,7 @@ function UnderstandingScreen({
               </>
             )}
           </ActionArea>
+          <ActionAreaSpacer />
         </div>
 
         {/* Negotiation Dialog 1: Speaker sees when listener wants to share perspective */}
@@ -3002,6 +3044,7 @@ function UnderstandingScreen({
               </>
             )}
           </ActionArea>
+          <ActionAreaSpacer />
         </div>
 
         {/* Negotiation Dialog 1: Speaker sees when listener wants to share perspective */}
@@ -3135,6 +3178,7 @@ function UnderstandingScreen({
               />
             </ActionArea>
           )}
+          <ActionAreaSpacer />
         </div>
 
         {/* B32_4: Negotiation Dialog 1 - Speaker sees when listener wants to skip during clarify phase */}
@@ -3300,6 +3344,7 @@ function UnderstandingScreen({
             )
           )}
         </ActionArea>
+        <ActionAreaSpacer />
       </div>
 
       {/* Negotiation Dialog 1: Speaker sees when listener wants to share perspective */}
