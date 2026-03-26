@@ -1,7 +1,7 @@
 # Done Features Index
 
 Quick reference for past completed work. Consult when starting work on a related topic.
-Last updated: 2026-03-26 (P551 Clarity Docs + P590 Design Fixes)
+Last updated: 2026-03-26 (P588 Live Layout + Nav Fix)
 
 ---
 
@@ -20,6 +20,7 @@ Last updated: 2026-03-26 (P551 Clarity Docs + P590 Design Fixes)
 - **P276** (Feb 26) Two-Party E2E DB Polling — explicit waits reduce flakiness in multi-agent E2E coordination
 - **P469** (Mar 02) /live Layout Revert P455 + KISS Fixes — collapse threshold `> 1` fires with 2 rounds (hides 1 row); raise to `> 2`; `olderRounds` must always compute (don't gate on `hasOlderRounds` or it drops intermediate rounds)
 - **P492** (Mar 11) Guest Post-Session UI — hide "Start New Session" for guests (`isGuest` conditional); guests can't create sessions, only join via invite code
+- **P588** (Mar 26) /live Layout Sticky CTA + Nav Fix — `overflow-hidden` on ancestor divs was the root cause of scroll failures (took ~10 commits to diagnose); mobile nav: icon-only logo prevents wordmark wrapping; brand name corrected to "ClarityPledge" (one word)
 - **P490** (Mar 12) Guest Position Sync + Unsaved Hint — `livePositions` missing from polling drift check silently broke guest→host sync; `isGuest` prop threading follows `isStoryOwner` pattern (P487); mic permission has two gates (`completeJoin` + `gateMicAndGoLive`) — bypass must cover both
 - **P495** (Mar 16) Live Session Transcription — Cloud Run GPU (L4) with Whisper large-v3-turbo + pyannote; type field names must match DB exactly (`start_ms`/`end_ms` not `start`/`end`); `import.meta.env.PROD` gate means dev never records audio
 - **P511** (Mar 16) Session Resilience — banner must render inside `<main>` (not between nav/main) to avoid z-index fights; `ended_at` column doesn't exist — use `live_state.sessionEnded`; creator-only heartbeats; `createTwoPartySession()` test fixture built as P497 MVP

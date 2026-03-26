@@ -2,6 +2,14 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-26 [technical]: overflow-hidden is the #1 scroll killer in nested flex layouts
+
+**Context:** P588 /live layout restructure required ~10 fix commits to diagnose scroll failures. The sticky CTA bar and content area wouldn't scroll. Root cause was `overflow-hidden` on ancestor `div` elements — flex containers that silently clip all descendant scroll containers.
+**Decision:** Never use `overflow-hidden` on layout containers in /live or any full-height flex layout. Use `overflow-y-auto` on the intended scroll container only. When scroll breaks: start by removing `overflow-hidden` from ancestors (check layout root → main → page wrapper), don't add `overflow-y-auto` to children first.
+**Alternatives rejected:** Adding `min-h-0` to flex containers (necessary but insufficient — `overflow-hidden` on a parent still clips). Adding scroll to every container (creates competing scroll regions).
+**Consequences:** Debugging protocol: "scroll broken?" → grep for `overflow-hidden` in parent chain first. Pattern documented in done-features INDEX under P588.
+**References:** [P588 spec](features/done/22_mar_26/p588_live_layout_sticky_cta_accordion_peek.md)
+
 ## 2026-03-26 [product]: Globe icon on all public action buttons (extending P586)
 
 **Context:** P586 established inline globe/lock icons on content cards (stories, points, docs). But action buttons ("Share a Story", "Publish Story", "Add Point") still used PenLine or Plus icons — inconsistent with the visibility language.
