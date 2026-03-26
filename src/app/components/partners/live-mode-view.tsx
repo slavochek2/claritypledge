@@ -2045,7 +2045,7 @@ function ActionArea({ icon, title, subtitle, children, className = '', sticky = 
         <div className="flex flex-col items-center gap-2 w-full max-w-sm mx-auto px-4 py-3">
           {/* Title only (no icon in sticky mode) */}
           {title && (
-            <p className="text-sm font-medium text-center max-w-xs whitespace-pre-line text-muted-foreground">
+            <p className="text-lg font-semibold text-center max-w-xs whitespace-pre-line">
               {title}
             </p>
           )}
