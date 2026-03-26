@@ -1164,18 +1164,48 @@ function IdleScreen({
                 onItemClick={showRatingDrawer ? undefined : (i) => setSelectedHistoryIndex(i)}
               />
             )}
+
+            {/* P588: Non-sticky ActionArea INSIDE scroll container for vertical centering (no story = free-form idle) */}
+            {!selectedStory && !showRatingDrawer && (selectedHistoryIndex === null) && (
+              <ActionArea
+                sticky={false}
+                className={hasRatingData ? '' : '!pt-0'}
+              >
+                <Button
+                  size="lg"
+                  className="bg-blue-500 hover:bg-blue-600 w-full"
+                  onClick={handleStartCheckWithTracking}
+                  disabled={waitingForPartnerToContinue}
+                  data-testid="start-check"
+                >
+                  Does <span className="font-bold">{displayPartnerName}</span> understand you?
+                </Button>
+                <Button
+                  variant="outline"
+                  size="lg"
+                  className="w-full"
+                  onClick={handleStartProveWithTracking}
+                  disabled={waitingForPartnerToContinue}
+                  data-testid="start-prove"
+                >
+                  Do you understand <span className="font-bold">{displayPartnerName}</span>?
+                </Button>
+                {waitingForPartnerToContinue && (
+                  <WaitingIndicator message={`Waiting for ${displayPartnerName} to continue...`} />
+                )}
+              </ActionArea>
+            )}
           </>
         )}
       </div>
 
-      {/* ActionArea — outside scroll container for proper flex layout */}
-      {(selectedHistoryIndex === null || !sessionHistory[selectedHistoryIndex]) && (
+      {/* P588: Sticky ActionArea OUTSIDE scroll container (story selected) */}
+      {selectedStory && (selectedHistoryIndex === null) && (
         <ActionArea
-          sticky={!!selectedStory}
+          sticky={true}
           className={showRatingDrawer || hasRatingData ? '' : '!pt-0'}
         >
-          {/* Check button: always shown in free session; owner-only when story is selected */}
-          {!showRatingDrawer && (!selectedStory || isStoryOwner) && (
+          {!showRatingDrawer && isStoryOwner && (
             <Button
               size="lg"
               className="bg-blue-500 hover:bg-blue-600 w-full"
@@ -1186,28 +1216,9 @@ function IdleScreen({
               Does <span className="font-bold">{displayPartnerName}</span> understand you?
             </Button>
           )}
-
-          {/* Prove button: only shown in free session (no story selected) */}
-          {!showRatingDrawer && !selectedStory && (
-            <Button
-              variant="outline"
-              size="lg"
-              className="w-full"
-              onClick={handleStartProveWithTracking}
-              disabled={waitingForPartnerToContinue}
-              data-testid="start-prove"
-            >
-              Do you understand <span className="font-bold">{displayPartnerName}</span>?
-            </Button>
-          )}
-
-          {/* Waiting for partner to continue indicator */}
           {waitingForPartnerToContinue && (
             <WaitingIndicator message={`Waiting for ${displayPartnerName} to continue...`} />
           )}
-
-          {/* P588: Speak freely moved inside ActionArea for sticky layout */}
-          {/* P272: Speak freely pre-round — clears story from both screens when story selected */}
           {liveState.selectedStoryId && !waitingForPartnerToContinue && (
             <button
               onClick={onClearStory}
