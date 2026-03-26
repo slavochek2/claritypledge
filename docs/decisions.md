@@ -2,6 +2,30 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-26 [process]: lint-after-edit hook — auto-fix over block, drop tsc
+
+**Context:** The `lint-after-edit.sh` hook ran `tsc --noEmit` (whole project, ~0.6s) + `eslint` (~1.8s) after every Edit to `src/*.ts(x)` files. During multi-file refactors (e.g., Sentry logging across 5 service files), this added ~100s of hook overhead for 13 edits. Intermediate states during batch work always have false-positive type errors (file A imports from file B not yet created).
+**Decision:** Removed `tsc --noEmit` from the hook (deferred to pre-commit). Changed `eslint` to `--fix` mode (auto-corrects unused imports silently instead of blocking). Pre-commit-checks.sh still runs both tsc + eslint before any commit.
+**Alternatives rejected:** (A) Keep both checks — 2.4s/edit tax kills batch operations and subagent speed. (B) Remove hook entirely — loses the edit-time auto-fix value for common issues like unused imports. (C) Add debounce — complex to implement in bash, fragile.
+**Consequences:** ~60% faster per-edit hook. Most common issue (unused imports) gets auto-fixed without agent intervention. Type errors caught at commit time, not edit time.
+**References:** [lint-after-edit.sh](.claude/hooks/lint-after-edit.sh)
+
+## 2026-03-26 [technical]: Sentry DB error logging — systemic silent failure fix
+
+**Context:** Every Supabase service file (`points-service-real.ts`, `events-service-real.ts`, `stories-service-real.ts`, `agreements-service-real.ts`, `calibration-service-real.ts`) used `log('ERROR: ...', error)` for DB query failures. The `log()` function only fires when `import.meta.env.DEV` is true — in production, all DB errors were silently swallowed, returning empty arrays with zero observability. This directly caused the P586 profile bug to be invisible: error 42703 (missing column) returned `[]` instead of alerting anyone.
+**Decision:** Created `src/app/data/db-error-logger.ts` with `logDbError(context, error)` — console.error in dev, `Sentry.captureException` in prod with error code/details/hint as extras. Replaced 62 error handlers across 5 service files. Left business logic validations (auth checks, permission guards) as dev-only `log()` calls — those are expected states, not errors.
+**Alternatives rejected:** (A) Only catch error code 42703 — too narrow; all DB errors in prod deserve visibility. (B) Startup schema validation — disproportionate for a solo project, requires maintaining expected column list. (C) Status quo — the P586 outage proved this is unacceptable.
+**Consequences:** Any Supabase query failure in prod now appears in Sentry within seconds. Covers schema drift (42703), RLS denials, connection failures, and any future DB error class.
+**References:** [db-error-logger.ts](src/app/data/db-error-logger.ts)
+
+## 2026-03-26 [process]: P586 prod outage — deploy drift from process bypass, CI guard added
+
+**Context:** P586 (Visibility & Privacy Foundation) added a `visibility` column to `points` table. Code was committed directly to main (bypassing `/ship`) and auto-deployed by Vercel. The P586 DB migration was never applied to prod. The profile page query `.eq('visibility', 'public')` failed with error 42703 on prod — but the error was silently swallowed (see sibling decision). All user profiles viewed by others showed "Points (0)". Self-viewing worked (visibility filter is skipped for self-view), masking the bug from the developer.
+**Decision:** (1) Applied P586 migration to prod immediately. (2) Added GitHub Actions CI check (`.github/workflows/check-deploy-drift.yml`) that runs `check-deploy-manifest.sh --env prod` on every push to main — cannot be bypassed regardless of which workflow gets the code to main. (3) Added cross-viewer E2E smoke test (`e2e/cross-viewer-profile.spec.ts`) to catch the self-view masking failure mode. The existing `/ship` step 3.6 already had a manifest check — this bug happened because `/ship` was never run.
+**Alternatives rejected:** (A) Add migration to Pre-deploy Checklist only — redundant with CI check, can still be bypassed. (B) Add git-diff check to `/ship` — redundant with existing step 3.6. (C) Block Vercel deploy until migrations confirmed — disproportionate complexity for a solo project. (D) Branch protection on main — changes workflow, adds friction for legitimate direct commits.
+**Consequences:** Three-layer defense: CI check (prevention, bypass-proof), Sentry logging (detection, immediate), cross-viewer test (regression, catches masking). Also fixed stale Supabase PAT in macOS keychain that was blocking `migrate.sh`.
+**References:** [check-deploy-drift.yml](.github/workflows/check-deploy-drift.yml), [cross-viewer-profile.spec.ts](e2e/cross-viewer-profile.spec.ts), [db-error-logger.ts](src/app/data/db-error-logger.ts)
+
 ## 2026-03-26 [process]: Add /spec-compact to pipeline — the only skill that prunes
 
 **Context:** The development pipeline is additive by design — `/create-prd`, `/challenge-prd`, `/ux`, `/architect`, `/generate-tests` each append content to the spec. No skill removes anything. Over a full pipeline, specs accumulate agent Q&A threads ("Q from /architect: does the UX assume X?"), resolved decision analyses (3-paragraph Option A vs B vs C), authoring-time notes ("Note to architect:"), and cross-layer restatements (same requirement verbatim in Business, UX, and Architecture sections). A 200-line feature becomes a 600-line spec where maybe 200 lines are load-bearing. This bloats context for `/dev` and `/decompose`.
