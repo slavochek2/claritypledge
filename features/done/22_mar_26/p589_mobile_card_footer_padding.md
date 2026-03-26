@@ -1,5 +1,6 @@
 ---
-status: today
+status: done
+completed_at: '2026-03-26'
 type: bug
 rank: 1000027.0
 workstream: foundation
