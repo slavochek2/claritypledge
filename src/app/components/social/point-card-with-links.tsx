@@ -27,6 +27,7 @@ import type { PositionType } from '@/app/types';
 import { getPositionGroup, getPositionCTACopy, adjustPositionCounts } from '@/app/utils/position-helpers';
 import type { Point, Position, Story } from '@/app/components/shared/prototype-types';
 import { TagPills } from '@/app/components/shared/tag-pills';
+import { StoryImage } from '@/app/components/shared/story-image';
 import { stripHashtags } from '@/lib/utils';
 
 /** Author information for a story in quoted context */
@@ -740,6 +741,16 @@ function QuotedStory({
           </span>
           {/* Ear indicator - understanding credibility */}
           <EarBadge count={author.ear ?? 0} name={author.name} />
+        </div>
+      )}
+      {/* Story image — compact in quoted context */}
+      {story.imageUrl && (
+        <div className="mb-2">
+          <StoryImage
+            src={story.imageUrl}
+            authorName={author?.name ?? 'Author'}
+            maxHeight="120px"
+          />
         </div>
       )}
       {/* Story text — strip hashtags that are rendered as TagPills */}

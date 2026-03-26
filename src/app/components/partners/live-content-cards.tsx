@@ -15,6 +15,7 @@ import { analytics } from '@/lib/mixpanel';
 import { linkifyText } from '@/app/utils/linkify';
 import { TagPills } from '@/app/components/shared/tag-pills';
 import { UnderstoodBadge } from '@/components/ui/understood-badge';
+import { StoryImage } from '@/app/components/shared/story-image';
 import { stripHashtags } from '@/lib/utils';
 import { getFirstName, RatingButtons } from './shared';
 
@@ -87,6 +88,17 @@ export function LiveStoryCard({
           </div>
         </div>
 
+        {/* Story image preview */}
+        {story.imageUrl && (
+          <div className="mb-3">
+            <StoryImage
+              src={story.imageUrl}
+              authorName={story.authorName}
+              maxHeight="160px"
+            />
+          </div>
+        )}
+
         {/* Metadata Row */}
         <p className="text-xs text-muted-foreground mb-3">
           {linkedPointsCount} {linkedPointsCount === 1 ? 'point' : 'points'} linked · <UnderstoodBadge count={story.understoodCount} size="xs" />
@@ -126,6 +138,17 @@ export function LiveStoryCard({
           <p className="text-sm font-medium text-foreground break-words">{linkifyText(strippedContent)}</p>
         </div>
       </div>
+
+      {/* Story image preview */}
+      {story.imageUrl && (
+        <div className="mb-3">
+          <StoryImage
+            src={story.imageUrl}
+            authorName={story.authorName}
+            maxHeight="160px"
+          />
+        </div>
+      )}
 
       {/* Metadata (show points only when expanded) */}
       <p className="text-xs text-muted-foreground mb-4">
@@ -499,6 +522,17 @@ export function StoryCardPreview({ story, showLinkedPoints = true }: StoryCardPr
           <p className="text-sm font-medium text-foreground line-clamp-2">{linkifyText(preview)}</p>
         </div>
       </div>
+
+      {/* Story image preview */}
+      {story.imageUrl && (
+        <div className="mt-3">
+          <StoryImage
+            src={story.imageUrl}
+            authorName={story.authorName}
+            maxHeight="160px"
+          />
+        </div>
+      )}
 
       {/* Metadata (optional linked points count) */}
       {showLinkedPoints && (

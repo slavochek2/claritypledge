@@ -15,6 +15,7 @@ import {
 } from '@/app/components/shared';
 import { linkifyText } from '@/app/utils/linkify';
 import { TagPills } from '@/app/components/shared/tag-pills';
+import { StoryImage } from '@/app/components/shared/story-image';
 import { stripHashtags } from '@/lib/utils';
 
 interface LiveStoryCardExpandedProps {
@@ -90,6 +91,15 @@ export function LiveStoryCardExpanded({
                 {story.visibility && <InlineVisibilityIcon visibility={story.visibility} />}
               </p>
             )}
+            {story.imageUrl && (
+                      <div className="mb-2">
+                        <StoryImage
+                          src={story.imageUrl}
+                          authorName={story.authorName}
+                          maxHeight="160px"
+                        />
+                      </div>
+                    )}
             <p id={`live-story-text-${story.id}`} className="text-sm text-gray-900 leading-snug break-words">{linkifyText(displayText)}</p>
             {isLongStory && (
               <button
