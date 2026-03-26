@@ -82,7 +82,7 @@ export function SimpleNavigation() {
           {/* Logo */}
           <Link
             to="/"
-            className="hover:opacity-80 transition-opacity"
+            className="hover:opacity-80 transition-opacity shrink-0"
             onClick={(e) => {
               if (location.pathname === "/") {
                 e.preventDefault();
@@ -90,7 +90,9 @@ export function SimpleNavigation() {
               }
             }}
           >
-            <ClarityLogo size="sm" />
+            {/* Mobile: icon only to prevent text wrapping in cramped header */}
+            <ClarityLogo size="sm" iconOnly className="lg:hidden" />
+            <ClarityLogo size="sm" className="hidden lg:inline-flex" />
           </Link>
 
           {/* Desktop: Nav links + CTA + Menu */}
