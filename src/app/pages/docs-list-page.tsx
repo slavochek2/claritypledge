@@ -204,61 +204,56 @@ export function DocsListPage() {
         {(fetchState === 'done' || fetchState === 'error') && (
           <div className="flex flex-col gap-3">
             {docs.map((doc) => (
-              <div key={doc.id} className="relative">
-                <Link
-                  to={`/d/${doc.id}`}
-                  className={`block rounded-lg border bg-card p-4 hover:bg-accent transition-colors border-l-4 ${
-                    doc.visibility === 'private'
-                      ? 'border-l-amber-400'
-                      : 'border-l-blue-500'
-                  }`}
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <InlineVisibilityIcon visibility={doc.visibility === 'public' ? 'public' : 'private'} />
-                        <span className="text-sm font-medium text-foreground truncate">
-                          {doc.title}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
-                        <span>
-                          {doc.story_count} {doc.story_count === 1 ? 'story' : 'stories'}
-                        </span>
-                        <span aria-hidden="true">&middot;</span>
-                        <span>Updated {formatTimeAgo(doc.updated_at)} ago</span>
-                      </div>
+              <div
+                key={doc.id}
+                className={`rounded-lg border bg-card p-4 hover:bg-accent/50 transition-colors border-l-4 ${
+                  doc.visibility === 'private'
+                    ? 'border-l-amber-400'
+                    : 'border-l-blue-500'
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <InlineVisibilityIcon visibility={doc.visibility === 'public' ? 'public' : 'private'} />
+                      <span className="text-sm font-medium text-foreground truncate">
+                        {doc.title}
+                      </span>
                     </div>
-                    <span className="text-xs font-medium text-blue-600 flex-shrink-0">Open Doc</span>
+                    <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
+                      <span>
+                        {doc.story_count} {doc.story_count === 1 ? 'story' : 'stories'}
+                      </span>
+                      <span aria-hidden="true">&middot;</span>
+                      <span>Updated {formatTimeAgo(doc.updated_at)} ago</span>
+                    </div>
                   </div>
-                </Link>
-                {/* Overflow menu */}
-                <div className="absolute top-2 right-2">
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-8 w-8 p-0"
-                        onClick={(e) => e.preventDefault()}
-                        aria-label={`Actions for ${doc.title}`}
-                      >
-                        <MoreHorizontal className="w-4 h-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem
-                        className="text-destructive focus:text-destructive"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          setDeleteTarget(doc);
-                        }}
-                      >
-                        <Trash2 className="w-4 h-4" />
-                        Delete
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+                  <div className="flex items-center gap-1 flex-shrink-0">
+                    <Button asChild size="sm" className="bg-blue-500 hover:bg-blue-600 text-white">
+                      <Link to={`/d/${doc.id}`}>Open Doc</Link>
+                    </Button>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                          aria-label={`Actions for ${doc.title}`}
+                        >
+                          <MoreHorizontal className="w-4 h-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem
+                          className="text-destructive focus:text-destructive"
+                          onClick={() => setDeleteTarget(doc)}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                          Delete
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
                 </div>
               </div>
             ))}
