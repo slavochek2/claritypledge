@@ -16,7 +16,7 @@
 import { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import { extractHashtags } from '@/lib/utils';
 import { useParams, useNavigate, useLocation, useSearchParams } from 'react-router-dom';
-import { LockIcon, Loader2, Plus, Pencil, Trash2, Globe } from 'lucide-react';
+import { LockIcon, Loader2, Pencil, Trash2, Globe } from 'lucide-react';
 import { FocusHeader } from '@/app/components/layout/focus-header';
 
 import { StoryCardWithLinks, type StoryAuthor } from '@/app/components/social/story-card-with-links';
@@ -316,8 +316,8 @@ function AddPointForm({
                         </>
                       ) : (
                         <>
-                          <Plus size={16} />
-                          Add Point
+                          <Globe size={16} />
+                          Add Public Point
                         </>
                       )}
                     </Button>

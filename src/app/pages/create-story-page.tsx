@@ -370,7 +370,10 @@ export function CreateStoryPage() {
                 Save Public Story
               </>
             ) : (
-              'Publish Story'
+              <>
+                <Globe size={16} />
+                Publish Public Story
+              </>
             )}
           </Button>
         </div>
