@@ -1,7 +1,7 @@
 ---
-status: week
+status: blocked
 type: story
-rank: 0.25
+rank: 0.411
 tags:
   - epic-story-first
   - points
@@ -9,7 +9,7 @@ tags:
   - orphan-prevention
 flow: dev
 created_date: 2026-03-21T00:00:00.000Z
-locked_at: '2026-03-22T08:50:53.736Z'
+locked_at: '2026-03-25T13:46:30.969Z'
 ---
 
 # P564: Point-to-Story Attribution — Prevent Orphan Points

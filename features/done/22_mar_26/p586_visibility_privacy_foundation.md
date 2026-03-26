@@ -1,5 +1,6 @@
 ---
-status: today
+status: all-done
+completed_at: "2026-03-25"
 type: story
 rank: 0.312
 tags:
@@ -7,7 +8,7 @@ tags:
   - rls
   - visibility
   - foundation
-delivery_stage: 4-tests-ready
+delivery_stage: shipped
 reviews:
   ux: null
   architect: null

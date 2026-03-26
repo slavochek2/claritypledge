@@ -1,7 +1,7 @@
 ---
 status: today
 type: story
-rank: 0.313
+rank: 0.195
 tags:
   - epic-story-first
   - live

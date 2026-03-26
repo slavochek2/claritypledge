@@ -1,7 +1,7 @@
 ---
-status: week
+status: blocked
 type: story
-rank: 0.375
+rank: 0.424
 tags:
   - epic-story-first
   - stories
@@ -9,7 +9,7 @@ tags:
   - evolution
 flow: dev
 created_date: 2026-03-21T00:00:00.000Z
-locked_at: '2026-03-22T08:50:56.536Z'
+locked_at: '2026-03-25T13:46:36.740Z'
 ---
 
 # P565: Response Evolution — Stories Bridging Points
