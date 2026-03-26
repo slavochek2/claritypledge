@@ -1225,10 +1225,10 @@ function IdleScreen({
           {/* overlayClassName="bg-transparent" keeps story card visible behind drawer. */}
           <DrawerContent overlayClassName="bg-transparent">
             <DrawerHeader className="text-center pb-2">
-              <DrawerDescription className="text-sm text-muted-foreground">
+              <DrawerDescription className="sr-only">
                 {isProverInitiated
-                  ? <>{proverName} wants to know how well <span className="font-semibold text-foreground">they</span> understood you</>
-                  : <>{checkerName} wants to know how well <span className="font-semibold text-foreground">you understood them</span></>}
+                  ? `${proverName} wants to know how well they understood you`
+                  : `${checkerName} wants to know how well you understood them`}
               </DrawerDescription>
               <DrawerTitle className="sr-only">
                 {isProverInitiated
