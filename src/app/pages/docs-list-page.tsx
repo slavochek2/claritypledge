@@ -229,9 +229,6 @@ export function DocsListPage() {
                     </div>
                   </div>
                   <div className="flex items-center gap-1 flex-shrink-0">
-                    <Button asChild size="sm" className="bg-blue-500 hover:bg-blue-600 text-white">
-                      <Link to={`/d/${doc.id}`}>Open Doc</Link>
-                    </Button>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
                         <Button
@@ -253,6 +250,9 @@ export function DocsListPage() {
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
+                    <Button asChild size="sm" className="bg-blue-500 hover:bg-blue-600 text-white">
+                      <Link to={`/d/${doc.id}`}>Open</Link>
+                    </Button>
                   </div>
                 </div>
               </div>

@@ -128,9 +128,9 @@ export function DocDetailPage() {
     })
   );
 
-  const fetchDoc = useCallback(async () => {
+  const fetchDoc = useCallback(async (showLoader = true) => {
     if (!docId) return;
-    setFetchState('loading');
+    if (showLoader) setFetchState('loading');
     try {
       const result = await docsService.getDoc(docId);
       if (!result) {
@@ -319,7 +319,7 @@ export function DocDetailPage() {
           docVisibility={doc.visibility}
           open={pickerOpen}
           onOpenChange={setPickerOpen}
-          onStoryAdded={fetchDoc}
+          onStoryAdded={() => fetchDoc(false)}
         />
       )}
     </main>
