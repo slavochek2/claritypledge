@@ -16,7 +16,7 @@
 import { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import { extractHashtags } from '@/lib/utils';
 import { useParams, useNavigate, useLocation, useSearchParams } from 'react-router-dom';
-import { LockIcon, Loader2, Plus, Pencil, Trash2 } from 'lucide-react';
+import { LockIcon, Loader2, Plus, Pencil, Trash2, Globe } from 'lucide-react';
 import { FocusHeader } from '@/app/components/layout/focus-header';
 
 import { StoryCardWithLinks, type StoryAuthor } from '@/app/components/social/story-card-with-links';
@@ -42,7 +42,7 @@ import {
 } from '@/components/ui/dialog';
 import { analytics } from '@/lib/mixpanel';
 import { PositionButtons, type SevenPointCounts } from '@/app/components/shared';
-import type { StoryWithPoints, StoryWithAuthor, PointSummary, PointPosition, PositionType } from '@/app/types';
+import type { StoryWithPoints, StoryWithAuthor, PointSummary, PointPosition, PositionType, ContentVisibility } from '@/app/types';
 
 /** Soft character marker — nudge to keep points concise */
 const POINT_CHAR_SOFT = 140;
@@ -72,7 +72,7 @@ function AddPointForm({
   autoFocus,
   onCancel,
   showCancel,
-  isPrivateContext,
+  docVisibility,
 }: {
   storyId: string;
   currentUserId: string;
@@ -80,8 +80,8 @@ function AddPointForm({
   autoFocus?: boolean;
   onCancel?: () => void;
   showCancel?: boolean;
-  /** P551: When true, show privacy banner and "Add Private Point" label */
-  isPrivateContext?: boolean;
+  /** P551/P590: Show privacy/public banner and contextual label based on doc visibility */
+  docVisibility?: ContentVisibility;
 }) {
   const [statement, setStatement] = useState('');
   const [selectedPosition, setSelectedPosition] = useState<PositionType | null>(null);
@@ -210,11 +210,17 @@ function AddPointForm({
 
   return (
     <div className="space-y-2">
-      {/* P551: Privacy banner when adding points to a private story in doc context */}
-      {isPrivateContext && (
+      {/* P551/P590: Visibility banner when adding points in doc context */}
+      {docVisibility === 'private' && (
         <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 flex items-center gap-2 text-sm">
           <LockIcon size={16} className="text-amber-600 flex-shrink-0" />
           <span className="text-amber-800">This point will be private — only you can see it</span>
+        </div>
+      )}
+      {docVisibility === 'public' && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 flex items-center gap-2 text-sm">
+          <Globe size={16} className="text-blue-600 flex-shrink-0" />
+          <span className="text-blue-800">This point will be public — visible on your profile</span>
         </div>
       )}
       {orphanPoint && (
@@ -224,7 +230,7 @@ function AddPointForm({
             type="button"
             onClick={handleRetryLink}
             disabled={isAdding}
-            className="bg-blue-500 hover:bg-blue-600 text-white min-h-[44px]"
+            className="min-h-[44px]"
           >
             {isAdding ? (
               <>
@@ -291,17 +297,27 @@ function AddPointForm({
                       type="button"
                       onClick={handleAdd}
                       disabled={!canSubmit || !!orphanPoint}
-                      className="bg-blue-500 hover:bg-blue-600 text-white min-h-[44px]"
+                      className="min-h-[44px]"
                     >
                       {isAdding ? (
                         <>
                           <Loader2 size={16} className="animate-spin" />
                           Adding...
                         </>
+                      ) : docVisibility === 'private' ? (
+                        <>
+                          <LockIcon size={16} />
+                          Add Private Point
+                        </>
+                      ) : docVisibility === 'public' ? (
+                        <>
+                          <Globe size={16} />
+                          Add Public Point
+                        </>
                       ) : (
                         <>
                           <Plus size={16} />
-                          {isPrivateContext ? 'Add Private Point' : 'Add Point'}
+                          Add Point
                         </>
                       )}
                     </Button>
@@ -352,7 +368,7 @@ function KeyPointsSection({
   addPointRequested,
   showFormTrigger,
   onPointAdded,
-  isPrivateContext,
+  docVisibility,
 }: {
   storyId: string;
   currentUserId: string;
@@ -363,8 +379,8 @@ function KeyPointsSection({
   /** Incrementing counter — each bump opens the form (used by in-card CTA) */
   showFormTrigger: number;
   onPointAdded: (point: PointSummary, position?: PositionType) => void;
-  /** P551: When true, show privacy banner in the add-point form */
-  isPrivateContext?: boolean;
+  /** P551/P590: Doc visibility context — controls banner and button label in add-point form */
+  docVisibility?: ContentVisibility;
 }) {
   const [showForm, setShowForm] = useState(false);
 
@@ -397,7 +413,7 @@ function KeyPointsSection({
           autoFocus={autoExpand || addPointRequested}
           showCancel={showForm && !autoExpand}
           onCancel={() => setShowForm(false)}
-          isPrivateContext={isPrivateContext}
+          docVisibility={docVisibility}
         />
       )}
 
@@ -474,7 +490,6 @@ function EditStoryCard({
                     disabled={!canSave}
                     aria-label="Save story"
                     aria-busy={isSaving ? 'true' : 'false'}
-                    className="bg-blue-500 hover:bg-blue-600 text-white"
                   >
                     {isSaving ? (
                       <>
@@ -986,10 +1001,7 @@ export function StoryDetailPage() {
               : 'Story not found'}
           </p>
           {isNetworkError && (
-            <Button
-              onClick={handleRetry}
-              className="bg-blue-500 hover:bg-blue-600 text-white"
-            >
+            <Button onClick={handleRetry}>
               Try Again
             </Button>
           )}
@@ -1209,7 +1221,7 @@ export function StoryDetailPage() {
             addPointRequested={searchParams.get('addPoint') === 'true'}
             showFormTrigger={addPointTrigger}
             onPointAdded={handlePointAdded}
-            isPrivateContext={!!docContext && story.visibility === 'private'}
+            docVisibility={docContext ? story.visibility : undefined}
           />
         </>
       )}

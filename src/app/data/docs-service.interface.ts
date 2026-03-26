@@ -20,7 +20,7 @@ export interface DocsService {
    * Create a new doc with default title "Untitled Doc" and private visibility.
    * Requires authenticated user.
    */
-  createDoc(): Promise<ClarityDoc>;
+  createDoc(visibility?: ContentVisibility): Promise<ClarityDoc>;
 
   // ============================================================================
   // READ

@@ -174,16 +174,16 @@ export const docsService: DocsService = {
   // CREATE
   // ============================================================================
 
-  async createDoc(): Promise<ClarityDoc> {
+  async createDoc(visibility: ContentVisibility = 'private'): Promise<ClarityDoc> {
     const userId = await requireAuth();
-    log('createDoc:', { userId });
+    log('createDoc:', { userId, visibility });
 
     const { data, error } = await supabase
       .from('clarity_docs')
       .insert({
         owner_id: userId,
         title: 'Untitled Doc',
-        visibility: 'private' as ContentVisibility,
+        visibility,
       })
       .select('*')
       .single();

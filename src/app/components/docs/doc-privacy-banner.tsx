@@ -18,25 +18,23 @@ export function DocPrivacyBanner({ visibility }: DocPrivacyBannerProps) {
     <div
       role="status"
       aria-live="polite"
-      className={
+      className={`-mx-4 px-4 py-2 flex items-center justify-center gap-2 text-sm border-b ${
         isPrivate
-          ? 'bg-amber-50 border border-amber-200 rounded-lg p-3 flex items-center gap-2 text-sm'
-          : 'bg-blue-50 border border-blue-200 rounded-lg p-3 flex items-center gap-2 text-sm'
-      }
+          ? 'bg-amber-50 border-amber-200'
+          : 'bg-blue-50 border-blue-200'
+      }`}
     >
       {isPrivate ? (
         <>
-          <Lock size={16} className="text-amber-600 flex-shrink-0" />
-          <span className="text-amber-800">
-            <span className="font-semibold">PRIVATE</span> &middot; Only you can see this Clarity Doc
-          </span>
+          <Lock size={14} className="text-amber-600 flex-shrink-0" />
+          <span className="text-amber-800 font-medium">PRIVATE</span>
+          <span className="text-amber-700">&middot; Only you can see this Clarity Doc</span>
         </>
       ) : (
         <>
-          <Globe size={16} className="text-blue-600 flex-shrink-0" />
-          <span className="text-blue-800">
-            <span className="font-semibold">PUBLIC</span> &middot; Visible on your profile
-          </span>
+          <Globe size={14} className="text-blue-600 flex-shrink-0" />
+          <span className="text-blue-800 font-medium">PUBLIC</span>
+          <span className="text-blue-700">&middot; Visible on your profile</span>
         </>
       )}
     </div>

@@ -6,7 +6,7 @@
 
 import { useState, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Lock, Globe, MoreHorizontal, Trash2, ChevronDown } from 'lucide-react';
+import { ArrowLeft, Lock, Globe, MoreHorizontal, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import {
@@ -24,19 +24,17 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { docsService } from '@/app/data/docs-service';
-import type { ClarityDoc, ContentVisibility } from '@/app/types';
+import type { ClarityDoc } from '@/app/types';
 
 interface DocHeaderProps {
   doc: ClarityDoc;
-  /** Whether the doc contains any private stories */
-  hasPrivateStories: boolean;
   /** Whether current user is the doc owner */
   isOwner: boolean;
   /** Callback after doc is updated (title or visibility) */
   onDocUpdated: (updated: ClarityDoc) => void;
 }
 
-export function DocHeader({ doc, hasPrivateStories, isOwner, onDocUpdated }: DocHeaderProps) {
+export function DocHeader({ doc, isOwner, onDocUpdated }: DocHeaderProps) {
   const navigate = useNavigate();
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [titleValue, setTitleValue] = useState(doc.title);
@@ -79,19 +77,6 @@ export function DocHeader({ doc, hasPrivateStories, isOwner, onDocUpdated }: Doc
       }
     },
     [saveTitle, doc.title]
-  );
-
-  const handleVisibilityChange = useCallback(
-    async (newVisibility: ContentVisibility) => {
-      if (newVisibility === doc.visibility) return;
-      try {
-        const updated = await docsService.updateDoc(doc.id, { visibility: newVisibility });
-        onDocUpdated(updated);
-      } catch {
-        toast.error('Failed to update visibility');
-      }
-    },
-    [doc.id, doc.visibility, onDocUpdated]
   );
 
   const handleDelete = useCallback(async () => {
@@ -154,49 +139,15 @@ export function DocHeader({ doc, hasPrivateStories, isOwner, onDocUpdated }: Doc
         {/* Controls — only for owner */}
         {isOwner && (
           <div className="flex items-center gap-1 flex-shrink-0">
-            {/* Visibility dropdown */}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm" className="gap-1.5">
-                  {doc.visibility === 'private' ? (
-                    <Lock size={14} />
-                  ) : (
-                    <Globe size={14} />
-                  )}
-                  <span className="capitalize">{doc.visibility}</span>
-                  <ChevronDown size={12} />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem
-                  onClick={() => handleVisibilityChange('private')}
-                  className="gap-2"
-                >
-                  <Lock size={14} />
-                  <span>Private</span>
-                  {doc.visibility === 'private' && (
-                    <span className="ml-auto text-blue-600 text-xs font-medium">Active</span>
-                  )}
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={() => handleVisibilityChange('public')}
-                  disabled={hasPrivateStories}
-                  className="gap-2"
-                  title={hasPrivateStories ? 'Remove private stories first' : undefined}
-                >
-                  <Globe size={14} />
-                  <span>Public</span>
-                  {doc.visibility === 'public' && (
-                    <span className="ml-auto text-blue-600 text-xs font-medium">Active</span>
-                  )}
-                  {hasPrivateStories && (
-                    <span className="ml-auto text-xs text-muted-foreground">
-                      Remove private stories first
-                    </span>
-                  )}
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            {/* Visibility badge (static) */}
+            <span className="inline-flex items-center gap-1.5 text-sm text-muted-foreground px-2 py-1">
+              {doc.visibility === 'private' ? (
+                <Lock size={14} className="text-amber-600" />
+              ) : (
+                <Globe size={14} />
+              )}
+              <span className="capitalize">{doc.visibility}</span>
+            </span>
 
             {/* Overflow menu */}
             <DropdownMenu>

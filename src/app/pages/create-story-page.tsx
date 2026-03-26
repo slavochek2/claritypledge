@@ -13,7 +13,7 @@ import { extractHashtags } from '@/lib/utils';
 import { toast } from 'sonner';
 import { useVerificationGate } from '@/app/hooks/useVerificationGate';
 import { useDocContext } from '@/app/hooks/use-doc-context';
-import { Loader2Icon, ArrowLeft } from 'lucide-react';
+import { Loader2Icon, ArrowLeft, Lock, Globe } from 'lucide-react';
 import { ClarityLoader } from '@/components/ui/clarity-loader';
 import { DocPrivacyBanner } from '@/app/components/docs/doc-privacy-banner';
 import { Button } from '@/components/ui/button';
@@ -352,7 +352,7 @@ export function CreateStoryPage() {
           <Button
             type="submit"
             disabled={isSaving || pointLoading || docLoading}
-            className="bg-blue-500 hover:bg-blue-600 text-white min-h-[44px]"
+            className="min-h-[44px]"
           >
             {isSaving ? (
               <>
@@ -360,9 +360,15 @@ export function CreateStoryPage() {
                 Saving...
               </>
             ) : isDocContext && docVisibility === 'private' ? (
-              'Save Private Story'
-            ) : isDocContext ? (
-              'Save Story'
+              <>
+                <Lock size={16} />
+                Save Private Story
+              </>
+            ) : isDocContext && docVisibility === 'public' ? (
+              <>
+                <Globe size={16} />
+                Save Public Story
+              </>
             ) : (
               'Publish Story'
             )}

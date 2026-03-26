@@ -5,15 +5,16 @@
  */
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { FileText, ChevronRight, Plus, Loader2 } from 'lucide-react';
+import { FileText, ChevronRight, Plus, Lock, Globe } from 'lucide-react';
 import { toast } from 'sonner';
 import { ClarityPageLoader } from '@/components/ui/clarity-loader';
 import { Button } from '@/components/ui/button';
+import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 import { useAuth } from '@/auth';
 import { docsService } from '@/app/data/docs-service';
 import { InlineVisibilityIcon } from '@/app/components/shared/visibility-badge';
 import { formatTimeAgo } from '@/app/utils/format-time';
-import type { ClarityDoc } from '@/app/types';
+import type { ClarityDoc, ContentVisibility } from '@/app/types';
 
 export function DocsListPage() {
   const navigate = useNavigate();
@@ -51,10 +52,10 @@ export function DocsListPage() {
     }
   }, [user?.id, fetchDocs]);
 
-  const handleCreate = async () => {
+  const handleCreate = async (visibility: ContentVisibility) => {
     setCreating(true);
     try {
-      const doc = await docsService.createDoc();
+      const doc = await docsService.createDoc(visibility);
       navigate(`/d/${doc.id}`);
     } catch {
       toast.error('Failed to create doc');
@@ -84,14 +85,38 @@ export function DocsListPage() {
           <p className="text-sm text-muted-foreground">
             Curate stories into collections you control.
           </p>
-          <Button onClick={handleCreate} disabled={creating} className="mt-2">
-            {creating ? (
-              <Loader2 className="w-4 h-4 animate-spin mr-2" />
-            ) : (
-              <Plus className="w-4 h-4 mr-2" />
-            )}
-            Create a Doc
-          </Button>
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button className="mt-2">
+                <Plus className="w-4 h-4" />
+                Create a Doc
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-64 p-2">
+              <button
+                onClick={() => handleCreate('private')}
+                disabled={creating}
+                className="w-full flex items-center gap-3 rounded-md px-3 py-2.5 text-sm hover:bg-accent transition-colors text-left"
+              >
+                <Lock size={16} className="text-amber-600 flex-shrink-0" />
+                <div>
+                  <div className="font-medium">Private Doc</div>
+                  <div className="text-xs text-muted-foreground">Only you can see this</div>
+                </div>
+              </button>
+              <button
+                onClick={() => handleCreate('public')}
+                disabled={creating}
+                className="w-full flex items-center gap-3 rounded-md px-3 py-2.5 text-sm hover:bg-accent transition-colors text-left"
+              >
+                <Globe size={16} className="text-muted-foreground flex-shrink-0" />
+                <div>
+                  <div className="font-medium">Public Doc</div>
+                  <div className="text-xs text-muted-foreground">Visible on your profile</div>
+                </div>
+              </button>
+            </PopoverContent>
+          </Popover>
         </div>
       </main>
     );
@@ -103,14 +128,38 @@ export function DocsListPage() {
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-xl font-semibold text-foreground">Your Clarity Docs</h1>
-          <Button variant="outline" size="sm" onClick={handleCreate} disabled={creating}>
-            {creating ? (
-              <Loader2 className="w-4 h-4 animate-spin mr-1" />
-            ) : (
-              <Plus className="w-4 h-4 mr-1" />
-            )}
-            New Doc
-          </Button>
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline" size="sm">
+                <Plus className="w-4 h-4" />
+                New Doc
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent align="end" className="w-64 p-2">
+              <button
+                onClick={() => handleCreate('private')}
+                disabled={creating}
+                className="w-full flex items-center gap-3 rounded-md px-3 py-2.5 text-sm hover:bg-accent transition-colors text-left"
+              >
+                <Lock size={16} className="text-amber-600 flex-shrink-0" />
+                <div>
+                  <div className="font-medium">Private Doc</div>
+                  <div className="text-xs text-muted-foreground">Only you can see this</div>
+                </div>
+              </button>
+              <button
+                onClick={() => handleCreate('public')}
+                disabled={creating}
+                className="w-full flex items-center gap-3 rounded-md px-3 py-2.5 text-sm hover:bg-accent transition-colors text-left"
+              >
+                <Globe size={16} className="text-muted-foreground flex-shrink-0" />
+                <div>
+                  <div className="font-medium">Public Doc</div>
+                  <div className="text-xs text-muted-foreground">Visible on your profile</div>
+                </div>
+              </button>
+            </PopoverContent>
+          </Popover>
         </div>
 
         {/* Loading state for fetch */}

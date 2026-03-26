@@ -7,7 +7,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { FileText, Plus, ListChecks } from 'lucide-react';
+import { FileText, Lock, Globe } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   DndContext,
@@ -149,8 +149,6 @@ export function DocDetailPage() {
   }, [fetchDoc]);
 
   const isOwner = Boolean(user?.id && doc?.owner_id === user.id);
-  const hasPrivateStories = stories.some((ds) => ds.story.visibility === 'private');
-
   const handleDocUpdated = useCallback((updated: ClarityDoc) => {
     setDoc(updated);
   }, []);
@@ -258,7 +256,6 @@ export function DocDetailPage() {
         {/* Header with back link, title, visibility, and overflow menu */}
         <DocHeader
           doc={doc}
-          hasPrivateStories={hasPrivateStories}
           isOwner={isOwner}
           onDocUpdated={handleDocUpdated}
         />
@@ -270,6 +267,22 @@ export function DocDetailPage() {
         <p className="text-sm text-muted-foreground">
           {stories.length} {stories.length === 1 ? 'story' : 'stories'}
         </p>
+
+        {/* Action buttons — only for owner */}
+        {isOwner && (
+          <div className="flex flex-wrap gap-3">
+            <Button asChild>
+              <Link to={`/create?docId=${doc.id}`}>
+                {doc.visibility === 'private' ? <Lock size={16} /> : <Globe size={16} />}
+                Write a story
+              </Link>
+            </Button>
+            <Button variant="outline" onClick={() => setPickerOpen(true)}>
+              {doc.visibility === 'private' ? <Lock size={16} /> : <Globe size={16} />}
+              Select your story
+            </Button>
+          </div>
+        )}
 
         {/* Stories or empty state */}
         {stories.length === 0 ? (
@@ -305,21 +318,6 @@ export function DocDetailPage() {
           </DndContext>
         )}
 
-        {/* Action buttons — only for owner */}
-        {isOwner && (
-          <div className="flex flex-wrap gap-3 pt-2">
-            <Button asChild>
-              <Link to={`/create?docId=${doc.id}`}>
-                <Plus size={16} />
-                Write a story
-              </Link>
-            </Button>
-            <Button variant="outline" onClick={() => setPickerOpen(true)}>
-              <ListChecks size={16} />
-              Select your story
-            </Button>
-          </div>
-        )}
       </div>
 
       {/* Story picker dialog */}
