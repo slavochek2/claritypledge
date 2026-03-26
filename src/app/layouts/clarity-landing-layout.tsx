@@ -62,7 +62,7 @@ function ClarityLandingLayoutInner({ children }: { children: ReactNode }) {
       {!hasOwnNavigation && (
         <SimpleNavigation />
       )}
-      <main className={`flex-1 min-h-0 ${isLivePage ? 'overflow-hidden' : ''} ${needsTopPadding ? "pt-16 lg:pt-20" : ""} ${needsBottomPadding ? "pb-20 lg:pb-0" : ""}`}>
+      <main className={`flex-1 min-h-0 ${needsTopPadding ? "pt-16 lg:pt-20" : ""} ${needsBottomPadding ? "pb-20 lg:pb-0" : ""}`}>
         {hasActiveSession && !isLivePage && <ActiveSessionBanner />}
         {children}
       </main>
