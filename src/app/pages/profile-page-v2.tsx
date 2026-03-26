@@ -1245,7 +1245,7 @@ function StoryCardFull({
               </div>
             ) : (
               <>
-                <p id={`story-text-${story.id}`} className={`text-foreground text-base ${!storyExpanded ? 'line-clamp-8' : ''}`}>{linkifyText(strippedContent)}</p>
+                <p id={`story-text-${story.id}`} className={`text-foreground text-base break-words ${!storyExpanded ? 'line-clamp-8' : ''}`}>{linkifyText(strippedContent)}</p>
                 {strippedContent.length > STORY_THRESHOLD && (
                   <div role="presentation" onClick={(e) => e.stopPropagation()}>
                     <button
