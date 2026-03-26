@@ -159,23 +159,25 @@ function SortableStoryCard({
           renderPointRow={isOwner ? (point, quotedPointElement) => {
             const idx = orderedPointIds.indexOf(point.id);
             return (
+              // eslint-disable-next-line jsx-a11y/no-static-element-interactions -- stopPropagation only, not interactive
               <div
                 key={point.id}
-                role="toolbar"
-                className="group/point flex items-start gap-1"
+                className="group/point"
                 onClick={(e) => e.stopPropagation()}
                 onKeyDown={(e) => e.stopPropagation()}
               >
-                <DocBlockControls
-                  variant="point"
-                  isHidden={(pointConfig.hidden || []).includes(point.id)}
-                  onToggleHidden={() => handleTogglePointHidden(point.id)}
-                  onMoveUp={() => handleMovePoint(point.id, 'up')}
-                  onMoveDown={() => handleMovePoint(point.id, 'down')}
-                  isFirst={idx === 0}
-                  isLast={idx === orderedPointIds.length - 1}
-                />
-                <div className="flex-1">{quotedPointElement}</div>
+                <div role="toolbar" className="flex items-center gap-0.5 opacity-100 sm:opacity-0 sm:group-hover/point:opacity-100 transition-opacity duration-150">
+                  <DocBlockControls
+                    variant="point"
+                    isHidden={(pointConfig.hidden || []).includes(point.id)}
+                    onToggleHidden={() => handleTogglePointHidden(point.id)}
+                    onMoveUp={() => handleMovePoint(point.id, 'up')}
+                    onMoveDown={() => handleMovePoint(point.id, 'down')}
+                    isFirst={idx === 0}
+                    isLast={idx === orderedPointIds.length - 1}
+                  />
+                </div>
+                {quotedPointElement}
               </div>
             );
           } : undefined}

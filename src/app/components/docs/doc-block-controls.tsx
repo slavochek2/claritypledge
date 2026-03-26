@@ -67,40 +67,40 @@ export function DocBlockControls(props: DocBlockControlsProps) {
         </>
       ) : (
         <>
-          {/* Up/down arrows — point reorder */}
+          {/* Up/down arrows — point reorder (compact) */}
           <Button
             variant="ghost"
-            size="icon"
-            className="min-w-[44px] min-h-[44px] flex items-center justify-center"
+            size="sm"
+            className="h-6 w-6 p-0"
             aria-label="Move up"
             disabled={props.isFirst}
             onClick={(e) => { e.stopPropagation(); props.onMoveUp?.(); }}
           >
-            <ChevronUp className="h-4 w-4 text-muted-foreground" />
+            <ChevronUp className="h-3.5 w-3.5 text-muted-foreground" />
           </Button>
           <Button
             variant="ghost"
-            size="icon"
-            className="min-w-[44px] min-h-[44px] flex items-center justify-center"
+            size="sm"
+            className="h-6 w-6 p-0"
             aria-label="Move down"
             disabled={props.isLast}
             onClick={(e) => { e.stopPropagation(); props.onMoveDown?.(); }}
           >
-            <ChevronDown className="h-4 w-4 text-muted-foreground" />
+            <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
           </Button>
-          {/* Eye toggle — hide/show for letter composition */}
+          {/* Eye toggle — hide/show for letter composition (compact) */}
           <Button
             variant="ghost"
-            size="icon"
-            className="min-w-[44px] min-h-[44px] flex items-center justify-center"
+            size="sm"
+            className="h-6 w-6 p-0"
             aria-pressed={props.isHidden}
-            aria-label={props.isHidden ? 'Show in this doc' : 'Hide in this doc'}
+            aria-label={props.isHidden ? 'Show in letter' : 'Hide in letter'}
             onClick={(e) => { e.stopPropagation(); props.onToggleHidden(); }}
           >
             {props.isHidden ? (
-              <EyeOff className="h-4 w-4 text-muted-foreground" />
+              <EyeOff className="h-3.5 w-3.5 text-muted-foreground" />
             ) : (
-              <Eye className="h-4 w-4 text-muted-foreground" />
+              <Eye className="h-3.5 w-3.5 text-muted-foreground" />
             )}
           </Button>
         </>
