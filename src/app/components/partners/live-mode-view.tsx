@@ -2801,7 +2801,7 @@ function UnderstandingScreen({
       <div className="flex flex-col h-full">
         <LiveHeader partnerName={partnerName} onExit={onExit} isPrivate={isPrivate} uploadHealth={uploadHealth} />
         <div className={CONTENT_LAYOUT}>
-          {/* Result-first: journey → gap badge (bonded) → CTA → story (reference, scrollable) */}
+          {/* P588: Journey → calibration banner (no gap) → story card → CTA */}
           <JourneyToUnderstanding
             checkerRating={checkerRating}
             responderRating={responderRating}
@@ -2812,6 +2812,12 @@ function UnderstandingScreen({
             proverName={liveState.proverName ? getFirstName(liveState.proverName) : undefined}
             className="w-full max-w-sm"
           />
+          <div className="border border-blue-200 bg-blue-50 rounded-lg px-4 py-3 w-full max-w-sm -mt-3">
+            <div className="flex items-center justify-center gap-2 mb-1">
+              <span className="bg-blue-500 text-white text-xs font-semibold px-2 py-0.5 rounded-full">{gapBadgeText}</span>
+            </div>
+            <p className="text-blue-700 text-sm text-center">{insightMessage}</p>
+          </div>
           {/* P272: Story card visible throughout round */}
           {selectedStory && (
             <LiveStoryCardExpanded
@@ -2821,12 +2827,6 @@ function UnderstandingScreen({
               className="w-full max-w-sm mb-2"
             />
           )}
-          <div className="border border-blue-200 bg-blue-50 rounded-lg px-4 py-3 w-full max-w-sm">
-            <div className="flex items-center justify-center gap-2 mb-1">
-              <span className="bg-blue-500 text-white text-xs font-semibold px-2 py-0.5 rounded-full">{gapBadgeText}</span>
-            </div>
-            <p className="text-blue-700 text-sm text-center">{insightMessage}</p>
-          </div>
           <ActionArea
             title={!isChecker && !listenerWaitingForNegotiation ? `Help ${checkerName} understand you better. Withhold premature judgment.` : undefined}
           >
@@ -2938,7 +2938,7 @@ function UnderstandingScreen({
       <div className="flex flex-col h-full">
         <LiveHeader partnerName={partnerName} onExit={onExit} isPrivate={isPrivate} uploadHealth={uploadHealth} />
         <div className={CONTENT_LAYOUT}>
-          {/* Result-first: journey → calibrated badge (bonded) → CTA → story (reference, scrollable) */}
+          {/* P588: Journey → calibration banner (no gap) → story card → CTA */}
           <JourneyToUnderstanding
             checkerRating={checkerRating}
             responderRating={responderRating}
@@ -2949,6 +2949,12 @@ function UnderstandingScreen({
             proverName={liveState.proverName ? getFirstName(liveState.proverName) : undefined}
             className="w-full max-w-sm"
           />
+          <div className="border border-input bg-muted/50 rounded-lg px-4 py-3 w-full max-w-sm -mt-3">
+            <div className="flex items-center justify-center gap-2 mb-1">
+              <span className="bg-green-500 text-white text-xs font-semibold px-2 py-0.5 rounded-full">Perfectly calibrated</span>
+            </div>
+            <p className="text-muted-foreground text-sm text-center">{insightMessage}</p>
+          </div>
           {/* P272: Story card visible throughout round */}
           {selectedStory && (
             <LiveStoryCardExpanded
@@ -2958,12 +2964,6 @@ function UnderstandingScreen({
               className="w-full max-w-sm mb-2"
             />
           )}
-          <div className="border border-input bg-muted/50 rounded-lg px-4 py-3 w-full max-w-sm">
-            <div className="flex items-center justify-center gap-2 mb-1">
-              <span className="bg-green-500 text-white text-xs font-semibold px-2 py-0.5 rounded-full">Perfectly calibrated</span>
-            </div>
-            <p className="text-muted-foreground text-sm text-center">{insightMessage}</p>
-          </div>
           <ActionArea
             title={!isChecker && !listenerWaitingForNegotiation ? `Help ${checkerName} understand you better. Withhold premature judgment.` : undefined}
           >
