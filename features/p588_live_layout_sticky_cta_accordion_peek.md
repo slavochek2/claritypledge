@@ -214,12 +214,14 @@ CALIBRATED — 3 points, story collapsed
 
 ## Requirements
 
-1. CTA buttons (ActionArea) must be visible and tappable at all times during a /live session, regardless of scroll position or expanded content
-2. Journey dots + calibration badge must render as a single compact row (~48px)
-3. Story card must implement accordion: story text and points list cannot both be fully expanded simultaneously
-4. Each point in the expanded list must show a 2-line preview; only one point may be fully expanded at a time
-5. Bottom padding must account for both the sticky CTA bar and the bottom nav to prevent content overlap
-6. iOS Safari safe-area insets must be handled (`env(safe-area-inset-bottom)`)
+1. BottomNav must be hidden on `/live` routes (add to `focusRoutes`)
+2. "End Session" button must be red filled (`bg-red-500 text-white`) as the primary exit affordance
+3. CTA buttons (ActionArea) must be visible and tappable at all times during a /live session, regardless of scroll position or expanded content
+4. Journey card and Calibration banner remain separate components but with no gap between them
+5. Story card must implement accordion: story text and points list cannot both be fully expanded simultaneously
+6. Each point in the expanded list must show a 2-line preview; only one point may be fully expanded at a time
+7. Bottom padding must account for the sticky CTA bar to prevent content overlap
+8. iOS Safari safe-area insets must be handled (`env(safe-area-inset-bottom)`) on the sticky CTA bar
 
 ## What Stays the Same
 
@@ -235,8 +237,10 @@ CALIBRATED — 3 points, story collapsed
 ## Surfaces in Scope
 
 **In scope:**
-- `src/app/components/partners/live-mode-view.tsx` — ActionArea sticky positioning, JourneyToUnderstanding + calibration merge, scroll container padding
+- `src/app/components/partners/live-mode-view.tsx` — ActionArea sticky positioning, scroll container padding, tighten Journey→Calibration gap, "End Session" button red styling
 - `src/app/components/partners/live-story-card-expanded.tsx` — accordion behavior (mutual exclusion of story text / points), peek mode for points (2-line preview, one-at-a-time expand)
+- `src/app/components/layout/bottom-nav.tsx` — add `/live` to `focusRoutes` array
+- `src/app/components/partners/live-session-banner.tsx` — "End Session" button styling (red filled)
 
 **Out of scope:**
 - IdleScreen free-form layout (no story)
@@ -248,15 +252,17 @@ CALIBRATED — 3 points, story collapsed
 
 ## Acceptance Criteria
 
-- [ ] CTA buttons (ActionArea) are visible and tappable without scrolling in all /live phases on 375px viewport
+- [ ] BottomNav is hidden on all `/live` routes
+- [ ] "End Session" button in header is red filled (`bg-red-500 text-white`)
+- [ ] CTA buttons (ActionArea) are pinned to bottom of viewport, always visible in all /live phases
 - [ ] CTA buttons remain visible when story card points are expanded (0, 2, 5+ points)
-- [ ] Journey dots and calibration badge render as a single compact row (~48px)
-- [ ] Calibration insight text is either a subtitle in the merged row or removed (not a separate block)
+- [ ] Journey card and Calibration banner appear as separate blocks with no gap between them
 - [ ] Story text auto-collapses when points are expanded; points collapse when story is expanded (accordion)
 - [ ] Each point shows a 2-line preview in collapsed state
 - [ ] Only one point can be fully expanded at a time; expanding one collapses the previously expanded point
-- [ ] Bottom padding prevents content from being hidden behind sticky CTA bar + bottom nav
-- [ ] iOS Safari safe-area handled (no overlap with home indicator)
+- [ ] Content area scrolls freely when content exceeds viewport
+- [ ] Bottom padding prevents content from being hidden behind sticky CTA bar
+- [ ] iOS Safari safe-area handled on sticky CTA bar (no overlap with home indicator)
 - [ ] Surfaces NOT in scope are visually unchanged
 - [ ] All existing tests for P469 still pass
 - [ ] Free-form idle (no story selected) unchanged
