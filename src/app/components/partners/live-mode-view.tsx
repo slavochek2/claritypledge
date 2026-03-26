@@ -1148,6 +1148,34 @@ function IdleScreen({
             )}
 
 
+            {/* P588: Buttons INSIDE scroll container when no story (above search picker) */}
+            {!selectedStory && !showRatingDrawer && (selectedHistoryIndex === null) && (
+              <div className="flex flex-col gap-3 w-full max-w-sm mx-auto">
+                <Button
+                  size="lg"
+                  className="bg-blue-500 hover:bg-blue-600 w-full"
+                  onClick={handleStartCheckWithTracking}
+                  disabled={waitingForPartnerToContinue}
+                  data-testid="start-check"
+                >
+                  Does <span className="font-bold">{displayPartnerName}</span> understand you?
+                </Button>
+                <Button
+                  variant="outline"
+                  size="lg"
+                  className="w-full"
+                  onClick={handleStartProveWithTracking}
+                  disabled={waitingForPartnerToContinue}
+                  data-testid="start-prove"
+                >
+                  Do you understand <span className="font-bold">{displayPartnerName}</span>?
+                </Button>
+                {waitingForPartnerToContinue && (
+                  <WaitingIndicator message={`Waiting for ${displayPartnerName} to continue...`} />
+                )}
+              </div>
+            )}
+
             {/* P272: StorySearchPicker — only when no story selected AND user has stories */}
             {!liveState.selectedStoryId && userId && contentLoaded && stories.length > 0 && onSelectStory && (
               <StorySearchPicker
@@ -1169,14 +1197,13 @@ function IdleScreen({
         )}
       </div>
 
-      {/* P588: ActionArea OUTSIDE scroll container — always at the bottom */}
-      {(selectedHistoryIndex === null || !sessionHistory[selectedHistoryIndex]) && (
+      {/* P588: Sticky ActionArea OUTSIDE scroll container — only when story selected */}
+      {selectedStory && (selectedHistoryIndex === null || !sessionHistory[selectedHistoryIndex]) && (
         <ActionArea
           sticky={true}
           className={showRatingDrawer || hasRatingData ? '' : '!pt-0'}
         >
-          {/* Check button: always shown in free session; owner-only when story is selected */}
-          {!showRatingDrawer && (!selectedStory || isStoryOwner) && (
+          {!showRatingDrawer && isStoryOwner && (
             <Button
               size="lg"
               className="bg-blue-500 hover:bg-blue-600 w-full"
@@ -1185,20 +1212,6 @@ function IdleScreen({
               data-testid="start-check"
             >
               Does <span className="font-bold">{displayPartnerName}</span> understand you?
-            </Button>
-          )}
-
-          {/* Prove button: only shown in free session (no story selected) */}
-          {!showRatingDrawer && !selectedStory && (
-            <Button
-              variant="outline"
-              size="lg"
-              className="w-full"
-              onClick={handleStartProveWithTracking}
-              disabled={waitingForPartnerToContinue}
-              data-testid="start-prove"
-            >
-              Do you understand <span className="font-bold">{displayPartnerName}</span>?
             </Button>
           )}
 
