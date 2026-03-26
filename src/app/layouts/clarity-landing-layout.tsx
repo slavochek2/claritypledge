@@ -57,7 +57,7 @@ function ClarityLandingLayoutInner({ children }: { children: ReactNode }) {
   const needsBottomPadding = showUserMenu;
 
   return (
-    <div className={`${isLivePage ? 'h-screen overflow-hidden' : 'min-h-screen'} bg-background text-foreground flex flex-col`}>
+    <div className={`${isLivePage ? 'h-screen' : 'min-h-screen'} bg-background text-foreground flex flex-col`}>
       <OfflineBanner />
       {!hasOwnNavigation && (
         <SimpleNavigation />
