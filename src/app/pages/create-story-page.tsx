@@ -205,7 +205,6 @@ export function CreateStoryPage() {
               contentType,
               fileName: 'story-image',
             };
-            console.log('[P591] Image upload request:', reqBody, 'blob size:', imageBlob.size, 'blob.type:', JSON.stringify(imageBlob.type), 'token:', token?.slice(0, 20) + '...');
             const response = await fetch(edgeFunctionUrl, {
               method: 'POST',
               headers: {
