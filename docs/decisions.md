@@ -2,6 +2,14 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-26 [product]: Globe icon on all public action buttons (extending P586)
+
+**Context:** P586 established inline globe/lock icons on content cards (stories, points, docs). But action buttons ("Share a Story", "Publish Story", "Add Point") still used PenLine or Plus icons — inconsistent with the visibility language.
+**Decision:** Replace PenLine/Plus with Globe on all public action buttons across feed, profile, create-story, and add-point flows. Private flows already had Lock — now public matches. Button labels also made explicit: "Publish Public Story", "Add Public Point".
+**Alternatives rejected:** (A) Keep PenLine — it communicates "write" but not visibility. (B) Add globe alongside PenLine — cluttered.
+**Consequences:** Consistent visual language: globe = public action, lock = private action, everywhere. Users see the same icon vocabulary on content cards and action buttons.
+**References:** P586 inline positioning decision (below), `visibility-badge.tsx`
+
 ## 2026-03-26 [product]: Clarity Doc visibility is immutable after creation (P551/P590)
 
 **Context:** P551 initially implemented a visibility dropdown on the doc header that could switch between Private/Public. In UAT, the dropdown was effectively useless — once a private story existed, switching to Public was blocked. The control existed but almost never worked.
