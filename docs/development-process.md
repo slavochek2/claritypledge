@@ -30,6 +30,9 @@ This document describes how features move from idea to production in the Clarity
 /spec-review features/pN_feature.md  # Pre-dev spec audit (redundancy, gaps, blindspots)
 # [Fix any BLOCK findings, then proceed]
 
+/spec-compact features/pN_feature.md # Strip agent residue (Q&A threads, decision prose, restatements)
+# [Review removal manifest, approve]
+
 /decompose features/pN_feature.md    # Task manifest (complex features only*)
 # [Review & approve task breakdown — /decompose reads Test Coverage section to add test refs to tasks]
 
@@ -342,6 +345,43 @@ This document describes how features move from idea to production in the Clarity
 # Verdict: NEEDS FIXES
 # Fix AC-3 and the corner discrepancy, then proceed to /dev
 ```
+
+---
+
+### Layer 4.6: Spec Compaction (`/spec-compact`)
+
+**What it does:** Strips agent conversation residue from a spec without changing any requirement or decision. The pipeline is additive by design — each skill appends. This is the only skill that prunes.
+
+**When to use:** Always, after `/spec-review` BLOCKs are resolved, before `/decompose` or `/dev`. Skip for specs under 100 lines.
+
+**What gets removed:**
+- **Agent Q&A threads** — "Q from /architect: does the UX assume X? A: yes" (answer is already in the spec as a requirement)
+- **Resolved decision analyses** — "Option A vs B vs C, chose A because..." → collapsed to "**Decision:** A. **Why:** [1 sentence]"
+- **Authoring-time notes** — "Note to architect:", "TODO: confirm with user", "See conversation above"
+- **Cross-layer restatements** — same requirement verbatim in Business, UX, and Architecture
+- **Preamble paragraphs** — "Based on the business requirements above, here is the technical architecture..."
+- **Superseded content** — old versions left inline after revisions
+
+**What stays untouched:** Acceptance criteria, architecture decisions (decision + rationale), UX flows, test coverage strategy, build sequence, component strategy, security review.
+
+**Review gate:** Agent shows a removal manifest (what's being removed and why). User approves before changes apply.
+
+**Example:**
+```bash
+/spec-compact features/p200_realtime_cursors.md
+
+# Agent reports:
+# Spec is 580 lines before compaction.
+# Removal manifest:
+# - Lines 45-52: Q&A thread between /ux and /architect (tooltip placement — resolved in UX flows)
+# - Lines 110-135: Decision analysis for caching (collapsed to 2-line decision)
+# - Lines 200-205: Preamble restating business requirements in arch section
+# - Lines 310-318: "Note to /generate-tests: make sure to cover X" (X is in test coverage)
+#
+# User approves → Spec compacted: 580 → 420 lines (28% reduction)
+```
+
+**Next:** If approved → Run `/decompose` (if complex) or `/dev`
 
 ---
 

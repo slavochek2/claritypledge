@@ -206,11 +206,11 @@ Any ONE of these fires → `/verify` is required. Do not skip.
 | Spec already written — `test_files:` present, `type: change-request` | — | skip `/generate-tests`, run `/spec-review` → `/dev` |
 | Spec already written — `test_files:` absent | — | start from `/generate-tests` → `/dev` |
 | Spec exists, `delivery_stage: 5-decomposed` | — | resume from `/dev` |
-| Spec exists, `delivery_stage: 4-tests-ready` | — | resume from `/spec-review` → `/decompose`* → `/dev` |
-| Spec exists, `delivery_stage: 3-arch-review` | — | resume from `/ui` (if UI) → `/generate-tests` → `/spec-review` → `/dev` |
-| Spec exists, `delivery_stage: 3.5-ui-review` | — | resume from `/generate-tests` → `/spec-review` → `/dev` |
-| Spec exists, `delivery_stage: 2-ux-done` | — | resume from `/research-arch`* (if novel tech) → `/architect` → `/generate-tests` → `/spec-review` → `/dev` |
-| Spec exists, `delivery_stage: 1-prd` | — | resume from `/ux` (if UI changes) or `/architect` → `/generate-tests` → `/spec-review` → `/dev` |
+| Spec exists, `delivery_stage: 4-tests-ready` | — | resume from `/spec-review` → `/spec-compact` → `/decompose`* → `/dev` |
+| Spec exists, `delivery_stage: 3-arch-review` | — | resume from `/ui` (if UI) → `/generate-tests` → `/spec-review` → `/spec-compact` → `/decompose`* → `/dev` |
+| Spec exists, `delivery_stage: 3.5-ui-review` | — | resume from `/generate-tests` → `/spec-review` → `/spec-compact` → `/decompose`* → `/dev` |
+| Spec exists, `delivery_stage: 2-ux-done` | — | resume from `/research-arch`* (if novel tech) → `/architect` → `/generate-tests` → `/spec-review` → `/spec-compact` → `/decompose`* → `/dev` |
+| Spec exists, `delivery_stage: 1-prd` | — | resume from `/ux` (if UI changes) or `/architect` → `/generate-tests` → `/spec-review` → `/spec-compact` → `/decompose`* → `/dev` |
 
 ### Drop/skip signals
 
@@ -220,7 +220,7 @@ Any ONE of these fires → `/verify` is required. Do not skip.
 | `type: change-request` in spec frontmatter | any | `/spec-review` mandatory (not optional) |
 | **Changes `.claude/commands/`, `.claude/rules/`, `.claude/hooks/`, `CLAUDE.md`, git workflow, or `scripts/` invoked by hooks/CI** | **Infra** | **See infrastructure tier below** |
 
-**Command ordering when multiple signals apply:** `/create-prd` → `/challenge-prd`* → `/ux` → `/research-arch`* → `/architect` → `/ui` → `/generate-tests` → `/decompose` → `/dev` → `/verify`
+**Command ordering when multiple signals apply:** `/create-prd` → `/challenge-prd`* → `/ux` → `/research-arch`* → `/architect` → `/ui` → `/generate-tests` → `/spec-review`* → `/spec-compact` → `/decompose` → `/dev` → `/verify`
 
 `*` `/challenge-prd` recommended for novel features (new capability, new actor, unvalidated flow). Skip for incremental improvements. `/research-arch` optional — only when feature involves novel technology, unfamiliar integrations, or technical unknowns surfaced by `/challenge-prd`.
 
@@ -253,6 +253,7 @@ These changes affect **all future work** — not a single feature. Risk is asymm
 - `/architect` — architecture plan + mandatory security review; include whenever task has DB columns, RLS, auth, API changes, or new patterns; skip only for trivial 1-2 file UI-only changes with no security surface
 - `/ui` — component strategy mapping UX + architecture to concrete component choices; mandatory for all UI features (full and medium pipeline); maximizes reuse of existing design system; skip for backend-only, pure CSS, single-file copy changes
 - `/generate-tests` — writes test specs before implementation; include whenever a regression would be annoying to debug manually — this covers any conditional rendering (phase-based, auth-based, role-based), UI state that changes on user interaction or event, placeholder text or UI strings that could drift, button enable/disable logic, CSS class conditionals (e.g. centered vs sticky based on state), and all security/auth/DB cases; mandatory for any DB migration (P270 rule); also include when `/architect` is in the flow; skip only for pure CSS-only changes, single hardcoded strings with no logic, or one-liner typo fixes
+- `/spec-compact` — strips agent conversation residue from spec (Q&A threads, decision analyses, restatements); always after `/spec-review`, before `/decompose` or `/dev`; skip for specs under 100 lines
 - `/decompose` — splits into sub-stories (5+ files or 3+ concerns only, run after `/generate-tests`)
 - `/dev` — implements from spec, stops at QA gate on success (run `/ship` to close)
 - `/review-all` — 3-agent parallel review (code + design + UX); **auto-runs inside both `/dev` and `/fix`** — do NOT list it as a step in any flow (it's already included)
@@ -272,6 +273,7 @@ Apply this to every step. Don't default to "might help a bit" — default to "cl
 - `/verify` is mandatory when ANY `/verify`-mandatory signal fires (see scoring table). This includes: state machine bugs, multi-user flows, UI recovery/reconnection, realtime behavior, visual regression risk, and any "user should see X when Y" that unit tests can't cover. Not for every `.tsx` change, not for component extraction with identical output.
 - `/generate-tests` whenever a regression would be annoying to debug manually — includes any conditional rendering, UI state change, interactive behavior, placeholder copy that could drift, button enable/disable logic, CSS class conditionals, and all security/auth/DB cases; mandatory for any DB migration (P270); skip only for pure CSS-only changes, single hardcoded strings with no logic, or one-liner typo fixes
 - `/spec-review` is mandatory after `/generate-tests` when the flow includes `/architect` (architecture decisions need validation against test expectations)
+- `/spec-compact` — always include after `/spec-review` (or after `/generate-tests` if `/spec-review` is skipped) for any flow with 2+ pipeline skills that append to the spec. Agent Q&A threads, resolved decision prose, and cross-layer restatements accumulate — `/spec-compact` is the only step that prunes. Skip only for specs under 100 lines or flows where only `/dev` touches the spec.
 - `/ux` — apply drop-`/ux` rule strictly: skip ONLY when ALL three conditions are met: (a) ASCII covers ALL states (happy, edge, empty, loading, responsive), (b) no net-new visual component/pattern, (c) no mobile concerns. If ANY condition fails, include `/ux`. "ASCII in conversation covers happy path" ≠ "UX resolved"
 - `/decompose` only for 5+ files or 3+ independent concerns
 - If spec exists: check `delivery_stage:` first — it takes precedence (see scoring table rows for all 5 stages: `1-prd` through `5-decomposed`); if absent, fall back to `test_files:` — present → start from `/dev`; absent → `/generate-tests` → `/dev`

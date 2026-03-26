@@ -1279,7 +1279,7 @@ function StoryCardFull({
       {/* Footer row with linked points and action icons */}
       <div
         role="presentation"
-        className="flex items-center justify-between pl-[68px] pr-4 py-3 border-t border-border"
+        className="flex flex-wrap items-center justify-between gap-y-1 pl-[68px] pr-4 py-3 border-t border-border"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Point count + author CTA (P580: always show count, author gets "+ add a point") */}
@@ -1301,9 +1301,9 @@ function StoryCardFull({
           {currentUserId === story.authorId && (
             <button
               onClick={(e) => { e.stopPropagation(); navigate(`/story/${story.id}?addPoint=true`); }}
-              className="px-3 py-1 text-xs font-medium text-white bg-blue-600 rounded-full hover:bg-blue-700 transition-colors"
+              className="px-2 py-1 text-xs font-medium text-white bg-blue-600 rounded-full hover:bg-blue-700 transition-colors whitespace-nowrap"
             >
-              + Add a point
+              + Add point
             </button>
           )}
         </div>

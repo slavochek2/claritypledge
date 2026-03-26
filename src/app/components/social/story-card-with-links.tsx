@@ -340,7 +340,7 @@ export function StoryCardWithLinks({
           {/* Footer header row */}
           <div
             role="presentation"
-            className="flex items-center justify-between pl-[52px] pr-4 py-3 border-t border-gray-100"
+            className="flex flex-wrap items-center justify-between gap-y-1 pl-[52px] pr-4 py-3 border-t border-gray-100"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Point count (always shown) + author CTA */}
@@ -367,10 +367,10 @@ export function StoryCardWithLinks({
                     e.stopPropagation();
                     embedNavigate(`/story/${story.id}?addPoint=true`);
                   }}
-                  className="px-3 py-1 text-xs font-medium text-white bg-blue-600 rounded-full hover:bg-blue-700 transition-colors"
+                  className="px-2 py-1 text-xs font-medium text-white bg-blue-600 rounded-full hover:bg-blue-700 transition-colors whitespace-nowrap"
                   aria-label="Add a point to this story"
                 >
-                  + Add a point
+                  + Add point
                 </button>
               )}
             </div>
@@ -648,9 +648,9 @@ function QuotedPoint({
                   </button>
                   <button
                     onClick={e => { e.stopPropagation(); embedNavigate(chatUrl); }}
-                    className="px-3 py-1 text-xs font-medium text-white bg-blue-600 rounded-full hover:bg-blue-700 transition-colors"
+                    className="px-2 py-1 text-xs font-medium text-white bg-blue-600 rounded-full hover:bg-blue-700 transition-colors whitespace-nowrap"
                   >
-                    + Add your story
+                    + Add story
                   </button>
                 </div>
               )}

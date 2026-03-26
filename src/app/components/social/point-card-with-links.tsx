@@ -350,10 +350,10 @@ export function PointCardWithLinks({
                         {isOwnProfile && (
                           <button
                             onClick={(e) => { e.stopPropagation(); embedNavigate(`/create?pointId=${point.id}`); }}
-                            className="px-3 py-1 text-xs font-medium text-white bg-blue-600 rounded-full hover:bg-blue-700 transition-colors"
+                            className="px-2 py-1 text-xs font-medium text-white bg-blue-600 rounded-full hover:bg-blue-700 transition-colors whitespace-nowrap"
                             aria-label="Add your story"
                           >
-                            + Add your story
+                            + Add story
                           </button>
                         )}
                       </div>

@@ -2,6 +2,14 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-26 [process]: Add /spec-compact to pipeline — the only skill that prunes
+
+**Context:** The development pipeline is additive by design — `/create-prd`, `/challenge-prd`, `/ux`, `/architect`, `/generate-tests` each append content to the spec. No skill removes anything. Over a full pipeline, specs accumulate agent Q&A threads ("Q from /architect: does the UX assume X?"), resolved decision analyses (3-paragraph Option A vs B vs C), authoring-time notes ("Note to architect:"), and cross-layer restatements (same requirement verbatim in Business, UX, and Architecture sections). A 200-line feature becomes a 600-line spec where maybe 200 lines are load-bearing. This bloats context for `/dev` and `/decompose`.
+**Decision:** Created `/spec-compact` as a new pipeline step that runs after `/spec-review`, before `/decompose` or `/dev`. It identifies removable content (6 categories), presents a removal manifest to the user, and applies approved removals. Always included in full pipeline; optional in medium pipeline (most medium specs are under 100 lines and don't need it). Added to `pick-flow` hard rules, all resume signal paths, `CLAUDE.md` sequential flows, and `development-process.md` as Layer 4.6.
+**Alternatives rejected:** (1) Making `/spec-review` also prune — conflates auditing with editing, violates single-responsibility. (2) Having each skill clean up after itself — each skill only sees its own output, not the cross-layer picture. (3) Not pruning at all — works for small specs but full-pipeline specs hit 500+ lines where 30-40% is dead weight.
+**Consequences:** Full pipeline gains one step. Medium pipeline gains an optional step (will typically be skipped via the 100-line threshold). `/dev` subagents get leaner specs with better signal-to-noise ratio. The removal manifest + user approval gate prevents accidental deletion of load-bearing content.
+**References:** [spec-compact.md](.claude/commands/slava/build/spec-compact.md), [pick-flow/SKILL.md](.claude/commands/slava/build/pick-flow/SKILL.md), [development-process.md](docs/development-process.md)
+
 ## 2026-03-26 [product]: Story/point narrative reorder — st1 through st9 pedagogical sequence
 
 **Context:** The 8-story sequence (st1-st8) had a pedagogical gap: st1 named the 3 types of understanding, then st2 jumped to "cognitive is the win-win first goal" without establishing WHY verification matters or HOW it works. A real conversation with someone who rejected the system ("I communicate fine, it's too complex") surfaced the missing bridge: people can't assess their own understanding accuracy without verification — their self-assessment has no error signal.
