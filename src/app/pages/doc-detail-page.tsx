@@ -7,7 +7,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { FileText, Lock, Globe } from 'lucide-react';
+import { FileText, Lock, Globe, Share2 } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   DndContext,
@@ -34,6 +34,7 @@ import { DocHeader } from '@/app/components/docs/doc-header';
 import { DocPrivacyBanner } from '@/app/components/docs/doc-privacy-banner';
 import { DocBlockControls } from '@/app/components/docs/doc-block-controls';
 import { StoryCardDetail } from '@/app/components/social/StoryCardDetail';
+import { ShareDialog } from '@/app/components/shared/ShareDialog';
 import type { ClarityDoc, DocStory, DocPointConfig } from '@/app/types';
 
 // ---------------------------------------------------------------------------
@@ -201,6 +202,7 @@ export function DocDetailPage() {
   const [stories, setStories] = useState<DocStory[]>([]);
   const [fetchState, setFetchState] = useState<'loading' | 'done' | 'not-found'>('loading');
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
 
   // DnD sensors: pointer (mouse) + touch with delay to avoid accidental drags
   const sensors = useSensors(
@@ -345,19 +347,24 @@ export function DocDetailPage() {
           isOwner={isOwner}
           onDocUpdated={handleDocUpdated}
         >
-          {isOwner && (
-            <div className="flex items-center gap-2 flex-shrink-0">
-              <Button variant="outline" size="sm" onClick={() => setPickerOpen(true)}>
-                Select your story
-              </Button>
-              <Button asChild size="sm" className="bg-blue-500 hover:bg-blue-600 text-white">
-                <Link to={`/create?docId=${doc.id}`}>
-                  {doc.visibility === 'private' ? <Lock size={16} /> : <Globe size={16} />}
-                  Write a story
-                </Link>
-              </Button>
-            </div>
-          )}
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <Button variant="ghost" size="icon" className="h-8 w-8" aria-label="Share this doc" onClick={() => setShareOpen(true)}>
+              <Share2 className="h-4 w-4" />
+            </Button>
+            {isOwner && (
+              <>
+                <Button variant="outline" size="sm" onClick={() => setPickerOpen(true)}>
+                  Select your story
+                </Button>
+                <Button asChild size="sm" className="bg-blue-500 hover:bg-blue-600 text-white">
+                  <Link to={`/create?docId=${doc.id}`}>
+                    {doc.visibility === 'private' ? <Lock size={16} /> : <Globe size={16} />}
+                    Write a story
+                  </Link>
+                </Button>
+              </>
+            )}
+          </div>
         </DocHeader>
 
         {/* Stories or empty state */}
@@ -405,6 +412,16 @@ export function DocDetailPage() {
           onStoryAdded={() => fetchDoc(false)}
         />
       )}
+
+      {/* Share dialog */}
+      <ShareDialog
+        open={shareOpen}
+        onOpenChange={setShareOpen}
+        type="profile"
+        url={`${window.location.origin}/d/${doc.id}`}
+        title={doc.title}
+        description={`Clarity Doc: ${doc.title}`}
+      />
     </main>
   );
 }

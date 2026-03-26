@@ -5,7 +5,7 @@
  */
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { FileText, Plus, Lock, Globe, MoreHorizontal, Trash2 } from 'lucide-react';
+import { FileText, Plus, Lock, Globe, MoreHorizontal, Trash2, Share2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { ClarityPageLoader } from '@/components/ui/clarity-loader';
 import { Button } from '@/components/ui/button';
@@ -28,6 +28,7 @@ import { useAuth } from '@/auth';
 import { docsService } from '@/app/data/docs-service';
 import { InlineVisibilityIcon } from '@/app/components/shared/visibility-badge';
 import { formatTimeAgo } from '@/app/utils/format-time';
+import { ShareDialog } from '@/app/components/shared/ShareDialog';
 import type { ClarityDoc, ContentVisibility } from '@/app/types';
 
 export function DocsListPage() {
@@ -39,6 +40,7 @@ export function DocsListPage() {
   const [creating, setCreating] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<ClarityDoc | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [shareTarget, setShareTarget] = useState<ClarityDoc | null>(null);
 
   const fetchDocs = useCallback(async () => {
     if (!user?.id) return;
@@ -250,6 +252,9 @@ export function DocsListPage() {
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
+                    <Button variant="ghost" size="icon" className="h-8 w-8" aria-label={`Share ${doc.title}`} onClick={() => setShareTarget(doc)}>
+                      <Share2 className="w-4 h-4" />
+                    </Button>
                     <Button asChild size="sm" className="bg-blue-500 hover:bg-blue-600 text-white">
                       <Link to={`/d/${doc.id}`}>Open</Link>
                     </Button>
@@ -280,6 +285,17 @@ export function DocsListPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      {/* Share dialog */}
+      {shareTarget && (
+        <ShareDialog
+          open={!!shareTarget}
+          onOpenChange={(open) => { if (!open) setShareTarget(null); }}
+          type="profile"
+          url={`${window.location.origin}/d/${shareTarget.id}`}
+          title={shareTarget.title}
+          description={`Clarity Doc: ${shareTarget.title}`}
+        />
+      )}
     </main>
   );
 }
