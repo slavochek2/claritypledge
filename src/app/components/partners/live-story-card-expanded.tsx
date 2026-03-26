@@ -47,12 +47,18 @@ export function LiveStoryCardExpanded({
 }: LiveStoryCardExpandedProps) {
   const [isExpanded, setIsExpanded] = useState(defaultExpanded);
   const [storyExpanded, setStoryExpanded] = useState(false);
+  // P588: Peek mode — track which single point is expanded (null = all collapsed)
+  // When defaultExpanded (partner view), auto-expand first point so position buttons are immediately visible
+  const [expandedPointId, setExpandedPointId] = useState<string | null>(
+    defaultExpanded && story.points.length > 0 ? story.points[0].id : null
+  );
 
-  // P588: Reset both expand states when the story changes (phase change / story rotation)
+  // P588: Reset all expand states when the story changes (phase change / story rotation)
   useEffect(() => {
     setStoryExpanded(false);
     setIsExpanded(defaultExpanded);
-  }, [story.id, defaultExpanded]);
+    setExpandedPointId(defaultExpanded && story.points.length > 0 ? story.points[0].id : null);
+  }, [story.id, defaultExpanded, story.points]);
 
   const strippedContent = stripHashtags(story.content, story.tags);
   const isLongStory = strippedContent.length > STORY_THRESHOLD;
@@ -152,6 +158,8 @@ export function LiveStoryCardExpanded({
                   badgePersonEarsCount={badgePersonEarsCount}
                   isOwnStory={isOwnStory}
                   isGuest={isGuest}
+                  isPeekExpanded={expandedPointId === point.id}
+                  onTogglePeek={() => setExpandedPointId(expandedPointId === point.id ? null : point.id)}
                 />
               </ThreadLineItem>
             ))}
@@ -174,6 +182,8 @@ function PointRow({
   badgePersonEarsCount,
   isOwnStory = false,
   isGuest = false,
+  isPeekExpanded = false,
+  onTogglePeek,
 }: {
   point: PointSummary;
   authorName: string;
@@ -186,6 +196,10 @@ function PointRow({
   badgePersonEarsCount?: number;
   isOwnStory?: boolean;
   isGuest?: boolean;
+  /** P588: Whether this point is expanded in peek mode */
+  isPeekExpanded?: boolean;
+  /** P588: Toggle this point's peek expansion */
+  onTogglePeek?: () => void;
 }) {
   // Local state so button highlights immediately on click, independent of the
   // frozen selectedStoryData snapshot. Echoes to onPositionSelect for liveState sync.
@@ -209,7 +223,7 @@ function PointRow({
   return (
     <div className="w-full text-left">
       {/* Position badge above point — shows badge person's stance (author for partner view, partner for host view) */}
-      {point.profileSubjectPosition && (
+      {isPeekExpanded && point.profileSubjectPosition && (
         <div className="flex items-center gap-1.5 mb-1.5 text-sm text-gray-700">
           <GravatarAvatar
             name={badgePersonName ?? authorName}
@@ -228,69 +242,78 @@ function PointRow({
         </div>
       )}
 
-      {/* Quoted point box — buttons on own row so they get full box width */}
-      <div className="p-3 rounded-lg border border-gray-200 bg-gray-50 space-y-2">
+      {/* P588: Peek mode — tappable point box */}
+      <button
+        type="button"
+        onClick={onTogglePeek}
+        className="w-full text-left p-3 rounded-lg border border-gray-200 bg-gray-50 space-y-2 transition-colors hover:bg-gray-100"
+        aria-expanded={isPeekExpanded}
+      >
         <div className="flex items-start gap-2">
           <div className="w-6 h-6 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0 text-blue-600 mt-0.5">
             <Pin size={12} className="rotate-45" />
           </div>
-          <p className="text-sm text-gray-800 flex-1 min-w-0 break-words"><InlineVisibilityIcon visibility={point.visibility} />{' '}{linkifyText(stripHashtags(point.statement, point.tags))}</p>
-          {point.tags?.length > 0 && <TagPills tags={point.tags} context="live" className="mt-1" />}
+          {/* P588: 2-line truncation when collapsed, full text when expanded */}
+          <p className={`text-sm text-gray-800 flex-1 min-w-0 break-words ${!isPeekExpanded ? 'line-clamp-2' : ''}`}>
+            <InlineVisibilityIcon visibility={point.visibility} />{' '}{linkifyText(stripHashtags(point.statement, point.tags))}
+          </p>
         </div>
-        <PositionButtons
-          userPosition={userPosition}
-          counts={toSevenPointCounts(point.positionCounts)}
-          onPositionClick={handlePositionClick}
-          compact
-          narrow
-        />
 
-        {/* P490: Guest hint — positions are ephemeral, prompt to sign up */}
-        {isGuest && userPosition && (
-          <div className="border-t border-gray-200 pt-2">
-            <p className="text-xs text-gray-500">
-              Position shared live — sign up to save it
-            </p>
+        {/* P588: Expanded content — tags, position buttons, hints */}
+        {isPeekExpanded && (
+          <div className="space-y-2" role="presentation" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
+            {point.tags?.length > 0 && <TagPills tags={point.tags} context="live" className="mt-1" />}
+            <PositionButtons
+              userPosition={userPosition}
+              counts={toSevenPointCounts(point.positionCounts)}
+              onPositionClick={handlePositionClick}
+              compact
+              narrow
+            />
+
+            {/* P490: Guest hint — positions are ephemeral, prompt to sign up */}
+            {isGuest && userPosition && (
+              <div className="border-t border-gray-200 pt-2">
+                <p className="text-xs text-gray-500">
+                  Position shared live — sign up to save it
+                </p>
+              </div>
+            )}
+
+            {/* P456: Disabled story CTA footer — visible but non-interactive in /live session.
+                P487+: Hidden on own story — use shouldShowStoryCTA shared utility. */}
+            {/* P560: Position no longer required for story CTA */}
+            {!isGuest && shouldShowStoryCTA({ userPosition, isOwnStory }) === 'show' && (() => {
+              // Use position-specific copy when available, generic fallback otherwise
+              const copy = userPosition
+                ? getPositionCTACopy(getPositionGroup(userPosition))
+                : null;
+
+              return (
+                <div className="border-t border-gray-200 pt-2">
+                  {/* CTA row — disabled, decorative only */}
+                  <div className="flex items-center gap-1 opacity-50 pointer-events-none">
+                    {copy && (
+                      <>
+                        <span aria-hidden="true" className="text-sm text-gray-600">{copy.symbol}</span>
+                        <span className="text-sm text-gray-600">{copy.label}</span>
+                        <span aria-hidden="true" className="text-sm text-gray-400"> · </span>
+                      </>
+                    )}
+                    <span className="text-sm font-medium text-blue-600">
+                      Add your story →
+                    </span>
+                  </div>
+                  {/* Hint row */}
+                  <p id={`live-cta-hint-${point.id}`} className="text-xs text-gray-400 mt-1">
+                    Available after the session
+                  </p>
+                </div>
+              );
+            })()}
           </div>
         )}
-
-        {/* P456: Disabled story CTA footer — visible but non-interactive in /live session.
-            P487+: Hidden on own story — use shouldShowStoryCTA shared utility. */}
-        {/* P560: Position no longer required for story CTA */}
-        {!isGuest && shouldShowStoryCTA({ userPosition, isOwnStory }) === 'show' && (() => {
-          // Use position-specific copy when available, generic fallback otherwise
-          const copy = userPosition
-            ? getPositionCTACopy(getPositionGroup(userPosition))
-            : null;
-
-          return (
-            <div className="border-t border-gray-200 pt-2">
-              {/* CTA row — disabled, decorative only */}
-              <div className="flex items-center gap-1 opacity-50 pointer-events-none">
-                {copy && (
-                  <>
-                    <span aria-hidden="true" className="text-sm text-gray-600">{copy.symbol}</span>
-                    <span className="text-sm text-gray-600">{copy.label}</span>
-                    <span aria-hidden="true" className="text-sm text-gray-400"> · </span>
-                  </>
-                )}
-                <button
-                  disabled
-                  aria-disabled="true"
-                  aria-describedby={`live-cta-hint-${point.id}`}
-                  className="text-sm font-medium text-blue-600"
-                >
-                  Add your story →
-                </button>
-              </div>
-              {/* Hint row */}
-              <p id={`live-cta-hint-${point.id}`} className="text-xs text-gray-400 mt-1">
-                Available after the session
-              </p>
-            </div>
-          );
-        })()}
-      </div>
+      </button>
     </div>
   );
 }
