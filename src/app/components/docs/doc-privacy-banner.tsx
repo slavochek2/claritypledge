@@ -34,7 +34,7 @@ export function DocPrivacyBanner({ visibility }: DocPrivacyBannerProps) {
         <>
           <Globe size={14} className="text-blue-600 flex-shrink-0" />
           <span className="text-blue-800 font-medium">PUBLIC</span>
-          <span className="text-blue-700">&middot; Visible on your profile</span>
+          <span className="text-blue-700">&middot; Anyone with the link can see this Clarity Doc</span>
         </>
       )}
     </div>
