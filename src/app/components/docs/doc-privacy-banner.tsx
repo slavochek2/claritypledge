@@ -28,13 +28,19 @@ export function DocPrivacyBanner({ visibility }: DocPrivacyBannerProps) {
         <>
           <Lock size={14} className="text-amber-600 flex-shrink-0" />
           <span className="text-amber-800 font-medium">PRIVATE</span>
-          <span className="text-amber-700">&middot; Only you can see this Clarity Doc</span>
+          <span className="text-amber-700">
+            <span className="hidden sm:inline">&middot; Only you can see this Clarity Doc</span>
+            <span className="sm:hidden">&middot; Only you</span>
+          </span>
         </>
       ) : (
         <>
           <Globe size={14} className="text-blue-600 flex-shrink-0" />
           <span className="text-blue-800 font-medium">PUBLIC</span>
-          <span className="text-blue-700">&middot; Anyone with the link can see this Clarity Doc</span>
+          <span className="text-blue-700">
+            <span className="hidden sm:inline">&middot; Anyone with the link can see this Clarity Doc</span>
+            <span className="sm:hidden">&middot; Visible to anyone</span>
+          </span>
         </>
       )}
     </div>

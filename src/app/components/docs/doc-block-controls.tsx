@@ -33,7 +33,7 @@ export function DocBlockControls(props: DocBlockControlsProps) {
   return (
     <div
       className={cn(
-        'flex items-center gap-1 h-8',
+        'flex items-center gap-1 h-8 ml-1',
         'opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity duration-150'
       )}
     >
@@ -57,7 +57,7 @@ export function DocBlockControls(props: DocBlockControlsProps) {
           size="icon"
           className="min-w-[44px] min-h-[44px] flex items-center justify-center"
           aria-label="Remove from this doc"
-          onClick={props.onRemove}
+          onClick={(e) => { e.stopPropagation(); props.onRemove(); }}
         >
           <X className="h-4 w-4 text-muted-foreground" />
         </Button>
@@ -68,7 +68,7 @@ export function DocBlockControls(props: DocBlockControlsProps) {
           className="min-w-[44px] min-h-[44px] flex items-center justify-center"
           aria-pressed={props.isHidden}
           aria-label={props.isHidden ? 'Show in this doc' : 'Hide in this doc'}
-          onClick={props.onToggleHidden}
+          onClick={(e) => { e.stopPropagation(); props.onToggleHidden(); }}
         >
           {props.isHidden ? (
             <EyeOff className="h-4 w-4 text-muted-foreground" />

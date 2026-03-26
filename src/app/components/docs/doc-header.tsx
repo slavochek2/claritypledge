@@ -76,7 +76,7 @@ export function DocHeader({ doc, isOwner, onDocUpdated, children }: DocHeaderPro
       </button>
 
       {/* Title + action buttons row */}
-      <div className="flex items-start justify-between gap-3">
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
         {/* Title */}
         <div className="flex-1 min-w-0">
           {isEditingTitle ? (

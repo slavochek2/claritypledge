@@ -128,7 +128,13 @@ function SortableStoryCard({
           pointOrder={pointConfig.order}
           hiddenPointIds={isOwner ? undefined : pointConfig.hidden}
           renderPointRow={isOwner ? (point, quotedPointElement) => (
-            <div key={point.id} className="group/point flex items-start gap-1">
+            <div
+              key={point.id}
+              role="toolbar"
+              className="group/point flex items-start gap-1"
+              onClick={(e) => e.stopPropagation()}
+              onKeyDown={(e) => e.stopPropagation()}
+            >
               <DocBlockControls
                 variant="point"
                 isHidden={(pointConfig.hidden || []).includes(point.id)}
