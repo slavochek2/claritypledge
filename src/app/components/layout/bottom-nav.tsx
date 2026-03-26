@@ -27,7 +27,8 @@ export function BottomNav() {
 
   // Hide on creation/focus pages — these use FocusHeader instead.
   // Content pages (/story/, /point/) keep bottom nav for navigation.
-  const focusRoutes = ['/agreements/', '/create', '/live'];
+  // P588: '/live/' (with slash) hides nav inside sessions (/live/:code) but keeps it on the /live lobby
+  const focusRoutes = ['/agreements/', '/create', '/live/'];
   if (focusRoutes.some(r => location.pathname.startsWith(r))) {
     return null;
   }
