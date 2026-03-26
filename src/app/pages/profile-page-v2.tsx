@@ -1510,7 +1510,7 @@ function QuotedPointCard({
 
           {/* Content column */}
           <div className="flex-1 min-w-0">
-            <p className="text-sm text-foreground"><InlineVisibilityIcon visibility={point.visibility} />{' '}{linkifyText(stripHashtags(point.statement, point.tags))}</p>
+            <p className="text-sm text-foreground break-words"><InlineVisibilityIcon visibility={point.visibility} />{' '}{linkifyText(stripHashtags(point.statement, point.tags))}</p>
 
             {/* P503: Tag pills */}
             {point.tags && point.tags.length > 0 && (
@@ -1631,7 +1631,7 @@ function PointCardFull({
 
             {/* Content column */}
             <div className="flex-1 min-w-0">
-              <p className="text-foreground text-base">{linkifyText(stripHashtags(point.statement, point.tags))}</p>
+              <p className="text-foreground text-base break-words">{linkifyText(stripHashtags(point.statement, point.tags))}</p>
 
               {/* P503: Tag pills */}
               {point.tags && point.tags.length > 0 && (

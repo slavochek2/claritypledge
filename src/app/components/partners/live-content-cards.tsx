@@ -206,9 +206,9 @@ export function LivePointCard({ point, onSelect, disabled }: LivePointCardProps)
       className="w-full text-left bg-card rounded-lg border-l-4 border-l-muted-foreground/50 border border-border shadow-sm p-4 hover:border-muted-foreground/70 hover:shadow-md transition-all disabled:opacity-50 disabled:cursor-not-allowed"
       data-testid={`live-point-card-${point.id}`}
     >
-      <p className="text-sm font-medium text-foreground line-clamp-2">{linkifyText(displayStatement)}</p>
+      <p className="text-sm font-medium text-foreground line-clamp-2 break-words">{linkifyText(displayStatement)}</p>
       {point.context && (
-        <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{linkifyText(point.context)}</p>
+        <p className="text-xs text-muted-foreground mt-1 line-clamp-2 break-words">{linkifyText(point.context)}</p>
       )}
       {/* P491: Tag pills (display-only in live context) */}
       {point.tags && point.tags.length > 0 && (

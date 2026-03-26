@@ -151,7 +151,7 @@ export function FeedPointCard({ point, activeTag, onPointRemoved }: FeedPointCar
             </p>
 
             {point.context && (
-              <p className="text-xs text-muted-foreground mt-1 line-clamp-3">
+              <p className="text-xs text-muted-foreground mt-1 line-clamp-3 break-words">
                 {linkifyText(point.context)}
               </p>
             )}
