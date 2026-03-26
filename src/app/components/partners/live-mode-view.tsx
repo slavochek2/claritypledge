@@ -2074,7 +2074,7 @@ function ActionArea({ icon, title, subtitle, children, className = '', sticky = 
             </div>
           )}
           {title && (
-            <p className="text-base font-semibold text-center max-w-xs whitespace-pre-line">
+            <p className="text-lg font-semibold text-center max-w-xs whitespace-pre-line">
               {title}
             </p>
           )}
