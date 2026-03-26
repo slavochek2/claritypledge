@@ -64,7 +64,7 @@ export function LiveStoryCardExpanded({
   return (
     <div
       data-testid="live-story-card-expanded"
-      className={`rounded-lg border-l-4 border-l-blue-500 border border-gray-200 bg-white shadow-sm overflow-hidden ${className ?? ''}`}
+      className={`rounded-lg border-l-4 border-l-blue-500 border border-gray-200 bg-white shadow-sm shrink-0 ${className ?? ''}`}
     >
       {/* Main content */}
       <div className="p-4">

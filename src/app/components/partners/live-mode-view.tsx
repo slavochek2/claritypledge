@@ -97,9 +97,9 @@ function RecordingIndicator({ isPrivate = false, uploadHealth }: { isPrivate?: b
 // ============================================================================
 
 /** Standard content container layout - centered, max-width, top-aligned */
-const CONTENT_LAYOUT = "flex-1 min-h-0 flex flex-col items-center justify-start pt-8 p-6 space-y-6 max-w-lg mx-auto w-full overflow-y-auto";
+const CONTENT_LAYOUT = "flex-1 min-h-0 flex flex-col items-center justify-start pt-8 p-6 space-y-6 max-w-lg mx-auto w-full overflow-y-auto live-scroll";
 /** Content layout variant - vertically centered (for idle state without history) */
-const CONTENT_LAYOUT_CENTERED = "flex-1 min-h-0 flex flex-col items-center justify-center px-6 pb-6 pt-16 space-y-8 max-w-lg mx-auto w-full overflow-y-auto";
+const CONTENT_LAYOUT_CENTERED = "flex-1 min-h-0 flex flex-col items-center justify-center px-6 pb-6 pt-16 space-y-8 max-w-lg mx-auto w-full overflow-y-auto live-scroll";
 
 // ============================================================================
 // PARTNER LEFT SCREEN

@@ -54,15 +54,15 @@ function ClarityLandingLayoutInner({ children }: { children: ReactNode }) {
   const hasVisibleBanner = hasActiveSession && !isLivePage;
   const needsTopPadding = !hasOwnNavigation && !isLivePage && (!isLandingPage || hasVisibleBanner);
   // P113: Add bottom padding for mobile when logged in (for bottom nav)
-  const needsBottomPadding = showUserMenu;
+  const needsBottomPadding = showUserMenu && !isLivePage;
 
   return (
-    <div className={`${isLivePage ? 'h-screen' : 'min-h-screen'} bg-background text-foreground flex flex-col`}>
+    <div className={`${isLivePage ? 'h-screen overflow-hidden' : 'min-h-screen'} bg-background text-foreground flex flex-col`}>
       <OfflineBanner />
       {!hasOwnNavigation && (
         <SimpleNavigation />
       )}
-      <main className={`flex-1 min-h-0 ${needsTopPadding ? "pt-16 lg:pt-20" : ""} ${needsBottomPadding ? "pb-20 lg:pb-0" : ""}`}>
+      <main className={`flex-1 min-h-0 ${isLivePage ? "overflow-hidden" : ""} ${needsTopPadding ? "pt-16 lg:pt-20" : ""} ${needsBottomPadding ? "pb-20 lg:pb-0" : ""}`}>
         {hasActiveSession && !isLivePage && <ActiveSessionBanner />}
         {children}
       </main>
