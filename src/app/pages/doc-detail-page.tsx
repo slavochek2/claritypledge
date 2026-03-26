@@ -264,7 +264,6 @@ export function DocDetailPage() {
           {isOwner && (
             <div className="flex items-center gap-2 flex-shrink-0">
               <Button variant="outline" size="sm" onClick={() => setPickerOpen(true)}>
-                {doc.visibility === 'private' ? <Lock size={16} /> : <Globe size={16} />}
                 Select your story
               </Button>
               <Button asChild size="sm" className="bg-blue-500 hover:bg-blue-600 text-white">

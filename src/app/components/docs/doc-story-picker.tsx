@@ -75,9 +75,13 @@ export function DocStoryPicker({
     }
   }, [open, fetchStories]);
 
-  // Reset state when dialog closes
+  // Reset state when dialog closes + refetch doc if stories were added
   useEffect(() => {
     if (!open) {
+      if (addedCountRef.current > 0) {
+        onStoryAdded();
+        addedCountRef.current = 0;
+      }
       setSearchQuery('');
       setDebouncedQuery('');
       setStories([]);
@@ -85,15 +89,17 @@ export function DocStoryPicker({
       setHasAnyStories(null);
       setAddingStoryId(null);
     }
-  }, [open]);
+  }, [open, onStoryAdded]);
+
+  const addedCountRef = useRef(0);
 
   const handleAddStory = async (storyId: string) => {
     setAddingStoryId(storyId);
     try {
       await docsService.addStoryToDoc(docId, storyId);
-      // Optimistic: remove from list
+      // Optimistic: remove from list, stay in dialog for multi-add
       setStories((prev) => prev.filter((s) => s.id !== storyId));
-      onStoryAdded();
+      addedCountRef.current += 1;
     } catch {
       toast.error('Failed to add story. Please try again.');
     } finally {
@@ -193,8 +199,8 @@ export function DocStoryPicker({
                         </div>
                       </div>
                       <Button
-                        variant="outline"
                         size="sm"
+                        className="bg-blue-500 hover:bg-blue-600 text-white"
                         disabled={addingStoryId === story.id}
                         onClick={() => handleAddStory(story.id)}
                       >
