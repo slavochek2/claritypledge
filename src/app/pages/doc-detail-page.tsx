@@ -42,7 +42,7 @@ import type { ClarityDoc, DocStory } from '@/app/types';
 
 interface SortableStoryCardProps {
   docStory: DocStory;
-
+  currentUserId?: string;
   isOwner: boolean;
   onRemove: (storyId: string) => void;
   onNavigate: (storyId: string) => void;
@@ -50,6 +50,7 @@ interface SortableStoryCardProps {
 
 function SortableStoryCard({
   docStory,
+  currentUserId,
   isOwner,
   onRemove,
   onNavigate,
@@ -97,6 +98,7 @@ function SortableStoryCard({
           linkedPoints={docStory.story.points || []}
           positionCounts={new Map()}
           userPositions={new Map()}
+          currentUserId={currentUserId}
           disableNavigation
         />
       </div>
@@ -297,6 +299,7 @@ export function DocDetailPage() {
                   <SortableStoryCard
                     key={docStory.story_id}
                     docStory={docStory}
+                    currentUserId={user?.id}
                     isOwner={isOwner}
                     onRemove={handleRemoveStory}
                     onNavigate={handleNavigateToStory}

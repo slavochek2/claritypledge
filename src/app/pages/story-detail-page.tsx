@@ -1158,7 +1158,7 @@ export function StoryDetailPage() {
 
       {/* Back button */}
       <div className="px-4 py-6">
-      <FocusHeader onBack={handleBack} label={docContext ? docContext.docTitle : undefined} />
+      <FocusHeader onBack={handleBack} label={docContext ? 'Back' : undefined} />
 
       {/* P132: Rich story view / P427: swap for edit card in edit mode */}
       {isEditMode ? (
