@@ -5,11 +5,25 @@
  */
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { FileText, ChevronRight, Plus, Lock, Globe } from 'lucide-react';
+import { FileText, ChevronRight, Plus, Lock, Globe, MoreHorizontal, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { ClarityPageLoader } from '@/components/ui/clarity-loader';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+} from '@/components/ui/dropdown-menu';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@/components/ui/dialog';
 import { useAuth } from '@/auth';
 import { docsService } from '@/app/data/docs-service';
 import { InlineVisibilityIcon } from '@/app/components/shared/visibility-badge';
@@ -23,6 +37,8 @@ export function DocsListPage() {
   const [docs, setDocs] = useState<ClarityDoc[]>([]);
   const [fetchState, setFetchState] = useState<'idle' | 'loading' | 'done' | 'error'>('idle');
   const [creating, setCreating] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<ClarityDoc | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const fetchDocs = useCallback(async () => {
     if (!user?.id) return;
@@ -60,6 +76,21 @@ export function DocsListPage() {
     } catch {
       toast.error('Failed to create doc');
       setCreating(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    try {
+      await docsService.deleteDoc(deleteTarget.id);
+      toast.success('Doc deleted');
+      setDeleteTarget(null);
+      fetchDocs();
+    } catch {
+      toast.error('Failed to delete doc');
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -130,7 +161,7 @@ export function DocsListPage() {
           <h1 className="text-xl font-semibold text-foreground">Your Clarity Docs</h1>
           <Popover>
             <PopoverTrigger asChild>
-              <Button variant="outline" size="sm">
+              <Button size="sm">
                 <Plus className="w-4 h-4" />
                 New Doc
               </Button>
@@ -173,38 +204,87 @@ export function DocsListPage() {
         {(fetchState === 'done' || fetchState === 'error') && (
           <div className="flex flex-col gap-3">
             {docs.map((doc) => (
-              <Link
-                key={doc.id}
-                to={`/d/${doc.id}`}
-                className={`block rounded-lg border bg-card p-4 hover:bg-muted/50 transition-colors border-l-4 ${
-                  doc.visibility === 'private'
-                    ? 'border-l-amber-400'
-                    : 'border-l-blue-500'
-                }`}
-              >
-                <div className="flex items-center gap-3">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <InlineVisibilityIcon visibility={doc.visibility === 'public' ? 'public' : 'private'} />
-                      <span className="text-sm font-medium text-foreground truncate">
-                        {doc.title}
-                      </span>
+              <div key={doc.id} className="relative">
+                <Link
+                  to={`/d/${doc.id}`}
+                  className={`block rounded-lg border bg-card p-4 hover:bg-accent transition-colors border-l-4 ${
+                    doc.visibility === 'private'
+                      ? 'border-l-amber-400'
+                      : 'border-l-blue-500'
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <InlineVisibilityIcon visibility={doc.visibility === 'public' ? 'public' : 'private'} />
+                        <span className="text-sm font-medium text-foreground truncate">
+                          {doc.title}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
+                        <span>
+                          {doc.story_count} {doc.story_count === 1 ? 'story' : 'stories'}
+                        </span>
+                        <span aria-hidden="true">&middot;</span>
+                        <span>Updated {formatTimeAgo(doc.updated_at)} ago</span>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
-                      <span>
-                        {doc.story_count} {doc.story_count === 1 ? 'story' : 'stories'}
-                      </span>
-                      <span aria-hidden="true">&middot;</span>
-                      <span>Updated {formatTimeAgo(doc.updated_at)} ago</span>
-                    </div>
+                    <ChevronRight className="w-5 h-5 text-muted-foreground flex-shrink-0" />
                   </div>
-                  <ChevronRight className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                </Link>
+                {/* Overflow menu */}
+                <div className="absolute top-2 right-2">
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 w-8 p-0"
+                        onClick={(e) => e.preventDefault()}
+                        aria-label={`Actions for ${doc.title}`}
+                      >
+                        <MoreHorizontal className="w-4 h-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem
+                        className="text-destructive focus:text-destructive"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          setDeleteTarget(doc);
+                        }}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                        Delete
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
-              </Link>
+              </div>
             ))}
           </div>
         )}
       </div>
+
+      {/* Delete confirmation dialog */}
+      <Dialog open={!!deleteTarget} onOpenChange={(open) => { if (!open) setDeleteTarget(null); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete doc</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete &ldquo;{deleteTarget?.title}&rdquo;? This cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteTarget(null)} disabled={deleting}>
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={handleDelete} disabled={deleting}>
+              {deleting ? 'Deleting...' : 'Delete'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </main>
   );
 }
