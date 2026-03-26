@@ -1223,6 +1223,45 @@ export interface DbClaritySessionWithProfiles extends DbClaritySession {
 }
 
 // ============================================================================
+// CLARITY DOCS TYPES (P551)
+// ============================================================================
+
+/** Per-point display config within a doc story */
+export interface DocPointConfig {
+  order?: string[];
+  hidden?: string[];
+}
+
+/** Database row type for clarity_docs table */
+export interface DbClarityDoc {
+  id: string;
+  owner_id: string;
+  title: string;
+  visibility: ContentVisibility;
+  created_at: string;
+  updated_at: string;
+}
+
+/** Database row type for doc_stories junction table */
+export interface DbDocStory {
+  doc_id: string;
+  story_id: string;
+  position: number;
+  point_config: DocPointConfig;
+  created_at: string;
+}
+
+/** App-level doc type with computed fields */
+export interface ClarityDoc extends DbClarityDoc {
+  story_count: number;
+}
+
+/** App-level doc story with resolved story data */
+export interface DocStory extends DbDocStory {
+  story: StoryWithAuthor;
+}
+
+// ============================================================================
 // TRANSCRIPTION TYPES (P495)
 // ============================================================================
 
