@@ -273,10 +273,11 @@ export function SimpleNavigation() {
                 <Link
                   to="/live"
                   title="Start a live clarity session"
-                  className="bg-blue-500 text-white rounded-full p-2"
+                  className="inline-flex items-center gap-1.5 bg-blue-500 hover:bg-blue-600 text-white text-xs font-semibold rounded-full px-3 py-1.5"
                   onClick={() => analytics.track('nav_cta_clicked', { cta: 'try_meeting', device: 'mobile' })}
                 >
-                  <MicIcon className="w-4 h-4" />
+                  <MicIcon className="w-3.5 h-3.5" />
+                  Start a Session
                 </Link>
               )}
             <button
