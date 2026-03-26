@@ -262,11 +262,6 @@ export function DocDetailPage() {
         {/* Privacy banner */}
         <DocPrivacyBanner visibility={doc.visibility} />
 
-        {/* Story count */}
-        <p className="text-sm text-muted-foreground">
-          {stories.length} {stories.length === 1 ? 'story' : 'stories'}
-        </p>
-
         {/* Action buttons — only for owner */}
         {isOwner && (
           <div className="flex flex-wrap gap-3">

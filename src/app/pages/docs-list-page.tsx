@@ -5,7 +5,7 @@
  */
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { FileText, ChevronRight, Plus, Lock, Globe, MoreHorizontal, Trash2 } from 'lucide-react';
+import { FileText, Plus, Lock, Globe, MoreHorizontal, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { ClarityPageLoader } from '@/components/ui/clarity-loader';
 import { Button } from '@/components/ui/button';
@@ -229,7 +229,7 @@ export function DocsListPage() {
                         <span>Updated {formatTimeAgo(doc.updated_at)} ago</span>
                       </div>
                     </div>
-                    <ChevronRight className="w-5 h-5 text-muted-foreground flex-shrink-0" />
+                    <span className="text-xs font-medium text-blue-600 flex-shrink-0">Open Doc</span>
                   </div>
                 </Link>
                 {/* Overflow menu */}
