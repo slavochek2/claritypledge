@@ -178,7 +178,7 @@ export function StoryCardDetail({
           </p>
 
           {/* Story text */}
-          <p className={`text-foreground break-words ${compact ? 'text-sm line-clamp-3' : 'text-base'}`}>
+          <p className={`text-foreground break-words ${compact ? 'text-sm line-clamp-5' : 'text-base'}`}>
             {linkifyText(stripHashtags(story.content, story.tags))}
           </p>
         </div>
@@ -253,7 +253,7 @@ export function StoryCardDetail({
             </div>
 
             {/* Story text - indented under author */}
-            <p className={`text-foreground break-words ${compact ? 'text-sm line-clamp-3' : 'text-base'}`}>
+            <p className={`text-foreground break-words ${compact ? 'text-sm line-clamp-5' : 'text-base'}`}>
               {linkifyText(stripHashtags(story.content, story.tags))}
             </p>
 
