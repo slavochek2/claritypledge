@@ -1088,7 +1088,8 @@ interface StoryCardFullProps {
   onUpdate?: (storyId: string, content: string) => void;
 }
 
-const STORY_THRESHOLD = 180;
+/** Char threshold to show the expand toggle — generous since CSS line-clamp-8 handles visual truncation */
+const STORY_THRESHOLD = 400;
 
 /** Hard character max for story editing (mirrors DB CHECK constraint) */
 const STORY_EDIT_CHAR_MAX = 10000;
@@ -1151,11 +1152,6 @@ function StoryCardFull({
 
   const linkedPoints = story.points || [];
   const strippedContent = stripHashtags(story.content, story.tags);
-  const isLongStory = strippedContent.length > STORY_THRESHOLD;
-  const storyDisplayText =
-    isLongStory && !storyExpanded
-      ? strippedContent.slice(0, STORY_THRESHOLD) + '…'
-      : strippedContent;
 
   return (
     <div
@@ -1249,8 +1245,8 @@ function StoryCardFull({
               </div>
             ) : (
               <>
-                <p id={`story-text-${story.id}`} className="text-foreground text-base">{linkifyText(storyDisplayText)}</p>
-                {isLongStory && (
+                <p id={`story-text-${story.id}`} className={`text-foreground text-base break-words ${!storyExpanded ? 'line-clamp-8' : ''}`}>{linkifyText(strippedContent)}</p>
+                {strippedContent.length > STORY_THRESHOLD && (
                   <div role="presentation" onClick={(e) => e.stopPropagation()}>
                     <button
                       type="button"
@@ -1514,7 +1510,7 @@ function QuotedPointCard({
 
           {/* Content column */}
           <div className="flex-1 min-w-0">
-            <p className="text-sm text-foreground"><InlineVisibilityIcon visibility={point.visibility} />{' '}{linkifyText(stripHashtags(point.statement, point.tags))}</p>
+            <p className="text-sm text-foreground break-words"><InlineVisibilityIcon visibility={point.visibility} />{' '}{linkifyText(stripHashtags(point.statement, point.tags))}</p>
 
             {/* P503: Tag pills */}
             {point.tags && point.tags.length > 0 && (
@@ -1635,7 +1631,7 @@ function PointCardFull({
 
             {/* Content column */}
             <div className="flex-1 min-w-0">
-              <p className="text-foreground text-base">{linkifyText(stripHashtags(point.statement, point.tags))}</p>
+              <p className="text-foreground text-base break-words">{linkifyText(stripHashtags(point.statement, point.tags))}</p>
 
               {/* P503: Tag pills */}
               {point.tags && point.tags.length > 0 && (

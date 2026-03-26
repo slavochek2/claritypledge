@@ -468,7 +468,7 @@ export function PointDetailPage() {
 
               {/* Context (if present) */}
               {point.context && (
-                <p className="text-sm text-muted-foreground mb-3 italic">{point.context}</p>
+                <p className="text-sm text-muted-foreground mb-3 italic break-words">{point.context}</p>
               )}
 
               {/* Position buttons (interactive) */}

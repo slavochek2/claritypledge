@@ -13,11 +13,10 @@ vi.mock('react-router-dom', async () => {
   };
 });
 
-const SHORT_TEXT = 'Short story text that is definitely under 150 characters.'; // 57 chars
-const AT_THRESHOLD = 'a'.repeat(150); // exactly 150 — should NOT truncate (guard is > 150)
-const ONE_ABOVE = 'a'.repeat(151);    // 151 — first case that triggers truncation
-const LONG_TEXT =
-  'This is a very long story text that exceeds the one hundred and fifty character threshold so that the truncation logic will kick in and show the blue more link at the end of the visible portion.'; // 196 chars
+const SHORT_TEXT = 'Short story text that is definitely under 280 characters.'; // 57 chars
+const AT_THRESHOLD = 'a'.repeat(280); // exactly 280 — should NOT truncate (guard is > 280)
+const ONE_ABOVE = 'a'.repeat(281);    // 281 — first case that triggers truncation
+const LONG_TEXT = 'a'.repeat(350);    // well above 280 threshold
 
 const BASE_STORY: Story = {
   id: 'story-1',
@@ -58,12 +57,12 @@ function renderCard(text: string, compact: boolean) {
 
 describe('Story text truncation with "...more" affordance', () => {
   describe('Standard card rendering (non-quote pattern)', () => {
-    it('shows "...more" when compact=true and text > 150 chars', () => {
+    it('shows "...more" when compact=true and text > 280 chars', () => {
       renderCard(LONG_TEXT, true);
       expect(screen.getByTestId('more-link')).toBeInTheDocument();
     });
 
-    it('does NOT show "...more" when compact=true and text <= 150 chars', () => {
+    it('does NOT show "...more" when compact=true and text <= 280 chars', () => {
       renderCard(SHORT_TEXT, true);
       expect(screen.queryByTestId('more-link')).not.toBeInTheDocument();
     });
@@ -85,10 +84,10 @@ describe('Story text truncation with "...more" affordance', () => {
       expect(moreSpan.className).toContain('text-blue-600');
     });
 
-    it('truncated text is sliced at 150 chars', () => {
+    it('truncated text is sliced at 280 chars', () => {
       renderCard(LONG_TEXT, true);
       const para = screen.getByTestId('more-link').closest('p');
-      expect(para?.textContent).toContain(LONG_TEXT.slice(0, 150));
+      expect(para?.textContent).toContain(LONG_TEXT.slice(0, 280));
     });
 
     it('clicking "...more" expands full text inline (no navigation)', () => {
@@ -99,12 +98,12 @@ describe('Story text truncation with "...more" affordance', () => {
     });
 
     // Boundary cases
-    it('does NOT truncate when text is exactly 150 chars (boundary: guard is > 150)', () => {
+    it('does NOT truncate when text is exactly 280 chars (boundary: guard is > 280)', () => {
       renderCard(AT_THRESHOLD, true);
       expect(screen.queryByTestId('more-link')).not.toBeInTheDocument();
     });
 
-    it('truncates when text is exactly 151 chars (one above boundary)', () => {
+    it('truncates when text is exactly 281 chars (one above boundary)', () => {
       renderCard(ONE_ABOVE, true);
       expect(screen.getByTestId('more-link')).toBeInTheDocument();
     });
@@ -127,12 +126,12 @@ describe('Story text truncation with "...more" affordance', () => {
       );
     }
 
-    it('shows "...more" in quote pattern when compact=true and text > 150 chars', () => {
+    it('shows "...more" in quote pattern when compact=true and text > 280 chars', () => {
       renderQuoteCard(LONG_TEXT, true);
       expect(screen.getByTestId('more-link')).toBeInTheDocument();
     });
 
-    it('does NOT show "...more" in quote pattern when compact=true and text <= 150 chars', () => {
+    it('does NOT show "...more" in quote pattern when compact=true and text <= 280 chars', () => {
       renderQuoteCard(SHORT_TEXT, true);
       expect(screen.queryByTestId('more-link')).not.toBeInTheDocument();
     });
@@ -142,10 +141,10 @@ describe('Story text truncation with "...more" affordance', () => {
       expect(screen.queryByTestId('more-link')).not.toBeInTheDocument();
     });
 
-    it('truncated text in quote pattern is sliced at 150 chars', () => {
+    it('truncated text in quote pattern is sliced at 280 chars', () => {
       renderQuoteCard(LONG_TEXT, true);
       const para = screen.getByTestId('more-link').closest('p');
-      expect(para?.textContent).toContain(LONG_TEXT.slice(0, 150));
+      expect(para?.textContent).toContain(LONG_TEXT.slice(0, 280));
     });
 
     it('clicking "...more" in quote pattern expands full text inline', () => {
@@ -156,11 +155,11 @@ describe('Story text truncation with "...more" affordance', () => {
     });
   });
 
-  describe('QuotedStory inside PointCardWithLinks (threshold: 100 chars)', () => {
-    const SHORT_QUOTED = 'Short quoted story.'; // under 100
-    const AT_QUOTED_THRESHOLD = 'b'.repeat(100); // exactly 100 — should NOT truncate
-    const ONE_ABOVE_QUOTED = 'b'.repeat(101);    // 101 — first case that triggers
-    const LONG_QUOTED = 'b'.repeat(120);          // well above threshold
+  describe('QuotedStory inside PointCardWithLinks (threshold: 200 chars)', () => {
+    const SHORT_QUOTED = 'Short quoted story.'; // under 200
+    const AT_QUOTED_THRESHOLD = 'b'.repeat(200); // exactly 200 — should NOT truncate
+    const ONE_ABOVE_QUOTED = 'b'.repeat(201);    // 201 — first case that triggers
+    const LONG_QUOTED = 'b'.repeat(250);          // well above threshold
 
     function renderWithQuotedStory(storyText: string) {
       const story: Story = { ...BASE_STORY, id: 'story-1', text: storyText };
@@ -182,30 +181,30 @@ describe('Story text truncation with "...more" affordance', () => {
       return { container };
     }
 
-    it('shows "...more" in QuotedStory when text > 100 chars', () => {
+    it('shows "...more" in QuotedStory when text > 200 chars', () => {
       renderWithQuotedStory(LONG_QUOTED);
       expect(screen.getByTestId('more-link')).toBeInTheDocument();
     });
 
-    it('does NOT show "...more" in QuotedStory when text <= 100 chars', () => {
+    it('does NOT show "...more" in QuotedStory when text <= 200 chars', () => {
       renderWithQuotedStory(SHORT_QUOTED);
       expect(screen.queryByTestId('more-link')).not.toBeInTheDocument();
     });
 
-    it('does NOT truncate when text is exactly 100 chars (boundary: guard is > 100)', () => {
+    it('does NOT truncate when text is exactly 200 chars (boundary: guard is > 200)', () => {
       renderWithQuotedStory(AT_QUOTED_THRESHOLD);
       expect(screen.queryByTestId('more-link')).not.toBeInTheDocument();
     });
 
-    it('truncates when text is exactly 101 chars (one above boundary)', () => {
+    it('truncates when text is exactly 201 chars (one above boundary)', () => {
       renderWithQuotedStory(ONE_ABOVE_QUOTED);
       expect(screen.getByTestId('more-link')).toBeInTheDocument();
     });
 
-    it('truncated QuotedStory text is sliced at 100 chars', () => {
+    it('truncated QuotedStory text is sliced at 200 chars', () => {
       renderWithQuotedStory(LONG_QUOTED);
       const para = screen.getByTestId('more-link').closest('p');
-      expect(para?.textContent).toContain(LONG_QUOTED.slice(0, 100));
+      expect(para?.textContent).toContain(LONG_QUOTED.slice(0, 200));
     });
 
     it('clicking "...more" in QuotedStory expands full text inline', () => {

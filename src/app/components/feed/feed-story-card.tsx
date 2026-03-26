@@ -99,7 +99,7 @@ export function FeedStoryCard({ story, activeTag, pointCount }: FeedStoryCardPro
             </div>
 
             {/* Story text */}
-            <p className="text-foreground break-words text-sm line-clamp-4">
+            <p className="text-foreground break-words text-sm line-clamp-6">
               {linkifyText(stripHashtags(story.content, story.tags))}
             </p>
 

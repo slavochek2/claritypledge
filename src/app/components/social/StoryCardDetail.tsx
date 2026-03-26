@@ -178,7 +178,7 @@ export function StoryCardDetail({
           </p>
 
           {/* Story text */}
-          <p className={`text-foreground break-words ${compact ? 'text-sm line-clamp-3' : 'text-base'}`}>
+          <p className={`text-foreground break-words ${compact ? 'text-sm line-clamp-5' : 'text-base'}`}>
             {linkifyText(stripHashtags(story.content, story.tags))}
           </p>
         </div>
@@ -253,7 +253,7 @@ export function StoryCardDetail({
             </div>
 
             {/* Story text - indented under author */}
-            <p className={`text-foreground break-words ${compact ? 'text-sm line-clamp-3' : 'text-base'}`}>
+            <p className={`text-foreground break-words ${compact ? 'text-sm line-clamp-5' : 'text-base'}`}>
               {linkifyText(stripHashtags(story.content, story.tags))}
             </p>
 
@@ -683,7 +683,7 @@ function LinkedStoryCard({
         <span className="text-xs font-medium text-muted-foreground">{story.authorName}</span>
         <EarBadge count={story.authorEarsCount ?? 0} name={story.authorName} size={11} />
       </div>
-      <p className="text-sm text-foreground line-clamp-2 break-words">{linkifyText(story.content)}</p>
+      <p className="text-sm text-foreground line-clamp-4 break-words">{linkifyText(story.content)}</p>
     </div>
   );
 }
