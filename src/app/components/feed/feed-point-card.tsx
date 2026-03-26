@@ -145,7 +145,7 @@ export function FeedPointCard({ point, activeTag, onPointRemoved }: FeedPointCar
 
           <div className="flex-1 min-w-0">
             {/* Statement with inline visibility icon */}
-            <p className="text-sm font-medium text-foreground break-words line-clamp-5">
+            <p className="text-sm font-medium text-foreground break-words line-clamp-6">
               <InlineVisibilityIcon visibility={point.visibility ?? 'public'} />{' '}
               {linkifyText(stripHashtags(point.statement, point.tags))}
             </p>
