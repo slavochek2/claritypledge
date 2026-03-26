@@ -100,7 +100,7 @@ export function DocHeader({ doc, isOwner, onDocUpdated }: DocHeaderProps) {
         className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors"
       >
         <ArrowLeft size={16} />
-        <span>Docs</span>
+        <span>Back</span>
       </button>
 
       {/* Title + controls row */}
