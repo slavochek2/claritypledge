@@ -263,15 +263,15 @@ export function DocDetailPage() {
         >
           {isOwner && (
             <div className="flex items-center gap-2 flex-shrink-0">
+              <Button variant="outline" size="sm" onClick={() => setPickerOpen(true)}>
+                {doc.visibility === 'private' ? <Lock size={16} /> : <Globe size={16} />}
+                Select your story
+              </Button>
               <Button asChild size="sm" className="bg-blue-500 hover:bg-blue-600 text-white">
                 <Link to={`/create?docId=${doc.id}`}>
                   {doc.visibility === 'private' ? <Lock size={16} /> : <Globe size={16} />}
                   Write a story
                 </Link>
-              </Button>
-              <Button variant="outline" size="sm" onClick={() => setPickerOpen(true)}>
-                {doc.visibility === 'private' ? <Lock size={16} /> : <Globe size={16} />}
-                Select your story
               </Button>
             </div>
           )}
@@ -281,7 +281,7 @@ export function DocDetailPage() {
         {stories.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-12 text-center space-y-3">
             <FileText size={48} className="text-muted-foreground/40" />
-            <p className="text-lg font-medium text-foreground">Add your first story</p>
+            <p className="text-lg font-medium text-foreground">No stories yet</p>
           </div>
         ) : (
           <DndContext
