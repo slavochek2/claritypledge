@@ -1,13 +1,14 @@
 {
   "prod": {
     "functions": {
-      "generate-banner": "d851d829c727ae6d1e1dca186488c97be8d16c894f7e35a8f5506d24854a0b40",
-      "generate-event-banner": "bf5270907a892ad49cf7e44338813a8bc3d05d4fea03a126e7e3193d5d07cfad",
-      "send-agreement-emails": "5ea528250cc8414fd1a3cbc625c820e1174d549d717d5b54a7206f62a4484978",
-      "send-event-emails": "2d07c0a5dd90d1babc7c27fd04c24ad450c05ce1a507608a882210e2e7ea4c1c",
-      "story-guide-chat": "107e1e992b7d525ee1cb073fafe387dc4946d3dd0c1aa948aa03d59bcaa0c467"
+      "create-and-sign": "98d20a2c961ade67ee9a49be6137a2faa410894b43d9c8b61d9270b4f67af611",
+      "generate-banner": "afb078f3adf8237f3df5c04e17d594ec88afc4d7f47fedfe6deaf81840eca734",
+      "generate-event-banner": "860cfbd237fff00495d32c1be0853687abf0999628c0e8d4a6d9e4fa8852f67f",
+      "send-agreement-emails": "ee9551fb088ecb6ea85c533f45f306121160370968c8a1c2c863f2abe21380e1",
+      "send-event-emails": "f79f49bcb028fce34d6a4a873c54136c48bfb200769d87bd081fa8d6f0c2dbb6",
+      "story-guide-chat": "0196e65dfc40d52251f16dcb6a058f257557e7dba0713d5ca771d1fa2dae0815"
     },
-    "functions_deployed_at": "2026-03-16T13:23:59Z",
+    "functions_deployed_at": "2026-03-26T09:33:23Z",
     "migrations": [
       "20250101",
       "20250117",
@@ -72,9 +73,13 @@
       "20260313141528",
       "20260313141529",
       "20260313170346",
-      "20260314123817"
+      "20260314123817",
+      "20260315141534",
+      "20260322120000",
+      "20260323075949",
+      "20260325120000"
     ],
-    "migrations_deployed_at": "2026-03-16T15:52:11Z"
+    "migrations_deployed_at": "2026-03-26T09:33:23Z"
   },
   "test": {
     "functions": {

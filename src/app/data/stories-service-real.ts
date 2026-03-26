@@ -5,6 +5,7 @@
 
 import * as Sentry from '@sentry/react';
 import type { StoriesService } from './stories-service.interface';
+import { logDbError } from './db-error-logger';
 import type {
   Story,
   StoryWithAuthor,
@@ -253,7 +254,7 @@ export const realStoriesService: StoriesService = {
       .eq('story_id', storyId);
 
     if (pointsError) {
-      log('ERROR: getStoryWithPoints points error:', pointsError);
+      logDbError('getStoryWithPoints', pointsError);
     }
 
     const points: PointSummary[] = (storyPoints || [])
@@ -298,7 +299,7 @@ export const realStoriesService: StoriesService = {
       .order('version_number', { ascending: false });
 
     if (error || !data) {
-      log('ERROR: getStoryVersions error:', error);
+      logDbError('getStoryVersions', error);
       return [];
     }
 
@@ -327,7 +328,7 @@ export const realStoriesService: StoriesService = {
       .order('created_at', { ascending: false });
 
     if (error || !data) {
-      log('ERROR: getStoriesByAuthor error:', error);
+      logDbError('getStoriesByAuthor', error);
       return [];
     }
 
@@ -362,7 +363,7 @@ export const realStoriesService: StoriesService = {
     const { data, error } = await query.order('created_at', { ascending: false });
 
     if (error || !data) {
-      log('ERROR: getStoriesByAuthorWithPoints stories error:', error);
+      logDbError('getStoriesByAuthorWithPoints', error);
       return [];
     }
 
@@ -387,7 +388,7 @@ export const realStoriesService: StoriesService = {
       .in('story_id', storyIds);
 
     if (pointsError) {
-      log('ERROR: getStoriesByAuthorWithPoints points error:', pointsError);
+      logDbError('getStoriesByAuthorWithPoints.points', pointsError);
     }
 
     // Sort by point creation date (newest first) before grouping — ensures
@@ -472,7 +473,7 @@ export const realStoriesService: StoriesService = {
       .range(offset, offset + limit - 1);
 
     if (error || !data) {
-      log('ERROR: getStoriesFeed error:', error);
+      logDbError('getStoriesFeed', error);
       return [];
     }
 
@@ -508,7 +509,7 @@ export const realStoriesService: StoriesService = {
       .range(offset, offset + limit - 1);
 
     if (error || !data) {
-      log('ERROR: getPublicStoriesFeed error:', error);
+      logDbError('getPublicStoriesFeed', error);
       return [];
     }
 
@@ -538,7 +539,7 @@ export const realStoriesService: StoriesService = {
       .single();
 
     if (error || !data) {
-      log('ERROR: updateStory error:', error);
+      logDbError('updateStory', error);
       return null;
     }
 
@@ -569,7 +570,7 @@ export const realStoriesService: StoriesService = {
 
     if (error) {
       if (error.code === '23505') return true; // already linked — idempotent success
-      log('ERROR: linkPointToStory error:', error);
+      logDbError('linkPointToStory', error);
       return false;
     }
 
@@ -586,7 +587,7 @@ export const realStoriesService: StoriesService = {
       .eq('point_id', pointId);
 
     if (error) {
-      log('ERROR: unlinkPointFromStory error:', error);
+      logDbError('unlinkPointFromStory', error);
       return false;
     }
 
@@ -652,7 +653,7 @@ export const realStoriesService: StoriesService = {
       .eq('id', storyId);
 
     if (error) {
-      log('ERROR: deleteStory error:', error);
+      logDbError('deleteStory', error);
       return false;
     }
 
@@ -703,7 +704,7 @@ export const realStoriesService: StoriesService = {
     const { data, error } = await query;
 
     if (error || !data) {
-      log('ERROR: getStoriesForPoints error:', error);
+      logDbError('getStoriesForPoints', error);
       return new Map();
     }
 

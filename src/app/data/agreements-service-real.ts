@@ -9,6 +9,7 @@ import type {
 } from './agreements-service.interface';
 import { supabase } from '@/lib/supabase';
 import { invokeAgreementEmails } from '@/lib/agreement-emails';
+import { logDbError } from './db-error-logger';
 
 // Debug logging - only in development
 const DEBUG = import.meta.env.DEV;
@@ -96,7 +97,7 @@ async function fetchProfilesById(
     .in('id', profileIds);
 
   if (error || !data) {
-    log('ERROR: fetchProfilesById error:', error);
+    logDbError('fetchProfilesById', error);
     return {};
   }
 
@@ -144,7 +145,7 @@ export const realAgreementsService: AgreementsService = {
       .single();
 
     if (error || !created) {
-      log('ERROR: createAgreement insert error:', error);
+      logDbError('createAgreement', error);
       return null;
     }
 
@@ -176,7 +177,7 @@ export const realAgreementsService: AgreementsService = {
     });
 
     if (error) {
-      log('ERROR: acceptAgreement RPC error:', error);
+      logDbError('acceptAgreement', error);
       return false;
     }
     return data === true;
@@ -278,7 +279,7 @@ export const realAgreementsService: AgreementsService = {
     const { data, error } = await query;
 
     if (error || !data) {
-      log('ERROR: getAgreementsForProfile error:', error);
+      logDbError('getAgreementsForProfile', error);
       return [];
     }
 
@@ -343,7 +344,7 @@ export const realAgreementsService: AgreementsService = {
       .in('status', ['active', 'pending']);
 
     if (error) {
-      log('ERROR: hasActiveAgreementWith error:', error);
+      logDbError('hasActiveAgreementWith', error);
       return false;
     }
 
@@ -395,7 +396,7 @@ export const realAgreementsService: AgreementsService = {
       .eq('id', agreementId);
 
     if (updateError) {
-      log('ERROR: resendInvitation update error:', updateError);
+      logDbError('resendInvitation', updateError);
       return false;
     }
 
@@ -446,7 +447,7 @@ export const realAgreementsService: AgreementsService = {
       .eq('id', agreementId);
 
     if (updateError) {
-      log('ERROR: cancelInvitation update error:', updateError);
+      logDbError('cancelInvitation', updateError);
       return false;
     }
 
@@ -503,7 +504,7 @@ export const realAgreementsService: AgreementsService = {
       .eq('id', agreementId);
 
     if (updateError) {
-      log('ERROR: terminateAgreement update error:', updateError);
+      logDbError('terminateAgreement', updateError);
       return false;
     }
 
@@ -524,7 +525,7 @@ export const realAgreementsService: AgreementsService = {
       .ilike('partner_email', email);
 
     if (error || !data) {
-      log('ERROR: getIncomingInvitations error:', error);
+      logDbError('getIncomingInvitations', error);
       return [];
     }
 

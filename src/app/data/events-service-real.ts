@@ -3,6 +3,7 @@ import type { EventWithHost, EventAttendee, EventPracticeRoom } from '@/app/type
 import { supabase } from '@/lib/supabase';
 import { invokeEventEmails } from '@/lib/event-emails';
 import { extractBannerKeywords, fetchUnsplashBanner, generateAIBanner } from '@/app/prototypes/events/banner-utils';
+import { logDbError } from './db-error-logger';
 
 // `status` is NOT auto-managed (no trigger, no cron — intentional).
 // `datetime` is the source of truth for past/upcoming via the grace-period pattern below.
@@ -129,7 +130,7 @@ export const realEventsService: EventsService = {
       .order('datetime', { ascending: true });
 
     if (error) {
-      log('ERROR: getUpcomingEvents error:', error);
+      logDbError('getUpcomingEvents', error);
       return [];
     }
 
@@ -183,7 +184,7 @@ export const realEventsService: EventsService = {
       .order('datetime', { ascending: false });
 
     if (error) {
-      log('ERROR: getPastEvents error:', error);
+      logDbError('getPastEvents', error);
       return [];
     }
 
@@ -267,7 +268,7 @@ export const realEventsService: EventsService = {
       .eq('event_id', eventId);
 
     if (error || !data) {
-      log('ERROR: getEventAttendees error:', error);
+      logDbError('getEventAttendees', error);
       return [];
     }
 
@@ -350,7 +351,7 @@ export const realEventsService: EventsService = {
       .single();
 
     if (error || !created) {
-      log('ERROR: createEvent error:', error);
+      logDbError('createEvent', error);
       return null;
     }
 
@@ -418,7 +419,7 @@ export const realEventsService: EventsService = {
       .select('id');
 
     if (error) {
-      log('ERROR: updateEvent error:', error);
+      logDbError('updateEvent', error);
       return false;
     }
 
@@ -456,7 +457,7 @@ export const realEventsService: EventsService = {
       .select('id');
 
     if (error) {
-      log('ERROR: cancelEvent error:', error);
+      logDbError('cancelEvent', error);
       return false;
     }
 
@@ -489,7 +490,7 @@ export const realEventsService: EventsService = {
       .select('id');
 
     if (error) {
-      log('ERROR: uncancelEvent error:', error);
+      logDbError('uncancelEvent', error);
       return false;
     }
 
@@ -538,7 +539,7 @@ export const realEventsService: EventsService = {
         .eq('event_id', eventId);
 
       if (countError) {
-        log('ERROR: rsvpToEvent: Count error', countError);
+        logDbError('rsvpToEvent.count', countError);
         return false;
       }
 
@@ -558,7 +559,7 @@ export const realEventsService: EventsService = {
 
     if (error) {
       // 23505 = unique violation (already RSVP'd)
-      log('ERROR: rsvpToEvent error:', error);
+      logDbError('rsvpToEvent', error);
       return false;
     }
 
@@ -578,7 +579,7 @@ export const realEventsService: EventsService = {
       .eq('profile_id', profileId);
 
     if (error) {
-      log('ERROR: cancelRsvp error:', error);
+      logDbError('cancelRsvp', error);
       return false;
     }
 
@@ -599,7 +600,7 @@ export const realEventsService: EventsService = {
       .eq('profile_id', profileId);
 
     if (rsvpError) {
-      log('ERROR: getUserNextEvent rsvp error:', rsvpError);
+      logDbError('getUserNextEvent', rsvpError);
       return null;
     }
 
@@ -663,7 +664,7 @@ export const realEventsService: EventsService = {
       .single();
 
     if (eventError || !event) {
-      log('ERROR: getPeopleFromEvent event error:', eventError);
+      logDbError('getPeopleFromEvent', eventError);
       return [];
     }
 
@@ -686,7 +687,7 @@ export const realEventsService: EventsService = {
       .neq('profile_id', excludeProfileId);
 
     if (rsvpError) {
-      log('ERROR: getPeopleFromEvent rsvp error:', rsvpError);
+      logDbError('getPeopleFromEvent.rsvp', rsvpError);
       return [];
     }
 
@@ -754,7 +755,7 @@ export const realEventsService: EventsService = {
       .order('datetime', { ascending: false });
 
     if (error) {
-      log('ERROR: getUserRegisteredEvents error:', error);
+      logDbError('getUserRegisteredEvents', error);
       return [];
     }
 
@@ -782,7 +783,7 @@ export const realEventsService: EventsService = {
       .order('datetime', { ascending: false });
 
     if (error) {
-      log('ERROR: getUserHostedEvents error:', error);
+      logDbError('getUserHostedEvents', error);
       return [];
     }
 
@@ -808,7 +809,7 @@ export const realEventsService: EventsService = {
       .order('created_at', { ascending: true });
 
     if (error) {
-      log('ERROR: getPracticeRooms error:', error);
+      logDbError('getPracticeRooms', error);
       return [];
     }
 
@@ -859,7 +860,7 @@ export const realEventsService: EventsService = {
       .single();
 
     if (error || !data) {
-      log('ERROR: openPracticeRoom error:', error);
+      logDbError('openPracticeRoom', error);
       throw new Error(`Failed to open practice room: ${error?.message}`);
     }
 
@@ -891,7 +892,7 @@ export const realEventsService: EventsService = {
       .eq('id', roomId);
 
     if (error) {
-      log('ERROR: closePracticeRoom error:', error);
+      logDbError('closePracticeRoom', error);
       throw new Error(`Failed to close practice room: ${error.message}`);
     }
   },
@@ -906,7 +907,7 @@ export const realEventsService: EventsService = {
       .in('status', ['waiting', 'active']);
 
     if (error) {
-      log('ERROR: closePracticeRoomBySessionId error:', error);
+      logDbError('closePracticeRoomBySessionId', error);
       throw new Error(`Failed to close practice room: ${error.message}`);
     }
   },
@@ -953,7 +954,7 @@ export const realEventsService: EventsService = {
     const { data, error } = await query;
 
     if (error) {
-      log('ERROR: getUpcomingPublicEvents error:', error);
+      logDbError('getUpcomingPublicEvents', error);
       return [];
     }
 

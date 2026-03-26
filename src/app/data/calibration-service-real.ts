@@ -14,6 +14,7 @@ import type {
   StoryVerificationWithProfiles,
 } from '@/app/types';
 import { supabase } from '@/lib/supabase';
+import { logDbError } from './db-error-logger';
 
 // Re-export constant
 export { REQUIRED_SESSIONS } from './calibration-service.interface';
@@ -116,7 +117,7 @@ export const realCalibrationService: CalibrationService = {
       .single();
 
     if (profileError || !profile) {
-      log('ERROR: getCalibration profile error:', profileError);
+      logDbError('getCalibration', profileError);
       return {
         status: 'insufficient',
         sessionsCompleted: 0,
@@ -198,7 +199,7 @@ export const realCalibrationService: CalibrationService = {
       .single();
 
     if (error || !data) {
-      log('ERROR: getEarsCount error:', error);
+      logDbError('getEarsCount', error);
       return 0;
     }
 
@@ -215,7 +216,7 @@ export const realCalibrationService: CalibrationService = {
       .single();
 
     if (error || !data) {
-      log('ERROR: getSessionCount error:', error);
+      logDbError('getSessionCount', error);
       return 0;
     }
 
@@ -246,7 +247,7 @@ export const realCalibrationService: CalibrationService = {
       .single();
 
     if (error || !data) {
-      log('ERROR: recordVerification error:', error);
+      logDbError('recordVerification', error);
       return null;
     }
 
@@ -275,7 +276,7 @@ export const realCalibrationService: CalibrationService = {
       .order('created_at', { ascending: false });
 
     if (error || !data) {
-      log('ERROR: getStoryVerifications error:', error);
+      logDbError('getStoryVerifications', error);
       return [];
     }
 
@@ -306,7 +307,7 @@ export const realCalibrationService: CalibrationService = {
       .order('created_at', { ascending: false });
 
     if (error || !data) {
-      log('ERROR: getListenerVerificationHistory error:', error);
+      logDbError('getListenerVerificationHistory', error);
       return [];
     }
 
@@ -337,7 +338,7 @@ export const realCalibrationService: CalibrationService = {
       .order('created_at', { ascending: false });
 
     if (error || !data) {
-      log('ERROR: getSpeakerVerificationHistory error:', error);
+      logDbError('getSpeakerVerificationHistory', error);
       return [];
     }
 

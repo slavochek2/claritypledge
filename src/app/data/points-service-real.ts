@@ -16,6 +16,7 @@ import type {
   ContentVisibility,
 } from '@/app/types';
 import { supabase } from '@/lib/supabase';
+import { logDbError } from './db-error-logger';
 
 // Debug logging - only in development
 const DEBUG = import.meta.env.DEV;
@@ -212,7 +213,7 @@ export const realPointsService: PointsService = {
       .single();
 
     if (error || !data) {
-      log('ERROR: createPoint error:', error);
+      logDbError('createPoint', error);
       return null;
     }
 
@@ -317,7 +318,7 @@ export const realPointsService: PointsService = {
       .order('created_at', { ascending: false });
 
     if (error || !data) {
-      log('ERROR: getPointsByValidator error:', error);
+      logDbError('getPointsByValidator', error);
       return [];
     }
 
@@ -346,7 +347,7 @@ export const realPointsService: PointsService = {
       .range(offset, offset + limit - 1);
 
     if (error || !data) {
-      log('ERROR: getPointsFeed error:', error);
+      logDbError('getPointsFeed', error);
       return [];
     }
 
@@ -398,7 +399,7 @@ export const realPointsService: PointsService = {
       .eq('point_id', pointId);
 
     if (error || !data) {
-      log('ERROR: getPositionCounts error:', error);
+      logDbError('getPositionCounts', error);
       return emptyPositionCounts();
     }
 
@@ -457,7 +458,7 @@ export const realPointsService: PointsService = {
       .order('created_at', { ascending: false });
 
     if (error || !data) {
-      log('ERROR: getPositionsForPoint error:', error);
+      logDbError('getPositionsForPoint', error);
       return [];
     }
 
@@ -483,7 +484,7 @@ export const realPointsService: PointsService = {
     const { data, error } = await query;
 
     if (error || !data) {
-      log('ERROR: getPositionHistory error:', error);
+      logDbError('getPositionHistory', error);
       return [];
     }
 
@@ -516,7 +517,7 @@ export const realPointsService: PointsService = {
       .order('created_at', { ascending: false });
 
     if (pointsError || !pointRows) {
-      log('ERROR: getPointsWithUserPositions points fetch error:', pointsError);
+      logDbError('getPointsWithUserPositions', pointsError);
       return [];
     }
 
@@ -561,7 +562,7 @@ export const realPointsService: PointsService = {
       .in('point_id', pointIds);
 
     if (error) {
-      log('ERROR: getPositionCountsForPoints error:', error);
+      logDbError('getPositionCountsForPoints', error);
       return new Map();
     }
 
@@ -609,7 +610,7 @@ export const realPointsService: PointsService = {
       .eq('user_id', userId);
 
     if (error) {
-      log('ERROR: getMyPositionsForPoints error:', error);
+      logDbError('getMyPositionsForPoints', error);
       return new Map();
     }
 
@@ -676,7 +677,7 @@ export const realPointsService: PointsService = {
       .order('created_at', { ascending: false });
 
     if (pointsError || !pointRows) {
-      log('ERROR: getPointsForProfileDisplay points fetch error:', pointsError);
+      logDbError('getPointsForProfileDisplay', pointsError);
       return [];
     }
 
@@ -780,7 +781,7 @@ export const realPointsService: PointsService = {
       .range(offset, offset + limit - 1);
 
     if (error || !data) {
-      log('ERROR: getPublicPointsFeed error:', error);
+      logDbError('getPublicPointsFeed', error);
       return [];
     }
 
@@ -852,7 +853,7 @@ export const realPointsService: PointsService = {
     );
 
     if (error) {
-      log('ERROR: setPosition error:', error);
+      logDbError('setPosition', error);
       return false;
     }
 
@@ -869,7 +870,7 @@ export const realPointsService: PointsService = {
       .eq('user_id', userId);
 
     if (error) {
-      log('ERROR: removePosition error:', error);
+      logDbError('removePosition', error);
       return false;
     }
 
@@ -901,7 +902,7 @@ export const realPointsService: PointsService = {
       .in('story_id', ids);
 
     if (countError) {
-      log('ERROR: checkLinkedStories error:', countError);
+      logDbError('checkLinkedStories', countError);
       return 0;
     }
 

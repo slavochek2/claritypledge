@@ -1,0 +1,21 @@
+# Catches drift between what's deployed to prod and what the deploy
+# manifest says should be deployed. Fails if the local manifest doesn't
+# match the expected production state (e.g., a migration was merged but
+# never deployed, or an env var was added to code but not to prod).
+
+name: Check Deploy Drift
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  check-prod-drift:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check deploy manifest for drift
+        run: |
+          chmod +x ./scripts/check-deploy-manifest.sh
+          ./scripts/check-deploy-manifest.sh --env prod
