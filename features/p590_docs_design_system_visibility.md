@@ -113,7 +113,7 @@ Currently only private gets a banner. Add blue banner for public too:
 
 Check the /live "This session is private" banner component and match its pattern:
 - Full-width sticky (not inset)
-- Same amber color tokens
+- Same amber color tokens (private) / blue tokens (public — same structure, different color)
 - Same icon size and text weight
 
 ### 7. Action buttons near top, not bottom
@@ -146,11 +146,11 @@ Check the /live "This session is private" banner component and match its pattern
 ## What Stays the Same
 
 - Database schema (clarity_docs, doc_stories) — no migration changes
-- Data service API — no changes
+- Data service API — minor change: `createDoc()` accepts optional `visibility` param (currently defaults to private)
 - RLS policies and triggers — no changes
 - Route structure (/docs, /d/:docId)
 - Navigation changes (Docs in nav, Start Session moved)
-- Story card reuse (StoryCardDetail)
+- Story card reuse (StoryCardDetail) — in-card buttons ("Add a point", etc.) stay as-is. Lock/globe icons only on doc-page-level buttons.
 - Drag-and-drop story reordering
 - Story selection panel (DocStoryPicker)
 - Story/point creation flow logic (only visual changes)
@@ -191,3 +191,13 @@ Check the /live "This session is private" banner component and match its pattern
 - [ ] No "Active" badge visible anywhere
 - [ ] Surfaces NOT in scope are visually unchanged
 - [ ] All existing P551 tests still pass
+- [ ] Creation popover uses shadcn `Popover` component
+
+## Resolved Decisions
+
+| # | Source | Finding | Resolution | Rationale |
+|---|--------|---------|-----------|-----------|
+| 1 | /challenge-prd | [WARN] createDoc() needs visibility param | Acknowledged — minor service API change | Popover passes chosen visibility to createDoc |
+| 2 | /challenge-prd | [WARN] DB trigger now dead code | Keep as defense-in-depth, no removal | Belt-and-suspenders matches P586 pattern |
+| 3 | /challenge-prd | [WARN] Public banner has no /live equivalent | Same structure as /live private banner, blue tokens | Consistency in structure, differentiated by color |
+| 4 | /challenge-prd | [WARN] StoryCardDetail in-card buttons vs scope | Out of scope — lock/globe on doc-page-level buttons only | StoryCardDetail is shared, touching it risks profile/feed regressions |
