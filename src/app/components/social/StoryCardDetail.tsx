@@ -82,6 +82,12 @@ interface StoryCardDetailProps {
   hideActions?: boolean;
   /** Callback when author clicks "+ Add a point" — used on story-detail to expand inline form instead of navigating */
   onAddPoint?: () => void;
+  /** Per-doc point ordering — if provided, points are displayed in this order */
+  pointOrder?: string[];
+  /** Per-doc hidden point IDs — if provided, these points are filtered out */
+  hiddenPointIds?: string[];
+  /** Wraps each point row with custom controls (e.g., drag handle + eye toggle in doc context) */
+  renderPointRow?: (point: PointSummary, quotedPointElement: React.ReactNode) => React.ReactNode;
 }
 
 /**
@@ -109,9 +115,25 @@ export function StoryCardDetail({
   currentUserId,
   hideActions = false,
   onAddPoint,
+  pointOrder,
+  hiddenPointIds,
+  renderPointRow,
 }: StoryCardDetailProps) {
   const navigate = useNavigate();
   const [pointsExpanded, setPointsExpanded] = useState(isDetailView);
+
+  // Filter hidden points and apply custom ordering (used by doc context)
+  const displayPoints = useMemo(() => {
+    let pts = linkedPoints;
+    if (hiddenPointIds?.length) {
+      pts = pts.filter(p => !hiddenPointIds.includes(p.id));
+    }
+    if (pointOrder?.length) {
+      const orderMap = new Map(pointOrder.map((id, i) => [id, i]));
+      pts = [...pts].sort((a, b) => (orderMap.get(a.id) ?? 999) - (orderMap.get(b.id) ?? 999));
+    }
+    return pts;
+  }, [linkedPoints, hiddenPointIds, pointOrder]);
 
   // Default routes
   const storyRoute = routes.story || ((id: string) => `/story/${id}`);
@@ -293,7 +315,7 @@ export function StoryCardDetail({
           >
             {/* Point count (always shown) + author CTA */}
             <div className="flex items-center gap-2">
-              {linkedPoints.length > 0 ? (
+              {displayPoints.length > 0 ? (
                 <button
                   onClick={() => setPointsExpanded(!pointsExpanded)}
                   className="flex items-center gap-2 text-sm text-muted-foreground hover:text-blue-600 transition-colors"
@@ -302,7 +324,7 @@ export function StoryCardDetail({
                 >
                   {pointsExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
                   <span>
-                    {linkedPoints.length} {linkedPoints.length === 1 ? 'point' : 'points'}
+                    {displayPoints.length} {displayPoints.length === 1 ? 'point' : 'points'}
                   </span>
                 </button>
               ) : (
@@ -352,33 +374,41 @@ export function StoryCardDetail({
 
           {/* Linked points - expanded content */}
           {pointsExpanded &&
-            linkedPoints.length > 0 &&
+            displayPoints.length > 0 &&
             (() => {
-              const pointsToShow = linkedPoints.slice(0, isDetailView ? undefined : 3);
-              const hasMorePoints = !isDetailView && linkedPoints.length > 3;
+              const pointsToShow = displayPoints.slice(0, isDetailView ? undefined : 3);
+              const hasMorePoints = !isDetailView && displayPoints.length > 3;
+
+              /** Render a single QuotedPoint, optionally wrapped by renderPointRow */
+              const renderPoint = (point: PointSummary) => {
+                const quotedEl = (
+                  <QuotedPoint
+                    point={point}
+                    authorName={story.authorName}
+                    authorAvatarUrl={story.authorAvatarUrl}
+                    authorEarCount={story.authorEarsCount}
+                    positionCounts={positionCounts}
+                    userPositions={userPositions}
+                    profileOwnerPositions={profileOwnerPositions}
+                    onPositionClick={onPositionClick}
+                    onClick={e => {
+                      e.stopPropagation();
+                      navigate(pointRoute(point.id));
+                    }}
+                    linkedStories={linkedStoriesForPoints?.get(point.id) ?? []}
+                    onStoryClick={storyId => navigate(storyRoute(storyId))}
+                    currentUserId={currentUserId}
+                    hideLinkedStories
+                  />
+                );
+                return renderPointRow ? renderPointRow(point, quotedEl) : quotedEl;
+              };
 
               return (
                 <div className="pl-4 sm:pl-[68px] pr-4 pb-4">
                   {pointsToShow.length === 1 ? (
                     // Single point - no thread lines
-                    <QuotedPoint
-                      point={pointsToShow[0]}
-                      authorName={story.authorName}
-                      authorAvatarUrl={story.authorAvatarUrl}
-                      authorEarCount={story.authorEarsCount}
-                      positionCounts={positionCounts}
-                      userPositions={userPositions}
-                      profileOwnerPositions={profileOwnerPositions}
-                      onPositionClick={onPositionClick}
-                      onClick={e => {
-                        e.stopPropagation();
-                        navigate(pointRoute(pointsToShow[0].id));
-                      }}
-                      linkedStories={linkedStoriesForPoints?.get(pointsToShow[0].id) ?? []}
-                      onStoryClick={storyId => navigate(storyRoute(storyId))}
-                      currentUserId={currentUserId}
-                      hideLinkedStories
-                    />
+                    renderPoint(pointsToShow[0])
                   ) : (
                     // 2+ points - show thread lines
                     <ThreadLineGroup>
@@ -387,24 +417,7 @@ export function StoryCardDetail({
                           key={point.id}
                           isLast={index === pointsToShow.length - 1 && !hasMorePoints}
                         >
-                          <QuotedPoint
-                            point={point}
-                            authorName={story.authorName}
-                            authorAvatarUrl={story.authorAvatarUrl}
-                            authorEarCount={story.authorEarsCount}
-                            positionCounts={positionCounts}
-                            userPositions={userPositions}
-                            profileOwnerPositions={profileOwnerPositions}
-                            onPositionClick={onPositionClick}
-                            onClick={e => {
-                              e.stopPropagation();
-                              navigate(pointRoute(point.id));
-                            }}
-                            linkedStories={linkedStoriesForPoints?.get(point.id) ?? []}
-                            onStoryClick={storyId => navigate(storyRoute(storyId))}
-                            currentUserId={currentUserId}
-                            hideLinkedStories
-                          />
+                          {renderPoint(point)}
                         </ThreadLineItem>
                       ))}
                       {hasMorePoints && (
@@ -416,7 +429,7 @@ export function StoryCardDetail({
                             }}
                             className="text-xs text-blue-600 hover:underline"
                           >
-                            +{linkedPoints.length - 3} more points
+                            +{displayPoints.length - 3} more points
                           </button>
                         </ThreadLineItem>
                       )}

@@ -5,7 +5,7 @@
  * Route: /d/:docId
  */
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { FileText, Lock, Globe } from 'lucide-react';
 import { toast } from 'sonner';
@@ -34,7 +34,7 @@ import { DocHeader } from '@/app/components/docs/doc-header';
 import { DocPrivacyBanner } from '@/app/components/docs/doc-privacy-banner';
 import { DocBlockControls } from '@/app/components/docs/doc-block-controls';
 import { StoryCardDetail } from '@/app/components/social/StoryCardDetail';
-import type { ClarityDoc, DocStory } from '@/app/types';
+import type { ClarityDoc, DocStory, DocPointConfig } from '@/app/types';
 
 // ---------------------------------------------------------------------------
 // SortableStoryCard — wraps a story card with dnd-kit sortable + block controls
@@ -42,6 +42,7 @@ import type { ClarityDoc, DocStory } from '@/app/types';
 
 interface SortableStoryCardProps {
   docStory: DocStory;
+  docId: string;
   currentUserId?: string;
   isOwner: boolean;
   onRemove: (storyId: string) => void;
@@ -50,6 +51,7 @@ interface SortableStoryCardProps {
 
 function SortableStoryCard({
   docStory,
+  docId,
   currentUserId,
   isOwner,
   onRemove,
@@ -69,6 +71,28 @@ function SortableStoryCard({
     transition,
     opacity: isDragging ? 0.5 : 1,
   };
+
+  // Point-level hide/show — optimistic state with DB persist
+  const [pointConfig, setPointConfig] = useState<DocPointConfig>(docStory.point_config || {});
+
+  const handleTogglePointHidden = useCallback(async (pointId: string) => {
+    const currentHidden = pointConfig.hidden || [];
+    const isHidden = currentHidden.includes(pointId);
+    const newHidden = isHidden
+      ? currentHidden.filter(id => id !== pointId)
+      : [...currentHidden, pointId];
+    const newConfig = { ...pointConfig, hidden: newHidden };
+    setPointConfig(newConfig); // optimistic
+    try {
+      await docsService.updatePointConfig(docId, docStory.story_id, newConfig);
+    } catch {
+      setPointConfig(docStory.point_config || {}); // revert
+      toast.error('Failed to update point visibility');
+    }
+  }, [pointConfig, docId, docStory.story_id, docStory.point_config]);
+
+  // All linked points (including hidden) — needed for renderPointRow to show eye controls on all
+  const allPoints = useMemo(() => docStory.story.points || [], [docStory.story.points]);
 
   return (
     <div ref={setNodeRef} style={style} className="group">
@@ -95,12 +119,24 @@ function SortableStoryCard({
       >
         <StoryCardDetail
           story={docStory.story}
-          linkedPoints={docStory.story.points || []}
+          linkedPoints={allPoints}
           positionCounts={new Map()}
           userPositions={new Map()}
           currentUserId={currentUserId}
           disableNavigation
           onAddPoint={() => onNavigate(docStory.story_id)}
+          pointOrder={pointConfig.order}
+          hiddenPointIds={isOwner ? undefined : pointConfig.hidden}
+          renderPointRow={isOwner ? (point, quotedPointElement) => (
+            <div key={point.id} className="group/point flex items-start gap-1">
+              <DocBlockControls
+                variant="point"
+                isHidden={(pointConfig.hidden || []).includes(point.id)}
+                onToggleHidden={() => handleTogglePointHidden(point.id)}
+              />
+              <div className="flex-1">{quotedPointElement}</div>
+            </div>
+          ) : undefined}
         />
       </div>
     </div>
@@ -300,6 +336,7 @@ export function DocDetailPage() {
                   <SortableStoryCard
                     key={docStory.story_id}
                     docStory={docStory}
+                    docId={doc.id}
                     currentUserId={user?.id}
                     isOwner={isOwner}
                     onRemove={handleRemoveStory}
