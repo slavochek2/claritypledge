@@ -745,9 +745,9 @@ function QuotedStory({
       {/* Story text — strip hashtags that are rendered as TagPills */}
       {(() => {
         const cleanText = stripHashtags(story.text, story.tags ?? []);
-        return !textExpanded && cleanText.length > 100 ? (
+        return !textExpanded && cleanText.length > 200 ? (
           <p className="text-sm text-gray-800 break-words">
-            {linkifyText(cleanText.slice(0, 100))}
+            {linkifyText(cleanText.slice(0, 200))}
             <span
               data-testid="more-link"
               role="button"

@@ -683,7 +683,7 @@ function LinkedStoryCard({
         <span className="text-xs font-medium text-muted-foreground">{story.authorName}</span>
         <EarBadge count={story.authorEarsCount ?? 0} name={story.authorName} size={11} />
       </div>
-      <p className="text-sm text-foreground line-clamp-2 break-words">{linkifyText(story.content)}</p>
+      <p className="text-sm text-foreground line-clamp-4 break-words">{linkifyText(story.content)}</p>
     </div>
   );
 }

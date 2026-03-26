@@ -174,9 +174,9 @@ export function StoryCardWithLinks({
           </p>
 
           {/* Story text */}
-          {compact && !textExpanded && displayText.length > 150 ? (
+          {compact && !textExpanded && displayText.length > 280 ? (
             <p className="text-sm text-gray-900 break-words">
-              {linkifyText(displayText.slice(0, 150))}
+              {linkifyText(displayText.slice(0, 280))}
               <span
                 data-testid="more-link"
                 role="button"
@@ -271,9 +271,9 @@ export function StoryCardWithLinks({
             </div>
 
             {/* Story text - indented under author */}
-            {compact && !textExpanded && displayText.length > 150 ? (
+            {compact && !textExpanded && displayText.length > 280 ? (
               <p className="text-sm text-gray-900 break-words">
-                {linkifyText(displayText.slice(0, 150))}
+                {linkifyText(displayText.slice(0, 280))}
                 <span
                   data-testid="more-link"
                   role="button"
