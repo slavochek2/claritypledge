@@ -156,6 +156,7 @@ function SortableStoryCard({
           disableNavigation
           onAddPoint={() => onNavigate(docStory.story_id)}
           pointOrder={pointConfig.order}
+          hiddenPointIds={isOwner ? undefined : pointConfig.hidden}
           renderPointRow={isOwner ? (point, quotedPointElement) => {
             const idx = orderedPointIds.indexOf(point.id);
             return (

@@ -116,22 +116,26 @@ export function StoryCardDetail({
   hideActions = false,
   onAddPoint,
   pointOrder,
-  hiddenPointIds: _hiddenPointIds,
+  hiddenPointIds,
   renderPointRow,
 }: StoryCardDetailProps) {
   const navigate = useNavigate();
   const [pointsExpanded, setPointsExpanded] = useState(isDetailView);
 
-  // Apply custom ordering (used by doc context)
-  // hiddenPointIds is stored for future letter composition — does NOT filter display
+  // Apply custom ordering + filtering (used by doc context)
+  // hiddenPointIds filters points for non-owners viewing a shared doc link
+  // Owners see all points (caller passes hiddenPointIds=undefined for owners)
   const displayPoints = useMemo(() => {
     let pts = linkedPoints;
+    if (hiddenPointIds?.length) {
+      pts = pts.filter(p => !hiddenPointIds.includes(p.id));
+    }
     if (pointOrder?.length) {
       const orderMap = new Map(pointOrder.map((id, i) => [id, i]));
       pts = [...pts].sort((a, b) => (orderMap.get(a.id) ?? 999) - (orderMap.get(b.id) ?? 999));
     }
     return pts;
-  }, [linkedPoints, pointOrder]);
+  }, [linkedPoints, hiddenPointIds, pointOrder]);
 
   // Default routes
   const storyRoute = routes.story || ((id: string) => `/story/${id}`);
