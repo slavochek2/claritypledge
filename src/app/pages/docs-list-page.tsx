@@ -118,7 +118,7 @@ export function DocsListPage() {
           </p>
           <Popover>
             <PopoverTrigger asChild>
-              <Button className="mt-2">
+              <Button className="mt-2 bg-blue-500 hover:bg-blue-600 text-white">
                 <Plus className="w-4 h-4" />
                 Create a Doc
               </Button>
@@ -161,7 +161,7 @@ export function DocsListPage() {
           <h1 className="text-xl font-semibold text-foreground">Your Clarity Docs</h1>
           <Popover>
             <PopoverTrigger asChild>
-              <Button size="sm">
+              <Button size="sm" className="bg-blue-500 hover:bg-blue-600 text-white">
                 <Plus className="w-4 h-4" />
                 New Doc
               </Button>

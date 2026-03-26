@@ -270,7 +270,7 @@ export function DocDetailPage() {
         {/* Action buttons — only for owner */}
         {isOwner && (
           <div className="flex flex-wrap gap-3">
-            <Button asChild>
+            <Button asChild className="bg-blue-500 hover:bg-blue-600 text-white">
               <Link to={`/create?docId=${doc.id}`}>
                 {doc.visibility === 'private' ? <Lock size={16} /> : <Globe size={16} />}
                 Write a story

@@ -230,7 +230,7 @@ function AddPointForm({
             type="button"
             onClick={handleRetryLink}
             disabled={isAdding}
-            className="min-h-[44px]"
+            className="bg-blue-500 hover:bg-blue-600 text-white min-h-[44px]"
           >
             {isAdding ? (
               <>
@@ -297,7 +297,7 @@ function AddPointForm({
                       type="button"
                       onClick={handleAdd}
                       disabled={!canSubmit || !!orphanPoint}
-                      className="min-h-[44px]"
+                      className="bg-blue-500 hover:bg-blue-600 text-white min-h-[44px]"
                     >
                       {isAdding ? (
                         <>
@@ -488,6 +488,7 @@ function EditStoryCard({
                     type="button"
                     onClick={onSave}
                     disabled={!canSave}
+                    className="bg-blue-500 hover:bg-blue-600 text-white"
                     aria-label="Save story"
                     aria-busy={isSaving ? 'true' : 'false'}
                   >
