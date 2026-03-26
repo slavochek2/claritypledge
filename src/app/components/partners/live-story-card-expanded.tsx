@@ -115,7 +115,7 @@ export function LiveStoryCardExpanded({
       {story.points.length > 0 && (
         <div
           role="presentation"
-          className="flex items-center pl-[52px] pr-4 py-2.5 border-t border-gray-100"
+          className="flex items-center pl-4 sm:pl-[52px] pr-4 py-2.5 border-t border-gray-100"
           onClick={(e) => e.stopPropagation()}
         >
           <button

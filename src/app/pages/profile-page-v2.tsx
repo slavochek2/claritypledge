@@ -1279,7 +1279,7 @@ function StoryCardFull({
       {/* Footer row with linked points and action icons */}
       <div
         role="presentation"
-        className="flex flex-wrap items-center justify-between gap-y-1 pl-[68px] pr-4 py-3 border-t border-border"
+        className="flex items-center justify-between pl-4 sm:pl-[68px] pr-4 py-3 border-t border-border"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Point count + author CTA (P580: always show count, author gets "+ add a point") */}
