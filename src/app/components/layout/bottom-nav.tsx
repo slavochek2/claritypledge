@@ -6,7 +6,7 @@
  * Uses design system tokens only.
  */
 import { Link, useLocation } from "react-router-dom";
-import { CalendarIcon, UserIcon, MicIcon, HomeIcon } from "lucide-react";
+import { CalendarIcon, UserIcon, FileTextIcon, HomeIcon } from "lucide-react";
 import { useNavAuthState } from "@/hooks/use-nav-auth-state";
 
 interface NavItem {
@@ -39,9 +39,9 @@ export function BottomNav() {
       to: "/feed",
     },
     {
-      icon: MicIcon,
-      label: "Start Session",
-      to: "/live",
+      icon: FileTextIcon,
+      label: "Docs",
+      to: "/docs",
     },
     {
       icon: CalendarIcon,
@@ -59,7 +59,7 @@ export function BottomNav() {
     if (!to) return false;
     if (to === "/feed") return location.pathname === "/feed";
     if (to === "/events") return location.pathname === "/events" || location.pathname.startsWith("/events/");
-    if (to === "/live") return location.pathname === "/live" || location.pathname.startsWith("/live/");
+    if (to === "/docs") return location.pathname.startsWith("/docs") || location.pathname.startsWith("/d/");
     if (to === "/sessions") return location.pathname === "/sessions";
     return location.pathname === to;
   };

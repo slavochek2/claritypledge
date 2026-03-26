@@ -7,7 +7,7 @@ tags:
   - privacy
   - container
   - letters
-delivery_stage: 5-decomposed
+delivery_stage: uat
 reviews:
   ux: null
   architect: null

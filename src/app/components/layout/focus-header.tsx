@@ -10,9 +10,11 @@ import { Button } from '@/components/ui/button';
 
 interface FocusHeaderProps {
   onBack: () => void;
+  /** Custom label shown after the arrow. Defaults to "Back". */
+  label?: string;
 }
 
-export function FocusHeader({ onBack }: FocusHeaderProps) {
+export function FocusHeader({ onBack, label }: FocusHeaderProps) {
   return (
     <Button
       variant="ghost"
@@ -21,7 +23,7 @@ export function FocusHeader({ onBack }: FocusHeaderProps) {
       aria-label="Go back"
     >
       <ArrowLeft size={16} />
-      Back
+      {label ?? 'Back'}
     </Button>
   );
 }

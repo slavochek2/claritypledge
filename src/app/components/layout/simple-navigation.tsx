@@ -14,7 +14,7 @@ import {
   DropdownMenuContent,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { MenuIcon, XIcon, CalendarIcon, UserIcon, HomeIcon, MicIcon } from "lucide-react";
+import { MenuIcon, XIcon, CalendarIcon, UserIcon, HomeIcon, MicIcon, FileTextIcon } from "lucide-react";
 import { ClarityLogo } from "@/components/ui/clarity-logo";
 import { GravatarAvatar } from "@/components/ui/gravatar-avatar";
 import { analytics } from "@/lib/mixpanel";
@@ -133,6 +133,18 @@ export function SimpleNavigation() {
                   <HomeIcon className="w-5 h-5" />
                   <span className="text-xs mt-1 font-medium">Home</span>
                 </Link>
+                {/* Docs */}
+                <Link
+                  to="/docs"
+                  className={`flex flex-col items-center justify-center px-4 py-2 min-w-[80px] rounded-md transition-colors ${
+                    location.pathname.startsWith("/docs") || location.pathname.startsWith("/d/")
+                      ? "text-primary"
+                      : "text-muted-foreground hover:text-foreground hover:bg-accent"
+                  }`}
+                >
+                  <FileTextIcon className="w-5 h-5" />
+                  <span className="text-xs mt-1 font-medium">Docs</span>
+                </Link>
                 {/* Events */}
                 <Link
                   to="/events"
@@ -248,13 +260,25 @@ export function SimpleNavigation() {
             )}
           </div>
 
-          {/* Mobile Menu Button - P67: Avatar for verified users when closed, X when open */}
+          {/* Mobile: Start Session button + Menu Button */}
           {/* Loading state: skeleton circle to prevent logged-out flash */}
           {(!sessionChecked || isLoading) ? (
             <div className="lg:hidden p-2">
               <div className="h-8 w-8 bg-muted rounded-full animate-pulse" />
             </div>
           ) : (
+            <div className="lg:hidden flex items-center gap-2">
+              {/* Mobile Start Session CTA — only for authenticated users */}
+              {showUserMenu && (
+                <Link
+                  to="/live"
+                  title="Start a live clarity session"
+                  className="bg-blue-500 text-white rounded-full p-2"
+                  onClick={() => analytics.track('nav_cta_clicked', { cta: 'try_meeting', device: 'mobile' })}
+                >
+                  <MicIcon className="w-4 h-4" />
+                </Link>
+              )}
             <button
               onClick={() => {
                 const wasOpen = isMobileMenuOpen;
@@ -267,7 +291,7 @@ export function SimpleNavigation() {
                   });
                 }
               }}
-              className="lg:hidden p-2"
+              className="p-2"
               aria-expanded={isMobileMenuOpen}
               aria-controls={MOBILE_MENU_ID}
               aria-label={isMobileMenuOpen ? "Close menu" : "Open menu"}
@@ -286,6 +310,7 @@ export function SimpleNavigation() {
                 <MenuIcon className="w-6 h-6" />
               )}
             </button>
+            </div>
           )}
         </div>
 

@@ -13,10 +13,10 @@
  * - Author can add points (inline form) and unlink points (with undo toast)
  * - justCreated flow shows educational empty state with expanded form
  */
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import { extractHashtags } from '@/lib/utils';
 import { useParams, useNavigate, useLocation, useSearchParams } from 'react-router-dom';
-import { LockIcon, Loader2, Plus, Pencil, Trash2 } from 'lucide-react';
+import { LockIcon, Loader2, Plus, Pencil, Trash2, Globe } from 'lucide-react';
 import { FocusHeader } from '@/app/components/layout/focus-header';
 
 import { StoryCardWithLinks, type StoryAuthor } from '@/app/components/social/story-card-with-links';
@@ -42,7 +42,7 @@ import {
 } from '@/components/ui/dialog';
 import { analytics } from '@/lib/mixpanel';
 import { PositionButtons, type SevenPointCounts } from '@/app/components/shared';
-import type { StoryWithPoints, StoryWithAuthor, PointSummary, PointPosition, PositionType } from '@/app/types';
+import type { StoryWithPoints, StoryWithAuthor, PointSummary, PointPosition, PositionType, ContentVisibility } from '@/app/types';
 
 /** Soft character marker — nudge to keep points concise */
 const POINT_CHAR_SOFT = 140;
@@ -72,6 +72,7 @@ function AddPointForm({
   autoFocus,
   onCancel,
   showCancel,
+  docVisibility,
 }: {
   storyId: string;
   currentUserId: string;
@@ -79,6 +80,8 @@ function AddPointForm({
   autoFocus?: boolean;
   onCancel?: () => void;
   showCancel?: boolean;
+  /** P551/P590: Show privacy/public banner and contextual label based on doc visibility */
+  docVisibility?: ContentVisibility;
 }) {
   const [statement, setStatement] = useState('');
   const [selectedPosition, setSelectedPosition] = useState<PositionType | null>(null);
@@ -191,8 +194,14 @@ function AddPointForm({
 
       // Return focus to textarea for sequential adds
       textareaRef.current?.focus();
-    } catch {
-      toast.error('Failed to add point. Please try again.');
+    } catch (err: unknown) {
+      // P551: Cross-visibility error — DB trigger rejects linking private point to public story
+      const message = err instanceof Error ? err.message : String(err);
+      if (message.toLowerCase().includes('visibility')) {
+        toast.error('This point is private and cannot be linked to a public story. To discuss this topic publicly, create a new public point.');
+      } else {
+        toast.error('Failed to add point. Please try again.');
+      }
       setIsAdding(false);
     }
   };
@@ -201,6 +210,19 @@ function AddPointForm({
 
   return (
     <div className="space-y-2">
+      {/* P551/P590: Visibility banner when adding points in doc context */}
+      {docVisibility === 'private' && (
+        <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 flex items-center gap-2 text-sm">
+          <LockIcon size={16} className="text-amber-600 flex-shrink-0" />
+          <span className="text-amber-800">This point will be private — only you can see it</span>
+        </div>
+      )}
+      {docVisibility === 'public' && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 flex items-center gap-2 text-sm">
+          <Globe size={16} className="text-blue-600 flex-shrink-0" />
+          <span className="text-blue-800">This point will be public — visible on your profile</span>
+        </div>
+      )}
       {orphanPoint && (
         <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-sm">
           <p className="text-amber-900 mb-2">Point created but linking failed. Retry to link it to your story.</p>
@@ -282,6 +304,16 @@ function AddPointForm({
                           <Loader2 size={16} className="animate-spin" />
                           Adding...
                         </>
+                      ) : docVisibility === 'private' ? (
+                        <>
+                          <LockIcon size={16} />
+                          Add Private Point
+                        </>
+                      ) : docVisibility === 'public' ? (
+                        <>
+                          <Globe size={16} />
+                          Add Public Point
+                        </>
                       ) : (
                         <>
                           <Plus size={16} />
@@ -336,6 +368,7 @@ function KeyPointsSection({
   addPointRequested,
   showFormTrigger,
   onPointAdded,
+  docVisibility,
 }: {
   storyId: string;
   currentUserId: string;
@@ -346,6 +379,8 @@ function KeyPointsSection({
   /** Incrementing counter — each bump opens the form (used by in-card CTA) */
   showFormTrigger: number;
   onPointAdded: (point: PointSummary, position?: PositionType) => void;
+  /** P551/P590: Doc visibility context — controls banner and button label in add-point form */
+  docVisibility?: ContentVisibility;
 }) {
   const [showForm, setShowForm] = useState(false);
 
@@ -378,6 +413,7 @@ function KeyPointsSection({
           autoFocus={autoExpand || addPointRequested}
           showCancel={showForm && !autoExpand}
           onCancel={() => setShowForm(false)}
+          docVisibility={docVisibility}
         />
       )}
 
@@ -452,9 +488,9 @@ function EditStoryCard({
                     type="button"
                     onClick={onSave}
                     disabled={!canSave}
+                    className="bg-blue-500 hover:bg-blue-600 text-white"
                     aria-label="Save story"
                     aria-busy={isSaving ? 'true' : 'false'}
-                    className="bg-blue-500 hover:bg-blue-600 text-white"
                   >
                     {isSaving ? (
                       <>
@@ -556,7 +592,10 @@ export function StoryDetailPage() {
   const { user, isLoading: authLoading } = useAuth();
   const { checkVerified } = useVerificationGate();
 
-  const justCreated = !!(location.state as { justCreated?: boolean } | null)?.justCreated;
+  // P551: Doc context — passed from doc detail or create-story page
+  const locationState = location.state as { justCreated?: boolean; docId?: string; docTitle?: string } | null;
+  const justCreated = !!locationState?.justCreated;
+  const docContext = useMemo(() => locationState?.docId ? { docId: locationState.docId, docTitle: locationState.docTitle ?? 'Doc' } : null, [locationState?.docId, locationState?.docTitle]);
   // Counter — each bump opens the add-point form via KeyPointsSection
   const [addPointTrigger, setAddPointTrigger] = useState(0);
 
@@ -703,14 +742,15 @@ export function StoryDetailPage() {
 
   const handleBack = useCallback(() => {
     const isDirty = isEditMode && editContent !== (story?.content ?? '');
-    const target = story?.authorSlug ? `/p/${story.authorSlug}` : '/events';
+    // P551: If navigated from a doc, go back to that doc
+    const target = docContext ? `/d/${docContext.docId}` : (story?.authorSlug ? `/p/${story.authorSlug}` : '/events');
     if (isDirty) {
       pendingNavigateRef.current = target;
       setShowUnsavedPrompt(true);
       return;
     }
     navigate(target);
-  }, [isEditMode, editContent, story?.content, story?.authorSlug, navigate]);
+  }, [isEditMode, editContent, story?.content, story?.authorSlug, navigate, docContext]);
 
   const handleRetry = useCallback(() => {
     setRetryKey(k => k + 1);
@@ -962,10 +1002,7 @@ export function StoryDetailPage() {
               : 'Story not found'}
           </p>
           {isNetworkError && (
-            <Button
-              onClick={handleRetry}
-              className="bg-blue-500 hover:bg-blue-600 text-white"
-            >
+            <Button onClick={handleRetry}>
               Try Again
             </Button>
           )}
@@ -1121,7 +1158,7 @@ export function StoryDetailPage() {
 
       {/* Back button */}
       <div className="px-4 py-6">
-      <FocusHeader onBack={handleBack} />
+      <FocusHeader onBack={handleBack} label={docContext ? 'Back' : undefined} />
 
       {/* P132: Rich story view / P427: swap for edit card in edit mode */}
       {isEditMode ? (
@@ -1185,6 +1222,7 @@ export function StoryDetailPage() {
             addPointRequested={searchParams.get('addPoint') === 'true'}
             showFormTrigger={addPointTrigger}
             onPointAdded={handlePointAdded}
+            docVisibility={docContext ? story.visibility : undefined}
           />
         </>
       )}
