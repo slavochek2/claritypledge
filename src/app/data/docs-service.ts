@@ -15,6 +15,7 @@ import type {
   DocPointConfig,
   ContentVisibility,
   StoryWithAuthor,
+  PointSummary,
 } from '@/app/types';
 import { supabase } from '@/lib/supabase';
 
@@ -22,7 +23,7 @@ import { supabase } from '@/lib/supabase';
 const DEBUG = import.meta.env.DEV;
 const log = (...args: unknown[]) => DEBUG && console.log('[docs-service]', ...args);
 
-// Database row type for doc_stories with joined story + author
+// Database row type for doc_stories with joined story + author + points
 interface DbDocStoryWithStory extends DbDocStory {
   story: {
     id: string;
@@ -46,6 +47,15 @@ interface DbDocStoryWithStory extends DbDocStory {
       ears_count: number | null;
       has_pledged: boolean | null;
     } | null;
+    story_points: Array<{
+      point_id: string;
+      point: {
+        id: string;
+        statement: string;
+        context: string | null;
+        tags: string[];
+      } | null;
+    }>;
   };
 }
 
@@ -116,16 +126,35 @@ function mapStoryWithAuthorFromDb(row: DbStoryWithAuthor): StoryWithAuthor {
 }
 
 /**
- * Transform DB doc_story join row to DocStory
+ * Transform story_points join rows to PointSummary[]
+ */
+function mapPointSummaries(
+  storyPoints: DbDocStoryWithStory['story']['story_points']
+): PointSummary[] {
+  if (!storyPoints) return [];
+  return storyPoints
+    .filter((sp): sp is typeof sp & { point: NonNullable<typeof sp.point> } => sp.point != null)
+    .map((sp) => ({
+      id: sp.point.id,
+      statement: sp.point.statement,
+      context: sp.point.context ?? undefined,
+      tags: sp.point.tags || [],
+    }));
+}
+
+/**
+ * Transform DB doc_story join row to DocStory (with points)
  */
 function mapDocStoryFromDb(row: DbDocStoryWithStory): DocStory {
+  const storyWithAuthor = mapStoryWithAuthorFromDb(row.story);
+  const points = mapPointSummaries(row.story.story_points);
   return {
     doc_id: row.doc_id,
     story_id: row.story_id,
     position: row.position,
     point_config: row.point_config,
     created_at: row.created_at,
-    story: mapStoryWithAuthorFromDb(row.story),
+    story: { ...storyWithAuthor, points },
   };
 }
 
@@ -144,7 +173,7 @@ async function requireAuth(): Promise<string> {
   return user.id;
 }
 
-// Select string for stories with author join (reused across methods)
+// Select string for stories with author join (reused across methods — no points)
 const STORY_WITH_AUTHOR_SELECT = `
   id,
   author_id,
@@ -166,6 +195,40 @@ const STORY_WITH_AUTHOR_SELECT = `
     avatar_url,
     ears_count,
     has_pledged
+  )
+`;
+
+// Select string for stories with author + linked points (for doc detail)
+const STORY_WITH_AUTHOR_AND_POINTS_SELECT = `
+  id,
+  author_id,
+  title,
+  content,
+  visibility,
+  current_version,
+  understood_count,
+  created_at,
+  updated_at,
+  tags,
+  banner_url,
+  author:profiles!stories_author_id_fkey (
+    id,
+    name,
+    slug,
+    role,
+    avatar_color,
+    avatar_url,
+    ears_count,
+    has_pledged
+  ),
+  story_points (
+    point_id,
+    point:points!story_points_point_id_fkey (
+      id,
+      statement,
+      context,
+      tags
+    )
   )
 `;
 
@@ -215,7 +278,7 @@ export const docsService: DocsService = {
       return null;
     }
 
-    // Fetch linked stories with author data, ordered by position
+    // Fetch linked stories with author + points data, ordered by position
     const { data: storiesData, error: storiesError } = await supabase
       .from('doc_stories')
       .select(`
@@ -225,7 +288,7 @@ export const docsService: DocsService = {
         point_config,
         created_at,
         story:stories!doc_stories_story_id_fkey (
-          ${STORY_WITH_AUTHOR_SELECT}
+          ${STORY_WITH_AUTHOR_AND_POINTS_SELECT}
         )
       `)
       .eq('doc_id', docId)
@@ -407,7 +470,7 @@ export const docsService: DocsService = {
         point_config,
         created_at,
         story:stories!doc_stories_story_id_fkey (
-          ${STORY_WITH_AUTHOR_SELECT}
+          ${STORY_WITH_AUTHOR_AND_POINTS_SELECT}
         )
       `)
       .single();

@@ -1256,9 +1256,9 @@ export interface ClarityDoc extends DbClarityDoc {
   story_count: number;
 }
 
-/** App-level doc story with resolved story data */
+/** App-level doc story with resolved story data (includes linked points) */
 export interface DocStory extends DbDocStory {
-  story: StoryWithAuthor;
+  story: StoryWithPoints;
 }
 
 // ============================================================================

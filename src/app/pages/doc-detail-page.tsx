@@ -94,11 +94,10 @@ function SortableStoryCard({
       >
         <StoryCardDetail
           story={docStory.story}
-          linkedPoints={[]}
+          linkedPoints={docStory.story.points || []}
           positionCounts={new Map()}
           userPositions={new Map()}
           disableNavigation
-          hideActions
         />
       </div>
     </div>
