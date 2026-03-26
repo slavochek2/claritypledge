@@ -6,6 +6,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import { useAuth } from '@/auth';
+import { supabase } from '@/lib/supabase';
 import { storiesService } from '@/app/data/stories-service';
 import { pointsService } from '@/app/data/points-service';
 import { extractHashtags } from '@/lib/utils';
@@ -182,8 +183,13 @@ export function CreateStoryPage() {
 
       // P591: Upload supporting image if one was selected
       let imageUploadFailed = false;
-      if (imageBlob && session?.access_token) {
+      if (imageBlob) {
         try {
+          // Get a fresh token — the React state `session` may be stale after createStory()
+          const { data: { session: freshSession } } = await supabase.auth.getSession();
+          const token = freshSession?.access_token;
+          if (!token) throw new Error('No auth session for image upload');
+
           const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
           const edgeFunctionUrl = `${supabaseUrl}/functions/v1/generate-story-image-url`;
 
@@ -193,20 +199,25 @@ export function CreateStoryPage() {
           let signedUrl: string;
           let publicUrl: string;
           try {
+            const contentType = imageBlob.type || 'image/jpeg';
+            const reqBody = {
+              storyId: story.id,
+              contentType,
+              fileName: 'story-image',
+            };
+            console.log('[P591] Image upload request:', reqBody, 'blob size:', imageBlob.size, 'blob.type:', JSON.stringify(imageBlob.type), 'token:', token?.slice(0, 20) + '...');
             const response = await fetch(edgeFunctionUrl, {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
-                Authorization: `Bearer ${session.access_token}`,
+                Authorization: `Bearer ${token}`,
               },
-              body: JSON.stringify({
-                storyId: story.id,
-                contentType: imageBlob.type,
-                fileName: 'story-image',
-              }),
+              body: JSON.stringify(reqBody),
               signal: controller.signal,
             });
             if (!response.ok) {
+              const errBody = await response.text();
+              console.error('[P591] Edge function error:', response.status, errBody);
               throw new Error(`Signed URL request failed: ${response.status}`);
             }
             const urlData = await response.json();
@@ -222,7 +233,10 @@ export function CreateStoryPage() {
           try {
             const uploadResponse = await fetch(signedUrl, {
               method: 'PUT',
-              headers: { 'Content-Type': imageBlob.type },
+              headers: {
+                'Content-Type': imageBlob.type || 'image/jpeg',
+                'x-goog-content-length-range': '1,5242880',
+              },
               body: imageBlob,
               signal: uploadController.signal,
             });
