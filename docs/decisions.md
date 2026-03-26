@@ -2,6 +2,46 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-26 [product]: Clarity Doc visibility is immutable after creation (P551/P590)
+
+**Context:** P551 initially implemented a visibility dropdown on the doc header that could switch between Private/Public. In UAT, the dropdown was effectively useless — once a private story existed, switching to Public was blocked. The control existed but almost never worked.
+**Decision:** Remove the dropdown entirely. Doc visibility is set at creation time via a popover choice ("Private Doc" / "Public Doc") and is immutable afterward. The full-width privacy banner communicates the visibility state.
+**Alternatives rejected:** (A) Keep mutable dropdown with constraints — confusing UX for a control that rarely fires. (B) Allow visibility change and auto-migrate stories — cascading complexity for V1.
+**Consequences:** Simpler mental model for users. Banner is the single source of privacy communication. DB trigger for private→public still exists as defense-in-depth but is now dead code at the UI level.
+**References:** [P590 spec](features/done/22_mar_26/p590_docs_design_system_visibility.md), [P551 spec](features/done/22_mar_26/p551_clarity_docs.md)
+
+## 2026-03-26 [technical]: --primary CSS var is near-black, not blue — blue buttons use className override (P590)
+
+**Context:** P590 Component Strategy assumed `variant="default"` on shadcn `<Button>` would render blue. In UAT, all buttons rendered black. Investigation: `--primary: 240 5.9% 10%` (near-black) in `src/index.css`. The entire codebase uses `className="bg-blue-500 hover:bg-blue-600 text-white"` for blue action buttons.
+**Decision:** Blue buttons use className override, not variant. This is the project convention — not a violation. `variant="default"` is for dark/primary buttons (rare). `variant="outline"` for secondary/white buttons. Blue for CTAs via explicit class.
+**Alternatives rejected:** Changing `--primary` to blue — would break dark mode and all existing non-blue primary buttons.
+**Consequences:** The `/ui` Component Strategy skill must be taught that `variant="default"` ≠ blue in this project. Any future design system audit must check `index.css` theme variables first.
+**References:** `src/index.css:39`, `src/components/ui/button.tsx`
+
+## 2026-03-26 [technical]: Point reorder uses arrow buttons, not drag-and-drop (P551)
+
+**Context:** P551 spec called for @dnd-kit drag-and-drop on both stories and points. Story drag works (each `SortableStoryCard` uses `useSortable`). Point drag failed — `renderPointRow` is a callback, and React hooks (`useSortable`) cannot be called inside callbacks. The pattern is fundamentally incompatible.
+**Decision:** Replace point drag handle with up/down arrow buttons. Point lists are short (1-5 items) — arrows are adequate and simpler. Story drag stays.
+**Alternatives rejected:** (A) `renderPointRow` as a component instead of callback — requires refactoring shared `StoryCardDetail`. (B) Render points outside `StoryCardDetail` — duplicates rendering logic. (C) Add DndContext wrapper prop — over-engineers a shared component for one consumer.
+**Consequences:** Point reorder works via arrow buttons + `docsService.updatePointConfig()`. If drag is later essential, option (B) is the cleanest upgrade path.
+**References:** [P551 spec](features/done/22_mar_26/p551_clarity_docs.md)
+
+## 2026-03-26 [product]: Point hide/show in docs is for letter composition AND shared doc filtering
+
+**Context:** Initially hide/show was implemented as full display filtering. User corrected: hiding should NOT affect what the owner sees (owner always sees all points with toggle). But hiding SHOULD affect what non-owners see when they open a shared doc link.
+**Decision:** Owner sees all points + eye toggle marks them. Non-owners viewing public doc see hidden points filtered out. `point_config.hidden` stored in `doc_stories` JSONB.
+**Alternatives rejected:** (A) Hide affects nobody (pure metadata) — loses the sharing use case. (B) Hide affects everyone including owner — owner can't manage what they can't see.
+**Consequences:** The `StoryCardDetail` component receives `hiddenPointIds` only for non-owners (owner passes `undefined`). Future letter composition (P581) will also consume `point_config.hidden`.
+**References:** [P551 spec](features/done/22_mar_26/p551_clarity_docs.md)
+
+## 2026-03-26 [process]: Visual QA gap in /dev pipeline — design system violations shipped to UAT (P590)
+
+**Context:** P551 shipped with all buttons using raw Tailwind instead of shadcn Button variants, wrong banner styling, mutable dropdown that didn't work, missing visibility icons. Root causes: (1) `/ui` Component Strategy correctly classified components but subagents wrote raw Tailwind. (2) Visual QA step at UAT gate was skipped (Chrome MCP not checked). (3) `/ui` assumed `variant="default"` = blue without checking the theme.
+**Decision:** Filed P590 change-request to fix. Lesson: `/ui` must verify theme variables before mapping variants. Visual QA should not be skippable — make Chrome MCP check mandatory and fail loudly.
+**Alternatives rejected:** Shipping P551 as-is and fixing later — design violations were user-visible and trust-undermining.
+**Consequences:** Future `/ui` runs should read `src/index.css` to check `--primary`, `--destructive`, etc. before mapping button variants. Consider adding a design system verification step to `/dev`.
+**References:** [P590 spec](features/done/22_mar_26/p590_docs_design_system_visibility.md)
+
 ## 2026-03-26 [product]: P564 rejected — "orphan points" is not a real problem
 
 **Context:** P564 (Point-to-Story Attribution) proposed preventing orphan points by forcing point creation through stories, adding a "legacy" badge to orphaned points, and tracking `link_type` (authored vs responded) on `story_points`. Analysis revealed: (1) standalone point creation was already removed — the only `createPoint` call in the UI is inside `AddPointForm` on `story-detail-page.tsx`, which immediately links to a story. (2) P576 (Mar 23) intentionally decoupled stories from positions, making stories and points more independent. (3) The "orphan" framing assumes points need stories to have meaning, but positions + reasoning ARE the epistemology — a point with 5 positions is valuable regardless of whether the originating story exists.

@@ -1,7 +1,7 @@
 ---
-status: today
+status: all-done
 type: story
-rank: 0.156
+rank: 1
 tags:
   - docs
   - privacy
@@ -20,7 +20,7 @@ related:
   - p581
   - p586
 superseded_by: p590
-locked_at: '2026-03-26T05:41:19.555Z'
+locked_at: '2026-03-26T13:39:53.386Z'
 uat_file: features/uat/p551.md
 test_files:
   - e2e/integration/p551-clarity-docs-migration.spec.ts

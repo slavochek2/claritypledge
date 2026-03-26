@@ -1,7 +1,7 @@
 ---
-status: today
+status: all-done
 type: change-request
-rank: 1000028.0
+rank: 0.5
 changes: p551
 delivery_stage: 3.5-ui-review
 tags:
@@ -10,6 +10,7 @@ tags:
   - docs
   - design-system
 created_date: 2026-03-26T00:00:00.000Z
+locked_at: '2026-03-26T13:40:26.033Z'
 ---
 
 # P590: Clarity Docs — Design System + Visibility Model Fix
