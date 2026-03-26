@@ -100,6 +100,7 @@ function SortableStoryCard({
           userPositions={new Map()}
           currentUserId={currentUserId}
           disableNavigation
+          onAddPoint={() => onNavigate(docStory.story_id)}
         />
       </div>
     </div>
