@@ -1185,11 +1185,11 @@ function IdleScreen({
               />
             )}
 
-            {/* P398: Session history — clickable rows for completed rounds */}
-            {sessionHistory.length > 0 && (
+            {/* P398: Session history — only on clean idle (no story selected, no active flow) */}
+            {sessionHistory.length > 0 && !selectedStory && !showRatingDrawer && (
               <SessionHistoryList
                 history={sessionHistory}
-                onItemClick={showRatingDrawer ? undefined : (i) => setSelectedHistoryIndex(i)}
+                onItemClick={(i) => setSelectedHistoryIndex(i)}
               />
             )}
 
