@@ -19,6 +19,7 @@ related:
   - p547
   - p581
   - p586
+superseded_by: p590
 locked_at: '2026-03-26T05:41:19.555Z'
 uat_file: features/uat/p551.md
 test_files:
