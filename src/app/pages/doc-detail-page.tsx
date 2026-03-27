@@ -29,6 +29,7 @@ import { DocStoryPicker } from '@/app/components/docs/doc-story-picker';
 import { ClarityPageLoader } from '@/components/ui/clarity-loader';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/auth';
+import { analytics } from '@/lib/mixpanel';
 import { docsService } from '@/app/data/docs-service';
 import { pointsService } from '@/app/data/points-service';
 import { useVerificationGate } from '@/app/hooks/useVerificationGate';
@@ -322,6 +323,12 @@ export function DocDetailPage() {
       await pointsService.setPosition(pointId, user.id, position);
       const counts = await pointsService.getPositionCountsForPoints([pointId]);
       setPositionCounts(prev => new Map([...prev, ...counts]));
+
+      analytics.track('position_recorded', {
+        doc_id: doc?.id,
+        point_id: pointId,
+        position,
+      });
     } catch (error) {
       console.error('Failed to save position:', error);
       // Revert optimistic update
@@ -339,7 +346,7 @@ export function DocDetailPage() {
       }
       toast.error('Failed to save position. Please try again.');
     }
-  }, [user?.id, checkVerified, userPositions, guardedRemovePosition]);
+  }, [user?.id, checkVerified, userPositions, guardedRemovePosition, doc?.id]);
 
   // -----------------------------------------------------------------------
   // Story reorder — optimistic update with rollback on error
