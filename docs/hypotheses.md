@@ -50,6 +50,7 @@ Session logs, architecture notes, and strategic commentary belong in [decisions.
 **Insight (2026-03-24):** Clarity Letter three-step sequence may resolve the pricing chicken-and-egg. Letter 1 (opened during workshop) demonstrates value. /live verifies understanding and produces gap map. Letter 3 calibrates the commercial exchange using the skill just learned — PWIW with full comprehension context. The workshop participant prices the experience AFTER having experienced calibration, not before. Test: does a workshop that uses Letters 1-3 produce higher PWIW amounts than one without the letter instrument?
 **Insight (2026-03-25):** Illegibility — not pain absence — may be the real WTP blocker. Proven: legible offers sell (coaching at €250/hr). Unproven: selling THIS offer in its current form. The gap is legibility, not ability or willingness. Implication: the 10-letter test should measure not just "do they pay" but "can they name what they experienced." If they can name it, pricing follows. If they can't, no price point works. Byron Katie distinction: "find false beliefs" = crowded market (CBT, The Work, Street Epistemology); "find false beliefs about whether you understand each other" = unoccupied space.
 **Counter reset (2026-03-25):** The 28 sessions tested the OLD passive mechanism (hope pairs spontaneously name a cost). Zero did — confirming passive observation fails. The test mechanism changed (2026-03-22) to active false-belief facilitation with explicit reflection prompt ("What did holding this cost you?"). **Kill counter resets to 0 pairs tested with the new mechanism.** Kill threshold unchanged: 10 pairs can't name a concrete cost after false-belief workshop → kill. The 28 sessions are evidence about the old method, not the hypothesis itself.
+**Data point (2026-03-26):** Hostel encounter — stranger completed full 7-story protocol, signed pledge, named concrete past cost unprompted: "I lost a good, long-time friend because we didn't understand each other." Prevention-driven — wants to share to prevent future loss, not repair past one. Note: spontaneous motivation, not the engineered false-belief workshop mechanism. Counts as anecdotal evidence that pain exists in the wild, but does not count against the kill counter (which tracks the new active facilitation mechanism).
 
 ---
 
@@ -156,6 +157,7 @@ Waiting on upstream hypotheses. Each entry lists what must happen before testing
 **Bet:** Explain-back protocol is valuable enough to spread without the product. Tool captures users who want measurement.
 **Kill if:** Zero organic spread after 5+ pairs experience sessions.
 **Blocked by:** H-PairsReturn.
+**Early signal (2026-03-26):** Hostel stranger wanted to share further after completing protocol (prevention-driven). N=1, not yet verified as actual spread. But first organic referral intent observed.
 
 ---
 

@@ -104,6 +104,8 @@ Open-source, free, community-driven. A practice, not a SaaS — like NVC or Vipa
 
 **Alternative framing (2026-03-25):** "Find and remove false beliefs about whether you understand each other." Narrower than Byron Katie ("find false beliefs" = existing market: CBT, The Work, Street Epistemology). The meta-false-belief — "I already understand you" — is the one that prevents all other error correction between people from starting. Every other false belief correction method assumes the communication channel is clean. ClarityPledge tests the channel itself.
 
+**Meta-protocol framing (2026-03-27):** ClarityPledge is not a universal epistemology — it's a meta-protocol that sits underneath any epistemology valuing comprehension. A Christian and an atheist can disagree about God while both accepting: "before we debate, let's verify we understood each other's actual position." The protocol doesn't produce agreement — it increases the resolution of disagreement until what remains is either genuinely irreconcilable (and small) or clearly testable (and solvable). "Accurate disagreement" is the bridge, not consensus.
+
 ### Coaching *(ladischenski.com)*
 
 > **"I don't ask founders if they're aligned. I test it. In real time. They can't fake it."**
@@ -113,6 +115,8 @@ The only alignment assessment that produces a number, not a feeling. Combines li
 **"You are the MCP" framing:** Explicitly being the beta version of your own software. Every manual action is a spec for what to automate next. Service work IS live prototyping.
 
 **Identity (2026-03-25):** Independent applied epistemologist building instrumentation for false belief detection between humans. Not a startup founder, not an academic, not a coach — the person who builds the measurement instrument AND is the first practitioner who wields it. ladischenski.com is the R&D lab that funds and validates ClarityPledge: every paid session generates revenue, protocol refinements, and case studies.
+
+**Intellectual positioning (2026-03-27):** Uniqueness audit against ~50 adjacent people/groups. Individual pieces (mirrors, explain-back, error correction, calibration) all exist separately. The specific synthesis is unique: Popper's error correction applied to interpersonal understanding, with a verification step that turns a philosophical norm into a measurable protocol. Habermas is the closest predecessor — he says "presuppose understanding," ClarityPledge says "verify it." He describes ideal conditions; this builds the measurement instrument. The unique claim: Popper's falsification has an unformalized precondition (verified mutual comprehension) that neither Popper, Deutsch, nor Habermas instrumented.
 
 ### Shared Foundation
 
@@ -133,6 +137,8 @@ A **practice system for calibrated communication** — evolving toward **Stories
 
 ### 0. Stories & Points Curriculum (Prerequisite)
 Your calibration content: three types of understanding, sender-receiver asymmetries, implications. This IS the workshop material and the demo simultaneously. When the room miscalibrates on your claims, the product sells itself. Filed content tested live, not perfected in isolation.
+
+**Triple-duty instrument (2026-03-26):** The 7 points serve simultaneously as: (a) theoretical foundation, (b) test content for the qualification pitch — "Here are 7 claims, rate them, verify you understood, look at the gaps," (c) behavioral assay for trust — engagement with the protocol on your content IS the trust filter. The test is the product; the qualification is the onboarding. No custom discovery needed for the first screen.
 
 ### 1. The Pledge (Brand & Identity)
 A social contract that makes verification acceptable:
@@ -182,6 +188,7 @@ Track accuracy over time. Public credential for professional reputation. Behavio
 - **Conversation intelligence** (Gong, Chorus) — measures talk-time, not comprehension
 - **360 feedback** — listening is 1 checkbox of 30, rated once a year
 - **Self-assessment** — people overestimate; that's the whole problem
+- **AirTrain / Bryte Technologies GmbH** (Berlin) — "Verified Understanding Platform." Measures whether recipients actually understood messages. Enterprise compliance framing. Closest structural competitor, but no epistemological framework or interpersonal calibration. Co-founder Dan Wong-Sauer.
 
 **Gap:** No one treats understanding as something you can measure and certify.
 

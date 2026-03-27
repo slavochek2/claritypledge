@@ -1,7 +1,7 @@
 ---
-status: draft
-title: "The Number Nobody Measured — Rate Asymmetry in Human Understanding"
-rank: 0.125
+status: editing
+title: The Number Nobody Measured — Rate Asymmetry in Human Understanding
+rank: 1
 tags:
   - rate-asymmetry
   - calibration
@@ -47,13 +47,18 @@ Listener-side conversational comprehension calibration — "I think I understood
 
 Nobody has framed this as a **rate asymmetry** between two measurable quantities, or connected it to a **missing verification protocol** at the interpersonal level as the root bottleneck. Sits in unclaimed intersection of Pinker, Chwe, and misinformation literature.
 
+**Uniqueness audit (2026-03-27, falsification-tested against ~50 adjacent people/groups):** Individual pieces (mirrors, explain-back, error correction, calibration) all exist separately. The specific synthesis is unique: Popper's falsification has an unformalized precondition — verified mutual comprehension — and nobody in the Popperian tradition, communication theory, or calibration research has formalized or instrumented it. Intellectual chain: Habermas ("presuppose understanding") → Pinker (what verified understanding IS) → Popper (how to test knowledge) → this paper (falsification requires a verification step that no one built). The meta-protocol framing: not a universal epistemology, but a protocol that sits underneath any epistemology valuing comprehension. "Accurate disagreement, not agreement" — the protocol increases the resolution of disagreement until what remains is either irreconcilable (and small) or testable (and solvable).
+
 ## Prior art (close but not the same claim)
 
 - **Pinker** (2025, *When Everyone Knows That Everyone Knows*) — structure of common knowledge, not throughput
 - **Chwe** (*Rational Ritual*, 2001) — how CK is generated, not the deficit
+- **Habermas** (*Theory of Communicative Action*) — communication should be oriented toward understanding; four validity claims (meaningfulness, truth, right to speak, sincerity). But he *presupposes* comprehension, never *verifies* it. His ideal speech situation assumes understanding happens if conditions are right. Missing fifth claim: did the listener actually understand?
+- **Rapoport's Rule / Dennett** — "restate their position so well they say 'I wish I'd thought of putting it that way.'" But this remains a *norm*, not a *protocol with verification*. Nobody checks whether the restatement was confirmed by the speaker. ClarityPledge difference: formalization + speaker verification + measurement.
 - **McGinnis** (Law & Liberty review) — distinguishes common belief from common knowledge, closest to our claim
 - **De Freitas, Thomas, DeScioli & Pinker (2019, PNAS)** — pluralistic ignorance as survival mechanism for false norms
 - **Vosoughi et al.** — false news propagates 6x faster (quantitative evidence for rate asymmetry)
+- **AirTrain / Bryte Technologies** (Berlin) — "Verified Understanding Platform" for enterprise compliance. Structurally similar mechanism, but no epistemological framework or interpersonal calibration.
 
 ## Interactive point embeds (Ghost version)
 
@@ -78,6 +83,7 @@ Nobody has framed this as a **rate asymmetry** between two measurable quantities
 ## Source material
 
 - Claude conversations Mar 14-15: thesis development, falsification testing, prior art survey
+- Claude conversations Mar 26-27: verification chain falsification (link-by-link), Habermas lineage, uniqueness audit vs ~50 groups, meta-protocol scope, "accurate disagreement" framing, Rapoport norm vs protocol distinction
 - a7_the-construct-nobody-measured.md (merged)
 - a8_seven-points-understanding.md (merged)
 - theory-of-change.md — Rate Asymmetry Thesis section
