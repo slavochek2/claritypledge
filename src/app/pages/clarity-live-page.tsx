@@ -1512,15 +1512,15 @@ export function ClarityLivePage() {
       userId: user?.id ?? '',
       onAfterRemove: useCallback((pointId: string) => {
         if (!name) return;
-        const currentPositions = confirmedLiveStateRef.current.livePositions ?? {};
-        const myPositions = currentPositions[name] ?? {};
+        // P562: Write to top-level per-participant key (not nested livePositions)
+        const myKey = isCreator ? 'livePositionsCreator' : 'livePositionsJoiner';
+        const myCurrentPositions = isCreator
+          ? (confirmedLiveStateRef.current.livePositionsCreator ?? {})
+          : (confirmedLiveStateRef.current.livePositionsJoiner ?? {});
         updateLiveState({
-          livePositions: {
-            ...currentPositions,
-            [name]: { ...myPositions, [pointId]: null },
-          },
+          [myKey]: { ...myCurrentPositions, [pointId]: null },
         });
-      }, [name, updateLiveState]),
+      }, [name, updateLiveState, isCreator]),
     });
 
   // P275: Handle point position selection during a /live session.
