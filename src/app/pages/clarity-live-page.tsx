@@ -163,6 +163,8 @@ export function sanitizeLiveStateForSentry(
     'ideasDiscussed', 'ideasUnderstood', 'celebrationAcknowledgedByCreator',
     'celebrationAcknowledgedByJoiner', 'clarificationPhase', 'speakerSawExplainBackDone',
     'checkerRating', 'responderRating', 'isRecording',
+    // P562: Free mode fields
+    'sessionMode', 'freePhase', 'freeSliderCreator', 'freeSliderJoiner',
   ];
   const sanitized: Record<string, unknown> = {};
   for (const key of safeKeys) {
@@ -1315,6 +1317,12 @@ export function ClarityLivePage() {
       return;
     }
 
+    // P562: Free mode — skip local rating, go directly to sealed-bid phase
+    if (currentState.sessionMode === 'free') {
+      handleFreeStartCheck();
+      return;
+    }
+
     // Track check initiation
     analytics.track('live_check_started', {
       session_code: session?.code,
@@ -1327,7 +1335,7 @@ export function ClarityLivePage() {
 
     setLocalFlowType('check');
     setIsLocallyRating(true);
-  }, [name, partnerName, session?.code, updateLiveState]);
+  }, [name, partnerName, session?.code, updateLiveState, handleFreeStartCheck]);
 
   // P23.3: Handle "Did I get it?" button tap - listener-initiated understanding check
   // In this flow, the listener (prover) rates their confidence first
@@ -1355,6 +1363,164 @@ export function ClarityLivePage() {
     setLocalFlowType('prove');
     setIsLocallyRating(true);
   }, [name, partnerName, session?.code, updateLiveState]);
+
+  // ============================================================================
+  // P562: Free mode handlers
+  // ============================================================================
+
+  /** P562: Change session mode (entry screen toggle) */
+  const handleSessionModeChange = useCallback((mode: 'guided' | 'free') => {
+    updateLiveState({ sessionMode: mode });
+  }, [updateLiveState]);
+
+  /** P562: Start free mode round — called when user taps "Does [partner] understand you?" in free mode.
+   * This modifies handleStartCheck behavior: instead of local rating, it writes to live_state directly. */
+  const handleFreeStartCheck = useCallback(() => {
+    if (!name || !partnerName) return;
+    const currentState = confirmedLiveStateRef.current;
+    if (currentState.freePhase || currentState.ratingPhase !== 'idle') return;
+
+    analytics.track('live_free_round_started', { session_code: session?.code });
+    lastActionTimestampRef.current = Date.now();
+
+    updateLiveState({
+      freePhase: 'sealed-bid',
+      checkerName: name,
+      checkerIsCreator: isCreator,
+      checkerSubmitted: false,
+      responderSubmitted: false,
+      checkerRating: undefined,
+      responderRating: undefined,
+      freeSliderCreator: undefined,
+      freeSliderJoiner: undefined,
+    });
+  }, [name, partnerName, session?.code, isCreator, updateLiveState]);
+
+  /** P562: Submit sealed bid in free mode */
+  const handleFreeSealedBidSubmit = useCallback((rating: number) => {
+    const isChecker = confirmedLiveStateRef.current.checkerIsCreator === isCreator;
+    const patch: Partial<LiveSessionState> = isChecker
+      ? { checkerRating: rating, checkerSubmitted: true }
+      : { responderRating: rating, responderSubmitted: true };
+
+    // Check if partner already submitted → transition to reveal
+    const partnerSubmitted = isChecker
+      ? confirmedLiveStateRef.current.responderSubmitted
+      : confirmedLiveStateRef.current.checkerSubmitted;
+
+    if (partnerSubmitted) {
+      patch.freePhase = 'reveal';
+    } else {
+      patch.freePhase = 'waiting';
+    }
+
+    updateLiveState(patch);
+
+    // If transitioning to reveal, auto-transition to paraphrase after 1.5s
+    if (partnerSubmitted) {
+      setTimeout(() => {
+        updateLiveState({ freePhase: 'paraphrase' });
+      }, 1500);
+    }
+  }, [isCreator, updateLiveState]);
+
+  /** P562: Listener clicks "I paraphrased" — commit round + unlock sliders */
+  const handleFreeParaphraseDone = useCallback(() => {
+    const currentState = confirmedLiveStateRef.current;
+    const listenerConf = currentState.checkerIsCreator === isCreator
+      ? (currentState.responderRating ?? 0)
+      : (currentState.checkerRating ?? 0);
+    const speakerBel = currentState.checkerIsCreator === isCreator
+      ? (currentState.checkerRating ?? 0)
+      : (currentState.responderRating ?? 0);
+
+    const newRound = {
+      listenerConfidence: listenerConf,
+      speakerBelief: speakerBel,
+      label: `${(currentState.freeRounds ?? []).length}`,
+    };
+
+    // Initialize slider values to sealed-bid values
+    const creatorSlider = isCreator
+      ? (currentState.checkerIsCreator === isCreator ? speakerBel : listenerConf)
+      : (currentState.checkerIsCreator === isCreator ? listenerConf : speakerBel);
+    const joinerSlider = !isCreator
+      ? (currentState.checkerIsCreator === isCreator ? speakerBel : listenerConf)
+      : (currentState.checkerIsCreator === isCreator ? listenerConf : speakerBel);
+
+    updateLiveState({
+      freePhase: 'unlocked',
+      freeRounds: [...(currentState.freeRounds ?? []), newRound],
+      freeSliderCreator: creatorSlider,
+      freeSliderJoiner: joinerSlider,
+    });
+  }, [isCreator, updateLiveState]);
+
+  /** P562: Debounced slider change in unlocked mode */
+  const handleFreeSliderChange = useCallback((value: number) => {
+    const key = isCreator ? 'freeSliderCreator' : 'freeSliderJoiner';
+    updateLiveState({ [key]: value });
+  }, [isCreator, updateLiveState]);
+
+  /** P562: "Speak freely" — exit round, return to idle */
+  const handleFreeSpeakFreely = useCallback(() => {
+    updateLiveState({
+      freePhase: undefined,
+      checkerName: undefined,
+      checkerIsCreator: undefined,
+      checkerSubmitted: false,
+      responderSubmitted: false,
+      checkerRating: undefined,
+      responderRating: undefined,
+      freeSliderCreator: undefined,
+      freeSliderJoiner: undefined,
+      ratingPhase: 'idle',
+    });
+  }, [updateLiveState]);
+
+  /** P562: Round complete (10/10 auto-transition) */
+  const handleFreeRoundComplete = useCallback(() => {
+    updateLiveState({ freePhase: 'success' });
+  }, [updateLiveState]);
+
+  /** P562: "Discuss another story" from success → back to idle */
+  const handleFreeDiscussAnother = useCallback(() => {
+    updateLiveState({
+      freePhase: undefined,
+      checkerName: undefined,
+      checkerIsCreator: undefined,
+      checkerSubmitted: false,
+      responderSubmitted: false,
+      checkerRating: undefined,
+      responderRating: undefined,
+      freeSliderCreator: undefined,
+      freeSliderJoiner: undefined,
+      freeRounds: undefined,
+      ratingPhase: 'idle',
+    });
+  }, [updateLiveState]);
+
+  // P562: Auto-transition reveal → paraphrase after 1.5s
+  // Both clients watch for this phase and write the transition (idempotent JSONB merge).
+  useEffect(() => {
+    if (liveState.freePhase !== 'reveal') return;
+    const timer = setTimeout(() => {
+      if (confirmedLiveStateRef.current.freePhase === 'reveal') {
+        updateLiveState({ freePhase: 'paraphrase' });
+      }
+    }, 1500);
+    return () => clearTimeout(timer);
+  }, [liveState.freePhase, updateLiveState]);
+
+  // P562: Responder sealed-bid submission → detect both submitted → reveal
+  // When Realtime shows partner submitted while we're in 'waiting', transition to reveal.
+  useEffect(() => {
+    if (liveState.freePhase !== 'waiting') return;
+    const bothSubmitted = liveState.checkerSubmitted && liveState.responderSubmitted;
+    if (bothSubmitted) {
+      updateLiveState({ freePhase: 'reveal' });
+    }
+  }, [liveState.freePhase, liveState.checkerSubmitted, liveState.responderSubmitted, updateLiveState]);
 
   // P128: Handle story selection from content picker
   const handleSelectStory = useCallback((storyId: string, title: string, storyData?: StoryWithPoints) => {
@@ -3605,6 +3771,14 @@ export function ClarityLivePage() {
           partnerEarsCount={partnerEarsCount}
           isCreator={isCreator}
           uploadHealth={uploadHealth}
+          onSessionModeChange={handleSessionModeChange}
+          onFreeSealedBidSubmit={handleFreeSealedBidSubmit}
+          onFreeParaphraseDone={handleFreeParaphraseDone}
+          onFreeSliderChange={handleFreeSliderChange}
+          onFreeSpeakFreely={handleFreeSpeakFreely}
+          onFreeRoundComplete={handleFreeRoundComplete}
+          onFreeDiscussAnother={handleFreeDiscussAnother}
+          freeStoryTitle={liveState.selectedContentTitle}
         />
 
         {/* Remove position confirmation dialog */}

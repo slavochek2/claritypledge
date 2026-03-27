@@ -64,7 +64,7 @@ describe('LiveModeView', () => {
   });
 
   describe('IdleScreen', () => {
-    it('renders both "Did you get it?" and "Did I get it?" buttons', () => {
+    it('renders single "Does [partner] understand you?" button (P562/AD-7: Listen button removed)', () => {
       renderWithRouter(
         <LiveModeView
           {...defaultProps}
@@ -72,12 +72,12 @@ describe('LiveModeView', () => {
         />
       );
 
-      // Use data-testid for robust button selection
+      // Single Speak button (Check) — no Listen/Prove button per AD-7
       expect(screen.getByTestId('start-check')).toBeInTheDocument();
-      expect(screen.getByTestId('start-prove')).toBeInTheDocument();
+      expect(screen.queryByTestId('start-prove')).not.toBeInTheDocument();
     });
 
-    it('calls onStartCheck when "Did you get it?" is clicked', () => {
+    it('calls onStartCheck when "Does [partner] understand you?" is clicked', () => {
       renderWithRouter(
         <LiveModeView
           {...defaultProps}
@@ -87,18 +87,6 @@ describe('LiveModeView', () => {
 
       fireEvent.click(screen.getByTestId('start-check'));
       expect(mockHandlers.onStartCheck).toHaveBeenCalledTimes(1);
-    });
-
-    it('calls onStartProve when "Did I get it?" is clicked', () => {
-      renderWithRouter(
-        <LiveModeView
-          {...defaultProps}
-          liveState={DEFAULT_LIVE_STATE}
-        />
-      );
-
-      fireEvent.click(screen.getByTestId('start-prove'));
-      expect(mockHandlers.onStartProve).toHaveBeenCalledTimes(1);
     });
 
   });

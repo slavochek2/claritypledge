@@ -43,6 +43,7 @@ import { RoundSummaryScreen } from './round-summary-screen';
 import { StorySearchPicker } from './story-search-picker';
 import { LiveStoryCardExpanded } from './live-story-card-expanded';
 import { GravatarAvatar } from '@/components/ui/gravatar-avatar';
+import { FreeModeView } from './free-mode-view';
 import { PositionBadge } from '@/app/components/shared';
 import { storiesService } from '@/app/data/stories-service';
 import { pointsService } from '@/app/data/points-service';
@@ -298,6 +299,22 @@ interface LiveModeViewProps {
   isCreator?: boolean;
   /** P566: Upload health indicator for RecordingIndicator */
   uploadHealth?: 'healthy' | 'degraded' | 'critical';
+  /** P562: Session mode change callback */
+  onSessionModeChange?: (mode: 'guided' | 'free') => void;
+  /** P562: Free mode sealed bid submit */
+  onFreeSealedBidSubmit?: (rating: number) => void;
+  /** P562: Free mode paraphrase done */
+  onFreeParaphraseDone?: () => void;
+  /** P562: Free mode slider change (debounced) */
+  onFreeSliderChange?: (value: number) => void;
+  /** P562: Free mode speak freely (exit round) */
+  onFreeSpeakFreely?: () => void;
+  /** P562: Free mode round complete (10/10) */
+  onFreeRoundComplete?: () => void;
+  /** P562: Free mode discuss another story */
+  onFreeDiscussAnother?: () => void;
+  /** P562: Story title for free mode success screen */
+  freeStoryTitle?: string;
 }
 
 export function LiveModeView({
@@ -335,6 +352,14 @@ export function LiveModeView({
   partnerEarsCount = 0,
   isCreator = false,
   uploadHealth,
+  onSessionModeChange,
+  onFreeSealedBidSubmit,
+  onFreeParaphraseDone,
+  onFreeSliderChange,
+  onFreeSpeakFreely,
+  onFreeRoundComplete,
+  onFreeDiscussAnother,
+  freeStoryTitle,
 }: LiveModeViewProps) {
 
   // Hide site-wide navigation when live session is active.
@@ -628,6 +653,30 @@ export function LiveModeView({
   // Used to determine whether to show celebration waiting vs idle waiting
   const inCelebrationState = bothSubmitted && checkerRating === 10;
 
+  // P562: Free mode routing — when sessionMode is 'free' and a round is active,
+  // render FreeModeView instead of guided mode phases
+  if (liveState.sessionMode === 'free' && liveState.freePhase && onFreeSealedBidSubmit) {
+    return (
+      <div className="flex flex-col h-full">
+        <LiveHeader partnerName={partnerName} onExit={onExitMeeting} isPrivate={isPrivate} uploadHealth={uploadHealth} />
+        <FreeModeView
+          liveState={liveState}
+          partnerName={partnerName}
+          isCreator={isCreator ?? false}
+          currentUserName={currentUserName}
+          onSealedBidSubmit={onFreeSealedBidSubmit as (rating: number) => void}
+          onParaphraseDone={onFreeParaphraseDone as () => void}
+          onSliderChange={onFreeSliderChange as (value: number) => void}
+          onSpeakFreely={onFreeSpeakFreely as () => void}
+          onRoundComplete={onFreeRoundComplete as () => void}
+          onDiscussAnother={onFreeDiscussAnother as () => void}
+          onEndSession={onExitMeeting}
+          storyTitle={freeStoryTitle}
+        />
+      </div>
+    );
+  }
+
   // User clicked "Continue" but partner hasn't yet
   // If in celebration state, let UnderstandingScreen handle the waiting UI
   // If NOT in celebration state, show idle with disabled buttons
@@ -720,6 +769,8 @@ export function LiveModeView({
           isGuest={isGuest}
           currentUserName={currentUserName}
           uploadHealth={uploadHealth}
+          sessionMode={liveState.sessionMode}
+          onSessionModeChange={onSessionModeChange}
                   />
         {skipNotificationDialog}
         {confirmSkipDialog}
@@ -941,6 +992,10 @@ interface IdleScreenProps {
   isGuest?: boolean;
   /** P566: Upload health for recording indicator */
   uploadHealth?: 'healthy' | 'degraded' | 'critical';
+  /** P562: Current session mode */
+  sessionMode?: 'guided' | 'free';
+  /** P562: Mode toggle callback */
+  onSessionModeChange?: (mode: 'guided' | 'free') => void;
 }
 
 function IdleScreen({
@@ -967,6 +1022,8 @@ function IdleScreen({
   _currentUserName,
   isGuest = false,
   uploadHealth,
+  sessionMode,
+  onSessionModeChange,
 }: IdleScreenProps) {
   const displayPartnerName = getFirstName(partnerName);
   const checkerName = liveState.checkerName ? getFirstName(liveState.checkerName) : '';
@@ -1076,7 +1133,8 @@ function IdleScreen({
     onStartCheck();
   };
 
-  const handleStartProveWithTracking = () => {
+  // P562/AD-7: Prove button removed — tracking handler kept with _ prefix for potential future use
+  const _handleStartProveWithTracking = () => {
     if (hasContent) {
       analytics.track('cardless_mode_selected', {
         userId,
@@ -1160,16 +1218,7 @@ function IdleScreen({
                 >
                   Does <span className="font-bold">{displayPartnerName}</span> understand you?
                 </Button>
-                <Button
-                  variant="outline"
-                  size="lg"
-                  className="w-full"
-                  onClick={handleStartProveWithTracking}
-                  disabled={waitingForPartnerToContinue}
-                  data-testid="start-prove"
-                >
-                  Do you understand <span className="font-bold">{displayPartnerName}</span>?
-                </Button>
+                {/* P562/AD-7: Listen/"Did I get it?" button removed from both modes */}
                 {waitingForPartnerToContinue && (
                   <WaitingIndicator message={`Waiting for ${displayPartnerName} to continue...`} />
                 )}
@@ -1228,6 +1277,30 @@ function IdleScreen({
             </button>
           )}
         </ActionArea>
+      )}
+
+      {/* P562: Mode pill toggle — visible on entry screen */}
+      {onSessionModeChange && !showRatingDrawer && !waitingForPartnerToContinue && (
+        <div className="flex justify-center py-4">
+          <div className="inline-flex bg-gray-100 rounded-full p-1 text-sm">
+            <button
+              onClick={() => onSessionModeChange('free')}
+              className={`px-4 py-1.5 rounded-full transition-all ${
+                sessionMode === 'free' ? 'bg-blue-500 text-white shadow-sm font-medium' : 'text-gray-500'
+              }`}
+            >
+              Free mode
+            </button>
+            <button
+              onClick={() => onSessionModeChange('guided')}
+              className={`px-4 py-1.5 rounded-full transition-all ${
+                (sessionMode === 'guided' || !sessionMode) ? 'bg-blue-500 text-white shadow-sm font-medium' : 'text-gray-500'
+              }`}
+            >
+              Guided mode
+            </button>
+          </div>
+        </div>
       )}
 
       {/* Responder notification drawer - slides up from bottom */}

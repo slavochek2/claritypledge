@@ -473,6 +473,22 @@ export type LiveRatingLabel = 'not_yet' | 'getting_there' | 'almost' | 'got_it';
 export type RatingPhase = 'idle' | 'rating' | 'waiting' | 'revealed' | 'explain-back' | 'results';
 
 /**
+ * P562: Free mode phase type — parallel to RatingPhase for guided mode.
+ * sealed-bid → waiting → reveal → paraphrase → unlocked → (success or back to idle)
+ */
+export type FreePhase = 'sealed-bid' | 'waiting' | 'reveal' | 'paraphrase' | 'unlocked' | 'success';
+
+/** P562: Session interaction mode */
+export type SessionMode = 'guided' | 'free';
+
+/** P562: Committed round record for Journey display */
+export interface FreeRoundRecord {
+  listenerConfidence: number;
+  speakerBelief: number;
+  label: string;
+}
+
+/**
  * P23.1 Gap type for risk messaging
  */
 export type GapType = 'overconfidence' | 'underconfidence' | 'none';
@@ -712,6 +728,25 @@ export interface LiveSessionState {
   // Structure: { [participantName]: { [pointId]: PositionType | null } }
   // ============================================================================
   livePositions?: Record<string, Record<string, PositionType | null>>;
+
+  // ============================================================================
+  // P562: Free mode — structured start, then continuous sliders
+  // ============================================================================
+
+  /** Session interaction mode: 'guided' (default) or 'free' */
+  sessionMode?: SessionMode;
+
+  /** Current free mode phase (only meaningful when sessionMode === 'free') */
+  freePhase?: FreePhase;
+
+  /** Creator's live slider position (0-10), top-level for JSONB shallow merge */
+  freeSliderCreator?: number;
+
+  /** Joiner's live slider position (0-10), top-level for JSONB shallow merge */
+  freeSliderJoiner?: number;
+
+  /** Committed free mode rounds for Journey display */
+  freeRounds?: FreeRoundRecord[];
 }
 
 /** Default initial state for new live sessions */
