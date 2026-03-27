@@ -50,7 +50,7 @@ Flywheel: see [lean-canvas.md](lean-canvas.md#channels--flywheel). Steps below f
 ```
 STOP:        Any feature work not on P551 → P581 → P562 → P567 → workshop path
 START:       /architect P551+P581 unified, then /dev both
-SCARY THING: Post workshop invite at Koh Lanta cowork by March 29
+SCARY THING: Post workshop invite at Koh Lanta cowork by April 4
 HYPOTHESIS:  Workshop participants take de-risking package (PWIW) + sign
              Clarity Partner Agreement — at least 1 pair from first workshop
 KILL DATE:   0/2 workshops → paying pair by April 25 = pipeline doesn't convert
