@@ -1,7 +1,7 @@
 # Facilitator Guide
 
 **For:** Slava (and future facilitators) running calibration workshops and sessions.
-**Last updated:** 2026-03-22
+**Last updated:** 2026-03-27
 
 ---
 
@@ -9,23 +9,24 @@
 
 ### Setup (Before Workshop)
 
-- Pre-file 8 false belief stories + extracted points on ClarityPledge (P567)
-- Each false belief is the inverse of one of your 8 calibration points
+- Pre-file 9 false belief stories + extracted points on ClarityPledge (P567)
+- Each false belief is the inverse of one of your 9 calibration points
 - Take "strongly disagree" position on each false belief point
-- Select 3-4 false beliefs for the workshop (don't try all 8 — depth > breadth)
+- Select 3-4 false beliefs for the workshop (don't try all 9 — depth > breadth)
 
 ### Opening Questions (Per False Belief)
 
 | # | Open Question | False Belief It Surfaces |
 |---|---|---|
 | 1 | "When someone says 'you don't understand me,' what do they really want?" | Understanding = empathy; you feel it or you don't |
-| 2 | "When interests clash, what should you aim for first?" | Make the other person feel what you feel |
+| 2 | "How reliably can you determine whether you cognitively understand what someone is saying — and what's the evidence for this?" | My track record is reliable; I'd notice if I misunderstood |
 | 3 | "How do you know someone understood what you said?" | Intuition is the most reliable indicator |
 | 4 | "Does expressing your emotions freely while listening help or hurt reaching understanding?" | Expressing freely = engaged; holding back = withholding |
-| 5 | "Is it OK to decline a paraphrasing request without saying why?" | It's patronizing; you shouldn't have to prove you listened |
-| 6 | "Should partners formalize how they reach clarity — or just figure it out naturally?" | No formal process needed if both people care |
-| 7 | "What is the most effective way to inspire others to practice verified cognitive understanding?" | Actions are enough; public declarations don't matter |
+| 5 | "When interests clash, what should you aim for first?" | Make the other person feel what you feel |
+| 6 | "Is it OK to decline a paraphrasing request without saying why?" | It's patronizing; you shouldn't have to prove you listened |
+| 7 | "Should partners formalize how they reach clarity — or just figure it out naturally?" | No formal process needed if both people care |
 | 8 | "How do you test a potential partner's capacity to learn and admit mistakes?" | No way to test upfront; only experience tells |
+| 9 | "What is the most effective way to inspire others to practice verified cognitive understanding?" | Actions are enough; public declarations don't matter |
 
 ### Flow (Per False Belief — ~15 min each)
 
@@ -124,7 +125,7 @@ Before any verification exercise, check emotional readiness:
 - Don't confuse curiosity ("that's cool") with pain ("this cost us X")
 - Don't present your points as truth — present them as your position, let the protocol do the work
 - Don't skip the reflection step after position switch — that's where pain surfaces
-- Don't try all 8 false beliefs in one workshop — 3-4 with depth beats 8 at surface
+- Don't try all 9 false beliefs in one workshop — 3-4 with depth beats 9 at surface
 
 ---
 
