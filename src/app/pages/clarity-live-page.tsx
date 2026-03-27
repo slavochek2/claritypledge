@@ -892,6 +892,8 @@ export function ClarityLivePage() {
   // The main subscription (line ~867) requires `session` to be non-null, but
   // the rejoin prompt is a pre-session state (session=null). Without this,
   // the prompt never clears when the session ends remotely.
+  // P595: Added polling fallback — realtime alone is fragile (WebSocket drops
+  // silently on mobile). Polls every 5s as a safety net.
   useEffect(() => {
     if (!rejoinSession) return;
 
@@ -903,7 +905,20 @@ export function ClarityLivePage() {
       }
     });
 
-    return unsubscribe;
+    // P595: Polling fallback — if realtime subscription drops, this catches ended sessions
+    const pollInterval = setInterval(async () => {
+      const activeSession = await getActiveSessionByCode(rejoinSession.code);
+      if (!activeSession) {
+        // Session ended or expired — clear the stale rejoin prompt
+        clearActiveSession();
+        setRejoinSession(null);
+      }
+    }, 5000);
+
+    return () => {
+      unsubscribe();
+      clearInterval(pollInterval);
+    };
   // eslint-disable-next-line react-hooks/exhaustive-deps -- rejoinSession?.sessionId is the stable identity; adding full object would re-subscribe on every state change
   }, [rejoinSession?.sessionId, clearActiveSession]);
 
