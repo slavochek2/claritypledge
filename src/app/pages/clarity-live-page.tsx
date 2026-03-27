@@ -1397,32 +1397,18 @@ export function ClarityLivePage() {
     updateLiveState({ sessionMode: mode });
   }, [updateLiveState]);
 
-  /** P562: Submit sealed bid in free mode */
+  /** P562: Submit sealed bid in free mode.
+   * Always writes freePhase: 'waiting'. The useEffect below is the single authority
+   * for waiting→reveal transition (fires when both submitted flags are true).
+   * This avoids a race where both users read stale confirmedLiveStateRef and both
+   * decide the partner hasn't submitted yet. */
   const handleFreeSealedBidSubmit = useCallback((rating: number) => {
     const isChecker = confirmedLiveStateRef.current.checkerIsCreator === isCreator;
     const patch: Partial<LiveSessionState> = isChecker
-      ? { checkerRating: rating, checkerSubmitted: true }
-      : { responderRating: rating, responderSubmitted: true };
-
-    // Check if partner already submitted → transition to reveal
-    const partnerSubmitted = isChecker
-      ? confirmedLiveStateRef.current.responderSubmitted
-      : confirmedLiveStateRef.current.checkerSubmitted;
-
-    if (partnerSubmitted) {
-      patch.freePhase = 'reveal';
-    } else {
-      patch.freePhase = 'waiting';
-    }
+      ? { checkerRating: rating, checkerSubmitted: true, freePhase: 'waiting' }
+      : { responderRating: rating, responderSubmitted: true, freePhase: 'waiting' };
 
     updateLiveState(patch);
-
-    // If transitioning to reveal, auto-transition to paraphrase after 1.5s
-    if (partnerSubmitted) {
-      setTimeout(() => {
-        updateLiveState({ freePhase: 'paraphrase' });
-      }, 1500);
-    }
   }, [isCreator, updateLiveState]);
 
   /** P562: Listener clicks "I paraphrased" — commit round + unlock sliders */
@@ -1513,12 +1499,15 @@ export function ClarityLivePage() {
     return () => clearTimeout(timer);
   }, [liveState.freePhase, updateLiveState]);
 
-  // P562: Responder sealed-bid submission → detect both submitted → reveal
-  // When Realtime shows partner submitted while we're in 'waiting', transition to reveal.
+  // P562: Single authority for waiting→reveal transition.
+  // Fires when either optimistic liveState or confirmed ref shows both submitted.
+  // Checks both sources to handle the race where optimistic state is stale
+  // (user B submits before user A's Realtime arrives).
   useEffect(() => {
-    if (liveState.freePhase !== 'waiting') return;
-    const bothSubmitted = liveState.checkerSubmitted && liveState.responderSubmitted;
-    if (bothSubmitted) {
+    if (liveState.freePhase !== 'waiting' && confirmedLiveStateRef.current.freePhase !== 'waiting') return;
+    const optimisticBoth = liveState.checkerSubmitted && liveState.responderSubmitted;
+    const confirmedBoth = confirmedLiveStateRef.current.checkerSubmitted && confirmedLiveStateRef.current.responderSubmitted;
+    if (optimisticBoth || confirmedBoth) {
       updateLiveState({ freePhase: 'reveal' });
     }
   }, [liveState.freePhase, liveState.checkerSubmitted, liveState.responderSubmitted, updateLiveState]);

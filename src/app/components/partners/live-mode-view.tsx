@@ -672,6 +672,7 @@ export function LiveModeView({
           onDiscussAnother={onFreeDiscussAnother as () => void}
           onEndSession={onExitMeeting}
           storyTitle={freeStoryTitle}
+          selectedStory={selectedStory}
         />
       </div>
     );

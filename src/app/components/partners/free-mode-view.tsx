@@ -11,9 +11,11 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import type { LiveSessionState, FreePhase, FreeRoundRecord } from '@/app/types';
-import { getFirstName } from './shared';
+import { getFirstName, RatingButtons } from './shared';
 import { SliderTrack } from './slider-track';
 import { FreeModeSuccess } from './free-mode-success';
+import { LiveStoryCardExpanded } from './live-story-card-expanded';
+import type { StoryWithPoints } from '@/app/types';
 
 // ── DotBar helper ────────────────────────────────────────────────────────────
 
@@ -52,6 +54,8 @@ export interface FreeModeViewProps {
   onEndSession: () => void;
   /** Story title for success screen */
   storyTitle?: string;
+  /** Selected story to display during the round */
+  selectedStory?: StoryWithPoints | null;
 }
 
 // ── FreeModeView ─────────────────────────────────────────────────────────────
@@ -69,6 +73,7 @@ export function FreeModeView({
   onDiscussAnother,
   onEndSession,
   storyTitle,
+  selectedStory,
 }: FreeModeViewProps) {
   const displayPartnerName = getFirstName(partnerName);
   const freePhase = liveState.freePhase as FreePhase;
@@ -78,6 +83,8 @@ export function FreeModeView({
 
   // Local slider value for immediate feedback
   const [localSliderValue, setLocalSliderValue] = useState(0);
+  // Sealed-bid uses 0-10 buttons (same as guided mode), not slider
+  const [selectedRating, setSelectedRating] = useState<number | null>(null);
 
   // Sync local slider with sealed-bid value when entering unlocked phase
   const prevPhaseRef = useRef<FreePhase | undefined>();
@@ -158,8 +165,9 @@ export function FreeModeView({
   // ── Sealed bid handler ─────────────────────────────────────────────────
 
   const handleSealedSubmit = useCallback(() => {
-    onSealedBidSubmit(localSliderValue);
-  }, [onSealedBidSubmit, localSliderValue]);
+    if (selectedRating === null) return;
+    onSealedBidSubmit(selectedRating);
+  }, [onSealedBidSubmit, selectedRating]);
 
   // ── Debounced slider change for unlocked mode ──────────────────────────
 
@@ -192,6 +200,17 @@ export function FreeModeView({
       {/* Main content area — Journey + gap badge */}
       <div className="flex-1 flex flex-col justify-end px-4 pt-4">
         <div className="space-y-3 mb-4 max-w-sm mx-auto w-full">
+
+          {/* Story card (if selected) */}
+          {selectedStory && (
+            <LiveStoryCardExpanded
+              story={selectedStory}
+              isOwnStory={isChecker}
+              isGuest={false}
+              className="w-full max-w-sm mb-2"
+              defaultExpanded={false}
+            />
+          )}
 
           {/* Journey to Understand */}
           {showJourney && (
@@ -308,28 +327,27 @@ export function FreeModeView({
               <h3 className="text-base font-medium text-center mb-5">
                 {questionText}
               </h3>
-              <div className="flex justify-between mb-1 text-xs text-gray-500">
-                <span>Not at all</span>
-                <span>Complete cognitive understanding</span>
+              <div className="flex flex-col items-center space-y-3">
+                <div className="flex justify-between text-xs text-muted-foreground w-full max-w-sm">
+                  <span>Not at all</span>
+                  <span>Complete cognitive understanding</span>
+                </div>
+                <RatingButtons selectedValue={selectedRating} onSelect={setSelectedRating} />
+                <Button
+                  size="sm"
+                  onClick={handleSealedSubmit}
+                  className="bg-blue-500 hover:bg-blue-600 w-full max-w-[200px] mt-2"
+                  disabled={selectedRating === null}
+                >
+                  Submit
+                </Button>
+                <button
+                  onClick={onSpeakFreely}
+                  className="text-sm text-muted-foreground hover:text-foreground transition-colors mt-6 mx-auto block min-h-[44px]"
+                >
+                  Speak freely
+                </button>
               </div>
-              <div className="px-2">
-                <SliderTrack
-                  value={localSliderValue}
-                  onChange={setLocalSliderValue}
-                />
-              </div>
-              <Button
-                onClick={handleSealedSubmit}
-                className="w-full mt-5 bg-blue-500 hover:bg-blue-600"
-              >
-                Submit
-              </Button>
-              <button
-                onClick={onSpeakFreely}
-                className="text-sm text-muted-foreground hover:text-foreground transition-colors mt-8 mx-auto block min-h-[44px]"
-              >
-                Speak freely
-              </button>
             </>
           )}
 
