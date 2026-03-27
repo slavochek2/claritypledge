@@ -1,13 +1,15 @@
 ---
-status: done
-completed_at: '2026-03-26'
+status: rejected
 type: bug
-rank: 1000027.0
+rank: 1000027
 workstream: foundation
 severity: low
-date_reported: 2026-03-26
-created_date: 2026-03-26
-tags: [mobile, ui-polish]
+date_reported: 2026-03-26T00:00:00.000Z
+created_date: 2026-03-26T00:00:00.000Z
+tags:
+  - mobile
+  - ui-polish
+locked_at: '2026-03-26T13:40:16.524Z'
 ---
 
 # BUG: P589 — Mobile Card Footer Padding

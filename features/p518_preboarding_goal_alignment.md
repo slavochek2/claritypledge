@@ -1,13 +1,13 @@
 ---
-status: week
+status: today
 type: story
-rank: 0.125
+rank: 1
 tags:
   - live
   - onboarding
   - psychological-safety
   - wtp
-locked_at: '2026-03-21T13:37:15.543Z'
+locked_at: '2026-03-26T14:22:01.018Z'
 created_date: 2026-03-14T00:00:00.000Z
 ---
 
