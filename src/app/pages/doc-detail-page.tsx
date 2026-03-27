@@ -29,13 +29,17 @@ import { DocStoryPicker } from '@/app/components/docs/doc-story-picker';
 import { ClarityPageLoader } from '@/components/ui/clarity-loader';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/auth';
+import { analytics } from '@/lib/mixpanel';
 import { docsService } from '@/app/data/docs-service';
+import { pointsService } from '@/app/data/points-service';
+import { useVerificationGate } from '@/app/hooks/useVerificationGate';
 import { DocHeader } from '@/app/components/docs/doc-header';
 import { DocPrivacyBanner } from '@/app/components/docs/doc-privacy-banner';
 import { DocBlockControls } from '@/app/components/docs/doc-block-controls';
 import { StoryCardDetail } from '@/app/components/social/StoryCardDetail';
 import { ShareDialog } from '@/app/components/shared/ShareDialog';
-import type { ClarityDoc, DocStory, DocPointConfig } from '@/app/types';
+import { RemovePositionDialog, useRemovePositionGuard } from '@/app/components/shared/remove-position-dialog';
+import type { ClarityDoc, DocStory, DocPointConfig, PointPosition, PositionType } from '@/app/types';
 
 // ---------------------------------------------------------------------------
 // SortableStoryCard — wraps a story card with dnd-kit sortable + block controls
@@ -46,6 +50,9 @@ interface SortableStoryCardProps {
   docId: string;
   currentUserId?: string;
   isOwner: boolean;
+  positionCounts: Map<string, Record<PositionType, number>>;
+  userPositions: Map<string, PointPosition>;
+  onPositionClick?: (pointId: string, position: PositionType) => Promise<void>;
   onRemove: (storyId: string) => void;
   onNavigate: (storyId: string) => void;
 }
@@ -55,6 +62,9 @@ function SortableStoryCard({
   docId,
   currentUserId,
   isOwner,
+  positionCounts,
+  userPositions,
+  onPositionClick,
   onRemove,
   onNavigate,
 }: SortableStoryCardProps) {
@@ -151,8 +161,9 @@ function SortableStoryCard({
         <StoryCardDetail
           story={docStory.story}
           linkedPoints={allPoints}
-          positionCounts={new Map()}
-          userPositions={new Map()}
+          positionCounts={positionCounts}
+          userPositions={userPositions}
+          onPositionClick={onPositionClick}
           currentUserId={currentUserId}
           disableNavigation
           onAddPoint={() => onNavigate(docStory.story_id)}
@@ -197,12 +208,34 @@ export function DocDetailPage() {
   const { docId } = useParams<{ docId: string }>();
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { checkVerified } = useVerificationGate();
 
   const [doc, setDoc] = useState<ClarityDoc | null>(null);
   const [stories, setStories] = useState<DocStory[]>([]);
   const [fetchState, setFetchState] = useState<'loading' | 'done' | 'not-found'>('loading');
   const [pickerOpen, setPickerOpen] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
+
+  // Position data for all points across all stories in this doc
+  const [positionCounts, setPositionCounts] = useState<Map<string, Record<PositionType, number>>>(new Map());
+  const [userPositions, setUserPositions] = useState<Map<string, PointPosition>>(new Map());
+
+  const { dialogProps, guardedRemovePosition } = useRemovePositionGuard({
+    userId: user?.id ?? '',
+    onAfterRemove: useCallback(async (pointId: string) => {
+      setUserPositions(prev => {
+        const updated = new Map(prev);
+        updated.delete(pointId);
+        return updated;
+      });
+      try {
+        const counts = await pointsService.getPositionCountsForPoints([pointId]);
+        setPositionCounts(prev => new Map([...prev, ...counts]));
+      } catch (err) {
+        console.error('Failed to refresh position counts after removal:', err);
+      }
+    }, []),
+  });
 
   // DnD sensors: pointer (mouse) + touch with delay to avoid accidental drags
   const sensors = useSensors(
@@ -224,10 +257,29 @@ export function DocDetailPage() {
       setDoc(result.doc);
       setStories(result.stories);
       setFetchState('done');
+
+      // Fetch position data for all points across all stories
+      const allPointIds = result.stories.flatMap(
+        ds => (ds.story.points || []).map(p => p.id)
+      );
+      if (allPointIds.length > 0) {
+        try {
+          const [counts, positions] = await Promise.all([
+            pointsService.getPositionCountsForPoints(allPointIds),
+            user?.id
+              ? pointsService.getMyPositionsForPoints(allPointIds, user.id)
+              : Promise.resolve(new Map<string, PointPosition>()),
+          ]);
+          setPositionCounts(counts);
+          setUserPositions(positions);
+        } catch (err) {
+          console.error('Error loading position data for doc:', err);
+        }
+      }
     } catch {
       setFetchState('not-found');
     }
-  }, [docId]);
+  }, [docId, user?.id]);
 
   useEffect(() => {
     fetchDoc();
@@ -237,6 +289,64 @@ export function DocDetailPage() {
   const handleDocUpdated = useCallback((updated: ClarityDoc) => {
     setDoc(updated);
   }, []);
+
+  // -----------------------------------------------------------------------
+  // Position click — optimistic update with rollback on error
+  // -----------------------------------------------------------------------
+  const handlePositionClick = useCallback(async (pointId: string, position: PositionType) => {
+    if (!checkVerified('set a position on this point')) return;
+    if (!user?.id) return;
+
+    const isTogglingOff = userPositions.get(pointId)?.position === position;
+
+    if (isTogglingOff) {
+      await guardedRemovePosition(pointId);
+      return;
+    }
+
+    // Optimistic update
+    setUserPositions(prev => {
+      const updated = new Map(prev);
+      const current = updated.get(pointId);
+      updated.set(pointId, {
+        id: current?.id || '',
+        pointId,
+        userId: user.id,
+        position,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      });
+      return updated;
+    });
+
+    try {
+      await pointsService.setPosition(pointId, user.id, position);
+      const counts = await pointsService.getPositionCountsForPoints([pointId]);
+      setPositionCounts(prev => new Map([...prev, ...counts]));
+
+      analytics.track('position_recorded', {
+        doc_id: doc?.id,
+        point_id: pointId,
+        position,
+      });
+    } catch (error) {
+      console.error('Failed to save position:', error);
+      // Revert optimistic update
+      if (user?.id) {
+        try {
+          const positions = await pointsService.getMyPositionsForPoints([pointId], user.id);
+          setUserPositions(prev => new Map([...prev, ...positions]));
+        } catch {
+          setUserPositions(prev => {
+            const updated = new Map(prev);
+            updated.delete(pointId);
+            return updated;
+          });
+        }
+      }
+      toast.error('Failed to save position. Please try again.');
+    }
+  }, [user?.id, checkVerified, userPositions, guardedRemovePosition, doc?.id]);
 
   // -----------------------------------------------------------------------
   // Story reorder — optimistic update with rollback on error
@@ -391,6 +501,9 @@ export function DocDetailPage() {
                     docId={doc.id}
                     currentUserId={user?.id}
                     isOwner={isOwner}
+                    positionCounts={positionCounts}
+                    userPositions={userPositions}
+                    onPositionClick={handlePositionClick}
                     onRemove={handleRemoveStory}
                     onNavigate={handleNavigateToStory}
                   />
@@ -422,6 +535,9 @@ export function DocDetailPage() {
         title={doc.title}
         description={`Clarity Doc: ${doc.title}`}
       />
+
+      {/* Position removal confirmation dialog */}
+      <RemovePositionDialog {...dialogProps} />
     </main>
   );
 }
