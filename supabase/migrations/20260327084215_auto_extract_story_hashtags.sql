@@ -19,3 +19,7 @@ CREATE TRIGGER trg_stories_extract_hashtags
   BEFORE INSERT OR UPDATE OF content ON stories
   FOR EACH ROW
   EXECUTE FUNCTION extract_hashtags_from_content();
+
+-- Backfill: re-sync tags for all existing stories by triggering the new function.
+-- No-op on content value, but fires the BEFORE UPDATE trigger which re-extracts tags.
+UPDATE stories SET content = content WHERE content IS NOT NULL;
