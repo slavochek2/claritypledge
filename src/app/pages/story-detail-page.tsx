@@ -800,7 +800,7 @@ export function StoryDetailPage() {
     if (!story || !editContent.trim()) return;
     setIsSaving(true);
     try {
-      const updated = await storiesService.updateStory(story.id, { content: editContent });
+      const updated = await storiesService.updateStory(story.id, { content: editContent, tags: extractHashtags(editContent) });
       if (updated) {
         setStory(prev => prev ? { ...prev, content: editContent } : prev);
         setIsEditMode(false);

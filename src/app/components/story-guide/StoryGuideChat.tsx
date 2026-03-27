@@ -643,7 +643,7 @@ export function StoryGuideChat({
     try {
       // Step 1: Create or update story
       const story = existingStory
-        ? await storiesService.updateStory(existingStory.id, { content: contentToSave })
+        ? await storiesService.updateStory(existingStory.id, { content: contentToSave, tags: extractHashtags(contentToSave) })
         : await storiesService.createStory(user.id, contentToSave, extractHashtags(contentToSave), selectedVisibility);
 
       if (!story) {
