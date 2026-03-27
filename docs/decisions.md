@@ -2,6 +2,14 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-27 [technical]: DB trigger as safety net for derived columns — P592 hashtag fix
+
+**Context:** P506 added `extractHashtags()` on story creation, but 2 of 3 `updateStory` call sites (story-detail-page, StoryGuideChat) never passed tags on edit. Tags were frozen at creation time. 226 stories had stale tags in prod.
+**Decision:** Two-layer fix: (1) add `extractHashtags()` to all client update paths, (2) add a Postgres BEFORE trigger (`trg_stories_extract_hashtags`) that auto-extracts tags from `content` on every INSERT/UPDATE. The trigger makes client-side tag extraction a nice-to-have, not a requirement — future call sites can't forget.
+**Alternatives rejected:** Client-only fix (same bug class recurs on every new update path). DB-only trigger without client fix (tags would flicker — client sends empty tags, trigger overwrites).
+**Consequences:** The `tags` column on `stories` is now fully derived from `content` via trigger. Client-side `extractHashtags()` is redundant but harmless. Pattern applies to any derived column: if N call sites must all remember to compute it, move the computation to a trigger.
+**References:** [P592 spec](features/done/27_mar_27/p592_fix_hashtag_update.md), [P506 spec](features/done/22_mar_26/p506_auto_extract_hashtags.md)
+
 ## 2026-03-27 [process]: Pre-commit tsc check is a no-op — P591 hotfix
 
 **Context:** P591 (`634cba89`) removed `maxHeight` from destructured props in `story-image.tsx` but left a reference on line 75 in the author-mode else branch. This shipped to prod and crashed the story detail page for authenticated authors viewing their own stories with images (`ReferenceError: maxHeight is not defined`). TypeScript catches this as TS18004 when invoked with `-p tsconfig.app.json`, but `pre-commit-checks.sh` line 43 runs `npx tsc --noEmit` against the root tsconfig which has `"files": []` — effectively checking nothing.
