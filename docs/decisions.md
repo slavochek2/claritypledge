@@ -2,6 +2,13 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-27 [process]: Nav-route consistency check — prevent broken nav links
+
+**Context:** Commit `5b07a3b2` bundled two unrelated changes: point slug URLs + removal of `/docs` and `/d/:docId` routes from App.tsx. The route removal was labeled "remove unused docs pages" but the nav bar (both `simple-navigation.tsx` and `bottom-nav.tsx`) still linked to `/docs`. Result: clicking "Docs" in prod nav → 404. Root cause: no build-time or commit-time check that nav links point to existing routes. The docs feature was NOT dead — `create-story-page.tsx` still actively imports `docsService` and `DocPrivacyBanner`.
+**Decision:** (A) Restore the removed routes. (B) Add `scripts/check-nav-route-consistency.sh` — extracts static `to=` and `to:` paths from nav components, verifies each has a matching `<Route path=` in App.tsx. (C) Wire into `pre-commit-checks.sh` as section 13d — hard error, blocks commit.
+**Alternatives rejected:** Feature manifest (each feature declares its files for atomic removal) — overengineering for current scale. E2E-only nav test — too slow for feedback loop, but could be added later as CI safety net.
+**Consequences:** Partial route removal now fails pre-commit. Any new nav link without a matching route is caught before it ships. Script handles both JSX `to="/path"` and object `to: "/path"` formats. Does not catch dynamic paths (`:param`) — those are excluded intentionally.
+
 ## 2026-03-27 [process]: TDZ prevention — ESLint rule + /live smoke test
 
 **Context:** Third TDZ (Temporal Dead Zone) crash on clarity-live-page.tsx in 3 months (Jan 5, Feb 22, Mar 27). Same pattern each time: new `useCallback` handler placed in a "logical" feature section below an existing hook that references it in its dependency array. `const` TDZ crashes at runtime. TypeScript doesn't catch it (runtime error). ESLint `react-hooks/exhaustive-deps` requires the dep but doesn't check declaration order. Vite HMR masks the crash during development (module doesn't fully re-evaluate on hot reload).
