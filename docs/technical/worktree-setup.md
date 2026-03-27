@@ -25,31 +25,29 @@ Worktrees are the **default isolation mechanism** for all `/dev` and `/fix` work
 ## Creating a Worktree
 
 ```bash
-# Create a worktree — always use slot name w1 or w2, not the feature name
-# The branch carries the feature identity
-git worktree add .claude/worktrees/w1 -b feature/pN-description
-
-# Then run setup (symlinks .env.local and node_modules)
-./scripts/setup-worktree.sh .claude/worktrees/w1
+# One command — creates worktree + symlinks .env.local, node_modules, .env.test.local
+# Also checks for uncommitted src/ changes (worktrees only get committed code)
+./scripts/create-worktree.sh w1 feature/pN-description
 ```
+
+**Never use raw `git worktree add`** — it creates a broken worktree missing `.env.local` and `node_modules`. The wrapper script handles everything atomically.
 
 > **Note:** Always name the worktree by slot (w1, w2), not by feature (e.g., not p465). The branch name carries the feature. This keeps `start w1` and `kanban w1` working.
 
 ---
 
-## Setup (Required After Creation)
+## Setup (Handled Automatically)
 
-Immediately after creating any worktree, run:
-
-```bash
-./scripts/setup-worktree.sh .claude/worktrees/w1
-```
+`create-worktree.sh` calls `setup-worktree.sh` automatically. You should never need to run setup manually.
 
 **What it does:** Symlinks `.env.local`, `.env.test.local`, and `node_modules` from the main repo into the worktree.
 
-**Why it's required:** New worktrees don't include gitignored files or installed dependencies. Without `.env.local`, any script that reads credentials (migrations, edge function deploys, test setup) will silently fail. Without `node_modules`, nothing runs. Without `.env.test.local`, integration tests (Playwright + supabase-admin) fail with missing env var errors.
+**Why it's required:** New worktrees don't include gitignored files or installed dependencies. Without `.env.local`, the Vite app crashes or shows broken UI (this cost an hour of debugging — see P589). Without `node_modules`, nothing runs. Without `.env.test.local`, integration tests fail.
 
-**Note:** The script auto-detects `MAIN_REPO` from its own location (no hardcoded paths).
+**Manual fallback** (only if the wrapper wasn't used):
+```bash
+./scripts/setup-worktree.sh .claude/worktrees/w1
+```
 
 ### Known Limitations
 
