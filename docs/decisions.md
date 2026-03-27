@@ -2,6 +2,36 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-27 [process]: Chrome extension auto-disable — enterprise policy fix
+
+**Context:** Claude Code's Chrome extension (MV3) gets disabled every time the Mac sleeps. Chrome applies pending extension updates on wake by cycling disable→replace→enable, but the re-enable sometimes fails. Manual fix: toggle off/on in chrome://extensions every morning.
+**Decision:** Apply Chrome enterprise policy (`force_installed` via `/Library/Google/Chrome/policies/managed/claude_extension.json`). Chrome cannot disable a force-installed extension — survives sleep, updates, and crashes. Standard IT mechanism, no security implications.
+**Alternatives rejected:** Hammerspoon wake hook (fragile shadow DOM selectors, visible tab noise). Watchdog extension (also MV3, same idle-kill problem). Chrome CLI flags (disables all other extensions).
+**Consequences:** Extension stays enabled permanently. Trade-off: shows "Managed by your organization" in Chrome settings. Cannot manually disable without removing the policy file. Does NOT fix the separate MV3 service worker death issue (port goes stale after 5min idle) — that requires upstream Anthropic fix.
+**Reversal:** `sudo rm /Library/Google/Chrome/policies/managed/claude_extension.json` + restart Chrome.
+**References:** GitHub issues anthropics/claude-code#27826, #15239, #26449
+
+## 2026-03-27 [process]: slavochek-gmail MCP — deprecate IMAP, use gws CLI
+
+**Context:** The `slavochek-gmail` MCP server (`gmail-mcp-imap` v1.0.2) searches only INBOX (40 messages) — misses 128k+ messages in `[Google Mail]/All Mail`. Also has locale mismatch: hardcodes `[Gmail]/*` paths but googlemail.com uses `[Google Mail]/*`. Searches return empty, not errors — silent failure.
+**Decision:** Deprecate `slavochek-gmail` IMAP MCP. Use `gws` CLI via Bash as primary tool for personal Gmail (`GWS_ACCOUNT=slavochek@googlemail.com`). gws uses Google OAuth + Gmail API which searches all mail by default. Already working today.
+**Alternatives rejected:** Patching gmail-mcp-imap to search All Mail (fork maintenance burden, locale fragility). Adding second workspace-mcp OAuth instance (more setup, marginal benefit over gws CLI). Keeping IMAP as backup (misleading — it silently returns wrong results, worse than no tool).
+**Consequences:** Remove `slavochek-gmail` from MCP config when convenient (not urgent — it's harmless if unused). For personal Gmail: `gws` CLI commands via Bash. For workspace Gmail: existing `slava-inguro-workspace` MCP.
+
+## 2026-03-27 [process]: Mailgun account fully enabled — resolved
+
+**Context:** Mailgun account flagged for business verification (Mar 22). 100 msg/hr limit, 9 recipients/msg cap — blocked Ghost newsletter delivery to 36 subscribers entirely.
+**Decision:** Answered 5 verification questions to Sinch support. Jennifer Ross (Compliance Operations) lifted all restrictions Mar 23. Account fully enabled, no limits.
+**Consequences:** Ghost newsletter delivery works. Transactional emails (RSVP, agreement notifications) via `mg.claritypledge.com` unblocked. Mailgun account lives on slavochek@googlemail.com (not ops@ or slava@inguro) — documented in global CLAUDE.md.
+**References:** Mailgun ticket #3995215
+
+## 2026-03-27 [process]: Bulk DB operations must use SQL, not per-row REST
+
+**Context:** When adding `v1` tags to 15 prod points, the agent issued 15 individual curl PATCH requests instead of a single SQL UPDATE. Slow, hard to verify, no atomicity.
+**Decision:** All bulk data modifications (3+ rows) must use a single SQL statement via Supabase CLI or direct SQL with service role key. Never use per-row REST API calls for bulk updates. Always run a verification query after bulk changes.
+**Alternatives rejected:** Per-row REST PATCH (slow, error-prone, no atomicity).
+**Consequences:** Faster execution, atomic operations, easier verification. Pattern: `UPDATE points SET tags = array_append(tags, 'v1') WHERE id = ANY('{...}')`.
+
 ## 2026-03-27 [product]: Point slug URLs — tag-based resolution with versioning
 
 **Context:** Starter points (st1–st8) are used in teaching sequences and blog embeds. Sharing required UUID URLs (`/point/6d253c2b-...`), which are unusable in articles and outreach. Each st-tag maps to a point pair: a main point (tagged `understanding` or `partners`) and an anti-point (tagged `misunderstanding`). Some points have multiple versions (st7 has v1 and v2).
