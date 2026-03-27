@@ -727,7 +727,14 @@ export interface LiveSessionState {
   // Live positions are ephemeral game state — stored in live_state for real-time sync.
   // Structure: { [participantName]: { [pointId]: PositionType | null } }
   // ============================================================================
+  /** @deprecated Use livePositionsCreator/livePositionsJoiner — nested object is clobbered by JSONB shallow merge */
   livePositions?: Record<string, Record<string, PositionType | null>>;
+
+  /** P562: Creator's live positions — top-level for JSONB shallow merge safety */
+  livePositionsCreator?: Record<string, PositionType | null>;
+
+  /** P562: Joiner's live positions — top-level for JSONB shallow merge safety */
+  livePositionsJoiner?: Record<string, PositionType | null>;
 
   // ============================================================================
   // P562: Free mode — structured start, then continuous sliders

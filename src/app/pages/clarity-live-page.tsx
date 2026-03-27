@@ -1307,29 +1307,8 @@ export function ClarityLivePage() {
   // P23.3: Track which flow type we're in locally ('check' = "Did you get it?", 'prove' = "Did I get it?")
   const [localFlowType, setLocalFlowType] = useState<'check' | 'prove'>('check');
 
-  /** P562: Start free mode round — called when user taps "Does [partner] understand you?" in free mode.
-   * This modifies handleStartCheck behavior: instead of local rating, it writes to live_state directly.
-   * Defined before handleStartCheck to avoid TDZ — handleStartCheck references this in its deps. */
-  const handleFreeStartCheck = useCallback(() => {
-    if (!name || !partnerName) return;
-    const currentState = confirmedLiveStateRef.current;
-    if (currentState.freePhase || currentState.ratingPhase !== 'idle') return;
-
-    analytics.track('live_free_round_started', { session_code: session?.code });
-    lastActionTimestampRef.current = Date.now();
-
-    updateLiveState({
-      freePhase: 'sealed-bid',
-      checkerName: name,
-      checkerIsCreator: isCreator,
-      checkerSubmitted: false,
-      responderSubmitted: false,
-      checkerRating: undefined,
-      responderRating: undefined,
-      freeSliderCreator: undefined,
-      freeSliderJoiner: undefined,
-    });
-  }, [name, partnerName, session?.code, isCreator, updateLiveState]);
+  // P562: Free mode reuses guided mode's handleStartCheck — no separate handler needed.
+  // The guided mode round runs identically; divergence happens in handleCelebrationComplete.
 
   const handleStartCheck = useCallback(() => {
     if (!name || !partnerName) return;
@@ -1338,12 +1317,6 @@ export function ClarityLivePage() {
     // This prevents race condition where both users tap "I spoke" and submit simultaneously
     const currentState = confirmedLiveStateRef.current;
     if (currentState.checkerName || currentState.ratingPhase !== 'idle') {
-      return;
-    }
-
-    // P562: Free mode — skip local rating, go directly to sealed-bid phase
-    if (currentState.sessionMode === 'free') {
-      handleFreeStartCheck();
       return;
     }
 
@@ -1359,7 +1332,7 @@ export function ClarityLivePage() {
 
     setLocalFlowType('check');
     setIsLocallyRating(true);
-  }, [name, partnerName, session?.code, updateLiveState, handleFreeStartCheck]);
+  }, [name, partnerName, session?.code, updateLiveState]);
 
   // P23.3: Handle "Did I get it?" button tap - listener-initiated understanding check
   // In this flow, the listener (prover) rates their confidence first
@@ -1397,51 +1370,9 @@ export function ClarityLivePage() {
     updateLiveState({ sessionMode: mode });
   }, [updateLiveState]);
 
-  /** P562: Submit sealed bid in free mode.
-   * Always writes freePhase: 'waiting'. The useEffect below is the single authority
-   * for waiting→reveal transition (fires when both submitted flags are true).
-   * This avoids a race where both users read stale confirmedLiveStateRef and both
-   * decide the partner hasn't submitted yet. */
-  const handleFreeSealedBidSubmit = useCallback((rating: number) => {
-    const isChecker = confirmedLiveStateRef.current.checkerIsCreator === isCreator;
-    const patch: Partial<LiveSessionState> = isChecker
-      ? { checkerRating: rating, checkerSubmitted: true, freePhase: 'waiting' }
-      : { responderRating: rating, responderSubmitted: true, freePhase: 'waiting' };
-
-    updateLiveState(patch);
-  }, [isCreator, updateLiveState]);
-
-  /** P562: Listener clicks "I paraphrased" — commit round + unlock sliders */
-  const handleFreeParaphraseDone = useCallback(() => {
-    const currentState = confirmedLiveStateRef.current;
-    const listenerConf = currentState.checkerIsCreator === isCreator
-      ? (currentState.responderRating ?? 0)
-      : (currentState.checkerRating ?? 0);
-    const speakerBel = currentState.checkerIsCreator === isCreator
-      ? (currentState.checkerRating ?? 0)
-      : (currentState.responderRating ?? 0);
-
-    const newRound = {
-      listenerConfidence: listenerConf,
-      speakerBelief: speakerBel,
-      label: `${(currentState.freeRounds ?? []).length}`,
-    };
-
-    // Initialize slider values to sealed-bid values
-    const creatorSlider = isCreator
-      ? (currentState.checkerIsCreator === isCreator ? speakerBel : listenerConf)
-      : (currentState.checkerIsCreator === isCreator ? listenerConf : speakerBel);
-    const joinerSlider = !isCreator
-      ? (currentState.checkerIsCreator === isCreator ? speakerBel : listenerConf)
-      : (currentState.checkerIsCreator === isCreator ? listenerConf : speakerBel);
-
-    updateLiveState({
-      freePhase: 'unlocked',
-      freeRounds: [...(currentState.freeRounds ?? []), newRound],
-      freeSliderCreator: creatorSlider,
-      freeSliderJoiner: joinerSlider,
-    });
-  }, [isCreator, updateLiveState]);
+  // P562: handleFreeSealedBidSubmit and handleFreeParaphraseDone deleted —
+  // guided mode's existing handlers run the first round. Divergence happens
+  // in handleCelebrationComplete (see below).
 
   /** P562: Debounced slider change in unlocked mode */
   const handleFreeSliderChange = useCallback((value: number) => {
@@ -1486,31 +1417,6 @@ export function ClarityLivePage() {
       ratingPhase: 'idle',
     });
   }, [updateLiveState]);
-
-  // P562: Auto-transition reveal → paraphrase after 1.5s
-  // Both clients watch for this phase and write the transition (idempotent JSONB merge).
-  useEffect(() => {
-    if (liveState.freePhase !== 'reveal') return;
-    const timer = setTimeout(() => {
-      if (confirmedLiveStateRef.current.freePhase === 'reveal') {
-        updateLiveState({ freePhase: 'paraphrase' });
-      }
-    }, 1500);
-    return () => clearTimeout(timer);
-  }, [liveState.freePhase, updateLiveState]);
-
-  // P562: Single authority for waiting→reveal transition.
-  // Fires when either optimistic liveState or confirmed ref shows both submitted.
-  // Checks both sources to handle the race where optimistic state is stale
-  // (user B submits before user A's Realtime arrives).
-  useEffect(() => {
-    if (liveState.freePhase !== 'waiting' && confirmedLiveStateRef.current.freePhase !== 'waiting') return;
-    const optimisticBoth = liveState.checkerSubmitted && liveState.responderSubmitted;
-    const confirmedBoth = confirmedLiveStateRef.current.checkerSubmitted && confirmedLiveStateRef.current.responderSubmitted;
-    if (optimisticBoth || confirmedBoth) {
-      updateLiveState({ freePhase: 'reveal' });
-    }
-  }, [liveState.freePhase, liveState.checkerSubmitted, liveState.responderSubmitted, updateLiveState]);
 
   // P128: Handle story selection from content picker
   const handleSelectStory = useCallback((storyId: string, title: string, storyData?: StoryWithPoints) => {
@@ -1625,32 +1531,29 @@ export function ClarityLivePage() {
     (pointId: string, position: PositionType | null) => {
       if (!name) return;
 
+      // P562: Use top-level per-participant keys to avoid JSONB shallow merge clobber.
+      // Each user writes only their own key — partner's positions are never touched.
+      const myKey = isCreator ? 'livePositionsCreator' : 'livePositionsJoiner';
+      const myCurrentPositions = isCreator
+        ? (confirmedLiveStateRef.current.livePositionsCreator ?? {})
+        : (confirmedLiveStateRef.current.livePositionsJoiner ?? {});
+
       if (position === null) {
         if (user?.id) {
           // Verified user: show confirmation dialog; guard handles DB removal + live_state update
           liveGuardedRemovePosition(pointId);
         } else {
           // Unverified guest: no profile, remove from live_state directly
-          const currentPositions = confirmedLiveStateRef.current.livePositions ?? {};
-          const myPositions = currentPositions[name] ?? {};
           updateLiveState({
-            livePositions: {
-              ...currentPositions,
-              [name]: { ...myPositions, [pointId]: null },
-            },
+            [myKey]: { ...myCurrentPositions, [pointId]: null },
           });
         }
         return;
       }
 
       // Setting a position — write to live_state for real-time sync (works for all participants)
-      const currentPositions = confirmedLiveStateRef.current.livePositions ?? {};
-      const myPositions = currentPositions[name] ?? {};
       updateLiveState({
-        livePositions: {
-          ...currentPositions,
-          [name]: { ...myPositions, [pointId]: position },
-        },
+        [myKey]: { ...myCurrentPositions, [pointId]: position },
       });
 
       // Best-effort persistence to point_positions for verified users.
@@ -1661,7 +1564,7 @@ export function ClarityLivePage() {
         });
       }
     },
-    [name, updateLiveState, user?.id, liveGuardedRemovePosition]
+    [name, updateLiveState, user?.id, liveGuardedRemovePosition, isCreator]
   );
 
   // P413: Write calibration record on every completed paraphrase exchange.
@@ -1953,7 +1856,59 @@ export function ClarityLivePage() {
           ? { title: contentTitle || 'Point verification', type: 'point' as const, ...journeyData }
           : { title: 'Free conversation', type: 'free' as const, ...journeyData };
 
-      // Both done - reset to idle state for a fresh start
+      // P562: Free mode divergence — transition to continuous sliders instead of idle
+      if (currentState.sessionMode === 'free') {
+        // Build freeRounds from the guided mode journey data
+        const listenerConf = currentState.responderRating ?? 0;
+        const speakerBel = currentState.checkerRating ?? 0;
+        const freeRounds = [
+          { listenerConfidence: listenerConf, speakerBelief: speakerBel, label: '0' },
+        ];
+        // If explain-back happened, add those rounds too
+        (currentState.explainBackRatings ?? []).forEach((ebRating, i) => {
+          freeRounds.push({
+            listenerConfidence: listenerConf, // listener's self-assessment doesn't change in explain-back
+            speakerBelief: ebRating,
+            label: `${i + 1}`,
+          });
+        });
+
+        // Initialize sliders from the last committed rating
+        const lastSpeakerBelief = freeRounds[freeRounds.length - 1].speakerBelief;
+        const creatorIsChecker = currentState.checkerIsCreator;
+        const creatorSlider = creatorIsChecker ? lastSpeakerBelief : listenerConf;
+        const joinerSlider = creatorIsChecker ? listenerConf : lastSpeakerBelief;
+
+        updateLiveState({
+          // Transition to sliders
+          freePhase: 'unlocked',
+          freeRounds,
+          freeSliderCreator: creatorSlider,
+          freeSliderJoiner: joinerSlider,
+          // Clear celebration state
+          celebrationAcknowledgedByCreator: false,
+          celebrationAcknowledgedByJoiner: false,
+          celebrationAcknowledgedBy: [],
+          // Clear guided mode round state (but keep checker role info for FreeModeView)
+          ratingPhase: 'idle',
+          checkerSubmitted: false,
+          responderSubmitted: false,
+          explainBackRound: 0,
+          explainBackRatings: [],
+          explainBackDone: false,
+          speakerSawExplainBackDone: false,
+          proverName: undefined,
+          roleSwitchNegotiation: undefined,
+          clarificationPhase: undefined,
+          ratingInitiatedBy: undefined,
+          // Keep story selected + update history
+          sessionHistory: [...prevHistory, historyEntry],
+        });
+        verificationFiredRef.current.clear();
+        return;
+      }
+
+      // Both done - reset to idle state for a fresh start (guided mode)
       // Increment round counter for next round
       updateLiveState({
         currentRound: (currentState.currentRound ?? 1) + 1,
@@ -2023,6 +1978,41 @@ export function ClarityLivePage() {
         : liveState.selectedPointId
           ? { title: contentTitle || 'Point verification', type: 'point' as const, ...journeyData }
           : { title: 'Free conversation', type: 'free' as const, ...journeyData };
+
+      // P562: Free mode divergence (same as handleCelebrationComplete)
+      if (liveState.sessionMode === 'free') {
+        const listenerConf = liveState.responderRating ?? 0;
+        const speakerBel = liveState.checkerRating ?? 0;
+        const freeRounds = [{ listenerConfidence: listenerConf, speakerBelief: speakerBel, label: '0' }];
+        (liveState.explainBackRatings ?? []).forEach((ebRating, i) => {
+          freeRounds.push({ listenerConfidence: listenerConf, speakerBelief: ebRating, label: `${i + 1}` });
+        });
+        const lastSpeakerBelief = freeRounds[freeRounds.length - 1].speakerBelief;
+        const creatorIsChecker = liveState.checkerIsCreator;
+        updateLiveState({
+          freePhase: 'unlocked',
+          freeRounds,
+          freeSliderCreator: creatorIsChecker ? lastSpeakerBelief : listenerConf,
+          freeSliderJoiner: creatorIsChecker ? listenerConf : lastSpeakerBelief,
+          celebrationAcknowledgedByCreator: false,
+          celebrationAcknowledgedByJoiner: false,
+          celebrationAcknowledgedBy: [],
+          ratingPhase: 'idle',
+          checkerSubmitted: false,
+          responderSubmitted: false,
+          explainBackRound: 0,
+          explainBackRatings: [],
+          explainBackDone: false,
+          speakerSawExplainBackDone: false,
+          proverName: undefined,
+          roleSwitchNegotiation: undefined,
+          clarificationPhase: undefined,
+          ratingInitiatedBy: undefined,
+          sessionHistory: [...prevHistory, historyEntry],
+        });
+        verificationFiredRef.current.clear();
+        return;
+      }
 
       updateLiveState({
         currentRound: (liveState.currentRound ?? 1) + 1,
@@ -3762,8 +3752,6 @@ export function ClarityLivePage() {
           isCreator={isCreator}
           uploadHealth={uploadHealth}
           onSessionModeChange={handleSessionModeChange}
-          onFreeSealedBidSubmit={handleFreeSealedBidSubmit}
-          onFreeParaphraseDone={handleFreeParaphraseDone}
           onFreeSliderChange={handleFreeSliderChange}
           onFreeSpeakFreely={handleFreeSpeakFreely}
           onFreeRoundComplete={handleFreeRoundComplete}

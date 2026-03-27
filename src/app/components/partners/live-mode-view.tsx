@@ -301,10 +301,6 @@ interface LiveModeViewProps {
   uploadHealth?: 'healthy' | 'degraded' | 'critical';
   /** P562: Session mode change callback */
   onSessionModeChange?: (mode: 'guided' | 'free') => void;
-  /** P562: Free mode sealed bid submit */
-  onFreeSealedBidSubmit?: (rating: number) => void;
-  /** P562: Free mode paraphrase done */
-  onFreeParaphraseDone?: () => void;
   /** P562: Free mode slider change (debounced) */
   onFreeSliderChange?: (value: number) => void;
   /** P562: Free mode speak freely (exit round) */
@@ -353,8 +349,6 @@ export function LiveModeView({
   isCreator = false,
   uploadHealth,
   onSessionModeChange,
-  onFreeSealedBidSubmit,
-  onFreeParaphraseDone,
   onFreeSliderChange,
   onFreeSpeakFreely,
   onFreeRoundComplete,
@@ -395,13 +389,15 @@ export function LiveModeView({
   // Each participant computes their own selectedStory, so this doesn't affect the partner's view.
   useEffect(() => {
     if (liveState.selectedStoryData) {
-      const myPositions = liveState.livePositions?.[currentUserName] ?? {};
+      // P562: Read positions from top-level per-participant keys (JSONB merge safe).
+      // Fall back to old nested livePositions for backward compat with in-progress sessions.
+      const myPositions = isCreator
+        ? (liveState.livePositionsCreator ?? liveState.livePositions?.[currentUserName] ?? {})
+        : (liveState.livePositionsJoiner ?? liveState.livePositions?.[currentUserName] ?? {});
       const isAuthor = userId !== undefined && userId === liveState.selectedStoryData.authorId;
-      // partnerPositions: always read from liveState so both views are reactive.
-      // From each viewer's perspective, partnerName = the OTHER person, so:
-      //   host view (isAuthor=true):  partnerName = guest  → guest's live votes
-      //   partner view (isAuthor=false): partnerName = host → host's live votes
-      const partnerPositions = liveState.livePositions?.[partnerName] ?? {};
+      const partnerPositions = isCreator
+        ? (liveState.livePositionsJoiner ?? liveState.livePositions?.[partnerName] ?? {})
+        : (liveState.livePositionsCreator ?? liveState.livePositions?.[partnerName] ?? {});
       const storyWithPositions = {
         ...liveState.selectedStoryData,
         points: liveState.selectedStoryData.points
@@ -431,14 +427,17 @@ export function LiveModeView({
       setSelectedStory(null);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [liveState.selectedStoryData, liveState.livePositions, currentUserName, userId]);
+  }, [liveState.selectedStoryData, liveState.livePositions, liveState.livePositionsCreator, liveState.livePositionsJoiner, currentUserName, userId, isCreator]);
 
   // Show a toast when the other person changes their position on a point.
   // Uses a ref to diff previous vs current partner positions — only fires for actual changes,
   // never on initial mount. Fixed id='live-position' replaces itself on rapid re-voting.
   const prevPartnerPositionsRef = useRef<Record<string, PositionType | null> | null>(null);
   useEffect(() => {
-    const currentPositions = (liveState.livePositions?.[partnerName] ?? {}) as Record<string, PositionType | null>;
+    // P562: Read partner positions from top-level keys (fall back to old nested structure)
+    const currentPositions = (isCreator
+      ? (liveState.livePositionsJoiner ?? liveState.livePositions?.[partnerName] ?? {})
+      : (liveState.livePositionsCreator ?? liveState.livePositions?.[partnerName] ?? {})) as Record<string, PositionType | null>;
 
     if (prevPartnerPositionsRef.current === null) {
       // First run — initialise without toasting
@@ -474,7 +473,7 @@ export function LiveModeView({
     }
     prevPartnerPositionsRef.current = { ...currentPositions };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [liveState.livePositions, partnerName]);
+  }, [liveState.livePositions, liveState.livePositionsCreator, liveState.livePositionsJoiner, partnerName, isCreator]);
 
   // P128: Fetch selected point for display during verification
   useEffect(() => {
@@ -653,9 +652,10 @@ export function LiveModeView({
   // Used to determine whether to show celebration waiting vs idle waiting
   const inCelebrationState = bothSubmitted && checkerRating === 10;
 
-  // P562: Free mode routing — when sessionMode is 'free' and a round is active,
-  // render FreeModeView instead of guided mode phases
-  if (liveState.sessionMode === 'free' && liveState.freePhase && onFreeSealedBidSubmit) {
+  // P562: Free mode routing — after guided mode's first round completes,
+  // handleCelebrationComplete sets freePhase: 'unlocked'. Render FreeModeView
+  // only for unlocked + success phases (guided mode handles everything before).
+  if (liveState.sessionMode === 'free' && (liveState.freePhase === 'unlocked' || liveState.freePhase === 'success') && onFreeSliderChange) {
     return (
       <div className="flex flex-col h-full">
         <LiveHeader partnerName={partnerName} onExit={onExitMeeting} isPrivate={isPrivate} uploadHealth={uploadHealth} />
@@ -663,10 +663,7 @@ export function LiveModeView({
           liveState={liveState}
           partnerName={partnerName}
           isCreator={isCreator ?? false}
-          currentUserName={currentUserName}
-          onSealedBidSubmit={onFreeSealedBidSubmit as (rating: number) => void}
-          onParaphraseDone={onFreeParaphraseDone as () => void}
-          onSliderChange={onFreeSliderChange as (value: number) => void}
+          onSliderChange={onFreeSliderChange}
           onSpeakFreely={onFreeSpeakFreely as () => void}
           onRoundComplete={onFreeRoundComplete as () => void}
           onDiscussAnother={onFreeDiscussAnother as () => void}
