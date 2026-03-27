@@ -1,5 +1,5 @@
 ---
-status: ready
+status: published
 ghost_post_id: 69b958bbe3bc500001e4f00d
 title: The Two Skills That Will Define the Next Generation of Founders
 rank: 1
@@ -9,6 +9,7 @@ tags:
   - founders
   - manifesto
 created_at: 2026-03-07T00:00:00.000Z
+published_at: '2026-03-26'
 ---
 
 # The Two Skills That Will Define the Next Generation of Founders

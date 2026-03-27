@@ -1,5 +1,6 @@
 ---
-status: draft
+status: idea
+merged_into: a9_rate-asymmetry-lesswrong.md
 title: The Construct Nobody Measured
 rank: 1
 tags:
