@@ -909,3 +909,45 @@ export const realPointsService: PointsService = {
     return linkedCount ?? 0;
   },
 };
+
+/**
+ * Resolve a point slug (e.g. "st1", "st1-a") to a UUID.
+ *
+ * - "st1" → latest version of the main (non-misunderstanding) point tagged st1
+ * - "st1-a" → latest version of the anti (misunderstanding) point tagged st1
+ *
+ * "Latest version" = highest vN tag among matching points.
+ * Returns null if no matching point found.
+ */
+export async function resolvePointSlug(slug: string): Promise<string | null> {
+  const match = slug.match(/^(st\d+)(-a)?$/);
+  if (!match) return null;
+
+  const stTag = match[1];
+  const isAnti = !!match[2];
+
+  const { data, error } = await supabase
+    .from('points')
+    .select('id, tags')
+    .contains('tags', [stTag]);
+
+  if (error || !data?.length) return null;
+
+  // Filter: anti-points have 'misunderstanding' tag, main points don't
+  const filtered = data.filter((p: { tags: string[] }) =>
+    isAnti
+      ? p.tags.includes('misunderstanding')
+      : !p.tags.includes('misunderstanding')
+  );
+
+  if (!filtered.length) return null;
+
+  // Find highest version number
+  const withVersion = filtered.map((p: { id: string; tags: string[] }) => {
+    const vTag = p.tags.find((t: string) => /^v\d+$/.test(t));
+    return { id: p.id, version: vTag ? parseInt(vTag.slice(1), 10) : 0 };
+  });
+
+  withVersion.sort((a: { version: number }, b: { version: number }) => b.version - a.version);
+  return withVersion[0].id;
+}

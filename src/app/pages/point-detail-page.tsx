@@ -12,6 +12,7 @@ import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { Pin, ChevronRight, ChevronDown } from 'lucide-react';
 import { useAuth } from '@/auth';
 import { pointsService } from '@/app/data/points-service';
+import { resolvePointSlug } from '@/app/data/points-service-real';
 import { storiesService } from '@/app/data/stories-service';
 import type { PointWithCounts, PointWithUserPosition, PointPositionWithUser, PositionType, StoryWithAuthor, Story as AppStory } from '@/app/types';
 import { toSevenPointCounts, getPositionGroup } from '@/app/utils/position-helpers';
@@ -86,15 +87,31 @@ export function PointDetailPage() {
         return;
       }
 
+      // Resolve slug (e.g. "st1", "st3-a") to UUID, or use id directly
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+      const pointId = isUuid ? id : await resolvePointSlug(id);
+
+      if (!pointId) {
+        setError('not_found');
+        setLoading(false);
+        return;
+      }
+
+      // If slug resolved to a different id, redirect to canonical UUID URL
+      if (pointId !== id) {
+        navigate(`/point/${pointId}${window.location.search}`, { replace: true });
+        return;
+      }
+
       try {
         const [pointData, positionData, storiesData, viewerStoryData] = await Promise.all([
           user?.id
-            ? pointsService.getPointWithUserPosition(id, user.id)
-            : pointsService.getPointWithCounts(id),
-          pointsService.getPositionsForPoint(id),
-          storiesService.getStoriesForPoints([id]).catch(() => new Map<string, StoryWithAuthor[]>()),
+            ? pointsService.getPointWithUserPosition(pointId, user.id)
+            : pointsService.getPointWithCounts(pointId),
+          pointsService.getPositionsForPoint(pointId),
+          storiesService.getStoriesForPoints([pointId]).catch(() => new Map<string, StoryWithAuthor[]>()),
           user?.id
-            ? storiesService.getStoryByUserAndPoint(user.id, id).catch(() => null)
+            ? storiesService.getStoryByUserAndPoint(user.id, pointId).catch(() => null)
             : Promise.resolve(null),
         ]);
 
@@ -121,7 +138,7 @@ export function PointDetailPage() {
     }
 
     loadData();
-  }, [id, user?.id, retryKey]);
+  }, [id, user?.id, retryKey, navigate]);
 
   // P502: Load anon position from localStorage on mount
   useEffect(() => {
