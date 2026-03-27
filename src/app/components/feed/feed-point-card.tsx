@@ -37,6 +37,12 @@ export function FeedPointCard({ point, activeTag, onPointRemoved }: FeedPointCar
   const navigate = useNavigate();
   const { session } = useAuth();
 
+  // Optimistic position state
+  const [localPosition, setLocalPosition] = useState<PositionType | null>(null);
+  // P502: Separate anon position state — used only for button highlight, never for count adjustment
+  const [anonPosition, setAnonPositionState] = useState<PositionType | null>(null);
+  const serverPosition = point.userPosition?.position ?? null;
+
   // P401: Guard position removal — only shows dialog when linked stories exist
   const { dialogProps, guardedRemovePosition } = useRemovePositionGuard({
     userId: session?.user?.id ?? '',
@@ -51,12 +57,6 @@ export function FeedPointCard({ point, activeTag, onPointRemoved }: FeedPointCar
   const handleClick = () => {
     navigate(`/point/${point.id}`);
   };
-
-  // Optimistic position state
-  const [localPosition, setLocalPosition] = useState<PositionType | null>(null);
-  // P502: Separate anon position state — used only for button highlight, never for count adjustment
-  const [anonPosition, setAnonPositionState] = useState<PositionType | null>(null);
-  const serverPosition = point.userPosition?.position ?? null;
   const effectivePosition = session?.user
     ? (localPosition ?? serverPosition)
     : anonPosition;

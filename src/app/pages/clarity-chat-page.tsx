@@ -514,6 +514,27 @@ export function ClarityChatPage() {
     resetTranscript(); // Clear any previous transcription
   };
 
+  const stopRecording = () => {
+    if (mediaRecorderRef.current && isRecording) {
+      // Copy transcript to input BEFORE stopping (while we still have the values)
+      const finalText = liveTranscript + (interimTranscript ? ' ' + interimTranscript : '');
+      if (finalText.trim()) {
+        setParaphraseInput(finalText.trim());
+      }
+
+      mediaRecorderRef.current.stop();
+      setIsRecording(false);
+      if (recordingIntervalRef.current) {
+        clearInterval(recordingIntervalRef.current);
+        recordingIntervalRef.current = null;
+      }
+      // Stop transcription
+      if (isTranscribing) {
+        stopListening();
+      }
+    }
+  };
+
   // Audio recording handlers (with live transcription)
   const startRecording = async () => {
     try {
@@ -564,27 +585,6 @@ export function ClarityChatPage() {
     }
   };
 
-  const stopRecording = () => {
-    if (mediaRecorderRef.current && isRecording) {
-      // Copy transcript to input BEFORE stopping (while we still have the values)
-      const finalText = liveTranscript + (interimTranscript ? ' ' + interimTranscript : '');
-      if (finalText.trim()) {
-        setParaphraseInput(finalText.trim());
-      }
-
-      mediaRecorderRef.current.stop();
-      setIsRecording(false);
-      if (recordingIntervalRef.current) {
-        clearInterval(recordingIntervalRef.current);
-        recordingIntervalRef.current = null;
-      }
-      // Stop transcription
-      if (isTranscribing) {
-        stopListening();
-      }
-    }
-  };
-
   const playAudio = () => {
     if (audioUrl && audioRef.current) {
       audioRef.current.play();
@@ -596,6 +596,27 @@ export function ClarityChatPage() {
     if (audioRef.current) {
       audioRef.current.pause();
       setIsPlaying(false);
+    }
+  };
+
+  const stopMessageRecording = () => {
+    if (messageMediaRecorderRef.current && isRecordingMessage) {
+      // Copy transcript to message input BEFORE stopping
+      const finalText = liveTranscript + (interimTranscript ? ' ' + interimTranscript : '');
+      if (finalText.trim()) {
+        setMessageInput(finalText.trim());
+      }
+
+      messageMediaRecorderRef.current.stop();
+      setIsRecordingMessage(false);
+      if (messageRecordingIntervalRef.current) {
+        clearInterval(messageRecordingIntervalRef.current);
+        messageRecordingIntervalRef.current = null;
+      }
+      // Stop transcription
+      if (isTranscribing) {
+        stopListening();
+      }
     }
   };
 
@@ -633,27 +654,6 @@ export function ClarityChatPage() {
       }, 1000);
     } catch (err) {
       console.error('Failed to start message recording:', err);
-    }
-  };
-
-  const stopMessageRecording = () => {
-    if (messageMediaRecorderRef.current && isRecordingMessage) {
-      // Copy transcript to message input BEFORE stopping
-      const finalText = liveTranscript + (interimTranscript ? ' ' + interimTranscript : '');
-      if (finalText.trim()) {
-        setMessageInput(finalText.trim());
-      }
-
-      messageMediaRecorderRef.current.stop();
-      setIsRecordingMessage(false);
-      if (messageRecordingIntervalRef.current) {
-        clearInterval(messageRecordingIntervalRef.current);
-        messageRecordingIntervalRef.current = null;
-      }
-      // Stop transcription
-      if (isTranscribing) {
-        stopListening();
-      }
     }
   };
 

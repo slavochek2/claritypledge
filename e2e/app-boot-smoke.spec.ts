@@ -46,4 +46,24 @@ test.describe('App Boot Smoke', () => {
 
     await expect(page.getByText('Something went wrong')).not.toBeVisible();
   });
+
+  test('/live page loads without error boundary (TDZ guard)', async ({ page }) => {
+    const consoleErrors: string[] = [];
+    page.on('console', msg => {
+      if (msg.type() === 'error') consoleErrors.push(msg.text());
+    });
+
+    await page.goto(`${BASE_URL}/live`);
+    await page.waitForLoadState('networkidle');
+
+    // Error boundary should NOT be visible — catches TDZ and hook-order crashes
+    await expect(page.getByText('Something went wrong')).not.toBeVisible();
+
+    // No TDZ or fatal React errors in console
+    const tdzErrors = consoleErrors.filter(e =>
+      e.includes('before initialization') ||
+      e.includes('Minified React error')
+    );
+    expect(tdzErrors).toHaveLength(0);
+  });
 });

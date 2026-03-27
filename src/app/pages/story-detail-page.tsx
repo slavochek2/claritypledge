@@ -62,6 +62,16 @@ function displayLength(text: string): number {
   return text.replace(LINK_RE, '$1').length;
 }
 
+const EMPTY_COUNTS: SevenPointCounts = {
+  strongly_agree: 0,
+  agree: 0,
+  somewhat_agree: 0,
+  unsure: 0,
+  somewhat_disagree: 0,
+  disagree: 0,
+  strongly_disagree: 0,
+};
+
 // ---------------------------------------------------------------------------
 // Inline add-point form
 // ---------------------------------------------------------------------------
@@ -341,16 +351,6 @@ function AddPointForm({
     </div>
   );
 }
-
-const EMPTY_COUNTS: SevenPointCounts = {
-  strongly_agree: 0,
-  agree: 0,
-  somewhat_agree: 0,
-  unsure: 0,
-  somewhat_disagree: 0,
-  disagree: 0,
-  strongly_disagree: 0,
-};
 
 // ---------------------------------------------------------------------------
 // Author action row (author-only): read-only visibility badge

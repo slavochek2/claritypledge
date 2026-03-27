@@ -772,6 +772,14 @@ export function ClarityLivePage() {
     }
   }, [view, isCreator, micStatus, isPrivate, requestMicPermission]);
 
+  // Helper to clear stored session
+  const clearStoredSession = () => {
+    storage?.removeItem(STORAGE_KEYS.SESSION_CODE);
+    storage?.removeItem(STORAGE_KEYS.SESSION_ID);
+    storage?.removeItem(STORAGE_KEYS.USER_NAME);
+    storage?.removeItem(STORAGE_KEYS.IS_CREATOR);
+  };
+
   // HIGH #6: Restore session from sessionStorage on mount
   // IMPORTANT: Skip restoration if user is joining via link (urlCode takes priority)
   useEffect(() => {
@@ -924,14 +932,6 @@ export function ClarityLivePage() {
     storage?.setItem(STORAGE_KEYS.SESSION_CODE, code);
     storage?.setItem(STORAGE_KEYS.USER_NAME, userName);
     storage?.setItem(STORAGE_KEYS.IS_CREATOR, creator.toString());
-  };
-
-  // Helper to clear stored session
-  const clearStoredSession = () => {
-    storage?.removeItem(STORAGE_KEYS.SESSION_CODE);
-    storage?.removeItem(STORAGE_KEYS.SESSION_ID);
-    storage?.removeItem(STORAGE_KEYS.USER_NAME);
-    storage?.removeItem(STORAGE_KEYS.IS_CREATOR);
   };
 
   // Subscribe to session updates
@@ -2123,28 +2123,6 @@ export function ClarityLivePage() {
   // ============================================================================
 
   /**
-   * Called when logged-in user accepts updated terms.
-   */
-  const handleTermsAccept = async () => {
-    if (!user || !pendingJoinRef.current) return;
-
-    setConsentLoading(true);
-    try {
-      await recordTermsAcceptance(user.id);
-      await recordSessionConsent(pendingJoinRef.current.code, user.id);
-
-      setShowTermsUpdateDialog(false);
-      await completeJoin(pendingJoinRef.current.code, user.name || name);
-
-    } catch (err) {
-      console.error('Terms acceptance failed:', err);
-      setError(err instanceof Error ? err.message : 'Failed to record consent.');
-    } finally {
-      setConsentLoading(false);
-    }
-  };
-
-  /**
    * Complete the actual session join after consent is recorded.
    *
    * IMPORTANT (Bug fix): Mic permission is checked BEFORE writing to database.
@@ -2219,6 +2197,28 @@ export function ClarityLivePage() {
       setError(err instanceof Error ? err.message : 'Failed to join session');
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  /**
+   * Called when logged-in user accepts updated terms.
+   */
+  const handleTermsAccept = async () => {
+    if (!user || !pendingJoinRef.current) return;
+
+    setConsentLoading(true);
+    try {
+      await recordTermsAcceptance(user.id);
+      await recordSessionConsent(pendingJoinRef.current.code, user.id);
+
+      setShowTermsUpdateDialog(false);
+      await completeJoin(pendingJoinRef.current.code, user.name || name);
+
+    } catch (err) {
+      console.error('Terms acceptance failed:', err);
+      setError(err instanceof Error ? err.message : 'Failed to record consent.');
+    } finally {
+      setConsentLoading(false);
     }
   };
 

@@ -75,6 +75,8 @@ export function DocStoryPicker({
     }
   }, [open, fetchStories]);
 
+  const addedCountRef = useRef(0);
+
   // Reset state when dialog closes + refetch doc if stories were added
   useEffect(() => {
     if (!open) {
@@ -90,8 +92,6 @@ export function DocStoryPicker({
       setAddingStoryId(null);
     }
   }, [open, onStoryAdded]);
-
-  const addedCountRef = useRef(0);
 
   const handleAddStory = async (storyId: string) => {
     setAddingStoryId(storyId);

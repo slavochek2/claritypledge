@@ -315,6 +315,51 @@ export function AcceptAgreementPage() {
     }
   };
 
+  // Inline signup: send magic link to the partner email we already have
+  const handleInlineSignup = async () => {
+    if (!agreement || !agreementId) return;
+    if (partnerDisplayName.trim().length > 100) {
+      setNameError('Name must be 100 characters or fewer');
+      return;
+    }
+    setNameError(null);
+    setIsSigningUp(true);
+    try {
+      // Store intent so we can auto-accept when they return after clicking the magic link
+      localStorage.setItem(
+        `clarity-pending-accept-${agreementId}`,
+        JSON.stringify({ partnerName: partnerDisplayName.trim() })
+      );
+
+      const redirectUrl = `${window.location.origin}/auth/callback?redirect=${encodeURIComponent(window.location.pathname + window.location.search)}`;
+      const { error } = await supabase.auth.signInWithOtp({
+        email: agreement.partnerEmail,
+        options: {
+          emailRedirectTo: redirectUrl,
+          data: { name: partnerDisplayName.trim() || undefined, avatar_color: ["#0044CC", "#002B5C", "#FFD700", "#FF6B6B", "#4ECDC4"][Math.floor(Math.random() * 5)] },
+          shouldCreateUser: true,
+        },
+      });
+
+      if (error) {
+        localStorage.removeItem(`clarity-pending-accept-${agreementId}`);
+        toast.error('Failed to send sign-in link. Please try again.');
+        return;
+      }
+
+      navigate('/agreements/confirm-email', {
+        state: {
+          email: agreement.partnerEmail,
+          agreementId,
+          token,
+          partnerName: partnerDisplayName.trim(),
+        },
+      });
+    } finally {
+      setIsSigningUp(false);
+    }
+  };
+
   // P527: Direct sign for new users — server-side user creation + agreement acceptance
   const handleDirectSign = async () => {
     if (!agreement || !agreementId) return;
@@ -380,51 +425,6 @@ export function AcceptAgreementPage() {
       analytics.track('agreement_direct_sign_error', { agreement_id: agreementId });
       // Fall back to existing OTP flow
       await handleInlineSignup();
-    } finally {
-      setIsSigningUp(false);
-    }
-  };
-
-  // Inline signup: send magic link to the partner email we already have
-  const handleInlineSignup = async () => {
-    if (!agreement || !agreementId) return;
-    if (partnerDisplayName.trim().length > 100) {
-      setNameError('Name must be 100 characters or fewer');
-      return;
-    }
-    setNameError(null);
-    setIsSigningUp(true);
-    try {
-      // Store intent so we can auto-accept when they return after clicking the magic link
-      localStorage.setItem(
-        `clarity-pending-accept-${agreementId}`,
-        JSON.stringify({ partnerName: partnerDisplayName.trim() })
-      );
-
-      const redirectUrl = `${window.location.origin}/auth/callback?redirect=${encodeURIComponent(window.location.pathname + window.location.search)}`;
-      const { error } = await supabase.auth.signInWithOtp({
-        email: agreement.partnerEmail,
-        options: {
-          emailRedirectTo: redirectUrl,
-          data: { name: partnerDisplayName.trim() || undefined, avatar_color: ["#0044CC", "#002B5C", "#FFD700", "#FF6B6B", "#4ECDC4"][Math.floor(Math.random() * 5)] },
-          shouldCreateUser: true,
-        },
-      });
-
-      if (error) {
-        localStorage.removeItem(`clarity-pending-accept-${agreementId}`);
-        toast.error('Failed to send sign-in link. Please try again.');
-        return;
-      }
-
-      navigate('/agreements/confirm-email', {
-        state: {
-          email: agreement.partnerEmail,
-          agreementId,
-          token,
-          partnerName: partnerDisplayName.trim(),
-        },
-      });
     } finally {
       setIsSigningUp(false);
     }

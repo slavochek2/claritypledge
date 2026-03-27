@@ -26,6 +26,14 @@ export default tseslint.config(
         'warn',
         { allowConstantExport: true },
       ],
+      // Prevent TDZ crashes: flag const/let variables used before their declaration.
+      // Functions and classes are hoisted so they're safe; variables (useCallback, useState) are not.
+      '@typescript-eslint/no-use-before-define': ['error', {
+        functions: false,
+        classes: false,
+        variables: true,
+        allowNamedExports: true,
+      }],
       // Allow underscore-prefixed variables to be unused (for intentional ignores)
       '@typescript-eslint/no-unused-vars': [
         'error',
