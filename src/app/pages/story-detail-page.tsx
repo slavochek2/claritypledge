@@ -16,7 +16,7 @@
 import { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import { extractHashtags } from '@/lib/utils';
 import { useParams, useNavigate, useLocation, useSearchParams } from 'react-router-dom';
-import { LockIcon, Loader2, Pencil, Trash2, Globe } from 'lucide-react';
+import { LockIcon, Loader2, Pencil, Trash2, Globe, ImagePlus } from 'lucide-react';
 import { FocusHeader } from '@/app/components/layout/focus-header';
 
 import { StoryCardWithLinks, type StoryAuthor } from '@/app/components/social/story-card-with-links';
@@ -42,6 +42,7 @@ import {
 } from '@/components/ui/dialog';
 import { analytics } from '@/lib/mixpanel';
 import { uploadStoryImage } from '@/app/data/story-image-service';
+import { StoryImage } from '@/app/components/shared/story-image';
 import { PositionButtons, type SevenPointCounts } from '@/app/components/shared';
 import type { StoryWithPoints, StoryWithAuthor, PointSummary, PointPosition, PositionType, ContentVisibility } from '@/app/types';
 
@@ -1231,13 +1232,33 @@ export function StoryDetailPage() {
 
       {/* P132: Rich story view / P427: swap for edit card in edit mode */}
       {isEditMode ? (
-        <EditStoryCard
-          content={editContent}
-          onContentChange={setEditContent}
-          isSaving={isSaving}
-          onSave={handleSave}
-          onCancel={handleEditCancel}
-        />
+        <div className="space-y-3">
+          {/* P591: Image controls in edit mode — changes are immediate, not part of text draft */}
+          {story.imageUrl ? (
+            <StoryImage
+              src={story.imageUrl}
+              authorName={story.authorName}
+              onChangeImage={handleChangeImage}
+              onRemoveImage={handleRemoveImage}
+            />
+          ) : (
+            <button
+              type="button"
+              onClick={handleChangeImage}
+              className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <ImagePlus size={18} />
+              Add image
+            </button>
+          )}
+          <EditStoryCard
+            content={editContent}
+            onContentChange={setEditContent}
+            isSaving={isSaving}
+            onSave={handleSave}
+            onCancel={handleEditCancel}
+          />
+        </div>
       ) : (
         <div className="rounded-t-lg" style={{ borderTop: `3px solid ${story.authorAvatarColor || '#3b82f6'}` }}>
         <StoryCardDetail
