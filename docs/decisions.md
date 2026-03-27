@@ -2,6 +2,14 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-27 [product]: Point slug URLs — tag-based resolution with versioning
+
+**Context:** Starter points (st1–st8) are used in teaching sequences and blog embeds. Sharing required UUID URLs (`/point/6d253c2b-...`), which are unusable in articles and outreach. Each st-tag maps to a point pair: a main point (tagged `understanding` or `partners`) and an anti-point (tagged `misunderstanding`). Some points have multiple versions (st7 has v1 and v2).
+**Decision:** Resolve `/point/st1` and `/point/st1-a` dynamically via tag queries — no slug column needed. The resolver finds all points with the matching `stN` tag, filters by `misunderstanding` tag presence (suffix `-a` = anti-point), and picks the highest `vN` version tag. Redirects to canonical UUID URL after resolution. All existing st-tagged points received a `v1` tag for consistent versioning.
+**Alternatives rejected:** Adding a `slug` column to points table (schema change for a small set of points). Hardcoded UUID mapping (breaks when new versions are created). Stage/pair landing pages (unnecessary — individual point links are the use case).
+**Consequences:** Shareable URLs for blog embeds and outreach. New point versions auto-resolve — create a point with tags `[understanding, st3, v2]` and `/point/st3` immediately serves it. Anti-points follow the same pattern with `-a` suffix. Pattern is extensible to any tag-based slug, not just `stN`.
+**References:** [points-service-real.ts](../src/app/data/points-service-real.ts), [point-detail-page.tsx](../src/app/pages/point-detail-page.tsx)
+
 ## 2026-03-27 [product]: Images belong on stories, not points (P526 rejected → P591)
 
 **Context:** P526 proposed adding images to points. P523's immutability model conflicts — points are immutable once others engage, but images need add/change/remove. Three prior attempts at images on content (P504 auto-generated banners → P519 removed → P526 rejected) all failed.
