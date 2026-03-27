@@ -42,8 +42,6 @@ const DeclinedAgreementPage = lazy(() => import("@/app/pages/declined-agreement-
 const BlogSubscribedPage = lazy(() => import("@/app/pages/blog-subscribed-page").then(m => ({ default: m.BlogSubscribedPage })));
 const ProfileConnectionsPage = lazy(() => import("@/app/pages/profile-connections-page").then(m => ({ default: m.ProfileConnectionsPage })));
 const PartnerTemplatePage = lazy(() => import("@/app/pages/partner-template-page").then(m => ({ default: m.PartnerTemplatePage })));
-const DocsListPage = lazy(() => import("@/app/pages/docs-list-page").then(m => ({ default: m.DocsListPage })));
-const DocDetailPage = lazy(() => import("@/app/pages/doc-detail-page").then(m => ({ default: m.DocDetailPage })));
 
 // Dev/prototype pages
 const TreePage = lazy(() => import("@/app/pages/TreePage").then(m => ({ default: m.TreePage })));
@@ -567,29 +565,6 @@ export default function ClarityPledgeApp() {
             <ClarityLandingLayout>
               <LazyRoute>
                 <ClarityLivePage />
-              </LazyRoute>
-            </ClarityLandingLayout>
-          }
-        />
-
-        {/* P551: Clarity Docs */}
-        <Route
-          path="/docs"
-          element={
-            <ClarityLandingLayout>
-              <LazyRoute>
-                <DocsListPage />
-              </LazyRoute>
-            </ClarityLandingLayout>
-          }
-        />
-
-        <Route
-          path="/d/:docId"
-          element={
-            <ClarityLandingLayout>
-              <LazyRoute>
-                <DocDetailPage />
               </LazyRoute>
             </ClarityLandingLayout>
           }
