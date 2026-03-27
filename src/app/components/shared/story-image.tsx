@@ -7,6 +7,7 @@ import { ImageLightbox } from "./image-lightbox";
 interface StoryImageProps {
   src: string;
   authorName: string;
+  /** @deprecated Use default 4:3 aspect ratio instead. Kept for backward compat. */
   maxHeight?: string;
   onClick?: () => void;
   onChangeImage?: () => void;
@@ -17,7 +18,6 @@ interface StoryImageProps {
 export function StoryImage({
   src,
   authorName,
-  maxHeight = "400px",
   onClick,
   onChangeImage,
   onRemoveImage,
@@ -45,7 +45,7 @@ export function StoryImage({
     <>
       <div
         className={cn(
-          "group relative items-start overflow-hidden rounded-lg bg-muted/50",
+          "group relative items-start overflow-hidden rounded-lg",
           className
         )}
       >
@@ -63,8 +63,8 @@ export function StoryImage({
             <img
               src={src}
               alt={alt}
-              className="w-full rounded-lg object-contain"
-              style={{ maxHeight }}
+              className="w-full rounded-lg object-cover"
+              style={{ aspectRatio: '4/3' }}
             />
           </button>
         ) : (
