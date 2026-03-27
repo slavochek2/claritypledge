@@ -2,6 +2,13 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-27 [technical]: Position data per-page, not shared hook — doc-detail fix
+
+**Context:** `doc-detail-page.tsx` passed hardcoded `positionCounts={new Map()}` and `userPositions={new Map()}` — positions never loaded on docs. Surface audit confirmed this was the only instance across all pages. Fixing it meant copying the position fetch + state + click handler pattern from `story-detail-page.tsx` for a third time, raising the question: extract a `usePositionData()` shared hook?
+**Decision:** No shared hook. Audited all 5 pages that handle positions (story-detail, point-detail, feed, profile-v2, clarity-live). Each has fundamentally different state shapes (Maps vs arrays vs Firebase refs), fetch triggers (mount effect vs service hook vs streaming), and refetch strategies (counts-only vs full vs surgical vs fire-and-forget). The only genuinely shared piece (`useRemovePositionGuard`) was already extracted. Copied the story-detail pattern directly into doc-detail-page.
+**Alternatives rejected:** `usePositionData(pointIds, userId)` mega-hook — would need `state: unknown` return type or complex generics to accommodate all 5 patterns, adding abstraction debt that fights each page's unique needs. Per-page service hooks (like `usePointsForProfileDisplay`) — already exists for profile, but not generalizable.
+**Consequences:** Position code is duplicated across story-detail, point-detail, and doc-detail pages. This is acceptable because the variations are architectural, not cosmetic. Future position-displaying pages should copy the pattern from whichever existing page is closest in shape. `useRemovePositionGuard` remains the correct extraction boundary.
+
 ## 2026-03-27 [process]: Nav-route consistency check — prevent broken nav links
 
 **Context:** Commit `5b07a3b2` bundled two unrelated changes: point slug URLs + removal of `/docs` and `/d/:docId` routes from App.tsx. The route removal was labeled "remove unused docs pages" but the nav bar (both `simple-navigation.tsx` and `bottom-nav.tsx`) still linked to `/docs`. Result: clicking "Docs" in prod nav → 404. Root cause: no build-time or commit-time check that nav links point to existing routes. The docs feature was NOT dead — `create-story-page.tsx` still actively imports `docsService` and `DocPrivacyBanner`.
