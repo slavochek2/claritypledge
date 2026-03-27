@@ -2,6 +2,14 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-27 [process]: Pre-commit tsc check is a no-op — P591 hotfix
+
+**Context:** P591 (`634cba89`) removed `maxHeight` from destructured props in `story-image.tsx` but left a reference on line 75 in the author-mode else branch. This shipped to prod and crashed the story detail page for authenticated authors viewing their own stories with images (`ReferenceError: maxHeight is not defined`). TypeScript catches this as TS18004 when invoked with `-p tsconfig.app.json`, but `pre-commit-checks.sh` line 43 runs `npx tsc --noEmit` against the root tsconfig which has `"files": []` — effectively checking nothing.
+**Decision:** Fix pre-commit to use `npx tsc --noEmit -p tsconfig.app.json`. The Vite build uses esbuild (strips types without checking), so pre-commit is the only gate. This was the root cause of the P591 bug shipping.
+**Alternatives rejected:** (A) Add tsc to CI only — too late, pre-commit is the fast-fail gate. (B) Switch Vite to use tsc for emit — massive perf regression for no benefit beyond this edge case.
+**Consequences:** Pre-commit TS check will actually catch type errors. May surface pre-existing TS errors on first run (existing codebase has ~15 errors in tsconfig.app.json scope) — these should be fixed incrementally.
+**References:** [pre-commit-checks.sh](../scripts/pre-commit-checks.sh) | [story-image.tsx](../src/app/components/shared/story-image.tsx)
+
 ## 2026-03-27 [technical]: Position data per-page, not shared hook — doc-detail fix
 
 **Context:** `doc-detail-page.tsx` passed hardcoded `positionCounts={new Map()}` and `userPositions={new Map()}` — positions never loaded on docs. Surface audit confirmed this was the only instance across all pages. Fixing it meant copying the position fetch + state + click handler pattern from `story-detail-page.tsx` for a third time, raising the question: extract a `usePositionData()` shared hook?
