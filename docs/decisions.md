@@ -2,6 +2,14 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-27 [process]: TDZ prevention — ESLint rule + /live smoke test
+
+**Context:** Third TDZ (Temporal Dead Zone) crash on clarity-live-page.tsx in 3 months (Jan 5, Feb 22, Mar 27). Same pattern each time: new `useCallback` handler placed in a "logical" feature section below an existing hook that references it in its dependency array. `const` TDZ crashes at runtime. TypeScript doesn't catch it (runtime error). ESLint `react-hooks/exhaustive-deps` requires the dep but doesn't check declaration order. Vite HMR masks the crash during development (module doesn't fully re-evaluate on hot reload).
+**Decision:** Two defenses: (A) `@typescript-eslint/no-use-before-define` with `variables: true, functions: false, classes: false` — catches TDZ at lint time, blocks in pre-commit via `--max-warnings 0`. (B) Playwright smoke test navigating to `/live` and asserting no error boundary + no "before initialization" console errors. Fixed all 17 existing violations across 7 files (pure declaration reordering).
+**Alternatives rejected:** `warn` severity (pre-commit uses `--max-warnings 0`, so warn = error anyway — cleaner to be explicit). Decomposing clarity-live-page.tsx (the real fix, but feature-sized effort — 3,814 lines, 43 useCallbacks, 35 useEffects, deeply intertwined refs and live state).
+**Consequences:** Any future TDZ violation is caught at lint time before code ships. Smoke test provides runtime safety net. Root cause (monolithic 3,800-line component) remains — decomposition is tracked but deferred. The ESLint rule applies codebase-wide, not just /live.
+**References:** `eslint.config.js`, `e2e/app-boot-smoke.spec.ts`
+
 ## 2026-03-27 [process]: Chrome extension auto-disable — enterprise policy fix
 
 **Context:** Claude Code's Chrome extension (MV3) gets disabled every time the Mac sleeps. Chrome applies pending extension updates on wake by cycling disable→replace→enable, but the re-enable sometimes fails. Manual fix: toggle off/on in chrome://extensions every morning.
