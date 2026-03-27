@@ -5,6 +5,7 @@
  * Blue left border. Clickable → navigates to /story/:id.
  */
 
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Share2 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -41,6 +42,18 @@ function formatTimeAgo(dateStr: string): string {
 
 export function FeedStoryCard({ story, activeTag, pointCount }: FeedStoryCardProps) {
   const navigate = useNavigate();
+  const textRef = useRef<HTMLParagraphElement>(null);
+  const [textExpanded, setTextExpanded] = useState(false);
+  const [isOverflowing, setIsOverflowing] = useState(false);
+
+  const checkOverflow = useCallback(() => {
+    const el = textRef.current;
+    if (el) setIsOverflowing(el.scrollHeight > el.clientHeight + 1);
+  }, []);
+
+  useEffect(() => {
+    checkOverflow();
+  }, [checkOverflow, story.content]);
 
   const handleClick = () => {
     navigate(`/story/${story.id}`);
@@ -110,9 +123,28 @@ export function FeedStoryCard({ story, activeTag, pointCount }: FeedStoryCardPro
             )}
 
             {/* Story text */}
-            <p className="text-foreground break-words text-sm line-clamp-6">
+            <p
+              ref={textRef}
+              className={`text-foreground break-words text-sm ${textExpanded ? '' : 'line-clamp-6'}`}
+            >
               {linkifyText(stripHashtags(story.content, story.tags))}
             </p>
+            {isOverflowing && !textExpanded && (
+              <button
+                onClick={(e) => { e.stopPropagation(); setTextExpanded(true); }}
+                className="text-sm text-blue-600 font-medium mt-1"
+              >
+                show more
+              </button>
+            )}
+            {textExpanded && (
+              <button
+                onClick={(e) => { e.stopPropagation(); setTextExpanded(false); }}
+                className="text-sm text-muted-foreground mt-1"
+              >
+                show less
+              </button>
+            )}
 
             {/* Tag pills */}
             <TagPills tags={story.tags} context="feed" activeTag={activeTag} className="mt-2" />

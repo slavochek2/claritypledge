@@ -5,7 +5,7 @@
  * Slate left border. Clickable → navigates to /point/:id.
  */
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Pin, Share2 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -36,6 +36,25 @@ interface FeedPointCardProps {
 export function FeedPointCard({ point, activeTag, onPointRemoved }: FeedPointCardProps) {
   const navigate = useNavigate();
   const { session } = useAuth();
+
+  // P594: Expand/collapse for truncated text
+  const statementRef = useRef<HTMLParagraphElement>(null);
+  const contextRef = useRef<HTMLParagraphElement>(null);
+  const [statementExpanded, setStatementExpanded] = useState(false);
+  const [contextExpanded, setContextExpanded] = useState(false);
+  const [statementOverflows, setStatementOverflows] = useState(false);
+  const [contextOverflows, setContextOverflows] = useState(false);
+
+  const checkOverflows = useCallback(() => {
+    const stEl = statementRef.current;
+    if (stEl) setStatementOverflows(stEl.scrollHeight > stEl.clientHeight + 1);
+    const ctxEl = contextRef.current;
+    if (ctxEl) setContextOverflows(ctxEl.scrollHeight > ctxEl.clientHeight + 1);
+  }, []);
+
+  useEffect(() => {
+    checkOverflows();
+  }, [checkOverflows, point.statement, point.context]);
 
   // Optimistic position state
   const [localPosition, setLocalPosition] = useState<PositionType | null>(null);
@@ -145,15 +164,55 @@ export function FeedPointCard({ point, activeTag, onPointRemoved }: FeedPointCar
 
           <div className="flex-1 min-w-0">
             {/* Statement with inline visibility icon */}
-            <p className="text-sm font-medium text-foreground break-words line-clamp-6">
+            <p
+              ref={statementRef}
+              className={`text-sm font-medium text-foreground break-words ${statementExpanded ? '' : 'line-clamp-6'}`}
+            >
               <InlineVisibilityIcon visibility={point.visibility ?? 'public'} />{' '}
               {linkifyText(stripHashtags(point.statement, point.tags))}
             </p>
+            {statementOverflows && !statementExpanded && (
+              <button
+                onClick={(e) => { e.stopPropagation(); setStatementExpanded(true); }}
+                className="text-sm text-blue-600 font-medium mt-1"
+              >
+                show more
+              </button>
+            )}
+            {statementExpanded && (
+              <button
+                onClick={(e) => { e.stopPropagation(); setStatementExpanded(false); }}
+                className="text-sm text-muted-foreground mt-1"
+              >
+                show less
+              </button>
+            )}
 
             {point.context && (
-              <p className="text-xs text-muted-foreground mt-1 line-clamp-3 break-words">
-                {linkifyText(point.context)}
-              </p>
+              <>
+                <p
+                  ref={contextRef}
+                  className={`text-xs text-muted-foreground mt-1 break-words ${contextExpanded ? '' : 'line-clamp-3'}`}
+                >
+                  {linkifyText(point.context)}
+                </p>
+                {contextOverflows && !contextExpanded && (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); setContextExpanded(true); }}
+                    className="text-xs text-blue-600 font-medium mt-0.5"
+                  >
+                    show more
+                  </button>
+                )}
+                {contextExpanded && (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); setContextExpanded(false); }}
+                    className="text-xs text-muted-foreground mt-0.5"
+                  >
+                    show less
+                  </button>
+                )}
+              </>
             )}
 
             {/* Tag pills */}
