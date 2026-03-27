@@ -749,7 +749,6 @@ function QuotedStory({
           <StoryImage
             src={story.imageUrl}
             authorName={author?.name ?? 'Author'}
-            maxHeight="120px"
           />
         </div>
       )}
