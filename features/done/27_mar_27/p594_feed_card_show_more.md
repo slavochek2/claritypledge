@@ -2,10 +2,10 @@
 id: P594
 title: Add "show more" expand/collapse to feed cards
 type: story
-status: in-progress
+status: all-done
 priority: medium
 flow: quick-feature
-delivery_stage: uat
+completed_at: "2026-03-27"
 ---
 
 # P594: Add "show more" expand/collapse to feed cards
