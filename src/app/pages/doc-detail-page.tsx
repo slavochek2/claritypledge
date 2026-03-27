@@ -165,6 +165,7 @@ function SortableStoryCard({
           userPositions={userPositions}
           onPositionClick={onPositionClick}
           currentUserId={currentUserId}
+          isDetailView
           disableNavigation
           onAddPoint={() => onNavigate(docStory.story_id)}
           pointOrder={pointConfig.order}
