@@ -1,6 +1,7 @@
 ---
 title: "Stale rejoin prompt after session ends"
-status: qa
+status: done
+completed_at: "2026-03-27"
 type: bug
 p_number: 595
 severity: high
