@@ -5,6 +5,7 @@ type: story
 status: in-progress
 priority: medium
 flow: quick-feature
+delivery_stage: uat
 ---
 
 # P594: Add "show more" expand/collapse to feed cards
