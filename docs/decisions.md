@@ -2,6 +2,13 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-27 [technical]: StoryCardDetail isDetailView default footgun
+
+**Context:** `doc-detail-page.tsx` rendered `StoryCardDetail` without `isDetailView`, so points were truncated to 3 with "+N more" on a page where all points should show. Same component works correctly on `story-detail-page.tsx` which passes `isDetailView={true}`.
+**Decision:** Fixed by adding `isDetailView` prop to doc-detail-page. The root cause is that `isDetailView` defaults to `false` (truncate) — safe for list views but silently wrong for detail views. Flipping the default to `true` was considered but rejected: it would change behavior for test renders and list-view consumers that rely on the current default. Instead, treat this as a known footgun: any new detail-page consumer of `StoryCardDetail` must pass `isDetailView`.
+**Alternatives rejected:** Flip default to `true` (breaks test assumptions, requires auditing all callers). Infer from React context or router (over-engineering for a 2-caller component).
+**Consequences:** Watch for this pattern when adding new detail pages that embed `StoryCardDetail`. Same class of bug as the P592 trigger decision — N call sites must remember a prop.
+
 ## 2026-03-27 [technical]: DB trigger as safety net for derived columns — P592 hashtag fix
 
 **Context:** P506 added `extractHashtags()` on story creation, but 2 of 3 `updateStory` call sites (story-detail-page, StoryGuideChat) never passed tags on edit. Tags were frozen at creation time. 226 stories had stale tags in prod.
