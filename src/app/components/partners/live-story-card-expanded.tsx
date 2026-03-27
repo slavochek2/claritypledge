@@ -97,7 +97,6 @@ export function LiveStoryCardExpanded({
                         <StoryImage
                           src={story.imageUrl}
                           authorName={story.authorName}
-                          maxHeight="160px"
                         />
                       </div>
                     )}

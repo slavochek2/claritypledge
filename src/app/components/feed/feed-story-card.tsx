@@ -104,7 +104,6 @@ export function FeedStoryCard({ story, activeTag, pointCount }: FeedStoryCardPro
               <StoryImage
                 src={story.imageUrl}
                 authorName={story.authorName}
-                maxHeight="200px"
                 onClick={() => navigate(`/story/${story.id}`)}
                 className="mt-2 mb-2"
               />

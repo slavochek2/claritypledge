@@ -309,6 +309,16 @@ else
 fi
 echo ""
 
+# 13d. Nav-route consistency — every nav link must have a matching Route in App.tsx
+if [ -f "./scripts/check-nav-route-consistency.sh" ]; then
+    if ! run_quiet "Nav-route consistency" ./scripts/check-nav-route-consistency.sh; then
+        ERRORS=$((ERRORS + 1))
+    fi
+else
+    echo -e "${YELLOW}⚠ Nav-route consistency checker not found${NC}"
+fi
+echo ""
+
 # 14. Root file pollution check (prevent agent-generated temp files)
 echo ">>> Checking for temporary files in project root..."
 ROOT_TEMP_FILES=$(ls -1 /*.md /*.json 2>/dev/null | grep -vE '(CLAUDE|GEMINI|README|CONTRIBUTING|SECURITY|CLA|components\.json|package\.json|package-lock\.json|tsconfig.*\.json|vercel\.json)' || true)

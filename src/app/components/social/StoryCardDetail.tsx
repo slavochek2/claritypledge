@@ -292,7 +292,6 @@ export function StoryCardDetail({
                 <StoryImage
                   src={imageUrl}
                   authorName={story.authorName}
-                  maxHeight={isDetailView ? '400px' : '200px'}
                   onClick={!isDetailView && !disableNavigation ? handleCardClick : undefined}
                   onChangeImage={isDetailView ? onChangeImage : undefined}
                   onRemoveImage={isDetailView ? onRemoveImage : undefined}

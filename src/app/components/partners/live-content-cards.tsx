@@ -94,7 +94,6 @@ export function LiveStoryCard({
             <StoryImage
               src={story.imageUrl}
               authorName={story.authorName}
-              maxHeight="160px"
             />
           </div>
         )}
@@ -145,7 +144,6 @@ export function LiveStoryCard({
           <StoryImage
             src={story.imageUrl}
             authorName={story.authorName}
-            maxHeight="160px"
           />
         </div>
       )}
@@ -529,7 +527,6 @@ export function StoryCardPreview({ story, showLinkedPoints = true }: StoryCardPr
           <StoryImage
             src={story.imageUrl}
             authorName={story.authorName}
-            maxHeight="160px"
           />
         </div>
       )}

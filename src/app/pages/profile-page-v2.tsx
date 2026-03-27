@@ -1251,7 +1251,6 @@ function StoryCardFull({
                     <StoryImage
                       src={story.imageUrl}
                       authorName={author.name}
-                      maxHeight="200px"
                       onClick={() => navigate(detailRoutes.story(story.id))}
                     />
                   </div>
