@@ -1856,59 +1856,7 @@ export function ClarityLivePage() {
           ? { title: contentTitle || 'Point verification', type: 'point' as const, ...journeyData }
           : { title: 'Free conversation', type: 'free' as const, ...journeyData };
 
-      // P562: Free mode divergence — transition to continuous sliders instead of idle
-      if (currentState.sessionMode === 'free') {
-        // Build freeRounds from the guided mode journey data
-        const listenerConf = currentState.responderRating ?? 0;
-        const speakerBel = currentState.checkerRating ?? 0;
-        const freeRounds = [
-          { listenerConfidence: listenerConf, speakerBelief: speakerBel, label: '0' },
-        ];
-        // If explain-back happened, add those rounds too
-        (currentState.explainBackRatings ?? []).forEach((ebRating, i) => {
-          freeRounds.push({
-            listenerConfidence: listenerConf, // listener's self-assessment doesn't change in explain-back
-            speakerBelief: ebRating,
-            label: `${i + 1}`,
-          });
-        });
-
-        // Initialize sliders from the last committed rating
-        const lastSpeakerBelief = freeRounds[freeRounds.length - 1].speakerBelief;
-        const creatorIsChecker = currentState.checkerIsCreator;
-        const creatorSlider = creatorIsChecker ? lastSpeakerBelief : listenerConf;
-        const joinerSlider = creatorIsChecker ? listenerConf : lastSpeakerBelief;
-
-        updateLiveState({
-          // Transition to sliders
-          freePhase: 'unlocked',
-          freeRounds,
-          freeSliderCreator: creatorSlider,
-          freeSliderJoiner: joinerSlider,
-          // Clear celebration state
-          celebrationAcknowledgedByCreator: false,
-          celebrationAcknowledgedByJoiner: false,
-          celebrationAcknowledgedBy: [],
-          // Clear guided mode round state (but keep checker role info for FreeModeView)
-          ratingPhase: 'idle',
-          checkerSubmitted: false,
-          responderSubmitted: false,
-          explainBackRound: 0,
-          explainBackRatings: [],
-          explainBackDone: false,
-          speakerSawExplainBackDone: false,
-          proverName: undefined,
-          roleSwitchNegotiation: undefined,
-          clarificationPhase: undefined,
-          ratingInitiatedBy: undefined,
-          // Keep story selected + update history
-          sessionHistory: [...prevHistory, historyEntry],
-        });
-        verificationFiredRef.current.clear();
-        return;
-      }
-
-      // Both done - reset to idle state for a fresh start (guided mode)
+      // Both done - reset to idle state for a fresh start
       // Increment round counter for next round
       updateLiveState({
         currentRound: (currentState.currentRound ?? 1) + 1,
@@ -1979,41 +1927,6 @@ export function ClarityLivePage() {
           ? { title: contentTitle || 'Point verification', type: 'point' as const, ...journeyData }
           : { title: 'Free conversation', type: 'free' as const, ...journeyData };
 
-      // P562: Free mode divergence (same as handleCelebrationComplete)
-      if (liveState.sessionMode === 'free') {
-        const listenerConf = liveState.responderRating ?? 0;
-        const speakerBel = liveState.checkerRating ?? 0;
-        const freeRounds = [{ listenerConfidence: listenerConf, speakerBelief: speakerBel, label: '0' }];
-        (liveState.explainBackRatings ?? []).forEach((ebRating, i) => {
-          freeRounds.push({ listenerConfidence: listenerConf, speakerBelief: ebRating, label: `${i + 1}` });
-        });
-        const lastSpeakerBelief = freeRounds[freeRounds.length - 1].speakerBelief;
-        const creatorIsChecker = liveState.checkerIsCreator;
-        updateLiveState({
-          freePhase: 'unlocked',
-          freeRounds,
-          freeSliderCreator: creatorIsChecker ? lastSpeakerBelief : listenerConf,
-          freeSliderJoiner: creatorIsChecker ? listenerConf : lastSpeakerBelief,
-          celebrationAcknowledgedByCreator: false,
-          celebrationAcknowledgedByJoiner: false,
-          celebrationAcknowledgedBy: [],
-          ratingPhase: 'idle',
-          checkerSubmitted: false,
-          responderSubmitted: false,
-          explainBackRound: 0,
-          explainBackRatings: [],
-          explainBackDone: false,
-          speakerSawExplainBackDone: false,
-          proverName: undefined,
-          roleSwitchNegotiation: undefined,
-          clarificationPhase: undefined,
-          ratingInitiatedBy: undefined,
-          sessionHistory: [...prevHistory, historyEntry],
-        });
-        verificationFiredRef.current.clear();
-        return;
-      }
-
       updateLiveState({
         currentRound: (liveState.currentRound ?? 1) + 1,
         ratingPhase: 'idle',
@@ -2078,6 +1991,34 @@ export function ClarityLivePage() {
       round: confirmedLiveStateRef.current.explainBackRound,
     });
 
+    const currentState = confirmedLiveStateRef.current;
+
+    // P562: Free mode divergence — transition to continuous sliders immediately
+    // after listener's first "Done explaining". No speaker re-rating step.
+    if (currentState.sessionMode !== 'guided') {
+      const listenerConf = currentState.responderRating ?? 0;
+      const speakerBel = currentState.checkerRating ?? 0;
+      const freeRounds = [
+        { listenerConfidence: listenerConf, speakerBelief: speakerBel, label: '0' },
+      ];
+      const creatorIsChecker = currentState.checkerIsCreator;
+      const creatorSlider = creatorIsChecker ? speakerBel : listenerConf;
+      const joinerSlider = creatorIsChecker ? listenerConf : speakerBel;
+
+      updateLiveState({
+        freePhase: 'unlocked',
+        freeRounds,
+        freeSliderCreator: creatorSlider,
+        freeSliderJoiner: joinerSlider,
+        // Clear explain-back state
+        explainBackDone: false,
+        speakerSawExplainBackDone: false,
+        ratingPhase: 'idle',
+      });
+      return;
+    }
+
+    // Guided mode: normal flow — unlock speaker's re-rating drawer
     updateLiveState({
       explainBackDone: true,
       // B32_2: Also set speakerSawExplainBackDone so speaker's drawer persists

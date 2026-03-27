@@ -655,7 +655,7 @@ export function LiveModeView({
   // P562: Free mode routing — after guided mode's first round completes,
   // handleCelebrationComplete sets freePhase: 'unlocked'. Render FreeModeView
   // only for unlocked + success phases (guided mode handles everything before).
-  if (liveState.sessionMode === 'free' && (liveState.freePhase === 'unlocked' || liveState.freePhase === 'success') && onFreeSliderChange) {
+  if (liveState.sessionMode !== 'guided' && (liveState.freePhase === 'unlocked' || liveState.freePhase === 'success') && onFreeSliderChange) {
     return (
       <div className="flex flex-col h-full">
         <LiveHeader partnerName={partnerName} onExit={onExitMeeting} isPrivate={isPrivate} uploadHealth={uploadHealth} />
@@ -1277,14 +1277,14 @@ function IdleScreen({
         </ActionArea>
       )}
 
-      {/* P562: Mode pill toggle — visible on entry screen */}
-      {onSessionModeChange && !showRatingDrawer && !waitingForPartnerToContinue && (
+      {/* P562: Mode pill toggle — visible only on idle entry screen, hidden during rounds */}
+      {onSessionModeChange && !showRatingDrawer && !waitingForPartnerToContinue && ratingPhase === 'idle' && !liveState.freePhase && (
         <div className="flex justify-center py-4">
           <div className="inline-flex bg-gray-100 rounded-full p-1 text-sm">
             <button
               onClick={() => onSessionModeChange('free')}
               className={`px-4 py-1.5 rounded-full transition-all ${
-                sessionMode === 'free' ? 'bg-blue-500 text-white shadow-sm font-medium' : 'text-gray-500'
+                (sessionMode === 'free' || !sessionMode) ? 'bg-blue-500 text-white shadow-sm font-medium' : 'text-gray-500'
               }`}
             >
               Free mode
@@ -1292,7 +1292,7 @@ function IdleScreen({
             <button
               onClick={() => onSessionModeChange('guided')}
               className={`px-4 py-1.5 rounded-full transition-all ${
-                (sessionMode === 'guided' || !sessionMode) ? 'bg-blue-500 text-white shadow-sm font-medium' : 'text-gray-500'
+                sessionMode === 'guided' ? 'bg-blue-500 text-white shadow-sm font-medium' : 'text-gray-500'
               }`}
             >
               Guided mode
@@ -1444,7 +1444,7 @@ function RatingScreen({
   onPositionSelect,
   badgePersonName,
   badgePersonEarsCount,
-  onClearStory,
+  onClearStory: _onClearStory,
   isStoryOwner = false,
   isGuest = false,
   uploadHealth,
@@ -1509,16 +1509,7 @@ function RatingScreen({
             badgePersonEarsCount={badgePersonEarsCount}
           />
         )}
-        {/* P400: Speak Freely must be present whenever story card is visible */}
-        {selectedStory && onClearStory && (
-          <button
-            onClick={onClearStory}
-            className="text-sm text-muted-foreground hover:text-foreground transition-colors mt-1 min-h-[44px] px-4"
-            type="button"
-          >
-            Speak freely
-          </button>
-        )}
+        {/* P562: Mid-card "Speak freely" removed — ActionArea at bottom handles it */}
         {selectedPoint && <PointCardPreview point={selectedPoint} />}
       </div>
 
@@ -1595,7 +1586,7 @@ function RatingScreenWithOptionalDrawer({
   onPositionSelect,
   badgePersonName,
   badgePersonEarsCount,
-  onClearStory,
+  onClearStory: _onClearStory2,
   isStoryOwner = false,
   isGuest = false,
   uploadHealth,
@@ -1665,16 +1656,7 @@ function RatingScreenWithOptionalDrawer({
             badgePersonEarsCount={badgePersonEarsCount}
           />
         )}
-        {/* P400: Speak Freely must be present whenever story card is visible */}
-        {selectedStory && onClearStory && (
-          <button
-            onClick={onClearStory}
-            className="text-sm text-muted-foreground hover:text-foreground transition-colors mt-1 min-h-[44px] px-4"
-            type="button"
-          >
-            Speak freely
-          </button>
-        )}
+        {/* P562: Mid-card "Speak freely" removed — ActionArea at bottom handles it */}
         {selectedPoint && <PointCardPreview point={selectedPoint} />}
       </div>
 
