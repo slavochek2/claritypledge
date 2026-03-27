@@ -2,7 +2,8 @@
 id: p592
 title: Fix hashtag update on story edit
 type: bug
-status: in-progress
+status: all-done
+completed_at: "2026-03-27"
 flow: fix
 priority: 2
 created: 2026-03-27
