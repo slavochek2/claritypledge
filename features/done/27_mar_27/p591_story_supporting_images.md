@@ -1,5 +1,6 @@
 ---
-status: in-progress
+status: done
+completed_at: '2026-03-27'
 type: story
 rank: 2
 tags:

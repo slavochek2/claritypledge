@@ -1,7 +1,7 @@
 # Done Features Index
 
 Quick reference for past completed work. Consult when starting work on a related topic.
-Last updated: 2026-03-26 (P588 Live Layout + Nav Fix)
+Last updated: 2026-03-27 (P591 Story Supporting Images)
 
 ---
 
@@ -34,6 +34,7 @@ Last updated: 2026-03-26 (P588 Live Layout + Nav Fix)
 
 ## Points & Stories
 
+- **P591** (Mar 27) Story Supporting Images — GCS V4 signed URL PUT must include ALL SignedHeaders (x-goog-content-length-range); images are story-level metadata not version-level; use authenticated edge functions for GCS uploads, never the old unauthenticated Cloud Function
 - **P542** (Mar 17) Collapse Stories Behind Chevron on Point Page — "double duty" name rows need ThreadLine + collapse; `length === 1` ThreadLine bypass is an anti-pattern; pick-flow must enforce /challenge-prd for redesigns
 - **P543** (Mar 17) Zero-Position Point Graveyard — filter at query level not schema; `onPositionChange={fetchData}` was silently disabled (commit 840250d4) breaking live updates; optimistic surgical callbacks beat full refetch
 - **P506** (Mar 13) Auto-Extract Hashtags — `extractHashtags()` at save time; backfill migration for existing content; 3-key position init = NaN bug (use all 7 keys)

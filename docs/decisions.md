@@ -2,6 +2,28 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-27 [product]: Images belong on stories, not points (P526 rejected → P591)
+
+**Context:** P526 proposed adding images to points. P523's immutability model conflicts — points are immutable once others engage, but images need add/change/remove. Three prior attempts at images on content (P504 auto-generated banners → P519 removed → P526 rejected) all failed.
+**Decision:** Images are a story-level feature, not point-level. Stories are mutable narrative containers where visual evidence belongs. Points stay lean (text-only atomic claims). Image is stored as `image_url` column on `stories` table — story-level metadata, not version-level (same pattern as `banner_url`). Adding/replacing/removing an image does NOT create a new story version.
+**Alternatives rejected:** Images on points (P526 — immutability conflict). Images as a separate entity linked to stories (unnecessary indirection). Image galleries (premature — single image per story in V1).
+**Consequences:** P526 archived. P591 shipped. Every story-rendering surface now checks `imageUrl`. Future: if single-image proves limiting, gallery is an additive change (array of URLs, not a schema redesign).
+**References:** [features/p591_story_supporting_images.md](features/p591_story_supporting_images.md)
+
+## 2026-03-27 [technical]: GCS signed URLs — use Supabase Edge Function, not unauthenticated Cloud Function
+
+**Context:** The existing `gcs-signed-url` Cloud Function (for audio chunk uploads) has zero authentication — any caller can generate upload URLs. For user-facing image uploads, this is unacceptable.
+**Decision:** New Supabase Edge Function `generate-story-image-url` following the `generate-banner` pattern: JWT validation via `getUser(token)`, story ownership check (`author_id` = authenticated user), server-side MIME allowlist (`image/jpeg`, `image/png`, `image/webp`), server-side size enforcement via `X-Goog-Content-Length-Range`, server-generated GCS path (`story-images/{storyId}/{uuid}.{ext}`), 5-minute URL expiry.
+**Alternatives rejected:** Extending `gcs-signed-url` Cloud Function (no auth, wildcard CORS). Supabase Storage (no free GCP credits benefit). Client-side direct upload (no auth or validation).
+**Consequences:** Pattern for all future GCS uploads: always use authenticated edge functions, never the old unauthenticated Cloud Function. The Cloud Function should be deprecated when audio uploads move to this pattern.
+
+## 2026-03-27 [technical]: GCS V4 signed URL PUT must include all SignedHeaders
+
+**Context:** P591 image upload failed with 400 from GCS. The signed URL included `X-Goog-SignedHeaders=content-type;host;x-goog-content-length-range` but the PUT request only sent `Content-Type` — missing `x-goog-content-length-range`. GCS V4 signatures are strict: every header listed in SignedHeaders MUST be present in the actual request.
+**Decision:** When using GCS V4 signed URLs with extension headers (like `x-goog-content-length-range`), the client PUT request MUST include those exact headers with the exact values. This is not optional — GCS validates the signature against all declared headers.
+**Alternatives rejected:** Removing `x-goog-content-length-range` from signed headers (loses server-side size enforcement — security regression).
+**Consequences:** Any future GCS upload code must mirror all signed headers. Template: `headers: { 'Content-Type': blob.type, 'x-goog-content-length-range': '1,5242880' }`.
+
 ## 2026-03-26 [technical]: overflow-hidden is the #1 scroll killer in nested flex layouts
 
 **Context:** P588 /live layout restructure required ~10 fix commits to diagnose scroll failures. The sticky CTA bar and content area wouldn't scroll. Root cause was `overflow-hidden` on ancestor `div` elements — flex containers that silently clip all descendant scroll containers.
