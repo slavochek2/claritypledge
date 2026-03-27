@@ -2010,10 +2010,16 @@ export function ClarityLivePage() {
         freeRounds,
         freeSliderCreator: creatorSlider,
         freeSliderJoiner: joinerSlider,
-        // Clear explain-back state
+        // Clear guided mode round state to prevent routing confusion.
+        // Use false/0/[] (not undefined) to avoid triggering shouldUseFullOverwrite.
+        ratingPhase: 'idle',
         explainBackDone: false,
         speakerSawExplainBackDone: false,
-        ratingPhase: 'idle',
+        explainBackRound: 0,
+        explainBackRatings: [],
+        checkerSubmitted: false,
+        responderSubmitted: false,
+        // Keep checkerName + checkerIsCreator — FreeModeView needs role info
       });
       return;
     }
