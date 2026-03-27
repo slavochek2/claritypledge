@@ -1307,6 +1307,30 @@ export function ClarityLivePage() {
   // P23.3: Track which flow type we're in locally ('check' = "Did you get it?", 'prove' = "Did I get it?")
   const [localFlowType, setLocalFlowType] = useState<'check' | 'prove'>('check');
 
+  /** P562: Start free mode round — called when user taps "Does [partner] understand you?" in free mode.
+   * This modifies handleStartCheck behavior: instead of local rating, it writes to live_state directly.
+   * Defined before handleStartCheck to avoid TDZ — handleStartCheck references this in its deps. */
+  const handleFreeStartCheck = useCallback(() => {
+    if (!name || !partnerName) return;
+    const currentState = confirmedLiveStateRef.current;
+    if (currentState.freePhase || currentState.ratingPhase !== 'idle') return;
+
+    analytics.track('live_free_round_started', { session_code: session?.code });
+    lastActionTimestampRef.current = Date.now();
+
+    updateLiveState({
+      freePhase: 'sealed-bid',
+      checkerName: name,
+      checkerIsCreator: isCreator,
+      checkerSubmitted: false,
+      responderSubmitted: false,
+      checkerRating: undefined,
+      responderRating: undefined,
+      freeSliderCreator: undefined,
+      freeSliderJoiner: undefined,
+    });
+  }, [name, partnerName, session?.code, isCreator, updateLiveState]);
+
   const handleStartCheck = useCallback(() => {
     if (!name || !partnerName) return;
 
@@ -1372,29 +1396,6 @@ export function ClarityLivePage() {
   const handleSessionModeChange = useCallback((mode: 'guided' | 'free') => {
     updateLiveState({ sessionMode: mode });
   }, [updateLiveState]);
-
-  /** P562: Start free mode round — called when user taps "Does [partner] understand you?" in free mode.
-   * This modifies handleStartCheck behavior: instead of local rating, it writes to live_state directly. */
-  const handleFreeStartCheck = useCallback(() => {
-    if (!name || !partnerName) return;
-    const currentState = confirmedLiveStateRef.current;
-    if (currentState.freePhase || currentState.ratingPhase !== 'idle') return;
-
-    analytics.track('live_free_round_started', { session_code: session?.code });
-    lastActionTimestampRef.current = Date.now();
-
-    updateLiveState({
-      freePhase: 'sealed-bid',
-      checkerName: name,
-      checkerIsCreator: isCreator,
-      checkerSubmitted: false,
-      responderSubmitted: false,
-      checkerRating: undefined,
-      responderRating: undefined,
-      freeSliderCreator: undefined,
-      freeSliderJoiner: undefined,
-    });
-  }, [name, partnerName, session?.code, isCreator, updateLiveState]);
 
   /** P562: Submit sealed bid in free mode */
   const handleFreeSealedBidSubmit = useCallback((rating: number) => {
