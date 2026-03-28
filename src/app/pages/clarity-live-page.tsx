@@ -1409,7 +1409,13 @@ export function ClarityLivePage() {
       responderRating: undefined,
       freeSliderCreator: undefined,
       freeSliderJoiner: undefined,
+      freeRounds: undefined,
       ratingPhase: 'idle',
+      ratingInitiatedBy: undefined,
+      explainBackDone: false,
+      speakerSawExplainBackDone: false,
+      explainBackRound: 0,
+      explainBackRatings: [],
     });
   }, [updateLiveState]);
 
@@ -1432,6 +1438,11 @@ export function ClarityLivePage() {
       freeSliderJoiner: undefined,
       freeRounds: undefined,
       ratingPhase: 'idle',
+      ratingInitiatedBy: undefined,
+      explainBackDone: false,
+      speakerSawExplainBackDone: false,
+      explainBackRound: 0,
+      explainBackRatings: [],
     });
   }, [updateLiveState]);
 
