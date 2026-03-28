@@ -1088,13 +1088,16 @@ export async function getActiveSessionByCode(code: string): Promise<ClaritySessi
     return null;
   }
 
-  // Check grace period: null last_activity_at = pre-migration, treat as active
+  // Check grace period using last_activity_at, falling back to created_at.
+  // Sessions with no heartbeat (null last_activity_at) used to be treated as
+  // immortal — this caused zombie rejoin prompts for abandoned sessions.
   const lastActivityAt = (data as Record<string, unknown>).last_activity_at as string | null;
-  if (lastActivityAt !== null && lastActivityAt !== undefined) {
-    const lastActivityTime = new Date(lastActivityAt).getTime();
+  const referenceTime = lastActivityAt ?? data.created_at;
+  if (referenceTime) {
+    const referenceMs = new Date(referenceTime).getTime();
     const graceCutoff = Date.now() - SESSION_GRACE_PERIOD_SECONDS * 1000;
-    if (lastActivityTime < graceCutoff) {
-      return null; // Session expired — no heartbeat within grace period
+    if (referenceMs < graceCutoff) {
+      return null; // Session expired — no activity within grace period
     }
   }
 
