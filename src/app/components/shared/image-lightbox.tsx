@@ -10,6 +10,7 @@ interface ImageLightboxProps {
   alt: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  eventName?: string;
 }
 
 export function ImageLightbox({
@@ -17,15 +18,16 @@ export function ImageLightbox({
   alt,
   open,
   onOpenChange,
+  eventName = "story_image_viewed",
 }: ImageLightboxProps) {
   const tracked = useRef(false);
   useEffect(() => {
     if (open && !tracked.current) {
       tracked.current = true;
-      analytics.track("story_image_viewed", { src });
+      analytics.track(eventName, { src });
     }
     if (!open) tracked.current = false;
-  }, [open, src]);
+  }, [open, src, eventName]);
 
   return (
     <DialogPrimitive.Root open={open} onOpenChange={onOpenChange}>

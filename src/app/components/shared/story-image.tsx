@@ -24,7 +24,6 @@ export function StoryImage({
   const [lightboxOpen, setLightboxOpen] = useState(false);
 
   const isAuthorMode = !!(onChangeImage || onRemoveImage);
-  const isClickable = !!onClick || !isAuthorMode;
   const alt = `Supporting image for ${authorName}'s story`;
 
   function handleClick() {
@@ -33,10 +32,8 @@ export function StoryImage({
       onClick();
       return;
     }
-    if (!isAuthorMode) {
-      // Reader mode — open lightbox
-      setLightboxOpen(true);
-    }
+    // Both reader and author mode — open lightbox
+    setLightboxOpen(true);
   }
 
   return (
@@ -47,32 +44,23 @@ export function StoryImage({
           className
         )}
       >
-        {/* Image — wrapped in button when clickable for a11y */}
-        {isClickable ? (
-          <button
-            type="button"
-            onClick={handleClick}
-            aria-label="View full-size image"
-            className={cn(
-              "w-full cursor-pointer bg-transparent p-0 border-0",
-              "focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 focus-visible:outline-none rounded-lg"
-            )}
-          >
-            <img
-              src={src}
-              alt={alt}
-              className="w-full rounded-lg object-cover"
-              style={{ aspectRatio: '4/3' }}
-            />
-          </button>
-        ) : (
+        {/* Image — always wrapped in button for a11y + lightbox */}
+        <button
+          type="button"
+          onClick={handleClick}
+          aria-label="View full-size image"
+          className={cn(
+            "w-full cursor-pointer bg-transparent p-0 border-0",
+            "focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 focus-visible:outline-none rounded-lg"
+          )}
+        >
           <img
             src={src}
             alt={alt}
             className="w-full rounded-lg object-cover"
             style={{ aspectRatio: '4/3' }}
           />
-        )}
+        </button>
 
         {/* Author overlay — desktop only */}
         {isAuthorMode && (

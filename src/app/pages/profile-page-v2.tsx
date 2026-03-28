@@ -35,6 +35,7 @@ import {
 } from "lucide-react";
 import { ClarityPageLoader } from "@/components/ui/clarity-loader";
 import { GravatarAvatar } from "@/components/ui/gravatar-avatar";
+import { ImageLightbox } from "@/app/components/shared/image-lightbox";
 import { UnderstoodBadge } from "@/components/ui/understood-badge";
 
 const LinkedInBrandIcon = ({ size = 14 }: { size?: number }) => (
@@ -163,6 +164,7 @@ export function ProfilePageV2() {
   const [resendSuccess, setResendSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showShareDialog, setShowShareDialog] = useState(false);
+  const [avatarLightboxOpen, setAvatarLightboxOpen] = useState(false);
 
   // P115: Stories/Points/Calibration state — all from real services
   const [contentTab, setContentTab] = useState<ContentTab>('points');
@@ -799,15 +801,42 @@ export function ProfilePageV2() {
               <div className="flex items-end">
                 <div className="flex items-center gap-4 mt-[-48px] relative z-10">
                   {/* Avatar - 96px, overlapping banner by 48px */}
-                  <div className="flex-shrink-0 ring-4 ring-white dark:ring-card rounded-full" data-testid="profile-avatar">
-                    <GravatarAvatar
-                      name={profile.name}
-                      photoUrl={profile.avatarUrl ?? undefined}
-                      avatarColor={profile.avatarColor}
-                      size="xl"
-                      isPledger={profile.hasPledged}
+                  {profile.avatarUrl ? (
+                    <button
+                      type="button"
+                      className="flex-shrink-0 ring-4 ring-white dark:ring-card rounded-full cursor-pointer hover:scale-105 transition-transform bg-transparent p-0 border-0 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none"
+                      data-testid="profile-avatar"
+                      onClick={() => setAvatarLightboxOpen(true)}
+                      aria-label={`View ${profile.name}'s profile photo`}
+                    >
+                      <GravatarAvatar
+                        name={profile.name}
+                        photoUrl={profile.avatarUrl ?? undefined}
+                        avatarColor={profile.avatarColor}
+                        size="xl"
+                        isPledger={profile.hasPledged}
+                      />
+                    </button>
+                  ) : (
+                    <div className="flex-shrink-0 ring-4 ring-white dark:ring-card rounded-full" data-testid="profile-avatar">
+                      <GravatarAvatar
+                        name={profile.name}
+                        photoUrl={undefined}
+                        avatarColor={profile.avatarColor}
+                        size="xl"
+                        isPledger={profile.hasPledged}
+                      />
+                    </div>
+                  )}
+                  {profile.avatarUrl && (
+                    <ImageLightbox
+                      src={profile.avatarUrl.includes('googleusercontent.com') ? profile.avatarUrl.replace(/=s\d+(-c)?$/, '=s400') : profile.avatarUrl}
+                      alt={`${profile.name}'s profile photo`}
+                      open={avatarLightboxOpen}
+                      onOpenChange={setAvatarLightboxOpen}
+                      eventName="profile_photo_viewed"
                     />
-                  </div>
+                  )}
                   {/* Name + ear count + role beside avatar */}
                   <div className="min-w-0 pt-[48px]">
                     <div className="flex items-center gap-2 flex-wrap">
