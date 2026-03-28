@@ -2,6 +2,14 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-28 [process]: DB query pre-flight — read schema + verify environment before any query
+
+**Context:** Updating a single point statement on prod took 8 tool calls. The agent guessed column names (`text` instead of `statement`), queried test DB via Supabase MCP (which is hardwired to test), got empty results, then had to reverse-engineer the schema and prod access path. This is the same class of error as the P417 content migration incident, but broader — it affects any ad-hoc data read or write, not just migrations. The existing Content Migration Checklist in `.claude/rules/database.md` only triggers when editing `supabase/` files, missing the common case of conversational "update this on prod" requests.
+**Decision:** Added agent memory rule (`feedback_db_query_preflight.md`) as a pre-flight for ALL database queries: (1) read `docs/technical/database.md` for schema before querying, (2) explicitly state target environment — Supabase MCP = test DB always (`gfjctyxqlwexxwsmkakq`), prod requires REST API with keys from `supabase projects api-keys --project-ref besjtuodziykmjidubzw`, (3) for tag-based point lookups, reference `resolvePointSlug` logic in `points-service-real.ts`. Placed in memory (always loaded) rather than `.claude/rules/database.md` (path-triggered) because the problem occurs during ad-hoc operations where no supabase files are being edited.
+**Alternatives rejected:** (1) CLI script (`resolve-point.mjs`) — nice-to-have for speed but only solves points, not the general class. (2) Expanding `.claude/rules/database.md` path trigger — rules only fire on file edits, not ad-hoc queries. (3) Adding to CLAUDE.md — fails the 80% universality test; most tasks don't involve DB queries.
+**Consequences:** Agent behavior change: before any DB query, schema docs are read and target env is stated. Covers all tables, not just points. The `resolve-point.mjs` script remains a future optimization if point lookups become frequent.
+**References:** [feedback_db_query_preflight.md](memory), [docs/technical/database.md](technical/database.md), [.claude/rules/database.md](../.claude/rules/database.md)
+
 ## 2026-03-28 [process]: Conversation-to-content pipeline — Claude.ai conversations as primary content source
 
 **Context:** Slava naturally thinks out loud with Claude.ai daily. These conversations produce article-quality material (falsified claims, uniqueness audits, compressed theses). The existing content pipeline (`/prepare-blog` → `/ship-blog`) assumed sitting down to write from scratch. The best content was being lost in conversation logs.
