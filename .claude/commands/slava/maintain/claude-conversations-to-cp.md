@@ -174,11 +174,14 @@ JSONL format: each line is a JSON object. Conversation messages have `type: "use
         - [SPEC-PRIORITY] {observation} — {evidence}
         - [TENSION] {unresolved question or contradiction} — {evidence}
         - [CONTENT] {conversation title} — {ARC-N (arc name) or 'new arc: proposed name'}, {why article-worthy: 1 line}
+        - [CONTENT-ENRICH] {conversation title} → enriches {existing article aNN: title} — {what it adds: 1 line}
 
         For [CONTENT] signals: read content/story-arcs.md arc patterns (provided below).
         Match conversations to arc patterns by narrative shape, not topic.
         Skip conversations with fewer than 6 exchange turns (too thin).
-        Skip conversations already covered by existing article ideas (provided below).
+        For conversations that extend an EXISTING article idea or draft (provided below):
+          use [CONTENT-ENRICH] instead of [CONTENT] — propose additions to the existing spec, not a new one.
+        Only use [CONTENT] for genuinely NEW article candidates not covered by existing specs.
 
         Active arc patterns: [paste arc summaries from story-arcs.md]
         Existing article titles: [paste from content/articles/a*.md]
@@ -281,6 +284,10 @@ JSONL format: each line is a JSON object. Conversation messages have `type: "use
       [list each: proposed title — from "conversation title", ARC-N]
       [omit if no [CONTENT] signals]
 
+      ### Enrichments to Existing Articles
+      [list each: "conversation title" → enriches aNN: "article title" — what it adds]
+      [omit if no [CONTENT-ENRICH] signals]
+
       ### New Arcs Proposed
       [list any new arc proposals from [CONTENT] signals with "new arc:"]
       [omit if none]
@@ -309,6 +316,13 @@ JSONL format: each line is a JSON object. Conversation messages have `type: "use
            [2-5 sentence summary from the agent's content assessment]
         4. Privacy check: immediately after filing, run /maintain:privacy on the new article spec file. If flagged: report issue, do NOT commit that file. If clean: continue.
         5. Report: "Filed [N] content ideas: [list with A-numbers]. Privacy: clean / [issues]."
+      </action>
+      <action>For each approved [CONTENT-ENRICH] signal:
+        1. Read the existing article spec (content/articles/aNN.md).
+        2. Propose an addition to its ## Source section: add a new Conversation line with the enriching conversation's title and date.
+        3. Propose an addition to its ## Idea section: append what the new conversation adds (1-2 sentences).
+        4. Present proposed edit for user confirmation before applying.
+        5. Report: "Enriched [N] existing articles: [list]."
       </action>
       <action>Write marker: `.private/claude-conversations-to-cp-last-run.txt` with current ISO timestamp, files_processed count, source, and window used</action>
       <action>Output summary: "Applied [N] strategy changes. Filed [M] content ideas. Modified: [file list]."</action>
