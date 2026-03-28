@@ -87,6 +87,8 @@ interface StoryCardDetailProps {
   pointOrder?: string[];
   /** Per-doc hidden point IDs — if provided, these points are filtered out */
   hiddenPointIds?: string[];
+  /** Start with points collapsed regardless of isDetailView (used by doc page) */
+  defaultCollapsed?: boolean;
   /** Wraps each point row with custom controls (e.g., drag handle + eye toggle in doc context) */
   renderPointRow?: (point: PointSummary, quotedPointElement: React.ReactNode) => React.ReactNode;
   /** P591: Story supporting image URL */
@@ -124,13 +126,14 @@ export function StoryCardDetail({
   onAddPoint,
   pointOrder,
   hiddenPointIds,
+  defaultCollapsed = false,
   renderPointRow,
   imageUrl,
   onChangeImage,
   onRemoveImage,
 }: StoryCardDetailProps) {
   const navigate = useNavigate();
-  const [pointsExpanded, setPointsExpanded] = useState(isDetailView);
+  const [pointsExpanded, setPointsExpanded] = useState(defaultCollapsed ? false : isDetailView);
 
   // Apply custom ordering + filtering (used by doc context)
   // hiddenPointIds filters points for non-owners viewing a shared doc link
