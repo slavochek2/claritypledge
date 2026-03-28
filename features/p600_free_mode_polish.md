@@ -1,5 +1,5 @@
 ---
-status: today
+status: in-progress
 type: story
 rank: 0.19
 tags:
@@ -7,10 +7,11 @@ tags:
   - live
   - p562
 flow: dev
+delivery_stage: uat
 created_date: 2026-03-28T00:00:00.000Z
 ---
 
-# P592: Free Mode Polish — Exit Consistency + Visual Feedback
+# P600: Free Mode Polish — Exit Consistency + Visual Feedback
 
 **Depends on:** P562 (free mode core, on branch `prototype/p562-new-live` in w2)
 **Priority:** Ship-blocker for P562 — these are functional gaps, not nice-to-haves
@@ -34,23 +35,23 @@ P562 free mode core works (guided first round → sliders unlock → live update
 ## Acceptance Criteria
 
 ### Fix 1: handleSkip clears free mode state
-- [ ] Add `freePhase: undefined, freeSliderCreator: undefined, freeSliderJoiner: undefined, freeRounds: undefined` to `handleSkip`'s `updateLiveState` call in `clarity-live-page.tsx` (~line 1813)
-- [ ] After "Speak freely" confirmation in slider phase, both users return cleanly to idle entry screen
+- [x] Add `freePhase: undefined, freeSliderCreator: undefined, freeSliderJoiner: undefined, freeRounds: undefined` to `handleSkip`'s `updateLiveState` call in `clarity-live-page.tsx` (~line 1813)
+- [x] After "Speak freely" confirmation in slider phase, both users return cleanly to idle entry screen
 
 ### Fix 2: Dual-acknowledgment for success screen
-- [ ] "Discuss another story" on success screen uses `celebrationAcknowledgedByCreator/Joiner` pattern
-- [ ] First user to click sees "Waiting for [partner] to continue..."
-- [ ] Only when both click does state reset to idle
-- [ ] Reuse `handleCelebrationComplete` with free mode branch that resets to idle (clears all free mode + guided state)
+- [x] "Discuss another story" on success screen uses `celebrationAcknowledgedByCreator/Joiner` pattern
+- [x] First user to click sees "Waiting for [partner] to continue..."
+- [x] Only when both click does state reset to idle
+- [x] Reuse `handleCelebrationComplete` with free mode branch that resets to idle (clears all free mode + guided state)
 
 ### Fix 3: Blue dots for live row
-- [ ] In `free-mode-view.tsx`, the live-updating DotBar row uses `text-blue-500` instead of `text-foreground`
-- [ ] Committed round rows remain black (`text-foreground`)
+- [x] In `free-mode-view.tsx`, the live-updating DotBar row uses `text-blue-500` instead of `text-foreground`
+- [x] Committed round rows remain black (`text-foreground`)
 
 ### Fix 4: Toast on partner slider move
-- [ ] In `FreeModeView`, useEffect diffs `partnerSliderValue` (from Realtime)
-- [ ] On change: show toast with partner name + new value (e.g., "Alex moved to 7/10")
-- [ ] Toast uses existing `toast.custom()` pattern with `id: 'live-slider'` (replaces on rapid moves)
+- [x] In `FreeModeView`, useEffect diffs `partnerSliderValue` (from Realtime)
+- [x] On change: show toast with partner name + new value (e.g., "Alex moved to 7/10")
+- [x] Toast uses existing `toast.custom()` pattern with `id: 'live-slider'` (replaces on rapid moves)
 
 ---
 

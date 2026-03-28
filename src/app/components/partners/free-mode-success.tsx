@@ -29,6 +29,8 @@ interface FreeModeSuccessProps {
   onDiscussAnother: () => void;
   /** End the entire session */
   onEndSession: () => void;
+  /** P592: Whether we're waiting for partner to also click Continue */
+  isWaiting?: boolean;
 }
 
 export function FreeModeSuccess({
@@ -38,6 +40,7 @@ export function FreeModeSuccess({
   storyTitle,
   onDiscussAnother,
   onEndSession,
+  isWaiting = false,
 }: FreeModeSuccessProps) {
   // Calculate starting gap from Round 0
   const startingGap = rounds.length > 0
@@ -109,14 +112,22 @@ export function FreeModeSuccess({
         </p>
       </div>
 
-      {/* Actions */}
+      {/* Actions — P592: dual-ack waiting state */}
       <div className="w-full space-y-3">
-        <Button
-          onClick={onDiscussAnother}
-          className="w-full bg-blue-500 hover:bg-blue-600"
-        >
-          Discuss another story
-        </Button>
+        {isWaiting ? (
+          <div className="text-center py-3">
+            <p className="text-sm text-muted-foreground animate-pulse">
+              Waiting for {partnerName} to continue…
+            </p>
+          </div>
+        ) : (
+          <Button
+            onClick={onDiscussAnother}
+            className="w-full bg-blue-500 hover:bg-blue-600"
+          >
+            Discuss another story
+          </Button>
+        )}
         <button
           onClick={onEndSession}
           className="w-full text-sm text-muted-foreground hover:text-foreground transition-colors py-2"

@@ -1439,27 +1439,45 @@ export function ClarityLivePage() {
     updateLiveState({ freePhase: 'success' });
   }, [updateLiveState]);
 
-  /** P562: "Discuss another story" from success → back to idle */
+  /** P562/P592: "Discuss another story" from free mode success — dual-ack pattern */
   const handleFreeDiscussAnother = useCallback(() => {
-    updateLiveState({
-      freePhase: undefined,
-      checkerName: undefined,
-      checkerIsCreator: undefined,
-      checkerSubmitted: false,
-      responderSubmitted: false,
-      checkerRating: undefined,
-      responderRating: undefined,
-      freeSliderCreator: undefined,
-      freeSliderJoiner: undefined,
-      freeRounds: undefined,
-      ratingPhase: 'idle',
-      ratingInitiatedBy: undefined,
-      explainBackDone: false,
-      speakerSawExplainBackDone: false,
-      explainBackRound: 0,
-      explainBackRatings: [],
-    });
-  }, [updateLiveState]);
+    const currentState = confirmedLiveStateRef.current;
+    const myBooleanKey = isCreator ? 'celebrationAcknowledgedByCreator' : 'celebrationAcknowledgedByJoiner';
+    const myAlreadyAcknowledged = currentState[myBooleanKey] === true;
+    if (myAlreadyAcknowledged) return; // Already clicked
+
+    const myUpdate = { [myBooleanKey]: true } as Partial<LiveSessionState>;
+    const afterMyWrite = { ...currentState, ...myUpdate };
+    const bothDone = isBothAcknowledgedCompat(afterMyWrite, session?.creatorName ?? '', partnerName ?? '');
+
+    if (bothDone) {
+      // Both acknowledged — reset to idle
+      updateLiveState({
+        freePhase: undefined,
+        checkerName: undefined,
+        checkerIsCreator: undefined,
+        checkerSubmitted: false,
+        responderSubmitted: false,
+        checkerRating: undefined,
+        responderRating: undefined,
+        freeSliderCreator: undefined,
+        freeSliderJoiner: undefined,
+        freeRounds: undefined,
+        ratingPhase: 'idle',
+        ratingInitiatedBy: undefined,
+        explainBackDone: false,
+        speakerSawExplainBackDone: false,
+        explainBackRound: 0,
+        explainBackRatings: [],
+        celebrationAcknowledgedByCreator: false,
+        celebrationAcknowledgedByJoiner: false,
+        celebrationAcknowledgedBy: [],
+      });
+    } else {
+      // Just set my boolean — waiting for partner
+      updateLiveState(myUpdate);
+    }
+  }, [isCreator, session?.creatorName, partnerName, updateLiveState]);
 
   // P128: Handle story selection from content picker
   const handleSelectStory = useCallback((storyId: string, title: string, storyData?: StoryWithPoints) => {
@@ -1853,6 +1871,11 @@ export function ClarityLivePage() {
       selectedPointId: undefined,
       selectedContentTitle: undefined,
       sessionHistory: historyEntry ? [...prevHistory, historyEntry] : prevHistory,
+      // P592: Clear free mode state so skip from guided mode doesn't leak
+      freePhase: undefined,
+      freeSliderCreator: undefined,
+      freeSliderJoiner: undefined,
+      freeRounds: undefined,
     });
     // P272: Clear verification guard so new rounds can fire verification
     verificationFiredRef.current.clear();
@@ -2003,6 +2026,40 @@ export function ClarityLivePage() {
       reactiveResetFiredRef.current = false;
     }
   }, [liveState.celebrationAcknowledgedByCreator, liveState.celebrationAcknowledgedByJoiner, liveState.ratingPhase, liveState, name, partnerName, updateLiveState, isCreator]);
+
+  // P592: Reactive safety net for free mode success dual-ack
+  // Same pattern as guided mode above, but triggers when freePhase === 'success' + both ack'd
+  const freeReactiveResetFiredRef = useRef(false);
+  useEffect(() => {
+    const bothAcknowledged = isBothAcknowledged(liveState);
+    if (bothAcknowledged && liveState.freePhase === 'success' && !freeReactiveResetFiredRef.current) {
+      freeReactiveResetFiredRef.current = true;
+      updateLiveState({
+        freePhase: undefined,
+        checkerName: undefined,
+        checkerIsCreator: undefined,
+        checkerSubmitted: false,
+        responderSubmitted: false,
+        checkerRating: undefined,
+        responderRating: undefined,
+        freeSliderCreator: undefined,
+        freeSliderJoiner: undefined,
+        freeRounds: undefined,
+        ratingPhase: 'idle',
+        ratingInitiatedBy: undefined,
+        explainBackDone: false,
+        speakerSawExplainBackDone: false,
+        explainBackRound: 0,
+        explainBackRatings: [],
+        celebrationAcknowledgedByCreator: false,
+        celebrationAcknowledgedByJoiner: false,
+        celebrationAcknowledgedBy: [],
+      });
+    }
+    if (!liveState.freePhase) {
+      freeReactiveResetFiredRef.current = false;
+    }
+  }, [liveState.celebrationAcknowledgedByCreator, liveState.celebrationAcknowledgedByJoiner, liveState.freePhase, liveState, updateLiveState]);
 
   // Handle "Let me explain back" - listener starts explaining
   const handleExplainBackStart = useCallback(() => {

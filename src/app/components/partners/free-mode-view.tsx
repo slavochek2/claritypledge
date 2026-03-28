@@ -15,15 +15,16 @@ import { getFirstName } from './shared';
 import { SliderTrack } from './slider-track';
 import { FreeModeSuccess } from './free-mode-success';
 import { LiveStoryCardExpanded } from './live-story-card-expanded';
+import { toast } from 'sonner';
 import type { StoryWithPoints } from '@/app/types';
 
 // ── DotBar helper ────────────────────────────────────────────────────────────
 
-function DotBar({ value }: { value: number }) {
+function DotBar({ value, filledClass = 'text-foreground' }: { value: number; filledClass?: string }) {
   return (
     <span className="inline-flex gap-px text-xs tracking-tight">
       {Array.from({ length: 10 }, (_, i) => (
-        <span key={i} className={i < value ? 'text-foreground' : 'text-gray-300'}>●</span>
+        <span key={i} className={i < value ? filledClass : 'text-gray-300'}>●</span>
       ))}
     </span>
   );
@@ -117,6 +118,31 @@ export function FreeModeView({
     };
   }, [bothAtTen, freePhase, onRoundComplete]);
 
+  // ── P592: Toast when partner moves slider ──────────────────────────────
+  const prevPartnerSliderRef = useRef<number | null>(null);
+  useEffect(() => {
+    if (freePhase !== 'unlocked') {
+      prevPartnerSliderRef.current = null;
+      return;
+    }
+    if (prevPartnerSliderRef.current === null) {
+      // First run — initialise without toasting
+      prevPartnerSliderRef.current = effectivePartnerValue;
+      return;
+    }
+    if (effectivePartnerValue !== prevPartnerSliderRef.current) {
+      toast.custom(
+        () => (
+          <div className="px-3 py-2 text-sm text-foreground">
+            <span className="font-medium">{displayPartnerName}</span> moved to <span className="font-semibold">{effectivePartnerValue}/10</span>
+          </div>
+        ),
+        { id: 'live-slider', duration: 2000 },
+      );
+      prevPartnerSliderRef.current = effectivePartnerValue;
+    }
+  }, [effectivePartnerValue, freePhase, displayPartnerName]);
+
   // ── Derived values ─────────────────────────────────────────────────────
 
   const rounds: FreeRoundRecord[] = liveState.freeRounds ?? [];
@@ -134,6 +160,11 @@ export function FreeModeView({
   // ── Success phase ──────────────────────────────────────────────────────
 
   if (freePhase === 'success') {
+    // P592: Dual-ack — show waiting state if I already clicked but partner hasn't
+    const myAck = isCreator
+      ? liveState.celebrationAcknowledgedByCreator === true
+      : liveState.celebrationAcknowledgedByJoiner === true;
+
     return (
       <FreeModeSuccess
         partnerName={displayPartnerName}
@@ -142,6 +173,7 @@ export function FreeModeView({
         storyTitle={storyTitle}
         onDiscussAnother={onDiscussAnother}
         onEndSession={onEndSession}
+        isWaiting={myAck}
       />
     );
   }
@@ -195,20 +227,20 @@ export function FreeModeView({
               </div>
             ))}
 
-            {/* Live-updating row */}
+            {/* Live-updating row — blue dots to distinguish from committed rounds */}
             <div className="space-y-1 pt-1">
               <div className="flex items-center justify-between text-sm">
                 <span className="text-muted-foreground flex-1">
                   {isChecker ? `${displayPartnerName}'s confidence` : 'Your confidence'}
                 </span>
-                <DotBar value={liveListenerConfidence} />
+                <DotBar value={liveListenerConfidence} filledClass="text-blue-500" />
                 <span className="font-medium tabular-nums w-6 text-right ml-1">{liveListenerConfidence}</span>
               </div>
               <div className="flex items-center justify-between text-sm">
                 <span className="font-semibold text-foreground flex-1">
                   {isChecker ? 'Your belief' : `${displayPartnerName}'s belief`}
                 </span>
-                <DotBar value={liveSpeakerBelief} />
+                <DotBar value={liveSpeakerBelief} filledClass="text-blue-500" />
                 <span className="font-medium tabular-nums w-6 text-right ml-1">{liveSpeakerBelief}</span>
               </div>
             </div>
