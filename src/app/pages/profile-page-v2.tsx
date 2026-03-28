@@ -31,6 +31,7 @@ import {
   Trash2,
   ScrollText,
   Loader2,
+  ImagePlus,
 } from "lucide-react";
 import { ClarityPageLoader } from "@/components/ui/clarity-loader";
 import { GravatarAvatar } from "@/components/ui/gravatar-avatar";
@@ -62,6 +63,7 @@ import {
 import { InlineVisibilityIcon } from "@/app/components/shared/visibility-badge";
 import { TagPills } from '@/app/components/shared/tag-pills';
 import { StoryImage } from '@/app/components/shared/story-image';
+import { uploadStoryImage } from '@/app/data/story-image-service';
 import { stripHashtags, extractHashtags } from '@/lib/utils';
 import type { PositionType, StoryVisibility } from "@/app/types";
 import type { Position } from "@/app/components/shared/prototype-types";
@@ -1105,13 +1107,16 @@ function StoryCardFull({
   onUpdate,
 }: StoryCardFullProps) {
   const navigate = useNavigate();
+  const { session } = useAuth();
   const [pointsExpanded, setPointsExpanded] = useState(false);
   const [storyExpanded, setStoryExpanded] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editContent, setEditContent] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+  const [localImageUrl, setLocalImageUrl] = useState<string | undefined>(story.imageUrl ?? undefined);
   const editTextareaRef = useRef<HTMLTextAreaElement>(null);
+  const imageInputRef = useRef<HTMLInputElement>(null);
 
   const handleEditStart = () => {
     setEditContent(story.content);
@@ -1145,6 +1150,53 @@ function StoryCardFull({
     }
   };
 
+  // P591: Image handlers (author only) — immediate operations, not part of text draft
+  const handleChangeImage = useCallback(() => {
+    imageInputRef.current?.click();
+  }, []);
+
+  const handleRemoveImage = useCallback(async () => {
+    const previousUrl = localImageUrl;
+    setLocalImageUrl(undefined);
+    try {
+      await storiesService.updateStory(story.id, { imageUrl: null });
+      toast('Image removed', {
+        duration: 5000,
+        action: {
+          label: 'Undo',
+          onClick: async () => {
+            setLocalImageUrl(previousUrl);
+            await storiesService.updateStory(story.id, { imageUrl: previousUrl });
+          },
+        },
+      });
+      analytics.track('story_image_removed', { story_id: story.id });
+    } catch {
+      setLocalImageUrl(previousUrl);
+      toast.error('Failed to remove image. Please try again.');
+    }
+  }, [story.id, localImageUrl]);
+
+  const handleImageFileSelected = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (imageInputRef.current) imageInputRef.current.value = '';
+    if (!file || !session?.access_token) return;
+
+    try {
+      const publicUrl = await uploadStoryImage(story.id, file, session.access_token);
+      await storiesService.updateStory(story.id, { imageUrl: publicUrl });
+      setLocalImageUrl(publicUrl);
+      toast.success('Image updated');
+      analytics.track('story_image_changed', { story_id: story.id });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Upload failed';
+      if (message.includes('format') || message.includes('5MB')) {
+        toast.error('Please use JPEG, PNG, or WebP format (max 5MB)');
+      } else {
+        toast.error('Failed to upload image. Please try again.');
+      }
+    }
+  }, [story.id, session?.access_token]);
 
   const handleCardClick = () => {
     if (isEditing) return;
@@ -1155,6 +1207,19 @@ function StoryCardFull({
   const strippedContent = stripHashtags(story.content, story.tags);
 
   return (
+    <>
+    {/* P591: Hidden file input for image upload/change */}
+    {currentUserId === story.authorId && (
+      <input
+        ref={imageInputRef}
+        type="file"
+        accept="image/jpeg,image/png,image/webp,image/heic,.heic,.HEIC"
+        className="hidden"
+        onChange={handleImageFileSelected}
+        tabIndex={-1}
+        aria-hidden="true"
+      />
+    )}
     <div
       role="button"
       tabIndex={0}
@@ -1223,6 +1288,24 @@ function StoryCardFull({
             {/* Story text / inline edit */}
             {isEditing ? (
               <div role="presentation" onClick={(e) => e.stopPropagation()} className="space-y-2">
+                {/* P591: Image controls in edit mode — changes are immediate, not part of text draft */}
+                {localImageUrl ? (
+                  <StoryImage
+                    src={localImageUrl}
+                    authorName={author.name}
+                    onChangeImage={handleChangeImage}
+                    onRemoveImage={handleRemoveImage}
+                  />
+                ) : (
+                  <button
+                    type="button"
+                    onClick={handleChangeImage}
+                    className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    <ImagePlus size={18} />
+                    Add image
+                  </button>
+                )}
                 <Textarea
                   ref={editTextareaRef}
                   value={editContent}
@@ -1246,10 +1329,10 @@ function StoryCardFull({
               </div>
             ) : (
               <>
-                {story.imageUrl && (
+                {localImageUrl && (
                   <div className="mb-2">
                     <StoryImage
-                      src={story.imageUrl}
+                      src={localImageUrl}
                       authorName={author.name}
                       onClick={() => navigate(detailRoutes.story(story.id))}
                     />
@@ -1412,6 +1495,7 @@ function StoryCardFull({
         </div>
       )}
     </div>
+    </>
   );
 }
 
