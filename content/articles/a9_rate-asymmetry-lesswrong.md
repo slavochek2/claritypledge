@@ -84,6 +84,7 @@ Nobody has framed this as a **rate asymmetry** between two measurable quantities
 
 - Claude conversations Mar 14-15: thesis development, falsification testing, prior art survey
 - Claude conversations Mar 26-27: verification chain falsification (link-by-link), Habermas lineage, uniqueness audit vs ~50 groups, meta-protocol scope, "accurate disagreement" framing, Rapoport norm vs protocol distinction
+- Claude conversation Mar 28: **Illusion of common knowledge** — Pinker has two states (shared, common); third state identified: the *illusion of common knowledge* (both believe they have CK but don't). This is the default for natural language comprehension. Sharp claim for the article lead: "Pinker identifies two states. There is a third — the illusion of common knowledge — and it is the default state of human communication." Four-state model (private → falsely common → shared → common). Boundary condition: shared-not-common is adaptive short-loop, pathological long-loop. Literature: Fischhoff (hindsight bias), Rozenblit & Keil 2002 (illusion of explanatory depth), Lau et al. 2022 (extreme illusion of understanding — self-concealing). Consider leading with the illusion of CK as the hook, with rate asymmetry as the *consequence*.
 - a7_the-construct-nobody-measured.md (merged)
 - a8_seven-points-understanding.md (merged)
 - theory-of-change.md — Rate Asymmetry Thesis section

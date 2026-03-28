@@ -140,7 +140,7 @@ Waiting on upstream hypotheses. Each entry lists what must happen before testing
 ---
 
 #### H-MetaEpistemic-Prerequisite: Meta-epistemological briefing deepens sessions
-**Bet:** If both participants understand the WHY (8 postulates) before a session, depth increases.
+**Bet:** If both participants understand the WHY (8 postulates — specifically the four epistemic states: private, falsely common, shared, common) before a session, depth increases.
 **Kill if:** Unbriefed sessions reach equal depth, OR briefing is off-putting.
 **Blocked by:** H-PairsReturn. Test passively — A/B briefed vs unbriefed.
 
