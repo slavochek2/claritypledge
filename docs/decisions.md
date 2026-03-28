@@ -2,6 +2,14 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-28 [process]: Deploy manifest gap — migrate.sh doesn't stamp, /ship can miss new functions
+
+**Context:** 20 "Check Deploy Drift" failure emails accumulated over 2 days. Root cause: two items drifted. (1) `generate-story-image-url` edge function (P591) was deployed and working in prod for weeks but never stamped in the manifest — `/ship` missed it. (2) P592 hashtag trigger migration was applied to prod DB but `migrate.sh` doesn't call `stamp-deploy-manifest.sh`, so the manifest stayed stale. The CI check fires on every push to main with no dedup, so each commit generated another failure email.
+**Decision:** Fixed immediately by running deploy + stamp scripts. Identified two process gaps to address: (1) `migrate.sh` should call `stamp-deploy-manifest.sh --migrations-only` after successful apply. (2) The CI drift check should cache its failure state and not re-notify for the same drift items on consecutive pushes (or at minimum, batch into a daily digest). (Status: proposed)
+**Alternatives rejected:** (1) Disable the drift check — defeats the purpose, P504 showed why it exists. (2) Gmail filter to auto-archive — treats symptom, not cause.
+**Consequences:** Until `migrate.sh` auto-stamps, every prod migration requires a manual `stamp-deploy-manifest.sh --env prod` or running deploy-functions.sh which stamps as a side effect. The 20-email flood pattern will recur whenever drift exists and commits continue landing on main.
+**References:** [check-deploy-drift.yml](.github/workflows/check-deploy-drift.yml), [migrate.sh](scripts/migrate.sh), [stamp-deploy-manifest.sh](scripts/stamp-deploy-manifest.sh)
+
 ## 2026-03-28 [technical]: Image lightbox — click-to-enlarge for all user images
 
 **Context:** Profile photos and story images had inconsistent click behavior. Profile photos (96px Google OAuth thumbnails) had no click interaction. Story images opened lightbox for readers but not for authors (author mode disabled click to avoid conflicting with Change/Remove overlay).
