@@ -2,6 +2,13 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-28 [technical]: Image lightbox — click-to-enlarge for all user images
+
+**Context:** Profile photos and story images had inconsistent click behavior. Profile photos (96px Google OAuth thumbnails) had no click interaction. Story images opened lightbox for readers but not for authors (author mode disabled click to avoid conflicting with Change/Remove overlay).
+**Decision:** Three changes: (1) Profile photos on profile page open `ImageLightbox` on click. Google URLs get upscaled from `=s96-c` to `=s400` via regex (only for `googleusercontent.com` URLs — safe for future non-Google avatars). (2) Story images now always open lightbox, including in author mode — the Change/Remove buttons are separate overlay elements that don't conflict. (3) `ImageLightbox` got an optional `eventName` prop (default: `story_image_viewed`) so profile photos track as `profile_photo_viewed`.
+**Alternatives rejected:** Adding lightbox to small avatars in feed cards (too small, surprising UX). URL upscaling via `=s0` (full resolution — works but unnecessarily large). Modifying `GravatarAvatar` component itself (too broad — lightbox is a profile-page concern, not a generic avatar concern).
+**Consequences:** Any future image that needs enlarging imports `ImageLightbox` + adds open/close state — 5-line pattern. No new abstraction needed. Google photo URL pattern (`=sN`) is documented for future reference.
+
 ## 2026-03-28 [product]: Understanding calibration visual framework — four quadrants of knowing
 
 **Context:** Designing story images required a visual framework for the calibration point ("My estimates of how well I understand others are unreliable"). Multiple approaches explored (pie chart, 2x2 matrix, Venn diagram, stacked bars). The core insight: understanding has four states based on two axes (understand/don't understand × know it/don't know it).
@@ -16,12 +23,12 @@ Append-only log of architectural and product decisions. Newest entries at top.
 **Alternatives rejected:** Keep per-caller maxHeight (inconsistent), use object-contain (wastes space on non-matching aspect ratios), 16:9 (too cinematic for infographics).
 **Consequences:** All story images must be generated in 4:3 landscape. Portrait images get cropped by object-cover. The `/story-to-image` skill enforces this. Images with internal padding/borders look wrong — prompt must specify "pure white, no card, no border."
 
-## 2026-03-28 [technical]: Story tag duplicate st2 — minimal fix, full renumber deferred
+## 2026-03-28 [technical]: Full story tag renumber — st5-st9 cascade after st2→st5 fix
 
-**Context:** Story `86d57f0f` (calibration, display position 2) had no tags. Story `079eb4e5` (24h ultimatum, display position 5) had tag `st2`. The st-tags were assigned by authoring order, not display order, causing mismatch.
-**Decision:** Added `["st2", "understanding"]` to `86d57f0f`. Did NOT remove st2 from `079eb4e5` — left as duplicate. `/story-to-image st2` returns first match which is correct (86d57f0f by created_at). Full renumber (st5-st7 shift) deferred — not worth the churn for 7 stories. (Status: proposed)
-**Alternatives rejected:** Full renumber all tags (touches 4 stories + article map + potentially blog embeds), remove st2 from 079eb4e5 without replacement (leaves it unaddressable).
-**Consequences:** Two stories have st2 tag. Skill works because it picks first by created_at. If story ordering changes or new stories are inserted, this will break. Renumber when it becomes a problem.
+**Context:** Story `079eb4e5` (24h ultimatum, display position 5) had tag `st2` — left over from the Mar 26 renumber that wasn't fully applied. Fixing it to `st5` created a duplicate with the existing st5 story (`b5e50000`). All subsequent stories needed +1 shift. Points were already correctly numbered st1-st9 from the Mar 26 session — only story tags were stale.
+**Decision:** Full cascade on prod and test: `079eb4e5` st2→st5, `b5e50000` st5→st6, `c4e438b5` st6→st7, `7293c1d6` added st8 (had only "partners"), `b5e70000` st7→st9. Updated both `content` hashtags and `tags` arrays. Points unchanged (already correct).
+**Alternatives rejected:** Leaving as duplicate st2 (prior session's "minimal fix" approach) — broke when user noticed the feed showing wrong tag.
+**Consequences:** Clean st1-st9 on both stories and points. The Mar 28 "minimal fix, full renumber deferred" decision entry is now superseded.
 
 ## 2026-03-28 [technical]: Single image upload path — GCS header bug killed the duplicate
 
