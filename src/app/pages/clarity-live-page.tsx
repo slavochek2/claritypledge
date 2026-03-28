@@ -1031,6 +1031,23 @@ export function ClarityLivePage() {
         const mergedState = { ...DEFAULT_LIVE_STATE, ...updatedSession.liveState } as LiveSessionState;
         setLiveState(mergedState);
         confirmedLiveStateRef.current = mergedState;
+      } else if (updatedSession.liveState && updateInFlightRef.current) {
+        // P562: Even during in-flight writes, merge position + slider keys from Realtime.
+        // These are per-participant top-level keys — partner's writes never conflict with ours.
+        // Without this, partner's position/slider changes are dropped until next non-blocked delivery.
+        const incoming = updatedSession.liveState as Record<string, unknown>;
+        const positionKeys = ['livePositionsCreator', 'livePositionsJoiner', 'freeSliderCreator', 'freeSliderJoiner'] as const;
+        const partnerUpdates: Partial<LiveSessionState> = {};
+        let hasPartnerUpdate = false;
+        for (const key of positionKeys) {
+          if (key in incoming && incoming[key] !== undefined) {
+            (partnerUpdates as Record<string, unknown>)[key] = incoming[key];
+            hasPartnerUpdate = true;
+          }
+        }
+        if (hasPartnerUpdate) {
+          setLiveState(prev => ({ ...prev, ...partnerUpdates }));
+        }
       }
 
       // When joiner joins, move to live view

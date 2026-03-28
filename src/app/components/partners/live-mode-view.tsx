@@ -1278,7 +1278,7 @@ function IdleScreen({
       )}
 
       {/* P562: Mode pill toggle — visible only on idle entry screen, hidden during rounds */}
-      {onSessionModeChange && !showRatingDrawer && !waitingForPartnerToContinue && liveState.ratingPhase === 'idle' && !liveState.freePhase && (
+      {onSessionModeChange && !showRatingDrawer && !waitingForPartnerToContinue && liveState.ratingPhase === 'idle' && !liveState.freePhase && !liveState.checkerName && !liveState.ratingInitiatedBy && (
         <div className="flex justify-center py-4">
           <div className="inline-flex bg-gray-100 rounded-full p-1 text-sm">
             <button
