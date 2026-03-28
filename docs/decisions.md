@@ -2,13 +2,13 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
-## 2026-03-28 [process]: Deploy manifest gap — migrate.sh doesn't stamp, /ship can miss new functions
+## 2026-03-28 [process]: Deploy drift email flood — per-push CI check generates duplicate notifications
 
-**Context:** 20 "Check Deploy Drift" failure emails accumulated over 2 days. Root cause: two items drifted. (1) `generate-story-image-url` edge function (P591) was deployed and working in prod for weeks but never stamped in the manifest — `/ship` missed it. (2) P592 hashtag trigger migration was applied to prod DB but `migrate.sh` doesn't call `stamp-deploy-manifest.sh`, so the manifest stayed stale. The CI check fires on every push to main with no dedup, so each commit generated another failure email.
-**Decision:** Fixed immediately by running deploy + stamp scripts. Identified two process gaps to address: (1) `migrate.sh` should call `stamp-deploy-manifest.sh --migrations-only` after successful apply. (2) The CI drift check should cache its failure state and not re-notify for the same drift items on consecutive pushes (or at minimum, batch into a daily digest). (Status: proposed)
-**Alternatives rejected:** (1) Disable the drift check — defeats the purpose, P504 showed why it exists. (2) Gmail filter to auto-archive — treats symptom, not cause.
-**Consequences:** Until `migrate.sh` auto-stamps, every prod migration requires a manual `stamp-deploy-manifest.sh --env prod` or running deploy-functions.sh which stamps as a side effect. The 20-email flood pattern will recur whenever drift exists and commits continue landing on main.
-**References:** [check-deploy-drift.yml](.github/workflows/check-deploy-drift.yml), [migrate.sh](scripts/migrate.sh), [stamp-deploy-manifest.sh](scripts/stamp-deploy-manifest.sh)
+**Context:** 20 "Check Deploy Drift" failure emails accumulated over 2 days. Two items drifted: (1) `generate-story-image-url` edge function (P591) was deployed via direct `supabase functions deploy` instead of the wrapper `deploy-functions.sh`, so the manifest was never stamped. (2) P592 hashtag trigger migration was merged to main but not yet run on prod — expected lag, but the check fires on every push. The drift detection system works correctly; the problem was per-push notification generating 20+ identical emails for the same drift items.
+**Decision:** (1) Fixed drift immediately by running deploy + stamp scripts. (2) Changed CI workflow from `on: push` to daily schedule (`cron: 0 6 * * *`) + `workflow_dispatch` for manual runs. One email per day max, manual trigger when needed. (3) Key learning: always use `deploy-functions.sh` wrapper (not raw `supabase functions deploy`) — the wrapper stamps the manifest.
+**Alternatives rejected:** (1) Disable the drift check — defeats the purpose, P504 showed why it exists. (2) Gmail filter to auto-archive — treats symptom, not cause. (3) Per-push with dedup caching — overengineered for the frequency of drift.
+**Consequences:** Drift is now checked daily instead of per-push. Drift that persists >24h gets one email/day. Trade-off: drift introduced and fixed within the same day won't be caught by CI (but `/ship` still checks before merging).
+**References:** [check-deploy-drift.yml](.github/workflows/check-deploy-drift.yml), [deploy-functions.sh](scripts/deploy-functions.sh), [stamp-deploy-manifest.sh](scripts/stamp-deploy-manifest.sh)
 
 ## 2026-03-28 [technical]: Image lightbox — click-to-enlarge for all user images
 
