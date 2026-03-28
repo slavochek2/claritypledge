@@ -10,7 +10,7 @@ flow: dev
 created_date: 2026-03-28T00:00:00.000Z
 ---
 
-# P592: Free Mode Polish — Exit Consistency + Visual Feedback
+# P600: Free Mode Polish — Exit Consistency + Visual Feedback
 
 **Depends on:** P562 (free mode core, on branch `prototype/p562-new-live` in w2)
 **Priority:** Ship-blocker for P562 — these are functional gaps, not nice-to-haves

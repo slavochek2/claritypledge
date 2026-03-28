@@ -23,8 +23,8 @@ Append-only log of architectural and product decisions. Newest entries at top.
 **Context:** First P562 implementation built a parallel phase engine (sealed-bid → reveal → "I paraphrased" → sliders). UAT showed this was wrong — the simplified paraphrase step lost the explain-back quality that makes calibration work. The "structured start" needs to be the real thing, not a shortcut.
 **Decision:** Free mode reuses guided mode's entire first round unchanged (sealed bid → reveal → explain-back → "Done explaining"). Divergence happens in `handleExplainBackDone`: when `sessionMode !== 'guided'`, transition to `freePhase: 'unlocked'` with continuous sliders. No speaker re-rating step in free mode — sliders replace it.
 **Alternatives rejected:** (1) Separate FreeModeView for all phases — duplicated 2400 lines of battle-tested state machine. (2) Intercept at `handleCelebrationComplete` (after full guided round including speaker re-rate) — too late, the re-rating step is redundant when sliders follow immediately.
-**Consequences:** FreeModeView stripped to ~230 lines (unlocked + success only). ~300 lines of duplicate phase rendering deleted. Free mode inherits all guided mode fixes automatically. Polish tracked in P592.
-**References:** [P562](../features/p562_live_simplification.md), [P592](../features/p592_free_mode_polish.md)
+**Consequences:** FreeModeView stripped to ~230 lines (unlocked + success only). ~300 lines of duplicate phase rendering deleted. Free mode inherits all guided mode fixes automatically. Polish tracked in P600.
+**References:** [P562](../features/p562_live_simplification.md), [P600](../features/p592_free_mode_polish.md)
 
 ## 2026-03-28 [technical]: JSONB shallow merge — per-participant top-level keys for concurrent writes
 
@@ -36,7 +36,7 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ## 2026-03-28 [process]: Deploy drift email flood — per-push CI check generates duplicate notifications
 
-**Context:** 20 "Check Deploy Drift" failure emails accumulated over 2 days. Two items drifted: (1) `generate-story-image-url` edge function (P591) was deployed via direct `supabase functions deploy` instead of the wrapper `deploy-functions.sh`, so the manifest was never stamped. (2) P592 hashtag trigger migration was merged to main but not yet run on prod — expected lag, but the check fires on every push. The drift detection system works correctly; the problem was per-push notification generating 20+ identical emails for the same drift items.
+**Context:** 20 "Check Deploy Drift" failure emails accumulated over 2 days. Two items drifted: (1) `generate-story-image-url` edge function (P591) was deployed via direct `supabase functions deploy` instead of the wrapper `deploy-functions.sh`, so the manifest was never stamped. (2) P600 hashtag trigger migration was merged to main but not yet run on prod — expected lag, but the check fires on every push. The drift detection system works correctly; the problem was per-push notification generating 20+ identical emails for the same drift items.
 **Decision:** (1) Fixed drift immediately by running deploy + stamp scripts. (2) Changed CI workflow from `on: push` to daily schedule (`cron: 0 6 * * *`) + `workflow_dispatch` for manual runs. One email per day max, manual trigger when needed. (3) Key learning: always use `deploy-functions.sh` wrapper (not raw `supabase functions deploy`) — the wrapper stamps the manifest.
 **Alternatives rejected:** (1) Disable the drift check — defeats the purpose, P504 showed why it exists. (2) Gmail filter to auto-archive — treats symptom, not cause. (3) Per-push with dedup caching — overengineered for the frequency of drift.
 **Consequences:** Drift is now checked daily instead of per-push. Drift that persists >24h gets one email/day. Trade-off: drift introduced and fixed within the same day won't be caught by CI (but `/ship` still checks before merging).
@@ -99,15 +99,15 @@ Append-only log of architectural and product decisions. Newest entries at top.
 **Context:** `doc-detail-page.tsx` rendered `StoryCardDetail` without `isDetailView`, so points were truncated to 3 with "+N more" on a page where all points should show. Same component works correctly on `story-detail-page.tsx` which passes `isDetailView={true}`.
 **Decision:** Fixed by adding `isDetailView` prop to doc-detail-page. The root cause is that `isDetailView` defaults to `false` (truncate) — safe for list views but silently wrong for detail views. Flipping the default to `true` was considered but rejected: it would change behavior for test renders and list-view consumers that rely on the current default. Instead, treat this as a known footgun: any new detail-page consumer of `StoryCardDetail` must pass `isDetailView`.
 **Alternatives rejected:** Flip default to `true` (breaks test assumptions, requires auditing all callers). Infer from React context or router (over-engineering for a 2-caller component).
-**Consequences:** Watch for this pattern when adding new detail pages that embed `StoryCardDetail`. Same class of bug as the P592 trigger decision — N call sites must remember a prop.
+**Consequences:** Watch for this pattern when adding new detail pages that embed `StoryCardDetail`. Same class of bug as the P600 trigger decision — N call sites must remember a prop.
 
-## 2026-03-27 [technical]: DB trigger as safety net for derived columns — P592 hashtag fix
+## 2026-03-27 [technical]: DB trigger as safety net for derived columns — P600 hashtag fix
 
 **Context:** P506 added `extractHashtags()` on story creation, but 2 of 3 `updateStory` call sites (story-detail-page, StoryGuideChat) never passed tags on edit. Tags were frozen at creation time. 226 stories had stale tags in prod.
 **Decision:** Two-layer fix: (1) add `extractHashtags()` to all client update paths, (2) add a Postgres BEFORE trigger (`trg_stories_extract_hashtags`) that auto-extracts tags from `content` on every INSERT/UPDATE. The trigger makes client-side tag extraction a nice-to-have, not a requirement — future call sites can't forget.
 **Alternatives rejected:** Client-only fix (same bug class recurs on every new update path). DB-only trigger without client fix (tags would flicker — client sends empty tags, trigger overwrites).
 **Consequences:** The `tags` column on `stories` is now fully derived from `content` via trigger. Client-side `extractHashtags()` is redundant but harmless. Pattern applies to any derived column: if N call sites must all remember to compute it, move the computation to a trigger.
-**References:** [P592 spec](features/done/27_mar_27/p592_fix_hashtag_update.md), [P506 spec](features/done/22_mar_26/p506_auto_extract_hashtags.md)
+**References:** [P600 spec](features/done/27_mar_27/p592_fix_hashtag_update.md), [P506 spec](features/done/22_mar_26/p506_auto_extract_hashtags.md)
 
 ## 2026-03-27 [process]: Pre-commit tsc check is a no-op — P591 hotfix
 
