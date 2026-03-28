@@ -2,6 +2,22 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-28 [technical]: Duplicate inline edit paths — story-detail vs profile page
+
+**Context:** P591 shipped story image support (create + view-mode edit). When user reported "can't add/change image in edit mode," the fix was applied to `story-detail-page.tsx` only. A second report revealed `profile-page-v2.tsx` has an independent `StoryCardFull` with its own inline edit (textarea + save/cancel) — never updated after P591. 5-why root cause: no shared `StoryEditForm` component; each page built its own ad-hoc.
+**Decision:** Fix both surfaces now (copy pattern), defer shared component extraction. The two edit UIs have different contexts (full-page vs card-inline) that justify some divergence. If a third edit surface appears, extract then.
+**Alternatives rejected:** (1) Extract shared component now — overhead for 2 consumers with slightly different UX; (2) Remove profile inline edit entirely (force navigate to story detail) — worse UX, more clicks.
+**Consequences:** Profile page `StoryCardFull` uses `localImageUrl` state with `useEffect` sync from props (review agent caught the prop-sync bug). Next new story edit capability must check BOTH files. Consider extracting `StoryImageEditor` if a third surface appears.
+**References:** `src/app/pages/story-detail-page.tsx`, `src/app/pages/profile-page-v2.tsx`
+
+## 2026-03-28 [technical]: Edge function CORS — ALLOWED_ORIGIN port mismatch
+
+**Context:** Image upload consistently failed on test with "Failed to upload image" toast. Investigation showed CORS preflight (OPTIONS) succeeded but POST got "Failed to fetch." Root cause: `ALLOWED_ORIGIN` secret on test project was set to `http://localhost:5300` but dev server runs on port 5001.
+**Decision:** Accept as test-only issue. Prod works (domain matches). Fix by updating test secret to `*` or matching port. The edge function's CORS design (single `ALLOWED_ORIGIN` string) doesn't support multiple origins — acceptable for now since prod has exactly one origin.
+**Alternatives rejected:** (1) Dynamic CORS with origin allowlist — over-engineering for one prod domain; (2) Remove CORS entirely (`*` on prod) — security regression.
+**Consequences:** When changing dev server port or setting up a new test environment, remember to update `ALLOWED_ORIGIN` on the Supabase project. Document in `.env.test.local.example` or setup guide.
+**References:** `supabase/functions/generate-story-image-url/index.ts` line 29
+
 ## 2026-03-27 [technical]: StoryCardDetail isDetailView default footgun
 
 **Context:** `doc-detail-page.tsx` rendered `StoryCardDetail` without `isDetailView`, so points were truncated to 3 with "+N more" on a page where all points should show. Same component works correctly on `story-detail-page.tsx` which passes `isDetailView={true}`.
