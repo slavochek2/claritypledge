@@ -73,7 +73,10 @@ export async function uploadStoryImage(
   try {
     const uploadResponse = await fetch(signedUrlResponse.signedUrl, {
       method: 'PUT',
-      headers: { 'Content-Type': result.blob.type },
+      headers: {
+        'Content-Type': result.blob.type,
+        'x-goog-content-length-range': '1,5242880',
+      },
       body: result.blob,
       signal: uploadController.signal,
     });

@@ -22,6 +22,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { analytics } from '@/lib/mixpanel';
 import { ChatContextHeader } from '@/app/components/story-guide/ChatContextHeader';
 import { ImageUploadWidget } from '@/app/components/shared/image-upload-widget';
+import { uploadStoryImage } from '@/app/data/story-image-service';
 
 /** Soft character marker — not a hard limit, just the sweet spot for verification */
 const CHAR_SOFT_MARKER = 280;
@@ -196,68 +197,13 @@ export function CreateStoryPage() {
       let imageUploadFailed = false;
       if (imageBlob) {
         try {
-          // Get a fresh token — the React state `session` may be stale after createStory()
+          // Get a fresh token — React state `session` may be stale after createStory()
           const { data: { session: freshSession } } = await supabase.auth.getSession();
           const token = freshSession?.access_token;
           if (!token) throw new Error('No auth session for image upload');
 
-          const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-          const edgeFunctionUrl = `${supabaseUrl}/functions/v1/generate-story-image-url`;
-
-          // Step 1: Get signed URL from edge function
-          const controller = new AbortController();
-          const timeoutId = setTimeout(() => controller.abort(), 10000);
-          let signedUrl: string;
-          let publicUrl: string;
-          try {
-            const contentType = imageBlob.type || 'image/jpeg';
-            const reqBody = {
-              storyId: story.id,
-              contentType,
-              fileName: 'story-image',
-            };
-            const response = await fetch(edgeFunctionUrl, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                Authorization: `Bearer ${token}`,
-              },
-              body: JSON.stringify(reqBody),
-              signal: controller.signal,
-            });
-            if (!response.ok) {
-              const errBody = await response.text();
-              console.error('[P591] Edge function error:', response.status, errBody);
-              throw new Error(`Signed URL request failed: ${response.status}`);
-            }
-            const urlData = await response.json();
-            signedUrl = urlData.signedUrl;
-            publicUrl = urlData.publicUrl;
-          } finally {
-            clearTimeout(timeoutId);
-          }
-
-          // Step 2: PUT processed blob to GCS
-          const uploadController = new AbortController();
-          const uploadTimeoutId = setTimeout(() => uploadController.abort(), 30000);
-          try {
-            const uploadResponse = await fetch(signedUrl, {
-              method: 'PUT',
-              headers: {
-                'Content-Type': imageBlob.type || 'image/jpeg',
-                'x-goog-content-length-range': '1,5242880',
-              },
-              body: imageBlob,
-              signal: uploadController.signal,
-            });
-            if (!uploadResponse.ok) {
-              throw new Error(`Image upload failed: ${uploadResponse.status}`);
-            }
-          } finally {
-            clearTimeout(uploadTimeoutId);
-          }
-
-          // Step 3: Update story with public image URL
+          const file = new File([imageBlob], 'story-image', { type: imageBlob.type || 'image/jpeg' });
+          const publicUrl = await uploadStoryImage(story.id, file, token);
           await storiesService.updateStory(story.id, { imageUrl: publicUrl });
           analytics.track('story_image_uploaded', { story_id: story.id });
         } catch (err) {
