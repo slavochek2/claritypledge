@@ -2,6 +2,14 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-28 [technical]: Single image upload path — GCS header bug killed the duplicate
+
+**Context:** Image upload from edit mode failed on prod with "Failed to upload image." Create flow worked. 5-why traced to `story-image-service.ts` missing the `x-goog-content-length-range` header in the GCS PUT — the exact same bug documented in P591 decisions, but in a second code path that was written independently. The create flow had its own 70-line inline upload with the header included. Two paths for the same operation = one had the bug, one didn't.
+**Decision:** Consolidated to single upload path. Deleted 59 lines of inline upload from `create-story-page.tsx`. All image uploads now go through `uploadStoryImage()` in `story-image-service.ts`. Create flow wraps the pre-processed blob in a File object and passes it to the same service.
+**Alternatives rejected:** (1) Just add the missing header (1-line fix) — would leave the duplicate code paths, guaranteeing the next divergence bug; (2) Keep both paths and add a shared constants file for headers — unnecessary indirection.
+**Consequences:** Any future image upload change (new format, size limit, GCS bucket) requires editing ONE file. The P591 GCS header lesson was already documented but recurred because a second code path existed. Pattern: "if a bug was already documented and recurs, the root cause is code duplication, not missing knowledge."
+**References:** `src/app/data/story-image-service.ts`, `src/app/pages/create-story-page.tsx`
+
 ## 2026-03-28 [technical]: Duplicate inline edit paths — story-detail vs profile page
 
 **Context:** P591 shipped story image support (create + view-mode edit). When user reported "can't add/change image in edit mode," the fix was applied to `story-detail-page.tsx` only. A second report revealed `profile-page-v2.tsx` has an independent `StoryCardFull` with its own inline edit (textarea + save/cancel) — never updated after P591. 5-why root cause: no shared `StoryEditForm` component; each page built its own ad-hoc.
