@@ -667,7 +667,6 @@ export function LiveModeView({
           onSpeakFreely={() => handleRequestSkip('good-enough')}
           onRoundComplete={onFreeRoundComplete as () => void}
           onDiscussAnother={onFreeDiscussAnother as () => void}
-          onEndSession={onExitMeeting}
           storyTitle={freeStoryTitle}
           selectedStory={selectedStory}
         />

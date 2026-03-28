@@ -1431,6 +1431,11 @@ export function ClarityLivePage() {
       speakerSawExplainBackDone: false,
       explainBackRound: 0,
       explainBackRatings: [],
+      // P600: Clear content selection so idle screen shows fresh
+      selectedStoryId: undefined,
+      selectedStoryData: undefined,
+      selectedPointId: undefined,
+      selectedContentTitle: undefined,
     });
   }, [updateLiveState]);
 
@@ -1472,6 +1477,11 @@ export function ClarityLivePage() {
         celebrationAcknowledgedByCreator: false,
         celebrationAcknowledgedByJoiner: false,
         celebrationAcknowledgedBy: [],
+        // P600: Clear content selection so idle screen shows fresh
+        selectedStoryId: undefined,
+        selectedStoryData: undefined,
+        selectedPointId: undefined,
+        selectedContentTitle: undefined,
       });
     } else {
       // Just set my boolean — waiting for partner
@@ -2054,6 +2064,11 @@ export function ClarityLivePage() {
         celebrationAcknowledgedByCreator: false,
         celebrationAcknowledgedByJoiner: false,
         celebrationAcknowledgedBy: [],
+        // P600: Clear content selection so idle screen shows fresh
+        selectedStoryId: undefined,
+        selectedStoryData: undefined,
+        selectedPointId: undefined,
+        selectedContentTitle: undefined,
       });
     }
     if (!liveState.freePhase) {

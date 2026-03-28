@@ -15,7 +15,6 @@ import { getFirstName } from './shared';
 import { SliderTrack } from './slider-track';
 import { FreeModeSuccess } from './free-mode-success';
 import { LiveStoryCardExpanded } from './live-story-card-expanded';
-import { toast } from 'sonner';
 import type { StoryWithPoints } from '@/app/types';
 
 // ── DotBar helper ────────────────────────────────────────────────────────────
@@ -43,10 +42,8 @@ export interface FreeModeViewProps {
   onSpeakFreely: () => void;
   /** Round completed with 10/10 — write verification + return to success */
   onRoundComplete: () => void;
-  /** "Discuss another story" from success screen */
+  /** "Continue" from success screen (dual-ack pattern) */
   onDiscussAnother: () => void;
-  /** "End session" from success screen */
-  onEndSession: () => void;
   /** Story title for success screen */
   storyTitle?: string;
   /** Selected story to display during the round */
@@ -63,7 +60,6 @@ export function FreeModeView({
   onSpeakFreely,
   onRoundComplete,
   onDiscussAnother,
-  onEndSession,
   storyTitle,
   selectedStory,
 }: FreeModeViewProps) {
@@ -118,31 +114,6 @@ export function FreeModeView({
     };
   }, [bothAtTen, freePhase, onRoundComplete]);
 
-  // ── P592: Toast when partner moves slider ──────────────────────────────
-  const prevPartnerSliderRef = useRef<number | null>(null);
-  useEffect(() => {
-    if (freePhase !== 'unlocked') {
-      prevPartnerSliderRef.current = null;
-      return;
-    }
-    if (prevPartnerSliderRef.current === null) {
-      // First run — initialise without toasting
-      prevPartnerSliderRef.current = effectivePartnerValue;
-      return;
-    }
-    if (effectivePartnerValue !== prevPartnerSliderRef.current) {
-      toast.custom(
-        () => (
-          <div className="px-3 py-2 text-sm text-foreground">
-            <span className="font-medium">{displayPartnerName}</span> moved to <span className="font-semibold">{effectivePartnerValue}/10</span>
-          </div>
-        ),
-        { id: 'live-slider', duration: 2000 },
-      );
-      prevPartnerSliderRef.current = effectivePartnerValue;
-    }
-  }, [effectivePartnerValue, freePhase, displayPartnerName]);
-
   // ── Derived values ─────────────────────────────────────────────────────
 
   const rounds: FreeRoundRecord[] = liveState.freeRounds ?? [];
@@ -171,8 +142,7 @@ export function FreeModeView({
         isChecker={isChecker}
         rounds={rounds}
         storyTitle={storyTitle}
-        onDiscussAnother={onDiscussAnother}
-        onEndSession={onEndSession}
+        onContinue={onDiscussAnother}
         isWaiting={myAck}
       />
     );
@@ -185,16 +155,7 @@ export function FreeModeView({
       <div className="flex-1 flex flex-col justify-end px-4 pt-4">
         <div className="space-y-3 mb-4 max-w-sm mx-auto w-full">
 
-          {/* Story card (if selected) */}
-          {selectedStory && (
-            <LiveStoryCardExpanded
-              story={selectedStory}
-              isOwnStory={isChecker}
-              isGuest={false}
-              className="w-full max-w-sm mb-2"
-              defaultExpanded={false}
-            />
-          )}
+          {/* P600: Journey FIRST, story SECOND (same fix as P400 Bug 3 in guided mode) */}
 
           {/* Journey to Understand — committed rounds + live row */}
           <div className="bg-muted/50 border border-border rounded-lg p-4 text-left">
@@ -252,6 +213,17 @@ export function FreeModeView({
               </div>
             )}
           </div>
+
+          {/* Story card (if selected) — rendered AFTER Journey */}
+          {selectedStory && (
+            <LiveStoryCardExpanded
+              story={selectedStory}
+              isOwnStory={isChecker}
+              isGuest={false}
+              className="w-full max-w-sm mb-2"
+              defaultExpanded={false}
+            />
+          )}
         </div>
 
         {/* Drawer — continuous slider */}
