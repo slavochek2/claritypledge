@@ -350,7 +350,7 @@ export function LiveModeView({
   uploadHealth,
   onSessionModeChange,
   onFreeSliderChange,
-  onFreeSpeakFreely,
+  onFreeSpeakFreely: _onFreeSpeakFreely,
   onFreeRoundComplete,
   onFreeDiscussAnother,
   freeStoryTitle,
@@ -664,13 +664,15 @@ export function LiveModeView({
           partnerName={partnerName}
           isCreator={isCreator ?? false}
           onSliderChange={onFreeSliderChange}
-          onSpeakFreely={onFreeSpeakFreely as () => void}
+          onSpeakFreely={() => handleRequestSkip('good-enough')}
           onRoundComplete={onFreeRoundComplete as () => void}
           onDiscussAnother={onFreeDiscussAnother as () => void}
           onEndSession={onExitMeeting}
           storyTitle={freeStoryTitle}
           selectedStory={selectedStory}
         />
+        {/* Reuse guided mode's confirmation dialog for free mode "Speak freely" */}
+        {confirmSkipDialog}
       </div>
     );
   }
