@@ -2,6 +2,27 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-28 [product]: Understanding calibration visual framework — four quadrants of knowing
+
+**Context:** Designing story images required a visual framework for the calibration point ("My estimates of how well I understand others are unreliable"). Multiple approaches explored (pie chart, 2x2 matrix, Venn diagram, stacked bars). The core insight: understanding has four states based on two axes (understand/don't understand × know it/don't know it).
+**Decision:** Four quadrants: (1) Hidden misunderstanding — you don't understand and don't know it, (2) Unverified understanding — you understand and don't know it, (3) Visible misunderstanding — you don't understand and know it, (4) Verified understanding — you understand and know it. Visualized as two vertical side-by-side bars showing proportional inversion when you learn to verify. Red/gray/blue/green color mapping. This framework applies to point 3 in display order (story `86d57f0f`).
+**Alternatives rejected:** Pie chart (can't show comparison), 2x2 matrix with equal quadrants (Gemini can't render proportional sizes), horizontal stacked bars (harder to read labels), Venn diagram (conflates two different dimensions).
+**Consequences:** Framework is reusable for blog posts, presentations, and the manifesto. Green for "verified understanding" is a design system exception (green = success states only — and this qualifies). The "you" language (not "I") makes it reader-facing.
+
+## 2026-03-27 [technical]: StoryImage 4:3 standardization — unified aspect ratio across all callers
+
+**Context:** Story images displayed at different sizes across 9 callers (maxHeight: 120px, 160px, 200px, 400px). Portrait images wasted horizontal space. Landscape images got letterboxed inconsistently. Generated images needed to be re-generated for each display context.
+**Decision:** Removed all per-caller `maxHeight` props. `StoryImage` component now uses `aspect-ratio: 4/3` + `object-cover` as the universal display frame. All generated images must be 4:3 landscape, white background, max 1200px longest edge. Shipped to prod (8 files, -13/+4 lines).
+**Alternatives rejected:** Keep per-caller maxHeight (inconsistent), use object-contain (wastes space on non-matching aspect ratios), 16:9 (too cinematic for infographics).
+**Consequences:** All story images must be generated in 4:3 landscape. Portrait images get cropped by object-cover. The `/story-to-image` skill enforces this. Images with internal padding/borders look wrong — prompt must specify "pure white, no card, no border."
+
+## 2026-03-28 [technical]: Story tag duplicate st2 — minimal fix, full renumber deferred
+
+**Context:** Story `86d57f0f` (calibration, display position 2) had no tags. Story `079eb4e5` (24h ultimatum, display position 5) had tag `st2`. The st-tags were assigned by authoring order, not display order, causing mismatch.
+**Decision:** Added `["st2", "understanding"]` to `86d57f0f`. Did NOT remove st2 from `079eb4e5` — left as duplicate. `/story-to-image st2` returns first match which is correct (86d57f0f by created_at). Full renumber (st5-st7 shift) deferred — not worth the churn for 7 stories. (Status: proposed)
+**Alternatives rejected:** Full renumber all tags (touches 4 stories + article map + potentially blog embeds), remove st2 from 079eb4e5 without replacement (leaves it unaddressable).
+**Consequences:** Two stories have st2 tag. Skill works because it picks first by created_at. If story ordering changes or new stories are inserted, this will break. Renumber when it becomes a problem.
+
 ## 2026-03-28 [technical]: Single image upload path — GCS header bug killed the duplicate
 
 **Context:** Image upload from edit mode failed on prod with "Failed to upload image." Create flow worked. 5-why traced to `story-image-service.ts` missing the `x-goog-content-length-range` header in the GCS PUT — the exact same bug documented in P591 decisions, but in a second code path that was written independently. The create flow had its own 70-line inline upload with the header included. Two paths for the same operation = one had the bug, one didn't.
