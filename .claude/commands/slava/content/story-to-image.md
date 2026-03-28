@@ -97,30 +97,51 @@ If the point has antipoints/opposing positions, fetch those too. Use all three (
 
 ---
 
-### Step 3 — Build generation prompt
+### Step 3 — Concept lock (approve before generating)
 
-If the user provided a custom concept, use that. Otherwise, compose from the fetched data:
+Before any image generation, compose and present a **concept brief** for user approval:
 
-**Prompt template:**
+```
+CONCEPT BRIEF for {tag}:
+- Chart type: {stacked bars / side-by-side bars / Venn / timeline / icons}
+- Visual story: {one sentence — what the reader sees left-to-right or top-to-bottom}
+- Palette: {which of the 4 allowed colors: red (#D97373) danger, gray (#8B8B8B) uncertainty, blue (#6B9FD4) awareness, green (#6BAF7D) success}
+- Labels: {list the text that appears in the image}
+- Proportions: {what's big, what's small}
+- Never include: {percentages, numbers, hex codes in image, internal card/border}
+```
+
+**Wait for user approval.** If rejected, revise the brief. Do NOT generate until the brief is approved.
+
+---
+
+### Step 4 — Build generation prompt
+
+Use the approved concept brief to compose the Gemini prompt.
+
+**Image brief template (always apply):**
 
 ```
 IMPORTANT: Pure white background (#FFFFFF), NO border, NO shadow, NO card, NO rounded corners, NO padding. Content must fill the ENTIRE canvas edge to edge.
 
-Wide landscape infographic about: {CONCEPT DERIVED FROM STORY + POINT + ANTIPOINT}
+Wide landscape infographic about: {CONCEPT FROM APPROVED BRIEF}
 
-Color palette: blue (#3B82F6) as primary accent, charcoal (#1a1a2e) for text. Clean sans-serif font. Thin line weights. No decorative elements. No background color. Pure white only. Premium minimal infographic style.
+Color palette: muted desaturated tones only. NO bright/saturated colors. NO amber, orange, yellow, or purple (design system violation). Green ONLY for verified/success states. Clean sans-serif font. Thin line weights. No decorative elements. No background color. Pure white only. Premium minimal infographic style.
+
+ABSOLUTELY NO percentages, NO numbers, NO digits anywhere in the image.
 ```
 
 **Design rules (always apply):**
 - 4:3 landscape aspect ratio
 - White background — no internal card, border, shadow, or padding
-- ClarityPledge colors: blue `#3B82F6` accent, charcoal `#1a1a2e` text
+- ClarityPledge colors: blue `#3B82F6` accent, charcoal `#1a1a2e` text, green `#16A34A` for success only
 - Thin line-weight icons, clean sans-serif labels
 - Conceptual/diagrammatic — not photorealistic
+- NO percentages or numbers — Gemini ignores this ~50% of the time, plan for re-prompting
 
 ---
 
-### Step 4 — Generate image (Nano Banana Pro)
+### Step 5 — Generate image (Nano Banana Pro)
 
 ```bash
 source .env.local
@@ -158,7 +179,7 @@ for p in r['candidates'][0]['content']['parts']:
 
 ---
 
-### Step 5 — Show image for approval
+### Step 6 — Show image for approval
 
 Display the generated image to the user. Ask: "Does this work for {tag}? Or iterate?"
 
@@ -167,7 +188,7 @@ Display the generated image to the user. Ask: "Does this work for {tag}? Or iter
 
 ---
 
-### Step 6 — Resize
+### Step 7 — Resize
 
 Target: max 1200px on longest edge (matches client-side upload pipeline in `src/lib/image-upload.ts`).
 
@@ -181,7 +202,7 @@ If the image is already ≤1200px on longest edge, skip resize.
 
 ---
 
-### Step 7 — Self-check before upload
+### Step 8 — Self-check before upload
 
 - [ ] Image is 4:3 landscape (width > height)
 - [ ] Longest edge ≤ 1200px
@@ -193,7 +214,7 @@ If any check fails, go back to Step 4.
 
 ---
 
-### Step 8 — Upload to GCS
+### Step 9 — Upload to GCS
 
 ```bash
 NEW_UUID=$(python3 -c "import uuid; print(uuid.uuid4())")
@@ -214,7 +235,7 @@ If 403/404 → check gcloud auth (`gcloud auth login slava@inguro.com` may be ne
 
 ---
 
-### Step 9 — Update both DBs
+### Step 10 — Update both DBs
 
 Set `image_url` on both test and prod. Use service role key for writes.
 
@@ -240,7 +261,7 @@ Both must succeed before reporting done.
 
 ---
 
-### Step 10 — Browser verify
+### Step 11 — Browser verify
 
 Open the story detail page and take a screenshot:
 
@@ -275,6 +296,7 @@ Verified: {screenshot or "user to verify"}
 - **Aspect ratio:** Always 4:3 landscape. The `StoryImage` component uses `aspect-ratio: 4/3` + `object-cover`. Portrait images get cropped.
 - **Image size:** Gemini `imageSize: "4K"` produces high-res output. Always resize to max 1200px longest edge before upload (matches client pipeline).
 - **White background:** Gemini tends to add internal cards/borders. The prompt must explicitly say "NO border, NO shadow, NO card, NO padding."
+- **Known Gemini limitations:** Ignores "no percentages" instruction ~50% of the time. Cannot render proportionally-sized quadrants reliably. Approximates hex colors. Plan for 2-3 iterations minimum. Pro model times out on long prompts (>55s) — use shorter prompts or fall back to Flash 3.1.
 - **Temp files:** All temp files go to `/tmp/story-image*`. Clean up after completion.
 
 ---
