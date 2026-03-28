@@ -31,6 +31,7 @@ import { Button } from '@/components/ui/button';
 import { useAuth } from '@/auth';
 import { analytics } from '@/lib/mixpanel';
 import { docsService } from '@/app/data/docs-service';
+import { resolveDocShortCode } from '@/app/data/short-links';
 import { pointsService } from '@/app/data/points-service';
 import { useVerificationGate } from '@/app/hooks/useVerificationGate';
 import { DocHeader } from '@/app/components/docs/doc-header';
@@ -160,6 +161,7 @@ function SortableStoryCard({
       >
         <StoryCardDetail
           story={docStory.story}
+          imageUrl={docStory.story.imageUrl}
           linkedPoints={allPoints}
           positionCounts={positionCounts}
           userPositions={userPositions}
@@ -206,7 +208,8 @@ function SortableStoryCard({
 // ---------------------------------------------------------------------------
 
 export function DocDetailPage() {
-  const { docId } = useParams<{ docId: string }>();
+  const { docId: rawDocId } = useParams<{ docId: string }>();
+  const docId = rawDocId ? resolveDocShortCode(rawDocId) : undefined;
   const navigate = useNavigate();
   const { user } = useAuth();
   const { checkVerified } = useVerificationGate();

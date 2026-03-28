@@ -30,6 +30,53 @@ kill_zombie_on_port() {
 
 kill_zombie_on_port
 
+# Vite dep cache validation: detect corrupted pre-bundles that cause
+# "Invalid hook call" / "Cannot read properties of null (reading 'useState')"
+# crashes. Root cause: interrupted optimization or concurrent worktree servers
+# can leave a stale cache that serves a broken React module.
+validate_vite_cache() {
+  local cache_dir
+  # Same logic as vite.config.ts getCacheDir()
+  local slot
+  slot=$(node -e "
+    const cwd = process.cwd();
+    const s = cwd.match(/[/\\\\](w\\d+)\$/);
+    const n = cwd.match(/[/\\\\]worktrees[/\\\\]([^/\\\\]+)\$/);
+    console.log(s ? s[1] : n ? n[1] : '');
+  ")
+  if [[ -n "$slot" ]]; then
+    cache_dir="node_modules/.vite-${slot}"
+  else
+    cache_dir="node_modules/.vite"
+  fi
+
+  # No cache = nothing to validate (Vite will create fresh)
+  if [[ ! -d "$cache_dir/deps" ]]; then
+    return
+  fi
+
+  local stale=false
+
+  # Check 1: _metadata.json must exist and be valid JSON
+  if [[ ! -f "$cache_dir/deps/_metadata.json" ]]; then
+    stale=true
+  elif ! node -e "JSON.parse(require('fs').readFileSync('$cache_dir/deps/_metadata.json','utf8'))" 2>/dev/null; then
+    stale=true
+  fi
+
+  # Check 2: react.js must exist and be non-empty (core dep)
+  if [[ "$stale" == "false" && ! -s "$cache_dir/deps/react.js" ]]; then
+    stale=true
+  fi
+
+  if [[ "$stale" == "true" ]]; then
+    echo "⚠ Stale Vite dep cache detected in $cache_dir — clearing..."
+    rm -rf "$cache_dir/deps"
+  fi
+}
+
+validate_vite_cache
+
 # Worktrees have a .git *file* (not directory) pointing to the main repo's .git/worktrees/
 if [[ -d .git ]]; then
   exit 0  # main repo — nothing else to check

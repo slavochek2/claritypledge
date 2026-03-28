@@ -7,26 +7,57 @@ How a blog post goes from raw experience to published newsletter.
 ## The Pipeline
 
 ```
-Experience / idea
-      ↓
-/story or /sifter        →  content/stories/       (raw capture)
-      ↓
-/interview               →  (optional — extract real story via questions)
-      ↓
-/prepare-blog            →  content/blog/           (shaped for publishing)
-      ↓
-user reviews locally
-      ↓
-/draft-blog              →  Ghost draft             (Lexical conversion + images + SEO)
-      ↓
-user reviews in Ghost Admin (visual preview)
-      ↓
-/enhance-blog            →  interactive visuals      (optional — brainstorm → falsify → build → preview → insert)
-      ↓
-/ship-blog               →  send to subscribers
-      ↓
-published at blog.claritypledge.com
+TWO ENTRY POINTS:
+
+A. Original content (you sit down to write):
+
+  Experience / idea
+        ↓
+  /story or /sifter        →  content/stories/       (raw capture)
+        ↓
+  /interview               →  (optional — extract real story via questions)
+        ↓
+  /prepare-blog            →  content/blog/           (shaped for publishing)
+        ↓  ...continues below...
+
+B. Conversation-sourced (Claude.ai conversations → articles):
+
+  Talk to Claude.ai         →  ~/Projects/private/claude-conversations/   (natural habit)
+        ↓
+  /claude-conversations-to-cp  →  [CONTENT] signals detected
+        ↓                         article ideas auto-filed via /quick-blog
+  content/articles/aNN.md   →  appears on content kanban as status: idea
+        ↓                         (Source section has: Conversation + Arc fields)
+  user picks an idea from kanban
+        ↓
+  /prepare-blog             →  detects conversation source → conversation-aware mode
+        ↓                         reads conversation + story arc → shapes article
+        ↓  ...continues below...
+
+SHARED PIPELINE (both paths converge here):
+
+  /prepare-blog output      →  content/blog/           (shaped draft)
+        ↓
+  user reviews locally
+        ↓
+  /draft-blog              →  Ghost draft             (Lexical conversion + images + SEO)
+        ↓
+  user reviews in Ghost Admin (visual preview)
+        ↓
+  /enhance-blog            →  interactive visuals      (optional — brainstorm → falsify → build → preview → insert)
+        ↓
+  /ship-blog               →  send to subscribers
+        ↓
+  published at blog.claritypledge.com
 ```
+
+### Key Files for Conversation-Sourced Path
+
+| File | Purpose |
+|------|---------|
+| `content/story-arcs.md` | Abstract narrative patterns (4 arcs). Updated by `/claude-conversations-to-cp` and `/prepare-blog`. |
+| `content/articles/aNN.md` | Article specs on content kanban. Conversation-sourced specs have `## Source` with `Conversation:` + `Conversation date:` + `Arc:` fields. |
+| `.private/claude-conversations-to-cp-last-run.txt` | Marker for smart windowing of conversation analysis. |
 
 ---
 

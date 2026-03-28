@@ -46,6 +46,21 @@ export function resolveShortLink(code: string): string | null {
 }
 
 /**
+ * Doc short codes: short memorable aliases for /d/:docId UUIDs.
+ * The doc detail page resolves these before fetching.
+ */
+export const docShortCodes: Record<string, string> = {
+  "ck": "c990ca97-be62-47e7-81ae-3177a4abfbf9",
+};
+
+/**
+ * Resolve a doc short code to its UUID, or return the input unchanged.
+ */
+export function resolveDocShortCode(docIdOrCode: string): string {
+  return docShortCodes[docIdOrCode.toLowerCase()] ?? docIdOrCode;
+}
+
+/**
  * Get all available short codes (for documentation/debugging)
  */
 export function listShortLinks(): Array<{ code: string; target: string }> {

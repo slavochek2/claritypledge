@@ -1,8 +1,8 @@
 ---
 name: claude-conversations-to-cp
-description: Analyze recent Claude conversations (or any input source) to surface strategic signals and propose updates to cp strategy docs. Reads both sides of conversations. Never writes without explicit confirmation.
-when_to_use: After a sprint, a week of sessions, or any period where you want to surface unresolved tensions and update lean-canvas, hypotheses, theory-of-change, or process-learnings.
-version: 1.2.0
+description: Analyze recent Claude conversations to surface strategic signals AND content candidates. Updates strategy docs and files article ideas to content kanban. Never writes without explicit confirmation.
+when_to_use: After a sprint, a week of sessions, or any period where you want to surface unresolved tensions, update strategy docs, and identify article-worthy conversations.
+version: 2.0.0
 ---
 
 # /claude-conversations-to-cp
@@ -48,6 +48,7 @@ If the marker is missing or corrupted, fall back to `7d` silently.
 | What's being tested, hypothesis progress | `docs/hypotheses.md` |
 | Workflow friction, recurring manual steps | `docs/process-learnings.md` |
 | Features mentioned repeatedly but unspecced, priority shifts | `features/` (note only, no auto-edit) |
+| Article-worthy conversations with narrative arc potential | `content/articles/` (auto-filed via `/quick-blog` on approval) |
 
 ## Conversation File Format
 
@@ -142,6 +143,8 @@ JSONL format: each line is a JSON object. Conversation messages have `type: "use
   <step n="0b" goal="Pre-read target docs AND current priorities for contradiction detection">
     <action>Read current content of all target docs: docs/lean-canvas.md, docs/hypotheses.md, docs/theory-of-change.md, docs/process-learnings.md</action>
     <action>Read docs/goals.md — the current build sequence and priorities. Use this to contextualize conversation signals: distinguish "blocked by unbuilt prerequisite" from "avoidance" and "UX iteration on existing spec" from "strategy shift"</action>
+    <action>Read content/story-arcs.md — active narrative arc patterns. Used for [CONTENT] signal classification: which arc does this conversation extend?</action>
+    <action>Read titles from content/articles/a*.md — existing article ideas. Used for dedup: skip conversations already covered.</action>
     <action>Hold this content in context for contradiction detection in step 2 and diff generation in step 4</action>
   </step>
 
@@ -170,6 +173,15 @@ JSONL format: each line is a JSON object. Conversation messages have `type: "use
         - [PROCESS] {observation} — {evidence}
         - [SPEC-PRIORITY] {observation} — {evidence}
         - [TENSION] {unresolved question or contradiction} — {evidence}
+        - [CONTENT] {conversation title} — {ARC-N (arc name) or 'new arc: proposed name'}, {why article-worthy: 1 line}
+
+        For [CONTENT] signals: read content/story-arcs.md arc patterns (provided below).
+        Match conversations to arc patterns by narrative shape, not topic.
+        Skip conversations with fewer than 6 exchange turns (too thin).
+        Skip conversations already covered by existing article ideas (provided below).
+
+        Active arc patterns: [paste arc summaries from story-arcs.md]
+        Existing article titles: [paste from content/articles/a*.md]
 
         Read BOTH user and assistant messages — insights come from both.
         Surface recurring themes, contradictions, and unresolved tensions.
@@ -203,6 +215,10 @@ JSONL format: each line is a JSON object. Conversation messages have `type: "use
 
       **[SPEC-PRIORITY]**
       [features mentioned repeatedly but not yet specced, or ranked wrong]
+
+      **[CONTENT]**
+      [list each — conversation title, which ARC-N it extends (or "new arc: name"), why article-worthy]
+      [omit this section if no content candidates found]
 
       ---
 
@@ -261,8 +277,16 @@ JSONL format: each line is a JSON object. Conversation messages have `type: "use
       ### Feature Priority Note (no auto-edit)
       [list features that seem mis-prioritized with reasoning — for you to act on manually via /create-prd or kanban]
 
+      ### Content Candidates (filed via /quick-blog on approval)
+      [list each: proposed title — from "conversation title", ARC-N]
+      [omit if no [CONTENT] signals]
+
+      ### New Arcs Proposed
+      [list any new arc proposals from [CONTENT] signals with "new arc:"]
+      [omit if none]
+
       ---
-      Total: [N] changes across [M] files.
+      Total: [N] changes across [M] files + [N] content candidates.
       Nothing has been written yet.
     </output>
   </step>
@@ -273,8 +297,21 @@ JSONL format: each line is a JSON object. Conversation messages have `type: "use
       <action>Read each target file</action>
       <action>Apply only the confirmed changes using Edit tool</action>
       <action>Report each edit as it's applied</action>
+      <action>For each approved [CONTENT] candidate:
+        1. Dedup check: grep content/articles/ for specs referencing the same conversation title. If found, skip: "Already filed: aNN."
+        2. If new arc was proposed and approved: add arc to content/story-arcs.md with next ARC-N ID first.
+        3. Run /quick-blog to create article spec. The body uses /quick-blog's free-text sections:
+           ## Source
+           Conversation: [conversation title]
+           Conversation date: [YYYY-MM-DD]
+           Arc: [ARC-N, ARC-M]
+           ## Idea
+           [2-5 sentence summary from the agent's content assessment]
+        4. Privacy check: immediately after filing, run /maintain:privacy on the new article spec file. If flagged: report issue, do NOT commit that file. If clean: continue.
+        5. Report: "Filed [N] content ideas: [list with A-numbers]. Privacy: clean / [issues]."
+      </action>
       <action>Write marker: `.private/claude-conversations-to-cp-last-run.txt` with current ISO timestamp, files_processed count, source, and window used</action>
-      <action>Output summary: "Applied [N] changes. Modified: [file list]."</action>
+      <action>Output summary: "Applied [N] strategy changes. Filed [M] content ideas. Modified: [file list]."</action>
       <action>Suggest: "These are strategy doc changes worth committing. Run /kdd if any decisions surfaced. Want to commit?"</action>
     </on_confirm>
     <on_reject>

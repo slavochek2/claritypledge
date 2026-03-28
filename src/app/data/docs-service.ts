@@ -37,6 +37,7 @@ interface DbDocStoryWithStory extends DbDocStory {
     updated_at: string;
     tags: string[];
     banner_url?: string | null;
+    image_url?: string | null;
     author: {
       id: string;
       name: string | null;
@@ -72,6 +73,7 @@ interface DbStoryWithAuthor {
   updated_at: string;
   tags: string[];
   banner_url?: string | null;
+  image_url?: string | null;
   author: {
     id: string;
     name: string | null;
@@ -122,6 +124,7 @@ function mapStoryWithAuthorFromDb(row: DbStoryWithAuthor): StoryWithAuthor {
     authorAvatarUrl: row.author?.avatar_url ?? undefined,
     authorEarsCount: row.author?.ears_count ?? 0,
     authorHasPledged: row.author?.has_pledged ?? false,
+    imageUrl: row.image_url ?? undefined,
   };
 }
 
@@ -186,6 +189,7 @@ const STORY_WITH_AUTHOR_SELECT = `
   updated_at,
   tags,
   banner_url,
+  image_url,
   author:profiles!stories_author_id_fkey (
     id,
     name,
@@ -211,6 +215,7 @@ const STORY_WITH_AUTHOR_AND_POINTS_SELECT = `
   updated_at,
   tags,
   banner_url,
+  image_url,
   author:profiles!stories_author_id_fkey (
     id,
     name,

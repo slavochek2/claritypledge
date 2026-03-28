@@ -35,6 +35,55 @@ Check these for raw material:
 
 ## Process
 
+### Pre-check: Conversation Source Detection
+
+Before Tier routing, check whether this article spec was sourced from a Claude.ai conversation:
+
+1. Read the article spec. If it has a `## Source` section (exact — not "## Sources") with a `Conversation:` line:
+   - **Conversation-sourced mode** activates.
+   - Parse the conversation title from `Conversation:` and date from `Conversation date:`.
+   - Parse arc ID(s) from `Arc:` line.
+   - Read `content/story-arcs.md` for arc pattern context.
+   - **Locate conversation file:**
+     1. Glob `~/Projects/private/claude-conversations/YYYY-MM/` for the date's month
+     2. Match files by substring of title in filename
+     3. If no match: read first `# heading` of each file in that month, match title
+     4. If multiple: use closest to specified date
+     5. If not found: warn user, use `## Idea` section as brain dump, fall through to standard mode
+   - If found: read conversation fully. Proceed to **Conversation-Aware Shaping** (below).
+2. If no `Conversation:` field: standard mode (existing flow unchanged).
+
+### Conversation-Aware Shaping
+
+When in conversation-sourced mode, this replaces Steps 1-2:
+
+1. **Read the source conversation** fully (located in pre-check).
+2. **Read the arc entry** from `content/story-arcs.md` (matching the Arc field).
+3. **Identify the arc's narrative pattern** and how this conversation fits:
+   - What's the abstract shape? (e.g., "Tested and Tightened" = claim → pressure → refinement → tightened version)
+   - Starting tension or question
+   - How thinking evolved in the conversation
+   - What was tested, falsified, or discovered
+   - Where the conversation landed
+4. **Draft article structure** following the arc pattern:
+   - Hook: the tension (may draw from the arc's history, not just this conversation)
+   - Development: evolution of thinking
+   - Claims: candidate points for later extraction via `/sifter-point`
+   - Close: where the arc is now + invitation to engage
+5. **Present structure for user approval** before full draft.
+6. After approved: **write full draft** (rejoin existing Step 3 logic — voice.md, strategy.md, etc.).
+
+After the draft is written and scored, **suggest extractions:**
+- Identify paragraphs that are points (falsifiable claims) or stories (first-person narratives).
+- Present: "I suggest extracting after publishing: Points: [list]. Stories: [list]. Run `/sifter-point` and `/sifter-story` to file these."
+- Suggestion-only — does NOT call sifter skills.
+
+After the draft is saved, **propose arc update:**
+- Read `content/story-arcs.md`, propose adding this article to the arc's "Published articles" and updating "Last active."
+- Present for user confirmation before editing.
+
+---
+
 ### Step 0: Route to Tier
 
 Before doing anything else, classify the content:
