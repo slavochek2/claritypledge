@@ -1118,6 +1118,11 @@ function StoryCardFull({
   const editTextareaRef = useRef<HTMLTextAreaElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
 
+  // Sync localImageUrl when story prop changes (e.g., parent refetch)
+  useEffect(() => {
+    setLocalImageUrl(story.imageUrl ?? undefined);
+  }, [story.imageUrl]);
+
   const handleEditStart = () => {
     setEditContent(story.content);
     setIsEditing(true);
