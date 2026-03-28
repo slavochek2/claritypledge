@@ -32,17 +32,23 @@ export function ImageLightbox({
   return (
     <DialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
       <DialogPrimitive.Portal>
-        <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-black/80 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
+        <DialogPrimitive.Overlay
+          className="fixed inset-0 z-50 bg-black/80 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0"
+          onClick={(e) => e.stopPropagation()}
+        />
 
         <DialogPrimitive.Content
           className="fixed inset-0 z-50 flex items-center justify-center"
           aria-label="Full-size image view"
           onClick={(e) => {
+            // Stop all clicks inside the lightbox from reaching card elements underneath
+            e.stopPropagation();
             // Close on backdrop click (click on the content container itself, not the image)
             if (e.target === e.currentTarget) {
               onOpenChange(false);
             }
           }}
+          onPointerDownOutside={(e) => e.stopPropagation()}
         >
           {/* Visually hidden title for accessibility */}
           <DialogPrimitive.Title className="sr-only">

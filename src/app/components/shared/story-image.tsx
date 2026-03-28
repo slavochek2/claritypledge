@@ -7,7 +7,6 @@ import { ImageLightbox } from "./image-lightbox";
 interface StoryImageProps {
   src: string;
   authorName: string;
-  onClick?: () => void;
   onChangeImage?: () => void;
   onRemoveImage?: () => void;
   className?: string;
@@ -16,7 +15,6 @@ interface StoryImageProps {
 export function StoryImage({
   src,
   authorName,
-  onClick,
   onChangeImage,
   onRemoveImage,
   className,
@@ -26,13 +24,10 @@ export function StoryImage({
   const isAuthorMode = !!(onChangeImage || onRemoveImage);
   const alt = `Supporting image for ${authorName}'s story`;
 
-  function handleClick() {
-    if (onClick) {
-      // Navigation callback (feed cards) — fire directly
-      onClick();
-      return;
-    }
-    // Both reader and author mode — open lightbox
+  function handleClick(e: React.MouseEvent) {
+    // Always stop propagation so parent card click doesn't fire
+    e.stopPropagation();
+    // Always open lightbox — card-level click handles navigation
     setLightboxOpen(true);
   }
 

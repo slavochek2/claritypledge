@@ -295,7 +295,6 @@ export function StoryCardDetail({
                 <StoryImage
                   src={imageUrl}
                   authorName={story.authorName}
-                  onClick={!isDetailView && !disableNavigation ? handleCardClick : undefined}
                   onChangeImage={isDetailView ? onChangeImage : undefined}
                   onRemoveImage={isDetailView ? onRemoveImage : undefined}
                   className="mt-1"

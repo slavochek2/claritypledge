@@ -276,7 +276,6 @@ export function StoryCardWithLinks({
               <StoryImage
                 src={story.imageUrl}
                 authorName={author.name}
-                onClick={!isDetailView && !disableNavigation ? () => embedNavigate(`/story/${story.id}`) : undefined}
                 className="mt-1 mb-2"
               />
             )}
