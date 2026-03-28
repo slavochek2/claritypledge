@@ -43,6 +43,7 @@ import { RoundSummaryScreen } from './round-summary-screen';
 import { StorySearchPicker } from './story-search-picker';
 import { LiveStoryCardExpanded } from './live-story-card-expanded';
 import { GravatarAvatar } from '@/components/ui/gravatar-avatar';
+import { FreeModeView } from './free-mode-view';
 import { PositionBadge } from '@/app/components/shared';
 import { storiesService } from '@/app/data/stories-service';
 import { pointsService } from '@/app/data/points-service';
@@ -298,6 +299,18 @@ interface LiveModeViewProps {
   isCreator?: boolean;
   /** P566: Upload health indicator for RecordingIndicator */
   uploadHealth?: 'healthy' | 'degraded' | 'critical';
+  /** P562: Session mode change callback */
+  onSessionModeChange?: (mode: 'guided' | 'free') => void;
+  /** P562: Free mode slider change (debounced) */
+  onFreeSliderChange?: (value: number) => void;
+  /** P562: Free mode speak freely (exit round) */
+  onFreeSpeakFreely?: () => void;
+  /** P562: Free mode round complete (10/10) */
+  onFreeRoundComplete?: () => void;
+  /** P562: Free mode discuss another story */
+  onFreeDiscussAnother?: () => void;
+  /** P562: Story title for free mode success screen */
+  freeStoryTitle?: string;
 }
 
 export function LiveModeView({
@@ -335,6 +348,12 @@ export function LiveModeView({
   partnerEarsCount = 0,
   isCreator = false,
   uploadHealth,
+  onSessionModeChange,
+  onFreeSliderChange,
+  onFreeSpeakFreely: _onFreeSpeakFreely,
+  onFreeRoundComplete,
+  onFreeDiscussAnother,
+  freeStoryTitle,
 }: LiveModeViewProps) {
 
   // Hide site-wide navigation when live session is active.
@@ -370,13 +389,15 @@ export function LiveModeView({
   // Each participant computes their own selectedStory, so this doesn't affect the partner's view.
   useEffect(() => {
     if (liveState.selectedStoryData) {
-      const myPositions = liveState.livePositions?.[currentUserName] ?? {};
+      // P562: Read positions from top-level per-participant keys (JSONB merge safe).
+      // Fall back to old nested livePositions for backward compat with in-progress sessions.
+      const myPositions = isCreator
+        ? (liveState.livePositionsCreator ?? liveState.livePositions?.[currentUserName] ?? {})
+        : (liveState.livePositionsJoiner ?? liveState.livePositions?.[currentUserName] ?? {});
       const isAuthor = userId !== undefined && userId === liveState.selectedStoryData.authorId;
-      // partnerPositions: always read from liveState so both views are reactive.
-      // From each viewer's perspective, partnerName = the OTHER person, so:
-      //   host view (isAuthor=true):  partnerName = guest  → guest's live votes
-      //   partner view (isAuthor=false): partnerName = host → host's live votes
-      const partnerPositions = liveState.livePositions?.[partnerName] ?? {};
+      const partnerPositions = isCreator
+        ? (liveState.livePositionsJoiner ?? liveState.livePositions?.[partnerName] ?? {})
+        : (liveState.livePositionsCreator ?? liveState.livePositions?.[partnerName] ?? {});
       const storyWithPositions = {
         ...liveState.selectedStoryData,
         points: liveState.selectedStoryData.points
@@ -406,14 +427,17 @@ export function LiveModeView({
       setSelectedStory(null);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [liveState.selectedStoryData, liveState.livePositions, currentUserName, userId]);
+  }, [liveState.selectedStoryData, liveState.livePositions, liveState.livePositionsCreator, liveState.livePositionsJoiner, currentUserName, userId, isCreator]);
 
   // Show a toast when the other person changes their position on a point.
   // Uses a ref to diff previous vs current partner positions — only fires for actual changes,
   // never on initial mount. Fixed id='live-position' replaces itself on rapid re-voting.
   const prevPartnerPositionsRef = useRef<Record<string, PositionType | null> | null>(null);
   useEffect(() => {
-    const currentPositions = (liveState.livePositions?.[partnerName] ?? {}) as Record<string, PositionType | null>;
+    // P562: Read partner positions from top-level keys (fall back to old nested structure)
+    const currentPositions = (isCreator
+      ? (liveState.livePositionsJoiner ?? liveState.livePositions?.[partnerName] ?? {})
+      : (liveState.livePositionsCreator ?? liveState.livePositions?.[partnerName] ?? {})) as Record<string, PositionType | null>;
 
     if (prevPartnerPositionsRef.current === null) {
       // First run — initialise without toasting
@@ -449,7 +473,7 @@ export function LiveModeView({
     }
     prevPartnerPositionsRef.current = { ...currentPositions };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [liveState.livePositions, partnerName]);
+  }, [liveState.livePositions, liveState.livePositionsCreator, liveState.livePositionsJoiner, partnerName, isCreator]);
 
   // P128: Fetch selected point for display during verification
   useEffect(() => {
@@ -628,6 +652,31 @@ export function LiveModeView({
   // Used to determine whether to show celebration waiting vs idle waiting
   const inCelebrationState = bothSubmitted && checkerRating === 10;
 
+  // P562: Free mode routing — after guided mode's first round completes,
+  // handleCelebrationComplete sets freePhase: 'unlocked'. Render FreeModeView
+  // only for unlocked + success phases (guided mode handles everything before).
+  if (liveState.sessionMode !== 'guided' && (liveState.freePhase === 'unlocked' || liveState.freePhase === 'success') && onFreeSliderChange) {
+    return (
+      <div className="flex flex-col h-full">
+        <LiveHeader partnerName={partnerName} onExit={onExitMeeting} isPrivate={isPrivate} uploadHealth={uploadHealth} />
+        <FreeModeView
+          liveState={liveState}
+          partnerName={partnerName}
+          isCreator={isCreator ?? false}
+          onSliderChange={onFreeSliderChange}
+          onSpeakFreely={() => handleRequestSkip('good-enough')}
+          onRoundComplete={onFreeRoundComplete as () => void}
+          onDiscussAnother={onFreeDiscussAnother as () => void}
+          onEndSession={onExitMeeting}
+          storyTitle={freeStoryTitle}
+          selectedStory={selectedStory}
+        />
+        {/* Reuse guided mode's confirmation dialog for free mode "Speak freely" */}
+        {confirmSkipDialog}
+      </div>
+    );
+  }
+
   // User clicked "Continue" but partner hasn't yet
   // If in celebration state, let UnderstandingScreen handle the waiting UI
   // If NOT in celebration state, show idle with disabled buttons
@@ -720,6 +769,8 @@ export function LiveModeView({
           isGuest={isGuest}
           currentUserName={currentUserName}
           uploadHealth={uploadHealth}
+          sessionMode={liveState.sessionMode}
+          onSessionModeChange={onSessionModeChange}
                   />
         {skipNotificationDialog}
         {confirmSkipDialog}
@@ -941,6 +992,10 @@ interface IdleScreenProps {
   isGuest?: boolean;
   /** P566: Upload health for recording indicator */
   uploadHealth?: 'healthy' | 'degraded' | 'critical';
+  /** P562: Current session mode */
+  sessionMode?: 'guided' | 'free';
+  /** P562: Mode toggle callback */
+  onSessionModeChange?: (mode: 'guided' | 'free') => void;
 }
 
 function IdleScreen({
@@ -967,6 +1022,8 @@ function IdleScreen({
   _currentUserName,
   isGuest = false,
   uploadHealth,
+  sessionMode,
+  onSessionModeChange,
 }: IdleScreenProps) {
   const displayPartnerName = getFirstName(partnerName);
   const checkerName = liveState.checkerName ? getFirstName(liveState.checkerName) : '';
@@ -1076,7 +1133,8 @@ function IdleScreen({
     onStartCheck();
   };
 
-  const handleStartProveWithTracking = () => {
+  // P562/AD-7: Prove button removed — tracking handler kept with _ prefix for potential future use
+  const _handleStartProveWithTracking = () => {
     if (hasContent) {
       analytics.track('cardless_mode_selected', {
         userId,
@@ -1160,16 +1218,7 @@ function IdleScreen({
                 >
                   Does <span className="font-bold">{displayPartnerName}</span> understand you?
                 </Button>
-                <Button
-                  variant="outline"
-                  size="lg"
-                  className="w-full"
-                  onClick={handleStartProveWithTracking}
-                  disabled={waitingForPartnerToContinue}
-                  data-testid="start-prove"
-                >
-                  Do you understand <span className="font-bold">{displayPartnerName}</span>?
-                </Button>
+                {/* P562/AD-7: Listen/"Did I get it?" button removed from both modes */}
                 {waitingForPartnerToContinue && (
                   <WaitingIndicator message={`Waiting for ${displayPartnerName} to continue...`} />
                 )}
@@ -1228,6 +1277,30 @@ function IdleScreen({
             </button>
           )}
         </ActionArea>
+      )}
+
+      {/* P562: Mode pill toggle — visible only on idle entry screen, hidden during rounds */}
+      {onSessionModeChange && !showRatingDrawer && !waitingForPartnerToContinue && liveState.ratingPhase === 'idle' && !liveState.freePhase && !liveState.checkerName && !liveState.ratingInitiatedBy && !liveState.selectedStoryId && (
+        <div className="flex justify-center py-4">
+          <div className="inline-flex bg-gray-100 rounded-full p-1 text-sm">
+            <button
+              onClick={() => onSessionModeChange('free')}
+              className={`px-4 py-1.5 rounded-full transition-all ${
+                (sessionMode === 'free' || !sessionMode) ? 'bg-blue-500 text-white shadow-sm font-medium' : 'text-gray-500'
+              }`}
+            >
+              Free mode
+            </button>
+            <button
+              onClick={() => onSessionModeChange('guided')}
+              className={`px-4 py-1.5 rounded-full transition-all ${
+                sessionMode === 'guided' ? 'bg-blue-500 text-white shadow-sm font-medium' : 'text-gray-500'
+              }`}
+            >
+              Guided mode
+            </button>
+          </div>
+        </div>
       )}
 
       {/* Responder notification drawer - slides up from bottom */}
@@ -1373,7 +1446,7 @@ function RatingScreen({
   onPositionSelect,
   badgePersonName,
   badgePersonEarsCount,
-  onClearStory,
+  onClearStory: _onClearStory,
   isStoryOwner = false,
   isGuest = false,
   uploadHealth,
@@ -1438,16 +1511,7 @@ function RatingScreen({
             badgePersonEarsCount={badgePersonEarsCount}
           />
         )}
-        {/* P400: Speak Freely must be present whenever story card is visible */}
-        {selectedStory && onClearStory && (
-          <button
-            onClick={onClearStory}
-            className="text-sm text-muted-foreground hover:text-foreground transition-colors mt-1 min-h-[44px] px-4"
-            type="button"
-          >
-            Speak freely
-          </button>
-        )}
+        {/* P562: Mid-card "Speak freely" removed — ActionArea at bottom handles it */}
         {selectedPoint && <PointCardPreview point={selectedPoint} />}
       </div>
 
@@ -1524,7 +1588,7 @@ function RatingScreenWithOptionalDrawer({
   onPositionSelect,
   badgePersonName,
   badgePersonEarsCount,
-  onClearStory,
+  onClearStory: _onClearStory2,
   isStoryOwner = false,
   isGuest = false,
   uploadHealth,
@@ -1594,16 +1658,7 @@ function RatingScreenWithOptionalDrawer({
             badgePersonEarsCount={badgePersonEarsCount}
           />
         )}
-        {/* P400: Speak Freely must be present whenever story card is visible */}
-        {selectedStory && onClearStory && (
-          <button
-            onClick={onClearStory}
-            className="text-sm text-muted-foreground hover:text-foreground transition-colors mt-1 min-h-[44px] px-4"
-            type="button"
-          >
-            Speak freely
-          </button>
-        )}
+        {/* P562: Mid-card "Speak freely" removed — ActionArea at bottom handles it */}
         {selectedPoint && <PointCardPreview point={selectedPoint} />}
       </div>
 

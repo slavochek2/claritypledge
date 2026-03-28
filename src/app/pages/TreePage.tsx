@@ -10,6 +10,11 @@ const productionPages = [
 
 const devPages = [
   {
+    path: '/tree/new-live',
+    label: 'P562: New /live — Dual Sliders',
+    description: 'Free mode with continuous sliders. Entry → role claim → sliders → complete. No 3-click protocol.'
+  },
+  {
     path: '/tree/position-buttons',
     label: 'Position Buttons v2',
     description: 'Two-step progressive disclosure — no hidden dropdowns, clean responsive scaling'

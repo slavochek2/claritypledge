@@ -163,6 +163,8 @@ export function sanitizeLiveStateForSentry(
     'ideasDiscussed', 'ideasUnderstood', 'celebrationAcknowledgedByCreator',
     'celebrationAcknowledgedByJoiner', 'clarificationPhase', 'speakerSawExplainBackDone',
     'checkerRating', 'responderRating', 'isRecording',
+    // P562: Free mode fields
+    'sessionMode', 'freePhase', 'freeSliderCreator', 'freeSliderJoiner',
   ];
   const sanitized: Record<string, unknown> = {};
   for (const key of safeKeys) {
@@ -1044,6 +1046,23 @@ export function ClarityLivePage() {
         const mergedState = { ...DEFAULT_LIVE_STATE, ...updatedSession.liveState } as LiveSessionState;
         setLiveState(mergedState);
         confirmedLiveStateRef.current = mergedState;
+      } else if (updatedSession.liveState && updateInFlightRef.current) {
+        // P562: Even during in-flight writes, merge position + slider keys from Realtime.
+        // These are per-participant top-level keys — partner's writes never conflict with ours.
+        // Without this, partner's position/slider changes are dropped until next non-blocked delivery.
+        const incoming = updatedSession.liveState as Record<string, unknown>;
+        const positionKeys = ['livePositionsCreator', 'livePositionsJoiner', 'freeSliderCreator', 'freeSliderJoiner'] as const;
+        const partnerUpdates: Partial<LiveSessionState> = {};
+        let hasPartnerUpdate = false;
+        for (const key of positionKeys) {
+          if (key in incoming && incoming[key] !== undefined) {
+            (partnerUpdates as Record<string, unknown>)[key] = incoming[key];
+            hasPartnerUpdate = true;
+          }
+        }
+        if (hasPartnerUpdate) {
+          setLiveState(prev => ({ ...prev, ...partnerUpdates }));
+        }
       }
 
       // When joiner joins, move to live view
@@ -1320,6 +1339,9 @@ export function ClarityLivePage() {
   // P23.3: Track which flow type we're in locally ('check' = "Did you get it?", 'prove' = "Did I get it?")
   const [localFlowType, setLocalFlowType] = useState<'check' | 'prove'>('check');
 
+  // P562: Free mode reuses guided mode's handleStartCheck — no separate handler needed.
+  // The guided mode round runs identically; divergence happens in handleCelebrationComplete.
+
   const handleStartCheck = useCallback(() => {
     if (!name || !partnerName) return;
 
@@ -1370,6 +1392,74 @@ export function ClarityLivePage() {
     setLocalFlowType('prove');
     setIsLocallyRating(true);
   }, [name, partnerName, session?.code, updateLiveState]);
+
+  // ============================================================================
+  // P562: Free mode handlers
+  // ============================================================================
+
+  /** P562: Change session mode (entry screen toggle) */
+  const handleSessionModeChange = useCallback((mode: 'guided' | 'free') => {
+    updateLiveState({ sessionMode: mode });
+  }, [updateLiveState]);
+
+  // P562: handleFreeSealedBidSubmit and handleFreeParaphraseDone deleted —
+  // guided mode's existing handlers run the first round. Divergence happens
+  // in handleCelebrationComplete (see below).
+
+  /** P562: Debounced slider change in unlocked mode */
+  const handleFreeSliderChange = useCallback((value: number) => {
+    const key = isCreator ? 'freeSliderCreator' : 'freeSliderJoiner';
+    updateLiveState({ [key]: value });
+  }, [isCreator, updateLiveState]);
+
+  /** P562: "Speak freely" — exit round, return to idle */
+  const handleFreeSpeakFreely = useCallback(() => {
+    updateLiveState({
+      freePhase: undefined,
+      checkerName: undefined,
+      checkerIsCreator: undefined,
+      checkerSubmitted: false,
+      responderSubmitted: false,
+      checkerRating: undefined,
+      responderRating: undefined,
+      freeSliderCreator: undefined,
+      freeSliderJoiner: undefined,
+      freeRounds: undefined,
+      ratingPhase: 'idle',
+      ratingInitiatedBy: undefined,
+      explainBackDone: false,
+      speakerSawExplainBackDone: false,
+      explainBackRound: 0,
+      explainBackRatings: [],
+    });
+  }, [updateLiveState]);
+
+  /** P562: Round complete (10/10 auto-transition) */
+  const handleFreeRoundComplete = useCallback(() => {
+    updateLiveState({ freePhase: 'success' });
+  }, [updateLiveState]);
+
+  /** P562: "Discuss another story" from success → back to idle */
+  const handleFreeDiscussAnother = useCallback(() => {
+    updateLiveState({
+      freePhase: undefined,
+      checkerName: undefined,
+      checkerIsCreator: undefined,
+      checkerSubmitted: false,
+      responderSubmitted: false,
+      checkerRating: undefined,
+      responderRating: undefined,
+      freeSliderCreator: undefined,
+      freeSliderJoiner: undefined,
+      freeRounds: undefined,
+      ratingPhase: 'idle',
+      ratingInitiatedBy: undefined,
+      explainBackDone: false,
+      speakerSawExplainBackDone: false,
+      explainBackRound: 0,
+      explainBackRatings: [],
+    });
+  }, [updateLiveState]);
 
   // P128: Handle story selection from content picker
   const handleSelectStory = useCallback((storyId: string, title: string, storyData?: StoryWithPoints) => {
@@ -1465,15 +1555,15 @@ export function ClarityLivePage() {
       userId: user?.id ?? '',
       onAfterRemove: useCallback((pointId: string) => {
         if (!name) return;
-        const currentPositions = confirmedLiveStateRef.current.livePositions ?? {};
-        const myPositions = currentPositions[name] ?? {};
+        // P562: Write to top-level per-participant key (not nested livePositions)
+        const myKey = isCreator ? 'livePositionsCreator' : 'livePositionsJoiner';
+        const myCurrentPositions = isCreator
+          ? (confirmedLiveStateRef.current.livePositionsCreator ?? {})
+          : (confirmedLiveStateRef.current.livePositionsJoiner ?? {});
         updateLiveState({
-          livePositions: {
-            ...currentPositions,
-            [name]: { ...myPositions, [pointId]: null },
-          },
+          [myKey]: { ...myCurrentPositions, [pointId]: null },
         });
-      }, [name, updateLiveState]),
+      }, [name, updateLiveState, isCreator]),
     });
 
   // P275: Handle point position selection during a /live session.
@@ -1484,32 +1574,29 @@ export function ClarityLivePage() {
     (pointId: string, position: PositionType | null) => {
       if (!name) return;
 
+      // P562: Use top-level per-participant keys to avoid JSONB shallow merge clobber.
+      // Each user writes only their own key — partner's positions are never touched.
+      const myKey = isCreator ? 'livePositionsCreator' : 'livePositionsJoiner';
+      const myCurrentPositions = isCreator
+        ? (confirmedLiveStateRef.current.livePositionsCreator ?? {})
+        : (confirmedLiveStateRef.current.livePositionsJoiner ?? {});
+
       if (position === null) {
         if (user?.id) {
           // Verified user: show confirmation dialog; guard handles DB removal + live_state update
           liveGuardedRemovePosition(pointId);
         } else {
           // Unverified guest: no profile, remove from live_state directly
-          const currentPositions = confirmedLiveStateRef.current.livePositions ?? {};
-          const myPositions = currentPositions[name] ?? {};
           updateLiveState({
-            livePositions: {
-              ...currentPositions,
-              [name]: { ...myPositions, [pointId]: null },
-            },
+            [myKey]: { ...myCurrentPositions, [pointId]: null },
           });
         }
         return;
       }
 
       // Setting a position — write to live_state for real-time sync (works for all participants)
-      const currentPositions = confirmedLiveStateRef.current.livePositions ?? {};
-      const myPositions = currentPositions[name] ?? {};
       updateLiveState({
-        livePositions: {
-          ...currentPositions,
-          [name]: { ...myPositions, [pointId]: position },
-        },
+        [myKey]: { ...myCurrentPositions, [pointId]: position },
       });
 
       // Best-effort persistence to point_positions for verified users.
@@ -1520,7 +1607,7 @@ export function ClarityLivePage() {
         });
       }
     },
-    [name, updateLiveState, user?.id, liveGuardedRemovePosition]
+    [name, updateLiveState, user?.id, liveGuardedRemovePosition, isCreator]
   );
 
   // P413: Write calibration record on every completed paraphrase exchange.
@@ -1947,6 +2034,40 @@ export function ClarityLivePage() {
       round: confirmedLiveStateRef.current.explainBackRound,
     });
 
+    const currentState = confirmedLiveStateRef.current;
+
+    // P562: Free mode divergence — transition to continuous sliders immediately
+    // after listener's first "Done explaining". No speaker re-rating step.
+    if (currentState.sessionMode !== 'guided') {
+      const listenerConf = currentState.responderRating ?? 0;
+      const speakerBel = currentState.checkerRating ?? 0;
+      const freeRounds = [
+        { listenerConfidence: listenerConf, speakerBelief: speakerBel, label: '0' },
+      ];
+      const creatorIsChecker = currentState.checkerIsCreator;
+      const creatorSlider = creatorIsChecker ? speakerBel : listenerConf;
+      const joinerSlider = creatorIsChecker ? listenerConf : speakerBel;
+
+      updateLiveState({
+        freePhase: 'unlocked',
+        freeRounds,
+        freeSliderCreator: creatorSlider,
+        freeSliderJoiner: joinerSlider,
+        // Clear guided mode round state to prevent routing confusion.
+        // Use false/0/[] (not undefined) to avoid triggering shouldUseFullOverwrite.
+        ratingPhase: 'idle',
+        explainBackDone: false,
+        speakerSawExplainBackDone: false,
+        explainBackRound: 0,
+        explainBackRatings: [],
+        checkerSubmitted: false,
+        responderSubmitted: false,
+        // Keep checkerName + checkerIsCreator — FreeModeView needs role info
+      });
+      return;
+    }
+
+    // Guided mode: normal flow — unlock speaker's re-rating drawer
     updateLiveState({
       explainBackDone: true,
       // B32_2: Also set speakerSawExplainBackDone so speaker's drawer persists
@@ -3620,6 +3741,12 @@ export function ClarityLivePage() {
           partnerEarsCount={partnerEarsCount}
           isCreator={isCreator}
           uploadHealth={uploadHealth}
+          onSessionModeChange={handleSessionModeChange}
+          onFreeSliderChange={handleFreeSliderChange}
+          onFreeSpeakFreely={handleFreeSpeakFreely}
+          onFreeRoundComplete={handleFreeRoundComplete}
+          onFreeDiscussAnother={handleFreeDiscussAnother}
+          freeStoryTitle={liveState.selectedContentTitle}
         />
 
         {/* Remove position confirmation dialog */}
