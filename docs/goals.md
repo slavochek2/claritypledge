@@ -12,10 +12,10 @@ Flywheel: see [lean-canvas.md](lean-canvas.md#channels--flywheel). Steps below f
 
 1. [x] P560: Story filing without position — prerequisite for workshop (epic-story-first)
 2. [x] P545: ladischenski.com positioning update
-3. [ ] P551: Clarity Docs — curated story collections, compose/edit surface for letters
+3. [x] P551: Clarity Docs — curated story collections, compose/edit surface for letters
 4. [ ] P581: Letters with comprehension assessment — core async gap screening (doc-sourced, unified with P551)
 5. [ ] P562: /live simplification — strip to orchestration, reduce drop-off in group settings
-6. [ ] P567: File 8 false belief stories + points as workshop curriculum
+6. [x] P567: File 8 false belief stories + points as workshop curriculum
 7. [ ] Run first false-belief workshop (offline, cowork in Koh Lanta) — test: do participants want to establish verified understanding and create Clarity Partner Agreements?
 8. [ ] Write blog article from workshop experience — real data, not theory
 9. [ ] Promote article via LinkedIn, communities

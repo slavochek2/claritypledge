@@ -2,6 +2,14 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-29 [product]: Partner Agreement is the primary conversion, not the Pledge
+
+**Context:** Field test — attempted to sign a Clarity Partner Agreement with a stranger at an event. She rejected it: "What's the value? We don't know each other." But immediately saw value with her boyfriend and future business partner. Also rejected the Pledge — doesn't want to display something publicly that might be misunderstood. She agreed to all 9 points. Separately: 11 existing pledgers have zero active practice habits — pledges are decorative.
+**Decision:** (1) Partner Agreement (not Pledge) is the natural end-of-funnel action for letters, workshops, and events. (2) Pledge stays as-is for now (gathers early supporters) but is recognized as aspirational, not behavioral. Future: Pledge may become a graduation milestone earned after demonstrated practice (see P605). (3) Events/workshops demonstrate the concept; conversion happens when participants bring it to their real relationships. (4) The Clarity Letter (P581) is the right acquisition vehicle because it naturally targets existing relationships.
+**Funnel reframe:** Letter (async gap reveal) → Partner Agreement (bilateral practice contract) → Practice (real asks/excuses in relationship) → Pledge (future: earned credential after ~10 partners + demonstrated habit).
+**Alternatives rejected:** (1) Immediately redesign Pledge as graduation — too early, full practice-tracking flow doesn't exist, 11 pledgers would need migration. (2) Drop the Pledge entirely — still useful as a supporter-gathering signal. (3) Push Partner Agreements at events between strangers — field-rejected, agreement needs existing relationship stakes.
+**Consequences:** H-Community-Retention reframed as support group (not practice arena). P603 filed. P604 filed as future concept. Lean canvas and theory-of-change updated to reflect Partner Agreement as primary conversion.
+
 ## 2026-03-29 [product]: st8/st9 story merge — redundant partner agreement stories consolidated
 
 **Context:** st8 ("I had fourteen co-founders… designed a clarity partner agreement") and st9 ("I lost at least three co-founders to false disagreements… built the Partnership Agreement") covered the same ground — co-founder loss → partnership agreement as solution. st9 was originally designed for the blog article [two-skills-next-generation-founders](https://blog.claritypledge.com/two-skills-next-generation-founders/), making it a blog-condensed story rather than an organic st-series entry.

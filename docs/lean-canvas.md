@@ -52,6 +52,7 @@ Anyone who wants to practice calibrated communication — professionals, student
 | Practice explain-back with others | Skill building in safe environment |
 | Track my calibration accuracy | See improvement over time |
 | Signal commitment to understanding | Public pledge + certificate |
+| Bring calibration to my relationship | Partner Agreement with co-founder/partner (primary conversion) |
 
 ### Primary: Co-Founder Pairs *(brand: ladischenski.com)*
 
@@ -200,14 +201,18 @@ Track accuracy over time. Public credential for professional reputation. Behavio
 
 ## Channels & Flywheel
 
-**Primary flywheel (2026-03-23):**
+**Primary flywheel (2026-03-29):**
 ```
-Workshop (false-belief curriculum on cards, P567)
-    → Participant stories filed (testimonials + calibration data + social proof)
-    → Blog article describing workshop experience → Distribution (LinkedIn, communities)
-    → De-risking package (co-founder pairs)
-    → New blog content + FCO retainer material → Flywheel
+Workshop / Clarity Letter (P581)
+    → Participant experiences gap → brings it to their real relationship
+    → Partner Agreement with co-founder/partner (PRIMARY conversion action)
+    → Practice in real relationship → stories filed (testimonials + data)
+    → Support group for practitioners (P603) → accountability + new pairs
+    → Blog article from real experiences → Distribution (LinkedIn, communities)
+    → New pairs discover workshop/letter → Flywheel
 ```
+
+**Key learning (2026-03-29):** Partner Agreement (not Pledge) is the natural conversion. Agreement only works with existing high-stakes relationships — not strangers. Events demonstrate; conversion happens when participant brings it home. The Clarity Letter is the async vehicle. Pledge is currently decorative (11 pledgers, zero practice habits) — may become graduation milestone later (P604).
 
 **Three-letter workshop compression (2026-03-24):**
 Workshop sessions can compress the full Clarity Letter sequence (P581) into one sitting:
