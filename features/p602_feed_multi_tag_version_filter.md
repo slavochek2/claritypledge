@@ -130,7 +130,7 @@ created_date: 2026-03-29
 
 | Element | Value | Context |
 |---------|-------|---------|
-| URL param (multi-tag) | `?tag=X,Y` | Comma-separated, OR logic |
+| URL param (multi-tag) | `?tag=X,Y` or `?tag=X&tag=Y` | Both formats supported, OR logic |
 | URL param (version) | `?version=latest` | Collapse to highest vN per st-group |
 | Tag cloud behavior | Toggle on/off | Click adds tag; click again removes. `role="checkbox"` with `aria-checked` |
 | Active tag chips | Individual dismiss (x) buttons | One chip per active tag. `aria-label="Remove filter for #tagname"` |

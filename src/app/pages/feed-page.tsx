@@ -29,8 +29,11 @@ export function FeedPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const { session } = useAuth();
 
-  // URL-driven state
-  const activeTags = parseTags(searchParams.get('tag'));
+  // URL-driven state — supports both ?tag=X,Y and ?tag=X&tag=Y
+  const activeTags = useMemo(() => {
+    const allParams = searchParams.getAll('tag');
+    return allParams.flatMap(p => parseTags(p));
+  }, [searchParams]);
   const tabParam = searchParams.get('tab');
   const activeTab: FeedTab = tabParam === 'stories' ? 'stories' : 'points';
   const ascending = searchParams.get('sort') === 'oldest';
