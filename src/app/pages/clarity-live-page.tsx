@@ -2106,40 +2106,9 @@ export function ClarityLivePage() {
       round: confirmedLiveStateRef.current.explainBackRound,
     });
 
-    const currentState = confirmedLiveStateRef.current;
-
-    // P562: Free mode divergence — transition to continuous sliders immediately
-    // after listener's first "Done explaining". No speaker re-rating step.
-    if (currentState.sessionMode !== 'guided') {
-      const listenerConf = currentState.responderRating ?? 0;
-      const speakerBel = currentState.checkerRating ?? 0;
-      const freeRounds = [
-        { listenerConfidence: listenerConf, speakerBelief: speakerBel, label: '0' },
-      ];
-      const creatorIsChecker = currentState.checkerIsCreator;
-      const creatorSlider = creatorIsChecker ? speakerBel : listenerConf;
-      const joinerSlider = creatorIsChecker ? listenerConf : speakerBel;
-
-      updateLiveState({
-        freePhase: 'unlocked',
-        freeRounds,
-        freeSliderCreator: creatorSlider,
-        freeSliderJoiner: joinerSlider,
-        // Clear guided mode round state to prevent routing confusion.
-        // Use false/0/[] (not undefined) to avoid triggering shouldUseFullOverwrite.
-        ratingPhase: 'idle',
-        explainBackDone: false,
-        speakerSawExplainBackDone: false,
-        explainBackRound: 0,
-        explainBackRatings: [],
-        checkerSubmitted: false,
-        responderSubmitted: false,
-        // Keep checkerName + checkerIsCreator — FreeModeView needs role info
-      });
-      return;
-    }
-
-    // Guided mode: normal flow — unlock speaker's re-rating drawer
+    // P600: Both guided and free mode now go through speaker re-rating.
+    // Free mode diverges in handleExplainBackRate (after speaker rates).
+    // Unlock speaker's re-rating drawer:
     updateLiveState({
       explainBackDone: true,
       // B32_2: Also set speakerSawExplainBackDone so speaker's drawer persists
@@ -2300,6 +2269,39 @@ export function ClarityLivePage() {
           initial_responder_rating: currentState.responderRating,
           has_explain_backs: true,
         });
+      }
+
+      // P600: Free mode divergence — after speaker re-rates, transition to sliders
+      // (unless rating === 10, which triggers guided celebration flow)
+      if (currentState.sessionMode !== 'guided' && !isPerfect) {
+        const listenerConf = currentState.responderRating ?? 0;
+        const speakerBel = currentState.checkerRating ?? 0;
+        const freeRounds = [
+          { listenerConfidence: listenerConf, speakerBelief: speakerBel, label: '0' },
+          { listenerConfidence: listenerConf, speakerBelief: rating, label: '1' },
+        ];
+        const creatorIsChecker = currentState.checkerIsCreator;
+        // Initialize sliders from the re-rated values
+        const creatorSlider = creatorIsChecker ? rating : listenerConf;
+        const joinerSlider = creatorIsChecker ? listenerConf : rating;
+
+        updateLiveState({
+          freePhase: 'unlocked',
+          freeRounds,
+          freeSliderCreator: creatorSlider,
+          freeSliderJoiner: joinerSlider,
+          ratingPhase: 'idle',
+          explainBackDone: false,
+          speakerSawExplainBackDone: false,
+          explainBackRound: 0,
+          explainBackRatings: [],
+          checkerSubmitted: false,
+          responderSubmitted: false,
+          checksCount: currentState.checksCount + 1,
+          checksTotal: currentState.checksTotal + rating,
+          clarificationPhase: undefined,
+        });
+        return;
       }
 
       updateLiveState({
