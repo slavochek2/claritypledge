@@ -36,9 +36,11 @@ This file provides guidance for AI agents working with code in this repository.
 
 > **Principle:** Prefer simple, direct solutions over complex patterns.
 
-Lead with the simplest production-ready approach. Avoid adapter patterns when direct migration works, over-abstraction for one-time operations.
+Lead with the simplest production-ready approach. Avoid adapter patterns when direct migration works, over-abstraction for one-time operations. Before any proposal, state why the current state might already be sufficient — argue against building before arguing for it.
 
 **Mid-implementation signal:** If you discover a simpler approach mid-way, stop — don't finish the complex path (sunk cost). Propose the switch: "I'm halfway through X but Y does this in 3 lines. Switch?" Verify the simpler path handles the same constraints first.
+
+**Founder decisions:** Never fill in CTA text, pricing, tone, naming, or value propositions without being told. Mark each with `[FOUNDER DECISION: ...]` and ask.
 
 For architecture patterns, see [docs/technical/architecture.md](docs/technical/architecture.md).
 
@@ -49,6 +51,14 @@ For architecture patterns, see [docs/technical/architecture.md](docs/technical/a
 > **Principle:** Any capability, guarantee, or behavior of a tool you haven't verified this session — flag it.
 
 When the claim can be tested: simulate the failure, apply the fix, simulate again. When it cannot be tested: say so explicitly — never present inference as confirmed. Never assert what a spec or doc contains without having read it this session.
+
+---
+
+### Evidence Over Declaration
+
+> **Principle:** Never say "done." Provide evidence; the user decides completion.
+
+The agent does not declare work complete. Instead, it presents observable output — test results, screenshots, query output, command logs — and says: "Evidence produced: [output]. Awaiting your confirmation." Reasoning about code ("this should work because...") is not evidence. Running it and pasting the result is.
 
 ---
 
@@ -195,7 +205,7 @@ Before any action visible to others or sending to external systems (email, socia
 
 See [docs/technical/debugging.md](docs/technical/debugging.md) for full protocol.
 
-**Quick rules:** (1) Verify current code before acting on screenshots. (2) For DB issues: check RLS → migrations → columns. (3) Fix ONE root cause at a time. (4) For runtime issues, query prod first — read static code only after you have real data. (5) UI fixes are not done until a browser check confirms it — "tests pass" isn't enough. (6) Second patch in the same area = wrong root cause — re-diagnose from scratch. (7) Two failures with the same symptom = wrong abstraction level — stop executing and research the API docs before retrying.
+**Quick rules:** (1) Verify current code before acting on screenshots. (2) For DB issues: check RLS → migrations → columns. (3) Fix ONE root cause at a time. (4) For runtime issues, query prod first — read static code only after you have real data. (5) UI fixes are not done until a browser check confirms it — "tests pass" isn't enough. (6) Second patch in the same area = wrong root cause — re-diagnose from scratch. (7) Two failures with the same symptom = wrong abstraction level — stop executing and research the API docs before retrying. (8) **Auto-reflect after 2 failed attempts at the same problem.** Do not attempt a third fix. Instead, stop and output: "Stepping back. What I tried: [X, Y]. Why each failed: [reasons]. New hypothesis: [Z]." Only proceed with the new hypothesis after producing this reflection.
 
 ---
 
