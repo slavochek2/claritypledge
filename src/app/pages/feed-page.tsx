@@ -15,28 +15,26 @@ import { pointsService } from '@/app/data/points-service';
 import { useAuth } from '@/auth';
 import { FeedStoryCard } from '@/app/components/feed/feed-story-card';
 import { FeedPointCard } from '@/app/components/feed/feed-point-card';
-import { ActiveTagFilter } from '@/app/components/feed/active-tag-filter';
 import { FeedSkeleton } from '@/app/components/feed/feed-skeleton';
 import { SEO } from '@/app/components/seo';
 import { analytics } from '@/lib/mixpanel';
+import { parseTags, serializeTags, filterByTags, collapseToLatest, isInternalTag } from '@/lib/feed-utils';
 import type { StoryWithAuthor, PointWithUserPosition, PositionType } from '@/app/types';
 
 type FeedTab = 'points' | 'stories';
 
 const FEED_LIMIT = 50;
 
-/** Internal tags used for content organization — hidden from public tag cloud */
-const INTERNAL_TAG_PATTERN = /^st\d+$/i;
-
 export function FeedPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const { session } = useAuth();
 
   // URL-driven state
-  const activeTag = searchParams.get('tag') || undefined;
+  const activeTags = parseTags(searchParams.get('tag'));
   const tabParam = searchParams.get('tab');
   const activeTab: FeedTab = tabParam === 'stories' ? 'stories' : 'points';
   const ascending = searchParams.get('sort') === 'oldest';
+  const versionLatest = searchParams.get('version') === 'latest';
 
   // Data state
   const [stories, setStories] = useState<StoryWithAuthor[]>([]);
@@ -47,15 +45,15 @@ export function FeedPage() {
   // Search state (local, not in URL)
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Fetch data
+  // Fetch ALL data (BR-8: tag cloud from all content, filter client-side)
   const fetchData = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
       const viewerUserId = session?.user?.id;
       const [storiesData, pointsData] = await Promise.all([
-        storiesService.getPublicStoriesFeed(FEED_LIMIT, 0, activeTag, ascending),
-        pointsService.getPublicPointsFeed(FEED_LIMIT, 0, activeTag, viewerUserId, ascending),
+        storiesService.getPublicStoriesFeed(FEED_LIMIT, 0, undefined, ascending),
+        pointsService.getPublicPointsFeed(FEED_LIMIT, 0, undefined, viewerUserId, ascending),
       ]);
       setStories(storiesData);
       setPoints(pointsData);
@@ -64,7 +62,7 @@ export function FeedPage() {
     } finally {
       setLoading(false);
     }
-  }, [activeTag, session?.user?.id, ascending]);
+  }, [session?.user?.id, ascending]);
 
   useEffect(() => {
     fetchData();
@@ -83,7 +81,7 @@ export function FeedPage() {
     }).filter((p): p is PointWithUserPosition => p !== null));
   }, []);
 
-  // Tag cloud: extract from both stories + points (client-side, Decision 8)
+  // Tag cloud: extract from ALL stories + points (BR-8: computed from all content)
   const tagCloud = useMemo(() => {
     const tagCounts = new Map<string, number>();
     for (const story of stories) {
@@ -97,23 +95,32 @@ export function FeedPage() {
       }
     }
     return [...tagCounts.entries()]
-      .filter(([tag]) => !INTERNAL_TAG_PATTERN.test(tag))
+      .filter(([tag]) => !isInternalTag(tag))
       .sort((a, b) => b[1] - a[1])
       .map(([tag]) => tag);
   }, [stories, points]);
 
-  // Client-side search filtering (Decision 9)
+  // Client-side tag + version + search filtering
   const filteredStories = useMemo(() => {
-    if (!searchQuery.trim()) return stories;
-    const q = searchQuery.toLowerCase();
-    return stories.filter(s => s.content.toLowerCase().includes(q));
-  }, [stories, searchQuery]);
+    let result = filterByTags(stories, activeTags);
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      result = result.filter(s => s.content.toLowerCase().includes(q));
+    }
+    return result;
+  }, [stories, activeTags, searchQuery]);
 
   const filteredPoints = useMemo(() => {
-    if (!searchQuery.trim()) return points;
-    const q = searchQuery.toLowerCase();
-    return points.filter(p => p.statement.toLowerCase().includes(q));
-  }, [points, searchQuery]);
+    let result = filterByTags(points, activeTags);
+    if (versionLatest) {
+      result = collapseToLatest(result);
+    }
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      result = result.filter(p => p.statement.toLowerCase().includes(q));
+    }
+    return result;
+  }, [points, activeTags, versionLatest, searchQuery]);
 
   // Tab switching
   const handleTabChange = (tab: FeedTab) => {
@@ -126,10 +133,16 @@ export function FeedPage() {
     setSearchParams(params, { replace: false });
   };
 
-  // Tag filter dismiss
-  const handleDismissTag = () => {
+  // Tag filter dismiss (single tag from multi-tag set)
+  const handleDismissTag = (tagToDismiss: string) => {
+    const remaining = activeTags.filter(t => t !== tagToDismiss);
     const params = new URLSearchParams(searchParams);
-    params.delete('tag');
+    const serialized = serializeTags(remaining);
+    if (serialized) {
+      params.set('tag', serialized);
+    } else {
+      params.delete('tag');
+    }
     setSearchParams(params, { replace: false });
   };
 
@@ -146,20 +159,40 @@ export function FeedPage() {
     setSearchParams(params, { replace: false });
   };
 
-  // Tag cloud chip click
+  // Tag cloud chip click — toggle on/off (multi-select)
   const handleTagCloudClick = (tag: string) => {
-    if (tag === activeTag) return; // no-op
-    analytics.track('feed_tag_filtered', { tag, source: 'tag_cloud' });
+    const isActive = activeTags.includes(tag);
+    const newTags = isActive
+      ? activeTags.filter(t => t !== tag)
+      : [...activeTags, tag];
+    analytics.track('feed_tag_filtered', { tag, action: isActive ? 'remove' : 'add', source: 'tag_cloud' });
     const params = new URLSearchParams(searchParams);
-    params.set('tag', tag);
+    const serialized = serializeTags(newTags);
+    if (serialized) {
+      params.set('tag', serialized);
+    } else {
+      params.delete('tag');
+    }
+    setSearchParams(params, { replace: false });
+  };
+
+  // Version toggle
+  const handleVersionToggle = () => {
+    const params = new URLSearchParams(searchParams);
+    if (versionLatest) {
+      params.delete('version');
+    } else {
+      params.set('version', 'latest');
+    }
+    analytics.track('feed_version_toggled', { version: versionLatest ? 'all' : 'latest' });
     setSearchParams(params, { replace: false });
   };
 
   // Active content based on tab
   const activeContent = activeTab === 'stories' ? filteredStories : filteredPoints;
 
-  const seoTitle = activeTag
-    ? `#${activeTag} — ClarityPledge`
+  const seoTitle = activeTags.length > 0
+    ? `${activeTags.map(t => `#${t}`).join(' ')} — ClarityPledge`
     : 'Home — ClarityPledge';
 
   return (
@@ -206,18 +239,18 @@ export function FeedPage() {
         {!loading && tagCloud.length > 0 && (
           <div className="flex flex-wrap gap-1.5 mb-4">
             {tagCloud.map((tag) => {
-              const isActive = tag === activeTag;
+              const isActive = activeTags.includes(tag);
               return (
                 <button
                   key={tag}
+                  role="checkbox"
+                  aria-checked={isActive}
                   onClick={() => handleTagCloudClick(tag)}
-                  className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-sm transition-colors ${
+                  className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-sm transition-colors cursor-pointer ${
                     isActive
-                      ? 'bg-blue-100 text-blue-800 ring-1 ring-blue-300 cursor-default'
-                      : 'bg-muted text-muted-foreground hover:bg-blue-50 hover:text-blue-600 cursor-pointer'
+                      ? 'bg-blue-100 text-blue-800 ring-1 ring-blue-300'
+                      : 'bg-muted text-muted-foreground hover:bg-blue-50 hover:text-blue-600'
                   }`}
-                  aria-pressed={isActive}
-                  disabled={isActive}
                 >
                   #{tag}
                 </button>
@@ -226,10 +259,24 @@ export function FeedPage() {
           </div>
         )}
 
-        {/* Active tag filter pill */}
-        {activeTag && (
+        {/* Active tag filter pills (multi-tag) */}
+        {activeTags.length > 0 && (
           <div className="mb-4">
-            <ActiveTagFilter tag={activeTag} onDismiss={handleDismissTag} />
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-sm text-muted-foreground">Showing:</span>
+              {activeTags.map(tag => (
+                <span key={tag} className="inline-flex items-center gap-1 rounded-full bg-blue-100 text-blue-800 px-3 py-1 text-sm font-medium">
+                  #{tag}
+                  <button
+                    onClick={() => handleDismissTag(tag)}
+                    className="ml-1 rounded-full hover:bg-blue-200 p-0.5 transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                    aria-label={`Remove filter for #${tag}`}
+                  >
+                    <X size={14} />
+                  </button>
+                </span>
+              ))}
+            </div>
           </div>
         )}
 
@@ -265,14 +312,29 @@ export function FeedPage() {
               <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-foreground" />
             )}
           </button>
-          <button
-            onClick={handleSortToggle}
-            className="ml-auto flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors pb-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-sm"
-            aria-label={ascending ? 'Currently oldest first, click for newest' : 'Currently newest first, click for oldest'}
-          >
-            {ascending ? 'Oldest first' : 'Newest first'}
-            <ArrowUpDown className="w-3.5 h-3.5" />
-          </button>
+          <div className="ml-auto flex items-center gap-3 pb-2">
+            {/* Version toggle — points tab only */}
+            {activeTab === 'points' && (
+              <button
+                role="switch"
+                aria-checked={versionLatest}
+                aria-label="Show latest versions only"
+                onClick={handleVersionToggle}
+                className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-sm"
+              >
+                Latest
+                <span className={`inline-block w-3 h-3 rounded-full border ${versionLatest ? 'bg-blue-500 border-blue-500' : 'border-muted-foreground'}`} />
+              </button>
+            )}
+            <button
+              onClick={handleSortToggle}
+              className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-sm"
+              aria-label={ascending ? 'Currently oldest first, click for newest' : 'Currently newest first, click for oldest'}
+            >
+              {ascending ? 'Oldest first' : 'Newest first'}
+              <ArrowUpDown className="w-3.5 h-3.5" />
+            </button>
+          </div>
         </div>
 
         {/* Content area */}
@@ -292,13 +354,17 @@ export function FeedPage() {
           ) : activeContent.length === 0 ? (
             // Empty state
             <div className="text-center py-12">
-              {activeTag ? (
+              {activeTags.length > 0 ? (
                 <>
                   <h2 className="text-lg font-medium text-foreground mb-2">
-                    No content tagged #{activeTag} yet
+                    No content matching {activeTags.map(t => `#${t}`).join(' or ')} yet
                   </h2>
                   <button
-                    onClick={handleDismissTag}
+                    onClick={() => {
+                      const params = new URLSearchParams(searchParams);
+                      params.delete('tag');
+                      setSearchParams(params, { replace: false });
+                    }}
                     className="text-blue-600 hover:text-blue-700 font-medium transition-colors"
                   >
                     Browse all content
@@ -326,7 +392,7 @@ export function FeedPage() {
                     <FeedPointCard
                       key={point.id}
                       point={point}
-                      activeTag={activeTag}
+                      activeTag={activeTags[0]}
                       onPointRemoved={handlePointRemoved}
                     />
                   ))
@@ -334,7 +400,7 @@ export function FeedPage() {
                     <FeedStoryCard
                       key={story.id}
                       story={story}
-                      activeTag={activeTag}
+                      activeTag={activeTags[0]}
                     />
                   ))
               }
