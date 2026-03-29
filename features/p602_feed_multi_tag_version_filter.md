@@ -5,7 +5,7 @@ rank: 8.0
 workstream: C2
 tags: [feed, tags, filtering, version]
 prepped_date: '2026-03-29'
-delivery_stage: 4-tests-ready
+delivery_stage: uat
 uat_file: features/uat/p602.md
 test_files:
   - src/tests/p602-feed-filters.test.ts
