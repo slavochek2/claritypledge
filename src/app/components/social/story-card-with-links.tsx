@@ -416,15 +416,12 @@ export function StoryCardWithLinks({
           {pointsExpanded &&
             linkedPoints.length > 0 &&
             (() => {
-              const pointsToShow = linkedPoints.slice(0, isDetailView ? undefined : 3);
-              const hasMorePoints = !isDetailView && linkedPoints.length > 3;
-
               return (
                 <div className="pl-4 sm:pl-[68px] pr-4 pb-4">
-                  {pointsToShow.length === 1 ? (
+                  {linkedPoints.length === 1 ? (
                     // Single point - no thread lines
                     <QuotedPoint
-                      point={pointsToShow[0]}
+                      point={linkedPoints[0]}
                       authorName={author.name}
                       authorId={story.authorId}
                       authorEarCount={author.ear}
@@ -434,22 +431,22 @@ export function StoryCardWithLinks({
                       onClick={(e) => {
                         e.stopPropagation();
                         if (onPointClick) {
-                          onPointClick(pointsToShow[0].id);
+                          onPointClick(linkedPoints[0].id);
                         } else {
-                          embedNavigate(`/point/${pointsToShow[0].id}`);
+                          embedNavigate(`/point/${linkedPoints[0].id}`);
                         }
                       }}
                       getPointPositionCounts={getPointPositionCounts}
                       currentUserId={currentUserId}
-                      viewerStoryCount={viewerStoriesPerPoint?.get(pointsToShow[0].id) ?? 0}
+                      viewerStoryCount={viewerStoriesPerPoint?.get(linkedPoints[0].id) ?? 0}
                     />
                   ) : (
                     // 2+ points - show thread lines
                     <ThreadLineGroup>
-                      {pointsToShow.map((point, index) => (
+                      {linkedPoints.map((point, index) => (
                         <ThreadLineItem
                           key={point.id}
-                          isLast={index === pointsToShow.length - 1 && !hasMorePoints}
+                          isLast={index === linkedPoints.length - 1}
                         >
                           <QuotedPoint
                             point={point}
@@ -472,19 +469,6 @@ export function StoryCardWithLinks({
                           />
                         </ThreadLineItem>
                       ))}
-                      {hasMorePoints && (
-                        <ThreadLineItem isLast>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              embedNavigate(`/story/${story.id}`);
-                            }}
-                            className="text-xs text-blue-600 hover:underline"
-                          >
-                            +{linkedPoints.length - 3} more points
-                          </button>
-                        </ThreadLineItem>
-                      )}
                     </ThreadLineGroup>
                   )}
                 </div>

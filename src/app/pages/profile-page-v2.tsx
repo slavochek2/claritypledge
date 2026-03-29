@@ -1495,10 +1495,8 @@ function StoryCardFull({
       {pointsExpanded && linkedPoints.length > 0 && (
         <div role="presentation" className="pl-4 sm:pl-[68px] pr-4 pb-4" onClick={(e) => e.stopPropagation()}>
           <ThreadLineGroup>
-            {linkedPoints.slice(0, 3).map((point, index) => {
-              const visiblePoints = linkedPoints.slice(0, 3);
-              const hasMoreButton = linkedPoints.length > 3;
-              const isLast = !hasMoreButton && index === visiblePoints.length - 1;
+            {linkedPoints.map((point, index) => {
+              const isLast = index === linkedPoints.length - 1;
               return (
                 <ThreadLineItem key={point.id} isLast={isLast}>
                   <QuotedPointCard
@@ -1515,16 +1513,6 @@ function StoryCardFull({
                 </ThreadLineItem>
               );
             })}
-            {linkedPoints.length > 3 && (
-              <ThreadLineItem isLast>
-                <button
-                  onClick={() => navigate(detailRoutes.story(story.id))}
-                  className="text-xs text-blue-600 hover:underline"
-                >
-                  +{linkedPoints.length - 3} more points
-                </button>
-              </ThreadLineItem>
-            )}
           </ThreadLineGroup>
         </div>
       )}
