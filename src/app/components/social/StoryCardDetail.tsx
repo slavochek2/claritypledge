@@ -404,9 +404,6 @@ export function StoryCardDetail({
           {pointsExpanded &&
             displayPoints.length > 0 &&
             (() => {
-              const pointsToShow = displayPoints.slice(0, isDetailView ? undefined : 3);
-              const hasMorePoints = !isDetailView && displayPoints.length > 3;
-
               /** Render a single QuotedPoint, optionally wrapped by renderPointRow */
               const renderPoint = (point: PointSummary) => {
                 const quotedEl = (
@@ -434,33 +431,20 @@ export function StoryCardDetail({
 
               return (
                 <div className="pl-4 sm:pl-[68px] pr-4 pb-4">
-                  {pointsToShow.length === 1 ? (
+                  {displayPoints.length === 1 ? (
                     // Single point - no thread lines
-                    renderPoint(pointsToShow[0])
+                    renderPoint(displayPoints[0])
                   ) : (
                     // 2+ points - show thread lines
                     <ThreadLineGroup>
-                      {pointsToShow.map((point, index) => (
+                      {displayPoints.map((point, index) => (
                         <ThreadLineItem
                           key={point.id}
-                          isLast={index === pointsToShow.length - 1 && !hasMorePoints}
+                          isLast={index === displayPoints.length - 1}
                         >
                           {renderPoint(point)}
                         </ThreadLineItem>
                       ))}
-                      {hasMorePoints && (
-                        <ThreadLineItem isLast>
-                          <button
-                            onClick={e => {
-                              e.stopPropagation();
-                              navigate(storyRoute(story.id));
-                            }}
-                            className="text-xs text-blue-600 hover:underline"
-                          >
-                            +{displayPoints.length - 3} more points
-                          </button>
-                        </ThreadLineItem>
-                      )}
                     </ThreadLineGroup>
                   )}
                 </div>
