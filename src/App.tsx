@@ -1,4 +1,4 @@
-import { BrowserRouter as Router, Routes, Route, Navigate, useSearchParams } from "react-router-dom";
+import { BrowserRouter as Router, Routes, Route, Navigate, useSearchParams, useParams } from "react-router-dom";
 import { lazy, Suspense, Component, ReactNode } from "react";
 import { ClarityPageLoader } from "@/components/ui/clarity-loader";
 import * as Sentry from "@sentry/react";
@@ -95,6 +95,11 @@ function ChatRedirect() {
   const [searchParams] = useSearchParams();
   const qs = searchParams.toString();
   return <Navigate to={qs ? `/create?${qs}` : '/create'} replace />;
+}
+
+function FeedTagRedirect() {
+  const { tag } = useParams();
+  return <Navigate to={`/feed?tag=${encodeURIComponent(tag || '')}&sort=oldest&version=latest`} replace />;
 }
 
 // Loading fallback for lazy routes
@@ -549,6 +554,8 @@ export default function ClarityPledgeApp() {
             </ClarityLandingLayout>
           }
         />
+        {/* P602: Clean feed URL shortcut — /feed/understanding → /feed?tag=understanding&sort=oldest&version=latest */}
+        <Route path="/feed/:tag" element={<FeedTagRedirect />} />
 
         <Route
           path="/live"
