@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import { CheckCircle2Icon, InfoIcon } from "lucide-react";
+import { CheckCircle2Icon, InfoIcon, RefreshCwIcon } from "lucide-react";
 import { signInWithEmail } from "@/app/data/api";
 import { analytics } from "@/lib/mixpanel";
 import { getPositionVerb } from "@/lib/auth-gate-utils";
@@ -24,6 +24,9 @@ export function SignupPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [termsAccepted, setTermsAccepted] = useState(false);
+  const [isResending, setIsResending] = useState(false);
+  const [resendSuccess, setResendSuccess] = useState(false);
+  const [resendError, setResendError] = useState("");
 
   // Check for message param (e.g., redirected from login with no account)
   const searchParams = new URLSearchParams(location.search);
@@ -106,6 +109,30 @@ export function SignupPage() {
     }
   };
 
+  const handleResendLink = async () => {
+    if (!email || isResending) return;
+    setIsResending(true);
+    setResendError("");
+    setResendSuccess(false);
+    try {
+      const { error } = await signInWithEmail(email, 'signup', {
+        redirect: redirectParam || undefined,
+        action: actionParam || undefined,
+        name: name.trim(),
+        extraParams: Object.keys(authGateExtraParams).length > 0 ? authGateExtraParams : undefined,
+      });
+      if (error) {
+        setResendError("Failed to send. Please try again.");
+      } else {
+        setResendSuccess(true);
+      }
+    } catch {
+      setResendError("An error occurred. Please try again.");
+    } finally {
+      setIsResending(false);
+    }
+  };
+
   if (isSubmitted) {
     return (
       <div className="container mx-auto px-4 py-8 md:py-12 max-w-lg">
@@ -123,9 +150,35 @@ export function SignupPage() {
                 Click the link in your email to create your account.
               </p>
             </div>
+            <div className="bg-muted/30 rounded-lg border border-border p-4 space-y-3">
+              <p className="text-sm text-muted-foreground">Didn't receive the email?</p>
+              {resendSuccess ? (
+                <div className="flex items-center justify-center gap-2">
+                  <CheckCircle2Icon className="w-4 h-4 text-green-600" />
+                  <span className="text-sm text-green-600">New link sent!</span>
+                </div>
+              ) : (
+                <Button
+                  variant="outline"
+                  onClick={handleResendLink}
+                  disabled={isResending}
+                  className="w-full"
+                >
+                  <RefreshCwIcon className={`w-4 h-4 mr-2 ${isResending ? "animate-spin" : ""}`} />
+                  {isResending ? "Sending..." : "Resend Link"}
+                </Button>
+              )}
+              {resendError && (
+                <p className="text-sm text-red-600 text-center">{resendError}</p>
+              )}
+            </div>
             <Button
               variant="outline"
-              onClick={() => setIsSubmitted(false)}
+              onClick={() => {
+                setIsSubmitted(false);
+                setResendSuccess(false);
+                setResendError("");
+              }}
               className="w-full"
             >
               Use Different Email

@@ -482,6 +482,35 @@ else
 fi
 echo ""
 
+# 17b. Broad email check in feature specs — catch any real user email that slipped in
+echo ">>> Checking feature specs for unrecognized email addresses..."
+STAGED_FEATURE_FILES=$(echo "$STAGED_FILES_ALL" | grep -E '^features/.*\.md$' || true)
+if [ -n "$STAGED_FEATURE_FILES" ]; then
+    FEATURE_DIFF=$(echo "$STAGED_FEATURE_FILES" | xargs -I{} git diff --cached -- {} 2>/dev/null | \
+        grep -E '^\+' | grep -v '^\+\+\+' || true)
+
+    # Match email-like patterns, then exclude known safe ones
+    SUSPICIOUS_EMAILS=$(echo "$FEATURE_DIFF" | \
+        grep -oE '[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}' | \
+        grep -viE '@claritypledge\.com|@example\.com|@gmail\.com|@supabase\.co' | \
+        grep -viE '^e2e-' | \
+        sort -u || true)
+
+    if [ -n "$SUSPICIOUS_EMAILS" ]; then
+        echo -e "${YELLOW}⚠ Possible user email(s) in feature spec — verify safe to publish:${NC}"
+        echo "$SUSPICIOUS_EMAILS" | while read -r addr; do
+            echo -e "${YELLOW}  → $addr${NC}"
+        done
+        echo -e "${YELLOW}  → Move to .private/docs/ if this is a real user's address${NC}"
+        WARNINGS=$((WARNINGS + 1))
+    else
+        echo -e "${GREEN}✓ No unrecognized emails in feature specs${NC}"
+    fi
+else
+    echo -e "${GREEN}✓ No feature specs staged${NC}"
+fi
+echo ""
+
 # 18. One-time scripts outside archive/ — warn if staged directly in scripts/ root
 echo ">>> Checking for one-time scripts not yet archived..."
 ONE_TIME_STAGED=$(git diff --cached --name-only | \
