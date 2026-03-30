@@ -112,7 +112,14 @@ export function SimpleNavigation() {
                   to="/live"
                   title="Start a live clarity session"
                   className="inline-flex items-center justify-center whitespace-nowrap text-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring shadow h-10 rounded-md px-6 bg-blue-500 hover:bg-blue-600 text-white font-semibold gap-2"
-                  onClick={() => analytics.track('nav_cta_clicked', { cta: 'try_meeting', device: 'desktop' })}
+                  onClick={(e) => {
+                    analytics.track('nav_cta_clicked', { cta: 'try_meeting', device: 'desktop' });
+                    if (location.pathname.startsWith('/live')) {
+                      e.preventDefault();
+                      navigate('/live', { replace: true });
+                      window.location.reload();
+                    }
+                  }}
                 >
                   <MicIcon className="w-4 h-4" />
                   Start a Clarity Session
@@ -176,7 +183,14 @@ export function SimpleNavigation() {
                   to="/live"
                   title="Start a live clarity session"
                   className="inline-flex items-center justify-center whitespace-nowrap text-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring shadow h-10 rounded-md px-6 bg-blue-500 hover:bg-blue-600 text-white font-semibold gap-2"
-                  onClick={() => analytics.track('nav_cta_clicked', { cta: 'try_meeting', device: 'desktop' })}
+                  onClick={(e) => {
+                    analytics.track('nav_cta_clicked', { cta: 'try_meeting', device: 'desktop' });
+                    if (location.pathname.startsWith('/live')) {
+                      e.preventDefault();
+                      navigate('/live', { replace: true });
+                      window.location.reload();
+                    }
+                  }}
                 >
                   <MicIcon className="w-4 h-4" />
                   Start a Clarity Session
@@ -232,7 +246,14 @@ export function SimpleNavigation() {
                   to="/live"
                   title="Start a live clarity session"
                   className="inline-flex items-center justify-center whitespace-nowrap text-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring shadow h-10 rounded-md px-8 bg-blue-500 hover:bg-blue-600 text-white font-semibold gap-2"
-                  onClick={() => analytics.track('nav_cta_clicked', { cta: 'try_meeting', device: 'desktop' })}
+                  onClick={(e) => {
+                    analytics.track('nav_cta_clicked', { cta: 'try_meeting', device: 'desktop' });
+                    if (location.pathname.startsWith('/live')) {
+                      e.preventDefault();
+                      navigate('/live', { replace: true });
+                      window.location.reload();
+                    }
+                  }}
                 >
                   <MicIcon className="w-4 h-4" />
                   Start a Clarity Session

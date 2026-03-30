@@ -829,6 +829,8 @@ export function LiveModeView({
             isGuest={isGuest}
             currentUserName={currentUserName}
             uploadHealth={uploadHealth}
+            sessionMode={liveState.sessionMode}
+            onSessionModeChange={onSessionModeChange}
                       />
           {skipNotificationDialog}
           {confirmSkipDialog}
@@ -939,6 +941,8 @@ export function LiveModeView({
         isGuest={isGuest}
         currentUserName={currentUserName}
         uploadHealth={uploadHealth}
+        sessionMode={liveState.sessionMode}
+        onSessionModeChange={onSessionModeChange}
               />
       {skipNotificationDialog}
       {confirmSkipDialog}
@@ -1420,6 +1424,9 @@ interface ResponderWaitingWithDrawerProps {
   isGuest?: boolean;
   /** P566: Upload health for recording indicator */
   uploadHealth?: 'healthy' | 'degraded' | 'critical';
+  /** P614: Mode switcher props */
+  sessionMode?: 'guided' | 'free';
+  onSessionModeChange?: (mode: 'guided' | 'free') => void;
 }
 
 function ResponderWaitingWithDrawer({
@@ -1438,6 +1445,8 @@ function ResponderWaitingWithDrawer({
   currentUserName,
   isGuest = false,
   uploadHealth,
+  sessionMode,
+  onSessionModeChange,
 }: ResponderWaitingWithDrawerProps) {
   return (
     <IdleScreen
@@ -1457,6 +1466,8 @@ function ResponderWaitingWithDrawer({
       currentUserName={currentUserName}
       isGuest={isGuest}
       uploadHealth={uploadHealth}
+      sessionMode={sessionMode}
+      onSessionModeChange={onSessionModeChange}
           />
   );
 }
