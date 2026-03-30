@@ -667,7 +667,6 @@ export function LiveModeView({
           onSpeakFreely={() => handleRequestSkip('good-enough')}
           onRoundComplete={onFreeRoundComplete as () => void}
           onDiscussAnother={onFreeDiscussAnother as () => void}
-          onEndSession={onExitMeeting}
           storyTitle={freeStoryTitle}
           selectedStory={selectedStory}
         />
@@ -1032,6 +1031,16 @@ function IdleScreen({
   // P23.3: Detect "Did I get it?" flow for drawer messaging
   const isProverInitiated = liveState.proverName !== undefined;
 
+  // P600: Toast when partner switches session mode
+  const prevSessionModeRef = useRef<string | undefined>(sessionMode);
+  useEffect(() => {
+    if (prevSessionModeRef.current !== undefined && sessionMode !== prevSessionModeRef.current) {
+      const modeName = sessionMode === 'guided' ? 'Guided mode' : 'Open mode';
+      toast(`Switched to ${modeName}`, { id: 'mode-switch', duration: 2000 });
+    }
+    prevSessionModeRef.current = sessionMode;
+  }, [sessionMode]);
+
   // P398: Selected history index for inline round summary
   const [selectedHistoryIndex, setSelectedHistoryIndex] = useState<number | null>(null);
 
@@ -1041,6 +1050,9 @@ function IdleScreen({
       setSelectedHistoryIndex(null);
     }
   }, [liveState.ratingPhase]);
+
+  // P600: Progressive disclosure — "Select your story" toggle
+  const [showStoryPicker, setShowStoryPicker] = useState(false);
 
   // P128: Fetch user's stories and points (only if authenticated)
   const [stories, setStories] = useState<StoryWithPoints[]>([]);
@@ -1113,10 +1125,14 @@ function IdleScreen({
   const sessionHistory = liveState.sessionHistory ?? [];
 
   // Use top-aligned layout only when a story/point card is visible on screen
-  const hasScrollableContent = !!liveState.selectedStoryId || sessionHistory.length > 0;
-  const layoutClass = showRatingDrawer || hasRatingData || hasScrollableContent
-    ? CONTENT_LAYOUT
-    : CONTENT_LAYOUT_CENTERED;
+  const hasScrollableContent = !!liveState.selectedStoryId || !!liveState.selectedStoryData || sessionHistory.length > 0;
+  // P600: Clean idle (no story, no ratings, no history) uses two-zone layout for stable button position
+  const isCleanIdle = !hasScrollableContent && !showRatingDrawer && !hasRatingData;
+  const layoutClass = isCleanIdle
+    ? '' // Two-zone layout handled inline below
+    : hasScrollableContent || showRatingDrawer || hasRatingData
+      ? CONTENT_LAYOUT
+      : CONTENT_LAYOUT_CENTERED;
 
   // P128: Track cardless mode selection when user has content but chooses free-form
   const handleStartCheckWithTracking = () => {
@@ -1166,85 +1182,124 @@ function IdleScreen({
     <div className="flex flex-col h-full min-h-0">
       <LiveHeader partnerName={partnerName} onExit={onExit} isPrivate={isPrivate} uploadHealth={uploadHealth} />
 
-      <div ref={scrollContainerRef} className={layoutClass} style={{ overflowAnchor: 'none' }}>
-        {selectedHistoryIndex !== null && sessionHistory[selectedHistoryIndex] ? (
-          <RoundSummaryScreen
-            item={sessionHistory[selectedHistoryIndex]}
-            storyData={sessionHistory[selectedHistoryIndex].storyData}
-            onBack={() => setSelectedHistoryIndex(null)}
-          />
-        ) : (
-          <>
-            {/* Show journey card if there's rating history or drawer is open */}
-            {(hasRatingData || showRatingDrawer) && (
-              <JourneyToUnderstanding
-                checkerRating={liveState.checkerRating}
-                responderRating={liveState.responderRating}
-                explainBackRatings={liveState.explainBackRatings}
-                isChecker={false} // On idle screen, show neutral perspective (listener view)
-                displayPartnerName={displayPartnerName}
-                checkerName={checkerName}
-                proverName={liveState.proverName ? getFirstName(liveState.proverName) : undefined}
-                className="w-full max-w-sm"
-                hideUntilBothSubmitted={showRatingDrawer}
-              />
-            )}
+      {isCleanIdle ? (
+        /* P600: Two-zone layout — button stays fixed at ~40% mark, picker flows below */
+        <>
+          {/* Top zone: button area, pushed to bottom of its flex space */}
+          <div className="flex-[2] flex flex-col items-center justify-end pb-4 px-6 max-w-lg mx-auto w-full">
+            <div className="flex flex-col gap-1 w-full max-w-sm">
+              <Button
+                size="lg"
+                className="bg-blue-500 hover:bg-blue-600 w-full py-6"
+                onClick={handleStartCheckWithTracking}
+                disabled={waitingForPartnerToContinue}
+                data-testid="start-check"
+              >
+                <span className="flex flex-col items-center gap-1.5">
+                  <span className="text-xl font-semibold leading-none">Speak</span>
+                  <span className="text-[11px] font-normal text-white/90 leading-none">Did {displayPartnerName} understand you?</span>
+                </span>
+              </Button>
+              {waitingForPartnerToContinue && (
+                <WaitingIndicator message={`Waiting for ${displayPartnerName} to continue...`} />
+              )}
+            </div>
+          </div>
 
-            {/* P272: Story card shown when story is selected.
-                Both views start collapsed — partner can expand to read points and vote. */}
-            {selectedStory && (
-              <LiveStoryCardExpanded
-                story={selectedStory}
-                isOwnStory={isStoryOwner}
-                isGuest={isGuest}
-                onPositionSelect={onPositionSelect}
-                className="w-full max-w-sm mb-2"
-                badgePersonName={badgePersonName}
-                badgePersonEarsCount={badgePersonEarsCount}
-                defaultExpanded={false}
-              />
-            )}
-
-
-            {/* P588: Buttons INSIDE scroll container when no story (above search picker) */}
-            {!selectedStory && !showRatingDrawer && (selectedHistoryIndex === null) && (
-              <div className="flex flex-col gap-3 w-full max-w-sm mx-auto">
-                <Button
-                  size="lg"
-                  className="bg-blue-500 hover:bg-blue-600 w-full"
-                  onClick={handleStartCheckWithTracking}
+          {/* Bottom zone: picker + history, flows downward from midpoint */}
+          <div className="flex-[3] flex flex-col items-center justify-start pt-2 px-6 max-w-lg mx-auto w-full overflow-y-auto live-scroll">
+            {!liveState.selectedStoryId && userId && onSelectStory && (
+              showStoryPicker && contentLoaded && stories.length > 0 ? (
+                <StorySearchPicker
+                  stories={stories}
+                  onSelectStory={(id, title) => { handleSelectStoryWithTracking(id, title); setShowStoryPicker(false); }}
                   disabled={waitingForPartnerToContinue}
-                  data-testid="start-check"
+                  onCancel={() => setShowStoryPicker(false)}
+                />
+              ) : !waitingForPartnerToContinue && !showStoryPicker && (
+                <Button
+                  variant="outline"
+                  onClick={() => setShowStoryPicker(true)}
+                  disabled={!contentLoaded || stories.length === 0}
+                  className="mx-auto text-sm min-h-[44px]"
                 >
-                  Does <span className="font-bold">{displayPartnerName}</span> understand you?
+                  {!contentLoaded ? 'Loading stories…' : stories.length === 0 ? '' : '+ Select your story'}
                 </Button>
-                {/* P562/AD-7: Listen/"Did I get it?" button removed from both modes */}
-                {waitingForPartnerToContinue && (
-                  <WaitingIndicator message={`Waiting for ${displayPartnerName} to continue...`} />
-                )}
-              </div>
+              )
             )}
+          </div>
+        </>
+      ) : (
+        <div ref={scrollContainerRef} className={layoutClass} style={{ overflowAnchor: 'none' }}>
+          {selectedHistoryIndex !== null && sessionHistory[selectedHistoryIndex] ? (
+            <RoundSummaryScreen
+              item={sessionHistory[selectedHistoryIndex]}
+              storyData={sessionHistory[selectedHistoryIndex].storyData}
+              onBack={() => setSelectedHistoryIndex(null)}
+            />
+          ) : (
+            <>
+              {/* Show journey card if there's rating history or drawer is open */}
+              {(hasRatingData || showRatingDrawer) && (
+                <JourneyToUnderstanding
+                  checkerRating={liveState.checkerRating}
+                  responderRating={liveState.responderRating}
+                  explainBackRatings={liveState.explainBackRatings}
+                  isChecker={false}
+                  displayPartnerName={displayPartnerName}
+                  checkerName={checkerName}
+                  proverName={liveState.proverName ? getFirstName(liveState.proverName) : undefined}
+                  className="w-full max-w-sm"
+                  hideUntilBothSubmitted={showRatingDrawer}
+                />
+              )}
 
-            {/* P272: StorySearchPicker — only when no story selected AND user has stories */}
-            {!liveState.selectedStoryId && userId && contentLoaded && stories.length > 0 && onSelectStory && (
-              <StorySearchPicker
-                stories={stories}
-                onSelectStory={handleSelectStoryWithTracking}
-                disabled={showRatingDrawer || waitingForPartnerToContinue}
-              />
-            )}
+              {/* P272: Story card shown when story is selected */}
+              {selectedStory && (
+                <LiveStoryCardExpanded
+                  story={selectedStory}
+                  isOwnStory={isStoryOwner}
+                  isGuest={isGuest}
+                  onPositionSelect={onPositionSelect}
+                  className="w-full max-w-sm mb-2"
+                  badgePersonName={badgePersonName}
+                  badgePersonEarsCount={badgePersonEarsCount}
+                  defaultExpanded={false}
+                />
+              )}
 
-            {/* P398: Session history — only on clean idle (no story selected, no active flow) */}
-            {sessionHistory.length > 0 && !selectedStory && !showRatingDrawer && (
-              <SessionHistoryList
-                history={sessionHistory}
-                onItemClick={(i) => setSelectedHistoryIndex(i)}
-              />
-            )}
+              {/* Button for non-clean-idle cases (has session history or rating data) */}
+              {!selectedStory && !showRatingDrawer && (selectedHistoryIndex === null) && (
+                <div className="flex flex-col gap-1 w-full max-w-sm mx-auto">
+                  <Button
+                    size="lg"
+                    className="bg-blue-500 hover:bg-blue-600 w-full py-6"
+                    onClick={handleStartCheckWithTracking}
+                    disabled={waitingForPartnerToContinue}
+                    data-testid="start-check"
+                  >
+                    <span className="flex flex-col items-center gap-1">
+                      <span className="text-xl font-semibold">Speak</span>
+                      <span className="text-xs font-normal text-white/70">Did {displayPartnerName} understand you?</span>
+                    </span>
+                  </Button>
+                  {waitingForPartnerToContinue && (
+                    <WaitingIndicator message={`Waiting for ${displayPartnerName} to continue...`} />
+                  )}
+                </div>
+              )}
 
-          </>
-        )}
-      </div>
+              {/* P398: Session history — only on clean idle (no story selected, no active flow) */}
+              {sessionHistory.length > 0 && !selectedStory && !showRatingDrawer && (
+                <SessionHistoryList
+                  history={sessionHistory}
+                  onItemClick={(i) => setSelectedHistoryIndex(i)}
+                />
+              )}
+            </>
+          )}
+        </div>
+      )}
 
       {/* P588: Sticky ActionArea OUTSIDE scroll container — only when story selected */}
       {selectedStory && (selectedHistoryIndex === null || !sessionHistory[selectedHistoryIndex]) && (
@@ -1253,15 +1308,20 @@ function IdleScreen({
           className={showRatingDrawer || hasRatingData ? '' : '!pt-0'}
         >
           {!showRatingDrawer && isStoryOwner && (
-            <Button
-              size="lg"
-              className="bg-blue-500 hover:bg-blue-600 w-full"
-              onClick={handleStartCheckWithTracking}
-              disabled={waitingForPartnerToContinue}
-              data-testid="start-check"
-            >
-              Does <span className="font-bold">{displayPartnerName}</span> understand you?
-            </Button>
+            <>
+              <Button
+                size="lg"
+                className="bg-blue-500 hover:bg-blue-600 w-full py-6"
+                onClick={handleStartCheckWithTracking}
+                disabled={waitingForPartnerToContinue}
+                data-testid="start-check"
+              >
+                <span className="flex flex-col items-center gap-0.5">
+                  <span className="text-lg font-semibold">Speak</span>
+                  <span className="text-xs font-normal opacity-80">Did {displayPartnerName} understand you?</span>
+                </span>
+              </Button>
+            </>
           )}
 
           {waitingForPartnerToContinue && (
@@ -1289,7 +1349,7 @@ function IdleScreen({
                 (sessionMode === 'free' || !sessionMode) ? 'bg-blue-500 text-white shadow-sm font-medium' : 'text-gray-500'
               }`}
             >
-              Free mode
+              Open mode
             </button>
             <button
               onClick={() => onSessionModeChange('guided')}

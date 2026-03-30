@@ -164,7 +164,7 @@ export function sanitizeLiveStateForSentry(
     'celebrationAcknowledgedByJoiner', 'clarificationPhase', 'speakerSawExplainBackDone',
     'checkerRating', 'responderRating', 'isRecording',
     // P562: Free mode fields
-    'sessionMode', 'freePhase', 'freeSliderCreator', 'freeSliderJoiner',
+    'sessionMode', 'freePhase', 'freeSliderCreator', 'freeSliderJoiner', 'freeRerating',
   ];
   const sanitized: Record<string, unknown> = {};
   for (const key of safeKeys) {
@@ -1425,12 +1425,18 @@ export function ClarityLivePage() {
       freeSliderCreator: undefined,
       freeSliderJoiner: undefined,
       freeRounds: undefined,
+      freeRerating: undefined,
       ratingPhase: 'idle',
       ratingInitiatedBy: undefined,
       explainBackDone: false,
       speakerSawExplainBackDone: false,
       explainBackRound: 0,
       explainBackRatings: [],
+      // P600: Clear content selection so idle screen shows fresh
+      selectedStoryId: undefined,
+      selectedStoryData: undefined,
+      selectedPointId: undefined,
+      selectedContentTitle: undefined,
     });
   }, [updateLiveState]);
 
@@ -1439,27 +1445,51 @@ export function ClarityLivePage() {
     updateLiveState({ freePhase: 'success' });
   }, [updateLiveState]);
 
-  /** P562: "Discuss another story" from success → back to idle */
+  /** P562/P592: "Discuss another story" from free mode success — dual-ack pattern */
   const handleFreeDiscussAnother = useCallback(() => {
-    updateLiveState({
-      freePhase: undefined,
-      checkerName: undefined,
-      checkerIsCreator: undefined,
-      checkerSubmitted: false,
-      responderSubmitted: false,
-      checkerRating: undefined,
-      responderRating: undefined,
-      freeSliderCreator: undefined,
-      freeSliderJoiner: undefined,
-      freeRounds: undefined,
-      ratingPhase: 'idle',
-      ratingInitiatedBy: undefined,
-      explainBackDone: false,
-      speakerSawExplainBackDone: false,
-      explainBackRound: 0,
-      explainBackRatings: [],
-    });
-  }, [updateLiveState]);
+    const currentState = confirmedLiveStateRef.current;
+    const myBooleanKey = isCreator ? 'celebrationAcknowledgedByCreator' : 'celebrationAcknowledgedByJoiner';
+    const myAlreadyAcknowledged = currentState[myBooleanKey] === true;
+    if (myAlreadyAcknowledged) return; // Already clicked
+
+    const myUpdate = { [myBooleanKey]: true } as Partial<LiveSessionState>;
+    const afterMyWrite = { ...currentState, ...myUpdate };
+    const bothDone = isBothAcknowledgedCompat(afterMyWrite, session?.creatorName ?? '', partnerName ?? '');
+
+    if (bothDone) {
+      // Both acknowledged — reset to idle
+      updateLiveState({
+        freePhase: undefined,
+        checkerName: undefined,
+        checkerIsCreator: undefined,
+        checkerSubmitted: false,
+        responderSubmitted: false,
+        checkerRating: undefined,
+        responderRating: undefined,
+        freeSliderCreator: undefined,
+        freeSliderJoiner: undefined,
+        freeRounds: undefined,
+      freeRerating: undefined,
+        ratingPhase: 'idle',
+        ratingInitiatedBy: undefined,
+        explainBackDone: false,
+        speakerSawExplainBackDone: false,
+        explainBackRound: 0,
+        explainBackRatings: [],
+        celebrationAcknowledgedByCreator: false,
+        celebrationAcknowledgedByJoiner: false,
+        celebrationAcknowledgedBy: [],
+        // P600: Clear content selection so idle screen shows fresh
+        selectedStoryId: undefined,
+        selectedStoryData: undefined,
+        selectedPointId: undefined,
+        selectedContentTitle: undefined,
+      });
+    } else {
+      // Just set my boolean — waiting for partner
+      updateLiveState(myUpdate);
+    }
+  }, [isCreator, session?.creatorName, partnerName, updateLiveState]);
 
   // P128: Handle story selection from content picker
   const handleSelectStory = useCallback((storyId: string, title: string, storyData?: StoryWithPoints) => {
@@ -1853,6 +1883,12 @@ export function ClarityLivePage() {
       selectedPointId: undefined,
       selectedContentTitle: undefined,
       sessionHistory: historyEntry ? [...prevHistory, historyEntry] : prevHistory,
+      // P592: Clear free mode state so skip from guided mode doesn't leak
+      freePhase: undefined,
+      freeSliderCreator: undefined,
+      freeSliderJoiner: undefined,
+      freeRounds: undefined,
+      freeRerating: undefined,
     });
     // P272: Clear verification guard so new rounds can fire verification
     verificationFiredRef.current.clear();
@@ -2004,6 +2040,46 @@ export function ClarityLivePage() {
     }
   }, [liveState.celebrationAcknowledgedByCreator, liveState.celebrationAcknowledgedByJoiner, liveState.ratingPhase, liveState, name, partnerName, updateLiveState, isCreator]);
 
+  // P592: Reactive safety net for free mode success dual-ack
+  // Same pattern as guided mode above, but triggers when freePhase === 'success' + both ack'd
+  const freeReactiveResetFiredRef = useRef(false);
+  useEffect(() => {
+    const bothAcknowledged = isBothAcknowledged(liveState);
+    if (bothAcknowledged && liveState.freePhase === 'success' && !freeReactiveResetFiredRef.current) {
+      freeReactiveResetFiredRef.current = true;
+      updateLiveState({
+        freePhase: undefined,
+        checkerName: undefined,
+        checkerIsCreator: undefined,
+        checkerSubmitted: false,
+        responderSubmitted: false,
+        checkerRating: undefined,
+        responderRating: undefined,
+        freeSliderCreator: undefined,
+        freeSliderJoiner: undefined,
+        freeRounds: undefined,
+      freeRerating: undefined,
+        ratingPhase: 'idle',
+        ratingInitiatedBy: undefined,
+        explainBackDone: false,
+        speakerSawExplainBackDone: false,
+        explainBackRound: 0,
+        explainBackRatings: [],
+        celebrationAcknowledgedByCreator: false,
+        celebrationAcknowledgedByJoiner: false,
+        celebrationAcknowledgedBy: [],
+        // P600: Clear content selection so idle screen shows fresh
+        selectedStoryId: undefined,
+        selectedStoryData: undefined,
+        selectedPointId: undefined,
+        selectedContentTitle: undefined,
+      });
+    }
+    if (!liveState.freePhase) {
+      freeReactiveResetFiredRef.current = false;
+    }
+  }, [liveState.celebrationAcknowledgedByCreator, liveState.celebrationAcknowledgedByJoiner, liveState.freePhase, liveState, updateLiveState]);
+
   // Handle "Let me explain back" - listener starts explaining
   const handleExplainBackStart = useCallback(() => {
     const currentState = confirmedLiveStateRef.current;
@@ -2034,40 +2110,9 @@ export function ClarityLivePage() {
       round: confirmedLiveStateRef.current.explainBackRound,
     });
 
-    const currentState = confirmedLiveStateRef.current;
-
-    // P562: Free mode divergence — transition to continuous sliders immediately
-    // after listener's first "Done explaining". No speaker re-rating step.
-    if (currentState.sessionMode !== 'guided') {
-      const listenerConf = currentState.responderRating ?? 0;
-      const speakerBel = currentState.checkerRating ?? 0;
-      const freeRounds = [
-        { listenerConfidence: listenerConf, speakerBelief: speakerBel, label: '0' },
-      ];
-      const creatorIsChecker = currentState.checkerIsCreator;
-      const creatorSlider = creatorIsChecker ? speakerBel : listenerConf;
-      const joinerSlider = creatorIsChecker ? listenerConf : speakerBel;
-
-      updateLiveState({
-        freePhase: 'unlocked',
-        freeRounds,
-        freeSliderCreator: creatorSlider,
-        freeSliderJoiner: joinerSlider,
-        // Clear guided mode round state to prevent routing confusion.
-        // Use false/0/[] (not undefined) to avoid triggering shouldUseFullOverwrite.
-        ratingPhase: 'idle',
-        explainBackDone: false,
-        speakerSawExplainBackDone: false,
-        explainBackRound: 0,
-        explainBackRatings: [],
-        checkerSubmitted: false,
-        responderSubmitted: false,
-        // Keep checkerName + checkerIsCreator — FreeModeView needs role info
-      });
-      return;
-    }
-
-    // Guided mode: normal flow — unlock speaker's re-rating drawer
+    // P600: Both guided and free mode now go through speaker re-rating.
+    // Free mode diverges in handleExplainBackRate (after speaker rates).
+    // Unlock speaker's re-rating drawer:
     updateLiveState({
       explainBackDone: true,
       // B32_2: Also set speakerSawExplainBackDone so speaker's drawer persists
@@ -2228,6 +2273,40 @@ export function ClarityLivePage() {
           initial_responder_rating: currentState.responderRating,
           has_explain_backs: true,
         });
+      }
+
+      // P600: Free mode divergence — after speaker re-rates, transition to sliders
+      // (unless rating === 10, which triggers guided celebration flow)
+      if (currentState.sessionMode !== 'guided' && !isPerfect) {
+        const listenerConf = currentState.responderRating ?? 0;
+        const speakerBel = currentState.checkerRating ?? 0;
+        // P600: Only 1 freeRound (sealed-bid). Re-rating stored separately as freeRerating.
+        const freeRounds = [
+          { listenerConfidence: listenerConf, speakerBelief: speakerBel, label: '0' },
+        ];
+        const creatorIsChecker = currentState.checkerIsCreator;
+        // Initialize sliders from the re-rated values
+        const creatorSlider = creatorIsChecker ? rating : listenerConf;
+        const joinerSlider = creatorIsChecker ? listenerConf : rating;
+
+        updateLiveState({
+          freePhase: 'unlocked',
+          freeRounds,
+          freeRerating: rating, // P600: speaker's updated belief after paraphrase
+          freeSliderCreator: creatorSlider,
+          freeSliderJoiner: joinerSlider,
+          ratingPhase: 'idle',
+          explainBackDone: false,
+          speakerSawExplainBackDone: false,
+          explainBackRound: 0,
+          explainBackRatings: [],
+          checkerSubmitted: false,
+          responderSubmitted: false,
+          checksCount: currentState.checksCount + 1,
+          checksTotal: currentState.checksTotal + rating,
+          clarificationPhase: undefined,
+        });
+        return;
       }
 
       updateLiveState({

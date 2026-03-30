@@ -6,95 +6,97 @@ interface StorySearchPickerProps {
   stories: StoryWithPoints[];
   onSelectStory: (storyId: string, title: string) => void;
   disabled?: boolean;
+  onCancel?: () => void;
 }
 
-export function StorySearchPicker({ stories, onSelectStory, disabled = false }: StorySearchPickerProps) {
+export function StorySearchPicker({ stories, onSelectStory, disabled = false, onCancel }: StorySearchPickerProps) {
   const [query, setQuery] = useState('');
-  const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
-  // Close results when clicking outside the container
+  // Auto-focus input when picker mounts
   useEffect(() => {
-    function handleMouseDown(event: MouseEvent) {
-      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
-        setOpen(false);
+    inputRef.current?.focus();
+  }, []);
+
+  // Click-outside dismiss
+  useEffect(() => {
+    function handleMouseDown(e: MouseEvent) {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        onCancel?.();
       }
     }
     document.addEventListener('mousedown', handleMouseDown);
     return () => document.removeEventListener('mousedown', handleMouseDown);
-  }, []);
+  }, [onCancel]);
 
-  if (stories.length === 0) {
-    return null;
-  }
+  if (stories.length === 0) return null;
 
   const filtered = query
     ? stories.filter((story) => story.content.toLowerCase().includes(query.toLowerCase()))
-    : [];
-
-  function handleQueryChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const value = e.target.value;
-    setQuery(value);
-    setOpen(value.length > 0);
-  }
+    : stories;
 
   function handleSelect(story: StoryWithPoints) {
     const preview = story.content.length > 80 ? story.content.slice(0, 80) + '…' : story.content;
     onSelectStory(story.id, preview);
     setQuery('');
-    setOpen(false);
   }
 
   return (
     <div ref={containerRef} className="w-full max-w-xs mx-auto">
-      {/* Search input */}
+      {/* Search input — prototype-style rounded with blue focus ring */}
       <div className="relative">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
         <input
+          ref={inputRef}
           type="text"
           value={query}
-          onChange={handleQueryChange}
-          onFocus={() => {
-            if (query.length > 0) setOpen(true);
-          }}
+          onChange={(e) => setQuery(e.target.value)}
           disabled={disabled}
           placeholder="Search your stories…"
           aria-label="Search your stories."
-          className="w-full pl-9 pr-3 py-2 text-sm border border-input rounded-md bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50 disabled:cursor-not-allowed"
+          className="w-full pl-9 pr-3 py-2.5 text-sm border border-gray-200 rounded-xl bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-blue-300 focus:ring-1 focus:ring-blue-100 disabled:opacity-50"
         />
       </div>
 
-      {/* Results — inline so they aren't clipped by the parent overflow-y-auto container */}
-      {open && (
-        <div className="mt-1 w-full rounded-md border border-border bg-popover shadow-md">
-          {filtered.length === 0 ? (
-            <p className="text-sm text-muted-foreground px-3 py-2">
-              No stories match &ldquo;{query}&rdquo;
-            </p>
-          ) : (
-            filtered.slice(0, 6).map((story) => {
-              const preview =
-                story.content.length > 80 ? story.content.slice(0, 80) + '…' : story.content;
-              const pointCount = story.points.length;
-              return (
-                <button
-                  key={story.id}
-                  type="button"
-                  disabled={disabled}
-                  onClick={() => handleSelect(story)}
-                  aria-label={story.content}
-                  className="w-full flex items-center justify-between gap-3 px-3 py-2 text-left text-sm hover:bg-accent hover:text-accent-foreground focus:outline-none focus:bg-accent focus:text-accent-foreground disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <span className="flex-1 truncate text-foreground">{preview}</span>
-                  <span className="shrink-0 text-xs text-muted-foreground whitespace-nowrap">
+      {/* Story cards — individually styled like prototype */}
+      <div className="mt-2 space-y-1.5">
+        {filtered.length === 0 ? (
+          <p className="text-sm text-muted-foreground text-center py-3">
+            No stories match &ldquo;{query}&rdquo;
+          </p>
+        ) : (
+          filtered.slice(0, 6).map((story) => {
+            const preview = story.content.length > 80 ? story.content.slice(0, 80) + '…' : story.content;
+            const pointCount = story.points.length;
+            return (
+              <button
+                key={story.id}
+                type="button"
+                disabled={disabled}
+                onClick={() => handleSelect(story)}
+                className="w-full text-left px-4 py-3 rounded-xl border border-gray-200 hover:border-gray-300 text-sm transition-all disabled:opacity-50"
+              >
+                <span className="block truncate text-foreground">{preview}</span>
+                {pointCount > 0 && (
+                  <span className="text-xs text-gray-400 mt-0.5 block">
                     {pointCount} {pointCount === 1 ? 'point' : 'points'}
                   </span>
-                </button>
-              );
-            })
-          )}
-        </div>
-      )}
+                )}
+              </button>
+            );
+          })
+        )}
+      </div>
+
+      {/* Cancel */}
+      <button
+        type="button"
+        onClick={() => { setQuery(''); onCancel?.(); }}
+        className="text-xs text-gray-400 hover:text-gray-600 mx-auto block mt-3 min-h-[44px] transition-colors"
+      >
+        Cancel
+      </button>
     </div>
   );
 }
