@@ -135,6 +135,27 @@ Authors see verification results across all listeners:
 
 ---
 
+## Clarity Partner Agreement
+
+> **One-liner:** A bilateral commitment between two people with an existing relationship to practice calibrated communication — asking for paraphrase, and excusing yourself when you can't.
+
+**What it is:** A written agreement between two people who already have high-stakes ongoing interactions (co-founders, partners, couples). Each person commits to: (1) ask the other for a paraphrase when understanding matters, and (2) excuse themselves honestly when they can't paraphrase accurately. The agreement creates a shared norm — neither party is surprised when the other says "can you explain back what I just said?"
+
+**What it is NOT:**
+- Not a stranger-to-stranger networking tool. Field-tested (2026-03-29): agreements only work when both parties have existing relationship stakes. A stranger correctly asked "what's the value? We don't know each other."
+- Not the Pledge. The agreement is bilateral and private (between two specific people). The Pledge is a public identity claim. The agreement is practice; the pledge is (aspirational) identity.
+- Not a product feature (yet). Currently a facilitated artifact — Slava helps pairs create them. Product support (P581 letters as the async vehicle) is in development.
+
+**Why it's the primary conversion action (2026-03-29):** The natural end-of-funnel for workshops, letters, and events. Participants experience a gap reveal → want to prevent this in their real relationship → Partner Agreement is the concrete next step. The Pledge is too abstract and carries social display risk ("what will people think?"). Positions on points are too lightweight. The agreement sits in the sweet spot: concrete, bilateral, private, actionable.
+
+**Acquisition path:** Clarity Letter (P581, async gap reveal) → Partner Agreement (bilateral practice contract) → Practice (~10 partners, real asks/excuses) → Support group (P603) → Pledge (future: earned credential after demonstrated habit, P605).
+
+**First agreement:** Jan + Nejc (2026-03-22) — every 2 days, 15 min explain-back right. Usage not yet observed.
+
+*See also: [decisions.md](decisions.md) — "Partner Agreement as primary conversion", [theory-of-change.md](theory-of-change.md), P603 (practice community), P605 (pledge as graduation)*
+
+---
+
 ## Clarity Doc
 
 > **One-liner:** A Clarity Doc is a curated collection of stories — the compose/edit surface for Clarity Letters.

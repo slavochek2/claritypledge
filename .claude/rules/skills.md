@@ -84,7 +84,7 @@ If the result is NOT `main`, stop. Use the wip-commit pattern to switch safely:
 
 1. If you have uncommitted changes (run `git status --short` to check):
    ```bash
-   git add -A && git commit -m "wip: [what you were doing on this branch]"
+   git add $(git diff --name-only) $(git ls-files --others --exclude-standard) && git commit -m "wip: [what you were doing on this branch]"
    ```
    If the working tree is already clean, skip this step.
 2. Switch to main:

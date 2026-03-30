@@ -23,9 +23,9 @@ locked_at: '2026-03-26T14:27:27.466Z'
 
 **Epic:** story-first (P523 vision)
 **Supersedes:** P561 (comprehension slider on story cards), P575 (letter/story delivery)
-**Depends on:** P560 (story filing without position — shipped)
-**Related:** P551 (clarity docs — letter is an immutable snapshot of a doc; unified data model, separate specs), P586 (visibility & privacy foundation — prerequisite for P551; point RLS, story immutability, `shared` removal)
-**Blocked by:** P586 → P551 → P581 (chain dependency: privacy foundation → doc CRUD → letter delivery)
+**Depends on:** P560 (story filing without position — shipped), P607 (visibility inheritance on creation — pre-req, ensures points/stories inherit parent visibility correctly for snapshot integrity)
+**Related:** P551 (clarity docs — letter is an immutable snapshot of a doc; unified data model, separate specs), P586 (visibility & privacy foundation — prerequisite for P551; point RLS, story immutability, `shared` removal), P590 (doc design system + immutable visibility model — shipped)
+**Blocked by:** P586 → P551 → P607 → P581 (chain: privacy foundation → doc CRUD → visibility inheritance → letter delivery)
 **Tests:** H-StoryFirst (async gap revelations), H-WTP-Pain (gap → felt cost), H-Stories-ColdStart (filed content as return trigger)
 
 ---
@@ -120,9 +120,10 @@ Letters serve a larger acquisition flywheel: Letter 1 (educate — recipient rea
 - Assessment is mandatory within the letter context, but receiving a letter is not mandatory (no one is forced to open a letter)
 - Author prediction is sealed until receiver rates (prevents anchoring)
 
-**Letter sharing methods:**
-- **Link (QR code, WhatsApp, etc.):** Anonymous access. Receiver completes letter → sees gap map → "Save your results?" → email input → account created → data persisted. Registration gate at EXIT, not entrance.
-- **Email:** Facilitator enters receiver's email when composing. Receiver gets email with letter link. Email is pre-filled at registration gate — one click to save, no re-entry needed. If email matches an existing account, results auto-attach on login.
+**Letter sharing methods (revised D25/D29/D30):**
+- **Public letter — link (QR code, WhatsApp, etc.):** Anonymous access. Guest reads → completes → gap map → "Save your results?" → email input → registration → data persisted. Registration gate at EXIT, not entrance. Reuses Pledge sessionStorage + magic link pattern.
+- **Private letter — email:** Sender enters receiver's email at composition. Receiver gets email with token-gated link. Existing user: magic link (no re-auth, P488 pattern). New user: one-click registration (P527 `create-and-sign` pattern adapted). Receiver can also access from within app (Clarity Docs page shows received letters) — email is not the only entry point.
+- **Private letter — URL without token:** Returns 404. No existence confirmation to unauthorized viewers (D25).
 
 ---
 
@@ -206,6 +207,25 @@ Letters serve a larger acquisition flywheel: Letter 1 (educate — recipient rea
 - [ ] If sender needs to add a story mid-composition: close wizard → add to doc → reopen wizard (accepted friction)
 - [ ] Reuses P422 `clarity_agreements` email delivery pattern (enter email → check if user exists → show name or send invitation)
 
+### Letter Visibility in Docs
+- [ ] Doc detail page shows "Letters" section listing letters sent from this doc
+- [ ] Each letter entry shows: date, receiver(s), status (sent/opened/in-progress/completed)
+- [ ] Sender can click through to full form view of any sent letter
+- [ ] Docs list page shows received letters under a "Letters received" section
+- [ ] Receiver sees full form for completed stories, locked view for incomplete ones (D32)
+
+### Private Letter Flow (D25, D29)
+- [ ] Private letter URL without valid token returns 404 (no existence leak)
+- [ ] Private letter sent via email to existing user: reuse Agreement magic link pattern (P488)
+- [ ] Private letter sent via email to new user: reuse Agreement one-click registration pattern (P527)
+- [ ] Registered receiver can access private letter from within app (Docs page) without needing email link
+
+### Public Letter Flow (D30)
+- [ ] Public letter accessible via shareable link — no auth required
+- [ ] Guest can read, rate, position, and file stories without account
+- [ ] Registration gate appears after gap map ("Save your results?")
+- [ ] sessionStorage holds all data until persisted (Pledge pattern)
+
 ### Unregistered Receiver Flow
 - [ ] Receiver can open letter link without an account (anonymous access)
 - [ ] All letter interactions (reading, rating, positioning, story filing) work in local state without registration
@@ -224,10 +244,10 @@ Letters serve a larger acquisition flywheel: Letter 1 (educate — recipient rea
 - [ ] After receiver rates, the author's prediction is revealed as dual progress bars
 - [ ] Gap framed honestly: "A gap of N — both guessing, neither knows yet" (not claiming knowledge we don't have)
 - [ ] After rating a story, extracted points from that story appear sequentially
-- [ ] Three-button position pattern: ✕ (disagree) / ? (maybe) / ✓ (agree with degree dropdown)
+- [ ] Three-button position pattern: reuse existing `PositionButtons` component (`src/app/components/shared/PositionButton.tsx`) — ✕/✓/? with intensity dropdown, blue active states. Do NOT rebuild.
 - [ ] Author's position on each point is LOCKED until receiver engages (position OR story)
 - [ ] Engaging unlocks author position reveal (fade-in animation)
-- [ ] Receiver can file a story on any point (explain position, explain false premise, explain non-position)
+- [ ] Receiver can file a story on any point: trigger existing P560 `CreateStoryPage` with `?pointId=X`. Do NOT rebuild filing flow.
 - [ ] Filing a story triggers self-understanding rating for that story
 - [ ] Receiver can proceed to next story (or finish if last)
 
@@ -235,7 +255,7 @@ Letters serve a larger acquisition flywheel: Letter 1 (educate — recipient rea
 - [ ] Grid component: Y-axis = understanding (0-10), X-axis = agreement (-3 to +3)
 - [ ] Four labeled quadrants: genuine consensus (top-right), genuine disagreement (top-left), false consensus ⚠️ (bottom-right), noise (bottom-left)
 - [ ] Each listener's position rendered as a dot on the grid per point
-- [ ] Dot color indicates position stance (green=agree, red=disagree, gray=maybe)
+- [ ] Dot color uses blue for all active positions (matches existing `PositionButtons` component — no green/red value judgments)
 - [ ] Hover/tap a dot reveals listener name, ratings, gap
 - [ ] "Show paraphrase movement" toggle: arrows from pre-verification to post-verification position
 - [ ] Grid used in both gap map (author view, all listeners) and letter summary (receiver view, own position vs author)
@@ -251,6 +271,8 @@ Letters serve a larger acquisition flywheel: Letter 1 (educate — recipient rea
 
 ### Data & Integration
 - [ ] Assessment data persists in `story_verifications` with `source='letter'`, `verified=false`
+- [ ] `clarity_sessions` gets nullable `source_letter_id UUID REFERENCES clarity_letters(id)` + index (D26 — future "start /live from letter" hook)
+- [ ] Letter snapshots preserve per-story `visibility` from `stories.visibility` (D23)
 - [ ] Letter status visible to sender: sent, opened, in-progress (N of M stories rated), completed
 - [ ] Works on mobile (touch-friendly dot picker, full-screen reading)
 - [ ] Grid component exportable for future use in /live and clarity docs (P551)
@@ -269,9 +291,13 @@ Letters serve a larger acquisition flywheel: Letter 1 (educate — recipient rea
 
 ## UI Contract
 
+**Two letter views (D31/D32):**
+- **View form:** Receiver's sequential reading experience — one story at a time, rating gate, sealed-bid. Like taking an exam.
+- **Full form:** Doc snapshot + all revealed data (predictions, ratings, gap map, positions, filed stories). Like reviewing a graded exam. Sender always sees full form. Receiver unlocks progressively — completed stories show full data, incomplete stories are locked/greyed.
+
 | Element | Value | Context |
 |---------|-------|---------|
-| Letter composition CTA | "Send as Letter" | Doc page header (P551) |
+| Letter composition CTA | "Send as Letter" | Doc page header, primary action row (not overflow menu, D22) |
 | Prediction prompt | "How well will [Receiver] understand this?" | Composition, per story, dot picker 0-10 |
 | Understanding prompt | "How well do you believe you understood this?" | Letter reading, per story, dot picker 0-10 |
 | Gap display | Dual progress bars (blue=receiver, orange=author) + "A gap of N — worth noting" | After receiver commits, per story |
@@ -279,7 +305,7 @@ Letters serve a larger acquisition flywheel: Letter 1 (educate — recipient rea
 | Author position locked | "🔒 Author's position hidden — engage to reveal" | Until receiver takes position or files story |
 | Story filing CTA | "+ Add a story — optional" (dashed border button) | Per point, within letter reading |
 | Progress bar | Segmented bar showing story N of M | Top of letter reading view |
-| Grid quadrants | Genuine consensus (green, top-right), Genuine disagreement (red, top-left), False consensus ⚠️ (amber, bottom-right), Noise (gray, bottom-left) | Grid component |
+| Grid quadrants | Genuine consensus (green, top-right), Genuine disagreement (red, top-left), False consensus ⚠️ (amber, bottom-right), Noise (gray, bottom-left) | Grid component — data viz exception to design system color rule: non-interactive quadrant labels may use semantic colors |
 | Grid Y-axis | "UNDERSTANDING ↑" (0-10) | Always visible, no negatives |
 | Grid X-axis | "← DISAGREE ... AGREE →" (-3 to +3) | Toggleable in some contexts |
 | Paraphrase toggle | "Show/Hide paraphrase movement (N/M)" | Author view, after /live verification (future) |
@@ -311,10 +337,23 @@ Letters serve a larger acquisition flywheel: Letter 1 (educate — recipient rea
 | D15 | Account required to read a letter? | No. The entire letter experience works without an account. Registration gate at EXIT (after gap map), not entrance. The experience is the conversion funnel. Local state (sessionStorage) holds all data until persisted. |
 | D16 | How does facilitator share the letter? | Two paths: (a) Link — QR code, WhatsApp, etc. Anonymous access, email entered at save gate. (b) Email — facilitator enters receiver's email at composition. Email pre-filled at save gate, one click to persist. Email-sent letters have lower registration friction. |
 | D17 | What is the feature called? | "Clarity Letter." Not "letter," not "doc in reading mode." Clarity Letter is a first-class entity — related to clarity docs (P551) but distinct. |
-| D18 | Where does the understanding map live? | Deferred. Letters have their own `/letters` route (receiver inbox showing received letters). Not `/sessions` in V1. |
+| D18 | ~~Where does the understanding map live?~~ | ~~Deferred.~~ **Superseded by D28.** Letters live within the Clarity Docs page, not a separate `/letters` route. |
 | D19 | Bidirectional letter — receiver adds stories? | V1 optional: after completing a letter, receiver sees "Add a story" CTA on each point. Receiver files own stories + sets predictions. Sender views on gap map. V1.5: sender formally reads + rates receiver's stories (sealed-bid Phase 4). |
 | D20 | Workshop shared view? | Facilitator projects their screen (sender's gap map = group view). Real-time: facilitator's screen updates as participants submit (Supabase Realtime). No privacy feature needed V1. |
 | D21 | Unified calibration data? | One `story_verifications` table serves both /live and letters. Add `source TEXT DEFAULT 'live'`, `verified BOOLEAN DEFAULT true`, `sort_order INTEGER`. Letters write with `source='letter'`, `verified=false`. When pair does /live on same story: new row with `source='live'`, `verified=true`. Grid shows both: dashed dot (letter) → solid dot (live) → arrow = movement. |
+
+| D22 | "Send as Letter" button placement vs Share button? | Complementary, not competing. Share = copy URL/embed (utility, icon button). "Send as Letter" = primary CTA in action row (the whole point of docs). No overflow menu. |
+| D23 | Story visibility in letter snapshots? | Per-story. Stories have individual `visibility` (immutable, P586). A private doc can contain both public and private stories. Snapshot preserves each story's visibility. No doc-level override. |
+| D24 | New content created from letter inherits parent visibility? | Yes. Points created from stories inherit `story.visibility`. Stories created from points inherit `point.visibility`. Pre-req P607 implements this. |
+| D25 | Private letter URL without valid token? | Returns 404. No existence leak — don't distinguish "doesn't exist" from "you can't access." Same security pattern as token-gated resources. |
+| D26 | `source_letter_id` on `clarity_sessions`? | Include in P581 migration. Nullable FK to `clarity_letters`. Enables future "start /live from letter" feature without schema changes. One column + one index. |
+| D27 | Letter results visible to sender? | In-scope for P581. Sender must see sent letters + completion status + results. Without this, sending has no purpose. |
+| D28 | Where do sent/received letters live in the app? | Within Clarity Docs page — "Letters" section showing sent + received. Letters are always sourced from docs, so doc page is the natural home. No separate `/letters` nav item V1. Supersedes D18. |
+| D29 | Private letter auth flow? | Reuse Agreement invitation pattern (P422/P488/P527): token-based access + email lookup + one-click registration. Existing user: magic link (no re-auth). New user: `create-and-sign` edge function pattern adapted to `create-and-open-letter`. Receiver can also access from within app (doc page shows received letters) — email is not the only entry. |
+| D30 | Public letter auth flow? | Reuse Pledge flow pattern: guest reads → completes → registration gate at end. sessionStorage holds intent. Email input → magic link → results persist on verification. |
+| D31 | Letter has two views? | Yes. **View form** (receiver's sequential reading experience — one story at a time, rating gate per story, sealed-bid). **Full form** (doc snapshot + all data from both parties — predictions, ratings, gap map, positions, filed stories). Sender always sees full form. Receiver sees full form only after completing view form. |
+| D32 | Partial completion → partial full form access? | Yes. Receiver who completes 3 of 5 stories can see full form for stories 1-3 (revealed data). Stories 4-5 remain locked/greyed in full form. Progressive unlock. |
+| D33 | P590 design system applies to all P581 UI? | Yes. All buttons use shadcn `<Button>` with proper variants. Lock/globe icons for visibility. Touch targets ≥ 44px. Amber for private, blue for public banners. |
 
 ---
 
@@ -322,7 +361,7 @@ Letters serve a larger acquisition flywheel: Letter 1 (educate — recipient rea
 
 1. **Can receiver reply with their own letter (ping-pong)?** Likely future feature, not V1. V1 is one-directional: sender → receiver.
 2. **Does gap map feed into /live session setup?** Ideally yes — "start /live on story with biggest gap." V1 gap map has "Ready for live?" CTA but no deep integration.
-3. **How does receiver discover they have a letter?** V1: they see it when they visit the site (inbox/notification badge). Email notifications are a separate spec (P573).
+3. **~~How does receiver discover they have a letter?~~** RESOLVED (D28/D29). Private letters: email invitation (Agreement pattern). Public letters: shareable link. Both: visible in Clarity Docs page under "Letters received" section. Email notifications are a separate spec (P573).
 4. **Can sender include stories by other authors?** V1: sender can only include their own stories. Curating others' stories is a future capability.
 5. **Does the grid replace JourneyToUnderstanding in /live?** The grid is a superset (shows both understanding AND agreement). Long-term yes. V1: grid lives in letters, JourneyToUnderstanding stays in /live. Migration is a future task.
 6. **Can a letter document external paraphrase?** (e.g., "we already discussed this in person, I just want to record it") — async /live alternative. Likely future, not V1.
@@ -343,6 +382,30 @@ Working prototypes built in claude.ai (2026-03-23) inform this spec:
 3. **Screenshot variations (4):** Progress tracking bar, dual progress bars for gap reveal, "commit → reveal speaker's score" sealed-bid flow, feed-style story cards with gap callouts.
 
 Key patterns from prototypes: dot picker (not slider), three-button (not Likert), author lock until engagement, progress bar, dual-bar gap reveal with severity framing, quadrant scatter plot with hover inspection.
+
+---
+
+## Reuse Analysis (from P590/P581 coordination session)
+
+**Agreement invitation flow (P422/P488/P527)** — reusable for private letter delivery:
+- Token-based invitation with expiry (`invitation_token` + `invitation_expires_at`)
+- Email lookup for existing vs new user (`lookupUserByEmail()`)
+- One-click registration via `create-and-sign` edge function (atomic user creation + action)
+- Magic link for existing users (skip re-auth, P488)
+- SECURITY DEFINER RPC for token validation
+- Key files: `accept-agreement-page.tsx`, `agreements-service-real.ts`, `send-agreement-emails/index.ts`
+
+**Pledge flow** — reusable for public letter completion:
+- Guest access → full experience → registration gate at end
+- sessionStorage for pending intent (`pendingVerificationEmail` pattern)
+- Magic link verification → data persistence on callback
+- Key files: `sign-pledge-page.tsx`, `use-pledge-form.ts`, `AuthCallbackPage.tsx`
+
+**P590 design system** — all P581 UI must follow:
+- shadcn `<Button>` with proper variants (never raw Tailwind)
+- Lock/globe icons for visibility context
+- Amber (private) / blue (public) banner pattern
+- Touch targets ≥ 44px (`min-h-[44px]`)
 
 ---
 

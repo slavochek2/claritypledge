@@ -33,3 +33,7 @@ The gate is 30 seconds. Skipping it is how discipline-only rules fail.
 - **Six-month test:** Will this rule still be relevant in 6 months?
 
 If unambiguous after the check, apply directly and report one line.
+
+## Subagent Restriction
+
+Subagents (spawned via Agent/Task tool) must **NEVER** edit `CLAUDE.md` or `.claude/rules/*.md`. These files may only be edited by the main conversation agent after running `/claude-md`. Subagents may propose changes as terminal output — the main agent applies them through the gate.

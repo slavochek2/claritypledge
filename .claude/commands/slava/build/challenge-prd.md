@@ -279,6 +279,10 @@ For each dimension:
 is WARN, not BLOCK — legitimate incremental improvements (UX polish, stability) may not map
 directly to a hypothesis but are still valid work.
 
+**Phase 2.5 — Codebase reality check**
+
+Search `src/` for existing implementations that overlap with what the PRD proposes. For each overlap found, flag it: "PRD proposes X, but `src/path/file.tsx` already does Y." This prevents over-design by grounding the PRD in what's already built.
+
 **Phase 3 — Extract assumptions**
 
 Parse the entire PRD and list every implicit and explicit assumption. For each,

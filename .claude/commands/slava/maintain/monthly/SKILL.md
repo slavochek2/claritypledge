@@ -245,9 +245,9 @@ Draft text:
 Rationale: [1 sentence]
 ```
 
-Present all proposed changes. Ask: **"Apply all / apply some (list) / skip all?"**
+Present all proposed changes as terminal output. **Do NOT edit any file from this skill.** Ask: **"Apply all / apply some (list) / skip all?"**
 
-Apply only what the user approves. Run the `/claude-md` gate check on each CLAUDE.md change before applying.
+Apply only what the user approves. For each approved CLAUDE.md change, run `/claude-md` gate check before editing. Subagents spawned by this skill are read-only analysts — they must NEVER edit CLAUDE.md or `.claude/rules/` files.
 
 ---
 
@@ -261,7 +261,7 @@ key_insight: [one sentence summary of the most important finding]
 EOF
 ```
 
-Stage and commit the applied changes:
+After the user approves changes and the main agent applies them (through `/claude-md` gates), stage and commit:
 ```bash
 git add CLAUDE.md .claude/rules/*.md docs/technical/*.md
 # Commit with message: docs(claude-md): monthly meta-review YYYY-MM-DD — [key insight]

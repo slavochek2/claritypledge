@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-This file provides guidance for AI agents working with code in this repository.
+This file provides guidance for AI agents working with code in this repository. **Budget: ≤350 lines.** Adding content requires removing equivalent lines. Enforced by `pre-commit-checks.sh`.
 
 **For humans:** See [README.md](./README.md) for setup instructions and deployment guide.
 
@@ -28,7 +28,7 @@ This file provides guidance for AI agents working with code in this repository.
 2. **Search codebase**: `grep -r "ComponentName" src/`
 3. **Read the feature spec completely** if working from a P-number
 4. **Scan `features/done/INDEX.md`** for related past work and prior decisions
-5. **Verify assumptions before building — at every phase.** Before writing code, a spec, or an architect plan that depends on a schema column, API response, or state invariant — verify it. Don't trust type definitions alone; check the migration or run a query. "I'll assume X" → stop and verify X.
+5. **Verify assumptions before building — at every phase.** Before writing code, a spec, or an architect plan that depends on a schema column, API response, or state invariant — verify it. Don't trust type definitions alone; check the migration or run a query. "I'll assume X" → stop and verify X. **Same rule applies to answering questions** about existing behavior — read `docs/decisions.md` and verify against migrations/code before responding.
 
 ---
 
@@ -36,7 +36,9 @@ This file provides guidance for AI agents working with code in this repository.
 
 > **Principle:** Prefer simple, direct solutions over complex patterns.
 
-Lead with the simplest production-ready approach. Avoid adapter patterns when direct migration works, over-abstraction for one-time operations.
+Lead with the simplest production-ready approach. Avoid adapter patterns when direct migration works, over-abstraction for one-time operations. Before any proposal, state why the current state might already be sufficient — argue against building before arguing for it.
+
+**Founder decisions:** Never fill in CTA text, pricing, tone, naming, or value propositions without being told. Mark each with `[FOUNDER DECISION: ...]` and ask.
 
 **Mid-implementation signal:** If you discover a simpler approach mid-way, stop — don't finish the complex path (sunk cost). Propose the switch: "I'm halfway through X but Y does this in 3 lines. Switch?" Verify the simpler path handles the same constraints first.
 
@@ -49,6 +51,14 @@ For architecture patterns, see [docs/technical/architecture.md](docs/technical/a
 > **Principle:** Any capability, guarantee, or behavior of a tool you haven't verified this session — flag it.
 
 When the claim can be tested: simulate the failure, apply the fix, simulate again. When it cannot be tested: say so explicitly — never present inference as confirmed. Never assert what a spec or doc contains without having read it this session.
+
+---
+
+### Evidence Over Declaration
+
+> **Principle:** Never say "done." Provide evidence; the user decides completion.
+
+Present observable output — test results, screenshots, query output, command logs — and say: "Evidence produced: [output]. Awaiting your confirmation." Reasoning about code ("this should work because...") is not evidence. Running it and pasting the result is.
 
 ---
 
@@ -95,7 +105,13 @@ Copies diverge silently; the source stays authoritative. Exception: a self-conta
 
 When asked for an opinion — give one. "It depends" when you have a view is a form of false choice.
 
-**Tie-breaker with Transparency:** Transparency wins when the action is irreversible, data-mutating, or touches prod. Decisive Action wins everywhere else.
+**Reversibility classifier — three lists, no judgment needed:**
+
+ALWAYS-ACT (never ask): code changes on a branch, lint/format fixes, creating files in `.private/`, local git commits, running tests, reading/searching code, reverting uncommitted changes, npm install (devDependencies).
+
+ALWAYS-ASK (never skip): `git push`, deploy to prod, send email/message/social post, delete prod data, merge to main, run migrations on prod, modify `.env.prod`, create/modify GitHub PR, publish anything.
+
+JUDGMENT (use context): npm install (dependencies), DB migrations on test, modifying shared config (`CLAUDE.md`, `.claude/rules/`), bulk file operations (5+ files), infrastructure changes.
 
 **Latest vs stable:** Always surface both; never silently default to stable. Applies to: models, libraries, APIs, framework versions.
 
@@ -143,7 +159,7 @@ Skill archiving checklist and frontmatter requirements auto-load when editing `.
 
 **Subagent staging does not transfer.** Verify with `git diff --cached --name-only` before committing — re-stage explicitly if needed.
 
-Full workflow: [git-workflow.md](docs/technical/git-workflow.md). Banned commands in `.claude/rules/git.md`.
+Full workflow: [git-workflow.md](docs/technical/git-workflow.md). Banned commands in `.claude/rules/git.md`. Run `./scripts/pre-commit-checks.sh` before committing. Port cleanup: `lsof -ti:PORT | xargs kill` — never `pkill -f "PORT"`.
 
 ---
 
@@ -185,7 +201,7 @@ Never continue implementation from a compaction summary alone.
 
 ### Approval Gate for External Actions
 
-Before any action visible to others or sending to external systems (email, social, Slack, GitHub PRs, forms): **draft → show → confirm → act.** Never collapse draft+send into one step, even when user says "send this." Show the final content first.
+For ALWAYS-ASK actions that send content externally (email, social, Slack, GitHub PRs, forms): **draft → show → confirm → act.** Never collapse draft+send into one step. Show the final content first.
 
 **Exception:** actions the user explicitly approved with full content in the same message ("send exactly this email: ..."), or when user says "submit it", "go ahead", "do it" after seeing the draft.
 
@@ -195,23 +211,13 @@ Before any action visible to others or sending to external systems (email, socia
 
 See [docs/technical/debugging.md](docs/technical/debugging.md) for full protocol.
 
-**Quick rules:** (1) Verify current code before acting on screenshots. (2) For DB issues: check RLS → migrations → columns. (3) Fix ONE root cause at a time. (4) For runtime issues, query prod first — read static code only after you have real data. (5) UI fixes are not done until a browser check confirms it — "tests pass" isn't enough. (6) Second patch in the same area = wrong root cause — re-diagnose from scratch. (7) Two failures with the same symptom = wrong abstraction level — stop executing and research the API docs before retrying.
-
----
-
-### Git & Commits
-
-See [git-workflow.md](docs/technical/git-workflow.md) and `.claude/rules/git.md`.
-
-**Quick rules:** Run `./scripts/pre-commit-checks.sh` before committing. Port cleanup: `lsof -ti:PORT | xargs kill` — never `pkill -f "PORT"`.
+**Quick rules:** (1) Verify current code before acting on screenshots. (2) For DB issues: check RLS → migrations → columns. (3) Fix ONE root cause at a time. (4) For runtime issues, query prod first — read static code only after you have real data. (5) UI fixes are not done until a browser check confirms it — "tests pass" isn't enough. (6) Second patch in the same area = wrong root cause — re-diagnose from scratch. (7) Two failures with the same symptom = wrong abstraction level — stop executing and research the API docs before retrying. (8) **Auto-reflect after 2 failed attempts.** Stop. Output: "What I tried: [X, Y]. Why each failed: [reasons]. New hypothesis: [Z]." Only proceed after producing this reflection.
 
 ---
 
 ### Risky Operations
 
-**Worktrees are the default** for all `/dev` and `/fix` work on P-number features. Named by slot (`w1`, `w2`), branch carries the feature: `./scripts/create-worktree.sh w1 feature/pN-...`. **Never use raw `git worktree add`** — it creates broken worktrees missing `.env.local`. The wrapper script handles setup atomically. Exception: trivial single-file fixes can use a branch directly. See [worktree-setup.md](docs/technical/worktree-setup.md).
-
-**Index collision risk:** Before `/dev`, run `git status --short`. If files from a different feature exist: (A) create a worktree (recommended), (B) commit in-progress work first, or (C) user confirms both changes are one logical changeset.
+**Worktrees are the default** for `/dev` and `/fix` on P-number features. See [worktree-setup.md](docs/technical/worktree-setup.md) for slots, scripts, and index collision handling.
 
 **Infrastructure:** Before setting up external or self-hosted infrastructure, list top 2-3 alternatives with one-line trade-offs. Never add Tool B because Tool A is unverified — verify Tool A first. "Two-layer signal": if about to add Tool B on top of unverified Tool A, stop.
 
@@ -251,39 +257,9 @@ This repo is public (AGPL-3.0). Use `.private/` (gitignored) for: service accoun
 
 **Before editing `CLAUDE.md` or `.claude/rules/*.md`:** Run `/claude-md "description of what you want to add"` first. It validates routing, redundancy, and phrasing. Never edit these files directly without running the gate.
 
-### Sequential Flow — Current Standard
+### Sequential Flow
 
-Full pipeline — complex work (multiple concerns, auth/DB/UX, 5+ files):
-```
-/create-prd → /challenge-prd → /ux (if UI) → /research-arch* → /architect → /ui (if UI) → /generate-tests → /spec-review* → /spec-compact → /decompose* → /dev
-```
-
-Medium work — feature with clear scope, limited complexity:
-```
-/create-prd → /challenge-prd → /ui (if UI) → /spec-compact* → /dev
-```
-
-Small work — bug with confirmed root cause, copy change, config tweak, single concern:
-```
-/dev  (or inline — no skill needed)
-```
-
-Design correction — shipped feature, design was wrong:
-```
-/change-request → /ux (if layout changes) → /dev
-```
-
-When in doubt, go one tier up. Use `/pick-flow` if the right tier is unclear.
-
-`*` `/research-arch` optional — only when feature involves novel technology, unfamiliar integrations, or technical unknowns surfaced by `/challenge-prd`. `/spec-review` mandatory after `/generate-tests`, before `/decompose` or `/dev`. A spec with BLOCK findings must not proceed. `/spec-compact` — always run after `/spec-review` in full pipeline; skip in medium pipeline for specs under 100 lines (typical). `/decompose` optional — complex features only (5+ files, 3+ concerns, 6+ build steps). `/challenge-prd` is mandatory for full and medium pipelines — it surfaces uncertainties as decisions with options and recommendations.
-
-`/dev` stops at UAT gate — sets `delivery_stage: uat`, keeps `status: in-progress`, code stays on feature branch. `/ship pN` (user-triggered) merges to prod and closes the spec. `/fix` closes inline.
-
-**Post-work:** `/verify` · `/kdd` · `/review-all` — optional for skill-driven work (skills include review gates). **Mandatory for ad-hoc bulk changes:** any refactor, migration, or automated fix touching 5+ files outside `/dev` or `/fix` must run `/review-all code` before committing. Mechanical checks (lint, TS, tests) do not catch semantic correctness — review agents do.
-
-**Deprecated:** `/prep-spec`, `/done` — in archive for backward compatibility only.
-
-See [docs/development-process.md](docs/development-process.md) for complete workflow documentation.
+See [docs/development-process.md](docs/development-process.md) for pipeline tiers, skill sequences, and post-work gates. Default: start with `/dev`, pull upstream steps when stuck. Use `/pick-flow` if the right tier is unclear.
 
 ### Skill Invocation — After Approval
 
@@ -308,17 +284,9 @@ See [docs/development-process.md](docs/development-process.md) for complete work
 
 **Library docs:** Use Context7 MCP before web-searching. Workflow: (1) `resolve-library-id`, (2) `query-docs`.
 
-**CLI tools (Supabase & Sentry):** CLIs for scripting/automation, MCPs for conversational queries. Full guide: [cli-tools.md](docs/technical/cli-tools.md).
+**CLI tools & MCPs:** [cli-tools.md](docs/technical/cli-tools.md) — Supabase, Sentry, Mixpanel (CLI + MCP setup, auth, when to use each). **Browser automation:** [browser-tools.md](docs/technical/browser-tools.md).
 
-**Browser automation** — three tools, different lanes:
-
-| Need | Tool | Why |
-|------|------|-----|
-| Automated tests, CI | Playwright (`npm run test:e2e`) | Repeatable, headless, parallel |
-| Debugging, perf, network | Chrome DevTools MCP | Headless, no user browser needed |
-| Visual QA, authenticated pages | Claude in Chrome | Real browser, cookies, vision |
-
-**Retiring a tool:** (1) `git rm -r --cached --ignore-unmatch <tool-dir>`, (2) `rm -rf <tool-dir>`, (3) add to `.gitignore`. Do all 3 in the same session the tool stops being used.
+**Retiring a tool:** (1) `git rm -r --cached --ignore-unmatch <tool-dir>`, (2) `rm -rf <tool-dir>`, (3) add to `.gitignore`. Do all 3 in the same session.
 
 ---
 

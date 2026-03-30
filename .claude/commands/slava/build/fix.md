@@ -239,9 +239,11 @@ Proceeding with confirmed scope.
 
 ---
 
-### Phase 2: Write Regression Test
+### Phase 2: Write Canary Test (Regression Gate)
 
-**Goal:** Create test that FAILS before fix, PASSES after fix — testing the USER-VISIBLE SYMPTOM, not the fix mechanism.
+**Goal:** Create test that FAILS before fix, PASSES after fix — testing the USER-VISIBLE SYMPTOM, not the fix mechanism. This is the canary: if it doesn't fail before the fix, you don't understand the bug. If it doesn't pass after, you didn't fix it.
+
+**Hard gate:** Run the canary test BEFORE writing any fix code. It MUST fail. If it passes, the test is wrong or the bug isn't what you think. Do not proceed until the canary fails for the right reason.
 
 **Critical rule:** The test must assert what a user would see, not what the code does internally.
 

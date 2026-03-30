@@ -23,6 +23,7 @@ import { analytics } from '@/lib/mixpanel';
 import { ChatContextHeader } from '@/app/components/story-guide/ChatContextHeader';
 import { ImageUploadWidget } from '@/app/components/shared/image-upload-widget';
 import { uploadStoryImage } from '@/app/data/story-image-service';
+import type { ContentVisibility } from '@/app/types';
 
 /** Soft character marker — not a hard limit, just the sweet spot for verification */
 const CHAR_SOFT_MARKER = 280;
@@ -50,8 +51,6 @@ export function CreateStoryPage() {
 
   // Form state
   const [content, setContent] = useState('');
-  // P586: create-story-page is always public — unless within doc context (P551)
-  const visibility = isDocContext && docVisibility ? docVisibility : 'public' as const;
 
   // Image state (P591)
   const [imageBlob, setImageBlob] = useState<Blob | null>(null);
@@ -68,6 +67,10 @@ export function CreateStoryPage() {
   const [pointText, setPointText] = useState<string | null>(null);
   const [userPosition, setUserPosition] = useState<'agree' | 'disagree' | 'unsure' | null>(null);
   const [pointLoadedId, setPointLoadedId] = useState<string | null>(null);
+  const [pointVisibility, setPointVisibility] = useState<ContentVisibility | null>(null);
+
+  // P586/P607: inherit visibility from doc context (P551) or point context (P607), else public
+  const visibility = isDocContext && docVisibility ? docVisibility : pointVisibility ?? 'public' as const;
 
   // Fetch point + position in parallel when pointId is present
   useEffect(() => {
@@ -84,6 +87,8 @@ export function CreateStoryPage() {
       if (point) {
         setPointText(point.statement);
         setPointLoadedId(point.id);
+        // P607: capture point visibility for inheritance
+        if (point.visibility) setPointVisibility(point.visibility);
         // Map granular 7-value positions to 3-value for ChatContextHeader display
         const pos = position?.position;
         if (pos) {

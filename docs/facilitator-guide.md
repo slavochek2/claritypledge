@@ -5,6 +5,28 @@
 
 ---
 
+## Workshop Opening Copy (2026-03-29)
+
+Use as event description, landing page header, workshop opener, or conversation starter:
+
+> **Everybody craves to be understood. Why? Because true understanding of other people across differences is extremely scarce. The few who can reliably prove they understand others win their trust. But how do you verify and prove you truly understood? And how do you empower those you depend upon and those you care about to understand you even when the differences between you grow and divide you?**
+>
+> **Come learn how.**
+
+Frame: lead with emotional promise (need to be understood), deliver through cognitive instrument (verification protocol). Self-discovery entry ("come discover what it's like to be actually understood") works as wider funnel than partnership de-risking.
+
+---
+
+## Workshop Format: The Clarity Flip (P606)
+
+90-minute norm-inversion format. Uses the protocol to demonstrate itself — topic IS understanding. See [P606](../features/p606_clarity_flip_workshop.md) for anti-point design work and facilitation prep.
+
+**Summary:** Opens with "is it awkward to request paraphrase?" → surfaces anti-points about verification → kills them with participant stories → Pinker common knowledge move live → pairs practice → closes with "is it awkward to REFUSE paraphrase?" — norm inverts in 90 minutes. Physical cards, no product dependency. Homework: write one Clarity Letter.
+
+**When to use:** Any setting — cowork meetups, conferences, informal groups. No product features required. Best format for first workshops before P581 ships.
+
+---
+
 ## Workshop Format: False Belief Curriculum
 
 ### Setup (Before Workshop)

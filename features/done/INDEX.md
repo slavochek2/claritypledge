@@ -1,7 +1,7 @@
 # Done Features Index
 
 Quick reference for past completed work. Consult when starting work on a related topic.
-Last updated: 2026-03-27 (P594 Feed Card Show More)
+Last updated: 2026-03-30 (P607 Visibility Inheritance on Creation)
 
 ---
 
@@ -34,6 +34,7 @@ Last updated: 2026-03-27 (P594 Feed Card Show More)
 
 ## Points & Stories
 
+- **P607** (Mar 30) Visibility Inheritance on Creation — all 3 creation paths (story-detail, create-story, StoryGuideChat) must pass parent visibility; code review caught TDZ bug and missed path
 - **P592** (Mar 27) Fix Hashtag Update — DB trigger as safety net for derived columns; if N call sites must all compute a value, move it to a trigger
 - **P591** (Mar 27) Story Supporting Images — GCS V4 signed URL PUT must include ALL SignedHeaders (x-goog-content-length-range); images are story-level metadata not version-level; use authenticated edge functions for GCS uploads, never the old unauthenticated Cloud Function
 - **P542** (Mar 17) Collapse Stories Behind Chevron on Point Page — "double duty" name rows need ThreadLine + collapse; `length === 1` ThreadLine bypass is an anti-pattern; pick-flow must enforce /challenge-prd for redesigns
@@ -86,6 +87,7 @@ Last updated: 2026-03-27 (P594 Feed Card Show More)
 - **P487** (Mar 07) Unify Story CTA Copy — `getPositionCTACopy()` unified to return "Add your story →" for all positions (was position-specific "Why do you agree?" etc.); symbols/labels remain distinct per position group
 - **P499** (Mar 13) Feed→Home + Share Story CTA — harmonize CTA text ("Share a Story" + PenLine icon) across feed, profile, /create; filter internal tags (`/^st\d+$/i`) from tag cloud only, keep on cards; share button copies permalink
 - **P491** (Mar 12) Hashtag Feed — tag pills between text and actions (not below); auth default redirect → /feed; tag ownership = entity's own tags only, no inheritance from linked content
+- **P602** (Mar 29) Feed Multi-Tag + Version Filter — fetch all then filter client-side (not server) when dataset is small; `isInternalTag()` must cover both `st\d+` and `v\d+`; tag cloud from ALL content not filtered subset (otherwise multi-select breaks); `searchParams.getAll()` for repeated URL params alongside comma-separated
 
 ## UI / Design System
 

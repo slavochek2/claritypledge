@@ -126,7 +126,13 @@ Skip if no spec exists (inline description mode like `/dev refactor the auth mod
    b. Spawn a SEPARATE subagent with ONLY the UI Contract table + the code diff (not implementation rationale). Prompt: "For each row in this UI Contract, verify the exact value exists in the code diff. Report PASS/FAIL per row with the line of code where found or 'NOT FOUND'."
    c. Any FAIL → fix the code, re-run check. Max 3 iterations.
    d. Skip this step if no `## UI Contract` section exists (non-UI features, older specs).
-9. **Commit** — Only if ALL tests pass
+8.9. **Verification toll gate (HARD GATE)** — Before committing, paste proof the change works:
+   - **Logic/data change:** paste `npm test` output showing relevant tests green
+   - **UI change:** take a screenshot or run visual QA subagent
+   - **DB/migration change:** paste query result confirming schema/data is correct
+   - **Config/infra change:** paste command output confirming the change took effect
+   - "It should work because [reasoning]" is NOT evidence. Run it and paste the result.
+9. **Commit** — Only if ALL tests pass AND verification evidence is produced
 9.5. **Review** — Spawn `/review-all` as a subagent with this explicit instruction: "Review all changes on this branch vs main. Spec: [current spec path]. Do NOT pause for scope selection — proceed directly with scope = all changes vs main." Present HIGH/MEDIUM findings to user. Ask: "Fix issues before closing? (all HIGH / select / skip)". Apply approved fixes and commit them.
 9.7. **Pre-deploy checklist** — If spec has a `## Pre-deploy Checklist` section, execute each item on the target environment now. Verify edge functions are deployed, secrets are set, and migrations are applied — don't defer to `/ship`. Report what was provisioned.
 9.8. **Prod verification (optional)** — After deploy, if the feature touches DB/auth/edge functions, run a Playwright prod verification test using `e2e-agent@claritypledge.com`. See `e2e/verify-prod-agreements.spec.ts` as template. Command: `VERIFY_PROD=1 PROD_SERVICE_ROLE_KEY="<srk>" npx playwright test e2e/verify-prod-<feature>.spec.ts`

@@ -22,7 +22,7 @@ Session logs, architecture notes, and strategic commentary belong in [decisions.
 | H-BriefingProtocol-ColdStart | Mirror agent invitation solves cold start | Blocked | — | H-PairsReturn + H-Stories-ColdStart | Two deps deep. |
 | H-ProtocolSpreadsWithoutTool | Protocol spreads free; tool captures value | Blocked | — | H-PairsReturn | Zero pairs have used protocol. |
 | H-InvestorDD | Investors pay for pre-investment calibration | Blocked | — | H-PairsReturn + H-Retainers-Sticky | Pull, not push. |
-| H-Community-Retention | Peer community adds moat above retainer | Blocked | — | H-Retainers-Sticky | C4 timeline. Way downstream. |
+| H-Community-Retention | Support group for practitioners increases retention | Blocked | — | 5+ Partner Agreements | Reframed 2026-03-29: support group, not practice arena. Testable as WhatsApp/call. |
 | H-Essays-BuildRecognition | Evidence-based essays build recognition | Blocked | — | H-PairsReturn + H-Retainers-Sticky | Need 10+ pairs for credible essays. |
 | H-InsightConversion | Surfacing repeated unacted insights drives change | Blocked | — | H-BriefingProtocol-ColdStart | Later layer. |
 | H-SpecsReachResearchers | Technical specs reach AI safety researchers | Blocked | — | H-Essays-BuildRecognition | Need baseline recognition first. |
@@ -50,6 +50,7 @@ Session logs, architecture notes, and strategic commentary belong in [decisions.
 **Insight (2026-03-24):** Clarity Letter three-step sequence may resolve the pricing chicken-and-egg. Letter 1 (opened during workshop) demonstrates value. /live verifies understanding and produces gap map. Letter 3 calibrates the commercial exchange using the skill just learned — PWIW with full comprehension context. The workshop participant prices the experience AFTER having experienced calibration, not before. Test: does a workshop that uses Letters 1-3 produce higher PWIW amounts than one without the letter instrument?
 **Insight (2026-03-25):** Illegibility — not pain absence — may be the real WTP blocker. Proven: legible offers sell (coaching at €250/hr). Unproven: selling THIS offer in its current form. The gap is legibility, not ability or willingness. Implication: the 10-letter test should measure not just "do they pay" but "can they name what they experienced." If they can name it, pricing follows. If they can't, no price point works. Byron Katie distinction: "find false beliefs" = crowded market (CBT, The Work, Street Epistemology); "find false beliefs about whether you understand each other" = unoccupied space.
 **Counter reset (2026-03-25):** The 28 sessions tested the OLD passive mechanism (hope pairs spontaneously name a cost). Zero did — confirming passive observation fails. The test mechanism changed (2026-03-22) to active false-belief facilitation with explicit reflection prompt ("What did holding this cost you?"). **Kill counter resets to 0 pairs tested with the new mechanism.** Kill threshold unchanged: 10 pairs can't name a concrete cost after false-belief workshop → kill. The 28 sessions are evidence about the old method, not the hypothesis itself.
+**Test questions refined (2026-03-29):** Two concrete debrief questions: (1) "Can you share a past experience where a misunderstanding cost you something real?" — surfaces felt pain. (2) "How would you describe to a friend how our clarity session helped you?" — tests legibility (H-WTP-Pain depends on participants being able to name what they experienced).
 **Data point (2026-03-26):** Hostel encounter — stranger completed full 7-story protocol, signed pledge, named concrete past cost unprompted: "I lost a good, long-time friend because we didn't understand each other." Prevention-driven — wants to share to prevent future loss, not repair past one. Note: spontaneous motivation, not the engineered false-belief workshop mechanism. Counts as anecdotal evidence that pain exists in the wild, but does not count against the kill counter (which tracks the new active facilitation mechanism).
 
 ---
@@ -135,6 +136,7 @@ Waiting on upstream hypotheses. Each entry lists what must happen before testing
 **Kill if:** <10% conversion after 3 workshops.
 **Unblocked (2026-03-22):** False-belief workshops where participants calibrate against Slava's pre-filed points can be tested independently of H-PairsReturn — no pair dependency. Moved from Blocked to Active P2.
 **Test:** Run 3 workshops with P567 curriculum. Measure: position switches, reflection stories filed, conversion to de-risking.
+**Clarity Flip variant (2026-03-29):** "The Clarity Flip" is a 90-minute norm-inversion format that requires zero product features (physical cards, whiteboard). Topic IS understanding itself — participants calibrate against their beliefs about verification, not an external topic. Runs independently of P581. Could be tested before any product work ships. See P606.
 **Variant (2026-03-24):** Compressed three-letter workshop — Letters 1-3 + /live in one session. Letter 1 = pre-work/in-session reading; /live = gap verification; Letter 2 = "create your own" upsell; Letter 3 = PWIW + distributor CTA. Tests H-WorkshopFormat AND H-WTP-Pain simultaneously. Requires P581 shipped.
 
 ---
@@ -168,9 +170,12 @@ Waiting on upstream hypotheses. Each entry lists what must happen before testing
 
 ---
 
-#### H-Community-Retention: Peer community adds moat above retainer
-**Bet:** €200-300/month community add-on increases stickiness beyond 1:1 retainers.
-**Blocked by:** H-Retainers-Sticky (need 10+ retainer pairs first). C4 timeline.
+#### H-Community-Retention: Support group for practitioners increases retention
+**Bet:** A support group where practitioners share experiences from bringing calibrated communication into their real relationships (co-founder, partner, team) increases retention beyond 1:1 retainers. Format: sharing what happened when they tried the protocol, not practicing with strangers. Analogous to a running club for people training for a marathon, not a track meet.
+**Reframe (2026-03-29):** Field data shows Partner Agreements only work with existing high-stakes relationships (boyfriend, co-founder) — not strangers. The community isn't a practice arena (strangers practicing together); it's a support group (practitioners sharing experiences from real relationships). This is testable NOW as a WhatsApp group or monthly call — doesn't need the product.
+**Test:** Run a monthly call with 5+ active Partner Agreement holders. Measure: do they report practicing more because of the group? Do they bring new pairs?
+**Kill if:** Group devolves into abstract discussion without practice reports.
+**Blocked by:** Need 5+ active Partner Agreements first. Partially unblocked — Jan+Nejc have one; more expected from workshops.
 
 ---
 

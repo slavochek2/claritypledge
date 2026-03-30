@@ -121,6 +121,8 @@ sentry-cli sourcemaps upload --release <version> ./dist
 | **Debug Sentry Issues (Ad-hoc)** | Sentry MCP | Conversational, no need to remember issue IDs |
 | **Release Management** | Sentry CLI | CI/CD, scripting |
 | **Sourcemap Uploads** | Sentry CLI (via Vite) | Build automation |
+| **Analytics Queries (Events, Funnels)** | Mixpanel MCP | Natural language queries, dashboard management |
+| **Analytics Alerts** | Mixpanel UI | Alerts are UI-only — no API or MCP support |
 
 ---
 
@@ -148,6 +150,27 @@ After adding/changing this config, authenticate by running `claude /mcp` in a re
 ### Supabase CLI Authentication
 
 The CLI requires a separate access token (not related to the MCP). Run `supabase login` in a terminal — it opens a browser OAuth flow. For CLI operations you can also pass `--db-url` directly or use project linking.
+
+### Mixpanel MCP Authentication
+
+Mixpanel MCP uses the official hosted server with OAuth. EU endpoint (matches our project region). Config in `.mcp.json`:
+
+```json
+{
+  "mixpanel": {
+    "command": "npx",
+    "args": ["-y", "mcp-remote", "https://mcp-eu.mixpanel.com/mcp"]
+  }
+}
+```
+
+On first connection, complete the Mixpanel OAuth flow. Org MCP must be enabled in Mixpanel Settings → Org → Overview (already done).
+
+**Capabilities:** Query events, funnels, retention, flows. Create/manage dashboards. Data discovery (events, properties). 600 req/hr limit.
+
+**Limitations:** Cannot create or manage alerts (UI-only). No CLI equivalent — all Mixpanel interaction is MCP or Chrome.
+
+**Prefer MCP over Chrome:** Skills like `/analytics`, `/weekly` previously used Chrome-based Mixpanel login. When MCP is available, use it instead — faster, no browser session needed.
 
 ### Sentry CLI Authentication
 

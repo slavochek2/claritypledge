@@ -35,7 +35,9 @@ This section maps the logical chain from problem to impact, showing how our acti
 **Near-term activities (0-12 months — "You are the MCP"):**
 - Facilitate calibration sessions with co-founder pairs (Slava uses /live as diagnostic tool)
 - Run free Calibration Workshops (1-to-many; you present calibration points, room calibrates against you)
-- Create Clarity Partnership Agreements — formalize commitment to ongoing calibration
+- Send Clarity Letters (P581) — async gap screening that participants bring to their real relationships
+- Create Clarity Partnership Agreements — PRIMARY conversion action. Only works with existing high-stakes relationships (co-founder, partner, boyfriend) — not strangers. Events demonstrate; conversion happens when participant brings it home (2026-03-29 field learning).
+- Run Clarity Practice Community — support group (not practice arena) for practitioners sharing experiences from bringing calibration into real relationships (P603). Testable as WhatsApp group or monthly call — no product feature needed.
 - Process meeting transcripts with AI to surface false agreements (Fractional Clarity Officer)
 - File stories & points from sessions (Slava as scribe, not the pair)
 
@@ -46,7 +48,7 @@ This section maps the logical chain from problem to impact, showing how our acti
 - Build async verification tools (scale beyond real-time)
 
 **Distribution channels:**
-1. **Workshop-agreement cascade (primary, now):** Free Workshop → "holy shit" moment → €950 De-risking → Clarity Partnership Agreement → from-€1,950/mo FCO Retainer
+1. **Workshop-letter-agreement cascade (primary, now):** Free Workshop / Clarity Letter (P581) → gap reveal → participant brings it to real relationship → Clarity Partnership Agreement (primary conversion) → Practice in relationship → €950 De-risking → from-€1,950/mo FCO Retainer. **Key insight (2026-03-29):** Partner Agreement is the conversion action, not the Pledge. Pledge is decorative until practice exists.
 2. **Investor distribution (future, parked):** Investors forward workshop invites to portfolio; investor DD as paid track
 3. **Briefing protocol (future):** Person A files stories → Person B receives anon link → briefing activates Person B → Stage 1
 4. **Content cascade (future, after Month 5):** Evidence-based essays → recognition → enterprise pilots
@@ -92,7 +94,7 @@ This section maps the logical chain from problem to impact, showing how our acti
 - Fractured private realities → Common shared reality
 - Not by forcing agreement, but by making disagreement informed
 - Coordination unlocked: People act together based on shared understanding map
-- Status flip: Verified understanding > confident assertion
+- Status flip (normative inversion): Verified understanding > confident assertion. Currently, requesting paraphrase carries social cost (feels confrontational). After adoption, refusing to verify comprehension when asked becomes the socially suspect move. Hierarchies currently protect the right to not be checked — the protocol makes that insulation visible and illegitimate.
 - AI alignment: Personal agents trained on verified understanding, not unverified signals
 
 **Civilizational-scale change:**

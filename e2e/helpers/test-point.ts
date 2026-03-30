@@ -41,6 +41,7 @@ export async function createTestPoint(
     statement?: string;
     context?: string;
     tags?: string[];
+    visibility?: 'public' | 'private';
   } = {}
 ): Promise<TestPoint> {
   const statement = options.statement || `E2E Test Point: ${Date.now()}`;
@@ -56,6 +57,7 @@ export async function createTestPoint(
       context,
       first_validator_id: firstValidatorId,
       tags,
+      ...(options.visibility ? { visibility: options.visibility } : {}),
     })
     .select('id, statement, first_validator_id')
     .single();

@@ -179,4 +179,4 @@ The goal: disagreements where both parties understand each other.
 
 ## Status
 
-**Not for implementation now.** This document captures vision from design thinking session (Dec 2024) to inform future development once MVP data validates core assumptions.
+**Not for implementation now.** This document captures vision from design thinking session (Dec 2025) to inform future development once MVP data validates core assumptions.

@@ -143,10 +143,12 @@ ABSOLUTELY NO percentages, NO numbers, NO digits anywhere in the image.
 
 ### Step 5 — Generate image (Nano Banana Pro)
 
+**Primary model:** `nano-banana-pro-preview` (Nano Banana Pro). Use `run_in_background` — generation takes 30-90s and will timeout in foreground.
+
 ```bash
 source .env.local
-curl -s --max-time 55 -X POST \
-  "https://generativelanguage.googleapis.com/v1beta/models/gemini-3-pro-image-preview:generateContent" \
+curl -s --max-time 120 -X POST \
+  "https://generativelanguage.googleapis.com/v1beta/models/nano-banana-pro-preview:generateContent" \
   -H "x-goog-api-key: $GEMINI_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
@@ -175,7 +177,7 @@ for p in r['candidates'][0]['content']['parts']:
         break
 ```
 
-**Fallback chain:** If Pro fails → try `gemini-3.1-flash-image-preview` → try `imagen-4.0-generate-001` via `:predict` endpoint.
+**Fallback chain:** If `nano-banana-pro-preview` fails → try `gemini-3-pro-image-preview` → try `gemini-3.1-flash-image-preview`. Use the same request format for all three — only the model name changes in the URL.
 
 ---
 

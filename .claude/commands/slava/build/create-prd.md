@@ -105,6 +105,11 @@ Or with existing draft:
 - **NO technical details:** No file paths, architecture decisions, implementation approach
 - **Format:** Checkbox list for verification
 
+### Scope Fence
+- **What NOT to build:** List 3+ existing mechanisms this feature must NOT reinvent
+- **What NOT to change:** List existing flows/components that must remain untouched
+- **Populate from codebase search:** Run Grep/Glob to find existing code in the feature area before writing
+
 ---
 
 ## Workflow

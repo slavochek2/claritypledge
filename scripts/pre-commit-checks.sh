@@ -537,6 +537,17 @@ else
 fi
 echo ""
 
+# CLAUDE.md line budget check
+if echo "$STAGED_FILES" | grep -q "^CLAUDE.md$"; then
+    CLAUDE_LINES=$(git show :CLAUDE.md 2>/dev/null | wc -l)
+    if [ "$CLAUDE_LINES" -gt 350 ]; then
+        echo -e "${RED}✗ CLAUDE.md is $CLAUDE_LINES lines (max 350). Remove content before adding.${NC}"
+        ERRORS=$((ERRORS + 1))
+    else
+        echo -e "${GREEN}✓ CLAUDE.md within budget ($CLAUDE_LINES/350 lines)${NC}"
+    fi
+fi
+
 # Large changeset review reminder
 STAGED_COUNT=$(echo "$STAGED_FILES" | grep -c '.' || true)
 if [ "$STAGED_COUNT" -ge 5 ]; then
