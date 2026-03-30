@@ -1,7 +1,7 @@
 # Done Features Index
 
 Quick reference for past completed work. Consult when starting work on a related topic.
-Last updated: 2026-03-30 (P608 Magic Link Reliability)
+Last updated: 2026-03-30 (P562 /live Free Mode closed)
 
 ---
 
@@ -26,6 +26,7 @@ Last updated: 2026-03-30 (P608 Magic Link Reliability)
 - **P511** (Mar 16) Session Resilience — banner must render inside `<main>` (not between nav/main) to avoid z-index fights; `ended_at` column doesn't exist — use `live_state.sessionEnded`; creator-only heartbeats; `createTwoPartySession()` test fixture built as P497 MVP
 - **P582** (Mar 23) Rejoin Prompt Stale After End — pre-session UI states need their own realtime subscriptions; main sub gated on `session!=null` leaves rejoin prompt as dead end
 - **P584** (Mar 24) Session End Screen Redesign — `useBlocker` requires data router (use popstate+pushState); `?debugUpload`/`?debugRounds` params unlock localhost testing of prod-only states; session history only counts non-skipped rounds
+- **P562** (Mar 30) /live Free Mode — sealed bid → paraphrase → unlocked continuous sliders; spec shipped via P600 implementation, closed retroactively
 - **P600** (Mar 30) Free Mode Polish — speaker re-rating `freeRerating` stored separately (not as freeRound); two-zone idle layout prevents button shift; "Open mode" replaces "Free mode"; click-outside dismiss + progressive story picker
 
 ## Clarity Docs
