@@ -2,6 +2,21 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-30 [process]: Mixpanel MCP (EU) added to project
+
+**Context:** Needed Mixpanel querying capability for monitoring email delivery funnels and general analytics from Claude Code sessions.
+**Decision:** Added official Mixpanel MCP server with EU endpoint (`mcp-eu.mixpanel.com/mcp`) to `.mcp.json`. Org MCP setting was already enabled in Mixpanel dashboard. Uses OAuth auth (prompted on first connection). Official MCP is hosted by Mixpanel — no npm package to maintain.
+**Alternatives rejected:** Community MCPs (`@mendeel/mcp-mixpanel`, etc.) — unverified EU support, maintenance risk. Direct Query API via curl — works but no natural language interface.
+**Consequences:** Can query Mixpanel events, funnels, retention from Claude Code. Can also manage dashboards and data discovery. Cannot create alerts programmatically (alerts are UI-only). 600 req/hr limit per user.
+
+## 2026-03-30 [technical]: P608 — Email non-delivery root cause is GoTrue silent SMTP failure, not DNS
+
+**Context:** User reported registration email never arrived (corporate Microsoft 365 domain, 2026-03-29). Investigation checked DNS (SPF, DKIM, DMARC), Brevo config, Mailgun config, All-Inkl SMTP — all verified correct. Brevo DKIM authenticated, Mailgun EU domain active with DKIM, Brevo uses own Envelope From (SPF checked against Brevo's domain, not ours). See `.private/incidents/2026-03-29-magic-link-failure.md` for user details.
+**Decision:** Root cause is Supabase GoTrue's background SMTP sending pattern ([supabase/supabase#39691](https://github.com/supabase/supabase/issues/39691)). GoTrue queues email to a goroutine, sets `confirmation_sent_at` before delivery confirms, and swallows SMTP failures silently. Secondary issue: Microsoft 365 ATP pre-fetches magic link URLs, consuming single-use tokens ([supabase/auth#713](https://github.com/supabase/auth/issues/713)). Fix: P608 — enable PKCE flow + add resend button + Mixpanel monitoring.
+**Alternatives rejected:** SPF include for Brevo (research confirmed unnecessary — Brevo handles SPF via own Envelope From). Supabase `send_email` hook (eliminates silent failure but requires edge function + Brevo HTTP API — overkill at current volume). DNS changes (not needed — all records verified correct).
+**Consequences:** No DNS changes. PKCE prevents ATP token consumption. Resend button gives users recovery path. Mixpanel funnel tracks `magic_link_sent → profile_created` conversion. If silent failures become frequent, escalate to `send_email` hook.
+**References:** `features/p608_magic_link_reliability.md`, `.private/incidents/2026-03-29-magic-link-failure.md`
+
 ## 2026-03-30 [product]: P581 letter access model — private/public split with reuse of Agreement + Pledge patterns
 
 **Context:** P581 (Clarity Letters) needs two access modes. Private letters (sent to specific people) need authenticated delivery. Public letters (shareable links) need guest access with late registration. Analyzed existing Agreement invitation flow (P422/P488/P527) and Pledge flow for reusable patterns.
