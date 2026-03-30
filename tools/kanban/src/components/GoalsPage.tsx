@@ -108,7 +108,8 @@ export function GoalsPage() {
     return <div style={{ padding: 40, color: 'var(--text-tertiary)', fontSize: 14 }}>No goals. Edit <code>docs/goals.md</code>.</div>
   }
 
-  const firstUndone = strategic.steps.findIndex((s) => !s.done)
+  // Filter out done items — they clutter the view
+  const pendingSteps = strategic.steps.filter((s) => !s.done)
   const review = strategic.weeklyReview
 
   // Pick highlight metrics
@@ -130,46 +131,35 @@ export function GoalsPage() {
         Next Steps
       </div>
 
-      {strategic.steps.map((step, i) => {
-        const isFirstUndone = i === firstUndone
-        return (
-          <div key={i} style={{
+      {pendingSteps.map((step) => (
+          <div key={step.index} style={{
             display: 'flex', alignItems: 'flex-start', gap: 10,
-            padding: isFirstUndone ? '9px 12px' : '4px 6px',
-            marginBottom: isFirstUndone ? 4 : 1,
-            borderRadius: isFirstUndone ? 4 : 3,
-            background: isFirstUndone ? 'var(--tag-blue-bg)' : 'transparent',
-            opacity: step.done ? 0.5 : isFirstUndone ? 1 : i < firstUndone + 3 ? 0.7 : 0.45,
+            padding: '5px 6px',
+            marginBottom: 2,
+            borderRadius: 3,
           }}>
             <span
               role="button"
               tabIndex={0}
-              onClick={() => toggleStep(i, step.done)}
-              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleStep(i, step.done); } }}
+              onClick={() => toggleStep(step.index, step.done)}
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleStep(step.index, step.done); } }}
               style={{
-              width: isFirstUndone ? 20 : 18, height: isFirstUndone ? 20 : 18,
+              width: 18, height: 18,
               borderRadius: '50%', flexShrink: 0, marginTop: 1,
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               fontSize: 10, fontWeight: 600, cursor: 'pointer',
-              ...(step.done
-                ? { background: 'var(--tag-green-bg)', color: 'var(--tag-green-text)' }
-                : isFirstUndone
-                  ? { background: 'var(--tag-blue-text)', color: '#fff' }
-                  : { border: '1px solid var(--border-table)', color: 'var(--text-tertiary)' }),
+              border: '1px solid var(--border-table)', color: 'var(--text-tertiary)',
             }}>
-              {step.done ? '✓' : i + 1}
+              {step.index + 1}
             </span>
             <span style={{
-              fontSize: 13, lineHeight: 1.4, flex: 1,
-              fontWeight: isFirstUndone ? 500 : 400,
-              color: step.done ? 'var(--text-tertiary)' : isFirstUndone ? 'var(--tag-blue-text)' : 'var(--text-secondary)',
-              textDecoration: step.done ? 'line-through' : 'none',
+              fontSize: 13, lineHeight: 1.5, flex: 1,
+              color: 'var(--text-primary)',
             }}>
               {step.text}
             </span>
           </div>
-        )
-      })}
+      ))}
 
       {/* ── Weekly Review ── */}
       {review && (

@@ -13,17 +13,17 @@ Flywheel: see [lean-canvas.md](lean-canvas.md#channels--flywheel). Steps below f
 1. [x] P560: Story filing without position — prerequisite for workshop (epic-story-first)
 2. [x] P545: ladischenski.com positioning update
 3. [x] P551: Clarity Docs — curated story collections, compose/edit surface for letters
-4. [ ] P581: Letters with comprehension assessment — core async gap screening (doc-sourced, unified with P551). **This is the prerequisite for any workshop that uses the protocol's unique power (sealed-bid gap reveal).**
-5. [ ] P562: /live simplification — strip to orchestration, reduce drop-off in group settings
+4. [ ] P581: Letters with comprehension assessment — core async gap screening (doc-sourced, unified with P551). Prerequisite for any workshop that uses the sealed-bid gap reveal.
+5. [x] P562: /live simplification — strip to orchestration, reduce drop-off in group settings
 6. [x] P567: File 8 false belief stories + points as workshop curriculum
-7. [ ] **[PARALLEL with P581]** File lean canvas content as stories/points in prod + build Clarity Canvas renderer (canvas-view skin for a clarity doc). P551 is already built — this is content filing + UI work, no P581 dependency.
+7. [ ] [PARALLEL with P581] File lean canvas content as stories/points in prod + build Clarity Canvas renderer (canvas-view skin for a clarity doc). P551 is already built — this is content filing + UI work, no P581 dependency.
 8. [ ] Run first 9-points workshop with Clarity Letters — participants receive letter, rate understanding of each false-belief story, see their gaps. Test H-WTP-Pain with debrief questions: "What did holding this cost you?"
 9. [ ] Publish own Clarity Canvas as a canvas-doc — YOUR hypotheses/assumptions as stories, visitors challenge via positions. Uses infrastructure from steps 4+7.
 10. [ ] Write a11 (Clarity Canvas journey article) — links to live canvas, uses real workshop data. Also serves as co-builder signal flare.
 11. [ ] Promote a11 via LinkedIn, rationalist communities, founder communities
 12. [ ] Run facilitated co-founder session with pay-what-it's-worth upfront
 13. [ ] Approach 1-2 coaches — AFTER workshops + paid sessions prove model (H-CoachChannel)
-14. [ ] **Partner recruitment gate:** After 3 PWIW sessions with revenue signal, begin partner outreach using session recordings + protocol documentation as recruitment material. This is where "builder, not practitioner" becomes actionable.
+14. [ ] Partner recruitment gate: After 3 PWIW sessions with revenue signal, begin partner outreach using session recordings + protocol documentation as recruitment material.
 
 ## Dos
 

@@ -2,6 +2,13 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-30 [product]: Clarity Canvas is NOT the landing page — founder transparency ≠ user experience
+
+**Context:** During article planning, the idea surfaced to make the Clarity Canvas the landing page — visitors arrive, see the business model, and challenge assumptions. This conflates two fundamentally different experiences.
+**Decision:** The Clarity Canvas serves *founder transparency* ("here's what I believe, challenge my assumptions") — an intellectual exercise for potential co-builders, advisors, and sophisticated observers. The product entry point (/live, Letters) serves *user experience* ("experience YOUR comprehension gap") — a visceral personal discovery. These are different audiences at different moments. The canvas exists at its own URL, not as the landing page.
+**Alternatives rejected:** Canvas as landing page — mixes business model review with product onboarding. Visitors who need to experience their own gap would instead analyze someone else's business model.
+**Consequences:** Landing page continues to drive toward /live or Letters. Canvas is linked from the article (a11) and from a dedicated page, but is not the primary funnel entry.
+
 ## 2026-03-30 [product]: Clarity Canvas = canvas-view of a clarity doc, not a new entity
 
 **Context:** The Clarity Canvas concept (Lean Canvas + 3 missing boxes: disagreement filing, ikigai fit, positive externalities) needed a technical home. Options: build a new entity/page, or reuse existing clarity docs (P551) with a custom renderer. Decided during article prioritization session — a11 (Clarity Canvas journey) needs a living artifact to link to, and the workshop needs participants to engage with canvas content via the protocol.
