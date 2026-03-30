@@ -1,7 +1,7 @@
 # Done Features Index
 
 Quick reference for past completed work. Consult when starting work on a related topic.
-Last updated: 2026-03-30 (P600 Free Mode Polish)
+Last updated: 2026-03-30 (P608 Magic Link Reliability)
 
 ---
 
@@ -123,6 +123,7 @@ Last updated: 2026-03-30 (P600 Free Mode Polish)
 
 ## Auth & Verification
 
+- **P608** (Mar 30) Magic Link Reliability — PKCE `flowType: 'pkce'` prevents ATP token consumption; admin `generate_link` always uses implicit flow (PKCE is client-side only); verify via localStorage `code-verifier` key
 - **P524** (Mar 16) Withdraw Pledge Toggle — `has_pledged: false` already handled by all queries; no new API needed; re-pledge via existing `/sign-pledge` upgrade flow
 - **P537** (Mar 16) Memoize useAuth() — useCallback on refreshProfile/signOut + useMemo on context value; data-status wrapper in AuthCallbackPage still needed (React render-skip is separate from unstable refs)
 - **P527** (Mar 16) Direct Sign for New Users — `verifyOtp` with server-generated `hashed_token` for instant auth; email pinning (client sends no email, edge function derives from DB)
