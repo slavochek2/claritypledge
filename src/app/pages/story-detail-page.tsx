@@ -99,7 +99,7 @@ function AddPointForm({
   const [statement, setStatement] = useState('');
   const [selectedPosition, setSelectedPosition] = useState<PositionType | null>(null);
   const [isAdding, setIsAdding] = useState(false);
-  const [orphanPoint, setOrphanPoint] = useState<{ id: string; statement: string; context?: string; tags: string[] } | null>(null);
+  const [orphanPoint, setOrphanPoint] = useState<{ id: string; statement: string; context?: string; tags: string[]; visibility?: ContentVisibility } | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
@@ -132,6 +132,7 @@ function AddPointForm({
         statement: orphanPoint.statement,
         context: orphanPoint.context,
         tags: orphanPoint.tags,
+        visibility: orphanPoint.visibility,
       };
 
       if (selectedPosition) {
@@ -185,6 +186,7 @@ function AddPointForm({
         statement: point.statement,
         context: point.context,
         tags: point.tags,
+        visibility: point.visibility,
       };
 
       if (selectedPosition) {
