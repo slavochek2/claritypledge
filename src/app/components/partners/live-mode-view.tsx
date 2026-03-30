@@ -1067,6 +1067,10 @@ function IdleScreen({
   // Derive hasContent from state (needed for effects below)
   const hasContent = stories.length > 0 || points.length > 0;
 
+  // Layout: bottom zone has content only when stories exist AND picker is relevant
+  const hasBottomContent = contentLoaded && stories.length > 0
+    && !liveState.selectedStoryId && !!userId && !!onSelectStory;
+
   useEffect(() => {
     if (!userId) return;
 
@@ -1189,8 +1193,9 @@ function IdleScreen({
       {isCleanIdle ? (
         /* P600: Two-zone layout — button stays fixed at ~40% mark, picker flows below */
         <>
-          {/* Top zone: button area, pushed to bottom of its flex space */}
-          <div className="flex-[2] flex flex-col items-center justify-end pb-4 px-6 max-w-lg mx-auto w-full">
+          {/* Top zone: button area. When bottom zone has content, push button to ~40% mark.
+              When bottom zone is empty, center the button vertically to avoid bare layout. */}
+          <div className={`flex-[2] flex flex-col items-center ${hasBottomContent ? 'justify-end' : 'justify-center'} pb-4 px-6 max-w-lg mx-auto w-full`}>
             <div className="flex flex-col gap-1 w-full max-w-sm">
               <Button
                 size="lg"
@@ -1210,24 +1215,24 @@ function IdleScreen({
             </div>
           </div>
 
-          {/* Bottom zone: picker + history, flows downward from midpoint */}
-          <div className="flex-[3] flex flex-col items-center justify-start pt-2 px-6 max-w-lg mx-auto w-full overflow-y-auto live-scroll">
-            {!liveState.selectedStoryId && userId && onSelectStory && (
-              showStoryPicker && contentLoaded && stories.length > 0 ? (
+          {/* Bottom zone: picker + story button. Only takes space when stories exist.
+              Collapses to flex-none otherwise — no empty 60% gap, no layout jump on load. */}
+          <div className={`${hasBottomContent ? 'flex-[3]' : 'flex-none'} flex flex-col items-center justify-start pt-2 px-6 max-w-lg mx-auto w-full overflow-y-auto live-scroll`}>
+            {hasBottomContent && (
+              showStoryPicker ? (
                 <StorySearchPicker
                   stories={stories}
                   onSelectStory={(id, title) => { handleSelectStoryWithTracking(id, title); setShowStoryPicker(false); }}
                   disabled={waitingForPartnerToContinue}
                   onCancel={() => setShowStoryPicker(false)}
                 />
-              ) : !waitingForPartnerToContinue && !showStoryPicker && (
+              ) : !waitingForPartnerToContinue && (
                 <Button
                   variant="outline"
                   onClick={() => setShowStoryPicker(true)}
-                  disabled={!contentLoaded || stories.length === 0}
                   className="mx-auto text-sm min-h-[44px]"
                 >
-                  {!contentLoaded ? 'Loading stories…' : stories.length === 0 ? '' : '+ Select your story'}
+                  + Select your story
                 </Button>
               )
             )}
@@ -1344,7 +1349,7 @@ function IdleScreen({
       )}
 
       {/* P562: Mode pill toggle — visible only on idle entry screen, hidden during rounds */}
-      {onSessionModeChange && !showRatingDrawer && !waitingForPartnerToContinue && liveState.ratingPhase === 'idle' && !liveState.freePhase && !liveState.checkerName && !liveState.ratingInitiatedBy && !liveState.selectedStoryId && (
+      {onSessionModeChange && !showRatingDrawer && !waitingForPartnerToContinue && liveState.ratingPhase === 'idle' && !liveState.freePhase && !liveState.checkerName && !liveState.ratingInitiatedBy && (
         <div className="flex justify-center py-4">
           <div className="inline-flex bg-gray-100 rounded-full p-1 text-sm">
             <button
