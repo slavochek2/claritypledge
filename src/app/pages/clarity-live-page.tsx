@@ -164,7 +164,7 @@ export function sanitizeLiveStateForSentry(
     'celebrationAcknowledgedByJoiner', 'clarificationPhase', 'speakerSawExplainBackDone',
     'checkerRating', 'responderRating', 'isRecording',
     // P562: Free mode fields
-    'sessionMode', 'freePhase', 'freeSliderCreator', 'freeSliderJoiner',
+    'sessionMode', 'freePhase', 'freeSliderCreator', 'freeSliderJoiner', 'freeRerating',
   ];
   const sanitized: Record<string, unknown> = {};
   for (const key of safeKeys) {
@@ -1425,6 +1425,7 @@ export function ClarityLivePage() {
       freeSliderCreator: undefined,
       freeSliderJoiner: undefined,
       freeRounds: undefined,
+      freeRerating: undefined,
       ratingPhase: 'idle',
       ratingInitiatedBy: undefined,
       explainBackDone: false,
@@ -1468,6 +1469,7 @@ export function ClarityLivePage() {
         freeSliderCreator: undefined,
         freeSliderJoiner: undefined,
         freeRounds: undefined,
+      freeRerating: undefined,
         ratingPhase: 'idle',
         ratingInitiatedBy: undefined,
         explainBackDone: false,
@@ -1886,6 +1888,7 @@ export function ClarityLivePage() {
       freeSliderCreator: undefined,
       freeSliderJoiner: undefined,
       freeRounds: undefined,
+      freeRerating: undefined,
     });
     // P272: Clear verification guard so new rounds can fire verification
     verificationFiredRef.current.clear();
@@ -2055,6 +2058,7 @@ export function ClarityLivePage() {
         freeSliderCreator: undefined,
         freeSliderJoiner: undefined,
         freeRounds: undefined,
+      freeRerating: undefined,
         ratingPhase: 'idle',
         ratingInitiatedBy: undefined,
         explainBackDone: false,
@@ -2276,9 +2280,9 @@ export function ClarityLivePage() {
       if (currentState.sessionMode !== 'guided' && !isPerfect) {
         const listenerConf = currentState.responderRating ?? 0;
         const speakerBel = currentState.checkerRating ?? 0;
+        // P600: Only 1 freeRound (sealed-bid). Re-rating stored separately as freeRerating.
         const freeRounds = [
           { listenerConfidence: listenerConf, speakerBelief: speakerBel, label: '0' },
-          { listenerConfidence: listenerConf, speakerBelief: rating, label: '1' },
         ];
         const creatorIsChecker = currentState.checkerIsCreator;
         // Initialize sliders from the re-rated values
@@ -2288,6 +2292,7 @@ export function ClarityLivePage() {
         updateLiveState({
           freePhase: 'unlocked',
           freeRounds,
+          freeRerating: rating, // P600: speaker's updated belief after paraphrase
           freeSliderCreator: creatorSlider,
           freeSliderJoiner: joinerSlider,
           ratingPhase: 'idle',

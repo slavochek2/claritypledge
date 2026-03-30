@@ -144,6 +144,7 @@ export function FreeModeView({
         storyTitle={storyTitle}
         onContinue={onDiscussAnother}
         isWaiting={myAck}
+        freeRerating={liveState.freeRerating}
       />
     );
   }
@@ -187,6 +188,18 @@ export function FreeModeView({
                 </div>
               </div>
             ))}
+
+            {/* P600: Speaker's re-rated belief after paraphrase (3rd number) */}
+            {liveState.freeRerating !== undefined && (
+              <div className="flex items-center justify-between text-sm mb-2 pb-2 border-b border-border/50">
+                <span className="text-muted-foreground w-4 text-right mr-2">1</span>
+                <span className="font-semibold text-foreground flex-1">
+                  {isChecker ? 'Your belief' : `${displayPartnerName}'s belief`}
+                </span>
+                <DotBar value={liveState.freeRerating} />
+                <span className="font-medium tabular-nums w-6 text-right ml-1">{liveState.freeRerating}</span>
+              </div>
+            )}
 
             {/* Live-updating row — blue dots to distinguish from committed rounds */}
             <div className="space-y-1 pt-1">

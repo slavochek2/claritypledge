@@ -754,6 +754,9 @@ export interface LiveSessionState {
 
   /** Committed free mode rounds for Journey display */
   freeRounds?: FreeRoundRecord[];
+
+  /** P600: Speaker's re-rated belief after hearing paraphrase (3rd number before sliders) */
+  freeRerating?: number;
 }
 
 /** Default initial state for new live sessions */

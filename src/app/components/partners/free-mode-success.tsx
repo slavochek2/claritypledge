@@ -25,6 +25,8 @@ interface FreeModeSuccessProps {
   onContinue: () => void;
   /** Whether we're waiting for partner to also click Continue */
   isWaiting?: boolean;
+  /** P600: Speaker's re-rated belief after paraphrase */
+  freeRerating?: number;
 }
 
 export function FreeModeSuccess({
@@ -34,6 +36,7 @@ export function FreeModeSuccess({
   storyTitle,
   onContinue,
   isWaiting = false,
+  freeRerating,
 }: FreeModeSuccessProps) {
   // Role-aware headline — matches guided mode celebration
   const headline = isChecker
@@ -85,6 +88,18 @@ export function FreeModeSuccess({
             </div>
           </div>
         ))}
+
+        {/* P600: Speaker's re-rated belief after paraphrase */}
+        {freeRerating !== undefined && (
+          <div className="flex items-center justify-between text-sm mb-2 pb-2 border-b border-green-200/50">
+            <span className="text-muted-foreground w-4 text-right mr-2">1</span>
+            <span className="font-semibold text-foreground flex-1">
+              {isChecker ? 'Your belief' : `${partnerName}'s belief`}
+            </span>
+            <DotBar value={freeRerating} />
+            <span className="font-medium tabular-nums w-6 text-right ml-1">{freeRerating}</span>
+          </div>
+        )}
 
         {/* Final 10/10 row */}
         <div className="space-y-1 pt-1">
