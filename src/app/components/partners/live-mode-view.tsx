@@ -1180,14 +1180,14 @@ function IdleScreen({
             <div className="flex flex-col gap-1 w-full max-w-sm">
               <Button
                 size="lg"
-                className="bg-blue-500 hover:bg-blue-600 w-full py-5"
+                className="bg-blue-500 hover:bg-blue-600 w-full py-6"
                 onClick={handleStartCheckWithTracking}
                 disabled={waitingForPartnerToContinue}
                 data-testid="start-check"
               >
-                <span className="flex flex-col items-center gap-1">
-                  <span className="text-xl font-semibold">Speak</span>
-                  <span className="text-xs font-normal text-white/70">Did {displayPartnerName} understand you?</span>
+                <span className="flex flex-col items-center gap-1.5">
+                  <span className="text-xl font-semibold leading-none">Speak</span>
+                  <span className="text-[11px] font-normal text-white/90 leading-none">Did {displayPartnerName} understand you?</span>
                 </span>
               </Button>
               {waitingForPartnerToContinue && (
@@ -1198,20 +1198,21 @@ function IdleScreen({
 
           {/* Bottom zone: picker + history, flows downward from midpoint */}
           <div className="flex-[3] flex flex-col items-center justify-start pt-2 px-6 max-w-lg mx-auto w-full overflow-y-auto live-scroll">
-            {!liveState.selectedStoryId && userId && contentLoaded && stories.length > 0 && onSelectStory && (
-              showStoryPicker ? (
+            {!liveState.selectedStoryId && userId && onSelectStory && (
+              showStoryPicker && contentLoaded && stories.length > 0 ? (
                 <StorySearchPicker
                   stories={stories}
                   onSelectStory={(id, title) => { handleSelectStoryWithTracking(id, title); setShowStoryPicker(false); }}
                   disabled={waitingForPartnerToContinue}
                   onCancel={() => setShowStoryPicker(false)}
                 />
-              ) : !waitingForPartnerToContinue && (
+              ) : !waitingForPartnerToContinue && !showStoryPicker && (
                 <button
                   onClick={() => setShowStoryPicker(true)}
-                  className="text-sm text-blue-500 hover:text-blue-700 mx-auto block min-h-[44px]"
+                  disabled={!contentLoaded || stories.length === 0}
+                  className="text-sm text-blue-500 hover:text-blue-700 mx-auto block min-h-[44px] disabled:text-blue-300 disabled:cursor-default transition-colors"
                 >
-                  Select your story
+                  {!contentLoaded ? 'Loading stories…' : stories.length === 0 ? '' : 'Select your story'}
                 </button>
               )
             )}
@@ -1261,7 +1262,7 @@ function IdleScreen({
                 <div className="flex flex-col gap-1 w-full max-w-sm mx-auto">
                   <Button
                     size="lg"
-                    className="bg-blue-500 hover:bg-blue-600 w-full py-5"
+                    className="bg-blue-500 hover:bg-blue-600 w-full py-6"
                     onClick={handleStartCheckWithTracking}
                     disabled={waitingForPartnerToContinue}
                     data-testid="start-check"
@@ -1299,7 +1300,7 @@ function IdleScreen({
             <>
               <Button
                 size="lg"
-                className="bg-blue-500 hover:bg-blue-600 w-full py-5"
+                className="bg-blue-500 hover:bg-blue-600 w-full py-6"
                 onClick={handleStartCheckWithTracking}
                 disabled={waitingForPartnerToContinue}
                 data-testid="start-check"
