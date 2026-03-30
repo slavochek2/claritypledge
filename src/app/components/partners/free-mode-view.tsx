@@ -153,7 +153,7 @@ export function FreeModeView({
 
   return (
     <div className="flex flex-col h-[calc(100vh-120px)]">
-      <div className="flex-1 overflow-y-auto px-4 pt-4">
+      <div className="flex-1 overflow-y-auto live-scroll px-4 pt-4">
         <div className="space-y-3 mb-4 max-w-sm mx-auto w-full">
 
           {/* P600: Journey FIRST, story SECOND (same fix as P400 Bug 3 in guided mode) */}
