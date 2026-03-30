@@ -152,8 +152,8 @@ export function FreeModeView({
   // ── Unlocked phase (the only active rendering phase) ───────────────────
 
   return (
-    <div className="flex flex-col min-h-[calc(100vh-120px)]">
-      <div className="flex-1 flex flex-col justify-end px-4 pt-4">
+    <div className="flex flex-col h-[calc(100vh-120px)]">
+      <div className="flex-1 overflow-y-auto px-4 pt-4">
         <div className="space-y-3 mb-4 max-w-sm mx-auto w-full">
 
           {/* P600: Journey FIRST, story SECOND (same fix as P400 Bug 3 in guided mode) */}
@@ -238,30 +238,30 @@ export function FreeModeView({
             />
           )}
         </div>
+      </div>
 
-        {/* Drawer — continuous slider */}
-        <div className="bg-muted/30 border-t border-border rounded-t-2xl px-6 pt-5 pb-6 -mx-4 mt-auto shadow-[0_-4px_12px_rgba(0,0,0,0.05)]">
-          <h3 className="text-base font-medium text-center mb-5">
-            {questionText}
-          </h3>
-          <div className="flex justify-between mb-1 text-xs text-gray-500">
-            <span>Not at all</span>
-            <span>Complete cognitive understanding</span>
-          </div>
-          <div className="px-2">
-            <SliderTrack
-              value={localSliderValue}
-              onChange={setLocalSliderValue}
-              onDebouncedChange={handleDebouncedSliderChange}
-            />
-          </div>
-          <button
-            onClick={onSpeakFreely}
-            className="text-sm text-muted-foreground hover:text-foreground transition-colors mt-8 mx-auto block min-h-[44px]"
-          >
-            Speak freely
-          </button>
+      {/* Drawer — continuous slider (pinned at bottom, content above scrolls) */}
+      <div className="flex-shrink-0 bg-muted/30 border-t border-border rounded-t-2xl px-6 pt-5 pb-6 shadow-[0_-4px_12px_rgba(0,0,0,0.05)]">
+        <h3 className="text-base font-medium text-center mb-5">
+          {questionText}
+        </h3>
+        <div className="flex justify-between mb-1 text-xs text-gray-500">
+          <span>Not at all</span>
+          <span>Complete cognitive understanding</span>
         </div>
+        <div className="px-2">
+          <SliderTrack
+            value={localSliderValue}
+            onChange={setLocalSliderValue}
+            onDebouncedChange={handleDebouncedSliderChange}
+          />
+        </div>
+        <button
+          onClick={onSpeakFreely}
+          className="text-sm text-muted-foreground hover:text-foreground transition-colors mt-8 mx-auto block min-h-[44px]"
+        >
+          Speak freely
+        </button>
       </div>
     </div>
   );
