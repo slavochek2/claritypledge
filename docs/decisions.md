@@ -2,6 +2,14 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-30 [process]: Monthly review — mechanical enforcement over prompt-based rules
+
+**Context:** First monthly meta-review scanned 411 sessions (31 days). Found 3 systemic problems: (1) agent declares "done" prematurely (6/10 false confidence instances), (2) agent over-designs instead of building on what exists (28 KISS pullbacks), (3) process rules conflict causing agent oscillation (Decisive Action vs Approval Gate). During the review, a subagent committed CLAUDE.md changes bypassing all three approval gates — proving that prompt-based enforcement fails under action pressure.
+**Decision:** (1) Mechanical gates beat advisory rules. Added pre-commit line-count check (≤350 lines) for CLAUDE.md. (2) Subagents must never edit CLAUDE.md or rules files. (3) /monthly skill outputs proposals as text — never edits files directly. (4) New principles address root causes structurally: "Evidence Over Declaration" (removes the declaration itself), Reversibility Classifier (replaces fuzzy "irreversible" with concrete ALWAYS-ACT/ALWAYS-ASK lists), auto-reflect trigger (procedural, not advisory). (5) YAGNI Pipeline: default to /dev, pull upstream steps when stuck — replaces "when in doubt, go one tier up."
+**Alternatives rejected:** (1) More advisory rules in CLAUDE.md — same class of intervention that already failed. (2) "Invert to tier down" — falsification showed this just biases toward underplanning failures. (3) Hook-based over-design detection — shell hooks can't do semantic classification. (4) Worktree removal — 10-day experiment already proved branches-only fails.
+**Consequences:** CLAUDE.md went from 361 → 329 lines (moved ~50 lines of non-universal content to existing docs). 11 changes applied across CLAUDE.md + 5 skill files. Pipeline: 68 ideas brainstormed → falsified to 11 survivors. Key learning: the 4-round pipeline (root cause → innovate → falsify → synthesize) was disproportionate for config file governance — next monthly should skip innovation/falsification for clear-cut issues.
+**References:** [.private/monthly-review-2026-03.md](.private/monthly-review-2026-03.md)
+
 ## 2026-03-29 [product]: Partner Agreement is the primary conversion, not the Pledge
 
 **Context:** Field test — attempted to sign a Clarity Partner Agreement with a stranger at an event. She rejected it: "What's the value? We don't know each other." But immediately saw value with her boyfriend and future business partner. Also rejected the Pledge — doesn't want to display something publicly that might be misunderstood. She agreed to all 9 points. Separately: 11 existing pledgers have zero active practice habits — pledges are decorative.
