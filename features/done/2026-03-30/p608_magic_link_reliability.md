@@ -1,7 +1,7 @@
 ---
-status: in-progress
+status: all-done
 flow: dev
-delivery_stage: uat
+completed_at: "2026-03-30"
 type: bug
 rank: 1000029.0
 workstream: foundation

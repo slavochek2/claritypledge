@@ -2,6 +2,30 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-30 [product]: "Open mode" replaces "Free mode" in /live
+
+**Context:** "Free mode" implied guided mode was restrictive/complex. Co-founders new to calibrated communication shouldn't feel one mode is "easy" and the other "hard."
+**Decision:** User-facing label changed to "Open mode." Internal `sessionMode` value stays `'free'` (no DB migration, no analytics rename needed).
+**Alternatives rejected:** "Simple mode" (implies guided is complex), "Flow mode" (too abstract), "Live mode" (conflicts with /live feature name).
+**Consequences:** Mixpanel events still fire `sessionMode: 'free'`. Rename in analytics only if the label change sticks after user testing.
+**References:** [P600 spec](features/done/2026-03-30/p600_free_mode_polish.md)
+
+## 2026-03-30 [technical]: Speaker re-rating restored in free/open mode
+
+**Context:** P562 skipped the speaker re-rating step after paraphrase to speed the flow to continuous sliders. UAT revealed this lost a key data point — the speaker's updated belief after hearing the paraphrase. Journey showed only 2 numbers instead of 3.
+**Decision:** Removed the `handleExplainBackDone` free-mode bypass. Speaker now sees the re-rating drawer (same as guided mode) before sliders unlock. Re-rated value stored as `freeRerating` (single number on `LiveSessionState`), not as a second `freeRounds` entry (which duplicated listener confidence).
+**Alternatives rejected:** (1) Keep P562 skip — loses data. (2) Store as second freeRound — duplicates listener confidence as "4th number."
+**Consequences:** Free mode flow is now: sealed-bid → results → explain-back → speaker re-rates → sliders unlock. Same as guided mode except sliders replace the clarify/continue decision. `freeRerating` field added to `LiveSessionState` type.
+**References:** [P600 spec](features/done/2026-03-30/p600_free_mode_polish.md)
+
+## 2026-03-30 [product]: Idle screen two-zone layout + progressive story disclosure
+
+**Context:** The /live idle screen centered all content vertically. When the story picker opened, it pushed the "Speak" button up — disorienting. Story picker auto-showed on load, adding cognitive load before the user oriented.
+**Decision:** Split idle screen into two-zone flex layout (flex-[2] top, flex-[3] bottom). Button stays at ~40% mark. Story picker hidden behind "+ Select your story" outline button (progressive disclosure). Click-outside dismisses picker.
+**Alternatives rejected:** (1) Absolute-position picker overlay — complex z-index management. (2) Keep centered layout with scroll — button shifts on open.
+**Consequences:** Pattern reusable for any idle screen with optional secondary actions below a primary CTA.
+**References:** [P600 spec](features/done/2026-03-30/p600_free_mode_polish.md)
+
 ## 2026-03-30 [process]: Mixpanel MCP (EU) added to project
 
 **Context:** Needed Mixpanel querying capability for monitoring email delivery funnels and general analytics from Claude Code sessions.
