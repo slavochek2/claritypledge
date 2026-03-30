@@ -95,6 +95,8 @@ export interface StoryGuideChatProps {
   onDismiss?: () => void;
   /** If present, open in edit mode: pre-populate polish phase with existing story content. */
   existingStory?: Story;
+  /** P607: Point's visibility — used as default when creating a new story from a point. */
+  pointVisibility?: StoryVisibility;
 }
 
 // ---------------------------------------------------------------------------
@@ -196,6 +198,7 @@ export function StoryGuideChat({
   onStoryConfirmed,
   onDismiss: _onDismiss,
   existingStory,
+  pointVisibility,
 }: StoryGuideChatProps) {
   const { user, session } = useAuth();
   const authorName = user?.name ?? 'You';
@@ -241,7 +244,8 @@ export function StoryGuideChat({
   const [apiError, setApiError] = useState<string | null>(null);
   const [selectedVisibility, setSelectedVisibility] = useState<StoryVisibility>(() => {
     if (existingStory) return existingStory.visibility ?? 'private';
-    return getPersistedState()?.selectedVisibility ?? 'private';
+    // P607: inherit point visibility when creating from a point, else private
+    return getPersistedState()?.selectedVisibility ?? pointVisibility ?? 'private';
   });
   const [isSaving, setIsSaving] = useState(false);
   const [inputValue, setInputValue] = useState('');
