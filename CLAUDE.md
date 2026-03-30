@@ -284,6 +284,8 @@ See [docs/development-process.md](docs/development-process.md) for pipeline tier
 
 **Library docs:** Use Context7 MCP before web-searching. Workflow: (1) `resolve-library-id`, (2) `query-docs`.
 
+**Mixpanel:** Use MCP for analytics queries (events, funnels, retention, dashboards). EU endpoint. Prefer over Chrome-based login. See [analytics.md](docs/technical/analytics.md).
+
 **CLI tools:** [cli-tools.md](docs/technical/cli-tools.md). **Browser automation:** [browser-tools.md](docs/technical/browser-tools.md).
 
 **Retiring a tool:** (1) `git rm -r --cached --ignore-unmatch <tool-dir>`, (2) `rm -rf <tool-dir>`, (3) add to `.gitignore`. Do all 3 in the same session.
