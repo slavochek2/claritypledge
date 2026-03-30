@@ -1,7 +1,7 @@
 ---
 status: done
 type: story
-rank: 0.25
+rank: 0.063
 tags:
   - epic-story-first
   - live

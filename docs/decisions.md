@@ -2,6 +2,14 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-30 [process]: /verify rewritten — Playwright-first, Chrome only for visual QA
+
+**Context:** `/verify` relied entirely on Claude in Chrome for all verification — functional checks, auth flows, two-party sessions, toast verification. This was architecturally wrong: Chrome extension dies after ~5min (upstream MV3 service worker timeout, #27826/#15239), can't run two concurrent browser contexts, can't run in CI, costs 10-20x more tokens than headless. Meanwhile, Playwright infrastructure already had auth injection (`setTestSession`), two-context fixtures (`createTwoPartySession`), DB polling, mic mocking, and 20+ spec files — but `/verify` treated Playwright as a footnote.
+**Decision:** Rewrote `/verify` to auto-route each UAT scenario to the right tool. Functional checks (auth, forms, toasts, two-party, navigation, DB state) → Playwright headless. Visual QA (layout, styling, mobile) → Claude in Chrome, auto-triggered only when UI files changed. No flags — the skill reads the spec, classifies scenarios, and picks the tool. Prod mode auto-detected from branch + delivery_stage.
+**Alternatives rejected:** (A) Adding retry/reconnect logic around Chrome extension timeouts — fights the architecture instead of using the right tool. (B) Splitting into `/verify` + `/verify:visual` — adds user decision overhead; auto-routing eliminates it. (C) Keeping Chrome as primary with Playwright as supplement — inverts the reliability hierarchy.
+**Consequences:** `/verify` sessions no longer die mid-run. Two-party testing uses native Playwright concurrency. Generated test files (`e2e/p{N}-verify.spec.ts`) persist as regression tests. Chrome extension usage limited to short visual-only sessions (~2min). `/sim` unchanged — remains a separate UX exploration tool.
+**References:** `.claude/commands/slava/build/verify/SKILL.md`, `docs/technical/browser-tools.md`
+
 ## 2026-03-30 [product]: Clarity Canvas is NOT the landing page — founder transparency ≠ user experience
 
 **Context:** During article planning, the idea surfaced to make the Clarity Canvas the landing page — visitors arrive, see the business model, and challenge assumptions. This conflates two fundamentally different experiences.
