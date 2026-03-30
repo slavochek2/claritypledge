@@ -389,12 +389,10 @@ function KeyPointsSection({
 
   return (
     <div className="mt-6">
-      {/* justCreated banner */}
-      {justCreated && pointCount === 0 && (
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4 text-sm text-blue-800">
-          Story saved. Now add key points — claims others can agree or disagree with.
-        </div>
-      )}
+      {/* P610: removed justCreated educational banner — VisibilityLine inside
+         AddPointForm now provides the primary context; two stacked blue banners
+         was visually noisy and the guidance was redundant for users who just
+         created a story and clicked "Add Point". */}
 
       {/* Author: form (auto-expanded on justCreated or addPoint query param, or toggled) */}
       {(autoExpand || addPointRequested || showForm) && (
