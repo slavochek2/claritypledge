@@ -7,6 +7,9 @@ severity: medium
 date_reported: 2026-03-29
 created_date: 2026-03-30
 tags: [auth, email, brevo, pkce]
+uat_file: features/uat/p608.md
+test_files:
+  - e2e/p608-signup-resend.spec.ts
 ---
 
 # BUG: P608 — Magic Link Reliability (PKCE + Resend + Monitoring)
@@ -108,3 +111,41 @@ Add a broader email regex to pre-commit section 17 for `features/*.md` files —
 2. **Resend:** Sign up → "check your email" → click Resend → Brevo logs show second send.
 3. **Monitoring:** Sign up via magic link → Mixpanel shows both `signup_magic_link_sent` and `profile_created` with `auth_method`.
 4. **Microsoft domain:** Send magic link to a Microsoft 365 email address → verify link works when human clicks (ATP can't consume it).
+
+## Test Coverage Strategy
+
+**What's Tested (automated):**
+- Resend button visible after signup form submission (E2E)
+- Resend click shows success feedback (E2E)
+- "Use Different Email" returns to form (E2E)
+
+**What's Tested (manual UAT):**
+- PKCE `code` param in magic link URL (email inspection)
+- Same browser completes auth, different browser fails gracefully
+- Brevo logs show delivery after resend click
+- `auth_method` property on `profile_created` and `login_complete` Mixpanel events
+- Microsoft 365 email delivery + human click works with PKCE
+- Mixpanel daily alert configured
+
+**What's NOT Tested (rationale):**
+- Unit tests for PKCE config — it's a one-liner config flag, no logic to unit test
+- Integration tests — no DB changes, no API endpoints added
+- Accessibility — resend button uses standard `<Button>` component (already accessible)
+- Smoke test — `01-signup-flow.spec.ts` already covers /signup page load
+- Pre-commit regex — tested by running `./scripts/pre-commit-checks.sh` against a test file
+
+**Test Pyramid:**
+```
+     /\
+    /  \   3 E2E tests (resend UI)
+   /____\
+  /  0 INT \
+ /__________\
+/ 0 UNIT    \
+```
+
+**Files generated:**
+- `e2e/p608-signup-resend.spec.ts` — 3 E2E tests
+- `features/uat/p608.md` — 9 UAT scenarios (5 sections)
+
+**Total:** 3 automated tests + 9 UAT scenarios
