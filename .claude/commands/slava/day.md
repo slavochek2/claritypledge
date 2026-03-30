@@ -216,6 +216,20 @@ If previous entry exists, show deltas in funnel line.
 
 Show: `✓ Sessions: no orphans` or `⚠ ORPHANED SESSIONS: N sessions with joined users but no completion (possible deadlocks) — check Sentry for live_state errors`
 
+#### Wave 2b: Magic link funnel (Mixpanel MCP — 1 call, after Wave 2)
+
+Query Mixpanel MCP (`Run-Query`) for the last 24h:
+- `signup_magic_link_sent` total count
+- `profile_created` total count (where `auth_method = magic_link`)
+
+If `signup_magic_link_sent` > 0 AND `profile_created` (magic_link) = 0:
+```
+⚠ MAGIC LINK GAP: N magic links sent, 0 completed signups in 24h — check Brevo logs
+```
+If both > 0 or sends = 0: silent.
+
+Fallback (MCP unavailable): skip with `⚠ Mixpanel MCP unavailable — magic link check skipped`
+
 #### Wave 3: Repo health + file reads (2-3 calls, after processing Wave 1-2)
 
 **a) Repo health** (1 bash call):
