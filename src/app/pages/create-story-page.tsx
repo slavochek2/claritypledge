@@ -21,6 +21,7 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { analytics } from '@/lib/mixpanel';
 import { ChatContextHeader } from '@/app/components/story-guide/ChatContextHeader';
+import { VisibilityLine } from '@/app/components/shared/visibility-line';
 import { ImageUploadWidget } from '@/app/components/shared/image-upload-widget';
 import { uploadStoryImage } from '@/app/data/story-image-service';
 import type { ContentVisibility } from '@/app/types';
@@ -324,7 +325,7 @@ export function CreateStoryPage() {
       {/* Doc privacy banner (P551) */}
       {isDocContext && docVisibility && (
         <div className="mb-4">
-          <DocPrivacyBanner visibility={docVisibility} />
+          <DocPrivacyBanner visibility={docVisibility} subtitle="Stories added here inherit this visibility" />
         </div>
       )}
 
@@ -335,6 +336,16 @@ export function CreateStoryPage() {
           Write a perspective. Others verify what they understood.
         </p>
       </div>
+
+      {/* P610: Visibility banner — only when DocPrivacyBanner is NOT already showing */}
+      {!(isDocContext && docVisibility) && (
+        <div className="mb-4">
+          <VisibilityLine
+            visibility={visibility}
+            source={pointVisibility ? 'Matches point visibility' : 'Visible on your profile'}
+          />
+        </div>
+      )}
 
       {/* Form */}
       <form onSubmit={handleSubmit} className="space-y-6">
@@ -411,15 +422,10 @@ export function CreateStoryPage() {
                 <Loader2Icon className="w-4 h-4 animate-spin" />
                 Saving...
               </>
-            ) : isDocContext && docVisibility === 'private' ? (
+            ) : visibility === 'private' ? (
               <>
                 <Lock size={16} />
                 Save Private Story
-              </>
-            ) : isDocContext && docVisibility === 'public' ? (
-              <>
-                <Globe size={16} />
-                Save Public Story
               </>
             ) : (
               <>

@@ -17,6 +17,7 @@ import { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import { extractHashtags } from '@/lib/utils';
 import { useParams, useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { LockIcon, Loader2, Pencil, Trash2, Globe, ImagePlus } from 'lucide-react';
+import { VisibilityLine } from '@/app/components/shared/visibility-line';
 import { FocusHeader } from '@/app/components/layout/focus-header';
 
 import { StoryCardWithLinks, type StoryAuthor } from '@/app/components/social/story-card-with-links';
@@ -222,19 +223,11 @@ function AddPointForm({
 
   return (
     <div className="space-y-2">
-      {/* P551/P590: Visibility banner when adding points in doc context */}
-      {docVisibility === 'private' && (
-        <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 flex items-center gap-2 text-sm">
-          <LockIcon size={16} className="text-amber-600 flex-shrink-0" />
-          <span className="text-amber-800">This point will be private — only you can see it</span>
-        </div>
-      )}
-      {docVisibility === 'public' && (
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 flex items-center gap-2 text-sm">
-          <Globe size={16} className="text-blue-600 flex-shrink-0" />
-          <span className="text-blue-800">This point will be public — visible on your profile</span>
-        </div>
-      )}
+      {/* P610: Visibility banner when adding points */}
+      <VisibilityLine
+        visibility={docVisibility ?? 'public'}
+        source={docVisibility === 'private' ? 'Matches story visibility' : 'Visible on your profile'}
+      />
       {orphanPoint && (
         <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-sm">
           <p className="text-amber-900 mb-2">Point created but linking failed. Retry to link it to your story.</p>

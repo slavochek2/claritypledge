@@ -97,6 +97,8 @@ export interface StoryGuideChatProps {
   existingStory?: Story;
   /** P607: Point's visibility — used as default when creating a new story from a point. */
   pointVisibility?: StoryVisibility;
+  /** P610: Optional visibility indicator rendered below the context header. */
+  visibilityLine?: React.ReactNode;
 }
 
 // ---------------------------------------------------------------------------
@@ -199,6 +201,7 @@ export function StoryGuideChat({
   onDismiss: _onDismiss,
   existingStory,
   pointVisibility,
+  visibilityLine,
 }: StoryGuideChatProps) {
   const { user, session } = useAuth();
   const authorName = user?.name ?? 'You';
@@ -733,6 +736,7 @@ export function StoryGuideChat({
           pointId={contextPoint.id}
           pointText={contextPoint.text}
           userPosition={localPosition as 'agree' | 'disagree' | 'unsure' | null | undefined}
+          visibilityLine={visibilityLine}
         />
       )}
 
