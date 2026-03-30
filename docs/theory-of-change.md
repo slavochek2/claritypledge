@@ -94,7 +94,7 @@ This section maps the logical chain from problem to impact, showing how our acti
 - Fractured private realities → Common shared reality
 - Not by forcing agreement, but by making disagreement informed
 - Coordination unlocked: People act together based on shared understanding map
-- Status flip: Verified understanding > confident assertion
+- Status flip (normative inversion): Verified understanding > confident assertion. Currently, requesting paraphrase carries social cost (feels confrontational). After adoption, refusing to verify comprehension when asked becomes the socially suspect move. Hierarchies currently protect the right to not be checked — the protocol makes that insulation visible and illegitimate.
 - AI alignment: Personal agents trained on verified understanding, not unverified signals
 
 **Civilizational-scale change:**

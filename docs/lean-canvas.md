@@ -83,6 +83,8 @@ Professionals who need a comprehension measurement tool — something DISC/MBTI/
 - **Solo founders + equity advisors** — same high-stakes dyad, lower decision frequency
 - **Full teams** — Team Clarity Workshops (€2,950, full-day, up to 8 people). Co-founders become internal champions.
 
+- **Family businesses in generational transition** — high coordination complexity, existing tension costing money, already hire mediators/consultants. 60-70% of global GDP. Partner Agreement format naturally fits succession planning. Partner delivery model (not Slava-facilitated).
+
 ### Future Segments (explore after core validates)
 
 | Segment | Status | Why Promising |
@@ -119,6 +121,10 @@ The only alignment assessment that produces a number, not a feeling. Combines li
 
 **Identity (2026-03-28):** Independent applied epistemologist building instrumentation for false belief detection between humans. Not a startup founder, not an academic, not a coach — the person who builds the measurement instrument AND is the first practitioner who wields it. ladischenski.com is the R&D lab that funds and validates ClarityPledge: every paid session generates revenue, protocol refinements, and case studies. Discipline label stack: Title = Fractional Chief Clarity Officer; short = applied epistemology; precise = applied intersubjective metacognitive epistemology. One-liner: "I build instruments that detect false beliefs about whether people understand each other."
 
+**Dual-currency model (2026-03-29):** Payment can be monetary OR operational — running the protocol with others multiplies the work. Qualification-based: "tell me about your problem, and if I find it compelling, I invest my time." Replaces fixed pricing with a Work With Me funnel. Untested — needs validation alongside H-WTP-Pain.
+
+**Universal positioning copy (2026-03-29):** "Everybody craves to be understood. Why? Because true understanding of other people across differences is extremely scarce. The few who can reliably prove they understand others win their trust. But how do you verify and prove you truly understood? And how do you empower those you depend upon and those you care about to understand you even when the differences between you grow and divide you?" — First framing that works universally without mentioning protocols, epistemology, or specific segments. Entry is emotional (need to be understood); delivery is cognitive (verification protocol). Self-discovery frame ("come discover what it's like to be actually understood") as wider funnel than partnership de-risking.
+
 **Intellectual positioning (2026-03-27):** Uniqueness audit against ~50 adjacent people/groups. Individual pieces (mirrors, explain-back, error correction, calibration) all exist separately. The specific synthesis is unique: Popper's error correction applied to interpersonal understanding, with a verification step that turns a philosophical norm into a measurable protocol. Habermas is the closest predecessor — he says "presuppose understanding," ClarityPledge says "verify it." He describes ideal conditions; this builds the measurement instrument. The unique claim: Popper's falsification has an unformalized precondition (verified mutual comprehension) that neither Popper, Deutsch, nor Habermas instrumented.
 
 ### Shared Foundation
@@ -127,13 +133,15 @@ The only alignment assessment that produces a number, not a feeling. Combines li
 
 **Strategic through-line:** Every session generates labeled calibration data — measured gaps between perceived and actual understanding. The platform IS the data collection mechanism. Long-term, this dataset powers mirror agents and predictive misunderstanding detection. "Intelligence infrastructure for human understanding."
 
+**"Locke to Ladischenski" thesis (2026-03-29):** Locke established consent as the basis of legitimate authority. ClarityPledge argues consent without verified comprehension is theater. The protocol operationalizes the comprehension layer underneath governance — not just for startups but for any authority structure. 40-year research and implementation program.
+
 ---
 
 ## Solution
 
 A **practice system for calibrated communication** — evolving toward **Stories that scale your inner world**.
 
-**Long-term org model: Clarity Practice Community.** Not a SaaS company — a practice with a community around it. Near-term service revenue (FCO retainers, workshops) funds the transition. The natural long-term home is a foundation or commons structure (see: Santa Fe Institute, Long Now Foundation, fiscal sponsorship models).
+**Long-term org model: Clarity Practice Community.** Not a SaaS company — a practice with a community around it. Near-term service revenue (FCO retainers, workshops) funds the transition. The natural long-term home is a foundation or commons structure (see: Santa Fe Institute, Long Now Foundation, fiscal sponsorship models). **Ikigai-driven partnership model (2026-03-29):** Partners co-invest life's work, not capital. Revenue sharing (not equity) triggered by milestones. Governance via verified mutual comprehension (the protocol IS the operating agreement). Exit = fork + license, no penalty. Full Partner Agreement template drafted — see .private/docs/business/collaborators/.
 
 **Current:** Slava-facilitated calibration sessions using /live as diagnostic tool. Pairs don't need to learn the tool.
 **Next:** Progressive automation — transcript pipeline → AI gap detection → mirror agents.

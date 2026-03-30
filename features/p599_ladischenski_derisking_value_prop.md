@@ -1,9 +1,11 @@
 ---
 id: p599
-title: "Update ladischenski.com de-risking package value prop"
+title: Update ladischenski.com de-risking package value prop
 type: task
-status: week
+status: today
 priority: medium
+rank: 0.75
+locked_at: '2026-03-29T14:15:20.600Z'
 ---
 
 # P599 — Update ladischenski.com De-Risking Package Value Prop

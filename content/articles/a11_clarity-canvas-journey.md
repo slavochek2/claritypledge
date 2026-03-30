@@ -19,6 +19,8 @@ A founder journal article that tells the story of ClarityPledge through the evol
 ## Source
 
 Conversations from March 11-19 2026 exploring the Clarity Canvas concept (5+ sessions). Prod data: 11 stories, 21 points, 43 positions from 6 users. Facilitator guide open questions. Decisions doc journey entries. Direct conversation with user about article framing (March 26-27 2026).
+Conversation: Creating an applied epistemology institute (2026-03-29) — ikigai-driven partnership model, dual-currency compensation, protocol as governance.
+Conversation: Value-based pricing without displaying costs (2026-03-29) — qualification-based funnel, "pay with money or time" model.
 
 ## Angle Ideas
 
@@ -27,3 +29,24 @@ Conversations from March 11-19 2026 exploring the Clarity Canvas concept (5+ ses
 - "What 28 Sessions Did to My Business Model" — data-first, shows building in the open
 - "From Lean Canvas to Clarity Canvas: A Founder's Journal" — straightforward, clear what you get
 - "I Filed a Disagreement With My Own Problem Statement" — meta/recursive, shows the canvas eating itself
+
+## Structure Extension: The Co-Builder CTA
+
+The article has a natural three-act structure that now doubles as a casting call:
+
+**Act 1 — The Lean Canvas broke** (existing outline)
+Canvas v1 → v1.1 → v2 → v2.1 journey. What 28 sessions taught. Each missing box emerged from a real moment.
+
+**Act 2 — The Clarity Canvas as timeline** (new)
+The canvas isn't a snapshot — it's a phased trajectory from current reality to long-term vision. Each phase has its own activities, partners, and clarity gaps. Show the Clarity Canvas as v5: phases on a timeline, not boxes on a page. This is where the ikigai concept enters: the canvas has a box for "whose life's work aligns with this?" that Lean Canvas never asks.
+
+**Act 3 — The open invitation** (new)
+"Here's my Clarity Canvas. These boxes are still blank. If your ikigai overlaps — if building instruments for verified human comprehension is something you'd do anyway — here's how we'd work together." Link to the Partner Agreement (public summary, not the full mechanics). This isn't hiring. It's a casting call for someone whose life's work converges.
+
+**Embedded CTA for workshops:**
+"Want to build your own Clarity Canvas? I'm running workshops where founders stress-test their canvases with the protocol. The workshop itself is the product demo — you'll see the gaps the protocol reveals in your own assumptions." → links to P567 workshop schedule.
+
+This way the article serves three purposes simultaneously:
+1. Content (the story of how the canvas evolved)
+2. Co-builder signal flare (the open invitation at the end)
+3. Workshop funnel (the embedded CTA drives attendance → tests H-WTP-Pain)

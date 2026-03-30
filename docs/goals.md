@@ -2,7 +2,7 @@
 
 Concrete next steps in priority order. Updated 2026-03-24.
 
-**Last updated:** 2026-03-24
+**Last updated:** 2026-03-30
 
 Flywheel: see [lean-canvas.md](lean-canvas.md#channels--flywheel). Steps below follow that sequence.
 
@@ -21,6 +21,7 @@ Flywheel: see [lean-canvas.md](lean-canvas.md#channels--flywheel). Steps below f
 9. [ ] Promote article via LinkedIn, communities
 10. [ ] Run facilitated co-founder session with pay-what-it's-worth upfront
 11. [ ] Approach 1-2 coaches — AFTER workshops + paid sessions prove model (H-CoachChannel)
+12. [ ] **Partner recruitment gate:** After 3 PWIW sessions with revenue signal, begin partner outreach using session recordings + protocol documentation as recruitment material. This is where "builder, not practitioner" becomes actionable.
 
 ## Dos
 
@@ -32,6 +33,7 @@ Flywheel: see [lean-canvas.md](lean-canvas.md#channels--flywheel). Steps below f
 - Use /live as YOUR diagnostic tool — pairs don't need to learn it
 - Default to booking links and written offers, not exploratory calls
 - Every session = labeled calibration data (intelligence infrastructure)
+- After each session, document what Slava did that a trained partner or AI could do (automation spec output — turns practitioner work into instrument design)
 - Check emotional readiness before verification exercises (P518)
 
 ## Don'ts
@@ -57,6 +59,8 @@ KILL DATE:   0/2 workshops → paying pair by April 25 = pipeline doesn't conver
 ```
 
 ## See Also
+
+- [P606: The Clarity Flip Workshop](../features/p606_clarity_flip_workshop.md) — norm-inversion format, no product dependency
 
 - [Facilitator Guide](facilitator-guide.md) — detailed workshop flow + session types
 - [P567: False Belief Curriculum](../features/p567_false_belief_workshop_curriculum.md)
