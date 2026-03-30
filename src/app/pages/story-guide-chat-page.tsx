@@ -116,6 +116,7 @@ export function StoryGuideChatPage() {
             contextProfileOwner={contextProfileOwner}
             onStoryConfirmed={handleStoryConfirmed}
             existingStory={existingStory ?? undefined}
+            pointVisibility={fullPoint?.visibility}
           />
         )}
       </div>

@@ -1,10 +1,15 @@
 ---
-status: today
+status: in-progress
 type: feature
 rank: 1000028.0
 workstream: foundation
 created_date: 2026-03-30
 tags: [visibility, p586-follow-up, p581-prereq]
+flow: dev
+delivery_stage: uat
+uat_file: features/uat/p607.md
+test_files:
+  - e2e/integration/p607-visibility-inheritance.spec.ts
 ---
 
 # P607: Visibility Inheritance on Content Creation
@@ -40,16 +45,37 @@ No schema changes needed. No migration. Code-only fix — pass the existing visi
 
 ## Acceptance Criteria
 
-- [ ] Point created from a private story gets `visibility: 'private'`
-- [ ] Point created from a public story gets `visibility: 'public'`
-- [ ] Story created from a private point gets `visibility: 'private'`
-- [ ] Story created from a public point gets `visibility: 'public'`
-- [ ] Existing cross-visibility constraint still blocks linking private point to public story
-- [ ] No change to standalone point/story creation (no parent context → use DB default)
+- [x] Point created from a private story gets `visibility: 'private'`
+- [x] Point created from a public story gets `visibility: 'public'`
+- [x] Story created from a private point gets `visibility: 'private'`
+- [x] Story created from a public point gets `visibility: 'public'`
+- [x] Existing cross-visibility constraint still blocks linking private point to public story
+- [x] No change to standalone point/story creation (no parent context → use DB default)
 
 ## Test Coverage Strategy
 
-- Unit test: `createPoint()` with explicit visibility param produces correct DB row
-- Integration test: create point from private story page → verify point.visibility = 'private'
-- Integration test: create story from private point page → verify story.visibility = 'private'
-- Negative test: standalone creation (no parent) still defaults to 'public'
+**What's Tested:**
+- ✅ Point visibility inheritance (integration) — private and public parent stories
+- ✅ Story visibility inheritance (integration) — private and public parent points
+- ✅ Standalone defaults (integration) — no parent context → public
+- ✅ Cross-visibility constraint (integration) — private point ↛ public story
+- ✅ Feed/profile filtering (UAT-7) — private content not shown (already enforced by P586)
+
+**What's NOT Tested (rationale):**
+- ❌ E2E page navigation — overhead for param passing; UAT covers UI path manually
+- ❌ Unit tests — no new utility functions
+- ❌ Accessibility — no new UI components
+
+**Test Pyramid:**
+```
+  / 0 E2E \
+ / 7 INT   \
+/ 0 UNIT    \
+```
+
+Total: 7 automated integration tests + 7 UAT scenarios
+
+**Files:**
+- `e2e/integration/p607-visibility-inheritance.spec.ts` — 7 integration tests
+- `features/uat/p607.md` — 7 manual scenarios
+- `e2e/helpers/test-point.ts` — updated: `createTestPoint()` now accepts `visibility` option

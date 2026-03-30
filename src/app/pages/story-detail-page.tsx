@@ -162,8 +162,8 @@ function AddPointForm({
 
     setIsAdding(true);
     try {
-      // Create point
-      const point = await pointsService.createPoint(trimmed, undefined, extractHashtags(trimmed));
+      // Create point — P607: inherit story visibility
+      const point = await pointsService.createPoint(trimmed, undefined, extractHashtags(trimmed), docVisibility);
       if (!point) {
         toast.error('Failed to create point. Please try again.');
         setIsAdding(false);
@@ -1315,7 +1315,7 @@ export function StoryDetailPage() {
             addPointRequested={searchParams.get('addPoint') === 'true'}
             showFormTrigger={addPointTrigger}
             onPointAdded={handlePointAdded}
-            docVisibility={docContext ? story.visibility : undefined}
+            docVisibility={story.visibility}
           />
         </>
       )}
