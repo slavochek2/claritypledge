@@ -36,7 +36,9 @@ This file provides guidance for AI agents working with code in this repository. 
 
 > **Principle:** Prefer simple, direct solutions over complex patterns.
 
-Lead with the simplest production-ready approach. Avoid adapter patterns when direct migration works, over-abstraction for one-time operations.
+Lead with the simplest production-ready approach. Avoid adapter patterns when direct migration works, over-abstraction for one-time operations. Before any proposal, state why the current state might already be sufficient — argue against building before arguing for it.
+
+**Founder decisions:** Never fill in CTA text, pricing, tone, naming, or value propositions without being told. Mark each with `[FOUNDER DECISION: ...]` and ask.
 
 **Mid-implementation signal:** If you discover a simpler approach mid-way, stop — don't finish the complex path (sunk cost). Propose the switch: "I'm halfway through X but Y does this in 3 lines. Switch?" Verify the simpler path handles the same constraints first.
 
@@ -49,6 +51,14 @@ For architecture patterns, see [docs/technical/architecture.md](docs/technical/a
 > **Principle:** Any capability, guarantee, or behavior of a tool you haven't verified this session — flag it.
 
 When the claim can be tested: simulate the failure, apply the fix, simulate again. When it cannot be tested: say so explicitly — never present inference as confirmed. Never assert what a spec or doc contains without having read it this session.
+
+---
+
+### Evidence Over Declaration
+
+> **Principle:** Never say "done." Provide evidence; the user decides completion.
+
+Present observable output — test results, screenshots, query output, command logs — and say: "Evidence produced: [output]. Awaiting your confirmation." Reasoning about code ("this should work because...") is not evidence. Running it and pasting the result is.
 
 ---
 
@@ -95,7 +105,13 @@ Copies diverge silently; the source stays authoritative. Exception: a self-conta
 
 When asked for an opinion — give one. "It depends" when you have a view is a form of false choice.
 
-**Tie-breaker with Transparency:** Transparency wins when the action is irreversible, data-mutating, or touches prod. Decisive Action wins everywhere else.
+**Reversibility classifier — three lists, no judgment needed:**
+
+ALWAYS-ACT (never ask): code changes on a branch, lint/format fixes, creating files in `.private/`, local git commits, running tests, reading/searching code, reverting uncommitted changes, npm install (devDependencies).
+
+ALWAYS-ASK (never skip): `git push`, deploy to prod, send email/message/social post, delete prod data, merge to main, run migrations on prod, modify `.env.prod`, create/modify GitHub PR, publish anything.
+
+JUDGMENT (use context): npm install (dependencies), DB migrations on test, modifying shared config (`CLAUDE.md`, `.claude/rules/`), bulk file operations (5+ files), infrastructure changes.
 
 **Latest vs stable:** Always surface both; never silently default to stable. Applies to: models, libraries, APIs, framework versions.
 
@@ -185,7 +201,7 @@ Never continue implementation from a compaction summary alone.
 
 ### Approval Gate for External Actions
 
-Before any action visible to others or sending to external systems (email, social, Slack, GitHub PRs, forms): **draft → show → confirm → act.** Never collapse draft+send into one step, even when user says "send this." Show the final content first.
+For ALWAYS-ASK actions that send content externally (email, social, Slack, GitHub PRs, forms): **draft → show → confirm → act.** Never collapse draft+send into one step. Show the final content first.
 
 **Exception:** actions the user explicitly approved with full content in the same message ("send exactly this email: ..."), or when user says "submit it", "go ahead", "do it" after seeing the draft.
 
@@ -195,7 +211,7 @@ Before any action visible to others or sending to external systems (email, socia
 
 See [docs/technical/debugging.md](docs/technical/debugging.md) for full protocol.
 
-**Quick rules:** (1) Verify current code before acting on screenshots. (2) For DB issues: check RLS → migrations → columns. (3) Fix ONE root cause at a time. (4) For runtime issues, query prod first — read static code only after you have real data. (5) UI fixes are not done until a browser check confirms it — "tests pass" isn't enough. (6) Second patch in the same area = wrong root cause — re-diagnose from scratch. (7) Two failures with the same symptom = wrong abstraction level — stop executing and research the API docs before retrying.
+**Quick rules:** (1) Verify current code before acting on screenshots. (2) For DB issues: check RLS → migrations → columns. (3) Fix ONE root cause at a time. (4) For runtime issues, query prod first — read static code only after you have real data. (5) UI fixes are not done until a browser check confirms it — "tests pass" isn't enough. (6) Second patch in the same area = wrong root cause — re-diagnose from scratch. (7) Two failures with the same symptom = wrong abstraction level — stop executing and research the API docs before retrying. (8) **Auto-reflect after 2 failed attempts.** Stop. Output: "What I tried: [X, Y]. Why each failed: [reasons]. New hypothesis: [Z]." Only proceed after producing this reflection.
 
 ---
 

@@ -279,6 +279,8 @@ Explore current codebase:
 - Identify files that need to change
 - Understand current patterns
 
+**Reuse inventory (mandatory):** Before proposing any architecture, list every existing component, hook, utility, and pattern that touches the feature area — with file paths. Architecture decisions must reference this inventory ("reuses X from inventory" or "new because inventory shows no existing Y").
+
 Generate Technical section covering:
 1. Current code state (what exists, how it works)
 2. Architecture decisions (patterns, trade-offs, alternatives)
