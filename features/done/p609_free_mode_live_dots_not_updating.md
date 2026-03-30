@@ -1,12 +1,14 @@
 ---
-status: qa
+status: done
 type: bug
-rank: 5
+rank: 750002.75
 tags:
   - live
   - p562
   - realtime
 created_date: 2026-03-30T00:00:00.000Z
+completed_at: '2026-03-30'
+locked_at: '2026-03-30T10:38:01.482Z'
 ---
 
 # P609: Free Mode — Live Blue Dots Not Updating for Partner
