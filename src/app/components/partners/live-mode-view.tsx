@@ -1031,6 +1031,16 @@ function IdleScreen({
   // P23.3: Detect "Did I get it?" flow for drawer messaging
   const isProverInitiated = liveState.proverName !== undefined;
 
+  // P600: Toast when partner switches session mode
+  const prevSessionModeRef = useRef<string | undefined>(sessionMode);
+  useEffect(() => {
+    if (prevSessionModeRef.current !== undefined && sessionMode !== prevSessionModeRef.current) {
+      const modeName = sessionMode === 'guided' ? 'Guided mode' : 'Open mode';
+      toast(`Switched to ${modeName}`, { id: 'mode-switch', duration: 2000 });
+    }
+    prevSessionModeRef.current = sessionMode;
+  }, [sessionMode]);
+
   // P398: Selected history index for inline round summary
   const [selectedHistoryIndex, setSelectedHistoryIndex] = useState<number | null>(null);
 
