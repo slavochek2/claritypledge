@@ -1,5 +1,7 @@
 ---
-status: today
+status: in-progress
+flow: dev
+delivery_stage: uat
 type: bug
 rank: 1000029.0
 workstream: foundation
