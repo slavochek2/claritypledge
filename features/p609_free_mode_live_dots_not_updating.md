@@ -1,5 +1,5 @@
 ---
-status: backlog
+status: qa
 type: bug
 rank: 5
 tags:
@@ -51,7 +51,7 @@ The Realtime merge logic in `clarity-live-page.tsx` (lines 1049-1065) also looks
 
 The slider writes are debounced but frequent. Each write holds `updateInFlightRef.current = true` for the full DB round-trip (~100-500ms). During this window, only position/slider keys are merged. If the timing aligns so that the full merge (line 1045-1048) never fires with the partner's latest value, the display stays stale.
 
-**Needs:** Network tab inspection + Realtime event logging to confirm whether events are arriving, being merged, or being overwritten.
+**Confirmed root cause:** `confirmedLiveStateRef` was never updated with partner values during in-flight writes. Each subsequent write's optimistic update (`{ ...confirmedLiveStateRef.current, ...updates }`) overwrote the partner's slider with stale data from the ref, even though React state had the correct value from the partial merge.
 
 ---
 
@@ -63,10 +63,15 @@ The slider writes are debounced but frequent. Each write holds `updateInFlightRe
 
 ---
 
-## Technical Notes
+## Resolution
 
-**Files to investigate:**
-- `src/app/pages/clarity-live-page.tsx` — lines 1045-1066 (Realtime merge), lines 1280-1325 (updateLiveState)
-- `src/app/components/partners/free-mode-view.tsx` — lines 85-121 (slider value derivation)
+**Fixed:** 2026-03-30
+**Root cause:** `confirmedLiveStateRef` not updated during in-flight Realtime merges, causing optimistic writes to overwrite partner slider values with stale data.
+**Resolution:** Two changes in `clarity-live-page.tsx`:
+1. In-flight Realtime merge (line ~1067): also update `confirmedLiveStateRef` with partner keys
+2. Write success (line ~1298): merge only written keys into ref instead of full overwrite, preserving partner updates received during the in-flight period
 
-**Comparison:** Guided mode's `livePositions` updates use the same Realtime merge path (line 1054) and work correctly. The difference may be in write frequency — slider debounce fires more often than position votes.
+**Files changed:**
+- `src/app/pages/clarity-live-page.tsx` (2 lines changed)
+
+**Regression test:** `src/tests/p609-free-slider-sync.test.ts` (5 tests)
