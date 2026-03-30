@@ -1,5 +1,6 @@
 ---
-status: in-progress
+status: all-done
+completed_at: '2026-03-30'
 type: story
 rank: 0.19
 tags:
@@ -7,7 +8,6 @@ tags:
   - live
   - p562
 flow: dev
-delivery_stage: uat
 created_date: 2026-03-28T00:00:00.000Z
 uat_file: features/uat/p600.md
 test_files:
