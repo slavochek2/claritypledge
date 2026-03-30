@@ -1041,6 +1041,9 @@ function IdleScreen({
     }
   }, [liveState.ratingPhase]);
 
+  // P600: Progressive disclosure — "Select your story" toggle
+  const [showStoryPicker, setShowStoryPicker] = useState(false);
+
   // P128: Fetch user's stories and points (only if authenticated)
   const [stories, setStories] = useState<StoryWithPoints[]>([]);
   const [points, setPoints] = useState<PointWithUserPosition[]>([]);
@@ -1207,7 +1210,7 @@ function IdleScreen({
 
             {/* P588: Buttons INSIDE scroll container when no story (above search picker) */}
             {!selectedStory && !showRatingDrawer && (selectedHistoryIndex === null) && (
-              <div className="flex flex-col gap-3 w-full max-w-sm mx-auto">
+              <div className="flex flex-col gap-1 w-full max-w-sm mx-auto">
                 <Button
                   size="lg"
                   className="bg-blue-500 hover:bg-blue-600 w-full"
@@ -1215,8 +1218,11 @@ function IdleScreen({
                   disabled={waitingForPartnerToContinue}
                   data-testid="start-check"
                 >
-                  Does <span className="font-bold">{displayPartnerName}</span> understand you?
+                  Speak
                 </Button>
+                <p className="text-xs text-muted-foreground text-center">
+                  Did {displayPartnerName} understand you?
+                </p>
                 {/* P562/AD-7: Listen/"Did I get it?" button removed from both modes */}
                 {waitingForPartnerToContinue && (
                   <WaitingIndicator message={`Waiting for ${displayPartnerName} to continue...`} />
@@ -1224,13 +1230,22 @@ function IdleScreen({
               </div>
             )}
 
-            {/* P272: StorySearchPicker — only when no story selected AND user has stories */}
+            {/* P272/P600: StorySearchPicker — toggle on "Select your story" click */}
             {!liveState.selectedStoryId && userId && contentLoaded && stories.length > 0 && onSelectStory && (
-              <StorySearchPicker
-                stories={stories}
-                onSelectStory={handleSelectStoryWithTracking}
-                disabled={showRatingDrawer || waitingForPartnerToContinue}
-              />
+              showStoryPicker ? (
+                <StorySearchPicker
+                  stories={stories}
+                  onSelectStory={(id, title, data) => { handleSelectStoryWithTracking(id, title, data); setShowStoryPicker(false); }}
+                  disabled={showRatingDrawer || waitingForPartnerToContinue}
+                />
+              ) : !showRatingDrawer && !waitingForPartnerToContinue && (
+                <button
+                  onClick={() => setShowStoryPicker(true)}
+                  className="text-sm text-blue-500 hover:text-blue-700 mx-auto block min-h-[44px]"
+                >
+                  Select your story
+                </button>
+              )
             )}
 
             {/* P398: Session history — only on clean idle (no story selected, no active flow) */}
@@ -1252,15 +1267,20 @@ function IdleScreen({
           className={showRatingDrawer || hasRatingData ? '' : '!pt-0'}
         >
           {!showRatingDrawer && isStoryOwner && (
-            <Button
-              size="lg"
-              className="bg-blue-500 hover:bg-blue-600 w-full"
-              onClick={handleStartCheckWithTracking}
-              disabled={waitingForPartnerToContinue}
-              data-testid="start-check"
-            >
-              Does <span className="font-bold">{displayPartnerName}</span> understand you?
-            </Button>
+            <>
+              <Button
+                size="lg"
+                className="bg-blue-500 hover:bg-blue-600 w-full"
+                onClick={handleStartCheckWithTracking}
+                disabled={waitingForPartnerToContinue}
+                data-testid="start-check"
+              >
+                Speak
+              </Button>
+              <p className="text-xs text-muted-foreground text-center -mt-1">
+                Did {displayPartnerName} understand you?
+              </p>
+            </>
           )}
 
           {waitingForPartnerToContinue && (
