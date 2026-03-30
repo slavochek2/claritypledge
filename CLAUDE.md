@@ -28,7 +28,7 @@ This file provides guidance for AI agents working with code in this repository. 
 2. **Search codebase**: `grep -r "ComponentName" src/`
 3. **Read the feature spec completely** if working from a P-number
 4. **Scan `features/done/INDEX.md`** for related past work and prior decisions
-5. **Verify assumptions before building — at every phase.** Before writing code, a spec, or an architect plan that depends on a schema column, API response, or state invariant — verify it. Don't trust type definitions alone; check the migration or run a query. "I'll assume X" → stop and verify X.
+5. **Verify assumptions before building — at every phase.** Before writing code, a spec, or an architect plan that depends on a schema column, API response, or state invariant — verify it. Don't trust type definitions alone; check the migration or run a query. "I'll assume X" → stop and verify X. **Same rule applies to answering questions** about existing behavior — read `docs/decisions.md` and verify against migrations/code before responding.
 
 ---
 

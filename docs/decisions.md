@@ -2,6 +2,29 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-30 [product]: P581 letter access model — private/public split with reuse of Agreement + Pledge patterns
+
+**Context:** P581 (Clarity Letters) needs two access modes. Private letters (sent to specific people) need authenticated delivery. Public letters (shareable links) need guest access with late registration. Analyzed existing Agreement invitation flow (P422/P488/P527) and Pledge flow for reusable patterns.
+**Decision:** (1) **Private letters** reuse Agreement token pattern: token-gated URL, email lookup for existing vs new user, one-click registration via adapted `create-and-sign` edge function, magic link for existing users (P488). Private URL without valid token → 404 (no existence leak). Receiver can also access from within app (Docs page) — email is not the only entry. (2) **Public letters** reuse Pledge flow: guest reads full letter, registration gate at end ("Save your results?"), sessionStorage holds intent, magic link → persist on callback. (3) **Two-view model**: View form (receiver's sequential sealed-bid experience) vs Full form (doc snapshot + all revealed data). Sender always sees full form. Receiver unlocks progressively — completed stories in full form, incomplete stories locked. (4) **Partial unlock**: receiver who completes 3 of 5 stories sees full form for 1-3, stories 4-5 greyed. (5) **Letters live within Clarity Docs page** (sent + received sections), not a separate `/letters` route. Supersedes D18 in P581 spec. (6) `source_letter_id` (nullable FK) added to `clarity_sessions` migration for future "start /live from letter" linkage.
+**Alternatives rejected:** (1) Separate `/letters` nav route — adds nav complexity, letters are always doc-sourced. (2) All-or-nothing full form unlock — punishes partial completion, discourages return. (3) Building live-from-letter hooks now — analyst confirmed `source_letter_id` column is sufficient; no structural changes needed in letter model.
+**Consequences:** P581 spec updated with D22-D33. Three reuse targets identified (Agreement service, Pledge flow, P590 design system). Minimal new auth code needed — composition of existing patterns.
+**References:** [features/p581_letters_with_comprehension_assessment.md](../features/p581_letters_with_comprehension_assessment.md)
+
+## 2026-03-30 [technical]: Visibility inheritance gap — points/stories don't inherit parent visibility on creation (P607)
+
+**Context:** P586 established column-based visibility model with immutable `visibility` on stories and points, plus cross-visibility constraint (can't link private point to public story). But the *creation* path doesn't pass parent visibility. `createPoint()` in `story-detail-page.tsx` calls `pointsService.createPoint(statement, undefined, tags)` without visibility param — defaults to DB default (`public`). A private story spawns public points discoverable via direct URL. Same gap exists for stories created from points.
+**Decision:** Filed P607 as P581 pre-req. Fix is code-only: pass `visibility` param from parent entity at creation time. `createPoint()` already accepts optional `visibility` (verified in `points-service-real.ts:190`). No schema changes. Dependency chain updated: P586 → P551 → P607 → P581.
+**Alternatives rejected:** (1) Fix inline without spec — behavioral change affecting privacy expectations, needs tracking. (2) Derive visibility at query time — rejected in P586 (therapy scenario breaks it). (3) Ignore for V1 — letter snapshots depend on correct visibility for integrity.
+**Consequences:** P607 filed (status: today, foundation). P581 blocked by chain now includes P607. Both directions covered: point-from-story AND story-from-point inherit parent visibility.
+**References:** [features/p607_visibility_inheritance_on_creation.md](../features/p607_visibility_inheritance_on_creation.md)
+
+## 2026-03-30 [process]: Agent must verify against docs before answering behavioral questions
+
+**Context:** During P581/P590 coordination, agent answered three questions about visibility model incorrectly — proposed wrong answers about point visibility inheritance, story visibility in docs, and "Send as Letter" button placement. Root cause: agent reasoned from inference instead of reading `docs/decisions.md` and migrations. The docs existed and were correct; the agent didn't consult them.
+**Decision:** Extended CLAUDE.md "Before Starting Work" item 5: "Same rule applies to answering questions about existing behavior — read `docs/decisions.md` and verify against migrations/code before responding." Extends the existing "verify before building" principle to cover conversational answers.
+**Alternatives rejected:** (1) Add to `.claude/rules/` — this is universal (>80% of task types), not file-specific. (2) Leave it — structural failure, not one-off; will recur without the rule.
+**Consequences:** CLAUDE.md item 5 extended (1 sentence added, within 350-line budget at 330 lines).
+
 ## 2026-03-30 [process]: Monthly review — mechanical enforcement over prompt-based rules
 
 **Context:** First monthly meta-review scanned 411 sessions (31 days). Found 3 systemic problems: (1) agent declares "done" prematurely (6/10 false confidence instances), (2) agent over-designs instead of building on what exists (28 KISS pullbacks), (3) process rules conflict causing agent oscillation (Decisive Action vs Approval Gate). During the review, a subagent committed CLAUDE.md changes bypassing all three approval gates — proving that prompt-based enforcement fails under action pressure.
