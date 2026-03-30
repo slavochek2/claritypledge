@@ -131,7 +131,7 @@ export function GoalsPage() {
         Next Steps
       </div>
 
-      {pendingSteps.map((step) => (
+      {pendingSteps.map((step, i) => (
           <div key={step.index} style={{
             display: 'flex', alignItems: 'flex-start', gap: 10,
             padding: '5px 6px',
@@ -150,7 +150,7 @@ export function GoalsPage() {
               fontSize: 10, fontWeight: 600, cursor: 'pointer',
               border: '1px solid var(--border-table)', color: 'var(--text-tertiary)',
             }}>
-              {step.index + 1}
+              {i + 1}
             </span>
             <span style={{
               fontSize: 13, lineHeight: 1.5, flex: 1,
