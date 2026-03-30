@@ -1213,16 +1213,16 @@ function IdleScreen({
               <div className="flex flex-col gap-1 w-full max-w-sm mx-auto">
                 <Button
                   size="lg"
-                  className="bg-blue-500 hover:bg-blue-600 w-full"
+                  className="bg-blue-500 hover:bg-blue-600 w-full py-4"
                   onClick={handleStartCheckWithTracking}
                   disabled={waitingForPartnerToContinue}
                   data-testid="start-check"
                 >
-                  Speak
+                  <span className="flex flex-col items-center gap-0.5">
+                    <span className="text-lg font-semibold">Speak</span>
+                    <span className="text-xs font-normal opacity-80">Did {displayPartnerName} understand you?</span>
+                  </span>
                 </Button>
-                <p className="text-xs text-muted-foreground text-center">
-                  Did {displayPartnerName} understand you?
-                </p>
                 {/* P562/AD-7: Listen/"Did I get it?" button removed from both modes */}
                 {waitingForPartnerToContinue && (
                   <WaitingIndicator message={`Waiting for ${displayPartnerName} to continue...`} />
@@ -1270,16 +1270,16 @@ function IdleScreen({
             <>
               <Button
                 size="lg"
-                className="bg-blue-500 hover:bg-blue-600 w-full"
+                className="bg-blue-500 hover:bg-blue-600 w-full py-4"
                 onClick={handleStartCheckWithTracking}
                 disabled={waitingForPartnerToContinue}
                 data-testid="start-check"
               >
-                Speak
+                <span className="flex flex-col items-center gap-0.5">
+                  <span className="text-lg font-semibold">Speak</span>
+                  <span className="text-xs font-normal opacity-80">Did {displayPartnerName} understand you?</span>
+                </span>
               </Button>
-              <p className="text-xs text-muted-foreground text-center -mt-1">
-                Did {displayPartnerName} understand you?
-              </p>
             </>
           )}
 
