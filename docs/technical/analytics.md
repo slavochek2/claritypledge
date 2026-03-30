@@ -22,6 +22,8 @@ This document catalogs all Mixpanel events tracked in the Clarity Pledge app.
 
 **Event audit:** Run /weekly — it includes a subagent that checks for missing events after new features ship.
 
+**MCP access:** Mixpanel MCP (EU endpoint) is configured in `.mcp.json`. Tools are auto-allowed in `settings.json` (`mcp__mixpanel__*`). Use MCP for querying events, funnels, retention, and managing dashboards. Alerts must be created via Mixpanel UI (no API). The `/analytics` and `/weekly` skills can use MCP instead of Chrome-based login when available.
+
 ---
 
 ## Overview

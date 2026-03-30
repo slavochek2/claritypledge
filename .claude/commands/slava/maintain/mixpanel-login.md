@@ -1,9 +1,11 @@
 ---
 name: mixpanel-login
-description: Log into Mixpanel EU project via magic link. Uses slavochek-gmail MCP to fetch the link automatically.
+description: Log into Mixpanel EU project via magic link. Uses slavochek-gmail MCP to fetch the link automatically. NOTE — prefer Mixpanel MCP for queries (no login needed). Use this skill only when Chrome-based Mixpanel access is required (e.g., creating alerts, visual board inspection).
 ---
 
 # /slava:maintain:mixpanel-login
+
+**Prefer Mixpanel MCP** (`mcp__mixpanel__*`) for queries — no login needed. Use this skill only when Chrome-based access is required (creating alerts, visual inspection, UI-only features).
 
 Logs into `eu.mixpanel.com` as `slava@claritypledge.com` using browser automation + Gmail MCP.
 

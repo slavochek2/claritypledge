@@ -277,10 +277,19 @@ import { useAuth } from '@/auth/useAuth';
 
 ## Email Provider: Brevo
 
-Magic link emails are sent via Brevo SMTP, configured in Supabase Auth settings. If emails aren't arriving:
-1. Check Supabase Auth → Email Templates
-2. Verify Brevo SMTP credentials in Supabase settings
-3. Check Brevo dashboard for delivery issues
+Magic link emails are sent via Brevo SMTP (`smtp-relay.brevo.com:587`), configured in Supabase Auth settings.
+
+**DNS authentication:** Brevo domain `claritypledge.com` is fully authenticated — Brevo code TXT verified, two DKIM CNAMEs (`brevo1._domainkey`, `brevo2._domainkey`) resolving correctly, DMARC in place. SPF include is NOT needed — Brevo uses its own Envelope From domain on shared IPs, so SPF checks happen against Brevo's domain, not ours.
+
+**Known issue — silent SMTP failures:** Supabase GoTrue sends emails via a background goroutine and sets `confirmation_sent_at` before confirming SMTP delivery. If the SMTP handoff fails, the error is logged server-side but not propagated to the API or database ([supabase/supabase#39691](https://github.com/supabase/supabase/issues/39691)). Brevo logs will show zero records for the recipient. See P608 for mitigation (PKCE + resend + monitoring).
+
+**Known issue — Microsoft ATP token consumption:** Corporate email systems (Microsoft 365, Google Workspace) pre-fetch magic link URLs for malware scanning, consuming single-use OTP tokens before the user clicks ([supabase/auth#713](https://github.com/supabase/auth/issues/713)). P608 enables PKCE flow to prevent this.
+
+If emails aren't arriving:
+1. Check Brevo transactional logs (Transactional → Email → Logs) — if zero records, the email never reached Brevo (GoTrue SMTP failure)
+2. If Brevo shows "Sent" but user didn't receive — check bounce/block status and recipient's email provider
+3. Verify Brevo SMTP credentials in Supabase dashboard (Auth → Email → SMTP Settings)
+4. Check Supabase Auth logs for `apitask: error running "mailer.signup"` entries
 
 ---
 

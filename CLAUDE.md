@@ -284,7 +284,7 @@ See [docs/development-process.md](docs/development-process.md) for pipeline tier
 
 **Library docs:** Use Context7 MCP before web-searching. Workflow: (1) `resolve-library-id`, (2) `query-docs`.
 
-**CLI tools:** [cli-tools.md](docs/technical/cli-tools.md). **Browser automation:** [browser-tools.md](docs/technical/browser-tools.md).
+**CLI tools & MCPs:** [cli-tools.md](docs/technical/cli-tools.md) — Supabase, Sentry, Mixpanel (CLI + MCP setup, auth, when to use each). **Browser automation:** [browser-tools.md](docs/technical/browser-tools.md).
 
 **Retiring a tool:** (1) `git rm -r --cached --ignore-unmatch <tool-dir>`, (2) `rm -rf <tool-dir>`, (3) add to `.gitignore`. Do all 3 in the same session.
 
