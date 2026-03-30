@@ -1207,13 +1207,14 @@ function IdleScreen({
                   onCancel={() => setShowStoryPicker(false)}
                 />
               ) : !waitingForPartnerToContinue && !showStoryPicker && (
-                <button
+                <Button
+                  variant="outline"
                   onClick={() => setShowStoryPicker(true)}
                   disabled={!contentLoaded || stories.length === 0}
-                  className="text-sm text-blue-500 hover:text-blue-700 mx-auto block min-h-[44px] disabled:text-blue-300 disabled:cursor-default transition-colors"
+                  className="mx-auto text-sm min-h-[44px]"
                 >
-                  {!contentLoaded ? 'Loading stories…' : stories.length === 0 ? '' : 'Select your story'}
-                </button>
+                  {!contentLoaded ? 'Loading stories…' : stories.length === 0 ? '' : '+ Select your story'}
+                </Button>
               )
             )}
           </div>
@@ -1338,7 +1339,7 @@ function IdleScreen({
                 (sessionMode === 'free' || !sessionMode) ? 'bg-blue-500 text-white shadow-sm font-medium' : 'text-gray-500'
               }`}
             >
-              Free mode
+              Open mode
             </button>
             <button
               onClick={() => onSessionModeChange('guided')}
