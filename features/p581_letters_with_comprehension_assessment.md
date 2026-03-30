@@ -244,10 +244,10 @@ Letters serve a larger acquisition flywheel: Letter 1 (educate — recipient rea
 - [ ] After receiver rates, the author's prediction is revealed as dual progress bars
 - [ ] Gap framed honestly: "A gap of N — both guessing, neither knows yet" (not claiming knowledge we don't have)
 - [ ] After rating a story, extracted points from that story appear sequentially
-- [ ] Three-button position pattern: ✕ (disagree) / ? (maybe) / ✓ (agree with degree dropdown)
+- [ ] Three-button position pattern: reuse existing `PositionButtons` component (`src/app/components/shared/PositionButton.tsx`) — ✕/✓/? with intensity dropdown, blue active states. Do NOT rebuild.
 - [ ] Author's position on each point is LOCKED until receiver engages (position OR story)
 - [ ] Engaging unlocks author position reveal (fade-in animation)
-- [ ] Receiver can file a story on any point (explain position, explain false premise, explain non-position)
+- [ ] Receiver can file a story on any point: trigger existing P560 `CreateStoryPage` with `?pointId=X`. Do NOT rebuild filing flow.
 - [ ] Filing a story triggers self-understanding rating for that story
 - [ ] Receiver can proceed to next story (or finish if last)
 
@@ -255,7 +255,7 @@ Letters serve a larger acquisition flywheel: Letter 1 (educate — recipient rea
 - [ ] Grid component: Y-axis = understanding (0-10), X-axis = agreement (-3 to +3)
 - [ ] Four labeled quadrants: genuine consensus (top-right), genuine disagreement (top-left), false consensus ⚠️ (bottom-right), noise (bottom-left)
 - [ ] Each listener's position rendered as a dot on the grid per point
-- [ ] Dot color indicates position stance (green=agree, red=disagree, gray=maybe)
+- [ ] Dot color uses blue for all active positions (matches existing `PositionButtons` component — no green/red value judgments)
 - [ ] Hover/tap a dot reveals listener name, ratings, gap
 - [ ] "Show paraphrase movement" toggle: arrows from pre-verification to post-verification position
 - [ ] Grid used in both gap map (author view, all listeners) and letter summary (receiver view, own position vs author)
@@ -305,7 +305,7 @@ Letters serve a larger acquisition flywheel: Letter 1 (educate — recipient rea
 | Author position locked | "🔒 Author's position hidden — engage to reveal" | Until receiver takes position or files story |
 | Story filing CTA | "+ Add a story — optional" (dashed border button) | Per point, within letter reading |
 | Progress bar | Segmented bar showing story N of M | Top of letter reading view |
-| Grid quadrants | Genuine consensus (green, top-right), Genuine disagreement (red, top-left), False consensus ⚠️ (amber, bottom-right), Noise (gray, bottom-left) | Grid component |
+| Grid quadrants | Genuine consensus (green, top-right), Genuine disagreement (red, top-left), False consensus ⚠️ (amber, bottom-right), Noise (gray, bottom-left) | Grid component — data viz exception to design system color rule: non-interactive quadrant labels may use semantic colors |
 | Grid Y-axis | "UNDERSTANDING ↑" (0-10) | Always visible, no negatives |
 | Grid X-axis | "← DISAGREE ... AGREE →" (-3 to +3) | Toggleable in some contexts |
 | Paraphrase toggle | "Show/Hide paraphrase movement (N/M)" | Author view, after /live verification (future) |
