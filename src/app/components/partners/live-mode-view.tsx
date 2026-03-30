@@ -1213,14 +1213,14 @@ function IdleScreen({
               <div className="flex flex-col gap-1 w-full max-w-sm mx-auto">
                 <Button
                   size="lg"
-                  className="bg-blue-500 hover:bg-blue-600 w-full py-4"
+                  className="bg-blue-500 hover:bg-blue-600 w-full py-5"
                   onClick={handleStartCheckWithTracking}
                   disabled={waitingForPartnerToContinue}
                   data-testid="start-check"
                 >
-                  <span className="flex flex-col items-center gap-0.5">
-                    <span className="text-lg font-semibold">Speak</span>
-                    <span className="text-xs font-normal opacity-80">Did {displayPartnerName} understand you?</span>
+                  <span className="flex flex-col items-center gap-1">
+                    <span className="text-xl font-semibold">Speak</span>
+                    <span className="text-xs font-normal text-white/70">Did {displayPartnerName} understand you?</span>
                   </span>
                 </Button>
                 {/* P562/AD-7: Listen/"Did I get it?" button removed from both modes */}
@@ -1270,7 +1270,7 @@ function IdleScreen({
             <>
               <Button
                 size="lg"
-                className="bg-blue-500 hover:bg-blue-600 w-full py-4"
+                className="bg-blue-500 hover:bg-blue-600 w-full py-5"
                 onClick={handleStartCheckWithTracking}
                 disabled={waitingForPartnerToContinue}
                 data-testid="start-check"
