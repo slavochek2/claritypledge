@@ -423,7 +423,7 @@ export function AuthCallbackPage() {
         created_at: new Date().toISOString(),
         has_pledged: hasPledged,
         registration_source: registrationSource,
-        auth_method: isGoogleAuth ? 'google' : (source || 'unknown'),
+        auth_method: isGoogleAuth ? 'google' : 'magic_link',
       });
       analytics.track(isReturningUser ? 'login_complete' : 'profile_created', {
         slug,
@@ -432,7 +432,7 @@ export function AuthCallbackPage() {
         has_reason: !!upsertData.reason,
         registration_source: registrationSource,
         has_pledged: hasPledged,
-        auth_method: isGoogleAuth ? 'google' : (source || 'unknown'),
+        auth_method: isGoogleAuth ? 'google' : 'magic_link',
       });
 
       // Refresh profile in auth context so nav/header shows correct user data

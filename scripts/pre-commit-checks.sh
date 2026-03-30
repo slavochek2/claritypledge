@@ -492,7 +492,7 @@ if [ -n "$STAGED_FEATURE_FILES" ]; then
     # Match email-like patterns, then exclude known safe ones
     SUSPICIOUS_EMAILS=$(echo "$FEATURE_DIFF" | \
         grep -oE '[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}' | \
-        grep -viE '@claritypledge\.com|@example\.com|@gmail\.com|@supabase\.co' | \
+        grep -viE '@claritypledge\.com|@example\.com|@supabase\.co' | \
         grep -viE '^e2e-' | \
         sort -u || true)
 

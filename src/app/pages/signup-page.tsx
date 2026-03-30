@@ -124,6 +124,7 @@ export function SignupPage() {
       if (error) {
         setResendError("Failed to send. Please try again.");
       } else {
+        analytics.track('signup_magic_link_resent');
         setResendSuccess(true);
       }
     } catch {
