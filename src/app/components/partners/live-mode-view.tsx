@@ -1237,6 +1237,7 @@ function IdleScreen({
                   stories={stories}
                   onSelectStory={(id, title, data) => { handleSelectStoryWithTracking(id, title, data); setShowStoryPicker(false); }}
                   disabled={showRatingDrawer || waitingForPartnerToContinue}
+                  onCancel={() => setShowStoryPicker(false)}
                 />
               ) : !showRatingDrawer && !waitingForPartnerToContinue && (
                 <button
