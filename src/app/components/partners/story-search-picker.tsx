@@ -6,7 +6,6 @@ interface StorySearchPickerProps {
   stories: StoryWithPoints[];
   onSelectStory: (storyId: string, title: string) => void;
   disabled?: boolean;
-  /** P600: Called when user dismisses the picker */
   onCancel?: () => void;
 }
 
@@ -15,23 +14,27 @@ export function StorySearchPicker({ stories, onSelectStory, disabled = false, on
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // P600: Auto-focus input when picker mounts
+  // Auto-focus input when picker mounts
   useEffect(() => {
     inputRef.current?.focus();
   }, []);
 
-  if (stories.length === 0) {
-    return null;
-  }
+  // Click-outside dismiss
+  useEffect(() => {
+    function handleMouseDown(e: MouseEvent) {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        onCancel?.();
+      }
+    }
+    document.addEventListener('mousedown', handleMouseDown);
+    return () => document.removeEventListener('mousedown', handleMouseDown);
+  }, [onCancel]);
 
-  // Show all stories when query is empty, filter when typing
+  if (stories.length === 0) return null;
+
   const filtered = query
     ? stories.filter((story) => story.content.toLowerCase().includes(query.toLowerCase()))
     : stories;
-
-  function handleQueryChange(e: React.ChangeEvent<HTMLInputElement>) {
-    setQuery(e.target.value);
-  }
 
   function handleSelect(story: StoryWithPoints) {
     const preview = story.content.length > 80 ? story.content.slice(0, 80) + '…' : story.content;
@@ -39,38 +42,32 @@ export function StorySearchPicker({ stories, onSelectStory, disabled = false, on
     setQuery('');
   }
 
-  function handleCancel() {
-    setQuery('');
-    onCancel?.();
-  }
-
   return (
     <div ref={containerRef} className="w-full max-w-xs mx-auto">
-      {/* Search input */}
+      {/* Search input — prototype-style rounded with blue focus ring */}
       <div className="relative">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
         <input
           ref={inputRef}
           type="text"
           value={query}
-          onChange={handleQueryChange}
+          onChange={(e) => setQuery(e.target.value)}
           disabled={disabled}
           placeholder="Search your stories…"
           aria-label="Search your stories."
-          className="w-full pl-9 pr-3 py-2 text-sm border border-input rounded-md bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50 disabled:cursor-not-allowed"
+          className="w-full pl-9 pr-3 py-2.5 text-sm border border-gray-200 rounded-xl bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-blue-300 focus:ring-1 focus:ring-blue-100 disabled:opacity-50"
         />
       </div>
 
-      {/* Results — always visible when picker is shown */}
-      <div className="mt-1 w-full rounded-md border border-border bg-popover shadow-md">
+      {/* Story cards — individually styled like prototype */}
+      <div className="mt-2 space-y-1.5">
         {filtered.length === 0 ? (
-          <p className="text-sm text-muted-foreground px-3 py-2">
+          <p className="text-sm text-muted-foreground text-center py-3">
             No stories match &ldquo;{query}&rdquo;
           </p>
         ) : (
           filtered.slice(0, 6).map((story) => {
-            const preview =
-              story.content.length > 80 ? story.content.slice(0, 80) + '…' : story.content;
+            const preview = story.content.length > 80 ? story.content.slice(0, 80) + '…' : story.content;
             const pointCount = story.points.length;
             return (
               <button
@@ -78,26 +75,28 @@ export function StorySearchPicker({ stories, onSelectStory, disabled = false, on
                 type="button"
                 disabled={disabled}
                 onClick={() => handleSelect(story)}
-                aria-label={story.content}
-                className="w-full flex items-center justify-between gap-3 px-3 py-2 text-left text-sm hover:bg-accent hover:text-accent-foreground focus:outline-none focus:bg-accent focus:text-accent-foreground disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full text-left px-4 py-3 rounded-xl border border-gray-200 hover:border-gray-300 text-sm transition-all disabled:opacity-50"
               >
-                <span className="flex-1 truncate text-foreground">{preview}</span>
-                <span className="shrink-0 text-xs text-muted-foreground whitespace-nowrap">
-                  {pointCount} {pointCount === 1 ? 'point' : 'points'}
-                </span>
+                <span className="block truncate text-foreground">{preview}</span>
+                {pointCount > 0 && (
+                  <span className="text-xs text-gray-400 mt-0.5 block">
+                    {pointCount} {pointCount === 1 ? 'point' : 'points'}
+                  </span>
+                )}
               </button>
             );
           })
         )}
-        {/* Cancel button */}
-        <button
-          type="button"
-          onClick={handleCancel}
-          className="w-full text-center px-3 py-2 text-xs text-muted-foreground hover:bg-accent hover:text-accent-foreground rounded-b-md border-t border-border transition-colors min-h-[44px]"
-        >
-          Cancel
-        </button>
       </div>
+
+      {/* Cancel */}
+      <button
+        type="button"
+        onClick={() => { setQuery(''); onCancel?.(); }}
+        className="text-xs text-gray-400 hover:text-gray-600 mx-auto block mt-3 min-h-[44px] transition-colors"
+      >
+        Cancel
+      </button>
     </div>
   );
 }
