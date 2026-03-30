@@ -1,12 +1,12 @@
 ---
-status: in-progress
+status: all-done
 type: feature
 rank: 1000028.0
 workstream: foundation
 created_date: 2026-03-30
+completed_at: "2026-03-30"
 tags: [visibility, p586-follow-up, p581-prereq]
 flow: dev
-delivery_stage: uat
 uat_file: features/uat/p607.md
 test_files:
   - e2e/integration/p607-visibility-inheritance.spec.ts
