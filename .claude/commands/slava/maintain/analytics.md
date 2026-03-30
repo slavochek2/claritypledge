@@ -11,8 +11,11 @@ Run standalone for a quick health check, or called from `/weekly` for the full e
 
 ---
 
-## Step 1: Mixpanel session check
+## Step 1: Mixpanel access
 
+**Prefer MCP:** If Mixpanel MCP tools (`mcp__mixpanel__*`) are available, use them directly for all queries in Step 3. Skip Chrome login entirely.
+
+**Fallback (Chrome):** If MCP is unavailable:
 ```
 Use mcp__claude-in-chrome__tabs_context_mcp to get current tabs.
 Check if any tab has URL matching eu.mixpanel.com/project/3968494/...
@@ -48,7 +51,9 @@ fetch(url + '?select=id,created_at,email_confirmed_at&limit=2000', { headers })
 
 ## Step 3: Mixpanel — key event counts (last 30 days)
 
-Navigate to each board and read the headline numbers:
+**If MCP available:** Query Mixpanel MCP for the same metrics — session counts, activation events, retention. Use the MCP query tools to get event counts for the last 30 days.
+
+**Fallback (Chrome):** Navigate to each board and read the headline numbers:
 
 | Board | URL |
 |-------|-----|
