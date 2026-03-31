@@ -30,9 +30,15 @@ locked_at: '2026-03-26T14:27:27.466Z'
 
 ---
 
-## North Star: The Hell-Yes Moment
+## North Star: Verification of Understanding
 
-The entire feature optimizes for one moment: **a visible position switch through verified understanding**. On the understanding × agreement grid, the receiver's dot moves — from false consensus to genuine disagreement, or from noise to genuine consensus — and both parties can SEE the arrow. That arrow is proof that a false belief was corrected through understanding, not persuasion. This is the async equivalent of the "holy shit" moment from /live.
+The feature optimizes for **making visible what was invisible** — the gap between what was communicated and what was understood. Verification produces three outcomes (see definitions.md > Verification Outcome States):
+
+- **Flip:** position changes after understanding increases — the classic "holy shit" moment
+- **Fork:** both interpretations are valid, position depends on frame — reveals the point needs discussion
+- **Verified agreement/disagreement:** understanding confirmed, position holds — proof it's real, not imagined
+
+All three are valuable. The grid shows WHERE gaps exist (triage). Stories show WHAT kind of gap (diagnosis). The arrow on the grid — from pre-verification to post-verification position — is the proof that something real happened, regardless of which outcome it was.
 
 ---
 
@@ -46,7 +52,7 @@ The entire feature optimizes for one moment: **a visible position switch through
 3. **Stories are ambient, not addressed.** Content exists but there's no intentional delivery. The gap between "content exists" and "someone receives it with intention" is unserved. Without a delivery container, stories are ambient content, not pre-work for a live session.
 4. **/live sessions start cold.** Without pre-work, sessions default to whatever's top-of-mind. No triage of "where is the gap biggest?" means /live time is spent discovering what to talk about, not going deep on known gaps.
 5. **Workshops lack an async component.** False-belief workshops (P567) surface intellectual surprise in the room, but there's no structured follow-up where participants privately connect the broken belief to their specific relationship cost. The group can surface the belief; only a private instrument can surface the pain.
-6. **No proof of correction.** When a false belief IS corrected through understanding, there's no visible artifact. The position switch happened in someone's head — no one can see it. Without proof, the facilitator can't point to it, the participant can't reflect on it, and the pair can't use it as evidence that the process works.
+6. **No proof of what happened.** When understanding is verified — whether it produces a position flip, reveals an interpretation fork, or confirms genuine disagreement — there's no visible artifact. Without proof, the facilitator can't point to it, the participant can't reflect on it, and the pair can't use it as evidence that the process works.
 
 **Who's affected:**
 - **Facilitator (Slava):** Can't scale sessions. Every gap reveal requires his presence. Needs an instrument that works without him.
@@ -83,7 +89,7 @@ Letters serve a larger acquisition flywheel: Letter 1 (educate — recipient rea
 
 2. **Author prediction per story.** When composing a letter, the sender predicts (0-10) how well the receiver will understand each included story. This prediction is hidden from the receiver until they rate themselves. The prediction is the speaker's half of the gap equation.
 
-3. **Ritual reading experience.** The receiver opens a letter and reads stories one at a time in a full-screen, deliberate-pacing experience. Not a list to scroll through — a sequence to progress through. Each story requires engagement before the next appears.
+3. **Ritual reading experience.** The receiver opens a letter and progresses through a full-screen, deliberate-pacing experience. Points appear first (commit before context — Clarity Flip mechanic), then their parent story. Not a list to scroll through — a sequence to progress through. Each point requires engagement (position or story) before proceeding.
 
 4. **Understanding rating (mandatory, 0-10).** For each story in the letter, the receiver must rate their understanding: "How confident am I that I understand what [Author] means by this?" This is the listener's half of the gap equation. Rating is mandatory — the receiver cannot proceed to the next story without rating. Uses dot picker (discrete dots), not a continuous slider.
 
@@ -238,22 +244,29 @@ Letters serve a larger acquisition flywheel: Letter 1 (educate — recipient rea
 ### Letter Reading
 - [ ] Receiver sees a dedicated letter view (not a feed — a focused, sequential experience)
 - [ ] Progress tracking bar at top shows position in letter (story N of M)
+- [ ] Default ordering: points first, then parent story (D36 — commit before context, Clarity Flip mechanic)
+- [ ] Sender can add optional vocabulary glosses on abstract points (define terms, not arguments)
+- [ ] Receiver gets "I need context" button per point (tracked as content quality metric, not primary UX)
 - [ ] Stories appear one at a time — receiver progresses through the sequence
-- [ ] For each story, receiver must rate understanding (0-10) via dot picker before proceeding
+- [ ] For each story, receiver must rate understanding (0-10) via `RatingButtons` before proceeding
 - [ ] Rating prompt: "How well do you believe you understood this?"
 - [ ] After receiver rates, the author's prediction is revealed as dual progress bars
 - [ ] Gap framed honestly: "A gap of N — both guessing, neither knows yet" (not claiming knowledge we don't have)
 - [ ] After rating a story, extracted points from that story appear sequentially
 - [ ] Three-button position pattern: reuse existing `PositionButtons` component (`src/app/components/shared/PositionButton.tsx`) — ✕/✓/? with intensity dropdown, blue active states. Do NOT rebuild.
+- [ ] Engagement model B (D37): receiver must position OR file story on each point. Can't skip silently.
 - [ ] Author's position on each point is LOCKED until receiver engages (position OR story)
 - [ ] Engaging unlocks author position reveal (fade-in animation)
 - [ ] Receiver can file a story on any point: trigger existing P560 `CreateStoryPage` with `?pointId=X`. Do NOT rebuild filing flow.
+- [ ] "Can't position because don't understand" handled by existing story filing (D39) — no extra UI
 - [ ] Filing a story triggers self-understanding rating for that story
 - [ ] Receiver can proceed to next story (or finish if last)
 
 ### Understanding × Agreement Grid
 - [ ] Grid component: Y-axis = understanding (0-10), X-axis = agreement (-3 to +3)
-- [ ] Four labeled quadrants: genuine consensus (top-right), genuine disagreement (top-left), false consensus ⚠️ (bottom-right), noise (bottom-left)
+- [ ] Upper quadrants: ✓ Verified agreement (top-right), ✓ Verified disagreement (top-left) — green labels
+- [ ] Lower quadrants: ⚠️ Potential false agreement (bottom-right), ⚠️ Potential false disagreement (bottom-left) — amber labels with "might misunderstand each other" subtitle
+- [ ] Grid triages WHERE gaps exist; stories diagnose WHAT kind (flip/fork/verified) — no mechanical classification on grid (D38)
 - [ ] Each listener's position rendered as a dot on the grid per point
 - [ ] Dot color uses blue for all active positions (matches existing `PositionButtons` component — no green/red value judgments)
 - [ ] Hover/tap a dot reveals listener name, ratings, gap
@@ -298,14 +311,15 @@ Letters serve a larger acquisition flywheel: Letter 1 (educate — recipient rea
 | Element | Value | Context |
 |---------|-------|---------|
 | Letter composition CTA | "Send as Letter" | Doc page header, primary action row (not overflow menu, D22) |
-| Prediction prompt | "How well will [Receiver] understand this?" | Composition, per story, dot picker 0-10 |
-| Understanding prompt | "How well do you believe you understood this?" | Letter reading, per story, dot picker 0-10 |
+| Prediction prompt | "How well will [Receiver] understand this?" | Composition, per story, `RatingButtons` 0-10 (reuse existing component) |
+| Understanding prompt | "How well do you believe you understood this?" | Letter reading, per story, `RatingButtons` 0-10 (reuse existing component) |
 | Gap display | Dual progress bars (blue=receiver, orange=author) + "A gap of N — worth noting" | After receiver commits, per story |
 | Position buttons | ✕ (disagree) / ? (maybe) / ✓ (agree, dropdown: somewhat/agree/strongly) | Per point, after story rating |
 | Author position locked | "🔒 Author's position hidden — engage to reveal" | Until receiver takes position or files story |
 | Story filing CTA | "+ Add a story — optional" (dashed border button) | Per point, within letter reading |
 | Progress bar | Segmented bar showing story N of M | Top of letter reading view |
-| Grid quadrants | Genuine consensus (green, top-right), Genuine disagreement (red, top-left), False consensus ⚠️ (amber, bottom-right), Noise (gray, bottom-left) | Grid component — data viz exception to design system color rule: non-interactive quadrant labels may use semantic colors |
+| Grid quadrants (pre-verification) | ⚠️ Potential false agreement (bottom-right), ⚠️ Potential false disagreement (bottom-left) — "You agree/disagree but might misunderstand each other" | Lower half of grid. Data viz color exception: amber for ⚠️ states |
+| Grid quadrants (post-verification) | ✓ Verified agreement (top-right), ✓ Verified disagreement (top-left) — "You understand each other" | Upper half of grid. Green for ✓ verified states |
 | Grid Y-axis | "UNDERSTANDING ↑" (0-10) | Always visible, no negatives |
 | Grid X-axis | "← DISAGREE ... AGREE →" (-3 to +3) | Toggleable in some contexts |
 | Paraphrase toggle | "Show/Hide paraphrase movement (N/M)" | Author view, after /live verification (future) |
@@ -323,12 +337,12 @@ Letters serve a larger acquisition flywheel: Letter 1 (educate — recipient rea
 | D1 | Slider on story cards in feed or only inside letter? | Only inside letter. The letter is the container. Orphaned slider on feed cards lacks context and addressability. |
 | D2 | Questions as part of the flow? | Dropped. Gradual reveal (story first, then points sequentially, commit before seeing next) does the anti-anchoring work that questions were trying to do. |
 | D3 | Understanding mandatory or optional? | Mandatory within letter. You can choose not to open a letter, but once you start reading, understanding rating per story is required. |
-| D4 | Position on points mandatory or optional? | Always optional. Not placing a position = "I don't understand enough to agree/disagree" or "the premise feels wrong." Filing a story without position is itself a valuable signal (false premise path). |
+| D4 | ~~Position on points mandatory or optional?~~ | ~~Always optional.~~ **Superseded by D37.** Must position OR file story explaining why not. Can't skip silently. Existing "add a story" handles the explanation. |
 | D5 | Author "counter-assesses" or "predicts"? | Predicts. The author predicts BEFORE the receiver reads, not after. This is sealed-bid, not reactive. The prediction reveals the author's calibration, not their judgment of the receiver's answer. |
 | D6 | UX feel? | Ritual, not feed. Deliberate slowness. Full-screen, one story at a time. Gamification explicitly rejected. Particle effects on commitment moments (from prototype) are acceptable — they mark the weight of the moment, not gamify it. |
 | D7 | Receiver can revise rating after gap reveal? | No. Rating is committed. Revising after seeing the prediction defeats the purpose. |
 | D8 | Multiple receivers per letter? | Yes. Same stories, but predictions are per-receiver (facilitator predicts differently for each workshop participant). |
-| D9 | Dot picker or continuous slider? | Dot picker (discrete 1-10 dots). Feels more intentional, matches prototype. Not a slider. |
+| D9 | Dot picker or continuous slider? | Discrete 0-10 buttons. Reuse existing `RatingButtons` component (`src/app/components/partners/shared.tsx`). Slider = live continuous signal (/live free mode). Buttons = async deliberate assessment (letters). Not a new component. |
 | D10 | Author position visible or locked? | Locked until receiver engages (takes position OR files story). Incentivizes engagement. Unlocking is animated (fade-in). |
 | D11 | Three-button or 7-point Likert? | Three-button (✕/?/✓) with agree-degree dropdown on ✓. Lower cognitive load. From prototype. |
 | D12 | Gap map = list or grid? | Understanding × agreement grid (four quadrants). Both parties as dots. Arrows show movement. Grid is the core visualization across letters and /live. |
@@ -354,6 +368,12 @@ Letters serve a larger acquisition flywheel: Letter 1 (educate — recipient rea
 | D31 | Letter has two views? | Yes. **View form** (receiver's sequential reading experience — one story at a time, rating gate per story, sealed-bid). **Full form** (doc snapshot + all data from both parties — predictions, ratings, gap map, positions, filed stories). Sender always sees full form. Receiver sees full form only after completing view form. |
 | D32 | Partial completion → partial full form access? | Yes. Receiver who completes 3 of 5 stories can see full form for stories 1-3 (revealed data). Stories 4-5 remain locked/greyed in full form. Progressive unlock. |
 | D33 | P590 design system applies to all P581 UI? | Yes. All buttons use shadcn `<Button>` with proper variants. Lock/globe icons for visibility. Touch targets ≥ 44px. Amber for private, blue for public banners. |
+| D34 | Rating input for letters? | Discrete 0-10 buttons — reuse existing `RatingButtons` component. Slider is for /live continuous signal only. See D9. |
+| D35 | Grid quadrant labels? | Pre-verification (letter): bottom quadrants labeled "Potential false agreement/disagreement ⚠️" with "You agree/disagree but might misunderstand each other." Post-verification (/live): upper quadrants labeled "Verified agreement/disagreement ✓" with "You understand each other." Understanding (Y-axis) drives the transition from bottom to top. |
+| D36 | Point-before-story ordering? | Default: point-first always — preserves Clarity Flip commit-before-context mechanic. Sender can add vocabulary glosses for abstract terms. Receiver gets "I need context" escape valve (tracked as content quality metric — >30% requests = flag for sender). Story-first and sender-chooses-per-point are rejected. |
+| D37 | Point engagement model? | B: must position OR file story explaining why not. Can't skip silently. Existing "add a story" handles the explanation — no extra UI prompts needed. Supersedes D4. |
+| D38 | Verification outcome states? | Three outcomes: flip, fork, verified agreement/disagreement. Grid triages (WHERE), stories diagnose (WHAT kind). No mechanical classification of flip types — behavior (paraphrase/story content) encodes the distinction. See definitions.md > Verification Outcome States. |
+| D39 | "Can't position because don't understand"? | Handled by existing story filing. User taps "?" → "add a story" → explains in natural language. No dual-track prompt, no extra buttons. Story content reveals comprehension gap vs opinion uncertainty. |
 
 ---
 
