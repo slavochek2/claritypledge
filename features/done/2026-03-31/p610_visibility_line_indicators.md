@@ -1,15 +1,15 @@
 ---
-status: in-progress
+status: all-done
 type: story
 rank: 0.031
 workstream: foundation
 created_date: 2026-03-30T00:00:00.000Z
+completed_at: "2026-03-31"
 tags:
   - visibility
   - p607-follow-up
   - ux
 flow: dev
-delivery_stage: uat
 ---
 
 # P610: Visibility Line — Consistent Indicators Across Creation Flows
