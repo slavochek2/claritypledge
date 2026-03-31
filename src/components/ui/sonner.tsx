@@ -6,13 +6,13 @@ const Toaster = ({ ...props }: ToasterProps) => {
   return (
     <>
       <style>{`
-        [data-sonner-toaster][data-y-position="bottom"] {
-          bottom: calc(5rem + env(safe-area-inset-bottom)) !important;
+        [data-sonner-toaster][data-y-position="top"] {
+          top: calc(3.5rem + env(safe-area-inset-top)) !important;
         }
       `}</style>
       <Sonner
         theme="light"
-        position="bottom-center"
+        position="top-center"
         duration={3000}
         closeButton
         visibleToasts={1}

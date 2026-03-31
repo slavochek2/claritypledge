@@ -1062,6 +1062,9 @@ export function ClarityLivePage() {
         }
         if (hasPartnerUpdate) {
           setLiveState(prev => ({ ...prev, ...partnerUpdates }));
+          // P609: Also update confirmed ref so the next write's optimistic update
+          // doesn't overwrite partner's slider values with stale data from the ref.
+          confirmedLiveStateRef.current = { ...confirmedLiveStateRef.current, ...partnerUpdates } as LiveSessionState;
         }
       }
 
@@ -1288,8 +1291,11 @@ export function ClarityLivePage() {
           ? updateClaritySessionLiveState(session.id, newState)
           : patchClaritySessionLiveState(session.id, updates as Record<string, unknown>);
         await raceWithTimeout(dbCall, UPDATE_TIMEOUT_MS);
-        // Update confirmed state on success
-        confirmedLiveStateRef.current = newState;
+        // P609: Merge only the written keys into the confirmed ref, preserving
+        // any partner updates that arrived via Realtime during the in-flight period.
+        // Previously `confirmedLiveStateRef.current = newState` would overwrite partner
+        // slider values with stale data captured before the write started.
+        confirmedLiveStateRef.current = { ...confirmedLiveStateRef.current, ...updates } as LiveSessionState;
       } catch (err) {
         console.error('[Live Update] Failed to update state:', err);
         // P525: Capture failure in Sentry with sanitized state snapshot
@@ -3789,7 +3795,10 @@ export function ClarityLivePage() {
           onClearSkipNotification={handleClearSkipNotification}
           // V10: Local rating state
           isLocallyRating={isLocallyRating}
-          onCancelLocalRating={() => setIsLocallyRating(false)}
+          onCancelLocalRating={() => {
+            setIsLocallyRating(false);
+            updateLiveState({ ratingInitiatedBy: undefined });
+          }}
           // V10: Exit meeting button
           onExitMeeting={handleExitMeeting}
           // V11: Listener taps "Done Explaining" to unlock speaker's rating
