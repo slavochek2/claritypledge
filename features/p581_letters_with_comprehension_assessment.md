@@ -11,7 +11,7 @@ tags:
   - workshop
   - briefing
 created_date: 2026-03-23T00:00:00.000Z
-delivery_stage: 1-prd-review
+delivery_stage: 2-ux-review
 flow: dev
 reviews:
   ux: null
@@ -799,11 +799,257 @@ Note: No risk ranking formula. Just points sorted by gap size (largest first). S
 
 ---
 
-## Next Steps
+## UX Design
 
-1. ~~Run `/challenge-prd`~~ — done (verdict: RETHINK → addressed by scope decisions)
-2. ~~Run `/ascii-flows`~~ — done (winner: Sealed Slides, corrected above)
-3. **Run `/architect`** — unified data model with P551 (4 new tables + story_verifications extension). One `/architect` run on both specs.
-4. **Run `/ux`** — doc page + send wizard + reading + grid (combined P551+P581 interaction design)
-5. Run `/generate-tests` — acceptance criteria → test stubs
-6. Run `/dev` — Phase 1: schema + migration, Phase 2: doc CRUD (P551), Phase 3: letter composition + delivery, Phase 4: letter reading WITH grid, Phase 5: gap map + sender view
+### Correction to ASCII Flows: D36 Ordering
+
+The ASCII flow (Slide 4) shows points AFTER story. D36 changes this for 2+ point stories:
+
+**1 point per story:** Read story → Rate → Reveal gap → Point → position/story → Transition
+**2+ points per story:** Point 1 (anti-point) → position/story → Read story → Rate → Reveal gap → Point 2, 3... → position/story → Transition
+
+The rest of the ASCII flows (composition wizard, cover, gap map) remain correct.
+
+### Flow 1: Letters Section in Docs Page (D28)
+
+**Entry point:** Existing docs list page (`/docs`). Letters appear as a section, not a separate route.
+
+```
+/docs page (existing)
+┌──────────────────────────────────┐
+│  My Docs                         │
+│  ┌──────────┐ ┌──────────┐      │
+│  │ Doc A    │ │ Doc B    │      │
+│  └──────────┘ └──────────┘      │
+│                                  │
+│  ─── Letters ───────────────── │
+│                                  │
+│  Sent                            │
+│  ┌──────────────────────────────┐│
+│  │ 📨 "Therapy Notes" → Alex   ││
+│  │    Sent Mar 28 · Completed  ││
+│  ├──────────────────────────────┤│
+│  │ 📨 "Workshop" → 5 receivers ││
+│  │    Sent Mar 25 · 3/5 done   ││
+│  └──────────────────────────────┘│
+│                                  │
+│  Received                        │
+│  ┌──────────────────────────────┐│
+│  │ 📩 From Sarah · Mar 26      ││
+│  │    2 stories · Not started   ││
+│  └──────────────────────────────┘│
+└──────────────────────────────────┘
+```
+
+**States:**
+- Sent letter: Sent / Opened / In progress (N/M) / Completed
+- Received letter: Not started / In progress (N/M) / Completed
+- Tap sent letter → full form view (sender always sees results)
+- Tap received letter (not started/in progress) → view form (reading flow)
+- Tap received letter (completed) → full form view
+
+**Empty state:** "No letters yet. Send one from any doc using 'Send as Letter'."
+
+### Flow 2: Composition Wizard (ASCII already covers this — additions below)
+
+**Entry:** "Send as Letter" button in doc detail page header action row.
+
+**Wizard opens as a full-screen overlay** (not a modal dialog — composition needs space for story list + predictions). Uses FocusHeader with "Back to doc" for exit.
+
+**Step 2 additions — receiver types:**
+- Email input with lookup: type email → check if user exists → show name + avatar if found, "will be invited" if not
+- "Or generate a shareable link" toggle → shows copy-link UI (public letter path)
+- Private vs public letter determined by doc visibility (private doc = private letter, public doc = public letter)
+
+**Step 3 — per-receiver predictions:**
+- If multiple receivers: tab/pill selector at top ("For: Alex | For: Ben | For: Carol")
+- Each receiver gets independent predictions per story
+- `RatingButtons` 0-10 for each story
+- Summary card at bottom shows: N stories, To: [name], Predictions: [values]
+
+**Edge cases:**
+- 0 stories selected in Step 1 → "Select at least one story" inline validation, Next disabled
+- 0 receivers in Step 2 → Next disabled, "Add at least one receiver or generate a link"
+- Prediction not set → defaults to 5 (middle), shown as dimmed until actively chosen
+- Network error on Seal & Send → toast: "Couldn't send letter. Try again." Button re-enabled.
+- Close wizard mid-composition → unsent state preserved in component state (not persisted). Re-opening restores.
+
+### Flow 3: Letter Reading — View Form (D31)
+
+**Route:** `/letter/:id` (or `/letter/:id?token=xxx` for private)
+**Page type:** Focus page — add to `focusRoutes` in bottom-nav.tsx, use FocusHeader
+
+**Cover screen:**
+- Full-viewport centered card
+- Sender name + avatar, story count, estimated time
+- "Open the Letter" CTA (blue, full-width, min-h-[44px])
+- If private + no token: 404 page (D25)
+- If private + expired token: "This letter has expired" message with sender contact info
+
+**Reading flow state machine:**
+
+```
+COVER → [open]
+  ↓
+PER STORY BLOCK (repeats for each story):
+  ↓
+  ├─ (2+ points?) → ANTI-POINT → position/story → READ → RATE → REVEAL → POINTS 2..N → position/story
+  └─ (1 point?)   → READ → RATE → REVEAL → POINT → position/story
+  ↓
+  TRANSITION → next story block
+  ↓
+GAP MAP → registration gate (if unauthenticated)
+```
+
+**Forward-only:** No back button within the reading flow. Progress bar at top shows story N of M. Receiver commits at each step — can't revise ratings or positions.
+
+**Point engagement (D37):** Each point shows three-button row (✕/?/✓) + "Add a story" link. Receiver must do ONE of: take position, or file story. If they try to proceed without either → gentle prompt: "Take a position or explain why you can't." Not a hard block — shows once, then allows proceed (tracks as "skipped" signal).
+
+**Author position lock:** Shows "🔒 [Sender]'s position — engage to reveal" in muted text below point. After receiver positions or files story → fade-in animation reveals sender's position (0.5s ease). Both positions shown side by side.
+
+**Loading states:**
+- Letter data loading: skeleton screen matching cover layout
+- Story content loading: skeleton matching story card shape
+- Rating submission: button shows spinner, disables re-tap
+
+**Mobile-specific:**
+- All screens stack vertically, full-width
+- RatingButtons row: flex-wrap on narrow screens (<360px), each button still min 32px
+- Position buttons: existing PositionButtons component handles responsive (icon-only below 270px)
+- Story text: standard prose layout, no side panels
+- Progress bar: thin (4px) at very top, fixed position
+
+### Flow 4: Full Form View (D31/D32)
+
+**Who sees it:**
+- Sender: always (from docs page → tap sent letter)
+- Receiver: after completing all stories, OR progressively for completed stories (D32)
+
+**Layout:** Doc-snapshot style — all stories visible (like the doc detail page), but with assessment data overlaid.
+
+```
+┌──────────────────────────────────┐
+│  FocusHeader: ← Back to Docs     │
+│                                  │
+│  Clarity Letter from [Sender]    │
+│  Sent Mar 28 · To: [Receiver]   │
+│  Status: Completed               │
+│                                  │
+│  ─── Story 1: "Hiring stance" ──│
+│  [story content]                 │
+│  Understanding: You 8 / Sender 6│
+│  Gap: 2                          │
+│                                  │
+│  Points:                         │
+│  ┌─ "Seniors reduce cost"      ─┐│
+│  │ You: ✓ Agree  Sender: ✕ Dis  ││
+│  │ [Grid dot: Y=8, X=+2]        ││
+│  │ 📖 Your story: "I think..."  ││
+│  └───────────────────────────────┘│
+│                                  │
+│  ─── Story 2: "Funding views" ──│
+│  [story content]                 │
+│  Understanding: You 5 / Sender 4│
+│  Gap: 1                          │
+│                                  │
+│  🔒 Story 3 (not yet completed) │
+│  [greyed out, locked]            │
+│                                  │
+│  ─── Gap Map ────────────────── │
+│  [Understanding × Agreement grid]│
+│  [Per-point summary cards]       │
+│                                  │
+│  [ Start Live Session → ]        │
+└──────────────────────────────────┘
+```
+
+**Partial unlock (D32):** Stories 1-2 completed → shown with full data. Story 3 not completed → greyed card: "Complete this story to see results." Tap → returns to view form at that story.
+
+### Flow 5: Understanding × Agreement Grid
+
+**Visual design:**
+- SVG-based scatter plot, responsive to container width
+- Axes: Y = "UNDERSTANDING" (0-10, bottom to top), X = "← DISAGREE ... AGREE →" (-3 to +3)
+- Quadrant backgrounds: upper-left/right = light green tint, lower-left/right = light amber tint
+- Quadrant labels: positioned in corners, muted text
+  - Upper-left: "✓ Verified disagreement"
+  - Upper-right: "✓ Verified agreement"
+  - Lower-left: "⚠️ Potential false disagreement"
+  - Lower-right: "⚠️ Potential false agreement"
+- Subtitle text under lower quadrant labels: "might misunderstand each other"
+- Dots: blue filled circles (12px diameter), one per listener per point
+- Hover/tap dot: tooltip with name, understanding score, agreement score, gap
+- Future: dashed dots (letter) → solid dots (live) → arrows showing movement
+
+**Mobile:** Grid fills width (max 400px), maintains square aspect ratio. Dots scale down. Tap (not hover) for tooltip. Tooltip appears above the dot.
+
+**Accessibility:**
+- Grid has `role="img"` with `aria-label` describing the data summary
+- Each dot has `role="button"` with `aria-label="[Name]: understanding [N], agreement [N]"`
+- Quadrant labels are `aria-hidden` (decorative — data is in dot labels)
+
+### Edge Cases (All Flows)
+
+| Scenario | Behavior |
+|---|---|
+| Private letter, no token in URL | 404 page (D25) |
+| Private letter, expired token | "This letter has expired. Contact [sender name] for a new one." |
+| Private letter, wrong user authenticated | "This letter wasn't sent to you." + Back to docs |
+| Letter with 0 stories (sender deleted all after sending) | "This letter has no content." — shouldn't happen (sealed at send) but defensive |
+| Receiver closes browser mid-reading | sessionStorage preserves all local state (ratings, positions). Return to same URL → resume from last completed story |
+| Network error during rating submit | Toast: "Couldn't save. Retrying..." + auto-retry once. If fail: "Save failed. Your progress is stored locally." |
+| Receiver completes on public letter, doesn't register | Gap map shown. "Save your results?" gate. If dismissed: data is in sessionStorage. Return later → registration gate reappears |
+| Sender views letter with 0 completions | Full form shows sent stories with "Waiting for [receiver] to respond" per story. No grid dots. |
+| Sender views letter with partial completion | Shows completed data for stories receiver finished. Remaining: "Not yet rated by [receiver]" |
+| Workshop: 15 receivers, some complete, some don't | Sender gap map shows dots only for completed receivers. Count: "3 of 15 completed" |
+
+### Accessibility
+
+**Keyboard navigation:**
+- Tab order: progress bar (informational, not focusable) → story content → "I've read it" → rating buttons (0-10, arrow keys to move between) → submit → position buttons (✕/?/✓, arrow keys) → "Add a story" → "Next"
+- Escape from composition wizard → back to doc page
+- Enter on any CTA button triggers it
+
+**Screen reader:**
+- Progress bar: `aria-label="Story 1 of 3"`
+- Rating buttons: `aria-label="Rate your understanding, 0 to 10"`, each button `aria-label="Rate [N]"`
+- Gap reveal: `aria-live="polite"` region announces "Your rating: [N]. [Sender]'s prediction: [M]. Gap: [G]"
+- Position buttons: existing PositionButtons component already has ARIA (aria-pressed, group label)
+- Author position lock: `aria-label="[Sender]'s position hidden until you engage"`
+- Author position reveal: `aria-live="polite"` announces "[Sender] [position]"
+
+**Color contrast:** All text meets WCAG AA (4.5:1). Grid quadrant tints are background only — labels meet contrast against tinted background. Blue dots (blue-500) on white/light backgrounds pass.
+
+### Responsive Design
+
+**Mobile (320px-639px):**
+- All flows: single column, full-width
+- Composition wizard: stacked steps, full-screen (not modal)
+- Reading flow: story text fills width, rating buttons wrap if needed
+- Grid: square aspect ratio, max-width 100%, dots scale to 8px
+- Letters section in docs: stacked cards, full-width
+
+**Tablet (640px-1023px):**
+- Composition wizard: centered card (max-w-lg)
+- Reading flow: centered content (max-w-2xl, matching doc detail page)
+- Grid: max-width 500px, centered
+- Letters section: 2-column grid for sent/received
+
+**Desktop (1024px+):**
+- Same as tablet (content stays centered at max-w-2xl)
+- Grid: max-width 600px
+- Composition step 3 (predictions): stories and prediction controls side by side if space allows
+
+### UI Contract Additions
+
+| Element | Value | Context |
+|---------|-------|---------|
+| Expired token message | "This letter has expired. Contact [sender name] for a new one." | Private letter, token expired |
+| Wrong user message | "This letter wasn't sent to you." | Private letter, authenticated as different user |
+| Engagement nudge | "Take a position or explain why you can't" | Shown once per point if user tries to skip (D37) |
+| Partial lock label | "Complete this story to see results" | Full form view, uncompleted story (D32) |
+| Waiting label | "Waiting for [receiver] to respond" | Sender views letter, no completion yet |
+| Network error toast | "Couldn't save. Your progress is stored locally." | After retry failure |
+| Resume prompt | "Welcome back. You left off at Story [N]." | Returning to incomplete letter |
+| Empty letters state | "No letters yet. Send one from any doc using 'Send as Letter'." | Docs page, letters section empty |
+| Letter cover time estimate | "~ [N] minutes" | Cover screen, calculated as stories × 2 min |
