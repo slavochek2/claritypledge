@@ -17,6 +17,7 @@ import { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import { extractHashtags } from '@/lib/utils';
 import { useParams, useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { LockIcon, Loader2, Pencil, Trash2, Globe, ImagePlus } from 'lucide-react';
+import { VisibilityLine } from '@/app/components/shared/visibility-line';
 import { FocusHeader } from '@/app/components/layout/focus-header';
 
 import { StoryCardWithLinks, type StoryAuthor } from '@/app/components/social/story-card-with-links';
@@ -98,7 +99,7 @@ function AddPointForm({
   const [statement, setStatement] = useState('');
   const [selectedPosition, setSelectedPosition] = useState<PositionType | null>(null);
   const [isAdding, setIsAdding] = useState(false);
-  const [orphanPoint, setOrphanPoint] = useState<{ id: string; statement: string; context?: string; tags: string[] } | null>(null);
+  const [orphanPoint, setOrphanPoint] = useState<{ id: string; statement: string; context?: string; tags: string[]; visibility?: ContentVisibility } | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
@@ -131,6 +132,7 @@ function AddPointForm({
         statement: orphanPoint.statement,
         context: orphanPoint.context,
         tags: orphanPoint.tags,
+        visibility: orphanPoint.visibility,
       };
 
       if (selectedPosition) {
@@ -184,6 +186,7 @@ function AddPointForm({
         statement: point.statement,
         context: point.context,
         tags: point.tags,
+        visibility: point.visibility,
       };
 
       if (selectedPosition) {
@@ -222,19 +225,11 @@ function AddPointForm({
 
   return (
     <div className="space-y-2">
-      {/* P551/P590: Visibility banner when adding points in doc context */}
-      {docVisibility === 'private' && (
-        <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 flex items-center gap-2 text-sm">
-          <LockIcon size={16} className="text-amber-600 flex-shrink-0" />
-          <span className="text-amber-800">This point will be private — only you can see it</span>
-        </div>
-      )}
-      {docVisibility === 'public' && (
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 flex items-center gap-2 text-sm">
-          <Globe size={16} className="text-blue-600 flex-shrink-0" />
-          <span className="text-blue-800">This point will be public — visible on your profile</span>
-        </div>
-      )}
+      {/* P610: Visibility banner when adding points */}
+      <VisibilityLine
+        visibility={docVisibility ?? 'public'}
+        source={docVisibility === 'private' ? 'Matches story visibility' : 'Visible on your profile'}
+      />
       {orphanPoint && (
         <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-sm">
           <p className="text-amber-900 mb-2">Point created but linking failed. Retry to link it to your story.</p>
@@ -396,12 +391,10 @@ function KeyPointsSection({
 
   return (
     <div className="mt-6">
-      {/* justCreated banner */}
-      {justCreated && pointCount === 0 && (
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4 text-sm text-blue-800">
-          Story saved. Now add key points — claims others can agree or disagree with.
-        </div>
-      )}
+      {/* P610: removed justCreated educational banner — VisibilityLine inside
+         AddPointForm now provides the primary context; two stacked blue banners
+         was visually noisy and the guidance was redundant for users who just
+         created a story and clicked "Add Point". */}
 
       {/* Author: form (auto-expanded on justCreated or addPoint query param, or toggled) */}
       {(autoExpand || addPointRequested || showForm) && (

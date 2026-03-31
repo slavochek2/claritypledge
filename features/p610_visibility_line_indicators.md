@@ -1,5 +1,5 @@
 ---
-status: today
+status: in-progress
 type: story
 rank: 0.031
 workstream: foundation
@@ -9,6 +9,7 @@ tags:
   - p607-follow-up
   - ux
 flow: dev
+delivery_stage: uat
 ---
 
 # P610: Visibility Line — Consistent Indicators Across Creation Flows
@@ -128,15 +129,15 @@ Examples:
 
 ## Acceptance Criteria
 
-- [ ] New `<VisibilityLine />` component created
-- [ ] Flow 1 (standalone): shows `🌐 Public · Visible on your profile` banner above textarea
-- [ ] Flow 2 (from point): visibility line inside ChatContextHeader, button label matches inherited visibility
-- [ ] Flow 3 (from doc): DocPrivacyBanner shows inheritance subtitle
-- [ ] Flow 4 (add point): existing banners replaced with VisibilityLine, same behavior
-- [ ] Flow 5 (AI chat): visibility line visible from start inside ChatContextHeader
-- [ ] All submit buttons show correct icon + label matching actual visibility
-- [ ] Private indicators use amber styling (matches existing pattern)
-- [ ] Public indicators use blue/muted styling (matches existing pattern)
+- [x] New `<VisibilityLine />` component created
+- [x] Flow 1 (standalone): shows `🌐 Public · Visible on your profile` banner above textarea
+- [x] Flow 2 (from point): visibility line inside ChatContextHeader, button label matches inherited visibility
+- [x] Flow 3 (from doc): DocPrivacyBanner shows inheritance subtitle
+- [x] Flow 4 (add point): existing banners replaced with VisibilityLine, same behavior
+- [x] Flow 5 (AI chat): visibility line visible from start inside ChatContextHeader
+- [x] All submit buttons show correct icon + label matching actual visibility
+- [x] Private indicators use amber styling (matches existing pattern)
+- [x] Public indicators use blue/muted styling (matches existing pattern)
 - [ ] Mobile: indicators readable at 390px width
 
 ## Test Coverage Strategy
