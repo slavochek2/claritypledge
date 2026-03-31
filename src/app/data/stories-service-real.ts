@@ -67,6 +67,7 @@ interface DbStoryPointWithPoint {
     statement: string;
     context: string | null;
     tags: string[];
+    visibility?: string;
   } | null;
 }
 
@@ -127,6 +128,7 @@ function mapPointSummaryFromDb(row: DbStoryPointWithPoint): PointSummary | null 
     statement: row.point.statement,
     context: row.point.context ?? undefined,
     tags: row.point.tags || [],
+    visibility: row.point.visibility ?? 'public',
   };
 }
 
@@ -255,7 +257,8 @@ export const realStoriesService: StoriesService = {
           statement,
           context,
           tags,
-          created_at
+          created_at,
+          visibility
         )
       `)
       .eq('story_id', storyId);
@@ -389,7 +392,8 @@ export const realStoriesService: StoriesService = {
           statement,
           context,
           tags,
-          created_at
+          created_at,
+          visibility
         )
       `)
       .in('story_id', storyIds);

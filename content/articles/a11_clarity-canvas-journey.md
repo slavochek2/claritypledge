@@ -12,6 +12,15 @@ created_at: 2026-03-27T00:00:00.000Z
 
 # How My Lean Canvas Grew Three Missing Boxes
 
+## Strategic Intent
+
+**Serves:** Illegibility fix (names what ClarityPledge does in terms people know — "Lean Canvas + 3 missing boxes"), workshop funnel (CTA drives attendance → tests H-WTP-Pain), co-builder signal flare (Act 3 open invitation attracts ikigai-aligned people).
+**Sequence:** Write AFTER first 9-points workshop — needs real debrief data, not theory. The live Clarity Canvas (published as a canvas-doc) should exist before the article so the article links to a living artifact, not a static description.
+**Dependencies:** P581 (letters) → workshop → canvas-doc published → write a11.
+**Parallel work:** Clarity Canvas renderer + filing lean canvas as stories/points can happen during P581 development.
+**Audience:** Founders building in public, lean canvas users who sense something missing, potential co-builders, workshop prospects.
+**Three jobs:** (1) Content — the evolution story, (2) Co-builder signal — the open invitation, (3) Workshop funnel — embedded CTA. Prioritize workshop funnel if forced to cut.
+
 ## Idea
 
 A founder journal article that tells the story of ClarityPledge through the evolution of its canvas — from a standard Lean Canvas to something that needed boxes Lean Canvas doesn't have. Not a framework launch. The journey IS the article: what I built, what 28 sessions taught me, what broke my assumptions, and how each version of the canvas is a snapshot of what I knew at that point. The Clarity Canvas is a Lean Canvas where nobody filed disagreement, nobody checked founder-idea ikigai fit, and nobody asked about positive externalities. Each missing box emerged from a real moment — a session where a pair disagreed with my problem formulation, the realization that "interesting but not painful" means the canvas itself has a false premise, the Trump stress-test that proved the framework generalizes beyond startups. Show canvas v1 → v1.1 → v2 → v2.1 as the narrative spine. The 7 points and 9 stories from prod are evidence that surfaced along the way. Open questions from the facilitator guide are where the canvas is still unresolved. End where I actually am: here's v2.1, here's what's still blank, here's what I'm testing next.

@@ -1,14 +1,14 @@
 ---
-status: today
+status: done
 type: story
-rank: 0.195
+rank: 0.063
 tags:
   - epic-story-first
   - live
   - simplification
 flow: dev
 created_date: 2026-03-21T00:00:00.000Z
-locked_at: '2026-03-23T10:08:26.692Z'
+completed_at: '2026-03-30'
 delivery_stage: 3.5-ui-review
 reviews:
   ux: null
@@ -23,6 +23,8 @@ test_files:
 ---
 
 # P562: /live Free Mode — Structured Start, Then Continuous Sliders
+
+> **Closed 2026-03-30:** Substance shipped via P600 (free mode polish). P600 implemented the core P562 vision: sealed bid → paraphrase → unlocked continuous sliders. P562 spec was never formally run through /dev but the code is live in prod. UAT not formally executed against P562's checklist but P600's UAT covered the same flows.
 
 **Epic:** story-first (P523 vision)
 **Priority:** 3 of 6 — responds to "too clunky, too interruptive" feedback

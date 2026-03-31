@@ -1,7 +1,7 @@
 # Done Features Index
 
 Quick reference for past completed work. Consult when starting work on a related topic.
-Last updated: 2026-03-30 (P608 Magic Link Reliability)
+Last updated: 2026-03-31 (P610 Visibility Line Indicators)
 
 ---
 
@@ -26,6 +26,7 @@ Last updated: 2026-03-30 (P608 Magic Link Reliability)
 - **P511** (Mar 16) Session Resilience — banner must render inside `<main>` (not between nav/main) to avoid z-index fights; `ended_at` column doesn't exist — use `live_state.sessionEnded`; creator-only heartbeats; `createTwoPartySession()` test fixture built as P497 MVP
 - **P582** (Mar 23) Rejoin Prompt Stale After End — pre-session UI states need their own realtime subscriptions; main sub gated on `session!=null` leaves rejoin prompt as dead end
 - **P584** (Mar 24) Session End Screen Redesign — `useBlocker` requires data router (use popstate+pushState); `?debugUpload`/`?debugRounds` params unlock localhost testing of prod-only states; session history only counts non-skipped rounds
+- **P562** (Mar 30) /live Free Mode — sealed bid → paraphrase → unlocked continuous sliders; spec shipped via P600 implementation, closed retroactively
 - **P600** (Mar 30) Free Mode Polish — speaker re-rating `freeRerating` stored separately (not as freeRound); two-zone idle layout prevents button shift; "Open mode" replaces "Free mode"; click-outside dismiss + progressive story picker
 
 ## Clarity Docs
@@ -35,6 +36,7 @@ Last updated: 2026-03-30 (P608 Magic Link Reliability)
 
 ## Points & Stories
 
+- **P610** (Mar 31) Visibility Line Indicators — shared VisibilityLine component across 5 creation flows; mapPointSummaryFromDb was missing visibility column (icons always showed globe); optimistic PointSummary also needed visibility; doc_stories FK needed CASCADE
 - **P607** (Mar 30) Visibility Inheritance on Creation — all 3 creation paths (story-detail, create-story, StoryGuideChat) must pass parent visibility; code review caught TDZ bug and missed path
 - **P592** (Mar 27) Fix Hashtag Update — DB trigger as safety net for derived columns; if N call sites must all compute a value, move it to a trigger
 - **P591** (Mar 27) Story Supporting Images — GCS V4 signed URL PUT must include ALL SignedHeaders (x-goog-content-length-range); images are story-level metadata not version-level; use authenticated edge functions for GCS uploads, never the old unauthenticated Cloud Function

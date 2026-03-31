@@ -15,6 +15,13 @@ created_at: 2026-03-15T00:00:00.000Z
 
 Combined from a7 (The Construct Nobody Measured), a8 (Seven Things I Believe About Understanding), a9 (Rate Asymmetry). Ghost-first with interactive point embeds; LessWrong-adapted text version later.
 
+## Strategic Intent
+
+**Serves:** H-Essays-BuildRecognition (rationalist community credibility), co-builder signal flare (ikigai-aligned researchers/practitioners find this and lean in).
+**Sequence:** Write AFTER a11 and after at least 2-3 workshop data points exist. The deductive thesis is stronger when grounded in real results, not theory alone. a11 (journey) establishes the personal story; a9 (theory) establishes the intellectual framework. Together they cover emotional + rational audiences.
+**Blocked by:** H-PairsReturn (need proven results before claiming recognition). Publishable when workshop gap-reveal data exists to cite.
+**Audience:** LessWrong, rationalist community, coordination theorists, AI safety researchers.
+
 ## Structure
 
 1. **Hook** — r=0.178 reading calibration stat. No equivalent exists for conversation. Nobody measured it.

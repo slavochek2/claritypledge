@@ -2,6 +2,90 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-31 [process]: /claude-conversations-to-cp v3 — decision-first output, auto-file content
+
+**Context:** Analyzed 10+ past sessions of running `/claude-conversations-to-cp`. Every single session, the user asked "simplify what needs my attention, what are my options, what you recommend and why" after the skill's signal dump output. Content signals caused rabbit-hole tangents in the same session.
+**Decision:** (1) Step 2 output rewritten from signal-type grouping ([STRATEGY], [HYPOTHESIS]) to `/simplify`-style decision blocks (Situation / Options / Recommendation / If-we-do-nothing). (2) Steps 2+3 merged — clarifying questions folded into decision blocks as ambiguity frames. (3) [CONTENT] candidates auto-filed via `/quick-blog` immediately (dedup + privacy check), reported as one-liners — no mid-session content review. (4) Informational signals separated into "FYI — No Action Needed" bullet list.
+**Alternatives rejected:** (1) Keep signal-type grouping and add a `/simplify` auto-step — adds latency without fixing the core problem (signal dump is the wrong abstraction). (2) Remove content handling entirely — loses valuable conversation-to-article pipeline.
+**Consequences:** The "simplify what needs my attention" follow-up prompt should no longer be needed. Content ideas go straight to kanban for later review instead of derailing the strategy session.
+**References:** [claude-conversations-to-cp.md](.claude/commands/slava/maintain/claude-conversations-to-cp.md)
+
+## 2026-03-31 [product]: Verification produces three outcome states — flip, fork, verified agreement/disagreement
+
+**Context:** P581 letter spec analysis surfaced that the "clarity flip" (position change after understanding increases) is one outcome of verification, not the primary one. Interpretation forks (both interpretations valid, position depends on frame) and verified disagreement (understand each other, still disagree) are equally valuable outcomes. All three look similar on the understanding × agreement grid (dot moves up). The distinction lives in story content, not in grid mechanics.
+**Decision:** (1) Three named outcome states: flip, fork, verified agreement/disagreement — documented in definitions.md. (2) "Clarity flip" demoted from north star to named sub-event. The product's value is verification of understanding — the flip is one result. (3) Grid triages (WHERE), stories diagnose (WHAT kind), facilitator names the pattern. No attempt to mechanically classify flip types on the grid. (4) No lean canvas change needed — the Problem section already frames the general gap, not specifically flips. (5) No rename of core construct — stays "verification of understanding."
+**Alternatives rejected:** (1) Mechanically distinguish flip types via self-report buttons — fails because users can't self-report invisible cognitive states. (2) AI classification of story content — future possibility but premature without labeled training data. (3) Rename to "shared meaning verification" — unnecessary jargon, existing language is sufficient.
+**Consequences:** P581 spec's north star ("visible position switch") should be broadened to include all three verification outcomes. Workshop design (P606) continues to optimize for flips but acknowledges forks and verified disagreement as equally valid results. Facilitator guide updated to name all three patterns.
+**References:** [docs/definitions.md](definitions.md) > Verification Outcome States
+
+## 2026-03-31 [product]: Design principle — surface invisible states through behavior, not self-classification
+
+**Context:** During P581 innovate/falsify cycle (5 problems × 30 solutions × falsification), a cross-cutting pattern emerged: 5 of 8 candidates for distinguishing flip types failed at the same root cause — they required users to recognize invisible cognitive states (interpretation forks, false agreement, non-understanding). The illusion of knowing is precisely the inability to detect one's own comprehension failure. Any mechanism requiring self-report of invisible states is unfalsifiable in the relevant sense.
+**Decision:** Product design principle: surface invisible states through behavior (paraphrase content, positioning patterns, story text, context-request rates) and instrumentation (gap scores, completion patterns), never through self-classification (buttons, checkboxes, labels asking users to name their cognitive state). The explain-back gesture (paraphrase) naturally encodes the distinction between flip, fork, and verified disagreement — without the user needing to classify it.
+**Alternatives rejected:** (1) Post-move prompt asking "what changed?" — relies on accurate self-attribution at the exact moment users are least able to provide it. (2) Interpretation fork button — requires users to know they have a fork, which is what the product reveals. (3) Emoji outcome signals — low-resolution self-report with non-standard symbol mapping.
+**Consequences:** Constrains all future UX design: if a proposed feature requires users to name their own cognitive state, it fails this principle. The surviving mechanism is always behavioral: what users DO (paraphrase, position, file stories) encodes what they EXPERIENCE — the product reads behavior, not self-reports.
+
+## 2026-03-31 [product]: P581 letter decisions — point-first ordering, engagement model B, quadrant labels
+
+**Context:** P581 spec refinement session produced decisions on ordering, engagement, and grid labels. Tested against the Clarity Flip workshop mechanic (P606) and interpretation fork challenge.
+**Decision:** (1) **Point-first ordering (default):** Points appear before their parent story. Preserves the commit-before-context mechanic that produces the clarity flip. Sender can add vocabulary glosses for abstract terms. Receiver gets "I need context" escape valve (tracked as content quality metric, not UX feature). (2) **Engagement model B:** Must position OR file story explaining why not. Can't skip silently. Existing "add a story" UI is sufficient — no extra prompts needed. (3) **Quadrant labels:** Pre-verification (letter): "Potential false agreement/disagreement ⚠️" (bottom) vs. unverified states. Post-verification (/live): "Verified agreement/disagreement ✓" (top). Understanding axis drives the transition. (4) **Rating input:** Discrete buttons (existing `RatingButtons` 0-10), not slider. Slider = live continuous signal. Buttons = async deliberate assessment.
+**Alternatives rejected:** (1) Story-first ordering — destroys the flip mechanic. (2) Sender-chooses-per-point — operational incoherence in workshops. (3) Dual-track story prompt for "can't position" — existing story filing already handles this through content.
+**Consequences:** P581 spec updated with D34-D37. Letter reading state machine implements point-first with optional vocabulary gloss. Grid component renders quadrant labels conditionally based on verification source.
+
+## 2026-03-31 [technical]: Shared VisibilityLine component for all creation flows (P610)
+
+**Context:** P607 added visibility inheritance but UX didn't reflect it. Create-story-from-point showed "Publish Public Story" (globe) when the content would be private. 5 creation flows had inconsistent patterns — some showed banners, some didn't. Two additional bugs found: `mapPointSummaryFromDb` never selected `visibility` from DB (all point icons showed globe), and optimistic `PointSummary` construction after point creation also missed it.
+**Decision:** Created `<VisibilityLine />` shared component: amber for private, blue for public, with source text. Applied to all 5 creation flows. Pattern: banner above textarea when no context card; inside context card when one exists. Button labels always match visibility.
+**Alternatives rejected:** Per-flow inline banners — duplicates code, inconsistency guaranteed.
+**Consequences:** Any new creation flow must include VisibilityLine. The `mapPointSummaryFromDb` mapper and `DbStoryPointWithPoint` type must include any new columns added to points.
+**References:** `src/app/components/shared/visibility-line.tsx`, P610 spec
+
+## 2026-03-31 [product]: RemovePositionDialog warns of unlink that doesn't happen — needs fix (Status: proposed)
+
+**Context:** P401 (Feb) added DB trigger cascading position removal to story unlink + warning dialog. P560 (Mar 12) made positions and stories independent. P576 (Mar 23) dropped the cascade trigger. The dialog text was never updated — it still warns "removing position will unlink stories" but nothing happens. Separate issue: no UI exists to unlink a point from a story (backend `unlinkPointFromStory()` is ready, P131 deferred the UI).
+**Decision:** (Status: proposed) Fix dialog to remove story-unlink warning. Add unlink button to story detail page (author-only, confirmation dialog, × icon at point row bottom-right). Points are immutable — unlink removes junction row only.
+**Alternatives rejected:** Restoring the P401 cascade trigger — contradicts P560 independence design.
+**Consequences:** New spec needed. RemovePositionDialog simplified. Unlink UI added to story detail page.
+
+## 2026-03-31 [technical]: All story child FK constraints must use CASCADE — doc_stories was NO ACTION
+
+**Context:** Story deletion from docs UI failed with FK violation. `doc_stories_story_id_fkey` was Postgres default (NO ACTION) while every other story child table (`story_points`, `story_versions`, `story_calibrations`) used CASCADE. The inconsistency was invisible until a user flow triggered the delete path.
+**Decision:** Fixed `doc_stories` FK to CASCADE. Going forward: every new child table referencing `stories(id)` must use `ON DELETE CASCADE`. Check existing FKs when debugging delete failures — Postgres default is NO ACTION, not CASCADE.
+**Alternatives rejected:** Soft-delete pattern — adds complexity for no user-facing benefit; stories in docs are ephemeral.
+**Consequences:** Story deletion now works end-to-end in docs. Pattern to watch: any new FK on stories should be audited against this list.
+**References:** `supabase/migrations/20260331000000_doc_stories_cascade_delete.sql`
+
+## 2026-03-30 [process]: /verify rewritten — Playwright-first, Chrome only for visual QA
+
+**Context:** `/verify` relied entirely on Claude in Chrome for all verification — functional checks, auth flows, two-party sessions, toast verification. This was architecturally wrong: Chrome extension dies after ~5min (upstream MV3 service worker timeout, #27826/#15239), can't run two concurrent browser contexts, can't run in CI, costs 10-20x more tokens than headless. Meanwhile, Playwright infrastructure already had auth injection (`setTestSession`), two-context fixtures (`createTwoPartySession`), DB polling, mic mocking, and 20+ spec files — but `/verify` treated Playwright as a footnote.
+**Decision:** Rewrote `/verify` to auto-route each UAT scenario to the right tool. Functional checks (auth, forms, toasts, two-party, navigation, DB state) → Playwright headless. Visual QA (layout, styling, mobile) → Claude in Chrome, auto-triggered only when UI files changed. No flags — the skill reads the spec, classifies scenarios, and picks the tool. Prod mode auto-detected from branch + delivery_stage.
+**Alternatives rejected:** (A) Adding retry/reconnect logic around Chrome extension timeouts — fights the architecture instead of using the right tool. (B) Splitting into `/verify` + `/verify:visual` — adds user decision overhead; auto-routing eliminates it. (C) Keeping Chrome as primary with Playwright as supplement — inverts the reliability hierarchy.
+**Consequences:** `/verify` sessions no longer die mid-run. Two-party testing uses native Playwright concurrency. Generated test files (`e2e/p{N}-verify.spec.ts`) persist as regression tests. Chrome extension usage limited to short visual-only sessions (~2min). `/sim` unchanged — remains a separate UX exploration tool.
+**References:** `.claude/commands/slava/build/verify/SKILL.md`, `docs/technical/browser-tools.md`
+
+## 2026-03-30 [product]: Clarity Canvas is NOT the landing page — founder transparency ≠ user experience
+
+**Context:** During article planning, the idea surfaced to make the Clarity Canvas the landing page — visitors arrive, see the business model, and challenge assumptions. This conflates two fundamentally different experiences.
+**Decision:** The Clarity Canvas serves *founder transparency* ("here's what I believe, challenge my assumptions") — an intellectual exercise for potential co-builders, advisors, and sophisticated observers. The product entry point (/live, Letters) serves *user experience* ("experience YOUR comprehension gap") — a visceral personal discovery. These are different audiences at different moments. The canvas exists at its own URL, not as the landing page.
+**Alternatives rejected:** Canvas as landing page — mixes business model review with product onboarding. Visitors who need to experience their own gap would instead analyze someone else's business model.
+**Consequences:** Landing page continues to drive toward /live or Letters. Canvas is linked from the article (a11) and from a dedicated page, but is not the primary funnel entry.
+
+## 2026-03-30 [product]: Clarity Canvas = canvas-view of a clarity doc, not a new entity
+
+**Context:** The Clarity Canvas concept (Lean Canvas + 3 missing boxes: disagreement filing, ikigai fit, positive externalities) needed a technical home. Options: build a new entity/page, or reuse existing clarity docs (P551) with a custom renderer. Decided during article prioritization session — a11 (Clarity Canvas journey) needs a living artifact to link to, and the workshop needs participants to engage with canvas content via the protocol.
+**Decision:** A Clarity Canvas IS a clarity doc tagged/typed as `canvas`, rendered in a grid/box layout instead of a linear story list. Each canvas section (Problem, Solution, etc. + 3 new boxes) maps to stories tagged by section. Points extracted from those stories are the challengeable assumptions. No new database entities — same doc/story/point model, different renderer. Content filing (lean canvas → stories/points) and renderer work can proceed in parallel with P581 (Letters) since P551 is already shipped.
+**Alternatives rejected:** (1) P554 kanban-only canvas page — internal tooling, doesn't face the market. (2) New canvas entity with its own schema — unnecessary when docs already contain stories/points. (3) Static page with no protocol integration — loses the unique value (visitors challenge assumptions via positions).
+**Consequences:** P611 filed for parallel execution. Canvas renderer depends only on P551 (done). Canvas-as-letter (sending for comprehension assessment) depends on P581. The article (a11) waits for both the canvas-doc AND workshop data. Co-builder casting call emerges from the article, not built separately.
+**References:** [P611 spec](features/p611_clarity_canvas_renderer.md), [goals.md](goals.md), [a11 article](../content/articles/a11_clarity-canvas-journey.md)
+
+## 2026-03-30 [product]: Article sequence — Letters → 9-points workshop → canvas → a11
+
+**Context:** Multiple article ideas existed (a9-a12). Needed to decide which to write next and in what order. Key insight: the false-belief workshop (H-WTP-Pain test mechanism) requires P581 (Letters with comprehension assessment) to deliver the sealed-bid gap reveal — without it, participants can't engage with the 9 false-belief stories using the protocol's unique power. A Clarity Canvas workshop requires participants to first understand stories/points (via Letters). So: Letters → 9-points workshop → canvas → article, not canvas first.
+**Decision:** (1) Build P581 (Letters) as prerequisite for any protocol-powered workshop. (2) Run 9-points workshop with Letters — the H-WTP-Pain test. (3) Build + publish own Clarity Canvas as canvas-doc (parallel with P581). (4) Write a11 with real workshop data + live canvas link. (5) a9 (theoretical) writes after a11 when workshop data grounds the thesis.
+**Alternatives rejected:** (1) Write a11 before workshop — produces a planning document, not a field report. (2) Build canvas before Letters — participants can't engage meaningfully without the comprehension assessment mechanism. (3) Substitute canvas for landing page — different experience (business model vs. personal comprehension gap).
+**Consequences:** goals.md updated with refined sequence. a9/a10/a11/a12 annotated with strategic intent and dependencies. P554 (kanban canvas page) parked — internal tooling, not market-facing.
+**References:** [goals.md](goals.md), [P581 spec](../features/p581_letters_with_comprehension_assessment.md)
+
 ## 2026-03-30 [product]: "Open mode" replaces "Free mode" in /live
 
 **Context:** "Free mode" implied guided mode was restrictive/complex. Co-founders new to calibrated communication shouldn't feel one mode is "easy" and the other "hard."

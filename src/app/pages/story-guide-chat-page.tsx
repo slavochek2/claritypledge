@@ -13,6 +13,7 @@ import { StoryGuideChat } from '@/app/components/story-guide/StoryGuideChat';
 import { pointsService } from '@/app/data/points-service';
 import { storiesService } from '@/app/data/stories-service';
 import type { StoryDraft, ContextPoint, ContextProfileOwner } from '@/app/components/story-guide/StoryGuideChat';
+import { VisibilityLine } from '@/app/components/shared/visibility-line';
 import type { PointWithUserPosition, Story } from '@/app/types';
 
 export function StoryGuideChatPage() {
@@ -117,6 +118,14 @@ export function StoryGuideChatPage() {
             onStoryConfirmed={handleStoryConfirmed}
             existingStory={existingStory ?? undefined}
             pointVisibility={fullPoint?.visibility}
+            visibilityLine={
+              fullPoint?.visibility ? (
+                <VisibilityLine
+                  visibility={fullPoint.visibility}
+                  source="Matches point visibility"
+                />
+              ) : undefined
+            }
           />
         )}
       </div>

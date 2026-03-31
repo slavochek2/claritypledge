@@ -39,6 +39,12 @@ If you've been communicating successfully for years, you probably understand peo
 
 Real conversation, 2026-03-26. Objections: relationships are fine, system too complex, no perceived need.
 
+## Strategic Intent
+
+**Serves:** Legibility (names the most common objection and dissolves it), workshop conversion (pre-work or follow-up for skeptical participants), sales enablement (shareable link when someone pushes back with "we communicate fine").
+**Sequence:** Can be written anytime — not dependent on workshop data. Useful as lightweight LinkedIn content or as an addendum to a11. Could be a section within a11 rather than standalone.
+**Audience:** Skeptics, people who self-assess as good communicators, workshop prospects who need the "why" before they'll try.
+
 ## Angle Ideas
 
 - "The Most Dangerous Communication Error Is the One You Can't See"
