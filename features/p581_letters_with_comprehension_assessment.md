@@ -12,6 +12,7 @@ tags:
   - briefing
 created_date: 2026-03-23T00:00:00.000Z
 delivery_stage: 1-prd-review
+flow: dev
 reviews:
   ux: null
   architect: null
