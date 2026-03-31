@@ -277,9 +277,10 @@ Then the simplified dialog appears with no story mention, and position removal c
 - Re-link UI (quick way to re-add a point just unlinked). Out of scope — existing "Add point" form on story detail page serves this need.
 - Bulk unlink (removing all points from a story at once). Not a known user need.
 - Unlink from surfaces other than story detail page (e.g., from point detail page). Story-point relationship is most naturally managed from the story.
-- Changes to `story_point_history` schema. Audit trail is preserved as-is.
+- Unlink audit trail (`story_point_history` DELETE trigger). The existing trigger fires on INSERT only. Unlink is implied by row deletion. Adding a DELETE trigger is scope creep — history is informational only, never used for undo/restore.
 - Restoring historical story-point links that were cascade-deleted before P576.
 - Any change to `checkLinkedStories` in `points-service-real.ts` beyond removing the call from the hook. The function can stay as dead code for now; removing it is a separate cleanup task.
+- **BR-1 (RemovePositionDialog fix) is split out** — shipped separately as inline fix. This spec covers BR-2 (unlink UI) only.
 
 ---
 
@@ -287,26 +288,46 @@ Then the simplified dialog appears with no story mention, and position removal c
 
 **Backend:** No migration needed. `unlinkPointFromStory` in `stories-service-real.ts` (lines 593-608) and the RLS policy on `story_points` are already correct.
 
-**Dialog simplification:**
+**RLS verified (2026-03-31):** Policy `"Story authors can unlink points"` uses `EXISTS (SELECT 1 FROM stories WHERE stories.id = story_points.story_id AND stories.author_id = auth.uid())`. Correct — joins through stories to check authorship.
+
+**Component placement (from /challenge-prd Q2):** The unlink button MUST be injected via the `renderPointRow` prop on `StoryCardDetail`, NOT placed inside `StoryCardDetail` itself. Reason: `StoryCardDetail` is shared across story-detail-page, doc-detail-page, and embed mode. Placing the button inside the shared component would leak it into docs and embeds. The `renderPointRow` prop exists for exactly this — per-page control injection (doc-detail-page already uses it for drag handles).
+
+**State update strategy (from /challenge-prd Q3):** Optimistic removal from ALL local state:
+- Filter unlinked point out of `story.points` array
+- Remove entries from `positionCounts`, `userPositions`, `storyAuthorPositions`, `linkedStoriesForPoints` maps
+- On service failure (`unlinkPointFromStory` returns false): full story refetch to restore state
+- No refetch on success — optimistic is the established pattern (see position updates, point creation)
+
+**Dialog simplification (BR-1 — split out, fix separately):**
 - `RemovePositionDialog` component: remove `linkedStoryCount` prop and the conditional story message block
 - `useRemovePositionGuard` hook: remove `checkLinkedStories` call, remove `linkedCount` state
-- All 5 call sites pass `linkedStoryCount` today — they must be updated to remove that prop
+- All 7 call sites (not 5 — includes doc-detail-page and StoryGuideChat) pass `linkedStoryCount` today
 
-**New component:** `UnlinkPointDialog` (or inline dialog state in story-detail-page) — confirm dialog for point unlinking. Small enough to inline in `story-detail-page.tsx` or extract as a focused component.
+**New: UnlinkPointDialog** — confirm dialog for point unlinking. Inline in `story-detail-page.tsx` (small enough, page-scoped).
 
 **story-detail-page.tsx changes:**
-- Add unlink button to QuotedPoint card render (author-only conditional)
-- Wire button to `UnlinkPointDialog` state
-- On confirm: call `storiesService.unlinkPointFromStory(storyId, pointId)`, update local state, handle error
+- Use `renderPointRow` prop to wrap each QuotedPoint with an unlink button (author-only)
+- Wire button to inline dialog state
+- On confirm: call `storiesService.unlinkPointFromStory(storyId, pointId)`, optimistically update all local state maps, handle error with refetch
 
 **Test files to update:**
-- `src/tests/remove-position-guard.test.ts` — remove assertions that reference `linkedStoryCount` prop behavior
 - New test coverage for unlink flow (see `/generate-tests` phase)
 
 ---
 
+## Resolved Decisions
+
+| # | Source | Finding | Resolution | Rationale |
+|---|--------|---------|-----------|-----------|
+| 1 | /challenge-prd | [BLOCK] AC-6 state update mechanism unspecified | Optimistic removal from all local state maps; refetch on failure | Matches established codebase pattern |
+| 2 | /challenge-prd | [WARN] RLS DELETE policy unverified | Verified: `EXISTS (stories.author_id = auth.uid())` | Confirmed via DB query |
+| 3 | /challenge-prd | [WARN] Component placement ambiguous | Use `renderPointRow` injection, not shared StoryCardDetail | Prevents button leaking into docs/embeds |
+| 4 | /challenge-prd | [WARN] Surface count wrong (5 vs 7) | Fixed: 7 consumers of RemovePositionDialog | Includes doc-detail-page + StoryGuideChat |
+| 5 | /challenge-prd | [WARN] Split BR-1 from BR-2 | Split: BR-1 (dialog fix) ships separately as inline fix | Dialog fix is deletion-only, zero design decisions |
+| 6 | /challenge-prd | [NOTE] History trigger INSERT-only | Accepted: unlink audit trail out of scope | History is informational, never used for undo |
+
 ## Next Steps
 
-- [ ] Architecture review — confirm component decomposition (`/architect`)
+- [ ] Fix BR-1 inline (RemovePositionDialog — separate from this spec)
 - [ ] UX validation — confirm icon choice and button placement against design system (`/ux`)
 - [ ] Implementation (`/dev`)
