@@ -104,6 +104,100 @@ const CONTENT_LAYOUT = "flex-1 min-h-0 flex flex-col items-center justify-start 
 const CONTENT_LAYOUT_CENTERED = "flex-1 min-h-0 flex flex-col items-center justify-center px-6 pb-6 pt-16 space-y-8 max-w-lg mx-auto w-full overflow-y-auto live-scroll";
 
 // ============================================================================
+// VIEW STATE DECISION FUNCTION — pure logic, no React
+// ============================================================================
+
+/** Input for the view state decision function */
+export interface ViewStateInput {
+  sessionMode: string | undefined;
+  freePhase: string | undefined;
+  hasFreeSliderHandler: boolean;
+  waitingForPartner: boolean;
+  inCelebrationState: boolean;
+  isLocallyRating: boolean;
+  ratingPhase: string;
+  isChecker: boolean;
+  myRatingSubmitted: boolean | undefined;
+  partnerRatingSubmitted: boolean | undefined;
+  bothSubmitted: boolean;
+  checkerRating: number | undefined;
+  responderRating: number | undefined;
+}
+
+/** Discriminated union of all possible view states */
+export type ViewState =
+  | { view: 'free-mode' }
+  | { view: 'waiting-for-partner' }
+  | { view: 'local-rating'; showDrawer: boolean }
+  | { view: 'idle' }
+  | { view: 'checker-rating' }
+  | { view: 'responder-drawer' }
+  | { view: 'understanding' }
+  | { view: 'idle-fallback' };
+
+/**
+ * Pure function that determines which view to render based on session state.
+ * Encodes the 9-branch cascade priority in a single testable place.
+ * Order matters — each check is a higher-priority override of later checks.
+ */
+// eslint-disable-next-line react-refresh/only-export-components
+export function getViewState(input: ViewStateInput): ViewState {
+  const {
+    sessionMode, freePhase, hasFreeSliderHandler,
+    waitingForPartner, inCelebrationState,
+    isLocallyRating, ratingPhase, isChecker,
+    myRatingSubmitted, partnerRatingSubmitted, bothSubmitted,
+    checkerRating, responderRating,
+  } = input;
+
+  // Branch 1: Free mode (highest priority — completely different UI)
+  if (sessionMode !== 'guided' && (freePhase === 'unlocked' || freePhase === 'success') && hasFreeSliderHandler) {
+    return { view: 'free-mode' };
+  }
+
+  // Branch 2: Waiting for partner to acknowledge celebration
+  if (waitingForPartner && !inCelebrationState) {
+    return { view: 'waiting-for-partner' };
+  }
+
+  // Branch 3: Local rating (I clicked Speak, haven't submitted yet)
+  if (isLocallyRating) {
+    const partnerAlreadySubmitted = !!(myRatingSubmitted === undefined && partnerRatingSubmitted);
+    return { view: 'local-rating', showDrawer: partnerAlreadySubmitted };
+  }
+
+  // Branch 4: Idle (default screen)
+  if (ratingPhase === 'idle') {
+    return { view: 'idle' };
+  }
+
+  // Branch 5: Checker re-rating (after explain-back)
+  if (ratingPhase === 'rating' && isChecker && !myRatingSubmitted) {
+    return { view: 'checker-rating' };
+  }
+
+  // Branch 5a/5b: Waiting phase — one submitted, other hasn't
+  if (ratingPhase === 'waiting' || (myRatingSubmitted !== partnerRatingSubmitted)) {
+    const iHaveSubmitted = isChecker
+      ? checkerRating !== undefined
+      : responderRating !== undefined;
+
+    if (!iHaveSubmitted && partnerRatingSubmitted) {
+      return { view: 'responder-drawer' };
+    }
+    return { view: 'understanding' };
+  }
+
+  // Branch 6: Results/revealed/explain-back
+  if (ratingPhase === 'results' || ratingPhase === 'revealed' || ratingPhase === 'explain-back' || bothSubmitted) {
+    return { view: 'understanding' };
+  }
+
+  // Fallback: safe idle
+  return { view: 'idle-fallback' };
+}
+
+// ============================================================================
 // PARTNER LEFT SCREEN
 // ============================================================================
 
@@ -653,165 +747,159 @@ export function LiveModeView({
   // Used to determine whether to show celebration waiting vs idle waiting
   const inCelebrationState = bothSubmitted && checkerRating === 10;
 
-  // P562: Free mode routing — after guided mode's first round completes,
-  // handleCelebrationComplete sets freePhase: 'unlocked'. Render FreeModeView
-  // only for unlocked + success phases (guided mode handles everything before).
-  if (liveState.sessionMode !== 'guided' && (liveState.freePhase === 'unlocked' || liveState.freePhase === 'success') && onFreeSliderChange) {
-    return (
-      <div className="flex flex-col h-full">
-        <LiveHeader partnerName={partnerName} onExit={onExitMeeting} isPrivate={isPrivate} uploadHealth={uploadHealth} />
-        <FreeModeView
-          liveState={liveState}
-          partnerName={partnerName}
-          isCreator={isCreator ?? false}
-          onSliderChange={onFreeSliderChange}
-          onSpeakFreely={() => handleRequestSkip('good-enough')}
-          onRoundComplete={onFreeRoundComplete as () => void}
-          onDiscussAnother={onFreeDiscussAnother as () => void}
-          storyTitle={freeStoryTitle}
-          selectedStory={selectedStory}
-        />
-        {/* Reuse guided mode's confirmation dialog for free mode "Speak freely" */}
-        {confirmSkipDialog}
-      </div>
-    );
-  }
+  // ── View state decision (pure function, tested separately) ──────────
+  const viewState = getViewState({
+    sessionMode: liveState.sessionMode,
+    freePhase: liveState.freePhase,
+    hasFreeSliderHandler: !!onFreeSliderChange,
+    waitingForPartner,
+    inCelebrationState,
+    isLocallyRating,
+    ratingPhase,
+    isChecker,
+    myRatingSubmitted,
+    partnerRatingSubmitted,
+    bothSubmitted,
+    checkerRating,
+    responderRating,
+  });
 
-  // User clicked "Continue" but partner hasn't yet
-  // If in celebration state, let UnderstandingScreen handle the waiting UI
-  // If NOT in celebration state, show idle with disabled buttons
-  if (waitingForPartner && !inCelebrationState) {
-    return (
-      <>
-        <IdleScreen
-          partnerName={partnerName}
-          liveState={liveState}
-          onStartCheck={onStartCheck}
-          onStartProve={onStartProve}
-          onSkip={() => handleRequestSkip('good-enough')}
-          onExit={onExitMeeting}
-          hideHistory={true}
-          waitingForPartnerToContinue={true}
-          onClearStory={onClearStory}
-          selectedStory={selectedStory}
-          onPositionSelect={onPositionSelect}
-          isPrivate={isPrivate}
-          badgePersonName={badgePersonName}
-          badgePersonEarsCount={badgePersonEarsCount}
-          isStoryOwner={isAuthorOfSelected}
-          isGuest={isGuest}
-          currentUserName={currentUserName}
-          uploadHealth={uploadHealth}
-                  />
-        {skipNotificationDialog}
-        {confirmSkipDialog}
-      </>
-    );
-  }
+  // ── Render based on view state ─────────────────────────────────────
+  switch (viewState.view) {
+    case 'free-mode':
+      return (
+        <div className="flex flex-col h-full">
+          <LiveHeader partnerName={partnerName} onExit={onExitMeeting} isPrivate={isPrivate} uploadHealth={uploadHealth} />
+          <FreeModeView
+            liveState={liveState}
+            partnerName={partnerName}
+            isCreator={isCreator ?? false}
+            onSliderChange={onFreeSliderChange as (value: number) => void}
+            onSpeakFreely={() => handleRequestSkip('good-enough')}
+            onRoundComplete={onFreeRoundComplete as () => void}
+            onDiscussAnother={onFreeDiscussAnother as () => void}
+            storyTitle={freeStoryTitle}
+            selectedStory={selectedStory}
+          />
+          {confirmSkipDialog}
+        </div>
+      );
 
-  // V10: Local rating - user tapped "I spoke" but hasn't submitted yet
-  // This check comes FIRST - local state takes priority over shared state
-  // This is purely local, doesn't affect partner's screen
-  // BUT: if partner already submitted, show the drawer notification on top
-  if (isLocallyRating) {
-    const partnerAlreadySubmitted = liveState.checkerSubmitted && !isChecker;
+    case 'waiting-for-partner':
+      return (
+        <>
+          <IdleScreen
+            partnerName={partnerName}
+            liveState={liveState}
+            onStartCheck={onStartCheck}
+            onStartProve={onStartProve}
+            onSkip={() => handleRequestSkip('good-enough')}
+            onExit={onExitMeeting}
+            hideHistory={true}
+            waitingForPartnerToContinue={true}
+            onClearStory={onClearStory}
+            selectedStory={selectedStory}
+            onPositionSelect={onPositionSelect}
+            isPrivate={isPrivate}
+            badgePersonName={badgePersonName}
+            badgePersonEarsCount={badgePersonEarsCount}
+            isStoryOwner={isAuthorOfSelected}
+            isGuest={isGuest}
+            currentUserName={currentUserName}
+            uploadHealth={uploadHealth}
+          />
+          {skipNotificationDialog}
+          {confirmSkipDialog}
+        </>
+      );
 
-    return (
-      <>
-        <RatingScreenWithOptionalDrawer
-          partnerName={partnerName}
-          liveState={liveState}
-          onRatingSubmit={onRatingSubmit}
-          onBack={onCancelLocalRating}
-          showDrawer={partnerAlreadySubmitted}
-          selectedStory={selectedStory}
-          selectedPoint={selectedPoint}
-          onPositionSelect={onPositionSelect}
-          onClearStory={onClearStory}
-          onSkip={() => handleRequestSkip('decline')}
-          onExit={onExitMeeting}
-          localFlowType={localFlowType}
-          isPrivate={isPrivate}
-          badgePersonName={badgePersonName}
-          badgePersonEarsCount={badgePersonEarsCount}
-          isStoryOwner={isAuthorOfSelected}
-          isGuest={isGuest}
-          uploadHealth={uploadHealth}
-                  />
-        {skipNotificationDialog}
-        {confirmSkipDialog}
-      </>
-    );
-  }
+    case 'local-rating':
+      return (
+        <>
+          <RatingScreenWithOptionalDrawer
+            partnerName={partnerName}
+            liveState={liveState}
+            onRatingSubmit={onRatingSubmit}
+            onBack={onCancelLocalRating}
+            showDrawer={viewState.showDrawer}
+            selectedStory={selectedStory}
+            selectedPoint={selectedPoint}
+            onPositionSelect={onPositionSelect}
+            onClearStory={onClearStory}
+            onSkip={() => handleRequestSkip('decline')}
+            onExit={onExitMeeting}
+            localFlowType={localFlowType}
+            isPrivate={isPrivate}
+            badgePersonName={badgePersonName}
+            badgePersonEarsCount={badgePersonEarsCount}
+            isStoryOwner={isAuthorOfSelected}
+            isGuest={isGuest}
+            uploadHealth={uploadHealth}
+          />
+          {skipNotificationDialog}
+          {confirmSkipDialog}
+        </>
+      );
 
-  // Phase: Idle - show Check/Prove buttons (P23.2 start screen)
-  // IMPORTANT: Responder stays on idle until checker submits their rating
-  if (ratingPhase === 'idle') {
-    return (
-      <>
-        <IdleScreen
-          partnerName={partnerName}
-          liveState={liveState}
-          onStartCheck={onStartCheck}
-          onStartProve={onStartProve}
-          onSkip={() => handleRequestSkip('good-enough')}
-          onExit={onExitMeeting}
-          userId={userId}
-          onSelectStory={onSelectStory}
-          onSelectPoint={onSelectPoint}
-          onClearStory={onClearStory}
-          selectedStory={selectedStory}
-          onPositionSelect={onPositionSelect}
-          isPrivate={isPrivate}
-          badgePersonName={badgePersonName}
-          badgePersonEarsCount={badgePersonEarsCount}
-          isStoryOwner={isAuthorOfSelected}
-          isGuest={isGuest}
-          currentUserName={currentUserName}
-          uploadHealth={uploadHealth}
-          sessionMode={liveState.sessionMode}
-          onSessionModeChange={onSessionModeChange}
-                  />
-        {skipNotificationDialog}
-        {confirmSkipDialog}
-      </>
-    );
-  }
+    case 'idle':
+    case 'idle-fallback':
+      return (
+        <>
+          <IdleScreen
+            partnerName={partnerName}
+            liveState={liveState}
+            onStartCheck={onStartCheck}
+            onStartProve={onStartProve}
+            onSkip={() => handleRequestSkip('good-enough')}
+            onExit={onExitMeeting}
+            userId={userId}
+            onSelectStory={onSelectStory}
+            onSelectPoint={onSelectPoint}
+            onClearStory={onClearStory}
+            selectedStory={selectedStory}
+            onPositionSelect={onPositionSelect}
+            isPrivate={isPrivate}
+            badgePersonName={badgePersonName}
+            badgePersonEarsCount={badgePersonEarsCount}
+            isStoryOwner={isAuthorOfSelected}
+            isGuest={isGuest}
+            currentUserName={currentUserName}
+            uploadHealth={uploadHealth}
+            sessionMode={liveState.sessionMode}
+            onSessionModeChange={onSessionModeChange}
+          />
+          {skipNotificationDialog}
+          {confirmSkipDialog}
+        </>
+      );
 
-  // Phase: Rating - checker is re-rating (after change rating)
-  if (ratingPhase === 'rating' && isChecker && !myRatingSubmitted) {
-    return (
-      <>
-        <RatingScreen
-          partnerName={partnerName}
-          liveState={liveState}
-          isChecker={isChecker}
-          onRatingSubmit={onRatingSubmit}
-          onBack={onBackToIdle}
-          onExit={onExitMeeting}
-          selectedStory={selectedStory}
-          selectedPoint={selectedPoint}
-          onPositionSelect={onPositionSelect}
-          onClearStory={onClearStory}
-          isPrivate={isPrivate}
-          badgePersonName={badgePersonName}
-          badgePersonEarsCount={badgePersonEarsCount}
-          isStoryOwner={isAuthorOfSelected}
-          isGuest={isGuest}
-          uploadHealth={uploadHealth}
-                  />
-        {skipNotificationDialog}
-        {confirmSkipDialog}
-      </>
-    );
-  }
+    case 'checker-rating':
+      return (
+        <>
+          <RatingScreen
+            partnerName={partnerName}
+            liveState={liveState}
+            isChecker={isChecker}
+            onRatingSubmit={onRatingSubmit}
+            onBack={onBackToIdle}
+            onExit={onExitMeeting}
+            selectedStory={selectedStory}
+            selectedPoint={selectedPoint}
+            onPositionSelect={onPositionSelect}
+            onClearStory={onClearStory}
+            isPrivate={isPrivate}
+            badgePersonName={badgePersonName}
+            badgePersonEarsCount={badgePersonEarsCount}
+            isStoryOwner={isAuthorOfSelected}
+            isGuest={isGuest}
+            uploadHealth={uploadHealth}
+          />
+          {skipNotificationDialog}
+          {confirmSkipDialog}
+        </>
+      );
 
-  // Phase: Waiting (one user submitted, waiting for partner)
-  // Responder: hasn't submitted yet, checker has → show IdleScreen with drawer
-  if (ratingPhase === 'waiting' || (myRatingSubmitted !== partnerRatingSubmitted)) {
-    const iHaveSubmitted = (isChecker ? checkerRating : responderRating) !== undefined;
-
-    if (!iHaveSubmitted && partnerRatingSubmitted) {
+    case 'responder-drawer':
       return (
         <>
           <ResponderWaitingWithDrawer
@@ -832,123 +920,51 @@ export function LiveModeView({
             uploadHealth={uploadHealth}
             sessionMode={liveState.sessionMode}
             onSessionModeChange={onSessionModeChange}
-                      />
+          />
           {skipNotificationDialog}
           {confirmSkipDialog}
         </>
       );
-    }
 
-    // User who submitted: show unified UnderstandingScreen in 'waiting' phase
-    return (
-      <>
-        <UnderstandingScreen
-          liveState={liveState}
-          currentUserName={currentUserName}
-          partnerName={partnerName}
-          isChecker={isChecker}
-          checkerRating={checkerRating}
-          responderRating={responderRating}
-          onExplainBackStart={onExplainBackStart}
-          onExplainBackRate={onExplainBackRate}
-          onExplainBackDone={onExplainBackDone}
-          onSkip={() => handleRequestSkip('skip')}
-          onBackToIdle={onBackToIdle}
-          onExit={onExitMeeting}
-          onCelebrationContinue={handleCelebrationContinue}
-          onSharePerspective={onSharePerspective}
-          onAskToExplainFirst={onAskToExplainFirst}
-          onContinueAsListener={onContinueAsListener}
-          onInsistToSpeak={onInsistToSpeak}
-          onLetThemSpeak={onLetThemSpeak}
-          onCancelNegotiation={onCancelNegotiation}
-          onClarifyStart={onClarifyStart}
-          onClarifyDone={onClarifyDone}
-          isPrivate={isPrivate}
-          selectedStory={selectedStory}
-          onPositionSelect={onPositionSelect}
-          onClearStory={onClearStory}
-          isGuest={isGuest}
-          isCreator={isCreator}
-          uploadHealth={uploadHealth}
-                  />
-        {skipNotificationDialog}
-        {confirmSkipDialog}
-      </>
-    );
+    case 'understanding':
+      return (
+        <>
+          <UnderstandingScreen
+            liveState={liveState}
+            currentUserName={currentUserName}
+            partnerName={partnerName}
+            isChecker={isChecker}
+            checkerRating={checkerRating}
+            responderRating={responderRating}
+            onExplainBackStart={onExplainBackStart}
+            onExplainBackRate={onExplainBackRate}
+            onExplainBackDone={onExplainBackDone}
+            onSkip={() => handleRequestSkip('good-enough')}
+            onBackToIdle={onBackToIdle}
+            onExit={onExitMeeting}
+            onCelebrationContinue={handleCelebrationContinue}
+            onSharePerspective={onSharePerspective}
+            onAskToExplainFirst={onAskToExplainFirst}
+            onContinueAsListener={onContinueAsListener}
+            onInsistToSpeak={onInsistToSpeak}
+            onLetThemSpeak={onLetThemSpeak}
+            onCancelNegotiation={onCancelNegotiation}
+            onClarifyStart={onClarifyStart}
+            onClarifyDone={onClarifyDone}
+            isPrivate={isPrivate}
+            selectedStory={selectedStory}
+            onPositionSelect={onPositionSelect}
+            onClearStory={onClearStory}
+            isStoryOwner={isAuthorOfSelected}
+            isGuest={isGuest}
+            isCreator={isCreator}
+            uploadHealth={uploadHealth}
+          />
+          {skipNotificationDialog}
+          {confirmSkipDialog}
+        </>
+      );
   }
-
-  // Phase: Results, Revealed, Explain-back - all handled by UnderstandingScreen
-  if (ratingPhase === 'results' || ratingPhase === 'revealed' || ratingPhase === 'explain-back' || bothSubmitted) {
-    return (
-      <>
-        <UnderstandingScreen
-          liveState={liveState}
-          currentUserName={currentUserName}
-          partnerName={partnerName}
-          isChecker={isChecker}
-          checkerRating={checkerRating}
-          responderRating={responderRating}
-          onExplainBackStart={onExplainBackStart}
-          onExplainBackRate={onExplainBackRate}
-          onExplainBackDone={onExplainBackDone}
-          onSkip={() => handleRequestSkip('good-enough')}
-          onBackToIdle={onBackToIdle}
-          onExit={onExitMeeting}
-          onCelebrationContinue={handleCelebrationContinue}
-          onSharePerspective={onSharePerspective}
-          onAskToExplainFirst={onAskToExplainFirst}
-          onContinueAsListener={onContinueAsListener}
-          onInsistToSpeak={onInsistToSpeak}
-          onLetThemSpeak={onLetThemSpeak}
-          onCancelNegotiation={onCancelNegotiation}
-          onClarifyStart={onClarifyStart}
-          onClarifyDone={onClarifyDone}
-          isPrivate={isPrivate}
-          selectedStory={selectedStory}
-          onPositionSelect={onPositionSelect}
-          onClearStory={onClearStory}
-          isStoryOwner={isAuthorOfSelected}
-          isGuest={isGuest}
-          isCreator={isCreator}
-          uploadHealth={uploadHealth}
-                  />
-        {skipNotificationDialog}
-        {confirmSkipDialog}
-      </>
-    );
-  }
-
-  // Fallback to idle screen
-  return (
-    <>
-      <IdleScreen
-        partnerName={partnerName}
-        liveState={liveState}
-        onStartCheck={onStartCheck}
-        onStartProve={onStartProve}
-        onSkip={() => handleRequestSkip('good-enough')}
-        onExit={onExitMeeting}
-        userId={userId}
-        onSelectStory={onSelectStory}
-        onSelectPoint={onSelectPoint}
-        onClearStory={onClearStory}
-        selectedStory={selectedStory}
-        onPositionSelect={onPositionSelect}
-        isPrivate={isPrivate}
-        badgePersonName={badgePersonName}
-        badgePersonEarsCount={badgePersonEarsCount}
-        isStoryOwner={isAuthorOfSelected}
-        isGuest={isGuest}
-        currentUserName={currentUserName}
-        uploadHealth={uploadHealth}
-        sessionMode={liveState.sessionMode}
-        onSessionModeChange={onSessionModeChange}
-              />
-      {skipNotificationDialog}
-      {confirmSkipDialog}
-    </>
-  );
 }
 
 // ============================================================================
