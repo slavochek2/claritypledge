@@ -1,10 +1,13 @@
 ---
 status: in-progress
 type: story
-rank: 1000029.0
+rank: 0.031
 workstream: foundation
-created_date: 2026-03-30
-tags: [visibility, p607-follow-up, ux]
+created_date: 2026-03-30T00:00:00.000Z
+tags:
+  - visibility
+  - p607-follow-up
+  - ux
 flow: dev
 delivery_stage: uat
 ---

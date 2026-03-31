@@ -2,6 +2,37 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-30 [process]: /verify rewritten — Playwright-first, Chrome only for visual QA
+
+**Context:** `/verify` relied entirely on Claude in Chrome for all verification — functional checks, auth flows, two-party sessions, toast verification. This was architecturally wrong: Chrome extension dies after ~5min (upstream MV3 service worker timeout, #27826/#15239), can't run two concurrent browser contexts, can't run in CI, costs 10-20x more tokens than headless. Meanwhile, Playwright infrastructure already had auth injection (`setTestSession`), two-context fixtures (`createTwoPartySession`), DB polling, mic mocking, and 20+ spec files — but `/verify` treated Playwright as a footnote.
+**Decision:** Rewrote `/verify` to auto-route each UAT scenario to the right tool. Functional checks (auth, forms, toasts, two-party, navigation, DB state) → Playwright headless. Visual QA (layout, styling, mobile) → Claude in Chrome, auto-triggered only when UI files changed. No flags — the skill reads the spec, classifies scenarios, and picks the tool. Prod mode auto-detected from branch + delivery_stage.
+**Alternatives rejected:** (A) Adding retry/reconnect logic around Chrome extension timeouts — fights the architecture instead of using the right tool. (B) Splitting into `/verify` + `/verify:visual` — adds user decision overhead; auto-routing eliminates it. (C) Keeping Chrome as primary with Playwright as supplement — inverts the reliability hierarchy.
+**Consequences:** `/verify` sessions no longer die mid-run. Two-party testing uses native Playwright concurrency. Generated test files (`e2e/p{N}-verify.spec.ts`) persist as regression tests. Chrome extension usage limited to short visual-only sessions (~2min). `/sim` unchanged — remains a separate UX exploration tool.
+**References:** `.claude/commands/slava/build/verify/SKILL.md`, `docs/technical/browser-tools.md`
+
+## 2026-03-30 [product]: Clarity Canvas is NOT the landing page — founder transparency ≠ user experience
+
+**Context:** During article planning, the idea surfaced to make the Clarity Canvas the landing page — visitors arrive, see the business model, and challenge assumptions. This conflates two fundamentally different experiences.
+**Decision:** The Clarity Canvas serves *founder transparency* ("here's what I believe, challenge my assumptions") — an intellectual exercise for potential co-builders, advisors, and sophisticated observers. The product entry point (/live, Letters) serves *user experience* ("experience YOUR comprehension gap") — a visceral personal discovery. These are different audiences at different moments. The canvas exists at its own URL, not as the landing page.
+**Alternatives rejected:** Canvas as landing page — mixes business model review with product onboarding. Visitors who need to experience their own gap would instead analyze someone else's business model.
+**Consequences:** Landing page continues to drive toward /live or Letters. Canvas is linked from the article (a11) and from a dedicated page, but is not the primary funnel entry.
+
+## 2026-03-30 [product]: Clarity Canvas = canvas-view of a clarity doc, not a new entity
+
+**Context:** The Clarity Canvas concept (Lean Canvas + 3 missing boxes: disagreement filing, ikigai fit, positive externalities) needed a technical home. Options: build a new entity/page, or reuse existing clarity docs (P551) with a custom renderer. Decided during article prioritization session — a11 (Clarity Canvas journey) needs a living artifact to link to, and the workshop needs participants to engage with canvas content via the protocol.
+**Decision:** A Clarity Canvas IS a clarity doc tagged/typed as `canvas`, rendered in a grid/box layout instead of a linear story list. Each canvas section (Problem, Solution, etc. + 3 new boxes) maps to stories tagged by section. Points extracted from those stories are the challengeable assumptions. No new database entities — same doc/story/point model, different renderer. Content filing (lean canvas → stories/points) and renderer work can proceed in parallel with P581 (Letters) since P551 is already shipped.
+**Alternatives rejected:** (1) P554 kanban-only canvas page — internal tooling, doesn't face the market. (2) New canvas entity with its own schema — unnecessary when docs already contain stories/points. (3) Static page with no protocol integration — loses the unique value (visitors challenge assumptions via positions).
+**Consequences:** P611 filed for parallel execution. Canvas renderer depends only on P551 (done). Canvas-as-letter (sending for comprehension assessment) depends on P581. The article (a11) waits for both the canvas-doc AND workshop data. Co-builder casting call emerges from the article, not built separately.
+**References:** [P611 spec](features/p611_clarity_canvas_renderer.md), [goals.md](goals.md), [a11 article](../content/articles/a11_clarity-canvas-journey.md)
+
+## 2026-03-30 [product]: Article sequence — Letters → 9-points workshop → canvas → a11
+
+**Context:** Multiple article ideas existed (a9-a12). Needed to decide which to write next and in what order. Key insight: the false-belief workshop (H-WTP-Pain test mechanism) requires P581 (Letters with comprehension assessment) to deliver the sealed-bid gap reveal — without it, participants can't engage with the 9 false-belief stories using the protocol's unique power. A Clarity Canvas workshop requires participants to first understand stories/points (via Letters). So: Letters → 9-points workshop → canvas → article, not canvas first.
+**Decision:** (1) Build P581 (Letters) as prerequisite for any protocol-powered workshop. (2) Run 9-points workshop with Letters — the H-WTP-Pain test. (3) Build + publish own Clarity Canvas as canvas-doc (parallel with P581). (4) Write a11 with real workshop data + live canvas link. (5) a9 (theoretical) writes after a11 when workshop data grounds the thesis.
+**Alternatives rejected:** (1) Write a11 before workshop — produces a planning document, not a field report. (2) Build canvas before Letters — participants can't engage meaningfully without the comprehension assessment mechanism. (3) Substitute canvas for landing page — different experience (business model vs. personal comprehension gap).
+**Consequences:** goals.md updated with refined sequence. a9/a10/a11/a12 annotated with strategic intent and dependencies. P554 (kanban canvas page) parked — internal tooling, not market-facing.
+**References:** [goals.md](goals.md), [P581 spec](../features/p581_letters_with_comprehension_assessment.md)
+
 ## 2026-03-30 [product]: "Open mode" replaces "Free mode" in /live
 
 **Context:** "Free mode" implied guided mode was restrictive/complex. Co-founders new to calibrated communication shouldn't feel one mode is "easy" and the other "hard."

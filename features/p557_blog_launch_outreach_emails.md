@@ -1,7 +1,7 @@
 ---
 status: week
 type: task
-rank: 1.563
+rank: 0.391
 tags:
   - content
   - outreach

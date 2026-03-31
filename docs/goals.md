@@ -2,7 +2,7 @@
 
 Concrete next steps in priority order. Updated 2026-03-24.
 
-**Last updated:** 2026-03-30
+**Last updated:** 2026-03-30 (refined 2026-03-30: Clarity Canvas sequence)
 
 Flywheel: see [lean-canvas.md](lean-canvas.md#channels--flywheel). Steps below follow that sequence.
 
@@ -13,15 +13,17 @@ Flywheel: see [lean-canvas.md](lean-canvas.md#channels--flywheel). Steps below f
 1. [x] P560: Story filing without position — prerequisite for workshop (epic-story-first)
 2. [x] P545: ladischenski.com positioning update
 3. [x] P551: Clarity Docs — curated story collections, compose/edit surface for letters
-4. [ ] P581: Letters with comprehension assessment — core async gap screening (doc-sourced, unified with P551)
-5. [ ] P562: /live simplification — strip to orchestration, reduce drop-off in group settings
+4. [ ] P581: Letters with comprehension assessment — core async gap screening (doc-sourced, unified with P551). Prerequisite for any workshop that uses the sealed-bid gap reveal.
+5. [x] P562: /live simplification — strip to orchestration, reduce drop-off in group settings
 6. [x] P567: File 8 false belief stories + points as workshop curriculum
-7. [ ] Run first false-belief workshop (offline, cowork in Koh Lanta) — test: do participants want to establish verified understanding and create Clarity Partner Agreements?
-8. [ ] Write blog article from workshop experience — real data, not theory
-9. [ ] Promote article via LinkedIn, communities
-10. [ ] Run facilitated co-founder session with pay-what-it's-worth upfront
-11. [ ] Approach 1-2 coaches — AFTER workshops + paid sessions prove model (H-CoachChannel)
-12. [ ] **Partner recruitment gate:** After 3 PWIW sessions with revenue signal, begin partner outreach using session recordings + protocol documentation as recruitment material. This is where "builder, not practitioner" becomes actionable.
+7. [ ] [PARALLEL with P581] File lean canvas content as stories/points in prod + build Clarity Canvas renderer (canvas-view skin for a clarity doc). P551 is already built — this is content filing + UI work, no P581 dependency.
+8. [ ] Run first 9-points workshop with Clarity Letters — participants receive letter, rate understanding of each false-belief story, see their gaps. Test H-WTP-Pain with debrief questions: "What did holding this cost you?"
+9. [ ] Publish own Clarity Canvas as a canvas-doc — YOUR hypotheses/assumptions as stories, visitors challenge via positions. Uses infrastructure from steps 4+7.
+10. [ ] Write a11 (Clarity Canvas journey article) — links to live canvas, uses real workshop data. Also serves as co-builder signal flare.
+11. [ ] Promote a11 via LinkedIn, rationalist communities, founder communities
+12. [ ] Run facilitated co-founder session with pay-what-it's-worth upfront
+13. [ ] Approach 1-2 coaches — AFTER workshops + paid sessions prove model (H-CoachChannel)
+14. [ ] Partner recruitment gate: After 3 PWIW sessions with revenue signal, begin partner outreach using session recordings + protocol documentation as recruitment material.
 
 ## Dos
 
@@ -40,7 +42,7 @@ Flywheel: see [lean-canvas.md](lean-canvas.md#channels--flywheel). Steps below f
 
 - Don't ask completed pairs for payment retroactively (trust breaker)
 - Don't approach coaches before having workshops + paid sessions as proof
-- Don't build features not on the P551 → P581 → P562 → P567 → workshop path
+- Don't build features not on the P551 → P581 → P562 → P567 → workshop path (exception: Clarity Canvas renderer can be built parallel with P581 since P551 is done)
 - Don't run sessions on abstract/philosophical topics — values and real decisions only
 - Don't confuse curiosity ("that's cool") with pain ("this cost us X")
 - Don't present your points as truth — present as your position, let the protocol work
@@ -50,12 +52,15 @@ Flywheel: see [lean-canvas.md](lean-canvas.md#channels--flywheel). Steps below f
 ## Last Weekly Review (2026-03-23)
 
 ```
-STOP:        Any feature work not on P551 → P581 → P562 → P567 → workshop path
-START:       /architect P551+P581 unified, then /dev both
+STOP:        Any feature work not on P581 → workshop → canvas → article path
+             (exception: canvas renderer parallel with P581)
+START:       Build P581, file lean canvas as stories/points in parallel
 SCARY THING: Post workshop invite at Koh Lanta cowork by April 4
 HYPOTHESIS:  Workshop participants take de-risking package (PWIW) + sign
              Clarity Partner Agreement — at least 1 pair from first workshop
 KILL DATE:   0/2 workshops → paying pair by April 25 = pipeline doesn't convert
+KEY INSIGHT: Clarity Canvas = canvas-view of a clarity doc, not a new entity.
+             Stories/points ARE the canvas boxes. Custom renderer + tagging.
 ```
 
 ## See Also

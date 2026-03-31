@@ -156,6 +156,22 @@ Authors see verification results across all listeners:
 
 ---
 
+## Clarity Canvas
+
+> **One-liner:** A Clarity Canvas is a Clarity Doc rendered as a structured grid — Lean Canvas + 3 missing boxes, where each box contains challengeable stories and points.
+
+**What it is:** A canvas-view of a Clarity Doc, not a new entity. Each canvas section (Problem, Solution, Channels, etc.) maps to stories tagged by section. Points extracted from those stories are the challengeable assumptions — visitors take positions to agree or disagree. The 3 boxes Lean Canvas doesn't have: **Disagreement Filing** (where positions diverge), **Ikigai Fit** (founder-idea alignment), and **Positive Externalities** (who else benefits beyond the customer).
+
+**What it is NOT:** A static business model diagram. The canvas is alive — stories accumulate, positions shift, gaps surface. It's also not the user-facing product entry point. The canvas shows a *founder's business model* for transparency and challenge; the product (/live, Letters) gives *users* their own comprehension gap experience. These serve different audiences at different moments.
+
+**Relationship to Docs and Letters:** A Clarity Canvas IS a Clarity Doc (tagged as `canvas`), rendered differently. A Clarity Letter can snapshot the canvas for comprehension assessment — "do you understand my assumptions before you challenge them?"
+
+**URL:** TBD — likely `/canvas/:docId` or a canvas-view toggle on `/d/:docId`
+
+*See also: [P611 spec](../features/p611_clarity_canvas_renderer.md), [decisions.md](decisions.md) — "Clarity Canvas = canvas-view of a clarity doc"*
+
+---
+
 ## Clarity Doc
 
 > **One-liner:** A Clarity Doc is a curated collection of stories — the compose/edit surface for Clarity Letters.
