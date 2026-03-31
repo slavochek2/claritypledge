@@ -351,6 +351,22 @@ Current AI training faces a calibration gap:
 
 ---
 
+## Verification Outcome States
+
+When understanding is verified (via /live paraphrase or Clarity Letter assessment), three outcomes are possible:
+
+| State | What happened | How it shows on grid | How it shows in stories |
+|-------|---------------|---------------------|----------------------|
+| **Flip** | Understanding increased AND position changed. The prior position was based on misunderstanding. | Dot moves up (understanding ↑) AND left/right (agreement shifts) | Story explains what changed: "I thought you meant X, now I see you meant Y — I agree" |
+| **Fork** | Understanding increased BUT position holds because both interpretations are valid. | Dot moves up only (understanding ↑, agreement stays) | Story reveals two frames: "Under your reading I'd agree, under mine I still disagree" |
+| **Verified agreement/disagreement** | Understanding increased, position holds. Genuine alignment or genuine conflict confirmed. | Dot moves up only (understanding ↑, agreement stays) | Story confirms comprehension: "I understand what you mean. I still disagree because Z" |
+
+**Key insight:** Fork and verified disagreement look identical on the grid (dot moves up, position holds). The distinction lives in the story content, not the grid. The grid triages (WHERE are the gaps?). Stories diagnose (WHAT kind of gap?). The facilitator names the pattern.
+
+**The "clarity flip" is one outcome of verification, not the primary one.** Verification produces all three states. The product's value is the verification process itself — surfacing what's actually going on.
+
+---
+
 ## Verification Threshold
 
 **≥8/10 = Verified Understanding**
