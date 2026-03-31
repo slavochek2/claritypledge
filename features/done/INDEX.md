@@ -1,7 +1,7 @@
 # Done Features Index
 
 Quick reference for past completed work. Consult when starting work on a related topic.
-Last updated: 2026-03-30 (P562 /live Free Mode closed)
+Last updated: 2026-03-31 (P610 Visibility Line Indicators)
 
 ---
 
@@ -36,6 +36,7 @@ Last updated: 2026-03-30 (P562 /live Free Mode closed)
 
 ## Points & Stories
 
+- **P610** (Mar 31) Visibility Line Indicators — shared VisibilityLine component across 5 creation flows; mapPointSummaryFromDb was missing visibility column (icons always showed globe); optimistic PointSummary also needed visibility; doc_stories FK needed CASCADE
 - **P607** (Mar 30) Visibility Inheritance on Creation — all 3 creation paths (story-detail, create-story, StoryGuideChat) must pass parent visibility; code review caught TDZ bug and missed path
 - **P592** (Mar 27) Fix Hashtag Update — DB trigger as safety net for derived columns; if N call sites must all compute a value, move it to a trigger
 - **P591** (Mar 27) Story Supporting Images — GCS V4 signed URL PUT must include ALL SignedHeaders (x-goog-content-length-range); images are story-level metadata not version-level; use authenticated edge functions for GCS uploads, never the old unauthenticated Cloud Function

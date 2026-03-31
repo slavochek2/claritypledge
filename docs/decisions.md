@@ -2,6 +2,21 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-31 [technical]: Shared VisibilityLine component for all creation flows (P610)
+
+**Context:** P607 added visibility inheritance but UX didn't reflect it. Create-story-from-point showed "Publish Public Story" (globe) when the content would be private. 5 creation flows had inconsistent patterns — some showed banners, some didn't. Two additional bugs found: `mapPointSummaryFromDb` never selected `visibility` from DB (all point icons showed globe), and optimistic `PointSummary` construction after point creation also missed it.
+**Decision:** Created `<VisibilityLine />` shared component: amber for private, blue for public, with source text. Applied to all 5 creation flows. Pattern: banner above textarea when no context card; inside context card when one exists. Button labels always match visibility.
+**Alternatives rejected:** Per-flow inline banners — duplicates code, inconsistency guaranteed.
+**Consequences:** Any new creation flow must include VisibilityLine. The `mapPointSummaryFromDb` mapper and `DbStoryPointWithPoint` type must include any new columns added to points.
+**References:** `src/app/components/shared/visibility-line.tsx`, P610 spec
+
+## 2026-03-31 [product]: RemovePositionDialog warns of unlink that doesn't happen — needs fix (Status: proposed)
+
+**Context:** P401 (Feb) added DB trigger cascading position removal to story unlink + warning dialog. P560 (Mar 12) made positions and stories independent. P576 (Mar 23) dropped the cascade trigger. The dialog text was never updated — it still warns "removing position will unlink stories" but nothing happens. Separate issue: no UI exists to unlink a point from a story (backend `unlinkPointFromStory()` is ready, P131 deferred the UI).
+**Decision:** (Status: proposed) Fix dialog to remove story-unlink warning. Add unlink button to story detail page (author-only, confirmation dialog, × icon at point row bottom-right). Points are immutable — unlink removes junction row only.
+**Alternatives rejected:** Restoring the P401 cascade trigger — contradicts P560 independence design.
+**Consequences:** New spec needed. RemovePositionDialog simplified. Unlink UI added to story detail page.
+
 ## 2026-03-31 [technical]: All story child FK constraints must use CASCADE — doc_stories was NO ACTION
 
 **Context:** Story deletion from docs UI failed with FK violation. `doc_stories_story_id_fkey` was Postgres default (NO ACTION) while every other story child table (`story_points`, `story_versions`, `story_calibrations`) used CASCADE. The inconsistency was invisible until a user flow triggered the delete path.
