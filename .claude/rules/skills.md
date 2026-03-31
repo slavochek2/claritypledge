@@ -113,13 +113,3 @@ Then spawn subagent with prompt: "Here is the content of file_a.md: [content]. H
 ```
 
 **Why:** "Read the files yourself" in a subagent prompt is a no-op — subagents have no file access. Without inline content, the subagent either hallucinates or fails silently.
-
----
-
-## Skill File Size Convention
-
-Skill files should stay under 400 lines. Above 400 lines usually means implementation detail (macros, inline code, worked examples) that belongs in helpers or separate docs.
-
-**When editing a skill file**, check its line count (`wc -l`). If already above 400 or your edit would push it past, extract the heaviest section into a helper file or `docs/technical/` before proceeding.
-
-This is a convention, not a hard gate.
