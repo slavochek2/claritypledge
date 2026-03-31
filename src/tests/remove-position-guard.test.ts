@@ -120,12 +120,10 @@ describe('checkLinkedStories', () => {
 // We mock the entire module so we control checkLinkedStories and removePosition.
 // ---------------------------------------------------------------------------
 
-const mockCheckLinkedStories = vi.fn();
 const mockRemovePosition = vi.fn();
 
 vi.mock('@/app/data/points-service', () => ({
   pointsService: {
-    checkLinkedStories: (...args: unknown[]) => mockCheckLinkedStories(...args),
     removePosition: (...args: unknown[]) => mockRemovePosition(...args),
   },
 }));
@@ -137,13 +135,11 @@ describe('useRemovePositionGuard', () => {
   });
 
   // ─────────────────────────────────────────────────────────────────────────
-  // count === 0 → dialog still opens (profile message shown, no story count)
+  // P576/P616: Dialog opens immediately — no checkLinkedStories, no story count
   // ─────────────────────────────────────────────────────────────────────────
 
-  describe('when no stories are linked (count === 0)', () => {
+  describe('opening the dialog', () => {
     it('opens the dialog without calling removePosition immediately', async () => {
-      mockCheckLinkedStories.mockResolvedValue(0);
-
       const { useRemovePositionGuard } = await import(
         '@/app/components/shared/remove-position-dialog'
       );
@@ -161,28 +157,7 @@ describe('useRemovePositionGuard', () => {
       expect(mockRemovePosition).not.toHaveBeenCalled();
     });
 
-    it('opens the dialog with linkedStoryCount === 0 when count is 0', async () => {
-      mockCheckLinkedStories.mockResolvedValue(0);
-
-      const { useRemovePositionGuard } = await import(
-        '@/app/components/shared/remove-position-dialog'
-      );
-
-      const { result } = renderHook(() =>
-        useRemovePositionGuard({ userId: 'user-1' })
-      );
-
-      await act(async () => {
-        await result.current.guardedRemovePosition('point-1');
-      });
-
-      expect(result.current.dialogProps.open).toBe(true);
-      expect(result.current.dialogProps.linkedStoryCount).toBe(0);
-    });
-
-    it('calls onAfterRemove after confirm when count is 0', async () => {
-      mockCheckLinkedStories.mockResolvedValue(0);
-
+    it('calls onAfterRemove after confirm', async () => {
       const { useRemovePositionGuard } = await import(
         '@/app/components/shared/remove-position-dialog'
       );
@@ -206,56 +181,11 @@ describe('useRemovePositionGuard', () => {
   });
 
   // ─────────────────────────────────────────────────────────────────────────
-  // count > 0 → dialog opens
-  // ─────────────────────────────────────────────────────────────────────────
-
-  describe('when stories are linked (count > 0)', () => {
-    it('opens the warning dialog and does NOT call removePosition immediately', async () => {
-      mockCheckLinkedStories.mockResolvedValue(2);
-
-      const { useRemovePositionGuard } = await import(
-        '@/app/components/shared/remove-position-dialog'
-      );
-
-      const { result } = renderHook(() =>
-        useRemovePositionGuard({ userId: 'user-1' })
-      );
-
-      await act(async () => {
-        await result.current.guardedRemovePosition('point-1');
-      });
-
-      expect(result.current.dialogProps.open).toBe(true);
-      expect(mockRemovePosition).not.toHaveBeenCalled();
-    });
-
-    it('exposes the linked story count in dialogProps', async () => {
-      mockCheckLinkedStories.mockResolvedValue(2);
-
-      const { useRemovePositionGuard } = await import(
-        '@/app/components/shared/remove-position-dialog'
-      );
-
-      const { result } = renderHook(() =>
-        useRemovePositionGuard({ userId: 'user-1' })
-      );
-
-      await act(async () => {
-        await result.current.guardedRemovePosition('point-1');
-      });
-
-      expect(result.current.dialogProps.linkedStoryCount).toBe(2);
-    });
-  });
-
-  // ─────────────────────────────────────────────────────────────────────────
   // Cancel — position kept intact
   // ─────────────────────────────────────────────────────────────────────────
 
   describe('cancel in dialog', () => {
     it('closes the dialog without calling removePosition', async () => {
-      mockCheckLinkedStories.mockResolvedValue(1);
-
       const { useRemovePositionGuard } = await import(
         '@/app/components/shared/remove-position-dialog'
       );
@@ -264,13 +194,11 @@ describe('useRemovePositionGuard', () => {
         useRemovePositionGuard({ userId: 'user-1' })
       );
 
-      // Open dialog
       await act(async () => {
         await result.current.guardedRemovePosition('point-1');
       });
       expect(result.current.dialogProps.open).toBe(true);
 
-      // Cancel
       act(() => {
         result.current.dialogProps.onCancel();
       });
@@ -286,8 +214,6 @@ describe('useRemovePositionGuard', () => {
 
   describe('confirm in dialog', () => {
     it('calls removePosition with the correct arguments and closes the dialog', async () => {
-      mockCheckLinkedStories.mockResolvedValue(1);
-
       const { useRemovePositionGuard } = await import(
         '@/app/components/shared/remove-position-dialog'
       );
@@ -296,12 +222,10 @@ describe('useRemovePositionGuard', () => {
         useRemovePositionGuard({ userId: 'user-1' })
       );
 
-      // Open dialog
       await act(async () => {
         await result.current.guardedRemovePosition('point-1');
       });
 
-      // Confirm
       await act(async () => {
         await result.current.dialogProps.onConfirm();
       });
@@ -311,8 +235,6 @@ describe('useRemovePositionGuard', () => {
     });
 
     it('calls removePosition exactly once on confirm', async () => {
-      mockCheckLinkedStories.mockResolvedValue(1);
-
       const { useRemovePositionGuard } = await import(
         '@/app/components/shared/remove-position-dialog'
       );
@@ -333,8 +255,6 @@ describe('useRemovePositionGuard', () => {
     });
 
     it('calls onAfterRemove after confirm', async () => {
-      mockCheckLinkedStories.mockResolvedValue(1);
-
       const { useRemovePositionGuard } = await import(
         '@/app/components/shared/remove-position-dialog'
       );
