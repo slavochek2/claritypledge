@@ -1451,6 +1451,12 @@ export function ClarityLivePage() {
 
   /** P562: Round complete (10/10 auto-transition) */
   const handleFreeRoundComplete = useCallback(() => {
+    // Guard: verify both sliders are at 10 in confirmed state before transitioning
+    const current = confirmedLiveStateRef.current;
+    if (current.freePhase !== 'unlocked') return;
+    const creatorVal = current.freeSliderCreator ?? 0;
+    const joinerVal = current.freeSliderJoiner ?? 0;
+    if (creatorVal !== 10 || joinerVal !== 10) return;
     updateLiveState({ freePhase: 'success' });
   }, [updateLiveState]);
 
