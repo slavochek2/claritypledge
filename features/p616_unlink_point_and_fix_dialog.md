@@ -3,7 +3,7 @@ status: in-progress
 type: story
 workstream: foundation
 tags: [visibility, p576-follow-up, ux, points, stories]
-delivery_stage: 2-ux-review
+delivery_stage: uat
 rank: 1000030.0
 created_date: 2026-03-31
 uat_file: features/uat/p616.md
