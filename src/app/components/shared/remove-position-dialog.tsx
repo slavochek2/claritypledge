@@ -1,8 +1,9 @@
 /**
  * @file remove-position-dialog.tsx
- * @description P401: Warning dialog shown before removing a position that has linked stories.
- * Consumed by: point-detail-page, profile-page-v2.
- * Hook: useRemovePositionGuard — wraps checkLinkedStories + dialog state + removePosition.
+ * @description P401/P576/P616: Simple confirmation dialog for position removal.
+ * Positions and story-links are independent (P560). Removing a position does NOT
+ * affect story links — the old P401 cascade trigger was dropped in P576.
+ * Hook: useRemovePositionGuard — wraps dialog state + removePosition.
  */
 import { useState, useCallback } from 'react';
 import {
@@ -22,7 +23,6 @@ import { pointsService } from '@/app/data/points-service';
 
 export interface RemovePositionDialogProps {
   open: boolean;
-  linkedStoryCount: number;        // number to show in warning message
   onConfirm: () => void;           // called when user confirms removal
   onCancel: () => void;            // called when user cancels
   isRemoving?: boolean;            // shows loading state on confirm button
@@ -34,28 +34,17 @@ export interface RemovePositionDialogProps {
 
 export function RemovePositionDialog({
   open,
-  linkedStoryCount,
   onConfirm,
   onCancel,
   isRemoving = false,
 }: RemovePositionDialogProps) {
-  const storyWord = linkedStoryCount === 1 ? 'story' : 'stories';
-
   return (
     <Dialog open={open} onOpenChange={(isOpen) => { if (!isOpen) onCancel(); }}>
       <DialogContent hideCloseButton>
         <DialogHeader>
           <DialogTitle>Remove position?</DialogTitle>
-          <DialogDescription asChild>
-            <div className="space-y-1">
-              <p>Removing your position will remove this point from your profile.</p>
-              {linkedStoryCount > 0 && (
-                <p>
-                  Your <strong>{linkedStoryCount} {storyWord}</strong> will stay
-                  linked to this point without a position.
-                </p>
-              )}
-            </div>
+          <DialogDescription>
+            Removing your position will remove this point from your profile.
           </DialogDescription>
         </DialogHeader>
         <DialogFooter>
@@ -86,7 +75,8 @@ interface UseRemovePositionGuardReturn {
 }
 
 /**
- * Wraps removePosition with a linked-stories check and confirmation dialog.
+ * Wraps removePosition with a confirmation dialog.
+ * P576: No longer checks linked stories — positions and stories are independent.
  *
  * Usage:
  *   const { dialogProps, guardedRemovePosition } = useRemovePositionGuard({ userId, onAfterRemove });
@@ -99,21 +89,13 @@ export function useRemovePositionGuard({
   onAfterRemove,
 }: UseRemovePositionGuardOptions): UseRemovePositionGuardReturn {
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [linkedCount, setLinkedCount] = useState(0);
   const [pendingPointId, setPendingPointId] = useState<string | null>(null);
   const [isRemoving, setIsRemoving] = useState(false);
 
   const guardedRemovePosition = useCallback(async (pointId: string) => {
-    // checkLinkedStories is added in P402 — fall back to 0 if not yet on the service
-    const count = (pointsService as typeof pointsService & { checkLinkedStories?: (pointId: string, userId: string) => Promise<number> }).checkLinkedStories
-      ? await (pointsService as typeof pointsService & { checkLinkedStories: (pointId: string, userId: string) => Promise<number> }).checkLinkedStories(pointId, userId)
-      : 0;
-
-    // Always show dialog — profile warning shown for all cases, story count shown conditionally
-    setLinkedCount(count);
     setPendingPointId(pointId);
     setDialogOpen(true);
-  }, [userId]);
+  }, []);
 
   const handleConfirm = useCallback(async () => {
     if (!pendingPointId) return;
@@ -134,7 +116,6 @@ export function useRemovePositionGuard({
   return {
     dialogProps: {
       open: dialogOpen,
-      linkedStoryCount: linkedCount,
       onConfirm: handleConfirm,
       onCancel: handleCancel,
       isRemoving,
