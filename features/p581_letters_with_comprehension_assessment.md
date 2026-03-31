@@ -90,7 +90,7 @@ Letters serve a larger acquisition flywheel: Letter 1 (educate — recipient rea
 
 2. **Author prediction per story.** When composing a letter, the sender predicts (0-10) how well the receiver will understand each included story. This prediction is hidden from the receiver until they rate themselves. The prediction is the speaker's half of the gap equation.
 
-3. **Ritual reading experience.** The receiver opens a letter and progresses through a full-screen, deliberate-pacing experience. Points appear first (commit before context — Clarity Flip mechanic), then their parent story. Not a list to scroll through — a sequence to progress through. Each point requires engagement (position or story) before proceeding.
+3. **Ritual reading experience.** The receiver opens a letter and progresses through a full-screen, deliberate-pacing experience. For stories with 2+ points, the first point (anti-point) appears before the story for commit-before-context (Clarity Flip mechanic); for single-point stories, the story provides context first. Not a list to scroll through — a sequence to progress through. Each point requires engagement (position or story) before proceeding.
 
 4. **Understanding rating (mandatory, 0-10).** For each story in the letter, the receiver must rate their understanding: "How confident am I that I understand what [Author] means by this?" This is the listener's half of the gap equation. Rating is mandatory — the receiver cannot proceed to the next story without rating. Uses dot picker (discrete dots), not a continuous slider.
 
@@ -245,7 +245,10 @@ Letters serve a larger acquisition flywheel: Letter 1 (educate — recipient rea
 ### Letter Reading
 - [ ] Receiver sees a dedicated letter view (not a feed — a focused, sequential experience)
 - [ ] Progress tracking bar at top shows position in letter (story N of M)
-- [ ] Default ordering: points first, then parent story (D36 — commit before context, Clarity Flip mechanic)
+- [ ] Ordering conditional on point count (D36):
+  - **1 point:** Story → rate understanding → Point → position/story
+  - **2+ points:** Point 1 (anti-point, highest prio from doc) → position/story → Story → rate understanding → Point 2, 3... → position/story
+- [ ] Sender controls point priority via doc ordering (arrows in Clarity Docs)
 - [ ] Sender can add optional vocabulary glosses on abstract points (define terms, not arguments)
 - [ ] Receiver gets "I need context" button per point (tracked as content quality metric, not primary UX)
 - [ ] Stories appear one at a time — receiver progresses through the sequence
@@ -371,7 +374,7 @@ Letters serve a larger acquisition flywheel: Letter 1 (educate — recipient rea
 | D33 | P590 design system applies to all P581 UI? | Yes. All buttons use shadcn `<Button>` with proper variants. Lock/globe icons for visibility. Touch targets ≥ 44px. Amber for private, blue for public banners. |
 | D34 | Rating input for letters? | Discrete 0-10 buttons — reuse existing `RatingButtons` component. Slider is for /live continuous signal only. See D9. |
 | D35 | Grid quadrant labels? | Pre-verification (letter): bottom quadrants labeled "Potential false agreement/disagreement ⚠️" with "You agree/disagree but might misunderstand each other." Post-verification (/live): upper quadrants labeled "Verified agreement/disagreement ✓" with "You understand each other." Understanding (Y-axis) drives the transition from bottom to top. |
-| D36 | Point-before-story ordering? | Default: point-first always — preserves Clarity Flip commit-before-context mechanic. Sender can add vocabulary glosses for abstract terms. Receiver gets "I need context" escape valve (tracked as content quality metric — >30% requests = flag for sender). Story-first and sender-chooses-per-point are rejected. |
+| D36 | Point-before-story ordering? | Conditional on point count: **1 point** → story first, then point (story provides context for the claim it supports). **2+ points** → first point (anti-point, highest priority as set by sender in doc) appears before story for commit-before-context (Clarity Flip mechanic), then story, then remaining points. Sender controls implicitly through doc structure (point ordering via arrows). Vocabulary glosses optional for abstract terms. "I need context" escape valve tracked as content quality metric. |
 | D37 | Point engagement model? | B: must position OR file story explaining why not. Can't skip silently. Existing "add a story" handles the explanation — no extra UI prompts needed. Supersedes D4. |
 | D38 | Verification outcome states? | Three outcomes: flip, fork, verified agreement/disagreement. Grid triages (WHERE), stories diagnose (WHAT kind). No mechanical classification of flip types — behavior (paraphrase/story content) encodes the distinction. See definitions.md > Verification Outcome States. |
 | D39 | "Can't position because don't understand"? | Handled by existing story filing. User taps "?" → "add a story" → explains in natural language. No dual-track prompt, no extra buttons. Story content reveals comprehension gap vs opinion uncertainty. |
