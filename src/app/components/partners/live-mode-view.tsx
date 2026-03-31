@@ -708,42 +708,6 @@ export function LiveModeView({
     );
   }
 
-  // Partner initiated a rating round — auto-show the rating drawer to the responder.
-  // Fires when ratingInitiatedBy is set (partner clicked Speak) but ratingPhase is still 'idle'
-  // and the current user did NOT initiate (they are the responder).
-  if (
-    ratingPhase === 'idle' &&
-    !isLocallyRating &&
-    liveState.ratingInitiatedBy &&
-    liveState.ratingInitiatedBy !== currentUserName
-  ) {
-    return (
-      <>
-        <ResponderWaitingWithDrawer
-          partnerName={partnerName}
-          liveState={liveState}
-          onStartCheck={onStartCheck}
-          onStartProve={onStartProve}
-          onRatingSubmit={onRatingSubmit}
-          onSkip={() => handleRequestSkip('decline')}
-          onExit={onExitMeeting}
-          selectedStory={selectedStory}
-          onPositionSelect={onPositionSelect}
-          badgePersonName={badgePersonName}
-          badgePersonEarsCount={badgePersonEarsCount}
-          isStoryOwner={isAuthorOfSelected}
-          isGuest={isGuest}
-          currentUserName={currentUserName}
-          uploadHealth={uploadHealth}
-          sessionMode={liveState.sessionMode}
-          onSessionModeChange={onSessionModeChange}
-        />
-        {skipNotificationDialog}
-        {confirmSkipDialog}
-      </>
-    );
-  }
-
   // V10: Local rating - user tapped "I spoke" but hasn't submitted yet
   // This check comes FIRST - local state takes priority over shared state
   // This is purely local, doesn't affect partner's screen

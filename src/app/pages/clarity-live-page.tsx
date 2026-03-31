@@ -3795,10 +3795,7 @@ export function ClarityLivePage() {
           onClearSkipNotification={handleClearSkipNotification}
           // V10: Local rating state
           isLocallyRating={isLocallyRating}
-          onCancelLocalRating={() => {
-            setIsLocallyRating(false);
-            updateLiveState({ ratingInitiatedBy: undefined });
-          }}
+          onCancelLocalRating={() => setIsLocallyRating(false)}
           // V10: Exit meeting button
           onExitMeeting={handleExitMeeting}
           // V11: Listener taps "Done Explaining" to unlock speaker's rating
