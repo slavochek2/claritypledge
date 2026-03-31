@@ -25,30 +25,75 @@ Two related issues with point-story relationship management:
 - P401 (Feb 26): Original design with cascade trigger and dialog warning — superseded by P560/P576.
 - decisions.md (Mar 31): "RemovePositionDialog warns of unlink that doesn't happen — needs fix (Status: proposed)"
 
+## Why positions and story-links are independent
+
+P401 (Feb 26) originally coupled them: removing a position auto-unlinked stories via DB trigger. This was wrong because:
+- P560 (Mar 12) established: you can link a story to a point WITHOUT taking a position. Stories explain WHY you care about a point — positions say WHERE you stand. These are different things.
+- P576 (Mar 23) dropped the cascade trigger to match this design.
+- But the warning dialog was never updated. It still threatens an action that doesn't happen.
+
+**The independence principle:** A story-point link means "this point is relevant to this story." A position means "I agree/disagree with this point." You can have one without the other. Removing your opinion (position) shouldn't destroy the relationship (link). Destroying the relationship should be a separate, deliberate choice.
+
 ## Solution
 
 ### Part 1: Fix RemovePositionDialog copy
 
 Simplify the dialog to remove all story-unlink language:
-- Current: "Removing your position will also unlink N stories from this point..."
-- New: "Remove your [position] position from this point?" + simple "Remove" button
+- **Current (wrong):** "Removing your position will also unlink N stories from this point. This is recorded in history."
+- **New:** "Remove your [position] position from this point?" + simple "Remove" button
 - Remove `checkLinkedStories` call and linked story count logic (dead code since P576)
 
 ### Part 2: Add unlink button to story detail page
 
-On each linked point row in the story detail page, add an unlink action — **author-only**.
+On each linked point in the story detail page, add an unlink action — **author-only**.
 
-**Placement:** Bottom-right of each point row, next to existing share/external-link icons (matching the established icon position pattern).
+Each point is rendered as a `QuotedPoint` card inside `StoryCardDetail`. The card layout is:
 
-**Icon:** × or Unlink2 (lucide) — NOT trash (implies deletion; the point survives).
+```
+┌─ QuotedPoint card ─────────────────────────────┐
+│ 👤 Author Name  🎧1  Agrees                    │
+│                                                 │
+│ ┌─ Quoted box ────────────────────────────────┐ │
+│ │ 📌  🔒 Point statement text here...         │ │
+│ │                                             │ │
+│ │  × Disagree  ○ Unsure  ○ Agree              │ │
+│ │                                             │ │
+│ │  ▸ 2 stories                                │ │
+│ └─────────────────────────────────────────────┘ │
+│                                        [×] ← HERE (author-only)
+└─────────────────────────────────────────────────┘
+```
+
+**Placement:** Below the quoted box, right-aligned. NOT inside the quoted box (that's a clickable area that navigates to the point). A small icon button below, matching the pattern of action icons on other cards.
+
+**Icon:** `X` (lucide) — small, muted color, author-only. NOT trash (trash implies deletion; the point survives).
 
 **Tooltip:** "Unlink from story"
 
-**On click:** Confirmation dialog: "Unlink this point from your story? The point will remain visible to others but won't appear on this story page." + Cancel / Unlink buttons. (Dialog, not undo-toast — re-linking is not trivially reversible without a dedicated UI.)
+**On click → Confirmation dialog:**
+```
+┌──────────────────────────────────────────┐
+│ Unlink point from story?                 │
+│                                          │
+│ "Point statement text here..."           │
+│                                          │
+│ The point will remain visible to others  │
+│ who have taken positions on it.          │
+│                                          │
+│            [Cancel]  [Unlink]            │
+└──────────────────────────────────────────┘
+```
 
-**On confirm:** Call `storiesService.unlinkPointFromStory(storyId, pointId)` → remove point from local state → success toast "Point unlinked."
+**On confirm:** Call `storiesService.unlinkPointFromStory(storyId, pointId)` → remove point from local state → success toast "Point unlinked from story."
 
-**Visibility:** Only when `isAuthor` is true. Non-authors see no unlink icon. RLS enforces this at DB level too.
+**Visibility:** Only when `isAuthor` is true. Non-authors see no unlink icon. RLS enforces author-only DELETE on `story_points` at DB level too.
+
+### Edge cases
+
+- **Last point on story:** Unlinking the last point leaves a story with 0 points. This is valid — stories can exist without points.
+- **Point has other people's positions:** Unlinking only removes the story_points junction row. The point, all positions, and all other story links are unaffected.
+- **Re-linking after unlink:** No quick re-link UI exists today. The user would need to navigate to the story, click "Add Point", and re-add it. This is why we use a confirmation dialog (not undo toast) — the action is hard to reverse.
+- **Point was created by a different author:** The `QuotedPoint` shows the point creator's name. The unlink button should still appear for the story author (they linked it, they can unlink it). The RLS policy checks story authorship, not point authorship.
 
 ## Technical Architecture
 
