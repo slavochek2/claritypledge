@@ -2,6 +2,44 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-31 [product]: Universal pitch copy locked — Frankl "meaning" line added
+
+**Context:** Across 5+ iterations in two Claude.ai conversations (2026-03-30/31), the universal positioning copy was stress-tested with and without a Frankl-derived meaning line. The line "Without it, nothing you build together has meaning or sense" compresses the Frankl substrate insight (meaning requires verified relational ground) into plain language. The phrase "in the way they mean it" does double duty: "mean" as intent, "mean" as significance.
+**Decision:** Lock the UVP copy in lean-canvas.md. Stop iterating on the pitch and say it to a real person. The refinement loop was explicitly flagged in both conversations.
+**Alternatives rejected:** (1) Include "meaning" as Frankl concept explicitly — too theoretical for cold copy. (2) Keep the 2026-03-29 version without the meaning line — weaker; doesn't name what's at stake.
+**Consequences:** Pitch is locked for workshop use. Next action: say it out loud to one person. The meaning/Frankl angle is article material (a13), not pitch material.
+**References:** [docs/lean-canvas.md](lean-canvas.md) UVP section
+
+## 2026-03-31 [product]: Conjecture-event GTM — parked as future channel after first workshop
+
+**Context:** Conversation "Thinker Lineage" (2026-03-31) produced a systematic GTM concept: one event per thinker-conjecture, 18 thinkers scored on 6 criteria (intellectual caliber, commercial potential, conjecture strength, reachability, cross-disciplinary pull, testability in 90 min). Each event targets a different intellectual community using the Clarity Flip format. Edmondson tops overall (45/60); Aumann tops intellectual caliber.
+**Decision:** Add to lean-canvas channels as future exploration. Do not execute before first Clarity Flip workshop validates. Risk: preparation of 18 events becomes its own refinement loop ("spending three months preparing instead of running one event next week"). The scoring matrix is a strategic artifact, not a near-term action plan.
+**Alternatives rejected:** Run immediately as parallel track — conflicts with P581 → workshop → canvas build sequence and "one event next week" priority.
+**Consequences:** The thinker scoring matrix is referenced in a12 enrichment. Revisit after first workshop produces PWIW data.
+**References:** [docs/lean-canvas.md](lean-canvas.md) Channels section, [content/articles/a12_locke-to-ladischenski.md](../content/articles/a12_locke-to-ladischenski.md)
+
+## 2026-03-31 [product]: "Privileged access to intent" not "meaning" — terminology locked
+
+**Context:** Conversation "Privileged access to intent vs. meaning" (2026-03-31) analyzed whether the speaker has privileged access to *intent* or *meaning*. "Meaning" invites legitimate philosophical objections (Wittgenstein, Gadamer, Derrida argue meaning is co-constructed). "Intent" is almost uncontroversially a first-person epistemic fact. The protocol verifies whether the listener can reproduce the speaker's *intended message* — this is fundamentally about intent.
+**Decision:** Use "privileged access to intent" in all theoretical and marketing language. Verified intent creates "auditable common knowledge" (commonly verified intent). The protocol operates on intent (what you can verify), protects meaning (what the person experiences). "In the way they mean it" in the pitch bridges both senses without committing to the contested claim.
+**Alternatives rejected:** "Privileged access to meaning" — opens the door to objections that meaning exceeds the speaker's control.
+**Consequences:** philosophy.md and definitions.md should use "intent" not "meaning" when describing the speaker's epistemic privilege. The distinction between operating on intent and protecting meaning is a key differentiator from other frameworks.
+
+## 2026-03-31 [product]: P618 filed — falsifiability not yet operationalized in points
+
+**Context:** Conversation "Consolidating stories and points" (2026-03-31) started by questioning the story/point split, re-derived WHY it exists (stories = untestable narratives, points = testable claims), then identified that falsifiability isn't operationalized. Points are just text — nothing distinguishes well-formed falsifiable claims from vague feelings. P563 (Position Provenance) is adjacent but different (engagement depth, not point quality).
+**Decision:** Filed P618 as backlog quick-feature skeleton. Open question: does the platform enforce falsifiability (prompt "what would change your mind?") or does it emerge from the protocol (if nobody can take a clear position, that's feedback)? Also: listener-extracted points as comprehension proof — points emerge from the verification act rather than being pre-declared.
+**Alternatives rejected:** Merge into P563 — different concerns (P563 = engagement depth on positions, P618 = quality of the point itself).
+**Consequences:** Backlog item. No immediate build priority. May resolve itself through workshop facilitation before requiring platform features.
+**References:** [features/p618_falsifiability_operationalization.md](../features/p618_falsifiability_operationalization.md)
+
+## 2026-03-31 [process]: /claude-conversations-to-cp skill improvements — filtering transparency + source convention
+
+**Context:** During this session's /cp run, two conversations were classified as personal and skipped ("David Burns vs Byron Katie", "Remix of the-work_jsx"). The Burns/Katie conversation contained strong CP signals (three epistemological audits, Katie "is it true?" substitution) that were missed. Also, article specs lacked a standard convention for referencing source conversations.
+**Decision:** Two proposed improvements for the /cp skill: (1) **Filtering transparency:** Show filtered-out conversation titles with 1-line reason so user can override (e.g., "SKIPPED: [title] — classified as personal. Include?"). (2) **Source convention:** Standardize a `## Source` section in article specs with conversation title + date (never private file paths — public repo). Both require `/claude-md` gate before implementation.
+**Alternatives rejected:** (1) Don't filter at all — wastes analysis time on clearly personal conversations. (2) Put file paths in articles — privacy leak in public repo.
+**Consequences:** Next /cp run should implement filtering transparency. Source convention already applied to a13, a14 in this session. (Status: proposed)
+
 ## 2026-03-31 [process]: /claude-conversations-to-cp v3 — decision-first output, auto-file content
 
 **Context:** Analyzed 10+ past sessions of running `/claude-conversations-to-cp`. Every single session, the user asked "simplify what needs my attention, what are my options, what you recommend and why" after the skill's signal dump output. Content signals caused rabbit-hole tangents in the same session.

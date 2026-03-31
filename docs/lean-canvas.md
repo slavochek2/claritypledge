@@ -123,7 +123,7 @@ The only alignment assessment that produces a number, not a feeling. Combines li
 
 **Dual-currency model (2026-03-29):** Payment can be monetary OR operational — running the protocol with others multiplies the work. Qualification-based: "tell me about your problem, and if I find it compelling, I invest my time." Replaces fixed pricing with a Work With Me funnel. Untested — needs validation alongside H-WTP-Pain.
 
-**Universal positioning copy (2026-03-29):** "Everybody craves to be understood. Why? Because true understanding of other people across differences is extremely scarce. The few who can reliably prove they understand others win their trust. But how do you verify and prove you truly understood? And how do you empower those you depend upon and those you care about to understand you even when the differences between you grow and divide you?" — First framing that works universally without mentioning protocols, epistemology, or specific segments. Entry is emotional (need to be understood); delivery is cognitive (verification protocol). Self-discovery frame ("come discover what it's like to be actually understood") as wider funnel than partnership de-risking.
+**Universal positioning copy (2026-03-31):** "Understanding is a human need — I have it, you have it, everybody has it. Without it, nothing you build together has meaning or sense. And almost no one gets enough of it — because deep understanding across differences is extremely scarce. The few who can reliably prove they understand others, in the way they mean it, win their trust. But how do you verify and prove you truly understand? And how do you empower those you depend upon and those you care about to understand you — even when the differences between you grow and divide you? Come learn how." — Adds Frankl substrate insight ("nothing you build together has meaning") in plain language. "In the way they mean it" does double duty: "mean" as intent, "mean" as significance. Stress-tested across 5+ iterations (2026-03-31). Entry is emotional (need to be understood); delivery is cognitive (verification protocol).
 
 **Intellectual positioning (2026-03-27):** Uniqueness audit against ~50 adjacent people/groups. Individual pieces (mirrors, explain-back, error correction, calibration) all exist separately. The specific synthesis is unique: Popper's error correction applied to interpersonal understanding, with a verification step that turns a philosophical norm into a measurable protocol. Habermas is the closest predecessor — he says "presuppose understanding," ClarityPledge says "verify it." He describes ideal conditions; this builds the measurement instrument. The unique claim: Popper's falsification has an unformalized precondition (verified mutual comprehension) that neither Popper, Deutsch, nor Habermas instrumented.
 
@@ -252,6 +252,10 @@ Two upsell paths from workshop:
 - **Track B — Investor as buyer:** Direct DD engagement (€2,000+)
 
 **Revisit when:** 5+ pairs completed, at least one investor asks for signal.
+
+### Future: Conjecture-Event Series (explore after first workshop validates)
+
+One event per thinker-conjecture, each targeting a different intellectual community. "I think [Thinker]'s framework is missing something. Come prove me wrong." Participants experience the protocol by falsifying the conjecture. The topic IS the instrument (Clarity Flip variant). 18 thinkers scored on 6 criteria (2026-03-30): Edmondson tops overall (commercial + testable), Aumann tops intellectual caliber, Kahneman tops cross-disciplinary pull. Sequence events by which audience you want showing up first. Requires no product features (cards + whiteboard). Risk: preparation of 18 events becomes its own refinement loop — run one first.
 
 ### Future: Recognition Path (parked until Month 5+)
 
