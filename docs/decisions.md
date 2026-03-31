@@ -2,6 +2,14 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-31 [process]: /claude-conversations-to-cp v3 — decision-first output, auto-file content
+
+**Context:** Analyzed 10+ past sessions of running `/claude-conversations-to-cp`. Every single session, the user asked "simplify what needs my attention, what are my options, what you recommend and why" after the skill's signal dump output. Content signals caused rabbit-hole tangents in the same session.
+**Decision:** (1) Step 2 output rewritten from signal-type grouping ([STRATEGY], [HYPOTHESIS]) to `/simplify`-style decision blocks (Situation / Options / Recommendation / If-we-do-nothing). (2) Steps 2+3 merged — clarifying questions folded into decision blocks as ambiguity frames. (3) [CONTENT] candidates auto-filed via `/quick-blog` immediately (dedup + privacy check), reported as one-liners — no mid-session content review. (4) Informational signals separated into "FYI — No Action Needed" bullet list.
+**Alternatives rejected:** (1) Keep signal-type grouping and add a `/simplify` auto-step — adds latency without fixing the core problem (signal dump is the wrong abstraction). (2) Remove content handling entirely — loses valuable conversation-to-article pipeline.
+**Consequences:** The "simplify what needs my attention" follow-up prompt should no longer be needed. Content ideas go straight to kanban for later review instead of derailing the strategy session.
+**References:** [claude-conversations-to-cp.md](.claude/commands/slava/maintain/claude-conversations-to-cp.md)
+
 ## 2026-03-31 [product]: Verification produces three outcome states — flip, fork, verified agreement/disagreement
 
 **Context:** P581 letter spec analysis surfaced that the "clarity flip" (position change after understanding increases) is one outcome of verification, not the primary one. Interpretation forks (both interpretations valid, position depends on frame) and verified disagreement (understand each other, still disagree) are equally valuable outcomes. All three look similar on the understanding × agreement grid (dot moves up). The distinction lives in story content, not in grid mechanics.

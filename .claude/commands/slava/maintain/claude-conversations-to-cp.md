@@ -2,7 +2,7 @@
 name: claude-conversations-to-cp
 description: Analyze recent Claude conversations to surface strategic signals AND content candidates. Updates strategy docs and files article ideas to content kanban. Never writes without explicit confirmation.
 when_to_use: After a sprint, a week of sessions, or any period where you want to surface unresolved tensions, update strategy docs, and identify article-worthy conversations.
-version: 2.0.0
+version: 3.0.0
 ---
 
 # /claude-conversations-to-cp
@@ -197,65 +197,65 @@ JSONL format: each line is a JSON object. Conversation messages have `type: "use
     </if>
   </step>
 
-  <step n="2" goal="Surface — output signals and tensions">
+  <step n="2" goal="Surface decisions, file content, report FYI">
+    <action>Classify each signal into one of three buckets:
+      - DECISION: contradicts existing docs, has multiple valid interpretations, requires choosing a direction, or blocks a next step
+      - CONTENT: article candidate or enrichment — auto-file immediately (see below)
+      - FYI: confirmed direction, validated hypothesis, informational observation — no action needed
+    </action>
+
+    <action>For each [CONTENT] signal: auto-file via /quick-blog immediately (no user approval needed at this stage — user reviews in kanban later).
+      1. Dedup check: grep content/articles/ for specs referencing the same conversation title. If found, skip: "Already filed: aNN."
+      2. If new arc was proposed: add arc to content/story-arcs.md with next ARC-N ID first.
+      3. Run /quick-blog to create article spec with source conversation title, date, and arc.
+      4. Privacy check: run /maintain:privacy on the new file. If flagged: report issue, do NOT commit that file.
+    </action>
+    <action>For each [CONTENT-ENRICH] signal: propose the enrichment edit to the existing article spec inline in the output below (user confirms in step 4).</action>
+
     <output>
-      ## Claude Conversations → Strategy Analysis
+      ## Claude Conversations → What Needs Your Attention
       **Period:** [date range] | **Source:** [N files / gdrive] | **Processed:** [date]
       **Since last run:** [N new conversations] (or "First run" if no marker)
 
       ---
 
-      ### Strategic Signals
+      ### Decisions Needed
 
-      **[STRATEGY]**
-      [list each signal with evidence — flag if contradicts current lean-canvas.md]
+      [For each DECISION signal, format as a /simplify block:]
 
-      **[HYPOTHESIS]**
-      [list each — flag if contradicts or validates existing hypotheses.md entries]
+      **N. [short title]**
+      **Situation:** [what the signal is — 1-2 sentences with evidence]
+      **Options:**
+      - **A:** [option] — [trade-off]
+      - **B:** [option] — [trade-off]
+      **Recommendation:** [A or B] — [why, 1 sentence]
+      **If we do nothing:** [consequence of inaction]
 
-      **[PROCESS]**
-      [list each — flag if same friction appeared in process-learnings.md already]
+      [If a signal is ambiguous and could mean multiple things, frame it as:]
+      **Situation:** [signal]. I see two interpretations: [X] or [Y]. Which applies?
 
-      **[SPEC-PRIORITY]**
-      [features mentioned repeatedly but not yet specced, or ranked wrong]
-
-      **[CONTENT]**
-      [list each — conversation title, which ARC-N it extends (or "new arc: name"), why article-worthy]
-      [omit this section if no content candidates found]
+      [If no decisions needed: "No decisions needed — all signals are informational."]
 
       ---
 
-      ### Unresolved Tensions
-      [TENSION items — contradictions, open questions, things mentioned but never resolved]
+      ### FYI — No Action Needed
+      [Brief bullet list of informational signals. Each: one line, signal + evidence.]
+      [Omit section if empty.]
+
+      ---
+
+      ### Content Filed
+      [One line per filing: "Filed: aNN — [title] (ARC-N)" or "Enrichment proposed: aNN — [what it adds]"]
+      [Omit section if no content signals.]
+
+      ---
+
+      Reply with option letters for each decision (e.g., "1A, 2B, 3A") and I'll draft the doc updates.
     </output>
+    <action>Wait for user decisions before proceeding to step 3</action>
   </step>
 
-  <step n="3" goal="Clarify — batch all questions at once">
-    <action>Review all signals and tensions</action>
-    <action>Identify things needing clarification: signals that could mean multiple things, tensions where resolution depends on current intent, signals that contradict existing docs (which is right?)</action>
-
-    <if condition="no clarifying questions identified">
-      <action>State: "No clarifications needed — signals are clear. Proceeding to draft updates." Move directly to step 4.</action>
-    </if>
-
-    <if condition="clarifying questions exist">
-      <action>Classify each question before formatting: (a) factual — one clearly right answer once context is known; ask plainly. (b) direction — requires choosing between two valid interpretations with trade-offs; format as a /simplify block (Situation / Options A-B / Recommendation / Reply: A or B).</action>
-      <output>
-        ## Clarifying Questions
-
-        Before I draft updates, I need your input on [N] things:
-
-        [factual questions as plain numbered items]
-        [direction questions as /simplify blocks]
-
-        For direction questions, reply with the option letter. For factual questions, reply inline.
-        Answer all at once and I'll draft the full update plan.
-      </output>
-      <action>Wait for user response before proceeding to step 4</action>
-    </if>
-  </step>
-
-  <step n="4" goal="Plan — propose doc updates, terminal only, no writes">
+  <step n="3" goal="Plan — propose doc updates, terminal only, no writes">
     <action>Draft specific proposed edits — concrete additions, replacements, or removals — using the pre-read target doc content from step 0b</action>
 
     <output>
@@ -280,57 +280,30 @@ JSONL format: each line is a JSON object. Conversation messages have `type: "use
       ### Feature Priority Note (no auto-edit)
       [list features that seem mis-prioritized with reasoning — for you to act on manually via /create-prd or kanban]
 
-      ### Content Candidates (filed via /quick-blog on approval)
-      [list each: proposed title — from "conversation title", ARC-N]
-      [omit if no [CONTENT] signals]
-
-      ### Enrichments to Existing Articles
-      [list each: "conversation title" → enriches aNN: "article title" — what it adds]
-      [omit if no [CONTENT-ENRICH] signals]
-
-      ### New Arcs Proposed
-      [list any new arc proposals from [CONTENT] signals with "new arc:"]
-      [omit if none]
-
       ---
-      Total: [N] changes across [M] files + [N] content candidates.
-      Nothing has been written yet.
+      Total: [N] changes across [M] files.
+      Nothing has been written yet. (Content candidates were already filed in step 2.)
     </output>
   </step>
 
-  <step n="5" goal="Confirm and execute">
+  <step n="4" goal="Confirm and execute">
     <ask>Apply all [N] changes? You can also say "apply only: lean-canvas, hypotheses" to apply a subset.</ask>
     <on_confirm>
       <action>Read each target file</action>
       <action>Apply only the confirmed changes using Edit tool</action>
       <action>Report each edit as it's applied</action>
-      <action>For each approved [CONTENT] candidate:
-        1. Dedup check: grep content/articles/ for specs referencing the same conversation title. If found, skip: "Already filed: aNN."
-        2. If new arc was proposed and approved: add arc to content/story-arcs.md with next ARC-N ID first.
-        3. Run /quick-blog to create article spec. The body uses /quick-blog's free-text sections:
-           ## Source
-           Conversation: [conversation title]
-           Conversation date: [YYYY-MM-DD]
-           Arc: [ARC-N, ARC-M]
-           ## Idea
-           [2-5 sentence summary from the agent's content assessment]
-        4. Privacy check: immediately after filing, run /maintain:privacy on the new article spec file. If flagged: report issue, do NOT commit that file. If clean: continue.
-        5. Report: "Filed [N] content ideas: [list with A-numbers]. Privacy: clean / [issues]."
-      </action>
-      <action>For each approved [CONTENT-ENRICH] signal:
+      <action>For each [CONTENT-ENRICH] signal approved in step 2:
         1. Read the existing article spec (content/articles/aNN.md).
-        2. Propose an addition to its ## Source section: add a new Conversation line with the enriching conversation's title and date.
-        3. Propose an addition to its ## Idea section: append what the new conversation adds (1-2 sentences).
-        4. Present proposed edit for user confirmation before applying.
-        5. Report: "Enriched [N] existing articles: [list]."
+        2. Add a new Conversation line to ## Source and append what the new conversation adds to ## Idea.
+        3. Report: "Enriched [N] existing articles: [list]."
       </action>
       <action>Write marker: `.private/claude-conversations-to-cp-last-run.txt` with current ISO timestamp, files_processed count, source, and window used</action>
-      <action>Output summary: "Applied [N] strategy changes. Filed [M] content ideas. Modified: [file list]."</action>
+      <action>Output summary: "Applied [N] strategy changes. Filed [M] content ideas (step 2). Modified: [file list]."</action>
       <action>Suggest: "These are strategy doc changes worth committing. Run /kdd if any decisions surfaced. Want to commit?"</action>
     </on_confirm>
     <on_reject>
       <action>Write marker: `.private/claude-conversations-to-cp-last-run.txt` with current ISO timestamp, files_processed count, source, and window used (analysis was done, just no edits applied)</action>
-      <action>Report "No changes applied."</action>
+      <action>Report "No changes applied. (Content candidates filed in step 2 remain.)"</action>
     </on_reject>
   </step>
 
