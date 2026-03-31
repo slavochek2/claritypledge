@@ -2,6 +2,14 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-31 [technical]: All story child FK constraints must use CASCADE — doc_stories was NO ACTION
+
+**Context:** Story deletion from docs UI failed with FK violation. `doc_stories_story_id_fkey` was Postgres default (NO ACTION) while every other story child table (`story_points`, `story_versions`, `story_calibrations`) used CASCADE. The inconsistency was invisible until a user flow triggered the delete path.
+**Decision:** Fixed `doc_stories` FK to CASCADE. Going forward: every new child table referencing `stories(id)` must use `ON DELETE CASCADE`. Check existing FKs when debugging delete failures — Postgres default is NO ACTION, not CASCADE.
+**Alternatives rejected:** Soft-delete pattern — adds complexity for no user-facing benefit; stories in docs are ephemeral.
+**Consequences:** Story deletion now works end-to-end in docs. Pattern to watch: any new FK on stories should be audited against this list.
+**References:** `supabase/migrations/20260331000000_doc_stories_cascade_delete.sql`
+
 ## 2026-03-30 [process]: /verify rewritten — Playwright-first, Chrome only for visual QA
 
 **Context:** `/verify` relied entirely on Claude in Chrome for all verification — functional checks, auth flows, two-party sessions, toast verification. This was architecturally wrong: Chrome extension dies after ~5min (upstream MV3 service worker timeout, #27826/#15239), can't run two concurrent browser contexts, can't run in CI, costs 10-20x more tokens than headless. Meanwhile, Playwright infrastructure already had auth injection (`setTestSession`), two-context fixtures (`createTwoPartySession`), DB polling, mic mocking, and 20+ spec files — but `/verify` treated Playwright as a footnote.
