@@ -2,6 +2,27 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-02 [product]: P581 before workshop — dependency confirmed, not bypassed
+
+**Context:** Deductive analysis of what the first workshop needs to prove: H-WorkshopFormat (converts to sessions) and H-WTP-Pain (produces urgency). The "holy shit" moment requires comprehension gap reveal (confidence 9 → actual 4), not just comfort delta or position switches. Current /live works 1-to-1 but is too slow for 1-to-many in 90 minutes — sequential explain-backs for 8 participants on 3 stories would take hours. Without prep, participants arrive cold. P581 solves both: async prep (read + rate before arriving) + simultaneous sealed-bid gap reveals.
+**Decision:** Ship P581 before first workshop. Don't hack with Google Forms. The original goals.md dependency ("P581 prerequisite for sealed-bid gap reveal") was correct. P620 timeline adjusts accordingly.
+**Alternatives rejected:** (1) Workshop with comfort delta only — doesn't produce the comprehension illusion reveal needed for H-WTP-Pain. (2) Google Form + spreadsheet as poor man's P581 — functional but ugly, creates throwaway work. (3) Sequential /live explain-backs — bottleneck at 2-3 participants, rest just watch.
+**Consequences:** P581 is the critical path. First workshop date depends on P581 shipping. Online workshop #1 can still test curriculum structure (P567 false beliefs + reflection prompts) but won't have the sealed-bid gap reveal until P581 lands.
+
+## 2026-04-02 [product]: Anxiety as contradictory beliefs — product framing evolution
+
+**Context:** Research-backed insight: the invisible understanding gap produces chronic low-grade anxiety — two contradictory beliefs ("we're aligned" + "something feels off") competing with no way to check. This reframes what the product does from "measuring understanding" to "making invisible contradictions visible, turning anxiety into choices." Research basis: approach-avoidance conflict (Lewin/Miller 1935/1944), self-concept clarity (Campbell), ACT values clarification. Applies to decisional/existential anxiety, not all anxiety.
+**Decision:** "Contradictions you can't see produce anxiety; contradictions you CAN see become choices" is the core mechanism description. Added to lean-canvas.md (UVP section), definitions.md (False Agreement entry), facilitator-guide.md (participant language), P599 (de-risking copy direction). Byron Katie distinction sharpened: Katie = intrapersonal (contradictions within your beliefs), ClarityPledge = interpersonal (contradictions between what you meant and what others understood).
+**Alternatives rejected:** Keep "measurement" framing only — accurate but doesn't name the emotional experience. The anxiety frame explains WHY participants feel relief after sessions.
+**Consequences:** Workshop copy and de-risking value prop should lead with interpersonal anxiety angle. The Anxiety Reduction Score (facilitator-guide) uses this frame as intrinsic motivation generator.
+
+## 2026-04-02 [product]: "Carving out" replaces "removing" — participant-facing language
+
+**Context:** "We remove false beliefs" is adversarial and epistemologically inaccurate. Every belief has something true in it. The work is increasing resolution until contradictions become visible and separable — excavation, not demolition. "Your belief is false" creates defensiveness. "Your beliefs contain a contradiction" is collaborative.
+**Decision:** Participant-facing language: say "contradictory beliefs" or "beliefs that pull in opposite directions," not "false beliefs." The position switch isn't "you were wrong" — it's "you found the contradiction and chose." Added to facilitator-guide.md as Participant-Facing Language Guidance. Internal/technical language ("false belief curriculum," P567) unchanged — the distinction is facilitator-internal vs participant-facing.
+**Alternatives rejected:** Change everything to "contradictory beliefs" including internal docs — unnecessary churn, P567 title is well-established.
+**Consequences:** Workshop scripts and event copy use the carving frame. facilitator-guide.md has the reframe examples.
+
 ## 2026-04-02 [product]: Pitch copy V3-final replaces Mar 31 Frankl version
 
 **Context:** Apr 1 conversation ("Понимание как основа доверия") iterated the pitch 8+ times. Discovered the Mar 31 "locked" version had a tension-closing sentence ("win respect and trust") that was removed 3x during iteration but kept returning from memory. Also: "measure" in questions triggers false objection about quantifiability; "verify" is more precise for comprehension illusion context. Paragraph-by-paragraph comparison confirmed V3-final wins on 4/5 paragraphs; V4 (memory reconstruction) contributes exactly two words ("often" + "understanding" in P3).

@@ -46,3 +46,11 @@ ClarityPledge opens the loop. Instead of "is it true?" the question becomes: "do
 **Serves:** Accessible entry point for millions of people who know Burns or Katie. They immediately grasp what ClarityPledge adds. Strongest "positioning by comparison" article candidate.
 **Sequence:** High priority. Can be written before workshop data. The comparison itself is the argument.
 **Audience:** Self-help readers, therapy-adjacent audience, coaches who use CBT or The Work. LinkedIn, LessWrong, newsletter.
+
+## Enrichment (2026-04-02): Intrapersonal vs Interpersonal Anxiety
+
+**Core distinction to weave in:** Katie reduces *intrapersonal* anxiety (contradictions within your own belief system — "Is it true?" surfaces the contradiction between what you believe and what's real). ClarityPledge reduces *interpersonal* anxiety (contradictions between what you meant and what others understood — "Did they get what I actually mean?" surfaces the contradiction between perceived and actual comprehension).
+
+Both are anxiety-reduction through articulation. Different contradiction surfaces. This strengthens the article's argument: Katie's Work is powerful but operates on one person's internal loop. ClarityPledge opens the loop to include the *relational* dimension — where most of the anxiety actually lives (your inner world failing to become real between you and someone who matters).
+
+**Research backing:** Approach-avoidance conflict (Lewin/Miller), self-concept clarity (Campbell), ACT values clarification. Anxiety = conflict-detection signal from incompatible beliefs. Clarity = making the contradiction visible so it becomes a choice. The protocol doesn't remove beliefs — it carves out what's true from the tangle.

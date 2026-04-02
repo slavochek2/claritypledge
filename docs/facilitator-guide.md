@@ -13,7 +13,7 @@ Use as event description, landing page header, workshop opener, or conversation 
 >
 > **We crave honesty in relationships that matter to us. But when people share honestly and are rarely understood the way they mean it, they stop sharing. Not because they lose courage. Because honesty without verification of understanding collapses from the inside.**
 >
-> **The reason this keeps happening: the gap between what you meant and what others understood is often invisible to both sides. No one discovers it. No one sees a reason to measure understanding.**
+> **What's left is a quiet anxiety you can't name — two contradictory beliefs with no way to check which one is true.** The gap between what you meant and what others understood is often invisible to both sides. No one discovers it. No one sees a reason to measure understanding.
 >
 > **But how do you verify whether you truly understood — in the way they mean it? How do you prove it to them? And how do you empower those you care about — and those you depend on — to understand you, even when you have strong disagreements?**
 >
@@ -144,6 +144,31 @@ Ask verbally, hands up or written. Record both numbers.
 - Report the average delta as workshop outcome ("participants moved from X to Y on comfort with requesting paraphrase")
 - Individual deltas predict who will bring the protocol home (high delta = flip happened)
 - If delta is near zero after 3 workshops → H-WorkshopFormat is in trouble
+
+### Anxiety Reduction Score (Intrinsic Motivation Generator)
+
+Ask AFTER the first false-belief exercise (after st7, before presenting st8) — participants need to have experienced verification before they can imagine others doing it.
+
+> **"How much would your daily anxiety decrease if the 5 people closest to you moved from 0 to 10 on 'comfort asking for and giving paraphrase'?"** (0-10 scale)
+
+Ask verbally or written. Record the number.
+
+**Why this works:** If someone rates 8/10, they have a personal, selfish reason to flip the people around them. This is the intrinsic motivation for bringing the protocol home — not "this is a good practice" but "this would reduce MY anxiety." The Partner Agreement conversion becomes self-interested, not altruistic.
+
+**How to use the data:**
+- High scores (7+) predict who will bring the protocol to their real relationship (the conversion target)
+- The room seeing its aggregate score creates common knowledge: "we all benefit if we all get better at this" — network effect made visceral
+- If average score is <4 after 3 workshops → participants don't connect verification comfort to their own wellbeing → reframe needed
+
+### Participant-Facing Language Guidance (2026-04-02)
+
+**Frame for participants:** Don't say "false belief" — say "contradictory beliefs" or "beliefs that pull in opposite directions." The work isn't destroying beliefs; it's making contradictions visible so participants can carve out what's actually true.
+
+**Why:** "Your belief is false" is adversarial. "Your beliefs contain a contradiction" is collaborative — assumes they already have truth, mixed with noise. The position switch isn't "you were wrong" — it's "you found the contradiction and chose."
+
+**Example reframe:**
+- Old: "We're going to test your false belief about understanding"
+- New: "You might hold two beliefs that pull against each other — let's find out which one survives when we look closely"
 
 ---
 

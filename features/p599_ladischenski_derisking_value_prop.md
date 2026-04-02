@@ -30,3 +30,22 @@ Core message: "I guide you once. Next time you can do it yourselves."
 - May touch pricing page or offer pages if the package is referenced there
 - Workshop event copy and pricing model (€50 entry + 0-10h time donation) — needs to be reflected on ladischenski.com and in event listings (Luma, etc.)
 - Workshop landing page or section on ladischenski.com for the free Calibration Workshop offer
+
+## Design Notes (2026-04-02): Anxiety as Contradictory Beliefs Frame
+
+Research-backed insight: anxiety is a conflict-detection signal that fires when incompatible beliefs compete. Clarity — making the contradiction visible — resolves it. This reframes the de-risking value prop from "we measure understanding" to "we reduce the quiet anxiety of not knowing whether you're aligned."
+
+**Key lines for copy exploration:**
+- "Contradictions you can't see produce anxiety. Contradictions you CAN see become choices. The carving is the transition from anxiety to clarity."
+- "What's left is a quiet anxiety you can't name — two contradictory beliefs with no way to check which one is true."
+- "Filing a story is anxiety-reducing work. Every belief you hold implicitly — never articulated, never checked — is a potential contradiction waiting to produce anxiety. Writing it as a story forces articulation. Extracting points makes the claims explicit. Sharing invites verification. Each step reduces the surface area for invisible contradictions."
+
+**Philosophical reframe — "carving out" vs "removing":**
+Old: "We remove false beliefs." New: "We make contradictions visible so you can carve out what's actually true." Every belief has something true in it. The work isn't demolition — it's increasing resolution until contradictions become visible and separable. This respects the participant ("your beliefs contain a contradiction" vs "your belief is false") and is more epistemologically accurate.
+
+**Intrapersonal vs interpersonal anxiety (Katie distinction):**
+Byron Katie reduces intrapersonal anxiety (contradictions within your own belief system). ClarityPledge reduces interpersonal anxiety (contradictions between what you meant and what others understood). ladischenski.com copy should lead with the interpersonal angle — "the anxiety between you and your co-founder."
+
+**Premature clarity protection:** The protocol is safe because resolutions stay open to falsification (as stories and points). The explain-back step holds contradictions open long enough for real verification. No rushing.
+
+**Sources:** Lewin/Miller approach-avoidance conflict, Campbell self-concept clarity research, ACT values clarification, Kierkegaard "dizziness of freedom." Full research in conversation 2026-04-02.
