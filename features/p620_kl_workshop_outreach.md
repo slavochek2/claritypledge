@@ -4,7 +4,7 @@ title: KL workshop venue outreach + online workshop prep
 type: task
 status: today
 priority: high
-rank: 0.9
+rank: 0.063
 tags:
   - workshop
   - outreach
