@@ -317,7 +317,6 @@ Letters serve a larger acquisition flywheel: Letter 1 (educate — recipient rea
 | D1 | Slider on story cards in feed or only inside letter? | Only inside letter. The letter is the container. Orphaned slider on feed cards lacks context and addressability. |
 | D2 | Questions as part of the flow? | Dropped. Gradual reveal (story first, then points sequentially, commit before seeing next) does the anti-anchoring work that questions were trying to do. |
 | D3 | Understanding mandatory or optional? | Mandatory within letter. You can choose not to open a letter, but once you start reading, understanding rating per story is required. |
-| D4 | ~~Position on points mandatory or optional?~~ | ~~Always optional.~~ **Superseded by D37.** Must position OR file story explaining why not. Can't skip silently. Existing "add a story" handles the explanation. |
 | D5 | Author "counter-assesses" or "predicts"? | Predicts. The author predicts BEFORE the receiver reads, not after. This is sealed-bid, not reactive. The prediction reveals the author's calibration, not their judgment of the receiver's answer. |
 | D6 | UX feel? | Ritual, not feed. Deliberate slowness. Full-screen, one story at a time. Gamification explicitly rejected. Particle effects on commitment moments (from prototype) are acceptable — they mark the weight of the moment, not gamify it. |
 | D7 | Receiver can revise rating after gap reveal? | No. Rating is committed. Revising after seeing the prediction defeats the purpose. |
@@ -331,7 +330,6 @@ Letters serve a larger acquisition flywheel: Letter 1 (educate — recipient rea
 | D15 | Account required to read a letter? | For 1-to-many letters from public docs: no — anonymous access, registration gate at EXIT (after completion summary). For 1-to-1 letters: yes — authentication required (D47). Local state (sessionStorage) holds all data until persisted. |
 | D16 | How does facilitator share the letter? | Two paths: (a) Link with optional QR code — anonymous access (1-to-many, public docs only), email entered at save gate. (b) Email (multiple emails separated by comma) — facilitator enters receiver's email(s) at composition (1-to-1). Email pre-filled at save gate, one click to persist. |
 | D17 | What is the feature called? | "Clarity Letter." Not "letter," not "doc in reading mode." Clarity Letter is a first-class entity — related to clarity docs (P551) but distinct. |
-| D18 | ~~Where does the understanding map live?~~ | ~~Deferred.~~ **Superseded by D28.** Letters live within the Clarity Docs page, not a separate `/letters` route. |
 | D19 | Bidirectional letter — receiver adds stories? | V1 optional: after completing a letter, receiver sees "Add a story" CTA on each point. Receiver files own stories + sets predictions. Sender views on completion summary. V1.5: sender formally reads + rates receiver's stories (sealed-bid Phase 4). |
 | D20 | Workshop shared view? | Facilitator projects their screen (sender's completion summary = group view). Real-time: facilitator's screen updates as participants submit (Supabase Realtime). No privacy feature needed V1. |
 | D21 | Unified calibration data? | One `story_verifications` table serves both /live and letters. Add `source TEXT DEFAULT 'live'`, `verified BOOLEAN DEFAULT true`, `sort_order INTEGER`. Letters write with `source='letter'`, `verified=false`. When pair does /live on same story: new row with `source='live'`, `verified=true`. Grid shows both: dashed dot (letter) → solid dot (live) → arrow = movement. |
@@ -390,12 +388,8 @@ Letters serve a larger acquisition flywheel: Letter 1 (educate — recipient rea
 
 1. **Can receiver reply with their own letter (ping-pong)?** Likely future feature, not V1. V1 is one-directional: sender → receiver.
 2. **Does gap map feed into /live session setup?** Ideally yes — "start /live on story with biggest gap." V1 letter completion summary has "Ready for /live?" CTA but no deep integration.
-3. **~~How does receiver discover they have a letter?~~** RESOLVED (D28/D29). 1-to-1 letters: email invitation (Agreement pattern). 1-to-many letters: shareable link. Both: visible in Clarity Docs page under "Letters received" section. Email notifications are a separate spec (P573).
 4. **Can sender include stories by other authors?** V1: sender can only include their own stories. Curating others' stories is a future capability.
-5. **~~Does the grid replace JourneyToUnderstanding in /live?~~** RESOLVED (D43). Grid deferred to P624. V1 uses simpler per-story/per-point comparisons. JourneyToUnderstanding stays in /live. Grid migration is a future task.
 6. **Can a letter document external paraphrase?** (e.g., "we already discussed this in person, I just want to record it") — async /live alternative. Likely future, not V1.
-7. **~~Guess-line → collapse mechanic~~** RESOLVED (D43). Grid deferred to P624. This mechanic belongs to the grid visualization, not V1's simpler comparisons.
-8. **~~Should composition create an implicit Clarity Doc?~~ RESOLVED (2026-03-24).** Yes — docs are V1, not future. Every letter is sourced from a doc. `source_doc_id` is NOT NULL. The doc page IS the composition surface. "Prepare a Letter" button on doc header opens the wizard. No standalone composition flow.
 9. **Remix flow for Letter 2:** After completing a letter, can the receiver create their own letter reusing the same *points* but with their own *stories*? V1: receiver uses standard flow — create own doc, add stories on same points, send as letter. Future: "Create your own letter from these points" CTA on completion summary that auto-creates a doc pre-populated with the sender's points.
 
 ---
@@ -459,11 +453,6 @@ Key patterns from prototypes: dot picker (not slider), three-button (not Likert)
 
 ## ASCII Flow: "Sealed Slides" (from /ascii-flows, corrected)
 
-Winner from 30 variants. Scored 84/100. Corrections applied from founder review.
-
-### Naming (resolved)
-
-"Clarity Letter" — a first-class entity, distinct from the Clarity Doc it snapshots. The doc is the editing surface; the letter is the sealed reading experience with assessment. D13 resolved: unified in V1, but separate concepts.
 
 ### COMPOSITION (Sender — 2 steps + preview, triggered from doc page)
 
@@ -602,10 +591,6 @@ DOC PAGE (P551) — sender clicks "Prepare a Letter" in header
 └──────────────────────┘
 ```
 
-Note: Dot picker, not slider. Tapping a dot fills up to that point (like prototype). Submit commits — no going back.
-
-Confidence slide REMOVED — the rating itself IS the confidence. Adding "how confident are you in your confidence?" is a loop.
-
 **Slide 3: REVEAL** (reuses calibration history pattern)
 
 ```
@@ -628,8 +613,6 @@ Confidence slide REMOVED — the rating itself IS the confidence. Adding "how co
 │                      │
 └──────────────────────┘
 ```
-
-Note: Simple dual-number display. Language says "guesses" — we don't pretend to know what we don't know. No false-consensus labeling at this stage.
 
 **Slide 4: POINTS** (one at a time, locked author)
 
@@ -658,7 +641,7 @@ Note: Simple dual-number display. Language says "guesses" — we don't pretend t
 └──────────────────────┘
 ```
 
-Note: Engagement = taking position OR filing a story. Either unlocks author position. "Skip" is always available — skipping is itself a signal. Story filing explains position, non-position, or false premise ("I reject this framing because...").
+D37: must engage (position or story) before proceeding.
 
 After engagement:
 
@@ -692,7 +675,6 @@ After engagement:
 └──────────────────────┘
 ```
 
-Note: Clean break. Shows progress. No enforced breathing timer — just a natural pause before tapping. Not a meditation app.
 
 → Story 2 begins at Slide 1.
 
@@ -745,8 +727,6 @@ Note: Clean break. Shows progress. No enforced breathing timer — just a natura
 └──────────────────────┘
 ```
 
-Note: No grid in V1. Simple per-story gaps and per-point positions side by side. "Save your results?" appears only for unauthenticated 1-to-many letter receivers. The letter is triage: "here's where to look." /live is verification: "here's what's real." See P624 for grid visualization.
-
 ### AUTHOR COMPLETION SUMMARY VIEW
 
 ```
@@ -784,22 +764,9 @@ Note: No grid in V1. Simple per-story gaps and per-point positions side by side.
 └──────────────────────┘
 ```
 
-Note: Points sorted by gap size (largest first). Simple. Author sees gaps + linked stories + "Ready for /live?" CTA.
-
 ---
 
 ## UX Design
-
-### Correction to ASCII Flows: D36 Ordering
-
-The ASCII flow (Slide 4) shows points AFTER story. D36 changes this for 2+ point stories:
-
-**1 point per story:** Read story → Rate → Reveal gap → Point → position/story → Transition
-**2+ points per story:** Point 1 (anti-point) → position/story → Read story → Rate → Reveal gap → Point 2, 3... → position/story → Transition
-
-Receiver must position OR file story on each point before proceeding (D37).
-
-The rest of the ASCII flows (composition wizard, cover, completion summary) remain correct.
 
 ### Flow 1: Letters Section in Docs Page (D28)
 
@@ -934,7 +901,6 @@ COMPLETION SUMMARY → registration gate (if unauthenticated, 1-to-many only)
 │  Points:                         │
 │  ┌─ "Seniors reduce cost"      ─┐│
 │  │ You: ✓ Agree  Sender: ✕ Dis  ││
-│  │ [Grid dot: Y=8, X=+2]        ││
 │  │ 📖 Your story: "I think..."  ││
 │  └───────────────────────────────┘│
 │                                  │
@@ -998,7 +964,7 @@ COMPLETION SUMMARY → registration gate (if unauthenticated, 1-to-many only)
 - Author position lock: `aria-label="[Sender]'s position hidden until you engage"`
 - Author position reveal: `aria-live="polite"` announces "[Sender] [position]"
 
-**Color contrast:** All text meets WCAG AA (4.5:1). Grid quadrant tints are background only — labels meet contrast against tinted background. Blue dots (blue-500) on white/light backgrounds pass.
+**Color contrast:** All text meets WCAG AA (4.5:1).
 
 ### Responsive Design
 
@@ -1006,18 +972,15 @@ COMPLETION SUMMARY → registration gate (if unauthenticated, 1-to-many only)
 - All flows: single column, full-width
 - Composition wizard: stacked steps, full-screen (not modal)
 - Reading flow: story text fills width, rating buttons wrap if needed
-- Grid: square aspect ratio, max-width 100%, dots scale to 8px
 - Letters section in docs: stacked cards, full-width
 
 **Tablet (640px-1023px):**
 - Composition wizard: centered card (max-w-lg)
 - Reading flow: centered content (max-w-2xl, matching doc detail page)
-- Grid: max-width 500px, centered
 - Letters section: 2-column grid for sent/received
 
 **Desktop (1024px+):**
 - Same as tablet (content stays centered at max-w-2xl)
-- Grid: max-width 600px
 - Composition step 2 (predictions): stories and prediction controls side by side if space allows
 
 ### UI Contract Additions
