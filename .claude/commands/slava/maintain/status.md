@@ -2,6 +2,7 @@
 name: status
 description: Session snapshot — what happened in THIS conversation. Problems, open questions, next step. Read-only, no actions taken.
 when_to_use: After context compaction. Mid-session "where are we?". Before /kdd to confirm what to capture.
+version: 1.0.0
 ---
 
 # /status

@@ -1,6 +1,7 @@
 ---
 name: kdd
 description: Record decisions + meta-reflection. Run after features with trade-offs, architectural choices, or any session worth learning from. Captures what was built (why) and surfaces session friction as chat output only — no file logging.
+version: 1.0.0
 ---
 
 # Knowledge-Driven Development (KDD)

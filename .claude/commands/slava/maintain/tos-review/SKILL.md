@@ -2,6 +2,7 @@
 name: tos-review
 description: Audit the ToS against all tech and features shipped since the last update, propose changes, review them, and apply with human approval.
 trigger: manual
+version: 1.0.0
 ---
 
 # /tos-review — ToS Sync Skill

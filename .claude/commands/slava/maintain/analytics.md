@@ -1,6 +1,7 @@
 ---
 name: analytics
 description: Pull the live analytics picture — Mixpanel session health + Supabase user health. Ensures Mixpanel login before querying. Called by /weekly or standalone.
+version: 1.0.0
 ---
 
 # /slava:maintain:analytics

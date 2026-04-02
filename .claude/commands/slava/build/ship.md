@@ -2,6 +2,7 @@
 name: ship
 description: Ship an approved feature to production. Merges feature/pN → main → closes spec (status: all-done, moves to features/done/). Push is a separate step.
 when_to_use: When a feature is approved for production and lives on a feature branch.
+version: 1.0.0
 ---
 
 # /ship

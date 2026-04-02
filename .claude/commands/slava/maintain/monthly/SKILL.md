@@ -1,6 +1,7 @@
 ---
 name: monthly
 description: Monthly meta-review — extract behavioral patterns from session history, challenge existing CLAUDE.md principles, propose concrete improvements. Run once a month.
+version: 1.0.0
 ---
 
 # /slava:monthly

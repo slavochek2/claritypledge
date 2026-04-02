@@ -1,5 +1,7 @@
 ---
 description: 'Generate UAT checklist and runnable E2E test stubs from a spec'
+name: generate-uat
+version: 1.0.0
 ---
 
 # /generate-tests

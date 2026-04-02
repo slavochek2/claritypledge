@@ -1,6 +1,7 @@
 ---
 name: generate-ralph-loop
 description: Generate commands for Ralph Orchestrator (external tool) or Claude Code's internal /ralph-loop. Reads a spec or UAT file, analyzes complexity, and outputs ready-to-run commands. Primary output is Ralph Orchestrator (solves context compaction). Internal /ralph-loop is deprecated fallback for simple tasks.
+version: 1.0.0
 ---
 
 # Generate Ralph Loop

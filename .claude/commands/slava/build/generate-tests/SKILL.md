@@ -1,5 +1,7 @@
 ---
 description: 'Generate comprehensive test strategy and runnable test files from a spec'
+name: generate-tests
+version: 1.0.0
 ---
 
 # /generate-tests

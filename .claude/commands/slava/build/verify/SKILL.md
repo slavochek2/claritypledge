@@ -1,5 +1,7 @@
 ---
 description: 'Live UAT: verify a shipped feature works, looks great, and meets its acceptance criteria — from the user perspective'
+name: verify
+version: 1.0.0
 ---
 
 # /verify

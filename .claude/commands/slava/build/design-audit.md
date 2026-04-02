@@ -1,5 +1,7 @@
 ---
 description: 'Systematic UI audit - checks every button, all user states, accessibility'
+name: design-audit
+version: 1.0.0
 ---
 
 # Design System Audit (Systematic)

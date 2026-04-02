@@ -1,5 +1,7 @@
 ---
 description: 'Pre-dev spec quality audit — catches redundancy, consistency gaps, blindspots, and under-specification before implementation starts'
+name: spec-review
+version: 1.0.0
 ---
 
 # /spec-review

@@ -11,6 +11,7 @@ description: >
   Proactively offer this at the start of any non-trivial task (P-number mentioned, bug
   described, "what do we do next" asked) — do not wait to be asked. Skip for one-liner
   fixes, typo edits, or when the user has already named the exact commands to run.
+version: 1.0.0
 ---
 
 # pick-flow

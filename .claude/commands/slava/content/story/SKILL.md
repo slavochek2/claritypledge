@@ -1,6 +1,7 @@
 ---
 name: story
 description: Use when user wants to capture a working session as a story for newsletter, blog, or founder journey content. Triggered by "write a story about this conversation," "capture this as a story," "turn this into a blog post," or after significant insights emerge.
+version: 1.0.0
 ---
 
 # Story

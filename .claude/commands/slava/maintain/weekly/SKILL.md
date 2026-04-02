@@ -1,6 +1,7 @@
 ---
 name: weekly
 description: Weekly review - validate Claude context, flag stale docs, run evidence-based retro. Run when terminal reminds you.
+version: 1.0.0
 ---
 
 # Weekly Review
