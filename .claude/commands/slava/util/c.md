@@ -1,3 +1,10 @@
+---
+name: c
+description: "Run a task in the cloud — works even when you close your laptop"
+when_to_use: "When a task needs to run remotely or survive laptop close."
+version: 1.0.0
+---
+
 # Cloud Agent
 
 Run a task in the cloud. Works even when you close your laptop.

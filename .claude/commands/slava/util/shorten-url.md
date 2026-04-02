@@ -1,3 +1,10 @@
+---
+name: shorten-url
+description: "Look up short URLs using claritypledge.com internal shortener"
+when_to_use: "When creating or looking up a short URL."
+version: 1.0.0
+---
+
 # Shorten URL
 
 Look up short URLs using claritypledge.com's internal shortener.

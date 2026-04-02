@@ -1,5 +1,6 @@
 ---
 description: 'Pre-dev spec quality audit — catches redundancy, consistency gaps, blindspots, and under-specification before implementation starts'
+when_to_use: "Before /dev. When a spec exists but has not been reviewed for quality."
 name: spec-review
 version: 1.0.0
 ---

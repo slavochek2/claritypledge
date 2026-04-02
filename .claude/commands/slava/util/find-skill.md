@@ -1,3 +1,10 @@
+---
+name: find-skill
+description: "Search local and external skill directories for matching skills"
+when_to_use: "When looking for a skill that might already exist."
+version: 1.0.0
+---
+
 # Find Skill
 
 Search local and external skill directories to find the best skills for a given task.

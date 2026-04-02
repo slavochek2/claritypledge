@@ -1,3 +1,10 @@
+---
+name: promote-todo-today
+description: "Promote a ClarityPledge event on todo.today"
+when_to_use: "After event is published on claritypledge.com."
+version: 1.0.0
+---
+
 # Promote Event on todo.today
 
 Promotes a Clarity Pledge event on todo.today by filling the Create Event form. Stops before submitting — user reviews and publishes.

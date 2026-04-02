@@ -1,6 +1,7 @@
 ---
 name: pick-flow
 description: >
+when_to_use: "When starting work and unsure which development flow to use."
   Recommends the right development flow for a task by analyzing its scope and complexity.
   Proposes 2-3 options ranked lightest to heaviest, with exact slash commands, trade-offs,
   and a recommendation. Use when starting work and unsure which flow is appropriate —

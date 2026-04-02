@@ -1,6 +1,7 @@
 ---
 name: claude-md
 description: Gate for CLAUDE.md changes — validates placement, redundancy, and universality before applying. Run before editing any CLAUDE.md or .claude/rules/*.md file.
+when_to_use: "Before editing CLAUDE.md or .claude/rules/*.md. Always run this gate first."
 version: 1.3.0
 ---
 

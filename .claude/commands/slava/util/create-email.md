@@ -1,3 +1,10 @@
+---
+name: create-email
+description: "Create a new email mailbox on any All-Inkl hosted domain"
+when_to_use: "When setting up a new email address on All-Inkl."
+version: 1.0.0
+---
+
 # Create Email Account (All-Inkl)
 
 Create a new email mailbox on any All-Inkl hosted domain via KAS browser automation.

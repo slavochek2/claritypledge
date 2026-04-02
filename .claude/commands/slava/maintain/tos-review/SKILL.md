@@ -1,6 +1,7 @@
 ---
 name: tos-review
 description: Audit the ToS against all tech and features shipped since the last update, propose changes, review them, and apply with human approval.
+when_to_use: "After shipping features that may affect Terms of Service compliance."
 trigger: manual
 version: 1.0.0
 ---

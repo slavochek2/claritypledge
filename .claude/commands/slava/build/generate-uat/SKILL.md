@@ -1,5 +1,6 @@
 ---
 description: 'Generate UAT checklist and runnable E2E test stubs from a spec'
+when_to_use: "After /generate-tests, when UAT checklist and E2E stubs are needed from a spec."
 name: generate-uat
 version: 1.0.0
 ---

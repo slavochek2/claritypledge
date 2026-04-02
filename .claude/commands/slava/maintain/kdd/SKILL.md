@@ -1,6 +1,7 @@
 ---
 name: kdd
 description: Record decisions + meta-reflection. Run after features with trade-offs, architectural choices, or any session worth learning from. Captures what was built (why) and surfaces session friction as chat output only — no file logging.
+when_to_use: "After features with trade-offs, architectural choices, or sessions worth learning from."
 version: 1.0.0
 ---
 

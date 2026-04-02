@@ -1,3 +1,10 @@
+---
+name: review-all
+description: Run comprehensive parallel reviews on recent changes before shipping
+when_to_use: "Before committing or creating a PR. Triggered by /review-all."
+version: 1.0.0
+---
+
 # /review-all
 
 Run comprehensive parallel reviews on recent changes before shipping.

@@ -1,5 +1,6 @@
 ---
 description: 'Generate comprehensive test strategy and runnable test files from a spec'
+when_to_use: "After /architect, before /dev. When a spec needs comprehensive test strategy."
 name: generate-tests
 version: 1.0.0
 ---

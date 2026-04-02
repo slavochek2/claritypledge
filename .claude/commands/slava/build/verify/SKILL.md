@@ -1,5 +1,6 @@
 ---
 description: 'Live UAT: verify a shipped feature works, looks great, and meets its acceptance criteria — from the user perspective'
+when_to_use: "After /dev ships a feature. When verifying it works from the user perspective."
 name: verify
 version: 1.0.0
 ---

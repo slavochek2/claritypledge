@@ -1,6 +1,7 @@
 ---
 name: cleanup
 description: Organize feature docs by moving done/archived specs into dated subfolders with git mv
+when_to_use: "When features/done/ has unorganized specs that need dated subfolder archiving."
 version: 1.0.0
 ---
 
