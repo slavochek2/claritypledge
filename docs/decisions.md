@@ -2,6 +2,14 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-02 [product]: P621 change-request — unlink button inside card, not outside (redesign of P616)
+
+**Context:** P616 placed the unlink button outside QuotedPoint cards via `renderPointRow` wrapper. During UAT, discovered: (1) all other action buttons (edit, trash, share) are inside cards via `footerActionsSlot`, making unlink visually inconsistent; (2) only wired on story-detail-page, but author expects to unlink from profile stories tab and doc page too. These are different component paths — profile uses `QuotedPointCard`, docs use `StoryCardDetail` with `renderPointRow` for drag handles.
+**Decision:** Filed P621 as change-request. Move button inside `QuotedPoint` via `onUnlinkPoint` callback prop on `StoryCardDetail` + `onUnlink` on `QuotedPoint`. Expand to 3 surfaces: story detail, profile stories, doc page. Point detail page (reverse direction) out of scope. Flow B: challenge-prd → ascii-flows → ux → ui → generate-tests → spec-review → spec-compact → dev → verify.
+**Alternatives rejected:** (A) Keep `renderPointRow` and just fix positioning — still outside card, still inconsistent. (B) Inline refactor without spec — skips UX resolution for multi-surface placement, mobile layout, edge states. User correctly insisted on proper pipeline.
+**Consequences:** P616 marked `superseded_by: p621`. P621 implementation in new worktree. Profile stories tab uses different component (`QuotedPointCard`) — needs separate handling within P621. Process learning: pre-ship design flaws are change-requests, not refactors.
+**References:** `features/p621_unlink_button_inside_card.md`, `features/p616_unlink_point_and_fix_dialog.md`
+
 ## 2026-04-02 [process]: `/dd:think` — David Deutsch epistemic pipeline for domain-agnostic structured thinking
 
 **Context:** Analysis of 59 CLI `/falsify` invocations + 90 Claude.ai conversations revealed a thinking pattern (problem → root cause → creative solutions → falsification → synthesis) applied across all domains — software (35 CLI uses), business strategy (13), philosophy (15), personal decisions (8). But quality was inconsistent: 85% happened in unstructured conversation with no shared artifact, agents started cold without prior context, and existing skills (`/falsify`, `/innovate`, `/lean`) assumed software context. Root cause: no domain-agnostic "thinking artifact" — the spec-as-shared-artifact pattern only existed for software features.
