@@ -345,7 +345,7 @@ Letters serve a larger acquisition flywheel: Letter 1 (educate — recipient rea
 | D5 | Author "counter-assesses" or "predicts"? | Predicts. The author predicts BEFORE the receiver reads, not after. This is sealed-bid, not reactive. The prediction reveals the author's calibration, not their judgment of the receiver's answer. |
 | D6 | UX feel? | Ritual, not feed. Deliberate slowness. Full-screen, one story at a time. Gamification explicitly rejected. Particle effects on commitment moments (from prototype) are acceptable — they mark the weight of the moment, not gamify it. |
 | D7 | Receiver can revise rating after gap reveal? | No. Rating is committed. Revising after seeing the prediction defeats the purpose. |
-| D8 | Multiple receivers per letter? | Yes. Same stories, but predictions are per-receiver (facilitator predicts differently for each workshop participant). |
+| D8 | Multiple receivers per letter? | Yes for private (separate letter per receiver, each with unique predictions). Public letters have one "typical reader" prediction shared across all receivers. See D40. |
 | D9 | Dot picker or continuous slider? | Discrete 0-10 buttons. Reuse existing `RatingButtons` component (`src/app/components/partners/shared.tsx`). Slider = live continuous signal (/live free mode). Buttons = async deliberate assessment (letters). Not a new component. |
 | D10 | Author position visible or locked? | Locked until receiver engages (takes position OR files story). Incentivizes engagement. Unlocking is animated (fade-in). |
 | D11 | Three-button or 7-point Likert? | Three-button (✕/?/✓) with agree-degree dropdown on ✓. Lower cognitive load. From prototype. |
@@ -378,6 +378,28 @@ Letters serve a larger acquisition flywheel: Letter 1 (educate — recipient rea
 | D37 | Point engagement model? | B: must position OR file story explaining why not. Can't skip silently. Existing "add a story" handles the explanation — no extra UI prompts needed. Supersedes D4. |
 | D38 | Verification outcome states? | Three outcomes: flip, fork, verified agreement/disagreement. Grid triages (WHERE), stories diagnose (WHAT kind). No mechanical classification of flip types — behavior (paraphrase/story content) encodes the distinction. See definitions.md > Verification Outcome States. |
 | D39 | "Can't position because don't understand"? | Handled by existing story filing. User taps "?" → "add a story" → explains in natural language. No dual-track prompt, no extra buttons. Story content reveals comprehension gap vs opinion uncertainty. |
+| D40 | Public vs private letter mode differences? | See table below. |
+
+### D40: Public vs Private Letter Differences
+
+| Mechanic | Private letter | Public letter |
+|---|---|---|
+| **Delivery** | Sent to ONE specific person via email (token-gated link). Same content can be sent as separate private letters to different people. | Shareable link — anyone can open. |
+| **Prediction** | Per-receiver: "How well will [Alex] understand this?" | Single "typical reader": "How well will readers understand this?" |
+| **Sealed-bid reveal** | Identical mechanic. Gap = \|prediction - self_rating\|. | Identical mechanic. Same gap formula. |
+| **Gap reveal copy** | "Author predicted: N / You rated: M" | Same — neutral framing works for both. |
+| **Per-completion gap map** | One gap map per receiver, personalized prediction comparison. | One gap map per receiver, compared against the single typical-reader prediction. |
+| **Sender results view** | Per-receiver: "Alex rated 8, you predicted 6. Gap: 2." Named, identifiable. | Per-completion: "Reader 1 rated 3, you predicted 6. Gap: 3." Anonymous until registered. Count: "Views: N / Completions: N / Saved: N." |
+| **Realtime** | Supabase Realtime subscription (bounded receiver set). | Polling every 30s (unbounded receivers). |
+| **Status tracking** | Per-receiver: Sent / Opened / In progress / Completed. | Aggregate: Views: N / Completions: N / Saved: N. |
+| **Registration** | Receiver authenticates via token + magic link / one-click registration (Agreement pattern). | Registration gate at EXIT after gap map (Pledge pattern). |
+| **Letters received (in docs)** | Shows only after receiver authenticates + completes. | Shows only after receiver registers + saves. |
+| **Per-story accumulation** | Not in V1. Data model supports it — surfaced in P619 when N>=5 completions. | Same — deferred to P619. |
+
+**Composition wizard adaptation:**
+- Step 2 becomes a mode selector: "Specific people" (private) vs "Anyone with a link" (public)
+- Step 3 adapts: per-receiver predictions (private) vs single prediction (public)
+- Letter visibility follows doc visibility (private doc = private letter, public doc = public letter)
 
 ---
 
@@ -856,16 +878,17 @@ The rest of the ASCII flows (composition wizard, cover, gap map) remain correct.
 
 **Wizard opens as a full-screen overlay** (not a modal dialog — composition needs space for story list + predictions). Uses FocusHeader with "Back to doc" for exit.
 
-**Step 2 additions — receiver types:**
-- Email input with lookup: type email → check if user exists → show name + avatar if found, "will be invited" if not
-- "Or generate a shareable link" toggle → shows copy-link UI (public letter path)
-- Private vs public letter determined by doc visibility (private doc = private letter, public doc = public letter)
+**Step 2 — mode selector (D40):**
+- "Who is this for?" with two options:
+  - **Specific people** → email input with lookup: type email → check if user exists → show name + avatar if found, "will be invited" if not. Creates private letter(s), one per receiver.
+  - **Anyone with a link** → generates shareable URL. Creates public letter.
+- Letter visibility follows doc visibility (private doc = private letter only, public doc = either mode available)
 
-**Step 3 — per-receiver predictions:**
-- If multiple receivers: tab/pill selector at top ("For: Alex | For: Ben | For: Carol")
-- Each receiver gets independent predictions per story
+**Step 3 — predictions (adapts to mode, D40):**
+- **Private (specific people):** If multiple receivers: tab/pill selector at top ("For: Alex | For: Ben | For: Carol"). Each receiver gets independent predictions per story. Prompt: "How well will [Alex] understand this?"
+- **Public (anyone with link):** Single prediction set. Prompt: "How well will readers understand this?" One prediction per story, shared across all receivers.
 - `RatingButtons` 0-10 for each story
-- Summary card at bottom shows: N stories, To: [name], Predictions: [values]
+- Summary card at bottom shows: N stories, To: [name(s) or "anyone"], Predictions: [values]
 
 **Edge cases:**
 - 0 stories selected in Step 1 → "Select at least one story" inline validation, Next disabled
