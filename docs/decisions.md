@@ -2,6 +2,14 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-02 [process]: Skill frontmatter validator — machine-checkable agent contracts
+
+**Context:** Explored whether OOP patterns (inheritance, interfaces, composition) apply to Claude Code agents. Research across AutoGen, Semantic Kernel, Pydantic AI, CrewAI, Claude Agent SDK confirmed: the existing cp architecture already uses the winning patterns — composition via subagent delegation, rules-as-mixins (`.claude/rules/` auto-loading by path), state machine gating (`delivery_stage`), strategy pattern (`/dev` mode switching). Inheritance hierarchies don't map well to agents — LangChain learned this the hard way and replaced `AgentExecutor` with LangGraph. The one actionable gap: skill frontmatter contracts (name, description, version) are documented but not enforced. Pre-flight scan found ~55% of 110 skill files have broken or missing frontmatter, degrading proactive skill routing.
+**Decision:** Built `scripts/fix-skill-frontmatter.py` (dry-run default, `--apply` to write) + pre-commit section 21 (WARNING severity, staged files only). Exempted reference docs (PRINCIPLES.md, shortcuts.md), sub-agent files (agent.md, synthesizer.md), and archived skills. Deliberately did NOT insert empty `description: ""` placeholders — empty string is worse than absent for routing. Did NOT enforce `when_to_use` — optional per rules.
+**Alternatives rejected:** (1) Full validator system with hooks — overkill for skills edited a few times per week. (2) OOP inheritance patterns for skills — solves a problem that doesn't exist in markdown-skill systems. (3) Do nothing — viable but leaves 55% of skills invisible to proactive routing.
+**Consequences:** 23 fields auto-fixable via `--apply`. 19 files need manual frontmatter (add as touched). 1 name collision (`create-offer` in client/ and content/) needs resolution. Pre-commit guard prevents regression on new skills. Run via `/fix-kanban` or standalone.
+**References:** [skills.md](.claude/rules/skills.md), [fix-skill-frontmatter.py](scripts/fix-skill-frontmatter.py)
+
 ## 2026-04-02 [product]: P581 before workshop — dependency confirmed, not bypassed
 
 **Context:** Deductive analysis of what the first workshop needs to prove: H-WorkshopFormat (converts to sessions) and H-WTP-Pain (produces urgency). The "holy shit" moment requires comprehension gap reveal (confidence 9 → actual 4), not just comfort delta or position switches. Current /live works 1-to-1 but is too slow for 1-to-many in 90 minutes — sequential explain-backs for 8 participants on 3 stories would take hours. Without prep, participants arrive cold. P581 solves both: async prep (read + rate before arriving) + simultaneous sealed-bid gap reveals.

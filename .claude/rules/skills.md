@@ -52,6 +52,10 @@ version: 1.0.0
 Namespace placement: `build/` · `maintain/` · `content/` · `client/` · `think/` · `util/` · `events/`
 No skill without a namespace — if none fits, propose a new one first.
 
+**Exempt from frontmatter requirements:** `PRINCIPLES.md`, `shortcuts.md` (reference docs), `agent.md`/`synthesizer.md` (sub-agent files spawned by parent skills), `sifter-definitions.md` (shared definitions). These are not independently routable skills.
+
+**Validator:** `python3 scripts/fix-skill-frontmatter.py` (dry-run) or `--apply` to fix. Pre-commit section 21 warns on staged skill files with missing frontmatter.
+
 ---
 
 ## MCP Calls — Always Include a Bash Fallback
