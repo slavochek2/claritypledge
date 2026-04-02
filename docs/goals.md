@@ -2,7 +2,7 @@
 
 Concrete next steps in priority order. Updated 2026-03-24.
 
-**Last updated:** 2026-03-30 (refined 2026-03-30: Clarity Canvas sequence)
+**Last updated:** 2026-04-02 (workshop venue KL→SG, pricing, P620 created)
 
 Flywheel: see [lean-canvas.md](lean-canvas.md#channels--flywheel). Steps below follow that sequence.
 
@@ -48,6 +48,7 @@ Flywheel: see [lean-canvas.md](lean-canvas.md#channels--flywheel). Steps below f
 - Don't present your points as truth — present as your position, let the protocol work
 - Don't skip the reflection step after position switch — that's where pain surfaces
 - Don't try all 8 false beliefs in one workshop — 3-4 with depth beats 8 at surface
+- Don't charge money for workshops in Thailand — free + time donation only (DTV constraint)
 
 ## Last Weekly Review (2026-03-23)
 
