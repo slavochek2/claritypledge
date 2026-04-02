@@ -205,6 +205,19 @@ describe('getViewState — regression: second round bugs', () => {
     }))).toEqual({ view: 'responder-drawer' });
   });
 
+  it('REGRESSION: partner sees drawer even when ratingPhase still idle (Realtime delay)', () => {
+    // The core bug: ratingPhase update hasn't arrived via Realtime yet,
+    // but submission flags have. Partner should still see the drawer.
+    expect(getViewState(input({
+      ratingPhase: 'idle', // ← Still idle due to Realtime delay!
+      isChecker: false,
+      myRatingSubmitted: undefined, // I haven't submitted
+      partnerRatingSubmitted: true, // But partner's submission flag arrived
+      checkerRating: undefined,
+      responderRating: undefined,
+    }))).toEqual({ view: 'responder-drawer' });
+  });
+
   it('second round: both submitted → returns understanding', () => {
     expect(getViewState(input({
       ratingPhase: 'results',

@@ -166,6 +166,22 @@ export function getViewState(input: ViewStateInput): ViewState {
     return { view: 'local-rating', showDrawer: partnerAlreadySubmitted };
   }
 
+  // Branch 4a: Submission mismatch — one person submitted, other hasn't.
+  // Must come BEFORE idle check: ratingPhase may still be 'idle' on the partner's
+  // side due to Realtime delivery delay, but submission flags arrive via the same
+  // liveState merge. Without this, the partner sees the Speak button instead of
+  // the responder drawer on the second round.
+  if (myRatingSubmitted !== partnerRatingSubmitted) {
+    const iHaveSubmitted = isChecker
+      ? checkerRating !== undefined
+      : responderRating !== undefined;
+
+    if (!iHaveSubmitted && partnerRatingSubmitted) {
+      return { view: 'responder-drawer' };
+    }
+    return { view: 'understanding' };
+  }
+
   // Branch 4: Idle (default screen)
   if (ratingPhase === 'idle') {
     return { view: 'idle' };
@@ -176,8 +192,8 @@ export function getViewState(input: ViewStateInput): ViewState {
     return { view: 'checker-rating' };
   }
 
-  // Branch 5a/5b: Waiting phase — one submitted, other hasn't
-  if (ratingPhase === 'waiting' || (myRatingSubmitted !== partnerRatingSubmitted)) {
+  // Branch 5a/5b: Waiting phase
+  if (ratingPhase === 'waiting') {
     const iHaveSubmitted = isChecker
       ? checkerRating !== undefined
       : responderRating !== undefined;
