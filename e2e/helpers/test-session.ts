@@ -124,7 +124,7 @@ export async function createTwoPartySession(
   // Step 1: Create two authenticated browser contexts in parallel.
   const [hostAuth, guestAuth] = await Promise.all([
     getTestAuthContext('host', browser, { name: hostName }),
-    getTestAuthContext('guest', browser, { name: guestName }),
+    getTestAuthContext('host', browser, { name: guestName }),
   ]);
 
   // Step 2: Create pages from both contexts.
