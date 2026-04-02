@@ -28,3 +28,5 @@ Core message: "I guide you once. Next time you can do it yourselves."
 
 - Update service description copy on ladischenski.com (likely the de-risking / workshop section)
 - May touch pricing page or offer pages if the package is referenced there
+- Workshop event copy and pricing model (€50 entry + 0-10h time donation) — needs to be reflected on ladischenski.com and in event listings (Luma, etc.)
+- Workshop landing page or section on ladischenski.com for the free Calibration Workshop offer

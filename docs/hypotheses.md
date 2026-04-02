@@ -17,7 +17,7 @@ Session logs, architecture notes, and strategic commentary belong in [decisions.
 | H-AICalib-EntryTeaser | AI demo lowers trust barrier before co-founder offer | Active | P2 | — | Parked until group acquisition phase. |
 | H-CoachChannel | Coaches adopt protocol as distribution channel | Active | P2 | H-PairsReturn | Falsification-tested. Market large. Key risk: commodification. |
 | H-Retainers-Sticky | Pairs retain monthly FCO retainers | Blocked | — | H-PairsReturn | Not yet testable. |
-| H-WorkshopFormat | 1-to-many workshops convert to sessions | Active | P2 | — | Unblocked: false-belief curriculum testable independently. |
+| H-WorkshopFormat | 1-to-many workshops convert to sessions | Active | P1 | — | Unblocked: first workshop imminent. Testing actively. |
 | H-MetaEpistemic | Meta-epistemological briefing deepens sessions | Blocked | — | H-PairsReturn | Test passively. |
 | H-BriefingProtocol-ColdStart | Mirror agent invitation solves cold start | Blocked | — | H-PairsReturn + H-Stories-ColdStart | Two deps deep. |
 | H-ProtocolSpreadsWithoutTool | Protocol spreads free; tool captures value | Blocked | — | H-PairsReturn | Zero pairs have used protocol. |
@@ -52,6 +52,7 @@ Session logs, architecture notes, and strategic commentary belong in [decisions.
 **Counter reset (2026-03-25):** The 28 sessions tested the OLD passive mechanism (hope pairs spontaneously name a cost). Zero did — confirming passive observation fails. The test mechanism changed (2026-03-22) to active false-belief facilitation with explicit reflection prompt ("What did holding this cost you?"). **Kill counter resets to 0 pairs tested with the new mechanism.** Kill threshold unchanged: 10 pairs can't name a concrete cost after false-belief workshop → kill. The 28 sessions are evidence about the old method, not the hypothesis itself.
 **Test questions refined (2026-03-29):** Two concrete debrief questions: (1) "Can you share a past experience where a misunderstanding cost you something real?" — surfaces felt pain. (2) "How would you describe to a friend how our clarity session helped you?" — tests legibility (H-WTP-Pain depends on participants being able to name what they experienced).
 **Data point (2026-03-26):** Hostel encounter — stranger completed full 7-story protocol, signed pledge, named concrete past cost unprompted: "I lost a good, long-time friend because we didn't understand each other." Prevention-driven — wants to share to prevent future loss, not repair past one. Note: spontaneous motivation, not the engineered false-belief workshop mechanism. Counts as anecdotal evidence that pain exists in the wild, but does not count against the kill counter (which tracks the new active facilitation mechanism).
+**Watch for (2026-04-02):** Illegibility hypothesis may be self-sealing. If comprehension is verified and participants still don't pay, illegibility is falsified — bottleneck is something else (perceived value, urgency, price, trust). Track separately: "can they name what happened?" (legibility) vs "do they pay?" (WTP). If naming succeeds but payment doesn't, the blocker isn't legibility.
 
 ---
 
@@ -93,6 +94,17 @@ Session logs, architecture notes, and strategic commentary belong in [decisions.
 
 ---
 
+#### H-WorkshopFormat: 1-to-many workshops convert to sessions
+**Bet:** Workshop where participants calibrate against YOUR content (false-belief curriculum, P567) produces position switches and felt pain that convert to €950 de-risking sessions.
+**Kill if:** <10% conversion after 3 workshops.
+**Unblocked (2026-03-22):** False-belief workshops where participants calibrate against Slava's pre-filed points can be tested independently of H-PairsReturn — no pair dependency.
+**Promoted to P1 (2026-04-02):** First workshop imminent. Actively testing.
+**Test:** Run 3 workshops with P567 curriculum. Measure: position switches, reflection stories filed, conversion to de-risking.
+**Clarity Flip variant (2026-03-29):** "The Clarity Flip" is a 90-minute norm-inversion format that requires zero product features (physical cards, whiteboard). Topic IS understanding itself — participants calibrate against their beliefs about verification, not an external topic. Runs independently of P581. Could be tested before any product work ships. See P606.
+**Variant (2026-03-24):** Compressed three-letter workshop — Letters 1-3 + /live in one session. Letter 1 = pre-work/in-session reading; /live = gap verification; Letter 2 = "create your own" upsell; Letter 3 = PWIW + distributor CTA. Tests H-WorkshopFormat AND H-WTP-Pain simultaneously. Requires P581 shipped.
+
+---
+
 ### P2 — Passive / opportunistic
 
 #### H-CalibrationTrainable: Calibration accuracy improves with practice
@@ -116,6 +128,7 @@ Session logs, architecture notes, and strategic commentary belong in [decisions.
 **Test:** Train 3-5 coaches. Do they use it with clients? Do clients convert?
 **Kill if:** Zero adopt after training 5, OR coaches commodify to checkbox.
 **Status (2026-03-18):** Falsification-tested. $100B+ market, existing alignment vocabulary. Blocked by H-PairsReturn — Slava must demonstrate coaching first.
+**Sub-segment: Psychological safety practitioners (2026-04-02):** Positioning: "You built safety to speak. Now verify they heard." Psych safety works in low-stakes/homogeneous settings without verification. But in complex, emotional, or risky environments where differences are naturally high, unverified comprehension produces false agreement — people express freely but nobody checks reception. Verification makes psych safety work better and more predictably in high-stakes contexts. Entry: complementary tool, not framework replacement. Research: strong claim falsified (psych safety shows measured benefits without verification), weaker claim confirmed (false agreement as failure mode in high-difference environments).
 
 ---
 
@@ -128,16 +141,6 @@ Waiting on upstream hypotheses. Each entry lists what must happen before testing
 **Test:** Offer retainer to pairs from First Pairs who booked 2+ sessions. Target 10+ pairs, >60% month-2 retention, €10k MRR.
 **Kill if:** <5 signups OR <40% month-2 retention.
 **Blocked by:** H-PairsReturn.
-
----
-
-#### H-WorkshopFormat: 1-to-many workshops convert to sessions
-**Bet:** Workshop where participants calibrate against YOUR content (false-belief curriculum, P567) produces position switches and felt pain that convert to €950 de-risking sessions.
-**Kill if:** <10% conversion after 3 workshops.
-**Unblocked (2026-03-22):** False-belief workshops where participants calibrate against Slava's pre-filed points can be tested independently of H-PairsReturn — no pair dependency. Moved from Blocked to Active P2.
-**Test:** Run 3 workshops with P567 curriculum. Measure: position switches, reflection stories filed, conversion to de-risking.
-**Clarity Flip variant (2026-03-29):** "The Clarity Flip" is a 90-minute norm-inversion format that requires zero product features (physical cards, whiteboard). Topic IS understanding itself — participants calibrate against their beliefs about verification, not an external topic. Runs independently of P581. Could be tested before any product work ships. See P606.
-**Variant (2026-03-24):** Compressed three-letter workshop — Letters 1-3 + /live in one session. Letter 1 = pre-work/in-session reading; /live = gap verification; Letter 2 = "create your own" upsell; Letter 3 = PWIW + distributor CTA. Tests H-WorkshopFormat AND H-WTP-Pain simultaneously. Requires P581 shipped.
 
 ---
 
@@ -160,6 +163,7 @@ Waiting on upstream hypotheses. Each entry lists what must happen before testing
 **Kill if:** Zero organic spread after 5+ pairs experience sessions.
 **Blocked by:** H-PairsReturn.
 **Early signal (2026-03-26):** Hostel stranger wanted to share further after completing protocol (prevention-driven). N=1, not yet verified as actual spread. But first organic referral intent observed.
+**Mechanism (2026-04-02):** The replication unit is the person who flips, not the organization or the tool. A person who internalizes the protocol becomes a node that seeds verification in any relationship they enter. Workshop → flip → they bring it home → their partner encounters it → new node. Implication: optimize workshops for individual transformation depth, not organizational adoption breadth.
 
 ---
 

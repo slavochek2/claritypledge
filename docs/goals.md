@@ -17,7 +17,7 @@ Flywheel: see [lean-canvas.md](lean-canvas.md#channels--flywheel). Steps below f
 5. [x] P562: /live simplification — strip to orchestration, reduce drop-off in group settings
 6. [x] P567: File 8 false belief stories + points as workshop curriculum
 7. [ ] [PARALLEL with P581] File lean canvas content as stories/points in prod + build Clarity Canvas renderer (canvas-view skin for a clarity doc). P551 is already built — this is content filing + UI work, no P581 dependency.
-8. [ ] Run first 9-points workshop with Clarity Letters — participants receive letter, rate understanding of each false-belief story, see their gaps. Test H-WTP-Pain with debrief questions: "What did holding this cost you?"
+8. [ ] Run first workshops (P620): Online #1 this week (Google Meet, free, curriculum test) → KL #2 in-person at MaGIC/WORQ (~mid-April, €50 + time donation) → Singapore #3 (late April, polished). Thailand = prep only (DTV). Test H-WTP-Pain with debrief: "What did holding this cost you?" + before/after comfort score.
 9. [ ] Publish own Clarity Canvas as a canvas-doc — YOUR hypotheses/assumptions as stories, visitors challenge via positions. Uses infrastructure from steps 4+7.
 10. [ ] Write a11 (Clarity Canvas journey article) — links to live canvas, uses real workshop data. Also serves as co-builder signal flare.
 11. [ ] Promote a11 via LinkedIn, rationalist communities, founder communities
@@ -55,7 +55,7 @@ Flywheel: see [lean-canvas.md](lean-canvas.md#channels--flywheel). Steps below f
 STOP:        Any feature work not on P581 → workshop → canvas → article path
              (exception: canvas renderer parallel with P581)
 START:       Build P581, file lean canvas as stories/points in parallel
-SCARY THING: Post workshop invite at Koh Lanta cowork by April 4
+SCARY THING: Run online workshop #1 by April 10. Email MaGIC KL this week.
 HYPOTHESIS:  Workshop participants take de-risking package (PWIW) + sign
              Clarity Partner Agreement — at least 1 pair from first workshop
 KILL DATE:   0/2 workshops → paying pair by April 25 = pipeline doesn't convert

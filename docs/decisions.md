@@ -2,6 +2,53 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-02 [product]: Pitch copy V3-final replaces Mar 31 Frankl version
+
+**Context:** Apr 1 conversation ("Понимание как основа доверия") iterated the pitch 8+ times. Discovered the Mar 31 "locked" version had a tension-closing sentence ("win respect and trust") that was removed 3x during iteration but kept returning from memory. Also: "measure" in questions triggers false objection about quantifiability; "verify" is more precise for comprehension illusion context. Paragraph-by-paragraph comparison confirmed V3-final wins on 4/5 paragraphs; V4 (memory reconstruction) contributes exactly two words ("often" + "understanding" in P3).
+**Decision:** V3-final + two V4 precision fixes is the canonical pitch. Updated in facilitator-guide.md and lean-canvas.md. Three escalating questions (verify → prove → empower) are the structural spine. "Measure" stays in P3 (seeds the idea); "verify" stays in questions (applies it).
+**Alternatives rejected:** (1) V4 as-is — reintroduces three elements explicitly removed during iteration. (2) Mar 31 Frankl version — replaced by stronger copy from longer iteration session.
+**Consequences:** Pitch copy is now in two places (facilitator-guide, lean-canvas) both pointing to V3-final. Use for Luma listing, workshop opener, event descriptions.
+**References:** [facilitator-guide.md](facilitator-guide.md), [lean-canvas.md](lean-canvas.md)
+
+## 2026-04-02 [product]: Workshop venue — online first, KL second, Singapore third
+
+**Context:** DTV visa prohibits workshops in Thailand (even free). Koh Lanta lacks co-founder density and distribution. Kill date: April 25 (0/2 workshops = pipeline doesn't convert). Conjecture+falsify analysis across 7 cities: Thailand killed (legal), Penang wrong audience (nomads), Bangkok scattered. KL has MaGIC (gov startup hub), real local founder scene, €450/week. Singapore has highest SEA co-founder density but €900/week.
+**Decision:** Online workshop #1 this week (Google Meet, free, curriculum test). KL workshop #2 mid-April (MaGIC/WORQ, €50 + time donation). Singapore workshop #3 late April (Block71, polished version). Thailand = prep only. P620 created for execution.
+**Alternatives rejected:** (1) Koh Lanta informal — legal risk, wrong audience. (2) Online only — Slava dislikes it, misses in-person signal. (3) Singapore first — expensive for an unvalidated curriculum.
+**Consequences:** Book KL flights this week. Email MaGIC community team. Goals.md updated.
+**References:** [features/p620_kl_workshop_outreach.md](../features/p620_kl_workshop_outreach.md), [goals.md](goals.md)
+
+## 2026-04-02 [product]: Workshop pricing — €50 entry + time donation (0-10h)
+
+**Context:** Emerged from conversation "Анализ тенденций" (Mar 31). Dual-currency: money filters seriousness at entry, time measures value at exit. "Someone who says '6 hours' after 90 minutes is a stronger signal than any review." Time donations = volunteering for ClarityPledge (content, translation, community, testing). Thailand variant: free + time only (DTV).
+**Decision:** Formalized in facilitator-guide.md and lean-canvas.md revenue table. Separate from €950 de-risking and FCO retainers. P599 scope expanded to include workshop pricing copy on ladischenski.com.
+**Alternatives rejected:** (1) Free only — loses seriousness filter. (2) Fixed price only — loses the WTP signal that time donation provides.
+**Consequences:** First online workshop is free (test). First KL workshop uses €50 + time. Track time donation amounts as WTP proxy alongside monetary PWIW.
+
+## 2026-04-02 [product]: Psych safety positioning — complementary, not replacement
+
+**Context:** Conversations explored CCO (Chief Clarity Officer) as upgrade to psychological safety. Research falsified strong claim ("no safety without verification") — meta-analyses show teams benefit without comprehension checks. Weaker claim confirmed: in high-stakes environments with natural differences, unverified comprehension produces false agreement.
+**Decision:** Position within H-CoachChannel as sub-segment, not separate hypothesis. Entry: "You built safety to speak. Now verify they heard." Psych safety practitioners who already observe false agreement despite "safe" environments are the natural adopters. Not a channel pivot — an angle within existing coach channel.
+**Alternatives rejected:** (1) Separate hypothesis — too narrow for own slot. (2) "Your framework is broken" positioning — would be a fight, not an invitation.
+**Consequences:** H-CoachChannel note added. Revisit when approaching coaches (goals.md step 13).
+
+## 2026-04-02 [process]: Conjecture-building is not an anti-pattern — feedback captured
+
+**Context:** /claude-conversations-to-cp flagged "framework iteration pattern accelerating" as a potential anti-pattern (new concepts generated instead of testing existing ones). User corrected: exploration → conjecture → falsify → act IS the workflow. Git history confirms continuous shipping.
+**Decision:** Never frame conjecture-building as avoidance. Only flag if the SAME concept recycles 3+ times without being falsified or tested — that's the signal, not volume of new ideas.
+**Alternatives rejected:** Adding a process guard that classifies new concepts before engaging — overhead without evidence of a problem.
+**Consequences:** Feedback memory saved. Future /claude-conversations-to-cp runs will classify new concepts as conjectures to falsify, not scope creep to prevent.
+
+---
+
+## 2026-03-31 [process]: Skill quality — evidence-based bug fixes, not size trimming
+
+**Context:** Observation that skill files are growing (23K+ lines across ~100 skills, top file 1,108 lines). Initial instinct was to trim for size. Instead, analyzed 594 March CLI sessions for skill-related friction — user corrections, abandoned runs, contradictions.
+**Decision:** Skill size is not a problem (zero complaints about large skills). Fix specific evidence-backed bugs instead: (1) `/claude-conversations-to-cp` privacy pre-filter (check text before creating files, not after), (2) same skill incremental mode (skip already-processed files), (3) `/simplify` session awareness (don't contradict prior in-session agreements), (4) `/dev` → `/verify` handoff (suggest /verify before /ship in UAT gate), (5) `/kdd` subagent gets inline decisions.md context instead of being told to "read files" it can't access. Dropped `/verify` two-party bug — already handled by Playwright routing.
+**Alternatives rejected:** (1) Parallel agents trimming all skills by size — no evidence of a problem to solve. (2) Rewriting large skills — they work; the 1,108-line `create-prd/agent.md` had zero complaints.
+**Consequences:** Conversation history analysis is the validated method for finding skill issues. Run periodically (monthly?) instead of guessing at problems from line counts.
+**References:** Skills edited: `claude-conversations-to-cp.md`, `simplify/SKILL.md`, `dev.md`, `kdd/SKILL.md`
+
 ## 2026-03-31 [product]: Universal pitch copy locked — Frankl "meaning" line added
 
 **Context:** Across 5+ iterations in two Claude.ai conversations (2026-03-30/31), the universal positioning copy was stress-tested with and without a Frankl-derived meaning line. The line "Without it, nothing you build together has meaning or sense" compresses the Frankl substrate insight (meaning requires verified relational ground) into plain language. The phrase "in the way they mean it" does double duty: "mean" as intent, "mean" as significance.
