@@ -6,6 +6,7 @@ tags: [visibility, p576-follow-up, ux, points, stories]
 delivery_stage: 1-prd
 rank: 1000030.0
 created_date: 2026-03-31
+superseded_by: p621
 ---
 
 # P616: Unlink Point from Story + Fix RemovePositionDialog
