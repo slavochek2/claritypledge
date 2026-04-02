@@ -6,6 +6,9 @@ type: bug
 flow: dev
 priority: 1
 completed_at: "2026-03-29"
+tags: []
+rank: 1000034.0
+created_date: 2026-03-29
 ---
 
 ## Problem

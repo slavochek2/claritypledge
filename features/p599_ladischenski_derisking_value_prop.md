@@ -6,6 +6,8 @@ status: today
 priority: medium
 rank: 0.75
 locked_at: '2026-03-29T14:15:20.600Z'
+tags: []
+created_date: 2026-03-28
 ---
 
 # P599 — Update ladischenski.com De-Risking Package Value Prop

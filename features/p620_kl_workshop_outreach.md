@@ -9,6 +9,7 @@ tags:
   - workshop
   - outreach
   - h-workshop-format
+created_date: 2026-04-02
 ---
 
 # P620 — KL Workshop Venue Outreach + Online Workshop Prep

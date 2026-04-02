@@ -6,6 +6,9 @@ status: all-done
 priority: medium
 flow: quick-feature
 completed_at: "2026-03-27"
+tags: []
+rank: 1000037.0
+created_date: 2026-03-27
 ---
 
 # P594: Add "show more" expand/collapse to feed cards

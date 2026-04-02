@@ -1,5 +1,5 @@
 ---
-status: today
+status: qa
 type: bug
 rank: 3
 tags:
@@ -44,51 +44,47 @@ The `getViewState()` unit tests also pass because they test the correct state co
 
 ---
 
-## Root Cause (needs investigation)
+## Root Cause (confirmed via code analysis)
 
-The `getViewState()` function returns `idle` for the listener because the conditions for `responder-drawer` or other non-idle states aren't met on the listener's side. Need to trace:
-1. What exact liveState values does the listener have when this screenshot was taken?
-2. Which `getViewState()` branch fires?
-3. Is `ratingPhase` still `idle`? Is `myRatingSubmitted !== partnerRatingSubmitted` false?
+**Shared root cause:** The code has no concept of "we're inside a round" — only "idle" and "submitted". `ratingPhase` only leaves `'idle'` when the speaker *submits* a number. But from the user's perspective, the round begins when the speaker clicks Speak. That gap is where all 3 bugs manifest.
 
-**Approach for next session:** Add console logging to `getViewState()` call in the component to capture the exact input → output, then reproduce.
+### Bug 1 — Listener enters round too early
+- **File:** `live-mode-view.tsx:1352` — the 7-condition AND gate for mode switcher
+- **Mechanism:** `handleStartCheck()` writes `ratingInitiatedBy: name` to shared state on Speak *click* (before submission). Listener receives it via Realtime immediately. The mode switcher uses `!ratingInitiatedBy` as a hard-hide trigger → listener's UI changes before speaker submits.
+- **Correct behavior:** Listener should see NO change until speaker submits a number. `ratingInitiatedBy` should disable (gray out) the switcher, not hide it.
+
+### Bug 2 — Speaker sees double Speak
+- **File:** `live-mode-view.tsx:1321` (ActionArea Speak in IdleScreen) + `:1756` (RatingCard)
+- **Mechanism:** Possible render race — `updateLiveState` is async, `setIsLocallyRating(true)` is sync but batched. In a brief intermediate frame, IdleScreen may still render with the Speak button visible before the drawer fully opens. Also the RatingCard "Back" button could be visually confused with a second Speak.
+- **Correct behavior:** After clicking Speak, speaker should go directly to number scale in drawer. No intermediate Speak button.
+
+### Bug 3 — Mode switcher stays visible in round
+- **File:** `live-mode-view.tsx:1352` (same 7-condition AND gate)
+- **Mechanism:** No state signal for "story selected + mode chosen = in-mode." The switcher only hides when `ratingInitiatedBy` is set or `ratingPhase !== 'idle'`. "Entering a mode" (user's mental model) has no corresponding liveState transition.
+- **Correct behavior:** Mode switcher should only be visible on idle screen. Disappears for speaker on Speak click, for listener on speaker submission.
+
+### 5-Why (all 3 bugs)
+1. Listener UI changes too early → `ratingInitiatedBy` written on click
+2. Why on click? → Added as early signal to "close partner's history view" (`clarity-live-page.tsx:1368`)
+3. Why does it affect mode switcher? → Reused as hide condition without updating semantics
+4. Why no "in-mode" state? → `sessionMode: 'guided'` is a setting, not a phase transition
+5. **Root:** The code has no concept of "we're inside a round" — only "idle" and "submitted"
+
+### Fix approach
+- Bugs 1 & 3: Change mode switcher gate at `live-mode-view.tsx:1352` — `ratingInitiatedBy` should *disable* (not hide) the switcher. Hide only on `ratingPhase !== 'idle'`.
+- Bug 2: Ensure `isLocallyRating` is set synchronously before any async state update, preventing intermediate IdleScreen render with Speak visible.
+- Mode switcher visibility rule: **only visible on idle screen when no round is active**
 
 ---
 
-## Missing Test Cases (from this session's UAT)
+## Missing Test Cases
 
-These are the scenarios the current E2E tests do NOT cover:
-
-1. **Before speaker submits → listener should NOT see Speak button** — the test checks after submit, not before
-2. **After both submit → mode switcher should be hidden** — no test checks for absence of mode switcher during a round
-3. **Speaker clicks Speak → immediately sees drawer** — the test confirms this works, but doesn't verify there's no intermediate "Speak again" state
-4. **Listener sees no change before speaker submits** — listener should stay on idle view, not see Speak button inside the mode
-
----
-
-## Session Context (what we tried, P617 session)
-
-This bug was discovered during a long session that shipped P609 (slider sync), P612-614 (header CTA, toast position, mode switcher props), and P617 (mode switcher lifecycle + getViewState refactor). Key learnings:
-
-**What we tried:**
-- P617 added 3-state mode switcher (enabled/disabled/hidden) — visibility condition based on `ratingInitiatedBy`
-- Extracted `getViewState()` pure function from 9-branch if/return cascade — 25 unit tests
-- Added submission mismatch check before idle check to fix "second round Speak button" bug
-- Removed 2-second hold timer for 10/10 detection, added confirmed-state guard
-- Fixed E2E test infra (both users verified + terms pre-accepted)
-
-**What we learned:**
-- The mode switcher visibility is controlled INSIDE `IdleScreen` (line ~1355), not by `getViewState()`. `getViewState()` only decides WHICH component renders — if it returns `idle`, IdleScreen renders with its own internal mode switcher logic
-- The Speak button is part of IdleScreen — if `getViewState()` returns `idle`, the Speak button shows. The question is: should `getViewState()` return something OTHER than `idle` in this state?
-- The fundamental design question: what does "entering a mode" mean in terms of liveState? Currently there's no explicit "in-mode" flag — the mode is just `sessionMode: 'guided'` which is always set. "Entering" the mode (from the user's perspective) happens when the speaker clicks Speak and submits — but `getViewState()` treats that as `idle` until submission
-
-**Hypothesis for root cause:**
-The concept of "entering a mode" is not represented in liveState. Selecting "Guided mode" sets `sessionMode: 'guided'`, but this doesn't change the view state — users stay on idle with Speak visible. The user expects that selecting a mode + having a story should transition the UI, but the code treats mode selection as a setting, not a phase transition.
-
-**Possible fixes (for next session to evaluate):**
-1. **Add `console.log` to getViewState()** — capture exact input → output when the bug manifests
-2. **Revisit what "entering a mode" means** — does selecting Guided mode need a new view state? Or is the fix about hiding Speak/mode switcher under certain conditions within IdleScreen?
-3. **Consider if the PRD needs revision** — the P617 spec says "mode switcher hidden once users enter a mode (after speaker submits rating)". But the user expects it hidden earlier (when mode is selected + story present)?
+1. **Before speaker submits → listener should NOT see Speak button**
+2. **After both submit → mode switcher should be hidden**
+3. **Speaker clicks Speak → immediately sees drawer with number scale (no double-Speak)**
+4. **Listener sees NO change before speaker submits rating**
+5. **Mode switcher hidden for speaker immediately on Speak click**
+6. **Mode switcher hidden for listener only after speaker submits**
 
 ---
 
