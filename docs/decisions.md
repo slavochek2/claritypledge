@@ -9,6 +9,20 @@ Append-only log of architectural and product decisions. Newest entries at top.
 **Alternatives rejected:** (1) Workshop with comfort delta only — doesn't produce the comprehension illusion reveal needed for H-WTP-Pain. (2) Google Form + spreadsheet as poor man's P581 — functional but ugly, creates throwaway work. (3) Sequential /live explain-backs — bottleneck at 2-3 participants, rest just watch.
 **Consequences:** P581 is the critical path. First workshop date depends on P581 shipping. Online workshop #1 can still test curriculum structure (P567 false beliefs + reflection prompts) but won't have the sealed-bid gap reveal until P581 lands.
 
+## 2026-04-02 [process]: No editorial locks — "shipped, test before changing"
+
+**Context:** Audit found 2 editorial locks ("pitch locked," "terminology locked") alongside 8 functional/data locks (story immutability, point immutability, etc.). Editorial locks contradict the project's own epistemology — all claims stay open to falsification. The pitch was "locked" on Mar 31 to break a refinement loop, but the lock's purpose was fulfilled (pitch was said to real people). Today's anxiety research produced a genuine improvement — blocked by a lock that had no functional basis.
+**Decision:** No editorial locks. Everything is the current shipped version. New evidence can update it. Bar: "better AND reason beyond refinement urge." Functional/data locks stay (story visibility, point immutability, letter snapshots) — those protect protocol integrity. Replaced "locked" with "current version, open to evidence-based revision" in decisions.md Mar 31 entry and Apr 2 pitch entry. lean-canvas.md reference updated.
+**Alternatives rejected:** (1) Keep locks with override mechanism — adds bureaucracy for a problem that doesn't recur. (2) Remove all locks including data immutability — data locks prevent corruption, different category entirely.
+**Consequences:** Pitch copy, terminology, and all strategic docs evolve through use. The discipline against over-refinement comes from "say it to a real person" not "lock the file." Dogma-prevention: if a project about falsification locks its own claims, it's eating itself.
+
+## 2026-04-02 [product]: Pitch updated — anxiety line added
+
+**Context:** Research confirmed anxiety as contradictory-beliefs mechanism (Lewin/Miller approach-avoidance, Campbell self-concept clarity, ACT values clarification). The pitch named the invisible gap but not the *felt symptom*. The anxiety line bridges "collapses from the inside" → "the gap is invisible" with a named experience.
+**Decision:** Added "What's left is a quiet anxiety you can't name — two contradictory beliefs with no way to check which one is true" after "collapses from the inside" in facilitator-guide.md and lean-canvas.md. "Check which one is true" seeds verification (the product) rather than "resolve" (therapy).
+**Alternatives rejected:** (1) Two-line paragraph explaining the mechanism — over-explains for a pitch. (2) Keep pitch unchanged — the line adds a named symptom that was missing, and the lock that prevented the change was removed.
+**Consequences:** Pitch now has: need → collapse → **symptom** → invisible gap → verification questions → invitation. Test with real people — if "quiet anxiety" doesn't land, revert to gap-only version.
+
 ## 2026-04-02 [product]: Anxiety as contradictory beliefs — product framing evolution
 
 **Context:** Research-backed insight: the invisible understanding gap produces chronic low-grade anxiety — two contradictory beliefs ("we're aligned" + "something feels off") competing with no way to check. This reframes what the product does from "measuring understanding" to "making invisible contradictions visible, turning anxiety into choices." Research basis: approach-avoidance conflict (Lewin/Miller 1935/1944), self-concept clarity (Campbell), ACT values clarification. Applies to decisional/existential anxiety, not all anxiety.
@@ -26,9 +40,10 @@ Append-only log of architectural and product decisions. Newest entries at top.
 ## 2026-04-02 [product]: Pitch copy V3-final replaces Mar 31 Frankl version
 
 **Context:** Apr 1 conversation ("Понимание как основа доверия") iterated the pitch 8+ times. Discovered the Mar 31 "locked" version had a tension-closing sentence ("win respect and trust") that was removed 3x during iteration but kept returning from memory. Also: "measure" in questions triggers false objection about quantifiability; "verify" is more precise for comprehension illusion context. Paragraph-by-paragraph comparison confirmed V3-final wins on 4/5 paragraphs; V4 (memory reconstruction) contributes exactly two words ("often" + "understanding" in P3).
-**Decision:** V3-final + two V4 precision fixes is the canonical pitch. Updated in facilitator-guide.md and lean-canvas.md. Three escalating questions (verify → prove → empower) are the structural spine. "Measure" stays in P3 (seeds the idea); "verify" stays in questions (applies it).
+**Decision:** V3-final + two V4 precision fixes is the current pitch. Updated in facilitator-guide.md and lean-canvas.md. Three escalating questions (verify → prove → empower) are the structural spine. "Measure" stays in P3 (seeds the idea); "verify" stays in questions (applies it).
 **Alternatives rejected:** (1) V4 as-is — reintroduces three elements explicitly removed during iteration. (2) Mar 31 Frankl version — replaced by stronger copy from longer iteration session.
-**Consequences:** Pitch copy is now in two places (facilitator-guide, lean-canvas) both pointing to V3-final. Use for Luma listing, workshop opener, event descriptions.
+**Consequences:** Pitch copy is in two places (facilitator-guide, lean-canvas). Use for Luma listing, workshop opener, event descriptions. Open to evidence-based revision — "shipped, test before changing" not "locked."
+**Update 2026-04-02:** Anxiety line added ("What's left is a quiet anxiety you can't name — two contradictory beliefs with no way to check which one is true") after research confirmed the mechanism. Inserted after "collapses from the inside."
 **References:** [facilitator-guide.md](facilitator-guide.md), [lean-canvas.md](lean-canvas.md)
 
 ## 2026-04-02 [product]: Workshop venue — online first, KL second, Singapore third
@@ -70,12 +85,12 @@ Append-only log of architectural and product decisions. Newest entries at top.
 **Consequences:** Conversation history analysis is the validated method for finding skill issues. Run periodically (monthly?) instead of guessing at problems from line counts.
 **References:** Skills edited: `claude-conversations-to-cp.md`, `simplify/SKILL.md`, `dev.md`, `kdd/SKILL.md`
 
-## 2026-03-31 [product]: Universal pitch copy locked — Frankl "meaning" line added
+## 2026-03-31 [product]: Universal pitch copy — Frankl "meaning" line added
 
 **Context:** Across 5+ iterations in two Claude.ai conversations (2026-03-30/31), the universal positioning copy was stress-tested with and without a Frankl-derived meaning line. The line "Without it, nothing you build together has meaning or sense" compresses the Frankl substrate insight (meaning requires verified relational ground) into plain language. The phrase "in the way they mean it" does double duty: "mean" as intent, "mean" as significance.
-**Decision:** Lock the UVP copy in lean-canvas.md. Stop iterating on the pitch and say it to a real person. The refinement loop was explicitly flagged in both conversations.
+**Decision:** Ship the UVP copy to lean-canvas.md. Say it to real people. The refinement loop was explicitly flagged in both conversations.
 **Alternatives rejected:** (1) Include "meaning" as Frankl concept explicitly — too theoretical for cold copy. (2) Keep the 2026-03-29 version without the meaning line — weaker; doesn't name what's at stake.
-**Consequences:** Pitch is locked for workshop use. Next action: say it out loud to one person. The meaning/Frankl angle is article material (a13), not pitch material.
+**Consequences:** Pitch is the current version — open to evidence-based revision. The meaning/Frankl angle is article material (a13), not pitch material. **Update 2026-04-02:** Anxiety line added after research confirmed the mechanism. Pitch continues to evolve through use.
 **References:** [docs/lean-canvas.md](lean-canvas.md) UVP section
 
 ## 2026-03-31 [product]: Conjecture-event GTM — parked as future channel after first workshop
