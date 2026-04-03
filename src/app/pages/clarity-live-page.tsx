@@ -1368,14 +1368,12 @@ export function ClarityLivePage() {
     });
     lastActionTimestampRef.current = Date.now(); // P516
 
-    // P626: Signal partner to disable mode switcher while speaker is in drawer.
-    // Listener's view does NOT change (getViewState ignores ratingInitiatedBy).
-    // Cleared on cancel (line 3807), overwritten on submit (handleRatingSubmit).
-    updateLiveState({ ratingInitiatedBy: name });
+    // P626: ratingInitiatedBy moved to handleRatingSubmit — listener should see
+    // NO change until speaker actually submits a number.
 
     setLocalFlowType('check');
     setIsLocallyRating(true);
-  }, [name, partnerName, session?.code, updateLiveState]);
+  }, [name, partnerName, session?.code]);
 
   // P23.3: Handle "Did I get it?" button tap - listener-initiated understanding check
   // In this flow, the listener (prover) rates their confidence first
@@ -1397,12 +1395,12 @@ export function ClarityLivePage() {
     });
     lastActionTimestampRef.current = Date.now(); // P516
 
-    // P626: Signal partner to disable mode switcher while speaker is in drawer.
-    updateLiveState({ ratingInitiatedBy: name });
+    // P626: ratingInitiatedBy moved to handleRatingSubmit — listener should see
+    // NO change until speaker actually submits a number.
 
     setLocalFlowType('prove');
     setIsLocallyRating(true);
-  }, [name, partnerName, session?.code, updateLiveState]);
+  }, [name, partnerName, session?.code]);
 
   // ============================================================================
   // P562: Free mode handlers

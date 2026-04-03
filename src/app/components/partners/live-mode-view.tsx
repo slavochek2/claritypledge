@@ -45,7 +45,6 @@ import { LiveStoryCardExpanded } from './live-story-card-expanded';
 import { GravatarAvatar } from '@/components/ui/gravatar-avatar';
 import { FreeModeView } from './free-mode-view';
 import { PositionBadge } from '@/app/components/shared';
-import { MobileTooltip } from '@/app/components/shared/mobile-tooltip';
 import { storiesService } from '@/app/data/stories-service';
 import { pointsService } from '@/app/data/points-service';
 import { analytics } from '@/lib/mixpanel';
@@ -1381,42 +1380,31 @@ function IdleScreen({
         </ActionArea>
       )}
 
-      {/* P626: Mode pill toggle — 3 states: enabled (idle), disabled (speaker deciding), hidden (in round) */}
-      {(() => {
-        // Hidden: no callback, inside a round, in free mode, or drawer open
-        if (!onSessionModeChange || showRatingDrawer || waitingForPartnerToContinue
-          || liveState.ratingPhase !== 'idle' || liveState.freePhase || liveState.checkerName) {
-          return null;
-        }
-        // Disabled: partner clicked Speak (ratingInitiatedBy set) but hasn't submitted yet
-        const isLocked = !!liveState.ratingInitiatedBy;
-        return (
-          <div className="flex justify-center py-4">
-            <MobileTooltip content={isLocked ? 'Mode locked — your partner is rating' : ''}>
-              <div className={`inline-flex bg-gray-100 rounded-full p-1 text-sm ${isLocked ? 'opacity-50 cursor-not-allowed' : ''}`}>
-                <button
-                  onClick={() => !isLocked && onSessionModeChange('free')}
-                  disabled={isLocked}
-                  className={`px-4 py-1.5 rounded-full transition-all ${
-                    (sessionMode === 'free' || !sessionMode) ? 'bg-blue-500 text-white shadow-sm font-medium' : 'text-gray-500'
-                  } ${isLocked ? 'pointer-events-none' : ''}`}
-                >
-                  Open mode
-                </button>
-                <button
-                  onClick={() => !isLocked && onSessionModeChange('guided')}
-                  disabled={isLocked}
-                  className={`px-4 py-1.5 rounded-full transition-all ${
-                    sessionMode === 'guided' ? 'bg-blue-500 text-white shadow-sm font-medium' : 'text-gray-500'
-                  } ${isLocked ? 'pointer-events-none' : ''}`}
-                >
-                  Guided mode
-                </button>
-              </div>
-            </MobileTooltip>
+      {/* P626: Mode pill toggle — visible ONLY on idle screen (hidden during any round) */}
+      {onSessionModeChange && !showRatingDrawer && !waitingForPartnerToContinue
+        && liveState.ratingPhase === 'idle' && !liveState.freePhase && !liveState.checkerName
+        && !liveState.ratingInitiatedBy && (
+        <div className="flex justify-center py-4">
+          <div className="inline-flex bg-gray-100 rounded-full p-1 text-sm">
+            <button
+              onClick={() => onSessionModeChange('free')}
+              className={`px-4 py-1.5 rounded-full transition-all ${
+                (sessionMode === 'free' || !sessionMode) ? 'bg-blue-500 text-white shadow-sm font-medium' : 'text-gray-500'
+              }`}
+            >
+              Open mode
+            </button>
+            <button
+              onClick={() => onSessionModeChange('guided')}
+              className={`px-4 py-1.5 rounded-full transition-all ${
+                sessionMode === 'guided' ? 'bg-blue-500 text-white shadow-sm font-medium' : 'text-gray-500'
+              }`}
+            >
+              Guided mode
+            </button>
           </div>
-        );
-      })()}
+        </div>
+      )}
 
       {/* Responder notification drawer - slides up from bottom */}
       {/* Only render when showRatingDrawer is true AND onRatingSubmit is provided */}
