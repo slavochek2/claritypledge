@@ -1368,12 +1368,12 @@ export function ClarityLivePage() {
     });
     lastActionTimestampRef.current = Date.now(); // P516
 
-    // P626: ratingInitiatedBy moved to handleRatingSubmit — listener should see
-    // NO change until speaker actually submits a number.
+    // P398: Signal partner to close history view immediately (before submission)
+    updateLiveState({ ratingInitiatedBy: name });
 
     setLocalFlowType('check');
     setIsLocallyRating(true);
-  }, [name, partnerName, session?.code]);
+  }, [name, partnerName, session?.code, updateLiveState]);
 
   // P23.3: Handle "Did I get it?" button tap - listener-initiated understanding check
   // In this flow, the listener (prover) rates their confidence first
@@ -1395,12 +1395,12 @@ export function ClarityLivePage() {
     });
     lastActionTimestampRef.current = Date.now(); // P516
 
-    // P626: ratingInitiatedBy moved to handleRatingSubmit — listener should see
-    // NO change until speaker actually submits a number.
+    // P398: Signal partner to close history view immediately (before submission)
+    updateLiveState({ ratingInitiatedBy: name });
 
     setLocalFlowType('prove');
     setIsLocallyRating(true);
-  }, [name, partnerName, session?.code]);
+  }, [name, partnerName, session?.code, updateLiveState]);
 
   // ============================================================================
   // P562: Free mode handlers
@@ -1755,7 +1755,6 @@ export function ClarityLivePage() {
 
       const updates: Partial<LiveSessionState> = {
         ratingPhase: 'waiting',
-        ratingInitiatedBy: name, // P626: moved from handleStartCheck — only signal partner on actual submit
       };
 
       // If no checker yet, this is the first submission
