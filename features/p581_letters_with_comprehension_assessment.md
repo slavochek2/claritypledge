@@ -11,7 +11,7 @@ tags:
   - workshop
   - briefing
 created_date: 2026-03-23T00:00:00.000Z
-delivery_stage: 2-ux-review
+delivery_stage: 3-arch-review
 flow: dev
 reviews:
   ux: null
@@ -389,16 +389,6 @@ Letters serve a larger acquisition flywheel: Letter 1 (educate — recipient rea
 
 ---
 
-## Open Questions
-
-1. **Can receiver reply with their own letter (ping-pong)?** Likely future feature, not V1. V1 is one-directional: sender → receiver.
-2. **Does gap map feed into /live session setup?** Ideally yes — "start /live on story with biggest gap." V1 letter completion summary has "Ready for /live?" CTA but no deep integration.
-4. **Can sender include stories by other authors?** V1: sender can only include their own stories. Curating others' stories is a future capability.
-6. **Can a letter document external paraphrase?** (e.g., "we already discussed this in person, I just want to record it") — async /live alternative. Likely future, not V1.
-9. **Remix flow for Letter 2:** After completing a letter, can the receiver create their own letter reusing the same *points* but with their own *stories*? V1: receiver uses standard flow — create own doc, add stories on same points, send as letter. Future: "Create your own letter from these points" CTA on completion summary that auto-creates a doc pre-populated with the sender's points.
-
----
-
 ## Prototype Reference
 
 Working prototypes built in claude.ai (2026-03-23) inform this spec:
@@ -756,3 +746,392 @@ See ASCII Flows above for all screen-by-screen flows (composition, reading, comp
 | Resume prompt | "Welcome back. You left off at Story [N]." | Returning to incomplete letter |
 | Empty letters state | "No letters yet. Send one from any doc using 'Prepare a Letter'." | Docs page, letters section empty |
 | Letter cover time estimate | "~ [N] minutes" | Cover screen, calculated as stories × 2 min |
+
+---
+
+## Technical Architecture
+
+### Technical Analysis
+
+#### Current Code State
+
+**Dependency chain (all shipped):** P586 (visibility & privacy foundation) -> P551 (clarity docs) -> P607 (visibility inheritance) -> P581 (this feature).
+
+**Database — existing tables touched by P581:**
+
+| Table | Current State | P581 Change |
+|-------|--------------|-------------|
+| `story_verifications` | 7 columns; `story_id`/`version_id` nullable since P413; RLS: public read, auth insert; already in `supabase_realtime` publication | Add 3 columns: `source TEXT DEFAULT 'live'`, `verified BOOLEAN DEFAULT true`, `sort_order INTEGER` (D21 decision) |
+| `clarity_sessions` | Has `creator_profile_id`, `joiner_profile_id`, `live_state` | Add `source_letter_id UUID REFERENCES clarity_letters(id)` + index (D26) |
+| `clarity_docs` | P551: `id`, `owner_id`, `title`, `visibility`, timestamps; RLS: public-read/owner-write | No schema change. UI gains "Prepare a Letter" button + "Letters" section |
+| `doc_stories` | P551: junction table `(doc_id, story_id)` + `position`, `point_config` | No schema change. Read-only from letters (snapshot copies `position` + `point_config` into `letter_story_snapshots`) |
+| `story_versions` | Immutable snapshots, auto-created by trigger on `stories` INSERT/UPDATE | No schema change. Letters reference existing `version_id` at snapshot time |
+
+**Existing services relevant to P581:**
+
+| Service | File | Pattern |
+|---------|------|---------|
+| `docsService` | `src/app/data/docs-service.ts` (real only, no mock) | Direct Supabase queries; used by `doc-detail-page.tsx`, `docs-list-page.tsx` |
+| `calibrationService` | `src/app/data/calibration-service-real.ts` | Interface-based pattern; writes to `story_verifications`; maps via `mapVerificationFromDb()` |
+| `agreementsService` | `src/app/data/agreements-service-real.ts` | Token-based invitation, email lookup, batch profile fetch, SECURITY DEFINER RPC for token validation |
+| `storiesService` | `src/app/data/stories-service-real.ts` | Story CRUD, `getStoryVersion()`, visibility-aware queries |
+| `pointsService` | `src/app/data/points-service.ts` | Position CRUD, 7-point Likert, batch point loading |
+
+**Key patterns already established:**
+
+1. **Token-gated invitation** (P422/P488/P527): `clarity_agreements.invitation_token` + `invitation_expires_at` + SECURITY DEFINER RPC `get_agreement_by_token` for anon access. Reusable for 1-to-1 letter token validation.
+2. **One-click registration** (P527): `create-and-sign` edge function creates auth user + profile + accepts agreement atomically. Adaptable to `create-and-open-letter`.
+3. **Fire-and-forget email** (P422): `invokeAgreementEmails()` calls edge function via `supabase.functions.invoke()`. Pattern in `src/lib/agreement-emails.ts`.
+4. **sessionStorage for anonymous intent** (Pledge flow): `sign-pledge-page.tsx` stores pending data in sessionStorage, persists on auth callback. Reusable for 1-to-many letter completions.
+5. **Sealed-bid mechanic**: No existing implementation — new for P581. But the pattern is simple: prediction stored at composition time, withheld from receiver queries until they submit their rating.
+
+#### Reuse Inventory (Mandatory)
+
+**Components:**
+
+| Component | File | Reuse in P581 |
+|-----------|------|--------------|
+| `RatingButtons` | `src/app/components/partners/shared.tsx` | Prediction input (composition), understanding rating (reading). Already 0-10, 44px touch targets, ARIA labels. |
+| `PositionButtons` | `src/app/components/shared/PositionButton.tsx` | Three-button pattern (disagree/maybe/agree) + intensity dropdown. Already has ARIA, blue active states. |
+| `FocusHeader` | `src/app/components/layout/focus-header.tsx` | Letter reading page, letter results page, composition wizard. All are focus pages. |
+| `ShareDialog` | `src/app/components/shared/ShareDialog.tsx` | 1-to-many letter link sharing + optional QR code. Already has copy-URL + embed sections. |
+| `StoryCardDetail` | `src/app/components/social/StoryCardDetail.tsx` | Story content rendering within letter reading flow and full form view. |
+| `DocHeader` | `src/app/components/docs/doc-header.tsx` | "Prepare a Letter" button added to existing doc header action row. |
+| `DocPrivacyBanner` | `src/app/components/docs/doc-privacy-banner.tsx` | Visibility context in composition wizard preview. |
+| `DocBlockControls` | `src/app/components/docs/doc-block-controls.tsx` | Point visibility controls (hidden/shown) already used in doc detail. |
+| `CertificatePageShell` | `src/app/components/layout/certificate-page-shell.tsx` | Parchment background pattern for letter cover screen. |
+| `ClarityPageLoader` | `src/components/ui/clarity-loader.tsx` | Loading state for letter pages. |
+| `PersonAvatar` / `GravatarAvatar` | `src/components/ui/person-avatar.tsx`, `src/components/ui/gravatar-avatar.tsx` | Sender/receiver avatars on cover, completion summary, sender results. |
+
+**Pages (pattern reference, not direct reuse):**
+
+| Page | File | Pattern to Reuse |
+|------|------|-----------------|
+| `AcceptAgreementPage` | `src/app/pages/accept-agreement-page.tsx` | Token validation flow, `PageState` enum (`loading`/`invalid`/`unauthenticated`/`partner`/`wrong-user`), auto-accept intent via localStorage, P488 hash cleanup |
+| `CreateStoryPage` | `src/app/pages/create-story-page.tsx` | Triggered from letter reading via `?pointId=X` for inline story filing (D14) |
+| `DocDetailPage` | `src/app/pages/doc-detail-page.tsx` | "Prepare a Letter" button added here; "Letters" section below stories |
+| `DocsListPage` | `src/app/pages/docs-list-page.tsx` | "Received Letters" section added here |
+| `SignPledgePage` | `src/app/pages/sign-pledge-page.tsx` | sessionStorage pattern for anonymous 1-to-many completions |
+
+**Edge Functions:**
+
+| Function | File | Reuse |
+|----------|------|-------|
+| `send-agreement-emails` | `supabase/functions/send-agreement-emails/index.ts` | HTML email template, Mailgun integration. Clone and adapt to `send-letter-emails`. |
+| `create-and-sign` | `supabase/functions/create-and-sign/index.ts` | Atomic user creation pattern. Clone and adapt to `create-and-open-letter`. |
+
+**Hooks:**
+
+| Hook | File | Reuse |
+|------|------|-------|
+| `useAuth` | `src/auth/AuthContext.tsx` | Auth state for gating 1-to-1 access |
+| `useVerificationGate` | `src/app/hooks/useVerificationGate.ts` | Ensuring sender is verified before composing |
+| `useRemovePositionGuard` | `src/app/components/shared/remove-position-dialog.tsx` | Position cascade warnings when removing positions in letter context |
+
+**Utilities:**
+
+| Utility | File | Reuse |
+|---------|------|-------|
+| `invokeAgreementEmails` | `src/lib/agreement-emails.ts` | Pattern for `invokeLetterEmails` — fire-and-forget edge function call |
+| `logDbError` | `src/app/data/db-error-logger.ts` | Standard error logging for all new service methods |
+| `analytics` (Mixpanel) | `src/lib/mixpanel.ts` | Event tracking for letter composition, reading, completion |
+| `triggerConfetti` | `src/lib/confetti.ts` | Celebration on letter completion |
+| `resolveDocShortCode` | `src/app/data/short-links.ts` | Pattern for letter short codes if needed |
+
+**Types:**
+
+| Type | File | Reuse |
+|------|------|-------|
+| `StoryVerification`, `StoryVerificationWithProfiles` | `src/app/types/index.ts` | Extended with `source`, `verified`, `sortOrder` fields |
+| `ClarityDoc`, `DocStory`, `DocPointConfig` | `src/app/types/index.ts` | Read-only reference for snapshot creation |
+| `ContentVisibility` | `src/app/types/index.ts` | Visibility for letter-created stories |
+| `PositionType` | `src/app/types/index.ts` | Positions in letter reading flow |
+
+---
+
+### Architecture Decisions
+
+**AD1: Letters service pattern — real-only (like docs), not interface-based.**
+
+Letters are a new feature with no legacy mock layer. Following the P551 `docsService` pattern: single real implementation file, no interface/mock split. Service file: `src/app/data/letters-service.ts`.
+
+*Trade-off:* Unit tests must mock at the Supabase client level (same as docs). Acceptable because the feature is new and has no test baseline to maintain.
+
+**AD2: Four new tables + three column additions — single migration file.**
+
+All schema changes in one idempotent migration (`YYYYMMDDHHMMSS_p581_clarity_letters.sql`). The tables are:
+
+```
+clarity_letters
+  id UUID PK
+  source_doc_id UUID NOT NULL -> clarity_docs(id)
+  sender_id UUID NOT NULL -> profiles(id)
+  mode TEXT NOT NULL ('one-to-one' | 'one-to-many')
+  status TEXT NOT NULL DEFAULT 'draft' ('draft' | 'sealed' | 'expired')
+  sealed_at TIMESTAMPTZ
+  created_at TIMESTAMPTZ DEFAULT now()
+
+letter_deliveries
+  id UUID PK
+  letter_id UUID NOT NULL -> clarity_letters(id) ON DELETE CASCADE
+  receiver_email TEXT  -- nullable for 1-to-many (anonymous)
+  receiver_profile_id UUID -> profiles(id)  -- nullable until registered
+  invitation_token UUID DEFAULT gen_random_uuid()  -- for 1-to-1
+  invitation_expires_at TIMESTAMPTZ  -- for 1-to-1
+  status TEXT NOT NULL DEFAULT 'sent' ('sent' | 'opened' | 'in_progress' | 'completed')
+  stories_rated INTEGER DEFAULT 0  -- for progress tracking (N of M)
+  opened_at TIMESTAMPTZ
+  completed_at TIMESTAMPTZ
+  created_at TIMESTAMPTZ DEFAULT now()
+
+letter_story_snapshots
+  letter_id UUID NOT NULL -> clarity_letters(id) ON DELETE CASCADE
+  story_id UUID NOT NULL -> stories(id)
+  version_id UUID NOT NULL -> story_versions(id)
+  position INTEGER NOT NULL  -- copied from doc_stories.position at seal time
+  point_config JSONB DEFAULT '{}'  -- copied from doc_stories.point_config at seal time
+  visibility TEXT NOT NULL  -- copied from stories.visibility at seal time
+  PRIMARY KEY (letter_id, story_id)
+
+letter_predictions
+  id UUID PK
+  letter_id UUID NOT NULL -> clarity_letters(id) ON DELETE CASCADE
+  delivery_id UUID -> letter_deliveries(id) ON DELETE CASCADE  -- NULL for 1-to-many (shared prediction)
+  story_id UUID NOT NULL -> stories(id)
+  prediction SMALLINT NOT NULL CHECK (0-10)
+  created_at TIMESTAMPTZ DEFAULT now()
+  UNIQUE (letter_id, delivery_id, story_id)
+```
+
+Column additions:
+- `story_verifications.source TEXT NOT NULL DEFAULT 'live'` — existing rows unaffected
+- `story_verifications.verified BOOLEAN NOT NULL DEFAULT true` — existing rows unaffected
+- `story_verifications.sort_order INTEGER` — nullable, letters use it for story sequence
+- `clarity_sessions.source_letter_id UUID REFERENCES clarity_letters(id)` — nullable, future hook
+
+*Trade-off:* Single migration vs. per-table files. Single file chosen because tables have FK dependencies on each other (`letter_predictions` -> `letter_deliveries` -> `clarity_letters`). Ordering within one file is simpler than managing cross-file dependencies. All DDL uses `IF NOT EXISTS` / `CREATE OR REPLACE` for idempotency.
+
+**AD3: Sealed-bid enforcement via RLS + SECURITY DEFINER RPC.**
+
+The core integrity requirement: receiver cannot see `letter_predictions.prediction` until they have submitted their own rating for that story. Two layers:
+
+1. **RLS on `letter_predictions`:** SELECT policy returns rows only when: (a) viewer is the sender, OR (b) viewer is the delivery receiver AND a matching `story_verifications` row exists with `source='letter'` and `listener_id = auth.uid()` for that story+letter combination.
+2. **SECURITY DEFINER RPC `get_letter_for_reading`:** Returns letter data with predictions omitted. After receiver submits rating, a separate `reveal_prediction` RPC returns the prediction for that specific story.
+
+*Why not client-side only:* A determined user could query `letter_predictions` directly via PostgRES. RLS is the enforcement layer; client-side omission is UX, not security.
+
+**AD4: Forward-only state machine for reading flow — sessionStorage + DB hybrid.**
+
+Reading state tracked in two layers:
+- **sessionStorage** (immediate, offline-capable): `{ letterId, currentStoryIndex, ratings: Map<storyId, number>, positions: Map<pointId, PositionType>, filedStories: string[] }`. Written on every interaction. Restored on page reload.
+- **DB** (`letter_deliveries.status`, `stories_rated`)**: Updated after each story completion (not each micro-interaction). Prevents N writes per rating button click.
+
+Forward-only contract: once a rating is submitted (written to `story_verifications`), it cannot be changed. sessionStorage tracks "pending" state; DB write is the commitment point. No DELETE or UPDATE RLS policies on letter-sourced `story_verifications`.
+
+*Trade-off:* More complex than pure DB state, but sessionStorage is needed for anonymous 1-to-many flow anyway (no auth = no DB writes until registration). Consistent architecture for both modes.
+
+**AD5: Realtime strategy — bounded vs. unbounded receivers.**
+
+Per D40:
+- **1-to-1:** Supabase Realtime subscription on `story_verifications` filtered by `listener_id` for that specific delivery. Bounded (1 receiver per delivery), efficient.
+- **1-to-many:** Polling every 30s on `letter_deliveries` aggregate counts. Unbounded receiver set makes Realtime subscriptions impractical (one channel per anonymous reader = no identity to filter on).
+
+Sender results page uses Realtime for 1-to-1 (live updates as receiver progresses), polling for 1-to-many (count refreshes).
+
+**AD6: Edge function pattern — clone and adapt, not abstract.**
+
+Two new edge functions:
+- `send-letter-emails/index.ts` — cloned from `send-agreement-emails/index.ts`. Same Mailgun integration, similar HTML template, different content (letter cover CTA instead of agreement accept CTA).
+- `create-and-open-letter/index.ts` — cloned from `create-and-sign/index.ts`. Same atomic user-creation pattern, adapted to open a letter delivery instead of accepting an agreement.
+
+*Why clone, not abstract:* Per P538 decision and architecture.md precedent — "copy pattern, don't abstract." Agreement emails and letter emails have different templates, different CTAs, different token semantics. A shared abstraction would be premature and would couple unrelated features.
+
+**AD7: Letter route structure — focus pages with FocusHeader.**
+
+| Route | Page | Type |
+|-------|------|------|
+| `/letter/:id` | Letter reading (view form) | Focus |
+| `/letter/:id?token=xxx` | 1-to-1 letter with token | Focus |
+| `/letter/:id/results` | Sender results / full form | Focus |
+| `/letter/:id/compose` | Composition wizard | Focus |
+
+All letter routes added to `focusRoutes` in `bottom-nav.tsx`. FocusHeader with back target:
+- Reading: back to letter cover (or docs if entering from docs list)
+- Results: back to doc detail page
+- Compose: back to doc detail page
+
+*Trade-off:* Composition wizard as separate route vs. modal/drawer. Separate route chosen for mobile-first design — full-screen wizard on 320px is necessary. Also enables URL-based resume if user navigates away mid-composition.
+
+**AD8: `accuracy_achieved` generated column — must remain backward-compatible.**
+
+`story_verifications.accuracy_achieved` is `GENERATED ALWAYS AS (speaker_rating >= 8) STORED`. For letters, `speaker_rating` is the sender's prediction and `listener_rating` is the receiver's self-rating. The generated column will compute `accuracy_achieved = (prediction >= 8)`, which has a different semantic meaning for letters vs. /live. This is acceptable because:
+- The column is only used in `update_story_understood_count` trigger (counts distinct listeners with `accuracy_achieved = true`)
+- For letters, `verified = false` means letter-sourced verifications are *not* authoritative. The trigger fires but the semantic distinction is preserved in the `verified` column.
+- A future P619 can add a `WHERE verified = true` filter to the trigger if letter-sourced verifications should not inflate `understood_count`.
+
+---
+
+### Security Review
+
+**RLS Policies (per new table):**
+
+- `clarity_letters` — SELECT: sender OR authenticated receiver via delivery row. INSERT: verified auth user, sender = self. UPDATE: sender only + status = 'draft' (immutable after seal). DELETE: sender only + status = 'draft'.
+- `letter_deliveries` — SELECT: sender (via letter FK) OR receiver = self. INSERT: `WITH CHECK (false)` — created only by SECURITY DEFINER "Seal & Send" RPC. UPDATE: receiver can set status transitions (opened → in_progress → completed).
+- `letter_story_snapshots` — SELECT: sender OR authenticated receiver (via letter → delivery chain). INSERT/UPDATE/DELETE: `WITH CHECK (false)` — written only by SECURITY DEFINER functions.
+- `letter_predictions` — **Sealed-bid critical:** SELECT: sender always. Receiver ONLY when `letter_deliveries.status = 'completed'`. Primary enforcement layer — client-side hiding is insufficient. INSERT/UPDATE/DELETE: `WITH CHECK (false)` — immutable after seal.
+- `story_verifications` (extended) — Existing INSERT policy requires auth.uid(). Anonymous 1-to-many data persisted via SECURITY DEFINER at registration gate only. ⚠️ P586 story-visibility-scoped SELECT makes `source='letter'` ratings world-readable for public stories — needs `source`-aware policy to scope letter ratings to sender + receiver only.
+
+**Authentication:**
+
+- ✅ Token validation for 1-to-1: reuse P422/P443 SECURITY DEFINER pattern.
+- ⚠️ Token expiry: add `access_token_expires_at TIMESTAMPTZ NOT NULL DEFAULT (now() + interval '7 days')` to `letter_deliveries`.
+- ✅ One-click registration (D48): idempotent edge function — check existing user before creating, guard: `WHERE access_token = ... AND receiver_id IS NULL`.
+- ⚠️ Anonymous session binding: nonce issued at letter-open time binds session to letter, validated at registration.
+- ⚠️ sessionStorage expiry: magic link callback handles empty sessionStorage gracefully.
+
+**Authorization:**
+
+- ⚠️ Sealed-bid: reading flow RPC must never include prediction fields until delivery `completed`.
+- ⚠️ Forward-only positions (D50): use separate `letter_point_responses` table (no UPDATE policy) — cleaner than source-tagged trigger on existing `point_positions`.
+- ✅ Visibility cascade (D23): snapshot stores visibility at seal time. Public story filter enforced server-side in composition RPC.
+- ✅ 404 for unauthorized (D25): RLS zero rows → API returns 404.
+
+**Input Validation:**
+
+- Email: server-side format validation, max 20 per composition, deduplication.
+- Predictions + ratings: `CHECK (value >= 0 AND value <= 10 AND value = FLOOR(value))`.
+- Point ID in story filing: server validates point exists in letter snapshot.
+- Vocabulary glosses: max 500 chars, plain text only.
+
+**Data Protection:**
+
+- Receiver email visible only to sender + receiver via RLS.
+- Anonymous counts: aggregate only, no IP/device/timing data.
+- Anonymous data persisted via SECURITY DEFINER at save gate under new auth.uid(), validated by session nonce.
+
+**7 Critical Gaps (addressed in build sequence):**
+
+1. `letter_predictions` RLS sealed-bid guarantee
+2. Token expiry column on `letter_deliveries`
+3. Anonymous session nonce binding
+4. `story_verifications` source-aware SELECT policy for letter ratings
+5. `letter_point_responses` separate table for forward-only positions
+6. Write-lock on snapshot + prediction tables (`WITH CHECK (false)`)
+7. Public story filter in 1-to-many composition RPC
+
+---
+
+### Implementation Approach
+
+#### Build Sequence
+
+**Phase 1: Database Schema (migration)**
+1. Create migration file with all 4 new tables + `letter_point_responses` table (Security gap #5: forward-only positions separate from `point_positions`) + 3 column additions
+2. Include `access_token_expires_at TIMESTAMPTZ NOT NULL DEFAULT (now() + interval '7 days')` on `letter_deliveries` (Security gap #2)
+3. RLS policies for all new tables — including `WITH CHECK (false)` on snapshots + predictions (Security gap #6), sealed-bid policy on `letter_predictions` (Security gap #1), source-aware policy update on `story_verifications` for `source='letter'` rows (Security gap #4)
+4. SECURITY DEFINER RPC: `get_letter_by_token` (mirrors `get_agreement_by_token`) — validates token + expiry
+5. SECURITY DEFINER RPC: `seal_and_send_letter` — creates snapshots + predictions + deliveries atomically, enforces public story filter for 1-to-many (Security gap #7)
+6. SECURITY DEFINER RPC: `reveal_prediction` (returns prediction only after receiver rated)
+7. SECURITY DEFINER RPC: `persist_anonymous_completion` — validates session nonce, persists sessionStorage data under new auth.uid() (Security gap #3)
+8. Add `clarity_letters` and `letter_deliveries` to `supabase_realtime` publication
+9. Run `./scripts/migrate.sh`
+
+**Phase 2: Types + Service Layer**
+7. Add TypeScript types: `ClarityLetter`, `LetterDelivery`, `LetterStorySnapshot`, `LetterPrediction`, `LetterStatus`, `DeliveryStatus`, `LetterMode`
+8. Extend `StoryVerification` type with `source`, `verified`, `sortOrder` fields
+9. Create `letters-service.ts` with: `createLetter()`, `sealLetter()`, `getLetterForReading()`, `getLetterForSender()`, `submitRating()`, `revealPrediction()`, `getCompletionSummary()`, `getDeliveriesForLetter()`, `updateDeliveryStatus()`
+10. Create `src/lib/letter-emails.ts` (fire-and-forget invoker, mirrors `agreement-emails.ts`)
+
+**Phase 3: Edge Functions**
+11. `send-letter-emails/index.ts` — clone from `send-agreement-emails`, adapt templates
+12. `create-and-open-letter/index.ts` — clone from `create-and-sign`, adapt for letter delivery
+
+**Phase 4: Composition Flow (Sender)**
+13. Add "Prepare a Letter" button to `DocHeader` / `doc-detail-page.tsx`
+14. Create `/letter/:docId/compose` page — 3-step wizard (receivers, predictions, preview+seal)
+15. Step 1: mode selector + email input (reuse agreement pattern for user lookup)
+16. Step 2: per-story prediction input using `RatingButtons`
+17. Step 3: preview with banner + "Seal & Send" button
+18. Seal action: snapshot `story_versions` + `doc_stories` positions into `letter_story_snapshots`, create `letter_predictions`, fire email
+
+**Phase 5: Letter Reading Flow (Receiver)**
+19. Create `/letter/:id` page — cover screen (CertificatePageShell for feel)
+20. Token validation for 1-to-1 (PageState machine from AcceptAgreementPage pattern)
+21. Sequential story reading with forward-only state machine
+22. Conditional ordering logic per D36 (1 point vs 2+ points)
+23. `RatingButtons` for understanding rating, with sealed-bid reveal after submit
+24. `PositionButtons` for point engagement (D37 — must engage before proceeding)
+25. Author position lock/unlock with fade-in animation
+26. Story filing integration — navigate to `CreateStoryPage` with `?pointId=X&returnTo=/letter/:id`
+27. sessionStorage layer for anonymous 1-to-many completions
+
+**Phase 6: Completion + Results**
+28. Letter completion summary component (sorted by gap size)
+29. "Ready for /live?" CTA linking to highest-gap story
+30. Registration gate for 1-to-many ("Save your results?" with email input)
+31. Sender results page (`/letter/:id/results`) with per-receiver data
+32. "Letters" section on doc-detail-page (sent letters)
+33. "Received Letters" section on docs-list-page
+
+**Phase 7: Integration + Polish**
+34. Add `/letter` to `focusRoutes` in `bottom-nav.tsx`
+35. Realtime subscription for 1-to-1 sender results
+36. Polling for 1-to-many sender results (30s interval)
+37. Mixpanel events: `letter_created`, `letter_sealed`, `letter_opened`, `letter_story_rated`, `letter_completed`, `letter_results_viewed`
+38. SEO component on letter pages
+39. Edge case handling (expired token, wrong user, network errors, resume from sessionStorage)
+
+#### Files to Create
+
+| File | Purpose |
+|------|---------|
+| `supabase/migrations/YYYYMMDDHHMMSS_p581_clarity_letters.sql` | 4 tables + 3 column additions + RLS + RPCs |
+| `supabase/functions/send-letter-emails/index.ts` | Letter invitation + notification emails |
+| `supabase/functions/create-and-open-letter/index.ts` | One-click registration for 1-to-1 letter receivers |
+| `src/app/data/letters-service.ts` | Letters CRUD + reading flow + sealed-bid logic |
+| `src/lib/letter-emails.ts` | Fire-and-forget edge function invoker |
+| `src/app/pages/letter-compose-page.tsx` | 3-step composition wizard |
+| `src/app/pages/letter-reading-page.tsx` | Sequential reading experience (view form) |
+| `src/app/pages/letter-results-page.tsx` | Sender results / full form view |
+| `src/app/components/letters/letter-cover.tsx` | Cover screen (envelope icon, sender name, time estimate) |
+| `src/app/components/letters/letter-story-reader.tsx` | Per-story reading flow (rating, gap reveal, points) |
+| `src/app/components/letters/letter-progress-bar.tsx` | Segmented progress bar (story N of M) |
+| `src/app/components/letters/letter-completion-summary.tsx` | Gap-sorted summary with per-story/per-point comparisons |
+| `src/app/components/letters/letter-gap-reveal.tsx` | Dual-number gap display (receiver rating vs sender prediction) |
+| `src/app/components/letters/letter-point-engagement.tsx` | Point with locked author position + engagement gate |
+| `src/app/components/letters/letters-section.tsx` | Sent/received letters list for doc pages |
+| `src/app/hooks/useLetterReadingState.ts` | Forward-only state machine + sessionStorage persistence |
+
+#### Files to Modify
+
+| File | Change |
+|------|--------|
+| `src/app/types/index.ts` | Add letter types + extend `StoryVerification` with `source`, `verified`, `sortOrder` |
+| `src/App.tsx` | Add routes: `/letter/:id`, `/letter/:id/results`, `/letter/:docId/compose` |
+| `src/app/components/layout/bottom-nav.tsx` | Add `/letter` to `focusRoutes` array |
+| `src/app/pages/doc-detail-page.tsx` | Add "Prepare a Letter" button to header + "Letters" section below stories |
+| `src/app/pages/docs-list-page.tsx` | Add "Received Letters" section |
+| `src/app/data/calibration-service-real.ts` | Update `mapVerificationFromDb` to include `source`, `verified`, `sortOrder`; add `WHERE source = 'live'` filter to calibration RPCs if needed |
+| `src/auth/AuthCallbackPage.tsx` | Handle letter registration callback (persist sessionStorage data for 1-to-many) |
+| `supabase/deploy-manifest.json` | Add `send-letter-emails` and `create-and-open-letter` to manifest |
+| `public/sitemap.xml` | Not needed — letter pages are dynamic, token-gated, not indexable |
+
+---
+
+## Pre-deploy Checklist
+
+### Secrets to provision
+- [ ] No new secrets required — letter emails reuse existing Mailgun credentials (`MAILGUN_API_KEY`, `MAILGUN_DOMAIN`) already provisioned for `send-agreement-emails`
+- [ ] `APP_URL` already set in edge function environment
+
+### Deploy commands
+- [ ] `./scripts/migrate.sh` — apply P581 migration
+- [ ] `supabase functions deploy send-letter-emails --project-ref <ref> --no-verify-jwt`
+- [ ] `supabase functions deploy create-and-open-letter --project-ref <ref> --no-verify-jwt`
+- [ ] Verify edge functions deployed: `supabase functions list --project-ref <ref>`
+
+### Post-deploy verification
+- [ ] Create a test letter from a doc, verify snapshot integrity
+- [ ] Complete letter as receiver, verify sealed-bid (prediction hidden until rating)
+- [ ] Check Sentry for new errors in first 10 minutes
+- [ ] Verify Realtime subscription works for 1-to-1 sender results
