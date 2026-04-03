@@ -194,18 +194,19 @@ If response is a JSON object with `message` key (not array): `⚠ User activity:
 
 Cross-reference: user IDs in activity but NOT in new signups = **returning users**.
 
-Show:
+Show the Supabase summary (Wave 2b enriches this with Mixpanel narratives):
 ```
-USER ACTIVITY (since last /day)
+USER INTELLIGENCE (since last /day)
   New:       N signups
-    · Name (email) — HH:MM UTC → [what they did: story, N positions, pledge / "no activity ⚠"]
+    · Name (email) — HH:MM UTC
+      [Mixpanel narrative — see Wave 2b Phase 3] [tag]
   Returning: N
-    · Name — [what they did: N positions, story, /live verification]
+    · Name — [narrative from Mixpanel drill] [tag]
   Funnel:    A → B → C → D  (+Δ/+Δ/+Δ/+Δ)
              signup  story  pos  agreement
 ```
 
-Quiet period (no signups, no returning): collapse to `Users: no activity since last /day | Funnel: A → B → C → D`
+Quiet period (no real users): `Quiet: no real user activity since last /day (founder/test excluded) | Funnel: A → B → C → D`
 
 **Optional daily CSV log** (append after computing funnel):
 ```bash
@@ -216,19 +217,96 @@ If previous entry exists, show deltas in funnel line.
 
 Show: `✓ Sessions: no orphans` or `⚠ ORPHANED SESSIONS: N sessions with joined users but no completion (possible deadlocks) — check Sentry for live_state errors`
 
-#### Wave 2b: Magic link funnel (Mixpanel MCP — 1 call, after Wave 2)
+#### Wave 2b: User Intelligence (Mixpanel MCP — after Wave 2)
 
-Query Mixpanel MCP (`Run-Query`) for the last 24h:
-- `signup_magic_link_sent` total count
-- `profile_created` total count (where `auth_method = magic_link`)
+Three-phase per-user intelligence. Enriches the Supabase data from Wave 2 with behavioral narratives.
 
-If `signup_magic_link_sent` > 0 AND `profile_created` (magic_link) = 0:
+**Fallback:** If Mixpanel MCP is unavailable, skip all three phases. Show Wave 2 Supabase output as-is with: `⚠ Mixpanel MCP unavailable — user narratives skipped`
+
+##### Phase 1: Classify users
+
+Using the Wave 2 Supabase results already collected (no new queries):
+
+1. Collect all unique user IDs + emails from Wave 2 results (signups `id`, stories `author_id`, positions `user_id`, verifications `speaker_id`/`listener_id`, agreements `creator_profile_id`/`partner_profile_id`)
+2. Classify each user:
+   - `test-agent@claritypledge.com` → **test** (skip)
+   - Founder's personal email (resolve from global CLAUDE.md profile — never hardcode) → **founder** (skip)
+   - Everything else → **real user** (proceed to Phase 2)
+3. If 0 real users and 0 new signups: output `Quiet: no real user activity since last /day (founder/test excluded)` and skip Phase 2.
+
+##### Phase 2: Drill (1 Mixpanel MCP call per real user)
+
+For each real user, call `mcp__mixpanel__Run-Query` (project_id: `3968494`) with key journey events as separate metrics, all filtered by the user's distinct_id:
+
+```json
+{
+  "report_type": "insights",
+  "report": {
+    "name": "Journey: <UserName>",
+    "metrics": [
+      { "eventName": "profile_created", "measurement": { "type": "basic", "math": "total" } },
+      { "eventName": "login_complete", "measurement": { "type": "basic", "math": "total" } },
+      { "eventName": "story_created", "measurement": { "type": "basic", "math": "total" } },
+      { "eventName": "story_viewed", "measurement": { "type": "basic", "math": "total" } },
+      { "eventName": "position_recorded", "measurement": { "type": "basic", "math": "total" } },
+      { "eventName": "live_session_created", "measurement": { "type": "basic", "math": "total" } },
+      { "eventName": "live_session_completed", "measurement": { "type": "basic", "math": "total" } },
+      { "eventName": "profile_page_viewed", "measurement": { "type": "basic", "math": "total" } },
+      { "eventName": "landing_page_viewed", "measurement": { "type": "basic", "math": "total" } },
+      { "eventName": "agreement_create_success", "measurement": { "type": "basic", "math": "total" } }
+    ],
+    "chartType": "table",
+    "dateRange": { "type": "absolute", "from": "<SINCE as YYYY-MM-DD>", "to": "<today YYYY-MM-DD>" },
+    "filters": [{ "type": "string", "propertyName": "$distinct_id", "operator": "equals", "value": "<user-uuid>" }]
+  }
+}
 ```
-⚠ MAGIC LINK GAP: N magic links sent, 0 completed signups in 24h — check Brevo logs
-```
-If both > 0 or sends = 0: silent.
 
-Fallback (MCP unavailable): skip with `⚠ Mixpanel MCP unavailable — magic link check skipped`
+This returns event counts for 10 key journey events for that specific user. Only events with count > 0 appear in results. Identity bridge: Supabase `profiles.id` (UUID) = Mixpanel `distinct_id` (verified in `src/auth/AuthCallbackPage.tsx:416`).
+
+**Also run the magic-link gap check** (in parallel with first user drill):
+- `signup_magic_link_sent` total (last 24h) vs `profile_created` total (last 24h)
+- If sends > 0 AND completions = 0: `⚠ MAGIC LINK GAP: N sent, 0 completed — check Brevo logs`
+- Otherwise: silent.
+
+**Scaling rules:**
+- ≤10 real users → drill each user individually
+- 11-20 → drill new signups only; returning users get aggregate summary ("N returning, M took positions")
+- >20 → aggregate mode only + flag: "Consider state-transition alerts (t005 Phase 2)"
+
+##### Phase 3: Narrate (LLM synthesis — no tool calls)
+
+For each user with Mixpanel drill results, produce a per-user narrative using the **Event-to-Journey Mapping** (see reference section below).
+
+**Narrative structure** (one block per user, max 3 sentences):
+1. **WHO + WHEN:** "Kevin signed up via magic link at 14:32 UTC"
+2. **WHAT they did:** using journey stage labels, not event names. "Created a story, took 2 positions, browsed the feed"
+3. **WHERE they stopped + SO WHAT:** "Left after viewing the feed once — no content created, no /live session. [bounced]"
+
+**User tags** (append to narrative):
+- `[activated]` — completed a live session OR created story + took position
+- `[exploring]` — signed up + page views or content views but no creation actions
+- `[bounced]` — signed up + zero further meaningful events in the period
+- `[engaged]` — returning user with new actions (positions, stories, sessions)
+- Do NOT use "churned" — with <10 users and <7 days of data, "paused" is more honest
+
+**Final output format:**
+```
+USER INTELLIGENCE (since last /day)
+  New: N signups
+    · Kevin (kevin@example.com) — 14:32 UTC
+      Signed up via magic link, viewed profile once, left.
+      No content created, no /live session. [bounced]
+    · Maria (maria@example.com) — 09:15 UTC
+      Signed up via Google OAuth, completed a live session (3 checks).
+      Reached activation — watch for return visit. [activated]
+  Returning: N
+    · Alex — took 4 new positions, viewed 2 stories. [engaged]
+  Quiet: no real user activity (founder/test excluded).
+  Funnel: 67 → 3 → 12 → 1 (+2/+0/+2/+0)
+          signup  story  pos  agreement
+  ⚠ MAGIC LINK GAP: 3 sent, 0 completed — check Brevo logs
+```
 
 #### Wave 3: Repo health + file reads (2-3 calls, after processing Wave 1-2)
 
@@ -409,6 +487,25 @@ After all output, silently:
 ```bash
 date -u +"%Y-%m-%dT%H:%M:%SZ" > ~/.claude-day-last-run
 ```
+
+---
+
+## Event-to-Journey Mapping (Wave 2b reference)
+
+Used by Phase 3 (Narrate) to translate Mixpanel event names into journey stages.
+
+| Stage | Events | Narrative label |
+|-------|--------|----------------|
+| ARRIVAL | `landing_page_viewed`, `signup_page_viewed`, `about_page_viewed`, `sign_pledge_page_viewed` | "visited site" |
+| SIGNUP | `signup_magic_link_sent`, `google_auth_initiated`, `profile_created`, `login_complete` | "signed up via [method]" / "logged in" |
+| ONBOARDING | `profile_page_viewed` (own), `settings_page_viewed`, `welcome_dialog_shown` | "viewed profile" |
+| CONTENT | `story_created`, `story_viewed`, `point_created`, `position_recorded`, `feed_tag_filtered` | "created story" / "took N positions" / "browsed feed" |
+| LIVE | `live_session_created`, `live_session_joined`, `live_rating_submitted`, `live_session_completed` | "started /live session" / "completed session (N checks)" |
+| SOCIAL | `agreement_create_success`, `share_link_copied`, `share_linkedin_clicked`, `witness_submitted` | "signed agreement" / "shared profile" |
+
+**Skip in narrative** (noise events): `nav_*`, `pwa_*`, `live_state_drift_detected`, `audio_chunk_*`, `$mp_*` (Mixpanel autocapture), `$session_start`, `$session_end`
+
+**Auth method detection** (from `profile_created` properties): `auth_method = 'google'` → "via Google OAuth", `auth_method = 'magic_link'` → "via magic link"
 
 ---
 
