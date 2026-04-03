@@ -2,6 +2,16 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-03 [technical]: P630 — separate system_tags column for system/user tag isolation
+
+**Context:** Single `tags text[]` column on stories and points mixed three concerns: structural linkage (`st1`–`st9`), content category (`understanding`/`misunderstanding`), lifecycle (`v1`/`v2`), and future user hashtags. Agents silently introduced `motivation` and `deprecated` tags without founder approval. `extractHashtags()` auto-persisted any `#word` from content with no whitelist. As users start creating content, `#v2` or `#st5` in user text would collide with feed logic.
+**Decision:** Added `system_tags text[]` column to both tables. System tags (matched by `isSystemTag()`: `st\d+`, `v\d+`, `understanding`, `misunderstanding`) moved to `system_tags` via backfill. `tags` is now user-only. DB trigger `extract_hashtags_from_content()` writes only user tags to `tags`. `sync_story_st_tags_to_points()` reads/writes `system_tags`. `protect_system_tags()` BEFORE UPDATE trigger silently reverts client attempts to modify `system_tags`. Client-side `extractHashtags()` filters system tags as defense-in-depth. `filterByTags()` checks both arrays (preserves `/feed/understanding`). `resolvePointSlug()` queries `system_tags` (preserves `/point/st1`).
+**Alternatives rejected:** (A) Prefix convention (`_st1`) — breaks all existing data + queries, leaks into display. (B) Code-only filtering — root cause untouched, DB trigger still overwrites tags on every save. Both fail the "user types `#st5`" collision scenario.
+**Consequences:** `tags` column contract changed: was "all tags from content"; now "user tags only, derived from content minus system patterns." The 2026-03-27 decision ("tags column is fully derived from content via trigger") is superseded — tags is still trigger-derived, but now filtered. Future v1/v2 automation (child points) writes to `system_tags` with no interaction with user tags. Agent rule saved: no new system tag values without founder approval.
+**References:** [spec](features/done/2026-04-03/p630_separate_system_and_user_tags.md), [migration](supabase/migrations/20260403120000_p630_system_tags.sql), [memory: feedback_no_agent_tags.md]
+
+---
+
 ## 2026-04-03 [process]: P617/P626 — spec misread caused 3 wrong commits; ASCII flow + AD-0 distinction prevents recurrence
 
 **Context:** P617 spec described mode switcher lifecycle redesign. The implementation session (P626) misread the spec and spent 3 commits fixing `ratingInitiatedBy` timing (when the shared signal fires) instead of the actual problem: mode switcher visible when it shouldn't be + listener seeing story card before round starts. Root cause: the spec's Technical Architecture section only discussed `ratingInitiatedBy` (shared state) without mentioning `isLocallyRating` (local state), so the developer fixated on the shared signal timing. The spec described the correct visual outcome but the architecture section led to the wrong mechanism.

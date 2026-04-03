@@ -75,6 +75,7 @@ Last updated: 2026-04-03 (P628 Doc Point Reorder Fix)
 
 ## Database / RLS / Migrations
 
+- **P630** (Apr 03) Separate System Tags from User Tags — `system_tags` column isolates feed logic from user hashtags; `protect_system_tags` trigger prevents client mutation; `filterByTags` checks both arrays
 - **P586** (Mar 25) Visibility & Privacy Foundation — `content_visibility` enum, point visibility column, BEFORE triggers for immutability + cross-visibility, 8 tables RLS-hardened, amber=private color system
 - **P403** (Feb 26) Position Cascade DB Migrations — on position delete, trigger auto-unlinks stories and records in history table
 - **P417** (Feb 26) migrate.sh Silent Schema Drift — HTTP 200 ≠ success; parse body (JSON array=success, object with message=failure)
