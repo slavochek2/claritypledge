@@ -7,6 +7,7 @@
 import { useEffect, useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { triggerConfetti } from '@/lib/confetti';
+import { analytics } from '@/lib/mixpanel';
 import { getCompletionSummary } from '@/app/data/letters-service';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -64,10 +65,16 @@ export function LetterCompletionSummary({
   const [email, setEmail] = useState('');
   const [loaded, setLoaded] = useState(false);
 
-  // Fire confetti on mount
+  // Fire confetti + track completion on mount
   useEffect(() => {
     triggerConfetti();
-  }, []);
+    analytics.track('letter_completed', {
+      delivery_id: deliveryId,
+      mode: letterData.mode,
+      story_count: letterData.snapshots.length,
+      is_authenticated: isAuthenticated,
+    });
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Load completion data
   useEffect(() => {

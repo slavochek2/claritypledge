@@ -8,6 +8,7 @@ import { RatingButtons } from '@/app/components/partners/shared';
 import { LetterPointEngagement } from './letter-point-engagement';
 import { LetterGapReveal } from './letter-gap-reveal';
 import { Button } from '@/components/ui/button';
+import { analytics } from '@/lib/mixpanel';
 import type { StoryPhase } from '@/app/hooks/useLetterReadingState';
 import type { LetterStorySnapshot, PositionType } from '@/app/types';
 
@@ -153,7 +154,14 @@ export function LetterStoryReader({
           </p>
           <RatingButtons
             selectedValue={rating}
-            onSelect={onRatingSubmit}
+            onSelect={(value) => {
+              analytics.track('letter_story_rated', {
+                story_index: storyIndex,
+                total_stories: totalStories,
+                rating: value,
+              });
+              onRatingSubmit(value);
+            }}
             disabled={isSubmitting || rating !== null}
           />
         </div>

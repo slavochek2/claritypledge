@@ -10,6 +10,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import { FocusHeader } from '@/app/components/layout/focus-header';
 import { ClarityPageLoader } from '@/components/ui/clarity-loader';
 import { useAuth } from '@/auth';
+import { analytics } from '@/lib/mixpanel';
 import {
   getLetterForSender,
 } from '@/app/data/letters-service';
@@ -62,6 +63,12 @@ export function LetterResultsPage() {
       setDeliveries(result.deliveries);
       setPredictions(result.predictions);
       setPageState('ready');
+      analytics.track('letter_results_viewed', {
+        letter_id: letterId,
+        mode: result.letter.mode,
+        delivery_count: result.deliveries.length,
+        snapshot_count: result.snapshots.length,
+      });
     } catch {
       setPageState('not-found');
     }

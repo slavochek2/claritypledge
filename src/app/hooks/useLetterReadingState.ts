@@ -7,6 +7,7 @@
  */
 
 import { useState, useCallback, useEffect, useRef } from 'react';
+import { toast } from 'sonner';
 import type { LetterStorySnapshot } from '@/app/types';
 import {
   submitRating,
@@ -138,10 +139,13 @@ export function useLetterReadingState(
   const [isSubmitting, setIsSubmitting] = useState(false);
   const initRef = useRef(false);
 
+  const resumedRef = useRef(false);
+
   const [state, setState] = useState<LetterReadingState>(() => {
     // Try to restore from sessionStorage
     const saved = loadState(deliveryId);
-    if (saved && saved.stories.length === snapshots.length) {
+    if (saved && saved.stories.length === snapshots.length && saved.currentStoryIndex > 0) {
+      resumedRef.current = true;
       return saved;
     }
     return {
@@ -150,6 +154,14 @@ export function useLetterReadingState(
       isComplete: false,
     };
   });
+
+  // Show resume toast if we restored from sessionStorage
+  useEffect(() => {
+    if (resumedRef.current) {
+      toast.info(`Welcome back. You left off at Story ${state.currentStoryIndex + 1}.`);
+      resumedRef.current = false;
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Persist state changes to sessionStorage
   useEffect(() => {

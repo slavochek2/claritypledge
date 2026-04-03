@@ -484,7 +484,7 @@ export function AuthCallbackPage() {
       }
 
       // Allowed redirect prefixes — used by set-position handler and generic redirect
-      const ALLOWED_REDIRECT_PREFIXES = ['/events', '/settings', '/me', '/p/', '/about', '/pledgers', '/manifesto', '/live', '/agreements', '/create', '/point/', '/chat'];
+      const ALLOWED_REDIRECT_PREFIXES = ['/events', '/settings', '/me', '/p/', '/about', '/pledgers', '/manifesto', '/live', '/agreements', '/create', '/point/', '/chat', '/letter'];
 
       // P502: Batch-restore anonymous positions from localStorage.
       // Runs BEFORE P458 single-position handler so all anon positions are saved
@@ -508,6 +508,44 @@ export function AuthCallbackPage() {
         }
         clearAllAnonPositions();
         if (import.meta.env.DEV) console.log('✅ P502: Anonymous positions restored and cleared');
+      }
+
+      // P581: Persist anonymous letter completion data after registration
+      // 1-to-many letters allow anonymous completion; after signup, persist the data
+      try {
+        const letterKeys = Object.keys(sessionStorage).filter(k => k.startsWith('letterCompletion_'));
+        if (letterKeys.length > 0) {
+          console.log('📬 P581: Found', letterKeys.length, 'anonymous letter completion(s) to persist');
+          for (const key of letterKeys) {
+            try {
+              const completionData = JSON.parse(sessionStorage.getItem(key) ?? '{}');
+              if (completionData.deliveryId) {
+                // Update the delivery with the authenticated user's profile ID
+                const { error: linkError } = await supabase
+                  .from('letter_deliveries')
+                  .update({ receiver_profile_id: authUser.id })
+                  .eq('id', completionData.deliveryId)
+                  .is('receiver_profile_id', null);
+
+                if (linkError) {
+                  console.error('⚠️ P581: Failed to link letter delivery:', linkError);
+                } else {
+                  console.log('✅ P581: Linked letter delivery', completionData.deliveryId);
+                }
+              }
+              sessionStorage.removeItem(key);
+            } catch (parseErr) {
+              console.error('⚠️ P581: Failed to parse letter completion:', parseErr);
+              sessionStorage.removeItem(key);
+            }
+          }
+          analytics.track('letter_completion_persisted', {
+            count: letterKeys.length,
+            registration_source: registrationSource,
+          });
+        }
+      } catch (letterErr) {
+        console.error('⚠️ P581: Letter completion persistence failed:', letterErr);
       }
 
       // P458: Handle position auto-save after signup via position-gate redirect

@@ -22,6 +22,7 @@ import { useAuth } from '@/auth';
 import { docsService } from '@/app/data/docs-service';
 import * as lettersService from '@/app/data/letters-service';
 import { invokeLetterEmails } from '@/lib/letter-emails';
+import { analytics } from '@/lib/mixpanel';
 import type { ClarityDoc, DocStory, LetterMode } from '@/app/types';
 
 type WizardStep = 'mode' | 'predictions' | 'preview' | 'seal';
@@ -469,6 +470,15 @@ export function LetterComposePage() {
       // 5. Fire-and-forget email notifications
       invokeLetterEmails(letter.id);
 
+      analytics.track('letter_sealed', {
+        letter_id: letter.id,
+        doc_id: docId,
+        mode,
+        recipient_count: mode === 'one-to-one' ? parsedEmails.length : 0,
+        story_count: stories.length,
+        prediction_count: predictions.size,
+      });
+
       toast.success('Letter sealed and sent!');
       navigate(`/d/${docId}`);
     } catch (err) {
@@ -476,10 +486,22 @@ export function LetterComposePage() {
       toast.error('Something went wrong. Please try again.');
       setSealing(false);
     }
-  }, [docId, user?.id, mode, predictions, parsedEmails, navigate]);
+  }, [docId, user?.id, mode, predictions, parsedEmails, navigate, stories.length]);
+
+  // Edge case: doc has no stories — redirect back
+  useEffect(() => {
+    if (fetchState === 'done' && doc && stories.length === 0) {
+      toast.error('Add stories before composing a letter');
+      navigate(`/d/${docId}`, { replace: true });
+    }
+  }, [fetchState, doc, stories.length, docId, navigate]);
 
   // Loading / not-found
   if (fetchState === 'loading') {
+    return <ClarityPageLoader />;
+  }
+
+  if (fetchState === 'done' && doc && stories.length === 0) {
     return <ClarityPageLoader />;
   }
 
@@ -535,7 +557,14 @@ export function LetterComposePage() {
             emails={emailsInput}
             onEmailsChange={setEmailsInput}
             isPrivateDoc={isPrivateDoc}
-            onNext={() => setStep('predictions')}
+            onNext={() => {
+              analytics.track('letter_created', {
+                doc_id: docId,
+                mode,
+                story_count: stories.length,
+              });
+              setStep('predictions');
+            }}
           />
         )}
         {step === 'predictions' && (

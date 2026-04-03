@@ -54,7 +54,18 @@ export function SentLettersSection({ docId }: SentLettersSectionProps) {
     fetchLetters();
   }, [fetchLetters]);
 
-  if (!loaded || letters.length === 0) return null;
+  if (!loaded) return null;
+
+  if (letters.length === 0) {
+    return (
+      <div className="space-y-3">
+        <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider">
+          Sent Letters
+        </h3>
+        <p className="text-sm text-muted-foreground">No letters yet</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-3">
@@ -123,7 +134,18 @@ export function ReceivedLettersSection({ userId }: ReceivedLettersSectionProps) 
     return () => { cancelled = true; };
   }, [userId]);
 
-  if (!loaded || deliveries.length === 0) return null;
+  if (!loaded) return null;
+
+  if (deliveries.length === 0) {
+    return (
+      <div className="space-y-3">
+        <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider">
+          Received Letters
+        </h3>
+        <p className="text-sm text-muted-foreground">No letters yet</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-3">

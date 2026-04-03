@@ -14,6 +14,7 @@
 
 import { useEffect, useState } from 'react';
 import { useParams, useSearchParams, Link } from 'react-router-dom';
+import { toast } from 'sonner';
 import { useAuth } from '@/auth';
 import { CertificatePageShell } from '@/app/components/layout/certificate-page-shell';
 import { FocusHeader } from '@/app/components/layout/focus-header';
@@ -28,6 +29,7 @@ import {
   getLetterForReading,
   updateDeliveryStatus,
 } from '@/app/data/letters-service';
+import { analytics } from '@/lib/mixpanel';
 import type { ClarityLetter, LetterStorySnapshot, LetterDelivery } from '@/app/types';
 
 // ============================================================================
@@ -127,7 +129,9 @@ export function LetterReadingPage() {
           setSenderName(readData.letter.sender_id);
           setPageState('ready');
         }
-      } catch {
+      } catch (err) {
+        console.error('[letter-reading] Load error:', err);
+        toast.error('Failed to load letter. Please check your connection and try again.');
         setPageState('invalid');
       }
     };
@@ -167,7 +171,7 @@ export function LetterReadingPage() {
           This letter has expired
         </h1>
         <p className="text-sm text-[#1A1A1A]/60 max-w-sm">
-          The access link for this letter has expired. Ask the sender for a new link.
+          This letter has expired. Contact {senderName !== 'Someone' ? senderName : 'the sender'} for a new one.
         </p>
         <Link
           to="/"
@@ -189,10 +193,10 @@ export function LetterReadingPage() {
           This letter is addressed to a different person.
         </p>
         <Link
-          to="/"
-          className="text-sm text-[#0044CC] hover:underline mt-2"
+          to="/docs"
+          className="inline-flex items-center justify-center px-4 py-2 text-sm font-medium text-white bg-blue-500 hover:bg-blue-600 rounded-md mt-2 min-h-[40px]"
         >
-          Return home
+          Back to docs
         </Link>
       </div>
     );
@@ -235,6 +239,12 @@ export function LetterReadingPage() {
           onOpen={() => {
             setViewState('reading');
             updateDeliveryStatus(delivery.id, 'opened').catch(() => {});
+            analytics.track('letter_opened', {
+              delivery_id: delivery.id,
+              letter_id: letter.id,
+              mode: letter.mode,
+              story_count: snapshots.length,
+            });
           }}
         />
       )}
