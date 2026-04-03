@@ -1248,6 +1248,7 @@ export function ClarityLivePage() {
               responderDrift,
               explainBackDoneDrift,
               livePositionsDrift,
+              ratingInitiatedByDrift,
             });
           } catch (err) {
             // Analytics failure shouldn't break the app, but log for visibility

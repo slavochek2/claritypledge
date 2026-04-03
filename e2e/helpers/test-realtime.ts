@@ -222,7 +222,7 @@ export async function waitForDBColumnSet(
  * @param timeoutMs - How long to wait (should exceed drift polling interval)
  */
 export async function waitForUIUpdate(
-  page: Page,
+  _page: Page,
   locator: Locator,
   timeoutMs: number = 20000,
 ): Promise<void> {

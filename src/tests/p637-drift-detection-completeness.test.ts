@@ -21,7 +21,19 @@ function extractDriftCheckedFields(): string[] {
 
   // Only scan the drift detection block (between "Detect liveState drift" and "serverHasUpdate")
   const driftBlockStart = source.indexOf('Detect liveState drift');
+  if (driftBlockStart === -1) {
+    throw new Error(
+      'Cannot find "Detect liveState drift" comment in clarity-live-page.tsx. ' +
+      'Was the drift detection block moved or renamed?'
+    );
+  }
   const driftBlockEnd = source.indexOf('const serverHasUpdate', driftBlockStart);
+  if (driftBlockEnd === -1) {
+    throw new Error(
+      'Cannot find "const serverHasUpdate" after drift block start. ' +
+      'Was the drift detection block restructured?'
+    );
+  }
   const driftBlock = source.slice(driftBlockStart, driftBlockEnd);
 
   // Match patterns like: serverState.fieldName
