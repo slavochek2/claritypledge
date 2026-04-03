@@ -11,7 +11,7 @@ tags:
   - workshop
   - briefing
 created_date: 2026-03-23T00:00:00.000Z
-delivery_stage: 5-decomposed
+delivery_stage: uat
 flow: dev
 sibling_crs: [p651, p660, p661]
 uat_file: features/uat/p581.md
