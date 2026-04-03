@@ -142,6 +142,13 @@ created_date: {YYYY-MM-DD}
 > **What was wrong:** {2–4 sentences. Specific. From Step 2 subagent analysis.
 >   Name the exact mechanism — duplication condition, actor confusion trigger, data gap.}
 
+## Operating Mode
+
+> This spec is an **incremental correction** to P{predecessor_N}, not a greenfield design.
+> The predecessor spec is **read-only shipped history** — do not recommend edits to it.
+> Your job at every pipeline stage is to **implement the delta** described below.
+> Settled decisions from P{predecessor_N} are not up for re-examination.
+
 ## Problem Statement
 
 {Why this correction is needed. What user harm or confusion the current design causes.

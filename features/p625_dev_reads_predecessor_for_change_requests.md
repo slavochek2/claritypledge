@@ -1,6 +1,7 @@
 ---
-status: backlog
+status: done
 type: task
+completed_at: "2026-04-03"
 rank: 1000033.0
 workstream: foundation
 created_date: 2026-04-02
