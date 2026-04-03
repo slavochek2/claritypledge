@@ -11,7 +11,7 @@ tags:
   - workshop
   - briefing
 created_date: 2026-03-23T00:00:00.000Z
-delivery_stage: 4-tests-ready
+delivery_stage: 5-decomposed
 flow: dev
 uat_file: features/uat/p581.md
 test_files:
@@ -1200,3 +1200,323 @@ All letter routes added to `focusRoutes` in `bottom-nav.tsx`. FocusHeader with b
 | **Token validation bypass** | RPC tested with valid, invalid, and expired tokens. 404 pattern verified. |
 | **Schema drift** | 17 column-existence tests catch any migration regression immediately. |
 | **Anonymous data loss** | sessionStorage pattern tested via E2E (1-to-many anonymous flow). Registration gate UAT scenarios cover the full save path. |
+
+---
+
+## Implementation Tasks
+
+**Summary:** 14 tasks. Sequential chain: T1 → T2 → T3 → T4/T5 (parallel) → T6 → T7 → T8 → T9 → T10 → T11 → T12 → T13 → T14. Parallelizable groups: {T4, T5} after T3; {T11, T12} after T10 if no shared state.
+
+---
+
+### Task 1: DB Migration
+
+**Files:**
+- `supabase/migrations/YYYYMMDDHHMMSS_p581_clarity_letters.sql` (create)
+
+**Spec refs:**
+- Build Sequence Phase 1, steps 1-9 (lines 1021-1031)
+- Architecture Decisions AD2-AD3 (lines 847-914)
+- Security Review: all 7 critical gaps (lines 1005-1013)
+
+**What:**
+- 5 new tables: `clarity_letters`, `letter_deliveries`, `letter_story_snapshots`, `letter_predictions`, `letter_point_responses`
+- 4 column additions: `story_verifications.source`, `.verified`, `.sort_order`; `clarity_sessions.source_letter_id`
+- RLS policies per Security Review (sealed-bid on `letter_predictions`, `WITH CHECK (false)` on snapshots/predictions, source-aware policy on `story_verifications`)
+- 4 SECURITY DEFINER RPCs: `get_letter_by_token`, `seal_and_send_letter`, `reveal_prediction`, `persist_anonymous_completion`
+- Add tables to `supabase_realtime` publication
+- Run `./scripts/migrate.sh`
+
+**Tests:** `e2e/integration/p581-letters-migration.spec.ts` (17 tests), `e2e/integration/p581-letters-sealed-bid.spec.ts` (10 tests)
+**Depends on:** None (first task)
+**Verify:** All 27 integration tests pass; `list_tables` shows 5 new tables
+
+---
+
+### Task 2: TypeScript Types
+
+**Files:**
+- `src/app/types/index.ts` (modify)
+
+**Spec refs:**
+- Build Sequence Phase 2, steps 7-8 (lines 1033-1034)
+- Files to Modify (line 1102)
+
+**What:**
+- Add types: `ClarityLetter`, `LetterDelivery`, `LetterStorySnapshot`, `LetterPrediction`, `LetterStatus`, `DeliveryStatus`, `LetterMode`
+- Extend `StoryVerification` with `source`, `verified`, `sortOrder`
+
+**Tests:** Type-checked by `npm run build`
+**Depends on:** T1 (types must match schema)
+**Verify:** `npm run build` passes with no type errors
+
+---
+
+### Task 3: Letters Service
+
+**Files:**
+- `src/app/data/letters-service.ts` (create)
+
+**Spec refs:**
+- Build Sequence Phase 2, step 9 (lines 1035)
+- AD1: real-only pattern like docsService (lines 839-842)
+
+**What:**
+- `createLetter()`, `sealLetter()`, `getLetterForReading()`, `getLetterForSender()`
+- `submitRating()`, `revealPrediction()`, `getCompletionSummary()`
+- `getDeliveriesForLetter()`, `updateDeliveryStatus()`
+- Direct Supabase queries (no interface/mock split)
+
+**Tests:** Covered indirectly by E2E tests in T6-T12
+**Depends on:** T1, T2
+**Verify:** Service file imports cleanly; `npm run build` passes
+
+---
+
+### Task 4: Letter Email Invoker
+
+**Files:**
+- `src/lib/letter-emails.ts` (create)
+
+**Spec refs:**
+- Build Sequence Phase 2, step 10 (line 1036)
+- Reuse Inventory: `invokeAgreementEmails` pattern (line 820)
+
+**What:**
+- `invokeLetterEmails()` — fire-and-forget edge function call mirroring `agreement-emails.ts`
+
+**Tests:** Not directly tested (edge function integration; see "What Is NOT Tested")
+**Depends on:** T2 (types)
+**Verify:** `npm run build` passes
+
+---
+
+### Task 5: Edge Functions
+
+**Files:**
+- `supabase/functions/send-letter-emails/index.ts` (create)
+- `supabase/functions/create-and-open-letter/index.ts` (create)
+
+**Spec refs:**
+- Build Sequence Phase 3, steps 11-12 (lines 1039-1040)
+- AD6: clone and adapt pattern (lines 935-941)
+
+**What:**
+- `send-letter-emails`: clone from `send-agreement-emails`, adapt HTML template for letter cover CTA
+- `create-and-open-letter`: clone from `create-and-sign`, adapt for letter delivery (D48 one-click registration)
+
+**Tests:** Not E2E tested (see "What Is NOT Tested"). Manual verification via UAT.
+**Depends on:** T1 (schema for delivery rows)
+**Verify:** Edge functions deploy without errors
+
+---
+
+### Task 6: Composition Page
+
+**Files:**
+- `src/app/pages/letter-compose-page.tsx` (create)
+
+**Spec refs:**
+- Build Sequence Phase 4, steps 13-18 (lines 1043-1049)
+- ASCII Flow: Composition (lines 446-498)
+- AC: Letter Composition (lines 202-213)
+
+**What:**
+- "Prepare a Letter" button wiring (button itself added in T12 on doc-detail-page)
+- 3-step wizard: Step 1 mode selector + email input, Step 2 per-story predictions via `RatingButtons`, Step 3 preview with banner (D42) + "Seal & Send"
+- Seal action: call `sealLetter()` from letters-service, fire email via `invokeLetterEmails()`
+
+**Tests:** `e2e/p581-letter-composition.spec.ts` (6 tests)
+**Depends on:** T3, T4
+**Verify:** Composition E2E tests pass
+
+---
+
+### Task 7: Letter Cover + Token Validation
+
+**Files:**
+- `src/app/pages/letter-reading-page.tsx` (create)
+- `src/app/components/letters/letter-cover.tsx` (create)
+
+**Spec refs:**
+- Build Sequence Phase 5, steps 19-20 (lines 1051-1052)
+- ASCII Flow: Cover (lines 501-513)
+- AC: 1-to-1 Letter Flow (lines 222-228), 1-to-Many Letter Flow (lines 230-234)
+
+**What:**
+- Letter reading page shell with PageState machine (loading/invalid/unauthenticated/ready)
+- Token validation for 1-to-1 via `get_letter_by_token` RPC
+- Cover screen: envelope icon, sender name, story count, time estimate, "Open the Letter" + ToS (D48)
+- 1-to-1 vs 1-to-many cover differences (ToS only for 1-to-1)
+
+**Tests:** `e2e/p581-letter-1to1-flow.spec.ts` (6 tests), `e2e/p581-letter-reading.spec.ts` (cover tests)
+**Depends on:** T3
+**Verify:** 1-to-1 flow E2E tests pass; cover renders correctly
+
+---
+
+### Task 8: Reading State Machine + Story Reader + Point Engagement
+
+**Files:**
+- `src/app/hooks/useLetterReadingState.ts` (create)
+- `src/app/components/letters/letter-story-reader.tsx` (create)
+- `src/app/components/letters/letter-point-engagement.tsx` (create)
+
+**Spec refs:**
+- Build Sequence Phase 5, steps 21-27 (lines 1053-1059)
+- AD4: forward-only state machine (lines 917-924)
+- AC: Letter Reading (lines 245-267)
+- D36 conditional ordering, D37 engagement requirement
+
+**What:**
+- `useLetterReadingState`: forward-only state machine with sessionStorage persistence + DB hybrid
+- Sequential story reading with D36 ordering (1 point: story first; 2+ points: anti-point first)
+- `RatingButtons` for understanding rating + sealed-bid reveal via `revealPrediction()`
+- `PositionButtons` for point engagement (D37 must-engage gate)
+- Author position lock/unlock with fade-in animation (D10)
+- Story filing: navigate to `CreateStoryPage` with `?pointId=X&returnTo=/letter/:id`
+- sessionStorage layer for anonymous 1-to-many
+
+**Tests:** `e2e/p581-letter-reading.spec.ts` (9 tests)
+**Depends on:** T7
+**Verify:** Reading flow E2E tests pass
+
+---
+
+### Task 9: Gap Reveal + Progress Bar
+
+**Files:**
+- `src/app/components/letters/letter-gap-reveal.tsx` (create)
+- `src/app/components/letters/letter-progress-bar.tsx` (create)
+
+**Spec refs:**
+- Build Sequence Phase 5 (within steps 21-23)
+- ASCII Flow: gap reveal (lines 559-569), progress bar (lines 521, 536)
+- AC: gap framed honestly (line 258), progress bar (line 247)
+
+**What:**
+- `letter-gap-reveal`: dual-number display (receiver rating / sender prediction) + gap framing text + `aria-live="polite"`
+- `letter-progress-bar`: segmented bar showing story N of M with `aria-label`
+
+**Tests:** Covered by `e2e/p581-letter-reading.spec.ts` (progress bar, rating tests)
+**Depends on:** T8 (used within story reader)
+**Verify:** Components render in reading flow
+
+---
+
+### Task 10: Completion Flow
+
+**Files:**
+- `src/app/components/letters/letter-completion-summary.tsx` (create)
+
+**Spec refs:**
+- Build Sequence Phase 6, steps 28-30 (lines 1062-1064)
+- ASCII Flow: completion (lines 589-625)
+- AC: Letter Completion Summary (lines 269-277), Unregistered Receiver Flow (lines 236-243)
+
+**What:**
+- Celebration gate ("You've completed it")
+- Gap-sorted summary with per-story/per-point comparisons (largest gap first)
+- "Ready for /live?" CTA linking to highest-gap story
+- Registration gate for 1-to-many ("Save your results?" with email input)
+- Receiver-filed stories visible
+- `triggerConfetti()` on celebration
+
+**Tests:** `e2e/p581-letter-completion.spec.ts` (8 tests)
+**Depends on:** T8, T9
+**Verify:** Completion E2E tests pass
+
+---
+
+### Task 11: Sender Results Page
+
+**Files:**
+- `src/app/pages/letter-results-page.tsx` (create)
+
+**Spec refs:**
+- Build Sequence Phase 6, step 31 (line 1065)
+- ASCII Flow: sender results (lines 640-655)
+- AC: sender sees completion summary (line 275)
+
+**What:**
+- `/letter/:id/results` route — FocusHeader with "Back to Doc"
+- Per-receiver data: story gaps, point positions, filed stories
+- 1-to-1: named receiver, Realtime subscription (AD5)
+- 1-to-many: anonymous counts, 30s polling (AD5)
+
+**Tests:** `e2e/p581-letter-completion.spec.ts` (sender results tests)
+**Depends on:** T3, T10
+**Verify:** Sender results page renders with test data
+
+---
+
+### Task 12: Letters Section on Doc Pages
+
+**Files:**
+- `src/app/components/letters/letters-section.tsx` (create)
+- `src/app/pages/doc-detail-page.tsx` (modify)
+- `src/app/pages/docs-list-page.tsx` (modify)
+
+**Spec refs:**
+- Build Sequence Phase 6, steps 32-33 (lines 1066-1067)
+- ASCII Flow: sender results view (lines 629-638)
+- AC: Letter Visibility in Docs (lines 215-220)
+
+**What:**
+- `letters-section.tsx`: sent/received letters list with date, receiver(s), status badge
+- `doc-detail-page.tsx`: add "Prepare a Letter" button to header + "Letters" section below stories
+- `docs-list-page.tsx`: add "Received Letters" section
+
+**Tests:** `e2e/p581-letter-completion.spec.ts` (doc page letters section), `e2e/p581-smoke.spec.ts` (doc page CTA)
+**Depends on:** T3, T6
+**Verify:** Letters section visible on doc pages; "Prepare a Letter" button navigates to compose
+
+---
+
+### Task 13: Route Wiring + Integration
+
+**Files:**
+- `src/App.tsx` (modify)
+- `src/app/components/layout/bottom-nav.tsx` (modify)
+- `src/app/data/calibration-service-real.ts` (modify)
+- `src/auth/AuthCallbackPage.tsx` (modify)
+
+**Spec refs:**
+- Build Sequence Phase 7, steps 34-37 (lines 1070-1073)
+- AD7: route structure (lines 943-956)
+- Files to Modify (lines 1098-1109)
+
+**What:**
+- `App.tsx`: add routes `/letter/:id`, `/letter/:id/results`, `/letter/:docId/compose`
+- `bottom-nav.tsx`: add `/letter` to `focusRoutes` array
+- `calibration-service-real.ts`: update `mapVerificationFromDb` for `source`, `verified`, `sortOrder`
+- `AuthCallbackPage.tsx`: handle letter registration callback (persist sessionStorage for 1-to-many)
+- Mixpanel events: `letter_created`, `letter_sealed`, `letter_opened`, `letter_story_rated`, `letter_completed`, `letter_results_viewed`
+
+**Tests:** `e2e/p581-smoke.spec.ts` (5 tests — route loading, graceful handling)
+**Depends on:** T6, T7, T10, T11
+**Verify:** All smoke tests pass; routes load without errors
+
+---
+
+### Task 14: Edge Case Handling + Polish
+
+**Files:**
+- Files from T7, T8, T10 (modify — adding edge case handling)
+
+**Spec refs:**
+- Build Sequence Phase 7, steps 38-39 (lines 1074-1075)
+- UX Design: Edge Cases table (lines 674-685)
+- UI Contract Additions (lines 722-733)
+
+**What:**
+- Expired token: "This letter has expired. Contact [sender name] for a new one."
+- Wrong user: "This letter wasn't sent to you." + Back to docs
+- Resume from sessionStorage: "Welcome back. You left off at Story [N]."
+- Network error: toast with auto-retry + local fallback message
+- Empty letters state: "No letters yet" message
+- SEO component on letter pages (low priority — token-gated, not indexable)
+
+**Tests:** Covered by `e2e/p581-letter-1to1-flow.spec.ts` (expired, wrong user, 404), `e2e/p581-smoke.spec.ts` (non-existent letter)
+**Depends on:** T7, T8, T10, T13
+**Verify:** Edge case E2E tests pass; manual verification of network error handling
