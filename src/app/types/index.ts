@@ -986,6 +986,7 @@ export interface Story {
   createdAt: string;
   updatedAt: string;
   tags: string[];
+  systemTags: string[]; // P630: System tags (st-group, version, category)
   bannerUrl?: string; // P504: AI-generated banner image
   imageUrl?: string; // P591: Story supporting image
 }
@@ -1017,6 +1018,7 @@ export interface DbStory {
   created_at: string;
   updated_at: string;
   tags: string[];
+  system_tags: string[]; // P630: System tags (st-group, version, category)
   banner_url?: string | null; // P504: AI-generated banner image
   image_url?: string | null; // P591: Story supporting image
 }
@@ -1055,6 +1057,7 @@ export interface Point {
   createdAt: string;
   updatedAt: string;
   tags: string[];
+  systemTags: string[]; // P630: System tags (st-group, version, category)
   bannerUrl?: string; // P504: AI-generated banner image
   visibility?: ContentVisibility; // P586: public/private visibility
 }
@@ -1065,6 +1068,7 @@ export interface PointSummary {
   statement: string;
   context?: string;
   tags: string[];
+  systemTags: string[]; // P630: System tags (st-group, version, category)
   positionCounts?: Record<string, number>;
   userPosition?: PositionType | null;
   profileSubjectPosition?: PositionType | null;
@@ -1099,6 +1103,7 @@ export interface DbPoint {
   created_at: string;
   updated_at: string;
   tags: string[];
+  system_tags: string[]; // P630: System tags (st-group, version, category)
   banner_url?: string | null; // P504: AI-generated banner image
 }
 

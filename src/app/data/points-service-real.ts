@@ -16,6 +16,7 @@ import type {
   ContentVisibility,
 } from '@/app/types';
 import { supabase } from '@/lib/supabase';
+import { isSystemTag } from '@/lib/feed-utils';
 import { logDbError } from './db-error-logger';
 
 // Debug logging - only in development
@@ -42,6 +43,7 @@ interface DbPointWithCreator {
   created_at: string;
   updated_at: string;
   tags: string[];
+  system_tags: string[]; // P630
   banner_url?: string | null;
   visibility?: 'public' | 'private';
   creator: {
@@ -96,6 +98,7 @@ function mapPointFromDb(row: DbPointWithCreator): PointWithCreator {
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     tags: row.tags || [],
+    systemTags: row.system_tags || [],
     bannerUrl: row.banner_url ?? undefined,
     visibility: row.visibility ?? undefined,
     // Creator info from joined profile
@@ -207,6 +210,7 @@ export const realPointsService: PointsService = {
         context: context ?? null,
         first_validator_id: user.id,
         tags,
+        system_tags: [], // P630: system tags set by migration/triggers, never by client
         ...(visibility ? { visibility } : {}),
       })
       .select('*')
@@ -225,6 +229,7 @@ export const realPointsService: PointsService = {
       createdAt: data.created_at,
       updatedAt: data.updated_at,
       tags: data.tags || [],
+      systemTags: data.system_tags || [],
       bannerUrl: data.banner_url ?? undefined,
       visibility: data.visibility ?? undefined,
     };
@@ -773,7 +778,12 @@ export const realPointsService: PointsService = {
       `);
 
     if (tag) {
-      query = query.contains('tags', [tag]);
+      // P630: Route system tag filters to system_tags column, user tags to tags
+      if (isSystemTag(tag)) {
+        query = query.contains('system_tags', [tag]);
+      } else {
+        query = query.contains('tags', [tag]);
+      }
     }
 
     const { data, error } = await query
@@ -926,25 +936,26 @@ export async function resolvePointSlug(slug: string): Promise<string | null> {
   const stTag = match[1];
   const isAnti = !!match[2];
 
+  // P630: Query system_tags instead of tags for st-group lookup
   const { data, error } = await supabase
     .from('points')
-    .select('id, tags')
-    .contains('tags', [stTag]);
+    .select('id, system_tags')
+    .contains('system_tags', [stTag]);
 
   if (error || !data?.length) return null;
 
-  // Filter: anti-points have 'misunderstanding' tag, main points don't
-  const filtered = data.filter((p: { tags: string[] }) =>
+  // Filter: anti-points have 'misunderstanding' in system_tags, main points don't
+  const filtered = data.filter((p: { system_tags: string[] }) =>
     isAnti
-      ? p.tags.includes('misunderstanding')
-      : !p.tags.includes('misunderstanding')
+      ? p.system_tags.includes('misunderstanding')
+      : !p.system_tags.includes('misunderstanding')
   );
 
   if (!filtered.length) return null;
 
-  // Find highest version number
-  const withVersion = filtered.map((p: { id: string; tags: string[] }) => {
-    const vTag = p.tags.find((t: string) => /^v\d+$/.test(t));
+  // Find highest version number from system_tags
+  const withVersion = filtered.map((p: { id: string; system_tags: string[] }) => {
+    const vTag = p.system_tags.find((t: string) => /^v\d+$/.test(t));
     return { id: p.id, version: vTag ? parseInt(vTag.slice(1), 10) : 0 };
   });
 

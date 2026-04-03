@@ -1,5 +1,6 @@
 import { clsx, type ClassValue } from "clsx"
 import { twMerge } from "tailwind-merge"
+import { isSystemTag } from '@/lib/feed-utils'
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
@@ -135,7 +136,9 @@ export function extractHashtags(content: string): string[] {
   const matches = content.match(/#(\w+)/g);
   if (!matches) return [];
   const tags = matches.map(m => m.slice(1).toLowerCase());
-  return [...new Set(tags)];
+  const unique = [...new Set(tags)];
+  // P630: Filter out system tags — only user tags flow through auto-extraction
+  return unique.filter(t => !isSystemTag(t));
 }
 
 export function stripHashtags(content: string, tags?: string[]): string {
