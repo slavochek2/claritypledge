@@ -1,6 +1,6 @@
 ---
-status: in-progress
-delivery_stage: uat
+status: all-done
+completed_at: "2026-04-03"
 type: task
 rank: 0.008
 flow: dev
