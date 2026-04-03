@@ -11,8 +11,18 @@ tags:
   - workshop
   - briefing
 created_date: 2026-03-23T00:00:00.000Z
-delivery_stage: 3-arch-review
+delivery_stage: 4-tests-ready
 flow: dev
+uat_file: features/uat/p581.md
+test_files:
+  - e2e/integration/p581-letters-migration.spec.ts
+  - e2e/integration/p581-letters-sealed-bid.spec.ts
+  - e2e/p581-smoke.spec.ts
+  - e2e/p581-letter-composition.spec.ts
+  - e2e/p581-letter-reading.spec.ts
+  - e2e/p581-letter-1to1-flow.spec.ts
+  - e2e/p581-letter-completion.spec.ts
+  - e2e/helpers/test-letter.ts
 reviews:
   ux: null
   architect: null
@@ -326,7 +336,7 @@ Letters serve a larger acquisition flywheel: Letter 1 (educate — recipient rea
 | D10 | Author position visible or locked? | Locked until receiver engages (takes position OR files story). Incentivizes engagement. Unlocking is animated (fade-in). |
 | D11 | Three-button or 7-point Likert? | Three-button (✕/?/✓) with agree-degree dropdown on ✓. Lower cognitive load. From prototype. |
 | D12 | Gap map = list or grid? | V1: simple per-story/per-point comparisons (dual numbers, positions side by side). Full understanding x agreement grid deferred to P624 (D43). |
-| D13 | Relationship to P551 clarity docs? | Unified in V1. Letter = immutable snapshot of a doc, delivered as a reading experience with assessment. Doc = mutable compose/edit surface where stories accumulate. "Prepare a Letter" on doc page triggers composition wizard. Separate specs, shared grid component, unified data model (4 new tables + story_verifications extension). |
+| D13 | Relationship to P551 clarity docs? | Unified in V1. Letter = immutable snapshot of a doc, delivered as a reading experience with assessment. Doc = mutable compose/edit surface where stories accumulate. "Prepare a Letter" on doc page triggers composition wizard. Separate specs, shared grid component, unified data model (5 new tables + 4 column additions). |
 | D14 | Can receiver file stories? | Yes. On any point — to explain position, explain false premise, or explain non-position. Uses P560 story-filing mechanic inline. |
 | D15 | Account required to read a letter? | For 1-to-many letters from public docs: no — anonymous access, registration gate at EXIT (after completion summary). For 1-to-1 letters: yes — authentication required (D47). Local state (sessionStorage) holds all data until persisted. |
 | D16 | How does facilitator share the letter? | Two paths: (a) Link with optional QR code — anonymous access (1-to-many, public docs only), email entered at save gate. (b) Email (multiple emails separated by comma) — facilitator enters receiver's email(s) at composition (1-to-1). Email pre-filled at save gate, one click to persist. |
@@ -901,6 +911,14 @@ letter_predictions
   prediction SMALLINT NOT NULL CHECK (0-10)
   created_at TIMESTAMPTZ DEFAULT now()
   UNIQUE (letter_id, delivery_id, story_id)
+
+letter_point_responses  -- Security gap #5: forward-only positions, separate from point_positions
+  id UUID PK
+  delivery_id UUID NOT NULL -> letter_deliveries(id) ON DELETE CASCADE
+  point_id UUID NOT NULL -> points(id)
+  position TEXT NOT NULL  -- PositionType value
+  created_at TIMESTAMPTZ DEFAULT now()
+  UNIQUE (delivery_id, point_id)  -- one position per point per delivery, no UPDATE policy
 ```
 
 Column additions:
@@ -964,7 +982,7 @@ All letter routes added to `focusRoutes` in `bottom-nav.tsx`. FocusHeader with b
 
 **AD8: `accuracy_achieved` generated column — must remain backward-compatible.**
 
-`story_verifications.accuracy_achieved` is `GENERATED ALWAYS AS (speaker_rating >= 8) STORED`. For letters, `speaker_rating` is the sender's prediction and `listener_rating` is the receiver's self-rating. The generated column will compute `accuracy_achieved = (prediction >= 8)`, which has a different semantic meaning for letters vs. /live. This is acceptable because:
+`story_verifications.accuracy_achieved` is `GENERATED ALWAYS AS (speaker_rating = 10) STORED` (P272 changed threshold from >=8 to =10). For letters, `speaker_rating` maps to the sender's prediction and `listener_rating` maps to the receiver's self-rating. The generated column will compute `accuracy_achieved = (prediction = 10)`, which has a different semantic meaning for letters vs. /live. This is acceptable because:
 - The column is only used in `update_story_understood_count` trigger (counts distinct listeners with `accuracy_achieved = true`)
 - For letters, `verified = false` means letter-sourced verifications are *not* authoritative. The trigger fires but the semantic distinction is preserved in the `verified` column.
 - A future P619 can add a `WHERE verified = true` filter to the trigger if letter-sourced verifications should not inflate `understood_count`.
@@ -978,7 +996,7 @@ All letter routes added to `focusRoutes` in `bottom-nav.tsx`. FocusHeader with b
 - `clarity_letters` — SELECT: sender OR authenticated receiver via delivery row. INSERT: verified auth user, sender = self. UPDATE: sender only + status = 'draft' (immutable after seal). DELETE: sender only + status = 'draft'.
 - `letter_deliveries` — SELECT: sender (via letter FK) OR receiver = self. INSERT: `WITH CHECK (false)` — created only by SECURITY DEFINER "Seal & Send" RPC. UPDATE: receiver can set status transitions (opened → in_progress → completed).
 - `letter_story_snapshots` — SELECT: sender OR authenticated receiver (via letter → delivery chain). INSERT/UPDATE/DELETE: `WITH CHECK (false)` — written only by SECURITY DEFINER functions.
-- `letter_predictions` — **Sealed-bid critical:** SELECT: sender always. Receiver ONLY when `letter_deliveries.status = 'completed'`. Primary enforcement layer — client-side hiding is insufficient. INSERT/UPDATE/DELETE: `WITH CHECK (false)` — immutable after seal.
+- `letter_predictions` — **Sealed-bid critical:** SELECT: sender always. Receiver sees prediction for a specific story ONLY after they have rated that story (matching `story_verifications` row with `source='letter'` and `listener_id = auth.uid()` exists for that story+letter). Per-story reveal, not all-or-nothing — matches the reading flow's gap reveal mechanic (AD3). INSERT/UPDATE/DELETE: `WITH CHECK (false)` — immutable after seal.
 - `story_verifications` (extended) — Existing INSERT policy requires auth.uid(). Anonymous 1-to-many data persisted via SECURITY DEFINER at registration gate only. ⚠️ P586 story-visibility-scoped SELECT makes `source='letter'` ratings world-readable for public stories — needs `source`-aware policy to scope letter ratings to sender + receiver only.
 
 **Authentication:**
@@ -1026,7 +1044,7 @@ All letter routes added to `focusRoutes` in `bottom-nav.tsx`. FocusHeader with b
 #### Build Sequence
 
 **Phase 1: Database Schema (migration)**
-1. Create migration file with all 4 new tables + `letter_point_responses` table (Security gap #5: forward-only positions separate from `point_positions`) + 3 column additions
+1. Create migration file with all 5 new tables (`clarity_letters`, `letter_deliveries`, `letter_story_snapshots`, `letter_predictions`, `letter_point_responses`) + 4 column additions
 2. Include `access_token_expires_at TIMESTAMPTZ NOT NULL DEFAULT (now() + interval '7 days')` on `letter_deliveries` (Security gap #2)
 3. RLS policies for all new tables — including `WITH CHECK (false)` on snapshots + predictions (Security gap #6), sealed-bid policy on `letter_predictions` (Security gap #1), source-aware policy update on `story_verifications` for `source='letter'` rows (Security gap #4)
 4. SECURITY DEFINER RPC: `get_letter_by_token` (mirrors `get_agreement_by_token`) — validates token + expiry
@@ -1085,7 +1103,7 @@ All letter routes added to `focusRoutes` in `bottom-nav.tsx`. FocusHeader with b
 
 | File | Purpose |
 |------|---------|
-| `supabase/migrations/YYYYMMDDHHMMSS_p581_clarity_letters.sql` | 4 tables + 3 column additions + RLS + RPCs |
+| `supabase/migrations/YYYYMMDDHHMMSS_p581_clarity_letters.sql` | 5 tables + 4 column additions + RLS + RPCs |
 | `supabase/functions/send-letter-emails/index.ts` | Letter invitation + notification emails |
 | `supabase/functions/create-and-open-letter/index.ts` | One-click registration for 1-to-1 letter receivers |
 | `src/app/data/letters-service.ts` | Letters CRUD + reading flow + sealed-bid logic |
@@ -1135,3 +1153,75 @@ All letter routes added to `focusRoutes` in `bottom-nav.tsx`. FocusHeader with b
 - [ ] Complete letter as receiver, verify sealed-bid (prediction hidden until rating)
 - [ ] Check Sentry for new errors in first 10 minutes
 - [ ] Verify Realtime subscription works for 1-to-1 sender results
+
+---
+
+## Test Coverage Strategy
+
+### Test Pyramid
+
+| Layer | Files | Tests | Focus |
+|-------|-------|-------|-------|
+| **Integration (DB)** | `p581-letters-migration.spec.ts` | 17 | Schema existence (5 tables + 4 column additions), CHECK constraints (0-10 range), default values, RLS write-locks, delivery status transitions, token validation RPC |
+| **Integration (Security)** | `p581-letters-sealed-bid.spec.ts` | 10 | Sealed-bid guarantee (sender sees, receiver blocked until completed, anon blocked, wrong user blocked), forward-only ratings (no UPDATE/DELETE on letter-sourced verifications), forward-only positions (`letter_point_responses` no UPDATE) |
+| **E2E (Composition)** | `p581-letter-composition.spec.ts` | 6 | Composition wizard entry from doc, mode selector, email input, prediction input, preview banner (D42), private doc restricts 1-to-many |
+| **E2E (Reading)** | `p581-letter-reading.spec.ts` | 9 | Cover screen, opening transition, progress bar, understanding rating, point engagement (D37), author position lock (D10), story filing CTA, 1-to-many anonymous access, 1-to-many cover has no ToS (D48) |
+| **E2E (1-to-1)** | `p581-letter-1to1-flow.spec.ts` | 6 | Token validation (valid, invalid, expired), wrong user rejection, no-token 404 (D25), unauthenticated redirect (D47) |
+| **E2E (Completion)** | `p581-letter-completion.spec.ts` | 8 | Sender results page, gap data display, /live CTA, status transitions (DB roundtrip), doc page letters section, 1-to-many sessionStorage, registration gate |
+| **Smoke** | `p581-smoke.spec.ts` | 5 | Route loading (reading, composition, results), doc page CTA, non-existent letter graceful handling |
+| **UAT** | `features/uat/p581.md` | 42 | Manual scenarios covering full wizard, sealed-bid, D36 ordering, D37 engagement, D48 registration, completion summary, sender results, edge cases |
+| **Helpers** | `e2e/helpers/test-letter.ts` | — | Factory functions: `createTestLetter()`, `createTestDelivery()`, `createTestStorySnapshot()`, `createTestPrediction()`, `sealTestLetter()`, `completeTestDelivery()`, `createFullTestLetter()`, `deleteTestLetter()` |
+
+### What Is Tested (Automated)
+
+**Security-critical (integration layer -- DB enforcement, not client-side):**
+- Sealed-bid: receiver cannot SELECT predictions before delivery status = 'completed'
+- Sender can always SELECT their own predictions
+- Anonymous and wrong-user access returns zero rows (not errors)
+- `letter_story_snapshots` and `letter_predictions` have `WITH CHECK (false)` INSERT policies
+- Forward-only: `story_verifications` with `source='letter'` cannot be UPDATEd or DELETEd by receiver
+- Forward-only: `letter_point_responses` have no UPDATE policy
+- Token validation RPC: valid token returns data, invalid/expired returns null
+- CHECK constraint: predictions must be 0-10
+
+**Schema correctness (migration validation):**
+- All 5 new tables exist with expected columns
+- 4 column additions on existing tables (`story_verifications.source`, `.verified`, `.sort_order`, `clarity_sessions.source_letter_id`)
+- Default values: `source='live'`, `verified=true`, `status='sent'`, `stories_rated=0`
+- Delivery status transitions: sent -> opened -> in_progress -> completed
+
+**User flows (E2E layer):**
+- Composition entry from doc page ("Prepare a Letter" button)
+- Mode selector (1-to-1 vs 1-to-many)
+- Token-gated 1-to-1 access (valid, invalid, expired, wrong user, unauthenticated)
+- Cover screen rendering (sender info, story count, ToS for 1-to-1 only)
+- Sequential reading flow (opening, progress bar, rating, engagement)
+- Sender results page (per-receiver data, gap display)
+- 1-to-many anonymous access (no auth required for public doc letters)
+
+### What Is NOT Tested (and Why)
+
+| Area | Reason |
+|------|--------|
+| **Seal & Send DB side-effects** | Requires full wizard completion UI + `seal_and_send_letter` RPC. Test the RPC directly once implemented. |
+| **Email delivery** | Requires edge function (`send-letter-emails`) + Mailgun. Test via integration test against edge function, not E2E. |
+| **One-click registration (`create-and-open-letter`)** | Requires edge function. Test via integration test against edge function directly. |
+| **Realtime subscription (sender results)** | Supabase Realtime requires WebSocket + time-based assertions. Test manually (UAT-32 partial coverage). |
+| **D36 ordering (anti-point vs story-first)** | Logic is in `useLetterReadingState` hook. Best tested as unit test once hook is implemented. E2E partially covers via reading flow tests. |
+| **Gap reveal animation (500ms delay)** | CSS/animation timing. Visual QA only (UAT-10, UAT-12). |
+| **Author position unlock animation** | CSS transition. Visual QA only (UAT-19). |
+| **sessionStorage expiry handling** | Browser-specific behavior. Manual test (UAT-38). |
+| **Workshop 15-receiver scaling** | Requires load testing infrastructure. Manual test with facilitator. |
+| **Confetti on completion** | `triggerConfetti()` is fire-and-forget. Not testable in headless Playwright. |
+| **Mixpanel events** | Analytics is prod-only. Verify via Mixpanel dashboard post-deploy. |
+| **SEO component on letter pages** | Letter pages are dynamic/token-gated -- not indexable. Low risk. |
+
+### Risk Assessment
+
+| Risk | Mitigation |
+|------|------------|
+| **Sealed-bid leak** (highest risk) | 10 dedicated integration tests against RLS + 3 status-progression tests. DB-level enforcement, not client-side. |
+| **Forward-only bypass** | Dedicated tests for UPDATE/DELETE rejection on `story_verifications` and `letter_point_responses` |
+| **Token validation bypass** | RPC tested with valid, invalid, and expired tokens. 404 pattern verified. |
+| **Schema drift** | 17 column-existence tests catch any migration regression immediately. |
+| **Anonymous data loss** | sessionStorage pattern tested via E2E (1-to-many anonymous flow). Registration gate UAT scenarios cover the full save path. |
