@@ -102,7 +102,7 @@ console.log('  2. Copy the contents of: supabase/migrations/20260214_e2e_test_rl
 console.log('  3. Paste and run');
 console.log('');
 console.log('METHOD 2: PostgreSQL CLI (psql)');
-console.log('  psql "postgresql://postgres.gfjctyxqlwexxwsmkakq:eGAHIuvnciA3mxWs@aws-0-us-east-1.pooler.supabase.com:6543/postgres" \\');
+console.log('  psql "$SUPABASE_DB_URL" \\');
 console.log('    -f supabase/migrations/20260214_e2e_test_rls_complete_fix.sql');
 console.log('');
 console.log('═══════════════════════════════════════════════════════════');

@@ -4,7 +4,12 @@ import { readFileSync } from 'fs';
 
 const { Client } = pg;
 
-const connectionString = 'postgresql://postgres.gfjctyxqlwexxwsmkakq:eGAHIuvnciA3mxWs@aws-0-us-east-1.pooler.supabase.com:6543/postgres';
+const connectionString = process.env.SUPABASE_DB_URL;
+
+if (!connectionString) {
+  console.error('ERROR: SUPABASE_DB_URL environment variable not set');
+  process.exit(1);
+}
 
 const client = new Client({ connectionString });
 
