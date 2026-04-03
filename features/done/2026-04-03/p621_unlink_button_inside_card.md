@@ -1,5 +1,6 @@
 ---
-status: in-progress
+status: all-done
+completed_at: "2026-04-03"
 type: story
 rank: 1000032.0
 changes: p616
