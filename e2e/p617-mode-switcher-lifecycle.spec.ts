@@ -172,10 +172,66 @@ test.describe('P617: Mode switcher lifecycle', () => {
     await expect(disabledPill).toBeVisible({ timeout: 5000 });
   });
 
-  // UAT-6: Full round completion (both submit + celebration + back to idle)
-  // Deferred to manual UAT — the dual-ack celebration flow with isolated browser
-  // contexts exceeds the 30s Playwright timeout. The mode switcher reappearance
-  // on idle is verified by UAT-4+9 (cancel returns to idle with mode switcher)
-  // and UAT-1+5 (idle state shows mode switcher). The reset path through
-  // handleCelebrationComplete is covered by unit tests.
+  test('UAT-6: mode switcher reappears after full round via DB-driven state', async () => {
+    // Strategy: advance through the round by writing live_state directly via
+    // supabaseAdmin, then reload the host to verify the mode switcher reappears.
+    // This avoids the multi-reload chain that exceeds the 30s timeout.
+    const { host } = session;
+
+    await host.page.waitForLoadState('networkidle');
+
+    // Dismiss terms if needed
+    const continueBtn = host.page.getByRole('button', { name: 'Continue' });
+    if (await continueBtn.isVisible({ timeout: 2000 }).catch(() => false)) {
+      await continueBtn.click();
+      await host.page.waitForLoadState('networkidle');
+    }
+
+    // Confirm mode switcher visible on idle
+    await expect(host.page.getByText('Open mode')).toBeVisible({ timeout: 15000 });
+
+    // Simulate a complete round via direct DB write:
+    // Set live_state to post-celebration idle (all fields reset)
+    // This mimics what handleCelebrationComplete does after both users ack
+    const { data: sessionRow } = await supabaseAdmin
+      .from('clarity_sessions')
+      .select('live_state')
+      .eq('code', session.sessionCode)
+      .single();
+
+    const currentState = sessionRow?.live_state as Record<string, unknown> ?? {};
+    const postRoundState = {
+      ...currentState,
+      ratingPhase: 'idle',
+      checkerName: undefined,
+      checkerRating: undefined,
+      responderRating: undefined,
+      ratingInitiatedBy: undefined,
+      checkerSubmitted: undefined,
+      responderSubmitted: undefined,
+      proverName: undefined,
+      explainBackRatings: [],
+      sessionHistory: [
+        ...(Array.isArray(currentState.sessionHistory) ? currentState.sessionHistory : []),
+        { checkerRating: 7, responderRating: 7, round: 1 },
+      ],
+    };
+
+    await supabaseAdmin
+      .from('clarity_sessions')
+      .update({ live_state: postRoundState })
+      .eq('code', session.sessionCode);
+
+    // Reload host to pick up the post-round idle state
+    await host.page.reload();
+    await host.page.waitForLoadState('networkidle');
+
+    // Mode switcher should be visible and enabled on idle
+    await expect(host.page.getByText('Open mode')).toBeVisible({ timeout: 15000 });
+    await expect(host.page.getByText('Speak')).toBeVisible({ timeout: 5000 });
+
+    // Verify it's NOT disabled (no opacity-50 class)
+    const disabledPill = host.page.locator('[class*="opacity-50"][class*="cursor-not-allowed"]');
+    await expect(disabledPill).not.toBeVisible({ timeout: 3000 });
+  });
 });
