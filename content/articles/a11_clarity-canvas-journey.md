@@ -59,3 +59,11 @@ This way the article serves three purposes simultaneously:
 1. Content (the story of how the canvas evolved)
 2. Co-builder signal flare (the open invitation at the end)
 3. Workshop funnel (the embedded CTA drives attendance → tests H-WTP-Pain)
+
+## Enrichment (2026-04-02): Canvas as Anxiety-Reduction Instrument
+
+Each canvas section is a place where a founder's beliefs could contradict: Problem says "market is ready" + Why Now says "category doesn't exist yet." Solution says "self-serve" + Channels says "facilitated only." The canvas doesn't just *display* assumptions — it *surfaces contradictions between them*.
+
+**The anxiety connection:** Founders carry a quiet anxiety about whether their model is internally consistent. The canvas makes implicit contradictory beliefs explicit — which transforms anxiety into choices. "Contradictions you can't see produce anxiety. Contradictions you CAN see become choices." The Disagreement Filing box specifically creates a place for named contradictions that would otherwise stay as background unease.
+
+**For the article arc:** This frames the "three missing boxes" as anxiety-reduction instruments, not just analytical additions. The Disagreement Filing box = "where contradictions go to become visible." Ikigai Fit box = "where founder-idea alignment anxiety gets resolved." Positive Externalities box = "where 'is this worth building?' anxiety meets evidence."

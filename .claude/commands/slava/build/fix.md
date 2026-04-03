@@ -1,3 +1,10 @@
+---
+name: fix
+description: Systematic bug remediation workflow (reproduce, test, fix, verify)
+when_to_use: "When a bug needs structured diagnosis and fix. Triggered by /fix."
+version: 1.0.0
+---
+
 # /fix
 
 Systematic bug remediation workflow (reproduce → test → fix → verify).

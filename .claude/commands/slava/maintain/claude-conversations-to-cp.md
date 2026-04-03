@@ -119,6 +119,7 @@ JSONL format: each line is a JSON object. Conversation messages have `type: "use
     <if source="claude conversations (default)">
       <action>Glob for .md files in ~/Projects/private/claude-conversations/ recursively — these are exported Claude.ai conversations in markdown format</action>
       <action>Filter by file mtime OR by the "Created:" / "Updated:" date in the frontmatter to match the time window</action>
+      <action>If marker exists with last_run timestamp and no explicit time arg was passed: further exclude files whose mtime AND Updated date are both older than last_run — these were already processed in a previous run</action>
       <action>Early relevance filter: read the title (first H1) and first user message of each file. Classify as CP-relevant or personal. Skip files that are clearly personal (relationships, personal finance, philosophy unrelated to CP). Report: "Found N files, M relevant to ClarityPledge, skipping K personal." Only fully read the relevant files.</action>
       <action>Count relevant files</action>
     </if>
@@ -207,8 +208,8 @@ JSONL format: each line is a JSON object. Conversation messages have `type: "use
     <action>For each [CONTENT] signal: auto-file via /quick-blog immediately (no user approval needed at this stage — user reviews in kanban later).
       1. Dedup check: grep content/articles/ for specs referencing the same conversation title. If found, skip: "Already filed: aNN."
       2. If new arc was proposed: add arc to content/story-arcs.md with next ARC-N ID first.
-      3. Run /quick-blog to create article spec with source conversation title, date, and arc.
-      4. Privacy check: run /maintain:privacy on the new file. If flagged: report issue, do NOT commit that file.
+      3. Privacy pre-filter: run /maintain:privacy on the proposed article summary text (title + idea sentences). If flagged: redact flagged details and skip this candidate — do NOT create the file. Report: "Skipped [title]: privacy flag."
+      4. If privacy clean: run /quick-blog to create article spec with source conversation title, date, and arc.
     </action>
     <action>For each [CONTENT-ENRICH] signal: propose the enrichment edit to the existing article spec inline in the output below (user confirms in step 4).</action>
 

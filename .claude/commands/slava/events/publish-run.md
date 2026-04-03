@@ -1,3 +1,10 @@
+---
+name: publish-run
+description: "Publish a Clarity Run event to claritypledge.com from AllTrails"
+when_to_use: "When creating a new trail run event from an AllTrails link."
+version: 1.0.0
+---
+
 # Publish Trail Run Event
 
 Publishes a Clarity Run event to claritypledge.com from an AllTrails link.

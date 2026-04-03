@@ -1,3 +1,10 @@
+---
+name: sifter-story
+description: "Interactive Sifter UX test — Story creation only"
+when_to_use: "When manually testing the Sifter story creation flow."
+version: 1.0.0
+---
+
 # Sifter Story (Story Creation)
 
 Interactive skill to manually test the Sifter UX — **Story creation only**.

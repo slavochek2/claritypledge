@@ -9,11 +9,19 @@
 
 Use as event description, landing page header, workshop opener, or conversation starter:
 
-> **Everybody craves to be understood. Why? Because true understanding of other people across differences is extremely scarce. The few who can reliably prove they understand others win their trust. But how do you verify and prove you truly understood? And how do you empower those you depend upon and those you care about to understand you even when the differences between you grow and divide you?**
+> **Every person, including you, has a need to be understood. And almost no one gets enough of it — especially from the people who disagree with them.**
 >
-> **Come learn how.**
+> **We crave honesty in relationships that matter to us. But when people share honestly and are rarely understood the way they mean it, they stop sharing. Not because they lose courage. Because honesty without verification of understanding collapses from the inside.**
+>
+> **What's left is a quiet anxiety you can't name — two contradictory beliefs with no way to check which one is true.** The gap between what you meant and what others understood is often invisible to both sides. No one discovers it. No one sees a reason to measure understanding.
+>
+> **But how do you verify whether you truly understood — in the way they mean it? How do you prove it to them? And how do you empower those you care about — and those you depend on — to understand you, even when you have strong disagreements?**
+>
+> **Come witness how verification of understanding becomes a new social norm. And discover what changes once the meanings you carry are finally given the care they deserve.**
 
-Frame: lead with emotional promise (need to be understood), deliver through cognitive instrument (verification protocol). Self-discovery entry ("come discover what it's like to be actually understood") works as wider funnel than partnership de-risking.
+Frame: lead with emotional wound (need to be understood), escalate through honesty collapse mechanism, deliver through cognitive instrument (verification protocol). Three escalating questions (verify → prove → empower) pull the reader forward. "Often" hedges honestly. "Measure understanding" seeds the idea before the questions apply it.
+
+**Previous version (2026-03-29)** replaced — tested through 8+ iterations on 2026-04-01 (see "Понимание как основа доверия" conversation).
 
 ---
 
@@ -117,6 +125,64 @@ Compresses the full Clarity Letter acquisition sequence into one 90-120 min sess
 
 - Use **basic workshop** when P581 isn't shipped yet, or for very informal settings (cowork meetup, small group)
 - Use **compressed three-letter** when P581 is live and you want the full acquisition sequence in one session
+
+---
+
+## Workshop Metrics (2026-04-02)
+
+### Before/After Comfort Score
+
+Measure at workshop OPEN and CLOSE:
+
+> **"How comfortable are you asking someone to paraphrase when you disagree?"** (0-10 scale)
+
+Ask verbally, hands up or written. Record both numbers.
+
+**Why:** The delta IS the product proof. If someone moves from 3→7, they experienced the norm inversion. The group seeing its own aggregate delta creates common knowledge that verification works — not just individual conviction.
+
+**How to use the data:**
+- Report the average delta as workshop outcome ("participants moved from X to Y on comfort with requesting paraphrase")
+- Individual deltas predict who will bring the protocol home (high delta = flip happened)
+- If delta is near zero after 3 workshops → H-WorkshopFormat is in trouble
+
+### Anxiety Reduction Score (Intrinsic Motivation Generator)
+
+Ask AFTER the first false-belief exercise (after st7, before presenting st8) — participants need to have experienced verification before they can imagine others doing it.
+
+> **"How much would your daily anxiety decrease if the 5 people closest to you moved from 0 to 10 on 'comfort asking for and giving paraphrase'?"** (0-10 scale)
+
+Ask verbally or written. Record the number.
+
+**Why this works:** If someone rates 8/10, they have a personal, selfish reason to flip the people around them. This is the intrinsic motivation for bringing the protocol home — not "this is a good practice" but "this would reduce MY anxiety." The Partner Agreement conversion becomes self-interested, not altruistic.
+
+**How to use the data:**
+- High scores (7+) predict who will bring the protocol to their real relationship (the conversion target)
+- The room seeing its aggregate score creates common knowledge: "we all benefit if we all get better at this" — network effect made visceral
+- If average score is <4 after 3 workshops → participants don't connect verification comfort to their own wellbeing → reframe needed
+
+### Participant-Facing Language Guidance (2026-04-02)
+
+**Frame for participants:** Don't say "false belief" — say "contradictory beliefs" or "beliefs that pull in opposite directions." The work isn't destroying beliefs; it's making contradictions visible so participants can carve out what's actually true.
+
+**Why:** "Your belief is false" is adversarial. "Your beliefs contain a contradiction" is collaborative — assumes they already have truth, mixed with noise. The position switch isn't "you were wrong" — it's "you found the contradiction and chose."
+
+**Example reframe:**
+- Old: "We're going to test your false belief about understanding"
+- New: "You might hold two beliefs that pull against each other — let's find out which one survives when we look closely"
+
+---
+
+## Workshop Pricing (2026-04-02)
+
+**Standard (outside Thailand):** €50 entry + voluntary time donation (0-10 hours) post-event.
+
+- Money filters seriousness at entry. Time measures value at exit.
+- "Someone who says '6 hours' after 90 minutes is a stronger signal than any review."
+- Time donations are volunteering for ClarityPledge (content creation, translation, community building, testing).
+
+**Thailand (DTV constraint):** Free + voluntary time donation only (no monetary charge). See legal notes in goals.md.
+
+**Separate from:** €950 de-risking package and FCO retainers (those are ladischenski.com services, not workshop pricing).
 
 ---
 

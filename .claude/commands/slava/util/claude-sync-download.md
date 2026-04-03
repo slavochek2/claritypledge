@@ -1,3 +1,10 @@
+---
+name: claude-sync-download
+description: "Automate Claude.ai export, email download, and sync pipeline"
+when_to_use: "When syncing Claude.ai conversation exports to local storage."
+version: 1.0.0
+---
+
 # Claude Sync Download
 
 Automates the full Claude.ai export → email → download → sync pipeline.

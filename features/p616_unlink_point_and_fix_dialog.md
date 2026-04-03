@@ -1,14 +1,12 @@
 ---
-status: in-progress
+status: today
 type: story
 workstream: foundation
 tags: [visibility, p576-follow-up, ux, points, stories]
-delivery_stage: uat
+delivery_stage: 1-prd
 rank: 1000030.0
 created_date: 2026-03-31
-uat_file: features/uat/p616.md
-test_files:
-  - e2e/p616-unlink-point.spec.ts
+superseded_by: p621
 ---
 
 # P616: Unlink Point from Story + Fix RemovePositionDialog
@@ -200,25 +198,6 @@ The unlink button (`×` icon, `Unlink2` from lucide-react, or equivalent) appear
 - Alignment: right-aligned below the QuotedPoint card content area
 - Auth check: only render when `currentUserId === story.authorId`
 
-> BR-1 (Dialog 1: RemovePositionDialog) already shipped. Dialog 2 + unlink button are the remaining scope.
-
-### Accessibility
-
-- **Keyboard:** Unlink icon is a `<button>` with `tabIndex={0}`. Reachable via Tab. Activates on Enter/Space.
-- **Screen reader:** `aria-label="Unlink point: {truncated point text}"` on the button.
-- **Dialog a11y:** Radix Dialog provides focus trap, Escape to close, `role="dialog"` automatically.
-- **Focus return:** On dialog close (cancel or confirm), focus returns to the unlink button (Radix default).
-- **Color contrast:** `text-muted-foreground` meets WCAG AA. Hover `text-destructive` also compliant.
-
-### Responsive Design
-
-- **Mobile (320-767px):** Unlink icon stays right-aligned below QuotedPoint card. 40px min touch target. Dialog renders full-width (Radix default).
-- **Tablet/Desktop:** Same layout — story detail page is already single-column. Dialog centered, max-width ~400px.
-
-### State after last point unlinked
-
-When all points are unlinked, the story shows 0 points with the existing "Add Point" button. No special empty state needed — the current empty-points UI already handles this.
-
 ---
 
 ## Edge Cases
@@ -348,26 +327,8 @@ Then the simplified dialog appears with no story mention, and position removal c
 | 5 | /challenge-prd | [WARN] Split BR-1 from BR-2 | Split: BR-1 (dialog fix) ships separately as inline fix | Dialog fix is deletion-only, zero design decisions |
 | 6 | /challenge-prd | [NOTE] History trigger INSERT-only | Accepted: unlink audit trail out of scope | History is informational, never used for undo |
 
-## Test Coverage Strategy
-
-| Layer | File | What it covers |
-|-------|------|----------------|
-| E2E | `e2e/p616-unlink-point.spec.ts` | Author sees unlink button (AC-4), non-author doesn't (AC-4), confirm unlink removes point (AC-6), cancel preserves point (AC-5), point survives unlink (AC-8) |
-| UAT | `features/uat/p616.md` | 10 scenarios covering AC-4 through AC-9 + edge cases (last point, loading state) |
-
-**Not tested (and why):**
-
-- **Unit tests** — No new utility functions; unlink logic is a single service call + state filter.
-- **Integration tests** — No DB migration; `unlinkPointFromStory` backend already tested.
-- **Smoke test** — No new route; story detail page smoke exists (`e2e/story-detail-page-loads.spec.ts`).
-- **Accessibility test** — Keyboard nav + aria-label covered within E2E test 1 (button enabled, reachable by role).
-- **AC-7 (error handling)** — Listed in UAT as manual scenario (UAT-7). Cannot simulate `unlinkPointFromStory` returning `false` in E2E without mocking the service layer. Verified via code review during implementation.
-- **AC-9 (no regression on RemovePositionDialog)** — BR-1 already shipped and tested separately. No code changes to RemovePositionDialog in this feature.
-
 ## Next Steps
 
-- [x] Fix BR-1 inline (RemovePositionDialog — shipped)
-- [x] UX validation (`/ux` — accessibility, responsive, edge states added)
-- [x] Generate tests (`/generate-tests`)
+- [ ] Fix BR-1 inline (RemovePositionDialog — separate from this spec)
+- [ ] UX validation — confirm icon choice and button placement against design system (`/ux`)
 - [ ] Implementation (`/dev`)
-- [ ] Visual QA (`/verify`)

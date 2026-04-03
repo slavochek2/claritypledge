@@ -1,6 +1,8 @@
 ---
 name: kdd
 description: Record decisions + meta-reflection. Run after features with trade-offs, architectural choices, or any session worth learning from. Captures what was built (why) and surfaces session friction as chat output only — no file logging.
+when_to_use: "After features with trade-offs, architectural choices, or sessions worth learning from."
+version: 1.0.0
 ---
 
 # Knowledge-Driven Development (KDD)
@@ -228,10 +230,10 @@ Recommendation: Remove from README.md, link to definitions.md instead.
 
    **7.1 Extract problems (subagent):**
 
-   Before spawning, collect key session events (files edited, errors encountered, decisions made, back-and-forth exchanges) as a concise summary and pass this inline in the subagent prompt prefixed with "Here is the session summary: [summary]."
+   Before spawning, collect key session events (files edited, errors encountered, decisions made, back-and-forth exchanges) as a concise summary. Also read the last 50 lines of `docs/decisions.md` for cross-reference context. Pass both inline in the subagent prompt: "Here is the session summary: [summary]. Here are recent decisions for cross-reference (do not duplicate these): [decisions.md excerpt]."
 
-   Spawn a `general-purpose` subagent with the full conversation context and this task:
-   > "Read this conversation. Extract problems, friction points, mistakes, and inefficiencies. Consolidate near-identical incidents into one item. Cap at 10 items max. Exclude routine tool calls and confirmations — only report things a human would call a mistake or waste. For each item identify: (1) what happened — be concrete: name the P-number, file path, or exact claim that was wrong, not just the abstract category, (2) category: wrong-assumption / unnecessary-question / repeated-step / missed-signal / scope-creep / tool-fumble / missing-context / process-gap, (3) severity: minor / moderate / significant. Return a structured list only — no solutions yet. Do NOT edit files, stage, or commit anything."
+   Spawn a `general-purpose` subagent with this task:
+   > "From the session summary and decisions context provided above, extract problems, friction points, mistakes, and inefficiencies. Consolidate near-identical incidents into one item. Cap at 10 items max. Exclude routine tool calls and confirmations — only report things a human would call a mistake or waste. For each item identify: (1) what happened — be concrete: name the P-number, file path, or exact claim that was wrong, not just the abstract category, (2) category: wrong-assumption / unnecessary-question / repeated-step / missed-signal / scope-creep / tool-fumble / missing-context / process-gap, (3) severity: minor / moderate / significant. Return a structured list only — no solutions yet. Do NOT edit files, stage, or commit anything."
 
    **7.2 Triage each extracted problem:**
 

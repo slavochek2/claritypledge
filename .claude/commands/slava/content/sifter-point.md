@@ -1,3 +1,10 @@
+---
+name: sifter-point
+description: "Extract falsifiable Points from a completed Story"
+when_to_use: "After /sifter-story completes. For point extraction only."
+version: 1.0.0
+---
+
 # Sifter Point (Point Extraction)
 
 Extract falsifiable Points from a completed Story. Run after `/slava:sifter-story`.

@@ -1,3 +1,10 @@
+---
+name: dev
+description: Execute a development task with TDD discipline and production thinking
+when_to_use: "After spec exists (/create-prd, /architect done). Triggered by /dev."
+version: 1.0.0
+---
+
 # /dev
 
 Execute a development task with TDD discipline and production thinking.
@@ -136,7 +143,7 @@ Skip if no spec exists (inline description mode like `/dev refactor the auth mod
 9.5. **Review** — Spawn `/review-all` as a subagent with this explicit instruction: "Review all changes on this branch vs main. Spec: [current spec path]. Do NOT pause for scope selection — proceed directly with scope = all changes vs main." Present HIGH/MEDIUM findings to user. Ask: "Fix issues before closing? (all HIGH / select / skip)". Apply approved fixes and commit them.
 9.7. **Pre-deploy checklist** — If spec has a `## Pre-deploy Checklist` section, execute each item on the target environment now. Verify edge functions are deployed, secrets are set, and migrations are applied — don't defer to `/ship`. Report what was provisioned.
 9.8. **Prod verification (optional)** — After deploy, if the feature touches DB/auth/edge functions, run a Playwright prod verification test using `e2e-agent@claritypledge.com`. See `e2e/verify-prod-agreements.spec.ts` as template. Command: `VERIFY_PROD=1 PROD_SERVICE_ROLE_KEY="<srk>" npx playwright test e2e/verify-prod-<feature>.spec.ts`
-10. **UAT gate** — Set `delivery_stage: uat` in spec frontmatter (keep `status: in-progress`, do NOT move to `features/done/`). Tell user: "Feature ready for UAT on branch feature/pN-xxx. Run `/ship pN` when you're satisfied."
+10. **UAT gate** — Set `delivery_stage: uat` in spec frontmatter (keep `status: in-progress`, do NOT move to `features/done/`). Tell user: "Feature ready for UAT on branch feature/pN-xxx. Suggest: run `/verify pN` for live UAT, then `/ship pN` when satisfied."
 
 ---
 
@@ -455,7 +462,7 @@ Fix issues before closing? (all HIGH / select / skip)
 
 Feature ready for UAT — delivery_stage: uat set in spec.
 Branch: feature/pN-xxx
-Run /ship pN when satisfied → merges to prod and closes the spec.
+Run /verify pN for live UAT, then /ship pN when satisfied → merges to prod and closes the spec.
 ```
 
 **Failure handling:**
@@ -685,7 +692,7 @@ After successful commit, mark the feature ready for UAT — do NOT move to `feat
 4. Update frontmatter: `delivery_stage: uat` (keep `status: in-progress`)
 5. Commit: `chore: pN ready for UAT — {title}`
 6. Run fix-kanban: Invoke `/slava:maintain:fix-kanban`
-7. Tell user: "Feature ready for UAT on branch `feature/pN-xxx` at **http://localhost:{port}/**. Visual QA: {✅ passed / ⚠️ issues found — see above / ⏭️ skipped (Chrome unavailable)}. Run `/ship pN` when satisfied to merge to prod and close the spec."
+7. Tell user: "Feature ready for UAT on branch `feature/pN-xxx` at **http://localhost:{port}/**. Visual QA: {✅ passed / ⚠️ issues found — see above / ⏭️ skipped (Chrome unavailable)}. Run `/verify pN` for live UAT, then `/ship pN` when satisfied to merge to prod and close the spec."
 
 **Do NOT:**
 - Move spec to `features/done/` — that happens in `/ship`

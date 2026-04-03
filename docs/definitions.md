@@ -32,6 +32,10 @@ Core concepts of the Clarity Pledge platform. This is the product's conceptual f
 
 **Why it matters for ClarityPledge:** The explain-back protocol is specifically designed to surface false agreement before it becomes costly. A /live session replaces "I think we're aligned" with "I can demonstrate we're aligned."
 
+**The anxiety mechanism (2026-04-02):** False agreement produces a quiet, chronic anxiety — two contradictory beliefs ("we understand each other" + "something feels off") with no way to check which is true. The contradiction stays pre-verbal because neither belief is articulated clearly enough to compare. The explain-back protocol forces articulation, which makes the contradiction visible. Contradictions you can't see produce anxiety; contradictions you CAN see become choices. This is consistent with approach-avoidance conflict research (Lewin/Miller), self-concept clarity findings (Campbell), and ACT's values clarification mechanism.
+
+**The "carving" frame:** The protocol doesn't *remove* false agreements — it increases the resolution of what each person actually believes until contradictions become visible and separable. Every belief has something true in it. The work is excavation, not demolition. Participants carve out what's actually true from the tangle of what they assumed.
+
 *See also: [theory-of-change.md](theory-of-change.md) — "Making the Invisible Visible"*
 
 ---

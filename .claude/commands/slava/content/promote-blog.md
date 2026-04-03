@@ -1,3 +1,10 @@
+---
+name: promote-blog
+description: "Distribute a published blog post to LinkedIn via Postiz"
+when_to_use: "After /ship-blog, when a post is live and needs distribution."
+version: 1.0.0
+---
+
 # Promote Blog Post
 
 Distribute a published blog post to LinkedIn. Generates copy + image options, waits for approval, then posts via Postiz.

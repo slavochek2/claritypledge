@@ -2,6 +2,182 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-02 [process]: /dd:think v3.0 — output-first 3-tier pipeline with selective adversarial pair
+
+**Context:** The v2.0 /dd:think pipeline ran a fixed 5-phase sequence (frame → analyze → conjecture → falsify → synthesize) producing 15 conjectures for every question regardless of complexity. A self-referential /dd:think run (t001) identified 6 root causes: no complexity classifier at the gate (binary park/proceed), fixed pipeline with no skip/merge, forced 15-conjecture quota, write-only inter-agent notes, monolithic 350-line orchestrator, no outcome feedback. 15 proposals were generated, adversarially falsified (40% kill rate), and scored. Architecture A+ won at 56.0 vs runner-up B at 50.0.
+**Decision:** Rewrite to a 3-tier output-first architecture. User picks output format (Decision Card / Options Brief / Full Spec) → system derives pipeline depth. Light tier: 1 agent (decide). Medium: 3 agents (frame+analyze merged → conjecture(3-5) → synthesize). Full: 5 agents (frame+analyze → conjecture(5-7) → advocate → critic → synthesize). Key changes: (1) Gate becomes router by output format, not auto-classifier — eliminates classifier design problem. (2) Frame + Analyze merged — they naturally co-produce. (3) Adaptive conjectures (3-7) with diversity labels (incremental/lateral/contrarian) replace fixed 3-wave × 5. (4) Adversarial pair (advocate + critic) replaces checklist falsification in full tier only — critic must defend an alternative, not just attack. (5) `/dd:quick` alias forces light tier. (6) Source registry gives frame-analyze agent a map of where evidence lives (decisions.md, past specs, skills, Claude transcripts, pp/docs).
+**Alternatives rejected:** (A) Single-agent compiler (1 agent does all phases) — kills curated context boundaries; self-grading homework. (B) Phase config files (thin dispatcher) — premature abstraction before architecture settles. (C) Outcome tagging feedback loop — infeasible at solo-founder usage volume. (D) Kill /dd:think and build /dd:decide — false precision on novel questions; reasoning IS the product. (E) Adversarial pair as universal (all tiers) — overkill for medium; advocate+critic only earns its keep on complex questions.
+**Consequences:** 9-file change: 3 new (decide.md, frame-analyze.md, advocate.md), 3 rewritten (conjecture.md, synthesize.md, think.md), 1 renamed (falsify.md → critic.md), 2 deprecated (frame.md deleted, analyze.md stubbed). Old idea specs (t001) have `## Frame` + `## Analysis` separate — orchestrator handles both formats. Scoring principle embedded: synthesize never optimizes for dev speed/agent count.
+**References:** `.private/thinking/t001_improve_dd_think.md` (full analysis), `~/.claude/commands/slava/dd/` (all skill files)
+
+## 2026-04-02 [technical]: P617 getViewState() — extract implicit state machine from LiveModeView render cascade
+
+**Context:** `live-mode-view.tsx` had 9 cascading if/return branches forming an implicit state machine. A marathon session patching P609 (slider sync), P612-614 (header CTA, toast position, mode switcher props), and P617 (mode switcher lifecycle) kept producing the same class of bug — fix one branch, break another. The "second round Speak button instead of drawer" bug reappeared 3 times despite different patches. Root cause: no single place mapping state → UI. Each fix targeted one branch but missed interactions with others.
+**Decision:** Extracted a pure function `getViewState(input) → ViewState` (discriminated union of 8 view states). Replaced the 9 if/return blocks with a single switch. 25 unit tests cover every branch + regression scenarios. The submission-mismatch check was moved before the idle check to handle Realtime delivery delays (partner sees drawer even when `ratingPhase` is still `'idle'`).
+**Alternatives rejected:** (A) Keep patching individual conditions — proven to create regressions. (B) Full component rewrite with XState — too much blast radius for the scope. (C) Extract only the buggy branches — misses the systemic issue (all branches interact).
+**Consequences:** Future /live render bugs become "add a test case for the exact state, fix `getViewState()`" — no more tracing 15 if-blocks. P626 (remaining mode switcher bug) is the first test of this pattern. The function is exported and unit-tested separately from React — no hooks, no refs, no side effects.
+**References:** `src/app/components/partners/live-mode-view.tsx` (getViewState), `src/tests/live-mode-view-state.test.ts`
+
+## 2026-04-02 [technical]: E2E two-party session — guest auth redirect + terms acceptance
+
+**Context:** All two-party E2E tests (`p562-free-mode.spec.ts`, `p617-mode-switcher-lifecycle.spec.ts`) failed because `createTwoPartySession()` created the guest with `getTestAuthContext('guest')` which sets `is_verified: false`. Unverified users hit a terms acceptance dialog, and in some cases redirected to Google OAuth entirely. The host (verified) always worked.
+**Decision:** Two fixes: (1) Both users in `createTwoPartySession` now use `'host'` role (both verified) — the guest role is only needed for verification gate tests, not for /live session tests. (2) `createTestUser` profile upsert now includes `accepted_terms_version: 'v1.2'` to skip the terms dialog for all test users.
+**Alternatives rejected:** (A) Fix the auth redirect for unverified users — deeper investigation needed, not blocking P617. (B) Add terms dialog dismissal to every test — fragile, adds latency.
+**Consequences:** All two-party E2E tests now pass. Tests that specifically need an unverified guest should use `getTestAuthContext('guest')` directly (not `createTwoPartySession`). The terms version is hardcoded — if `CURRENT_TERMS_VERSION` changes, update `test-user.ts`.
+**References:** `e2e/helpers/test-session.ts`, `e2e/helpers/test-user.ts`
+
+## 2026-04-02 [process]: Patching symptoms on complex components runs in circles — refactor threshold
+
+**Context:** This session attempted 6+ individual fixes on `live-mode-view.tsx` (1500+ lines, 9 conditional render branches). Each fix was correct for its specific condition but the same class of bug kept appearing in different branches. The auto-drawer commit was applied then reverted. The second-round Speak button bug reappeared 3 times. Total time spent: ~4 hours on what should have been 30-minute fixes.
+**Decision:** Established a "refactor threshold" rule: if the same class of bug reappears 3+ times in the same component, stop patching and extract the decision logic into a testable pure function before continuing. Applied to `live-mode-view.tsx` as `getViewState()`. This is not about code cleanliness — it's about making the fix *possible*. Without the extraction, each patch created new untested interactions.
+**Alternatives rejected:** (A) Keep patching — proven to loop. (B) Full component rewrite — too much risk for a live feature. (C) Accept manual testing — misses the real problem (the logic is untestable in its current form).
+**Consequences:** The rule is: 3 strikes on the same component = extract before patching. Applies to any component with >5 conditional render branches and no unit tests for the decision logic.
+
+## 2026-04-02 [product]: P621 change-request — unlink button inside card, not outside (redesign of P616)
+
+**Context:** P616 placed the unlink button outside QuotedPoint cards via `renderPointRow` wrapper. During UAT, discovered: (1) all other action buttons (edit, trash, share) are inside cards via `footerActionsSlot`, making unlink visually inconsistent; (2) only wired on story-detail-page, but author expects to unlink from profile stories tab and doc page too. These are different component paths — profile uses `QuotedPointCard`, docs use `StoryCardDetail` with `renderPointRow` for drag handles.
+**Decision:** Filed P621 as change-request. Move button inside `QuotedPoint` via `onUnlinkPoint` callback prop on `StoryCardDetail` + `onUnlink` on `QuotedPoint`. Expand to 3 surfaces: story detail, profile stories, doc page. Point detail page (reverse direction) out of scope. Flow B: challenge-prd → ascii-flows → ux → ui → generate-tests → spec-review → spec-compact → dev → verify.
+**Alternatives rejected:** (A) Keep `renderPointRow` and just fix positioning — still outside card, still inconsistent. (B) Inline refactor without spec — skips UX resolution for multi-surface placement, mobile layout, edge states. User correctly insisted on proper pipeline.
+**Consequences:** P616 marked `superseded_by: p621`. P621 implementation in new worktree. Profile stories tab uses different component (`QuotedPointCard`) — needs separate handling within P621. Process learning: pre-ship design flaws are change-requests, not refactors.
+**References:** `features/p621_unlink_button_inside_card.md`, `features/p616_unlink_point_and_fix_dialog.md`
+
+## 2026-04-02 [process]: `/dd:think` — David Deutsch epistemic pipeline for domain-agnostic structured thinking
+
+**Context:** Analysis of 59 CLI `/falsify` invocations + 90 Claude.ai conversations revealed a thinking pattern (problem → root cause → creative solutions → falsification → synthesis) applied across all domains — software (35 CLI uses), business strategy (13), philosophy (15), personal decisions (8). But quality was inconsistent: 85% happened in unstructured conversation with no shared artifact, agents started cold without prior context, and existing skills (`/falsify`, `/innovate`, `/lean`) assumed software context. Root cause: no domain-agnostic "thinking artifact" — the spec-as-shared-artifact pattern only existed for software features.
+**Decision:** Built a 6-file orchestrated pipeline under `dd/` namespace (David Deutsch inspired). Orchestrator (`dd/think.md`) spawns 5 phase agents that read/write a shared idea spec file (`.private/thinking/tNNN_slug.md`): Frame (SCQ + Deutschian Point A→B + scoring criteria) → Analyze (root cause + 5-why) → Conjecture (15 proposals in 3 waves + ideation prompts) → Falsify (parallel critique + falsification, 5 verdict types including FLAG TENSION and FAILS WITH FIX) → Synthesize (weighted scoring, recommendation, cost of inaction). Key design: orchestrator inlines file content into agent prompts (subagents can't read files), pauses between phases for user steering, supports `--auto` mode and cross-session resume. Backported 4 mechanisms from battle-tested old `/falsify`: parallel critique+falsification (5-question framework), 4-cell triage matrix, better-fix extraction from failures, ideation prompts for creative block.
+**Alternatives rejected:** (1) Single monolithic skill — lost user steering between phases. (2) Conversation-only (no artifact) — failed cross-session persistence. (3) JSON artifact — optimizes for machines in a human-primary domain. (4) Replace old `/falsify` — regression for standalone post-`/kdd` use (dominant use case). (5) Keep pipeline under `think/` namespace — conflated with unrelated standalone tools (route, lean, innovate).
+**Consequences:** Old `/think:falsify` (59 runs, self-contained) preserved unchanged. New `dd/` namespace is clean: 6 files, one pipeline, no mixing. Idea specs live in `.private/thinking/` (domain-agnostic, personal content safe). Exit types connect to existing build pipeline (`/create-prd`, `/pick-flow`). First real test pending — pipeline designed but not yet run end-to-end. `/think:route`, `/think:lean`, `/think:innovate` remain standalone tools, may be reorganized later based on usage.
+**References:** `~/.claude/commands/slava/dd/` (6 files), `scripts/next-t-number.sh`, `.private/thinking/backlog.md`
+
+## 2026-04-02 [process]: Skill frontmatter validator — machine-checkable agent contracts
+
+**Context:** Explored whether OOP patterns (inheritance, interfaces, composition) apply to Claude Code agents. Research across AutoGen, Semantic Kernel, Pydantic AI, CrewAI, Claude Agent SDK confirmed: the existing cp architecture already uses the winning patterns — composition via subagent delegation, rules-as-mixins (`.claude/rules/` auto-loading by path), state machine gating (`delivery_stage`), strategy pattern (`/dev` mode switching). Inheritance hierarchies don't map well to agents — LangChain learned this the hard way and replaced `AgentExecutor` with LangGraph. The one actionable gap: skill frontmatter contracts (name, description, version) are documented but not enforced. Pre-flight scan found ~55% of 110 skill files have broken or missing frontmatter, degrading proactive skill routing.
+**Decision:** Built `scripts/fix-skill-frontmatter.py` (dry-run default, `--apply` to write) + pre-commit section 21 (WARNING severity, staged files only). Exempted reference docs (PRINCIPLES.md, shortcuts.md), sub-agent files (agent.md, synthesizer.md), and archived skills. Deliberately did NOT insert empty `description: ""` placeholders — empty string is worse than absent for routing. Did NOT enforce `when_to_use` — optional per rules.
+**Alternatives rejected:** (1) Full validator system with hooks — overkill for skills edited a few times per week. (2) OOP inheritance patterns for skills — solves a problem that doesn't exist in markdown-skill systems. (3) Do nothing — viable but leaves 55% of skills invisible to proactive routing.
+**Consequences:** 23 fields auto-fixable via `--apply`. 19 files need manual frontmatter (add as touched). 1 name collision (`create-offer` in client/ and content/) needs resolution. Pre-commit guard prevents regression on new skills. Run via `/fix-kanban` or standalone.
+**References:** [skills.md](.claude/rules/skills.md), [fix-skill-frontmatter.py](scripts/fix-skill-frontmatter.py)
+
+## 2026-04-02 [product]: P581 before workshop — dependency confirmed, not bypassed
+
+**Context:** Deductive analysis of what the first workshop needs to prove: H-WorkshopFormat (converts to sessions) and H-WTP-Pain (produces urgency). The "holy shit" moment requires comprehension gap reveal (confidence 9 → actual 4), not just comfort delta or position switches. Current /live works 1-to-1 but is too slow for 1-to-many in 90 minutes — sequential explain-backs for 8 participants on 3 stories would take hours. Without prep, participants arrive cold. P581 solves both: async prep (read + rate before arriving) + simultaneous sealed-bid gap reveals.
+**Decision:** Ship P581 before first workshop. Don't hack with Google Forms. The original goals.md dependency ("P581 prerequisite for sealed-bid gap reveal") was correct. P620 timeline adjusts accordingly.
+**Alternatives rejected:** (1) Workshop with comfort delta only — doesn't produce the comprehension illusion reveal needed for H-WTP-Pain. (2) Google Form + spreadsheet as poor man's P581 — functional but ugly, creates throwaway work. (3) Sequential /live explain-backs — bottleneck at 2-3 participants, rest just watch.
+**Consequences:** P581 is the critical path. First workshop date depends on P581 shipping. Online workshop #1 can still test curriculum structure (P567 false beliefs + reflection prompts) but won't have the sealed-bid gap reveal until P581 lands.
+
+## 2026-04-02 [process]: No editorial locks — "shipped, test before changing"
+
+**Context:** Audit found 2 editorial locks ("pitch locked," "terminology locked") alongside 8 functional/data locks (story immutability, point immutability, etc.). Editorial locks contradict the project's own epistemology — all claims stay open to falsification. The pitch was "locked" on Mar 31 to break a refinement loop, but the lock's purpose was fulfilled (pitch was said to real people). Today's anxiety research produced a genuine improvement — blocked by a lock that had no functional basis.
+**Decision:** No editorial locks. Everything is the current shipped version. New evidence can update it. Bar: "better AND reason beyond refinement urge." Functional/data locks stay (story visibility, point immutability, letter snapshots) — those protect protocol integrity. Replaced "locked" with "current version, open to evidence-based revision" in decisions.md Mar 31 entry and Apr 2 pitch entry. lean-canvas.md reference updated.
+**Alternatives rejected:** (1) Keep locks with override mechanism — adds bureaucracy for a problem that doesn't recur. (2) Remove all locks including data immutability — data locks prevent corruption, different category entirely.
+**Consequences:** Pitch copy, terminology, and all strategic docs evolve through use. The discipline against over-refinement comes from "say it to a real person" not "lock the file." Dogma-prevention: if a project about falsification locks its own claims, it's eating itself.
+
+## 2026-04-02 [product]: Pitch updated — anxiety line added
+
+**Context:** Research confirmed anxiety as contradictory-beliefs mechanism (Lewin/Miller approach-avoidance, Campbell self-concept clarity, ACT values clarification). The pitch named the invisible gap but not the *felt symptom*. The anxiety line bridges "collapses from the inside" → "the gap is invisible" with a named experience.
+**Decision:** Added "What's left is a quiet anxiety you can't name — two contradictory beliefs with no way to check which one is true" after "collapses from the inside" in facilitator-guide.md and lean-canvas.md. "Check which one is true" seeds verification (the product) rather than "resolve" (therapy).
+**Alternatives rejected:** (1) Two-line paragraph explaining the mechanism — over-explains for a pitch. (2) Keep pitch unchanged — the line adds a named symptom that was missing, and the lock that prevented the change was removed.
+**Consequences:** Pitch now has: need → collapse → **symptom** → invisible gap → verification questions → invitation. Test with real people — if "quiet anxiety" doesn't land, revert to gap-only version.
+
+## 2026-04-02 [product]: Anxiety as contradictory beliefs — product framing evolution
+
+**Context:** Research-backed insight: the invisible understanding gap produces chronic low-grade anxiety — two contradictory beliefs ("we're aligned" + "something feels off") competing with no way to check. This reframes what the product does from "measuring understanding" to "making invisible contradictions visible, turning anxiety into choices." Research basis: approach-avoidance conflict (Lewin/Miller 1935/1944), self-concept clarity (Campbell), ACT values clarification. Applies to decisional/existential anxiety, not all anxiety.
+**Decision:** "Contradictions you can't see produce anxiety; contradictions you CAN see become choices" is the core mechanism description. Added to lean-canvas.md (UVP section), definitions.md (False Agreement entry), facilitator-guide.md (participant language), P599 (de-risking copy direction). Byron Katie distinction sharpened: Katie = intrapersonal (contradictions within your beliefs), ClarityPledge = interpersonal (contradictions between what you meant and what others understood).
+**Alternatives rejected:** Keep "measurement" framing only — accurate but doesn't name the emotional experience. The anxiety frame explains WHY participants feel relief after sessions.
+**Consequences:** Workshop copy and de-risking value prop should lead with interpersonal anxiety angle. The Anxiety Reduction Score (facilitator-guide) uses this frame as intrinsic motivation generator.
+
+## 2026-04-02 [product]: "Carving out" replaces "removing" — participant-facing language
+
+**Context:** "We remove false beliefs" is adversarial and epistemologically inaccurate. Every belief has something true in it. The work is increasing resolution until contradictions become visible and separable — excavation, not demolition. "Your belief is false" creates defensiveness. "Your beliefs contain a contradiction" is collaborative.
+**Decision:** Participant-facing language: say "contradictory beliefs" or "beliefs that pull in opposite directions," not "false beliefs." The position switch isn't "you were wrong" — it's "you found the contradiction and chose." Added to facilitator-guide.md as Participant-Facing Language Guidance. Internal/technical language ("false belief curriculum," P567) unchanged — the distinction is facilitator-internal vs participant-facing.
+**Alternatives rejected:** Change everything to "contradictory beliefs" including internal docs — unnecessary churn, P567 title is well-established.
+**Consequences:** Workshop scripts and event copy use the carving frame. facilitator-guide.md has the reframe examples.
+
+## 2026-04-02 [product]: Pitch copy V3-final replaces Mar 31 Frankl version
+
+**Context:** Apr 1 conversation ("Понимание как основа доверия") iterated the pitch 8+ times. Discovered the Mar 31 "locked" version had a tension-closing sentence ("win respect and trust") that was removed 3x during iteration but kept returning from memory. Also: "measure" in questions triggers false objection about quantifiability; "verify" is more precise for comprehension illusion context. Paragraph-by-paragraph comparison confirmed V3-final wins on 4/5 paragraphs; V4 (memory reconstruction) contributes exactly two words ("often" + "understanding" in P3).
+**Decision:** V3-final + two V4 precision fixes is the current pitch. Updated in facilitator-guide.md and lean-canvas.md. Three escalating questions (verify → prove → empower) are the structural spine. "Measure" stays in P3 (seeds the idea); "verify" stays in questions (applies it).
+**Alternatives rejected:** (1) V4 as-is — reintroduces three elements explicitly removed during iteration. (2) Mar 31 Frankl version — replaced by stronger copy from longer iteration session.
+**Consequences:** Pitch copy is in two places (facilitator-guide, lean-canvas). Use for Luma listing, workshop opener, event descriptions. Open to evidence-based revision — "shipped, test before changing" not "locked."
+**Update 2026-04-02:** Anxiety line added ("What's left is a quiet anxiety you can't name — two contradictory beliefs with no way to check which one is true") after research confirmed the mechanism. Inserted after "collapses from the inside."
+**References:** [facilitator-guide.md](facilitator-guide.md), [lean-canvas.md](lean-canvas.md)
+
+## 2026-04-02 [product]: Workshop venue — online first, KL second, Singapore third
+
+**Context:** DTV visa prohibits workshops in Thailand (even free). Koh Lanta lacks co-founder density and distribution. Kill date: April 25 (0/2 workshops = pipeline doesn't convert). Conjecture+falsify analysis across 7 cities: Thailand killed (legal), Penang wrong audience (nomads), Bangkok scattered. KL has MaGIC (gov startup hub), real local founder scene, €450/week. Singapore has highest SEA co-founder density but €900/week.
+**Decision:** Online workshop #1 this week (Google Meet, free, curriculum test). KL workshop #2 mid-April (MaGIC/WORQ, €50 + time donation). Singapore workshop #3 late April (Block71, polished version). Thailand = prep only. P620 created for execution.
+**Alternatives rejected:** (1) Koh Lanta informal — legal risk, wrong audience. (2) Online only — Slava dislikes it, misses in-person signal. (3) Singapore first — expensive for an unvalidated curriculum.
+**Consequences:** Book KL flights this week. Email MaGIC community team. Goals.md updated.
+**References:** [features/p620_kl_workshop_outreach.md](../features/p620_kl_workshop_outreach.md), [goals.md](goals.md)
+
+## 2026-04-02 [product]: Workshop pricing — €50 entry + time donation (0-10h)
+
+**Context:** Emerged from conversation "Анализ тенденций" (Mar 31). Dual-currency: money filters seriousness at entry, time measures value at exit. "Someone who says '6 hours' after 90 minutes is a stronger signal than any review." Time donations = volunteering for ClarityPledge (content, translation, community, testing). Thailand variant: free + time only (DTV).
+**Decision:** Formalized in facilitator-guide.md and lean-canvas.md revenue table. Separate from €950 de-risking and FCO retainers. P599 scope expanded to include workshop pricing copy on ladischenski.com.
+**Alternatives rejected:** (1) Free only — loses seriousness filter. (2) Fixed price only — loses the WTP signal that time donation provides.
+**Consequences:** First online workshop is free (test). First KL workshop uses €50 + time. Track time donation amounts as WTP proxy alongside monetary PWIW.
+
+## 2026-04-02 [product]: Psych safety positioning — complementary, not replacement
+
+**Context:** Conversations explored CCO (Chief Clarity Officer) as upgrade to psychological safety. Research falsified strong claim ("no safety without verification") — meta-analyses show teams benefit without comprehension checks. Weaker claim confirmed: in high-stakes environments with natural differences, unverified comprehension produces false agreement.
+**Decision:** Position within H-CoachChannel as sub-segment, not separate hypothesis. Entry: "You built safety to speak. Now verify they heard." Psych safety practitioners who already observe false agreement despite "safe" environments are the natural adopters. Not a channel pivot — an angle within existing coach channel.
+**Alternatives rejected:** (1) Separate hypothesis — too narrow for own slot. (2) "Your framework is broken" positioning — would be a fight, not an invitation.
+**Consequences:** H-CoachChannel note added. Revisit when approaching coaches (goals.md step 13).
+
+## 2026-04-02 [process]: Conjecture-building is not an anti-pattern — feedback captured
+
+**Context:** /claude-conversations-to-cp flagged "framework iteration pattern accelerating" as a potential anti-pattern (new concepts generated instead of testing existing ones). User corrected: exploration → conjecture → falsify → act IS the workflow. Git history confirms continuous shipping.
+**Decision:** Never frame conjecture-building as avoidance. Only flag if the SAME concept recycles 3+ times without being falsified or tested — that's the signal, not volume of new ideas.
+**Alternatives rejected:** Adding a process guard that classifies new concepts before engaging — overhead without evidence of a problem.
+**Consequences:** Feedback memory saved. Future /claude-conversations-to-cp runs will classify new concepts as conjectures to falsify, not scope creep to prevent.
+
+---
+
+## 2026-03-31 [process]: Skill quality — evidence-based bug fixes, not size trimming
+
+**Context:** Observation that skill files are growing (23K+ lines across ~100 skills, top file 1,108 lines). Initial instinct was to trim for size. Instead, analyzed 594 March CLI sessions for skill-related friction — user corrections, abandoned runs, contradictions.
+**Decision:** Skill size is not a problem (zero complaints about large skills). Fix specific evidence-backed bugs instead: (1) `/claude-conversations-to-cp` privacy pre-filter (check text before creating files, not after), (2) same skill incremental mode (skip already-processed files), (3) `/simplify` session awareness (don't contradict prior in-session agreements), (4) `/dev` → `/verify` handoff (suggest /verify before /ship in UAT gate), (5) `/kdd` subagent gets inline decisions.md context instead of being told to "read files" it can't access. Dropped `/verify` two-party bug — already handled by Playwright routing.
+**Alternatives rejected:** (1) Parallel agents trimming all skills by size — no evidence of a problem to solve. (2) Rewriting large skills — they work; the 1,108-line `create-prd/agent.md` had zero complaints.
+**Consequences:** Conversation history analysis is the validated method for finding skill issues. Run periodically (monthly?) instead of guessing at problems from line counts.
+**References:** Skills edited: `claude-conversations-to-cp.md`, `simplify/SKILL.md`, `dev.md`, `kdd/SKILL.md`
+
+## 2026-03-31 [product]: Universal pitch copy — Frankl "meaning" line added
+
+**Context:** Across 5+ iterations in two Claude.ai conversations (2026-03-30/31), the universal positioning copy was stress-tested with and without a Frankl-derived meaning line. The line "Without it, nothing you build together has meaning or sense" compresses the Frankl substrate insight (meaning requires verified relational ground) into plain language. The phrase "in the way they mean it" does double duty: "mean" as intent, "mean" as significance.
+**Decision:** Ship the UVP copy to lean-canvas.md. Say it to real people. The refinement loop was explicitly flagged in both conversations.
+**Alternatives rejected:** (1) Include "meaning" as Frankl concept explicitly — too theoretical for cold copy. (2) Keep the 2026-03-29 version without the meaning line — weaker; doesn't name what's at stake.
+**Consequences:** Pitch is the current version — open to evidence-based revision. The meaning/Frankl angle is article material (a13), not pitch material. **Update 2026-04-02:** Anxiety line added after research confirmed the mechanism. Pitch continues to evolve through use.
+**References:** [docs/lean-canvas.md](lean-canvas.md) UVP section
+
+## 2026-03-31 [product]: Conjecture-event GTM — parked as future channel after first workshop
+
+**Context:** Conversation "Thinker Lineage" (2026-03-31) produced a systematic GTM concept: one event per thinker-conjecture, 18 thinkers scored on 6 criteria (intellectual caliber, commercial potential, conjecture strength, reachability, cross-disciplinary pull, testability in 90 min). Each event targets a different intellectual community using the Clarity Flip format. Edmondson tops overall (45/60); Aumann tops intellectual caliber.
+**Decision:** Add to lean-canvas channels as future exploration. Do not execute before first Clarity Flip workshop validates. Risk: preparation of 18 events becomes its own refinement loop ("spending three months preparing instead of running one event next week"). The scoring matrix is a strategic artifact, not a near-term action plan.
+**Alternatives rejected:** Run immediately as parallel track — conflicts with P581 → workshop → canvas build sequence and "one event next week" priority.
+**Consequences:** The thinker scoring matrix is referenced in a12 enrichment. Revisit after first workshop produces PWIW data.
+**References:** [docs/lean-canvas.md](lean-canvas.md) Channels section, [content/articles/a12_locke-to-ladischenski.md](../content/articles/a12_locke-to-ladischenski.md)
+
+## 2026-03-31 [product]: "Privileged access to intent" not "meaning" — terminology locked
+
+**Context:** Conversation "Privileged access to intent vs. meaning" (2026-03-31) analyzed whether the speaker has privileged access to *intent* or *meaning*. "Meaning" invites legitimate philosophical objections (Wittgenstein, Gadamer, Derrida argue meaning is co-constructed). "Intent" is almost uncontroversially a first-person epistemic fact. The protocol verifies whether the listener can reproduce the speaker's *intended message* — this is fundamentally about intent.
+**Decision:** Use "privileged access to intent" in all theoretical and marketing language. Verified intent creates "auditable common knowledge" (commonly verified intent). The protocol operates on intent (what you can verify), protects meaning (what the person experiences). "In the way they mean it" in the pitch bridges both senses without committing to the contested claim.
+**Alternatives rejected:** "Privileged access to meaning" — opens the door to objections that meaning exceeds the speaker's control.
+**Consequences:** philosophy.md and definitions.md should use "intent" not "meaning" when describing the speaker's epistemic privilege. The distinction between operating on intent and protecting meaning is a key differentiator from other frameworks.
+
+## 2026-03-31 [product]: P618 filed — falsifiability not yet operationalized in points
+
+**Context:** Conversation "Consolidating stories and points" (2026-03-31) started by questioning the story/point split, re-derived WHY it exists (stories = untestable narratives, points = testable claims), then identified that falsifiability isn't operationalized. Points are just text — nothing distinguishes well-formed falsifiable claims from vague feelings. P563 (Position Provenance) is adjacent but different (engagement depth, not point quality).
+**Decision:** Filed P618 as backlog quick-feature skeleton. Open question: does the platform enforce falsifiability (prompt "what would change your mind?") or does it emerge from the protocol (if nobody can take a clear position, that's feedback)? Also: listener-extracted points as comprehension proof — points emerge from the verification act rather than being pre-declared.
+**Alternatives rejected:** Merge into P563 — different concerns (P563 = engagement depth on positions, P618 = quality of the point itself).
+**Consequences:** Backlog item. No immediate build priority. May resolve itself through workshop facilitation before requiring platform features.
+**References:** [features/p618_falsifiability_operationalization.md](../features/p618_falsifiability_operationalization.md)
+
+## 2026-03-31 [process]: /claude-conversations-to-cp skill improvements — filtering transparency + source convention
+
+**Context:** During this session's /cp run, two conversations were classified as personal and skipped ("David Burns vs Byron Katie", "Remix of the-work_jsx"). The Burns/Katie conversation contained strong CP signals (three epistemological audits, Katie "is it true?" substitution) that were missed. Also, article specs lacked a standard convention for referencing source conversations.
+**Decision:** Two proposed improvements for the /cp skill: (1) **Filtering transparency:** Show filtered-out conversation titles with 1-line reason so user can override (e.g., "SKIPPED: [title] — classified as personal. Include?"). (2) **Source convention:** Standardize a `## Source` section in article specs with conversation title + date (never private file paths — public repo). Both require `/claude-md` gate before implementation.
+**Alternatives rejected:** (1) Don't filter at all — wastes analysis time on clearly personal conversations. (2) Put file paths in articles — privacy leak in public repo.
+**Consequences:** Next /cp run should implement filtering transparency. Source convention already applied to a13, a14 in this session. (Status: proposed)
+
 ## 2026-03-31 [process]: /claude-conversations-to-cp v3 — decision-first output, auto-file content
 
 **Context:** Analyzed 10+ past sessions of running `/claude-conversations-to-cp`. Every single session, the user asked "simplify what needs my attention, what are my options, what you recommend and why" after the skill's signal dump output. Content signals caused rabbit-hole tangents in the same session.
@@ -376,7 +552,7 @@ Append-only log of architectural and product decisions. Newest entries at top.
 **Decision:** Images are a story-level feature, not point-level. Stories are mutable narrative containers where visual evidence belongs. Points stay lean (text-only atomic claims). Image is stored as `image_url` column on `stories` table — story-level metadata, not version-level (same pattern as `banner_url`). Adding/replacing/removing an image does NOT create a new story version.
 **Alternatives rejected:** Images on points (P526 — immutability conflict). Images as a separate entity linked to stories (unnecessary indirection). Image galleries (premature — single image per story in V1).
 **Consequences:** P526 archived. P591 shipped. Every story-rendering surface now checks `imageUrl`. Future: if single-image proves limiting, gallery is an additive change (array of URLs, not a schema redesign).
-**References:** [features/p591_story_supporting_images.md](features/p591_story_supporting_images.md)
+**References:** [features/p623_story_supporting_images.md](features/p623_story_supporting_images.md)
 
 ## 2026-03-27 [technical]: GCS signed URLs — use Supabase Edge Function, not unauthenticated Cloud Function
 

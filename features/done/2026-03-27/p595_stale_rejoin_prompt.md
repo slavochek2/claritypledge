@@ -10,6 +10,9 @@ date_resolved: 2026-03-27
 root_cause: Rejoin prompt realtime subscription had no polling fallback
 resolution: Added 5s polling interval using getActiveSessionByCode
 flow: fix
+tags: []
+rank: 1000033.0
+created_date: 2026-03-27
 ---
 
 # P595: Stale Rejoin Prompt After Session Ends

@@ -566,6 +566,33 @@ else
 fi
 echo ""
 
+# 21. Skill frontmatter check — warn when staged skill files lack required fields
+STAGED_SKILLS=$(echo "$STAGED_FILES" | grep -E '^\.claude/commands/slava/.*\.md$' | \
+    grep -vE '(PRINCIPLES|shortcuts|sifter-definitions|/agent\.md|/synthesizer\.md|archive/)' || true)
+if [ -n "$STAGED_SKILLS" ]; then
+    echo ">>> Checking skill frontmatter..."
+    SKILL_ISSUES=""
+    while IFS= read -r skill_file; do
+        [ -z "$skill_file" ] && continue
+        FIRST_LINE=$(head -1 "$skill_file" 2>/dev/null || echo "")
+        if [ "$FIRST_LINE" != "---" ]; then
+            SKILL_ISSUES="${SKILL_ISSUES}  ${skill_file}: missing frontmatter\n"
+        elif ! grep -q '^name:' "$skill_file" 2>/dev/null; then
+            SKILL_ISSUES="${SKILL_ISSUES}  ${skill_file}: missing name field\n"
+        elif ! grep -qE '^description:\s*.+' "$skill_file" 2>/dev/null; then
+            SKILL_ISSUES="${SKILL_ISSUES}  ${skill_file}: missing or empty description\n"
+        fi
+    done <<< "$STAGED_SKILLS"
+    if [ -n "$SKILL_ISSUES" ]; then
+        echo -e "${YELLOW}⚠ Skill frontmatter issues (run python3 scripts/fix-skill-frontmatter.py):${NC}"
+        echo -e "$SKILL_ISSUES"
+        WARNINGS=$((WARNINGS + 1))
+    else
+        echo -e "${GREEN}✓ Staged skill files have valid frontmatter${NC}"
+    fi
+    echo ""
+fi
+
 # CLAUDE.md line budget check
 if echo "$STAGED_FILES" | grep -q "^CLAUDE.md$"; then
     CLAUDE_LINES=$(git show :CLAUDE.md 2>/dev/null | wc -l)

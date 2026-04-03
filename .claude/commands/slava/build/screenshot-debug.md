@@ -2,6 +2,7 @@
 name: screenshot-debug
 description: Investigate a visual bug from a screenshot — reads latest screenshot, formulates problem statement, does root cause analysis, proposes fix path.
 when_to_use: When a visual/UI issue is spotted and you want structured investigation before fixing.
+version: 1.0.0
 ---
 
 # /screenshot-debug

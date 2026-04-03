@@ -1,3 +1,10 @@
+---
+name: promote-facebook
+description: "Create Facebook Events in local groups for a ClarityPledge event"
+when_to_use: "After event is published on claritypledge.com."
+version: 1.0.0
+---
+
 # Promote Event on Facebook Groups
 
 Promotes a Clarity Pledge event by creating Facebook Events in relevant local groups. Stops before submitting each — user reviews and publishes.

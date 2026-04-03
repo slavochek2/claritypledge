@@ -1,3 +1,10 @@
+---
+name: refactor
+description: Post-implementation quality improvement with rigorous test-driven safety
+when_to_use: "After shipping when code needs cleanup. Triggered by /refactor."
+version: 1.0.0
+---
+
 # /refactor
 
 Post-implementation quality improvement with rigorous test-driven safety.

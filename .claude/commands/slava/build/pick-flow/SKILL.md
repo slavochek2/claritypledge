@@ -1,6 +1,7 @@
 ---
 name: pick-flow
 description: >
+when_to_use: "When starting work and unsure which development flow to use."
   Recommends the right development flow for a task by analyzing its scope and complexity.
   Proposes 2-3 options ranked lightest to heaviest, with exact slash commands, trade-offs,
   and a recommendation. Use when starting work and unsure which flow is appropriate —
@@ -11,6 +12,7 @@ description: >
   Proactively offer this at the start of any non-trivial task (P-number mentioned, bug
   described, "what do we do next" asked) — do not wait to be asked. Skip for one-liner
   fixes, typo edits, or when the user has already named the exact commands to run.
+version: 1.0.0
 ---
 
 # pick-flow

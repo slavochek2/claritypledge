@@ -1,3 +1,10 @@
+---
+name: prepare-blog
+description: "Shape rough ideas into a blog post ready for /draft-blog"
+when_to_use: "When starting from a rough idea or article spec. Before /draft-blog."
+version: 1.0.0
+---
+
 # Prepare Blog Post
 
 Shape rough ideas into a blog post ready for `/slava:ship-blog`.

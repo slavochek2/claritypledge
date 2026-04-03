@@ -123,6 +123,16 @@ Research backing the core theory of change. For hypothesis-specific evidence and
 
 ## The Mechanism
 
+### Product Viability Constraints (2026-04-02)
+
+Three constraints any implementation of the mechanism must satisfy:
+
+1. **Facilitator-independence:** The instrument cannot depend on Slava as facilitator. Every manual facilitation action is a spec for what to automate next. If the mechanism only works when Slava is in the room, it doesn't scale — and it's a consulting practice, not a protocol.
+2. **Visible shift:** The comprehension shift must be observable to the participant, not just the facilitator. Without before/after tracking, hindsight bias rewrites the experience ("I always knew that"). The before/after comfort score is the minimum viable implementation.
+3. **Group common knowledge:** Must function in group settings where participants see EACH OTHER's shifts — creating common knowledge that verification works. Individual conviction is necessary but insufficient. When the room sees its own aggregate delta, the social norm inverts ("refusing to verify" becomes the awkward move, not "requesting paraphrase").
+
+### Leverage Points
+
 The system works because it exploits three **leverage points** in the epistemic system:
 
 ### Leverage Point 1: Making the Invisible Visible

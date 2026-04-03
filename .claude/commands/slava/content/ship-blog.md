@@ -1,3 +1,10 @@
+---
+name: ship-blog
+description: "Publish an approved Ghost draft to all subscribers"
+when_to_use: "After /draft-blog, when the Ghost draft is approved for publishing."
+version: 1.0.0
+---
+
 # Ship Blog Post
 
 Publish an approved Ghost draft to all subscribers. One action — no conversion, no enrichment.

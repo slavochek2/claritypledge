@@ -1,5 +1,8 @@
 ---
 description: 'Systematic UI audit - checks every button, all user states, accessibility'
+when_to_use: "After shipping a UI feature. When checking every button, state, and accessibility issue."
+name: design-audit
+version: 1.0.0
 ---
 
 # Design System Audit (Systematic)

@@ -1,6 +1,8 @@
 ---
 name: fix-kanban
 description: Scan all features/p*.md files, auto-fix frontmatter issues, report anything needing manual attention
+when_to_use: "When feature frontmatter looks broken. Run standalone or via /weekly."
+version: 1.0.0
 ---
 
 # Fix Feature Frontmatter

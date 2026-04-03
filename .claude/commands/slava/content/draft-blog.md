@@ -1,3 +1,10 @@
+---
+name: draft-blog
+description: "Convert an approved post into a polished Ghost draft"
+when_to_use: "After /prepare-blog, when a post is ready for Ghost conversion."
+version: 1.0.0
+---
+
 # Draft Blog Post
 
 Convert an approved post into a polished Ghost draft. Polish only — no publishing.
