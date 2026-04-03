@@ -505,7 +505,7 @@ export function EventDetail() {
                 />
                 <div className="flex items-center justify-center gap-1.5">
                   <p className="font-semibold">{event.hostName}</p>
-                  <MobileTooltip content={event.hostEarCount ? `${event.hostName.split(' ')[0]} understood ${event.hostEarCount} ${event.hostEarCount === 1 ? 'story' : 'stories'} as confirmed by their owners` : `${event.hostName.split(' ')[0]} hasn't had any stories confirmed understood yet`}>
+                  <MobileTooltip content={event.hostEarCount ? `${event.hostName.split(' ')[0]} has verified cognitive understanding of ${event.hostEarCount} ${event.hostEarCount === 1 ? 'story' : 'stories'} — confirmed by story authors` : 'No stories yet verified for cognitive understanding'}>
                     <span className="inline-flex items-center gap-0.5 text-xs font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded-full px-1.5 py-0.5">
                       <Ear size={12} />
                       {event.hostEarCount ?? 0}
