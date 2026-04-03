@@ -1,7 +1,7 @@
 # Done Features Index
 
 Quick reference for past completed work. Consult when starting work on a related topic.
-Last updated: 2026-04-03 (P633 Unlink Inside QuotedPoint)
+Last updated: 2026-04-03 (P637 No-Reload E2E Sync)
 
 ---
 
@@ -181,6 +181,7 @@ Last updated: 2026-04-03 (P633 Unlink Inside QuotedPoint)
 
 ## Infrastructure / Process
 
+- **P637** (Apr 03) No-Reload E2E Sync — `page.reload()` in two-party tests masks drift detection gaps; auto-extract completeness test catches new fields missing from both lists
 - **P566** (Mar 22) Audio Chunk Upload Reliability — IndexedDB WAL before upload; silent catch block was swallowing 35% of chunks; "Riverside model" = persist→upload→delete, not fire-and-forget; 5s chunks halve risk window vs 30s
 - **P553** (Mar 19) Defer Eager JS — `/challenge-prd` caught that Supabase already caches auth in localStorage, killing a redundant `cp-auth-hint`; `requestIdleCallback` for LogRocket; `injectRegister: 'script-defer'` for SW; KaTeX CSS must load inside component `useEffect`, not module scope
 - **P555** (Mar 19) Auth Fast-Path + Self-Host Fonts — redirect on `session` not `isLoading` (profile fetch was the real 300-500ms bottleneck, not `getSession()`); self-hosted woff2 eliminates 3-hop Google Fonts waterfall (700ms → 0ms)

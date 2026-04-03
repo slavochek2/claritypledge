@@ -2,6 +2,16 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-03 [technical]: P637 — drift detection completeness test + page.reload() ban in two-party E2E
+
+**Context:** P617 shipped a bug where `ratingInitiatedBy` was missing from the drift detection field list. All 5 Playwright E2E tests passed because they used `page.reload()` after DB writes — which fetches the full session from DB, bypassing both Realtime WebSocket delivery and drift detection polling. The bug was only caught during manual UAT after 5-7 attempts.
+**Decision:** (1) Added `ratingInitiatedBy` to drift detection. (2) Created `waitForUIUpdate()` helper that relies on the app's own state delivery — tests fail if the field isn't delivered, which is the point. (3) Added a drift completeness unit test that auto-extracts checked fields from source code and validates against a manually-maintained `UI_AFFECTING_FIELDS` list. (4) Banned `page.reload()` for two-party state sync in `docs/technical/e2e-testing-guide.md`.
+**Alternatives rejected:** (A) ESLint rule to ban `reload()` — too blunt, `reload()` is valid for single-user persistence tests. (B) AST-based completeness test — more robust but disproportionate complexity for the current codebase scale. (C) Auto-deriving UI_AFFECTING_FIELDS from the TypeScript type — would require AST parsing and still needs human judgment about which fields affect UI.
+**Consequences:** New `live_state` fields that affect UI must be added to both the drift detection block AND the `UI_AFFECTING_FIELDS` array in the test — the bidirectional test catches omissions in either direction. Pre-existing gaps found by code review: `sessionMode`, `freePhase`, `freeSliderCreator/Joiner`, `livePositionsCreator/Joiner` (P562-era) are also missing from drift detection — separate fix.
+**References:** [P637 spec](../features/done/2026-04-03/p637_no_reload_e2e_sync.md), [e2e-testing-guide.md](../docs/technical/e2e-testing-guide.md)
+
+---
+
 ## 2026-04-03 [product]: Tooltip language — "cognitive understanding" over "understood"
 
 **Context:** Tooltips across ear badges, understood badges, calibration display, and pledger cards used cryptic or misleading language. "Mischa hasn't had any stories confirmed understood yet" is grammatically awkward, and "understood N stories" implies we know the person understood — when what we actually know is the verification happened. The product's value proposition is *verifiable* cognitive understanding, not claimed understanding.
