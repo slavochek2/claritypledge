@@ -5,12 +5,24 @@ const MAILGUN_API_KEY = Deno.env.get('MAILGUN_API_KEY') ?? '';
 const MAILGUN_DOMAIN = Deno.env.get('MAILGUN_DOMAIN') ?? '';
 const MAILGUN_REGION = Deno.env.get('MAILGUN_REGION') ?? 'us';
 const APP_URL = Deno.env.get('APP_URL') ?? 'https://claritypledge.com';
+const ALLOWED_ORIGIN = Deno.env.get('ALLOWED_ORIGIN') ?? 'https://claritypledge.com';
+const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY') ?? '';
 
 const MAILGUN_BASE = MAILGUN_REGION === 'eu'
   ? 'https://api.eu.mailgun.net/v3'
   : 'https://api.mailgun.net/v3';
 
 const FROM = `Clarity Pledge <agreements@${MAILGUN_DOMAIN}>`;
+
+// ── HTML escaping ─────────────────────────────────────────────────────────────
+
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
 
 // ── HTML email base template ──────────────────────────────────────────────────
 
@@ -20,7 +32,7 @@ function htmlEmail(title: string, body: string): string {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>${title}</title>
+  <title>${escapeHtml(title)}</title>
 </head>
 <body style="margin:0;padding:0;background:#f4f4f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
   <table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f4f5;padding:40px 0;">
@@ -53,7 +65,7 @@ function htmlEmail(title: string, body: string): string {
 }
 
 function button(text: string, url: string): string {
-  return `<a href="${url}" style="display:inline-block;background:#002B5C;color:#ffffff;text-decoration:none;padding:12px 24px;border-radius:6px;font-size:15px;font-weight:500;margin-top:20px;">${text}</a>`;
+  return `<a href="${escapeHtml(url)}" style="display:inline-block;background:#002B5C;color:#ffffff;text-decoration:none;padding:12px 24px;border-radius:6px;font-size:15px;font-weight:500;margin-top:20px;">${escapeHtml(text)}</a>`;
 }
 
 /** Extract first name from "First Last" or return null */
@@ -137,6 +149,7 @@ async function handleInvitation(
     .single() as { data: ProfileRow | null };
 
   const creatorName = creator?.name ?? 'Someone';
+  const safeCreatorName = escapeHtml(creatorName);
   const acceptUrl = `${appUrl}/agreements/${agreementId}/accept?token=${agreement.invitation_token}`;
 
   // P488: For existing users, generate a magic link so they arrive authenticated.
@@ -174,7 +187,7 @@ async function handleInvitation(
     <p style="margin:0 0 16px;font-size:16px;color:#111827;">Hi,</p>
     <h1 style="margin:0 0 8px;font-size:24px;font-weight:700;color:#111827;">You've been invited</h1>
     <p style="margin:0 0 16px;font-size:16px;color:#4b5563;">
-      <strong>${creatorName}</strong> has invited you to a Clarity Partner Agreement —
+      <strong>${safeCreatorName}</strong> has invited you to a Clarity Partner Agreement —
       a mutual commitment to avoid false disagreements when shit hits the fan.
     </p>
     <p style="margin:0 0 4px;font-size:14px;color:#6b7280;">
@@ -186,7 +199,7 @@ async function handleInvitation(
       you'll be able to create an account as part of the signing flow.
     </p>
     <p style="margin:8px 0 0;font-size:11px;color:#d1d5db;">
-      Your email was shared by ${creatorName} to send this invite. Remove it: <a href="mailto:privacy@claritypledge.com" style="color:#d1d5db;">privacy@claritypledge.com</a>
+      Your email was shared by ${safeCreatorName} to send this invite. Remove it: <a href="mailto:privacy@claritypledge.com" style="color:#d1d5db;">privacy@claritypledge.com</a>
     </p>
   `);
   const text = `${creatorName} invited you to a Clarity Partner Agreement.\n\nReview and sign: ${ctaUrl}\n\nThis invitation expires in 7 days.\n\nYour email was shared by ${creatorName} to send this invite. Remove it: privacy@claritypledge.com\nClarity Pledge`;
@@ -221,13 +234,14 @@ async function handleAccepted(
   if (!creator?.email) return;
 
   const partnerName = partner?.name ?? 'Your partner';
+  const safePartnerName = escapeHtml(partnerName);
   const agreementUrl = `${APP_URL}/agreements/${agreementId}`;
   const subject = `${partnerName} co-signed your Clarity Partner Agreement`;
   const html = htmlEmail(subject, `
-    <p style="margin:0 0 16px;font-size:16px;color:#111827;">${greeting(creator?.name)}</p>
+    <p style="margin:0 0 16px;font-size:16px;color:#111827;">${escapeHtml(greeting(creator?.name))}</p>
     <h1 style="margin:0 0 8px;font-size:24px;font-weight:700;color:#111827;">Agreement sealed</h1>
     <p style="margin:0 0 16px;font-size:16px;color:#4b5563;">
-      <strong>${partnerName}</strong> has accepted and co-signed your Clarity Partner Agreement.
+      <strong>${safePartnerName}</strong> has accepted and co-signed your Clarity Partner Agreement.
       Your agreement is now active.
     </p>
     ${button('View Agreement', agreementUrl)}
@@ -259,10 +273,10 @@ async function handleDeclined(
 
   const subject = 'Your Clarity Partner Agreement invitation was declined';
   const html = htmlEmail(subject, `
-    <p style="margin:0 0 16px;font-size:16px;color:#111827;">${greeting(creator?.name)}</p>
+    <p style="margin:0 0 16px;font-size:16px;color:#111827;">${escapeHtml(greeting(creator?.name))}</p>
     <h1 style="margin:0 0 8px;font-size:24px;font-weight:700;color:#111827;">Invitation declined</h1>
     <p style="margin:0 0 16px;font-size:16px;color:#4b5563;">
-      The recipient at <strong>${agreement.partner_email}</strong> declined your Clarity Partner Agreement invitation.
+      The recipient at <strong>${escapeHtml(agreement.partner_email)}</strong> declined your Clarity Partner Agreement invitation.
     </p>
     <p style="margin:0;font-size:14px;color:#6b7280;">
       Consider connecting through a /live session first — agreements signed from shared experience tend to stick.
@@ -310,7 +324,7 @@ async function handleTerminated(
   await Promise.all(
     recipients.map(r => {
       const html = htmlEmail(subject, `
-        <p style="margin:0 0 16px;font-size:16px;color:#111827;">${greeting(r.name)}</p>
+        <p style="margin:0 0 16px;font-size:16px;color:#111827;">${escapeHtml(greeting(r.name))}</p>
         <h1 style="margin:0 0 8px;font-size:24px;font-weight:700;color:#111827;">Agreement terminated</h1>
         <p style="margin:0 0 16px;font-size:16px;color:#4b5563;">
           One party has terminated this Clarity Partner Agreement.
@@ -346,7 +360,7 @@ async function handleResend(
 // ── Entry point ───────────────────────────────────────────────────────────────
 
 const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Origin': ALLOWED_ORIGIN,
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
@@ -364,9 +378,22 @@ serve(async (req: Request) => {
     // Use service role for DB operations — bypasses RLS
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
     const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-    if (!supabaseUrl || !serviceRoleKey) {
+    if (!supabaseUrl || !serviceRoleKey || !SUPABASE_ANON_KEY) {
       return new Response(JSON.stringify({ error: 'Missing required env vars' }), { status: 500, headers: corsHeaders });
     }
+
+    // ── JWT validation ────────────────────────────────────────────────────────
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader?.startsWith('Bearer ')) {
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: corsHeaders });
+    }
+    const token = authHeader.replace('Bearer ', '');
+    const anonClient = createClient(supabaseUrl, SUPABASE_ANON_KEY);
+    const { data: { user }, error: authError } = await anonClient.auth.getUser(token);
+    if (authError || !user) {
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: corsHeaders });
+    }
+    const callerId = user.id;
 
     const supabaseClient = createClient(supabaseUrl, serviceRoleKey);
 
@@ -383,6 +410,25 @@ serve(async (req: Request) => {
 
     if (!action || !agreementId) {
       return new Response(JSON.stringify({ error: 'Missing action or agreementId' }), { status: 400, headers: corsHeaders });
+    }
+
+    // ── Authorization: caller must be a party to the agreement ────────────────
+    const { data: agreementCheck } = await supabaseClient
+      .from('clarity_agreements')
+      .select('creator_profile_id, partner_profile_id')
+      .eq('id', agreementId)
+      .single();
+
+    if (!agreementCheck) {
+      return new Response(JSON.stringify({ error: 'Agreement not found' }), { status: 404, headers: corsHeaders });
+    }
+
+    const isParty =
+      agreementCheck.creator_profile_id === callerId ||
+      agreementCheck.partner_profile_id === callerId;
+
+    if (!isParty) {
+      return new Response(JSON.stringify({ error: 'Forbidden' }), { status: 403, headers: corsHeaders });
     }
 
     switch (action) {
@@ -410,6 +456,6 @@ serve(async (req: Request) => {
     });
   } catch (err) {
     console.error('send-agreement-emails error:', err);
-    return new Response(JSON.stringify({ error: String(err) }), { status: 500, headers: corsHeaders });
+    return new Response(JSON.stringify({ error: 'Internal server error' }), { status: 500, headers: corsHeaders });
   }
 });

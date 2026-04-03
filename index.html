@@ -91,7 +91,7 @@
         e.location.protocol&&"//cdn.mxpnl.com/libs/mixpanel-2-latest.min.js".match(/^\/\//)?"https://cdn.mxpnl.com/libs/mixpanel-2-latest.min.js":"//cdn.mxpnl.com/libs/mixpanel-2-latest.min.js";e=e.getElementsByTagName("script")[0];e.parentNode.insertBefore(k,e)}})(document,window.mixpanel||[])
 
         mixpanel.init('e6e1f42a455536dd1a4c7df26b5a9e71', {
-          autocapture: true,
+          autocapture: { pageview: true, formContents: false },
           record_sessions_percent: 100,
           api_host: 'https://api-eu.mixpanel.com',
         })

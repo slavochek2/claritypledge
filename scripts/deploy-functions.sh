@@ -82,7 +82,16 @@ FAILED=()
 
 for fn in "${FUNCTIONS[@]}"; do
   echo -n "  $fn... "
-  if supabase functions deploy "$fn" --project-ref "$PROJECT_REF" --no-verify-jwt 2>&1 | tail -1; then
+  # create-and-sign handles the invitation flow: anonymous callers exchange a
+  # signed invite token for a session JWT before they have a Supabase account.
+  # --no-verify-jwt lets those unauthenticated requests through the gateway.
+  # All other functions require a valid JWT and must NOT use this flag.
+  if [ "$fn" = "create-and-sign" ]; then
+    DEPLOY_FLAGS="--no-verify-jwt"
+  else
+    DEPLOY_FLAGS=""
+  fi
+  if supabase functions deploy "$fn" --project-ref "$PROJECT_REF" $DEPLOY_FLAGS 2>&1 | tail -1; then
     DEPLOYED+=("$fn")
   else
     echo "FAILED"

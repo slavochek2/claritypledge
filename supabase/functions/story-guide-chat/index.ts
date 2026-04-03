@@ -168,6 +168,15 @@ Deno.serve(async (req: Request) => {
     );
   }
 
+  if (messages.length > 50) {
+    return new Response(JSON.stringify({ error: 'Too many messages' }), { status: 400, headers: corsHeaders });
+  }
+  for (const m of messages) {
+    if (typeof m.content !== 'string' || m.content.length > 10000) {
+      return new Response(JSON.stringify({ error: 'Message too long' }), { status: 400, headers: corsHeaders });
+    }
+  }
+
   // ── Rate limiting (service role — bypasses RLS) ───────────────────────────
   const serviceClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 

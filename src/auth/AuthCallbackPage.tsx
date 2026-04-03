@@ -53,11 +53,11 @@ export function AuthCallbackPage() {
   const { user, session, isLoading, sessionChecked, refreshProfile } = useAuth();
 
   useEffect(() => {
-    console.log('🔄 AuthCallback useEffect triggered:', { isLoading, sessionChecked, hasSession: !!session, hasUser: !!user });
+    if (import.meta.env.DEV) console.log('🔄 AuthCallback useEffect triggered:', { isLoading, sessionChecked, hasSession: !!session, hasUser: !!user });
 
     // Wait for session check to complete before deciding if there's an error
     if (!sessionChecked || isLoading) {
-      console.log('⏳ Still loading, waiting...');
+      if (import.meta.env.DEV) console.log('⏳ Still loading, waiting...');
       return;
     }
 
@@ -121,7 +121,7 @@ export function AuthCallbackPage() {
           .single();
 
         if (profileByEmail && profileByEmail.id !== authUser.id) {
-          console.log('🔄 Found profile by email with different ID (migrating /live user):', {
+          if (import.meta.env.DEV) console.log('🔄 Found profile by email with different ID (migrating /live user):', {
             oldId: profileByEmail.id,
             newId: authUser.id,
             email: authUser.email,
@@ -170,7 +170,7 @@ export function AuthCallbackPage() {
             console.error('❌ Failed to delete old profile during migration:', deleteError);
             // Continue anyway - the upsert might still work or give clearer error
           } else {
-            console.log('✅ Old anonymous profile deleted, proceeding with new profile creation');
+            if (import.meta.env.DEV) console.log('✅ Old anonymous profile deleted, proceeding with new profile creation');
           }
 
           // Store backup to sessionStorage (survives page reload, unlike window)
@@ -290,9 +290,9 @@ export function AuthCallbackPage() {
         accepted_terms_version: CURRENT_TERMS_VERSION,
       };
 
-      console.log('🔄 Profile data to save:', upsertData);
-      console.log('🔄 Auth user ID:', authUser.id);
-      console.log('🔄 Existing user from useAuth:', user);
+      if (import.meta.env.DEV) console.log('🔄 Profile data to save:', upsertData);
+      if (import.meta.env.DEV) console.log('🔄 Auth user ID:', authUser.id);
+      if (import.meta.env.DEV) console.log('🔄 Existing user from useAuth:', user);
 
       // Try to upsert with retry logic for slug conflicts
       let upsertError = null;
@@ -304,7 +304,7 @@ export function AuthCallbackPage() {
           .upsert(upsertData, { onConflict: 'id' });
 
         if (!error) {
-          console.log('✅ Profile upsert successful!');
+          if (import.meta.env.DEV) console.log('✅ Profile upsert successful!');
           break;
         }
 
@@ -312,7 +312,7 @@ export function AuthCallbackPage() {
         // Postgres unique violation code is 23505
         if (error.code === '23505' && error.message?.includes('slug')) {
           retries++;
-          console.log(`⚠️ Slug conflict detected, retry ${retries}/${MAX_SLUG_RETRIES}`);
+          if (import.meta.env.DEV) console.log(`⚠️ Slug conflict detected, retry ${retries}/${MAX_SLUG_RETRIES}`);
 
           // Query for existing slugs to find next available number
           // This gives users short, memorable slugs like john-doe-2
@@ -341,7 +341,7 @@ export function AuthCallbackPage() {
 
           slug = `${baseSlug}-${nextNumber}`;
           upsertData.slug = slug;
-          console.log('🔄 Trying new slug:', slug);
+          if (import.meta.env.DEV) console.log('🔄 Trying new slug:', slug);
         } else {
           // Different error, don't retry
           upsertError = error;
@@ -353,7 +353,7 @@ export function AuthCallbackPage() {
       if (retries >= MAX_SLUG_RETRIES && !upsertError) {
         slug = `${generateSlug(name)}-${Date.now()}`;
         upsertData.slug = slug;
-        console.log('🔄 Final fallback slug:', slug);
+        if (import.meta.env.DEV) console.log('🔄 Final fallback slug:', slug);
 
         const { error: finalError } = await supabase
           .from('profiles')
@@ -362,7 +362,7 @@ export function AuthCallbackPage() {
         if (finalError) {
           upsertError = finalError;
         } else {
-          console.log('✅ Profile upsert successful with fallback slug!');
+          if (import.meta.env.DEV) console.log('✅ Profile upsert successful with fallback slug!');
         }
       }
 
@@ -379,7 +379,7 @@ export function AuthCallbackPage() {
         }
 
         if (backup) {
-          console.log('⚠️ Upsert failed after migration delete, attempting to restore old profile...');
+          if (import.meta.env.DEV) console.log('⚠️ Upsert failed after migration delete, attempting to restore old profile...');
           const { error: restoreError } = await supabase
             .from('profiles')
             .insert(backup);
@@ -390,7 +390,7 @@ export function AuthCallbackPage() {
               extra: { backup, upsertError, restoreError },
             });
           } else {
-            console.log('✅ Old profile restored successfully');
+            if (import.meta.env.DEV) console.log('✅ Old profile restored successfully');
           }
           // Clean up backup
           sessionStorage.removeItem('__profileMigrationBackup');
@@ -438,7 +438,7 @@ export function AuthCallbackPage() {
       // Refresh profile in auth context so nav/header shows correct user data
       // This fixes race condition where initial fetch happened before upsert completed
       await refreshProfile();
-      console.log('✅ Profile refreshed in auth context');
+      if (import.meta.env.DEV) console.log('✅ Profile refreshed in auth context');
 
       // Clear pending verification email now that user is verified
       sessionStorage.removeItem('pendingVerificationEmail');
@@ -451,7 +451,7 @@ export function AuthCallbackPage() {
         // Extract event slug from redirect path
         const eventSlug = redirectPath.split('/')[2];
         if (eventSlug) {
-          console.log('📅 Auto-RSVP flow detected for event:', eventSlug);
+          if (import.meta.env.DEV) console.log('📅 Auto-RSVP flow detected for event:', eventSlug);
           setStatus("Confirming your RSVP...");
 
           try {
@@ -459,7 +459,7 @@ export function AuthCallbackPage() {
             if (event) {
               const rsvpSuccess = await rsvpToEvent(event.id, authUser.id);
               if (rsvpSuccess) {
-                console.log('✅ Auto-RSVP successful for event:', eventSlug);
+                if (import.meta.env.DEV) console.log('✅ Auto-RSVP successful for event:', eventSlug);
                 analytics.track('event_rsvp_auto', {
                   event_slug: eventSlug,
                   event_id: event.id,
@@ -468,13 +468,13 @@ export function AuthCallbackPage() {
                 navigate(`/events/${eventSlug}/confirm`, { replace: true });
                 return;
               } else {
-                console.log('⚠️ Auto-RSVP failed (event may be full), redirecting to event page');
+                if (import.meta.env.DEV) console.log('⚠️ Auto-RSVP failed (event may be full), redirecting to event page');
                 // Redirect to event page with action param so UI can show toast
                 navigate(`/events/${eventSlug}?action=rsvp`, { replace: true });
                 return;
               }
             } else {
-              console.log('⚠️ Event not found for auto-RSVP:', eventSlug);
+              if (import.meta.env.DEV) console.log('⚠️ Event not found for auto-RSVP:', eventSlug);
             }
           } catch (error) {
             console.error('❌ Error during auto-RSVP:', error);
@@ -493,7 +493,7 @@ export function AuthCallbackPage() {
       const anonPositions = getAllAnonPositions();
       const anonPointIds = Object.keys(anonPositions);
       if (anonPointIds.length > 0) {
-        console.log('📌 P502: Batch-restoring', anonPointIds.length, 'anonymous positions');
+        if (import.meta.env.DEV) console.log('📌 P502: Batch-restoring', anonPointIds.length, 'anonymous positions');
         const VALID_POSITIONS = ['strongly_disagree','disagree','somewhat_disagree','unsure','somewhat_agree','agree','strongly_agree'];
         for (const pointId of anonPointIds) {
           if (!isValidPointId(pointId) || !VALID_POSITIONS.includes(anonPositions[pointId])) {
@@ -507,7 +507,7 @@ export function AuthCallbackPage() {
           }
         }
         clearAllAnonPositions();
-        console.log('✅ P502: Anonymous positions restored and cleared');
+        if (import.meta.env.DEV) console.log('✅ P502: Anonymous positions restored and cleared');
       }
 
       // P458: Handle position auto-save after signup via position-gate redirect
@@ -516,11 +516,11 @@ export function AuthCallbackPage() {
       if (action === 'set-position') {
         const intent = parseAuthGateIntent(urlParams);
         if (intent && intent.action === 'set-position') {
-          console.log('📌 Auto-save position flow detected:', intent);
+          if (import.meta.env.DEV) console.log('📌 Auto-save position flow detected:', intent);
           setStatus("Saving your position...");
           try {
             await pointsService.setPosition(intent.pointId, authUser.id, fromAuthGatePosition(intent.position));
-            console.log('✅ Position auto-saved:', intent.position);
+            if (import.meta.env.DEV) console.log('✅ Position auto-saved:', intent.position);
             analytics.track('position_auto_saved', {
               point_id: intent.pointId,
               position: intent.position,

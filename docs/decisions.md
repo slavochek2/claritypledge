@@ -2,6 +2,16 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-03 [technical]: Security audit — 25-agent parallel remediation of 47 findings
+
+**Context:** First comprehensive security audit of the full stack: source code, Supabase RLS, edge functions, dependencies, infrastructure, client-side, and known CVEs. 8 audit agents ran in parallel, then 17 fix agents across 5 waves (Haiku for mechanical config, Sonnet for auth/migration logic, Opus for final validation).
+**Decision:** (1) Rotated compromised prod + test DB passwords (both were in public repo — prod in `.env.prod.example`, test in archived scripts). (2) Added JWT auth to `send-agreement-emails` and fixed cosmetic auth on `send-event-emails`. (3) Changed `--no-verify-jwt` from blanket to selective (only `create-and-sign`). (4) Dropped dangerous `public.set_config()` SECURITY DEFINER function. (5) Fixed `accept_agreement()` self-sign bypass and `patch_live_state()` missing participant check. (6) Tightened RLS on 7 legacy tables. (7) Added HSTS, Permissions-Policy, full CSP (report-only). (8) Hidden source maps. (9) HTML-escaped all user strings in email templates. (10) Added non-root Docker user. (11) Restricted GitHub Actions permissions.
+**Alternatives rejected:** (A) Manual one-by-one fixes — too slow for 47 findings. (B) Fixing only CRITICAL — leaves exploitable HIGH/MEDIUM attack surface. (C) Full CSP in enforcing mode — too risky without violation data; report-only first.
+**Consequences:** Ghost CMS 5.130.6 remains vulnerable to CVE-2026-26980 (unauthenticated SQL injection) — needs major version upgrade to 6.19.3+. GCS signed-URL Cloud Function still has no auth. 13 npm vulns remain (need `@vercel/node` and `vite-plugin-pwa` major bumps). CSP needs graduation from report-only to enforcing after monitoring. Migrations must be applied via `./scripts/migrate.sh`.
+**References:** Plan at `.claude/plans/tingly-cuddling-grove.md`
+
+---
+
 ## 2026-04-03 [technical]: P636 — `null` not `undefined` for clearing JSONB fields via Supabase client
 
 **Context:** `postRoundIdleState()` preset originally used `undefined` to clear fields like `checkerName`, `ratingInitiatedBy`, etc. When spread into the existing state and sent to Supabase, `JSON.stringify` silently drops `undefined` values — so the old values survive in the DB untouched. Caught in code review before any test exercised it.
@@ -706,7 +716,7 @@ Append-only log of architectural and product decisions. Newest entries at top.
 ## 2026-03-27 [process]: slavochek-gmail MCP — deprecate IMAP, use gws CLI
 
 **Context:** The `slavochek-gmail` MCP server (`gmail-mcp-imap` v1.0.2) searches only INBOX (40 messages) — misses 128k+ messages in `[Google Mail]/All Mail`. Also has locale mismatch: hardcodes `[Gmail]/*` paths but googlemail.com uses `[Google Mail]/*`. Searches return empty, not errors — silent failure.
-**Decision:** Deprecate `slavochek-gmail` IMAP MCP. Use `gws` CLI via Bash as primary tool for personal Gmail (`GWS_ACCOUNT=slavochek@googlemail.com`). gws uses Google OAuth + Gmail API which searches all mail by default. Already working today.
+**Decision:** Deprecate `slavochek-gmail` IMAP MCP. Use `gws` CLI via Bash as primary tool for personal Gmail (`GWS_ACCOUNT=personal-email`). gws uses Google OAuth + Gmail API which searches all mail by default. Already working today.
 **Alternatives rejected:** Patching gmail-mcp-imap to search All Mail (fork maintenance burden, locale fragility). Adding second workspace-mcp OAuth instance (more setup, marginal benefit over gws CLI). Keeping IMAP as backup (misleading — it silently returns wrong results, worse than no tool).
 **Consequences:** Remove `slavochek-gmail` from MCP config when convenient (not urgent — it's harmless if unused). For personal Gmail: `gws` CLI commands via Bash. For workspace Gmail: existing `slava-inguro-workspace` MCP.
 
@@ -714,7 +724,7 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 **Context:** Mailgun account flagged for business verification (Mar 22). 100 msg/hr limit, 9 recipients/msg cap — blocked Ghost newsletter delivery to 36 subscribers entirely.
 **Decision:** Answered 5 verification questions to Sinch support. Jennifer Ross (Compliance Operations) lifted all restrictions Mar 23. Account fully enabled, no limits.
-**Consequences:** Ghost newsletter delivery works. Transactional emails (RSVP, agreement notifications) via `mg.claritypledge.com` unblocked. Mailgun account lives on slavochek@googlemail.com (not ops@ or slava@inguro) — documented in global CLAUDE.md.
+**Consequences:** Ghost newsletter delivery works. Transactional emails (RSVP, agreement notifications) via `mg.claritypledge.com` unblocked. Mailgun account lives on personal email (not ops@ or slava@inguro) — documented in global CLAUDE.md.
 **References:** Mailgun ticket #3995215
 
 ## 2026-03-27 [process]: Bulk DB operations must use SQL, not per-row REST

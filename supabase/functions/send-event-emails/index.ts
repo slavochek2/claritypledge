@@ -5,12 +5,32 @@ const MAILGUN_API_KEY = Deno.env.get('MAILGUN_API_KEY') ?? '';
 const MAILGUN_DOMAIN = Deno.env.get('MAILGUN_DOMAIN') ?? '';
 const MAILGUN_REGION = Deno.env.get('MAILGUN_REGION') ?? 'us';
 const TALLY_FORM_ID = Deno.env.get('TALLY_FORM_ID') ?? 'QKDN91';
+const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? '';
+const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY') ?? '';
+
+const ALLOWED_ORIGIN = Deno.env.get('ALLOWED_ORIGIN') ?? 'https://claritypledge.com';
 
 const MAILGUN_BASE = MAILGUN_REGION === 'eu'
   ? 'https://api.eu.mailgun.net/v3'
   : 'https://api.mailgun.net/v3';
 
 const FROM = `Clarity Pledge Events <events@${MAILGUN_DOMAIN}>`;
+
+const corsHeaders = {
+  'Access-Control-Allow-Origin': ALLOWED_ORIGIN,
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+};
+
+// ── Security utilities ────────────────────────────────────────────────────────
+
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
 
 // Only send feedback emails for events hosted by this profile.
 // Other hosts manage their own feedback flow.
@@ -24,7 +44,7 @@ function htmlEmail(title: string, body: string): string {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>${title}</title>
+  <title>${escapeHtml(title)}</title>
 </head>
 <body style="margin:0;padding:0;background:#f4f4f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
   <table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f4f5;padding:40px 0;">
@@ -60,7 +80,7 @@ function htmlEmail(title: string, body: string): string {
 }
 
 function button(text: string, url: string): string {
-  return `<a href="${url}" style="display:inline-block;background:#2563eb;color:#ffffff;text-decoration:none;padding:12px 24px;border-radius:6px;font-size:15px;font-weight:500;margin-top:20px;">${text}</a>`;
+  return `<a href="${escapeHtml(url)}" style="display:inline-block;background:#2563eb;color:#ffffff;text-decoration:none;padding:12px 24px;border-radius:6px;font-size:15px;font-weight:500;margin-top:20px;">${escapeHtml(text)}</a>`;
 }
 
 function eventCard(event: EventRow): string {
@@ -68,19 +88,28 @@ function eventCard(event: EventRow): string {
   const locationLine = formatLocation(event.location);
   return `
     <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;padding:20px;margin:20px 0;">
-      <p style="margin:0 0 12px;font-size:20px;font-weight:600;color:#111827;">${event.title}</p>
-      <p style="margin:0 0 6px;font-size:14px;color:#4b5563;">📅 ${date}</p>
+      <p style="margin:0 0 12px;font-size:20px;font-weight:600;color:#111827;">${escapeHtml(event.title)}</p>
+      <p style="margin:0 0 6px;font-size:14px;color:#4b5563;">📅 ${escapeHtml(date)}</p>
       ${locationLine ? `<p style="margin:0;font-size:14px;color:#4b5563;">${locationLine}</p>` : ''}
     </div>`;
 }
 
 function formatLocation(location: string | null): string {
   if (!location) return '';
-  const isUrl = location.startsWith('http://') || location.startsWith('https://');
-  if (isUrl) {
-    return `🔗 <a href="${location}" style="color:#2563eb;">Join online</a>`;
+  let parsedUrl: URL | null = null;
+  try {
+    parsedUrl = new URL(location);
+  } catch {
+    // not a URL — treat as plain text address
   }
-  return `📍 ${location}`;
+  if (parsedUrl !== null) {
+    // Only allow safe URL schemes — reject javascript:, data:, blob:, etc.
+    if (parsedUrl.protocol !== 'http:' && parsedUrl.protocol !== 'https:') {
+      return `📍 ${escapeHtml(location)}`;
+    }
+    return `🔗 <a href="${escapeHtml(location)}" style="color:#2563eb;">Join online</a>`;
+  }
+  return `📍 ${escapeHtml(location)}`;
 }
 
 function formatDate(datetime: string, timezone: string | null): string {
@@ -156,12 +185,12 @@ function firstName(name: string | null | undefined): string | null {
 
 function greeting(name: string | null | undefined): string {
   const first = firstName(name);
-  return first ? `Hi ${first},` : 'Hi,';
+  return first ? `Hi ${escapeHtml(first)},` : 'Hi,';
 }
 
 function buildConfirmation(event: EventRow, name?: string | null): { subject: string; html: string; text: string } {
   const subject = `You're in: ${event.title}`;
-  const eventLink = event.slug ? `<p style="margin:16px 0 0;font-size:14px;"><a href="${eventPageUrl(event.slug)}" style="color:#2563eb;">View event page →</a></p>` : '';
+  const eventLink = event.slug ? `<p style="margin:16px 0 0;font-size:14px;"><a href="${escapeHtml(eventPageUrl(event.slug))}" style="color:#2563eb;">View event page →</a></p>` : '';
   const html = htmlEmail(subject, `
     <p style="margin:0 0 16px;font-size:16px;color:#111827;">${greeting(name)}</p>
     <h1 style="margin:0 0 8px;font-size:24px;font-weight:700;color:#111827;">You're confirmed! 🎉</h1>
@@ -180,7 +209,7 @@ function buildConfirmation(event: EventRow, name?: string | null): { subject: st
 
 function buildReminder(event: EventRow, name?: string | null): { subject: string; html: string; text: string } {
   const subject = `Tomorrow: ${event.title}`;
-  const eventLink = event.slug ? `<p style="margin:16px 0 0;font-size:14px;"><a href="${eventPageUrl(event.slug)}" style="color:#2563eb;">View event page →</a></p>` : '';
+  const eventLink = event.slug ? `<p style="margin:16px 0 0;font-size:14px;"><a href="${escapeHtml(eventPageUrl(event.slug))}" style="color:#2563eb;">View event page →</a></p>` : '';
   const html = htmlEmail(subject, `
     <p style="margin:0 0 16px;font-size:16px;color:#111827;">${greeting(name)}</p>
     <h1 style="margin:0 0 8px;font-size:24px;font-weight:700;color:#111827;">See you tomorrow! 👋</h1>
@@ -200,12 +229,12 @@ function buildReminder(event: EventRow, name?: string | null): { subject: string
 function buildFeedback(event: EventRow, name?: string | null): { subject: string; html: string; text: string } {
   const subject = `How was ${event.title}?`;
   const feedbackUrl = tallyUrl(event.id);
-  const eventLink = event.slug ? `<p style="margin:16px 0 0;font-size:14px;"><a href="${eventPageUrl(event.slug)}" style="color:#2563eb;">View event page →</a></p>` : '';
+  const eventLink = event.slug ? `<p style="margin:16px 0 0;font-size:14px;"><a href="${escapeHtml(eventPageUrl(event.slug))}" style="color:#2563eb;">View event page →</a></p>` : '';
   const html = htmlEmail(subject, `
     <p style="margin:0 0 16px;font-size:16px;color:#111827;">${greeting(name)}</p>
     <h1 style="margin:0 0 8px;font-size:24px;font-weight:700;color:#111827;">Thanks for joining!</h1>
     <p style="margin:0;font-size:16px;color:#4b5563;">
-      I'd love to hear how <strong>${event.title}</strong> went for you.
+      I'd love to hear how <strong>${escapeHtml(event.title)}</strong> went for you.
       It takes about 1 minute.
     </p>
     ${button('Share your feedback', feedbackUrl)}
@@ -221,12 +250,12 @@ function buildFeedback(event: EventRow, name?: string | null): { subject: string
 
 function buildCancellation(event: EventRow, name?: string | null): { subject: string; html: string; text: string } {
   const subject = `Event cancelled: ${event.title}`;
-  const eventLink = event.slug ? `<p style="margin:16px 0 0;font-size:14px;"><a href="${eventPageUrl(event.slug)}" style="color:#2563eb;">View event page →</a></p>` : '';
+  const eventLink = event.slug ? `<p style="margin:16px 0 0;font-size:14px;"><a href="${escapeHtml(eventPageUrl(event.slug))}" style="color:#2563eb;">View event page →</a></p>` : '';
   const html = htmlEmail(subject, `
     <p style="margin:0 0 16px;font-size:16px;color:#111827;">${greeting(name)}</p>
     <h1 style="margin:0 0 8px;font-size:24px;font-weight:700;color:#111827;">Event cancelled</h1>
     <p style="margin:0;font-size:16px;color:#4b5563;">
-      Unfortunately, <strong>${event.title}</strong> has been cancelled.
+      Unfortunately, <strong>${escapeHtml(event.title)}</strong> has been cancelled.
     </p>
     ${eventCard(event)}
     ${eventLink}
@@ -240,12 +269,12 @@ function buildCancellation(event: EventRow, name?: string | null): { subject: st
 
 function buildUncancel(event: EventRow, name?: string | null): { subject: string; html: string; text: string } {
   const subject = `It's back on: ${event.title}`;
-  const eventLink = event.slug ? `<p style="margin:16px 0 0;font-size:14px;"><a href="${eventPageUrl(event.slug)}" style="color:#2563eb;">View event page →</a></p>` : '';
+  const eventLink = event.slug ? `<p style="margin:16px 0 0;font-size:14px;"><a href="${escapeHtml(eventPageUrl(event.slug))}" style="color:#2563eb;">View event page →</a></p>` : '';
   const html = htmlEmail(subject, `
     <p style="margin:0 0 16px;font-size:16px;color:#111827;">${greeting(name)}</p>
     <h1 style="margin:0 0 8px;font-size:24px;font-weight:700;color:#111827;">Good news — the event is back on! 🎉</h1>
     <p style="margin:0;font-size:16px;color:#4b5563;">
-      <strong>${event.title}</strong> is back on — here are the details:
+      <strong>${escapeHtml(event.title)}</strong> is back on — here are the details:
     </p>
     ${eventCard(event)}
     ${eventLink}
@@ -260,12 +289,12 @@ function buildUncancel(event: EventRow, name?: string | null): { subject: string
 
 function buildUpdate(event: EventRow, name?: string | null): { subject: string; html: string; text: string } {
   const subject = `Updated: ${event.title}`;
-  const eventLink = event.slug ? `<p style="margin:16px 0 0;font-size:14px;"><a href="${eventPageUrl(event.slug)}" style="color:#2563eb;">View event page →</a></p>` : '';
+  const eventLink = event.slug ? `<p style="margin:16px 0 0;font-size:14px;"><a href="${escapeHtml(eventPageUrl(event.slug))}" style="color:#2563eb;">View event page →</a></p>` : '';
   const html = htmlEmail(subject, `
     <p style="margin:0 0 16px;font-size:16px;color:#111827;">${greeting(name)}</p>
     <h1 style="margin:0 0 8px;font-size:24px;font-weight:700;color:#111827;">Event updated</h1>
     <p style="margin:0;font-size:16px;color:#4b5563;">
-      The details for <strong>${event.title}</strong> have changed. Here's what changed:
+      The details for <strong>${escapeHtml(event.title)}</strong> have changed. Here's what changed:
     </p>
     ${eventCard(event)}
     ${eventLink}
@@ -617,50 +646,69 @@ async function handleUpdate(supabase: ReturnType<typeof createClient>, eventId: 
 
 serve(async (req: Request) => {
   if (req.method === 'OPTIONS') {
-    return new Response(null, {
-      headers: {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-      },
-    });
+    return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    // Guard: Mailgun env vars (module-level ?? '' for Deno, checked here)
+    // Guard: required env vars
     if (!MAILGUN_API_KEY || !MAILGUN_DOMAIN) {
-      return new Response(JSON.stringify({ error: 'Missing required env vars' }), { status: 500 });
+      return new Response(
+        JSON.stringify({ error: 'Service temporarily unavailable' }),
+        { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
+      );
     }
 
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader) {
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 });
+    const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+    if (!SUPABASE_URL || !SUPABASE_ANON_KEY || !serviceRoleKey) {
+      return new Response(
+        JSON.stringify({ error: 'Service temporarily unavailable' }),
+        { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
+      );
     }
+
+    // ── JWT validation — extract Bearer token and verify with Supabase ───────
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader?.startsWith('Bearer ')) {
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized' }),
+        { status: 401, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
+      );
+    }
+
+    const token = authHeader.replace('Bearer ', '');
+    const anonClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    const { data: { user }, error: authError } = await anonClient.auth.getUser(token);
+
+    if (authError || !user) {
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized' }),
+        { status: 401, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
+      );
+    }
+
+    // userId comes from the verified JWT — never trusted from request body
+    const authenticatedUserId = user.id;
 
     // Use service role for DB operations — bypasses RLS so we can read all
     // attendee emails and update mailgun_message_ids across all RSVPs.
-    // Auth header is still validated to ensure caller is authenticated.
-    const supabaseUrl = Deno.env.get('SUPABASE_URL');
-    const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-    if (!supabaseUrl || !serviceRoleKey) {
-      return new Response(JSON.stringify({ error: 'Missing required env vars' }), { status: 500 });
-    }
+    const supabaseClient = createClient(SUPABASE_URL, serviceRoleKey);
 
-    const supabaseClient = createClient(supabaseUrl, serviceRoleKey);
-
-    const { action, eventId, userId } = await req.json() as {
+    const { action, eventId } = await req.json() as {
       action: 'rsvp' | 'cancel' | 'uncancel' | 'update';
       eventId: string;
-      userId?: string;
     };
 
     if (!action || !eventId) {
-      return new Response(JSON.stringify({ error: 'Missing action or eventId' }), { status: 400 });
+      return new Response(
+        JSON.stringify({ error: 'Missing action or eventId' }),
+        { status: 400, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
+      );
     }
 
     switch (action) {
       case 'rsvp':
-        if (!userId) return new Response(JSON.stringify({ error: 'Missing userId' }), { status: 400 });
-        await handleRsvp(supabaseClient, eventId, userId);
+        // Use authenticatedUserId from JWT — not from request body
+        await handleRsvp(supabaseClient, eventId, authenticatedUserId);
         break;
       case 'cancel':
         await handleCancel(supabaseClient, eventId);
@@ -672,14 +720,20 @@ serve(async (req: Request) => {
         await handleUpdate(supabaseClient, eventId);
         break;
       default:
-        return new Response(JSON.stringify({ error: 'Unknown action' }), { status: 400 });
+        return new Response(
+          JSON.stringify({ error: 'Unknown action' }),
+          { status: 400, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
+        );
     }
 
     return new Response(JSON.stringify({ ok: true }), {
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...corsHeaders },
     });
   } catch (err) {
     console.error('send-event-emails error:', err);
-    return new Response(JSON.stringify({ error: String(err) }), { status: 500 });
+    return new Response(
+      JSON.stringify({ error: 'Internal server error' }),
+      { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
+    );
   }
 });
