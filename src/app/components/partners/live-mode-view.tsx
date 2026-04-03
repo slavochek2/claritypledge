@@ -1055,7 +1055,7 @@ function IdleScreen({
   badgePersonName,
   badgePersonEarsCount,
   isStoryOwner = false,
-  _currentUserName,
+  currentUserName,
   isGuest = false,
   uploadHealth,
   sessionMode,
@@ -1165,8 +1165,13 @@ function IdleScreen({
 
   const sessionHistory = liveState.sessionHistory ?? [];
 
+  // P617: Listener should not see story card until round starts (speaker submits).
+  // When ratingInitiatedBy is set and I'm not the initiator, hide the story card.
+  const isListenerDuringLocalRating = !!liveState.ratingInitiatedBy
+    && liveState.ratingInitiatedBy !== currentUserName;
+
   // Use top-aligned layout only when a story/point card is visible on screen
-  const hasScrollableContent = !!liveState.selectedStoryId || !!liveState.selectedStoryData || sessionHistory.length > 0;
+  const hasScrollableContent = ((!!liveState.selectedStoryId || !!liveState.selectedStoryData) && !isListenerDuringLocalRating) || sessionHistory.length > 0;
   // P600: Clean idle (no story, no ratings, no history) uses two-zone layout for stable button position
   const isCleanIdle = !hasScrollableContent && !showRatingDrawer && !hasRatingData;
   const layoutClass = isCleanIdle
@@ -1297,7 +1302,8 @@ function IdleScreen({
               )}
 
               {/* P272: Story card shown when story is selected */}
-              {selectedStory && (
+              {/* P617: Hide for listener while speaker is in local drawer */}
+              {selectedStory && !isListenerDuringLocalRating && (
                 <LiveStoryCardExpanded
                   story={selectedStory}
                   isOwnStory={isStoryOwner}
@@ -1344,7 +1350,8 @@ function IdleScreen({
       )}
 
       {/* P588: Sticky ActionArea OUTSIDE scroll container — only when story selected */}
-      {selectedStory && (selectedHistoryIndex === null || !sessionHistory[selectedHistoryIndex]) && (
+      {/* P617: Hide for listener while speaker is in local drawer */}
+      {selectedStory && !isListenerDuringLocalRating && (selectedHistoryIndex === null || !sessionHistory[selectedHistoryIndex]) && (
         <ActionArea
           sticky={true}
           className={showRatingDrawer || hasRatingData ? '' : '!pt-0'}
