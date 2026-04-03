@@ -30,7 +30,7 @@ test.describe('P581: Letter Composition — sender creates letter from doc', () 
   let sender: TestUser;
   let receiver: TestUser;
   let docId: string;
-  let storyIds: string[] = [];
+  const storyIds: string[] = [];
 
   test.beforeAll(async () => {
     sender = await createTestUser({ name: 'P581 Compose Sender' });

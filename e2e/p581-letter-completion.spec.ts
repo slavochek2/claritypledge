@@ -28,7 +28,7 @@ test.describe('P581: Letter Completion — summary + sender results', () => {
   let sender: TestUser;
   let receiver: TestUser;
   let docId: string;
-  let storyIds: string[] = [];
+  const storyIds: string[] = [];
   let letterId: string;
   let deliveryId: string;
 
@@ -404,7 +404,7 @@ test.describe('P581: Letter Completion — 1-to-many registration gate', () => {
 
     // After any interaction, check that sessionStorage is used
     // (The letter reading flow should persist state in sessionStorage)
-    const hasSessionData = await page.evaluate((lid) => {
+    const _hasSessionData = await page.evaluate((lid) => {
       const keys = Object.keys(sessionStorage);
       return keys.some(k => k.includes('letter') || k.includes(lid));
     }, letterId);
