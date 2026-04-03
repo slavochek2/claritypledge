@@ -47,6 +47,7 @@ const mockPoints: PointWithCreator[] = [
     createdAt: '2024-01-13T08:00:00Z',
     updatedAt: '2024-01-13T08:00:00Z',
     tags: ['workplace', 'conflict', 'communication'],
+    systemTags: [],
     creatorName: 'Marcus Johnson',
     creatorSlug: 'marcus-johnson',
     creatorAvatarColor: '#10B981',
@@ -59,6 +60,7 @@ const mockPoints: PointWithCreator[] = [
     createdAt: '2024-01-11T10:00:00Z',
     updatedAt: '2024-01-11T10:00:00Z',
     tags: ['vulnerability', 'leadership'],
+    systemTags: [],
     creatorName: 'Sarah Chen',
     creatorSlug: 'sarah-chen',
     creatorAvatarColor: '#3B82F6',
@@ -126,6 +128,7 @@ export const mockPointsService: PointsService = {
       createdAt: now,
       updatedAt: now,
       tags,
+      systemTags: [],
       visibility,
     };
   },

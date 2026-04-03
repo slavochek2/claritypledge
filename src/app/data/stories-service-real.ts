@@ -16,6 +16,7 @@ import type {
   PositionType,
 } from '@/app/types';
 import { supabase } from '@/lib/supabase';
+import { isSystemTag } from '@/lib/feed-utils';
 import { pointsService } from './points-service';
 import { generateAIBanner } from '@/app/prototypes/events/banner-utils';
 
@@ -35,6 +36,7 @@ interface DbStoryWithAuthor {
   created_at: string;
   updated_at: string;
   tags: string[];
+  system_tags: string[]; // P630
   banner_url?: string | null;
   image_url?: string | null;
   author: {
@@ -92,6 +94,7 @@ function mapStoryFromDb(row: DbStoryWithAuthor): StoryWithAuthor {
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     tags: row.tags || [],
+    systemTags: row.system_tags || [],
     bannerUrl: row.banner_url ?? undefined,
     imageUrl: row.image_url ?? undefined,
     // Author info from joined profile
@@ -128,6 +131,7 @@ function mapPointSummaryFromDb(row: DbStoryPointWithPoint): PointSummary | null 
     statement: row.point.statement,
     context: row.point.context ?? undefined,
     tags: row.point.tags || [],
+    systemTags: (row.point as { system_tags?: string[] }).system_tags || [],
     visibility: row.point.visibility ?? 'public',
   };
 }
@@ -161,6 +165,7 @@ export const realStoriesService: StoriesService = {
       author_id: user.id,
       content,
       tags,
+      system_tags: [], // P630: system tags set by migration/triggers, never by client
       visibility,
     };
     if (imageUrl !== undefined) insertData.image_url = imageUrl;
@@ -189,6 +194,7 @@ export const realStoriesService: StoriesService = {
       createdAt: data.created_at,
       updatedAt: data.updated_at,
       tags: data.tags || [],
+      systemTags: data.system_tags || [],
       bannerUrl: data.banner_url ?? undefined,
       imageUrl: data.image_url ?? undefined,
     };
@@ -512,7 +518,12 @@ export const realStoriesService: StoriesService = {
       .eq('visibility', 'public');
 
     if (tag) {
-      query = query.contains('tags', [tag]);
+      // P630: Route system tag filters to system_tags column, user tags to tags
+      if (isSystemTag(tag)) {
+        query = query.contains('system_tags', [tag]);
+      } else {
+        query = query.contains('tags', [tag]);
+      }
     }
 
     const { data, error } = await query
@@ -565,6 +576,7 @@ export const realStoriesService: StoriesService = {
       createdAt: data.created_at,
       updatedAt: data.updated_at,
       tags: data.tags || [],
+      systemTags: data.system_tags || [],
       bannerUrl: data.banner_url ?? undefined,
       imageUrl: data.image_url ?? undefined,
     };
@@ -649,6 +661,7 @@ export const realStoriesService: StoriesService = {
       createdAt: s.created_at,
       updatedAt: s.updated_at,
       tags: s.tags ?? [],
+      systemTags: (s as { system_tags?: string[] }).system_tags ?? [],
       bannerUrl: s.banner_url ?? undefined,
       imageUrl: (s as { image_url?: string | null }).image_url ?? undefined,
     };

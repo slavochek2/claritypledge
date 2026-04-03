@@ -115,7 +115,9 @@ Seven tables added by P117. Full schema details in [architecture.md](architectur
 | `point_position_history` | Audit log of position changes (trigger) |
 | `story_verifications` | /live verification records; `story_id`/`version_id` nullable since P413 |
 
-**Migrations:** `supabase/migrations/20260204_stories_points_calibration.sql` (initial), `20260222120000_p413_nullable_story_verifications.sql` (nullable FKs + NULL guard on `update_story_understood_count` trigger).
+**`system_tags` column (P630):** Both `stories` and `points` have a `system_tags text[] NOT NULL DEFAULT '{}'` column that holds system-controlled tags (`st\d+`, `v\d+`, `understanding`, `misunderstanding`). The `tags` column holds only user-created hashtags. System tags are never writable by clients — only DB triggers and migrations modify `system_tags`. A `protect_system_tags()` trigger silently prevents client mutations. The `extract_hashtags_from_content()` trigger writes only user tags to `tags`. The `sync_story_st_tags_to_points()` trigger reads/writes `system_tags`.
+
+**Migrations:** `supabase/migrations/20260204_stories_points_calibration.sql` (initial), `20260222120000_p413_nullable_story_verifications.sql` (nullable FKs + NULL guard on `update_story_understood_count` trigger), `20260403120000_p630_system_tags.sql` (system_tags separation).
 
 **Trigger NULL-guard pattern:** Any trigger on `story_verifications` that touches `story_id` must guard against NULL — `IF NEW.story_id IS NULL THEN RETURN NEW; END IF;` — since exchanges without a story are now valid rows.
 

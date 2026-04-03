@@ -30,6 +30,7 @@ const mockStories: StoryWithAuthor[] = [
     createdAt: '2024-01-15T10:30:00Z',
     updatedAt: '2024-01-15T10:30:00Z',
     tags: ['vulnerability', 'leadership', 'meetings'],
+    systemTags: [],
   },
   {
     id: 'story-2',
@@ -46,6 +47,7 @@ const mockStories: StoryWithAuthor[] = [
     createdAt: '2024-01-10T14:00:00Z',
     updatedAt: '2024-01-10T14:00:00Z',
     tags: ['lessons', 'listening', 'attention'],
+    systemTags: [],
   },
 ];
 
@@ -77,6 +79,7 @@ const mockStoryPoints: Record<string, PointSummary[]> = {
       statement: "Admitting confusion is a sign of strength, not weakness",
       context: 'From my journey learning to say "I don\'t understand"',
       tags: ['vulnerability', 'leadership'],
+      systemTags: [],
     },
   ],
   'story-2': [],
@@ -101,6 +104,7 @@ export const mockStoriesService: StoriesService = {
       createdAt: now,
       updatedAt: now,
       tags,
+      systemTags: [],
       imageUrl,
       // Mock author info for getStory lookups
       authorName: 'You',
@@ -202,6 +206,7 @@ export const mockStoriesService: StoriesService = {
       statement: `Mock point ${pointId}`,
       context: 'Mock context for testing',
       tags: ['mock'],
+      systemTags: [],
     };
 
     // Add to story's points
