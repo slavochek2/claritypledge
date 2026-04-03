@@ -835,6 +835,32 @@ await expect(creatorPage.getByText(joinerName)).toBeVisible({ timeout: 5000 });
 
 This works because `waitForDBPresence` runs in Node.js (Playwright's runner), not in the browser — it bypasses the isolated context problem entirely.
 
+### Banned: `page.reload()` for Two-Party State Sync (P637)
+
+**Never use `page.reload()` to synchronize state between two browser contexts in two-party tests.**
+
+`page.reload()` fetches the entire session from DB, bypassing both Realtime WebSocket delivery AND drift detection polling. Tests pass, but the feature may be broken for real users.
+
+**Incident:** P617 — `ratingInitiatedBy` was missing from drift detection's field list. All Playwright tests passed because `page.reload()` loaded the field directly from DB, skipping both broken delivery paths. The bug was only caught during manual UAT.
+
+```typescript
+// ❌ BANNED — masks delivery bugs:
+await waitForLiveStateKey(session.sessionCode, 'ratingInitiatedBy');
+await guest.page.reload();
+await expect(guest.page.locator('[class*="opacity-50"]')).toBeVisible();
+
+// ✅ CORRECT — catches delivery bugs:
+import { waitForUIUpdate } from './helpers/test-realtime';
+
+await waitForUIUpdate(
+  guest.page,
+  guest.page.locator('[class*="opacity-50"]'),
+  20000, // must exceed drift polling interval
+);
+```
+
+`waitForUIUpdate` relies on the app's own state delivery. If drift detection doesn't include a field, the locator never appears → test fails → bug caught before shipping.
+
 ---
 
 ## Production Smoke Testing

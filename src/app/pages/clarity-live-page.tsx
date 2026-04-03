@@ -1231,8 +1231,10 @@ export function ClarityLivePage() {
         // P490: livePositions missing from drift check caused guest positions to never sync
         // when Realtime WebSocket dropped. JSON.stringify comparison consistent with celebrationAcknowledgedBy pattern.
         const livePositionsDrift = JSON.stringify(serverState.livePositions ?? {}) !== JSON.stringify(localState.livePositions ?? {});
+        // P637: ratingInitiatedBy was missing — partner's mode switcher never disabled when Realtime dropped
+        const ratingInitiatedByDrift = (serverState.ratingInitiatedBy ?? '') !== (localState.ratingInitiatedBy ?? '');
 
-        const serverHasUpdate = phaseDrift || checkerNameDrift || checkerDrift || checkerRatingDrift || responderDrift || responderRatingDrift || explainBackDoneDrift || checksCountDrift || clarificationPhaseDrift || roleSwitchNegotiationDrift || selectedStoryIdDrift || selectedStoryDataDrift || selectedContentTitleDrift || celebrationAcknowledgedByDrift || livePositionsDrift;
+        const serverHasUpdate = phaseDrift || checkerNameDrift || checkerDrift || checkerRatingDrift || responderDrift || responderRatingDrift || explainBackDoneDrift || checksCountDrift || clarificationPhaseDrift || roleSwitchNegotiationDrift || selectedStoryIdDrift || selectedStoryDataDrift || selectedContentTitleDrift || celebrationAcknowledgedByDrift || livePositionsDrift || ratingInitiatedByDrift;
 
         if (serverHasUpdate) {
           // Track in Mixpanel (non-blocking - don't let analytics errors break the app)
@@ -1246,6 +1248,7 @@ export function ClarityLivePage() {
               responderDrift,
               explainBackDoneDrift,
               livePositionsDrift,
+              ratingInitiatedByDrift,
             });
           } catch (err) {
             // Analytics failure shouldn't break the app, but log for visibility
