@@ -84,8 +84,7 @@ All three are valuable. The letter completion summary shows WHERE gaps exist (tr
 
 **Impact if not solved:** ClarityPledge remains a facilitator-dependent service with zero standalone product value. Workshops produce intellectual surprise but no follow-up instrument. Partner agreements have no async practice tool. The product can't test H-StoryFirst (async gap revelations) because the measurement mechanism doesn't exist. H-WTP-Pain testing stalls because the workshop flow's step 4 has no implementation.
 
-**Architectural context — Clarity Doc → Clarity Letter relationship (2026-03-24):**
-A Clarity Letter is an immutable snapshot of content from a Clarity Doc (P551). The Doc is the mutable compose/edit surface — stories accumulate there between sessions. The Letter is the delivery mechanism — "send this collection as a reading experience with assessment." Editing a letter = editing the doc, then sending a new letter (new snapshot from current doc state). V1 builds both together: P551 provides doc CRUD, P581 provides the letter composition wizard triggered from the doc page ("Prepare a Letter" button). The `source_doc_id` FK on `clarity_letters` is NOT NULL — every letter comes from a doc.
+**Architectural context:** Letter = immutable snapshot of a Clarity Doc (P551). The doc is the editing surface; "Prepare a Letter" triggers the composition wizard. See D13.
 
 **Three-letter acquisition sequence (2026-03-24):**
 Letters serve a larger acquisition flywheel: Letter 1 (educate — recipient reads, rates, gaps revealed) → /live verification → Letter 2 (reproduce — recipient creates their own letter using same points, own stories) → Letter 3 (value assessment + PWIW + distributor CTA). In a compressed workshop, all three happen in one 90-120 min session. V1 builds Letter 1 only. Letter 2 uses the same composition flow (recipient is now a registered user). Letter 3 is a future post-completion screen. See [facilitator-guide.md](../../docs/facilitator-guide.md#workshop-format-three-letter-compressed-session).
@@ -351,7 +350,7 @@ Letters serve a larger acquisition flywheel: Letter 1 (educate — recipient rea
 | D25 | 1-to-1 letter URL without valid token? | Returns 404. No existence leak — don't distinguish "doesn't exist" from "you can't access." Same security pattern as token-gated resources. |
 | D26 | `source_letter_id` on `clarity_sessions`? | Include in P581 migration. Nullable FK to `clarity_letters`. Enables future "start /live from letter" feature without schema changes. One column + one index. |
 | D27 | Letter results visible to sender? | In-scope for P581. Sender must see sent letters + completion status + results. Without this, sending has no purpose. |
-| D28 | Where do sent/received letters live in the app? | Within Clarity Docs page — "Letters" section showing sent + received. Letters are always sourced from docs, so doc page is the natural home. No separate `/letters` nav item V1. Supersedes D18. |
+| D28 | Where do sent/received letters live in the app? | Within Clarity Docs page — "Letters" section showing sent + received. Letters are always sourced from docs, so doc page is the natural home. No separate `/letters` nav item V1. |
 | D29 | 1-to-1 letter auth flow? | Reuse Agreement invitation pattern (P422/P488/P527): token-based access + email lookup + one-click registration. Existing user: magic link (no re-auth). New user: `create-and-sign` edge function pattern adapted to `create-and-open-letter`. Receiver can also access from within app (doc page shows received letters) — email is not the only entry. Authentication always required (D47). |
 | D30 | 1-to-many letter auth flow? | Reuse Pledge flow pattern: guest reads → completes → registration gate at end. sessionStorage holds intent. Email input → magic link → results persist on verification. Available only from public docs. |
 | D31 | Letter has two views? | Yes. **View form** (receiver's sequential reading experience — one story at a time, rating gate per story, sealed-bid). **Full form** (doc snapshot + all data from both parties — predictions, ratings, completion summary, positions, filed stories). Sender always sees full form. Receiver sees full form only after completing view form. |
@@ -360,7 +359,7 @@ Letters serve a larger acquisition flywheel: Letter 1 (educate — recipient rea
 | D34 | Rating input for letters? | Discrete 0-10 buttons — reuse existing `RatingButtons` component. Slider is for /live continuous signal only. See D9. |
 | D35 | Grid quadrant labels? | Deferred to P624 (D43). Pre-verification (letter): bottom quadrants "Potential false agreement/disagreement ⚠️". Post-verification (/live): upper quadrants "Verified agreement/disagreement ✓". Understanding (Y-axis) drives the transition from bottom to top. |
 | D36 | Point-before-story ordering? | Conditional on point count: **1 point** → story first, then point (story provides context for the claim it supports). **2+ points** → first point (anti-point, highest priority as set by sender in doc) appears before story for commit-before-context (Clarity Flip mechanic), then story, then remaining points. Sender controls implicitly through doc structure (point ordering via arrows). Vocabulary glosses optional for abstract terms. "I need context" escape valve tracked as content quality metric. |
-| D37 | Point engagement model? | B: must position OR file story explaining why not. Can't skip silently. Existing "add a story" handles the explanation — no extra UI prompts needed. Supersedes D4. |
+| D37 | Point engagement model? | B: must position OR file story explaining why not. Can't skip silently. Existing "add a story" handles the explanation — no extra UI prompts needed. |
 | D38 | Verification outcome states? | Three outcomes: flip, fork, verified agreement/disagreement. Grid triages (WHERE), stories diagnose (WHAT kind). No mechanical classification of flip types — behavior (paraphrase/story content) encodes the distinction. See definitions.md > Verification Outcome States. |
 | D39 | "Can't position because don't understand"? | Handled by existing story filing. User taps "?" → "add a story" → explains in natural language. No dual-track prompt, no extra buttons. Story content reveals comprehension gap vs opinion uncertainty. |
 | D40 | 1-to-1 vs 1-to-many letter mode differences? | See table below. |
@@ -409,31 +408,17 @@ Working prototypes built in claude.ai (2026-03-23) inform this spec:
 
 3. **Screenshot variations (4):** Progress tracking bar, dual progress bars for gap reveal, "commit → reveal speaker's score" sealed-bid flow, feed-style story cards with gap callouts.
 
-Key patterns from prototypes: dot picker (not slider), three-button (not Likert), author lock until engagement, progress bar, dual-number gap reveal. Grid scatter plot deferred to P624 (D43).
+Key patterns from prototypes: dot picker (not slider), three-button (not Likert), author lock until engagement, progress bar, dual-number gap reveal.
 
 ---
 
 ## Reuse Analysis (from P590/P581 coordination session)
 
-**Agreement invitation flow (P422/P488/P527)** — reusable for 1-to-1 letter delivery:
-- Token-based invitation with expiry (`invitation_token` + `invitation_expires_at`)
-- Email lookup for existing vs new user (`lookupUserByEmail()`)
-- One-click registration via `create-and-sign` edge function (atomic user creation + action)
-- Magic link for existing users (skip re-auth, P488)
-- SECURITY DEFINER RPC for token validation
-- Key files: `accept-agreement-page.tsx`, `agreements-service-real.ts`, `send-agreement-emails/index.ts`
+**Agreement invitation flow (P422/P488/P527):** See Technical Analysis → Key patterns already established for file paths and reuse details.
 
-**Pledge flow** — reusable for 1-to-many letter completion:
-- Guest access → full experience → registration gate at end
-- sessionStorage for pending intent (`pendingVerificationEmail` pattern)
-- Magic link verification → data persistence on callback
-- Key files: `sign-pledge-page.tsx`, `use-pledge-form.ts`, `AuthCallbackPage.tsx`
+**Pledge flow:** See Technical Analysis → Key patterns already established for sessionStorage + magic link reuse.
 
-**P590 design system** — all P581 UI must follow:
-- shadcn `<Button>` with proper variants (never raw Tailwind)
-- Lock/globe icons for visibility context
-- Amber (private) / blue (public) banner pattern
-- Touch targets ≥ 44px (`min-h-[44px]`)
+**P590 design system:** Applies per D33 — shadcn Button variants, amber/blue banners, ≥44px touch targets.
 
 ---
 
@@ -528,8 +513,6 @@ DOC PAGE — sender clicks "Prepare a Letter" in header
 ╚══════════════════════════════════╝
 ```
 
-Note: "By opening, you accept the ToS" only for 1-to-1 (D48). 1-to-many cover has no ToS — registration at end handles it.
-
 ### READING — PER STORY (2+ points: anti-point first)
 
 **Step 1: Cold anti-point** (point 1 appears alone, no story context)
@@ -546,8 +529,6 @@ Where do you stand?
 🔒 Slava's position hidden — engage to reveal
 + Add a story (optional)
 ```
-
-D37: must engage (position or story) before proceeding.
 
 **Step 2: Position revealed + story fades in**
 
@@ -574,8 +555,6 @@ this story in the way Slava means it?
 
 [  Submit Rating →  ]
 ```
-
-D49: prompt names author's intent, not self-assessment.
 
 **Step 4: Gap reveal**
 
@@ -645,8 +624,6 @@ For stories with only 1 point: Story → Read → Rate understanding → Gap rev
 ╚══════════════════════════════════════════╝
 ```
 
-Note: "Save your results?" only for 1-to-many unauthenticated receivers (D47/D48).
-
 ### SENDER RESULTS VIEW
 
 **Letters section on doc page** (below stories, no tab)
@@ -681,8 +658,6 @@ From Sarah · Mar 26 · 2 stories · Not started
 ---
 
 ## UX Design
-
-See ASCII Flows above for all screen-by-screen flows (composition, reading, completion, sender results).
 
 ### Full Form View (D31/D32)
 
@@ -946,7 +921,7 @@ Reading state tracked in two layers:
 
 Forward-only contract: once a rating is submitted (written to `story_verifications`), it cannot be changed. sessionStorage tracks "pending" state; DB write is the commitment point. No DELETE or UPDATE RLS policies on letter-sourced `story_verifications`.
 
-*Trade-off:* More complex than pure DB state, but sessionStorage is needed for anonymous 1-to-many flow anyway (no auth = no DB writes until registration). Consistent architecture for both modes.
+*Trade-off:* More complex than pure DB state, but sessionStorage is needed for anonymous 1-to-many flow anyway (no auth = no DB writes until registration).
 
 **AD5: Realtime strategy — bounded vs. unbounded receivers.**
 
@@ -962,7 +937,7 @@ Two new edge functions:
 - `send-letter-emails/index.ts` — cloned from `send-agreement-emails/index.ts`. Same Mailgun integration, similar HTML template, different content (letter cover CTA instead of agreement accept CTA).
 - `create-and-open-letter/index.ts` — cloned from `create-and-sign/index.ts`. Same atomic user-creation pattern, adapted to open a letter delivery instead of accepting an agreement.
 
-*Why clone, not abstract:* Per P538 decision and architecture.md precedent — "copy pattern, don't abstract." Agreement emails and letter emails have different templates, different CTAs, different token semantics. A shared abstraction would be premature and would couple unrelated features.
+*Why clone, not abstract:* Per P538 decision and architecture.md precedent — "copy pattern, don't abstract." Agreement emails and letter emails have different templates, different CTAs, different token semantics.
 
 **AD7: Letter route structure — focus pages with FocusHeader.**
 
