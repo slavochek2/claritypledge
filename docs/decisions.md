@@ -2,6 +2,14 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-03 [product]: P632 — Story formulation review (ST1–ST8)
+
+**Context:** After P629 rewrote points and anti-points for clarity, the 9 stories (ST1–ST9) hadn't been checked for coherence with the new point formulations. Review found 5 stories weak (missing consequences, too abstract, wrong protagonist, invented examples) and 2 needing minor fixes.
+**Decision:** Rewrote 7 stories on prod. ST2: flipped protagonist to self (IBM turning point, real credentials). ST3: added consequence of refusal + manifesto link. ST6: made conflict concrete (agree→empathize→cognitive sequence). ST7: showed paraphrasing refusal experience instead of abstract argument. ST8: replaced invented example with real kanban story from blog. ST1: anonymized (she→they). ST4: renamed link text + dropped academic phrase. Established convention: manifesto concept links use title case ("Asymmetry of Information", "Asymmetry of Vulnerability") and link to manifesto section anchors.
+**Alternatives rejected:** Leaving stories as-is — points were rewritten but stories still referenced old formulations and academic language.
+**Consequences:** ST4, ST5, ST9 unchanged. Stories now follow pattern: lived experience → mechanism → principle. Manifesto links are deep-linkable named concepts. Future story edits should maintain this pattern.
+**References:** [p632_story_formulation_review.md](../features/p632_story_formulation_review.md)
+
 ## 2026-04-03 [technical]: P630 — separate system_tags column for system/user tag isolation
 
 **Context:** Single `tags text[]` column on stories and points mixed three concerns: structural linkage (`st1`–`st9`), content category (`understanding`/`misunderstanding`), lifecycle (`v1`/`v2`), and future user hashtags. Agents silently introduced `motivation` and `deprecated` tags without founder approval. `extractHashtags()` auto-persisted any `#word` from content with no whitelist. As users start creating content, `#v2` or `#st5` in user text would collide with feed logic.
