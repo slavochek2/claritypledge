@@ -32,6 +32,7 @@ Ship an approved feature to production.
    - `done` → proceed (spec was manually approved after UAT — happy path)
    - `qa` → ask: "pN spec is still in `qa` — you haven't marked it done after UAT. Ship anyway? (y/n)"
    - anything else (backlog, in-progress, etc.) → ask: "pN spec is in `{status}` — this doesn't look ready to ship. Proceed anyway? (y/n)"
+2.7. **Check `/finish` ran** — look for `.finish-reviewed` file. If missing or older than the latest commit on the branch, warn: "No `/finish` review found for this branch. Run `/finish` before shipping? (y = run now / n = proceed without review)". If user says "y", invoke `/finish` and wait for completion before proceeding.
 3. **Run pre-commit checks** — `./scripts/pre-commit-checks.sh`
 3.5. **Check Pre-deploy Checklist** — read the spec and look for a `## Pre-deploy Checklist` section. If one exists:
    - Show each item to the user

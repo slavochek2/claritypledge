@@ -694,7 +694,7 @@ CREATE POLICY "Test data: service_role bypass for profiles"
 
 **After tests pass:**
 1. Mark feature as done (update spec: `status: done`)
-2. Run `/design-audit` if UI was modified
+2. Run `/finish` if UI was modified
 3. Run `/kdd` to capture knowledge in docs
 
 **Before committing:**

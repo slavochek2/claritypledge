@@ -83,6 +83,16 @@ Use `type: change-request` (first-class kanban type, shown in purple). The `chan
 - New capability, new user value → `/create-prd`
 - Shipped feature, design was wrong → `/change-request`
 
+## Change-Request Processing Contract
+
+**When processing a spec with `type: change-request` and `changes: pN`:**
+
+1. **Read the predecessor** — find `pN_*.md` in `features/done/` (or `features/` if not yet shipped). Read it as **read-only historical context** for what was originally built and why.
+2. **Implement the delta** — this spec describes what to change. Do not re-examine or re-propose the predecessor's settled decisions.
+3. **Never edit the predecessor** — it is a shipped record. Do not recommend changes to it, rewrite its sections, or suggest "going back to fix the original spec."
+
+This contract applies to every pipeline skill (`/challenge-prd`, `/ux`, `/architect`, `/dev`, `/fix`, `/generate-tests`, `/spec-review`, etc.) — not just `/dev`.
+
 ## Re-read After Editing Feature Files
 
 **Rule:** If you make more than one Edit to the same feature file in a single task, re-read the file before each subsequent Edit. The frontmatter fixer (`scripts/fix-frontmatter.py`) may run between edits (via pre-commit or manual invocation), altering the file on disk and making your previous copy stale. Skipping the re-read causes Edit to fail with an `old_string` mismatch.

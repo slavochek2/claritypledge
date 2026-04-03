@@ -107,17 +107,99 @@ reviews:
 ## Acceptance Criteria
 
 - [ ] Mode switcher visible on default/idle screen for both users
-- [ ] Mode switcher hidden once users enter a mode (after speaker submits rating)
-- [ ] Mode switcher locked (disabled + hover tooltip) while speaker is in their local rating drawer
+- [ ] Mode switcher hidden once users enter a round (after speaker submits rating)
+- [ ] Mode switcher locked (disabled + tooltip) while speaker is in their local rating drawer
 - [ ] Mode switcher reappears when returning to idle after guided round completion
 - [ ] Mode switcher reappears when returning to idle after free mode round completion
 - [ ] Mode switcher reappears after "Speak freely" (exit mode without completing round)
 - [ ] Mode switcher reappears after "Skip" / "Decline"
 - [ ] Speaker clicking "Speak" opens their drawer immediately (partner sees no change except locked mode switcher)
-- [ ] Speaker submitting rating transitions partner into the mode (partner sees their drawer, no Speak button)
+- [ ] Speaker submitting rating transitions partner into the round (partner sees story card + their drawer, no Speak button)
+- [ ] Listener does NOT see the story card until the round starts (speaker submits). Story card appears first, drawer opens after brief reading moment.
+- [ ] Simultaneous Speak: first submitter wins (current behavior). Both may open local drawers — when one submits, the other's becomes the responder drawer.
 - [ ] No regression to sealed-bid pattern
 - [ ] Works for both Check and Prove flows
 - [ ] Works for both Open and Guided modes
+
+---
+
+## Resolved Decisions
+
+| # | Source | Finding | Resolution | Rationale |
+|---|--------|---------|-----------|-----------|
+| 1 | /challenge-prd | [BLOCK] Step 2b auto-drawer on story select is new behavior, underspecified | Removed Step 2b. Story selection stays idle. Owner clicks Speak separately. | Scope creep — core problem is mode switcher lifecycle, not story-drawer coupling. File separate P-number for auto-drawer later. |
+| 2 | /challenge-prd | [BLOCK] Simultaneous Speak clicks unaddressed | Added AC: first submitter wins. Both may open local drawers. | Current implicit behavior, documented explicitly. |
+| 3 | /challenge-prd | [WARN] Back button from drawer not in ASCII | Added Step 2c: cancellation returns both to Step 1. | Completes the lifecycle. |
+| 4 | /challenge-prd | [WARN] Tooltip text placeholder conflict | Committed to "Mode locked — your partner is rating". Removed FOUNDER DECISION tag. | Text already in UI Contract, no reason to defer. |
+| 5 | /challenge-prd | [WARN] Listener story card timing | AC updated: story card appears when round starts, drawer opens after brief reading moment. | Listener needs reading time before rating. |
+| 6 | /challenge-prd | [WARN] Browser reload orphans ratingInitiatedBy | Accepted risk. Known limitation of existing mechanism. | Low frequency, not in P617 scope. File follow-up if observed in UAT. |
+
+---
+
+## Screen-by-Screen Flow (canonical reference)
+
+This is the exact screen state at each step. Any implementation that doesn't match this is wrong.
+
+```
+Step 1: Both join → clean idle
+   USER A (speaker)              USER B (listener)
+   ┌─────────────────────┐      ┌─────────────────────┐
+   │  [Speak]            │      │  [Speak]             │
+   │  + Select story     │      │  + Select story      │
+   │  [Open] [Guided]    │      │  [Open] [Guided]     │
+   └─────────────────────┘      └─────────────────────┘
+   Both: Speak button, story picker, mode switcher (enabled).
+
+Step 2: User A clicks Speak (with or without a story selected)
+   USER A                        USER B
+   ┌─────────────────────┐      ┌─────────────────────┐
+   │  [Story Card]       │      │  [Speak]             │
+   │  (if selected)      │      │  + Select story      │
+   │  ┌─ Drawer ──────┐  │      │                      │
+   │  │ How well does  │  │      │  [Open] [Guided]     │
+   │  │ B understand?  │  │      │    (disabled)        │
+   │  │ [1-10 scale]   │  │      │                      │
+   │  │ [Submit] [Back]│  │      │                      │
+   │  └────────────────┘  │      │                      │
+   └─────────────────────┘      └─────────────────────┘
+   User A: drawer opens immediately, no mode switcher.
+   User A sees story card above drawer if a story was selected before Speak.
+   User B: stays on idle, mode switcher DISABLED.
+   User B does NOT see story card yet (even if selected).
+
+Step 2c: User A clicks Back (cancels from drawer)
+   USER A                        USER B
+   ┌─────────────────────┐      ┌─────────────────────┐
+   │  [Speak]            │      │  [Speak]             │
+   │  + Select story     │      │  + Select story      │
+   │  [Open] [Guided]    │      │  [Open] [Guided]     │
+   └─────────────────────┘      └─────────────────────┘
+   Both return to Step 1. ratingInitiatedBy cleared.
+   Mode switcher ENABLED again. Story selection preserved if it was set.
+
+Step 3: User A submits a number → round starts
+   USER A                        USER B
+   ┌─────────────────────┐      ┌─────────────────────┐
+   │  [Story Card]       │      │  [Story Card]        │
+   │  Understanding...   │      │  ┌─ Drawer ──────┐   │
+   │                     │      │  │ How confident  │   │
+   │                     │      │  │ you understand │   │
+   │                     │      │  │ A? [1-10]      │   │
+   │                     │      │  │ [Submit]       │   │
+   │                     │      │  └────────────────┘   │
+   └─────────────────────┘      └─────────────────────┘
+   Both in round. Mode switcher HIDDEN on both sides.
+   User B NOW sees story card + rating drawer.
+
+Step 4: Both submitted → results → celebration → back to idle
+   USER A                        USER B
+   ┌─────────────────────┐      ┌─────────────────────┐
+   │  [Speak]            │      │  [Speak]             │
+   │  + Select story     │      │  + Select story      │
+   │  [Open] [Guided]    │      │  [Open] [Guided]     │
+   └─────────────────────┘      └─────────────────────┘
+   Back to Step 1. Mode switcher ENABLED again.
+```
 
 ---
 
@@ -125,11 +207,12 @@ reviews:
 
 | Element | Value | Context |
 |---------|-------|---------|
-| Mode switcher — idle | Enabled, blue highlight on active mode | Default screen |
-| Mode switcher — speaker rating | Disabled (grayed out), tooltip on hover | While speaker is in local rating drawer |
-| Mode switcher — inside mode | Hidden | After speaker submits, both in round |
+| Mode switcher — idle | Enabled, blue highlight on active mode | Default screen, no round active |
+| Mode switcher — speaker in drawer | Disabled (grayed out), tooltip: "Mode locked — your partner is rating" | While speaker is in local rating drawer |
+| Mode switcher — in round | Hidden | After speaker submits, both in round |
 | Mode switcher — back to idle | Enabled, reappears | After round completes |
-| Tooltip text (locked) | [FOUNDER DECISION: exact tooltip text when mode is locked] | Hover on disabled mode switcher |
+| Story card — listener | NOT visible until round starts | Listener stays on idle while speaker is in drawer. Appears when speaker submits. |
+| Speak button — with story selected | Visible for story owner, hidden for non-owner | Story selection does NOT auto-open drawer. Owner clicks Speak separately. |
 
 ---
 
@@ -187,11 +270,20 @@ The only conditions that *can* be true while `ratingPhase === 'idle'` and affect
 
 ### Architecture Decisions
 
-**AD-1: Simplify the 7-condition to 2 states (visible-enabled vs visible-disabled).**
+**AD-0: Two separate mechanisms control two separate actors.**
+
+This is the critical distinction that caused the first failed implementation. Do not confuse them:
+
+- **`isLocallyRating`** (local React state, never shared) — controls the **speaker's** view. When true, `getViewState()` returns `local-rating` and the speaker leaves IdleScreen entirely, entering `RatingScreenWithOptionalDrawer`. The speaker does not see the mode switcher because they are no longer on IdleScreen.
+- **`ratingInitiatedBy`** (shared via Supabase Realtime) — controls the **listener's** mode switcher. When set, the listener's mode switcher becomes disabled (grayed + tooltip). The listener stays on IdleScreen — their view does NOT change.
+
+`isLocallyRating` is set on Speak click (local, instant). `ratingInitiatedBy` is also set on Speak click (shared, propagates via Realtime ~200-500ms). On submit, `ratingInitiatedBy` is overwritten (already set, no visible change) alongside `ratingPhase: 'waiting'` which triggers the listener's view transition.
+
+**AD-1: Mode switcher within IdleScreen: 2 states (enabled vs disabled).**
 
 The mode switcher no longer needs to be *hidden* from within IdleScreen. The render branch structure already handles hiding: IdleScreen only renders during `ratingPhase === 'idle'`, and early-returns for free mode, waitingForPartner, and isLocallyRating already exit before reaching IdleScreen.
 
-New logic:
+New logic within IdleScreen:
 - **Show enabled** (default): `onSessionModeChange` is truthy and `!liveState.ratingInitiatedBy`
 - **Show disabled**: `onSessionModeChange` is truthy and `liveState.ratingInitiatedBy` is set (speaker is in local rating drawer)
 - **Hidden**: `onSessionModeChange` is falsy (prop not provided — no mode switching capability)
@@ -206,9 +298,9 @@ The redundant conditions (`!showRatingDrawer`, `!waitingForPartnerToContinue`, `
 
 The disabled state is derived from `liveState.ratingInitiatedBy` which is already available inside `IdleScreen` via the `liveState` prop. No new prop is needed.
 
-**AD-4: Tooltip text is a `[FOUNDER DECISION]`.**
+**AD-4: Tooltip text confirmed.**
 
-The exact tooltip text when the mode switcher is locked is marked in the UI Contract table. Placeholder for implementation: `"Mode locked — your partner is rating"`. [FOUNDER DECISION: exact tooltip text when mode is locked]
+Tooltip text when the mode switcher is locked: "Mode locked — your partner is rating".
 
 ### Security Review
 
@@ -226,24 +318,35 @@ The exact tooltip text when the mode switcher is locked is marked in the UI Cont
 
 ### Implementation Approach
 
+#### Pre-implementation: Revert wrong P626 commits on w1
+
+The w1 branch has 3 commits from a failed P626 implementation that addressed `ratingInitiatedBy` timing instead of the actual visibility lifecycle. These must be reverted before implementing P617 correctly:
+- `c5dea856` fix(p626): listener stays idle until speaker submits...
+- `98ed5337` test(p626): E2E verification...
+- `34942715` fix(p626): restore 3-state mode switcher...
+
+After revert, w1 should be at `76fd9b50` (the last valid P617 commit).
+
 #### Build Sequence
 
-1. **Refactor mode switcher condition in `IdleScreen`** (line 1352 of `live-mode-view.tsx`):
-   - Replace the 7-condition AND with a simpler visibility check: `onSessionModeChange && (...)`.
-   - Derive a `modeSwitcherDisabled` boolean: `!!liveState.ratingInitiatedBy`.
-   - When enabled: render buttons as today (clickable, blue highlight on active mode).
-   - When disabled: wrap the pill in `MobileTooltip`, apply `opacity-50 cursor-not-allowed` to the container, add `disabled` attribute to both buttons.
+1. **Ensure `handleStartCheck` and `handleStartProve` write `ratingInitiatedBy` on Speak click** (`clarity-live-page.tsx`). This is the shared signal that disables the listener's mode switcher. `isLocallyRating` (local state) opens the speaker's drawer.
 
-2. **Import `MobileTooltip`** at the top of `live-mode-view.tsx` (add to existing imports from `../shared/`).
+2. **Mode switcher in `IdleScreen`** (`live-mode-view.tsx`):
+   - Hidden conditions (return null): `!onSessionModeChange`. All other hide conditions are handled by the render branch structure (IdleScreen only renders when `ratingPhase === 'idle'`).
+   - Disabled state: `!!liveState.ratingInitiatedBy` → wrap in `MobileTooltip`, apply `opacity-50 cursor-not-allowed`, `disabled` attribute on buttons.
+   - Enabled state: default when `!ratingInitiatedBy`.
 
-3. **Verify all reset paths clear `ratingInitiatedBy`** (already confirmed — `handleCelebrationComplete`, `handleSkip`, `handleFreeSpeakFreely` all reset it to `undefined`). No changes needed.
+3. **Listener does NOT see story card until round starts.** When `ratingInitiatedBy` is set but `ratingPhase === 'idle'`, the listener stays on IdleScreen with no story card visible. The story card for the listener appears only when `getViewState` returns `responder-drawer` (after speaker submits). This may require filtering `selectedStoryData` from the listener's IdleScreen render when `ratingInitiatedBy` is set.
 
-4. **Test: mode switcher appears on idle for both users; locks (grays + tooltip) when partner clicks Speak; re-enables after round completes or skip.**
+4. **Verify all reset paths clear `ratingInitiatedBy`** (already confirmed — `handleCelebrationComplete`, `handleSkip`, `handleFreeSpeakFreely`, `onCancelLocalRating` all reset it to `undefined`).
+
+5. **Test against ASCII flow Steps 1-4 + Step 2c (cancellation).**
 
 #### Files to Modify
 
-| File | Change | Lines |
-|------|--------|-------|
-| `src/app/components/partners/live-mode-view.tsx` | Refactor mode switcher condition (line 1352), add `MobileTooltip` import, add disabled styling | ~1352, imports |
+| File | Change |
+|------|--------|
+| `src/app/components/partners/live-mode-view.tsx` | Mode switcher: 2-state (enabled/disabled). Hide story card for listener when `ratingInitiatedBy` set but not in round. `MobileTooltip` import. |
+| `src/app/pages/clarity-live-page.tsx` | Ensure `ratingInitiatedBy` written on Speak click (may already be correct after revert). |
 
 No new files. No database changes. No new dependencies.

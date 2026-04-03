@@ -1,7 +1,7 @@
 # Done Features Index
 
 Quick reference for past completed work. Consult when starting work on a related topic.
-Last updated: 2026-04-02 (P609 Free Mode Slider Sync)
+Last updated: 2026-04-03 (P628 Doc Point Reorder Fix)
 
 ---
 
@@ -37,6 +37,7 @@ Last updated: 2026-04-02 (P609 Free Mode Slider Sync)
 
 ## Points & Stories
 
+- **P628** (Apr 03) Doc Point Reorder Fix — mutation layer (useCallback) must use same computed order as display layer (useMemo), not raw DB state; stale saved order silently drops newly-linked items
 - **P610** (Mar 31) Visibility Line Indicators — shared VisibilityLine component across 5 creation flows; mapPointSummaryFromDb was missing visibility column (icons always showed globe); optimistic PointSummary also needed visibility; doc_stories FK needed CASCADE
 - **P607** (Mar 30) Visibility Inheritance on Creation — all 3 creation paths (story-detail, create-story, StoryGuideChat) must pass parent visibility; code review caught TDZ bug and missed path
 - **P592** (Mar 27) Fix Hashtag Update — DB trigger as safety net for derived columns; if N call sites must all compute a value, move it to a trigger
@@ -74,6 +75,7 @@ Last updated: 2026-04-02 (P609 Free Mode Slider Sync)
 
 ## Database / RLS / Migrations
 
+- **P630** (Apr 03) Separate System Tags from User Tags — `system_tags` column isolates feed logic from user hashtags; `protect_system_tags` trigger prevents client mutation; `filterByTags` checks both arrays
 - **P586** (Mar 25) Visibility & Privacy Foundation — `content_visibility` enum, point visibility column, BEFORE triggers for immutability + cross-visibility, 8 tables RLS-hardened, amber=private color system
 - **P403** (Feb 26) Position Cascade DB Migrations — on position delete, trigger auto-unlinks stories and records in history table
 - **P417** (Feb 26) migrate.sh Silent Schema Drift — HTTP 200 ≠ success; parse body (JSON array=success, object with message=failure)

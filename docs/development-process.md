@@ -408,7 +408,7 @@ This document describes how features move from idea to production in the Clarity
 - "Tests: 9/10 passing, fixing edge case..."
 - "Tests: 10/10 passing ✅"
 
-**Built-in review:** After commit, `/dev` automatically spawns `/review-all` as a subagent. Findings presented to user (HIGH/MEDIUM/LOW). User approves fixes before feature closes.
+**Built-in review:** After commit, `/dev` automatically spawns `/finish` as a subagent. Findings presented to user (HIGH/MEDIUM/LOW). User approves fixes before feature closes.
 
 **Example:**
 ```bash
@@ -860,7 +860,7 @@ A third pattern — distinct from bugs and features — is when something *feels
 │   → Invoke /quick-feature (if it's a small addition)
 │   → Invoke /create-prd (if it's a real feature)
 │
-└─ 3. Post-work: /review-all + /kdd as usual
+└─ 3. Post-work: /finish + /kdd as usual
 ```
 
 **Key rule:** The conversation IS the discovery phase. Once the user approves an approach, that's the skill entry point — don't implement ad-hoc. The skill handles spec tracking, test generation, and auto-close.
@@ -874,7 +874,7 @@ A third pattern — distinct from bugs and features — is when something *feels
 `/dev` does NOT auto-close to prod. It stops at the UAT gate — `delivery_stage: uat` is set, code lives on `feature/pN-xxx` branch. When you're satisfied, run `/ship pN` to merge to prod and close the spec (`status: done`, moves to `features/done/`).
 
 **Built-in post-work (automatic):**
-- `/review-all` — spawned automatically by `/dev` after commit. Code + design + UX review (3 agents in parallel). Findings presented with fix options before UAT gate.
+- `/finish` — spawned automatically by `/dev` after commit. Classifies changes by type, runs applicable reviews in parallel. Findings presented with fix options before UAT gate.
 
 **Your gate:**
 - `/ship pN` — merges branch → main → Vercel deploys → closes spec. Only you can trigger this.
@@ -888,8 +888,8 @@ A third pattern — distinct from bugs and features — is when something *feels
 | Situation | Run |
 |-----------|-----|
 | Simple UI tweak | `/verify` only |
-| Non-trivial feature (multi-file, auth) | `/review-all` then `/verify` |
-| Pure backend | `/review-all` only |
+| Non-trivial feature (multi-file, auth) | `/finish` then `/verify` |
+| Pure backend | `/finish` only |
 
 ---
 
@@ -898,8 +898,6 @@ A third pattern — distinct from bugs and features — is when something *feels
 These exist but aren't in the default path. Invoke them when you have a specific reason:
 
 - `/refactor` — post-implementation code cleanup (rename, deduplicate, restructure). Run after `/dev` closes the feature, only when code quality warrants it.
-- `/review-all` — run manually if you want a second pass, or after `/fix` (which doesn't auto-run it). `/dev` already runs it automatically.
-- `/design-audit` — focused design system compliance check. Subset of `/review-all`.
 
 ---
 
@@ -910,7 +908,7 @@ These skills can be used at any point during development when you need them:
 | Skill | When to Use | What It Does |
 |-------|-------------|--------------|
 | `/simplify` | Facing complex decision with many options | Decision-by-decision analysis and recommendations |
-| `/review-all` | After `/fix`, or for a second pass after `/dev` | Static code + design + UX review (no browser). `/dev` runs it automatically; use manually for `/fix` or re-review. |
+| `/finish` | After `/fix`, or for a second pass after `/dev` | Consolidated review dispatcher — classifies changes, runs type-appropriate reviews. `/dev` runs it automatically; use manually for `/fix` or re-review. |
 
 **Usage pattern:**
 - These don't block the main flow
@@ -958,7 +956,7 @@ Skills for managing subscribers, post-session follow-ups, and personalized outre
                         ↓
 ┌─────────────────────────────────────────────────────┐
 │ POST-WORK                                           │
-│ (auto) /dev → /review-all subagent → fix → UAT gate │
+│ (auto) /dev → /finish subagent → fix → UAT gate │
 │ (gate) delivery_stage:uat set — code on branch      │
 │ (you) /ship pN → merges to prod, closes spec        │
 │ (optional) /verify — live UAT + visual QA           │

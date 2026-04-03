@@ -128,7 +128,7 @@ Recommendation: Remove from README.md, link to definitions.md instead.
 
    **Tag is required.** Pick exactly one:
    - `[product]` — strategy, positioning, business model, UX model, customer definition → read by `/create-prd`, `/ux`, `/spec-review`
-   - `[technical]` — schema, code patterns, data model, infrastructure, service design → read by `/architect`, `/review-all`, `/spec-review`
+   - `[technical]` — schema, code patterns, data model, infrastructure, service design → read by `/architect`, `/finish`, `/spec-review`
    - `[process]` — workflows, skills, dev tooling, testing, agent setup → no active skill filters this tag; serves as human-readable context in `/day` and `/weekly` when they scan decisions.md
 
    **Quick classification:** if it affects how users experience the product → `[product]`. If it affects how the code is structured → `[technical]`. If it affects how the team/agents work → `[process]`.
@@ -217,12 +217,14 @@ Recommendation: Remove from README.md, link to definitions.md instead.
    git status --short          # uncommitted changes?
    python3 scripts/fix-frontmatter.py --dry-run 2>/dev/null | head -5   # frontmatter drift?
    curl -sf "http://localhost:9050/api/features?refresh=true" > /dev/null && echo "Kanban refreshed." || echo "Kanban not running — skip."
+   cat .finish-reviewed 2>/dev/null || echo "NO_FINISH_REVIEW"
    ```
 
    Report:
    - If uncommitted changes exist: list them. Ask: "Commit now or leave for next session?"
    - If frontmatter drift detected: mention it. Offer to run `fix-kanban`.
    - Report kanban result as returned by the curl command.
+   - If `.finish-reviewed` is missing or empty: "Reminder: `/finish` wasn't run this session. Run it to review changes before shipping."
 
 7. **Meta-reflection** — output to chat only (no file logging):
 

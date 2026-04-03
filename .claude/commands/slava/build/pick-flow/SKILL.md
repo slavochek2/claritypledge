@@ -1,18 +1,18 @@
 ---
 name: pick-flow
 description: >
-when_to_use: "When starting work and unsure which development flow to use."
-  Recommends the right development flow for a task by analyzing its scope and complexity.
-  Proposes 2-3 options ranked lightest to heaviest, with exact slash commands, trade-offs,
-  and a recommendation. Use when starting work and unsure which flow is appropriate —
-  e.g. inline fix vs quick-feature vs full PRD pipeline. Triggered by "/pick-flow",
+  Recommends the quality-default development flow with smart opt-out suggestions.
+  Presents the full quality flow first, then suggests which steps are safe to skip
+  and why. Optimizes for outcome quality, not minimal effort. User opts OUT of steps
+  explicitly ("skip diagnosis", "light flow"), never opts IN to quality.
+when_to_use: >
+  When starting work and unsure which development flow to use. Triggered by "/pick-flow",
   "what flow should I use?", "which flow for this?", "should I file a spec?", or whenever
   the user is about to start a task and the right process is unclear.
-
   Proactively offer this at the start of any non-trivial task (P-number mentioned, bug
   described, "what do we do next" asked) — do not wait to be asked. Skip for one-liner
   fixes, typo edits, or when the user has already named the exact commands to run.
-version: 1.0.0
+version: 2.0.0
 ---
 
 # pick-flow
@@ -53,42 +53,73 @@ Union: [highest tier], commands: [merged set]
 
 If 3+ signals fire, or any `/architect`-mandatory or `/verify`-mandatory signal fires, state it explicitly.
 
-## Output format (≤35 lines)
+## Output format (≤50 lines)
+
+Present ONE recommended quality flow — not 2-3 options. The flow defaults to full quality; opt-out suggestions tell the user what's safe to skip.
+
+**Execution order:** Run Step 0 (task type) + scoring tables FIRST to gather signals and classify. Then populate this template with the results.
 
 ```
 ## Flow for: [task name, ≤8 words]
 
 Signals: [list fired signals, one line each]
+Tier: [A/B/C] — [one decisive sentence why]
 
-**A — [name]** (lightest)
-Commands: /cmd1 → /cmd2 → /cmd3 → /cmd4
-Fits when: [one line]
-Risk: [one line — what breaks if this tier is too light]
+### Phase 1: Understand
+[Include for B/C tier, OR when problem clarity is low, OR spec is >14 days old / change-request]
+Commands: /dd:frame-analyze → [/challenge-prd if applicable] → [spec validation if stale]
+Why: [one line — what this phase catches for THIS task]
 
-**B — [name]** (medium)
-Commands: /cmd1 → /cmd2 → /cmd3 → /cmd4
-Fits when: [one line]
-Risk: [one line — what breaks if this tier is too light]
+### Phase 2: Build
+Commands: /cmd1 → /cmd2 → ... → /dev → /verify
+Why: [one line — what quality gates protect in THIS task]
 
-**C — [name]** (full)   ← only include if genuinely warranted
-Commands: /cmd1 → /cmd2 → /cmd3 → /cmd4 → /cmd5
-Fits when: [one line]
-Risk: [one line — overhead for this scope]
+### Safe to skip (never suggest skipping a step whose mandatory signal fired)
+- /[command]: [specific reason it's safe for THIS task — e.g., "no net-new visual component"]. Risk: [what could go wrong]
+- /[command]: [reason]. Risk: [what could go wrong]
+- (none — all steps carry weight for this task)
 
-→ **[A/B/C]** — [one decisive sentence: "This is X because [specific signals]"]
-
-Which flow?
+→ Proceed with full flow? Or type "skip [step]" / "light flow" to reduce.
 ```
 
 Commands line lists every applicable step — do not compress into labels like "full pipeline."
 
-**Be decisive.** When signals clearly point to one tier, say "This is clearly B" — not "B is recommended but A could work." Only present genuine options when the signals are ambiguous.
+**Be decisive.** Present the quality-default flow with confidence. Smart opt-out suggestions handle the "lighter" path — don't hedge with "but you could also do less."
+
+**A-tier simple tasks** (1-2 files, known cause, no DB/auth): Phase 1 is omitted (cause is known, spec is fresh or absent). Phase 2 lists only the steps that apply — no mandatory signals fire, so the applicable set is small by nature. Opt-out suggestions may say "(none — all steps carry weight for this task)."
+
+## Smart opt-out suggestions
+
+After presenting the full quality flow, analyze each included step and suggest which are genuinely safe to skip. This is NOT about minimizing work — it's about helping the user make informed trade-offs.
+
+**Format for each suggestion:**
+```
+- /[command]: Safe to skip. [Reason rooted in signals — e.g., "No DB changes, so /architect would only confirm existing patterns."] Risk accepted: [what could go wrong].
+```
+
+**Rules:**
+- Never suggest skipping a step whose mandatory signal fired (architect-mandatory, verify-mandatory, etc.)
+- Maximum 3 suggestions. If everything carries weight, say "(none — all steps carry weight for this task)"
+- Each suggestion must name the risk the user accepts by skipping
+- /verify: only suggest skip when genuinely no visual surface AND no state-machine behavior
+- /generate-tests: only suggest skip per existing rules (pure CSS, single string, one-liner)
+- Phase 1 (/dd:frame-analyze): only suggest skip when root cause is stated and falsifiable
+
+**User opt-out keywords:**
+When the user says "light flow", "skip diagnosis", "just do it", or "quick" — collapse to the minimal viable flow, but state what was removed:
+
+```
+Light flow activated: [derive from task type — feature: /quick-feature → /dev | bug: /fix | refactor: /dev | etc.]
+Skipped: [list each removed step and what it would have caught]
+Proceeding. Add any step back by name.
+```
 
 ## After the user confirms a flow
 
 - If a spec file exists for this task: add `flow: <fix|dev|inline|quick-feature>` to its frontmatter
 - If no spec exists yet: note the chosen flow so the next skill (`/quick-feature` or `/create-prd`) sets it on creation
 - If a mandatory stage was skipped (e.g. `/architect` for a UI-only change): add a one-line note to the spec's `## Next Steps` section: `Skipped: /architect — [reason in ≤10 words].` Use the Edit tool.
+- If the user opted out of steps (via "skip [step]" or "light flow"): log which steps were skipped and why in the spec's `## Next Steps` section: `User opted out: /verify (no visual surface), /dd:frame-analyze (cause stated).`
 
 ## Step 0: Identify task type first
 
@@ -113,29 +144,15 @@ If task type is non-feature/non-bug, state the type and give the default flow di
 
 ## Diagnose protocol (bugs with unclear root cause)
 
-When the user reports a symptom but root cause is unknown, run structured diagnosis before choosing a fix path. Do NOT jump to `/fix` or `/create-bug`.
+When the user reports a symptom but root cause is unknown, do NOT jump to `/fix` or `/create-bug`.
 
-**Spawn a general-purpose subagent with this prompt template:**
+**Route to `/dd:frame-analyze`** — it produces SCQ framing + structural root-cause analysis + 5-Why in one pass. **This IS Phase 1 ("Understand") in the output format** — they are the same step, not separate protocols.
 
-```
-You are a root-cause analyst. Investigate this problem using a structured 5-Why analysis.
+**After `/dd:frame-analyze` completes**, present findings and recommend which build flow to take (`/fix`, `/create-bug`, or escalate to `/create-prd` if the problem is a design issue).
 
-## Symptom
-{user's description of what's broken}
+**Skip shortcut:** If the user says "skip diagnosis", "I know the cause", or states a specific falsifiable root cause — accept their stated cause and proceed directly to flow selection.
 
-## User claims (CONSTRAINTS — your conclusion must be consistent with these, or explicitly explain why not)
-{any observations the user has shared — e.g., "it worked in test", "I saw X yesterday"}
-
-## Instructions
-1. Investigate the actual system state (read files, query APIs, check logs)
-2. At each "why" level, gather evidence before concluding
-3. If your finding contradicts a user claim, flag it explicitly — do not silently ignore
-4. Output: structured 5-Why with evidence at each level, root cause, and recommended fix path
-
-Do NOT edit files or make changes. Diagnosis only.
-```
-
-**After diagnosis completes**, present findings and recommend which build flow to take (`/fix`, `/create-bug`, or escalate to `/create-prd` if the problem is a design issue).
+**Fallback** (if `/dd:frame-analyze` is unavailable — e.g., global skills not installed): spawn a general-purpose subagent with prompt: "You are a root-cause analyst. Investigate [symptom] using structured 5-Why analysis. At each level, gather evidence before concluding. Output: root cause + recommended fix path. Do NOT edit files."
 
 ## Scope scoring (features and bugs only)
 
@@ -219,12 +236,12 @@ Any ONE of these fires → `/verify` is required. Do not skip.
 | Signal | Tier | Commands to include |
 |--------|------|---------------------|
 | Drop `/ux` only when ALL of the following are true: (a) ASCII/mockups in conversation cover all states: happy path, edge cases, empty states, loading states, and responsive/mobile layout; (b) No net-new visual component or layout pattern is being introduced; (c) No mobile-specific layout concerns exist. Otherwise: run `/ux` even if happy-path structure is sketched in conversation. "ASCII decided" ≠ "UX resolved". | — | drop `/ux` |
-| `type: change-request` in spec frontmatter | any | `/spec-review` mandatory (not optional) |
+| `type: change-request` in spec frontmatter | any | ADD `/spec-review` mandatory (not optional) — exception: this row ADDS a step, not drops one |
 | **Changes `.claude/commands/`, `.claude/rules/`, `.claude/hooks/`, `CLAUDE.md`, git workflow, or `scripts/` invoked by hooks/CI** | **Infra** | **See infrastructure tier below** |
 
 **Command ordering when multiple signals apply:** `/create-prd` → `/challenge-prd`* → `/ux` → `/research-arch`* → `/architect` → `/ui` → `/generate-tests` → `/spec-review`* → `/spec-compact` → `/decompose` → `/dev` → `/verify`
 
-`*` `/challenge-prd` recommended for novel features (new capability, new actor, unvalidated flow). Skip for incremental improvements. `/research-arch` optional — only when feature involves novel technology, unfamiliar integrations, or technical unknowns surfaced by `/challenge-prd`.
+`*` `/challenge-prd` mandatory for full and medium pipeline flows and all redesigns. Skip only for small/inline work. `/research-arch` optional — only when feature involves novel technology, unfamiliar integrations, or technical unknowns surfaced by `/challenge-prd`.
 
 ## Infrastructure tier (skills / hooks / process changes)
 
@@ -258,19 +275,19 @@ These changes affect **all future work** — not a single feature. Risk is asymm
 - `/spec-compact` — strips agent conversation residue from spec (Q&A threads, decision analyses, restatements); always after `/spec-review`, before `/decompose` or `/dev`; skip for specs under 100 lines
 - `/decompose` — splits into sub-stories (5+ files or 3+ concerns only, run after `/generate-tests`)
 - `/dev` — implements from spec, stops at QA gate on success (run `/ship` to close)
-- `/review-all` — 3-agent parallel review (code + design + UX); **auto-runs inside both `/dev` and `/fix`** — do NOT list it as a step in any flow (it's already included)
+- `/finish` — consolidated review dispatcher (classifies changes, runs type-appropriate reviews); **auto-runs inside both `/dev` and `/fix`** — do NOT list it as a step in any flow (it's already included)
 - `/verify` — live browser UAT; include when the task introduces net-new visual surface (new layout, new component, visual acceptance criteria, responsive/animation); skip for extractions of existing UI, pure logic/backend/config changes
 - `/kdd` — captures learnings into docs (optional, after shipping)
 
 ## Quality principle
 
-> **Run steps with meaningful quality impact for this task's scope and risk. Skip steps where overhead exceeds the gain — not because they add zero value in theory, but because for a 1-file UI change, `/architect` costs 5 min and adds nothing that reading the file doesn't already provide.**
+> **Include all quality steps that protect this task's outcome. Recommend skipping only when you can name the specific reason the step adds no protection for THIS task. Default to quality; optimize for speed only when the user explicitly requests it.**
 
-Apply this to every step. Don't default to "might help a bit" — default to "clearly helps for this specific task."
+Apply this to every step. Don't default to "skip unless proven useful" — default to "include unless proven unnecessary for this specific task."
 
 ## Hard rules
 
-- Never list a command that adds no value for this specific task
+- Include all commands that protect outcome quality for this task. After presenting the full flow, suggest which are safe to skip and why in the "Safe to skip" section. Never remove a quality gate silently — if a step is excluded, it must appear in opt-out suggestions with a reason
 - `/architect` is mandatory when ANY `/architect`-mandatory signal fires (see scoring table). This includes: DB schema changes, new Postgres functions/triggers, multiple architectural layers, state machine changes, new infrastructure components, cross-concern coordination. Skip only for pure UI-only changes with no DB/auth/API/state-machine surface.
 - `/verify` is mandatory when ANY `/verify`-mandatory signal fires (see scoring table). This includes: state machine bugs, multi-user flows, UI recovery/reconnection, realtime behavior, visual regression risk, and any "user should see X when Y" that unit tests can't cover. Not for every `.tsx` change, not for component extraction with identical output.
 - `/generate-tests` whenever a regression would be annoying to debug manually — includes any conditional rendering, UI state change, interactive behavior, placeholder copy that could drift, button enable/disable logic, CSS class conditionals, and all security/auth/DB cases; mandatory for any DB migration (P270); skip only for pure CSS-only changes, single hardcoded strings with no logic, or one-liner typo fixes
@@ -279,12 +296,16 @@ Apply this to every step. Don't default to "might help a bit" — default to "cl
 - `/ux` — apply drop-`/ux` rule strictly: skip ONLY when ALL three conditions are met: (a) ASCII covers ALL states (happy, edge, empty, loading, responsive), (b) no net-new visual component/pattern, (c) no mobile concerns. If ANY condition fails, include `/ux`. "ASCII in conversation covers happy path" ≠ "UX resolved"
 - `/decompose` only for 5+ files or 3+ independent concerns
 - If spec exists: check `delivery_stage:` first — it takes precedence (see scoring table rows for all 5 stages: `1-prd` through `5-decomposed`); if absent, fall back to `test_files:` — present → start from `/dev`; absent → `/generate-tests` → `/dev`
-- `/review-all` runs automatically inside `/dev` and `/fix` — never list it as a step in any flow
+- `/finish` runs automatically inside `/dev` and `/fix` — never list it as a step in any flow
 - **`/spec-review` is mandatory (not optional) for `type: change-request` specs.** Redesigns have pre-existing elements that can silently conflict with new AC — spec-review catches these before implementation. The `*` optional marker applies to new features only.
 - **`/challenge-prd` is mandatory** for full and medium pipeline flows AND for all redesigns (`/change-request`). Redesigns inherit assumptions from the predecessor spec that need stress-testing. Skip only for small/inline work.
 - After user confirms flow: set `flow:` in spec frontmatter if spec exists
 - When writing `flow:` to spec frontmatter, write exactly one of: `fix`, `dev`, `inline`, `quick-feature` — never the command chain string
 - If you are currently in a worktree (not w0/main), remind the user: spec creation skills (/create-prd, /quick-feature, /change-request, /create-bug) must be run from the main repo.
+- `/verify` is default for ALL B/C tier tasks AND any task with UI changes at any tier. Suggest skipping only with explicit reason (e.g., "pure backend change, no visual surface, no state-machine behavior")
+- **Phase 1 (`/dd:frame-analyze`) is default** when problem clarity is low: symptom described but root cause unknown, user says "something is wrong with X", or multiple possible causes mentioned. Skip only when user says "skip diagnosis" or states a specific falsifiable root cause
+- **Spec age check:** when spec exists and (last modified >14 days ago OR `type: change-request`), flag for validation: "Spec is [N] days old / is a change-request. Recommend running `/spec-review` before `/dev` to catch drift against current code."
+- **User opt-out keywords:** "light flow", "skip diagnosis", "just do it", "quick" — reduce to scope-only minimal flow. Acknowledge the opt-out: "Light flow activated. Skipped: [list steps and what each would have caught]. Add any step back by name."
 
 ## Full pipeline detection
 

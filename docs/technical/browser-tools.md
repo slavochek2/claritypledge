@@ -177,7 +177,7 @@ Requires: claude --chrome (user must be logged in)
 
 **Browser automation tools support single-session use only.**
 
-When orchestrating multiple agents (e.g., `/review-all` spawning 4 parallel agents), only one agent can use browser tools at a time.
+When orchestrating multiple agents (e.g., `/finish` spawning 4 parallel agents), only one agent can use browser tools at a time.
 
 **Why:** Chrome DevTools MCP, Playwright MCP, and Claude in Chrome are designed for single-agent precision testing. They cannot handle concurrent connections from multiple agents.
 

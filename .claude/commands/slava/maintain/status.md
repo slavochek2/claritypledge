@@ -55,6 +55,7 @@ Next:
   3. If mid-session with clear next step → name it specifically
   - `.claude/` files or `CLAUDE.md` changed → also note `→ /claude-md "description"` to validate
   - UI files (`*.tsx`) modified → also note `→ /verify` for visual QA
+  - If `.finish-reviewed` doesn't exist and session has uncommitted or recently committed changes → note `→ /finish` to review before shipping
 - **Do NOT suggest `/kdd` or commit mid-session** when there's clearly more work ahead — only surface them when the session looks like it's winding down
 - If nothing done yet: `Done: session just started`
 - If no problems: omit the Problems section entirely

@@ -56,7 +56,7 @@ When writing SQL to insert/update stories, points, or related content:
 - **Connection:** Never construct pooler URLs manually — read from `SUPABASE_DB_URL` in `.env.local` / `.env.prod`
 - **Child rows:** Every INSERT into `stories` also needs: `story_versions`, `story_points`, `point_positions` for the author
 - **Idempotency:** Use `INSERT ... ON CONFLICT DO UPDATE` so the same script runs on both test (empty) and prod (existing data)
-- **Schema:** Query `\d tablename` on the live DB before writing INSERTs — migration files may not reflect all columns (e.g. `visibility` added in a later ALTER)
+- **Schema:** Read `docs/technical/database.md` + relevant migration files before writing INSERTs — see `.claude/rules/db-access.md` for full schema discovery rules.
 
 ## Seed and Sync Scripts — Never Override User-Set State
 

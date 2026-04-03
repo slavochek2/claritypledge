@@ -28,7 +28,7 @@ This file provides guidance for AI agents working with code in this repository. 
 2. **Search codebase**: `grep -r "ComponentName" src/`
 3. **Read the feature spec completely** if working from a P-number
 4. **Scan `features/done/INDEX.md`** for related past work and prior decisions
-5. **Verify assumptions before building — at every phase.** Before writing code, a spec, or an architect plan that depends on a schema column, API response, or state invariant — verify it. Don't trust type definitions alone; check the migration or run a query. "I'll assume X" → stop and verify X. **Same rule applies to answering questions** about existing behavior — read `docs/decisions.md` and verify against migrations/code before responding.
+5. **Verify assumptions before building — at every phase.** Before writing code, a spec, or an architect plan that depends on a schema column, API response, or state invariant — verify it. Don't trust type definitions alone; check the migration files and `docs/technical/database.md`. "I'll assume X" → stop and verify X. **Same rule applies to answering questions** about existing behavior — read `docs/decisions.md` and verify against migrations/code before responding.
 
 ---
 
@@ -211,7 +211,7 @@ For ALWAYS-ASK actions that send content externally (email, social, Slack, GitHu
 
 See [docs/technical/debugging.md](docs/technical/debugging.md) for full protocol.
 
-**Quick rules:** (1) Verify current code before acting on screenshots. (2) For DB issues: check RLS → migrations → columns. (3) Fix ONE root cause at a time. (4) For runtime issues, query prod first — read static code only after you have real data. (5) UI fixes are not done until a browser check confirms it — "tests pass" isn't enough. (6) Second patch in the same area = wrong root cause — re-diagnose from scratch. (7) Two failures with the same symptom = wrong abstraction level — stop executing and research the API docs before retrying. (8) **Auto-reflect after 2 failed attempts.** Stop. Output: "What I tried: [X, Y]. Why each failed: [reasons]. New hypothesis: [Z]." Only proceed after producing this reflection.
+**Quick rules:** (1) Verify current code before acting on screenshots. (2) For DB issues: check RLS → migrations → columns. (3) Fix ONE root cause at a time. (4) For runtime data issues, read local schema first, then query prod for live data only — see `.claude/rules/db-access.md`. (5) UI fixes are not done until a browser check confirms it — "tests pass" isn't enough. (6) Second patch in the same area = wrong root cause — re-diagnose from scratch. (7) Two failures with the same symptom = wrong abstraction level — stop executing and research the API docs before retrying. (8) **Auto-reflect after 2 failed attempts.** Stop. Output: "What I tried: [X, Y]. Why each failed: [reasons]. New hypothesis: [Z]." Only proceed after producing this reflection.
 
 ---
 
@@ -303,6 +303,8 @@ See [architecture.md](docs/technical/architecture.md) for patterns.
 Code style, design system, point display, and data fetching rules auto-load when editing `src/` via `.claude/rules/src.md`.
 
 Database migration rules, RLS debugging, and schema decisions auto-load when editing `supabase/` via `.claude/rules/database.md`.
+
+DB access hierarchy (local-first, tool preference, test vs prod) auto-loads for `src/`, `e2e/`, `scripts/`, `supabase/`, `features/`, `.claude/commands/` via `.claude/rules/db-access.md`.
 
 ---
 

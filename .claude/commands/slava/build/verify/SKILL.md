@@ -22,9 +22,9 @@ No flags. The skill reads the spec, classifies scenarios, and picks the right to
 
 ## What Makes This Different
 
-| `/review-all` | `/verify` |
-|--------------|-----------|
-| Code, design, UX static analysis | Live interaction + assertions |
+| `/finish` | `/verify` |
+|----------|-----------|
+| Static analysis (code, design, UX, skills, rules, docs) | Live interaction + assertions |
 | Developer perspective | User perspective |
 | "Is the code correct?" | "Does it work and look right?" |
 | Reads files | Runs Playwright + opens browser |
@@ -479,6 +479,6 @@ The `e2e/p{N}-verify.spec.ts` file generated in Step 3c:
 - `/generate-tests` — Generates the UAT file + E2E stubs this skill can use
 - `/dev` — Runs automated tests, stops at QA gate on success
 - `/ship` — Merges to prod after verification passes
-- `/review-all` — Code/design/UX static review (no browser)
+- `/finish` — Consolidated static review (code, design, UX, skills, rules, docs — no browser)
 - `/sim` — Persona-based UX exploration (separate from correctness verification)
 - `/fix` — Investigate and resolve failures found by /verify

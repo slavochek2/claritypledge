@@ -43,12 +43,12 @@ Pattern is documented in decisions.md [2026-03-05 technical]. No mechanical enfo
 
 ---
 
-## Dead code not caught by /review-all or pre-commit
+## Dead code not caught by /finish or pre-commit
 
 **Date:** 2026-03-02
 **Status:** proposed
 
-`PointCardDetail.tsx` had zero production callers and lived in `src/app/components/` undetected — caught only by an ad-hoc consistency audit, not by `/review-all` or any automated check. `/review-all` checks correctness and patterns; it does not detect zero-caller exports.
+`PointCardDetail.tsx` had zero production callers and lived in `src/app/components/` undetected — caught only by an ad-hoc consistency audit, not by `/finish` or any automated check. `/finish` checks correctness and patterns; it does not detect zero-caller exports.
 
 **Fix:** Add dead-code detection (`knip` or `ts-prune`) to `scripts/pre-commit-checks.sh` or as a step in `/maintain:cleanup`. Zero-caller components accumulate silently across feature merges.
 

@@ -2,7 +2,7 @@
 
 Synthetic usability testing uses AI persona agents to simulate real user behavior through browser automation. It produces experience reports and change request candidates before real users encounter friction.
 
-**Why:** User sims find issues that static code review (`/review-all`) and structured UAT (`/verify`) miss — because they test *experience*, not just correctness against the spec.
+**Why:** User sims find issues that static code review (`/finish`) and structured UAT (`/verify`) miss — because they test *experience*, not just correctness against the spec.
 
 ---
 

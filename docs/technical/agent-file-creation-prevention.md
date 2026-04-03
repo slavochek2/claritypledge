@@ -63,7 +63,7 @@ Agents have been creating temporary files in the project root (UPPERCASE markdow
 - `/create-prd` writes to `features/p{N}_{slug}.md` (correct location)
 - `/prepare-blog` writes to `content/blog/{slug}.md` (correct location)
 - `/architect`, `/ux`, `/dev` all append to feature spec files (correct)
-- `/review-all` outputs to terminal (correct - no file creation)
+- `/finish` outputs to terminal (correct - no file creation)
 
 **Evidence:**
 ```bash

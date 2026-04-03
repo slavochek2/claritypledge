@@ -464,7 +464,7 @@ resolution: What was fixed  # Added after fix
 
 After commit succeeds:
 
-1. **Review** — Spawn `/review-all` as a subagent with: "Review all changes on this branch vs main. Spec: [spec path if exists]. Do NOT pause for scope selection — proceed directly with scope = all changes vs main." Present HIGH/MEDIUM findings. Ask: "Fix issues before closing? (all HIGH / select / skip)". Apply approved fixes and commit them.
+1. **Review** — Spawn `/finish code` as a subagent with: "Review all code changes on this branch vs main. Spec: [spec path if exists]. Proceed directly — no scope confirmation needed." Present HIGH/MEDIUM findings. Ask: "Fix issues before closing? (all HIGH / select / skip)". Apply approved fixes and commit them.
 2. Update frontmatter: `status: qa` (clear `delivery_stage`)
 3. Commit: `chore: pN ready for QA — {title}`
 4. Invoke `/slava:maintain:fix-kanban` — fixes frontmatter drift + refreshes kanban

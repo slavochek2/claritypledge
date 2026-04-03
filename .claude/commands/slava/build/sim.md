@@ -230,7 +230,7 @@ persona: [which persona found it]
 ## Related Skills
 
 - `/verify` — functional smoke test (no UX depth); use for pure backend or quick working-check
-- `/review-all` — static code + design review (no browser)
+- `/finish` — static review (code, design, UX, skills, rules, docs — no browser)
 - `/ascii-flows` — design Tier C flow redesigns before filing specs
 - `/create-bug` — file Tier A bugs
 - `/quick-feature` — file Tier B/C change requests

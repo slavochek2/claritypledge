@@ -3,6 +3,7 @@ name: review-all
 description: Run comprehensive parallel reviews on recent changes before shipping
 when_to_use: "Before committing or creating a PR. Triggered by /review-all."
 version: 1.0.0
+archived_reason: "replaced by /finish — consolidated review dispatcher that classifies changes and runs type-appropriate reviews"
 ---
 
 # /review-all
