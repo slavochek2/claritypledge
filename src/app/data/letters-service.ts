@@ -81,13 +81,17 @@ export async function createLetter(
  * and creates deliveries atomically.
  */
 export async function sealLetter(
-  letterId: string
+  letterId: string,
+  predictions: Array<{ story_id: string; prediction: number }> = [],
+  deliveries: Array<{ receiver_email: string }> = []
 ): Promise<{ success: boolean; error?: string }> {
   await requireAuth();
-  log('sealLetter:', letterId);
+  log('sealLetter:', { letterId, predictions, deliveries });
 
   const { data, error } = await supabase.rpc('seal_and_send_letter', {
     p_letter_id: letterId,
+    p_predictions: predictions,
+    p_deliveries: deliveries,
   });
 
   if (error) {

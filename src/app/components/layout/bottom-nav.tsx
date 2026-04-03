@@ -36,7 +36,7 @@ export function BottomNav() {
 
   // Hide on creation/focus pages — these use FocusHeader instead.
   // Content pages (/story/, /point/) keep bottom nav for navigation.
-  const focusRoutes = ['/agreements/', '/create'];
+  const focusRoutes = ['/agreements/', '/create', '/letter/'];
   if (focusRoutes.some(r => location.pathname.startsWith(r))) {
     return null;
   }
