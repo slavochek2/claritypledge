@@ -2,6 +2,22 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-03 [technical]: P634 — app-level visibility filter over Postgres view for private points leak
+
+**Context:** P634 fixed a leak where private points were visible to their creator on public surfaces (profile, feed). The leak existed because RLS correctly allowed creators to read their own rows, but the app-layer didn't filter by `visibility` before displaying them on public surfaces.
+**Decision:** Added `.eq('visibility', 'public')` to three service methods (`getPointsForProfileDisplay`, feed queries, related points) rather than creating a `public_points` Postgres view. Rationale: RLS already provides structural defense for non-creators; the leak was only through the creator's own RLS passthrough. A view adds migration complexity and a new query surface without meaningful additional safety.
+**Alternatives rejected:** (A) `public_points` Postgres view — adds migration, new query surface, and doesn't provide meaningful safety beyond what RLS already does for non-creators. The view would only save a `.eq()` call that the app layer should be explicit about.
+**Consequences:** Future code paths that display points on public surfaces must remember to filter by visibility. The pattern is now established and tested in three locations. Trade-off accepted: convention over enforcement.
+**References:** features/p634 spec (private points leak fix)
+
+## 2026-04-03 [product]: P634 — private points invisible on own profile
+
+**Context:** Previously, viewing your own profile showed your private points because `getPointsForProfileDisplay()` had an owner exception. P634 removed this exception.
+**Decision:** Private points are now invisible everywhere except the direct point detail URL. Profile is a public surface even when self-viewing; showing private points there creates false confidence about their visibility. A dedicated "My Private Points" view can be added later if needed.
+**Alternatives rejected:** Keeping the owner exception — creates a misleading mental model where the creator believes private points are visible on their profile to others too.
+**Consequences:** Creators lose the ability to see their private points from their profile page. They can still access private points via direct URL. If users need a private points management surface, a dedicated "My Private Points" section should be built as a separate feature.
+**References:** features/p634 spec (private points leak fix)
+
 ## 2026-04-03 [product]: P632 — Story formulation review (ST1–ST8)
 
 **Context:** After P629 rewrote points and anti-points for clarity, the 9 stories (ST1–ST9) hadn't been checked for coherence with the new point formulations. Review found 5 stories weak (missing consequences, too abstract, wrong protagonist, invented examples) and 2 needing minor fixes.
