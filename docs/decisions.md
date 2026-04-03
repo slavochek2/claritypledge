@@ -2,6 +2,14 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-03 [technical]: Mixpanel MCP 403 "upscoping" — fix is clearing OAuth cache
+
+**Context:** Mixpanel MCP server stopped connecting with `StreamableHTTPError: Server returned 403 after trying upscoping`. Tokens in `~/.mcp-auth/mcp-remote-*/` were refreshing successfully (file timestamps current), but the server rejected connections. Tried: forcing `--transport sse`, upgrading `mcp-remote` to 0.1.38 — both failed.
+**Decision:** Root cause is stale OAuth scope set. When Mixpanel updates their required scopes server-side, cached tokens carry the old scope list. `mcp-remote`'s "upscoping" flow tries to request broader scopes but Mixpanel returns 403. Fix: `rm -rf ~/.mcp-auth/mcp-remote-*/` then `/mcp` to trigger fresh browser OAuth. This also affects Sentry (same cache dir) — both re-auth in one flow.
+**Alternatives rejected:** (A) Force transport mode (`--transport sse`) — 403 is auth-level, not transport-level. (B) Pin mcp-remote version — version isn't the issue, scope mismatch is. (C) Use `--header` with service account token to bypass OAuth — loses Mixpanel's scoped permissions model.
+**Consequences:** When any `mcp-remote`-based MCP server starts returning 403, first action is `rm -rf ~/.mcp-auth/mcp-remote-*/` + re-auth. This is a recurring pattern — Mixpanel (and potentially Sentry) may update scopes without notice.
+**References:** Mixpanel MCP docs (scope errors section), Claude Code issue #39626 (step-up auth flow)
+
 ## 2026-04-02 [process]: /dd:think v3.0 — output-first 3-tier pipeline with selective adversarial pair
 
 **Context:** The v2.0 /dd:think pipeline ran a fixed 5-phase sequence (frame → analyze → conjecture → falsify → synthesize) producing 15 conjectures for every question regardless of complexity. A self-referential /dd:think run (t001) identified 6 root causes: no complexity classifier at the gate (binary park/proceed), fixed pipeline with no skip/merge, forced 15-conjecture quota, write-only inter-agent notes, monolithic 350-line orchestrator, no outcome feedback. 15 proposals were generated, adversarially falsified (40% kill rate), and scored. Architecture A+ won at 56.0 vs runner-up B at 50.0.
