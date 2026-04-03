@@ -9,7 +9,7 @@
 
 import { useEffect, useState, useMemo, useCallback, useRef } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
-import { Pin, ChevronRight, ChevronDown } from 'lucide-react';
+import { Pin, ChevronRight, ChevronDown, Loader2 } from 'lucide-react';
 import { useAuth } from '@/auth';
 import { pointsService } from '@/app/data/points-service';
 import { resolvePointSlug } from '@/app/data/points-service-real';
@@ -39,6 +39,16 @@ import { TagPills } from '@/app/components/shared/tag-pills';
 import { stripHashtags } from '@/lib/utils';
 import { getAnonPosition, setAnonPosition as setAnonPositionStorage } from '@/app/hooks/useAnonPosition';
 import { AnonPositionCTA } from '@/app/components/shared/anon-position-cta';
+import { toast } from 'sonner';
+import { Button } from '@/components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@/components/ui/dialog';
 
 
 export function PointDetailPage() {
@@ -60,6 +70,9 @@ export function PointDetailPage() {
   const [viewerStory, setViewerStory] = useState<AppStory | null>(null);
   // P542: Accordion state — only one story expanded at a time
   const [expandedHolderId, setExpandedHolderId] = useState<string | null>(null);
+  // P621: Unlink point from story dialog state
+  const [unlinkTargetStory, setUnlinkTargetStory] = useState<string | null>(null);
+  const [isUnlinking, setIsUnlinking] = useState(false);
   // P401: Guard position removal with linked-stories warning dialog
   const { dialogProps, guardedRemovePosition } = useRemovePositionGuard({
     userId: user?.id ?? '',
@@ -262,6 +275,31 @@ export function PointDetailPage() {
       navigate('/feed');
     }
   };
+
+  // P621: Unlink point from story handlers
+  const handleUnlinkClick = useCallback((storyId: string) => {
+    setUnlinkTargetStory(storyId);
+  }, []);
+
+  const handleUnlinkConfirm = useCallback(async () => {
+    if (!unlinkTargetStory || !point) return;
+    setIsUnlinking(true);
+    try {
+      const ok = await storiesService.unlinkPointFromStory(unlinkTargetStory, point.id);
+      if (ok) {
+        setViewerStory(null);
+        setExpandedHolderId(null);
+        toast.success('Point unlinked from story');
+      } else {
+        toast.error('Failed to unlink point. Please try again.');
+      }
+    } catch {
+      toast.error('Failed to unlink point. Please try again.');
+    } finally {
+      setIsUnlinking(false);
+      setUnlinkTargetStory(null);
+    }
+  }, [unlinkTargetStory, point]);
 
   // Helper to retry loading
   const handleRetry = useCallback(() => {
@@ -578,6 +616,7 @@ export function PointDetailPage() {
                           story={holderStory}
                           isViewer={isViewer}
                           onCollapse={() => setExpandedHolderId(null)}
+                          onUnlinkPoint={isViewer ? handleUnlinkClick : undefined}
                         />
                       )}
                     </div>
@@ -632,6 +671,33 @@ export function PointDetailPage() {
       )}
 
       </div>
+
+      {/* P621: Unlink point from story confirmation dialog */}
+      <Dialog open={unlinkTargetStory !== null} onOpenChange={(open) => { if (!open) { setUnlinkTargetStory(null); setIsUnlinking(false); } }}>
+        <DialogContent hideCloseButton>
+          <DialogHeader>
+            <DialogTitle>Unlink point from story?</DialogTitle>
+            <DialogDescription asChild>
+              <div>
+                {point?.statement && (
+                  <p className="italic text-muted-foreground mb-2">
+                    &ldquo;{point.statement.length > 80
+                      ? point.statement.slice(0, 80) + '...'
+                      : point.statement}&rdquo;
+                  </p>
+                )}
+                <p>The point will remain visible to others who have taken positions on it.</p>
+              </div>
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setUnlinkTargetStory(null)} disabled={isUnlinking}>Cancel</Button>
+            <Button variant="destructive" onClick={handleUnlinkConfirm} disabled={isUnlinking}>
+              {isUnlinking ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Unlinking...</> : 'Unlink'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -722,11 +788,13 @@ function ExpandableStoryRegion({
   story,
   isViewer,
   onCollapse,
+  onUnlinkPoint,
 }: {
   holder: PointPositionWithUser;
   story: StoryWithAuthor | AppStory;
   isViewer: boolean;
   onCollapse: () => void;
+  onUnlinkPoint?: (storyId: string) => void;
 }) {
   const regionRef = useRef<HTMLDivElement>(null);
 
@@ -796,6 +864,7 @@ function ExpandableStoryRegion({
             context="point-detail"
             compact
             tags={storyTags}
+            onUnlinkPoint={onUnlinkPoint}
           />
         </ThreadLineItem>
       </ThreadLineGroup>
