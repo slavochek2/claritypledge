@@ -1196,6 +1196,9 @@ export interface StoryVerification {
   listenerRating: number; // 0-10
   accuracyAchieved: boolean; // true if speakerRating >= 8
   createdAt: string;
+  source?: string; // default 'live'
+  verified?: boolean; // default true
+  sortOrder?: number | null;
 }
 
 /** Verification with profile info for display */
@@ -1338,4 +1341,63 @@ export interface SessionTranscript {
 }
 
 export type TranscriptionJobStatus = 'pending' | 'processing' | 'completed' | 'failed' | null;
+
+// ============================================================================
+// CLARITY LETTERS TYPES (P581)
+// ============================================================================
+
+export type LetterStatus = 'draft' | 'sealed' | 'expired';
+export type DeliveryStatus = 'sent' | 'opened' | 'in_progress' | 'completed';
+export type LetterMode = 'one-to-one' | 'one-to-many';
+
+export interface ClarityLetter {
+  id: string;
+  source_doc_id: string;
+  sender_id: string;
+  mode: LetterMode;
+  status: LetterStatus;
+  sealed_at: string | null;
+  created_at: string;
+}
+
+export interface LetterDelivery {
+  id: string;
+  letter_id: string;
+  receiver_email: string | null;
+  receiver_profile_id: string | null;
+  invitation_token: string;
+  invitation_expires_at: string | null;
+  access_token_expires_at: string | null;
+  status: DeliveryStatus;
+  stories_rated: number;
+  opened_at: string | null;
+  completed_at: string | null;
+  created_at: string;
+}
+
+export interface LetterStorySnapshot {
+  letter_id: string;
+  story_id: string;
+  version_id: string;
+  position: number;
+  point_config: Record<string, unknown>;
+  visibility: string;
+}
+
+export interface LetterPrediction {
+  id: string;
+  letter_id: string;
+  delivery_id: string | null;
+  story_id: string;
+  prediction: number;
+  created_at: string;
+}
+
+export interface LetterPointResponse {
+  id: string;
+  delivery_id: string;
+  point_id: string;
+  position: string; // PositionType value
+  created_at: string;
+}
 
