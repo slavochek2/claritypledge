@@ -141,9 +141,20 @@ export function extractHashtags(content: string): string[] {
   return unique.filter(t => !isSystemTag(t));
 }
 
+/** Extract ALL hashtags including system tags — used by stripHashtags fallback only. */
+function extractAllHashtags(content: string): string[] {
+  const matches = content.match(/#(\w+)/g);
+  if (!matches) return [];
+  const tags = matches.map(m => m.slice(1).toLowerCase());
+  return [...new Set(tags)];
+}
+
 export function stripHashtags(content: string, tags?: string[]): string {
-  // Fallback: extract tags from text when DB tags field is empty (pre-P491 content)
-  const effectiveTags = tags && tags.length > 0 ? tags : extractHashtags(content);
+  // P630: Strip user tags from the tags array AND any system-pattern hashtags found in the text.
+  // This ensures #st8 #understanding are stripped even when callers only pass user tags.
+  const userTags = tags && tags.length > 0 ? tags : extractHashtags(content);
+  const systemTagsInText = extractAllHashtags(content).filter(t => isSystemTag(t));
+  const effectiveTags = [...new Set([...userTags, ...systemTagsInText])];
   if (effectiveTags.length === 0) return content;
 
   let result = content;

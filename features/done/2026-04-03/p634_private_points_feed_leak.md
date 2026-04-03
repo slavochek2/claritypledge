@@ -1,12 +1,18 @@
 ---
 id: P634
 title: "Private points must never appear in feed or profile"
-status: in-progress
+status: all-done
 priority: critical
 type: bug
-flow: dev
-delivery_stage: 1-prd
+flow: fix
+delivery_stage: shipped
+completed_at: "2026-04-03"
+test_files:
+  - src/tests/p634-private-points-visibility.test.ts
 created: 2026-04-03
+tags: []
+rank: 1000043.0
+created_date: 2026-04-03
 ---
 
 # P634: Private points must never appear in feed or profile

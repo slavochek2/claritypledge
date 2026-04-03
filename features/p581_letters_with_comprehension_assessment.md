@@ -213,7 +213,8 @@ Letters serve a larger acquisition flywheel: Letter 1 (educate — recipient rea
 ### 1-to-1 Letter Flow (D25, D29, D47)
 - [ ] 1-to-1 letter URL without valid token returns 404 (no existence leak)
 - [ ] 1-to-1 letter sent via email to existing user: reuse Agreement magic link pattern (P488)
-- [ ] 1-to-1 letter sent via email to new user: reuse Agreement one-click registration pattern (P527)
+- [ ] 1-to-1 letter sent via email to new user: "Open the Letter" on cover = account creation + terms acceptance in one click (D48, Agreement P527 pattern). Receiver is registered before reading starts.
+- [ ] Cover screen shows "By opening, you accept the Terms of Service" below "Open the Letter" button (D48)
 - [ ] Registered receiver can access 1-to-1 letter from within app (Docs page) without needing email link
 - [ ] 1-to-1 letters always require authentication (D47)
 
@@ -227,7 +228,7 @@ Letters serve a larger acquisition flywheel: Letter 1 (educate — recipient rea
 - [ ] Receiver can open 1-to-many letter link without an account (anonymous access)
 - [ ] All letter interactions (reading, rating, positioning, story filing) work in local state without registration
 - [ ] After completing letter, completion summary displays before any registration prompt
-- [ ] "Save your results?" gate appears after completion summary — email input + one-click signup
+- [ ] "Save your results?" gate appears after completion summary — email input → redirects to existing signup flow (terms acceptance included, D48)
 - [ ] If letter was sent via email, receiver's email is pre-filled at the save gate (one click to persist)
 - [ ] If receiver's email matches existing account, results auto-attach on login
 - [ ] If receiver closes browser before saving, local state persists (sessionStorage) for return within same session
@@ -243,7 +244,7 @@ Letters serve a larger acquisition flywheel: Letter 1 (educate — recipient rea
 - [ ] Receiver gets "I need context" button per point (tracked as content quality metric, not primary UX)
 - [ ] Stories appear one at a time — receiver progresses through the sequence
 - [ ] For each story, receiver must rate understanding (0-10) via `RatingButtons` before proceeding
-- [ ] Rating prompt: "How well do you believe you understood this?"
+- [ ] Rating prompt: "How well do you believe you understand this story in the way [Author] means it?"
 - [ ] After receiver rates, the author's prediction is revealed as dual numbers side by side
 - [ ] Gap framed honestly: "A gap of N — both guessing, neither knows yet" (not claiming knowledge we don't have)
 - [ ] After rating a story, extracted points from that story appear sequentially
@@ -296,7 +297,7 @@ Letters serve a larger acquisition flywheel: Letter 1 (educate — recipient rea
 |---------|-------|---------|
 | Letter composition CTA | "Prepare a Letter" | Doc page header, primary action row (not overflow menu, D22) |
 | Prediction prompt | "How well will [Receiver] understand this?" | Composition, per story, `RatingButtons` 0-10 (reuse existing component) |
-| Understanding prompt | "How well do you believe you understood this?" | Letter reading, per story, `RatingButtons` 0-10 (reuse existing component) |
+| Understanding prompt | "How well do you believe you understand this story in the way [Author] means it?" | Letter reading, per story, `RatingButtons` 0-10 (reuse existing component) |
 | Gap display | Dual numbers (receiver rating / author prediction) + "A gap of N — worth noting" | After receiver commits, per story |
 | Position buttons | ✕ (disagree) / ? (maybe) / ✓ (agree, dropdown: somewhat/agree/strongly) | Per point, after story rating |
 | Author position locked | "🔒 Author's position hidden — engage to reveal" | Until receiver takes position or files story |
@@ -359,6 +360,10 @@ Letters serve a larger acquisition flywheel: Letter 1 (educate — recipient rea
 | D45 | "Private/public letter" language? | Dropped. Use "1-to-1 letter" (specific person, email delivery) and "1-to-many letter" (shareable link, public docs only). Private doc → 1-to-1 only. Public doc → both 1-to-1 and 1-to-many. |
 | D46 | Sender letter state tracking? | Sender sees all letter states: Sent (not started), In progress (N/M stories rated), Completed. For 1-to-many: also Views count. |
 | D47 | Anonymous access scope? | Anonymous access (no account required) applies only to 1-to-many letters from public docs. 1-to-1 letters always require authentication. |
+| D48 | Registration + terms acceptance timing? | **1-to-1:** "Open the Letter" on cover screen = account creation + terms acceptance in one click (Agreement pattern). Receiver is registered before reading. Terms text below button: "By opening, you accept the Terms of Service." **1-to-many:** registration gate at end. "Save your results?" with email → redirects to existing signup flow (terms already included). No custom terms UI needed. |
+| D49 | Understanding rating prompt wording? | "How well do you believe you understand this story in the way [Author] means it?" — names the author's intent, not just self-assessment. Measures calibration against someone else's meaning. |
+| D50 | Can receiver revise anti-point position after reading story? | No. Forward-only. Initial position is locked — it IS the data. Receiver can file a story to explain how their view changed after reading, but the original position stays on record. The delta between "I agreed blind" and "after reading I would disagree" is captured in the story, not by overwriting the position. |
+| D51 | Unregistered 1-to-1 submissions? | Not possible — D47 + D48 guarantee 1-to-1 receivers are always registered before reading. For 1-to-many: sender sees anonymous completion count ("14 completed, 8 saved") but no individual data for unregistered users. |
 
 ### D40: 1-to-1 vs 1-to-Many Letter Differences
 

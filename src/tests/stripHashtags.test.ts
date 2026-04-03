@@ -40,8 +40,10 @@ describe('stripHashtags', () => {
 
   // ── Edge cases ─────────────────────────────────────────────────────────────
 
-  it('does not strip partial matches', () => {
-    expect(stripHashtags('Check #st7 not #st77', ['st7'])).toBe('Check not #st77');
+  it('does not strip partial matches (non-system tags)', () => {
+    // P630: #st77 is also a system tag (st\d+), so both get stripped.
+    // Test with non-system tag to verify partial match protection still works.
+    expect(stripHashtags('Check #leadership not #leadershipskills', ['leadership'])).toBe('Check not #leadershipskills');
   });
 
   it('collapses multiple spaces after stripping', () => {

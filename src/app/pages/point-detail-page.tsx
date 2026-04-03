@@ -524,8 +524,8 @@ export function PointDetailPage() {
               <p className="text-foreground font-medium text-lg mb-3"><InlineVisibilityIcon visibility={point.visibility ?? 'public'} />{' '}{linkifyText(stripHashtags(point.statement, point.tags))}</p>
 
               {/* Tag pills */}
-              {(point.tags?.length ?? 0) > 0 && (
-                <TagPills tags={point.tags ?? []} context="detail" className="mb-3" />
+              {((point.tags?.length ?? 0) > 0 || (point.systemTags?.length ?? 0) > 0) && (
+                <TagPills tags={point.tags ?? []} systemTags={point.systemTags ?? []} context="detail" className="mb-3" />
               )}
 
               {/* Context (if present) */}
