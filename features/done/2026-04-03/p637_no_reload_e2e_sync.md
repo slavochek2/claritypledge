@@ -1,9 +1,9 @@
 ---
-status: in-progress
+status: all-done
 type: task
 rank: 0.001
 flow: dev
-delivery_stage: uat
+completed_at: "2026-04-03"
 tags:
   - testing
   - e2e
