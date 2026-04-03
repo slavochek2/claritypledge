@@ -1,11 +1,11 @@
 ---
-status: in-progress
+status: all-done
 type: task
 rank: 6.0
 workstream: C2
 tags: [tags, refactor, data-model]
 prepped_date: '2026-04-03'
-delivery_stage: uat
+completed_at: '2026-04-03'
 flow: dev
 uat_file: features/uat/p630.md
 test_files:
