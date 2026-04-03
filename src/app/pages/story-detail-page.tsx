@@ -16,7 +16,7 @@
 import { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import { extractHashtags } from '@/lib/utils';
 import { useParams, useNavigate, useLocation, useSearchParams } from 'react-router-dom';
-import { LockIcon, Loader2, Pencil, Trash2, Globe, ImagePlus, Unlink2 } from 'lucide-react';
+import { LockIcon, Loader2, Pencil, Trash2, Globe, ImagePlus } from 'lucide-react';
 import { VisibilityLine } from '@/app/components/shared/visibility-line';
 import { FocusHeader } from '@/app/components/layout/focus-header';
 
@@ -781,7 +781,12 @@ export function StoryDetailPage() {
     }
   }, [user?.id]);
 
-  // P616: Unlink point handler
+  // P633: Unlink point click handler — opens confirmation dialog
+  const handleUnlinkClick = useCallback((pointId: string, statement: string) => {
+    setUnlinkTargetPoint({ id: pointId, statement });
+  }, []);
+
+  // P616: Unlink point confirm handler
   const handleUnlinkConfirm = useCallback(async () => {
     if (!story || !unlinkTargetPoint) return;
     setIsUnlinking(true);
@@ -1355,28 +1360,7 @@ export function StoryDetailPage() {
           imageUrl={story.imageUrl}
           onChangeImage={isAuthor ? handleChangeImage : undefined}
           onRemoveImage={isAuthor ? handleRemoveImage : undefined}
-          renderPointRow={isAuthor ? (point, quotedPointElement) => (
-            <div key={point.id}>
-              {quotedPointElement}
-              <div className="flex justify-end mt-1">
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <button
-                        type="button"
-                        aria-label="Unlink point from story"
-                        className="p-1.5 rounded text-muted-foreground hover:text-destructive transition-colors"
-                        onClick={() => setUnlinkTargetPoint({ id: point.id, statement: point.statement })}
-                      >
-                        <Unlink2 className="w-4 h-4" />
-                      </button>
-                    </TooltipTrigger>
-                    <TooltipContent>Unlink point from story</TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              </div>
-            </div>
-          ) : undefined}
+          onUnlinkPoint={isAuthor ? handleUnlinkClick : undefined}
         />
         </div>
       )}
