@@ -2,6 +2,14 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-03 [process]: Guardian skills → agent definitions (dual skill+agent pattern)
+
+**Context:** Research via /dd:think (t004) asked whether any skills should become Claude Code agents. Found 4 concrete cases where guardian skills were forgotten: 4 PII leaks (privacy not run before commit), 20 visual hotfixes in P551/P590 (verify skipped), 1 CLAUDE.md revert (claude-md gate bypassed), and skill bugs shipped without review. All traced to the same root cause documented in decisions.md Mar 28: "Almost every problem traced back to a rule that exists but isn't structurally enforced."
+**Decision:** Create agent definitions for 4 guardian skills only: `privacy-guardian`, `verify-guardian`, `claude-md-guardian`, `review-guardian`. Skills stay untouched — agents are additive. Classification criterion: a skill is an agent candidate when it (1) operates on artifacts not conversation, (2) has a known failure mode from late/forgotten invocation, and (3) is non-destructive (validates, doesn't modify). Non-guardian skills (orchestrators, pipeline stages, think-skills) should NOT be converted — they need conversation history, explicit invocation, or both.
+**Alternatives rejected:** (A) Convert all skills — most need conversation history and would break as agents. (B) Formalize subagent protocol only — governance theater, no enforcement. (C) Skill-router meta-agent — over-engineered, false trigger risk. (D) Agents for model selection on think-skills — quality delta risk outweighs cost savings. (E) Background daemons — architecturally correct but unbuildable in current toolchain.
+**Consequences:** Agent definitions in `.claude/agents/` (project-local). `privacy-guardian` references skill file at runtime (single source of truth). Other 3 are gate-only (check if skill was run, don't duplicate logic). No model override — agents inherit session model. Pattern established: future guardian skills should get agent counterparts.
+**References:** `.private/thinking/t004_skills_vs_agents.md` (full analysis), `.claude/agents/` (implementations)
+
 ## 2026-04-03 [product]: Anti-points v2 — tighten false beliefs to prevent interpretation flip
 
 **Context:** Workshop and product use revealed that several of the 9 anti-points (#misunderstanding) were worded loosely enough for "interpretation flip" — where a reader reinterprets the anti-point to be compatible with the counter-story, keeping their "agree" position without genuinely changing their belief. Hedge words ("probably", "well enough"), secondary distracting claims, and use of ClarityPledge terminology in the anti-point all created escape routes. All 9 were adversarially stress-tested (devil's advocate vs advocate, 3-5 rounds each).
