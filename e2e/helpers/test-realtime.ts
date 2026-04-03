@@ -13,7 +13,7 @@
  * polling/subscription mechanisms.
  */
 
-import { Page } from '@playwright/test';
+import { Page, Locator, expect } from '@playwright/test';
 import { supabaseAdmin } from '../../src/lib/supabase-admin';
 
 /**
@@ -204,4 +204,27 @@ export async function waitForDBColumnSet(
     `[waitForDBColumnSet] Timed out after ${timeoutMs}ms waiting for ` +
     `${table}.${column} to be non-null where ${matchColumn} = '${matchValue}'`
   );
+}
+
+/**
+ * Wait for a UI element to appear/change WITHOUT page.reload().
+ * Forces the test to rely on the app's own state delivery (Realtime + drift polling).
+ * If the field isn't delivered, the test fails — which is the point.
+ *
+ * Use this INSTEAD of: waitForDBKey() → page.reload() → expect(locator)
+ * Use this FOR: asserting cross-context state changes in two-party tests
+ *
+ * P637: page.reload() in two-party tests masks delivery bugs — it fetches
+ * the entire session from DB, bypassing both Realtime and drift detection.
+ *
+ * @param page - The page that should receive the update (the listener)
+ * @param locator - What to wait for (e.g., page.locator('[class*="opacity-50"]'))
+ * @param timeoutMs - How long to wait (should exceed drift polling interval)
+ */
+export async function waitForUIUpdate(
+  page: Page,
+  locator: Locator,
+  timeoutMs: number = 20000,
+): Promise<void> {
+  await expect(locator).toBeVisible({ timeout: timeoutMs });
 }

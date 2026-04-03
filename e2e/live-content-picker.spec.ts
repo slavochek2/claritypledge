@@ -9,8 +9,10 @@
  *
  * Two-party sync strategy: Supabase Realtime presence events do NOT propagate
  * between Playwright's isolated browser contexts. Cross-context state changes
- * are verified via DB polling (waitForDBPresence) + page.reload() instead of
+ * are verified via DB polling (waitForDBPresence) + waitForUIUpdate() instead of
  * waiting for Realtime to arrive. See e2e/helpers/test-realtime.ts.
+ * NOTE: page.reload() is BANNED for two-party state sync (P637) — it masks
+ * delivery bugs by bypassing Realtime + drift detection.
  */
 import { test, expect } from '@playwright/test';
 import { createTestUser, setTestSession, deleteTestUser, deleteClaritySession } from './helpers/test-user';
