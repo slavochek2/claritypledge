@@ -288,6 +288,13 @@ export function PointDetailPage() {
       const ok = await storiesService.unlinkPointFromStory(unlinkTargetStory, point.id);
       if (ok) {
         setViewerStory(null);
+        // Also clear from linkedStories map so storyByAuthorId doesn't retain it
+        setLinkedStories(prev => {
+          const next = new Map(prev);
+          const stories = next.get(point.id) ?? [];
+          next.set(point.id, stories.filter(s => s.id !== unlinkTargetStory));
+          return next;
+        });
         setExpandedHolderId(null);
         toast.success('Point unlinked from story');
       } else {
