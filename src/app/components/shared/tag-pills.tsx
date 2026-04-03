@@ -18,6 +18,8 @@ export type TagPillsContext = 'feed' | 'live' | 'profile' | 'detail';
 
 interface TagPillsProps {
   tags?: string[];
+  /** P630: System tags to display alongside user tags */
+  systemTags?: string[];
   context: TagPillsContext;
   /** Currently active tag filter — renders as no-op if clicked */
   activeTag?: string;
@@ -31,12 +33,14 @@ const MAX_TAG_LENGTH = 20;
  * Shared tag pills component.
  * Renders tags as clickable links (feed/profile/detail) or display-only spans (live).
  */
-export function TagPills({ tags, context, activeTag, className = '' }: TagPillsProps) {
-  if (!tags || tags.length === 0) return null;
+export function TagPills({ tags, systemTags, context, activeTag, className = '' }: TagPillsProps) {
+  // P630: Merge user tags + system tags for display, deduplicated
+  const allTags = [...new Set([...(tags || []), ...(systemTags || [])])];
+  if (allTags.length === 0) return null;
 
   const isInteractive = context !== 'live';
-  const visibleTags = tags.slice(0, MAX_VISIBLE_TAGS);
-  const overflowCount = tags.length - MAX_VISIBLE_TAGS;
+  const visibleTags = allTags.slice(0, MAX_VISIBLE_TAGS);
+  const overflowCount = allTags.length - MAX_VISIBLE_TAGS;
 
   return (
     <div className={`flex flex-wrap gap-1.5 ${className}`}>

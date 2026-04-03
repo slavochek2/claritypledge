@@ -16,7 +16,7 @@
 import { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import { extractHashtags } from '@/lib/utils';
 import { useParams, useNavigate, useLocation, useSearchParams } from 'react-router-dom';
-import { LockIcon, Loader2, Pencil, Trash2, Globe, ImagePlus } from 'lucide-react';
+import { LockIcon, Loader2, Pencil, Trash2, Globe, ImagePlus, Unlink2 } from 'lucide-react';
 import { VisibilityLine } from '@/app/components/shared/visibility-line';
 import { FocusHeader } from '@/app/components/layout/focus-header';
 
@@ -614,6 +614,9 @@ export function StoryDetailPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  // P616: Unlink point from story
+  const [unlinkTargetPoint, setUnlinkTargetPoint] = useState<{ id: string; statement: string } | null>(null);
+  const [isUnlinking, setIsUnlinking] = useState(false);
   const [showUnsavedPrompt, setShowUnsavedPrompt] = useState(false);
   const editButtonRef = useRef<HTMLButtonElement>(null);
   const deleteButtonRef = useRef<HTMLButtonElement>(null);
@@ -777,6 +780,36 @@ export function StoryDetailPage() {
       });
     }
   }, [user?.id]);
+
+  // P616: Unlink point handler
+  const handleUnlinkConfirm = useCallback(async () => {
+    if (!story || !unlinkTargetPoint) return;
+    setIsUnlinking(true);
+    try {
+      const ok = await storiesService.unlinkPointFromStory(story.id, unlinkTargetPoint.id);
+      if (ok) {
+        const removedId = unlinkTargetPoint.id;
+        setStory(prev => {
+          if (!prev) return prev;
+          return { ...prev, points: prev.points.filter(p => p.id !== removedId) };
+        });
+        setPositionCounts(prev => { const m = new Map(prev); m.delete(removedId); return m; });
+        setUserPositions(prev => { const m = new Map(prev); m.delete(removedId); return m; });
+        setStoryAuthorPositions(prev => { const m = new Map(prev); m.delete(removedId); return m; });
+        setLinkedStoriesForPoints(prev => { const m = new Map(prev); m.delete(removedId); return m; });
+        toast.success('Point unlinked from story.');
+      } else {
+        toast.error('Failed to unlink point. Please try again.');
+        setRetryKey(k => k + 1);
+      }
+    } catch {
+      toast.error('Failed to unlink point. Please try again.');
+      setRetryKey(k => k + 1);
+    } finally {
+      setIsUnlinking(false);
+      setUnlinkTargetPoint(null);
+    }
+  }, [story, unlinkTargetPoint]);
 
   // P427: Edit handlers
   const handleEditStart = useCallback(() => {
@@ -1190,6 +1223,35 @@ export function StoryDetailPage() {
         />
       )}
 
+      {/* P616: Unlink point confirmation dialog */}
+      {isAuthor && (
+        <Dialog open={!!unlinkTargetPoint} onOpenChange={(open) => { if (!open) { setUnlinkTargetPoint(null); setIsUnlinking(false); } }}>
+          <DialogContent hideCloseButton>
+            <DialogHeader>
+              <DialogTitle>Unlink point from story?</DialogTitle>
+              <DialogDescription asChild>
+                <div>
+                  {unlinkTargetPoint && (
+                    <p className="italic text-muted-foreground mb-2">
+                      &ldquo;{unlinkTargetPoint.statement.length > 80
+                        ? unlinkTargetPoint.statement.slice(0, 80) + '...'
+                        : unlinkTargetPoint.statement}&rdquo;
+                    </p>
+                  )}
+                  <p>The point will remain visible to others who have taken positions on it.</p>
+                </div>
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setUnlinkTargetPoint(null)} disabled={isUnlinking}>Cancel</Button>
+              <Button variant="destructive" onClick={handleUnlinkConfirm} disabled={isUnlinking}>
+                {isUnlinking ? 'Unlinking...' : 'Unlink'}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
+
       {/* P427: Unsaved-changes guard dialog */}
       <Dialog open={showUnsavedPrompt} onOpenChange={(open) => { if (!open) setShowUnsavedPrompt(false); }}>
         <DialogContent hideCloseButton>
@@ -1293,6 +1355,28 @@ export function StoryDetailPage() {
           imageUrl={story.imageUrl}
           onChangeImage={isAuthor ? handleChangeImage : undefined}
           onRemoveImage={isAuthor ? handleRemoveImage : undefined}
+          renderPointRow={isAuthor ? (point, quotedPointElement) => (
+            <div key={point.id}>
+              {quotedPointElement}
+              <div className="flex justify-end mt-1">
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        type="button"
+                        aria-label="Unlink point from story"
+                        className="p-1.5 rounded text-muted-foreground hover:text-destructive transition-colors"
+                        onClick={() => setUnlinkTargetPoint({ id: point.id, statement: point.statement })}
+                      >
+                        <Unlink2 className="w-4 h-4" />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent>Unlink point from story</TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </div>
+            </div>
+          ) : undefined}
         />
         </div>
       )}

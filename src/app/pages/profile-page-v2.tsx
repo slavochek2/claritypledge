@@ -1391,8 +1391,8 @@ function StoryCardFull({
             )}
 
             {/* P503: Tag pills */}
-            {!isEditing && story.tags && story.tags.length > 0 && (
-              <TagPills tags={story.tags} context="profile" className="mt-2" />
+            {!isEditing && ((story.tags?.length ?? 0) > 0 || (story.systemTags?.length ?? 0) > 0) && (
+              <TagPills tags={story.tags} systemTags={story.systemTags} context="profile" className="mt-2" />
             )}
 
             {/* Stats row */}
@@ -1629,8 +1629,8 @@ function QuotedPointCard({
             <p className="text-sm text-foreground break-words"><InlineVisibilityIcon visibility={point.visibility} />{' '}{linkifyText(stripHashtags(point.statement, point.tags))}</p>
 
             {/* P503: Tag pills */}
-            {point.tags && point.tags.length > 0 && (
-              <TagPills tags={point.tags} context="profile" className="mt-1.5" />
+            {((point.tags?.length ?? 0) > 0 || (point.systemTags?.length ?? 0) > 0) && (
+              <TagPills tags={point.tags} systemTags={point.systemTags} context="profile" className="mt-1.5" />
             )}
 
             {/* Position buttons - show for authenticated users */}
@@ -1750,8 +1750,8 @@ function PointCardFull({
               <p className="text-foreground text-base break-words">{linkifyText(stripHashtags(point.statement, point.tags))}</p>
 
               {/* P503: Tag pills */}
-              {point.tags && point.tags.length > 0 && (
-                <TagPills tags={point.tags} context="profile" className="mt-2" />
+              {((point.tags?.length ?? 0) > 0 || (point.systemTags?.length ?? 0) > 0) && (
+                <TagPills tags={point.tags} systemTags={point.systemTags} context="profile" className="mt-2" />
               )}
 
               {/* Position buttons */}

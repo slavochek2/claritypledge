@@ -5,7 +5,7 @@
  */
 
 import { useState, useMemo, useEffect } from 'react';
-import { MessageCircle, ChevronDown, ChevronRight, ExternalLink, Pin } from 'lucide-react';
+import { MessageCircle, ChevronDown, ChevronRight, ExternalLink, Pin, Unlink2 } from 'lucide-react';
 import { linkifyText } from '@/app/utils/linkify';
 import { EarBadge } from '@/components/ui/ear-badge';
 import { UnderstoodBadge } from '@/components/ui/understood-badge';
@@ -65,6 +65,8 @@ interface StoryCardWithLinksProps {
   viewerStoriesPerPoint?: Map<string, number>;
   /** P491: Tags for tag pill display (prototype Story type lacks tags) */
   tags?: string[];
+  /** P621: Callback to unlink this story from a point (point-detail context only) */
+  onUnlinkPoint?: (storyId: string) => void;
 }
 
 /**
@@ -93,6 +95,7 @@ export function StoryCardWithLinks({
   currentUserId,
   viewerStoriesPerPoint,
   tags,
+  onUnlinkPoint,
 }: StoryCardWithLinksProps) {
   const { isEmbed, isExpanded, embedNavigate } = useEmbedNavigation();
   // Points collapsed by default — position badge outside quoted box already shows author's stance
@@ -326,6 +329,18 @@ export function StoryCardWithLinks({
                     <MessageCircle size={12} />
                     Verify
                   </button>
+                )}
+                {/* P621: Unlink button for story author in point-detail context */}
+                {context === 'point-detail' && !hideActions && !isEmbed && onUnlinkPoint && (
+                  <MobileTooltip content="Unlink point from story">
+                    <button
+                      onClick={(e) => { e.stopPropagation(); onUnlinkPoint(story.id); }}
+                      className="min-w-[40px] min-h-[40px] flex items-center justify-center rounded-full text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+                      aria-label="Unlink point from story"
+                    >
+                      <Unlink2 size={16} />
+                    </button>
+                  </MobileTooltip>
                 )}
                 {/* P542: Share button in stats row for point-detail context (footer is hidden) */}
                 {context === 'point-detail' && !hideActions && !isEmbed && (

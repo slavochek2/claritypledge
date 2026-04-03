@@ -77,7 +77,7 @@ test.describe('P621: Unlink on point detail — author visibility', () => {
       ).toBeVisible({ timeout: 10000 });
 
       // Unlink button should be visible in the stats row
-      const unlinkButton = page.getByRole('button', { name: /unlink point from story/i });
+      const unlinkButton = page.locator('button[aria-label="Unlink point from story"]');
       await expect(unlinkButton).toBeVisible({ timeout: 5000 });
       await expect(unlinkButton).toBeEnabled();
     } finally {
@@ -131,7 +131,7 @@ test.describe('P621: Unlink on point detail — author visibility', () => {
 
       // Unlink button should NOT be visible
       await expect(
-        page.getByRole('button', { name: /unlink point from story/i })
+        page.locator('button[aria-label="Unlink point from story"]')
       ).not.toBeVisible({ timeout: 3000 });
     } finally {
       if (storyId) await deleteTestStory(storyId);
@@ -183,7 +183,7 @@ test.describe('P621: Unlink on point detail — dialog flow', () => {
       ).toBeVisible({ timeout: 10000 });
 
       // Click unlink button
-      const unlinkButton = page.getByRole('button', { name: /unlink point from story/i });
+      const unlinkButton = page.locator('button[aria-label="Unlink point from story"]');
       await unlinkButton.click();
 
       // Dialog should appear
@@ -253,7 +253,7 @@ test.describe('P621: Unlink on point detail — dialog flow', () => {
       ).toBeVisible({ timeout: 10000 });
 
       // Click unlink button
-      const unlinkButton = page.getByRole('button', { name: /unlink point from story/i });
+      const unlinkButton = page.locator('button[aria-label="Unlink point from story"]');
       await unlinkButton.click();
 
       // Dialog should appear
@@ -317,7 +317,7 @@ test.describe('P621: Unlink on point detail — dialog flow', () => {
         page.getByText('Story unlinked but point should survive on its page')
       ).toBeVisible({ timeout: 10000 });
 
-      const unlinkButton = page.getByRole('button', { name: /unlink point from story/i });
+      const unlinkButton = page.locator('button[aria-label="Unlink point from story"]');
       await unlinkButton.click();
 
       await expect(page.getByText('Unlink point from story?')).toBeVisible({ timeout: 5000 });

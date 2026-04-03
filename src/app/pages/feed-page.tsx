@@ -85,20 +85,21 @@ export function FeedPage() {
   }, []);
 
   // Tag cloud: extract from ALL stories + points (BR-8: computed from all content)
+  // P630: Include both user tags and system tags (category: understanding/misunderstanding)
+  // but hide st-group tags (st1-st9) and version tags (v1, v2) — those are structural, not navigational
   const tagCloud = useMemo(() => {
     const tagCounts = new Map<string, number>();
+    const countTag = (tag: string) => tagCounts.set(tag, (tagCounts.get(tag) || 0) + 1);
     for (const story of stories) {
-      for (const tag of story.tags || []) {
-        tagCounts.set(tag, (tagCounts.get(tag) || 0) + 1);
-      }
+      for (const tag of story.tags || []) countTag(tag);
+      for (const tag of story.systemTags || []) countTag(tag);
     }
     for (const point of points) {
-      for (const tag of point.tags || []) {
-        tagCounts.set(tag, (tagCounts.get(tag) || 0) + 1);
-      }
+      for (const tag of point.tags || []) countTag(tag);
+      for (const tag of point.systemTags || []) countTag(tag);
     }
     return [...tagCounts.entries()]
-      .filter(([tag]) => !isInternalTag(tag))
+      .filter(([tag]) => !/^st\d+$/i.test(tag) && !/^v\d+$/i.test(tag))
       .sort((a, b) => b[1] - a[1])
       .map(([tag]) => tag);
   }, [stories, points]);

@@ -325,7 +325,7 @@ export function StoryCardDetail({
             {/* P491: Tag pills — fallback to extracting from text for pre-P491 content */}
             {(() => {
               const effectiveTags = story.tags && story.tags.length > 0 ? story.tags : extractHashtags(story.content);
-              return effectiveTags.length > 0 ? <TagPills tags={effectiveTags} context="detail" className="mt-2" /> : null;
+              return effectiveTags.length > 0 || (story.systemTags?.length ?? 0) > 0 ? <TagPills tags={effectiveTags} systemTags={story.systemTags} context="detail" className="mt-2" /> : null;
             })()}
           </div>
         </div>
@@ -579,7 +579,7 @@ function QuotedPoint({
           <div className="flex-1 min-w-0">
             {/* Point text */}
             <p className="text-sm text-gray-800 break-words"><InlineVisibilityIcon visibility={point.visibility} />{' '}{linkifyText(stripHashtags(point.statement, point.tags))}</p>
-            {point.tags?.length > 0 && <TagPills tags={point.tags} context="detail" className="mt-1" />}
+            {(point.tags?.length > 0 || (point as { systemTags?: string[] }).systemTags?.length) && <TagPills tags={point.tags} systemTags={(point as { systemTags?: string[] }).systemTags} context="detail" className="mt-1" />}
 
             {/* Position buttons - scaled to 85% to fit within quoted card width while keeping button proportions */}
             <div role="presentation" className="mt-2" onClick={e => e.stopPropagation()}>
