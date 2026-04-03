@@ -107,17 +107,88 @@ reviews:
 ## Acceptance Criteria
 
 - [ ] Mode switcher visible on default/idle screen for both users
-- [ ] Mode switcher hidden once users enter a mode (after speaker submits rating)
-- [ ] Mode switcher locked (disabled + hover tooltip) while speaker is in their local rating drawer
+- [ ] Mode switcher hidden once users enter a round (after speaker submits rating)
+- [ ] Mode switcher locked (disabled + tooltip) while speaker is in their local rating drawer
 - [ ] Mode switcher reappears when returning to idle after guided round completion
 - [ ] Mode switcher reappears when returning to idle after free mode round completion
 - [ ] Mode switcher reappears after "Speak freely" (exit mode without completing round)
 - [ ] Mode switcher reappears after "Skip" / "Decline"
 - [ ] Speaker clicking "Speak" opens their drawer immediately (partner sees no change except locked mode switcher)
-- [ ] Speaker submitting rating transitions partner into the mode (partner sees their drawer, no Speak button)
+- [ ] Selecting a story auto-opens the drawer for the story owner (no redundant Speak click after story selection)
+- [ ] Speaker submitting rating transitions partner into the round (partner sees story card + their drawer, no Speak button)
+- [ ] Listener does NOT see the story card until the round starts (speaker submits)
 - [ ] No regression to sealed-bid pattern
 - [ ] Works for both Check and Prove flows
 - [ ] Works for both Open and Guided modes
+
+---
+
+## Screen-by-Screen Flow (canonical reference)
+
+This is the exact screen state at each step. Any implementation that doesn't match this is wrong.
+
+```
+Step 1: Both join → clean idle
+   USER A (speaker)              USER B (listener)
+   ┌─────────────────────┐      ┌─────────────────────┐
+   │  [Speak]            │      │  [Speak]             │
+   │  + Select story     │      │  + Select story      │
+   │  [Open] [Guided]    │      │  [Open] [Guided]     │
+   └─────────────────────┘      └─────────────────────┘
+   Both: Speak button, story picker, mode switcher (enabled).
+
+Step 2: User A clicks Speak (WITHOUT selecting a story first)
+   USER A                        USER B
+   ┌─────────────────────┐      ┌─────────────────────┐
+   │  ┌─ Drawer ──────┐  │      │  [Speak]             │
+   │  │ How well does  │  │      │  + Select story      │
+   │  │ B understand?  │  │      │                      │
+   │  │ [1-10 scale]   │  │      │  [Open] [Guided]     │
+   │  │ [Submit] [Back]│  │      │    (disabled)        │
+   │  └────────────────┘  │      │                      │
+   └─────────────────────┘      └─────────────────────┘
+   User A: drawer opens immediately, no mode switcher.
+   User B: stays on idle, mode switcher DISABLED.
+
+Step 2b: User A clicks Speak (WITH selecting a story)
+   User A clicks "+ Select story" → picks one →
+   drawer opens AUTOMATICALLY (no second Speak click needed)
+   USER A                        USER B
+   ┌─────────────────────┐      ┌─────────────────────┐
+   │  [Story Card]       │      │  [Speak]             │
+   │  ┌─ Drawer ──────┐  │      │  + Select story      │
+   │  │ How well does  │  │      │                      │
+   │  │ B understand?  │  │      │  [Open] [Guided]     │
+   │  │ [1-10 scale]   │  │      │    (disabled)        │
+   │  │ [Submit] [Back]│  │      │                      │
+   │  └────────────────┘  │      │                      │
+   └─────────────────────┘      └─────────────────────┘
+   User A: story card + drawer, no mode switcher.
+   User B: stays on IDLE (no story card yet), switcher DISABLED.
+
+Step 3: User A submits a number → round starts
+   USER A                        USER B
+   ┌─────────────────────┐      ┌─────────────────────┐
+   │  [Story Card]       │      │  [Story Card]        │
+   │  Understanding...   │      │  ┌─ Drawer ──────┐   │
+   │                     │      │  │ How confident  │   │
+   │                     │      │  │ you understand │   │
+   │                     │      │  │ A? [1-10]      │   │
+   │                     │      │  │ [Submit]       │   │
+   │                     │      │  └────────────────┘   │
+   └─────────────────────┘      └─────────────────────┘
+   Both in round. Mode switcher HIDDEN on both sides.
+   User B NOW sees story card + rating drawer.
+
+Step 4: Both submitted → results → celebration → back to idle
+   USER A                        USER B
+   ┌─────────────────────┐      ┌─────────────────────┐
+   │  [Speak]            │      │  [Speak]             │
+   │  + Select story     │      │  + Select story      │
+   │  [Open] [Guided]    │      │  [Open] [Guided]     │
+   └─────────────────────┘      └─────────────────────┘
+   Back to Step 1. Mode switcher ENABLED again.
+```
 
 ---
 
@@ -125,11 +196,12 @@ reviews:
 
 | Element | Value | Context |
 |---------|-------|---------|
-| Mode switcher — idle | Enabled, blue highlight on active mode | Default screen |
-| Mode switcher — speaker rating | Disabled (grayed out), tooltip on hover | While speaker is in local rating drawer |
-| Mode switcher — inside mode | Hidden | After speaker submits, both in round |
+| Mode switcher — idle | Enabled, blue highlight on active mode | Default screen, no round active |
+| Mode switcher — speaker in drawer | Disabled (grayed out), tooltip: "Mode locked — your partner is rating" | While speaker is in local rating drawer |
+| Mode switcher — in round | Hidden | After speaker submits, both in round |
 | Mode switcher — back to idle | Enabled, reappears | After round completes |
-| Tooltip text (locked) | [FOUNDER DECISION: exact tooltip text when mode is locked] | Hover on disabled mode switcher |
+| Story card — listener | NOT visible until round starts | Listener stays on idle while speaker is in drawer |
+| Speak button — after story select | NOT visible — drawer auto-opens | Story selection triggers drawer for owner |
 
 ---
 
