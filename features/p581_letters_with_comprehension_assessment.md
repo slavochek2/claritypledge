@@ -1,7 +1,7 @@
 ---
 status: today
 type: story
-rank: 0.5
+rank: 0.032
 tags:
   - epic-story-first
   - letters
@@ -69,7 +69,7 @@ All three are valuable. The letter completion summary shows WHERE gaps exist (tr
 
 **Why now:** Three signals converge:
 1. H-WTP-Pain is approaching kill threshold (28 sessions, zero pairs named a cost). The false-belief workshop (P567) is the active testing mechanism, and step 4 of the workshop flow explicitly requires "verify understanding via comprehension slider" — which doesn't exist yet.
-2. First Clarity Partner Agreement signed (Jan + Nejc, Mar 22). They need structured pre-work between sessions. Without it, the agreement is aspirational — no instrument to practice with.
+2. First Clarity Partner Agreement signed (Mar 22). The pair needs structured pre-work between sessions. Without it, the agreement is aspirational — no instrument to practice with.
 3. Story filing (P560) just shipped. Stories exist. Points exist. The content is there. What's missing is the delivery container + measurement instrument.
 
 **Impact if not solved:** ClarityPledge remains a facilitator-dependent service with zero standalone product value. Workshops produce intellectual surprise but no follow-up instrument. Partner agreements have no async practice tool. The product can't test H-StoryFirst (async gap revelations) because the measurement mechanism doesn't exist. H-WTP-Pain testing stalls because the workshop flow's step 4 has no implementation.

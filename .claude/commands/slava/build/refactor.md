@@ -681,7 +681,7 @@ If you're hesitating — that's a signal. Either fix what's causing it or accept
 - `/kdd` - Capture learnings (user runs separately)
 
 **Parallel:**
-- `/design-audit` - If UI changes during refactor
+- `/finish` - If UI changes during refactor
 
 **NEVER combine:**
 - ❌ `/dev` + `/refactor` (implement first, refactor after)
@@ -938,7 +938,7 @@ Ready for manual smoke test.
 - `/dev` - Implementation (run before /refactor)
 - `/fix` - Bug fixes (run before /refactor)
 - `/kdd` - Capture learnings (user runs after /refactor)
-- `/design-audit` - If UI changes during refactor
+- `/finish` - If UI changes during refactor
 
 ---
 

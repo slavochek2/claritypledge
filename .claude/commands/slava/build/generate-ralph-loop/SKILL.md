@@ -201,14 +201,14 @@ If given a UAT, look for spec:
 **Output the simple one-liner only:**
 
 ```bash
-ralph run --no-tui -p "Implement {FEATURE_NAME} per {SPEC_PATH}. {BRIEF_CONTEXT}. {UAT_CLAUSE}. Before complete: run /bmad:bmm:workflows:code-review and /design-audit, fix all issues."
+ralph run --no-tui -p "Implement {FEATURE_NAME} per {SPEC_PATH}. {BRIEF_CONTEXT}. {UAT_CLAUSE}. Before complete: run /bmad:bmm:workflows:code-review and /finish, fix all issues."
 ```
 
 Where:
 - `{BRIEF_CONTEXT}` = 1-2 sentences max (key components, constraints)
 - `{UAT_CLAUSE}` = "Verify against {uat_path}" (if UAT exists)
 
-**Always include quality gates:** `/bmad:bmm:workflows:code-review` and `/design-audit`
+**Always include quality gates:** `/bmad:bmm:workflows:code-review` and `/finish`
 
 **Keep it short.** Ralph will read the spec file for details.
 
@@ -311,7 +311,7 @@ Auto-finds `features/uat/p89.md`, runs verification.
 ## Option 2: Ralph (if expecting many iterations)
 
 ```bash
-ralph run --no-tui -p "Implement P89 Swipeable Card View per features/p89_swipeable_card_view.md. Verify against features/uat/p89.md. Before complete: run /bmad:bmm:workflows:code-review and /design-audit, fix all issues."
+ralph run --no-tui -p "Implement P89 Swipeable Card View per features/p89_swipeable_card_view.md. Verify against features/uat/p89.md. Before complete: run /bmad:bmm:workflows:code-review and /finish, fix all issues."
 ```
 
 **Stop:** `Ctrl+C` or `pkill -f ralph`

@@ -3,6 +3,7 @@ description: 'Systematic UI audit - checks every button, all user states, access
 when_to_use: "After shipping a UI feature. When checking every button, state, and accessibility issue."
 name: design-audit
 version: 1.0.0
+archived_reason: "absorbed into /finish criteria/code.md — button, state, and accessibility checks now part of consolidated code review"
 ---
 
 # Design System Audit (Systematic)

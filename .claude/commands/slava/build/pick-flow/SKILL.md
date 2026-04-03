@@ -275,7 +275,7 @@ These changes affect **all future work** — not a single feature. Risk is asymm
 - `/spec-compact` — strips agent conversation residue from spec (Q&A threads, decision analyses, restatements); always after `/spec-review`, before `/decompose` or `/dev`; skip for specs under 100 lines
 - `/decompose` — splits into sub-stories (5+ files or 3+ concerns only, run after `/generate-tests`)
 - `/dev` — implements from spec, stops at QA gate on success (run `/ship` to close)
-- `/review-all` — 3-agent parallel review (code + design + UX); **auto-runs inside both `/dev` and `/fix`** — do NOT list it as a step in any flow (it's already included)
+- `/finish` — consolidated review dispatcher (classifies changes, runs type-appropriate reviews); **auto-runs inside both `/dev` and `/fix`** — do NOT list it as a step in any flow (it's already included)
 - `/verify` — live browser UAT; include when the task introduces net-new visual surface (new layout, new component, visual acceptance criteria, responsive/animation); skip for extractions of existing UI, pure logic/backend/config changes
 - `/kdd` — captures learnings into docs (optional, after shipping)
 
@@ -296,7 +296,7 @@ Apply this to every step. Don't default to "skip unless proven useful" — defau
 - `/ux` — apply drop-`/ux` rule strictly: skip ONLY when ALL three conditions are met: (a) ASCII covers ALL states (happy, edge, empty, loading, responsive), (b) no net-new visual component/pattern, (c) no mobile concerns. If ANY condition fails, include `/ux`. "ASCII in conversation covers happy path" ≠ "UX resolved"
 - `/decompose` only for 5+ files or 3+ independent concerns
 - If spec exists: check `delivery_stage:` first — it takes precedence (see scoring table rows for all 5 stages: `1-prd` through `5-decomposed`); if absent, fall back to `test_files:` — present → start from `/dev`; absent → `/generate-tests` → `/dev`
-- `/review-all` runs automatically inside `/dev` and `/fix` — never list it as a step in any flow
+- `/finish` runs automatically inside `/dev` and `/fix` — never list it as a step in any flow
 - **`/spec-review` is mandatory (not optional) for `type: change-request` specs.** Redesigns have pre-existing elements that can silently conflict with new AC — spec-review catches these before implementation. The `*` optional marker applies to new features only.
 - **`/challenge-prd` is mandatory** for full and medium pipeline flows AND for all redesigns (`/change-request`). Redesigns inherit assumptions from the predecessor spec that need stress-testing. Skip only for small/inline work.
 - After user confirms flow: set `flow:` in spec frontmatter if spec exists

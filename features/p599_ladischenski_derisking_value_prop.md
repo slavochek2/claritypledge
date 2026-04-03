@@ -4,10 +4,10 @@ title: Update ladischenski.com de-risking package value prop
 type: task
 status: today
 priority: medium
-rank: 0.75
+rank: 0.047
 locked_at: '2026-03-29T14:15:20.600Z'
 tags: []
-created_date: 2026-03-28
+created_date: 2026-03-28T00:00:00.000Z
 ---
 
 # P599 — Update ladischenski.com De-Risking Package Value Prop
@@ -30,7 +30,7 @@ Core message: "I guide you once. Next time you can do it yourselves."
 
 - Update service description copy on ladischenski.com (likely the de-risking / workshop section)
 - May touch pricing page or offer pages if the package is referenced there
-- Workshop event copy and pricing model (€50 entry + 0-10h time donation) — needs to be reflected on ladischenski.com and in event listings (Luma, etc.)
+- Workshop event copy and pricing model [FOUNDER DECISION: pricing] — needs to be reflected on ladischenski.com and in event listings (Luma, etc.)
 - Workshop landing page or section on ladischenski.com for the free Calibration Workshop offer
 
 ## Design Notes (2026-04-02): Anxiety as Contradictory Beliefs Frame
