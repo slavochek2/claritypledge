@@ -2,6 +2,14 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-03 [process]: DB access local-first — agents read schema locally, never query for discovery
+
+**Context:** Agents were routinely querying live databases just to discover schema (column names, table structure) — information fully represented in local files (`docs/technical/database.md`, `supabase/migrations/*.sql`). The Supabase MCP points at the test project, but no auto-loaded rule said so. Agents would query test, get unexpected results, then try prod — doubling API calls and requiring unnecessary approval prompts. Root causes: (1) `database.md` line 59 said "Query `\d tablename` on the live DB", (2) CLAUDE.md said "query prod first" too broadly, (3) the tool hierarchy was in reference docs agents never loaded, (4) `database.md` only triggered on `supabase/**` edits — missing 90% of DB interactions.
+**Decision:** Created `.claude/rules/db-access.md` with broad path triggers (`src/`, `e2e/`, `scripts/`, `supabase/`, `.claude/commands/`, `features/`). Establishes: schema discovery = always local; tool hierarchy = Read local > list_tables MCP > curl REST API > execute_sql (never for schema discovery, only debugging/RLS when curl can't); MCP = test DB only; must state env before any live call. Fixed contradictory lines in `database.md` and `CLAUDE.md`.
+**Alternatives rejected:** (A) Add prod project to MCP — risks accidental prod mutations via execute_sql. (B) Download GCS backup locally for data queries — infrastructure overhead for rare need. (C) Only fix the contradictory lines without new rule file — wouldn't auto-load for broad paths.
+**Consequences:** All read-only DB interactions should now require zero approval prompts. Agents that need schema info read local files instead of querying. Test vs prod confusion eliminated by explicit rule. `execute_sql` reserved for debugging/RLS inspection only.
+**References:** `.claude/rules/db-access.md` (new rule), `.claude/rules/database.md` (fixed line 59), `CLAUDE.md` (fixed lines 31, 214, 307)
+
 ## 2026-04-03 [process]: Change-request processing contract — auto-loading rule + self-framing spec
 
 **Context:** /dd:think medium-tier analysis (t006) diagnosed why agents recommend rewriting shipped specs when processing change-requests. P621 (redesign of P616) showed the pattern: `/challenge-prd`, `/ux`, `/dev` all read only the spec they're handed, treating it as greenfield. The `type: change-request` and `changes: pN` frontmatter existed but was inert — no skill consumed it. Root cause: agents require explicit behavioral instructions, not just data availability. P625 was filed to fix `/dev` only, but the gap existed at every pipeline stage.
