@@ -108,8 +108,8 @@ function getCalibrationLabel(gap: number): string {
 
 // Used by CalibrationDisplay (full card view on /live results)
 const TOOLTIP_TEXT = {
-  listener: 'Confidence vs. verified understanding as a listener.',
-  speaker: 'Confidence vs. verified understanding as a speaker.',
+  listener: 'How closely their listening confidence matches the speaker\'s feeling after the paraphrase',
+  speaker: 'How closely their speaking confidence matches the listener\'s verified understanding',
 };
 
 /** Tooltip description for each calibration label — states the measurement, no judgment. */

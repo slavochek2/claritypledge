@@ -70,25 +70,25 @@ describe('PledgerCard', () => {
       render(<PledgerCard {...mockPledger} showStats={true} />, { wrapper });
 
       expect(screen.getByText('5')).toBeInTheDocument();
-      expect(screen.getByText('Accepted By')).toBeInTheDocument();
+      expect(screen.getByText('Witnessed By')).toBeInTheDocument();
       expect(screen.getByText('3')).toBeInTheDocument();
-      expect(screen.getByText('Inspired')).toBeInTheDocument();
+      expect(screen.getByText('Pledged After')).toBeInTheDocument();
     });
 
     it('showStats=false hides stats section', () => {
       render(<PledgerCard {...mockPledger} showStats={false} />, { wrapper });
 
       expect(screen.queryByText('5')).not.toBeInTheDocument();
-      expect(screen.queryByText('Accepted By')).not.toBeInTheDocument();
+      expect(screen.queryByText('Witnessed By')).not.toBeInTheDocument();
       expect(screen.queryByText('3')).not.toBeInTheDocument();
-      expect(screen.queryByText('Inspired')).not.toBeInTheDocument();
+      expect(screen.queryByText('Pledged After')).not.toBeInTheDocument();
     });
 
     it('defaults to showStats=true when not specified', () => {
       render(<PledgerCard {...mockPledger} />, { wrapper });
 
-      expect(screen.getByText('Accepted By')).toBeInTheDocument();
-      expect(screen.getByText('Inspired')).toBeInTheDocument();
+      expect(screen.getByText('Witnessed By')).toBeInTheDocument();
+      expect(screen.getByText('Pledged After')).toBeInTheDocument();
     });
   });
 
@@ -144,7 +144,7 @@ describe('PledgerCard', () => {
 
       // Tooltip triggers have cursor-help class
       const tooltipTriggers = document.querySelectorAll('.cursor-help');
-      expect(tooltipTriggers.length).toBe(2); // One for "Accepted By", one for "Inspired"
+      expect(tooltipTriggers.length).toBe(2); // One for "Witnessed By", one for "Pledged After"
     });
 
     it('no tooltip triggers when showStats=false', () => {

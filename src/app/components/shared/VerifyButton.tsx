@@ -37,7 +37,7 @@ export function VerifyButton({ understoodCount, onClick, isOpen = false }: Verif
           </button>
         </TooltipTrigger>
         <TooltipContent>
-          <p>{understoodCount} {understoodCount === 1 ? 'understanding' : 'understandings'}</p>
+          <p>{understoodCount} verified {understoodCount === 1 ? 'understanding' : 'understandings'}</p>
         </TooltipContent>
       </Tooltip>
     </TooltipProvider>

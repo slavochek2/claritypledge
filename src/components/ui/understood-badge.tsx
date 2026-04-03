@@ -15,8 +15,8 @@ interface UnderstoodBadgeProps {
 export function UnderstoodBadge({ count, size = 'sm', className = '' }: UnderstoodBadgeProps) {
   const tooltip =
     count === 0
-      ? 'No one has verified understanding of this story yet'
-      : `${count} ${count === 1 ? 'person' : 'people'} verified their understanding in a live session`;
+      ? 'No verifications of cognitive understanding for this story yet'
+      : `${count} ${count === 1 ? 'verification' : 'verifications'} of cognitive understanding — confirmed in a live session`;
 
   const sizeClasses = size === 'xs'
     ? 'text-xs px-1 py-0.5'

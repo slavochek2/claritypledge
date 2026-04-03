@@ -44,7 +44,7 @@ export function PointHeader({
           )}
           {/* Ear count - right after name */}
           {authorEarCount !== undefined && (
-            <MobileTooltip content={authorEarCount === 0 ? `${authorName?.split(' ')[0] || 'They'} hasn't had any stories confirmed understood yet` : `${authorName?.split(' ')[0] || 'They'} understood ${authorEarCount} ${authorEarCount === 1 ? 'story' : 'stories'} as confirmed by their owners`}>
+            <MobileTooltip content={authorEarCount === 0 ? 'No stories yet verified for cognitive understanding' : `${authorName?.split(' ')[0] || 'They'} has verified cognitive understanding of ${authorEarCount} ${authorEarCount === 1 ? 'story' : 'stories'} — confirmed by story authors`}>
               <span className={`flex items-center gap-0.5 ${textClass} text-gray-600`}>
                 <Ear size={iconSize} />
                 {authorEarCount}

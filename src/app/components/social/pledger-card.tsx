@@ -94,11 +94,11 @@ export function PledgerCard({
                     <p className="text-2xl font-bold text-foreground">
                       {witnessCount}
                     </p>
-                    <p className="text-xs text-muted-foreground">Accepted By</p>
+                    <p className="text-xs text-muted-foreground">Witnessed By</p>
                   </div>
                 </TooltipTrigger>
                 <TooltipContent>
-                  <p className="text-xs">People who accepted their commitment</p>
+                  <p className="text-xs">People who witnessed their pledge</p>
                 </TooltipContent>
               </Tooltip>
             </div>
@@ -109,11 +109,11 @@ export function PledgerCard({
                     <p className="text-2xl font-bold text-foreground">
                       {reciprocations}
                     </p>
-                    <p className="text-xs text-muted-foreground">Inspired</p>
+                    <p className="text-xs text-muted-foreground">Pledged After</p>
                   </div>
                 </TooltipTrigger>
                 <TooltipContent>
-                  <p className="text-xs">People inspired to take the pledge</p>
+                  <p className="text-xs">People who pledged after them</p>
                 </TooltipContent>
               </Tooltip>
             </div>

@@ -17,8 +17,8 @@ export function EarBadge({ count, name, size = 12, className = '' }: EarBadgePro
   const firstName = name.split(' ')[0];
   const tooltip =
     count === 0
-      ? `${firstName} hasn't had any stories confirmed understood yet`
-      : `${firstName} understood ${count} ${count === 1 ? 'story' : 'stories'} as confirmed by their owners`;
+      ? 'No stories yet verified for cognitive understanding'
+      : `${firstName} has verified cognitive understanding of ${count} ${count === 1 ? 'story' : 'stories'} — confirmed by story authors`;
 
   return (
     <MobileTooltip content={tooltip}>
