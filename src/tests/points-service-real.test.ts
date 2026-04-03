@@ -142,9 +142,12 @@ describe('realPointsService', () => {
         },
       ];
 
+      // P634: chain is now .eq('first_validator_id').eq('visibility','public').order()
       mockSelect.mockReturnValue({
         eq: vi.fn().mockReturnValue({
-          order: vi.fn().mockResolvedValue({ data: mockPoints, error: null }),
+          eq: vi.fn().mockReturnValue({
+            order: vi.fn().mockResolvedValue({ data: mockPoints, error: null }),
+          }),
         }),
       });
 
@@ -155,9 +158,12 @@ describe('realPointsService', () => {
     });
 
     it('returns empty array on error', async () => {
+      // P634: chain is now .eq('first_validator_id').eq('visibility','public').order()
       mockSelect.mockReturnValue({
         eq: vi.fn().mockReturnValue({
-          order: vi.fn().mockResolvedValue({ data: null, error: { message: 'DB error' } }),
+          eq: vi.fn().mockReturnValue({
+            order: vi.fn().mockResolvedValue({ data: null, error: { message: 'DB error' } }),
+          }),
         }),
       });
 
@@ -605,10 +611,12 @@ describe('realPointsService', () => {
         .mockReturnValueOnce({
           eq: vi.fn().mockResolvedValue({ data: mockPositionRows, error: null }),
         })
-        // Call 2: points fetch
+        // Call 2: points fetch — P634: always includes .eq('visibility','public') even for self-view
         .mockReturnValueOnce({
           in: vi.fn().mockReturnValue({
-            order: vi.fn().mockResolvedValue({ data: mockPointRows, error: null }),
+            eq: vi.fn().mockReturnValue({
+              order: vi.fn().mockResolvedValue({ data: mockPointRows, error: null }),
+            }),
           }),
         })
         // Call 3: getPositionCountsForPoints

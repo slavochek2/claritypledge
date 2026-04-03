@@ -320,6 +320,7 @@ export const realPointsService: PointsService = {
       `
       )
       .eq('first_validator_id', validatorId)
+      .eq('visibility', 'public')  // P634: never leak private points
       .order('created_at', { ascending: false });
 
     if (error || !data) {
@@ -662,9 +663,9 @@ export const realPointsService: PointsService = {
 
     const pointIds = positionRows.map(p => p.point_id);
 
-    // Fetch point rows with creator profiles
-    // Defense-in-depth: hide private points when viewer is not the profile owner
-    let pointsQuery = supabase
+    // P634: Always filter to public points on profile — even when viewer is the owner.
+    // Private points should never appear in profile context.
+    const { data: pointRows, error: pointsError } = await supabase
       .from('points')
       .select(`
         *,
@@ -672,13 +673,8 @@ export const realPointsService: PointsService = {
           id, name, slug, avatar_color, avatar_url
         )
       `)
-      .in('id', pointIds);
-
-    if (viewerUserId !== validatorId) {
-      pointsQuery = pointsQuery.eq('visibility', 'public');
-    }
-
-    const { data: pointRows, error: pointsError } = await pointsQuery
+      .in('id', pointIds)
+      .eq('visibility', 'public')
       .order('created_at', { ascending: false });
 
     if (pointsError || !pointRows) {
@@ -775,7 +771,8 @@ export const realPointsService: PointsService = {
           avatar_color,
           avatar_url
         )
-      `);
+      `)
+      .eq('visibility', 'public');  // P634: never leak private points into feed
 
     if (tag) {
       // P630: Route system tag filters to system_tags column, user tags to tags
