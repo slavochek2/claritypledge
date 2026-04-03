@@ -1,7 +1,7 @@
 # Done Features Index
 
 Quick reference for past completed work. Consult when starting work on a related topic.
-Last updated: 2026-04-03 (P634 Private Points Leak Fix)
+Last updated: 2026-04-03 (P633 Unlink Inside QuotedPoint)
 
 ---
 
@@ -37,6 +37,8 @@ Last updated: 2026-04-03 (P634 Private Points Leak Fix)
 
 ## Points & Stories
 
+- **P633** (Apr 03) Unlink Inside QuotedPoint on Story Detail — ownership model determines surface: story owns the link → action goes on story-detail page. Three scope rewrites (P616→P621→P633) before landing on correct surface. First action button inside QuotedPoint.
+- **P621** (Apr 03) Unlink on Point Detail Page — secondary surface for unlink (stats row of expanded story card). Proven pattern: `onUnlinkPoint` callback prop + page-owned dialog. Bug found during verify: must clear `linkedStories` map alongside `viewerStory` state.
 - **P634** (Apr 03) Private Points Leak Fix — `getPublicPointsFeed` missing `.eq('visibility','public')` leaked creator's private points; RLS passthrough for `first_validator_id=auth.uid()` means every public query must filter explicitly; app-level fix chosen over Postgres view
 - **P628** (Apr 03) Doc Point Reorder Fix — mutation layer (useCallback) must use same computed order as display layer (useMemo), not raw DB state; stale saved order silently drops newly-linked items
 - **P610** (Mar 31) Visibility Line Indicators — shared VisibilityLine component across 5 creation flows; mapPointSummaryFromDb was missing visibility column (icons always showed globe); optimistic PointSummary also needed visibility; doc_stories FK needed CASCADE

@@ -2,6 +2,21 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-03 [product]: P621+P633 — unlink button placement: ownership model determines surface
+
+**Context:** P616 designed unlink outside QuotedPoint via `renderPointRow` (never shipped). P621 (CR of P616) moved to point-detail page stats row. Independent UX review + stress test against 5 surfaces revealed: (1) story-detail is the canonical surface (story owns the link), (2) point-detail inverts the mental model but is acceptable as secondary, (3) doc page creates dangerous mental model collision (local hide vs global unlink side by side), (4) profile tabs are browse-only surfaces. Three spec rewrites across two CRs before landing on the right answer.
+**Decision:** Unlink lives on story-detail (inside QuotedPoint, first action button — P633) and point-detail (stats row — P621). All other surfaces skipped with documented reasoning. The ownership model ("the story owns the link") determines where actions belong — not "wherever the relationship is visible."
+**Alternatives rejected:** (A) All 5 surfaces — doc page eye toggle + unlink side by side confuses local vs global scope. Profile is browse context, accidental unlink risk. (B) Point-detail only — inverts ownership model, not the canonical editing surface.
+**Consequences:** Future entity-level actions should follow the same ownership test: "which entity owns this relationship?" → put the action on that entity's detail page. QuotedPoint now has its first action button — future point-level actions inside stories have a precedent.
+
+## 2026-04-03 [process]: CR chaining — specs can reference previous CRs, not just original specs
+
+**Context:** P621 was a CR of P616. When P621's scope was wrong, we needed a CR of a CR (P633 → P621 → P616). The CR rules in `features.md` only handled single-depth chains. The Processing Contract told agents to "read the predecessor" (singular) with no chain-walking protocol. Agent read P621 as "what was built" but P621 never shipped — actual codebase state was P616's branch code.
+**Decision:** Filed P631 to add `supersedes:` and `chain_root:` frontmatter, extend the Processing Contract to walk full chains, and handle unshipped predecessors (codebase state = last shipped ancestor). P633 used `changes: p621` + `chain_root: p616` as the first real chain.
+**Alternatives rejected:** Always reference the root spec — loses context about why intermediate CRs failed.
+**Consequences:** P631 (task) still open — the actual rule text in `features.md` needs updating. The pattern worked manually for P633 but isn't enforced yet.
+**References:** [P631 spec](../features/p631_cr_chaining_policy.md)
+
 ## 2026-04-03 [technical]: P634 — app-level visibility filter over Postgres view for private points leak
 
 **Context:** P634 fixed a leak where private points were visible to their creator on public surfaces (profile, feed). The leak existed because RLS correctly allowed creators to read their own rows, but the app-layer didn't filter by `visibility` before displaying them on public surfaces.

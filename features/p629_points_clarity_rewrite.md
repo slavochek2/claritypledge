@@ -1,12 +1,12 @@
 ---
 id: p629
-title: "Points clarity rewrite — legibility, obvious truth, minimal jargon"
-status: done
-completed_at: "2026-04-03"
+title: 'Points clarity rewrite — legibility, obvious truth, minimal jargon'
+status: all-done
 type: task
 priority: medium
-created: 2026-04-03
+created: 2026-04-03T00:00:00.000Z
 thinking: t007
+locked_at: '2026-04-03T13:10:53.475Z'
 ---
 
 # P629: Points Clarity Rewrite
