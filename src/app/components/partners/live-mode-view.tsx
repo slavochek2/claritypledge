@@ -1171,7 +1171,7 @@ function IdleScreen({
     && liveState.ratingInitiatedBy !== currentUserName;
 
   // Use top-aligned layout only when a story/point card is visible on screen
-  const hasScrollableContent = ((!!liveState.selectedStoryId || !!liveState.selectedStoryData) && !isListenerDuringLocalRating) || sessionHistory.length > 0;
+  const hasScrollableContent = !!liveState.selectedStoryId || !!liveState.selectedStoryData || sessionHistory.length > 0;
   // P600: Clean idle (no story, no ratings, no history) uses two-zone layout for stable button position
   const isCleanIdle = !hasScrollableContent && !showRatingDrawer && !hasRatingData;
   const layoutClass = isCleanIdle
