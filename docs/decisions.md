@@ -2,6 +2,13 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-03 [technical]: Display vs mutation layer must use same order source (P628)
+
+**Context:** In Clarity Docs, `orderedPointIds` (useMemo) correctly included all current points by merging `allPoints` with saved `pointConfig.order`. But `handleMovePoint` (useCallback) used `pointConfig.order` directly — a stale subset missing points linked after the order was first saved. `indexOf` returned -1, guard clause fired, move silently dropped.
+**Decision:** Mutation functions that operate on ordered lists must derive their working array from the same computed source as the display layer. In this case, `handleMovePoint` now uses `[...orderedPointIds]` instead of raw `pointConfig.order`. The fix is self-healing: once any move succeeds, all current IDs get persisted.
+**Alternatives rejected:** (A) Merge missing IDs into `pointConfig.order` at load time — adds complexity to the data layer for a UI-only concern. (B) Fall back to `allPoints` when `indexOf` returns -1 — masks the divergence rather than eliminating it.
+**Consequences:** Pattern to watch: anywhere a `useCallback` builds its own working array from raw DB state while a `useMemo` computes a richer version for display. The mutation path must use the computed version.
+
 ## 2026-04-03 [process]: DB access local-first — agents read schema locally, never query for discovery
 
 **Context:** Agents were routinely querying live databases just to discover schema (column names, table structure) — information fully represented in local files (`docs/technical/database.md`, `supabase/migrations/*.sql`). The Supabase MCP points at the test project, but no auto-loaded rule said so. Agents would query test, get unexpected results, then try prod — doubling API calls and requiring unnecessary approval prompts. Root causes: (1) `database.md` line 59 said "Query `\d tablename` on the live DB", (2) CLAUDE.md said "query prod first" too broadly, (3) the tool hierarchy was in reference docs agents never loaded, (4) `database.md` only triggered on `supabase/**` edits — missing 90% of DB interactions.

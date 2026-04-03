@@ -114,12 +114,25 @@ reviews:
 - [ ] Mode switcher reappears after "Speak freely" (exit mode without completing round)
 - [ ] Mode switcher reappears after "Skip" / "Decline"
 - [ ] Speaker clicking "Speak" opens their drawer immediately (partner sees no change except locked mode switcher)
-- [ ] Selecting a story auto-opens the drawer for the story owner (no redundant Speak click after story selection)
 - [ ] Speaker submitting rating transitions partner into the round (partner sees story card + their drawer, no Speak button)
-- [ ] Listener does NOT see the story card until the round starts (speaker submits)
+- [ ] Listener does NOT see the story card until the round starts (speaker submits). Story card appears first, drawer opens after brief reading moment.
+- [ ] Simultaneous Speak: first submitter wins (current behavior). Both may open local drawers — when one submits, the other's becomes the responder drawer.
 - [ ] No regression to sealed-bid pattern
 - [ ] Works for both Check and Prove flows
 - [ ] Works for both Open and Guided modes
+
+---
+
+## Resolved Decisions
+
+| # | Source | Finding | Resolution | Rationale |
+|---|--------|---------|-----------|-----------|
+| 1 | /challenge-prd | [BLOCK] Step 2b auto-drawer on story select is new behavior, underspecified | Removed Step 2b. Story selection stays idle. Owner clicks Speak separately. | Scope creep — core problem is mode switcher lifecycle, not story-drawer coupling. File separate P-number for auto-drawer later. |
+| 2 | /challenge-prd | [BLOCK] Simultaneous Speak clicks unaddressed | Added AC: first submitter wins. Both may open local drawers. | Current implicit behavior, documented explicitly. |
+| 3 | /challenge-prd | [WARN] Back button from drawer not in ASCII | Added Step 2c: cancellation returns both to Step 1. | Completes the lifecycle. |
+| 4 | /challenge-prd | [WARN] Tooltip text placeholder conflict | Committed to "Mode locked — your partner is rating". Removed FOUNDER DECISION tag. | Text already in UI Contract, no reason to defer. |
+| 5 | /challenge-prd | [WARN] Listener story card timing | AC updated: story card appears when round starts, drawer opens after brief reading moment. | Listener needs reading time before rating. |
+| 6 | /challenge-prd | [WARN] Browser reload orphans ratingInitiatedBy | Accepted risk. Known limitation of existing mechanism. | Low frequency, not in P617 scope. File follow-up if observed in UAT. |
 
 ---
 
@@ -137,34 +150,32 @@ Step 1: Both join → clean idle
    └─────────────────────┘      └─────────────────────┘
    Both: Speak button, story picker, mode switcher (enabled).
 
-Step 2: User A clicks Speak (WITHOUT selecting a story first)
-   USER A                        USER B
-   ┌─────────────────────┐      ┌─────────────────────┐
-   │  ┌─ Drawer ──────┐  │      │  [Speak]             │
-   │  │ How well does  │  │      │  + Select story      │
-   │  │ B understand?  │  │      │                      │
-   │  │ [1-10 scale]   │  │      │  [Open] [Guided]     │
-   │  │ [Submit] [Back]│  │      │    (disabled)        │
-   │  └────────────────┘  │      │                      │
-   └─────────────────────┘      └─────────────────────┘
-   User A: drawer opens immediately, no mode switcher.
-   User B: stays on idle, mode switcher DISABLED.
-
-Step 2b: User A clicks Speak (WITH selecting a story)
-   User A clicks "+ Select story" → picks one →
-   drawer opens AUTOMATICALLY (no second Speak click needed)
+Step 2: User A clicks Speak (with or without a story selected)
    USER A                        USER B
    ┌─────────────────────┐      ┌─────────────────────┐
    │  [Story Card]       │      │  [Speak]             │
-   │  ┌─ Drawer ──────┐  │      │  + Select story      │
-   │  │ How well does  │  │      │                      │
-   │  │ B understand?  │  │      │  [Open] [Guided]     │
-   │  │ [1-10 scale]   │  │      │    (disabled)        │
+   │  (if selected)      │      │  + Select story      │
+   │  ┌─ Drawer ──────┐  │      │                      │
+   │  │ How well does  │  │      │  [Open] [Guided]     │
+   │  │ B understand?  │  │      │    (disabled)        │
+   │  │ [1-10 scale]   │  │      │                      │
    │  │ [Submit] [Back]│  │      │                      │
    │  └────────────────┘  │      │                      │
    └─────────────────────┘      └─────────────────────┘
-   User A: story card + drawer, no mode switcher.
-   User B: stays on IDLE (no story card yet), switcher DISABLED.
+   User A: drawer opens immediately, no mode switcher.
+   User A sees story card above drawer if a story was selected before Speak.
+   User B: stays on idle, mode switcher DISABLED.
+   User B does NOT see story card yet (even if selected).
+
+Step 2c: User A clicks Back (cancels from drawer)
+   USER A                        USER B
+   ┌─────────────────────┐      ┌─────────────────────┐
+   │  [Speak]            │      │  [Speak]             │
+   │  + Select story     │      │  + Select story      │
+   │  [Open] [Guided]    │      │  [Open] [Guided]     │
+   └─────────────────────┘      └─────────────────────┘
+   Both return to Step 1. ratingInitiatedBy cleared.
+   Mode switcher ENABLED again. Story selection preserved if it was set.
 
 Step 3: User A submits a number → round starts
    USER A                        USER B
@@ -200,8 +211,8 @@ Step 4: Both submitted → results → celebration → back to idle
 | Mode switcher — speaker in drawer | Disabled (grayed out), tooltip: "Mode locked — your partner is rating" | While speaker is in local rating drawer |
 | Mode switcher — in round | Hidden | After speaker submits, both in round |
 | Mode switcher — back to idle | Enabled, reappears | After round completes |
-| Story card — listener | NOT visible until round starts | Listener stays on idle while speaker is in drawer |
-| Speak button — after story select | NOT visible — drawer auto-opens | Story selection triggers drawer for owner |
+| Story card — listener | NOT visible until round starts | Listener stays on idle while speaker is in drawer. Appears when speaker submits. |
+| Speak button — with story selected | Visible for story owner, hidden for non-owner | Story selection does NOT auto-open drawer. Owner clicks Speak separately. |
 
 ---
 
@@ -278,9 +289,9 @@ The redundant conditions (`!showRatingDrawer`, `!waitingForPartnerToContinue`, `
 
 The disabled state is derived from `liveState.ratingInitiatedBy` which is already available inside `IdleScreen` via the `liveState` prop. No new prop is needed.
 
-**AD-4: Tooltip text is a `[FOUNDER DECISION]`.**
+**AD-4: Tooltip text confirmed.**
 
-The exact tooltip text when the mode switcher is locked is marked in the UI Contract table. Placeholder for implementation: `"Mode locked — your partner is rating"`. [FOUNDER DECISION: exact tooltip text when mode is locked]
+Tooltip text when the mode switcher is locked: "Mode locked — your partner is rating".
 
 ### Security Review
 
