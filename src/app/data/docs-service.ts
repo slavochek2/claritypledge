@@ -115,7 +115,8 @@ function mapStoryWithAuthorFromDb(row: DbStoryWithAuthor): StoryWithAuthor {
     understoodCount: row.understood_count,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
-    tags: row.tags || [],
+    tags: [...(row.tags || []), ...((row as { system_tags?: string[] }).system_tags || [])],
+    systemTags: (row as { system_tags?: string[] }).system_tags || [],
     bannerUrl: row.banner_url ?? undefined,
     authorName: row.author?.name ?? 'Unknown',
     authorSlug: row.author?.slug ?? '',
@@ -141,7 +142,8 @@ function mapPointSummaries(
       id: sp.point.id,
       statement: sp.point.statement,
       context: sp.point.context ?? undefined,
-      tags: sp.point.tags || [],
+      tags: [...(sp.point.tags || []), ...((sp.point as { system_tags?: string[] }).system_tags || [])],
+      systemTags: (sp.point as { system_tags?: string[] }).system_tags || [],
     }));
 }
 
@@ -188,6 +190,7 @@ const STORY_WITH_AUTHOR_SELECT = `
   created_at,
   updated_at,
   tags,
+  system_tags,
   banner_url,
   image_url,
   author:profiles!stories_author_id_fkey (
@@ -214,6 +217,7 @@ const STORY_WITH_AUTHOR_AND_POINTS_SELECT = `
   created_at,
   updated_at,
   tags,
+  system_tags,
   banner_url,
   image_url,
   author:profiles!stories_author_id_fkey (
@@ -232,7 +236,8 @@ const STORY_WITH_AUTHOR_AND_POINTS_SELECT = `
       id,
       statement,
       context,
-      tags
+      tags,
+      system_tags
     )
   )
 `;

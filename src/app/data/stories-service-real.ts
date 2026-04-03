@@ -263,6 +263,7 @@ export const realStoriesService: StoriesService = {
           statement,
           context,
           tags,
+          system_tags,
           created_at,
           visibility
         )
@@ -398,6 +399,7 @@ export const realStoriesService: StoriesService = {
           statement,
           context,
           tags,
+          system_tags,
           created_at,
           visibility
         )
