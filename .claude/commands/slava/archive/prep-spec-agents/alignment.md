@@ -1,5 +1,6 @@
 ---
 archived_reason: "prep-spec sub-agent — /prep-spec superseded by sequential flow; alignment check absorbed into /spec-review"
+disable-model-invocation: true
 ---
 
 # Alignment Review

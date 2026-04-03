@@ -1,5 +1,6 @@
 ---
 archived_reason: "merged into archive/prep-spec-agents/alignment.md — use alignment instead"
+disable-model-invocation: true
 ---
 
 # Definitions Review

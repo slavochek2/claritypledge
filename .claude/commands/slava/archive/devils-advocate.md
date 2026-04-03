@@ -1,6 +1,7 @@
 ---
 description: Devil's Advocate Agent
 archived_reason: "prep-spec sub-agent — devil's advocate thinking absorbed into /spec-review and /architect"
+disable-model-invocation: true
 ---
 
 # Devil's Advocate

@@ -2,6 +2,22 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-03 [process]: Token optimization — MCP config splitting, opusplan default, context pruning
+
+**Context:** Claude Code sessions were loading ~140k tokens of startup context: ~103k from 200+ MCP tool names (chrome-devtools, playwright, workspace, email, analytics, telegram, beeper all always-on), ~12k from 150+ skill entries, ~35k from MEMORY.md (365 lines) and rules.
+**Decision:** (1) Split MCP servers into base + addon configs (`~/.claude/mcp-playwright.json`, `mcp-email.json`, `mcp-analytics.json`, `mcp-comms.json`). Shell aliases `c`/`ce`/`cf` load the right subset at session start. Base `c` = supabase + chrome-devtools + playwright (covers /dev + /verify). `ce` adds email. `cf` adds analytics + beeper. (2) Set `opusplan` as default model in `settings.json` (was: sonnet). (3) Added `disable-model-invocation: true` to all 28 archive skills — removes them from the 12k skill token budget. (4) Trimmed MEMORY.md from 365 → 124 lines by removing duplicates of CLAUDE.md content, personal tool setup, and derivable info. (5) Added memory hygiene step to `/day` skill.
+**Alternatives rejected:** `--strict-mcp-config` (buggy, doesn't reliably block ~/.claude.json servers). Per-server tool filtering (not supported yet — GitHub #4906). Removing chrome-devtools from base (used in 10 sessions/week via /screenshot-debug, too much friction). Keeping playwright out of base (would force new `cf` session after every /dev when /verify is needed).
+**Consequences:** New session token budget ~40-50k (down from ~140k, ~65% reduction). Must use `ce` for /process-email and `cf` for /day and /analytics. If a session needs an MCP that's not loaded, agent will tell user which alias to use. Documentation at `pp/docs/infra/claude-aliases.md`. Rollback: `cp ~/.claude.json.backup-20260403 ~/.claude.json`.
+**References:** `~/.claude/mcp-*.json`, `~/.zshrc` aliases, `pp/docs/infra/claude-aliases.md`
+
+## 2026-04-03 [process]: Route Claude Code through Vertex AI to use GCP credits
+
+**Context:** Anthropic Max plan has token rate limits that interrupt long Claude Code sessions. GCP project `gen-lang-client-0869694595` (display name "cursor") has $24,337 in Google for Startups credits (expire Dec 31, 2027) sitting unused.
+**Decision:** Enable Claude models on Vertex AI and route Claude Code through `CLAUDE_CODE_USE_VERTEX=1`. Claude Opus 4.6 and Sonnet 4.6 are available in `us-east5` and `europe-west1`. Quota increase requested: 100k tokens/min per region. Usage bills to GCP credits — effectively free Claude Code until 2027.
+**Alternatives rejected:** claude-code-router (3rd-party proxy — violates Anthropic ToS, account ban risk, codebase leaks to Google 55-day retention). Gemini models via router (MCP tool use breaks, Claude-specific features degrade). Paying Anthropic API pay-as-you-go (Opus is $75/M output tokens — expensive for heavy dev use).
+**Consequences:** Once quota is approved (24-48h), set env vars in shell profile: `CLAUDE_CODE_USE_VERTEX=1`, `ANTHROPIC_VERTEX_PROJECT_ID=gen-lang-client-0869694595`, `CLOUD_ML_REGION=us-east5`. Claude Code billing shifts from Max plan to GCP credits. Max plan remains as fallback.
+**References:** GCP billing account `010089-354936-77CD27`, quota request submitted Apr 3 2026.
+
 ## 2026-04-03 [technical]: Security audit — 25-agent parallel remediation of 47 findings
 
 **Context:** First comprehensive security audit of the full stack: source code, Supabase RLS, edge functions, dependencies, infrastructure, client-side, and known CVEs. 8 audit agents ran in parallel, then 17 fix agents across 5 waves (Haiku for mechanical config, Sonnet for auth/migration logic, Opus for final validation).

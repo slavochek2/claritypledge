@@ -1,5 +1,6 @@
 ---
 archived_reason: "pointer file only — actual skill at /slava:think:lean:index"
+disable-model-invocation: true
 ---
 
 # Lean Startup Coach

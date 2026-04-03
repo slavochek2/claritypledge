@@ -1,5 +1,6 @@
 ---
 archived_reason: "prep-spec sub-agent — /prep-spec superseded by sequential flow; lean + business alignment now part of /create-prd and /spec-review"
+disable-model-invocation: true
 ---
 
 # Business Review

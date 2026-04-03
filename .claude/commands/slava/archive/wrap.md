@@ -3,6 +3,7 @@ name: wrap
 description: End-of-session close. Commits uncommitted changes, refreshes kanban, surfaces open questions. Zero questions — just acts.
 when_to_use: End of any work session. The one command to run when you're done.
 archived_reason: "replaced by autonomous commit rule in CLAUDE.md + /slava:maintain:kdd for session close"
+disable-model-invocation: true
 ---
 
 # /wrap

@@ -1,6 +1,7 @@
 ---
 description: Technical Sustainability Reviewer Agent
 archived_reason: "prep-spec sub-agent — technical sustainability review absorbed into /architect"
+disable-model-invocation: true
 ---
 
 # Technical Sustainability Reviewer

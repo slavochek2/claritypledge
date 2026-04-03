@@ -1,6 +1,7 @@
 ---
 description: 'Sync Notion kanban with Git source of truth. Clean up stale items, identify gaps, ask user decisions.'
 archived_reason: "Notion no longer used as kanban — replaced by Git-native kanban at localhost:9050"
+disable-model-invocation: true
 ---
 
 # /notion-groom

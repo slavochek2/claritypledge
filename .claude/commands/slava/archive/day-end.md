@@ -1,5 +1,6 @@
 ---
 archived_reason: "merged into /day — single daily skill that combines start + end reflection"
+disable-model-invocation: true
 ---
 
 # Day End (/day-end)

@@ -1,5 +1,6 @@
 ---
 archived_reason: "replaced by /slava:maintain:claude-md — automated agent instead of manual checklist"
+disable-model-invocation: true
 ---
 
 # /slava:claude-md-check

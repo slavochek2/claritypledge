@@ -1,5 +1,6 @@
 ---
 archived_reason: "prep-spec sub-agent — decisions review absorbed into /architect and /spec-review"
+disable-model-invocation: true
 ---
 
 # Decisions Review

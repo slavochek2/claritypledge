@@ -1,5 +1,6 @@
 ---
 archived_reason: "prep-spec sub-agent — execution tooling review absorbed into /architect"
+disable-model-invocation: true
 ---
 
 # Execution Scout

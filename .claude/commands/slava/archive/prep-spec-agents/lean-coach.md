@@ -1,5 +1,6 @@
 ---
 archived_reason: "prep-spec sub-agent — lean coaching absorbed into /slava:think:lean:index and /create-prd"
+disable-model-invocation: true
 ---
 
 # Lean Coach

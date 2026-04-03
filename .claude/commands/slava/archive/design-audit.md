@@ -4,6 +4,7 @@ when_to_use: "After shipping a UI feature. When checking every button, state, an
 name: design-audit
 version: 1.0.0
 archived_reason: "absorbed into /finish criteria/code.md — button, state, and accessibility checks now part of consolidated code review"
+disable-model-invocation: true
 ---
 
 # Design System Audit (Systematic)

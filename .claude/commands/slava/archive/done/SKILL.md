@@ -1,5 +1,6 @@
 ---
 archived_reason: "replaced by /dev auto-close — /dev moves feature to done/ on success automatically"
+disable-model-invocation: true
 ---
 
 # /done

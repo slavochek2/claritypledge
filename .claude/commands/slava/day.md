@@ -482,6 +482,27 @@ After all output, silently:
 
 ---
 
+### 6b. Memory Hygiene (auto, after Step 6)
+
+Scan MEMORY.md for staleness:
+1. Count lines — if >150, flag: "MEMORY.md is N lines (target: <150). Trim?"
+2. Check for entries referencing completed features (cross-reference `features/done/`):
+   - If a memory entry mentions a P-number that's in `features/done/`, propose removing it
+3. Check for entries >90 days old (if date is in the entry or topic file)
+4. Propose deletions but do NOT delete without confirmation
+
+Output (only if action needed):
+```
+MEMORY HYGIENE
+  · MEMORY.md: N lines (target <150) [OK / ⚠ over limit]
+  · Stale: [list entries referencing done features]
+  · Trim? (y/n)
+```
+
+If everything is clean: silent.
+
+---
+
 ### 7. Write Timestamp
 
 ```bash

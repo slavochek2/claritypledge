@@ -1,5 +1,6 @@
 ---
 archived_reason: "prep-spec sub-agent — superseded by dedicated /slava:build:architect skill"
+disable-model-invocation: true
 ---
 
 # Architect Review

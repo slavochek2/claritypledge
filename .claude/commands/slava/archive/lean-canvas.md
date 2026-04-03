@@ -1,5 +1,6 @@
 ---
 archived_reason: "merged into archive/business.md — use business review instead"
+disable-model-invocation: true
 ---
 
 # Lean Canvas Review

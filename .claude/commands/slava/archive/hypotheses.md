@@ -1,5 +1,6 @@
 ---
 archived_reason: "prep-spec sub-agent — hypothesis validation absorbed into /spec-review"
+disable-model-invocation: true
 ---
 
 # Hypotheses Review

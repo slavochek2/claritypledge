@@ -1,5 +1,6 @@
 ---
 archived_reason: "merged into archive/business.md — use business review instead"
+disable-model-invocation: true
 ---
 
 # Theory of Change Review

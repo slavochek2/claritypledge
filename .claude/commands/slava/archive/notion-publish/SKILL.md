@@ -1,6 +1,7 @@
 ---
 description: 'Publish Git docs (roadmap, theory-of-change, features) to public-facing Notion pages.'
 archived_reason: "Notion no longer used for public docs — retired with no replacement"
+disable-model-invocation: true
 ---
 
 # /notion-publish
