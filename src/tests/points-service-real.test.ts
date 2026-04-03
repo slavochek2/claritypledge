@@ -663,45 +663,47 @@ describe('realPointsService', () => {
             error: null,
           }),
         })
-        // points fetch for those IDs
+        // points fetch for those IDs (P634: in → eq(visibility) → order)
         .mockReturnValueOnce({
           in: vi.fn().mockReturnValue({
-            order: vi.fn().mockResolvedValue({
-              data: [
-                {
-                  id: 'point-X',
-                  statement: 'Another user created this X',
-                  context: null,
-                  first_validator_id: 'other-user-1',
-                  created_at: '2026-02-01T00:00:00Z',
-                  updated_at: '2026-02-01T00:00:00Z',
-                  tags: [],
-                  creator: {
-                    id: 'other-user-1',
-                    name: 'Other User 1',
-                    slug: 'other-user-1',
-                    avatar_color: '#3B82F6',
-                    avatar_url: null,
+            eq: vi.fn().mockReturnValue({
+              order: vi.fn().mockResolvedValue({
+                data: [
+                  {
+                    id: 'point-X',
+                    statement: 'Another user created this X',
+                    context: null,
+                    first_validator_id: 'other-user-1',
+                    created_at: '2026-02-01T00:00:00Z',
+                    updated_at: '2026-02-01T00:00:00Z',
+                    tags: [],
+                    creator: {
+                      id: 'other-user-1',
+                      name: 'Other User 1',
+                      slug: 'other-user-1',
+                      avatar_color: '#3B82F6',
+                      avatar_url: null,
+                    },
                   },
-                },
-                {
-                  id: 'point-Y',
-                  statement: 'Another user created this Y',
-                  context: null,
-                  first_validator_id: 'other-user-2',
-                  created_at: '2026-02-01T00:00:00Z',
-                  updated_at: '2026-02-01T00:00:00Z',
-                  tags: [],
-                  creator: {
-                    id: 'other-user-2',
-                    name: 'Other User 2',
-                    slug: 'other-user-2',
-                    avatar_color: '#10B981',
-                    avatar_url: null,
+                  {
+                    id: 'point-Y',
+                    statement: 'Another user created this Y',
+                    context: null,
+                    first_validator_id: 'other-user-2',
+                    created_at: '2026-02-01T00:00:00Z',
+                    updated_at: '2026-02-01T00:00:00Z',
+                    tags: [],
+                    creator: {
+                      id: 'other-user-2',
+                      name: 'Other User 2',
+                      slug: 'other-user-2',
+                      avatar_color: '#10B981',
+                      avatar_url: null,
+                    },
                   },
-                },
-              ],
-              error: null,
+                ],
+                error: null,
+              }),
             }),
           }),
         })
@@ -816,7 +818,9 @@ describe('realPointsService', () => {
         })
         .mockReturnValueOnce({
           in: vi.fn().mockReturnValue({
-            order: vi.fn().mockResolvedValue({ data: pointRows, error: null }),
+            eq: vi.fn().mockReturnValue({
+              order: vi.fn().mockResolvedValue({ data: pointRows, error: null }),
+            }),
           }),
         })
         .mockReturnValueOnce({

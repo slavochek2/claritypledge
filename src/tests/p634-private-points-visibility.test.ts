@@ -245,4 +245,25 @@ describe('P634: Private points visibility', () => {
       expect(hasVisibilityFilter).toBe(false);
     });
   });
+
+  // =========================================================================
+  // getPointsWithUserPositions — must filter visibility='public'
+  // =========================================================================
+
+  describe('getPointsWithUserPositions', () => {
+    it('includes visibility=public filter in query', async () => {
+      currentChain = createChainMock({
+        data: [{ point_id: 'point-1' }],
+        error: null,
+      });
+
+      await service.getPointsWithUserPositions('user-1');
+
+      const eqCalls = callLog.filter(c => c.method === 'eq');
+      const hasVisibilityFilter = eqCalls.some(
+        c => c.args[0] === 'visibility' && c.args[1] === 'public'
+      );
+      expect(hasVisibilityFilter).toBe(true);
+    });
+  });
 });

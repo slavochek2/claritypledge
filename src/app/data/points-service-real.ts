@@ -520,6 +520,7 @@ export const realPointsService: PointsService = {
         )
       `)
       .in('id', pointIds)
+      .eq('visibility', 'public')  // P634: never leak private points on public surfaces
       .order('created_at', { ascending: false });
 
     if (pointsError || !pointRows) {
