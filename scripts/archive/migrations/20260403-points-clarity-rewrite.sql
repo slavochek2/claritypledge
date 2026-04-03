@@ -1,9 +1,9 @@
 -- P629: Points Clarity Rewrite
 -- Strategy:
---   Points with ONLY Slava's positions → UPDATE in place
+--   Points with ONLY founder's positions → UPDATE in place
 --   Points with OTHER users' positions → INSERT new v2, tag old as deprecated
 --
--- Slava's user ID: a99042ef-e740-446a-8734-389c8589cc17
+-- first_validator_id for seed content (from profiles table)
 
 BEGIN;
 

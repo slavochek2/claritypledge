@@ -6,7 +6,7 @@ completed_at: "2026-04-03"
 type: task
 priority: medium
 created: 2026-04-03
-thinking: .private/thinking/t007_points_clarity_rewrite.md
+thinking: t007
 ---
 
 # P629: Points Clarity Rewrite
