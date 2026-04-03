@@ -456,488 +456,243 @@ Key patterns from prototypes: dot picker (not slider), three-button (not Likert)
 
 ---
 
-## ASCII Flow: "Sealed Slides" (from /ascii-flows, corrected)
+## ASCII Flow: "Sealed Slides" (v2 — updated from /ascii-flows)
 
-
-### COMPOSITION (Sender — 2 steps + preview, triggered from doc page)
-
-```
-DOC PAGE (P551) — sender clicks "Prepare a Letter" in header
-
-┌──────────────────────┐
-│ ╔════════════════════╗│
-│ ║ PREPARE A LETTER  ║│
-│ ╚════════════════════╝│
-│                       │
-│  Step 1 of 2  ●○     │
-│  Add receivers        │
-│                       │
-│  Who is this for?     │
-│  ○ Specific people    │
-│  ○ Anyone with a link │
-│                       │
-│  Send to:             │
-│  ┌───────────────────┐│
-│  │ alex@co.com,      ││
-│  │ ben@startup.io    ││
-│  └───────────────────┘│
-│  (separate by comma)  │
-│                       │
-│       [ Next → ]      │
-└───────────────────────┘
-
-┌──────────────────────┐
-│  Step 2 of 2  ○●     │
-│  Set predictions      │
-│                       │
-│  For: Alex            │
-│  ┌───────────────────┐│
-│  │ Hiring stance     ││
-│  │   ●●●●●●○○○○ 6   ││
-│  │   "How well will  ││
-│  │    Alex get it?"  ││
-│  ├───────────────────┤│
-│  │ Funding views     ││
-│  │   ●●●●○○○○○○ 4   ││
-│  └───────────────────┘│
-│                       │
-│  ╔════════════════════╗
-│  ║  2 stories        ║
-│  ║  To: Alex         ║
-│  ║  Predictions: 6, 4║
-│  ╚════════════════════╝
-│                       │
-│  [ Preview Letter → ] │
-└───────────────────────┘
-
-┌──────────────────────┐
-│ ┌────────────────────┐│
-│ │ THIS IS A PREVIEW  ││
-│ │ The receiver will  ││
-│ │ see this (D42)     ││
-│ └────────────────────┘│
-│                       │
-│  (full reading flow   │
-│   shown as receiver   │
-│   would experience)   │
-│                       │
-│  ╔══════════════════╗ │
-│  ║  ✦ Seal & Send  ║ │
-│  ╚══════════════════╝ │
-│  [ ← Back to Edit ]  │
-└───────────────────────┘
-```
-
-### READING — ACT 1: COVER
+### COMPOSITION (Sender — 3 steps: receivers, predictions, preview + seal)
 
 ```
-┌──────────────────────┐
-│                      │
-│ ╔════════════════════╗
-│ ║                    ║
-│ ║       ✉            ║
-│ ║                    ║
-│ ║  A CLARITY LETTER  ║
-│ ║  FROM SARAH        ║
-│ ║                    ║
-│ ║  2 stories         ║
-│ ║  ~ 5 minutes       ║
-│ ║                    ║
-│ ╚════════════════════╝
-│                      │
-│  [ Open the Letter ] │
-│                      │
-└──────────────────────┘
+DOC PAGE — sender clicks "Prepare a Letter" in header
+
+╔══ Step 1 of 3 — Who receives this letter? ══════╗
+║                                                   ║
+║  ┌──────────────────┐  ┌──────────────────────┐  ║
+║  │ ● Specific people│  │ ○ Anyone with a link │  ║
+║  │  Email delivery  │  │  Shareable link + QR │  ║
+║  └──────────────────┘  └──────────────────────┘  ║
+║                                                   ║
+║  To: jan@inguro.com [×]  nejc@..com [×]  + Add   ║
+║                                                   ║
+║  [← Cancel]                    [→ Continue]       ║
+╚═══════════════════════════════════════════════════╝
+
+╔══ Step 2 of 3 — Set your predictions ════════════╗
+║  Story 1 of 4  ▸░░░                               ║
+║                                                    ║
+║  "False consensus in decision framing"             ║
+║                                                    ║
+║  How well will Jan understand this?                ║
+║  ①  ②  ③  ④  ⑤  ⑥  ⑦  ⑧  ⑨  ⑩                ║
+║                 ↑ 6                                ║
+║                                                    ║
+║  [← Back]                       [Story 2 →]       ║
+╚════════════════════════════════════════════════════╝
+
+┌─ ⚑ PREVIEW — the receiver will see exactly this ─┐
+│                                                    │
+│  (full reading flow shown as receiver would see)   │
+│                                                    │
+│  [← Edit Predictions]        [Seal & Send →]      │
+└────────────────────────────────────────────────────┘
+
+╔══════════════════════════════════════════════════════╗
+║                                                      ║
+║         ✦  Seal Your Clarity Letter  ✦               ║
+║                                                      ║
+║  ┌──────────────────────────────────────────────┐   ║
+║  │  To: Jan Kovač, Nejc Čuk                     │   ║
+║  │  4 stories · 6 points · Predictions sealed   │   ║
+║  └──────────────────────────────────────────────┘   ║
+║                                                      ║
+║  Once sealed, your predictions lock.                 ║
+║  You cannot revise them after the receiver begins.   ║
+║                                                      ║
+║  [← Back to Preview]                                ║
+║                                                      ║
+║           [  ✦ Seal & Send Letter  ]                 ║
+║                                                      ║
+╚══════════════════════════════════════════════════════╝
 ```
 
-### READING — ACT 2: PER STORY (5 slides, forward-only)
-
-**Slide 1: READ** (scroll within slide for long stories)
+### READING — COVER
 
 ```
-┌──────────────────────┐
-│ ■□  Story 1 of 2     │
-│──────────────────────│
-│                      │
-│  "My co-founder's    │
-│   position on        │
-│   hiring is that     │
-│   we should only     │
-│   hire senior        │
-│   engineers.         │
-│                      │
-│   The reasoning is   │
-│   that seniors       │
-│   reduce onboarding  │
-│   cost and ship      │
-│   faster..."         │
-│                      │
-│  [ I've read it → ]  │
-│                      │
-└──────────────────────┘
+╔══════════════════════════════════╗
+║         ✉                        ║
+║   A CLARITY LETTER               ║
+║   FOR JAN KOVAČ                  ║
+║   From Slava Ladischenski        ║
+║   4 stories · ~ 8 minutes        ║
+║                                  ║
+║   [  Open the Letter  ]          ║
+║   By opening, you accept the ToS ║
+╚══════════════════════════════════╝
 ```
 
-**Slide 2: RATE** (dot picker — same as prototype)
+Note: "By opening, you accept the ToS" only for 1-to-1 (D48). 1-to-many cover has no ToS — registration at end handles it.
+
+### READING — PER STORY (2+ points: anti-point first)
+
+**Step 1: Cold anti-point** (point 1 appears alone, no story context)
 
 ```
-┌──────────────────────┐
-│ ■□  Story 1 of 2     │
-│──────────────────────│
-│                      │
-│  How well do you     │
-│  believe you         │
-│  understood this?    │
-│                      │
-│  ● ● ● ● ● ● ● ● ○ ○│
-│                    8 │
-│                      │
-│  [ Submit → ]        │
-│                      │
-└──────────────────────┘
-```
+━━━━░░░░░░░░░░░░  Story 1 of 4
 
-**Slide 3: REVEAL** (reuses calibration history pattern)
+"Partners who avoid difficult conversations
+ are choosing short-term comfort over trust."
 
-```
-┌──────────────────────┐
-│ ■□  Story 1 of 2     │
-│──────────────────────│
-│                      │
-│  ┌──────────────────┐│
-│  │ Your rating:   8 ││
-│  │ Sarah predicted:6││
-│  │                  ││
-│  │ Gap: 2           ││
-│  └──────────────────┘│
-│                      │
-│  A gap of 2 —        │
-│  both guessing,      │
-│  neither knows yet.  │
-│                      │
-│  [ See the points → ]│
-│                      │
-└──────────────────────┘
-```
+Where do you stand?
+[  ✕ Disagree  ]  [  ? Maybe  ]  [  ✓ Agree  ]
 
-**Slide 4: POINTS** (one at a time, locked author)
-
-```
-┌──────────────────────┐
-│ ■□  Story 1 of 2     │
-│ Point 1 of 3         │
-│──────────────────────│
-│                      │
-│  "Seniors reduce     │
-│   onboarding cost"   │
-│                      │
-│  ┌────┐ ┌────┐ ┌────┐│
-│  │ ✕  │ │ ?  │ │ ✓  ││
-│  └────┘ └────┘ └────┘│
-│                      │
-│  🔒 Sarah's position │
-│  (engage to reveal)  │
-│                      │
-│  [+ Add a story —    │
-│     explain your     │
-│     view]            │
-│                      │
-│  [ Skip · Next → ]   │
-│                      │
-└──────────────────────┘
+🔒 Slava's position hidden — engage to reveal
++ Add a story (optional)
 ```
 
 D37: must engage (position or story) before proceeding.
 
-After engagement:
+**Step 2: Position revealed + story fades in**
 
 ```
-┌──────────────────────┐
-│ ■□  Story 1 of 2     │
-│ Point 1 of 3         │
-│──────────────────────│
-│                      │
-│  "Seniors reduce     │
-│   onboarding cost"   │
-│                      │
-│  You:   ✓ Agree      │
-│  Sarah: ✓ Agree      │
-│                      │
-│  [ Next point → ]    │
-│                      │
-└──────────────────────┘
+━━━━░░░░░░░░░░░░  Story 1 of 4
+
+Point 1: You ✕ Disagree  ·  Slava ✓ Agrees
+
+── Story fades in below ──────────────────
+"I've watched twelve co-founder pairs
+ describe a moment they knew was a false
+ agreement — and stayed quiet anyway..."
+
+[  I've read it →  ]
 ```
 
-**Slide 5: TRANSITION** (between stories — simple, not meditation)
+**Step 3: Understanding rating**
 
 ```
-┌──────────────────────┐
-│                      │
-│  ■■ □□               │
-│  Story 1 complete    │
-│                      │
-│  [ Next story → ]    │
-│                      │
-└──────────────────────┘
+How well do you believe you understand
+this story in the way Slava means it?
+
+①  ②  ③  ④  ⑤  ⑥  ⑦  ⑧  ⑨  ⑩
+
+[  Submit Rating →  ]
 ```
 
+D49: prompt names author's intent, not self-assessment.
 
-→ Story 2 begins at Slide 1.
-
-### READING — ACT 3: LETTER COMPLETION SUMMARY (after all stories)
-
-```
-┌──────────────────────┐
-│                      │
-│ ╔════════════════════╗
-│ ║  ✦ YOUR LETTER    ║
-│ ║  SUMMARY           ║
-│ ╚════════════════════╝
-│                      │
-│  Per story:          │
-│                      │
-│  ┌──────────────────┐│
-│  │ "Hiring stance"  ││
-│  │  You: 8  Sarah: 6││
-│  │  Gap: 2          ││
-│  ├──────────────────┤│
-│  │ Points:          ││
-│  │ "Seniors reduce  ││
-│  │  onboarding"     ││
-│  │  You: ✓ Agree    ││
-│  │  Sarah: ✓ Agree  ││
-│  └──────────────────┘│
-│                      │
-│  ┌──────────────────┐│
-│  │ "Funding views"  ││
-│  │  You: 5  Sarah: 3││
-│  │  Gap: 2          ││
-│  └──────────────────┘│
-│                      │
-│  2 stories read      │
-│  5 positions taken   │
-│                      │
-│ ╔════════════════════╗│
-│ ║  Ready for /live? ║│
-│ ║ [ Schedule Live ] ║│
-│ ╚════════════════════╝│
-│                      │
-│──────────────────────│
-│                      │
-│  Save your results?  │
-│  ┌──────────────────┐│
-│  │ your@email.com   ││
-│  └──────────────────┘│
-│  [ Save & Sign Up ]  │
-│                      │
-└──────────────────────┘
-```
-
-### AUTHOR COMPLETION SUMMARY VIEW
+**Step 4: Gap reveal**
 
 ```
-┌──────────────────────┐
-│  LETTER RESULTS      │
-│  To: Alex            │
-│  Status: Completed   │
-│──────────────────────│
-│                      │
-│  Per story:          │
-│                      │
-│  1. "Funding runway" │
-│     Gap: 3           │
-│     You predicted: 4 │
-│     Alex rated: 7    │
-│                      │
-│  2. "Hiring seniors" │
-│     Gap: 2           │
-│                      │
-│  3. "Speed vs cost"  │
-│     Gap: 0 — aligned │
-│──────────────────────│
-│                      │
-│  Linked stories:     │
-│  ┌──────────────────┐│
-│  │ 📖 Alex: "I      ││
-│  │  actually think  ││
-│  │  mentorship..."  ││
-│  └──────────────────┘│
-│                      │
-│ ╔════════════════════╗│
-│ ║ Ready for /live?  ║│
-│ ║ [ Schedule Live ] ║│
-│ ╚════════════════════╝│
-└──────────────────────┘
+Your rating          Slava's prediction
+
+      8          /          3
+
+"A gap of 5 — both guessing,
+ neither knows yet."
+
+[  → Continue to remaining points  ]
+```
+
+**Step 5: Remaining points** (2, 3... one at a time, same pattern as Step 1)
+
+**Step 6: Story transition**
+
+```
+     ████░░░░░░░░  Story 1 complete
+
+     ✦
+
+     [  → Next story  ]
+```
+
+### READING — PER STORY (1 point: story first)
+
+For stories with only 1 point: Story → Read → Rate understanding → Gap reveal → Point → Position. Same screens as above but story appears first, point after rating.
+
+### READING — COMPLETION
+
+**Celebration gate**
+
+```
+╔══════════════════════════════════════╗
+║                                      ║
+║    ✦  You've completed it.  ✦        ║
+║                                      ║
+║  4 stories read. 6 points engaged.   ║
+║                                      ║
+║    [  → See Your Letter Summary  ]   ║
+║                                      ║
+╚══════════════════════════════════════╝
+```
+
+**Completion summary** (cards sorted by gap size, largest first)
+
+```
+╔══ Letter Summary ════════════════════════╗
+║                                          ║
+║  ★ Story 1 · "False consensus"           ║
+║  You: 8  ·  Slava: 3  ·  Gap: 5         ║
+║  Pt1: You ✕ vs Slava ✓                  ║
+║  Pt2: You ✓ vs Slava ✓                  ║
+║                                          ║
+║  Story 4 · "Partner dynamics"            ║
+║  You: 4  ·  Slava: 8  ·  Gap: 4         ║
+║                                          ║
+║  Story 2 · "Briefing trap" · Gap: 1     ║
+║  Story 3 · "Alignment" · Gap: 0 ✓      ║
+║                                          ║
+║  [Ready for /live? Start Story 1 →]     ║
+║                                          ║
+║  ── Save your results? ──────────────   ║
+║  [your@email.com]  [Save & Sign Up]     ║
+╚══════════════════════════════════════════╝
+```
+
+Note: "Save your results?" only for 1-to-many unauthenticated receivers (D47/D48).
+
+### SENDER RESULTS VIEW
+
+**Letters section on doc page** (below stories, no tab)
+
+```
+── Sent Letters ──────────────────────────
+Jan Kovač  · Mar 28 · ✓ Completed  [View]
+Nejc Čuk   · Mar 28 · ◑ 2/4
+Workshop   · Mar 27 · 👥 14 responses [View]
+── Received Letters ──────────────────────
+From Sarah · Mar 26 · 2 stories · Not started
+```
+
+**Per-letter results page** (FocusHeader, back to doc)
+
+```
+┌─ Results: Jan Kovač ─────────────────────┐
+│  ← Back to Doc                            │
+│                                           │
+│  Story 1 · "False consensus"              │
+│  Jan: 8  Your prediction: 3  Gap: 5 ★    │
+│  Pt1: Jan ✕  You ✓  · Pt2: Jan ✓  You ✓ │
+│  📖 Jan's story: "In my experience..."   │
+│                                           │
+│  Story 2 · "Briefing trap"               │
+│  Jan: 7  Your prediction: 6  Gap: 1      │
+│                                           │
+│  [→ Start /live on Story 1]              │
+└───────────────────────────────────────────┘
 ```
 
 ---
 
 ## UX Design
 
-### Flow 1: Letters Section in Docs Page (D28)
+See ASCII Flows above for all screen-by-screen flows (composition, reading, completion, sender results).
 
-**Entry point:** Existing docs list page (`/docs`). Letters appear as a section, not a separate route.
-
-```
-/docs page (existing)
-┌──────────────────────────────────┐
-│  My Docs                         │
-│  ┌──────────┐ ┌──────────┐      │
-│  │ Doc A    │ │ Doc B    │      │
-│  └──────────┘ └──────────┘      │
-│                                  │
-│  ─── Letters ───────────────── │
-│                                  │
-│  Sent                            │
-│  ┌──────────────────────────────┐│
-│  │ 📨 "Therapy Notes" → Alex   ││
-│  │    Sent Mar 28 · Completed  ││
-│  ├──────────────────────────────┤│
-│  │ 📨 "Workshop" → 5 receivers ││
-│  │    Sent Mar 25 · 3/5 done   ││
-│  └──────────────────────────────┘│
-│                                  │
-│  Received                        │
-│  ┌──────────────────────────────┐│
-│  │ 📩 From Sarah · Mar 26      ││
-│  │    2 stories · Not started   ││
-│  └──────────────────────────────┘│
-└──────────────────────────────────┘
-```
-
-**States:**
-- Sent letter: Sent / Opened / In progress (N/M) / Completed
-- Received letter: Not started / In progress (N/M) / Completed
-- Tap sent letter → full form view (sender always sees results)
-- Tap received letter (not started/in progress) → view form (reading flow)
-- Tap received letter (completed) → full form view
-
-**Empty state:** "No letters yet. Send one from any doc using 'Prepare a Letter'."
-
-### Flow 2: Composition Wizard (2-step + preview, ASCII already covers this — additions below)
-
-**Entry:** "Prepare a Letter" button in doc detail page header action row.
-
-**Wizard opens as a full-screen overlay** (not a modal dialog — composition needs space for predictions). Uses FocusHeader with "Back to doc" for exit.
-
-**Step 1 — mode selector + receivers (D40):**
-- "Who is this for?" with two options:
-  - **Specific people** → email input with lookup: type email → check if user exists → show name + avatar if found, "will be invited" if not. Creates 1-to-1 letter(s), one per receiver. Multiple emails separated by comma.
-  - **Anyone with a link** → generates shareable URL + optional QR code. Creates 1-to-many letter. Available only from public docs.
-- Letter visibility follows doc visibility: private doc = 1-to-1 only; public doc = both 1-to-1 and 1-to-many available (D45)
-
-**Step 2 — predictions (adapts to mode, D40):**
-- **1-to-1 (specific people):** If multiple receivers: tab/pill selector at top ("For: Alex | For: Ben | For: Carol"). Each receiver gets independent predictions per story. Prompt: "How well will [Alex] understand this?"
-- **1-to-many (anyone with link):** Single prediction set. Prompt: "How well will readers understand this?" One prediction per story, shared across all receivers.
-- `RatingButtons` 0-10 for each story
-- Summary card at bottom shows: N stories, To: [name(s) or "anyone"], Predictions: [values]
-
-**Edge cases:**
-- 0 receivers in Step 1 → Next disabled, "Add at least one receiver or generate a link"
-- Prediction not set → defaults to 5 (middle), shown as dimmed until actively chosen
-- Network error on Seal & Send → toast: "Couldn't send letter. Try again." Button re-enabled.
-- Close wizard mid-composition → unsent state preserved in component state (not persisted). Re-opening restores.
-
-### Flow 3: Letter Reading — View Form (D31)
-
-**Route:** `/letter/:id` (or `/letter/:id?token=xxx` for 1-to-1)
-**Page type:** Focus page — add to `focusRoutes` in bottom-nav.tsx, use FocusHeader
-
-**Cover screen:**
-- Full-viewport centered card
-- Sender name + avatar, story count, estimated time
-- "Open the Letter" CTA (blue, full-width, min-h-[44px])
-- If 1-to-1 + no token: 404 page (D25)
-- If 1-to-1 + expired token: "This letter has expired" message with sender contact info
-
-**Reading flow state machine:**
-
-```
-COVER → [open]
-  ↓
-PER STORY BLOCK (repeats for each story):
-  ↓
-  ├─ (2+ points?) → ANTI-POINT → position/story → READ → RATE → REVEAL → POINTS 2..N → position/story
-  └─ (1 point?)   → READ → RATE → REVEAL → POINT → position/story
-  ↓
-  TRANSITION → next story block
-  ↓
-COMPLETION SUMMARY → registration gate (if unauthenticated, 1-to-many only)
-```
-
-**Forward-only:** No back button within the reading flow. Progress bar at top shows story N of M. Receiver commits at each step — can't revise ratings or positions.
-
-**Point engagement (D37):** Each point shows three-button row (✕/?/✓) + "Add a story" link. Receiver must do ONE of: take position, or file story. If they try to proceed without either → gentle prompt: "Take a position or explain why you can't." Not a hard block — shows once, then allows proceed (tracks as "skipped" signal).
-
-**Author position lock:** Shows "🔒 [Sender]'s position — engage to reveal" in muted text below point. After receiver positions or files story → fade-in animation reveals sender's position (0.5s ease). Both positions shown side by side.
-
-**Loading states:**
-- Letter data loading: skeleton screen matching cover layout
-- Story content loading: skeleton matching story card shape
-- Rating submission: button shows spinner, disables re-tap
-
-**Mobile-specific:**
-- All screens stack vertically, full-width
-- RatingButtons row: flex-wrap on narrow screens (<360px), each button still min 32px
-- Position buttons: existing PositionButtons component handles responsive (icon-only below 270px)
-- Story text: standard prose layout, no side panels
-- Progress bar: thin (4px) at very top, fixed position
-
-### Flow 4: Full Form View (D31/D32)
+### Full Form View (D31/D32)
 
 **Who sees it:**
 - Sender: always (from docs page → tap sent letter)
 - Receiver: after completing all stories, OR progressively for completed stories (D32)
 
-**Layout:** Doc-snapshot style — all stories visible (like the doc detail page), but with assessment data overlaid.
+**Layout:** Doc-snapshot style — all stories visible (like the doc detail page), but with assessment data overlaid. FocusHeader with "Back to Docs." Per-story: story content + understanding dual numbers + gap. Per-point: receiver position alongside author position. Incomplete stories greyed/locked: "Complete this story to see results." Tap locked story → returns to view form at that story.
 
-```
-┌──────────────────────────────────┐
-│  FocusHeader: ← Back to Docs     │
-│                                  │
-│  Clarity Letter from [Sender]    │
-│  Sent Mar 28 · To: [Receiver]   │
-│  Status: Completed               │
-│                                  │
-│  ─── Story 1: "Hiring stance" ──│
-│  [story content]                 │
-│  Understanding: You 8 / Sender 6│
-│  Gap: 2                          │
-│                                  │
-│  Points:                         │
-│  ┌─ "Seniors reduce cost"      ─┐│
-│  │ You: ✓ Agree  Sender: ✕ Dis  ││
-│  │ 📖 Your story: "I think..."  ││
-│  └───────────────────────────────┘│
-│                                  │
-│  ─── Story 2: "Funding views" ──│
-│  [story content]                 │
-│  Understanding: You 5 / Sender 4│
-│  Gap: 1                          │
-│                                  │
-│  🔒 Story 3 (not yet completed) │
-│  [greyed out, locked]            │
-│                                  │
-│  ─── Completion Summary ──────── │
-│  [Per-story gaps + per-point     │
-│   positions side by side]        │
-│                                  │
-│  [ Start Live Session → ]        │
-└──────────────────────────────────┘
-```
-
-**Partial unlock (D32):** Stories 1-2 completed → shown with full data. Story 3 not completed → greyed card: "Complete this story to see results." Tap → returns to view form at that story.
-
-### Flow 5: Letter Completion Summary (replaces Grid — see P624 for future grid, D43)
-
-**Layout:** After completing all stories, receiver sees a summary card list:
-- Per-story card: story title, sender prediction vs receiver self-rating as dual numbers, gap value
-- Per-point card (within story): receiver's position alongside author's position (revealed)
-- Points sorted by gap size (largest first)
-- "Ready for /live?" CTA linking to the highest-gap story
-
-**Sender view:** Same layout but showing all receivers' data. For 1-to-many: anonymous until registered.
-
-**Mobile:** Cards stack vertically, full-width. Touch targets ≥ 44px on CTA.
+**Route:** `/letter/:id` (or `/letter/:id?token=xxx` for 1-to-1). Focus page — add to `focusRoutes` in bottom-nav.tsx, use FocusHeader.
 
 ### Edge Cases (All Flows)
 
