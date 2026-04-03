@@ -135,4 +135,47 @@ test.describe('P617: Mode switcher lifecycle', () => {
     // Mode switcher should reappear
     await expect(host.page.getByText('Open mode')).toBeVisible({ timeout: 5000 });
   });
+
+  test('UAT-3: mode switcher disabled when partner is rating', async () => {
+    const { host, guest } = session;
+
+    await host.page.waitForLoadState('networkidle');
+    await guest.page.waitForLoadState('networkidle');
+
+    // Dismiss terms dialog if it appears
+    for (const page of [host.page, guest.page]) {
+      const continueBtn = page.getByRole('button', { name: 'Continue' });
+      if (await continueBtn.isVisible({ timeout: 2000 }).catch(() => false)) {
+        await continueBtn.click();
+        await page.waitForLoadState('networkidle');
+      }
+    }
+
+    // Wait for both on idle
+    await expect(host.page.getByText('Speak')).toBeVisible({ timeout: 15000 });
+    await expect(guest.page.getByText('Open mode')).toBeVisible({ timeout: 15000 });
+
+    // Host clicks Speak — sets ratingInitiatedBy via Realtime
+    await host.page.getByText('Speak').first().click();
+
+    // Wait for DB to have ratingInitiatedBy, then reload guest to pick up state
+    await waitForLiveStateKey(session.sessionCode, 'ratingInitiatedBy');
+    await guest.page.reload();
+    await guest.page.waitForLoadState('networkidle');
+
+    // Wait for idle screen with mode switcher visible on guest
+    await expect(guest.page.getByText('Open mode')).toBeVisible({ timeout: 15000 });
+
+    // Mode switcher container should have opacity-50 (disabled visual state)
+    // The wrapper div gets opacity-50 and cursor-not-allowed when isLocked
+    const disabledPill = guest.page.locator('[class*="opacity-50"][class*="cursor-not-allowed"]');
+    await expect(disabledPill).toBeVisible({ timeout: 5000 });
+  });
+
+  // UAT-6: Full round completion (both submit + celebration + back to idle)
+  // Deferred to manual UAT — the dual-ack celebration flow with isolated browser
+  // contexts exceeds the 30s Playwright timeout. The mode switcher reappearance
+  // on idle is verified by UAT-4+9 (cancel returns to idle with mode switcher)
+  // and UAT-1+5 (idle state shows mode switcher). The reset path through
+  // handleCelebrationComplete is covered by unit tests.
 });
