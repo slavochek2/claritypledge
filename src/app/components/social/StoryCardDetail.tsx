@@ -14,6 +14,7 @@ import {
   ChevronRight,
   ExternalLink,
   Pin,
+  Unlink2,
 } from 'lucide-react';
 import { EarBadge } from '@/components/ui/ear-badge';
 import { UnderstoodBadge } from '@/components/ui/understood-badge';
@@ -97,6 +98,8 @@ interface StoryCardDetailProps {
   onChangeImage?: () => void;
   /** P591: Author callback to remove image */
   onRemoveImage?: () => void;
+  /** P633: Callback when author clicks unlink on a QuotedPoint. Author-only — pass undefined for non-authors. */
+  onUnlinkPoint?: (pointId: string, statement: string) => void;
 }
 
 /**
@@ -131,6 +134,7 @@ export function StoryCardDetail({
   imageUrl,
   onChangeImage,
   onRemoveImage,
+  onUnlinkPoint,
 }: StoryCardDetailProps) {
   const navigate = useNavigate();
   const [pointsExpanded, setPointsExpanded] = useState(defaultCollapsed ? false : isDetailView);
@@ -424,6 +428,7 @@ export function StoryCardDetail({
                     onStoryClick={storyId => navigate(storyRoute(storyId))}
                     currentUserId={currentUserId}
                     hideLinkedStories
+                    onUnlink={onUnlinkPoint}
                   />
                 );
                 return renderPointRow ? renderPointRow(point, quotedEl) : quotedEl;
@@ -474,6 +479,7 @@ function QuotedPoint({
   onStoryClick,
   currentUserId,
   hideLinkedStories = false,
+  onUnlink,
 }: {
   point: PointSummary;
   authorName: string;
@@ -488,6 +494,8 @@ function QuotedPoint({
   onStoryClick?: (storyId: string) => void;
   currentUserId?: string;
   hideLinkedStories?: boolean;
+  /** P633: Callback to unlink this point from the story. Author-only. */
+  onUnlink?: (pointId: string, statement: string) => void;
 }) {
   const navigate = useNavigate();
   const [storiesExpanded, setStoriesExpanded] = useState(false);
@@ -669,6 +677,21 @@ function QuotedPoint({
             </div>
           );
         })()}
+
+        {/* P633: Unlink icon — author-only, inside QuotedPoint */}
+        {onUnlink && (
+          <div role="presentation" className="flex justify-end mt-1" style={{ paddingLeft: '44px' }} onClick={e => e.stopPropagation()}>
+            <MobileTooltip content="Unlink point from story">
+              <button
+                onClick={(e) => { e.stopPropagation(); onUnlink(point.id, point.statement); }}
+                className="min-w-[40px] min-h-[40px] flex items-center justify-center rounded-full text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+                aria-label="Unlink point from story"
+              >
+                <Unlink2 size={14} />
+              </button>
+            </MobileTooltip>
+          </div>
+        )}
       </div>
     </div>
   );

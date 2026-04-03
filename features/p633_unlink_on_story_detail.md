@@ -1,5 +1,5 @@
 ---
-status: today
+status: in-progress
 type: change-request
 rank: 1000035.0
 changes: p621
@@ -12,6 +12,10 @@ tags:
   - stories
   - ux
 created_date: 2026-04-03
+uat_file: features/uat/p633.md
+test_files:
+  - e2e/p633-unlink-story-detail.spec.ts
+  - e2e/p633-smoke.spec.ts
 ---
 
 # P633: Unlink Button on Story Detail Page (Inside QuotedPoint)
@@ -81,3 +85,92 @@ Add `onUnlinkPoint?: (pointId: string, statement: string) => void` to `StoryCard
 - [ ] Confirm removes point from story (optimistic update)
 - [ ] Point-detail unlink (P621) still works — no regression
 - [ ] Visual consistency: icon matches the muted-foreground → destructive-on-hover pattern from P621
+
+## UX Design
+
+### Unlink Flow (Author Only)
+
+1. Author navigates to `/story/:id`
+2. Points section is expanded (auto-expands on detail view)
+3. Each QuotedPoint card shows an Unlink2 icon button (right-aligned, below position buttons)
+4. Author clicks Unlink2 icon
+5. Confirmation dialog opens: title "Unlink point from story?", truncated point statement preview, body text about point remaining visible
+6. Author clicks "Unlink" (destructive) or "Cancel"
+7. On confirm: point removed from local state (optimistic), toast "Point unlinked from story.", dialog closes
+8. On failure: toast error, retry key incremented
+
+### Button Specification
+
+- Icon: `Unlink2` from lucide-react, `size={14}`
+- Container: `min-w-[40px] min-h-[40px]` (40px touch target), `rounded-full`, flex centered
+- Colors: `text-muted-foreground` default, `text-destructive hover:bg-destructive/10` on hover
+- Wrapper: `MobileTooltip` with content "Unlink point from story"
+- `aria-label="Unlink point from story"`
+- Placement: inside QuotedPoint, right-aligned, below position buttons area, with `paddingLeft: 44px` to align with content column
+- Click handler calls `e.stopPropagation()` to prevent card navigation
+
+### Edge Cases
+
+- **Last point**: unlinking the last point leaves the story with 0 points. Footer shows "0 points" label.
+- **Optimistic failure**: on error, toast shows failure message, retry key forces data reload.
+- **Loading state**: "Unlinking..." text replaces "Unlink" button in dialog while request is in flight. Both dialog buttons disabled.
+- **Non-author**: `onUnlinkPoint` prop is `undefined`, no icon rendered. No way for non-author to trigger unlink.
+
+## Component Strategy
+
+### Component Map
+
+**Reuse (no changes):**
+- `MobileTooltip` — wraps unlink icon for tooltip
+- `Dialog`, `DialogContent`, `DialogHeader`, `DialogTitle`, `DialogDescription`, `DialogFooter` — confirmation dialog (already imported in story-detail-page)
+- `Button` — dialog Cancel/Unlink buttons (already imported)
+- `toast` — success/error notifications (already imported)
+- `Loader2` — loading spinner in dialog (already imported)
+
+**Build inline (~12 lines JSX):**
+- Unlink icon button inside QuotedPoint's `onUnlink` conditional block
+
+### Composition
+
+```
+StoryDetailPage
+  └─ StoryCardDetail (new: onUnlinkPoint prop)
+       └─ QuotedPoint (new: onUnlink prop)
+            └─ [icon button] (conditional on onUnlink presence)
+```
+
+### Prop Threading
+
+1. `StoryCardDetail` receives `onUnlinkPoint?: (pointId: string, statement: string) => void`
+2. In `renderPoint()`, passes `onUnlink={onUnlinkPoint}` to each `QuotedPoint`
+3. `QuotedPoint` receives `onUnlink?: (pointId: string, statement: string) => void`
+4. When present, renders the unlink icon button
+
+### What Gets Removed
+
+The existing `renderPointRow` approach in story-detail-page (P616) is replaced by the cleaner `onUnlinkPoint` prop. The `renderPointRow` prop itself stays on StoryCardDetail (used by doc context for drag handle + eye toggle), but story-detail-page stops using it for unlink.
+
+## Test Coverage Strategy
+
+### E2E Tests (`e2e/p633-unlink-story-detail.spec.ts`)
+
+- Author sees unlink button on each linked point in story detail
+- Non-author (viewer) does NOT see unlink button
+- Clicking unlink opens confirmation dialog
+- Confirming unlink removes point from story
+- Canceling dialog preserves point
+
+### Smoke Test (`e2e/p633-smoke.spec.ts`)
+
+- Story detail page loads with linked points visible
+- Points section expands and shows linked point content
+
+### UAT Scenarios (`features/uat/p633.md`)
+
+- Manual checklist covering author/non-author flows, dialog behavior, visual consistency
+
+### Not Needed
+
+- No unit tests (no new logic, no pure functions)
+- No integration tests (no new DB operations — reuses existing `unlinkPointFromStory`)
+- No new DB migrations
