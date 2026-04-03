@@ -116,9 +116,7 @@ function SortableStoryCard({
   }, [allPoints, pointConfig.order]);
 
   const handleMovePoint = useCallback(async (pointId: string, direction: 'up' | 'down') => {
-    const currentOrder = pointConfig.order?.length
-      ? pointConfig.order
-      : allPoints.map(p => p.id);
+    const currentOrder = [...orderedPointIds];
     const idx = currentOrder.indexOf(pointId);
     if (idx < 0) return;
     const swapIdx = direction === 'up' ? idx - 1 : idx + 1;
@@ -134,7 +132,7 @@ function SortableStoryCard({
       setPointConfig(docStory.point_config || {});
       toast.error('Failed to reorder points');
     }
-  }, [pointConfig, docId, docStory.story_id, docStory.point_config, allPoints]);
+  }, [pointConfig, docId, docStory.story_id, docStory.point_config, orderedPointIds]);
 
   return (
     <div ref={setNodeRef} style={style} className="group">
