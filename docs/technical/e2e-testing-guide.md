@@ -835,6 +835,35 @@ await expect(creatorPage.getByText(joinerName)).toBeVisible({ timeout: 5000 });
 
 This works because `waitForDBPresence` runs in Node.js (Playwright's runner), not in the browser — it bypasses the isolated context problem entirely.
 
+### State Advancement Helper (P636)
+
+When a two-party test needs to skip multi-step UI flows (e.g., a full rating round), write `live_state` directly to DB instead of clicking through 6+ reload cycles:
+
+```typescript
+import { advanceSessionState, postRoundIdleState, checkerSubmittedState } from './helpers/test-realtime';
+
+// Skip an entire round — 1 DB write + 1 reload instead of 6+ reloads
+await advanceSessionState(session.sessionCode, postRoundIdleState());
+await host.page.reload();
+await expect(host.page.getByText('Open mode')).toBeVisible({ timeout: 15000 });
+
+// Skip to "checker submitted, waiting for responder"
+await advanceSessionState(session.sessionCode, checkerSubmittedState('Alice', 7));
+await guest.page.reload();
+await expect(guest.page.getByRole('button', { name: /^Rate \d+$/ }).first()).toBeVisible();
+```
+
+**Available presets:**
+- `speakerInitiatedState(name)` — after speaker clicks Speak
+- `postRoundIdleState()` — after full round, back to idle
+- `checkerSubmittedState(name, rating)` — mid-round, waiting for responder
+
+**Custom overrides:** Pass any `Record<string, unknown>` to `advanceSessionState()` to set arbitrary `live_state` fields.
+
+**When to use:** Tests that would exceed the 30s timeout due to multi-step UI flows across isolated browser contexts. The helper merges overrides into the existing `live_state` (read-modify-write), so it's safe to call multiple times.
+
+> **Note on `page.reload()`:** The examples above use `page.reload()` after a direct DB write — a single reload to pick up a known-written state. This is the approved exception to the P637 ban below, which prohibits reload-*polling* loops as a sync mechanism. P636 writes state definitively then reloads once; P637 bans using reload to poll for state that may or may not have arrived.
+
 ### Banned: `page.reload()` for Two-Party State Sync (P637)
 
 **Never use `page.reload()` to synchronize state between two browser contexts in two-party tests.**

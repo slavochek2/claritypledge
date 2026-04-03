@@ -2,6 +2,16 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-03 [technical]: P636 — `null` not `undefined` for clearing JSONB fields via Supabase client
+
+**Context:** `postRoundIdleState()` preset originally used `undefined` to clear fields like `checkerName`, `ratingInitiatedBy`, etc. When spread into the existing state and sent to Supabase, `JSON.stringify` silently drops `undefined` values — so the old values survive in the DB untouched. Caught in code review before any test exercised it.
+**Decision:** All JSONB field-clearing presets use `null` instead of `undefined`. `null` survives JSON serialization and Supabase stores it as JSON `null`, effectively clearing the field.
+**Alternatives rejected:** (A) Delete keys from the merged object before sending — fragile, requires knowing which keys to delete. (B) Replace the entire `live_state` instead of merging — loses fields the preset doesn't know about (e.g., `sessionHistory`).
+**Consequences:** Any future helper that "resets" JSONB fields must use `null`, never `undefined`. This applies to all Supabase client calls, not just test helpers — the same bug would occur in production code using `undefined` in JSONB updates.
+**References:** [P636 spec](../features/p636_two_party_e2e_state_helper.md), `e2e/helpers/test-realtime.ts`
+
+---
+
 ## 2026-04-03 [technical]: P637 — drift detection completeness test + page.reload() ban in two-party E2E
 
 **Context:** P617 shipped a bug where `ratingInitiatedBy` was missing from the drift detection field list. All 5 Playwright E2E tests passed because they used `page.reload()` after DB writes — which fetches the full session from DB, bypassing both Realtime WebSocket delivery and drift detection polling. The bug was only caught during manual UAT after 5-7 attempts.

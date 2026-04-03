@@ -49,6 +49,72 @@ export async function mockMicPermission(page: Page): Promise<void> {
   });
 }
 
+// ─── State Advancement (P636) ──────────────────────────────────────
+// Write live_state directly to DB, bypassing multi-reload chains that
+// exceed Playwright's 30s timeout in two-party tests.
+
+/**
+ * Advance a live session's state by writing directly to DB via supabaseAdmin.
+ * Use this to skip multi-step UI flows in two-party tests where Realtime
+ * doesn't propagate between isolated browser contexts.
+ *
+ * After calling this, reload the page(s) that need to pick up the new state.
+ *
+ * @param sessionCode - The session room code
+ * @param stateOverrides - Partial LiveSessionState to merge into live_state
+ */
+export async function advanceSessionState(
+  sessionCode: string,
+  stateOverrides: Record<string, unknown>,
+): Promise<void> {
+  const { data, error: selectError } = await supabaseAdmin
+    .from('clarity_sessions')
+    .select('live_state')
+    .eq('code', sessionCode)
+    .single();
+  if (selectError) throw new Error(`advanceSessionState SELECT failed for code '${sessionCode}': ${selectError.message}`);
+
+  const current = (data?.live_state as Record<string, unknown>) ?? {};
+  const { error: updateError } = await supabaseAdmin
+    .from('clarity_sessions')
+    .update({ live_state: { ...current, ...stateOverrides } })
+    .eq('code', sessionCode);
+  if (updateError) throw new Error(`advanceSessionState UPDATE failed for code '${sessionCode}': ${updateError.message}`);
+}
+
+/** State after speaker clicks Speak (sets ratingInitiatedBy) */
+export function speakerInitiatedState(speakerName: string): Record<string, unknown> {
+  return { ratingInitiatedBy: speakerName };
+}
+
+/** State after full round completion — back to idle (all rating fields reset) */
+export function postRoundIdleState(): Record<string, unknown> {
+  return {
+    ratingPhase: 'idle',
+    checkerName: null,
+    checkerRating: null,
+    responderRating: null,
+    ratingInitiatedBy: null,
+    checkerSubmitted: null,
+    responderSubmitted: null,
+    proverName: null,
+    explainBackRatings: [],
+  };
+}
+
+/** State mid-round: checker submitted, waiting for responder */
+export function checkerSubmittedState(checkerName: string, rating: number): Record<string, unknown> {
+  return {
+    ratingPhase: 'waiting',
+    checkerName,
+    checkerRating: rating,
+    checkerSubmitted: true,
+    ratingInitiatedBy: checkerName,
+  };
+}
+
+// ─── DB Polling Helpers ────────────────────────────────────────────
+
 const DEFAULT_POLL_INTERVAL_MS = 500;
 const DEFAULT_TIMEOUT_MS = 10000;
 
