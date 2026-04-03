@@ -270,11 +270,20 @@ The only conditions that *can* be true while `ratingPhase === 'idle'` and affect
 
 ### Architecture Decisions
 
-**AD-1: Simplify the 7-condition to 2 states (visible-enabled vs visible-disabled).**
+**AD-0: Two separate mechanisms control two separate actors.**
+
+This is the critical distinction that caused the first failed implementation. Do not confuse them:
+
+- **`isLocallyRating`** (local React state, never shared) — controls the **speaker's** view. When true, `getViewState()` returns `local-rating` and the speaker leaves IdleScreen entirely, entering `RatingScreenWithOptionalDrawer`. The speaker does not see the mode switcher because they are no longer on IdleScreen.
+- **`ratingInitiatedBy`** (shared via Supabase Realtime) — controls the **listener's** mode switcher. When set, the listener's mode switcher becomes disabled (grayed + tooltip). The listener stays on IdleScreen — their view does NOT change.
+
+`isLocallyRating` is set on Speak click (local, instant). `ratingInitiatedBy` is also set on Speak click (shared, propagates via Realtime ~200-500ms). On submit, `ratingInitiatedBy` is overwritten (already set, no visible change) alongside `ratingPhase: 'waiting'` which triggers the listener's view transition.
+
+**AD-1: Mode switcher within IdleScreen: 2 states (enabled vs disabled).**
 
 The mode switcher no longer needs to be *hidden* from within IdleScreen. The render branch structure already handles hiding: IdleScreen only renders during `ratingPhase === 'idle'`, and early-returns for free mode, waitingForPartner, and isLocallyRating already exit before reaching IdleScreen.
 
-New logic:
+New logic within IdleScreen:
 - **Show enabled** (default): `onSessionModeChange` is truthy and `!liveState.ratingInitiatedBy`
 - **Show disabled**: `onSessionModeChange` is truthy and `liveState.ratingInitiatedBy` is set (speaker is in local rating drawer)
 - **Hidden**: `onSessionModeChange` is falsy (prop not provided — no mode switching capability)
@@ -309,24 +318,35 @@ Tooltip text when the mode switcher is locked: "Mode locked — your partner is 
 
 ### Implementation Approach
 
+#### Pre-implementation: Revert wrong P626 commits on w1
+
+The w1 branch has 3 commits from a failed P626 implementation that addressed `ratingInitiatedBy` timing instead of the actual visibility lifecycle. These must be reverted before implementing P617 correctly:
+- `c5dea856` fix(p626): listener stays idle until speaker submits...
+- `98ed5337` test(p626): E2E verification...
+- `34942715` fix(p626): restore 3-state mode switcher...
+
+After revert, w1 should be at `76fd9b50` (the last valid P617 commit).
+
 #### Build Sequence
 
-1. **Refactor mode switcher condition in `IdleScreen`** (line 1352 of `live-mode-view.tsx`):
-   - Replace the 7-condition AND with a simpler visibility check: `onSessionModeChange && (...)`.
-   - Derive a `modeSwitcherDisabled` boolean: `!!liveState.ratingInitiatedBy`.
-   - When enabled: render buttons as today (clickable, blue highlight on active mode).
-   - When disabled: wrap the pill in `MobileTooltip`, apply `opacity-50 cursor-not-allowed` to the container, add `disabled` attribute to both buttons.
+1. **Ensure `handleStartCheck` and `handleStartProve` write `ratingInitiatedBy` on Speak click** (`clarity-live-page.tsx`). This is the shared signal that disables the listener's mode switcher. `isLocallyRating` (local state) opens the speaker's drawer.
 
-2. **Import `MobileTooltip`** at the top of `live-mode-view.tsx` (add to existing imports from `../shared/`).
+2. **Mode switcher in `IdleScreen`** (`live-mode-view.tsx`):
+   - Hidden conditions (return null): `!onSessionModeChange`. All other hide conditions are handled by the render branch structure (IdleScreen only renders when `ratingPhase === 'idle'`).
+   - Disabled state: `!!liveState.ratingInitiatedBy` → wrap in `MobileTooltip`, apply `opacity-50 cursor-not-allowed`, `disabled` attribute on buttons.
+   - Enabled state: default when `!ratingInitiatedBy`.
 
-3. **Verify all reset paths clear `ratingInitiatedBy`** (already confirmed — `handleCelebrationComplete`, `handleSkip`, `handleFreeSpeakFreely` all reset it to `undefined`). No changes needed.
+3. **Listener does NOT see story card until round starts.** When `ratingInitiatedBy` is set but `ratingPhase === 'idle'`, the listener stays on IdleScreen with no story card visible. The story card for the listener appears only when `getViewState` returns `responder-drawer` (after speaker submits). This may require filtering `selectedStoryData` from the listener's IdleScreen render when `ratingInitiatedBy` is set.
 
-4. **Test: mode switcher appears on idle for both users; locks (grays + tooltip) when partner clicks Speak; re-enables after round completes or skip.**
+4. **Verify all reset paths clear `ratingInitiatedBy`** (already confirmed — `handleCelebrationComplete`, `handleSkip`, `handleFreeSpeakFreely`, `onCancelLocalRating` all reset it to `undefined`).
+
+5. **Test against ASCII flow Steps 1-4 + Step 2c (cancellation).**
 
 #### Files to Modify
 
-| File | Change | Lines |
-|------|--------|-------|
-| `src/app/components/partners/live-mode-view.tsx` | Refactor mode switcher condition (line 1352), add `MobileTooltip` import, add disabled styling | ~1352, imports |
+| File | Change |
+|------|--------|
+| `src/app/components/partners/live-mode-view.tsx` | Mode switcher: 2-state (enabled/disabled). Hide story card for listener when `ratingInitiatedBy` set but not in round. `MobileTooltip` import. |
+| `src/app/pages/clarity-live-page.tsx` | Ensure `ratingInitiatedBy` written on Speak click (may already be correct after revert). |
 
 No new files. No database changes. No new dependencies.
