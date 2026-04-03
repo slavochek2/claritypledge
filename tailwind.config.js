@@ -137,6 +137,10 @@ export default {
                     "box-shadow": "0 0 0 12px rgba(34, 197, 94, 0.2)"
                 }
             },
+            "fade-in": {
+                "from": { "opacity": "0" },
+                "to": { "opacity": "1" }
+            },
         },
         "animation": {
             "slide-from-left": "slide-from-left 0.3s cubic-bezier(0.82, 0.085, 0.395, 0.895)",
@@ -144,6 +148,7 @@ export default {
             "accordion-down": "accordion-down 0.2s ease-out",
             "accordion-up": "accordion-up 0.2s ease-out",
             "pulse-subtle-green": "pulse-subtle-green 1.5s ease-in-out 3",
+            "fade-in": "fade-in 0.5s ease-out",
                     }
     }
 },

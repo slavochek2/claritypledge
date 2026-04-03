@@ -45,6 +45,7 @@ const PartnerTemplatePage = lazy(() => import("@/app/pages/partner-template-page
 const DocsListPage = lazy(() => import("@/app/pages/docs-list-page").then(m => ({ default: m.DocsListPage })));
 const DocDetailPage = lazy(() => import("@/app/pages/doc-detail-page").then(m => ({ default: m.DocDetailPage })));
 const LetterComposePage = lazy(() => import("@/app/pages/letter-compose-page").then(m => ({ default: m.LetterComposePage })));
+const LetterReadingPage = lazy(() => import("@/app/pages/letter-reading-page").then(m => ({ default: m.LetterReadingPage })));
 
 // Dev/prototype pages
 const TreePage = lazy(() => import("@/app/pages/TreePage").then(m => ({ default: m.TreePage })));
@@ -611,6 +612,18 @@ export default function ClarityPledgeApp() {
             <ClarityLandingLayout>
               <LazyRoute>
                 <LetterComposePage />
+              </LazyRoute>
+            </ClarityLandingLayout>
+          }
+        />
+
+        {/* P581: Letter reading flow */}
+        <Route
+          path="/letter/:id"
+          element={
+            <ClarityLandingLayout>
+              <LazyRoute>
+                <LetterReadingPage />
               </LazyRoute>
             </ClarityLandingLayout>
           }
