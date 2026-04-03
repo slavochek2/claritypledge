@@ -2,6 +2,16 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-03 [process]: P617/P626 — spec misread caused 3 wrong commits; ASCII flow + AD-0 distinction prevents recurrence
+
+**Context:** P617 spec described mode switcher lifecycle redesign. The implementation session (P626) misread the spec and spent 3 commits fixing `ratingInitiatedBy` timing (when the shared signal fires) instead of the actual problem: mode switcher visible when it shouldn't be + listener seeing story card before round starts. Root cause: the spec's Technical Architecture section only discussed `ratingInitiatedBy` (shared state) without mentioning `isLocallyRating` (local state), so the developer fixated on the shared signal timing. The spec described the correct visual outcome but the architecture section led to the wrong mechanism.
+**Decision:** Added AD-0 to P617 spec: explicit distinction between `isLocallyRating` (local, controls speaker's drawer) and `ratingInitiatedBy` (shared, controls listener's mode switcher disabled state). Added canonical ASCII screen-by-screen flow showing exact UI state at each step for both users. Removed Step 2b (auto-drawer on story select — scope creep identified by /challenge-prd). 3 wrong P626 commits to be reverted on w1 before re-implementation.
+**Alternatives rejected:** (A) Update P626 spec instead of P617 — wrong; P626 was a symptom, P617 is the governing spec. (B) Keep the P626 commits and layer fixes on top — sunk cost trap; the commits addressed the wrong problem.
+**Consequences:** Next implementation session reads the ASCII flow as the canonical reference. If the screen doesn't match the ASCII, the code is wrong. The AD-0 "two mechanisms" distinction is the single most important thing for the implementer to understand.
+**References:** `features/p617_live_mode_switcher_drawer_lifecycle.md` (spec with ASCII + AD-0), w1 branch `feature/p617-mode-switcher-lifecycle` (3 commits to revert: c5dea856, 98ed5337, 34942715).
+
+---
+
 ## 2026-04-03 [product]: Points clarity rewrite — strip to mechanism, one move per point (P629)
 
 **Context:** Devil's advocate review + /dd:think (t007) found that understanding points st5+ degraded in quality compared to the gold standard (st2-st4). Root causes: (1) no "one move per point" rule — later points made 2-4 argumentative moves, (2) jargon without scaffolding — "shared belief," "common knowledge" arrived cold, (3) anti-points from logical negation rather than observed behavior, (4) later points mixed prescription with description. The 9-stage container was treated as fixed, forcing content into oversized stages.
