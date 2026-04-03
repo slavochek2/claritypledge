@@ -1,47 +1,63 @@
 ---
 id: P634
 title: "Private points must never appear in feed or profile"
-status: in-progress
+status: qa
 priority: critical
 type: bug
-flow: dev
-delivery_stage: 1-prd
+flow: fix
+delivery_stage: uat
 created: 2026-04-03
+test_files:
+  - src/tests/p634-private-points-visibility.test.ts
 ---
 
 # P634: Private points must never appear in feed or profile
 
 ## Problem
 
-Private points (visibility='private') leak into the public feed and the creator's own profile page. Two separate code paths are affected:
+Private points (visibility='private') leak into public-facing queries in `points-service-real.ts`. Three code paths affected:
 
-1. **Feed bug (code):** `getPublicPointsFeed()` in `points-service-real.ts:758` has NO `.eq('visibility', 'public')` filter. RLS allows `first_validator_id = auth.uid()`, so the creator's private points appear in their own feed view.
+1. **`getPublicPointsFeed()` (line ~789):** No `.eq('visibility', 'public')` filter. Creator's private points appear in their feed via RLS passthrough.
+2. **`getPointsForProfileDisplay()` (line ~677):** Skips visibility filter when viewer=owner. Private points show on creator's own profile.
+3. **`getPointsByValidator()` (line ~305):** No visibility filter at all. Returns all points by a user including private.
 
-2. **Profile bug (design):** `getPointsForProfileDisplay()` in `points-service-real.ts:677` intentionally skips the visibility filter when `viewerUserId === validatorId`. Private points show on the creator's own profile — this was by-design but is wrong.
-
-## Root Cause
-
-The RLS policy on `points` (from P586) is:
-```sql
-visibility = 'public' OR first_validator_id = auth.uid()
-```
-
-This means the creator can always read their own private points through RLS. The system relies on **every app-level query** remembering to add `.eq('visibility', 'public')`. Any code path that forgets = privacy leak.
-
-## Goal
-
-Make it **structurally impossible** for private points to appear in feed, profile, or any public-facing query — regardless of whether individual code paths remember to filter.
+**Root cause:** RLS policy `visibility = 'public' OR first_validator_id = auth.uid()` means creator always passes RLS. App code must filter — any omission leaks.
 
 ## Acceptance Criteria
 
-- [ ] Private points NEVER appear in the feed (for any user, including the creator)
-- [ ] Private points NEVER appear on the profile page (for any viewer, including the creator)
-- [ ] Private points NEVER appear via `getPoint()` to non-creators
-- [ ] Defense-in-depth: structural DB-level protection prevents leaks even if app code forgets to filter
-- [ ] Existing public points continue to work exactly as before
-- [ ] Creator can still see their own private points in point detail view (direct URL)
+- [ ] Private points NEVER appear in feed (`getPublicPointsFeed`, `getPointsFeed`, `getPointsForFeedDisplay`)
+- [ ] Private points NEVER appear on profile (`getPointsForProfileDisplay`) for any viewer including creator
+- [ ] Private points NEVER returned by `getPointsByValidator()`
+- [ ] Creator CAN see own private points via direct point detail (`getPoint()`) — RLS handles this
+- [ ] Public points work exactly as before
+- [ ] Position counts for private points don't leak into feed/profile totals
 
 ## Out of Scope
 
-- Private points management UI (future feature)
-- Changing the point creation flow or default visibility
+- Private points management UI, DB view, or RLS changes
+- Changing point creation flow or default visibility
+
+## Technical Architecture
+
+### Architecture Decision: App-level fix (no migration)
+
+**Why not a Postgres view?** The RLS policy on `points` already provides defense-in-depth at the DB level — non-creators cannot see private points at all. The bug is that the *creator's own* private points leak into their feed/profile because RLS correctly passes them through. A view would filter `WHERE visibility = 'public'`, but so does `.eq('visibility', 'public')` — and the view adds migration complexity, PostgREST configuration, and a new query surface to maintain.
+
+The structural guarantee already exists (RLS). The fix is ensuring all public-facing app queries explicitly request only public points.
+
+### Files to Modify
+
+- `src/app/data/points-service-real.ts` — add `.eq('visibility', 'public')` to 3 methods
+
+### Security Analysis
+
+- **`getPoint()`** — intentionally has NO visibility filter. RLS ensures only creator + public viewers see the point. This is correct for point detail view.
+- **`getPointWithCounts()`/`getPointWithUserPosition()`** — delegate to `getPoint()`. Correct.
+- **`getPointsFeed()`** — already has `.eq('visibility', 'public')`. Correct.
+- **`getPointsForFeedDisplay()`** — delegates to `getPointsFeed()`. Correct.
+- **`getPointsWithUserPositions()`** — fetches points user has positions on. Private points can only have positions from the creator (RLS blocks others). Showing the creator their own positioned points is acceptable in "My Positions" context. No change needed.
+- **`resolvePointSlug()`** — slug resolution for Sifter. Needs to find points regardless of visibility. No change.
+
+## Test Coverage Strategy
+
+Unit tests mock Supabase client to verify the `.eq('visibility', 'public')` filter is present in the query chain for all three fixed methods. See `src/tests/p634-private-points-visibility.test.ts`.

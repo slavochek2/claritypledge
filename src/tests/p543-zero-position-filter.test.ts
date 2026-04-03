@@ -86,11 +86,13 @@ describe('P543: Zero-position point filtering', () => {
         // point-zero has NO positions
       ];
 
-      // Mock: points query
+      // Mock: points query — P634: .eq('visibility','public') now in chain
       mockSelect
         .mockReturnValueOnce({
-          order: vi.fn().mockReturnValue({
-            range: vi.fn().mockResolvedValue({ data: allPoints, error: null }),
+          eq: vi.fn().mockReturnValue({
+            order: vi.fn().mockReturnValue({
+              range: vi.fn().mockResolvedValue({ data: allPoints, error: null }),
+            }),
           }),
         })
         // Mock: position counts batch
@@ -114,10 +116,13 @@ describe('P543: Zero-position point filtering', () => {
         mockPointRow('orphan-2', 'Orphan 2'),
       ];
 
+      // P634: .eq('visibility','public') now in chain
       mockSelect
         .mockReturnValueOnce({
-          order: vi.fn().mockReturnValue({
-            range: vi.fn().mockResolvedValue({ data: allPoints, error: null }),
+          eq: vi.fn().mockReturnValue({
+            order: vi.fn().mockReturnValue({
+              range: vi.fn().mockResolvedValue({ data: allPoints, error: null }),
+            }),
           }),
         })
         .mockReturnValueOnce({
@@ -296,10 +301,13 @@ describe('P543: Zero-position point filtering', () => {
 
       const allPoints = [mockPointRow('was-active', 'Was active, now abandoned')];
 
+      // P634: .eq('visibility','public') now in chain
       mockSelect
         .mockReturnValueOnce({
-          order: vi.fn().mockReturnValue({
-            range: vi.fn().mockResolvedValue({ data: allPoints, error: null }),
+          eq: vi.fn().mockReturnValue({
+            order: vi.fn().mockReturnValue({
+              range: vi.fn().mockResolvedValue({ data: allPoints, error: null }),
+            }),
           }),
         })
         // Position counts: none left after removal
