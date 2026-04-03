@@ -29,6 +29,7 @@ import { docsService } from '@/app/data/docs-service';
 import { InlineVisibilityIcon } from '@/app/components/shared/visibility-badge';
 import { formatTimeAgo } from '@/app/utils/format-time';
 import { ShareDialog } from '@/app/components/shared/ShareDialog';
+import { ReceivedLettersSection } from '@/app/components/letters/letters-section';
 import type { ClarityDoc, ContentVisibility } from '@/app/types';
 
 export function DocsListPage() {
@@ -262,6 +263,13 @@ export function DocsListPage() {
                 </div>
               </div>
             ))}
+          </div>
+        )}
+
+        {/* P581: Received letters section */}
+        {user?.id && (
+          <div className="mt-8">
+            <ReceivedLettersSection userId={user.id} />
           </div>
         )}
       </div>

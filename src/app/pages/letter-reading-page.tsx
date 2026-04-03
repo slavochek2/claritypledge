@@ -21,6 +21,7 @@ import { ClarityPageLoader } from '@/components/ui/clarity-loader';
 import { LetterCover } from '@/app/components/letters/letter-cover';
 import { LetterStoryReader } from '@/app/components/letters/letter-story-reader';
 import { LetterProgressBar } from '@/app/components/letters/letter-progress-bar';
+import { LetterCompletionSummary } from '@/app/components/letters/letter-completion-summary';
 import { useLetterReadingState } from '@/app/hooks/useLetterReadingState';
 import {
   getLetterByToken,
@@ -249,20 +250,16 @@ export function LetterReadingPage() {
       )}
 
       {viewState === 'complete' && (
-        <div className="flex flex-col items-center justify-center min-h-[50vh] text-center space-y-6">
-          <p className="text-2xl font-serif text-[#1A1A1A]" style={{ fontFamily: '"Playfair Display", Georgia, serif' }}>
-            Letter complete &#10022;
-          </p>
-          <p className="text-sm text-[#1A1A1A]/60">
-            You&apos;ve read all stories in this letter.
-          </p>
-          <Link
-            to="/"
-            className="text-sm text-[#0044CC] hover:underline"
-          >
-            Return home
-          </Link>
-        </div>
+        <LetterCompletionSummary
+          deliveryId={delivery.id}
+          letterData={{
+            snapshots,
+            senderName,
+            mode: letter.mode,
+          }}
+          isAuthenticated={!!currentUser}
+          senderName={senderName}
+        />
       )}
     </CertificatePageShell>
   );

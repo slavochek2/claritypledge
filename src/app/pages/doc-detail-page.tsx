@@ -7,7 +7,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { FileText, Lock, Globe, Share2 } from 'lucide-react';
+import { FileText, Lock, Globe, Share2, Mail } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   DndContext,
@@ -40,6 +40,7 @@ import { DocBlockControls } from '@/app/components/docs/doc-block-controls';
 import { StoryCardDetail } from '@/app/components/social/StoryCardDetail';
 import { ShareDialog } from '@/app/components/shared/ShareDialog';
 import { RemovePositionDialog, useRemovePositionGuard } from '@/app/components/shared/remove-position-dialog';
+import { SentLettersSection } from '@/app/components/letters/letters-section';
 import type { ClarityDoc, DocStory, DocPointConfig, PointPosition, PositionType } from '@/app/types';
 
 // ---------------------------------------------------------------------------
@@ -461,6 +462,14 @@ export function DocDetailPage() {
           onDocUpdated={handleDocUpdated}
         >
           <div className="flex items-center gap-2 flex-shrink-0">
+            {stories.length > 0 && isOwner && (
+              <Button asChild variant="outline" size="sm">
+                <Link to={`/letter/${doc.id}/compose`}>
+                  <Mail className="h-4 w-4 mr-1" />
+                  Prepare a Letter
+                </Link>
+              </Button>
+            )}
             <Button variant="ghost" size="icon" className="h-8 w-8" aria-label="Share this doc" onClick={() => setShareOpen(true)}>
               <Share2 className="h-4 w-4" />
             </Button>
@@ -514,6 +523,11 @@ export function DocDetailPage() {
               </div>
             </SortableContext>
           </DndContext>
+        )}
+
+        {/* P581: Letters section — sent letters for this doc */}
+        {isOwner && stories.length > 0 && (
+          <SentLettersSection docId={doc.id} />
         )}
 
       </div>
