@@ -4,12 +4,12 @@ const functions = require('@google-cloud/functions-framework');
 const storage = new Storage();
 const BUCKET_NAME = 'claritypledge-ml-training';
 
-// CORS headers for browser requests
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type',
-};
+// CORS: restrict to prod by default; override with CORS_ORIGIN env var for dev
+const ALLOWED_ORIGIN = process.env.CORS_ORIGIN || 'https://claritypledge.com';
+
+// Shared secret: set GCS_UPLOAD_SECRET env var on the Cloud Function.
+// Caller sends it as the X-Upload-Secret request header.
+const UPLOAD_SECRET = process.env.GCS_UPLOAD_SECRET;
 
 /**
  * Cloud Function to generate signed upload URLs for ML training data.
@@ -28,17 +28,33 @@ const corsHeaders = {
  * }
  */
 functions.http('getSignedUrl', async (req, res) => {
+  // Set CORS headers for every response
+  res.set('Access-Control-Allow-Origin', ALLOWED_ORIGIN);
+  res.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.set('Access-Control-Allow-Headers', 'Content-Type, X-Upload-Secret');
+
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
-    res.set(corsHeaders);
     res.status(204).send('');
     return;
   }
 
-  res.set(corsHeaders);
-
   if (req.method !== 'POST') {
     res.status(405).json({ error: 'Method not allowed' });
+    return;
+  }
+
+  // --- Auth: shared secret ---
+  if (!UPLOAD_SECRET) {
+    // Fail closed: if the secret is not configured, refuse all requests.
+    console.error('GCS_UPLOAD_SECRET env var is not set');
+    res.status(500).json({ error: 'Service misconfigured' });
+    return;
+  }
+
+  const providedSecret = req.headers['x-upload-secret'];
+  if (!providedSecret || providedSecret !== UPLOAD_SECRET) {
+    res.status(401).json({ error: 'Unauthorized' });
     return;
   }
 

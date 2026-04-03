@@ -2683,6 +2683,9 @@ export type { MLEvent, MLTrainingEvents } from '@/lib/session-events-collector';
 /** Cloud Function URL for getting signed upload URLs */
 const GCS_SIGNED_URL_FUNCTION = 'https://us-central1-gen-lang-client-0869694595.cloudfunctions.net/gcs-signed-url';
 
+/** Shared secret for authenticating requests to the GCS signed-URL Cloud Function */
+const GCS_UPLOAD_SECRET = import.meta.env.VITE_GCS_UPLOAD_SECRET as string | undefined;
+
 /**
  * Retry helper with exponential backoff for network requests.
  * Used for GCS uploads which can fail on mobile networks.
@@ -2747,9 +2750,14 @@ async function getSignedUploadUrl(
     const timeoutId = setTimeout(() => controller.abort(), 10000);
 
     try {
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (GCS_UPLOAD_SECRET) {
+        headers['X-Upload-Secret'] = GCS_UPLOAD_SECRET;
+      }
+
       const response = await fetch(GCS_SIGNED_URL_FUNCTION, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({ sessionCode, fileName, contentType }),
         signal: controller.signal,
       });
