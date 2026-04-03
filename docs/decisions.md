@@ -2,6 +2,34 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-03 [product]: Tooltip language — "cognitive understanding" over "understood"
+
+**Context:** Tooltips across ear badges, understood badges, calibration display, and pledger cards used cryptic or misleading language. "Mischa hasn't had any stories confirmed understood yet" is grammatically awkward, and "understood N stories" implies we know the person understood — when what we actually know is the verification happened. The product's value proposition is *verifiable* cognitive understanding, not claimed understanding.
+**Decision:** Rewrote all 21 tooltip instances across 8 files. Key language shifts: (1) Zero state: "No stories yet verified for cognitive understanding" — states what's missing without passive voice. (2) Count state: "{Name} has verified cognitive understanding of N stories — confirmed by story authors" — the subject is verification, not comprehension. (3) Calibration tooltips now explain what's measured: "How closely their listening confidence matches the speaker's feeling after the paraphrase" instead of cryptic "Confidence vs. verified understanding as a listener." (4) Pledger card: "witnessed their pledge" and "pledged after them" replace vague "accepted their commitment" and aspirational "inspired."
+**Alternatives rejected:** (A) Keep "understood" — misleading; implies knowledge of internal state. (B) Short form "No verified stories yet" — loses the "cognitive understanding" framing that differentiates the product. (C) Per-surface custom copy — unnecessary complexity when one pattern fits all.
+**Consequences:** Resolves the terminology split noted in the P539 decision (badge says "verified", tooltip said "understood"). All user-facing copy now consistently uses "verified cognitive understanding." The `UnderstoodBadge` component name and `understood_count` DB column still use old terminology — renaming those is a separate refactor if needed.
+**References:** [ear-badge.tsx](../src/components/ui/ear-badge.tsx), [understood-badge.tsx](../src/components/ui/understood-badge.tsx), [calibration-display.tsx](../src/app/components/profile/calibration-display.tsx)
+
+## 2026-04-03 [process]: P625 — /kdd must not mark specs done without verifying implementation
+
+**Context:** P625 asked for a ~5-line edit to `/dev` Step -1 (predecessor reading for change-requests). A `/kdd` session (commit `8c9fecbb`) added a generic Change-Request Processing Contract to `.claude/rules/features.md` and marked P625 `status: done` — treating the rule as sufficient. But P625 specifically required the `/dev` skill file to be edited, which never happened. The spec sat marked "done" with unchecked acceptance criteria for a day.
+**Decision:** `/kdd` step 6 (feature housekeeping) should only mark a spec done when the acceptance criteria are actually checked off OR the implementation is verifiable in changed files. A related rule existing elsewhere does not satisfy a spec that targets a specific file. Fixed by implementing the actual edit to `dev.md` Step -1.
+**Alternatives rejected:** Leaving the generic rule as sufficient — agents running `/dev` on a change-request wouldn't proactively read the predecessor unless the skill itself prompts it.
+**Consequences:** When `/kdd` closes a spec, verify: (1) acceptance criteria checkboxes are checked, (2) the target file was actually modified. A rule in `features.md` is defense-in-depth, not a substitute for the primary implementation.
+**References:** [P625 spec](../features/p625_dev_reads_predecessor_for_change_requests.md), `.claude/commands/slava/build/dev.md` Step -1
+
+---
+
+## 2026-04-03 [technical]: P630 follow-up — PostgREST joined selects need explicit column lists; data-layer merge for display
+
+**Context:** After P630 shipped the `system_tags` column, system tags were invisible on most surfaces. Root cause #1: PostgREST `select('*')` includes all columns on the primary table, but joined sub-selects (e.g., `point:points!fk(id, statement, tags)`) are explicit — new columns must be manually added to every join. Root cause #2: `stripHashtags()` used the `tags` array to decide what to strip from display text, but system tags had moved to `system_tags`. Root cause #3: 12+ TagPills call sites would each need `systemTags` prop updates.
+**Decision:** (1) Added `system_tags` to all joined point selects in stories-service-real.ts and docs-service.ts. (2) `stripHashtags()` now auto-detects system-pattern hashtags in text via `isSystemTag()` — strips them regardless of what's in the `tags` parameter. (3) Data layer merge: all DB-to-type mappings now set `tags: [...userTags, ...systemTags]` so every consumer automatically displays all tags. `systemTags` remains separate for feed logic.
+**Alternatives rejected:** (1) Update all 12+ TagPills call sites to pass `systemTags` — fragile, every new caller would forget. (2) Have TagPills auto-fetch systemTags — violates component simplicity.
+**Consequences:** New columns added to stories/points must be added to EVERY joined select in EVERY service file — `select('*')` only covers the primary table. Checklist item for future migrations: "grep for all `.select(` calls that join the modified table."
+**References:** commits `f7485d14`, `80bef006`, `c4644dc4`, `5f82944f`
+
+---
+
 ## 2026-04-03 [product]: P621+P633 — unlink button placement: ownership model determines surface
 
 **Context:** P616 designed unlink outside QuotedPoint via `renderPointRow` (never shipped). P621 (CR of P616) moved to point-detail page stats row. Independent UX review + stress test against 5 surfaces revealed: (1) story-detail is the canonical surface (story owns the link), (2) point-detail inverts the mental model but is acceptable as secondary, (3) doc page creates dangerous mental model collision (local hide vs global unlink side by side), (4) profile tabs are browse-only surfaces. Three spec rewrites across two CRs before landing on the right answer.

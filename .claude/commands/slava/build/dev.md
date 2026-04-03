@@ -71,7 +71,8 @@ You're not just writing code — you're building something that will run in prod
 
 Before ANY other step — including worktree setup:
 1. Read the full spec file (`features/pN*.md`) — Decisions section first, then Acceptance Criteria, then tasks
-2. If spec references DB columns/tables: verify they exist (`curl` the REST API or check migration files)
+2. If spec has `type: change-request` and `changes: pN` in frontmatter: also read the predecessor spec at `features/done/**/pN_*.md` (or `features/pN_*.md` if not yet shipped). Report: "Reading predecessor P{N} for context: {path}". If predecessor not found, warn but don't block.
+3. If spec references DB columns/tables: verify they exist (`curl` the REST API or check migration files)
 
 **Why this is step -1:** After context compaction, the conversation summary says "working on pN" but the spec details are gone. This step costs 10 seconds and prevents 30-minute wrong-direction implementations.
 

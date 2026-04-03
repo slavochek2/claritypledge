@@ -22,6 +22,6 @@ Add to `/dev` skill (Step -1: Context Load): "If spec has `type: change-request`
 
 ## Acceptance Criteria
 
-- [ ] `/dev` reads predecessor spec when `type: change-request` and `changes:` field exists
-- [ ] Agent reports: "Reading predecessor P{N} for context: {path}"
-- [ ] If predecessor not found, warn but don't block
+- [x] `/dev` reads predecessor spec when `type: change-request` and `changes:` field exists
+- [x] Agent reports: "Reading predecessor P{N} for context: {path}"
+- [x] If predecessor not found, warn but don't block
