@@ -152,4 +152,14 @@ describe('collapseToLatest', () => {
   it('handles empty array', () => {
     expect(collapseToLatest([])).toEqual([]);
   });
+
+  it('sorts collapsed results by st-group number', () => {
+    const points: MockPoint[] = [
+      { id: '3', statement: 'st3', tags: ['st3', 'v1'] },
+      { id: '1', statement: 'st1', tags: ['st1', 'v2'] },
+      { id: '2', statement: 'st2', tags: ['st2', 'v1'] },
+    ];
+    const result = collapseToLatest(points);
+    expect(result.map(p => p.id)).toEqual(['1', '2', '3']);
+  });
 });

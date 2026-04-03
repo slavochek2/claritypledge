@@ -62,5 +62,8 @@ export function collapseToLatest<T extends { tags: string[] }>(items: T[]): T[] 
     }
   }
 
-  return [...stGroups.values(), ...noStTag];
+  const sorted = [...stGroups.entries()]
+    .sort(([a], [b]) => a - b)
+    .map(([, item]) => item);
+  return [...sorted, ...noStTag];
 }

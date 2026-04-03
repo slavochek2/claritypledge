@@ -2,7 +2,7 @@
 
 Core concepts of the Clarity Pledge platform. This is the product's conceptual foundation.
 
-**Last Updated:** 2026-03-26
+**Last Updated:** 2026-04-03
 
 ---
 
@@ -352,6 +352,22 @@ Current AI training faces a calibration gap:
 | +1 | Slightly agree |
 | +2 | Agree |
 | +3 | Strongly agree |
+
+---
+
+## Position Flip vs Interpretation Flip
+
+> **One-liner:** A position flip is a genuine belief change after understanding; an interpretation flip is reinterpreting the statement to avoid changing your position.
+
+**Position flip (desired):** Person agrees with an anti-point → reads the paired story → changes position to disagree. The false belief was genuinely held and genuinely abandoned through understanding. This is the mechanism ClarityPledge exists to produce.
+
+**Interpretation flip (escape route):** Person reads the story → reinterprets the anti-point's wording to be compatible with the story → keeps their "agree" position while claiming they "already knew that." The belief survives by shapeshifting. The person hasn't changed — they've performed comprehension without position change.
+
+**Design implication for anti-points:** Anti-points must be worded so precisely that interpretation flip has no room. Hedge words ("probably", "well enough"), secondary claims that distract from the core false belief, and use of ClarityPledge's own terminology (which the anti-point holder wouldn't use) all create escape routes. The anti-point should be in the natural language of someone who holds the belief, not in the language of someone who has already understood the counter-point.
+
+**Quality test:** For each anti-point, run an adversarial simulation — devil's advocate tries to agree with the anti-point even after reading the story (interpretation flip). If the devil can sustain agreement through honest reinterpretation, the anti-point is too loose.
+
+*See also: Anti-points v2 decision in [decisions.md](decisions.md)*
 
 ---
 

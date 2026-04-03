@@ -2,6 +2,22 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-03 [product]: Anti-points v2 — tighten false beliefs to prevent interpretation flip
+
+**Context:** Workshop and product use revealed that several of the 9 anti-points (#misunderstanding) were worded loosely enough for "interpretation flip" — where a reader reinterprets the anti-point to be compatible with the counter-story, keeping their "agree" position without genuinely changing their belief. Hedge words ("probably", "well enough"), secondary distracting claims, and use of ClarityPledge terminology in the anti-point all created escape routes. All 9 were adversarially stress-tested (devil's advocate vs advocate, 3-5 rounds each).
+**Decision:** Rewrote 7 of 9 anti-points. 5 edited in place (st3, st4, st6, st7, st8 — only Slava's positions existed). 2 filed as new v2 points (st1, st2 — Mischa had positions on v1, preserved). v1 points for st1/st2 tagged `deprecated`. st5 and st9 kept as-is (already tight; st9's story needs strengthening separately). Slava's position on st4 upgraded from `disagree` to `strongly_disagree`. All 9 confirmed honestly holdable at `strongly_disagree` via adversarial simulation.
+**Alternatives rejected:** (A) Edit all in place — would destroy Mischa's existing positions on st1/st2. (B) Create v2 for all 9 — unnecessary for points with only Slava's positions. (C) Keep loose wording and rely on stories — stories can't compensate for an anti-point that allows interpretation flip.
+**Consequences:** `collapseToLatest` in `feed-utils.ts` updated to sort by st-number (not `created_at`) so v2 points appear in curriculum order despite having today's timestamp. New concept "Position Flip vs Interpretation Flip" added to definitions.md. Future anti-point edits should use the adversarial simulation pattern before deploying.
+**References:** `.private/backups/anti-points-v2-backup-2026-04-03.json` (pre-change backup), `src/lib/feed-utils.ts` (sort fix), `docs/definitions.md` (new concept)
+
+## 2026-04-03 [technical]: collapseToLatest sort by st-number, not created_at
+
+**Context:** New v2 anti-points get today's `created_at`, which would place them at the end of the `/feed/misunderstanding` feed instead of in curriculum order (st1→st9). Faking `created_at` is unsustainable for future v3/v4 edits.
+**Decision:** Changed `collapseToLatest` in `feed-utils.ts` to sort collapsed output by st-group number. Only affects "latest version" view (when collapse is on). When collapse is off, DB ordering (`created_at`) still applies. Profile and general feed sorting left as `created_at` — curriculum order only matters when viewing the sequence.
+**Alternatives rejected:** (A) Fake `created_at` to match v1 timestamps — unsustainable, breaks audit trail. (B) Add a `sort_order` column to points — schema change for a presentation concern. (C) Sort all views by st-number — over-applied; curriculum order only matters in filtered tag views.
+**Consequences:** Any future point version (v3, v4...) will automatically appear in st-number order in the collapsed feed view. No schema changes needed.
+**References:** `src/lib/feed-utils.ts` (collapseToLatest), `src/tests/p602-feed-filters.test.ts` (new sort test)
+
 ## 2026-04-03 [technical]: Mixpanel MCP 403 "upscoping" — fix is clearing OAuth cache
 
 **Context:** Mixpanel MCP server stopped connecting with `StreamableHTTPError: Server returned 403 after trying upscoping`. Tokens in `~/.mcp-auth/mcp-remote-*/` were refreshing successfully (file timestamps current), but the server rejected connections. Tried: forcing `--transport sse`, upgrading `mcp-remote` to 0.1.38 — both failed.
