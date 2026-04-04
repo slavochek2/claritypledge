@@ -857,6 +857,7 @@ export function LiveModeView({
             currentUserName={currentUserName}
             uploadHealth={uploadHealth}
             modeSwitcherState="hidden"
+            isCreator={isCreator}
           />
           {skipNotificationDialog}
           {confirmSkipDialog}
@@ -918,6 +919,7 @@ export function LiveModeView({
             sessionMode={liveState.sessionMode}
             onSessionModeChange={onSessionModeChange}
             modeSwitcherState={viewState.modeSwitcherState}
+            isCreator={isCreator}
           />
           {skipNotificationDialog}
           {confirmSkipDialog}
@@ -971,6 +973,7 @@ export function LiveModeView({
             uploadHealth={uploadHealth}
             sessionMode={liveState.sessionMode}
             onSessionModeChange={onSessionModeChange}
+            isCreator={isCreator}
           />
           {skipNotificationDialog}
           {confirmSkipDialog}
@@ -1069,6 +1072,8 @@ interface IdleScreenProps {
   onSessionModeChange?: (mode: 'guided' | 'free') => void;
   /** P638: Pre-computed mode switcher state from getViewState */
   modeSwitcherState?: ModeSwitcherState;
+  /** P646: Role identity — true if current user is session creator */
+  isCreator?: boolean;
 }
 
 function IdleScreen({
@@ -1098,6 +1103,7 @@ function IdleScreen({
   sessionMode,
   onSessionModeChange,
   modeSwitcherState,
+  isCreator = false,
 }: IdleScreenProps) {
   const displayPartnerName = getFirstName(partnerName);
   const checkerName = liveState.checkerName ? getFirstName(liveState.checkerName) : '';
@@ -1208,6 +1214,9 @@ function IdleScreen({
   // Name comparison breaks when both users share the same display name.
   const isListenerDuringLocalRating = liveState.ratingInitiatedByIsCreator !== undefined
     && liveState.ratingInitiatedByIsCreator !== isCreator;
+  if (import.meta.env.DEV && (liveState.ratingInitiatedBy || liveState.ratingInitiatedByIsCreator !== undefined)) {
+    console.log(`[P646] isListenerDuringLocalRating=${isListenerDuringLocalRating}, ratingInitiatedByIsCreator=${liveState.ratingInitiatedByIsCreator}, isCreator=${isCreator}, ratingInitiatedBy=${liveState.ratingInitiatedBy}`);
+  }
 
   // Use top-aligned layout only when a story/point card is visible on screen
   const hasScrollableContent = !!liveState.selectedStoryId || !!liveState.selectedStoryData || sessionHistory.length > 0;
@@ -1515,6 +1524,8 @@ interface ResponderWaitingWithDrawerProps {
   /** P614: Mode switcher props */
   sessionMode?: 'guided' | 'free';
   onSessionModeChange?: (mode: 'guided' | 'free') => void;
+  /** P646: Role identity */
+  isCreator?: boolean;
 }
 
 function ResponderWaitingWithDrawer({
@@ -1535,6 +1546,7 @@ function ResponderWaitingWithDrawer({
   uploadHealth,
   sessionMode,
   onSessionModeChange,
+  isCreator = false,
 }: ResponderWaitingWithDrawerProps) {
   return (
     <IdleScreen
@@ -1557,6 +1569,7 @@ function ResponderWaitingWithDrawer({
       sessionMode={sessionMode}
       onSessionModeChange={onSessionModeChange}
       modeSwitcherState="hidden"
+      isCreator={isCreator}
           />
   );
 }
