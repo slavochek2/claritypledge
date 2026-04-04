@@ -91,7 +91,7 @@ Copies diverge silently; the source stays authoritative. Exception: a self-conta
 > **Principle:** Never create files in project root. Terminal output > files.
 
 - Never create `/*.md`, `/*.json`, or temp files in project root
-- Feature specs: Use `/create-prd` or `/quick-feature` (auto-creates in `features/`)
+- Feature specs: Use `/create-spec` (auto-creates in `features/`)
 - Analysis outputs: Terminal only — never create a file for output only needed in this conversation
 - Migration scripts: `scripts/archive/migrations/YYYYMMDD-{name}.{ext}`
 
@@ -231,7 +231,7 @@ See [docs/technical/debugging.md](docs/technical/debugging.md) for full protocol
 
 > **Principle:** Non-trivial work should be visible. Suggest tracking, never force it.
 
-Use `/slava:build:quick-feature` or `/slava:build:create-prd` — never create spec files manually. When starting non-trivial work, suggest: "Want me to create a tracking task?" If user declines, don't ask again.
+Use `/slava:build:create-spec` — never create spec files manually. When starting non-trivial work, suggest: "Want me to create a tracking task?" If user declines, don't ask again.
 
 **Type classification:** `story` (user value) · `task` (technical) · `bug` (fix) · `comment` (decisions). Update to `status: done` when complete.
 
@@ -271,7 +271,7 @@ See [docs/development-process.md](docs/development-process.md) for pipeline tier
 
 | Situation | Invoke |
 |-----------|--------|
-| New feature approved | `/create-prd` (or `/quick-feature` for skeleton) |
+| New feature approved | `/create-spec` |
 | Bug fix approved | `/fix` |
 | Shipped design was wrong | `/change-request` |
 | Implementation ready (spec exists) | `/dev` |

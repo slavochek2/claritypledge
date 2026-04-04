@@ -3,6 +3,7 @@ name: create-prd
 description: Generate business requirements layer (WHY, intent, outcomes, user stories, JTBD)
 when_to_use: Starting any new feature, major bug requiring analysis, or technical task needing planning
 version: 2.0.0
+archived_reason: "Replaced by /create-spec (5-field skeleton) + /product-owner (future, for JTBD/user stories enrichment). Use /create-spec for all new specs."
 ---
 
 # Create PRD
