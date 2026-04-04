@@ -259,7 +259,7 @@ This repo is public (AGPL-3.0). Use `.private/` (gitignored) for: service accoun
 
 ### Sequential Flow
 
-See [docs/development-process.md](docs/development-process.md) for pipeline tiers, skill sequences, and post-work gates. Default: start with `/dev`, pull upstream steps when stuck. Use `/pick-flow` if the right tier is unclear.
+Run `/pick-flow` for pipeline tiers, skill sequences, and post-work gates. Default: start with `/dev`, pull upstream steps when stuck.
 
 ### Skill Invocation — After Approval
 

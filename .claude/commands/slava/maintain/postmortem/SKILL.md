@@ -118,7 +118,7 @@ Fix commits in this category:
 Read these files to find where in the pipeline this should have been caught:
 - Skills in .claude/commands/slava/build/ — especially /ui, /dev, /spec-review, /ux, /challenge-prd, /verify, /generate-tests
 - Rules in .claude/rules/ — especially src.md, visual-qa.md, tests.md
-- Process docs in docs/development-process.md, docs/technical/
+- Process docs in docs/technical/
 
 For this problem category, document:
 1. Which pipeline step SHOULD have caught it (skill name + step number)

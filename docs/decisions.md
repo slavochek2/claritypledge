@@ -2,6 +2,14 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-04 [process]: Delete development-process.md — pick-flow owns all routing, no audience for teaching doc
+
+**Context:** `docs/development-process.md` (970 lines) was created as a teaching document describing the sequential skill flow — what each layer produces, review gate checklists, examples, troubleshooting, FAQ. Over time, `/pick-flow` grew into the authoritative routing engine with signal-based scoring tables, mandatory signal gates, spec-resume logic, infrastructure tier handling, and smart opt-out. The two documents overlapped heavily on "which skills in which order" and "when to skip /ux", but development-process was stale — it still described old PRD output (user stories, JTBD, outcomes) despite P647 renaming skill references to `/create-spec`.
+**Decision:** Delete `docs/development-process.md`. Update CLAUDE.md pointer (line 262) to route to `/pick-flow` directly. Remove from postmortem's context-reading list. Leave historical references in decisions.md and published blog posts untouched.
+**Alternatives rejected:** (A) Slim to onboarding-only doc — no audience; solo founder knows the system, agents read skill files directly. (B) Full rewrite to match new skeleton system — maintains duplication with pick-flow, guarantees future drift. (C) Keep as-is — stale content (Layer 1 describes PRD output, Gate 1 checklist references user stories/outcomes) actively misleads agents.
+**Consequences:** Single source of truth for flow routing is now `/pick-flow`. Review gate checklists were only in development-process — if needed later, they belong in each skill's own output format. Blog posts linking to GitHub will 404; acceptable for historical references to a past system state.
+**References:** `.claude/commands/slava/build/pick-flow/SKILL.md`, `CLAUDE.md`
+
 ## 2026-04-04 [process]: P647 Phase 2 — /challenge-prd rework: skeleton-specific dimensions replace JTBD/Flow
 
 **Context:** P647 replaced `/create-prd` + `/quick-feature` with `/create-spec` (5-field skeleton). But `/challenge-prd` still had seven dimensions designed for the old PRD format — specifically Dimension 3 (JTBD Integrity) validated User Stories and Jobs to Be Done sections, and Dimension 4 (Flow Completeness) validated actor-action pairs from User Stories. Neither section exists at skeleton stage anymore; they're product-owner enrichment (future `/product-owner` skill). Additionally, ~85 stale references to `create-prd` and `quick-feature` remained across 19 files.
