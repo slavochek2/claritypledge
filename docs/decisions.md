@@ -2,6 +2,14 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-04 [technical]: Cloud Run transcribe-session maxScale raised to 5 after GPU quota approval
+
+**Context:** GPU quota increase (1→5 NVIDIA L4 in us-east4) was requested in March (GCP case #69136265) to support parallel transcription jobs. Quota was approved by Google Cloud Support on 2026-03-20 but `maxScale` was never updated — the service was still capped at 1 instance, making the extra quota unused.
+**Decision:** Updated `transcribe-session` Cloud Run service `maxScale` from 1 to 5. Scale-to-zero remains in place (`minInstances: 0`) — no cost impact until concurrent sessions actually occur.
+**Alternatives rejected:** Leave at 1 — wastes approved quota; concurrent sessions (e.g. back-to-back events) would still queue instead of parallelising.
+**Consequences:** Up to 5 sessions can now transcribe simultaneously. Cost model unchanged (pay-per-use, ~$0.50/hr GPU). If 5 proves insufficient, file a new GCP quota request — the billing account now has sufficient history for faster approval.
+**References:** GCP quota case #69136265, `docs/decisions.md` 2026-03-17 entry (original quota request)
+
 ## 2026-04-04 [technical]: P581 Letters — sealed-bid RLS is per-story, not all-or-nothing
 
 **Context:** Spec-review found contradiction: Security Review said receiver sees predictions "only when delivery completed" (all-or-nothing), but the reading flow (AD3) reveals predictions per-story after each rating.
