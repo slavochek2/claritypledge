@@ -2,6 +2,16 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-04 [process]: P617→P643 — /live bugs are distributed systems problems, not logic bugs
+
+**Context:** The mode switcher + drawer lifecycle bug resisted fixing across 5 implementation sessions (P617, P626, P637, P638, this session). Each session: agent writes correct logic, tests pass, manual UAT shows nothing works. Root cause investigation (t010, 5-phase adversarial /dd:think + 3-agent parallel analysis) revealed: `getViewState()` is correct. The inputs don't arrive. Realtime flaps, `updateInFlightRef` drops events, `confirmedLiveStateRef` diverges from `liveState`, drift detection was missing fields. Every session treated this as a **logic bug** (wrong conditions) when it was a **consistency bug** (correct logic, wrong/missing inputs from the delivery layer).
+**Decision:** Two-part response: (1) P643 (bug) captures the 4 user-visible issues with the constraint "do NOT fix until test infrastructure works." (2) P644 (task, rank 1) fixes the test infrastructure first — `waitForUIUpdate()` replaces `page.reload()`, `createTwoPartySessionRealistic()` exercises the real join flow, drift completeness test prevents field omissions. Execution order: P644 → P643. No more code fixes without verifiable tests.
+**Alternatives rejected:** (A) Fix the code again (session 6) — same pattern, no reason to expect different result. (B) Manual UAT only — doesn't prevent agents from declaring "done" prematurely. (C) Full XState rewrite — too expensive before the delivery layer is understood; deferred pending P644 evidence.
+**Consequences:** New rule for /live features: "tests pass" is necessary but not sufficient. Agent must produce evidence from a no-reload two-party test OR manual UAT before declaring done. P644 must ship before P643. The `page.reload()` ban (from P637) is now enforced via test helper replacement, not just documentation.
+**References:** `.private/thinking/t010_p617_systemic_failure.md` (full analysis), `features/p643_live_mode_switcher_broken_despite_tests.md`, `features/p644_two_party_test_infrastructure.md`, session transcript `593ee69e-4fbe-461d-b2af-44f00b84661c.jsonl`
+
+---
+
 ## 2026-04-04 [technical]: Cloud Run transcribe-session maxScale raised to 5 after GPU quota approval
 
 **Context:** GPU quota increase (1→5 NVIDIA L4 in us-east4) was requested in March (GCP case #69136265) to support parallel transcription jobs. Quota was approved by Google Cloud Support on 2026-03-20 but `maxScale` was never updated — the service was still capped at 1 instance, making the extra quota unused.

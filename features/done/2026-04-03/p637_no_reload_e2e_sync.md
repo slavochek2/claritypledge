@@ -4,6 +4,7 @@ type: task
 rank: 0.001
 flow: dev
 completed_at: "2026-04-03"
+superseded_by: p644
 tags:
   - testing
   - e2e

@@ -1,5 +1,5 @@
 ---
-status: qa
+status: rejected
 type: bug
 rank: 3
 tags:
@@ -7,6 +7,7 @@ tags:
   - p617
   - regression
 created_date: 2026-04-02T00:00:00.000Z
+superseded_by: p643
 ---
 
 # P626: Guided Mode — Speak Button + Mode Switcher Still Visible After Entering Mode
