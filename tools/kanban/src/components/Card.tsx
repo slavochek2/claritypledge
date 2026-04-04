@@ -123,7 +123,7 @@ export function Card({ feature, onFeatureUpdate }: CardProps) {
           marginBottom: 6,
         }}
       >
-        {feature.type ? `${TYPE_PREFIX[feature.type]} ` : ''}{feature.title}
+        {feature.type ? `${TYPE_PREFIX[feature.type]} ` : ''}{(() => { const m = feature.id.match(/^(p\d+)/); return m ? `${m[1].toUpperCase()} ` : '' })()}{feature.title}
       </div>
 
       {/* Open button - only visible on hover, solid bg to cover text */}
