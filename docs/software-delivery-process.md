@@ -1,4 +1,4 @@
-# How We Build Software
+# Software Delivery Process
 
 **An agent-native development process built on Claude Code.**
 
@@ -10,19 +10,19 @@ Most dev processes are checklists you run in your head. Ours is a sequence of AI
 
 | Phase | Key Skill | What It Prevents |
 |-------|-----------|-----------------|
-| **Route** | `/pick-flow` | Wasting a full pipeline on a typo fix, or skipping gates on a risky change |
-| **Define** | `/create-spec` | Building the wrong thing — forces "why does this matter?" before code |
-| **Design** | `/architect` | Schema and API decisions you'll regret in 6 months |
-| **Test** | `/generate-tests` | Writing tests after code, where they confirm bugs instead of catching them |
-| **Build** | `/dev` | The actual implementation — iterates until tests pass, stops at UAT |
-| **Verify** | `/verify` | "Tests pass" is not the same as "works in a browser" |
-| **Ship** | `/ship` | Merge without review — runs `/finish` criteria automatically |
+| **Route** | [`/pick-flow`](../.claude/commands/slava/build/pick-flow/SKILL.md) | Wasting a full pipeline on a typo fix, or skipping gates on a risky change |
+| **Define** | [`/create-spec`](../.claude/commands/slava/build/create-spec.md) | Building the wrong thing — forces "why does this matter?" before code |
+| **Design** | [`/architect`](../.claude/commands/slava/build/architect.md) | Schema and API decisions you'll regret in 6 months |
+| **Test** | [`/generate-tests`](../.claude/commands/slava/build/generate-tests/SKILL.md) | Writing tests after code, where they confirm bugs instead of catching them |
+| **Build** | [`/dev`](../.claude/commands/slava/build/dev.md) | The actual implementation — iterates until tests pass, stops at UAT |
+| **Verify** | [`/verify`](../.claude/commands/slava/build/verify/SKILL.md) | "Tests pass" is not the same as "works in a browser" |
+| **Ship** | [`/ship`](../.claude/commands/slava/build/ship.md) | Merge without review — runs [`/finish`](../.claude/commands/slava/build/finish/SKILL.md) criteria automatically |
 
 Not every task runs every step. `/pick-flow` reads your task and recommends which steps apply, which are safe to skip, and what risk you accept by skipping.
 
 ## Core Principles
 
-These live in [PRINCIPLES.md](.claude/commands/slava/PRINCIPLES.md) and guide every agent:
+These live in [PRINCIPLES.md](../.claude/commands/slava/PRINCIPLES.md) and guide every agent:
 
 1. **Principles scale, rules don't.** Understand the WHY so you can handle novel situations.
 2. **Quality by default, speed by exception.** Every gate exists because something broke without it.
@@ -34,11 +34,13 @@ These live in [PRINCIPLES.md](.claude/commands/slava/PRINCIPLES.md) and guide ev
 
 The process includes 30+ skills for thinking, maintenance, and learning. That's a lot. Most sit idle until you need them — you don't memorize `man` pages either. Three worth knowing about:
 
-- **`/dd:frame-analyze`** — structured root-cause analysis (SCQ + 5-Why) for bugs with unclear cause
-- **`/kdd`** — captures decisions and learnings after shipping, so context survives across sessions
-- **`/dd:conjecture` + `/dd:falsify`** — form a hypothesis, then try to kill it before building on it
+- **`/dd:frame-analyze`** — structured root-cause analysis (SCQ + 5-Why) for bugs with unclear cause *
+- **[`/kdd`](../.claude/commands/slava/maintain/kdd/SKILL.md)** — captures decisions and learnings after shipping, so context survives across sessions
+- **`/dd:conjecture` + `/dd:falsify`** — form a hypothesis, then try to kill it before building on it *
 
-Full catalog: [`.claude/commands/slava/`](.claude/commands/slava/) — each skill is a readable markdown file.
+\* The `/dd:*` thinking skills are global (installed in `~/.claude/commands/`, not in this repo). They're portable — ask Claude Code "show me how /dd:frame-analyze works" to see the skill file and adapt it.
+
+Full catalog: [`.claude/commands/slava/`](../.claude/commands/slava/) — each skill is a readable markdown file.
 
 ## Known Limitations
 
