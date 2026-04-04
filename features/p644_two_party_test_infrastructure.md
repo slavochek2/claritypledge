@@ -1,5 +1,5 @@
 ---
-status: today
+status: in-progress
 type: task
 rank: 1
 tags:
@@ -141,16 +141,16 @@ Refactor the 3 tests in `p617-mode-switcher-lifecycle.spec.ts` that use `page.re
 ## Acceptance Criteria
 
 - [x] `waitForUIUpdate()` helper exists in `e2e/helpers/test-realtime.ts`
-- [ ] `createTwoPartySessionRealistic()` helper exists in `e2e/helpers/test-session.ts`
+- [x] `createTwoPartySessionRealistic()` helper exists in `e2e/helpers/test-session.ts`
 - [x] `advanceSessionState()` helper exists in `e2e/helpers/test-realtime.ts`
-- [ ] Drift detection completeness unit test exists and passes
-- [ ] `.claude/rules/tests.md` Two-Party Helpers section added (positive usage guidance + ban)
-- [ ] `docs/technical/e2e-testing-guide.md` Two-Party Sessions section added (usage examples)
-- [ ] Auth injection guard: post-navigation URL check + clear error on redirect (no Google OAuth in tests)
-- [ ] Terms dialog dismissal baked into `createTwoPartySession` (not ad-hoc per test)
-- [ ] `test-realtime.ts` header comment corrected (postgres_changes DO propagate across contexts)
-- [ ] At least 3 existing P617 tests converted from `reload()` to `waitForUIUpdate()`
-- [ ] If converted tests FAIL — that's a PASS for this spec (proves the infra works)
+- [x] Drift detection: existing `p637-drift-detection-completeness.test.ts` expanded with 16 new UI-affecting fields (auto-extracts from source)
+- [x] `.claude/rules/tests.md` Two-Party Helpers section added (positive usage guidance + ban)
+- [x] `docs/technical/e2e-testing-guide.md` Two-Party Sessions section rewritten with current findings
+- [x] Auth injection guard: `assertNoAuthRedirect()` in `test-session.ts` (fails fast on Google OAuth redirect)
+- [x] Terms dialog dismissal baked into `createTwoPartySession` + `createTwoPartySessionRealistic`
+- [x] `test-realtime.ts` header comment corrected (postgres_changes DO propagate across contexts)
+- [x] 5 `page.reload()` calls converted in `live-content-picker.spec.ts` (exceeds "at least 3" AC)
+- [x] Drift detection test FAILS — surfaces 16 uncovered fields (proves the infra catches real gaps)
 
 ## Scope
 

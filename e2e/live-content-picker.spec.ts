@@ -7,12 +7,10 @@
  * - returnTo navigation (event back navigation)
  * - Security: returnTo validation against open redirects
  *
- * Two-party sync strategy: Supabase Realtime presence events do NOT propagate
- * between Playwright's isolated browser contexts. Cross-context state changes
- * are verified via DB polling (waitForDBPresence) + waitForUIUpdate() instead of
- * waiting for Realtime to arrive. See e2e/helpers/test-realtime.ts.
- * NOTE: page.reload() is BANNED for two-party state sync (P637) — it masks
- * delivery bugs by bypassing Realtime + drift detection.
+ * Two-party sync: Supabase postgres_changes DO propagate between Playwright
+ * contexts. State delivery works via Realtime + 1s drift polling without
+ * page.reload(). See e2e/helpers/test-realtime.ts and docs/technical/e2e-testing-guide.md.
+ * page.reload() is BANNED for two-party state sync (P637/P644).
  */
 import { test, expect } from '@playwright/test';
 import { createTestUser, setTestSession, deleteTestUser, deleteClaritySession } from './helpers/test-user';
@@ -83,16 +81,11 @@ test.describe('Live Content Picker - P128', () => {
       // Button text is "Join as Guest" for unauthenticated users (P396 guest-only join)
       await joinerPage.getByRole('button', { name: 'Join as Guest' }).click();
 
-      // Wait for joiner_name to appear in DB (Realtime won't propagate between contexts)
+      // Wait for joiner_name to appear in DB (sync point), then wait for UI delivery
       await waitForDBPresence('clarity_sessions', 'joiner_name', 'Test Joiner', 'code', roomCode, 20000);
 
-      // Reload creator page to force fresh DB fetch — bypasses Realtime
-      await creatorPage.reload();
-      await creatorPage.waitForLoadState('networkidle');
-
-      // Creator should now be in idle screen (DB poll + reload worked)
-      // UI shows first name only in buttons — assert the Check button is visible
-      await expect(creatorPage.getByRole('button', { name: /understand you\?/i })).toBeVisible({ timeout: 10000 });
+      // P644: No page.reload() — let Realtime + drift polling deliver the state
+      await expect(creatorPage.getByRole('button', { name: /understand you\?/i })).toBeVisible({ timeout: 20000 });
 
       // Joiner page transitions to idle after join — allow up to 20s for Realtime/polling to kick in
       await expect(joinerPage.getByRole('button', { name: /understand you\?/i })).toBeVisible({ timeout: 20000 });
@@ -170,19 +163,15 @@ test.describe('Live Content Picker - P128', () => {
       await joinerPage.getByPlaceholder('Enter your name').fill('Test Joiner');
       await joinerPage.getByRole('button', { name: 'Join as Guest' }).click();
 
-      // Wait for DB then reload creator page
+      // P644: Wait for DB sync, then let Realtime + drift polling deliver to UI (no reload)
       await waitForDBPresence('clarity_sessions', 'joiner_name', 'Test Joiner', 'code', roomCode, 20000);
-      await creatorPage.reload();
-      await creatorPage.waitForLoadState('networkidle');
 
-      // Both in live view
-      await expect(creatorPage.getByText('Test Joiner')).toBeVisible({ timeout: 10000 });
-      await joinerPage.reload();
-      await joinerPage.waitForLoadState('networkidle');
-      await expect(joinerPage.getByText('Point Creator')).toBeVisible({ timeout: 10000 });
+      // Both in live view — delivered via app's own mechanisms
+      await expect(creatorPage.getByText('Test Joiner')).toBeVisible({ timeout: 20000 });
+      await expect(joinerPage.getByText('Point Creator')).toBeVisible({ timeout: 20000 });
 
       // Wait for the "Did you get me?" button to appear (indicates live mode is active)
-      await expect(creatorPage.getByRole('button', { name: /Did you get me?|Do you understand/i })).toBeVisible({ timeout: 10000 });
+      await expect(creatorPage.getByRole('button', { name: /Did you get me?|Do you understand/i })).toBeVisible({ timeout: 20000 });
 
       // Creator should see content picker with the point
       await expect(creatorPage.getByTestId('content-picker')).toBeVisible({ timeout: 10000 });
@@ -251,13 +240,9 @@ test.describe('Live Content Picker - P128', () => {
       await joinerPage.getByPlaceholder('Enter your name').fill('Test Joiner');
       await joinerPage.getByRole('button', { name: 'Join as Guest' }).click();
 
-      // Wait for DB then reload creator page
+      // P644: Wait for DB sync, then let Realtime + drift polling deliver (no reload)
       await waitForDBPresence('clarity_sessions', 'joiner_name', 'Test Joiner', 'code', roomCode, 20000);
-      await creatorPage.reload();
-      await creatorPage.waitForLoadState('networkidle');
-
-      // Wait for live view
-      await expect(creatorPage.getByText('Test Joiner')).toBeVisible({ timeout: 10000 });
+      await expect(creatorPage.getByText('Test Joiner')).toBeVisible({ timeout: 20000 });
 
       // Open menu and check for "Back to event" button
       await creatorPage.getByRole('button', { name: /menu|settings/i }).click();
@@ -332,13 +317,9 @@ test.describe('Live Content Picker - P128', () => {
 
       await joinerPage.getByRole('button', { name: 'Join Session' }).click();
 
-      // Wait for DB then reload creator page
+      // P644: Wait for DB sync, then let Realtime + drift polling deliver (no reload)
       await waitForDBPresence('clarity_sessions', 'joiner_name', 'Test Joiner', 'code', roomCode, 20000);
-      await creatorPage.reload();
-      await creatorPage.waitForLoadState('networkidle');
-
-      // Wait for live view
-      await expect(creatorPage.getByText('Test Joiner')).toBeVisible({ timeout: 10000 });
+      await expect(creatorPage.getByText('Test Joiner')).toBeVisible({ timeout: 20000 });
 
       // Open menu - should show "Leave Session" NOT "Back to event"
       await creatorPage.getByRole('button', { name: /menu|settings/i }).click();
@@ -420,13 +401,9 @@ test.describe('Live Content Picker - P128', () => {
 
       await joinerPage.getByRole('button', { name: 'Join Session' }).click();
 
-      // Wait for DB then reload creator page
+      // P644: Wait for DB sync, then let Realtime + drift polling deliver (no reload)
       await waitForDBPresence('clarity_sessions', 'joiner_name', 'Test Joiner', 'code', roomCode, 20000);
-      await creatorPage.reload();
-      await creatorPage.waitForLoadState('networkidle');
-
-      // Wait for live view
-      await expect(creatorPage.getByText('Test Joiner')).toBeVisible({ timeout: 10000 });
+      await expect(creatorPage.getByText('Test Joiner')).toBeVisible({ timeout: 20000 });
 
       // Open menu - should show "Leave Session" NOT "Back to event"
       await creatorPage.getByRole('button', { name: /menu|settings/i }).click();

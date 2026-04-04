@@ -3,14 +3,22 @@
  *
  * E2E Test Helpers for Realtime Synchronization
  *
- * Supabase Realtime presence events do NOT propagate between Playwright's
- * isolated browser contexts (browser.newContext()). Each context establishes
- * its own WebSocket subscription in isolation.
+ * ClarityPledge uses Supabase `postgres_changes` (DB-level, WAL-based) for
+ * Realtime subscriptions. These DO propagate between Playwright's isolated
+ * browser contexts — each context opens its own WebSocket to Supabase, and
+ * both receive DB change events independently. Context isolation is browser
+ * state (cookies, localStorage), not network.
  *
- * These helpers poll the database directly via supabaseAdmin to wait for
- * state changes that would normally be delivered via Realtime. After DB
- * state is confirmed, the page UI update will follow via the app's own
- * polling/subscription mechanisms.
+ * Note: Supabase `presence` and `broadcast` are connection-scoped and would
+ * NOT propagate. But ClarityPledge does not use those for state sync.
+ *
+ * The primary assertion pattern for two-party tests is `waitForUIUpdate()`,
+ * which waits for the DOM to update via the app's own delivery mechanisms
+ * (Realtime + 1s drift polling). No page.reload() needed.
+ *
+ * The DB polling helpers below (`waitForDBPresence`, `waitForDBStateKey`, etc.)
+ * are useful for test synchronization — knowing when state has been written
+ * before asserting UI — but cross-context delivery works without them.
  */
 
 import { Page, Locator, expect } from '@playwright/test';
@@ -55,10 +63,12 @@ export async function mockMicPermission(page: Page): Promise<void> {
 
 /**
  * Advance a live session's state by writing directly to DB via supabaseAdmin.
- * Use this to skip multi-step UI flows in two-party tests where Realtime
- * doesn't propagate between isolated browser contexts.
+ * Use to skip multi-step UI flows without reload chains.
  *
- * After calling this, reload the page(s) that need to pick up the new state.
+ * After calling this, use waitForUIUpdate() to wait for the UI to reflect
+ * the new state — postgres_changes Realtime events DO propagate between
+ * Playwright's isolated browser contexts, and 1s drift polling provides
+ * a reliable fallback.
  *
  * @param sessionCode - The session room code
  * @param stateOverrides - Partial LiveSessionState to merge into live_state

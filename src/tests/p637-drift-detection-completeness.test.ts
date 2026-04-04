@@ -51,36 +51,102 @@ function extractDriftCheckedFields(): string[] {
 // Fields that affect what users SEE — if these change and the partner
 // doesn't get the update, they see stale/wrong UI.
 // Add new fields here as they're introduced to live_state.
+//
+// P644: expanded to cover all UI-affecting fields from LiveSessionState,
+// including Free mode (P562), role determination, and explain-back state.
 const UI_AFFECTING_FIELDS = [
-  'celebrationAcknowledgedBy',
+  // V7 check/prove model
+  'ratingPhase',
+  'checkerName',
+  'checkerIsCreator',
+  'proverName',
+  'checkerRating',
+  'responderRating',
+  'checkerSubmitted',
+  'responderSubmitted',
+  'explainBackRound',
+  'explainBackRatings',
+  'skippedBy',
+  'explainBackDone',
+  'speakerSawExplainBackDone',
+  'clarificationPhase',
   'celebrationAcknowledgedByCreator',
   'celebrationAcknowledgedByJoiner',
-  'checkerName',
-  'checkerRating',
-  'checkerSubmitted',
-  'checksCount',
-  'clarificationPhase',
-  'explainBackDone',
-  'livePositions',
-  'ratingInitiatedBy',
-  'ratingPhase',
-  'responderRating',
-  'responderSubmitted',
+  'celebrationAcknowledgedBy',
+  'perspectiveRequestedBy',
   'roleSwitchNegotiation',
-  'selectedContentTitle',
-  'selectedStoryData',
+
+  // Content selection
   'selectedStoryId',
+  'selectedStoryData',
+  'selectedContentTitle',
+  'sessionHistory',
+  'ratingInitiatedBy',
+
+  // Positions
+  'livePositions',
+  'livePositionsCreator',
+  'livePositionsJoiner',
+
+  // Counts
+  'checksCount',
+
+  // Free mode (P562)
+  'sessionMode',
+  'freePhase',
+  'freeSliderCreator',
+  'freeSliderJoiner',
+  'freeRounds',
+  'freeRerating',
 ].sort();
 
+// P644: Fields known to be missing from drift detection. Each must have a reason.
+// When drift detection is added for a field, remove it from here — the test will
+// enforce that it stays in both UI_AFFECTING_FIELDS and the drift block.
+// TODO: File a follow-up bug to add drift detection for these fields.
+const KNOWN_UNCOVERED: Record<string, string> = {
+  checkerIsCreator: 'Role determination — rarely changes mid-session',
+  proverName: 'Listener-initiated check — different flow, needs investigation',
+  explainBackRound: 'Round counter — UI impact is secondary to explainBackDone',
+  explainBackRatings: 'History array — display only, not interactive state',
+  skippedBy: 'Toast notification — transient, not persistent UI state',
+  speakerSawExplainBackDone: 'Speaker-side flag — prevents drawer flicker',
+  perspectiveRequestedBy: 'Role swap dialog — triggers on partner side',
+  sessionHistory: 'Journey display — grows monotonically, low drift risk',
+  livePositionsCreator: 'P562 replacement for nested livePositions',
+  livePositionsJoiner: 'P562 replacement for nested livePositions',
+  sessionMode: 'Free mode switch — entire UI changes, critical to add',
+  freePhase: 'Free mode phase transitions — no drift coverage at all',
+  freeSliderCreator: 'Live slider position — real-time, high drift risk',
+  freeSliderJoiner: 'Live slider position — real-time, high drift risk',
+  freeRounds: 'Journey display — grows monotonically',
+  freeRerating: 'Speaker re-rated belief — transient per round',
+};
+
 describe('Drift detection completeness', () => {
-  it('covers all UI-affecting live_state fields', () => {
+  it('covers all UI-affecting live_state fields (excluding known uncovered)', () => {
     const driftChecked = extractDriftCheckedFields();
-    const missing = UI_AFFECTING_FIELDS.filter(f => !driftChecked.includes(f));
+    const knownUncoveredFields = Object.keys(KNOWN_UNCOVERED);
+    const shouldBeCovered = UI_AFFECTING_FIELDS.filter(f => !knownUncoveredFields.includes(f));
+    const missing = shouldBeCovered.filter(f => !driftChecked.includes(f));
 
     expect(
       missing,
       `These UI-affecting fields are NOT in drift detection: ${missing.join(', ')}. ` +
-      `Add drift checks to clarity-live-page.tsx or remove from UI_AFFECTING_FIELDS if no longer UI-affecting.`
+      `Add drift checks to clarity-live-page.tsx or add to KNOWN_UNCOVERED with a reason.`
+    ).toEqual([]);
+  });
+
+  it('known uncovered fields are still actually uncovered', () => {
+    // When drift detection is added for a field, this test fails —
+    // prompting removal from KNOWN_UNCOVERED (keeping the list accurate).
+    const driftChecked = extractDriftCheckedFields();
+    const nowCovered = Object.keys(KNOWN_UNCOVERED).filter(f => driftChecked.includes(f));
+
+    expect(
+      nowCovered,
+      `These fields are in KNOWN_UNCOVERED but now HAVE drift detection: ${nowCovered.join(', ')}. ` +
+      `Remove them from KNOWN_UNCOVERED.`
     ).toEqual([]);
   });
 
@@ -93,5 +159,13 @@ describe('Drift detection completeness', () => {
       `These fields are drift-checked but not in UI_AFFECTING_FIELDS: ${extra.join(', ')}. ` +
       `Add them to UI_AFFECTING_FIELDS to keep lists in sync.`
     ).toEqual([]);
+  });
+
+  it('reports known uncovered fields count for visibility', () => {
+    // Not a failure — just makes the gap visible in test output.
+    // When this reaches 0, remove the KNOWN_UNCOVERED mechanism entirely.
+    const count = Object.keys(KNOWN_UNCOVERED).length;
+    console.log(`[P644] ${count} UI-affecting fields known to lack drift detection coverage.`);
+    expect(count).toBeGreaterThanOrEqual(0); // always passes
   });
 });

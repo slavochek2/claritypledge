@@ -41,6 +41,23 @@ Available auth helpers:
 - `deleteTestUser(userId)` — cleanup
 - `generateMagicLinkUrl(email)` — for token exchange flows
 
+## Two-Party /live Test Helpers
+
+Available in `e2e/helpers/test-realtime.ts` and `e2e/helpers/test-session.ts`:
+
+- `waitForUIUpdate(page, locator, timeoutMs?)` — waits for a DOM element via the app's own delivery (Realtime + drift polling). Use instead of `page.reload()`.
+- `advanceSessionState(sessionCode, overrides)` — writes `live_state` directly to DB. Use to skip multi-step UI flows without reload chains.
+- `createTwoPartySessionRealistic(browser)` — session with proper join-flow timing: host subscribes first, guest joins later. Includes auth guard + terms dialog dismissal.
+- `createTwoPartySession(browser)` — simultaneous setup (both users pre-inserted). Now includes auth guard + terms dialog dismissal. Use when subscription timing isn't under test.
+
+## Two-Party Test Rule
+
+Never use `page.reload()` to sync state in two-party /live tests. Use `waitForUIUpdate()` — if state doesn't arrive via the app's own delivery mechanisms, the test must fail.
+
+`postgres_changes` Realtime events DO propagate between Playwright's isolated browser contexts (each opens its own WebSocket). The app's 1s drift polling provides a reliable fallback. There is no need for `page.reload()` as a sync mechanism.
+
+Full guide: [e2e-testing-guide.md](docs/technical/e2e-testing-guide.md) (Two-Party Sessions section).
+
 ## Subagent Scope Constraint
 
 When a subagent is spawned to write tests, it MUST NOT modify source files.

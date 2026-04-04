@@ -817,40 +817,72 @@ As of the test suite analysis (P276–P278), 79 tests fail — all pre-existing,
 
 ---
 
-## Two-Party Test Pattern (Future Tests)
+## Two-Party /live Session Tests
 
-When writing tests that require two users interacting in real time, use DB polling — not Realtime — for cross-context synchronization:
+### How cross-context delivery works in Playwright
+
+ClarityPledge uses Supabase `postgres_changes` (DB-level, WAL-based) for Realtime subscriptions. These **DO propagate** between Playwright's isolated browser contexts — each context opens its own independent WebSocket to Supabase, and both receive DB change events. Context isolation is browser state (cookies, localStorage), not network.
+
+The app also runs 1-second drift polling as a fallback. Between Realtime and drift polling, state written by one context reliably reaches the other without `page.reload()`.
+
+> **Note:** Supabase `presence` and `broadcast` are connection-scoped and would NOT propagate. But ClarityPledge does not use those for state sync.
+
+### Session fixtures
+
+**`createTwoPartySession(browser, options?)`** — standard setup. Both users pre-inserted in DB, both pages navigate simultaneously. Includes auth guard (fails fast if redirected to Google OAuth) and terms dialog dismissal. Use when subscription timing isn't under test.
+
+**`createTwoPartySessionRealistic(browser, options?)`** — realistic join flow. Host-only session created in DB, host navigates first, guest joins later. Exercises real subscription establishment timing and `hasJoinerRef` guard path. Use for tests that verify delivery timing or late-join behavior.
+
+Both return `TwoPartySession` with `host.page`, `guest.page`, `sessionCode`, `cleanup()`.
 
 ```typescript
-import { waitForDBPresence } from './helpers/test-realtime'; // P276
+import { createTwoPartySession } from './helpers/test-session';
 
-// Instead of:
-await expect(creatorPage.getByText('JoinerName')).toBeVisible({ timeout: 10000 });
+test('two users in a live session', async ({ browser }) => {
+  const session = await createTwoPartySession(browser, {
+    hostName: 'Alice',
+    guestName: 'Bob',
+  });
 
-// Use:
-await waitForDBPresence('clarity_sessions', 'joiner_name', joinerName, 'code', roomCode);
-// Then assert UI (DB confirmed → React will update):
-await expect(creatorPage.getByText(joinerName)).toBeVisible({ timeout: 5000 });
+  try {
+    // Both pages are authenticated, navigated, terms dismissed
+    await expect(session.host.page.getByText('Speak')).toBeVisible();
+  } finally {
+    await session.cleanup();
+  }
+});
 ```
 
-This works because `waitForDBPresence` runs in Node.js (Playwright's runner), not in the browser — it bypasses the isolated context problem entirely.
+### Asserting cross-context state delivery
 
-### State Advancement Helper (P636)
+**Primary pattern — `waitForUIUpdate()`:**
 
-When a two-party test needs to skip multi-step UI flows (e.g., a full rating round), write `live_state` directly to DB instead of clicking through 6+ reload cycles:
+```typescript
+import { waitForUIUpdate } from './helpers/test-realtime';
+
+// Wait for the guest's page to show a UI change caused by the host's action.
+// No page.reload(). If state doesn't arrive via Realtime + drift polling, the test fails.
+await waitForUIUpdate(
+  guest.page,
+  guest.page.getByText('understand you'),
+  20000, // must exceed drift polling interval (1s)
+);
+```
+
+### State advancement (skip multi-step flows)
+
+When a test needs to reach a specific session state without clicking through the full UI flow:
 
 ```typescript
 import { advanceSessionState, postRoundIdleState, checkerSubmittedState } from './helpers/test-realtime';
 
-// Skip an entire round — 1 DB write + 1 reload instead of 6+ reloads
+// Skip an entire round — 1 DB write, then wait for UI update (no reload)
 await advanceSessionState(session.sessionCode, postRoundIdleState());
-await host.page.reload();
-await expect(host.page.getByText('Open mode')).toBeVisible({ timeout: 15000 });
+await waitForUIUpdate(host.page, host.page.getByText('Speak'), 20000);
 
 // Skip to "checker submitted, waiting for responder"
 await advanceSessionState(session.sessionCode, checkerSubmittedState('Alice', 7));
-await guest.page.reload();
-await expect(guest.page.getByRole('button', { name: /^Rate \d+$/ }).first()).toBeVisible();
+await waitForUIUpdate(guest.page, guest.page.getByText('understand you'), 20000);
 ```
 
 **Available presets:**
@@ -858,37 +890,42 @@ await expect(guest.page.getByRole('button', { name: /^Rate \d+$/ }).first()).toB
 - `postRoundIdleState()` — after full round, back to idle
 - `checkerSubmittedState(name, rating)` — mid-round, waiting for responder
 
-**Custom overrides:** Pass any `Record<string, unknown>` to `advanceSessionState()` to set arbitrary `live_state` fields.
+**Custom overrides:** Pass any `Record<string, unknown>` to `advanceSessionState()` to set arbitrary `live_state` fields. The helper does read-modify-write, so it's safe to call multiple times.
 
-**When to use:** Tests that would exceed the 30s timeout due to multi-step UI flows across isolated browser contexts. The helper merges overrides into the existing `live_state` (read-modify-write), so it's safe to call multiple times.
+### DB polling helpers (synchronization, not delivery)
 
-> **Note on `page.reload()`:** The examples above use `page.reload()` after a direct DB write — a single reload to pick up a known-written state. This is the approved exception to the P637 ban below, which prohibits reload-*polling* loops as a sync mechanism. P636 writes state definitively then reloads once; P637 bans using reload to poll for state that may or may not have arrived.
+The DB polling helpers (`waitForDBPresence`, `waitForDBStateKey`, `waitForDBColumnSet`) are useful for **test synchronization** — confirming a DB write landed before asserting UI. They run in Node.js (Playwright's runner) and are not affected by browser context isolation.
 
-### Banned: `page.reload()` for Two-Party State Sync (P637)
+```typescript
+import { waitForDBPresence } from './helpers/test-realtime';
 
-**Never use `page.reload()` to synchronize state between two browser contexts in two-party tests.**
+// Wait for joiner to appear in DB, then assert UI
+await waitForDBPresence('clarity_sessions', 'joiner_name', 'Bob', 'code', roomCode);
+await expect(creatorPage.getByText('Bob')).toBeVisible({ timeout: 5000 });
+```
 
-`page.reload()` fetches the entire session from DB, bypassing both Realtime WebSocket delivery AND drift detection polling. Tests pass, but the feature may be broken for real users.
+### Banned: `page.reload()` for state sync
 
-**Incident:** P617 — `ratingInitiatedBy` was missing from drift detection's field list. All Playwright tests passed because `page.reload()` loaded the field directly from DB, skipping both broken delivery paths. The bug was only caught during manual UAT.
+**Never use `page.reload()` to synchronize state between two browser contexts.**
+
+`page.reload()` fetches the entire session from DB, bypassing both Realtime delivery AND drift detection. Tests pass, but the feature may be broken for real users.
+
+**Incident (P617):** `ratingInitiatedBy` was missing from drift detection's field list. All Playwright tests passed because `page.reload()` loaded the field directly from DB, skipping both broken delivery paths. The bug was only caught during manual UAT after 5 implementation sessions.
 
 ```typescript
 // ❌ BANNED — masks delivery bugs:
-await waitForLiveStateKey(session.sessionCode, 'ratingInitiatedBy');
+await advanceSessionState(code, { ratingInitiatedBy: 'Alice' });
 await guest.page.reload();
 await expect(guest.page.locator('[class*="opacity-50"]')).toBeVisible();
 
 // ✅ CORRECT — catches delivery bugs:
-import { waitForUIUpdate } from './helpers/test-realtime';
-
-await waitForUIUpdate(
-  guest.page,
-  guest.page.locator('[class*="opacity-50"]'),
-  20000, // must exceed drift polling interval
-);
+await advanceSessionState(code, { ratingInitiatedBy: 'Alice' });
+await waitForUIUpdate(guest.page, guest.page.locator('[class*="opacity-50"]'), 20000);
 ```
 
-`waitForUIUpdate` relies on the app's own state delivery. If drift detection doesn't include a field, the locator never appears → test fails → bug caught before shipping.
+### Drift detection completeness
+
+A unit test at `src/tests/drift-detection-completeness.test.ts` verifies that drift polling checks all UI-affecting fields from `LiveSessionState`. When a new field is added to the type but not to drift detection, the test fails — preventing silent delivery gaps.
 
 ---
 
