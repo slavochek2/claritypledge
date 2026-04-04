@@ -2,6 +2,30 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-04 [technical]: P581 Letters — sealed-bid RLS is per-story, not all-or-nothing
+
+**Context:** Spec-review found contradiction: Security Review said receiver sees predictions "only when delivery completed" (all-or-nothing), but the reading flow (AD3) reveals predictions per-story after each rating.
+**Decision:** Per-story reveal. RLS on `letter_predictions` allows receiver SELECT only when a matching `story_verifications` row exists with `source='letter'` and `listener_id = auth.uid()` for that specific story. Not gated on delivery status.
+**Alternatives rejected:** All-or-nothing (delivery completed → see all predictions) — would break the reading flow's gap reveal mechanic where receiver sees gap immediately after rating each story.
+**Consequences:** The `reveal_prediction` RPC returns prediction only after the receiver has rated that specific story. Client calls it after submitRating() and uses the result for the gap reveal screen.
+**References:** `supabase/migrations/20260403224331_p581_clarity_letters.sql` (line ~249), `features/p581_letters_with_comprehension_assessment.md` (AD3, D50)
+
+## 2026-04-04 [technical]: P581 Letters — circular RLS helper functions pattern
+
+**Context:** `clarity_letters` SELECT policy needs to check `letter_deliveries` (is user a receiver?), and `letter_deliveries` SELECT policy needs to check `clarity_letters` (is user the sender?). Direct cross-reference causes PostgreSQL error 42P17 (infinite recursion).
+**Decision:** Created `_is_letter_sender(letter_id, user_id)` and `_is_letter_receiver(letter_id, user_id)` as SECURITY DEFINER helper functions that query with elevated privileges, breaking the circular dependency. Both functions are internal (`_` prefix), not callable via PostgREST.
+**Alternatives rejected:** (a) Denormalizing sender_id onto deliveries (data duplication, sync risk). (b) Using a view (same recursion problem). (c) Disabling RLS on one table (security hole).
+**Consequences:** Any future table with cross-referential RLS should follow this helper function pattern. Cost: two extra function calls per row-level check, but they're simple PK lookups.
+**References:** `supabase/migrations/20260403224331_p581_clarity_letters.sql`
+
+## 2026-04-04 [technical]: P581 Letters — forward-only positions in separate table
+
+**Context:** D50 specifies positions taken during letter reading cannot be revised. Existing `point_positions` table has UPDATE policies allowing any user to overwrite their own position.
+**Decision:** Created `letter_point_responses` as a separate table with INSERT-only RLS (no UPDATE policy). `UNIQUE(delivery_id, point_id)` prevents duplicates. Forward-only by design — no trigger or source-tag needed.
+**Alternatives rejected:** Adding `source` column + trigger to `point_positions` to reject updates where `source='letter'` — more complex, pollutes existing table, trigger maintenance burden.
+**Consequences:** Letter positions and /live positions are in different tables. Comparison views (P624 grid) will need to join both. Clean separation means each table's RLS is simple and independent.
+**References:** `supabase/migrations/20260403224331_p581_clarity_letters.sql`, `features/p581_letters_with_comprehension_assessment.md` (Security gap #5)
+
 ## 2026-04-04 [technical]: Security audit follow-up — 4 remaining findings fixed, secret rotated
 
 **Context:** The April 3 security audit (25-agent, 47 findings) left 4 open items in its Consequences section. This session ran a second 4-agent audit to verify what remained, then fixed all 4 in parallel worktrees.

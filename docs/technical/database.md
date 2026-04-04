@@ -127,6 +127,28 @@ Seven tables added by P117. Full schema details in [architecture.md](architectur
 
 **Services:** Interface-based pattern — see [architecture.md § Service Layer](architecture.md#service-layer-pattern).
 
+### Clarity Letters (P581)
+
+Five tables for async comprehension assessment via letters.
+
+| Table | Purpose |
+|-------|---------|
+| `clarity_letters` | Letter metadata (source doc, sender, mode, status) |
+| `letter_deliveries` | Per-receiver tracking (token, status, progress) |
+| `letter_story_snapshots` | Immutable story+version snapshots at seal time |
+| `letter_predictions` | Sender's predictions per story (**sealed-bid**: receiver sees only after rating) |
+| `letter_point_responses` | Forward-only receiver positions (INSERT only, no UPDATE) |
+
+**Column additions:** `story_verifications.source` (TEXT, default 'live'), `.verified` (BOOLEAN, default true), `.sort_order` (INTEGER), `clarity_sessions.source_letter_id` (UUID FK).
+
+**Sealed-bid RLS:** `letter_predictions` SELECT: sender always; receiver only after matching `story_verifications` row with `source='letter'` exists. Per-story reveal, not all-or-nothing.
+
+**Circular RLS pattern:** `_is_letter_sender()` and `_is_letter_receiver()` SECURITY DEFINER helpers break cross-table RLS recursion (letters↔deliveries). See decisions.md 2026-04-04.
+
+**RPCs:** `get_letter_by_token`, `seal_and_send_letter` (atomic seal + public story filter), `reveal_prediction`, `persist_anonymous_completion`.
+
+**Migration:** `supabase/migrations/20260403224331_p581_clarity_letters.sql`
+
 ---
 
 ## Row Level Security (RLS)
