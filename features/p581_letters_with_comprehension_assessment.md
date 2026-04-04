@@ -13,6 +13,7 @@ tags:
 created_date: 2026-03-23T00:00:00.000Z
 delivery_stage: 5-decomposed
 flow: dev
+superseded_by: p650
 uat_file: features/uat/p581.md
 test_files:
   - e2e/integration/p581-letters-migration.spec.ts

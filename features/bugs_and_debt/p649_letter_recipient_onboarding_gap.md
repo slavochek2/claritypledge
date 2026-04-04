@@ -1,6 +1,7 @@
 ---
-status: today
+status: rejected
 type: bug
+superseded_by: p650
 rank: 1000054.0
 severity: high
 date_reported: 2026-04-04
