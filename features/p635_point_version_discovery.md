@@ -8,6 +8,7 @@ tags:
   - points
 prepped_date: '2026-04-03'
 locked_at: '2026-04-04T04:26:36.540Z'
+created_date: 2026-04-04
 ---
 
 # P635: Point Version Discovery

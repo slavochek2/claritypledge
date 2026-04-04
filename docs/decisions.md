@@ -2,6 +2,14 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-04 [technical]: P645 — git worktree list --porcelain includes prunable entries; filter them
+
+**Context:** Kanban worktree dropdown showed 5 "(main)" entries. `getWorktrees()` in `tools/kanban/server/api.ts` parsed all blocks from `git worktree list --porcelain` without checking the `prunable` line. Agent worktrees with paths like `.claude/worktrees/agent-*` don't match the `/worktrees/(w\d+)/` regex, so they all fell through to `name = 'main'` fallback.
+**Decision:** Skip any porcelain block containing a line starting with `prunable` before extracting path/branch. One `lines.some(l => l.startsWith('prunable')) continue` guard.
+**Alternatives rejected:** Extending the regex to recognize `agent-*` names — fragile (depends on naming convention). Pruning agent worktrees automatically — risky (git prune is destructive).
+**Consequences:** Kanban dropdown always shows exactly one "(main)" entry plus named slots (w1, w2). Integration test added: real git state canary — counts "main" entries in `/api/worktrees` response.
+**References:** `tools/kanban/server/api.ts:39`, `tools/kanban/server/__tests__/api.test.ts` (p645 describe block)
+
 ## 2026-04-04 [process]: P647 — Unified spec system with 5-field skeleton replacing /create-prd + /quick-feature
 
 **Context:** ClarityPledge had four independent spec-creation skills. `/create-prd` forced user-oriented sections (JTBD, User Stories) on all work types — infrastructure tasks got awkward "As a developer..." framing. `/quick-feature` was too thin for complex work. Bug fixes bypassed spec tracking entirely via `/fix` quick mode. 86% of historical bug specs had no regression tests. Research across 26 sources (Cagan, Shape Up, Amazon PR/FAQ, Torres, Lenny, Google/RFC, Linear) revealed industry consensus: one skeleton with type-specific expansion modules, not multiple templates.

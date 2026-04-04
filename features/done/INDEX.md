@@ -1,7 +1,7 @@
 # Done Features Index
 
 Quick reference for past completed work. Consult when starting work on a related topic.
-Last updated: 2026-04-04 (P644 Two-Party Test Infrastructure)
+Last updated: 2026-04-04 (P645 Kanban Prunable Worktrees)
 
 ---
 
@@ -182,6 +182,7 @@ Last updated: 2026-04-04 (P644 Two-Party Test Infrastructure)
 
 ## Infrastructure / Process
 
+- **P645** (Apr 04) Kanban Prunable Worktrees — `git worktree list --porcelain` includes prunable entries; skip blocks with `prunable` line or agent-* paths fall through to `name="main"` fallback
 - **P640** (Apr 04) Ghost 5→6 Security Upgrade — Ghost 6 ships Source theme (not Casper v6) which retains `.gh-*` selectors; code injection needed zero changes despite Casper v6 research showing renames
 - **P637** (Apr 03) No-Reload E2E Sync — `page.reload()` in two-party tests masks drift detection gaps; auto-extract completeness test catches new fields missing from both lists
 - **P566** (Mar 22) Audio Chunk Upload Reliability — IndexedDB WAL before upload; silent catch block was swallowing 35% of chunks; "Riverside model" = persist→upload→delete, not fire-and-forget; 5s chunks halve risk window vs 30s
