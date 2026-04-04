@@ -1,7 +1,7 @@
 # Done Features Index
 
 Quick reference for past completed work. Consult when starting work on a related topic.
-Last updated: 2026-04-03 (P637 No-Reload E2E Sync)
+Last updated: 2026-04-04 (P640 Ghost v6 Upgrade)
 
 ---
 
@@ -181,6 +181,7 @@ Last updated: 2026-04-03 (P637 No-Reload E2E Sync)
 
 ## Infrastructure / Process
 
+- **P640** (Apr 04) Ghost 5→6 Security Upgrade — Ghost 6 ships Source theme (not Casper v6) which retains `.gh-*` selectors; code injection needed zero changes despite Casper v6 research showing renames
 - **P637** (Apr 03) No-Reload E2E Sync — `page.reload()` in two-party tests masks drift detection gaps; auto-extract completeness test catches new fields missing from both lists
 - **P566** (Mar 22) Audio Chunk Upload Reliability — IndexedDB WAL before upload; silent catch block was swallowing 35% of chunks; "Riverside model" = persist→upload→delete, not fire-and-forget; 5s chunks halve risk window vs 30s
 - **P553** (Mar 19) Defer Eager JS — `/challenge-prd` caught that Supabase already caches auth in localStorage, killing a redundant `cp-auth-hint`; `requestIdleCallback` for LogRocket; `injectRegister: 'script-defer'` for SW; KaTeX CSS must load inside component `useEffect`, not module scope

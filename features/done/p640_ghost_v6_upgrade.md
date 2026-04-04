@@ -2,9 +2,10 @@
 id: p640
 title: Ghost 5→6 Security Upgrade
 type: task
-status: in_progress
+status: all-done
 priority: critical
-delivery_stage: 1
+delivery_stage: done
+completed_at: "2026-04-04"
 branch: feature/p640-ghost-v6-upgrade
 created: 2026-04-03
 ---

@@ -2,6 +2,15 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-04 [security]: Ghost 5→6 upgrade — CVE-2026-26980 patched, Source theme kept old selectors
+
+**Context:** Ghost CMS 5.130.6 was vulnerable to CVE-2026-26980 (unauthenticated SQL injection), requiring upgrade to 6.19.3+. The blog has a 39,700-char code injection using 30 Ghost CSS selectors (`.gh-feed`, `.gh-viewport`, `.gh-card`, etc.) for custom nav, 2-column layout, and subscribe overlay.
+**Decision:** Upgraded Docker image `ghost:5` → `ghost:6` (landed on 6.25.1). SQLite DB auto-migrated successfully (17s). Code injection required NO selector changes — Ghost 6 replaced Casper with "Source" as the default theme, but Source retains the `.gh-*` CSS class naming convention. Selector renames (`.gh-feed` → `.post-feed`, etc.) were prepared, applied, found broken (Source kept old names), and reverted within the same session.
+**Key learning:** (1) Ghost Docker upgrades preserve the content volume including themes — the active theme switches from Casper to Source but Source uses the same `.gh-*` DOM classes. (2) Research agents reported Casper v6 selectors but the active theme was Source, not Casper — always verify DOM state after upgrade before applying CSS changes. (3) SQLite still works in Ghost 6 as an optional dependency despite not being officially supported for production.
+**Alternatives rejected:** (A) MySQL migration first — unnecessary since SQLite works in Ghost 6 and the site is low-traffic single-server. (B) Staying on Ghost 5 with WAF mitigation — the CVE is unauthenticated SQL injection, too critical to mitigate at network level.
+**Consequences:** CVE-2026-26980 patched. Ghost 6 running on prod. Backup cron needs investigation (last auto-backup was March 9, manual backup taken April 3). Article-page `.gh-article-*` CSS selectors are now dead CSS (Source uses `article-*` without `gh-` prefix) — cosmetic only, post pages fall back to Ghost defaults.
+**References:** P640 spec, `docs/technical/ghost-blog.md`, backup `gs://claritypledge-backups/ghost/ghost-backup-20260403_165014.tar.gz`
+
 ## 2026-04-04 [process]: CR chaining policy — superseded_by, chain_root, chain-walking protocol
 
 **Context:** P621 redesigned P616 (which was never shipped). During implementation, the agent read P621 as "the predecessor" but missed that P616 was the root and the codebase had none of P616's changes. The existing CR rules assumed single-depth chains (original → one CR).
@@ -31,7 +40,7 @@ Append-only log of architectural and product decisions. Newest entries at top.
 **Context:** First comprehensive security audit of the full stack: source code, Supabase RLS, edge functions, dependencies, infrastructure, client-side, and known CVEs. 8 audit agents ran in parallel, then 17 fix agents across 5 waves (Haiku for mechanical config, Sonnet for auth/migration logic, Opus for final validation).
 **Decision:** (1) Rotated compromised prod + test DB passwords (both were in public repo — prod in `.env.prod.example`, test in archived scripts). (2) Added JWT auth to `send-agreement-emails` and fixed cosmetic auth on `send-event-emails`. (3) Changed `--no-verify-jwt` from blanket to selective (only `create-and-sign`). (4) Dropped dangerous `public.set_config()` SECURITY DEFINER function. (5) Fixed `accept_agreement()` self-sign bypass and `patch_live_state()` missing participant check. (6) Tightened RLS on 7 legacy tables. (7) Added HSTS, Permissions-Policy, full CSP (report-only). (8) Hidden source maps. (9) HTML-escaped all user strings in email templates. (10) Added non-root Docker user. (11) Restricted GitHub Actions permissions.
 **Alternatives rejected:** (A) Manual one-by-one fixes — too slow for 47 findings. (B) Fixing only CRITICAL — leaves exploitable HIGH/MEDIUM attack surface. (C) Full CSP in enforcing mode — too risky without violation data; report-only first.
-**Consequences:** Ghost CMS 5.130.6 remains vulnerable to CVE-2026-26980 (unauthenticated SQL injection) — needs major version upgrade to 6.19.3+. GCS signed-URL Cloud Function still has no auth. 13 npm vulns remain (need `@vercel/node` and `vite-plugin-pwa` major bumps). CSP needs graduation from report-only to enforcing after monitoring. Migrations must be applied via `./scripts/migrate.sh`.
+**Consequences:** ~~Ghost CMS 5.130.6 remains vulnerable to CVE-2026-26980 (unauthenticated SQL injection) — needs major version upgrade to 6.19.3+.~~ **RESOLVED 2026-04-04:** Ghost upgraded to 6.25.1 (see P640). GCS signed-URL Cloud Function still has no auth. 13 npm vulns remain (need `@vercel/node` and `vite-plugin-pwa` major bumps). CSP needs graduation from report-only to enforcing after monitoring. Migrations must be applied via `./scripts/migrate.sh`.
 **References:** Plan at `.claude/plans/tingly-cuddling-grove.md`
 
 ---
