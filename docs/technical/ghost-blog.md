@@ -33,7 +33,7 @@ sudo docker compose restart     # Restart Ghost
 | Static IP | 35.224.81.21 (reserved as `ghost-prod-ip`) |
 | OS | Ubuntu 22.04 LTS |
 | Reverse proxy | Caddy (auto-SSL via Let's Encrypt) |
-| Ghost | Docker (`ghost:5`), port 2368 |
+| Ghost | Docker (`ghost:6`), port 2368 |
 | Database | SQLite (in Docker volume `ghost_ghost-content`) |
 | Cost | ~$0.014/hour (~$0.34/day) — covered by $25K GCP credits |
 
@@ -127,7 +127,7 @@ sudo docker compose up -d
 gcloud compute ssh ghost-prod --zone=us-central1-a --command="~/update-ghost.sh"
 ```
 
-This pulls the latest `ghost:5` image and restarts. Run periodically (monthly is fine). Check https://ghost.org/changelog/ for release notes.
+This pulls the latest `ghost:6` image and restarts. Run periodically (monthly is fine). Check https://ghost.org/changelog/ for release notes.
 
 ## Troubleshooting
 
