@@ -2,6 +2,22 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-04 [product]: P650 — Letter 1-to-1 recipient onboarding must reuse agreement invite flow
+
+**Context:** P581 spec explicitly prescribed using P527 `create-and-sign` for new letter recipients and P488 magic link for existing users. The implementation skipped both — all 1-to-1 recipients enter anonymously via token, hit a "Sign in to continue" wall at rating, and face a generic signup redirect at completion. The email promises "account will be created automatically" but UX doesn't deliver. The sender name displays as a raw UUID instead of profile name.
+**Decision:** Filed as change-request P650 (redesign of P581). Three corrections: (1) Auth at the door for 1-to-1 — reuse agreement accept page's multi-pathway pattern (magic link for existing users, `create-and-sign` for new). (2) Sender name resolved from profiles table in `get_letter_for_reading` RPC. (3) Email copy corrected to match actual UX. 1-to-many anonymous flow unchanged.
+**Alternatives rejected:** (A) Treat as bug fix — scope too large (5+ files, edge function adaptation, RPC changes). (B) New capability — not new; P581 spec already prescribed this, implementation missed it. Change-request is the correct classification.
+**Consequences:** P650 goes through `/architect` → `/dev` pipeline on w2 branch. Reuses `create-and-sign` edge function with letter-specific params. 1-to-1 letters become auth-gated (matching the spec's D47 decision). No schema changes needed.
+**References:** `features/p650_letter_recipient_onboarding_redesign.md`, `features/p581_letters_with_comprehension_assessment.md`
+
+## 2026-04-04 [technical]: P648 — `reveal_prediction_by_token` checked `session_id` which is always NULL for letters
+
+**Context:** The P642 token-based RPCs were split across two migrations. `submit_rating_by_token` inserts into `story_verifications` with `session_id = NULL` (letters don't have clarity sessions). But `reveal_prediction_by_token` checked `WHERE session_id = v_delivery_id::text` — a condition that never matches because `session_id` is NULL. Result: after rating, the prediction reveal silently returned NULL, the gap-reveal UI never appeared (requires both `rating !== null` AND `prediction !== null`), and the E2E test timed out.
+**Decision:** Fixed the WHERE clause to match on `story_id + speaker_id + source = 'letter'` instead of `session_id`. Also added separate delivery per test for data isolation (auth test was sharing delivery with anonymous tests).
+**Alternatives rejected:** (A) Store `delivery_id` in `session_id` field — semantic abuse of a FK column. (B) Add a `delivery_id` column to `story_verifications` — schema change not justified for a WHERE clause fix.
+**Consequences:** Pattern to watch: when splitting RPCs across migrations, verify that the validation query in RPC B matches the insert shape in RPC A. Cross-migration consistency is not caught by type checking.
+**References:** `supabase/migrations/20260404112655_p648_fix_reveal_prediction_by_token.sql`, `features/bugs_and_debt/p648_p642_auth_rating_test_data_isolation.md`
+
 ## 2026-04-04 [process]: P650 — /ship and /fix skill flow hardening (3 bugs)
 
 **Context:** P645 shipping session exposed 3 predictable failure modes: (1) agent misread feature branch log as main's, declared code "already merged" when it wasn't; (2) spec close produced 2 commits because frontmatter edit ran before `git mv` was staged; (3) `git checkout main` failed mid-ship because an uncommitted spec edit was in the working tree.
