@@ -1,7 +1,7 @@
 ---
-status: blocked
+status: week
 type: story
-rank: 0.083
+rank: 5
 tags:
   - canvas
   - clarity-doc
@@ -9,7 +9,7 @@ tags:
   - ikigai
   - parallel
 created_date: 2026-03-30T00:00:00.000Z
-locked_at: '2026-03-30T10:37:04.481Z'
+locked_at: '2026-04-03T13:49:30.213Z'
 ---
 
 # P611: Clarity Canvas — File Content + Build Renderer

@@ -15,6 +15,7 @@ reviews:
   ux: null
   architect: null
   alignment: null
+created_date: 2026-04-03
 ---
 
 # P630: Separate System Tags from User Tags

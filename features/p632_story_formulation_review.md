@@ -4,6 +4,9 @@ title: "Story formulation review — ST2, ST3, ST6, ST7, ST8"
 status: draft
 type: task
 priority: medium
+tags: []
+rank: 1000048.0
+created_date: 2026-04-03
 ---
 
 # P632 — Story Formulation Review

@@ -1,5 +1,5 @@
 ---
-status: week
+status: rejected
 type: task
 rank: 1000027.0
 workstream: foundation

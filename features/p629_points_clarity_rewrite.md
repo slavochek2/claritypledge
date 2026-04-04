@@ -7,6 +7,9 @@ priority: medium
 created: 2026-04-03T00:00:00.000Z
 thinking: t007
 locked_at: '2026-04-03T13:10:53.475Z'
+tags: []
+rank: 1000047.0
+created_date: 2026-04-03
 ---
 
 # P629: Points Clarity Rewrite

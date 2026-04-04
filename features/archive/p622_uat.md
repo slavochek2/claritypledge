@@ -1,7 +1,10 @@
 ---
+status: backlog
 feature: p526
 type: uat
 created_date: 2026-03-16
+tags: []
+rank: 1000044.0
 ---
 
 # UAT: P526 — Point Supporting Images

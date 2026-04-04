@@ -26,7 +26,7 @@ test_files:
 locked_at: '2026-03-26T14:22:34.875Z'
 ---
 
-# P591: Story Supporting Images
+# P623: Story Supporting Images
 
 **Prior art:** P504 (Auto-Generated Banners), P519 (Remove On-Page Banners), P526 (Point Supporting Images — rejected)
 **Supersedes:** P526 — rejected because P523's immutability model conflicts with editable image metadata on points. This spec moves the concept to stories, which are mutable and the natural container for rich media.
