@@ -12,7 +12,7 @@ import {
   setTestSession,
   generateTestEmail,
 } from './helpers/test-user';
-import { supabaseAdmin } from '../src/lib/supabase-admin';
+import { supabaseAdmin } from './helpers/supabase-admin';
 
 // ===========================================================================
 // Authenticated smoke tests

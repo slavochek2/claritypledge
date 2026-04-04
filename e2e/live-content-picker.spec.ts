@@ -17,7 +17,7 @@
 import { test, expect } from '@playwright/test';
 import { createTestUser, setTestSession, deleteTestUser, deleteClaritySession } from './helpers/test-user';
 import { mockMicPermission, waitForDBPresence } from './helpers/test-realtime';
-import { supabaseAdmin } from '../src/lib/supabase-admin';
+import { supabaseAdmin } from './helpers/supabase-admin';
 
 test.describe('Live Content Picker - P128', () => {
   test('Happy path: Select story for verification', async ({ browser }) => {

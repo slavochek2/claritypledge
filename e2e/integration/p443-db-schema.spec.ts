@@ -12,7 +12,7 @@
  */
 
 import { test, expect } from '@playwright/test';
-import { supabaseAdmin } from '../../src/lib/supabase-admin';
+import { supabaseAdmin } from '../helpers/supabase-admin';
 import { createTestUser, deleteTestUser } from '../helpers/test-user';
 
 test.describe('P443/P453: accept_agreement RPC + invited-party RLS', () => {

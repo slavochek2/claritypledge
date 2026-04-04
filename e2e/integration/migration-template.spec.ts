@@ -17,7 +17,7 @@
  */
 
 import { test, expect } from '@playwright/test';
-import { supabaseAdmin } from '../../src/lib/supabase-admin';
+import { supabaseAdmin } from '../helpers/supabase-admin';
 import { createClient } from '@supabase/supabase-js';
 import { createTestUser, generateTestEmail } from '../helpers/test-user';
 

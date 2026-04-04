@@ -1,4 +1,4 @@
-import { supabaseAdmin } from '../../src/lib/supabase-admin';
+import { supabaseAdmin } from './supabase-admin';
 
 export interface TestAgreement {
   id: string;

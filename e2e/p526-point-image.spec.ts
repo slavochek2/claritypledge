@@ -23,7 +23,7 @@ import {
   type TestUser,
 } from './helpers/test-user';
 import { createTestPoint, deleteTestPoint, type TestPoint } from './helpers/test-point';
-import { supabaseAdmin } from '../src/lib/supabase-admin';
+import { supabaseAdmin } from './helpers/supabase-admin';
 
 const MOCK_IMAGE_URL = 'https://storage.googleapis.com/claritypledge-uploads/points/test/p526-e2e.jpg';
 const _MOCK_IMAGE_URL_2 = 'https://storage.googleapis.com/claritypledge-uploads/points/test/p526-e2e-v2.jpg';

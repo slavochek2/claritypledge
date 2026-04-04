@@ -17,7 +17,7 @@
 import { test, expect } from '@playwright/test';
 import { createTestUser, deleteTestUser, setTestSession, type TestUser } from './helpers/test-user';
 import { createTestAgreement, deleteTestAgreement, type TestAgreement } from './helpers/test-agreement';
-import { supabaseAdmin } from '../src/lib/supabase-admin';
+import { supabaseAdmin } from './helpers/supabase-admin';
 
 test.describe('P466 Smoke Tests — Create, Accept, and Agreement Pages', () => {
   test.setTimeout(60000);

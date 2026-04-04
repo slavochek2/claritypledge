@@ -25,7 +25,7 @@ import {
 } from '../helpers/test-user';
 import { createTestStory, deleteTestStory } from '../helpers/test-story';
 import { waitForDBPresence, mockMicPermission } from '../helpers/test-realtime';
-import { supabaseAdmin } from '../../src/lib/supabase-admin';
+import { supabaseAdmin } from '../helpers/supabase-admin';
 
 // ─── Shared helpers ───────────────────────────────────────────────────────────
 

@@ -13,7 +13,7 @@
  */
 
 import { test, expect } from '@playwright/test';
-import { supabaseAdmin } from '../../src/lib/supabase-admin';
+import { supabaseAdmin } from '../helpers/supabase-admin';
 import { createTestUser, generateTestEmail, deleteTestUser } from '../helpers/test-user';
 import { createClient } from '@supabase/supabase-js';
 

@@ -9,7 +9,7 @@
 import { test, expect } from '@playwright/test';
 import { createTestUser, deleteTestUser, setTestSession, type TestUser } from './helpers/test-user';
 import { createTestEvent, deleteTestEvent, type TestEvent } from './helpers/test-event';
-import { supabaseAdmin } from '../src/lib/supabase-admin';
+import { supabaseAdmin } from './helpers/supabase-admin';
 
 test.describe('P437: Uncancel Event Smoke', () => {
   let host: TestUser;

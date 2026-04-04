@@ -34,7 +34,7 @@
 
 import { test, expect, Page } from '@playwright/test';
 import { createTestUser, deleteTestUser, setTestSession, deleteClaritySession } from './helpers/test-user';
-import { supabaseAdmin } from '../src/lib/supabase-admin';
+import { supabaseAdmin } from './helpers/supabase-admin';
 
 const MOBILE_VIEWPORT = { width: 375, height: 667 };
 

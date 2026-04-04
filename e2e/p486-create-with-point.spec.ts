@@ -21,7 +21,7 @@ import { test, expect } from '@playwright/test';
 import { createTestUser, deleteTestUser, setTestSession, type TestUser } from './helpers/test-user';
 import { createTestPoint, createTestPosition, deleteTestPoint, type TestPoint } from './helpers/test-point';
 import { deleteTestStory } from './helpers/test-story';
-import { supabaseAdmin } from '../src/lib/supabase-admin';
+import { supabaseAdmin } from './helpers/supabase-admin';
 
 test.describe('P486 -- /create with pointId context', () => {
   test.describe.configure({ timeout: 60000 });

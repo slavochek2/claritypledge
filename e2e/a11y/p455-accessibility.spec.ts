@@ -10,7 +10,7 @@
 
 import { test, expect } from '@playwright/test';
 import { createTestUser, deleteTestUser, setTestSession } from '../helpers/test-user';
-import { supabaseAdmin } from '../../src/lib/supabase-admin';
+import { supabaseAdmin } from '../helpers/supabase-admin';
 
 test.describe('P455 Accessibility — story card expand toggle', () => {
   test.describe.configure({ timeout: 60000 });

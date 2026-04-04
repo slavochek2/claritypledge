@@ -11,7 +11,7 @@
  */
 
 import { test, expect } from '@playwright/test';
-import { supabaseAdmin } from '../../src/lib/supabase-admin';
+import { supabaseAdmin } from '../helpers/supabase-admin';
 
 test.describe('P270 + P160 retroactive: clarity_sessions.is_private migration', () => {
   const testCodes: string[] = [];

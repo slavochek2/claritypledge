@@ -11,7 +11,7 @@
 
 import { test, expect } from '@playwright/test';
 import { createTestUser, deleteTestUser, setTestSession } from './helpers/test-user';
-import { supabaseAdmin } from '../src/lib/supabase-admin';
+import { supabaseAdmin } from './helpers/supabase-admin';
 
 test.describe('P425 Smoke — /chat page loads without errors', () => {
   test.describe.configure({ timeout: 60000 });

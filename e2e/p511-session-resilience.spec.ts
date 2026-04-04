@@ -28,7 +28,7 @@ import {
   deleteClaritySession,
   type TestUser,
 } from './helpers/test-user';
-import { supabaseAdmin as _supabaseAdmin } from '../src/lib/supabase-admin';
+import { supabaseAdmin as _supabaseAdmin } from './helpers/supabase-admin';
 
 // ─── Error collector helper ──────────────────────────────────────────────────
 

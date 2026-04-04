@@ -2,7 +2,7 @@
  * Apply RLS fix for point_position_history table
  * Run: npx tsx scripts/apply-rls-fix.ts
  */
-import { supabaseAdmin } from '../src/lib/supabase-admin';
+import { supabaseAdmin } from '../../e2e/helpers/supabase-admin';
 
 const policySQL = `
 CREATE POLICY IF NOT EXISTS "Allow trigger to insert position history"

@@ -10,7 +10,7 @@
 
 import { test, expect } from '@playwright/test';
 import { createTestUser, deleteTestUser, setTestSession, type TestUser } from '../helpers/test-user';
-import { supabaseAdmin } from '../../src/lib/supabase-admin';
+import { supabaseAdmin } from '../helpers/supabase-admin';
 
 test.describe('P414 Accessibility — Profile Bio', () => {
   test.describe.configure({ timeout: 40000 });

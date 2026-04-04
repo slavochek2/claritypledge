@@ -21,7 +21,7 @@ import { test, expect } from '@playwright/test';
 import { createTestUser, deleteTestUser, type TestUser } from './helpers/test-user';
 import { createTestAgreement, deleteTestAgreement, type TestAgreement as _TestAgreement } from './helpers/test-agreement';
 import { setTestSession } from './helpers/test-user';
-import { supabaseAdmin } from '../src/lib/supabase-admin';
+import { supabaseAdmin } from './helpers/supabase-admin';
 
 test.describe('P466 — Agreement Creation (HelloSign Redesign)', () => {
   test.setTimeout(60000);

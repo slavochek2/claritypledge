@@ -13,7 +13,7 @@
  */
 
 import { createClient } from '@supabase/supabase-js';
-import { supabaseAdmin } from '../../src/lib/supabase-admin';
+import { supabaseAdmin } from './supabase-admin';
 
 // Same password used in createTestUser — must match
 const TEST_PASSWORD = 'test-password-12345';

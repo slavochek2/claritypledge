@@ -14,7 +14,7 @@
  * For RLS-sensitive tests, use makeUserClient() from the test file.
  */
 
-import { supabaseAdmin } from '../../src/lib/supabase-admin';
+import { supabaseAdmin } from './supabase-admin';
 
 // ---------------------------------------------------------------------------
 // Types

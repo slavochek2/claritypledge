@@ -19,7 +19,7 @@ import {
 } from '../helpers/test-user';
 import { createTestStory, deleteTestStory, type TestStory } from '../helpers/test-story';
 import { createTestPoint, deleteTestPoint, type TestPoint } from '../helpers/test-point';
-import { supabaseAdmin } from '../../src/lib/supabase-admin';
+import { supabaseAdmin } from '../helpers/supabase-admin';
 
 const MOCK_BANNER_URL = 'https://storage.example.com/banners/test/p504-a11y.png';
 

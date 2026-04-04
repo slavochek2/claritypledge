@@ -19,7 +19,7 @@
 
 import { test, expect, Browser } from '@playwright/test';
 import { getTestAuthContext, type TestAuthContext } from './helpers/auth-context';
-import { supabaseAdmin } from '../src/lib/supabase-admin';
+import { supabaseAdmin } from './helpers/supabase-admin';
 import { createTestStory, deleteTestStory } from './helpers/test-story';
 import { deleteTestUser as _deleteTestUser } from './helpers/test-user';
 

@@ -7,7 +7,7 @@
  * Calibration requires 5+ story_verifications with speaker/listener ratings.
  */
 
-import { supabaseAdmin } from '../../src/lib/supabase-admin';
+import { supabaseAdmin } from './supabase-admin';
 import { createClient } from '@supabase/supabase-js';
 
 // All test users are created with this password in createTestUser (test-user.ts)

@@ -7,7 +7,7 @@
 import { test, expect } from '@playwright/test';
 import { createTestUser, deleteTestUser } from './helpers/test-user';
 import { createTestStory, deleteTestStory } from './helpers/test-story';
-import { supabaseAdmin } from '../src/lib/supabase-admin';
+import { supabaseAdmin } from './helpers/supabase-admin';
 
 test.describe('P585: UnderstoodBadge with ear icon + tooltip', () => {
   test.describe.configure({ timeout: 90000 });

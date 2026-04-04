@@ -19,7 +19,7 @@ import {
   type TestUser,
 } from './helpers/test-user';
 import { createTestSessionInDB, type TestSessionInDB } from './helpers/test-session';
-import { supabaseAdmin } from '../src/lib/supabase-admin';
+import { supabaseAdmin } from './helpers/supabase-admin';
 
 test.describe('P582: Rejoin prompt clears when session ends remotely', () => {
   let testUser: TestUser;

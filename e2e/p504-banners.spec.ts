@@ -13,7 +13,7 @@
 
 import { test, expect } from '@playwright/test';
 import { createTestUser, deleteTestUser, setTestSession, type TestUser } from './helpers/test-user';
-import { supabaseAdmin } from '../src/lib/supabase-admin';
+import { supabaseAdmin } from './helpers/supabase-admin';
 
 const MOCK_BANNER_URL = 'https://storage.example.com/banners/test/p504-test-banner.png';
 

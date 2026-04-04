@@ -8,7 +8,7 @@
  */
 
 import { test, expect } from '@playwright/test';
-import { supabaseAdmin } from '../../src/lib/supabase-admin';
+import { supabaseAdmin } from '../helpers/supabase-admin';
 import { createTestUser, deleteTestUser } from '../helpers/test-user';
 import { createTestStory, deleteTestStory } from '../helpers/test-story';
 import { createTestPoint, deleteTestPoint } from '../helpers/test-point';

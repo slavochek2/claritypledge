@@ -22,7 +22,7 @@ import {
   createTestAgreement,
   deleteTestAgreement,
 } from './helpers/test-agreement';
-import { supabaseAdmin } from '../src/lib/supabase-admin';
+import { supabaseAdmin } from './helpers/supabase-admin';
 
 const AVATAR_COLORS = ['#0044CC', '#002B5C', '#FFD700', '#FF6B6B', '#4ECDC4'];
 

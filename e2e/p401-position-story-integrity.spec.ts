@@ -41,7 +41,7 @@ import {
   deleteTestStory,
   type TestStory,
 } from './helpers/test-story';
-import { supabaseAdmin } from '../src/lib/supabase-admin';
+import { supabaseAdmin } from './helpers/supabase-admin';
 
 // ---------------------------------------------------------------------------
 // Test 1: Remove position with linked stories → cascade confirmed

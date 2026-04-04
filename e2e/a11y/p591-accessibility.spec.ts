@@ -24,7 +24,7 @@ import {
   type TestUser,
 } from '../helpers/test-user';
 import { createTestStory, deleteTestStory, type TestStory } from '../helpers/test-story';
-import { supabaseAdmin } from '../../src/lib/supabase-admin';
+import { supabaseAdmin } from '../helpers/supabase-admin';
 
 const MOCK_IMAGE_URL = 'https://storage.googleapis.com/claritypledge-story-images/test/p591-a11y.jpg';
 

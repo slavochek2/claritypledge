@@ -18,7 +18,7 @@
  */
 
 import { test, expect } from '@playwright/test';
-import { supabaseAdmin } from '../src/lib/supabase-admin';
+import { supabaseAdmin } from './helpers/supabase-admin';
 import { createTestUser, setTestSession } from './helpers/test-user';
 import type { TestUser } from './helpers/test-user';
 import { createTestAgreement, deleteTestAgreement } from './helpers/test-agreement';

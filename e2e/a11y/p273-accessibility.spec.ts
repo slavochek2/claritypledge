@@ -13,7 +13,7 @@
 
 import { test, expect } from '@playwright/test';
 import { createTestUser, setTestSession, deleteTestUser } from '../helpers/test-user';
-import { supabaseAdmin } from '../../src/lib/supabase-admin';
+import { supabaseAdmin } from '../helpers/supabase-admin';
 
 async function createUnverifiedTestUser(name: string) {
   const user = await createTestUser({ name });

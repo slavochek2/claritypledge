@@ -173,7 +173,7 @@ test.describe('P483 — Existing User Invite Path Streamlining', () => {
       visibility: 'private',
     });
     // Set a different partner_display_name (what creator typed)
-    const { supabaseAdmin } = await import('../src/lib/supabase-admin');
+    const { supabaseAdmin } = await import('./helpers/supabase-admin');
     await supabaseAdmin
       .from('clarity_agreements')
       .update({ partner_display_name: 'Creator Typed Wrong Name' })

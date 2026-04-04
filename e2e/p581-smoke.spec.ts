@@ -14,7 +14,7 @@
  */
 
 import { test, expect } from '@playwright/test';
-import { supabaseAdmin } from '../src/lib/supabase-admin';
+import { supabaseAdmin } from './helpers/supabase-admin';
 import {
   createTestUser,
   setTestSession,
@@ -30,7 +30,7 @@ test.describe('P581 Smoke: Clarity Letters — routes load', () => {
   let docId: string;
   let storyId: string;
   let letterId: string;
-  let deliveryId: string;
+  let _deliveryId: string;
 
   test.beforeAll(async () => {
     sender = await createTestUser({ name: 'P581 Smoke Sender' });
@@ -77,7 +77,7 @@ test.describe('P581 Smoke: Clarity Letters — routes load', () => {
       .insert({ letter_id: letterId })
       .select('id')
       .single();
-    if (delivery) deliveryId = delivery.id;
+    if (delivery) _deliveryId = delivery.id;
   });
 
   test.afterAll(async () => {

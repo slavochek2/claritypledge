@@ -21,7 +21,7 @@
 
 import { test, expect } from '@playwright/test';
 import { createClient } from '@supabase/supabase-js';
-import { supabaseAdmin } from '../../src/lib/supabase-admin';
+import { supabaseAdmin } from '../helpers/supabase-admin';
 import { createTestUser, deleteTestUser, type TestUser } from '../helpers/test-user';
 import { createTestStory, deleteTestStory } from '../helpers/test-story';
 
@@ -374,7 +374,7 @@ test.describe('P581 Migration — RLS write-lock on immutable tables', () => {
   let sender: TestUser;
   let receiver: TestUser;
   let senderToken: string;
-  let receiverToken: string;
+  let _receiverToken: string;
   let letterId: string;
   let storyId: string;
   let docId: string;
@@ -383,7 +383,7 @@ test.describe('P581 Migration — RLS write-lock on immutable tables', () => {
     sender = await createTestUser({ name: 'P581-RLS-Sender' });
     receiver = await createTestUser({ name: 'P581-RLS-Receiver' });
     senderToken = await signIn(sender.email);
-    receiverToken = await signIn(receiver.email);
+    _receiverToken = await signIn(receiver.email);
 
     // Setup: doc → story → letter → snapshot (via service_role)
     const { data: doc } = await supabaseAdmin

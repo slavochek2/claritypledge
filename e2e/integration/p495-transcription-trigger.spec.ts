@@ -12,7 +12,7 @@
 
 import { test, expect } from '@playwright/test';
 import { createClient } from '@supabase/supabase-js';
-import { supabaseAdmin } from '../../src/lib/supabase-admin';
+import { supabaseAdmin } from '../helpers/supabase-admin';
 import { createTestUser, deleteTestUser, type TestUser } from '../helpers/test-user';
 
 const TEST_PASSWORD = 'test-password-12345';

@@ -13,7 +13,7 @@ import {
   setTestSession,
   type TestUser,
 } from './helpers/test-user';
-import { supabaseAdmin } from '../src/lib/supabase-admin';
+import { supabaseAdmin } from './helpers/supabase-admin';
 
 const MOCK_BANNER_URL = 'https://storage.example.com/banners/test/p510-smoke.png';
 

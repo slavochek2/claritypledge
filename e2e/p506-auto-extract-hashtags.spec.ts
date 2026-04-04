@@ -11,7 +11,7 @@
 import { test, expect } from '@playwright/test';
 import { createTestUser, deleteTestUser, type TestUser } from './helpers/test-user';
 import { createTestStory, deleteTestStory, type TestStory } from './helpers/test-story';
-import { supabaseAdmin } from '../src/lib/supabase-admin';
+import { supabaseAdmin } from './helpers/supabase-admin';
 
 test.describe('P506: Auto-extract hashtags', () => {
   test.setTimeout(45000);

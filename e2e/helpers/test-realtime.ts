@@ -14,7 +14,7 @@
  */
 
 import { Page, Locator, expect } from '@playwright/test';
-import { supabaseAdmin } from '../../src/lib/supabase-admin';
+import { supabaseAdmin } from './supabase-admin';
 
 /**
  * Mocks `navigator.mediaDevices.getUserMedia` on a page to return a fake audio stream.

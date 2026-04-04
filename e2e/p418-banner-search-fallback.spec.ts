@@ -12,7 +12,7 @@
 import { test, expect } from '@playwright/test';
 import { createTestUser, deleteTestUser, setTestSession, type TestUser } from './helpers/test-user';
 import { createTestEvent, deleteTestEvent, type TestEvent } from './helpers/test-event';
-import { supabaseAdmin } from '../src/lib/supabase-admin';
+import { supabaseAdmin } from './helpers/supabase-admin';
 
 const MOCK_BANNER_URL = 'https://images.unsplash.com/photo-p418-test?w=1200&q=80';
 const EMPTY_UNSPLASH_RESPONSE = { results: [], total: 0 };

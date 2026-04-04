@@ -21,7 +21,7 @@ import { test, expect } from '@playwright/test';
 import { createTestUser, deleteTestUser, setTestSession } from './helpers/test-user';
 import { createTestPoint, createTestPosition, deleteTestPoint } from './helpers/test-point';
 import { createTestStory, linkStoryToPoint, deleteTestStory } from './helpers/test-story';
-import { supabaseAdmin as _supabaseAdmin } from '../src/lib/supabase-admin';
+import { supabaseAdmin as _supabaseAdmin } from './helpers/supabase-admin';
 
 test.describe('P467 — ChatContextHeader + inline rating', () => {
   test.describe.configure({ timeout: 60000 });

@@ -12,7 +12,7 @@
  * to click magic links in emails.
  */
 
-import { supabaseAdmin } from '../../src/lib/supabase-admin';
+import { supabaseAdmin } from './supabase-admin';
 import { createClient } from '@supabase/supabase-js';
 import { Page } from '@playwright/test';
 import { User } from '@supabase/supabase-js';

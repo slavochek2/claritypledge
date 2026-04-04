@@ -12,7 +12,7 @@
  */
 
 import { test, expect } from '@playwright/test';
-import { supabaseAdmin } from '../../src/lib/supabase-admin';
+import { supabaseAdmin } from '../helpers/supabase-admin';
 import { createTestUser, deleteTestUser, type TestUser } from '../helpers/test-user';
 
 test.describe('P506: Hashtag backfill migration', () => {

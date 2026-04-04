@@ -28,7 +28,7 @@ import {
 } from './helpers/test-user';
 import { createTestStory, deleteTestStory, linkStoryToPoint } from './helpers/test-story';
 import { createTestPoint, deleteTestPoint } from './helpers/test-point';
-import { supabaseAdmin } from '../src/lib/supabase-admin';
+import { supabaseAdmin } from './helpers/supabase-admin';
 
 // ─── Set Position Gate ────────────────────────────────────────────────────────
 

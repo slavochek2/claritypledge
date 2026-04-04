@@ -21,7 +21,7 @@ import {
   type TestUser,
 } from '../helpers/test-user';
 import { createTestStory, deleteTestStory } from '../helpers/test-story';
-import { supabaseAdmin } from '../../src/lib/supabase-admin';
+import { supabaseAdmin } from '../helpers/supabase-admin';
 
 // ---------------------------------------------------------------------------
 // Fixtures

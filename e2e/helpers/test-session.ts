@@ -28,7 +28,7 @@ import { Browser, BrowserContext, Page } from '@playwright/test';
 import { getTestAuthContext } from './auth-context';
 import { deleteClaritySession, type TestUser } from './test-user';
 import { mockMicPermission } from './test-realtime';
-import { supabaseAdmin } from '../../src/lib/supabase-admin';
+import { supabaseAdmin } from './supabase-admin';
 
 /** Characters used for session codes — matches prod alphabet (no ambiguous chars) */
 const SESSION_CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';

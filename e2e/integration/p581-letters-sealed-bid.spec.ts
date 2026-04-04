@@ -27,7 +27,7 @@
 
 import { test, expect } from '@playwright/test';
 import { createClient } from '@supabase/supabase-js';
-import { supabaseAdmin } from '../../src/lib/supabase-admin';
+import { supabaseAdmin } from '../helpers/supabase-admin';
 import {
   createTestUser,
   deleteTestUser,
@@ -82,7 +82,7 @@ test.describe('P581: Sealed-bid guarantee — prediction visibility', () => {
   let storyId: string;
   let letterId: string;
   let deliveryId: string;
-  let predictionId: string;
+  let _predictionId: string;
 
   test.beforeAll(async () => {
     // Create users
@@ -152,7 +152,7 @@ test.describe('P581: Sealed-bid guarantee — prediction visibility', () => {
       .select('id')
       .single();
     if (!prediction) throw new Error('Prediction creation failed');
-    predictionId = prediction.id;
+    _predictionId = prediction.id;
 
     // Create story snapshot
     // Get story version (auto-created by trigger on stories INSERT)

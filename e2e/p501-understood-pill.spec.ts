@@ -7,7 +7,7 @@
 import { test, expect } from '@playwright/test';
 import { createTestUser, deleteTestUser } from './helpers/test-user';
 import { createTestStory, deleteTestStory } from './helpers/test-story';
-import { supabaseAdmin } from '../src/lib/supabase-admin';
+import { supabaseAdmin } from './helpers/supabase-admin';
 
 test.describe('P501: Understood pill always visible', () => {
   test.describe.configure({ timeout: 90000 });

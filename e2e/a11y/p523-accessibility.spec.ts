@@ -237,7 +237,7 @@ test.describe('P523 Accessibility — Point Creation & Responses', () => {
 
     // Cleanup
     if (responseId) {
-      const { supabaseAdmin } = await import('../../src/lib/supabase-admin');
+      const { supabaseAdmin } = await import('../helpers/supabase-admin');
       await supabaseAdmin.from('points').delete().eq('id', responseId);
     }
   });
