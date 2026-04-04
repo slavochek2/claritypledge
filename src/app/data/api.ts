@@ -3673,10 +3673,33 @@ interface UpdateEventInput {
 }
 
 /**
- * Updates an event (host only - RLS enforced)
+ * Updates an event (host only - RLS enforced + explicit ownership check)
  */
 export async function updateEvent(eventId: string, input: UpdateEventInput): Promise<Event | null> {
   console.log('[Events API] Updating event:', eventId);
+
+  // Defense-in-depth: verify caller is the event host
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) {
+    console.error('[Events API] Cannot update event: not authenticated');
+    return null;
+  }
+
+  const { data: event, error: fetchError } = await supabase
+    .from('events')
+    .select('host_id')
+    .eq('id', eventId)
+    .single();
+
+  if (fetchError || !event) {
+    console.error('[Events API] Cannot update event: event not found', fetchError);
+    return null;
+  }
+
+  if (event.host_id !== user.id) {
+    console.error('[Events API] Cannot update event: caller is not the host');
+    return null;
+  }
 
   const updateData: Record<string, unknown> = {};
   if (input.title !== undefined) updateData.title = input.title;
@@ -3705,10 +3728,33 @@ export async function updateEvent(eventId: string, input: UpdateEventInput): Pro
 
 /**
  * Cancels an event (sets status to 'cancelled')
- * Host only - RLS enforced
+ * Host only - RLS enforced + explicit ownership check
  */
 export async function cancelEvent(eventId: string): Promise<boolean> {
   console.log('[Events API] Canceling event:', eventId);
+
+  // Defense-in-depth: verify caller is the event host
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) {
+    console.error('[Events API] Cannot cancel event: not authenticated');
+    return false;
+  }
+
+  const { data: event, error: fetchError } = await supabase
+    .from('events')
+    .select('host_id')
+    .eq('id', eventId)
+    .single();
+
+  if (fetchError || !event) {
+    console.error('[Events API] Cannot cancel event: event not found', fetchError);
+    return false;
+  }
+
+  if (event.host_id !== user.id) {
+    console.error('[Events API] Cannot cancel event: caller is not the host');
+    return false;
+  }
 
   const { error } = await supabase
     .from('events')
