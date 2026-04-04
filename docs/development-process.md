@@ -10,7 +10,7 @@ This document describes how features move from idea to production in the Clarity
 
 **New feature flow:**
 ```bash
-/create-prd "Feature idea"           # Business layer
+/create-spec "Feature idea"           # Business layer
 # [Review & approve business requirements]
 
 /challenge-prd features/pN_feature.md # Stress-test assumptions (recommended*)
@@ -67,7 +67,7 @@ This document describes how features move from idea to production in the Clarity
 
 ## The Five Layers
 
-### Layer 1: Business Requirements (`/create-prd`)
+### Layer 1: Business Requirements (`/create-spec`)
 
 **What it does:** Generates business layer only (WHY, user value, outcomes)
 
@@ -92,7 +92,7 @@ This document describes how features move from idea to production in the Clarity
 
 **Example:**
 ```bash
-/create-prd "Add dark mode toggle to profile page"
+/create-spec "Add dark mode toggle to profile page"
 
 # Agent generates:
 # - Problem: Users complain about bright UI at night
@@ -542,8 +542,8 @@ Need RLS policy or validation that userId matches authenticated user.
 
 | Skill | When to Use | Output |
 |-------|-------------|--------|
-| `/create-prd` | Starting any new feature | Business requirements only |
-| `/challenge-prd` | After `/create-prd` (recommended for novel features) | Adversarial stress-test: BLOCK/WARN/NOTE findings |
+| `/create-spec` | Starting any new feature | Business requirements only |
+| `/challenge-prd` | After `/create-spec` (recommended for novel features) | Adversarial stress-test: BLOCK/WARN/NOTE findings |
 | `/ux` | UI features (after business approved) | UX design (flows, screens, edge cases) |
 | `/research-arch` | Novel tech, unfamiliar integrations, technical unknowns from `/challenge-prd` (optional) | Technical Research Brief (best practices, pitfalls, comparison matrix) |
 | `/architect` | All features (after UX approved if UI) | Technical architecture + security |
@@ -551,7 +551,6 @@ Need RLS policy or validation that userId matches authenticated user.
 | `/spec-review` | Optional — use when spec evolved since architect review, or for pre-dev sanity check | Findings report: BLOCK / WARN / NOTE + READY or NEEDS FIXES verdict |
 | `/decompose` | Complex features only: 5+ files OR 3+ concerns OR 6+ steps | Task manifest (`## Implementation Tasks` in spec) with test refs per task |
 | `/dev` | All features | Implementation + tests passing; orchestrator mode if task manifest exists |
-| `/quick-feature` | Quick skeleton (different use case) | Empty spec structure |
 | `/pick-flow` | Unsure which flow to use? | Proposes A/B/C options, recommends one |
 
 ---
@@ -587,7 +586,7 @@ This avoids context overflow on large features.
 **A:** They solve the same problem (context overflow) at different complexity tiers. Ralph-loop is better for medium features (3–5 files, external iteration loop). /decompose + /dev orchestrator is better for large features (5+ files) because subagents get fresh context per task without needing an external tool.
 
 ### Q: Do I always need UX layer?
-**A:** No. Skip `/ux` for backend-only features (API endpoints, data migrations, infrastructure). Run `/architect` directly after `/create-prd`.
+**A:** No. Skip `/ux` for backend-only features (API endpoints, data migrations, infrastructure). Run `/architect` directly after `/create-spec`.
 
 **Decision tree:**
 - Has user-facing UI? → Run /ux
@@ -621,7 +620,7 @@ This avoids context overflow on large features.
 
 ```bash
 # Step 1: Business requirements
-/create-prd "Add dark mode toggle to profile page"
+/create-spec "Add dark mode toggle to profile page"
 # Review: Approve ✅
 
 # Step 2: UX design
@@ -656,7 +655,7 @@ This avoids context overflow on large features.
 
 ```bash
 # Step 1: Business requirements
-/create-prd "Add API endpoint to export user data"
+/create-spec "Add API endpoint to export user data"
 # Review: Approve ✅
 
 # Step 2: Skip UX (no UI)
@@ -689,9 +688,9 @@ This avoids context overflow on large features.
 
 | Aspect | Old Flow | New Flow |
 |--------|----------|----------|
-| **Skills** | create-prd → prep-spec → dev | create-prd → ux → architect → generate-tests → spec-review → dev |
+| **Skills** | create-spec → prep-spec → dev | create-spec → ux → architect → generate-tests → spec-review → dev |
 | **Review gates** | ❌ None (can't approve layers) | ✅ After each layer |
-| **Duplication** | ❌ create-prd + prep-spec overlap | ✅ Each skill does ONE thing |
+| **Duplication** | ❌ create-spec + prep-spec overlap | ✅ Each skill does ONE thing |
 | **Parallel agents** | ❌ UX + Architect run together | ✅ Sequential (UX before Architect) |
 | **Test generation** | ❌ Manual checklist only | ✅ Runnable E2E stubs + smoke tests |
 | **Test-driven dev** | ❌ dev doesn't run tests | ✅ dev iterates until ALL pass |
@@ -781,7 +780,7 @@ If agent iterates 5+ times without progress, it will ask for help.
 
 ## Skills Ecosystem: Beyond the Core Flow
 
-The sequential flow (`/create-prd → /challenge-prd → /ux → /research-arch* → /architect → /generate-tests → /spec-review → /decompose* → /dev`) is the core, but there are other skills that help optimize your workflow.
+The sequential flow (`/create-spec → /challenge-prd → /ux → /research-arch* → /architect → /generate-tests → /spec-review → /decompose* → /dev`) is the core, but there are other skills that help optimize your workflow.
 
 ### Pre-Work Skills (Optional - Use When Needed)
 
@@ -792,19 +791,19 @@ Starting a feature?
 │
 ├─ 🤔 Unclear APPROACH (know what to build, not how)
 │   → Run /innovate to explore 30 alternatives
-│   → Then run /create-prd with chosen approach
+│   → Then run /create-spec with chosen approach
 │
 ├─ 🎯 Unclear SCOPE (idea feels too big)
 │   → Run /lean to challenge scope and find MVP
-│   → Then run /create-prd with refined scope
+│   → Then run /create-spec with refined scope
 │
 ├─ 🌫️ Both unclear (fuzzy idea, unclear scope and approach)
 │   → Run /innovate to brainstorm possibilities
 │   → Run /lean to narrow to MVP
-│   → Then run /create-prd
+│   → Then run /create-spec
 │
 └─ ✅ Clear on both scope and approach
-    → Run /create-prd directly
+    → Run /create-spec directly
 ```
 
 **Pre-work skills:**
@@ -812,7 +811,7 @@ Starting a feature?
 - `/innovate` - Explore 30 alternative approaches before committing to one
 
 **Research:**
-- Codebase research: Agents do this automatically during `/create-prd`, `/ux`, `/architect` (using Grep/Glob)
+- Codebase research: Agents do this automatically during `/create-spec`, `/ux`, `/architect` (using Grep/Glob)
 - External research: You do this before starting (or spawn a research agent if needed)
 
 ---
@@ -857,8 +856,8 @@ A third pattern — distinct from bugs and features — is when something *feels
 ├─ 2. Decision point — user approves an approach ("let's do A+B")
 │      ↓
 │   → Invoke /fix (if it's a gap/bug fix)
-│   → Invoke /quick-feature (if it's a small addition)
-│   → Invoke /create-prd (if it's a real feature)
+│   → Invoke /create-spec (if it's a small addition)
+│   → Invoke /create-spec (if it's a real feature)
 │
 └─ 3. Post-work: /finish + /kdd as usual
 ```
@@ -944,7 +943,7 @@ Skills for managing subscribers, post-session follow-ups, and personalized outre
 │ CORE FLOW                                           │
 │                                                     │
 │ Features:                                           │
-│ /create-prd → /challenge-prd* → /ux → /research-arch* → /architect → /generate-tests → /spec-review → /decompose* → /dev │
+│ /create-spec → /challenge-prd* → /ux → /research-arch* → /architect → /generate-tests → /spec-review → /decompose* → /dev │
 │                                                     │
 │ * /research-arch optional — novel tech or technical unknowns            │
 │   /decompose optional — 5+ files OR 3+ concerns OR 6+ build steps      │

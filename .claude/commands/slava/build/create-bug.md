@@ -62,8 +62,7 @@ Use `/create-bug` for:
 - Bugs surfaced from a surface audit (see `/fix` surface lens)
 
 **Do NOT use for:**
-- Quick placeholder without context → use `/create-spec` (lightweight mode)
-- Full feature specs → use `/create-spec`
+- Any new feature or task → use `/create-spec`
 - Pre-commit hook failures, CI config, or build tooling fixes (not user-facing bugs)
 - CSS-only cosmetic tweaks that affect only visual appearance and cannot alter user interaction flow (color, font-size, margin between non-interactive elements)
 
@@ -383,8 +382,7 @@ Root cause marked "Under investigation" — run /fix to begin reproduction and d
 ## Related Skills
 
 - `/fix` — Implement the fix from this spec (reproduce → test → fix → verify)
-- `/quick-feature` — Quick skeleton without full diagnostic context (use for simple placeholders)
-- `/create-prd` — Full business requirements layer (use for features, not bugs)
+- `/create-spec` — Structured spec with 5-field skeleton (use for features, not bugs)
 - `/kdd` — Capture learnings after fix is complete
 
 ---

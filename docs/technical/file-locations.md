@@ -8,7 +8,7 @@
 
 | What | Where | Tool/Skill |
 |------|-------|------------|
-| Feature specs | `features/p{N}_{slug}.md` | `/create-prd` or `/quick-feature` |
+| Feature specs | `features/p{N}_{slug}.md` | `/create-spec` |
 | E2E tests | `e2e/p{N}-{description}.spec.ts` | Created during `/dev` |
 | Technical docs | `docs/technical/{name}.md` | Manual (ask first) |
 | Strategic docs | `docs/{name}.md` or `docs/milestones/` | Manual (ask first) |
@@ -29,8 +29,7 @@
 **Location:** `features/p{N}_{slug}.md`
 
 **How:**
-- Use `/slava:build:quick-feature` (quick skeleton)
-- Use `/slava:build:create-prd` (comprehensive PRD)
+- Use `/slava:build:create-spec` (unified spec creation skill)
 - **Never** create manually (skills handle P-number assignment)
 
 **Completed features:**
@@ -264,7 +263,7 @@ scripts/kanban.sh
 
 ```
 Is it a feature spec?
-  → Yes: Use /create-prd or /quick-feature (auto-creates in features/)
+  → Yes: Use /create-spec (auto-creates in features/)
   → No: Continue
 
 Is it an E2E test?
@@ -307,8 +306,7 @@ If none of the above:
 
 | Skill | Creates | Location |
 |-------|---------|----------|
-| `/create-prd` | Feature specs | `features/p{N}_{slug}.md` |
-| `/quick-feature` | Feature skeletons | `features/p{N}_{slug}.md` |
+| `/create-spec` | Feature specs | `features/p{N}_{slug}.md` |
 | `/prepare-blog` | Blog posts | `content/blog/{slug}.md` |
 | `/generate-uat` | UAT docs | `features/uat/p{N}.md` |
 | `/done` | Moves completed features | `features/` → `features/done/` |

@@ -267,6 +267,6 @@ Before writing the skill file, verify:
 ## Related Skills
 
 - `/slava:build:change-request` — file a redesign spec; also uses draft-first pattern for predecessor analysis
-- `/slava:build:create-prd` — create a full feature spec; use when the output is a tracked feature, not a skill
+- `/slava:build:create-spec` — create a full feature spec; use when the output is a tracked feature, not a skill
 - `/slava:maintain:claude-md` — gate for changes to CLAUDE.md; run before adding skill invocation rules there
 - `/slava:maintain:kdd` — capture learnings after a skill is created or a session surfaces new patterns

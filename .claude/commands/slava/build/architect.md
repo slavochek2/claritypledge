@@ -1,7 +1,7 @@
 ---
 name: architect
 description: Design technical architecture and security after business/UX requirements are approved
-when_to_use: After /create-prd (and /ux if UI feature), before /generate-tests
+when_to_use: After /create-spec (and /ux if UI feature), before /generate-tests
 version: 1.0.0
 ---
 
@@ -96,7 +96,7 @@ Adds Technical layer to feature spec:
 
 **Before running /architect, verify:**
 
-✅ **Business requirements exist** in spec file (from /create-prd)
+✅ **Business requirements exist** in spec file (from /create-spec)
 
 ✅ **Technical Research Brief exists** (if `/research-arch` was run) — consume findings as input, don't re-research what's already covered
 
@@ -107,7 +107,7 @@ Adds Technical layer to feature spec:
 ❌ **If prerequisites missing:**
 ```
 ERROR: Cannot run /architect
-- Missing business requirements → Run /create-prd first
+- Missing business requirements → Run /create-spec first
 - Missing UX section (UI feature) → Run /ux first
 - Missing UX section (backend) → Mark frontmatter as "backend feature"
 ```
@@ -374,7 +374,7 @@ Also check:
 
 ## Related Skills
 
-- `/create-prd` — Business requirements (run before /architect)
+- `/create-spec` — Business requirements (run before /architect)
 - `/ux` — UX design (run before /architect if UI feature)
 - `/ui` — Component strategy (run after /architect, UI features only)
 - `/generate-tests` — Test generation (run after /ui)

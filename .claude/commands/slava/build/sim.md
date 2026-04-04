@@ -205,9 +205,9 @@ Write the full Tier A / B / C table from Step 6 plus one-line persona summaries.
 
 ## Step 7 — File Selected Specs
 
-For **Tier A bugs:** Run `/create-bug` (or `/quick-feature` with type: bug) for each confirmed item.
+For **Tier A bugs:** Run `/create-bug` for each confirmed item.
 
-For **Tier B/C change requests:** Run `/quick-feature` with:
+For **Tier B/C change requests:** Run `/create-spec` with:
 ```yaml
 type: story
 source: sim
@@ -233,5 +233,5 @@ persona: [which persona found it]
 - `/finish` — static review (code, design, UX, skills, rules, docs — no browser)
 - `/ascii-flows` — design Tier C flow redesigns before filing specs
 - `/create-bug` — file Tier A bugs
-- `/quick-feature` — file Tier B/C change requests
+- `/create-spec` — file Tier B/C change requests
 - `docs/technical/synthetic-usability-testing.md` — full methodology reference

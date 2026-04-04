@@ -559,7 +559,7 @@ test.describe('P142 Smoke Tests', () => {
 
 ## Related Skills
 
-- `/create-prd` → `/ux` → `/architect` → `/generate-tests` → `/dev` — New sequential flow (P143)
+- `/create-spec` → `/ux` → `/architect` → `/generate-tests` → `/dev` — New sequential flow (P143)
 - `/prep-spec` — Legacy skill (deprecated, but still calls `/generate-tests`)
 - `/dev` — Reads UAT + E2E stubs, implements tests, runs them, iterates until pass
 

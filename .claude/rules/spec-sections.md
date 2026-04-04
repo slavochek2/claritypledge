@@ -101,8 +101,8 @@ These sections are generated during the pipeline but have a finite lifespan. Eac
 
 | Header | Level | Created by | Removed by | Rule |
 |--------|-------|-----------|-----------|------|
-| `## Next Steps` | 2 | /create-prd | Next skill that runs | Remove when the listed steps are no longer actionable (check `delivery_stage`) |
-| `## Open Questions for /X` | 2 | /create-prd or founder | Skill /X when it runs | Skill /X reads the questions, incorporates answers into its section, then deletes the Open Questions block |
+| `## Next Steps` | 2 | /create-spec | Next skill that runs | Remove when the listed steps are no longer actionable (check `delivery_stage`) |
+| `## Open Questions for /X` | 2 | /create-spec or founder | Skill /X when it runs | Skill /X reads the questions, incorporates answers into its section, then deletes the Open Questions block |
 | `## Challenge Notes` | 3 (subsection) | /ux, /architect, /ui | /spec-review | /spec-review consolidates all Challenge Notes into its findings. Non-blocking notes that were addressed by later sections should be removed by the skill that addressed them |
 | `## Resolved Decisions` | 2 | /challenge-prd | Never (permanent) | Persists resolved BLOCK/WARN decisions for downstream reference |
 

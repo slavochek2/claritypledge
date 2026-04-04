@@ -5,14 +5,14 @@ when_to_use: before implementing any feature spec, when prepped_date is not set
 version: 4.0.0
 deprecated: true
 deprecated_date: '2026-02-13'
-replacement: [create-prd, ux, architect, generate-tests, dev]
+replacement: [create-spec, ux, architect, generate-tests, dev]
 ---
 
 # Prep Spec
 
 > **⚠️ DEPRECATED:** This skill is being replaced by the new sequential skill flow.
 >
-> **New flow:** `/create-prd` → `/ux` → `/architect` → `/generate-tests` → `/dev`
+> **New flow:** `/create-spec` → `/ux` → `/architect` → `/generate-tests` → `/dev`
 >
 > **Why deprecated:**
 > - Runs agents in parallel (can't approve UX before architecture)
@@ -36,7 +36,7 @@ Three-perspective spec review for final polish. Each agent thinks differently �
 ## When to Use
 
 ⚠️ **This skill is deprecated. For new features, use:**
-1. `/create-prd` - Business requirements
+1. `/create-spec` - Business requirements
 2. `/ux` - UX design (if UI feature)
 3. `/architect` - Technical architecture + security
 4. `/generate-tests` - Test generation
@@ -206,14 +206,14 @@ Honor user's choice but note the spec remains unprepped.
 ## Related Skills
 
 **Deprecated - use these instead:**
-- `/create-prd` - Business requirements (replaces business analysis in prep-spec)
+- `/create-spec` - Business requirements (replaces business analysis in prep-spec)
 - `/ux` - UX design (replaces UX agent in prep-spec)
 - `/architect` - Technical architecture + security (replaces Architect + Security agents in prep-spec)
 - `/generate-tests` - Test generation (replaces generate-uat offer in prep-spec)
 - `/dev` - Implementation with test-driven workflow
 
 **Old flow (deprecated):**
-- `/quick-feature` - Quick skeleton
+- `/create-spec` - Quick skeleton or full spec
 - `/prep-spec` - Review spec (THIS SKILL)
 - `/dev` - Implement
 
@@ -248,14 +248,14 @@ Prep-spec is convergent thinking — "is this spec ready to implement?" Scope ch
 
 **Old flow (deprecated):**
 ```
-/create-prd "Feature idea"
+/create-spec "Feature idea"
 /prep-spec features/pN_feature.md
 /dev features/pN_feature.md
 ```
 
 **New flow (recommended):**
 ```
-/create-prd "Feature idea"           # Business layer only
+/create-spec "Feature idea"          # Business layer only
 # [Review business requirements, approve]
 
 /ux features/pN_feature.md           # UX layer (if UI feature)

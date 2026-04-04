@@ -62,11 +62,11 @@ Generate comprehensive test strategy: unit, integration, E2E, accessibility, smo
 
 **In the sequential flow:**
 ```
-/create-prd → /ux (if UI) → /architect → /ui (if UI) → /generate-tests → /spec-review → /decompose* → /dev
+/create-spec → /ux (if UI) → /architect → /ui (if UI) → /generate-tests → /spec-review → /decompose* → /dev
 ```
 
 **Run this after:**
-- ✅ Business requirements approved (`/create-prd` complete)
+- ✅ Business requirements approved (`/create-spec` complete)
 - ✅ UX design approved (`/ux` complete, if UI feature)
 - ✅ Architecture approved (`/architect` complete)
 
@@ -382,7 +382,7 @@ The integration test MUST include a schema existence check using the **two-clien
   `## Test Coverage Strategy` section written here to add `Tests:` lines to each task entry.
 
 **Before `/generate-tests`:**
-- `/create-prd` → Business requirements approved ✅
+- `/create-spec` → Business requirements approved ✅
 - `/ux` → UX design approved ✅ (if UI)
 - `/architect` → Architecture approved ✅
 
@@ -462,7 +462,7 @@ The integration test MUST include a schema existence check using the **two-clien
 
 ## Related Skills
 
-- `/create-prd` → Business requirements (layer 1)
+- `/create-spec` → Business requirements (layer 1)
 - `/ux` → UX design (layer 2, if UI)
 - `/architect` → Technical architecture (layer 3)
 - `/ui` → Component strategy (layer 3.5, if UI)

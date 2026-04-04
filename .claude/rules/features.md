@@ -50,10 +50,10 @@ ALWAYS run `./scripts/next-p-number.sh` — never compute manually (`ls`, `find`
 ## Optional Frontmatter: `flow`
 
 ```yaml
-flow: fix    # fix | dev | inline | quick-feature
+flow: fix    # fix | dev | inline | spec
 ```
 
-Records which implementation flow was chosen. Set by `/pick-flow` or the agent/human choosing the approach. Values map to the sequential flow tiers: `fix` = single-concern bug with confirmed root cause; `dev` = full pipeline; `inline` = too small for a skill; `quick-feature` = skeleton only.
+Records which implementation flow was chosen. Set by `/pick-flow` or the agent/human choosing the approach. Values map to the sequential flow tiers: `fix` = single-concern bug with confirmed root cause; `dev` = full pipeline; `inline` = too small for a skill; `spec` = skeleton only.
 
 **When `flow:` is set, the implementing agent must validate the chosen flow still matches actual scope before starting work.** If `flow: fix` is set but the scope has grown (multiple concerns, DB migration, 5+ files), flag the mismatch and confirm before proceeding.
 
@@ -86,7 +86,7 @@ Use `type: change-request` (first-class kanban type, shown in purple). The `chan
 
 **When to use `/change-request` vs other skills:**
 - Code is broken → `/fix`
-- New capability, new user value → `/create-prd`
+- New capability, new user value → `/create-spec`
 - Shipped feature, design was wrong → `/change-request`
 
 ### CR Chaining (CR-on-CR)

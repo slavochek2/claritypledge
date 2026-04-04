@@ -46,7 +46,7 @@ Adds Component Strategy layer to feature spec:
 ## Position in Pipeline
 
 ```
-/create-prd → /challenge-prd → /ux → /architect → /ui → /generate-tests → /spec-review → /dev
+/create-spec → /challenge-prd → /ux → /architect → /ui → /generate-tests → /spec-review → /dev
 ```
 
 **Why after both /ux AND /architect:**
@@ -56,10 +56,10 @@ Adds Component Strategy layer to feature spec:
 
 **Medium pipeline:**
 ```
-/create-prd → /challenge-prd → /ui → /dev
+/create-spec → /challenge-prd → /ui → /dev
 ```
 
-**Note:** In the medium pipeline, /ux and /architect are skipped. /ui's pre-flight relaxes for medium work: it requires only business requirements (from /create-prd) and scans the codebase directly for component decisions — no UX or Architecture section needed. The Component Inventory + Map still provides value by preventing duplicate components.
+**Note:** In the medium pipeline, /ux and /architect are skipped. /ui's pre-flight relaxes for medium work: it requires only business requirements (from /create-spec) and scans the codebase directly for component decisions — no UX or Architecture section needed. The Component Inventory + Map still provides value by preventing duplicate components.
 
 ---
 
@@ -180,7 +180,7 @@ When `/ui` discovers a problem with an upstream decision:
 
 **Before running /ui, verify:**
 
-✅ **Business requirements exist** in spec (from /create-prd) — always required
+✅ **Business requirements exist** in spec (from /create-spec) — always required
 
 ✅ **UX section exists** (from /ux) — required for full pipeline, optional for medium pipeline
 

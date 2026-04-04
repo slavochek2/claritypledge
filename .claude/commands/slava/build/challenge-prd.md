@@ -1,25 +1,25 @@
 ---
 name: challenge-prd
 description: >
-  Adversarial stress-test of a PRD immediately after /create-prd. Surfaces flawed assumptions,
+  Adversarial stress-test of a spec immediately after /create-spec. Surfaces flawed assumptions,
   missing edge cases, strategic misalignment, and logic gaps — before any design or architecture
-  work begins. Seven challenge dimensions, BLOCK/WARN/NOTE severity output.
+  work begins. Eight challenge dimensions, BLOCK/WARN/NOTE severity output.
 when_to_use: >
-  Right after /create-prd produces business requirements, before /ux or /architect.
-  Also useful when revisiting an existing PRD that feels incomplete or when starting
+  Right after /create-spec produces the skeleton, before /ux or /architect.
+  Also useful when revisiting an existing spec that feels incomplete or when starting
   implementation on an older spec whose assumptions may have shifted.
-version: 1.0.0
+version: 2.0.0
 ---
 
 # /challenge-prd
 
-**Adversarial stress-test of business requirements — find the fatal flaw before design begins.**
+**Adversarial stress-test of a spec — find the fatal flaw before design begins.**
 
-Runs immediately after `/create-prd`. Reads the PRD and project strategy docs, then systematically
-tries to break the requirements across seven dimensions. Returns structured findings that must be
+Runs immediately after `/create-spec`. Reads the spec and project strategy docs, then systematically
+tries to break it across eight dimensions. Returns structured findings that must be
 resolved before proceeding to `/ux` or `/architect`.
 
-**Announce at start:** "I'm using the /challenge-prd skill to stress-test the business requirements."
+**Announce at start:** "I'm using the /challenge-prd skill to stress-test this spec."
 
 ---
 
@@ -33,20 +33,20 @@ resolved before proceeding to `/ux` or `/architect`.
 - `/challenge-prd features/p511_guest_user_flow.md`
 - `/challenge-prd features/p142_csv_export.md`
 
-**Run after:** `/create-prd` (business requirements exist)
+**Run after:** `/create-spec` (skeleton exists)
 **Run before:** `/ux` (if UI) or `/architect` (if backend)
 
 ---
 
 ## What This Skill Does
 
-Reads the PRD's business requirements layer and stress-tests it against seven dimensions derived
-from pre-mortem analysis, assumption mapping, JTBD validation, and lean methodology. The stance
-is **adversarial** — the agent tries to find flaws, not validate quality.
+Reads the spec's skeleton and stress-tests it against eight dimensions derived from pre-mortem
+analysis, assumption mapping, and lean methodology. The stance is **adversarial** — the agent
+tries to find flaws, not validate quality.
 
-**Core principle:** Operate on the **assumption layer** underneath requirements, not the
-requirements themselves. The requirements are rarely wrong in their own terms — the unstated
-beliefs underneath them are where real defects hide.
+**Core principle:** Operate on the **assumption layer** underneath the spec, not the spec itself.
+The requirements are rarely wrong in their own terms — the unstated beliefs underneath them are
+where real defects hide.
 
 **Constraint origin rule:** Every stated constraint in the spec must be tagged with its origin:
 - `[user-stated]` — the user explicitly chose this constraint in conversation
@@ -63,12 +63,12 @@ it through?"
 
 ---
 
-## The Seven Challenge Dimensions
+## The Eight Challenge Dimensions
 
 ### 1. Strategic Fit — "Does this belong in the product right now?"
 
 Read hypotheses.md for relevant hypothesis context and the lean canvas. Check:
-- Does this PRD map to at least one lean canvas element (Problem, Solution, Key Metrics, Unfair Advantage)?
+- Does this spec map to at least one lean canvas element (Problem, Solution, Key Metrics, Unfair Advantage)?
 - Does it advance an **active** hypothesis, or does it serve a blocked/parked one?
 - Is this the highest-leverage thing to build right now?
 - Does it reinforce or dilute the unique value proposition?
@@ -77,72 +77,71 @@ Read hypotheses.md for relevant hypothesis context and the lean canvas. Check:
 
 ### 2. Assumption Validity — "What beliefs, if wrong, invalidate this?"
 
-Extract every implicit and explicit assumption from the PRD. For each:
+Extract every implicit and explicit assumption from the spec. For each:
 - Rate importance (how critical to success) and uncertainty (how confident are we it's true)
 - High importance + high uncertainty = existential risk that must be validated or explicitly flagged
 
 **Assumption types to hunt:**
-- **Desirability** — Do users actually want this? (hides in problem statements and user stories)
-- **Viability** — Does this make business sense? (hides in business requirements and success metrics)
-- **Feasibility** — Can this be built as described? (hides in acceptance criteria and constraints)
+- **Desirability** — Do users actually want this? (hides in problem statements)
+- **Viability** — Does this make business sense? (hides in appetite and done-when criteria)
+- **Feasibility** — Can this be built as described? (hides in solution and constraints)
 
 **Key question:** "Which assumption, if wrong, makes this entire feature worthless?"
 
-### 3. JTBD Integrity — "Does this solve a real job or a presumed one?"
+### 3. Problem Clarity — "Would someone outside this conversation understand it?"
 
-Validate each Job to Be Done statement:
-- **Too broad?** "Help me communicate better" is unfalsifiable. What's the specific trigger moment?
-- **Too narrow?** Describes a feature, not a need. "Help me click the calibration button" ≠ job.
-- **Solution-contaminated?** The requirement presupposes a specific implementation. Strip the solution — what's the underlying job?
+Evaluate the `## Problem` section:
+- **SCQ completeness** (if used): Is the Situation grounded in observable facts? Does the Complication name a specific tension? Does the Question follow from the complication?
+- **Flat statement** (if used): Is it falsifiable? Could you point to evidence that the problem exists?
+- **Audience test:** Would a developer with zero context on this conversation understand what's broken or missing?
+- **Problem vs solution:** Does the problem statement describe a need, or does it smuggle in a specific implementation?
 
-**Four Forces check** (for each major user story):
-- **Push** — What dissatisfaction drives users away from current behavior?
-- **Pull** — What attracts them to our solution?
-- **Anxiety** — What makes them nervous about our approach?
-- **Inertia** — What habit must they break to adopt this?
+**Key question:** "If I showed only the Problem section to someone who wasn't in the conversation, would they understand what needs fixing and why it matters?"
 
-A PRD that only addresses push and pull while ignoring anxiety and inertia will overestimate adoption.
+### 4. Appetite Calibration — "Does blast radius match solution size?"
 
-**Key question:** "What is the user doing today instead, and why haven't they already solved this?"
+Evaluate the `## Appetite` section:
+- **Blast radius honesty:** Does the stated blast radius match what the solution actually touches? (A "low blast radius" claim on something touching auth, DB schema, and 3 UI flows is suspect.)
+- **Reversibility claim:** Is the reversibility assessment accurate? (Git-revertable skill files ≠ git-revertable DB migrations.)
+- **Decision density:** Are there genuinely few decisions, or are hard calls being deferred to implementation?
+- **Proportionality:** Is the solution sized to the problem? A 15-file refactor for a 2-line behavioral change signals over-engineering.
 
-### 4. Flow Completeness — "What happens when things go wrong?"
+**Key question:** "If this goes wrong, how hard is it to undo — and does the spec honestly acknowledge that?"
 
-For each actor-action pair in the user stories, systematically ask:
-- What if the actor has **no prior state** (first time)?
-- What if the actor has **expired state** (session timeout, token refresh)?
-- What if the actor **returns** (second visit — does state persist? how?)?
-- What if the action **partially completes** (network drop, browser close mid-flow)?
-- What if the action **conflicts with concurrent activity** (multiple tabs, race condition)?
-- What if the actor **lacks permission** (auth edge case, guest vs authenticated)?
-- What if the **data is invalid or missing** (empty input, malformed data)?
-- What if the actor's **context changes mid-flow** (role change, subscription change)?
+### 5. Non-Goals Quality — "Are constraints actually constraining, or obvious?"
 
-**Key question:** "Walk me through a returning user who had a partial session last time — what exactly happens?"
+Evaluate `## Risks / Non-Goals`:
+- **Obvious non-goals:** "Do NOT rewrite the entire codebase" adds no information. Good non-goals prevent specific, tempting scope expansions.
+- **Missing non-goals:** What adjacent work would a reasonable agent include that should be explicitly excluded?
+- **Non-goal as deferral:** "Do NOT build X in this spec" — is X genuinely out of scope, or being deferred because it's hard? If deferred, the spec should say when it gets addressed.
+- **Risk coverage:** Are risks that could actually happen listed, or only theoretical ones?
 
-### 5. Testability — "Can every criterion be mechanically verified?"
+**Key question:** "Name a specific thing an agent might build during implementation that this spec should explicitly exclude but doesn't."
 
-Apply IEEE 830 filter to every acceptance criterion:
+### 6. Testability — "Can every criterion be mechanically verified?"
+
+Apply IEEE 830 filter to every done-when criterion and acceptance criterion:
 - Can you write a pass/fail test for this right now?
 - Is there exactly one interpretation? (two developers reading this — would they build the same thing?)
 - Are success metrics specific enough to measure? ("Improve UX" fails. "Reduce clicks from 5 to 2" passes.)
 - Are there any "TBD", "as needed", "similar to X", "standard behavior" phrases?
 
-**Key question:** "Can I write an automated test for this acceptance criterion? If not, what's ambiguous?"
+**Key question:** "Can I write an automated test for this criterion? If not, what's ambiguous?"
 
-### 6. Bias Exposure — "What cognitive shortcuts contaminated this?"
+### 7. Bias Exposure — "What cognitive shortcuts contaminated this?"
 
-Check for common PRD biases (especially critical when author = reviewer):
+Check for common spec biases (especially critical when author = reviewer):
 - **Confirmation bias** — Are we only looking at evidence that supports building this?
 - **Anchoring** — Are we locked onto the first solution we considered?
-- **IKEA effect** — Are we overvaluing this because we already wrote the PRD?
+- **IKEA effect** — Are we overvaluing this because we already wrote the spec?
 - **Planning fallacy** — Are the outcomes realistic or optimistic?
 - **Feature creep disguised as scope** — Are "nice to haves" hiding in "must haves"?
 
 **Inversion test:** For each major requirement, ask "What would make this requirement actively harmful?"
 
-**Key question:** "If a competitor read this PRD, what would they attack first?"
+**Key question:** "If a competitor read this spec, what would they attack first?"
 
-### 7. Opportunity Cost — "What are we NOT building by building this?"
+### 8. Opportunity Cost — "What are we NOT building by building this?"
 
 - Name 2-3 alternative features or improvements that would use the same capacity
 - Would any of those alternatives advance the active hypotheses more directly?
@@ -160,7 +159,7 @@ Check for common PRD biases (especially critical when author = reviewer):
 
 ### Blocking Challenges (must resolve before proceeding):
 - [BLOCK] Dimension: Description — what assumption is unverified, what flow is incomplete,
-  what question is unanswered. Include the specific PRD text that triggers this finding.
+  what question is unanswered. Include the specific spec text that triggers this finding.
 
 ### Warnings (should address, proceeding is risky):
 - [WARN] Dimension: Description — what could go wrong if unaddressed
@@ -196,25 +195,25 @@ For each question: state the question, propose 2-3 resolution options with trade
 
 **Verdict rules:**
 - `PASS` — Zero BLOCKs. Requirements are stress-tested. Proceed to `/ux` or `/architect`.
-- `CHALLENGE` — 1-3 BLOCKs that can be resolved by updating the PRD. Fix and re-run.
+- `CHALLENGE` — 1-3 BLOCKs that can be resolved by updating the spec. Fix and re-run.
 - `RETHINK` — Fundamental strategic or assumption issue. Step back before investing more.
 
 ---
 
 ## Context Files to Read
 
-Before running the seven dimensions, read these project context files:
+Before running the eight dimensions, read these project context files:
 
 ```
-docs/hypotheses.md        — Active hypotheses (does this PRD test one?)
+docs/hypotheses.md        — Active hypotheses (does this spec test one?)
 docs/lean-canvas.md       — Business model alignment
-docs/decisions.md         — Past decisions (does this PRD conflict?)
+docs/decisions.md         — Past decisions (does this spec conflict?)
 docs/definitions.md       — Terminology accuracy
 docs/philosophy.md        — Mission alignment
 ```
 
-These provide the strategic context against which the PRD is challenged. Without them,
-dimensions 1 (Strategic Fit), 3 (JTBD Integrity), and 7 (Opportunity Cost) cannot be
+These provide the strategic context against which the spec is challenged. Without them,
+dimensions 1 (Strategic Fit), 2 (Assumption Validity), and 8 (Opportunity Cost) cannot be
 evaluated properly.
 
 ---
@@ -224,7 +223,7 @@ evaluated properly.
 **Phase 0 — Main agent reads files before spawning** (required by subagent file-content rule)
 
 Before spawning the subagent, the main agent MUST:
-1. Read the PRD at `{spec_file}`
+1. Read the spec at `{spec_file}`
 2. Read all five context files:
    - `docs/hypotheses.md`
    - `docs/lean-canvas.md`
@@ -236,9 +235,9 @@ Before spawning the subagent, the main agent MUST:
 Then spawn a general-purpose agent with this directive (with file contents inlined):
 
 ```
-You are a PRD Challenger. Your job is to BREAK this PRD — find the fatal flaw,
+You are a Spec Challenger. Your job is to BREAK this spec — find the fatal flaw,
 the hidden assumption, the missing edge case. You are NOT validating quality.
-You are stress-testing whether this feature should be built and whether it has
+You are stress-testing whether this should be built and whether it has
 been thought through.
 
 **Stance:** Adversarial. Think like a skeptical investor, a frustrated user,
@@ -246,7 +245,7 @@ and a competing product simultaneously. Your value comes from finding problems
 the author couldn't see because they wrote it.
 
 **Context provided inline:**
-- PRD content: [inlined by main agent]
+- Spec content: [inlined by main agent]
 - Lean canvas: [inlined by main agent]
 - Hypotheses: [inlined by main agent]
 - Decisions: [inlined by main agent]
@@ -259,20 +258,20 @@ the author couldn't see because they wrote it.
 2. Note hypothesis dependencies and blocking chains
 3. Note relevant past decisions
 
-**Phase 2 — Run the seven challenge dimensions**
+**Phase 2 — Run the eight challenge dimensions**
 
-Work through each dimension in order (Strategic Fit → Assumption Validity → JTBD Integrity
-→ Flow Completeness → Testability → Bias Exposure → Opportunity Cost).
+Work through each dimension in order (Strategic Fit → Assumption Validity → Problem Clarity
+→ Appetite Calibration → Non-Goals Quality → Testability → Bias Exposure → Opportunity Cost).
 
 For each dimension:
 - Apply the specific questions listed in the skill
-- Quote the exact PRD text that triggers each finding
+- Quote the exact spec text that triggers each finding
 - Rate severity: BLOCK (must resolve) / WARN (should address) / NOTE (awareness)
 
 **BLOCK threshold:** A finding is BLOCK only when:
 - An unverified **desirability or viability** assumption with high importance AND high uncertainty underpins a core requirement (feasibility assumptions are WARN — they belong in `/architect`)
-- A user flow has no specified behavior for a common state (first visit, return, reload, error)
-- An acceptance criterion is untestable or ambiguous enough that two developers would build different things
+- The Problem section is unintelligible to someone outside the conversation
+- A done-when criterion is untestable or ambiguous enough that two developers would build different things
 - A past decision is directly contradicted without acknowledgment
 
 **WARN threshold for strategic fit:** A feature that doesn't connect to an active hypothesis
@@ -281,17 +280,17 @@ directly to a hypothesis but are still valid work.
 
 **Phase 2.5 — Codebase reality check**
 
-Search `src/` for existing implementations that overlap with what the PRD proposes. For each overlap found, flag it: "PRD proposes X, but `src/path/file.tsx` already does Y." This prevents over-design by grounding the PRD in what's already built.
+Search `src/` for existing implementations that overlap with what the spec proposes. For each overlap found, flag it: "Spec proposes X, but `src/path/file.tsx` already does Y." This prevents over-design by grounding the spec in what's already built.
 
 **Phase 3 — Extract assumptions**
 
-Parse the entire PRD and list every implicit and explicit assumption. For each,
+Parse the entire spec and list every implicit and explicit assumption. For each,
 rate importance (to feature success) and uncertainty (confidence it's true).
 Present as a table.
 
 **Phase 4 — Generate hard questions with resolution options**
 
-Write 3-5 questions that, if answered differently than the PRD assumes, would
+Write 3-5 questions that, if answered differently than the spec assumes, would
 fundamentally change what should be built. For each question, propose 2-3
 resolution options with concrete trade-offs, and recommend one. The founder
 should review the recommendations, not sit with open-ended questions.
@@ -302,7 +301,7 @@ Write a 2-3 sentence summary: What's the biggest risk? What should change?
 Assign verdict: PASS / CHALLENGE / RETHINK.
 
 **Output rules:**
-- Be specific: quote exact PRD text, name the section
+- Be specific: quote exact spec text, name the section
 - Be actionable: say what needs to change or what question needs answering
 - For BLOCKs/WARNs: surface the problem, do NOT propose solutions — the founder decides how to fix
 - For Hard Questions: DO propose resolution options with trade-offs and a recommendation
@@ -350,7 +349,7 @@ This ensures challenge decisions persist in the spec for downstream skills to re
 
 ## What This Skill Does NOT Do
 
-- Does not fix the PRD (surfaces problems for the founder to resolve)
+- Does not fix the spec (surfaces problems for the founder to resolve)
 - Does not evaluate spec quality across layers (that's `/spec-review`)
 - Does not check technical feasibility in detail (that's `/architect`)
 - Does not design UX or suggest flows (that's `/ux`)
@@ -393,10 +392,10 @@ Challenge might find:
 
 ## Related Skills
 
-**Before this:** `/create-prd` — generates the PRD that gets challenged
+**Before this:** `/create-spec` — generates the spec skeleton that gets challenged
 **After this:** `/ux` (if UI) or `/architect` (if backend) — design begins after challenge passes
 
 **Different purpose:**
 - `/spec-review` — audits the complete spec (all layers) for internal consistency; runs much later
-- `/lean` (`think/lean`) — scope challenge before PRD creation; `/challenge-prd` challenges after creation
-- `/falsify` (`think/falsify`) — general-purpose proposal testing; `/challenge-prd` is PRD-specific with project context
+- `/lean` (`think/lean`) — scope challenge before spec creation; `/challenge-prd` challenges after creation
+- `/falsify` (`think/falsify`) — general-purpose proposal testing; `/challenge-prd` is spec-specific with project context

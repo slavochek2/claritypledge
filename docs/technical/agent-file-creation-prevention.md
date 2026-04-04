@@ -60,7 +60,7 @@ Agents have been creating temporary files in the project root (UPPERCASE markdow
 ### 3. Skills Don't Create Root Files (Good News)
 
 **Finding:** Audited all skills in `.claude/commands/slava/`:
-- `/create-prd` writes to `features/p{N}_{slug}.md` (correct location)
+- `/create-spec` writes to `features/p{N}_{slug}.md` (correct location)
 - `/prepare-blog` writes to `content/blog/{slug}.md` (correct location)
 - `/architect`, `/ux`, `/dev` all append to feature spec files (correct)
 - `/finish` outputs to terminal (correct - no file creation)
@@ -118,7 +118,7 @@ Agents have been creating temporary files in the project root (UPPERCASE markdow
 - ✅ Example: `scripts/archive/migrations/20260216-add-frontmatter-fields.cjs`
 
 **For feature specs:**
-- ✅ Use `/create-prd` skill (creates `features/p{N}_{slug}.md`)
+- ✅ Use `/create-spec` skill (creates `features/p{N}_{slug}.md`)
 - ❌ Never create feature files manually without skill
 
 **For documentation:**

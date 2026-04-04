@@ -1,7 +1,7 @@
 ---
 name: ux
 description: Design user experience layer after business requirements are approved
-when_to_use: After /create-prd, before /architect - only for UI features
+when_to_use: After /create-spec, before /architect - only for UI features
 version: 1.0.0
 ---
 
@@ -32,7 +32,7 @@ Adds UX layer to feature spec:
 
 ✅ **Use /ux for:**
 - Features with user-facing UI
-- After /create-prd (business requirements approved)
+- After /create-spec (business requirements approved)
 - Before /architect (UX informs technical design)
 
 ❌ **Skip /ux for:**
@@ -74,7 +74,7 @@ Adds UX layer to feature spec:
 - Desktop layout (1024px+)
 
 **Challenge Notes (if any):**
-- Flag upstream concerns from `/create-prd` with evidence, options, and recommendation
+- Flag upstream concerns from `/create-spec` with evidence, options, and recommendation
 - Non-blocking by default — proceed with current spec
 - Only blocking when proceeding would produce broken UX output
 
@@ -110,11 +110,11 @@ ERROR: Skip /ux for backend features
 - Mark frontmatter as: feature_type: backend
 ```
 
-✅ **Business requirements exist** in spec file (from /create-prd)
+✅ **Business requirements exist** in spec file (from /create-spec)
 
 ❌ **If business requirements missing:**
 ```
-ERROR: Run /create-prd first
+ERROR: Run /create-spec first
 Business requirements are needed to design UX.
 ```
 
@@ -202,7 +202,7 @@ The UX agent:
 
 ## Related Skills
 
-- `/create-prd` — Business requirements (run before /ux)
+- `/create-spec` — Business requirements (run before /ux)
 - `/architect` — Technical design (run after /ux)
 - `/ui` — Component strategy (run after /architect)
 - `/generate-tests` — Test generation (run after /ui)
@@ -280,10 +280,10 @@ Generate a complete UX section covering:
 
 **Section 6 — Challenge Notes** *(optional — only when upstream concerns are found)*
 
-If during UX design you discover a problem with a `/create-prd` decision (e.g., a user story that can't map to a coherent flow, acceptance criteria that conflict):
+If during UX design you discover a problem with a `/create-spec` decision (e.g., a user story that can't map to a coherent flow, acceptance criteria that conflict):
 
 Write a Challenge Note:
-- Which section of `/create-prd` is challenged
+- Which section of `/create-spec` is challenged
 - The evidence (what you discovered during UX design)
 - Options (A/B/C) with recommendation
 - Whether it's blocking (rarely) or non-blocking (usually)
@@ -302,7 +302,7 @@ If no upstream concerns: omit Section 6 entirely.
 - [ ] Responsive design considered: mobile, tablet, desktop breakpoints
 - [ ] Decisions requiring founder input surfaced explicitly
 - [ ] Sections 1–5 contain no file paths, code patterns, or component names — component mapping is deferred to `/ui`
-- [ ] Challenge Notes written for any upstream `/create-prd` concerns (if any)
+- [ ] Challenge Notes written for any upstream `/create-spec` concerns (if any)
 - [ ] Flows are specific enough that developer can implement without guessing
 
 If UX is unclear (e.g., "Where does toggle appear?"), ask user BEFORE generating incomplete UX.

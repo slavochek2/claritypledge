@@ -1,7 +1,7 @@
 ---
 name: change-request
 description: File a redesign spec for a shipped feature whose design was wrong. Analyzes the predecessor spec for conflicting sections, captures root cause and current state, and creates a new P-number spec with full predecessor linkage.
-when_to_use: "Use when a shipped feature needs a design correction — code works as specified, but the design itself was wrong (wrong visual ordering, actor confusion, duplication, hierarchy issues). NOT for bugs (broken code → /fix) and NOT for new capability (new user value → /create-prd)."
+when_to_use: "Use when a shipped feature needs a design correction — code works as specified, but the design itself was wrong (wrong visual ordering, actor confusion, duplication, hierarchy issues). NOT for bugs (broken code → /fix) and NOT for new capability (new user value → /create-spec)."
 version: 2.1.0
 ---
 
@@ -30,8 +30,7 @@ Do not create any file until you are in the main repo.
 | Situation | Skill |
 |---|---|
 | Code is broken (wrong behavior, crash, data error) | `/fix` |
-| New capability, new user value | `/create-prd` or `/quick-feature` |
-| Quick placeholder with no spec context | `/quick-feature` |
+| New capability, new user value | `/create-spec` |
 | **Shipped feature, design was wrong** | **`/change-request`** ← here |
 
 **The test:** "Is the code broken, or is the design wrong?" Broken → `/fix`. Wrong design → `/change-request`.
@@ -259,7 +258,7 @@ If the predecessor is NOT a change-request, omit `chain_root:` — `changes:` al
 
 Count the chain depth (number of CR hops from this new spec back to the non-CR root). If depth reaches 4:
 
-> **⚠️ Chain depth warning:** This CR chain is 4 levels deep (root → CR1 → CR2 → CR3 → this). Per CR Chaining policy, chains deeper than 4 should be consolidated into a fresh spec. Consider running `/create-prd` instead, referencing the chain as historical context.
+> **⚠️ Chain depth warning:** This CR chain is 4 levels deep (root → CR1 → CR2 → CR3 → this). Per CR Chaining policy, chains deeper than 4 should be consolidated into a fresh spec. Consider running `/create-spec` instead, referencing the chain as historical context.
 
 Show this warning and ask the user whether to proceed with the CR or consolidate into a fresh spec.
 
@@ -306,8 +305,7 @@ Hit Refresh in kanban to see the new card (http://localhost:9050).
 ## Related Skills
 
 - `/slava:build:fix` — for broken code (not design corrections)
-- `/slava:build:create-prd` — for new capabilities
-- `/slava:build:quick-feature` — for placeholders without spec context
+- `/slava:build:create-spec` — for new capabilities
 - `/slava:build:ux` — design the corrected layout after filing
 - `/slava:build:architect` — design technical architecture after filing
 - `/slava:build:dev` — implement after spec is ready

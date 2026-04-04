@@ -109,15 +109,15 @@ After presenting the full quality flow, analyze each included step and suggest w
 When the user says "light flow", "skip diagnosis", "just do it", or "quick" — collapse to the minimal viable flow, but state what was removed:
 
 ```
-Light flow activated: [derive from task type — feature: /quick-feature → /dev | bug: /fix | refactor: /dev | etc.]
+Light flow activated: [derive from task type — feature: /create-spec → /dev | bug: /fix | refactor: /dev | etc.]
 Skipped: [list each removed step and what it would have caught]
 Proceeding. Add any step back by name.
 ```
 
 ## After the user confirms a flow
 
-- If a spec file exists for this task: add `flow: <fix|dev|inline|quick-feature>` to its frontmatter
-- If no spec exists yet: note the chosen flow so the next skill (`/quick-feature` or `/create-prd`) sets it on creation
+- If a spec file exists for this task: add `flow: <fix|dev|inline|create-spec>` to its frontmatter
+- If no spec exists yet: note the chosen flow so the next skill (`/create-spec`) sets it on creation
 - If a mandatory stage was skipped (e.g. `/architect` for a UI-only change): add a one-line note to the spec's `## Next Steps` section: `Skipped: /architect — [reason in ≤10 words].` Use the Edit tool.
 - If the user opted out of steps (via "skip [step]" or "light flow"): log which steps were skipped and why in the spec's `## Next Steps` section: `User opted out: /verify (no visual surface), /dd:frame-analyze (cause stated).`
 
@@ -131,7 +131,7 @@ Before applying the scoring table, classify the task:
 | **Feature** (spec exists) | Apply scoring table below |
 | **Bug** (has P-number, root cause known) | `/fix pN` → done |
 | **Bug** (no P-number, root cause known) | `/create-bug` → `/fix` → done |
-| **Bug** (no P-number, root cause unclear) | `/diagnose` first → `/create-bug` → `/fix` → done |
+| **Bug** (no P-number, root cause unclear) | `/dd:frame-analyze` first → `/create-bug` → `/fix` → done |
 | **Redesign** (shipped feature, code works, design was wrong) | `/change-request` → `/challenge-prd` → then `/ux` / `/architect` / `/generate-tests` / `/spec-review` / `/dev` / `/verify` per scoring table hard rules (DB column → `/architect` mandatory; net-new visual pattern → `/ux` mandatory — apply drop-`/ux` rule from scoring table; ASCII in conversation ≠ UX resolved for new interaction patterns); `/challenge-prd` mandatory for redesigns (same as medium pipeline); if redesign also adds new capability, file `/create-spec` for that portion separately; if ASCII exploration exists in conversation, `/change-request` must capture it as raw material so `/ux` has context |
 | **Refactor** (restructuring, no behavior change) | `/create-spec` (type: task) → `/dev` — no `/ux` |
 | **Data migration** (one-time SQL script) | `/create-spec` (type: task) → `/dev` + `/generate-tests` mandatory (P270 rule) |
@@ -153,7 +153,7 @@ When the user reports a symptom but root cause is unknown, do NOT jump to `/fix`
 
 **Route to `/dd:frame-analyze`** — it produces SCQ framing + structural root-cause analysis + 5-Why in one pass. **This IS Phase 1 ("Understand") in the output format** — they are the same step, not separate protocols.
 
-**After `/dd:frame-analyze` completes**, present findings and recommend which build flow to take (`/fix`, `/create-bug`, or escalate to `/create-prd` if the problem is a design issue).
+**After `/dd:frame-analyze` completes**, present findings and recommend which build flow to take (`/fix`, `/create-bug`, or escalate to `/create-spec` if the problem is a design issue).
 
 **Skip shortcut:** If the user says "skip diagnosis", "I know the cause", or states a specific falsifiable root cause — accept their stated cause and proceed directly to flow selection.
 
@@ -167,8 +167,8 @@ Use this table to build the command chain directly. Each row maps a signal to a 
 
 | Signal | Tier | Commands to include |
 |--------|------|---------------------|
-| 1-2 files, pure UI state or copy change | A | `/quick-feature` → `/dev` |
-| 3-5 files, no DB/auth/API changes | A or B | `/quick-feature` → `/dev` |
+| 1-2 files, pure UI state or copy change | A | `/create-spec` → `/dev` |
+| 3-5 files, no DB/auth/API changes | A or B | `/create-spec` → `/dev` |
 | 5+ files or 3+ independent concerns | B or C | + `/decompose` (after `/generate-tests`) |
 
 ### `/research-arch` signals
@@ -198,7 +198,7 @@ Any ONE of these fires → `/architect` is required. Do not skip.
 | Multiple architectural layers touched (e.g., DB + client state, API + realtime, edge function + client) | C | + `/architect`, `/generate-tests`, `/spec-review` |
 | State machine changes (new states, transitions, or recovery logic) | B+ | + `/architect`, `/generate-tests` |
 | New infrastructure component (new realtime channel, new storage bucket, new cron, new observability hook) | B+ | + `/architect`, `/generate-tests` |
-| Cross-concern coordination (e.g., DB schema + client state + observability; auth + billing + UI) | C | + `/create-prd`, `/challenge-prd`, `/architect`, `/generate-tests`, `/spec-review` |
+| Cross-concern coordination (e.g., DB schema + client state + observability; auth + billing + UI) | C | + `/create-spec`, `/challenge-prd`, `/architect`, `/generate-tests`, `/spec-review` |
 
 ### `/verify`-mandatory signals
 
@@ -244,7 +244,7 @@ Any ONE of these fires → `/verify` is required. Do not skip.
 | `type: change-request` in spec frontmatter | any | ADD `/spec-review` mandatory (not optional) — exception: this row ADDS a step, not drops one |
 | **Changes `.claude/commands/`, `.claude/rules/`, `.claude/hooks/`, `CLAUDE.md`, git workflow, or `scripts/` invoked by hooks/CI** | **Infra** | **See infrastructure tier below** |
 
-**Command ordering when multiple signals apply:** `/create-prd` → `/challenge-prd`* → `/ux` → `/research-arch`* → `/architect` → `/ui` → `/generate-tests` → `/spec-review`* → `/spec-compact` → `/decompose` → `/dev` → `/verify`
+**Command ordering when multiple signals apply:** `/create-spec` → `/challenge-prd`* → `/ux` → `/research-arch`* → `/architect` → `/ui` → `/generate-tests` → `/spec-review`* → `/spec-compact` → `/decompose` → `/dev` → `/verify`
 
 `*` `/challenge-prd` mandatory for full and medium pipeline flows and all redesigns. Skip only for small/inline work. `/research-arch` optional — only when feature involves novel technology, unfamiliar integrations, or technical unknowns surfaced by `/challenge-prd`.
 
@@ -268,9 +268,8 @@ These changes affect **all future work** — not a single feature. Risk is asymm
 ## Available commands (in sequence order)
 
 - `/fix` — targeted bug fix, stops at QA gate on success (run `/ship` to close)
-- `/change-request` — redesign spec for a shipped feature whose design was wrong (wrong ordering, actor confusion, duplication, hierarchy); creates new P-number with predecessor linkage and superseded-sections table; use when code works as specified but UX/design is wrong; NOT for new capability (new user value → `/create-prd`)
-- `/quick-feature` — skeleton spec in `features/` (30 sec), use for tracking
-- `/create-prd` — full PRD with acceptance criteria (3-5 min)
+- `/change-request` — redesign spec for a shipped feature whose design was wrong (wrong ordering, actor confusion, duplication, hierarchy); creates new P-number with predecessor linkage and superseded-sections table; use when code works as specified but UX/design is wrong; NOT for new capability (new user value → `/create-spec`)
+- `/create-spec` — structured spec with 5-field skeleton (Problem, Appetite, Solution, Risks/Non-Goals, Done-When)
 - `/challenge-prd` — adversarial stress-test of PRD assumptions, flows, strategic fit (5-10 min); recommended for novel features, skip for incremental improvements; use `--quick` for reduced depth (3-5 min)
 - `/ux` — wireframes/design decisions (UI features only, skip if design is resolved)
 - `/research-arch` — pre-architect research for novel tech, unfamiliar integrations, or technical unknowns; spawns parallel research agents + benchmarking synthesis; skip when codebase has established patterns
@@ -305,8 +304,8 @@ Apply this to every step. Don't default to "skip unless proven useful" — defau
 - **`/spec-review` is mandatory (not optional) for `type: change-request` specs.** Redesigns have pre-existing elements that can silently conflict with new AC — spec-review catches these before implementation. The `*` optional marker applies to new features only.
 - **`/challenge-prd` is mandatory** for full and medium pipeline flows AND for all redesigns (`/change-request`). Redesigns inherit assumptions from the predecessor spec that need stress-testing. Skip only for small/inline work.
 - After user confirms flow: set `flow:` in spec frontmatter if spec exists
-- When writing `flow:` to spec frontmatter, write exactly one of: `fix`, `dev`, `inline`, `quick-feature` — never the command chain string
-- If you are currently in a worktree (not w0/main), remind the user: spec creation skills (/create-prd, /quick-feature, /change-request, /create-bug) must be run from the main repo.
+- When writing `flow:` to spec frontmatter, write exactly one of: `fix`, `dev`, `inline`, `create-spec` — never the command chain string
+- If you are currently in a worktree (not w0/main), remind the user: spec creation skills (/create-spec, /change-request, /create-bug) must be run from the main repo.
 - `/verify` is default for ALL B/C tier tasks AND any task with UI changes at any tier. Suggest skipping only with explicit reason (e.g., "pure backend change, no visual surface, no state-machine behavior")
 - **Phase 1 (`/dd:frame-analyze`) is default** when problem clarity is low: symptom described but root cause unknown, user says "something is wrong with X", or multiple possible causes mentioned. Skip only when user says "skip diagnosis" or states a specific falsifiable root cause
 - **Spec age check:** when spec exists and (last modified >14 days ago OR `type: change-request`), flag for validation: "Spec is [N] days old / is a change-request. Recommend running `/spec-review` before `/dev` to catch drift against current code."
