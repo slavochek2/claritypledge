@@ -865,3 +865,19 @@ describe('P147: GET /api/features/:id/content', () => {
     expect(data2.content).toContain('Same content both times.');
   });
 });
+
+// P645: Prunable worktrees must not appear in the worktree list
+describe('GET /api/worktrees — prunable worktree filter', () => {
+  it('p645: does not include prunable worktrees (no duplicate "main" names)', async () => {
+    const res = await fetch(`${API_BASE_URL}/api/worktrees`);
+    expect(res.status).toBe(200);
+    const worktrees: { name: string; branch: string; path: string; isCurrent: boolean }[] = await res.json();
+
+    const mainEntries = worktrees.filter((wt) => wt.name === 'main');
+    // Exactly one entry should be named "main" (the real main repo)
+    expect(mainEntries).toHaveLength(1);
+    // No worktree should have a prunable agent path
+    const prunablePaths = worktrees.filter((wt) => wt.path.includes('/worktrees/agent-'));
+    expect(prunablePaths).toHaveLength(0);
+  });
+});

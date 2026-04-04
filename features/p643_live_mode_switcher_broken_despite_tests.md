@@ -1,8 +1,8 @@
 ---
-status: today
+status: in-progress
+delivery_stage: uat
 type: bug
-rank: 2
-blocked_by: p644
+rank: 1
 chain_root: p617
 tags:
   - live
@@ -10,6 +10,7 @@ tags:
   - p617
   - p638
 created_date: 2026-04-04T00:00:00.000Z
+locked_at: '2026-04-04T05:56:51.012Z'
 ---
 
 # P643: /live Mode Switcher + Drawer — 4 User-Visible Bugs (5 Sessions, Tests Pass, Feature Broken)
