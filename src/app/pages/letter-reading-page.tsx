@@ -258,6 +258,7 @@ export function LetterReadingPage() {
           delivery={delivery}
           senderName={senderName}
           token={token || undefined}
+          isAuthenticated={!!currentUser}
           onComplete={() => setViewState('complete')}
         />
       )}
@@ -288,6 +289,7 @@ function LetterReadingFlow({
   delivery,
   senderName,
   token,
+  isAuthenticated,
   onComplete,
 }: {
   letter: ClarityLetter;
@@ -295,6 +297,7 @@ function LetterReadingFlow({
   delivery: LetterDelivery;
   senderName: string;
   token?: string;
+  isAuthenticated: boolean;
   onComplete: () => void;
 }) {
   const {
@@ -347,6 +350,7 @@ function LetterReadingFlow({
         positions={currentStory.positions}
         remainingPointIndex={currentStory.remainingPointIndex}
         senderName={senderName}
+        isAuthenticated={isAuthenticated}
         isSubmitting={isSubmitting}
         onPositionSubmit={(pointId, position) => submitPosition(pointId, position)}
         onRatingSubmit={(rating) => submitStoryRating(rating)}

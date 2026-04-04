@@ -4,6 +4,7 @@
  * Renders the appropriate phase UI for the current story.
  */
 
+import { Link } from 'react-router-dom';
 import { RatingButtons } from '@/app/components/partners/shared';
 import { LetterPointEngagement } from './letter-point-engagement';
 import { LetterGapReveal } from './letter-gap-reveal';
@@ -37,6 +38,7 @@ interface StoryReaderProps {
   positions: Record<string, string>;
   remainingPointIndex: number;
   senderName: string;
+  isAuthenticated: boolean;
   isSubmitting: boolean;
   onPositionSubmit: (pointId: string, position: string) => void;
   onRatingSubmit: (rating: number) => void;
@@ -85,6 +87,7 @@ export function LetterStoryReader({
   remainingPointIndex,
   senderName,
   isSubmitting,
+  isAuthenticated,
   onPositionSubmit,
   onRatingSubmit,
   onAdvanceToStory,
@@ -154,8 +157,22 @@ export function LetterStoryReader({
         </div>
       )}
 
-      {/* Rate phase: understanding rating */}
-      {phase === 'rate' && (
+      {/* Rate phase: understanding rating (requires auth) */}
+      {phase === 'rate' && !isAuthenticated && (
+        <div className="space-y-4 text-center py-4">
+          <p className="text-sm text-[#1A1A1A]/70">
+            Sign in to rate how well you understood this story and see {senderName}&apos;s prediction.
+          </p>
+          <Link
+            to={`/login?redirect=${encodeURIComponent(window.location.pathname + window.location.search)}`}
+            className="inline-flex items-center justify-center px-6 py-3 text-sm font-medium text-white bg-[#0044CC] hover:bg-[#0033AA] rounded-md min-h-[44px]"
+          >
+            Sign in to continue
+          </Link>
+        </div>
+      )}
+
+      {phase === 'rate' && isAuthenticated && (
         <div className="space-y-4">
           <p className="text-sm text-[#1A1A1A]/70">
             How well do you believe you understand this story in the way {senderName} means it?
