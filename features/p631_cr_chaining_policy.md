@@ -1,6 +1,7 @@
 ---
-status: today
+status: qa
 type: task
+flow: inline
 rank: 1000034.0
 tags:
   - process
@@ -30,6 +31,6 @@ Add to `.claude/rules/features.md`:
 
 ## Acceptance Criteria
 
-- [ ] `features.md` Change Requests section has CR Chaining subsection with `supersedes:` and `chain_root:` fields
-- [ ] Processing Contract updated to walk full chain and handle unshipped predecessors
-- [ ] Changes pass `/claude-md` gate
+- [x] `features.md` Change Requests section has CR Chaining subsection with `superseded_by:` and `chain_root:` fields
+- [x] Processing Contract updated to walk full chain, cycle guard, codebase state = merged to main
+- [x] Changes pass `/claude-md` gate

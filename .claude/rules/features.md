@@ -64,10 +64,16 @@ A change request is a redesign spec for a **shipped feature whose design was wro
 Change requests use `type: change-request` with extra frontmatter:
 
 ```yaml
-changes: p422      # which original feature this redesigns
+changes: p422        # immediate predecessor (original or another CR)
+chain_root: p400     # OPTIONAL: original non-CR spec. Omit when changes == root.
 tags:
   - redesign
   - p422
+```
+
+On the predecessor (set by `/change-request` at filing time):
+```yaml
+superseded_by: p450  # the CR that replaces this redesign
 ```
 
 **When filed from `/sim`**, also include:
@@ -83,13 +89,35 @@ Use `type: change-request` (first-class kanban type, shown in purple). The `chan
 - New capability, new user value → `/create-prd`
 - Shipped feature, design was wrong → `/change-request`
 
+### CR Chaining (CR-on-CR)
+
+When a change-request targets another change-request (not the original spec):
+
+**Frontmatter conventions:**
+- `changes:` — always the **immediate predecessor** being redesigned
+- `chain_root:` — the **original non-CR spec** at the start of the chain. Omit when `changes:` already points to the original.
+- `superseded_by:` — set on the predecessor by `/change-request` at filing time. Only tracks sequential CR-on-CR redesigns of the same surface, not sibling CRs or bug fixes that also reference the predecessor via `changes:`.
+
+**Example chain:** P400 (original) → P422 (CR of P400) → P450 (CR of P422)
+- P450: `changes: p422`, `chain_root: p400`
+- P422: `changes: p400`, `superseded_by: p450`
+- P400: `superseded_by: p422`
+
+**Conventions (enforced by `/change-request` skill, not automated validation):**
+- `chain_root` is always a non-CR spec (`type: story`, `task`, or `bug`)
+- A spec with `superseded_by` should not be implemented — the superseding CR is the active one
+- Chains deeper than 4 should be consolidated into a fresh spec before implementation
+
+**Only `type: change-request` specs trigger chain walking.** A non-CR spec with `changes:` (e.g., a `type: story` that references a predecessor) does not invoke the CR Processing Contract.
+
 ## Change-Request Processing Contract
 
 **When processing a spec with `type: change-request` and `changes: pN`:**
 
-1. **Read the predecessor** — find `pN_*.md` in `features/done/` (or `features/` if not yet shipped). Read it as **read-only historical context** for what was originally built and why.
-2. **Implement the delta** — this spec describes what to change. Do not re-examine or re-propose the predecessor's settled decisions.
-3. **Never edit the predecessor** — it is a shipped record. Do not recommend changes to it, rewrite its sections, or suggest "going back to fix the original spec."
+1. **Walk the chain to root** — if `chain_root:` exists, read from root forward. If absent, `changes:` IS the root. Read each spec in order (root → CR1 → … → current) as read-only historical context. **Cycle guard:** track visited P-numbers; if any spec appears twice, stop and report the cycle as an error.
+2. **Identify codebase state** — the codebase reflects what is **merged to main**, not what any unshipped spec describes. If a predecessor was never shipped (not in `features/done/`, or no `completed_at`), the codebase state matches the ancestor before it.
+3. **Implement the delta** — this spec describes what to change relative to codebase state. Do not re-examine or re-propose settled decisions from any ancestor.
+4. **Never edit ancestors** — all specs in the chain are shipped or abandoned records. Do not recommend changes to them, rewrite their sections, or suggest "going back to fix an earlier spec."
 
 This contract applies to every pipeline skill (`/challenge-prd`, `/ux`, `/architect`, `/dev`, `/fix`, `/generate-tests`, `/spec-review`, etc.) — not just `/dev`.
 

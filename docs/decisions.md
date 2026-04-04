@@ -2,6 +2,14 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-04 [process]: CR chaining policy — superseded_by, chain_root, chain-walking protocol
+
+**Context:** P621 redesigned P616 (which was never shipped). During implementation, the agent read P621 as "the predecessor" but missed that P616 was the root and the codebase had none of P616's changes. The existing CR rules assumed single-depth chains (original → one CR).
+**Decision:** Added to `.claude/rules/features.md`: (1) `chain_root:` frontmatter field pointing to the original non-CR spec. (2) `superseded_by:` on predecessors, set by `/change-request` at filing time — tracks sequential CR-on-CR only (not sibling CRs or bug fixes). (3) Updated Processing Contract: walk chain to root, cycle guard (track visited P-numbers), codebase state = what's merged to main (not what unshipped specs describe). (4) Depth cap: chains >4 → consolidate into fresh spec.
+**Alternatives rejected:** (A) Automated cross-file validation in `fix-frontmatter.py` — over-engineering for current chain frequency; `/change-request` skill enforcement is sufficient. (B) `supersedes:` (active voice) — 17 existing files already use `superseded_by:` (passive voice). (C) Making `chain_root` mandatory on all CRs — unnecessary when `changes:` already points to the original (single-depth).
+**Consequences:** `/change-request` skill must be updated to set `superseded_by` on predecessors and compute `chain_root` for depth >1. Conventions are skill-enforced, not script-validated — acceptable given CR-on-CR frequency (~1 per month). Only `type: change-request` triggers chain walking.
+**References:** P631 spec, `.claude/rules/features.md` CR Chaining section.
+
 ## 2026-04-03 [process]: Token optimization — MCP config splitting, opusplan default, context pruning
 
 **Context:** Claude Code sessions were loading ~140k tokens of startup context: ~103k from 200+ MCP tool names (chrome-devtools, playwright, workspace, email, analytics, telegram, beeper all always-on), ~12k from 150+ skill entries, ~35k from MEMORY.md (365 lines) and rules.
