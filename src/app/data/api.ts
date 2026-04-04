@@ -2680,11 +2680,8 @@ import type { MLEvent, MLTrainingEvents } from '@/lib/session-events-collector';
 // Re-export types for convenience
 export type { MLEvent, MLTrainingEvents } from '@/lib/session-events-collector';
 
-/** Cloud Function URL for getting signed upload URLs */
-const GCS_SIGNED_URL_FUNCTION = 'https://us-central1-gen-lang-client-0869694595.cloudfunctions.net/gcs-signed-url';
-
-/** Shared secret for authenticating requests to the GCS signed-URL Cloud Function */
-const GCS_UPLOAD_SECRET = import.meta.env.VITE_GCS_UPLOAD_SECRET as string | undefined;
+/** Supabase edge function URL for getting signed upload URLs (proxies to GCS Cloud Function) */
+const GCS_SIGNED_URL_EDGE_FUNCTION = `${import.meta.env.VITE_SUPABASE_URL as string}/functions/v1/gcs-signed-url`;
 
 /**
  * Retry helper with exponential backoff for network requests.
@@ -2750,12 +2747,14 @@ async function getSignedUploadUrl(
     const timeoutId = setTimeout(() => controller.abort(), 10000);
 
     try {
+      // Get the current user's JWT for edge function auth
+      const { data: { session } } = await supabase.auth.getSession();
       const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-      if (GCS_UPLOAD_SECRET) {
-        headers['X-Upload-Secret'] = GCS_UPLOAD_SECRET;
+      if (session?.access_token) {
+        headers['Authorization'] = `Bearer ${session.access_token}`;
       }
 
-      const response = await fetch(GCS_SIGNED_URL_FUNCTION, {
+      const response = await fetch(GCS_SIGNED_URL_EDGE_FUNCTION, {
         method: 'POST',
         headers,
         body: JSON.stringify({ sessionCode, fileName, contentType }),
