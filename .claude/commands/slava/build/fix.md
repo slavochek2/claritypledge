@@ -487,7 +487,7 @@ resolution: What was fixed  # Added after fix
 After commit succeeds:
 
 1. **Review** — Spawn `/finish code` as a subagent with: "Review all code changes on this branch vs main. Spec: [spec path if exists]. Proceed directly — no scope confirmation needed." Present HIGH/MEDIUM findings. Ask: "Fix issues before closing? (all HIGH / select / skip)". Apply approved fixes and commit them.
-2. Update frontmatter: `status: qa` (clear `delivery_stage`)
+2. Update frontmatter: `status: qa` (clear `delivery_stage`). **If the spec was moved (e.g., to a subfolder) in this session, Edit its frontmatter at the new location AFTER the `git mv` is staged — never Edit before staging the rename, or the frontmatter change lands in a separate commit.**
 3. Commit: `chore: pN ready for QA — {title}`
 4. Invoke `/slava:maintain:fix-kanban` — fixes frontmatter drift + refreshes kanban
 5. If `*.tsx` files changed: Run browser check automatically — navigate to affected route, screenshot, report. If Chrome MCP unavailable, state "browser check skipped — run `/verify` manually."

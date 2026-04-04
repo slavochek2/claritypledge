@@ -23,7 +23,7 @@ Ship an approved feature to production.
 **1a. Divergence check** — run `git rev-list --count main..feature/pN-*` (ahead) and `git rev-list --count feature/pN-*..main` (behind).
 - If behind-count > 20: warn "Branch is N commits behind main — rebase or manual merge needed." Propose:
   **(A) Rebase:** `git rebase main` on feature branch, resolve conflicts, then proceed normally.
-  **(B) Already merged manually:** Ask "Was this already merged to main? If so, reply 'spec-only' to run spec closure + branch cleanup only (steps 5-7), skipping the merge."
+  **(B) Already merged manually:** Verify by running `git log --oneline main | grep <tip-sha>` (where `<tip-sha>` is the feature branch tip from `git rev-parse feature/pN-*`). Only declare "already merged" if the SHA appears in main's log — never infer from the feature branch log. If confirmed, reply 'spec-only' to run spec closure + branch cleanup only (steps 5-7), skipping the merge.
 - Wait for user choice. **Step 5 (spec closure) is mandatory regardless of which path is chosen.**
 - If user replies 'spec-only': skip steps 2-4, jump directly to step 5.
 
@@ -42,21 +42,26 @@ Ship an approved feature to production.
 3.6. **Deploy manifest check** — run `./scripts/check-deploy-manifest.sh --env prod`. If drift is detected (undeployed functions or unapplied migrations), show the output and the fix commands. Ask: "Deploy these before merging? (y = run the fix commands now / n = stop, I'll handle it manually)". If user says "y", run the suggested commands, then re-run the check to confirm. Do NOT merge with drift.
 3.7. **Sync main into feature branch** — before merging to main, bring main's changes into the feature branch to prevent silent content loss in shared docs:
    ```bash
+   git status --short   # must be clean before merging — commit or stash any open edits first
    git merge main
    ```
+   If `git status --short` shows uncommitted changes, commit them before proceeding — `git checkout main` later will fail with an "overwritten by checkout" error otherwise.
    If conflicts arise, resolve them now — these are changes made to main while the worktree was active. Resolving here is correct; skipping this step causes git to silently drop content added to main since the worktree was created.
 4. **Merge to main** — `git merge feature/pN --no-ff` (preserves branch history)
 5. **Close the spec** — move spec to `features/done/`, update frontmatter:
    - `status: all-done`
    - `completed_at: YYYY-MM-DD`
    - Remove `delivery_stage: uat` line
+   **Ordering is mandatory — do steps in this exact sequence to land in one commit:**
    ```bash
    ls -d features/done/*/ 2>/dev/null | sort -V | tail -1  # find current sprint folder
    mkdir -p features/done/{folder}/uat
-   git mv features/pN_name.md features/done/{folder}/
+   git mv features/pN_name.md features/done/{folder}/    # 1. stage the rename FIRST
    # UAT file may be untracked (git mv fails on untracked) — cp+add+rm is equivalent
    git mv features/uat/pN.md features/done/{folder}/uat/ 2>/dev/null || \
      (cp features/uat/pN.md features/done/{folder}/uat/pN.md && git add features/done/{folder}/uat/pN.md && rm features/uat/pN.md) || true
+   # 2. Edit frontmatter on the file AT ITS NEW LOCATION (features/done/{folder}/pN_name.md)
+   # 3. git add + commit both together — rename + frontmatter in one commit
    ```
    **Guard — verify the move landed correctly (substitute actual P-number, e.g. p422):**
    ```bash
