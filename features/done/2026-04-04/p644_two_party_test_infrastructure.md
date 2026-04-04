@@ -1,5 +1,6 @@
 ---
-status: in-progress
+status: done
+completed_at: '2026-04-04'
 type: task
 rank: 1
 tags:
