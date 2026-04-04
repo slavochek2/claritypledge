@@ -2,6 +2,14 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-04 [process]: P650 — /ship and /fix skill flow hardening (3 bugs)
+
+**Context:** P645 shipping session exposed 3 predictable failure modes: (1) agent misread feature branch log as main's, declared code "already merged" when it wasn't; (2) spec close produced 2 commits because frontmatter edit ran before `git mv` was staged; (3) `git checkout main` failed mid-ship because an uncommitted spec edit was in the working tree.
+**Decision:** (1) ship.md step 1a: verify merge via `git log --oneline main | grep <sha>` — never infer from feature branch log. (2) ship.md step 5 + fix.md QA gate: enforce ordering — `git mv` first, Edit frontmatter at new location second, commit together. (3) ship.md step 3.7: require `git status --short` before `git merge main` or `git checkout main` — commit open edits first.
+**Alternatives rejected:** Automating these checks with a script — adds tool complexity for what is an instruction clarity issue.
+**Consequences:** /ship flow should produce exactly one spec-close commit (not two) and never misreport merge status. `git checkout main` failures eliminated for the common case.
+**References:** `.claude/commands/slava/build/ship.md`, `.claude/commands/slava/build/fix.md`
+
 ## 2026-04-04 [technical]: P645 — git worktree list --porcelain includes prunable entries; filter them
 
 **Context:** Kanban worktree dropdown showed 5 "(main)" entries. `getWorktrees()` in `tools/kanban/server/api.ts` parsed all blocks from `git worktree list --porcelain` without checking the `prunable` line. Agent worktrees with paths like `.claude/worktrees/agent-*` don't match the `/worktrees/(w\d+)/` regex, so they all fell through to `name = 'main'` fallback.

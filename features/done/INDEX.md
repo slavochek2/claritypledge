@@ -1,7 +1,7 @@
 # Done Features Index
 
 Quick reference for past completed work. Consult when starting work on a related topic.
-Last updated: 2026-04-04 (P645 Kanban Prunable Worktrees)
+Last updated: 2026-04-04 (P650 Ship/Fix Skill Flow)
 
 ---
 
@@ -182,6 +182,7 @@ Last updated: 2026-04-04 (P645 Kanban Prunable Worktrees)
 
 ## Infrastructure / Process
 
+- **P650** (Apr 04) Ship/Fix Skill Flow — 3 bugs: verify merge via main's log (not feature branch), enforce git-mv-then-Edit ordering for 1-commit spec close, pre-checkout status guard
 - **P645** (Apr 04) Kanban Prunable Worktrees — `git worktree list --porcelain` includes prunable entries; skip blocks with `prunable` line or agent-* paths fall through to `name="main"` fallback
 - **P640** (Apr 04) Ghost 5→6 Security Upgrade — Ghost 6 ships Source theme (not Casper v6) which retains `.gh-*` selectors; code injection needed zero changes despite Casper v6 research showing renames
 - **P637** (Apr 03) No-Reload E2E Sync — `page.reload()` in two-party tests masks drift detection gaps; auto-extract completeness test catches new fields missing from both lists
