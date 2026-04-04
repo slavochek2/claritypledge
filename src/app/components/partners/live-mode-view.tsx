@@ -193,10 +193,13 @@ export function getViewState(input: ViewStateInput): ViewState {
   // Branch 4: Idle (default screen)
   if (ratingPhase === 'idle') {
     // P638: Compute modeSwitcherState — replaces the IIFE at IdleScreen
+    // P643: checkerName set → 'disabled' (not 'hidden') — listener may still be on idle
+    // while ratingPhase update is in transit via drift polling. Hiding the switcher
+    // causes it to vanish with no explanation; disabled + tooltip is correct.
     const modeSwitcherState: ModeSwitcherState =
       !hasSessionModeChangeHandler ? 'hidden'
       : freePhase ? 'hidden'
-      : checkerName ? 'hidden'
+      : checkerName ? 'disabled'
       : ratingInitiatedBy ? 'disabled'
       : 'enabled';
     return { view: 'idle', modeSwitcherState };
@@ -225,10 +228,11 @@ export function getViewState(input: ViewStateInput): ViewState {
   }
 
   // Fallback: safe idle
+  // P643: same fix as idle — checkerName in transit race → 'disabled' not 'hidden'
   const fallbackModeSwitcherState: ModeSwitcherState =
     !hasSessionModeChangeHandler ? 'hidden'
     : freePhase ? 'hidden'
-    : checkerName ? 'hidden'
+    : checkerName ? 'disabled'
     : ratingInitiatedBy ? 'disabled'
     : 'enabled';
   return { view: 'idle-fallback', modeSwitcherState: fallbackModeSwitcherState };

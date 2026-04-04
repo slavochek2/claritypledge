@@ -86,12 +86,13 @@ describe('P638: modeSwitcherState — disabled', () => {
     expect(result).toMatchObject({ view: 'idle', modeSwitcherState: 'hidden' });
   });
 
-  it('disabled has lower priority than hidden (checkerName + ratingInitiatedBy)', () => {
+  it('both checkerName + ratingInitiatedBy → disabled (P643: checkerName no longer hides)', () => {
+    // P643: checkerName race no longer produces 'hidden' — 'disabled' is correct
     const result = getViewState(withOverrides({
       ratingInitiatedBy: 'Speaker Name',
       checkerName: 'Speaker Name',
     }));
-    expect(result).toMatchObject({ view: 'idle', modeSwitcherState: 'hidden' });
+    expect(result).toMatchObject({ view: 'idle', modeSwitcherState: 'disabled' });
   });
 });
 
@@ -135,16 +136,19 @@ describe('P638: modeSwitcherState — hidden (freePhase)', () => {
 });
 
 // ============================================================================
-// modeSwitcherState: 'hidden' — checkerName (Condition 6, Realtime race)
+// modeSwitcherState: 'disabled' — checkerName (Condition 6, Realtime race)
+// P643 fix: was 'hidden' before — vanishing switcher with no explanation is wrong.
+// When checkerName arrives via Realtime before ratingPhase updates, the listener
+// is still on the idle screen. Disabled + tooltip is correct UX.
 // ============================================================================
 
-describe('P638: modeSwitcherState — hidden (checkerName race)', () => {
-  it('returns hidden when checkerName is truthy while ratingPhase is idle', () => {
-    // Realtime race: checkerName arrives but ratingPhase update was dropped
+describe('P643: modeSwitcherState — disabled (checkerName race, fixed)', () => {
+  it('returns disabled when checkerName is truthy while ratingPhase is idle', () => {
+    // Realtime race: checkerName arrives but ratingPhase update is still in transit
     const result = getViewState(withOverrides({
       checkerName: 'Speaker Name',
     }));
-    expect(result).toMatchObject({ view: 'idle', modeSwitcherState: 'hidden' });
+    expect(result).toMatchObject({ view: 'idle', modeSwitcherState: 'disabled' });
   });
 });
 

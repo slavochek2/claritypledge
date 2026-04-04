@@ -1053,7 +1053,7 @@ export function ClarityLivePage() {
       } else if (updatedSession.liveState && updateInFlightRef.current) {
         if (import.meta.env.DEV) {
           const droppedKeys = Object.keys(updatedSession.liveState as Record<string, unknown>)
-            .filter(k => !['livePositionsCreator', 'livePositionsJoiner', 'freeSliderCreator', 'freeSliderJoiner'].includes(k));
+            .filter(k => !['livePositionsCreator', 'livePositionsJoiner', 'freeSliderCreator', 'freeSliderJoiner', 'ratingInitiatedBy'].includes(k));
           if (droppedKeys.length > 0) {
             console.log(`[Realtime] Event DROPPED (updateInFlight): ${droppedKeys.join(', ')}`);
           }
@@ -1061,8 +1061,11 @@ export function ClarityLivePage() {
         // P562: Even during in-flight writes, merge position + slider keys from Realtime.
         // These are per-participant top-level keys — partner's writes never conflict with ours.
         // Without this, partner's position/slider changes are dropped until next non-blocked delivery.
+        // P643: Also pass through ratingInitiatedBy — set exclusively by the remote partner
+        // (speaker clicks Speak). Listener never writes this field so there's no conflict.
+        // Eliminates the drift-poll delay (1s) before mode switcher disables on listener.
         const incoming = updatedSession.liveState as Record<string, unknown>;
-        const positionKeys = ['livePositionsCreator', 'livePositionsJoiner', 'freeSliderCreator', 'freeSliderJoiner'] as const;
+        const positionKeys = ['livePositionsCreator', 'livePositionsJoiner', 'freeSliderCreator', 'freeSliderJoiner', 'ratingInitiatedBy'] as const;
         const partnerUpdates: Partial<LiveSessionState> = {};
         let hasPartnerUpdate = false;
         for (const key of positionKeys) {
