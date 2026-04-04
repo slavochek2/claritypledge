@@ -8,6 +8,9 @@ delivery_stage: done
 completed_at: "2026-04-04"
 branch: feature/p640-ghost-v6-upgrade
 created: 2026-04-03
+tags: []
+rank: 1000051.0
+created_date: 2026-04-04
 ---
 
 # P640: Ghost 5→6 Security Upgrade
