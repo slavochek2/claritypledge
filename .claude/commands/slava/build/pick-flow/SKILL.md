@@ -260,8 +260,10 @@ These changes affect **all future work** — not a single feature. Risk is asymm
 
 **Commands (infrastructure):**
 ```
-[draft in conversation] → [adversarial subagent on draft] → decisions.md entry → inline implementation (no /dev, no feature branch)
+/create-spec (type: task) → [draft in conversation] → [adversarial subagent on draft] → decisions.md entry → inline implementation (no /dev, no feature branch)
 ```
+
+**Note:** A `/dd:think` spec in `.private/thinking/` does NOT satisfy the universal spec gate. The build spec requires a P-number in `features/`. The adversarial analysis gate and the spec gate are independent — both must be satisfied.
 
 **Skip adversarial review only if:** change is purely additive (new standalone skill with no cross-dependencies) AND scope is a single file with no shared state.
 
