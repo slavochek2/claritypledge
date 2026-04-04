@@ -2,6 +2,8 @@
 
 **An agent-native development process built on Claude Code.**
 
+The skills and rules in this repo are written as instructions for AI agents, not as human documentation. To understand the process, clone the repo and ask Claude Code — it reads the skill files and explains them in plain language. This document is the human-readable orientation guide.
+
 We start with full quality gates and tell you what's safe to skip. Opt-in to quality means you forget steps under pressure. Opt-out means you only cut what you consciously choose to cut.
 
 ## Why a Pipeline
@@ -49,7 +51,7 @@ Also part of the workflow:
 - **`/content:*`** — content pipeline ([`content/`](../.claude/commands/slava/content/)) for blog drafts, image generation, email
 - **Visual kanban** — every task gets a spec file with structured frontmatter (status, type, priority, delivery stage). `npm run kanban` renders [`features/`](../features/) as a visual board on port 9050, so you always see what's in flight, blocked, or done.
 
-Full skill catalog: [`.claude/commands/slava/`](../.claude/commands/slava/). **Note:** Skill files are written as agent instructions, not human documentation — they're optimized for Claude Code to execute, not for people to read. To understand what a skill does, clone the repo and ask Claude Code: "explain how /architect works" — it reads the skill and translates it for you.
+Full skill catalog: [`.claude/commands/slava/`](../.claude/commands/slava/).
 
 ## Known Limitations
 
