@@ -431,7 +431,7 @@ BEGIN
     s.visibility::text
   FROM doc_stories ds
   JOIN stories s ON s.id = ds.story_id
-  JOIN story_versions sv ON sv.story_id = s.id AND sv.is_current = true
+  JOIN story_versions sv ON sv.story_id = s.id AND sv.version_number = s.current_version
   WHERE ds.doc_id = v_source_doc_id
     AND (v_mode = 'one-to-one' OR s.visibility = 'public'::content_visibility)
   ON CONFLICT (letter_id, story_id) DO NOTHING;

@@ -106,18 +106,49 @@ export async function sealLetter(
 // READ — Receiver View
 // ============================================================================
 
+type LetterReadingData = {
+  letter: ClarityLetter;
+  snapshots: LetterStorySnapshot[];
+  delivery: LetterDelivery | null;
+};
+
 /**
- * Get letter data for reading (receiver view).
+ * Get letter data for reading via invitation token (anonymous-safe).
+ * Uses SECURITY DEFINER RPC — bypasses RLS so anon recipients can read.
+ * Does NOT include predictions — sealed-bid pattern.
+ */
+export async function getLetterForReadingByToken(
+  token: string
+): Promise<LetterReadingData | null> {
+  log('getLetterForReadingByToken');
+
+  const { data, error } = await supabase.rpc('get_letter_for_reading', {
+    p_token: token,
+  });
+
+  if (error) {
+    logDbError('getLetterForReadingByToken', error);
+    return null;
+  }
+
+  if (!data) return null;
+
+  return {
+    letter: data.letter as ClarityLetter,
+    snapshots: (data.snapshots ?? []) as LetterStorySnapshot[],
+    delivery: data.delivery as LetterDelivery | null,
+  };
+}
+
+/**
+ * Get letter data for reading (authenticated receiver view).
+ * Uses direct table queries — requires auth.uid() (RLS-protected).
  * Does NOT include predictions — sealed-bid pattern.
  */
 export async function getLetterForReading(
   letterId: string,
   deliveryId?: string
-): Promise<{
-  letter: ClarityLetter;
-  snapshots: LetterStorySnapshot[];
-  delivery: LetterDelivery | null;
-} | null> {
+): Promise<LetterReadingData | null> {
   log('getLetterForReading:', { letterId, deliveryId });
 
   const { data: letterData, error: letterError } = await supabase

@@ -25,8 +25,8 @@ import { LetterProgressBar } from '@/app/components/letters/letter-progress-bar'
 import { LetterCompletionSummary } from '@/app/components/letters/letter-completion-summary';
 import { useLetterReadingState } from '@/app/hooks/useLetterReadingState';
 import {
-  getLetterByToken,
   getLetterForReading,
+  getLetterForReadingByToken,
   updateDeliveryStatus,
 } from '@/app/data/letters-service';
 import { analytics } from '@/lib/mixpanel';
@@ -67,17 +67,8 @@ export function LetterReadingPage() {
 
       try {
         if (token) {
-          // Token-based access (1-to-1)
-          const tokenResult = await getLetterByToken(token);
-          if (!tokenResult) {
-            setPageState('invalid');
-            return;
-          }
-
-          const readData = await getLetterForReading(
-            tokenResult.letter_id,
-            tokenResult.delivery_id
-          );
+          // Token-based access (1-to-1) — single RPC bypasses RLS for anon
+          const readData = await getLetterForReadingByToken(token);
           if (!readData) {
             setPageState('invalid');
             return;
