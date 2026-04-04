@@ -2,6 +2,30 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-04 [technical]: P642 — anonymous letter recipients need token-based RPCs for all writes
+
+**Context:** P581 letter reading flow broke for anonymous recipients. RLS policies on all letter tables require `auth.uid() != NULL`. The reading page used direct table queries (subject to RLS) after token validation, and all write operations (`submitPointResponse`, `submitRating`, `updateDeliveryStatus`) called `requireAuth()` which fails for anonymous users. Story content was also blank because `seal_and_send_letter` copied raw `doc_stories.point_config` (ordering metadata) without denormalizing story text and point data.
+**Decision:** Four-layer fix: (1) `get_letter_for_reading(token)` SECURITY DEFINER RPC for anonymous reading. (2) Token-based write RPCs (`submit_point_response_by_token`, `submit_rating_by_token`, `reveal_prediction_by_token`, `update_delivery_status_by_token`) all validate token and bypass RLS. (3) `seal_and_send_letter` now denormalizes `story_versions.content` + `story_points` + `point_positions` into `point_config` JSONB at seal time. (4) Rating requires authentication (sign-in gate) because `story_verifications.listener_id` is FK to `profiles` — anonymous users can position but not rate.
+**Alternatives rejected:** (a) Force login before any interaction — too much friction for the cover/positioning experience. (b) Create guest profiles on-the-fly — adds schema complexity, unclear cleanup path. (c) Separate anonymous ratings table — splits verification data across tables.
+**Consequences:** The letter flow has a two-tier engagement model: anonymous users can view + position (token RPCs), authenticated users can additionally rate + see gap reveals. The sign-in prompt at the rate phase uses `?redirect=` to return to the letter after login. Existing sealed letters need a one-time backfill to populate `point_config` with denormalized content.
+**References:** `features/bugs_and_debt/p642_letter_reading_rls_blocks_anon.md`, `supabase/migrations/20260404*_p642_*.sql` (4 migration files)
+
+## 2026-04-04 [technical]: P642 — `getSession()` not `getUser()` for Supabase auth checks in data services
+
+**Context:** `submitRating` called `requireAuth()` which uses `supabase.auth.getUser()`. This makes a network call to Supabase Auth to verify the JWT. When the access token needs refresh, `getUser()` fails even though the session is valid (the React `AuthProvider` uses `getSession()` which restores from cache). The error "Not authenticated" blocked all letter write operations for logged-in users.
+**Decision:** Letter data service functions use `supabase.auth.getSession()` (cached, no network call) instead of `getUser()` (network call). RLS enforces auth at the database level anyway — the client-side check is redundant. For functions that need `userId`, extract from `session.user.id`.
+**Alternatives rejected:** Refreshing the token before each write (adds latency, complex). Removing auth checks entirely (loses the ability to get `userId` for `listener_id`).
+**Consequences:** Pattern for future service functions: prefer `getSession()` for auth checks; reserve `getUser()` for cases where server-side token validation is specifically needed (e.g., security-critical operations where cache staleness matters).
+**References:** `src/app/data/letters-service.ts`
+
+## 2026-04-04 [process]: P642 — canary test before fix code is non-negotiable
+
+**Context:** Eight consecutive bug fixes were shipped without a single canary test. Each fix uncovered the next bug only when the user manually tested. The `/fix` skill Phase 2 (canary test) was skipped every time. Root cause: agent treated the console error screenshots as sufficient reproduction evidence and jumped straight to code changes.
+**Decision:** Phase 2 of `/fix` is mandatory — write the test, run it, confirm it fails, then fix the code. The canary test proves you understand the bug. If the test passes before the fix, either the test is wrong or the bug isn't what you think. No exceptions.
+**Alternatives rejected:** "Fix first, test after" — this session proved it leads to cascading bugs where each fix reveals the next layer of broken assumptions.
+**Consequences:** Fix velocity may slow initially (writing test before fix adds time) but reduces total cycle time by catching cascading issues early. The canary test becomes the regression test — no separate test-writing step needed.
+**References:** `.claude/commands/slava/build/fix/SKILL.md` (Phase 2), `memory/feedback_canary_test_first.md`
+
 ## 2026-04-04 [process]: Skills must reference authoritative docs, not hardcode patterns
 
 **Context:** After P644 shipped new test infrastructure (helpers, ban rules, corrected Realtime understanding), `/verify`, `/generate-tests`, and `/dev` still had hardcoded two-party test examples with the old (wrong) patterns — DB polling as primary, `page.reload()` in examples, false "Realtime doesn't propagate" claim. The `.claude/rules/tests.md` auto-load mechanism only fires when agents edit test files, but skills with their own inline examples override the rules file.

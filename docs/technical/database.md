@@ -145,9 +145,11 @@ Five tables for async comprehension assessment via letters.
 
 **Circular RLS pattern:** `_is_letter_sender()` and `_is_letter_receiver()` SECURITY DEFINER helpers break cross-table RLS recursion (letters↔deliveries). See decisions.md 2026-04-04.
 
-**RPCs:** `get_letter_by_token`, `seal_and_send_letter` (atomic seal + public story filter), `reveal_prediction`, `persist_anonymous_completion`.
+**RPCs:** `get_letter_by_token`, `seal_and_send_letter` (atomic seal + content denormalization + public story filter), `reveal_prediction`, `persist_anonymous_completion`, `get_letter_for_reading` (anon-safe, token-validated), `claim_letter_delivery` (sets receiver_profile_id), `submit_point_response_by_token`, `submit_rating_by_token`, `reveal_prediction_by_token`, `update_delivery_status_by_token`.
 
-**Migration:** `supabase/migrations/20260403224331_p581_clarity_letters.sql`
+**Anonymous engagement:** Token-based RPCs bypass RLS for anonymous recipients. Positions work anonymously; rating requires authentication (`story_verifications.listener_id` FK to profiles). `seal_and_send_letter` denormalizes `story_versions.content` + `story_points` + `point_positions` into `letter_story_snapshots.point_config` JSONB at seal time.
+
+**Migrations:** `supabase/migrations/20260403224331_p581_clarity_letters.sql`, `20260404*_p642_*.sql` (4 files — reading RPC, seal denormalization, claim delivery, anon engagement RPCs)
 
 ---
 
