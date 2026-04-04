@@ -14,9 +14,12 @@ import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 
 const AVATAR_COLORS = ['#0044CC', '#002B5C', '#FFD700', '#FF6B6B', '#4ECDC4'];
 
+const ALLOWED_ORIGIN = Deno.env.get('ALLOWED_ORIGIN') ?? 'https://claritypledge.com';
+
 const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Origin': ALLOWED_ORIGIN,
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
 
 function jsonResponse(body: Record<string, unknown>, status = 200) {
