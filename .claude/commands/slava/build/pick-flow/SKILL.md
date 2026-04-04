@@ -252,7 +252,7 @@ Any ONE of these fires → `/verify` is required. Do not skip.
 
 These changes affect **all future work** — not a single feature. Risk is asymmetric: hard to detect when broken, blast radius is every session.
 
-**Required before implementing:**
+**Required before implementing (after `/create-spec` is filed):**
 1. Draft the complete proposed change in conversation (exact before/after for key sections; for large rewrites spanning 3+ sections, an outline-level description with before/after for changed sections is sufficient)
 2. Run adversarial analysis subagent against the draft: "Challenge this design. Find failure modes, edge cases, invariant violations. Return: SURVIVES / BUBBLES UP with findings."
 3. If SURVIVES → write design decision to `docs/decisions.md` (what was chosen and why alternatives were rejected)
