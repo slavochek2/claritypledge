@@ -12,7 +12,7 @@
  */
 
 import { test, expect } from '@playwright/test';
-import { supabaseAdmin } from '../src/lib/supabase-admin';
+import { supabaseAdmin } from './helpers/supabase-admin';
 import {
   createTestUser,
   setTestSession,
@@ -33,6 +33,8 @@ test.describe('P642: Letter reading flow — full path', () => {
   let letterId: string;
   let deliveryId: string;
   let deliveryToken: string;
+  let authDeliveryId: string;
+  let authDeliveryToken: string;
 
   test.beforeAll(async () => {
     sender = await createTestUser({ name: 'P642 Sender' });
@@ -138,10 +140,32 @@ test.describe('P642: Letter reading flow — full path', () => {
     deliveryId = delivery.id;
     deliveryToken = delivery.invitation_token;
 
-    // Create prediction
+    // Create prediction for anonymous delivery
     await supabaseAdmin.from('letter_predictions').insert({
       letter_id: letterId,
       delivery_id: deliveryId,
+      story_id: storyId,
+      prediction: 7,
+    });
+
+    // Create a separate delivery for the authenticated test (P648: test data isolation)
+    const { data: authDelivery } = await supabaseAdmin
+      .from('letter_deliveries')
+      .insert({
+        letter_id: letterId,
+        receiver_email: receiver.email,
+        invitation_expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+      })
+      .select('id, invitation_token')
+      .single();
+    if (!authDelivery) throw new Error('Auth delivery creation failed');
+    authDeliveryId = authDelivery.id;
+    authDeliveryToken = authDelivery.invitation_token;
+
+    // Create prediction for auth delivery
+    await supabaseAdmin.from('letter_predictions').insert({
+      letter_id: letterId,
+      delivery_id: authDeliveryId,
       story_id: storyId,
       prediction: 7,
     });
@@ -153,6 +177,10 @@ test.describe('P642: Letter reading flow — full path', () => {
       .eq('story_id', storyId).eq('source', 'letter');
     await supabaseAdmin.from('letter_point_responses').delete()
       .eq('delivery_id', deliveryId);
+    if (authDeliveryId) {
+      await supabaseAdmin.from('letter_point_responses').delete()
+        .eq('delivery_id', authDeliveryId);
+    }
     if (letterId) {
       await supabaseAdmin.from('letter_predictions').delete().eq('letter_id', letterId);
       await supabaseAdmin.from('letter_story_snapshots').delete().eq('letter_id', letterId);
@@ -245,7 +273,7 @@ test.describe('P642: Letter reading flow — full path', () => {
 
   test('authenticated user sees rating buttons and can rate', async ({ page }) => {
     await setTestSession(page, receiver.email);
-    await page.goto(`/letter/${deliveryId}?token=${deliveryToken}`);
+    await page.goto(`/letter/${authDeliveryId}?token=${authDeliveryToken}`);
     await page.waitForLoadState('networkidle');
 
     const openBtn = page.getByRole('button', { name: /open the letter/i });
