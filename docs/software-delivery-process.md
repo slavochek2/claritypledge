@@ -12,7 +12,10 @@ Most dev processes are checklists you run in your head. Ours is a sequence of AI
 |-------|-----------|-----------------|
 | **Route** | [`/pick-flow`](../.claude/commands/slava/build/pick-flow/SKILL.md) | Wasting a full pipeline on a typo fix, or skipping gates on a risky change |
 | **Define** | [`/create-spec`](../.claude/commands/slava/build/create-spec.md) | Building the wrong thing — forces "why does this matter?" before code |
-| **Design** | [`/architect`](../.claude/commands/slava/build/architect.md) | Schema and API decisions you'll regret in 6 months |
+| | [`/challenge-prd`](../.claude/commands/slava/build/challenge-prd.md) | Untested assumptions surviving into implementation |
+| **Design** | [`/ux`](../.claude/commands/slava/build/ux.md) | Skipping user experience for the happy path only |
+| | [`/architect`](../.claude/commands/slava/build/architect.md) | Schema and API decisions you'll regret in 6 months |
+| | [`/ui`](../.claude/commands/slava/build/ui.md) | Reinventing components that already exist in the design system |
 | **Test** | [`/generate-tests`](../.claude/commands/slava/build/generate-tests/SKILL.md) | Writing tests after code, where they confirm bugs instead of catching them |
 | **Build** | [`/dev`](../.claude/commands/slava/build/dev.md) | The actual implementation — iterates until tests pass, stops at UAT |
 | **Verify** | [`/verify`](../.claude/commands/slava/build/verify/SKILL.md) | "Tests pass" is not the same as "works in a browser" |
@@ -46,7 +49,7 @@ Also part of the workflow:
 - **`/content:*`** — content pipeline ([`content/`](../.claude/commands/slava/content/)) for blog drafts, image generation, email
 - **Visual kanban** — every task gets a spec file with structured frontmatter (status, type, priority, delivery stage). `npm run kanban` renders [`features/`](../features/) as a visual board on port 9050, so you always see what's in flight, blocked, or done.
 
-Full skill catalog: [`.claude/commands/slava/`](../.claude/commands/slava/) — each skill is a readable markdown file.
+Full skill catalog: [`.claude/commands/slava/`](../.claude/commands/slava/). **Note:** Skill files are written as agent instructions, not human documentation — they're optimized for Claude Code to execute, not for people to read. To understand what a skill does, clone the repo and ask Claude Code: "explain how /architect works" — it reads the skill and translates it for you.
 
 ## Known Limitations
 
