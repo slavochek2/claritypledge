@@ -2,6 +2,16 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-04 [technical]: P644 — postgres_changes DO propagate between Playwright contexts (corrects 5-session false assumption)
+
+**Context:** P644 implementation revealed the core assumption behind all two-party test workarounds was wrong. The `test-realtime.ts` header claimed "Supabase Realtime presence events do NOT propagate between Playwright's isolated browser contexts." This was true for `presence` (connection-scoped) but wrong for `postgres_changes` (DB-level, WAL-based) — which is what ClarityPledge exclusively uses. A verification experiment confirmed: admin DB write → host page updated via Realtime + drift polling, no `page.reload()` needed. The guest page failure was caused by an "Updated Terms" dialog blocking the UI, not by delivery failure.
+**Decision:** (1) Corrected the false comment in test-realtime.ts. (2) `waitForUIUpdate()` — which simply waits for DOM to update via the app's own delivery — is the correct and sufficient two-party assertion pattern. (3) DB polling helpers remain useful for test synchronization (knowing when to assert) but are not needed for delivery testing. (4) `page.reload()` ban enforced via helper replacement and `.claude/rules/tests.md`. (5) Expanded drift detection test from 18 to 34 UI-affecting fields — immediately surfaced 16 uncovered fields (all Free mode, `proverName`, `checkerIsCreator`, etc.).
+**Alternatives rejected:** (A) Chrome DevTools MCP / Claude in Chrome for two-user testing — single cookie jar, no programmatic assertions, MV3 service worker timeout. Not viable for automated E2E. (B) WebSocket instrumentation as primary pattern — useful for debugging but monkey-patching after WS is established is unreliable. Added as optional diagnostic.
+**Consequences:** The entire DB-polling-first test pattern was built on a false premise. Future two-party tests should use `waitForUIUpdate()` as the primary assertion. `createTwoPartySessionRealistic()` exercises real subscription timing. Auth injection guard (`assertNoAuthRedirect`) and terms dialog dismissal are now baked into helpers — tests should never hit Google OAuth. The 16 uncovered drift fields are tracked as KNOWN_UNCOVERED in the test — follow-up needed to add drift detection for Free mode fields especially.
+**References:** `features/p644_two_party_test_infrastructure.md`, `e2e/helpers/test-realtime.ts`, `e2e/helpers/test-session.ts`, `src/tests/p637-drift-detection-completeness.test.ts`
+
+---
+
 ## 2026-04-04 [process]: P617→P643 — /live bugs are distributed systems problems, not logic bugs
 
 **Context:** The mode switcher + drawer lifecycle bug resisted fixing across 5 implementation sessions (P617, P626, P637, P638, this session). Each session: agent writes correct logic, tests pass, manual UAT shows nothing works. Root cause investigation (t010, 5-phase adversarial /dd:think + 3-agent parallel analysis) revealed: `getViewState()` is correct. The inputs don't arrive. Realtime flaps, `updateInFlightRef` drops events, `confirmedLiveStateRef` diverges from `liveState`, drift detection was missing fields. Every session treated this as a **logic bug** (wrong conditions) when it was a **consistency bug** (correct logic, wrong/missing inputs from the delivery layer).
