@@ -2,6 +2,14 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-04 [technical]: Security audit follow-up — 4 remaining findings fixed, secret rotated
+
+**Context:** The April 3 security audit (25-agent, 47 findings) left 4 open items in its Consequences section. This session ran a second 4-agent audit to verify what remained, then fixed all 4 in parallel worktrees.
+**Decision:** (1) Moved `VITE_GCS_UPLOAD_SECRET` from client bundle to new `supabase/functions/gcs-signed-url/` edge function — secret now server-side only, JWT-validated. Rotated the exposed secret on both GCS Cloud Function and Supabase. (2) Fixed CORS `*` on `create-and-sign` edge function — now uses `ALLOWED_ORIGIN` env var like all other edge functions. (3) Added explicit host ownership checks to `updateEvent()`/`cancelEvent()` — defense-in-depth alongside RLS. (4) Graduated CSP from report-only to enforcing mode, added `X-Frame-Options: DENY`.
+**Alternatives rejected:** (A) Keeping CSP in report-only longer — no violations reported since April 3, safe to enforce. (B) Creating an API route instead of edge function for GCS proxy — edge function is the established pattern, keeps the secret in Supabase env.
+**Consequences:** All items from April 3 audit Consequences are now resolved except: 13 npm vulns (`@vercel/node`, `vite-plugin-pwa` major bumps). The old `VITE_GCS_UPLOAD_SECRET` value is dead — rotated on both sides. Deployment note: `gcs-signed-url` edge function needs `GCS_UPLOAD_SECRET` env var set on any new Supabase project.
+**References:** April 3 security audit entry below, `supabase/functions/gcs-signed-url/index.ts`
+
 ## 2026-04-04 [security]: Ghost 5→6 upgrade — CVE-2026-26980 patched, Source theme kept old selectors
 
 **Context:** Ghost CMS 5.130.6 was vulnerable to CVE-2026-26980 (unauthenticated SQL injection), requiring upgrade to 6.19.3+. The blog has a 39,700-char code injection using 30 Ghost CSS selectors (`.gh-feed`, `.gh-viewport`, `.gh-card`, etc.) for custom nav, 2-column layout, and subscribe overlay.
@@ -40,7 +48,7 @@ Append-only log of architectural and product decisions. Newest entries at top.
 **Context:** First comprehensive security audit of the full stack: source code, Supabase RLS, edge functions, dependencies, infrastructure, client-side, and known CVEs. 8 audit agents ran in parallel, then 17 fix agents across 5 waves (Haiku for mechanical config, Sonnet for auth/migration logic, Opus for final validation).
 **Decision:** (1) Rotated compromised prod + test DB passwords (both were in public repo — prod in `.env.prod.example`, test in archived scripts). (2) Added JWT auth to `send-agreement-emails` and fixed cosmetic auth on `send-event-emails`. (3) Changed `--no-verify-jwt` from blanket to selective (only `create-and-sign`). (4) Dropped dangerous `public.set_config()` SECURITY DEFINER function. (5) Fixed `accept_agreement()` self-sign bypass and `patch_live_state()` missing participant check. (6) Tightened RLS on 7 legacy tables. (7) Added HSTS, Permissions-Policy, full CSP (report-only). (8) Hidden source maps. (9) HTML-escaped all user strings in email templates. (10) Added non-root Docker user. (11) Restricted GitHub Actions permissions.
 **Alternatives rejected:** (A) Manual one-by-one fixes — too slow for 47 findings. (B) Fixing only CRITICAL — leaves exploitable HIGH/MEDIUM attack surface. (C) Full CSP in enforcing mode — too risky without violation data; report-only first.
-**Consequences:** ~~Ghost CMS 5.130.6 remains vulnerable to CVE-2026-26980 (unauthenticated SQL injection) — needs major version upgrade to 6.19.3+.~~ **RESOLVED 2026-04-04:** Ghost upgraded to 6.25.1 (see P640). GCS signed-URL Cloud Function still has no auth. 13 npm vulns remain (need `@vercel/node` and `vite-plugin-pwa` major bumps). CSP needs graduation from report-only to enforcing after monitoring. Migrations must be applied via `./scripts/migrate.sh`.
+**Consequences:** ~~Ghost CMS 5.130.6 remains vulnerable to CVE-2026-26980 (unauthenticated SQL injection) — needs major version upgrade to 6.19.3+.~~ **RESOLVED 2026-04-04:** Ghost upgraded to 6.25.1 (see P640). ~~GCS signed-URL Cloud Function still has no auth.~~ **RESOLVED 2026-04-04:** New `gcs-signed-url` edge function with JWT auth + secret rotated (see entry above). 13 npm vulns remain (need `@vercel/node` and `vite-plugin-pwa` major bumps). ~~CSP needs graduation from report-only to enforcing after monitoring.~~ **RESOLVED 2026-04-04:** CSP now enforcing + X-Frame-Options added. Migrations must be applied via `./scripts/migrate.sh`.
 **References:** Plan at `.claude/plans/tingly-cuddling-grove.md`
 
 ---
