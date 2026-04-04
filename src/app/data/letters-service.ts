@@ -341,6 +341,88 @@ export async function submitPointResponse(
 }
 
 // ============================================================================
+// TOKEN-BASED ENGAGEMENT (anon-safe RPCs)
+// ============================================================================
+
+/**
+ * Submit point position via invitation token — works for anonymous recipients.
+ */
+export async function submitPointResponseByToken(
+  token: string,
+  pointId: string,
+  position: string
+): Promise<void> {
+  log('submitPointResponseByToken');
+  const { data, error } = await supabase.rpc('submit_point_response_by_token', {
+    p_token: token,
+    p_point_id: pointId,
+    p_position: position,
+  });
+  if (error) {
+    logDbError('submitPointResponseByToken', error);
+    throw new Error(`Failed to submit point response: ${error.message}`);
+  }
+  if (data === false) throw new Error('Invalid or expired token');
+}
+
+/**
+ * Submit story rating via invitation token — works for anonymous recipients.
+ */
+export async function submitRatingByToken(
+  token: string,
+  storyId: string,
+  rating: number
+): Promise<void> {
+  log('submitRatingByToken');
+  const { data, error } = await supabase.rpc('submit_rating_by_token', {
+    p_token: token,
+    p_story_id: storyId,
+    p_rating: rating,
+  });
+  if (error) {
+    logDbError('submitRatingByToken', error);
+    throw new Error(`Failed to submit rating: ${error.message}`);
+  }
+  if (data === false) throw new Error('Invalid or expired token');
+}
+
+/**
+ * Reveal prediction via invitation token — works for anonymous recipients.
+ */
+export async function revealPredictionByToken(
+  token: string,
+  storyId: string
+): Promise<{ prediction: number } | null> {
+  log('revealPredictionByToken');
+  const { data, error } = await supabase.rpc('reveal_prediction_by_token', {
+    p_token: token,
+    p_story_id: storyId,
+  });
+  if (error) {
+    logDbError('revealPredictionByToken', error);
+    return null;
+  }
+  return data as { prediction: number } | null;
+}
+
+/**
+ * Update delivery status via invitation token — works for anonymous recipients.
+ */
+export async function updateDeliveryStatusByToken(
+  token: string,
+  status: DeliveryStatus
+): Promise<void> {
+  log('updateDeliveryStatusByToken');
+  const { error } = await supabase.rpc('update_delivery_status_by_token', {
+    p_token: token,
+    p_status: status,
+  });
+  if (error) {
+    logDbError('updateDeliveryStatusByToken', error);
+  }
+}
+
+// ============================================================================
 // COMPLETION
 // ============================================================================
 

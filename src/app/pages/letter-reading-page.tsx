@@ -29,6 +29,7 @@ import {
   getLetterForReadingByToken,
   claimLetterDelivery,
   updateDeliveryStatus,
+  updateDeliveryStatusByToken,
 } from '@/app/data/letters-service';
 import { analytics } from '@/lib/mixpanel';
 import type { ClarityLetter, LetterStorySnapshot, LetterDelivery } from '@/app/types';
@@ -234,8 +235,9 @@ export function LetterReadingPage() {
           estimatedMinutes={Math.max(1, Math.ceil(snapshots.length * 2))}
           mode={letter.mode}
           onOpen={() => {
-            // Delivery already claimed on page load (if authenticated + token)
-            if (!token) {
+            if (token) {
+              updateDeliveryStatusByToken(token, 'opened').catch(() => {});
+            } else {
               updateDeliveryStatus(delivery.id, 'opened').catch(() => {});
             }
             setViewState('reading');
@@ -255,6 +257,7 @@ export function LetterReadingPage() {
           snapshots={snapshots}
           delivery={delivery}
           senderName={senderName}
+          token={token || undefined}
           onComplete={() => setViewState('complete')}
         />
       )}
@@ -284,12 +287,14 @@ function LetterReadingFlow({
   snapshots,
   delivery,
   senderName,
+  token,
   onComplete,
 }: {
   letter: ClarityLetter;
   snapshots: LetterStorySnapshot[];
   delivery: LetterDelivery;
   senderName: string;
+  token?: string;
   onComplete: () => void;
 }) {
   const {
@@ -301,7 +306,7 @@ function LetterReadingFlow({
     advanceRemainingPoint,
     nextStory,
     isSubmitting,
-  } = useLetterReadingState(delivery.id, letter.sender_id, snapshots);
+  } = useLetterReadingState(delivery.id, letter.sender_id, snapshots, token);
 
   // When the state machine reports complete, notify parent
   useEffect(() => {

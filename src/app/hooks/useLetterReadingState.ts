@@ -14,6 +14,9 @@ import {
   revealPrediction,
   submitPointResponse,
   updateDeliveryStatus,
+  submitPointResponseByToken,
+  submitRatingByToken,
+  revealPredictionByToken,
 } from '@/app/data/letters-service';
 
 // ============================================================================
@@ -134,7 +137,8 @@ function createInitialStoryState(snapshot: LetterStorySnapshot): StoryState {
 export function useLetterReadingState(
   deliveryId: string,
   senderId: string,
-  snapshots: LetterStorySnapshot[]
+  snapshots: LetterStorySnapshot[],
+  token?: string
 ): UseLetterReadingStateReturn {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const initRef = useRef(false);
@@ -191,7 +195,11 @@ export function useLetterReadingState(
     async (pointId: string, position: string) => {
       setIsSubmitting(true);
       try {
-        await submitPointResponse(deliveryId, pointId, position);
+        if (token) {
+          await submitPointResponseByToken(token, pointId, position);
+        } else {
+          await submitPointResponse(deliveryId, pointId, position);
+        }
         updateCurrentStory((prev) => ({
           ...prev,
           positions: { ...prev.positions, [pointId]: position },
@@ -202,7 +210,7 @@ export function useLetterReadingState(
         setIsSubmitting(false);
       }
     },
-    [deliveryId, updateCurrentStory]
+    [deliveryId, token, updateCurrentStory]
   );
 
   // Submit rating for current story
@@ -211,20 +219,30 @@ export function useLetterReadingState(
       if (!currentSnapshot) return;
       setIsSubmitting(true);
       try {
-        await submitRating(deliveryId, currentSnapshot.story_id, rating, senderId);
-        const prediction = await revealPrediction(deliveryId, currentSnapshot.story_id);
-
-        updateCurrentStory((prev) => ({
-          ...prev,
-          rating,
-          prediction: prediction?.prediction ?? null,
-          phase: 'gap-reveal',
-        }));
+        if (token) {
+          await submitRatingByToken(token, currentSnapshot.story_id, rating);
+          const prediction = await revealPredictionByToken(token, currentSnapshot.story_id);
+          updateCurrentStory((prev) => ({
+            ...prev,
+            rating,
+            prediction: prediction?.prediction ?? null,
+            phase: 'gap-reveal',
+          }));
+        } else {
+          await submitRating(deliveryId, currentSnapshot.story_id, rating, senderId);
+          const prediction = await revealPrediction(deliveryId, currentSnapshot.story_id);
+          updateCurrentStory((prev) => ({
+            ...prev,
+            rating,
+            prediction: prediction?.prediction ?? null,
+            phase: 'gap-reveal',
+          }));
+        }
       } finally {
         setIsSubmitting(false);
       }
     },
-    [deliveryId, senderId, currentSnapshot, updateCurrentStory]
+    [deliveryId, senderId, token, currentSnapshot, updateCurrentStory]
   );
 
   // Advance from position-revealed to story
