@@ -2,6 +2,14 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-04 [process]: P647 Phase 2 — /challenge-prd rework: skeleton-specific dimensions replace JTBD/Flow
+
+**Context:** P647 replaced `/create-prd` + `/quick-feature` with `/create-spec` (5-field skeleton). But `/challenge-prd` still had seven dimensions designed for the old PRD format — specifically Dimension 3 (JTBD Integrity) validated User Stories and Jobs to Be Done sections, and Dimension 4 (Flow Completeness) validated actor-action pairs from User Stories. Neither section exists at skeleton stage anymore; they're product-owner enrichment (future `/product-owner` skill). Additionally, ~85 stale references to `create-prd` and `quick-feature` remained across 19 files.
+**Decision:** (1) Removed JTBD Integrity and Flow Completeness dimensions from `/challenge-prd`. (2) Added three skeleton-specific dimensions: Problem Clarity ("Would someone outside this conversation understand it?"), Appetite Calibration ("Does blast radius match solution size?"), Non-Goals Quality ("Are constraints actually constraining, or obvious?"). Now 8 dimensions total. (3) Replaced all stale references across 14 skill files, 2 rules files, and 3 docs files. (4) Updated `flow: quick-feature` → `flow: spec` in features.md frontmatter rules. Version bumped to 2.0.0.
+**Alternatives rejected:** (a) Keep 7 dimensions and adapt JTBD/Flow to skeleton fields — forced fit; Problem section isn't a JTBD statement, and Done-When isn't a user story. (b) Remove dimensions without replacement — loses coverage; skeleton has its own failure modes worth checking. (c) Wait for `/product-owner` to exist before reworking — stale dimensions would mislead agents in the interim.
+**Consequences:** `/challenge-prd` now validates what actually exists at skeleton stage. JTBD and Flow Completeness will return when `/product-owner` enrichment is built — at that point they belong in `/spec-review` (which runs on the complete multi-layer spec), not in `/challenge-prd` (which runs on skeleton only). All cross-references between skills are now consistent.
+**References:** `.claude/commands/slava/build/challenge-prd.md`, `features/p647_unified_spec_system.md`
+
 ## 2026-04-04 [product]: P650 — Letter 1-to-1 recipient onboarding must reuse agreement invite flow
 
 **Context:** P581 spec explicitly prescribed using P527 `create-and-sign` for new letter recipients and P488 magic link for existing users. The implementation skipped both — all 1-to-1 recipients enter anonymously via token, hit a "Sign in to continue" wall at rating, and face a generic signup redirect at completion. The email promises "account will be created automatically" but UX doesn't deliver. The sender name displays as a raw UUID instead of profile name.

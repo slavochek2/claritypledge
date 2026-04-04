@@ -856,8 +856,7 @@ A third pattern — distinct from bugs and features — is when something *feels
 ├─ 2. Decision point — user approves an approach ("let's do A+B")
 │      ↓
 │   → Invoke /fix (if it's a gap/bug fix)
-│   → Invoke /create-spec (if it's a small addition)
-│   → Invoke /create-spec (if it's a real feature)
+│   → Invoke /create-spec (if it's a new addition or feature)
 │
 └─ 3. Post-work: /finish + /kdd as usual
 ```

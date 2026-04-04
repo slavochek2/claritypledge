@@ -18,7 +18,7 @@ These agents form the sequential skill flow for feature development:
 
 | Agent | Command | Key Question | Principle |
 |-------|---------|--------------|-----------|
-| **Business** | `/create-prd` | "Why does this matter? What's the user value?" | Start with the problem, not the solution |
+| **Business** | `/create-spec` | "Why does this matter? What's the user value?" | Start with the problem, not the solution |
 | **UX** | `/ux` | "How does this affect real users?" | Protect the user |
 | **Architect** | `/architect` | "Will we regret this? Is it secure?" | Think long-term, design for production |
 | **Tests** | `/generate-tests` | "How do we verify this works?" | Define success before building |
@@ -43,7 +43,7 @@ These agents form the sequential skill flow for feature development:
 
 **New features (after 2026-02-13):**
 ```
-/create-prd → /ux (if UI) → /architect → /generate-tests → /dev
+/create-spec → /ux (if UI) → /architect → /generate-tests → /dev
 ```
 
 **Old features (before 2026-02-13):**
@@ -53,7 +53,7 @@ These agents form the sequential skill flow for feature development:
 
 | Situation | Use |
 |-----------|-----|
-| Starting a new feature | `/create-prd` — Generate business requirements |
+| Starting a new feature | `/create-spec` — Generate spec skeleton |
 | Scope feels bloated | `/lean` — Challenge scope, find MVP |
 | Feeling stuck on approach | `/innovate` — Explore 30 alternatives |
 

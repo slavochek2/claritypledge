@@ -228,7 +228,7 @@ If approved, append to `docs/decisions.md`:
 **Consequences:** {what improves}
 ```
 
-Then ask: "Create a tracking spec for these initiatives via /quick-feature? (y/n)"
+Then ask: "Create a tracking spec for these initiatives via /create-spec? (y/n)"
 
 ---
 

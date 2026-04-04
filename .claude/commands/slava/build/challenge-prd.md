@@ -155,7 +155,7 @@ Check for common spec biases (especially critical when author = reviewer):
 ## Output Format
 
 ```
-## PRD Challenge: P{N} {Feature Name}
+## Spec Challenge: P{N} {Feature Name}
 
 ### Blocking Challenges (must resolve before proceeding):
 - [BLOCK] Dimension: Description — what assumption is unverified, what flow is incomplete,
@@ -307,7 +307,7 @@ Assign verdict: PASS / CHALLENGE / RETHINK.
 - For Hard Questions: DO propose resolution options with trade-offs and a recommendation
 - Do NOT challenge product direction unless it contradicts documented strategy
 - Adversarial does not mean hostile — be direct and constructive, not dismissive
-- If the PRD is genuinely solid, say PASS and explain why it survived the challenge
+- If the spec is genuinely solid, say PASS and explain why it survived the challenge
 ```
 
 ---
@@ -315,10 +315,10 @@ Assign verdict: PASS / CHALLENGE / RETHINK.
 ## Calibration: Depth vs Speed
 
 **Full depth** (default — new capability, unvalidated user flow, new actor type):
-Run all seven dimensions. Target: 5-10 minutes.
+Run all eight dimensions. Target: 5-10 minutes.
 
 **Quick mode** (`/challenge-prd features/pN.md --quick` — incremental improvement, enhancing existing flow):
-Run dimensions 1, 2, 4, 5 at reduced depth. Skip 3, 6, 7 unless something stands out.
+Run dimensions 1, 2, 6, 7 at reduced depth. Skip 3, 4, 5, 8 unless something stands out.
 Target: 3-5 minutes.
 
 When in doubt, use full depth. The 5-minute difference is cheap insurance.
@@ -327,7 +327,7 @@ When in doubt, use full depth. The 5-minute difference is cheap insurance.
 
 ## Post-Resolution Writeback
 
-After the user resolves BLOCK/WARN findings (by updating the PRD or making decisions), the main agent performs a **retirement step**:
+After the user resolves BLOCK/WARN findings (by updating the spec or making decisions), the main agent performs a **retirement step**:
 
 1. **Write `## Resolved Decisions` section** to the spec (append after the last Business layer section, before any UX/Technical content). Format:
    ```markdown
@@ -359,24 +359,24 @@ This ensures challenge decisions persist in the spec for downstream skills to re
 
 ## Examples
 
-### Example: Guest User in /live (Flow Completeness)
+### Example: Guest User in /live (Problem Clarity)
 
-PRD says: "Guest user enters name to start session"
+Spec says: "Guest user enters name to start session"
 
 Challenge would surface:
 ```
-[BLOCK] Flow Completeness: "Guest user enters name to start session" — what happens on:
+[BLOCK] Problem Clarity: "Guest user enters name to start session" — what happens on:
   - Browser reload mid-session? (Is guest state in memory only, localStorage, or server?)
   - Return visit next week? (Does the name persist? Is the user recognized?)
   - Session expiry? (Guest with no account — is their data recoverable?)
   - Transition to signup? (If guest signs up mid-session, does their session data migrate?)
-  The PRD assumes guest state "just works" without specifying the persistence mechanism
+  The spec assumes guest state "just works" without specifying the persistence mechanism
   or lifecycle. Two developers would build completely different things.
 ```
 
 ### Example: Export CSV (Strategic Fit)
 
-PRD says: "Enable users to export sifter responses as CSV for coach review"
+Spec says: "Enable users to export sifter responses as CSV for coach review"
 
 Challenge might find:
 ```

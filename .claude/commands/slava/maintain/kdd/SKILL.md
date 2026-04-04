@@ -127,7 +127,7 @@ Recommendation: Remove from README.md, link to definitions.md instead.
    ```
 
    **Tag is required.** Pick exactly one:
-   - `[product]` — strategy, positioning, business model, UX model, customer definition → read by `/create-prd`, `/ux`, `/spec-review`
+   - `[product]` — strategy, positioning, business model, UX model, customer definition → read by `/create-spec`, `/ux`, `/spec-review`
    - `[technical]` — schema, code patterns, data model, infrastructure, service design → read by `/architect`, `/finish`, `/spec-review`
    - `[process]` — workflows, skills, dev tooling, testing, agent setup → no active skill filters this tag; serves as human-readable context in `/day` and `/weekly` when they scan decisions.md
 
@@ -160,7 +160,7 @@ Recommendation: Remove from README.md, link to definitions.md instead.
 
    For each flagged decision:
    - Ask the user: "Decision '{title}' has follow-up work: '{consequence snippet}'. Create a spec? (y/n)"
-   - If yes: run `/quick-feature` to create a skeleton spec linked back to the decision
+   - If yes: run `/create-spec` to create a skeleton spec linked back to the decision
    - If no: respect the decline, don't ask again this session
 
    **Skip this step if:** no new entries were written to decisions.md in step 4.

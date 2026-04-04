@@ -16,7 +16,7 @@ replacement: [create-spec, ux, architect, generate-tests, dev]
 >
 > **Why deprecated:**
 > - Runs agents in parallel (can't approve UX before architecture)
-> - Duplicates work done by /create-prd
+> - Duplicates work done by /create-spec
 > - No review gates between layers
 >
 > **Migration path:**
