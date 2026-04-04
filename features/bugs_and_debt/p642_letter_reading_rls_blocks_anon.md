@@ -91,4 +91,11 @@ Update `letters-service.ts` to call the new RPC when a token is present (replaci
 - P581 `seal_and_send_letter` RPC referenced non-existent `story_versions.is_current` column (→ `version_number`)
 - Deployed `send-letter-emails` edge function (was missing from test project)
 
-**Regression test:** Needed — `e2e/integration/p642-db-schema.spec.ts` (P270 rule)
+**E2E test:** `e2e/p642-letter-reading-flow.spec.ts` — 4/5 pass, 1 failing (auth rating — test data isolation, not code bug)
+
+**Remaining work for next session:**
+- [ ] Fix auth rating E2E test (needs separate deliveryId or cleanup between tests)
+- [ ] Integration test for migrations: `e2e/integration/p642-db-schema.spec.ts` (P270 rule)
+- [ ] Sender name shows UUID instead of display name (pre-existing, separate issue)
+- [ ] Backfill existing sealed letters on prod (one-time SQL — content denormalization)
+- [ ] Verify email delivery works (Mailgun env vars on test project)
