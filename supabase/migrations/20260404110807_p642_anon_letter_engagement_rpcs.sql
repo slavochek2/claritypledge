@@ -69,14 +69,15 @@ BEGIN
   END IF;
 
   -- Insert story verification (rating)
+  -- Note: accuracy_achieved is a GENERATED column — do not insert explicitly
   INSERT INTO story_verifications (
     story_id, speaker_id, listener_id,
-    listener_rating, speaker_rating, accuracy_achieved,
+    listener_rating, speaker_rating,
     source, verified, session_id
   ) VALUES (
     p_story_id, v_sender_id,
     COALESCE(auth.uid(), '00000000-0000-0000-0000-000000000000'::uuid),
-    p_rating, 0, false,
+    p_rating, 0,
     'letter', false, v_delivery_id
   )
   ON CONFLICT DO NOTHING;
