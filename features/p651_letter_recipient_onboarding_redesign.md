@@ -11,7 +11,7 @@ tags:
 created_date: 2026-04-04
 ---
 
-# P650: Letter 1-to-1 Recipient Onboarding — Reuse Agreement Auth Flow
+# P651: Letter 1-to-1 Recipient Onboarding — Reuse Agreement Auth Flow
 
 > **Redesign of:** [P581: Letters with Comprehension Assessment](p581_letters_with_comprehension_assessment.md)
 > **What was wrong:** P581's spec prescribed using the P527 `create-and-sign` pattern for 1-to-1 new users
