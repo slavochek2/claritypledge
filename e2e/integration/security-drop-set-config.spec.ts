@@ -18,11 +18,12 @@ test.describe('Security: public.set_config() function removed', () => {
     // Call the function directly. If it was dropped, Supabase returns a PostgREST error
     // with code PGRST202 (function signature not found) or a Postgres error code 42883
     // (undefined_function).
-    const { error } = await supabaseAdmin.rpc('set_config', {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { error } = await (supabaseAdmin as any).rpc('set_config', {
       setting_name: 'app.test',
       new_value: 'value',
       is_local: true,
-    } as never); // cast to never — function signature intentionally wrong/absent
+    });
 
     expect(error).not.toBeNull();
 
