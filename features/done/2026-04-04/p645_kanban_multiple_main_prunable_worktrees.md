@@ -1,5 +1,6 @@
 ---
-status: qa
+status: all-done
+completed_at: '2026-04-04'
 type: bug
 rank: 1000051.0
 severity: low
