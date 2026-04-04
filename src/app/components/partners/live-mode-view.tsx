@@ -107,6 +107,9 @@ const CONTENT_LAYOUT_CENTERED = "flex-1 min-h-0 flex flex-col items-center justi
 // VIEW STATE DECISION FUNCTION — pure logic, no React
 // ============================================================================
 
+/** P638: Mode switcher state — computed by getViewState, not by a separate IIFE */
+export type ModeSwitcherState = 'enabled' | 'disabled' | 'hidden';
+
 /** Input for the view state decision function */
 export interface ViewStateInput {
   sessionMode: string | undefined;
@@ -122,6 +125,10 @@ export interface ViewStateInput {
   bothSubmitted: boolean;
   checkerRating: number | undefined;
   responderRating: number | undefined;
+  // P638: New fields for modeSwitcherState computation
+  ratingInitiatedBy: string | undefined;
+  hasSessionModeChangeHandler: boolean;
+  checkerName: string | undefined;
 }
 
 /** Discriminated union of all possible view states */
@@ -129,11 +136,11 @@ export type ViewState =
   | { view: 'free-mode' }
   | { view: 'waiting-for-partner' }
   | { view: 'local-rating'; showDrawer: boolean }
-  | { view: 'idle' }
+  | { view: 'idle'; modeSwitcherState: ModeSwitcherState }
   | { view: 'checker-rating' }
   | { view: 'responder-drawer' }
   | { view: 'understanding' }
-  | { view: 'idle-fallback' };
+  | { view: 'idle-fallback'; modeSwitcherState: ModeSwitcherState };
 
 /**
  * Pure function that determines which view to render based on session state.
@@ -148,6 +155,7 @@ export function getViewState(input: ViewStateInput): ViewState {
     isLocallyRating, ratingPhase, isChecker,
     myRatingSubmitted, partnerRatingSubmitted, bothSubmitted,
     checkerRating, responderRating,
+    ratingInitiatedBy, hasSessionModeChangeHandler, checkerName,
   } = input;
 
   // Branch 1: Free mode (highest priority — completely different UI)
@@ -184,7 +192,14 @@ export function getViewState(input: ViewStateInput): ViewState {
 
   // Branch 4: Idle (default screen)
   if (ratingPhase === 'idle') {
-    return { view: 'idle' };
+    // P638: Compute modeSwitcherState — replaces the IIFE at IdleScreen
+    const modeSwitcherState: ModeSwitcherState =
+      !hasSessionModeChangeHandler ? 'hidden'
+      : freePhase ? 'hidden'
+      : checkerName ? 'hidden'
+      : ratingInitiatedBy ? 'disabled'
+      : 'enabled';
+    return { view: 'idle', modeSwitcherState };
   }
 
   // Branch 5: Checker re-rating (after explain-back)
@@ -210,7 +225,13 @@ export function getViewState(input: ViewStateInput): ViewState {
   }
 
   // Fallback: safe idle
-  return { view: 'idle-fallback' };
+  const fallbackModeSwitcherState: ModeSwitcherState =
+    !hasSessionModeChangeHandler ? 'hidden'
+    : freePhase ? 'hidden'
+    : checkerName ? 'hidden'
+    : ratingInitiatedBy ? 'disabled'
+    : 'enabled';
+  return { view: 'idle-fallback', modeSwitcherState: fallbackModeSwitcherState };
 }
 
 // ============================================================================
@@ -778,6 +799,10 @@ export function LiveModeView({
     bothSubmitted,
     checkerRating,
     responderRating,
+    // P638: New fields for modeSwitcherState
+    ratingInitiatedBy: liveState.ratingInitiatedBy,
+    hasSessionModeChangeHandler: !!onSessionModeChange,
+    checkerName: liveState.checkerName,
   });
 
   // ── Render based on view state ─────────────────────────────────────
@@ -823,6 +848,7 @@ export function LiveModeView({
             isGuest={isGuest}
             currentUserName={currentUserName}
             uploadHealth={uploadHealth}
+            modeSwitcherState="hidden"
           />
           {skipNotificationDialog}
           {confirmSkipDialog}
@@ -883,6 +909,7 @@ export function LiveModeView({
             uploadHealth={uploadHealth}
             sessionMode={liveState.sessionMode}
             onSessionModeChange={onSessionModeChange}
+            modeSwitcherState={viewState.modeSwitcherState}
           />
           {skipNotificationDialog}
           {confirmSkipDialog}
@@ -1032,6 +1059,8 @@ interface IdleScreenProps {
   sessionMode?: 'guided' | 'free';
   /** P562: Mode toggle callback */
   onSessionModeChange?: (mode: 'guided' | 'free') => void;
+  /** P638: Pre-computed mode switcher state from getViewState */
+  modeSwitcherState?: ModeSwitcherState;
 }
 
 function IdleScreen({
@@ -1060,6 +1089,7 @@ function IdleScreen({
   uploadHealth,
   sessionMode,
   onSessionModeChange,
+  modeSwitcherState,
 }: IdleScreenProps) {
   const displayPartnerName = getFirstName(partnerName);
   const checkerName = liveState.checkerName ? getFirstName(liveState.checkerName) : '';
@@ -1388,42 +1418,33 @@ function IdleScreen({
         </ActionArea>
       )}
 
-      {/* P617: Mode pill toggle — 3 states: enabled (idle), disabled (partner rating), hidden (in round) */}
-      {(() => {
-        // Hidden: no callback, inside a round, in free mode, or drawer open
-        if (!onSessionModeChange || showRatingDrawer || waitingForPartnerToContinue
-          || liveState.ratingPhase !== 'idle' || liveState.freePhase || liveState.checkerName) {
-          return null;
-        }
-        // Disabled: partner clicked Speak (ratingInitiatedBy set) but hasn't submitted yet
-        const isLocked = !!liveState.ratingInitiatedBy;
-        return (
-          <div className="flex justify-center py-4">
-            <MobileTooltip content={isLocked ? 'Mode locked — your partner is rating' : ''}>
-              <div className={`inline-flex bg-gray-100 rounded-full p-1 text-sm ${isLocked ? 'opacity-50 cursor-not-allowed' : ''}`}>
-                <button
-                  onClick={() => !isLocked && onSessionModeChange('free')}
-                  disabled={isLocked}
-                  className={`px-4 py-1.5 rounded-full transition-all ${
-                    (sessionMode === 'free' || !sessionMode) ? 'bg-blue-500 text-white shadow-sm font-medium' : 'text-gray-500'
-                  } ${isLocked ? 'pointer-events-none' : ''}`}
-                >
-                  Open mode
-                </button>
-                <button
-                  onClick={() => !isLocked && onSessionModeChange('guided')}
-                  disabled={isLocked}
-                  className={`px-4 py-1.5 rounded-full transition-all ${
-                    sessionMode === 'guided' ? 'bg-blue-500 text-white shadow-sm font-medium' : 'text-gray-500'
-                  } ${isLocked ? 'pointer-events-none' : ''}`}
-                >
-                  Guided mode
-                </button>
-              </div>
-            </MobileTooltip>
-          </div>
-        );
-      })()}
+      {/* P638: Mode pill toggle — state from getViewState, no IIFE */}
+      {modeSwitcherState && modeSwitcherState !== 'hidden' && onSessionModeChange && (
+        <div className="flex justify-center py-4">
+          <MobileTooltip content={modeSwitcherState === 'disabled' ? 'Mode locked — your partner is rating' : ''}>
+            <div className={`inline-flex bg-gray-100 rounded-full p-1 text-sm ${modeSwitcherState === 'disabled' ? 'opacity-50 cursor-not-allowed' : ''}`}>
+              <button
+                onClick={() => modeSwitcherState === 'enabled' && onSessionModeChange('free')}
+                disabled={modeSwitcherState === 'disabled'}
+                className={`px-4 py-1.5 rounded-full transition-all ${
+                  (sessionMode === 'free' || !sessionMode) ? 'bg-blue-500 text-white shadow-sm font-medium' : 'text-gray-500'
+                } ${modeSwitcherState === 'disabled' ? 'pointer-events-none' : ''}`}
+              >
+                Open mode
+              </button>
+              <button
+                onClick={() => modeSwitcherState === 'enabled' && onSessionModeChange('guided')}
+                disabled={modeSwitcherState === 'disabled'}
+                className={`px-4 py-1.5 rounded-full transition-all ${
+                  sessionMode === 'guided' ? 'bg-blue-500 text-white shadow-sm font-medium' : 'text-gray-500'
+                } ${modeSwitcherState === 'disabled' ? 'pointer-events-none' : ''}`}
+              >
+                Guided mode
+              </button>
+            </div>
+          </MobileTooltip>
+        </div>
+      )}
 
       {/* Responder notification drawer - slides up from bottom */}
       {/* Only render when showRatingDrawer is true AND onRatingSubmit is provided */}
@@ -1526,6 +1547,7 @@ function ResponderWaitingWithDrawer({
       uploadHealth={uploadHealth}
       sessionMode={sessionMode}
       onSessionModeChange={onSessionModeChange}
+      modeSwitcherState="hidden"
           />
   );
 }

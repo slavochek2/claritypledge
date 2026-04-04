@@ -20,6 +20,10 @@ const BASE_INPUT: ViewStateInput = {
   bothSubmitted: false,
   checkerRating: undefined,
   responderRating: undefined,
+  // P638: New fields for modeSwitcherState
+  ratingInitiatedBy: undefined,
+  hasSessionModeChangeHandler: true,
+  checkerName: undefined,
 };
 
 function input(overrides: Partial<ViewStateInput>): ViewStateInput {
@@ -45,11 +49,13 @@ describe('getViewState — branch coverage', () => {
   });
 
   it('does NOT return free-mode when sessionMode is guided', () => {
+    // P638: freePhase='unlocked' with guided mode → idle view but modeSwitcherState='hidden'
+    // (freePhase lingering from mode switch hides the mode switcher)
     expect(getViewState(input({
       sessionMode: 'guided',
       freePhase: 'unlocked',
       hasFreeSliderHandler: true,
-    }))).toEqual({ view: 'idle' });
+    }))).toEqual({ view: 'idle', modeSwitcherState: 'hidden' });
   });
 
   // Branch 2: Waiting for partner
@@ -64,7 +70,7 @@ describe('getViewState — branch coverage', () => {
     expect(getViewState(input({
       waitingForPartner: true,
       inCelebrationState: true,
-    }))).toEqual({ view: 'idle' });
+    }))).toEqual({ view: 'idle', modeSwitcherState: 'enabled' });
   });
 
   // Branch 3: Local rating
@@ -84,13 +90,13 @@ describe('getViewState — branch coverage', () => {
 
   // Branch 4: Idle
   it('returns idle on fresh session', () => {
-    expect(getViewState(input({}))).toEqual({ view: 'idle' });
+    expect(getViewState(input({}))).toEqual({ view: 'idle', modeSwitcherState: 'enabled' });
   });
 
   it('returns idle after round reset', () => {
     expect(getViewState(input({
       ratingPhase: 'idle',
-    }))).toEqual({ view: 'idle' });
+    }))).toEqual({ view: 'idle', modeSwitcherState: 'enabled' });
   });
 
   // Branch 5: Checker re-rating
@@ -140,7 +146,7 @@ describe('getViewState — branch coverage', () => {
 
   // Fallback
   it('returns idle-fallback for unknown ratingPhase', () => {
-    expect(getViewState(input({ ratingPhase: 'unknown-phase' }))).toEqual({ view: 'idle-fallback' });
+    expect(getViewState(input({ ratingPhase: 'unknown-phase' }))).toEqual({ view: 'idle-fallback', modeSwitcherState: 'enabled' });
   });
 });
 
@@ -183,7 +189,7 @@ describe('getViewState — regression: second round bugs', () => {
     expect(getViewState(input({
       ratingPhase: 'idle',
       // Everything else is default/undefined — clean reset
-    }))).toEqual({ view: 'idle' });
+    }))).toEqual({ view: 'idle', modeSwitcherState: 'enabled' });
   });
 
   it('second round: speaker clicked Speak → returns local-rating', () => {

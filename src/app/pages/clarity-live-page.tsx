@@ -1044,9 +1044,20 @@ export function ClarityLivePage() {
       // This fixes the "flashing button" bug where realtime delivers old state before DB save completes
       if (updatedSession.liveState && !updateInFlightRef.current) {
         const mergedState = { ...DEFAULT_LIVE_STATE, ...updatedSession.liveState } as LiveSessionState;
+        if (import.meta.env.DEV) {
+          const changedKeys = Object.keys(updatedSession.liveState as Record<string, unknown>);
+          console.log(`[Realtime] Event applied: ${changedKeys.join(', ')}`);
+        }
         setLiveState(mergedState);
         confirmedLiveStateRef.current = mergedState;
       } else if (updatedSession.liveState && updateInFlightRef.current) {
+        if (import.meta.env.DEV) {
+          const droppedKeys = Object.keys(updatedSession.liveState as Record<string, unknown>)
+            .filter(k => !['livePositionsCreator', 'livePositionsJoiner', 'freeSliderCreator', 'freeSliderJoiner'].includes(k));
+          if (droppedKeys.length > 0) {
+            console.log(`[Realtime] Event DROPPED (updateInFlight): ${droppedKeys.join(', ')}`);
+          }
+        }
         // P562: Even during in-flight writes, merge position + slider keys from Realtime.
         // These are per-participant top-level keys — partner's writes never conflict with ours.
         // Without this, partner's position/slider changes are dropped until next non-blocked delivery.
@@ -1299,8 +1310,14 @@ export function ClarityLivePage() {
         // Previously `confirmedLiveStateRef.current = newState` would overwrite partner
         // slider values with stale data captured before the write started.
         confirmedLiveStateRef.current = { ...confirmedLiveStateRef.current, ...updates } as LiveSessionState;
+        if (import.meta.env.DEV) {
+          console.log(`[LiveUpdate] Write succeeded: ${Object.keys(updates).join(', ')}`);
+        }
       } catch (err) {
         console.error('[Live Update] Failed to update state:', err);
+        if (import.meta.env.DEV) {
+          console.log(`[LiveUpdate] Write FAILED + REVERTED: ${Object.keys(updates).join(', ')}`);
+        }
         // P525: Capture failure in Sentry with sanitized state snapshot
         try {
           Sentry.captureException(err, {
@@ -1358,6 +1375,9 @@ export function ClarityLivePage() {
     // This prevents race condition where both users tap "I spoke" and submit simultaneously
     const currentState = confirmedLiveStateRef.current;
     if (currentState.checkerName || currentState.ratingPhase !== 'idle') {
+      if (import.meta.env.DEV) {
+        console.log(`[Guard] handleStartCheck: ref.ratingPhase=${currentState.ratingPhase}, ref.checkerName=${!!currentState.checkerName}, action=rejected`);
+      }
       return;
     }
 

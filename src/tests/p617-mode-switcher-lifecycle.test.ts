@@ -11,8 +11,8 @@ import { getViewState, type ViewStateInput } from '@/app/components/partners/liv
  * 4. Cancellation → back to idle
  * 5. Round complete → back to idle
  *
- * NOTE: Mode switcher enabled/disabled state is NOT in getViewState —
- * it's derived from liveState.ratingInitiatedBy inside IdleScreen's render.
+ * NOTE: After P638, modeSwitcherState IS returned by getViewState on idle views.
+ * See p638-mode-switcher-state.test.ts for modeSwitcherState-specific tests.
  * These tests verify the VIEW transitions that P617 depends on.
  */
 
@@ -35,6 +35,10 @@ const IDLE_INPUT: ViewStateInput = {
   bothSubmitted: false,
   checkerRating: undefined,
   responderRating: undefined,
+  // P638: New fields for modeSwitcherState
+  ratingInitiatedBy: undefined,
+  hasSessionModeChangeHandler: true,
+  checkerName: undefined,
 };
 
 function withOverrides(overrides: Partial<ViewStateInput>): ViewStateInput {
@@ -47,13 +51,13 @@ function withOverrides(overrides: Partial<ViewStateInput>): ViewStateInput {
 
 describe('P617: Step 1 — Both users idle', () => {
   it('returns idle when ratingPhase is idle and no one is locally rating', () => {
-    expect(getViewState(IDLE_INPUT)).toEqual({ view: 'idle' });
+    expect(getViewState(IDLE_INPUT)).toEqual({ view: 'idle', modeSwitcherState: 'enabled' });
   });
 
   it('returns idle in free mode config without free slider handler', () => {
     // sessionMode = 'free' but no slider handler → not free-mode view
     const result = getViewState(withOverrides({ sessionMode: 'free', hasFreeSliderHandler: false }));
-    expect(result).toEqual({ view: 'idle' });
+    expect(result).toEqual({ view: 'idle', modeSwitcherState: 'enabled' });
   });
 });
 
@@ -94,7 +98,7 @@ describe('P617: Step 2 — Speaker clicks Speak', () => {
       isLocallyRating: false,
       ratingPhase: 'idle',
     }));
-    expect(result).toEqual({ view: 'idle' });
+    expect(result).toEqual({ view: 'idle', modeSwitcherState: 'enabled' });
   });
 });
 
@@ -155,7 +159,7 @@ describe('P617: Step 2c — Speaker cancels from drawer', () => {
       isLocallyRating: false,
       ratingPhase: 'idle',
     }));
-    expect(result).toEqual({ view: 'idle' });
+    expect(result).toEqual({ view: 'idle', modeSwitcherState: 'enabled' });
   });
 });
 
@@ -182,7 +186,7 @@ describe('P617: Step 4 — Round complete, return to idle', () => {
       checkerRating: undefined,
       responderRating: undefined,
     }));
-    expect(result).toEqual({ view: 'idle' });
+    expect(result).toEqual({ view: 'idle', modeSwitcherState: 'enabled' });
   });
 });
 
@@ -207,7 +211,7 @@ describe('P617: Free mode → back to idle', () => {
       hasFreeSliderHandler: true,
       ratingPhase: 'idle',
     }));
-    expect(result).toEqual({ view: 'idle' });
+    expect(result).toEqual({ view: 'idle', modeSwitcherState: 'enabled' });
   });
 });
 
