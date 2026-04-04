@@ -40,7 +40,13 @@ The process includes 30+ skills for thinking, maintenance, and learning. That's 
 
 \* The `/dd:*` thinking skills are global (installed in `~/.claude/commands/`, not in this repo). They're portable — ask Claude Code "show me how /dd:frame-analyze works" to see the skill file and adapt it.
 
-Full catalog: [`.claude/commands/slava/`](../.claude/commands/slava/) — each skill is a readable markdown file.
+Also part of the workflow:
+
+- **`/dd:think`** — structured problem discovery rooted in critical rationalism: formulate the problem, generate conjectures, try to falsify them, then act on what survives. Prevents building on unexamined assumptions. *
+- **`/content:*`** — content pipeline ([`content/`](../.claude/commands/slava/content/)) for blog drafts, image generation, email
+- **Visual kanban** — every task gets a spec file with structured frontmatter (status, type, priority, delivery stage). `npm run kanban` renders [`features/`](../features/) as a visual board on port 9050, so you always see what's in flight, blocked, or done.
+
+Full skill catalog: [`.claude/commands/slava/`](../.claude/commands/slava/) — each skill is a readable markdown file.
 
 ## Known Limitations
 
