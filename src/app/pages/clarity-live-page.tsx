@@ -1053,7 +1053,7 @@ export function ClarityLivePage() {
       } else if (updatedSession.liveState && updateInFlightRef.current) {
         if (import.meta.env.DEV) {
           const droppedKeys = Object.keys(updatedSession.liveState as Record<string, unknown>)
-            .filter(k => !['livePositionsCreator', 'livePositionsJoiner', 'freeSliderCreator', 'freeSliderJoiner', 'ratingInitiatedBy'].includes(k));
+            .filter(k => !['livePositionsCreator', 'livePositionsJoiner', 'freeSliderCreator', 'freeSliderJoiner', 'ratingInitiatedBy', 'ratingInitiatedByIsCreator'].includes(k));
           if (droppedKeys.length > 0) {
             console.log(`[Realtime] Event DROPPED (updateInFlight): ${droppedKeys.join(', ')}`);
           }
@@ -1065,7 +1065,7 @@ export function ClarityLivePage() {
         // (speaker clicks Speak). Listener never writes this field so there's no conflict.
         // Eliminates the drift-poll delay (1s) before mode switcher disables on listener.
         const incoming = updatedSession.liveState as Record<string, unknown>;
-        const positionKeys = ['livePositionsCreator', 'livePositionsJoiner', 'freeSliderCreator', 'freeSliderJoiner', 'ratingInitiatedBy'] as const;
+        const positionKeys = ['livePositionsCreator', 'livePositionsJoiner', 'freeSliderCreator', 'freeSliderJoiner', 'ratingInitiatedBy', 'ratingInitiatedByIsCreator'] as const;
         const partnerUpdates: Partial<LiveSessionState> = {};
         let hasPartnerUpdate = false;
         for (const key of positionKeys) {
@@ -1216,6 +1216,9 @@ export function ClarityLivePage() {
         const updateInFlight = updateInFlightRef.current;
 
         if (!hasLiveState || !hasJoiner || updateInFlight) {
+          if (import.meta.env.DEV) {
+            console.log(`[Drift Poll] SKIPPED: hasLiveState=${hasLiveState}, hasJoiner=${hasJoiner}, updateInFlight=${updateInFlight}`);
+          }
           return;
         }
 
@@ -1249,6 +1252,10 @@ export function ClarityLivePage() {
         const ratingInitiatedByDrift = (serverState.ratingInitiatedBy ?? '') !== (localState.ratingInitiatedBy ?? '');
 
         const serverHasUpdate = phaseDrift || checkerNameDrift || checkerDrift || checkerRatingDrift || responderDrift || responderRatingDrift || explainBackDoneDrift || checksCountDrift || clarificationPhaseDrift || roleSwitchNegotiationDrift || selectedStoryIdDrift || selectedStoryDataDrift || selectedContentTitleDrift || celebrationAcknowledgedByDrift || livePositionsDrift || ratingInitiatedByDrift;
+
+        if (import.meta.env.DEV) {
+          console.log(`[Drift Poll] server.ratingInitiatedBy=${serverState.ratingInitiatedBy}, local.ratingInitiatedBy=${localState.ratingInitiatedBy}, drift=${ratingInitiatedByDrift}, serverHasUpdate=${serverHasUpdate}`);
+        }
 
         if (serverHasUpdate) {
           // Track in Mixpanel (non-blocking - don't let analytics errors break the app)
@@ -1392,11 +1399,12 @@ export function ClarityLivePage() {
     lastActionTimestampRef.current = Date.now(); // P516
 
     // P398: Signal partner to close history view immediately (before submission)
-    updateLiveState({ ratingInitiatedBy: name });
+    // P646: Write isCreator flag alongside name — name comparison breaks when both users share a name
+    updateLiveState({ ratingInitiatedBy: name, ratingInitiatedByIsCreator: isCreator });
 
     setLocalFlowType('check');
     setIsLocallyRating(true);
-  }, [name, partnerName, session?.code, updateLiveState]);
+  }, [name, partnerName, session?.code, updateLiveState, isCreator]);
 
   // P23.3: Handle "Did I get it?" button tap - listener-initiated understanding check
   // In this flow, the listener (prover) rates their confidence first
@@ -1419,11 +1427,12 @@ export function ClarityLivePage() {
     lastActionTimestampRef.current = Date.now(); // P516
 
     // P398: Signal partner to close history view immediately (before submission)
-    updateLiveState({ ratingInitiatedBy: name });
+    // P646: Write isCreator flag alongside name — name comparison breaks when both users share a name
+    updateLiveState({ ratingInitiatedBy: name, ratingInitiatedByIsCreator: isCreator });
 
     setLocalFlowType('prove');
     setIsLocallyRating(true);
-  }, [name, partnerName, session?.code, updateLiveState]);
+  }, [name, partnerName, session?.code, updateLiveState, isCreator]);
 
   // ============================================================================
   // P562: Free mode handlers
@@ -1459,7 +1468,7 @@ export function ClarityLivePage() {
       freeRounds: undefined,
       freeRerating: undefined,
       ratingPhase: 'idle',
-      ratingInitiatedBy: undefined,
+      ratingInitiatedBy: undefined, ratingInitiatedByIsCreator: undefined,
       explainBackDone: false,
       speakerSawExplainBackDone: false,
       explainBackRound: 0,
@@ -1509,7 +1518,7 @@ export function ClarityLivePage() {
         freeRounds: undefined,
       freeRerating: undefined,
         ratingPhase: 'idle',
-        ratingInitiatedBy: undefined,
+        ratingInitiatedBy: undefined, ratingInitiatedByIsCreator: undefined,
         explainBackDone: false,
         speakerSawExplainBackDone: false,
         explainBackRound: 0,
@@ -1895,8 +1904,8 @@ export function ClarityLivePage() {
     // Set skippedBy so partner sees toast notification
     updateLiveState({
       ratingPhase: 'idle',
-      ratingInitiatedBy: undefined,
-      skippedBy: name,
+      ratingInitiatedBy: undefined, ratingInitiatedByIsCreator: undefined,
+      skippedBy: name, skippedByIsCreator: isCreator,
       // Clear checker/responder
       checkerName: undefined,
       checkerIsCreator: undefined,
@@ -1930,7 +1939,7 @@ export function ClarityLivePage() {
     });
     // P272: Clear verification guard so new rounds can fire verification
     verificationFiredRef.current.clear();
-  }, [name, updateLiveState, session?.code, trackLiveEvent]);
+  }, [name, isCreator, updateLiveState, session?.code, trackLiveEvent]);
 
   // Handle celebration complete - user clicked "Continue" on perfect rating celebration
   // P525: Uses boolean keys per-role instead of array to prevent race condition
@@ -1978,7 +1987,7 @@ export function ClarityLivePage() {
       updateLiveState({
         currentRound: (currentState.currentRound ?? 1) + 1,
         ratingPhase: 'idle',
-        ratingInitiatedBy: undefined,
+        ratingInitiatedBy: undefined, ratingInitiatedByIsCreator: undefined,
         // Clear checker/responder
         checkerName: undefined,
         checkerIsCreator: undefined,
@@ -2047,7 +2056,7 @@ export function ClarityLivePage() {
       updateLiveState({
         currentRound: (liveState.currentRound ?? 1) + 1,
         ratingPhase: 'idle',
-        ratingInitiatedBy: undefined,
+        ratingInitiatedBy: undefined, ratingInitiatedByIsCreator: undefined,
         checkerName: undefined,
         checkerIsCreator: undefined,
         checkerRating: undefined,
@@ -2098,7 +2107,7 @@ export function ClarityLivePage() {
         freeRounds: undefined,
       freeRerating: undefined,
         ratingPhase: 'idle',
-        ratingInitiatedBy: undefined,
+        ratingInitiatedBy: undefined, ratingInitiatedByIsCreator: undefined,
         explainBackDone: false,
         speakerSawExplainBackDone: false,
         explainBackRound: 0,
@@ -2168,13 +2177,15 @@ export function ClarityLivePage() {
     });
 
     // Start negotiation flow - speaker will see Accept / Ask to explain back first
+    // P646: Add requestedByIsCreator for role-based identity (same-name fix)
     updateLiveState({
       roleSwitchNegotiation: {
         requestedBy: name,
+        requestedByIsCreator: isCreator,
         state: 'pending',
       },
     });
-  }, [name, updateLiveState, session?.code, trackLiveEvent]);
+  }, [name, isCreator, updateLiveState, session?.code, trackLiveEvent]);
 
   // Handle speaker asking listener to explain back first (negotiation step 1 → 2)
   const handleAskToExplainFirst = useCallback(() => {
@@ -2186,6 +2197,7 @@ export function ClarityLivePage() {
     updateLiveState({
       roleSwitchNegotiation: {
         requestedBy: currentState.roleSwitchNegotiation?.requestedBy || '',
+        requestedByIsCreator: currentState.roleSwitchNegotiation?.requestedByIsCreator,
         state: 'speaker-asked-to-explain',
       },
     });
@@ -2228,6 +2240,7 @@ export function ClarityLivePage() {
     updateLiveState({
       roleSwitchNegotiation: {
         requestedBy: currentState.roleSwitchNegotiation?.requestedBy || '',
+        requestedByIsCreator: currentState.roleSwitchNegotiation?.requestedByIsCreator,
         state: 'listener-insists',
       },
     });
@@ -2367,7 +2380,7 @@ export function ClarityLivePage() {
   // Clear the skip notification after toast is shown
   const handleClearSkipNotification = useCallback(() => {
     updateLiveState({
-      skippedBy: undefined,
+      skippedBy: undefined, skippedByIsCreator: undefined,
     });
   }, [updateLiveState]);
 
@@ -3829,7 +3842,7 @@ export function ClarityLivePage() {
           isLocallyRating={isLocallyRating}
           onCancelLocalRating={() => {
             setIsLocallyRating(false);
-            updateLiveState({ ratingInitiatedBy: undefined });
+            updateLiveState({ ratingInitiatedBy: undefined, ratingInitiatedByIsCreator: undefined });
           }}
           // V10: Exit meeting button
           onExitMeeting={handleExitMeeting}

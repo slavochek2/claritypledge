@@ -671,9 +671,13 @@ export function LiveModeView({
 
     // Only show dialog to the OTHER user (not the one who skipped)
     // and only when there's a new skip (not on initial render or re-renders)
+    // P646: Use role-based check — name comparison breaks with same-name users
+    const isSkipFromPartner = liveState.skippedByIsCreator !== undefined
+      ? liveState.skippedByIsCreator !== isCreator
+      : (!!skippedBy && skippedBy !== currentUserName); // backward compat
     if (
       skippedBy &&
-      skippedBy !== currentUserName &&
+      isSkipFromPartner &&
       prevSkippedByRef.current !== skippedBy
     ) {
       const displayName = getFirstName(skippedBy);
@@ -682,7 +686,7 @@ export function LiveModeView({
     }
 
     prevSkippedByRef.current = skippedBy;
-  }, [liveState.skippedBy, currentUserName]);
+  }, [liveState.skippedBy, liveState.skippedByIsCreator, currentUserName, isCreator]);
 
   // V10: Handle dialog OK button - clear notification and close dialog
   const handleSkipDialogOk = () => {
@@ -1088,7 +1092,7 @@ function IdleScreen({
   badgePersonName,
   badgePersonEarsCount,
   isStoryOwner = false,
-  currentUserName,
+  currentUserName: _currentUserName,
   isGuest = false,
   uploadHealth,
   sessionMode,
@@ -1200,9 +1204,10 @@ function IdleScreen({
   const sessionHistory = liveState.sessionHistory ?? [];
 
   // P617: Listener should not see story card until round starts (speaker submits).
-  // When ratingInitiatedBy is set and I'm not the initiator, hide the story card.
-  const isListenerDuringLocalRating = !!liveState.ratingInitiatedBy
-    && liveState.ratingInitiatedBy !== currentUserName;
+  // P646: Use role-based check (isCreator) instead of name comparison.
+  // Name comparison breaks when both users share the same display name.
+  const isListenerDuringLocalRating = liveState.ratingInitiatedByIsCreator !== undefined
+    && liveState.ratingInitiatedByIsCreator !== isCreator;
 
   // Use top-aligned layout only when a story/point card is visible on screen
   const hasScrollableContent = !!liveState.selectedStoryId || !!liveState.selectedStoryData || sessionHistory.length > 0;
@@ -2560,7 +2565,11 @@ function UnderstandingScreen({
   const showInsistDialog = isChecker && negotiation?.state === 'listener-insists';
 
   // Listener waiting state: they clicked "I want to speak freely" and are waiting for speaker's decision
-  const listenerWaitingForNegotiation = !isChecker && negotiation?.state === 'pending' && negotiation?.requestedBy === currentUserName;
+  // P646: Use role-based check — name comparison breaks with same-name users
+  const iAmNegotiationRequester = negotiation?.requestedByIsCreator !== undefined
+    ? negotiation.requestedByIsCreator === isCreator
+    : negotiation?.requestedBy === currentUserName; // backward compat
+  const listenerWaitingForNegotiation = !isChecker && negotiation?.state === 'pending' && iAmNegotiationRequester;
 
   // Play celebration sound when entering perfect phase (only once per celebration)
   const prevPhaseRef = useRef<UnderstandingPhase | null>(null);
@@ -3480,7 +3489,7 @@ function UnderstandingScreen({
       <ActionArea
         title={isChecker && clarificationPhase === 'speaker-deciding' && hasExplainBackHappened
           ? `What is missing to a perfect 10?`
-          : !isChecker && clarificationPhase !== 'speaker-deciding' && !listenerWaitingForNegotiation && negotiation?.requestedBy !== currentUserName
+          : !isChecker && clarificationPhase !== 'speaker-deciding' && !listenerWaitingForNegotiation && !iAmNegotiationRequester
             ? `Help ${checkerName} understand you better. Withhold premature judgment.`
             : undefined}
       >
