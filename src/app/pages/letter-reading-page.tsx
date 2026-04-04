@@ -27,6 +27,7 @@ import { useLetterReadingState } from '@/app/hooks/useLetterReadingState';
 import {
   getLetterForReading,
   getLetterForReadingByToken,
+  claimLetterDelivery,
   updateDeliveryStatus,
 } from '@/app/data/letters-service';
 import { analytics } from '@/lib/mixpanel';
@@ -227,9 +228,15 @@ export function LetterReadingPage() {
           storyCount={snapshots.length}
           estimatedMinutes={Math.max(1, Math.ceil(snapshots.length * 2))}
           mode={letter.mode}
-          onOpen={() => {
+          onOpen={async () => {
+            // Claim delivery (sets receiver_profile_id) before transitioning —
+            // without this, all write RLS policies fail
+            if (token && currentUser) {
+              await claimLetterDelivery(token).catch(() => {});
+            } else if (!token) {
+              updateDeliveryStatus(delivery.id, 'opened').catch(() => {});
+            }
             setViewState('reading');
-            updateDeliveryStatus(delivery.id, 'opened').catch(() => {});
             analytics.track('letter_opened', {
               delivery_id: delivery.id,
               letter_id: letter.id,

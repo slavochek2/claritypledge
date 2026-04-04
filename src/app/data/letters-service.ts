@@ -427,6 +427,31 @@ export async function updateDeliveryStatus(
   }
 }
 
+/**
+ * Claim a letter delivery — sets receiver_profile_id + marks as opened.
+ * Must be called by an authenticated user when they open a letter via token.
+ * Without this, all write RLS policies fail (they check receiver_profile_id = auth.uid()).
+ */
+export async function claimLetterDelivery(token: string): Promise<boolean> {
+  log('claimLetterDelivery');
+
+  const { data, error } = await supabase.rpc('claim_letter_delivery', {
+    p_token: token,
+  });
+
+  if (error) {
+    logDbError('claimLetterDelivery', error);
+    return false;
+  }
+
+  if (!data || data.error) {
+    log('claimLetterDelivery: rejected', data?.error);
+    return false;
+  }
+
+  return true;
+}
+
 // ============================================================================
 // TOKEN-BASED ACCESS
 // ============================================================================
