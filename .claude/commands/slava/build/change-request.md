@@ -2,7 +2,7 @@
 name: change-request
 description: File a redesign spec for a shipped feature whose design was wrong. Analyzes the predecessor spec for conflicting sections, captures root cause and current state, and creates a new P-number spec with full predecessor linkage.
 when_to_use: "Use when a shipped feature needs a design correction — code works as specified, but the design itself was wrong (wrong visual ordering, actor confusion, duplication, hierarchy issues). NOT for bugs (broken code → /fix) and NOT for new capability (new user value → /create-prd)."
-version: 2.0.0
+version: 2.1.0
 ---
 
 # /change-request
@@ -69,7 +69,7 @@ Extract and return:
 3. REQUIREMENTS / DESIGN DECISIONS — what UX choices, layout decisions, component behavior did it specify?
 4. ACCEPTANCE CRITERIA — list all AC verbatim.
 5. SURFACES TOUCHED — which files/components were in scope?
-6. CHAIN — does it have a `changes:` field? If so, what's the chain?
+6. CHAIN — does it have a `changes:` field? If so, what's the chain? Does it have `type: change-request`? If yes, also extract `chain_root:` if present, and report the predecessor's own `changes:` target — this is needed to compute chain depth and root.
 
 Then, given this redesign context: {brief description of what's wrong from the conversation}
 
@@ -130,6 +130,7 @@ status: week
 type: change-request
 rank: {calculated}
 changes: p{predecessor_N}
+chain_root: p{root_N}    # ONLY if predecessor is itself a change-request. Omit otherwise.
 tags:
   - redesign
   - p{predecessor_N}
@@ -239,16 +240,28 @@ This prevents over-scope during implementation.}
 
 ---
 
-### Step 6: Add forward link to predecessor
+### Step 6: Add forward link to predecessor + compute chain fields
 
-Add `superseded_by: p{N}` to the predecessor spec's frontmatter:
+**6a. Set `superseded_by` on predecessor:**
 
-```bash
-# Edit the predecessor spec frontmatter — add one line after the existing tags block:
-superseded_by: p{N}
-```
+Add `superseded_by: p{N}` to the predecessor spec's frontmatter. This is non-destructive — the predecessor spec content is preserved as historical record. The forward link lets anyone reading P{predecessor_N} navigate to the correction.
 
-This is non-destructive — the predecessor spec content is preserved as historical record. The forward link lets anyone reading P{predecessor_N} navigate to the correction.
+**6b. Compute `chain_root` (only when predecessor is itself a `type: change-request`):**
+
+If the predecessor has `type: change-request`:
+- If predecessor has `chain_root:`, use that same value (it already points to the original non-CR spec)
+- If predecessor has no `chain_root:`, use the predecessor's `changes:` value (the predecessor's target IS the root)
+- Set `chain_root: p{root_N}` in the new spec's frontmatter
+
+If the predecessor is NOT a change-request, omit `chain_root:` — `changes:` already points to the original.
+
+**6c. Chain depth check:**
+
+Count the chain depth (number of CR hops from this new spec back to the non-CR root). If depth reaches 4:
+
+> **⚠️ Chain depth warning:** This CR chain is 4 levels deep (root → CR1 → CR2 → CR3 → this). Per CR Chaining policy, chains deeper than 4 should be consolidated into a fresh spec. Consider running `/create-prd` instead, referencing the chain as historical context.
+
+Show this warning and ask the user whether to proceed with the CR or consolidate into a fresh spec.
 
 ---
 
@@ -258,6 +271,9 @@ This is non-destructive — the predecessor spec content is preserved as histori
 - [ ] Subagent analysis completed — superseded sections identified with quotes
 - [ ] `changes: p{N}` set in frontmatter
 - [ ] `superseded_by: p{N}` added to predecessor frontmatter
+- [ ] If predecessor is `type: change-request`, `chain_root:` is set in new spec (pointing to a non-CR spec)
+- [ ] If predecessor is NOT `type: change-request`, `chain_root:` is omitted
+- [ ] Chain depth ≤ 4. If depth = 4, consolidation warning shown to user
 - [ ] "Current State" section present with before ASCII if available
 - [ ] "Root Cause" is specific (mechanism + code reference, not just "design was wrong")
 - [ ] "Jobs To Be Done" distinguishes preserved / corrected / new

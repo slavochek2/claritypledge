@@ -1,6 +1,7 @@
 ---
-status: week
+status: qa
 type: task
+flow: inline
 rank: 1000050
 created_date: 2026-04-04
 tags:
@@ -35,10 +36,10 @@ No changes to frontmatter schema — all three fields are already defined in `.c
 
 ## Acceptance Criteria
 
-- [ ] Filing a CR against a non-CR spec sets `superseded_by` on that predecessor (existing behavior, verify it's already there or add it).
-- [ ] Filing a CR against a `type: change-request` spec sets `superseded_by` on the predecessor CR.
-- [ ] The new CR spec gets `chain_root:` pointing to the original non-CR spec when chain depth > 1.
-- [ ] `chain_root:` is omitted when the immediate predecessor is the original non-CR spec (depth == 1).
-- [ ] Chain depth is computed correctly for depths 1–4.
-- [ ] At depth ≥ 4, the skill warns and pauses before creating the spec.
-- [ ] Skill reads the predecessor spec file to determine its `type` — no hardcoded assumptions.
+- [x] Filing a CR against a non-CR spec sets `superseded_by` on that predecessor (existing Step 6, verified).
+- [x] Filing a CR against a `type: change-request` spec sets `superseded_by` on the predecessor CR.
+- [x] The new CR spec gets `chain_root:` pointing to the original non-CR spec when chain depth > 1.
+- [x] `chain_root:` is omitted when the immediate predecessor is the original non-CR spec (depth == 1).
+- [x] Chain depth is computed correctly for depths 1–4.
+- [x] At depth ≥ 4, the skill warns and pauses before creating the spec.
+- [x] Skill reads the predecessor spec file to determine its `type` via subagent (Step 2 updated).
