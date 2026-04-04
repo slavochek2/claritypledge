@@ -101,7 +101,8 @@
         { "key": "X-Content-Type-Options", "value": "nosniff" },
         { "key": "X-XSS-Protection", "value": "0" },
         { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" },
-        { "key": "Content-Security-Policy-Report-Only", "value": "default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.mxpnl.com https://cdn.lr-in-prod.com https://js.sentry-cdn.com; style-src 'self' 'unsafe-inline'; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api-eu.mixpanel.com https://*.sentry.io https://*.lr-in-prod.com https://api.web3forms.com https://api.unsplash.com; img-src 'self' data: blob: https://*.supabase.co https://storage.googleapis.com https://images.unsplash.com; font-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'self'" },
+        { "key": "Content-Security-Policy", "value": "default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.mxpnl.com https://cdn.lr-in-prod.com https://js.sentry-cdn.com; style-src 'self' 'unsafe-inline'; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api-eu.mixpanel.com https://*.sentry.io https://*.lr-in-prod.com https://api.web3forms.com https://api.unsplash.com; img-src 'self' data: blob: https://*.supabase.co https://storage.googleapis.com https://images.unsplash.com; font-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'self'" },
+        { "key": "X-Frame-Options", "value": "DENY" },
         { "key": "Strict-Transport-Security", "value": "max-age=63072000; includeSubDomains; preload" },
         { "key": "Permissions-Policy", "value": "camera=(), geolocation=(), payment=(), microphone=(self)" }
       ]
