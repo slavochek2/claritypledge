@@ -36,6 +36,8 @@ function getWorktrees(): { path: string; branch: string; name: string; isCurrent
 
     for (const block of blocks) {
       const lines = block.split('\n')
+      // Skip prunable worktrees — stale agent worktrees whose .git dir no longer exists
+      if (lines.some((l) => l.startsWith('prunable'))) continue
       let path = ''
       let branch = ''
 
