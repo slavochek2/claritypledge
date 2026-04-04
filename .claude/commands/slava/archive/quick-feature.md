@@ -3,6 +3,7 @@ name: quick-feature
 description: Quick feature/bug skeleton with frontmatter - minimal template for idea capture (30 seconds)
 when_to_use: Quick idea capture, simple placeholders - when you'll fill in sections manually later
 version: 2.0.0
+archived_reason: "Absorbed into /create-spec — lightweight specs are just specs with shorter sections, not a separate template. Use /create-spec instead."
 ---
 
 # Quick Feature/Bug Skeleton

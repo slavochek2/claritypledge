@@ -62,9 +62,10 @@ Use `/create-bug` for:
 - Bugs surfaced from a surface audit (see `/fix` surface lens)
 
 **Do NOT use for:**
-- Quick placeholder without context → use `/quick-feature` (select Bug type)
-- Full feature specs → use `/create-prd`
-- Bugs you're fixing inline with no need for tracking → just fix them
+- Quick placeholder without context → use `/create-spec` (lightweight mode)
+- Full feature specs → use `/create-spec`
+- Pre-commit hook failures, CI config, or build tooling fixes (not user-facing bugs)
+- CSS-only cosmetic tweaks that affect only visual appearance and cannot alter user interaction flow (color, font-size, margin between non-interactive elements)
 
 **Relationship to `/fix`:**
 - `/create-bug` creates the spec

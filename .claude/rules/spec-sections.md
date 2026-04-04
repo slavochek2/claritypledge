@@ -16,16 +16,41 @@ Existing specs may use older header variants (e.g., `## UX Requirements`, `## Te
 - Technical layer: also check `## Technical Analysis` (as level-2), `## Technical Requirements`, `## Technical Specification`
 - Test layer: also check `## Testing`, `## Test Automation Strategy`, `## Testing Strategy`
 
-## Business Layer (from /create-prd)
+## Skeleton Layer (from /create-spec — all spec types)
 
 | Header | Level | Notes |
 |--------|-------|-------|
-| `## Problem Statement` | 2 | Not "Problem", not "Issues" |
+| `## Problem` | 2 | SCQ format recommended for complex problems; flat statement OK for simple ones |
+| `## Appetite` | 2 | Blast radius + reversibility + decision density (not time estimates) |
+| `## Solution` | 2 | For implementation work. Use `## Approach` for research/investigation |
+| `## Approach` | 2 | Alternative to Solution — for research specs where solution is the deliverable |
+| `## Risks / Non-Goals` | 2 | Combined section. Non-Goals are highest-leverage for AI agent constraints |
+| `## Done-When` | 2 | Observable completion signals, checkbox format |
+
+## Expansion Modules (type-specific, added to skeleton)
+
+| Header | Level | Work types | Notes |
+|--------|-------|-----------|-------|
+| `## Acceptance Criteria` | 2 | Feature | **Always level-2, never nested** |
+| `## UX Notes` | 2 | Feature | Interaction patterns, states |
+| `## UI Contract` | 2 | Feature (UI) | Exact strings, colors, measurements |
+| `## Alternatives Considered` | 2 | Infrastructure, Refactor | Trade-off analysis |
+| `## Rollback Strategy` | 2 | Infrastructure, Migration | How to undo |
+| `## Research Questions` | 2 | Research | Numbered, specific |
+| `## Time Box` | 2 | Research | Maximum investment |
+| `## Deliverable` | 2 | Research | Output format |
+| `## Migration Plan` | 2 | Migration | Step-by-step execution |
+| `## Data Integrity Check` | 2 | Migration | Verification after migration |
+
+## Business Layer (from /create-prd — legacy, now /product-owner enrichment)
+
+| Header | Level | Notes |
+|--------|-------|-------|
+| `## Problem Statement` | 2 | Legacy alias for `## Problem`. Skills that READ should check both |
 | `## Business Requirements` | 2 | |
-| `## User Stories` | 2 | |
-| `## Jobs to Be Done` | 2 | |
-| `## Acceptance Criteria` | 2 | **Always level-2, never nested** under Business Requirements |
-| `## Out of Scope` | 2 | |
+| `## User Stories` | 2 | Added by /product-owner enrichment, not at spec creation |
+| `## Jobs to Be Done` | 2 | Added by /product-owner enrichment, not at spec creation |
+| `## Out of Scope` | 2 | Legacy alias for Non-Goals section in `## Risks / Non-Goals` |
 
 ## UX Layer (from /ux)
 

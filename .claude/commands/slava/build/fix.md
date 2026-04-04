@@ -21,8 +21,10 @@ Systematic bug remediation workflow (reproduce → test → fix → verify).
 
 **Quick mode (inline description):**
 ```bash
-/fix "Login button broken on Safari"    # Creates minimal spec inline
+/fix "Login button broken on Safari"    # Auto-files via /create-bug, then proceeds
 ```
+
+When called with a description string instead of a P-number, `/fix` auto-invokes `/create-bug` to file a tracked spec BEFORE any fix work begins. See Phase 0.pre below.
 
 **When to use /fix:**
 - ✅ Use `/fix` when bug is reproducible and cause is known
@@ -108,6 +110,26 @@ Skip steps 1 and 3 in inline mode (`/fix "description"`) — but always do step 
 ---
 
 ## Workflow
+
+### Phase 0.pre: Ensure spec exists (BEFORE worktree setup)
+
+If `/fix` was called with a description string (not a P-number or spec path):
+
+1. **You must be on main (w0).** If in a worktree, switch to main first: `cd ~/Projects/public/claritypledge`
+2. Invoke `/create-bug` with the description to file a tracked spec
+3. Use the resulting P-number and spec file for all subsequent phases
+4. Report: "Filed as P{N}. Proceeding with fix."
+
+**If `/create-bug` fails** (script error, validation failure): halt and report the error. Do NOT fall back to untracked mode. The user must fix the issue and retry.
+
+**If already in a worktree** when discovering a new bug during another task:
+1. Switch to main: `cd ~/Projects/public/claritypledge`
+2. Run `/create-bug` to file the spec (commits to main)
+3. Return to worktree: `cd .claude/worktrees/wN`
+4. Rebase to pick up the spec: `git rebase main`
+5. Proceed with `/fix` using the new P-number
+
+---
 
 ### Phase 0.0: Worktree setup
 
