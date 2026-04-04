@@ -2,6 +2,16 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-04 [process]: Skills must reference authoritative docs, not hardcode patterns
+
+**Context:** After P644 shipped new test infrastructure (helpers, ban rules, corrected Realtime understanding), `/verify`, `/generate-tests`, and `/dev` still had hardcoded two-party test examples with the old (wrong) patterns — DB polling as primary, `page.reload()` in examples, false "Realtime doesn't propagate" claim. The `.claude/rules/tests.md` auto-load mechanism only fires when agents edit test files, but skills with their own inline examples override the rules file.
+**Decision:** Skills must reference authoritative source docs (`.claude/rules/tests.md`, `docs/technical/e2e-testing-guide.md`) instead of inlining patterns. Replaced hardcoded examples in `/verify` and `/generate-tests` with one-line pointers to the guide. This is the "Reference Over Duplication" principle from CLAUDE.md applied to skills — the guide is updated once, all skills pick up changes automatically.
+**Alternatives rejected:** (A) Update every skill manually when infrastructure changes — doesn't scale, guaranteed to drift. (B) Build an automated audit agent — over-engineering for a problem solved by not duplicating.
+**Consequences:** When test infrastructure changes in the future, update `.claude/rules/tests.md` and `docs/technical/e2e-testing-guide.md` only. Skills follow the references. This pattern should extend beyond testing — any skill that hardcodes domain-specific examples (DB patterns, auth patterns, etc.) should reference the authoritative doc instead.
+**References:** `.claude/commands/slava/build/verify/SKILL.md`, `.claude/commands/slava/build/generate-tests/SKILL.md`
+
+---
+
 ## 2026-04-04 [technical]: P644 — postgres_changes DO propagate between Playwright contexts (corrects 5-session false assumption)
 
 **Context:** P644 implementation revealed the core assumption behind all two-party test workarounds was wrong. The `test-realtime.ts` header claimed "Supabase Realtime presence events do NOT propagate between Playwright's isolated browser contexts." This was true for `presence` (connection-scoped) but wrong for `postgres_changes` (DB-level, WAL-based) — which is what ClarityPledge exclusively uses. A verification experiment confirmed: admin DB write → host page updated via Realtime + drift polling, no `page.reload()` needed. The guest page failure was caused by an "Updated Terms" dialog blocking the UI, not by delivery failure.
