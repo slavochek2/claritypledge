@@ -133,6 +133,14 @@ Recommendation: Remove from README.md, link to definitions.md instead.
 
    **Quick classification:** if it affects how users experience the product → `[product]`. If it affects how the code is structured → `[technical]`. If it affects how the team/agents work → `[process]`.
 
+   **Security-sensitive entries:** When writing `[technical]` or `[security]` entries about vulnerability fixes, describe *what was fixed* — not *how to exploit* the old version. This is a public repo; decisions.md is readable by anyone.
+   - **Do:** "Moved secret from client bundle to server-side edge function"
+   - **Don't:** "Secret was extractable from DevTools by opening Sources tab and searching for VITE_"
+   - **Do:** "Fixed RLS policy that allowed unauthorized reads"
+   - **Don't:** "Policy used `OR true` which always evaluates true, exposing all rows"
+   - **Commit messages follow the same rule** — describe the fix, not the attack vector
+   - Specific secret values (even old/rotated ones) never go in decisions.md — reference `.private/` if needed
+
    **For hypotheses.md:**
    - Change status emoji (⏳ → 🔄 → ✅)
    - Add validation notes
@@ -199,7 +207,7 @@ Recommendation: Remove from README.md, link to definitions.md instead.
    ```
    **Do NOT skip `completed_at`** — kanban "Done Today" column filters on this field.
 
-6.25. **Privacy gate — if session involved personal content:**
+6.25. **Privacy & security disclosure gate:**
 
    **Universal rule:** This is a public repo. Never write client names, phone numbers, WhatsApp links, session details, or any personally identifiable information into docs, decisions, or feature specs. Use generic references ("a client", "the feedback form") instead of names. Private details belong in `.private/` only.
 
@@ -208,7 +216,17 @@ Recommendation: Remove from README.md, link to definitions.md instead.
    - **sifter sessions:** any use of `/slava:sifter-story` or `/slava:sifter-point` — brain dumps contain real names and private context; verify no session file landed in `content/sifter/` before committing
    - **client/sales sessions:** any work involving client names, testimonials, referral flows, WhatsApp messages, or post-session follow-ups. Decisions about the *model* (pay-what-it's-worth, referral structure) go in decisions.md; client-specific details (names, links, templates) go in `.private/docs/client-lifecycle.md` only.
 
-   All three paths produce personal content in a public repo context.
+   **Security disclosure check — if session involved security/vulnerability work:**
+
+   Before committing, scan all staged doc changes (`git diff --cached`) for:
+   - **Exploitation details:** step-by-step attack instructions, specific bypass techniques, SQL/code that demonstrates the vulnerability
+   - **Secret values:** API keys, tokens, passwords, connection strings — even rotated/old ones (attackers can search git history for previously-valid secrets)
+   - **Specific CVE reproduction steps** beyond the CVE number itself
+   - **RLS policy logic flaws** described in enough detail to reproduce on similar systems
+
+   If found: rewrite to describe the fix outcome, not the attack path. Move exploitation details to `.private/docs/security-log.md` if they need to be preserved for future reference.
+
+   **The test:** Could someone reading this entry exploit a similar system that hasn't been patched? If yes, rewrite.
 
 6.5. **Session wrap checklist:**
 
