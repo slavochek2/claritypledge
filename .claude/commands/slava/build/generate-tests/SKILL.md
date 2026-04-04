@@ -126,7 +126,7 @@ describe('exportResponsesAsCSV', () => {
 - ❌ Simple database reads (covered by E2E)
 - ❌ Mocked services (defeats purpose)
 
-**Two-party test rule:** When the spec describes a two-party session flow, scaffold an E2E test under `chromium` using `getTestAuthContext` for both host and guest, with `supabaseAdmin` for DB assertions. Follow the existing pattern in `e2e/helpers/test-realtime.ts` (`mockMicPermission`, `waitForDBPresence`). The test MUST include: create session → partner join → trigger feature code path → assert state. See `e2e/integration/p495-transcription-trigger.spec.ts` as the reference pattern.
+**Two-party test rule:** When the spec describes a two-party session flow, scaffold an E2E test using the two-party helpers. Read `.claude/rules/tests.md` (Two-Party Helpers section) and `docs/technical/e2e-testing-guide.md` (Two-Party Sessions section) for current fixtures, assertion patterns, and banned practices. The test MUST include: create session → partner join → trigger feature code path → assert state via `waitForUIUpdate()` (never `page.reload()`). See `e2e/live-content-picker.spec.ts` as reference.
 
 **Example:**
 ```typescript

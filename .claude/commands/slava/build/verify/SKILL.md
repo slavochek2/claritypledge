@@ -212,8 +212,11 @@ Write a temporary `e2e/p{N}-verify.spec.ts` using existing helpers. The skill wr
 |---|---|---|
 | Auth (single user) | `setTestSession(page, email)` | `e2e/helpers/test-user.ts` |
 | Auth (browser context) | `getTestAuthContext(role, browser)` | `e2e/helpers/auth-context.ts` |
-| Two-party session | `createTwoPartySession(browser, opts)` | `e2e/helpers/test-session.ts` |
-| DB polling (cross-context sync) | `waitForDBPresence(table, col, val, ...)` | `e2e/helpers/test-realtime.ts` |
+| Two-party session (standard) | `createTwoPartySession(browser, opts)` | `e2e/helpers/test-session.ts` |
+| Two-party session (realistic join) | `createTwoPartySessionRealistic(browser, opts)` | `e2e/helpers/test-session.ts` |
+| Cross-context UI assertion | `waitForUIUpdate(page, locator, timeoutMs?)` | `e2e/helpers/test-realtime.ts` |
+| State advancement | `advanceSessionState(code, overrides)` | `e2e/helpers/test-realtime.ts` |
+| DB polling (sync point) | `waitForDBPresence(table, col, val, ...)` | `e2e/helpers/test-realtime.ts` |
 | Mic permission mock | `mockMicPermission(page)` | `e2e/helpers/test-realtime.ts` |
 | Test point + position | `createTestPoint()`, `createTestPosition()` | `e2e/helpers/test-point.ts` |
 | Test story | `createTestStory()`, `linkStoryToPoint()` | `e2e/helpers/test-story.ts` |
@@ -241,19 +244,7 @@ const { data } = await supabaseAdmin.from('table').select('*').eq('id', id).sing
 expect(data.field).toBe('expected');
 ```
 
-**Two-party pattern (from `e2e/helpers/test-session.ts`):**
-
-```typescript
-const session = await createTwoPartySession(browser, {
-  hostName: 'Test Creator',
-  guestName: 'Test Listener',
-});
-// session.hostPage, session.guestPage — two independent pages
-// session.sessionCode — the room code
-// session.cleanup() — call in finally block
-```
-
-**Important:** Supabase Realtime does NOT propagate between isolated browser contexts. Use `waitForDBPresence()` + `page.reload()` for cross-context state sync.
+**Two-party patterns:** Read `.claude/rules/tests.md` (Two-Party Helpers section) and `docs/technical/e2e-testing-guide.md` (Two-Party Sessions section) for current helpers, fixtures, and banned practices. Do not hardcode patterns here — the guide is the single source of truth.
 
 **Cleanup:** Always wrap in try/finally with cleanup calls. Use `deleteTestUser()`, `deleteTestPoint()`, etc.
 
