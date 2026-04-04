@@ -41,6 +41,7 @@ interface StoryReaderProps {
   onPositionSubmit: (pointId: string, position: string) => void;
   onRatingSubmit: (rating: number) => void;
   onAdvanceToStory: () => void;
+  onAdvanceToRate: () => void;
   onAdvanceRemainingPoint: () => void;
   onNextStory: () => void;
 }
@@ -87,6 +88,7 @@ export function LetterStoryReader({
   onPositionSubmit,
   onRatingSubmit,
   onAdvanceToStory,
+  onAdvanceToRate,
   onAdvanceRemainingPoint,
   onNextStory,
 }: StoryReaderProps) {
@@ -143,6 +145,12 @@ export function LetterStoryReader({
           <div className="prose prose-sm max-w-none">
             <p className="text-[#1A1A1A] whitespace-pre-wrap">{storyText}</p>
           </div>
+          <Button
+            onClick={onAdvanceToRate}
+            className="bg-[#0044CC] hover:bg-[#0033AA] text-white"
+          >
+            I&apos;ve read this story
+          </Button>
         </div>
       )}
 

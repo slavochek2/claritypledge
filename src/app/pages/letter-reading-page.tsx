@@ -303,6 +303,7 @@ function LetterReadingFlow({
     submitPosition,
     submitStoryRating,
     advanceToStory,
+    advanceToRate,
     advanceRemainingPoint,
     nextStory,
     isSubmitting,
@@ -350,6 +351,7 @@ function LetterReadingFlow({
         onPositionSubmit={(pointId, position) => submitPosition(pointId, position)}
         onRatingSubmit={(rating) => submitStoryRating(rating)}
         onAdvanceToStory={advanceToStory}
+        onAdvanceToRate={advanceToRate}
         onAdvanceRemainingPoint={advanceRemainingPoint}
         onNextStory={nextStory}
       />

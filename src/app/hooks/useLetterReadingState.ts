@@ -66,6 +66,8 @@ export interface UseLetterReadingStateReturn {
   submitStoryRating: (rating: number) => Promise<void>;
   /** Advance from position-revealed to story phase */
   advanceToStory: () => void;
+  /** Advance from story to rate */
+  advanceToRate: () => void;
   /** Advance to next remaining point or transition */
   advanceRemainingPoint: () => void;
   /** Move to next story */
@@ -250,6 +252,11 @@ export function useLetterReadingState(
     updateCurrentStory((prev) => ({ ...prev, phase: 'story' }));
   }, [updateCurrentStory]);
 
+  // Advance from story to rate
+  const advanceToRate = useCallback(() => {
+    updateCurrentStory((prev) => ({ ...prev, phase: 'rate' }));
+  }, [updateCurrentStory]);
+
   // Advance through remaining points or to transition
   const advanceRemainingPoint = useCallback(() => {
     if (!currentSnapshot) return;
@@ -308,6 +315,7 @@ export function useLetterReadingState(
     submitPosition,
     submitStoryRating,
     advanceToStory,
+    advanceToRate,
     advanceRemainingPoint,
     nextStory,
     isSubmitting,
