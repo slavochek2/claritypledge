@@ -84,6 +84,11 @@ export function LetterReadingPage() {
             }
           }
 
+          // Claim delivery if authenticated (sets receiver_profile_id for write RLS)
+          if (currentUser) {
+            await claimLetterDelivery(token).catch(() => {});
+          }
+
           setLetter(readData.letter);
           setSnapshots(readData.snapshots);
           setDelivery(readData.delivery);
@@ -228,12 +233,9 @@ export function LetterReadingPage() {
           storyCount={snapshots.length}
           estimatedMinutes={Math.max(1, Math.ceil(snapshots.length * 2))}
           mode={letter.mode}
-          onOpen={async () => {
-            // Claim delivery (sets receiver_profile_id) before transitioning —
-            // without this, all write RLS policies fail
-            if (token && currentUser) {
-              await claimLetterDelivery(token).catch(() => {});
-            } else if (!token) {
+          onOpen={() => {
+            // Delivery already claimed on page load (if authenticated + token)
+            if (!token) {
               updateDeliveryStatus(delivery.id, 'opened').catch(() => {});
             }
             setViewState('reading');

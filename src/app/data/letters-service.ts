@@ -268,7 +268,10 @@ export async function submitRating(
   rating: number,
   senderId: string
 ): Promise<void> {
-  const userId = await requireAuth();
+  // Get user from session (not getUser() which can fail on token refresh)
+  const { data: { session } } = await supabase.auth.getSession();
+  const userId = session?.user?.id;
+  if (!userId) throw new Error('Not authenticated');
   log('submitRating:', { deliveryId, storyId, rating, senderId });
 
   const { error } = await supabase.from('story_verifications').insert({
@@ -296,7 +299,6 @@ export async function revealPrediction(
   deliveryId: string,
   storyId: string
 ): Promise<{ prediction: number } | null> {
-  await requireAuth();
   log('revealPrediction:', { deliveryId, storyId });
 
   const { data, error } = await supabase.rpc('reveal_prediction', {
@@ -320,7 +322,10 @@ export async function submitPointResponse(
   pointId: string,
   position: string
 ): Promise<void> {
-  await requireAuth();
+  // Note: no requireAuth() — RLS enforces auth via receiver_profile_id check.
+  // requireAuth() uses getUser() (network call) which can fail even with a valid
+  // session when the access token needs refresh. The Supabase client auto-refreshes
+  // tokens on data calls, so the insert itself will work if the session is valid.
   log('submitPointResponse:', { deliveryId, pointId, position });
 
   const { error } = await supabase.from('letter_point_responses').insert({
