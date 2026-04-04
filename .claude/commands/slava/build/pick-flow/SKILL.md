@@ -127,18 +127,23 @@ Before applying the scoring table, classify the task:
 
 | Task type | Default flow |
 |-----------|-------------|
-| **Feature** (new user-facing capability) | Apply scoring table below |
-| **Bug** (broken behavior, root cause known) | `/fix` → done |
-| **Bug** (root cause unclear) | `/diagnose` first (see below), then `/fix` |
-| **Redesign** (shipped feature, code works, design was wrong) | `/change-request` → `/challenge-prd` → then `/ux` / `/architect` / `/generate-tests` / `/spec-review` / `/dev` / `/verify` per scoring table hard rules (DB column → `/architect` mandatory; net-new visual pattern → `/ux` mandatory — apply drop-`/ux` rule from scoring table; ASCII in conversation ≠ UX resolved for new interaction patterns); `/challenge-prd` mandatory for redesigns (same as medium pipeline); if redesign also adds new capability, file `/create-prd` for that portion separately; if ASCII exploration exists in conversation, `/change-request` must capture it as raw material so `/ux` has context |
-| **Refactor** (restructuring, no behavior change) | `/quick-feature` (skeleton for tracking) → `/dev` — no `/create-prd`, no `/ux` |
-| **Data migration** (one-time SQL script) | `/dev` + `/generate-tests` mandatory (P270 rule) |
-| **Dependency upgrade** | Inline or `/dev` — apply scoring if upgrade touches auth/DB/build |
+| **Feature** (new user-facing capability, no spec) | `/create-spec` → Apply scoring table below |
+| **Feature** (spec exists) | Apply scoring table below |
+| **Bug** (has P-number, root cause known) | `/fix pN` → done |
+| **Bug** (no P-number, root cause known) | `/create-bug` → `/fix` → done |
+| **Bug** (no P-number, root cause unclear) | `/diagnose` first → `/create-bug` → `/fix` → done |
+| **Redesign** (shipped feature, code works, design was wrong) | `/change-request` → `/challenge-prd` → then `/ux` / `/architect` / `/generate-tests` / `/spec-review` / `/dev` / `/verify` per scoring table hard rules (DB column → `/architect` mandatory; net-new visual pattern → `/ux` mandatory — apply drop-`/ux` rule from scoring table; ASCII in conversation ≠ UX resolved for new interaction patterns); `/challenge-prd` mandatory for redesigns (same as medium pipeline); if redesign also adds new capability, file `/create-spec` for that portion separately; if ASCII exploration exists in conversation, `/change-request` must capture it as raw material so `/ux` has context |
+| **Refactor** (restructuring, no behavior change) | `/create-spec` (type: task) → `/dev` — no `/ux` |
+| **Data migration** (one-time SQL script) | `/create-spec` (type: task) → `/dev` + `/generate-tests` mandatory (P270 rule) |
+| **Dependency upgrade** | `/create-spec` (type: task) → `/dev` — apply scoring if upgrade touches auth/DB/build |
+| **Infrastructure** (skills, hooks, process, rules) | `/create-spec` (type: task) → infrastructure tier flow (draft → adversarial → decisions.md → implement) |
 | **Test-only change** | Inline edit — no spec, no flow |
-| **Content/copy change** | Inline or `/dev` — no spec unless copy is acceptance-criteria-level |
-| **Analytics instrumentation** | `/dev` — no `/ux`, no `/architect` unless new DB column |
+| **Content/copy change** | `/create-spec` (type: task, lightweight) → `/dev` |
+| **Analytics instrumentation** | `/create-spec` (type: task) → `/dev` — no `/ux`, no `/architect` unless new DB column |
 
-**Redesign test:** "Is the code broken, or is the design wrong?" Broken → `/fix`. Wrong design → `/change-request`. Both (design wrong AND fix requires new capability) → `/change-request` for the redesign + `/create-prd` for the new capability, filed separately.
+**Universal spec gate:** Before any flow, check: "Does a spec with a P-number exist for this work?" If not, route to the appropriate creation skill first (`/create-spec` for features/refactors/infra/migrations, `/create-bug` for bugs, `/change-request` for redesigns). Only test-only changes skip spec creation.
+
+**Redesign test:** "Is the code broken, or is the design wrong?" Broken → `/fix`. Wrong design → `/change-request`. Both (design wrong AND fix requires new capability) → `/change-request` for the redesign + `/create-spec` for the new capability, filed separately.
 
 If task type is non-feature/non-bug, state the type and give the default flow directly. Skip the scoring table.
 
