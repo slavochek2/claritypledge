@@ -18,6 +18,9 @@ VISUAL QA CHECKLIST (per screenshot):
 □ Edge data: What happens with count=0, count=999, very long text?
 □ Contrast: Is text readable against background?
 □ Compare to adjacent: Does visual weight match surrounding production components?
+□ Hierarchy: Does visual hierarchy guide the eye to the primary action first?
+□ Density: Does spacing density match the cognitive task (spacious for reflection, dense for scanning)?
+□ Sibling weight: Do elements at the same level carry equal visual weight (no orphan heavy/light items)?
 □ State match: Does the screenshot depict the claimed application state? If a gate (auth, mic, feature flag) prevented reaching it, disclose what was verified vs. what was not.
 ```
 
@@ -25,6 +28,7 @@ VISUAL QA CHECKLIST (per screenshot):
 
 After any UI change, spawn a SEPARATE subagent for visual QA:
 - Give it ONLY the screenshots + this checklist
+- When a Visual Specification exists in the spec, pass it to the QA subagent alongside this checklist — it enables the 3 design-quality questions (Hierarchy, Density, Sibling weight) to be evaluated against concrete intent
 - Do NOT give it the code diff or implementation intent
 - The subagent succeeds by FINDING problems, not confirming quality
 

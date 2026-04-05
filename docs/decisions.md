@@ -2,6 +2,22 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-05 [process]: visual-qa.md upgrade — design-quality evaluation alongside defect detection (P655 Wave 2)
+
+**Context:** The visual QA checklist in `.claude/rules/visual-qa.md` detected defects (overflow, clipping, contrast) but could not evaluate design quality (hierarchy, density, weight balance). P655 Wave 2 upgraded `/ui` to produce a Visual Specification with concrete Tailwind classes. The QA subagent needed to evaluate whether implementation matched the spec's visual intent — not just whether elements rendered correctly.
+**Decision:** Add 3 design-quality questions to the checklist: (1) hierarchy guides eye to primary action, (2) density matches cognitive task, (3) sibling elements carry equal visual weight. When a Visual Specification exists in the feature spec, pass it to the QA subagent alongside the checklist — this enables evaluating intent, not just correctness. Without a Visual Specification, the 3 questions still apply as general heuristics.
+**Alternatives rejected:** (A) Separate design-quality checklist — splits what's evaluated in the same screenshot pass, forcing two subagent runs. One checklist is simpler. (B) Only evaluate when Visual Specification present — the 3 questions are independently useful as design heuristics even without a spec.
+**Consequences:** QA subagent now evaluates both defects and design quality in a single pass. Visual Specification from `/ui` flows through to the final QA gate.
+**References:** `.claude/rules/visual-qa.md`, `.claude/commands/slava/build/ui.md`
+
+## 2026-04-05 [process]: /dev skill upgrade — single gate + upgraded UAT visual verification (P655 Wave 2)
+
+**Context:** The `/dev` skill had no gate between getting tests passing and visual refinement, and the UAT visual verification was a basic defect-only check at a single viewport. P655 Wave 2 needed `/dev` to consume the Visual Specification from `/ui` and evaluate design quality — not just detect broken rendering. Adversarial review rejected a proposed Phase 2a/2b split (React JSX doesn't separate structure from styling cleanly) and capped the iteration loop at 1 cycle due to sandbox timeout (60s) and MV3 service worker death (5min idle).
+**Decision:** Add a single gate line in Step 3: "get tests passing before visual refinement." Upgrade UAT visual verification: 3 viewports (1280px/768px/390px), feed Visual Specification to QA subagent when present, design-quality evaluation alongside defect checklist, 1 retry max for defects, design issues advisory not blocking, Chrome fallback retained for when extension is unavailable.
+**Alternatives rejected:** (A) Phase 2a (structure) / 2b (visual) split — adversarial review found React components don't separate cleanly; a pragmatic single gate is more honest. (B) 3-cycle iteration loop — sandbox kills commands at ~60s and MV3 service worker dies after 5min idle; 1 cycle is the practical maximum. (C) Design issues as blocking — would halt `/dev` for advisory feedback that the founder may override; advisory is the right weight.
+**Consequences:** `/dev` v2.0.0 consumes Visual Specification from `/ui` v2.0.0 at the UAT gate. Design quality is evaluated but non-blocking. The 1-cycle cap means agents fix what they can in one pass and report remaining issues.
+**References:** `.claude/commands/slava/build/dev.md`, `.claude/rules/visual-qa.md`
+
 ## 2026-04-05 [process]: /ui skill upgrade — Visual Specification replaces Visual Refinements (P655 Wave 2)
 
 **Context:** The `/ui` skill's "Visual Refinements" section was a gap-filler (shadow depth, hover transitions, spacing precision) — below UX wireframe resolution but above raw code. P655 identified this as the right location for visual design decisions (hierarchy, emotional register, negative constraints) that the adversarial review moved out of `/ux`. The question: how to expand Visual Refinements into a primary visual design output without producing hallucinated token names or vague mood-board language.

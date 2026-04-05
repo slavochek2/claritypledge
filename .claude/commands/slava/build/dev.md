@@ -2,7 +2,7 @@
 name: dev
 description: Execute a development task with TDD discipline and production thinking
 when_to_use: "After spec exists (/create-spec, /architect done). Triggered by /dev."
-version: 1.0.0
+version: 2.0.0
 ---
 
 # /dev
@@ -123,7 +123,7 @@ Skip if no spec exists (inline description mode like `/dev refactor the auth mod
 1. **Read tests** — UAT scenarios, E2E test stubs, acceptance criteria
 1.5. **Read Component Strategy** — If spec has `## Component Strategy`, read the Component Map table. Every Reuse/Extend/Extract/New classification is a constraint — follow it. Do not create new components when the map says Reuse or Extend. If the Extraction Plan lists a prerequisite refactor, do it first.
 2. **Verify context** — Confirm Step -1 context is loaded (re-read spec if post-compaction or if >10 tool calls since Step -1). Key check: can you state (a) the top constraint from Decisions, (b) what "done" looks like from Acceptance Criteria, and (c) the next unchecked task? If not, re-read now. Every decision is a constraint, not a suggestion — if you can't name what the spec rules out, you haven't internalized it.
-3. **Implement** — Feature code + fill in test stubs
+3. **Implement** — Feature code + fill in test stubs. **For UI features (.tsx changes):** get tests passing before applying visual refinement (spacing, shadows, animation). Don't polish a broken feature.
 3.5. **Adjacent bug rule** — If you discover a bug OUTSIDE this feature's acceptance criteria (e.g., a pre-existing bug in a shared function), do NOT fix it inline. Call `/fix "description"` — it will auto-file a `/create-bug` spec and proceed with TDD (canary test → fix → verify). Bugs INSIDE this feature's acceptance criteria are covered by this feature's own tests.
 4. **Run tests** — Execute test suite, check results
 5. **Iterate** — Fix code until ALL tests pass (max 5 attempts)
@@ -672,24 +672,39 @@ After successful commit, mark the feature ready for UAT — do NOT move to `feat
 2. **Determine test URL:** Run `pwd` to identify worktree slot. Look up port from `docs/technical/worktree-setup.md` (w0=5001, w1=5100, w2=5200, etc.). If on main (w0), port is 5001.
 3. **If `*.tsx` files changed: Auto-run visual verification** (do not ask — just do it).
    - **Pre-check:** Run `mcp__claude-in-chrome__tabs_context_mcp` to verify Chrome MCP is available. If it errors → skip to fallback immediately (don't spawn).
-   - Take screenshots of the affected pages at desktop and 390px mobile widths
+   - Take screenshots at 3 viewports: desktop (1280px), tablet (768px), mobile (390px)
    - Read the visual QA checklist from `.claude/rules/visual-qa.md`
-   - **Spawn a SEPARATE visual QA subagent** (anti-confirmation-bias: it must NOT see the spec or code diff):
+   - **Check for Visual Specification:** If spec has `## Component Strategy` with a Visual Specification subsection, read it. This provides design intent (hierarchy, register, spacing, animation) that the QA subagent should evaluate against.
+   - **Spawn a SEPARATE visual QA subagent** (anti-confirmation-bias: it must NOT see the code diff):
      ```
      You are a visual QA reviewer. You succeed by FINDING problems, not confirming quality.
 
-     Here are screenshots of a feature at http://localhost:{port}/{relevant-path}.
+     Here are screenshots of a feature at http://localhost:{port}/{relevant-path}
+     at 3 viewports (desktop 1280px, tablet 768px, mobile 390px).
      {attach all screenshots taken above}
 
+     ## Defect checklist
      Apply this visual QA checklist to every screenshot:
      {inlined visual-qa.md checklist}
 
+     ## Design quality evaluation (only if Visual Specification provided)
+     {if Visual Specification exists, inline it here; otherwise omit this section entirely}
+
+     If a Visual Specification is provided, also evaluate:
+     - Does the visual hierarchy guide the eye to the primary action as specified?
+     - Does information density match the stated density intent?
+     - Does the component's visual weight match adjacent pages (if visual reference was given)?
+     - Are the specified Tailwind classes for spacing/animation consistent with what's rendered?
+
      Return exactly one of:
      - PASS: no visual issues found. List what you checked.
-     - FAIL: list each issue found (overflow, clipping, spacing, contrast, etc.) with which screenshot.
+     - FAIL: list each issue found with which screenshot and viewport.
+       For defect issues: overflow, clipping, spacing, contrast, etc.
+       For design issues (if Visual Specification was provided): hierarchy mismatch, density mismatch, etc.
      ```
    - If subagent returns **PASS**: proceed to step 4
-   - If subagent returns **FAIL**: report findings to the user. Tell them: "Visual QA found issues — fix them and re-run `/dev`, or run `/verify` for full UAT." Do NOT proceed to step 4.
+   - If subagent returns **FAIL with defect issues**: fix them, re-screenshot, re-run QA subagent (1 retry max). If still failing after retry, report to user: "Visual QA issues persist after 1 fix cycle — run `/verify` for full UAT."
+   - If subagent returns **FAIL with design-quality issues only**: report findings to user. These are advisory — don't block, but recommend `/verify` for design review.
    - **Fallback** (Chrome MCP unavailable): tell user "Chrome unavailable — run `/verify` manually for visual QA" and proceed to step 4.
 4. Update frontmatter: `delivery_stage: uat` (keep `status: in-progress`)
 5. Commit: `chore: pN ready for UAT — {title}`

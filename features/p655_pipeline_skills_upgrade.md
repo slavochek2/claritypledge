@@ -125,17 +125,17 @@ The QA subagent must receive NO code context — only screenshots + checklist + 
 
 ## Done-When
 
-- [ ] `/ux` skill produces `## Visual Design Brief` section with all 5 fields (hierarchy, density, register, reference, anti-patterns)
-- [ ] `/ux` edge cases section includes UI States specification (not just "show error toast")
-- [ ] `/ui` skill produces `## Visual Specification` per screen with hierarchy + spacing intent + animation intent
-- [ ] `/dev` skill has two-phase structure for UI features (2a behavior, 2b visual, 2c critique, 2d QA)
-- [ ] `/dev` visual QA is mandatory (no escape hatches) for all UI features
-- [ ] `visual-qa.md` rule includes 3 design-quality questions and prohibits code context to QA subagent
-- [ ] `/dev` step 8.9 upgraded: receives Visual Design Brief + reference screenshots (not just defect checklist)
-- [ ] `/dev` step 8.9 runs iteration loop (max 3 critique cycles) before defect QA gate
-- [ ] Screenshot capture in step 8.9 uses Chrome extension at 3 viewports
-- [ ] All skill changes have passed adversarial review (SURVIVES verdict) before implementation
-- [ ] `docs/decisions.md` has entries for each skill design decision
+- [x] `/ux` skill produces `## Visual Context` section with 2 fields (density intent, visual reference) — adversarial review moved 3 fields to `/ui`
+- [x] `/ux` edge cases section includes UI States specification (not just "show error toast")
+- [x] `/ui` skill produces `## Visual Specification` with 5 required fields (hierarchy, register, negative constraints, spacing per zone, animation)
+- [x] `/dev` skill has single gate ("tests passing before visual refinement") + upgraded UAT verification — adversarial review rejected phase split
+- [x] `/dev` visual QA runs at 3 viewports (1280/768/390) with Chrome fallback
+- [x] `visual-qa.md` rule includes 3 design-quality questions and passes Visual Specification to QA subagent
+- [x] `/dev` UAT gate receives Visual Specification when present (design-quality evaluation alongside defect checklist)
+- [x] `/dev` UAT gate runs 1-cycle retry for defects, design issues advisory not blocking — adversarial review capped from 3 to 1
+- [x] Screenshot capture in UAT gate uses Chrome extension at 3 viewports
+- [x] All skill changes passed adversarial review (BUBBLED UP → revised → implemented) before implementation
+- [x] `docs/decisions.md` has entries for each skill design decision (4 entries: /ux, /ui, /dev, visual-qa.md)
 
 ## Alternatives Considered
 
