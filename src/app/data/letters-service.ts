@@ -151,28 +151,10 @@ export async function getLetterForReading(
 ): Promise<LetterReadingData | null> {
   log('getLetterForReading:', { letterId, deliveryId });
 
-  const { data: letterData, error: letterError } = await supabase
-    .from('clarity_letters')
-    .select('*')
-    .eq('id', letterId)
-    .single();
-
-  if (letterError || !letterData) {
-    log('getLetterForReading: letter not found', letterId);
-    return null;
-  }
-
-  const { data: snapshotsData, error: snapshotsError } = await supabase
-    .from('letter_story_snapshots')
-    .select('*')
-    .eq('letter_id', letterId)
-    .order('position', { ascending: true });
-
-  if (snapshotsError) {
-    logDbError('getLetterForReading.snapshots', snapshotsError);
-  }
-
+  // If letterId is empty but deliveryId is provided, look up letter via delivery first
+  let resolvedLetterId = letterId;
   let delivery: LetterDelivery | null = null;
+
   if (deliveryId) {
     const { data: deliveryData, error: deliveryError } = await supabase
       .from('letter_deliveries')
@@ -184,10 +166,53 @@ export async function getLetterForReading(
       logDbError('getLetterForReading.delivery', deliveryError);
     }
     delivery = (deliveryData as LetterDelivery) ?? null;
+
+    if (!resolvedLetterId && delivery) {
+      resolvedLetterId = delivery.letter_id;
+    }
+  }
+
+  if (!resolvedLetterId) {
+    log('getLetterForReading: no letter ID resolved');
+    return null;
+  }
+
+  // Fetch letter + sender profile for display name
+  const { data: letterData, error: letterError } = await supabase
+    .from('clarity_letters')
+    .select('*')
+    .eq('id', resolvedLetterId)
+    .single();
+
+  if (letterError || !letterData) {
+    log('getLetterForReading: letter not found', resolvedLetterId);
+    return null;
+  }
+
+  // Resolve sender display name (profiles table join)
+  const { data: senderProfile } = await supabase
+    .from('profiles')
+    .select('name')
+    .eq('id', letterData.sender_id)
+    .single();
+
+  const letterWithSender = {
+    ...letterData,
+    sender_display_name: senderProfile?.name || 'Someone',
+  };
+
+  const { data: snapshotsData, error: snapshotsError } = await supabase
+    .from('letter_story_snapshots')
+    .select('*')
+    .eq('letter_id', resolvedLetterId)
+    .order('position', { ascending: true });
+
+  if (snapshotsError) {
+    logDbError('getLetterForReading.snapshots', snapshotsError);
   }
 
   return {
-    letter: letterData as ClarityLetter,
+    letter: letterWithSender as ClarityLetter,
     snapshots: (snapshotsData ?? []) as LetterStorySnapshot[],
     delivery,
   };
@@ -266,16 +291,18 @@ export async function submitRating(
   deliveryId: string,
   storyId: string,
   rating: number,
-  senderId: string
+  senderId: string,
+  versionId?: string
 ): Promise<void> {
   // Get user from session (not getUser() which can fail on token refresh)
   const { data: { session } } = await supabase.auth.getSession();
   const userId = session?.user?.id;
   if (!userId) throw new Error('Not authenticated');
-  log('submitRating:', { deliveryId, storyId, rating, senderId });
+  log('submitRating:', { deliveryId, storyId, rating, senderId, versionId });
 
   const { error } = await supabase.from('story_verifications').insert({
     story_id: storyId,
+    version_id: versionId ?? null,
     speaker_id: senderId,
     listener_id: userId,
     listener_rating: rating,

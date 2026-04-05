@@ -118,6 +118,7 @@ function ModeStep({ mode, onSelectMode, emails, onEmailsChange, receiverName, on
               id="receiver-name"
               type="text"
               placeholder="e.g. Slava Ladischenski"
+              maxLength={100}
               value={receiverName}
               onChange={(e) => onReceiverNameChange(e.target.value)}
               required

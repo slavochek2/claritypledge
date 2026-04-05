@@ -232,7 +232,7 @@ export function useLetterReadingState(
             phase: 'gap-reveal',
           }));
         } else {
-          await submitRating(deliveryId, currentSnapshot.story_id, rating, senderId);
+          await submitRating(deliveryId, currentSnapshot.story_id, rating, senderId, currentSnapshot.version_id);
           const prediction = await revealPrediction(deliveryId, currentSnapshot.story_id);
           updateCurrentStory((prev) => ({
             ...prev,
