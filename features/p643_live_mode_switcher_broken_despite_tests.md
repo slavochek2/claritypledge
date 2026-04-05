@@ -18,7 +18,7 @@ Speaker clicks Speak → nothing happens. They see the Speak button again instea
 ### The 3 bugs (one causal chain)
 
 **Bug 1 (root): Speaker clicks Speak → sees Speak button again instead of drawer.**
-Speaker clicks Speak once, should immediately see the rating drawer (1-10 scale). Instead sees a redundant Speak button — has to click twice. This is a local state problem: `handleStartCheck` guard silently rejects the first click, so `isLocallyRating` is never set to true and the drawer never opens.
+Speaker clicks Speak once, should immediately see the rating drawer (1-10 scale). Instead sees a redundant Speak button — has to click twice. Most likely cause: `handleStartCheck` guard silently rejects the first click (stale `confirmedLiveStateRef`), but this is unconfirmed — reproduce via E2E before assuming.
 
 **Bug 2 (downstream): Listener's mode switcher stays enabled instead of disabling.**
 When speaker clicks Speak, listener's mode switcher should show DISABLED (grayed out, tooltip "Mode locked — your partner is rating"). Instead it stays fully clickable. Because bug 1 means the speaker never picks a number, `ratingInitiatedBy` is never written to DB, so the listener never receives the signal to disable.
