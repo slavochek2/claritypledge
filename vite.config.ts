@@ -90,6 +90,19 @@ export default defineConfig({
     chunkSizeWarningLimit: 1000, // Increase from 500KB to 1MB (main bundle is ~920KB)
   },
   plugins: [
+    // Fail build early if required env vars are missing (catches Vercel misconfig)
+    {
+      name: 'env-validate',
+      enforce: 'pre',
+      configResolved(config) {
+        if (config.command !== 'build' || process.env.VITEST) return
+        const required = ['VITE_SUPABASE_URL', 'VITE_SUPABASE_ANON_KEY']
+        const missing = required.filter(k => !config.env[k])
+        if (missing.length) {
+          throw new Error(`Missing required env vars: ${missing.join(', ')}. Check .env.local (local) or Vercel env vars (deploy).`)
+        }
+      },
+    },
     react(),
     // Sentry plugin uploads source maps during build
     // Only runs when SENTRY_AUTH_TOKEN is available (production builds)
