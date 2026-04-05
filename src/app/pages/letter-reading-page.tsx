@@ -200,9 +200,10 @@ export function LetterReadingPage() {
         });
 
         if (otpError) {
-          // Fallback: send magic link email
+          // Fallback: send magic link email using email from edge function response
+          // (delivery.receiver_email is redacted by RPC for privacy)
           console.warn('[letter-reading] verifyOtp failed, falling back to signInWithOtp:', otpError.message);
-          const receiverEmail = delivery.receiver_email;
+          const receiverEmail = result.receiverEmail;
           if (receiverEmail) {
             await supabase.auth.signInWithOtp({
               email: receiverEmail,

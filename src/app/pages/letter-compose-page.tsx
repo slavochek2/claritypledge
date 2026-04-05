@@ -108,7 +108,7 @@ function ModeStep({ mode, onSelectMode, emails, onEmailsChange, receiverName, on
               onChange={(e) => onEmailsChange(e.target.value)}
               className="w-full"
             />
-            <p className="text-xs text-muted-foreground">Separate multiple emails with commas.</p>
+            <p className="text-xs text-muted-foreground">The email address of the person you&apos;re writing to.</p>
           </div>
           <div className="space-y-2">
             <label htmlFor="receiver-name" className="text-sm font-medium text-foreground">

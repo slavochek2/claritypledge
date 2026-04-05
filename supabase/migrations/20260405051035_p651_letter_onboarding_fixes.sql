@@ -255,13 +255,9 @@ AS $$
 DECLARE
   v_delivery_id UUID;
   v_current_status TEXT;
-  v_status_order INTEGER[];
   v_current_rank INTEGER;
   v_new_rank INTEGER;
 BEGIN
-  -- Status ordering: sent=1, opened=2, in_progress=3, completed=4
-  v_status_order := ARRAY[1, 2, 3, 4];
-
   SELECT ld.id, ld.status INTO v_delivery_id, v_current_status
   FROM letter_deliveries ld
   JOIN clarity_letters cl ON cl.id = ld.letter_id
@@ -452,10 +448,12 @@ BEGIN
   )
   ON CONFLICT DO NOTHING;
 
-  -- Update delivery progress
-  UPDATE letter_deliveries
-  SET stories_rated = stories_rated + 1
-  WHERE id = v_delivery_id;
+  -- Only increment counter if a row was actually inserted (avoids drift on duplicate submits)
+  IF FOUND THEN
+    UPDATE letter_deliveries
+    SET stories_rated = stories_rated + 1
+    WHERE id = v_delivery_id;
+  END IF;
 
   RETURN true;
 END;

@@ -207,7 +207,7 @@ serve(async (req: Request) => {
             const { data: slugCheck } = await supabase.from('profiles').select('slug').eq('slug', slugFallback).maybeSingle();
             if (slugCheck) slugFallback = `${slugFallback}-${Date.now()}`;
 
-            await supabase.from('profiles').insert({
+            const { error: profileInsertError } = await supabase.from('profiles').insert({
               id: existingAuth.user.id,
               email: receiverEmail,
               name: nameFallback,
@@ -218,6 +218,11 @@ serve(async (req: Request) => {
               accepted_terms_version: 'v1.1',
               pledge_version: 2,
             });
+
+            if (profileInsertError) {
+              console.error('[create-and-open-letter] self-healing profile insert failed:', profileInsertError.message);
+              return jsonResponse({ error: 'PROFILE_FAILED', message: 'Account setup failed' }, 500);
+            }
           }
 
           await supabase.from('letter_deliveries').update({
@@ -230,6 +235,7 @@ serve(async (req: Request) => {
         return jsonResponse({
           ok: true,
           hashedToken: fallbackLink.properties.hashed_token,
+          receiverEmail,
           redirectTo: `/letter/${deliveryId}`,
         });
       }
@@ -318,6 +324,7 @@ serve(async (req: Request) => {
     return jsonResponse({
       ok: true,
       hashedToken: linkData.properties.hashed_token,
+      receiverEmail,
       redirectTo: `/letter/${deliveryId}`,
     });
 
