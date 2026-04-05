@@ -24,55 +24,41 @@ High blast radius — affects every future agent session that touches strategy, 
 
 ## Solution
 
-Five concrete file changes, in order:
+Three edits to existing files (refined from original 6-file plan after adversarial review — see decisions.md 2026-04-05):
 
-1. **Create `docs/clarity-canvas.md`** — replaces lean-canvas.md as the primary strategy doc. Structure: ikigai as governing frame (four circles), lean canvas nested as the income/money quadrant. "World needs it" circle defined as positive externality (benefits to people the attendee interacts with afterward, not just direct participants). Mechanism falsification criteria replace kill thresholds — two worked examples: one "this IS mechanism progress," one "this IS a transform trigger."
+1. **CLAUDE.md** — add impact-first project framing in Reference Guide section. ✅ Done (committed 667824fd).
 
-2. **Create `.claude/rules/ikigai.md`** — path-triggered rule on `docs/`, `features/`, `src/`, `CLAUDE.md`. Content: ikigai definition, three circles with positive externality specification, explicit instruction to apply transformation-of-mechanism logic (not startup kill criteria), and the two worked falsification examples from the canvas.
+2. **`docs/lean-canvas.md`** — add ikigai governing frame at top: founder identity, four circles (love/calling, skill, world-need as positive externality, income), sequencing logic (prove flip → income follows), progress metric (learning speed = hypotheses falsified per unit time). Keep full lean canvas content intact — it IS the income quadrant detail. Add deprecation-style header noting clarity-canvas framing governs evaluation.
 
-3. **Redirect `lean-canvas.md`** — single line pointing to clarity-canvas.md. File stays for historical reference; no agent reads it as authoritative.
-
-4. **Add falsification tripwire to top of `decisions.md`** — 3-line block: "Before logging a decision, test: does this advance mechanism (how transformation occurs) or just outputs? If outputs only, log the mechanism gap."
-
-5. **Add ikigai context link to top of `hypotheses.md`** — single sentence: hypotheses test mechanisms, not the mission; a failed hypothesis triggers mechanism transformation, not abandonment.
-
-CLAUDE.md Reference Guide update (lean-canvas.md → clarity-canvas.md) is a separate step via `/claude-md` gate.
+3. **`docs/hypotheses.md`** — reframe "Kill if:" language throughout to mechanism transformation: a failed hypothesis means the delivery method needs changing, not the mission. Revenue can validate a hypothesis but isn't the default success metric.
 
 ## Risks / Non-Goals
 
 ### Risks
-- `.claude/rules/` path trigger on `CLAUDE.md` itself may not fire reliably — must verify after implementation. Mitigation: test by editing CLAUDE.md in a dry run and confirming the rule loads.
-- Two canvas docs (lean-canvas.md + clarity-canvas.md) could confuse agents if lean-canvas.md isn't clearly deprecated. Mitigation: redirect line + CLAUDE.md reference update removes lean-canvas.md from the active reference set.
+- lean-canvas.md ikigai header could be ignored by agents that skip to specific sections. Mitigation: header is brief and frames the entire doc; agents reading any section see it first.
+- Hypotheses.md reframe could lose specificity if "mechanism transform" language is too vague. Mitigation: keep concrete criteria per hypothesis, just change the framing from "abandon project" to "change delivery method."
 
 ### Non-Goals
-- Do NOT modify any existing decisions in `decisions.md` — the tripwire is a header addition only
-- Do NOT rewrite `hypotheses.md` kill threshold language (yet) — that is the post-synthesis hypothesis completeness pass, a separate task
 - Do NOT touch `docs/philosophy.md` — it already encodes life-work framing correctly
 - Do NOT change any `src/`, `supabase/`, or `e2e/` files
+- Do NOT create new files (clarity-canvas.md, ikigai.md ruled out by adversarial review)
 
-### Alternatives Considered
-- **C1: `docs/ikigai.md` anchor + one-liner in CLAUDE.md** — reference links not auto-loaded; agents skip linked docs. Rejected: delivery mechanism unreliable.
-- **C7: Direct CLAUDE.md Universal Principles edit with inline table** — 350-line budget blocks inline table; truncated version collapses to C1. Rejected: budget constraint removes the action-forcing table.
-- **C5: Global vocabulary substitution only** — vocabulary without auto-loaded anchor produces inconsistent application. Rejected: no structural change means no behavioral change.
-
-Full scoring table in t001 synthesis (C8 scored 83/100 vs next-best 69).
+### Alternatives Considered (original C8, refined after adversarial)
+- **Original C8 (6 files):** Separate clarity-canvas.md + `.claude/rules/ikigai.md` + lean-canvas redirect + decisions.md tripwire. Adversarial review found: path trigger too broad (loads on src/ CSS fixes), redirect breaks 41 references, tripwire is decorative. Rejected: over-engineered.
+- **C1/C7/C5:** See t001 synthesis (scored lower than C8). Still rejected for same reasons.
 
 ### Rollback Strategy
-- `lean-canvas.md`: remove redirect line → file is self-contained again
-- `docs/clarity-canvas.md`: delete file → no impact on existing code or data
-- `.claude/rules/ikigai.md`: delete file → path trigger stops loading
-- `decisions.md` tripwire: remove 3 lines at top → file reverts exactly
-- `hypotheses.md` link: remove single sentence → file reverts exactly
+- `CLAUDE.md`: remove 1 line (impact-first statement) → reverts exactly
+- `lean-canvas.md`: remove ikigai header block → file is self-contained again
+- `hypotheses.md`: revert "Kill if:" language → git history has original
 
 All changes are independently reversible with no cascading effects.
 
 ## Done-When
 
-- [ ] `docs/clarity-canvas.md` exists with ikigai structure, lean canvas as income quadrant, positive externality definition, and two worked mechanism falsification examples
-- [ ] `.claude/rules/ikigai.md` exists and path trigger confirmed firing on `docs/`, `features/`, `src/`, `CLAUDE.md` edits
-- [ ] `lean-canvas.md` has redirect line to `clarity-canvas.md`
-- [ ] `decisions.md` has 3-line falsification tripwire at top
-- [ ] `hypotheses.md` opening has single-sentence ikigai context link
-- [ ] CLAUDE.md Reference Guide updated via `/claude-md` gate (lean-canvas.md → clarity-canvas.md)
+- [x] CLAUDE.md impact-first line in Reference Guide (committed 667824fd)
+- [x] `/kdd` run to log the t001 decision (decisions.md 2026-04-04)
+- [x] `/kdd` run to log the refinement decision (decisions.md 2026-04-05)
+- [ ] `lean-canvas.md` has ikigai governing frame at top (four circles, positive externality, sequencing logic, progress metric)
+- [ ] `hypotheses.md` "Kill if:" reframed to mechanism transformation throughout
 - [ ] No existing technical decisions in `decisions.md` were modified
-- [ ] `/kdd` run to log the t001 decision (what was chosen and why)

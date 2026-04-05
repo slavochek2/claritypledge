@@ -2,6 +2,14 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-05 [process]: P652 refined — 3 edits to existing files, not 6 new/modified files
+
+**Context:** Adversarial review of the original P652 plan (6 file changes) surfaced three issues: (1) `.claude/rules/ikigai.md` path trigger on `docs/`, `features/`, `src/`, `CLAUDE.md` is too broad — agents fixing CSS would load ikigai philosophy; (2) redirecting lean-canvas.md to a new clarity-canvas.md breaks 41 file references across skills and docs; (3) a 3-line "falsification tripwire" in decisions.md is decorative — agents write via `/kdd` skill, not by reading file headers. Session also clarified the framing: progress is measured by learning speed (hypotheses falsified per unit time), revenue is proof of positive impact (therefore second, not first), and the project evaluation frame is impact-first positive externality.
+**Decision:** Reduce P652 to 3 edits of existing files: (1) CLAUDE.md impact-first line in Reference Guide (done — committed in 667824fd), (2) lean-canvas.md — add ikigai governing frame at top (founder identity, four circles, positive externality definition, sequencing logic), keep full content intact with deprecation header, (3) hypotheses.md — reframe "Kill if:" language to mechanism transformation throughout. No new files, no rules file, no decisions.md tripwire.
+**Alternatives rejected:** Original C8 plan (6 files) — adversarial review showed separate rules file duplicates content, redirect breaks references, tripwire doesn't fire. Separate `.claude/rules/ikigai.md` — agents working on `features/` already read lean-canvas.md (source of truth); a rules file repeating the same framing violates reference-over-duplication.
+**Consequences:** Two edits remain: lean-canvas.md ikigai frame and hypotheses.md reframe. P652 spec should be updated to reflect the simplified approach. `/kdd` skill may need a falsification instruction added (the effective replacement for the decorative tripwire).
+**References:** `features/p652_ikigai_framing_infrastructure.md`, `CLAUDE.md:314`
+
 ## 2026-04-05 [technical]: Pre-commit secret scanning — two-layer defense for connection string credentials
 
 **Context:** Security audit (2026-04-03) found that database credentials had been committed to this public repo as connection string URLs. Both gitleaks (installed, rules-based) and the grep fallback (pattern-based) missed these because: (1) gitleaks' default ruleset has no rule for credentials embedded in database connection string URLs, (2) the grep scan was dead code — the script used if/else, so when gitleaks was present the grep branch never executed, (3) an example file contained a real credential in a comment labeled "Format:".
