@@ -14,6 +14,7 @@ import {
   revealPrediction,
   submitPointResponse,
   updateDeliveryStatus,
+  updateDeliveryStatusByToken,
   submitPointResponseByToken,
   submitRatingByToken,
   revealPredictionByToken,
@@ -292,22 +293,30 @@ export function useLetterReadingState(
     });
   }, [currentSnapshot, updateCurrentStory]);
 
-  // Move to next story
+  // Move to next story — bug #4 fix: use token-based RPC when token is present
   const nextStory = useCallback(() => {
     setState((prev) => {
       const nextIndex = prev.currentStoryIndex + 1;
       if (nextIndex >= prev.stories.length) {
         // All stories read — mark complete
-        updateDeliveryStatus(deliveryId, 'completed').catch(() => {});
+        if (token) {
+          updateDeliveryStatusByToken(token, 'completed').catch(() => {});
+        } else {
+          updateDeliveryStatus(deliveryId, 'completed').catch(() => {});
+        }
         return { ...prev, isComplete: true };
       }
       // Mark delivery as in_progress if this is the first advance
       if (prev.currentStoryIndex === 0) {
-        updateDeliveryStatus(deliveryId, 'in_progress').catch(() => {});
+        if (token) {
+          updateDeliveryStatusByToken(token, 'in_progress').catch(() => {});
+        } else {
+          updateDeliveryStatus(deliveryId, 'in_progress').catch(() => {});
+        }
       }
       return { ...prev, currentStoryIndex: nextIndex };
     });
-  }, [deliveryId]);
+  }, [deliveryId, token]);
 
   return {
     state,

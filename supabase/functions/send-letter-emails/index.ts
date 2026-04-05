@@ -107,6 +107,7 @@ interface LetterRow {
 interface DeliveryRow {
   id: string;
   receiver_email: string | null;
+  receiver_name: string | null;
   invitation_token: string | null;
 }
 
@@ -118,8 +119,10 @@ interface ProfileRow {
 
 // -- Entry point --------------------------------------------------------------
 
+const ALLOWED_ORIGIN = Deno.env.get('APP_URL') ?? 'https://claritypledge.com';
+
 const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Origin': ALLOWED_ORIGIN,
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
@@ -176,7 +179,7 @@ serve(async (req: Request) => {
     // Fetch deliveries with receiver_email
     const { data: deliveries } = await supabase
       .from('letter_deliveries')
-      .select('id, receiver_email, invitation_token')
+      .select('id, receiver_email, receiver_name, invitation_token')
       .eq('letter_id', letterId)
       .not('receiver_email', 'is', null) as { data: DeliveryRow[] | null };
 
@@ -186,35 +189,49 @@ serve(async (req: Request) => {
       });
     }
 
+    // HTML-escape helper (defense-in-depth against name injection)
+    function esc(s: string): string {
+      return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
     // Send email to each delivery
     await Promise.all(
       deliveries.map(async (delivery) => {
         if (!delivery.receiver_email || !delivery.invitation_token) return;
 
         const ctaUrl = `${appUrl}/letter/${delivery.id}?token=${delivery.invitation_token}`;
+        const safeSenderName = esc(senderName);
+
+        // Personalized greeting using receiver_name first name
+        const receiverFirstName = delivery.receiver_name
+          ? esc(delivery.receiver_name.split(' ')[0])
+          : null;
+        const greeting = receiverFirstName ? `Hi ${receiverFirstName},` : 'Hi,';
+
         const subject = `${senderName} sent you a Clarity Letter`;
 
         const html = htmlEmail(subject, `
-          <p style="margin:0 0 16px;font-size:16px;color:#111827;">Hi,</p>
+          <p style="margin:0 0 16px;font-size:16px;color:#111827;">${greeting}</p>
           <h1 style="margin:0 0 8px;font-size:24px;font-weight:700;color:#111827;">You've received a Clarity Letter</h1>
           <p style="margin:0 0 16px;font-size:16px;color:#4b5563;">
-            <strong>${senderName}</strong> has sent you a Clarity Letter &mdash;
+            <strong>${safeSenderName}</strong> has sent you a Clarity Letter &mdash;
             a collection of stories with calibrated predictions about how well you'll understand them.
           </p>
           <p style="margin:0 0 4px;font-size:14px;color:#6b7280;">
-            Read each story, rate your understanding, and see how well ${senderName} predicted your responses.
+            Read each story, rate your understanding, and see how well ${safeSenderName} predicted your responses.
           </p>
           ${button('Open the Letter', ctaUrl)}
           <p style="margin:20px 0 0;font-size:13px;color:#9ca3af;">
             This invitation expires in 7 days. If you're new to Clarity Pledge,
-            an account will be created for you automatically.
+            you'll be able to create an account when you open the letter.
           </p>
           <p style="margin:8px 0 0;font-size:11px;color:#d1d5db;">
-            Your email was shared by ${senderName} to send this letter. Remove it: <a href="mailto:privacy@claritypledge.com" style="color:#d1d5db;">privacy@claritypledge.com</a>
+            Your email was shared by ${safeSenderName} to send this letter. Remove it: <a href="mailto:privacy@claritypledge.com" style="color:#d1d5db;">privacy@claritypledge.com</a>
           </p>
         `);
 
-        const text = `${senderName} sent you a Clarity Letter.\n\nOpen the Letter: ${ctaUrl}\n\nThis invitation expires in 7 days.\n\nYour email was shared by ${senderName} to send this letter. Remove it: privacy@claritypledge.com\nClarity Pledge`;
+        const textGreeting = receiverFirstName ? `Hi ${receiverFirstName},\n\n` : '';
+        const text = `${textGreeting}${senderName} sent you a Clarity Letter.\n\nOpen the Letter: ${ctaUrl}\n\nThis invitation expires in 7 days.\n\nYour email was shared by ${senderName} to send this letter. Remove it: privacy@claritypledge.com\nClarity Pledge`;
 
         await sendEmail({ to: delivery.receiver_email, subject, html, text });
       })

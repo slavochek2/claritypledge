@@ -83,7 +83,7 @@ export async function createLetter(
 export async function sealLetter(
   letterId: string,
   predictions: Array<{ story_id: string; prediction: number }> = [],
-  deliveries: Array<{ receiver_email: string }> = []
+  deliveries: Array<{ receiver_email: string; receiver_name?: string }> = []
 ): Promise<{ success: boolean; error?: string }> {
   await requireAuth();
   log('sealLetter:', { letterId, predictions, deliveries });
@@ -280,10 +280,11 @@ export async function submitRating(
     listener_id: userId,
     listener_rating: rating,
     speaker_rating: 0, // Placeholder — sender predicts separately
-    accuracy_achieved: false, // Determined after reveal
+    // Bug #1 fix: accuracy_achieved is GENERATED ALWAYS — do not set
+    // Bug #2 fix: session_id is FK to clarity_sessions — letters use NULL
     source: 'letter',
     verified: false,
-    session_id: deliveryId, // Reuse session_id column to link to delivery
+    session_id: null,
   });
 
   if (error) {

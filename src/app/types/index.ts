@@ -1354,6 +1354,7 @@ export interface ClarityLetter {
   id: string;
   source_doc_id: string;
   sender_id: string;
+  sender_display_name?: string;
   mode: LetterMode;
   status: LetterStatus;
   sealed_at: string | null;
@@ -1365,6 +1366,7 @@ export interface LetterDelivery {
   letter_id: string;
   receiver_email: string | null;
   receiver_profile_id: string | null;
+  receiver_name: string | null;
   invitation_token: string;
   invitation_expires_at: string | null;
   access_token_expires_at: string | null;

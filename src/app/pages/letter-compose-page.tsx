@@ -36,12 +36,14 @@ interface ModeStepProps {
   onSelectMode: (mode: LetterMode) => void;
   emails: string;
   onEmailsChange: (emails: string) => void;
+  receiverName: string;
+  onReceiverNameChange: (name: string) => void;
   isPrivateDoc: boolean;
   onNext: () => void;
 }
 
-function ModeStep({ mode, onSelectMode, emails, onEmailsChange, isPrivateDoc, onNext }: ModeStepProps) {
-  const canProceed = mode === 'one-to-many' || (mode === 'one-to-one' && emails.trim().length > 0);
+function ModeStep({ mode, onSelectMode, emails, onEmailsChange, receiverName, onReceiverNameChange, isPrivateDoc, onNext }: ModeStepProps) {
+  const canProceed = mode === 'one-to-many' || (mode === 'one-to-one' && emails.trim().length > 0 && receiverName.trim().length > 0);
 
   return (
     <div className="space-y-6">
@@ -91,21 +93,38 @@ function ModeStep({ mode, onSelectMode, emails, onEmailsChange, isPrivateDoc, on
         </button>
       </div>
 
-      {/* Email input for 1-to-1 */}
+      {/* Email + name input for 1-to-1 */}
       {mode === 'one-to-one' && (
-        <div className="space-y-2">
-          <label htmlFor="receiver-emails" className="text-sm font-medium text-foreground">
-            Recipient emails
-          </label>
-          <Input
-            id="receiver-emails"
-            type="text"
-            placeholder="email@example.com, another@example.com"
-            value={emails}
-            onChange={(e) => onEmailsChange(e.target.value)}
-            className="w-full"
-          />
-          <p className="text-xs text-muted-foreground">Separate multiple emails with commas.</p>
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <label htmlFor="receiver-emails" className="text-sm font-medium text-foreground">
+              Recipient email
+            </label>
+            <Input
+              id="receiver-emails"
+              type="text"
+              placeholder="email@example.com"
+              value={emails}
+              onChange={(e) => onEmailsChange(e.target.value)}
+              className="w-full"
+            />
+            <p className="text-xs text-muted-foreground">Separate multiple emails with commas.</p>
+          </div>
+          <div className="space-y-2">
+            <label htmlFor="receiver-name" className="text-sm font-medium text-foreground">
+              Recipient&apos;s full name
+            </label>
+            <Input
+              id="receiver-name"
+              type="text"
+              placeholder="e.g. Slava Ladischenski"
+              value={receiverName}
+              onChange={(e) => onReceiverNameChange(e.target.value)}
+              required
+              className="w-full"
+            />
+            <p className="text-xs text-muted-foreground">Used in the email greeting and on the letter cover.</p>
+          </div>
         </div>
       )}
 
@@ -295,13 +314,14 @@ interface SealStepProps {
   stories: DocStory[];
   mode: LetterMode;
   emails: string[];
+  receiverName: string;
   predictions: Map<string, number>;
   onBack: () => void;
   onSeal: () => Promise<void>;
   sealing: boolean;
 }
 
-function SealStep({ doc, stories, mode, emails, predictions, onBack, onSeal, sealing }: SealStepProps) {
+function SealStep({ doc, stories, mode, emails, receiverName, predictions, onBack, onSeal, sealing }: SealStepProps) {
   const totalPoints = stories.reduce(
     (sum, s) => sum + (s.story.points?.length ?? 0),
     0
@@ -350,7 +370,9 @@ function SealStep({ doc, stories, mode, emails, predictions, onBack, onSeal, sea
             <p className="text-xs text-muted-foreground mb-1">Recipients:</p>
             <div className="space-y-0.5">
               {emails.map((email) => (
-                <p key={email} className="text-xs text-foreground">{email}</p>
+                <p key={email} className="text-xs text-foreground">
+                  {receiverName ? `${receiverName} (${email})` : email}
+                </p>
               ))}
             </div>
           </div>
@@ -399,6 +421,7 @@ export function LetterComposePage() {
   const [step, setStep] = useState<WizardStep>('mode');
   const [mode, setMode] = useState<LetterMode | null>(null);
   const [emailsInput, setEmailsInput] = useState('');
+  const [receiverName, setReceiverName] = useState('');
   const [predictions, setPredictions] = useState<Map<string, number>>(new Map());
   const [sealing, setSealing] = useState(false);
 
@@ -455,7 +478,7 @@ export function LetterComposePage() {
 
       // 3. Build deliveries array for 1-to-1
       const deliveriesArray = mode === 'one-to-one'
-        ? parsedEmails.map((email) => ({ receiver_email: email }))
+        ? parsedEmails.map((email) => ({ receiver_email: email, receiver_name: receiverName || undefined }))
         : [];
 
       // 4. Seal (atomic: snapshot + deliveries + predictions)
@@ -486,7 +509,7 @@ export function LetterComposePage() {
       toast.error('Something went wrong. Please try again.');
       setSealing(false);
     }
-  }, [docId, user?.id, mode, predictions, parsedEmails, navigate, stories.length]);
+  }, [docId, user?.id, mode, predictions, parsedEmails, receiverName, navigate, stories.length]);
 
   // Edge case: doc has no stories — redirect back
   useEffect(() => {
@@ -556,6 +579,8 @@ export function LetterComposePage() {
             onSelectMode={setMode}
             emails={emailsInput}
             onEmailsChange={setEmailsInput}
+            receiverName={receiverName}
+            onReceiverNameChange={setReceiverName}
             isPrivateDoc={isPrivateDoc}
             onNext={() => {
               analytics.track('letter_created', {
@@ -590,6 +615,7 @@ export function LetterComposePage() {
             stories={stories}
             mode={mode}
             emails={parsedEmails}
+            receiverName={receiverName}
             predictions={predictions}
             onBack={() => setStep('preview')}
             onSeal={handleSeal}

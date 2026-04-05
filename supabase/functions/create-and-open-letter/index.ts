@@ -18,8 +18,10 @@ import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 
 const AVATAR_COLORS = ['#0044CC', '#002B5C', '#FFD700', '#FF6B6B', '#4ECDC4'];
 
+const ALLOWED_ORIGIN = Deno.env.get('APP_URL') ?? 'https://claritypledge.com';
+
 const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Origin': ALLOWED_ORIGIN,
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
@@ -82,6 +84,7 @@ serve(async (req: Request) => {
     const receiverEmail = letterData.receiver_email as string | null;
     const existingReceiverId = letterData.receiver_profile_id as string | null;
     const letterStatus = letterData.status as string;
+    const receiverName = (letterData.receiver_name as string | null)?.trim()?.slice(0, 100) || null;
 
     // Verify letter is sealed
     if (letterStatus !== 'sealed') {
@@ -166,8 +169,8 @@ serve(async (req: Request) => {
 
     const avatarColor = AVATAR_COLORS[Math.floor(Math.random() * AVATAR_COLORS.length)];
 
-    // Use email local part as initial name
-    const initialName = receiverEmail.split('@')[0].replace(/[._-]+/g, ' ').trim().slice(0, 100) || 'Reader';
+    // Use receiver_name from DB (set at composition time), fallback to email local part
+    const initialName = receiverName || receiverEmail.split('@')[0].replace(/[._-]+/g, ' ').trim().slice(0, 100) || 'Reader';
 
     const { data: authData, error: createError } = await supabase.auth.admin.createUser({
       email: receiverEmail,
@@ -176,7 +179,61 @@ serve(async (req: Request) => {
     });
 
     if (createError || !authData.user) {
-      console.error('[create-and-open-letter] createUser failed:', createError?.message);
+      // Self-healing: auth.users may exist without profile (abandoned signup)
+      // Try to sign in instead — same pattern as agreement flow
+      console.warn('[create-and-open-letter] createUser failed, attempting fallback:', createError?.message);
+
+      const { data: fallbackLink, error: fallbackError } = await supabase.auth.admin.generateLink({
+        type: 'magiclink',
+        email: receiverEmail,
+      });
+
+      if (!fallbackError && fallbackLink?.properties?.hashed_token) {
+        // Link delivery to the existing auth.users record
+        const { data: existingAuth } = await supabase.auth.admin.getUserByEmail(receiverEmail);
+        if (existingAuth?.user) {
+          // Ensure profile exists
+          const { data: profileCheck } = await supabase
+            .from('profiles')
+            .select('id')
+            .eq('id', existingAuth.user.id)
+            .maybeSingle();
+
+          if (!profileCheck) {
+            // Create missing profile (self-healing)
+            const avatarColorFallback = AVATAR_COLORS[Math.floor(Math.random() * AVATAR_COLORS.length)];
+            const nameFallback = receiverName || receiverEmail.split('@')[0].replace(/[._-]+/g, ' ').trim().slice(0, 100) || 'Reader';
+            let slugFallback = generateSlug(nameFallback) || `user-${Date.now()}`;
+            const { data: slugCheck } = await supabase.from('profiles').select('slug').eq('slug', slugFallback).maybeSingle();
+            if (slugCheck) slugFallback = `${slugFallback}-${Date.now()}`;
+
+            await supabase.from('profiles').insert({
+              id: existingAuth.user.id,
+              email: receiverEmail,
+              name: nameFallback,
+              slug: slugFallback,
+              avatar_color: avatarColorFallback,
+              is_verified: true,
+              has_pledged: false,
+              accepted_terms_version: 'v1.1',
+              pledge_version: 2,
+            });
+          }
+
+          await supabase.from('letter_deliveries').update({
+            receiver_profile_id: existingAuth.user.id,
+            status: 'opened',
+            opened_at: new Date().toISOString(),
+          }).eq('id', deliveryId);
+        }
+
+        return jsonResponse({
+          ok: true,
+          hashedToken: fallbackLink.properties.hashed_token,
+          redirectTo: `/letter/${deliveryId}`,
+        });
+      }
+
       return jsonResponse({ error: 'CREATE_FAILED', message: 'Account creation failed' }, 500);
     }
 

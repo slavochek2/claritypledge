@@ -12,10 +12,11 @@
  * - ready: show cover → reading flow
  */
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useParams, useSearchParams, Link } from 'react-router-dom';
 import { toast } from 'sonner';
 import { useAuth } from '@/auth';
+import { supabase } from '@/lib/supabase';
 import { CertificatePageShell } from '@/app/components/layout/certificate-page-shell';
 import { FocusHeader } from '@/app/components/layout/focus-header';
 import { ClarityPageLoader } from '@/components/ui/clarity-loader';
@@ -59,6 +60,12 @@ export function LetterReadingPage() {
   const [snapshots, setSnapshots] = useState<LetterStorySnapshot[]>([]);
   const [delivery, setDelivery] = useState<LetterDelivery | null>(null);
   const [senderName, setSenderName] = useState('Someone');
+  const [receiverDisplayName, setReceiverDisplayName] = useState('you');
+
+  // 1-to-1 auth flow state
+  const [isAuthenticating, setIsAuthenticating] = useState(false);
+  const [authDelayed, setAuthDelayed] = useState(false);
+  const authDelayTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Load data on mount
   useEffect(() => {
@@ -93,7 +100,18 @@ export function LetterReadingPage() {
           setLetter(readData.letter);
           setSnapshots(readData.snapshots);
           setDelivery(readData.delivery);
-          setSenderName(readData.letter.sender_id); // Will be resolved by profile lookup
+
+          // Use sender_display_name from RPC (joined to profiles), not UUID
+          setSenderName(readData.letter.sender_display_name || 'Someone');
+
+          // Use receiver_name first name from delivery, fallback to user name or 'you'
+          const deliveryReceiverName = readData.delivery?.receiver_name;
+          if (deliveryReceiverName) {
+            setReceiverDisplayName(deliveryReceiverName.split(' ')[0]);
+          } else if (currentUser?.user_metadata?.name) {
+            setReceiverDisplayName(currentUser.user_metadata.name);
+          }
+
           setPageState('ready');
         } else {
           // Direct access (authenticated)
@@ -124,7 +142,7 @@ export function LetterReadingPage() {
           setLetter(readData.letter);
           setSnapshots(readData.snapshots);
           setDelivery(readData.delivery);
-          setSenderName(readData.letter.sender_id);
+          setSenderName(readData.letter.sender_display_name || readData.letter.sender_id);
           setPageState('ready');
         }
       } catch (err) {
@@ -136,6 +154,108 @@ export function LetterReadingPage() {
 
     load();
   }, [sessionChecked, deliveryId, token, currentUser?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Cleanup auth delay timer
+  useEffect(() => {
+    return () => {
+      if (authDelayTimerRef.current) clearTimeout(authDelayTimerRef.current);
+    };
+  }, []);
+
+  // 1-to-1 auth handler: calls create-and-open-letter edge function → verifyOtp
+  const handleOneToOneOpen = useCallback(async () => {
+    if (!token || !delivery) return;
+
+    setIsAuthenticating(true);
+    setAuthDelayed(false);
+
+    // Start 5s delay timer for "Setting up your access..." message
+    authDelayTimerRef.current = setTimeout(() => setAuthDelayed(true), 5000);
+
+    try {
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+      const response = await fetch(`${supabaseUrl}/functions/v1/create-and-open-letter`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${supabaseAnonKey}`,
+          'apikey': supabaseAnonKey,
+        },
+        body: JSON.stringify({ token }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok || !result.ok) {
+        throw new Error(result.message || 'Edge function failed');
+      }
+
+      if (result.hashedToken) {
+        // Instant auth via verifyOtp
+        const { error: otpError } = await supabase.auth.verifyOtp({
+          token_hash: result.hashedToken,
+          type: 'magiclink',
+        });
+
+        if (otpError) {
+          // Fallback: send magic link email
+          console.warn('[letter-reading] verifyOtp failed, falling back to signInWithOtp:', otpError.message);
+          const receiverEmail = delivery.receiver_email;
+          if (receiverEmail) {
+            await supabase.auth.signInWithOtp({
+              email: receiverEmail,
+              options: {
+                shouldCreateUser: false,
+                emailRedirectTo: `${window.location.origin}/letter/${deliveryId}?token=${token}`,
+              },
+            });
+          }
+          toast.info("We couldn't sign you in automatically. Check your email for a sign-in link.");
+          setIsAuthenticating(false);
+          setAuthDelayed(false);
+          if (authDelayTimerRef.current) clearTimeout(authDelayTimerRef.current);
+          return;
+        }
+
+        // Auth succeeded — reload page to pick up authenticated session
+        // Clear timer and proceed to reading
+        if (authDelayTimerRef.current) clearTimeout(authDelayTimerRef.current);
+        setAuthDelayed(false);
+
+        // Update delivery status
+        updateDeliveryStatusByToken(token, 'opened').catch(() => {});
+
+        analytics.track('letter_opened', {
+          delivery_id: delivery.id,
+          letter_id: letter?.id,
+          mode: letter?.mode,
+          story_count: snapshots.length,
+          auth_method: 'create-and-open-letter',
+        });
+
+        setIsAuthenticating(false);
+        setViewState('reading');
+      } else {
+        // No hashedToken — delivery was already linked, just proceed
+        if (authDelayTimerRef.current) clearTimeout(authDelayTimerRef.current);
+        updateDeliveryStatusByToken(token, 'opened').catch(() => {});
+        setIsAuthenticating(false);
+        setViewState('reading');
+      }
+    } catch (err) {
+      console.error('[letter-reading] Auth flow error:', err);
+      if (authDelayTimerRef.current) clearTimeout(authDelayTimerRef.current);
+      setIsAuthenticating(false);
+      setAuthDelayed(false);
+
+      const message = err instanceof Error && err.message.includes('timed out')
+        ? 'The connection timed out. Please check your internet and try again.'
+        : 'Something went wrong. Please try again.';
+      toast.error(message);
+    }
+  }, [token, delivery, deliveryId, letter, snapshots.length]);
 
   // ---- Error states ----
 
@@ -230,23 +350,31 @@ export function LetterReadingPage() {
       {viewState === 'cover' && (
         <LetterCover
           senderName={senderName}
-          receiverName={currentUser?.name ?? delivery.receiver_email ?? 'you'}
+          receiverName={receiverDisplayName}
           storyCount={snapshots.length}
           estimatedMinutes={Math.max(1, Math.ceil(snapshots.length * 2))}
           mode={letter.mode}
+          isAuthenticating={isAuthenticating}
+          authDelayed={authDelayed}
           onOpen={() => {
-            if (token) {
-              updateDeliveryStatusByToken(token, 'opened').catch(() => {});
+            if (letter.mode === 'one-to-one' && token) {
+              // 1-to-1: auth at the door via edge function
+              handleOneToOneOpen();
             } else {
-              updateDeliveryStatus(delivery.id, 'opened').catch(() => {});
+              // 1-to-many or already authenticated: enter reading directly
+              if (token) {
+                updateDeliveryStatusByToken(token, 'opened').catch(() => {});
+              } else {
+                updateDeliveryStatus(delivery.id, 'opened').catch(() => {});
+              }
+              setViewState('reading');
+              analytics.track('letter_opened', {
+                delivery_id: delivery.id,
+                letter_id: letter.id,
+                mode: letter.mode,
+                story_count: snapshots.length,
+              });
             }
-            setViewState('reading');
-            analytics.track('letter_opened', {
-              delivery_id: delivery.id,
-              letter_id: letter.id,
-              mode: letter.mode,
-              story_count: snapshots.length,
-            });
           }}
         />
       )}
