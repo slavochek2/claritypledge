@@ -81,10 +81,17 @@ serve(async (req: Request) => {
     }
 
     const deliveryId = letterData.delivery_id as string;
-    const receiverEmail = letterData.receiver_email as string | null;
     const existingReceiverId = letterData.receiver_profile_id as string | null;
     const letterStatus = letterData.status as string;
     const receiverName = (letterData.receiver_name as string | null)?.trim()?.slice(0, 100) || null;
+
+    // get_letter_by_token redacts receiver_email for privacy — query directly with service role
+    const { data: deliveryRow } = await supabase
+      .from('letter_deliveries')
+      .select('receiver_email')
+      .eq('id', deliveryId)
+      .single();
+    const receiverEmail = (deliveryRow?.receiver_email as string | null) ?? null;
 
     // Verify letter is sealed
     if (letterStatus !== 'sealed') {

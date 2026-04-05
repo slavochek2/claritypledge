@@ -208,7 +208,8 @@ serve(async (req: Request) => {
           : null;
         const greeting = receiverFirstName ? `Hi ${receiverFirstName},` : 'Hi,';
 
-        const subject = `${senderName} sent you a Clarity Letter`;
+        // Strip control characters from subject (defense-in-depth against header injection)
+        const subject = `${senderName.replace(/[\r\n]/g, '')} sent you a Clarity Letter`;
 
         const html = htmlEmail(subject, `
           <p style="margin:0 0 16px;font-size:16px;color:#111827;">${greeting}</p>

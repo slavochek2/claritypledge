@@ -67,9 +67,10 @@ export function LetterReadingPage() {
   const [authDelayed, setAuthDelayed] = useState(false);
   const authDelayTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Load data on mount
+  // Load data on mount (skip re-load if already past cover — avoids flash after verifyOtp auth)
   useEffect(() => {
     if (!sessionChecked || !deliveryId) return;
+    if (viewState !== 'cover') return;
 
     const load = async () => {
       setPageState('loading');
@@ -173,23 +174,13 @@ export function LetterReadingPage() {
     authDelayTimerRef.current = setTimeout(() => setAuthDelayed(true), 5000);
 
     try {
-      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-      const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+      const { data: result, error: fnError } = await supabase.functions.invoke(
+        'create-and-open-letter',
+        { body: { token } }
+      );
 
-      const response = await fetch(`${supabaseUrl}/functions/v1/create-and-open-letter`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${supabaseAnonKey}`,
-          'apikey': supabaseAnonKey,
-        },
-        body: JSON.stringify({ token }),
-      });
-
-      const result = await response.json();
-
-      if (!response.ok || !result.ok) {
-        throw new Error(result.message || 'Edge function failed');
+      if (fnError || !result?.ok) {
+        throw new Error(result?.message || fnError?.message || 'Edge function failed');
       }
 
       if (result.hashedToken) {
