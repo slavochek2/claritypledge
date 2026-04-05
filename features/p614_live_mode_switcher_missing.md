@@ -1,5 +1,5 @@
 ---
-status: backlog
+status: rejected
 type: bug
 rank: 4
 tags:
@@ -7,6 +7,7 @@ tags:
   - regression
   - p562
 created_date: 2026-03-30T00:00:00.000Z
+superseded_by: p643
 ---
 
 # P614: /live — Open/Guided Mode Switcher Never Renders

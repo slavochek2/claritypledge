@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: rejected
 type: change-request
 rank: 2
 changes: p617
@@ -10,7 +10,6 @@ tags:
   - p617
 created_date: 2026-04-03T00:00:00.000Z
 flow: dev
-locked_at: '2026-04-04T01:43:42.711Z'
 superseded_by: p643
 ---
 

@@ -45,17 +45,23 @@ Code on w1 fixes name-string identity (`04517305`, `3aad2b6d`). But bugs persist
 - `getViewState()` extracted and unit-tested (P617, P638)
 - Mode switcher IIFE folded into `getViewState()` (P638)
 - Name collision identity fix (P646)
-- `ratingInitiatedBy` passthrough during in-flight writes (P643 commit)
+- `ratingInitiatedBy` passthrough during in-flight writes (lines 1056, 1068 of `clarity-live-page.tsx`) — so `updateInFlightRef` blackout is **NOT** the cause of these bugs
 - 20 commits, 1712 insertions across 13 files
 - 1601 unit tests passing
 - P644 test helpers merged from main
-- **Broken:** `e2e/p617-mode-switcher-lifecycle.spec.ts` import path — never ran
+- **Fixed:** `e2e/p617-mode-switcher-lifecycle.spec.ts` broken import path (was `../src/lib/supabase-admin`, now `./helpers/supabase-admin`)
+- **Still broken:** All 5 E2E tests fail — auth injection fails, pages redirect to Google Sign In instead of the /live session
+- **Root cause of test failure:** Test uses manual pre-P644 auth/terms workaround code (lines 56-68) instead of P644's `createTwoPartySession` which includes `assertNoAuthRedirect` and terms dismissal built-in
 
-## First step: reproduce, don't theorize
+## First step: fix E2E auth, then reproduce
 
-Fix the broken import. Run the E2E test. If it passes → the test doesn't catch the bug (write a better one). If it fails → we have a reproduction and can debug from there.
+The E2E test now loads (import fixed) but all 5 tests fail at the auth stage — pages land on Google Sign In. The test has manual auth workaround code that predates P644's helpers. Fix:
 
-Do NOT read more code or form hypotheses before running the test.
+1. Update `createTwoPartySession` call or the test's auth handling to properly inject sessions
+2. Run the E2E tests — if they pass → tests don't catch the bug (write better ones). If they fail at the *application level* (not auth) → we have a reproduction
+3. Debug from actual test output, not theory
+
+Do NOT read more code or form hypotheses before the E2E tests reach the /live page.
 
 ## Acceptance Criteria
 
