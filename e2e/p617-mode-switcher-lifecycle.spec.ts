@@ -1,33 +1,16 @@
 import { test, expect, Browser } from '@playwright/test';
 import { createTwoPartySession, TwoPartySession } from './helpers/test-session';
-import { supabaseAdmin } from './helpers/supabase-admin';
+import { waitForUIUpdate, advanceSessionState, postRoundIdleState } from './helpers/test-realtime';
 
 /**
- * P617: Mode Switcher + Drawer Lifecycle Verification
+ * P617/P643: Mode Switcher + Drawer Lifecycle Verification
  *
  * Tests the 3-state mode switcher (enabled/disabled/hidden) and
  * the correct drawer routing after speaker submits rating.
+ *
+ * All cross-context state sync uses waitForUIUpdate() — no page.reload().
+ * If state doesn't arrive via the app's Realtime + drift polling, the test fails.
  */
-
-/** Poll DB until live_state JSONB has a specific key set */
-async function waitForLiveStateKey(
-  sessionCode: string,
-  key: string,
-  timeoutMs = 15000,
-): Promise<void> {
-  const start = Date.now();
-  while (Date.now() - start < timeoutMs) {
-    const { data } = await supabaseAdmin
-      .from('clarity_sessions')
-      .select('live_state')
-      .eq('code', sessionCode)
-      .single();
-    const liveState = data?.live_state as Record<string, unknown> | null;
-    if (liveState && liveState[key]) return;
-    await new Promise(r => setTimeout(r, 500));
-  }
-  throw new Error(`[waitForLiveStateKey] Timed out after ${timeoutMs}ms waiting for live_state.${key} on session ${sessionCode}`);
-}
 
 test.describe('P617: Mode switcher lifecycle', () => {
   let session: TwoPartySession;
@@ -73,15 +56,13 @@ test.describe('P617: Mode switcher lifecycle', () => {
     await host.page.getByRole('button', { name: 'Rate 7' }).click();
     await host.page.getByRole('button', { name: 'Submit' }).click();
 
-    // Wait for DB to propagate the submission via JSONB query
-    await waitForLiveStateKey(session.sessionCode, 'checkerSubmitted');
-
-    // Reload guest to pick up state (isolated contexts don't share Realtime)
-    await guest.page.reload();
-    await guest.page.waitForLoadState('networkidle');
-
-    // The partner should see rating buttons (from the drawer), not just a Speak button
-    await expect(guest.page.getByRole('button', { name: /^Rate \d+$/ }).first()).toBeVisible({ timeout: 10000 });
+    // Guest should see rating buttons via Realtime delivery (no page.reload)
+    // If this fails, the Realtime delivery path is broken — that's the P643 bug
+    await waitForUIUpdate(
+      guest.page,
+      guest.page.getByRole('button', { name: /^Rate \d+$/ }).first(),
+      20000,
+    );
   });
 
   test('UAT-4+9: mode switcher reappears after cancel', async () => {
@@ -114,77 +95,34 @@ test.describe('P617: Mode switcher lifecycle', () => {
     // Host clicks Speak — sets ratingInitiatedBy via Realtime
     await host.page.getByText('Speak').first().click();
 
-    // Wait for DB to have ratingInitiatedBy, then reload guest to pick up state
-    await waitForLiveStateKey(session.sessionCode, 'ratingInitiatedBy');
-    await guest.page.reload();
-    await guest.page.waitForLoadState('networkidle');
-
-    // Wait for idle screen with mode switcher visible on guest
-    await expect(guest.page.getByText('Open mode')).toBeVisible({ timeout: 15000 });
-
-    // Mode switcher container should have opacity-50 (disabled visual state)
+    // Guest's mode switcher should disable via Realtime delivery (no page.reload)
     // The wrapper div gets opacity-50 and cursor-not-allowed when isLocked
     const disabledPill = guest.page.locator('[class*="opacity-50"][class*="cursor-not-allowed"]');
-    await expect(disabledPill).toBeVisible({ timeout: 5000 });
+    await waitForUIUpdate(guest.page, disabledPill, 20000);
   });
 
   test('UAT-6: mode switcher reappears after full round via DB-driven state', async () => {
     // Strategy: advance through the round by writing live_state directly via
-    // supabaseAdmin, then reload the host to verify the mode switcher reappears.
-    // This avoids the multi-reload chain that exceeds the 30s timeout.
+    // advanceSessionState, then verify the UI updates via Realtime delivery.
     const { host } = session;
 
-    await host.page.waitForLoadState('networkidle');
-
-    // Dismiss terms if needed
-    const continueBtn = host.page.getByRole('button', { name: 'Continue' });
-    if (await continueBtn.isVisible({ timeout: 2000 }).catch(() => false)) {
-      await continueBtn.click();
-      await host.page.waitForLoadState('networkidle');
-    }
-
-    // Confirm mode switcher visible on idle
+    // Wait for idle screen
     await expect(host.page.getByText('Open mode')).toBeVisible({ timeout: 15000 });
 
     // Simulate a complete round via direct DB write:
     // Set live_state to post-celebration idle (all fields reset)
-    // This mimics what handleCelebrationComplete does after both users ack
-    const { data: sessionRow } = await supabaseAdmin
-      .from('clarity_sessions')
-      .select('live_state')
-      .eq('code', session.sessionCode)
-      .single();
+    await advanceSessionState(session.sessionCode, {
+      ...postRoundIdleState(),
+      sessionHistory: [{ checkerRating: 7, responderRating: 7, round: 1 }],
+    });
 
-    const currentState = sessionRow?.live_state as Record<string, unknown> ?? {};
-    const postRoundState = {
-      ...currentState,
-      ratingPhase: 'idle',
-      checkerName: undefined,
-      checkerRating: undefined,
-      responderRating: undefined,
-      ratingInitiatedBy: undefined,
-      checkerSubmitted: undefined,
-      responderSubmitted: undefined,
-      proverName: undefined,
-      explainBackRatings: [],
-      sessionHistory: [
-        ...(Array.isArray(currentState.sessionHistory) ? currentState.sessionHistory : []),
-        { checkerRating: 7, responderRating: 7, round: 1 },
-      ],
-    };
-
-    await supabaseAdmin
-      .from('clarity_sessions')
-      .update({ live_state: postRoundState })
-      .eq('code', session.sessionCode);
-
-    // Reload host to pick up the post-round idle state
-    await host.page.reload();
-    await host.page.waitForLoadState('networkidle');
-
-    // Mode switcher should be visible and enabled on idle
-    await expect(host.page.getByText('Open mode')).toBeVisible({ timeout: 15000 });
-    await expect(host.page.getByText('Speak')).toBeVisible({ timeout: 5000 });
+    // Mode switcher should remain visible and enabled via Realtime delivery (no page.reload)
+    await waitForUIUpdate(
+      host.page,
+      host.page.getByText('Speak'),
+      20000,
+    );
+    await expect(host.page.getByText('Open mode')).toBeVisible({ timeout: 5000 });
 
     // Verify it's NOT disabled (no opacity-50 class)
     const disabledPill = host.page.locator('[class*="opacity-50"][class*="cursor-not-allowed"]');
