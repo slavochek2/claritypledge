@@ -1554,7 +1554,9 @@ export function ClarityLivePage() {
       session_code: session?.code,
     });
 
-    // Set selected content in shared state (partner will see it via selectedStoryData)
+    // P643: Atomic write — story data + ratingInitiatedBy in ONE updateLiveState call.
+    // Two separate writes create a Realtime race: listener receives story data before
+    // ratingInitiatedBy, causing the story card to render prematurely (Bug 3).
     updateLiveState({
       selectedStoryId: storyId,
       selectedPointId: undefined,
@@ -1582,11 +1584,15 @@ export function ClarityLivePage() {
         visibility: storyData.visibility,
         createdAt: storyData.createdAt,
       } : undefined,
+      // P643/P646: Include rating initiation in same write to prevent race
+      ratingInitiatedBy: name,
+      ratingInitiatedByIsCreator: isCreator,
     });
-    // NOTE: Do NOT call setLocalFlowType or setIsLocallyRating here.
-    // Story selection now shows the story card in idle state.
-    // Round starts when either participant taps an action button.
-  }, [name, partnerName, session?.code, updateLiveState]);
+
+    // P643: Story selection auto-starts the rating flow (no separate Speak click needed)
+    setLocalFlowType('check');
+    setIsLocallyRating(true);
+  }, [name, partnerName, session?.code, updateLiveState, isCreator]);
 
   // P272: Clear selected story (both participants return to no-story idle state)
   const handleClearStory = useCallback(() => {
