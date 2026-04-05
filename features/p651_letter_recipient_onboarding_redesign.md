@@ -3,7 +3,7 @@ status: qa
 type: change-request
 rank: 0.25
 changes: p581
-delivery_stage: 4-tests-ready
+delivery_stage: uat
 flow: dev
 uat_file: features/uat/p651.md
 test_files:
