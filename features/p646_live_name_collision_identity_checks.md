@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: rejected
 type: bug
 rank: 1
 severity: high
@@ -9,6 +9,7 @@ tags:
   - live
   - p617
   - p643
+superseded_by: p643
 ---
 
 # P646: /live uses name strings for identity — breaks when both users share a name

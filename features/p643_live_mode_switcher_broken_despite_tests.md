@@ -1,78 +1,81 @@
 ---
 status: in-progress
-delivery_stage: uat
 type: bug
 rank: 1
 chain_root: p617
 tags:
   - live
   - ux
-  - p617
-  - p638
 created_date: 2026-04-04T00:00:00.000Z
-locked_at: '2026-04-04T05:56:51.012Z'
 ---
 
-# P643: /live Mode Switcher + Drawer — 4 User-Visible Bugs (5 Sessions, Tests Pass, Feature Broken)
+# P643: /live — Speaker's Speak Click Doesn't Open Drawer (Cascading 3-Bug Chain)
 
 ## Problem
 
-Four bugs persist in the /live session despite 5 implementation sessions (P617, P626, P638) and 1400+ passing tests. Manual UAT consistently shows the same failures. Tests pass because they test a different delivery path than real browsers use.
+Speaker clicks Speak → nothing happens. They see the Speak button again instead of the rating drawer. Has to click twice. This is the root bug — it causes two downstream failures.
 
-### The 4 bugs (from user-annotated screenshots)
+### The 3 bugs (one causal chain)
 
-1. **Mode switcher DISAPPEARS** when partner clicks Speak — should DISABLE (gray + tooltip "Mode locked — your partner is rating"), not vanish entirely
-2. **Partner sees redundant Speak button** after speaker submits — should get auto-drawer (rating buttons), no extra click needed
-3. **No visual feedback** that mode is locked while speaker is rating — mode switcher just vanishes, no explanation
-4. **Listener enters "round" too early** — sees story card before speaker has picked a number in the drawer. Story card should only appear after speaker submits.
+**Bug 1 (root): Speaker clicks Speak → sees Speak button again instead of drawer.**
+Speaker clicks Speak once, should immediately see the rating drawer (1-10 scale). Instead sees a redundant Speak button — has to click twice. This is a local state problem: `handleStartCheck` guard silently rejects the first click, so `isLocallyRating` is never set to true and the drawer never opens.
 
-### Why tests don't catch it
+**Bug 2 (downstream): Listener's mode switcher stays enabled instead of disabling.**
+When speaker clicks Speak, listener's mode switcher should show DISABLED (grayed out, tooltip "Mode locked — your partner is rating"). Instead it stays fully clickable. Because bug 1 means the speaker never picks a number, `ratingInitiatedBy` is never written to DB, so the listener never receives the signal to disable.
 
-- **`page.reload()` bypasses Realtime** — Playwright tests sync state via DB poll + reload. Real browsers rely on Realtime WebSocket delivery, which flaps (`SUBSCRIBED → CHANNEL_ERROR` loop).
-- **`createTwoPartySession` bypasses join flow** — pre-inserts both users, navigates simultaneously. Real users go through join flow with subscription timing gaps.
-- **Unit tests only test `getViewState()` (pure function)** — the function is correct given correct inputs. The inputs don't arrive in the real browser.
-- **`checkerName ? 'hidden'` logic bug** — P638's `/challenge-prd` correctly identified `checkerName` as a Realtime race condition but set it to `'hidden'` instead of `'disabled'`. After speaker submits, `checkerName` is set → mode switcher vanishes.
+**Bug 3 (downstream): Listener enters round too early — sees story card before speaker submits.**
+Listener should see NO change when speaker clicks Speak (except mode switcher disabling per bug 2). Story card + rating drawer appear ONLY after speaker submits a number from the drawer. Instead the listener sees the story card immediately on the Speak click — before the speaker has even opened their drawer.
 
-### Root cause (from deep analysis — t010 + 3-agent investigation)
+### Why it's one chain
 
-This is a **distributed systems problem**, not a logic bug. Two browser tabs communicating through Supabase Realtime with optimistic updates, `updateInFlightRef` guards, `confirmedLiveStateRef` vs `liveState` divergence, and drift detection polling. The bugs are consistency bugs (stale reads, dropped messages, state residue), not logic bugs.
+Fix bug 1 (drawer opens on first click) → speaker picks a number → `ratingInitiatedBy` written to DB → listener receives signal → bug 2 resolves (switcher disables) → listener transitions only after speaker submits → bug 3 resolves.
 
-**The meta-problem:** Agents approach /live bugs as pure function correctness problems. `getViewState()` is correct. The inputs are wrong because state delivery is broken. No amount of unit-testing the pure function catches this.
+### P646 name collision: real fix, NOT the root cause
 
-## Evidence
+Code on w1 fixes name-string identity (`04517305`, `3aad2b6d`). But bugs persist with different names — confirmed by founder testing with a guest entering a different name. P646 is a valid fix that ships with this spec, but it does not resolve bugs 1-3.
 
-### Implementation history
+### Why 7 sessions failed + why agents can't see the bug
 
-| Session | Date | What was tried | Tests | Manual UAT |
-|---------|------|---------------|-------|-----------|
-| 1 (P617) | Mar 30 | getViewState refactor, 6+ patches | 25 unit tests pass | Partial — same bugs reappear |
-| 2 (P626) | Apr 2 | 3 commits fixing ratingInitiatedBy timing | 4 tests pass | All 3 commits wrong — spec misread 3x |
-| 3 (P617 cont) | Apr 3 | Reverted P626, re-implemented per AD-0 | 1403 tests pass | NOTHING works — Realtime flapping found |
-| 4 (P637) | Apr 3 | Drift detection fix for ratingInitiatedBy | Drift test passes | Mode switcher disables in E2E but not confirmed in real browser |
-| 5 (P638) | Apr 3-4 | Folded IIFE into getViewState | 1421 tests pass | NOT YET VERIFIED — `checkerName ? 'hidden'` bug found by code tracer |
+1. **The two-party E2E test has a broken import and has never run.** `e2e/p617-mode-switcher-lifecycle.spec.ts` imports from `../src/lib/supabase-admin` (old path). P644 moved the module to `e2e/helpers/supabase-admin`. The test silently fails to load — Playwright reports "No tests found." The "1601 tests pass" count is unit tests only.
+2. **No P643-specific E2E test exists.** P644 built helpers (`createTwoPartySession`, `waitForUIUpdate`) but they were never pointed at the 3 bugs.
+3. **Each session treated it as a logic bug.** Agents fixed `getViewState()` (pure function, already correct). The pure function is correct — the inputs don't arrive or the guard blocks them.
 
-### Code-level findings (from 3-agent deep analysis)
+## What's already done on w1 (branch `feature/p617-mode-switcher-lifecycle`)
 
-1. **`live-mode-view.tsx` ~line 199:** `checkerName ? 'hidden'` — should be examined. When checkerName is set via Realtime race while ratingPhase is still idle, mode switcher vanishes instead of disabling.
-2. **`clarity-live-page.tsx` ~line 1045-1060:** `updateInFlightRef` silently drops all non-position Realtime events. If listener has any in-flight write, `ratingInitiatedBy` update is dropped.
-3. **`clarity-live-page.tsx` ~line 1360:** `handleStartCheck` guard reads `confirmedLiveStateRef.current`, not `liveState`. These diverge when Realtime delivers state that the ref hasn't been updated with.
-4. **Realtime channel flapping:** Console logs show `SUBSCRIBED → CHANNEL_ERROR` in tight loop. Neither delivery mechanism (Realtime or drift polling) reliably delivers state.
+- `getViewState()` extracted and unit-tested (P617, P638)
+- Mode switcher IIFE folded into `getViewState()` (P638)
+- Name collision identity fix (P646)
+- `ratingInitiatedBy` passthrough during in-flight writes (P643 commit)
+- 20 commits, 1712 insertions across 13 files
+- 1601 unit tests passing
+- P644 test helpers merged from main
+- **Broken:** `e2e/p617-mode-switcher-lifecycle.spec.ts` import path — never ran
+
+## First step: reproduce, don't theorize
+
+Fix the broken import. Run the E2E test. If it passes → the test doesn't catch the bug (write a better one). If it fails → we have a reproduction and can debug from there.
+
+Do NOT read more code or form hypotheses before running the test.
+
+## Acceptance Criteria
+
+- [ ] Speaker clicks Speak ONCE → drawer opens immediately (no redundant Speak button)
+- [ ] Listener's mode switcher shows DISABLED (grayed, tooltip) when speaker clicks Speak — not hidden, not enabled
+- [ ] Listener sees NO story card until speaker submits a number from the drawer
+- [ ] All 3 verified via two-party E2E test using `waitForUIUpdate()` (no `page.reload()`)
+- [ ] All 3 verified in two-browser manual UAT
+- [ ] Name collision (P646): two users with same display name don't break identity checks
+
+## Risks / Non-Goals
+
+- Do NOT rewrite the component as a state machine (deferred — too expensive for a bug fix)
+- Do NOT fix `updateInFlightRef` event dropping unless required to pass ACs — if ACs pass without it, ship and file separately
+- Do NOT theorize about code paths before running the E2E test — reproduce first
 
 ## References
 
 - **Root cause analysis:** `.private/thinking/t010_p617_systemic_failure.md`
-- **Discovery session:** `~/.claude/projects/-Users-slavochek-Projects-public-claritypledge/593ee69e-4fbe-461d-b2af-44f00b84661c.jsonl`
-- **Predecessor specs:** P617, P626, P637, P638
-- **Test infrastructure fix:** P644 (filed alongside this bug)
-
-## Acceptance Criteria
-
-- [ ] Speaker clicks Speak → listener's mode switcher shows DISABLED (grayed, tooltip visible), NOT hidden
-- [ ] Speaker submits rating → listener sees rating drawer automatically (no Speak button)
-- [ ] Listener does NOT see story card until speaker submits
-- [ ] All 3 above verified in REAL two-browser manual UAT (not Playwright)
-- [ ] Dev console logs (`[Realtime]`, `[Guard]`, `[LiveUpdate]`) confirm state delivery chain works
-
-## Constraint
-
-**Do NOT fix this bug until P644 (test infrastructure) is implemented.** The testing gap is the real blocker — fixing code without fixing tests guarantees session 6 of the same pattern.
+- **Test infrastructure:** P644 (done), P637 (done), P636 (done)
+- **Superseded specs:** P614, P617, P626 (rejected), P638, P646 — all rejected, consolidated here
+- **Key files:** `src/app/pages/clarity-live-page.tsx`, `src/app/components/partners/live-mode-view.tsx`
+- **Branch:** `feature/p617-mode-switcher-lifecycle` (w1)
