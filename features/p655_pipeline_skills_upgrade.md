@@ -8,14 +8,14 @@ tags:
   - design-excellence
   - wave-2
   - infrastructure
-flow: dev
+flow: inline
 locked_at: '2026-04-05T06:16:57.640Z'
 ---
 
 # P655: Pipeline Skills Upgrade
 
 **Part of:** Design Excellence Program (3-wave). Wave 2 of 3.
-**Depends on:** P654 (Design System Foundation) — skills reference the token system P654 establishes
+**Depends on:** P657 (Design System Foundation) — skills reference the token system P657 establishes
 **Followed by:** P656 (Rendering-Aware Loop)
 
 ---
