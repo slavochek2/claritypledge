@@ -2,6 +2,14 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-05 [product]: All ClarityPledge events require measurement step — social norm alone fails
+
+**Context:** Conversation analysis surfaced the idea that conjecture events on 17 thinker topics could run with just a "clarity process" — participants accept paraphrasing if requested. Pushback: this replicates the Pledge failure pattern (11 pledgers, zero practice habits). People accept the norm in principle but nobody self-initiates verification — the comprehension illusion means everyone assumes they understood. A social norm without a measurement moment is a polite debate club.
+**Decision:** Every ClarityPledge event format must include the measurement step: participants rate their own comprehension confidence, facilitator counter-rates, gap is revealed. This is the product. The topic (conjecture, false belief, etc.) is the Round 2 content vehicle. Filed P653 (Minimal Clarity Flip — 10-min pre-event format) to make this deliverable before any event. Evidence: barber encounter showed recursive knowledge ("she knows I know she knows") lands in <10 min cross-linguistically when concrete, not categorical.
+**Alternatives rejected:** (A) Social norm only ("accept paraphrasing if requested") — nobody requests; same failure mode as Pledge. (B) Full 90-min Clarity Flip (P606) before every event — too heavy for a pre-event warm-up. P653 is the minimum viable measurement format.
+**Consequences:** Conjecture events are Clarity Flips where the conjecture is the content, not talks with an optional protocol. Event pricing should reflect participation experience, not lecture attendance. P653 must ship before first conjecture event.
+**References:** `features/p653_minimal_clarity_flip.md`, `features/p606_clarity_flip_workshop.md`
+
 ## 2026-04-05 [process]: P652 refined — 3 edits to existing files, not 6 new/modified files
 
 **Context:** Adversarial review of the original P652 plan (6 file changes) surfaced three issues: (1) `.claude/rules/ikigai.md` path trigger on `docs/`, `features/`, `src/`, `CLAUDE.md` is too broad — agents fixing CSS would load ikigai philosophy; (2) redirecting lean-canvas.md to a new clarity-canvas.md breaks 41 file references across skills and docs; (3) a 3-line "falsification tripwire" in decisions.md is decorative — agents write via `/kdd` skill, not by reading file headers. Session also clarified the framing: progress is measured by learning speed (hypotheses falsified per unit time), revenue is proof of positive impact (therefore second, not first), and the project evaluation frame is impact-first positive externality.
