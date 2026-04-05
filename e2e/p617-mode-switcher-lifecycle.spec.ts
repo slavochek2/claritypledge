@@ -1,5 +1,5 @@
 import { test, expect, Browser } from '@playwright/test';
-import { createTwoPartySession, TwoPartySession } from './helpers/test-session';
+import { createTwoPartySessionRealistic, TwoPartySession } from './helpers/test-session';
 import { waitForUIUpdate, advanceSessionState, postRoundIdleState } from './helpers/test-realtime';
 
 /**
@@ -7,6 +7,11 @@ import { waitForUIUpdate, advanceSessionState, postRoundIdleState } from './help
  *
  * Tests the 3-state mode switcher (enabled/disabled/hidden) and
  * the correct drawer routing after speaker submits rating.
+ *
+ * Uses createTwoPartySessionRealistic — host subscribes first, guest joins
+ * later — to exercise the real Realtime subscription timing path. The old
+ * createTwoPartySession pre-inserted both users simultaneously, masking bugs
+ * that only appear with sequential (realistic) join.
  *
  * All cross-context state sync uses waitForUIUpdate() — no page.reload().
  * If state doesn't arrive via the app's Realtime + drift polling, the test fails.
@@ -17,8 +22,9 @@ test.describe('P617: Mode switcher lifecycle', () => {
 
   test.beforeEach(async ({ browser }: { browser: Browser }) => {
     // Both users need 'host' (verified) role — P617 doesn't test verification gates
-    // and the 'guest' role (unverified) triggers auth redirects in some flows
-    session = await createTwoPartySession(browser, {
+    // and the 'guest' role (unverified) triggers auth redirects in some flows.
+    // Uses realistic join: host first, guest joins later via Realtime path.
+    session = await createTwoPartySessionRealistic(browser, {
       hostName: 'E2E Speaker',
       guestName: 'E2E Listener',
     });
@@ -95,7 +101,10 @@ test.describe('P617: Mode switcher lifecycle', () => {
     // Host clicks Speak — sets ratingInitiatedBy via Realtime
     await host.page.getByText('Speak').first().click();
 
-    // Guest's mode switcher should disable via Realtime delivery (no page.reload)
+    // Bug 1 isolation: verify the drawer opened on host FIRST
+    await expect(host.page.getByText('How well do you believe')).toBeVisible({ timeout: 5000 });
+
+    // THEN check guest — Bug 2: guest's mode switcher should disable via Realtime
     // The wrapper div gets opacity-50 and cursor-not-allowed when isLocked
     const disabledPill = guest.page.locator('[class*="opacity-50"][class*="cursor-not-allowed"]');
     await waitForUIUpdate(guest.page, disabledPill, 20000);
@@ -127,5 +136,39 @@ test.describe('P617: Mode switcher lifecycle', () => {
     // Verify it's NOT disabled (no opacity-50 class)
     const disabledPill = host.page.locator('[class*="opacity-50"][class*="cursor-not-allowed"]');
     await expect(disabledPill).not.toBeVisible({ timeout: 3000 });
+  });
+
+  test('Bug 3: listener should NOT see story card before speaker submits', async () => {
+    const { host, guest } = session;
+
+    // Wait for idle screen on both
+    await expect(host.page.getByText('Speak')).toBeVisible({ timeout: 15000 });
+    await expect(guest.page.getByText('Speak')).toBeVisible({ timeout: 15000 });
+
+    // Host clicks Speak — enters local rating phase (ratingInitiatedByIsCreator set)
+    // The drawer opens locally on host but guest should NOT see the rating drawer yet
+    await host.page.getByText('Speak').first().click();
+    await expect(host.page.getByText('How well do you believe')).toBeVisible({ timeout: 5000 });
+
+    // Bug 3 assertion: guest must NOT see rating buttons while speaker is in local rating.
+    // The listener should see the mode switcher disabled (from UAT-3) but NOT the rating UI.
+    // isListenerDuringLocalRating should be true on guest side, hiding the story card
+    // and NOT showing the rating drawer (showRatingDrawer is local to speaker).
+    const guestRateButtons = guest.page.getByRole('button', { name: /^Rate \d+$/ });
+    await expect(guestRateButtons.first()).not.toBeVisible({ timeout: 5000 });
+
+    // Also verify guest does NOT see 'How well do you believe' text (the drawer prompt)
+    await expect(guest.page.getByText('How well do you believe')).not.toBeVisible({ timeout: 3000 });
+
+    // NOW speaker submits — guest should see the rating drawer
+    await host.page.getByRole('button', { name: 'Rate 7' }).click();
+    await host.page.getByRole('button', { name: 'Submit' }).click();
+
+    // After submission, guest SHOULD now see rating buttons via Realtime delivery
+    await waitForUIUpdate(
+      guest.page,
+      guest.page.getByRole('button', { name: /^Rate \d+$/ }).first(),
+      20000,
+    );
   });
 });
