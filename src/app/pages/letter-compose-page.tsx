@@ -96,7 +96,7 @@ function ModeStep({ mode, onSelectMode, emails, onEmailsChange, receiverName, on
           <div className="font-medium text-foreground">Anyone with a link</div>
           <p className="text-sm text-muted-foreground mt-1">
             {isPrivateDoc
-              ? 'Private docs can&apos;t use links. Switch to public to enable.'
+              ? "Private docs can\u2019t use links. Switch to public to enable."
               : 'Share a link \u2014 anyone can read and respond.'}
           </p>
         </button>
@@ -129,12 +129,12 @@ function ModeStep({ mode, onSelectMode, emails, onEmailsChange, receiverName, on
             )}
             {!emailError && lookupResult === 'not-found' && (
               <p className="text-sm text-muted-foreground" role="status">
-                No account \u2014 they&apos;ll be invited to join.
+                No account &#8212; they&apos;ll be invited to join.
               </p>
             )}
             {!emailError && lookupResult !== null && lookupResult !== 'not-found' && (
               <p className="text-sm text-green-700 font-medium" role="status">
-                Account found \u2713
+                Account found &#10003;
               </p>
             )}
           </div>
