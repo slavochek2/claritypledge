@@ -311,6 +311,7 @@ DB access hierarchy (local-first, tool preference, test vs prod) auto-loads for 
 ## Reference Guide
 
 **Product:** Calibrated communication practice via /live. Target: co-founder pairs.
+**Impact-first project.** Positive externality (clarity flip is predictable and virally spreads with product-led growth) is the primary validation. Revenue is proof of positive impact, therefore second. Progress is measured by learning speed (hypotheses falsified per unit time). A failed hypothesis means the delivery method needs changing, not the mission.
 Docs: [definitions.md](docs/definitions.md) | [lean-canvas.md](docs/lean-canvas.md) | [hypotheses.md](docs/hypotheses.md)
 
 **Key commands:**
