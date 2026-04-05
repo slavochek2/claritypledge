@@ -9,9 +9,9 @@
  * Route: /letter/:docId/compose
  */
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Mail, Link2, ChevronLeft, ChevronRight, Eye, Sparkles, AlertCircle } from 'lucide-react';
+import { Mail, Link2, ChevronLeft, ChevronRight, Eye, Sparkles, AlertCircle, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -21,9 +21,17 @@ import { ClarityPageLoader } from '@/components/ui/clarity-loader';
 import { useAuth } from '@/auth';
 import { docsService } from '@/app/data/docs-service';
 import * as lettersService from '@/app/data/letters-service';
+import { agreementsService } from '@/app/data/agreements-service';
+import type { AgreementParty } from '@/app/data/agreements-service';
 import { invokeLetterEmails } from '@/lib/letter-emails';
 import { analytics } from '@/lib/mixpanel';
 import type { ClarityDoc, DocStory, LetterMode } from '@/app/types';
+
+/** Does this lookup result represent an existing user with a valid name? */
+function isExistingUserWithName(party: { name: string }): boolean {
+  const name = party.name?.trim();
+  return !!name && name !== 'Unknown';
+}
 
 type WizardStep = 'mode' | 'predictions' | 'preview' | 'seal';
 
@@ -39,18 +47,19 @@ interface ModeStepProps {
   receiverName: string;
   onReceiverNameChange: (name: string) => void;
   isPrivateDoc: boolean;
+  lookupResult: AgreementParty | null | 'not-found';
+  isLookingUp: boolean;
+  isReceiverNameLocked: boolean;
+  emailError: string | null;
   onNext: () => void;
 }
 
-function ModeStep({ mode, onSelectMode, emails, onEmailsChange, receiverName, onReceiverNameChange, isPrivateDoc, onNext }: ModeStepProps) {
+function ModeStep({ mode, onSelectMode, emails, onEmailsChange, receiverName, onReceiverNameChange, isPrivateDoc, lookupResult, isLookingUp, isReceiverNameLocked, emailError, onNext }: ModeStepProps) {
   const canProceed = mode === 'one-to-many' || (mode === 'one-to-one' && emails.trim().length > 0 && receiverName.trim().length > 0);
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-lg font-semibold text-foreground">Who is this letter for?</h2>
-        <p className="text-sm text-muted-foreground mt-1">Choose how you want to deliver your letter.</p>
-      </div>
+      <h2 className="text-lg font-semibold text-foreground">Who is this letter for?</h2>
 
       <div className="grid gap-4 sm:grid-cols-2">
         {/* 1-to-1 card */}
@@ -66,7 +75,7 @@ function ModeStep({ mode, onSelectMode, emails, onEmailsChange, receiverName, on
           <Mail className={`h-8 w-8 mb-3 ${mode === 'one-to-one' ? 'text-blue-500' : 'text-gray-400'}`} />
           <div className="font-medium text-foreground">Specific people</div>
           <p className="text-sm text-muted-foreground mt-1">
-            Send by email to one or more people. They get a personal invitation link.
+            Send by email with a personal invitation link.
           </p>
         </button>
 
@@ -87,8 +96,8 @@ function ModeStep({ mode, onSelectMode, emails, onEmailsChange, receiverName, on
           <div className="font-medium text-foreground">Anyone with a link</div>
           <p className="text-sm text-muted-foreground mt-1">
             {isPrivateDoc
-              ? 'Not available for private docs (D45). Switch to public to enable.'
-              : 'Generate a shareable link. Anyone who opens it can read and respond.'}
+              ? 'Private docs can&apos;t use links. Switch to public to enable.'
+              : 'Share a link \u2014 anyone can read and respond.'}
           </p>
         </button>
       </div>
@@ -100,15 +109,34 @@ function ModeStep({ mode, onSelectMode, emails, onEmailsChange, receiverName, on
             <label htmlFor="receiver-emails" className="text-sm font-medium text-foreground">
               Recipient email
             </label>
-            <Input
-              id="receiver-emails"
-              type="text"
-              placeholder="email@example.com"
-              value={emails}
-              onChange={(e) => onEmailsChange(e.target.value)}
-              className="w-full"
-            />
-            <p className="text-xs text-muted-foreground">The email address of the person you&apos;re writing to.</p>
+            <div className="relative">
+              <Input
+                id="receiver-emails"
+                type="text"
+                placeholder="email@example.com"
+                value={emails}
+                onChange={(e) => onEmailsChange(e.target.value)}
+                className={`w-full ${emailError ? 'border-red-500' : ''}`}
+              />
+              {isLookingUp && (
+                <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                  <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+                </div>
+              )}
+            </div>
+            {emailError && (
+              <p className="text-sm text-red-500" role="alert">{emailError}</p>
+            )}
+            {!emailError && lookupResult === 'not-found' && (
+              <p className="text-sm text-muted-foreground" role="status">
+                No account \u2014 they&apos;ll be invited to join.
+              </p>
+            )}
+            {!emailError && lookupResult !== null && lookupResult !== 'not-found' && (
+              <p className="text-sm text-green-700 font-medium" role="status">
+                Account found \u2713
+              </p>
+            )}
           </div>
           <div className="space-y-2">
             <label htmlFor="receiver-name" className="text-sm font-medium text-foreground">
@@ -121,10 +149,15 @@ function ModeStep({ mode, onSelectMode, emails, onEmailsChange, receiverName, on
               maxLength={100}
               value={receiverName}
               onChange={(e) => onReceiverNameChange(e.target.value)}
+              readOnly={isReceiverNameLocked}
               required
-              className="w-full"
+              className={`w-full ${isReceiverNameLocked ? 'bg-gray-50 text-muted-foreground' : ''}`}
             />
-            <p className="text-xs text-muted-foreground">Used in the email greeting and on the letter cover.</p>
+            {isReceiverNameLocked ? (
+              <p className="text-xs text-muted-foreground">Using their registered name.</p>
+            ) : (
+              <p className="text-xs text-muted-foreground">For the email greeting and letter cover.</p>
+            )}
           </div>
         </div>
       )}
@@ -133,7 +166,7 @@ function ModeStep({ mode, onSelectMode, emails, onEmailsChange, receiverName, on
       {mode === 'one-to-many' && (
         <div className="p-4 bg-blue-50 rounded-lg border border-blue-100">
           <p className="text-sm text-blue-800">
-            A shareable link will be generated after you seal the letter. Anyone with the link can read and respond.
+            You&apos;ll get a shareable link after sealing.
           </p>
         </div>
       )}
@@ -426,6 +459,13 @@ export function LetterComposePage() {
   const [predictions, setPredictions] = useState<Map<string, number>>(new Map());
   const [sealing, setSealing] = useState(false);
 
+  // Recipient recognition (reuses agreement P483 pattern)
+  const [lookupResult, setLookupResult] = useState<AgreementParty | null | 'not-found'>(null);
+  const [isLookingUp, setIsLookingUp] = useState(false);
+  const [isReceiverNameLocked, setIsReceiverNameLocked] = useState(false);
+  const [emailError, setEmailError] = useState<string | null>(null);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   // Parse emails from comma-separated input
   const parsedEmails = useMemo(() => {
     return emailsInput
@@ -435,6 +475,49 @@ export function LetterComposePage() {
   }, [emailsInput]);
 
   const isPrivateDoc = doc?.visibility === 'private';
+
+  // Debounced email lookup for recipient recognition
+  const handleEmailChange = useCallback(
+    (value: string) => {
+      setEmailsInput(value);
+      setLookupResult(null);
+      setEmailError(null);
+
+      if (isReceiverNameLocked) {
+        setIsReceiverNameLocked(false);
+        setReceiverName('');
+      }
+
+      if (debounceRef.current) {
+        clearTimeout(debounceRef.current);
+      }
+
+      const trimmed = value.trim();
+      if (!trimmed || !trimmed.includes('@')) return;
+
+      debounceRef.current = setTimeout(async () => {
+        if (user?.email && trimmed.toLowerCase() === user.email.toLowerCase()) {
+          setEmailError("You can\u2019t send a letter to yourself");
+          return;
+        }
+
+        setIsLookingUp(true);
+        try {
+          const party = await agreementsService.lookupUserByEmail(trimmed);
+          analytics.track('letter_email_lookup', { found: !!party });
+          setLookupResult(party ?? 'not-found');
+
+          if (party && isExistingUserWithName(party)) {
+            setReceiverName(party.name);
+            setIsReceiverNameLocked(true);
+          }
+        } finally {
+          setIsLookingUp(false);
+        }
+      }, 400);
+    },
+    [user?.email, isReceiverNameLocked]
+  );
 
   // Load doc + stories
   useEffect(() => {
@@ -579,10 +662,14 @@ export function LetterComposePage() {
             mode={mode}
             onSelectMode={setMode}
             emails={emailsInput}
-            onEmailsChange={setEmailsInput}
+            onEmailsChange={handleEmailChange}
             receiverName={receiverName}
             onReceiverNameChange={setReceiverName}
             isPrivateDoc={isPrivateDoc}
+            lookupResult={lookupResult}
+            isLookingUp={isLookingUp}
+            isReceiverNameLocked={isReceiverNameLocked}
+            emailError={emailError}
             onNext={() => {
               analytics.track('letter_created', {
                 doc_id: docId,
