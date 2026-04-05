@@ -1,7 +1,5 @@
 # Lean Canvas: ClarityPledge
 
-**Last updated:** 2026-04-05
-
 > **Ikigai governing frame.** ClarityPledge is an impact-first project. Four circles: (1) **Love/calling** — the mission to instrument human understanding; non-negotiable. (2) **Skill** — applied epistemology + facilitation + software. (3) **World needs it** — positive externality: the clarity flip is predictable and virally spreads with product-led growth. (4) **Income** — revenue is proof of positive impact, therefore second. This lean canvas details the income circle. Progress across all circles is measured by learning speed (hypotheses falsified per unit time). A failed hypothesis means the delivery method needs changing, not the mission.
 
 > One business, two brands. **ClarityPledge** (claritypledge.com) is the open-source tool and community. **ladischenski.com** is the founder's coaching practice that funds, validates, and uses the platform. Coaching revenue flows through the personal brand; platform adoption through the community brand.
@@ -394,16 +392,6 @@ Hosting, Supabase, LLM API costs (Gemini via GCP credits). Founder's development
 **30-day binary test:** Can you run two workshops and convert one pair to €950 de-risking — in 30 days? If yes, you have a business. If no, the bottleneck tells you what to fix.
 
 **Illegibility diagnosis (2026-03-25):** Product and service illegibility identified as the single root blocker for revenue. Evidence: coaching sold at €250/hr when the offer was legible (lead gen, sales coaching). ClarityPledge doesn't sell because session participants can't name what they experienced afterward. The same pattern repeated at Inguro (Philip's feedback: "the value proposition needs to be simple and clear"). Revised hypothesis ranking: (1) illegibility — value is real but unreadable, (2) low embeddedness — amplifier, not root cause, (3) pre-market timing — partially true, category doesn't exist. **Test:** send 10 clarity letters to strangers. If 3+ can explain what happened in their own words → legibility solved. Their descriptions become the marketing copy. Byron Katie distinction critical: "find false beliefs" = crowded market; "find false beliefs about whether you understand each other" = empty space.
-
----
-
-## Checkpoints (Unlock Gates)
-
-| Milestone | Signal | Consequence |
-|-----------|--------|-------------|
-| Month 3 | <10 workshop participants | Can't unlock retainer offers |
-| Month 6 | <€3k/month revenue | Can't unlock recognition investment |
-| Month 12 | <€5k/month + zero recognition signals | Reassess strategy |
 
 ---
 

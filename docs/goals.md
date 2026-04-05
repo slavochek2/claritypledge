@@ -25,6 +25,14 @@ Flywheel: see [lean-canvas.md](lean-canvas.md#channels--flywheel). Steps below f
 13. [ ] Approach 1-2 coaches — AFTER workshops + paid sessions prove model (H-CoachChannel)
 14. [ ] Partner recruitment gate: After 3 PWIW sessions with revenue signal, begin partner outreach using session recordings + protocol documentation as recruitment material.
 
+## Checkpoints (Unlock Gates)
+
+| Milestone | Signal | Consequence |
+|-----------|--------|-------------|
+| Month 3 | <10 workshop participants | Can't unlock retainer offers |
+| Month 6 | <€3k/month revenue | Can't unlock recognition investment |
+| Month 12 | <€5k/month + zero recognition signals | Reassess strategy |
+
 ## Dos
 
 - Use false-belief curriculum (P567) as workshop structure — don't improvise
