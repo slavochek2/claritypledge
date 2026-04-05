@@ -2,6 +2,16 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-05 [technical]: Pre-commit secret scanning — two-layer defense for connection string credentials
+
+**Context:** Security audit (2026-04-03) found that database credentials had been committed to this public repo as connection string URLs. Both gitleaks (installed, rules-based) and the grep fallback (pattern-based) missed these because: (1) gitleaks' default ruleset has no rule for credentials embedded in database connection string URLs, (2) the grep scan was dead code — the script used if/else, so when gitleaks was present the grep branch never executed, (3) an example file contained a real credential in a comment labeled "Format:".
+**Decision:** Three-part fix: (1) Added custom `connection-string-credentials` rule to `.gitleaks.toml` covering `postgresql://`, `postgres://`, `mongodb://`, `mysql://`, `redis://`, `amqp://` URL schemes with allowlist for placeholder patterns (`YOUR_`, `PASSWORD_HERE`, `[PASSWORD]`, `CHANGE_ME`). (2) Restructured `pre-commit-checks.sh` section 5 to run both gitleaks AND grep (no longer either/or) — grep adds a connection string URL pattern as a second detection layer. (3) Replaced the real credential in `.env.prod.example` with a placeholder.
+**Alternatives rejected:** (A) Fix only gitleaks rule — grep layer is dead code but should be defense-in-depth, not a fallback. (B) Fix only grep pattern — gitleaks has richer allowlisting (path + regex), grep alone would need manual exclusion lists. (C) Agent-side CLAUDE.md rule only — agent rules already failed to prevent the original leak; detection at commit time is the safety net.
+**Consequences:** Both layers now independently catch the exact patterns that leaked. Verified end-to-end: staged file with real credentials blocked by both gitleaks and grep; placeholder patterns pass through. Template/doc files with `[PASSWORD]` or `YOUR_*` patterns do not false-positive. The grep layer is no longer dead code.
+**References:** `.gitleaks.toml`, `scripts/pre-commit-checks.sh`, `.env.prod.example`
+
+---
+
 ## 2026-04-04 [process]: ClarityPledge is ikigai pursuit — reframe all evaluation criteria and docs (P652)
 
 **Context:** Capability benchmark session (git history analysis, founder research) revealed a structural mismatch: all governing docs (lean-canvas.md, hypotheses.md, CLAUDE.md) use startup evaluation vocabulary — kill thresholds, revenue benchmarks, pivot logic. ClarityPledge is not a startup. It is an ikigai project: a deliberate merger of love/calling, skill, world-need, and income into one life system. The mission is non-negotiable; "pivot to something else" is not a valid option. The ikigai has an explicit sequencing logic invisible in any doc: (1) prove "world needs it" via workshop delivering a clarity flip — attendees experience a false-belief correction and the positive externality propagates to people they interact with afterward; (2) if flip is proven, ladischenski.com coaching demand follows as the income mechanism; (3) ClarityPledge is the tool that makes flipping others replicable without Slava present. 30k invested, 1+ year runway; income circle is real but deferred. Full analysis in `.private/thinking/t001_ikigai_goal_reframe.md` (stage: synthesized).

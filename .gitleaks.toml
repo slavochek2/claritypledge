@@ -56,6 +56,22 @@ useDefault = true
 # These are documented in CLAUDE.md under "Technical Debt / Intentional Decisions"
 
 [[rules]]
+  id = "connection-string-credentials"
+  description = "Catches database connection strings with embedded credentials (postgresql://, mongodb://, etc.)"
+  regex = '''(?i)(postgres(?:ql)?|mongodb|mysql|redis|amqp)://[^:/?#]+:[^@/?#]{8,}@'''
+  keywords = ["postgresql", "postgres", "mongodb", "mysql", "redis", "amqp"]
+  [rules.allowlist]
+    regexTarget = "match"
+    regexes = [
+      '''YOUR_''',              # Placeholder pattern
+      '''CHANGE_ME''',          # Placeholder pattern
+      '''\[PASSWORD\]''',       # Doc template pattern
+      '''PASSWORD_HERE''',      # Placeholder pattern
+      '''example\.com''',       # Example hostnames
+      '''xxx{2,}''',            # Redacted patterns
+    ]
+
+[[rules]]
   id = "hardcoded-password-assignment"
   description = "Catches hardcoded password values in variable assignments (e.g. const PASSWORD = 'abc123')"
   regex = '''(?i)(password|passwd|pwd)\s*=\s*['"][^'"]{8,}['"]'''

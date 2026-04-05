@@ -81,8 +81,12 @@ else
 fi
 echo ""
 
-# 5. Secrets scan (using gitleaks if available, fallback to grep)
+# 5. Secrets scan — two layers: gitleaks (rules-based) + grep (pattern-based)
+# Both run when gitleaks is installed. Grep is not a fallback — it catches
+# patterns gitleaks misses (e.g., connection strings before custom rules exist).
 echo ">>> Scanning for secrets..."
+
+# Layer 1: gitleaks (if installed)
 if command -v gitleaks &> /dev/null; then
     # Use gitleaks protect --staged: scans only staged diff, not git history.
     # (gitleaks detect scans full git log and would flag old commits with .next/ artifacts)
@@ -98,21 +102,43 @@ if command -v gitleaks &> /dev/null; then
         echo -e "${GREEN}✓ No secrets detected (gitleaks)${NC}"
     fi
 else
-    # Fallback to grep-based scan
-    echo -e "${YELLOW}(gitleaks not installed, using basic grep scan)${NC}"
-    STAGED_FILES=$(git diff --cached --name-only 2>/dev/null || git diff --name-only HEAD~1 2>/dev/null || echo "")
-    if [ -n "$STAGED_FILES" ]; then
-        SECRETS_FOUND=$(echo "$STAGED_FILES" | xargs grep -l -iE '(sk_live|pk_live|SUPABASE_SERVICE|api[_-]?key|apikey|secret[_-]?key|password\s*=|token\s*=)[^a-zA-Z]' 2>/dev/null || true)
-        if [ -n "$SECRETS_FOUND" ]; then
-            echo -e "${RED}✗ Possible secrets found in:${NC}"
-            echo "$SECRETS_FOUND"
-            ERRORS=$((ERRORS + 1))
-        else
-            echo -e "${GREEN}✓ No secrets detected${NC}"
-        fi
-    else
-        echo -e "${YELLOW}⚠ No staged files to scan${NC}"
+    echo -e "${YELLOW}(gitleaks not installed — install for rules-based secret detection)${NC}"
+fi
+
+# Layer 2: grep-based scan (always runs — defense in depth)
+SECRETS_STAGED_FILES=$(git diff --cached --name-only 2>/dev/null || git diff --name-only HEAD~1 2>/dev/null || echo "")
+if [ -n "$SECRETS_STAGED_FILES" ]; then
+    # 2a. Known secret patterns (API keys, tokens, password assignments)
+    # Exclude files that legitimately discuss secret patterns (scanner config, docs, decisions log)
+    GREP_SCAN_FILES=$(echo "$SECRETS_STAGED_FILES" | grep -vE '(\.gitleaks\.toml|pre-commit-checks\.sh|docs/decisions\.md|docs/technical/)' || true)
+    SECRETS_FOUND=""
+    if [ -n "$GREP_SCAN_FILES" ]; then
+        SECRETS_FOUND=$(echo "$GREP_SCAN_FILES" | xargs grep -l -iE '(sk_live|pk_live|SUPABASE_SERVICE|api[_-]?key|apikey|secret[_-]?key|password\s*=|token\s*=)[^a-zA-Z]' 2>/dev/null || true)
     fi
+    if [ -n "$SECRETS_FOUND" ]; then
+        echo -e "${RED}✗ Possible secrets found in:${NC}"
+        echo "$SECRETS_FOUND"
+        ERRORS=$((ERRORS + 1))
+    fi
+
+    # 2b. Connection strings with embedded credentials (postgresql://, mongodb://, etc.)
+    # Matches: scheme://user:password@host — where password is 8+ chars (not a placeholder)
+    CONNSTR_HITS=$(echo "$SECRETS_STAGED_FILES" | xargs grep -nE '(postgres(ql)?|mongodb(\+srv)?|mysql|redis|amqp)://[^:/?#]+:[^@/?#]{8,}@' 2>/dev/null || true)
+    if [ -n "$CONNSTR_HITS" ]; then
+        # Filter out placeholder patterns (YOUR_, CHANGE_ME, [PASSWORD], PASSWORD_HERE, xxx)
+        REAL_CONNSTR_HITS=$(echo "$CONNSTR_HITS" | grep -viE '(YOUR_|CHANGE_ME|\[PASSWORD\]|PASSWORD_HERE|xxx{2,}|example\.com)' || true)
+        if [ -n "$REAL_CONNSTR_HITS" ]; then
+            echo -e "${RED}✗ Database connection string with embedded credentials:${NC}"
+            echo "$REAL_CONNSTR_HITS" | head -5
+            ERRORS=$((ERRORS + 1))
+        fi
+    fi
+
+    if [ -z "$SECRETS_FOUND" ] && [ -z "$REAL_CONNSTR_HITS" ]; then
+        echo -e "${GREEN}✓ No secrets detected (grep)${NC}"
+    fi
+else
+    echo -e "${YELLOW}⚠ No staged files to scan${NC}"
 fi
 echo ""
 
