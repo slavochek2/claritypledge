@@ -1,14 +1,14 @@
 ---
 status: today
 type: change-request
-rank: 1000055.0
+rank: 0.002
 changes: p581
 tags:
   - redesign
   - p581
   - letters
   - onboarding
-created_date: 2026-04-04
+created_date: 2026-04-04T00:00:00.000Z
 ---
 
 # P651: Letter 1-to-1 Recipient Onboarding — Reuse Agreement Auth Flow

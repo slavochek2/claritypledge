@@ -1,7 +1,7 @@
 ---
-status: today
+status: qa
 type: story
-rank: 0.032
+rank: 0.5
 tags:
   - epic-story-first
   - letters
@@ -28,7 +28,7 @@ reviews:
   ux: null
   architect: null
   alignment: null
-locked_at: '2026-03-26T14:27:27.466Z'
+locked_at: '2026-04-05T04:49:32.970Z'
 ---
 
 # P581: Letters with Comprehension Assessment
