@@ -2,6 +2,32 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-05 [technical]: Build-time env validation + .env.example consolidation
+
+**Context:** Three prior incidents (D-4926: prod ran mock mode for months; D-5124: broken banners; D-2534: blank page) shared one root cause: `VITE_*` vars present in `.env.local` but missing from Vercel. Builds succeeded silently; failures only appeared at runtime in prod. Separately, having both `.env.example` and `.env.prod.example` created ambiguity about which vars are required.
+**Decision:** (1) Added `env-validate` Vite plugin in `vite.config.ts` — uses `configResolved` hook (runs after Vite loads `.env.local`) to check `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` are present. Fails `vite build` with a clear error message. Skips dev server and Vitest. (2) Merged `.env.prod.example` into `.env.example` with clear sections (Required / Prod migrations / Optional). Deleted `.env.prod.example`.
+**Alternatives rejected:** (A) Fewer .env files — can't merge test/dev/prod creds (different Supabase projects). (B) Runtime validation only (existing `supabase.ts` throw) — too late, blank page with no useful error. (C) Pre-deploy script — would need Vercel CI integration; the Vite plugin catches it at build time universally.
+**Consequences:** Any Vercel deploy missing required env vars will fail at build time, not in prod. One template file to maintain instead of two. All doc references updated (6 in decisions.md, 1 in cli-tools.md).
+**References:** `vite.config.ts:92-105`, `.env.example`
+
+---
+
+## 2026-04-05 [process]: pick-flow v3 — replaced scoring tables with principles-based reasoning
+
+**Context:** pick-flow v2 was 327 lines of scoring tables, signal matrices, A/B/C tiers, and mandatory/drop rules. Despite many iterations, the failure mode was always the same: the agent pattern-matched on signals instead of following Step 0's simple task-type classification. The P657 case proved it — Step 0 clearly said "infrastructure" but the agent dove into feature-pipeline scoring and produced an over-engineered flow. More rules made this worse, not better.
+**Decision:** Rewrite pick-flow as ~134 lines of principles-based reasoning (down from 327). Cut: tier system (A/B/C), all signal scoring matrices, mandatory/drop tables, full pipeline detection heuristic. Keep: Step 0 task-type classification table, lean viability check, infrastructure adversarial gate, available commands list. New core: classify task → name 1-3 concrete risks → match steps to risks → check 5 firewalls. The agent reasons about WHY each step protects the outcome instead of looking up rows in a table.
+**Alternatives rejected:** (A) Add more rows to scoring table — each iteration had diminishing returns; the bottleneck is agent compliance with existing rules, not rule completeness. (B) Add "hybrid task" row for multi-type specs — wouldn't have helped; the agent skipped Step 0 entirely, not because Step 0 was ambiguous.
+**Also fixed:** `flow:` frontmatter value inconsistency — three sources disagreed (`create-spec` vs `spec` vs `quick-feature`). Aligned all to match kanban TypeScript enforcement: `fix | dev | inline | quick-feature`.
+
+## 2026-04-05 [process]: P659 — Pipeline delivery tracking: two fields, three lists, skill-name stamps
+
+**Context:** Feature specs track position with `status` (kanban column) and `delivery_stage` (pipeline cursor). Three problems: (1) `delivery_stage` only shows the last skill — no trail of what ran before. (2) Only 6 of 15 pipeline skills update it. (3) No skill validates its predecessor ran. Result: stale kanban, specs stuck at `in-progress` for weeks, no way to tell what actually happened.
+**Decision:** Keep `status` (kanban, for founder) and `delivery_stage` (pipeline cursor, for skills) as separate fields. Add three new frontmatter fields: `pipeline_plan` (what pick-flow recommended), `pipeline_ran` (what actually started), `pipeline_skipped` (what was intentionally skipped with reason). All use inline YAML format `[a, b, c]`. Each of 15 tracked skills stamps `delivery_stage` with its name and appends to `pipeline_ran` on entry. 4 helper skills (spec-compact, finish, beautify, kdd) don't stamp. Validation: each skill checks its predecessor in the plan is in the ran list. `pipeline_ran` means "started" not "completed" — downstream skills verify upstream output sections exist (which they already do). Status updates at 4 points: dev/fix entry → `in-progress`, fix completion → `qa`, verify pass → `qa`, ship → `all-done`.
+**Alternatives rejected:** (A) Single `delivery_stage` (status quo) — no trail. (B) Shared state-machine script — over-engineering for 15 skills reading frontmatter. (C) Merge status and delivery_stage — different audiences (founder vs skills). (D) Two-phase stamp (started/completed) — doubles implementation surface across 15 skills for marginal benefit; downstream skills already verify output sections.
+**Adversarial review findings addressed:** (F1) `pipeline_skipped` uses flat string list with `--` separator, not nested YAML objects. (F2) First skill in plan skips predecessor check; empty `pipeline_ran` only allows first planned skill. (R1) Kanban scanner's `VALID_DELIVERY_STAGE` updated for skill-name values. (R2) `fix-frontmatter.py` qa-clearing rule removed. (R3) Exact Edit tool pattern mandated in stamp template. (R4) `/fix` → `qa` transition added to status table.
+**Consequences:** 22 files changed. All future specs have a visible audit trail. Pick-flow resume logic simplified from 6-row hardcoded table to single plan-vs-ran diff. Old-format numbered `delivery_stage` values accepted during transition.
+**References:** P659 spec, this conversation.
+
 ## 2026-04-05 [process]: Investigative bugs need living specs — one spec evolves, don't spawn P-numbers per discovery
 
 **Context:** P643 (/live mode switcher bugs) spawned P644 (test infra), P646 (name collision) as separate specs. Each had its own lifecycle, `blocked_by` chains, and status tracking. In practice: P644 was "done" but its core promise (automated two-party verification) still didn't work. P646 was filed, partially fixed, then folded back into P643. The user consolidated all three into a rewritten P643 with the real root cause and a single execution sequence.
@@ -106,10 +132,10 @@ Append-only log of architectural and product decisions. Newest entries at top.
 ## 2026-04-05 [technical]: Pre-commit secret scanning — two-layer defense for connection string credentials
 
 **Context:** Security audit (2026-04-03) found that database credentials had been committed to this public repo as connection string URLs. Both gitleaks (installed, rules-based) and the grep fallback (pattern-based) missed these because: (1) gitleaks' default ruleset has no rule for credentials embedded in database connection string URLs, (2) the grep scan was dead code — the script used if/else, so when gitleaks was present the grep branch never executed, (3) an example file contained a real credential in a comment labeled "Format:".
-**Decision:** Three-part fix: (1) Added custom `connection-string-credentials` rule to `.gitleaks.toml` covering `postgresql://`, `postgres://`, `mongodb://`, `mysql://`, `redis://`, `amqp://` URL schemes with allowlist for placeholder patterns (`YOUR_`, `PASSWORD_HERE`, `[PASSWORD]`, `CHANGE_ME`). (2) Restructured `pre-commit-checks.sh` section 5 to run both gitleaks AND grep (no longer either/or) — grep adds a connection string URL pattern as a second detection layer. (3) Replaced the real credential in `.env.prod.example` with a placeholder.
+**Decision:** Three-part fix: (1) Added custom `connection-string-credentials` rule to `.gitleaks.toml` covering `postgresql://`, `postgres://`, `mongodb://`, `mysql://`, `redis://`, `amqp://` URL schemes with allowlist for placeholder patterns (`YOUR_`, `PASSWORD_HERE`, `[PASSWORD]`, `CHANGE_ME`). (2) Restructured `pre-commit-checks.sh` section 5 to run both gitleaks AND grep (no longer either/or) — grep adds a connection string URL pattern as a second detection layer. (3) Replaced the real credential in `.env.example` (formerly `.env.prod.example`) with a placeholder.
 **Alternatives rejected:** (A) Fix only gitleaks rule — grep layer is dead code but should be defense-in-depth, not a fallback. (B) Fix only grep pattern — gitleaks has richer allowlisting (path + regex), grep alone would need manual exclusion lists. (C) Agent-side CLAUDE.md rule only — agent rules already failed to prevent the original leak; detection at commit time is the safety net.
 **Consequences:** Both layers now independently catch the exact patterns that leaked. Verified end-to-end: staged file with real credentials blocked by both gitleaks and grep; placeholder patterns pass through. Template/doc files with `[PASSWORD]` or `YOUR_*` patterns do not false-positive. The grep layer is no longer dead code.
-**References:** `.gitleaks.toml`, `scripts/pre-commit-checks.sh`, `.env.prod.example`
+**References:** `.gitleaks.toml`, `scripts/pre-commit-checks.sh`, `.env.example`
 
 ---
 
@@ -315,7 +341,7 @@ Append-only log of architectural and product decisions. Newest entries at top.
 ## 2026-04-03 [technical]: Security audit — 25-agent parallel remediation of 47 findings
 
 **Context:** First comprehensive security audit of the full stack: source code, Supabase RLS, edge functions, dependencies, infrastructure, client-side, and known CVEs. 8 audit agents ran in parallel, then 17 fix agents across 5 waves (Haiku for mechanical config, Sonnet for auth/migration logic, Opus for final validation).
-**Decision:** (1) Rotated compromised prod + test DB passwords (both were in public repo — prod in `.env.prod.example`, test in archived scripts). (2) Added JWT auth to `send-agreement-emails` and fixed cosmetic auth on `send-event-emails`. (3) Changed `--no-verify-jwt` from blanket to selective (only `create-and-sign`). (4) Dropped dangerous `public.set_config()` SECURITY DEFINER function. (5) Fixed `accept_agreement()` self-sign bypass and `patch_live_state()` missing participant check. (6) Tightened RLS on 7 legacy tables. (7) Added HSTS, Permissions-Policy, full CSP (report-only). (8) Hidden source maps. (9) HTML-escaped all user strings in email templates. (10) Added non-root Docker user. (11) Restricted GitHub Actions permissions.
+**Decision:** (1) Rotated compromised prod + test DB passwords (both were in public repo — prod in `.env.example` (formerly `.env.prod.example`), test in archived scripts). (2) Added JWT auth to `send-agreement-emails` and fixed cosmetic auth on `send-event-emails`. (3) Changed `--no-verify-jwt` from blanket to selective (only `create-and-sign`). (4) Dropped dangerous `public.set_config()` SECURITY DEFINER function. (5) Fixed `accept_agreement()` self-sign bypass and `patch_live_state()` missing participant check. (6) Tightened RLS on 7 legacy tables. (7) Added HSTS, Permissions-Policy, full CSP (report-only). (8) Hidden source maps. (9) HTML-escaped all user strings in email templates. (10) Added non-root Docker user. (11) Restricted GitHub Actions permissions.
 **Alternatives rejected:** (A) Manual one-by-one fixes — too slow for 47 findings. (B) Fixing only CRITICAL — leaves exploitable HIGH/MEDIUM attack surface. (C) Full CSP in enforcing mode — too risky without violation data; report-only first.
 **Consequences:** ~~Ghost CMS 5.130.6 remains vulnerable to CVE-2026-26980 (unauthenticated SQL injection) — needs major version upgrade to 6.19.3+.~~ **RESOLVED 2026-04-04:** Ghost upgraded to 6.25.1 (see P640). ~~GCS signed-URL Cloud Function still has no auth.~~ **RESOLVED 2026-04-04:** New `gcs-signed-url` edge function with JWT auth + secret rotated (see entry above). 13 npm vulns remain (need `@vercel/node` and `vite-plugin-pwa` major bumps). ~~CSP needs graduation from report-only to enforcing after monitoring.~~ **RESOLVED 2026-04-04:** CSP now enforcing + X-Frame-Options added. Migrations must be applied via `./scripts/migrate.sh`.
 **References:** Plan at `.claude/plans/tingly-cuddling-grove.md`
@@ -5123,13 +5149,13 @@ Changing DB column default alone is insufficient. Application layer sends the Ty
 
 **Context:** Banner regeneration worked in dev but not prod. Root cause: `VITE_UNSPLASH_ACCESS_KEY` was in `.env.local` but never added to Vercel's environment variables. Features using `VITE_*` build-time vars require manual Vercel config on every new API key — easy to miss. Also needed a way for the agent to do this autonomously without browser automation.
 
-**Decision:** `VERCEL_TOKEN` is now in `.env.local` (gitignored, never committed). Agent uses `vercel` CLI with `--token "$VERCEL_TOKEN"` for env var management and deployments. `.env.prod.example` updated to document `VITE_UNSPLASH_ACCESS_KEY` as required.
+**Decision:** `VERCEL_TOKEN` is now in `.env.local` (gitignored, never committed). Agent uses `vercel` CLI with `--token "$VERCEL_TOKEN"` for env var management and deployments. `.env.example` updated to document `VITE_UNSPLASH_ACCESS_KEY` as required.
 
 **Alternatives rejected:**
 - Browser automation each time — fragile, session-dependent, slow
 - Vercel MCP — no official MCP server exists
 
-**Consequences:** Agent can now run `vercel env add KEY production --token "$VERCEL_TOKEN"` autonomously. Rule: any new `VITE_*` env var must be added to Vercel dashboard + `.env.prod.example`. VITE_* vars are **baked at build time** — changing them in Vercel requires a redeploy (not just a restart). Verify with: check all lazy chunks for the string, not just main bundle.
+**Consequences:** Agent can now run `vercel env add KEY production --token "$VERCEL_TOKEN"` autonomously. Rule: any new `VITE_*` env var must be added to Vercel dashboard + `.env.example`. VITE_* vars are **baked at build time** — changing them in Vercel requires a redeploy (not just a restart). Verify with: check all lazy chunks for the string, not just main bundle.
 
 ---
 
@@ -5328,13 +5354,13 @@ Changing DB column default alone is insufficient. Application layer sends the Ty
 **Decision:** Three-part fix to make the full migration cycle autonomous:
 1. **PAT fallback in `migrate.sh`**: after the keychain lookup, fall back to `SUPABASE_ACCESS_TOKEN` from the env file. Agents add this token to `.env.local` once; keychain wins when humans run the script, env file wins when agents do.
 2. **`schema_migrations` INSERT in `apply_via_api`**: after each successful Management API SQL apply, INSERT the version into `supabase_migrations.schema_migrations ON CONFLICT DO NOTHING`. This keeps CLI migration history in sync so future `db push` runs don't re-apply or error on already-applied files.
-3. **`--env prod` flag**: `./scripts/migrate.sh --env prod` reads `.env.prod` instead of `.env.local`, giving a simple test→prod promotion path. `.env.prod.example` documents the required fields. `.env.prod` is gitignored.
+3. **`--env prod` flag**: `./scripts/migrate.sh --env prod` reads `.env.prod` instead of `.env.local`, giving a simple test→prod promotion path. `.env.example` documents the required fields. `.env.prod` is gitignored.
 
 **Alternatives rejected:** Storing the PAT in a shared secrets manager — over-engineering for a two-person project. Adding a separate `promote-to-prod.sh` — the env flag is simpler and self-documenting. CI/CD pipeline for migrations — added complexity, pooler auth issues would still block it from localhost runners.
 
-**Consequences:** Agents can now create and apply migrations to test end-to-end without human touch. Promoting to prod is a one-liner. The PAT must be present in `.env.local` (`SUPABASE_ACCESS_TOKEN`) for agents; human runs are unchanged (keychain takes priority). See `.env.prod.example` for the prod credentials template.
+**Consequences:** Agents can now create and apply migrations to test end-to-end without human touch. Promoting to prod is a one-liner. The PAT must be present in `.env.local` (`SUPABASE_ACCESS_TOKEN`) for agents; human runs are unchanged (keychain takes priority). See prod section in `.env.example` for the credentials template.
 
-**References:** [scripts/migrate.sh](../../scripts/migrate.sh) · [.env.prod.example](../../.env.prod.example) · [cli-tools.md](cli-tools.md)
+**References:** [scripts/migrate.sh](../../scripts/migrate.sh) · [.env.example](../../.env.example) · [cli-tools.md](cli-tools.md)
 
 ---
 

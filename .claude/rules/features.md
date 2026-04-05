@@ -50,12 +50,41 @@ ALWAYS run `./scripts/next-p-number.sh` — never compute manually (`ls`, `find`
 ## Optional Frontmatter: `flow`
 
 ```yaml
-flow: fix    # fix | dev | inline | spec
+flow: fix    # fix | dev | inline | quick-feature
 ```
 
-Records which implementation flow was chosen. Set by `/pick-flow` or the agent/human choosing the approach. Values map to the sequential flow tiers: `fix` = single-concern bug with confirmed root cause; `dev` = full pipeline; `inline` = too small for a skill; `spec` = skeleton only.
+Records which implementation flow was chosen. Set by `/pick-flow` or the agent/human choosing the approach. `fix` = single-concern bug with confirmed root cause; `dev` = full pipeline; `inline` = too small for a skill; `quick-feature` = spec skeleton only, minimal pipeline.
 
 **When `flow:` is set, the implementing agent must validate the chosen flow still matches actual scope before starting work.** If `flow: fix` is set but the scope has grown (multiple concerns, DB migration, 5+ files), flag the mismatch and confirm before proceeding.
+
+## Pipeline Tracking Fields (P659)
+
+Set by skills automatically, not manually. All use inline YAML list format `[a, b, c]`.
+
+```yaml
+delivery_stage: architect       # last skill that started on this spec
+pipeline_plan: [create-spec, challenge-prd, ux, architect, generate-tests, dev, verify]
+pipeline_ran: [create-spec, challenge-prd, ux, architect]
+pipeline_skipped: [research-arch -- no novel tech, decompose -- under 5 files]
+```
+
+- **`delivery_stage:`** — name of last skill that started running. Valid values: `create-spec`, `create-bug`, `change-request`, `challenge-prd`, `ux`, `research-arch`, `architect`, `ui`, `generate-tests`, `spec-review`, `decompose`, `dev`, `fix`, `verify`, `ship`. Legacy numbered values (`1-prd`, `2-ux-review`, `3-arch-review`, `3.5-ui-review`, `4-tests-ready`, `5-decomposed`, `uat`) accepted but deprecated.
+- **`pipeline_plan:`** — ordered skill list for this spec's flow. Set by `/pick-flow` when user confirms. Never deleted.
+- **`pipeline_ran:`** — skills that started, in order. Each tracked skill appends on entry. Re-runs get `.2` suffix (`.3` for third, etc.). Matching is exact string only. Means "started" not "completed" — downstream skills verify upstream output sections exist.
+- **`pipeline_skipped:`** — skills intentionally skipped, each with `--` separator and reason. Set by `/pick-flow`. Never deleted.
+
+**Status transitions (skill-managed):**
+
+| Event | Sets `status` to |
+|-------|-----------------|
+| `/dev` or `/fix` starts | `in-progress` |
+| `/fix` completes (QA gate) | `qa` |
+| `/verify` passes | `qa` |
+| `/ship` completes | `all-done` |
+
+**On spec close (`/ship`):** `delivery_stage` removed. `pipeline_plan`, `pipeline_ran`, `pipeline_skipped` kept as audit trail.
+
+**Validation:** Each tracked skill checks its predecessor in `pipeline_plan` is in `pipeline_ran` before proceeding. First skill in plan skips check. If `pipeline_plan` absent (old spec), skip validation.
 
 ## Change Requests
 

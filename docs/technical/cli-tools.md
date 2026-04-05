@@ -50,14 +50,14 @@ npx supabase gen types typescript --project-id gfjctyxqlwexxwsmkakq > src/app/ty
 # 3. Promote to prod
 ./scripts/migrate.sh --env prod
 ```
-`.env.prod` must exist (see `.env.prod.example` in project root). It needs `VITE_SUPABASE_URL`, `SUPABASE_DB_URL`, and `SUPABASE_ACCESS_TOKEN` for the prod project.
+`.env.prod` must exist (see prod section in `.env.example`). It needs `VITE_SUPABASE_URL`, `SUPABASE_DB_URL`, and `SUPABASE_ACCESS_TOKEN` for the prod project.
 
 **Migration file naming rule — CRITICAL:**
 Supabase CLI tracks one history entry per 8-digit date (`YYYYMMDD`). Multiple files sharing the same date permanently block `db push`. **One migration file per day.** If you need multiple same-day migrations, use `YYYYMMDDHHMMSS` timestamps (14 digits) to ensure uniqueness.
 
 **Known state:**
 - Project linked via `supabase link --project-ref gfjctyxqlwexxwsmkakq`
-- DB password in `SUPABASE_DB_URL` in `.env.local` (format: `postgresql://user:PASSWORD@host/db`)
+- DB password in `SUPABASE_DB_URL` in `.env.local` (see prod section in `.env.example` for format)
 - `supabase --db-url` / `migration up` commands do NOT work — pooler returns "Tenant or user not found" for direct pg connections from localhost (known Supabase constraint)
 - Free tier: project auto-pauses after inactivity → unpause in Dashboard before running migrate.sh
 - `SUPABASE_ACCESS_TOKEN` in `.env.local` is the agent-friendly PAT — add yours from the Supabase Dashboard if agents need to apply migrations autonomously
