@@ -1,6 +1,7 @@
 import { test, expect, Browser } from '@playwright/test';
 import { createTwoPartySessionRealistic, TwoPartySession } from './helpers/test-session';
 import { waitForUIUpdate, advanceSessionState, postRoundIdleState } from './helpers/test-realtime';
+import { createTestStory, deleteTestStory } from './helpers/test-story';
 
 /**
  * P617/P643: Mode Switcher + Drawer Lifecycle Verification
@@ -136,6 +137,44 @@ test.describe('P617: Mode switcher lifecycle', () => {
     // Verify it's NOT disabled (no opacity-50 class)
     const disabledPill = host.page.locator('[class*="opacity-50"][class*="cursor-not-allowed"]');
     await expect(disabledPill).not.toBeVisible({ timeout: 3000 });
+  });
+
+  test('P643 root cause: story selection auto-opens rating drawer', async () => {
+    const { host } = session;
+
+    // Wait for idle screen (proves page loaded)
+    await expect(host.page.getByText('Speak')).toBeVisible({ timeout: 15000 });
+
+    // Create a test story for the host user.
+    // StorySearchPicker renders story.content (not title) as the display text.
+    const storyContent = 'P643 test story for auto-start';
+    const story = await createTestStory(host.user.user.id, {
+      title: 'P643 Test Story',
+      content: storyContent,
+    });
+
+    try {
+      // Re-navigate to pick up the newly created story.
+      // The stories useEffect fires on mount — story created after initial load won't appear.
+      // This is NOT Realtime sync (banned by test rules) — it's a data-loading concern.
+      await host.page.goto(`/live/${session.sessionCode}?skipMicCheck=true`);
+      await expect(host.page.getByText('Speak')).toBeVisible({ timeout: 15000 });
+
+      // Click "+ Select your story" to open the picker
+      await host.page.getByText('+ Select your story').click();
+      await expect(host.page.getByText(storyContent)).toBeVisible({ timeout: 10000 });
+
+      // Select the story — this should auto-open the rating drawer (the P643 fix)
+      await host.page.getByText(storyContent).click();
+
+      // The rating drawer should appear WITHOUT clicking Speak
+      await expect(host.page.getByText('How well do you believe')).toBeVisible({ timeout: 5000 });
+
+      // Speak button should NOT be visible (we're in the rating drawer now)
+      await expect(host.page.getByTestId('start-check')).not.toBeVisible({ timeout: 1000 });
+    } finally {
+      await deleteTestStory(story.id);
+    }
   });
 
   test('Bug 3: listener should NOT see story card before speaker submits', async () => {

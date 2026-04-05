@@ -1308,7 +1308,7 @@ function IdleScreen({
               showStoryPicker ? (
                 <StorySearchPicker
                   stories={stories}
-                  onSelectStory={(id, title) => { handleSelectStoryWithTracking(id, title); setShowStoryPicker(false); }}
+                  onSelectStory={(id, title) => { handleSelectStoryWithTracking(id, title); setShowStoryPicker(false); onStartCheck?.(); }}
                   disabled={waitingForPartnerToContinue}
                   onCancel={() => setShowStoryPicker(false)}
                 />
