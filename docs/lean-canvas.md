@@ -1,6 +1,8 @@
 # Lean Canvas: ClarityPledge
 
-**Last updated:** 2026-03-23
+**Last updated:** 2026-04-05
+
+> **Ikigai governing frame.** ClarityPledge is an impact-first project. Four circles: (1) **Love/calling** — the mission to instrument human understanding; non-negotiable. (2) **Skill** — applied epistemology + facilitation + software. (3) **World needs it** — positive externality: the clarity flip is predictable and virally spreads with product-led growth. (4) **Income** — revenue is proof of positive impact, therefore second. This lean canvas details the income circle. Progress across all circles is measured by learning speed (hypotheses falsified per unit time). A failed hypothesis means the delivery method needs changing, not the mission.
 
 > One business, two brands. **ClarityPledge** (claritypledge.com) is the open-source tool and community. **ladischenski.com** is the founder's coaching practice that funds, validates, and uses the platform. Coaching revenue flows through the personal brand; platform adoption through the community brand.
 
@@ -306,7 +308,7 @@ One event per thinker-conjecture, each targeting a different intellectual commun
 | Direct Investor DD | €2,000+ | Pre-investment calibration assessment. Investor pays. | Parked (H-InvestorDD) |
 | Mirror Agent SaaS | Subscription | Automated calibration agents. | Long-term |
 
-**Revenue-model pivot (2026-03-16): pay-what-it's-worth.** Pairs donate what they felt the session was worth. Produces genuine WTP signal without the "ask" barrier. Kill condition: if 5 pairs' total donations < €200, problem isn't painful enough to monetize. Transition to fixed pricing after donation data confirms value perception.
+**Revenue-model pivot (2026-03-16): pay-what-it's-worth.** Pairs donate what they felt the session was worth. Produces genuine WTP signal without the "ask" barrier. Transform condition: if 5 pairs' total donations < €200, delivery method needs changing. Transition to fixed pricing after donation data confirms value perception.
 
 **Retainer trigger:** Offered AFTER the "holy shit" moment — pair experienced a false agreement revealed in a facilitated session AND booked session 2.
 
@@ -385,7 +387,7 @@ Hosting, Supabase, LLM API costs (Gemini via GCP credits). Founder's development
 
 ## Validation Status
 
-**Current state (2026-03-22):** 28+ sessions run. Three pairs (A: Mar 13, C: Mar 14, B: Mar 16). Protocol validated — gap reveals land, pairs sign partner agreements. WTP untested — Pair B pre-revenue, zero pairs named a concrete cost from their gap. Reactions: curiosity, intellectual engagement — no urgency. H-WTP-Pain approaching kill threshold.
+**Current state (2026-03-22):** 28+ sessions run. Three pairs (A: Mar 13, C: Mar 14, B: Mar 16). Protocol validated — gap reveals land, pairs sign partner agreements. WTP untested — Pair B pre-revenue, zero pairs named a concrete cost from their gap. Reactions: curiosity, intellectual engagement — no urgency. H-WTP-Pain approaching transform threshold.
 
 **Breakthrough (2026-03-22):** False-belief facilitation identified as active mechanism to engineer the "felt cost" moment — don't passively hope pairs name a cost, actively create the moment where a broken belief connects to their relationship. See P567.
 

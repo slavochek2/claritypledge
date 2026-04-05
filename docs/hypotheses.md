@@ -1,6 +1,6 @@
 # Hypotheses
 
-Active bets in priority order. This is the scoreboard — what we need to prove, what's blocked, what we know.
+Active bets in priority order. This is the scoreboard — what we need to prove, what's blocked, what we know. Hypotheses test delivery mechanisms, not the mission. A failed hypothesis triggers mechanism transformation — try a different method — not project abandonment. See [lean-canvas.md](lean-canvas.md) ikigai governing frame.
 
 Session logs, architecture notes, and strategic commentary belong in [decisions.md](decisions.md), not here.
 
@@ -31,7 +31,7 @@ Session logs, architecture notes, and strategic commentary belong in [decisions.
 
 **Parked (12+ months):** H-AgentCoordination, H-SalesTeamAdoption, H-TeamCommunication, H-ProtocolReachesScale, H-ToleranceAmplifies — see [Parked](#parked) section.
 
-**Killed:** None yet. After 28 sessions and zero observed "holy shit" moments, H-WTP-Pain and H-PairsReturn are approaching their kill thresholds. See P0 entries.
+**Transformed:** None yet. After 28 sessions and zero observed "holy shit" moments, H-WTP-Pain and H-PairsReturn are approaching their transform thresholds. See P0 entries.
 
 ---
 
@@ -42,16 +42,16 @@ Session logs, architecture notes, and strategic commentary belong in [decisions.
 #### H-WTP-Pain: Gap reveal produces urgency, not just curiosity
 **Bet:** Participants find the gap reveal interesting but "interesting" doesn't open wallets. Without felt pain ("this cost us X"), WTP stays near zero.
 **Test:** After every gap reveal, ask: "When did a misunderstanding like this cost you something?" Track answers via P518 qualifying question.
-**Kill if:** 10 pairs cannot name a concrete cost after experiencing their gap.
+**Transform if:** 10 pairs cannot name a concrete cost after experiencing their gap.
 **Status (2026-03-18):** 28 sessions, zero pairs expressed that their gap was costing them anything. Reactions: curiosity, intellectual engagement, social warmth. No alarm, no urgency. This is the single most important hypothesis for commercial viability.
 **Update (2026-03-21):** CE distribution channel deferred — will return with concrete forwardable offer. Async-first go-to-market adaptation: booking links and written offers instead of scheduling calls. Compounds the delay in testing WTP with revenue-qualified pairs.
 **Update (2026-03-22):** False-belief facilitation technique identified as concrete testing mechanism. Workshop flow: surface participant's false belief via question → they position on false-belief point → present counter-story → verify understanding (P561 slider) → position switch → **reflection prompt: "What situations would have been different? What did holding this cost you?"** → they file story about their past false belief + cost. The reflection prompt IS the H-WTP-Pain test — not passively hoping pairs name a cost, but actively engineering the moment where broken belief connects to their relationship. See P567 (false belief curriculum) and [facilitator-guide.md](facilitator-guide.md).
 **Risk (2026-03-23):** Purchase frame itself may repel — "buying a de-risking package = admitting our relationship might break." The "sophistication/prenup" reframe works only for founders who already self-identify as high-performing. Workshop reflection tests pain; conversion tests whether pain overcomes the frame resistance. Watch for this in workshop debrief.
 **Insight (2026-03-24):** Clarity Letter three-step sequence may resolve the pricing chicken-and-egg. Letter 1 (opened during workshop) demonstrates value. /live verifies understanding and produces gap map. Letter 3 calibrates the commercial exchange using the skill just learned — PWIW with full comprehension context. The workshop participant prices the experience AFTER having experienced calibration, not before. Test: does a workshop that uses Letters 1-3 produce higher PWIW amounts than one without the letter instrument?
 **Insight (2026-03-25):** Illegibility — not pain absence — may be the real WTP blocker. Proven: legible offers sell (coaching at €250/hr). Unproven: selling THIS offer in its current form. The gap is legibility, not ability or willingness. Implication: the 10-letter test should measure not just "do they pay" but "can they name what they experienced." If they can name it, pricing follows. If they can't, no price point works. Byron Katie distinction: "find false beliefs" = crowded market (CBT, The Work, Street Epistemology); "find false beliefs about whether you understand each other" = unoccupied space.
-**Counter reset (2026-03-25):** The 28 sessions tested the OLD passive mechanism (hope pairs spontaneously name a cost). Zero did — confirming passive observation fails. The test mechanism changed (2026-03-22) to active false-belief facilitation with explicit reflection prompt ("What did holding this cost you?"). **Kill counter resets to 0 pairs tested with the new mechanism.** Kill threshold unchanged: 10 pairs can't name a concrete cost after false-belief workshop → kill. The 28 sessions are evidence about the old method, not the hypothesis itself.
+**Counter reset (2026-03-25):** The 28 sessions tested the OLD passive mechanism (hope pairs spontaneously name a cost). Zero did — confirming passive observation fails. The test mechanism changed (2026-03-22) to active false-belief facilitation with explicit reflection prompt ("What did holding this cost you?"). **Transform counter resets to 0 pairs tested with the new mechanism.** Transform threshold unchanged: 10 pairs can't name a concrete cost after false-belief workshop → transform delivery method. The 28 sessions are evidence about the old method, not the hypothesis itself.
 **Test questions refined (2026-03-29):** Two concrete debrief questions: (1) "Can you share a past experience where a misunderstanding cost you something real?" — surfaces felt pain. (2) "How would you describe to a friend how our clarity session helped you?" — tests legibility (H-WTP-Pain depends on participants being able to name what they experienced).
-**Data point (2026-03-26):** Hostel encounter — stranger completed full 7-story protocol, signed pledge, named concrete past cost unprompted: "I lost a good, long-time friend because we didn't understand each other." Prevention-driven — wants to share to prevent future loss, not repair past one. Note: spontaneous motivation, not the engineered false-belief workshop mechanism. Counts as anecdotal evidence that pain exists in the wild, but does not count against the kill counter (which tracks the new active facilitation mechanism).
+**Data point (2026-03-26):** Hostel encounter — stranger completed full 7-story protocol, signed pledge, named concrete past cost unprompted: "I lost a good, long-time friend because we didn't understand each other." Prevention-driven — wants to share to prevent future loss, not repair past one. Note: spontaneous motivation, not the engineered false-belief workshop mechanism. Counts as anecdotal evidence that pain exists in the wild, but does not count against the transform counter (which tracks the new active facilitation mechanism).
 **Watch for (2026-04-02):** Illegibility hypothesis may be self-sealing. If comprehension is verified and participants still don't pay, illegibility is falsified — bottleneck is something else (perceived value, urgency, price, trust). Track separately: "can they name what happened?" (legibility) vs "do they pay?" (WTP). If naming succeeds but payment doesn't, the blocker isn't legibility.
 
 ---
@@ -59,7 +59,7 @@ Session logs, architecture notes, and strategic commentary belong in [decisions.
 #### H-PairsReturn: Pairs recognize gap as costly and return
 **Bet:** Co-founder pairs who experience a gap revealed in a facilitated session will recognize it as costly, create a partner agreement, and return for session 2.
 **Test:** First Pairs milestone — 3-5 free facilitated sessions. Measure: does the "holy shit" moment happen? Do they book session 2?
-**Kill if:** Gap doesn't surprise them, OR they find it interesting but not worth paying to prevent, OR zero pairs book session 2. Pre-committed (2026-03-16): if 5 pairs + <€200 combined donations → kill.
+**Transform if:** Gap doesn't surprise them, OR they find it interesting but not worth paying to prevent, OR zero pairs book session 2. Pre-committed (2026-03-16): if 5 pairs + <€200 combined donations → transform delivery method.
 **Status (2026-03-16):** 3 pairs run (A: Mar 13, C: Mar 14, B: Mar 16). Protocol works, value received. But: Pair B is pre-revenue (WTP untested), transcript corpus shows no "holy shit" moment observed. ICP learning: pre-revenue pairs validate protocol but not WTP — real ICP qualifier is cash + felt pain.
 **Update (2026-03-22):** First Clarity Partner Agreement signed publicly (Jan + Nejc — every 2 days, 15 min explain-back right). Agreement committed to; usage not yet observed. Key test: does the agreement artifact drive recurring practice without facilitator involvement?
 **Notes:** Session format: Slava facilitates explain-back on real decisions. Pairs don't learn /live — Slava uses it as diagnostic tool. Merges previous H-CoFounders-WillPay + H-AgreementRetention.
@@ -71,7 +71,7 @@ Session logs, architecture notes, and strategic commentary belong in [decisions.
 #### H-TopicDepthGate: Topic selection determines session value
 **Bet:** Sessions with emotionally meaningful topics (values, fears) produce deep engagement. Abstract/trivial topics produce confusion. The facilitator's topic selection skill is the primary value driver.
 **Test:** Topic depth ladder (L1: facts → L2: opinions → L3: values → L4: fears/identity). Default to L3. Correlate depth level with P518 qualifying signal.
-**Kill if:** L3-4 topics produce the same shallow results as L1-2.
+**Transform if:** L3-4 topics produce the same shallow results as L1-2.
 **Status (2026-03-18):** ~40% of sessions failed due to topic inadequacy. When genuine emotional topics engaged, protocol reached depth fast.
 **Update (2026-03-22):** Mechanism identified — false-belief facilitation (P567) engineers depth instead of hoping for it. Start from participant's existing false belief → depth is immediate, no topic drift needed. This shifts H-TopicDepthGate from "is depth the gate?" (yes, confirmed) to "does engineered depth via false beliefs produce felt pain?" (feeds into H-WTP-Pain testing). Standard Socratic technique; ClarityPledge differentiator is measuring the gap + filing position switches as data.
 
@@ -80,7 +80,7 @@ Session logs, architecture notes, and strategic commentary belong in [decisions.
 #### H-StoryFirst: Story-first content model delivers async gap revelations
 **Bet:** When stories are the primary entity and points are extracted from them, the comprehension assessment (reader self-assesses, author counter-assesses from cards) produces gap revelations asynchronously — without Slava present. Scales the facilitated experience into the product.
 **Test:** Revise P523 — story-first creation flow with optional comprehension gate. Measure: do authors counter-assess? Does the gap produce action?
-**Kill if:** Authors don't counter-assess (bottleneck) OR gaps don't produce behavioral response OR story filing reduces point engagement below baseline.
+**Transform if:** Authors don't counter-assess (bottleneck) OR gaps don't produce behavioral response OR story filing reduces point engagement below baseline.
 **Status (2026-03-19):** Architecture designed, falsification-tested. Key decisions: gate is optional, assessment from cards (not just /live), points only from stories, orchestrated settings primary context. Not yet built.
 
 ---
@@ -88,7 +88,7 @@ Session logs, architecture notes, and strategic commentary belong in [decisions.
 #### H-Stories-ColdStart: Filed content creates return trigger
 **Bet:** Filed stories/points from session N give concrete material for session N+1. Without filed content, sessions default to whatever's top-of-mind.
 **Test:** After facilitated session + agreement, does Slava filing 2-3 stories create a "here's what to verify next time"? Does the pair reference filed content?
-**Kill if:** Filed content doesn't shape subsequent sessions — pairs always bring fresh topics regardless.
+**Transform if:** Filed content doesn't shape subsequent sessions — pairs always bring fresh topics regardless.
 **Status (2026-03-19):** Reframed by H-StoryFirst. Question shifts from "does filed content feed the FCO loop?" to "does story-first creation naturally produce content that feeds return?" The comprehension assessment creates a new trigger: author sees gap → wants to verify → schedules session.
 **Depends on:** H-PairsReturn (at least one facilitated pair).
 
@@ -96,7 +96,7 @@ Session logs, architecture notes, and strategic commentary belong in [decisions.
 
 #### H-WorkshopFormat: 1-to-many workshops convert to sessions
 **Bet:** Workshop where participants calibrate against YOUR content (false-belief curriculum, P567) produces position switches and felt pain that convert to €950 de-risking sessions.
-**Kill if:** <10% conversion after 3 workshops.
+**Transform if:** <10% conversion after 3 workshops.
 **Unblocked (2026-03-22):** False-belief workshops where participants calibrate against Slava's pre-filed points can be tested independently of H-PairsReturn — no pair dependency.
 **Promoted to P1 (2026-04-02):** First workshop imminent. Actively testing.
 **Test:** Run 3 workshops with P567 curriculum. Measure: position switches, reflection stories filed, conversion to de-risking.
@@ -110,7 +110,7 @@ Session logs, architecture notes, and strategic commentary belong in [decisions.
 #### H-CalibrationTrainable: Calibration accuracy improves with practice
 **Bet:** Users practicing explain-back reduce their understanding gaps over repeated sessions.
 **Test:** Track Understanding Gap reduction across sessions for same pairs. Research supports trainability (meta-analysis g=0.46-0.72).
-**Kill if:** No measurable gap reduction across repeated sessions.
+**Transform if:** No measurable gap reduction across repeated sessions.
 **Status (2026-03-18):** Weak positive. Within-session improvement visible. No cross-session data — almost no repeat pairs. N too small.
 
 ---
@@ -118,7 +118,7 @@ Session logs, architecture notes, and strategic commentary belong in [decisions.
 #### H-AICalib-EntryTeaser: AI demo lowers trust barrier before co-founder offer
 **Bet:** A 5-minute AI calibration demo has lower emotional load and faster demo-ability than leading with co-founder calibration. Workshop opener, not the product.
 **Test:** Calibration Lab workshops at AI-adjacent events. Does AI teaser create "aha" faster? Does co-founder pivot feel natural?
-**Kill if:** AI teaser creates confusion about what the product is FOR.
+**Transform if:** AI teaser creates confusion about what the product is FOR.
 **Status (2026-03-06):** Matters for group acquisition (sessions #3-10). Parked until First Pairs validates core gap reveal.
 
 ---
@@ -126,7 +126,7 @@ Session logs, architecture notes, and strategic commentary belong in [decisions.
 #### H-CoachChannel: Coaches adopt protocol as distribution channel
 **Bet:** Executive coaches adopt calibration protocol because it gives them something DISC/MBTI/360 miss — measured comprehension accuracy.
 **Test:** Train 3-5 coaches. Do they use it with clients? Do clients convert?
-**Kill if:** Zero adopt after training 5, OR coaches commodify to checkbox.
+**Transform if:** Zero adopt after training 5, OR coaches commodify to checkbox.
 **Status (2026-03-18):** Falsification-tested. $100B+ market, existing alignment vocabulary. Blocked by H-PairsReturn — Slava must demonstrate coaching first.
 **Sub-segment: Psychological safety practitioners (2026-04-02):** Positioning: "You built safety to speak. Now verify they heard." Psych safety works in low-stakes/homogeneous settings without verification. But in complex, emotional, or risky environments where differences are naturally high, unverified comprehension produces false agreement — people express freely but nobody checks reception. Verification makes psych safety work better and more predictably in high-stakes contexts. Entry: complementary tool, not framework replacement. Research: strong claim falsified (psych safety shows measured benefits without verification), weaker claim confirmed (false agreement as failure mode in high-difference environments).
 
@@ -139,28 +139,28 @@ Waiting on upstream hypotheses. Each entry lists what must happen before testing
 #### H-Retainers-Sticky: Pairs retain monthly FCO retainers
 **Bet:** Pairs subscribe to from-€1,950/month retainers — Slava reviews transcripts, identifies divergence with AI, facilitates targeted sessions.
 **Test:** Offer retainer to pairs from First Pairs who booked 2+ sessions. Target 10+ pairs, >60% month-2 retention, €10k MRR.
-**Kill if:** <5 signups OR <40% month-2 retention.
+**Transform if:** <5 signups OR <40% month-2 retention.
 **Blocked by:** H-PairsReturn.
 
 ---
 
 #### H-MetaEpistemic-Prerequisite: Meta-epistemological briefing deepens sessions
 **Bet:** If both participants understand the WHY (8 postulates — specifically the four epistemic states: private, falsely common, shared, common) before a session, depth increases.
-**Kill if:** Unbriefed sessions reach equal depth, OR briefing is off-putting.
+**Transform if:** Unbriefed sessions reach equal depth, OR briefing is off-putting.
 **Blocked by:** H-PairsReturn. Test passively — A/B briefed vs unbriefed.
 
 ---
 
 #### H-BriefingProtocol-ColdStart: Mirror agent invitation solves cold start
 **Bet:** Person A's mirror agent invites Person B ("Someone wants you to understand them better"). Person B engages, A+B meet at depth on day one.
-**Kill if:** Person B declines OR finds mirror claims generic.
+**Transform if:** Person B declines OR finds mirror claims generic.
 **Blocked by:** H-PairsReturn + H-Stories-ColdStart (two deps deep).
 
 ---
 
 #### H-ProtocolSpreadsWithoutTool: Protocol spreads free; tool captures value
 **Bet:** Explain-back protocol is valuable enough to spread without the product. Tool captures users who want measurement.
-**Kill if:** Zero organic spread after 5+ pairs experience sessions.
+**Transform if:** Zero organic spread after 5+ pairs experience sessions.
 **Blocked by:** H-PairsReturn.
 **Early signal (2026-03-26):** Hostel stranger wanted to share further after completing protocol (prevention-driven). N=1, not yet verified as actual spread. But first organic referral intent observed.
 **Mechanism (2026-04-02):** The replication unit is the person who flips, not the organization or the tool. A person who internalizes the protocol becomes a node that seeds verification in any relationship they enter. Workshop → flip → they bring it home → their partner encounters it → new node. Implication: optimize workshops for individual transformation depth, not organizational adoption breadth.
@@ -169,7 +169,7 @@ Waiting on upstream hypotheses. Each entry lists what must happen before testing
 
 #### H-InvestorDD: Investors pay for pre-investment calibration assessment
 **Bet:** Angels/micro-VCs pay €2,000+ for an unfakeable team alignment assessment (fills gap between financial DD and legal DD).
-**Kill if:** Zero interest after pitching 10 investors, OR they expect it free.
+**Transform if:** Zero interest after pitching 10 investors, OR they expect it free.
 **Blocked by:** H-PairsReturn + H-Retainers-Sticky. Lean path: let it emerge as pull ("can you share this with our investor?"), not push.
 
 ---
@@ -178,7 +178,7 @@ Waiting on upstream hypotheses. Each entry lists what must happen before testing
 **Bet:** A support group where practitioners share experiences from bringing calibrated communication into their real relationships (co-founder, partner, team) increases retention beyond 1:1 retainers. Format: sharing what happened when they tried the protocol, not practicing with strangers. Analogous to a running club for people training for a marathon, not a track meet.
 **Reframe (2026-03-29):** Field data shows Partner Agreements only work with existing high-stakes relationships (boyfriend, co-founder) — not strangers. The community isn't a practice arena (strangers practicing together); it's a support group (practitioners sharing experiences from real relationships). This is testable NOW as a WhatsApp group or monthly call — doesn't need the product.
 **Test:** Run a monthly call with 5+ active Partner Agreement holders. Measure: do they report practicing more because of the group? Do they bring new pairs?
-**Kill if:** Group devolves into abstract discussion without practice reports.
+**Transform if:** Group devolves into abstract discussion without practice reports.
 **Blocked by:** Need 5+ active Partner Agreements first. Partially unblocked — Jan+Nejc have one; more expected from workshops.
 
 ---
@@ -191,14 +191,14 @@ Waiting on upstream hypotheses. Each entry lists what must happen before testing
 
 #### H-InsightConversion: Surfacing repeated unacted insights drives behavior change
 **Bet:** Mirror agent tracks same insight recurring without action, surfaces it explicitly → produces behavior change that therapy/coaching miss.
-**Kill if:** Produces defensiveness rather than action.
+**Transform if:** Produces defensiveness rather than action.
 **Blocked by:** H-BriefingProtocol-ColdStart.
 
 ---
 
 #### H-SpecsReachResearchers: Technical specs reach AI safety researchers
 **Bet:** Specs on LessWrong/Alignment Forum spark adoption discussions about verified stories as training data.
-**Kill if:** Zero alignment discussions after 3 months.
+**Transform if:** Zero alignment discussions after 3 months.
 **Blocked by:** H-Essays-BuildRecognition.
 
 ---
