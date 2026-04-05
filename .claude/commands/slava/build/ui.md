@@ -2,7 +2,7 @@
 name: ui
 description: Map UX designs and architecture decisions to concrete component choices, maximizing reuse of the existing design system
 when_to_use: After /architect, before /generate-tests — for all UI features
-version: 1.0.0
+version: 2.0.0
 ---
 
 # UI Component Strategy
@@ -13,7 +13,7 @@ Adds Component Strategy layer to feature spec:
 - Component inventory (what exists in the codebase)
 - Component map (Reuse / Extend / Extract / New per element)
 - Composition tree (nesting, props, data flow)
-- Visual refinements (implementation-level polish below UX wireframe resolution)
+- Visual specification (primary visual design output — hierarchy, register, spacing, animation mapped to tokens)
 - Extraction plan (consolidate existing duplicates touched by this feature)
 - Challenge Notes (upstream concerns, if any)
 
@@ -101,17 +101,27 @@ How components nest, what props flow where, where shared state lives.
 </PageLayout>
 ```
 
-### 4. Visual Refinements
+### 4. Visual Specification
 
-Implementation-level visual choices that fall **below UX wireframe resolution** but **above raw code**. These are choices UX doesn't specify but that affect perceived quality:
+The primary visual design output. Informed by the Visual Context from `/ux` (density intent, visual reference). Translates UX context into concrete, token-mapped visual decisions.
 
-- Shadow depth (`shadow-sm` vs `shadow-lg` for visual hierarchy)
+**Before writing this section:** Read `tailwind.config.ts` and `src/app/globals.css` to discover the actual token set. Only output classes and variables that exist in the project — never invent semantic labels or token names.
+
+**If Visual Context is absent from the spec** (older `/ux` run): flag as a blocking gap: "Visual Context not found in /ux output. Re-run /ux or supply density intent and visual reference manually." Do not self-fill.
+
+**Required fields:**
+- **Visual hierarchy:** What draws the eye first, second, third — mapped to concrete Tailwind classes. E.g., "Primary: gap score → `text-2xl font-bold text-foreground`. Secondary: speaker name → `text-sm text-muted-foreground`. Tertiary: timestamp → `text-xs text-muted-foreground/60`."
+- **Emotional register:** One of: calm / urgent / ceremonial / playful / neutral — mapped to concrete Tailwind classes, not invented terms. E.g., "Ceremonial → sections use `gap-6 py-8`, card entry uses `animate-in fade-in duration-500`, accent color `text-primary/80`." No invented semantic labels like "relaxed spacing scale."
+- **Negative constraints:** What the output should NOT feel like, with the component patterns this rules out. E.g., "NOT a dashboard → no data tables, no metric card grids, no dense sidebar nav. NOT rushed → no stacked CTAs, minimum `gap-4` between interactive elements."
+- **Spacing per zone:** Concrete Tailwind classes per layout zone. E.g., "Header: `gap-2`. Content sections: `gap-6 py-4`. CTA area: `mt-8`." This replaces the old "spacing precision" refinement — one source of truth for spacing.
+- **Animation/transition:** What moves, speed, reason — or "no animation" with reason. E.g., "Card entry: `fade-in duration-300 ease-out` (content appearing, not demanding attention). Dismiss: instant (no exit animation — immediate feedback)."
+
+**Implementation-level refinements** (augment the fields above for specific components):
+- Shadow depth (`shadow-sm` vs `shadow-lg`)
 - Hover/focus transitions (`transition-shadow duration-200`)
-- Spacing precision (`gap-3` vs `gap-4` for tighter grouping)
 - Border radius consistency (match adjacent components)
-- Animation timing (entry/exit for dialogs, toasts)
 
-**Constraint:** Visual refinements must not contradict `/ux` specifications. They fill gaps, not override decisions.
+**Constraint:** Visual Specification must not contradict `/ux` specifications. It translates UX context into visual decisions — doesn't override interaction design.
 
 ### 5. Extraction Plan
 
@@ -163,7 +173,7 @@ When `/ui` discovers a problem with an upstream decision:
      ↓
 4. COMPOSITION TREE → Define nesting, props, state
      ↓
-5. VISUAL REFINEMENTS → Fill gaps below UX wireframe resolution
+5. VISUAL SPECIFICATION → Map visual intent to concrete tokens
      ↓
 6. EXTRACTION PLAN → Consolidate duplicates in scope
      ↓
@@ -231,7 +241,9 @@ The /ui agent:
 - [ ] Every "New" classification includes justification (why existing patterns don't apply)
 - [ ] File locations proposed for all new/extended components
 - [ ] Composition tree covers the main screen(s)
-- [ ] Visual refinements don't contradict /ux specifications
+- [ ] Visual Specification has all 5 required fields (hierarchy, register, negative constraints, spacing, animation)
+- [ ] Visual Specification uses only Tailwind classes found in tailwind.config.ts/globals.css
+- [ ] Visual Specification informed by Visual Context from /ux (or flagged as blocking if absent)
 - [ ] Extraction plan scoped to patterns this feature touches (no scope creep)
 - [ ] If spec has `## UI Contract`: all component names and labels in Component Map match UI Contract values verbatim
 - [ ] Challenge Notes (if any) include evidence, options, and recommendation
@@ -248,6 +260,7 @@ You are a UI Component Strategist. Your job is to map UX designs and architectur
 
 Read the spec at {spec_file}:
 - UX section: what screens, interactions, states, edge cases
+- Visual Context (from /ux v2.0+): density intent and visual reference — these inform your Visual Specification. If absent, flag as blocking: "Visual Context not found in /ux output. Re-run /ux or supply density intent and visual reference manually."
 - Architecture section: data shapes, file boundaries, server/client splits
 - UI Contract (if exists): exact strings, component names, labels — use verbatim
 - Acceptance criteria: what done looks like
@@ -274,10 +287,17 @@ Format as a table:
 **Step 3 — Composition Tree**
 Show how components nest for the main screen(s). Use indented JSX-like notation showing component hierarchy, key props, and where state is managed.
 
-**Step 4 — Visual Refinements**
-Identify implementation-level visual choices that fall below UX wireframe resolution:
-- Shadow depth, hover transitions, spacing precision, animation timing
-- These must NOT contradict /ux — they fill gaps only
+**Step 4 — Visual Specification**
+First: Read `tailwind.config.ts` and `src/app/globals.css` to discover the actual token set. Only output classes and variables that exist in the project.
+
+Then produce the Visual Specification informed by the Visual Context from /ux:
+- **Visual hierarchy:** primary/secondary/tertiary elements → concrete Tailwind classes (text size, weight, color)
+- **Emotional register:** calm/urgent/ceremonial/playful/neutral → concrete Tailwind classes (spacing, animation, color). No invented semantic labels.
+- **Negative constraints:** what the output should NOT feel like → specific component patterns this rules out
+- **Spacing per zone:** concrete Tailwind classes per layout zone (replaces old "spacing precision" — one source of truth)
+- **Animation/transition:** what moves, speed class, reason — or "no animation" with reason
+- Plus implementation refinements: shadow depth, hover transitions, border radius consistency
+- All must NOT contradict /ux specifications
 
 **Step 5 — Extraction Plan**
 If this feature touches an area with duplicated patterns:
@@ -309,7 +329,7 @@ Use the Edit tool to append the Component Strategy section to {spec_file}:
 - [ ] Every "New" justified
 - [ ] File locations proposed
 - [ ] Composition tree present
-- [ ] Visual refinements don't contradict /ux
+- [ ] Visual Specification has all 5 fields, uses real tokens, informed by Visual Context
 - [ ] Challenge Notes have evidence (if any)
 - [ ] UI Contract values used verbatim (if UI Contract exists)
 

@@ -2,7 +2,7 @@
 name: ux
 description: Design user experience layer after business requirements are approved
 when_to_use: After /create-spec, before /architect - only for UI features
-version: 1.0.0
+version: 2.0.0
 ---
 
 # UX Design
@@ -56,11 +56,16 @@ Adds UX layer to feature spec:
 - Visual hierarchy
 - Content organization
 
-**Edge Cases:**
-- Error states (what if X fails?)
-- Loading states (while waiting for Y)
-- Empty states (no data yet)
-- Validation feedback (form errors)
+**Visual Context:**
+- Density intent (spacious vs. dense — with user-context reason why)
+- Visual reference ("this should feel like [existing shipped page or external reference]")
+
+**Edge Cases & UI States:**
+- Error states: what the error looks like spatially, what the user's next action is, recovery path
+- Loading states: skeleton vs. spinner vs. progressive reveal — with reason
+- Empty states: what the empty state communicates (guidance, not just "no data")
+- Validation feedback: inline vs. toast vs. summary — with spatial placement
+- Per-screen specification required for screens with novel interaction patterns; generic list acceptable for standard CRUD screens
 
 **Accessibility:**
 - Screen reader support (ARIA labels)
@@ -148,10 +153,13 @@ The UX agent:
 **Self-review checklist:**
 - [ ] User flows cover all user stories
 - [ ] Edge cases identified (errors, loading, empty)
+- [ ] UI States specified per screen for novel interaction patterns
+- [ ] Visual Context has both fields (density intent with reason, visual reference)
 - [ ] Accessibility requirements specified
 - [ ] Responsive design considered
 - [ ] Decisions requiring founder input surfaced explicitly
 - [ ] No technical implementation details (just UX) — component choices are deferred to `/ui`
+- [ ] No visual design decisions (hierarchy, emotional register, negative constraints) — those are `/ui` territory
 - [ ] If spec has `## UI Contract`: update the table with any new strings/colors discovered during UX design (button labels from flows, toast messages from edge cases, placeholder text). The UI Contract is the authoritative reference for all downstream skills — every concrete string in UX flows must appear in it.
 - [ ] Challenge Notes written for any upstream PRD concerns (if any)
 
@@ -249,12 +257,14 @@ Generate a complete UX section covering:
    - Interactive elements (buttons, inputs, toggles)
    - States: default, hover, active, disabled, loading
 
-3. **Edge Cases**
-   - Error states: What if API call fails? What message do we show?
-   - Loading states: What does user see while waiting? Spinner? Skeleton?
-   - Empty states: What if no data exists yet? What guidance do we give?
-   - Validation feedback: Form errors, invalid inputs, required fields
-   - Don't just document happy path — think through EVERY scenario
+3. **Edge Cases & UI States**
+   For screens with novel interaction patterns, specify these states per screen (not as a generic list).
+   For standard CRUD screens, a generic list is acceptable.
+   - Error states: What does the error look like spatially? Where does the message appear relative to the failed element? What is the user's next action? What recovery path exists?
+   - Loading states: Skeleton, spinner, or progressive reveal — with reason for the choice. What content is already visible vs. loading?
+   - Empty states: What does the empty state communicate? Guidance toward first action, not just "no data yet." What visual weight does the empty state carry?
+   - Validation feedback: Inline, toast, or summary — with spatial placement rationale. When does validation fire (on blur, on submit, real-time)?
+   - Don't just document happy path — think through EVERY scenario. "Show error toast" is not a UI state — describe where, how, and what happens next.
 
 4. **Accessibility**
    - Screen reader support: ARIA labels, roles, live regions
@@ -269,16 +279,27 @@ Generate a complete UX section covering:
    - Desktop layout (1024px+): Multi-column, expanded features, mouse interactions
    - Breakpoint behavior: What changes at each breakpoint?
 
-**Critical constraints (UX sections 1–5 only):**
-- Generate UX layer only (flows, screens, interactions, accessibility)
+6. **Visual Context**
+   Two fields that communicate the USAGE CONTEXT for downstream visual design (`/ui` and `/dev`).
+   These are NOT visual design decisions — they are UX-layer context that informs visual decisions.
+   
+   Required fields:
+   - **Density intent:** Spacious/airy OR dense/efficient — with the user-context reason. E.g., "Spacious — user just completed an emotional exercise, not scanning data." This tells `/ui` what spacing scale to apply.
+   - **Visual reference:** "This should feel like [existing shipped page]" or "[external reference]". Anchors intent to something concrete, not a mood word. E.g., "Should feel like the Partner Agreement signing page — centered, breathing room, single focal point."
+   
+   Visual hierarchy, emotional register, and negative constraints ("what should feel wrong") are `/ui` territory — do NOT include them here.
+
+**Critical constraints (UX sections 1–6):**
+- Generate UX layer only (flows, screens, interactions, accessibility, visual context)
 - DO NOT include: Technical implementation, file paths, code patterns, database schema
+- DO NOT include: Visual design decisions (color choices, typography, animation specifics) — those are `/ui` territory
 - Ask clarifying questions if UX is unclear (e.g., "Which page does this appear on?")
 - Check existing codebase patterns: Use Grep/Glob to find similar components, follow existing design system
 - Consider mobile-first: Design for smallest screen first, enhance for larger screens
 
 ---
 
-**Section 6 — Challenge Notes** *(optional — only when upstream concerns are found)*
+**Section 7 — Challenge Notes** *(optional — only when upstream concerns are found)*
 
 If during UX design you discover a problem with a `/create-spec` decision (e.g., a user story that can't map to a coherent flow, acceptance criteria that conflict):
 
@@ -288,7 +309,7 @@ Write a Challenge Note:
 - Options (A/B/C) with recommendation
 - Whether it's blocking (rarely) or non-blocking (usually)
 
-If no upstream concerns: omit Section 6 entirely.
+If no upstream concerns: omit Section 7 entirely.
 
 **Note:** Component-level decisions (which components to reuse, extend, or create) are handled by `/ui`, which runs after `/architect`. Do NOT include component analysis here — focus on UX flows, screens, and interactions.
 
@@ -298,10 +319,13 @@ If no upstream concerns: omit Section 6 entirely.
 - [ ] All user stories have corresponding user flows
 - [ ] User flows are complete: Entry → Actions → Exit (not just happy path)
 - [ ] Edge cases identified for: errors, loading, empty states, validation
+- [ ] UI States specified per screen for screens with novel interaction patterns (spatial placement, recovery path, visual weight)
+- [ ] Visual Context has both fields: density intent (with user-context reason) and visual reference (concrete anchor)
 - [ ] Accessibility requirements specified: screen reader, keyboard, ARIA, color contrast
 - [ ] Responsive design considered: mobile, tablet, desktop breakpoints
 - [ ] Decisions requiring founder input surfaced explicitly
-- [ ] Sections 1–5 contain no file paths, code patterns, or component names — component mapping is deferred to `/ui`
+- [ ] Sections 1–6 contain no file paths, code patterns, or component names — component mapping is deferred to `/ui`
+- [ ] Sections 1–6 contain no visual design decisions (hierarchy, emotional register, animation specifics) — those are `/ui` territory
 - [ ] Challenge Notes written for any upstream `/create-spec` concerns (if any)
 - [ ] Flows are specific enough that developer can implement without guessing
 
