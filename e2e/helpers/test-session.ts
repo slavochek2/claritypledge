@@ -61,8 +61,10 @@ async function assertNoAuthRedirect(page: Page, sessionCode: string): Promise<vo
  */
 async function dismissTermsDialog(page: Page): Promise<void> {
   try {
-    await page.getByRole('button', { name: 'Continue' }).waitFor({ state: 'visible', timeout: 3000 });
-    await page.getByRole('button', { name: 'Continue' }).click();
+    // Use exact match to avoid matching "Continue with Google" button on the guest join form.
+    // The terms dialog button text is exactly "Continue" (or "Continuing..." when loading).
+    await page.getByRole('button', { name: 'Continue', exact: true }).waitFor({ state: 'visible', timeout: 3000 });
+    await page.getByRole('button', { name: 'Continue', exact: true }).click();
   } catch {
     // No terms dialog — proceed
   }

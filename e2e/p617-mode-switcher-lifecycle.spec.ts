@@ -1,6 +1,6 @@
 import { test, expect, Browser } from '@playwright/test';
 import { createTwoPartySession, TwoPartySession } from './helpers/test-session';
-import { supabaseAdmin } from '../src/lib/supabase-admin';
+import { supabaseAdmin } from './helpers/supabase-admin';
 
 /**
  * P617: Mode Switcher + Drawer Lifecycle Verification
@@ -48,26 +48,7 @@ test.describe('P617: Mode switcher lifecycle', () => {
   test('UAT-1+5: idle screen shows mode switcher + Speak opens drawer for speaker', async () => {
     const { host, guest } = session;
 
-    // Wait for pages to settle — guest may redirect or show terms dialog
-    await host.page.waitForLoadState('networkidle');
-    await guest.page.waitForLoadState('networkidle');
-
-    // If guest ended up on /login, re-navigate with auth (addInitScript should have it)
-    if (guest.page.url().includes('/login') || guest.page.url().includes('accounts.google')) {
-      await guest.page.goto(`/live/${session.sessionCode}?skipMicCheck=true`);
-      await guest.page.waitForLoadState('networkidle');
-    }
-
-    // Dismiss terms dialog if it appears (new test users)
-    for (const page of [host.page, guest.page]) {
-      const continueBtn = page.getByRole('button', { name: 'Continue' });
-      if (await continueBtn.isVisible({ timeout: 2000 }).catch(() => false)) {
-        await continueBtn.click();
-        await page.waitForLoadState('networkidle');
-      }
-    }
-
-    // Wait for both to land on idle screen
+    // Wait for both to land on idle screen (auth + auto-join + session load)
     await expect(host.page.getByText('Speak')).toBeVisible({ timeout: 15000 });
     await expect(guest.page.getByText('Speak')).toBeVisible({ timeout: 15000 });
 
@@ -83,20 +64,7 @@ test.describe('P617: Mode switcher lifecycle', () => {
   test('UAT-6+7: speaker submits → partner sees drawer (not Speak button)', async () => {
     const { host, guest } = session;
 
-    // Wait for pages to settle
-    await host.page.waitForLoadState('networkidle');
-    await guest.page.waitForLoadState('networkidle');
-
-    // Dismiss terms dialog if it appears
-    for (const page of [host.page, guest.page]) {
-      const continueBtn = page.getByRole('button', { name: 'Continue' });
-      if (await continueBtn.isVisible({ timeout: 2000 }).catch(() => false)) {
-        await continueBtn.click();
-        await page.waitForLoadState('networkidle');
-      }
-    }
-
-    // Wait for idle screen
+    // Wait for idle screen (auth + auto-join + session load)
     await expect(host.page.getByText('Speak')).toBeVisible({ timeout: 15000 });
 
     // Speaker clicks Speak and submits rating
@@ -139,19 +107,7 @@ test.describe('P617: Mode switcher lifecycle', () => {
   test('UAT-3: mode switcher disabled when partner is rating', async () => {
     const { host, guest } = session;
 
-    await host.page.waitForLoadState('networkidle');
-    await guest.page.waitForLoadState('networkidle');
-
-    // Dismiss terms dialog if it appears
-    for (const page of [host.page, guest.page]) {
-      const continueBtn = page.getByRole('button', { name: 'Continue' });
-      if (await continueBtn.isVisible({ timeout: 2000 }).catch(() => false)) {
-        await continueBtn.click();
-        await page.waitForLoadState('networkidle');
-      }
-    }
-
-    // Wait for both on idle
+    // Wait for both on idle (auth + auto-join + session load)
     await expect(host.page.getByText('Speak')).toBeVisible({ timeout: 15000 });
     await expect(guest.page.getByText('Open mode')).toBeVisible({ timeout: 15000 });
 
