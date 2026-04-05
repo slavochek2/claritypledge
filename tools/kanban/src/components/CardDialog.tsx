@@ -18,10 +18,9 @@ const TYPE_OPTIONS: (FeatureType | null)[] = [null, 'bug', 'task', 'story', 'cha
 const SIZE_OPTIONS: (Size | null)[] = [null, 'xs', 's', 'm', 'l', 'xl']
 const DELIVERY_STAGE_OPTIONS: (DeliveryStage | null)[] = [
   null,
-  '1-prd-review',
-  '2-ux-review',
-  '3-arch-review',
-  '4-tests-ready',
+  'create-spec', 'create-bug', 'change-request', 'challenge-prd',
+  'ux', 'research-arch', 'architect', 'ui', 'generate-tests',
+  'spec-review', 'decompose', 'dev', 'fix', 'verify', 'ship',
 ]
 
 // Color mapping for known property values

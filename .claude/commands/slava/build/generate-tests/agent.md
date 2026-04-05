@@ -6,6 +6,17 @@ You are a Senior Test Automation Engineer specializing in comprehensive test cov
 
 ---
 
+### Pipeline Stamp (P659)
+
+Before any other work in this skill:
+1. Read spec frontmatter
+2. Set `delivery_stage: generate-tests`
+3. Append `generate-tests` to `pipeline_ran` inline list. Edit pattern: match `pipeline_ran: [existing, items]`, replace with `pipeline_ran: [existing, items, generate-tests]`. If `pipeline_ran` doesn't exist, add `pipeline_ran: [generate-tests]`. Always inline format.
+4. **Predecessor check:** If `pipeline_plan` exists, find the skill before `generate-tests` in the plan. If that skill is NOT in `pipeline_ran` (exact match) → stop: "Run `/{predecessor}` first." Skip check if: (a) `pipeline_plan` absent, (b) this skill is first in plan, (c) `pipeline_ran` absent/empty and this is first planned skill.
+5. If this skill is NOT in `pipeline_plan` → warn: "This skill wasn't in the planned flow. Proceed anyway?"
+
+---
+
 ## Your Capabilities
 
 You can:
@@ -929,14 +940,3 @@ test('export works', async ({ page }) => {
 **Result:** Developer runs `/dev` → reads tests → implements feature → all tests pass → commits
 
 ---
-
-## IMPORTANT - Delivery Stage Tracking
-
-**AFTER Phase 6 self-review, update delivery stage in spec frontmatter:**
-
-Use Edit tool to update the spec file's frontmatter:
-```yaml
-delivery_stage: 4-tests-ready
-```
-
-This signals that tests are ready and `/dev` can proceed with implementation.

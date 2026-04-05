@@ -109,6 +109,19 @@ Testable conditions that confirm the bug is fixed. Format as checkbox list. Each
 
 ---
 
+## Pipeline stamp (P659)
+
+Before any other work in this skill:
+1. Read spec frontmatter
+2. Set `delivery_stage: create-bug`
+3. Append `create-bug` to `pipeline_ran` inline list. Edit pattern: match `pipeline_ran: [existing, items]`, replace with `pipeline_ran: [existing, items, create-bug]`. If `pipeline_ran` doesn't exist, add `pipeline_ran: [create-bug]`. Always inline format.
+4. **Predecessor check:** If `pipeline_plan` exists, find the skill before `create-bug` in the plan. If that skill is NOT in `pipeline_ran` (exact match) → stop: "Run `/{predecessor}` first." Skip check if: (a) `pipeline_plan` absent, (b) this skill is first in plan, (c) `pipeline_ran` absent/empty and this is first planned skill.
+5. If this skill is NOT in `pipeline_plan` → warn: "This skill wasn't in the planned flow. Proceed anyway?"
+
+**Note:** Since create-bug creates the file, set `delivery_stage: create-bug` and `pipeline_ran: [create-bug]` in the initial frontmatter (see Frontmatter section below).
+
+---
+
 ## Workflow
 
 ```
@@ -193,6 +206,8 @@ workstream: {infer from context, or omit if unclear}
 date_reported: {today YYYY-MM-DD}
 created_date: {today YYYY-MM-DD}
 tags: [{relevant tags, 2-4}]
+delivery_stage: create-bug
+pipeline_ran: [create-bug]
 ---
 ```
 
@@ -200,7 +215,7 @@ tags: [{relevant tags, 2-4}]
 - `date_resolved: YYYY-MM-DD`
 - `root_cause: brief explanation`
 
-**Do NOT add at creation:** `date_resolved`, `completed_at`, `delivery_stage`.
+**Do NOT add at creation:** `date_resolved`, `completed_at`.
 
 ---
 
@@ -216,6 +231,8 @@ workstream: {workstream}
 date_reported: {YYYY-MM-DD}
 created_date: {YYYY-MM-DD}
 tags: [{tags}]
+delivery_stage: create-bug
+pipeline_ran: [create-bug]
 ---
 
 # P{N}: {Title}

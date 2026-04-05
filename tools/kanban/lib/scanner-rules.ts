@@ -32,10 +32,13 @@ export const VALID_TYPE: readonly FeatureType[] = ['bug', 'task', 'story', 'comm
 export const VALID_SIZE: readonly Size[] = ['xs', 's', 'm', 'l', 'xl'] as const;
 
 export const VALID_DELIVERY_STAGE: readonly DeliveryStage[] = [
-  '1-prd-review',
-  '2-ux-review',
-  '3-arch-review',
-  '4-tests-ready',
+  // Skill-name values (P659)
+  'create-spec', 'create-bug', 'change-request', 'challenge-prd',
+  'ux', 'research-arch', 'architect', 'ui', 'generate-tests',
+  'spec-review', 'decompose', 'dev', 'fix', 'verify', 'ship',
+  // Legacy values (pre-P659)
+  '1-prd-review', '2-ux-review', '3-arch-review', '3.5-ui-review',
+  '4-tests-ready', '5-decomposed', 'uat',
 ] as const;
 
 // Folders to skip during scanning

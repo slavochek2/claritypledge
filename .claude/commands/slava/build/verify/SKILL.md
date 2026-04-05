@@ -51,10 +51,21 @@ The skill auto-detects the environment — no user input needed:
 
 | Signal | Detection | Effect |
 |---|---|---|
-| **Prod mode** | On `main` AND spec has `delivery_stage: uat` | Runs against `claritypledge.com` with `e2e-agent` account |
+| **Prod mode** | On `main` AND (`dev` in `pipeline_ran` OR `delivery_stage` is `dev` or `uat` for backward compat) | Runs against `claritypledge.com` with `e2e-agent` account |
 | **Localhost mode** | On feature branch OR spec not at `uat` | Runs against `localhost:{port}` (worktree-aware) |
 | **Visual pass needed** | `git diff main...HEAD` shows `.tsx`, `.css`, `.module.css` | Adds Chrome visual QA after Playwright |
 | **Two-party needed** | Spec/UAT contains "two-party", "listener", "creator", "/live session" | Uses `createTwoPartySession()` |
+
+---
+
+## Pipeline Stamp (P659)
+
+Before any other work in this skill:
+1. Read spec frontmatter
+2. Set `delivery_stage: verify`
+3. Append `verify` to `pipeline_ran` inline list. Edit pattern: match `pipeline_ran: [existing, items]`, replace with `pipeline_ran: [existing, items, verify]`. If `pipeline_ran` doesn't exist, add `pipeline_ran: [verify]`. Always inline format.
+4. **Predecessor check:** If `pipeline_plan` exists, find the skill before `verify` in the plan. If that skill is NOT in `pipeline_ran` (exact match) → stop: "Run `/{predecessor}` first." Skip check if: (a) `pipeline_plan` absent, (b) this skill is first in plan, (c) `pipeline_ran` absent/empty and this is first planned skill.
+5. If this skill is NOT in `pipeline_plan` → warn: "This skill wasn't in the planned flow. Proceed anyway?"
 
 ---
 
@@ -419,7 +430,7 @@ find features -name "p{N}_*.md" -not -path "*/done/*" -not -path "*/archive/*"
 
 **3. Apply guards (stop on first hit):**
 - `locked_at:` present → status not changed
-- `delivery_stage:` absent OR not `uat` → status not changed
+- `delivery_stage:` absent OR not in [`dev`, `uat`] → status not changed
 - `status:` not `in-progress` → status not changed
 
 **4. All guards pass** — replace `status: in-progress` with `status: qa`.

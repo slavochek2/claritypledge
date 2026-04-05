@@ -11,18 +11,30 @@ export type FeatureType = 'bug' | 'task' | 'story' | 'comment' | 'change-request
 export type Size = 'xs' | 's' | 'm' | 'l' | 'xl'
 
 // Delivery stage (software delivery process tracking)
+// Skill-name values (P659): each pipeline skill stamps its name
 export type DeliveryStage =
-  | 'prd-draft'
-  | 'prd-review'
-  | 'prd-approved'
-  | 'ux-design'
-  | 'ux-review'
-  | 'ux-approved'
-  | 'arch-design'
-  | 'arch-review'
-  | 'arch-approved'
-  | 'tests-generated'
-  | 'implementation'
+  | 'create-spec'
+  | 'create-bug'
+  | 'change-request'
+  | 'challenge-prd'
+  | 'ux'
+  | 'research-arch'
+  | 'architect'
+  | 'ui'
+  | 'generate-tests'
+  | 'spec-review'
+  | 'decompose'
+  | 'dev'
+  | 'fix'
+  | 'verify'
+  | 'ship'
+  // Legacy values (pre-P659) — accepted for old specs
+  | '1-prd-review'
+  | '2-ux-review'
+  | '3-arch-review'
+  | '3.5-ui-review'
+  | '4-tests-ready'
+  | '5-decomposed'
   | 'uat'
 
 // Column IDs match status values

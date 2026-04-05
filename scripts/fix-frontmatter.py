@@ -15,7 +15,7 @@ Auto-fixes (no judgment needed):
   - missing completed_at on done items → most recent git date (or today)
   - duplicate P-numbers → lower-priority file renamed + all references updated
   - header P-number mismatch (filename says p432, header says P429) → header corrected
-  - delivery_stage present when status is qa → cleared (qa means /dev completed)
+  - (removed P659: delivery_stage is no longer cleared at qa — skills manage it)
 
 Reports only (needs manual fix):
   - missing type field (story | bug | task | comment)
@@ -301,13 +301,7 @@ def fix_file(file_path, next_rank):
             new_lines.append(f'created_date: {date}')
             changes.append(f'added created_date: {date}')
 
-    # Fix: delivery_stage must be absent when status is qa
-    # Invariant: qa means /dev completed — delivery_stage no longer meaningful
-    status_line = next((l for l in new_lines if re.match(r'^status:', l)), None)
-    current_status = status_line.split(':', 1)[1].strip() if status_line else ''
-    if current_status == 'qa' and has_field(new_lines, 'delivery_stage'):
-        new_lines = [l for l in new_lines if not re.match(r'^delivery_stage:', l)]
-        changes.append('cleared delivery_stage (status: qa)')
+    # P659: delivery_stage is now skill-managed — do not auto-clear at any status
 
     # Fix: missing completed_at on done items
     if not has_field(new_lines, 'completed_at'):
@@ -316,13 +310,6 @@ def fix_file(file_path, next_rank):
             date = get_git_recent_date(file_path) or datetime.date.today().isoformat()
             new_lines.append(f"completed_at: '{date}'")
             changes.append(f'added completed_at: {date}')
-
-    # Fix: clear delivery_stage when status is qa (it's been through the gate)
-    current_status_line = next((l for l in new_lines if re.match(r'^status:', l)), None)
-    current_status = current_status_line.split(':', 1)[1].strip() if current_status_line else ''
-    if current_status == 'qa' and has_field(new_lines, 'delivery_stage'):
-        new_lines = [l for l in new_lines if not re.match(r'^delivery_stage:', l)]
-        changes.append('cleared delivery_stage (status: qa)')
 
     # Report: missing type
     if not has_field(new_lines, 'type'):

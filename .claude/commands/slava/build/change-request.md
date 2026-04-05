@@ -37,6 +37,19 @@ Do not create any file until you are in the main repo.
 
 ---
 
+## Pipeline stamp (P659)
+
+Before any other work in this skill:
+1. Read spec frontmatter
+2. Set `delivery_stage: change-request`
+3. Append `change-request` to `pipeline_ran` inline list. Edit pattern: match `pipeline_ran: [existing, items]`, replace with `pipeline_ran: [existing, items, change-request]`. If `pipeline_ran` doesn't exist, add `pipeline_ran: [change-request]`. Always inline format.
+4. **Predecessor check:** If `pipeline_plan` exists, find the skill before `change-request` in the plan. If that skill is NOT in `pipeline_ran` (exact match) → stop: "Run `/{predecessor}` first." Skip check if: (a) `pipeline_plan` absent, (b) this skill is first in plan, (c) `pipeline_ran` absent/empty and this is first planned skill.
+5. If this skill is NOT in `pipeline_plan` → warn: "This skill wasn't in the planned flow. Proceed anyway?"
+
+**Note:** Since change-request creates the file, set `delivery_stage: change-request` and `pipeline_ran: [change-request]` in the initial frontmatter (see template below).
+
+---
+
 ## Workflow
 
 ### Step 1: Get predecessor P-number
@@ -134,6 +147,8 @@ tags:
   - redesign
   - p{predecessor_N}
 created_date: {YYYY-MM-DD}
+delivery_stage: change-request
+pipeline_ran: [change-request]
 ---
 
 # P{N}: {Redesign Title}

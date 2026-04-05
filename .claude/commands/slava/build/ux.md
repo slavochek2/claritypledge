@@ -337,13 +337,17 @@ Before writing: check if a `## UX Design` section already exists in the spec (us
 Do NOT modify Business layer content before the UX section.
 **Retirement step (after writing UX section):** Remove any `## Open Questions for /ux` section — you answered those in your UX Design. If `## Next Steps` lists only completed steps (check delivery_stage), remove it.
 
-**IMPORTANT - Delivery Stage Tracking:**
-1. BEFORE starting UX design, clear the prd-review stage (running /ux = PRD approved):
-   - Use Edit tool: `delivery_stage: 2-ux-review` (overwrite whatever was there — running this skill is the approval signal)
+**IMPORTANT - Pipeline Stamp (P659):**
+Before any other work in this skill:
+1. Read spec frontmatter
+2. Set `delivery_stage: ux`
+3. Append `ux` to `pipeline_ran` inline list. Edit pattern: match `pipeline_ran: [existing, items]`, replace with `pipeline_ran: [existing, items, ux]`. If `pipeline_ran` doesn't exist, add `pipeline_ran: [ux]`. Always inline format.
+4. **Predecessor check:** If `pipeline_plan` exists, find the skill before `ux` in the plan. If that skill is NOT in `pipeline_ran` (exact match) → stop: "Run `/{predecessor}` first." Skip check if: (a) `pipeline_plan` absent, (b) this skill is first in plan, (c) `pipeline_ran` absent/empty and this is first planned skill.
+5. If this skill is NOT in `pipeline_plan` → warn: "This skill wasn't in the planned flow. Proceed anyway?"
 
-2. AFTER appending UX section, the delivery_stage is already set to `2-ux-review` from step 1 — no further change needed.
+AFTER appending UX section, the delivery_stage is already set — no further change needed.
 
-3. CONFIRM the write succeeded — read back the last 10 lines of {spec_file} and output exactly:
+CONFIRM the write succeeded — read back the last 10 lines of {spec_file} and output exactly:
    "UX section written to {spec_file} — [first 5 words of the last ## heading]. Ready for /architect."
    This is the final step. If the read-back shows no UX section, re-append and confirm again.
 ```

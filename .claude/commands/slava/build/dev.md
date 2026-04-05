@@ -119,7 +119,12 @@ Skip if no spec exists (inline description mode like `/dev refactor the auth mod
 
 0.3. **Pre-flight: two-party test coverage** — If the spec references `/live`, `clarity_sessions`, `session_code`, `joiner`, or `LiveMeeting`, run `grep -rl 'p{N}\|{feature-keyword}' e2e/` (substituting the actual P-number and a feature-specific keyword) and verify at least one test file exercises *this feature's* code path. A generic two-party helper match (e.g., `test-realtime.ts`) does not count — look for the P-number or feature name. If none exists, add a two-party E2E test to the implementation plan. *Rationale: P495 shipped a bug where the RPC call was inside an early-returning function — no two-party test existed to catch it.*
 
-0.4. **Mark in-progress** — If a P-number spec was provided, update `status: in-progress` in frontmatter (skip silently if inline description mode)
+0.4. **Pipeline stamp (P659)** — If a P-number spec was provided (skip silently if inline description mode):
+   1. Read spec frontmatter
+   2. Set `delivery_stage: dev` and `status: in-progress`
+   3. Append `dev` to `pipeline_ran` inline list. Edit pattern: match `pipeline_ran: [existing, items]`, replace with `pipeline_ran: [existing, items, dev]`. If `pipeline_ran` doesn't exist, add `pipeline_ran: [dev]`. Always inline format.
+   4. **Predecessor check:** If `pipeline_plan` exists, find the skill before `dev` in the plan. If that skill is NOT in `pipeline_ran` (exact match) → stop: "Run `/{predecessor}` first." Skip check if: (a) `pipeline_plan` absent, (b) this skill is first in plan, (c) `pipeline_ran` absent/empty and this is first planned skill.
+   5. If this skill is NOT in `pipeline_plan` → warn: "This skill wasn't in the planned flow. Proceed anyway?"
 1. **Read tests** — UAT scenarios, E2E test stubs, acceptance criteria
 1.5. **Read Component Strategy** — If spec has `## Component Strategy`, read the Component Map table. Every Reuse/Extend/Extract/New classification is a constraint — follow it. Do not create new components when the map says Reuse or Extend. If the Extraction Plan lists a prerequisite refactor, do it first.
 2. **Verify context** — Confirm Step -1 context is loaded (re-read spec if post-compaction or if >10 tool calls since Step -1). Key check: can you state (a) the top constraint from Decisions, (b) what "done" looks like from Acceptance Criteria, and (c) the next unchecked task? If not, re-read now. Every decision is a constraint, not a suggestion — if you can't name what the spec rules out, you haven't internalized it.
@@ -145,7 +150,7 @@ Skip if no spec exists (inline description mode like `/dev refactor the auth mod
 9.5. **Review** — Spawn `/finish code` as a subagent with this explicit instruction: "Review all code changes on this branch vs main. Spec: [current spec path]. Proceed directly — no scope confirmation needed." Present HIGH/MEDIUM findings to user. Ask: "Fix issues before closing? (all HIGH / select / skip)". Apply approved fixes and commit them.
 9.7. **Pre-deploy checklist** — If spec has a `## Pre-deploy Checklist` section, execute each item on the target environment now. Verify edge functions are deployed, secrets are set, and migrations are applied — don't defer to `/ship`. Report what was provisioned.
 9.8. **Prod verification (optional)** — After deploy, if the feature touches DB/auth/edge functions, run a Playwright prod verification test using `e2e-agent@claritypledge.com`. See `e2e/verify-prod-agreements.spec.ts` as template. Command: `VERIFY_PROD=1 PROD_SERVICE_ROLE_KEY="<srk>" npx playwright test e2e/verify-prod-<feature>.spec.ts`
-10. **UAT gate** — Set `delivery_stage: uat` in spec frontmatter (keep `status: in-progress`, do NOT move to `features/done/`). Tell user: "Feature ready for UAT on branch feature/pN-xxx. Suggest: run `/verify pN` for live UAT, then `/ship pN` when satisfied."
+10. **UAT gate** — Keep `status: in-progress` and existing `delivery_stage: dev` (already set by pipeline stamp on entry — do NOT set delivery_stage again). Do NOT move to `features/done/`. Tell user: "Feature ready for UAT on branch feature/pN-xxx. Suggest: run `/verify pN` for live UAT, then `/ship pN` when satisfied."
 
 ---
 
@@ -350,14 +355,13 @@ Iteration 2:
 
 The dev agent:
 
-**0. Mark in-progress (if P-number provided):**
-- Locate feature file: `features/p{N}_*.md`
-- Update frontmatter `status` → `in-progress`
+**0. Pipeline stamp (if P-number provided):**
+- Apply pipeline stamp (P659) from Workflow step 0.4 — sets `delivery_stage: dev`, `status: in-progress`, appends to `pipeline_ran`, checks predecessor
 - Report: "Marked pN as in-progress in kanban."
 - Skip silently if no feature file (inline description mode)
 
 **1. Pre-flight checks:**
-- Reads feature spec (business + UX + technical) — **copy enumerated values verbatim**: any phase name, enum value, or string literal in the spec (e.g., `'polish'`, `'visibility'`, `delivery_stage: uat`) must be transcribed exactly. Do not substitute synonyms.
+- Reads feature spec (business + UX + technical) — **copy enumerated values verbatim**: any phase name, enum value, or string literal in the spec (e.g., `'polish'`, `'visibility'`, `delivery_stage: dev`) must be transcribed exactly. Do not substitute synonyms.
 - Reads UAT scenarios (features/uat/pN.md)
 - Reads E2E test stubs (e2e/pN-*.spec.ts)
 - Reads acceptance criteria
@@ -462,7 +466,7 @@ Running /finish...
 [Review findings presented — HIGH/MEDIUM/LOW]
 Fix issues before closing? (all HIGH / select / skip)
 
-Feature ready for UAT — delivery_stage: uat set in spec.
+Feature ready for UAT — delivery_stage: dev set in spec.
 Branch: feature/pN-xxx
 Run /verify pN for live UAT, then /ship pN when satisfied → merges to prod and closes the spec.
 ```
@@ -706,7 +710,7 @@ After successful commit, mark the feature ready for UAT — do NOT move to `feat
    - If subagent returns **FAIL with defect issues**: fix them, re-screenshot, re-run QA subagent (1 retry max). If still failing after retry, report to user: "Visual QA issues persist after 1 fix cycle — run `/verify` for full UAT."
    - If subagent returns **FAIL with design-quality issues only**: report findings to user. These are advisory — don't block, but recommend `/verify` for design review.
    - **Fallback** (Chrome MCP unavailable): tell user "Chrome unavailable — run `/verify` manually for visual QA" and proceed to step 4.
-4. Update frontmatter: `delivery_stage: uat` (keep `status: in-progress`)
+4. Keep existing `delivery_stage: dev` and `status: in-progress` (already set by pipeline stamp on entry)
 5. Commit: `chore: pN ready for UAT — {title}`
 6. Run fix-kanban: Invoke `/slava:maintain:fix-kanban`
 7. Tell user: "Feature ready for UAT on branch `feature/pN-xxx` at **http://localhost:{port}/**. Visual QA: {✅ passed / ⚠️ issues found — see above / ⏭️ skipped (Chrome unavailable)}. Run `/verify pN` for live UAT, then `/ship pN` when satisfied to merge to prod and close the spec."

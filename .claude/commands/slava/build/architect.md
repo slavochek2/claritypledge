@@ -302,10 +302,14 @@ Use the canonical section structure (see .claude/rules/spec-sections.md):
 
 At the top of the Implementation Approach subsection: if the spec touches `CLAUDE.md`, anything under `.claude/`, `package.json`, build config (`vite.config.*`, `tsconfig.*`), or involves 10+ files to create or modify combined, add a bolded note: `**Worktree recommended:** [one-line reason].` Skip this line otherwise.
 
-**Delivery Stage Tracking:**
-1. BEFORE starting architecture design, set delivery_stage (running /architect = UX approved):
-   - Edit frontmatter: `delivery_stage: 3-arch-review` (overwrite whatever was there — running this skill is the approval signal)
-2. AFTER the Edit tool confirms the Technical section was appended, delivery_stage is already `3-arch-review` — no further change needed.
+**Pipeline Stamp (P659):**
+Before any other work in this skill:
+1. Read spec frontmatter
+2. Set `delivery_stage: architect`
+3. Append `architect` to `pipeline_ran` inline list. Edit pattern: match `pipeline_ran: [existing, items]`, replace with `pipeline_ran: [existing, items, architect]`. If `pipeline_ran` doesn't exist, add `pipeline_ran: [architect]`. Always inline format.
+4. **Predecessor check:** If `pipeline_plan` exists, find the skill before `architect` in the plan. If that skill is NOT in `pipeline_ran` (exact match) → stop: "Run `/{predecessor}` first." Skip check if: (a) `pipeline_plan` absent, (b) this skill is first in plan, (c) `pipeline_ran` absent/empty and this is first planned skill.
+5. If this skill is NOT in `pipeline_plan` → warn: "This skill wasn't in the planned flow. Proceed anyway?"
+AFTER the Edit tool confirms the Technical section was appended, delivery_stage is already set — no further change needed.
 
 If any Edit call fails, retry with more surrounding context to make the match unique.
 ```

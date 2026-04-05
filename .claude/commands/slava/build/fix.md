@@ -183,12 +183,15 @@ git rev-list --count main..HEAD
   ```
   Wait for decision. Do NOT proceed without confirmation.
 
-### Phase 0.3: Mark in Progress
+### Phase 0.3: Pipeline Stamp (P659)
 
 If a P-number spec was provided (file path or short form like `p99`):
-1. Locate feature file: `features/p{N}_*.md`
-2. Update frontmatter `status` → `in-progress`
-3. Report: "Marked pN as in-progress in kanban."
+1. Read spec frontmatter
+2. Set `delivery_stage: fix` and `status: in-progress`
+3. Append `fix` to `pipeline_ran` inline list. Edit pattern: match `pipeline_ran: [existing, items]`, replace with `pipeline_ran: [existing, items, fix]`. If `pipeline_ran` doesn't exist, add `pipeline_ran: [fix]`. Always inline format.
+4. **Predecessor check:** If `pipeline_plan` exists, find the skill before `fix` in the plan. If that skill is NOT in `pipeline_ran` (exact match) → stop: "Run `/{predecessor}` first." Skip check if: (a) `pipeline_plan` absent, (b) this skill is first in plan, (c) `pipeline_ran` absent/empty and this is first planned skill.
+5. If this skill is NOT in `pipeline_plan` → warn: "This skill wasn't in the planned flow. Proceed anyway?"
+6. Report: "Marked pN as in-progress in kanban."
 
 Skip silently if no feature file exists (inline description mode, e.g. `/fix "Login button broken"`).
 
@@ -487,7 +490,7 @@ resolution: What was fixed  # Added after fix
 After commit succeeds:
 
 1. **Review** — Spawn `/finish code` as a subagent with: "Review all code changes on this branch vs main. Spec: [spec path if exists]. Proceed directly — no scope confirmation needed." Present HIGH/MEDIUM findings. Ask: "Fix issues before closing? (all HIGH / select / skip)". Apply approved fixes and commit them.
-2. Update frontmatter: `status: qa` (clear `delivery_stage`). **If the spec was moved (e.g., to a subfolder) in this session, Edit its frontmatter at the new location AFTER the `git mv` is staged — never Edit before staging the rename, or the frontmatter change lands in a separate commit.**
+2. Update frontmatter: `status: qa` (keep `delivery_stage: fix` — do not clear it). **If the spec was moved (e.g., to a subfolder) in this session, Edit its frontmatter at the new location AFTER the `git mv` is staged — never Edit before staging the rename, or the frontmatter change lands in a separate commit.**
 3. Commit: `chore: pN ready for QA — {title}`
 4. Invoke `/slava:maintain:fix-kanban` — fixes frontmatter drift + refreshes kanban
 5. If `*.tsx` files changed: Run browser check automatically — navigate to affected route, screenshot, report. If Chrome MCP unavailable, state "browser check skipped — run `/verify` manually."

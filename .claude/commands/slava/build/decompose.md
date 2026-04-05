@@ -21,20 +21,31 @@ Convert the architect's build sequence into a structured task manifest so /dev c
 
 ---
 
+## Pipeline Stamp (P659)
+
+Before any other work in this skill:
+1. Read spec frontmatter
+2. Set `delivery_stage: decompose`
+3. Append `decompose` to `pipeline_ran` inline list. Edit pattern: match `pipeline_ran: [existing, items]`, replace with `pipeline_ran: [existing, items, decompose]`. If `pipeline_ran` doesn't exist, add `pipeline_ran: [decompose]`. Always inline format.
+4. **Predecessor check:** If `pipeline_plan` exists, find the skill before `decompose` in the plan. If that skill is NOT in `pipeline_ran` (exact match) → stop: "Run `/{predecessor}` first." Skip check if: (a) `pipeline_plan` absent, (b) this skill is first in plan, (c) `pipeline_ran` absent/empty and this is first planned skill.
+5. If this skill is NOT in `pipeline_plan` → warn: "This skill wasn't in the planned flow. Proceed anyway?"
+
+---
+
 ## Pre-Flight Check
 
 **Required before generating the task manifest:**
 
 1. `## Technical Architecture` section must exist (architect ran and was approved).
 2. `/spec-review` must have run and returned `READY` (zero BLOCK findings). Check the spec for a `## Spec Review` section with verdict `READY`.
-3. `delivery_stage:` must be `4-tests-ready` (or spec-review just completed in this session). If `delivery_stage: 5-decomposed` → decompose already ran, check with user before re-running. If `status: in-progress` → implementation already started, run `/dev` instead.
+3. If `delivery_stage: decompose` was already set (from a prior run) → decompose already ran, check with user before re-running. If `status: in-progress` → implementation already started, run `/dev` instead.
 
 If any check fails:
 ```
 ERROR: Cannot run /decompose
 - Missing Technical Architecture section → Run /architect first
 - No spec-review section or verdict is NEEDS FIXES → Run /spec-review and fix all BLOCK findings first
-- delivery_stage is 5-decomposed → already decomposed; confirm before re-running
+- delivery_stage is decompose (already ran) → confirm before re-running
 - status is in-progress → implementation started; run /dev instead
 ```
 
@@ -206,10 +217,7 @@ After all tasks, include the summary line:
 
 ## Delivery Stage Tracking
 
-1. **Before generating:** No approval check needed — running /decompose is the arch approval signal. Clear `3-arch-review` by setting `delivery_stage: 4-tests-ready` after tests are generated (step 2).
-2. **After appending task manifest:** Update frontmatter to `delivery_stage: 4-tests-ready`.
-
-Use Edit tool for both frontmatter changes.
+The pipeline stamp (above) already sets `delivery_stage: decompose` and appends to `pipeline_ran` on entry. No additional delivery_stage update is needed after appending the task manifest.
 
 ---
 

@@ -200,6 +200,17 @@ For each question: state the question, propose 2-3 resolution options with trade
 
 ---
 
+## Pipeline stamp (P659)
+
+Before any other work in this skill:
+1. Read spec frontmatter
+2. Set `delivery_stage: challenge-prd`
+3. Append `challenge-prd` to `pipeline_ran` inline list. Edit pattern: match `pipeline_ran: [existing, items]`, replace with `pipeline_ran: [existing, items, challenge-prd]`. If `pipeline_ran` doesn't exist, add `pipeline_ran: [challenge-prd]`. Always inline format.
+4. **Predecessor check:** If `pipeline_plan` exists, find the skill before `challenge-prd` in the plan. If that skill is NOT in `pipeline_ran` (exact match) → stop: "Run `/{predecessor}` first." Skip check if: (a) `pipeline_plan` absent, (b) this skill is first in plan, (c) `pipeline_ran` absent/empty and this is first planned skill.
+5. If this skill is NOT in `pipeline_plan` → warn: "This skill wasn't in the planned flow. Proceed anyway?"
+
+---
+
 ## Context Files to Read
 
 Before running the eight dimensions, read these project context files:

@@ -77,6 +77,17 @@ Reads the fully prepared spec (Business + UX + Technical + Component Strategy + 
 
 ---
 
+## Pipeline stamp (P659)
+
+Before any other work in this skill:
+1. Read spec frontmatter
+2. Set `delivery_stage: spec-review`
+3. Append `spec-review` to `pipeline_ran` inline list. Edit pattern: match `pipeline_ran: [existing, items]`, replace with `pipeline_ran: [existing, items, spec-review]`. If `pipeline_ran` doesn't exist, add `pipeline_ran: [spec-review]`. Always inline format.
+4. **Predecessor check:** If `pipeline_plan` exists, find the skill before `spec-review` in the plan. If that skill is NOT in `pipeline_ran` (exact match) → stop: "Run `/{predecessor}` first." Skip check if: (a) `pipeline_plan` absent, (b) this skill is first in plan, (c) `pipeline_ran` absent/empty and this is first planned skill.
+5. If this skill is NOT in `pipeline_plan` → warn: "This skill wasn't in the planned flow. Proceed anyway?"
+
+---
+
 ## Agent Directive
 
 When invoked, spawn a general-purpose agent with this directive:

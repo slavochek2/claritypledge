@@ -180,6 +180,8 @@ structure them.
 ```
 1. WORKTREE GUARD → Check you're on main (w0)
        ↓
+1b. PIPELINE STAMP → Set delivery_stage and pipeline_ran (see below)
+       ↓
 2. DETECT TYPE → Classify work type from description, state it
        ↓
 3. SEARCH → Check for related specs and existing code
@@ -196,6 +198,19 @@ structure them.
        ↓
 9. REPORT → File path, work type, next step
 ```
+
+### Pipeline stamp (P659)
+
+Before any other work in this skill (after worktree guard):
+1. Read spec frontmatter
+2. Set `delivery_stage: create-spec`
+3. Append `create-spec` to `pipeline_ran` inline list. Edit pattern: match `pipeline_ran: [existing, items]`, replace with `pipeline_ran: [existing, items, create-spec]`. If `pipeline_ran` doesn't exist, add `pipeline_ran: [create-spec]`. Always inline format.
+4. **Predecessor check:** If `pipeline_plan` exists, find the skill before `create-spec` in the plan. If that skill is NOT in `pipeline_ran` (exact match) → stop: "Run `/{predecessor}` first." Skip check if: (a) `pipeline_plan` absent, (b) this skill is first in plan, (c) `pipeline_ran` absent/empty and this is first planned skill.
+5. If this skill is NOT in `pipeline_plan` → warn: "This skill wasn't in the planned flow. Proceed anyway?"
+
+**Note:** Since create-spec creates the file, set `delivery_stage: create-spec` and `pipeline_ran: [create-spec]` in the initial frontmatter (see Frontmatter section below).
+
+---
 
 ### Step 3: Search for related work
 
@@ -220,6 +235,8 @@ rank: {calculated}
 workstream: {infer or omit}
 created_date: '{YYYY-MM-DD}'
 tags: [{2-4 relevant tags}]
+delivery_stage: create-spec
+pipeline_ran: [create-spec]
 ---
 ```
 
@@ -228,7 +245,7 @@ tags: [{2-4 relevant tags}]
 - Infrastructure, refactor, migration → `type: task`
 - Research, investigation → `type: comment`
 
-**Do NOT add at creation:** `delivery_stage`, `completed_at`, `date_resolved`, `flow`.
+**Do NOT add at creation:** `completed_at`, `date_resolved`, `flow`.
 
 ---
 

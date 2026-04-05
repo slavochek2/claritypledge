@@ -16,6 +16,17 @@ Ship an approved feature to production.
 
 ---
 
+## Pipeline Stamp (P659)
+
+Before any other work in this skill:
+1. Read spec frontmatter
+2. Set `delivery_stage: ship`
+3. Append `ship` to `pipeline_ran` inline list. Edit pattern: match `pipeline_ran: [existing, items]`, replace with `pipeline_ran: [existing, items, ship]`. If `pipeline_ran` doesn't exist, add `pipeline_ran: [ship]`. Always inline format.
+4. **Predecessor check:** If `pipeline_plan` exists, find the skill before `ship` in the plan. If that skill is NOT in `pipeline_ran` (exact match) → stop: "Run `/{predecessor}` first." Skip check if: (a) `pipeline_plan` absent, (b) this skill is first in plan, (c) `pipeline_ran` absent/empty and this is first planned skill.
+5. If this skill is NOT in `pipeline_plan` → warn: "This skill wasn't in the planned flow. Proceed anyway?"
+
+---
+
 ## What it does
 
 1. **Find the branch** — looks for `feature/pN*` or `feature/pN-*`
@@ -51,7 +62,8 @@ Ship an approved feature to production.
 5. **Close the spec** — move spec to `features/done/`, update frontmatter:
    - `status: all-done`
    - `completed_at: YYYY-MM-DD`
-   - Remove `delivery_stage: uat` line
+   - Remove `delivery_stage` line (any value — not just `uat`)
+   - Keep `pipeline_plan`, `pipeline_ran`, `pipeline_skipped` in frontmatter (do not remove them)
    **Ordering is mandatory — do steps in this exact sequence to land in one commit:**
    ```bash
    ls -d features/done/*/ 2>/dev/null | sort -V | tail -1  # find current sprint folder
@@ -111,7 +123,7 @@ For small work committed directly to main, just say "push" — no need for /ship
 
 ## After shipping
 
-- The spec is closed by /ship step 5 — /dev leaves it at `delivery_stage: uat`, NOT done. If the spec is still in `features/` after /ship completes, step 5 failed — investigate before continuing.
+- The spec is closed by /ship step 5 — /dev leaves it at `delivery_stage: dev`, NOT done. If the spec is still in `features/` after /ship completes, step 5 failed — investigate before continuing.
 - `/verify` is prompted at step 8 — run it for any UI change. Skipping is valid for backend-only changes.
 - To deploy: `git push origin main` — push is blocked by a global hook, the user runs it explicitly. Vercel auto-deploys after push.
 
