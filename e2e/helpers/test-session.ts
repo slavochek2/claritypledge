@@ -38,8 +38,10 @@ import { supabaseAdmin } from './supabase-admin';
  */
 async function assertNoAuthRedirect(page: Page, sessionCode: string): Promise<void> {
   // Wait for network to settle before checking URL — ensures any auth-triggered
-  // redirect has completed, not just started. Without this, a slow redirect
-  // could pass the URL check but redirect 200ms later.
+  // client-side redirect has completed, not just started. Using networkidle
+  // because client-side redirects (React Router) happen after DOM load.
+  // Note: Playwright docs say WebSocket connections don't count for networkidle,
+  // so Supabase Realtime won't cause this to hang.
   await page.waitForLoadState('networkidle');
   const url = page.url();
   if (!url.includes(`/live/${sessionCode}`)) {

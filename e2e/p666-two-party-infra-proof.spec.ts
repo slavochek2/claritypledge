@@ -30,13 +30,13 @@ test.describe('P666 — Two-Party Infrastructure Proof', () => {
       await expect(session.guest.page).toHaveURL(new RegExp(`/live/${session.sessionCode}`));
 
       // Both should see meaningful session UI (not a blank page or error)
-      // The session code or session-related UI should be visible
+      // Match the pattern used in createTwoPartySessionRealistic setup
       await expect(
-        session.host.page.locator('body')
-      ).not.toHaveText('', { timeout: 10_000 });
+        session.host.page.locator(`text=/${session.sessionCode}|Speak|Waiting|End Session/i`).first()
+      ).toBeVisible({ timeout: 10_000 });
       await expect(
-        session.guest.page.locator('body')
-      ).not.toHaveText('', { timeout: 10_000 });
+        session.guest.page.locator(`text=/${session.sessionCode}|Speak|Waiting|End Session/i`).first()
+      ).toBeVisible({ timeout: 10_000 });
 
       // Verify user identity isolation — different users in different contexts
       expect(session.host.user.user.id).not.toBe(session.guest.user.user.id);
@@ -61,13 +61,13 @@ test.describe('P666 — Two-Party Infrastructure Proof', () => {
       // Host should have session UI loaded (was verified during setup,
       // but confirm it's still there)
       await expect(
-        session.host.page.locator('body')
-      ).not.toHaveText('', { timeout: 10_000 });
+        session.host.page.locator(`text=/${session.sessionCode}|Speak|Waiting|End Session/i`).first()
+      ).toBeVisible({ timeout: 10_000 });
 
       // Guest should also see session content (late join worked)
       await expect(
-        session.guest.page.locator('body')
-      ).not.toHaveText('', { timeout: 10_000 });
+        session.guest.page.locator(`text=/${session.sessionCode}|Speak|Waiting|End Session/i`).first()
+      ).toBeVisible({ timeout: 10_000 });
 
       // Session code should match between both participants
       expect(session.sessionCode).toMatch(/^[A-Z2-9]{6}$/);
@@ -87,14 +87,14 @@ test.describe('P666 — Two-Party Infrastructure Proof', () => {
     try {
       // Navigate host to /live (no session code — just auth-gated page)
       await session.host.page.goto('/live');
-      await session.host.page.waitForLoadState('networkidle');
+      await session.host.page.waitForLoadState('domcontentloaded');
 
       // Should stay on /live — auth injection worked
       await expect(session.host.page).toHaveURL('/live');
 
       // Navigate again to prove addInitScript persists across navigations
       await session.host.page.goto('/live');
-      await session.host.page.waitForLoadState('networkidle');
+      await session.host.page.waitForLoadState('domcontentloaded');
       await expect(session.host.page).toHaveURL('/live');
 
       // "New Session" button proves the host is authenticated and verified
