@@ -60,6 +60,7 @@ Use `/create-bug` for:
 - Regressions you want to file before (or alongside) fixing
 - Bugs with unclear root cause that need investigation framing
 - Bugs surfaced from a surface audit (see `/fix` surface lens)
+- **Rewriting an existing bug spec** whose scope expanded (matryoshka pattern — each fix reveals the next layer)
 
 **Do NOT use for:**
 - Any new feature or task → use `/create-spec`
@@ -141,6 +142,46 @@ Before any other work in this skill:
        ↓
 8. REPORT → Tell user the file path and suggested next step (/fix)
 ```
+
+---
+
+## Rewrite Mode (Matryoshka Bugs)
+
+When invoked with an **existing bug spec** (same P-number, `type: bug`), enter rewrite mode instead of creating a new spec.
+
+**Trigger:** Input is a path to an existing `type: bug` spec, or a P-number that resolves to one, AND the user's intent is to update/rewrite (not create a new bug).
+
+**Rewrite workflow:**
+
+```
+1. READ old spec completely
+       ↓
+2. EXTRACT INVARIANTS — architectural constraints, root-cause patterns,
+   atomicity requirements, "X must always be done with Y" rules discovered
+   during investigation. These go into ## Invariants (never deleted on rewrite).
+       ↓
+3. SEPARATE done layers from remaining layers
+       ↓
+4. GENERATE clean spec:
+   - ## What's Fixed — done layers with commit hashes, root cause, one-liner each
+   - ## Invariants — extracted from old spec (architectural rules future layers must respect)
+   - ## What Remains — remaining layers with symptoms, expected behavior, root cause hypothesis
+   - Standard sections (Acceptance Criteria, Key Files, Branch)
+       ↓
+5. OVERWRITE same file, same P-number
+```
+
+**What to preserve as invariants (examples):**
+- "Story data and ratingInitiatedBy MUST be written atomically (single DB write)"
+- "Any handler touching X must also clear Y — two separate calls create a Realtime race"
+- Root-cause patterns that may recur in future layers
+
+**What to discard:**
+- Failed attempt logs, hypothesis tables, session-specific debugging notes
+- Emotional notes about past failures ("this has been tried 10 times")
+- Investigation plans that are no longer relevant (root cause was found)
+
+**`## Invariants` is a sacred section** — it persists across all future rewrites. Agents may ADD to it but never delete entries without explicit user approval.
 
 ---
 
@@ -244,6 +285,10 @@ pipeline_ran: [create-bug]
 ## Root Cause
 
 {What was found. Or "Under investigation — see Reproduction section for observed symptoms." Never leave empty.}
+
+## Invariants
+
+{Architectural constraints discovered during investigation. Omit section for new bugs — add during rewrite mode when patterns emerge. This section persists across all future rewrites.}
 
 ## Reproduction Steps
 

@@ -47,6 +47,10 @@ ALWAYS run `./scripts/next-p-number.sh` — never compute manually (`ls`, `find`
 - `comment` — notes, decisions (not actionable)
 - `change-request` — redesign of a shipped feature whose design was wrong; use `/change-request` to file
 
+## Bug Spec Rewrites
+
+When rewriting a `type: bug` spec (scope expanded, layers peeled), preserve the `## Invariants` section. It contains architectural constraints discovered during investigation that future layers must respect. Use `/create-bug` rewrite mode for structured rewrites; this rule catches ad-hoc edits.
+
 ## Optional Frontmatter: `flow`
 
 ```yaml
