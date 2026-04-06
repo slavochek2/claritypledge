@@ -92,7 +92,19 @@ Skip if no spec exists (inline description mode like `/dev refactor the auth mod
 
 0. **Pre-flight: worktree setup** — If this is a P-number feature AND current branch is `main`:
 
-   **Default: create a worktree.**
+   **First: check if a worktree already has this spec.**
+   ```bash
+   for wt in .claude/worktrees/w*/; do
+     if ls "$wt"/features/p${N}_*.md 2>/dev/null >/dev/null; then
+       cd "$wt"
+       echo "Entering existing worktree $wt — spec found here."
+       break
+     fi
+   done
+   ```
+   If an existing worktree has the spec file, enter it instead of creating a new one. The feature branch copy is always >= main in freshness (see `.claude/rules/features.md` — Spec Location).
+
+   **If no worktree has the spec, create one:**
    ```bash
    git worktree add .claude/worktrees/w1 -b feature/pN-short-description
    ./scripts/setup-worktree.sh .claude/worktrees/w1

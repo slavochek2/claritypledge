@@ -27,6 +27,23 @@ tags: []              # REQUIRED: can be empty array
 - When rejected → move to `features/archive/`, set `status: rejected`
 - UAT file (`features/uat/pN.md`) → always moves with its spec into `features/done/{sprint}/uat/`
 
+## Spec Location — Worktree-First Resolution
+
+Specs are created on main but evolve on feature branches. The feature branch copy is always >= main in freshness.
+
+**Write rules:**
+- Creation (`/create-spec`, `/create-bug`, `/change-request`): always on main
+- Modification during implementation (`/dev`, `/fix`, pipeline skills): on the feature branch
+- Reconciliation: `/ship` merges branch to main
+
+**Read rule (all skills):**
+When resolving a spec by P-number for implementation:
+1. Check if any existing worktree contains `features/p{N}_*.md`
+2. If found → enter that worktree, read the spec there
+3. If not found → read from main, create new worktree as usual
+
+**Why worktree wins:** A feature branch is ahead of main by definition. Specs get rewritten, ACs get checked, invariants get added — all on the branch. Main's copy is frozen at creation time.
+
 ## Manual Status Lock (`locked_at`)
 
 When the kanban UI sets a status manually, it writes `locked_at: <ISO timestamp>` to frontmatter.
