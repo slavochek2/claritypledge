@@ -2,7 +2,7 @@
 description: 'Generate comprehensive test strategy and runnable test files from a spec'
 when_to_use: "After /architect, before /dev. When a spec needs comprehensive test strategy."
 name: generate-tests
-version: 1.0.0
+version: 1.1.0
 ---
 
 # /generate-tests
@@ -351,8 +351,9 @@ The integration test MUST include a schema existence check using the **two-clien
 2. **Agent analyzes:** Business + UX + Technical requirements
 3. **Agent determines:** What test types are needed (unit + integration + E2E + a11y + smoke + UAT)
 4. **Agent generates:** 7 test files + coverage report — **the 6 file types are independent after analysis; dispatch them as parallel subagents for large features**
-5. **Agent appends:** Test strategy to spec. **Retirement step:** Remove `## Open Questions for /generate-tests` if present. Remove `## Next Steps` if all listed steps are completed (check delivery_stage)
-6. **Agent updates frontmatter** — adds generated file paths to spec frontmatter using the Edit tool (insert before the closing `---`):
+5. **Agent lint-fixes generated files:** Run `npx eslint --fix` on all generated `.spec.ts` and `.test.ts` files to catch unused variables, missing imports, and other auto-fixable issues before they block commit.
+6. **Agent appends:** Test strategy to spec. **Retirement step:** Remove `## Open Questions for /generate-tests` if present. Remove `## Next Steps` if all listed steps are completed (check delivery_stage)
+7. **Agent updates frontmatter** — adds generated file paths to spec frontmatter using the Edit tool (insert before the closing `---`):
    - `uat_file: features/uat/p{N}.md` (always)
    - `test_files:` list of all generated automated test files (e2e, unit, integration, a11y, smoke)
 
@@ -368,7 +369,7 @@ The integration test MUST include a schema existence check using the **two-clien
 
    Omit any test type that was skipped (e.g., no unit tests generated → no unit test entry). Do not add `test_files:` if no automated tests were generated (UAT-only features).
 
-7. **You proceed:** `/dev features/p142_csv_export.md`
+8. **You proceed:** `/dev features/p142_csv_export.md`
 
 ---
 
