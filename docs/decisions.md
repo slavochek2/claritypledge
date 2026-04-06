@@ -2,6 +2,16 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-06 [process]: /ux skill delta-aware mode — audit before generating
+
+**Context:** Running `/ux` on P660 (letters navigation CR) which already had a 190-line UX section with complete flows, screen designs, edge cases, accessibility, and responsive specs. The skill was designed for greenfield generation — it would replace the existing UX wholesale with a regenerated version, wasting work and potentially losing founder decisions embedded in the spec.
+**Decision:** Added delta-aware mode to `/ux` v2.1.0. When existing UX section is >50 lines, the agent audits against the self-review checklist first, reports gaps to the user, then fills only what's missing. If existing UX passes all checklist items, it skips writing entirely. Specs with no UX or stubs (≤50 lines) get full generation as before.
+**Alternatives rejected:** (A) Always regenerate — wasteful, loses embedded decisions. (B) Skip `/ux` entirely when UX exists — misses gap detection, no quality assurance. (C) Separate `/ux-review` skill — unnecessary complexity for a branching condition.
+**Consequences:** Skills that process specs with pre-existing content should follow this pattern: detect existing work, audit it, fill gaps. Same principle likely applies to `/architect` and `/generate-tests` when specs already contain partial technical or test sections.
+**References:** `.claude/commands/slava/build/ux.md`
+
+---
+
 ## 2026-04-06 [technical]: Reuse agreementsService.lookupUserByEmail for letter recipient recognition
 
 **Context:** Letter compose step asks for recipient email + name manually. The agreement creation flow (P483) already solved recipient recognition — debounced email lookup against `profiles` table, auto-fill name, lock field when existing user found.

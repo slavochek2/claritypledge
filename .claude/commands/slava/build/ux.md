@@ -2,7 +2,7 @@
 name: ux
 description: Design user experience layer after business requirements are approved
 when_to_use: After /create-spec, before /architect - only for UI features
-version: 2.0.0
+version: 2.1.0
 ---
 
 # UX Design
@@ -240,7 +240,31 @@ Read the business requirements from {spec_file}:
 - Jobs to be done (user motivations)
 - Acceptance criteria (what success looks like)
 
-Generate a complete UX section covering:
+**Delta-aware discovery (run before generating):**
+
+Check if `## UX Design` already exists in the spec AND has substantial content (>50 lines).
+Also scan the spec body above UX Design for inline UX thinking: ASCII prototypes, layout diagrams,
+"Redesign" sections with wireframes, flow descriptions embedded in the problem statement or solution.
+
+**If substantial UX already exists → DELTA MODE:**
+1. Read the existing UX content (both the formal section and any inline UX thinking in the spec body) as PRIMARY input
+2. Run the self-review checklist (sections 1–6) as an AUDIT against what's there
+3. Output a gap report to the user BEFORE writing anything:
+   - "Existing UX covers: [list what's solid]"
+   - "Gaps found: [list missing subsections or underspecified areas]"
+   - "Improvements needed: [list areas that exist but are weak, with reason]"
+4. Then generate ONLY the delta: fill gaps, strengthen weak areas, preserve solid decisions
+5. When writing: merge new content into existing subsections rather than replacing the entire section.
+   Keep the author's phrasing and structure where it's adequate. Add, don't rewrite.
+6. If existing UX is complete and passes all checklist items → report "UX section already complete,
+   no changes needed" and skip writing. Don't regenerate for the sake of regenerating.
+
+**If no UX section or stub only (≤50 lines) → FULL MODE:**
+Proceed with full generation as described below.
+
+---
+
+Generate a complete UX section covering (FULL MODE) or fill gaps in existing UX (DELTA MODE):
 
 1. **User Flow**
    - Step-by-step user interactions (Entry → Actions → Exit)
@@ -332,9 +356,12 @@ If no upstream concerns: omit Section 7 entirely.
 If UX is unclear (e.g., "Where does toggle appear?"), ask user BEFORE generating incomplete UX.
 
 Before writing: check if a `## UX Design` section already exists in the spec (use Read tool). The canonical header is `## UX Design` (see .claude/rules/spec-sections.md). Never use "UX Requirements" or "Screen Designs".
-- If NO existing UX section → append at end of file.
-- If YES existing UX section → replace it in-place using Edit tool. Do NOT leave two UX sections in the file.
-Do NOT modify Business layer content before the UX section.
+- If NO existing UX section → append at end of file (FULL MODE).
+- If YES existing UX section, ≤50 lines → replace it in-place using Edit tool (FULL MODE).
+- If YES existing UX section, >50 lines → apply DELTA MODE: edit subsections in-place to fill gaps
+  and strengthen weak areas. Preserve existing content that passes the checklist. Do NOT replace
+  the entire section wholesale — use targeted Edit calls per subsection that needs changes.
+Do NOT leave two UX sections in the file. Do NOT modify Business layer content before the UX section.
 **Retirement step (after writing UX section):** Remove any `## Open Questions for /ux` section — you answered those in your UX Design. If `## Next Steps` lists only completed steps (check delivery_stage), remove it.
 
 **IMPORTANT - Pipeline Stamp (P659):**
