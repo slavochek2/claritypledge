@@ -45,6 +45,7 @@ const PartnerTemplatePage = lazy(() => import("@/app/pages/partner-template-page
 const DocsListPage = lazy(() => import("@/app/pages/docs-list-page").then(m => ({ default: m.DocsListPage })));
 const DocDetailPage = lazy(() => import("@/app/pages/doc-detail-page").then(m => ({ default: m.DocDetailPage })));
 const LetterComposePage = lazy(() => import("@/app/pages/letter-compose-page").then(m => ({ default: m.LetterComposePage })));
+const LetterPreviewPage = lazy(() => import("@/app/pages/letter-preview-page").then(m => ({ default: m.LetterPreviewPage })));
 const LetterReadingPage = lazy(() => import("@/app/pages/letter-reading-page").then(m => ({ default: m.LetterReadingPage })));
 const LetterResultsPage = lazy(() => import("@/app/pages/letter-results-page").then(m => ({ default: m.LetterResultsPage })));
 
@@ -606,13 +607,25 @@ export default function ClarityPledgeApp() {
           }
         />
 
-        {/* P581: Letter composition wizard */}
+        {/* P661: Letter composition orchestrator */}
         <Route
           path="/letter/:docId/compose"
           element={
             <ClarityLandingLayout>
               <LazyRoute>
                 <LetterComposePage />
+              </LazyRoute>
+            </ClarityLandingLayout>
+          }
+        />
+
+        {/* P661: Letter preview (non-persisting reading flow) */}
+        <Route
+          path="/letter/:docId/preview"
+          element={
+            <ClarityLandingLayout>
+              <LazyRoute>
+                <LetterPreviewPage />
               </LazyRoute>
             </ClarityLandingLayout>
           }

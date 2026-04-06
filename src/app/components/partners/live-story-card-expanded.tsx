@@ -32,6 +32,8 @@ interface LiveStoryCardExpandedProps {
   badgePersonEarsCount?: number;
   /** When true, points are expanded on first render — used for partner view so they can vote immediately */
   defaultExpanded?: boolean;
+  /** P661: When true, points auto-expand, PositionButtons hidden, story CTA hidden. Used in letter prediction walk. */
+  readOnly?: boolean;
 }
 
 const STORY_THRESHOLD = 100;
@@ -45,8 +47,9 @@ export function LiveStoryCardExpanded({
   badgePersonName,
   badgePersonEarsCount,
   defaultExpanded = false,
+  readOnly = false,
 }: LiveStoryCardExpandedProps) {
-  const [isExpanded, setIsExpanded] = useState(defaultExpanded);
+  const [isExpanded, setIsExpanded] = useState(defaultExpanded || readOnly);
   const [storyExpanded, setStoryExpanded] = useState(false);
 
   // Reset expand states when the story changes (phase change / story rotation)
@@ -121,8 +124,8 @@ export function LiveStoryCardExpanded({
         )}
       </div>
 
-      {/* Footer — "N points" expand trigger */}
-      {story.points.length > 0 && (
+      {/* Footer — "N points" expand trigger (hidden in readOnly — always expanded) */}
+      {story.points.length > 0 && !readOnly && (
         <div
           role="presentation"
           className="flex items-center pl-4 sm:pl-[52px] pr-4 py-2.5 border-t border-gray-100"
@@ -161,6 +164,7 @@ export function LiveStoryCardExpanded({
                   badgePersonEarsCount={badgePersonEarsCount}
                   isOwnStory={isOwnStory}
                   isGuest={isGuest}
+                  readOnly={readOnly}
                 />
               </ThreadLineItem>
             ))}
@@ -183,6 +187,7 @@ function PointRow({
   badgePersonEarsCount,
   isOwnStory = false,
   isGuest = false,
+  readOnly = false,
 }: {
   point: PointSummary;
   authorName: string;
@@ -195,6 +200,7 @@ function PointRow({
   badgePersonEarsCount?: number;
   isOwnStory?: boolean;
   isGuest?: boolean;
+  readOnly?: boolean;
 }) {
   // Local state so button highlights immediately on click, independent of the
   // frozen selectedStoryData snapshot. Echoes to onPositionSelect for liveState sync.
@@ -249,16 +255,18 @@ function PointRow({
         </div>
 
         {point.tags?.length > 0 && <TagPills tags={point.tags} context="live" className="mt-1" />}
-        <PositionButtons
-          userPosition={userPosition}
-          counts={toSevenPointCounts(point.positionCounts)}
-          onPositionClick={handlePositionClick}
-          compact
-          narrow
-        />
+        {!readOnly && (
+          <PositionButtons
+            userPosition={userPosition}
+            counts={toSevenPointCounts(point.positionCounts)}
+            onPositionClick={handlePositionClick}
+            compact
+            narrow
+          />
+        )}
 
         {/* P490: Guest hint — positions are ephemeral, prompt to sign up */}
-        {isGuest && userPosition && (
+        {!readOnly && isGuest && userPosition && (
           <div className="border-t border-gray-200 pt-2">
             <p className="text-xs text-gray-500">
               Position shared live — sign up to save it
@@ -269,7 +277,7 @@ function PointRow({
         {/* P456: Disabled story CTA footer — visible but non-interactive in /live session.
             P487+: Hidden on own story — use shouldShowStoryCTA shared utility. */}
         {/* P560: Position no longer required for story CTA */}
-        {!isGuest && shouldShowStoryCTA({ userPosition, isOwnStory }) === 'show' && (() => {
+        {!readOnly && !isGuest && shouldShowStoryCTA({ userPosition, isOwnStory }) === 'show' && (() => {
           // Use position-specific copy when available, generic fallback otherwise
           const copy = userPosition
             ? getPositionCTACopy(getPositionGroup(userPosition))
