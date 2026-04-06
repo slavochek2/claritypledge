@@ -1,7 +1,7 @@
 /**
  * @file drafts-tab.tsx
  * @description P660: Drafts tab — editing workspace (replaces "Docs" list).
- * Shows user's drafts with [Edit] and [New Letter] actions.
+ * Shows user's drafts with [Edit Draft] and [Send as Letter] actions.
  */
 
 import { useState, useEffect, useCallback } from 'react';
@@ -28,7 +28,7 @@ import {
 import { docsService } from '@/app/data/docs-service';
 import { InlineVisibilityIcon } from '@/app/components/shared/visibility-badge';
 import { formatTimeAgo } from '@/app/utils/format-time';
-import { LetterReceiverModal } from '@/app/components/letters/letter-receiver-modal';
+
 import type { ClarityDoc, ContentVisibility } from '@/app/types';
 
 interface DraftsTabProps {
@@ -42,7 +42,6 @@ export function DraftsTab({ userId }: DraftsTabProps) {
   const [creating, setCreating] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<ClarityDoc | null>(null);
   const [deleting, setDeleting] = useState(false);
-  const [letterTarget, setLetterTarget] = useState<ClarityDoc | null>(null);
 
   const fetchDocs = useCallback(async () => {
     setFetchState('loading');
@@ -116,7 +115,7 @@ export function DraftsTab({ userId }: DraftsTabProps) {
           <PopoverTrigger asChild>
             <Button className="bg-blue-500 hover:bg-blue-600 text-white">
               <Plus className="w-4 h-4" />
-              New
+              New Draft
             </Button>
           </PopoverTrigger>
           <PopoverContent className="w-64 p-2">
@@ -135,7 +134,7 @@ export function DraftsTab({ userId }: DraftsTabProps) {
           <PopoverTrigger asChild>
             <Button size="sm" className="bg-blue-500 hover:bg-blue-600 text-white">
               <Plus className="w-4 h-4" />
-              New
+              New Draft
             </Button>
           </PopoverTrigger>
           <PopoverContent align="end" className="w-64 p-2">
@@ -149,7 +148,11 @@ export function DraftsTab({ userId }: DraftsTabProps) {
         {docs.map((doc) => (
           <div
             key={doc.id}
-            className={`rounded-lg border bg-card p-4 hover:bg-accent/50 transition-colors border-l-4 ${
+            role="button"
+            tabIndex={0}
+            onClick={() => navigate(`/letters/drafts/${doc.id}`)}
+            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); navigate(`/letters/drafts/${doc.id}`); } }}
+            className={`rounded-lg border bg-card p-4 hover:bg-accent/50 transition-colors border-l-4 cursor-pointer ${
               doc.visibility === 'private' ? 'border-l-gray-400' : 'border-l-blue-500'
             }`}
           >
@@ -169,7 +172,8 @@ export function DraftsTab({ userId }: DraftsTabProps) {
                   <span>Updated {formatTimeAgo(doc.updated_at)} ago</span>
                 </div>
               </div>
-              <div className="flex items-center gap-1 flex-shrink-0">
+              {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions -- stopPropagation wrapper, not interactive */}
+              <div className="flex items-center gap-1 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button
@@ -197,19 +201,17 @@ export function DraftsTab({ userId }: DraftsTabProps) {
                   className="text-blue-500 hover:text-blue-600"
                   disabled={doc.story_count === 0}
                   title={doc.story_count === 0 ? 'Add at least one story first.' : undefined}
-                  onClick={() => setLetterTarget(doc)}
+                  onClick={(e) => { e.stopPropagation(); navigate(`/letter/${doc.id}/compose`); }}
                 >
                   <Mail className="w-4 h-4 mr-1" />
-                  New Letter
+                  Send as Letter
                 </Button>
                 <Button
-                  asChild
                   size="sm"
                   className="bg-blue-500 hover:bg-blue-600 text-white"
+                  onClick={(e) => { e.stopPropagation(); navigate(`/letters/drafts/${doc.id}`); }}
                 >
-                  <a href={`/letters/drafts/${doc.id}`} onClick={(e) => { e.preventDefault(); navigate(`/letters/drafts/${doc.id}`); }}>
-                    Edit
-                  </a>
+                  Edit Draft
                 </Button>
               </div>
             </div>
@@ -236,17 +238,6 @@ export function DraftsTab({ userId }: DraftsTabProps) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
-      {/* Letter receiver modal (send wizard trigger) */}
-      {letterTarget && (
-        <LetterReceiverModal
-          docId={letterTarget.id}
-          open={!!letterTarget}
-          onOpenChange={(open) => { if (!open) setLetterTarget(null); }}
-          isPrivateDoc={letterTarget.visibility === 'private'}
-          storyCount={letterTarget.story_count}
-        />
-      )}
     </>
   );
 }
