@@ -24,6 +24,7 @@ import { StoryCardWithLinks, type StoryAuthor } from '@/app/components/social/st
 import type { Story as ProtoStory, Point as ProtoPoint } from '@/app/components/shared/prototype-types';
 import { useAuth } from '@/auth';
 import { storiesService } from '@/app/data/stories-service';
+import { resolveStorySlug } from '@/app/data/stories-service-real';
 import { pointsService } from '@/app/data/points-service';
 import { useVerificationGate } from '@/app/hooks/useVerificationGate';
 import { StoryCardDetail } from '@/app/components/social/StoryCardDetail';
@@ -671,6 +672,22 @@ export function StoryDetailPage() {
         return;
       }
 
+      // Resolve slug (e.g. "st1", "st7") to UUID, or use id directly
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+      const storyId = isUuid ? id : await resolveStorySlug(id);
+
+      if (!storyId) {
+        setError('not_found');
+        setLoading(false);
+        return;
+      }
+
+      // If slug resolved to a different id, redirect to canonical UUID URL
+      if (storyId !== id) {
+        navigate(`/story/${storyId}${window.location.search}`, { replace: true });
+        return;
+      }
+
       // Wait for auth to settle before checking visibility
       if (authLoading) return;
 
@@ -680,7 +697,7 @@ export function StoryDetailPage() {
       setStory(null);
 
       try {
-        const data = await storiesService.getStoryWithPoints(id);
+        const data = await storiesService.getStoryWithPoints(storyId);
 
         if (!data) {
           setError('not_found');
@@ -736,7 +753,7 @@ export function StoryDetailPage() {
     }
 
     loadStory();
-  }, [id, retryKey, user?.id, authLoading]);
+  }, [id, retryKey, user?.id, authLoading, navigate]);
 
   const pendingNavigateRef = useRef<string | null>(null);
 
