@@ -2,6 +2,35 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-06 [technical]: Reuse agreementsService.lookupUserByEmail for letter recipient recognition
+
+**Context:** Letter compose step asks for recipient email + name manually. The agreement creation flow (P483) already solved recipient recognition — debounced email lookup against `profiles` table, auto-fill name, lock field when existing user found.
+**Decision:** Import and call `agreementsService.lookupUserByEmail()` directly from the letter compose page. Same 400ms debounce pattern, same `isExistingUserWithName()` helper (copied, 3 lines). No shared service extraction — two consumers don't justify a third abstraction layer.
+**Alternatives rejected:** (A) Extract to shared `profilesService` — cleaner naming but churn for two call sites. Extract when a third consumer appears. (B) Duplicate the Supabase query inline — loses the `mapDbRowToAgreementParty` mapping.
+**Consequences:** Letter compose now shows "Account found ✓" / "No account — they'll be invited to join." Same UX as agreement creation. Name field locks when existing user found. If a third feature needs email lookup, extract to shared service then.
+**References:** `src/app/pages/letter-compose-page.tsx`, `src/app/data/agreements-service-real.ts:319`
+
+---
+
+## 2026-04-06 [technical]: JSX text nodes don't process JS unicode escapes
+
+**Context:** During letter compose copy trim, used `\u2014` (em dash) and `\u2713` (checkmark) in JSX text. They rendered as literal `\u2014` on screen. Caught during visual QA.
+**Decision:** Use HTML entities (`&#8212;`, `&#10003;`) in JSX text nodes. Use JS unicode escapes (`\u2014`) only inside JS string literals (e.g., ternary expressions, `setState()` calls). This is a JSX/React fundamental — JSX text is HTML-like, not JS string context.
+**Alternatives rejected:** None — this is how JSX works. The only choice is which encoding to use where.
+**Consequences:** When writing special characters in React components, always check whether the string is a JS expression (`{'text'}`) or JSX text (`<p>text</p>`). JS escapes work in the former, HTML entities in the latter.
+
+---
+
+## 2026-04-06 [product]: Letter composition must mirror the receiver's reading experience
+
+**Context:** P581 specified a 3-step wizard for letter composition (receivers → summary-card predictions → inline preview → seal). During UX exploration (30 ASCII flow variants scored on 8 criteria), the highest-scoring pattern was "sender walks the receiver's reading flow" — same component, same pacing, prompt swapped from "rate understanding" to "predict understanding." The wizard pattern showed stories as compact summary cards, breaking D6 ("ritual, not feed"). The preview was an in-wizard summary, not the real receiver experience.
+**Decision:** Composition = reading flow in "predict" mode. The sender experiences exactly what the receiver will see (one story at a time, `LiveStoryCardExpanded`, `RatingButtons`, progress bar). Preview = real URL (`/letter/:docId/preview`), not a summary view. This principle applies to any future sender-facing flow that precedes a receiver experience — the sender should always walk the path first.
+**Alternatives rejected:** (A) Keep wizard with better cards — still a form, still doesn't create empathy with receiver's experience. (B) Two-column split (stories left, predictions right) — loses sequential pacing; desktop-only. (C) All predictions on one scrollable page — batch prediction is shallower than one-at-a-time.
+**Consequences:** P661 filed as CR against P581. `LiveStoryCardExpanded` gets `readOnly` prop. `letter-compose-page.tsx` rewritten from wizard to orchestrator. No DB changes needed. The "composition mirrors reading" principle should inform future flows (e.g., Letter 2 in the three-letter acquisition sequence).
+**References:** [P661 spec](../features/p661_letter_composition_ux_redesign.md), [P581 spec](../features/p581_letters_with_comprehension_assessment.md)
+
+---
+
 ## 2026-04-05 [technical]: Build-time env validation + .env.example consolidation
 
 **Context:** Three prior incidents (D-4926: prod ran mock mode for months; D-5124: broken banners; D-2534: blank page) shared one root cause: `VITE_*` vars present in `.env.local` but missing from Vercel. Builds succeeded silently; failures only appeared at runtime in prod. Separately, having both `.env.example` and `.env.prod.example` created ambiguity about which vars are required.
