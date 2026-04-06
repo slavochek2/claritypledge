@@ -261,9 +261,10 @@ function LetterCard({
 
 export function SentTab({ userId }: SentTabProps) {
   const [cards, setCards] = useState<LetterCardData[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [fetchState, setFetchState] = useState<'loading' | 'done' | 'error'>('loading');
 
   const fetchData = useCallback(async () => {
+    setFetchState('loading');
     try {
       const letters = await getAllSentLetters(userId);
       // Fetch deliveries for each letter in parallel
@@ -274,10 +275,10 @@ export function SentTab({ userId }: SentTabProps) {
         })
       );
       setCards(withDeliveries);
+      setFetchState('done');
     } catch {
-      // Non-critical — show empty state
-    } finally {
-      setLoading(false);
+      toast.error('Failed to load sent letters');
+      setFetchState('error');
     }
   }, [userId]);
 
@@ -285,10 +286,21 @@ export function SentTab({ userId }: SentTabProps) {
     fetchData();
   }, [fetchData]);
 
-  if (loading) {
+  if (fetchState === 'loading') {
     return (
       <div className="flex items-center justify-center py-12">
         <p className="text-sm text-muted-foreground">Loading sent letters...</p>
+      </div>
+    );
+  }
+
+  if (fetchState === 'error') {
+    return (
+      <div className="flex flex-col items-center justify-center py-16 text-center gap-3">
+        <p className="text-sm text-muted-foreground">Something went wrong loading your sent letters.</p>
+        <Button variant="outline" size="sm" onClick={fetchData}>
+          Retry
+        </Button>
       </div>
     );
   }

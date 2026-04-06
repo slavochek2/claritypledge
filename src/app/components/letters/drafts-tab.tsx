@@ -150,7 +150,7 @@ export function DraftsTab({ userId }: DraftsTabProps) {
           <div
             key={doc.id}
             className={`rounded-lg border bg-card p-4 hover:bg-accent/50 transition-colors border-l-4 ${
-              doc.visibility === 'private' ? 'border-l-amber-400' : 'border-l-blue-500'
+              doc.visibility === 'private' ? 'border-l-gray-400' : 'border-l-blue-500'
             }`}
           >
             <div className="flex items-center gap-3">
@@ -260,7 +260,7 @@ function CreateDocOptions({ onSelect, disabled }: { onSelect: (v: ContentVisibil
         disabled={disabled}
         className="w-full flex items-center gap-3 rounded-md px-3 py-2.5 text-sm hover:bg-accent transition-colors text-left"
       >
-        <Lock size={16} className="text-amber-600 flex-shrink-0" />
+        <Lock size={16} className="text-muted-foreground flex-shrink-0" />
         <div>
           <div className="font-medium">Private Draft</div>
           <div className="text-xs text-muted-foreground">Only you can see this</div>
