@@ -1,8 +1,14 @@
 ---
-status: in-progress
+status: qa
 type: bug
 rank: 1
 chain_root: p617
+delivery_stage: fix
+pipeline_ran: [fix]
+flow: fix
+date_resolved: 2026-04-06
+root_cause: onSelectStory callback closed picker without calling handleStartCheck — story selection was preparatory, not an action trigger
+resolution: handleSelectStory in clarity-live-page.tsx now does atomic write (story data + ratingInitiatedBy) and auto-starts rating flow
 tags:
   - live
   - ux
