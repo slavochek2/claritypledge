@@ -753,3 +753,32 @@ export const realStoriesService: StoriesService = {
     return result;
   },
 };
+
+/**
+ * Resolve a story slug (e.g. "st1", "st7") to a UUID.
+ *
+ * Matches the stN tag in system_tags, resolves highest vN version.
+ * Returns null if no matching story found.
+ */
+export async function resolveStorySlug(slug: string): Promise<string | null> {
+  const match = slug.match(/^st\d+$/);
+  if (!match) return null;
+
+  const stTag = match[0];
+
+  const { data, error } = await supabase
+    .from('stories')
+    .select('id, system_tags')
+    .contains('system_tags', [stTag]);
+
+  if (error || !data?.length) return null;
+
+  // Find highest version number from system_tags
+  const withVersion = data.map((s: { id: string; system_tags: string[] }) => {
+    const vTag = s.system_tags.find((t: string) => /^v\d+$/.test(t));
+    return { id: s.id, version: vTag ? parseInt(vTag.slice(1), 10) : 0 };
+  });
+
+  withVersion.sort((a: { version: number }, b: { version: number }) => b.version - a.version);
+  return withVersion[0].id;
+}

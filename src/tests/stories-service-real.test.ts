@@ -404,3 +404,85 @@ describe('realStoriesService', () => {
     });
   });
 });
+
+describe('resolveStorySlug', () => {
+  let resolveStorySlug: (slug: string) => Promise<string | null>;
+
+  beforeEach(async () => {
+    vi.clearAllMocks();
+    const module = await import('@/app/data/stories-service-real');
+    resolveStorySlug = module.resolveStorySlug;
+  });
+
+  it('returns null for invalid slug format', async () => {
+    expect(await resolveStorySlug('invalid')).toBeNull();
+    expect(await resolveStorySlug('st')).toBeNull();
+    expect(await resolveStorySlug('st1-a')).toBeNull();
+  });
+
+  it('resolves valid slug to story UUID', async () => {
+    const mockContains = vi.fn().mockResolvedValue({
+      data: [{ id: 'story-uuid-1', system_tags: ['st1', 'v0'] }],
+      error: null,
+    });
+    mockSelect.mockReturnValue({ contains: mockContains });
+
+    const result = await resolveStorySlug('st1');
+
+    expect(result).toBe('story-uuid-1');
+    expect(mockFrom).toHaveBeenCalledWith('stories');
+    expect(mockContains).toHaveBeenCalledWith('system_tags', ['st1']);
+  });
+
+  it('returns highest version when multiple versions exist', async () => {
+    const mockContains = vi.fn().mockResolvedValue({
+      data: [
+        { id: 'story-v0', system_tags: ['st5', 'v0'] },
+        { id: 'story-v2', system_tags: ['st5', 'v2'] },
+        { id: 'story-v1', system_tags: ['st5', 'v1'] },
+      ],
+      error: null,
+    });
+    mockSelect.mockReturnValue({ contains: mockContains });
+
+    const result = await resolveStorySlug('st5');
+
+    expect(result).toBe('story-v2');
+  });
+
+  it('defaults to version 0 when no vN tag exists', async () => {
+    const mockContains = vi.fn().mockResolvedValue({
+      data: [{ id: 'story-no-version', system_tags: ['st3'] }],
+      error: null,
+    });
+    mockSelect.mockReturnValue({ contains: mockContains });
+
+    const result = await resolveStorySlug('st3');
+
+    expect(result).toBe('story-no-version');
+  });
+
+  it('returns null when no matching story found', async () => {
+    const mockContains = vi.fn().mockResolvedValue({
+      data: [],
+      error: null,
+    });
+    mockSelect.mockReturnValue({ contains: mockContains });
+
+    const result = await resolveStorySlug('st99');
+
+    expect(result).toBeNull();
+  });
+
+  it('returns null on database error', async () => {
+    const mockContains = vi.fn().mockResolvedValue({
+      data: null,
+      error: { message: 'DB error' },
+    });
+    mockSelect.mockReturnValue({ contains: mockContains });
+
+    const result = await resolveStorySlug('st1');
+
+    expect(result).toBeNull();
+  });
+});
