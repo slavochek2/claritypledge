@@ -2,6 +2,35 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-06 [process]: Auth injection "race condition" was misdiagnosed — false narrative propagated across 5+ sessions
+
+**Context:** Multiple conversation sessions (369dfdd0, edf50223, 04cde5b2, e94093de) described a "race condition" in `getTestAuthContext()` where `addInitScript` fires after page navigation, causing Google OAuth redirect. This was treated as a critical blocker — "P644's entire infrastructure is decorative." The claim propagated through chat history analysis and was accepted without verification.
+**Decision:** Investigation disproved the hypothesis. `addInitScript` on BrowserContext (not Page) is deterministic per Playwright docs — it runs before any page script on every navigation. `p496-auth-context.spec.ts` passes all 5 tests. The actual failures: (1) `creator-detects-joiner.spec.ts` uses raw unauthenticated contexts predating the P66.1 auth gate, (2) `p562-free-mode.spec.ts` has stale selectors ("Free mode" → "Open mode"). Fix: migrate old tests, update labels. P644 infrastructure works.
+**Alternatives rejected:** (A) Accepting the diagnosis and rewriting auth injection (storageState approach) — would have been invasive surgery for a non-existent problem. (B) Working around auth by adding more guards — treating symptoms of tests that just need migration.
+**Consequences:** False narratives can propagate across AI conversation sessions just like they do across human team handoffs. When a "known blocker" persists across 3+ sessions without a fix, the diagnosis itself should be falsified before investing more effort. P666 Phase 1 is now a simple test migration, not an infrastructure rewrite.
+**References:** [P666 spec](../features/p666_testing_infrastructure_gaps.md), [P644 spec](../features/p644_two_party_test_infrastructure.md)
+
+---
+
+## 2026-04-06 [process]: No standalone /reproduce skill — harden /fix Phase 1 with mandatory reproduction gate
+
+**Context:** 17+ sessions wasted on bugs where reproduction was assumed, not verified. P643 canary passed without the fix (wrong code path). P617-P638 had page.reload() masking broken delivery. Proposal: create `/reproduce` skill that attempts Level 1 (Playwright) then Level 2 (Chrome extension) reproduction.
+**Decision:** Rejected `/reproduce` as standalone skill. Instead, harden `/fix` Phase 1 with a mandatory gate: (1a) read spec steps, (1b) write minimal Playwright script following steps literally, (1c) run it — must FAIL in the way bug describes before proceeding, (1d) if Playwright can't reach the path, log limitation and flag canary as proxy. Also: `/create-bug` to require "steps specific enough for Playwright to follow literally." When canary is proxy-only, require `canary: proxy` in spec frontmatter.
+**Alternatives rejected:** (A) Standalone `/reproduce` skill — optional steps get skipped (the exact failure mode we're fixing); maintenance cost high (two tools, session detection, MV3 fragility); duplicates logic belonging in `/fix`. (B) Checklist in `/create-bug` only — bug creator isn't the one writing the test; gap is at `/fix` entry. (C) Chrome extension fallback chain in `/reproduce` — building on sand (MV3 lifecycle, single-user, session-dependent); not durable.
+**Consequences:** `/fix` Phase 1 becomes a hard gate. The 6-month sustainability test: this gate survives any tooling change because "confirm failure before writing fix" is a principle, not a tool dependency. P666 Phase 3 tracks implementation.
+**References:** [P666 spec](../features/p666_testing_infrastructure_gaps.md)
+
+---
+
+## 2026-04-06 [process]: /pick-flow needs task-infra shortcut — full feature pipeline is wrong for infrastructure work (Status: proposed)
+
+**Context:** When creating P666 (testing infrastructure gaps), the founder hesitated between inline plan and `/spec-create` because `/pick-flow` doesn't recommend a lean pipeline for `type: task` + infra tags. Pick-flow v3 correctly classifies infrastructure at Step 0 but the downstream step recommendations still bias toward feature pipelines. The founder's tension ("is /spec-create worth it?") recurs whenever work is clearly infra/tooling.
+**Decision:** (Status: proposed) Add a `task-infra` pathway to `/pick-flow`: when Step 0 classifies as `type: task` with infra/testing/tooling context, recommend short pipeline: `create-spec → architect → dev`. Skip: challenge-prd, ux, decompose, generate-uat. The reasoning: infra work has no user-facing UX, no product trade-offs to challenge, and is usually < 5 files.
+**Consequences:** Needs implementation in `/pick-flow` skill. Would resolve the recurring "is this worth a full spec?" hesitation for infra work.
+**References:** [pick-flow v3 decision](#2026-04-05-process-pick-flow-v3--replaced-scoring-tables-with-principles-based-reasoning), feedback memory `feedback_pick_flow_diagnose.md`
+
+---
+
 ## 2026-04-06 [process]: Worktree-first spec resolution — feature branch copy always wins
 
 **Context:** `/fix p643` read the stale P643 spec from main instead of the rewritten matryoshka version on w1 (`feature/p617-mode-switcher-lifecycle`). The agent then prematurely set `status: qa` with unchecked ACs because the main copy had no remaining layers documented. Root problem: no policy defined where to find specs when they diverge between main and feature branches.
