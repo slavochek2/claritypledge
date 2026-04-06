@@ -37,6 +37,10 @@ import { supabaseAdmin } from './supabase-admin';
  * Throws immediately with a clear error instead of timing out 20s later.
  */
 async function assertNoAuthRedirect(page: Page, sessionCode: string): Promise<void> {
+  // Wait for network to settle before checking URL — ensures any auth-triggered
+  // redirect has completed, not just started. Without this, a slow redirect
+  // could pass the URL check but redirect 200ms later.
+  await page.waitForLoadState('networkidle');
   const url = page.url();
   if (!url.includes(`/live/${sessionCode}`)) {
     throw new Error(

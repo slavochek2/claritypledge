@@ -4,7 +4,7 @@
  *
  * Tests the full free mode flow with two browser contexts (speaker + listener):
  * 1. Both join session, see mode toggle, select Free mode
- * 2. Speaker taps "Does [partner] understand you?" — both enter sealed-bid phase
+ * 2. Speaker taps "Did [partner] understand you?" — both enter sealed-bid phase
  * 3. Both submit sealed bids via slider → reveal phase
  * 4. Listener clicks "I paraphrased" → sliders unlock
  * 5. Both move sliders to 10 → success screen
@@ -35,22 +35,22 @@ test.describe('P562: Free Mode — Two-Party Full Flow', () => {
     try {
       // --- Phase 1: Entry — both see mode toggle ---
       // Wait for entry screen to load on both pages
-      await expect(speakerPage.getByText('Free mode')).toBeVisible({ timeout: 15000 });
-      await expect(listenerPage.getByText('Free mode')).toBeVisible({ timeout: 15000 });
+      await expect(speakerPage.getByText('Open mode')).toBeVisible({ timeout: 15000 });
+      await expect(listenerPage.getByText('Open mode')).toBeVisible({ timeout: 15000 });
 
       // Both should see Guided mode option too
       await expect(speakerPage.getByText('Guided mode')).toBeVisible();
       await expect(listenerPage.getByText('Guided mode')).toBeVisible();
 
       // Select Free mode on both (click the pill toggle)
-      await speakerPage.getByText('Free mode').click();
-      await listenerPage.getByText('Free mode').click();
+      await speakerPage.getByText('Open mode').click();
+      await listenerPage.getByText('Open mode').click();
 
       // Speaker should see the Speak button
-      await expect(speakerPage.getByRole('button', { name: /Does.*understand you/i })).toBeVisible({ timeout: 10000 });
+      await expect(speakerPage.getByRole('button', { name: /Did.*understand you/i })).toBeVisible({ timeout: 10000 });
 
       // --- Phase 2: Speaker taps "Does [partner] understand you?" ---
-      await speakerPage.getByRole('button', { name: /Does.*understand you/i }).click();
+      await speakerPage.getByRole('button', { name: /Did.*understand you/i }).click();
 
       // --- Phase 2-3: Both enter sealed-bid — drawer slides up ---
       // Speaker sees their question
@@ -140,8 +140,8 @@ test.describe('P562: Free Mode — Two-Party Full Flow', () => {
       });
 
       // Both should see mode toggle again (back to entry screen)
-      await expect(speakerPage.getByText('Free mode')).toBeVisible({ timeout: 10000 });
-      await expect(listenerPage.getByText('Free mode')).toBeVisible({ timeout: 10000 });
+      await expect(speakerPage.getByText('Open mode')).toBeVisible({ timeout: 10000 });
+      await expect(listenerPage.getByText('Open mode')).toBeVisible({ timeout: 10000 });
     } finally {
       await session.cleanup();
     }
@@ -158,11 +158,11 @@ test.describe('P562: Free Mode — Two-Party Full Flow', () => {
 
     try {
       // Set up free mode and start round
-      await expect(speakerPage.getByText('Free mode')).toBeVisible({ timeout: 15000 });
-      await speakerPage.getByText('Free mode').click();
-      await listenerPage.getByText('Free mode').click();
+      await expect(speakerPage.getByText('Open mode')).toBeVisible({ timeout: 15000 });
+      await speakerPage.getByText('Open mode').click();
+      await listenerPage.getByText('Open mode').click();
 
-      await speakerPage.getByRole('button', { name: /Does.*understand you/i }).click();
+      await speakerPage.getByRole('button', { name: /Did.*understand you/i }).click();
 
       // Wait for sealed-bid drawer on both
       await expect(speakerPage.getByRole('button', { name: /Submit/i })).toBeVisible({ timeout: 10000 });
@@ -193,11 +193,11 @@ test.describe('P562: Free Mode — Two-Party Full Flow', () => {
 
     try {
       // Fast-forward through sealed bid → reveal → paraphrase → unlocked
-      await expect(speakerPage.getByText('Free mode')).toBeVisible({ timeout: 15000 });
-      await speakerPage.getByText('Free mode').click();
-      await listenerPage.getByText('Free mode').click();
+      await expect(speakerPage.getByText('Open mode')).toBeVisible({ timeout: 15000 });
+      await speakerPage.getByText('Open mode').click();
+      await listenerPage.getByText('Open mode').click();
 
-      await speakerPage.getByRole('button', { name: /Does.*understand you/i }).click();
+      await speakerPage.getByRole('button', { name: /Did.*understand you/i }).click();
 
       // Both submit sealed bids quickly
       await expect(speakerPage.getByRole('button', { name: /Submit/i })).toBeVisible({ timeout: 10000 });
