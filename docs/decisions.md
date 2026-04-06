@@ -2,6 +2,24 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-06 [process]: Agent prod DB confusion — fix the broken pointer, not add more docs
+
+**Context:** Agents repeatedly wasted 8-12 tool calls when needing prod data (March 27, March 28, April 6). Existing mitigation layers: `db-access.md` rule ("use `.env.prod`"), 2 memory entries, CLAUDE.md reference, `cli-tools.md` docs. All correctly stated the rule. All failed to prevent the problem. Initial proposal was a 4-part fix: `query-prod.sh` script + complete `.env.prod` + new content model doc + updated rules. Falsification agent (`/falsify`) caught the over-engineering.
+**Decision:** The root cause was a broken file pointer: `db-access.md` says "get the prod anon key from `.env.prod`" but `.env.prod` only had URL + DB URL + access token (designed for `migrate.sh` CLI use, not REST API). No anon key. Every agent followed the rule, read `.env.prod`, found no anon key, fell back to `.env.local`, picked the test key. Fix: added `VITE_SUPABASE_ANON_KEY` to `.env.prod`. One line, zero new files, zero new doc layers.
+**Alternatives rejected:** (A) `query-prod.sh` helper script — adds a moving part when the config file fix makes existing rules work. (B) More documentation layers — 8 layers already existed and were read correctly; the problem was execution, not knowledge. (C) Consolidating all 8 doc layers — deferred; fix the broken pointer first, consolidate only if failures recur.
+**Consequences:** When agent rules point to files, verify the files are complete for the stated use case. "Fix the pointer, not the reader" as a diagnostic principle. If this fix doesn't resolve prod DB confusion in the next 2-3 sessions, escalate to consolidation.
+
+---
+
+## 2026-04-06 [technical]: Content model conventions documented in database.md
+
+**Context:** Agents confused by ClarityPledge content model — didn't know tags are hashtags in content text (not the `tags` column), that `story_versions` is an audit table (not how to find "latest"), or that `st8-a` means "anti-point for story 8." P630 spec documents system_tags separation but is archived in `features/done/`. This knowledge was genuinely undocumented in agent-accessible docs.
+**Decision:** Added a "Content conventions" subsection to the existing Stories/Points section in `database.md` (5 lines). Covers: latest = `stories.content` directly, tags live in content text as hashtags, `st8`/`st8-a` naming, version markers `#v1`/`#v2` in content and `system_tags`.
+**Alternatives rejected:** (A) Separate `docs/technical/content-model.md` — too small for its own file, and agents already read `database.md`. (B) Adding to `definitions.md` — that's user-facing concepts, not data model navigation.
+**Consequences:** Agents working with stories/points should find this on first read of `database.md`. If they still miss it, the section placement (line ~129) may need to move higher in the file.
+
+---
+
 ## 2026-04-06 [product]: Letters get dedicated nav with email metaphor (Drafts/Sent/Inbox)
 
 **Context:** P581 embedded letters inside the "Docs" section — received letters appeared as a subsection on the docs list page, sent letters on the doc detail page. As letter functionality grew (composition, inbox tracking, read receipts), this nesting created a confusing IA: letters aren't documents, yet they lived under "Docs." P660 filed as a change-request against P581 to restructure.

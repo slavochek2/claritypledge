@@ -127,6 +127,12 @@ Seven tables added by P117. Full schema details in [architecture.md](architectur
 
 **Services:** Interface-based pattern — see [architecture.md § Service Layer](architecture.md#service-layer-pattern).
 
+**Content conventions (for agents working with stories/points data):**
+- **"Latest" content** = `stories.content` or `points.statement` directly. `story_versions` is an immutable audit trail (trigger-created on every edit) — never query it to find current content.
+- **Tags live in two places:** `system_tags` column (system-controlled: `st1`–`st9`, `v1`/`v2`, `understanding`/`misunderstanding`) and inline hashtags in content text (`#st8`, `#partners`). The `tags` column holds user-created hashtags extracted by trigger. To find content by topic, search content text (`ilike '%#st8%'`), not the `tags` column (which may be empty for older content).
+- **Naming:** `st8` = story 8's point set. `st8-a` = anti-point for story 8 (a point with the opposing framing). Points and anti-points are both rows in `points` — no separate table.
+- **Version markers:** `#v1`, `#v2` etc. appear as hashtags in content text and as `v1`, `v2` in `system_tags`. They mark content revisions. The highest version number in `system_tags` is the current version.
+
 ### Clarity Letters (P581)
 
 Five tables for async comprehension assessment via letters.
