@@ -2,6 +2,35 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-06 [process]: Worktree-first spec resolution — feature branch copy always wins
+
+**Context:** `/fix p643` read the stale P643 spec from main instead of the rewritten matryoshka version on w1 (`feature/p617-mode-switcher-lifecycle`). The agent then prematurely set `status: qa` with unchecked ACs because the main copy had no remaining layers documented. Root problem: no policy defined where to find specs when they diverge between main and feature branches.
+**Decision:** Specs are created on main but evolve on feature branches. When resolving a spec by P-number for implementation: (1) check existing worktrees for the file, (2) if found → enter that worktree and read the spec there, (3) if not found → read from main, create new worktree as usual. Policy lives in `.claude/rules/features.md` (auto-loads for all 20+ skills via path trigger). `/fix` and `/dev` got explicit worktree-scanning bash snippets in their Phase 0.0 / Step 0. Other pipeline skills inherit the policy passively — they run wherever invoked.
+**Alternatives rejected:** (A) Always copy spec from main to worktree at creation — adds a sync step that diverges immediately. (B) Per-skill worktree logic — 20+ skills would need identical code. (C) Only document in CLAUDE.md — too universal for a path-specific concern; `.claude/rules/features.md` is the right routing.
+**Consequences:** New sessions running `/fix pN` or `/dev pN` from main will discover and enter existing worktrees. Eliminates stale-spec reads for in-progress features.
+**References:** [features.md rule](.claude/rules/features.md), [fix.md](.claude/commands/slava/build/fix.md), [dev.md](.claude/commands/slava/build/dev.md)
+
+---
+
+## 2026-04-06 [process]: AC completeness hard gate — never set qa with unchecked acceptance criteria
+
+**Context:** `/fix` set `status: qa` on P643 despite 3 unchecked `[ ]` acceptance criteria. The agent processed only the stale spec (which had all ACs checked) but the rewritten spec had mixed `[x]`/`[ ]` items. Even with the correct spec, no explicit gate existed to prevent premature qa.
+**Decision:** Universal hard gate: before setting `status: qa`, count unchecked `[ ]` items in `## Acceptance Criteria`. If any exist, STOP — do not set qa. Report the unchecked items. Enforced in three places: `.claude/rules/features.md` (inline with `status: qa` definition), `/fix` Feature QA Gate step 0, `/dev` UAT gate step 1. Also: matryoshka detection added — if spec has mixed `[x]`/`[ ]` ACs, announce which layers are done and which remain before starting work.
+**Alternatives rejected:** (A) Only enforce in `/fix` — misses `/dev` and `/verify` paths. (B) Automated script validation — too fragile for markdown parsing; agent-level enforcement is more reliable. (C) Separate `/qa-gate` skill — unnecessary indirection for a 3-line check.
+**Consequences:** Prevents premature qa on any spec type. Matryoshka bug specs with partially-complete layers are handled correctly.
+
+---
+
+## 2026-04-06 [process]: Matryoshka bug rewrite mode — per-layer reproduction steps required
+
+**Context:** P643 bug spec was rewritten multiple times as each fix revealed the next layer (story selection → race condition → speak button hiding → back button dirty state). The original `/create-bug` rewrite mode template didn't require reproduction steps for remaining layers — just symptoms and expected behavior. Without reproduction steps, `/fix` couldn't confirm bugs or write canary tests.
+**Decision:** `/create-bug` rewrite mode now requires each layer in `## What Remains` to include: reproduction steps (numbered, from session setup to observable bug), symptoms, expected behavior, root cause hypothesis, affected area. Added AC↔Layer rule: each remaining layer MUST have a corresponding unchecked `[ ]` in ACs, each fixed layer MUST have `[x]`. This makes the AC section the single source of truth for completion.
+**Alternatives rejected:** (A) Separate `/reproduce-bug` skill before `/create-bug` — reproducing IS writing the spec; splitting adds a skill that duplicates the work. (B) Rely on `/generate-tests` for reproduction — E2E tests use shortcuts (localStorage auth, `?skipMicCheck=true`) that mask real-flow bugs; reproduction steps must describe the real user flow.
+**Consequences:** Bug spec rewrites are self-contained: any agent reading the spec can reproduce remaining layers without prior context. The three-level reproduction hierarchy (E2E → browser automation → manual UAT) is acknowledged via `[HUMAN — agent cannot verify]` annotations on items requiring real two-browser testing.
+**References:** [create-bug.md](.claude/commands/slava/build/create-bug.md), [P643 spec](.claude/worktrees/w1/features/p643_live_mode_switcher_broken_despite_tests.md)
+
+---
+
 ## 2026-04-06 [process]: Agent prod DB confusion — fix the broken pointer, not add more docs
 
 **Context:** Agents repeatedly wasted 8-12 tool calls when needing prod data (March 27, March 28, April 6). Existing mitigation layers: `db-access.md` rule ("use `.env.prod`"), 2 memory entries, CLAUDE.md reference, `cli-tools.md` docs. All correctly stated the rule. All failed to prevent the problem. Initial proposal was a 4-part fix: `query-prod.sh` script + complete `.env.prod` + new content model doc + updated rules. Falsification agent (`/falsify`) caught the over-engineering.
