@@ -111,6 +111,22 @@ test.describe('P617: Mode switcher lifecycle', () => {
     await waitForUIUpdate(guest.page, disabledPill, 20000);
   });
 
+  test('P643: listener Speak button disables during cardless Speak (clean-idle path)', async () => {
+    const { host, guest } = session;
+
+    // Wait for both on idle
+    await expect(host.page.getByText('Speak')).toBeVisible({ timeout: 15000 });
+    await expect(guest.page.getByTestId('start-check')).toBeVisible({ timeout: 15000 });
+    await expect(guest.page.getByTestId('start-check')).toBeEnabled();
+
+    // Host clicks Speak (cardless — no story selected)
+    await host.page.getByText('Speak').first().click();
+    await expect(host.page.getByText('How well do you believe')).toBeVisible({ timeout: 5000 });
+
+    // Guest's Speak button should become disabled via Realtime
+    await expect(guest.page.getByTestId('start-check')).toBeDisabled({ timeout: 20000 });
+  });
+
   test('UAT-6: mode switcher reappears after full round via DB-driven state', async () => {
     // Strategy: advance through the round by writing live_state directly via
     // advanceSessionState, then verify the UI updates via Realtime delivery.
@@ -279,8 +295,10 @@ test.describe('P617: Mode switcher lifecycle', () => {
       // Story card should NOT be visible (clean idle)
       await expect(host.page.getByText(storyContent)).not.toBeVisible({ timeout: 3000 });
 
-      // Guest should also be back to clean idle
-      await waitForUIUpdate(guest.page, guest.page.getByTestId('start-check'), 20000);
+      // Guest should also be back to clean idle — Speak button visible AND re-enabled
+      const guestSpeak = guest.page.getByTestId('start-check');
+      await waitForUIUpdate(guest.page, guestSpeak, 20000);
+      await expect(guestSpeak).not.toBeDisabled({ timeout: 5000 });
     } finally {
       await deleteTestStory(story.id);
     }

@@ -1283,18 +1283,20 @@ function IdleScreen({
               When bottom zone is empty, center the button vertically to avoid bare layout. */}
           <div className={`flex-[2] flex flex-col items-center ${hasBottomContent ? 'justify-end' : 'justify-center'} pb-4 px-6 max-w-lg mx-auto w-full`}>
             <div className="flex flex-col gap-1 w-full max-w-sm">
-              <Button
-                size="lg"
-                className="bg-blue-500 hover:bg-blue-600 w-full py-6"
-                onClick={handleStartCheckWithTracking}
-                disabled={waitingForPartnerToContinue}
-                data-testid="start-check"
-              >
-                <span className="flex flex-col items-center gap-1.5">
-                  <span className="text-xl font-semibold leading-none">Speak</span>
-                  <span className="text-[11px] font-normal text-white/90 leading-none">Did {displayPartnerName} understand you?</span>
-                </span>
-              </Button>
+              <MobileTooltip content={isListenerDuringLocalRating ? `Mode locked, waiting for ${displayPartnerName}` : ''}>
+                <Button
+                  size="lg"
+                  className="bg-blue-500 hover:bg-blue-600 w-full py-6"
+                  onClick={handleStartCheckWithTracking}
+                  disabled={waitingForPartnerToContinue || isListenerDuringLocalRating}
+                  data-testid="start-check"
+                >
+                  <span className="flex flex-col items-center gap-1.5">
+                    <span className="text-xl font-semibold leading-none">Speak</span>
+                    <span className="text-[11px] font-normal text-white/90 leading-none">Did {displayPartnerName} understand you?</span>
+                  </span>
+                </Button>
+              </MobileTooltip>
               {waitingForPartnerToContinue && (
                 <WaitingIndicator message={`Waiting for ${displayPartnerName} to continue...`} />
               )}
@@ -1312,7 +1314,7 @@ function IdleScreen({
                   disabled={waitingForPartnerToContinue}
                   onCancel={() => setShowStoryPicker(false)}
                 />
-              ) : !waitingForPartnerToContinue && (
+              ) : !waitingForPartnerToContinue && !isListenerDuringLocalRating && (
                 <Button
                   variant="outline"
                   onClick={() => setShowStoryPicker(true)}
@@ -1368,18 +1370,20 @@ function IdleScreen({
               {/* P643 Layer 3: Also show (disabled) when listener is waiting for speaker's rating */}
               {(!selectedStory || isListenerDuringLocalRating) && !showRatingDrawer && (selectedHistoryIndex === null) && (
                 <div className="flex flex-col gap-1 w-full max-w-sm mx-auto">
-                  <Button
-                    size="lg"
-                    className="bg-blue-500 hover:bg-blue-600 w-full py-6"
-                    onClick={handleStartCheckWithTracking}
-                    disabled={waitingForPartnerToContinue || isListenerDuringLocalRating}
-                    data-testid="start-check"
-                  >
-                    <span className="flex flex-col items-center gap-1">
-                      <span className="text-xl font-semibold">Speak</span>
-                      <span className="text-xs font-normal text-white/70">Did {displayPartnerName} understand you?</span>
-                    </span>
-                  </Button>
+                  <MobileTooltip content={isListenerDuringLocalRating ? `Mode locked, waiting for ${displayPartnerName}` : ''}>
+                    <Button
+                      size="lg"
+                      className="bg-blue-500 hover:bg-blue-600 w-full py-6"
+                      onClick={handleStartCheckWithTracking}
+                      disabled={waitingForPartnerToContinue || isListenerDuringLocalRating}
+                      data-testid="start-check"
+                    >
+                      <span className="flex flex-col items-center gap-1">
+                        <span className="text-xl font-semibold">Speak</span>
+                        <span className="text-xs font-normal text-white/70">Did {displayPartnerName} understand you?</span>
+                      </span>
+                    </Button>
+                  </MobileTooltip>
                   {waitingForPartnerToContinue && (
                     <WaitingIndicator message={`Waiting for ${displayPartnerName} to continue...`} />
                   )}
