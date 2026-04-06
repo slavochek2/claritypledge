@@ -69,12 +69,13 @@ You're not just writing code — you're building something that will run in prod
 
 ## Step -1: Context Load (NEVER SKIP when a spec exists — even if you discussed it earlier)
 
-Before ANY other step — including worktree setup:
+After worktree setup (so CWD resolves to the correct branch):
 1. Read the full spec file (`features/pN*.md`) — Decisions section first, then Acceptance Criteria, then tasks
 2. If spec has `type: change-request` and `changes: pN` in frontmatter: also read the predecessor spec at `features/done/**/pN_*.md` (or `features/pN_*.md` if not yet shipped). Report: "Reading predecessor P{N} for context: {path}". If predecessor not found, warn but don't block.
 3. If spec references DB columns/tables: verify they exist (`curl` the REST API or check migration files)
+4. If spec has mixed `[x]`/`[ ]` acceptance criteria (rewritten matryoshka bug): announce which layers are done and which remain. Focus implementation on unchecked items only.
 
-**Why this is step -1:** After context compaction, the conversation summary says "working on pN" but the spec details are gone. This step costs 10 seconds and prevents 30-minute wrong-direction implementations.
+**Why this runs after worktree setup:** The spec on the feature branch may differ from main (e.g., rewritten matryoshka bugs). Reading before worktree setup reads the stale main copy. This step costs 10 seconds and prevents 30-minute wrong-direction implementations.
 
 Skip if no spec exists (inline description mode like `/dev refactor the auth module`).
 
@@ -672,7 +673,7 @@ Feature implementation complete.
 
 After successful commit, mark the feature ready for UAT — do NOT move to `features/done/` yet.
 
-1. Mark all `## Acceptance Criteria` checkboxes `[x]` in the spec file.
+1. **AC completeness check:** Review each `## Acceptance Criteria` checkbox. Only mark `[x]` for items you actually implemented and verified in this run. If any items remain `[ ]` (e.g., layers not yet fixed in a matryoshka spec), do NOT set `status: qa`. Report: "Cannot mark as ready — {N} acceptance criteria still unchecked: {list}."
 2. **Determine test URL:** Run `pwd` to identify worktree slot. Look up port from `docs/technical/worktree-setup.md` (w0=5001, w1=5100, w2=5200, etc.). If on main (w0), port is 5001.
 3. **If `*.tsx` files changed: Auto-run visual verification** (do not ask — just do it).
    - **Pre-check:** Run `mcp__claude-in-chrome__tabs_context_mcp` to verify Chrome MCP is available. If it errors → skip to fallback immediately (don't spawn).

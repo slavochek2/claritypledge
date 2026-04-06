@@ -165,8 +165,9 @@ When invoked with an **existing bug spec** (same P-number, `type: bug`), enter r
 4. GENERATE clean spec:
    - ## What's Fixed — done layers with commit hashes, root cause, one-liner each
    - ## Invariants — extracted from old spec (architectural rules future layers must respect)
-   - ## What Remains — remaining layers with symptoms, expected behavior, root cause hypothesis
+   - ## What Remains — remaining layers, each with: reproduction steps (numbered, from session setup to observable bug), symptoms, expected behavior, root cause hypothesis, affected area
    - Standard sections (Acceptance Criteria, Key Files, Branch)
+   **AC ↔ Layer rule:** Each layer in `## What Remains` MUST have a corresponding unchecked `- [ ]` in `## Acceptance Criteria`. Each layer in `## What's Fixed` MUST have a corresponding `- [x]`. This makes the AC section the single source of truth for completion — `/fix` and `/dev` use it as a hard gate before setting `status: qa`.
        ↓
 5. OVERWRITE same file, same P-number
 ```

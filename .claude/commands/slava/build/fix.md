@@ -98,17 +98,6 @@ Bug reported
 
 ---
 
-## Phase -1: Context Load (NEVER SKIP)
-
-Before worktree setup or any code changes:
-1. If a P-number spec exists: read it fully (reproduction steps, root cause if documented, acceptance criteria)
-2. Read the source file(s) mentioned in the spec or user description — verify current state matches your assumptions
-3. If bug involves DB: check the actual schema (`curl` REST API with `?select=column&limit=1`)
-
-Skip steps 1 and 3 in inline mode (`/fix "description"`) — but always do step 2 (using the user description to identify source files).
-
----
-
 ## Workflow
 
 ### Phase 0.pre: Ensure spec exists (BEFORE worktree setup)
@@ -159,6 +148,18 @@ Present options and wait for decision:
 - **(C) Proceed anyway** — only if user confirms both are one logical changeset
 
 Do NOT proceed until user chooses. Skip if already in a worktree (isolation is structural) or if tree is clean.
+
+---
+
+### Phase -1: Context Load (NEVER SKIP)
+
+After worktree setup (so CWD resolves to the correct branch):
+1. If a P-number spec exists: read it fully (reproduction steps, root cause if documented, acceptance criteria)
+2. Read the source file(s) mentioned in the spec or user description — verify current state matches your assumptions
+3. If bug involves DB: check the actual schema (`curl` REST API with `?select=column&limit=1`)
+4. If spec has mixed `[x]`/`[ ]` acceptance criteria (rewritten matryoshka bug): announce which layers are done and which remain. Focus on unchecked items.
+
+Skip steps 1 and 3 in inline mode (`/fix "description"`) — but always do step 2 (using the user description to identify source files).
 
 ---
 
@@ -489,6 +490,14 @@ resolution: What was fixed  # Added after fix
 
 After commit succeeds:
 
+0. **AC completeness check (HARD GATE):**
+   Count unchecked `[ ]` items in `## Acceptance Criteria`.
+   - All `[x]`: proceed to step 1.
+   - Any `[ ]`: **STOP.** Do NOT set `status: qa`. Report:
+     "Cannot set qa — {N} acceptance criteria still unchecked:
+      - [ ] {item 1}
+      - [ ] {item 2}
+     Fix remaining items or update the spec before closing."
 1. **Review** — Spawn `/finish code` as a subagent with: "Review all code changes on this branch vs main. Spec: [spec path if exists]. Proceed directly — no scope confirmation needed." Present HIGH/MEDIUM findings. Ask: "Fix issues before closing? (all HIGH / select / skip)". Apply approved fixes and commit them.
 2. Update frontmatter: `status: qa` (keep `delivery_stage: fix` — do not clear it). **If the spec was moved (e.g., to a subfolder) in this session, Edit its frontmatter at the new location AFTER the `git mv` is staged — never Edit before staging the rename, or the frontmatter change lands in a separate commit.**
 3. Commit: `chore: pN ready for QA — {title}`
