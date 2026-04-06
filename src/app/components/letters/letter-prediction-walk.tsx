@@ -57,7 +57,7 @@ export function LetterPredictionWalk({
         <button
           type="button"
           onClick={onClose}
-          className="p-1 rounded-md hover:bg-gray-100 transition-colors"
+          className="p-2.5 -m-1 rounded-md hover:bg-gray-100 transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
           aria-label="Close prediction walk"
         >
           <X className="h-5 w-5 text-gray-500" />
@@ -96,7 +96,7 @@ export function LetterPredictionWalk({
             <Button
               onClick={handleNext}
               disabled={currentPrediction === null}
-              className="bg-[#0044CC] hover:bg-[#0033AA] text-white"
+              className="bg-[#0044CC] hover:bg-[#0033AA] text-white min-h-[44px]"
             >
               {isLastStory ? 'Review' : 'Next Story'}
             </Button>

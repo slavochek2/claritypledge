@@ -14,10 +14,10 @@ export function LetterGapReveal({ receiverRating, senderPrediction }: LetterGapR
 
   return (
     <div className="space-y-4" aria-live="polite">
-      <div className="flex items-center justify-center gap-8">
+      <div className="flex items-center justify-center gap-4 sm:gap-8">
         {/* Receiver's rating */}
         <div className="text-center">
-          <div className="text-4xl font-bold text-[#0044CC]">{receiverRating}</div>
+          <div className="text-3xl sm:text-4xl font-bold text-[#0044CC]">{receiverRating}</div>
           <div className="text-xs text-[#1A1A1A]/60 mt-1">Your rating</div>
         </div>
 
@@ -26,7 +26,7 @@ export function LetterGapReveal({ receiverRating, senderPrediction }: LetterGapR
 
         {/* Sender's prediction */}
         <div className="text-center">
-          <div className="text-4xl font-bold text-[#1A1A1A]/70">{senderPrediction}</div>
+          <div className="text-3xl sm:text-4xl font-bold text-[#1A1A1A]/70">{senderPrediction}</div>
           <div className="text-xs text-[#1A1A1A]/60 mt-1">Their prediction</div>
         </div>
       </div>

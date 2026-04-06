@@ -22,7 +22,7 @@ export function LetterProgressBar({ currentIndex, totalStories }: LetterProgress
       {Array.from({ length: totalStories }, (_, i) => (
         <div
           key={i}
-          className={`h-1 flex-1 rounded-full transition-colors duration-300 ${
+          className={`h-1.5 flex-1 rounded-full transition-colors duration-300 ${
             i <= currentIndex ? 'bg-[#0044CC]' : 'bg-[#1A1A1A]/10'
           }`}
         />

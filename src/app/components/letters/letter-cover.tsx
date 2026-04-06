@@ -86,7 +86,7 @@ export function LetterCover({
 
       {/* ToS for 1-to-1 (D48) */}
       {mode === 'one-to-one' && (
-        <p className="text-[10px] md:text-xs text-[#1A1A1A]/50 max-w-xs">
+        <p className="text-xs text-[#1A1A1A]/50 max-w-xs">
           By opening, you accept the{' '}
           <Link to="/terms-of-service" className="underline hover:text-[#1A1A1A]">
             Terms of Service

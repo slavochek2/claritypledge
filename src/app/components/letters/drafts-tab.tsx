@@ -160,7 +160,7 @@ export function DraftsTab({ userId }: DraftsTabProps) {
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
                   <InlineVisibilityIcon visibility={doc.visibility === 'public' ? 'public' : 'private'} />
-                  <span className="text-sm font-medium text-foreground truncate">
+                  <span className="text-sm font-medium text-foreground line-clamp-2">
                     {doc.title}
                   </span>
                 </div>
@@ -179,7 +179,7 @@ export function DraftsTab({ userId }: DraftsTabProps) {
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="h-8 w-8"
+                      className="h-10 w-10 min-h-[44px]"
                       aria-label={`Actions for ${doc.title}`}
                     >
                       <MoreHorizontal className="w-4 h-4" />
@@ -193,12 +193,20 @@ export function DraftsTab({ userId }: DraftsTabProps) {
                       <Trash2 className="w-4 h-4" />
                       Delete
                     </DropdownMenuItem>
+                    <DropdownMenuItem
+                      className="sm:hidden"
+                      disabled={doc.story_count === 0}
+                      onClick={() => navigate(`/letter/${doc.id}/compose`)}
+                    >
+                      <Mail className="w-4 h-4" />
+                      Send as Letter
+                    </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="text-blue-500 hover:text-blue-600"
+                  className="hidden sm:inline-flex text-blue-500 hover:text-blue-600"
                   disabled={doc.story_count === 0}
                   title={doc.story_count === 0 ? 'Add at least one story first.' : undefined}
                   onClick={(e) => { e.stopPropagation(); navigate(`/letter/${doc.id}/compose`); }}
@@ -208,7 +216,7 @@ export function DraftsTab({ userId }: DraftsTabProps) {
                 </Button>
                 <Button
                   size="sm"
-                  className="bg-blue-500 hover:bg-blue-600 text-white"
+                  className="bg-blue-500 hover:bg-blue-600 text-white min-h-[44px]"
                   onClick={(e) => { e.stopPropagation(); navigate(`/letters/drafts/${doc.id}`); }}
                 >
                   Edit Draft

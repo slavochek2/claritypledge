@@ -208,7 +208,7 @@ export function LetterCompletionSummary({
 
             {/* Per-point positions */}
             {card.pointComparisons.length > 0 && (
-              <div className="text-xs text-muted-foreground space-y-0.5 mt-1">
+              <div className="text-xs text-muted-foreground space-y-1 mt-1">
                 {card.pointComparisons.map((pc, pcIdx) => (
                   <div key={pc.pointId}>
                     Pt{pcIdx + 1}: You {pc.receiverPosition === 'agree' ? '✓' : '✗'}

@@ -128,7 +128,7 @@ export function InboxTab({ userId, onUnreadCountChange }: InboxTabProps) {
               </div>
               <div className="flex-1 min-w-0">
                 <p
-                  className={`text-sm truncate ${
+                  className={`text-sm line-clamp-2 ${
                     isUnread ? 'font-semibold text-foreground' : 'font-normal text-foreground'
                   }`}
                 >
@@ -141,7 +141,7 @@ export function InboxTab({ userId, onUnreadCountChange }: InboxTabProps) {
               <div className="flex-shrink-0">
                 <Button
                   size="sm"
-                  className="bg-blue-500 hover:bg-blue-600 text-white"
+                  className="bg-blue-500 hover:bg-blue-600 text-white min-h-[44px]"
                   disabled={isMarking}
                   onClick={() => handleAction(item)}
                 >

@@ -53,7 +53,7 @@ function DeliveryRow({ delivery }: { delivery: LetterDelivery }) {
       <div className="flex items-center gap-2 flex-shrink-0">
         <LetterStatusBadge status={delivery.status} />
         {isCompleted && (
-          <Button variant="outline" size="sm" className="h-7 text-xs">
+          <Button variant="outline" size="sm" className="min-h-[44px] text-xs px-3">
             Results
           </Button>
         )}
@@ -97,7 +97,7 @@ function AddRecipientButton({
     return (
       <button
         onClick={() => setIsAdding(true)}
-        className="text-sm text-blue-600 hover:text-blue-700 font-medium py-1 px-3"
+        className="text-sm text-blue-600 hover:text-blue-700 font-medium min-h-[44px] px-3 inline-flex items-center"
       >
         + Add recipient
       </button>
@@ -112,13 +112,13 @@ function AddRecipientButton({
         onChange={(e) => setEmail(e.target.value)}
         onKeyDown={(e) => e.key === 'Enter' && handleSubmit()}
         placeholder="email@example.com"
-        className="flex-1 text-sm border border-border rounded-md px-2 py-1 bg-background focus:outline-none focus:ring-1 focus:ring-blue-500"
+        className="flex-1 text-sm border border-border rounded-md px-2 py-2 bg-background focus:outline-none focus:ring-1 focus:ring-blue-500 min-h-[44px]"
         autoFocus
         disabled={submitting}
       />
       <Button
         size="sm"
-        className="h-7 text-xs"
+        className="min-h-[44px] text-xs px-3"
         onClick={handleSubmit}
         disabled={submitting || !email.trim()}
       >
@@ -126,7 +126,7 @@ function AddRecipientButton({
       </Button>
       <button
         onClick={() => { setIsAdding(false); setEmail(''); }}
-        className="text-sm text-muted-foreground hover:text-foreground"
+        className="text-sm text-muted-foreground hover:text-foreground min-h-[44px] px-2"
         disabled={submitting}
       >
         Cancel
@@ -155,7 +155,7 @@ function PublicLinkRow({ letterId }: { letterId: string }) {
       </div>
       <button
         onClick={handleCopy}
-        className="text-muted-foreground hover:text-foreground transition-colors p-1"
+        className="text-muted-foreground hover:text-foreground transition-colors p-2 min-h-[44px] min-w-[44px] flex items-center justify-center"
         title="Copy link"
       >
         <svg
@@ -199,7 +199,7 @@ function LetterCard({
       <div className="px-4 py-3 bg-muted/20">
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
-            <h3 className="text-sm font-medium text-foreground truncate">
+            <h3 className="text-sm font-medium text-foreground line-clamp-2">
               {letter.doc_title}
             </h3>
             <p className="text-xs text-muted-foreground mt-0.5">
@@ -207,7 +207,7 @@ function LetterCard({
             </p>
           </div>
           <span
-            className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium flex-shrink-0 ${
+            className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium flex-shrink-0 ${
               isPublic
                 ? 'bg-blue-50 text-blue-600'
                 : 'bg-gray-100 text-gray-600'
