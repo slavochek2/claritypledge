@@ -1,7 +1,7 @@
 # Done Features Index
 
 Quick reference for past completed work. Consult when starting work on a related topic.
-Last updated: 2026-04-04 (P650 Ship/Fix Skill Flow)
+Last updated: 2026-04-06 (P662 Story Slug Resolution)
 
 ---
 
@@ -38,6 +38,7 @@ Last updated: 2026-04-04 (P650 Ship/Fix Skill Flow)
 
 ## Points & Stories
 
+- **P662** (Apr 06) Story Slug Resolution — parity with point slugs; `resolveStorySlug` is simpler (no `-a` suffix); story detail page shows `content` not `title` (test gotcha)
 - **P633** (Apr 03) Unlink Inside QuotedPoint on Story Detail — ownership model determines surface: story owns the link → action goes on story-detail page. Three scope rewrites (P616→P621→P633) before landing on correct surface. First action button inside QuotedPoint.
 - **P621** (Apr 03) Unlink on Point Detail Page — secondary surface for unlink (stats row of expanded story card). Proven pattern: `onUnlinkPoint` callback prop + page-owned dialog. Bug found during verify: must clear `linkedStories` map alongside `viewerStory` state.
 - **P634** (Apr 03) Private Points Leak Fix — `getPublicPointsFeed` missing `.eq('visibility','public')` leaked creator's private points; RLS passthrough for `first_validator_id=auth.uid()` means every public query must filter explicitly; app-level fix chosen over Postgres view
