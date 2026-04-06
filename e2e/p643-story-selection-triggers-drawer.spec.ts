@@ -60,6 +60,11 @@ test.describe('P643: Story selection triggers rating drawer', () => {
     // Before fix: picker closes → Speak button reappears (bug)
     // After fix: picker closes → rating drawer opens automatically
     await expect(host.page.getByText('How well do you believe')).toBeVisible({ timeout: 5000 });
+
+    // Layer 2 regression guard: guest should NOT see the story card before speaker submits.
+    // The atomic write (P643 Bug 3 fix) ensures ratingInitiatedBy arrives with story data,
+    // so the listener knows the speaker is rating and suppresses premature story card display.
+    await expect(guest.page.getByText(storyContent)).not.toBeVisible({ timeout: 3000 });
   });
 
   test('Speak button still works as standalone path (no story selected)', async ({ browser }) => {
