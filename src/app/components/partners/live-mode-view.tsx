@@ -1365,13 +1365,14 @@ function IdleScreen({
               )}
 
               {/* Button for non-clean-idle cases (has session history or rating data) */}
-              {!selectedStory && !showRatingDrawer && (selectedHistoryIndex === null) && (
+              {/* P643 Layer 3: Also show (disabled) when listener is waiting for speaker's rating */}
+              {(!selectedStory || isListenerDuringLocalRating) && !showRatingDrawer && (selectedHistoryIndex === null) && (
                 <div className="flex flex-col gap-1 w-full max-w-sm mx-auto">
                   <Button
                     size="lg"
                     className="bg-blue-500 hover:bg-blue-600 w-full py-6"
                     onClick={handleStartCheckWithTracking}
-                    disabled={waitingForPartnerToContinue}
+                    disabled={waitingForPartnerToContinue || isListenerDuringLocalRating}
                     data-testid="start-check"
                   >
                     <span className="flex flex-col items-center gap-1">

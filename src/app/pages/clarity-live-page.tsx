@@ -3848,7 +3848,17 @@ export function ClarityLivePage() {
           isLocallyRating={isLocallyRating}
           onCancelLocalRating={() => {
             setIsLocallyRating(false);
-            updateLiveState({ ratingInitiatedBy: undefined, ratingInitiatedByIsCreator: undefined });
+            setLocalFlowType('check');
+            // P643 Layer 4: Cancel = full undo — clear ALL fields from the atomic write.
+            // Missing story fields left dirty state (story card visible, not clean idle).
+            updateLiveState({
+              ratingInitiatedBy: undefined,
+              ratingInitiatedByIsCreator: undefined,
+              selectedStoryId: undefined,
+              selectedStoryData: undefined,
+              selectedPointId: undefined,
+              selectedContentTitle: undefined,
+            });
           }}
           // V10: Exit meeting button
           onExitMeeting={handleExitMeeting}

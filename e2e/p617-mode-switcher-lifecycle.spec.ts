@@ -210,4 +210,79 @@ test.describe('P617: Mode switcher lifecycle', () => {
       20000,
     );
   });
+
+  test('Layer 3: listener Speak button disables (not hides) during speaker story rating', async () => {
+    const { host, guest } = session;
+
+    // Wait for idle screen on both
+    await expect(host.page.getByText('Speak')).toBeVisible({ timeout: 15000 });
+    await expect(guest.page.getByText('Speak')).toBeVisible({ timeout: 15000 });
+
+    // Create a test story for the host user
+    const storyContent = 'P643 Layer 3 test story';
+    const story = await createTestStory(host.user.user.id, {
+      title: 'Layer 3 Test',
+      content: storyContent,
+    });
+
+    try {
+      // Re-navigate to pick up the story
+      await host.page.goto(`/live/${session.sessionCode}?skipMicCheck=true`);
+      await expect(host.page.getByText('Speak')).toBeVisible({ timeout: 15000 });
+
+      // Host selects story → auto-opens rating drawer
+      await host.page.getByText('+ Select your story').click();
+      await expect(host.page.getByText(storyContent)).toBeVisible({ timeout: 10000 });
+      await host.page.getByText(storyContent).click();
+      await expect(host.page.getByText('How well do you believe')).toBeVisible({ timeout: 5000 });
+
+      // Layer 3 assertion: listener's Speak button should be VISIBLE but DISABLED
+      // Before fix: button disappears entirely (isCleanIdle = false, no Speak in non-clean-idle path)
+      const guestSpeak = guest.page.getByTestId('start-check');
+      await waitForUIUpdate(guest.page, guestSpeak, 20000);
+      await expect(guestSpeak).toBeDisabled();
+    } finally {
+      await deleteTestStory(story.id);
+    }
+  });
+
+  test('Layer 4: Back before first submission returns both users to clean idle', async () => {
+    const { host, guest } = session;
+
+    // Wait for idle screen on both
+    await expect(host.page.getByText('Speak')).toBeVisible({ timeout: 15000 });
+    await expect(guest.page.getByText('Speak')).toBeVisible({ timeout: 15000 });
+
+    // Create a test story for the host user
+    const storyContent = 'P643 Layer 4 test story';
+    const story = await createTestStory(host.user.user.id, {
+      title: 'Layer 4 Test',
+      content: storyContent,
+    });
+
+    try {
+      // Re-navigate to pick up the story
+      await host.page.goto(`/live/${session.sessionCode}?skipMicCheck=true`);
+      await expect(host.page.getByText('Speak')).toBeVisible({ timeout: 15000 });
+
+      // Host selects story → auto-opens rating drawer
+      await host.page.getByText('+ Select your story').click();
+      await expect(host.page.getByText(storyContent)).toBeVisible({ timeout: 10000 });
+      await host.page.getByText(storyContent).click();
+      await expect(host.page.getByText('How well do you believe')).toBeVisible({ timeout: 5000 });
+
+      // Host clicks Back (cancel before submitting any rating)
+      await host.page.getByRole('button', { name: 'Back' }).click();
+
+      // Layer 4 assertion: host should return to clean idle — Speak button visible, no story card
+      await expect(host.page.getByTestId('start-check')).toBeVisible({ timeout: 5000 });
+      // Story card should NOT be visible (clean idle)
+      await expect(host.page.getByText(storyContent)).not.toBeVisible({ timeout: 3000 });
+
+      // Guest should also be back to clean idle
+      await waitForUIUpdate(guest.page, guest.page.getByTestId('start-check'), 20000);
+    } finally {
+      await deleteTestStory(story.id);
+    }
+  });
 });

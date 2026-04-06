@@ -9,8 +9,8 @@ tags:
   - ux
 created_date: 2026-04-04T00:00:00.000Z
 date_reported: '2026-04-04'
-delivery_stage: create-bug
-pipeline_ran: [create-bug]
+delivery_stage: fix
+pipeline_ran: [create-bug, fix]
 ---
 
 # P643: /live — Story Selection → Rating Drawer (Matryoshka Bug Chain)
@@ -107,8 +107,8 @@ Layers 3 and 4 are independently fixable (not sequential matryoshka). Fix both i
 
 - [x] Story selection auto-opens rating drawer (Layer 1 — committed `2a852a97`)
 - [x] Listener doesn't see story card before speaker submits (Layer 2 — committed `f40f2ea1`)
-- [ ] Listener's Speak button disables (not hides) during speaker's rating (Layer 3)
-- [ ] "Back" before first submission returns both users to clean idle (Layer 4)
+- [x] Listener's Speak button disables (not hides) during speaker's rating (Layer 3)
+- [x] "Back" before first submission returns both users to clean idle (Layer 4)
 - [ ] All layers verified in two-browser manual UAT [HUMAN — agent cannot verify]
 
 ## Key Files
