@@ -2,6 +2,26 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-06 [product]: Letters visual hierarchy — status is context, actions are primary
+
+**Context:** During UAT of P660 (Sent tab), colored `LetterStatusBadge` pills (green "Completed", blue "Opened") competed visually with the [Results] action button. Both sat at the same visual hierarchy level. Similarly, Private/Public mode used a corner pill badge in Sent tab but an inline icon in Drafts tab — same information, inconsistent treatment across sibling views.
+**Decision:** Three rules established: (1) Informational status → inline muted text after the subject name (`✉ Alex R. · Completed`), never colored badges. (2) Action buttons → blue primary (`variant="default"`), highest visual weight in the row. (3) Mode/visibility indicators → use the same component (`InlineVisibilityIcon`) everywhere; when Drafts uses lock/globe inline, Sent must too. General principle: status is context that supports scanning; actions are what you came here to do. Don't give them equal visual weight.
+**Alternatives rejected:** (A) Keep colored badges but make Results button larger — still two competing colored elements. (B) Remove Results from Sent entirely, only show in Inbox — forces navigation when the sender is already looking at the right letter.
+**Consequences:** Applied as P664 (CR of P660). Pattern extends to any future list-with-actions: deescalate metadata, elevate the primary action. `LetterStatusBadge` component may become unused after P664 ships.
+**References:** [P664 spec](../features/p664_letters_visual_hierarchy_polish.md)
+
+---
+
+## 2026-04-06 [process]: UAT findings that are design issues → file change-request, not bug
+
+**Context:** During P660/P661 UAT, the founder annotated screenshots with design concerns (badge placement, exit button confusion, visual inconsistency). These weren't bugs (code worked as specced) — the design itself was wrong. The question: fix inline, file a bug, or file a CR?
+**Decision:** Design issues found during UAT → `/change-request`. Not `/fix` (code works as implemented), not inline (needs tracking + pipeline). When changes span multiple predecessor CRs (P664 affects both P660 and P661), file against the primary surface and reference secondaries with "Also affects: [P-number]". The `changes:` field stays singular (one predecessor). This avoids multi-parent complexity while maintaining traceability.
+**Alternatives rejected:** (A) File separate CRs per predecessor — overhead for related visual polish. (B) Fix inline without spec — loses traceability, skips verify step. (C) File as bug — wrong type; code matches spec, spec was wrong.
+**Consequences:** The `/screenshot-debug → /change-request` chain is now a validated UAT workflow. The `/pick-flow` recommendation for these CRs is typically `dev → verify` (skip challenge-prd, architect, etc.) since decisions were made live during the screenshot debug session.
+**References:** [P664 spec](../features/p664_letters_visual_hierarchy_polish.md), [screenshot-debug skill](.claude/commands/slava/build/screenshot-debug.md)
+
+---
+
 ## 2026-04-06 [process]: Auth injection "race condition" was misdiagnosed — false narrative propagated across 5+ sessions
 
 **Context:** Multiple conversation sessions (369dfdd0, edf50223, 04cde5b2, e94093de) described a "race condition" in `getTestAuthContext()` where `addInitScript` fires after page navigation, causing Google OAuth redirect. This was treated as a critical blocker — "P644's entire infrastructure is decorative." The claim propagated through chat history analysis and was accepted without verification.
