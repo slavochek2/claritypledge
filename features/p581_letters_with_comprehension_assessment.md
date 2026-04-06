@@ -13,7 +13,7 @@ tags:
 created_date: 2026-03-23T00:00:00.000Z
 delivery_stage: 5-decomposed
 flow: dev
-superseded_by: p650
+sibling_crs: [p651, p660, p661]
 uat_file: features/uat/p581.md
 test_files:
   - e2e/integration/p581-letters-migration.spec.ts
@@ -456,7 +456,7 @@ DOC PAGE — sender clicks "Prepare a Letter" in header
 ║  │  Email delivery  │  │  Shareable link + QR │  ║
 ║  └──────────────────┘  └──────────────────────┘  ║
 ║                                                   ║
-║  To: jan@inguro.com [×]  nejc@..com [×]  + Add   ║
+║  To: colleague@example.com [×]  partner@example.com [×]  + Add   ║
 ║                                                   ║
 ║  [← Cancel]                    [→ Continue]       ║
 ╚═══════════════════════════════════════════════════╝

@@ -21,6 +21,22 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-04-06 [process]: Architect skill must verify schema dependencies before proposing routes (Status: proposed)
+
+**Context:** During P661 architecture, the architect agent proposed `/letter/:id?preview=true` on the existing reading page — but the reading page's `:id` param is a delivery ID, and preview happens before any delivery exists. The security agent caught this, forcing a 3-revision cycle in AD5. The final answer (`/letter/:docId/preview`) was obvious once the schema constraint was known.
+**Decision:** (Status: proposed) Architect agents should verify FK relationships and required row existence before proposing routes that depend on DB entities. "This route takes `:id` — what table does that ID come from? Does a row exist at this point in the flow?"
+**Consequences:** Could be enforced by adding a "Route dependencies" checklist to the architect skill prompt. Or a simpler reminder: verify schema shapes before proposing URL patterns.
+
+---
+
+## 2026-04-06 [process]: Worktree awareness — agents must discover where feature code lives (Status: proposed)
+
+**Context:** During P661, agents couldn't find letter components because the code lives on w2, not main. Test generation required 2 user exchanges to resolve "where do I write?" The pattern repeats: any feature with a worktree slot has this problem for every downstream skill.
+**Decision:** (Status: proposed) Two improvements: (1) When an agent can't find expected files, check `git worktree list` and search worktrees before concluding "file doesn't exist." (2) `/create-spec` and `/change-request` should record which worktree the feature code lives on in frontmatter (e.g., `worktree: w2`) so all downstream skills know where to read/write without asking.
+**Consequences:** Requires adding optional `worktree:` field to feature spec frontmatter conventions. `/create-spec` and `/change-request` would run `git worktree list` and auto-detect the relevant worktree. Downstream skills read this field and target the correct path.
+
+---
+
 ## 2026-04-06 [product]: Letter composition must mirror the receiver's reading experience
 
 **Context:** P581 specified a 3-step wizard for letter composition (receivers → summary-card predictions → inline preview → seal). During UX exploration (30 ASCII flow variants scored on 8 criteria), the highest-scoring pattern was "sender walks the receiver's reading flow" — same component, same pacing, prompt swapped from "rate understanding" to "predict understanding." The wizard pattern showed stories as compact summary cards, breaking D6 ("ritual, not feed"). The preview was an in-wizard summary, not the real receiver experience.

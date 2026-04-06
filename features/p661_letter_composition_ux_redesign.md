@@ -1,5 +1,5 @@
 ---
-status: week
+status: in-progress
 type: change-request
 rank: 1000063.0
 changes: p581
@@ -10,9 +10,9 @@ tags:
   - composition
   - ux
 created_date: 2026-04-05T00:00:00.000Z
-delivery_stage: generate-tests
+delivery_stage: dev
 pipeline_plan: [change-request, architect, generate-tests, dev, verify]
-pipeline_ran: [change-request, architect, generate-tests]
+pipeline_ran: [change-request, architect, generate-tests, dev]
 uat_file: features/uat/p661.md
 test_files:
   - e2e/p581-letter-composition.spec.ts
@@ -359,24 +359,10 @@ To bridge the data shape gap: create a `docStoryToStoryWithPoints(docStory: DocS
 - The `/letter/:docId/compose` route stays but renders the orchestrator instead of the wizard.
 - Reason to keep the route: deep-linking, browser back button, bookmarkability. The modal is the first thing shown on this route.
 
-**AD5: Preview = `/letter/:id?preview=true` on the existing reading route.**
-`letter-reading-page.tsx` already handles `/letter/:id`. Add `preview` search param detection:
-- When `preview=true`: skip auth checks, skip cover, enter reading flow directly with `RatingButtons` interactive but non-persisting (no DB writes). Add preview banner at top.
-- This requires the letter to be sealed first (snapshots must exist). The review screen's "Preview as [Name]" link only appears after seal would be premature — but the spec says preview is on the review screen BEFORE seal. Resolution: preview uses the doc's live stories (not snapshots) rendered through the reading flow components in a preview-only mode. Alternative: seal creates the letter in `draft` status first, then preview reads from that. Given the spec says "exact receiver reading flow," the simplest path is: clicking "Preview as [Name]" triggers a draft seal (creates letter + snapshots without sending emails), then opens the real `/letter/:deliveryId?preview=true` URL.
+**AD5: Preview = `/letter/:docId/preview` (separate route, no DB changes).**
+The existing reading page (`/letter/:id`) expects a delivery ID + sealed snapshots. Preview happens BEFORE seal, so no delivery exists. Rejected alternatives: (a) adding `?preview=true` to the reading page (route expects delivery ID that doesn't exist yet), (b) two-phase seal creating draft snapshots first (requires new RPC + migration, spec says no DB changes).
 
-**Wait — re-reading the spec:** Phase 2 (Review + Send) shows "Preview as Alex" which "opens `/letter/:id?preview=true` — real receiver URL + banner." The letter must already exist at this point. The flow is: receiver setup modal → prediction walk → review screen (letter created as draft here) → preview (reads from draft) → seal & send (finalizes draft). This means `createLetter` + snapshot creation happen before seal, and `sealLetter` transitions the status from draft to sealed + fires emails.
-
-Current `letters-service` flow: `createLetter` (creates draft) → `sealLetter` (atomic: snapshot + deliveries + predictions + status → sealed). To support preview, the snapshot must be created at draft time, not at seal time. This is a service-layer change.
-
-**AD5 revised: Two-phase seal.**
-1. After prediction walk completes, call `createLetter` + `createDraftSnapshot` (new RPC — creates letter + snapshots + deliveries in draft status, stores predictions). Letter exists with `status: draft`.
-2. "Preview as [Name]" opens `/letter/:deliveryId?preview=true`. The reading page loads the draft letter's snapshots. Preview mode: ratings interactive but not persisted, banner shown, "Back to composition" link.
-3. "Seal & Send" calls `sealLetter` (transitions draft → sealed, fires emails). No new snapshots — they already exist.
-
-**Scope check:** This requires a new RPC (`create_draft_letter` or splitting `seal_letter`). However, the current `sealLetter` RPC already does create + snapshot + seal atomically. Splitting it means: (a) new migration for a `create_letter_draft` RPC, (b) modifying `seal_letter` to accept an existing letter_id instead of creating one. This is a DB migration — which the spec says is out of scope ("All database schema and migrations — unchanged").
-
-**AD5 final: Preview without draft seal — use doc stories directly.**
-Since the spec says "the exact receiver reading flow" but also says no DB changes, the preview must work without snapshots. Solution: `/letter/:docId/preview` (new route) renders the reading flow components with doc stories transformed to snapshot shape client-side. No letter row needed. The `LetterStoryReader` component gets data passed as props — it doesn't care if data came from a real snapshot or a client-side transform. Rating dots are interactive but write to local state only (no DB calls). Preview banner shown. "Back to composition" link navigates back.
+Solution: `/letter/:docId/preview` (new route) renders the reading flow components with doc stories transformed to snapshot shape client-side via `docStoryToStoryWithPoints()`. No letter row needed — `LetterStoryReader` receives data as props regardless of source. Rating dots are interactive but write to local state only (no DB calls). Preview banner shown. "Back to composition" link navigates back.
 
 This avoids ALL schema changes. The "real receiver URL" aspect is sacrificed — but the sender sees the exact same components, layout, and pacing the receiver will see. The URL is different but the experience is identical. The spec's intent ("sender can open on their phone to check mobile layout") is still met — the preview route is a real URL they can share/open anywhere.
 
