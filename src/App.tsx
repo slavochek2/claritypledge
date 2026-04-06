@@ -42,8 +42,8 @@ const DeclinedAgreementPage = lazy(() => import("@/app/pages/declined-agreement-
 const BlogSubscribedPage = lazy(() => import("@/app/pages/blog-subscribed-page").then(m => ({ default: m.BlogSubscribedPage })));
 const ProfileConnectionsPage = lazy(() => import("@/app/pages/profile-connections-page").then(m => ({ default: m.ProfileConnectionsPage })));
 const PartnerTemplatePage = lazy(() => import("@/app/pages/partner-template-page").then(m => ({ default: m.PartnerTemplatePage })));
-const DocsListPage = lazy(() => import("@/app/pages/docs-list-page").then(m => ({ default: m.DocsListPage })));
 const DocDetailPage = lazy(() => import("@/app/pages/doc-detail-page").then(m => ({ default: m.DocDetailPage })));
+const LettersPage = lazy(() => import("@/app/pages/letters-page").then(m => ({ default: m.LettersPage })));
 const LetterComposePage = lazy(() => import("@/app/pages/letter-compose-page").then(m => ({ default: m.LetterComposePage })));
 const LetterPreviewPage = lazy(() => import("@/app/pages/letter-preview-page").then(m => ({ default: m.LetterPreviewPage })));
 const LetterReadingPage = lazy(() => import("@/app/pages/letter-reading-page").then(m => ({ default: m.LetterReadingPage })));
@@ -99,6 +99,12 @@ function ChatRedirect() {
   const [searchParams] = useSearchParams();
   const qs = searchParams.toString();
   return <Navigate to={qs ? `/create?${qs}` : '/create'} replace />;
+}
+
+/** P660: Redirect /d/:docId → /letters/drafts/:docId */
+function DocDetailRedirect() {
+  const { docId } = useParams();
+  return <Navigate to={`/letters/drafts/${docId}`} replace />;
 }
 
 function FeedTagRedirect() {
@@ -584,20 +590,21 @@ export default function ClarityPledgeApp() {
           }
         />
 
-        {/* P551: Clarity Docs */}
+        {/* P660: Letters — single nav item with three tabs */}
         <Route
-          path="/docs"
+          path="/letters"
           element={
             <ClarityLandingLayout>
               <LazyRoute>
-                <DocsListPage />
+                <LettersPage />
               </LazyRoute>
             </ClarityLandingLayout>
           }
         />
 
+        {/* P660: Draft detail (formerly doc detail) */}
         <Route
-          path="/d/:docId"
+          path="/letters/drafts/:docId"
           element={
             <ClarityLandingLayout>
               <LazyRoute>
@@ -606,6 +613,10 @@ export default function ClarityPledgeApp() {
             </ClarityLandingLayout>
           }
         />
+
+        {/* P660: Legacy redirects */}
+        <Route path="/docs" element={<Navigate to="/letters?tab=drafts" replace />} />
+        <Route path="/d/:docId" element={<DocDetailRedirect />} />
 
         {/* P661: Letter composition orchestrator */}
         <Route

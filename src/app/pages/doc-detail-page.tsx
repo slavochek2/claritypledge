@@ -7,7 +7,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { FileText, Lock, Globe, Share2, Mail } from 'lucide-react';
+import { FileText, Lock, Globe } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   DndContext,
@@ -38,10 +38,7 @@ import { DocHeader } from '@/app/components/docs/doc-header';
 import { DocPrivacyBanner } from '@/app/components/docs/doc-privacy-banner';
 import { DocBlockControls } from '@/app/components/docs/doc-block-controls';
 import { StoryCardDetail } from '@/app/components/social/StoryCardDetail';
-import { ShareDialog } from '@/app/components/shared/ShareDialog';
 import { RemovePositionDialog, useRemovePositionGuard } from '@/app/components/shared/remove-position-dialog';
-import { SentLettersSection } from '@/app/components/letters/letters-section';
-import { LetterReceiverModal } from '@/app/components/letters/letter-receiver-modal';
 import type { ClarityDoc, DocStory, DocPointConfig, PointPosition, PositionType } from '@/app/types';
 
 // ---------------------------------------------------------------------------
@@ -219,8 +216,6 @@ export function DocDetailPage() {
   const [stories, setStories] = useState<DocStory[]>([]);
   const [fetchState, setFetchState] = useState<'loading' | 'done' | 'not-found'>('loading');
   const [pickerOpen, setPickerOpen] = useState(false);
-  const [shareOpen, setShareOpen] = useState(false);
-  const [letterModalOpen, setLetterModalOpen] = useState(false);
 
   // Position data for all points across all stories in this doc
   const [positionCounts, setPositionCounts] = useState<Map<string, Record<PositionType, number>>>(new Map());
@@ -436,10 +431,10 @@ export function DocDetailPage() {
             This doc doesn&apos;t exist or you don&apos;t have access.
           </p>
           <Link
-            to="/docs"
+            to="/letters?tab=drafts"
             className="text-blue-600 hover:underline text-sm font-medium"
           >
-            Back to Docs
+            Back to Letters
           </Link>
         </div>
       </main>
@@ -464,15 +459,6 @@ export function DocDetailPage() {
           onDocUpdated={handleDocUpdated}
         >
           <div className="flex items-center gap-2 flex-shrink-0">
-            {stories.length > 0 && isOwner && (
-              <Button variant="outline" size="sm" onClick={() => setLetterModalOpen(true)}>
-                <Mail className="h-4 w-4 mr-1" />
-                Prepare a Letter
-              </Button>
-            )}
-            <Button variant="ghost" size="icon" className="h-8 w-8" aria-label="Share this doc" onClick={() => setShareOpen(true)}>
-              <Share2 className="h-4 w-4" />
-            </Button>
             {isOwner && (
               <>
                 <Button variant="outline" size="sm" onClick={() => setPickerOpen(true)}>
@@ -525,11 +511,6 @@ export function DocDetailPage() {
           </DndContext>
         )}
 
-        {/* P581: Letters section — sent letters for this doc */}
-        {isOwner && stories.length > 0 && (
-          <SentLettersSection docId={doc.id} />
-        )}
-
       </div>
 
       {/* Story picker dialog */}
@@ -543,37 +524,8 @@ export function DocDetailPage() {
         />
       )}
 
-      {/* Share dialog */}
-      <ShareDialog
-        open={shareOpen}
-        onOpenChange={setShareOpen}
-        type="profile"
-        url={`${window.location.origin}/d/${doc.id}`}
-        title={doc.title}
-        description={`Clarity Doc: ${doc.title}`}
-      />
-
       {/* Position removal confirmation dialog */}
       <RemovePositionDialog {...dialogProps} />
-
-      {/* P661: Letter receiver modal */}
-      <LetterReceiverModal
-        open={letterModalOpen}
-        onOpenChange={setLetterModalOpen}
-        isPrivateDoc={doc.visibility === 'private'}
-        docId={doc.id}
-        storyCount={stories.length}
-        onSubmit={(result) => {
-          setLetterModalOpen(false);
-          navigate(`/letter/${doc.id}/compose`, {
-            state: {
-              mode: result.mode,
-              emails: result.emails,
-              receiverName: result.receiverName,
-            },
-          });
-        }}
-      />
     </main>
   );
 }

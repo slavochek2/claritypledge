@@ -14,6 +14,7 @@ import type {
   LetterPointResponse,
   LetterMode,
   DeliveryStatus,
+  InboxItem,
 } from '@/app/types';
 import { supabase } from '@/lib/supabase';
 
@@ -635,4 +636,190 @@ export async function getReceivedLetters(userId: string): Promise<LetterDelivery
   }
 
   return (data ?? []) as LetterDelivery[];
+}
+
+// ============================================================================
+// P660: NEW LIST QUERIES
+// ============================================================================
+
+/**
+ * P660 AD5: Get all sealed letters sent by a user (across all docs).
+ * Joins clarity_docs to get the source doc title.
+ */
+export async function getAllSentLetters(senderId: string): Promise<
+  Array<ClarityLetter & { doc_title: string }>
+> {
+  await requireAuth();
+  log('getAllSentLetters:', senderId);
+
+  const { data, error } = await supabase
+    .from('clarity_letters')
+    .select('*, clarity_docs!inner(title)')
+    .eq('sender_id', senderId)
+    .eq('status', 'sealed')
+    .order('sealed_at', { ascending: false });
+
+  if (error) {
+    logDbError('getAllSentLetters', error);
+    return [];
+  }
+
+  return (data ?? []).map((row: Record<string, unknown>) => ({
+    ...row,
+    doc_title: (row.clarity_docs as { title: string })?.title ?? 'Untitled',
+    clarity_docs: undefined,
+  })) as Array<ClarityLetter & { doc_title: string }>;
+}
+
+/**
+ * P660 AD6: Get inbox items combining received letters + responses to my letters.
+ * Client-side merge, sorted by timestamp descending.
+ */
+export async function getInboxItems(userId: string): Promise<InboxItem[]> {
+  await requireAuth();
+  log('getInboxItems:', userId);
+
+  // Query 1: Letters received by this user
+  const { data: receivedData, error: receivedError } = await supabase
+    .from('letter_deliveries')
+    .select('*, clarity_letters!inner(source_doc_id, sender_id, clarity_docs!inner(title), profiles!clarity_letters_sender_id_fkey(name))')
+    .eq('receiver_profile_id', userId)
+    .order('created_at', { ascending: false })
+    .limit(20);
+
+  if (receivedError) logDbError('getInboxItems.received', receivedError);
+
+  // Query 2: Responses to letters I sent (completed deliveries from others)
+  const { data: responsesData, error: responsesError } = await supabase
+    .from('letter_deliveries')
+    .select('*, clarity_letters!inner(source_doc_id, sender_id, clarity_docs!inner(title)), profiles!letter_deliveries_receiver_profile_id_fkey(name)')
+    .eq('clarity_letters.sender_id', userId)
+    .in('status', ['completed'])
+    .neq('receiver_profile_id', userId)
+    .order('completed_at', { ascending: false })
+    .limit(20);
+
+  if (responsesError) logDbError('getInboxItems.responses', responsesError);
+
+  const items: InboxItem[] = [];
+
+  // Map received letters
+  for (const row of (receivedData ?? []) as Record<string, unknown>[]) {
+    const letter = row.clarity_letters as Record<string, unknown>;
+    const doc = letter?.clarity_docs as { title: string } | null;
+    const sender = letter?.profiles as { name: string } | null;
+    items.push({
+      type: 'received',
+      delivery_id: row.id as string,
+      letter_id: row.letter_id as string,
+      title: doc?.title ?? 'Untitled',
+      actor_name: sender?.name ?? 'Someone',
+      timestamp: row.created_at as string,
+      read_at: row.read_at as string | null,
+    });
+  }
+
+  // Map responses to my letters
+  for (const row of (responsesData ?? []) as Record<string, unknown>[]) {
+    const letter = row.clarity_letters as Record<string, unknown>;
+    const doc = letter?.clarity_docs as { title: string } | null;
+    const responder = row.profiles as { name: string } | null;
+    const hasProfileId = !!(row.receiver_profile_id);
+    items.push({
+      type: hasProfileId ? 'recipient_responded' : 'link_respondent',
+      delivery_id: row.id as string,
+      letter_id: row.letter_id as string,
+      title: doc?.title ?? 'Untitled',
+      actor_name: responder?.name ?? 'Someone',
+      timestamp: (row.completed_at ?? row.created_at) as string,
+      read_at: row.read_at as string | null,
+    });
+  }
+
+  // Sort by timestamp descending
+  items.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+
+  return items.slice(0, 20);
+}
+
+/**
+ * P660: Mark an inbox delivery as read (calls RPC).
+ */
+export async function markDeliveryRead(deliveryId: string): Promise<void> {
+  log('markDeliveryRead:', deliveryId);
+
+  const { error } = await supabase.rpc('mark_inbox_item_read', {
+    p_delivery_id: deliveryId,
+  });
+
+  if (error) {
+    logDbError('markDeliveryRead', error);
+    throw new Error(`Failed to mark as read: ${error.message}`);
+  }
+}
+
+/**
+ * P660: Add a recipient to an existing sealed letter (calls RPC).
+ */
+export async function addRecipientToSealed(
+  letterId: string,
+  email: string
+): Promise<string> {
+  await requireAuth();
+  log('addRecipientToSealed:', { letterId, email });
+
+  const { data, error } = await supabase.rpc('add_recipient_to_sealed_letter', {
+    p_letter_id: letterId,
+    p_email: email,
+  });
+
+  if (error) {
+    logDbError('addRecipientToSealed', error);
+    throw new Error(`Failed to add recipient: ${error.message}`);
+  }
+
+  return data as string;
+}
+
+/**
+ * P660 AD7: Get unread inbox count for badge display.
+ * Counts: received letters with no read_at + completed responses to my letters with no read_at.
+ */
+export async function getUnreadLetterCount(userId: string): Promise<number> {
+  log('getUnreadLetterCount:', userId);
+
+  // Count received unread
+  const { count: receivedCount, error: err1 } = await supabase
+    .from('letter_deliveries')
+    .select('id', { count: 'exact', head: true })
+    .eq('receiver_profile_id', userId)
+    .is('read_at', null);
+
+  if (err1) logDbError('getUnreadLetterCount.received', err1);
+
+  // Count unread responses to my letters
+  const { data: myLetterIds, error: err2 } = await supabase
+    .from('clarity_letters')
+    .select('id')
+    .eq('sender_id', userId)
+    .eq('status', 'sealed');
+
+  if (err2) logDbError('getUnreadLetterCount.myLetters', err2);
+
+  let responsesCount = 0;
+  if (myLetterIds?.length) {
+    const ids = myLetterIds.map(l => l.id);
+    const { count, error: err3 } = await supabase
+      .from('letter_deliveries')
+      .select('id', { count: 'exact', head: true })
+      .in('letter_id', ids)
+      .eq('status', 'completed')
+      .neq('receiver_profile_id', userId)
+      .is('read_at', null);
+
+    if (err3) logDbError('getUnreadLetterCount.responses', err3);
+    responsesCount = count ?? 0;
+  }
+
+  return (receivedCount ?? 0) + responsesCount;
 }

@@ -1374,7 +1374,21 @@ export interface LetterDelivery {
   stories_rated: number;
   opened_at: string | null;
   completed_at: string | null;
+  read_at: string | null;
   created_at: string;
+}
+
+/** P660: Unified inbox item — received letters + responses to my letters */
+export interface InboxItem {
+  type: 'received' | 'recipient_responded' | 'link_respondent';
+  delivery_id: string;
+  letter_id: string;
+  /** Title of the source doc/draft */
+  title: string;
+  /** Sender name (for received letters) or responder name (for responses) */
+  actor_name: string;
+  timestamp: string;
+  read_at: string | null;
 }
 
 export interface LetterStorySnapshot {
