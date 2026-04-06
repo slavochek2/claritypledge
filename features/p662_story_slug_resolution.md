@@ -1,11 +1,11 @@
 ---
-status: in-progress
+status: qa
 type: task
 rank: 1000064.0
 created_date: '2026-04-06'
 tags: [stories, slugs, shortcuts, parity]
-delivery_stage: dev
-pipeline_ran: [create-spec, dev]
+delivery_stage: verify
+pipeline_ran: [create-spec, dev, verify]
 ---
 
 # P662: Add /story/stN slug resolution
