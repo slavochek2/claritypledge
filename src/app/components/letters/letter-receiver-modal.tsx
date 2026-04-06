@@ -88,6 +88,7 @@ export function LetterReceiverModal({
       debounceRef.current = setTimeout(async () => {
         if (user?.email && trimmed.toLowerCase() === user.email.toLowerCase()) {
           setEmailError("You can\u2019t send a letter to yourself");
+          setIsLookingUp(false);
           return;
         }
 

@@ -55,8 +55,8 @@ export function LiveStoryCardExpanded({
   // Reset expand states when the story changes (phase change / story rotation)
   useEffect(() => {
     setStoryExpanded(false);
-    setIsExpanded(defaultExpanded);
-  }, [story.id, defaultExpanded]);
+    setIsExpanded(defaultExpanded || readOnly);
+  }, [story.id, defaultExpanded, readOnly]);
 
   const strippedContent = stripHashtags(story.content, story.tags);
   const isLongStory = strippedContent.length > STORY_THRESHOLD;

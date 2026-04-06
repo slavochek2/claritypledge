@@ -5,7 +5,7 @@
  * Route: /letter/:docId/compose
  */
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { toast } from 'sonner';
 import { ClarityPageLoader } from '@/components/ui/clarity-loader';
@@ -48,6 +48,7 @@ export function LetterComposePage() {
   const [receiverName, setReceiverName] = useState(routeState?.receiverName ?? '');
   const [predictions, setPredictions] = useState<Map<string, number>>(new Map());
   const [sealing, setSealing] = useState(false);
+  const sealingRef = useRef(false);
 
   const isPrivateDoc = doc?.visibility === 'private';
 
@@ -99,7 +100,15 @@ export function LetterComposePage() {
 
   const handleSeal = useCallback(async () => {
     if (!docId || !user?.id || !mode) return;
+    if (sealingRef.current) return;
 
+    // Guard: all stories must have predictions
+    if (predictions.size < stories.length) {
+      toast.error(`Please predict all ${stories.length} stories before sealing`);
+      return;
+    }
+
+    sealingRef.current = true;
     setSealing(true);
     try {
       // 1. Create draft letter
@@ -121,6 +130,7 @@ export function LetterComposePage() {
 
       if (!result.success) {
         toast.error(result.error || 'Failed to seal letter');
+        sealingRef.current = false;
         setSealing(false);
         return;
       }
@@ -142,6 +152,7 @@ export function LetterComposePage() {
     } catch (err) {
       console.error('Seal failed:', err);
       toast.error('Something went wrong. Please try again.');
+      sealingRef.current = false;
       setSealing(false);
     }
   }, [docId, user?.id, mode, predictions, emails, receiverName, stories.length]);
