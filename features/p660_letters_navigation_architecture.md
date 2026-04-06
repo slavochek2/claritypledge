@@ -1,8 +1,9 @@
 ---
-status: in-progress
+status: qa
 type: change-request
 rank: 1000062.0
 changes: p581
+superseded_by: p664
 tags:
   - redesign
   - p581
@@ -10,10 +11,10 @@ tags:
   - navigation
   - information-architecture
 created_date: 2026-04-05
-delivery_stage: dev
+delivery_stage: verify
 flow: dev
 pipeline_plan: [change-request, challenge-prd, ux, architect, generate-tests, dev, verify]
-pipeline_ran: [change-request, challenge-prd, ux, architect, generate-tests, dev]
+pipeline_ran: [change-request, challenge-prd, ux, architect, generate-tests, dev, verify]
 pipeline_skipped: [ui -- no net-new design system components, decompose -- under 7 tightly coupled files, spec-compact -- spec is fresh no residue, spec-review -- challenge-prd covers consistency for fresh CR]
 uat_file: features/uat/p660.md
 test_files:
@@ -383,22 +384,22 @@ Unchanged from P581. This CR only moves the trigger point: [New Letter] on Draft
 
 ## Acceptance Criteria
 
-- [ ] Single nav item "Letters" (or "Clarity Letters" on desktop) replaces "Docs"
-- [ ] Letters page has three tabs: Drafts, Sent, Inbox
-- [ ] Inbox tab shows unread badge count in nav
-- [ ] Drafts tab shows [Edit] and [New Letter] per draft row
-- [ ] [New Letter] triggers send wizard; disabled when draft has 0 stories
-- [ ] Draft detail page (`/letters/drafts/:id`) has NO letter tracking sections (no sent letters, no received letters, no "Prepare a Letter" button)
-- [ ] Draft detail page is pure editing: select story, write story, reorder, point management
-- [ ] Sent tab shows sealed letters with recipients and delivery status
-- [ ] Private letters show recipients only (✉), no link
-- [ ] Public letters show link (🔗 with copy) + optional recipients (✉) + respondents section
-- [ ] [+ Add recipient] available on existing sealed letters
-- [ ] Inbox shows three item types with distinct icons: 📩 letter received ([Read]), ✉ recipient responded ([Results]), 🔗 link respondent ([Results])
-- [ ] Inbox items mark as read on click
-- [ ] All existing P581 reading flow tests still pass
-- [ ] All existing P581 composition tests still pass
-- [ ] Surfaces NOT in scope are visually unchanged
+- [x] Single nav item "Letters" (or "Clarity Letters" on desktop) replaces "Docs"
+- [x] Letters page has three tabs: Drafts, Sent, Inbox
+- [x] Inbox tab shows unread badge count in nav
+- [x] Drafts tab shows [Edit Draft] and [Send as Letter] per draft row
+- [x] [Send as Letter] navigates to compose page; disabled when draft has 0 stories
+- [x] Draft detail page (`/letters/drafts/:id`) has NO letter tracking sections (no sent letters, no received letters, no "Prepare a Letter" button)
+- [x] Draft detail page is pure editing: select story, write story, reorder, point management
+- [x] Sent tab shows sealed letters with recipients and delivery status
+- [x] Private letters show recipients only, no link
+- [x] Public letters show link (with copy) + optional recipients + respondents section
+- [x] [+ Add recipient] available on existing sealed letters
+- [x] Inbox shows three item types with distinct icons: letter received ([Read]), recipient responded ([Results]), link respondent ([Results])
+- [x] Inbox items mark as read on click
+- [x] All existing P581 reading flow tests still pass
+- [x] All existing P581 composition tests still pass
+- [x] Surfaces NOT in scope are visually unchanged
 
 ---
 
