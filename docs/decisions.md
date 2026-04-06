@@ -2,6 +2,16 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-06 [product]: Letters get dedicated nav with email metaphor (Drafts/Sent/Inbox)
+
+**Context:** P581 embedded letters inside the "Docs" section — received letters appeared as a subsection on the docs list page, sent letters on the doc detail page. As letter functionality grew (composition, inbox tracking, read receipts), this nesting created a confusing IA: letters aren't documents, yet they lived under "Docs." P660 filed as a change-request against P581 to restructure.
+**Decision:** Replace "Docs" bottom-nav item with "Letters." Single `/letters` route with URL-param tabs (`?tab=drafts|sent|inbox`). Committed to email metaphor for tab naming — users already understand Drafts/Sent/Inbox. "Docs" content (stories, docs) moves to Profile or becomes accessible through other paths. The `read_at` column on `letter_deliveries` powers unread badges on the Inbox tab and bottom-nav.
+**Alternatives rejected:** (A) Keep letters inside Docs with better subsections — doesn't scale, letters aren't documents. (B) Add Letters as a 5th nav item — mobile bottom nav already has 4 items (Home/Docs/Events/Profile); 5 items degrade touch targets below 48px. (C) "Messages" instead of "Letters" — too generic, loses the epistolary framing that differentiates the product.
+**Consequences:** P581 letter components need refactoring: `SentLettersSection` and `ReceivedLettersSection` become tab content on the new Letters page. The Docs page loses letter-related UI. A new `useUnreadLetterCount()` hook provides the badge count. The "composition mirrors reading" principle (P661) applies within the Drafts tab's compose flow.
+**References:** [P660 spec](../features/p660_letters_navigation_architecture.md), [P581 spec](../features/p581_letters_with_comprehension_assessment.md), [P661 spec](../features/p661_letter_composition_ux_redesign.md)
+
+---
+
 ## 2026-04-06 [process]: /ux skill delta-aware mode — audit before generating
 
 **Context:** Running `/ux` on P660 (letters navigation CR) which already had a 190-line UX section with complete flows, screen designs, edge cases, accessibility, and responsive specs. The skill was designed for greenfield generation — it would replace the existing UX wholesale with a regenerated version, wasting work and potentially losing founder decisions embedded in the spec.
