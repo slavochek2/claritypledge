@@ -35,8 +35,8 @@ Low blast radius (one new function + ~15 lines in story-detail-page). Fully reve
 
 ## Done-When
 
-- [ ] `/story/st1` resolves to the correct story and redirects to `/story/{uuid}`
-- [ ] `/story/st7` resolves to the correct story
-- [ ] Non-existent slug (e.g. `/story/st99`) shows 404
-- [ ] Direct UUID URLs (`/story/{uuid}`) continue working unchanged
-- [ ] Unit test for `resolveStorySlug` covers: valid slug, highest version wins, no match returns null
+- [x] `/story/st1` resolves to the correct story and redirects to `/story/{uuid}`
+- [x] `/story/st7` resolves to the correct story
+- [x] Non-existent slug (e.g. `/story/st99`) shows 404
+- [x] Direct UUID URLs (`/story/{uuid}`) continue working unchanged
+- [x] Unit test for `resolveStorySlug` covers: valid slug, highest version wins, no match returns null
