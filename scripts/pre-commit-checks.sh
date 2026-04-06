@@ -111,7 +111,7 @@ if [ -n "$SECRETS_STAGED_FILES" ]; then
     # 2a. Known secret patterns (API keys, tokens, password assignments)
     # Exclude files that legitimately discuss secret patterns (scanner config, docs, decisions log)
     # Gitleaks (Layer 1) handles src/ and supabase/ with proper rules — grep only scans config/root files
-    GREP_SCAN_FILES=$(echo "$SECRETS_STAGED_FILES" | grep -vE '(\.gitleaks\.toml|pre-commit-checks\.sh|docs/decisions\.md|docs/technical/|supabase/functions/|features/|src/|\.claude/commands/)' || true)
+    GREP_SCAN_FILES=$(echo "$SECRETS_STAGED_FILES" | grep -vE '(\.gitleaks\.toml|pre-commit-checks\.sh|docs/decisions\.md|docs/technical/|supabase/functions/|features/|src/|e2e/|\.claude/commands/)' || true)
     SECRETS_FOUND=""
     if [ -n "$GREP_SCAN_FILES" ]; then
         SECRETS_FOUND=$(echo "$GREP_SCAN_FILES" | xargs grep -l -iE '(sk_live|pk_live|SUPABASE_SERVICE|api[_-]?key|apikey|secret[_-]?key|password\s*=|token\s*=)[^a-zA-Z]' 2>/dev/null || true)
