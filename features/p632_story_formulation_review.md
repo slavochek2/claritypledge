@@ -1,7 +1,7 @@
 ---
 id: p632
 title: "Story formulation review — ST2, ST3, ST6, ST7, ST8"
-status: draft
+status: all-done
 type: task
 priority: medium
 tags: []
