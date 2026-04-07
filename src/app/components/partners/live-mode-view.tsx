@@ -1218,9 +1218,11 @@ function IdleScreen({
     console.log(`[P646] isListenerDuringLocalRating=${isListenerDuringLocalRating}, ratingInitiatedByIsCreator=${liveState.ratingInitiatedByIsCreator}, isCreator=${isCreator}, ratingInitiatedBy=${liveState.ratingInitiatedBy}`);
   }
 
-  // Use top-aligned layout only when a story/point card is visible on screen
-  const hasScrollableContent = !!liveState.selectedStoryId || !!liveState.selectedStoryData || sessionHistory.length > 0;
-  // P600: Clean idle (no story, no ratings, no history) uses two-zone layout for stable button position
+  // Use top-aligned layout only when a story/point card is visible on screen or viewing history detail
+  // P667: Session history alone no longer triggers CONTENT_LAYOUT — it renders in the two-zone bottom zone
+  const hasScrollableContent = !!liveState.selectedStoryId || !!liveState.selectedStoryData || selectedHistoryIndex !== null;
+  // P600: Clean idle uses two-zone layout for stable button position
+  // P667: Extended to include post-round idle (session history present but no story selected)
   const isCleanIdle = !hasScrollableContent && !showRatingDrawer && !hasRatingData;
   const layoutClass = isCleanIdle
     ? '' // Two-zone layout handled inline below
@@ -1277,11 +1279,12 @@ function IdleScreen({
       <LiveHeader partnerName={partnerName} onExit={onExit} isPrivate={isPrivate} uploadHealth={uploadHealth} />
 
       {isCleanIdle ? (
-        /* P600: Two-zone layout — button stays fixed at ~40% mark, picker flows below */
+        /* P600/P667: Two-zone layout — button stays fixed at ~40% mark, content flows below.
+           P667: Always use justify-end and flex-[3] to prevent position jumps when
+           stories load async, partner state changes, or session history appears. */
         <>
-          {/* Top zone: button area. When bottom zone has content, push button to ~40% mark.
-              When bottom zone is empty, center the button vertically to avoid bare layout. */}
-          <div className={`flex-[2] flex flex-col items-center ${hasBottomContent ? 'justify-end' : 'justify-center'} pb-4 px-6 max-w-lg mx-auto w-full`}>
+          {/* Top zone: button area. Always justify-end to anchor button at ~40% mark. */}
+          <div className="flex-[2] flex flex-col items-center justify-end pb-4 px-6 max-w-lg mx-auto w-full">
             <div className="flex flex-col gap-1 w-full max-w-sm">
               <MobileTooltip content={isListenerDuringLocalRating ? `Mode locked, waiting for ${displayPartnerName}` : ''}>
                 <Button
@@ -1303,9 +1306,9 @@ function IdleScreen({
             </div>
           </div>
 
-          {/* Bottom zone: picker + story button. Only takes space when stories exist.
-              Collapses to flex-none otherwise — no empty 60% gap, no layout jump on load. */}
-          <div className={`${hasBottomContent ? 'flex-[3]' : 'flex-none'} flex flex-col items-center justify-start pt-2 px-6 max-w-lg mx-auto w-full overflow-y-auto live-scroll`}>
+          {/* Bottom zone: always flex-[3] to maintain stable layout. Contains story picker
+              and session history. P667: overflowAnchor + scrollContainerRef preserved. */}
+          <div ref={scrollContainerRef} className="flex-[3] flex flex-col items-center justify-start pt-2 px-6 max-w-lg mx-auto w-full overflow-y-auto live-scroll" style={{ overflowAnchor: 'none' }}>
             {hasBottomContent && (
               showStoryPicker ? (
                 <StorySearchPicker
@@ -1323,6 +1326,14 @@ function IdleScreen({
                   + Select your story
                 </Button>
               )
+            )}
+
+            {/* P667: Session history renders in the bottom zone to avoid layout mode switch */}
+            {sessionHistory.length > 0 && !showRatingDrawer && (
+              <SessionHistoryList
+                history={sessionHistory}
+                onItemClick={(i) => setSelectedHistoryIndex(i)}
+              />
             )}
           </div>
         </>

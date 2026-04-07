@@ -1,5 +1,5 @@
 ---
-status: week
+status: qa
 type: bug
 rank: 1000067.0
 severity: medium
@@ -9,8 +9,8 @@ tags:
   - live
   - ux
   - layout
-delivery_stage: create-bug
-pipeline_ran: [create-bug]
+delivery_stage: fix
+pipeline_ran: [create-bug, fix]
 ---
 
 # P667: /live — Speak Button Position Jumps on Idle Screen
@@ -85,8 +85,19 @@ Three options analyzed (from code-explorer agent):
 
 ## Acceptance Criteria
 
-- [ ] Speak button does not visibly jump when stories finish loading (symptom 1)
-- [ ] Speak button does not visibly jump when partner enters rating mode (symptom 2)
-- [ ] Speak button does not visibly jump when session history appears after round (symptom 3)
-- [ ] Zero-story users still see a reasonable layout (no giant empty gap)
-- [ ] Session history scroll behavior preserved (`overflowAnchor: 'none'`)
+- [x] Speak button does not visibly jump when stories finish loading (symptom 1)
+- [x] Speak button does not visibly jump when partner enters rating mode (symptom 2)
+- [x] Speak button does not visibly jump when session history appears after round (symptom 3)
+- [x] Zero-story users still see a reasonable layout (no giant empty gap)
+- [x] Session history scroll behavior preserved (`overflowAnchor: 'none'`)
+
+## Resolution
+
+**Fixed:** 2026-04-06
+**Root cause:** The two-zone flex layout toggled between `justify-center`/`justify-end` and `flex-none`/`flex-[3]` based on transient state (`hasBottomContent`, `isCleanIdle`). When stories loaded async, partner state changed, or session history appeared, these toggles fired and the button snapped to a new position.
+**Resolution:** Option B extended — always use `justify-end` and `flex-[3]` in the two-zone layout. Session history now renders in the bottom zone instead of triggering a layout mode switch to `CONTENT_LAYOUT`. The `isCleanIdle` gate no longer includes `sessionHistory.length > 0`.
+
+**Files changed:**
+- `src/app/components/partners/live-mode-view.tsx` (lines ~1222-1340)
+
+**Regression test:** `e2e/p667-speak-button-position.spec.ts`
