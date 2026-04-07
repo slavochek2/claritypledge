@@ -1,5 +1,5 @@
 ---
-status: qa
+status: in-progress
 type: bug
 rank: 1000067.0
 severity: medium
@@ -11,93 +11,83 @@ tags:
   - layout
 delivery_stage: fix
 pipeline_ran: [create-bug, fix]
+absorbs: p670
 ---
 
-# P667: /live — Speak Button Position Jumps on Idle Screen
+# P667: /live — Speak Button Position Jumps + Story Selector Disappears
 
 ## Summary
 
-The Speak button on the /live idle screen jumps vertically in three related scenarios: when stories load, when the partner enters rating mode, and when session history appears after a round completes. All three share the same root cause.
+The Speak button on the /live idle screen jumps vertically in multiple scenarios. After a round completes, the "+ Select your story" button also disappears entirely. All symptoms share the same root cause: layout structure is derived from transient state that changes after mount.
+
+## Consolidated from P670
+
+P670 (listener layout jump on partner story select) is absorbed into this spec. P670's fix (make `hasScrollableContent` role-aware via `authorId === userId`) is already cherry-picked into w1.
+
+## Symptoms
+
+### Symptom A: Partner selects story → listener layout jumps
+**Status: FIXED (P670 cherry-pick)**
+`hasScrollableContent` was role-blind — listener reacted to speaker's `selectedStoryId`. Fixed by checking `authorId === userId`.
+
+### Symptom B: Round completes → button jumps up + "Select your story" disappears
+**Status: OPEN**
+After round completion, session history appears and `isCleanIdle` flips to `false`. The layout switches from two-zone (button at ~40%) to `CONTENT_LAYOUT` (button near top). Additionally, "+ Select your story" disappears because it only renders in the `isCleanIdle` two-zone layout.
+
+Evidence: Screenshot Apr 07 14-54-27 — both browsers show button jumped up, "THIS SESSION" history visible, no story selector.
+
+### Symptom C: Stories load async → button shifts
+**Status: OPEN**
+On initial render `contentLoaded` is `false`, so `hasBottomContent` is `false` and bottom zone is empty. When stories finish loading (~1-2s), `hasBottomContent` flips, and the story selector appears — shifting visual weight.
+
+### Symptom D: `hasRatingData` transient flip during round completion
+**Status: OPEN (hypothesis from reflection agent)**
+During round completion, `hasRatingData` goes `true` before state resets. This flips `isCleanIdle` → `false` → `CONTENT_LAYOUT`, causing a transient jump. The P667 canary test missed this because it tests static page loads, not within-session transitions.
 
 ## Root Cause
 
-The two-zone flex layout (P600) derives the Speak button's vertical position from transient state that changes after mount. The top zone toggles between `justify-center` (no bottom content) and `justify-end` (bottom content present), and the bottom zone toggles between `flex-none` and `flex-[3]`. When these states change — stories load async, partner state arrives via Realtime, or history appears — the button snaps to a new position.
-
-Deeper: the architectural decision to "derive layout structure from content presence" means the button position is a side-effect of what's below it, rather than being anchored independently.
+The architectural decision to "derive layout structure from content presence" means button position is a side-effect of what's below it. `isCleanIdle` gates between two entirely different DOM trees. Any state change that affects `hasScrollableContent`, `hasRatingData`, or `showRatingDrawer` can flip the layout.
 
 ## Invariants
 
-- P600's design intent: avoid an empty 60% gap when the user has no stories. The two-zone layout was introduced to solve this — any fix must not regress this.
-- `overflowAnchor: 'none'` on the scroll container prevents scroll jumping when history entries are prepended — must be preserved.
-- `scrollContainerRef` reset-on-round-complete (`useLayoutEffect`) must continue to target the correct scroll container div.
-
-## Reproduction Steps
-
-### Symptom 1: Stories load → button jumps up
-1. Open /live as a user with stories. Start a session.
-2. Observe the Speak button position on initial render (centered vertically).
-3. Wait for stories to finish loading (~1-2s).
-4. Observe: Speak button jumps upward to the ~40% mark as "+ Select your story" appears below.
-
-### Symptom 2: Mode locked → button jumps for listener
-1. Open /live as User A (creator) in browser 1. Start a session.
-2. Open /live as User B (guest) in browser 2. Join the session.
-3. Both users see Speak button at stable position.
-4. As User A: click Speak.
-5. Observe User B: Speak button may shift position as `isListenerDuringLocalRating` changes and the story-select button hides.
-
-### Symptom 3: Round complete → button jumps up
-1. Complete a full rating round (both users rate).
-2. After celebration, observe the idle screen with session history visible below the Speak button.
-3. Observe: Speak button has jumped upward compared to the pre-round position. The `isCleanIdle` flag flips to `false` and the entire two-zone layout is replaced with `CONTENT_LAYOUT` (top-aligned scroll container).
-
-**Reproduction rate:** 100% for symptoms 1 and 3. Symptom 2 is intermittent (depends on timing of bottom-zone content changes).
-
-## Expected Behavior
-
-Speak button stays at a stable vertical position regardless of what content loads below it. Transitions between states should not cause visible position snapping.
-
-## Actual Behavior
-
-Speak button snaps from one vertical position to another when bottom content changes. The jump is instantaneous — no transition or animation.
+- P600's design intent: avoid an empty 60% gap when user has no stories. Fix must not regress this.
+- `overflowAnchor: 'none'` on scroll container must be preserved.
+- `scrollContainerRef` reset-on-round-complete must continue to target correct div.
+- P670's fix (role-aware `isLocalStorySelection`) must be preserved.
 
 ## Affected Files
 
-- `src/app/components/partners/live-mode-view.tsx` — IdleScreen component:
-  - Line ~1224: `isCleanIdle` computation (gates the layout mode switch)
-  - Line ~1284: `justify-end` vs `justify-center` toggle on top zone
-  - Line ~1279-1328: entire two-zone layout block
-  - Line ~1306: bottom zone `flex-[3]` vs `flex-none` toggle
-
-## Severity
-
-**Medium** — cosmetic UX issue, no functionality broken. However, button jumping creates a perception of instability and can cause misclicks on mobile.
+- `src/app/components/partners/live-mode-view.tsx` — IdleScreen:
+  - `isCleanIdle` computation (~line 1227)
+  - `hasBottomContent` computation (~line 1148)
+  - Two-zone vs CONTENT_LAYOUT switch (~lines 1279-1340)
+  - Story selector rendering (gated by `isCleanIdle` two-zone branch)
 
 ## Fix Approach
 
-Three options analyzed (from code-explorer agent):
+The previous approach (Option B: always flex-[3]) only addressed session history. A more complete fix needs to:
 
-**Option B (recommended — quick, low risk):** Always render the bottom zone as `flex-[3]`, show nothing inside it when `hasBottomContent` is false. The button stays at `justify-end` from first render. Cost: empty space for zero-story users (minor regression from P600 intent, but acceptable since most active users have stories).
-
-**Option C (thorough, higher risk):** Restructure into a single layout with a fixed-position button slot and conditionally rendered content below. Eliminates the `isCleanIdle` layout-mode switch entirely. Resolves all 3 symptoms but is a larger refactor.
-
-**Option D (polish layer):** CSS transition on the top zone. Masks the jump with animation. Not a fix, but could be layered on top.
+1. **Stop switching between two DOM trees** — the `isCleanIdle` gate is the root problem. Explore making the two-zone layout permanent with conditional content inside it.
+2. **Keep "+ Select your story" visible after rounds** — it currently only renders in the `isCleanIdle` branch.
+3. **Rewrite canary test** — use `advanceSessionState()` for within-session transitions, not static page loads. Follow P670's test pattern.
 
 ## Acceptance Criteria
 
-- [x] Speak button does not visibly jump when session history appears after round (symptom 3 — fixed: bottom zone always flex-[3], history renders in two-zone)
-- [x] Zero-story users still see a reasonable layout (no giant empty gap)
-- [x] Session history scroll behavior preserved (`overflowAnchor: 'none'`)
+- [ ] Speak button does not visibly jump when session history appears after round (symptom B)
+- [ ] "+ Select your story" remains visible after round completion (symptom B)
+- [ ] Stories loading async does not cause visible button shift (symptom C)
+- [ ] Zero-story users still see a reasonable layout
+- [ ] Session history scroll behavior preserved (`overflowAnchor: 'none'`)
+- [ ] Canary test uses within-session transitions (not static page loads)
+- [ ] P670's role-aware fix preserved (symptom A stays fixed)
 
-**Narrowed scope:** Symptoms 1 (story load) and 2 (partner rating mode) were originally listed here but have a deeper root cause: `hasScrollableContent` is role-blind — it reacts to the partner's `selectedStoryId` via shared Realtime state. This requires a separate fix (see P670). P667 only addresses the session history trigger.
+## Previous Fix (Partial — Symptom 3 Only)
 
-## Resolution
+**Fixed 2026-04-06:** Option B extended — always `justify-end` and `flex-[3]` in two-zone layout. Session history renders in bottom zone. `isCleanIdle` no longer includes `sessionHistory.length > 0`.
 
-**Fixed:** 2026-04-06
-**Root cause:** The two-zone flex layout toggled between `justify-center`/`justify-end` and `flex-none`/`flex-[3]` based on transient state (`hasBottomContent`, `isCleanIdle`). When stories loaded async, partner state changed, or session history appeared, these toggles fired and the button snapped to a new position.
-**Resolution:** Option B extended — always use `justify-end` and `flex-[3]` in the two-zone layout. Session history now renders in the bottom zone instead of triggering a layout mode switch to `CONTENT_LAYOUT`. The `isCleanIdle` gate no longer includes `sessionHistory.length > 0`.
+This fixed the static end-state but not the transition. The canary test (`e2e/p667-speak-button-position.spec.ts`) is a false positive — it compares two separate page loads, not within-session state changes.
 
-**Files changed:**
-- `src/app/components/partners/live-mode-view.tsx` (lines ~1222-1340)
+## Regression test
 
-**Regression test:** `e2e/p667-speak-button-position.spec.ts`
+- `e2e/p667-speak-button-position.spec.ts` — FALSE POSITIVE, needs rewrite
+- `e2e/p670-listener-layout-jump.spec.ts` — VALID (two-party within-session test, symptom A)

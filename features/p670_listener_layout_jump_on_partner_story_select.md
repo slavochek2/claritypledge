@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: done
 delivery_stage: dev
 pipeline_ran: [dev]
 type: bug
@@ -7,6 +7,8 @@ rank: 1000070.0
 severity: medium
 date_reported: '2026-04-06'
 created_date: 2026-04-06T00:00:00.000Z
+completed_at: '2026-04-07'
+absorbed_by: p667
 tags:
   - live
   - ux
