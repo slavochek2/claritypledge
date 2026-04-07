@@ -1,7 +1,7 @@
 ---
-status: today
+status: qa
 type: change-request
-rank: 0.002
+rank: 0.25
 changes: p581
 tags:
   - redesign
@@ -9,6 +9,7 @@ tags:
   - letters
   - onboarding
 created_date: 2026-04-04T00:00:00.000Z
+locked_at: '2026-04-05T06:41:04.496Z'
 ---
 
 # P651: Letter 1-to-1 Recipient Onboarding — Reuse Agreement Auth Flow
@@ -61,7 +62,7 @@ The agreement invite flow (P527) solved this same problem: `create-and-sign` edg
 ┌─────────────────────────────────┐
 │        A CLARITY LETTER         │
 │                                 │
-│    For slava@inguro.com         │
+│    For recipient@example.com    │
 │    From 0e5ae4a4-ca7e-...       │  ← UUID, not name
 │                                 │
 │    5 stories · ~10 minutes      │
@@ -110,7 +111,7 @@ For **1-to-1 letters only** (1-to-many anonymous flow is unchanged):
 ┌─────────────────────────────────┐
 │        A CLARITY LETTER         │
 │                                 │
-│    For slava@inguro.com         │
+│    For recipient@example.com    │
 │    From Slava Ladischenski      │  ← Resolved name
 │                                 │
 │    5 stories · ~10 minutes      │

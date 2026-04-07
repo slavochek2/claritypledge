@@ -1,13 +1,14 @@
 ---
-status: week
+status: today
 type: task
-rank: 1000058.0
+rank: 0.001
 created_date: '2026-04-04'
 tags:
   - design-system
   - wave-1
   - design-excellence
 flow: dev
+locked_at: '2026-04-05T06:16:54.199Z'
 ---
 
 # P657: Design System Foundation

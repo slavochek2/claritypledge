@@ -1,13 +1,14 @@
 ---
-status: qa
+status: all-done
 type: task
 flow: inline
-rank: 1000034.0
+rank: 1000034
 tags:
   - process
   - rules
   - change-request
-created_date: 2026-04-03
+created_date: 2026-04-03T00:00:00.000Z
+locked_at: '2026-04-05T07:48:59.695Z'
 ---
 
 # P631: CR Chaining Policy — supersedes/chain_root for CR-on-CR

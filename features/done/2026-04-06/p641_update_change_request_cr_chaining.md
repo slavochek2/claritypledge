@@ -1,13 +1,14 @@
 ---
-status: qa
+status: all-done
 type: task
 flow: inline
 rank: 1000050
-created_date: 2026-04-04
+created_date: 2026-04-04T00:00:00.000Z
 tags:
   - process
   - skills
   - change-request
+locked_at: '2026-04-05T07:48:55.039Z'
 ---
 
 # P641: Update /change-request skill to support CR chaining

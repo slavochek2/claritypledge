@@ -1,11 +1,14 @@
 ---
-status: done
+status: all-done
 type: task
-completed_at: "2026-04-03"
-rank: 1000033.0
+rank: 1000033
 workstream: foundation
-created_date: 2026-04-02
-tags: [process, skills, change-request]
+created_date: 2026-04-02T00:00:00.000Z
+tags:
+  - process
+  - skills
+  - change-request
+locked_at: '2026-04-05T07:49:10.912Z'
 ---
 
 # P625: /dev Should Read Predecessor Spec for Change-Requests

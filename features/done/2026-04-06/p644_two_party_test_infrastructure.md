@@ -1,6 +1,5 @@
 ---
-status: done
-completed_at: '2026-04-04'
+status: all-done
 type: task
 rank: 1
 tags:
@@ -12,6 +11,7 @@ tags:
   - p638
   - p643
 created_date: 2026-04-04T00:00:00.000Z
+locked_at: '2026-04-05T07:49:04.761Z'
 ---
 
 # P644: Two-Party Test Infrastructure — Fix the Tests Before Fixing the Code
