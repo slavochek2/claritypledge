@@ -44,6 +44,7 @@ import { StorySearchPicker } from './story-search-picker';
 import { LiveStoryCardExpanded } from './live-story-card-expanded';
 import { GravatarAvatar } from '@/components/ui/gravatar-avatar';
 import { FreeModeView } from './free-mode-view';
+import { GapBanner } from '@/app/components/shared/gap-banner';
 import { PositionBadge } from '@/app/components/shared';
 import { storiesService } from '@/app/data/stories-service';
 import { pointsService } from '@/app/data/points-service';
@@ -2954,18 +2955,6 @@ function UnderstandingScreen({
   // PHASE: GAP-REVEALED (gap detected, offer explain-back)
   // ============================================================================
   if (phase === 'gap-revealed') {
-    const pointLabel = gapPoints === 1 ? 'point' : 'points';
-    // Insight message without the gap number (shown separately as badge)
-    // Uses JSX to highlight "less"/"more" like we highlight "I"/"you" in idle buttons
-    const insightMessage = gapType === 'overconfidence'
-      ? (isChecker
-          ? <>You think {displayPartnerName} understands <span className="font-bold">less</span> than they think</>
-          : <>{checkerName} thinks you understand <span className="font-bold">less</span> than you think</>)
-      : (isChecker
-          ? <>You think {displayPartnerName} understands <span className="font-bold">more</span> than they think</>
-          : <>{checkerName} thinks you understand <span className="font-bold">more</span> than you think</>);
-    const gapBadgeText = `${gapPoints} ${pointLabel} gap`;
-
     return (
       <div className="flex flex-col h-full min-h-0">
         <LiveHeader partnerName={partnerName} onExit={onExit} isPrivate={isPrivate} uploadHealth={uploadHealth} />
@@ -2981,12 +2970,13 @@ function UnderstandingScreen({
             proverName={liveState.proverName ? getFirstName(liveState.proverName) : undefined}
             className="w-full max-w-sm"
           />
-          <div className="border border-blue-200 bg-blue-50 rounded-lg px-4 py-3 w-full max-w-sm -mt-3">
-            <div className="flex items-center justify-center gap-2 mb-1">
-              <span className="bg-blue-500 text-white text-xs font-semibold px-2 py-0.5 rounded-full">{gapBadgeText}</span>
-            </div>
-            <p className="text-blue-700 text-sm text-center">{insightMessage}</p>
-          </div>
+          <GapBanner
+            gap={gapPoints}
+            senderName={isChecker ? displayPartnerName : checkerName}
+            isOverconfident={gapType === 'overconfidence'}
+            isChecker={isChecker}
+            className="-mt-3"
+          />
           {/* P272: Story card visible throughout round */}
           {selectedStory && (
             <LiveStoryCardExpanded
@@ -3099,11 +3089,6 @@ function UnderstandingScreen({
   // Same UX as gap-revealed: listener gets "Listen actively" button, speaker waits
   // ============================================================================
   if (phase === 'calibrated') {
-    // Insight message matching the gap-revealed pattern but for calibrated state
-    const insightMessage = isChecker
-      ? <>You believe {displayPartnerName} understands <span className="font-bold">exactly as much</span> as they think</>
-      : <>{checkerName} believes you understand <span className="font-bold">exactly as much</span> as you think</>;
-
     return (
       <div className="flex flex-col h-full min-h-0">
         <LiveHeader partnerName={partnerName} onExit={onExit} isPrivate={isPrivate} uploadHealth={uploadHealth} />
@@ -3119,12 +3104,13 @@ function UnderstandingScreen({
             proverName={liveState.proverName ? getFirstName(liveState.proverName) : undefined}
             className="w-full max-w-sm"
           />
-          <div className="border border-input bg-muted/50 rounded-lg px-4 py-3 w-full max-w-sm -mt-3">
-            <div className="flex items-center justify-center gap-2 mb-1">
-              <span className="bg-green-500 text-white text-xs font-semibold px-2 py-0.5 rounded-full">Perfectly calibrated</span>
-            </div>
-            <p className="text-muted-foreground text-sm text-center">{insightMessage}</p>
-          </div>
+          <GapBanner
+            gap={0}
+            senderName={isChecker ? displayPartnerName : checkerName}
+            isOverconfident={false}
+            isChecker={isChecker}
+            className="-mt-3"
+          />
           {/* P272: Story card visible throughout round */}
           {selectedStory && (
             <LiveStoryCardExpanded

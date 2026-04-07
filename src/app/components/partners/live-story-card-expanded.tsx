@@ -34,6 +34,8 @@ interface LiveStoryCardExpandedProps {
   defaultExpanded?: boolean;
   /** P661: When true, points auto-expand, PositionButtons hidden, story CTA hidden. Used in letter prediction walk. */
   readOnly?: boolean;
+  /** P673: When true, hide the points section entirely (footer trigger + expanded points). Used in letters where points are shown as separate step cards. */
+  hidePoints?: boolean;
 }
 
 const STORY_THRESHOLD = 100;
@@ -48,6 +50,7 @@ export function LiveStoryCardExpanded({
   badgePersonEarsCount,
   defaultExpanded = false,
   readOnly = false,
+  hidePoints = false,
 }: LiveStoryCardExpandedProps) {
   const [isExpanded, setIsExpanded] = useState(defaultExpanded || readOnly);
   const [storyExpanded, setStoryExpanded] = useState(false);
@@ -124,8 +127,8 @@ export function LiveStoryCardExpanded({
         )}
       </div>
 
-      {/* Footer — "N points" expand trigger (hidden in readOnly — always expanded) */}
-      {story.points.length > 0 && !readOnly && (
+      {/* Footer — "N points" expand trigger (hidden in readOnly — always expanded; hidden when hidePoints) */}
+      {story.points.length > 0 && !readOnly && !hidePoints && (
         <div
           role="presentation"
           className="flex items-center pl-4 sm:pl-[52px] pr-4 py-2.5 border-t border-gray-100"
@@ -147,7 +150,7 @@ export function LiveStoryCardExpanded({
 
       {/* Expanded points — ThreadLine for all counts (even single point needs
           the connecting line to visually anchor it to the parent story card). */}
-      {isExpanded && story.points.length > 0 && (
+      {isExpanded && story.points.length > 0 && !hidePoints && (
         <div className="px-3 pb-3">
           <ThreadLineGroup>
             {story.points.map((point, index) => (

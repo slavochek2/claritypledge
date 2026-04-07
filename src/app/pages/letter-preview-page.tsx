@@ -1,8 +1,7 @@
 /**
  * @file letter-preview-page.tsx
- * @description P665: Preview route — /letter/:docId/preview
- * Reuses LetterStoryReader + useLetterReadingState in preview mode
- * so the sender sees the exact same components, layout, and pacing the receiver will see.
+ * @description P665/P673: Preview route — /letter/:docId/preview
+ * Composes the same /live components as the reading page with previewMode.
  * Ratings are interactive but write to local state only (no DB calls).
  */
 
@@ -12,17 +11,27 @@ import { AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { CertificatePageShell } from '@/app/components/layout/certificate-page-shell';
 import { FocusHeader } from '@/app/components/layout/focus-header';
-import { LetterStoryReader } from '@/app/components/letters/letter-story-reader';
 import { LetterProgressBar } from '@/app/components/letters/letter-progress-bar';
+import { LetterPointCard } from '@/app/components/letters/letter-point-card';
+import { LiveStoryCardExpanded } from '@/app/components/partners/live-story-card-expanded';
+import { JourneyToUnderstanding } from '@/app/components/partners/live-mode-view';
+import { RatingButtons } from '@/app/components/partners/shared';
+import { GapBanner } from '@/app/components/shared/gap-banner';
 import { ClarityPageLoader } from '@/components/ui/clarity-loader';
+import {
+  Drawer,
+  DrawerContent,
+  DrawerHeader,
+  DrawerTitle,
+} from '@/components/ui/drawer';
 import { useLetterReadingState } from '@/app/hooks/useLetterReadingState';
+import { snapshotToStoryWithPoints } from '@/app/utils/letter-snapshot-mapper';
 import { docsService } from '@/app/data/docs-service';
 import type { DocStory, LetterStorySnapshot } from '@/app/types';
 
 /**
- * Convert DocStory to LetterStorySnapshot shape for LetterStoryReader.
- * Builds the enriched point_config that the server normally creates at seal time
- * (P642: storyText, storyTitle, points[{id, text, authorPosition}]).
+ * Convert DocStory to LetterStorySnapshot shape.
+ * Builds the enriched point_config that the server normally creates at seal time.
  */
 function docStoryToSnapshot(docStory: DocStory): LetterStorySnapshot {
   return {
@@ -108,7 +117,7 @@ export function LetterPreviewPage() {
 }
 
 // ============================================================================
-// PREVIEW FLOW (inner component using the state machine hook in preview mode)
+// PREVIEW FLOW — same /live component composition as reading page (P673)
 // ============================================================================
 
 function LetterPreviewFlow({
@@ -123,20 +132,22 @@ function LetterPreviewFlow({
   const {
     state,
     currentPhase,
-    submitPosition,
+    submitPointPosition,
     submitStoryRating,
-    advanceToStory,
-    advanceToRate,
-    advanceRemainingPoint,
+    advanceFromPointReveal,
+    advanceFromStoryReveal,
+    advanceFromRemainingPointReveal,
     nextStory,
     isSubmitting,
   } = useLetterReadingState(
-    `preview-${docId}`, // synthetic delivery ID for sessionStorage isolation
-    '',                  // no sender ID needed in preview
+    `preview-${docId}`,
+    '',
     snapshots,
-    undefined,           // no token
-    true                 // previewMode
+    undefined,
+    true  // previewMode
   );
+
+  const [pendingRating, setPendingRating] = useState<number | null>(null);
 
   const currentSnapshot = snapshots[state.currentStoryIndex];
   const currentStory = state.stories[state.currentStoryIndex];
@@ -148,7 +159,7 @@ function LetterPreviewFlow({
     return (
       <div className="text-center space-y-4 py-6">
         <p className="text-lg font-medium text-[#1A1A1A]">
-          End of preview ✦
+          End of preview &#10022;
         </p>
         <p className="text-sm text-[#1A1A1A]/60">
           This is what the receiver will experience.
@@ -163,6 +174,19 @@ function LetterPreviewFlow({
     );
   }
 
+  const senderName = 'You';
+  const storyWithPoints = snapshotToStoryWithPoints(currentSnapshot, senderName);
+  const visiblePoints = storyWithPoints.points;
+  const currentPoint = visiblePoints[currentStory.currentPointIndex];
+  const gap = currentStory.rating !== null && currentStory.prediction !== null
+    ? Math.abs(currentStory.rating - currentStory.prediction)
+    : 0;
+  const isOverconfident = currentStory.rating !== null && currentStory.prediction !== null
+    ? currentStory.prediction > currentStory.rating
+    : false;
+
+  const isLastStory = state.currentStoryIndex + 1 >= snapshots.length;
+
   return (
     <div className="space-y-6">
       <LetterProgressBar
@@ -174,26 +198,152 @@ function LetterPreviewFlow({
         Story {state.currentStoryIndex + 1} of {snapshots.length}
       </p>
 
-      <LetterStoryReader
-        snapshot={currentSnapshot}
-        storyIndex={state.currentStoryIndex}
-        totalStories={snapshots.length}
-        phase={currentPhase}
-        rating={currentStory.rating}
-        prediction={currentStory.prediction}
-        positions={currentStory.positions}
-        remainingPointIndex={currentStory.remainingPointIndex}
-        senderName="You"
-        isAuthenticated={true}
-        isSubmitting={isSubmitting}
-        previewMode
-        onPositionSubmit={(pointId, position) => submitPosition(pointId, position)}
-        onRatingSubmit={(rating) => submitStoryRating(rating)}
-        onAdvanceToStory={advanceToStory}
-        onAdvanceToRate={advanceToRate}
-        onAdvanceRemainingPoint={advanceRemainingPoint}
-        onNextStory={nextStory}
-      />
+      {/* PHASE: point-engage */}
+      {currentPhase === 'point-engage' && currentPoint && (
+        <LetterPointCard
+          point={currentPoint}
+          senderName={senderName}
+          isRevealed={false}
+          receiverPosition={currentStory.positions[currentPoint.id] ?? null}
+          onSubmitPosition={(pointId, pos) => submitPointPosition(pointId, pos)}
+          disabled={isSubmitting}
+        />
+      )}
+
+      {/* PHASE: point-revealed */}
+      {currentPhase === 'point-revealed' && currentPoint && (
+        <div className="space-y-4">
+          <LetterPointCard
+            point={currentPoint}
+            senderName={senderName}
+            isRevealed
+            receiverPosition={currentStory.positions[currentPoint.id] ?? null}
+            onSubmitPosition={() => {}}
+          />
+          <Button
+            onClick={advanceFromPointReveal}
+            className="w-full bg-[#0044CC] hover:bg-[#0033AA] text-white min-h-[44px]"
+          >
+            Continue
+          </Button>
+        </div>
+      )}
+
+      {/* PHASE: story-rate */}
+      {currentPhase === 'story-rate' && (
+        <>
+          <LiveStoryCardExpanded
+            story={storyWithPoints}
+            hidePoints
+            readOnly
+            className="w-full max-w-sm"
+          />
+          <Drawer open dismissible={false}>
+            <DrawerContent>
+              <DrawerHeader>
+                <DrawerTitle>How well do you believe you understand this story?</DrawerTitle>
+              </DrawerHeader>
+              <div className="px-4 pb-4 space-y-4">
+                <RatingButtons
+                  selectedValue={pendingRating}
+                  onSelect={(value) => setPendingRating(value)}
+                  disabled={isSubmitting || currentStory.rating !== null}
+                />
+                <Button
+                  onClick={() => {
+                    if (pendingRating === null) return;
+                    submitStoryRating(pendingRating);
+                    setPendingRating(null);
+                  }}
+                  disabled={pendingRating === null || isSubmitting || currentStory.rating !== null}
+                  className="w-full bg-[#0044CC] hover:bg-[#0033AA] text-white min-h-[44px]"
+                >
+                  Submit
+                </Button>
+              </div>
+            </DrawerContent>
+          </Drawer>
+        </>
+      )}
+
+      {/* PHASE: story-revealed */}
+      {currentPhase === 'story-revealed' && (
+        <div className="space-y-4">
+          <JourneyToUnderstanding
+            checkerRating={currentStory.prediction ?? undefined}
+            responderRating={currentStory.rating ?? undefined}
+            isChecker={false}
+            displayPartnerName={senderName}
+            checkerName={senderName}
+            compact
+            className="w-full max-w-sm"
+          />
+          <GapBanner
+            gap={gap}
+            senderName={senderName}
+            isOverconfident={isOverconfident}
+            className="-mt-3"
+          />
+          <LiveStoryCardExpanded
+            story={storyWithPoints}
+            hidePoints
+            readOnly
+            className="w-full max-w-sm"
+          />
+          <Button
+            onClick={advanceFromStoryReveal}
+            className="w-full bg-[#0044CC] hover:bg-[#0033AA] text-white min-h-[44px]"
+          >
+            Continue
+          </Button>
+        </div>
+      )}
+
+      {/* PHASE: remaining-point-engage */}
+      {currentPhase === 'remaining-point-engage' && currentPoint && (
+        <LetterPointCard
+          point={currentPoint}
+          senderName={senderName}
+          isRevealed={false}
+          receiverPosition={currentStory.positions[currentPoint.id] ?? null}
+          onSubmitPosition={(pointId, pos) => submitPointPosition(pointId, pos)}
+          disabled={isSubmitting}
+        />
+      )}
+
+      {/* PHASE: remaining-point-revealed */}
+      {currentPhase === 'remaining-point-revealed' && currentPoint && (
+        <div className="space-y-4">
+          <LetterPointCard
+            point={currentPoint}
+            senderName={senderName}
+            isRevealed
+            receiverPosition={currentStory.positions[currentPoint.id] ?? null}
+            onSubmitPosition={() => {}}
+          />
+          <Button
+            onClick={advanceFromRemainingPointReveal}
+            className="w-full bg-[#0044CC] hover:bg-[#0033AA] text-white min-h-[44px]"
+          >
+            Continue
+          </Button>
+        </div>
+      )}
+
+      {/* PHASE: transition */}
+      {currentPhase === 'transition' && (
+        <div className="text-center space-y-4 py-6">
+          <p className="text-lg font-medium text-[#1A1A1A]">
+            Story {state.currentStoryIndex + 1} complete &#10022;
+          </p>
+          <Button
+            onClick={nextStory}
+            className="bg-[#0044CC] hover:bg-[#0033AA] text-white min-h-[44px]"
+          >
+            {isLastStory ? 'Complete letter' : 'Next story'}
+          </Button>
+        </div>
+      )}
     </div>
   );
 }

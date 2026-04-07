@@ -1,5 +1,5 @@
 ---
-status: week
+status: in-progress
 type: story
 rank: 1000073.0
 tags:
@@ -8,9 +8,9 @@ tags:
   - component-reuse
   - live
 created_date: '2026-04-07'
-delivery_stage: generate-tests
+delivery_stage: dev
 pipeline_plan: [create-spec, architect, generate-tests, dev, verify]
-pipeline_ran: [create-spec, architect, generate-tests]
+pipeline_ran: [create-spec, architect, generate-tests, dev]
 pipeline_skipped: [challenge-prd -- founder co-designed in conversation, ux -- reuses /live components verbatim, decompose -- single concern under 10 files]
 uat_file: features/uat/p673.md
 test_files:

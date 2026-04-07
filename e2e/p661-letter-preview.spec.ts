@@ -5,7 +5,7 @@
  * Tests the preview route behavior:
  * 1. Preview loads for sender (doc owner)
  * 2. "THIS IS A PREVIEW" banner visible
- * 3. Story content rendered (LetterStoryReader visible)
+ * 3. Story content rendered (/live components visible)
  * 4. Rating dots interactive but non-persistent (no DB writes)
  * 5. "Back to composition" link present
  *
@@ -103,7 +103,7 @@ test.describe('P661: Letter Preview — /letter/:docId/preview', () => {
 
   // ── 3. Story content ──────────────────────────────────────────────────
 
-  test('preview shows story content (LetterStoryReader visible)', async ({ page }) => {
+  test('preview shows story content (/live components visible)', async ({ page }) => {
     await setTestSession(page, sender.email);
     await page.goto(`/letter/${docId}/preview`);
     await page.waitForLoadState('networkidle');
@@ -123,18 +123,22 @@ test.describe('P661: Letter Preview — /letter/:docId/preview', () => {
     await page.goto(`/letter/${docId}/preview`);
     await page.waitForLoadState('networkidle');
 
-    // P665: LetterStoryReader uses a phase-based flow — navigate to rating phase
+    // P673: Phase-based flow — navigate to rating phase
     // First advance through any position/story phases
     for (let attempt = 0; attempt < 5; attempt++) {
-      // Try clicking position buttons (agree/disagree/unsure)
+      // Try clicking position buttons (agree/disagree/unsure) then Submit
       const positionBtn = page.locator('button').filter({ hasText: /agree|disagree|unsure/i }).first();
       if (await positionBtn.isVisible().catch(() => false)) {
         await positionBtn.click();
+        const submitBtn = page.locator('button').filter({ hasText: /submit/i }).first();
+        if (await submitBtn.isVisible().catch(() => false)) {
+          await submitBtn.click();
+        }
         await page.waitForTimeout(800);
         continue;
       }
-      // Try clicking advance buttons (Continue, I've read this story)
-      const advanceBtn = page.locator('button').filter({ hasText: /continue|read this story/i }).first();
+      // Try clicking advance buttons (Continue)
+      const advanceBtn = page.locator('button').filter({ hasText: /continue/i }).first();
       if (await advanceBtn.isVisible().catch(() => false)) {
         await advanceBtn.click();
         await page.waitForTimeout(500);
