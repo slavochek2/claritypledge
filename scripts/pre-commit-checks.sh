@@ -111,7 +111,7 @@ if [ -n "$SECRETS_STAGED_FILES" ]; then
     # 2a. Known secret patterns (API keys, tokens, password assignments)
     # Exclude files that legitimately discuss secret patterns (scanner config, docs, decisions log)
     # Gitleaks (Layer 1) handles src/ and supabase/ with proper rules — grep only scans config/root files
-    GREP_SCAN_FILES=$(echo "$SECRETS_STAGED_FILES" | grep -vE '(\.gitleaks\.toml|pre-commit-checks\.sh|docs/decisions\.md|docs/technical/|supabase/functions/|features/|src/|e2e/|\.claude/commands/)' || true)
+    GREP_SCAN_FILES=$(echo "$SECRETS_STAGED_FILES" | grep -vE '(\.gitleaks\.toml|pre-commit-checks\.sh|docs/decisions\.md|docs/technical/|supabase/functions/|features/|src/|e2e/|\.claude/commands/|\.claude/rules/)' || true)
     SECRETS_FOUND=""
     if [ -n "$GREP_SCAN_FILES" ]; then
         SECRETS_FOUND=$(echo "$GREP_SCAN_FILES" | xargs grep -l -iE '(sk_live|pk_live|SUPABASE_SERVICE|api[_-]?key|apikey|secret[_-]?key|password\s*=|token\s*=)[^a-zA-Z]' 2>/dev/null || true)
@@ -373,22 +373,21 @@ else
 fi
 echo ""
 
-# 15. Migration commit reminder (P270 — prevents P160-class bugs)
-# When a migration SQL file is staged, reminds developer to: (1) apply it,
-# (2) add an integration test. Cannot check if migration was applied (no
-# local Docker required). WARNING only — does not block commit.
+# 15. Migration commit gate (P270 — prevents P160-class bugs)
+# When a migration SQL file is staged, blocks commit until developer confirms:
+# (1) applied to test DB, (2) integration test added.
 echo ">>> Checking for new migrations being committed..."
 STAGED_MIGRATIONS=$(git diff --cached --name-only 2>/dev/null | grep '^supabase/migrations/.*\.sql$' || true)
 if [ -n "$STAGED_MIGRATIONS" ]; then
-    echo -e "${YELLOW}⚠ New migration(s) staged for commit:${NC}"
+    echo -e "${RED}✗ New migration(s) staged — apply before committing:${NC}"
     echo "$STAGED_MIGRATIONS" | while IFS= read -r mig; do
-        echo -e "${YELLOW}  → $mig${NC}"
+        echo -e "${RED}  → $mig${NC}"
     done
-    echo -e "${YELLOW}  Checklist before merging:${NC}"
-    echo -e "${YELLOW}  1. Applied to test DB? (supabase db push OR Supabase dashboard)${NC}"
-    echo -e "${YELLOW}  2. Integration test added? (e2e/integration/p{N}-db-schema.spec.ts)${NC}"
-    echo -e "${YELLOW}  See docs/technical/e2e-testing-guide.md for the integration test template.${NC}"
-    WARNINGS=$((WARNINGS + 1))
+    echo -e "${RED}  Required before commit:${NC}"
+    echo -e "${RED}  1. Apply to test DB: ./scripts/migrate.sh${NC}"
+    echo -e "${RED}  2. Integration test: e2e/integration/p{N}-db-schema.spec.ts${NC}"
+    echo -e "${RED}  See docs/technical/e2e-testing-guide.md for the integration test template.${NC}"
+    ERRORS=$((ERRORS + 1))
 
     # P270 enforcement: check that each staged migration has a corresponding integration test.
     # WARNING only (not hard error) — many existing migrations predate this rule.

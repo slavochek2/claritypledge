@@ -80,18 +80,18 @@ else
 fi
 
 # Broken links in CLAUDE.md
-grep -oE '\[.*?\]\((src/[^)]+|docs/[^)]+|features/[^)]+|e2e/[^)]+|scripts/[^)]+|\.claude/[^)]+)\)' CLAUDE.md | \
-  sed 's/.*(\(.*\))/\1/' > /tmp/refs.txt
+/usr/bin/grep -oE '\[.*?\]\((src/[^)]+|docs/[^)]+|features/[^)]+|e2e/[^)]+|scripts/[^)]+|\.claude/[^)]+)\)' CLAUDE.md | \
+  /usr/bin/sed 's/.*(\(.*\))/\1/' > /tmp/refs.txt
 while IFS= read -r path; do [ ! -e "$path" ] && echo "MISSING: $path"; done < /tmp/refs.txt
 
-# Size
-echo "CLAUDE.md: $(wc -l < CLAUDE.md) lines"
+# Size (use absolute path — wc not always in PATH in sandbox)
+echo "CLAUDE.md: $(/usr/bin/wc -l < CLAUDE.md) lines"
 
 # Rules files
-ls .claude/rules/*.md 2>/dev/null
+/bin/ls .claude/rules/*.md 2>/dev/null
 
-# Stale docs (>30 days)
-find docs/technical -name "*.md" -mtime +30 -exec ls -la {} \;
+# Stale docs (>30 days) — use absolute path for find
+/usr/bin/find docs/technical -name "*.md" -mtime +30 -exec /bin/ls -la {} \;
 ```
 
 Flag if >300 lines. Flag stale docs with archive-or-update call.
@@ -108,9 +108,9 @@ Use Sentry MCP (`mcp__sentry__search_issues`):
 
 ---
 
-### 2.1 Product Metrics (Supabase MCP preferred; fallback: curl with `PROD_SUPABASE_SERVICE_ROLE_KEY` from `.env.local` — see day.md step 1c for curl pattern)
+### 2.1 Product Metrics (use curl — Supabase MCP is test-only, never prod)
 
-Prod project: `besjtuodziykmjidubzw`, run in parallel with step 2.
+Prod project: `besjtuodziykmjidubzw`. Use curl with `PROD_SUPABASE_SERVICE_ROLE_KEY` from `.env.local`. Run in parallel with step 2.
 
 ```sql
 -- New signups this period (substitute $DAYS from step 0)
@@ -174,8 +174,16 @@ This is a 2-minute scan. Don't expand it. Purpose is surfacing what /kdd session
 
 ```bash
 # What changed in core product/strategy docs since $SINCE
-git diff "$SINCE"..HEAD -- docs/lean-canvas.md docs/philosophy.md README.md CLAUDE.md 2>/dev/null | \
-  grep -E "^[+-]" | grep -vE "^(---|\+\+\+|@@)" | head -60
+# Use git log -p (not git diff "date"..HEAD — that form silently produces no output for date refs)
+for f in docs/lean-canvas.md docs/philosophy.md README.md CLAUDE.md; do
+  [ -f "$f" ] || continue
+  CHANGES=$(git log --since="$SINCE" --oneline -- "$f" | wc -l | tr -d ' ')
+  if [ "$CHANGES" -gt 0 ]; then
+    echo "=== $f ($CHANGES commits) ==="
+    git log --since="$SINCE" -p --follow -- "$f" 2>/dev/null | \
+      /usr/bin/grep -E "^[+-]" | /usr/bin/grep -vE "^(---|\+\+\+|@@)" | head -40
+  fi
+done
 
 # Last meaningful edit date for each (to catch docs drifting from reality)
 for f in docs/lean-canvas.md docs/philosophy.md README.md; do
