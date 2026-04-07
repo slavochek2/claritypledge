@@ -12,11 +12,11 @@ import { Button } from '@/components/ui/button';
 import { CertificatePageShell } from '@/app/components/layout/certificate-page-shell';
 import { FocusHeader } from '@/app/components/layout/focus-header';
 import { LetterProgressBar } from '@/app/components/letters/letter-progress-bar';
-import { LetterPointCard } from '@/app/components/letters/letter-point-card';
-import { LiveStoryCardExpanded } from '@/app/components/partners/live-story-card-expanded';
+import { LiveStoryCardExpanded, PointRow } from '@/app/components/partners/live-story-card-expanded';
 import { JourneyToUnderstanding } from '@/app/components/partners/live-mode-view';
-import { RatingButtons } from '@/app/components/partners/shared';
 import { GapBanner } from '@/app/components/shared/gap-banner';
+import { ComprehensionRatingCard } from '@/app/components/shared/comprehension-rating-card';
+import { PositionBadge } from '@/app/components/shared';
 import { ClarityPageLoader } from '@/components/ui/clarity-loader';
 import {
   Drawer,
@@ -27,7 +27,8 @@ import {
 import { useLetterReadingState } from '@/app/hooks/useLetterReadingState';
 import { snapshotToStoryWithPoints } from '@/app/utils/letter-snapshot-mapper';
 import { docsService } from '@/app/data/docs-service';
-import type { DocStory, LetterStorySnapshot } from '@/app/types';
+import { useAuth } from '@/auth';
+import type { DocStory, LetterStorySnapshot, PositionType } from '@/app/types';
 
 /**
  * Convert DocStory to LetterStorySnapshot shape.
@@ -147,7 +148,8 @@ function LetterPreviewFlow({
     true  // previewMode
   );
 
-  const [pendingRating, setPendingRating] = useState<number | null>(null);
+  const { user: currentUser } = useAuth();
+  const [selectedPosition, setSelectedPosition] = useState<PositionType | null>(null);
 
   const currentSnapshot = snapshots[state.currentStoryIndex];
   const currentStory = state.stories[state.currentStoryIndex];
@@ -174,7 +176,8 @@ function LetterPreviewFlow({
     );
   }
 
-  const senderName = 'You';
+  // Preview simulates the receiver's view — show sender's actual name, not "You"
+  const senderName = currentUser?.name ?? 'Someone';
   const storyWithPoints = snapshotToStoryWithPoints(currentSnapshot, senderName);
   const visiblePoints = storyWithPoints.points;
   const currentPoint = visiblePoints[currentStory.currentPointIndex];
@@ -200,26 +203,44 @@ function LetterPreviewFlow({
 
       {/* PHASE: point-engage */}
       {currentPhase === 'point-engage' && currentPoint && (
-        <LetterPointCard
+        <PointRow
           point={currentPoint}
-          senderName={senderName}
-          isRevealed={false}
-          receiverPosition={currentStory.positions[currentPoint.id] ?? null}
-          onSubmitPosition={(pointId, pos) => submitPointPosition(pointId, pos)}
-          disabled={isSubmitting}
-        />
+          authorName={senderName}
+          letterMode
+          onPositionSelect={(_, pos) => { if (pos !== null) setSelectedPosition(pos); }}
+        >
+          <Button
+            onClick={() => { if (selectedPosition) { submitPointPosition(currentPoint.id, selectedPosition); setSelectedPosition(null); } }}
+            disabled={!selectedPosition || isSubmitting}
+            className="w-full bg-[#0044CC] hover:bg-[#0033AA] text-white min-h-[44px]"
+          >
+            Submit
+          </Button>
+        </PointRow>
       )}
 
       {/* PHASE: point-revealed */}
       {currentPhase === 'point-revealed' && currentPoint && (
         <div className="space-y-4">
-          <LetterPointCard
+          <PointRow
             point={currentPoint}
-            senderName={senderName}
-            isRevealed
-            receiverPosition={currentStory.positions[currentPoint.id] ?? null}
-            onSubmitPosition={() => {}}
-          />
+            authorName={senderName}
+            letterMode
+            readOnly
+          >
+            {currentPoint.profileSubjectPosition && (
+              <div className="flex items-center gap-2 text-sm text-gray-700">
+                <span className="font-medium">{senderName}:</span>
+                <PositionBadge position={currentPoint.profileSubjectPosition} />
+              </div>
+            )}
+            {currentStory.positions[currentPoint.id] && (
+              <div className="flex items-center gap-2 text-sm text-gray-500">
+                <span>You:</span>
+                <PositionBadge position={currentStory.positions[currentPoint.id] as PositionType} />
+              </div>
+            )}
+          </PointRow>
           <Button
             variant="outline"
             onClick={advanceFromPointReveal}
@@ -245,30 +266,11 @@ function LetterPreviewFlow({
                 <DrawerTitle>Rate this story</DrawerTitle>
               </DrawerHeader>
               <div className="px-4 pb-8 pt-4 space-y-4">
-                <h2 className="text-lg font-semibold text-center">How well do you believe you understand this story?</h2>
-                <RatingButtons
-                  selectedValue={pendingRating}
-                  onSelect={(value) => setPendingRating(value)}
+                <ComprehensionRatingCard
+                  question="How well do you believe you understand this story?"
+                  onSelect={(rating) => submitStoryRating(rating)}
                   disabled={isSubmitting || currentStory.rating !== null}
                 />
-                <div className="flex justify-between text-xs text-muted-foreground">
-                  <span>Not at all</span>
-                  <span>Complete cognitive understanding</span>
-                </div>
-                <div className="flex justify-center">
-                  <Button
-                    size="sm"
-                    onClick={() => {
-                      if (pendingRating === null) return;
-                      submitStoryRating(pendingRating);
-                      setPendingRating(null);
-                    }}
-                    disabled={pendingRating === null || isSubmitting || currentStory.rating !== null}
-                    className="bg-[#0044CC] hover:bg-[#0033AA] text-white w-full max-w-[200px] mt-2 min-h-[44px]"
-                  >
-                    Submit
-                  </Button>
-                </div>
               </div>
             </DrawerContent>
           </Drawer>
@@ -312,26 +314,44 @@ function LetterPreviewFlow({
 
       {/* PHASE: remaining-point-engage */}
       {currentPhase === 'remaining-point-engage' && currentPoint && (
-        <LetterPointCard
+        <PointRow
           point={currentPoint}
-          senderName={senderName}
-          isRevealed={false}
-          receiverPosition={currentStory.positions[currentPoint.id] ?? null}
-          onSubmitPosition={(pointId, pos) => submitPointPosition(pointId, pos)}
-          disabled={isSubmitting}
-        />
+          authorName={senderName}
+          letterMode
+          onPositionSelect={(_, pos) => { if (pos !== null) setSelectedPosition(pos); }}
+        >
+          <Button
+            onClick={() => { if (selectedPosition) { submitPointPosition(currentPoint.id, selectedPosition); setSelectedPosition(null); } }}
+            disabled={!selectedPosition || isSubmitting}
+            className="w-full bg-[#0044CC] hover:bg-[#0033AA] text-white min-h-[44px]"
+          >
+            Submit
+          </Button>
+        </PointRow>
       )}
 
       {/* PHASE: remaining-point-revealed */}
       {currentPhase === 'remaining-point-revealed' && currentPoint && (
         <div className="space-y-4">
-          <LetterPointCard
+          <PointRow
             point={currentPoint}
-            senderName={senderName}
-            isRevealed
-            receiverPosition={currentStory.positions[currentPoint.id] ?? null}
-            onSubmitPosition={() => {}}
-          />
+            authorName={senderName}
+            letterMode
+            readOnly
+          >
+            {currentPoint.profileSubjectPosition && (
+              <div className="flex items-center gap-2 text-sm text-gray-700">
+                <span className="font-medium">{senderName}:</span>
+                <PositionBadge position={currentPoint.profileSubjectPosition} />
+              </div>
+            )}
+            {currentStory.positions[currentPoint.id] && (
+              <div className="flex items-center gap-2 text-sm text-gray-500">
+                <span>You:</span>
+                <PositionBadge position={currentStory.positions[currentPoint.id] as PositionType} />
+              </div>
+            )}
+          </PointRow>
           <Button
             variant="outline"
             onClick={advanceFromRemainingPointReveal}

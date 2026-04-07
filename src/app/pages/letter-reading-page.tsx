@@ -3,11 +3,11 @@
  * @description P581 Task 7 / P673: Letter reading page with token validation + reading flow.
  * Route: /letter/:id (id = deliveryId) with optional ?token=xxx for 1-to-1.
  *
- * P673: LetterReadingFlow now composes /live components:
+ * P673/P676: LetterReadingFlow composes /live components:
  * - LiveStoryCardExpanded (hidePoints) for story display
- * - Drawer + RatingButtons for rating
+ * - ComprehensionRatingCard in Drawer for rating
  * - JourneyToUnderstanding + GapBanner for gap reveal
- * - LetterPointCard for point engagement
+ * - PointRow (letterMode) for point engagement
  */
 
 import { useEffect, useState, useCallback, useRef } from 'react';
@@ -21,11 +21,11 @@ import { ClarityPageLoader } from '@/components/ui/clarity-loader';
 import { LetterCover } from '@/app/components/letters/letter-cover';
 import { LetterProgressBar } from '@/app/components/letters/letter-progress-bar';
 import { LetterCompletionSummary } from '@/app/components/letters/letter-completion-summary';
-import { LetterPointCard } from '@/app/components/letters/letter-point-card';
-import { LiveStoryCardExpanded } from '@/app/components/partners/live-story-card-expanded';
+import { LiveStoryCardExpanded, PointRow } from '@/app/components/partners/live-story-card-expanded';
 import { JourneyToUnderstanding } from '@/app/components/partners/live-mode-view';
-import { RatingButtons } from '@/app/components/partners/shared';
 import { GapBanner } from '@/app/components/shared/gap-banner';
+import { ComprehensionRatingCard } from '@/app/components/shared/comprehension-rating-card';
+import { PositionBadge } from '@/app/components/shared';
 import { Button } from '@/components/ui/button';
 import {
   Drawer,
@@ -43,7 +43,7 @@ import {
   updateDeliveryStatusByToken,
 } from '@/app/data/letters-service';
 import { analytics } from '@/lib/mixpanel';
-import type { ClarityLetter, LetterStorySnapshot, LetterDelivery } from '@/app/types';
+import type { ClarityLetter, LetterStorySnapshot, LetterDelivery, PositionType } from '@/app/types';
 
 // ============================================================================
 // TYPES
@@ -437,7 +437,7 @@ function LetterReadingFlow({
     isSubmitting,
   } = useLetterReadingState(delivery.id, letter.sender_id, snapshots, token);
 
-  const [pendingRating, setPendingRating] = useState<number | null>(null);
+  const [selectedPosition, setSelectedPosition] = useState<PositionType | null>(null);
 
   // When the state machine reports complete, notify parent
   useEffect(() => {
@@ -481,26 +481,44 @@ function LetterReadingFlow({
 
       {/* PHASE: point-engage — first point before story (anti-point lead, 2+ points) */}
       {currentPhase === 'point-engage' && currentPoint && (
-        <LetterPointCard
+        <PointRow
           point={currentPoint}
-          senderName={senderName}
-          isRevealed={false}
-          receiverPosition={currentStory.positions[currentPoint.id] ?? null}
-          onSubmitPosition={(pointId, pos) => submitPointPosition(pointId, pos)}
-          disabled={isSubmitting}
-        />
+          authorName={senderName}
+          letterMode
+          onPositionSelect={(_, pos) => { if (pos !== null) setSelectedPosition(pos); }}
+        >
+          <Button
+            onClick={() => { if (selectedPosition) { submitPointPosition(currentPoint.id, selectedPosition); setSelectedPosition(null); } }}
+            disabled={!selectedPosition || isSubmitting}
+            className="w-full bg-[#0044CC] hover:bg-[#0033AA] text-white min-h-[44px]"
+          >
+            Submit
+          </Button>
+        </PointRow>
       )}
 
       {/* PHASE: point-revealed — sender's position revealed after receiver positioned */}
       {currentPhase === 'point-revealed' && currentPoint && (
         <div className="space-y-4">
-          <LetterPointCard
+          <PointRow
             point={currentPoint}
-            senderName={senderName}
-            isRevealed
-            receiverPosition={currentStory.positions[currentPoint.id] ?? null}
-            onSubmitPosition={() => {}}
-          />
+            authorName={senderName}
+            letterMode
+            readOnly
+          >
+            {currentPoint.profileSubjectPosition && (
+              <div className="flex items-center gap-2 text-sm text-gray-700">
+                <span className="font-medium">{senderName}:</span>
+                <PositionBadge position={currentPoint.profileSubjectPosition} />
+              </div>
+            )}
+            {currentStory.positions[currentPoint.id] && (
+              <div className="flex items-center gap-2 text-sm text-gray-500">
+                <span>You:</span>
+                <PositionBadge position={currentStory.positions[currentPoint.id] as PositionType} />
+              </div>
+            )}
+          </PointRow>
           <Button
             variant="outline"
             onClick={advanceFromPointReveal}
@@ -540,37 +558,18 @@ function LetterReadingFlow({
                   <DrawerTitle>Rate this story</DrawerTitle>
                 </DrawerHeader>
                 <div className="px-4 pb-8 pt-4 space-y-4">
-                  <h2 className="text-lg font-semibold text-center">How well do you believe you understand this story?</h2>
-                  <RatingButtons
-                    selectedValue={pendingRating}
-                    onSelect={(value) => {
-                      setPendingRating(value);
+                  <ComprehensionRatingCard
+                    question="How well do you believe you understand this story?"
+                    onSelect={(rating) => {
+                      analytics.track('letter_story_rated', {
+                        story_index: state.currentStoryIndex,
+                        total_stories: snapshots.length,
+                        rating,
+                      });
+                      submitStoryRating(rating);
                     }}
                     disabled={isSubmitting || currentStory.rating !== null}
                   />
-                  <div className="flex justify-between text-xs text-muted-foreground">
-                    <span>Not at all</span>
-                    <span>Complete cognitive understanding</span>
-                  </div>
-                  <div className="flex justify-center">
-                    <Button
-                      size="sm"
-                      onClick={() => {
-                        if (pendingRating === null) return;
-                        analytics.track('letter_story_rated', {
-                          story_index: state.currentStoryIndex,
-                          total_stories: snapshots.length,
-                          rating: pendingRating,
-                        });
-                        submitStoryRating(pendingRating);
-                        setPendingRating(null);
-                      }}
-                      disabled={pendingRating === null || isSubmitting || currentStory.rating !== null}
-                      className="bg-[#0044CC] hover:bg-[#0033AA] text-white w-full max-w-[200px] mt-2 min-h-[44px]"
-                    >
-                      Submit
-                    </Button>
-                  </div>
                 </div>
               </DrawerContent>
             </Drawer>
@@ -615,26 +614,44 @@ function LetterReadingFlow({
 
       {/* PHASE: remaining-point-engage — remaining point cards after story */}
       {currentPhase === 'remaining-point-engage' && currentPoint && (
-        <LetterPointCard
+        <PointRow
           point={currentPoint}
-          senderName={senderName}
-          isRevealed={false}
-          receiverPosition={currentStory.positions[currentPoint.id] ?? null}
-          onSubmitPosition={(pointId, pos) => submitPointPosition(pointId, pos)}
-          disabled={isSubmitting}
-        />
+          authorName={senderName}
+          letterMode
+          onPositionSelect={(_, pos) => { if (pos !== null) setSelectedPosition(pos); }}
+        >
+          <Button
+            onClick={() => { if (selectedPosition) { submitPointPosition(currentPoint.id, selectedPosition); setSelectedPosition(null); } }}
+            disabled={!selectedPosition || isSubmitting}
+            className="w-full bg-[#0044CC] hover:bg-[#0033AA] text-white min-h-[44px]"
+          >
+            Submit
+          </Button>
+        </PointRow>
       )}
 
       {/* PHASE: remaining-point-revealed — sender position + gap for remaining point */}
       {currentPhase === 'remaining-point-revealed' && currentPoint && (
         <div className="space-y-4">
-          <LetterPointCard
+          <PointRow
             point={currentPoint}
-            senderName={senderName}
-            isRevealed
-            receiverPosition={currentStory.positions[currentPoint.id] ?? null}
-            onSubmitPosition={() => {}}
-          />
+            authorName={senderName}
+            letterMode
+            readOnly
+          >
+            {currentPoint.profileSubjectPosition && (
+              <div className="flex items-center gap-2 text-sm text-gray-700">
+                <span className="font-medium">{senderName}:</span>
+                <PositionBadge position={currentPoint.profileSubjectPosition} />
+              </div>
+            )}
+            {currentStory.positions[currentPoint.id] && (
+              <div className="flex items-center gap-2 text-sm text-gray-500">
+                <span>You:</span>
+                <PositionBadge position={currentStory.positions[currentPoint.id] as PositionType} />
+              </div>
+            )}
+          </PointRow>
           <Button
             variant="outline"
             onClick={advanceFromRemainingPointReveal}

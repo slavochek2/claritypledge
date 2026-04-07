@@ -10,7 +10,7 @@
  * Key Components:
  * - IdleScreen: Start screen with "Did you get me?" / "Did I get you?" buttons
  * - RatingScreen: Rating input (0-10 scale)
- * - RatingCard: Reusable rating question + scale component
+ * - ComprehensionRatingCard: Reusable rating question + scale component (shared)
  * - JourneyToUnderstanding: Shows rating history across rounds
  * - UnderstandingScreen: Unified component for waiting, gap-revealed, explain-back, results, and celebration phases
  */
@@ -36,7 +36,7 @@ import {
 } from '@/components/ui/dialog';
 import { type LiveSessionState, type GapType, type FlowType, type StoryWithPoints, type PointWithCreator, type PointWithUserPosition, type PositionType } from '@/app/types';
 import { LiveSessionBanner } from './live-session-banner';
-import { getFirstName, RatingButtons } from './shared';
+import { getFirstName } from './shared';
 import { playCelebrationSound } from '@/hooks/use-sound';
 import { SessionHistoryList, PointCardPreview } from './live-content-cards';
 import { RoundSummaryScreen } from './round-summary-screen';
@@ -46,6 +46,7 @@ import { GravatarAvatar } from '@/components/ui/gravatar-avatar';
 import { FreeModeView } from './free-mode-view';
 import { GapBanner } from '@/app/components/shared/gap-banner';
 import { PositionBadge } from '@/app/components/shared';
+import { ComprehensionRatingCard } from '@/app/components/shared/comprehension-rating-card';
 import { storiesService } from '@/app/data/stories-service';
 import { pointsService } from '@/app/data/points-service';
 import { analytics } from '@/lib/mixpanel';
@@ -1392,7 +1393,7 @@ function IdleScreen({
               </DrawerTitle>
             </DrawerHeader>
             <div className="px-4 pb-8 pt-4 space-y-4">
-              <RatingCard
+              <ComprehensionRatingCard
                 question={isProverInitiated
                   ? `How well do you believe ${proverName} understands you?`
                   : `How confident are you that you understand ${checkerName}?`}
@@ -1602,7 +1603,7 @@ function RatingScreen({
             <DrawerDescription>Submit your rating on the scale below</DrawerDescription>
           </DrawerHeader>
           <div className="px-4 pb-8 pt-4 space-y-4">
-            <RatingCard
+            <ComprehensionRatingCard
               question={prompt}
               onSelect={onRatingSubmit}
               onBack={onBack}
@@ -1749,7 +1750,7 @@ function RatingScreenWithOptionalDrawer({
             <DrawerDescription>Submit your rating on the scale below</DrawerDescription>
           </DrawerHeader>
           <div className="px-4 pb-8 pt-4 space-y-4">
-            <RatingCard
+            <ComprehensionRatingCard
               question={prompt}
               onSelect={onRatingSubmit}
               onSkip={showDrawer ? onSkip : undefined}
@@ -1772,73 +1773,7 @@ function RatingScreenWithOptionalDrawer({
 // Uses select + submit pattern: tap to select, then tap Submit to confirm
 // ============================================================================
 
-interface RatingCardProps {
-  question?: string;
-  onSelect: (rating: number) => void;
-  className?: string;
-  /** Optional skip handler - when provided, shows Skip button inside the card */
-  onSkip?: () => void;
-  /** Label for the skip button (default: "Skip") */
-  skipLabel?: string;
-  /** Optional back handler - when provided, shows Back button inside the card */
-  onBack?: () => void;
-}
-
-function RatingCard({ question, onSelect, className = '', onSkip, skipLabel = 'Speak freely', onBack }: RatingCardProps) {
-  const [selectedRating, setSelectedRating] = useState<number | null>(null);
-
-  const handleSubmit = () => {
-    if (selectedRating !== null) {
-      onSelect(selectedRating);
-    }
-  };
-
-  return (
-    <div className={`bg-white rounded-lg p-5 space-y-4 shadow-sm border-l-4 border-l-blue-500 ${className}`}>
-      {question && (
-        <h2 className="text-lg font-semibold text-center">
-          {question}
-        </h2>
-      )}
-
-      <div className={`flex flex-col items-center space-y-3 ${question ? 'pt-3 border-t' : ''}`}>
-        <div className="flex justify-between text-xs text-muted-foreground w-full max-w-sm">
-          <span>Not at all</span>
-          <span>Complete cognitive understanding</span>
-        </div>
-        <RatingButtons selectedValue={selectedRating} onSelect={setSelectedRating} />
-        <Button
-          size="sm"
-          className="bg-blue-500 hover:bg-blue-600 w-full max-w-[200px] mt-2"
-          disabled={selectedRating === null}
-          onClick={handleSubmit}
-        >
-          Submit
-        </Button>
-        {onSkip && (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={onSkip}
-            className="text-muted-foreground min-h-[44px]"
-          >
-            {skipLabel}
-          </Button>
-        )}
-        {onBack && (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={onBack}
-            className="text-muted-foreground"
-          >
-            Back
-          </Button>
-        )}
-      </div>
-    </div>
-  );
-}
+// ComprehensionRatingCard — extracted to @/app/components/shared/comprehension-rating-card.tsx
 
 // ============================================================================
 // JOURNEY TO UNDERSTANDING - Shows rating history across rounds
@@ -2612,7 +2547,7 @@ function UnderstandingScreen({
                 <DrawerDescription>Submit your rating on the scale below</DrawerDescription>
               </DrawerHeader>
               <div className="px-4 pb-8 pt-4 space-y-4">
-                <RatingCard
+                <ComprehensionRatingCard
                   question={explainBackPrompt}
                   onSelect={onExplainBackRate}
                   onSkip={onSkip}

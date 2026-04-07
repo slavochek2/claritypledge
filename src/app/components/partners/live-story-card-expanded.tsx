@@ -178,7 +178,7 @@ export function LiveStoryCardExpanded({
   );
 }
 
-function PointRow({
+export function PointRow({
   point,
   authorName,
   authorAvatarUrl,
@@ -191,6 +191,8 @@ function PointRow({
   isOwnStory = false,
   isGuest = false,
   readOnly = false,
+  letterMode = false,
+  children,
 }: {
   point: PointSummary;
   authorName: string;
@@ -204,6 +206,10 @@ function PointRow({
   isOwnStory?: boolean;
   isGuest?: boolean;
   readOnly?: boolean;
+  /** Letter context: hides story CTA, guest hint, tag pills, visibility icon */
+  letterMode?: boolean;
+  /** Render slot after point content (e.g., Submit button, position reveal badges) */
+  children?: React.ReactNode;
 }) {
   // Local state so button highlights immediately on click, independent of the
   // frozen selectedStoryData snapshot. Echoes to onPositionSelect for liveState sync.
@@ -227,7 +233,7 @@ function PointRow({
   return (
     <div className="w-full text-left">
       {/* Position badge above point — shows badge person's stance (author for partner view, partner for host view) */}
-      {point.profileSubjectPosition && (
+      {point.profileSubjectPosition && !letterMode && (
         <div className="flex items-center gap-1.5 mb-1.5 text-sm text-gray-700">
           <GravatarAvatar
             name={badgePersonName ?? authorName}
@@ -253,11 +259,11 @@ function PointRow({
             <Pin size={12} className="rotate-45" />
           </div>
           <p className="text-sm text-gray-800 flex-1 min-w-0 break-words">
-            <InlineVisibilityIcon visibility={point.visibility} />{' '}{linkifyText(stripHashtags(point.statement, point.tags))}
+            {!letterMode && <InlineVisibilityIcon visibility={point.visibility} />}{!letterMode && ' '}{linkifyText(stripHashtags(point.statement, point.tags))}
           </p>
         </div>
 
-        {point.tags?.length > 0 && <TagPills tags={point.tags} context="live" className="mt-1" />}
+        {!letterMode && point.tags?.length > 0 && <TagPills tags={point.tags} context="live" className="mt-1" />}
         {!readOnly && (
           <PositionButtons
             userPosition={userPosition}
@@ -269,7 +275,7 @@ function PointRow({
         )}
 
         {/* P490: Guest hint — positions are ephemeral, prompt to sign up */}
-        {!readOnly && isGuest && userPosition && (
+        {!letterMode && !readOnly && isGuest && userPosition && (
           <div className="border-t border-gray-200 pt-2">
             <p className="text-xs text-gray-500">
               Position shared live — sign up to save it
@@ -280,7 +286,7 @@ function PointRow({
         {/* P456: Disabled story CTA footer — visible but non-interactive in /live session.
             P487+: Hidden on own story — use shouldShowStoryCTA shared utility. */}
         {/* P560: Position no longer required for story CTA */}
-        {!readOnly && !isGuest && shouldShowStoryCTA({ userPosition, isOwnStory }) === 'show' && (() => {
+        {!letterMode && !readOnly && !isGuest && shouldShowStoryCTA({ userPosition, isOwnStory }) === 'show' && (() => {
           // Use position-specific copy when available, generic fallback otherwise
           const copy = userPosition
             ? getPositionCTACopy(getPositionGroup(userPosition))
@@ -308,6 +314,9 @@ function PointRow({
             </div>
           );
         })()}
+
+        {/* Render slot for letter-specific content (Submit button, position reveal) */}
+        {children}
       </div>
     </div>
   );
