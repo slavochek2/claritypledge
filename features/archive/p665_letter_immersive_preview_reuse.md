@@ -1,9 +1,10 @@
 ---
-status: week
+status: rejected
 type: change-request
 rank: 1000066.0
 changes: p661
 chain_root: p581
+superseded_by: p673
 tags:
   - redesign
   - p661
