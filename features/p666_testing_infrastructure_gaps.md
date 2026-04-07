@@ -137,6 +137,7 @@ The following files use raw `browser.newContext()` without going through `getTes
 - `save-auth.ts` — auth state persistence helper, raw context is intentional
 - `verify-prod-agreements.spec.ts` — prod verification, uses own auth flow
 
+
 ### Phase 2: Two-Party Chrome Automation (Gap 5) → P668
 
 Split into its own spec: `features/p668_two_party_chrome_automation.md`. Architecture decision needed before implementation — see P668 for options.
