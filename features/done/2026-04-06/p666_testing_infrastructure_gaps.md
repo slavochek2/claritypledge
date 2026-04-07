@@ -1,9 +1,9 @@
 ---
-status: in-progress
+status: all-done
 type: task
 rank: 1
-delivery_stage: ship
 pipeline_ran: [dev, ship]
+completed_at: "2026-04-06"
 tags:
   - testing
   - e2e
