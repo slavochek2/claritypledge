@@ -2,6 +2,22 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-07 [technical]: Chrome-free letter routes via layout prop, not new layout component
+
+**Context:** Letter preview and reading routes (`/letter/:docId/preview`, `/letter/:id`) rendered inside `ClarityLandingLayout`, which unconditionally shows `SimpleNavigation` (top nav). Bottom nav was already hidden via `focusRoutes`. Recipients arriving via email link saw full ClarityPledge chrome — breaking the ritual/immersive framing (D6).
+**Decision:** Add `chromeFree?: boolean` prop to `ClarityLandingLayout`. When true: renders children inside `LiveSessionProvider` but without `SimpleNavigation`, `BottomNav`, footer, or top/bottom padding. Letter routes pass `chromeFree` in `App.tsx`. Embed mode (`?embed=true`) remains separate — it strips providers entirely (for third-party iframes).
+**Alternatives rejected:** (A) New `ImmersiveLayout` component — second layout to maintain, only one consumer. (B) Route detection inside layout (`pathname.startsWith('/letter/')`) — couples layout to route knowledge. (C) Reuse `?embed=true` — loses `LiveSessionProvider` and `Toaster` which letter routes need.
+**Consequences:** Pattern for future immersive routes: pass `chromeFree` to layout. If a third mode appears, extract to layout factory. Compose route (`/letter/:docId/compose`) intentionally keeps chrome — sender is navigating the app, not in an immersive experience.
+**References:** [p665_letter_immersive_preview_reuse.md](../features/p665_letter_immersive_preview_reuse.md)
+
+## 2026-04-07 [technical]: Preview page must reuse reading components — no parallel UI
+
+**Context:** P661 spec AD5 explicitly stated preview should render `LetterStoryReader` in non-persisting mode. Implementation diverged — `letter-preview-page.tsx` used `LiveStoryCardExpanded` + `RatingButtons` directly (139 lines of parallel UI). The preview banner said "The receiver will see this" but the receiver saw different components with different layout and interaction patterns.
+**Decision:** Preview page rewrites to use `LetterStoryReader` with `previewMode: true` prop + `useLetterReadingState` with `previewMode` flag that skips 5 DB write call sites. `DocStory[]` converts to `LetterStorySnapshot[]` via trivial field mapping (LetterStoryReader only reads `point_config`). This ensures preview shows exactly what the recipient sees.
+**Alternatives rejected:** (A) Building a separate mini state machine for preview — the exact mistake being corrected (parallel implementations diverge). (B) Adding `?preview=true` to reading page URL — reading route expects delivery ID that doesn't exist pre-seal.
+**Consequences:** Anti-pattern established: when a preview of X exists, it must render the same components as X. A separate preview implementation is tech debt by design. The `previewMode` prop pattern (same component, DB writes stubbed) is reusable for future previews.
+**References:** [p665_letter_immersive_preview_reuse.md](../features/p665_letter_immersive_preview_reuse.md)
+
 ## 2026-04-07 [technical]: Sandbox PATH incompatibility — skills must use absolute paths for shell tools
 
 **Context:** The weekly maintenance skill's bash blocks used bare `grep`, `sed`, `find`, `wc` commands. These failed silently in Claude Code's sandbox environment because the sandbox PATH doesn't include `/usr/bin/` reliably. The skill ran without errors but produced empty/wrong output — a silent failure mode.

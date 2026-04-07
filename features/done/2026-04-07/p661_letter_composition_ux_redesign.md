@@ -1,7 +1,8 @@
 ---
-status: in-progress
+status: done
 type: change-request
 rank: 1000063.0
+completed_at: "2026-04-07"
 changes: p581
 tags:
   - redesign

@@ -15,14 +15,13 @@ delivery_stage: change-request
 flow: dev
 pipeline_plan: [change-request, dev, verify]
 pipeline_ran: [change-request]
-pipeline_skipped: [challenge-prd -- decisions made live in conversation, ux -- swapping existing patterns not new components, architect -- 2 files no schema no security, generate-tests -- visual-only existing E2E covers regressions, decompose -- 2 files 3 independent edits]
+pipeline_skipped: [challenge-prd -- decisions made live in conversation, ux -- swapping existing patterns not new components, architect -- 1 file no schema no security, generate-tests -- visual-only existing E2E covers regressions, decompose -- 1 file 3 independent edits]
 ---
 
 # P664: Letters Visual Hierarchy Polish — Sent Tab & Preview
 
 > **Redesign of:** [P660: Letters Navigation Architecture](p660_letters_navigation_architecture.md)
-> **Also affects:** [P661: Letter Composition UX Redesign](p661_letter_composition_ux_redesign.md) (preview page)
-> **What was wrong:** During UAT of P660/P661 on w2, three visual hierarchy issues surfaced: (1) colored status badges in Sent tab compete with the Results action button for attention, (2) Private/Public indicator uses a corner pill badge inconsistent with Drafts tab's inline lock/globe icon, (3) preview page has two confusing exit actions ("Back to composition" + static "End of preview" text) instead of one clear button. Also a counter bug: "Story 6 of 4".
+> **What was wrong:** During UAT of P660/P661 on w2, two visual hierarchy issues surfaced in the Sent tab: (1) colored status badges compete with the Results action button for attention, (2) Private/Public indicator uses a corner pill badge inconsistent with Drafts tab's inline lock/globe icon. Preview page issues (exit UX, counter bug) are now handled by P665.
 
 ## Operating Mode
 
@@ -33,15 +32,13 @@ pipeline_skipped: [challenge-prd -- decisions made live in conversation, ux -- s
 
 ## Problem Statement
 
-P660 and P661 implemented the letters navigation architecture and composition redesign correctly at a structural level. During UAT verification, three visual hierarchy issues create friction:
+P660 and P661 implemented the letters navigation architecture and composition redesign correctly at a structural level. During UAT verification, two visual hierarchy issues create friction in the Sent tab:
 
 1. **Status badges steal focus from actions.** `LetterStatusBadge` renders colored pills (green for "Completed", blue for "Opened") that compete with the blue [Results] button. The action (Results) should be the highest-priority visual element, but colored badges at the same level create equal visual weight. Status is informational context, not an action.
 
 2. **Mode indicator inconsistency.** Drafts tab uses `InlineVisibilityIcon` (lock/globe icon inline with title). Sent tab uses a corner pill badge ("Private" / "Public" text in a colored pill). Same information, different patterns across sibling tabs.
 
-3. **Preview page has two exit paths, one broken.** "Back to composition" is a text link (confusing when preview opens in a new tab — "back" to where?). "End of preview" is a `<p>` tag, not a button — it's literally static text. The user sees two things that look like exit actions, one doesn't work, and neither is prominent enough.
-
-Additionally, a counter bug: progress shows "Story 6 of 4" — `currentIndex` exceeds `stories.length`.
+~~Preview page issues (exit UX, counter bug) originally tracked here are now addressed by [P665](p665_letter_immersive_preview_reuse.md), which rewrites the preview page entirely.~~
 
 ## Jobs To Be Done
 
@@ -147,15 +144,15 @@ Additionally, a counter bug: progress shows "Story 6 of 4" — `currentIndex` ex
 
 | Section | P661 said | Status | Replaced by |
 |---------|-----------|--------|-------------|
-| Preview link behavior | "← Back to composition link returns to review screen" | Superseded | No back link; single "Close Preview" button |
+| Preview link behavior | "← Back to composition link returns to review screen" | ~~Moved to P665~~ | Preview page entirely owned by P665 |
 
 ## Requirements
 
 1. **Sent tab recipient rows:** Replace `LetterStatusBadge` with inline muted text after recipient name. Format: `{icon} {name} · {status}`. Status text uses `text-muted-foreground`, no colored background.
 2. **Sent tab [Results] button:** Change from `variant="outline"` to `variant="default"` (blue primary). Only visible for completed deliveries.
 3. **Sent tab card header:** Replace pill badge with `InlineVisibilityIcon` positioned before the title. Remove the pill span and its conditional color classes.
-4. **Preview page:** Remove "Back to composition" link. Replace "End of preview" `<p>` with `<Button variant="default">Close Preview</Button>`. Button calls `window.close()` with `/letters?tab=sent` fallback.
-5. **Preview counter bug:** Fix "Story N of M" to never show N > M. Add bounds guard on `currentIndex`.
+
+> ~~Requirements 4-5 (preview exit UX, counter bug) moved to P665 — that spec rewrites `letter-preview-page.tsx` entirely.~~
 
 ## What Stays the Same
 
@@ -164,7 +161,7 @@ Additionally, a counter bug: progress shows "Story 6 of 4" — `currentIndex` ex
 - **Inbox tab:** Entirely unchanged
 - **Drafts tab:** Entirely unchanged (already correct)
 - **All P661 composition flow:** Receiver modal, prediction walk, review screen, seal
-- **Preview page content:** Story display, rating interaction, progress bar, preview banner
+- **Preview page:** Entirely owned by P665
 - **Database schema:** No changes
 - **All reading/completion flows:** Unchanged
 
@@ -172,9 +169,9 @@ Additionally, a counter bug: progress shows "Story 6 of 4" — `currentIndex` ex
 
 **In scope:**
 - `src/app/components/letters/sent-tab.tsx` — `DeliveryRow` (status → inline text, Results → primary), `LetterCard` header (pill → `InlineVisibilityIcon`)
-- `src/app/pages/letter-preview-page.tsx` — Remove "Back to composition", replace "End of preview" with Close Preview button, fix counter bounds
 
 **Out of scope:**
+- `src/app/pages/letter-preview-page.tsx` — owned by P665
 - `src/app/components/letters/drafts-tab.tsx` — already correct
 - `src/app/components/letters/inbox-tab.tsx` — unchanged
 - `src/app/pages/letters-page.tsx` — tab shell unchanged
@@ -188,12 +185,9 @@ Additionally, a counter bug: progress shows "Story 6 of 4" — `currentIndex` ex
 - [ ] [Results] button is blue primary (`variant="default"`), not outline
 - [ ] Sent tab card header uses `InlineVisibilityIcon` before title (matching Drafts tab)
 - [ ] No pill badge in Sent tab card headers
-- [ ] Preview page has a single "Close Preview" blue primary button (no "Back to composition" link)
-- [ ] "Close Preview" calls `window.close()` with navigation fallback
-- [ ] Preview progress counter never shows story number > total stories
 - [ ] Drafts tab and Inbox tab are visually unchanged
 - [ ] All existing P660 and P661 tests still pass
 
 ## Next Steps
 
-Scope is clear, changes are targeted (2 files, visual-only) → run `/pick-flow` to confirm, then `/dev` directly.
+Scope is clear, changes are targeted (1 file: `sent-tab.tsx`, visual-only) → run `/dev` after P665 ships.

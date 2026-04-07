@@ -1,7 +1,7 @@
 # Done Features Index
 
 Quick reference for past completed work. Consult when starting work on a related topic.
-Last updated: 2026-04-07 (P666 Testing Infrastructure Gaps)
+Last updated: 2026-04-07 (P661 Letter Composition UX Redesign)
 
 ---
 
@@ -88,6 +88,10 @@ Last updated: 2026-04-07 (P666 Testing Infrastructure Gaps)
 - **P138** (Feb 5) E2E Test Infrastructure — Supabase client setup, transaction handling, data cleanup between tests
 - **P271** (Feb 5) Missing Column After Migration — regenerate types via `supabase gen types` after schema changes
 - **P571** (Mar 26) Hide Test Accounts from Pledgers — use query-level filter (not RLS) for display concerns; WITH CHECK prevents flag self-clearing; personal emails via dashboard only, never in public SQL
+
+## Letters
+
+- **P661** (Apr 07) Letter Composition UX Redesign — preview must reuse reading components (not parallel UI); `LiveStoryCardExpanded` in prediction walk, `LetterStoryReader` in preview/reading; superseded by P665 for chrome-free + preview rewrite
 
 ## Navigation & Routing
 
