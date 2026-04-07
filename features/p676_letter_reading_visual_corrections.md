@@ -20,7 +20,7 @@ locked_at: '2026-04-07T11:25:36.579Z'
 # P676: Letter Reading Visual Corrections
 
 > **Redesign of:** [P673: Letter Reading Flow Reuses /live Components](../features/p673_letter_reading_reuses_live_components.md)
-> **What was wrong:** The Drawer component applies a dark backdrop overlay that obscures the story card behind it — in /live the story stays visible during rating. The Drawer styling (height, padding, typography) doesn't match /live's drawer. The "Submit" button on the story card after rating is too prominent and should be "Continue" placed outside/below the card. Position labels (Agrees/Disagrees) on the profile page render above the card boundary instead of inside it — possible regression from `hidePoints` prop addition to `LiveStoryCardExpanded`.
+> **What was wrong:** The Drawer component applies a dark backdrop overlay that obscures the story card behind it — in /live the story stays visible during rating. The Drawer styling (height, padding, typography) doesn't match /live's drawer. The "Submit" button on the story card after rating is too prominent and should be "Continue" placed outside/below the card. Position labels (Agrees/Disagrees) on the profile page render above the card boundary instead of inside it. Additionally, the in-card "Submit" label implies finality in a multi-story flow, the action button sits full-width below vote controls instead of inline-right, and there's no tooltip feedback when the button is disabled.
 
 ## Operating Mode
 
@@ -31,7 +31,7 @@ locked_at: '2026-04-07T11:25:36.579Z'
 
 ## Problem Statement
 
-P673 correctly replaced custom letter components with /live's production components (LiveStoryCardExpanded, Drawer, JourneyToUnderstanding, PositionButtons). The component reuse strategy is right — but four visual details diverge from /live's actual behavior, breaking the "identical to /live" promise.
+P673 correctly replaced custom letter components with /live's production components (LiveStoryCardExpanded, Drawer, JourneyToUnderstanding, PositionButtons). The component reuse strategy is right — but seven visual details diverge from /live's actual behavior or from established UX patterns elsewhere in the app.
 
 ## Jobs To Be Done
 
@@ -53,6 +53,15 @@ After the receiver submits a rating or positions on a point, the "Submit" button
 **Issue 4 — Position label overflow on profile page:**
 On the profile page, the position badge (e.g., "Agrees", "Disagrees") for the other user renders above the story card boundary instead of inside the card. This may be a regression from the `hidePoints` prop addition to `LiveStoryCardExpanded`.
 
+**Issue 5 — "Submit" label in point-engage implies finality:**
+In `point-engage` and `remaining-point-engage` phases, the action button reads "Submit". This is a multi-story flow (e.g., "STORY 1 OF 3") — "Submit" implies finality when the user is simply advancing. Should read "Continue" throughout, with "Submit" reserved for the in-Drawer rating action only.
+
+**Issue 6 — Action button full-width below vote controls:**
+The "Submit" (soon "Continue") button renders full-width below PositionButtons (Disagree/Unsure/Agree), creating a heavy visual block that breaks left-to-right reading flow. The story-detail-page already has the correct pattern: button sits inline-right of vote controls using `flex flex-wrap items-center gap-2` with `ml-auto`. Letter reading should adopt this pattern.
+
+**Issue 7 — No disabled-state feedback:**
+When the action button is disabled (no position selected), there is no hint explaining why. The story-detail-page uses a Tooltip: "Pick your position first". Letter reading should match.
+
 ## Root Cause
 
 1. **Drawer backdrop:** The `<Drawer>` shadcn/ui component defaults to `modal={true}` which renders a backdrop overlay. P673's Decision 3 specified `dismissible={false}` but did not set `modal={false}` to prevent the overlay.
@@ -63,7 +72,13 @@ On the profile page, the position badge (e.g., "Agrees", "Disagrees") for the ot
 
 4. **Position label overflow:** The `hidePoints` prop addition or the `StoryWithPoints` adapter may produce a layout state where the position badge container is outside the card's content boundary. Needs investigation during `/architect`.
 
-Code references: `src/app/pages/letter-reading-page.tsx`, `src/app/pages/letter-preview-page.tsx`, `src/app/components/partners/live-story-card-expanded.tsx`
+5. **"Submit" label:** P673 used "Submit" for the in-card position action without distinguishing it from the in-Drawer rating Submit. In a multi-story sequential flow, "Submit" implies completion; "Continue" matches the progressive pattern.
+
+6. **Button placement:** The letter pages pass the action button as `children` to `PointRow`, which renders it as a vertical sibling below `PositionButtons` (line 325 of `live-story-card-expanded.tsx`). The story-detail-page uses a `flex flex-wrap` horizontal layout with `ml-auto` for the same interaction pattern.
+
+7. **No disabled tooltip:** The letter pages set `disabled={!selectedPosition}` on the button but provide no visual hint. The story-detail-page wraps the same pattern in shadcn `Tooltip` with contextual text.
+
+Code references: `src/app/pages/letter-reading-page.tsx`, `src/app/pages/letter-preview-page.tsx`, `src/app/components/partners/live-story-card-expanded.tsx`, `src/app/pages/story-detail-page.tsx` (reference pattern)
 
 ## Predecessor Sections Superseded
 
@@ -80,6 +95,9 @@ Code references: `src/app/pages/letter-reading-page.tsx`, `src/app/pages/letter-
 2. **Drawer styling matches /live:** Height, padding, border radius, typography, and background color of the Drawer match /live's rating drawer.
 3. **"Continue" button after reveal:** After submitting a rating or point position and seeing the reveal, the progression button reads "Continue" (not "Submit"), is positioned below/outside the card, and uses secondary visual weight (smaller, less prominent than the in-Drawer Submit).
 4. **Position labels inside card boundary:** On story cards with position badges (Agrees/Disagrees), the badge renders inside the card's visual boundary — no overflow above the card.
+5. **"Continue" label on in-card action button:** During `point-engage` and `remaining-point-engage` phases, the action button reads "Continue" (not "Submit"). "Submit" is reserved for the in-Drawer rating action only.
+6. **Action button inline-right of vote controls:** The "Continue" button sits on the same row as PositionButtons (Disagree/Unsure/Agree), aligned right via `ml-auto` in a `flex flex-wrap` container. On narrow viewports, the button wraps to its own line gracefully.
+7. **Disabled-state tooltip:** When the "Continue" button is disabled (no position selected), hovering shows a tooltip: "Pick your position first".
 
 ## What Stays the Same
 
@@ -118,6 +136,9 @@ Code references: `src/app/pages/letter-reading-page.tsx`, `src/app/pages/letter-
 - [x] Surfaces NOT in scope are visually unchanged
 - [x] All existing P673 tests still pass
 - [ ] /live rating drawer behavior unchanged (regression check)
+- [ ] In-card action button during point-engage reads "Continue" (not "Submit")
+- [ ] "Continue" button sits inline-right of PositionButtons (same row, `ml-auto`)
+- [ ] Disabled "Continue" shows tooltip "Pick your position first" on hover
 
 ## Technical Architecture
 
@@ -137,6 +158,12 @@ The `Drawer` component (`src/components/ui/drawer.tsx`) defaults `modal` to unde
 **Issue 3 — Button prominence:** After `story-revealed` phase (line 596-603 in `letter-reading-page.tsx`), the "Continue" button is already correctly labeled "Continue" and placed outside the card. After `point-revealed` phase (line 504-509), same. The problem is specifically in the `story-rate` phase: the "Submit" button inside the drawer (line 549-558) is `w-full` with primary CTA styling — this is correct for the drawer's internal action. However, the spec says the post-reveal progression button should be "Continue" outside/below the card. Examining the `story-revealed` phase: lines 596-603 already have `<Button>Continue</Button>` outside the card. The actual issue is that the `LetterPointCard` component (line 69-75 in `letter-point-card.tsx`) has a `w-full` "Submit" button that is too prominent — this is the in-card submission for positions, not the progression button. The spec calls for the card-level progression action to use secondary weight.
 
 **Issue 4 — Position badge overflow:** The `PointRow` function inside `LiveStoryCardExpanded` (line 228-313) renders the position badge (lines 229-247) as a sibling to the point's `div.p-3.rounded-lg.border.border-gray-200.bg-gray-50` container (line 250). The badge is inside the `ThreadLineItem` but outside the visually bordered point box. The `ThreadLineGroup` + `ThreadLineItem` structure (lines 155-176) places all point rows inside `div.px-3.pb-3`. The position badge (avatar + name + ear count + PositionBadge) renders with `mb-1.5`, which is correctly contained inside the card's `div.px-3.pb-3` container. The issue is NOT overflow from `LiveStoryCardExpanded` on the profile page — the profile page (`profile-page-v2.tsx`) does NOT use `LiveStoryCardExpanded` at all. It has its own `PointRow` component (line ~1580) with position badge rendering. The `hidePoints` prop simply hides the points section. The spec's hypothesis about `hidePoints` regression is incorrect. The actual overflow is in the **letter pages** when `LiveStoryCardExpanded` renders with `hidePoints={true}` but the `storyWithPoints` data still contains `profileSubjectPosition` on points — the `hidePoints` prop hides the points section (lines 131, 153), so no badge overflow can occur from hidden points. **Root cause clarification:** The position badge overflow must be occurring on a different surface — likely when `LetterPointCard` is displayed with revealed positions, or when `LiveStoryCardExpanded` is used WITHOUT `hidePoints` in a context where `profileSubjectPosition` is populated. Given the spec says "on profile page" — this is the profile page's own `PointRow` (not `LiveStoryCardExpanded`). The profile page's `PointRow` (line 1583-1604) renders the badge in a `div` with `mb-2` but no `overflow-hidden` on the parent card. The card container is `div.rounded-xl.border.bg-card.shadow-sm` (around line 1707). The badge sits inside `.p-4` inside the card — it should be contained. A visual overflow could occur if negative margin or absolute positioning pushes it above the card boundary, but no such styles exist in the code. **Conclusion:** The position badge "overflow" described in the spec needs visual verification during implementation. The code structure on both `LiveStoryCardExpanded` and profile page `PointRow` places badges inside padded containers that should clip within the card. The fix will add `overflow-hidden` to the card container as a defensive measure.
+
+**Issue 5 — "Submit" label:** Both letter pages pass `<Button>Submit</Button>` as children to `<PointRow>` during `point-engage` (letter-reading-page.tsx line 494, letter-preview-page.tsx line 216) and `remaining-point-engage` phases (line 614, line 314). Four locations total.
+
+**Issue 6 — Button placement:** The `PointRow` component's `children` slot (line 325 of `live-story-card-expanded.tsx`) renders inside the bordered card `div.p-3.rounded-lg.border` as a vertical sibling below `PositionButtons`. The story-detail-page (lines 287-343) uses a different pattern: `<div className="flex flex-wrap items-center gap-2">` wrapping `<PositionButtons compact .../>` and `<div className="flex items-center gap-2 ml-auto"><Button>...</Button></div>`. To adopt this in letter reading without modifying the shared `PositionButtons` component, PointRow needs an `actionButton` prop that renders inline-right of PositionButtons when provided.
+
+**Issue 7 — Disabled tooltip:** The story-detail-page (lines 300-344) wraps the disabled button in `TooltipProvider > Tooltip > TooltipTrigger(asChild) > span > Button` with conditional `TooltipContent`. The `<span>` wrapper is necessary because disabled buttons don't fire hover events. Letter pages currently have no tooltip imports.
 
 ### Architecture Decisions
 
@@ -162,21 +189,52 @@ Decision: **(B) Replicate the pattern.** The styling is 5 lines of JSX — extra
 - `RatingButtons` (already imported)
 - Submit button: `size="sm"` `className="bg-blue-500 hover:bg-blue-600 w-full max-w-[200px] mt-2"` (centered, smaller than current `w-full`)
 
-**AD3: Button prominence — LetterPointCard "Submit" stays, it's correct**
+**AD3: Button label + weight — "Submit" becomes "Continue", post-reveal gets outline**
 
-Re-analysis shows the spec's concern is about post-action button prominence. The "Submit" button inside `LetterPointCard` is the action trigger (before submission), not a post-action progression button. The "Continue" buttons in `point-revealed` and `story-revealed` phases are already correctly placed outside/below the card with full-width primary styling.
+The in-card action button during `point-engage` and `remaining-point-engage` reads "Continue" (not "Submit"). "Submit" is reserved for the in-Drawer rating action only. This reverses the original "LetterPointCard Submit stays" conclusion — founder feedback confirms "Submit" implies finality in a multi-story flow.
 
-However, the spec explicitly requires: "After submitting rating/position, progression button reads 'Continue' and is outside/below the card with secondary visual weight." The `point-revealed` and `story-revealed` phases already use "Continue" text and placement outside the card. The only change needed: reduce visual weight from primary (`bg-[#0044CC]`) to secondary — use `variant="outline"` or a lighter style to make the progression button less prominent than the in-drawer Submit.
-
-Decision: Change all post-reveal "Continue" buttons to `variant="outline"` with `text-[#0044CC] border-[#0044CC]` styling. This matches "secondary visual weight" while keeping the blue-on-white design system. Affected locations:
-- `letter-reading-page.tsx`: lines 505-509 (point-revealed), 596-603 (story-revealed), 627-633 (remaining-point-revealed)
-- `letter-preview-page.tsx`: lines 223-229 (point-revealed), 293-299 (story-revealed), 327-333 (remaining-point-revealed)
+Post-reveal "Continue" buttons use `variant="outline"` with `text-[#0044CC] border-[#0044CC]` styling for secondary visual weight. Affected locations:
+- `letter-reading-page.tsx`: lines 494 (point-engage → "Continue"), 614 (remaining-point-engage → "Continue"), 505-509 (point-revealed → outline), 596-603 (story-revealed → outline), 627-633 (remaining-point-revealed → outline)
+- `letter-preview-page.tsx`: lines 216 (point-engage → "Continue"), 314 (remaining-point-engage → "Continue"), 223-229 (point-revealed → outline), 293-299 (story-revealed → outline), 327-333 (remaining-point-revealed → outline)
 
 **AD4: Position badge overflow — defensive `overflow-hidden` on card containers**
 
 Code analysis shows badges render inside padded containers that should be visually contained. No negative margins or absolute positioning push badges outside card boundaries. The overflow may be a rendering artifact at certain viewport sizes or a z-index layering issue.
 
 Decision: Add `overflow-hidden` to the card wrapper in `LiveStoryCardExpanded` (line 73-75) — the outermost `div` with `rounded-lg border-l-4`. This is a zero-risk defensive fix that ensures any future content stays within the card boundary. The `overflow-hidden` is consistent with standard card component patterns.
+
+**AD5: Inline-right placement via `actionButton` prop on PointRow**
+
+Add `actionButton?: React.ReactNode` to PointRow's props. When provided, PointRow wraps `PositionButtons` and `actionButton` in a `flex flex-wrap items-center gap-2` container with `actionButton` in an `ml-auto` wrapper. When absent, PointRow renders `PositionButtons` alone (current behavior). The existing `children` slot is unchanged — it continues to serve non-button content (reveal badges, guest hints).
+
+Why not other approaches:
+- Modifying `PositionButtons` — shared across /live, story pages; too much blast radius for a letter-only change
+- Restyling `children` slot — used for non-button content; making it flex-row breaks other uses
+- The `actionButton` prop is the same pattern as story-detail-page but localized to PointRow
+
+In `live-story-card-expanded.tsx` lines 272-281, change from bare `<PositionButtons>` to:
+```tsx
+{!readOnly && (
+  actionButton ? (
+    <div className="flex flex-wrap items-center gap-2">
+      <PositionButtons ... />
+      <div className="flex items-center gap-2 ml-auto">
+        {actionButton}
+      </div>
+    </div>
+  ) : (
+    <PositionButtons ... />
+  )
+)}
+```
+
+Letter pages switch from passing `<Button>` as `children` to passing it as `actionButton` prop.
+
+**AD6: Disabled-state tooltip using shadcn Tooltip pattern**
+
+Wrap the `actionButton` in letter pages with `TooltipProvider > Tooltip > TooltipTrigger(asChild) > span > Button` (the `<span>` is needed because disabled buttons don't fire hover events). Conditional `TooltipContent` shows "Pick your position first" when `!selectedPosition`. Same pattern as story-detail-page lines 300-344.
+
+The tooltip wrapping happens at the call site (letter pages), not inside PointRow. The `actionButton` prop receives the already-wrapped button JSX.
 
 ### Security Review
 
@@ -204,11 +262,12 @@ Decision: Add `overflow-hidden` to the card wrapper in `LiveStoryCardExpanded` (
 
 #### Build Sequence
 
-1. **Drawer overlay fix** (Issue 1) — add `overlayClassName="bg-transparent"` to both letter pages. Smallest change, highest visual impact.
-2. **Drawer styling match** (Issue 2) — rework the drawer internals in both letter pages to match /live's `RatingCard` pattern (sr-only header, centered smaller Submit, scale labels, `pb-8` padding).
-3. **Continue button secondary weight** (Issue 3) — change all post-reveal Continue buttons in both letter pages to `variant="outline"` styling.
+1. **Drawer overlay fix** (Issue 1) — add `overlayClassName="bg-transparent"` to both letter pages.
+2. **Drawer styling match** (Issue 2) — rework drawer internals to match /live's `RatingCard` pattern.
+3. **Continue button secondary weight** (Issue 3) — post-reveal Continue buttons to `variant="outline"`.
 4. **Card overflow-hidden** (Issue 4) — add `overflow-hidden` to `LiveStoryCardExpanded` card container.
-5. **Regression check** — verify /live drawer unchanged, run existing P673 tests.
+5. **Rename Submit→Continue + add `actionButton` prop + tooltip** (Issues 5-7) — in PointRow, add `actionButton` prop with flex-wrap layout. In both letter pages: switch from children to `actionButton`, rename to "Continue", wrap with Tooltip. These three changes touch the same JSX locations and should be done in a single pass per file.
+6. **Regression check** — verify /live drawer unchanged, run existing P673 tests.
 
 #### Files to Create
 
@@ -218,9 +277,9 @@ None.
 
 | File | Changes |
 |------|---------|
-| `.claude/worktrees/w2/src/app/pages/letter-reading-page.tsx` | (1) Add `overlayClassName="bg-transparent"` to `<DrawerContent>` at line 537. (2) Rework drawer internals (lines 538-565): `DrawerHeader className="sr-only"`, inner div `px-4 pb-8 pt-4 space-y-4`, question as centered `h2`, scale labels, `RatingButtons`, smaller centered Submit. (3) Change 3 Continue buttons (lines 505-509, 596-603, 627-633) from `bg-[#0044CC] hover:bg-[#0033AA] text-white` to `variant="outline"` with `text-[#0044CC] border-[#0044CC]`. |
-| `.claude/worktrees/w2/src/app/pages/letter-preview-page.tsx` | Same changes as above: (1) `overlayClassName="bg-transparent"` on `<DrawerContent>` at line 242. (2) Rework drawer internals (lines 243-264). (3) Change 3 Continue buttons (lines 223-229, 293-299, 327-333) to outline variant. |
-| `.claude/worktrees/w2/src/app/components/partners/live-story-card-expanded.tsx` | Add `overflow-hidden` to the outermost card `div` at line 73 — change class from `rounded-lg border-l-4 border-l-blue-500 border border-gray-200 bg-white shadow-sm shrink-0` to include `overflow-hidden`. |
+| `src/app/pages/letter-reading-page.tsx` | (1) `overlayClassName="bg-transparent"` on `<DrawerContent>`. (2) Rework drawer internals to match /live. (3) Post-reveal Continue → `variant="outline"`. (4) Point-engage: rename "Submit"→"Continue", switch from `children` to `actionButton` prop, wrap with Tooltip. (5) Add Tooltip imports. |
+| `src/app/pages/letter-preview-page.tsx` | Same 5 changes as reading page. |
+| `src/app/components/partners/live-story-card-expanded.tsx` | (1) Add `overflow-hidden` to outermost card div. (2) Add `actionButton?: React.ReactNode` to PointRow props. (3) Conditional flex-wrap layout: when `actionButton` provided, wrap PositionButtons + actionButton in `flex flex-wrap items-center gap-2` with `ml-auto`. |
 
 ### Reuse Inventory
 
@@ -230,7 +289,8 @@ None.
 | `RatingButtons` | `src/app/components/partners/shared.tsx` (line 29) | Already imported in letter pages; reused as-is |
 | `RatingCard` (local to live-mode-view) | `src/app/components/partners/live-mode-view.tsx` (line 1787) | Reference implementation for drawer styling; NOT imported (pattern replicated instead) |
 | `LiveStoryCardExpanded` | `src/app/components/partners/live-story-card-expanded.tsx` | Receives `overflow-hidden` fix |
-| `LetterPointCard` | `src/app/components/letters/letter-point-card.tsx` | No changes — "Submit" button is the action trigger, not a progression button |
+| `LetterPointCard` | `src/app/components/letters/letter-point-card.tsx` | No changes |
+| `Tooltip`, `TooltipProvider`, `TooltipTrigger`, `TooltipContent` | `src/components/ui/tooltip.tsx` | Wrap disabled "Continue" button in letter pages — same pattern as story-detail-page |
 | `Button` | `src/components/ui/button.tsx` | Already used; `variant="outline"` already supported |
 | `JourneyToUnderstanding` | `src/app/components/partners/live-mode-view.tsx` | No changes |
 | `GapBanner` | `src/app/components/shared/gap-banner.tsx` | No changes |
@@ -255,7 +315,7 @@ The following P673 test files remain unmodified — P676 must not break them:
 
 ### New Test File
 
-**`e2e/p676-visual-corrections.spec.ts`** — 18 test stubs across 5 describe blocks:
+**`e2e/p676-visual-corrections.spec.ts`** — 26 test stubs across 8 describe blocks:
 
 | Block | Tests | Covers |
 |-------|-------|--------|
@@ -263,6 +323,9 @@ The following P673 test files remain unmodified — P676 must not break them:
 | Drawer styling matches /live | 5 | Issue 2: sr-only header, centered h2, sm Submit, pb-8 padding, scale labels |
 | Continue button secondary weight | 5 | Issue 3: outline variant on all 3 post-reveal Continue buttons + preview parity + Submit regression guard |
 | Position badge overflow-hidden | 2 | Issue 4: overflow-hidden class on card + badge bounding box containment |
+| Submit renamed to Continue | 3 | Issue 5: point-engage + remaining-point-engage read "Continue" on both pages; in-drawer Submit still reads "Submit" |
+| Button inline-right placement | 2 | Issue 6: flex-wrap + ml-auto layout on point-engage; graceful wrap on narrow viewport |
+| Disabled tooltip | 2 | Issue 7: tooltip visible on hover when disabled; disappears after position selected |
 | Regression: /live drawer unchanged | 2 | /live transparent overlay + Submit sizing still intact |
 
 ### Coverage Matrix
@@ -276,6 +339,9 @@ The following P673 test files remain unmodified — P676 must not break them:
 | Surfaces NOT in scope unchanged | `p676-visual-corrections.spec.ts` — /live regression block (2 tests) + all P673 tests pass |
 | All P673 tests still pass | Run `npm run test:e2e -- --grep "P673"` as regression gate |
 | /live drawer unchanged | `p676-visual-corrections.spec.ts` — regression block (2 tests) |
+| In-card action button reads "Continue" | `p676-visual-corrections.spec.ts` — rename block (3 tests) |
+| Continue button inline-right of PositionButtons | `p676-visual-corrections.spec.ts` — inline-right block (2 tests) |
+| Disabled Continue shows tooltip | `p676-visual-corrections.spec.ts` — tooltip block (2 tests) |
 
 ### UAT Scenarios
 

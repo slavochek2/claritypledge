@@ -2,11 +2,14 @@
  * @file p676-visual-corrections.spec.ts
  * @description P676: Visual correction tests for letter reading flow.
  *
- * Covers 4 issues from the change-request:
+ * Covers 7 issues from the change-request:
  * 1. Drawer backdrop transparency (no dimming of story card)
  * 2. Drawer styling matches /live's RatingCard pattern
  * 3. Post-reveal Continue buttons use outline/secondary weight
  * 4. Position badge overflow-hidden on LiveStoryCardExpanded
+ * 5. "Submit" renamed to "Continue" in point-engage phases
+ * 6. Action button inline-right of PositionButtons (flex-wrap + ml-auto)
+ * 7. Disabled-state tooltip on Continue button
  *
  * Also includes regression checks for /live drawer behavior.
  *
@@ -170,13 +173,13 @@ test.describe('P676: Drawer backdrop transparency', () => {
     await openButton.click();
 
     // We start at point-engage phase (2 points → anti-point lead)
-    // Position on point 1
+    // Position on point 1 — the action button reads "Continue" (Issue 5 rename)
     const agreeBtn = page.getByRole('button', { name: /agree/i }).first();
     await agreeBtn.click();
-    const submitBtn = page.getByRole('button', { name: /submit/i });
-    await submitBtn.click();
+    const pointEngageBtn = page.getByRole('button', { name: /continue/i });
+    await pointEngageBtn.click();
 
-    // Now at point-revealed → click Continue
+    // Now at point-revealed → click Continue (outline variant)
     const continueBtn = page.getByRole('button', { name: /continue/i });
     await continueBtn.click();
 
@@ -203,8 +206,8 @@ test.describe('P676: Drawer backdrop transparency', () => {
     // Navigate through point phases to story-rate
     const agreeBtn = page.getByRole('button', { name: /agree/i }).first();
     await agreeBtn.click();
-    await page.getByRole('button', { name: /submit/i }).click();
-    await page.getByRole('button', { name: /continue/i }).click();
+    await page.getByRole('button', { name: /continue/i }).click(); // point-engage (Issue 5 rename)
+    await page.getByRole('button', { name: /continue/i }).click(); // point-revealed
 
     // At story-rate: verify story text is visible (not obscured)
     const storyText = page.locator('text=A story to verify drawer transparency');
@@ -222,8 +225,8 @@ test.describe('P676: Drawer backdrop transparency', () => {
     // Preview starts at point-engage (2 points)
     const agreeBtn = page.getByRole('button', { name: /agree/i }).first();
     await agreeBtn.click();
-    await page.getByRole('button', { name: /submit/i }).click();
-    await page.getByRole('button', { name: /continue/i }).click();
+    await page.getByRole('button', { name: /continue/i }).click(); // point-engage
+    await page.getByRole('button', { name: /continue/i }).click(); // point-revealed
 
     // At story-rate — check overlay
     const overlay = page.locator('[role="presentation"]').first();
@@ -266,10 +269,10 @@ test.describe('P676: Drawer styling matches /live', () => {
     await setTestSession(page, email);
     await page.goto(`/letter/${deliveryId}?token=${token}`);
     await page.getByRole('button', { name: /open|begin|start/i }).click();
-    // Point-engage → agree → submit → continue → story-rate
+    // Point-engage → agree → continue → continue → story-rate
     await page.getByRole('button', { name: /agree/i }).first().click();
-    await page.getByRole('button', { name: /submit/i }).click();
-    await page.getByRole('button', { name: /continue/i }).click();
+    await page.getByRole('button', { name: /continue/i }).click(); // point-engage
+    await page.getByRole('button', { name: /continue/i }).click(); // point-revealed
   }
 
   test('drawer header is sr-only (visually hidden, accessible)', async ({ page }) => {
@@ -356,9 +359,9 @@ test.describe('P676: Continue button secondary weight', () => {
     await page.goto(`/letter/${deliveryData.deliveryId}?token=${deliveryData.token}`);
     await page.getByRole('button', { name: /open|begin|start/i }).click();
 
-    // Point-engage → agree → submit → point-revealed
+    // Point-engage → agree → continue → point-revealed
     await page.getByRole('button', { name: /agree/i }).first().click();
-    await page.getByRole('button', { name: /submit/i }).click();
+    await page.getByRole('button', { name: /continue/i }).click(); // point-engage
 
     // Now at point-revealed — Continue should be outline
     const continueBtn = page.getByRole('button', { name: /continue/i });
@@ -378,7 +381,7 @@ test.describe('P676: Continue button secondary weight', () => {
 
     // Navigate through point → story-rate → submit rating → story-revealed
     await page.getByRole('button', { name: /agree/i }).first().click();
-    await page.getByRole('button', { name: /submit/i }).click();
+    await page.getByRole('button', { name: /continue/i }).click(); // point-engage
     await page.getByRole('button', { name: /continue/i }).click(); // past point-revealed
 
     // At story-rate — select rating and submit
@@ -402,13 +405,13 @@ test.describe('P676: Continue button secondary weight', () => {
 
     // Navigate to story-rate
     await page.getByRole('button', { name: /agree/i }).first().click();
-    await page.getByRole('button', { name: /submit/i }).click();
-    await page.getByRole('button', { name: /continue/i }).click();
+    await page.getByRole('button', { name: /continue/i }).click(); // point-engage
+    await page.getByRole('button', { name: /continue/i }).click(); // point-revealed
 
     // At story-rate — select rating
     await page.getByRole('button', { name: '7' }).click();
 
-    // In-drawer Submit should be primary (filled blue)
+    // In-drawer Submit should be primary (filled blue) — "Submit" only in drawer
     const submitBtn = page.getByRole('button', { name: /submit/i });
     const submitClass = await submitBtn.getAttribute('class');
     expect(submitClass).toContain('bg-[#0044CC]');
@@ -418,9 +421,9 @@ test.describe('P676: Continue button secondary weight', () => {
     await setTestSession(page, sender.email);
     await page.goto(`/letter/${testData.docId}/preview`);
 
-    // Point-engage → agree → submit → point-revealed
+    // Point-engage → agree → continue → point-revealed
     await page.getByRole('button', { name: /agree/i }).first().click();
-    await page.getByRole('button', { name: /submit/i }).click();
+    await page.getByRole('button', { name: /continue/i }).click(); // point-engage
 
     // point-revealed: Continue should be outline
     const continueBtn = page.getByRole('button', { name: /continue/i });
@@ -459,8 +462,8 @@ test.describe('P676: Position badge overflow-hidden', () => {
 
       // Navigate to story-rate (where LiveStoryCardExpanded renders)
       await page.getByRole('button', { name: /agree/i }).first().click();
-      await page.getByRole('button', { name: /submit/i }).click();
-      await page.getByRole('button', { name: /continue/i }).click();
+      await page.getByRole('button', { name: /continue/i }).click(); // point-engage
+      await page.getByRole('button', { name: /continue/i }).click(); // point-revealed
 
       const storyCard = page.locator('[data-testid="live-story-card-expanded"]');
       await expect(storyCard).toBeVisible();
@@ -488,9 +491,9 @@ test.describe('P676: Position badge overflow-hidden', () => {
       await page.goto(`/letter/${deliveryData.deliveryId}?token=${deliveryData.token}`);
       await page.getByRole('button', { name: /open|begin|start/i }).click();
 
-      // At point-engage phase — position then submit to see reveal with badge
+      // At point-engage phase — position then continue to see reveal with badge
       await page.getByRole('button', { name: /agree/i }).first().click();
-      await page.getByRole('button', { name: /submit/i }).click();
+      await page.getByRole('button', { name: /continue/i }).click(); // point-engage
 
       // At point-revealed — the sender position badge should be visible
       // Check that any position badge is within its parent card
@@ -515,6 +518,218 @@ test.describe('P676: Position badge overflow-hidden', () => {
       await deleteTestUser(receiver.user.id);
       await deleteTestUser(sender.user.id);
     }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// TEST: Submit renamed to Continue (Issue 5)
+// ---------------------------------------------------------------------------
+
+test.describe('P676: Submit renamed to Continue', () => {
+  test.describe.configure({ timeout: 60000 });
+
+  let sender: TestUser;
+  let receiver: TestUser;
+  let testData: Awaited<ReturnType<typeof createP676TestLetter>>;
+  let deliveryData: Awaited<ReturnType<typeof createP676Delivery>>;
+
+  test.beforeAll(async () => {
+    sender = await createTestUser({ name: 'P676 Rename Sender' });
+    receiver = await createTestUser({ name: 'P676 Rename Receiver' });
+    testData = await createP676TestLetter(sender);
+    deliveryData = await createP676Delivery(testData.letterId, receiver);
+  });
+
+  test.afterAll(async () => {
+    await deleteTestLetter(testData.letterId);
+    for (const pid of testData.pointIds) await deleteTestPoint(pid);
+    await deleteTestStory(testData.storyId);
+    await supabaseAdmin.from('clarity_docs').delete().eq('id', testData.docId);
+    await deleteTestUser(receiver.user.id);
+    await deleteTestUser(sender.user.id);
+  });
+
+  test('point-engage action button reads "Continue" not "Submit"', async ({ page }) => {
+    await setTestSession(page, receiver.email);
+    await page.goto(`/letter/${deliveryData.deliveryId}?token=${deliveryData.token}`);
+    await page.getByRole('button', { name: /open|begin|start/i }).click();
+
+    // At point-engage — select a position to enable the button
+    await page.getByRole('button', { name: /agree/i }).first().click();
+
+    // The action button should read "Continue", NOT "Submit"
+    const continueBtn = page.getByRole('button', { name: /continue/i });
+    await expect(continueBtn).toBeVisible();
+
+    // No "Submit" button should exist during point-engage phase
+    const submitBtn = page.getByRole('button', { name: /^submit$/i });
+    await expect(submitBtn).toHaveCount(0);
+  });
+
+  test('in-drawer Submit during story-rate still reads "Submit"', async ({ page }) => {
+    await setTestSession(page, receiver.email);
+    await page.goto(`/letter/${deliveryData.deliveryId}?token=${deliveryData.token}`);
+    await page.getByRole('button', { name: /open|begin|start/i }).click();
+
+    // Navigate to story-rate
+    await page.getByRole('button', { name: /agree/i }).first().click();
+    await page.getByRole('button', { name: /continue/i }).click(); // point-engage
+    await page.getByRole('button', { name: /continue/i }).click(); // point-revealed
+
+    // At story-rate — select rating to enable Submit
+    await page.getByRole('button', { name: '5' }).click();
+
+    // The in-drawer button should read "Submit"
+    const submitBtn = page.getByRole('button', { name: /submit/i });
+    await expect(submitBtn).toBeVisible();
+  });
+
+  test('preview page point-engage also reads "Continue"', async ({ page }) => {
+    await setTestSession(page, sender.email);
+    await page.goto(`/letter/${testData.docId}/preview`);
+
+    // At point-engage — select position
+    await page.getByRole('button', { name: /agree/i }).first().click();
+
+    const continueBtn = page.getByRole('button', { name: /continue/i });
+    await expect(continueBtn).toBeVisible();
+
+    const submitBtn = page.getByRole('button', { name: /^submit$/i });
+    await expect(submitBtn).toHaveCount(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// TEST: Button inline-right placement (Issue 6)
+// ---------------------------------------------------------------------------
+
+test.describe('P676: Button inline-right placement', () => {
+  test.describe.configure({ timeout: 60000 });
+
+  let sender: TestUser;
+  let receiver: TestUser;
+  let testData: Awaited<ReturnType<typeof createP676TestLetter>>;
+  let deliveryData: Awaited<ReturnType<typeof createP676Delivery>>;
+
+  test.beforeAll(async () => {
+    sender = await createTestUser({ name: 'P676 Layout Sender' });
+    receiver = await createTestUser({ name: 'P676 Layout Receiver' });
+    testData = await createP676TestLetter(sender);
+    deliveryData = await createP676Delivery(testData.letterId, receiver);
+  });
+
+  test.afterAll(async () => {
+    await deleteTestLetter(testData.letterId);
+    for (const pid of testData.pointIds) await deleteTestPoint(pid);
+    await deleteTestStory(testData.storyId);
+    await supabaseAdmin.from('clarity_docs').delete().eq('id', testData.docId);
+    await deleteTestUser(receiver.user.id);
+    await deleteTestUser(sender.user.id);
+  });
+
+  test('Continue button parent uses flex-wrap + ml-auto layout', async ({ page }) => {
+    await setTestSession(page, receiver.email);
+    await page.goto(`/letter/${deliveryData.deliveryId}?token=${deliveryData.token}`);
+    await page.getByRole('button', { name: /open|begin|start/i }).click();
+
+    // At point-engage — select position to make Continue visible
+    await page.getByRole('button', { name: /agree/i }).first().click();
+
+    const continueBtn = page.getByRole('button', { name: /continue/i });
+    await expect(continueBtn).toBeVisible();
+
+    // The button's immediate wrapper should have ml-auto class
+    const btnWrapper = continueBtn.locator('xpath=ancestor::div[contains(@class, "ml-auto")]').first();
+    await expect(btnWrapper).toHaveCount(1);
+
+    // The flex-wrap container should wrap PositionButtons + button
+    const flexContainer = continueBtn.locator('xpath=ancestor::div[contains(@class, "flex-wrap")]').first();
+    await expect(flexContainer).toHaveCount(1);
+  });
+
+  test('button wraps below on narrow viewport', async ({ page }) => {
+    await page.setViewportSize({ width: 320, height: 568 });
+    await setTestSession(page, receiver.email);
+    await page.goto(`/letter/${deliveryData.deliveryId}?token=${deliveryData.token}`);
+    await page.getByRole('button', { name: /open|begin|start/i }).click();
+
+    await page.getByRole('button', { name: /agree/i }).first().click();
+
+    const continueBtn = page.getByRole('button', { name: /continue/i });
+    await expect(continueBtn).toBeVisible();
+
+    // Button should still be accessible and have min touch target
+    const box = await continueBtn.boundingBox();
+    expect(box).toBeTruthy();
+    expect(box!.height).toBeGreaterThanOrEqual(40);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// TEST: Disabled tooltip (Issue 7)
+// ---------------------------------------------------------------------------
+
+test.describe('P676: Disabled tooltip', () => {
+  test.describe.configure({ timeout: 60000 });
+
+  let sender: TestUser;
+  let receiver: TestUser;
+  let testData: Awaited<ReturnType<typeof createP676TestLetter>>;
+  let deliveryData: Awaited<ReturnType<typeof createP676Delivery>>;
+
+  test.beforeAll(async () => {
+    sender = await createTestUser({ name: 'P676 Tip Sender' });
+    receiver = await createTestUser({ name: 'P676 Tip Receiver' });
+    testData = await createP676TestLetter(sender);
+    deliveryData = await createP676Delivery(testData.letterId, receiver);
+  });
+
+  test.afterAll(async () => {
+    await deleteTestLetter(testData.letterId);
+    for (const pid of testData.pointIds) await deleteTestPoint(pid);
+    await deleteTestStory(testData.storyId);
+    await supabaseAdmin.from('clarity_docs').delete().eq('id', testData.docId);
+    await deleteTestUser(receiver.user.id);
+    await deleteTestUser(sender.user.id);
+  });
+
+  test('tooltip shows "Pick your position first" when no position selected', async ({ page }) => {
+    await setTestSession(page, receiver.email);
+    await page.goto(`/letter/${deliveryData.deliveryId}?token=${deliveryData.token}`);
+    await page.getByRole('button', { name: /open|begin|start/i }).click();
+
+    // At point-engage — do NOT select a position (button should be disabled)
+    // Hover over the disabled button's wrapper (span) to trigger tooltip
+    const continueBtn = page.getByRole('button', { name: /continue/i });
+    // The span wrapper around the disabled button receives hover
+    const btnSpan = continueBtn.locator('xpath=ancestor::span').first();
+    await btnSpan.hover();
+
+    // Tooltip should appear
+    const tooltip = page.getByRole('tooltip', { name: /pick your position first/i });
+    await expect(tooltip).toBeVisible();
+  });
+
+  test('tooltip disappears after position is selected', async ({ page }) => {
+    await setTestSession(page, receiver.email);
+    await page.goto(`/letter/${deliveryData.deliveryId}?token=${deliveryData.token}`);
+    await page.getByRole('button', { name: /open|begin|start/i }).click();
+
+    // Hover to see tooltip first
+    const continueBtn = page.getByRole('button', { name: /continue/i });
+    const btnSpan = continueBtn.locator('xpath=ancestor::span').first();
+    await btnSpan.hover();
+    await expect(page.getByRole('tooltip')).toBeVisible();
+
+    // Select a position — tooltip should go away
+    await page.getByRole('button', { name: /agree/i }).first().click();
+
+    // Move mouse away and back to re-trigger tooltip check
+    await page.mouse.move(0, 0);
+    await btnSpan.hover();
+
+    // Tooltip should NOT appear (position is now selected)
+    await expect(page.getByRole('tooltip')).toHaveCount(0);
   });
 });
 
