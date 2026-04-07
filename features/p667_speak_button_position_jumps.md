@@ -85,11 +85,11 @@ Three options analyzed (from code-explorer agent):
 
 ## Acceptance Criteria
 
-- [x] Speak button does not visibly jump when stories finish loading (symptom 1)
-- [x] Speak button does not visibly jump when partner enters rating mode (symptom 2)
-- [x] Speak button does not visibly jump when session history appears after round (symptom 3)
+- [x] Speak button does not visibly jump when session history appears after round (symptom 3 — fixed: bottom zone always flex-[3], history renders in two-zone)
 - [x] Zero-story users still see a reasonable layout (no giant empty gap)
 - [x] Session history scroll behavior preserved (`overflowAnchor: 'none'`)
+
+**Narrowed scope:** Symptoms 1 (story load) and 2 (partner rating mode) were originally listed here but have a deeper root cause: `hasScrollableContent` is role-blind — it reacts to the partner's `selectedStoryId` via shared Realtime state. This requires a separate fix (see P-number TBD). P667 only addresses the session history trigger.
 
 ## Resolution
 
