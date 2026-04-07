@@ -1,7 +1,7 @@
 # Done Features Index
 
 Quick reference for past completed work. Consult when starting work on a related topic.
-Last updated: 2026-04-06 (P662 Story Slug Resolution)
+Last updated: 2026-04-07 (P666 Testing Infrastructure Gaps)
 
 ---
 
@@ -183,6 +183,7 @@ Last updated: 2026-04-06 (P662 Story Slug Resolution)
 
 ## Infrastructure / Process
 
+- **P666** (Apr 07) Testing Infrastructure Gaps Phase 1 — `assertNoAuthRedirect` needs `networkidle` not `domcontentloaded`; auth "race condition" was misdiagnosed (tests just predated P644 helpers)
 - **P650** (Apr 04) Ship/Fix Skill Flow — 3 bugs: verify merge via main's log (not feature branch), enforce git-mv-then-Edit ordering for 1-commit spec close, pre-checkout status guard
 - **P645** (Apr 04) Kanban Prunable Worktrees — `git worktree list --porcelain` includes prunable entries; skip blocks with `prunable` line or agent-* paths fall through to `name="main"` fallback
 - **P640** (Apr 04) Ghost 5→6 Security Upgrade — Ghost 6 ships Source theme (not Casper v6) which retains `.gh-*` selectors; code injection needed zero changes despite Casper v6 research showing renames

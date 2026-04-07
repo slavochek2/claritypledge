@@ -2,6 +2,24 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-07 [process]: Simplify build skill lifecycle — silent /ship, /park, /finish internalized
+
+**Context:** Founder confusion about when to use /ship vs /finish vs /verify. Circular "run X next" references between skills. /ship had 6 interactive prompts on the happy path. /finish was hidden from /pick-flow (firewall #3: "never list as separate step") but /ship checked its artifact — users couldn't understand why a skill they were told doesn't exist was blocking their merge. No way to mark work "done on branch" without merging.
+**Decision:** Five changes: (1) /ship gates run silently, only prompt on failure — zero prompts on happy path, just a summary report then merge. (2) /ship step 8 reworded from "Run /verify first?" (after merge is already done) to "Run post-deploy smoke test?" — clarifies this is prod verification, not pre-merge UAT. (3) /verify announces mode loudly at start: "LOCALHOST mode" or "PRODUCTION mode" with target URL. (4) New /park skill — sets `delivery_stage: park`, stays on branch, no prompts. Covers "done but don't merge yet." (5) /finish description updated to "internal review dispatcher — called by /dev and /fix." /ship's missing-artifact warning softened to "No code review artifact found. Normal if you coded without /dev."
+**Alternatives rejected:** (A) Fully internalize /finish (remove as callable skill) — devil's advocate showed `pipeline_ran` only tracks start, not success; `.finish-reviewed` is the only success signal /ship can check. (B) Add `status: parked` — conflicts with existing `qa` status semantics. Used `delivery_stage: park` instead. (C) Extract pipeline stamp to shared rules file — low ROI for 4 skills; `features.md` already describes the rule. (D) Make /status show "you are HERE" — /status already does this (maintain/status.md lines 49-59).
+**Consequences:** User mental model becomes: `/dev` → `/verify` → `/ship` (or `/dev` → `/park` → `/ship`). /finish invisible to user. /ship happy path: 6 prompts → 0.
+**References:** [ship.md](.claude/commands/slava/build/ship.md) | [verify/SKILL.md](.claude/commands/slava/build/verify/SKILL.md) | [park.md](.claude/commands/slava/build/park.md)
+
+## 2026-04-07 [technical]: assertNoAuthRedirect requires networkidle — domcontentloaded fires before React Router auth redirect
+
+**Context:** P666 Phase 1 code review suggested changing `assertNoAuthRedirect()` from `waitForLoadState('networkidle')` to `waitForLoadState('domcontentloaded')` for speed. The change was applied and all two-party tests immediately failed — pages redirected to Google OAuth because the client-side React Router redirect (checking Supabase auth in localStorage) hadn't executed yet at `domcontentloaded`.
+**Decision:** `assertNoAuthRedirect()` in `e2e/helpers/test-session.ts` must use `networkidle`. The auth injection flow is: `addInitScript` sets localStorage → page navigates → DOM loads (`domcontentloaded`) → React hydrates → auth check reads localStorage → if missing, React Router redirects to OAuth (`networkidle` catches this). WebSocket connections (Supabase Realtime) don't count for `networkidle` per Playwright docs, so this won't hang.
+**Alternatives rejected:** (A) `domcontentloaded` — fires too early, before React's client-side auth redirect completes. (B) Explicit `waitForURL` with timeout — redundant when networkidle already gates on redirect completion. (C) `load` event — also fires before React Router acts.
+**Consequences:** Any future auth-gated page assertion in E2E tests should use `networkidle` when checking for redirect behavior. `domcontentloaded` is fine for non-auth pages or when checking DOM content that doesn't depend on client-side routing.
+**References:** [test-session.ts](../e2e/helpers/test-session.ts), [P666 spec](../features/done/2026-04-06/p666_testing_infrastructure_gaps.md)
+
+---
+
 ## 2026-04-06 [product]: Letters visual hierarchy — status is context, actions are primary
 
 **Context:** During UAT of P660 (Sent tab), colored `LetterStatusBadge` pills (green "Completed", blue "Opened") competed visually with the [Results] action button. Both sat at the same visual hierarchy level. Similarly, Private/Public mode used a corner pill badge in Sent tab but an inline icon in Drafts tab — same information, inconsistent treatment across sibling views.

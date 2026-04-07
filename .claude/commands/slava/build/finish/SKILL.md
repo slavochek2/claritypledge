@@ -1,8 +1,8 @@
 ---
 name: finish
-description: "Consolidated review dispatcher — classifies changes by type, runs only applicable reviews, skips what already ran. Replaces /review-all."
-when_to_use: "End of session before shipping. Triggered by /finish, 'review changes', 'finish up', 'are we ready to ship?', or automatically inside /dev and /fix."
-version: 1.0.0
+description: "Internal review dispatcher — called by /dev and /fix for code review. Run standalone only if you coded manually without /dev."
+when_to_use: "Automatically inside /dev (step 9.5) and /fix (QA gate). Standalone use: only when user coded without /dev and wants a review before /ship."
+version: 1.1.0
 ---
 
 # /finish

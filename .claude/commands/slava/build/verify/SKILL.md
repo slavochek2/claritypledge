@@ -128,6 +128,26 @@ Announce: "No UAT file found — created `features/uat/p{N}.md` with {N} scenari
 
 ---
 
+### Step 1c: Mode Announcement (mandatory)
+
+After environment detection, announce the mode clearly before proceeding:
+
+**Localhost mode:**
+```
+Running /verify in LOCALHOST mode (feature branch detected).
+Target: http://localhost:{PORT}
+This is pre-merge UAT — run /ship after passing.
+```
+
+**Production mode:**
+```
+Running /verify in PRODUCTION mode (on main, feature was shipped).
+Target: https://claritypledge.com
+This is post-deploy smoke test — issues go to /fix.
+```
+
+---
+
 ### Step 2: Build Verification Plan
 
 Parse the UAT file (or acceptance criteria) into a structured list:

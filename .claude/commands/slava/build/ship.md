@@ -29,28 +29,59 @@ Before any other work in this skill:
 
 ## What it does
 
+### Gate Phase — silent unless something's wrong
+
+Run all gates, collect results. Only prompt the user on failures. The happy path is zero prompts.
+
 1. **Find the branch** — looks for `feature/pN*` or `feature/pN-*`
 
 **1a. Divergence check** — run `git rev-list --count main..feature/pN-*` (ahead) and `git rev-list --count feature/pN-*..main` (behind).
-- If behind-count > 20: warn "Branch is N commits behind main — rebase or manual merge needed." Propose:
+- If behind-count ≤ 20: record `✓ {behind} commits behind main (will sync)` — proceed silently.
+- If behind-count > 20: **STOP** — warn "Branch is N commits behind main — rebase or manual merge needed." Propose:
   **(A) Rebase:** `git rebase main` on feature branch, resolve conflicts, then proceed normally.
   **(B) Already merged manually:** Verify by running `git log --oneline main | grep <tip-sha>` (where `<tip-sha>` is the feature branch tip from `git rev-parse feature/pN-*`). Only declare "already merged" if the SHA appears in main's log — never infer from the feature branch log. If confirmed, reply 'spec-only' to run spec closure + branch cleanup only (steps 5-7), skipping the merge.
-- Wait for user choice. **Step 5 (spec closure) is mandatory regardless of which path is chosen.**
+- **Step 5 (spec closure) is mandatory regardless of which path is chosen.**
 - If user replies 'spec-only': skip steps 2-4, jump directly to step 5.
 
-2. **Verify clean state** — run `git status --short` on the feature branch. If uncommitted changes exist, list them and ask: "These files have uncommitted changes. Commit them before merging, or discard? (commit / discard / abort)". Do not proceed to merge with a dirty worktree — uncommitted review fixes will be silently lost.
+2. **Verify clean state** — run `git status --short` on the feature branch.
+- Clean: record `✓ Clean worktree` — proceed silently.
+- Dirty: **STOP** — list uncommitted files, ask: "Commit them before merging, or discard? (commit / discard / abort)". Do not proceed to merge with a dirty worktree — uncommitted review fixes will be silently lost.
+
 2.5. **Check spec status** — read the spec's `status` frontmatter field:
-   - `done` → proceed (spec was manually approved after UAT — happy path)
-   - `qa` → ask: "pN spec is still in `qa` — you haven't marked it done after UAT. Ship anyway? (y/n)"
-   - anything else (backlog, in-progress, etc.) → ask: "pN spec is in `{status}` — this doesn't look ready to ship. Proceed anyway? (y/n)"
-2.7. **Check `/finish` ran** — look for `.finish-reviewed` file. If missing or older than the latest commit on the branch, warn: "No `/finish` review found for this branch. Run `/finish` before shipping? (y = run now / n = proceed without review)". If user says "y", invoke `/finish` and wait for completion before proceeding.
+   - `qa` or `done` → record `✓ Status: {status}` — proceed silently.
+   - anything else → **STOP** — ask: "pN spec is in `{status}` — this doesn't look ready to ship. Proceed anyway? (y/n)"
+
+2.7. **Check code review ran** — look for `.finish-reviewed` file.
+   - Exists and newer than latest commit on branch → record `✓ Code reviewed (.finish-reviewed fresh)` — proceed silently.
+   - Missing or stale → **STOP** — "No code review artifact found. This is normal if you coded without `/dev`. Proceed? (y/n)". If user says "run it", invoke `/finish` and wait for completion before proceeding.
+
 3. **Run pre-commit checks** — `./scripts/pre-commit-checks.sh`
-3.5. **Check Pre-deploy Checklist** — read the spec and look for a `## Pre-deploy Checklist` section. If one exists:
-   - Show each item to the user
-   - Ask: "These infra steps must be done before pushing. Have they all been applied to prod? (y = proceed / n = stop and apply them first)"
-   - If user says "n": stop. Do NOT merge. User applies the steps, then re-runs `/ship`.
-   - If no Pre-deploy section exists: proceed silently.
-3.6. **Deploy manifest check** — run `./scripts/check-deploy-manifest.sh --env prod`. If drift is detected (undeployed functions or unapplied migrations), show the output and the fix commands. Ask: "Deploy these before merging? (y = run the fix commands now / n = stop, I'll handle it manually)". If user says "y", run the suggested commands, then re-run the check to confirm. Do NOT merge with drift.
+   - Pass → record `✓ Pre-commit checks passed` — proceed silently.
+   - Fail → **STOP** — show output, fix issues.
+
+3.5. **Check Pre-deploy Checklist** — read the spec and look for a `## Pre-deploy Checklist` section.
+   - No section → record `✓ No pre-deploy checklist` — proceed silently.
+   - Section exists → **STOP** — show each item, ask: "These infra steps must be done before pushing. Have they all been applied to prod? (y = proceed / n = stop and apply them first)". If user says "n": stop. Do NOT merge.
+
+3.6. **Deploy manifest check** — run `./scripts/check-deploy-manifest.sh --env prod`.
+   - No drift → record `✓ No deploy drift` — proceed silently.
+   - Drift detected → **STOP** — show output and fix commands. Ask: "Deploy these before merging? (y = run the fix commands now / n = stop, I'll handle it manually)". If user says "y", run the suggested commands, re-run check to confirm. Do NOT merge with drift.
+
+**Gate report** — if all gates passed, print the summary and proceed immediately (no prompt):
+```
+/ship pN — all gates passed.
+  ✓ Clean worktree
+  ✓ Status: qa
+  ✓ Code reviewed (.finish-reviewed fresh)
+  ✓ Pre-commit checks passed
+  ✓ No pre-deploy checklist
+  ✓ No deploy drift
+  ✓ 3 commits behind main (syncing)
+Merging...
+```
+
+### Merge Phase
+
 3.7. **Sync main into feature branch** — before merging to main, bring main's changes into the feature branch to prevent silent content loss in shared docs:
    ```bash
    git status --short   # must be clean before merging — commit or stash any open edits first
@@ -91,10 +122,10 @@ Before any other work in this skill:
    ```
    If not on `main`, run `git checkout main`. This prevents the main worktree from drifting to a feature branch after branch-only fixes that don't use worktrees.
 8. **Ask — two questions in one message:**
-    "Run /verify first? (y = visual QA of the live site against acceptance criteria, recommended for any UI change / n = skip)
+    "Run post-deploy smoke test? (y = `/verify pN` against prod after you push — recommended for UI changes / n = skip)
     Capture learnings with /kdd? (y/n)"
 
-    If user picks y for /verify → invoke `/verify p{N}` immediately before /kdd.
+    If user picks y for smoke test → invoke `/verify p{N}` (will auto-detect PRODUCTION mode on main).
 
 ---
 
@@ -124,7 +155,7 @@ For small work committed directly to main, just say "push" — no need for /ship
 ## After shipping
 
 - The spec is closed by /ship step 5 — /dev leaves it at `delivery_stage: dev`, NOT done. If the spec is still in `features/` after /ship completes, step 5 failed — investigate before continuing.
-- `/verify` is prompted at step 8 — run it for any UI change. Skipping is valid for backend-only changes.
+- Step 8 offers a post-deploy smoke test (`/verify` in production mode). Recommended for UI changes, skippable for backend-only.
 - To deploy: `git push origin main` — push is blocked by a global hook, the user runs it explicitly. Vercel auto-deploys after push.
 
 ---

@@ -129,6 +129,6 @@ Look at the spec, conversation, and code. Name 1-3 concrete risks — not catego
 
 ## Available commands (sequence order)
 
-`/create-spec` · `/challenge-prd` · `/ux` · `/architect` · `/ui` · `/generate-tests` · `/spec-review` · `/spec-compact` · `/decompose` · `/dev` · `/verify` · `/kdd`
+`/create-spec` · `/challenge-prd` · `/ux` · `/architect` · `/ui` · `/generate-tests` · `/spec-review` · `/spec-compact` · `/decompose` · `/dev` · `/verify` · `/park` · `/kdd`
 
-Also: `/fix` (bugs) · `/change-request` (redesigns) · `/create-bug` (bug without P-number) · `/dd:frame-analyze` (unclear root cause)
+Also: `/fix` (bugs) · `/change-request` (redesigns) · `/create-bug` (bug without P-number) · `/dd:frame-analyze` (unclear root cause) · `/park` (done on branch, merge later)
