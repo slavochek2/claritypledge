@@ -192,6 +192,7 @@ export function PointRow({
   isGuest = false,
   readOnly = false,
   letterMode = false,
+  disablePositionButtons = false,
   children,
 }: {
   point: PointSummary;
@@ -208,6 +209,8 @@ export function PointRow({
   readOnly?: boolean;
   /** Letter context: hides story CTA, guest hint, tag pills, visibility icon */
   letterMode?: boolean;
+  /** When true, position buttons render but are visually disabled (no hover/click) */
+  disablePositionButtons?: boolean;
   /** Render slot after point content (e.g., Submit button, position reveal badges) */
   children?: React.ReactNode;
 }) {
@@ -233,7 +236,7 @@ export function PointRow({
   return (
     <div className="w-full text-left">
       {/* Position badge above point — shows badge person's stance (author for partner view, partner for host view) */}
-      {point.profileSubjectPosition && !letterMode && (
+      {point.profileSubjectPosition && (
         <div className="flex items-center gap-1.5 mb-1.5 text-sm text-gray-700">
           <GravatarAvatar
             name={badgePersonName ?? authorName}
@@ -244,10 +247,12 @@ export function PointRow({
             className="!w-5 !h-5 !text-[10px]"
           />
           <span className="font-medium">{badgePersonName ?? authorName}</span>
-          <span className="inline-flex items-center gap-0.5 text-gray-600 text-xs">
-            <Ear size={12} />
-            {badgePersonName ? (badgePersonEarsCount ?? 0) : (authorEarsCount ?? 0)}
-          </span>
+          {!letterMode && (
+            <span className="inline-flex items-center gap-0.5 text-gray-600 text-xs">
+              <Ear size={12} />
+              {badgePersonName ? (badgePersonEarsCount ?? 0) : (authorEarsCount ?? 0)}
+            </span>
+          )}
           <PositionBadge position={point.profileSubjectPosition} />
         </div>
       )}
@@ -271,6 +276,7 @@ export function PointRow({
             onPositionClick={handlePositionClick}
             compact
             narrow
+            disabled={disablePositionButtons}
           />
         )}
 

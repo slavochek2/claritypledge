@@ -25,7 +25,6 @@ import { LiveStoryCardExpanded, PointRow } from '@/app/components/partners/live-
 import { JourneyToUnderstanding } from '@/app/components/partners/live-mode-view';
 import { GapBanner } from '@/app/components/shared/gap-banner';
 import { ComprehensionRatingCard } from '@/app/components/shared/comprehension-rating-card';
-import { PositionBadge } from '@/app/components/shared';
 import { Button } from '@/components/ui/button';
 import {
   Drawer,
@@ -501,24 +500,11 @@ function LetterReadingFlow({
       {currentPhase === 'point-revealed' && currentPoint && (
         <div className="space-y-4">
           <PointRow
-            point={currentPoint}
+            point={{ ...currentPoint, userPosition: (currentStory.positions[currentPoint.id] as PositionType) ?? null }}
             authorName={senderName}
             letterMode
-            readOnly
-          >
-            {currentPoint.profileSubjectPosition && (
-              <div className="flex items-center gap-2 text-sm text-gray-700">
-                <span className="font-medium">{senderName}:</span>
-                <PositionBadge position={currentPoint.profileSubjectPosition} />
-              </div>
-            )}
-            {currentStory.positions[currentPoint.id] && (
-              <div className="flex items-center gap-2 text-sm text-gray-500">
-                <span>You:</span>
-                <PositionBadge position={currentStory.positions[currentPoint.id] as PositionType} />
-              </div>
-            )}
-          </PointRow>
+            disablePositionButtons
+          />
           <Button
             variant="outline"
             onClick={advanceFromPointReveal}
@@ -634,24 +620,11 @@ function LetterReadingFlow({
       {currentPhase === 'remaining-point-revealed' && currentPoint && (
         <div className="space-y-4">
           <PointRow
-            point={currentPoint}
+            point={{ ...currentPoint, userPosition: (currentStory.positions[currentPoint.id] as PositionType) ?? null }}
             authorName={senderName}
             letterMode
-            readOnly
-          >
-            {currentPoint.profileSubjectPosition && (
-              <div className="flex items-center gap-2 text-sm text-gray-700">
-                <span className="font-medium">{senderName}:</span>
-                <PositionBadge position={currentPoint.profileSubjectPosition} />
-              </div>
-            )}
-            {currentStory.positions[currentPoint.id] && (
-              <div className="flex items-center gap-2 text-sm text-gray-500">
-                <span>You:</span>
-                <PositionBadge position={currentStory.positions[currentPoint.id] as PositionType} />
-              </div>
-            )}
-          </PointRow>
+            disablePositionButtons
+          />
           <Button
             variant="outline"
             onClick={advanceFromRemainingPointReveal}

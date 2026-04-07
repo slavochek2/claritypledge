@@ -186,12 +186,14 @@ interface PositionButtonsProps {
   compact?: boolean;
   /** Narrow mode: omits sm:min-w-[90px] so buttons fit in tight containers */
   narrow?: boolean;
+  /** When true, buttons are visually muted and non-interactive (e.g., letter reveal phase) */
+  disabled?: boolean;
 }
 
 // Width threshold for icon-only mode
 const ICON_ONLY_THRESHOLD = 270;
 
-export function PositionButtons({ userPosition, counts, onPositionClick, compact = false, narrow = false }: PositionButtonsProps) {
+export function PositionButtons({ userPosition, counts, onPositionClick, compact = false, narrow = false, disabled = false }: PositionButtonsProps) {
   const [openDropdown, setOpenDropdown] = useState<PositionButtonGroup | null>(null);
   const [dropdownPos, setDropdownPos] = useState<{ top: number; left: number; width: number } | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -287,7 +289,7 @@ export function PositionButtons({ userPosition, counts, onPositionClick, compact
   }, [onPositionClick]);
 
   return (
-    <div className="relative w-full sm:w-auto" ref={containerRef}>
+    <div className={`relative w-full sm:w-auto${disabled ? ' opacity-50 pointer-events-none' : ''}`} ref={containerRef}>
       <div
         ref={dropdownRef}
         className="relative inline-flex w-full sm:w-auto max-w-full rounded-lg border border-gray-200 bg-white"
