@@ -221,8 +221,9 @@ function LetterPreviewFlow({
             onSubmitPosition={() => {}}
           />
           <Button
+            variant="outline"
             onClick={advanceFromPointReveal}
-            className="w-full bg-[#0044CC] hover:bg-[#0033AA] text-white min-h-[44px]"
+            className="w-full text-[#0044CC] border-[#0044CC] hover:bg-[#0044CC]/5 min-h-[44px]"
           >
             Continue
           </Button>
@@ -239,27 +240,35 @@ function LetterPreviewFlow({
             className="w-full max-w-sm"
           />
           <Drawer open dismissible={false}>
-            <DrawerContent>
-              <DrawerHeader>
-                <DrawerTitle>How well do you believe you understand this story?</DrawerTitle>
+            <DrawerContent overlayClassName="bg-transparent">
+              <DrawerHeader className="sr-only">
+                <DrawerTitle>Rate this story</DrawerTitle>
               </DrawerHeader>
-              <div className="px-4 pb-4 space-y-4">
+              <div className="px-4 pb-8 pt-4 space-y-4">
+                <h2 className="text-lg font-semibold text-center">How well do you believe you understand this story?</h2>
                 <RatingButtons
                   selectedValue={pendingRating}
                   onSelect={(value) => setPendingRating(value)}
                   disabled={isSubmitting || currentStory.rating !== null}
                 />
-                <Button
-                  onClick={() => {
-                    if (pendingRating === null) return;
-                    submitStoryRating(pendingRating);
-                    setPendingRating(null);
-                  }}
-                  disabled={pendingRating === null || isSubmitting || currentStory.rating !== null}
-                  className="w-full bg-[#0044CC] hover:bg-[#0033AA] text-white min-h-[44px]"
-                >
-                  Submit
-                </Button>
+                <div className="flex justify-between text-xs text-muted-foreground">
+                  <span>Not at all</span>
+                  <span>Complete cognitive understanding</span>
+                </div>
+                <div className="flex justify-center">
+                  <Button
+                    size="sm"
+                    onClick={() => {
+                      if (pendingRating === null) return;
+                      submitStoryRating(pendingRating);
+                      setPendingRating(null);
+                    }}
+                    disabled={pendingRating === null || isSubmitting || currentStory.rating !== null}
+                    className="bg-[#0044CC] hover:bg-[#0033AA] text-white w-full max-w-[200px] mt-2 min-h-[44px]"
+                  >
+                    Submit
+                  </Button>
+                </div>
               </div>
             </DrawerContent>
           </Drawer>
@@ -291,8 +300,9 @@ function LetterPreviewFlow({
             className="w-full max-w-sm"
           />
           <Button
+            variant="outline"
             onClick={advanceFromStoryReveal}
-            className="w-full bg-[#0044CC] hover:bg-[#0033AA] text-white min-h-[44px]"
+            className="w-full text-[#0044CC] border-[#0044CC] hover:bg-[#0044CC]/5 min-h-[44px]"
           >
             Continue
           </Button>
@@ -322,8 +332,9 @@ function LetterPreviewFlow({
             onSubmitPosition={() => {}}
           />
           <Button
+            variant="outline"
             onClick={advanceFromRemainingPointReveal}
-            className="w-full bg-[#0044CC] hover:bg-[#0033AA] text-white min-h-[44px]"
+            className="w-full text-[#0044CC] border-[#0044CC] hover:bg-[#0044CC]/5 min-h-[44px]"
           >
             Continue
           </Button>

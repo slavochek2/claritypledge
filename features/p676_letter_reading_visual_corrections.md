@@ -1,5 +1,5 @@
 ---
-status: today
+status: in-progress
 type: change-request
 rank: 1000063
 changes: p673
@@ -9,11 +9,8 @@ tags:
   - letters
   - reading-flow
 created_date: '2026-04-07'
-delivery_stage: generate-tests
-pipeline_ran:
-  - change-request
-  - architect
-  - generate-tests
+delivery_stage: dev
+pipeline_ran: [change-request, architect, generate-tests, dev]
 test_files:
   - e2e/p676-visual-corrections.spec.ts
 uat_file: features/uat/p676.md
