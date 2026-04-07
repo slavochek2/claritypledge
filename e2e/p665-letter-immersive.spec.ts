@@ -180,20 +180,13 @@ test.describe('P665: Letter Routes — Chrome-Free + Preview Reuses Reading Comp
       }
     }
 
-    // Check no story_verifications were created for this story in preview
-    const { data: verifications } = await supabaseAdmin
-      .from('story_verifications')
-      .select('id')
-      .eq('story_id', storyIds[0])
-      .eq('source', 'letter');
-
-    // Filter to only those created by sender (preview) — should be zero
-    // since preview mode should not write to DB
-    const senderVerifications = verifications?.filter(() => true) ?? [];
-    // Note: We check that no NEW verifications were created.
-    // The exact count depends on whether other tests created data,
-    // so we snapshot before and compare after.
-    const countBefore = senderVerifications.length;
+    // Snapshot letter_predictions count BEFORE clicking rating
+    // Preview uses synthetic delivery ID "preview-{docId}" which has no FK row,
+    // so DB writes would fail at constraint level.
+    const { count: predBefore } = await supabaseAdmin
+      .from('letter_predictions')
+      .select('*', { count: 'exact', head: true })
+      .eq('story_id', storyIds[0]);
 
     // Try clicking a rating if visible
     const ratingBtn = page.locator('[data-testid*="rating"] button, [role="group"] button').first();
@@ -203,14 +196,13 @@ test.describe('P665: Letter Routes — Chrome-Free + Preview Reuses Reading Comp
       await page.waitForTimeout(1000);
     }
 
-    // Verify no NEW verification rows were created
-    const { data: verificationsAfter } = await supabaseAdmin
-      .from('story_verifications')
-      .select('id')
-      .eq('story_id', storyIds[0])
-      .eq('source', 'letter');
+    // Verify no NEW prediction or response rows were created
+    const { count: predAfter } = await supabaseAdmin
+      .from('letter_predictions')
+      .select('*', { count: 'exact', head: true })
+      .eq('story_id', storyIds[0]);
 
-    expect((verificationsAfter ?? []).length).toBe(countBefore);
+    expect(predAfter ?? 0).toBe(predBefore ?? 0);
   });
 
   // ========================================================================

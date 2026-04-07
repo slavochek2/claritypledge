@@ -153,16 +153,16 @@ test.describe('P661: Letter Preview — /letter/:docId/preview', () => {
     // Click a rating — should not throw
     await ratingButtons.nth(5).click();
 
-    // Verify no letter_predictions row was created for this doc
-    // (preview mode should NOT persist ratings to DB)
-    const { data: predictions } = await supabaseAdmin
+    // Verify no NEW letter_predictions rows were created by preview
+    // Use count comparison — any row has a non-null id, so filter(p => !p.id) is vacuously true
+    const { count: predCount } = await supabaseAdmin
       .from('letter_predictions')
-      .select('id')
+      .select('*', { count: 'exact', head: true })
       .eq('story_id', storyIds[0]);
 
-    // Filter to only predictions that could have been created by this preview
-    const previewPredictions = predictions?.filter(p => !p.id) ?? [];
-    expect(previewPredictions.length).toBe(0);
+    // Preview mode uses a synthetic delivery ID that doesn't exist as a real delivery,
+    // so DB writes would fail at the FK constraint level. Count should be 0.
+    expect(predCount ?? 0).toBe(0);
   });
 
   // ── 5. Back to composition link ───────────────────────────────────────

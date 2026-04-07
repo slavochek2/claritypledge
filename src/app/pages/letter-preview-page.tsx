@@ -74,8 +74,8 @@ export function LetterPreviewPage() {
       <main className="min-h-screen flex items-center justify-center p-4">
         <div className="text-center space-y-4">
           <p className="text-muted-foreground">Doc not found or has no stories.</p>
-          <Button variant="link" onClick={() => navigate('/docs')}>
-            Back to Docs
+          <Button variant="link" onClick={() => navigate('/letters')}>
+            Back to Letters
           </Button>
         </div>
       </main>
