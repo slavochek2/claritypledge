@@ -2,8 +2,8 @@
 status: in-progress
 type: task
 rank: 1
-delivery_stage: dev
-pipeline_ran: [dev]
+delivery_stage: ship
+pipeline_ran: [dev, ship]
 tags:
   - testing
   - e2e
