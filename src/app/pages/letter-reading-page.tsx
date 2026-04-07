@@ -349,8 +349,8 @@ export function LetterReadingPage() {
           isAuthenticating={isAuthenticating}
           authDelayed={authDelayed}
           onOpen={() => {
-            if (letter.mode === 'one-to-one' && token) {
-              // 1-to-1: auth at the door via edge function
+            if (letter.mode === 'one-to-one' && token && !currentUser) {
+              // 1-to-1 unauthenticated: auth at the door via edge function
               handleOneToOneOpen();
             } else {
               // 1-to-many or already authenticated: enter reading directly

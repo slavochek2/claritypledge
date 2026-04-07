@@ -34,7 +34,7 @@ type PageState = 'loading' | 'not-found' | 'ready';
 export function LetterResultsPage() {
   const { id: letterId } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { user, sessionChecked } = useAuth();
+  const { user, sessionChecked, isLoading } = useAuth();
 
   const [pageState, setPageState] = useState<PageState>('loading');
   const [letter, setLetter] = useState<ClarityLetter | null>(null);
@@ -42,12 +42,14 @@ export function LetterResultsPage() {
   const [deliveries, setDeliveries] = useState<LetterDelivery[]>([]);
   const [predictions, setPredictions] = useState<LetterPrediction[]>([]);
 
-  // Auth gate
+  // Auth gate — wait for both session check AND profile loading to complete
+  // before redirecting. Without !isLoading, the gate fires during the window
+  // where sessionChecked is true but the profile hasn't been fetched yet.
   useEffect(() => {
-    if (sessionChecked && !user) {
+    if (sessionChecked && !isLoading && !user) {
       navigate(`/login?redirect=${encodeURIComponent(window.location.pathname)}`, { replace: true });
     }
-  }, [user, sessionChecked, navigate]);
+  }, [user, sessionChecked, isLoading, navigate]);
 
   // Fetch data
   const fetchData = useCallback(async () => {
