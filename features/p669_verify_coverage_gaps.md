@@ -1,11 +1,11 @@
 ---
-status: in-progress
+status: qa
 type: task
 rank: 1000068.0
 created_date: '2026-04-06'
 tags: [testing, skills, infrastructure]
-delivery_stage: dev
-pipeline_ran: [create-spec, challenge-prd, dev]
+delivery_stage: verify
+pipeline_ran: [create-spec, challenge-prd, dev, verify]
 ---
 
 # P669: /verify and /generate-tests Coverage Gaps
