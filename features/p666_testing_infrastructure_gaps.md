@@ -1,7 +1,9 @@
 ---
-status: today
+status: in-progress
 type: task
 rank: 1
+delivery_stage: ship
+pipeline_ran: [dev, ship]
 tags:
   - testing
   - e2e
@@ -102,13 +104,39 @@ E2E test imported from old path. Playwright silently reported "No tests found." 
 **Root cause confirmed:** No auth race condition. Old tests predate the auth gate (P66.1) and were never migrated to use P644 helpers. P644 infrastructure works — `p496-auth-context.spec.ts` passes all 5 tests (verified 2026-04-06). `addInitScript` on BrowserContext is deterministic per Playwright docs.
 
 **Concrete tasks:**
-1. `creator-detects-joiner.spec.ts` — rewrite to use `createTwoPartySession()` or `createTwoPartySessionRealistic()` instead of raw unauthenticated contexts
-2. `p562-free-mode.spec.ts` — update "Free mode" → "Open mode" selectors to match current UI labels
-3. Audit remaining `e2e/*.spec.ts` for raw `browser.newContext()` without auth injection — migrate any found
-4. Optional: harden `assertNoAuthRedirect()` with `await page.waitForLoadState('networkidle')` before URL check
-5. Run full two-party test suite to confirm P644 infrastructure is operational end-to-end
+1. ~~`creator-detects-joiner.spec.ts`~~ — file doesn't exist (likely removed or never created). SKIP.
+2. [x] `p562-free-mode.spec.ts` — updated "Free mode" → "Open mode" and "Does…understand you" → "Did…understand you" selectors to match current UI labels. Note: test now correctly exposes a Realtime delivery bug (listener doesn't receive sealed-bid initiation) — this was previously masked by `page.reload()`.
+3. [x] Audit complete — see **Unmigrated Test Audit** below.
+4. [x] Hardened `assertNoAuthRedirect()` with `await page.waitForLoadState('networkidle')` before URL check.
+5. [x] Infrastructure proof tests pass: 3/3 (`createTwoPartySession`, `createTwoPartySessionRealistic`, auth determinism). See `e2e/p666-two-party-infra-proof.spec.ts`.
 
 **Scope:** This phase can be run standalone via `/dev p666` — agent should focus on Phase 1 only, then stop at UAT gate. Phases 2-4 are separate work.
+
+### Unmigrated Test Audit (Phase 1, Task 3)
+
+The following files use raw `browser.newContext()` without going through `getTestAuthContext()`/`createTwoPartySession()`. They predate P644 and will fail on auth-gated routes.
+
+**Two-party /live tests (high priority — need auth + session helpers):**
+- `speak-freely-button.spec.ts` — 9 test cases, all raw contexts (largest unmigrated file)
+- `partner-left-meeting.spec.ts` — 3 test cases, raw contexts
+- `p-story-persistence-fixes.spec.ts` — 2 test cases, raw contexts
+
+**Non-/live tests (may not need auth injection — verify case by case):**
+- `p398-session-history-summary.spec.ts` — 3 test cases, raw contexts (session history page)
+- `p400-story-card-rendering.spec.ts` — 3 test cases, raw contexts
+- `p412-reviewer-position-removal-hides-point.spec.ts` — 1 test case, raw contexts
+- `p566-upload-reliability.spec.ts` — 7 test cases, raw contexts (upload tests)
+
+**Already using P644 helpers (no migration needed):**
+- `p562-free-mode.spec.ts` — uses `createTwoPartySession()` ✓
+- `p496-auth-context.spec.ts` — uses `getTestAuthContext()` ✓
+- `e2e/helpers/auth-context.ts` — IS the helper (uses `browser.newContext()` internally) ✓
+- `e2e/helpers/test-session.ts` — IS the helper ✓
+
+**Special cases:**
+- `save-auth.ts` — auth state persistence helper, raw context is intentional
+- `verify-prod-agreements.spec.ts` — prod verification, uses own auth flow
+
 
 ### Phase 2: Two-Party Chrome Automation (Gap 5) → P668
 
@@ -154,10 +182,10 @@ Investigate Chrome extension `resize_page` limitation. May require Chrome DevToo
 
 ## Done-When
 
-- [ ] Two-party E2E tests actually run (not just exist) — prove with a passing `createTwoPartySessionRealistic()` test
-- [ ] At least one two-party scenario verifiable at Level 2 (Chrome automation, two identities)
-- [ ] `/fix` Phase 1 attempts reproduction before canary writing (not just reads spec steps)
-- [ ] Mobile viewport verification has a working path (Chrome extension fix or DevTools alternative)
+- [x] Two-party E2E tests actually run (not just exist) — proved with 3 passing proof tests in `e2e/p666-two-party-infra-proof.spec.ts` (createTwoPartySession, createTwoPartySessionRealistic, auth determinism)
+- [ ] At least one two-party scenario verifiable at Level 2 (Chrome automation, two identities) — Phase 2 (P668)
+- [ ] `/fix` Phase 1 attempts reproduction before canary writing (not just reads spec steps) — Phase 3
+- [ ] Mobile viewport verification has a working path (Chrome extension fix or DevTools alternative) — Phase 4
 
 ## Open Questions for Phase 2
 
