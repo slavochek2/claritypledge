@@ -183,7 +183,7 @@ Agents should discover current structure from files (Glob/Grep), not hardcode as
 
 **Pattern:** `"You are a [role] specializing in [domain]. [Specific task with concrete context]."`
 
-Specificity of task + relevant context works. Role flattery doesn't. Add company context when domain-relevant (e.g., "at Stripe" for payments, "at Vercel" for Next.js).
+Specificity of task + relevant context works. Role flattery doesn't. Add company context when domain-relevant (e.g., "at Stripe" for payments, "at Vercel" for Next.js). Research agents analyzing chat history must verify factual claims against current code — conversation frequency is not evidence.
 
 ---
 
