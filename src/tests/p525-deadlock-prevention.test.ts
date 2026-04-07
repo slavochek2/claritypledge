@@ -5,6 +5,7 @@ import {
   isBothAcknowledgedCompat,
   raceWithTimeout,
   shouldUseFullOverwrite,
+  isPhaseRegression,
 } from '../app/pages/clarity-live-page';
 
 /**
@@ -371,5 +372,47 @@ describe('P525+: shouldUseFullOverwrite — DB write routing', () => {
     const state = {};
 
     expect(shouldUseFullOverwrite(updates, state)).toBe(true);
+  });
+});
+
+// ===============================================================================
+// P671: isPhaseRegression — Monotonic Phase Guard
+// ===============================================================================
+
+describe('P671: isPhaseRegression — monotonic phase guard', () => {
+  it('revealed → waiting is a regression', () => {
+    expect(isPhaseRegression('revealed', 'waiting')).toBe(true);
+  });
+
+  it('revealed → idle is NOT a regression (round reset)', () => {
+    expect(isPhaseRegression('revealed', 'idle')).toBe(false);
+  });
+
+  it('waiting → revealed is NOT a regression (forward progress)', () => {
+    expect(isPhaseRegression('waiting', 'revealed')).toBe(false);
+  });
+
+  it('idle → waiting is NOT a regression (round start)', () => {
+    expect(isPhaseRegression('idle', 'waiting')).toBe(false);
+  });
+
+  it('waiting → idle is NOT a regression (skip/reset)', () => {
+    expect(isPhaseRegression('waiting', 'idle')).toBe(false);
+  });
+
+  it('results → waiting is a regression', () => {
+    expect(isPhaseRegression('results', 'waiting')).toBe(true);
+  });
+
+  it('explain-back → revealed is a regression', () => {
+    expect(isPhaseRegression('explain-back', 'revealed')).toBe(true);
+  });
+
+  it('same phase is NOT a regression', () => {
+    expect(isPhaseRegression('waiting', 'waiting')).toBe(false);
+  });
+
+  it('unknown phase → any is NOT a regression (conservative)', () => {
+    expect(isPhaseRegression('unknown', 'waiting')).toBe(false);
   });
 });

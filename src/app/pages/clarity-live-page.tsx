@@ -148,6 +148,24 @@ export function shouldUseFullOverwrite(
 }
 
 /**
+ * P671: Monotonic phase ordering for rating flow.
+ * Realtime events can arrive out of order (a stale echo from an earlier write
+ * after a later write's echo). This function detects backward phase transitions
+ * so the Realtime handler can reject stale echoes.
+ *
+ * Returns true if applying `incomingPhase` over `localPhase` would be a regression.
+ * Exception: idle transitions are always allowed (deliberate round resets).
+ */
+// eslint-disable-next-line react-refresh/only-export-components
+export function isPhaseRegression(localPhase: string, incomingPhase: string): boolean {
+  const PHASE_ORDER: Record<string, number> = { idle: 0, waiting: 1, rating: 2, revealed: 3, 'explain-back': 4, results: 5 };
+  const localRank = PHASE_ORDER[localPhase] ?? -1;
+  const incomingRank = PHASE_ORDER[incomingPhase] ?? -1;
+  const isRoundReset = incomingPhase === 'idle' && localRank > 0;
+  return incomingRank < localRank && !isRoundReset;
+}
+
+/**
  * P525: Strips PII from live state before sending to Sentry.
  * Keeps only structural/diagnostic fields — no user names, story content, or name-keyed maps.
  */
@@ -1044,19 +1062,44 @@ export function ClarityLivePage() {
       // This fixes the "flashing button" bug where realtime delivers old state before DB save completes
       if (updatedSession.liveState && !updateInFlightRef.current) {
         const mergedState = { ...DEFAULT_LIVE_STATE, ...updatedSession.liveState } as LiveSessionState;
+
+        // P671: Monotonic phase guard — never let a stale Realtime echo regress ratingPhase.
+        // When the second submitter's write completes, updateInFlightRef drops. A queued
+        // Realtime event from the FIRST submitter's earlier write may arrive after the guard
+        // drops, carrying ratingPhase='waiting' which clobbers the local 'revealed' state.
+        const phaseRegression = isPhaseRegression(confirmedLiveStateRef.current.ratingPhase, mergedState.ratingPhase);
+
         if (import.meta.env.DEV) {
-          const changedKeys = Object.keys(updatedSession.liveState as Record<string, unknown>);
-          console.log(`[Realtime] Event applied: ${changedKeys.join(', ')}`);
+          const incoming = updatedSession.liveState as Record<string, unknown>;
+          const prevPhase = confirmedLiveStateRef.current.ratingPhase;
+          const nextPhase = mergedState.ratingPhase;
+          console.log(
+            `[Realtime] ${new Date().toISOString()} Event ${phaseRegression ? 'REJECTED (stale phase)' : 'applied'}:`,
+            `phase=${prevPhase}→${nextPhase}`,
+            `checkerSubmitted=${incoming.checkerSubmitted ?? '∅'}`,
+            `responderSubmitted=${incoming.responderSubmitted ?? '∅'}`,
+            `celebCreator=${incoming.celebrationAcknowledgedByCreator ?? '∅'}`,
+            `celebJoiner=${incoming.celebrationAcknowledgedByJoiner ?? '∅'}`,
+          );
         }
-        setLiveState(mergedState);
-        confirmedLiveStateRef.current = mergedState;
+
+        if (phaseRegression) {
+          // Stale echo — skip state application entirely.
+          // The next Realtime event (or drift poll) will carry the correct state.
+        } else {
+          setLiveState(mergedState);
+          confirmedLiveStateRef.current = mergedState;
+        }
       } else if (updatedSession.liveState && updateInFlightRef.current) {
         if (import.meta.env.DEV) {
-          const droppedKeys = Object.keys(updatedSession.liveState as Record<string, unknown>)
-            .filter(k => !['livePositionsCreator', 'livePositionsJoiner', 'freeSliderCreator', 'freeSliderJoiner', 'ratingInitiatedBy', 'ratingInitiatedByIsCreator'].includes(k));
-          if (droppedKeys.length > 0) {
-            console.log(`[Realtime] Event DROPPED (updateInFlight): ${droppedKeys.join(', ')}`);
-          }
+          const incoming = updatedSession.liveState as Record<string, unknown>;
+          console.log(
+            `[Realtime] ${new Date().toISOString()} Event BLOCKED (inFlight):`,
+            `incomingPhase=${incoming.ratingPhase ?? '∅'}`,
+            `localPhase=${confirmedLiveStateRef.current.ratingPhase}`,
+            `checkerSubmitted=${incoming.checkerSubmitted ?? '∅'}`,
+            `responderSubmitted=${incoming.responderSubmitted ?? '∅'}`,
+          );
         }
         // P562: Even during in-flight writes, merge position + slider keys from Realtime.
         // These are per-participant top-level keys — partner's writes never conflict with ours.
@@ -1770,6 +1813,20 @@ export function ClarityLivePage() {
     (rating: number) => {
       if (!name || !partnerName) return;
 
+      if (import.meta.env.DEV) {
+        const cs = confirmedLiveStateRef.current;
+        console.log(
+          `[RatingSubmit] ${new Date().toISOString()}`,
+          `rating=${rating}`,
+          `phase=${cs.ratingPhase}`,
+          `checkerName=${cs.checkerName ?? '∅'}`,
+          `checkerSubmitted=${cs.checkerSubmitted}`,
+          `responderSubmitted=${cs.responderSubmitted}`,
+          `inFlight=${updateInFlightRef.current}`,
+          `isCreator=${isCreator}`,
+        );
+      }
+
       // Clear local rating state
       setIsLocallyRating(false);
 
@@ -2039,6 +2096,13 @@ export function ClarityLivePage() {
   const reactiveResetFiredRef = useRef(false);
   useEffect(() => {
     const bothAcknowledged = isBothAcknowledged(liveState);
+    if (import.meta.env.DEV && bothAcknowledged && liveState.ratingPhase !== 'idle') {
+      console.log(
+        `[ReactiveReset] ${new Date().toISOString()}`,
+        `bothAck=true phase=${liveState.ratingPhase} guard=${reactiveResetFiredRef.current}`,
+        reactiveResetFiredRef.current ? '→ SKIPPED (guard)' : '→ FIRING RESET',
+      );
+    }
     if (bothAcknowledged && liveState.ratingPhase !== 'idle' && !reactiveResetFiredRef.current) {
       reactiveResetFiredRef.current = true;
       // Trigger the same reset as handleCelebrationComplete's bothDone branch
