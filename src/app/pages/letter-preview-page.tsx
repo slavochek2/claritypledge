@@ -281,6 +281,7 @@ function LetterPreviewFlow({
           <JourneyToUnderstanding
             checkerRating={currentStory.prediction ?? undefined}
             responderRating={currentStory.rating ?? undefined}
+            explainBackRatings={[]}
             isChecker={false}
             displayPartnerName={senderName}
             checkerName={senderName}
