@@ -32,7 +32,9 @@ No flags. The skill reads the spec, classifies scenarios, and picks the right to
 
 ## Tool Routing
 
-The skill auto-routes each scenario. **Default: Playwright.** Chrome only for visual.
+The skill auto-routes each scenario. **Default: Playwright.** Chrome only for pure visual.
+
+**Priority rule:** If a scenario involves clicking a button, link, or form element → **always Playwright**, even if it also checks visual state afterward. Chrome cannot click React Router links or interactive elements reliably (P660: 5 scenarios skipped due to this). Chrome is reserved for appearance-only checks where no interaction is needed.
 
 | Scenario type | Detection | Tool |
 |---|---|---|
@@ -42,8 +44,10 @@ The skill auto-routes each scenario. **Default: Playwright.** Chrome only for vi
 | Navigation/redirect | Checks URL change | Playwright assertion |
 | DB state verification | Checks data persistence | Playwright with Supabase admin client |
 | Form submission | Fills and submits a form | Playwright with locator API |
-| Visual appearance | About "looks right", styling, layout | Claude in Chrome |
-| Mobile viewport | UI files changed in feature | Claude in Chrome (`resize_window`) |
+| Button/link click action | "Click [X]", "[X] action", "press Back" | Playwright with locator API |
+| Multi-step sequential flow | Steps depend on prior interaction state | Playwright (orchestrate full flow) |
+| Visual appearance (no interaction) | About "looks right", styling, layout — NO clicks | Claude in Chrome |
+| Mobile viewport (no interaction) | UI files changed in feature — NO clicks | Claude in Chrome (`resize_window`) |
 
 ## Environment Detection
 
@@ -165,8 +169,16 @@ Tool routing:
 Scenarios:
   [PW] UAT-1: {short description} — {user state}
   [PW] UAT-2: {short description} — {user state}
-  [CH] Visual: desktop + mobile pass
+  [CH] Visual: desktop + mobile pass (appearance only, no clicks)
   ...
+
+**Classification rules (apply in order):**
+1. If scenario description contains click/tap/press/submit/fill/type/drag/navigate actions → `[PW]`
+2. If scenario checks a state change triggered by an interaction (badge decrement, status update, read marking) → `[PW]`
+3. If scenario requires browser history (back/forward) → `[PW]`
+4. If scenario needs data seeding (empty state, boundary condition) → `[PW]` (Chrome has no programmatic data setup)
+5. If scenario is purely about visual appearance with NO interaction → `[CH]`
+6. Default → `[PW]`
 ```
 
 **Resume detection:** Parse the Test Execution Log table in the UAT file. Rows with pass, fail, or skip markers are already complete — exclude them from the plan. Announce:

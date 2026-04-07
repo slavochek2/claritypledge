@@ -333,12 +333,78 @@ The integration test MUST include a schema existence check using the **two-clien
 
 ---
 
+## Edge-Case Data Seeding
+
+When generating test stubs from acceptance criteria, **detect boundary keywords** and auto-generate `beforeAll` seeding blocks so edge-case scenarios are runnable — not skipped for "no test data."
+
+**Boundary keywords to detect** (in acceptance criteria, Given/When/Then, or scenario descriptions):
+`empty`, `no items`, `no docs`, `no letters`, `no inbox`, `zero`, `0 stories`, `disabled`, `first time`, `new user`, `never`, `none`, `nothing`
+
+**When a boundary keyword is found:**
+
+1. Generate a dedicated `test.describe` block with a fresh test user created in `beforeAll`
+2. Seed (or deliberately NOT seed) data to match the boundary condition
+3. Clean up in `afterAll`
+
+**Pattern:**
+```typescript
+test.describe('Empty states', () => {
+  let emptyUser: TestUser;
+  test.beforeAll(async () => {
+    emptyUser = await createTestUser({ prefix: 'empty_' });
+    // No docs, no letters — tests empty state rendering
+  });
+  test.afterAll(async () => {
+    await deleteTestUser(emptyUser.id);
+  });
+
+  test('shows empty state when user has no drafts', async ({ page }) => {
+    await setTestSession(page, emptyUser.email);
+    await page.goto('/letters');
+    await expect(page.getByText('No drafts yet.')).toBeVisible();
+  });
+});
+```
+
+**For non-empty boundary conditions** (e.g., "draft with 0 stories", "public letter"):
+```typescript
+test.describe('Boundary: 0-story draft', () => {
+  let user: TestUser;
+  let emptyDoc: string;
+  test.beforeAll(async () => {
+    user = await createTestUser({ prefix: 'boundary_' });
+    // Create doc with no stories attached
+    emptyDoc = await createTestDoc(user.id, { stories: 0 });
+  });
+  test.afterAll(async () => {
+    await deleteTestDoc(emptyDoc);
+    await deleteTestUser(user.id);
+  });
+});
+```
+
+**Helper mapping for common boundaries:**
+
+| Boundary condition | Seeding approach |
+|---|---|
+| No docs/drafts/letters | `createTestUser()` with no further data |
+| 0 stories in draft | `createTestDoc()` without `createTestStory()` |
+| No inbox items | `createTestUser()` — never send them a letter |
+| No sent letters | `createTestUser()` + `createTestDoc()` — never seal |
+| Public letter | Create letter with `is_private: false` via service role |
+| First-time user | `createTestUser()` — no profile completion |
+
+**When boundary seeding uses a data shape not covered by existing helpers:** generate the seeding using direct service role key inserts (curl pattern from `/verify` Step 3a). Add a comment: `// TODO: extract to helper if pattern repeats`.
+
+---
+
 ## Quality Guarantees
 
 **All generated tests:**
 - ✅ Use existing test helpers (`createTestUser`, `setTestSession`, etc.)
 - ✅ Follow cleanup order (delete points BEFORE users)
 - ✅ Include edge cases (errors, loading, empty states)
+- ✅ **Seed data for boundary conditions** — never generate a test that relies on pre-existing data for edge cases
 - ✅ Have concrete assertions (not vague "verify it works")
 - ✅ Are runnable immediately (filled in by `/dev`, but structure is complete)
 - ✅ If spec has `## UI Contract`: every string literal in test assertions (button labels, toast text, placeholders, page titles) must be copied verbatim from the UI Contract table — not paraphrased
