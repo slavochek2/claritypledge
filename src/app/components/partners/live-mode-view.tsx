@@ -1218,11 +1218,12 @@ function IdleScreen({
     console.log(`[P646] isListenerDuringLocalRating=${isListenerDuringLocalRating}, ratingInitiatedByIsCreator=${liveState.ratingInitiatedByIsCreator}, isCreator=${isCreator}, ratingInitiatedBy=${liveState.ratingInitiatedBy}`);
   }
 
-  // Use top-aligned layout only when a story/point card is visible on screen or viewing history detail
-  // P667: Session history alone no longer triggers CONTENT_LAYOUT — it renders in the two-zone bottom zone
-  const hasScrollableContent = !!liveState.selectedStoryId || !!liveState.selectedStoryData || selectedHistoryIndex !== null;
-  // P600: Clean idle uses two-zone layout for stable button position
-  // P667: Extended to include post-round idle (session history present but no story selected)
+  // P670: Only the user who selected the story should get the layout shift.
+  // The picker only shows your own stories, so authorId matches the selector's userId.
+  // The partner receives selectedStoryData via Realtime but has no reason to change layout.
+  const isLocalStorySelection = !!liveState.selectedStoryData && liveState.selectedStoryData.authorId === userId;
+  const hasScrollableContent = isLocalStorySelection || sessionHistory.length > 0;
+  // P600: Clean idle (no story, no ratings, no history) uses two-zone layout for stable button position
   const isCleanIdle = !hasScrollableContent && !showRatingDrawer && !hasRatingData;
   const layoutClass = isCleanIdle
     ? '' // Two-zone layout handled inline below

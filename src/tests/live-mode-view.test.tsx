@@ -596,8 +596,9 @@ describe('LiveModeView', () => {
         livePositions: {},
       };
 
+      // P670: userId must match authorId so hasScrollableContent treats this as a local story selection
       renderWithRouter(
-        <LiveModeView {...defaultProps} currentUserName="alice" liveState={state} />
+        <LiveModeView {...defaultProps} currentUserName="alice" userId="author-1" liveState={state} />
       );
 
       // Footer expand button must be present (story has 1 point)
@@ -615,8 +616,9 @@ describe('LiveModeView', () => {
         livePositions: { alice: { 'point-1': 'agree' } },
       };
 
+      // P670: userId must match authorId so hasScrollableContent treats this as a local story selection
       renderWithRouter(
-        <LiveModeView {...defaultProps} currentUserName="alice" liveState={state} />
+        <LiveModeView {...defaultProps} currentUserName="alice" userId="author-1" liveState={state} />
       );
 
       expect(screen.getByText(/1 point/i)).toBeInTheDocument();
