@@ -123,10 +123,31 @@ test.describe('P661: Letter Preview — /letter/:docId/preview', () => {
     await page.goto(`/letter/${docId}/preview`);
     await page.waitForLoadState('networkidle');
 
-    // Wait for rating buttons to appear (may need to scroll/advance to rating phase)
-    const ratingButtons = page.locator('[data-testid*="rating"] button, [role="group"] button');
+    // P665: LetterStoryReader uses a phase-based flow — navigate to rating phase
+    // First advance through any position/story phases
+    for (let attempt = 0; attempt < 5; attempt++) {
+      // Try clicking position buttons (agree/disagree/unsure)
+      const positionBtn = page.locator('button').filter({ hasText: /agree|disagree|unsure/i }).first();
+      if (await positionBtn.isVisible().catch(() => false)) {
+        await positionBtn.click();
+        await page.waitForTimeout(800);
+        continue;
+      }
+      // Try clicking advance buttons (Continue, I've read this story)
+      const advanceBtn = page.locator('button').filter({ hasText: /continue|read this story/i }).first();
+      if (await advanceBtn.isVisible().catch(() => false)) {
+        await advanceBtn.click();
+        await page.waitForTimeout(500);
+        continue;
+      }
+      // Check if rating buttons are visible
+      const ratingButtons = page.locator('[data-testid*="rating"] button, [role="group"] button');
+      if (await ratingButtons.first().isVisible().catch(() => false)) break;
+      await page.waitForTimeout(300);
+    }
 
-    // Rating buttons should eventually be visible (may need to advance through story first)
+    // Rating buttons should now be visible
+    const ratingButtons = page.locator('[data-testid*="rating"] button, [role="group"] button');
     await expect(ratingButtons.first()).toBeVisible({ timeout: 10000 });
 
     // Click a rating — should not throw
@@ -140,8 +161,6 @@ test.describe('P661: Letter Preview — /letter/:docId/preview', () => {
       .eq('story_id', storyIds[0]);
 
     // Filter to only predictions that could have been created by this preview
-    // (there may be predictions from other tests, so we check for absence
-    // of predictions that lack a letter_id — preview creates none)
     const previewPredictions = predictions?.filter(p => !p.id) ?? [];
     expect(previewPredictions.length).toBe(0);
   });

@@ -141,7 +141,8 @@ export function useLetterReadingState(
   deliveryId: string,
   senderId: string,
   snapshots: LetterStorySnapshot[],
-  token?: string
+  token?: string,
+  previewMode?: boolean
 ): UseLetterReadingStateReturn {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const initRef = useRef(false);
@@ -198,10 +199,12 @@ export function useLetterReadingState(
     async (pointId: string, position: string) => {
       setIsSubmitting(true);
       try {
-        if (token) {
-          await submitPointResponseByToken(token, pointId, position);
-        } else {
-          await submitPointResponse(deliveryId, pointId, position);
+        if (!previewMode) {
+          if (token) {
+            await submitPointResponseByToken(token, pointId, position);
+          } else {
+            await submitPointResponse(deliveryId, pointId, position);
+          }
         }
         updateCurrentStory((prev) => ({
           ...prev,
@@ -213,7 +216,7 @@ export function useLetterReadingState(
         setIsSubmitting(false);
       }
     },
-    [deliveryId, token, updateCurrentStory]
+    [deliveryId, token, previewMode, updateCurrentStory]
   );
 
   // Submit rating for current story
@@ -222,7 +225,15 @@ export function useLetterReadingState(
       if (!currentSnapshot) return;
       setIsSubmitting(true);
       try {
-        if (token) {
+        if (previewMode) {
+          // Preview: local state update only, synthetic prediction
+          updateCurrentStory((prev) => ({
+            ...prev,
+            rating,
+            prediction: null,
+            phase: 'gap-reveal',
+          }));
+        } else if (token) {
           await submitRatingByToken(token, currentSnapshot.story_id, rating);
           const prediction = await revealPredictionByToken(token, currentSnapshot.story_id);
           updateCurrentStory((prev) => ({
@@ -245,7 +256,7 @@ export function useLetterReadingState(
         setIsSubmitting(false);
       }
     },
-    [deliveryId, senderId, token, currentSnapshot, updateCurrentStory]
+    [deliveryId, senderId, token, previewMode, currentSnapshot, updateCurrentStory]
   );
 
   // Advance from position-revealed to story
@@ -299,15 +310,17 @@ export function useLetterReadingState(
       const nextIndex = prev.currentStoryIndex + 1;
       if (nextIndex >= prev.stories.length) {
         // All stories read — mark complete
-        if (token) {
-          updateDeliveryStatusByToken(token, 'completed').catch(() => {});
-        } else {
-          updateDeliveryStatus(deliveryId, 'completed').catch(() => {});
+        if (!previewMode) {
+          if (token) {
+            updateDeliveryStatusByToken(token, 'completed').catch(() => {});
+          } else {
+            updateDeliveryStatus(deliveryId, 'completed').catch(() => {});
+          }
         }
         return { ...prev, isComplete: true };
       }
       // Mark delivery as in_progress if this is the first advance
-      if (prev.currentStoryIndex === 0) {
+      if (!previewMode && prev.currentStoryIndex === 0) {
         if (token) {
           updateDeliveryStatusByToken(token, 'in_progress').catch(() => {});
         } else {
@@ -316,7 +329,7 @@ export function useLetterReadingState(
       }
       return { ...prev, currentStoryIndex: nextIndex };
     });
-  }, [deliveryId, token]);
+  }, [deliveryId, token, previewMode]);
 
   return {
     state,

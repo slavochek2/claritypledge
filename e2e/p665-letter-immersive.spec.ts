@@ -140,15 +140,9 @@ test.describe('P665: Letter Routes — Chrome-Free + Preview Reuses Reading Comp
     await page.goto(`/letter/${docId}/preview`);
     await page.waitForLoadState('networkidle');
 
-    // CertificatePageShell with parchment prop applies a distinctive background
-    // Check for the parchment-related CSS class or background style
-    const shell = page.locator('[data-testid="certificate-page-shell"]')
-      .or(page.locator('.bg-amber-50\\/30'))
-      .or(page.locator('[class*="parchment"]'))
-      .or(page.locator('[class*="certificate"]'));
-
-    // The parchment shell or a styled main element should be present
-    await expect(shell.or(page.locator('main').first())).toBeVisible({ timeout: 10000 });
+    // CertificatePageShell with parchment prop applies data-testid and bg-[#F5F3EF]
+    const shell = page.locator('[data-testid="certificate-page-shell"]');
+    await expect(shell).toBeVisible({ timeout: 10000 });
   });
 
   // ========================================================================
@@ -427,13 +421,9 @@ test.describe('P665: Letter Routes — Chrome-Free + Preview Reuses Reading Comp
     ).toBeVisible({ timeout: 10000 });
 
     // Story content is still rendered (just via different component now)
+    // LetterStoryReader shows story index text ("Story 1 of N") on the preview flow
     await expect(
-      page.locator('text=P665 Story 1').or(
-        page.locator('text=Immersive test story content 1')
-      ).or(
-        // LetterStoryReader may show phase content rather than story title
-        page.locator('text=/story 1 of/i')
-      )
+      page.locator('text=/story 1 of/i').first()
     ).toBeVisible({ timeout: 10000 });
   });
 

@@ -40,6 +40,8 @@ interface StoryReaderProps {
   senderName: string;
   isAuthenticated: boolean;
   isSubmitting: boolean;
+  /** P665: Forward-declared for preview mode — no behavioral change in this component */
+  previewMode?: boolean;
   onPositionSubmit: (pointId: string, position: string) => void;
   onRatingSubmit: (rating: number) => void;
   onAdvanceToStory: () => void;
@@ -88,6 +90,7 @@ export function LetterStoryReader({
   senderName,
   isSubmitting,
   isAuthenticated,
+  previewMode: _previewMode,
   onPositionSubmit,
   onRatingSubmit,
   onAdvanceToStory,

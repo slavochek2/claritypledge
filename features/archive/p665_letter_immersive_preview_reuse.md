@@ -1,10 +1,9 @@
 ---
-status: rejected
+status: in-progress
 type: change-request
 rank: 1000066.0
 changes: p661
 chain_root: p581
-superseded_by: p673
 tags:
   - redesign
   - p661
@@ -12,8 +11,8 @@ tags:
   - preview
   - chrome-free
 created_date: 2026-04-06T00:00:00.000Z
-delivery_stage: generate-tests
-pipeline_ran: [change-request, architect, generate-tests]
+delivery_stage: dev
+pipeline_ran: [change-request, architect, generate-tests, dev]
 uat_file: features/uat/p665.md
 test_files:
   - e2e/p665-letter-immersive.spec.ts

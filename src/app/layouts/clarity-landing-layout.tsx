@@ -13,9 +13,11 @@ import { LiveSessionProvider } from "@/app/contexts/live-session-context";
 
 interface ClarityLandingLayoutProps {
   children: ReactNode;
+  /** P665: When true, render children inside LiveSessionProvider with Toaster but without nav/footer/padding */
+  chromeFree?: boolean;
 }
 
-export function ClarityLandingLayout({ children }: ClarityLandingLayoutProps) {
+export function ClarityLandingLayout({ children, chromeFree }: ClarityLandingLayoutProps) {
   const [searchParams] = useSearchParams();
 
   // Embed mode: strip all page chrome (nav, footer, bottom nav)
@@ -23,6 +25,19 @@ export function ClarityLandingLayout({ children }: ClarityLandingLayoutProps) {
 
   if (isEmbed) {
     return <>{children}</>;
+  }
+
+  // P665: Chrome-free mode for letter routes — keeps LiveSessionProvider + Toaster
+  if (chromeFree) {
+    return (
+      <LiveSessionProvider>
+        <OfflineBanner />
+        <main className="min-h-screen bg-background text-foreground">
+          {children}
+        </main>
+        <Toaster />
+      </LiveSessionProvider>
+    );
   }
 
   return (

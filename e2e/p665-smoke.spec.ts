@@ -89,8 +89,7 @@ test.describe('P665 Smoke Tests', () => {
     await page.waitForLoadState('networkidle');
 
     // Letters list page should still have top nav (it is NOT chrome-free)
-    const topNav = page.locator('nav').filter({ hasText: /Home/ }).first()
-      .or(page.locator('a[href="/"]').first());
+    const topNav = page.locator('nav').filter({ hasText: /Home/ }).first();
     await expect(topNav).toBeVisible({ timeout: 10000 });
   });
 });

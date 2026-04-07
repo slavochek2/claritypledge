@@ -630,11 +630,11 @@ export default function ClarityPledgeApp() {
           }
         />
 
-        {/* P661: Letter preview (non-persisting reading flow) */}
+        {/* P665: Letter preview (chrome-free, non-persisting reading flow) */}
         <Route
           path="/letter/:docId/preview"
           element={
-            <ClarityLandingLayout>
+            <ClarityLandingLayout chromeFree>
               <LazyRoute>
                 <LetterPreviewPage />
               </LazyRoute>
@@ -642,11 +642,11 @@ export default function ClarityPledgeApp() {
           }
         />
 
-        {/* P581: Letter results page (sender view) — must be before /letter/:id */}
+        {/* P665: Letter results page (chrome-free, sender view) — must be before /letter/:id */}
         <Route
           path="/letter/:id/results"
           element={
-            <ClarityLandingLayout>
+            <ClarityLandingLayout chromeFree>
               <LazyRoute>
                 <LetterResultsPage />
               </LazyRoute>
@@ -654,11 +654,11 @@ export default function ClarityPledgeApp() {
           }
         />
 
-        {/* P581: Letter reading flow */}
+        {/* P665: Letter reading flow (chrome-free) */}
         <Route
           path="/letter/:id"
           element={
-            <ClarityLandingLayout>
+            <ClarityLandingLayout chromeFree>
               <LazyRoute>
                 <LetterReadingPage />
               </LazyRoute>
