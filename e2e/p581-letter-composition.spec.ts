@@ -171,6 +171,15 @@ test.describe('P661: Letter Composition — prediction walk flow', () => {
       return;
     }
 
+    // Private doc needs at least one story for "Prepare a Letter" to appear
+    const privateStory = await createTestStory(sender.user.id, {
+      title: 'P661 Private Doc Story',
+      content: 'Test story for private doc composition test.',
+    });
+    await supabaseAdmin
+      .from('doc_stories')
+      .insert({ doc_id: privateDoc.id, story_id: privateStory.id, position: 0 });
+
     try {
       await setTestSession(page, sender.email);
       await page.goto(`/d/${privateDoc.id}`);
@@ -194,6 +203,8 @@ test.describe('P661: Letter Composition — prediction walk flow', () => {
 
       expect(isDisabled || hasAriaDisabled).toBeTruthy();
     } finally {
+      await supabaseAdmin.from('doc_stories').delete().eq('doc_id', privateDoc.id);
+      await deleteTestStory(privateStory.id);
       await supabaseAdmin.from('clarity_docs').delete().eq('id', privateDoc.id);
     }
   });
@@ -294,7 +305,7 @@ test.describe('P661: Letter Composition — prediction walk flow', () => {
     ).toBeVisible({ timeout: 10000 });
 
     await expect(
-      page.locator('text=/understands your story/i')
+      page.locator('text=/understand your story/i')
     ).toBeVisible({ timeout: 10000 });
   });
 
@@ -398,9 +409,9 @@ test.describe('P661: Letter Composition — prediction walk flow', () => {
     await expect(finishBtn).toBeVisible({ timeout: 5000 });
     await finishBtn.click();
 
-    // Review screen should show prediction summary
+    // Review screen should show "Ready to send" heading
     await expect(
-      page.locator('text=/prediction/i').or(page.locator('text=/ready to send/i'))
+      page.getByRole('heading', { name: /ready to send/i })
     ).toBeVisible({ timeout: 10000 });
   });
 
@@ -509,7 +520,7 @@ test.describe('P661: Letter Composition — prediction walk flow', () => {
 
     // Confirmation should show "Letter Sealed"
     await expect(
-      page.locator('text=Letter Sealed')
+      page.getByRole('heading', { name: 'Letter Sealed' })
     ).toBeVisible({ timeout: 10000 });
   });
 
@@ -547,7 +558,7 @@ test.describe('P661: Letter Composition — prediction walk flow', () => {
     await sealBtn.click();
 
     // Wait for confirmation
-    await expect(page.locator('text=Letter Sealed')).toBeVisible({ timeout: 10000 });
+    await expect(page.getByRole('heading', { name: 'Letter Sealed' })).toBeVisible({ timeout: 10000 });
 
     // "Back to Doc" link should be visible
     const backLink = page.locator('text=Back to Doc')
