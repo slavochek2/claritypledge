@@ -2,6 +2,30 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-07 [technical]: Sandbox PATH incompatibility — skills must use absolute paths for shell tools
+
+**Context:** The weekly maintenance skill's bash blocks used bare `grep`, `sed`, `find`, `wc` commands. These failed silently in Claude Code's sandbox environment because the sandbox PATH doesn't include `/usr/bin/` reliably. The skill ran without errors but produced empty/wrong output — a silent failure mode.
+**Decision:** All skill bash blocks must use absolute paths: `/usr/bin/grep`, `/usr/bin/sed`, `/usr/bin/find`, `/usr/bin/wc`, `/bin/ls`. Applied to `weekly/SKILL.md`. Same rule applies to any future skill that shells out.
+**Alternatives rejected:** (A) Set PATH explicitly at script top — fragile across sandbox versions. (B) Use `command -v` checks — adds complexity for a problem with a simple fix.
+**Consequences:** Pattern for all skill authors: if a bash block runs in sandbox, use absolute paths. Non-sandbox scripts (pre-commit-checks.sh, migrate.sh) are fine with bare commands since they run in the user's shell.
+**References:** [weekly/SKILL.md](.claude/commands/slava/maintain/weekly/SKILL.md)
+
+## 2026-04-07 [process]: Migration pre-commit gate upgraded from warning to blocking error
+
+**Context:** The migration check in `pre-commit-checks.sh` was a yellow warning — "don't forget to apply this migration." Warnings were routinely ignored, leading to migrations committed but never applied to test DB, discovered only when tests failed or prod deploy broke.
+**Decision:** Upgraded to red blocking error (`ERRORS++` instead of `WARNINGS++`). When a `supabase/migrations/*.sql` file is staged, commit is blocked until developer confirms: (1) applied to test DB via `./scripts/migrate.sh`, (2) integration test added.
+**Alternatives rejected:** (A) Keep as warning with louder formatting — warnings don't change behavior. (B) Auto-apply migration in pre-commit hook — too slow and can fail on schema conflicts.
+**Consequences:** Developers must apply migrations before committing migration files. The gate references `./scripts/migrate.sh` directly for the apply step.
+**References:** [pre-commit-checks.sh](scripts/pre-commit-checks.sh)
+
+## 2026-04-07 [process]: Worktree rebase workflow — commit everything first, never stash
+
+**Context:** When bringing main's testing infrastructure improvements (P666) into worktrees w1 and w2, the question arose whether to stash uncommitted changes before rebasing. Stashing is a black box — invisible changes, confusing pop failures, lost visibility.
+**Decision:** Always commit all uncommitted work in every location before rebasing. Workflow: (1) commit main, (2) commit each worktree, (3) rebase each worktree onto main. This session: 3 commits on main, 1 on w1, 3 on w2, then clean rebases. W1 rebased cleanly (36 commits). W2 had 3 conflicts in feature specs (all resolved by keeping the more advanced version).
+**Alternatives rejected:** (A) `git stash` — banned in `.claude/rules/git.md` for good reason: hides work silently, pop can half-apply, user loses visibility. (B) Rebase with dirty worktree — git refuses or creates messy auto-stash situations.
+**Consequences:** Rebase is safe when all locations are committed first. Conflict resolution is transparent (each conflict is a real content decision, not a stash artifact). Git auto-drops commits already upstream (e.g., `.env.prod.example` deletion was skipped automatically).
+**References:** [git.md](.claude/rules/git.md)
+
 ## 2026-04-07 [process]: Simplify build skill lifecycle — silent /ship, /park, /finish internalized
 
 **Context:** Founder confusion about when to use /ship vs /finish vs /verify. Circular "run X next" references between skills. /ship had 6 interactive prompts on the happy path. /finish was hidden from /pick-flow (firewall #3: "never list as separate step") but /ship checked its artifact — users couldn't understand why a skill they were told doesn't exist was blocking their merge. No way to mark work "done on branch" without merging.
