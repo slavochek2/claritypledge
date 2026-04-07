@@ -111,12 +111,12 @@ Code references: `src/app/pages/letter-reading-page.tsx`, `src/app/pages/letter-
 
 ## Acceptance Criteria
 
-- [ ] Story card is fully visible (not dimmed) when rating Drawer is open
-- [ ] Drawer styling (height, padding, corners, typography) matches /live's rating drawer
-- [ ] After submitting rating/position, progression button reads "Continue" and is outside/below the card with secondary visual weight
-- [ ] Position badges (Agrees/Disagrees) render inside the story card boundary on all pages
-- [ ] Surfaces NOT in scope are visually unchanged
-- [ ] All existing P673 tests still pass
+- [x] Story card is fully visible (not dimmed) when rating Drawer is open
+- [x] Drawer styling (height, padding, corners, typography) matches /live's rating drawer
+- [x] After submitting rating/position, progression button reads "Continue" and is outside/below the card with secondary visual weight
+- [x] Position badges (Agrees/Disagrees) render inside the story card boundary on all pages
+- [x] Surfaces NOT in scope are visually unchanged
+- [x] All existing P673 tests still pass
 - [ ] /live rating drawer behavior unchanged (regression check)
 
 ## Technical Architecture
