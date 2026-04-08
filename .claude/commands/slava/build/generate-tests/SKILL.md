@@ -5,6 +5,20 @@ name: generate-tests
 version: 1.1.0
 ---
 
+## Dispatch
+
+**Phase A — Analyze + generate (spawn → collect → present):**
+Spawn Agent tool: `model: "sonnet"`, `subagent_type: "general-purpose"`.
+Prompt: the full skill instructions below + spec path from $ARGUMENTS. Working dir: `/Users/slavochek/Projects/public/claritypledge`.
+The subagent analyzes the spec, determines test strategy, and generates all test file content — but does NOT write files yet.
+Collect output (test counts, file paths, generated content). Present summary to user.
+Ask: "Ready to write these test files? (y/n)"
+
+**Phase B — Write files (only after user approves):**
+Spawn a second Agent tool: `model: "sonnet"`, `subagent_type: "general-purpose"`.
+Prompt: write the test files using the content generated in Phase A. Pass file paths and content inline.
+Report subagent output verbatim. Then update the spec's `## Test Coverage Strategy` section in the main session.
+
 # /generate-tests
 
 Generate comprehensive test strategy: unit, integration, E2E, accessibility, smoke tests, and UAT scenarios.
