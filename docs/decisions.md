@@ -2,6 +2,14 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-08 [process]: Skill model routing via ## Dispatch sections — no new infrastructure
+
+**Context:** All skills run at Opus tier by default. Many are purely mechanical (file lookup, grep + sort, template-driven output) and don't need Opus reasoning. The Agent tool already accepts `model: "haiku"` or `model: "sonnet"` — subagents at those tiers have full tool access. Cost savings achievable without new infrastructure.
+**Decision:** Add a `## Dispatch` section to mechanical skills instructing the main session to spawn a subagent at the appropriate tier. Three tiers: Haiku (zero judgment — grep/lookup), Sonnet (structured output, mild cross-referencing), Opus (judgment, creative, security). Piloted and validated Phases 0–2: `link-to-this-chat` and `shorten-url` → Haiku; `cleanup` and `status` → Sonnet. Cost tracking added to `skills.md` (logs to `.private/logs/skill-costs.log`). No frontmatter `model:` field (nothing in Claude Code reads it). No batch rollout — phased with measurement gates between phases.
+**Alternatives rejected:** (A) Frontmatter `model:` field — inert, nothing reads it to auto-route. (B) Batch rollout — no quality measurement, risk of silent regressions. (C) New routing infrastructure — unnecessary; Agent tool's model param is sufficient.
+**Consequences:** Mechanical skills now route to cheaper tiers. Approval-gate skills (cleanup) split into Phase A (Sonnet proposes) / Phase B (Sonnet executes after user approves in main session). Skills with conversation context (status) require main session to compose session summary before spawning. Phase 3 remaining: promote-skill, decompose, generate-uat, generate-tests, spec-compact, ascii-flows.
+**References:** [cozy-cuddling-seal.md](~/.claude/plans/cozy-cuddling-seal.md) | [skills.md](.claude/rules/skills.md)
+
 ## 2026-04-07 [technical]: Chrome-free letter routes via layout prop, not new layout component
 
 **Context:** Letter preview and reading routes (`/letter/:docId/preview`, `/letter/:id`) rendered inside `ClarityLandingLayout`, which unconditionally shows `SimpleNavigation` (top nav). Bottom nav was already hidden via `focusRoutes`. Recipients arriving via email link saw full ClarityPledge chrome — breaking the ritual/immersive framing (D6).

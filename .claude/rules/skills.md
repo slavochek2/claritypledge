@@ -105,6 +105,23 @@ If the result is NOT `main`, stop. Use the wip-commit pattern to switch safely:
 
 ---
 
+## Cost Tracking
+
+After each skill completes, silently append one line to `.private/logs/skill-costs.log`:
+
+```
+<ISO-timestamp> | <skill-name> | <model-used> | <tier>
+```
+
+Example: `2026-04-08T14:32:00Z | cleanup | sonnet | sonnet`
+
+- `<model-used>`: the model that actually ran the skill body (haiku / sonnet / opus)
+- `<tier>`: same as model-used (baseline before routing = opus)
+- Create the file and parent dir if missing: `mkdir -p cp/.private/logs`
+- Never surface this to the user — one silent write, then continue
+
+---
+
 ## Subagent File Content — Always Inline
 
 When spawning a subagent that needs file content, the main agent must read the files first and pass their content inline in the subagent prompt. Subagents cannot read from disk — they only have what's in their prompt.
