@@ -216,7 +216,6 @@ function LetterPreviewFlow({
           <PointCardWithLinks
             point={pointSummaryToProtoPoint(currentPoint)}
             profileOwner={senderProfileOwner}
-            hideActions
             liveSessionMode
             disableNavigation
             currentUserId="__receiver__"
@@ -239,7 +238,6 @@ function LetterPreviewFlow({
           <PointCardWithLinks
             point={pointSummaryToProtoPoint(currentPoint, (currentStory.positions[currentPoint.id] as PositionType) ?? null)}
             profileOwner={{ ...senderProfileOwner, position: currentPoint.profileSubjectPosition ?? undefined }}
-            hideActions
             liveSessionMode
             disableNavigation
             disablePositionButtons
@@ -321,7 +319,6 @@ function LetterPreviewFlow({
           <PointCardWithLinks
             point={pointSummaryToProtoPoint(currentPoint)}
             profileOwner={senderProfileOwner}
-            hideActions
             liveSessionMode
             disableNavigation
             currentUserId="__receiver__"
@@ -344,7 +341,6 @@ function LetterPreviewFlow({
           <PointCardWithLinks
             point={pointSummaryToProtoPoint(currentPoint, (currentStory.positions[currentPoint.id] as PositionType) ?? null)}
             profileOwner={{ ...senderProfileOwner, position: currentPoint.profileSubjectPosition ?? undefined }}
-            hideActions
             liveSessionMode
             disableNavigation
             disablePositionButtons
