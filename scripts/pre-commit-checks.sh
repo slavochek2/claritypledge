@@ -346,9 +346,23 @@ else
 fi
 echo ""
 
-# 14. Root file pollution check (prevent agent-generated temp files)
+# 14. Root file pollution check (prevent agent-generated temp files and stray images)
 echo ">>> Checking for temporary files in project root..."
-ROOT_TEMP_FILES=$(ls -1 /*.md /*.json 2>/dev/null | grep -vE '(CLAUDE|GEMINI|README|CONTRIBUTING|SECURITY|CLA|components\.json|package\.json|package-lock\.json|tsconfig.*\.json|vercel\.json)' || true)
+
+# Check for PNG/JPG/JPEG images dumped to root (browser automation artifacts)
+ROOT_IMAGES=$(ls -1 ./*.png ./*.jpg ./*.jpeg 2>/dev/null || true)
+if [ -n "$ROOT_IMAGES" ]; then
+    echo -e "${RED}✗ Image files found in project root (browser automation artifacts):${NC}"
+    echo "$ROOT_IMAGES" | while read -r file; do
+        echo -e "${RED}  → $file${NC}"
+    done
+    echo -e "${RED}  Screenshots must go to ~/Screenshots/{date}/{feature}/, not project root.${NC}"
+    echo -e "${RED}  See docs/technical/browser-tools.md — 'Screenshot Path Rule'.${NC}"
+    ERRORS=$((ERRORS + 1))
+fi
+
+# Check for unexpected .md / .json files in project root
+ROOT_TEMP_FILES=$(ls -1 ./*.md ./*.json 2>/dev/null | grep -vE '(CLAUDE|GEMINI|README|CONTRIBUTING|SECURITY|CLA|components\.json|package\.json|package-lock\.json|tsconfig.*\.json|vercel\.json)' || true)
 
 if [ -n "$ROOT_TEMP_FILES" ]; then
     # Check if any match agent-generated patterns
@@ -369,25 +383,55 @@ if [ -n "$ROOT_TEMP_FILES" ]; then
         WARNINGS=$((WARNINGS + 1))
     fi
 else
-    echo -e "${GREEN}✓ No temporary files in project root${NC}"
+    if [ -z "$ROOT_IMAGES" ]; then
+        echo -e "${GREEN}✓ No temporary files in project root${NC}"
+    fi
 fi
 echo ""
 
 # 15. Migration commit gate (P270 — prevents P160-class bugs)
-# When a migration SQL file is staged, blocks commit until developer confirms:
-# (1) applied to test DB, (2) integration test added.
+# When a migration SQL file is staged, verifies it was applied to test DB via
+# deploy-manifest.json (updated by ./scripts/migrate.sh after successful push).
+# (1) applied to test DB — verified via deploy-manifest, (2) integration test added.
 echo ">>> Checking for new migrations being committed..."
 STAGED_MIGRATIONS=$(git diff --cached --name-only 2>/dev/null | grep '^supabase/migrations/.*\.sql$' || true)
+DEPLOY_MANIFEST="supabase/deploy-manifest.json"
 if [ -n "$STAGED_MIGRATIONS" ]; then
-    echo -e "${RED}✗ New migration(s) staged — apply before committing:${NC}"
-    echo "$STAGED_MIGRATIONS" | while IFS= read -r mig; do
-        echo -e "${RED}  → $mig${NC}"
-    done
-    echo -e "${RED}  Required before commit:${NC}"
-    echo -e "${RED}  1. Apply to test DB: ./scripts/migrate.sh${NC}"
-    echo -e "${RED}  2. Integration test: e2e/integration/p{N}-db-schema.spec.ts${NC}"
-    echo -e "${RED}  See docs/technical/e2e-testing-guide.md for the integration test template.${NC}"
-    ERRORS=$((ERRORS + 1))
+    UNAPPLIED=0
+    while IFS= read -r mig; do
+        mig_base=$(basename "$mig" .sql)
+        applied=false
+        if [ -f "$DEPLOY_MANIFEST" ]; then
+            # Check if migration version prefix (first 14 chars of timestamp) is in test.migrations
+            if python3 -c "
+import json, sys
+with open('$DEPLOY_MANIFEST') as f:
+    manifest = json.load(f)
+test_migrations = manifest.get('test', {}).get('migrations', [])
+mig = '$mig_base'
+found = any(str(m) == mig or mig.startswith(str(m)) or str(m).startswith(mig[:8]) for m in test_migrations)
+sys.exit(0 if found else 1)
+" 2>/dev/null; then
+                applied=true
+            fi
+        fi
+        if $applied; then
+            echo -e "${GREEN}  ✓ $mig_base applied (in deploy-manifest)${NC}"
+        else
+            echo -e "${RED}  ✗ $mig_base not applied — run: ./scripts/migrate.sh${NC}"
+            UNAPPLIED=$((UNAPPLIED + 1))
+        fi
+    done <<< "$STAGED_MIGRATIONS"
+
+    if [ "$UNAPPLIED" -gt 0 ]; then
+        echo -e "${RED}✗ Staged migration(s) not yet applied to test DB.${NC}"
+        echo -e "${RED}  Run ./scripts/migrate.sh, then re-stage deploy-manifest.json.${NC}"
+        echo -e "${RED}  Integration test: e2e/integration/p{N}-db-schema.spec.ts${NC}"
+        echo -e "${RED}  See docs/technical/e2e-testing-guide.md for the integration test template.${NC}"
+        ERRORS=$((ERRORS + 1))
+    else
+        echo -e "${GREEN}✓ All staged migrations applied to test DB${NC}"
+    fi
 
     # P270 enforcement: check that each staged migration has a corresponding integration test.
     # WARNING only (not hard error) — many existing migrations predate this rule.

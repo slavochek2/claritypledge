@@ -4,6 +4,18 @@ Three browser automation tools, each with a distinct purpose. No hierarchy — p
 
 ---
 
+## Screenshot Path Rule
+
+**Never write screenshots to the project directory.** Browser automation tools default to CWD (project root), creating clutter that accumulates silently.
+
+Always pass an absolute path:
+- **Transient QA screenshots:** `~/Screenshots/YYYY-MM-DD/{feature}/name.png`
+- **Committed docs screenshots:** `docs/reference/{feature}/name.png` (tracked in git)
+
+Pre-commit check #14 will **error** if PNG/JPG files are found in the project root.
+
+---
+
 ## Tool Overview
 
 | Tool | What It Is | Headless? | Needs User Browser? | CI? | Token Cost |
