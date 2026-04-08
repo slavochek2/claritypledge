@@ -12,7 +12,9 @@ import { Button } from '@/components/ui/button';
 import { CertificatePageShell } from '@/app/components/layout/certificate-page-shell';
 import { FocusHeader } from '@/app/components/layout/focus-header';
 import { LetterProgressBar } from '@/app/components/letters/letter-progress-bar';
-import { LiveStoryCardExpanded, PointRow } from '@/app/components/partners/live-story-card-expanded';
+import { LiveStoryCardExpanded } from '@/app/components/partners/live-story-card-expanded';
+import { PointCardWithLinks } from '@/app/components/social/point-card-with-links';
+import type { PointProfileOwner } from '@/app/components/social/point-card-with-links';
 import { JourneyToUnderstanding } from '@/app/components/partners/live-mode-view';
 import { GapBanner } from '@/app/components/shared/gap-banner';
 import { ComprehensionRatingCard } from '@/app/components/shared/comprehension-rating-card';
@@ -24,10 +26,11 @@ import {
   DrawerTitle,
 } from '@/components/ui/drawer';
 import { useLetterReadingState } from '@/app/hooks/useLetterReadingState';
-import { snapshotToStoryWithPoints } from '@/app/utils/letter-snapshot-mapper';
+import { snapshotToStoryWithPoints, pointSummaryToProtoPoint } from '@/app/utils/letter-snapshot-mapper';
 import { docsService } from '@/app/data/docs-service';
 import { useAuth } from '@/auth';
 import type { DocStory, LetterStorySnapshot, PositionType } from '@/app/types';
+import type { Position } from '@/app/components/shared/prototype-types';
 
 /**
  * Convert DocStory to LetterStorySnapshot shape.
@@ -177,6 +180,13 @@ function LetterPreviewFlow({
 
   // Preview simulates the receiver's view — show sender's actual name, not "You"
   const senderName = currentUser?.name ?? 'Someone';
+  const senderProfileOwner: PointProfileOwner = {
+    id: currentUser?.id ?? '',
+    name: senderName,
+    avatarUrl: currentUser?.avatarUrl ?? undefined,
+    avatarColor: currentUser?.avatarColor ?? undefined,
+    hasPledged: currentUser?.hasPledged ?? false,
+  };
   const storyWithPoints = snapshotToStoryWithPoints(currentSnapshot, senderName);
   const visiblePoints = storyWithPoints.points;
   const currentPoint = visiblePoints[currentStory.currentPointIndex];
@@ -190,7 +200,7 @@ function LetterPreviewFlow({
   const isLastStory = state.currentStoryIndex + 1 >= snapshots.length;
 
   return (
-    <div className="space-y-6">
+    <div className="max-w-md mx-auto w-full space-y-6">
       <LetterProgressBar
         currentIndex={state.currentStoryIndex}
         totalStories={snapshots.length}
@@ -200,37 +210,45 @@ function LetterPreviewFlow({
         Story {state.currentStoryIndex + 1} of {snapshots.length}
       </p>
 
-      {/* PHASE: point-engage */}
+      {/* PHASE: point-engage — sealed-bid: author position hidden until receiver picks */}
       {currentPhase === 'point-engage' && currentPoint && (
-        <PointRow
-          point={currentPoint}
-          authorName={senderName}
-          letterMode
-          onPositionSelect={(_, pos) => { if (pos !== null) setSelectedPosition(pos); }}
-        >
+        <div className="space-y-4">
+          <PointCardWithLinks
+            point={pointSummaryToProtoPoint(currentPoint)}
+            profileOwner={senderProfileOwner}
+            hideActions
+            liveSessionMode
+            disableNavigation
+            currentUserId="__receiver__"
+            onPositionSelect={(pos) => { setSelectedPosition(pos as PositionType | null); }}
+            selectedPosition={selectedPosition as Position}
+          />
           <Button
             onClick={() => { if (selectedPosition) { submitPointPosition(currentPoint.id, selectedPosition); setSelectedPosition(null); } }}
             disabled={!selectedPosition || isSubmitting}
             className="w-full bg-[#0044CC] hover:bg-[#0033AA] text-white min-h-[44px]"
           >
-            Submit
+            Continue
           </Button>
-        </PointRow>
+        </div>
       )}
 
-      {/* PHASE: point-revealed */}
+      {/* PHASE: point-revealed — author's position now visible via quote pattern */}
       {currentPhase === 'point-revealed' && currentPoint && (
         <div className="space-y-4">
-          <PointRow
-            point={{ ...currentPoint, userPosition: (currentStory.positions[currentPoint.id] as PositionType) ?? null }}
-            authorName={senderName}
-            letterMode
+          <PointCardWithLinks
+            point={pointSummaryToProtoPoint(currentPoint, (currentStory.positions[currentPoint.id] as PositionType) ?? null)}
+            profileOwner={{ ...senderProfileOwner, position: currentPoint.profileSubjectPosition ?? undefined }}
+            hideActions
+            liveSessionMode
+            disableNavigation
             disablePositionButtons
+            currentUserId="__receiver__"
+            selectedPosition={(currentStory.positions[currentPoint.id] as Position) ?? null}
           />
           <Button
-            variant="outline"
             onClick={advanceFromPointReveal}
-            className="w-full text-[#0044CC] border-[#0044CC] hover:bg-[#0044CC]/5 min-h-[44px]"
+            className="w-full bg-[#0044CC] hover:bg-[#0033AA] text-white min-h-[44px]"
           >
             Continue
           </Button>
@@ -289,9 +307,8 @@ function LetterPreviewFlow({
             className="w-full max-w-sm"
           />
           <Button
-            variant="outline"
             onClick={advanceFromStoryReveal}
-            className="w-full text-[#0044CC] border-[#0044CC] hover:bg-[#0044CC]/5 min-h-[44px]"
+            className="w-full bg-[#0044CC] hover:bg-[#0033AA] text-white min-h-[44px]"
           >
             Continue
           </Button>
@@ -300,35 +317,43 @@ function LetterPreviewFlow({
 
       {/* PHASE: remaining-point-engage */}
       {currentPhase === 'remaining-point-engage' && currentPoint && (
-        <PointRow
-          point={currentPoint}
-          authorName={senderName}
-          letterMode
-          onPositionSelect={(_, pos) => { if (pos !== null) setSelectedPosition(pos); }}
-        >
+        <div className="space-y-4">
+          <PointCardWithLinks
+            point={pointSummaryToProtoPoint(currentPoint)}
+            profileOwner={senderProfileOwner}
+            hideActions
+            liveSessionMode
+            disableNavigation
+            currentUserId="__receiver__"
+            onPositionSelect={(pos) => { setSelectedPosition(pos as PositionType | null); }}
+            selectedPosition={selectedPosition as Position}
+          />
           <Button
             onClick={() => { if (selectedPosition) { submitPointPosition(currentPoint.id, selectedPosition); setSelectedPosition(null); } }}
             disabled={!selectedPosition || isSubmitting}
             className="w-full bg-[#0044CC] hover:bg-[#0033AA] text-white min-h-[44px]"
           >
-            Submit
+            Continue
           </Button>
-        </PointRow>
+        </div>
       )}
 
       {/* PHASE: remaining-point-revealed */}
       {currentPhase === 'remaining-point-revealed' && currentPoint && (
         <div className="space-y-4">
-          <PointRow
-            point={{ ...currentPoint, userPosition: (currentStory.positions[currentPoint.id] as PositionType) ?? null }}
-            authorName={senderName}
-            letterMode
+          <PointCardWithLinks
+            point={pointSummaryToProtoPoint(currentPoint, (currentStory.positions[currentPoint.id] as PositionType) ?? null)}
+            profileOwner={{ ...senderProfileOwner, position: currentPoint.profileSubjectPosition ?? undefined }}
+            hideActions
+            liveSessionMode
+            disableNavigation
             disablePositionButtons
+            currentUserId="__receiver__"
+            selectedPosition={(currentStory.positions[currentPoint.id] as Position) ?? null}
           />
           <Button
-            variant="outline"
             onClick={advanceFromRemainingPointReveal}
-            className="w-full text-[#0044CC] border-[#0044CC] hover:bg-[#0044CC]/5 min-h-[44px]"
+            className="w-full bg-[#0044CC] hover:bg-[#0033AA] text-white min-h-[44px]"
           >
             Continue
           </Button>

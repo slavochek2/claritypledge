@@ -3,11 +3,11 @@
  * @description P581 Task 7 / P673: Letter reading page with token validation + reading flow.
  * Route: /letter/:id (id = deliveryId) with optional ?token=xxx for 1-to-1.
  *
- * P673/P676: LetterReadingFlow composes /live components:
+ * P673/P676: LetterReadingFlow composes shared components:
  * - LiveStoryCardExpanded (hidePoints) for story display
  * - ComprehensionRatingCard in Drawer for rating
  * - JourneyToUnderstanding + GapBanner for gap reveal
- * - PointRow (letterMode) for point engagement
+ * - PointCardWithLinks (same as profile) for point engagement
  */
 
 import { useEffect, useState, useCallback, useRef } from 'react';
@@ -21,7 +21,9 @@ import { ClarityPageLoader } from '@/components/ui/clarity-loader';
 import { LetterCover } from '@/app/components/letters/letter-cover';
 import { LetterProgressBar } from '@/app/components/letters/letter-progress-bar';
 import { LetterCompletionSummary } from '@/app/components/letters/letter-completion-summary';
-import { LiveStoryCardExpanded, PointRow } from '@/app/components/partners/live-story-card-expanded';
+import { LiveStoryCardExpanded } from '@/app/components/partners/live-story-card-expanded';
+import { PointCardWithLinks } from '@/app/components/social/point-card-with-links';
+import type { PointProfileOwner } from '@/app/components/social/point-card-with-links';
 import { JourneyToUnderstanding } from '@/app/components/partners/live-mode-view';
 import { GapBanner } from '@/app/components/shared/gap-banner';
 import { ComprehensionRatingCard } from '@/app/components/shared/comprehension-rating-card';
@@ -33,7 +35,7 @@ import {
   DrawerTitle,
 } from '@/components/ui/drawer';
 import { useLetterReadingState } from '@/app/hooks/useLetterReadingState';
-import { snapshotToStoryWithPoints } from '@/app/utils/letter-snapshot-mapper';
+import { snapshotToStoryWithPoints, pointSummaryToProtoPoint } from '@/app/utils/letter-snapshot-mapper';
 import {
   getLetterForReading,
   getLetterForReadingByToken,
@@ -43,6 +45,7 @@ import {
 } from '@/app/data/letters-service';
 import { analytics } from '@/lib/mixpanel';
 import type { ClarityLetter, LetterStorySnapshot, LetterDelivery, PositionType } from '@/app/types';
+import type { Position } from '@/app/components/shared/prototype-types';
 
 // ============================================================================
 // TYPES
@@ -450,6 +453,12 @@ function LetterReadingFlow({
 
   if (!currentSnapshot || !currentStory) return null;
 
+  // P676: Build profileOwner for PointCardWithLinks — sender data from letter record
+  const senderProfileOwner: PointProfileOwner = {
+    id: letter.sender_id,
+    name: senderName,
+  };
+
   const storyWithPoints = snapshotToStoryWithPoints(currentSnapshot, senderName);
   const visiblePoints = storyWithPoints.points;
   const currentPoint = visiblePoints[currentStory.currentPointIndex];
@@ -463,7 +472,7 @@ function LetterReadingFlow({
   const isLastStory = state.currentStoryIndex + 1 >= snapshots.length;
 
   return (
-    <div className="space-y-6">
+    <div className="max-w-md mx-auto w-full space-y-6">
       <FocusHeader
         onBack={() => window.history.back()}
         label="Leave letter"
@@ -478,37 +487,45 @@ function LetterReadingFlow({
         Story {state.currentStoryIndex + 1} of {snapshots.length}
       </p>
 
-      {/* PHASE: point-engage — first point before story (anti-point lead, 2+ points) */}
+      {/* PHASE: point-engage — sealed-bid: author position hidden until receiver picks */}
       {currentPhase === 'point-engage' && currentPoint && (
-        <PointRow
-          point={currentPoint}
-          authorName={senderName}
-          letterMode
-          onPositionSelect={(_, pos) => { if (pos !== null) setSelectedPosition(pos); }}
-        >
+        <div className="space-y-4">
+          <PointCardWithLinks
+            point={pointSummaryToProtoPoint(currentPoint)}
+            profileOwner={senderProfileOwner}
+            hideActions
+            liveSessionMode
+            disableNavigation
+            currentUserId="__receiver__"
+            onPositionSelect={(pos) => { setSelectedPosition(pos as PositionType | null); }}
+            selectedPosition={selectedPosition as Position}
+          />
           <Button
             onClick={() => { if (selectedPosition) { submitPointPosition(currentPoint.id, selectedPosition); setSelectedPosition(null); } }}
             disabled={!selectedPosition || isSubmitting}
             className="w-full bg-[#0044CC] hover:bg-[#0033AA] text-white min-h-[44px]"
           >
-            Submit
+            Continue
           </Button>
-        </PointRow>
+        </div>
       )}
 
-      {/* PHASE: point-revealed — sender's position revealed after receiver positioned */}
+      {/* PHASE: point-revealed — author's position now visible via quote pattern */}
       {currentPhase === 'point-revealed' && currentPoint && (
         <div className="space-y-4">
-          <PointRow
-            point={{ ...currentPoint, userPosition: (currentStory.positions[currentPoint.id] as PositionType) ?? null }}
-            authorName={senderName}
-            letterMode
+          <PointCardWithLinks
+            point={pointSummaryToProtoPoint(currentPoint, (currentStory.positions[currentPoint.id] as PositionType) ?? null)}
+            profileOwner={{ ...senderProfileOwner, position: currentPoint.profileSubjectPosition ?? undefined }}
+            hideActions
+            liveSessionMode
+            disableNavigation
             disablePositionButtons
+            currentUserId="__receiver__"
+            selectedPosition={(currentStory.positions[currentPoint.id] as Position) ?? null}
           />
           <Button
-            variant="outline"
             onClick={advanceFromPointReveal}
-            className="w-full text-[#0044CC] border-[#0044CC] hover:bg-[#0044CC]/5 min-h-[44px]"
+            className="w-full bg-[#0044CC] hover:bg-[#0033AA] text-white min-h-[44px]"
           >
             Continue
           </Button>
@@ -589,9 +606,8 @@ function LetterReadingFlow({
             className="w-full max-w-sm"
           />
           <Button
-            variant="outline"
             onClick={advanceFromStoryReveal}
-            className="w-full text-[#0044CC] border-[#0044CC] hover:bg-[#0044CC]/5 min-h-[44px]"
+            className="w-full bg-[#0044CC] hover:bg-[#0033AA] text-white min-h-[44px]"
           >
             Continue
           </Button>
@@ -600,35 +616,43 @@ function LetterReadingFlow({
 
       {/* PHASE: remaining-point-engage — remaining point cards after story */}
       {currentPhase === 'remaining-point-engage' && currentPoint && (
-        <PointRow
-          point={currentPoint}
-          authorName={senderName}
-          letterMode
-          onPositionSelect={(_, pos) => { if (pos !== null) setSelectedPosition(pos); }}
-        >
+        <div className="space-y-4">
+          <PointCardWithLinks
+            point={pointSummaryToProtoPoint(currentPoint)}
+            profileOwner={senderProfileOwner}
+            hideActions
+            liveSessionMode
+            disableNavigation
+            currentUserId="__receiver__"
+            onPositionSelect={(pos) => { setSelectedPosition(pos as PositionType | null); }}
+            selectedPosition={selectedPosition as Position}
+          />
           <Button
             onClick={() => { if (selectedPosition) { submitPointPosition(currentPoint.id, selectedPosition); setSelectedPosition(null); } }}
             disabled={!selectedPosition || isSubmitting}
             className="w-full bg-[#0044CC] hover:bg-[#0033AA] text-white min-h-[44px]"
           >
-            Submit
+            Continue
           </Button>
-        </PointRow>
+        </div>
       )}
 
-      {/* PHASE: remaining-point-revealed — sender position + gap for remaining point */}
+      {/* PHASE: remaining-point-revealed — sender position visible via quote pattern */}
       {currentPhase === 'remaining-point-revealed' && currentPoint && (
         <div className="space-y-4">
-          <PointRow
-            point={{ ...currentPoint, userPosition: (currentStory.positions[currentPoint.id] as PositionType) ?? null }}
-            authorName={senderName}
-            letterMode
+          <PointCardWithLinks
+            point={pointSummaryToProtoPoint(currentPoint, (currentStory.positions[currentPoint.id] as PositionType) ?? null)}
+            profileOwner={{ ...senderProfileOwner, position: currentPoint.profileSubjectPosition ?? undefined }}
+            hideActions
+            liveSessionMode
+            disableNavigation
             disablePositionButtons
+            currentUserId="__receiver__"
+            selectedPosition={(currentStory.positions[currentPoint.id] as Position) ?? null}
           />
           <Button
-            variant="outline"
             onClick={advanceFromRemainingPointReveal}
-            className="w-full text-[#0044CC] border-[#0044CC] hover:bg-[#0044CC]/5 min-h-[44px]"
+            className="w-full bg-[#0044CC] hover:bg-[#0033AA] text-white min-h-[44px]"
           >
             Continue
           </Button>
