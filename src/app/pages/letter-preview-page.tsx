@@ -28,6 +28,7 @@ import {
 import { useLetterReadingState } from '@/app/hooks/useLetterReadingState';
 import { snapshotToStoryWithPoints, pointSummaryToProtoPoint } from '@/app/utils/letter-snapshot-mapper';
 import { docsService } from '@/app/data/docs-service';
+import { pointsService } from '@/app/data/points-service';
 import { useAuth } from '@/auth';
 import type { DocStory, LetterStorySnapshot, PositionType } from '@/app/types';
 import type { Position } from '@/app/components/shared/prototype-types';
@@ -58,6 +59,7 @@ function docStoryToSnapshot(docStory: DocStory): LetterStorySnapshot {
 export function LetterPreviewPage() {
   const { docId } = useParams<{ docId: string }>();
   const navigate = useNavigate();
+  const { user: currentUser } = useAuth();
 
   const [snapshots, setSnapshots] = useState<LetterStorySnapshot[]>([]);
   const [fetchState, setFetchState] = useState<'loading' | 'done' | 'not-found'>('loading');
@@ -71,13 +73,32 @@ export function LetterPreviewPage() {
           setFetchState('not-found');
           return;
         }
-        setSnapshots(result.stories.map(docStoryToSnapshot));
+
+        // Fetch author positions so point-revealed phase shows the Agrees/Disagrees badge
+        const allPointIds = result.stories.flatMap(s => s.story.points.map(p => p.id));
+        const positionsMap = (allPointIds.length > 0 && currentUser?.id)
+          ? await pointsService.getMyPositionsForPoints(allPointIds, currentUser.id)
+          : new Map();
+
+        // Inject positions into stories before building snapshots
+        const enrichedStories = result.stories.map(s => ({
+          ...s,
+          story: {
+            ...s.story,
+            points: s.story.points.map(p => ({
+              ...p,
+              userPosition: positionsMap.get(p.id)?.position ?? null,
+            })),
+          },
+        }));
+
+        setSnapshots(enrichedStories.map(docStoryToSnapshot));
         setFetchState('done');
       } catch {
         setFetchState('not-found');
       }
     })();
-  }, [docId]);
+  }, [docId, currentUser?.id]);
 
   if (fetchState === 'loading') return <ClarityPageLoader />;
 
