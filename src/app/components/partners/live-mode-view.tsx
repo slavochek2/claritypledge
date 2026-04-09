@@ -38,8 +38,7 @@ import { type LiveSessionState, type GapType, type FlowType, type StoryWithPoint
 import { LiveSessionBanner } from './live-session-banner';
 import { getFirstName, RatingButtons } from './shared';
 import { playCelebrationSound } from '@/hooks/use-sound';
-import { SessionHistoryList, PointCardPreview } from './live-content-cards';
-import { RoundSummaryScreen } from './round-summary-screen';
+import { PointCardPreview } from './live-content-cards';
 import { StorySearchPicker } from './story-search-picker';
 import { LiveStoryCardExpanded } from './live-story-card-expanded';
 import { GravatarAvatar } from '@/components/ui/gravatar-avatar';
@@ -1122,16 +1121,6 @@ function IdleScreen({
     prevSessionModeRef.current = sessionMode;
   }, [sessionMode]);
 
-  // P398: Selected history index for inline round summary
-  const [selectedHistoryIndex, setSelectedHistoryIndex] = useState<number | null>(null);
-
-  // P398: Auto-close summary when a new round starts
-  useEffect(() => {
-    if (liveState.ratingPhase !== 'idle') {
-      setSelectedHistoryIndex(null);
-    }
-  }, [liveState.ratingPhase]);
-
   // P600: Progressive disclosure — "Select your story" toggle
   const [showStoryPicker, setShowStoryPicker] = useState(false);
 
@@ -1207,7 +1196,6 @@ function IdleScreen({
     liveState.explainBackRatings.length > 0
   );
 
-  const sessionHistory = liveState.sessionHistory ?? [];
 
   // P617: Listener should not see story card until round starts (speaker submits).
   // P646: Use role-based check (isCreator) instead of name comparison.
@@ -1222,7 +1210,7 @@ function IdleScreen({
   // The picker only shows your own stories, so authorId matches the selector's userId.
   // The partner receives selectedStoryData via Realtime but has no reason to change layout.
   const isLocalStorySelection = !!liveState.selectedStoryData && liveState.selectedStoryData.authorId === userId;
-  const hasScrollableContent = isLocalStorySelection || sessionHistory.length > 0;
+  const hasScrollableContent = isLocalStorySelection;
   // P600: Clean idle (no story, no ratings, no history) uses two-zone layout for stable button position
   const isCleanIdle = !hasScrollableContent && !showRatingDrawer && !hasRatingData;
   const layoutClass = isCleanIdle
@@ -1329,24 +1317,10 @@ function IdleScreen({
               )
             )}
 
-            {/* P667: Session history renders in the bottom zone to avoid layout mode switch */}
-            {sessionHistory.length > 0 && !showRatingDrawer && (
-              <SessionHistoryList
-                history={sessionHistory}
-                onItemClick={(i) => setSelectedHistoryIndex(i)}
-              />
-            )}
           </div>
         </>
       ) : (
         <div ref={scrollContainerRef} className={layoutClass} style={{ overflowAnchor: 'none' }}>
-          {selectedHistoryIndex !== null && sessionHistory[selectedHistoryIndex] ? (
-            <RoundSummaryScreen
-              item={sessionHistory[selectedHistoryIndex]}
-              storyData={sessionHistory[selectedHistoryIndex].storyData}
-              onBack={() => setSelectedHistoryIndex(null)}
-            />
-          ) : (
             <>
               {/* Show journey card if there's rating history or drawer is open */}
               {(hasRatingData || showRatingDrawer) && (
@@ -1380,7 +1354,7 @@ function IdleScreen({
 
               {/* Button for non-clean-idle cases (has session history or rating data) */}
               {/* P643 Layer 3: Also show (disabled) when listener is waiting for speaker's rating */}
-              {(!selectedStory || isListenerDuringLocalRating) && !showRatingDrawer && (selectedHistoryIndex === null) && (
+              {(!selectedStory || isListenerDuringLocalRating) && !showRatingDrawer && (
                 <div className="flex flex-col gap-1 w-full max-w-sm mx-auto">
                   <MobileTooltip content={isListenerDuringLocalRating ? `Mode locked, waiting for ${displayPartnerName}` : ''}>
                     <Button
@@ -1402,21 +1376,13 @@ function IdleScreen({
                 </div>
               )}
 
-              {/* P398: Session history — only on clean idle (no story selected, no active flow) */}
-              {sessionHistory.length > 0 && !selectedStory && !showRatingDrawer && (
-                <SessionHistoryList
-                  history={sessionHistory}
-                  onItemClick={(i) => setSelectedHistoryIndex(i)}
-                />
-              )}
             </>
-          )}
         </div>
       )}
 
       {/* P588: Sticky ActionArea OUTSIDE scroll container — only when story selected */}
       {/* P617: Hide for listener while speaker is in local drawer */}
-      {selectedStory && !isListenerDuringLocalRating && (selectedHistoryIndex === null || !sessionHistory[selectedHistoryIndex]) && (
+      {selectedStory && !isListenerDuringLocalRating && (
         <ActionArea
           sticky={true}
           className={showRatingDrawer || hasRatingData ? '' : '!pt-0'}
