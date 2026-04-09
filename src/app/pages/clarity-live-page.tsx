@@ -1087,13 +1087,19 @@ export function ClarityLivePage() {
           // Stale echo — skip state application entirely.
           // The next Realtime event (or drift poll) will carry the correct state.
         } else if (updateInFlightRef.current) {
-          // P671: In-flight — merge server state underneath local state.
-          // Server fills in partner-owned fields; local optimistic keys take priority.
-          // This prevents a stale Realtime echo from overwriting the submitter's own
-          // rating/submitted values with pre-submission data.
-          // The monotonic guard above already rejects stale phase regressions.
-          setLiveState(prev => ({ ...mergedState, ...prev }));
-          confirmedLiveStateRef.current = { ...mergedState, ...confirmedLiveStateRef.current };
+          // P671: Field-aware merge during in-flight writes.
+          // ratingPhase: take the HIGHER value (server's 'revealed' beats local 'waiting').
+          // All other fields: local wins (preserves optimistic checkerRating, *Submitted, etc.).
+          setLiveState(prev => {
+            const phaseToUse = isPhaseRegression(mergedState.ratingPhase, prev.ratingPhase)
+              ? mergedState.ratingPhase  // server is ahead
+              : prev.ratingPhase;        // local is ahead or equal
+            return { ...mergedState, ...prev, ratingPhase: phaseToUse };
+          });
+          const confirmedPhase = isPhaseRegression(mergedState.ratingPhase, confirmedLiveStateRef.current.ratingPhase)
+            ? mergedState.ratingPhase
+            : confirmedLiveStateRef.current.ratingPhase;
+          confirmedLiveStateRef.current = { ...mergedState, ...confirmedLiveStateRef.current, ratingPhase: confirmedPhase };
         } else {
           // Normal: wholesale replace
           setLiveState(mergedState);
@@ -1296,9 +1302,17 @@ export function ClarityLivePage() {
 
           const mergedState = { ...DEFAULT_LIVE_STATE, ...serverState };
           if (updateInFlightRef.current) {
-            // P671: Merge server state underneath local to preserve optimistic keys
-            setLiveState(prev => ({ ...mergedState, ...prev }));
-            confirmedLiveStateRef.current = { ...mergedState, ...confirmedLiveStateRef.current };
+            // P671: Field-aware merge — ratingPhase takes higher value, rest keeps local
+            setLiveState(prev => {
+              const phaseToUse = isPhaseRegression(mergedState.ratingPhase, prev.ratingPhase)
+                ? mergedState.ratingPhase
+                : prev.ratingPhase;
+              return { ...mergedState, ...prev, ratingPhase: phaseToUse };
+            });
+            const confirmedPhase = isPhaseRegression(mergedState.ratingPhase, confirmedLiveStateRef.current.ratingPhase)
+              ? mergedState.ratingPhase
+              : confirmedLiveStateRef.current.ratingPhase;
+            confirmedLiveStateRef.current = { ...mergedState, ...confirmedLiveStateRef.current, ratingPhase: confirmedPhase };
           } else {
             setLiveState(mergedState);
             confirmedLiveStateRef.current = mergedState;
