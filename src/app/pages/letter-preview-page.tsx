@@ -325,6 +325,11 @@ function LetterPreviewFlow({
           >
             Continue
           </Button>
+          {!selectedPosition && !isSubmitting && (
+            <p className="text-sm text-muted-foreground text-center">
+              Select your position above to continue
+            </p>
+          )}
         </div>
       )}
 
@@ -428,6 +433,11 @@ function LetterPreviewFlow({
           >
             Continue
           </Button>
+          {!selectedPosition && !isSubmitting && (
+            <p className="text-sm text-muted-foreground text-center">
+              Select your position above to continue
+            </p>
+          )}
         </div>
       )}
 

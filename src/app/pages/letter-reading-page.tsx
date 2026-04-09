@@ -557,6 +557,11 @@ function LetterReadingFlow({
           >
             Continue
           </Button>
+          {!selectedPosition && !isSubmitting && (
+            <p className="text-sm text-muted-foreground text-center">
+              Select your position above to continue
+            </p>
+          )}
         </div>
       )}
 
@@ -682,6 +687,11 @@ function LetterReadingFlow({
           >
             Continue
           </Button>
+          {!selectedPosition && !isSubmitting && (
+            <p className="text-sm text-muted-foreground text-center">
+              Select your position above to continue
+            </p>
+          )}
         </div>
       )}
 
