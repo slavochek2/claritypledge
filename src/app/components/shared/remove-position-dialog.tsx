@@ -6,6 +6,7 @@
  * Hook: useRemovePositionGuard — wraps dialog state + removePosition.
  */
 import { useState, useCallback } from 'react';
+import { toast } from 'sonner';
 import {
   Dialog,
   DialogContent,
@@ -100,12 +101,18 @@ export function useRemovePositionGuard({
   const handleConfirm = useCallback(async () => {
     if (!pendingPointId) return;
     setIsRemoving(true);
-    await pointsService.removePosition(pendingPointId, userId);
-    setIsRemoving(false);
-    setDialogOpen(false);
-    const resolvedPointId = pendingPointId;
-    setPendingPointId(null);
-    onAfterRemove?.(resolvedPointId);
+    try {
+      await pointsService.removePosition(pendingPointId, userId);
+      setIsRemoving(false);
+      setDialogOpen(false);
+      const resolvedPointId = pendingPointId;
+      setPendingPointId(null);
+      onAfterRemove?.(resolvedPointId);
+    } catch (err) {
+      console.error('Failed to remove position:', err);
+      setIsRemoving(false);
+      toast.error('Failed to remove position.');
+    }
   }, [pendingPointId, userId, onAfterRemove]);
 
   const handleCancel = useCallback(() => {

@@ -544,18 +544,12 @@ export function ProfilePageV2() {
 
     try {
       // Persist to database
-      let result;
       if (position === null) {
         // P401: Use guarded removal — shows dialog if linked stories exist
         await guardedRemovePosition(pointId);
         return;
       } else {
-        result = await pointsService.setPosition(pointId, currentUser.id, position);
-      }
-
-      if (!result) {
-        toast.error('Failed to save position');
-        return;
+        await pointsService.setPosition(pointId, currentUser.id, position);
       }
 
       // Refetch points to get updated counts and user positions

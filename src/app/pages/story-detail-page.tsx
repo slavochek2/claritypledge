@@ -191,10 +191,7 @@ function AddPointForm({
       };
 
       if (selectedPosition) {
-        const positioned = await pointsService.setPosition(point.id, currentUserId, selectedPosition);
-        if (!positioned) {
-          toast.error('Point added but position could not be saved.');
-        }
+        await pointsService.setPosition(point.id, currentUserId, selectedPosition);
       }
 
       onPointAdded(summary, selectedPosition ?? undefined);
