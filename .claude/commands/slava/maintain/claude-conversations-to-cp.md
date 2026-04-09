@@ -2,7 +2,7 @@
 name: claude-conversations-to-cp
 description: Analyze recent Claude conversations to surface strategic signals AND content candidates. Updates strategy docs and files article ideas to content kanban. Never writes without explicit confirmation.
 when_to_use: After a sprint, a week of sessions, or any period where you want to surface unresolved tensions, update strategy docs, and identify article-worthy conversations.
-version: 3.0.0
+version: 3.1.0
 ---
 
 # /claude-conversations-to-cp
@@ -49,6 +49,18 @@ If the marker is missing or corrupted, fall back to `7d` silently.
 | Workflow friction, recurring manual steps | `docs/process-learnings.md` |
 | Features mentioned repeatedly but unspecced, priority shifts | `features/` (note only, no auto-edit) |
 | Article-worthy conversations with narrative arc potential | `content/articles/` (auto-filed via `/quick-blog` on approval) |
+
+## Inline Markers: `[/cp ...]`
+
+The founder uses `[/cp ...]` inline markers in conversations to flag CP-relevant signals — even in otherwise personal conversations. These are first-class signals that must be extracted from ALL files (not just CP-relevant ones).
+
+**Format:** `[/cp some note or action item]` — appears inline in user messages.
+**Examples:**
+- `[/cp worth an article?]`
+- `[/cp we need to update story #st8 to show this in picture]`
+- `[/cp Clarity as a luxury good vs. a right — worth exploring further]`
+
+**Processing:** Grep ALL conversation files for `[/cp` before the relevance filter (step 0). Extract the marker text and surrounding context (2-3 sentences before/after). These become `[MARKER]` signals in step 1, classified alongside other signals in step 2.
 
 ## Conversation File Format
 
@@ -120,6 +132,7 @@ JSONL format: each line is a JSON object. Conversation messages have `type: "use
       <action>Glob for .md files in ~/Projects/private/claude-conversations/ recursively — these are exported Claude.ai conversations in markdown format</action>
       <action>Filter by file mtime OR by the "Created:" / "Updated:" date in the frontmatter to match the time window</action>
       <action>If marker exists with last_run timestamp and no explicit time arg was passed: further exclude files whose mtime AND Updated date are both older than last_run — these were already processed in a previous run</action>
+      <action>Extract [/cp] markers from ALL files BEFORE relevance filtering: grep all files for `[/cp` regex. For each hit, extract the marker text and 2-3 surrounding sentences for context. Store as [MARKER] signals with source file and line. Report: "Found N [/cp] markers across M files." These are processed as first-class signals even if the containing file is classified as personal.</action>
       <action>Early relevance filter: read the title (first H1) and first user message of each file. Classify as CP-relevant or personal. Skip files that are clearly personal (relationships, personal finance, philosophy unrelated to CP). Report: "Found N files, M relevant to ClarityPledge, skipping K personal." Only fully read the relevant files.</action>
       <action>Count relevant files</action>
     </if>
@@ -176,6 +189,9 @@ JSONL format: each line is a JSON object. Conversation messages have `type: "use
         - [TENSION] {unresolved question or contradiction} — {evidence}
         - [CONTENT] {conversation title} — {ARC-N (arc name) or 'new arc: proposed name'}, {why article-worthy: 1 line}
         - [CONTENT-ENRICH] {conversation title} → enriches {existing article aNN: title} — {what it adds: 1 line}
+        - [MARKER] {exact [/cp ...] text} — {source file}, {surrounding context: 1-2 sentences}
+
+        [MARKER] signals: grep for `[/cp` in all files (including personal ones). Extract the marker text verbatim and surrounding context. These are the founder's own bookmarks — treat as high-priority.
 
         For [CONTENT] signals: read content/story-arcs.md arc patterns (provided below).
         Match conversations to arc patterns by narrative shape, not topic.
@@ -199,9 +215,10 @@ JSONL format: each line is a JSON object. Conversation messages have `type: "use
   </step>
 
   <step n="2" goal="Surface decisions, file content, report FYI">
-    <action>Classify each signal into one of three buckets:
+    <action>Classify each signal into one of four buckets:
       - DECISION: contradicts existing docs, has multiple valid interpretations, requires choosing a direction, or blocks a next step
       - CONTENT: article candidate or enrichment — auto-file immediately (see below)
+      - MARKER: [/cp] inline markers — classify each marker into one of: doc-update (update a strategy doc), content-task (update a story/point), product-task (feature/UX change), or already-captured (already in docs). Report markers separately with their classification.
       - FYI: confirmed direction, validated hypothesis, informational observation — no action needed
     </action>
 
@@ -242,6 +259,12 @@ JSONL format: each line is a JSON object. Conversation messages have `type: "use
       ### FYI — No Action Needed
       [Brief bullet list of informational signals. Each: one line, signal + evidence.]
       [Omit section if empty.]
+
+      ---
+
+      ### [/cp] Markers Processed
+      [For each marker, one line: "[/cp text] — classification (doc-update / content-task / product-task / already-captured). Action: [what to do or 'already in docs/lean-canvas.md']"]
+      [Omit section if no markers found.]
 
       ---
 
