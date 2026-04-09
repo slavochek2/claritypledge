@@ -50,6 +50,18 @@ Listener-side conversational comprehension calibration — "I think I understood
 - Reader-side: self-assessed reading comprehension r=0.178 with actual (Yang et al. 2023, N=15,889)
 - Listener-side in conversation: **zero published measurement**
 
+## Enrichment Notes (from 2026-04-08 conversations)
+
+**Aumann's missing instrument:** Aumann proves you can't rationally agree to disagree — but assumes common knowledge exists. The Clarity Flip is the missing generation mechanism. Nobody has connected Aumann's assumption to a concrete instrument and then drawn the Popperian consequence for group epistemics.
+
+**The grading move (novel claim):** Post-verification disagreements are epistemically different IN KIND from pre-verification disagreements — and this is observable to the group. You can create a public epistemic filter: disagreements that survive verified comprehension across diversity are more robust. This is Popper's falsification with the noise of misunderstanding eliminated.
+
+**Curse of knowledge vs. illusion of common knowledge (preempts #1 objection):** Curse = individual bias (can't simulate ignorance). Illusion = group-level epistemic failure (I think we mutually know X, unverified). Curse is one cause of the illusion, but not the only one. The intervention differs: curse is hard to fix; illusion is puncturable by the Flip. Worth a clean paragraph in the article.
+
+**Habermas as closest predecessor:** Says "presuppose understanding." ClarityPledge says "verify it." He describes ideal conditions; this builds the measurement instrument.
+
+**Candidate opening line:** "How do you know you understood someone — if they don't know you did?"
+
 ## Novelty claim
 
 Nobody has framed this as a **rate asymmetry** between two measurable quantities, or connected it to a **missing verification protocol** at the interpersonal level as the root bottleneck. Sits in unclaimed intersection of Pinker, Chwe, and misinformation literature.

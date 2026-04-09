@@ -32,6 +32,8 @@ This section maps the logical chain from problem to impact, showing how our acti
 
 ### Activities (What We Do)
 
+**Design constraint (2026-04-06):** The Clarity Flip is irreducibly interpersonal — no digital-only path can deliver it. The emotional charge comes from a relational gap (she didn't know that he knew what she knew), not an abstract one. A machine can demonstrate that paraphrasing is hard, but can't reveal the specific gap between two real people. Implication: the Clarity Letter is architecturally correct — it does what async CAN do (surface disagreements, pre-load positions, file guesses) while leaving the live session for what only live can do (collapse recursive uncertainty with a real counterparty who insists "no, that's not what I meant"). Any feature proposal that tries to deliver the flip without a counterparty is a dead-end investment.
+
 **Near-term activities (0-12 months — "You are the MCP"):**
 - Facilitate calibration sessions with co-founder pairs (Slava uses /live as diagnostic tool)
 - Run free Calibration Workshops (1-to-many; you present calibration points, room calibrates against you)

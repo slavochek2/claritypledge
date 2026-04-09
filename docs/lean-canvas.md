@@ -109,11 +109,15 @@ Open-source, free, community-driven. A practice, not a SaaS — like NVC or Vipa
 
 **Viral hook (2026-04-06):** "Experience the clarity gap." Three words for the entire growth strategy — everything else is explanation. The adversarial framing ("clarity threatens exploiters") tested and rejected: it makes distribution gatekeepers into enemies. The experience framing works because it asks nothing of the sharer except honesty. The Conjecture Events strategy, workshop gap reveals, and sealed-bid scores are all implementations of this single hook.
 
+**Pitch hook — one question (2026-04-08):** "How do you know you understood someone — if they don't know you did?" 13 words. The paradox is immediate: understanding without confirmation isn't verified understanding. Sits above the universal positioning copy as the 3-second entry point — the copy (in [facilitator-guide.md](facilitator-guide.md)) is the expanded version. Untested live — validate in next workshop before replacing existing copy.
+
 **Anxiety mechanism (2026-04-02):** The invisible gap produces chronic low-grade anxiety: two beliefs that contradict each other ("we're aligned" + "something's off") with no way to check which is true. Contradictions you can't see produce anxiety; contradictions you CAN see become choices. The protocol makes contradictions visible — that's why participants feel relief, not pain. The anxiety existed before; the session resolves it. Research basis: approach-avoidance conflict (Lewin/Miller 1935/1944), self-concept clarity (Campbell), ACT values clarification. Applies to decisional/existential anxiety, not all anxiety.
 
 **Meta-protocol framing (2026-03-27):** ClarityPledge is not a universal epistemology — it's a meta-protocol that sits underneath any epistemology valuing comprehension. A Christian and an atheist can disagree about God while both accepting: "before we debate, let's verify we understood each other's actual position." The protocol doesn't produce agreement — it increases the resolution of disagreement until what remains is either genuinely irreconcilable (and small) or clearly testable (and solvable). "Accurate disagreement" is the bridge, not consensus.
 
 **Illusion of common knowledge — addition to Pinker (2026-03-28):** Pinker identifies two epistemic states: shared knowledge and common knowledge. ClarityPledge's core theoretical contribution is a third state: the *illusion of common knowledge* — both parties believe they have common knowledge but don't. This is the default state of natural language comprehension. Pinker's examples of failed common knowledge are about *absence* (information never made public). Ours are about *illusion* (information exchanged, comprehension believed, but wrong). The instrument detects the illusion and transitions it to verified common knowledge. Four states: private → falsely common → shared → common. Literature: hindsight bias erases the evidence of change (Fischhoff), illusion of explanatory depth exposed by explanation attempts (Rozenblit & Keil 2002), extreme illusion of understanding — both wrongly believe communication succeeded and neither seeks correction (Lau et al. 2022).
+
+**Curse of knowledge vs. illusion of common knowledge (2026-04-08):** Preemptive distinction for the #1 objection ("isn't this just the curse of knowledge?"). Curse of knowledge (Camerer, Loewenstein, Weber 1989) = individual cognitive bias — I can't simulate your ignorance. Illusion of common knowledge (ClarityPledge term) = group-level epistemic failure — I believe we mutually know X, but that recursive structure hasn't been verified. The curse is one *cause* of the illusion, but so are politeness norms, time pressure, assumed context, and power dynamics. Critical difference: the curse is deep in cognition (hard to fix); the illusion is puncturable by verification (that's the product).
 
 ### Coaching *(ladischenski.com)*
 
@@ -155,10 +159,19 @@ Your calibration content: three types of understanding, sender-receiver asymmetr
 
 **Triple-duty instrument (2026-03-26):** The 7 points serve simultaneously as: (a) theoretical foundation, (b) test content for the qualification pitch — "Here are 7 claims, rate them, verify you understood, look at the gaps," (c) behavioral assay for trust — engagement with the protocol on your content IS the trust filter. The test is the product; the qualification is the onboarding. No custom discovery needed for the first screen.
 
-### 1. The Pledge (Brand & Identity)
-A social contract that makes verification acceptable:
+### 1. Badge + Pledge (Adoption & Identity)
+
+**Badge (low-friction, propagation unit):** Earned by demonstrating comprehension of the protocol — read a Clarity Letter, get verified in /live, receive the badge. Badge = "I demonstrated I understand verified understanding." Binary, can't be revoked. Every badge holder can verify others, creating a trackable directed graph (who verified whom, chain length, verifier quality scores from spot-checks). The badge can't spread without the protocol spreading — every new badge requires at least one verification loop.
+
+**Pledge (optional commitment):** For people who, having earned the badge, also want to commit to ongoing practice:
 > **YOUR RIGHT:** Ask me to explain back what I understood.
 > **MY PROMISE:** I'll explain without judgment so you can confirm or correct.
+
+**Practical path:** Read any Clarity Letter → verified in /live → badged → share the SAME letter with someone else → verify their comprehension → they're badged, you're a recorded verifier → optional: create your OWN letter (Level 2: become a source, not just a verifier). No one needs to create their own letter to badge others.
+
+**Verification chain metrics:** Chain length (generations from origin), verifier quality score (% of verifiees who pass spot-checks), R₀ of clarity (does each badged person badge >1 others?). The graph IS the proof that recursive clarity propagation works.
+
+**Design principle (2026-04-06):** Badge is proof of practice (earned, not owed). Pledge is optional commitment. Badge spreads fast (low friction); Pledge spreads slower (real commitment). Measure both separately — comprehension propagation rate vs. practice adoption rate.
 
 ### 2. /live — Real-time Verification (Core Product)
 The core interaction, used in **any meeting** — team standup, 1:1, board meeting, workshop:
