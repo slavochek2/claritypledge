@@ -1,5 +1,7 @@
 ---
-status: qa
+status: in-progress
+delivery_stage: fix
+pipeline_ran: [fix]
 type: bug
 rank: 1000071.0
 severity: high

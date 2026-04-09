@@ -1060,7 +1060,7 @@ export function ClarityLivePage() {
       // Also update the confirmed ref to prevent drift detection from reverting
       // IMPORTANT: Skip if an update is in flight to prevent realtime from reverting optimistic updates
       // This fixes the "flashing button" bug where realtime delivers old state before DB save completes
-      if (updatedSession.liveState && !updateInFlightRef.current) {
+      if (updatedSession.liveState) {
         const mergedState = { ...DEFAULT_LIVE_STATE, ...updatedSession.liveState } as LiveSessionState;
 
         // P671: Monotonic phase guard — never let a stale Realtime echo regress ratingPhase.
@@ -1074,7 +1074,7 @@ export function ClarityLivePage() {
           const prevPhase = confirmedLiveStateRef.current.ratingPhase;
           const nextPhase = mergedState.ratingPhase;
           console.log(
-            `[Realtime] ${new Date().toISOString()} Event ${phaseRegression ? 'REJECTED (stale phase)' : 'applied'}:`,
+            `[Realtime] ${new Date().toISOString()} Event ${phaseRegression ? 'REJECTED (stale phase)' : updateInFlightRef.current ? 'MERGED (inFlight)' : 'applied'}:`,
             `phase=${prevPhase}→${nextPhase}`,
             `checkerSubmitted=${incoming.checkerSubmitted ?? '∅'}`,
             `responderSubmitted=${incoming.responderSubmitted ?? '∅'}`,
@@ -1086,42 +1086,18 @@ export function ClarityLivePage() {
         if (phaseRegression) {
           // Stale echo — skip state application entirely.
           // The next Realtime event (or drift poll) will carry the correct state.
+        } else if (updateInFlightRef.current) {
+          // P671: In-flight — merge server state underneath local state.
+          // Server fills in partner-owned fields; local optimistic keys take priority.
+          // This prevents a stale Realtime echo from overwriting the submitter's own
+          // rating/submitted values with pre-submission data.
+          // The monotonic guard above already rejects stale phase regressions.
+          setLiveState(prev => ({ ...mergedState, ...prev }));
+          confirmedLiveStateRef.current = { ...mergedState, ...confirmedLiveStateRef.current };
         } else {
+          // Normal: wholesale replace
           setLiveState(mergedState);
           confirmedLiveStateRef.current = mergedState;
-        }
-      } else if (updatedSession.liveState && updateInFlightRef.current) {
-        if (import.meta.env.DEV) {
-          const incoming = updatedSession.liveState as Record<string, unknown>;
-          console.log(
-            `[Realtime] ${new Date().toISOString()} Event BLOCKED (inFlight):`,
-            `incomingPhase=${incoming.ratingPhase ?? '∅'}`,
-            `localPhase=${confirmedLiveStateRef.current.ratingPhase}`,
-            `checkerSubmitted=${incoming.checkerSubmitted ?? '∅'}`,
-            `responderSubmitted=${incoming.responderSubmitted ?? '∅'}`,
-          );
-        }
-        // P562: Even during in-flight writes, merge position + slider keys from Realtime.
-        // These are per-participant top-level keys — partner's writes never conflict with ours.
-        // Without this, partner's position/slider changes are dropped until next non-blocked delivery.
-        // P643: Also pass through ratingInitiatedBy — set exclusively by the remote partner
-        // (speaker clicks Speak). Listener never writes this field so there's no conflict.
-        // Eliminates the drift-poll delay (1s) before mode switcher disables on listener.
-        const incoming = updatedSession.liveState as Record<string, unknown>;
-        const positionKeys = ['livePositionsCreator', 'livePositionsJoiner', 'freeSliderCreator', 'freeSliderJoiner', 'ratingInitiatedBy', 'ratingInitiatedByIsCreator'] as const;
-        const partnerUpdates: Partial<LiveSessionState> = {};
-        let hasPartnerUpdate = false;
-        for (const key of positionKeys) {
-          if (key in incoming && incoming[key] !== undefined) {
-            (partnerUpdates as Record<string, unknown>)[key] = incoming[key];
-            hasPartnerUpdate = true;
-          }
-        }
-        if (hasPartnerUpdate) {
-          setLiveState(prev => ({ ...prev, ...partnerUpdates }));
-          // P609: Also update confirmed ref so the next write's optimistic update
-          // doesn't overwrite partner's slider values with stale data from the ref.
-          confirmedLiveStateRef.current = { ...confirmedLiveStateRef.current, ...partnerUpdates } as LiveSessionState;
         }
       }
 
@@ -1253,14 +1229,13 @@ export function ClarityLivePage() {
 
         // Check 2: Detect liveState drift (fixes lost signal bug)
         // Compare server state with our last confirmed state
-        // Skip if an update is in flight to avoid race conditions
+        // P671: No longer skip during in-flight — merge-on-top instead (same as Realtime handler)
         const hasLiveState = !!freshSession.liveState;
         const hasJoiner = hasJoinerRef.current;
-        const updateInFlight = updateInFlightRef.current;
 
-        if (!hasLiveState || !hasJoiner || updateInFlight) {
+        if (!hasLiveState || !hasJoiner) {
           if (import.meta.env.DEV) {
-            console.log(`[Drift Poll] SKIPPED: hasLiveState=${hasLiveState}, hasJoiner=${hasJoiner}, updateInFlight=${updateInFlight}`);
+            console.log(`[Drift Poll] SKIPPED: hasLiveState=${hasLiveState}, hasJoiner=${hasJoiner}`);
           }
           return;
         }
@@ -1320,8 +1295,14 @@ export function ClarityLivePage() {
           }
 
           const mergedState = { ...DEFAULT_LIVE_STATE, ...serverState };
-          setLiveState(mergedState);
-          confirmedLiveStateRef.current = mergedState;
+          if (updateInFlightRef.current) {
+            // P671: Merge server state underneath local to preserve optimistic keys
+            setLiveState(prev => ({ ...mergedState, ...prev }));
+            confirmedLiveStateRef.current = { ...mergedState, ...confirmedLiveStateRef.current };
+          } else {
+            setLiveState(mergedState);
+            confirmedLiveStateRef.current = mergedState;
+          }
           setSession(freshSession);
         }
       } catch (err) {
