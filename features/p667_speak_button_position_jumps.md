@@ -1,7 +1,7 @@
 ---
-status: week
+status: today
 type: bug
-rank: 1000067.0
+rank: 1000057
 severity: medium
 date_reported: '2026-04-06'
 created_date: 2026-04-06T00:00:00.000Z
@@ -10,7 +10,9 @@ tags:
   - ux
   - layout
 delivery_stage: create-bug
-pipeline_ran: [create-bug]
+pipeline_ran:
+  - create-bug
+locked_at: '2026-04-07T11:25:49.466Z'
 ---
 
 # P667: /live — Speak Button Position Jumps on Idle Screen

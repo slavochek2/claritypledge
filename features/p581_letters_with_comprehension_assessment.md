@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: story
 rank: 0.5
 tags:
@@ -13,7 +13,10 @@ tags:
 created_date: 2026-03-23T00:00:00.000Z
 delivery_stage: 5-decomposed
 flow: dev
-sibling_crs: [p651, p660, p661]
+sibling_crs:
+  - p651
+  - p660
+  - p661
 uat_file: features/uat/p581.md
 test_files:
   - e2e/integration/p581-letters-migration.spec.ts
@@ -28,7 +31,7 @@ reviews:
   ux: null
   architect: null
   alignment: null
-locked_at: '2026-04-05T04:49:32.970Z'
+locked_at: '2026-04-07T11:27:55.247Z'
 ---
 
 # P581: Letters with Comprehension Assessment

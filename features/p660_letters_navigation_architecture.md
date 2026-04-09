@@ -1,7 +1,7 @@
 ---
-status: qa
+status: all-done
 type: change-request
-rank: 1000062.0
+rank: 1000062
 changes: p581
 superseded_by: p664
 tags:
@@ -10,12 +10,30 @@ tags:
   - letters
   - navigation
   - information-architecture
-created_date: 2026-04-05
+created_date: 2026-04-05T00:00:00.000Z
 delivery_stage: verify
 flow: dev
-pipeline_plan: [change-request, challenge-prd, ux, architect, generate-tests, dev, verify]
-pipeline_ran: [change-request, challenge-prd, ux, architect, generate-tests, dev, verify]
-pipeline_skipped: [ui -- no net-new design system components, decompose -- under 7 tightly coupled files, spec-compact -- spec is fresh no residue, spec-review -- challenge-prd covers consistency for fresh CR]
+pipeline_plan:
+  - change-request
+  - challenge-prd
+  - ux
+  - architect
+  - generate-tests
+  - dev
+  - verify
+pipeline_ran:
+  - change-request
+  - challenge-prd
+  - ux
+  - architect
+  - generate-tests
+  - dev
+  - verify
+pipeline_skipped:
+  - ui -- no net-new design system components
+  - decompose -- under 7 tightly coupled files
+  - spec-compact -- spec is fresh no residue
+  - spec-review -- challenge-prd covers consistency for fresh CR
 uat_file: features/uat/p660.md
 test_files:
   - e2e/integration/p660-letters-nav-migration.spec.ts
@@ -24,6 +42,7 @@ test_files:
   - e2e/p660-inbox-tab.spec.ts
   - e2e/p660-smoke.spec.ts
   - e2e/a11y/p660-accessibility.spec.ts
+locked_at: '2026-04-07T11:19:18.480Z'
 ---
 
 # P660: Letters Navigation Architecture — Drafts/Sent/Inbox Tabs

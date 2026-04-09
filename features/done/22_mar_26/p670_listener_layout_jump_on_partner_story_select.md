@@ -1,5 +1,6 @@
 ---
-status: backlog
+status: done
+completed_at: '2026-04-07'
 type: bug
 rank: 1000070.0
 severity: medium

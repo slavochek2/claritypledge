@@ -1,8 +1,7 @@
 ---
-status: done
+status: in-progress
 type: change-request
-rank: 1000063.0
-completed_at: "2026-04-07"
+rank: 1000063
 changes: p581
 tags:
   - redesign
@@ -12,14 +11,28 @@ tags:
   - ux
 created_date: 2026-04-05T00:00:00.000Z
 delivery_stage: verify
-pipeline_plan: [change-request, architect, generate-tests, dev, verify]
-pipeline_ran: [change-request, architect, generate-tests, dev, verify]
+pipeline_plan:
+  - change-request
+  - architect
+  - generate-tests
+  - dev
+  - verify
+pipeline_ran:
+  - change-request
+  - architect
+  - generate-tests
+  - dev
+  - verify
 uat_file: features/uat/p661.md
 test_files:
   - e2e/p581-letter-composition.spec.ts
   - e2e/p661-letter-preview.spec.ts
-pipeline_skipped: [ux -- UX resolved in ascii-flows session before filing, challenge-prd -- business requirements unchanged, decompose -- under 5 files]
+pipeline_skipped:
+  - ux -- UX resolved in ascii-flows session before filing
+  - challenge-prd -- business requirements unchanged
+  - decompose -- under 5 files
 superseded_by: p665
+locked_at: '2026-04-07T11:19:38.000Z'
 ---
 
 # P661: Letter Composition — Sender Walks Receiver's Reading Flow

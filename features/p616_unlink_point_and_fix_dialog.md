@@ -1,12 +1,18 @@
 ---
-status: today
+status: backlog
 type: story
 workstream: foundation
-tags: [visibility, p576-follow-up, ux, points, stories]
+tags:
+  - visibility
+  - p576-follow-up
+  - ux
+  - points
+  - stories
 delivery_stage: 1-prd
-rank: 1000030.0
-created_date: 2026-03-31
+rank: 1000030
+created_date: 2026-03-31T00:00:00.000Z
 superseded_by: p621
+locked_at: '2026-04-07T11:23:52.169Z'
 ---
 
 # P616: Unlink Point from Story + Fix RemovePositionDialog

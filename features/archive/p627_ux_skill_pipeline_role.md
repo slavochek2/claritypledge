@@ -1,10 +1,15 @@
 ---
-status: today
+status: rejected
 type: task
 rank: 0.003
 workstream: foundation
-created_date: 2026-04-02
-tags: [process, pipeline, skills, ux]
+created_date: 2026-04-02T00:00:00.000Z
+tags:
+  - process
+  - pipeline
+  - skills
+  - ux
+locked_at: '2026-04-07T11:24:31.602Z'
 ---
 
 # TASK: Resolve /ux skill's role in the development pipeline
