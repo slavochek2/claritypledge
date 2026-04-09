@@ -1,11 +1,11 @@
 ---
 title: "Position history trigger blocked by RLS — positions don't persist"
 type: bug
-status: qa
+status: all-done
 priority: critical
 created_date: 2026-04-09
+completed_at: "2026-04-09"
 p_number: P677
-delivery_stage: ship
 pipeline_ran: [fix, ship]
 tags: []
 rank: 1000000.0
