@@ -1,7 +1,7 @@
 # Done Features Index
 
 Quick reference for past completed work. Consult when starting work on a related topic.
-Last updated: 2026-04-09 (P677 Position History Trigger RLS Fix)
+Last updated: 2026-04-09 (P671 Rating Submission Loop)
 
 ---
 
@@ -29,6 +29,7 @@ Last updated: 2026-04-09 (P677 Position History Trigger RLS Fix)
 - **P584** (Mar 24) Session End Screen Redesign — `useBlocker` requires data router (use popstate+pushState); `?debugUpload`/`?debugRounds` params unlock localhost testing of prod-only states; session history only counts non-skipped rounds
 - **P562** (Mar 30) /live Free Mode — sealed bid → paraphrase → unlocked continuous sliders; spec shipped via P600 implementation, closed retroactively
 - **P600** (Mar 30) Free Mode Polish — speaker re-rating `freeRerating` stored separately (not as freeRound); two-zone idle layout prevents button shift; "Open mode" replaces "Free mode"; click-outside dismiss + progressive story picker
+- **P671** (Apr 09) Rating Submission Loop — guest RPC auth guard silently dropped writes (`NULL = NULL` is falsy in PostgreSQL); 4 client-side fix attempts failed because the write never reached the DB; DB query was the diagnostic, not code traces
 - **P609** (Mar 30) Free Mode Slider Sync — `confirmedLiveStateRef` not updated during in-flight Realtime merges; partner slider values overwrote on next optimistic write. Also shipped: P612 header CTA reload, P613 toast top-center, P614 mode switcher prop forwarding
 
 ## Clarity Docs
