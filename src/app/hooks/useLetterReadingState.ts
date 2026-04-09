@@ -135,7 +135,8 @@ export function useLetterReadingState(
   senderId: string,
   snapshots: LetterStorySnapshot[],
   token?: string,
-  previewMode?: boolean
+  previewMode?: boolean,
+  previewPredictions?: Map<string, number>
 ): UseLetterReadingStateReturn {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const initRef = useRef(false);
@@ -221,11 +222,11 @@ export function useLetterReadingState(
       setIsSubmitting(true);
       try {
         if (previewMode) {
-          // Preview: local state update only, synthetic prediction
+          // Preview: local state update only; use prediction from sessionStorage if available
           updateCurrentStory((prev) => ({
             ...prev,
             rating,
-            prediction: null,
+            prediction: previewPredictions?.get(currentSnapshot.story_id) ?? null,
             phase: 'story-revealed',
           }));
         } else if (token) {
@@ -251,7 +252,7 @@ export function useLetterReadingState(
         setIsSubmitting(false);
       }
     },
-    [deliveryId, senderId, token, previewMode, currentSnapshot, updateCurrentStory]
+    [deliveryId, senderId, token, previewMode, previewPredictions, currentSnapshot, updateCurrentStory]
   );
 
   // Advance from point-revealed → story-rate (after first point in anti-point lead)

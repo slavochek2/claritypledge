@@ -26,6 +26,7 @@ import {
   DrawerTitle,
 } from '@/components/ui/drawer';
 import { useLetterReadingState } from '@/app/hooks/useLetterReadingState';
+import type { StoryPhase } from '@/app/hooks/useLetterReadingState';
 import { snapshotToStoryWithPoints, pointSummaryToProtoPoint } from '@/app/utils/letter-snapshot-mapper';
 import { docsService } from '@/app/data/docs-service';
 import { pointsService } from '@/app/data/points-service';
@@ -125,7 +126,7 @@ export function LetterPreviewPage() {
         </p>
       </div>
 
-      <CertificatePageShell parchment className="py-6 space-y-6">
+      <CertificatePageShell className="min-h-screen py-6 space-y-6">
         <FocusHeader
           onBack={() => navigate(docId ? `/letter/${docId}/compose` : '/docs')}
           label="Back to composition"
@@ -141,6 +142,52 @@ export function LetterPreviewPage() {
 }
 
 // ============================================================================
+// PROGRESS — calculates sub-fill fraction for current story segment
+// ============================================================================
+
+function calculateStoryProgress(
+  phase: StoryPhase,
+  currentPointIndex: number,
+  visiblePointCount: number
+): number {
+  if (visiblePointCount >= 2) {
+    const total = 4 + 2 * (visiblePointCount - 1);
+    let screen: number;
+    switch (phase) {
+      case 'point-engage':             screen = 0; break;
+      case 'point-revealed':           screen = 1; break;
+      case 'story-rate':               screen = 2; break;
+      case 'story-revealed':           screen = 3; break;
+      case 'remaining-point-engage':   screen = 4 + (currentPointIndex - 1) * 2; break;
+      case 'remaining-point-revealed': screen = 5 + (currentPointIndex - 1) * 2; break;
+      case 'transition':               screen = total; break;
+      default:                         screen = 0;
+    }
+    return Math.min(screen / total, 1);
+  }
+  if (visiblePointCount === 1) {
+    const total = 4;
+    let screen: number;
+    switch (phase) {
+      case 'story-rate':     screen = 0; break;
+      case 'story-revealed': screen = 1; break;
+      case 'point-engage':   screen = 2; break;
+      case 'point-revealed': screen = 3; break;
+      case 'transition':     screen = total; break;
+      default:               screen = 0;
+    }
+    return Math.min(screen / total, 1);
+  }
+  // 0 visible points: story-rate(0) → story-revealed(0.5) → transition(1)
+  switch (phase) {
+    case 'story-rate':     return 0;
+    case 'story-revealed': return 0.5;
+    case 'transition':     return 1;
+    default:               return 0;
+  }
+}
+
+// ============================================================================
 // PREVIEW FLOW — same /live component composition as reading page (P673)
 // ============================================================================
 
@@ -152,6 +199,17 @@ function LetterPreviewFlow({
   snapshots: LetterStorySnapshot[];
 }) {
   const navigate = useNavigate();
+
+  // Read author's predictions from sessionStorage (written by compose page during prediction walk)
+  const [previewPredictions] = useState<Map<string, number> | undefined>(() => {
+    try {
+      const raw = sessionStorage.getItem(`clarity-preview-predictions-${docId}`);
+      if (!raw) return undefined;
+      return new Map(JSON.parse(raw) as [string, number][]);
+    } catch {
+      return undefined;
+    }
+  });
 
   const {
     state,
@@ -168,7 +226,8 @@ function LetterPreviewFlow({
     '',
     snapshots,
     undefined,
-    true  // previewMode
+    true,  // previewMode
+    previewPredictions
   );
 
   const { user: currentUser } = useAuth();
@@ -219,17 +278,15 @@ function LetterPreviewFlow({
     : false;
 
   const isLastStory = state.currentStoryIndex + 1 >= snapshots.length;
+  const storyProgress = calculateStoryProgress(currentPhase, currentStory.currentPointIndex, visiblePoints.length);
 
   return (
     <div className="max-w-md mx-auto w-full space-y-6">
       <LetterProgressBar
         currentIndex={state.currentStoryIndex}
         totalStories={snapshots.length}
+        storyProgress={storyProgress}
       />
-
-      <p className="text-xs text-[#1A1A1A]/40 uppercase tracking-wide">
-        Story {state.currentStoryIndex + 1} of {snapshots.length}
-      </p>
 
       {/* PHASE: point-engage — sealed-bid: author position hidden until receiver picks */}
       {currentPhase === 'point-engage' && currentPoint && (

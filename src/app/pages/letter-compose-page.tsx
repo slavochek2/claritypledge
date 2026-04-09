@@ -98,6 +98,15 @@ export function LetterComposePage() {
     setPhase('review');
   }, []);
 
+  // Persist predictions to sessionStorage so preview page can show author's numbers
+  useEffect(() => {
+    if (!docId || predictions.size === 0) return;
+    sessionStorage.setItem(
+      `clarity-preview-predictions-${docId}`,
+      JSON.stringify([...predictions])
+    );
+  }, [docId, predictions]);
+
   const handleSeal = useCallback(async () => {
     if (!docId || !user?.id || !mode) return;
     if (sealingRef.current) return;
