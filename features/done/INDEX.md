@@ -1,7 +1,7 @@
 # Done Features Index
 
 Quick reference for past completed work. Consult when starting work on a related topic.
-Last updated: 2026-04-09 (P671 Rating Submission Loop)
+Last updated: 2026-04-09 (P679 Remove Session History from /live)
 
 ---
 
@@ -12,6 +12,7 @@ Last updated: 2026-04-09 (P671 Rating Submission Loop)
 - **P399** (Feb 26) Live state story race condition — full-overwrite merges carry stale data; use atomic partial `patch_live_state` RPC
 - **P525** (Mar 16) Live state deadlock prevention — two-party coordination fields must use per-role boolean keys (never shared arrays); JSONB `||` merge handles different keys atomically but overwrites same keys; UI reading coordination state must be role-aware (`isCreator` prop); reactive `useEffect` safety net catches simultaneous actions; zero Sentry coverage → full context+breadcrumbs+sanitized capture added
 - **P644** (Apr 04) Two-Party Test Infrastructure — postgres_changes DO propagate across Playwright contexts (false assumption for 5 sessions); `waitForUIUpdate()` replaces `page.reload()`; 16 drift detection gaps surfaced
+- **P679** (Apr 09) Remove Session History from /live — `hasScrollableContent` gates `isCleanIdle`; anything in it suppresses the two-zone layout and hides the story button
 - **P405** (Feb 26) My Sessions History — replace /live history block with global nav Sessions section
 - **P406** (Feb 26) Event Native Session Start — polling-based status updates; one-room-per-creator constraint
 - **P410** (Feb 26) Live Nav Guard — context prevents silent nav away; intercept bottom/top nav clicks with exit-confirm dialog

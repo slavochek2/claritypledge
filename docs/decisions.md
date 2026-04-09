@@ -2,6 +2,14 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-09 [technical]: isCleanIdle two-zone layout is load-bearing — hasScrollableContent must stay minimal
+
+**Context:** P679 — after a round completed, `sessionHistory.length > 0` was included in `hasScrollableContent`. This triggered `isCleanIdle=false`, switching from the two-zone layout (which positions the "Select your story" button stably) to the scrollable layout (where the button doesn't appear in the clean-idle path). The story button was hidden, blocking subsequent rounds.
+**Decision:** Removed `sessionHistory` from `hasScrollableContent` entirely. Session history belongs on /sessions post-session, not inline on /live. The `isCleanIdle` state is load-bearing for story selection UX — anything added to `hasScrollableContent` will suppress it.
+**Alternatives rejected:** Keeping history inline in a different DOM position — still requires `hasScrollableContent=true`, same layout switch.
+**Consequences:** Before adding any content to `hasScrollableContent`, verify it won't flip `isCleanIdle=false` in idle state. Two-zone layout (isCleanIdle=true) is the correct post-round resting state.
+**References:** [live-mode-view.tsx](src/app/components/partners/live-mode-view.tsx)
+
 ## 2026-04-09 [technical]: Guest RLS hole on clarity_sessions UPDATE (Status: proposed)
 
 **Context:** During P671 investigation, discovered that the RLS UPDATE policy on `clarity_sessions` only checks `creator_profile_id IS NOT NULL` (not ownership). This means any request using the anon key can UPDATE any session row where the creator is authenticated. Guests use this path for `updateClaritySessionLiveState()` (full overwrite) and `joinClaritySession()` — both work because of this permissive policy. The `patch_live_state` RPC had a stricter guard (which is why it failed for guests and needed fixing). The inconsistency means guests have more write access via direct table UPDATE than via the RPC.
