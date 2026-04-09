@@ -1,7 +1,7 @@
 ---
 title: "Position history trigger blocked by RLS — positions don't persist"
 type: bug
-status: in-progress
+status: qa
 priority: critical
 created_date: 2026-04-09
 p_number: P677
@@ -9,9 +9,9 @@ delivery_stage: fix
 pipeline_ran: [fix]
 tags: []
 rank: 1000000.0
-date_resolved: ""
-root_cause: ""
-resolution: ""
+date_resolved: "2026-04-09"
+root_cause: "log_position_change() lost SECURITY DEFINER on test DB; Apr 3 security migration set point_position_history INSERT policy to WITH CHECK (false) blocking all inserts including the trigger"
+resolution: "Re-created trigger function with SECURITY DEFINER + SET search_path; changed INSERT policy from WITH CHECK (false) to WITH CHECK (auth.uid() = user_id)"
 ---
 
 # P677: Position history trigger blocked by RLS — positions don't persist
