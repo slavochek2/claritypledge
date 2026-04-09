@@ -727,10 +727,6 @@ export interface LiveSessionState {
   // P646: Role-based identity — true if creator initiated, false if joiner
   ratingInitiatedByIsCreator?: boolean;
 
-  // P671: Flow type shared at rating start so listener knows which role they're in
-  // without requiring a separate write (prevents listener from defaulting to 'check' in a 'prove' flow)
-  ratingFlowType?: 'check' | 'prove';
-
   // ============================================================================
   // P275: Live session point positions (stored here instead of point_positions table)
   // Unverified guests cannot write to point_positions (RLS: is_verified=true required).
