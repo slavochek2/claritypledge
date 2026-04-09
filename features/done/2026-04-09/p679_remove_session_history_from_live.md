@@ -9,6 +9,9 @@ date_resolved: 2026-04-09
 root_cause: sessionHistory.length > 0 in hasScrollableContent triggered isCleanIdle=false, hiding the story button
 resolution: Removed session history display from /live entirely; history remains on /sessions
 pipeline_ran: [fix, ship]
+tags: []
+rank: 1000679.0
+created_date: 2026-04-09
 ---
 
 # P679: Remove Session History from /live
