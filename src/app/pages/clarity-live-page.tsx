@@ -158,7 +158,7 @@ export function shouldUseFullOverwrite(
  */
 // eslint-disable-next-line react-refresh/only-export-components
 export function isPhaseRegression(localPhase: string, incomingPhase: string): boolean {
-  const PHASE_ORDER: Record<string, number> = { idle: 0, waiting: 1, rating: 2, revealed: 3, 'explain-back': 4, results: 5 };
+  const PHASE_ORDER: Record<string, number> = { idle: 0, rating: 1, waiting: 2, revealed: 3, 'explain-back': 4, results: 5 };
   const localRank = PHASE_ORDER[localPhase] ?? -1;
   const incomingRank = PHASE_ORDER[incomingPhase] ?? -1;
   const isRoundReset = incomingPhase === 'idle' && localRank > 0;
@@ -1057,16 +1057,13 @@ export function ClarityLivePage() {
       setSession(updatedSession);
 
       // Sync live state from session (merge with defaults for missing fields)
-      // Also update the confirmed ref to prevent drift detection from reverting
-      // IMPORTANT: Skip if an update is in flight to prevent realtime from reverting optimistic updates
-      // This fixes the "flashing button" bug where realtime delivers old state before DB save completes
-      if (updatedSession.liveState && !updateInFlightRef.current) {
+      // P671: Always run phase regression check, even during in-flight writes.
+      // Old approach: block all Realtime during in-flight (except whitelist). Problem: partner's
+      // ratingPhase='rating' write was silently dropped if our write was in-flight at arrival time.
+      // New approach: single flow — regression check first, then merge-on-top if in-flight.
+      if (updatedSession.liveState) {
         const mergedState = { ...DEFAULT_LIVE_STATE, ...updatedSession.liveState } as LiveSessionState;
 
-        // P671: Monotonic phase guard — never let a stale Realtime echo regress ratingPhase.
-        // When the second submitter's write completes, updateInFlightRef drops. A queued
-        // Realtime event from the FIRST submitter's earlier write may arrive after the guard
-        // drops, carrying ratingPhase='waiting' which clobbers the local 'revealed' state.
         const phaseRegression = isPhaseRegression(confirmedLiveStateRef.current.ratingPhase, mergedState.ratingPhase);
 
         if (import.meta.env.DEV) {
@@ -1074,8 +1071,9 @@ export function ClarityLivePage() {
           const prevPhase = confirmedLiveStateRef.current.ratingPhase;
           const nextPhase = mergedState.ratingPhase;
           console.log(
-            `[Realtime] ${new Date().toISOString()} Event ${phaseRegression ? 'REJECTED (stale phase)' : 'applied'}:`,
+            `[Realtime] ${new Date().toISOString()} Event ${phaseRegression ? 'REJECTED (stale phase)' : updateInFlightRef.current ? 'merged (inFlight)' : 'applied'}:`,
             `phase=${prevPhase}→${nextPhase}`,
+            `inFlight=${updateInFlightRef.current}`,
             `checkerSubmitted=${incoming.checkerSubmitted ?? '∅'}`,
             `responderSubmitted=${incoming.responderSubmitted ?? '∅'}`,
             `celebCreator=${incoming.celebrationAcknowledgedByCreator ?? '∅'}`,
@@ -1083,46 +1081,18 @@ export function ClarityLivePage() {
           );
         }
 
-        if (phaseRegression) {
-          // Stale echo — skip state application entirely.
-          // The next Realtime event (or drift poll) will carry the correct state.
-        } else {
-          setLiveState(mergedState);
+        if (!phaseRegression) {
+          if (updateInFlightRef.current) {
+            // In-flight: merge on top of local state — preserves our optimistic update while
+            // applying partner's phase transition (e.g. ratingPhase='rating' from speaker tap).
+            setLiveState(prev => ({ ...prev, ...mergedState }));
+          } else {
+            // Not in-flight: wholesale replace (normal path).
+            setLiveState(mergedState);
+          }
           confirmedLiveStateRef.current = mergedState;
         }
-      } else if (updatedSession.liveState && updateInFlightRef.current) {
-        if (import.meta.env.DEV) {
-          const incoming = updatedSession.liveState as Record<string, unknown>;
-          console.log(
-            `[Realtime] ${new Date().toISOString()} Event BLOCKED (inFlight):`,
-            `incomingPhase=${incoming.ratingPhase ?? '∅'}`,
-            `localPhase=${confirmedLiveStateRef.current.ratingPhase}`,
-            `checkerSubmitted=${incoming.checkerSubmitted ?? '∅'}`,
-            `responderSubmitted=${incoming.responderSubmitted ?? '∅'}`,
-          );
-        }
-        // P562: Even during in-flight writes, merge position + slider keys from Realtime.
-        // These are per-participant top-level keys — partner's writes never conflict with ours.
-        // Without this, partner's position/slider changes are dropped until next non-blocked delivery.
-        // P643: Also pass through ratingInitiatedBy — set exclusively by the remote partner
-        // (speaker clicks Speak). Listener never writes this field so there's no conflict.
-        // Eliminates the drift-poll delay (1s) before mode switcher disables on listener.
-        const incoming = updatedSession.liveState as Record<string, unknown>;
-        const positionKeys = ['livePositionsCreator', 'livePositionsJoiner', 'freeSliderCreator', 'freeSliderJoiner', 'ratingInitiatedBy', 'ratingInitiatedByIsCreator'] as const;
-        const partnerUpdates: Partial<LiveSessionState> = {};
-        let hasPartnerUpdate = false;
-        for (const key of positionKeys) {
-          if (key in incoming && incoming[key] !== undefined) {
-            (partnerUpdates as Record<string, unknown>)[key] = incoming[key];
-            hasPartnerUpdate = true;
-          }
-        }
-        if (hasPartnerUpdate) {
-          setLiveState(prev => ({ ...prev, ...partnerUpdates }));
-          // P609: Also update confirmed ref so the next write's optimistic update
-          // doesn't overwrite partner's slider values with stale data from the ref.
-          confirmedLiveStateRef.current = { ...confirmedLiveStateRef.current, ...partnerUpdates } as LiveSessionState;
-        }
+        // If phaseRegression: stale echo — skip entirely. Next event or drift poll corrects.
       }
 
       // When joiner joins, move to live view
@@ -1418,6 +1388,19 @@ export function ClarityLivePage() {
   // P23.3: Track which flow type we're in locally ('check' = "Did you get it?", 'prove' = "Did I get it?")
   const [localFlowType, setLocalFlowType] = useState<'check' | 'prove'>('check');
 
+  // P671: Two-way sync — listener enters/exits rating mode when shared ratingPhase changes.
+  // Entry: partner wrote ratingPhase='rating' (via Realtime), listener wasn't locally rating yet.
+  // Exit: speaker cancelled (ratingPhase reset to 'idle'), listener must exit rating view.
+  useEffect(() => {
+    if (liveState.ratingPhase === 'rating' && !isLocallyRating) {
+      setIsLocallyRating(true);
+      setLocalFlowType(liveState.ratingFlowType ?? 'check');
+    }
+    if (liveState.ratingPhase === 'idle' && isLocallyRating) {
+      setIsLocallyRating(false);
+    }
+  }, [liveState.ratingPhase]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // P562: Free mode reuses guided mode's handleStartCheck — no separate handler needed.
   // The guided mode round runs identically; divergence happens in handleCelebrationComplete.
 
@@ -1443,7 +1426,8 @@ export function ClarityLivePage() {
 
     // P398: Signal partner to close history view immediately (before submission)
     // P646: Write isCreator flag alongside name — name comparison breaks when both users share a name
-    updateLiveState({ ratingInitiatedBy: name, ratingInitiatedByIsCreator: isCreator });
+    // P671: Write ratingPhase + ratingFlowType in same call so listener can enter rating mode via Realtime
+    updateLiveState({ ratingInitiatedBy: name, ratingInitiatedByIsCreator: isCreator, ratingPhase: 'rating', ratingFlowType: 'check' });
 
     setLocalFlowType('check');
     setIsLocallyRating(true);
@@ -1471,7 +1455,8 @@ export function ClarityLivePage() {
 
     // P398: Signal partner to close history view immediately (before submission)
     // P646: Write isCreator flag alongside name — name comparison breaks when both users share a name
-    updateLiveState({ ratingInitiatedBy: name, ratingInitiatedByIsCreator: isCreator });
+    // P671: Write ratingPhase + ratingFlowType in same call so listener can enter rating mode via Realtime
+    updateLiveState({ ratingInitiatedBy: name, ratingInitiatedByIsCreator: isCreator, ratingPhase: 'rating', ratingFlowType: 'prove' });
 
     setLocalFlowType('prove');
     setIsLocallyRating(true);
@@ -1628,8 +1613,11 @@ export function ClarityLivePage() {
         createdAt: storyData.createdAt,
       } : undefined,
       // P643/P646: Include rating initiation in same write to prevent race
+      // P671: Also write ratingPhase + ratingFlowType so listener enters rating mode via Realtime
       ratingInitiatedBy: name,
       ratingInitiatedByIsCreator: isCreator,
+      ratingPhase: 'rating',
+      ratingFlowType: 'check',
     });
 
     // P643: Story selection auto-starts the rating flow (no separate Speak click needed)
@@ -1664,16 +1652,21 @@ export function ClarityLivePage() {
     lastActionTimestampRef.current = Date.now(); // P516
 
     // Set selected content in shared state (partner will see it)
+    // P671: Include ratingPhase + ratingFlowType so listener enters rating mode via Realtime
     updateLiveState({
       selectedPointId: pointId,
       selectedStoryId: undefined,
       selectedContentTitle: title,
+      ratingInitiatedBy: name,
+      ratingInitiatedByIsCreator: isCreator,
+      ratingPhase: 'rating',
+      ratingFlowType: 'check',
     });
 
     // Picking a point = "does partner understand YOUR point" (check flow)
     setLocalFlowType('check');
     setIsLocallyRating(true);
-  }, [name, partnerName, session?.code, updateLiveState]);
+  }, [name, partnerName, session?.code, updateLiveState, isCreator]);
 
   // Guard for removing positions in /live — shows profile-removal warning and syncs to point_positions.
   const { dialogProps: liveRemoveDialogProps, guardedRemovePosition: liveGuardedRemovePosition } =
@@ -3915,9 +3908,12 @@ export function ClarityLivePage() {
             setLocalFlowType('check');
             // P643 Layer 4: Cancel = full undo — clear ALL fields from the atomic write.
             // Missing story fields left dirty state (story card visible, not clean idle).
+            // P671: Also reset ratingPhase + ratingFlowType so listener's exit path fires.
             updateLiveState({
               ratingInitiatedBy: undefined,
               ratingInitiatedByIsCreator: undefined,
+              ratingPhase: 'idle',
+              ratingFlowType: undefined,
               selectedStoryId: undefined,
               selectedStoryData: undefined,
               selectedPointId: undefined,
