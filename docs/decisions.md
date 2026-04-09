@@ -2,6 +2,30 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-09 [product]: Badge/Pledge split — separate adoption object from commitment object
+
+**Context:** Claude conversation analysis (2026-04-06–08) surfaced recurring theme: the Pledge is decorative (11 pledgers, zero practice habits). People resist public promises before experiencing the flip. Conversation "Scaling clarity propagation" designed a verification chain where the adoption object IS the protocol — you can't get badged without demonstrating comprehension, and every badge holder can verify others.
+**Decision:** Split into two artifacts. Badge = low-friction propagation unit earned by passing a comprehension check (read letter → verified in /live → badged). Pledge = optional commitment for those who also want ongoing practice. Badge holders can badge others by sharing any existing Clarity Letter — no need to create their own. Creates trackable directed graph (who verified whom, chain length, verifier quality scores, R₀). The badge can't spread without the protocol spreading.
+**Alternatives rejected:** (A) Keep single Pledge as-is — decorative, no propagation measurement. (B) Rename Pledge to something lighter — same resistance, just different label. (C) Drop Pledge entirely — loses the commitment layer for motivated practitioners.
+**Consequences:** Lean-canvas Solution §1 updated to "Badge + Pledge." Practical badge path requires no new product features (P581 letters + /live already exist). Tracking layer (verification graph) is the new build target. Measure separately: comprehension propagation rate vs. practice adoption rate.
+**References:** lean-canvas.md §1 | "Scaling clarity propagation" conversation (2026-04-08)
+
+## 2026-04-09 [product]: Clarity Flip is irreducibly interpersonal — counterparty required
+
+**Context:** Conversation "Clarity flip and role of counterparty" (2026-04-06) tested whether the flip can be delivered digitally without another person. Conclusion: the emotional charge comes from a relational gap (she didn't know that he knew what she knew), not an abstract one. A machine can demonstrate paraphrasing is hard but can't reveal the specific gap between two real people.
+**Decision:** Codified as design constraint in theory-of-change: any feature proposal that tries to deliver the flip without a counterparty is a dead-end investment. The Clarity Letter is architecturally correct — it does what async CAN do (surface disagreements, pre-load positions) while leaving the live session for what only live can do.
+**Alternatives rejected:** Pursuing a fully digital self-serve flip experience — would waste build time on something that can't produce the relational aha moment.
+**Consequences:** Letter remains the right async artifact. Future feature proposals evaluated against this constraint. Focus build effort on letter → live → badge chain, not on digital-only flip substitutes.
+**References:** theory-of-change.md (Activities section) | "Clarity flip and role of counterparty" conversation (2026-04-06)
+
+## 2026-04-09 [product]: Pitch hook — one question entry point + curse vs. illusion distinction
+
+**Context:** Conversation "Compressing clarity into one question" (2026-04-08) iterated toward a 13-word pitch hook: "How do you know you understood someone — if they don't know you did?" Separately, "Clarity and epistemic verification" (2026-04-08) articulated the distinction between curse of knowledge (individual bias, hard to fix) and illusion of common knowledge (group-level, puncturable by verification — that's the product).
+**Decision:** Both added to lean-canvas UVP. One-question sits above the universal positioning copy as the 3-second entry point. Curse vs. illusion distinction preempts the #1 objection. Both marked for workshop validation before replacing existing copy.
+**Alternatives rejected:** (A) Park both until workshop-tested — risks losing them from institutional memory. (B) Replace existing positioning copy immediately — untested.
+**Consequences:** Workshop #1 should test the one-question hook as opener. The distinction strengthens article a9 (enrichment notes added). Neither replaces existing copy yet — additive, not substitutive.
+**References:** lean-canvas.md UVP section | a9_rate-asymmetry-lesswrong.md enrichment notes
+
 ## 2026-04-09 [technical]: SECURITY DEFINER can be silently stripped — belt-and-suspenders for trigger RLS
 
 **Context:** `log_position_change()` trigger was defined as `SECURITY DEFINER` in migration `20260204_stories_points_calibration.sql`. On the live test DB, `pg_proc.prosecdef = false` — the attribute was stripped silently (likely by a `db push` or schema diff operation). Separately, migration `20260403120200_security_tighten_rls.sql` changed `point_position_history` INSERT policy from `WITH CHECK (true)` to `WITH CHECK (false)`, assuming `SECURITY DEFINER` would bypass RLS. Combined: trigger runs as calling user → hits `WITH CHECK (false)` → entire `point_positions` transaction rolls back → 403.
