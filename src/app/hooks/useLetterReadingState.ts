@@ -257,10 +257,19 @@ export function useLetterReadingState(
     [deliveryId, senderId, token, previewMode, previewPredictions, currentSnapshot, updateCurrentStory]
   );
 
-  // Advance from point-revealed → story-rate (after first point in anti-point lead)
+  // Advance from point-revealed → story-rate (2+ points) or transition (D36: 1 point after story)
   const advanceFromPointReveal = useCallback(() => {
-    updateCurrentStory((prev) => ({ ...prev, phase: 'story-rate' }));
-  }, [updateCurrentStory]);
+    if (!currentSnapshot) return;
+    const visibleCount = getVisiblePointCount(currentSnapshot);
+    updateCurrentStory((prev) => {
+      // D36: 1 visible point, story was already rated → done with this story
+      if (visibleCount === 1 && prev.rating !== null) {
+        return { ...prev, phase: 'transition' };
+      }
+      // 2+ points: first point was before story, advance to story-rate
+      return { ...prev, phase: 'story-rate' };
+    });
+  }, [currentSnapshot, updateCurrentStory]);
 
   // Advance from story-revealed → remaining points or transition
   const advanceFromStoryReveal = useCallback(() => {
@@ -287,10 +296,6 @@ export function useLetterReadingState(
     const visibleCount = getVisiblePointCount(currentSnapshot);
 
     updateCurrentStory((prev) => {
-      // For D36 (1 point, point-revealed after story): go to transition
-      if (prev.phase === 'point-revealed') {
-        return { ...prev, phase: 'transition' };
-      }
       const nextIdx = prev.currentPointIndex + 1;
       if (nextIdx >= visibleCount) {
         return { ...prev, phase: 'transition' };
