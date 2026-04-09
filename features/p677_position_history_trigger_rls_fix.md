@@ -5,8 +5,8 @@ status: qa
 priority: critical
 created_date: 2026-04-09
 p_number: P677
-delivery_stage: fix
-pipeline_ran: [fix]
+delivery_stage: ship
+pipeline_ran: [fix, ship]
 tags: []
 rank: 1000000.0
 date_resolved: "2026-04-09"
