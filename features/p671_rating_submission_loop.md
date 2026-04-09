@@ -2,7 +2,7 @@
 status: qa
 date_resolved: '2026-04-09'
 root_cause: Race condition in patch_live_state + blanket Realtime blocking during in-flight writes
-resolution: Server-side auto-reveal in RPC + merge-on-top in Realtime handler
+resolution: Server-side auto-reveal in RPC + field-aware merge (ratingPhase takes highest value during in-flight)
 delivery_stage: fix
 pipeline_ran: [fix]
 type: bug
