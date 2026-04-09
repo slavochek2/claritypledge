@@ -2,6 +2,22 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-09 [technical]: SECURITY DEFINER can be silently stripped — belt-and-suspenders for trigger RLS
+
+**Context:** `log_position_change()` trigger was defined as `SECURITY DEFINER` in migration `20260204_stories_points_calibration.sql`. On the live test DB, `pg_proc.prosecdef = false` — the attribute was stripped silently (likely by a `db push` or schema diff operation). Separately, migration `20260403120200_security_tighten_rls.sql` changed `point_position_history` INSERT policy from `WITH CHECK (true)` to `WITH CHECK (false)`, assuming `SECURITY DEFINER` would bypass RLS. Combined: trigger runs as calling user → hits `WITH CHECK (false)` → entire `point_positions` transaction rolls back → 403.
+**Decision:** Belt-and-suspenders: (1) Re-apply `SECURITY DEFINER` + `SET search_path` on the trigger function. (2) Change `point_position_history` INSERT policy to `WITH CHECK (auth.uid() = user_id)` — allows the trigger to write user's own history rows while blocking fabrication. Either fix alone is sufficient; both together survive future attribute stripping.
+**Alternatives rejected:** (A) `WITH CHECK (true)` (original) — too permissive, allows clients to fabricate history via direct REST. (B) `WITH CHECK (false)` + trust SECURITY DEFINER — the exact combination that broke. (C) `current_user = 'postgres'` pattern (used for `story_versions`) — correct but doesn't survive attribute stripping; belt-and-suspenders is more resilient.
+**Consequences:** New migration applies both fixes. Pattern established: never rely solely on `SECURITY DEFINER` for trigger RLS bypass — always pair with an RLS policy that works even if the attribute is stripped. Verify `prosecdef` on prod before deploying. Existing `current_user = 'postgres'` patterns (story_versions) should be audited for the same stripping risk.
+**References:** [p677 spec](features/p677_position_history_trigger_rls_fix.md) | Migration `20260403120200_security_tighten_rls.sql` | Prior decision: "Triggers over RLS WITH CHECK" (2026-03-25)
+
+## 2026-04-09 [technical]: Service mutations must throw on DB error — never return false
+
+**Context:** `setPosition()` and `removePosition()` in `points-service-real.ts` returned `false` on Supabase error. All 7 callers across 5 files either ignored the return value or had unreachable `catch` blocks (optimistic UI reverts lived in `catch`, but `return false` doesn't throw). RLS rejections appeared to succeed — optimistic UI showed the position, refresh revealed nothing persisted.
+**Decision:** Service mutation methods that write to the DB must throw on error, not return boolean. Changed `setPosition`/`removePosition` to throw. All existing callers already had try/catch with revert logic — the throw activates them. Added user-facing toasts where missing.
+**Alternatives rejected:** (A) Check boolean return at every call site — 7 callers across 5 files, easy to miss one. (B) Return `{ success, error }` object — more API surface for the same outcome. Throwing is idiomatic for unexpected failures and leverages existing catch blocks.
+**Consequences:** Pattern for all future service mutations: throw on DB error, let callers catch and revert. Existing `logDbError` still fires before the throw (Sentry gets the error). The `clarity-live-page.tsx` caller intentionally swallows with `.catch(() => {})` — that pattern still works with throws.
+**References:** Commit `2da5d8ed` | `src/app/data/points-service-real.ts`
+
 ## 2026-04-09 [product]: Revert /live to guided-only — re-add sliders incrementally
 
 **Context:** Free mode / sliders (P562/P600, shipped 2026-03-30) introduced Realtime race conditions that broke both guided and free modes on main. 41 bug fix commits (P643, P646, P667, P670, P671) were applied on a feature branch but never merged to main. P674 then attempted a big-bang rewrite to merge both modes — it also failed (see decision below). Current main has broken /live for both modes. The last known working state for guided mode is pre-P562 (~March 18).
