@@ -1,9 +1,14 @@
 ---
-status: week
+status: rejected
 type: task
-rank: 1000056.0
+rank: 1000056
 created_date: '2026-04-04'
-tags: [infrastructure, ikigai, strategy, docs]
+tags:
+  - infrastructure
+  - ikigai
+  - strategy
+  - docs
+locked_at: '2026-04-07T11:25:22.948Z'
 ---
 
 # P652: Ikigai Framing Infrastructure

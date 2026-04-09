@@ -1,11 +1,19 @@
 ---
-status: qa
+status: all-done
 type: task
-rank: 1000068.0
+rank: 1000068
 created_date: '2026-04-06'
-tags: [testing, skills, infrastructure]
+tags:
+  - testing
+  - skills
+  - infrastructure
 delivery_stage: verify
-pipeline_ran: [create-spec, challenge-prd, dev, verify]
+pipeline_ran:
+  - create-spec
+  - challenge-prd
+  - dev
+  - verify
+locked_at: '2026-04-07T11:19:10.819Z'
 ---
 
 # P669: /verify and /generate-tests Coverage Gaps

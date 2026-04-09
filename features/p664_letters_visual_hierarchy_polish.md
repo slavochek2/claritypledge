@@ -1,7 +1,7 @@
 ---
-status: week
+status: blocked
 type: change-request
-rank: 1000066.0
+rank: 1
 changes: p660
 chain_root: p581
 tags:
@@ -10,12 +10,22 @@ tags:
   - letters
   - visual-hierarchy
   - ux-polish
-created_date: 2026-04-06
+created_date: 2026-04-06T00:00:00.000Z
 delivery_stage: change-request
 flow: dev
-pipeline_plan: [change-request, dev, verify]
-pipeline_ran: [change-request]
-pipeline_skipped: [challenge-prd -- decisions made live in conversation, ux -- swapping existing patterns not new components, architect -- 1 file no schema no security, generate-tests -- visual-only existing E2E covers regressions, decompose -- 1 file 3 independent edits]
+pipeline_plan:
+  - change-request
+  - dev
+  - verify
+pipeline_ran:
+  - change-request
+pipeline_skipped:
+  - challenge-prd -- decisions made live in conversation
+  - ux -- swapping existing patterns not new components
+  - architect -- 1 file no schema no security
+  - generate-tests -- visual-only existing E2E covers regressions
+  - decompose -- 1 file 3 independent edits
+locked_at: '2026-04-07T11:40:40.650Z'
 ---
 
 # P664: Letters Visual Hierarchy Polish — Sent Tab & Preview

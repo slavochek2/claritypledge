@@ -395,14 +395,12 @@ export const mockPointsService: PointsService = {
     _userId: string,
     _position: PositionType,
     _reasoning?: string
-  ): Promise<boolean> {
+  ): Promise<void> {
     // Mock always succeeds
-    return true;
   },
 
-  async removePosition(_pointId: string, _userId: string): Promise<boolean> {
+  async removePosition(_pointId: string, _userId: string): Promise<void> {
     // Mock always succeeds
-    return true;
   },
 
   async checkLinkedStories(_pointId: string, _userId: string): Promise<number> {

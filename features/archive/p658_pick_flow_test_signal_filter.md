@@ -1,5 +1,5 @@
 ---
-status: today
+status: rejected
 type: task
 rank: 0.002
 created_date: '2026-04-05'
@@ -9,6 +9,7 @@ tags:
   - wave-1
   - design-excellence
 flow: dev
+locked_at: '2026-04-07T11:24:25.533Z'
 ---
 
 # P658: Add Behavioral Logic Filter to /pick-flow Test Signal

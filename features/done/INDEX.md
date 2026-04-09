@@ -1,7 +1,7 @@
 # Done Features Index
 
 Quick reference for past completed work. Consult when starting work on a related topic.
-Last updated: 2026-04-07 (P661 Letter Composition UX Redesign)
+Last updated: 2026-04-09 (P677 Position History Trigger RLS Fix)
 
 ---
 
@@ -80,6 +80,7 @@ Last updated: 2026-04-07 (P661 Letter Composition UX Redesign)
 
 ## Database / RLS / Migrations
 
+- **P677** (Apr 09) Position History Trigger RLS Fix — `SECURITY DEFINER` can be silently stripped by `db push`; never rely on it alone for trigger RLS bypass
 - **P630** (Apr 03) Separate System Tags from User Tags — `system_tags` column isolates feed logic from user hashtags; `protect_system_tags` trigger prevents client mutation; `filterByTags` checks both arrays
 - **P586** (Mar 25) Visibility & Privacy Foundation — `content_visibility` enum, point visibility column, BEFORE triggers for immutability + cross-visibility, 8 tables RLS-hardened, amber=private color system
 - **P403** (Feb 26) Position Cascade DB Migrations — on position delete, trigger auto-unlinks stories and records in history table

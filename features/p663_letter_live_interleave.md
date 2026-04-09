@@ -1,11 +1,16 @@
 ---
-status: today
+status: week
 type: story
-rank: 1000065.0
+rank: 0.587
 created_date: '2026-04-06'
-tags: [letters, live, interleave, verification]
+tags:
+  - letters
+  - live
+  - interleave
+  - verification
 delivery_stage: create-spec
-pipeline_ran: [create-spec]
+pipeline_ran:
+  - create-spec
 ---
 
 # P663: Letter–Live Interleave — Per-Story Jump to /live

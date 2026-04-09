@@ -2,14 +2,15 @@
 id: p620
 title: KL workshop venue outreach + online workshop prep
 type: task
-status: today
+status: week
 priority: high
-rank: 0.063
+rank: 0.098
 tags:
   - workshop
   - outreach
   - h-workshop-format
-created_date: 2026-04-02
+created_date: 2026-04-02T00:00:00.000Z
+locked_at: '2026-04-07T11:26:59.069Z'
 ---
 
 # P620 — KL Workshop Venue Outreach + Online Workshop Prep

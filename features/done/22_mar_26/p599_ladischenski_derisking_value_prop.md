@@ -2,10 +2,10 @@
 id: p599
 title: Update ladischenski.com de-risking package value prop
 type: task
-status: today
+status: all-done
 priority: medium
 rank: 0.047
-locked_at: '2026-03-29T14:15:20.600Z'
+locked_at: '2026-04-07T11:22:52.491Z'
 tags: []
 created_date: 2026-03-28T00:00:00.000Z
 ---

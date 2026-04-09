@@ -1,5 +1,5 @@
 ---
-status: today
+status: backlog
 type: task
 rank: 0.001
 created_date: '2026-04-04'
@@ -8,7 +8,7 @@ tags:
   - wave-1
   - design-excellence
 flow: dev
-locked_at: '2026-04-05T06:16:54.199Z'
+locked_at: '2026-04-07T11:24:07.785Z'
 ---
 
 # P657: Design System Foundation

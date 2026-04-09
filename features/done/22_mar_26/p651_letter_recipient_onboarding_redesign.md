@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: change-request
 rank: 0.25
 changes: p581
@@ -9,7 +9,7 @@ tags:
   - letters
   - onboarding
 created_date: 2026-04-04T00:00:00.000Z
-locked_at: '2026-04-05T06:41:04.496Z'
+locked_at: '2026-04-07T11:19:29.885Z'
 ---
 
 # P651: Letter 1-to-1 Recipient Onboarding — Reuse Agreement Auth Flow

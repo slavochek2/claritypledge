@@ -1,23 +1,36 @@
 ---
-status: week
+status: today
 type: story
-rank: 1000073.0
+rank: 1000062
 tags:
   - letters
   - reading-flow
   - component-reuse
   - live
 created_date: '2026-04-07'
+superseded_by: p676
 delivery_stage: generate-tests
-pipeline_plan: [create-spec, architect, generate-tests, dev, verify]
-pipeline_ran: [create-spec, architect, generate-tests]
-pipeline_skipped: [challenge-prd -- founder co-designed in conversation, ux -- reuses /live components verbatim, decompose -- single concern under 10 files]
+pipeline_plan:
+  - create-spec
+  - architect
+  - generate-tests
+  - dev
+  - verify
+pipeline_ran:
+  - create-spec
+  - architect
+  - generate-tests
+pipeline_skipped:
+  - challenge-prd -- founder co-designed in conversation
+  - ux -- reuses /live components verbatim
+  - decompose -- single concern under 10 files
 uat_file: features/uat/p673.md
 test_files:
   - src/tests/letter-snapshot-mapper.test.ts
   - e2e/p673-letter-reading-flow.spec.ts
   - e2e/p673-smoke.spec.ts
   - e2e/a11y/p673-accessibility.spec.ts
+locked_at: '2026-04-07T11:25:43.748Z'
 ---
 
 # P673: Letter Reading Flow Reuses /live Components

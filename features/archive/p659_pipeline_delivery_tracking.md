@@ -1,9 +1,14 @@
 ---
-status: today
+status: rejected
 type: task
-rank: 1000061.0
+rank: 1000061
 created_date: '2026-04-05'
-tags: [infrastructure, skills, process, pipeline]
+tags:
+  - infrastructure
+  - skills
+  - process
+  - pipeline
+locked_at: '2026-04-07T11:26:26.859Z'
 ---
 
 # P659: Pipeline Delivery Tracking

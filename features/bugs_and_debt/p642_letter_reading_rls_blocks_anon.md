@@ -1,8 +1,12 @@
 ---
-status: qa
-date_resolved: 2026-04-04
-root_cause: getLetterForReading() used direct table queries subject to RLS; all SELECT policies require auth.uid() != NULL, blocking anon recipients
-resolution: Added SECURITY DEFINER RPC get_letter_for_reading(p_token) that validates token and returns all data in one call, bypassing RLS
+status: all-done
+date_resolved: 2026-04-04T00:00:00.000Z
+root_cause: >-
+  getLetterForReading() used direct table queries subject to RLS; all SELECT
+  policies require auth.uid() != NULL, blocking anon recipients
+resolution: >-
+  Added SECURITY DEFINER RPC get_letter_for_reading(p_token) that validates
+  token and returns all data in one call, bypassing RLS
 type: bug
 rank: 1
 tags:
@@ -11,6 +15,7 @@ tags:
   - p581
 created_date: 2026-04-04T00:00:00.000Z
 flow: fix
+locked_at: '2026-04-07T11:19:23.016Z'
 ---
 
 # P642: Letter Reading Page — RLS Blocks Anonymous Recipients

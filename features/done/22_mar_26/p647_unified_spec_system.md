@@ -1,10 +1,15 @@
 ---
-status: week
+status: all-done
 type: task
-rank: 1000052.0
+rank: 1000052
 workstream: DX
 created_date: '2026-04-04'
-tags: [infrastructure, skills, process, specs]
+tags:
+  - infrastructure
+  - skills
+  - process
+  - specs
+locked_at: '2026-04-07T11:26:03.051Z'
 ---
 
 # P647: Unified Spec System — One Skeleton, Adaptive Depth, All Work Types Tracked

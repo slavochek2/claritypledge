@@ -123,6 +123,8 @@ Seven tables added by P117. Full schema details in [architecture.md](architectur
 
 **story_versions INSERT RLS pattern (P465):** `story_versions` uses a SECURITY DEFINER trigger (`create_initial_story_version`) for auto-creation. When adding an INSERT policy, use `current_user = 'postgres'` for the trigger-context branch — NOT `auth.uid() IS NULL`. In Supabase, SECURITY DEFINER triggers run as the `postgres` role; `auth.uid() IS NULL` is too broad and also matches anonymous API callers (`anon` role). See `supabase/migrations/20260302130000_story_versions_insert_policy_v2.sql` and [decisions.md § 2026-03-02](../decisions.md).
 
+**SECURITY DEFINER stripping risk:** Supabase `db push` or schema diff operations can silently strip `SECURITY DEFINER` from trigger functions. Never rely solely on SECURITY DEFINER to bypass RLS for triggers. Belt-and-suspenders: pair with an RLS policy that also works if the attribute is stripped (e.g., `WITH CHECK (auth.uid() = user_id)` instead of `WITH CHECK (false)`). Verify `prosecdef` in `pg_proc` after deployments. See [decisions.md § 2026-04-09 "SECURITY DEFINER can be silently stripped"](../decisions.md).
+
 **story_points author_id (P465):** `story_points` has `author_id UUID NOT NULL` (FK to `profiles.id`) and a `UNIQUE(author_id, point_id)` constraint since P465. When inserting into `story_points` via test helpers or service layer, always look up `stories.author_id` first — don't assume it from the current session user.
 
 **Services:** Interface-based pattern — see [architecture.md § Service Layer](architecture.md#service-layer-pattern).

@@ -1,5 +1,5 @@
 ---
-status: today
+status: all-done
 type: task
 rank: 0.125
 tags:
@@ -8,7 +8,7 @@ tags:
   - anti-points
 flow: inline
 created_date: 2026-03-30T00:00:00.000Z
-locked_at: '2026-03-30T10:37:23.987Z'
+locked_at: '2026-04-07T11:23:12.356Z'
 ---
 
 # P606: The Clarity Flip — Workshop Anti-Point Design & Facilitation Prep

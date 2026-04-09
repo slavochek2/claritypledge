@@ -844,7 +844,7 @@ export const realPointsService: PointsService = {
     userId: string,
     position: PositionType,
     reasoning?: string
-  ): Promise<boolean> {
+  ): Promise<void> {
     log(' setPosition:', { pointId, userId, position });
 
     // Upsert: insert or update based on unique constraint
@@ -862,13 +862,11 @@ export const realPointsService: PointsService = {
 
     if (error) {
       logDbError('setPosition', error);
-      return false;
+      throw new Error(`setPosition failed: ${error.message}`);
     }
-
-    return true;
   },
 
-  async removePosition(pointId: string, userId: string): Promise<boolean> {
+  async removePosition(pointId: string, userId: string): Promise<void> {
     log(' removePosition:', { pointId, userId });
 
     const { error } = await supabase
@@ -879,10 +877,8 @@ export const realPointsService: PointsService = {
 
     if (error) {
       logDbError('removePosition', error);
-      return false;
+      throw new Error(`removePosition failed: ${error.message}`);
     }
-
-    return true;
   },
 
   /**

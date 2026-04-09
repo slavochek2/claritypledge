@@ -1,7 +1,6 @@
 ---
 status: done
-delivery_stage: dev
-pipeline_ran: [dev]
+completed_at: '2026-04-07'
 type: bug
 rank: 1000070.0
 severity: medium
