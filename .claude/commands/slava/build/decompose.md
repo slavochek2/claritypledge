@@ -5,6 +5,13 @@ when_to_use: After /generate-tests, before /dev, only for complex features
 version: 1.0.0
 ---
 
+## Dispatch
+
+Spawn Agent tool: `model: "sonnet"`, `subagent_type: "general-purpose"`.
+Prompt: the skill instructions below + the spec path from $ARGUMENTS. Working dir: `/Users/slavochek/Projects/public/claritypledge`.
+The subagent reads the spec, runs pipeline stamp, pre-flight checks, consistency checks, and appends the task manifest — no user approval step required.
+Report subagent output verbatim.
+
 # /decompose
 
 Convert the architect's build sequence into a structured task manifest so /dev can dispatch one subagent per task instead of loading the full spec.

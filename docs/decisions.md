@@ -2,6 +2,22 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-08 [process]: Project root hardening — screenshot artifacts, marker files, pre-commit fix
+
+**Context:** Project root accumulated 30 PNG screenshots (4.5 MB) from browser automation writing to CWD, plus `.finish-reviewed`/`.privacy-reviewed` state markers, and a stale MCP backup file containing a rotated credential. Pre-commit check #14 had a path bug (`ls -1 /*.md` pointed to filesystem root `/`, not project root) — the check had never worked since it was written.
+**Decision:** Four changes: (1) Pre-commit check #14 fixed to `ls -1 ./*.md` and upgraded: PNG/JPG in project root is now a blocking ERROR. (2) Screenshot path rule added to `docs/technical/browser-tools.md` — browser automation must write to `~/Screenshots/{date}/{feature}/`, never CWD. (3) Review markers `.finish-reviewed`/`.privacy-reviewed` moved to `.claude/`; both skills and `.gitignore` updated. (4) `scripts/cleanup-artifacts.sh` + `npm run cleanup` added for manual purge of ephemeral root files.
+**Alternatives rejected:** (A) gitignore-only — ignoring files doesn't prevent accumulation; the error fires at commit and gives agents immediate feedback. (B) Moving markers to `.private/` — `.claude/` is the right home for agent tooling state.
+**Consequences:** Screenshot path rule in `browser-tools.md` is the enforcement reference. New skills that write state markers should use `.claude/` as home. `npm run cleanup` is the manual escape hatch. Stale MCP backup files in root signal a rotated credential — treat as security hygiene, rotate immediately.
+**References:** [browser-tools.md](docs/technical/browser-tools.md) | [pre-commit-checks.sh](scripts/pre-commit-checks.sh) | [cleanup-artifacts.sh](scripts/cleanup-artifacts.sh)
+
+## 2026-04-08 [process]: Skill model routing via ## Dispatch sections — no new infrastructure
+
+**Context:** All skills run at Opus tier by default. Many are purely mechanical (file lookup, grep + sort, template-driven output) and don't need Opus reasoning. The Agent tool already accepts `model: "haiku"` or `model: "sonnet"` — subagents at those tiers have full tool access. Cost savings achievable without new infrastructure.
+**Decision:** Add a `## Dispatch` section to mechanical skills instructing the main session to spawn a subagent at the appropriate tier. Three tiers: Haiku (zero judgment — grep/lookup), Sonnet (structured output, mild cross-referencing), Opus (judgment, creative, security). Piloted and validated Phases 0–2: `link-to-this-chat` and `shorten-url` → Haiku; `cleanup` and `status` → Sonnet. Cost tracking added to `skills.md` (logs to `.private/logs/skill-costs.log`). No frontmatter `model:` field (nothing in Claude Code reads it). No batch rollout — phased with measurement gates between phases.
+**Alternatives rejected:** (A) Frontmatter `model:` field — inert, nothing reads it to auto-route. (B) Batch rollout — no quality measurement, risk of silent regressions. (C) New routing infrastructure — unnecessary; Agent tool's model param is sufficient.
+**Consequences:** Mechanical skills now route to cheaper tiers. Approval-gate skills (cleanup) split into Phase A (Sonnet proposes) / Phase B (Sonnet executes after user approves in main session). Skills with conversation context (status) require main session to compose session summary before spawning. Phase 3 remaining: promote-skill, decompose, generate-uat, generate-tests, spec-compact, ascii-flows.
+**References:** [cozy-cuddling-seal.md](~/.claude/plans/cozy-cuddling-seal.md) | [skills.md](.claude/rules/skills.md)
+
 ## 2026-04-07 [technical]: Chrome-free letter routes via layout prop, not new layout component
 
 **Context:** Letter preview and reading routes (`/letter/:docId/preview`, `/letter/:id`) rendered inside `ClarityLandingLayout`, which unconditionally shows `SimpleNavigation` (top nav). Bottom nav was already hidden via `focusRoutes`. Recipients arriving via email link saw full ClarityPledge chrome — breaking the ritual/immersive framing (D6).

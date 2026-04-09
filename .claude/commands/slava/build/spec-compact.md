@@ -7,6 +7,19 @@ when_to_use: After /spec-review resolves BLOCKs, before /decompose or /dev. Skip
 version: 1.0.0
 ---
 
+## Dispatch
+
+**Phase A — Measure + manifest (spawn → collect → present):**
+Spawn Agent tool: `model: "sonnet"`, `subagent_type: "general-purpose"`.
+Prompt: Phases 1–2 from the skill below (measure + identify removable content) + spec path from $ARGUMENTS. Working dir: `/Users/slavochek/Projects/public/claritypledge`.
+Collect the removal manifest. Present it to the user — quote the first line of each item and state why it's removable.
+Wait for user approval. User may exclude specific items ("keep item 3").
+
+**Phase B — Apply (only after user approves):**
+Spawn a second Agent tool: `model: "sonnet"`, `subagent_type: "general-purpose"`.
+Prompt: Phase 4 (apply and report) from the skill below + the approved removal manifest inline. Apply all approved removals, commit, report line reduction.
+Report subagent output verbatim.
+
 # /spec-compact
 
 Remove dead weight from a spec file — agent Q&A threads, resolved decision prose, cross-layer

@@ -82,7 +82,7 @@ Don't match patterns. Read with judgment. Ask: "If this person googled themselve
 
 6. **Stamp the review** — after completing the review (whether clean or after fixes applied):
    ```bash
-   date -u +%Y-%m-%dT%H:%M:%SZ > .privacy-reviewed
+   date -u +%Y-%m-%dT%H:%M:%SZ > .claude/.privacy-reviewed
    ```
    This timestamp is checked by the pre-push hook. Without it, pushes that include docs/ changes are blocked.
 

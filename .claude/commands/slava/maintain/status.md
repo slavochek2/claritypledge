@@ -5,6 +5,15 @@ when_to_use: After context compaction. Mid-session "where are we?". Before /kdd 
 version: 1.0.0
 ---
 
+## Dispatch
+
+Before spawning: compose a session summary from this conversation — list Done items, Problems, Dropped/open threads, and what's Next. The subagent cannot see conversation history; this summary is its only source of session context.
+
+Spawn Agent tool: `model: "sonnet"`, `subagent_type: "general-purpose"`.
+Prompt: the skill instructions below + the session summary you composed above.
+The subagent runs the required git commands and formats the status block using both live git state and the provided session summary.
+Report subagent output verbatim, then run the Activity Log step yourself (the subagent cannot append to local files reliably — do the `echo >>` in the main session).
+
 # /status
 
 This conversation only.
