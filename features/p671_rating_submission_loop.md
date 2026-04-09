@@ -1,8 +1,8 @@
 ---
 status: qa
 date_resolved: '2026-04-09'
-root_cause: Race condition in patch_live_state + blanket Realtime blocking during in-flight writes
-resolution: Server-side auto-reveal in RPC + field-aware merge (ratingPhase takes highest value during in-flight)
+root_cause: Guest writes silently dropped — patch_live_state GRANT only covered authenticated role; auth.uid() IS NULL for anon makes WHERE clause match 0 rows
+resolution: Added guest OR branch to WHERE + GRANT EXECUTE to anon role; auto-reveal second UPDATE drops redundant auth re-check
 delivery_stage: fix
 pipeline_ran: [fix]
 type: bug
