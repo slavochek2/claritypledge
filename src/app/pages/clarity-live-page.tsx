@@ -148,6 +148,24 @@ export function shouldUseFullOverwrite(
 }
 
 /**
+ * P671: Monotonic phase ordering for rating flow.
+ * Realtime events can arrive out of order (a stale echo from an earlier write
+ * after a later write's echo). This function detects backward phase transitions
+ * so the Realtime handler can reject stale echoes.
+ *
+ * Returns true if applying `incomingPhase` over `localPhase` would be a regression.
+ * Exception: idle transitions are always allowed (deliberate round resets).
+ */
+// eslint-disable-next-line react-refresh/only-export-components
+export function isPhaseRegression(localPhase: string, incomingPhase: string): boolean {
+  const PHASE_ORDER: Record<string, number> = { idle: 0, waiting: 1, rating: 2, revealed: 3, 'explain-back': 4, results: 5 };
+  const localRank = PHASE_ORDER[localPhase] ?? -1;
+  const incomingRank = PHASE_ORDER[incomingPhase] ?? -1;
+  const isRoundReset = incomingPhase === 'idle' && localRank > 0;
+  return incomingRank < localRank && !isRoundReset;
+}
+
+/**
  * P525: Strips PII from live state before sending to Sentry.
  * Keeps only structural/diagnostic fields — no user names, story content, or name-keyed maps.
  */
@@ -1042,29 +1060,50 @@ export function ClarityLivePage() {
       // Also update the confirmed ref to prevent drift detection from reverting
       // IMPORTANT: Skip if an update is in flight to prevent realtime from reverting optimistic updates
       // This fixes the "flashing button" bug where realtime delivers old state before DB save completes
-      if (updatedSession.liveState && !updateInFlightRef.current) {
+      if (updatedSession.liveState) {
         const mergedState = { ...DEFAULT_LIVE_STATE, ...updatedSession.liveState } as LiveSessionState;
-        setLiveState(mergedState);
-        confirmedLiveStateRef.current = mergedState;
-      } else if (updatedSession.liveState && updateInFlightRef.current) {
-        // P562: Even during in-flight writes, merge position + slider keys from Realtime.
-        // These are per-participant top-level keys — partner's writes never conflict with ours.
-        // Without this, partner's position/slider changes are dropped until next non-blocked delivery.
-        const incoming = updatedSession.liveState as Record<string, unknown>;
-        const positionKeys = ['livePositionsCreator', 'livePositionsJoiner', 'freeSliderCreator', 'freeSliderJoiner'] as const;
-        const partnerUpdates: Partial<LiveSessionState> = {};
-        let hasPartnerUpdate = false;
-        for (const key of positionKeys) {
-          if (key in incoming && incoming[key] !== undefined) {
-            (partnerUpdates as Record<string, unknown>)[key] = incoming[key];
-            hasPartnerUpdate = true;
-          }
+
+        // P671: Monotonic phase guard — never let a stale Realtime echo regress ratingPhase.
+        // When the second submitter's write completes, updateInFlightRef drops. A queued
+        // Realtime event from the FIRST submitter's earlier write may arrive after the guard
+        // drops, carrying ratingPhase='waiting' which clobbers the local 'revealed' state.
+        const phaseRegression = isPhaseRegression(confirmedLiveStateRef.current.ratingPhase, mergedState.ratingPhase);
+
+        if (import.meta.env.DEV) {
+          const incoming = updatedSession.liveState as Record<string, unknown>;
+          const prevPhase = confirmedLiveStateRef.current.ratingPhase;
+          const nextPhase = mergedState.ratingPhase;
+          console.log(
+            `[Realtime] ${new Date().toISOString()} Event ${phaseRegression ? 'REJECTED (stale phase)' : updateInFlightRef.current ? 'MERGED (inFlight)' : 'applied'}:`,
+            `phase=${prevPhase}→${nextPhase}`,
+            `checkerSubmitted=${incoming.checkerSubmitted ?? '∅'}`,
+            `responderSubmitted=${incoming.responderSubmitted ?? '∅'}`,
+            `celebCreator=${incoming.celebrationAcknowledgedByCreator ?? '∅'}`,
+            `celebJoiner=${incoming.celebrationAcknowledgedByJoiner ?? '∅'}`,
+          );
         }
-        if (hasPartnerUpdate) {
-          setLiveState(prev => ({ ...prev, ...partnerUpdates }));
-          // P609: Also update confirmed ref so the next write's optimistic update
-          // doesn't overwrite partner's slider values with stale data from the ref.
-          confirmedLiveStateRef.current = { ...confirmedLiveStateRef.current, ...partnerUpdates } as LiveSessionState;
+
+        if (phaseRegression) {
+          // Stale echo — skip state application entirely.
+          // The next Realtime event (or drift poll) will carry the correct state.
+        } else if (updateInFlightRef.current) {
+          // P671: Field-aware merge during in-flight writes.
+          // ratingPhase: take the HIGHER value (server's 'revealed' beats local 'waiting').
+          // All other fields: local wins (preserves optimistic checkerRating, *Submitted, etc.).
+          setLiveState(prev => {
+            const phaseToUse = isPhaseRegression(mergedState.ratingPhase, prev.ratingPhase)
+              ? mergedState.ratingPhase  // server is ahead
+              : prev.ratingPhase;        // local is ahead or equal
+            return { ...mergedState, ...prev, ratingPhase: phaseToUse };
+          });
+          const confirmedPhase = isPhaseRegression(mergedState.ratingPhase, confirmedLiveStateRef.current.ratingPhase)
+            ? mergedState.ratingPhase
+            : confirmedLiveStateRef.current.ratingPhase;
+          confirmedLiveStateRef.current = { ...mergedState, ...confirmedLiveStateRef.current, ratingPhase: confirmedPhase };
+        } else {
+          // Normal: wholesale replace
+          setLiveState(mergedState);
+          confirmedLiveStateRef.current = mergedState;
         }
       }
 
@@ -1196,12 +1235,14 @@ export function ClarityLivePage() {
 
         // Check 2: Detect liveState drift (fixes lost signal bug)
         // Compare server state with our last confirmed state
-        // Skip if an update is in flight to avoid race conditions
+        // P671: No longer skip during in-flight — merge-on-top instead (same as Realtime handler)
         const hasLiveState = !!freshSession.liveState;
         const hasJoiner = hasJoinerRef.current;
-        const updateInFlight = updateInFlightRef.current;
 
-        if (!hasLiveState || !hasJoiner || updateInFlight) {
+        if (!hasLiveState || !hasJoiner) {
+          if (import.meta.env.DEV) {
+            console.log(`[Drift Poll] SKIPPED: hasLiveState=${hasLiveState}, hasJoiner=${hasJoiner}`);
+          }
           return;
         }
 
@@ -1236,6 +1277,10 @@ export function ClarityLivePage() {
 
         const serverHasUpdate = phaseDrift || checkerNameDrift || checkerDrift || checkerRatingDrift || responderDrift || responderRatingDrift || explainBackDoneDrift || checksCountDrift || clarificationPhaseDrift || roleSwitchNegotiationDrift || selectedStoryIdDrift || selectedStoryDataDrift || selectedContentTitleDrift || celebrationAcknowledgedByDrift || livePositionsDrift || ratingInitiatedByDrift;
 
+        if (import.meta.env.DEV) {
+          console.log(`[Drift Poll] server.ratingInitiatedBy=${serverState.ratingInitiatedBy}, local.ratingInitiatedBy=${localState.ratingInitiatedBy}, drift=${ratingInitiatedByDrift}, serverHasUpdate=${serverHasUpdate}`);
+        }
+
         if (serverHasUpdate) {
           // Track in Mixpanel (non-blocking - don't let analytics errors break the app)
           try {
@@ -1256,8 +1301,22 @@ export function ClarityLivePage() {
           }
 
           const mergedState = { ...DEFAULT_LIVE_STATE, ...serverState };
-          setLiveState(mergedState);
-          confirmedLiveStateRef.current = mergedState;
+          if (updateInFlightRef.current) {
+            // P671: Field-aware merge — ratingPhase takes higher value, rest keeps local
+            setLiveState(prev => {
+              const phaseToUse = isPhaseRegression(mergedState.ratingPhase, prev.ratingPhase)
+                ? mergedState.ratingPhase
+                : prev.ratingPhase;
+              return { ...mergedState, ...prev, ratingPhase: phaseToUse };
+            });
+            const confirmedPhase = isPhaseRegression(mergedState.ratingPhase, confirmedLiveStateRef.current.ratingPhase)
+              ? mergedState.ratingPhase
+              : confirmedLiveStateRef.current.ratingPhase;
+            confirmedLiveStateRef.current = { ...mergedState, ...confirmedLiveStateRef.current, ratingPhase: confirmedPhase };
+          } else {
+            setLiveState(mergedState);
+            confirmedLiveStateRef.current = mergedState;
+          }
           setSession(freshSession);
         }
       } catch (err) {
@@ -1299,8 +1358,14 @@ export function ClarityLivePage() {
         // Previously `confirmedLiveStateRef.current = newState` would overwrite partner
         // slider values with stale data captured before the write started.
         confirmedLiveStateRef.current = { ...confirmedLiveStateRef.current, ...updates } as LiveSessionState;
+        if (import.meta.env.DEV) {
+          console.log(`[LiveUpdate] Write succeeded: ${Object.keys(updates).join(', ')}`);
+        }
       } catch (err) {
         console.error('[Live Update] Failed to update state:', err);
+        if (import.meta.env.DEV) {
+          console.log(`[LiveUpdate] Write FAILED + REVERTED: ${Object.keys(updates).join(', ')}`);
+        }
         // P525: Capture failure in Sentry with sanitized state snapshot
         try {
           Sentry.captureException(err, {
@@ -1358,6 +1423,9 @@ export function ClarityLivePage() {
     // This prevents race condition where both users tap "I spoke" and submit simultaneously
     const currentState = confirmedLiveStateRef.current;
     if (currentState.checkerName || currentState.ratingPhase !== 'idle') {
+      if (import.meta.env.DEV) {
+        console.log(`[Guard] handleStartCheck: ref.ratingPhase=${currentState.ratingPhase}, ref.checkerName=${!!currentState.checkerName}, action=rejected`);
+      }
       return;
     }
 
@@ -1369,11 +1437,12 @@ export function ClarityLivePage() {
     lastActionTimestampRef.current = Date.now(); // P516
 
     // P398: Signal partner to close history view immediately (before submission)
-    updateLiveState({ ratingInitiatedBy: name });
+    // P646: Write isCreator flag alongside name — name comparison breaks when both users share a name
+    updateLiveState({ ratingInitiatedBy: name, ratingInitiatedByIsCreator: isCreator });
 
     setLocalFlowType('check');
     setIsLocallyRating(true);
-  }, [name, partnerName, session?.code, updateLiveState]);
+  }, [name, partnerName, session?.code, updateLiveState, isCreator]);
 
   // P23.3: Handle "Did I get it?" button tap - listener-initiated understanding check
   // In this flow, the listener (prover) rates their confidence first
@@ -1396,11 +1465,12 @@ export function ClarityLivePage() {
     lastActionTimestampRef.current = Date.now(); // P516
 
     // P398: Signal partner to close history view immediately (before submission)
-    updateLiveState({ ratingInitiatedBy: name });
+    // P646: Write isCreator flag alongside name — name comparison breaks when both users share a name
+    updateLiveState({ ratingInitiatedBy: name, ratingInitiatedByIsCreator: isCreator });
 
     setLocalFlowType('prove');
     setIsLocallyRating(true);
-  }, [name, partnerName, session?.code, updateLiveState]);
+  }, [name, partnerName, session?.code, updateLiveState, isCreator]);
 
   // ============================================================================
   // P562: Free mode handlers
@@ -1436,7 +1506,7 @@ export function ClarityLivePage() {
       freeRounds: undefined,
       freeRerating: undefined,
       ratingPhase: 'idle',
-      ratingInitiatedBy: undefined,
+      ratingInitiatedBy: undefined, ratingInitiatedByIsCreator: undefined,
       explainBackDone: false,
       speakerSawExplainBackDone: false,
       explainBackRound: 0,
@@ -1451,6 +1521,12 @@ export function ClarityLivePage() {
 
   /** P562: Round complete (10/10 auto-transition) */
   const handleFreeRoundComplete = useCallback(() => {
+    // Guard: verify both sliders are at 10 in confirmed state before transitioning
+    const current = confirmedLiveStateRef.current;
+    if (current.freePhase !== 'unlocked') return;
+    const creatorVal = current.freeSliderCreator ?? 0;
+    const joinerVal = current.freeSliderJoiner ?? 0;
+    if (creatorVal !== 10 || joinerVal !== 10) return;
     updateLiveState({ freePhase: 'success' });
   }, [updateLiveState]);
 
@@ -1480,7 +1556,7 @@ export function ClarityLivePage() {
         freeRounds: undefined,
       freeRerating: undefined,
         ratingPhase: 'idle',
-        ratingInitiatedBy: undefined,
+        ratingInitiatedBy: undefined, ratingInitiatedByIsCreator: undefined,
         explainBackDone: false,
         speakerSawExplainBackDone: false,
         explainBackRound: 0,
@@ -1516,7 +1592,9 @@ export function ClarityLivePage() {
       session_code: session?.code,
     });
 
-    // Set selected content in shared state (partner will see it via selectedStoryData)
+    // P643: Atomic write — story data + ratingInitiatedBy in ONE updateLiveState call.
+    // Two separate writes create a Realtime race: listener receives story data before
+    // ratingInitiatedBy, causing the story card to render prematurely (Bug 3).
     updateLiveState({
       selectedStoryId: storyId,
       selectedPointId: undefined,
@@ -1544,11 +1622,15 @@ export function ClarityLivePage() {
         visibility: storyData.visibility,
         createdAt: storyData.createdAt,
       } : undefined,
+      // P643/P646: Include rating initiation in same write to prevent race
+      ratingInitiatedBy: name,
+      ratingInitiatedByIsCreator: isCreator,
     });
-    // NOTE: Do NOT call setLocalFlowType or setIsLocallyRating here.
-    // Story selection now shows the story card in idle state.
-    // Round starts when either participant taps an action button.
-  }, [name, partnerName, session?.code, updateLiveState]);
+
+    // P643: Story selection auto-starts the rating flow (no separate Speak click needed)
+    setLocalFlowType('check');
+    setIsLocallyRating(true);
+  }, [name, partnerName, session?.code, updateLiveState, isCreator]);
 
   // P272: Clear selected story (both participants return to no-story idle state)
   const handleClearStory = useCallback(() => {
@@ -1726,6 +1808,20 @@ export function ClarityLivePage() {
     (rating: number) => {
       if (!name || !partnerName) return;
 
+      if (import.meta.env.DEV) {
+        const cs = confirmedLiveStateRef.current;
+        console.log(
+          `[RatingSubmit] ${new Date().toISOString()}`,
+          `rating=${rating}`,
+          `phase=${cs.ratingPhase}`,
+          `checkerName=${cs.checkerName ?? '∅'}`,
+          `checkerSubmitted=${cs.checkerSubmitted}`,
+          `responderSubmitted=${cs.responderSubmitted}`,
+          `inFlight=${updateInFlightRef.current}`,
+          `isCreator=${isCreator}`,
+        );
+      }
+
       // Clear local rating state
       setIsLocallyRating(false);
 
@@ -1866,8 +1962,8 @@ export function ClarityLivePage() {
     // Set skippedBy so partner sees toast notification
     updateLiveState({
       ratingPhase: 'idle',
-      ratingInitiatedBy: undefined,
-      skippedBy: name,
+      ratingInitiatedBy: undefined, ratingInitiatedByIsCreator: undefined,
+      skippedBy: name, skippedByIsCreator: isCreator,
       // Clear checker/responder
       checkerName: undefined,
       checkerIsCreator: undefined,
@@ -1901,7 +1997,7 @@ export function ClarityLivePage() {
     });
     // P272: Clear verification guard so new rounds can fire verification
     verificationFiredRef.current.clear();
-  }, [name, updateLiveState, session?.code, trackLiveEvent]);
+  }, [name, isCreator, updateLiveState, session?.code, trackLiveEvent]);
 
   // Handle celebration complete - user clicked "Continue" on perfect rating celebration
   // P525: Uses boolean keys per-role instead of array to prevent race condition
@@ -1949,7 +2045,7 @@ export function ClarityLivePage() {
       updateLiveState({
         currentRound: (currentState.currentRound ?? 1) + 1,
         ratingPhase: 'idle',
-        ratingInitiatedBy: undefined,
+        ratingInitiatedBy: undefined, ratingInitiatedByIsCreator: undefined,
         // Clear checker/responder
         checkerName: undefined,
         checkerIsCreator: undefined,
@@ -1995,6 +2091,13 @@ export function ClarityLivePage() {
   const reactiveResetFiredRef = useRef(false);
   useEffect(() => {
     const bothAcknowledged = isBothAcknowledged(liveState);
+    if (import.meta.env.DEV && bothAcknowledged && liveState.ratingPhase !== 'idle') {
+      console.log(
+        `[ReactiveReset] ${new Date().toISOString()}`,
+        `bothAck=true phase=${liveState.ratingPhase} guard=${reactiveResetFiredRef.current}`,
+        reactiveResetFiredRef.current ? '→ SKIPPED (guard)' : '→ FIRING RESET',
+      );
+    }
     if (bothAcknowledged && liveState.ratingPhase !== 'idle' && !reactiveResetFiredRef.current) {
       reactiveResetFiredRef.current = true;
       // Trigger the same reset as handleCelebrationComplete's bothDone branch
@@ -2018,7 +2121,7 @@ export function ClarityLivePage() {
       updateLiveState({
         currentRound: (liveState.currentRound ?? 1) + 1,
         ratingPhase: 'idle',
-        ratingInitiatedBy: undefined,
+        ratingInitiatedBy: undefined, ratingInitiatedByIsCreator: undefined,
         checkerName: undefined,
         checkerIsCreator: undefined,
         checkerRating: undefined,
@@ -2069,7 +2172,7 @@ export function ClarityLivePage() {
         freeRounds: undefined,
       freeRerating: undefined,
         ratingPhase: 'idle',
-        ratingInitiatedBy: undefined,
+        ratingInitiatedBy: undefined, ratingInitiatedByIsCreator: undefined,
         explainBackDone: false,
         speakerSawExplainBackDone: false,
         explainBackRound: 0,
@@ -2139,13 +2242,15 @@ export function ClarityLivePage() {
     });
 
     // Start negotiation flow - speaker will see Accept / Ask to explain back first
+    // P646: Add requestedByIsCreator for role-based identity (same-name fix)
     updateLiveState({
       roleSwitchNegotiation: {
         requestedBy: name,
+        requestedByIsCreator: isCreator,
         state: 'pending',
       },
     });
-  }, [name, updateLiveState, session?.code, trackLiveEvent]);
+  }, [name, isCreator, updateLiveState, session?.code, trackLiveEvent]);
 
   // Handle speaker asking listener to explain back first (negotiation step 1 → 2)
   const handleAskToExplainFirst = useCallback(() => {
@@ -2157,6 +2262,7 @@ export function ClarityLivePage() {
     updateLiveState({
       roleSwitchNegotiation: {
         requestedBy: currentState.roleSwitchNegotiation?.requestedBy || '',
+        requestedByIsCreator: currentState.roleSwitchNegotiation?.requestedByIsCreator,
         state: 'speaker-asked-to-explain',
       },
     });
@@ -2199,6 +2305,7 @@ export function ClarityLivePage() {
     updateLiveState({
       roleSwitchNegotiation: {
         requestedBy: currentState.roleSwitchNegotiation?.requestedBy || '',
+        requestedByIsCreator: currentState.roleSwitchNegotiation?.requestedByIsCreator,
         state: 'listener-insists',
       },
     });
@@ -2338,7 +2445,7 @@ export function ClarityLivePage() {
   // Clear the skip notification after toast is shown
   const handleClearSkipNotification = useCallback(() => {
     updateLiveState({
-      skippedBy: undefined,
+      skippedBy: undefined, skippedByIsCreator: undefined,
     });
   }, [updateLiveState]);
 
@@ -3800,7 +3907,17 @@ export function ClarityLivePage() {
           isLocallyRating={isLocallyRating}
           onCancelLocalRating={() => {
             setIsLocallyRating(false);
-            updateLiveState({ ratingInitiatedBy: undefined });
+            setLocalFlowType('check');
+            // P643 Layer 4: Cancel = full undo — clear ALL fields from the atomic write.
+            // Missing story fields left dirty state (story card visible, not clean idle).
+            updateLiveState({
+              ratingInitiatedBy: undefined,
+              ratingInitiatedByIsCreator: undefined,
+              selectedStoryId: undefined,
+              selectedStoryData: undefined,
+              selectedPointId: undefined,
+              selectedContentTitle: undefined,
+            });
           }}
           // V10: Exit meeting button
           onExitMeeting={handleExitMeeting}

@@ -137,6 +137,7 @@ export async function createTestUser(options: {
       reason: options.reason || 'Testing the Clarity Pledge',
       avatar_color: '#4A90E2',
       is_verified: true,
+      accepted_terms_version: 'v1.2', // Skip terms dialog in E2E tests
     }, { onConflict: 'id' });
 
   if (profileError) {

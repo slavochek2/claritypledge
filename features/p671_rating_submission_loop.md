@@ -1,5 +1,10 @@
 ---
 status: qa
+date_resolved: '2026-04-09'
+root_cause: Guest writes silently dropped — patch_live_state GRANT only covered authenticated role; auth.uid() IS NULL for anon makes WHERE clause match 0 rows
+resolution: Added guest OR branch to WHERE + GRANT EXECUTE to anon role; auto-reveal second UPDATE drops redundant auth re-check
+delivery_stage: ship
+pipeline_ran: [fix, ship]
 type: bug
 rank: 1000071.0
 severity: high
@@ -17,19 +22,22 @@ tags:
 
 During a /live rating round, rating submissions can loop — one participant's submission triggers the other to re-enter or re-process the rating phase, creating a visible flicker or repeated state transitions. Observed intermittently during two-party testing of P667.
 
-## Root Cause (Hypothesis — Needs Investigation)
+## Root Cause (Confirmed)
 
-The Realtime handler in `clarity-live-page.tsx` (~line 1040-1083) receives full DB rows via `payload.new`. The `updateInFlightRef` guard prevents clobbering during optimistic updates, but there's a timing window:
+**Stale Realtime echo after `updateInFlightRef` drops.**
 
-1. User A submits rating → optimistic update → DB write → clears `updateInFlightRef`
-2. Realtime delivers the updated row to both A and B
-3. User B processes the Realtime event, updates local state
-4. User B submits rating → same cycle
-5. Meanwhile, User A receives Realtime with B's submission — but the `{ ...DEFAULT_LIVE_STATE, ...payload.new.liveState }` spread may reset transient flags
+Supabase Realtime delivers one event per DB write, carrying the row state at that write's commit time. When two users submit ratings sequentially, two Realtime events are generated:
+- Event 1 (checker's write): `ratingPhase: 'waiting'`, `responderSubmitted: false`
+- Event 2 (responder's write): `ratingPhase: 'revealed'`, `responderSubmitted: true`
 
-The exact race condition needs reproduction with logging to confirm. The `DEFAULT_LIVE_STATE` spread pattern (line 1046) is suspicious but the synthesis analysis showed Realtime delivers the full JSONB column, so clobber is narrow (only keys genuinely absent from DB).
+On the responder's client:
+1. Responder submits → optimistic update shows `revealed` → `updateInFlightRef = true`
+2. Event 1 (checker's stale echo) arrives → blocked by `updateInFlightRef` guard
+3. DB write completes → `updateInFlightRef = false`
+4. Event 1 is now processed (guard is open) → applies `{ ...DEFAULT_LIVE_STATE, ...staleState }` → regresses `ratingPhase` from `revealed` to `waiting` and `responderSubmitted` from `true` to `false`
+5. UI flashes back to the rating input for ~1 second until Event 2 (or drift poll) corrects it
 
-**This bug needs investigation before fix.** The root cause is a hypothesis from code analysis, not confirmed via reproduction.
+The `DEFAULT_LIVE_STATE` spread is NOT the primary issue — the stale event would regress the state regardless. The root cause is that the Realtime handler has no monotonic guard: it applies ANY event that arrives when `updateInFlightRef` is false, even if that event predates the current local state.
 
 ## Reproduction Steps
 
@@ -52,17 +60,15 @@ Rating phase appears to loop or flicker between states during two-party rating.
 
 - `src/app/pages/clarity-live-page.tsx` — Realtime handler (~lines 1040-1083), `updateLiveState` (~lines 1298-1364), `handleRatingSubmit` (~lines 1769-1884)
 
-## Investigation Needed
+## Solution
 
-Before fixing:
-1. Add `console.log` to Realtime handler showing: timestamp, `updateInFlightRef.current`, `ratingPhase` before/after
-2. Add logging to `handleRatingSubmit` showing: timestamp, submission payload, `updateInFlightRef` state
-3. Reproduce with two browsers and capture the log timeline
-4. Confirm whether `DEFAULT_LIVE_STATE` spread is the cause or if it's a different race
+**Monotonic phase guard** in the Realtime handler (`isPhaseRegression()`). The rating phase follows a strict ordering: `idle → waiting → rating → revealed → explain-back → results`. The Realtime handler rejects events that would move `ratingPhase` backward, unless the incoming phase is `idle` (deliberate round reset).
+
+This is a one-way valve: forward progress is always accepted, backward regression (from stale echoes) is always rejected. The drift poll (which reads fresh DB state, not Realtime echoes) is intentionally NOT guarded — it serves as the correction mechanism if a Realtime event is missed.
 
 ## Acceptance Criteria
 
-- [ ] Root cause confirmed via reproduction with logging
-- [ ] Rating submissions processed exactly once per participant (no flicker/loop)
-- [ ] Realtime handler race condition resolved
-- [ ] Two-party E2E test proves the fix
+- [x] Root cause confirmed via reproduction with logging + screenshots
+- [x] Rating submissions processed exactly once per participant (no flicker/loop)
+- [x] Realtime handler race condition resolved
+- [x] Two-party E2E test proves the fix

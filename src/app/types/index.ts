@@ -655,6 +655,8 @@ export interface LiveSessionState {
   // Skip notification - who clicked "Skip" or "Good enough"
   // When one user skips, partner sees a toast notification
   skippedBy?: string;
+  // P646: Role-based identity — true if creator skipped, false if joiner
+  skippedByIsCreator?: boolean;
 
   // Gated rating - listener must tap "Done Explaining" before speaker can rate
   // When listener taps "Done Explaining", this becomes true and speaker's rating UI unlocks
@@ -691,6 +693,8 @@ export interface LiveSessionState {
   roleSwitchNegotiation?: {
     // Who initiated the role switch request (the listener who wants to become speaker)
     requestedBy: string;
+    // P646: Role-based identity — true if creator requested, false if joiner
+    requestedByIsCreator?: boolean;
     // Current negotiation state
     state: 'pending' | 'speaker-asked-to-explain' | 'listener-insists';
   };
@@ -720,6 +724,8 @@ export interface LiveSessionState {
   // Signals partner to close history view immediately (before submission).
   // Cleared when the round resets to idle.
   ratingInitiatedBy?: string;
+  // P646: Role-based identity — true if creator initiated, false if joiner
+  ratingInitiatedByIsCreator?: boolean;
 
   // ============================================================================
   // P275: Live session point positions (stored here instead of point_positions table)

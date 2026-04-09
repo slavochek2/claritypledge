@@ -6,6 +6,8 @@ rank: 1000070.0
 severity: medium
 date_reported: '2026-04-06'
 created_date: 2026-04-06T00:00:00.000Z
+completed_at: '2026-04-07'
+absorbed_by: p667
 tags:
   - live
   - ux
@@ -58,7 +60,7 @@ Make `hasScrollableContent` role-aware: only include `selectedStoryId`/`selected
 
 ## Acceptance Criteria
 
-- [ ] Listener's Speak button does not jump when speaker selects a story
-- [ ] Speaker's layout still correctly responds to their own story selection
-- [ ] Zero-story users still see a reasonable layout
-- [ ] Canary E2E test proves the fix (two-party test: speaker selects story, listener button Y stays stable)
+- [x] Listener's Speak button does not jump when speaker selects a story
+- [x] Speaker's layout still correctly responds to their own story selection
+- [x] Zero-story users still see a reasonable layout
+- [x] Canary E2E test proves the fix (two-party test: speaker selects story, listener button Y stays stable)

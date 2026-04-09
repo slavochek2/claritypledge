@@ -91,14 +91,15 @@
       "20260403120200",
       "20260403130000",
       "20260404120000",
-      "20260409120000"
+      "20260409120000",
+      "20260409140000"
     ],
-    "migrations_deployed_at": "2026-04-09T11:51:06Z"
+    "migrations_deployed_at": "2026-04-09T18:44:00Z"
   },
   "test": {
     "functions": {
       "generate-banner": "d851d829c727ae6d1e1dca186488c97be8d16c894f7e35a8f5506d24854a0b40",
-      "generate-event-banner": "bf5270907a892ad49cf7e44338813a8bc3d05d4fea03a126e7e3193d5d07cfad",
+      "generate-event-banner": "bf5270907a892ad49cf7e44338813a8bc3d05d4fea03a126e7e3193d5d07fcad",
       "send-agreement-emails": "5ea528250cc8414fd1a3cbc625c820e1174d549d717d5b54a7206f62a4484978",
       "send-event-emails": "2d07c0a5dd90d1babc7c27fd04c24ad450c05ce1a507608a882210e2e7ea4c1c",
       "story-guide-chat": "107e1e992b7d525ee1cb073fafe387dc4946d3dd0c1aa948aa03d59bcaa0c467"
@@ -184,8 +185,9 @@
       "20260403120200",
       "20260403130000",
       "20260404120000",
-      "20260409120000"
+      "20260409120000",
+      "20260409140000"
     ],
-    "migrations_deployed_at": "2026-04-09T11:42:08Z"
+    "migrations_deployed_at": "2026-04-09T18:43:30Z"
   }
 }
