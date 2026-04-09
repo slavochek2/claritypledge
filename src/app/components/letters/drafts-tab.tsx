@@ -199,27 +199,27 @@ export function DraftsTab({ userId }: DraftsTabProps) {
                       onClick={() => navigate(`/letter/${doc.id}/compose`)}
                     >
                       <Mail className="w-4 h-4" />
-                      Send as Letter
+                      Prepare Letter
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="hidden sm:inline-flex text-blue-500 hover:text-blue-600"
+                  className="hidden sm:inline-flex text-blue-500 hover:text-blue-600 min-h-[44px]"
+                  onClick={(e) => { e.stopPropagation(); navigate(`/letters/drafts/${doc.id}`); }}
+                >
+                  Edit
+                </Button>
+                <Button
+                  size="sm"
+                  className="hidden sm:inline-flex bg-blue-500 hover:bg-blue-600 text-white min-h-[44px]"
                   disabled={doc.story_count === 0}
                   title={doc.story_count === 0 ? 'Add at least one story first.' : undefined}
                   onClick={(e) => { e.stopPropagation(); navigate(`/letter/${doc.id}/compose`); }}
                 >
                   <Mail className="w-4 h-4 mr-1" />
-                  Send as Letter
-                </Button>
-                <Button
-                  size="sm"
-                  className="bg-blue-500 hover:bg-blue-600 text-white min-h-[44px]"
-                  onClick={(e) => { e.stopPropagation(); navigate(`/letters/drafts/${doc.id}`); }}
-                >
-                  Edit Draft
+                  Prepare Letter
                 </Button>
               </div>
             </div>
