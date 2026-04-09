@@ -53,11 +53,11 @@ export function LiveStoryCardExpanded({
   hidePoints = false,
 }: LiveStoryCardExpandedProps) {
   const [isExpanded, setIsExpanded] = useState(defaultExpanded || readOnly);
-  const [storyExpanded, setStoryExpanded] = useState(false);
+  const [storyExpanded, setStoryExpanded] = useState(readOnly);
 
   // Reset expand states when the story changes (phase change / story rotation)
   useEffect(() => {
-    setStoryExpanded(false);
+    setStoryExpanded(readOnly);
     setIsExpanded(defaultExpanded || readOnly);
   }, [story.id, defaultExpanded, readOnly]);
 
@@ -87,7 +87,7 @@ export function LiveStoryCardExpanded({
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-1.5 mb-0.5">
               <span className="font-semibold text-gray-900 text-sm">{story.authorName}</span>
-              <span className="inline-flex items-center gap-0.5 text-gray-500 text-xs">
+              <span className="inline-flex items-center gap-0.5 text-xs font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded-full px-1.5 py-0.5">
                 <Ear size={12} />
                 {story.authorEarsCount ?? 0}
               </span>

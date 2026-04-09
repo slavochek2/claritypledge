@@ -116,11 +116,11 @@ function initialPhase(snapshot: LetterStorySnapshot): StoryPhase {
   return 'point-engage';
 }
 
-function createInitialStoryState(snapshot: LetterStorySnapshot): StoryState {
+function createInitialStoryState(snapshot: LetterStorySnapshot, prediction?: number | null): StoryState {
   return {
     phase: initialPhase(snapshot),
     rating: null,
-    prediction: null,
+    prediction: prediction ?? null,
     positions: {},
     currentPointIndex: 0,
   };
@@ -152,7 +152,9 @@ export function useLetterReadingState(
     }
     return {
       currentStoryIndex: 0,
-      stories: snapshots.map(createInitialStoryState),
+      stories: snapshots.map((snap) =>
+        createInitialStoryState(snap, previewPredictions?.get(snap.story_id))
+      ),
       isComplete: false,
     };
   });

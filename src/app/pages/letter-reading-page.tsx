@@ -495,6 +495,13 @@ function LetterReadingFlow({
     }
   }, [state.isComplete, onComplete]);
 
+  // Bug 7: Auto-advance through transition interstitial — skip it entirely
+  useEffect(() => {
+    if (currentPhase === 'transition') {
+      nextStory();
+    }
+  }, [currentPhase, nextStory]);
+
   const currentSnapshot = snapshots[state.currentStoryIndex];
   const currentStory = state.stories[state.currentStoryIndex];
 
@@ -506,7 +513,7 @@ function LetterReadingFlow({
     name: senderName,
   };
 
-  const storyWithPoints = snapshotToStoryWithPoints(currentSnapshot, senderName);
+  const storyWithPoints = snapshotToStoryWithPoints(currentSnapshot, { name: senderName });
   const visiblePoints = storyWithPoints.points;
   const currentPoint = visiblePoints[currentStory.currentPointIndex];
   const gap = currentStory.rating !== null && currentStory.prediction !== null
@@ -516,7 +523,6 @@ function LetterReadingFlow({
     ? currentStory.prediction > currentStory.rating
     : false;
 
-  const isLastStory = state.currentStoryIndex + 1 >= snapshots.length;
   const storyProgress = calculateStoryProgress(currentPhase, currentStory.currentPointIndex, visiblePoints.length);
 
   return (
@@ -700,20 +706,6 @@ function LetterReadingFlow({
         </div>
       )}
 
-      {/* PHASE: transition — story complete */}
-      {currentPhase === 'transition' && (
-        <div className="text-center space-y-4 py-6">
-          <p className="text-lg font-medium text-[#1A1A1A]">
-            Story {state.currentStoryIndex + 1} complete &#10022;
-          </p>
-          <Button
-            onClick={nextStory}
-            className="bg-[#0044CC] hover:bg-[#0033AA] text-white min-h-[44px]"
-          >
-            {isLastStory ? 'Complete letter' : 'Next story'}
-          </Button>
-        </div>
-      )}
     </div>
   );
 }

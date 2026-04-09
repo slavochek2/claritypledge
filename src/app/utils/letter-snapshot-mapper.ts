@@ -48,6 +48,14 @@ export function pointSummaryToProtoPoint(
   };
 }
 
+interface AuthorProfile {
+  name: string;
+  avatarUrl?: string;
+  avatarColor?: string;
+  earsCount?: number;
+  hasPledged?: boolean;
+}
+
 /**
  * Convert a LetterStorySnapshot into the StoryWithPoints shape
  * that LiveStoryCardExpanded expects.
@@ -56,8 +64,10 @@ export function pointSummaryToProtoPoint(
  */
 export function snapshotToStoryWithPoints(
   snapshot: LetterStorySnapshot,
-  senderName: string
+  author: AuthorProfile | string
 ): StoryWithPoints {
+  // Support legacy string callers
+  const authorProfile: AuthorProfile = typeof author === 'string' ? { name: author } : author;
   const config = (snapshot.point_config ?? {}) as PointConfig;
   const rawPoints = Array.isArray(config.points) ? config.points : [];
 
@@ -86,10 +96,12 @@ export function snapshotToStoryWithPoints(
     updatedAt: '',
     tags: [],
     systemTags: [],
-    authorName: senderName,
+    authorName: authorProfile.name,
     authorSlug: '',
-    authorEarsCount: 0,
-    authorHasPledged: false,
+    authorAvatarUrl: authorProfile.avatarUrl,
+    authorAvatarColor: authorProfile.avatarColor,
+    authorEarsCount: authorProfile.earsCount ?? 0,
+    authorHasPledged: authorProfile.hasPledged ?? false,
     points: visiblePoints,
   };
 }

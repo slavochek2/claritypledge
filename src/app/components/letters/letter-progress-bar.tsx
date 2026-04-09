@@ -25,12 +25,13 @@ export function LetterProgressBar({ currentIndex, totalStories, storyProgress = 
         if (i < currentIndex) {
           return <div key={i} className="h-1.5 flex-1 rounded-full bg-[#0044CC]" />;
         }
-        if (i === currentIndex && storyProgress > 0) {
+        if (i === currentIndex) {
+          const fillPercent = Math.max(storyProgress * 100, 5);
           return (
             <div key={i} className="h-1.5 flex-1 rounded-full bg-[#1A1A1A]/10 relative overflow-hidden">
               <div
                 className="absolute inset-y-0 left-0 bg-[#0044CC] rounded-full transition-[width] duration-300"
-                style={{ width: `${storyProgress * 100}%` }}
+                style={{ width: `${fillPercent}%` }}
               />
             </div>
           );

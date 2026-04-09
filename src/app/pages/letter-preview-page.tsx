@@ -233,6 +233,13 @@ function LetterPreviewFlow({
   const { user: currentUser } = useAuth();
   const [selectedPosition, setSelectedPosition] = useState<PositionType | null>(null);
 
+  // Bug 7: Auto-advance through transition interstitial — skip it entirely
+  useEffect(() => {
+    if (currentPhase === 'transition') {
+      nextStory();
+    }
+  }, [currentPhase, nextStory]);
+
   const currentSnapshot = snapshots[state.currentStoryIndex];
   const currentStory = state.stories[state.currentStoryIndex];
 
@@ -267,7 +274,12 @@ function LetterPreviewFlow({
     avatarColor: currentUser?.avatarColor ?? undefined,
     hasPledged: currentUser?.hasPledged ?? false,
   };
-  const storyWithPoints = snapshotToStoryWithPoints(currentSnapshot, senderName);
+  const storyWithPoints = snapshotToStoryWithPoints(currentSnapshot, {
+    name: senderName,
+    avatarUrl: currentUser?.avatarUrl ?? undefined,
+    avatarColor: currentUser?.avatarColor ?? undefined,
+    hasPledged: currentUser?.hasPledged ?? false,
+  });
   const visiblePoints = storyWithPoints.points;
   const currentPoint = visiblePoints[currentStory.currentPointIndex];
   const gap = currentStory.rating !== null && currentStory.prediction !== null
@@ -277,7 +289,6 @@ function LetterPreviewFlow({
     ? currentStory.prediction > currentStory.rating
     : false;
 
-  const isLastStory = state.currentStoryIndex + 1 >= snapshots.length;
   const storyProgress = calculateStoryProgress(currentPhase, currentStory.currentPointIndex, visiblePoints.length);
 
   return (
@@ -434,20 +445,6 @@ function LetterPreviewFlow({
         </div>
       )}
 
-      {/* PHASE: transition */}
-      {currentPhase === 'transition' && (
-        <div className="text-center space-y-4 py-6">
-          <p className="text-lg font-medium text-[#1A1A1A]">
-            Story {state.currentStoryIndex + 1} complete &#10022;
-          </p>
-          <Button
-            onClick={nextStory}
-            className="bg-[#0044CC] hover:bg-[#0033AA] text-white min-h-[44px]"
-          >
-            {isLastStory ? 'Complete letter' : 'Next story'}
-          </Button>
-        </div>
-      )}
     </div>
   );
 }

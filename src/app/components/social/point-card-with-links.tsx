@@ -87,6 +87,8 @@ interface PointCardWithLinksProps {
   viewerStoryId?: string;
   /** P491: Tags for tag pill display (prototype Point type lacks tags) */
   tags?: string[];
+  /** When true, position buttons are disabled (shown but not clickable). Used in letter reveal steps. */
+  disablePositionButtons?: boolean;
 }
 
 /**
@@ -113,6 +115,7 @@ export function PointCardWithLinks({
   onStoryClick,
   viewerStoryId,
   tags,
+  disablePositionButtons = false,
 }: PointCardWithLinksProps) {
   const { isEmbed, isExpanded, embedNavigate } = useEmbedNavigation();
   const rawText = stripHashtags(point.text, tags);
@@ -292,6 +295,7 @@ export function PointCardWithLinks({
                         counts={counts}
                         onPositionClick={handlePositionClick}
                         narrow
+                        disabled={disablePositionButtons}
                       />
                       {/* P502: Anonymous position CTA */}
                       {!currentUserId && anonPosition && (
@@ -460,6 +464,7 @@ export function PointCardWithLinks({
                     counts={counts}
                     onPositionClick={handlePositionClick}
                     narrow
+                    disabled={disablePositionButtons}
                   />
                   {/* P502: Anonymous position CTA */}
                   {!currentUserId && anonPosition && (
