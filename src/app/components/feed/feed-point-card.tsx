@@ -137,6 +137,7 @@ export function FeedPointCard({ point, activeTag, onPointRemoved }: FeedPointCar
     } catch {
       // Revert on error
       setLocalPosition(null);
+      toast.error('Failed to save position.');
     }
   };
 

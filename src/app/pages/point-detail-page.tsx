@@ -264,6 +264,7 @@ export function PointDetailPage() {
       console.error('Failed to update position:', err);
       // Revert optimistic update on error
       setUserPosition(userPosition);
+      toast.error('Failed to save position.');
     }
   };
 

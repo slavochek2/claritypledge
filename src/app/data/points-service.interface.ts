@@ -204,19 +204,21 @@ export interface PointsService {
   /**
    * Set or update user's position on a point
    * Creates history entry via trigger.
+   * Throws on DB error (e.g. RLS rejection) — callers must handle via try/catch.
    */
   setPosition(
     pointId: string,
     userId: string,
     position: PositionType,
     reasoning?: string
-  ): Promise<boolean>;
+  ): Promise<void>;
 
   /**
    * Remove user's position from a point
    * Creates history entry with null position via trigger.
+   * Throws on DB error — callers must handle via try/catch.
    */
-  removePosition(pointId: string, userId: string): Promise<boolean>;
+  removePosition(pointId: string, userId: string): Promise<void>;
 
   /**
    * P401: Count stories authored by userId that are linked to pointId.

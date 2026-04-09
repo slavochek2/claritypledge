@@ -333,9 +333,8 @@ describe('realPointsService', () => {
         error: null
       });
 
-      const result = await realPointsService.setPosition('point-1', 'user-1', 'agree', 'I think so');
+      await realPointsService.setPosition('point-1', 'user-1', 'agree', 'I think so');
 
-      expect(result).toBe(true);
       expect(mockFrom).toHaveBeenCalledWith('point_positions');
       expect(mockUpsert).toHaveBeenCalledWith(
         {
@@ -350,16 +349,16 @@ describe('realPointsService', () => {
       );
     });
 
-    it('returns false on error', async () => {
+    it('throws on error (e.g. RLS violation)', async () => {
       // Mock upsert (fails with RLS violation)
       mockUpsert.mockResolvedValue({
         data: null,
         error: { message: 'RLS violation' }
       });
 
-      const result = await realPointsService.setPosition('point-1', 'user-1', 'agree');
-
-      expect(result).toBe(false);
+      await expect(
+        realPointsService.setPosition('point-1', 'user-1', 'agree')
+      ).rejects.toThrow('setPosition failed: RLS violation');
     });
   });
 
@@ -371,21 +370,19 @@ describe('realPointsService', () => {
         }),
       });
 
-      const result = await realPointsService.removePosition('point-1', 'user-1');
-
-      expect(result).toBe(true);
+      await realPointsService.removePosition('point-1', 'user-1');
     });
 
-    it('returns false on error', async () => {
+    it('throws on error', async () => {
       mockDelete.mockReturnValue({
         eq: vi.fn().mockReturnValue({
           eq: vi.fn().mockResolvedValue({ error: { message: 'DB error' } }),
         }),
       });
 
-      const result = await realPointsService.removePosition('point-1', 'user-1');
-
-      expect(result).toBe(false);
+      await expect(
+        realPointsService.removePosition('point-1', 'user-1')
+      ).rejects.toThrow('removePosition failed: DB error');
     });
   });
 
