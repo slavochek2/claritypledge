@@ -6,8 +6,8 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { snapshotToStoryWithPoints } from '@/app/utils/letter-snapshot-mapper';
-import type { LetterStorySnapshot } from '@/app/types';
+import { snapshotToStoryWithPoints, pointSummaryToProtoPoint } from '@/app/utils/letter-snapshot-mapper';
+import type { LetterStorySnapshot, PointSummary } from '@/app/types';
 
 function makeSnapshot(overrides: Partial<LetterStorySnapshot> = {}): LetterStorySnapshot {
   return {
@@ -183,5 +183,51 @@ describe('snapshotToStoryWithPoints', () => {
     });
     const result = snapshotToStoryWithPoints(snapshot, 'Alice');
     expect(result.points).toHaveLength(2);
+  });
+});
+
+// =========================================================================
+// pointSummaryToProtoPoint — P676 regression tests
+// =========================================================================
+
+function makePointSummary(overrides: Partial<PointSummary> = {}): PointSummary {
+  return {
+    id: 'point-1',
+    statement: 'Test statement',
+    tags: [],
+    systemTags: [],
+    positionCounts: {},
+    userPosition: null,
+    profileSubjectPosition: null,
+    ...overrides,
+  };
+}
+
+describe('pointSummaryToProtoPoint', () => {
+  it('maps id and statement to Point.id and Point.text', () => {
+    const result = pointSummaryToProtoPoint(makePointSummary({ id: 'p1', statement: 'Hello' }));
+    expect(result.id).toBe('p1');
+    expect(result.text).toBe('Hello');
+  });
+
+  it('returns empty positions when no receiverPosition provided', () => {
+    const result = pointSummaryToProtoPoint(makePointSummary());
+    expect(result.positions).toEqual({});
+  });
+
+  it('returns empty positions when receiverPosition is null', () => {
+    const result = pointSummaryToProtoPoint(makePointSummary(), null);
+    expect(result.positions).toEqual({});
+  });
+
+  it('injects __receiver__ position when receiverPosition is provided', () => {
+    const result = pointSummaryToProtoPoint(makePointSummary(), 'agree');
+    expect(result.positions['__receiver__']).toBeDefined();
+    expect(result.positions['__receiver__']?.position).toBe('agree');
+  });
+
+  it('returns empty linkedStoryIds', () => {
+    const result = pointSummaryToProtoPoint(makePointSummary());
+    expect(result.linkedStoryIds).toEqual([]);
   });
 });

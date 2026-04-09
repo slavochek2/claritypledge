@@ -8,7 +8,8 @@
  * 3. Hidden points filtered from output
  */
 
-import type { LetterStorySnapshot, StoryWithPoints, PointSummary } from '@/app/types';
+import type { LetterStorySnapshot, StoryWithPoints, PointSummary, PositionType } from '@/app/types';
+import type { Point, PositionEntry } from '@/app/components/shared/prototype-types';
 
 interface PointConfigPoint {
   id: string;
@@ -21,6 +22,30 @@ interface PointConfig {
   storyText?: string;
   storyTitle?: string;
   points?: PointConfigPoint[];
+}
+
+/**
+ * Convert a PointSummary (from snapshotToStoryWithPoints output) into the
+ * Point shape that PointCardWithLinks expects.
+ *
+ * @param point - The PointSummary to convert
+ * @param receiverPosition - Optional position to inject for the '__receiver__' user
+ */
+export function pointSummaryToProtoPoint(
+  point: PointSummary,
+  receiverPosition?: PositionType | null
+): Point {
+  const positions: Record<string, PositionEntry | null> = {};
+  if (receiverPosition) {
+    positions['__receiver__'] = { position: receiverPosition, timestamp: '' };
+  }
+  return {
+    id: point.id,
+    text: point.statement,
+    createdAt: '',
+    positions,
+    linkedStoryIds: [],
+  };
 }
 
 /**
