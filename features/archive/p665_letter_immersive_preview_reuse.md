@@ -11,8 +11,8 @@ tags:
   - preview
   - chrome-free
 created_date: 2026-04-06T00:00:00.000Z
-delivery_stage: dev
-pipeline_ran: [change-request, architect, generate-tests, dev]
+delivery_stage: fix
+pipeline_ran: [change-request, architect, generate-tests, dev, fix]
 uat_file: features/uat/p665.md
 test_files:
   - e2e/p665-letter-immersive.spec.ts

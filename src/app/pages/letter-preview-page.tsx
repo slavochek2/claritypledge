@@ -200,10 +200,10 @@ function LetterPreviewFlow({
 }) {
   const navigate = useNavigate();
 
-  // Read author's predictions from sessionStorage (written by compose page during prediction walk)
+  // Read author's predictions from localStorage (written by compose page during prediction walk)
   const [previewPredictions] = useState<Map<string, number> | undefined>(() => {
     try {
-      const raw = sessionStorage.getItem(`clarity-preview-predictions-${docId}`);
+      const raw = localStorage.getItem(`clarity-preview-predictions-${docId}`);
       if (!raw) return undefined;
       return new Map(JSON.parse(raw) as [string, number][]);
     } catch {
@@ -239,6 +239,13 @@ function LetterPreviewFlow({
       nextStory();
     }
   }, [currentPhase, nextStory]);
+
+  // Clean up localStorage predictions when preview completes
+  useEffect(() => {
+    if (state.isComplete) {
+      localStorage.removeItem(`clarity-preview-predictions-${docId}`);
+    }
+  }, [state.isComplete, docId]);
 
   const currentSnapshot = snapshots[state.currentStoryIndex];
   const currentStory = state.stories[state.currentStoryIndex];

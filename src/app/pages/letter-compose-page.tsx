@@ -101,7 +101,7 @@ export function LetterComposePage() {
   // Persist predictions to sessionStorage so preview page can show author's numbers
   useEffect(() => {
     if (!docId || predictions.size === 0) return;
-    sessionStorage.setItem(
+    localStorage.setItem(
       `clarity-preview-predictions-${docId}`,
       JSON.stringify([...predictions])
     );
