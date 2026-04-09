@@ -2,6 +2,12 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-09 [technical]: Guest RLS hole on clarity_sessions UPDATE (Status: proposed)
+
+**Context:** During P671 investigation, discovered that the RLS UPDATE policy on `clarity_sessions` only checks `creator_profile_id IS NOT NULL` (not ownership). This means any request using the anon key can UPDATE any session row where the creator is authenticated. Guests use this path for `updateClaritySessionLiveState()` (full overwrite) and `joinClaritySession()` — both work because of this permissive policy. The `patch_live_state` RPC had a stricter guard (which is why it failed for guests and needed fixing). The inconsistency means guests have more write access via direct table UPDATE than via the RPC.
+**Decision:** (Status: proposed) — needs security review. Options: (A) tighten RLS to match RPC guard, (B) accept the RLS hole since session UUIDs are unguessable, (C) route all guest writes through RPCs.
+**Consequences:** Not urgent — session UUIDs are v4 (122-bit entropy). But the asymmetry between RLS and RPC permissions is a maintenance trap.
+
 ## 2026-04-09 [process]: DB-first triage for multi-party /live bugs
 
 **Context:** P671 ("drawer reappearing") went through 4 failed fix attempts across multiple sessions — all targeting client-side merge logic (monotonic guard, shared ratingPhase, server auto-reveal + merge-on-top, field-aware merge). The actual root cause was a server-side RPC auth guard silently dropping guest writes. One DB query (`SELECT live_state FROM clarity_sessions WHERE code = 'K54D6T'`) falsified all 4 wrong hypotheses in 10 seconds. The existing `falsify-root-cause` feedback says "test with cheapest disproof" but agents didn't know the cheapest disproof for multi-party bugs is a DB query, not a code trace.
