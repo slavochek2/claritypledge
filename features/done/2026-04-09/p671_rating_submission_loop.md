@@ -1,9 +1,9 @@
 ---
-status: qa
+status: all-done
+completed_at: '2026-04-09'
 date_resolved: '2026-04-09'
 root_cause: Guest writes silently dropped — patch_live_state GRANT only covered authenticated role; auth.uid() IS NULL for anon makes WHERE clause match 0 rows
 resolution: Added guest OR branch to WHERE + GRANT EXECUTE to anon role; auto-reveal second UPDATE drops redundant auth re-check
-delivery_stage: ship
 pipeline_ran: [fix, ship]
 type: bug
 rank: 1000071.0
