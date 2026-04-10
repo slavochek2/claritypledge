@@ -8,6 +8,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { toast } from 'sonner';
+import { Sparkles } from 'lucide-react';
 import { ClarityPageLoader } from '@/components/ui/clarity-loader';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/auth';
@@ -21,7 +22,7 @@ import { LetterReviewScreen } from '@/app/components/letters/letter-review-scree
 import { LetterSealConfirmation } from '@/app/components/letters/letter-seal-confirmation';
 import type { ClarityDoc, DocStory, LetterMode } from '@/app/types';
 
-type ComposePhase = 'modal' | 'predict' | 'review' | 'confirmation';
+type ComposePhase = 'modal' | 'predict' | 'review' | 'sealing' | 'confirmation';
 
 export function LetterComposePage() {
   const { docId } = useParams<{ docId: string }>();
@@ -48,6 +49,7 @@ export function LetterComposePage() {
   const [receiverName, setReceiverName] = useState(routeState?.receiverName ?? '');
   const [predictions, setPredictions] = useState<Map<string, number>>(new Map());
   const [sealing, setSealing] = useState(false);
+  const [sealedLetterId, setSealedLetterId] = useState<string | null>(null);
   const sealingRef = useRef(false);
 
   const isPrivateDoc = doc?.visibility === 'private';
@@ -79,6 +81,16 @@ export function LetterComposePage() {
     }
   }, [fetchState, doc, stories.length, docId, navigate]);
 
+  // Public docs: skip the mode picker modal — go straight to prediction
+  useEffect(() => {
+    if (fetchState !== 'done' || !doc) return;
+    if (phase !== 'modal') return; // already past modal
+    if (doc.visibility === 'public') {
+      setMode('one-to-many');
+      setPhase('predict');
+    }
+  }, [fetchState, doc, phase]);
+
   const handleReceiverSubmit = useCallback((result: ReceiverSetupResult) => {
     setMode(result.mode);
     setEmails(result.emails);
@@ -92,10 +104,6 @@ export function LetterComposePage() {
       next.set(storyId, value);
       return next;
     });
-  }, []);
-
-  const handlePredictionComplete = useCallback(() => {
-    setPhase('review');
   }, []);
 
   // Persist predictions to sessionStorage so preview page can show author's numbers
@@ -156,7 +164,8 @@ export function LetterComposePage() {
         prediction_count: predictions.size,
       });
 
-      toast.success('Letter sealed and sent!');
+      setSealedLetterId(letter.id);
+      toast.success(mode === 'one-to-many' ? 'Letter sealed!' : 'Letter sealed and sent!');
       setPhase('confirmation');
     } catch (err) {
       console.error('Seal failed:', err);
@@ -165,6 +174,15 @@ export function LetterComposePage() {
       setSealing(false);
     }
   }, [docId, user?.id, mode, predictions, emails, receiverName, stories.length]);
+
+  const handlePredictionComplete = useCallback(() => {
+    if (doc?.visibility === 'public') {
+      setPhase('sealing');
+      handleSeal(); // transitions to 'confirmation' on success
+    } else {
+      setPhase('review');
+    }
+  }, [doc?.visibility, handleSeal]);
 
   // Loading / not-found
   if (fetchState === 'loading') {
@@ -217,11 +235,26 @@ export function LetterComposePage() {
         onPredict={handlePredict}
         onComplete={handlePredictionComplete}
         onClose={() => navigate(`/d/${docId}`)}
+        isPublicDoc={doc.visibility === 'public'}
       />
     );
   }
 
-  // Phase: Review + Send
+  // Phase: Sealing (public doc — brief loader between predict and confirmation)
+  if (phase === 'sealing') {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-4">
+        <div className="text-center space-y-4">
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-blue-50">
+            <Sparkles className="h-6 w-6 text-blue-500 animate-pulse" />
+          </div>
+          <p className="text-muted-foreground">Sealing your letter...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Phase: Review + Send (private docs only)
   if (phase === 'review' && mode) {
     return (
       <LetterReviewScreen
@@ -246,6 +279,8 @@ export function LetterComposePage() {
         receiverName={receiverName}
         mode={mode}
         storyCount={stories.length}
+        letterId={sealedLetterId ?? undefined}
+        isPublicDoc={doc.visibility === 'public'}
       />
     );
   }

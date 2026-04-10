@@ -20,6 +20,7 @@ interface LetterPredictionWalkProps {
   onPredict: (storyId: string, value: number) => void;
   onComplete: () => void;
   onClose: () => void;
+  isPublicDoc?: boolean;
 }
 
 export function LetterPredictionWalk({
@@ -29,6 +30,7 @@ export function LetterPredictionWalk({
   onPredict,
   onComplete,
   onClose,
+  isPublicDoc,
 }: LetterPredictionWalkProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const currentStory = stories[currentIndex];
@@ -98,7 +100,7 @@ export function LetterPredictionWalk({
               disabled={currentPrediction === null}
               className="bg-[#0044CC] hover:bg-[#0033AA] text-white min-h-[44px]"
             >
-              {isLastStory ? 'Review' : 'Next Story'}
+              {isLastStory ? (isPublicDoc ? 'Seal & Get Link' : 'Review') : 'Next Story'}
             </Button>
           </div>
         </div>
