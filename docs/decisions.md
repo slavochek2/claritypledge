@@ -2,6 +2,14 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-10 [technical]: Multi-path state machines need per-path unit tests — shared handlers hide branch bugs
+
+**Context:** P665 D36 preview infinite loop. `useLetterReadingState` has 3 flow variants (0 points, 1 point/D36, 2+ points) that share `advanceFromPointReveal()`. The handler unconditionally returned `story-rate`, correct for the 2+ path (point before story) but wrong for D36 (point after story — already rated). The user cycled forever through 4 screens. Same bug class as P671 (multi-party shared state where one path's assumption breaks another's). Browser reproduction confirmed the loop; a parallel session fixed it (commit `2c678b7a` on feature branch). The regression test `p665-d36-advance-from-point-reveal.test.ts` exercises both paths and would have caught this at authoring time.
+**Decision:** When a state machine handler function serves multiple flow variants with different expected transitions, each variant needs its own unit test case that asserts the correct next phase. The test shape: set up sessionStorage with the variant's mid-flow state (phase + rating/positions), render hook, call the handler, assert phase. Browser verification is too brittle for skills (dropdown interactions, auth gates, MV3 service worker timeout) — unit tests on the hook are the durable protection.
+**Alternatives rejected:** (A) Empower `/fix` or `/verify` with Chrome MCP browser automation — brittle (dropdowns, auth), slow (minutes per verification), breaks when UI changes. (B) Separate flow-variant hooks — over-engineering; the shared hook is correct, it just needed the branch condition.
+**Consequences:** For `useLetterReadingState` and any future multi-path state machine hooks: each flow variant (determined by visible point count, auth state, or role) should have a test case in `src/tests/` that walks through the critical transitions. The existing test file is the template.
+**References:** [useLetterReadingState.ts](src/app/hooks/useLetterReadingState.ts), [p665-d36-advance-from-point-reveal.test.ts](src/tests/p665-d36-advance-from-point-reveal.test.ts)
+
 ## 2026-04-09 [technical]: isCleanIdle two-zone layout is load-bearing — hasScrollableContent must stay minimal
 
 **Context:** P679 — after a round completed, `sessionHistory.length > 0` was included in `hasScrollableContent`. This triggered `isCleanIdle=false`, switching from the two-zone layout (which positions the "Select your story" button stably) to the scrollable layout (where the button doesn't appear in the clean-idle path). The story button was hidden, blocking subsequent rounds.
