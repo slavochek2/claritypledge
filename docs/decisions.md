@@ -2,6 +2,14 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-10 [technical]: E2E test isolation must respect unique constraints added by migrations
+
+**Context:** P642 tests created two `letter_deliveries` rows for the same `(letter_id, receiver_email)` to isolate anonymous vs authenticated test paths. P651 migration added `idx_letter_deliveries_unique_email` — a unique constraint on `(letter_id, receiver_email)`. The `beforeAll` setup started failing silently (insert returned null), causing all 5 P642 tests to fail. Separately, P651 composition tests used `visibility: 'public'` docs, but P661's compose page auto-skips the receiver modal for public docs — tests timed out looking for UI that never rendered.
+**Decision:** (1) E2E tests that create multiple deliveries for the same letter must use distinct receiver emails (separate test users). (2) Tests that need the receiver modal must use `visibility: 'private'` docs — public docs bypass the modal entirely.
+**Alternatives rejected:** (A) Remove the unique constraint — it's correct product behavior. (B) Use `{ force: true }` on clicks — masks the real issue.
+**Consequences:** When adding DB constraints, grep `e2e/` for affected table inserts in test setup. New constraints can silently break `beforeAll` fixtures.
+**References:** [p642-letter-reading-flow.spec.ts](e2e/p642-letter-reading-flow.spec.ts), [p651-letter-composition.spec.ts](e2e/p651-letter-composition.spec.ts), [20260405051035_p651_letter_onboarding_fixes.sql](supabase/migrations/20260405051035_p651_letter_onboarding_fixes.sql)
+
 ## 2026-04-10 [technical]: Multi-path state machines need per-path unit tests — shared handlers hide branch bugs
 
 **Context:** P665 D36 preview infinite loop. `useLetterReadingState` has 3 flow variants (0 points, 1 point/D36, 2+ points) that share `advanceFromPointReveal()`. The handler unconditionally returned `story-rate`, correct for the 2+ path (point before story) but wrong for D36 (point after story — already rated). The user cycled forever through 4 screens. Same bug class as P671 (multi-party shared state where one path's assumption breaks another's). Browser reproduction confirmed the loop; a parallel session fixed it (commit `2c678b7a` on feature branch). The regression test `p665-d36-advance-from-point-reveal.test.ts` exercises both paths and would have caught this at authoring time.

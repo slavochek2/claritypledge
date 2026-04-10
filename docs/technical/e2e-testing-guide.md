@@ -609,6 +609,26 @@ await setTestSession(page, testUser.email); // Too late!
 
 ---
 
+### Unique Constraint on letter_deliveries (P651)
+
+**Symptom:** `beforeAll` silently fails — insert returns null, all tests in the describe block fail with "Auth delivery creation failed" or similar.
+
+**Cause:** `idx_letter_deliveries_unique_email` enforces `UNIQUE(letter_id, receiver_email)`. Creating multiple deliveries for the same letter with the same email violates this.
+
+**Fix:** Use a separate test user (distinct email) for each delivery on the same letter. Don't reuse `receiver.email` for both anonymous and authenticated test paths.
+
+---
+
+### Compose Page Auto-Skips Receiver Modal for Public Docs
+
+**Symptom:** Tests timeout looking for "Specific people" or other receiver modal UI on `/letter/:docId/compose`.
+
+**Cause:** `letter-compose-page.tsx` auto-detects public docs and skips the modal, jumping directly to the prediction walk phase.
+
+**Fix:** Use `visibility: 'private'` in test doc setup if the test needs to interact with the receiver modal.
+
+---
+
 ### Flaky Tests
 
 **Symptom:** Tests pass sometimes, fail other times
