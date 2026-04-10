@@ -364,7 +364,15 @@ export const docsService: DocsService = {
         }
       }
 
-      if (!sentResult.error && sentResult.data) {
+      if (sentResult.error) {
+        // Query failed — default conservatively: block deletion on all docs
+        // to prevent the UI guard from being bypassed. Server-side check in
+        // deleteDoc() is the defense-in-depth layer.
+        logDbError('getDocsByUser:sentLetters', sentResult.error);
+        for (const doc of docs) {
+          doc.has_sent_letters = true;
+        }
+      } else if (sentResult.data) {
         const sentDocIds = new Set(sentResult.data.map((l) => l.source_doc_id));
         for (const doc of docs) {
           doc.has_sent_letters = sentDocIds.has(doc.id);
@@ -592,16 +600,19 @@ export const docsService: DocsService = {
     }
 
     // 2. Delete draft letters first (FK would block doc delete)
-    const { error: draftDeleteError } = await supabase
+    const { data: deletedDrafts, error: draftDeleteError } = await supabase
       .from('clarity_letters')
       .delete()
       .eq('source_doc_id', docId)
-      .eq('status', 'draft');
+      .eq('status', 'draft')
+      .select('id');
 
     if (draftDeleteError) {
       logDbError('deleteDoc:deleteDraftLetters', draftDeleteError);
       throw new Error('Failed to clean up draft letters');
     }
+
+    log('deleteDoc: deleted draft letters:', deletedDrafts?.length ?? 0);
 
     // 3. Delete the doc (doc_stories cascade automatically)
     const { error } = await supabase
