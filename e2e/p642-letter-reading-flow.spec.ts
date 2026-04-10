@@ -27,6 +27,7 @@ test.describe('P642: Letter reading flow — full path', () => {
 
   let sender: TestUser;
   let receiver: TestUser;
+  let authReceiver: TestUser;
   let docId: string;
   let storyId: string;
   let pointId: string;
@@ -39,6 +40,7 @@ test.describe('P642: Letter reading flow — full path', () => {
   test.beforeAll(async () => {
     sender = await createTestUser({ name: 'P642 Sender' });
     receiver = await createTestUser({ name: 'P642 Receiver' });
+    authReceiver = await createTestUser({ name: 'P642 Auth Receiver' });
 
     // Create doc
     const { data: doc } = await supabaseAdmin
@@ -149,11 +151,12 @@ test.describe('P642: Letter reading flow — full path', () => {
     });
 
     // Create a separate delivery for the authenticated test (P648: test data isolation)
+    // Uses authReceiver to avoid unique constraint on (letter_id, receiver_email)
     const { data: authDelivery } = await supabaseAdmin
       .from('letter_deliveries')
       .insert({
         letter_id: letterId,
-        receiver_email: receiver.email,
+        receiver_email: authReceiver.email,
         invitation_expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
       })
       .select('id, invitation_token')
@@ -196,6 +199,7 @@ test.describe('P642: Letter reading flow — full path', () => {
     if (docId) await supabaseAdmin.from('clarity_docs').delete().eq('id', docId);
     if (sender?.user?.id) await deleteTestUser(sender.user.id);
     if (receiver?.user?.id) await deleteTestUser(receiver.user.id);
+    if (authReceiver?.user?.id) await deleteTestUser(authReceiver.user.id);
   });
 
   // ── 1. Anonymous cover page loads via token ──────────────────────────
@@ -225,10 +229,10 @@ test.describe('P642: Letter reading flow — full path', () => {
     await expect(content).toBeVisible({ timeout: 10000 });
   });
 
-  // ── 3. Story→rate has a button (not a dead end) ──────────────────────
-  // D36: 1-point stories start in 'story' phase (not anti-point)
+  // ── 3. Story→rate phase loads (not a dead end) ───────────────────────
+  // P673: 1-point stories go directly to story-rate phase (no intermediate button)
 
-  test('story phase has "I\'ve read this story" button', async ({ page }) => {
+  test('story phase shows story content and rating prompt', async ({ page }) => {
     await page.goto(`/letter/${deliveryId}?token=${deliveryToken}`);
     await page.waitForLoadState('networkidle');
 
@@ -236,13 +240,13 @@ test.describe('P642: Letter reading flow — full path', () => {
     await expect(openBtn).toBeVisible({ timeout: 10000 });
     await openBtn.click();
 
-    // 1-point story goes straight to story phase with story text
+    // 1-point story goes straight to story-rate phase
     const storyText = page.locator('text=/co-founders|nod along/i').first();
     await expect(storyText).toBeVisible({ timeout: 10000 });
 
-    // Must have a button to advance (not a dead end)
-    const advanceBtn = page.locator('button:has-text("read this story")').first();
-    await expect(advanceBtn).toBeVisible({ timeout: 5000 });
+    // Anonymous user should see sign-in prompt (since no setTestSession)
+    const signIn = page.locator('text=/sign in to continue/i');
+    await expect(signIn).toBeVisible({ timeout: 10000 });
   });
 
   // ── 4. Anonymous user sees sign-in prompt at rate phase ──────────────
@@ -255,24 +259,19 @@ test.describe('P642: Letter reading flow — full path', () => {
     await expect(openBtn).toBeVisible({ timeout: 10000 });
     await openBtn.click();
 
-    // Click "I've read this story" to advance to rate
-    const advanceBtn = page.locator('button:has-text("read this story")').first();
-    await expect(advanceBtn).toBeVisible({ timeout: 10000 });
-    await advanceBtn.click();
-
-    // Should see sign-in prompt (not rating buttons)
+    // P673: story-rate phase shows sign-in prompt directly for anonymous users
     const signIn = page.locator('text=/sign in to continue/i');
     await expect(signIn).toBeVisible({ timeout: 10000 });
 
-    // Rating buttons should NOT be visible
-    const ratingButtons = page.locator('[role="group"][aria-label*="Rating"]');
-    await expect(ratingButtons).not.toBeVisible({ timeout: 3000 });
+    // Rating Drawer should NOT be visible (anonymous can't rate)
+    const ratingGroup = page.locator('[role="group"][aria-label="Rating scale from 0 to 10"]');
+    await expect(ratingGroup).not.toBeVisible({ timeout: 3000 });
   });
 
   // ── 5. Authenticated user can rate ───────────────────────────────────
 
   test('authenticated user sees rating buttons and can rate', async ({ page }) => {
-    await setTestSession(page, receiver.email);
+    await setTestSession(page, authReceiver.email);
     await page.goto(`/letter/${authDeliveryId}?token=${authDeliveryToken}`);
     await page.waitForLoadState('networkidle');
 
@@ -280,21 +279,21 @@ test.describe('P642: Letter reading flow — full path', () => {
     await expect(openBtn).toBeVisible({ timeout: 10000 });
     await openBtn.click();
 
-    // Click "I've read this story" to advance to rate
-    const advanceBtn = page.locator('button:has-text("read this story")').first();
-    await expect(advanceBtn).toBeVisible({ timeout: 10000 });
-    await advanceBtn.click();
-
-    // Should see rating buttons (not sign-in prompt)
-    const ratingGroup = page.locator('[role="group"][aria-label*="Rating"]');
+    // P673: Drawer opens automatically with rating card
+    const ratingGroup = page.locator('[role="group"][aria-label="Rating scale from 0 to 10"]');
     await expect(ratingGroup).toBeVisible({ timeout: 10000 });
 
-    // Click a rating
+    // Click rating 7
     const rateBtn = page.locator('button[aria-label="Rate 7"]');
     await expect(rateBtn).toBeVisible({ timeout: 5000 });
     await rateBtn.click();
 
-    // Should advance to gap-reveal (shows prediction)
+    // Click Submit button inside ComprehensionRatingCard (two-step flow)
+    const submitBtn = page.locator('button:has-text("Submit")');
+    await expect(submitBtn).toBeEnabled({ timeout: 3000 });
+    await submitBtn.click();
+
+    // Should advance to story-revealed phase (gap reveal)
     const gapReveal = page.locator('text=/prediction|gap|continue/i').first();
     await expect(gapReveal).toBeVisible({ timeout: 10000 });
   });

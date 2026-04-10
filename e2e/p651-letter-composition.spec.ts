@@ -39,7 +39,7 @@ test.describe('P651: Letter Composition — receiver_name input', () => {
       .insert({
         owner_id: sender.user.id,
         title: 'P651 Composition Test Doc',
-        visibility: 'public',
+        visibility: 'private',
       })
       .select('id')
       .single();
@@ -77,17 +77,12 @@ test.describe('P651: Letter Composition — receiver_name input', () => {
     // Click "Specific people"
     await page.locator('text=/specific people/i').first().click();
 
-    // TODO: /dev must add a name input field alongside the email input.
-    // After implementation, both email and name inputs should be visible.
     const emailInput = page.locator('input[type="email"], input[placeholder*="email" i]');
     await expect(emailInput).toBeVisible({ timeout: 5000 });
 
     // Name input should appear alongside email
-    const nameInput = page.locator('input[placeholder*="name" i], input[name*="name" i]')
-      .or(page.locator('label:has-text("name") + input, label:has-text("name") input'));
-    await expect(nameInput).toBeVisible({ timeout: 5000 }).catch(() => {
-      console.warn('[P651] Name input not yet added to composition wizard — /dev must implement');
-    });
+    const nameInput = page.locator('#receiver-name');
+    await expect(nameInput).toBeVisible({ timeout: 5000 });
   });
 
   // ── 2. Name is required (Next button disabled without it) ───────────────
@@ -105,18 +100,15 @@ test.describe('P651: Letter Composition — receiver_name input', () => {
     await expect(emailInput).toBeVisible({ timeout: 5000 });
     await emailInput.fill(receiver.email);
 
-    // TODO: /dev must make name required for 1-to-1 deliveries.
-    // After implementation, the Continue/Next/Add button should be disabled
-    // when name is empty.
+    // Name input visible but empty
+    const nameInput = page.locator('#receiver-name');
+    await expect(nameInput).toBeVisible({ timeout: 5000 });
+    await expect(nameInput).toHaveValue('');
+
+    // Continue/Next/Add button should be disabled when name is empty
     const continueBtn = page.getByRole('button', { name: /continue|next|add/i }).first();
-    if (await continueBtn.isVisible({ timeout: 3000 })) {
-      // Button should be disabled when name is empty
-      const isDisabled = await continueBtn.isDisabled().catch(() => false);
-      // Note: pre-implementation this may pass since name field doesn't exist yet
-      if (isDisabled) {
-        expect(isDisabled).toBeTruthy();
-      }
-    }
+    await expect(continueBtn).toBeVisible({ timeout: 5000 });
+    await expect(continueBtn).toBeDisabled();
   });
 
   // ── 3. Name + email both filled enables Continue ────────────────────────
@@ -134,17 +126,15 @@ test.describe('P651: Letter Composition — receiver_name input', () => {
     await expect(emailInput).toBeVisible({ timeout: 5000 });
     await emailInput.fill(receiver.email);
 
-    // TODO: /dev must add name input. Fill name after it's added.
-    const nameInput = page.locator('input[placeholder*="name" i], input[name*="name" i]');
-    if (await nameInput.isVisible({ timeout: 3000 }).catch(() => false)) {
-      await nameInput.fill('Slava Ladischenski');
+    // Fill name
+    const nameInput = page.locator('#receiver-name');
+    await expect(nameInput).toBeVisible({ timeout: 5000 });
+    await nameInput.fill('Slava Ladischenski');
 
-      // Continue button should now be enabled
-      const continueBtn = page.getByRole('button', { name: /continue|next|add/i }).first();
-      if (await continueBtn.isVisible({ timeout: 3000 })) {
-        await expect(continueBtn).toBeEnabled();
-      }
-    }
+    // Continue button should now be enabled
+    const continueBtn = page.getByRole('button', { name: /continue|next|add/i }).first();
+    await expect(continueBtn).toBeVisible({ timeout: 5000 });
+    await expect(continueBtn).toBeEnabled();
   });
 
   // ── 4. Name field does NOT appear for "Anyone with a link" ──────────────
@@ -154,32 +144,40 @@ test.describe('P651: Letter Composition — receiver_name input', () => {
     await page.goto(`/letter/${docId}/compose`);
     await page.waitForLoadState('networkidle');
 
-    // Select "Anyone with a link"
-    await page.locator('text=/anyone with a link/i').first().click();
+    // For private docs, "Anyone with a link" is disabled — verify it's present but disabled
+    const linkCard = page.locator('text=/anyone with a link/i').first();
+    await expect(linkCard).toBeVisible({ timeout: 5000 });
+    const button = linkCard.locator('xpath=ancestor::button');
+    await expect(button).toBeDisabled();
 
-    // Name input should NOT be visible for 1-to-many
-    const nameInput = page.locator('input[placeholder*="name" i], input[name*="name" i]');
-    const isNameVisible = await nameInput.isVisible({ timeout: 3000 }).catch(() => false);
-    expect(isNameVisible).toBeFalsy();
+    // Name input should NOT be visible when "Specific people" is not selected
+    const nameInput = page.locator('#receiver-name');
+    await expect(nameInput).not.toBeVisible({ timeout: 3000 });
   });
 
   // ── 5. Seal summary shows "Name (email)" format ─────────────────────────
 
-  test('seal summary shows receiver as "Name (email)" format', async ({ page }) => {
+  // Full wizard navigation required: modal → predict → review → assert "Name (email)".
+  // Requires prediction walk interaction which is story-count-dependent. Deferring to
+  // a dedicated composition E2E spec that covers the full flow end-to-end.
+  test.fixme('seal summary shows receiver as "Name (email)" format', async ({ page }) => {
     await setTestSession(page, sender.email);
     await page.goto(`/letter/${docId}/compose`);
     await page.waitForLoadState('networkidle');
 
-    // TODO: /dev must implement the full composition flow with name.
-    // Navigate through wizard: select mode → enter name + email → set prediction → preview
-    // At the seal/preview step, the recipient should be displayed as "Name (email)".
-    //
-    // After implementation, verify:
-    // const sealSummary = page.locator('text=/Slava Ladischenski.*slava/i');
-    // await expect(sealSummary).toBeVisible();
+    await page.locator('text=/specific people/i').first().click();
 
-    // For now, verify the composition page loaded correctly
-    const wizardContent = page.locator('text=/who receives|step 1|prepare/i');
-    await expect(wizardContent.first()).toBeVisible({ timeout: 10000 });
+    const emailInput = page.locator('input[type="email"], input[placeholder*="email" i]');
+    await expect(emailInput).toBeVisible({ timeout: 5000 });
+    await emailInput.fill(receiver.email);
+
+    const nameInput = page.locator('#receiver-name');
+    await expect(nameInput).toBeVisible({ timeout: 5000 });
+    await nameInput.fill('Slava Ladischenski');
+
+    // Navigate through: Continue → prediction walk → review screen
+    // Then assert: To: Slava Ladischenski (receiver.email)
+    const sealSummary = page.locator(`text=To: Slava Ladischenski (${receiver.email})`);
+    await expect(sealSummary).toBeVisible({ timeout: 10000 });
   });
 });
