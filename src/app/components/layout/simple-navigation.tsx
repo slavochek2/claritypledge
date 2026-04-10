@@ -19,6 +19,7 @@ import { ClarityLogo } from "@/components/ui/clarity-logo";
 import { GravatarAvatar } from "@/components/ui/gravatar-avatar";
 import { analytics } from "@/lib/mixpanel";
 import { useNavAuthState } from "@/hooks/use-nav-auth-state";
+import { useUnreadLetterCount } from "@/app/hooks/useUnreadLetterCount";
 import { NavigationMenuItems } from "./navigation-menu-items";
 
 const MOBILE_MENU_ID = "mobile-navigation-menu";
@@ -43,6 +44,7 @@ export function SimpleNavigation() {
     isLoading,
     sessionChecked,
   } = useNavAuthState();
+  const { count: unreadLetterCount } = useUnreadLetterCount();
   // Close mobile menu on route change (e.g., bottom nav, back button, page links)
   useEffect(() => {
     setIsMobileMenuOpen(false);
@@ -151,7 +153,17 @@ export function SimpleNavigation() {
                       : "text-muted-foreground hover:text-foreground hover:bg-accent"
                   }`}
                 >
-                  <MailIcon className="w-5 h-5" />
+                  <span className="relative">
+                    <MailIcon className="w-5 h-5" />
+                    {unreadLetterCount > 0 && (
+                      <span
+                        data-badge
+                        className="absolute -top-1.5 -right-2 min-w-[16px] h-4 px-1 text-[10px] font-bold leading-4 text-white bg-blue-500 rounded-full text-center"
+                      >
+                        {unreadLetterCount > 99 ? '99+' : unreadLetterCount}
+                      </span>
+                    )}
+                  </span>
                   <span className="text-xs mt-1 font-medium">Letters</span>
                 </Link>
                 {/* Events */}
