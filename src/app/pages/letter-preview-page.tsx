@@ -128,8 +128,11 @@ export function LetterPreviewPage() {
 
       <CertificatePageShell className="min-h-screen py-6 space-y-6">
         <FocusHeader
-          onBack={() => navigate(docId ? `/letter/${docId}/compose` : '/docs')}
-          label="Back to composition"
+          onBack={() => {
+            window.close();
+            setTimeout(() => navigate(docId ? `/letter/${docId}/compose` : '/docs'), 100);
+          }}
+          label="Close preview"
         />
 
         <LetterPreviewFlow
@@ -252,7 +255,7 @@ function LetterPreviewFlow({
 
   if (!currentSnapshot || !currentStory) return null;
 
-  // When preview completes, show a return-to-composition button
+  // When preview completes, show a close-preview button
   if (state.isComplete) {
     return (
       <div className="text-center space-y-4 py-6">
@@ -263,10 +266,13 @@ function LetterPreviewFlow({
           This is what the receiver will experience.
         </p>
         <Button
-          onClick={() => navigate(`/letter/${docId}/compose`)}
+          onClick={() => {
+            window.close();
+            setTimeout(() => navigate(`/letter/${docId}/compose`), 100);
+          }}
           className="bg-[#0044CC] hover:bg-[#0033AA] text-white"
         >
-          Back to composition
+          Close preview
         </Button>
       </div>
     );
