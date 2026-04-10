@@ -33,7 +33,7 @@ export function VisibilityLine({ visibility, source }: VisibilityLineProps) {
       )}
       <span className={isPrivate ? 'text-amber-800' : 'text-blue-800'}>
         {isPrivate
-          ? 'This will be private — only you can see it'
+          ? 'Only people you share with can see this.'
           : 'This will be public — visible on your profile'}
         {source && (
           <span className={isPrivate ? 'text-amber-600' : 'text-blue-600'}>

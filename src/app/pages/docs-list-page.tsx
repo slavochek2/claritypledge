@@ -135,7 +135,7 @@ export function DocsListPage() {
                 <Lock size={16} className="text-amber-600 flex-shrink-0" />
                 <div>
                   <div className="font-medium">Private Doc</div>
-                  <div className="text-xs text-muted-foreground">Only you can see this</div>
+                  <div className="text-xs text-muted-foreground">Only people you share with can see this</div>
                 </div>
               </button>
               <button
@@ -178,7 +178,7 @@ export function DocsListPage() {
                 <Lock size={16} className="text-amber-600 flex-shrink-0" />
                 <div>
                   <div className="font-medium">Private Doc</div>
-                  <div className="text-xs text-muted-foreground">Only you can see this</div>
+                  <div className="text-xs text-muted-foreground">Only people you share with can see this</div>
                 </div>
               </button>
               <button

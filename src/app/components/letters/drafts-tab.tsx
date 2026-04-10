@@ -261,7 +261,7 @@ function CreateDocOptions({ onSelect, disabled }: { onSelect: (v: ContentVisibil
         <Lock size={16} className="text-muted-foreground flex-shrink-0" />
         <div>
           <div className="font-medium">Private Draft</div>
-          <div className="text-xs text-muted-foreground">Only you can see this</div>
+          <div className="text-xs text-muted-foreground">Only people you share with can see this</div>
         </div>
       </button>
       <button
