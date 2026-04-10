@@ -10,7 +10,7 @@
       "send-event-emails": "8dad3c1820f4d3dcd5c9338c77edbeaaee43498570238bcec856292e35566204",
       "story-guide-chat": "de2edb1917ae2d1f06d6a10ed07960eed088c3ecd8230bfa60e6590005c0d0ab"
     },
-    "functions_deployed_at": "2026-04-09T11:51:36Z",
+    "functions_deployed_at": "2026-04-10T05:54:51Z",
     "migrations": [
       "20250101",
       "20250117",
