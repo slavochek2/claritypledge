@@ -1,20 +1,32 @@
 /**
  * @file sent-tab.tsx
- * @description P660: Sent tab — sealed letters grouped by source draft, newest first.
- * Each card shows draft title, sealed date, story count, mode label.
- * Expandable recipients/respondents with status pipeline and add-recipient action.
+ * @description P664: Sent tab redesign — Drafts-consistent card pattern.
+ * Cards collapsed by default with Notion-style ▶/▼ expand toggle.
+ * Actions behind ⋯ dropdown (Preview letter, Add recipient(s), Copy public link).
+ * InlineVisibilityIcon before title, border-l-4 color matching Drafts tab.
+ * Replaces AddRecipientButton (bare input) with LetterReceiverModal in add-recipient mode.
+ * Replaces PublicLinkRow with "Copy public link" in ⋯ menu.
  */
 
 import { useState, useEffect, useCallback } from 'react';
-import { LetterStatusBadge } from './letter-status-badge';
+import { useNavigate } from 'react-router-dom';
+import { MoreHorizontal, ChevronRight, ChevronDown, Mail, Link2 } from 'lucide-react';
 import {
   getAllSentLetters,
   getDeliveriesForLetter,
-  addRecipientToSealed,
 } from '@/app/data/letters-service';
 import { formatTimeAgo } from '@/app/utils/format-time';
 import { Button } from '@/components/ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+} from '@/components/ui/dropdown-menu';
+import { InlineVisibilityIcon } from '@/app/components/shared/visibility-badge';
+import { LetterReceiverModal } from './letter-receiver-modal';
 import { toast } from 'sonner';
+import { ClarityPageLoader } from '@/components/ui/clarity-loader';
 import type { ClarityLetter, LetterDelivery } from '@/app/types';
 
 // ============================================================================
@@ -35,147 +47,42 @@ interface SentTabProps {
 }
 
 // ============================================================================
-// SUBCOMPONENTS
+// STATUS HELPERS
 // ============================================================================
 
-function DeliveryRow({ delivery }: { delivery: LetterDelivery }) {
-  const isCompleted = delivery.status === 'completed';
+function getStatusLabel(status: LetterDelivery['status']): string {
+  switch (status) {
+    case 'sent': return 'Invited';
+    case 'opened': return 'Opened';
+    case 'in_progress': return 'In progress';
+    case 'completed': return 'Completed';
+    default: return status;
+  }
+}
+
+// ============================================================================
+// RECIPIENT ROW — expanded view
+// ============================================================================
+
+function RecipientRow({ delivery }: { delivery: LetterDelivery }) {
   const displayName = delivery.receiver_name || delivery.receiver_email || 'Anonymous';
   // Recipient (has email) = envelope icon; link respondent (no email) = link icon
-  const icon = delivery.receiver_email ? '✉' : '🔗';
+  const Icon = delivery.receiver_email ? Mail : Link2;
+  const statusLabel = getStatusLabel(delivery.status);
 
   return (
-    <div className="flex items-center justify-between py-2 px-3 rounded-md hover:bg-muted/50 transition-colors">
-      <div className="flex items-center gap-2 min-w-0 flex-1">
-        <span className="text-sm flex-shrink-0" aria-hidden="true">{icon}</span>
-        <span className="text-sm text-foreground truncate">{displayName}</span>
-      </div>
-      <div className="flex items-center gap-2 flex-shrink-0">
-        <LetterStatusBadge status={delivery.status} />
-        {isCompleted && (
-          <Button variant="outline" size="sm" className="min-h-[44px] text-xs px-3">
-            Results
-          </Button>
-        )}
-      </div>
+    <div className="flex items-center gap-2 py-1.5 px-3 text-sm">
+      <Icon className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" aria-hidden="true" />
+      <span className="text-foreground truncate">{displayName}</span>
+      <span aria-hidden="true" className="text-muted-foreground">·</span>
+      <span className="text-muted-foreground">{statusLabel}</span>
     </div>
   );
 }
 
-function AddRecipientButton({
-  letterId,
-  onAdded,
-}: {
-  letterId: string;
-  onAdded: () => void;
-}) {
-  const [isAdding, setIsAdding] = useState(false);
-  const [email, setEmail] = useState('');
-  const [submitting, setSubmitting] = useState(false);
-
-  const handleSubmit = async () => {
-    const trimmed = email.trim();
-    if (!trimmed) return;
-
-    setSubmitting(true);
-    try {
-      await addRecipientToSealed(letterId, trimmed);
-      toast.success(`Invitation sent to ${trimmed}`);
-      setEmail('');
-      setIsAdding(false);
-      onAdded();
-    } catch (err) {
-      toast.error(
-        err instanceof Error ? err.message : 'Failed to add recipient'
-      );
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  if (!isAdding) {
-    return (
-      <button
-        onClick={() => setIsAdding(true)}
-        className="text-sm text-blue-600 hover:text-blue-700 font-medium min-h-[44px] px-3 inline-flex items-center"
-      >
-        + Add recipient
-      </button>
-    );
-  }
-
-  return (
-    <div className="flex items-center gap-2 px-3 py-1">
-      <input
-        type="email"
-        value={email}
-        onChange={(e) => setEmail(e.target.value)}
-        onKeyDown={(e) => e.key === 'Enter' && handleSubmit()}
-        placeholder="email@example.com"
-        className="flex-1 text-sm border border-border rounded-md px-2 py-2 bg-background focus:outline-none focus:ring-1 focus:ring-blue-500 min-h-[44px]"
-        autoFocus
-        disabled={submitting}
-      />
-      <Button
-        size="sm"
-        className="min-h-[44px] text-xs px-3"
-        onClick={handleSubmit}
-        disabled={submitting || !email.trim()}
-      >
-        {submitting ? 'Sending...' : 'Send'}
-      </Button>
-      <button
-        onClick={() => { setIsAdding(false); setEmail(''); }}
-        className="text-sm text-muted-foreground hover:text-foreground min-h-[44px] px-2"
-        disabled={submitting}
-      >
-        Cancel
-      </button>
-    </div>
-  );
-}
-
-function PublicLinkRow({ letterId }: { letterId: string }) {
-  const publicUrl = `${window.location.origin}/letter/${letterId}`;
-
-  const handleCopy = async () => {
-    try {
-      await navigator.clipboard.writeText(publicUrl);
-      toast.success('Link copied to clipboard');
-    } catch {
-      toast.error('Failed to copy link');
-    }
-  };
-
-  return (
-    <div className="flex items-center justify-between py-2 px-3 rounded-md bg-muted/30">
-      <div className="flex items-center gap-2 min-w-0 flex-1">
-        <span className="text-sm flex-shrink-0" aria-hidden="true">🔗</span>
-        <span className="text-sm text-muted-foreground truncate">Public link</span>
-      </div>
-      <button
-        onClick={handleCopy}
-        className="text-muted-foreground hover:text-foreground transition-colors p-2 min-h-[44px] min-w-[44px] flex items-center justify-center"
-        title="Copy link"
-      >
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          width="16"
-          height="16"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        >
-          <rect width="14" height="14" x="8" y="8" rx="2" ry="2" />
-          <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" />
-        </svg>
-      </button>
-    </div>
-  );
-}
+// ============================================================================
+// LETTER CARD
+// ============================================================================
 
 function LetterCard({
   data,
@@ -185,73 +92,181 @@ function LetterCard({
   onRefresh: () => void;
 }) {
   const { letter, deliveries } = data;
+  const navigate = useNavigate();
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [addRecipientOpen, setAddRecipientOpen] = useState(false);
+
   const isPublic = letter.mode === 'one-to-many';
-  const modeLabel = isPublic ? 'Public' : 'Private';
   const sealedDate = letter.sealed_at ? formatTimeAgo(letter.sealed_at) : 'Unknown';
 
   // Split deliveries: recipients (have email) vs respondents (no email, from public link)
   const recipients = deliveries.filter((d) => d.receiver_email);
   const respondents = deliveries.filter((d) => !d.receiver_email);
+  const completedCount = deliveries.filter((d) => d.status === 'completed').length;
+  const totalCount = recipients.length; // total invited recipients
+
+  const summaryParts: string[] = [
+    `Sealed ${sealedDate}`,
+    `${completedCount} of ${totalCount} completed`,
+  ];
+  if (isPublic && respondents.length > 0) {
+    summaryParts.push(`${respondents.length} ${respondents.length === 1 ? 'response' : 'responses'}`);
+  }
+  const summary = summaryParts.join(' · ');
+
+  const borderClass = isPublic ? 'border-l-blue-500' : 'border-l-gray-400';
+  const visibilityProp = isPublic ? 'public' as const : 'private' as const;
+
+  const handleCopyPublicLink = async () => {
+    const publicUrl = `${window.location.origin}/letter/${letter.id}`;
+    try {
+      await navigator.clipboard.writeText(publicUrl);
+      toast.success('Link copied to clipboard');
+    } catch {
+      toast.error('Failed to copy link');
+    }
+  };
+
+  const handlePreview = () => {
+    window.open(`/letter/${letter.source_doc_id}/preview`, '_blank', 'noopener,noreferrer');
+  };
+
+  const handleResults = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    navigate(`/letter/${letter.id}/results`);
+  };
+
+  const handleToggle = () => {
+    setIsExpanded((prev) => !prev);
+  };
 
   return (
-    <div className="border border-border rounded-lg overflow-hidden">
-      {/* Card header */}
-      <div className="px-4 py-3 bg-muted/20">
-        <div className="flex items-start justify-between gap-2">
-          <div className="min-w-0">
-            <h3 className="text-sm font-medium text-foreground line-clamp-2">
-              {letter.doc_title}
-            </h3>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              Sealed {sealedDate} · {deliveries.length} {deliveries.length === 1 ? 'recipient' : 'recipients'}
-            </p>
-          </div>
-          <span
-            className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium flex-shrink-0 ${
-              isPublic
-                ? 'bg-blue-50 text-blue-600'
-                : 'bg-gray-100 text-gray-600'
-            }`}
-          >
-            {modeLabel}
-          </span>
-        </div>
-      </div>
+    <>
+      <div
+        className={`rounded-lg border bg-card border-l-4 ${borderClass} overflow-hidden`}
+      >
+        {/* Card header — click area toggles expand */}
+        <div
+          className="px-3 py-3 cursor-pointer hover:bg-accent/30 transition-colors"
+          onClick={handleToggle}
+          role="presentation"
+        >
+          <div className="flex items-start gap-2">
+            {/* Expand/collapse toggle */}
+            <button
+              type="button"
+              aria-expanded={isExpanded}
+              aria-label={isExpanded ? 'Collapse' : 'Expand'}
+              onClick={(e) => { e.stopPropagation(); handleToggle(); }}
+              className="mt-0.5 flex-shrink-0 text-muted-foreground hover:text-foreground transition-colors min-h-[20px] min-w-[20px] flex items-center justify-center"
+            >
+              {isExpanded
+                ? <ChevronDown className="w-3.5 h-3.5" />
+                : <ChevronRight className="w-3.5 h-3.5" />}
+            </button>
 
-      {/* Recipients section */}
-      <div className="px-2 py-2">
-        {recipients.length > 0 && (
-          <div className="mb-1">
-            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider px-3 py-1">
-              Recipients
-            </p>
-            {recipients.map((d) => (
-              <DeliveryRow key={d.id} delivery={d} />
-            ))}
+            {/* Title + summary */}
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-1.5">
+                <InlineVisibilityIcon visibility={visibilityProp} />
+                <span className="text-sm font-medium text-foreground line-clamp-2">
+                  {letter.doc_title}
+                </span>
+              </div>
+              <p className="text-xs text-muted-foreground mt-0.5 ml-0.5">
+                {summary}
+              </p>
+            </div>
+
+            {/* Actions — stop propagation so they don't toggle expand */}
+            {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
+            <div className="flex items-center gap-1 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
+              {/* ⋯ dropdown */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-9 w-9 min-h-[44px]"
+                    aria-label={`Actions for ${letter.doc_title}`}
+                  >
+                    <MoreHorizontal className="w-4 h-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={handlePreview}>
+                    Preview letter
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setAddRecipientOpen(true)}>
+                    Add recipient(s)
+                  </DropdownMenuItem>
+                  {isPublic && (
+                    <DropdownMenuItem onClick={handleCopyPublicLink}>
+                      Copy public link
+                    </DropdownMenuItem>
+                  )}
+                  {/* Mobile: Results in dropdown when no Results button shown */}
+                  {completedCount > 0 && (
+                    <DropdownMenuItem
+                      className="sm:hidden"
+                      onClick={() => navigate(`/letter/${letter.id}/results`)}
+                    >
+                      View results
+                    </DropdownMenuItem>
+                  )}
+                </DropdownMenuContent>
+              </DropdownMenu>
+
+              {/* [Results] button — desktop only, only when >= 1 completed */}
+              {completedCount > 0 && (
+                <Button
+                  size="sm"
+                  className="hidden sm:inline-flex bg-blue-500 hover:bg-blue-600 text-white min-h-[44px]"
+                  onClick={handleResults}
+                >
+                  Results
+                </Button>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Expanded recipient rows */}
+        {isExpanded && (
+          <div className="border-t border-border/50 pb-2">
+            <div className="mx-3 my-2 border-t border-dashed border-border/40" />
+            {recipients.length > 0 ? (
+              recipients.map((d) => (
+                <RecipientRow key={d.id} delivery={d} />
+              ))
+            ) : (
+              <p className="text-xs text-muted-foreground px-3 py-1">No recipients yet.</p>
+            )}
+            {/* Respondents section for public letters */}
+            {isPublic && respondents.length > 0 && (
+              <>
+                <div className="mx-3 my-1 border-t border-dashed border-border/40" />
+                {respondents.map((d) => (
+                  <RecipientRow key={d.id} delivery={d} />
+                ))}
+              </>
+            )}
           </div>
         )}
-
-        {/* Respondents section — only for public letters */}
-        {isPublic && respondents.length > 0 && (
-          <div className="mb-1">
-            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider px-3 py-1">
-              Respondents
-            </p>
-            {respondents.map((d) => (
-              <DeliveryRow key={d.id} delivery={d} />
-            ))}
-          </div>
-        )}
-
-        {/* Public link row */}
-        {isPublic && <PublicLinkRow letterId={letter.id} />}
-
-        {/* Add recipient button */}
-        <div className="mt-1">
-          <AddRecipientButton letterId={letter.id} onAdded={onRefresh} />
-        </div>
       </div>
-    </div>
+
+      {/* Add recipient modal */}
+      <LetterReceiverModal
+        mode="add-recipient"
+        open={addRecipientOpen}
+        onOpenChange={setAddRecipientOpen}
+        letterId={letter.id}
+        onRecipientAdded={() => {
+          setAddRecipientOpen(false);
+          onRefresh();
+        }}
+      />
+    </>
   );
 }
 
@@ -289,7 +304,7 @@ export function SentTab({ userId }: SentTabProps) {
   if (fetchState === 'loading') {
     return (
       <div className="flex items-center justify-center py-12">
-        <p className="text-sm text-muted-foreground">Loading sent letters...</p>
+        <ClarityPageLoader />
       </div>
     );
   }

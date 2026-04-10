@@ -2,6 +2,11 @@
  * @file letter-receiver-modal.tsx
  * @description P661: Receiver setup modal for letter composition.
  * Replaces the wizard's ModeStep — opens as a dialog on the doc page.
+ *
+ * P664: Added `mode` prop to support "add-recipient" variant:
+ * - mode="compose" (default): current behavior — mode selector, "Continue" button
+ * - mode="add-recipient": no mode selector, title "Add recipient(s)", button "Send Invitation",
+ *   requires `letterId` prop, calls `addRecipientToSealed` on submit
  */
 
 import { useState, useCallback, useRef } from 'react';
@@ -18,6 +23,8 @@ import { useAuth } from '@/auth';
 import { agreementsService } from '@/app/data/agreements-service';
 import type { AgreementParty } from '@/app/data/agreements-service';
 import { analytics } from '@/lib/mixpanel';
+import { addRecipientToSealed } from '@/app/data/letters-service';
+import { toast } from 'sonner';
 import type { LetterMode } from '@/app/types';
 
 function isExistingUserWithName(party: { name: string }): boolean {
@@ -31,31 +38,50 @@ export interface ReceiverSetupResult {
   receiverName: string;
 }
 
-interface LetterReceiverModalProps {
+// Props for compose mode (default)
+interface ComposeModalProps {
+  mode?: 'compose';
   open: boolean;
   onOpenChange: (open: boolean) => void;
   isPrivateDoc: boolean;
   docId: string;
   storyCount: number;
   onSubmit: (result: ReceiverSetupResult) => void;
+  letterId?: never;
+  onRecipientAdded?: never;
 }
 
-export function LetterReceiverModal({
-  open,
-  onOpenChange,
-  isPrivateDoc,
-  docId,
-  storyCount,
-  onSubmit,
-}: LetterReceiverModalProps) {
+// Props for add-recipient mode
+interface AddRecipientModalProps {
+  mode: 'add-recipient';
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  letterId: string;
+  onRecipientAdded: () => void;
+  isPrivateDoc?: never;
+  docId?: never;
+  storyCount?: never;
+  onSubmit?: never;
+}
+
+type LetterReceiverModalProps = ComposeModalProps | AddRecipientModalProps;
+
+export function LetterReceiverModal(props: LetterReceiverModalProps) {
+  const { open, onOpenChange } = props;
+  const isAddRecipientMode = props.mode === 'add-recipient';
+
   const { user } = useAuth();
-  const [mode, setMode] = useState<LetterMode | null>(null);
+  // In add-recipient mode, the letter mode is fixed (already sealed) — always one-to-one
+  const [selectedMode, setSelectedMode] = useState<LetterMode | null>(
+    isAddRecipientMode ? 'one-to-one' : null
+  );
   const [emailsInput, setEmailsInput] = useState('');
   const [receiverName, setReceiverName] = useState('');
   const [lookupResult, setLookupResult] = useState<AgreementParty | null | 'not-found'>(null);
   const [isLookingUp, setIsLookingUp] = useState(false);
   const [isReceiverNameLocked, setIsReceiverNameLocked] = useState(false);
   const [emailError, setEmailError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const parsedEmails = emailsInput
@@ -64,8 +90,8 @@ export function LetterReceiverModal({
     .filter((e) => e.length > 0 && e.includes('@'));
 
   const canProceed =
-    mode === 'one-to-many' ||
-    (mode === 'one-to-one' && parsedEmails.length > 0 && receiverName.trim().length > 0);
+    selectedMode === 'one-to-many' ||
+    (selectedMode === 'one-to-one' && parsedEmails.length > 0 && receiverName.trim().length > 0 && !emailError);
 
   const handleEmailChange = useCallback(
     (value: string) => {
@@ -110,72 +136,115 @@ export function LetterReceiverModal({
     [user?.email, isReceiverNameLocked]
   );
 
-  const handleSubmit = () => {
-    if (!mode || !canProceed) return;
+  const resetForm = () => {
+    setEmailsInput('');
+    setReceiverName('');
+    setLookupResult(null);
+    setEmailError(null);
+    setIsReceiverNameLocked(false);
+    setSubmitting(false);
+    if (!isAddRecipientMode) setSelectedMode(null);
+  };
+
+  const handleOpenChange = (open: boolean) => {
+    if (!open) resetForm();
+    onOpenChange(open);
+  };
+
+  const handleSubmit = async () => {
+    if (!canProceed || submitting) return;
+
+    if (isAddRecipientMode) {
+      // Add-recipient mode: call addRecipientToSealed directly
+      const email = parsedEmails[0];
+      if (!email) return;
+      setSubmitting(true);
+      try {
+        await addRecipientToSealed(props.letterId, email, receiverName.trim() || undefined);
+        toast.success(`Invitation sent to ${email}`);
+        resetForm();
+        onOpenChange(false);
+        props.onRecipientAdded();
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : 'Failed to add recipient');
+      } finally {
+        setSubmitting(false);
+      }
+      return;
+    }
+
+    // Compose mode: delegate to parent
+    if (!selectedMode) return;
     analytics.track('letter_created', {
-      doc_id: docId,
-      mode,
-      story_count: storyCount,
+      doc_id: props.docId,
+      mode: selectedMode,
+      story_count: props.storyCount,
     });
-    onSubmit({
-      mode,
-      emails: mode === 'one-to-one' ? parsedEmails : [],
+    props.onSubmit({
+      mode: selectedMode,
+      emails: selectedMode === 'one-to-one' ? parsedEmails : [],
       receiverName: receiverName.trim(),
     });
   };
 
+  const title = isAddRecipientMode ? 'Add recipient(s)' : 'Who is your letter for?';
+  const submitLabel = isAddRecipientMode ? (submitting ? 'Sending...' : 'Send Invitation') : 'Continue';
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Who is your letter for?</DialogTitle>
+          <DialogTitle>{title}</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-6 pt-2">
-          <div className="grid gap-4 sm:grid-cols-2">
-            {/* 1-to-1 card */}
-            <button
-              type="button"
-              onClick={() => setMode('one-to-one')}
-              className={`text-left p-5 rounded-xl border-2 transition-all ${
-                mode === 'one-to-one'
-                  ? 'border-blue-500 bg-blue-50/50 ring-1 ring-blue-200'
-                  : 'border-gray-200 hover:border-gray-300 bg-white'
-              }`}
-            >
-              <Mail className={`h-8 w-8 mb-3 ${mode === 'one-to-one' ? 'text-blue-500' : 'text-gray-400'}`} />
-              <div className="font-medium text-foreground">Specific people</div>
-              <p className="text-sm text-muted-foreground mt-1">
-                Send by email with a personal invitation link.
-              </p>
-            </button>
-
-            {/* 1-to-many card */}
-            <button
-              type="button"
-              onClick={() => !isPrivateDoc && setMode('one-to-many')}
-              disabled={isPrivateDoc}
-              aria-disabled={isPrivateDoc}
-              className={`text-left p-5 rounded-xl border-2 transition-all ${
-                isPrivateDoc
-                  ? 'border-gray-100 bg-gray-50 opacity-60 cursor-not-allowed'
-                  : mode === 'one-to-many'
+          {/* Mode selector — only in compose mode */}
+          {!isAddRecipientMode && (
+            <div className="grid gap-4 sm:grid-cols-2">
+              {/* 1-to-1 card */}
+              <button
+                type="button"
+                onClick={() => setSelectedMode('one-to-one')}
+                className={`text-left p-5 rounded-xl border-2 transition-all ${
+                  selectedMode === 'one-to-one'
                     ? 'border-blue-500 bg-blue-50/50 ring-1 ring-blue-200'
                     : 'border-gray-200 hover:border-gray-300 bg-white'
-              }`}
-            >
-              <Link2 className={`h-8 w-8 mb-3 ${mode === 'one-to-many' ? 'text-blue-500' : 'text-gray-400'}`} />
-              <div className="font-medium text-foreground">Anyone with a link</div>
-              <p className="text-sm text-muted-foreground mt-1">
-                {isPrivateDoc
-                  ? "Private docs can\u2019t use links. Switch to public to enable."
-                  : 'Share a link \u2014 anyone can read and respond.'}
-              </p>
-            </button>
-          </div>
+                }`}
+              >
+                <Mail className={`h-8 w-8 mb-3 ${selectedMode === 'one-to-one' ? 'text-blue-500' : 'text-gray-400'}`} />
+                <div className="font-medium text-foreground">Specific people</div>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Send by email with a personal invitation link.
+                </p>
+              </button>
 
-          {/* Email + name input for 1-to-1 */}
-          {mode === 'one-to-one' && (
+              {/* 1-to-many card */}
+              <button
+                type="button"
+                onClick={() => !props.isPrivateDoc && setSelectedMode('one-to-many')}
+                disabled={props.isPrivateDoc}
+                aria-disabled={props.isPrivateDoc}
+                className={`text-left p-5 rounded-xl border-2 transition-all ${
+                  props.isPrivateDoc
+                    ? 'border-gray-100 bg-gray-50 opacity-60 cursor-not-allowed'
+                    : selectedMode === 'one-to-many'
+                      ? 'border-blue-500 bg-blue-50/50 ring-1 ring-blue-200'
+                      : 'border-gray-200 hover:border-gray-300 bg-white'
+                }`}
+              >
+                <Link2 className={`h-8 w-8 mb-3 ${selectedMode === 'one-to-many' ? 'text-blue-500' : 'text-gray-400'}`} />
+                <div className="font-medium text-foreground">Anyone with a link</div>
+                <p className="text-sm text-muted-foreground mt-1">
+                  {props.isPrivateDoc
+                    ? "Private docs can\u2019t use links. Switch to public to enable."
+                    : 'Share a link \u2014 anyone can read and respond.'}
+                </p>
+              </button>
+            </div>
+          )}
+
+          {/* Email + name input for 1-to-1 (or always in add-recipient mode) */}
+          {(selectedMode === 'one-to-one' || isAddRecipientMode) && (
             <div className="space-y-4">
               <div className="space-y-2">
                 <label htmlFor="receiver-emails" className="text-sm font-medium text-foreground">
@@ -189,6 +258,7 @@ export function LetterReceiverModal({
                     value={emailsInput}
                     onChange={(e) => handleEmailChange(e.target.value)}
                     className={`w-full ${emailError ? 'border-red-500' : ''}`}
+                    disabled={submitting}
                   />
                   {isLookingUp && (
                     <div className="absolute right-3 top-1/2 -translate-y-1/2">
@@ -217,12 +287,13 @@ export function LetterReceiverModal({
                 <Input
                   id="receiver-name"
                   type="text"
-                  placeholder="e.g. Slava Ladischenski"
+                  placeholder="e.g. Alex Rivera"
                   maxLength={100}
                   value={receiverName}
                   onChange={(e) => setReceiverName(e.target.value)}
                   readOnly={isReceiverNameLocked}
                   required
+                  disabled={submitting}
                   className={`w-full ${isReceiverNameLocked ? 'bg-gray-50 text-muted-foreground' : ''}`}
                 />
                 {isReceiverNameLocked ? (
@@ -234,8 +305,8 @@ export function LetterReceiverModal({
             </div>
           )}
 
-          {/* Info for 1-to-many */}
-          {mode === 'one-to-many' && (
+          {/* Info for 1-to-many — compose mode only */}
+          {!isAddRecipientMode && selectedMode === 'one-to-many' && (
             <div className="p-4 bg-blue-50 rounded-lg border border-blue-100">
               <p className="text-sm text-blue-800">
                 You&apos;ll get a shareable link after sealing.
@@ -244,8 +315,12 @@ export function LetterReceiverModal({
           )}
 
           <div className="flex justify-end">
-            <Button onClick={handleSubmit} disabled={!canProceed} className="bg-blue-500 hover:bg-blue-600 text-white">
-              Continue
+            <Button
+              onClick={handleSubmit}
+              disabled={!canProceed || submitting}
+              className="bg-blue-500 hover:bg-blue-600 text-white"
+            >
+              {submitLabel}
             </Button>
           </div>
         </div>

@@ -760,17 +760,20 @@ export async function markDeliveryRead(deliveryId: string): Promise<void> {
 
 /**
  * P660: Add a recipient to an existing sealed letter (calls RPC).
+ * P664: receiverName parameter added — passes p_receiver_name to RPC (DEFAULT NULL, backward compat).
  */
 export async function addRecipientToSealed(
   letterId: string,
-  email: string
+  email: string,
+  receiverName?: string
 ): Promise<string> {
   await requireAuth();
-  log('addRecipientToSealed:', { letterId, email });
+  log('addRecipientToSealed:', { letterId, email, receiverName });
 
   const { data, error } = await supabase.rpc('add_recipient_to_sealed_letter', {
     p_letter_id: letterId,
     p_email: email,
+    p_receiver_name: receiverName ?? null,
   });
 
   if (error) {
