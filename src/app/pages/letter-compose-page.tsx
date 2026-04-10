@@ -35,6 +35,7 @@ export function LetterComposePage() {
     mode?: LetterMode;
     emails?: string[];
     receiverName?: string;
+    recipients?: Array<{ email: string; name: string }>;
   } | null;
 
   // Data loading
@@ -47,6 +48,9 @@ export function LetterComposePage() {
   const [mode, setMode] = useState<LetterMode | null>(routeState?.mode ?? null);
   const [emails, setEmails] = useState<string[]>(routeState?.emails ?? []);
   const [receiverName, setReceiverName] = useState(routeState?.receiverName ?? '');
+  const [recipientsList, setRecipientsList] = useState<Array<{ email: string; name: string }>>(
+    routeState?.recipients ?? []
+  );
   const [predictions, setPredictions] = useState<Map<string, number>>(new Map());
   const [sealing, setSealing] = useState(false);
   const [sealedLetterId, setSealedLetterId] = useState<string | null>(null);
@@ -94,7 +98,10 @@ export function LetterComposePage() {
   const handleReceiverSubmit = useCallback((result: ReceiverSetupResult) => {
     setMode(result.mode);
     setEmails(result.emails);
-    setReceiverName(result.receiverName);
+    setRecipientsList(result.recipients);
+    // For prediction walk: single recipient → their name, 2+ → empty (triggers "readers" fallback)
+    const derivedName = result.recipients.length === 1 ? result.recipients[0].name : '';
+    setReceiverName(derivedName);
     setPhase('predict');
   }, []);
 
@@ -137,9 +144,11 @@ export function LetterComposePage() {
         prediction,
       }));
 
-      // 3. Build deliveries array for 1-to-1
+      // 3. Build deliveries array for 1-to-1 — each recipient gets their own name
       const deliveriesArray = mode === 'one-to-one'
-        ? emails.map((email) => ({ receiver_email: email, receiver_name: receiverName || undefined }))
+        ? (recipientsList.length > 0
+            ? recipientsList.map((r) => ({ receiver_email: r.email, receiver_name: r.name || undefined }))
+            : emails.map((email) => ({ receiver_email: email, receiver_name: receiverName || undefined })))
         : [];
 
       // 4. Seal (atomic: snapshot + deliveries + predictions)
@@ -173,7 +182,7 @@ export function LetterComposePage() {
       sealingRef.current = false;
       setSealing(false);
     }
-  }, [docId, user?.id, mode, predictions, emails, receiverName, stories.length]);
+  }, [docId, user?.id, mode, predictions, emails, receiverName, recipientsList, stories.length]);
 
   const handlePredictionComplete = useCallback(() => {
     if (doc?.visibility === 'public') {
