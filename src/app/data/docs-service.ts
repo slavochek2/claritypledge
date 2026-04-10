@@ -88,7 +88,8 @@ interface DbStoryWithAuthor {
 
 /**
  * Transform DB doc row to ClarityDoc. story_count comes from a computed column
- * or must be set by the caller.
+ * or must be set by the caller. has_sent_letters defaults to false; caller
+ * overwrites after the clarity_letters check in getDocsByUser.
  */
 function mapDocFromDb(row: DbClarityDoc & { story_count?: number }): ClarityDoc {
   return {
@@ -99,6 +100,7 @@ function mapDocFromDb(row: DbClarityDoc & { story_count?: number }): ClarityDoc 
     created_at: row.created_at,
     updated_at: row.updated_at,
     story_count: row.story_count ?? 0,
+    has_sent_letters: false,
   };
 }
 
@@ -342,18 +344,30 @@ export const docsService: DocsService = {
 
     if (docs.length > 0) {
       const docIds = docs.map((d) => d.id);
-      const { data: countData, error: countError } = await supabase
-        .from('doc_stories')
-        .select('doc_id')
-        .in('doc_id', docIds);
 
-      if (!countError && countData) {
+      const [countResult, sentResult] = await Promise.all([
+        supabase.from('doc_stories').select('doc_id').in('doc_id', docIds),
+        supabase
+          .from('clarity_letters')
+          .select('source_doc_id')
+          .in('source_doc_id', docIds)
+          .neq('status', 'draft'),
+      ]);
+
+      if (!countResult.error && countResult.data) {
         const counts: Record<string, number> = {};
-        for (const row of countData) {
+        for (const row of countResult.data) {
           counts[row.doc_id] = (counts[row.doc_id] || 0) + 1;
         }
         for (const doc of docs) {
           doc.story_count = counts[doc.id] || 0;
+        }
+      }
+
+      if (!sentResult.error && sentResult.data) {
+        const sentDocIds = new Set(sentResult.data.map((l) => l.source_doc_id));
+        for (const doc of docs) {
+          doc.has_sent_letters = sentDocIds.has(doc.id);
         }
       }
     }
@@ -560,6 +574,36 @@ export const docsService: DocsService = {
     await requireAuth();
     log('deleteDoc:', docId);
 
+    // 1. Block if any non-draft letters (sealed or expired) exist for this doc
+    const { data: sealedLetters, error: checkError } = await supabase
+      .from('clarity_letters')
+      .select('id')
+      .eq('source_doc_id', docId)
+      .neq('status', 'draft')
+      .limit(1);
+
+    if (checkError) {
+      logDbError('deleteDoc:checkSealed', checkError);
+      throw new Error('Failed to check letter status');
+    }
+
+    if (sealedLetters && sealedLetters.length > 0) {
+      throw new Error('SEALED_LETTERS_EXIST');
+    }
+
+    // 2. Delete draft letters first (FK would block doc delete)
+    const { error: draftDeleteError } = await supabase
+      .from('clarity_letters')
+      .delete()
+      .eq('source_doc_id', docId)
+      .eq('status', 'draft');
+
+    if (draftDeleteError) {
+      logDbError('deleteDoc:deleteDraftLetters', draftDeleteError);
+      throw new Error('Failed to clean up draft letters');
+    }
+
+    // 3. Delete the doc (doc_stories cascade automatically)
     const { error } = await supabase
       .from('clarity_docs')
       .delete()

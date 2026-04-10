@@ -1309,6 +1309,7 @@ export interface DbDocStory {
 /** App-level doc type with computed fields */
 export interface ClarityDoc extends DbClarityDoc {
   story_count: number;
+  has_sent_letters: boolean;
 }
 
 /** App-level doc story with resolved story data (includes linked points) */

@@ -78,8 +78,12 @@ export function DraftsTab({ userId }: DraftsTabProps) {
       toast.success('Draft deleted');
       setDeleteTarget(null);
       fetchDocs();
-    } catch {
-      toast.error("Couldn't delete draft.");
+    } catch (err) {
+      if (err instanceof Error && err.message === 'SEALED_LETTERS_EXIST') {
+        toast.error("Can't delete — letters were sent from this draft.");
+      } else {
+        toast.error("Couldn't delete draft.");
+      }
     } finally {
       setDeleting(false);
     }
@@ -172,11 +176,21 @@ export function DraftsTab({ userId }: DraftsTabProps) {
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
                     <DropdownMenuItem
-                      className="text-destructive focus:text-destructive"
-                      onClick={() => setDeleteTarget(doc)}
+                      disabled={doc.has_sent_letters}
+                      className={doc.has_sent_letters
+                        ? 'text-muted-foreground flex-col items-start gap-0.5'
+                        : 'text-destructive focus:text-destructive'}
+                      onClick={() => { if (!doc.has_sent_letters) setDeleteTarget(doc); }}
                     >
-                      <Trash2 className="w-4 h-4" />
-                      Delete
+                      <span className="flex items-center gap-2">
+                        <Trash2 className="w-4 h-4" />
+                        Delete
+                      </span>
+                      {doc.has_sent_letters && (
+                        <span className="text-xs text-muted-foreground pl-6">
+                          Can't delete — letters were sent from this draft.
+                        </span>
+                      )}
                     </DropdownMenuItem>
                     <DropdownMenuItem
                       className="sm:hidden"
