@@ -2,6 +2,14 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-10 [technical]: P681 — Make visibility required on type system to enforce data pipeline integrity
+
+**Context:** P586 added column-based visibility, P607 fixed creation inheritance, P610 fixed UI indicators, P634 fixed the public surface leak. But `visibility` remained *optional* on `PointSummary` and `Point` TypeScript types. Result: 6+ data paths silently dropped visibility (docs-service select, letter-snapshot-mapper, letter-preview-page, clarity-live-page, seal RPC). Components defaulted `undefined` to `'public'` via `?? 'public'`, so private points displayed with a globe icon in doc drafts, letter previews, sealed letters, and live sessions. TypeScript reported zero errors because the fallback satisfied the compiler.
+**Decision:** Made `visibility` required on `PointSummary` and `Point` types. Fixed every data path that the grep-based audit (`?? 'public'` on visibility) revealed. Added per-point visibility to the seal RPC snapshot. Remaining `?? 'public'` instances are at justified data boundaries (DB query results with nullable columns, old live session JSON, creation contexts). Changed fallback chain in letter-snapshot-mapper from `??` to `||` to catch empty strings from legacy sealed letters.
+**Alternatives rejected:** (1) Keep optional + add lint rule — doesn't catch missing fields in `.map()` output. (2) Fix only the reported views — whack-a-mole; the next mapper would silently drop it again. (3) Backfill old sealed letter snapshots — unnecessary because read-time fallback chain handles legacy data gracefully.
+**Consequences:** Any new data path that maps points without including `visibility` will now get a compile error. The `?? 'public'` grep pattern remains the secondary audit tool for catching fallbacks at data boundaries. Visibility inheritance is: doc → story → point (all same visibility, never mixed on one story).
+**References:** P681 spec, P586 (column model), P607 (creation inheritance), P610 (UI indicators), P634 (public surface filter)
+
 ## 2026-04-10 [technical]: E2E test isolation must respect unique constraints added by migrations
 
 **Context:** P642 tests created two `letter_deliveries` rows for the same `(letter_id, receiver_email)` to isolate anonymous vs authenticated test paths. P651 migration added `idx_letter_deliveries_unique_email` — a unique constraint on `(letter_id, receiver_email)`. The `beforeAll` setup started failing silently (insert returned null), causing all 5 P642 tests to fail. Separately, P651 composition tests used `visibility: 'public'` docs, but P661's compose page auto-skips the receiver modal for public docs — tests timed out looking for UI that never rendered.
