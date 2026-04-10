@@ -128,21 +128,6 @@ export function DraftsTab({ userId }: DraftsTabProps) {
 
   return (
     <>
-      {/* Top-right [+ New] button */}
-      <div className="flex justify-end mb-4">
-        <Popover>
-          <PopoverTrigger asChild>
-            <Button size="sm" className="bg-blue-500 hover:bg-blue-600 text-white">
-              <Plus className="w-4 h-4" />
-              New Draft
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent align="end" className="w-64 p-2">
-            <CreateDocOptions onSelect={handleCreate} disabled={creating} />
-          </PopoverContent>
-        </Popover>
-      </div>
-
       {/* Draft list */}
       <div className="flex flex-col gap-3">
         {docs.map((doc) => (

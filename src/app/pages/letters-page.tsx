@@ -4,15 +4,21 @@
  * Route: /letters — tab state via ?tab=drafts|sent|inbox search param.
  */
 
-import { useEffect, useCallback } from 'react';
+import { useEffect, useCallback, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { Plus, Lock, Globe } from 'lucide-react';
+import { toast } from 'sonner';
 import { useAuth } from '@/auth';
 import { ClarityPageLoader } from '@/components/ui/clarity-loader';
+import { Button } from '@/components/ui/button';
+import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { DraftsTab } from '@/app/components/letters/drafts-tab';
 import { SentTab } from '@/app/components/letters/sent-tab';
 import { InboxTab } from '@/app/components/letters/inbox-tab';
 import { useUnreadLetterCount } from '@/app/hooks/useUnreadLetterCount';
+import { docsService } from '@/app/data/docs-service';
+import type { ContentVisibility } from '@/app/types';
 
 const VALID_TABS = ['drafts', 'sent', 'inbox'] as const;
 type TabValue = (typeof VALID_TABS)[number];
@@ -22,6 +28,7 @@ export function LettersPage() {
   const { user, isLoading, sessionChecked } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const { count: unreadCount } = useUnreadLetterCount();
+  const [creating, setCreating] = useState(false);
 
   // Determine active tab from URL
   const tabParam = searchParams.get('tab');
@@ -53,6 +60,17 @@ export function LettersPage() {
   // Auth redirect handled by effect
   if (!user) return null;
 
+  const handleCreate = async (visibility: ContentVisibility) => {
+    setCreating(true);
+    try {
+      const doc = await docsService.createDoc(visibility);
+      navigate(`/letters/drafts/${doc.id}`);
+    } catch {
+      toast.error("Couldn't create draft.");
+      setCreating(false);
+    }
+  };
+
   const inboxLabel = unreadCount > 0 ? `Inbox (${unreadCount})` : 'Inbox';
   const inboxAriaLabel = unreadCount > 0 ? `Inbox, ${unreadCount} unread` : 'Inbox';
 
@@ -65,27 +83,63 @@ export function LettersPage() {
         </h1>
 
         <Tabs value={activeTab} onValueChange={handleTabChange}>
-          <TabsList className="sticky top-0 z-10 bg-background w-full justify-start border-b rounded-none h-auto p-0">
-            <TabsTrigger
-              value="drafts"
-              className="rounded-none border-b-2 border-transparent data-[state=active]:border-blue-500 data-[state=active]:shadow-none px-4 py-3"
-            >
-              Drafts
-            </TabsTrigger>
-            <TabsTrigger
-              value="sent"
-              className="rounded-none border-b-2 border-transparent data-[state=active]:border-blue-500 data-[state=active]:shadow-none px-4 py-3"
-            >
-              Sent
-            </TabsTrigger>
-            <TabsTrigger
-              value="inbox"
-              aria-label={inboxAriaLabel}
-              className="rounded-none border-b-2 border-transparent data-[state=active]:border-blue-500 data-[state=active]:shadow-none px-4 py-3"
-            >
-              {inboxLabel}
-            </TabsTrigger>
-          </TabsList>
+          <div className="flex items-end justify-between sticky top-0 z-10 bg-background">
+            <TabsList className="w-auto justify-start border-b rounded-none h-auto p-0">
+              <TabsTrigger
+                value="drafts"
+                className="rounded-none border-b-2 border-transparent data-[state=active]:border-blue-500 data-[state=active]:shadow-none px-4 py-3"
+              >
+                Drafts
+              </TabsTrigger>
+              <TabsTrigger
+                value="sent"
+                className="rounded-none border-b-2 border-transparent data-[state=active]:border-blue-500 data-[state=active]:shadow-none px-4 py-3"
+              >
+                Sent
+              </TabsTrigger>
+              <TabsTrigger
+                value="inbox"
+                aria-label={inboxAriaLabel}
+                className="rounded-none border-b-2 border-transparent data-[state=active]:border-blue-500 data-[state=active]:shadow-none px-4 py-3"
+              >
+                {inboxLabel}
+              </TabsTrigger>
+            </TabsList>
+            {activeTab === 'drafts' && (
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button size="sm" className="bg-blue-500 hover:bg-blue-600 text-white mb-1">
+                    <Plus className="w-4 h-4" />
+                    New Draft
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent align="end" className="w-64 p-2">
+                  <button
+                    onClick={() => handleCreate('private')}
+                    disabled={creating}
+                    className="w-full flex items-center gap-3 rounded-md px-3 py-2.5 text-sm hover:bg-accent transition-colors text-left"
+                  >
+                    <Lock size={16} className="text-muted-foreground flex-shrink-0" />
+                    <div>
+                      <div className="font-medium">Private Draft</div>
+                      <div className="text-xs text-muted-foreground">Only you can see this</div>
+                    </div>
+                  </button>
+                  <button
+                    onClick={() => handleCreate('public')}
+                    disabled={creating}
+                    className="w-full flex items-center gap-3 rounded-md px-3 py-2.5 text-sm hover:bg-accent transition-colors text-left"
+                  >
+                    <Globe size={16} className="text-muted-foreground flex-shrink-0" />
+                    <div>
+                      <div className="font-medium">Public Draft</div>
+                      <div className="text-xs text-muted-foreground">Visible on your profile</div>
+                    </div>
+                  </button>
+                </PopoverContent>
+              </Popover>
+            )}
+          </div>
 
           <TabsContent value="drafts" className="mt-4">
             <DraftsTab userId={user.id} />
