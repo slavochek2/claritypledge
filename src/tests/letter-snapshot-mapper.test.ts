@@ -184,6 +184,54 @@ describe('snapshotToStoryWithPoints', () => {
     const result = snapshotToStoryWithPoints(snapshot, 'Alice');
     expect(result.points).toHaveLength(2);
   });
+
+  // =========================================================================
+  // P681: VISIBILITY PROPAGATION
+  // =========================================================================
+
+  describe('visibility propagation', () => {
+    it('uses snapshot.visibility for story visibility (not hardcoded public)', () => {
+      const result = snapshotToStoryWithPoints(makeSnapshot({ visibility: 'private' }), 'Alice');
+      expect(result.visibility).toBe('private');
+    });
+
+    it('maps per-point visibility from point_config when present', () => {
+      const snapshot = makeSnapshot({
+        point_config: {
+          storyText: 'Story',
+          points: [
+            { id: 'p1', text: 'Private point', authorPosition: null, visibility: 'private' },
+            { id: 'p2', text: 'Public point', authorPosition: null, visibility: 'public' },
+          ],
+        },
+      });
+      const result = snapshotToStoryWithPoints(snapshot, 'Alice');
+      expect(result.points[0].visibility).toBe('private');
+      expect(result.points[1].visibility).toBe('public');
+    });
+
+    it('falls back to snapshot.visibility when point has no visibility (legacy data)', () => {
+      const snapshot = makeSnapshot({
+        visibility: 'private',
+        point_config: {
+          storyText: 'Story',
+          points: [{ id: 'p1', text: 'Legacy point', authorPosition: null }],
+        },
+      });
+      const result = snapshotToStoryWithPoints(snapshot, 'Alice');
+      expect(result.points[0].visibility).toBe('private');
+    });
+
+    it('defaults to public when neither point nor snapshot has visibility', () => {
+      const snapshot: LetterStorySnapshot = {
+        letter_id: '', story_id: 'story-1', version_id: '', position: 0,
+        point_config: { storyText: 'S', points: [{ id: 'p1', text: 'P', authorPosition: null }] },
+        visibility: '',  // empty string = falsy
+      };
+      const result = snapshotToStoryWithPoints(snapshot, 'Alice');
+      expect(result.points[0].visibility).toBe('public');
+    });
+  });
 });
 
 // =========================================================================
@@ -199,6 +247,7 @@ function makePointSummary(overrides: Partial<PointSummary> = {}): PointSummary {
     positionCounts: {},
     userPosition: null,
     profileSubjectPosition: null,
+    visibility: 'public',
     ...overrides,
   };
 }
@@ -229,5 +278,10 @@ describe('pointSummaryToProtoPoint', () => {
   it('returns empty linkedStoryIds', () => {
     const result = pointSummaryToProtoPoint(makePointSummary());
     expect(result.linkedStoryIds).toEqual([]);
+  });
+
+  it('carries visibility from PointSummary to Point (P681)', () => {
+    const result = pointSummaryToProtoPoint(makePointSummary({ visibility: 'private' }));
+    expect(result.visibility).toBe('private');
   });
 });

@@ -169,7 +169,7 @@ export function FeedPointCard({ point, activeTag, onPointRemoved }: FeedPointCar
               ref={statementRef}
               className={`text-sm font-medium text-foreground break-words ${statementExpanded ? '' : 'line-clamp-6'}`}
             >
-              <InlineVisibilityIcon visibility={point.visibility ?? 'public'} />{' '}
+              <InlineVisibilityIcon visibility={point.visibility} />{' '}
               {linkifyText(stripHashtags(point.statement, point.tags))}
             </p>
             {statementOverflows && !statementExpanded && (

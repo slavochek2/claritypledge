@@ -33,6 +33,8 @@ const mockPoint: PointSummary = {
   id: 'point-1',
   statement: 'Remote work is more productive than office work',
   tags: [],
+  systemTags: [],
+  visibility: 'public',
 };
 
 const mockPositionCounts = new Map<string, Record<PositionType, number>>([

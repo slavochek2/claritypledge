@@ -55,6 +55,7 @@ interface DbDocStoryWithStory extends DbDocStory {
         statement: string;
         context: string | null;
         tags: string[];
+        visibility: string | null;
       } | null;
     }>;
   };
@@ -146,6 +147,7 @@ function mapPointSummaries(
       context: sp.point.context ?? undefined,
       tags: [...(sp.point.tags || []), ...((sp.point as { system_tags?: string[] }).system_tags || [])],
       systemTags: (sp.point as { system_tags?: string[] }).system_tags || [],
+      visibility: (sp.point.visibility ?? 'public') as ContentVisibility,
     }));
 }
 
@@ -239,7 +241,8 @@ const STORY_WITH_AUTHOR_AND_POINTS_SELECT = `
       statement,
       context,
       tags,
-      system_tags
+      system_tags,
+      visibility
     )
   )
 `;

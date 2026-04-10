@@ -1533,6 +1533,7 @@ export function ClarityLivePage() {
           positionCounts: p.positionCounts,
           userPosition: p.userPosition,
           profileSubjectPosition: p.profileSubjectPosition,
+          visibility: p.visibility,
         })),
         authorName: storyData.authorName,
         authorSlug: storyData.authorSlug,

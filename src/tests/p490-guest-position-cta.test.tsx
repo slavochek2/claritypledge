@@ -40,6 +40,7 @@ function makeStory(overrides: {
         tags: [],
         userPosition: overrides.userPosition ?? null,
         profileSubjectPosition: overrides.profileSubjectPosition ?? null,
+        visibility: 'public',
       },
     ],
   } as StoryWithPoints;

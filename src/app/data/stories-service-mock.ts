@@ -80,6 +80,7 @@ const mockStoryPoints: Record<string, PointSummary[]> = {
       context: 'From my journey learning to say "I don\'t understand"',
       tags: ['vulnerability', 'leadership'],
       systemTags: [],
+      visibility: 'public',
     },
   ],
   'story-2': [],
@@ -207,6 +208,7 @@ export const mockStoriesService: StoriesService = {
       context: 'Mock context for testing',
       tags: ['mock'],
       systemTags: [],
+      visibility: 'public',
     };
 
     // Add to story's points

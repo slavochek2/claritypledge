@@ -8,7 +8,7 @@
  * 3. Hidden points filtered from output
  */
 
-import type { LetterStorySnapshot, StoryWithPoints, PointSummary, PositionType } from '@/app/types';
+import type { LetterStorySnapshot, StoryWithPoints, PointSummary, PositionType, ContentVisibility, StoryVisibility } from '@/app/types';
 import type { Point, PositionEntry } from '@/app/components/shared/prototype-types';
 
 interface PointConfigPoint {
@@ -16,6 +16,7 @@ interface PointConfigPoint {
   text: string;
   authorPosition: string | null;
   hidden?: boolean;
+  visibility?: string;
 }
 
 interface PointConfig {
@@ -45,6 +46,7 @@ export function pointSummaryToProtoPoint(
     createdAt: '',
     positions,
     linkedStoryIds: [],
+    visibility: point.visibility,
   };
 }
 
@@ -82,6 +84,7 @@ export function snapshotToStoryWithPoints(
       positionCounts: {},       // SECURITY: never expose community counts
       userPosition: null,
       profileSubjectPosition: (p.authorPosition as PointSummary['profileSubjectPosition']) ?? null,
+      visibility: ((p.visibility || snapshot.visibility || 'public') as ContentVisibility),
     }));
 
   return {
@@ -89,7 +92,7 @@ export function snapshotToStoryWithPoints(
     authorId: '',
     title: config.storyTitle,
     content: config.storyText ?? '',
-    visibility: 'public',
+    visibility: (snapshot.visibility === 'private' ? 'private' : 'public') as StoryVisibility,
     currentVersion: 1,
     understoodCount: 0,
     createdAt: '',

@@ -51,9 +51,10 @@ function docStoryToSnapshot(docStory: DocStory): LetterStorySnapshot {
         id: p.id,
         text: p.statement,
         authorPosition: p.userPosition ?? null,
+        visibility: p.visibility,
       })),
     },
-    visibility: 'published',
+    visibility: docStory.story.visibility ?? 'public',
   };
 }
 

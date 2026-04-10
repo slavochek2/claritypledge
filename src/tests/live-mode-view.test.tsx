@@ -585,6 +585,7 @@ describe('LiveModeView', () => {
           userPosition: null,
           profileSubjectPosition: null,
           positionCounts: {},
+          visibility: 'public',
         },
       ],
     };
@@ -645,8 +646,8 @@ describe('LiveModeView', () => {
       const twoPointStory = {
         ...mockStoryData,
         points: [
-          { id: 'point-1', statement: 'Remote work helps productivity', tags: [], userPosition: null, profileSubjectPosition: null, positionCounts: {} },
-          { id: 'point-2', statement: 'Async tools reduce meeting fatigue', tags: [], userPosition: null, profileSubjectPosition: null, positionCounts: {} },
+          { id: 'point-1', statement: 'Remote work helps productivity', tags: [], userPosition: null, profileSubjectPosition: null, positionCounts: {}, visibility: 'public' },
+          { id: 'point-2', statement: 'Async tools reduce meeting fatigue', tags: [], userPosition: null, profileSubjectPosition: null, positionCounts: {}, visibility: 'public' },
         ],
       };
 

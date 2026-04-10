@@ -541,6 +541,7 @@ export type LiveStoryData = Pick<StoryWithAuthor,
     positionCounts?: Record<string, number>;
     userPosition?: string | null;
     profileSubjectPosition?: string | null;
+    visibility?: string; // P681: optional because old live_state JSON lacks it
   }>;
   createdAt?: string;
 };
@@ -1059,7 +1060,7 @@ export interface Point {
   tags: string[];
   systemTags: string[]; // P630: System tags (st-group, version, category)
   bannerUrl?: string; // P504: AI-generated banner image
-  visibility?: ContentVisibility; // P586: public/private visibility
+  visibility: ContentVisibility; // P586: public/private visibility — REQUIRED (P681)
 }
 
 /** Point summary for embedding in other views */
@@ -1072,7 +1073,7 @@ export interface PointSummary {
   positionCounts?: Record<string, number>;
   userPosition?: PositionType | null;
   profileSubjectPosition?: PositionType | null;
-  visibility?: ContentVisibility; // P586: public/private visibility
+  visibility: ContentVisibility; // P586: public/private visibility — REQUIRED (P681)
 }
 
 /** Point with creator profile info */
