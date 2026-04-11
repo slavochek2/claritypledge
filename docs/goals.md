@@ -2,7 +2,7 @@
 
 Concrete next steps in priority order. Updated 2026-03-24.
 
-**Last updated:** 2026-04-02 (workshop venue KL→SG, pricing, P620 created)
+**Last updated:** 2026-04-11 (letters + badge as workshop prerequisites; new plan + kill date reasoning)
 
 Flywheel: see [lean-canvas.md](lean-canvas.md#channels--flywheel). Steps below follow that sequence.
 
@@ -13,11 +13,12 @@ Flywheel: see [lean-canvas.md](lean-canvas.md#channels--flywheel). Steps below f
 1. [x] P560: Story filing without position — prerequisite for workshop (epic-story-first)
 2. [x] P545: ladischenski.com positioning update
 3. [x] P551: Clarity Docs — curated story collections, compose/edit surface for letters
-4. [ ] P581: Letters with comprehension assessment — core async gap screening (doc-sourced, unified with P551). Prerequisite for any workshop that uses the sealed-bid gap reveal.
+4. [ ] Letters ship (P581 + P683 + P684): P581 = sealed-bid gap reveal (prerequisite for H-WTP-Pain at workshop — decisions.md 2026-04-02). P683 = TOS consent on letter open (GDPR, legally required before sending to real participants). P684 = account-gated responses on one-to-many letters (anonymous responses are useless for pre-workshop prep — no identity = can't match who's arriving). All three must land before workshop can test the core hypothesis.
+4.5. [ ] P686 Badge Step 1 (~1 day): Minimum badge infrastructure (DB table + profile checkmark + auto-trigger from /live). Must be ready AT workshop #1 to observe propagation signal: do badged people share? How many names do they give? R₀ measurement only works if the badge artifact exists in the moment. See P685 for full vision + observation protocol. Build after letters ship.
 5. [x] P562: /live simplification — strip to orchestration, reduce drop-off in group settings
 6. [x] P567: File 8 false belief stories + points as workshop curriculum
 7. [ ] [PARALLEL with P581] File lean canvas content as stories/points in prod + build Clarity Canvas renderer (canvas-view skin for a clarity doc). P551 is already built — this is content filing + UI work, no P581 dependency.
-8. [ ] Run first workshops (P620): Online #1 this week (Google Meet, free, curriculum test) → KL #2 in-person at MaGIC/WORQ (~mid-April, €50 + time donation) → Singapore #3 (late April, polished). Thailand = prep only (DTV). Test H-WTP-Pain with debrief: "What did holding this cost you?" + before/after comfort score.
+8. [ ] Run first workshops (P620): Online #1 (Google Meet, free, sealed-bid gap reveal + badge observation) → KL #2 in-person at MaGIC/WORQ (mid-April, €50 + time donation) → Singapore #3 (late April, polished). Thailand = prep only (DTV). Kill date: 2+ workshops → paying pair by 2026-04-25. Test H-WTP-Pain: "What did holding this cost you?" + before/after comfort score. Prerequisite: steps 4 + 4.5 must ship first — a curriculum-only workshop without sealed-bid reveal doesn't test H-WTP-Pain (decisions.md 2026-04-02).
 9. [ ] Publish own Clarity Canvas as a canvas-doc — YOUR hypotheses/assumptions as stories, visitors challenge via positions. Uses infrastructure from steps 4+7.
 10. [ ] Write a11 (Clarity Canvas journey article) — links to live canvas, uses real workshop data. Also serves as co-builder signal flare.
 11. [ ] Promote a11 via LinkedIn, rationalist communities, founder communities
@@ -58,7 +59,29 @@ Flywheel: see [lean-canvas.md](lean-canvas.md#channels--flywheel). Steps below f
 - Don't try all 8 false beliefs in one workshop — 3-4 with depth beats 8 at surface
 - Don't charge money for workshops in Thailand — free + time donation only (DTV constraint)
 
-## Last Weekly Review (2026-03-23)
+## Last Weekly Review (2026-04-11)
+
+```
+STOP:        Running a curriculum-only workshop before letters + badge ship.
+             A workshop without sealed-bid reveal doesn't test H-WTP-Pain —
+             it produces curriculum feedback, not hypothesis signal.
+START:       Ship P581 + P683 + P684 (letters) + P686 badge Step 1.
+             Then run workshop with full instrument.
+SCARY THING: 14 days to kill date (2026-04-25). Letters + badge must land
+             this week for workshop to happen in time.
+HYPOTHESIS:  Workshop participants take de-risking package (PWIW) + sign
+             Clarity Partner Agreement — at least 1 pair from first workshop.
+             Secondary: R₀ > 1 (each badged person names 3-5 people they'd
+             verify — P685 observation protocol).
+KILL DATE:   0/2 workshops → paying pair by 2026-04-25 = pipeline doesn't convert.
+KEY INSIGHT: Letters (P581) are the sealed-bid instrument AND the badge entry
+             path. Badge (P686) measures propagation, not just comprehension.
+             Both are needed for the workshop to generate falsifiable signal,
+             not just warm feelings. Reasoning: decisions.md 2026-04-02,
+             P685 §Workshop #1 Observation Protocol, lean-canvas.md §Flywheel.
+```
+
+## Previous Weekly Review (2026-03-23)
 
 ```
 STOP:        Any feature work not on P581 → workshop → canvas → article path
