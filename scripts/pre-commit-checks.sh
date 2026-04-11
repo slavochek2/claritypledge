@@ -393,7 +393,7 @@ with open('$DEPLOY_MANIFEST') as f:
     manifest = json.load(f)
 test_migrations = manifest.get('test', {}).get('migrations', [])
 mig = '$mig_base'
-found = any(str(m) == mig or mig.startswith(str(m)) or str(m).startswith(mig[:8]) for m in test_migrations)
+found = any(str(m) == mig or mig.startswith(str(m)) for m in test_migrations)
 sys.exit(0 if found else 1)
 " 2>/dev/null; then
                 applied=true

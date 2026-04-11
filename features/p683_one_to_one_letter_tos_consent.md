@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: qa
 type: story
 rank: 1000683.0
 created_date: '2026-04-10'
@@ -8,7 +8,7 @@ flow: dev
 delivery_stage: fix
 pipeline_plan: [create-spec, challenge-prd, ux, architect, ui, generate-tests, dev, verify]
 pipeline_skipped: [decompose -- under 5 files]
-pipeline_ran: [create-spec, challenge-prd, ux, architect, ui, generate-tests, spec-review, dev, fix, verify, fix.2]
+pipeline_ran: [create-spec, challenge-prd, ux, architect, ui, generate-tests, spec-review, dev, fix]
 ---
 
 # P683: One-to-One Letter TOS Consent
@@ -100,11 +100,11 @@ pipeline_ran: [create-spec, challenge-prd, ux, architect, ui, generate-tests, sp
 
 ## Acceptance Criteria
 
-- [ ] GDPR Article 13 compliant: processing purpose (account creation) disclosed at point of collection
-- [ ] Audit trail: `terms_acceptances` row exists for every new account created via letter flow
-- [ ] Existing users can open letters without re-accepting TOS
-- [ ] Preview flow gives senders accurate preview of recipient experience (minus TOS)
-- [ ] Letter reading and rating mechanics unchanged
+- [x] GDPR Article 13 compliant: processing purpose (account creation) disclosed at point of collection
+- [x] Audit trail: `terms_acceptances` row exists for every new account created via letter flow
+- [x] Existing users can open letters without re-accepting TOS
+- [x] Preview flow gives senders accurate preview of recipient experience (minus TOS)
+- [x] Letter reading and rating mechanics unchanged
 
 ## UX Notes
 

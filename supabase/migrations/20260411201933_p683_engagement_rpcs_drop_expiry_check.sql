@@ -113,6 +113,9 @@ GRANT EXECUTE ON FUNCTION submit_rating_by_token(UUID, UUID, INTEGER) TO anon;
 GRANT EXECUTE ON FUNCTION submit_rating_by_token(UUID, UUID, INTEGER) TO authenticated;
 
 -- 3. Reveal prediction (anon-safe) — wraps existing reveal_prediction
+-- NOTE: body from P648 fix (20260404112655) — uses speaker_id, not session_id::text.
+-- Letters insert story_verifications with session_id = NULL; the old session_id check
+-- was always false. P648 fixed it; preserve that fix here while dropping expiry predicate.
 CREATE OR REPLACE FUNCTION reveal_prediction_by_token(
   p_token UUID,
   p_story_id UUID
@@ -125,10 +128,11 @@ AS $$
 DECLARE
   v_delivery_id UUID;
   v_letter_id UUID;
+  v_sender_id UUID;
   v_prediction INTEGER;
 BEGIN
-  -- Validate token
-  SELECT ld.id, ld.letter_id INTO v_delivery_id, v_letter_id
+  -- Validate token (expiry predicate removed — see P683 migration header)
+  SELECT ld.id, ld.letter_id, cl.sender_id INTO v_delivery_id, v_letter_id, v_sender_id
   FROM letter_deliveries ld
   JOIN clarity_letters cl ON cl.id = ld.letter_id
   WHERE ld.invitation_token = p_token
@@ -140,9 +144,10 @@ BEGIN
   END IF;
 
   -- Check that rating exists (sealed-bid: prediction only after rating)
+  -- Letters insert with session_id = NULL, so match on story_id + speaker_id + source
   IF NOT EXISTS (
     SELECT 1 FROM story_verifications
-    WHERE story_id = p_story_id AND session_id = v_delivery_id::text AND source = 'letter'
+    WHERE story_id = p_story_id AND speaker_id = v_sender_id AND source = 'letter'
   ) THEN
     RETURN NULL;
   END IF;
