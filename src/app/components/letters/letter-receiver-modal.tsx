@@ -519,8 +519,8 @@ export function LetterReceiverModal(props: LetterReceiverModalProps) {
   const submitLabel = isAddRecipientMode ? (submitting ? 'Sending...' : 'Send Invitation') : 'Continue';
 
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="sm:max-w-md max-h-[85vh] overflow-y-auto">
+    <Dialog open={open} onOpenChange={handleOpenChange} modal={false}>
+      <DialogContent className="sm:max-w-md max-h-[85vh] overflow-y-auto" hideOverlay>
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
         </DialogHeader>

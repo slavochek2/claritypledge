@@ -1595,8 +1595,9 @@ function RatingScreen({
 
       {/* Rating drawer - always open by design for focused rating UX.
           dismissible={false} prevents accidental swipe/overlay close.
+          modal={false} removes pointer-event lock so page behind remains interactive.
           overlayClassName="bg-transparent" keeps story card visible behind drawer. */}
-      <Drawer open={true} dismissible={false}>
+      <Drawer open={true} dismissible={false} modal={false}>
         <DrawerContent overlayClassName="bg-transparent">
           <DrawerHeader className="sr-only">
             <DrawerTitle>Rate your understanding</DrawerTitle>
@@ -1742,8 +1743,9 @@ function RatingScreenWithOptionalDrawer({
 
       {/* Rating drawer - always open by design for focused rating UX.
           dismissible={false} prevents accidental swipe/overlay close.
+          modal={false} removes pointer-event lock so page behind remains interactive.
           overlayClassName="bg-transparent" keeps story card visible behind drawer. */}
-      <Drawer open={true} dismissible={false}>
+      <Drawer open={true} dismissible={false} modal={false}>
         <DrawerContent overlayClassName="bg-transparent">
           <DrawerHeader className="sr-only">
             <DrawerTitle>Rate your understanding</DrawerTitle>
@@ -2539,8 +2541,9 @@ function UnderstandingScreen({
 
           {/* Rating drawer - always open by design for focused rating UX.
               dismissible={false} prevents accidental swipe/overlay close.
+              modal={false} removes pointer-event lock so page behind remains interactive.
               User must tap explicit skip button to end the round. */}
-          <Drawer open={true} dismissible={false}>
+          <Drawer open={true} dismissible={false} modal={false}>
             <DrawerContent overlayClassName="bg-transparent">
               <DrawerHeader className="sr-only">
                 <DrawerTitle>Rate understanding</DrawerTitle>

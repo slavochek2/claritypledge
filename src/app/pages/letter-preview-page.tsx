@@ -7,10 +7,9 @@
 
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { AlertCircle } from 'lucide-react';
+import { AlertCircle, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { CertificatePageShell } from '@/app/components/layout/certificate-page-shell';
-import { FocusHeader } from '@/app/components/layout/focus-header';
 import { LetterCover } from '@/app/components/letters/letter-cover';
 import { LetterProgressBar } from '@/app/components/letters/letter-progress-bar';
 import { LiveStoryCardExpanded } from '@/app/components/partners/live-story-card-expanded';
@@ -127,13 +126,23 @@ export function LetterPreviewPage() {
         <p className="text-sm text-amber-800 font-medium">
           THIS IS A PREVIEW — The receiver will see this
         </p>
+        <Button
+          size="sm"
+          className="ml-auto gap-1 bg-blue-500 hover:bg-blue-600 text-white"
+          onClick={() => {
+            if (window.history.length <= 1) {
+              window.close();
+            } else {
+              navigate(-1);
+            }
+          }}
+        >
+          <X className="h-3.5 w-3.5" />
+          Close preview
+        </Button>
       </div>
 
       <CertificatePageShell className="min-h-screen py-6 space-y-6">
-        <FocusHeader
-          onBack={() => navigate(docId ? `/letter/${docId}/compose` : '/docs')}
-          label="Close preview"
-        />
 
         {viewState === 'cover' ? (
           <LetterCover
@@ -378,7 +387,7 @@ function LetterPreviewFlow({
             readOnly
             className="w-full max-w-sm"
           />
-          <Drawer open dismissible={false}>
+          <Drawer open dismissible={false} modal={false}>
             <DrawerContent overlayClassName="bg-transparent">
               <DrawerHeader className="sr-only">
                 <DrawerTitle>Rate this story</DrawerTitle>
