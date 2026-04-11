@@ -2,6 +2,22 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-11 [process]: Plan files can carry full diagnosis without a visible spec — spec gate bypassable (Status: proposed)
+
+**Context:** P692 meta-reflection. A plan file in `~/.claude/plans/` held the complete root cause analysis. The agent read it, wrote the fix, and created the spec mid-session on the feature branch — not on main. The spec appeared on kanban only after the fix was committed. The founder had no window to challenge the root cause before code landed.
+**Decision:** Recognized gap, no fix applied yet. Two options on the table: (A) require spec committed to main before worktree work begins; (B) leave as-is and review at PR/ship time. Option A was deferred — only worth the friction if the founder actively wants to falsify diagnoses before implementation. Plan files with agent-generated diagnoses (not founder-reviewed) carry more risk than files from prior planning sessions.
+**Alternatives rejected:** None yet — decision is open.
+**Consequences:** Any `/fix` session that starts from a plan file bypasses the spec-as-gate pattern. The risk is proportional to how much the root cause was agent-generated vs. founder-reviewed. To resolve: update the `/fix` Phase 0.pre to require `git commit` of the spec on main before entering a worktree. Remove `(Status: proposed)` when resolved.
+**References:** [fix skill](/.claude/commands/slava/build/fix.md)
+
+## 2026-04-11 [process]: Grep all callers before replacing an exported function — added to src.md
+
+**Context:** P692 near-miss. The fix plan prescribed replacing `getDeliveriesForLetter` with a batched version. The agent wrote the replacement first, then grepped — found `letters-section.tsx` also used the old function. Correct outcome but wrong sequence; in a larger codebase a late grep could miss a caller.
+**Decision:** Rule added to `.claude/rules/src.md`: before replacing or removing any exported function, grep all callers first, then write the replacement. Correct sequence: search → understand full impact → implement → update all call sites in the same commit.
+**Alternatives rejected:** Treating it as covered by "check what exists before building" (CLAUDE.md) — that principle targets pre-implementation research, not refactor sequencing. Different category.
+**Consequences:** Rule auto-loads whenever any `src/**/*.ts(x)` file is edited. No CLAUDE.md change needed — file-specific rules belong in `.claude/rules/`.
+**References:** [src.md](/.claude/rules/src.md)
+
 ## 2026-04-11 [process]: migrate.sh auto-fallback for worktrees; pre-commit Layer 2 grep excludes scripts/
 
 **Context:** Two infra friction points discovered during the P690/P691 fix session. (1) `migrate.sh` failed in a worktree with "Cannot find project ref" because the worktree branch is not linked to a Supabase project via `supabase link`. The Management API fallback existed but was not triggered by this specific error message — requiring manual `curl` commands to apply migrations. (2) Staging `migrate.sh` for commit triggered the pre-commit Layer 2 grep secret scan, which falsely flagged `SUPABASE_ACCESS_TOKEN=` (an env var *name* reference in a shell script) as a potential secret. `migrate.sh` had been committed before without issue; the Layer 2 scanner was tightened in a later commit without re-validating existing scripts.
