@@ -21,6 +21,9 @@ import { ClarityPageLoader } from '@/components/ui/clarity-loader';
 import { LetterCover } from '@/app/components/letters/letter-cover';
 import { LetterProgressBar } from '@/app/components/letters/letter-progress-bar';
 import { LetterCompletionSummary } from '@/app/components/letters/letter-completion-summary';
+import { LetterRecipientDone } from '@/app/components/letters/letter-recipient-done';
+import { LetterStaleTermsModal } from '@/app/components/letters/letter-stale-terms-modal';
+import { CURRENT_TERMS_VERSION, ACCEPTED_TERMS_VERSIONS } from '@/lib/constants';
 import { LiveStoryCardExpanded } from '@/app/components/partners/live-story-card-expanded';
 import { PointCardWithLinks } from '@/app/components/social/point-card-with-links';
 import type { PointProfileOwner } from '@/app/components/social/point-card-with-links';
@@ -79,6 +82,12 @@ export function LetterReadingPage() {
   const [isAuthenticating, setIsAuthenticating] = useState(false);
   const [authDelayed, setAuthDelayed] = useState(false);
   const authDelayTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // P683: TOS consent
+  const [termsAccepted, setTermsAccepted] = useState(false);
+  const [consentError, setConsentError] = useState<string | null>(null);
+  const [showStaleTerms, setShowStaleTerms] = useState(false);
+  const [staleTermsResolved, setStaleTermsResolved] = useState(false);
 
   // Load data on mount (skip re-load if already past cover — avoids flash after verifyOtp auth)
   useEffect(() => {
@@ -179,9 +188,14 @@ export function LetterReadingPage() {
   // 1-to-1 auth handler: calls create-and-open-letter edge function → verifyOtp
   const handleOneToOneOpen = useCallback(async () => {
     if (!token || !delivery) return;
+    if (!termsAccepted) {
+      setConsentError('Please accept the Terms of Service to continue.');
+      return;
+    }
 
     setIsAuthenticating(true);
     setAuthDelayed(false);
+    setConsentError(null);
 
     // Start 5s delay timer for "Setting up your access..." message
     authDelayTimerRef.current = setTimeout(() => setAuthDelayed(true), 5000);
@@ -189,7 +203,13 @@ export function LetterReadingPage() {
     try {
       const { data: result, error: fnError } = await supabase.functions.invoke(
         'create-and-open-letter',
-        { body: { token } }
+        {
+          body: {
+            token,
+            termsAccepted: true,
+            termsVersion: CURRENT_TERMS_VERSION,
+          },
+        }
       );
 
       if (fnError || !result?.ok) {
@@ -204,19 +224,8 @@ export function LetterReadingPage() {
         });
 
         if (otpError) {
-          // Fallback: send magic link email using email from edge function response
-          console.warn('[letter-reading] verifyOtp failed, falling back to signInWithOtp:', otpError.message);
-          const receiverEmail = result.receiverEmail;
-          if (receiverEmail) {
-            await supabase.auth.signInWithOtp({
-              email: receiverEmail,
-              options: {
-                shouldCreateUser: false,
-                emailRedirectTo: `${window.location.origin}/letter/${deliveryId}?token=${token}`,
-              },
-            });
-          }
-          toast.info("We couldn't sign you in automatically. Check your email for a sign-in link.");
+          console.warn('[letter-reading] verifyOtp failed:', otpError.message);
+          setConsentError("We couldn't sign you in automatically. Please try again in a moment.");
           setIsAuthenticating(false);
           setAuthDelayed(false);
           if (authDelayTimerRef.current) clearTimeout(authDelayTimerRef.current);
@@ -254,10 +263,54 @@ export function LetterReadingPage() {
 
       const message = err instanceof Error && err.message.includes('timed out')
         ? 'The connection timed out. Please check your internet and try again.'
-        : 'Something went wrong. Please try again.';
-      toast.error(message);
+        : err instanceof Error && err.message
+          ? err.message
+          : 'Something went wrong. Please try again.';
+      setConsentError(message);
     }
-  }, [token, delivery, deliveryId, letter, snapshots.length]);
+  }, [token, delivery, letter, snapshots.length, termsAccepted]);
+
+  // P683: check stale terms for authenticated users before opening
+  useEffect(() => {
+    if (!currentUser || !letter || staleTermsResolved) return;
+    if (viewState !== 'cover') return;
+
+    (async () => {
+      const { data } = await supabase
+        .from('profiles')
+        .select('accepted_terms_version')
+        .eq('id', currentUser.id)
+        .single();
+      const current = data?.accepted_terms_version;
+      if (!current || !(ACCEPTED_TERMS_VERSIONS as readonly string[]).includes(current)) {
+        setShowStaleTerms(true);
+      } else {
+        setStaleTermsResolved(true);
+      }
+    })();
+  }, [currentUser, letter, viewState, staleTermsResolved]);
+
+  const handleStaleTermsAccept = useCallback(async () => {
+    if (!currentUser) return;
+    try {
+      const { error: updErr } = await supabase
+        .from('profiles')
+        .update({ accepted_terms_version: CURRENT_TERMS_VERSION })
+        .eq('id', currentUser.id);
+      if (updErr) throw updErr;
+      // Client-side audit row — server-side IP hashing not available here, so leave ip_hash null
+      await supabase.from('terms_acceptances').insert({
+        user_id: currentUser.id,
+        terms_version: CURRENT_TERMS_VERSION,
+        user_agent: navigator.userAgent,
+      });
+      setShowStaleTerms(false);
+      setStaleTermsResolved(true);
+    } catch (err) {
+      console.error('[letter-reading] Stale terms accept failed:', err);
+      toast.error('Could not save your acceptance. Please try again.');
+    }
+  }, [currentUser]);
 
   // ---- Error states ----
 
@@ -350,33 +403,51 @@ export function LetterReadingPage() {
   return (
     <CertificatePageShell className="min-h-screen py-6 space-y-6">
       {viewState === 'cover' && (
-        <LetterCover
-          senderName={senderName}
-          receiverName={receiverDisplayName}
-          storyCount={snapshots.length}
-          estimatedMinutes={Math.max(1, Math.ceil(snapshots.length * 2))}
-          mode={letter.mode}
-          isAuthenticating={isAuthenticating}
-          authDelayed={authDelayed}
-          onOpen={() => {
-            if (letter.mode === 'one-to-one' && token && !currentUser) {
-              handleOneToOneOpen();
-            } else {
-              if (token) {
-                updateDeliveryStatusByToken(token, 'opened').catch(() => {});
+        <>
+          <LetterCover
+            senderName={senderName}
+            receiverName={receiverDisplayName}
+            storyCount={snapshots.length}
+            estimatedMinutes={Math.max(1, Math.ceil(snapshots.length * 2))}
+            mode={letter.mode}
+            isAuthenticated={!!currentUser}
+            isAuthenticating={isAuthenticating}
+            authDelayed={authDelayed}
+            termsAccepted={termsAccepted}
+            onTermsChange={(checked) => {
+              setTermsAccepted(checked);
+              if (checked) setConsentError(null);
+            }}
+            errorMessage={consentError}
+            onOpen={() => {
+              if (letter.mode === 'one-to-one' && token && !currentUser) {
+                handleOneToOneOpen();
               } else {
-                updateDeliveryStatus(delivery.id, 'opened').catch(() => {});
+                if (currentUser && !staleTermsResolved) {
+                  setShowStaleTerms(true);
+                  return;
+                }
+                if (token) {
+                  updateDeliveryStatusByToken(token, 'opened').catch(() => {});
+                } else {
+                  updateDeliveryStatus(delivery.id, 'opened').catch(() => {});
+                }
+                setViewState('reading');
+                analytics.track('letter_opened', {
+                  delivery_id: delivery.id,
+                  letter_id: letter.id,
+                  mode: letter.mode,
+                  story_count: snapshots.length,
+                });
               }
-              setViewState('reading');
-              analytics.track('letter_opened', {
-                delivery_id: delivery.id,
-                letter_id: letter.id,
-                mode: letter.mode,
-                story_count: snapshots.length,
-              });
-            }
-          }}
-        />
+            }}
+          />
+          <LetterStaleTermsModal
+            open={showStaleTerms}
+            onAccept={handleStaleTermsAccept}
+            onCancel={() => setShowStaleTerms(false)}
+          />
+        </>
       )}
 
       {viewState === 'reading' && (
@@ -391,7 +462,11 @@ export function LetterReadingPage() {
         />
       )}
 
-      {viewState === 'complete' && (
+      {viewState === 'complete' && letter.mode === 'one-to-one' && (
+        <LetterRecipientDone senderName={senderName} />
+      )}
+
+      {viewState === 'complete' && letter.mode !== 'one-to-one' && (
         <LetterCompletionSummary
           deliveryId={delivery.id}
           letterData={{

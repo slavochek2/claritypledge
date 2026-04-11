@@ -15,8 +15,16 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
+import { hashIp, extractClientIp } from '../_shared/hash-ip.ts';
 
 const AVATAR_COLORS = ['#0044CC', '#002B5C', '#FFD700', '#FF6B6B', '#4ECDC4'];
+
+const ACCEPTED_TERMS_VERSIONS = ['v1.2'] as const;
+type AcceptedTermsVersion = (typeof ACCEPTED_TERMS_VERSIONS)[number];
+
+function isAcceptedTermsVersion(v: unknown): v is AcceptedTermsVersion {
+  return typeof v === 'string' && (ACCEPTED_TERMS_VERSIONS as readonly string[]).includes(v);
+}
 
 const ALLOWED_ORIGIN = Deno.env.get('APP_URL') ?? 'https://claritypledge.com';
 
@@ -56,7 +64,17 @@ serve(async (req: Request) => {
 
     const supabase = createClient(supabaseUrl, serviceRoleKey);
 
-    const { token } = await req.json() as { token?: string };
+    const ipHashSecret = Deno.env.get('IP_HASH_SECRET');
+    if (!ipHashSecret) {
+      console.error('[create-and-open-letter] IP_HASH_SECRET not configured');
+      return jsonResponse({ error: 'INTERNAL', message: 'Server misconfiguration' }, 500);
+    }
+
+    const { token, termsAccepted, termsVersion } = await req.json() as {
+      token?: string;
+      termsAccepted?: unknown;
+      termsVersion?: unknown;
+    };
 
     // -- Input validation -----------------------------------------------------
 
@@ -68,6 +86,39 @@ serve(async (req: Request) => {
     const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
     if (!uuidRegex.test(token)) {
       return jsonResponse({ error: 'INVALID_INPUT', message: 'Invalid token format' }, 400);
+    }
+
+    // Strict boolean check — not truthy string coercion
+    if (termsAccepted !== true) {
+      return jsonResponse(
+        { error: 'TERMS_NOT_ACCEPTED', message: 'You must accept the Terms of Service to continue' },
+        400,
+      );
+    }
+
+    // Allowlist check — prevents client-supplied junk versions
+    if (!isAcceptedTermsVersion(termsVersion)) {
+      return jsonResponse(
+        { error: 'INVALID_TERMS_VERSION', message: 'Unsupported terms version' },
+        400,
+      );
+    }
+
+    const clientIp = extractClientIp(req);
+    const userAgent = req.headers.get('user-agent') ?? 'unknown';
+    const ipHash = await hashIp(clientIp, ipHashSecret);
+
+    async function recordTermsAcceptance(userId: string): Promise<void> {
+      const { error } = await supabase.from('terms_acceptances').insert({
+        user_id: userId,
+        terms_version: termsVersion,
+        ip_hash: ipHash,
+        user_agent: userAgent,
+      });
+      if (error && error.code !== '23505') {
+        // 23505 = unique violation (already recorded); any other error logged
+        console.error('[create-and-open-letter] terms_acceptances insert failed:', error.message);
+      }
     }
 
     // -- Validate token via RPC -----------------------------------------------
@@ -222,7 +273,7 @@ serve(async (req: Request) => {
               avatar_color: avatarColorFallback,
               is_verified: true,
               has_pledged: false,
-              accepted_terms_version: 'v1.1',
+              accepted_terms_version: termsVersion,
               pledge_version: 2,
             });
 
@@ -231,6 +282,8 @@ serve(async (req: Request) => {
               return jsonResponse({ error: 'PROFILE_FAILED', message: 'Account setup failed' }, 500);
             }
           }
+
+          await recordTermsAcceptance(existingAuth.user.id);
 
           await supabase.from('letter_deliveries').update({
             receiver_profile_id: existingAuth.user.id,
@@ -242,7 +295,6 @@ serve(async (req: Request) => {
         return jsonResponse({
           ok: true,
           hashedToken: fallbackLink.properties.hashed_token,
-          receiverEmail,
           redirectTo: `/letter/${deliveryId}`,
         });
       }
@@ -289,7 +341,7 @@ serve(async (req: Request) => {
         avatar_color: avatarColor,
         is_verified: true,
         has_pledged: false,
-        accepted_terms_version: 'v1.1',
+        accepted_terms_version: termsVersion,
         pledge_version: 2,
       });
 
@@ -297,6 +349,10 @@ serve(async (req: Request) => {
       console.error('[create-and-open-letter] profile insert failed:', profileError.message);
       return jsonResponse({ error: 'PROFILE_FAILED', message: 'Account creation failed' }, 500);
     }
+
+    // -- Record terms acceptance audit row ------------------------------------
+
+    await recordTermsAcceptance(newUserId);
 
     // -- Link delivery to new user --------------------------------------------
 
@@ -331,7 +387,6 @@ serve(async (req: Request) => {
     return jsonResponse({
       ok: true,
       hashedToken: linkData.properties.hashed_token,
-      receiverEmail,
       redirectTo: `/letter/${deliveryId}`,
     });
 

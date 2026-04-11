@@ -11,6 +11,7 @@ import { AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { CertificatePageShell } from '@/app/components/layout/certificate-page-shell';
 import { FocusHeader } from '@/app/components/layout/focus-header';
+import { LetterCover } from '@/app/components/letters/letter-cover';
 import { LetterProgressBar } from '@/app/components/letters/letter-progress-bar';
 import { LiveStoryCardExpanded } from '@/app/components/partners/live-story-card-expanded';
 import { PointCardWithLinks } from '@/app/components/social/point-card-with-links';
@@ -65,6 +66,7 @@ export function LetterPreviewPage() {
 
   const [snapshots, setSnapshots] = useState<LetterStorySnapshot[]>([]);
   const [fetchState, setFetchState] = useState<'loading' | 'done' | 'not-found'>('loading');
+  const [viewState, setViewState] = useState<'cover' | 'reading'>('cover');
 
   useEffect(() => {
     if (!docId) return;
@@ -129,17 +131,26 @@ export function LetterPreviewPage() {
 
       <CertificatePageShell className="min-h-screen py-6 space-y-6">
         <FocusHeader
-          onBack={() => {
-            window.close();
-            setTimeout(() => navigate(docId ? `/letter/${docId}/compose` : '/docs'), 100);
-          }}
+          onBack={() => navigate(docId ? `/letter/${docId}/compose` : '/docs')}
           label="Close preview"
         />
 
-        <LetterPreviewFlow
-          docId={docId ?? ''}
-          snapshots={snapshots}
-        />
+        {viewState === 'cover' ? (
+          <LetterCover
+            senderName={currentUser?.name ?? 'You'}
+            receiverName="your recipient"
+            storyCount={snapshots.length}
+            estimatedMinutes={Math.max(1, Math.ceil(snapshots.length * 2))}
+            mode="one-to-one"
+            isAuthenticated
+            onOpen={() => setViewState('reading')}
+          />
+        ) : (
+          <LetterPreviewFlow
+            docId={docId ?? ''}
+            snapshots={snapshots}
+          />
+        )}
       </CertificatePageShell>
     </>
   );
@@ -267,10 +278,7 @@ function LetterPreviewFlow({
           This is what the receiver will experience.
         </p>
         <Button
-          onClick={() => {
-            window.close();
-            setTimeout(() => navigate(`/letter/${docId}/compose`), 100);
-          }}
+          onClick={() => navigate(`/letter/${docId}/compose`)}
           className="bg-[#0044CC] hover:bg-[#0033AA] text-white"
         >
           Close preview

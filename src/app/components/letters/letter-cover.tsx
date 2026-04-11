@@ -1,11 +1,11 @@
 /**
  * @file letter-cover.tsx
- * @description P581 Task 7: Letter cover component shown before reading begins.
- * Parchment-style cover with sender/receiver info and "Open the Letter" CTA.
+ * @description P581 Task 7 + P683: Letter cover with GDPR-compliant TOS consent for unauthenticated recipients.
  */
 
 import { Mail, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Link } from 'react-router-dom';
 import type { LetterMode } from '@/app/types';
 
@@ -16,9 +16,16 @@ interface LetterCoverProps {
   estimatedMinutes: number;
   mode: LetterMode;
   onOpen: () => void;
+  isAuthenticated?: boolean;
   isAuthenticating?: boolean;
   authDelayed?: boolean;
+  termsAccepted?: boolean;
+  onTermsChange?: (checked: boolean) => void;
+  errorMessage?: string | null;
 }
+
+const CHECKBOX_ID = 'letter-cover-terms-accept';
+const HINT_ID = 'letter-cover-open-hint';
 
 export function LetterCover({
   senderName,
@@ -27,17 +34,27 @@ export function LetterCover({
   estimatedMinutes,
   mode,
   onOpen,
+  isAuthenticated = false,
   isAuthenticating = false,
   authDelayed = false,
+  termsAccepted = false,
+  onTermsChange,
+  errorMessage = null,
 }: LetterCoverProps) {
+  const needsConsent = mode === 'one-to-one' && !isAuthenticated;
+  const isDisabled = isAuthenticating || (needsConsent && !termsAccepted);
+
+  const handleOpen = () => {
+    if (isDisabled) return;
+    onOpen();
+  };
+
   return (
     <div className="flex flex-col items-center justify-center min-h-[60vh] text-center space-y-8 py-10">
-      {/* Envelope icon */}
       <div className="w-16 h-16 rounded-full bg-[#0044CC]/10 flex items-center justify-center">
         <Mail className="w-8 h-8 text-[#0044CC]" />
       </div>
 
-      {/* Title */}
       <div className={`space-y-2 transition-opacity duration-300 ${isAuthenticating ? 'opacity-50 pointer-events-none' : ''}`}>
         <p className="text-xs uppercase tracking-widest text-[#1A1A1A]/40 font-medium">
           A Clarity Letter
@@ -53,17 +70,63 @@ export function LetterCover({
         </p>
       </div>
 
-      {/* Stats */}
       <p className={`text-sm text-[#1A1A1A]/50 transition-opacity duration-300 ${isAuthenticating ? 'opacity-50 pointer-events-none' : ''}`}>
         {storyCount} {storyCount === 1 ? 'story' : 'stories'} &middot; ~{estimatedMinutes} {estimatedMinutes === 1 ? 'minute' : 'minutes'}
       </p>
 
-      {/* CTA */}
+      {needsConsent && (
+        <div className="w-full max-w-md space-y-4 text-left">
+          <div className="flex items-start gap-3 min-h-[40px]">
+            <Checkbox
+              id={CHECKBOX_ID}
+              checked={termsAccepted}
+              onCheckedChange={(checked) => onTermsChange?.(checked === true)}
+              disabled={isAuthenticating}
+              className="mt-0.5"
+            />
+            <label
+              htmlFor={CHECKBOX_ID}
+              className="text-sm text-[#1A1A1A] leading-snug cursor-pointer select-none"
+            >
+              I accept the{' '}
+              <Link
+                to="/terms-of-service"
+                className="underline hover:text-[#0044CC]"
+                onClick={(e) => e.stopPropagation()}
+              >
+                Terms of Service
+              </Link>{' '}
+              and{' '}
+              <Link
+                to="/privacy-policy"
+                className="underline hover:text-[#0044CC]"
+                onClick={(e) => e.stopPropagation()}
+              >
+                Privacy Policy
+              </Link>
+              .
+            </label>
+          </div>
+          <p className="text-xs text-[#1A1A1A]/50 mt-1">
+            We&rsquo;ll create an account to save your responses.
+          </p>
+        </div>
+      )}
+
+      <span id={HINT_ID} className="sr-only">
+        {needsConsent && !termsAccepted
+          ? 'Accept the Terms of Service and Privacy Policy to open the letter'
+          : 'Opens the letter for reading'}
+      </span>
+
       <Button
-        onClick={onOpen}
-        disabled={isAuthenticating}
+        onClick={handleOpen}
+        aria-disabled={isDisabled}
+        aria-describedby={HINT_ID}
         size="lg"
-        className="bg-[#0044CC] hover:bg-[#0033AA] text-white text-base px-8 py-6 min-h-[48px] disabled:opacity-100"
+        className={`bg-[#0044CC] hover:bg-[#0033AA] text-white text-base px-8 py-6 min-h-[48px] ${
+          isDisabled ? 'opacity-60 cursor-not-allowed hover:bg-[#0044CC]' : ''
+        }`}
         aria-busy={isAuthenticating}
         aria-label={isAuthenticating ? 'Opening the letter, please wait' : undefined}
       >
@@ -77,21 +140,19 @@ export function LetterCover({
         )}
       </Button>
 
-      {/* Delayed auth message */}
       {authDelayed && (
         <p className="text-xs text-[#1A1A1A]/40 animate-pulse">
           Setting up your access...
         </p>
       )}
 
-      {/* ToS for 1-to-1 (D48) */}
-      {mode === 'one-to-one' && (
-        <p className="text-xs text-[#1A1A1A]/50 max-w-xs">
-          By opening, you accept the{' '}
-          <Link to="/terms-of-service" className="underline hover:text-[#1A1A1A]">
-            Terms of Service
-          </Link>
-        </p>
+      {errorMessage && (
+        <div
+          role="alert"
+          className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-md px-4 py-3 max-w-md"
+        >
+          {errorMessage}
+        </div>
       )}
     </div>
   );

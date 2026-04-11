@@ -23,6 +23,7 @@ import { triggerConfetti } from '@/lib/confetti';
 import { CertificatePageShell } from '@/app/components/layout/certificate-page-shell';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { CURRENT_TERMS_VERSION } from '@/lib/constants';
 import {
   Dialog,
   DialogContent,
@@ -376,7 +377,12 @@ export function AcceptAgreementPage() {
     analytics.track('agreement_direct_sign_started', { agreement_id: agreementId });
     try {
       const { data, error } = await supabase.functions.invoke('create-and-sign', {
-        body: { agreementId, token, partnerName: partnerDisplayName.trim() },
+        body: {
+          agreementId,
+          token,
+          partnerName: partnerDisplayName.trim(),
+          termsVersion: CURRENT_TERMS_VERSION,
+        },
       });
 
       if (error || !data?.ok || !data?.hashedToken) {
