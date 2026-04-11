@@ -56,8 +56,13 @@ describe('InboxTab — P689 read/unread indicators', () => {
     // Wait for items to load
     await screen.findByText(/Alice/);
 
-    const dots = container.querySelectorAll('span[aria-hidden="true"].rounded-full');
-    expect(dots).toHaveLength(2);
+    // Query per-row so we're asserting each row has a dot, not a global count
+    const rows = container.querySelectorAll('.rounded-lg.border');
+    expect(rows).toHaveLength(2);
+    rows.forEach((row) => {
+      const dot = row.querySelector('span[aria-hidden="true"].rounded-full');
+      expect(dot).not.toBeNull();
+    });
   });
 
   it('unread row dot has opacity-100, read row dot has opacity-0', async () => {
