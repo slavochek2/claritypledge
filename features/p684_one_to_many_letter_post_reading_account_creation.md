@@ -33,6 +33,20 @@ delivery_stage: spec-review
 
 **Do not run `/dev` on P684 until w2 is merged to main.** Running pipeline skills that assume these files exist will fail spec-review and dev gates.
 
+### Reconciliation pass 2026-04-11 (post P683/P690–P693)
+
+This spec was drafted 2026-04-10 before P683 shipped and before P690–P693 landed on w2. A reconciliation pass on 2026-04-11 updated the technical layer against w2's current state. Summary of what changed — implementing agents should read these sections for the rewritten guidance:
+
+- **AD2 (auth guard plan)** — rewritten from blanket `auth.uid() IS NOT NULL` to **mode-gated** (rejects only when joined letter `mode = 'one-to-many'`). A blanket guard would regress P648/P683/P691 (one-to-one token-as-session-bootstrap, sentinel UUID path is LIVE code).
+- **AD1 step 2–3** — look up users via `get_auth_user_by_email()` SECURITY DEFINER RPC (not `profiles.email`), with orphan-profile self-heal per P683 commit 3208215e.
+- **AD7** — canonical reference pattern is now `create-and-open-letter` (which already implements unified `createUser` + `generateLink`), not `send-agreement-emails.handleInvitation()` (which still has split branches on w2).
+- **AD3** — added P690 SECURITY DEFINER invariant: anon readers must load stories server-side because source `clarity_docs` rows may carry `visibility = 'private'`.
+- **AD4** — rewritten against the w2 P691/P693 3-branch reading page structure; added AD4.1 with P692 `getSession()` rule and P693 `!!session` anti-flash rule for the confirm route.
+- **Build Sequence step 1** — clone RPCs from `20260411201933_p683_engagement_rpcs_drop_expiry_check.sql`, not the P642 original (CREATE OR REPLACE migration source rule, P683 KDD).
+- **Test Coverage** — RPC auth-guard tests now assert BOTH the one-to-many reject AND the one-to-one accept for each of the 4 RPCs; added MutationObserver no-flash canary on the confirm route.
+
+KDD sources: `docs/decisions.md` entries from commits 9b8d780a, 50a1dbd3, 3208215e, 54f7c6f0, 43911b8a, bba31e13.
+
 ## Solution
 
 ### Gate: account required to persist responses (one-to-many)
@@ -318,10 +332,10 @@ End-of-letter form receives focus on mount; native checkbox; aria-live on "check
 - `get_letter_by_token(UUID)` — lightweight token lookup for the edge function.
 
 **Client-side service:**
-- `src/app/data/letters-service.ts` (w2) — all token-based RPC wrappers (`submitRatingByToken`, `submitPointResponseByToken`, `revealPredictionByToken`, `updateDeliveryStatusByToken`), plus authenticated direct-table equivalents.
+- `src/app/data/letters-service.ts` (w2) — all token-based RPC wrappers (`submitRatingByToken`, `submitPointResponseByToken`, `revealPredictionByToken`, `updateDeliveryStatusByToken`), plus authenticated direct-table equivalents. `requireAuth()` at line ~31 uses `supabase.auth.getSession()` (NOT `getUser()`) per P692 — new helpers in this file must match. `submitPointResponse()` intentionally skips `requireAuth` (see inline comment lines ~357–358); do not add a guard there.
 
 **Reading page:**
-- `src/app/pages/letter-reading-page.tsx` (w2) — route `/letter/:id`. Currently handles two paths: (1) `?token=xxx` for one-to-one (RPC-based read + `create-and-open-letter` auth flow), (2) no token for authenticated direct access. **One-to-many public link uses `/letter/${letterId}` with NO token and NO delivery row** — the reading page currently falls into the unauthenticated path and shows "Sign in to read this letter." This is the path P684 must intercept.
+- `src/app/pages/letter-reading-page.tsx` (w2) — route `/letter/:id`. **Rewritten for P691/P693.** Current structure: `sessionChecked` gate → (a) `currentUser` (with `!!session` anti-flash from P693) → authed RLS read path; (b) `token` param → one-to-one token verify/open via `create-and-open-letter`; (c) else → anon dead-end. P684 replaces branch (c) for `mode = 'one-to-many'` letters with the `get_letter_for_public_reading` local-state path (AD4). Prior P684 draft described a two-path structure — that description is stale. Re-read the file on `feature/letters-ship` before implementing to find the exact branch labels.
 
 **State machine:**
 - `src/app/hooks/useLetterReadingState.ts` (w2) — manages story index, phase, ratings, positions. Persists to `sessionStorage` keyed by `delivery-${deliveryId}`. Forward-only transitions. Currently receives `deliveryId` as required param — before signup there is no deliveryId.
@@ -337,8 +351,9 @@ End-of-letter form receives focus on mount; native checkbox; aria-live on "check
 - `supabase/migrations/20260107_p37_consent_mechanism.sql` — `terms_acceptances` table schema (user_id, terms_version, ip_hash, user_agent). RLS: authenticated insert only.
 
 **Auth patterns:**
-- `create-and-open-letter` uses `auth.admin.generateLink({ type: 'magiclink' })` + client-side `supabase.auth.verifyOtp({ token_hash, type: 'magiclink' })` for instant auth without email click.
+- `create-and-open-letter` uses `auth.admin.generateLink({ type: 'magiclink' })` + client-side `supabase.auth.verifyOtp({ token_hash, type: 'magiclink' })` for instant auth without email click. **Already implements the unified new-user + existing-user `generateLink` path** (lines 240–324 self-heal orphan profiles, line 324 `createUser`, line 416 `generateLink`). This is the canonical reference for AD7 — NOT `send-agreement-emails handleInvitation()`, which still has split branches on w2.
 - `src/auth/AuthCallbackPage.tsx` — profile creation after email verification (NOT via trigger).
+- `get_auth_user_by_email(p_email)` — SECURITY DEFINER RPC on w2 (`supabase/migrations/20260411120000_p683_auth_user_lookup_rpc.sql`). Use this to look up existing users by email from edge functions; supabase-js v2 has no `auth.admin.getUserByEmail`. See P683 KDD on supabase-js v2 admin API gaps.
 
 #### Current One-to-Many Reading Flow (broken)
 
@@ -373,9 +388,10 @@ Output (unified, regardless of whether the email is new or existing): `{ ok: tru
 
 Steps (service role):
 1. Validate: letter exists, status `sealed`, mode `one-to-many`. `termsAccepted === true`. `termsVersion` in server allowlist. Email format + lowercase + trim. `name.trim().slice(0, 100)`.
-2. Look up existing user via `profiles.email`.
-3. If no user: `auth.admin.createUser({ email, email_confirm: false })`. Let the existing profile-on-auth trigger / `AuthCallbackPage` handle profile row creation. Do NOT write `receiver_*` data yet.
-4. Mint a magic link: `supabase.auth.admin.generateLink({ type: 'magiclink', email, options: { redirectTo: `${appUrl}/letter/${letterId}/confirm?pending=${letterId}` } })`. This is the same pattern as `send-agreement-emails/index.ts handleInvitation()` lines 132-183.
+2. **Look up existing user via `get_auth_user_by_email(p_email)` SECURITY DEFINER RPC** (w2 migration `20260411120000_p683_auth_user_lookup_rpc.sql`). **Do NOT** look up via `profiles.email` — per P683 KDD (`docs/decisions.md`, commit 50a1dbd3): supabase-js v2 has no `auth.admin.getUserByEmail`; `admin.listUsers({ email })` is paginated; `profiles.email` misses orphan `auth.users` rows (the exact class P683 commit 3208215e self-heals).
+3. **If no user:** `auth.admin.createUser({ email, email_confirm: false })`. Let the existing profile-on-auth trigger / `AuthCallbackPage` handle profile row creation.
+   **If user exists but has NO `profiles` row (orphan case):** create the profile row server-side before minting the link, mirroring `create-and-open-letter/index.ts` lines 240–324. This prevents the next submit from looping on the same orphan. Do NOT write `receiver_*` data yet.
+4. Mint a magic link: `supabase.auth.admin.generateLink({ type: 'magiclink', email, options: { redirectTo: `${appUrl}/letter/${letterId}/confirm?pending=${letterId}` } })`. **Reference implementation: `supabase/functions/create-and-open-letter/index.ts` (w2) lines 324 (`createUser`) + 416 (`generateLink`)** — that function already unifies the new-user + existing-user branches through `generateLink` for timing parity. `send-agreement-emails/index.ts handleInvitation()` still has the split branches and should NOT be used as the reference.
 5. Send a branded Mailgun email (not Supabase default) with the `action_link` embedded as the CTA. Subject + body copy come from founder; template style copies from existing `send-agreement-emails` HTML template.
 6. Return `{ ok: true }` regardless of steps 2-5 outcomes (as long as input validation passed and Mailgun didn't hard-fail). Rate-limit or service errors return a generic error; never leak account existence.
 
@@ -436,19 +452,25 @@ Stores ratings + positions + TOS acceptance between signin-request and magic-lin
 
 **Cleanup:** A scheduled function (out of scope for this spec — see Non-Goals) deletes rows where `expires_at < now()`. Manual cleanup via SQL is acceptable for v1 if the scheduler isn't wired.
 
-**AD2: Add `auth.uid() IS NOT NULL` guard inside all 4 response RPCs**
+**AD2: Mode-gated auth guard inside all 4 response RPCs (NOT a blanket `auth.uid() IS NOT NULL`)**
 
-Add an early check to each of `submit_rating_by_token`, `submit_point_response_by_token`, `reveal_prediction_by_token`, and `update_delivery_status_by_token`:
+> **Reconciliation note (2026-04-11):** Earlier drafts of this AD added a blanket `IF auth.uid() IS NULL THEN RAISE` to all 4 token RPCs. That design is **invalid against w2**. After P683/P690/P691 shipped, the token itself is the authorizer for one-to-one first-open — `submit_rating_by_token` and friends run on the `anon` role via `COALESCE(auth.uid(), sentinel_uuid)` by design (see w2 migration `20260411201933_p683_engagement_rpcs_drop_expiry_check.sql` and P691 authed-first-token-branching KDD in `docs/decisions.md`). A blanket guard would re-break P648 (sealed-bid speaker_id fix), P683 (expiry predicate drop), and P691 (token-as-session-bootstrap). The sentinel UUID path is **live code**, not dead.
+
+Instead, each of `submit_rating_by_token`, `submit_point_response_by_token`, `reveal_prediction_by_token`, `update_delivery_status_by_token` rejects only when the **joined letter's `mode = 'one-to-many'`** and `auth.uid() IS NULL`:
 
 ```sql
-IF auth.uid() IS NULL THEN
-  RAISE EXCEPTION 'Authentication required';
+-- After existing token validation + delivery lookup, before any writes
+IF (SELECT mode FROM clarity_letters WHERE id = v_letter_id) = 'one-to-many'
+   AND auth.uid() IS NULL THEN
+  RAISE EXCEPTION 'Authentication required for one-to-many responses';
 END IF;
 ```
 
-This is placed AFTER token validation but BEFORE any writes. Keep `GRANTED TO anon` — revoking the grant would break the Supabase client's ability to call the RPC without a session. The `anon` role can still *call* the function, but the function's internal check rejects unauthenticated callers. This is safe for one-to-one because `create-and-open-letter` authenticates the user before any RPCs execute — `auth.uid()` is always set.
+Placed AFTER token validation and the letter join, BEFORE any writes. Keeps `GRANT ... TO anon` intact. One-to-one flows are untouched because their letters carry `mode = 'one-to-one'` and bypass the branch entirely. One-to-many unauthenticated readers never hit these RPCs anyway under AD4 (they write to local state only), so the guard is a defense-in-depth belt against any client that bypasses AD4's local-state contract.
 
-**Exception: `update_delivery_status_by_token` needs a nuanced approach.** One-to-one currently calls `updateDeliveryStatusByToken(token, 'opened')` immediately after `verifyOtp` succeeds (line 230 of letter-reading-page). The auth check is safe here. But for one-to-many, the edge function creates the delivery with status `opened` directly, so no unauthenticated status update is needed.
+**`update_delivery_status_by_token`:** same mode-gated treatment. One-to-one's anon "mark opened" edge case from P691 still works because `mode = 'one-to-one'`.
+
+**Sentinel UUID cleanup is NOT part of this spec.** `COALESCE(auth.uid(), sentinel)` remains in `submit_rating_by_token` for the anon one-to-one path. Do not remove it.
 
 **AD3: New RPC `get_letter_for_public_reading(p_letter_id UUID)` for anonymous read access**
 
@@ -461,21 +483,33 @@ Currently one-to-many readers can't load the letter at all (no token, no auth). 
 
 This replaces the current dead path for one-to-many and enables browsing without auth.
 
-**AD4: Reading page — single local-state path for one-to-many**
+**Precedent and invariant (P690 KDD, commit 54f7c6f0):** This RPC must fetch stories + points directly inside the SECURITY DEFINER body. Do **not** let the client follow up with a PostgREST join from `clarity_letters` to `clarity_docs` — one-to-many letters routinely reference source docs with `visibility = 'private'`, which anon readers cannot select through RLS. P690's "RLS inner-join phantom count" KDD established that any anon-reachable letter surface must resolve doc/story data server-side in a SECURITY DEFINER body. **Test invariant:** a sealed one-to-many letter whose source `clarity_docs` row has `visibility = 'private'` must still load fully for an anon caller via this RPC.
 
-The reading page currently conflates "loading data" with "having a delivery." For one-to-many, the page supports a single local-state path for unauthenticated readers:
+**AD4: Reading page — add anon branch to the existing P691/P693 3-branch structure**
+
+> **Reconciliation note (2026-04-11):** An earlier draft described injecting P684 into a reading page that "currently conflates loading data with having a delivery." That description is stale. On w2, `letter-reading-page.tsx` has been rewritten for P691 (authed-first token branching) and P693 (session-vs-currentUser anti-flash). The current structure is roughly: `sessionChecked` gate → (a) `currentUser` → authed RLS path; (b) `token` param → one-to-one token verify/open via `create-and-open-letter`; (c) else → anon dead-end. P684 replaces branch (c) for `mode = 'one-to-many'` letters.
+
+The one-to-many anonymous branch supports a single local-state path:
 
 1. **Load letter via `get_letter_for_public_reading`** (no auth, no token, no delivery).
 2. **Render stories and points with fully interactive controls.** Ratings and positions are stored in React state only — no RPC calls, no `submit_rating_by_token`, no `submit_point_response_by_token`.
 3. **When the reader completes the final point**, render the end-of-letter signup form (State 3) in place of the authenticated completion summary.
 4. **On form submit**, POST the full ratings/positions payload to `request-letter-response-signin` (which writes the authoritative server-side pending row), then transition to State 5 ("check your email").
-5. **Authenticated readers** (State 2) skip the form. `letter-reading-page.tsx` already has the authenticated one-to-one path; for authenticated one-to-many it calls a new client-side helper `submitLetterResponseAuthenticated(letterId, ratings, positions, termsVersion)` in `letters-service.ts` that performs **inline sequential inserts under the user's JWT** — no new RPC. The helper uses the user's existing Supabase client (JWT already attached) to:
-   1. Insert `letter_deliveries` row (RLS-guarded by existing policies).
-   2. Insert `responses` rows from the ratings + positions arrays.
-   3. Insert `terms_acceptances` row (idempotent on `(user_id, terms_version)` — no-op if the user already accepted the current version).
-   4. Return success.
+5. **Authenticated readers** (State 2) skip the form — route through branch (a). For authenticated one-to-many readers, call a new client-side helper `submitLetterResponseAuthenticated(letterId, ratings, positions, termsVersion)` in `letters-service.ts` that performs **inline sequential inserts under the user's JWT** — no new RPC. The helper reads its session via **`supabase.auth.getSession()`** (NOT `getUser()`) — per P692 KDD (commit 43911b8a, `docs/decisions.md`): `getUser()` caused 27+ pending auth race conditions on the letters flow. The existing `requireAuth()` pattern in `letters-service.ts:31` already follows this rule — match it and add a one-line comment citing P692 so future tightening doesn't re-break it. The helper then:
+   1. Inserts `letter_deliveries` row (RLS-guarded by existing policies).
+   2. Inserts `responses` rows from the ratings + positions arrays.
+   3. Inserts `terms_acceptances` row (idempotent on `(user_id, terms_version)` — no-op if the user already accepted the current version).
+   4. Returns success.
 
    **Rationale for inline over a new RPC:** smaller blast radius (no new RPC to maintain, review, or version), the inserts are already RLS-guarded by existing policies, and the authenticated-reader path is low-volume enough that the three round-trips are not a bottleneck. If any step fails, the helper surfaces the error; **no partial rollback is attempted in v1** (documented limitation — a follow-up spec can wrap this in a SECURITY DEFINER RPC if needed). The `create-and-complete-one-to-many` RPC name mentioned in earlier drafts is explicitly dropped.
+
+**AD4.1: Confirm route anti-flash invariants (P692 + P693)**
+
+`LetterResponseConfirmPage` (State 7) renders immediately after `verifyOtp` completes — the exact surface P693 fixed for the one-to-one flow. Apply the same anti-flash invariants:
+
+- **Auth gating uses `!!session`, NOT `!!currentUser`.** Per P693 KDD (commit bba31e13, `docs/decisions.md`): AuthContext's `currentUser` lags `session` by ~200ms while the profile fetch resolves. Gating on `currentUser` produces a "Sign in to continue" flash between verifyOtp success and confirm-letter-response being callable. Gating on `session` eliminates it.
+- **No `ClarityPageLoader` inside the already-mounted layout.** Per P692 KDD (page-gate rule): `ClarityPageLoader` is for route-level gates, not inline state transitions. Use `ClarityLoader` inline for State 7's "Saving your responses…" spinner.
+- **Client error body parsing:** `confirmLetterResponse` in `letters-service.ts` must parse Supabase FunctionsHttpError via `fnError.context` directly (it IS the `Response`), NOT `fnError.context.response`. Same P683 gotcha as AD7 step 3.
 
 **AD5: localStorage draft contract (reading-phase only)**
 
@@ -519,18 +553,21 @@ const ipHash = await hashIp(clientIp, Deno.env.get('IP_HASH_SECRET'));
 
 `IP_HASH_SECRET` must be set as an edge-function secret in both prod and test. **Both P683 and P684 use the same helper and the same secret** so consent audit trails can be cross-referenced across letter flows (one-to-one and one-to-many) — the same IP produces the same hash regardless of which flow recorded the acceptance.
 
-**AD7: Branded Mailgun email — extends the `send-agreement-emails handleInvitation()` pattern**
+**AD7: Branded Mailgun email — mirrors the `create-and-open-letter` unified `generateLink` pattern**
 
-P684 extends the `send-agreement-emails handleInvitation()` pattern but unifies both new-user and existing-user branches through `generateLink` to close the timing oracle handleInvitation leaves open.
+P684 mirrors the unified `createUser` + `generateLink` pattern already implemented in `supabase/functions/create-and-open-letter/index.ts` (w2). Both new-user and existing-user branches flow through `generateLink` so timing and email shape are identical — this is what closes the enumeration oracle.
+
+> **Reconciliation note (2026-04-11):** An earlier draft pointed at `send-agreement-emails/index.ts handleInvitation()` as the reference. That function still has split branches on w2 (`ctaUrl = acceptUrl` for new users, `generateLink` only when user exists — see lines 153–183) — it does NOT implement the unification P684 needs. Reference `create-and-open-letter` instead.
 
 For a new email:
 
-1. First `supabase.auth.admin.createUser({ email, email_confirm: false })` to create the auth row.
-2. Then `supabase.auth.admin.generateLink({ type: 'magiclink', email, options: { redirectTo } })` — identical call site to the existing-user branch.
-3. Embed the returned `linkData.properties.action_link` as the CTA URL in the custom HTML template.
-4. Send via Mailgun with branded subject and body.
+1. `supabase.auth.admin.createUser({ email, email_confirm: false })` — mirrors `create-and-open-letter` line 324.
+2. `supabase.auth.admin.generateLink({ type: 'magiclink', email, options: { redirectTo } })` — mirrors `create-and-open-letter` line 416. Identical call site for new and existing user branches.
+3. **Client-side error handling:** per P683 KDD (commit 50a1dbd3, `docs/decisions.md`), the client-side `requestLetterResponseSignin` helper in `letters-service.ts` must parse Supabase FunctionsHttpError bodies via `fnError.context` directly (it IS the `Response` object) — NOT `fnError.context.response`. This is the same gotcha that bit P683's click-wrap fix. Apply symmetrically to `confirmLetterResponse`.
+4. Embed the returned `linkData.properties.action_link` as the CTA URL in the custom HTML template.
+5. Send via Mailgun with branded subject and body.
 
-This guarantees **uniform response timing** and **identical email shape** regardless of whether the email is new or existing, closing the enumeration oracle that the reference code still leaves open. P684 should explicitly not reuse `handleInvitation`'s new-user branch; it closes a gap rather than inheriting one.
+This guarantees **uniform response timing** and **identical email shape** regardless of whether the email is new or existing.
 
 **New dedicated Mailgun sender** (`send-letter-response-signin`) using a **new dedicated Mailgun template** — keeps the agreement and letter flows decoupled and matches the existing naming pattern (`send-letter-emails` already exists for letter delivery).
 
@@ -554,10 +591,10 @@ This guarantees **uniform response timing** and **identical email shape** regard
 - ✅ **Hijack check:** if `auth.uid()` does not match `pending.user_id` for the letter, return 403 and log to Sentry as a potential hijack attempt. This blocks a scenario where an attacker authenticates as user A and attempts to consume user B's pending row.
 
 **Authorization:**
-- ✅ Adding `auth.uid() IS NOT NULL` inside SECURITY DEFINER RPCs is the correct approach — preserves `GRANT TO anon` (needed for invocation) while rejecting unauthenticated callers.
-- ✅ One-to-one flow compatibility verified — users authenticate via `create-and-open-letter` before any response RPCs run.
-- ⚠️ **Use `RAISE EXCEPTION 'Authentication required'` not `RETURN false/NULL`.** Client needs to distinguish "not authenticated" from "invalid token".
-- ⚠️ **Sentinel UUID cleanup.** `submit_rating_by_token` uses `COALESCE(auth.uid(), '00000000-...')` as `listener_id` — after lockdown this is dead code. Clean up to prevent confusion.
+- ✅ **Mode-gated** auth guard inside SECURITY DEFINER RPCs — rejects only when the joined letter's `mode = 'one-to-many'` AND `auth.uid() IS NULL`. Preserves `GRANT TO anon` for invocation AND preserves the P691 token-as-session-bootstrap path for one-to-one. See AD2.
+- ✅ One-to-one flow untouched — letters with `mode = 'one-to-one'` never enter the guard branch.
+- ⚠️ **Use `RAISE EXCEPTION 'Authentication required for one-to-many responses'`** (not `RETURN false/NULL`). Client needs to distinguish "not authenticated one-to-many" from "invalid token".
+- ✅ **Sentinel UUID pattern preserved.** `submit_rating_by_token`'s `COALESCE(auth.uid(), sentinel)` is live code for the anon one-to-one path — do NOT clean up.
 
 **Input Validation:**
 - ⚠️ **Email validation required** in `request-letter-response-signin` — format, length, normalize (lowercase, trim).
@@ -571,9 +608,10 @@ This guarantees **uniform response timing** and **identical email shape** regard
 - ✅ Letter IDs are UUIDs (v4, 128-bit random) — enumeration computationally infeasible.
 - ✅ Neither edge function returns `receiverEmail` in any response body.
 
-**Anonymous RPC Lockdown:**
-- ✅ Approach is sound — `RAISE EXCEPTION` at top of each SECURITY DEFINER RPC.
+**Anonymous RPC Lockdown (mode-gated):**
+- ✅ Approach is sound — `RAISE EXCEPTION` inside each SECURITY DEFINER RPC, gated on the joined letter's `mode`. See AD2.
 - ✅ All four RPCs: `submit_rating_by_token`, `submit_point_response_by_token`, `reveal_prediction_by_token`, `update_delivery_status_by_token`.
+- ⚠️ **Defense-in-depth only** — under AD4, one-to-many unauthenticated readers never hit these RPCs during reading (they write to local state and `request-letter-response-signin` only). The RPC guard catches any client that bypasses the local-state contract.
 
 **Rate Limiting:**
 - ℹ️ DB-backed rate limiting for `request-letter-response-signin` is **deferred** — see Non-Goals. Supabase's built-in auth rate limits protect `admin.generateLink` globally, which is acceptable for v1. If abuse is observed in prod, file a follow-up spec to add per-IP / per-letter scoping.
@@ -586,7 +624,7 @@ This guarantees **uniform response timing** and **identical email shape** regard
 
 #### Build Sequence
 
-1. **Migration: RPC auth guards** — Add `IF auth.uid() IS NULL THEN RAISE EXCEPTION 'Authentication required';` to all 4 response RPCs. Use `RAISE EXCEPTION` not `RETURN false`. Clean up sentinel UUID pattern in `submit_rating_by_token`. Lands first regardless of UI changes — this is the server-side safety net.
+1. **Migration: RPC auth guards (mode-gated)** — Add the AD2 mode-gated `IF mode = 'one-to-many' AND auth.uid() IS NULL THEN RAISE EXCEPTION ...` block to all 4 response RPCs. **Clone the RPC bodies from `supabase/migrations/20260411201933_p683_engagement_rpcs_drop_expiry_check.sql`**, NOT from the P642 original — per the P683 "CREATE OR REPLACE migration source rule" KDD (commit 9b8d780a, `docs/decisions.md`). Cloning from the original would silently revert P648's speaker_id sealed-bid fix and P683's expiry-predicate drop. **Do NOT remove the sentinel UUID `COALESCE` pattern** — it is live code for the anon one-to-one path. Lands first regardless of UI changes — this is the server-side safety net.
 
 2. **Migration: `get_letter_for_public_reading` RPC** — New SECURITY DEFINER function for anonymous one-to-many letter loading. Validates letter exists, sealed, one-to-many mode. Returns letter + snapshots (no delivery, no predictions).
 
@@ -800,7 +838,7 @@ This is the only extraction. All other components are either direct reuse of sha
 | `e2e/p684-smoke.spec.ts` | Smoke | 4 | Public link loads without auth, cover renders, story content visible, chrome-free layout |
 | `e2e/p684-local-state-reading.spec.ts` | E2E | 8 | Ratings + positions captured locally during reading, zero delivery rows and zero response rows created while reading, end-of-letter form appears after final point |
 | `e2e/p684-signup-form-flow.spec.ts` | E2E | 10 | Form validation (name required, email format, TOS checkbox), submit button disabled states, submit → "check your email" state, server-side pending row written on POST, error banner on rate limit |
-| `e2e/p684-confirm-route.spec.ts` | E2E | 8 | Magic link → `verifyOtp` → confirm route calls `confirm-letter-response` → server reads pending row → delivery row + response rows + terms_acceptances created atomically; completion message; link-expired state when pending row missing or >24h old; idempotent on double-click |
+| `e2e/p684-confirm-route.spec.ts` | E2E | 9 | Magic link → `verifyOtp` → confirm route calls `confirm-letter-response` → server reads pending row → delivery row + response rows + terms_acceptances created atomically; completion message; link-expired state when pending row missing or >24h old; idempotent on double-click. **Includes MutationObserver canary** (mirrors `e2e/integration/p693-letter-reading-no-flash-signin.spec.ts`) verifying no "Sign in to continue" or "Check your email" text ever appears in the DOM between `verifyOtp` resolution and confirm-letter-response completion — guards the P693 `!!session` anti-flash invariant from AD4.1. |
 | `e2e/p684-authenticated-reader.spec.ts` | E2E | 4 | Authenticated reader skips the signup form entirely, direct-submit path creates delivery + responses under the reader's JWT |
 | `e2e/a11y/p684-accessibility.spec.ts` | A11y | 6 | End-of-letter form focus management, native checkbox, aria-disabled, tab order, aria-describedby on errors, touch target size |
 | `features/uat/p684.md` | UAT | ~15 | Manual checklist: all 9 screen states, cross-device happy path (phone→desktop), existing-account indistinguishability, one-to-one regression, branded Mailgun email visual QA |
@@ -811,7 +849,7 @@ This is the only extraction. All other components are either direct reuse of sha
 
 Two test files are the highest-priority tests in this feature:
 
-1. **`p684-rpc-auth-guards.spec.ts`** — verifies the invariant: `auth.uid() IS NULL → RAISE EXCEPTION 'Authentication required'` in all 4 response RPCs.
+1. **`p684-rpc-auth-guards.spec.ts`** — verifies the AD2 mode-gated invariant: RPCs with a one-to-many letter reject anon callers; RPCs with a one-to-one letter still accept anon callers (P648/P683/P691 regression guard). **Must include a positive test for each one-to-one token path** to catch any accidental blanket guard that would re-break shipped P683 flows.
 2. **`p684-signin-enumeration.spec.ts`** — verifies the unified response mitigation against the email enumeration oracle. Measures response shape AND response time for new vs existing emails (timing equalization check).
 
 Both must pass before `/dev` considers the feature shippable.
@@ -822,11 +860,16 @@ Both must pass before `/dev` considers the feature shippable.
 |-------------|-----------|-------------|
 | Anonymous browse works | `p684-smoke.spec.ts` | "one-to-many letter page loads without authentication" |
 | Zero DB footprint during reading | `p684-local-state-reading.spec.ts` | "reader taps ratings + positions; no delivery or response rows created" |
-| `submit_rating_by_token` rejects anon | `p684-rpc-auth-guards.spec.ts` | "anonymous caller raises exception" |
-| `submit_point_response_by_token` rejects anon | `p684-rpc-auth-guards.spec.ts` | "anonymous caller raises exception" |
-| `reveal_prediction_by_token` rejects anon | `p684-rpc-auth-guards.spec.ts` | "anonymous caller raises exception" |
-| `update_delivery_status_by_token` rejects anon | `p684-rpc-auth-guards.spec.ts` | "anonymous caller raises exception" |
-| All 4 RPCs accept authenticated callers | `p684-rpc-auth-guards.spec.ts` | "authenticated caller succeeds" (×4) |
+| `submit_rating_by_token` rejects anon on ONE-TO-MANY letter | `p684-rpc-auth-guards.spec.ts` | "anonymous caller on one-to-many raises exception" |
+| `submit_rating_by_token` STILL accepts anon on ONE-TO-ONE letter (P648/P683/P691 regression guard) | `p684-rpc-auth-guards.spec.ts` | "anonymous caller on one-to-one succeeds via token" |
+| `submit_point_response_by_token` rejects anon on one-to-many | `p684-rpc-auth-guards.spec.ts` | "anonymous caller on one-to-many raises exception" |
+| `submit_point_response_by_token` accepts anon on one-to-one | `p684-rpc-auth-guards.spec.ts` | "anonymous caller on one-to-one succeeds via token" |
+| `reveal_prediction_by_token` rejects anon on one-to-many | `p684-rpc-auth-guards.spec.ts` | "anonymous caller on one-to-many raises exception" |
+| `reveal_prediction_by_token` accepts anon on one-to-one | `p684-rpc-auth-guards.spec.ts` | "anonymous caller on one-to-one succeeds via token" |
+| `update_delivery_status_by_token` rejects anon on one-to-many | `p684-rpc-auth-guards.spec.ts` | "anonymous caller on one-to-many raises exception" |
+| `update_delivery_status_by_token` accepts anon on one-to-one | `p684-rpc-auth-guards.spec.ts` | "anonymous caller on one-to-one succeeds via token" |
+| All 4 RPCs accept authenticated callers on either mode | `p684-rpc-auth-guards.spec.ts` | "authenticated caller succeeds" (×4) |
+| Confirm route no-flash canary (P693) | `p684-confirm-route.spec.ts` | "no 'Sign in to continue' text between verifyOtp and confirm" |
 | `get_letter_for_public_reading` works anon | `p684-rpc-auth-guards.spec.ts` | "anonymous caller can read sealed one-to-many letter" |
 | Public reading does NOT return predictions | `p684-rpc-auth-guards.spec.ts` | "does NOT return predictions (sealed-bid)" |
 | Mode guard (one-to-one not publicly readable) | `p684-rpc-auth-guards.spec.ts` | "rejects one-to-one letter" |
