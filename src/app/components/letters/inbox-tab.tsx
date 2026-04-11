@@ -119,10 +119,21 @@ export function InboxTab({ userId, onUnreadCountChange }: InboxTabProps) {
         return (
           <div
             key={item.delivery_id}
-            className="rounded-lg border bg-card p-4 hover:bg-accent/50 transition-colors"
-            data-unread={isUnread ? 'true' : undefined}
+            className={`rounded-lg border p-4 hover:bg-accent/50 transition-colors ${
+              isUnread ? 'bg-blue-500/5' : 'bg-card'
+            }`}
+            data-unread={isUnread ? 'true' : undefined} /* stable e2e selector — do not remove */
           >
             <div className="flex items-center gap-3">
+              {isUnread && <span className="sr-only">Unread. </span>}
+              <div className="flex-shrink-0 w-2 flex items-center justify-center">
+                <span
+                  className={`block w-2 h-2 rounded-full bg-blue-500 transition-opacity ${
+                    isUnread ? 'opacity-100' : 'opacity-0'
+                  }`}
+                  aria-hidden="true"
+                />
+              </div>
               <div className="flex-shrink-0">
                 <ItemIcon type={item.type} />
               </div>
