@@ -8,7 +8,7 @@ flow: dev
 delivery_stage: fix
 pipeline_plan: [create-spec, challenge-prd, ux, architect, ui, generate-tests, dev, verify]
 pipeline_skipped: [decompose -- under 5 files]
-pipeline_ran: [create-spec, challenge-prd, ux, architect, ui, generate-tests, spec-review, dev, fix]
+pipeline_ran: [create-spec, challenge-prd, ux, architect, ui, generate-tests, spec-review, dev, fix, verify, fix.2]
 ---
 
 # P683: One-to-One Letter TOS Consent

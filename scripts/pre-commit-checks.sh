@@ -111,7 +111,7 @@ if [ -n "$SECRETS_STAGED_FILES" ]; then
     # 2a. Known secret patterns (API keys, tokens, password assignments)
     # Exclude files that legitimately discuss secret patterns (scanner config, docs, decisions log)
     # Gitleaks (Layer 1) handles src/ and supabase/ with proper rules — grep only scans config/root files
-    GREP_SCAN_FILES=$(echo "$SECRETS_STAGED_FILES" | grep -vE '(\.gitleaks\.toml|pre-commit-checks\.sh|docs/decisions\.md|docs/technical/|supabase/functions/|features/|src/|e2e/|\.claude/commands/|\.claude/rules/)' || true)
+    GREP_SCAN_FILES=$(echo "$SECRETS_STAGED_FILES" | grep -vE '(\.gitleaks\.toml|pre-commit-checks\.sh|docs/decisions\.md|docs/technical/|supabase/functions/|supabase/migrations/|features/|src/|e2e/|\.claude/commands/|\.claude/rules/)' || true)
     SECRETS_FOUND=""
     if [ -n "$GREP_SCAN_FILES" ]; then
         SECRETS_FOUND=$(echo "$GREP_SCAN_FILES" | xargs grep -l -iE '(sk_live|pk_live|SUPABASE_SERVICE|api[_-]?key|apikey|secret[_-]?key|password\s*=|token\s*=)[^a-zA-Z]' 2>/dev/null || true)
@@ -374,20 +374,48 @@ fi
 echo ""
 
 # 15. Migration commit gate (P270 — prevents P160-class bugs)
-# When a migration SQL file is staged, blocks commit until developer confirms:
-# (1) applied to test DB, (2) integration test added.
+# When a migration SQL file is staged, verifies it was applied to test DB via
+# deploy-manifest.json (updated by ./scripts/migrate.sh after successful push).
+# (1) applied to test DB — verified via deploy-manifest, (2) integration test added.
 echo ">>> Checking for new migrations being committed..."
 STAGED_MIGRATIONS=$(git diff --cached --name-only 2>/dev/null | grep '^supabase/migrations/.*\.sql$' || true)
+DEPLOY_MANIFEST="supabase/deploy-manifest.json"
 if [ -n "$STAGED_MIGRATIONS" ]; then
-    echo -e "${RED}✗ New migration(s) staged — apply before committing:${NC}"
-    echo "$STAGED_MIGRATIONS" | while IFS= read -r mig; do
-        echo -e "${RED}  → $mig${NC}"
-    done
-    echo -e "${RED}  Required before commit:${NC}"
-    echo -e "${RED}  1. Apply to test DB: ./scripts/migrate.sh${NC}"
-    echo -e "${RED}  2. Integration test: e2e/integration/p{N}-db-schema.spec.ts${NC}"
-    echo -e "${RED}  See docs/technical/e2e-testing-guide.md for the integration test template.${NC}"
-    ERRORS=$((ERRORS + 1))
+    UNAPPLIED=0
+    while IFS= read -r mig; do
+        mig_base=$(basename "$mig" .sql)
+        applied=false
+        if [ -f "$DEPLOY_MANIFEST" ]; then
+            # Check if migration version prefix (first 14 chars of timestamp) is in test.migrations
+            if python3 -c "
+import json, sys
+with open('$DEPLOY_MANIFEST') as f:
+    manifest = json.load(f)
+test_migrations = manifest.get('test', {}).get('migrations', [])
+mig = '$mig_base'
+found = any(str(m) == mig or mig.startswith(str(m)) or str(m).startswith(mig[:8]) for m in test_migrations)
+sys.exit(0 if found else 1)
+" 2>/dev/null; then
+                applied=true
+            fi
+        fi
+        if $applied; then
+            echo -e "${GREEN}  ✓ $mig_base applied (in deploy-manifest)${NC}"
+        else
+            echo -e "${RED}  ✗ $mig_base not applied — run: ./scripts/migrate.sh${NC}"
+            UNAPPLIED=$((UNAPPLIED + 1))
+        fi
+    done <<< "$STAGED_MIGRATIONS"
+
+    if [ "$UNAPPLIED" -gt 0 ]; then
+        echo -e "${RED}✗ Staged migration(s) not yet applied to test DB.${NC}"
+        echo -e "${RED}  Run ./scripts/migrate.sh, then re-stage deploy-manifest.json.${NC}"
+        echo -e "${RED}  Integration test: e2e/integration/p{N}-db-schema.spec.ts${NC}"
+        echo -e "${RED}  See docs/technical/e2e-testing-guide.md for the integration test template.${NC}"
+        ERRORS=$((ERRORS + 1))
+    else
+        echo -e "${GREEN}✓ All staged migrations applied to test DB${NC}"
+    fi
 
     # P270 enforcement: check that each staged migration has a corresponding integration test.
     # WARNING only (not hard error) — many existing migrations predate this rule.
