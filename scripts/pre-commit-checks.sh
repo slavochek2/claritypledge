@@ -110,8 +110,8 @@ SECRETS_STAGED_FILES=$(git diff --cached --name-only 2>/dev/null || git diff --n
 if [ -n "$SECRETS_STAGED_FILES" ]; then
     # 2a. Known secret patterns (API keys, tokens, password assignments)
     # Exclude files that legitimately discuss secret patterns (scanner config, docs, decisions log)
-    # Gitleaks (Layer 1) handles src/ and supabase/ with proper rules — grep only scans config/root files
-    GREP_SCAN_FILES=$(echo "$SECRETS_STAGED_FILES" | grep -vE '(\.gitleaks\.toml|pre-commit-checks\.sh|docs/decisions\.md|docs/technical/|supabase/functions/|features/|src/|e2e/|\.claude/commands/|\.claude/rules/)' || true)
+    # Gitleaks (Layer 1) handles src/, supabase/, and scripts/ with proper rules — grep only scans config/root files
+    GREP_SCAN_FILES=$(echo "$SECRETS_STAGED_FILES" | grep -vE '(\.gitleaks\.toml|pre-commit-checks\.sh|docs/decisions\.md|docs/technical/|supabase/functions/|supabase/migrations/|features/|src/|e2e/|\.claude/commands/|\.claude/rules/|scripts/)' || true)
     SECRETS_FOUND=""
     if [ -n "$GREP_SCAN_FILES" ]; then
         SECRETS_FOUND=$(echo "$GREP_SCAN_FILES" | xargs grep -l -iE '(sk_live|pk_live|SUPABASE_SERVICE|api[_-]?key|apikey|secret[_-]?key|password\s*=|token\s*=)[^a-zA-Z]' 2>/dev/null || true)
@@ -409,7 +409,7 @@ with open('$DEPLOY_MANIFEST') as f:
     manifest = json.load(f)
 test_migrations = manifest.get('test', {}).get('migrations', [])
 mig = '$mig_base'
-found = any(str(m) == mig or mig.startswith(str(m)) or str(m).startswith(mig[:8]) for m in test_migrations)
+found = any(str(m) == mig or mig.startswith(str(m)) for m in test_migrations)
 sys.exit(0 if found else 1)
 " 2>/dev/null; then
                 applied=true
