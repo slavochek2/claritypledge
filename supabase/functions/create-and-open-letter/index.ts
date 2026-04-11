@@ -143,6 +143,9 @@ serve(async (req: Request) => {
       .eq('id', deliveryId)
       .single();
     const receiverEmail = (deliveryRow?.receiver_email as string | null) ?? null;
+    // Normalize for all identity/lookup/write-to-auth contexts (case-insensitive match).
+    // Display strings (e.g. name fallback) keep original receiverEmail case.
+    const normalizedEmail = (receiverEmail ?? '').trim().toLowerCase();
 
     // Verify letter is sealed
     if (letterStatus !== 'sealed') {
@@ -192,7 +195,7 @@ serve(async (req: Request) => {
     const { data: existingProfile } = await supabase
       .from('profiles')
       .select('id')
-      .eq('email', receiverEmail)
+      .ilike('email', normalizedEmail)
       .maybeSingle();
 
     if (existingProfile) {
@@ -215,7 +218,7 @@ serve(async (req: Request) => {
 
       const { data: linkData, error: linkError } = await supabase.auth.admin.generateLink({
         type: 'magiclink',
-        email: receiverEmail,
+        email: normalizedEmail,
       });
 
       if (!linkError && linkData?.properties?.hashed_token) {
@@ -230,6 +233,87 @@ serve(async (req: Request) => {
       return jsonResponse({ error: 'SESSION_FAILED', message: 'Linked but session creation failed' }, 500);
     }
 
+    // -- Orphan recovery: auth.users row exists, profiles row missing ----------
+    // PostgREST blocks direct auth schema access (PGRST106); use SECURITY DEFINER RPC.
+    // Happens when createUser succeeded but the profiles insert failed mid-flow,
+    // or when a legacy account (agreement-signer) never got a profiles row.
+    const { data: authUserRows } = await supabase.rpc('get_auth_user_by_email', {
+      p_email: normalizedEmail,
+    });
+    const orphanAuthUser = (authUserRows as Array<{ id: string; email: string }> | null)?.[0] ?? null;
+
+    if (orphanAuthUser) {
+      const recoveredUserId = orphanAuthUser.id;
+      const recoveryAvatarColor = AVATAR_COLORS[Math.floor(Math.random() * AVATAR_COLORS.length)];
+      const recoveryName = receiverName || (receiverEmail ?? normalizedEmail).split('@')[0].replace(/[._-]+/g, ' ').trim().slice(0, 100) || 'Reader';
+
+      let recoverySlug = generateSlug(recoveryName) || `user-${Date.now()}`;
+      const { data: recoverySlugConflict } = await supabase
+        .from('profiles')
+        .select('slug')
+        .eq('slug', recoverySlug)
+        .maybeSingle();
+      if (recoverySlugConflict) {
+        for (let i = 2; i <= 100; i++) {
+          const candidate = `${recoverySlug}-${i}`;
+          const { data: conflict } = await supabase
+            .from('profiles')
+            .select('slug')
+            .eq('slug', candidate)
+            .maybeSingle();
+          if (!conflict) {
+            recoverySlug = candidate;
+            break;
+          }
+        }
+      }
+
+      const { error: recoveryProfileError } = await supabase.from('profiles').insert({
+        id: recoveredUserId,
+        email: normalizedEmail,
+        name: recoveryName,
+        slug: recoverySlug,
+        avatar_color: recoveryAvatarColor,
+        is_verified: true,
+        has_pledged: false,
+        accepted_terms_version: termsVersion,
+        pledge_version: 2,
+      });
+
+      if (recoveryProfileError) {
+        console.error('[create-and-open-letter] orphan profile insert failed:', recoveryProfileError.message);
+        return jsonResponse({ error: 'PROFILE_FAILED', message: 'Account creation failed' }, 500);
+      }
+
+      const recoveryNowIso = new Date().toISOString();
+      await supabase
+        .from('letter_deliveries')
+        .update({
+          receiver_profile_id: recoveredUserId,
+          status: 'opened',
+          opened_at: recoveryNowIso,
+          invitation_expires_at: recoveryNowIso,
+        })
+        .eq('id', deliveryId);
+
+      await recordTermsAcceptance(recoveredUserId);
+
+      const { data: recoveryLinkData, error: recoveryLinkError } = await supabase.auth.admin.generateLink({
+        type: 'magiclink',
+        email: normalizedEmail,
+      });
+
+      if (!recoveryLinkError && recoveryLinkData?.properties?.hashed_token) {
+        return jsonResponse({
+          ok: true,
+          hashedToken: recoveryLinkData.properties.hashed_token,
+          redirectTo: `/letter/${deliveryId}`,
+        });
+      }
+
+      return jsonResponse({ error: 'SESSION_FAILED', message: 'Linked but session creation failed' }, 500);
+    }
+
     // -- Create auth user -----------------------------------------------------
 
     const avatarColor = AVATAR_COLORS[Math.floor(Math.random() * AVATAR_COLORS.length)];
@@ -238,7 +322,7 @@ serve(async (req: Request) => {
     const initialName = receiverName || receiverEmail.split('@')[0].replace(/[._-]+/g, ' ').trim().slice(0, 100) || 'Reader';
 
     const { data: authData, error: createError } = await supabase.auth.admin.createUser({
-      email: receiverEmail,
+      email: normalizedEmail,
       email_confirm: true,
       user_metadata: { name: initialName, avatar_color: avatarColor },
     });
@@ -288,7 +372,7 @@ serve(async (req: Request) => {
       .from('profiles')
       .insert({
         id: newUserId,
-        email: receiverEmail,
+        email: normalizedEmail,
         name: initialName,
         slug,
         avatar_color: avatarColor,
@@ -331,7 +415,7 @@ serve(async (req: Request) => {
 
     const { data: linkData, error: linkError } = await supabase.auth.admin.generateLink({
       type: 'magiclink',
-      email: receiverEmail,
+      email: normalizedEmail,
     });
 
     if (linkError || !linkData?.properties?.hashed_token) {

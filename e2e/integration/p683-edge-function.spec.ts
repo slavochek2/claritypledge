@@ -237,16 +237,16 @@ test.describe('P683 Integration — create-and-open-letter edge function', () =>
   });
 
   // ===========================================================================
-  // Canary: orphan auth user (auth.users exists, profiles does NOT) should NOT
-  // crash the edge function with a TypeError. Before the P683 fix, the self-heal
-  // fallback calls `supabase.auth.admin.getUserByEmail()` which is not a method
-  // in @supabase/supabase-js v2 — this throws a TypeError caught by the generic
-  // catch block, returning 500 { error: 'INTERNAL', message: 'Failed to open letter' }.
-  // After the fix the orphan path returns 500 CREATE_FAILED with the real error.
-  // The canary asserts error !== 'INTERNAL' so it fails before the fix.
+  // Canary: orphan auth user (auth.users exists, profiles does NOT) should be
+  // recovered transparently. The self-heal block originally called
+  // `supabase.auth.admin.getUserByEmail()` (non-existent in v2 → TypeError → INTERNAL 500),
+  // was deleted in a prior plan (leaving orphans as CREATE_FAILED 500), and is now
+  // repaired: the edge function queries auth.users via SECURITY DEFINER RPC, creates
+  // the missing profiles row, links the delivery, and returns 200 ok:true.
+  // The canary asserts status === 200 so it fails before the repaired self-heal lands.
   // ===========================================================================
 
-  test('p683 canary: orphan auth user does not trigger INTERNAL TypeError 500', async () => {
+  test('p683 canary: orphan auth user is recovered — letter opens successfully (200 ok:true)', async () => {
     const receiverEmail = `p683-orphan-canary-${Date.now()}@example.com`;
 
     // Create auth user WITHOUT a profiles row (orphan scenario)
@@ -264,17 +264,16 @@ test.describe('P683 Integration — create-and-open-letter edge function', () =>
       termsVersion: 'v1.2',
     });
 
-    // Before fix: TypeError crashes with { error: 'INTERNAL', message: 'Failed to open letter' }
-    // After fix: { error: 'CREATE_FAILED', message: <real createUser error> }
-    // Either way the status is 500, but the error code must NOT be 'INTERNAL'.
-    expect(
-      (body as Record<string, unknown>).error,
-      `Before fix this is 'INTERNAL' (TypeError); after fix it should be 'CREATE_FAILED'. Got status=${status}, body=${JSON.stringify(body)}`
-    ).not.toBe('INTERNAL');
+    // Before fix: CREATE_FAILED 500 (orphan blocks createUser)
+    // After fix: 200 { ok: true, hashedToken: '...' } (orphan recovered)
+    expect(status, `Orphan user should get 200 (recovered), got status=${status}, body=${JSON.stringify(body)}`).toBe(200);
+    expect((body as Record<string, unknown>).ok, 'Response must include ok: true').toBe(true);
+    expect(typeof (body as Record<string, unknown>).hashedToken, 'hashedToken must be a string').toBe('string');
 
-    // Cleanup
+    // Cleanup: fix creates a profile row — deleteTestUser removes both profile + auth user
+    await supabaseAdmin.from('terms_acceptances').delete().eq('user_id', orphanUser.id);
     await supabaseAdmin.from('letter_deliveries').delete().eq('id', delivery.id);
-    await supabaseAdmin.auth.admin.deleteUser(orphanUser.id);
+    await deleteTestUser(orphanUser.id);
   });
 
   test('uses termsVersion from request body, not hardcoded v1.1', async () => {
