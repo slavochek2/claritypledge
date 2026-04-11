@@ -2,6 +2,14 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-11 [process]: migrate.sh auto-fallback for worktrees; pre-commit Layer 2 grep excludes scripts/
+
+**Context:** Two infra friction points discovered during the P690/P691 fix session. (1) `migrate.sh` failed in a worktree with "Cannot find project ref" because the worktree branch is not linked to a Supabase project via `supabase link`. The Management API fallback existed but was not triggered by this specific error message — requiring manual `curl` commands to apply migrations. (2) Staging `migrate.sh` for commit triggered the pre-commit Layer 2 grep secret scan, which falsely flagged `SUPABASE_ACCESS_TOKEN=` (an env var *name* reference in a shell script) as a potential secret. `migrate.sh` had been committed before without issue; the Layer 2 scanner was tightened in a later commit without re-validating existing scripts.
+**Decision:** (1) Added "Cannot find project ref" to the `NEEDS_FALLBACK` trigger in `migrate.sh` — worktrees now automatically fall through to the Management API without manual intervention. (2) Added `scripts/` to the Layer 2 grep exclusion list in `pre-commit-checks.sh`. Layer 1 (gitleaks) already scans `scripts/` with proper allow-list rules; Layer 2 grep is designed for config/root files, not code. Shell scripts legitimately reference env var names (e.g., `SUPABASE_ACCESS_TOKEN=`) that match broad patterns like `token\s*=`.
+**Alternatives rejected:** (1) Per-line `# gitleaks:allow` markers in `migrate.sh` — would paper over the root issue; the exclusion design is correct and should be explicit. (2) Narrowing the `token\s*=` pattern — risks missing real secrets.
+**Consequences:** Running `./scripts/migrate.sh` from any worktree now works end-to-end. Pre-commit scans of shell scripts in `scripts/` no longer produce false positives. When adding a new shell script that could plausibly contain real secrets (e.g., a one-off migration script with an inline password), use `.private/` or `scripts/archive/` — don't rely on the scanner catching it.
+**References:** [migrate.sh](scripts/migrate.sh) | [pre-commit-checks.sh](scripts/pre-commit-checks.sh)
+
 ## 2026-04-11 [technical]: ClarityPageLoader is a page-gate — use ClarityLoader for inline loading states
 
 **Context:** P692 — `ClarityPageLoader` wraps `ClarityLoader` in `min-h-screen flex items-center justify-center`. It is intended to be returned directly from a page component while auth/initial data loads (before any shell renders). When used inline inside an already-rendered tab or content area, its `min-h-screen` pushes the spinner to roughly the bottom of the viewport — it appears below the fold, not under the tab bar.
