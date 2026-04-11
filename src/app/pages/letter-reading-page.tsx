@@ -84,7 +84,6 @@ export function LetterReadingPage() {
   const authDelayTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // P683: TOS consent
-  const [termsAccepted, setTermsAccepted] = useState(false);
   const [consentError, setConsentError] = useState<string | null>(null);
   const [showStaleTerms, setShowStaleTerms] = useState(false);
   const [staleTermsResolved, setStaleTermsResolved] = useState(false);
@@ -188,10 +187,6 @@ export function LetterReadingPage() {
   // 1-to-1 auth handler: calls create-and-open-letter edge function → verifyOtp
   const handleOneToOneOpen = useCallback(async () => {
     if (!token || !delivery) return;
-    if (!termsAccepted) {
-      setConsentError('Please accept the Terms of Service to continue.');
-      return;
-    }
 
     setIsAuthenticating(true);
     setAuthDelayed(false);
@@ -213,7 +208,11 @@ export function LetterReadingPage() {
       );
 
       if (fnError || !result?.ok) {
-        throw new Error(result?.message || fnError?.message || 'Edge function failed');
+        // Prefer server-supplied message (already user-friendly: "Invalid or expired invitation", etc.)
+        // Fall back to friendly generic copy when only the SDK's raw error message is available.
+        const serverMessage = result?.message;
+        const friendlyFallback = "Something went wrong opening this letter. Please try again, or contact us if it keeps happening.";
+        throw new Error(serverMessage || friendlyFallback);
       }
 
       if (result.hashedToken) {
@@ -268,7 +267,7 @@ export function LetterReadingPage() {
           : 'Something went wrong. Please try again.';
       setConsentError(message);
     }
-  }, [token, delivery, letter, snapshots.length, termsAccepted]);
+  }, [token, delivery, letter, snapshots.length]);
 
   // P683: check stale terms for authenticated users before opening
   useEffect(() => {
@@ -413,11 +412,6 @@ export function LetterReadingPage() {
             isAuthenticated={!!currentUser}
             isAuthenticating={isAuthenticating}
             authDelayed={authDelayed}
-            termsAccepted={termsAccepted}
-            onTermsChange={(checked) => {
-              setTermsAccepted(checked);
-              if (checked) setConsentError(null);
-            }}
             errorMessage={consentError}
             onOpen={() => {
               if (letter.mode === 'one-to-one' && token && !currentUser) {

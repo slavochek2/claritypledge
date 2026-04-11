@@ -3,11 +3,11 @@
  * @description P683: One-to-One Letter TOS Consent — E2E flow tests
  *
  * Tests acceptance criteria for the TOS consent UX:
- * - Unauthenticated user sees checkbox + disclosure + Privacy Policy link
- * - Button disabled until checkbox checked
+ * - Unauthenticated user sees click-wrap disclosure + Privacy Policy link (no checkbox)
+ * - Open Letter button enabled immediately; clicking is the consent action
  * - Loading state during account creation
- * - Authenticated user sees no checkbox
- * - Sender preview starts from cover (no checkbox)
+ * - Authenticated user sees no disclosure
+ * - Sender preview starts from cover (no disclosure, sender is authenticated)
  * - Results page shows completion message (no window.close CTA)
  * - Error state when edge function rejects
  *
@@ -112,84 +112,38 @@ test.describe('P683: TOS Consent — LetterCover states', () => {
   });
 
   // ===========================================================================
-  // AC1: Unauthenticated user sees TOS checkbox
+  // AC1: Unauthenticated user sees consent disclosure (click-wrap)
   // ===========================================================================
 
-  test('unauthenticated user sees TOS checkbox on LetterCover', async ({ page }) => {
+  test('unauthenticated user sees consent disclosure under Open Letter button', async ({ page }) => {
     await page.goto(`/letter/${letterId}?token=${invitationToken}`);
     await page.waitForLoadState('networkidle');
 
     // Cover should display
     await expect(page.locator('text=/A Clarity Letter/i')).toBeVisible({ timeout: 10000 });
 
-    // Checkbox visible
-    const checkbox = page.getByRole('checkbox', { name: /terms|accept/i })
-      .or(page.locator('input[type="checkbox"]'));
-    await expect(checkbox).toBeVisible({ timeout: 5000 });
+    // Disclosure paragraph visible
+    await expect(page.getByText(/By opening, you agree to the/i)).toBeVisible({ timeout: 5000 });
+    await expect(page.getByRole('link', { name: /Terms of Service/i })).toBeVisible();
+    await expect(page.getByRole('link', { name: /Privacy Policy/i })).toBeVisible();
+    await expect(page.getByText(/create an account/i)).toBeVisible();
 
-    // Disclosure text visible
-    const disclosure = page.locator('text=/create an account/i')
-      .or(page.locator('text=/save your responses/i'));
-    await expect(disclosure).toBeVisible({ timeout: 5000 });
+    // No checkbox should exist on the cover (click-wrap, not checkbox-gate)
+    await expect(page.locator('input[type="checkbox"]')).toHaveCount(0);
   });
 
   // ===========================================================================
-  // AC2: Button disabled until checkbox checked
+  // AC2: Open Letter button is enabled immediately (click-wrap)
   // ===========================================================================
 
-  test('Open Letter button is disabled until TOS checkbox is checked', async ({ page }) => {
+  test('Open Letter button is enabled immediately for unauthenticated user', async ({ page }) => {
     await page.goto(`/letter/${letterId}?token=${invitationToken}`);
     await page.waitForLoadState('networkidle');
 
     await expect(page.locator('text=/A Clarity Letter/i')).toBeVisible({ timeout: 10000 });
 
-    // Button disabled initially
-    const openButton = page.getByRole('button', { name: /open.*letter/i })
-      .or(page.getByRole('button', { name: /open the letter/i }));
-    await expect(openButton).toBeVisible({ timeout: 5000 });
-
-    const isDisabledBefore = await openButton.evaluate((el) =>
-      el.hasAttribute('disabled') ||
-      el.getAttribute('aria-disabled') === 'true' ||
-      (el as HTMLButtonElement).disabled
-    );
-    expect(isDisabledBefore, 'Open Letter button must be disabled before checkbox checked').toBe(true);
-
-    // Check the checkbox
-    const checkbox = page.getByRole('checkbox')
-      .or(page.locator('input[type="checkbox"]'));
-    await checkbox.check();
-
-    // Button enabled after check
-    const isDisabledAfter = await openButton.evaluate((el) =>
-      el.hasAttribute('disabled') ||
-      el.getAttribute('aria-disabled') === 'true' ||
-      (el as HTMLButtonElement).disabled
-    );
-    expect(isDisabledAfter, 'Open Letter button must be enabled after checkbox checked').toBe(false);
-  });
-
-  test('unchecking the TOS checkbox disables the button again', async ({ page }) => {
-    await page.goto(`/letter/${letterId}?token=${invitationToken}`);
-    await page.waitForLoadState('networkidle');
-
-    await expect(page.locator('text=/A Clarity Letter/i')).toBeVisible({ timeout: 10000 });
-
-    const checkbox = page.getByRole('checkbox')
-      .or(page.locator('input[type="checkbox"]'));
-    const openButton = page.getByRole('button', { name: /open.*letter/i })
-      .or(page.getByRole('button', { name: /open the letter/i }));
-
-    // Check then uncheck
-    await checkbox.check();
-    await checkbox.uncheck();
-
-    const isDisabledAfterUncheck = await openButton.evaluate((el) =>
-      el.hasAttribute('disabled') ||
-      el.getAttribute('aria-disabled') === 'true' ||
-      (el as HTMLButtonElement).disabled
-    );
-    expect(isDisabledAfterUncheck, 'Button must re-disable after unchecking').toBe(true);
+    const button = page.getByRole('button', { name: /Open the Letter/i });
+    await expect(button).toBeEnabled();
   });
 
   // ===========================================================================

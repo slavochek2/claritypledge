@@ -5,7 +5,6 @@
 
 import { Mail, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Checkbox } from '@/components/ui/checkbox';
 import { Link } from 'react-router-dom';
 import type { LetterMode } from '@/app/types';
 
@@ -19,12 +18,9 @@ interface LetterCoverProps {
   isAuthenticated?: boolean;
   isAuthenticating?: boolean;
   authDelayed?: boolean;
-  termsAccepted?: boolean;
-  onTermsChange?: (checked: boolean) => void;
   errorMessage?: string | null;
 }
 
-const CHECKBOX_ID = 'letter-cover-terms-accept';
 const HINT_ID = 'letter-cover-open-hint';
 
 export function LetterCover({
@@ -37,12 +33,10 @@ export function LetterCover({
   isAuthenticated = false,
   isAuthenticating = false,
   authDelayed = false,
-  termsAccepted = false,
-  onTermsChange,
   errorMessage = null,
 }: LetterCoverProps) {
   const needsConsent = mode === 'one-to-one' && !isAuthenticated;
-  const isDisabled = isAuthenticating || (needsConsent && !termsAccepted);
+  const isDisabled = isAuthenticating;
 
   const handleOpen = () => {
     if (isDisabled) return;
@@ -74,48 +68,9 @@ export function LetterCover({
         {storyCount} {storyCount === 1 ? 'story' : 'stories'} &middot; ~{estimatedMinutes} {estimatedMinutes === 1 ? 'minute' : 'minutes'}
       </p>
 
-      {needsConsent && (
-        <div className="w-full max-w-md space-y-4 text-left">
-          <div className="flex items-start gap-3 min-h-[40px]">
-            <Checkbox
-              id={CHECKBOX_ID}
-              checked={termsAccepted}
-              onCheckedChange={(checked) => onTermsChange?.(checked === true)}
-              disabled={isAuthenticating}
-              className="mt-0.5"
-            />
-            <label
-              htmlFor={CHECKBOX_ID}
-              className="text-sm text-[#1A1A1A] leading-snug cursor-pointer select-none"
-            >
-              I accept the{' '}
-              <Link
-                to="/terms-of-service"
-                className="underline hover:text-[#0044CC]"
-                onClick={(e) => e.stopPropagation()}
-              >
-                Terms of Service
-              </Link>{' '}
-              and{' '}
-              <Link
-                to="/privacy-policy"
-                className="underline hover:text-[#0044CC]"
-                onClick={(e) => e.stopPropagation()}
-              >
-                Privacy Policy
-              </Link>
-              .
-            </label>
-          </div>
-          <p className="text-xs text-[#1A1A1A]/50 mt-1">
-            We&rsquo;ll create an account to save your responses.
-          </p>
-        </div>
-      )}
-
       <span id={HINT_ID} className="sr-only">
-        {needsConsent && !termsAccepted
-          ? 'Accept the Terms of Service and Privacy Policy to open the letter'
+        {needsConsent
+          ? 'Opens the letter and creates an account; by opening you accept the Terms of Service and Privacy Policy'
           : 'Opens the letter for reading'}
       </span>
 
@@ -143,6 +98,28 @@ export function LetterCover({
       {authDelayed && (
         <p className="text-xs text-[#1A1A1A]/40 animate-pulse">
           Setting up your access...
+        </p>
+      )}
+
+      {needsConsent && (
+        <p className="text-xs text-[#1A1A1A]/50 leading-relaxed max-w-md">
+          By opening, you agree to the{' '}
+          <Link
+            to="/terms-of-service"
+            className="underline hover:text-[#0044CC]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            Terms of Service
+          </Link>{' '}
+          and{' '}
+          <Link
+            to="/privacy-policy"
+            className="underline hover:text-[#0044CC]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            Privacy Policy
+          </Link>
+          . We&rsquo;ll create an account so you can save your responses.
         </p>
       )}
 
