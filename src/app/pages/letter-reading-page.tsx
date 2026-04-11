@@ -68,7 +68,7 @@ export function LetterReadingPage() {
   const { id: deliveryId } = useParams<{ id: string }>();
   const [searchParams] = useSearchParams();
   const token = searchParams.get('token') ?? '';
-  const { user: currentUser, sessionChecked } = useAuth();
+  const { user: currentUser, session, sessionChecked } = useAuth();
 
   const [pageState, setPageState] = useState<PageState>('loading');
   const [viewState, setViewState] = useState<ViewState>('cover');
@@ -429,7 +429,7 @@ export function LetterReadingPage() {
             storyCount={snapshots.length}
             estimatedMinutes={Math.max(1, Math.ceil(snapshots.length * 2))}
             mode={letter.mode}
-            isAuthenticated={!!currentUser}
+            isAuthenticated={!!session}
             isAuthenticating={isAuthenticating}
             authDelayed={authDelayed}
             errorMessage={consentError}
@@ -471,7 +471,7 @@ export function LetterReadingPage() {
           delivery={delivery}
           senderName={senderName}
           token={token || undefined}
-          isAuthenticated={!!currentUser}
+          isAuthenticated={!!session}
           onComplete={() => setViewState('complete')}
         />
       )}
@@ -488,7 +488,7 @@ export function LetterReadingPage() {
             senderName,
             mode: letter.mode,
           }}
-          isAuthenticated={!!currentUser}
+          isAuthenticated={!!session}
           senderName={senderName}
         />
       )}
