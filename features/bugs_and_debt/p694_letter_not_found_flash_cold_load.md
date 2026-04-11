@@ -2,7 +2,7 @@
 id: p694
 title: '"Letter not found" flash on cold-load of letter reading page'
 type: bug
-status: in-progress
+status: qa
 severity: high
 delivery_stage: fix
 pipeline_ran: [fix]
