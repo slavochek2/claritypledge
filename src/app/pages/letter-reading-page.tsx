@@ -68,10 +68,15 @@ export function LetterReadingPage() {
   const { id: deliveryId } = useParams<{ id: string }>();
   const [searchParams] = useSearchParams();
   const token = searchParams.get('token') ?? '';
-  const { user: currentUser, session, sessionChecked } = useAuth();
+  const { user: currentUser, session, sessionChecked, isLoading: authLoading } = useAuth();
 
   const [pageState, setPageState] = useState<PageState>('loading');
   const [viewState, setViewState] = useState<ViewState>('cover');
+
+  // P694: track pageState in a ref so the load effect closure can read the latest value
+  // without re-registering. Used for the "already ready" guard.
+  const pageStateRef = useRef<PageState>('loading');
+  useEffect(() => { pageStateRef.current = pageState; }, [pageState]);
 
   const [letter, setLetter] = useState<ClarityLetter | null>(null);
   const [snapshots, setSnapshots] = useState<LetterStorySnapshot[]>([]);
@@ -93,47 +98,62 @@ export function LetterReadingPage() {
   // P691: authed-first branch — if user has a session, trust RLS via getLetterForReading.
   // The token is a single-use bootstrap for first-open only; once the receiver has a session,
   // their auth cookie is authoritative. Token RPC branch runs only for anon users.
+  //
+  // P694: Three race-condition guards:
+  // 1. authLoading gate: don't run until auth fully settles (prevents transient user=null window).
+  // 2. pageStateRef guard: skip re-load if already ready (covers currentUser?.id dep change).
+  // 3. Cancellation flag: stale async runs cannot mutate state after a newer run starts.
   useEffect(() => {
-    if (!sessionChecked || !deliveryId) return;
+    if (!sessionChecked || authLoading || !deliveryId) return;
     if (viewState !== 'cover') return;
+    if (pageStateRef.current === 'ready') return; // already loaded — don't churn on auth re-fires
+
+    let cancelled = false;
+    const setSafe = (s: PageState) => { if (!cancelled) setPageState(s); };
+    const setLetterSafe = (l: ClarityLetter | null) => { if (!cancelled) setLetter(l); };
+    const setSnapshotsSafe = (s: LetterStorySnapshot[]) => { if (!cancelled) setSnapshots(s); };
+    const setDeliverySafe = (d: LetterDelivery | null) => { if (!cancelled) setDelivery(d); };
+    const setSenderNameSafe = (n: string) => { if (!cancelled) setSenderName(n); };
+    const setReceiverDisplayNameSafe = (n: string) => { if (!cancelled) setReceiverDisplayName(n); };
 
     const load = async () => {
-      setPageState('loading');
+      setSafe('loading');
 
       try {
         // Authed-first: if user has a session, try RLS-based read before token path
         if (currentUser) {
           const readData = await getLetterForReading('', deliveryId);
+          if (cancelled) return;
           if (readData) {
             // Wrong user check
             if (
               readData.delivery?.receiver_profile_id &&
               readData.delivery.receiver_profile_id !== currentUser.id
             ) {
-              setPageState('wrong_user');
+              setSafe('wrong_user');
               return;
             }
 
-            setLetter(readData.letter);
-            setSnapshots(readData.snapshots);
-            setDelivery(readData.delivery);
-            setSenderName(readData.letter.sender_display_name || 'Someone');
+            setLetterSafe(readData.letter);
+            setSnapshotsSafe(readData.snapshots);
+            setDeliverySafe(readData.delivery);
+            setSenderNameSafe(readData.letter.sender_display_name || 'Someone');
 
             const deliveryReceiverName = (readData.delivery as Record<string, unknown>)?.['receiver_name'] as string | undefined;
             if (deliveryReceiverName) {
-              setReceiverDisplayName(deliveryReceiverName.split(' ')[0]);
+              setReceiverDisplayNameSafe(deliveryReceiverName.split(' ')[0]);
             } else if (currentUser.user_metadata?.name) {
-              setReceiverDisplayName(currentUser.user_metadata.name);
+              setReceiverDisplayNameSafe(currentUser.user_metadata.name);
             }
 
-            setPageState('ready');
+            setSafe('ready');
             return;
           }
           // Authed read returned null — fall through to token path only if token present
           // (edge case: receiver hasn't claimed yet, token still valid on first open)
           if (!token) {
             // Authenticated user but letter not accessible — show invalid, not unauthenticated
-            setPageState('invalid');
+            setSafe('invalid');
             return;
           }
         }
@@ -142,8 +162,9 @@ export function LetterReadingPage() {
         if (token) {
           // Token-based access (1-to-1) — single RPC bypasses RLS for anon
           const readData = await getLetterForReadingByToken(token);
+          if (cancelled) return;
           if (!readData) {
-            setPageState('invalid');
+            setSafe('invalid');
             return;
           }
 
@@ -151,7 +172,7 @@ export function LetterReadingPage() {
           if (readData.delivery?.access_token_expires_at) {
             const expiresAt = new Date(readData.delivery.access_token_expires_at);
             if (expiresAt < new Date()) {
-              setPageState('expired');
+              setSafe('expired');
               return;
             }
           }
@@ -161,35 +182,37 @@ export function LetterReadingPage() {
             await claimLetterDelivery(token).catch(() => {});
           }
 
-          setLetter(readData.letter);
-          setSnapshots(readData.snapshots);
-          setDelivery(readData.delivery);
+          setLetterSafe(readData.letter);
+          setSnapshotsSafe(readData.snapshots);
+          setDeliverySafe(readData.delivery);
 
           // Use sender_display_name from RPC (joined to profiles), not UUID
-          setSenderName(readData.letter.sender_display_name || 'Someone');
+          setSenderNameSafe(readData.letter.sender_display_name || 'Someone');
 
           // Use receiver_name first name from delivery, fallback to user name or 'you'
           const deliveryReceiverName = readData.delivery?.receiver_name;
           if (deliveryReceiverName) {
-            setReceiverDisplayName(deliveryReceiverName.split(' ')[0]);
+            setReceiverDisplayNameSafe(deliveryReceiverName.split(' ')[0]);
           } else if (currentUser?.user_metadata?.name) {
-            setReceiverDisplayName(currentUser.user_metadata.name);
+            setReceiverDisplayNameSafe(currentUser.user_metadata.name);
           }
 
-          setPageState('ready');
+          setSafe('ready');
         } else {
           // No currentUser AND no token
-          setPageState('unauthenticated');
+          setSafe('unauthenticated');
         }
       } catch (err) {
+        if (cancelled) return;
         console.error('[letter-reading] Load error:', err);
         toast.error('Failed to load letter. Please check your connection and try again.');
-        setPageState('invalid');
+        setSafe('invalid');
       }
     };
 
     load();
-  }, [sessionChecked, deliveryId, token, currentUser?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+    return () => { cancelled = true; };
+  }, [sessionChecked, authLoading, deliveryId, token, currentUser?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Cleanup auth delay timer
   useEffect(() => {
