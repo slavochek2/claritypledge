@@ -2,6 +2,22 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-11 [technical]: ClarityPageLoader is a page-gate — use ClarityLoader for inline loading states
+
+**Context:** P692 — `ClarityPageLoader` wraps `ClarityLoader` in `min-h-screen flex items-center justify-center`. It is intended to be returned directly from a page component while auth/initial data loads (before any shell renders). When used inline inside an already-rendered tab or content area, its `min-h-screen` pushes the spinner to roughly the bottom of the viewport — it appears below the fold, not under the tab bar.
+**Decision:** `ClarityPageLoader` — page-level gate only; returned directly from a page component before the page shell renders (e.g., `letters-page.tsx` during session load). `ClarityLoader size="lg"` — inline loading state inside an already-rendered page; wrap in a layout div (e.g., `flex justify-center py-12`) when centering is needed.
+**Alternatives rejected:** Renaming `ClarityPageLoader` to signal its page-only role — out of scope for a bug fix; the distinction is captured here and in code comments.
+**Consequences:** Any new tab or section with a loading state should use `<ClarityLoader size="lg" />`, not `<ClarityPageLoader />`. Grep for `ClarityPageLoader` inside components that are not top-level pages and flag as a bug.
+**References:** [clarity-loader.tsx](src/components/ui/clarity-loader.tsx) | [p692_sent_letters_forever_loading.md](features/bugs_and_debt/p692_sent_letters_forever_loading.md)
+
+## 2026-04-11 [technical]: supabase-js v2 — getUser() hits the network on every call; use getSession() in service-layer auth guards
+
+**Context:** P692 — `letters-service.ts:requireAuth()` called `supabase.auth.getUser()`. In supabase-js v2, `getUser()` makes a `GET /auth/v1/user` network request every time it is called (it re-validates against the server). `getSession()` reads the session from client storage (localStorage/cookie) with no network call. Every exported function in `letters-service` awaited `requireAuth()`, producing 27+ pending `/auth/v1/user` requests on a single tab load; the last one hung indefinitely, blocking all downstream data queries.
+**Decision:** In service-layer auth guards (`requireAuth()` and equivalents), use `supabase.auth.getSession()` to read the session locally. Throw if `session?.user` is null. `getUser()` is appropriate only when server-side token revalidation is explicitly required (e.g., detecting mid-session revocation in a security-sensitive flow) — not as a routine identity check before every DB query.
+**Alternatives rejected:** (1) Cache the `getUser()` result in module scope — fragile; session can change. (2) Pass `userId` down from the component layer explicitly — breaks the encapsulation model already in use.
+**Consequences:** Any service file with a `requireAuth()` helper that calls `getUser()` carries this bug. Grep: `supabase.auth.getUser` in service files. The fix is a one-liner: swap to `getSession()` + check `session?.user`. `docs-service.ts` has the same pattern — flagged as follow-up.
+**References:** [letters-service.ts](src/app/data/letters-service.ts) | [p692_sent_letters_forever_loading.md](features/bugs_and_debt/p692_sent_letters_forever_loading.md)
+
 ## 2026-04-11 [technical]: SQL LIMIT inside jsonb_agg must be applied to a sorted subquery — LIMIT on the outer SELECT is arbitrary
 
 **Context:** P690 — the first `get_inbox_items` RPC applied `LIMIT 20` to the outer `SELECT ... INTO v_result FROM (...) sub LIMIT 20`. PostgreSQL stops materialising rows from `sub` once it has 20, but `sub` had no `ORDER BY` — so the planner chose 20 rows arbitrarily rather than the 20 most-recent. The `ORDER BY item->>'timestamp' DESC` inside `jsonb_agg` only sorted those arbitrary 20 rows among themselves. Caught by the code review agent before shipping.
