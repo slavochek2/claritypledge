@@ -17,6 +17,7 @@
  */
 
 import { test, expect } from '@playwright/test';
+import { CURRENT_TERMS_VERSION } from '../src/lib/constants';
 import { supabaseAdmin } from './helpers/supabase-admin';
 import {
   createTestUser,
@@ -49,7 +50,7 @@ test.describe('P683: TOS Consent — LetterCover states', () => {
     // P683: test users need current accepted_terms_version, else stale-terms modal blocks
     await supabaseAdmin
       .from('profiles')
-      .update({ accepted_terms_version: 'v1.2' })
+      .update({ accepted_terms_version: CURRENT_TERMS_VERSION })
       .in('id', [sender.user.id, receiver.user.id]);
 
     const { data: doc } = await supabaseAdmin
@@ -278,7 +279,7 @@ test.describe('P683: Sender preview — cover page first', () => {
 
     await supabaseAdmin
       .from('profiles')
-      .update({ accepted_terms_version: 'v1.2' })
+      .update({ accepted_terms_version: CURRENT_TERMS_VERSION })
       .eq('id', sender.user.id);
 
     const { data: doc } = await supabaseAdmin
@@ -394,7 +395,7 @@ test.describe('P683: Results page — completion message', () => {
 
     await supabaseAdmin
       .from('profiles')
-      .update({ accepted_terms_version: 'v1.2' })
+      .update({ accepted_terms_version: CURRENT_TERMS_VERSION })
       .in('id', [sender.user.id, receiver.user.id]);
 
     const { data: doc } = await supabaseAdmin

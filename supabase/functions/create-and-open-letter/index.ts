@@ -196,15 +196,22 @@ serve(async (req: Request) => {
       .maybeSingle();
 
     if (existingProfile) {
-      // User already exists — link delivery and generate session
+      // User already exists — link delivery and generate session.
+      // Invalidate the invitation token on link so the same token cannot be
+      // reused to mint fresh sessions for the receiver (token-replay defense).
+      const nowIso = new Date().toISOString();
       await supabase
         .from('letter_deliveries')
         .update({
           receiver_profile_id: existingProfile.id,
           status: 'opened',
-          opened_at: new Date().toISOString(),
+          opened_at: nowIso,
+          invitation_expires_at: nowIso,
         })
         .eq('id', deliveryId);
+
+      // GDPR audit row — existing users still accepted the current terms version in this flow.
+      await recordTermsAcceptance(existingProfile.id);
 
       const { data: linkData, error: linkError } = await supabase.auth.admin.generateLink({
         type: 'magiclink',
@@ -285,10 +292,12 @@ serve(async (req: Request) => {
 
           await recordTermsAcceptance(existingAuth.user.id);
 
+          const selfHealNowIso = new Date().toISOString();
           await supabase.from('letter_deliveries').update({
             receiver_profile_id: existingAuth.user.id,
             status: 'opened',
-            opened_at: new Date().toISOString(),
+            opened_at: selfHealNowIso,
+            invitation_expires_at: selfHealNowIso,
           }).eq('id', deliveryId);
         }
 
@@ -355,13 +364,17 @@ serve(async (req: Request) => {
     await recordTermsAcceptance(newUserId);
 
     // -- Link delivery to new user --------------------------------------------
+    // Invalidate the invitation token on link (token-replay defense); RPC
+    // rejects tokens whose invitation_expires_at has passed.
 
+    const linkNowIso = new Date().toISOString();
     const { error: updateError } = await supabase
       .from('letter_deliveries')
       .update({
         receiver_profile_id: newUserId,
         status: 'opened',
-        opened_at: new Date().toISOString(),
+        opened_at: linkNowIso,
+        invitation_expires_at: linkNowIso,
       })
       .eq('id', deliveryId);
 
