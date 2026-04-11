@@ -154,7 +154,7 @@ Authors see verification results across all listeners:
 
 **Acquisition path:** Clarity Letter (P581, async gap reveal) → Partner Agreement (bilateral practice contract) → Practice (~10 partners, real asks/excuses) → Support group (P603) → Pledge (future: earned credential after demonstrated habit, P605).
 
-**First agreement:** Jan + Nejc (2026-03-22) — every 2 days, 15 min explain-back right. Usage not yet observed.
+**First agreement:** First co-founder pair (2026-03-22) — every 2 days, 15 min explain-back right. Usage not yet observed.
 
 *See also: [decisions.md](decisions.md) — "Partner Agreement as primary conversion", [theory-of-change.md](theory-of-change.md), P603 (practice community), P605 (pledge as graduation)*
 
