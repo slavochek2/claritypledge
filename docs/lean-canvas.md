@@ -154,6 +154,8 @@ A **practice system for calibrated communication** — evolving toward **Stories
 **Current:** Slava-facilitated calibration sessions using /live as diagnostic tool. Pairs don't need to learn the tool.
 **Next:** Progressive automation — transcript pipeline → AI gap detection → mirror agents.
 
+**Primary instrument framing (2026-04-11):** The Clarity Letter is the primary scale unit. The public letter is the product; the workshop proves the concept but does not scale — it produces position shifts in the room, and the conversion breaks *after* the room. The letter carries the full instrument (stories + points + anti-points + comprehension gate + position capture + badge issuance) into any setting without a facilitator present. A reader completes the letter, earns a badge, and the instrument replicates. Workshop is one deployment mode of the letter, not its successor. "Product works in the room; conversion breaks after the room — the letter closes that gap." See H-LetterAsProduct in [hypotheses.md](hypotheses.md).
+
 ### 0. Stories & Points Curriculum (Prerequisite)
 Your calibration content: three types of understanding, sender-receiver asymmetries, implications. This IS the workshop material and the demo simultaneously. When the room miscalibrates on your claims, the product sells itself. Filed content tested live, not perfected in isolation.
 
@@ -172,6 +174,8 @@ Your calibration content: three types of understanding, sender-receiver asymmetr
 **Verification chain metrics:** Chain length (generations from origin), verifier quality score (% of verifiees who pass spot-checks), R₀ of clarity (does each badged person badge >1 others?). The graph IS the proof that recursive clarity propagation works.
 
 **Design principle (2026-04-06):** Badge is proof of practice (earned, not owed). Pledge is optional commitment. Badge spreads fast (low friction); Pledge spreads slower (real commitment). Measure both separately — comprehension propagation rate vs. practice adoption rate.
+
+**Structural symmetry (2026-04-11):** The badge-gates-pledge ordering mirrors the product's core insight. Pledge without badge = commitment to something you haven't demonstrated you understand — structurally identical to the illusion of common knowledge (both parties believe shared comprehension exists; neither has verified it). Pledge without badge IS false agreement about the act of agreeing. Enforcing badge-first is not a UX choice — it's the protocol applied to its own adoption ritual.
 
 ### 2. /live — Real-time Verification (Core Product)
 The core interaction, used in **any meeting** — team standup, 1:1, board meeting, workshop:
@@ -226,18 +230,22 @@ Track accuracy over time. Public credential for professional reputation. Behavio
 
 ## Channels & Flywheel
 
-**Primary flywheel (2026-03-29):**
+**Primary flywheel (2026-04-11, letter-as-product):**
 ```
-Workshop / Clarity Letter (P581)
-    → Participant experiences gap → brings it to their real relationship
-    → Partner Agreement with co-founder/partner (PRIMARY conversion action)
+Public Clarity Letter (P581 + P683/P684)
+    → Reader completes letter → experiences gap → badge earned
+    → Shares same letter with someone in a real relationship
+    → Verifies their comprehension → new badge → verifier graph grows
+    → Optional deep-dive: workshop / Partner Agreement / facilitated session
     → Practice in real relationship → stories filed (testimonials + data)
     → Support group for practitioners (P603) → accountability + new pairs
-    → Blog article from real experiences → Distribution (LinkedIn, communities)
-    → New pairs discover workshop/letter → Flywheel
+    → Blog articles from real experiences → Distribution (LinkedIn, communities)
+    → New readers discover the letter → Flywheel
 ```
 
-**Key learning (2026-03-29):** Partner Agreement (not Pledge) is the natural conversion. Agreement only works with existing high-stakes relationships — not strangers. Events demonstrate; conversion happens when participant brings it home. The Clarity Letter is the async vehicle. Pledge is currently decorative (11 pledgers, zero practice habits) — may become graduation milestone later (P604).
+**Supersedes (2026-04-11):** The earlier workshop-anchored flywheel (2026-03-29). Workshops remain a high-intensity deployment mode, but the letter is the scale unit — a workshop can only reach the people in a room; a letter can reach anyone it's forwarded to. Key learning: "the product works in the room; conversion breaks after the room." The letter closes that gap because it IS the in-room experience, reduced to an async instrument. See H-LetterAsProduct.
+
+**Key learning carried forward (2026-03-29):** Partner Agreement remains the natural high-intensity conversion. Agreement only works with existing high-stakes relationships — not strangers. Letters demonstrate; conversion happens when a reader brings it into a real relationship. Pledge is currently decorative (11 pledgers, zero practice habits); badge is the propagation unit.
 
 **Three-letter workshop compression (2026-03-24):**
 Workshop sessions can compress the full Clarity Letter sequence (P581) into one sitting:

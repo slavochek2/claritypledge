@@ -2,7 +2,7 @@
 
 Concrete next steps in priority order. Updated 2026-03-24.
 
-**Last updated:** 2026-04-11 (letters + badge as workshop prerequisites; new plan + kill date reasoning)
+**Last updated:** 2026-04-11 (letter-as-primary-instrument pivot; workshop demoted to deployment mode)
 
 Flywheel: see [lean-canvas.md](lean-canvas.md#channels--flywheel). Steps below follow that sequence.
 
@@ -13,7 +13,7 @@ Flywheel: see [lean-canvas.md](lean-canvas.md#channels--flywheel). Steps below f
 1. [x] P560: Story filing without position — prerequisite for workshop (epic-story-first)
 2. [x] P545: ladischenski.com positioning update
 3. [x] P551: Clarity Docs — curated story collections, compose/edit surface for letters
-4. [ ] Letters ship (P581 + P683 + P684): P581 = sealed-bid gap reveal (prerequisite for H-WTP-Pain at workshop — decisions.md 2026-04-02). P683 = TOS consent on letter open (GDPR, legally required before sending to real participants). P684 = account-gated responses on one-to-many letters (anonymous responses are useless for pre-workshop prep — no identity = can't match who's arriving). All three must land before workshop can test the core hypothesis.
+4. [ ] Letters ship (P581 + P683 + P684) — **PRIMARY INSTRUMENT (2026-04-11).** These are not workshop support; they ARE the product. The workshop is one deployment mode of the letter, not its successor. Once shipped, distribute the letter directly (not only as workshop prep) and measure H-LetterAsProduct. P581 = sealed-bid gap reveal (prerequisite for H-WTP-Pain at workshop — decisions.md 2026-04-02). P683 = TOS consent on letter open (GDPR, legally required before sending to real participants). P684 = account-gated responses on one-to-many letters (anonymous responses are useless for pre-workshop prep — no identity = can't match who's arriving). All three must land before the letter can be publicly distributed or before workshop can test the core hypothesis.
 4.5. [ ] P686 Badge Step 1 (~1 day): Minimum badge infrastructure (DB table + profile checkmark + auto-trigger from /live). Must be ready AT workshop #1 to observe propagation signal: do badged people share? How many names do they give? R₀ measurement only works if the badge artifact exists in the moment. See P685 for full vision + observation protocol. Build after letters ship.
 5. [x] P562: /live simplification — strip to orchestration, reduce drop-off in group settings
 6. [x] P567: File 8 false belief stories + points as workshop curriculum

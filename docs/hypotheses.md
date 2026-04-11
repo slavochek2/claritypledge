@@ -8,6 +8,7 @@ Session logs, architecture notes, and strategic commentary belong in [decisions.
 
 | ID | Hypothesis | Stage | Pri | Blocked by | Evidence (Mar 2026) |
 |----|-----------|-------|-----|------------|---------------------|
+| H-LetterAsProduct | Public Clarity Letter scales the flip async | Active | P0 | P581/P683/P684 shipping | New 2026-04-11 — driven by "room works, post-room breaks" observation |
 | H-WTP-Pain | Gap reveal produces urgency, not just curiosity | Active | P0 | — | 28 sessions, zero pairs named a cost. Warning sign. |
 | H-PairsReturn | Pairs recognize gap as costly and return | Active | P0 | — | 3 pairs run. Protocol works. No "holy shit" observed in transcripts. |
 | H-TopicDepthGate | Topic selection determines session value | Active | P1 | — | ~40% sessions failed due to topic inadequacy. |
@@ -38,6 +39,15 @@ Session logs, architecture notes, and strategic commentary belong in [decisions.
 ## Active
 
 ### P0 — Must prove now
+
+#### H-LetterAsProduct: The public Clarity Letter scales the flip outside the room
+**Bet:** A completable public Clarity Letter (stories + points + anti-points + comprehension gate + position capture + badge issuance) produces the same in-room flip experience asynchronously, at the cost of a single read rather than a 90-minute workshop. If true, the letter — not the workshop — is the primary scale unit.
+**Test:** Ship first public Clarity Letter (P581 + P683 + P684). Distribute to 30+ readers (existing network, LinkedIn, communities). Measure: (a) completion rate, (b) badges earned, (c) position captures, (d) whether readers forward the letter to someone in a real relationship unprompted, (e) whether any completer can name what changed for them.
+**Transform if:** <3 completions after 30 days of active distribution, OR zero forwards to real relationships, OR completers cannot name the experience (illegibility confirmed at letter level, not just workshop level).
+**Status (2026-04-11):** New hypothesis. Driven by 30+ session observation: "product works in the room; conversion breaks after the room." Workshops produce flips but don't scale — the letter is the async carrier. Existing letter infrastructure (P581/P683/P684) is in-flight; once shipped, this hypothesis becomes testable.
+**Relationship to other hypotheses:** Partially supersedes the scaling path in H-WorkshopFormat — workshops remain valuable as high-intensity deployment but stop being the unit of scale. Feeds into H-ProtocolSpreadsWithoutTool (the letter IS the protocol in minimum shippable form).
+
+---
 
 #### H-WTP-Pain: Gap reveal produces urgency, not just curiosity
 **Bet:** Participants find the gap reveal interesting but "interesting" doesn't open wallets. Without felt pain ("this cost us X"), WTP stays near zero.
@@ -102,6 +112,7 @@ Session logs, architecture notes, and strategic commentary belong in [decisions.
 **Test:** Run 3 workshops with P567 curriculum. Measure: position switches, reflection stories filed, conversion to de-risking.
 **Clarity Flip variant (2026-03-29):** "The Clarity Flip" is a 90-minute norm-inversion format that requires zero product features (physical cards, whiteboard). Topic IS understanding itself — participants calibrate against their beliefs about verification, not an external topic. Runs independently of P581. Could be tested before any product work ships. See P606.
 **Variant (2026-03-24):** Compressed three-letter workshop — Letters 1-3 + /live in one session. Letter 1 = pre-work/in-session reading; /live = gap verification; Letter 2 = "create your own" upsell; Letter 3 = PWIW + distributor CTA. Tests H-WorkshopFormat AND H-WTP-Pain simultaneously. Requires P581 shipped.
+**Measurement reframe (2026-04-11):** Primary flip-success metric shifts from personal-comfort delta to **leadership-accountability norm delta**. New before/after question: "How comfortable are you with a leader refusing a paraphrasing request without giving a reason?" (0-10, reverse-scored). This measures institutional-norm shift, not individual skill gain — the stronger propagation signal and the one that connects to the Locke-to-Ladischenski thesis. Personal comfort kept as secondary metric. See facilitator-guide.md §Workshop Metrics. Open question: flip durability — do 90-min shifts survive three weeks of social pressure? Self-concealing property (Lau et al. 2022) may apply to the flip itself.
 
 ---
 

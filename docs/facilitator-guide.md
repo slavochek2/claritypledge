@@ -71,6 +71,7 @@ Frame: lead with emotional wound (need to be understood), escalate through hones
 ### Post-Workshop
 
 - Ask the qualifying question verbally: "Did this reveal something you didn't know?" If yes: "How much could a misunderstanding like this cost you?"
+- **Propagation signal question:** "Who specifically would you want to do this with?" Count the names. This measures R₀ — the viral coefficient. If participants name 3-5 specific people, propagation is plausible even with high per-person time investment (~45 min). If 0-1 names, the flip doesn't create propagation motivation regardless of how frictionless the badge flow becomes. The number of names is a stronger signal than enthusiasm level.
 - For pairs: offer de-risking package — "I can do this with your co-founder, on your real decisions"
 - Filed participant stories = testimonials + calibration data + content flywheel
 
@@ -132,18 +133,25 @@ Compresses the full Clarity Letter acquisition sequence into one 90-120 min sess
 
 ### Before/After Comfort Score
 
-Measure at workshop OPEN and CLOSE:
+Measure at workshop OPEN and CLOSE. Two questions — record both:
+
+**(1) Personal comfort — existing metric:**
 
 > **"How comfortable are you asking someone to paraphrase when you disagree?"** (0-10 scale)
 
-Ask verbally, hands up or written. Record both numbers.
+**(2) Leadership accountability — new primary metric (2026-04-11):**
 
-**Why:** The delta IS the product proof. If someone moves from 3→7, they experienced the norm inversion. The group seeing its own aggregate delta creates common knowledge that verification works — not just individual conviction.
+> **"How comfortable are you with a leader refusing a paraphrasing request without giving a reason?"** (0-10 scale, reverse-scored — low comfort = high accountability norm)
+
+Ask verbally, hands up or written. Record all four numbers per participant (two questions × open/close).
+
+**Why question 2 is the stronger signal:** Question 1 measures personal skill — whether the participant feels more willing to request verification. Question 2 measures an institutional norm shift — whether the participant's standard for leadership legitimacy changed. The second delta is what propagates: a participant who now treats unexplained refusal as suspect will apply that standard to every authority relationship, not just conversations they personally lead. We're measuring "did people's standards for leadership accountability change in 90 minutes" — a norm shift, not a comfort shift. Connects directly to the Locke-to-Ladischenski thesis: consent without verified comprehension is theater, and refusal-without-reason is the observable signature.
 
 **How to use the data:**
-- Report the average delta as workshop outcome ("participants moved from X to Y on comfort with requesting paraphrase")
-- Individual deltas predict who will bring the protocol home (high delta = flip happened)
-- If delta is near zero after 3 workshops → H-WorkshopFormat is in trouble
+- Report both aggregate deltas as workshop outcome
+- Question 2 delta predicts institutional-norm propagation; question 1 delta predicts personal practice adoption
+- If question 2 delta is near zero after 3 workshops → the flip isn't crossing from personal skill to norm shift; P653/P606 need rework
+- Track both longitudinally per participant — position-flip durability is an open question (see [hypotheses.md](hypotheses.md) H-WorkshopFormat)
 
 ### Anxiety Reduction Score (Intrinsic Motivation Generator)
 

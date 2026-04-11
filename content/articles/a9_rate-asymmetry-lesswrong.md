@@ -62,6 +62,17 @@ Listener-side conversational comprehension calibration — "I think I understood
 
 **Candidate opening line:** "How do you know you understood someone — if they don't know you did?"
 
+## Enrichment (2026-04-11)
+
+**Conversation:** Proving a clarity flip (2026-04-10)
+
+**What it adds:**
+
+1. **Measurement reframe — from personal comfort to institutional norm shift.** The original Clarity Flip metric ("how comfortable are you asking someone to paraphrase when you disagree?") measures individual skill. The stronger measurement target is leadership accountability: *"How comfortable are you with a leader refusing a paraphrasing request without giving a reason?"* Before/after an event, this delta measures whether people's standards for institutional legitimacy shifted in 90 minutes — not whether they got better at a conversational move. This folds Aumann's common-knowledge requirement into a concrete power-dynamics question the reader can picture.
+2. **Public letters + upvoting as visible propagation.** a9 currently frames the rate asymmetry as a measurement gap. The Clarity Letter as public instrument closes the loop: readers complete, positions are captured, reputation accrues to verifiers. What was measurable becomes publicly demonstrable — the rate asymmetry doesn't just get numbered, it becomes a visible social fact.
+3. **Open limitation: flip durability.** Honest caveat worth naming in the article: we don't yet know whether position shifts induced by a 90-minute Clarity Flip survive three weeks of social pressure. The self-concealing property (Lau et al. 2022) applies to the flip itself — people may not retain awareness that they flipped. Strengthens credibility by naming the threat; doesn't undermine the core thesis (the instrument still exists; its longitudinal effect is an open question).
+4. **Aumann bridge to a12.** Cross-article link: a9 names Aumann as the missing-instrument theorist; a12 (Locke to Ladischenski) now uses Aumann's common-knowledge assumption to argue for market-infrastructure applications (M&A fairness opinions, disclosure compliance, DAO governance votes). The rate asymmetry isn't just a rationalist curiosity — it's the uninstrumented precondition Nobel-winning market theory silently required.
+
 ## Novelty claim
 
 Nobody has framed this as a **rate asymmetry** between two measurable quantities, or connected it to a **missing verification protocol** at the interpersonal level as the root bottleneck. Sits in unclaimed intersection of Pinker, Chwe, and misinformation literature.
