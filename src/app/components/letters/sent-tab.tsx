@@ -13,7 +13,7 @@ import { useNavigate } from 'react-router-dom';
 import { MoreHorizontal, ChevronRight, ChevronDown, Mail, Link2 } from 'lucide-react';
 import {
   getAllSentLetters,
-  getDeliveriesForLetter,
+  getDeliveriesForLetters,
 } from '@/app/data/letters-service';
 import { formatTimeAgo } from '@/app/utils/format-time';
 import { Button } from '@/components/ui/button';
@@ -26,7 +26,7 @@ import {
 import { InlineVisibilityIcon } from '@/app/components/shared/visibility-badge';
 import { LetterReceiverModal } from './letter-receiver-modal';
 import { toast } from 'sonner';
-import { ClarityPageLoader } from '@/components/ui/clarity-loader';
+import { ClarityLoader } from '@/components/ui/clarity-loader';
 import type { ClarityLetter, LetterDelivery } from '@/app/types';
 
 // ============================================================================
@@ -282,14 +282,13 @@ export function SentTab({ userId }: SentTabProps) {
     setFetchState('loading');
     try {
       const letters = await getAllSentLetters(userId);
-      // Fetch deliveries for each letter in parallel
-      const withDeliveries = await Promise.all(
-        letters.map(async (letter) => {
-          const deliveries = await getDeliveriesForLetter(letter.id);
-          return { letter, deliveries };
-        })
-      );
-      setCards(withDeliveries);
+      if (letters.length === 0) {
+        setCards([]);
+        setFetchState('done');
+        return;
+      }
+      const deliveriesByLetter = await getDeliveriesForLetters(letters.map((l) => l.id));
+      setCards(letters.map((letter) => ({ letter, deliveries: deliveriesByLetter[letter.id] ?? [] })));
       setFetchState('done');
     } catch {
       toast.error('Failed to load sent letters');
@@ -304,7 +303,7 @@ export function SentTab({ userId }: SentTabProps) {
   if (fetchState === 'loading') {
     return (
       <div className="flex items-center justify-center py-12">
-        <ClarityPageLoader />
+        <ClarityLoader size="lg" />
       </div>
     );
   }

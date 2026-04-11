@@ -7,7 +7,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { FileText, Plus, Lock, Globe, MoreHorizontal, Trash2, Share2 } from 'lucide-react';
 import { toast } from 'sonner';
-import { ClarityPageLoader } from '@/components/ui/clarity-loader';
+import { ClarityPageLoader, ClarityLoader } from '@/components/ui/clarity-loader';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 import {
@@ -199,7 +199,7 @@ export function DocsListPage() {
         {/* Loading state for fetch */}
         {fetchState === 'loading' && (
           <div className="flex justify-center py-12">
-            <ClarityPageLoader />
+            <ClarityLoader size="lg" />
           </div>
         )}
 

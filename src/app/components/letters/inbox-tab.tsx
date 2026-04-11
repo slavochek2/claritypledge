@@ -8,7 +8,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Mail, MailOpen, Link as LinkIcon, Inbox } from 'lucide-react';
 import { toast } from 'sonner';
-import { ClarityPageLoader } from '@/components/ui/clarity-loader';
+import { ClarityLoader } from '@/components/ui/clarity-loader';
 import { Button } from '@/components/ui/button';
 import { getInboxItems, markDeliveryRead } from '@/app/data/letters-service';
 import { formatTimeAgo } from '@/app/utils/format-time';
@@ -83,7 +83,7 @@ export function InboxTab({ userId, onUnreadCountChange }: InboxTabProps) {
   if (fetchState === 'loading') {
     return (
       <div className="flex justify-center py-12">
-        <ClarityPageLoader />
+        <ClarityLoader size="lg" />
       </div>
     );
   }

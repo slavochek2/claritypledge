@@ -23,21 +23,24 @@ const DEBUG = import.meta.env.DEV;
 const log = (...args: unknown[]) => DEBUG && console.log('[letters-service]', ...args);
 
 /**
- * Get the authenticated user or throw.
+ * Get the authenticated user ID or throw.
+ * Uses getSession() (reads from client storage, no network) instead of getUser()
+ * (hits /auth/v1/user on every call). P692: getUser() caused 27+ pending auth
+ * requests on SentTab load, blocking all data queries indefinitely.
  */
 async function requireAuth(): Promise<string> {
   const {
-    data: { user },
+    data: { session },
     error,
-  } = await supabase.auth.getUser();
-  if (error || !user) {
+  } = await supabase.auth.getSession();
+  if (error || !session?.user) {
     Sentry.captureMessage('letters-service: not authenticated', {
       level: 'error',
       extra: { authError: error?.message },
     });
     throw new Error('Not authenticated');
   }
-  return user.id;
+  return session.user.id;
 }
 
 // ============================================================================
@@ -517,6 +520,38 @@ export async function getDeliveriesForLetter(letterId: string): Promise<LetterDe
   }
 
   return (data ?? []) as LetterDelivery[];
+}
+
+/**
+ * P692: Batch fetch deliveries for multiple letters in one query.
+ * Replaces N individual getDeliveriesForLetter() calls in SentTab.
+ * Returns a map keyed by letter_id; missing letters get an empty array.
+ */
+export async function getDeliveriesForLetters(
+  letterIds: string[]
+): Promise<Record<string, LetterDelivery[]>> {
+  if (letterIds.length === 0) return {};
+  await requireAuth();
+  log('getDeliveriesForLetters:', letterIds.length, 'letters');
+
+  const { data, error } = await supabase
+    .from('letter_deliveries')
+    .select('*')
+    .in('letter_id', letterIds)
+    .order('created_at', { ascending: true });
+
+  if (error) {
+    logDbError('getDeliveriesForLetters', error);
+    return Object.fromEntries(letterIds.map((id) => [id, []]));
+  }
+
+  const grouped: Record<string, LetterDelivery[]> = Object.fromEntries(
+    letterIds.map((id) => [id, []])
+  );
+  for (const delivery of (data ?? []) as LetterDelivery[]) {
+    grouped[delivery.letter_id]?.push(delivery);
+  }
+  return grouped;
 }
 
 /**
