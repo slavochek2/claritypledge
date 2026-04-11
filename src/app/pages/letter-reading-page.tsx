@@ -15,6 +15,7 @@ import { useParams, useSearchParams, Link } from 'react-router-dom';
 import { toast } from 'sonner';
 import { useAuth } from '@/auth';
 import { supabase } from '@/lib/supabase';
+import { FunctionsHttpError } from '@supabase/supabase-js';
 import { CertificatePageShell } from '@/app/components/layout/certificate-page-shell';
 import { FocusHeader } from '@/app/components/layout/focus-header';
 import { ClarityPageLoader } from '@/components/ui/clarity-loader';
@@ -209,8 +210,14 @@ export function LetterReadingPage() {
 
       if (fnError || !result?.ok) {
         // Prefer server-supplied message (already user-friendly: "Invalid or expired invitation", etc.)
-        // Fall back to friendly generic copy when only the SDK's raw error message is available.
-        const serverMessage = result?.message;
+        // When fnError is FunctionsHttpError, data is undefined — parse the response body directly.
+        let serverMessage: string | undefined = result?.message;
+        if (!serverMessage && fnError instanceof FunctionsHttpError) {
+          try {
+            const body = await (fnError.context as Response).clone().json();
+            serverMessage = body?.message;
+          } catch { /* body not JSON — keep fallback */ }
+        }
         const friendlyFallback = "Something went wrong opening this letter. Please try again, or contact us if it keeps happening.";
         throw new Error(serverMessage || friendlyFallback);
       }

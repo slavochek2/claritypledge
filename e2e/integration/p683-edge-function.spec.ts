@@ -236,6 +236,47 @@ test.describe('P683 Integration — create-and-open-letter edge function', () =>
     await supabaseAdmin.from('letter_deliveries').delete().eq('id', delivery.id);
   });
 
+  // ===========================================================================
+  // Canary: orphan auth user (auth.users exists, profiles does NOT) should NOT
+  // crash the edge function with a TypeError. Before the P683 fix, the self-heal
+  // fallback calls `supabase.auth.admin.getUserByEmail()` which is not a method
+  // in @supabase/supabase-js v2 — this throws a TypeError caught by the generic
+  // catch block, returning 500 { error: 'INTERNAL', message: 'Failed to open letter' }.
+  // After the fix the orphan path returns 500 CREATE_FAILED with the real error.
+  // The canary asserts error !== 'INTERNAL' so it fails before the fix.
+  // ===========================================================================
+
+  test('p683 canary: orphan auth user does not trigger INTERNAL TypeError 500', async () => {
+    const receiverEmail = `p683-orphan-canary-${Date.now()}@example.com`;
+
+    // Create auth user WITHOUT a profiles row (orphan scenario)
+    const { data: { user: orphanUser }, error: orphanErr } = await supabaseAdmin.auth.admin.createUser({
+      email: receiverEmail,
+      email_confirm: true,
+    });
+    if (orphanErr || !orphanUser) throw new Error(`Orphan user creation failed: ${orphanErr?.message}`);
+
+    const delivery = await createTestDelivery(letterId, { receiverEmail });
+
+    const { status, body } = await callCreateAndOpenLetter({
+      token: delivery.invitationToken,
+      termsAccepted: true,
+      termsVersion: 'v1.2',
+    });
+
+    // Before fix: TypeError crashes with { error: 'INTERNAL', message: 'Failed to open letter' }
+    // After fix: { error: 'CREATE_FAILED', message: <real createUser error> }
+    // Either way the status is 500, but the error code must NOT be 'INTERNAL'.
+    expect(
+      (body as Record<string, unknown>).error,
+      `Before fix this is 'INTERNAL' (TypeError); after fix it should be 'CREATE_FAILED'. Got status=${status}, body=${JSON.stringify(body)}`
+    ).not.toBe('INTERNAL');
+
+    // Cleanup
+    await supabaseAdmin.from('letter_deliveries').delete().eq('id', delivery.id);
+    await supabaseAdmin.auth.admin.deleteUser(orphanUser.id);
+  });
+
   test('uses termsVersion from request body, not hardcoded v1.1', async () => {
     const receiverEmail = `p683-ef-version-${Date.now()}@example.com`;
     const delivery = await createTestDelivery(letterId, {

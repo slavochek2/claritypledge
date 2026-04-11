@@ -5,10 +5,10 @@ rank: 1000683.0
 created_date: '2026-04-10'
 tags: [letters, compliance, gdpr, tos]
 flow: dev
-delivery_stage: dev
+delivery_stage: fix
 pipeline_plan: [create-spec, challenge-prd, ux, architect, ui, generate-tests, dev, verify]
 pipeline_skipped: [decompose -- under 5 files]
-pipeline_ran: [create-spec, challenge-prd, ux, architect, ui, generate-tests, spec-review, dev]
+pipeline_ran: [create-spec, challenge-prd, ux, architect, ui, generate-tests, spec-review, dev, fix]
 ---
 
 # P683: One-to-One Letter TOS Consent

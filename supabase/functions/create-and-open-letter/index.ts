@@ -244,71 +244,15 @@ serve(async (req: Request) => {
     });
 
     if (createError || !authData.user) {
-      // Self-healing: auth.users may exist without profile (abandoned signup)
-      // Try to sign in instead — same pattern as agreement flow
-      console.warn('[create-and-open-letter] createUser failed, attempting fallback:', createError?.message);
-
-      const { data: fallbackLink, error: fallbackError } = await supabase.auth.admin.generateLink({
-        type: 'magiclink',
-        email: receiverEmail,
-      });
-
-      if (!fallbackError && fallbackLink?.properties?.hashed_token) {
-        // Link delivery to the existing auth.users record
-        const { data: existingAuth } = await supabase.auth.admin.getUserByEmail(receiverEmail);
-        if (existingAuth?.user) {
-          // Ensure profile exists
-          const { data: profileCheck } = await supabase
-            .from('profiles')
-            .select('id')
-            .eq('id', existingAuth.user.id)
-            .maybeSingle();
-
-          if (!profileCheck) {
-            // Create missing profile (self-healing)
-            const avatarColorFallback = AVATAR_COLORS[Math.floor(Math.random() * AVATAR_COLORS.length)];
-            const nameFallback = receiverName || receiverEmail.split('@')[0].replace(/[._-]+/g, ' ').trim().slice(0, 100) || 'Reader';
-            let slugFallback = generateSlug(nameFallback) || `user-${Date.now()}`;
-            const { data: slugCheck } = await supabase.from('profiles').select('slug').eq('slug', slugFallback).maybeSingle();
-            if (slugCheck) slugFallback = `${slugFallback}-${Date.now()}`;
-
-            const { error: profileInsertError } = await supabase.from('profiles').insert({
-              id: existingAuth.user.id,
-              email: receiverEmail,
-              name: nameFallback,
-              slug: slugFallback,
-              avatar_color: avatarColorFallback,
-              is_verified: true,
-              has_pledged: false,
-              accepted_terms_version: termsVersion,
-              pledge_version: 2,
-            });
-
-            if (profileInsertError) {
-              console.error('[create-and-open-letter] self-healing profile insert failed:', profileInsertError.message);
-              return jsonResponse({ error: 'PROFILE_FAILED', message: 'Account setup failed' }, 500);
-            }
-          }
-
-          await recordTermsAcceptance(existingAuth.user.id);
-
-          const selfHealNowIso = new Date().toISOString();
-          await supabase.from('letter_deliveries').update({
-            receiver_profile_id: existingAuth.user.id,
-            status: 'opened',
-            opened_at: selfHealNowIso,
-            invitation_expires_at: selfHealNowIso,
-          }).eq('id', deliveryId);
-        }
-
-        return jsonResponse({
-          ok: true,
-          hashedToken: fallbackLink.properties.hashed_token,
-          redirectTo: `/letter/${deliveryId}`,
-        });
-      }
-
-      return jsonResponse({ error: 'CREATE_FAILED', message: 'Account creation failed' }, 500);
+      // Auth user creation failed. The most common cause is a pre-existing auth.users
+      // row (orphan account — no matching profiles row). Self-healing inside a user-facing
+      // edge function is the wrong layer; orphan cleanup belongs in an admin migration.
+      // Surface the real error so it is diagnosable from the client.
+      console.error('[create-and-open-letter] createUser failed:', createError?.message);
+      return jsonResponse(
+        { error: 'CREATE_FAILED', message: createError?.message ?? 'Account creation failed' },
+        500,
+      );
     }
 
     const newUserId = authData.user.id;
