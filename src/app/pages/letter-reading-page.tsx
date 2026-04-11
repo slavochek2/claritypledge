@@ -90,6 +90,9 @@ export function LetterReadingPage() {
   const [staleTermsResolved, setStaleTermsResolved] = useState(false);
 
   // Load data on mount (skip re-load if already past cover — avoids flash after verifyOtp auth)
+  // P691: authed-first branch — if user has a session, trust RLS via getLetterForReading.
+  // The token is a single-use bootstrap for first-open only; once the receiver has a session,
+  // their auth cookie is authoritative. Token RPC branch runs only for anon users.
   useEffect(() => {
     if (!sessionChecked || !deliveryId) return;
     if (viewState !== 'cover') return;
@@ -98,6 +101,44 @@ export function LetterReadingPage() {
       setPageState('loading');
 
       try {
+        // Authed-first: if user has a session, try RLS-based read before token path
+        if (currentUser) {
+          const readData = await getLetterForReading('', deliveryId);
+          if (readData) {
+            // Wrong user check
+            if (
+              readData.delivery?.receiver_profile_id &&
+              readData.delivery.receiver_profile_id !== currentUser.id
+            ) {
+              setPageState('wrong_user');
+              return;
+            }
+
+            setLetter(readData.letter);
+            setSnapshots(readData.snapshots);
+            setDelivery(readData.delivery);
+            setSenderName(readData.letter.sender_display_name || 'Someone');
+
+            const deliveryReceiverName = (readData.delivery as Record<string, unknown>)?.['receiver_name'] as string | undefined;
+            if (deliveryReceiverName) {
+              setReceiverDisplayName(deliveryReceiverName.split(' ')[0]);
+            } else if (currentUser.user_metadata?.name) {
+              setReceiverDisplayName(currentUser.user_metadata.name);
+            }
+
+            setPageState('ready');
+            return;
+          }
+          // Authed read returned null — fall through to token path only if token present
+          // (edge case: receiver hasn't claimed yet, token still valid on first open)
+          if (!token) {
+            // Authenticated user but letter not accessible — show invalid, not unauthenticated
+            setPageState('invalid');
+            return;
+          }
+        }
+
+        // Anon or authed-fallback: token path
         if (token) {
           // Token-based access (1-to-1) — single RPC bypasses RLS for anon
           const readData = await getLetterForReadingByToken(token);
@@ -137,36 +178,8 @@ export function LetterReadingPage() {
 
           setPageState('ready');
         } else {
-          // Direct access (authenticated)
-          if (!currentUser) {
-            setPageState('unauthenticated');
-            return;
-          }
-
-          const readData = await getLetterForReading(
-            '', // No letter_id — look up by delivery
-            deliveryId
-          );
-
-          if (!readData) {
-            setPageState('invalid');
-            return;
-          }
-
-          // Wrong user check
-          if (
-            readData.delivery?.receiver_profile_id &&
-            readData.delivery.receiver_profile_id !== currentUser.id
-          ) {
-            setPageState('wrong_user');
-            return;
-          }
-
-          setLetter(readData.letter);
-          setSnapshots(readData.snapshots);
-          setDelivery(readData.delivery);
-          setSenderName(readData.letter.sender_display_name || readData.letter.sender_id);
-          setPageState('ready');
+          // No currentUser AND no token
+          setPageState('unauthenticated');
         }
       } catch (err) {
         console.error('[letter-reading] Load error:', err);

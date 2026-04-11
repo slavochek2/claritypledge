@@ -672,74 +672,32 @@ export async function getAllSentLetters(senderId: string): Promise<
 }
 
 /**
- * P660 AD6: Get inbox items combining received letters + responses to my letters.
- * Client-side merge, sorted by timestamp descending.
+ * P660 AD6 / P690: Get inbox items combining received letters + responses to my letters.
+ * Uses SECURITY DEFINER RPC to bypass clarity_docs SELECT RLS that would
+ * drop receiver rows when the source doc is private (not owner/public).
  */
 export async function getInboxItems(userId: string): Promise<InboxItem[]> {
   await requireAuth();
   log('getInboxItems:', userId);
 
-  // Query 1: Letters received by this user
-  const { data: receivedData, error: receivedError } = await supabase
-    .from('letter_deliveries')
-    .select('*, clarity_letters!inner(source_doc_id, sender_id, clarity_docs!inner(title), profiles!clarity_letters_sender_id_fkey(name))')
-    .eq('receiver_profile_id', userId)
-    .order('created_at', { ascending: false })
-    .limit(20);
+  const { data, error } = await supabase.rpc('get_inbox_items', { p_user_id: userId });
 
-  if (receivedError) logDbError('getInboxItems.received', receivedError);
-
-  // Query 2: Responses to letters I sent (completed deliveries from others)
-  const { data: responsesData, error: responsesError } = await supabase
-    .from('letter_deliveries')
-    .select('*, clarity_letters!inner(source_doc_id, sender_id, clarity_docs!inner(title)), profiles!letter_deliveries_receiver_profile_id_fkey(name)')
-    .eq('clarity_letters.sender_id', userId)
-    .in('status', ['completed'])
-    .neq('receiver_profile_id', userId)
-    .order('completed_at', { ascending: false })
-    .limit(20);
-
-  if (responsesError) logDbError('getInboxItems.responses', responsesError);
-
-  const items: InboxItem[] = [];
-
-  // Map received letters
-  for (const row of (receivedData ?? []) as Record<string, unknown>[]) {
-    const letter = row.clarity_letters as Record<string, unknown>;
-    const doc = letter?.clarity_docs as { title: string } | null;
-    const sender = letter?.profiles as { name: string } | null;
-    items.push({
-      type: 'received',
-      delivery_id: row.id as string,
-      letter_id: row.letter_id as string,
-      title: doc?.title ?? 'Untitled',
-      actor_name: sender?.name ?? 'Someone',
-      timestamp: row.created_at as string,
-      read_at: row.read_at as string | null,
-    });
+  if (error) {
+    logDbError('getInboxItems', error);
+    return [];
   }
 
-  // Map responses to my letters
-  for (const row of (responsesData ?? []) as Record<string, unknown>[]) {
-    const letter = row.clarity_letters as Record<string, unknown>;
-    const doc = letter?.clarity_docs as { title: string } | null;
-    const responder = row.profiles as { name: string } | null;
-    const hasProfileId = !!(row.receiver_profile_id);
-    items.push({
-      type: hasProfileId ? 'recipient_responded' : 'link_respondent',
-      delivery_id: row.id as string,
-      letter_id: row.letter_id as string,
-      title: doc?.title ?? 'Untitled',
-      actor_name: responder?.name ?? 'Someone',
-      timestamp: (row.completed_at ?? row.created_at) as string,
-      read_at: row.read_at as string | null,
-    });
-  }
+  const rows = (data as Array<Record<string, unknown>>) ?? [];
 
-  // Sort by timestamp descending
-  items.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-
-  return items.slice(0, 20);
+  return rows.slice(0, 20).map(row => ({
+    type: row['type'] as InboxItem['type'],
+    delivery_id: row['delivery_id'] as string,
+    letter_id: row['letter_id'] as string,
+    title: (row['title'] as string) ?? 'Untitled',
+    actor_name: (row['actor_name'] as string) ?? 'Someone',
+    timestamp: row['timestamp'] as string,
+    read_at: (row['read_at'] as string | null) ?? null,
+  }));
 }
 
 /**
