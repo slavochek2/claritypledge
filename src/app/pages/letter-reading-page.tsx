@@ -23,7 +23,7 @@ import { LetterCover } from '@/app/components/letters/letter-cover';
 import { LetterProgressBar } from '@/app/components/letters/letter-progress-bar';
 import { LetterCompletionSummary } from '@/app/components/letters/letter-completion-summary';
 import { LetterRecipientDone } from '@/app/components/letters/letter-recipient-done';
-import { LetterResponseSignupForm } from '@/app/components/letters/letter-response-signup-form';
+import { LetterResponseCTA } from '@/app/components/letters/letter-response-cta';
 import { LetterStaleTermsModal } from '@/app/components/letters/letter-stale-terms-modal';
 import { CURRENT_TERMS_VERSION, ACCEPTED_TERMS_VERSIONS } from '@/lib/constants';
 import { LiveStoryCardExpanded } from '@/app/components/partners/live-story-card-expanded';
@@ -49,7 +49,6 @@ import {
   claimLetterDelivery,
   updateDeliveryStatus,
   updateDeliveryStatusByToken,
-  requestLetterResponseSignin,
   submitLetterResponseAuthenticated,
 } from '@/app/data/letters-service';
 import { analytics } from '@/lib/mixpanel';
@@ -95,13 +94,7 @@ export function LetterReadingPage() {
 
   // P684: one-to-many public reading state
   const [showSignupForm, setShowSignupForm] = useState(false);
-  const [emailSent, setEmailSent] = useState(false);
-  const [sentToEmail, setSentToEmail] = useState('');
-  // Collected draft from local state — populated on form submit
-  const [localDraft, setLocalDraft] = useState<{
-    ratings: Array<{ storyId: string; rating: number }>;
-    positions: Array<{ pointId: string; position: string }>;
-  } | null>(null);
+  const [publicPredictions, setPublicPredictions] = useState<Map<string, number> | undefined>();
 
   // P683: TOS consent
   const [consentError, setConsentError] = useState<string | null>(null);
@@ -129,6 +122,9 @@ export function LetterReadingPage() {
     const setDeliverySafe = (d: LetterDelivery | null) => { if (!cancelled) setDelivery(d); };
     const setSenderNameSafe = (n: string) => { if (!cancelled) setSenderName(n); };
     const setReceiverDisplayNameSafe = (n: string) => { if (!cancelled) setReceiverDisplayName(n); };
+    const setPublicPredictionsSafe = (preds: Array<{ story_id: string; prediction: number }>) => {
+      if (!cancelled) setPublicPredictions(new Map(preds.map(p => [p.story_id, p.prediction])));
+    };
 
     const load = async () => {
       setSafe('loading');
@@ -160,6 +156,13 @@ export function LetterReadingPage() {
               setReceiverDisplayNameSafe(currentUser.user_metadata.name);
             }
 
+            // P695: skip to completion view if delivery is already completed
+            if (readData.delivery?.status === 'completed') {
+              setSafe('ready');
+              if (!cancelled) setViewState('complete');
+              return;
+            }
+
             setSafe('ready');
             return;
           }
@@ -170,12 +173,13 @@ export function LetterReadingPage() {
             try {
               const publicData = await getLetterForPublicReading(deliveryId);
               if (cancelled) return;
-              if (publicData?.letter && (publicData.letter as Record<string, unknown>).mode === 'one-to-many') {
-                const letterObj = publicData.letter as Record<string, unknown>;
+              if (publicData?.letter && publicData.letter.mode === 'one-to-many') {
+                const letterObj = publicData.letter;
                 setLetterSafe(letterObj as unknown as ClarityLetter);
-                setSnapshotsSafe((publicData.snapshots ?? []) as LetterStorySnapshot[]);
+                setSnapshotsSafe(publicData.snapshots);
                 setDeliverySafe(null);
                 setSenderNameSafe((letterObj.sender_display_name as string) ?? 'Someone');
+                setPublicPredictionsSafe(publicData.predictions);
                 // Authenticated one-to-many reader: use ready_public path
                 setSafe('ready_public');
                 return;
@@ -226,6 +230,13 @@ export function LetterReadingPage() {
             setReceiverDisplayNameSafe(currentUser.user_metadata.name);
           }
 
+          // P695: skip to completion view if delivery is already completed
+          if (readData.delivery?.status === 'completed') {
+            setSafe('ready');
+            if (!cancelled) setViewState('complete');
+            return;
+          }
+
           setSafe('ready');
         } else {
           // No currentUser AND no token — try one-to-many public reading
@@ -237,16 +248,17 @@ export function LetterReadingPage() {
               setSafe('unauthenticated');
               return;
             }
-            const letterObj = publicData.letter as Record<string, unknown>;
+            const letterObj = publicData.letter;
             if (letterObj.mode !== 'one-to-many') {
               setSafe('unauthenticated');
               return;
             }
             setLetterSafe(letterObj as unknown as ClarityLetter);
-            setSnapshotsSafe((publicData.snapshots ?? []) as LetterStorySnapshot[]);
+            setSnapshotsSafe(publicData.snapshots);
             // No delivery for public one-to-many reading
             setDeliverySafe(null);
             setSenderNameSafe((letterObj.sender_display_name as string) ?? 'Someone');
+            setPublicPredictionsSafe(publicData.predictions);
             setSafe('ready_public');
           } catch {
             setSafe('unauthenticated');
@@ -492,23 +504,6 @@ export function LetterReadingPage() {
   if (pageState === 'ready_public') {
     if (!letter || snapshots.length === 0) return <ClarityPageLoader />;
 
-    // P684: "check your email" state after signup form submission
-    if (emailSent) {
-      return (
-        <CertificatePageShell className="min-h-screen py-6 space-y-6">
-          <div className="flex flex-col items-center justify-center min-h-[60vh] text-center space-y-4 px-4">
-            <h2 className="text-xl font-semibold text-[#1A1A1A]">Check your email</h2>
-            <p className="text-sm text-[#1A1A1A]/70 max-w-sm">
-              We sent a link to {sentToEmail}. Click it to save your responses and create your account.
-            </p>
-            <p className="text-xs text-[#1A1A1A]/40 max-w-sm">
-              You can close this tab — the link works on any device.
-            </p>
-          </div>
-        </CertificatePageShell>
-      );
-    }
-
     return (
       <CertificatePageShell className="min-h-screen py-6 space-y-6">
         {viewState === 'cover' && (
@@ -536,8 +531,8 @@ export function LetterReadingPage() {
             snapshots={snapshots}
             senderName={senderName}
             isAuthenticated={!!session}
+            publicPredictions={publicPredictions}
             onComplete={(draft) => {
-              setLocalDraft(draft);
               if (currentUser) {
                 // Authenticated one-to-many reader: submit directly, skip signup form
                 submitLetterResponseAuthenticated(
@@ -549,6 +544,13 @@ export function LetterReadingPage() {
                   console.error('[letter-reading] submitLetterResponseAuthenticated error:', err);
                 });
               } else {
+                // Persist draft client-side so the confirm page can write the pending row
+                const draftKey = `letter-response-draft-${deliveryId}`;
+                sessionStorage.setItem(draftKey, JSON.stringify({
+                  letterId: deliveryId,
+                  ratings: draft.ratings,
+                  positions: draft.positions.map((p) => ({ pointId: p.pointId, position: p.position })),
+                }));
                 setShowSignupForm(true);
               }
               setViewState('complete');
@@ -558,28 +560,9 @@ export function LetterReadingPage() {
 
         {viewState === 'complete' && showSignupForm && !currentUser && (
           <div className="max-w-md mx-auto px-4 py-6">
-            <LetterResponseSignupForm
+            <LetterResponseCTA
               senderName={senderName}
-              onSubmit={async (formData) => {
-                const draft = localDraft ?? { ratings: [], positions: [] };
-                await requestLetterResponseSignin({
-                  letterId: deliveryId ?? '',
-                  name: formData.name,
-                  email: formData.email,
-                  termsAccepted: true,
-                  termsVersion: CURRENT_TERMS_VERSION,
-                  ratings: draft.ratings,
-                  positions: draft.positions.map((p) => ({
-                    pointId: p.pointId,
-                    position: p.position as unknown as number,
-                  })),
-                });
-                setSentToEmail(formData.email);
-              }}
-              onSuccess={() => {
-                setShowSignupForm(false);
-                setEmailSent(true);
-              }}
+              letterId={deliveryId ?? ''}
             />
           </div>
         )}
@@ -793,7 +776,7 @@ function LetterReadingFlow({
   const currentPoint = visiblePoints[currentStory.currentPointIndex];
   const gap = currentStory.rating !== null && currentStory.prediction !== null
     ? Math.abs(currentStory.rating - currentStory.prediction)
-    : 0;
+    : null;
   const isOverconfident = currentStory.rating !== null && currentStory.prediction !== null
     ? currentStory.prediction > currentStory.rating
     : false;
@@ -922,12 +905,14 @@ function LetterReadingFlow({
             compact
             className="w-full max-w-sm"
           />
-          <GapBanner
-            gap={gap}
-            senderName={senderName}
-            isOverconfident={isOverconfident}
-            className="-mt-3"
-          />
+          {gap !== null && (
+            <GapBanner
+              gap={gap}
+              senderName={senderName}
+              isOverconfident={isOverconfident}
+              className="-mt-3"
+            />
+          )}
           <LiveStoryCardExpanded
             story={storyWithPoints}
             hidePoints
@@ -1004,12 +989,14 @@ function LetterReadingFlowPublic({
   snapshots,
   senderName,
   isAuthenticated,
+  publicPredictions,
   onComplete,
 }: {
   letter: ClarityLetter;
   snapshots: LetterStorySnapshot[];
   senderName: string;
   isAuthenticated: boolean;
+  publicPredictions?: Map<string, number>;
   onComplete: (draft: {
     ratings: Array<{ storyId: string; rating: number }>;
     positions: Array<{ pointId: string; position: string }>;
@@ -1031,6 +1018,7 @@ function LetterReadingFlowPublic({
     letterId: letter.id,
     senderId: letter.sender_id,
     snapshots,
+    publicPredictions,
   });
 
   const [selectedPosition, setSelectedPosition] = useState<PositionType | null>(null);
@@ -1081,7 +1069,7 @@ function LetterReadingFlowPublic({
   const currentPoint = visiblePoints[currentStory.currentPointIndex];
   const gap = currentStory.rating !== null && currentStory.prediction !== null
     ? Math.abs(currentStory.rating - currentStory.prediction)
-    : 0;
+    : null;
   const isOverconfident = currentStory.rating !== null && currentStory.prediction !== null
     ? currentStory.prediction > currentStory.rating
     : false;
@@ -1196,12 +1184,14 @@ function LetterReadingFlowPublic({
             compact
             className="w-full max-w-sm"
           />
-          <GapBanner
-            gap={gap}
-            senderName={senderName}
-            isOverconfident={isOverconfident}
-            className="-mt-3"
-          />
+          {gap !== null && (
+            <GapBanner
+              gap={gap}
+              senderName={senderName}
+              isOverconfident={isOverconfident}
+              className="-mt-3"
+            />
+          )}
           <LiveStoryCardExpanded
             story={storyWithPoints}
             hidePoints

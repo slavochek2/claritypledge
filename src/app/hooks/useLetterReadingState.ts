@@ -249,6 +249,11 @@ export interface UseLetterReadingStateParams {
    * Required in 'local' mode: the letter's UUID, used as the localStorage draft key.
    */
   letterId?: string;
+  /**
+   * Shared predictions for one-to-many public reading (local mode).
+   * Keyed by story_id. Loaded from getLetterForPublicReading RPC.
+   */
+  publicPredictions?: Map<string, number>;
 }
 
 // ============================================================================
@@ -309,6 +314,10 @@ export function useLetterReadingState(
 
   const letterId: string | undefined = isParamsObject
     ? deliveryIdOrParams.letterId
+    : undefined;
+
+  const publicPredictions: Map<string, number> | undefined = isParamsObject
+    ? deliveryIdOrParams.publicPredictions
     : undefined;
 
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -467,6 +476,7 @@ export function useLetterReadingState(
           updateCurrentStory((prev) => ({
             ...prev,
             rating,
+            prediction: publicPredictions?.get(currentSnapshot.story_id) ?? null,
             phase: 'story-revealed',
           }));
 
@@ -508,7 +518,7 @@ export function useLetterReadingState(
         setIsSubmitting(false);
       }
     },
-    [mode, deliveryId, senderId, token, previewMode, previewPredictions, currentSnapshot, state.currentStoryIndex, snapshots.length, updateCurrentStory]
+    [mode, deliveryId, senderId, token, previewMode, previewPredictions, publicPredictions, currentSnapshot, state.currentStoryIndex, snapshots.length, updateCurrentStory]
   );
 
   // Advance from point-revealed → story-rate (2+ points) or transition (D36: 1 point after story)

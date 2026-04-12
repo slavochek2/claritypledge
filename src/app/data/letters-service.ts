@@ -733,6 +733,7 @@ export async function getInboxItems(userId: string): Promise<InboxItem[]> {
     actor_name: (row['actor_name'] as string) ?? 'Someone',
     timestamp: row['timestamp'] as string,
     read_at: (row['read_at'] as string | null) ?? null,
+    completed_at: (row['completed_at'] as string | null) ?? null,
   }));
 }
 
@@ -783,15 +784,26 @@ export async function addRecipientToSealed(
 // ============================================================================
 
 /**
- * P684 AD3: Load letter + snapshots for anonymous one-to-many public reading.
- * Uses SECURITY DEFINER RPC — no auth required, no delivery, no predictions.
+ * P684 AD3: Load letter + snapshots + shared predictions for anonymous one-to-many reading.
+ * Uses SECURITY DEFINER RPC — no auth required, no delivery.
+ * Predictions are returned so local mode can reveal them after the reader rates.
  */
-export async function getLetterForPublicReading(letterId: string) {
+export async function getLetterForPublicReading(letterId: string): Promise<{
+  letter: Record<string, unknown>;
+  snapshots: LetterStorySnapshot[];
+  predictions: Array<{ story_id: string; prediction: number }>;
+} | null> {
   const { data, error } = await supabase.rpc('get_letter_for_public_reading', {
     p_letter_id: letterId,
   });
   if (error) throw error;
-  return data;
+  if (!data) return null;
+  const result = data as Record<string, unknown>;
+  return {
+    letter: result.letter as Record<string, unknown>,
+    snapshots: (result.snapshots ?? []) as LetterStorySnapshot[],
+    predictions: (result.predictions ?? []) as Array<{ story_id: string; prediction: number }>,
+  };
 }
 
 interface RequestLetterResponseSigninPayload {

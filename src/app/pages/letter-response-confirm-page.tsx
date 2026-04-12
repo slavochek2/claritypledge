@@ -18,9 +18,11 @@ import { useParams } from 'react-router-dom';
 import { useAuth } from '@/auth';
 import { ClarityLoader } from '@/components/ui/clarity-loader';
 import { LetterResponseLinkExpired } from '@/app/components/letters/letter-response-link-expired';
+import { CURRENT_TERMS_VERSION } from '@/lib/constants';
 import {
   confirmLetterResponse,
   getLetterForPublicReading,
+  requestLetterResponseSignin,
 } from '@/app/data/letters-service';
 
 // ============================================================================
@@ -56,8 +58,8 @@ export function LetterResponseConfirmPage() {
     if (!letterId) return;
     getLetterForPublicReading(letterId)
       .then((data) => {
-        // RPC returns JSONB: { id, sender_display_name, ... }
-        const name = (data as Record<string, unknown>)?.sender_display_name;
+        // RPC returns { letter: { sender_display_name, ... }, snapshots, predictions }
+        const name = data?.letter?.sender_display_name;
         if (typeof name === 'string' && name) {
           setSenderName(name);
         }
@@ -83,7 +85,43 @@ export function LetterResponseConfirmPage() {
 
     setPageState('confirming');
 
-    confirmLetterResponse(letterId)
+    // New CTA flow: draft stored in sessionStorage. Write the pending row before confirming.
+    const run = async () => {
+      const draftKey = `letter-response-draft-${letterId}`;
+      const draftJson = sessionStorage.getItem(draftKey);
+      if (draftJson) {
+        try {
+          const draft = JSON.parse(draftJson) as {
+            letterId: string;
+            ratings: Array<{ storyId: string; rating: number }>;
+            positions: Array<{ pointId: string; position: string }>;
+          };
+          const userName = (session.user.user_metadata?.name as string | undefined)
+            ?? session.user.email
+            ?? 'Reader';
+          await requestLetterResponseSignin({
+            letterId,
+            name: userName,
+            email: session.user.email ?? '',
+            termsAccepted: true,
+            termsVersion: CURRENT_TERMS_VERSION,
+            ratings: draft.ratings,
+            positions: draft.positions.map((p) => ({
+              pointId: p.pointId,
+              position: p.position as unknown as number,
+            })),
+          });
+          sessionStorage.removeItem(draftKey);
+        } catch (err: unknown) {
+          console.error('[letter-response-confirm] requestLetterResponseSignin error:', err);
+          // Fall through — pending row may already exist (retry path)
+        }
+      }
+
+      return confirmLetterResponse(letterId);
+    };
+
+    run()
       .then((result) => {
         if ('ok' in result && result.ok) {
           setPageState('complete');
