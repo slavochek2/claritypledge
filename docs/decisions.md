@@ -2,6 +2,16 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-12 [product]: Letter flow action buttons — compact centered (max-w-[200px]), cards centered (max-w-sm mx-auto)
+
+**Context:** Letter reading flow had two visual inconsistencies: (1) the story-rate Submit button was compact (~200px, centered via ComprehensionRatingCard internals) but all other phase action buttons were full-width edge-to-edge; (2) PointCardWithLinks and PositionComparisonCard floated left within the max-w-md container while story cards already used max-w-sm mx-auto.
+**Decision:** All action buttons in fixed bottom containers use `w-full max-w-[200px]` + container has `items-center`, making them compact and horizontally centered. All card-type content (point cards, comparison cards, story cards) uses a `w-full max-w-sm mx-auto` wrapper for consistent centered layout.
+**Alternatives rejected:** Full-width buttons throughout — visually heavy and inconsistent with the compact card widths. Per-component centering — the wrapper div pattern is reusable and doesn't require prop changes.
+**Consequences:** Any new phase added to `letter-flow-content.tsx` must follow both patterns: fixed bottom container with `items-center`, action button with `max-w-[200px]`, and card content wrapped in `max-w-sm mx-auto`. Do not mix full-width and compact buttons within the same flow.
+**References:** [letter-flow-content.tsx](src/app/components/letters/letter-flow-content.tsx)
+
+---
+
 ## 2026-04-12 [product]: All letter recipients see gap summary on completion; revisits skip to summary directly
 
 **Context:** Recipients had three different end-states: 1:1 got a dead-end "You can close this tab" screen (`LetterRecipientDone`). Authenticated 1:many got the same dead-end inline. Only returning 1:many recipients on a revisit saw `LetterCompletionSummary`. The gap summary (celebration + story-by-story gap cards + /live CTA) is the most valuable output of reading a letter.
