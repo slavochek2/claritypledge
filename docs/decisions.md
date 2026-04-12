@@ -2,6 +2,26 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-12 [technical]: React 19 strips `<meta>` from react-helmet-async before mapChildrenToProps runs
+
+**Context:** P686 badge certificate page needed OG meta tags (`og:title`, `og:description`, `og:image`). They were added via the `<SEO>` component (react-helmet-async). Playwright E2E test read `content` from `meta[property="og:title"]` and got the default site-wide fallback value. Root cause: React 19 extracts `<meta>` children during reconciliation (React's new "hoisting" behavior for document metadata) before react-helmet-async's `mapChildrenToProps()` can process them — Helmet's `updateTags("meta", ...)` receives an empty array. `<title>` has a separate Helmet code path and still works.
+**Decision:** Rewrite `seo.tsx` to set `<meta property>` and `<meta name>` tags via `useEffect` + direct DOM `document.querySelector/setAttribute` calls. Helmet is kept only for `<title>` (works correctly) and `<script type="application/ld+json">`. Also removed duplicate static OG tags from `index.html` — they conflict with Helmet's `data-rh` tracking and produce double meta tags in the DOM.
+**Alternatives rejected:** Upgrading react-helmet-async (no React 19 fix available at time of writing). Switching to `next/head` (Next.js-only). Using a static fallback in `index.html` only (no per-page dynamic values).
+**Consequences:** Any OG/Twitter meta tag on a per-page basis must use `useEffect` + direct DOM writes — not JSX inside `<Helmet>`. The `<SEO>` component encapsulates this. Do not add `<meta>` children to `<Helmet>` directly anywhere in the codebase. `<title>` via Helmet is still fine. This constraint applies for as long as React 19's metadata hoisting behavior is active (i.e., until react-helmet-async publishes a React 19-compatible release).
+**References:** [seo.tsx](src/app/components/seo.tsx) | [index.html](index.html)
+
+---
+
+## 2026-04-12 [technical]: Badge certification DB fallback — in-memory /live state unavailable in E2E tests
+
+**Context:** P686 badge certification fires in `handleFreeRoundComplete()` in `clarity-live-page.tsx`. The logic reads `selectedStoryData` (which story the certifier picked) and `livePositionsJoiner` (listener's position on the point) from React in-memory state populated during the /live session. E2E tests inject state directly into the DB via service role (bypassing the UI), so `selectedStoryData` and `livePositions` are never populated in memory — the badge check silently skipped.
+**Decision:** Add DB fallback: when `selectedStoryData` is absent, query the `points` table using `selectedPointId` from liveState; when `livePositions` is absent, query `point_positions` for the listener's position. The fallback path is also correct for production scenarios where state rehydrates from DB on reconnect.
+**Alternatives rejected:** Populating in-memory state from within the test helper — would require exposing internal React state to tests, fragile coupling. Making the badge check test-only mockable — wrong direction; production correctness is the real goal.
+**Consequences:** Badge certification logic (`handleFreeRoundComplete`) is now resilient whether state arrived via live session UI interaction or DB rehydration. Any future certification logic that reads session state must follow this pattern: prefer in-memory, fall back to DB. The DB fallback path adds one async query per round completion — negligible latency.
+**References:** [clarity-live-page.tsx](src/app/pages/clarity-live-page.tsx) | [e2e/p686-badge-certification.spec.ts](e2e/p686-badge-certification.spec.ts)
+
+---
+
 ## 2026-04-12 [technical]: setTestSession() bypass for magic-link confirm flows in E2E tests
 
 **Context:** P684 E2E tests needed to verify the confirm page flow (UAT-13+15, UAT-14) — a page only reachable after a magic link is clicked and auth completes. Initial approach used `admin.generateLink()` to create a server-side magic link and navigate to it. This failed: (1) Supabase's test project redirect URL allowlist includes `localhost:5001` but NOT `localhost:5200` (w2 worktree port) — PKCE exchange fails silently from unlisted ports; (2) the OTP email path has ~3/hour rate limit on the test project; (3) admin-generated links require PKCE code_verifier in localStorage, which Playwright can't inject into the Supabase auth flow mid-redirect.

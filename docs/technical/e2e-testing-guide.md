@@ -1186,3 +1186,33 @@ npm run test:e2e       # Playwright (requires kanban server on port 9050)
 ### Kanban Playwright config
 
 Separate `playwright.config.ts` in `tools/kanban/` targeting port 9050 with `reuseExistingServer: true`. The root `playwright.config.ts` (app, port 5000) and the kanban config are independent.
+
+---
+
+## Off-screen Elements Break Playwright Strict Mode
+
+**Problem:** Components rendered off-screen for export (e.g. `position: absolute; left: -9999px`) stay in the DOM and are matched by `getByText()` or `getByRole()` locators — triggering "strict mode violation: resolved to 2 elements". P686: `ExportBadgeCertificate` was always rendered hidden for html2canvas access, creating a second "CLARITY BADGE" heading.
+
+**Fix:** Lazy-render export components behind a state flag — only mount them when the export is actually triggered:
+```tsx
+{showExportComponent && <ExportBadgeCertificate ... />}
+```
+
+**Rule:** Never keep an off-screen/hidden element mounted full-time if it duplicates visible text or role selectors. Use conditional rendering or portals with `visibility: hidden` + `aria-hidden="true"` if the element must stay in the DOM.
+
+---
+
+## `data-*` Attributes for Stateful UI Indicators
+
+**Problem:** CSS Tailwind ring classes and `class*=` selectors are fragile — a class rename breaks every test that targets it. P686: pledge ring was only identifiable via `class*="ring-"`, which didn't survive refactoring.
+
+**Pattern:** Add `data-*` attributes to stateful UI indicators so tests can query them semantically:
+```tsx
+// In GravatarAvatar
+<div {...(ringVisible ? { 'data-pledger': 'true' } : {})}>
+
+// In BadgeCheckmark
+<div aria-label={`Has Clarity Badge — ${count} of 9 points verified`}>
+```
+
+**Rule:** Any component that indicates user state (badge earned, pledge taken, verification level) must carry a `data-*` or `aria-label` attribute that tests can rely on. CSS class names are not test contracts.
