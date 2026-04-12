@@ -240,7 +240,7 @@ export function LetterFlowContent({
               className="w-full max-w-sm mx-auto"
             />
             {authGateAtStoryRate ?? (
-              <div className="mt-6">
+              <div className="fixed inset-x-0 bottom-0 z-50 flex flex-col rounded-t-[10px] border bg-background p-4">
                 <h2 className="sr-only">Rate this story</h2>
                 <p className="sr-only">Rate how well you understood this story.</p>
                 <ComprehensionRatingCard
