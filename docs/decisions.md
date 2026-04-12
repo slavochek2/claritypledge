@@ -2,6 +2,26 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-12 [technical]: `invitation_expires_at` is a session-minting gate, not a reading gate
+
+**Context:** `create-and-open-letter` sets `invitation_expires_at = now()` on first open as replay defense (prevents reusing the token to mint fresh auth sessions). The `get_letter_for_reading` RPC checked `invitation_expires_at > now()`, causing every subsequent read to fail — the letter showed "Invalid or expired invitation" after the first open. P683 had already fixed this for the four engagement RPCs but missed the reading RPC.
+**Decision:** Drop the `invitation_expires_at` predicate from `get_letter_for_reading`, same pattern as P683. The column gates session minting only (in `create-and-open-letter`). Reading and engagement RPCs validate token existence + letter sealed status — that's sufficient.
+**Alternatives rejected:** Adding a separate `reading_expires_at` column — unnecessary complexity; the token is already consumed after first open, and the sealed-status check prevents reading draft letters.
+**Consequences:** Pattern for letter token RPCs: `invitation_expires_at` is checked ONLY in `create-and-open-letter` (session minting). All other RPCs (reading, engagement) validate `invitation_token` + `cl.status = 'sealed'` only. Any new RPC that accepts a token should follow this pattern.
+**References:** [20260412180000_fix_reading_rpc_drop_expiry_check.sql](supabase/migrations/20260412180000_fix_reading_rpc_drop_expiry_check.sql) | [P683 migration](supabase/migrations/20260411201933_p683_engagement_rpcs_drop_expiry_check.sql)
+
+---
+
+## 2026-04-12 [product]: Letter invitation email — minimal copy, no feature explanation
+
+**Context:** Letter email contained 5 paragraphs explaining what a Clarity Letter is, how to use it, expiry warnings, and onboarding reassurance. The recipient has no context for any of this — "calibrated predictions" is jargon, "expires in 7 days" creates urgency anxiety, and "you'll be able to create an account" over-explains.
+**Decision:** Strip email to: greeting, headline ("[Sender] sent you a Clarity Letter"), CTA button, privacy/removal line. No feature explanation, no expiry text, no onboarding instructions. The CTA does the work — the product explains itself when they open it.
+**Alternatives rejected:** Keeping a one-line description ("a collection of stories...") — still explains a concept the reader hasn't experienced yet. Removing the privacy line — legally needed since the sender shared the recipient's email without their consent.
+**Consequences:** Email template in `send-letter-emails` edge function is now 4 elements. Future email changes should resist the urge to add explanatory text — if the product needs explaining, fix the product, not the email.
+**References:** [send-letter-emails/index.ts](supabase/functions/send-letter-emails/index.ts)
+
+---
+
 ## 2026-04-12 [technical]: Local mode must persist full LetterReadingState — not a stripped-down draft
 
 **Context:** Public (one-to-many) letter reading used "local mode" which saved a `LocalDraft` to localStorage — only ratings and positions, not the phase. Remote mode (authenticated 1:1) saved the full `LetterReadingState` including phase. On reload, local mode restored the rating (so buttons were disabled) but reset the phase to `story-rate` — readers were stuck: couldn't re-rate (disabled) and couldn't advance (wrong phase).
