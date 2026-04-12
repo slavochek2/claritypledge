@@ -443,7 +443,7 @@ serve(async (req: Request) => {
     // Called IDENTICALLY for new and existing user branches.
     // This equalizes timing and closes the enumeration oracle (BLOCK-4).
     // Reference: create-and-open-letter line 416.
-    const redirectTo = `${appUrl}/letter/${letterId}/confirm`;
+    const redirectTo = `${appUrl}/auth/callback?redirect=/letter/${letterId}/confirm`;
 
     const { data: linkData, error: linkError } = await supabase.auth.admin.generateLink({
       type: 'magiclink',
