@@ -2,6 +2,16 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-12 [product]: Inbox button hierarchy — filled primary for pending actions, outline secondary for completed browse
+
+**Context:** Letters inbox shows two item types in a flat chronological list: received letters awaiting reading ("Read") and sender-side completed responses ("Results"). Every row looked identical — same blue icon, same blue button — requiring users to read label text to classify each item. Goal: instant visual scannability without introducing new colors.
+**Decision:** Use button variant hierarchy (filled vs outline) plus a matching icon to create pre-attentive differentiation. "Read" button = `bg-blue-500` filled + Mail icon (primary — action waiting for the user). "Results" button = `variant="outline"` + Eye icon (secondary — completed work to browse at leisure). No new colors; stays within the existing blue + gray palette already used by the inbox.
+**Alternatives rejected:** Color coding (blue for unread, green for completed) — introduces a second action color, violates design system rule against green action buttons, and adds visual noise to a list that should feel calm. Row-level background tinting alone — already done (blue-500/5 tint for unread rows), but insufficient since both action buttons still look identical. Icon-only differentiation without variant change — icons are too small as the sole signal; filled vs outline is the stronger pre-attentive cue.
+**Consequences:** In any list where items can be in "awaiting your action" vs "completed, browse if interested" states, use filled primary button for the former and outline secondary for the latter. Both keep `min-h-[44px]` touch targets. Icons from lucide-react inside buttons (Mail, Eye) provide a secondary shape cue that works at peripheral vision distance. Pattern applies to future inbox-like UIs across the product.
+**References:** [inbox-tab.tsx](src/app/components/letters/inbox-tab.tsx) | [design-system.md](docs/design-system.md#button-hierarchy)
+
+---
+
 ## 2026-04-12 [process]: Standalone smoke test files eliminated — smoke checks embedded in E2E feature files
 
 **Context:** `/generate-tests` generated a standalone `e2e/p{N}-smoke.spec.ts` for every feature. After 60+ features, 64 smoke files existed — all strict subsets of their paired feature E2E tests. Any E2E test that navigates and interacts already catches page-breaking errors; the smoke files added file count with near-zero unique coverage.
