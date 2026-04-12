@@ -596,8 +596,10 @@ export function LetterReadingPage() {
                   ratings: draft.ratings,
                   positions: draft.positions.map((p) => ({ pointId: p.pointId, position: p.position })),
                 }));
+                // Clear local reading progress so returning to the letter page shows the cover
+                localStorage.removeItem(`p684_letter_state:${letter.id}`);
                 const confirmRedirect = `/letter/${deliveryId}/confirm`;
-                navigate(`/signup?source=letter-response&letterId=${deliveryId}&redirect=${encodeURIComponent(confirmRedirect)}`);
+                navigate(`/signup?source=letter-response&letterId=${deliveryId}&senderName=${encodeURIComponent(senderName)}&redirect=${encodeURIComponent(confirmRedirect)}`);
                 return;
               }
               setViewState('complete');
