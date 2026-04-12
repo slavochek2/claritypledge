@@ -2,6 +2,26 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-12 [product]: All letter recipients see gap summary on completion; revisits skip to summary directly
+
+**Context:** Recipients had three different end-states: 1:1 got a dead-end "You can close this tab" screen (`LetterRecipientDone`). Authenticated 1:many got the same dead-end inline. Only returning 1:many recipients on a revisit saw `LetterCompletionSummary`. The gap summary (celebration + story-by-story gap cards + /live CTA) is the most valuable output of reading a letter.
+**Decision:** `LetterCompletionSummary` is the universal completion screen for all recipient paths (1:1, 1:many authed first completion, revisits). `LetterRecipientDone` deleted. Revisits skip the celebration phase (`isRevisit` prop initialises `phase = 'summary'`, suppresses confetti) — they land directly on the gap cards. `getCompletionSummary` ratings query was also fixed: was querying by `session_id` (always null for letters) → now queries by `listener_id + story_id IN storyIds`.
+**Alternatives rejected:** Keeping `LetterRecipientDone` for 1:1 — provides no actionable data; the gap summary is always more useful. Showing celebration on revisit — the moment has passed; friction without value.
+**Consequences:** Any new recipient-facing completion screen must use `LetterCompletionSummary`. `isRevisit` must be passed as `true` when the delivery was already completed on page load (detected via `completed_at`). `getCompletionSummary` now requires `storyIds: string[]` as second argument — all callers must pass `letterData.snapshots.map(s => s.story_id)`.
+**References:** [letter-reading-page.tsx](src/app/pages/letter-reading-page.tsx) | [letter-completion-summary.tsx](src/app/components/letters/letter-completion-summary.tsx) | [letters-service.ts](src/app/data/letters-service.ts)
+
+---
+
+## 2026-04-12 [technical]: `completed_at` is the canonical letter completion signal — `status` can lag
+
+**Context:** A delivery had `status: 'opened'` but `completed_at` set, causing the letter page to show the cover instead of the summary (the page checked `status === 'completed'`). The inbox correctly used `completed_at` to show "Results". The divergence happens because some completion paths call `updateDeliveryStatus('completed')` (which sets both fields atomically) while others set `completed_at` via a different mechanism without updating `status`.
+**Decision:** Use `completed_at` as the authoritative completion signal everywhere in the letter reading page. `status` is a secondary field useful for filtering but unreliable as a completion gate. Pattern: `if (delivery.completed_at) { /* treat as completed */ }`.
+**Alternatives rejected:** Fixing the data so `status` is always consistent — doesn't help existing rows already in bad state; `completed_at` is the more durable field (it's a timestamp with no valid reason to be set unless complete).
+**Consequences:** Any code that needs to detect "has this delivery been completed?" must check `completed_at`, not `status`. The inbox RPC (`get_inbox_items`) already follows this — align all future letter-related checks. If `status` is needed for filtering queries, use it there; for page-level branching logic, use `completed_at`.
+**References:** [letter-reading-page.tsx](src/app/pages/letter-reading-page.tsx)
+
+---
+
 ## 2026-04-13 [product]: Comprehension rating question — personalized with sender name and intention framing
 
 **Context:** Letter reading flow asked "How well do you believe you understand this story?" — generic, no sender reference, no framing of what "understanding" means.
