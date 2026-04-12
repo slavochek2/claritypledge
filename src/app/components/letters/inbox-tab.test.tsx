@@ -36,7 +36,7 @@ const unreadItem: InboxItem = {
 };
 
 const readItem: InboxItem = {
-  type: 'recipient_responded',
+  type: 'received',
   delivery_id: 'delivery-2',
   letter_id: 'letter-2',
   title: 'Another Letter',
@@ -143,6 +143,35 @@ describe('InboxTab — P689 read/unread indicators', () => {
       (el) => !el.hasAttribute('data-unread')
     ) as HTMLElement;
     expect(readRow.className).toContain('bg-card');
+  });
+});
+
+describe('InboxTab — canary: no sender-notification types in inbox', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('does not render "completed" notification text for recipient_responded items (sender should not see these)', async () => {
+    // This item represents the bug: a completion notification appearing in the sender's inbox.
+    // Cast via unknown so the test compiles before we remove the union member.
+    const bugItem = {
+      type: 'recipient_responded' as unknown as InboxItem['type'],
+      delivery_id: 'delivery-bug',
+      letter_id: 'letter-bug',
+      title: 'My Letter',
+      actor_name: 'Bob',
+      timestamp: '2026-04-10T10:00:00Z',
+      read_at: null,
+      completed_at: null,
+    } as InboxItem;
+    vi.mocked(getInboxItems).mockResolvedValue([bugItem]);
+    const { container } = render(<InboxTab userId="test-user" />, { wrapper });
+
+    // Wait for the async load to settle (loading state disappears)
+    await new Promise(r => setTimeout(r, 100));
+
+    // Bug: renders "Bob completed My Letter" — inbox must not contain completion notifications for sent letters
+    expect(container.querySelector('p')?.textContent ?? '').not.toMatch(/completed/i);
   });
 });
 
