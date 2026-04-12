@@ -2,6 +2,16 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-12 [technical]: Local mode must persist full LetterReadingState — not a stripped-down draft
+
+**Context:** Public (one-to-many) letter reading used "local mode" which saved a `LocalDraft` to localStorage — only ratings and positions, not the phase. Remote mode (authenticated 1:1) saved the full `LetterReadingState` including phase. On reload, local mode restored the rating (so buttons were disabled) but reset the phase to `story-rate` — readers were stuck: couldn't re-rate (disabled) and couldn't advance (wrong phase).
+**Decision:** Local mode now saves and loads the full `LetterReadingState` to localStorage — same shape as remote mode uses for sessionStorage. `LocalDraft`, `applyDraftToState`, and `deriveDraft` removed. Additionally, the reading page now auto-skips the "Open Letter" cover for public letters when localStorage has in-progress state — matching the existing auto-skip behavior for email (1:1) letters.
+**Alternatives rejected:** Deriving phase from restored data (if rating exists → set phase to `story-revealed`) — works for the rating case but would need per-phase derivation logic for every future phase. Saving full state is simpler and inherently correct for all phases.
+**Consequences:** Two storage strategies are now one: both local and remote modes persist the complete state machine. Any new phase or state field added to `LetterReadingState` is automatically persisted in both modes. Old `p684_letter_draft:*` localStorage keys are orphaned — users with mid-reading progress under the old key will start fresh (acceptable since they were stuck anyway). New key: `p684_letter_state:{letterId}`.
+**References:** [useLetterReadingState.ts](src/app/hooks/useLetterReadingState.ts) | [letter-reading-page.tsx](src/app/pages/letter-reading-page.tsx)
+
+---
+
 ## 2026-04-12 [product]: Badge subtitle — "Verified understanding of common knowledge creation"
 
 **Context:** P686 badge certificate had a `[FOUNDER DECISION: subtitle]` placeholder under "CLARITY BADGE". The subtitle needed to answer: *what does this badge certify?* Options included role-based ("Calibrated Communication Practitioner"), process-based ("Certified by Live Session Verification"), and object-based framings.
