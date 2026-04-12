@@ -452,10 +452,13 @@ sys.exit(0 if found else 1)
             fi
         fi
 
-        # If no P-number match (or no P-number), also check for any integration test
-        # that references the migration base name (covers non-P-numbered migrations)
+        # If no P-number match (or no P-number), check for a file named after the
+        # migration base name first (exact filename match), then fall back to
+        # content search (covers non-P-numbered migrations either way)
         if [ "$test_found" -eq 0 ]; then
-            if grep -rl "$mig_base" e2e/integration/ 2>/dev/null | grep -q .; then
+            if ls "e2e/integration/${mig_base}.spec.ts" 2>/dev/null | grep -q .; then
+                test_found=1
+            elif grep -rl "$mig_base" e2e/integration/ 2>/dev/null | grep -q .; then
                 test_found=1
             fi
         fi
