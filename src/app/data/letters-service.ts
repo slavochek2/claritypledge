@@ -5,6 +5,7 @@
  */
 
 import * as Sentry from '@sentry/react';
+import { FunctionsHttpError } from '@supabase/supabase-js';
 import { logDbError } from './db-error-logger';
 import type {
   ClarityLetter,
@@ -775,6 +776,228 @@ export async function addRecipientToSealed(
   }
 
   return data as string;
+}
+
+// ============================================================================
+// P684: ONE-TO-MANY PUBLIC READING & ACCOUNT GATE
+// ============================================================================
+
+/**
+ * P684 AD3: Load letter + snapshots for anonymous one-to-many public reading.
+ * Uses SECURITY DEFINER RPC — no auth required, no delivery, no predictions.
+ */
+export async function getLetterForPublicReading(letterId: string) {
+  const { data, error } = await supabase.rpc('get_letter_for_public_reading', {
+    p_letter_id: letterId,
+  });
+  if (error) throw error;
+  return data;
+}
+
+interface RequestLetterResponseSigninPayload {
+  letterId: string;
+  name: string;
+  email: string;
+  termsAccepted: boolean;
+  termsVersion: string;
+  ratings: Array<{ storyId: string; rating: number }>;
+  positions: Array<{ pointId: string; position: number }>;
+}
+
+/**
+ * P684 AD1: Request magic-link sign-in for one-to-many letter response submission.
+ * Calls the `request-letter-response-signin` edge function which creates the auth user
+ * if needed, mints a magic link, writes the `letter_response_pending` row, and sends
+ * the branded email. Returns `{ ok: true }` on success.
+ *
+ * FunctionsHttpError: parse via fnError.context (IS the Response) — not fnError.context.response. See P683 KDD.
+ */
+export async function requestLetterResponseSignin(
+  payload: RequestLetterResponseSigninPayload
+): Promise<{ ok: true }> {
+  const { data, error } = await supabase.functions.invoke('request-letter-response-signin', {
+    body: payload,
+  });
+
+  if (error) {
+    // FunctionsHttpError: parse via fnError.context (IS the Response) — not fnError.context.response. See P683 KDD.
+    if (error instanceof FunctionsHttpError) {
+      let body: Record<string, unknown> = {};
+      try {
+        body = await (error.context as Response).clone().json();
+      } catch { /* body not JSON — fall through */ }
+      throw new Error((body?.message as string) ?? error.message ?? 'Request failed');
+    }
+    throw error;
+  }
+
+  if (!data?.ok) {
+    throw new Error(data?.message ?? 'Request failed');
+  }
+
+  return { ok: true };
+}
+
+/**
+ * P684 AD1: Confirm a letter response after magic-link authentication.
+ * Called by the `/letter/:letterId/confirm` route after Supabase auth has established
+ * a session. The user JWT is automatically included by the Supabase client.
+ *
+ * Returns `{ ok: true }` on success, or an error body so the caller can check
+ * `{ error: 'expired' | 'hijack' | 'unauthenticated' | 'invalid' }`.
+ *
+ * FunctionsHttpError: parse via fnError.context (IS the Response) — not fnError.context.response. See P683 KDD.
+ */
+export async function confirmLetterResponse(
+  letterId: string
+): Promise<{ ok: true } | { error: string; message?: string }> {
+  const { data, error } = await supabase.functions.invoke('confirm-letter-response', {
+    body: { letterId },
+  });
+
+  if (error) {
+    // FunctionsHttpError: parse via fnError.context (IS the Response) — not fnError.context.response. See P683 KDD.
+    if (error instanceof FunctionsHttpError) {
+      let body: Record<string, unknown> = {};
+      try {
+        body = await (error.context as Response).clone().json();
+      } catch { /* body not JSON — fall through */ }
+      // Return the error body so caller can branch on error type
+      return {
+        error: (body?.error as string) ?? 'unknown',
+        message: (body?.message as string) ?? error.message,
+      };
+    }
+    throw error;
+  }
+
+  if (!data?.ok) {
+    return { error: data?.error ?? 'unknown', message: data?.message };
+  }
+
+  return { ok: true };
+}
+
+interface RatingEntry { storyId: string; rating: number }
+interface PositionEntry { pointId: string; position: number | string }
+
+/**
+ * P684 AD4 Flow 4: Submit letter response for already-authenticated one-to-many readers.
+ * No email round-trip — user is already signed in. Performs inline sequential inserts
+ * under the user's JWT.
+ *
+ * No partial rollback in v1 — documented limitation per spec AD4.
+ */
+export async function submitLetterResponseAuthenticated(
+  letterId: string,
+  ratings: RatingEntry[],
+  positions: PositionEntry[],
+  termsVersion: string,
+): Promise<void> {
+  // P692: use getSession(), not getUser() — avoids auth race on letter flow
+  const {
+    data: { session },
+    error: sessionError,
+  } = await supabase.auth.getSession();
+
+  if (sessionError || !session?.user) {
+    Sentry.captureMessage('submitLetterResponseAuthenticated: not authenticated', {
+      level: 'error',
+      extra: { authError: sessionError?.message },
+    });
+    throw new Error('Not authenticated');
+  }
+
+  const user = session.user;
+
+  // 1. Fetch the letter to get sender_id (needed for story_verifications.speaker_id)
+  const { data: letterData, error: letterError } = await supabase
+    .from('clarity_letters')
+    .select('sender_id')
+    .eq('id', letterId)
+    .single();
+
+  if (letterError || !letterData) {
+    throw new Error(`Failed to fetch letter: ${letterError?.message}`);
+  }
+
+  // 2. Insert letter_deliveries row (status='completed', receiver_profile_id=user.id)
+  const { data: delivery, error: deliveryError } = await supabase
+    .from('letter_deliveries')
+    .insert({
+      letter_id: letterId,
+      receiver_profile_id: user.id,
+      receiver_email: user.email ?? null,
+      status: 'completed',
+      completed_at: new Date().toISOString(),
+    })
+    .select('id')
+    .single();
+
+  if (deliveryError || !delivery) {
+    throw new Error(`Failed to create delivery: ${deliveryError?.message}`);
+  }
+
+  const deliveryId = delivery.id;
+
+  // 3. Insert story_verifications rows from ratings
+  if (ratings.length > 0) {
+    const verificationRows = ratings.map((r) => ({
+      story_id: r.storyId,
+      speaker_id: letterData.sender_id,
+      listener_id: user.id,
+      listener_rating: r.rating,
+      speaker_rating: 0, // Placeholder — sender predicts separately
+      source: 'letter',
+      verified: false,
+      session_id: null,
+    }));
+
+    const { error: ratingsError } = await supabase
+      .from('story_verifications')
+      .insert(verificationRows);
+
+    if (ratingsError) {
+      logDbError('submitLetterResponseAuthenticated.ratings', ratingsError);
+      throw new Error(`Failed to insert ratings: ${ratingsError.message}`);
+    }
+  }
+
+  // 4. Insert letter_point_responses rows from positions
+  if (positions.length > 0) {
+    const positionRows = positions.map((p) => ({
+      delivery_id: deliveryId,
+      point_id: p.pointId,
+      position: String(p.position),
+    }));
+
+    const { error: positionsError } = await supabase
+      .from('letter_point_responses')
+      .insert(positionRows);
+
+    if (positionsError) {
+      logDbError('submitLetterResponseAuthenticated.positions', positionsError);
+      throw new Error(`Failed to insert positions: ${positionsError.message}`);
+    }
+  }
+
+  // 5. Insert terms_acceptances row (ignore duplicate on (user_id, terms_version))
+  const { error: termsError } = await supabase
+    .from('terms_acceptances')
+    .upsert(
+      {
+        user_id: user.id,
+        terms_version: termsVersion,
+        ip_hash: null, // Client-side IP hash not reliable; server-side preferred for audits
+        user_agent: navigator.userAgent,
+      },
+      { onConflict: 'user_id,terms_version', ignoreDuplicates: true }
+    );
+
+  if (termsError) {
+    // Non-fatal: log but don't block — terms row is secondary to delivery + responses
+    logDbError('submitLetterResponseAuthenticated.terms', termsError);
+  }
 }
 
 /**
