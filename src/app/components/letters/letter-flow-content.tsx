@@ -21,14 +21,6 @@ import { ComprehensionRatingCard } from '@/app/components/shared/comprehension-r
 import { PointCardWithLinks } from '@/app/components/social/point-card-with-links';
 import type { PointProfileOwner } from '@/app/components/social/point-card-with-links';
 import type { Position } from '@/app/components/shared/prototype-types';
-import {
-  Drawer,
-  DrawerContent,
-  DrawerDescription,
-  DrawerFooter,
-  DrawerHeader,
-  DrawerTitle,
-} from '@/components/ui/drawer';
 import { Button } from '@/components/ui/button';
 import type { UseLetterReadingStateReturn, StoryPhase } from '@/app/hooks/useLetterReadingState';
 import { snapshotToStoryWithPoints, pointSummaryToProtoPoint } from '@/app/utils/letter-snapshot-mapper';
@@ -204,19 +196,15 @@ export function LetterFlowContent({
               onPositionSelect={(pos) => setSelectedPosition(pos as PositionType | null)}
               selectedPosition={selectedPosition as Position}
             />
-            <Drawer open dismissible={false} modal={false}>
-              <DrawerContent overlayClassName="bg-transparent">
-                <DrawerFooter>
-                  <Button
-                    onClick={handleSubmitPosition}
-                    disabled={!selectedPosition || isSubmitting}
-                    className="w-full bg-[#0044CC] hover:bg-[#0033AA] text-white min-h-[44px]"
-                  >
-                    Submit
-                  </Button>
-                </DrawerFooter>
-              </DrawerContent>
-            </Drawer>
+            <div className="fixed inset-x-0 bottom-0 z-50 flex flex-col rounded-t-[10px] border bg-background p-4">
+              <Button
+                onClick={handleSubmitPosition}
+                disabled={!selectedPosition || isSubmitting}
+                className="w-full bg-[#0044CC] hover:bg-[#0033AA] text-white min-h-[44px]"
+              >
+                Submit
+              </Button>
+            </div>
           </>
         )}
 
@@ -229,23 +217,16 @@ export function LetterFlowContent({
               authorName={senderName}
               pointStatement={currentPoint.statement}
             />
-            <Drawer open={showAdvanceButton} dismissible={false} modal={false}>
-              <DrawerContent overlayClassName="bg-transparent">
-                <DrawerFooter>
-                  <Button
-                    aria-hidden={!showAdvanceButton}
-                    onClick={advanceFromPointReveal}
-                    className={[
-                      'w-full bg-[#0044CC] hover:bg-[#0033AA] text-white min-h-[44px]',
-                      'transition-opacity duration-500',
-                      showAdvanceButton ? 'opacity-100' : 'opacity-0',
-                    ].join(' ')}
-                  >
-                    Next
-                  </Button>
-                </DrawerFooter>
-              </DrawerContent>
-            </Drawer>
+            {showAdvanceButton && (
+              <div className="fixed inset-x-0 bottom-0 z-50 flex flex-col rounded-t-[10px] border bg-background p-4">
+                <Button
+                  onClick={advanceFromPointReveal}
+                  className="w-full bg-[#0044CC] hover:bg-[#0033AA] text-white min-h-[44px]"
+                >
+                  Next
+                </Button>
+              </div>
+            )}
           </>
         )}
 
@@ -259,22 +240,16 @@ export function LetterFlowContent({
               className="w-full max-w-sm mx-auto"
             />
             {authGateAtStoryRate ?? (
-              <Drawer open dismissible={false} modal={false}>
-                <DrawerContent overlayClassName="bg-transparent">
-                  <DrawerHeader>
-                    <DrawerTitle className="sr-only">Rate this story</DrawerTitle>
-                    <DrawerDescription className="sr-only">Rate how well you understood this story.</DrawerDescription>
-                  </DrawerHeader>
-                  <div className="px-4 pt-2 pb-4">
-                    <ComprehensionRatingCard
-                      question="How well do you believe you understand this story?"
-                      onSelect={handleSubmitRating}
-                      disabled={isSubmitting || currentStory.rating !== null}
-                      submitLabel="Submit"
-                    />
-                  </div>
-                </DrawerContent>
-              </Drawer>
+              <div className="mt-6">
+                <h2 className="sr-only">Rate this story</h2>
+                <p className="sr-only">Rate how well you understood this story.</p>
+                <ComprehensionRatingCard
+                  question={`How well do you believe you understand ${senderName}'s intention behind their story?`}
+                  onSelect={handleSubmitRating}
+                  disabled={isSubmitting || currentStory.rating !== null}
+                  submitLabel="Submit"
+                />
+              </div>
             )}
           </>
         )}
@@ -306,23 +281,16 @@ export function LetterFlowContent({
               readOnly
               className="w-full max-w-sm mx-auto"
             />
-            <Drawer open={showAdvanceButton} dismissible={false} modal={false}>
-              <DrawerContent overlayClassName="bg-transparent">
-                <DrawerFooter>
-                  <Button
-                    aria-hidden={!showAdvanceButton}
-                    onClick={isFinalStory ? nextStory : advanceFromStoryReveal}
-                    className={[
-                      'w-full bg-[#0044CC] hover:bg-[#0033AA] text-white min-h-[44px]',
-                      'transition-opacity duration-500',
-                      showAdvanceButton ? 'opacity-100' : 'opacity-0',
-                    ].join(' ')}
-                  >
-                    {isFinalStory ? 'Complete Letter' : 'Next Story'}
-                  </Button>
-                </DrawerFooter>
-              </DrawerContent>
-            </Drawer>
+            {showAdvanceButton && (
+              <div className="fixed inset-x-0 bottom-0 z-50 flex flex-col rounded-t-[10px] border bg-background p-4">
+                <Button
+                  onClick={isFinalStory ? nextStory : advanceFromStoryReveal}
+                  className="w-full bg-[#0044CC] hover:bg-[#0033AA] text-white min-h-[44px]"
+                >
+                  {isFinalStory ? 'Complete Letter' : 'Next Story'}
+                </Button>
+              </div>
+            )}
           </>
         )}
 
@@ -338,19 +306,15 @@ export function LetterFlowContent({
               onPositionSelect={(pos) => setSelectedPosition(pos as PositionType | null)}
               selectedPosition={selectedPosition as Position}
             />
-            <Drawer open dismissible={false} modal={false}>
-              <DrawerContent overlayClassName="bg-transparent">
-                <DrawerFooter>
-                  <Button
-                    onClick={handleSubmitPosition}
-                    disabled={!selectedPosition || isSubmitting}
-                    className="w-full bg-[#0044CC] hover:bg-[#0033AA] text-white min-h-[44px]"
-                  >
-                    Submit
-                  </Button>
-                </DrawerFooter>
-              </DrawerContent>
-            </Drawer>
+            <div className="fixed inset-x-0 bottom-0 z-50 flex flex-col rounded-t-[10px] border bg-background p-4">
+              <Button
+                onClick={handleSubmitPosition}
+                disabled={!selectedPosition || isSubmitting}
+                className="w-full bg-[#0044CC] hover:bg-[#0033AA] text-white min-h-[44px]"
+              >
+                Submit
+              </Button>
+            </div>
           </>
         )}
 
@@ -363,23 +327,16 @@ export function LetterFlowContent({
               authorName={senderName}
               pointStatement={currentPoint.statement}
             />
-            <Drawer open={showAdvanceButton} dismissible={false} modal={false}>
-              <DrawerContent overlayClassName="bg-transparent">
-                <DrawerFooter>
-                  <Button
-                    aria-hidden={!showAdvanceButton}
-                    onClick={advanceFromRemainingPointReveal}
-                    className={[
-                      'w-full bg-[#0044CC] hover:bg-[#0033AA] text-white min-h-[44px]',
-                      'transition-opacity duration-500',
-                      showAdvanceButton ? 'opacity-100' : 'opacity-0',
-                    ].join(' ')}
-                  >
-                    Next
-                  </Button>
-                </DrawerFooter>
-              </DrawerContent>
-            </Drawer>
+            {showAdvanceButton && (
+              <div className="fixed inset-x-0 bottom-0 z-50 flex flex-col rounded-t-[10px] border bg-background p-4">
+                <Button
+                  onClick={advanceFromRemainingPointReveal}
+                  className="w-full bg-[#0044CC] hover:bg-[#0033AA] text-white min-h-[44px]"
+                >
+                  Next
+                </Button>
+              </div>
+            )}
           </>
         )}
 
