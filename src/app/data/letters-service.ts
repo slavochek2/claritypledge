@@ -465,7 +465,7 @@ export async function updateDeliveryStatusByToken(
 /**
  * Get completion summary for a delivery — all ratings, predictions, and point responses.
  */
-export async function getCompletionSummary(deliveryId: string): Promise<{
+export async function getCompletionSummary(deliveryId: string, storyIds: string[]): Promise<{
   ratings: Array<{ story_id: string; listener_rating: number }>;
   predictions: LetterPrediction[];
   pointResponses: LetterPointResponse[];
@@ -473,12 +473,16 @@ export async function getCompletionSummary(deliveryId: string): Promise<{
   await requireAuth();
   log('getCompletionSummary:', deliveryId);
 
+  const { data: { session: authSession } } = await supabase.auth.getSession();
+  const listenerId = authSession?.user?.id ?? '';
+
   const [ratingsResult, predictionsResult, responsesResult] = await Promise.all([
     supabase
       .from('story_verifications')
       .select('story_id, listener_rating')
-      .eq('session_id', deliveryId)
-      .eq('source', 'letter'),
+      .eq('listener_id', listenerId)
+      .eq('source', 'letter')
+      .in('story_id', storyIds),
     supabase
       .from('letter_predictions')
       .select('*')
@@ -908,7 +912,7 @@ export async function submitLetterResponseAuthenticated(
   ratings: RatingEntry[],
   positions: PositionEntry[],
   termsVersion: string,
-): Promise<void> {
+): Promise<string> {
   // P692: use getSession(), not getUser() — avoids auth race on letter flow
   const {
     data: { session },
@@ -1013,6 +1017,8 @@ export async function submitLetterResponseAuthenticated(
     // Non-fatal: log but don't block — terms row is secondary to delivery + responses
     logDbError('submitLetterResponseAuthenticated.terms', termsError);
   }
+
+  return deliveryId;
 }
 
 /**

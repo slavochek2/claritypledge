@@ -17,10 +17,9 @@ import { useAuth } from '@/auth';
 import { supabase } from '@/lib/supabase';
 import { FunctionsHttpError } from '@supabase/supabase-js';
 import { CertificatePageShell } from '@/app/components/layout/certificate-page-shell';
-import { ClarityPageLoader } from '@/components/ui/clarity-loader';
+import { ClarityPageLoader, ClarityLoader } from '@/components/ui/clarity-loader';
 import { LetterCover } from '@/app/components/letters/letter-cover';
 import { LetterCompletionSummary } from '@/app/components/letters/letter-completion-summary';
-import { LetterRecipientDone } from '@/app/components/letters/letter-recipient-done';
 import { LetterResponseCTA } from '@/app/components/letters/letter-response-cta';
 import { LetterStaleTermsModal } from '@/app/components/letters/letter-stale-terms-modal';
 import { LetterFlowContent } from '@/app/components/letters/letter-flow-content';
@@ -80,6 +79,7 @@ export function LetterReadingPage() {
   // P684: one-to-many public reading state
   const [showSignupForm, setShowSignupForm] = useState(false);
   const [publicPredictions, setPublicPredictions] = useState<Map<string, number> | undefined>();
+  const [completedDeliveryId, setCompletedDeliveryId] = useState<string | null>(null);
 
   // P683: TOS consent
   const [consentError, setConsentError] = useState<string | null>(null);
@@ -545,7 +545,9 @@ export function LetterReadingPage() {
                   draft.ratings,
                   draft.positions.map((p) => ({ pointId: p.pointId, position: p.position })),
                   CURRENT_TERMS_VERSION,
-                ).catch((err: unknown) => {
+                ).then((newDeliveryId) => {
+                  setCompletedDeliveryId(newDeliveryId);
+                }).catch((err: unknown) => {
                   console.error('[letter-reading] submitLetterResponseAuthenticated error:', err);
                 });
               } else {
@@ -572,16 +574,23 @@ export function LetterReadingPage() {
           </div>
         )}
 
-        {/* Authenticated one-to-many: State 8 completion (submit happens in LetterReadingFlowPublic) */}
-        {viewState === 'complete' && !!currentUser && (
-          <div className="flex flex-col items-center justify-center min-h-[60vh] text-center space-y-2 px-4">
-            <p className="text-lg font-semibold text-center">
-              Your responses have been shared with {senderName}.
-            </p>
-            <p className="text-sm text-muted-foreground text-center">
-              You can close this tab.
-            </p>
+        {/* Authenticated one-to-many: show completion summary */}
+        {viewState === 'complete' && !!currentUser && !completedDeliveryId && (
+          <div className="flex justify-center py-12">
+            <ClarityLoader size="lg" />
           </div>
+        )}
+        {viewState === 'complete' && !!currentUser && completedDeliveryId && (
+          <LetterCompletionSummary
+            deliveryId={completedDeliveryId}
+            letterData={{
+              snapshots,
+              senderName,
+              mode: letter.mode,
+            }}
+            isAuthenticated={true}
+            senderName={senderName}
+          />
         )}
       </CertificatePageShell>
     );
@@ -651,11 +660,7 @@ export function LetterReadingPage() {
         />
       )}
 
-      {viewState === 'complete' && letter.mode === 'one-to-one' && (
-        <LetterRecipientDone senderName={senderName} />
-      )}
-
-      {viewState === 'complete' && letter.mode !== 'one-to-one' && (
+      {viewState === 'complete' && (
         <LetterCompletionSummary
           deliveryId={delivery.id}
           letterData={{

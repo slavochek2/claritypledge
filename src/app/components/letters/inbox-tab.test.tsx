@@ -151,13 +151,13 @@ describe('InboxTab — P695 completed letter button', () => {
     vi.clearAllMocks();
   });
 
-  it('pending received item shows "Read" button with blue fill', async () => {
+  it('pending received item shows "Open" button with blue fill', async () => {
     vi.mocked(getInboxItems).mockResolvedValue([unreadItem]);
     const { container } = render(<InboxTab userId="test-user" />, { wrapper });
     await screen.findByText(/Alice/);
 
     const button = container.querySelector('button');
-    expect(button?.textContent).toContain('Read');
+    expect(button?.textContent).toContain('Open');
     expect(button?.className).toContain('bg-blue-500');
   });
 

@@ -63,6 +63,11 @@ export function LetterCompletionSummary({
   const [pointResponses, setPointResponses] = useState<LetterPointResponse[]>([]);
   const [loaded, setLoaded] = useState(false);
 
+  const storyIds = useMemo(
+    () => letterData.snapshots.map(s => s.story_id),
+    [letterData.snapshots],
+  );
+
   // Fire confetti + track completion on mount
   useEffect(() => {
     triggerConfetti();
@@ -79,7 +84,7 @@ export function LetterCompletionSummary({
     let cancelled = false;
     const load = async () => {
       try {
-        const data = await getCompletionSummary(deliveryId);
+        const data = await getCompletionSummary(deliveryId, storyIds);
         if (cancelled) return;
         setRatings(data.ratings);
         setPredictions(data.predictions);
@@ -92,7 +97,7 @@ export function LetterCompletionSummary({
     };
     load();
     return () => { cancelled = true; };
-  }, [deliveryId]);
+  }, [deliveryId, storyIds]);
 
   // Build gap-sorted story cards
   const storyCards = useMemo((): StoryGapCard[] => {
@@ -230,17 +235,6 @@ export function LetterCompletionSummary({
         </div>
       )}
 
-      {/* P684 State 8: one-to-many authenticated completion */}
-      {letterData.mode === 'one-to-many' && isAuthenticated && (
-        <div className="pt-6 mt-6 space-y-2">
-          <p className="text-lg font-semibold text-center">
-            Your responses have been shared with {senderName}.
-          </p>
-          <p className="text-sm text-muted-foreground text-center">
-            You can close this tab.
-          </p>
-        </div>
-      )}
     </div>
   );
 }

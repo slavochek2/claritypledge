@@ -160,7 +160,7 @@ export function InboxTab({ userId, onUnreadCountChange }: InboxTabProps) {
                   onClick={() => handleAction(item)}
                 >
                   {item.type === 'received' && !item.completed_at ? (
-                    <><Mail className="w-4 h-4 mr-1.5" /> Read</>
+                    <><Mail className="w-4 h-4 mr-1.5" /> Open</>
                   ) : (
                     <><Eye className="w-4 h-4 mr-1.5" /> Results</>
                   )}
