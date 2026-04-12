@@ -2,6 +2,26 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-12 [technical]: Self-sends blocked at seal, claim, and inbox — three-layer defence
+
+**Context:** During testing, letters sent to yourself (sender_id = receiver_profile_id) appeared in your own inbox. The inbox UNION fix (prior session) removed completion notifications but not self-delivered letters. Root cause: `seal_and_send_letter` didn't prevent a user from adding their own email as a recipient.
+**Decision:** Three layers: (1) `get_inbox_items` filters `AND cl.sender_id != p_user_id` — historical self-sent data stays invisible. (2) `seal_and_send_letter` raises an exception if `receiver_email` matches the sender's email in `auth.users` — self-sends are rejected at creation time. (3) `claim_letter_delivery` returns `{error: 'cannot_claim_own_letter'}` if `auth.uid() = sender_id` — edge-case guard if a delivery was created via other means.
+**Alternatives rejected:** Block only at the inbox query — masks the problem without preventing the data from being created. Block only at send — doesn't cover manually crafted tokens or future code paths that bypass `seal_and_send_letter`.
+**Consequences:** `seal_and_send_letter` now looks up the sender's email in `auth.users` on every call (one extra query per seal). Any future delivery creation path must enforce the same sender ≠ receiver constraint. The inbox filter remains as a permanent safety net for any historical data.
+**References:** [20260412134713_fix_inbox_exclude_self_sent.sql](supabase/migrations/20260412134713_fix_inbox_exclude_self_sent.sql) | [20260412135402_fix_block_self_send.sql](supabase/migrations/20260412135402_fix_block_self_send.sql)
+
+---
+
+## 2026-04-12 [technical]: Integration tests for auth-gated RPCs require a user-scoped client, not service role
+
+**Context:** `get_inbox_items` and `claim_letter_delivery` both check `p_user_id IS DISTINCT FROM auth.uid()` and raise exceptions when called via service role (where `auth.uid()` is NULL). Initial integration tests used `supabaseAdmin` to call these RPCs and all failed. The pre-existing `fix_inbox_remove_responses_branch` integration test has the same issue.
+**Decision:** For RPCs that have an `auth.uid()` gate, integration tests must: (1) create a test user, (2) sign in with `signInWithPassword` via a temporary anon-key client (to avoid polluting supabaseAdmin's in-memory session), (3) construct a user-scoped client with the resulting JWT, (4) call the RPC through the user-scoped client. Data setup (inserts/updates) still uses supabaseAdmin to bypass RLS.
+**Alternatives rejected:** Bypassing the auth gate in test mode — the gate is exactly what we're testing. Modifying the RPC to allow service role — weakens the security guarantee.
+**Consequences:** Any integration test for an RPC that checks `auth.uid()` must use this two-client pattern: supabaseAdmin for data, user-scoped client for RPC calls. The pattern is demonstrated in `e2e/integration/20260412134713_fix_inbox_exclude_self_sent.spec.ts`. The pre-existing `fix_inbox_remove_responses_branch` integration test should be updated to use this pattern in a future cleanup.
+**References:** [20260412134713_fix_inbox_exclude_self_sent.spec.ts](e2e/integration/20260412134713_fix_inbox_exclude_self_sent.spec.ts) | [20260412135402_fix_block_self_send.spec.ts](e2e/integration/20260412135402_fix_block_self_send.spec.ts)
+
+---
+
 ## 2026-04-12 [technical]: AuthContext `sessionChecked` fires before hash tokens are processed — gate on hash in confirm page
 
 **Context:** Pages reached via magic link redirect (e.g., `/letter/:id/confirm`) land with `#access_token=...&refresh_token=...` in the URL hash. Supabase's `detectSessionFromUrl` is async — it runs in the client constructor but is not awaited. `AuthContext.initSession()` calls `getSession()` immediately (reads from localStorage only), which returns `null` before the hash has been written to storage. Result: `setSessionChecked(true)` fires with `session=null`, and pages that check `if (sessionChecked && !session)` set an error state before the real session arrives via `onAuthStateChange`.
