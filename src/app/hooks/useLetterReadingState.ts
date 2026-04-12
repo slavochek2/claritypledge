@@ -81,34 +81,26 @@ export interface UseLetterReadingStateReturn {
 }
 
 // ============================================================================
-// LOCAL-MODE localStorage CONTRACT (AD5)
+// LOCAL-MODE localStorage (full state, same shape as remote)
 // ============================================================================
 
-/** Shape written to localStorage under key `p684_letter_draft:{letterId}` */
-interface LocalDraft {
-  letterId: string;
-  ratings: Array<{ storyId: string; rating: number }>;
-  positions: Array<{ pointId: string; position: string }>;
-  updatedAt: string;
+function localStateKey(letterId: string): string {
+  return `p684_letter_state:${letterId}`;
 }
 
-function localDraftKey(letterId: string): string {
-  return `p684_letter_draft:${letterId}`;
-}
-
-function readLocalDraft(letterId: string): LocalDraft | null {
+export function loadLocalState(letterId: string): LetterReadingState | null {
   try {
-    const raw = localStorage.getItem(localDraftKey(letterId));
+    const raw = localStorage.getItem(localStateKey(letterId));
     if (!raw) return null;
-    return JSON.parse(raw) as LocalDraft;
+    return JSON.parse(raw) as LetterReadingState;
   } catch {
     return null;
   }
 }
 
-function writeLocalDraft(letterId: string, draft: LocalDraft): void {
+function saveLocalState(letterId: string, state: LetterReadingState): void {
   try {
-    localStorage.setItem(localDraftKey(letterId), JSON.stringify(draft));
+    localStorage.setItem(localStateKey(letterId), JSON.stringify(state));
   } catch {
     // Storage full or unavailable — continue without persistence
   }
@@ -176,63 +168,6 @@ function createInitialStoryState(snapshot: LetterStorySnapshot, prediction?: num
   };
 }
 
-/**
- * Derive a LocalDraft from the current reading state for persistence.
- * Collects all ratings and positions across all stories.
- */
-function deriveDraft(letterId: string, state: LetterReadingState, snapshots: LetterStorySnapshot[]): LocalDraft {
-  const ratings: LocalDraft['ratings'] = [];
-  const positions: LocalDraft['positions'] = [];
-
-  state.stories.forEach((story, idx) => {
-    const snap = snapshots[idx];
-    if (!snap) return;
-
-    if (story.rating !== null) {
-      ratings.push({ storyId: snap.story_id, rating: story.rating });
-    }
-    Object.entries(story.positions).forEach(([pointId, position]) => {
-      positions.push({ pointId, position });
-    });
-  });
-
-  return { letterId, ratings, positions, updatedAt: new Date().toISOString() };
-}
-
-/**
- * Reconstruct partial reading state from a local draft.
- * Only restores ratings and positions — phases are re-derived so the reader
- * resumes at the correct phase for each story.
- */
-function applyDraftToState(
-  state: LetterReadingState,
-  draft: LocalDraft,
-  snapshots: LetterStorySnapshot[]
-): LetterReadingState {
-  const stories = state.stories.map((story, idx) => {
-    const snap = snapshots[idx];
-    if (!snap) return story;
-
-    // Restore positions
-    const savedPositions: Record<string, string> = {};
-    draft.positions.forEach(({ pointId, position }) => {
-      savedPositions[pointId] = position;
-    });
-
-    // Restore rating for this story
-    const savedRating = draft.ratings.find((r) => r.storyId === snap.story_id);
-
-    const restoredStory: StoryState = {
-      ...story,
-      positions: savedPositions,
-      rating: savedRating?.rating ?? null,
-    };
-
-    return restoredStory;
-  });
-
-  return { ...state, stories };
-}
 
 // ============================================================================
 // HOOK PARAMS
@@ -345,12 +280,15 @@ export function useLetterReadingState(
     };
 
     if (mode === 'local') {
-      // Hydrate from localStorage draft if present
+      // Hydrate from localStorage (full state, same shape as remote)
       if (letterId) {
-        const draft = readLocalDraft(letterId);
-        if (draft) {
+        const saved = loadLocalState(letterId);
+        const hasProgress = saved?.stories.some(
+          (s, i) => s.rating !== null || s.phase !== initialPhase(snapshots[i]),
+        );
+        if (saved && saved.stories.length === snapshots.length && hasProgress) {
           resumedRef.current = true;
-          return applyDraftToState(freshState, draft, snapshots);
+          return saved;
         }
       }
       return freshState;
@@ -387,14 +325,14 @@ export function useLetterReadingState(
 
     if (mode === 'local') {
       if (letterId) {
-        writeLocalDraft(letterId, deriveDraft(letterId, state, snapshots));
+        saveLocalState(letterId, state);
       }
     } else {
       if (deliveryId) {
         saveState(deliveryId, state);
       }
     }
-  }, [mode, deliveryId, letterId, state]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [mode, deliveryId, letterId, state]);
 
   const currentStory = state.stories[state.currentStoryIndex];
   const currentSnapshot = snapshots[state.currentStoryIndex];
