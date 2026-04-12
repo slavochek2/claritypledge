@@ -2,6 +2,26 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-13 [technical]: Session resume guard must check story progress, not just currentStoryIndex
+
+**Context:** `useLetterReadingState` restores from sessionStorage only when `saved.currentStoryIndex > 0`. For single-story letters (or any case where the user completes all phases of story 0), the index stays 0 — so a page reload discards the saved state and shows the rating card again.
+**Decision:** Add a `hasProgress` check alongside the index check: `saved.stories.some(s, i => s.rating !== null || s.phase !== initialPhase(snapshots[i]))`. Restore if `currentStoryIndex > 0 OR hasProgress`. "No progress" is now defined by both: still at story 0 AND rating null AND phase equals initial phase. This is correctly false for a fresh stale session.
+**Alternatives rejected:** Restoring any non-null saved state unconditionally — would restore a fresh session from a previous letter visit if the deliveryId collides (unlikely but possible with token reuse bugs).
+**Consequences:** Any future change to the session resume guard must preserve the `hasProgress` check. The `initialPhase()` helper (in the same file) is the authoritative source for "where a story begins" — its output determines whether a phase represents forward progress. Regression: `src/tests/session-resume-guard.test.ts`.
+**References:** [useLetterReadingState.ts](src/app/hooks/useLetterReadingState.ts)
+
+---
+
+## 2026-04-13 [technical]: Transparent Drawer overlay captures pointer events — always add pointer-events-none
+
+**Context:** `DrawerContent` with `overlayClassName="bg-transparent"` renders a full-viewport `fixed inset-0 z-50` div (via Vaul's `DrawerPrimitive.Overlay`). The div is visually invisible but still intercepts all mouse events — any element beneath (e.g., `ComprehensionRatingCard` rating buttons) receives no clicks. Symptom: buttons appear enabled (no opacity change) but do not respond to clicks.
+**Decision:** Whenever `overlayClassName` contains `bg-transparent`, apply `pointer-events-none` to the overlay — both the Vaul desktop path (`DrawerPrimitive.Overlay`) and the mobile portal path (`<div role="presentation">`). Implemented via `cn(overlayClassName, overlayClassName?.includes('bg-transparent') && 'pointer-events-none')` in `DrawerContent`. The Drawer content itself retains `pointer-events-auto` (Vaul default).
+**Alternatives rejected:** Removing the overlay entirely when transparent — the `<DrawerOverlay>` element is required by Vaul's internal focus-trap; omitting it causes accessibility regressions. Setting `pointer-events-none` on the Drawer wrapper — would also block the Drawer content, defeating the purpose.
+**Consequences:** Any `DrawerContent` with `overlayClassName="bg-transparent"` is now correctly non-blocking. New Drawer instances that need a transparent overlay must pass `overlayClassName="bg-transparent"` — do NOT inline `pointer-events-none` in the call site; the fix lives centrally in `drawer.tsx`. This bug is invisible in visual testing because the overlay is transparent; only interaction testing catches it.
+**References:** [drawer.tsx](src/components/ui/drawer.tsx)
+
+---
+
 ## 2026-04-12 [technical]: Multi-path bugs need multi-path canaries — one fixed path ≠ all paths tested
 
 **Context:** P697 canary initially covered only `getLetterForReading` (the authenticated direct-query path where the explicit `.select('name')` change was made). The same bug existed in two RPC paths (`getLetterForReadingByToken` via `supabase.rpc('get_letter_for_reading')`, `getLetterForPublicReading` via `supabase.rpc('get_letter_for_public_reading')`). Both RPCs were fixed in the migration, but the unit test file had no coverage for either. A code review subagent flagged the gap; tests for both RPC paths were added.
