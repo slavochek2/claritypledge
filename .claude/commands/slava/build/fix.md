@@ -167,6 +167,7 @@ Do NOT proceed until user chooses. Skip if already in a worktree (isolation is s
 
 After worktree setup (so CWD resolves to the correct branch):
 1. If a P-number spec exists: read it fully (reproduction steps, root cause if documented, acceptance criteria)
+   **Status gate:** if `status: qa` or `status: done` → stop immediately: "P{N} is already at {status}. Nothing to fix. Run `/ship pN` to merge." Do not continue.
 2. Read the source file(s) mentioned in the spec or user description — verify current state matches your assumptions
 3. If bug involves DB: check the actual schema (`curl` REST API with `?select=column&limit=1`)
 4. If spec has mixed `[x]`/`[ ]` acceptance criteria (rewritten matryoshka bug): announce which layers are done and which remain. Focus on unchecked items.

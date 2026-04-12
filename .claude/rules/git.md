@@ -48,6 +48,16 @@ git reset HEAD -- <file>        # unstage any bystanders
 
 This is the #1 cause of "wrong files in wrong commit" — a session stages all modified files instead of only its own changes.
 
+## Session start — clear the index before your first git add
+
+Before your first `git add` of the session:
+```bash
+git diff --cached --name-only   # inspect for prior-session leftovers
+git reset HEAD -- <file>        # unstage any bystanders before staging your own files
+```
+
+Do this **before** `git add`, not after. After `git add` both sets are mixed and the review looks correct — prior-session files are invisible among your own staged files. This is what causes the wrong-files-in-commit bug.
+
 ## Always use explicit file names
 
 ```bash
