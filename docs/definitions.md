@@ -473,11 +473,20 @@ The mechanism we use (listener plays back understanding, speaker verifies) is ca
 
 ## Calibration Badge (Public Reputation)
 
-Users earn a public "Calibrated" badge when:
-- **≥10 clarity sessions completed** AND
-- **avgGap within ±0.5** (self-assessment matches reality)
+> **One-liner:** A badge is evidence of calibrated alignment — proof it happened, not a promise to try.
 
-This badge appears next to their name across the platform, rewarding epistemic humility while preserving privacy (exact calibration numbers stay private on their dashboard).
+**What it is:** A Calibration Badge is auto-certified from /live free-mode sessions. It accumulates one clarity point at a time, out of 9 total. A point is certified when:
+1. A certifier speaks on a story linked to a point tagged `#understanding`
+2. Both the certifier and the story author rate the session **10/10**
+3. The listener has filed `agree` or `strongly_agree` on that point
+
+**Incremental structure:** The badge builds point-by-point. Profile displays the current count (e.g., 7/9). A full badge = all 9 clarity points verified. Partial progress is visible and meaningful — each certified point is independently earned.
+
+**Fundamental distinction from the Clarity Pledge:**
+- **Pledge** = a public commitment ("I intend to practice calibrated communication")
+- **Badge** = evidence of alignment ("This was verified — it actually happened")
+
+The badge cannot be committed to; it can only be earned. It replaces the old metric-based threshold (≥10 sessions + avgGap) which was never built and measured effort, not alignment.
 
 ---
 

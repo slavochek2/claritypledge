@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { getInitials } from "@/lib/utils";
-import { Check } from "lucide-react";
+import { Check, Shield } from "lucide-react";
 
 interface GravatarAvatarProps {
   /** @deprecated Unused - kept for API compatibility. TODO: Remove in future cleanup. */
@@ -19,6 +19,10 @@ interface GravatarAvatarProps {
   showRing?: boolean;
   /** Shows checkmark badge at bottom-right */
   showPledgeBadge?: boolean;
+  /** Shows Clarity Badge (Shield icon) at bottom-left — distinct from pledge badge */
+  showBadge?: boolean;
+  /** Number of verified badge points — used in aria-label when showBadge is true */
+  badgeCount?: number;
 }
 
 const sizeClasses = {
@@ -44,6 +48,14 @@ const badgeClasses = {
   xl: "w-7 h-7 -bottom-1 -right-1",
 };
 
+// Clarity Badge (showBadge) — bottom-left, mirrors badgeClasses positioning
+const clarityBadgeClasses = {
+  sm: "w-4 h-4 -bottom-0.5 -left-0.5",
+  md: "w-5 h-5 -bottom-0.5 -left-0.5",
+  lg: "w-6 h-6 -bottom-1 -left-1",
+  xl: "w-7 h-7 -bottom-1 -left-1",
+};
+
 const badgeIconClasses = {
   sm: "w-2.5 h-2.5",
   md: "w-3 h-3",
@@ -60,6 +72,8 @@ export function GravatarAvatar({
   isPledger,
   showRing,
   showPledgeBadge = false,
+  showBadge = false,
+  badgeCount,
 }: GravatarAvatarProps) {
   const [imageError, setImageError] = useState(false);
 
@@ -95,6 +109,15 @@ export function GravatarAvatar({
           aria-label="Verified pledger"
         >
           <Check aria-hidden="true" className={`${badgeIconClasses[size]} text-white`} />
+        </div>
+      )}
+      {showBadge && (
+        <div
+          role="img"
+          className={`absolute ${clarityBadgeClasses[size]} bg-white rounded-full flex items-center justify-center border-2 border-white`}
+          aria-label={`Has Clarity Badge — ${badgeCount ?? 0} of 9 points verified`}
+        >
+          <Shield aria-hidden="true" className={`${badgeIconClasses[size]} text-amber-500`} />
         </div>
       )}
     </div>

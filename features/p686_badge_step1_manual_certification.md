@@ -1,14 +1,14 @@
 ---
-status: backlog
+status: in-progress
 type: story
 rank: 1000686.0
 created_date: '2026-04-10'
 tags: [badge, certification, propagation, profile]
 flow: dev
-delivery_stage: decompose
+delivery_stage: dev
 pipeline_plan: [create-spec, challenge-prd, ux, architect, ui, generate-tests, spec-review, spec-compact, decompose, dev, verify]
 pipeline_skipped: [spec-review -- spec has been through challenge-prd + multiple manual review rounds]
-pipeline_ran: [create-spec, challenge-prd, ux, architect, ui, generate-tests, spec-compact, decompose]
+pipeline_ran: [create-spec, challenge-prd, ux, architect, ui, generate-tests, spec-compact, decompose, dev]
 uat_file: features/uat/p686.md
 test_files:
   - e2e/integration/p686-badge-migration.spec.ts
