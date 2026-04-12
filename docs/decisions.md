@@ -2,6 +2,26 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-12 [technical]: badge_points schema — story_id nullable, 16 points across 9 stations, clarity_sessions FK
+
+**Context:** P686 specified `story_id NOT NULL` in `badge_points`, but E2E test inserts omit `story_id` (the badge point is verified in the free-mode round, not tied to a specific story). Making it NOT NULL would break 5 of 8 migration tests. Separately, the spec referenced a `sessions` FK but the actual table is named `clarity_sessions`. Also: 16 points carry the `#understanding` system tag across 9 stations — not 9 points as initially assumed.
+**Decision:** (1) `story_id` is nullable in `badge_points` — test inserts and any future programmatic insert that lacks session context should omit it. (2) FK target is `clarity_sessions(id)`, not `sessions`. (3) Badge count display uses `Math.min(count, 9)` — there are 16 eligible points but only 9 stations, so the visual progress bar caps at 9. Step 2 will introduce proper station-based counting (one badge per station, not one per point).
+**Alternatives rejected:** Keeping story_id NOT NULL with a test fixture factory that always provides it — adds fixture complexity for a field that's semantically optional at the badge level. Making the badge count uncapped — confusing UX showing 12/9.
+**Consequences:** Any insert into badge_points can omit story_id. The display layer (`BadgeCertificate`, progress bar) must always cap at 9. When Step 2 introduces station-level deduplication, the cap logic moves from client to the DB query (COUNT DISTINCT station). `docs/technical/badge-points-reference.md` documents all 16 qualifying point IDs.
+**References:** [20260412000000_p686_badge_points.sql](supabase/migrations/20260412000000_p686_badge_points.sql) | [badge-points-reference.md](docs/technical/badge-points-reference.md) | [badge-service-real.ts](src/app/data/badge-service-real.ts)
+
+---
+
+## 2026-04-12 [technical]: Badge insert RLS — single-certifier trust model accepted for Step 1; Step 2 security debt
+
+**Context:** P686 Step 1 uses client-side Supabase inserts for badge_points. The RLS policy allows INSERT only where `auth.uid() = verified_by AND is_certifier = true`. `is_certifier` is a boolean column on `profiles`, seeded true only for Slava. This means the certifier (Slava) calls `supabase.from('badge_points').insert(...)` directly from the browser after a /live free-mode round where both parties rated 10/10.
+**Decision:** Accept client-side insert with is_certifier guard for Step 1 (single certifier). The risk is bounded: only one row in `profiles` has `is_certifier = true`, so only that user can insert. When Step 2 generalises certification (badge holders can certify others), the insert must move to an Edge Function with server-side validation of the /live session outcome — client-side trust becomes untenable with multiple certifiers.
+**Alternatives rejected:** Edge Function for Step 1 — added complexity with no security benefit when there is only one certifier whose account is controlled. Moving to Edge Function now as "future-proofing" — YAGNI; specifying the debt is sufficient.
+**Consequences:** `is_certifier` column on `profiles` is the Step 1 security perimeter. Any PR that sets `is_certifier = true` for more than one user triggers Step 2 (Edge Function migration). TypeScript `DbProfile` type does not include `is_certifier` — callers query it via a narrow Supabase select (`select('is_certifier')`) rather than extending the shared type. Extending the shared type is deferred to Step 2.
+**References:** [20260412000000_p686_badge_points.sql](supabase/migrations/20260412000000_p686_badge_points.sql) | [clarity-live-page.tsx](src/app/pages/clarity-live-page.tsx)
+
+---
+
 ## 2026-04-13 [technical]: Radix Dialog with modal=false + hideOverlay closes on background interaction — use onInteractOutside preventDefault
 
 **Context:** P688 added `modal={false}` and `hideOverlay` to `LetterReceiverModal` so background letter content remains visible. Playwright E2E tests were intermittently failing with "element was detached from DOM" — the dialog was closing mid-test. Root cause: Radix Dialog fires `onInteractOutside` when pointer events land outside the dialog bounds and, by default, closes the dialog. With `modal={false}` there is no overlay to intercept those clicks, so any background interaction (including the browser itself positioning focus during test setup) triggers a close.
