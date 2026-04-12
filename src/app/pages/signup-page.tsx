@@ -5,14 +5,15 @@
  * This creates a profile with has_pledged=false.
  */
 import { useState, useEffect } from "react";
-import { useLocation, Link } from "react-router-dom";
+import { useLocation, useNavigate, Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { CheckCircle2Icon, InfoIcon, RefreshCwIcon } from "lucide-react";
 import { signInWithEmail } from "@/app/data/api";
-import { requestLetterResponseSignin } from "@/app/data/letters-service";
+import { createAndRespondToLetter } from "@/app/data/letters-service";
+import { supabase } from "@/lib/supabase";
 import { CURRENT_TERMS_VERSION } from "@/lib/constants";
 import { POSITION_VALUES, type PositionType } from "@/app/types";
 import { analytics } from "@/lib/mixpanel";
@@ -21,6 +22,7 @@ import { GoogleAuthButton } from "@/app/components/auth/google-auth-button";
 
 export function SignupPage() {
   const location = useLocation();
+  const navigate = useNavigate();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [isSubmitted, setIsSubmitted] = useState(false);
@@ -98,7 +100,7 @@ export function SignupPage() {
             })
           : { ratings: [], positions: [] };
 
-        await requestLetterResponseSignin({
+        const result = await createAndRespondToLetter({
           letterId,
           name: name.trim(),
           email: email.trim(),
@@ -111,9 +113,29 @@ export function SignupPage() {
           })),
         });
 
-        analytics.track('signup_magic_link_sent', { source: 'letter-response' });
+        if ('error' in result) {
+          analytics.track('signup_magic_link_error', { error_type: result.error, source: 'letter-response' });
+          setError('Something went wrong. Please try again.');
+          setIsSubmitting(false);
+          return;
+        }
+
+        const { error: otpError } = await supabase.auth.verifyOtp({
+          token_hash: result.hashedToken,
+          type: 'magiclink',
+        });
+
+        if (otpError) {
+          analytics.track('signup_magic_link_error', { error_type: 'verify_otp_failed', source: 'letter-response' });
+          setError('Something went wrong. Please try again.');
+          setIsSubmitting(false);
+          return;
+        }
+
+        sessionStorage.removeItem(`letter-response-draft-${letterId}`);
+        analytics.track('letter_response_submitted', { source: 'letter-response' });
         setIsSubmitting(false);
-        setIsSubmitted(true);
+        navigate(`/letter/${letterId}`);
       } else {
         // Standard signup: PKCE magic link
         const { error } = await signInWithEmail(email, 'signup', {
