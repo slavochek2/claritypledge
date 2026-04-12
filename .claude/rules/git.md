@@ -91,6 +91,12 @@ git log --oneline -5          # check what's already committed
 git diff HEAD -- <file>       # verify the file actually has uncommitted changes before staging
 ```
 
+## Worktree Phantom Deletions
+
+Inside a worktree, `git status` may show phantom `D` entries for `scripts/` — these are symlink artifacts from the worktree setup, not real deletions. Use `git diff --name-only HEAD` to see only real changes.
+
+Never use `git add .` or `git add -A` in a worktree — use `git add src/` or explicit file paths. (This extends the existing `git add .` ban with a worktree-specific failure mode.)
+
 ## Cleaning up tracked files + .gitignore changes
 
 When removing tracked files AND adding them to `.gitignore` in the same operation:
