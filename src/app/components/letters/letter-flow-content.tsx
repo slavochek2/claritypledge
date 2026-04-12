@@ -187,20 +187,22 @@ export function LetterFlowContent({
         {/* ── PHASE: point-engage ─────────────────────────────────────────── */}
         {currentPhase === 'point-engage' && currentPoint && (
           <>
-            <PointCardWithLinks
-              point={pointSummaryToProtoPoint(currentPoint)}
-              profileOwner={senderProfileOwner}
-              liveSessionMode
-              disableNavigation
-              currentUserId="__receiver__"
-              onPositionSelect={(pos) => setSelectedPosition(pos as PositionType | null)}
-              selectedPosition={selectedPosition as Position}
-            />
-            <div className="fixed inset-x-0 bottom-0 z-50 flex flex-col rounded-t-[10px] border bg-background p-4">
+            <div className="w-full max-w-sm mx-auto">
+              <PointCardWithLinks
+                point={pointSummaryToProtoPoint(currentPoint)}
+                profileOwner={senderProfileOwner}
+                liveSessionMode
+                disableNavigation
+                currentUserId="__receiver__"
+                onPositionSelect={(pos) => setSelectedPosition(pos as PositionType | null)}
+                selectedPosition={selectedPosition as Position}
+              />
+            </div>
+            <div className="fixed inset-x-0 bottom-0 z-50 flex flex-col items-center rounded-t-[10px] border bg-background p-4">
               <Button
                 onClick={handleSubmitPosition}
                 disabled={!selectedPosition || isSubmitting}
-                className="w-full bg-[#0044CC] hover:bg-[#0033AA] text-white min-h-[44px]"
+                className="w-full max-w-[200px] bg-[#0044CC] hover:bg-[#0033AA] text-white min-h-[44px]"
               >
                 Submit
               </Button>
@@ -211,17 +213,19 @@ export function LetterFlowContent({
         {/* ── PHASE: point-revealed ───────────────────────────────────────── */}
         {currentPhase === 'point-revealed' && currentPoint && (
           <>
-            <PositionComparisonCard
-              readerPosition={currentStory.positions[currentPoint.id] as PositionType}
-              authorPosition={currentPoint.profileSubjectPosition as PositionType}
-              authorName={senderName}
-              pointStatement={currentPoint.statement}
-            />
+            <div className="w-full max-w-sm mx-auto">
+              <PositionComparisonCard
+                readerPosition={currentStory.positions[currentPoint.id] as PositionType}
+                authorPosition={currentPoint.profileSubjectPosition as PositionType}
+                authorName={senderName}
+                pointStatement={currentPoint.statement}
+              />
+            </div>
             {showAdvanceButton && (
-              <div className="fixed inset-x-0 bottom-0 z-50 flex flex-col rounded-t-[10px] border bg-background p-4">
+              <div className="fixed inset-x-0 bottom-0 z-50 flex flex-col items-center rounded-t-[10px] border bg-background p-4">
                 <Button
                   onClick={advanceFromPointReveal}
-                  className="w-full bg-[#0044CC] hover:bg-[#0033AA] text-white min-h-[44px]"
+                  className="w-full max-w-[200px] bg-[#0044CC] hover:bg-[#0033AA] text-white min-h-[44px]"
                 >
                   Next
                 </Button>
@@ -240,7 +244,7 @@ export function LetterFlowContent({
               className="w-full max-w-sm mx-auto"
             />
             {authGateAtStoryRate ?? (
-              <div className="fixed inset-x-0 bottom-0 z-50 flex flex-col rounded-t-[10px] border bg-background p-4">
+              <div className="fixed inset-x-0 bottom-0 z-50 flex flex-col items-center rounded-t-[10px] border bg-background p-4">
                 <h2 className="sr-only">Rate this story</h2>
                 <p className="sr-only">Rate how well you understood this story.</p>
                 <ComprehensionRatingCard
@@ -282,10 +286,10 @@ export function LetterFlowContent({
               className="w-full max-w-sm mx-auto"
             />
             {showAdvanceButton && (
-              <div className="fixed inset-x-0 bottom-0 z-50 flex flex-col rounded-t-[10px] border bg-background p-4">
+              <div className="fixed inset-x-0 bottom-0 z-50 flex flex-col items-center rounded-t-[10px] border bg-background p-4">
                 <Button
                   onClick={isFinalStory ? nextStory : advanceFromStoryReveal}
-                  className="w-full bg-[#0044CC] hover:bg-[#0033AA] text-white min-h-[44px]"
+                  className="w-full max-w-[200px] bg-[#0044CC] hover:bg-[#0033AA] text-white min-h-[44px]"
                 >
                   {isFinalStory ? 'Complete Letter' : 'Next Story'}
                 </Button>
@@ -297,20 +301,22 @@ export function LetterFlowContent({
         {/* ── PHASE: remaining-point-engage ───────────────────────────────── */}
         {currentPhase === 'remaining-point-engage' && currentPoint && (
           <>
-            <PointCardWithLinks
-              point={pointSummaryToProtoPoint(currentPoint)}
-              profileOwner={senderProfileOwner}
-              liveSessionMode
-              disableNavigation
-              currentUserId="__receiver__"
-              onPositionSelect={(pos) => setSelectedPosition(pos as PositionType | null)}
-              selectedPosition={selectedPosition as Position}
-            />
-            <div className="fixed inset-x-0 bottom-0 z-50 flex flex-col rounded-t-[10px] border bg-background p-4">
+            <div className="w-full max-w-sm mx-auto">
+              <PointCardWithLinks
+                point={pointSummaryToProtoPoint(currentPoint)}
+                profileOwner={senderProfileOwner}
+                liveSessionMode
+                disableNavigation
+                currentUserId="__receiver__"
+                onPositionSelect={(pos) => setSelectedPosition(pos as PositionType | null)}
+                selectedPosition={selectedPosition as Position}
+              />
+            </div>
+            <div className="fixed inset-x-0 bottom-0 z-50 flex flex-col items-center rounded-t-[10px] border bg-background p-4">
               <Button
                 onClick={handleSubmitPosition}
                 disabled={!selectedPosition || isSubmitting}
-                className="w-full bg-[#0044CC] hover:bg-[#0033AA] text-white min-h-[44px]"
+                className="w-full max-w-[200px] bg-[#0044CC] hover:bg-[#0033AA] text-white min-h-[44px]"
               >
                 Submit
               </Button>
@@ -321,17 +327,19 @@ export function LetterFlowContent({
         {/* ── PHASE: remaining-point-revealed ─────────────────────────────── */}
         {currentPhase === 'remaining-point-revealed' && currentPoint && (
           <>
-            <PositionComparisonCard
-              readerPosition={currentStory.positions[currentPoint.id] as PositionType}
-              authorPosition={currentPoint.profileSubjectPosition as PositionType}
-              authorName={senderName}
-              pointStatement={currentPoint.statement}
-            />
+            <div className="w-full max-w-sm mx-auto">
+              <PositionComparisonCard
+                readerPosition={currentStory.positions[currentPoint.id] as PositionType}
+                authorPosition={currentPoint.profileSubjectPosition as PositionType}
+                authorName={senderName}
+                pointStatement={currentPoint.statement}
+              />
+            </div>
             {showAdvanceButton && (
-              <div className="fixed inset-x-0 bottom-0 z-50 flex flex-col rounded-t-[10px] border bg-background p-4">
+              <div className="fixed inset-x-0 bottom-0 z-50 flex flex-col items-center rounded-t-[10px] border bg-background p-4">
                 <Button
                   onClick={advanceFromRemainingPointReveal}
-                  className="w-full bg-[#0044CC] hover:bg-[#0033AA] text-white min-h-[44px]"
+                  className="w-full max-w-[200px] bg-[#0044CC] hover:bg-[#0033AA] text-white min-h-[44px]"
                 >
                   Next
                 </Button>
