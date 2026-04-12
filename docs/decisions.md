@@ -2,6 +2,16 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-12 [technical]: Letter reading state — localStorage mirror for cross-window persistence
+
+**Context:** `useLetterReadingState` saves reading progress (current story index, ratings, point positions) to `sessionStorage` for the remote (1-to-1 authed) path. `sessionStorage` survives page reloads but not window/tab closes — opening the same letter link from email in a new window starts with empty state. Users who close the tab mid-reading and return via email lose all progress.
+**Decision:** Mirror every `saveState` write to both `sessionStorage` and `localStorage` under the same key (`clarity-letter-reading-${deliveryId}`). On `loadState`, read `sessionStorage` first (fresh within-tab state) with `??` fallback to `localStorage` (cross-window persistence). This pairs with the auto-skip cover effect (same session): on mount, if `loadState` returns progress, skip the cover page and jump directly to reading view.
+**Alternatives rejected:** (A) Switch entirely to `localStorage` — loses the automatic cleanup that `sessionStorage` provides when the tab closes normally after completion. Dual-write preserves both behaviors. (B) Store progress server-side in `letter_deliveries` — adds API calls on every rating/position change, latency on resume, and schema changes. Client storage is sufficient for in-progress state; completed state already writes to the DB.
+**Consequences:** Letter reading progress now survives both page reloads (sessionStorage) and window closes (localStorage). The `storageKey()` function is the single source of truth for the key format. Stale localStorage entries accumulate but are small (~1KB per letter) and naturally expire when browser clears site data. The auto-skip effect on `letter-reading-page.tsx` checks `staleTermsResolved` before skipping cover, ensuring terms re-acceptance isn't bypassed.
+**References:** [useLetterReadingState.ts](src/app/hooks/useLetterReadingState.ts) | [letter-reading-page.tsx](src/app/pages/letter-reading-page.tsx)
+
+---
+
 ## 2026-04-12 [product]: Badge subtitle — "Verified understanding of common knowledge creation"
 
 **Context:** P686 badge certificate had a `[FOUNDER DECISION: subtitle]` placeholder under "CLARITY BADGE". The subtitle needed to answer: *what does this badge certify?* Options included role-based ("Calibrated Communication Practitioner"), process-based ("Certified by Live Session Verification"), and object-based framings.
