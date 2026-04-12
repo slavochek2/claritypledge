@@ -437,3 +437,233 @@ This is simpler than passing the full `PointCardWithLinks` into the Drawer — i
 | `src/app/components/letters/drafts-tab.tsx` | Display `point_count` alongside `story_count` |
 | `src/app/data/docs-service.ts` | Extend `getDocsByUser` to batch-query point counts per doc |
 | `src/app/types/index.ts` | Add `point_count: number` to `ClarityDoc` interface |
+
+## Component Strategy
+
+### Component Inventory
+
+**Design system primitives (reuse as-is):**
+
+| Component | File | Role in P696 |
+|-----------|------|--------------|
+| `Drawer` | `src/components/ui/drawer.tsx` | Universal action zone — bottom-docked, dual-mode (Vaul desktop / portal mobile). Supports controlled `open`, `dismissible={false}`, `modal={false}`, `overlayClassName="bg-transparent"`. `DrawerFooter` available (unused today). |
+| `Button` | `src/components/ui/button.tsx` | CVA variants: `default`, `outline`, `ghost`, `link`. Sizes: `default` (h-9), `sm` (h-8), `lg` (h-10). Used for all action buttons in Drawer. |
+| `GravatarAvatar` | `src/components/ui/gravatar-avatar.tsx` | Author avatars in comparison card. |
+| `EarBadge` | `src/components/ui/ear-badge.tsx` | Ear count display in comparison card author labels. |
+
+**Feature components (reuse as-is):**
+
+| Component | File | Role in P696 |
+|-----------|------|--------------|
+| `PointCardWithLinks` | `src/app/components/social/point-card-with-links.tsx` | Point statement display in `point-engage` phase. Used with `hideActions`, `disablePositionButtons=true` (position selector moves to Drawer). ~785 lines, 92 props — too heavy to extend with comparison layout. |
+| `LiveStoryCardExpanded` | `src/app/components/partners/live-story-card-expanded.tsx` | Story card in story phases. Already has `hidePoints`, `readOnly`, `letterMode` props. Needs only `mx-auto` centering fix on className at call sites. |
+| `ComprehensionRatingCard` | `src/app/components/shared/comprehension-rating-card.tsx` | Rating slider in `story-rate` Drawer. Already self-contained with `onSelect`, `disabled` props. |
+| `JourneyToUnderstanding` | `src/app/components/partners/live-mode-view.tsx` (export) | Calibration dots in `story-revealed` content area. Reuse as-is. |
+| `GapBanner` | `src/app/components/shared/gap-banner.tsx` | Gap message in `story-revealed`. Reuse as-is. |
+| `LetterCover` | `src/app/components/letters/letter-cover.tsx` | Cover page. Extend props: add `pointCount`. |
+| `LetterProgressBar` | `src/app/components/letters/letter-progress-bar.tsx` | Segmented progress. Reuse as-is. |
+| `LetterRecipientDone` | `src/app/components/letters/letter-recipient-done.tsx` | Completion (1-to-1). Reuse as-is. |
+| `LetterCompletionSummary` | `src/app/components/letters/letter-completion-summary.tsx` | Completion (non-1-to-1). Reuse as-is. |
+| `LetterResponseSignupForm` | `src/app/components/letters/letter-response-signup-form.tsx` | Completion (public). Reuse as-is. |
+| `FocusHeader` | `src/app/components/layout/focus-header.tsx` | Back button header. Reuse as-is. |
+| `PositionBadge` | `src/app/components/shared/PositionBadge.tsx` | Position label badge (Agree/Disagree/Unsure). Reuse in comparison card. |
+
+**Shared utilities (reuse as-is):**
+
+| Utility | File | Role in P696 |
+|---------|------|--------------|
+| `PositionButtons` | `src/app/components/shared/PositionButton.tsx` | 3-group segmented control (Disagree/Unsure/Agree) with intensity dropdown. Currently rendered inline in `PointCardWithLinks` and `PointRow`. The position selector extraction for Drawer uses a simpler subset — see PositionSelector below. |
+| `PositionBadge`, `getPositionVerb` | `src/app/components/shared/PositionBadge.tsx` | Position label rendering for comparison card. |
+| `snapshotToStoryWithPoints`, `pointSummaryToProtoPoint` | `src/app/utils/letter-snapshot-mapper.ts` | Data shape converters. Reuse as-is. |
+
+### Component Map
+
+| UI Element | Classification | Notes |
+|------------|---------------|-------|
+| `LetterFlowContent` | **New** | Shared phase-rendering component replacing 3 near-identical flow components. Location: `src/app/components/letters/letter-flow-content.tsx` |
+| `PositionComparisonCard` | **New** | You vs Author side-by-side reveal card. Location: `src/app/components/letters/position-comparison-card.tsx` |
+| `PositionSelector` | **Extract** | Simplified 3-button position group (Disagree/Unsure/Agree) extracted from `PositionButtons` pattern. No intensity dropdown, no counts — just selection. Location: `src/app/components/shared/position-selector.tsx` |
+| `estimateReadingMinutes`, `countTotalPoints`, `calculateStoryProgress` | **New + Extract** | Shared utility. `calculateStoryProgress` extracted from duplicated inline copies. Location: `src/app/utils/letter-reading-utils.ts` |
+| `Drawer` | **Reuse** | Extended to all 6 action phases (was only `story-rate`). No component changes — usage change only. |
+| `LetterCover` | **Extend** | Add `pointCount` prop for metadata display. |
+| `PointCardWithLinks` | **Reuse** | Used with `disablePositionButtons=true` + `hideActions` in `point-engage`. Position selector moves to Drawer. |
+| `LiveStoryCardExpanded` | **Reuse** | Add `mx-auto` at call sites for centering fix. |
+| `ComprehensionRatingCard` | **Reuse** | Moves inside Drawer content for `story-rate`. |
+| All other leaf components | **Reuse** | No changes needed. |
+
+### Composition Tree
+
+```
+LetterFlowContent
+├── {showFocusHeader && <FocusHeader />}
+├── <LetterProgressBar />
+├── <div className="max-w-md mx-auto w-full space-y-6">
+│   │
+│   ├── [phase: point-engage]
+│   │   ├── <PointCardWithLinks disablePositionButtons hideActions />
+│   │   └── <Drawer open dismissible={false} modal={false}>
+│   │       └── <DrawerContent overlayClassName="bg-transparent">
+│   │           ├── <DrawerHeader><DrawerTitle className="sr-only">Choose your position</DrawerTitle></DrawerHeader>
+│   │           ├── <PositionSelector onSelect={...} selectedPosition={...} />
+│   │           └── <DrawerFooter>
+│   │               └── <Button disabled={!selected}>Submit Your Position</Button>
+│   │           </DrawerFooter>
+│   │       </DrawerContent>
+│   │   </Drawer>
+│   │
+│   ├── [phase: point-revealed]
+│   │   ├── <PositionComparisonCard
+│   │   │     readerPosition={...}
+│   │   │     authorPosition={...}
+│   │   │     authorName={...}
+│   │   │     pointStatement={...}
+│   │   │   />
+│   │   └── <Drawer open={showAdvanceButton} dismissible={false}>
+│   │       └── <DrawerContent>
+│   │           └── <DrawerFooter>
+│   │               └── <Button className="animate-fade-in">Next</Button>
+│   │           </DrawerFooter>
+│   │       </DrawerContent>
+│   │   </Drawer>
+│   │
+│   ├── [phase: story-rate]
+│   │   ├── <LiveStoryCardExpanded className="w-full max-w-sm mx-auto" hidePoints />
+│   │   └── <Drawer open dismissible={false} modal={false}>
+│   │       └── <DrawerContent overlayClassName="bg-transparent">
+│   │           ├── <DrawerHeader><DrawerTitle className="sr-only">Rate this story</DrawerTitle></DrawerHeader>
+│   │           ├── <ComprehensionRatingCard onSelect={...} />
+│   │           └── <DrawerFooter>
+│   │               └── <Button disabled={!rated}>Submit My Rating</Button>
+│   │           </DrawerFooter>
+│   │       </DrawerContent>
+│   │   </Drawer>
+│   │
+│   ├── [phase: story-revealed]
+│   │   ├── <JourneyToUnderstanding className="w-full max-w-sm mx-auto" />
+│   │   ├── <GapBanner />
+│   │   ├── <LiveStoryCardExpanded className="w-full max-w-sm mx-auto" hidePoints />
+│   │   └── <Drawer open={showAdvanceButton} dismissible={false}>
+│   │       └── <DrawerContent>
+│   │           └── <DrawerFooter>
+│   │               └── <Button className="animate-fade-in">
+│   │                   {isFinalStory ? "Complete Letter" : "Next Story"}
+│   │               </Button>
+│   │           </DrawerFooter>
+│   │       </DrawerContent>
+│   │   </Drawer>
+│   │
+│   ├── [phase: remaining-point-engage] → same as point-engage
+│   ├── [phase: remaining-point-revealed] → same as point-revealed
+│   │
+│   └── [completion]
+│       └── {renderCompletion()}  // variant-specific via render prop
+│
+└── {authGateAtStoryRate}  // ReactNode, only for authed reading flow
+```
+
+### Visual Specification
+
+**1. Visual Hierarchy (primary → secondary → tertiary)**
+
+| Level | Element | Tailwind Classes |
+|-------|---------|-----------------|
+| **Primary** | Drawer action buttons ("Submit Your Position", "Submit My Rating", etc.) | `bg-[#0044CC] hover:bg-[#0033AA] text-white text-base px-8 py-3 min-h-[48px] w-full rounded-md font-medium` — matches LetterCover "Open the Letter" button weight |
+| **Secondary** | Content cards (PointCardWithLinks, LiveStoryCardExpanded, PositionComparisonCard) | Existing card styles: `rounded-lg border border-gray-200 bg-white shadow-sm`. Comparison card: `border-l-4 border-l-blue-500` (matching story card left accent). |
+| **Tertiary** | Metadata text, sr-only Drawer headers, progress bar | `text-sm text-[#1A1A1A]/50` for metadata. `sr-only` for Drawer titles. Progress bar uses existing LetterProgressBar styles. |
+
+**2. Emotional Register: Calm Reflection**
+
+| Quality | Implementation |
+|---------|---------------|
+| Calm background | `bg-background` (white, `hsl(0 0% 100%)`) — no dark overlays. Drawer uses `overlayClassName="bg-transparent"` so content stays visible. |
+| Unhurried pacing | 400ms delay before advance buttons. `animate-fade-in` (0.5s ease-out, from `tailwind.config.js` keyframes). No abrupt transitions. |
+| Muted chrome | Drawer border: `border bg-background rounded-t-[10px]`. No drag handle (`dismissible={false}`). Minimal visual noise around the action zone. |
+| Neutral result framing | Comparison card shows both positions without celebration/disappointment. No green/red color coding on match/mismatch — both use `bg-gray-50 border border-gray-200`. |
+
+**3. Negative Constraints (what this must NOT feel like)**
+
+- NOT a quiz or test — no scoring colors (green/red) on individual point comparisons. Story-level JourneyToUnderstanding is where calibration results show color.
+- NOT a chat interface — no message bubbles, no typing indicators. Cards are static containers.
+- NOT rushed — no auto-advance timers, no "hurry" language. The 400ms delay is a minimum pause, not a countdown.
+- NOT modal — Drawer never blocks scrolling (`modal={false}`). Content behind Drawer stays interactive (scrollable).
+- NOT heavy — Drawer content is minimal (selector + button, or just button). Never put long text or multiple cards inside the Drawer.
+
+**4. Spacing Per Zone**
+
+| Zone | Tailwind Classes | Reasoning |
+|------|-----------------|-----------|
+| Content area (between cards) | `space-y-6` (24px) on parent `max-w-md` div | Spacious — reflection exercise needs breathing room. Matches existing letter flow rhythm. |
+| Within cards (internal padding) | `p-4` (16px) — existing card pattern | Consistent with PointCardWithLinks and LiveStoryCardExpanded internal padding. |
+| Drawer internal | `p-4` (16px) via DrawerFooter default. PositionSelector inside Drawer: `px-4 pb-2`. | Matches DrawerFooter's `mt-auto flex flex-col gap-2 p-4`. |
+| Drawer to content gap | Natural gap from fixed-bottom positioning. Content area has `pb-[200px]` (or calculated) to prevent Drawer overlap with last content card. | Ensures last card is scrollable above Drawer. |
+| Comparison card columns | `grid grid-cols-2 gap-4` (16px between columns) | Equal weight to both positions. Generous gap prevents cramping. |
+| Between comparison card label and badge | `space-y-2` (8px) | Label ("You" / author name) above position badge. Tight but readable. |
+
+**5. Animation / Transition**
+
+| Trigger | Animation | Tailwind / CSS |
+|---------|-----------|---------------|
+| Advance button appears (400ms delay) | Fade in from opacity 0 to 1 | `opacity-0 transition-opacity duration-500 ease-out` → class toggle to `opacity-100`. Uses existing `fade-in` keyframe: `animate-fade-in` (0.5s ease-out). Button starts with `aria-hidden="true"`, removed after fade completes. |
+| Drawer opens (phase change) | Slide up from bottom (mobile) / Vaul default (desktop) | Existing Drawer animation: `animate-in slide-in-from-bottom duration-300` (mobile portal). Desktop: Vaul's built-in spring animation. |
+| Card transition (question → comparison) | Content swap within card boundary | No animation — immediate swap. The 400ms button delay provides the "pause" moment. Adding card animation would compound delays. |
+| Position selector → disabled after submit | Immediate disable + loading text | `opacity-50 pointer-events-none` on selector. "Saving..." text in button. Instant — no fade on disable. |
+| Resume after nav-away | No delay on advance button | `isInitialTransition` ref check. If `false` (re-render, not first transition), button appears immediately with full opacity. |
+
+### Extraction Plan
+
+**Extraction 1: PositionSelector from PositionButtons pattern**
+
+Source: `src/app/components/shared/PositionButton.tsx` — `PositionButtons` component (lines 196-400+).
+
+The existing `PositionButtons` is a complex segmented control with: 3 button groups, intensity dropdowns, portal-based dropdown positioning, ResizeObserver for icon-only mode, tooltip integration, and 7-point count display. This is too heavy for the Drawer.
+
+`PositionSelector` is a simplified extraction — same 3-group visual pattern (Disagree/Unsure/Agree) but:
+- No intensity dropdown (letter reading uses 3-position model: agree/unsure/disagree)
+- No count badges (positions are 1:1 reader-vs-author, not crowd-sourced)
+- No tooltips (Drawer context is self-explanatory)
+- No ResizeObserver (Drawer is full-width)
+
+Shared constants reused from `PositionButton.tsx`: `BUTTON_GROUPS` config (icon, label, activeClass, inactiveClass), `BUTTON_ORDER` array. Import these or duplicate the minimal subset (3 config objects).
+
+Props:
+```typescript
+interface PositionSelectorProps {
+  selectedPosition: PositionType | null;
+  onSelect: (position: PositionType) => void;
+  disabled?: boolean;
+}
+```
+
+Implementation: 3 buttons in a row, matching the visual weight of `PositionButtons` (same border radius, same blue active state `bg-blue-600 text-white`), but simpler — each button is a direct click handler, no dropdown.
+
+**Extraction 2: calculateStoryProgress to shared utility**
+
+Source: `src/app/pages/letter-reading-page.tsx` (lines ~689-729) and `src/app/pages/letter-preview-page.tsx` (lines ~172-212). Verbatim identical, ~40 lines.
+
+Target: `src/app/utils/letter-reading-utils.ts`
+
+The function takes `(phase, currentPointIndex, visiblePointCount)` and returns a progress number. Pure function, no dependencies on React or component state. Straightforward extract-and-import.
+
+**Extraction 3: Three flow components into LetterFlowContent**
+
+Source: `LetterPreviewFlow` (in `letter-preview-page.tsx`), `LetterReadingFlow` and `LetterReadingFlowPublic` (both in `letter-reading-page.tsx`).
+
+Target: `src/app/components/letters/letter-flow-content.tsx`
+
+Strategy:
+1. Create `LetterFlowContent` with the shared phase-rendering JSX (6 phase blocks + per-story setup + common effects).
+2. Parameterize the 3 differences via props: `showFocusHeader`, `authGateAtStoryRate`, `renderCompletion`.
+3. Each page file keeps its own `useLetterReadingState` invocation (3 different signatures) and passes the return value as `readingState` prop.
+4. Each page file provides its own `renderCompletion` callback.
+5. Replace the internals of all 3 flow components with `<LetterFlowContent ... />`.
+
+This is a pure structural extraction — no behavior change. Each phase block is copy-pasted once into `LetterFlowContent`, then the 3 source locations become single-line `<LetterFlowContent>` renders.
+
+### Challenge Notes
+
+No upstream concerns identified. The architecture decisions (AD1-AD7) fully address all component needs. Key observations:
+
+1. **Drawer `DrawerFooter` is unused today** but exists and matches the needed pattern (`mt-auto flex flex-col gap-2 p-4`). No Drawer component changes needed.
+2. **`PositionButtons` has a `disabled` prop** already used in letter reveal steps — confirms the pattern of disabling inline buttons when the selector moves to Drawer.
+3. **`animate-fade-in` keyframe already exists** in `tailwind.config.js` (`fade-in: 0.5s ease-out`). The 400ms delay is handled by `useEffect` timer, not CSS animation delay — this allows the `aria-hidden` toggle to be timer-driven rather than animation-event-driven.
+4. **`LiveStoryCardExpanded` accepts `className` prop** — the centering fix (`mx-auto`) is applied at call sites, not inside the component. This avoids changing a shared component's default behavior.

@@ -2,6 +2,16 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-12 [process]: Standalone smoke test files eliminated — smoke checks embedded in E2E feature files
+
+**Context:** `/generate-tests` generated a standalone `e2e/p{N}-smoke.spec.ts` for every feature. After 60+ features, 64 smoke files existed — all strict subsets of their paired feature E2E tests. Any E2E test that navigates and interacts already catches page-breaking errors; the smoke files added file count with near-zero unique coverage.
+**Decision:** Smoke assertions (page load, no console errors) go as the **first test** inside the E2E feature file, not a separate file. `/generate-tests` updated to embed smoke checks and never generate standalone smoke files again. `.claude/rules/tests.md` updated with the rule and the 4 non-P-number exceptions to keep (`app-boot-smoke`, `public-pages-smoke`, `content-detail-smoke`, `event-page-smoke` — framework-level, not feature-level).
+**Alternatives rejected:** Keeping standalone smoke files — pure duplication, adds 64 files to grep/glob noise and CI output with no unique signal. Backporting console error capture to all 53 existing E2E feature files — high churn, low value.
+**Consequences:** 64 P-numbered smoke files deleted. Future `/generate-tests` runs will never produce `p{N}-smoke.spec.ts`. Discovery phase (Phase 0) added to skill — checks existing test files before generating, so re-runs add/update rather than regenerate. The 4 non-P-number smoke files are permanent exceptions (framework bootstrap, batch route check).
+**References:** [.claude/rules/tests.md](.claude/rules/tests.md) | [.claude/commands/slava/build/generate-tests/SKILL.md](.claude/commands/slava/build/generate-tests/SKILL.md)
+
+---
+
 ## 2026-04-12 [technical]: badge_points schema — story_id nullable, 16 points across 9 stations, clarity_sessions FK
 
 **Context:** P686 specified `story_id NOT NULL` in `badge_points`, but E2E test inserts omit `story_id` (the badge point is verified in the free-mode round, not tied to a specific story). Making it NOT NULL would break 5 of 8 migration tests. Separately, the spec referenced a `sessions` FK but the actual table is named `clarity_sessions`. Also: 16 points carry the `#understanding` system tag across 9 stations — not 9 points as initially assumed.
