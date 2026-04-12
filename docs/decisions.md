@@ -2,6 +2,42 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-12 [product]: Badge subtitle — "Verified understanding of common knowledge creation"
+
+**Context:** P686 badge certificate had a `[FOUNDER DECISION: subtitle]` placeholder under "CLARITY BADGE". The subtitle needed to answer: *what does this badge certify?* Options included role-based ("Calibrated Communication Practitioner"), process-based ("Certified by Live Session Verification"), and object-based framings.
+**Decision:** "Verified understanding of common knowledge creation." Six words. "Verified" = the certification act. "understanding" = cognitive, not just exposure — the badge requires demonstrating comprehension, not just agreeing. "common knowledge creation" = the domain (the value and process of creating shared understanding). Preferred over "calibrated communication" because it names the outcome (shared understanding) rather than the method.
+**Alternatives rejected:** "Calibrated Communication Practitioner" — role framing doesn't describe what was demonstrated. "Cognitive understanding of calibrated communication, verified" — uses product vocabulary ("calibrated communication") that is less universally legible. User's draft "verification of cognitive understanding of value and process of common knowledge creation" — correct meaning but too long for a badge subtitle (13 words).
+**Consequences:** This is the canonical public description of what the badge certifies. Use it consistently on the badge page, in OG meta descriptions, and in any future marketing copy about the badge. Do not shorten to "Verified Understanding" without the domain anchor.
+**References:** [badge-certificate.tsx](src/app/components/profile/badge-certificate.tsx)
+
+---
+
+## 2026-04-12 [product]: Badge certification requires certifier to have authored a story on the qualifying point
+
+**Context:** Manual testing of P686 revealed that the /live story picker (`story-search-picker.tsx`) only shows stories authored by the logged-in user. To certify a point, the certifier must select a story linked to a qualifying `#understanding` point. If the certifier hasn't authored such a story, none appear in the picker — certification is blocked.
+**Decision:** Accept this constraint for Step 1 (single certifier = Slava, who has authored the required stories). No fix needed now. Document as a Step 2 design requirement.
+**Alternatives rejected:** Showing all public stories in the picker — blurs who is speaking; the certifier must speak *their* story, not someone else's. Pre-creating stories for future certifiers — premature; Step 2 hasn't defined the certifier onboarding flow.
+**Consequences:** Step 2 certification (badge holders certify others) must include a story-creation gate: before a badge holder can run a certification session, they must have at least one story linked to a qualifying point. The certifier onboarding flow should prompt this. `story-search-picker.tsx` behaviour (own-stories-only) is intentional and correct — no change needed to the component.
+**References:** [story-search-picker.tsx](src/app/components/partners/story-search-picker.tsx) | [clarity-live-page.tsx](src/app/pages/clarity-live-page.tsx)
+
+---
+
+## 2026-04-12 [technical]: `get_letter_for_public_reading` must return all data anonymous users need in one call
+
+**Context:** One-to-many letter reading (anonymous) showed "Pending..." for the sender's prediction after every rating because `get_letter_for_public_reading` returned only `{letter, snapshots}`. Shared predictions (`delivery_id IS NULL`) existed in `letter_predictions` but RLS blocks anonymous users from querying that table directly, so no secondary client-side fetch was possible.
+**Decision:** Extended the RPC to return `{letter, snapshots, predictions}` — predictions filtered to `delivery_id IS NULL` are included in the same `jsonb_build_object` response. Client loads everything in one call on mount; predictions are stored in a `Map<storyId, number>` and injected into `useLetterReadingState` so they're available immediately when the reader rates.
+**Alternatives rejected:** Separate client-side prediction query — blocked by RLS for anonymous users (would require service-role key on client). Second SECURITY DEFINER RPC — adds an extra round-trip and a maintenance surface with no benefit.
+**Consequences:** Pattern for `SECURITY DEFINER` RPCs serving anonymous users: include all related data the client needs in the same `jsonb_build_object` return rather than expecting the client to do secondary queries that RLS would block. The typed return for `getLetterForPublicReading` in `letters-service.ts` must be updated whenever the RPC schema changes — the JSONB return is not type-safe at the DB boundary.
+**References:** `supabase/migrations/20260412170000_fix_public_reading_include_predictions.sql`, `src/app/data/letters-service.ts`, `src/app/hooks/useLetterReadingState.ts`
+
+## 2026-04-12 [technical]: Gap between prediction and rating must be `null`, not `0`, when prediction is absent
+
+**Context:** `GapBanner` rendered "Perfectly calibrated" (gap = 0) for one-to-many readers even before any prediction was loaded. Root cause: gap was initialized to `0` and only updated when a prediction arrived — so the zero-gap state was visually indistinguishable from a real zero gap.
+**Decision:** Compute gap as `rating !== null && prediction !== null ? Math.abs(rating - prediction) : null`. Wrap `GapBanner` in `{gap !== null && <GapBanner ... />}`. A null gap means "prediction not yet available"; the banner simply does not render. A zero gap is a meaningful result ("Perfectly calibrated") and renders only when both values are present.
+**Alternatives rejected:** Separate `predictionLoaded` boolean flag — adds state and branching for a condition already expressible via null. Sentinel value (e.g., -1) — type-unsafe and invisible to call sites.
+**Consequences:** Any future UI that computes a difference between two optional values must use `null` as the "not ready" sentinel, not `0`. Applies to any gap-reveal mechanic: rating vs prediction, self-rating vs peer-rating, etc.
+**References:** `src/app/pages/letter-reading-page.tsx`, `src/app/hooks/useLetterReadingState.ts`
+
 ## 2026-04-12 [product]: Letter flow action buttons — compact centered (max-w-[200px]), cards centered (max-w-sm mx-auto)
 
 **Context:** Letter reading flow had two visual inconsistencies: (1) the story-rate Submit button was compact (~200px, centered via ComprehensionRatingCard internals) but all other phase action buttons were full-width edge-to-edge; (2) PointCardWithLinks and PositionComparisonCard floated left within the max-w-md container while story cards already used max-w-sm mx-auto.
