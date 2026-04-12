@@ -2,6 +2,26 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-12 [technical]: add-recipient never sent emails — invokeLetterEmails missing from submit handler
+
+**Context:** P688 unified the add-recipient flow through RecipientRow. Testing revealed delivery rows were created successfully but no invitation emails arrived. The compose flow (letter-compose-page.tsx) called `invokeLetterEmails(letterId)` after sealing, but the add-recipient path in letter-receiver-modal.tsx never did — it only called `addRecipientToSealed()` per row. The edge function was never triggered.
+**Decision:** Add `invokeLetterEmails(letterId)` after successful batch adds in the add-recipient submit handler. Fire once per batch (not per row) since the edge function processes all unsent deliveries for a letter.
+**Alternatives rejected:** Triggering email from inside the RPC (database trigger) — adds coupling between schema and edge functions, harder to debug, and the fire-and-forget pattern is already established client-side.
+**Consequences:** Any new flow that creates `letter_deliveries` rows must also call `invokeLetterEmails()`. The RPC creates data; the edge function sends notifications. These are deliberately decoupled — forgetting the second call is a recurring risk.
+**References:** [letter-receiver-modal.tsx](src/app/components/letters/letter-receiver-modal.tsx) | [letter-emails.ts](src/lib/letter-emails.ts)
+
+---
+
+## 2026-04-12 [technical]: invitation_token UUID/text type mismatch — copy-paste from agreements table
+
+**Context:** `add_recipient_to_sealed_letter` RPC failed on every call with "column 'invitation_token' is of type uuid but expression is of type text". The INSERT used `gen_random_uuid()::text` — copied from the `clarity_agreements` table where `invitation_token` IS `TEXT`. But `letter_deliveries.invitation_token` is `UUID` (defined in P581 migration). Bug present since P660, inherited by P664.
+**Decision:** Remove the `::text` cast. When copy-pasting INSERT statements between tables, verify column types match — especially for columns with the same name but different types across tables.
+**Alternatives rejected:** Changing the column to TEXT — would require migration, break existing token-based lookups that expect UUID format, and the column type is correct as-is.
+**Consequences:** Pattern to watch: `invitation_token` is TEXT in `clarity_agreements` but UUID in `letter_deliveries`. Any future RPC touching both tables must not assume the same cast works for both.
+**References:** [P581 migration](supabase/migrations/20260403224331_p581_clarity_letters.sql) | [P660 migration](supabase/migrations/20260406080000_p660_read_at_and_rpcs.sql) | [fix migration](supabase/migrations/20260412150407_fix_invitation_token_uuid_cast.sql)
+
+---
+
 ## 2026-04-12 [technical]: P684 edge function architecture — three functions, three security boundaries, not consolidatable
 
 **Context:** P684 introduced two new edge functions (`request-letter-response-signin`, `confirm-letter-response`) alongside the existing `send-letter-emails`. Initial question: are these duplicates that should be refactored into one? Analysis showed they serve distinct security boundaries despite sharing boilerplate (CORS headers, HTML email template, Mailgun send, escapeHtml).
