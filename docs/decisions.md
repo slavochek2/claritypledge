@@ -2,6 +2,26 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-12 [technical]: P684 edge function architecture — three functions, three security boundaries, not consolidatable
+
+**Context:** P684 introduced two new edge functions (`request-letter-response-signin`, `confirm-letter-response`) alongside the existing `send-letter-emails`. Initial question: are these duplicates that should be refactored into one? Analysis showed they serve distinct security boundaries despite sharing boilerplate (CORS headers, HTML email template, Mailgun send, escapeHtml).
+**Decision:** Three separate functions are architecturally correct. `send-letter-emails` = fire-and-forget notification to known recipients (token-based auth model). `request-letter-response-signin` = anonymous caller, service-role operations (user creation, magic link minting, pending row write). `confirm-letter-response` = JWT-authenticated caller, atomic multi-table writes (delivery + verifications + point responses + terms). The shared boilerplate (CORS, email template, Mailgun, escapeHtml) should be extracted to `supabase/functions/_shared/` helpers.
+**Alternatives rejected:** Single consolidated function — would mix auth boundaries (anon vs JWT) in one handler, requiring complex branching and weakening the security model. Two functions (merging send-letter-emails into request-*) — different auth models (token-based links vs magic links) and different callers (authenticated sender vs anonymous reader).
+**Consequences:** Edge function count will grow with each new auth-boundary flow. The consolidation point is shared utilities (`_shared/`), not fewer functions. When reviewing "do we need a new function?" the test is: does this flow have a different caller identity or auth requirement? If yes, separate function.
+**References:** [request-letter-response-signin](supabase/functions/request-letter-response-signin/index.ts) | [confirm-letter-response](supabase/functions/confirm-letter-response/index.ts) | [send-letter-emails](supabase/functions/send-letter-emails/index.ts)
+
+---
+
+## 2026-04-12 [technical]: Supabase edge function 404 manifests as CORS error in browser — misleading symptom
+
+**Context:** P684 signup form showed "Failed to send a request to the Edge Function" with console CORS errors. Initial diagnosis pointed at CORS misconfiguration. Actual root cause: the edge function was not deployed to the test project — Supabase returns a 404 without CORS headers, and the browser reports the missing headers as a CORS violation rather than surfacing the 404.
+**Decision:** When debugging edge function CORS errors, always verify the function exists first: `curl -s -o /dev/null -w "%{http_code}" "https://<ref>.supabase.co/functions/v1/<name>"`. A 404 means "not deployed," not "CORS misconfigured." This check should precede any CORS header debugging.
+**Alternatives rejected:** Adding a catch-all CORS proxy — masks the real problem (missing deployment) and adds infrastructure.
+**Consequences:** Added to debugging mental model: CORS error + edge function = check deployment status first. The deploy manifest system (from P504) already catches this at ship time, but doesn't help during dev when functions are only deployed to test ad-hoc.
+**References:** [docs/technical/debugging.md](docs/technical/debugging.md)
+
+---
+
 ## 2026-04-12 [product]: Inbox button hierarchy — filled primary for pending actions, outline secondary for completed browse
 
 **Context:** Letters inbox shows two item types in a flat chronological list: received letters awaiting reading ("Read") and sender-side completed responses ("Results"). Every row looked identical — same blue icon, same blue button — requiring users to read label text to classify each item. Goal: instant visual scannability without introducing new colors.
