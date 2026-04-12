@@ -2,6 +2,9 @@
  * @file letter-seal-confirmation.tsx
  * @description P661: Ceremonial "Letter Sealed" confirmation screen.
  * P665: Public docs show a shareable link + optional email invite.
+ * P688: Inline invite form replaced by LetterReceiverModal in add-recipient mode.
+ *       Visual hierarchy updated: shareable link is the hero element,
+ *       "Back to Doc" is the primary CTA, "+ Also invite" is a tertiary text link.
  */
 
 import { useState } from 'react';
@@ -10,7 +13,7 @@ import { Copy, Check } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { copyToClipboard } from '@/lib/utils';
-import { addRecipientToSealed } from '@/app/data/letters-service';
+import { LetterReceiverModal } from './letter-receiver-modal';
 import type { LetterMode } from '@/app/types';
 
 interface LetterSealConfirmationProps {
@@ -32,9 +35,7 @@ export function LetterSealConfirmation({
 }: LetterSealConfirmationProps) {
   const navigate = useNavigate();
   const [copied, setCopied] = useState(false);
-  const [inviteEmail, setInviteEmail] = useState('');
-  const [inviting, setInviting] = useState(false);
-  const [showInvite, setShowInvite] = useState(false);
+  const [showInviteModal, setShowInviteModal] = useState(false);
 
   const handleCopyLink = async () => {
     if (!letterId) return;
@@ -49,25 +50,9 @@ export function LetterSealConfirmation({
     }
   };
 
-  const handleInvite = async () => {
-    const trimmed = inviteEmail.trim();
-    if (!trimmed || !letterId) return;
-    setInviting(true);
-    try {
-      await addRecipientToSealed(letterId, trimmed);
-      toast.success(`Invitation sent to ${trimmed}`);
-      setInviteEmail('');
-      setShowInvite(false);
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Failed to send invite');
-    } finally {
-      setInviting(false);
-    }
-  };
-
   return (
     <div className="min-h-screen flex items-center justify-center p-4">
-      <div className="text-center space-y-6 max-w-sm">
+      <div className="text-center space-y-6 max-w-sm w-full">
         <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-blue-50 mb-2">
           <span className="text-3xl">&#10022;</span>
         </div>
@@ -82,60 +67,44 @@ export function LetterSealConfirmation({
           </p>
         </div>
 
-        {/* Public link block */}
+        {/* Public link block — hero link, primary CTA, tertiary invite link */}
         {isPublicDoc && letterId && (
           <div className="space-y-4">
-            <div className="flex items-center gap-2 bg-muted/50 rounded-lg px-3 py-2.5 text-sm">
-              <span className="text-muted-foreground truncate flex-1 text-left font-mono text-xs">
+            {/* Hero shareable link card */}
+            <div
+              role="region"
+              aria-label="Shareable letter link"
+              className="w-full border border-border rounded-xl p-4 bg-muted/30 flex items-center gap-3"
+            >
+              <span className="text-sm text-foreground break-all flex-1 text-left">
                 {window.location.origin}/letter/{letterId}
               </span>
               <button
                 onClick={handleCopyLink}
-                className="flex-shrink-0 p-1.5 rounded-md hover:bg-muted transition-colors"
-                aria-label="Copy link"
+                className="flex-shrink-0 p-2 rounded-lg hover:bg-muted transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
+                aria-label="Copy link to clipboard"
               >
                 {copied
-                  ? <Check className="h-4 w-4 text-blue-500" />
-                  : <Copy className="h-4 w-4 text-muted-foreground" />}
+                  ? <Check className="h-5 w-5 text-blue-500" />
+                  : <Copy className="h-5 w-5 text-muted-foreground" />}
               </button>
             </div>
 
-            {!showInvite ? (
-              <button
-                onClick={() => setShowInvite(true)}
-                className="text-sm text-blue-600 hover:text-blue-700 font-medium"
-              >
-                + Also invite someone by email
-              </button>
-            ) : (
-              <div className="flex items-center gap-2">
-                <input
-                  type="email"
-                  value={inviteEmail}
-                  onChange={(e) => setInviteEmail(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && handleInvite()}
-                  placeholder="email@example.com"
-                  className="flex-1 text-sm border border-border rounded-md px-2 py-2 bg-background focus:outline-none focus:ring-1 focus:ring-blue-500 min-h-[44px]"
-                  autoFocus
-                  disabled={inviting}
-                />
-                <Button
-                  size="sm"
-                  className="min-h-[44px] text-xs px-3"
-                  onClick={handleInvite}
-                  disabled={inviting || !inviteEmail.trim()}
-                >
-                  {inviting ? 'Sending...' : 'Send'}
-                </Button>
-                <button
-                  onClick={() => { setShowInvite(false); setInviteEmail(''); }}
-                  className="text-sm text-muted-foreground hover:text-foreground min-h-[44px] px-2"
-                  disabled={inviting}
-                >
-                  Cancel
-                </button>
-              </div>
-            )}
+            {/* Primary CTA */}
+            <Button
+              className="w-full bg-blue-500 hover:bg-blue-600 text-white"
+              onClick={() => navigate(`/d/${docId}`)}
+            >
+              Back to Doc
+            </Button>
+
+            {/* Tertiary invite link */}
+            <button
+              onClick={() => setShowInviteModal(true)}
+              className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+            >
+              + Also invite someone by email
+            </button>
           </div>
         )}
 
@@ -146,13 +115,29 @@ export function LetterSealConfirmation({
           </p>
         )}
 
-        <Button
-          variant="outline"
-          onClick={() => navigate(`/d/${docId}`)}
-        >
-          Back to Doc
-        </Button>
+        {/* Back to Doc — private doc only (public doc uses the button above) */}
+        {!isPublicDoc && (
+          <Button
+            variant="outline"
+            onClick={() => navigate(`/d/${docId}`)}
+          >
+            Back to Doc
+          </Button>
+        )}
       </div>
+
+      {/* Invite modal — opens over the seal confirmation screen */}
+      {isPublicDoc && letterId && (
+        <LetterReceiverModal
+          mode="add-recipient"
+          open={showInviteModal}
+          onOpenChange={setShowInviteModal}
+          letterId={letterId}
+          onRecipientAdded={() => {
+            // Modal shows its own success toast; nothing else to do here
+          }}
+        />
+      )}
     </div>
   );
 }

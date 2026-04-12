@@ -6,12 +6,16 @@
  * P664: Added `mode` prop to support "add-recipient" variant:
  * - mode="compose" (default): current behavior — mode selector, "Continue" button
  * - mode="add-recipient": no mode selector, title "Add recipient(s)", button "Send Invitation",
- *   requires `letterId` prop, calls `addRecipientToSealed` on submit
+ *   requires `letterId` prop, calls `addRecipientToSealed` per row on submit
  *
  * P682: Multi-recipient support for private doc compose flow:
  * - Private docs skip mode selector, show recipient form directly
  * - Dynamic recipient rows with per-row email lookup
  * - ReceiverSetupResult.recipients replaces single receiverName
+ *
+ * P688: RecipientRow unified as the sole recipient-entry path across all modes.
+ * Old flat single-recipient state and JSX removed. Add-recipient mode now
+ * batches addRecipientToSealed calls with per-row partial-failure handling.
  */
 
 import { useState, useCallback, useRef, useEffect } from 'react';
@@ -288,38 +292,45 @@ export function LetterReceiverModal(props: LetterReceiverModalProps) {
 
   const { user } = useAuth();
 
-  // In add-recipient mode, the letter mode is fixed — always one-to-one
-  // For private docs in compose mode, skip mode selector — auto-select one-to-one
+  // In add-recipient mode and private docs, skip mode selector — auto-select one-to-one
   const [selectedMode, setSelectedMode] = useState<LetterMode | null>(
     isAddRecipientMode || isPrivateDoc ? 'one-to-one' : null
   );
 
-  // ── Multi-recipient state (compose mode, private doc) ──────────────────────
+  // ── Recipient state ──────────────────────────────────────────────────────────
   const [recipients, setRecipients] = useState<RecipientState[]>([createEmptyRecipient()]);
   const [showValidationErrors, setShowValidationErrors] = useState(false);
   const [lastAddedId, setLastAddedId] = useState<string | null>(null);
-
-  // ── Single-recipient state (add-recipient mode + public doc one-to-one) ────
-  const [emailsInput, setEmailsInput] = useState('');
-  const [receiverName, setReceiverName] = useState('');
-  const [lookupResult, setLookupResult] = useState<AgreementParty | null | 'not-found'>(null);
-  const [isLookingUp, setIsLookingUp] = useState(false);
-  const [isReceiverNameLocked, setIsReceiverNameLocked] = useState(false);
-  const [emailError, setEmailError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Determine if we should show multi-recipient form
-  const useMultiRecipient = !isAddRecipientMode && isPrivateDoc;
-
-  const parsedEmails = emailsInput
-    .split(',')
-    .map((e) => e.trim().toLowerCase())
-    .filter((e) => e.length > 0 && e.includes('@'));
-
-  // ── Multi-recipient helpers ────────────────────────────────────────────────
+  // ── Computed values ──────────────────────────────────────────────────────────
 
   const allEmails = recipients.map((r) => r.email.trim());
+
+  // Show recipient form for: add-recipient mode, private doc compose, public doc one-to-one compose
+  const showRecipientForm = isAddRecipientMode || isPrivateDoc || selectedMode === 'one-to-one';
+
+  // Rows that have any content entered (used for validation)
+  const filledRowsForValidation = recipients.filter(
+    (r) => r.email.trim() !== '' || r.name.trim() !== ''
+  );
+
+  const recipientCanProceed =
+    filledRowsForValidation.length > 0 &&
+    filledRowsForValidation.every(
+      (r) => r.email.trim().includes('@') && r.name.trim().length > 0 && !r.emailError
+    );
+
+  const canProceed =
+    isAddRecipientMode
+      ? recipientCanProceed
+      : selectedMode === 'one-to-many'
+        ? true
+        : selectedMode === 'one-to-one'
+          ? recipientCanProceed
+          : false;
+
+  // ── Recipient helpers ────────────────────────────────────────────────────────
 
   const handleRecipientUpdate = useCallback((id: string, fields: Partial<RecipientState>) => {
     setRecipients((prev) =>
@@ -341,81 +352,9 @@ export function LetterReceiverModal(props: LetterReceiverModalProps) {
     setLastAddedId(newRow.id);
   }, [recipients.length]);
 
-  // ── Multi-recipient canProceed ─────────────────────────────────────────────
-
-  const multiRecipientCanProceed = (() => {
-    if (!useMultiRecipient) return false;
-    // At least one non-empty row
-    const filledRows = recipients.filter(
-      (r) => r.email.trim() !== '' || r.name.trim() !== ''
-    );
-    if (filledRows.length === 0) return false;
-    // All filled rows must be valid
-    return filledRows.every(
-      (r) =>
-        r.email.trim().includes('@') &&
-        r.name.trim().length > 0 &&
-        !r.emailError
-    );
-  })();
-
-  // ── Single-recipient canProceed ────────────────────────────────────────────
-
-  const singleCanProceed =
-    selectedMode === 'one-to-many' ||
-    (selectedMode === 'one-to-one' && parsedEmails.length > 0 && receiverName.trim().length > 0 && !emailError);
-
-  const canProceed = useMultiRecipient ? multiRecipientCanProceed : singleCanProceed;
-
-  const handleEmailChange = useCallback(
-    (value: string) => {
-      setEmailsInput(value);
-      setLookupResult(null);
-      setEmailError(null);
-
-      if (isReceiverNameLocked) {
-        setIsReceiverNameLocked(false);
-        setReceiverName('');
-      }
-
-      if (debounceRef.current) {
-        clearTimeout(debounceRef.current);
-      }
-
-      const trimmed = value.trim();
-      if (!trimmed || !trimmed.includes('@')) return;
-
-      debounceRef.current = setTimeout(async () => {
-        if (user?.email && trimmed.toLowerCase() === user.email.toLowerCase()) {
-          setEmailError("You can't send a letter to yourself");
-          setIsLookingUp(false);
-          return;
-        }
-
-        setIsLookingUp(true);
-        try {
-          const party = await agreementsService.lookupUserByEmail(trimmed);
-          analytics.track('letter_email_lookup', { found: !!party });
-          setLookupResult(party ?? 'not-found');
-
-          if (party && isExistingUserWithName(party)) {
-            setReceiverName(party.name);
-            setIsReceiverNameLocked(true);
-          }
-        } finally {
-          setIsLookingUp(false);
-        }
-      }, 400);
-    },
-    [user?.email, isReceiverNameLocked]
-  );
+  // ── Form helpers ─────────────────────────────────────────────────────────────
 
   const resetForm = () => {
-    setEmailsInput('');
-    setReceiverName('');
-    setLookupResult(null);
-    setEmailError(null);
-    setIsReceiverNameLocked(false);
     setSubmitting(false);
     setRecipients([createEmptyRecipient()]);
     setShowValidationErrors(false);
@@ -431,98 +370,142 @@ export function LetterReceiverModal(props: LetterReceiverModalProps) {
   const handleSubmit = async () => {
     if (submitting) return;
 
-    // ── Multi-recipient submit (private doc compose) ─────────────────────
-    if (useMultiRecipient) {
-      // Remove empty trailing rows silently
-      const filledRows = recipients.filter(
-        (r) => r.email.trim() !== '' || r.name.trim() !== ''
-      );
-
-      if (filledRows.length === 0) {
-        setShowValidationErrors(true);
-        return;
-      }
-
-      // Validate all filled rows
-      const hasErrors = filledRows.some(
-        (r) =>
-          !r.email.trim().includes('@') ||
-          !r.name.trim() ||
-          !!r.emailError
-      );
-
-      if (hasErrors) {
-        setShowValidationErrors(true);
-        // Update recipients to only show filled rows (removes empty ones)
-        setRecipients(filledRows.length > 0 ? filledRows : [createEmptyRecipient()]);
-        return;
-      }
-
-      const builtRecipients = filledRows.map((r) => ({
-        email: r.email.trim().toLowerCase(),
-        name: r.name.trim(),
-      }));
-
+    // ── One-to-many compose: no recipients needed ─────────────────────────────
+    if (!isAddRecipientMode && selectedMode === 'one-to-many') {
       analytics.track('letter_created', {
         doc_id: (props as ComposeModalProps).docId,
-        mode: 'one-to-one',
+        mode: 'one-to-many',
         story_count: (props as ComposeModalProps).storyCount,
-        recipient_count: builtRecipients.length,
       });
-
-      (props as ComposeModalProps).onSubmit({
-        mode: 'one-to-one',
-        emails: builtRecipients.map((r) => r.email),
-        recipients: builtRecipients,
-      });
+      (props as ComposeModalProps).onSubmit({ mode: 'one-to-many', emails: [], recipients: [] });
       return;
     }
 
-    // ── Add-recipient mode ───────────────────────────────────────────────
-    if (!canProceed) return;
+    // For all recipient paths: validate
+    const filledRows = recipients.filter(
+      (r) => r.email.trim() !== '' || r.name.trim() !== ''
+    );
 
+    if (filledRows.length === 0) {
+      setShowValidationErrors(true);
+      return;
+    }
+
+    const hasErrors = filledRows.some(
+      (r) => !r.email.trim().includes('@') || !r.name.trim() || !!r.emailError
+    );
+    if (hasErrors) {
+      setShowValidationErrors(true);
+      setRecipients(filledRows.length > 0 ? filledRows : [createEmptyRecipient()]);
+      return;
+    }
+
+    const builtRecipients = filledRows.map((r) => ({
+      email: r.email.trim().toLowerCase(),
+      name: r.name.trim(),
+    }));
+
+    // ── Add-recipient mode: batch addRecipientToSealed with partial-failure ────
     if (isAddRecipientMode) {
-      const email = parsedEmails[0];
-      if (!email) return;
       setSubmitting(true);
-      try {
-        await addRecipientToSealed(props.letterId, email, receiverName.trim() || undefined);
-        toast.success(`Invitation sent to ${email}`);
+
+      const sendResults = await Promise.all(
+        filledRows.map(async (row, i) => {
+          try {
+            await addRecipientToSealed(props.letterId, builtRecipients[i].email, builtRecipients[i].name);
+            return { id: row.id, email: builtRecipients[i].email, success: true as const };
+          } catch (err) {
+            return {
+              id: row.id,
+              email: builtRecipients[i].email,
+              success: false as const,
+              error: err instanceof Error ? err.message : 'Failed to send',
+            };
+          }
+        })
+      );
+
+      setSubmitting(false);
+
+      const succeeded = sendResults.filter((r) => r.success);
+      const failed = sendResults.filter((r) => !r.success);
+
+      if (failed.length === 0) {
+        // All succeeded
+        const count = succeeded.length;
+        toast.success(
+          count === 1
+            ? `Invitation sent to ${succeeded[0].email}`
+            : `Invitations sent to ${count} people`
+        );
         resetForm();
         onOpenChange(false);
         props.onRecipientAdded();
-      } catch (err) {
-        toast.error(err instanceof Error ? err.message : 'Failed to add recipient');
-      } finally {
-        setSubmitting(false);
+      } else if (succeeded.length === 0) {
+        // All failed — keep all rows, show errors
+        const failedIds = new Set(failed.map((f) => f.id));
+        setRecipients((prev) =>
+          prev.map((r) => {
+            if (!failedIds.has(r.id)) return r;
+            const result = failed.find((f) => f.id === r.id);
+            return { ...r, emailError: result?.error ?? 'Failed to send' };
+          })
+        );
+        toast.error('No invitations sent');
+      } else {
+        // Partial success — remove succeeded rows, mark failed rows
+        const succeededIds = new Set(succeeded.map((s) => s.id));
+        const failedIds = new Set(failed.map((f) => f.id));
+        setRecipients((prev) =>
+          prev
+            .filter((r) => !succeededIds.has(r.id))
+            .map((r) => {
+              if (!failedIds.has(r.id)) return r;
+              const result = failed.find((f) => f.id === r.id);
+              return { ...r, emailError: result?.error ?? 'Failed to send' };
+            })
+        );
+        toast.warning(
+          `Sent ${succeeded.length} of ${filledRows.length} invitations. Fix the rows marked in red and try again.`
+        );
       }
       return;
     }
 
-    // ── Compose mode (public doc one-to-one or one-to-many) ──────────────
-    if (!selectedMode) return;
+    // ── Compose mode (one-to-one, private or public doc) ─────────────────────
     analytics.track('letter_created', {
-      doc_id: props.docId,
-      mode: selectedMode,
-      story_count: props.storyCount,
+      doc_id: (props as ComposeModalProps).docId,
+      mode: 'one-to-one',
+      story_count: (props as ComposeModalProps).storyCount,
+      recipient_count: builtRecipients.length,
     });
-    props.onSubmit({
-      mode: selectedMode,
-      emails: selectedMode === 'one-to-one' ? parsedEmails : [],
-      recipients: selectedMode === 'one-to-one'
-        ? parsedEmails.map((email) => ({ email, name: receiverName.trim() }))
-        : [],
+    (props as ComposeModalProps).onSubmit({
+      mode: 'one-to-one',
+      emails: builtRecipients.map((r) => r.email),
+      recipients: builtRecipients,
     });
   };
 
-  const title = isAddRecipientMode ? 'Add recipient(s)' : 'Who is your letter for?';
-  const submitLabel = isAddRecipientMode ? (submitting ? 'Sending...' : 'Send Invitation') : 'Continue';
+  // ── Submit label ─────────────────────────────────────────────────────────────
+
+  const filledEmailCount = recipients.filter((r) => r.email.trim()).length;
+  const submitLabel = !isAddRecipientMode
+    ? 'Continue'
+    : submitting
+      ? 'Sending\u2026'
+      : filledEmailCount >= 2
+        ? `Send ${filledEmailCount} Invitations`
+        : 'Send Invitation';
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange} modal={false}>
-      <DialogContent className="sm:max-w-md max-h-[85vh] overflow-y-auto" hideOverlay>
+      <DialogContent
+        className="sm:max-w-md max-h-[85vh] overflow-y-auto"
+        hideOverlay
+        onInteractOutside={(e) => e.preventDefault()}
+      >
         <DialogHeader>
-          <DialogTitle>{title}</DialogTitle>
+          <DialogTitle>{isAddRecipientMode ? 'Add recipient(s)' : 'Who is your letter for?'}</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4 pt-2">
@@ -565,8 +548,8 @@ export function LetterReceiverModal(props: LetterReceiverModalProps) {
             </div>
           )}
 
-          {/* ── Multi-recipient form (private doc compose) ──────────────── */}
-          {useMultiRecipient && (
+          {/* ── RecipientRow form (add-recipient, private doc compose, public one-to-one) ── */}
+          {showRecipientForm && (
             <>
               {recipients.map((recipient, i) => (
                 <RecipientRow
@@ -597,68 +580,6 @@ export function LetterReceiverModal(props: LetterReceiverModalProps) {
             </>
           )}
 
-          {/* ── Single-recipient form (add-recipient + public doc one-to-one) ── */}
-          {!useMultiRecipient && (selectedMode === 'one-to-one' || isAddRecipientMode) && (
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <label htmlFor="receiver-emails" className="text-sm font-medium text-foreground">
-                  Recipient email
-                </label>
-                <div className="relative">
-                  <Input
-                    id="receiver-emails"
-                    type="email"
-                    placeholder="email@example.com"
-                    value={emailsInput}
-                    onChange={(e) => handleEmailChange(e.target.value)}
-                    className={`w-full ${emailError ? 'border-red-500' : ''}`}
-                    disabled={submitting}
-                  />
-                  {isLookingUp && (
-                    <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                      <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
-                    </div>
-                  )}
-                </div>
-                {emailError && (
-                  <p className="text-sm text-red-500" role="alert">{emailError}</p>
-                )}
-                {!emailError && lookupResult === 'not-found' && (
-                  <p className="text-sm text-muted-foreground" role="status">
-                    No account &#8212; they&apos;ll be invited to join.
-                  </p>
-                )}
-                {!emailError && lookupResult !== null && lookupResult !== 'not-found' && (
-                  <p className="text-sm text-green-700 font-medium" role="status">
-                    Account found &#10003;
-                  </p>
-                )}
-              </div>
-              <div className="space-y-2">
-                <label htmlFor="receiver-name" className="text-sm font-medium text-foreground">
-                  Recipient&apos;s full name
-                </label>
-                <Input
-                  id="receiver-name"
-                  type="text"
-                  placeholder="e.g. Alex Rivera"
-                  maxLength={100}
-                  value={receiverName}
-                  onChange={(e) => setReceiverName(e.target.value)}
-                  readOnly={isReceiverNameLocked}
-                  required
-                  disabled={submitting}
-                  className={`w-full ${isReceiverNameLocked ? 'bg-gray-50 text-muted-foreground' : ''}`}
-                />
-                {isReceiverNameLocked ? (
-                  <p className="text-xs text-muted-foreground">Using their registered name.</p>
-                ) : (
-                  <p className="text-xs text-muted-foreground">For the email greeting and letter cover.</p>
-                )}
-              </div>
-            </div>
-          )}
-
           {/* Info for 1-to-many — compose mode only */}
           {!isAddRecipientMode && !isPrivateDoc && selectedMode === 'one-to-many' && (
             <div className="p-4 bg-blue-50 rounded-lg border border-blue-100">
@@ -668,17 +589,23 @@ export function LetterReceiverModal(props: LetterReceiverModalProps) {
             </div>
           )}
 
-          {/* Submit area */}
+          {/* Submit button */}
           <Button
             onClick={handleSubmit}
-            disabled={useMultiRecipient ? submitting : (!canProceed || submitting)}
+            disabled={
+              isAddRecipientMode
+                ? (!canProceed || submitting)  // add-recipient: need valid rows before send
+                : isPrivateDoc
+                  ? submitting  // private doc compose: always clickable; validation shows on submit (P682 behaviour)
+                  : (!canProceed || submitting)  // public doc compose: need mode+valid row
+            }
             className="bg-blue-500 hover:bg-blue-600 text-white w-full"
           >
             {submitLabel}
           </Button>
 
-          {/* Footer hint — only for multi-recipient */}
-          {useMultiRecipient && (
+          {/* Footer hint — add-recipient mode and private doc compose */}
+          {(isAddRecipientMode || isPrivateDoc) && (
             <p className="text-xs text-muted-foreground text-center">
               Each person receives their own personal invitation.
             </p>
