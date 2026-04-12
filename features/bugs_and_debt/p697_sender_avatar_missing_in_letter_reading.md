@@ -2,11 +2,14 @@
 id: p697
 title: Sender avatar missing when recipient reads a letter
 type: bug
-status: in-progress
+status: qa
 severity: medium
 delivery_stage: fix
 pipeline_ran: [fix]
 date_reported: 2026-04-12
+date_resolved: 2026-04-12
+root_cause: Both letter reading RPCs and the authenticated direct-query path fetched only sender_display_name from profiles, omitting avatar_url, avatar_color, and has_pledged.
+resolution: Added 3 avatar fields to both RPCs (get_letter_for_reading + get_letter_for_public_reading), extended ClarityLetter type, updated letters-service.ts select, and wired into both senderProfileOwner objects in letter-reading-page.tsx.
 tags: []
 rank: 1000697.0
 created_date: 2026-04-12
