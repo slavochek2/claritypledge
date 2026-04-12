@@ -2,6 +2,26 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-12 [product]: Drawer-everywhere — all letter reading actions in bottom-docked Drawer
+
+**Context:** P696 redesigned action positioning in the letter reading flow. The initial UX proposal kept inline buttons for 3 phases (point-engage, point-revealed, story-revealed) and used Drawer only for story-rate. Founder pushed back: "why not putting other buttons similar down into drawer?" — the spatial jump between mid-content buttons and bottom Drawer was unjustified inconsistency.
+**Decision:** All 6 action phases use a bottom-docked Drawer as the universal action zone. Content (cards, comparisons, calibration results) stays in the content area; actions always live in the Drawer. Drawer uses `dismissible={false}`, `modal={false}`, `overlayClassName="bg-transparent"` so content stays visible and scrollable.
+**Alternatives rejected:** Mixed positioning (inline + Drawer) — creates spatial inconsistency. The UX agent's "Drawer is a focus tool" justification didn't explain why other phases shouldn't also benefit from focus.
+**Consequences:** Any future reading flow phase that adds a primary action must render it in the Drawer, not inline. This is now a pattern, not a one-off. Drawer content should be minimal (selector + button, or just button) — never put long text or multiple cards inside.
+**References:** [P696 spec](features/p696_letter_reading_flow_polish_and_refactor.md) | AD4
+
+---
+
+## 2026-04-12 [technical]: LetterFlowContent extraction — parameterize 3 variants via props, not behavior deletion
+
+**Context:** Three near-identical flow components (`LetterPreviewFlow`, `LetterReadingFlow`, `LetterReadingFlowPublic`) each ~200 lines of duplicated phase-rendering JSX. Every fix (centering, Drawer, button labels) must be applied 3 times. The question: extract shared component or full rewrite?
+**Decision:** Extract into `LetterFlowContent` parameterized by 3 props: `showFocusHeader` (boolean), `authGateAtStoryRate` (ReactNode), `renderCompletion` (render prop). Each page file keeps its own `useLetterReadingState` invocation (3 different signatures) and passes the return value as `readingState` prop. This is pure structural extraction — no behavior change.
+**Alternatives rejected:** Full rewrite of reading flow (overkill — leaf components are well-structured; only orchestration layer needs extraction). Keeping 3 variants and fixing each independently (compounds maintenance cost with every future change).
+**Consequences:** New reading flow behaviors (new phases, new action patterns) are implemented once in `LetterFlowContent`. Page files become thin wrappers: hook invocation + LetterFlowContent render with variant config. The hook (`useLetterReadingState`) is explicitly NOT refactored — separate concern, different scope.
+**References:** [P696 spec](features/p696_letter_reading_flow_polish_and_refactor.md) | AD1
+
+---
+
 ## 2026-04-12 [process]: sonnet-default for /dev after /decompose — opus only for multi-concern tasks
 
 **Context:** P684 had 11 decomposed tasks across DB migrations, edge functions, components, and routing. Question: run /dev subagents on opus (more capable, slower, costlier) or sonnet (faster, cheaper)?

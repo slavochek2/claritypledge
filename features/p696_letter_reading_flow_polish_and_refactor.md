@@ -4,9 +4,9 @@ type: task
 rank: 1000696.0
 tags: [letters, reading-flow, refactor, polish]
 created_date: '2026-04-12'
-delivery_stage: generate-tests
+delivery_stage: decompose
 pipeline_plan: [create-spec, ux, architect, ui, generate-tests, decompose, dev, verify]
-pipeline_ran: [create-spec, ux, architect, ui, generate-tests]
+pipeline_ran: [create-spec, ux, architect, ui, generate-tests, decompose]
 pipeline_skipped: [challenge-prd -- problems confirmed from annotated screenshots not assumptions, spec-review -- fresh spec from current conversation no drift risk]
 ---
 
@@ -713,3 +713,150 @@ No upstream concerns identified. The architecture decisions (AD1-AD7) fully addr
 - `getDocsByUser` SQL internals — tested indirectly via drafts list E2E
 - `LetterFlowContent` unit tests — no pure-logic surface; E2E covers behavioral contract
 - Comparison card column layout — visual; covered in UAT
+
+## Implementation Tasks
+
+### Consistency Check Results
+
+**AC Coverage:** PASS — All 9 ACs traceable to build steps and tests.
+**UX-Arch Drift:** PASS — No contradictions between UX Design and Architecture Decisions.
+**Security Blockers:** PASS — No blockers; no pre-deploy checklist required.
+
+---
+
+### Task Manifest
+
+#### T1 — Create letter-reading-utils.ts with shared utilities
+
+- **Concern:** Utility extraction + new functions
+- **Files:** `src/app/utils/letter-reading-utils.ts` (create)
+- **Spec refs:** Architecture Decisions AD5; Build Sequence step 1; Extraction Plan "Extraction 2"
+- **Tests:** `src/tests/p696-letter-reading-utils.test.ts` — 22 unit tests (all 3 functions). Run: `npx vitest run src/tests/p696-letter-reading-utils.test.ts`
+- **Verify:** All 22 unit tests pass; `estimateReadingMinutes(3, 9)` returns 12
+- **Depends on:** nothing
+
+#### T2 — Remove calculateStoryProgress inline copies; import from shared utility
+
+- **Concern:** Deduplication (remove two ~40-line verbatim copies)
+- **Files:** `src/app/pages/letter-reading-page.tsx` (modify), `src/app/pages/letter-preview-page.tsx` (modify)
+- **Spec refs:** Technical Analysis "Duplication analysis" item 1; Build Sequence step 2; Extraction Plan "Extraction 2"
+- **Tests:** `e2e/p696-letter-reading-polish.spec.ts` smoke tests catch regressions
+- **Verify:** `grep -n "calculateStoryProgress" src/app/pages/letter-reading-page.tsx` returns only import line (no inline definition); same for preview page
+- **Depends on:** T1
+
+#### T3 — Extend LetterCover with pointCount prop and updated metadata display
+
+- **Concern:** Metadata display on cover page
+- **Files:** `src/app/components/letters/letter-cover.tsx` (modify)
+- **Spec refs:** Build Sequence step 3; Component Strategy (LetterCover: **Extend**); AC "Metadata on cover page reads: N stories · M points · ~X minutes"
+- **Tests:** `e2e/p696-letter-reading-polish.spec.ts` — metadata tests (cover shows "N stories · M points · ~X minutes")
+- **Verify:** Component renders `"3 stories · 9 points · ~12 minutes"` given `storyCount=3`, `pointCount=9`, `estimateReadingMinutes(3,9)=12`
+- **Depends on:** T1
+
+#### T4 — Update cover call sites to pass pointCount and use estimateReadingMinutes
+
+- **Concern:** Wire new LetterCover props at all 3 call sites (preview + 2 reading flows)
+- **Files:** `src/app/pages/letter-preview-page.tsx` (modify), `src/app/pages/letter-reading-page.tsx` (modify)
+- **Spec refs:** Build Sequence step 4; AD5 formula; AC "Metadata on cover page"
+- **Tests:** `e2e/p696-letter-reading-polish.spec.ts` — cover metadata E2E test (reading time uses new formula)
+- **Verify:** E2E test "cover metadata" passes; reading time in cover for 3-story/9-point letter shows ~12 min (not ~6)
+- **Depends on:** T1, T3
+
+#### T5 — Extend getDocsByUser to batch-compute point_count; add to ClarityDoc type
+
+- **Concern:** Data layer extension for drafts list point count
+- **Files:** `src/app/data/docs-service.ts` (modify), `src/app/types/index.ts` (modify)
+- **Spec refs:** Architecture Decisions AD6; Build Sequence step 5; Technical Analysis "getDocsByUser" description
+- **Tests:** `e2e/p696-letter-reading-polish.spec.ts` — drafts list shows point count (tested indirectly)
+- **Verify:** `getDocsByUser` returns `point_count` field on each doc; no N+1 queries (single batch join)
+- **Depends on:** nothing
+
+#### T6 — Update drafts-tab.tsx to display "N stories · M points"
+
+- **Concern:** Metadata display on drafts list
+- **Files:** `src/app/components/letters/drafts-tab.tsx` (modify)
+- **Spec refs:** Build Sequence step 6; AC "Metadata on drafts list reads: N stories · M points"
+- **Tests:** `e2e/p696-letter-reading-polish.spec.ts` — "drafts list shows point count" test
+- **Verify:** Drafts list entry shows `"3 stories · 9 points"` for a letter with 3 stories and 9 points
+- **Depends on:** T5
+
+#### T7 — Add mx-auto centering to LiveStoryCardExpanded and JourneyToUnderstanding call sites
+
+- **Concern:** Centering fix (6 locations across 2 page files)
+- **Files:** `src/app/pages/letter-reading-page.tsx` (modify), `src/app/pages/letter-preview-page.tsx` (modify)
+- **Spec refs:** Solution "Phase 2: Centering fix"; Build Sequence step 7; AC "Centering fix verified at viewport widths"
+- **Tests:** UAT checklist `features/uat/p696.md` (centering at 375px/768px/1280px — visual, not Playwright)
+- **Verify:** All `className="w-full max-w-sm"` usages on `LiveStoryCardExpanded` and `JourneyToUnderstanding` in both page files also contain `mx-auto`
+- **Depends on:** nothing (independent of T1-T6)
+
+#### T8 — Create PositionSelector component (extracted from PositionButtons pattern)
+
+- **Concern:** Simplified 3-button position group for Drawer use
+- **Files:** `src/app/components/shared/position-selector.tsx` (create)
+- **Spec refs:** Architecture Decisions AD7; Component Strategy (PositionSelector: **Extract**); Extraction Plan "Extraction 1"; Component Map; Build Sequence step 8
+- **Tests:** `e2e/a11y/p696-accessibility.spec.ts` — keyboard navigation to position selector; `e2e/p696-letter-reading-polish.spec.ts` — position selector in Drawer (not inline)
+- **Verify:** Component renders 3 buttons (Disagree/Unsure/Agree) without intensity dropdown, count badges, or tooltip; `disabled` prop disables all 3 buttons
+- **Depends on:** nothing
+
+#### T9 — Create PositionComparisonCard component (You vs Author side-by-side)
+
+- **Concern:** New comparison card for point-revealed phase
+- **Files:** `src/app/components/letters/position-comparison-card.tsx` (create)
+- **Spec refs:** Architecture Decisions AD2; Component Strategy (PositionComparisonCard: **New**); Visual Specification "4. Spacing Per Zone" comparison card columns; UX Design "Reveal Visibility"; Build Sequence step 9
+- **Tests:** `e2e/p696-letter-reading-polish.spec.ts` — "comparison card shows You vs Author after submit"; `e2e/a11y/p696-accessibility.spec.ts` — aria-live="polite" on comparison card
+- **Verify:** Card renders two-column grid with "You" label + position badge on left, author name + position badge on right; both columns use neutral styling (`bg-gray-50 border border-gray-200`)
+- **Depends on:** nothing
+
+#### T10 — Create LetterFlowContent shared component (phase-rendering JSX)
+
+- **Concern:** Shared flow component extraction (pure structural — no behavior change)
+- **Files:** `src/app/components/letters/letter-flow-content.tsx` (create)
+- **Spec refs:** Architecture Decisions AD1, AD3, AD4; Extraction Plan "Extraction 3"; Composition Tree; Build Sequence steps 10; Component Map (LetterFlowContent: **New**)
+- **Tests:** `e2e/p696-letter-reading-polish.spec.ts` smoke tests; `e2e/a11y/p696-accessibility.spec.ts` sr-only Drawer titles per phase
+- **Verify:** Component compiles; renders all 6 phases correctly; accepts `showFocusHeader`, `authGateAtStoryRate`, `renderCompletion` props per AD1 interface
+- **Depends on:** T8, T9
+
+#### T11 — Refactor LetterPreviewFlow to use LetterFlowContent
+
+- **Concern:** Replace preview flow internals with shared component
+- **Files:** `src/app/pages/letter-preview-page.tsx` (modify)
+- **Spec refs:** Extraction Plan "Extraction 3" step 3-5; Build Sequence step 11; Technical Analysis "Differences between flows" (Preview column)
+- **Tests:** `e2e/p696-letter-reading-polish.spec.ts` smoke + public reading flow tests; UAT "Preview vs reading parity"
+- **Verify:** Preview route loads and completes all phases; `letter-preview-page.tsx` no longer contains phase-rendering switch JSX (delegated to LetterFlowContent); `showFocusHeader={false}` passed
+- **Depends on:** T10, T7 (centering already fixed in T7 so no duplicate mx-auto needed here)
+
+#### T12 — Refactor LetterReadingFlow and LetterReadingFlowPublic to use LetterFlowContent
+
+- **Concern:** Replace both authed and public reading flow internals with shared component
+- **Files:** `src/app/pages/letter-reading-page.tsx` (modify)
+- **Spec refs:** Extraction Plan "Extraction 3" step 3-5; Build Sequence steps 12-13; Technical Analysis "Differences between flows" (Authed Reading + Public Reading columns)
+- **Tests:** `e2e/p696-letter-reading-polish.spec.ts` — all authenticated flow tests; public reading test; UAT P673 regression checks
+- **Verify:** Authenticated reading and public reading routes complete all phases; `letter-reading-page.tsx` no longer contains phase-rendering switch JSX; authed flow passes `authGateAtStoryRate` node for sign-in prompt; analytics hook `onStoryRated` wired correctly for authed flow
+- **Depends on:** T10, T2
+
+#### T13 — Wire Drawer into all 6 action phases in LetterFlowContent
+
+- **Concern:** Interaction consistency — Drawer as universal action zone
+- **Files:** `src/app/components/letters/letter-flow-content.tsx` (modify)
+- **Spec refs:** Architecture Decisions AD4; UX Design "Action Positioning Rule"; Build Sequence step 14; Composition Tree (Drawer blocks per phase)
+- **Tests:** `e2e/p696-letter-reading-polish.spec.ts` — "position selector in Drawer (not inline)"; "button labels"; `e2e/a11y/p696-accessibility.spec.ts` — sr-only Drawer headers; 44px touch targets
+- **Verify:** All 6 phases (`point-engage`, `point-revealed`, `story-rate`, `story-revealed`, `remaining-point-engage`, `remaining-point-revealed`) render primary action inside `<Drawer dismissible={false} modal={false} overlayClassName="bg-transparent">`
+- **Depends on:** T10
+
+#### T14 — Move position selector into Drawer for point-engage phases; wire 400ms delayed button for reveal phases
+
+- **Concern:** Two interaction changes: selector in Drawer + delayed advance button
+- **Files:** `src/app/components/letters/letter-flow-content.tsx` (modify)
+- **Spec refs:** Architecture Decisions AD3, AD4; Build Sequence steps 15-16; UX Design "Flow A" steps 1-7; Visual Specification "5. Animation / Transition"; Edge Cases "Fast tapping", "Resume after navigation away"
+- **Tests:** `e2e/p696-letter-reading-polish.spec.ts` — "position selector in Drawer (not inline)"; "400ms delay: Next not immediately visible, appears after delay"; `e2e/a11y/p696-accessibility.spec.ts` — aria-hidden during delay, removed after
+- **Verify:** `PointCardWithLinks` in point-engage passes `disablePositionButtons=true`; `PositionSelector` renders inside Drawer; `showAdvanceButton` state starts `false` on phase entry; `useEffect` timer flips to `true` after 400ms; `isInitialTransition` ref skips delay on resume
+- **Depends on:** T13, T8
+
+#### T15 — Update all button labels and replace point-revealed with PositionComparisonCard
+
+- **Concern:** Button labels (semantic) + comparison card wired into point-revealed phase
+- **Files:** `src/app/components/letters/letter-flow-content.tsx` (modify)
+- **Spec refs:** Build Sequence steps 17-18; UX Design "Action Positioning Rule" button label table; AC "Button labels"; AC "Reveal pattern: comparison card"
+- **Tests:** `e2e/p696-letter-reading-polish.spec.ts` — "button labels: Submit Your Position, Submit My Rating"; "Next Story vs Complete Letter on final story"; "comparison card shows You vs Author after submit, two-column (not dropdown)"
+- **Verify:** Grep for "Continue" in letter-flow-content.tsx returns no results; point-revealed phase renders `<PositionComparisonCard>` instead of `<PointCardWithLinks disablePositionButtons>`; all 5 button labels match spec exactly
+- **Depends on:** T13, T9
