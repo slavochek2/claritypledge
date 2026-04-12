@@ -2,6 +2,16 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-12 [technical]: P696 atomic letter response — single edge function replaces pending table + email round-trip
+
+**Context:** The original one-to-many letter response flow (P684) had a 2-step pattern: `request-letter-response-signin` → write `letter_response_pending` row + send "click to confirm" magic-link email → reader clicks → `confirm-letter-response` materializes responses. This caused auth timing races (the P698 token_hash fix) and added irreversible latency — the reader had to check email before their responses were saved.
+**Decision:** Replace with a single `create-and-respond-to-letter` edge function: validate inputs → validate letter → self-send guard → create/look-up user + profile → generate `hashed_token` → idempotency check → materialize `letter_deliveries` + `story_verifications` + `letter_point_responses` + `terms_acceptances` atomically → fire-and-forget notification email → return `{ ok: true, hashedToken }`. Client calls `supabase.auth.verifyOtp({ token_hash, type: 'magiclink' })` inline — no email round-trip. Responses are saved before the email is sent. `letter_response_pending` table is no longer used for new submissions (kept for in-flight legacy emails). `request-letter-response-signin` is now legacy-only (reverted to `action_link` approach): still deployed to test/prod for users who already received emails from the old flow.
+**Alternatives rejected:** Keeping the 2-step flow with P698 fixes — auth races eliminated but the UX latency (check email to complete) remained. Making the confirm page handle both formats — too much complexity in a legacy page.
+**Consequences:** (1) `letter-response-confirm-page.tsx` stays intact for in-flight P698 emails (uses token_hash verifyOtp). (2) `request-letter-response-signin` is now legacy — do not add features to it. (3) Email notification copy must NOT contain a "click to confirm" CTA — responses are already saved; the email is informational only. (4) The token_hash rule ("all edge functions must use token_hash") applies to *new* flows; `request-letter-response-signin` is explicitly exempted as a legacy function. [FOUNDER DECISION open: email notification subject/body copy.]
+**References:** [create-and-respond-to-letter/index.ts](supabase/functions/create-and-respond-to-letter/index.ts) | [signup-page.tsx](src/app/pages/signup-page.tsx) | [letters-service.ts](src/app/data/letters-service.ts)
+
+---
+
 ## 2026-04-12 [technical]: token_hash + verifyOtp pattern for edge-function magic links (supersedes hash-check guard)
 
 **Context:** When an edge function mints a magic link via `admin.generateLink`, the original approach used `options.redirectTo` pointing at `/auth/callback?redirect=...`. This still created a session race: Supabase processes the implicit-grant token asynchronously and `getSession()` in `AuthContext` fires before the hash token is written to localStorage. A prior decision documented a per-page hash-check guard as a workaround. P698 tested the `/auth/callback` redirect and found it insufficient.
