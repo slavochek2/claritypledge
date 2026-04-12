@@ -11,7 +11,7 @@
  */
 
 import { useEffect, useState, useCallback, useRef, type ReactNode } from 'react';
-import { useParams, useSearchParams, Link } from 'react-router-dom';
+import { useParams, useSearchParams, Link, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { useAuth } from '@/auth';
 import { supabase } from '@/lib/supabase';
@@ -20,7 +20,6 @@ import { CertificatePageShell } from '@/app/components/layout/certificate-page-s
 import { ClarityPageLoader, ClarityLoader } from '@/components/ui/clarity-loader';
 import { LetterCover } from '@/app/components/letters/letter-cover';
 import { LetterCompletionSummary } from '@/app/components/letters/letter-completion-summary';
-import { LetterResponseCTA } from '@/app/components/letters/letter-response-cta';
 import { LetterStaleTermsModal } from '@/app/components/letters/letter-stale-terms-modal';
 import { LetterFlowContent } from '@/app/components/letters/letter-flow-content';
 import type { PointProfileOwner } from '@/app/components/social/point-card-with-links';
@@ -55,6 +54,7 @@ export function LetterReadingPage() {
   const { id: deliveryId } = useParams<{ id: string }>();
   const [searchParams] = useSearchParams();
   const token = searchParams.get('token') ?? '';
+  const navigate = useNavigate();
   const { user: currentUser, session, sessionChecked, isLoading: authLoading } = useAuth();
 
   const [pageState, setPageState] = useState<PageState>('loading');
@@ -77,7 +77,6 @@ export function LetterReadingPage() {
   const authDelayTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // P684: one-to-many public reading state
-  const [showSignupForm, setShowSignupForm] = useState(false);
   const [publicPredictions, setPublicPredictions] = useState<Map<string, number> | undefined>();
   const [completedDeliveryId, setCompletedDeliveryId] = useState<string | null>(null);
   const [wasAlreadyCompleted, setWasAlreadyCompleted] = useState(false);
@@ -574,20 +573,13 @@ export function LetterReadingPage() {
                   ratings: draft.ratings,
                   positions: draft.positions.map((p) => ({ pointId: p.pointId, position: p.position })),
                 }));
-                setShowSignupForm(true);
+                const confirmRedirect = `/letter/${deliveryId}/confirm`;
+                navigate(`/signup?source=letter-response&letterId=${deliveryId}&redirect=${encodeURIComponent(confirmRedirect)}`);
+                return;
               }
               setViewState('complete');
             }}
           />
-        )}
-
-        {viewState === 'complete' && showSignupForm && !currentUser && (
-          <div className="max-w-md mx-auto px-4 py-6">
-            <LetterResponseCTA
-              senderName={senderName}
-              letterId={deliveryId ?? ''}
-            />
-          </div>
         )}
 
         {/* Authenticated one-to-many: show completion summary */}
