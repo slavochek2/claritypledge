@@ -442,21 +442,23 @@ serve(async (req: Request) => {
     // ── Mint magic link (step 4) ───────────────────────────────────────────────
     // Called IDENTICALLY for new and existing user branches.
     // This equalizes timing and closes the enumeration oracle (BLOCK-4).
-    // Reference: create-and-open-letter line 416.
-    const redirectTo = `${appUrl}/auth/callback?redirect=/letter/${letterId}/confirm`;
-
+    //
+    // Pattern: extract hashed_token and build a direct link to the confirm page.
+    // The confirm page calls verifyOtp({ token_hash }) to establish the session
+    // synchronously — no implicit-grant #access_token race. Same pattern as
+    // create-and-sign (P527). Works cross-browser (no PKCE code verifier).
     const { data: linkData, error: linkError } = await supabase.auth.admin.generateLink({
       type: 'magiclink',
       email: normalizedEmail,
-      options: { redirectTo },
     });
 
-    if (linkError || !linkData?.properties?.action_link) {
+    if (linkError || !linkData?.properties?.hashed_token) {
       console.error('[request-letter-response-signin] generateLink failed:', linkError?.message);
       return jsonResponse({ error: 'Something went wrong. Please try again.' }, 500);
     }
 
-    const actionLink = linkData.properties.action_link;
+    const hashedToken = linkData.properties.hashed_token;
+    const actionLink = `${appUrl}/letter/${letterId}/confirm?token_hash=${encodeURIComponent(hashedToken)}`;
 
     // ── Write pending row (step 5) ─────────────────────────────────────────────
     // UPSERT on (user_id, letter_id) — safe for re-submissions (Flow 5).

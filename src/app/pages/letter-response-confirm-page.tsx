@@ -3,8 +3,9 @@
  * @description P684 State 7-9: Confirm route for one-to-many letter response.
  * Route: /letter/:letterId/confirm
  *
- * Supabase's OTP handler has already authenticated the reader by the time this
- * page mounts (the magic link URL was processed by Supabase's auth redirect).
+ * When arriving via magic link email, the URL contains ?token_hash=... which
+ * this page exchanges for a session via verifyOtp (same pattern as create-and-sign P527).
+ * This avoids the implicit-grant #access_token race that caused "Sign in required" flashes.
  *
  * AD4.1 anti-flash invariants (P692 + P693 KDDs):
  * - Gate on !!session, NOT !!currentUser. currentUser lags session by ~200ms
@@ -16,6 +17,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import { useAuth } from '@/auth';
+import { supabase } from '@/lib/supabase';
 import { ClarityLoader } from '@/components/ui/clarity-loader';
 import { LetterResponseLinkExpired } from '@/app/components/letters/letter-response-link-expired';
 import { CURRENT_TERMS_VERSION } from '@/lib/constants';
@@ -70,14 +72,39 @@ export function LetterResponseConfirmPage() {
       });
   }, [letterId]);
 
+  // Track whether verifyOtp is in flight to prevent duplicate calls
+  const verifyingRef = useRef(false);
+
   // Main confirm flow: wait for session, then call confirmLetterResponse once.
   useEffect(() => {
     if (!sessionChecked) return;         // Auth hasn't settled yet
     if (!letterId) return;
 
+    // If arriving via magic link email, exchange token_hash for session first.
+    // Same pattern as create-and-sign (P527) — no redirect race, works cross-browser.
     if (!session) {
-      // sessionChecked but no session — magic link may have expired before OTP
-      setPageState('unauthenticated');
+      const params = new URLSearchParams(window.location.search);
+      const tokenHash = params.get('token_hash');
+
+      if (tokenHash && !verifyingRef.current) {
+        verifyingRef.current = true;
+        // Clean token from URL (security: prevent leakage in history/logs)
+        window.history.replaceState(null, '', window.location.pathname);
+
+        supabase.auth.verifyOtp({ token_hash: tokenHash, type: 'magiclink' })
+          .then(({ error }) => {
+            if (error) {
+              console.error('[letter-response-confirm] verifyOtp failed:', error.message);
+              setPageState('unauthenticated');
+            }
+            // On success: onAuthStateChange fires → session updates → effect re-runs
+          });
+        return; // Wait for session from verifyOtp
+      }
+
+      if (!tokenHash) {
+        setPageState('unauthenticated');
+      }
       return;
     }
 
