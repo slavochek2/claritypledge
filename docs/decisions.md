@@ -2,6 +2,26 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-12 [technical]: AuthContext `sessionChecked` fires before hash tokens are processed — gate on hash in confirm page
+
+**Context:** Pages reached via magic link redirect (e.g., `/letter/:id/confirm`) land with `#access_token=...&refresh_token=...` in the URL hash. Supabase's `detectSessionFromUrl` is async — it runs in the client constructor but is not awaited. `AuthContext.initSession()` calls `getSession()` immediately (reads from localStorage only), which returns `null` before the hash has been written to storage. Result: `setSessionChecked(true)` fires with `session=null`, and pages that check `if (sessionChecked && !session)` set an error state before the real session arrives via `onAuthStateChange`.
+**Decision:** In the confirm page (the only page currently reached via OTP magic link redirect), guard the 'unauthenticated' branch with a hash check: `if (window.location.hash.includes('access_token')) return;` — keep showing spinner. When `onAuthStateChange` fires, `session` state updates, the effect re-runs (session is a dep), `confirmedRef.current` is still false, and the confirm flow proceeds. Supabase clears the hash after processing, so the guard is not sticky.
+**Alternatives rejected:** Fixing `AuthContext` (move `setSessionChecked(true)` into `onAuthStateChange`) — shared component with broad blast radius, could introduce regressions on other pages. Timeout delay — arbitrary and fragile.
+**Consequences:** Any page that gates on `sessionChecked && !session` to show an auth error MUST add the hash check if it can be reached via a magic link redirect. The pattern: check `window.location.hash.includes('access_token')` before concluding the user is unauthenticated. `AuthContext` remains unchanged — this is a call-site guard, not a framework fix.
+**References:** [letter-response-confirm-page.tsx](src/app/pages/letter-response-confirm-page.tsx) | [AuthContext.tsx](src/auth/AuthContext.tsx)
+
+---
+
+## 2026-04-12 [technical]: `PositionType` string→number conversion required before edge function calls + edge function error body key is `error` not `message`
+
+**Context:** Two bugs blocked the letter-response email path. (1) `PositionType` is a string union (`'agree' | 'disagree' | ...`). Positions are stored in sessionStorage as strings. The edge function validates `typeof item.position === 'number'` — strings fail. The code used `p.position as unknown as number` which is a TypeScript-only cast with zero runtime effect. (2) The edge function returns `{ error: '...' }` on failures, but `requestLetterResponseSignin` in `letters-service.ts` parsed errors as `body?.message ?? error.message` — `body.error` was never checked, so the user saw a generic Supabase error string and the form appeared to hang.
+**Decision:** (1) Use `POSITION_VALUES[p.position as PositionType] ?? 0` (already defined in `src/app/types/index.ts`) to convert string positions to their numeric equivalents at runtime before passing to the edge function. Both call sites: `signup-page.tsx` and `letter-response-confirm-page.tsx`. (2) Add `(body?.error as string)` to the error parse chain: `body?.message ?? body?.error ?? error.message ?? 'Request failed'`.
+**Alternatives rejected:** Converting positions in the edge function — the edge function is the contract boundary; callers must send valid types. Checking `body?.error` only — `message` is used by other edge functions, keep both.
+**Consequences:** Whenever passing user-facing position strings to any edge function or API that expects numeric positions, use `POSITION_VALUES[pos]`. Never use `as unknown as number` — it silently passes the wrong type at runtime. When parsing `FunctionsHttpError` body, always check both `body?.message` and `body?.error`.
+**References:** [POSITION_VALUES — src/app/types/index.ts:948](src/app/types/index.ts) | [signup-page.tsx](src/app/pages/signup-page.tsx) | [letters-service.ts](src/app/data/letters-service.ts)
+
+---
+
 ## 2026-04-12 [product]: Inbox = received letters only — sender completion notifications removed
 
 **Context:** `get_inbox_items` had a UNION ALL "Responses" branch returning `recipient_responded` / `link_respondent` items when someone completed a letter *you sent*. These appeared in the sender's inbox as "[Name] completed Test letter", mixed in with received letters. The Sent tab already shows completion counts per letter, so this was redundant and visually confusing — senders couldn't distinguish "letter I need to act on" from "notification I can ignore."

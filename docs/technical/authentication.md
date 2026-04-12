@@ -300,3 +300,21 @@ Magic links need correct redirect URLs configured in Supabase dashboard:
 - Production: `https://claritypledge.com/auth/callback`
 
 If magic links redirect to the wrong place, check these settings.
+
+---
+
+## `sessionChecked` vs hash token timing
+
+`AuthContext.initSession()` calls `getSession()` (reads localStorage) and sets `sessionChecked=true` immediately. Supabase's `detectSessionFromUrl` is async and runs concurrently — when a page loads via magic link redirect with `#access_token=...` in the URL, `sessionChecked` can become `true` with `session=null` before the hash is processed.
+
+**Pattern for pages reached via magic link redirect:** Before showing an auth-error state, check the hash:
+
+```typescript
+if (!session) {
+  if (window.location.hash.includes('access_token')) return; // keep showing spinner
+  setPageState('unauthenticated');
+  return;
+}
+```
+
+When `onAuthStateChange` fires with the session, the hash is cleared by Supabase and `session` state updates — the effect re-runs and the guard no longer blocks. See `letter-response-confirm-page.tsx` and `decisions.md` for full rationale.
