@@ -6,7 +6,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Mail, MailOpen, Link as LinkIcon, Inbox, Eye } from 'lucide-react';
+import { Mail, ArrowDownLeft, ArrowUpRight, Inbox, Eye } from 'lucide-react';
 import { toast } from 'sonner';
 import { ClarityLoader } from '@/components/ui/clarity-loader';
 import { Button } from '@/components/ui/button';
@@ -135,7 +135,7 @@ export function InboxTab({ userId, onUnreadCountChange }: InboxTabProps) {
                 />
               </div>
               <div className="flex-shrink-0">
-                <ItemIcon type={item.type} />
+                <ItemIcon type={item.type} completed={!!item.completed_at} />
               </div>
               <div className="flex-1 min-w-0">
                 <p
@@ -174,14 +174,16 @@ export function InboxTab({ userId, onUnreadCountChange }: InboxTabProps) {
   );
 }
 
-function ItemIcon({ type }: { type: InboxItem['type'] }) {
+function ItemIcon({ type, completed }: { type: InboxItem['type']; completed: boolean }) {
   switch (type) {
     case 'received':
-      return <Mail className="w-5 h-5 text-blue-500" />;
+      return completed
+        ? <ArrowDownLeft className="w-5 h-5 text-muted-foreground" />
+        : <Mail className="w-5 h-5 text-blue-500" />;
     case 'recipient_responded':
-      return <MailOpen className="w-5 h-5 text-blue-500" />;
+      return <ArrowUpRight className="w-5 h-5 text-blue-500" />;
     case 'link_respondent':
-      return <LinkIcon className="w-5 h-5 text-blue-500" />;
+      return <ArrowUpRight className="w-5 h-5 text-blue-500" />;
   }
 }
 

@@ -351,7 +351,10 @@ export function useLetterReadingState(
     // Remote mode: try to restore from sessionStorage
     if (deliveryId) {
       const saved = loadState(deliveryId);
-      if (saved && saved.stories.length === snapshots.length && saved.currentStoryIndex > 0) {
+      const hasProgress = saved?.stories.some(
+        (s, i) => s.rating !== null || s.phase !== initialPhase(snapshots[i]),
+      );
+      if (saved && saved.stories.length === snapshots.length && (saved.currentStoryIndex > 0 || hasProgress)) {
         resumedRef.current = true;
         return saved;
       }

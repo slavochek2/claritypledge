@@ -24,6 +24,7 @@ import type { PointProfileOwner } from '@/app/components/social/point-card-with-
 import {
   Drawer,
   DrawerContent,
+  DrawerDescription,
   DrawerFooter,
   DrawerHeader,
   DrawerTitle,
@@ -207,6 +208,7 @@ export function LetterFlowContent({
               <DrawerContent overlayClassName="bg-transparent">
                 <DrawerHeader>
                   <DrawerTitle className="sr-only">Choose your position</DrawerTitle>
+                  <DrawerDescription className="sr-only">Select agree, neutral, or disagree for this point.</DrawerDescription>
                 </DrawerHeader>
                 <div className="px-4">
                   <PositionSelector
@@ -221,7 +223,7 @@ export function LetterFlowContent({
                     disabled={!selectedPosition || isSubmitting}
                     className="w-full bg-[#0044CC] hover:bg-[#0033AA] text-white min-h-[44px]"
                   >
-                    Submit Your Position
+                    Submit
                   </Button>
                 </DrawerFooter>
               </DrawerContent>
@@ -272,6 +274,7 @@ export function LetterFlowContent({
                 <DrawerContent overlayClassName="bg-transparent">
                   <DrawerHeader>
                     <DrawerTitle className="sr-only">Rate this story</DrawerTitle>
+                    <DrawerDescription className="sr-only">Rate how well you understood this story.</DrawerDescription>
                   </DrawerHeader>
                   <div className="px-4 pt-2 pb-4">
                     <ComprehensionRatingCard
@@ -350,6 +353,7 @@ export function LetterFlowContent({
               <DrawerContent overlayClassName="bg-transparent">
                 <DrawerHeader>
                   <DrawerTitle className="sr-only">Choose your position</DrawerTitle>
+                  <DrawerDescription className="sr-only">Select agree, neutral, or disagree for this point.</DrawerDescription>
                 </DrawerHeader>
                 <div className="px-4">
                   <PositionSelector
@@ -364,7 +368,7 @@ export function LetterFlowContent({
                     disabled={!selectedPosition || isSubmitting}
                     className="w-full bg-[#0044CC] hover:bg-[#0033AA] text-white min-h-[44px]"
                   >
-                    Submit Your Position
+                    Submit
                   </Button>
                 </DrawerFooter>
               </DrawerContent>
