@@ -2,6 +2,15 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-12 [process]: sonnet-default for /dev after /decompose — opus only for multi-concern tasks
+
+**Context:** P684 had 11 decomposed tasks across DB migrations, edge functions, components, and routing. Question: run /dev subagents on opus (more capable, slower, costlier) or sonnet (faster, cheaper)?
+**Decision:** Default to sonnet for /dev subagents when /decompose has run. Each task is 1-3 files with one concern — well within sonnet's capability. Reserve opus for tasks that combine multiple concerns in one (e.g., token validation + RLS + account creation atomicity) or tasks touching 3+ files across state/UI/routing layers. Escalate per-task after testing, not preemptively.
+**Alternatives rejected:** Opus-for-all (unnecessary cost/time when tasks are atomic), sonnet-for-all-no-exceptions (misses genuinely complex tasks where opus reasoning matters).
+**Consequences:** /dev dispatch should accept a model parameter per task or a default model for the run. The decompose threshold (1-3 files, one concern) is also the sonnet-safe threshold. If a task fails on sonnet, re-run that single task on opus with the failure as context — targeted fix beats blind rewrite.
+
+---
+
 ## 2026-04-12 [technical]: add-recipient never sent emails — invokeLetterEmails missing from submit handler
 
 **Context:** P688 unified the add-recipient flow through RecipientRow. Testing revealed delivery rows were created successfully but no invitation emails arrived. The compose flow (letter-compose-page.tsx) called `invokeLetterEmails(letterId)` after sealing, but the add-recipient path in letter-receiver-modal.tsx never did — it only called `addRecipientToSealed()` per row. The edge function was never triggered.
