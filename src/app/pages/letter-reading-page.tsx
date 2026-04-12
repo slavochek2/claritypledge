@@ -142,8 +142,9 @@ export function LetterReadingPage() {
               setReceiverDisplayNameSafe(currentUser.user_metadata.name);
             }
 
-            // P695: skip to completion view if delivery is already completed
-            if (readData.delivery?.status === 'completed') {
+            // P695: skip to completion view if delivery is already completed.
+            // Use completed_at as truth — status may lag (inbox uses same signal).
+            if (readData.delivery?.completed_at) {
               setSafe('ready');
               if (!cancelled) { setWasAlreadyCompleted(true); setViewState('complete'); }
               return;
