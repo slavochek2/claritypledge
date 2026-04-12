@@ -70,8 +70,8 @@ export function LetterCover({
 
       <span id={HINT_ID} className="sr-only">
         {needsConsent
-          ? 'Opens the letter and creates an account; by opening you accept the Terms of Service and Privacy Policy'
-          : 'Opens the letter for reading'}
+          ? 'By clicking you accept the Terms of Service and Privacy Policy and create an account'
+          : 'Click to begin reading'}
       </span>
 
       <Button
