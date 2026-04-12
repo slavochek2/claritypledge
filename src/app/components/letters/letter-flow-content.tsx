@@ -204,18 +204,19 @@ export function LetterFlowContent({
               onPositionSelect={(pos) => setSelectedPosition(pos as PositionType | null)}
               selectedPosition={selectedPosition as Position}
             />
-            <Button
-              onClick={handleSubmitPosition}
-              disabled={!selectedPosition || isSubmitting}
-              className="w-full bg-[#0044CC] hover:bg-[#0033AA] text-white"
-            >
-              Submit
-            </Button>
-            {!selectedPosition && !isSubmitting && (
-              <p className="text-sm text-muted-foreground text-center">
-                Select your position above to continue
-              </p>
-            )}
+            <Drawer open dismissible={false} modal={false}>
+              <DrawerContent overlayClassName="bg-transparent">
+                <DrawerFooter>
+                  <Button
+                    onClick={handleSubmitPosition}
+                    disabled={!selectedPosition || isSubmitting}
+                    className="w-full bg-[#0044CC] hover:bg-[#0033AA] text-white min-h-[44px]"
+                  >
+                    Submit
+                  </Button>
+                </DrawerFooter>
+              </DrawerContent>
+            </Drawer>
           </>
         )}
 
@@ -337,18 +338,19 @@ export function LetterFlowContent({
               onPositionSelect={(pos) => setSelectedPosition(pos as PositionType | null)}
               selectedPosition={selectedPosition as Position}
             />
-            <Button
-              onClick={handleSubmitPosition}
-              disabled={!selectedPosition || isSubmitting}
-              className="w-full bg-[#0044CC] hover:bg-[#0033AA] text-white"
-            >
-              Submit
-            </Button>
-            {!selectedPosition && !isSubmitting && (
-              <p className="text-sm text-muted-foreground text-center">
-                Select your position above to continue
-              </p>
-            )}
+            <Drawer open dismissible={false} modal={false}>
+              <DrawerContent overlayClassName="bg-transparent">
+                <DrawerFooter>
+                  <Button
+                    onClick={handleSubmitPosition}
+                    disabled={!selectedPosition || isSubmitting}
+                    className="w-full bg-[#0044CC] hover:bg-[#0033AA] text-white min-h-[44px]"
+                  >
+                    Submit
+                  </Button>
+                </DrawerFooter>
+              </DrawerContent>
+            </Drawer>
           </>
         )}
 
