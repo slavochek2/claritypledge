@@ -2,6 +2,16 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-12 [technical]: token_hash + verifyOtp pattern for edge-function magic links (supersedes hash-check guard)
+
+**Context:** When an edge function mints a magic link via `admin.generateLink`, the original approach used `options.redirectTo` pointing at `/auth/callback?redirect=...`. This still created a session race: Supabase processes the implicit-grant token asynchronously and `getSession()` in `AuthContext` fires before the hash token is written to localStorage. A prior decision documented a per-page hash-check guard as a workaround. P698 tested the `/auth/callback` redirect and found it insufficient.
+**Decision:** Edge functions that mint magic links must extract `linkData.properties.hashed_token` and embed it as `?token_hash=<encoded>` in the direct destination URL. The destination page calls `supabase.auth.verifyOtp({ token_hash, type: 'magiclink' })` synchronously when `?token_hash` is present and `session` is null. This establishes the session via RPC (not hash fragment), fires `onAuthStateChange`, and the page's effect re-runs with the real session. Token is removed from URL via `window.history.replaceState` after exchange (prevents leakage in history/logs). Works cross-browser — no PKCE verifier needed.
+**Alternatives rejected:** `/auth/callback?redirect=` route — still relies on hash token processing; race is not eliminated, just deferred. Hash-check guard (prior decision) — a workaround that kept the fundamental timing race alive. PKCE magic links — break when email opens in a different browser than where the flow started.
+**Consequences:** Every edge function that mints a magic link for a specific destination page must use this pattern. `options.redirectTo` on `generateLink` must not be used. The destination page must handle `?token_hash` in its mount effect. Pattern already established by P527 (create-and-sign). The prior hash-check guard decision (2026-04-12 "AuthContext sessionChecked fires before hash tokens are processed") is superseded — pages using that guard should migrate to token_hash instead.
+**References:** [request-letter-response-signin/index.ts](supabase/functions/request-letter-response-signin/index.ts) | [letter-response-confirm-page.tsx](src/app/pages/letter-response-confirm-page.tsx)
+
+---
+
 ## 2026-04-12 [technical]: Self-sends blocked at seal, claim, and inbox — three-layer defence
 
 **Context:** During testing, letters sent to yourself (sender_id = receiver_profile_id) appeared in your own inbox. The inbox UNION fix (prior session) removed completion notifications but not self-delivered letters. Root cause: `seal_and_send_letter` didn't prevent a user from adding their own email as a recipient.
