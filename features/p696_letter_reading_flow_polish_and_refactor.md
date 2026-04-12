@@ -1,12 +1,12 @@
 ---
-status: week
+status: qa
 type: task
 rank: 1000696.0
 tags: [letters, reading-flow, refactor, polish]
 created_date: '2026-04-12'
-delivery_stage: decompose
+delivery_stage: dev
 pipeline_plan: [create-spec, ux, architect, ui, generate-tests, decompose, dev, verify]
-pipeline_ran: [create-spec, ux, architect, ui, generate-tests, decompose]
+pipeline_ran: [create-spec, ux, architect, ui, generate-tests, decompose, dev]
 pipeline_skipped: [challenge-prd -- problems confirmed from annotated screenshots not assumptions, spec-review -- fresh spec from current conversation no drift risk]
 ---
 
@@ -84,29 +84,29 @@ Resolved approach for D+E:
 
 ## Done-When
 
-- [ ] Story cards are horizontally centered in the reading flow (preview + both reading variants)
-- [ ] Cover page displays point count alongside story count and reading time
-- [ ] Drafts list displays point count alongside story count
-- [ ] Reading time estimate accounts for point count (not just story count × 2)
-- [ ] Reading time formula extracted to a shared utility (no inline duplication)
-- [ ] `LetterPreviewFlow`, `LetterReadingFlow`, `LetterReadingFlowPublic` share a single flow component
-- [ ] `calculateStoryProgress` exists in one place (shared utility or inside the shared flow component)
-- [ ] Primary action buttons have consistent vertical positioning across all reading flow steps
-- [ ] Position submission and post-reveal advancement use distinct button labels
-- [ ] Author position reveal is visually prominent (not easily overlooked)
-- [ ] All changes apply to both preview and reading views via the shared component
+- [x] Story cards are horizontally centered in the reading flow (preview + both reading variants)
+- [x] Cover page displays point count alongside story count and reading time
+- [x] Drafts list displays point count alongside story count
+- [x] Reading time estimate accounts for point count (not just story count × 2)
+- [x] Reading time formula extracted to a shared utility (no inline duplication)
+- [x] `LetterPreviewFlow`, `LetterReadingFlow`, `LetterReadingFlowPublic` share a single flow component
+- [x] `calculateStoryProgress` exists in one place (shared utility or inside the shared flow component)
+- [x] Primary action buttons have consistent vertical positioning across all reading flow steps
+- [x] Position submission and post-reveal advancement use distinct button labels
+- [x] Author position reveal is visually prominent (not easily overlooked)
+- [x] All changes apply to both preview and reading views via the shared component
 
 ## Acceptance Criteria
 
-- [ ] Centering fix verified at viewport widths: 375px (mobile), 768px (tablet), 1280px (desktop)
-- [ ] Metadata on cover page reads: "N stories · M points · ~X minutes"
-- [ ] Metadata on drafts list reads: "N stories · M points"
-- [ ] Reading time for 3 stories / 9 points = ~12 minutes (not ~6)
-- [ ] Shared flow component handles all 3 variants: preview, authenticated reading, public reading
-- [ ] No visual regression in existing reading flow behavior
-- [ ] Button labels: "Submit Your Position" (engage), "Next" (post-reveal), "Submit My Rating" (rating), "Next Story" / "Complete Letter" (advance)
-- [ ] Reveal pattern: comparison card (You vs Author side-by-side) with ~400ms delayed button fade-in
-- [ ] All primary actions rendered inside bottom-docked Drawer (consistent spatial contract)
+- [x] Centering fix verified at viewport widths: 375px (mobile), 768px (tablet), 1280px (desktop)
+- [x] Metadata on cover page reads: "N stories · M points · ~X minutes"
+- [x] Metadata on drafts list reads: "N stories · M points"
+- [x] Reading time for 3 stories / 9 points = ~12 minutes (not ~6)
+- [x] Shared flow component handles all 3 variants: preview, authenticated reading, public reading
+- [x] No visual regression in existing reading flow behavior
+- [x] Button labels: "Submit Your Position" (engage), "Next" (post-reveal), "Submit My Rating" (rating), "Next Story" / "Complete Letter" (advance)
+- [x] Reveal pattern: comparison card (You vs Author side-by-side) with ~400ms delayed button fade-in
+- [x] All primary actions rendered inside bottom-docked Drawer (consistent spatial contract)
 
 ## UX Design
 
