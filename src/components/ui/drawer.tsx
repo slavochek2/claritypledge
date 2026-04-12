@@ -112,7 +112,6 @@ const DrawerContent = React.forwardRef<
           role="presentation"
           className={cn(
             overlayClassName ?? "fixed inset-0 z-50 bg-black/80 animate-in fade-in-0",
-            overlayClassName?.includes('bg-transparent') && 'pointer-events-none',
           )}
           onClick={dismissible ? () => onOpenChange(false) : undefined}
         />
@@ -138,7 +137,7 @@ const DrawerContent = React.forwardRef<
   // Desktop: use Vaul's DrawerContent
   return (
     <DrawerPortal>
-      <DrawerOverlay className={cn(overlayClassName, overlayClassName?.includes('bg-transparent') && 'pointer-events-none')} />
+      <DrawerOverlay className={overlayClassName} />
       <DrawerPrimitive.Content
         ref={ref as React.Ref<HTMLDivElement>}
         className={cn(
