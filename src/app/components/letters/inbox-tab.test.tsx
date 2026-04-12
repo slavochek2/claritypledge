@@ -146,32 +146,48 @@ describe('InboxTab — P689 read/unread indicators', () => {
   });
 });
 
-describe('InboxTab — canary: no sender-notification types in inbox', () => {
+describe('InboxTab — canary: recipient_responded renders "completed" message', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
-  it('does not render "completed" notification text for recipient_responded items (sender should not see these)', async () => {
-    // This item represents the bug: a completion notification appearing in the sender's inbox.
-    // Cast via unknown so the test compiles before we remove the union member.
-    const bugItem = {
-      type: 'recipient_responded' as unknown as InboxItem['type'],
-      delivery_id: 'delivery-bug',
-      letter_id: 'letter-bug',
+  it('renders "Bob completed My Letter" for a recipient_responded item', async () => {
+    const respondedItem: InboxItem = {
+      type: 'recipient_responded',
+      delivery_id: 'delivery-responded',
+      letter_id: 'letter-responded',
       title: 'My Letter',
       actor_name: 'Bob',
       timestamp: '2026-04-10T10:00:00Z',
       read_at: null,
       completed_at: null,
-    } as InboxItem;
-    vi.mocked(getInboxItems).mockResolvedValue([bugItem]);
-    const { container } = render(<InboxTab userId="test-user" />, { wrapper });
+    };
+    vi.mocked(getInboxItems).mockResolvedValue([respondedItem]);
+    render(<InboxTab userId="test-user" />, { wrapper });
 
-    // Wait for the async load to settle (loading state disappears)
-    await new Promise(r => setTimeout(r, 100));
+    // Canary: must render "Bob completed My Letter"
+    await screen.findByText(/Bob/);
+    const messageEl = screen.getByText(/completed/i);
+    expect(messageEl).toBeTruthy();
+  });
 
-    // Bug: renders "Bob completed My Letter" — inbox must not contain completion notifications for sent letters
-    expect(container.querySelector('p')?.textContent ?? '').not.toMatch(/completed/i);
+  it('renders "Someone responded to My Letter" for a link_respondent item', async () => {
+    const linkItem: InboxItem = {
+      type: 'link_respondent',
+      delivery_id: 'delivery-link',
+      letter_id: 'letter-link',
+      title: 'My Letter',
+      actor_name: 'Someone',
+      timestamp: '2026-04-10T10:00:00Z',
+      read_at: null,
+      completed_at: null,
+    };
+    vi.mocked(getInboxItems).mockResolvedValue([linkItem]);
+    render(<InboxTab userId="test-user" />, { wrapper });
+
+    await screen.findByText(/responded/i);
+    const messageEl = screen.getByText(/responded to/i);
+    expect(messageEl).toBeTruthy();
   });
 });
 

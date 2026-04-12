@@ -6,7 +6,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Mail, ArrowDownLeft, Inbox, Eye } from 'lucide-react';
+import { Mail, ArrowDownLeft, ArrowUpRight, Inbox, Eye } from 'lucide-react';
 import { toast } from 'sonner';
 import { ClarityLoader } from '@/components/ui/clarity-loader';
 import { Button } from '@/components/ui/button';
@@ -180,6 +180,9 @@ function ItemIcon({ type, completed }: { type: InboxItem['type']; completed: boo
       return completed
         ? <ArrowDownLeft className="w-5 h-5 text-muted-foreground" />
         : <Mail className="w-5 h-5 text-blue-500" />;
+    case 'recipient_responded':
+    case 'link_respondent':
+      return <ArrowUpRight className="w-5 h-5 text-blue-500" />;
   }
 }
 
@@ -190,6 +193,19 @@ function ItemMessage({ item }: { item: InboxItem }) {
         <>
           <span className="font-medium">{item.actor_name}</span> sent you{' '}
           <span className="italic">{item.title}</span>
+        </>
+      );
+    case 'recipient_responded':
+      return (
+        <>
+          <span className="font-medium">{item.actor_name}</span> completed{' '}
+          <span className="italic">{item.title}</span>
+        </>
+      );
+    case 'link_respondent':
+      return (
+        <>
+          Someone responded to <span className="italic">{item.title}</span>
         </>
       );
   }

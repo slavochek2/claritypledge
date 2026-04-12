@@ -1384,9 +1384,9 @@ export interface LetterDelivery {
   created_at: string;
 }
 
-/** P660: Inbox item — received letters only (sender notifications removed) */
+/** P660: Inbox item — received letters + outgoing responses (UNION ALL) */
 export interface InboxItem {
-  type: 'received';
+  type: 'received' | 'recipient_responded' | 'link_respondent';
   delivery_id: string;
   letter_id: string;
   /** Title of the source doc/draft */
