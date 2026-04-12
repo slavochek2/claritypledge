@@ -2,6 +2,22 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-12 [technical]: Profile JOIN must SELECT all 4 avatar fields — not just name
+
+**Context:** P697 — `getLetterForReading` and both letter RPCs joined `profiles` for `sender_display_name` only. `avatar_url`, `avatar_color`, and `has_pledged` were silently omitted. Recipients saw initials; Google photo and pledge ring never appeared. The bug is invisible to TypeScript (the fields are optional) and invisible in unit tests unless a canary test explicitly asserts on all three fields.
+**Decision:** Any `FROM profiles` or `JOIN profiles` must SELECT the complete set: `name, avatar_url, avatar_color, has_pledged`. Partial selects (name-only) are a latent P697-class bug. The canary test pattern (`p697-sender-avatar-in-letter-reading.test.ts`) is the detection mechanism — write it before the fix.
+**Alternatives rejected:** Selecting all profile columns (`SELECT *`) — overfetches; name + 3 avatar fields is the correct minimal set for any display context.
+**Consequences:** Before adding any new `profiles` JOIN to a service or RPC, grep existing joins to confirm all 4 fields are selected. `src.md` already documents correct `GravatarAvatar` prop usage — this decision covers the upstream data-fetch layer. Failure mode: `senderProfileOwner` missing `avatarUrl`/`avatarColor`/`hasPledged` → `GravatarAvatar` renders initials only regardless of correct component usage.
+**References:** [letters-service.ts](src/app/data/letters-service.ts) | [p697 spec](features/bugs_and_debt/p697_sender_avatar_missing_in_letter_reading.md)
+
+## 2026-04-12 [process]: migrate.sh worktree fix is branch-specific — run from main
+
+**Context:** Clarification of the 2026-04-11 decision (migrate.sh auto-fallback for worktrees). The fix adding "Cannot find project ref" to `NEEDS_FALLBACK` was committed to main on 2026-04-11 (`ab114e2f`). Feature branches created before that date (e.g., `feature/letters-ship`) carry the OLD `migrate.sh` without the fix. Running `./scripts/migrate.sh` from such a worktree still fails with "Cannot find project ref" and exits 1 — the fallback trigger is not in the worktree's copy.
+**Decision:** Always run `./scripts/migrate.sh` from the main repo when on an old feature branch. Direct path: `../../scripts/migrate.sh` from inside a worktree at `.claude/worktrees/wN/`, or `cd /path/to/main/repo && ./scripts/migrate.sh`. If that's not convenient, apply the migration directly via Management API: `curl -s -X POST "https://api.supabase.com/v1/projects/$REF/database/query" -H "Authorization: Bearer $PAT" -H "Content-Type: application/json" -d "{\"query\": $(cat migration.sql | python3 -c 'import json,sys; print(json.dumps(sys.stdin.read()))') }"`.
+**Alternatives rejected:** Cherry-picking the fix to every old feature branch — too much churn; old branches are short-lived.
+**Consequences:** Long-lived feature branches (>3 days old) should expect their tooling scripts to drift. Pattern: when a script behaves unexpectedly in a worktree, compare it to main's version with `diff scripts/X.sh ../../../scripts/X.sh`. Eventual fix: symlink scripts/ like node_modules/ in setup-worktree.sh — but not yet done.
+**References:** [migrate.sh](scripts/migrate.sh) | [setup-worktree.sh](scripts/setup-worktree.sh)
+
 ## 2026-04-12 [technical]: React 19 strips `<meta>` from react-helmet-async before mapChildrenToProps runs
 
 **Context:** P686 badge certificate page needed OG meta tags (`og:title`, `og:description`, `og:image`). They were added via the `<SEO>` component (react-helmet-async). Playwright E2E test read `content` from `meta[property="og:title"]` and got the default site-wide fallback value. Root cause: React 19 extracts `<meta>` children during reconciliation (React's new "hoisting" behavior for document metadata) before react-helmet-async's `mapChildrenToProps()` can process them — Helmet's `updateTags("meta", ...)` receives an empty array. `<title>` has a separate Helmet code path and still works.
