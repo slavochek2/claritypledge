@@ -123,16 +123,24 @@ function storageKey(deliveryId: string): string {
 }
 
 function saveState(deliveryId: string, state: LetterReadingState): void {
+  const json = JSON.stringify(state);
   try {
-    sessionStorage.setItem(storageKey(deliveryId), JSON.stringify(state));
+    sessionStorage.setItem(storageKey(deliveryId), json);
   } catch {
     // Storage full or unavailable — continue without persistence
+  }
+  try {
+    localStorage.setItem(storageKey(deliveryId), json);
+  } catch {
+    // localStorage full or unavailable — sessionStorage still works for in-tab
   }
 }
 
 export function loadState(deliveryId: string): LetterReadingState | null {
   try {
-    const raw = sessionStorage.getItem(storageKey(deliveryId));
+    const raw =
+      sessionStorage.getItem(storageKey(deliveryId)) ??
+      localStorage.getItem(storageKey(deliveryId));
     if (!raw) return null;
     return JSON.parse(raw) as LetterReadingState;
   } catch {

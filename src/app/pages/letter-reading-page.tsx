@@ -120,37 +120,43 @@ export function LetterReadingPage() {
           const readData = await getLetterForReading('', deliveryId);
           if (cancelled) return;
           if (readData) {
-            // Wrong user check
-            if (
+            // Sender viewing recipient link with token — skip authed read,
+            // fall through to token path so they see the recipient experience
+            const isSender = readData.letter.sender_id === currentUser.id;
+            if (isSender && token) {
+              // fall through to token path below
+            } else if (
               readData.delivery?.receiver_profile_id &&
               readData.delivery.receiver_profile_id !== currentUser.id
             ) {
+              // Wrong user — neither the receiver nor the sender with a token
               setSafe('wrong_user');
               return;
-            }
+            } else {
+              // Receiver (or sender without token viewing their own letter)
+              setLetterSafe(readData.letter);
+              setSnapshotsSafe(readData.snapshots);
+              setDeliverySafe(readData.delivery);
+              setSenderNameSafe(readData.letter.sender_display_name || 'Someone');
 
-            setLetterSafe(readData.letter);
-            setSnapshotsSafe(readData.snapshots);
-            setDeliverySafe(readData.delivery);
-            setSenderNameSafe(readData.letter.sender_display_name || 'Someone');
+              const deliveryReceiverName = (readData.delivery as Record<string, unknown>)?.['receiver_name'] as string | undefined;
+              if (deliveryReceiverName) {
+                setReceiverDisplayNameSafe(deliveryReceiverName.split(' ')[0]);
+              } else if (currentUser.user_metadata?.name) {
+                setReceiverDisplayNameSafe(currentUser.user_metadata.name);
+              }
 
-            const deliveryReceiverName = (readData.delivery as Record<string, unknown>)?.['receiver_name'] as string | undefined;
-            if (deliveryReceiverName) {
-              setReceiverDisplayNameSafe(deliveryReceiverName.split(' ')[0]);
-            } else if (currentUser.user_metadata?.name) {
-              setReceiverDisplayNameSafe(currentUser.user_metadata.name);
-            }
+              // P695: skip to completion view if delivery is already completed.
+              // Use completed_at as truth — status may lag (inbox uses same signal).
+              if (readData.delivery?.completed_at) {
+                setSafe('ready');
+                if (!cancelled) { setWasAlreadyCompleted(true); setViewState('complete'); }
+                return;
+              }
 
-            // P695: skip to completion view if delivery is already completed.
-            // Use completed_at as truth — status may lag (inbox uses same signal).
-            if (readData.delivery?.completed_at) {
               setSafe('ready');
-              if (!cancelled) { setWasAlreadyCompleted(true); setViewState('complete'); }
               return;
             }
-
-            setSafe('ready');
-            return;
           }
           // Authed read returned null — fall through to token path only if token present
           // (edge case: receiver hasn't claimed yet, token still valid on first open)
