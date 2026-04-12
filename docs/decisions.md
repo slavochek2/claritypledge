@@ -2,6 +2,36 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-13 [technical]: Radix Dialog with modal=false + hideOverlay closes on background interaction — use onInteractOutside preventDefault
+
+**Context:** P688 added `modal={false}` and `hideOverlay` to `LetterReceiverModal` so background letter content remains visible. Playwright E2E tests were intermittently failing with "element was detached from DOM" — the dialog was closing mid-test. Root cause: Radix Dialog fires `onInteractOutside` when pointer events land outside the dialog bounds and, by default, closes the dialog. With `modal={false}` there is no overlay to intercept those clicks, so any background interaction (including the browser itself positioning focus during test setup) triggers a close.
+**Decision:** Add `onInteractOutside={(e) => e.preventDefault()}` to every `DialogContent` that uses `modal={false}` or `hideOverlay`. This disables the auto-close without affecting keyboard dismissal (Escape still works) or any other close trigger.
+**Alternatives rejected:** Removing `modal={false}` — defeats the design intent of showing background context while the modal is open. Adding `pointer-events-none` to the page behind the dialog — breaks background scrolling and any link/button that should remain reachable.
+**Consequences:** Any Radix `DialogContent` with `hideOverlay` must include `onInteractOutside={(e) => e.preventDefault()}` or it will close unexpectedly during tests and real user interactions on touch devices. Symptom in Playwright: "element detached from DOM" or "element not stable" on assertions that run after a background click.
+**References:** [letter-receiver-modal.tsx](src/app/components/letters/letter-receiver-modal.tsx)
+
+---
+
+## 2026-04-13 [process]: Playwright toast assertions — use toContainText, not text="..." exact match
+
+**Context:** P688 E2E test asserted `page.getByText('No invitations sent')` — failed because the toast element's full text was `"No invitations sent. Check errors and try again."`. The `text=` selector in Playwright is an exact string match by default; partial substrings don't match.
+**Decision:** For toast/alert assertions, always use `page.getByRole('alert').toContainText('…')` or `expect(page.getByText('…', { exact: false }))`. Never rely on `text="..."` exact match for toasts whose content may carry punctuation, trailing instructions, or dynamic interpolation. The spec's canonical string should be the minimum unique prefix, not the full UI string.
+**Alternatives rejected:** Quoting the full toast string verbatim — creates a brittleness trap: any copy change breaks the test. Using `page.locator('[data-sonner-toast]')` — couples to the Sonner implementation detail; `getByRole('alert')` is semantics-stable.
+**Consequences:** E2E test pattern: `await expect(page.getByRole('alert')).toContainText('No invitations sent')`. Toast text in source code must include the full user-facing copy; the test asserts the minimal distinguishing fragment. Update `docs/technical/e2e-testing-guide.md` toast section if one exists.
+**References:** [e2e/p688-add-recipient-flow.spec.ts](e2e/p688-add-recipient-flow.spec.ts)
+
+---
+
+## 2026-04-13 [technical]: Multi-flow component disabled logic must branch on active flow, not unified canProceed
+
+**Context:** P688 unified `LetterReceiverModal` serves three flows: (a) private-doc compose (P682 behavior), (b) add-recipient from Sent tab, (c) public-doc seal-confirmation. P682 spec requires the submit button to always be enabled for private compose — validation errors show inline on submit, not by blocking the button. The new unified `canProceed` gate (derived from `recipientCanProceed`) disabled the button whenever name was empty, breaking P682 E2E tests 8 and 11 ("button not interactable").
+**Decision:** `disabled` prop must branch on active flow: `isAddRecipientMode ? (!canProceed || submitting) : isPrivateDoc ? submitting : (!canProceed || submitting)`. The `isPrivateDoc` branch only disables during submission — the button is always clickable otherwise.
+**Alternatives rejected:** Making all flows show inline validation (never disable button) — changes P688 add-recipient UX where disabling the Send button until a valid email+name is entered is the specified behavior. Inverting the guard (enable only during submission) for all flows — reverts P682 behavior to "can always submit with empty fields" which is confusing for new flows.
+**Consequences:** Any future flow added to this modal must explicitly classify itself as "submit-always-enabled" (validation-on-submit) or "gated" (disabled until valid) and add a branch in the disabled expression. The P682 regression test suite (`e2e/p682-letter-multi-recipient.spec.ts`) is the regression guard — keep it passing.
+**References:** [letter-receiver-modal.tsx](src/app/components/letters/letter-receiver-modal.tsx) | [e2e/p682-letter-multi-recipient.spec.ts](e2e/p682-letter-multi-recipient.spec.ts)
+
+---
+
 ## 2026-04-12 [technical]: LetterSealConfirmation has no dedicated route — E2E tests must drive through compose flow
 
 **Context:** P688 `/verify` generated `e2e/p688-seal-confirmation-invite.spec.ts` with a `gotoSealConfirmation` helper that navigated to `/letter/${docId}/seal-done?letterId=...`. All 6 tests returned 404. `LetterSealConfirmation` is not at a URL — it's rendered inside `letter-compose-page.tsx` when `phase === 'confirmation'`, reached only after the prediction walk + seal action complete.
