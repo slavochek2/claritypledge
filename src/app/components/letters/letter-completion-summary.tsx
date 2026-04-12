@@ -9,7 +9,6 @@ import { Link } from 'react-router-dom';
 import { triggerConfetti } from '@/lib/confetti';
 import { analytics } from '@/lib/mixpanel';
 import { getCompletionSummary } from '@/app/data/letters-service';
-import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import type {
   LetterStorySnapshot,
@@ -62,7 +61,6 @@ export function LetterCompletionSummary({
   const [ratings, setRatings] = useState<Array<{ story_id: string; listener_rating: number }>>([]);
   const [predictions, setPredictions] = useState<LetterPrediction[]>([]);
   const [pointResponses, setPointResponses] = useState<LetterPointResponse[]>([]);
-  const [email, setEmail] = useState('');
   const [loaded, setLoaded] = useState(false);
 
   // Fire confetti + track completion on mount
@@ -232,32 +230,15 @@ export function LetterCompletionSummary({
         </div>
       )}
 
-      {/* Registration gate — 1-to-many only, unauthenticated */}
-      {letterData.mode === 'one-to-many' && !isAuthenticated && (
-        <div className="border-t pt-6 mt-6 space-y-3">
-          <p className="text-sm font-medium text-foreground text-center">
-            Save your results?
+      {/* P684 State 8: one-to-many authenticated completion */}
+      {letterData.mode === 'one-to-many' && isAuthenticated && (
+        <div className="pt-6 mt-6 space-y-2">
+          <p className="text-lg font-semibold text-center">
+            Your responses have been shared with {senderName}.
           </p>
-          <div className="flex gap-2 max-w-sm mx-auto">
-            <Input
-              type="email"
-              placeholder="your@email.com"
-              value={email}
-              onChange={e => setEmail(e.target.value)}
-              className="flex-1 min-h-[44px]"
-            />
-            <Button
-              asChild
-              className="bg-blue-500 hover:bg-blue-600 text-white min-h-[44px]"
-              disabled={!email.trim()}
-            >
-              <Link
-                to={`/signup?email=${encodeURIComponent(email)}&redirect=${encodeURIComponent(window.location.pathname + window.location.search)}`}
-              >
-                Save &amp; Sign Up
-              </Link>
-            </Button>
-          </div>
+          <p className="text-sm text-muted-foreground text-center">
+            You can close this tab.
+          </p>
         </div>
       )}
     </div>

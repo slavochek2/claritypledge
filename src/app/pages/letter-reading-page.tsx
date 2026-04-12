@@ -23,6 +23,7 @@ import { LetterCover } from '@/app/components/letters/letter-cover';
 import { LetterProgressBar } from '@/app/components/letters/letter-progress-bar';
 import { LetterCompletionSummary } from '@/app/components/letters/letter-completion-summary';
 import { LetterRecipientDone } from '@/app/components/letters/letter-recipient-done';
+import { LetterResponseSignupForm } from '@/app/components/letters/letter-response-signup-form';
 import { LetterStaleTermsModal } from '@/app/components/letters/letter-stale-terms-modal';
 import { CURRENT_TERMS_VERSION, ACCEPTED_TERMS_VERSIONS } from '@/lib/constants';
 import { LiveStoryCardExpanded } from '@/app/components/partners/live-story-card-expanded';
@@ -44,9 +45,12 @@ import { snapshotToStoryWithPoints, pointSummaryToProtoPoint } from '@/app/utils
 import {
   getLetterForReading,
   getLetterForReadingByToken,
+  getLetterForPublicReading,
   claimLetterDelivery,
   updateDeliveryStatus,
   updateDeliveryStatusByToken,
+  requestLetterResponseSignin,
+  submitLetterResponseAuthenticated,
 } from '@/app/data/letters-service';
 import { analytics } from '@/lib/mixpanel';
 import type { ClarityLetter, LetterStorySnapshot, LetterDelivery, PositionType } from '@/app/types';
@@ -56,7 +60,7 @@ import type { Position } from '@/app/components/shared/prototype-types';
 // TYPES
 // ============================================================================
 
-type PageState = 'loading' | 'invalid' | 'unauthenticated' | 'wrong_user' | 'expired' | 'ready';
+type PageState = 'loading' | 'invalid' | 'unauthenticated' | 'wrong_user' | 'expired' | 'ready' | 'ready_public';
 
 type ViewState = 'cover' | 'reading' | 'complete';
 
@@ -89,6 +93,16 @@ export function LetterReadingPage() {
   const [authDelayed, setAuthDelayed] = useState(false);
   const authDelayTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // P684: one-to-many public reading state
+  const [showSignupForm, setShowSignupForm] = useState(false);
+  const [emailSent, setEmailSent] = useState(false);
+  const [sentToEmail, setSentToEmail] = useState('');
+  // Collected draft from local state — populated on form submit
+  const [localDraft, setLocalDraft] = useState<{
+    ratings: Array<{ storyId: string; rating: number }>;
+    positions: Array<{ pointId: string; position: string }>;
+  } | null>(null);
+
   // P683: TOS consent
   const [consentError, setConsentError] = useState<string | null>(null);
   const [showStaleTerms, setShowStaleTerms] = useState(false);
@@ -106,7 +120,7 @@ export function LetterReadingPage() {
   useEffect(() => {
     if (!sessionChecked || authLoading || !deliveryId) return;
     if (viewState !== 'cover') return;
-    if (pageStateRef.current === 'ready') return; // already loaded — don't churn on auth re-fires
+    if (pageStateRef.current === 'ready' || pageStateRef.current === 'ready_public') return; // already loaded
 
     let cancelled = false;
     const setSafe = (s: PageState) => { if (!cancelled) setPageState(s); };
@@ -151,8 +165,23 @@ export function LetterReadingPage() {
           }
           // Authed read returned null — fall through to token path only if token present
           // (edge case: receiver hasn't claimed yet, token still valid on first open)
+          // P684: Also try public reading for authenticated one-to-many readers
           if (!token) {
-            // Authenticated user but letter not accessible — show invalid, not unauthenticated
+            try {
+              const publicData = await getLetterForPublicReading(deliveryId);
+              if (cancelled) return;
+              if (publicData?.letter && (publicData.letter as Record<string, unknown>).mode === 'one-to-many') {
+                const letterObj = publicData.letter as Record<string, unknown>;
+                setLetterSafe(letterObj as unknown as ClarityLetter);
+                setSnapshotsSafe((publicData.snapshots ?? []) as LetterStorySnapshot[]);
+                setDeliverySafe(null);
+                setSenderNameSafe((letterObj.sender_display_name as string) ?? 'Someone');
+                // Authenticated one-to-many reader: use ready_public path
+                setSafe('ready_public');
+                return;
+              }
+            } catch { /* fall through */ }
+            // Authenticated user but letter not accessible — show invalid
             setSafe('invalid');
             return;
           }
@@ -199,8 +228,29 @@ export function LetterReadingPage() {
 
           setSafe('ready');
         } else {
-          // No currentUser AND no token
-          setSafe('unauthenticated');
+          // No currentUser AND no token — try one-to-many public reading
+          // deliveryId param doubles as letterId for one-to-many public letters
+          try {
+            const publicData = await getLetterForPublicReading(deliveryId);
+            if (cancelled) return;
+            if (!publicData || !publicData.letter) {
+              setSafe('unauthenticated');
+              return;
+            }
+            const letterObj = publicData.letter as Record<string, unknown>;
+            if (letterObj.mode !== 'one-to-many') {
+              setSafe('unauthenticated');
+              return;
+            }
+            setLetterSafe(letterObj as unknown as ClarityLetter);
+            setSnapshotsSafe((publicData.snapshots ?? []) as LetterStorySnapshot[]);
+            // No delivery for public one-to-many reading
+            setDeliverySafe(null);
+            setSenderNameSafe((letterObj.sender_display_name as string) ?? 'Someone');
+            setSafe('ready_public');
+          } catch {
+            setSafe('unauthenticated');
+          }
         }
       } catch (err) {
         if (cancelled) return;
@@ -437,6 +487,119 @@ export function LetterReadingPage() {
   }
 
   // ---- Ready state ----
+
+  // ready_public: one-to-many public reading — no delivery, letter loaded via getLetterForPublicReading
+  if (pageState === 'ready_public') {
+    if (!letter || snapshots.length === 0) return <ClarityPageLoader />;
+
+    // P684: "check your email" state after signup form submission
+    if (emailSent) {
+      return (
+        <CertificatePageShell className="min-h-screen py-6 space-y-6">
+          <div className="flex flex-col items-center justify-center min-h-[60vh] text-center space-y-4 px-4">
+            <h2 className="text-xl font-semibold text-[#1A1A1A]">Check your email</h2>
+            <p className="text-sm text-[#1A1A1A]/70 max-w-sm">
+              We sent a link to {sentToEmail}. Click it to save your responses and create your account.
+            </p>
+            <p className="text-xs text-[#1A1A1A]/40 max-w-sm">
+              You can close this tab — the link works on any device.
+            </p>
+          </div>
+        </CertificatePageShell>
+      );
+    }
+
+    return (
+      <CertificatePageShell className="min-h-screen py-6 space-y-6">
+        {viewState === 'cover' && (
+          <LetterCover
+            senderName={senderName}
+            receiverName={receiverDisplayName}
+            storyCount={snapshots.length}
+            estimatedMinutes={Math.max(1, Math.ceil(snapshots.length * 2))}
+            mode={letter.mode}
+            isAuthenticated={false}
+            onOpen={() => {
+              setViewState('reading');
+              analytics.track('letter_opened', {
+                letter_id: letter.id,
+                mode: letter.mode,
+                story_count: snapshots.length,
+              });
+            }}
+          />
+        )}
+
+        {viewState === 'reading' && (
+          <LetterReadingFlowPublic
+            letter={letter}
+            snapshots={snapshots}
+            senderName={senderName}
+            isAuthenticated={!!session}
+            onComplete={(draft) => {
+              setLocalDraft(draft);
+              if (currentUser) {
+                // Authenticated one-to-many reader: submit directly, skip signup form
+                submitLetterResponseAuthenticated(
+                  letter.id,
+                  draft.ratings,
+                  draft.positions.map((p) => ({ pointId: p.pointId, position: p.position })),
+                  CURRENT_TERMS_VERSION,
+                ).catch((err: unknown) => {
+                  console.error('[letter-reading] submitLetterResponseAuthenticated error:', err);
+                });
+              } else {
+                setShowSignupForm(true);
+              }
+              setViewState('complete');
+            }}
+          />
+        )}
+
+        {viewState === 'complete' && showSignupForm && !currentUser && (
+          <div className="max-w-md mx-auto px-4 py-6">
+            <LetterResponseSignupForm
+              senderName={senderName}
+              onSubmit={async (formData) => {
+                const draft = localDraft ?? { ratings: [], positions: [] };
+                await requestLetterResponseSignin({
+                  letterId: deliveryId ?? '',
+                  name: formData.name,
+                  email: formData.email,
+                  termsAccepted: true,
+                  termsVersion: CURRENT_TERMS_VERSION,
+                  ratings: draft.ratings,
+                  positions: draft.positions.map((p) => ({
+                    pointId: p.pointId,
+                    position: p.position as unknown as number,
+                  })),
+                });
+                setSentToEmail(formData.email);
+              }}
+              onSuccess={() => {
+                setShowSignupForm(false);
+                setEmailSent(true);
+              }}
+            />
+          </div>
+        )}
+
+        {/* Authenticated one-to-many: State 8 completion (submit happens in LetterReadingFlowPublic) */}
+        {viewState === 'complete' && !!currentUser && (
+          <div className="flex flex-col items-center justify-center min-h-[60vh] text-center space-y-2 px-4">
+            <p className="text-lg font-semibold text-center">
+              Your responses have been shared with {senderName}.
+            </p>
+            <p className="text-sm text-muted-foreground text-center">
+              You can close this tab.
+            </p>
+          </div>
+        )}
+      </CertificatePageShell>
+    );
+  }
+
+  // ---- Authed ready state ----
 
   if (!letter || !delivery || snapshots.length === 0) {
     return <ClarityPageLoader />;
@@ -828,6 +991,279 @@ function LetterReadingFlow({
         </div>
       )}
 
+    </div>
+  );
+}
+
+// ============================================================================
+// P684: PUBLIC READING FLOW — local mode (no delivery, no RPC writes during reading)
+// ============================================================================
+
+function LetterReadingFlowPublic({
+  letter,
+  snapshots,
+  senderName,
+  isAuthenticated,
+  onComplete,
+}: {
+  letter: ClarityLetter;
+  snapshots: LetterStorySnapshot[];
+  senderName: string;
+  isAuthenticated: boolean;
+  onComplete: (draft: {
+    ratings: Array<{ storyId: string; rating: number }>;
+    positions: Array<{ pointId: string; position: string }>;
+  }) => void;
+}) {
+  const {
+    state,
+    currentPhase,
+    submitPointPosition,
+    submitStoryRating,
+    advanceFromPointReveal,
+    advanceFromStoryReveal,
+    advanceFromRemainingPointReveal,
+    nextStory,
+    isSubmitting,
+    isLocalCompleted,
+  } = useLetterReadingState({
+    mode: 'local',
+    letterId: letter.id,
+    senderId: letter.sender_id,
+    snapshots,
+  });
+
+  const [selectedPosition, setSelectedPosition] = useState<PositionType | null>(null);
+
+  const onCompleteRef = useRef(onComplete);
+  onCompleteRef.current = onComplete;
+
+  // When local mode signals completion, derive draft and call onComplete
+  useEffect(() => {
+    if (!isLocalCompleted) return;
+
+    const ratings: Array<{ storyId: string; rating: number }> = [];
+    const positions: Array<{ pointId: string; position: string }> = [];
+
+    state.stories.forEach((story, idx) => {
+      const snap = snapshots[idx];
+      if (!snap) return;
+      if (story.rating !== null) {
+        ratings.push({ storyId: snap.story_id, rating: story.rating });
+      }
+      Object.entries(story.positions).forEach(([pointId, position]) => {
+        positions.push({ pointId, position });
+      });
+    });
+
+    onCompleteRef.current({ ratings, positions });
+  }, [isLocalCompleted]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Auto-advance through transition interstitial
+  useEffect(() => {
+    if (currentPhase === 'transition') {
+      nextStory();
+    }
+  }, [currentPhase, nextStory]);
+
+  const currentSnapshot = snapshots[state.currentStoryIndex];
+  const currentStory = state.stories[state.currentStoryIndex];
+
+  if (!currentSnapshot || !currentStory) return null;
+
+  const senderProfileOwner: PointProfileOwner = {
+    id: letter.sender_id,
+    name: senderName,
+  };
+
+  const storyWithPoints = snapshotToStoryWithPoints(currentSnapshot, { name: senderName });
+  const visiblePoints = storyWithPoints.points;
+  const currentPoint = visiblePoints[currentStory.currentPointIndex];
+  const gap = currentStory.rating !== null && currentStory.prediction !== null
+    ? Math.abs(currentStory.rating - currentStory.prediction)
+    : 0;
+  const isOverconfident = currentStory.rating !== null && currentStory.prediction !== null
+    ? currentStory.prediction > currentStory.rating
+    : false;
+
+  const storyProgress = calculateStoryProgress(currentPhase, currentStory.currentPointIndex, visiblePoints.length);
+
+  return (
+    <div className="max-w-md mx-auto w-full space-y-6">
+      <FocusHeader
+        onBack={() => window.history.back()}
+        label="Leave letter"
+      />
+
+      <LetterProgressBar
+        currentIndex={state.currentStoryIndex}
+        totalStories={snapshots.length}
+        storyProgress={storyProgress}
+      />
+
+      {/* PHASE: point-engage */}
+      {currentPhase === 'point-engage' && currentPoint && (
+        <div className="space-y-4">
+          <PointCardWithLinks
+            point={pointSummaryToProtoPoint(currentPoint)}
+            profileOwner={senderProfileOwner}
+            liveSessionMode
+            disableNavigation
+            currentUserId="__receiver__"
+            onPositionSelect={(pos) => { setSelectedPosition(pos as PositionType | null); }}
+            selectedPosition={selectedPosition as Position}
+          />
+          <Button
+            onClick={() => { if (selectedPosition) { submitPointPosition(currentPoint.id, selectedPosition); setSelectedPosition(null); } }}
+            disabled={!selectedPosition || isSubmitting}
+            className="w-full bg-[#0044CC] hover:bg-[#0033AA] text-white min-h-[44px]"
+          >
+            Continue
+          </Button>
+          {!selectedPosition && !isSubmitting && (
+            <p className="text-sm text-muted-foreground text-center">
+              Select your position above to continue
+            </p>
+          )}
+        </div>
+      )}
+
+      {/* PHASE: point-revealed */}
+      {currentPhase === 'point-revealed' && currentPoint && (
+        <div className="space-y-4">
+          <PointCardWithLinks
+            point={pointSummaryToProtoPoint(currentPoint, (currentStory.positions[currentPoint.id] as PositionType) ?? null)}
+            profileOwner={{ ...senderProfileOwner, position: currentPoint.profileSubjectPosition ?? undefined }}
+            liveSessionMode
+            disableNavigation
+            disablePositionButtons
+            currentUserId="__receiver__"
+            selectedPosition={(currentStory.positions[currentPoint.id] as Position) ?? null}
+          />
+          <Button
+            onClick={advanceFromPointReveal}
+            className="w-full bg-[#0044CC] hover:bg-[#0033AA] text-white min-h-[44px]"
+          >
+            Continue
+          </Button>
+        </div>
+      )}
+
+      {/* PHASE: story-rate — always show rating (no auth gate in local mode) */}
+      {currentPhase === 'story-rate' && (
+        <>
+          <LiveStoryCardExpanded
+            story={storyWithPoints}
+            hidePoints
+            readOnly
+            className="w-full max-w-sm"
+          />
+          <Drawer open dismissible={false}>
+            <DrawerContent overlayClassName="bg-transparent">
+              <DrawerHeader className="sr-only">
+                <DrawerTitle>Rate this story</DrawerTitle>
+              </DrawerHeader>
+              <div className="px-4 pb-8 pt-4 space-y-4">
+                <ComprehensionRatingCard
+                  question="How well do you believe you understand this story?"
+                  onSelect={(rating) => {
+                    analytics.track('letter_story_rated', {
+                      story_index: state.currentStoryIndex,
+                      total_stories: snapshots.length,
+                      rating,
+                      is_authenticated: isAuthenticated,
+                    });
+                    submitStoryRating(rating);
+                  }}
+                  disabled={isSubmitting || currentStory.rating !== null}
+                />
+              </div>
+            </DrawerContent>
+          </Drawer>
+        </>
+      )}
+
+      {/* PHASE: story-revealed */}
+      {currentPhase === 'story-revealed' && (
+        <div className="space-y-4">
+          <JourneyToUnderstanding
+            checkerRating={currentStory.prediction ?? undefined}
+            responderRating={currentStory.rating ?? undefined}
+            explainBackRatings={[]}
+            isChecker={false}
+            displayPartnerName={senderName}
+            checkerName={senderName}
+            compact
+            className="w-full max-w-sm"
+          />
+          <GapBanner
+            gap={gap}
+            senderName={senderName}
+            isOverconfident={isOverconfident}
+            className="-mt-3"
+          />
+          <LiveStoryCardExpanded
+            story={storyWithPoints}
+            hidePoints
+            readOnly
+            className="w-full max-w-sm"
+          />
+          <Button
+            onClick={advanceFromStoryReveal}
+            className="w-full bg-[#0044CC] hover:bg-[#0033AA] text-white min-h-[44px]"
+          >
+            Continue
+          </Button>
+        </div>
+      )}
+
+      {/* PHASE: remaining-point-engage */}
+      {currentPhase === 'remaining-point-engage' && currentPoint && (
+        <div className="space-y-4">
+          <PointCardWithLinks
+            point={pointSummaryToProtoPoint(currentPoint)}
+            profileOwner={senderProfileOwner}
+            liveSessionMode
+            disableNavigation
+            currentUserId="__receiver__"
+            onPositionSelect={(pos) => { setSelectedPosition(pos as PositionType | null); }}
+            selectedPosition={selectedPosition as Position}
+          />
+          <Button
+            onClick={() => { if (selectedPosition) { submitPointPosition(currentPoint.id, selectedPosition); setSelectedPosition(null); } }}
+            disabled={!selectedPosition || isSubmitting}
+            className="w-full bg-[#0044CC] hover:bg-[#0033AA] text-white min-h-[44px]"
+          >
+            Continue
+          </Button>
+          {!selectedPosition && !isSubmitting && (
+            <p className="text-sm text-muted-foreground text-center">
+              Select your position above to continue
+            </p>
+          )}
+        </div>
+      )}
+
+      {/* PHASE: remaining-point-revealed */}
+      {currentPhase === 'remaining-point-revealed' && currentPoint && (
+        <div className="space-y-4">
+          <PointCardWithLinks
+            point={pointSummaryToProtoPoint(currentPoint, (currentStory.positions[currentPoint.id] as PositionType) ?? null)}
+            profileOwner={{ ...senderProfileOwner, position: currentPoint.profileSubjectPosition ?? undefined }}
+            liveSessionMode
+            disableNavigation
+            disablePositionButtons
+            currentUserId="__receiver__"
+            selectedPosition={(currentStory.positions[currentPoint.id] as Position) ?? null}
+          />
+          <Button
+            onClick={advanceFromRemainingPointReveal}
+            className="w-full bg-[#0044CC] hover:bg-[#0033AA] text-white min-h-[44px]"
+          >
+            Continue
+          </Button>
+        </div>
+      )}
     </div>
   );
 }
