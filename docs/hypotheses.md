@@ -29,6 +29,7 @@ Session logs, architecture notes, and strategic commentary belong in [decisions.
 | H-SpecsReachResearchers | Technical specs reach AI safety researchers | Blocked | — | H-Essays-BuildRecognition | Need baseline recognition first. |
 | H-StoriesAITrainingData | AI labs use verified stories as training data | Blocked | — | H-Essays-BuildRecognition + corpus | Long-term. Timing uncertain. |
 | H-AlignedFundersInbound | Recognition generates inbound from aligned funders | Blocked | — | H-Essays-BuildRecognition | Not revenue — opportunity unlock. |
+| H-AgentEpistemics | Epistemic verification for AI agent memory is a product | Blocked | P2 | H-LetterAsProduct | New 2026-04-12 — article-as-demand-test |
 
 **Parked (12+ months):** H-AgentCoordination, H-SalesTeamAdoption, H-TeamCommunication, H-ProtocolReachesScale, H-ToleranceAmplifies — see [Parked](#parked) section.
 
@@ -46,6 +47,7 @@ Session logs, architecture notes, and strategic commentary belong in [decisions.
 **Transform if:** <3 completions after 30 days of active distribution, OR zero forwards to real relationships, OR completers cannot name the experience (illegibility confirmed at letter level, not just workshop level).
 **Status (2026-04-11):** New hypothesis. Driven by 30+ session observation: "product works in the room; conversion breaks after the room." Workshops produce flips but don't scale — the letter is the async carrier. Existing letter infrastructure (P581/P683/P684) is in-flight; once shipped, this hypothesis becomes testable.
 **Relationship to other hypotheses:** Partially supersedes the scaling path in H-WorkshopFormat — workshops remain valuable as high-intensity deployment but stop being the unit of scale. Feeds into H-ProtocolSpreadsWithoutTool (the letter IS the protocol in minimum shippable form).
+**Variant (2026-04-12):** Inverse Clarity Letter (private, one-to-one). Leads with "here is how I understand YOU" — sender/AI drafts the recipient's story and predicted point before sharing their own. Two sub-variants: (a) post-conversation (agent-drafted from recording, strong signal), (b) first-contact (author-drafted, weaker prediction, higher impact if accurate). "Nobody forgets receiving something that says 'I took the time to model your worldview before sharing mine.'" Spec candidate for status week — blocked by P581. Also: auto-generated clarity letters from recorded conversations as a distribution channel.
 
 ---
 
@@ -142,6 +144,16 @@ Session logs, architecture notes, and strategic commentary belong in [decisions.
 **Transform if:** Zero adopt after training 5, OR coaches commodify to checkbox.
 **Status (2026-03-18):** Falsification-tested. $100B+ market, existing alignment vocabulary. Blocked by H-PairsReturn — Slava must demonstrate coaching first.
 **Sub-segment: Psychological safety practitioners (2026-04-02):** Positioning: "You built safety to speak. Now verify they heard." Psych safety works in low-stakes/homogeneous settings without verification. But in complex, emotional, or risky environments where differences are naturally high, unverified comprehension produces false agreement — people express freely but nobody checks reception. Verification makes psych safety work better and more predictably in high-stakes contexts. Entry: complementary tool, not framework replacement. Research: strong claim falsified (psych safety shows measured benefits without verification), weaker claim confirmed (false agreement as failure mode in high-difference environments).
+
+---
+
+#### H-AgentEpistemics: Epistemic verification infrastructure for AI agent memory
+**Bet:** AI agent memory systems accumulate unverified assertions at scale — "confidently remembering unverified things." An MCP verification layer that epistemically tags assertions (draft → verified → challenged → falsified) and exposes them to challenge via clarity letters is a product AI builders will pay for. The human verification protocol (badges, workshops) is the trust layer that makes agent verification credible.
+**Test:** Write article (Chief Clarity Officer + agent memory verification). Measure: (a) "I want this for my agents" responses vs. "interesting theory" responses, (b) inbound calls from AI builders, (c) presale interest before building. Article IS the demand test.
+**Transform if:** Article generates zero "I want this for my agents" responses after 30 days of active distribution, OR AI builders see it as a solved problem.
+**Status (2026-04-12):** New. Emerged from conversation where Claude demonstrated the failure mode 3 times live (confident wrong assertions about user's situation, caught and corrected via the verification protocol). Concrete mechanism identified: every AI chat generates unverified assertions; no one builds verification infrastructure for agent memory.
+**Positioning:** "Alignment between humans is a prerequisite for alignment between humans and AI." / "How would you verify that an AI agent's memory is epistemically sound?"
+**Blocked by:** H-LetterAsProduct (need the instrument working to demonstrate credibility).
 
 ---
 

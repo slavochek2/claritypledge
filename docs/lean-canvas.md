@@ -92,7 +92,7 @@ Professionals who need a comprehension measurement tool — something DISC/MBTI/
 | Civic dialogue orgs (Braver Angels, etc.) | EXPLORE | $2B+ market. They know the problem; they lack measurement. Grant-fundable. |
 | Investor DD (pre-investment calibration) | PARKED | Investors lack team alignment signal. Pull, not push — let it emerge. See H-InvestorDD. |
 | AI alignment researchers | PARKED | Needs session data corpus. Revisit after 10+ case studies. |
-| Personal AI / digital twins | PARKED | Calibration as infrastructure for AI agent alignment. |
+| AI builders / agent memory verification | PARKED | AI agent memory systems store unverified assertions at scale. Epistemic verification layer (tag, challenge, falsify via clarity letters) for agent memory. "Alignment between humans is prerequisite for alignment between humans and AI." Human protocol is the trust layer; badges prove verification works on humans, making agent verification credible. Test: article-as-demand-test (see H-AgentEpistemics). |
 | Embeddable protocol (browser extension) | EXPLORED (P559) | Blocked by H-WTP-Pain + P523 validation. |
 
 ---
