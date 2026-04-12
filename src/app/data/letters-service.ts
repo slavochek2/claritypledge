@@ -845,7 +845,7 @@ export async function requestLetterResponseSignin(
       try {
         body = await (error.context as Response).clone().json();
       } catch { /* body not JSON — fall through */ }
-      throw new Error((body?.message as string) ?? error.message ?? 'Request failed');
+      throw new Error((body?.message as string) ?? (body?.error as string) ?? error.message ?? 'Request failed');
     }
     throw error;
   }

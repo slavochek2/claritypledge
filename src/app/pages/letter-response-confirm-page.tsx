@@ -19,6 +19,7 @@ import { useAuth } from '@/auth';
 import { ClarityLoader } from '@/components/ui/clarity-loader';
 import { LetterResponseLinkExpired } from '@/app/components/letters/letter-response-link-expired';
 import { CURRENT_TERMS_VERSION } from '@/lib/constants';
+import { POSITION_VALUES, type PositionType } from '@/app/types';
 import {
   confirmLetterResponse,
   getLetterForPublicReading,
@@ -85,14 +86,25 @@ export function LetterResponseConfirmPage() {
 
     setPageState('confirming');
 
-    // New CTA flow: draft stored in sessionStorage. Write the pending row before confirming.
+    // Try confirm directly first (pending row may already exist — email path via edge function).
+    // Fall back to sessionStorage draft only when not_found (Google OAuth path).
     const run = async () => {
-      const draftKey = `letter-response-draft-${letterId}`;
-      const draftJson = sessionStorage.getItem(draftKey);
-      if (draftJson) {
-        try {
+      const first = await confirmLetterResponse(letterId);
+
+      // Email path: pending row exists → done. Clean up sessionStorage draft.
+      if ('ok' in first && first.ok) {
+        sessionStorage.removeItem(`letter-response-draft-${letterId}`);
+        return first;
+      }
+
+      const firstErr = (first as { error: string }).error;
+
+      // Google OAuth path: no pending row → write it from sessionStorage, then retry.
+      if (firstErr === 'not_found') {
+        const draftKey = `letter-response-draft-${letterId}`;
+        const draftJson = sessionStorage.getItem(draftKey);
+        if (draftJson) {
           const draft = JSON.parse(draftJson) as {
-            letterId: string;
             ratings: Array<{ storyId: string; rating: number }>;
             positions: Array<{ pointId: string; position: string }>;
           };
@@ -108,17 +120,15 @@ export function LetterResponseConfirmPage() {
             ratings: draft.ratings,
             positions: draft.positions.map((p) => ({
               pointId: p.pointId,
-              position: p.position as unknown as number,
+              position: POSITION_VALUES[p.position as PositionType] ?? 0,
             })),
           });
           sessionStorage.removeItem(draftKey);
-        } catch (err: unknown) {
-          console.error('[letter-response-confirm] requestLetterResponseSignin error:', err);
-          // Fall through — pending row may already exist (retry path)
+          return confirmLetterResponse(letterId);
         }
       }
 
-      return confirmLetterResponse(letterId);
+      return first;
     };
 
     run()
