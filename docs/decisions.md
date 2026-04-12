@@ -2,6 +2,16 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-12 [technical]: setTestSession() bypass for magic-link confirm flows in E2E tests
+
+**Context:** P684 E2E tests needed to verify the confirm page flow (UAT-13+15, UAT-14) — a page only reachable after a magic link is clicked and auth completes. Initial approach used `admin.generateLink()` to create a server-side magic link and navigate to it. This failed: (1) Supabase's test project redirect URL allowlist includes `localhost:5001` but NOT `localhost:5200` (w2 worktree port) — PKCE exchange fails silently from unlisted ports; (2) the OTP email path has ~3/hour rate limit on the test project; (3) admin-generated links require PKCE code_verifier in localStorage, which Playwright can't inject into the Supabase auth flow mid-redirect.
+**Decision:** For E2E tests that need to verify auth-gated pages reached via magic link, use `setTestSession(page, email)` to inject auth directly, then navigate to the target URL. sessionStorage (where the letter response draft is written by the reading page) persists within the same browser tab across navigations, so the draft is available when the confirm page loads. Only the actual signup form test (UAT-9) should call `signInWithOtp` — one test, one OTP, well within rate limits.
+**Alternatives rejected:** Adding `localhost:5200` to Supabase redirect URL allowlist — would work but requires manual Supabase dashboard edit per worktree port, fragile as more worktrees are added. Mocking the PKCE exchange — deep Supabase auth internals, not testable at this level.
+**Consequences:** Any E2E test for a page that is "normally reached after email confirmation" should use `setTestSession()` + direct navigate, not a real OTP flow. The real OTP path (UAT-9 pattern) is tested once per feature to cover the form submission; the downstream effects (confirm page, DB writes) are tested via auth injection. Worktree ports (5100-5700) will never be in the Supabase redirect URL allowlist — treat admin magic links as unavailable in worktree E2E tests.
+**References:** [e2e/p684-signup-flow.spec.ts](e2e/p684-signup-flow.spec.ts) | [e2e/helpers/test-user.ts](e2e/helpers/test-user.ts)
+
+---
+
 ## 2026-04-12 [product]: Drawer-everywhere — all letter reading actions in bottom-docked Drawer
 
 **Context:** P696 redesigned action positioning in the letter reading flow. The initial UX proposal kept inline buttons for 3 phases (point-engage, point-revealed, story-revealed) and used Drawer only for story-rate. Founder pushed back: "why not putting other buttons similar down into drawer?" — the spatial jump between mid-content buttons and bottom Drawer was unjustified inconsistency.
