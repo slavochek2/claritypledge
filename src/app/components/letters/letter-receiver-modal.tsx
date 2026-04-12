@@ -33,6 +33,7 @@ import { agreementsService } from '@/app/data/agreements-service';
 import type { AgreementParty } from '@/app/data/agreements-service';
 import { analytics } from '@/lib/mixpanel';
 import { addRecipientToSealed } from '@/app/data/letters-service';
+import { invokeLetterEmails } from '@/lib/letter-emails';
 import { toast } from 'sonner';
 import type { LetterMode } from '@/app/types';
 
@@ -429,6 +430,11 @@ export function LetterReceiverModal(props: LetterReceiverModalProps) {
 
       const succeeded = sendResults.filter((r) => r.success);
       const failed = sendResults.filter((r) => !r.success);
+
+      // Fire-and-forget email notifications for any successful adds
+      if (succeeded.length > 0) {
+        invokeLetterEmails(props.letterId);
+      }
 
       if (failed.length === 0) {
         // All succeeded
