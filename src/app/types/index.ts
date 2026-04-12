@@ -1310,6 +1310,7 @@ export interface DbDocStory {
 /** App-level doc type with computed fields */
 export interface ClarityDoc extends DbClarityDoc {
   story_count: number;
+  point_count: number;
   has_sent_letters: boolean;
 }
 
@@ -1391,6 +1392,8 @@ export interface InboxItem {
   actor_name: string;
   timestamp: string;
   read_at: string | null;
+  /** P695: null for pending, ISO string when letter was completed by recipient */
+  completed_at: string | null;
 }
 
 export interface LetterStorySnapshot {

@@ -101,6 +101,7 @@ function mapDocFromDb(row: DbClarityDoc & { story_count?: number }): ClarityDoc 
     created_at: row.created_at,
     updated_at: row.updated_at,
     story_count: row.story_count ?? 0,
+    point_count: 0,
     has_sent_letters: false,
   };
 }
@@ -348,8 +349,12 @@ export const docsService: DocsService = {
     if (docs.length > 0) {
       const docIds = docs.map((d) => d.id);
 
-      const [countResult, sentResult] = await Promise.all([
+      const [countResult, pointResult, sentResult] = await Promise.all([
         supabase.from('doc_stories').select('doc_id').in('doc_id', docIds),
+        supabase
+          .from('doc_stories')
+          .select('doc_id, story:stories!inner(story_points(point_id))')
+          .in('doc_id', docIds),
         supabase
           .from('clarity_letters')
           .select('source_doc_id')
@@ -364,6 +369,24 @@ export const docsService: DocsService = {
         }
         for (const doc of docs) {
           doc.story_count = counts[doc.id] || 0;
+        }
+      }
+
+      if (!pointResult.error && pointResult.data) {
+        // Flatten to unique point IDs per doc
+        const pointCounts: Record<string, Set<string>> = {};
+        for (const row of pointResult.data as Array<{
+          doc_id: string;
+          story: { story_points: Array<{ point_id: string }> } | null;
+        }>) {
+          if (!pointCounts[row.doc_id]) pointCounts[row.doc_id] = new Set();
+          const storyPoints = row.story?.story_points ?? [];
+          for (const sp of storyPoints) {
+            pointCounts[row.doc_id].add(sp.point_id);
+          }
+        }
+        for (const doc of docs) {
+          doc.point_count = pointCounts[doc.id]?.size ?? 0;
         }
       }
 
