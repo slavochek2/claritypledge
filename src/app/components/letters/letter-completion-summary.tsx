@@ -29,6 +29,7 @@ interface LetterCompletionSummaryProps {
   };
   isAuthenticated: boolean;
   senderName: string;
+  isRevisit?: boolean;
 }
 
 interface StoryGapCard {
@@ -56,8 +57,9 @@ export function LetterCompletionSummary({
   letterData,
   isAuthenticated,
   senderName,
+  isRevisit = false,
 }: LetterCompletionSummaryProps) {
-  const [phase, setPhase] = useState<CompletionPhase>('celebration');
+  const [phase, setPhase] = useState<CompletionPhase>(isRevisit ? 'summary' : 'celebration');
   const [ratings, setRatings] = useState<Array<{ story_id: string; listener_rating: number }>>([]);
   const [predictions, setPredictions] = useState<LetterPrediction[]>([]);
   const [pointResponses, setPointResponses] = useState<LetterPointResponse[]>([]);
@@ -68,8 +70,9 @@ export function LetterCompletionSummary({
     [letterData.snapshots],
   );
 
-  // Fire confetti + track completion on mount
+  // Fire confetti + track completion on first completion only (not revisits)
   useEffect(() => {
+    if (isRevisit) return;
     triggerConfetti();
     analytics.track('letter_completed', {
       delivery_id: deliveryId,

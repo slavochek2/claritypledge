@@ -80,6 +80,7 @@ export function LetterReadingPage() {
   const [showSignupForm, setShowSignupForm] = useState(false);
   const [publicPredictions, setPublicPredictions] = useState<Map<string, number> | undefined>();
   const [completedDeliveryId, setCompletedDeliveryId] = useState<string | null>(null);
+  const [wasAlreadyCompleted, setWasAlreadyCompleted] = useState(false);
 
   // P683: TOS consent
   const [consentError, setConsentError] = useState<string | null>(null);
@@ -144,7 +145,7 @@ export function LetterReadingPage() {
             // P695: skip to completion view if delivery is already completed
             if (readData.delivery?.status === 'completed') {
               setSafe('ready');
-              if (!cancelled) setViewState('complete');
+              if (!cancelled) { setWasAlreadyCompleted(true); setViewState('complete'); }
               return;
             }
 
@@ -165,8 +166,22 @@ export function LetterReadingPage() {
                 setDeliverySafe(null);
                 setSenderNameSafe((letterObj.sender_display_name as string) ?? 'Someone');
                 setPublicPredictionsSafe(publicData.predictions);
-                // Authenticated one-to-many reader: use ready_public path
                 setSafe('ready_public');
+
+                // Check if authed user already completed this letter — skip cover on revisit
+                const { data: existingDelivery } = await supabase
+                  .from('letter_deliveries')
+                  .select('id')
+                  .eq('letter_id', letterObj.id as string)
+                  .eq('receiver_profile_id', currentUser.id)
+                  .eq('status', 'completed')
+                  .maybeSingle();
+                if (cancelled) return;
+                if (existingDelivery) {
+                  setCompletedDeliveryId(existingDelivery.id as string);
+                  setWasAlreadyCompleted(true);
+                  setViewState('complete');
+                }
                 return;
               }
             } catch { /* fall through */ }
@@ -590,6 +605,7 @@ export function LetterReadingPage() {
             }}
             isAuthenticated={true}
             senderName={senderName}
+            isRevisit={wasAlreadyCompleted}
           />
         )}
       </CertificatePageShell>
@@ -670,6 +686,7 @@ export function LetterReadingPage() {
           }}
           isAuthenticated={!!session}
           senderName={senderName}
+          isRevisit={wasAlreadyCompleted}
         />
       )}
     </CertificatePageShell>
