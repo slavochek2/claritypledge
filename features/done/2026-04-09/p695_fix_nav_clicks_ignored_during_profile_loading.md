@@ -8,6 +8,9 @@ date_resolved: 2026-04-12
 root_cause: single `!sessionChecked || isLoading` gate replaced all desktop nav links with skeletons during the 100-500ms profile fetch window, even though Feed/Docs/Events are static routes needing no profile data
 resolution: split gate into three phases — full skeleton while session is unknown, static links clickable + profile-slot skeleton while profile loads, full nav when ready; mobile gate similarly split
 pipeline_ran: [fix, ship]
+tags: []
+rank: 1000690.0
+created_date: 2026-04-12
 ---
 
 # P695: Fix nav clicks ignored during profile loading
