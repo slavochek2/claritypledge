@@ -2,6 +2,14 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-12 [technical]: Multi-path bugs need multi-path canaries — one fixed path ≠ all paths tested
+
+**Context:** P697 canary initially covered only `getLetterForReading` (the authenticated direct-query path where the explicit `.select('name')` change was made). The same bug existed in two RPC paths (`getLetterForReadingByToken` via `supabase.rpc('get_letter_for_reading')`, `getLetterForPublicReading` via `supabase.rpc('get_letter_for_public_reading')`). Both RPCs were fixed in the migration, but the unit test file had no coverage for either. A code review subagent flagged the gap; tests for both RPC paths were added.
+**Decision:** When a bug spans N code paths, the canary test file must exercise all N paths. The test for each path must verify the same symptom (user-visible field presence), not the implementation mechanism. For Supabase-backed services: direct table queries use `mockFrom`; RPC calls use `mockRpc` — these are separate Vitest mock targets and require separate `vi.hoisted()` declarations.
+**Alternatives rejected:** Single canary covering only the path with explicit code changes — leaves RPC paths unguarded; a future bug in the RPC body would pass all unit tests.
+**Consequences:** When writing a canary for a data-flow fix: (1) list all service functions that return the affected field, (2) group by mock type (from vs rpc), (3) add one test per group. Code review must explicitly ask "are all code paths covered?" — not just "does the test test the symptom?"
+**References:** [p697 test](src/tests/p697-sender-avatar-in-letter-reading.test.ts) | [p697 spec](features/bugs_and_debt/p697_sender_avatar_missing_in_letter_reading.md)
+
 ## 2026-04-12 [technical]: Profile JOIN must SELECT all 4 avatar fields — not just name
 
 **Context:** P697 — `getLetterForReading` and both letter RPCs joined `profiles` for `sender_display_name` only. `avatar_url`, `avatar_color`, and `has_pledged` were silently omitted. Recipients saw initials; Google photo and pledge ring never appeared. The bug is invisible to TypeScript (the fields are optional) and invisible in unit tests unless a canary test explicitly asserts on all three fields.
