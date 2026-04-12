@@ -1358,6 +1358,9 @@ export interface ClarityLetter {
   source_doc_id: string;
   sender_id: string;
   sender_display_name?: string;
+  sender_avatar_url?: string;
+  sender_avatar_color?: string;
+  sender_has_pledged?: boolean;
   mode: LetterMode;
   status: LetterStatus;
   sealed_at: string | null;

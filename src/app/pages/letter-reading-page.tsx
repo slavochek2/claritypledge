@@ -694,6 +694,9 @@ function LetterReadingFlow({
   const senderProfileOwner: PointProfileOwner = {
     id: letter.sender_id,
     name: senderName,
+    avatarUrl: letter.sender_avatar_url,
+    avatarColor: letter.sender_avatar_color,
+    hasPledged: letter.sender_has_pledged ?? false,
   };
 
   // Auth gate shown in story-rate phase when reader is not signed in
@@ -799,6 +802,9 @@ function LetterReadingFlowPublic({
   const senderProfileOwner: PointProfileOwner = {
     id: letter.sender_id,
     name: senderName,
+    avatarUrl: letter.sender_avatar_url,
+    avatarColor: letter.sender_avatar_color,
+    hasPledged: letter.sender_has_pledged ?? false,
   };
 
   const onStoryRated = (storyIndex: number, rating: number) => {

@@ -194,16 +194,19 @@ export async function getLetterForReading(
     return null;
   }
 
-  // Resolve sender display name (profiles table join)
+  // Resolve sender profile (name + avatar fields)
   const { data: senderProfile } = await supabase
     .from('profiles')
-    .select('name')
+    .select('name, avatar_url, avatar_color, has_pledged')
     .eq('id', letterData.sender_id)
     .single();
 
   const letterWithSender = {
     ...letterData,
     sender_display_name: senderProfile?.name || 'Someone',
+    sender_avatar_url: senderProfile?.avatar_url ?? undefined,
+    sender_avatar_color: senderProfile?.avatar_color ?? undefined,
+    sender_has_pledged: senderProfile?.has_pledged ?? false,
   };
 
   const { data: snapshotsData, error: snapshotsError } = await supabase
