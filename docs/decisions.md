@@ -2,6 +2,25 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-12 [product]: Inbox is a unified feed — UNION ALL restored (supersedes "received letters only" decision below)
+
+**Context:** A prior session diagnosed "[Name] completed Test letter" items in the inbox as redundant (Sent tab shows completion counts). The UNION ALL responses branch was removed entirely. On review, the real bug was self-sent letters (sender = receiver) cluttering the inbox — not completion notifications. The inbox was designed as a unified feed with incoming/outgoing icons (ArrowDownLeft / ArrowUpRight) to distinguish received letters from completion results. Removing the responses branch broke that design.
+**Decision:** Restore the UNION ALL with both branches: (1) received letters (`WHERE ld.receiver_profile_id = p_user_id AND cl.sender_id != p_user_id`) and (2) completion responses (`WHERE cl.sender_id = p_user_id AND ld.status = 'completed' AND receiver != sender`). Self-sent exclusion applies to both branches. `InboxItem.type` restored to `'received' | 'recipient_responded' | 'link_respondent'`. UI switch cases and ArrowUpRight icons restored.
+**Alternatives rejected:** Keeping inbox as received-only — breaks the intended UX where senders see completion results without switching to the Sent tab.
+**Consequences:** The prior decision "Inbox = received letters only" (2026-04-12 below) is superseded. Any future inbox item types should use the UNION ALL pattern. The Sent tab remains a complementary view with expand/collapse detail, not the primary notification surface.
+**References:** [fix_inbox_restore_responses_branch.sql](supabase/migrations/) | [inbox-tab.tsx](src/app/components/letters/inbox-tab.tsx)
+
+---
+
+## 2026-04-12 [process]: Misdiagnosis pattern — verify the actual user complaint before coding a fix
+
+**Context:** A screenshot showed inbox items with a red arrow and "this is still there!?". The prior session interpreted this as "completion notifications shouldn't be in inbox" and built a plan to remove the UNION ALL responses branch. On closer inspection: all visible items were `type: 'received'` (correct format), the complaint was about self-sent test letters appearing, and the icons/message format for completion notifications were intentionally designed. The misdiagnosis led to removing a feature instead of fixing the filter.
+**Decision:** Before acting on a bug report with a screenshot: (1) read every visible item and classify its type, (2) identify exactly which item the annotation points to, (3) query the DB to see what data is actually returned, (4) confirm the root cause matches the user's complaint — not a plan written before the screenshot existed.
+**Alternatives rejected:** Trusting the plan file over the evidence — the plan was written based on a verbal description, not the screenshot.
+**Consequences:** Plans created before visual evidence should be re-validated when the evidence arrives. "Remove feature X" should trigger extra scrutiny vs. "filter feature X differently."
+
+---
+
 ## 2026-04-12 [technical]: P696 atomic letter response — single edge function replaces pending table + email round-trip
 
 **Context:** The original one-to-many letter response flow (P684) had a 2-step pattern: `request-letter-response-signin` → write `letter_response_pending` row + send "click to confirm" magic-link email → reader clicks → `confirm-letter-response` materializes responses. This caused auth timing races (the P698 token_hash fix) and added irreversible latency — the reader had to check email before their responses were saved.
