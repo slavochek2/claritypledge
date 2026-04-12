@@ -10,7 +10,6 @@ test_files:
   - src/tests/extractBannerKeywords.test.ts
   - e2e/integration/p416-event-banner-migration.spec.ts
   - e2e/p416-event-auto-banner.spec.ts
-  - e2e/p416-smoke.spec.ts
 locked_at: '2026-02-26T04:17:53.446Z'
 ---
 

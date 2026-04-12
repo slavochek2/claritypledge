@@ -16,7 +16,6 @@ flow: dev
 uat_file: features/uat/p488.md
 test_files:
   - e2e/p488-invite-auto-auth.spec.ts
-  - e2e/p488-smoke.spec.ts
 reviews:
   ux: null
   architect: null

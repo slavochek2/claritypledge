@@ -7,10 +7,31 @@ version: 1.1.0
 
 ## Dispatch
 
+**Phase 0 — Discovery (main agent, before spawning):**
+1. Extract P-number from spec path (e.g., `p142` from `features/p142_csv_export.md`)
+2. Glob for existing test files:
+   - `e2e/p{N}-*.spec.ts`
+   - `e2e/a11y/p{N}-*.spec.ts`
+   - `e2e/integration/p{N}-*.spec.ts`
+   - `src/tests/**/p{N}-*.test.ts`
+   - `features/uat/p{N}.md`
+3. Read each found file
+4. Pass inventory (paths + contents) inline to Phase A subagent prompt
+
 **Phase A — Analyze + generate (spawn → collect → present):**
 Spawn Agent tool: `model: "sonnet"`, `subagent_type: "general-purpose"`.
-Prompt: the full skill instructions below + spec path from $ARGUMENTS. Working dir: `/Users/slavochek/Projects/public/claritypledge`.
+Prompt: the full skill instructions below + spec path from $ARGUMENTS + existing test inventory from Phase 0. Working dir: `/Users/slavochek/Projects/public/claritypledge`.
 The subagent analyzes the spec, determines test strategy, and generates all test file content — but does NOT write files yet.
+
+When existing test inventory is provided:
+- Analyze what's already covered vs. what the spec requires
+- Generate ONLY additions or updates — do not regenerate adequate existing files
+- If an existing test needs changes, output the full updated file (not a patch)
+- Report: "Existing: [N files]. Adding: [M files]. Updating: [K files]."
+
+When no existing tests found:
+- Generate from scratch (current behavior)
+
 Collect output (test counts, file paths, generated content). Present summary to user.
 Ask: "Ready to write these test files? (y/n)"
 
@@ -50,7 +71,7 @@ Generate comprehensive test strategy: unit, integration, E2E, accessibility, smo
    - **Integration tests** (`e2e/integration/*.spec.ts`) — API + database interactions
    - **E2E tests** (`e2e/p{N}-*.spec.ts`) — User flows, happy paths, edge cases
    - **Accessibility tests** (`e2e/a11y/p{N}-*.spec.ts`) — Keyboard, screen reader support
-   - **Smoke tests** (`e2e/p{N}-smoke.spec.ts`) — Fast regression detection
+   - **Smoke checks** (page load, no console errors) — embedded as first test in E2E feature file
    - **UAT scenarios** (`features/uat/p{N}.md`) — Manual validation checklist
 4. **Creates test helpers** (`e2e/helpers/test-*.ts`) — Data factories, utilities (when needed)
 5. **Provides coverage report** — What's tested (and WHY), what's NOT tested (and WHY)
@@ -61,7 +82,7 @@ Generate comprehensive test strategy: unit, integration, E2E, accessibility, smo
 
 | Aspect | `/generate-uat` (old) | `/generate-tests` (new) |
 |--------|----------------------|-------------------------|
-| **Test types** | UAT + E2E stubs + smoke | Unit + integration + E2E + a11y + smoke + UAT |
+| **Test types** | UAT + E2E stubs + smoke | Unit + integration + E2E + a11y + UAT (smoke embedded in E2E) |
 | **Intelligence** | Formulaic (always same structure) | Adaptive (analyzes spec, determines what's needed) |
 | **Test files** | TODO stubs (filled by /dev) | Runnable tests + TODOs where appropriate |
 | **Coverage rationale** | None | Clear explanation of what's tested/skipped and WHY |
@@ -195,19 +216,24 @@ test('screen reader announces export status', async ({ page }) => {
 
 ---
 
-### 5. Smoke Tests (fast regression)
-**File:** `e2e/p{N}-smoke.spec.ts`
+### 5. Smoke Checks (embedded in E2E feature test)
 
-**Always generated** for features with pages/routes.
+Smoke-style assertions are the **first test** in the E2E feature file — not a separate file.
 
-**Example:**
+**Pattern:**
 ```typescript
-// e2e/p142-smoke.spec.ts
-test('results page loads without errors', async ({ page }) => {
-  // Navigate to page
-  // Verify no 404/500
-  // Verify no console errors
-  // Verify main heading present
+test.describe('P142: CSV Export', () => {
+  test('page loads without console errors', async ({ page }) => {
+    const consoleErrors: string[] = [];
+    page.on('console', (msg) => {
+      if (msg.type() === 'error') consoleErrors.push(msg.text());
+    });
+    await page.goto('/results');
+    await page.waitForLoadState('networkidle');
+    expect(consoleErrors.filter(e => !e.includes('ResizeObserver'))).toHaveLength(0);
+  });
+
+  // ... feature tests follow ...
 });
 ```
 
@@ -300,7 +326,7 @@ Total: 6 automated tests + 4 UAT scenarios
 - ❌ No integration tests (no API/DB)
 - ✅ E2E tests for toggle interaction
 - ✅ Accessibility tests (keyboard + screen reader)
-- ✅ Smoke test (page loads with toggle)
+- ✅ Smoke checks embedded in E2E test
 - ✅ UAT scenarios
 
 **Rationale:** UI feature with state logic → unit + E2E + a11y
@@ -315,10 +341,10 @@ Total: 6 automated tests + 4 UAT scenarios
 - ✅ Integration tests for API endpoint
 - ❌ No E2E tests (no user-facing UI)
 - ❌ No accessibility tests (no UI)
-- ✅ Smoke test (endpoint responds 200)
+- ✅ Smoke checks embedded in E2E test
 - ✅ UAT scenarios
 
-**Rationale:** Backend feature → unit + integration + smoke
+**Rationale:** Backend feature → unit + integration + smoke checks
 
 ---
 
@@ -330,7 +356,7 @@ Total: 6 automated tests + 4 UAT scenarios
 - ✅ **Integration test (MANDATORY)** — schema existence + RLS check
 - ❌ No E2E tests (no UI)
 - ❌ No accessibility tests (no UI)
-- ✅ Smoke test (migration runs without errors)
+- ✅ Smoke checks embedded in integration test
 - ✅ UAT scenarios (verify data migrated correctly)
 
 **Rationale:** Data migration → integration + smoke + UAT
@@ -442,7 +468,6 @@ test.describe('Boundary: 0-story draft', () => {
    uat_file: features/uat/p272.md
    test_files:
      - e2e/p272-live-verification.spec.ts
-     - e2e/p272-smoke.spec.ts
      - e2e/integration/p272-live-migration.spec.ts
      - e2e/a11y/p272-accessibility.spec.ts
    ```
@@ -505,7 +530,6 @@ test.describe('Boundary: 0-story draft', () => {
 - ✅ Integration tests: `e2e/integration/p142-csv-export-api.spec.ts` (2 tests)
 - ✅ E2E tests: `e2e/p142-csv-export.spec.ts` (2 tests)
 - ✅ Accessibility tests: `e2e/a11y/p142-csv-export-accessibility.spec.ts` (2 tests)
-- ✅ Smoke tests: `e2e/p142-smoke.spec.ts` (1 test)
 - ✅ UAT scenarios: `features/uat/p142.md` (4 scenarios)
 - ✅ Test helpers: `e2e/helpers/test-sifter.ts`
 

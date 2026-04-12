@@ -40,7 +40,6 @@ test_files:
   - e2e/p660-letters-nav.spec.ts
   - e2e/p660-drafts-tab.spec.ts
   - e2e/p660-inbox-tab.spec.ts
-  - e2e/p660-smoke.spec.ts
   - e2e/a11y/p660-accessibility.spec.ts
 locked_at: '2026-04-07T11:19:18.480Z'
 ---

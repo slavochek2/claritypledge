@@ -28,7 +28,6 @@ uat_file: features/uat/p673.md
 test_files:
   - src/tests/letter-snapshot-mapper.test.ts
   - e2e/p673-letter-reading-flow.spec.ts
-  - e2e/p673-smoke.spec.ts
   - e2e/a11y/p673-accessibility.spec.ts
 locked_at: '2026-04-07T11:25:43.748Z'
 ---

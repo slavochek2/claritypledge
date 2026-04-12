@@ -11,7 +11,6 @@ test_files:
   - e2e/integration/p465-story-points-migration.spec.ts
   - src/tests/getStoryByUserAndPoint.test.ts
   - e2e/p465-point-card-footer.spec.ts
-  - e2e/p465-smoke.spec.ts
 tags:
   - redesign
   - p456

@@ -18,7 +18,6 @@ workstream: C1
 uat_file: features/uat/p396.md
 test_files:
   - e2e/integration/p396-host-rls-migration.spec.ts
-  - e2e/p396-smoke.spec.ts
   - src/tests/useVerificationGate.test.ts
 completed_at: '2026-02-19'
 ---

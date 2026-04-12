@@ -17,7 +17,6 @@ test_files:
   - src/tests/p491-hashtag-feed.test.tsx
   - src/tests/p491-feed-service.test.ts
   - e2e/p491-hashtag-feed.spec.ts
-  - e2e/p491-feed-smoke.spec.ts
   - e2e/a11y/p491-accessibility.spec.ts
 created_date: 2026-03-11
 ---

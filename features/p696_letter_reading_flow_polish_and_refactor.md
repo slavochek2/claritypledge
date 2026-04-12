@@ -1,0 +1,439 @@
+---
+status: week
+type: task
+rank: 1000696.0
+tags: [letters, reading-flow, refactor, polish]
+created_date: '2026-04-12'
+delivery_stage: ui
+pipeline_plan: [create-spec, ux, architect, ui, generate-tests, decompose, dev, verify]
+pipeline_ran: [create-spec, ux, architect, ui]
+pipeline_skipped: [challenge-prd -- problems confirmed from annotated screenshots not assumptions, spec-review -- fresh spec from current conversation no drift risk]
+---
+
+# P696: Letter Reading Flow Polish & Refactor
+
+> **Builds on:** [P673](p673_letter_reading_reuses_live_components.md) (reading flow), [P676](p676_letter_reading_visual_corrections.md) (visual corrections), [P678](p678_letter_preview_ux_polish.md) (preview polish)
+
+## Problem
+
+**Situation:** The letter reading flow works functionally but has five visual/interaction issues identified during UAT testing of P684. Three duplicated flow components (`LetterPreviewFlow`, `LetterReadingFlow`, `LetterReadingFlowPublic`) make fixes error-prone — each change must be applied in three places.
+
+**Complication:** The duplication isn't just tech debt — it blocks the interaction improvements. Fixing action positioning (Issue D) or button labeling (Issue E) in the current architecture means making the same change three times and keeping them in sync. The flow also lacks content-aware metadata (point counts, accurate reading time) that users need to set expectations before reading.
+
+**Question:** How do we fix the five issues, extract a shared flow component, and establish consistent interaction patterns — all without breaking the reading flow that P673/P676/P678 built?
+
+## Appetite
+
+Medium blast radius (touches letter preview + two reading variants — all letter flows affected). Reversible (branch work, no migrations, no schema changes). Medium decision density — Issues A/B/C are concrete; D/E require design decisions about interaction patterns.
+
+## Solution
+
+Three phases, ordered by dependency:
+
+### Phase 1: Concrete fixes (A+B+C)
+
+**Issue C — Story card centering bug.** `LiveStoryCardExpanded` rendered with `className="w-full max-w-sm"` but no `mx-auto`. Inside the `max-w-md` container (448px), the card caps at 384px and left-aligns, leaving 64px surplus on the right. Fix: add `mx-auto` in 6 locations (2 phases × 3 flows).
+
+**Issue A — Missing point count.** Cover page shows "3 stories · ~8 minutes" but not how many points. Point count is available at reading time via `snapshots[i].point_config.points[]` but not computed or displayed. Drafts list shows only story count — point count requires extending the batch query in `getDocsByUser`.
+
+**Issue B — Reading time formula.** Current formula is `Math.ceil(snapshots.length * 2)` — purely story count × 2 minutes. Ignores point count, text length, interaction time. Proposed: `Math.max(1, Math.ceil(totalPoints + storyCount))` (~1 min per point for reading + position, ~1 min per story for confidence + results). Extract to shared utility — currently duplicated inline in 3 files.
+
+### Phase 2: Extract shared flow component
+
+`LetterPreviewFlow`, `LetterReadingFlow`, and `LetterReadingFlowPublic` are ~200 lines each of near-identical phase-rendering JSX. They share every leaf component but duplicate:
+- The `max-w-md mx-auto w-full space-y-6` layout div
+- The full 6-phase rendering switch
+- `calculateStoryProgress` (verbatim copy in both page files)
+
+Extract a shared `LetterFlow` component parameterized by the 3 differences:
+1. `FocusHeader` presence (reading-only, preview has amber banner instead)
+2. Auth gate in `story-rate` phase (authenticated reading flow only)
+3. Completion view (`LetterRecipientDone` vs `LetterCompletionSummary` vs `LetterResponseSignupForm`)
+
+### Phase 3: Interaction consistency (D+E)
+
+**Issue D — Action position inconsistency.** Primary actions (buttons) sometimes appear mid-content, sometimes in bottom-docked drawers. No consistent spatial contract — user's eyes must hunt each step. Establish a consistent rule across all reading flow steps.
+
+**Issue E — "Continue" button dual-meaning.** The same "Continue" label is used for two semantically different actions: (1) "submit my position" and (2) "advance past the author's position reveal." Creates confusion. Additionally, the author position reveal itself may be too subtle (a small inline text addition easily overlooked).
+
+Resolved approach for D+E:
+- **All actions in Drawer** — every phase uses a bottom-docked Drawer for the primary action, creating a fully consistent spatial contract
+- Distinct button labels per phase: "Submit Your Position" / "Next" / "Submit My Rating" / "Next Story" / "Complete Letter"
+- Reveal visibility: comparison card (You vs Author side-by-side) replaces position selector, with ~400ms delayed button appearance
+- Point-level match indicator: neutral (celebration belongs at story-level JourneyToUnderstanding only)
+
+## Risks / Non-Goals
+
+### Risks
+- **Refactoring breaks reading flow.** Mitigation: Phase 1 fixes are independent of refactoring; Phase 2 extraction is purely structural (no behavior change); Phase 3 builds on extracted component. Each phase can be verified independently.
+- **Preview/reading diverge during refactoring.** Mitigation: extraction preserves all three variant behaviors via props, not by dropping features.
+- **D+E design decisions delay the concrete fixes.** Mitigation: phases are ordered so A+B+C ship independently.
+
+### Non-Goals
+- Do NOT change the reading flow's phase sequence or add/remove phases
+- Do NOT modify database schema (point count on drafts = query-time computation, not a new column)
+- Do NOT refactor `useLetterReadingState` hook (separate concern, different scope)
+- Do NOT change the compose page flow (only preview + reading)
+- Do NOT add new features (bookmarking, sharing, etc.) — this is polish and structural cleanup only
+
+## Alternatives Considered
+
+- **Fix D+E without refactoring first:** Would require applying interaction changes in 3 places, risking inconsistency. Rejected — refactoring is a prerequisite.
+- **Full rewrite of reading flow:** Overkill. The leaf components (PointCardWithLinks, LiveStoryCardExpanded, ComprehensionRatingCard) are well-structured. Only the flow orchestration layer needs extraction.
+- **Skip point count on drafts list:** Simpler, but drafts list showing "3 stories" while cover shows "3 stories · 9 points" is inconsistent. Include it — the query extension is lightweight.
+
+## Done-When
+
+- [ ] Story cards are horizontally centered in the reading flow (preview + both reading variants)
+- [ ] Cover page displays point count alongside story count and reading time
+- [ ] Drafts list displays point count alongside story count
+- [ ] Reading time estimate accounts for point count (not just story count × 2)
+- [ ] Reading time formula extracted to a shared utility (no inline duplication)
+- [ ] `LetterPreviewFlow`, `LetterReadingFlow`, `LetterReadingFlowPublic` share a single flow component
+- [ ] `calculateStoryProgress` exists in one place (shared utility or inside the shared flow component)
+- [ ] Primary action buttons have consistent vertical positioning across all reading flow steps
+- [ ] Position submission and post-reveal advancement use distinct button labels
+- [ ] Author position reveal is visually prominent (not easily overlooked)
+- [ ] All changes apply to both preview and reading views via the shared component
+
+## Acceptance Criteria
+
+- [ ] Centering fix verified at viewport widths: 375px (mobile), 768px (tablet), 1280px (desktop)
+- [ ] Metadata on cover page reads: "N stories · M points · ~X minutes"
+- [ ] Metadata on drafts list reads: "N stories · M points"
+- [ ] Reading time for 3 stories / 9 points = ~12 minutes (not ~6)
+- [ ] Shared flow component handles all 3 variants: preview, authenticated reading, public reading
+- [ ] No visual regression in existing reading flow behavior
+- [ ] Button labels: "Submit Your Position" (engage), "Next" (post-reveal), "Submit My Rating" (rating), "Next Story" / "Complete Letter" (advance)
+- [ ] Reveal pattern: comparison card (You vs Author side-by-side) with ~400ms delayed button fade-in
+- [ ] All primary actions rendered inside bottom-docked Drawer (consistent spatial contract)
+
+## UX Design
+
+### Design Principles
+
+1. **Consistent action zone** — every primary action lives in a bottom-docked Drawer. The reader always knows where to look.
+2. **Semantic button labels** — each label communicates what happens when pressed. No generic "Continue."
+3. **Reveal as event** — the author's position reveal is a deliberate moment (comparison card), not a subtle text change.
+4. **Pacing through delay** — ~400ms delay before advance button appears forces one visual fixation on the reveal.
+
+### Action Positioning Rule
+
+**Rule: All primary actions appear in a bottom-docked Drawer across all phases.**
+
+| Phase | Drawer content | Button label |
+|-------|---------------|-------------|
+| point-engage | Position selector (Disagree/Unsure/Agree) + submit button | "Submit Your Position" |
+| point-revealed | Advance button only (after ~400ms delay) | "Next" |
+| story-rate | ComprehensionRatingCard (0-10 scale) + submit button | "Submit My Rating" |
+| story-revealed | Advance button only (after ~400ms delay) | "Next Story" / "Complete Letter" (final) |
+
+The Drawer is the universal action zone. Content (cards, comparison, calibration results) stays in the main content area. Actions stay in the Drawer.
+
+### User Flows
+
+#### Flow A: Point engagement (point-engage → point-revealed)
+
+1. Screen shows: Point card with statement text in content area. Drawer is open at bottom with position selector (Disagree / Unsure / Agree) and "Submit Your Position" button (disabled until selection).
+2. Reader selects a position. "Submit Your Position" enables.
+3. Reader taps "Submit Your Position."
+4. Drawer briefly shows loading state ("Saving..."). On success:
+5. Content area: point card transitions to **comparison state** — position selector is gone, replaced by side-by-side layout: "You: [position]" on left, "[Author name]: [position]" on right. Card background shifts subtly to indicate result state. Match and mismatch are both presented neutrally.
+6. Drawer: empties, then after ~400ms "Next" button fades in.
+7. Reader taps "Next" to advance to next point (or story-rate if last point).
+
+#### Flow B: Story rating (story-rate → story-revealed)
+
+1. Screen shows: Story card (LiveStoryCardExpanded) in content area. Drawer slides up with ComprehensionRatingCard (0-10 scale) and "Submit My Rating" button (disabled until selection).
+2. Reader selects rating. "Submit My Rating" enables.
+3. Reader taps "Submit My Rating."
+4. Drawer dismisses. Content area transitions to story-revealed:
+   - JourneyToUnderstanding dots (reader's rating vs author's prediction)
+   - GapBanner with calibration message ("Perfectly calibrated" etc.)
+   - Story card visible below
+5. Drawer: after ~400ms, "Next Story" button fades in. (Or "Complete Letter" on the final story.)
+6. Reader taps "Next Story" to advance.
+
+#### Flow C: Completion
+
+After final story-revealed, reader taps "Complete Letter." Advances to completion view (varies by flow variant). No changes to completion views.
+
+### Reveal Visibility (point-revealed)
+
+The comparison state replaces the position selector within the same card boundary:
+- **Layout:** Two columns. Left: "You" label + position badge. Right: "[Author name]" label + position badge.
+- **Match/mismatch:** Both presented neutrally — no connector, no celebration. Story-level calibration (JourneyToUnderstanding) is where celebration lives.
+- **Transition:** Card reorganizes from "question mode" to "result mode." Not an overlay, not a notification — the card itself transforms.
+- **Delayed advance:** "Next" button appears in Drawer after ~400ms. During the delay, no tappable advance element exists — prevents click-through.
+
+### Edge Cases
+
+- **Fast tapping:** 400ms delay + no advance button during delay = primary defense. Button disables immediately on tap (before async completes).
+- **Network error on position submit:** Card stays in question mode. Error toast: "Could not save your position. Please try again." Selection preserved, button re-enables.
+- **Network error on rating submit:** Drawer stays open with rating preserved. Error toast shown. Button re-enables.
+- **Slow network (>1s):** Button shows loading state ("Saving...") rather than appearing frozen. Comparison card appears only after successful submission, never optimistically.
+- **Resume after navigation away:** Reader resumes at correct phase via localStorage persistence. If in point-revealed, comparison renders immediately (no delay on re-render — delay is for initial transition only).
+- **Story with 0 points:** Goes straight to story-rate → story-revealed. No point engagement phases.
+
+### Accessibility
+
+- All Drawer buttons maintain min-h 44px (exceeds 40px touch target minimum)
+- Comparison state announces via `aria-live="polite"`: "Your position: [X]. [Author name]'s position: [Y]."
+- Delayed button: `aria-hidden="true"` during delay, then enters tab order normally. No auto-focus (prevents accidental Enter-to-advance before reading reveal).
+- Drawer has `sr-only` header per phase: "Choose your position" / "Rate this story" / etc.
+- Position selector radio buttons: existing accessible labels, no change needed.
+
+### Responsive Design
+
+- **Mobile (<768px):** Drawer slides up from bottom. Full-width buttons. Comparison card stacks vertically if needed below ~320px.
+- **Tablet/Desktop (768px+):** Same layout — `max-w-md` container keeps content narrow. Drawer adapts via existing `useIsMobile` hook.
+
+### Visual Context
+
+- **Density intent:** Spacious. This is a reflection exercise. Breathing room between card content and Drawer. Maintain existing `space-y-4` (16px) rhythm in content area.
+- **Visual reference:** The existing /live session Drawer pattern for comprehension rating is the anchor. Extend the same Drawer treatment to all phases. The comparison card should carry similar visual weight to the JourneyToUnderstanding result — a contained card with clear structure.
+
+## Technical Architecture
+
+### Technical Analysis
+
+**Reuse inventory — existing components, hooks, and utilities in the letter reading area:**
+
+| Asset | File path (relative to `src/`) | Role |
+|-------|-------------------------------|------|
+| `LetterReadingPage` (page + 2 inner flows) | `app/pages/letter-reading-page.tsx` (~1150 lines) | Auth gating, data loading, `LetterReadingFlow` (authed) + `LetterReadingFlowPublic` (local mode) |
+| `LetterPreviewPage` (page + 1 inner flow) | `app/pages/letter-preview-page.tsx` (~490 lines) | Preview route, `LetterPreviewFlow` |
+| `useLetterReadingState` hook | `app/hooks/useLetterReadingState.ts` (~605 lines) | Phase state machine, remote/local/preview modes, localStorage/sessionStorage persistence |
+| `LetterCover` | `app/components/letters/letter-cover.tsx` | Cover page with sender/receiver, metadata, TOS consent |
+| `LetterProgressBar` | `app/components/letters/letter-progress-bar.tsx` | Segmented progress bar |
+| `LetterCompletionSummary` | `app/components/letters/letter-completion-summary.tsx` | Completion view (non-1-to-1 authed) |
+| `LetterRecipientDone` | `app/components/letters/letter-recipient-done.tsx` | Completion view (1-to-1) |
+| `LetterResponseSignupForm` | `app/components/letters/letter-response-signup-form.tsx` | Completion view (public/anon) |
+| `LiveStoryCardExpanded` | `app/components/partners/live-story-card-expanded.tsx` | Story card (shared with /live) |
+| `PointCardWithLinks` | `app/components/social/point-card-with-links.tsx` | Point card with position selector (shared) |
+| `ComprehensionRatingCard` | `app/components/shared/comprehension-rating-card.tsx` | 0-10 rating slider |
+| `JourneyToUnderstanding` | `app/components/partners/live-mode-view.tsx` | Calibration dots (checker vs responder) |
+| `GapBanner` | `app/components/shared/gap-banner.tsx` | Gap message ("Perfectly calibrated" etc.) |
+| `FocusHeader` | `app/components/layout/focus-header.tsx` | Back button header for focus pages |
+| `CertificatePageShell` | `app/components/layout/certificate-page-shell.tsx` | `max-w-3xl mx-auto px-4` wrapper |
+| `Drawer` (+ DrawerContent, DrawerHeader, DrawerTitle) | `components/ui/drawer.tsx` | Bottom-docked drawer, dual-mode: Vaul (desktop) / portal (mobile via `useIsMobile`) |
+| `snapshotToStoryWithPoints`, `pointSummaryToProtoPoint` | `app/utils/letter-snapshot-mapper.ts` | Data shape converters |
+| `docsService.getDocsByUser` | `app/data/docs-service.ts` | Drafts list query (has `story_count`, no point count) |
+| `letters-service` functions | `app/data/letters-service.ts` | RPCs: submitRating, revealPrediction, submitPointResponse, etc. |
+
+**Duplication analysis — the three flow components share:**
+
+1. **`calculateStoryProgress`** — verbatim copy in `letter-reading-page.tsx` (lines 689-729) and `letter-preview-page.tsx` (lines 172-212). Identical logic, ~40 lines each.
+2. **Phase-rendering JSX** — 6 phase blocks (point-engage, point-revealed, story-rate, story-revealed, remaining-point-engage, remaining-point-revealed) are nearly identical across all 3 flows. Each is ~160 lines of JSX.
+3. **Per-story setup** — `senderProfileOwner`, `storyWithPoints`, `visiblePoints`, `currentPoint`, `gap`, `isOverconfident`, `storyProgress` — computed identically in all 3 flows (~15 lines each).
+4. **Common effects** — auto-advance on `transition` phase, `selectedPosition` state management.
+
+**Differences between flows (3 total):**
+
+| Concern | Preview | Authed Reading | Public Reading |
+|---------|---------|----------------|----------------|
+| Header | Amber preview banner (in parent page) | `FocusHeader` (in flow) | `FocusHeader` (in flow) |
+| Auth gate at story-rate | None | Yes — "Sign in to continue" fallback if `!isAuthenticated` | None |
+| Completion | `state.isComplete` → "End of preview" text | `onComplete()` callback → parent shows `LetterRecipientDone` or `LetterCompletionSummary` | `isLocalCompleted` → derives draft, calls `onComplete(draft)` |
+| Hook invocation | `useLetterReadingState(deliveryId, '', snapshots, undefined, true, previewPredictions)` | `useLetterReadingState(delivery.id, letter.sender_id, snapshots, token)` | `useLetterReadingState({ mode: 'local', letterId, senderId, snapshots })` |
+| Analytics | None | `analytics.track('letter_story_rated', ...)` in story-rate | None |
+
+**Drawer component capabilities:**
+
+The existing `Drawer` (`components/ui/drawer.tsx`) already supports everything needed:
+- `open` prop (controlled mode) — already used in story-rate phase
+- `dismissible={false}` — already used, prevents swipe-dismiss
+- `modal={false}` — used in preview to allow interaction with content behind
+- `overlayClassName="bg-transparent"` — already used to hide overlay
+- Mobile: portal-based fixed-bottom div. Desktop: Vaul.
+- `DrawerFooter` component exists but is unused — available for button-only Drawer content.
+
+The Drawer can hold lightweight content (just a button) with no issues — it's a simple flex column container.
+
+**`useLetterReadingState` phase machine observations:**
+
+The hook manages phase transitions via `updateCurrentStory`. Phase transitions are triggered by:
+- `submitPointPosition` → changes phase to `point-revealed` or `remaining-point-revealed`
+- `submitStoryRating` → changes phase to `story-revealed`
+- `advanceFromPointReveal`, `advanceFromStoryReveal`, `advanceFromRemainingPointReveal` → advance to next phase
+- `nextStory` → increments `currentStoryIndex`
+
+The Drawer-everywhere approach works because Drawer rendering is determined by `currentPhase` in the JSX — the hook doesn't need to know about Drawer at all. The Drawer is purely a presentation concern.
+
+### Architecture Decisions
+
+**AD1: Shared flow component extraction strategy — render-prop for completion, boolean props for variants.**
+
+Extract a `LetterFlowContent` component that receives:
+```typescript
+interface LetterFlowContentProps {
+  // Data
+  snapshots: LetterStorySnapshot[];
+  senderName: string;
+  senderProfileOwner: PointProfileOwner;
+  // State machine (from useLetterReadingState)
+  readingState: UseLetterReadingStateReturn;
+  // Variant configuration
+  showFocusHeader: boolean;          // false for preview (parent has amber banner)
+  authGateAtStoryRate?: ReactNode;   // sign-in prompt for authed reading; undefined for others
+  // Completion
+  renderCompletion: () => ReactNode; // each variant provides its own completion JSX
+  // Optional
+  onStoryRated?: (index: number, rating: number) => void;  // analytics hook
+}
+```
+
+**Why not a single component that handles hook invocation too?** The hook has 3 different invocation signatures across the flows. Lifting hook invocation into the shared component would require a complex union-type config prop. Instead, each page file calls `useLetterReadingState` with its specific params and passes the return value to `LetterFlowContent`. This keeps the shared component pure-presentational.
+
+**AD2: Comparison card — new component, not extension of PointCardWithLinks.**
+
+Create `PositionComparisonCard` as a standalone component. Rationale:
+- `PointCardWithLinks` is a complex component (~300 lines) shared with /live, profile, and feed. Adding comparison layout would increase its API surface for a letter-only use case.
+- The comparison card has fundamentally different layout: two-column (You vs Author) instead of single card with position buttons.
+- Clean separation: `PointCardWithLinks` handles the question state (select a position), `PositionComparisonCard` handles the result state (positions revealed).
+
+The comparison card replaces the current point-revealed rendering (which today reuses `PointCardWithLinks` in read-only mode with `disablePositionButtons`).
+
+**AD3: Delayed button appearance — CSS animation with `useEffect` timer, not Drawer animation.**
+
+Implementation:
+1. When entering `point-revealed` or `story-revealed`, set a `showAdvanceButton` state to `false`.
+2. `useEffect` on phase change starts a 400ms timer, then sets `showAdvanceButton = true`.
+3. The button renders with `opacity-0 → opacity-100` transition and `aria-hidden="true"` during delay.
+4. On resume (re-render after nav away), skip the delay — check a `isInitialTransition` ref.
+
+This lives in `LetterFlowContent` since it's purely presentational. The hook doesn't change.
+
+**AD4: Drawer in all 4 action phases — controlled open state tied to phase.**
+
+Currently the Drawer is only used in `story-rate`. Extend to all 4 action phases:
+
+| Phase | Drawer open? | Drawer content |
+|-------|-------------|----------------|
+| `point-engage` | Yes | Position selector (Disagree/Unsure/Agree radio group) + "Submit Your Position" button |
+| `point-revealed` | Yes (after 400ms) | "Next" button only |
+| `story-rate` | Yes | ComprehensionRatingCard + "Submit My Rating" button |
+| `story-revealed` | Yes (after 400ms) | "Next Story" / "Complete Letter" button only |
+| `remaining-point-engage` | Yes | Same as point-engage |
+| `remaining-point-revealed` | Yes (after 400ms) | Same as point-revealed (but advances to next remaining point) |
+
+All Drawers use `dismissible={false}` and `overlayClassName="bg-transparent"` (content stays visible behind). The `modal={false}` prop keeps scrollable content interactive.
+
+**Important:** Moving the position selector into the Drawer means `PointCardWithLinks` in `point-engage` phase will no longer include the position buttons inline. The card shows the statement only; the action lives below in the Drawer. This requires passing `disablePositionButtons` to `PointCardWithLinks` in engage phases too, and rendering a separate position selector component inside the Drawer.
+
+Position selector in Drawer: reuse the existing position button group from `PointCardWithLinks` by extracting it, OR use a simpler radio-button group. Decision: extract the 3-button position selector from `PointCardWithLinks` into a standalone `PositionSelector` component. This avoids reimplementing the same buttons and keeps the existing accessible labels.
+
+**AD5: `estimateReadingMinutes` utility — shared, co-located with `calculateStoryProgress`.**
+
+Create `src/app/utils/letter-reading-utils.ts` containing:
+- `calculateStoryProgress(phase, currentPointIndex, visiblePointCount): number`
+- `estimateReadingMinutes(storyCount: number, totalPointCount: number): number`
+- `countTotalPoints(snapshots: LetterStorySnapshot[]): number`
+
+Formula: `Math.max(1, Math.ceil(totalPoints + storyCount))` — ~1 min per point (read + position) + ~1 min per story (confidence + results).
+
+**AD6: Drafts query point count — extend `getDocsByUser` batch query.**
+
+Current `getDocsByUser` does:
+1. Fetch `clarity_docs` rows
+2. Batch count `doc_stories` per doc → `story_count`
+3. Batch check `clarity_letters` per doc → `has_sent_letters`
+
+Add step 2.5: batch fetch `doc_stories → story_points` (joined) per doc to count total points. This is a single additional query, not N+1.
+
+The query: `supabase.from('doc_stories').select('doc_id, story:stories!inner(story_points(point_id))').in('doc_id', docIds)`. Then flatten and count unique point IDs per doc.
+
+Add `point_count: number` to the `ClarityDoc` type. Display in drafts list as `"N stories · M points"`.
+
+**AD7: PositionSelector extraction — lightweight component for Drawer.**
+
+Extract from `PointCardWithLinks` the 3-button position group (Disagree / Unsure / Agree) into `src/app/components/shared/position-selector.tsx`. Props:
+```typescript
+interface PositionSelectorProps {
+  selectedPosition: PositionType | null;
+  onSelect: (position: PositionType) => void;
+  disabled?: boolean;
+}
+```
+
+This is simpler than passing the full `PointCardWithLinks` into the Drawer — it avoids the card chrome and keeps the Drawer content minimal.
+
+### Security Review
+
+**RLS Policies:**
+- ✅ All letter reading queries (`getLetterForReading`, `getLetterForPublicReading`, `getDoc`) go through RLS. No changes to these queries in P696.
+- ✅ The drafts point count query extension joins `doc_stories` → `story_points` — both tables chain RLS through `clarity_docs` ownership. No new exposure.
+
+**Authentication:**
+- ✅ Preview flow: relies on RLS (owner-only read for private docs). No auth guard change.
+- ✅ Authenticated reading flow: `delivery.receiver_profile_id` check against `currentUser.id` preserved.
+- ✅ Public reading flow: `mode: 'local'` in `useLetterReadingState` — skips all RPC calls. Data submitted only after completion via server-validated endpoints.
+- ✅ Shared `LetterFlowContent` component is pure-presentational — auth boundaries stay in page files.
+
+**Authorization:**
+- ✅ Position writes gated by `mode !== 'local' && !previewMode`. Server-side RPCs validate caller access.
+- ✅ Rating writes: same gating pattern. Each mode path uses correct write method.
+- ✅ `catch(() => {})` on delivery status updates — acceptable since status is non-critical metadata.
+
+**Input Validation:**
+- ✅ Position constrained to Agree/Disagree/Unsure by UI + parameterized server RPCs.
+- ✅ Rating constrained to 0-10 by UI controls. Server-side validation via RPC layer.
+- ✅ Token from URL params used only in parameterized Supabase calls. No injection risk.
+- ✅ localStorage parsed with try/catch guards — malformed data falls through to fresh state.
+
+**Data Protection:**
+- ✅ Author position reveal preserves sealed-bid pattern — shown only after reader submits own position. No change in P696.
+- ✅ Sender predictions fetched only after rating submission. No premature exposure.
+- ✅ No new PII exposure. Comparison card shows same data already visible in current flow.
+
+**Summary:** No security concerns. Frontend-only refactoring preserves all auth boundaries, RLS enforcement, and data protection patterns.
+
+### Implementation Approach
+
+#### Build Sequence
+
+**Phase 1: Utilities + metadata (no behavior change)**
+1. Create `letter-reading-utils.ts` — extract `calculateStoryProgress`, add `estimateReadingMinutes` + `countTotalPoints`
+2. Update `letter-preview-page.tsx` and `letter-reading-page.tsx` to import `calculateStoryProgress` from shared utility (delete inline copies)
+3. Update `LetterCover` props to accept `pointCount`, update display to "N stories · M points · ~X minutes"
+4. Update all 3 cover page call sites to pass `pointCount` and use `estimateReadingMinutes`
+5. Extend `getDocsByUser` to compute `point_count`, add to `ClarityDoc` type
+6. Update `drafts-tab.tsx` to display `"N stories · M points"`
+
+**Phase 2: Centering fix (trivial, do alongside Phase 1)**
+7. Add `mx-auto` to all `LiveStoryCardExpanded` and `JourneyToUnderstanding` instances with `className="w-full max-w-sm"` (6 locations across 2 page files — will reduce to 2 after extraction)
+
+**Phase 3: Extract shared flow component**
+8. Create `PositionSelector` component (extracted from `PointCardWithLinks` button group)
+9. Create `PositionComparisonCard` component (new — You vs Author side-by-side)
+10. Create `LetterFlowContent` shared component with phase-rendering JSX
+11. Refactor `LetterPreviewFlow` to use `LetterFlowContent`
+12. Refactor `LetterReadingFlow` to use `LetterFlowContent`
+13. Refactor `LetterReadingFlowPublic` to use `LetterFlowContent`
+
+**Phase 4: Interaction consistency (D+E)**
+14. Wire Drawer into all phases in `LetterFlowContent` (currently only story-rate)
+15. Move position selector into Drawer for point-engage phases
+16. Implement 400ms delayed button for reveal phases
+17. Update button labels: "Submit Your Position" / "Next" / "Submit My Rating" / "Next Story" / "Complete Letter"
+18. Replace point-revealed rendering with `PositionComparisonCard`
+
+#### Files to Create
+
+| File | Purpose |
+|------|---------|
+| `src/app/utils/letter-reading-utils.ts` | Shared utilities: `calculateStoryProgress`, `estimateReadingMinutes`, `countTotalPoints` |
+| `src/app/components/letters/letter-flow-content.tsx` | Shared phase-rendering component for all 3 letter flow variants |
+| `src/app/components/shared/position-selector.tsx` | 3-button position selector (Disagree/Unsure/Agree) — extracted for Drawer use |
+| `src/app/components/letters/position-comparison-card.tsx` | You vs Author side-by-side comparison card for point-revealed phase |
+
+#### Files to Modify
+
+| File | Changes |
+|------|---------|
+| `src/app/pages/letter-preview-page.tsx` | Remove `calculateStoryProgress` copy, replace `LetterPreviewFlow` internals with `LetterFlowContent`, import shared utility, pass `pointCount` to cover |
+| `src/app/pages/letter-reading-page.tsx` | Remove `calculateStoryProgress` copy, replace `LetterReadingFlow` + `LetterReadingFlowPublic` internals with `LetterFlowContent`, import shared utility, pass `pointCount` to cover |
+| `src/app/components/letters/letter-cover.tsx` | Add `pointCount` prop, display "N stories · M points · ~X minutes" |
+| `src/app/components/letters/drafts-tab.tsx` | Display `point_count` alongside `story_count` |
+| `src/app/data/docs-service.ts` | Extend `getDocsByUser` to batch-query point counts per doc |
+| `src/app/types/index.ts` | Add `point_count: number` to `ClarityDoc` interface |

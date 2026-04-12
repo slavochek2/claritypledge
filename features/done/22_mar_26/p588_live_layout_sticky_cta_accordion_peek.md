@@ -15,7 +15,6 @@ flow: dev
 uat_file: features/uat/p588.md
 test_files:
   - e2e/p588-live-layout-sticky-cta.spec.ts
-  - e2e/p588-smoke.spec.ts
   - e2e/a11y/p588-accessibility.spec.ts
 ---
 

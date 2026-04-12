@@ -20,7 +20,6 @@ uat_file: features/uat/p581.md
 test_files:
   - e2e/integration/p581-letters-migration.spec.ts
   - e2e/integration/p581-letters-sealed-bid.spec.ts
-  - e2e/p581-smoke.spec.ts
   - e2e/p581-letter-composition.spec.ts
   - e2e/p581-letter-reading.spec.ts
   - e2e/p581-letter-1to1-flow.spec.ts

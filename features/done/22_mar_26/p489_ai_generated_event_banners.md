@@ -15,7 +15,6 @@ test_files:
   - src/tests/generateAIBanner.test.ts
   - e2e/integration/p489-storage-bucket.spec.ts
   - e2e/p489-ai-banner.spec.ts
-  - e2e/p489-smoke.spec.ts
 reviews:
   ux: null
   architect: null

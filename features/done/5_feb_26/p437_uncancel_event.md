@@ -10,7 +10,6 @@ uat_file: features/uat/p437.md
 test_files:
   - src/tests/uncancel-event-service.test.ts
   - e2e/p437-uncancel-event.spec.ts
-  - e2e/p437-smoke.spec.ts
   - e2e/a11y/p437-accessibility.spec.ts
 locked_at: '2026-02-26T04:17:07.517Z'
 ---

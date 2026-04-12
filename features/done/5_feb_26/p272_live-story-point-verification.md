@@ -20,7 +20,6 @@ uat_file: features/uat/p272.md
 test_files:
   - e2e/integration/p272-accuracy-achieved-migration.spec.ts
   - e2e/p272-live-verification.spec.ts
-  - e2e/p272-smoke.spec.ts
   - e2e/a11y/p272-accessibility.spec.ts
 ---
 

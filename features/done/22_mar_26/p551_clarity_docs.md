@@ -25,7 +25,6 @@ uat_file: features/uat/p551.md
 test_files:
   - e2e/integration/p551-clarity-docs-migration.spec.ts
   - e2e/p551-clarity-docs.spec.ts
-  - e2e/p551-smoke.spec.ts
   - e2e/a11y/p551-accessibility.spec.ts
 ---
 

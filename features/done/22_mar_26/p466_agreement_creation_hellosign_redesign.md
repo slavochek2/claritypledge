@@ -15,7 +15,6 @@ uat_file: features/done/22_mar_26/uat/p466.md
 test_files:
   - e2e/integration/p466-partner-display-name-migration.spec.ts
   - e2e/p466-agreement-creation.spec.ts
-  - e2e/p466-smoke.spec.ts
   - e2e/a11y/p466-accessibility.spec.ts
   - src/tests/p466-partner-display-name.test.ts
 locked_at: '2026-03-02T08:37:06.225Z'

@@ -11,7 +11,6 @@ uat_file: features/uat/p548.md
 test_files:
   - e2e/p548-embed-collapse.spec.ts
   - e2e/p548-share-dialog.spec.ts
-  - e2e/p548-smoke.spec.ts
 # For complete frontmatter specification, see docs/technical/feature-specs.md
 ---
 

@@ -8,7 +8,6 @@ delivery_stage: done
 uat_file: features/uat/p411.md
 test_files:
   - e2e/p411-position-breakdown-stories.spec.ts
-  - e2e/p411-smoke.spec.ts
   - e2e/a11y/p411-accessibility.spec.ts
 priority: high
 rank: 2

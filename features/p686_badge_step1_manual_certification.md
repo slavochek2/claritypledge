@@ -17,7 +17,6 @@ test_files:
   - e2e/p686-badge-certificate.spec.ts
   - e2e/p686-badge-profile.spec.ts
   - e2e/a11y/p686-badge-accessibility.spec.ts
-  - e2e/p686-smoke.spec.ts
 ---
 
 # P686: Badge Step 1 — Auto-Certification from /live with Progress

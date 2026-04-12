@@ -12,7 +12,6 @@ flow: dev
 uat_file: features/uat/p472.md
 test_files:
   - e2e/p472-agreements-polish.spec.ts
-  - e2e/p472-smoke.spec.ts
 ---
 
 # P472: Agreements post-UAT polish

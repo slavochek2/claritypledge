@@ -26,7 +26,6 @@ test_files:
   - e2e/integration/p425-stories-rls.spec.ts
   - e2e/p425-story-filing.spec.ts
   - e2e/a11y/p425-accessibility.spec.ts
-  - e2e/p425-smoke.spec.ts
 locked_at: '2026-02-28T09:34:43.561Z'
 ---
 

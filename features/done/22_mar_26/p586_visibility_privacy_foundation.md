@@ -21,7 +21,6 @@ related:
 uat_file: features/uat/p586.md
 test_files:
   - e2e/integration/p586-visibility-privacy.spec.ts
-  - e2e/p586-smoke.spec.ts
 ---
 
 # P586: Visibility & Privacy Foundation

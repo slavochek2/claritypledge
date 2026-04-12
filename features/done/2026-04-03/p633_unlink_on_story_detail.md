@@ -16,7 +16,6 @@ created_date: 2026-04-03
 uat_file: features/uat/p633.md
 test_files:
   - e2e/p633-unlink-story-detail.spec.ts
-  - e2e/p633-smoke.spec.ts
 ---
 
 # P633: Unlink Button on Story Detail Page (Inside QuotedPoint)

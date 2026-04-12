@@ -20,7 +20,6 @@ uat_file: features/uat/p458.md
 test_files:
   - src/tests/p458-auth-gate-utils.test.ts
   - e2e/p458-anon-position-auth-gate.spec.ts
-  - e2e/p458-smoke.spec.ts
   - e2e/integration/p458-auth-callback-position.spec.ts
   - e2e/a11y/p458-accessibility.spec.ts
 locked_at: '2026-03-12T10:52:36.713Z'

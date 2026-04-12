@@ -8,7 +8,6 @@ tags: []
 uat_file: features/uat/p426.md
 test_files:
   - e2e/p426-story-show-more.spec.ts
-  - e2e/p426-smoke.spec.ts
   - e2e/a11y/p426-accessibility.spec.ts
 locked_at: '2026-02-26T04:17:34.738Z'
 ---

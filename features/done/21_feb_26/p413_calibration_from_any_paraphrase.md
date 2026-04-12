@@ -9,7 +9,6 @@ uat_file: features/uat/p413.md
 test_files:
   - e2e/integration/p413-nullable-story-migration.spec.ts
   - e2e/p413-calibration-any-exchange.spec.ts
-  - e2e/p413-smoke.spec.ts
 locked_at: '2026-02-26T04:17:44.921Z'
 ---
 

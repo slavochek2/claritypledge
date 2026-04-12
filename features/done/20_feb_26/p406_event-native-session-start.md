@@ -17,7 +17,6 @@ uat_file: features/uat/p406.md
 test_files:
   - e2e/integration/p406-practice-rooms-migration.spec.ts
   - e2e/p406-practice-rooms.spec.ts
-  - e2e/p406-smoke.spec.ts
 locked_at: '2026-02-21T09:01:56.939Z'
 ---
 
