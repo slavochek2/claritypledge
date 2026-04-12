@@ -1365,7 +1365,7 @@ export function ClarityLivePage() {
       } catch (err) {
         console.error('[Live Update] Failed to update state:', err);
         if (import.meta.env.DEV) {
-          console.log(`[LiveUpdate] Write FAILED + REVERTED: ${Object.keys(updates).join(', ')}`);
+          console.error(`[LiveUpdate] Write FAILED + REVERTED: ${Object.keys(updates).join(', ')}`);
         }
         // P525: Capture failure in Sentry with sanitized state snapshot
         try {
@@ -1413,6 +1413,8 @@ export function ClarityLivePage() {
   const [isLocallyRating, setIsLocallyRating] = useState(false);
   // P23.3: Track which flow type we're in locally ('check' = "Did you get it?", 'prove' = "Did I get it?")
   const [localFlowType, setLocalFlowType] = useState<'check' | 'prove'>('check');
+  // P686: Track whether the current user is a certified certifier (badge giver)
+  const [isCertifier, setIsCertifier] = useState(false);
 
   // P562: Free mode reuses guided mode's handleStartCheck — no separate handler needed.
   // The guided mode round runs identically; divergence happens in handleCelebrationComplete.
@@ -1548,6 +1550,7 @@ export function ClarityLivePage() {
           .maybeSingle();
 
         if (myProfile?.is_certifier === true) {
+          setIsCertifier(true);
           // Find the #understanding-tagged point in the current story
           const selectedStoryData = current.selectedStoryData;
           const understandingPoint = selectedStoryData?.points?.find(
@@ -4016,6 +4019,7 @@ export function ClarityLivePage() {
           onFreeRoundComplete={handleFreeRoundComplete}
           onFreeDiscussAnother={handleFreeDiscussAnother}
           freeStoryTitle={liveState.selectedContentTitle}
+          isCertifier={isCertifier}
         />
 
         {/* Remove position confirmation dialog */}

@@ -3,6 +3,7 @@
  * @description P600: Success screen for free mode when both participants reach 10/10.
  * Matches guided mode celebration pattern: sparkle + headline + journey + Continue button.
  */
+import { Award } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import type { FreeRoundRecord } from '@/app/types';
 
@@ -27,6 +28,14 @@ interface FreeModeSuccessProps {
   isWaiting?: boolean;
   /** P600: Speaker's re-rated belief after paraphrase */
   freeRerating?: number;
+  /** P686: Whether a badge point was earned this round */
+  badgePointEarned?: boolean;
+  /** P686: Total badge points the listener now has (0–9) */
+  badgeCount?: number;
+  /** P686: true when badgeCount >= 9 (full badge) */
+  isFullBadge?: boolean;
+  /** P686: true when the current user is the certifier (not the earner) */
+  isCertifier?: boolean;
 }
 
 export function FreeModeSuccess({
@@ -37,6 +46,10 @@ export function FreeModeSuccess({
   onContinue,
   isWaiting = false,
   freeRerating,
+  badgePointEarned,
+  badgeCount,
+  isFullBadge,
+  isCertifier,
 }: FreeModeSuccessProps) {
   // Role-aware headline — matches guided mode celebration
   const headline = isChecker
@@ -49,6 +62,21 @@ export function FreeModeSuccess({
 
   return (
     <div className="flex flex-col items-center px-4 pt-6 pb-8 max-w-sm mx-auto w-full">
+      {/* P686: Badge headline — shown above celebration when a badge point was earned */}
+      {badgePointEarned && (
+        <div className="text-center mb-4">
+          <Award className="h-6 w-6 text-amber-500 mx-auto mb-1" aria-hidden />
+          <h2 className="text-amber-700 font-semibold">
+            {isCertifier
+              ? `You verified ${partnerName} on a clarity point! ${Math.min(badgeCount ?? 0, 9)}/9`
+              : isFullBadge
+              ? `Full badge earned! 9/9 clarity points verified`
+              : `Badge point earned! ${Math.min(badgeCount ?? 0, 9)}/9 clarity points verified`
+            }
+          </h2>
+        </div>
+      )}
+
       {/* Celebration header — matches guided mode */}
       <div className="text-center space-y-2 mb-4">
         <div className="text-4xl">🎉</div>

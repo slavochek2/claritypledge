@@ -446,6 +446,8 @@ interface LiveModeViewProps {
   onFreeDiscussAnother?: () => void;
   /** P562: Story title for free mode success screen */
   freeStoryTitle?: string;
+  /** P686: true when the current user is a certified certifier */
+  isCertifier?: boolean;
 }
 
 export function LiveModeView({
@@ -489,6 +491,7 @@ export function LiveModeView({
   onFreeRoundComplete,
   onFreeDiscussAnother,
   freeStoryTitle,
+  isCertifier,
 }: LiveModeViewProps) {
 
   // Hide site-wide navigation when live session is active.
@@ -828,6 +831,7 @@ export function LiveModeView({
             onDiscussAnother={onFreeDiscussAnother as () => void}
             storyTitle={freeStoryTitle}
             selectedStory={selectedStory}
+            isCertifier={isCertifier}
           />
           {confirmSkipDialog}
         </div>

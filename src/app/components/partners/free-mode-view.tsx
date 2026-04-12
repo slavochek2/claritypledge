@@ -48,6 +48,8 @@ export interface FreeModeViewProps {
   storyTitle?: string;
   /** Selected story to display during the round */
   selectedStory?: StoryWithPoints | null;
+  /** P686: true when the current user is the certifier (not the badge earner) */
+  isCertifier?: boolean;
 }
 
 // ── FreeModeView ─────────────────────────────────────────────────────────────
@@ -62,6 +64,7 @@ export function FreeModeView({
   onDiscussAnother,
   storyTitle,
   selectedStory,
+  isCertifier,
 }: FreeModeViewProps) {
   const displayPartnerName = getFirstName(partnerName);
   const freePhase = liveState.freePhase as FreePhase;
@@ -132,6 +135,10 @@ export function FreeModeView({
         onContinue={onDiscussAnother}
         isWaiting={myAck}
         freeRerating={liveState.freeRerating}
+        badgePointEarned={liveState.badgePointEarned}
+        badgeCount={liveState.badgeCount}
+        isFullBadge={(liveState.badgeCount ?? 0) >= 9}
+        isCertifier={isCertifier}
       />
     );
   }
