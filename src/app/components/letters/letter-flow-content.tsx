@@ -278,6 +278,7 @@ export function LetterFlowContent({
                       question="How well do you believe you understand this story?"
                       onSelect={handleSubmitRating}
                       disabled={isSubmitting || currentStory.rating !== null}
+                      submitLabel="Submit My Rating"
                     />
                   </div>
                 </DrawerContent>

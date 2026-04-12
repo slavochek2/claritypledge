@@ -24,9 +24,11 @@ export interface ComprehensionRatingCardProps {
   onBack?: () => void;
   /** Disable rating selection and submit (e.g., after submission or while submitting) */
   disabled?: boolean;
+  /** Label for the submit button (default: "Submit") */
+  submitLabel?: string;
 }
 
-export function ComprehensionRatingCard({ question, onSelect, className = '', onSkip, skipLabel = 'Speak freely', onBack, disabled = false }: ComprehensionRatingCardProps) {
+export function ComprehensionRatingCard({ question, onSelect, className = '', onSkip, skipLabel = 'Speak freely', onBack, disabled = false, submitLabel = 'Submit' }: ComprehensionRatingCardProps) {
   const [selectedRating, setSelectedRating] = useState<number | null>(null);
 
   const handleSubmit = () => {
@@ -55,7 +57,7 @@ export function ComprehensionRatingCard({ question, onSelect, className = '', on
           disabled={selectedRating === null || disabled}
           onClick={handleSubmit}
         >
-          Submit
+          {submitLabel}
         </Button>
         {onSkip && (
           <Button
