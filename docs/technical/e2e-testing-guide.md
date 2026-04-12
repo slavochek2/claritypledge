@@ -416,6 +416,11 @@ test('authenticated user can access /live', async ({ browser }) => {
 - `setTestSession()` — tests that already have a page and just need to inject auth
 - `createTestUser()` — tests that only need DB-level user setup (no browser)
 
+**Never use admin-generated magic links to simulate auth in PKCE mode.**
+`supabaseAdmin.auth.admin.generateLink({ type: 'magiclink' })` generates a token tied to a different PKCE challenge than the one the browser stored from any prior `signInWithOtp` call. Navigating to the admin link results in "Link Expired or Invalid" — the code exchange fails because `code_verifier` doesn't match.
+
+Use `setTestSession()` instead. It uses password-based auth (no PKCE), injects the session directly into localStorage, and works reliably across all confirm/callback flows.
+
 ---
 
 ### Multi-User Tests

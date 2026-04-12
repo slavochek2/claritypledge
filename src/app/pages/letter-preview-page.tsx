@@ -11,28 +11,15 @@ import { AlertCircle, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { CertificatePageShell } from '@/app/components/layout/certificate-page-shell';
 import { LetterCover } from '@/app/components/letters/letter-cover';
-import { LetterProgressBar } from '@/app/components/letters/letter-progress-bar';
-import { LiveStoryCardExpanded } from '@/app/components/partners/live-story-card-expanded';
-import { PointCardWithLinks } from '@/app/components/social/point-card-with-links';
+import { LetterFlowContent } from '@/app/components/letters/letter-flow-content';
 import type { PointProfileOwner } from '@/app/components/social/point-card-with-links';
-import { JourneyToUnderstanding } from '@/app/components/partners/live-mode-view';
-import { GapBanner } from '@/app/components/shared/gap-banner';
-import { ComprehensionRatingCard } from '@/app/components/shared/comprehension-rating-card';
 import { ClarityPageLoader } from '@/components/ui/clarity-loader';
-import {
-  Drawer,
-  DrawerContent,
-  DrawerHeader,
-  DrawerTitle,
-} from '@/components/ui/drawer';
 import { useLetterReadingState } from '@/app/hooks/useLetterReadingState';
-import { snapshotToStoryWithPoints, pointSummaryToProtoPoint } from '@/app/utils/letter-snapshot-mapper';
-import { calculateStoryProgress, countTotalPoints, estimateReadingMinutes } from '@/app/utils/letter-reading-utils';
+import { countTotalPoints, estimateReadingMinutes } from '@/app/utils/letter-reading-utils';
 import { docsService } from '@/app/data/docs-service';
 import { pointsService } from '@/app/data/points-service';
 import { useAuth } from '@/auth';
-import type { DocStory, LetterStorySnapshot, PositionType } from '@/app/types';
-import type { Position } from '@/app/components/shared/prototype-types';
+import type { DocStory, LetterStorySnapshot } from '@/app/types';
 
 /**
  * Convert DocStory to LetterStorySnapshot shape.
@@ -190,17 +177,7 @@ function LetterPreviewFlow({
     }
   });
 
-  const {
-    state,
-    currentPhase,
-    submitPointPosition,
-    submitStoryRating,
-    advanceFromPointReveal,
-    advanceFromStoryReveal,
-    advanceFromRemainingPointReveal,
-    nextStory,
-    isSubmitting,
-  } = useLetterReadingState(
+  const readingState = useLetterReadingState(
     `preview-${docId}`,
     '',
     snapshots,
@@ -209,8 +186,8 @@ function LetterPreviewFlow({
     previewPredictions
   );
 
+  const { state, currentPhase, nextStory } = readingState;
   const { user: currentUser } = useAuth();
-  const [selectedPosition, setSelectedPosition] = useState<PositionType | null>(null);
 
   // Bug 7: Auto-advance through transition interstitial — skip it entirely
   useEffect(() => {
@@ -225,11 +202,6 @@ function LetterPreviewFlow({
       localStorage.removeItem(`clarity-preview-predictions-${docId}`);
     }
   }, [state.isComplete, docId]);
-
-  const currentSnapshot = snapshots[state.currentStoryIndex];
-  const currentStory = state.stories[state.currentStoryIndex];
-
-  if (!currentSnapshot || !currentStory) return null;
 
   // When preview completes, show a close-preview button
   if (state.isComplete) {
@@ -260,187 +232,15 @@ function LetterPreviewFlow({
     avatarColor: currentUser?.avatarColor ?? undefined,
     hasPledged: currentUser?.hasPledged ?? false,
   };
-  const storyWithPoints = snapshotToStoryWithPoints(currentSnapshot, {
-    name: senderName,
-    avatarUrl: currentUser?.avatarUrl ?? undefined,
-    avatarColor: currentUser?.avatarColor ?? undefined,
-    hasPledged: currentUser?.hasPledged ?? false,
-  });
-  const visiblePoints = storyWithPoints.points;
-  const currentPoint = visiblePoints[currentStory.currentPointIndex];
-  const gap = currentStory.rating !== null && currentStory.prediction !== null
-    ? Math.abs(currentStory.rating - currentStory.prediction)
-    : 0;
-  const isOverconfident = currentStory.rating !== null && currentStory.prediction !== null
-    ? currentStory.prediction > currentStory.rating
-    : false;
-
-  const storyProgress = calculateStoryProgress(currentPhase, currentStory.currentPointIndex, visiblePoints.length);
 
   return (
-    <div className="max-w-md mx-auto w-full space-y-6">
-      <LetterProgressBar
-        currentIndex={state.currentStoryIndex}
-        totalStories={snapshots.length}
-        storyProgress={storyProgress}
-      />
-
-      {/* PHASE: point-engage — sealed-bid: author position hidden until receiver picks */}
-      {currentPhase === 'point-engage' && currentPoint && (
-        <div className="space-y-4">
-          <PointCardWithLinks
-            point={pointSummaryToProtoPoint(currentPoint)}
-            profileOwner={senderProfileOwner}
-            liveSessionMode
-            disableNavigation
-            currentUserId="__receiver__"
-            onPositionSelect={(pos) => { setSelectedPosition(pos as PositionType | null); }}
-            selectedPosition={selectedPosition as Position}
-          />
-          <Button
-            onClick={() => { if (selectedPosition) { submitPointPosition(currentPoint.id, selectedPosition); setSelectedPosition(null); } }}
-            disabled={!selectedPosition || isSubmitting}
-            className="w-full bg-[#0044CC] hover:bg-[#0033AA] text-white min-h-[44px]"
-          >
-            Continue
-          </Button>
-          {!selectedPosition && !isSubmitting && (
-            <p className="text-sm text-muted-foreground text-center">
-              Select your position above to continue
-            </p>
-          )}
-        </div>
-      )}
-
-      {/* PHASE: point-revealed — author's position now visible via quote pattern */}
-      {currentPhase === 'point-revealed' && currentPoint && (
-        <div className="space-y-4">
-          <PointCardWithLinks
-            point={pointSummaryToProtoPoint(currentPoint, (currentStory.positions[currentPoint.id] as PositionType) ?? null)}
-            profileOwner={{ ...senderProfileOwner, position: currentPoint.profileSubjectPosition ?? undefined }}
-            liveSessionMode
-            disableNavigation
-            disablePositionButtons
-            currentUserId="__receiver__"
-            selectedPosition={(currentStory.positions[currentPoint.id] as Position) ?? null}
-          />
-          <Button
-            onClick={advanceFromPointReveal}
-            className="w-full bg-[#0044CC] hover:bg-[#0033AA] text-white min-h-[44px]"
-          >
-            Continue
-          </Button>
-        </div>
-      )}
-
-      {/* PHASE: story-rate */}
-      {currentPhase === 'story-rate' && (
-        <>
-          <LiveStoryCardExpanded
-            story={storyWithPoints}
-            hidePoints
-            readOnly
-            className="w-full max-w-sm mx-auto"
-          />
-          <Drawer open dismissible={false} modal={false}>
-            <DrawerContent overlayClassName="bg-transparent">
-              <DrawerHeader className="sr-only">
-                <DrawerTitle>Rate this story</DrawerTitle>
-              </DrawerHeader>
-              <div className="px-4 pb-8 pt-4 space-y-4">
-                <ComprehensionRatingCard
-                  question="How well do you believe you understand this story?"
-                  onSelect={(rating) => submitStoryRating(rating)}
-                  disabled={isSubmitting || currentStory.rating !== null}
-                />
-              </div>
-            </DrawerContent>
-          </Drawer>
-        </>
-      )}
-
-      {/* PHASE: story-revealed */}
-      {currentPhase === 'story-revealed' && (
-        <div className="space-y-4">
-          <JourneyToUnderstanding
-            checkerRating={currentStory.prediction ?? undefined}
-            responderRating={currentStory.rating ?? undefined}
-            explainBackRatings={[]}
-            isChecker={false}
-            displayPartnerName={senderName}
-            checkerName={senderName}
-            compact
-            className="w-full max-w-sm mx-auto"
-          />
-          <GapBanner
-            gap={gap}
-            senderName={senderName}
-            isOverconfident={isOverconfident}
-            className="-mt-3"
-          />
-          <LiveStoryCardExpanded
-            story={storyWithPoints}
-            hidePoints
-            readOnly
-            className="w-full max-w-sm mx-auto"
-          />
-          <Button
-            onClick={advanceFromStoryReveal}
-            className="w-full bg-[#0044CC] hover:bg-[#0033AA] text-white min-h-[44px]"
-          >
-            Continue
-          </Button>
-        </div>
-      )}
-
-      {/* PHASE: remaining-point-engage */}
-      {currentPhase === 'remaining-point-engage' && currentPoint && (
-        <div className="space-y-4">
-          <PointCardWithLinks
-            point={pointSummaryToProtoPoint(currentPoint)}
-            profileOwner={senderProfileOwner}
-            liveSessionMode
-            disableNavigation
-            currentUserId="__receiver__"
-            onPositionSelect={(pos) => { setSelectedPosition(pos as PositionType | null); }}
-            selectedPosition={selectedPosition as Position}
-          />
-          <Button
-            onClick={() => { if (selectedPosition) { submitPointPosition(currentPoint.id, selectedPosition); setSelectedPosition(null); } }}
-            disabled={!selectedPosition || isSubmitting}
-            className="w-full bg-[#0044CC] hover:bg-[#0033AA] text-white min-h-[44px]"
-          >
-            Continue
-          </Button>
-          {!selectedPosition && !isSubmitting && (
-            <p className="text-sm text-muted-foreground text-center">
-              Select your position above to continue
-            </p>
-          )}
-        </div>
-      )}
-
-      {/* PHASE: remaining-point-revealed */}
-      {currentPhase === 'remaining-point-revealed' && currentPoint && (
-        <div className="space-y-4">
-          <PointCardWithLinks
-            point={pointSummaryToProtoPoint(currentPoint, (currentStory.positions[currentPoint.id] as PositionType) ?? null)}
-            profileOwner={{ ...senderProfileOwner, position: currentPoint.profileSubjectPosition ?? undefined }}
-            liveSessionMode
-            disableNavigation
-            disablePositionButtons
-            currentUserId="__receiver__"
-            selectedPosition={(currentStory.positions[currentPoint.id] as Position) ?? null}
-          />
-          <Button
-            onClick={advanceFromRemainingPointReveal}
-            className="w-full bg-[#0044CC] hover:bg-[#0033AA] text-white min-h-[44px]"
-          >
-            Continue
-          </Button>
-        </div>
-      )}
-
-    </div>
+    <LetterFlowContent
+      snapshots={snapshots}
+      senderName={senderName}
+      senderProfileOwner={senderProfileOwner}
+      readingState={readingState}
+      showFocusHeader={false}
+      renderCompletion={() => null}
+    />
   );
 }
