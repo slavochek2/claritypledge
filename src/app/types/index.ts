@@ -17,6 +17,7 @@ export interface PersonRef {
   avatarColor?: string; // Optional — PersonAvatar defaults to #3B82F6
   avatarUrl?: string | null;
   hasPledged: boolean; // ALWAYS present
+  badgeCount?: number; // P686: Number of verified badge points (0–9)
 }
 
 // ============================================================================
@@ -538,6 +539,7 @@ export type LiveStoryData = Pick<StoryWithAuthor,
     statement: string;
     context?: string;
     tags: string[];
+    systemTags?: string[]; // P686: for badge certification check
     positionCounts?: Record<string, number>;
     userPosition?: string | null;
     profileSubjectPosition?: string | null;

@@ -48,6 +48,7 @@ import {
 import { pointsService } from '@/app/data/points-service';
 import { eventsService } from '@/app/data/events-service';
 import { calibrationService } from '@/app/data/calibration-service';
+import { badgeService } from '@/app/data/badge-service';
 import { supabase } from '@/lib/supabase';
 import {
   Dialog,
@@ -1520,15 +1521,71 @@ export function ClarityLivePage() {
   }, [updateLiveState]);
 
   /** P562: Round complete (10/10 auto-transition) */
-  const handleFreeRoundComplete = useCallback(() => {
+  const handleFreeRoundComplete = useCallback(async () => {
     // Guard: verify both sliders are at 10 in confirmed state before transitioning
     const current = confirmedLiveStateRef.current;
     if (current.freePhase !== 'unlocked') return;
     const creatorVal = current.freeSliderCreator ?? 0;
     const joinerVal = current.freeSliderJoiner ?? 0;
     if (creatorVal !== 10 || joinerVal !== 10) return;
-    updateLiveState({ freePhase: 'success' });
-  }, [updateLiveState]);
+
+    // P686: Badge certification check — runs only on the certifier's client
+    let badgePointEarned = false;
+    let newBadgeCount = 0;
+
+    try {
+      // Only proceed if: current user is logged in and the session has both profile IDs
+      const myUserId = user?.id;
+      const myProfileId = isCreator ? session?.creatorProfileId : session?.joinerProfileId;
+      const listenerProfileId = isCreator ? session?.joinerProfileId : session?.creatorProfileId;
+
+      if (myUserId && myProfileId && listenerProfileId) {
+        // Fetch current user's profile to check is_certifier flag
+        const { data: myProfile } = await supabase
+          .from('profiles')
+          .select('is_certifier')
+          .eq('id', myProfileId)
+          .maybeSingle();
+
+        if (myProfile?.is_certifier === true) {
+          // Find the #understanding-tagged point in the current story
+          const selectedStoryData = current.selectedStoryData;
+          const understandingPoint = selectedStoryData?.points?.find(
+            (p) => p.systemTags?.includes('understanding')
+          );
+
+          if (understandingPoint) {
+            // Read listener's position from livePositions (top-level keys for JSONB safety)
+            const listenerPosition = isCreator
+              ? current.livePositionsJoiner?.[understandingPoint.id]
+              : current.livePositionsCreator?.[understandingPoint.id];
+
+            if (listenerPosition === 'agree' || listenerPosition === 'strongly_agree') {
+              const result = await badgeService.insertBadgePoint({
+                userId: listenerProfileId,
+                pointId: understandingPoint.id,
+                storyId: selectedStoryData?.id ?? null,
+                verifiedBy: myProfileId,
+                sessionId: session?.id ?? '',
+                position: listenerPosition as 'agree' | 'strongly_agree',
+              });
+
+              if (result !== null) {
+                // Successfully earned (null = duplicate, not an error)
+                badgePointEarned = true;
+                newBadgeCount = await badgeService.getBadgeCount(listenerProfileId);
+              }
+            }
+          }
+        }
+      }
+    } catch (err) {
+      // Non-blocking — round completes regardless of badge check errors
+      console.error('[P686] Badge certification check failed:', err);
+    }
+
+    updateLiveState({ freePhase: 'success', badgePointEarned, badgeCount: newBadgeCount });
+  }, [updateLiveState, user?.id, isCreator, session?.creatorProfileId, session?.joinerProfileId, session?.id]);
 
   /** P562/P592: "Discuss another story" from free mode success — dual-ack pattern */
   const handleFreeDiscussAnother = useCallback(() => {
@@ -1564,6 +1621,9 @@ export function ClarityLivePage() {
         celebrationAcknowledgedByCreator: false,
         celebrationAcknowledgedByJoiner: false,
         celebrationAcknowledgedBy: [],
+        // P686: Clear badge state for next round
+        badgePointEarned: false,
+        badgeCount: 0,
         // P600: Clear content selection so idle screen shows fresh
         selectedStoryId: undefined,
         selectedStoryData: undefined,
@@ -1608,6 +1668,7 @@ export function ClarityLivePage() {
           statement: p.statement,
           context: p.context,
           tags: p.tags,
+          systemTags: p.systemTags, // P686: needed for badge certification check
           positionCounts: p.positionCounts,
           userPosition: p.userPosition,
           profileSubjectPosition: p.profileSubjectPosition,

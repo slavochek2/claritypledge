@@ -32,6 +32,7 @@ import {
   ScrollText,
   Loader2,
   ImagePlus,
+  Award,
 } from "lucide-react";
 import { ClarityPageLoader } from "@/components/ui/clarity-loader";
 import { GravatarAvatar } from "@/components/ui/gravatar-avatar";
@@ -110,6 +111,7 @@ interface AdaptedPoint {
 
 import { storiesService } from "@/app/data/stories-service";
 import { pointsService } from "@/app/data/points-service";
+import { badgeService } from "@/app/data/badge-service";
 import { linkifyText } from "@/app/utils/linkify";
 import { calibrationService } from "@/app/data/calibration-service";
 import { agreementsService } from "@/app/data/agreements-service";
@@ -183,6 +185,9 @@ export function ProfilePageV2() {
   // P422: Agreements state
   const [agreements, setAgreements] = useState<ClarityAgreement[]>([]);
   const [agreementsLoading, setAgreementsLoading] = useState(true);
+
+  // P686: Badge count state
+  const [badgeCount, setBadgeCount] = useState(0);
 
   // Loading state for secondary content (stories, points, calibration)
   const [contentLoading, setContentLoading] = useState(true);
@@ -433,6 +438,17 @@ export function ProfilePageV2() {
       setRealEarsCount(count);
     }).catch(err => {
       console.error('Failed to load ears count:', err);
+    });
+  }, [profile]);
+
+  // P686: Load badge count separately
+  useEffect(() => {
+    if (!profile) return;
+
+    badgeService.getBadgeCount(profile.id).then(count => {
+      setBadgeCount(count);
+    }).catch(err => {
+      console.error('Failed to load badge count:', err);
     });
   }, [profile]);
 
@@ -809,6 +825,8 @@ export function ProfilePageV2() {
                         avatarColor={profile.avatarColor}
                         size="xl"
                         isPledger={profile.hasPledged}
+                        showBadge={badgeCount > 0}
+                        badgeCount={Math.min(badgeCount, 9)}
                       />
                     </button>
                   ) : (
@@ -819,6 +837,8 @@ export function ProfilePageV2() {
                         avatarColor={profile.avatarColor}
                         size="xl"
                         isPledger={profile.hasPledged}
+                        showBadge={badgeCount > 0}
+                        badgeCount={Math.min(badgeCount, 9)}
                       />
                     </div>
                   )}
@@ -905,6 +925,16 @@ export function ProfilePageV2() {
                     Take the Clarity Pledge
                   </Link>
                 ) : null}
+                {/* P686: Badge link — shown when profile has at least one verified badge point */}
+                {badgeCount > 0 && (
+                  <a
+                    href={`/p/${profile.slug}/badge`}
+                    className="inline-flex items-center gap-1 text-sm text-blue-500 hover:text-blue-600 hover:underline mt-1"
+                  >
+                    <Award className="h-4 w-4" aria-hidden="true" />
+                    {isOwner ? `My badge (${Math.min(badgeCount, 9)}/9)` : `See their badge (${Math.min(badgeCount, 9)}/9)`}
+                  </a>
+                )}
                 {/* P462: Partners count — grouped with pledge link as navigation cluster */}
                 {agreementsLoading ? (
                   <div className="h-[44px]" />
