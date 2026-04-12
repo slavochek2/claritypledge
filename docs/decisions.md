@@ -2,6 +2,40 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-12 [product]: Inbox = received letters only — sender completion notifications removed
+
+**Context:** `get_inbox_items` had a UNION ALL "Responses" branch returning `recipient_responded` / `link_respondent` items when someone completed a letter *you sent*. These appeared in the sender's inbox as "[Name] completed Test letter", mixed in with received letters. The Sent tab already shows completion counts per letter, so this was redundant and visually confusing — senders couldn't distinguish "letter I need to act on" from "notification I can ignore."
+**Decision:** Drop the Responses UNION ALL branch entirely. Inbox = `WHERE ld.receiver_profile_id = p_user_id` only. The `InboxItem.type` union was simplified to `'received'` only; dead switch cases and unused import removed from `inbox-tab.tsx`.
+**Alternatives rejected:** Keeping notifications but visually separating them (e.g., a "Notifications" subsection) — adds UI complexity for information already visible on the Sent tab. Filtering on the client — server should not return data the client discards.
+**Consequences:** Inbox will only ever show items where the logged-in user is the receiver. Any future inbox item types (e.g., system alerts) must use the received branch pattern, not a UNION ALL. `InboxItem.type` is `'received'` — adding a new type requires explicit product decision + migration.
+**References:** [20260412201830_fix_inbox_remove_responses_branch.sql](supabase/migrations/20260412201830_fix_inbox_remove_responses_branch.sql) | [inbox-tab.tsx](src/app/components/letters/inbox-tab.tsx)
+
+---
+
+## 2026-04-12 [process]: deploy-manifest.json records attempted migrations, not confirmed DB state
+
+**Context:** After applying a `CREATE OR REPLACE FUNCTION` migration via `migrate.sh`, the deploy-manifest showed the migration as applied and the script reported success. But the live DB function may not have been updated — the manifest is written locally by the script and does not reflect the actual SQL execution outcome if the Management API call silently failed. The fix appeared to not work in the browser even after hard refresh + cookie clear, suggesting the function body was unchanged in the DB.
+**Decision:** After any `CREATE OR REPLACE FUNCTION` migration, verify the live function body directly:
+```sql
+SELECT prosrc FROM pg_proc WHERE proname = 'function_name';
+```
+If `UNION ALL`, old column names, or removed logic is visible — the migration did not apply. Re-execute the SQL directly via `mcp__supabase__execute_sql`. The deploy-manifest is a local bookkeeping file, not a DB health check.
+**Alternatives rejected:** Trusting the manifest — the script's exit code 0 does not mean the Management API POST returned 200 with a successful execution. The gap is silent.
+**Consequences:** Any time a migration modifying a function body doesn't produce visible results in the browser after refresh, the first debugging step is `SELECT prosrc FROM pg_proc WHERE proname = '...'` — before looking at frontend code, caching, or session state.
+**References:** [supabase/deploy-manifest.json](supabase/deploy-manifest.json) | [scripts/migrate.sh](scripts/migrate.sh)
+
+---
+
+## 2026-04-12 [technical]: Letter-response confirm: try direct confirm first, fall back to sessionStorage draft on not_found
+
+**Context:** Two auth paths reach `/letter-response-confirm`: (1) email link (edge function pre-creates the pending row before sending the magic link → row exists on arrival); (2) Google OAuth (no pending row yet → must write sessionStorage draft before confirming). The previous code always wrote from sessionStorage first, silently swallowing errors when sessionStorage was empty (OAuth user had no draft).
+**Decision:** Try `confirmLetterResponse(letterId)` directly first. If `{ok: true}` → done (email path). If `error: 'not_found'` → fall back to writing the draft from sessionStorage, then confirm (OAuth path). Any other error propagates. Signup page letter-response path now uses `requestLetterResponseSignin` (admin `generateLink` edge function) instead of PKCE magic links — fixes cross-browser auth failure when the email opens in a different browser than where signup happened.
+**Alternatives rejected:** Always-write-draft-first — fails silently when sessionStorage is empty (no draft key) and leaves the user stuck. Separate endpoints for email vs OAuth paths — overcomplicates routing.
+**Consequences:** The confirm page now handles both paths with a single try-first strategy. Error surface is explicit: only `not_found` triggers the fallback; all other errors propagate to the UI. `requestLetterResponseSignin` must be the default for any new letter-response signup flow — PKCE magic links are unreliable cross-browser.
+**References:** [letter-response-confirm-page.tsx](src/app/pages/letter-response-confirm-page.tsx) | [signup-page.tsx](src/app/pages/signup-page.tsx) | [letters-service.ts](src/app/data/letters-service.ts)
+
+---
+
 ## 2026-04-12 [technical]: `invitation_expires_at` is a session-minting gate, not a reading gate
 
 **Context:** `create-and-open-letter` sets `invitation_expires_at = now()` on first open as replay defense (prevents reusing the token to mint fresh auth sessions). The `get_letter_for_reading` RPC checked `invitation_expires_at > now()`, causing every subsequent read to fail — the letter showed "Invalid or expired invitation" after the first open. P683 had already fixed this for the four engagement RPCs but missed the reading RPC.
