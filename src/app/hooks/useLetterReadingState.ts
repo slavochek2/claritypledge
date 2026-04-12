@@ -130,7 +130,7 @@ function saveState(deliveryId: string, state: LetterReadingState): void {
   }
 }
 
-function loadState(deliveryId: string): LetterReadingState | null {
+export function loadState(deliveryId: string): LetterReadingState | null {
   try {
     const raw = sessionStorage.getItem(storageKey(deliveryId));
     if (!raw) return null;

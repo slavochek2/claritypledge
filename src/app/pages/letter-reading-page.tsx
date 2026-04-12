@@ -26,7 +26,7 @@ import { LetterStaleTermsModal } from '@/app/components/letters/letter-stale-ter
 import { LetterFlowContent } from '@/app/components/letters/letter-flow-content';
 import type { PointProfileOwner } from '@/app/components/social/point-card-with-links';
 import { CURRENT_TERMS_VERSION, ACCEPTED_TERMS_VERSIONS } from '@/lib/constants';
-import { useLetterReadingState } from '@/app/hooks/useLetterReadingState';
+import { useLetterReadingState, loadState as loadReadingState } from '@/app/hooks/useLetterReadingState';
 import { countTotalPoints, estimateReadingMinutes } from '@/app/utils/letter-reading-utils';
 import {
   getLetterForReading,
@@ -378,6 +378,25 @@ export function LetterReadingPage() {
       }
     })();
   }, [currentUser, letter, viewState, staleTermsResolved]);
+
+  // Auto-skip cover when the user has in-progress reading state in sessionStorage
+  useEffect(() => {
+    if (pageState !== 'ready') return;
+    if (viewState !== 'cover') return;
+    if (!currentUser) return;           // anon users must click Open Letter (triggers auth flow)
+    if (!staleTermsResolved) return;    // wait for stale-terms check before skipping
+    if (!deliveryId) return;
+
+    const saved = loadReadingState(deliveryId);
+    if (!saved || saved.stories.length !== snapshots.length) return;
+
+    const hasProgress =
+      saved.currentStoryIndex > 0 ||
+      saved.stories.some((s) => s.rating !== null || Object.keys(s.positions).length > 0);
+    if (hasProgress) {
+      setViewState('reading');
+    }
+  }, [pageState, viewState, currentUser, staleTermsResolved, deliveryId, snapshots.length]);
 
   const handleStaleTermsAccept = useCallback(async () => {
     if (!currentUser) return;
