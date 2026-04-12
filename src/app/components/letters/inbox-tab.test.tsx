@@ -32,6 +32,7 @@ const unreadItem: InboxItem = {
   actor_name: 'Alice',
   timestamp: '2026-04-10T10:00:00Z',
   read_at: null,
+  completed_at: null,
 };
 
 const readItem: InboxItem = {
@@ -42,6 +43,18 @@ const readItem: InboxItem = {
   actor_name: 'Bob',
   timestamp: '2026-04-09T10:00:00Z',
   read_at: '2026-04-10T12:00:00Z',
+  completed_at: null,
+};
+
+const completedReceivedItem: InboxItem = {
+  type: 'received',
+  delivery_id: 'delivery-3',
+  letter_id: 'letter-3',
+  title: 'Completed Letter',
+  actor_name: 'Carol',
+  timestamp: '2026-04-08T10:00:00Z',
+  read_at: '2026-04-08T11:00:00Z',
+  completed_at: '2026-04-08T12:00:00Z',
 };
 
 describe('InboxTab — P689 read/unread indicators', () => {
@@ -130,5 +143,31 @@ describe('InboxTab — P689 read/unread indicators', () => {
       (el) => !el.hasAttribute('data-unread')
     ) as HTMLElement;
     expect(readRow.className).toContain('bg-card');
+  });
+});
+
+describe('InboxTab — P695 completed letter button', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('pending received item shows "Read" button with blue fill', async () => {
+    vi.mocked(getInboxItems).mockResolvedValue([unreadItem]);
+    const { container } = render(<InboxTab userId="test-user" />, { wrapper });
+    await screen.findByText(/Alice/);
+
+    const button = container.querySelector('button');
+    expect(button?.textContent).toContain('Read');
+    expect(button?.className).toContain('bg-blue-500');
+  });
+
+  it('completed received item shows "Results" button with outline variant (not blue fill)', async () => {
+    vi.mocked(getInboxItems).mockResolvedValue([completedReceivedItem]);
+    const { container } = render(<InboxTab userId="test-user" />, { wrapper });
+    await screen.findByText(/Carol/);
+
+    const button = container.querySelector('button');
+    expect(button?.textContent).toContain('Results');
+    expect(button?.className).not.toContain('bg-blue-500');
   });
 });

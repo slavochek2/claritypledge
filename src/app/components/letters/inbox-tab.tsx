@@ -152,14 +152,14 @@ export function InboxTab({ userId, onUnreadCountChange }: InboxTabProps) {
               <div className="flex-shrink-0">
                 <Button
                   size="sm"
-                  className={item.type === 'received'
+                  className={item.type === 'received' && !item.completed_at
                     ? 'bg-blue-500 hover:bg-blue-600 text-white min-h-[44px]'
                     : 'min-h-[44px]'}
-                  variant={item.type === 'received' ? undefined : 'outline'}
+                  variant={item.type === 'received' && !item.completed_at ? undefined : 'outline'}
                   disabled={isMarking}
                   onClick={() => handleAction(item)}
                 >
-                  {item.type === 'received' ? (
+                  {item.type === 'received' && !item.completed_at ? (
                     <><Mail className="w-4 h-4 mr-1.5" /> Read</>
                   ) : (
                     <><Eye className="w-4 h-4 mr-1.5" /> Results</>
