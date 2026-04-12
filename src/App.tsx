@@ -48,6 +48,7 @@ const LetterComposePage = lazy(() => import("@/app/pages/letter-compose-page").t
 const LetterPreviewPage = lazy(() => import("@/app/pages/letter-preview-page").then(m => ({ default: m.LetterPreviewPage })));
 const LetterReadingPage = lazy(() => import("@/app/pages/letter-reading-page").then(m => ({ default: m.LetterReadingPage })));
 const LetterResultsPage = lazy(() => import("@/app/pages/letter-results-page").then(m => ({ default: m.LetterResultsPage })));
+const LetterResponseConfirmPage = lazy(() => import("@/app/pages/letter-response-confirm-page").then(m => ({ default: m.LetterResponseConfirmPage })));
 
 // Dev/prototype pages
 const TreePage = lazy(() => import("@/app/pages/TreePage").then(m => ({ default: m.TreePage })));
@@ -649,6 +650,18 @@ export default function ClarityPledgeApp() {
             <ClarityLandingLayout chromeFree>
               <LazyRoute>
                 <LetterResultsPage />
+              </LazyRoute>
+            </ClarityLandingLayout>
+          }
+        />
+
+        {/* P684: Letter response confirmation (chrome-free) — must be before /letter/:id */}
+        <Route
+          path="/letter/:letterId/confirm"
+          element={
+            <ClarityLandingLayout chromeFree>
+              <LazyRoute>
+                <LetterResponseConfirmPage />
               </LazyRoute>
             </ClarityLandingLayout>
           }
