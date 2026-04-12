@@ -18,9 +18,9 @@ import { LiveStoryCardExpanded } from '@/app/components/partners/live-story-card
 import { JourneyToUnderstanding } from '@/app/components/partners/live-mode-view';
 import { GapBanner } from '@/app/components/shared/gap-banner';
 import { ComprehensionRatingCard } from '@/app/components/shared/comprehension-rating-card';
-import { PositionSelector } from '@/app/components/shared/position-selector';
 import { PointCardWithLinks } from '@/app/components/social/point-card-with-links';
 import type { PointProfileOwner } from '@/app/components/social/point-card-with-links';
+import type { Position } from '@/app/components/shared/prototype-types';
 import {
   Drawer,
   DrawerContent,
@@ -200,34 +200,22 @@ export function LetterFlowContent({
               profileOwner={senderProfileOwner}
               liveSessionMode
               disableNavigation
-              disablePositionButtons
-              hideActions
               currentUserId="__receiver__"
+              onPositionSelect={(pos) => setSelectedPosition(pos as PositionType | null)}
+              selectedPosition={selectedPosition as Position}
             />
-            <Drawer open dismissible={false} modal={false}>
-              <DrawerContent overlayClassName="bg-transparent">
-                <DrawerHeader>
-                  <DrawerTitle className="sr-only">Choose your position</DrawerTitle>
-                  <DrawerDescription className="sr-only">Select agree, neutral, or disagree for this point.</DrawerDescription>
-                </DrawerHeader>
-                <div className="px-4">
-                  <PositionSelector
-                    selectedPosition={selectedPosition}
-                    onSelect={setSelectedPosition}
-                    disabled={isSubmitting}
-                  />
-                </div>
-                <DrawerFooter>
-                  <Button
-                    onClick={handleSubmitPosition}
-                    disabled={!selectedPosition || isSubmitting}
-                    className="w-full bg-[#0044CC] hover:bg-[#0033AA] text-white min-h-[44px]"
-                  >
-                    Submit
-                  </Button>
-                </DrawerFooter>
-              </DrawerContent>
-            </Drawer>
+            <Button
+              onClick={handleSubmitPosition}
+              disabled={!selectedPosition || isSubmitting}
+              className="w-full bg-[#0044CC] hover:bg-[#0033AA] text-white"
+            >
+              Submit
+            </Button>
+            {!selectedPosition && !isSubmitting && (
+              <p className="text-sm text-muted-foreground text-center">
+                Select your position above to continue
+              </p>
+            )}
           </>
         )}
 
@@ -345,34 +333,22 @@ export function LetterFlowContent({
               profileOwner={senderProfileOwner}
               liveSessionMode
               disableNavigation
-              disablePositionButtons
-              hideActions
               currentUserId="__receiver__"
+              onPositionSelect={(pos) => setSelectedPosition(pos as PositionType | null)}
+              selectedPosition={selectedPosition as Position}
             />
-            <Drawer open dismissible={false} modal={false}>
-              <DrawerContent overlayClassName="bg-transparent">
-                <DrawerHeader>
-                  <DrawerTitle className="sr-only">Choose your position</DrawerTitle>
-                  <DrawerDescription className="sr-only">Select agree, neutral, or disagree for this point.</DrawerDescription>
-                </DrawerHeader>
-                <div className="px-4">
-                  <PositionSelector
-                    selectedPosition={selectedPosition}
-                    onSelect={setSelectedPosition}
-                    disabled={isSubmitting}
-                  />
-                </div>
-                <DrawerFooter>
-                  <Button
-                    onClick={handleSubmitPosition}
-                    disabled={!selectedPosition || isSubmitting}
-                    className="w-full bg-[#0044CC] hover:bg-[#0033AA] text-white min-h-[44px]"
-                  >
-                    Submit
-                  </Button>
-                </DrawerFooter>
-              </DrawerContent>
-            </Drawer>
+            <Button
+              onClick={handleSubmitPosition}
+              disabled={!selectedPosition || isSubmitting}
+              className="w-full bg-[#0044CC] hover:bg-[#0033AA] text-white"
+            >
+              Submit
+            </Button>
+            {!selectedPosition && !isSubmitting && (
+              <p className="text-sm text-muted-foreground text-center">
+                Select your position above to continue
+              </p>
+            )}
           </>
         )}
 
