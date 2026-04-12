@@ -2,6 +2,26 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-12 [technical]: LetterSealConfirmation has no dedicated route — E2E tests must drive through compose flow
+
+**Context:** P688 `/verify` generated `e2e/p688-seal-confirmation-invite.spec.ts` with a `gotoSealConfirmation` helper that navigated to `/letter/${docId}/seal-done?letterId=...`. All 6 tests returned 404. `LetterSealConfirmation` is not at a URL — it's rendered inside `letter-compose-page.tsx` when `phase === 'confirmation'`, reached only after the prediction walk + seal action complete.
+**Decision:** E2E tests for `LetterSealConfirmation` must drive the real compose flow: (1) navigate to `/letter/:docId/compose`, (2) wait for prediction walk (public docs auto-skip modal via useEffect), (3) rate each story, (4) click "Seal & Get Link", (5) wait for `<h2>Letter Sealed</h2>`. The fixed helper `gotoSealConfirmationPublic` captures the sealed letter ID from the link card after sealing. Do not construct a direct URL — there is none.
+**Alternatives rejected:** Adding a dedicated `/letter/:letterId/seal-confirmation` route to `App.tsx` — would expose a bookmark-able screen that has no standalone meaning (letter is already sealed; screen is ceremonial). Testing `LetterSealConfirmation` in isolation via unit test — misses the integration: the component receives `letterId`, `docId`, `isPublicDoc`, and `onBack` from the compose orchestrator.
+**Consequences:** Any future test that needs to verify seal-confirmation behavior must go through the full compose flow for that doc type. Public docs auto-skip the receiver modal (P665 useEffect), so the test starts at the prediction walk. Private docs show the receiver modal first — tests would need to submit it before reaching prediction walk. The `gotoSealConfirmationPublic` helper in `e2e/p688-seal-confirmation-invite.spec.ts` is the reference implementation.
+**References:** [letter-compose-page.tsx](src/app/pages/letter-compose-page.tsx) | [letter-seal-confirmation.tsx](src/app/components/letters/letter-seal-confirmation.tsx) | [p688-seal-confirmation-invite.spec.ts](e2e/p688-seal-confirmation-invite.spec.ts)
+
+---
+
+## 2026-04-12 [process]: Running 4+ Playwright suites together triggers Supabase auth 429 — use --workers=1
+
+**Context:** P688 `/verify` ran 5 spec files in one `npx playwright test` command with the default `workers: 3` (from playwright.config.ts env var). The combined ~15 concurrent workers all called `signInWithPassword` in their `beforeAll` setup simultaneously. Supabase test project returned `AuthApiError: Request rate limit reached (status 429, code: over_request_rate_limit)`. 10 tests failed or were marked flaky — all due to auth setup, not code bugs.
+**Decision:** When running 3+ spec files together, always pass `--workers=1`. Individual suite runs (1-2 files) are fine with default workers. The rate limit is per-project on the Supabase free-tier test project; sequential auth calls never hit it.
+**Alternatives rejected:** Splitting into smaller batches without `--workers=1` — still fails if each batch has 3+ suites. Adding exponential retry to `setTestSession` — masks the root cause and makes test runs unpredictable.
+**Consequences:** `/verify` should always use `--workers=1` when running its full suite. The `playwright.config.ts` default of 3 workers is correct for single-suite development iteration; it should NOT be changed globally. Add `--workers=1` to any CI command that runs the full E2E suite. Symptom to recognise: `AuthApiError: Request rate limit reached` in `beforeAll` → not a code bug, reduce workers.
+**References:** [playwright.config.ts](playwright.config.ts) | [e2e/helpers/test-user.ts](e2e/helpers/test-user.ts)
+
+---
+
 ## 2026-04-12 [product]: H-AgentEpistemics — MCP epistemic verification as testable product hypothesis, article-as-demand-test pattern
 
 **Context:** `/claude-conversations-to-cp` analysis of 4 conversations (Apr 11-12) surfaced a recurring signal across 7 `[/cp]` markers: AI agents accumulate unverified assertions at scale and nobody is building verification infrastructure. The signal emerged from a live demonstration — Claude made 3 confident wrong assertions about the user's situation in one conversation, each caught and corrected using the same verification protocol ClarityPledge builds for humans. The mechanism maps directly to an MCP verification layer. Separately, an inverse Clarity Letter concept emerged: lead with "here is how I understand YOU" before sharing your own story/point.
