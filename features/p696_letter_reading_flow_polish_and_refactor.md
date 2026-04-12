@@ -4,9 +4,9 @@ type: task
 rank: 1000696.0
 tags: [letters, reading-flow, refactor, polish]
 created_date: '2026-04-12'
-delivery_stage: ui
+delivery_stage: generate-tests
 pipeline_plan: [create-spec, ux, architect, ui, generate-tests, decompose, dev, verify]
-pipeline_ran: [create-spec, ux, architect, ui]
+pipeline_ran: [create-spec, ux, architect, ui, generate-tests]
 pipeline_skipped: [challenge-prd -- problems confirmed from annotated screenshots not assumptions, spec-review -- fresh spec from current conversation no drift risk]
 ---
 
@@ -667,3 +667,49 @@ No upstream concerns identified. The architecture decisions (AD1-AD7) fully addr
 2. **`PositionButtons` has a `disabled` prop** already used in letter reveal steps — confirms the pattern of disabling inline buttons when the selector moves to Drawer.
 3. **`animate-fade-in` keyframe already exists** in `tailwind.config.js` (`fade-in: 0.5s ease-out`). The 400ms delay is handled by `useEffect` timer, not CSS animation delay — this allows the `aria-hidden` toggle to be timer-driven rather than animation-event-driven.
 4. **`LiveStoryCardExpanded` accepts `className` prop** — the centering fix (`mx-auto`) is applied at call sites, not inside the component. This avoids changing a shared component's default behavior.
+
+## Test Coverage Strategy
+
+### Unit Tests (Vitest)
+
+**`src/tests/p696-letter-reading-utils.test.ts`** — 22 tests for the 3 extracted pure functions:
+- `estimateReadingMinutes`: 8 tests — floor behavior, spec examples, old-vs-new formula regression, large letters
+- `countTotalPoints`: 6 tests — empty arrays, null configs, mixed snapshots, multi-snapshot accumulation
+- `calculateStoryProgress`: 8 tests — phase progression ordering, 0-point stories, boundary values 0-100
+
+### E2E Tests (Playwright)
+
+**`e2e/p696-letter-reading-polish.spec.ts`** — 14 tests covering P696 delta:
+- Smoke (page load, no console errors)
+- Metadata: cover shows "N stories · M points · ~X minutes", reading time uses new formula, drafts list shows point count
+- Drawer actions: position selector in Drawer (not inline), button labels ("Submit Your Position", "Submit My Rating"), disabled-until-selected
+- Comparison card: shows You vs Author after submit, two-column (not dropdown)
+- 400ms delay: "Next" not immediately visible, appears after delay
+- Button labels: "Next Story" vs "Complete Letter" on final story
+- Public reading: unauthenticated flow reaches point-engage
+
+**`e2e/a11y/p696-accessibility.spec.ts`** — 8 tests:
+- sr-only Drawer titles per phase (point-engage, story-rate)
+- aria-live="polite" on comparison card
+- aria-hidden during 400ms delay, removed after
+- No auto-focus on delayed button
+- 44px touch targets on Drawer buttons
+- Keyboard navigation to position selector
+
+### UAT Checklist
+
+**`features/uat/p696.md`** — manual verification for visual/layout items not reliably testable in Playwright:
+- Centering at 375px/768px/1280px
+- Preview vs reading parity
+- Drawer-everywhere consistency across all 6 phases
+- Comparison card visual design
+- 400ms delay feel
+- P673 regression checks
+
+### NOT Tested (with reasoning)
+
+- CSS centering (`mx-auto`) — layout correctness not reliably testable without pixel comparison
+- Exact 400ms timing — CI timer variance; tested behaviorally (not visible at 100ms, visible at 2000ms)
+- `getDocsByUser` SQL internals — tested indirectly via drafts list E2E
+- `LetterFlowContent` unit tests — no pure-logic surface; E2E covers behavioral contract
+- Comparison card column layout — visual; covered in UAT
