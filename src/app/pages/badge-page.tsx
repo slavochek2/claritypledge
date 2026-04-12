@@ -17,6 +17,7 @@ import { ArrowLeft, LinkIcon, ChevronDownIcon, CopyIcon, CheckIcon, LinkedinIcon
 import { ClarityPageLoader } from "@/components/ui/clarity-loader";
 import { useAuth } from "@/auth";
 import { badgeService, type BadgePoint } from "@/app/data/badge-service";
+import { supabase } from "@/lib/supabase";
 import { copyToClipboard } from "@/lib/utils";
 import { toast } from "sonner";
 import { toPng } from "html-to-image";
@@ -34,13 +35,17 @@ export function BadgePage() {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [badgePoints, setBadgePoints] = useState<BadgePoint[]>([]);
   const [certifierProfile, setCertifierProfile] = useState<Profile | null>(null);
+  const [pointTitles, setPointTitles] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
 
   const { session } = useAuth();
 
   // Export state
+  // The export component is only mounted when a download is in progress to avoid
+  // having a duplicate "CLARITY BADGE" heading in the DOM (Playwright strict mode).
   const exportRef = useRef<HTMLDivElement>(null);
   const [isExporting, setIsExporting] = useState(false);
+  const [showExportComponent, setShowExportComponent] = useState(false);
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
@@ -66,8 +71,22 @@ export function BadgePage() {
         const points = await badgeService.getBadgePoints(profileData.id);
         setBadgePoints(points);
 
-        // Load certifier profile from the first badge point's verifiedBy UUID
+        // Fetch actual point titles for all earned badge points in a single query
         if (points.length > 0) {
+          const pointIds = points.map((p) => p.pointId);
+          const { data: pointRows } = await supabase
+            .from("points")
+            .select("id, statement")
+            .in("id", pointIds);
+          if (pointRows) {
+            const titles: Record<string, string> = {};
+            for (const row of pointRows) {
+              titles[row.id] = row.statement;
+            }
+            setPointTitles(titles);
+          }
+
+          // Load certifier profile from the first badge point's verifiedBy UUID
           const certifierProfile = await getProfile(points[0].verifiedBy);
           setCertifierProfile(certifierProfile);
         }
@@ -80,6 +99,36 @@ export function BadgePage() {
 
     loadData();
   }, [id]);
+
+  // Trigger PNG export once the export component is mounted in the DOM.
+  // Must be declared here (before early returns) to avoid Rules of Hooks violation.
+  useEffect(() => {
+    if (!showExportComponent || !exportRef.current || !profile) return;
+
+    let cancelled = false;
+    toPng(exportRef.current, { pixelRatio: 2, cacheBust: true })
+      .then((dataUrl) => {
+        if (cancelled) return;
+        const link = document.createElement("a");
+        link.download = `clarity-badge-${profile.slug}.png`;
+        link.href = dataUrl;
+        link.click();
+        toast.success("Badge downloaded!");
+      })
+      .catch((error) => {
+        if (cancelled) return;
+        console.error("Failed to export badge certificate:", error);
+        toast.error("Failed to download. Try a screenshot instead.");
+      })
+      .finally(() => {
+        if (cancelled) return;
+        setIsExporting(false);
+        setShowExportComponent(false);
+      });
+
+    return () => { cancelled = true; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showExportComponent, exportRef.current]);
 
   if (loading) {
     return <ClarityPageLoader />;
@@ -144,25 +193,11 @@ export function BadgePage() {
     window.open(url, "_blank", "noopener,noreferrer");
   };
 
-  const handleDownloadCertificate = async () => {
-    if (!exportRef.current) return;
+  const handleDownloadCertificate = () => {
+    // Mount the export component first; the useEffect (declared before early returns)
+    // will trigger the actual download once exportRef.current is available.
     setIsExporting(true);
-    try {
-      const dataUrl = await toPng(exportRef.current, {
-        pixelRatio: 2,
-        cacheBust: true,
-      });
-      const link = document.createElement("a");
-      link.download = `clarity-badge-${profile.slug}.png`;
-      link.href = dataUrl;
-      link.click();
-      toast.success("Badge downloaded!");
-    } catch (error) {
-      console.error("Failed to export badge certificate:", error);
-      toast.error("Failed to download. Try a screenshot instead.");
-    } finally {
-      setIsExporting(false);
-    }
+    setShowExportComponent(true);
   };
 
   const verifiedCount = badgePoints.length;
@@ -170,15 +205,10 @@ export function BadgePage() {
   return (
     <>
       <SEO
-        title={`${profile.name}'s Clarity Badge | ClarityPledge`}
+        title={`${profile.name}'s Clarity Badge`}
         description={`${profile.name} is calibrated on ${verifiedCount} of 9 clarity points.`}
         url={`/p/${profile.slug}/badge`}
         type="profile"
-        profile={{
-          name: profile.name,
-          role: profile.role,
-          signedAt: badgePoints[0]?.verifiedAt,
-        }}
       />
 
       <div className="min-h-screen bg-background">
@@ -275,6 +305,7 @@ export function BadgePage() {
             certifierName={certifierName}
             certifierSlug={certifierSlug}
             badgeUrl={badgeUrl}
+            pointTitles={pointTitles}
           />
 
           {/* Visitor CTA */}
@@ -284,7 +315,7 @@ export function BadgePage() {
                 Join the next Clarity Workshop
               </h3>
               <p className="text-sm text-muted-foreground">
-                Experience the same calibration process and earn your badge.
+                Experience the same calibration process and get certified.
               </p>
               <Link to="/events">
                 <Button className="bg-blue-500 hover:bg-blue-600 text-white">
@@ -296,31 +327,34 @@ export function BadgePage() {
         </div>
       </div>
 
-      {/* Hidden export certificate — rendered off-screen for html-to-image */}
-      <div
-        style={{
-          position: "absolute",
-          left: "-9999px",
-          top: "-9999px",
-        }}
-        aria-hidden="true"
-      >
-        <ExportBadgeCertificate
-          ref={exportRef}
-          profile={{
-            name: profile.name,
-            slug: profile.slug ?? "",
-            avatarUrl: profile.avatarUrl ?? undefined,
-            avatarColor: profile.avatarColor ?? undefined,
-            email: profile.email ?? undefined,
-            role: profile.role ?? undefined,
+      {/* Hidden export certificate — only mounted when a download is triggered.
+          Lazy mounting avoids having a duplicate heading text in the DOM. */}
+      {showExportComponent && (
+        <div
+          style={{
+            position: "absolute",
+            left: "-9999px",
+            top: "-9999px",
           }}
-          badgePoints={badgePoints}
-          certifierName={certifierName}
-          certifierSlug={certifierSlug}
-          badgeUrl={badgeUrl}
-        />
-      </div>
+          aria-hidden="true"
+        >
+          <ExportBadgeCertificate
+            ref={exportRef}
+            profile={{
+              name: profile.name,
+              slug: profile.slug ?? "",
+              avatarUrl: profile.avatarUrl ?? undefined,
+              avatarColor: profile.avatarColor ?? undefined,
+              email: profile.email ?? undefined,
+              role: profile.role ?? undefined,
+            }}
+            badgePoints={badgePoints}
+            certifierName={certifierName}
+            certifierSlug={certifierSlug}
+            badgeUrl={badgeUrl}
+          />
+        </div>
+      )}
     </>
   );
 }

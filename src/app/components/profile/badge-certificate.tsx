@@ -27,12 +27,14 @@ export interface BadgeCertificateProps {
   badgePointsReference?: BadgePointReference[];
   /** Badge public URL for QR code */
   badgeUrl?: string;
+  /** Actual point titles fetched from DB, keyed by pointId */
+  pointTitles?: Record<string, string>;
 }
 
 // ── Canonical stations (9 total, one per station, simplest version) ────────────
 // Source: docs/technical/badge-points-reference.md
 
-export const CANONICAL_BADGE_STATIONS: BadgePointReference[] = [
+const CANONICAL_BADGE_STATIONS: BadgePointReference[] = [
   {
     stationTag: "st1",
     pointId: "6d253c2b-32b1-4a10-826c-4a4844b23e14",
@@ -116,6 +118,7 @@ export function BadgeCertificate({
   certifierSlug,
   badgePointsReference = CANONICAL_BADGE_STATIONS,
   badgeUrl,
+  pointTitles = {},
 }: BadgeCertificateProps) {
   const verifiedCount = badgePoints.length;
   const earliestDate = getEarliestDate(badgePoints);
@@ -190,16 +193,50 @@ export function BadgeCertificate({
 
         {/* ── Point list ────────────────────────────────────────────────── */}
         <ul aria-label="Clarity badge points" className="space-y-2">
+          {/* Earned badge points not matching any canonical station (e.g. custom points) */}
+          {badgePoints
+            .filter((bp) => !badgePointsReference.some((s) => s.pointId === bp.pointId))
+            .map((bp) => {
+              const title = pointTitles[bp.pointId] ?? "Verified clarity point";
+              return (
+                <li
+                  key={bp.id}
+                  aria-label={`Verified: ${title}, ${formatDate(bp.verifiedAt)}`}
+                  className="flex items-start gap-3 text-sm"
+                >
+                  <Check
+                    aria-hidden="true"
+                    className="mt-0.5 w-4 h-4 shrink-0 text-[#002B5C] dark:text-blue-400"
+                  />
+                  <span className="flex-1 leading-snug">
+                    <a
+                      href={`/point/${bp.pointId}`}
+                      className="text-[#1A1A1A] dark:text-foreground hover:text-[#0044CC] hover:underline transition-colors"
+                    >
+                      {title}
+                    </a>
+                    <span className="ml-2 text-xs text-[#1A1A1A]/50 dark:text-muted-foreground whitespace-nowrap">
+                      {formatDate(bp.verifiedAt)}
+                    </span>
+                  </span>
+                </li>
+              );
+            })}
+          {/* Canonical badge stations */}
           {badgePointsReference.map((station) => {
             const earned = badgePoints.find(
               (bp) => bp.pointId === station.pointId
             );
+            // Use actual DB title if available, otherwise fall back to canonical title
+            const displayTitle = earned && pointTitles[station.pointId]
+              ? pointTitles[station.pointId]
+              : station.title;
             return (
               <li
                 key={station.stationTag}
                 aria-label={
                   earned
-                    ? `Verified: ${station.title}, ${formatDate(earned.verifiedAt)}`
+                    ? `Verified: ${displayTitle}, ${formatDate(earned.verifiedAt)}`
                     : `Not yet verified: ${station.title}`
                 }
                 className="flex items-start gap-3 text-sm"
@@ -218,10 +255,10 @@ export function BadgeCertificate({
                 <span className="flex-1 leading-snug">
                   {earned ? (
                     <a
-                      href={`/points/${station.pointId}`}
+                      href={`/point/${station.pointId}`}
                       className="text-[#1A1A1A] dark:text-foreground hover:text-[#0044CC] hover:underline transition-colors"
                     >
-                      {station.title}
+                      {displayTitle}
                     </a>
                   ) : (
                     <span className="text-[#1A1A1A]/50 dark:text-muted-foreground">

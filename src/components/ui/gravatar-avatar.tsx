@@ -87,6 +87,7 @@ export function GravatarAvatar({
     <div className="relative inline-block" data-testid="gravatar-avatar-wrapper">
       <div
         data-testid="gravatar-avatar"
+        {...(ringVisible ? { "data-pledger": "true" } : {})}
         className={`rounded-full flex-shrink-0 overflow-hidden ${sizeClasses[size]} ${pledgerRingClass} ${className} ${!showImage ? "flex items-center justify-center text-white font-bold" : ""}`}
         style={{ backgroundColor: showImage ? "transparent" : (avatarColor || "#0044CC") }}
       >

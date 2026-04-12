@@ -67,13 +67,16 @@ export function FreeModeSuccess({
         <div className="text-center mb-4">
           <Award className="h-6 w-6 text-amber-500 mx-auto mb-1" aria-hidden />
           <h2 className="text-amber-700 font-semibold">
-            {isCertifier
-              ? `You verified ${partnerName} on a clarity point! ${Math.min(badgeCount ?? 0, 9)}/9`
-              : isFullBadge
+            {isFullBadge
               ? `Full badge earned! 9/9 clarity points verified`
               : `Badge point earned! ${Math.min(badgeCount ?? 0, 9)}/9 clarity points verified`
             }
           </h2>
+          {isCertifier && (
+            <p className="text-sm text-amber-600 mt-1">
+              You verified {partnerName} on a clarity point
+            </p>
+          )}
         </div>
       )}
 

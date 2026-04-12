@@ -1551,23 +1551,69 @@ export function ClarityLivePage() {
 
         if (myProfile?.is_certifier === true) {
           setIsCertifier(true);
-          // Find the #understanding-tagged point in the current story
+          // Find the #understanding-tagged point in the current story.
+          // Primary path: read from selectedStoryData already in liveState.
+          // Fallback path: when selectedStoryData is absent (e.g. state injected
+          //   directly in tests or via DB write), query from selectedPointId if set,
+          //   or query points linked to selectedStoryId.
           const selectedStoryData = current.selectedStoryData;
-          const understandingPoint = selectedStoryData?.points?.find(
+          let understandingPoint: { id: string } | undefined = selectedStoryData?.points?.find(
             (p) => p.systemTags?.includes('understanding')
           );
 
+          if (!understandingPoint) {
+            // P686 fallback: resolve from DB when story data not in liveState
+            const pointIdFromState = current.selectedPointId as string | undefined;
+            const storyIdFromState = current.selectedStoryId as string | undefined;
+
+            if (pointIdFromState) {
+              // selectedPointId is set — check if it's an #understanding point
+              const { data: pointRow } = await supabase
+                .from('points')
+                .select('id, system_tags')
+                .eq('id', pointIdFromState)
+                .maybeSingle();
+              const tags: string[] = (pointRow as { id: string; system_tags: string[] | null } | null)?.system_tags ?? [];
+              if (tags.includes('understanding')) {
+                understandingPoint = { id: pointIdFromState };
+              }
+            } else if (storyIdFromState) {
+              // selectedStoryId is set — find first #understanding point via story_points join
+              const { data: spRows } = await supabase
+                .from('story_points')
+                .select('point_id, points!inner(id, system_tags)')
+                .eq('story_id', storyIdFromState);
+              const match = (spRows as Array<{ point_id: string; points: { id: string; system_tags: string[] | null } }> | null)
+                ?.find(row => row.points.system_tags?.includes('understanding'));
+              if (match) {
+                understandingPoint = { id: match.point_id };
+              }
+            }
+          }
+
           if (understandingPoint) {
-            // Read listener's position from livePositions (top-level keys for JSONB safety)
-            const listenerPosition = isCreator
+            // Read listener's position from livePositions (top-level keys for JSONB safety).
+            // Fallback: query point_positions table when livePositions not populated.
+            let listenerPosition: string | null | undefined = isCreator
               ? current.livePositionsJoiner?.[understandingPoint.id]
               : current.livePositionsCreator?.[understandingPoint.id];
+
+            if (listenerPosition == null) {
+              // P686 fallback: resolve listener position from DB
+              const { data: posRow } = await supabase
+                .from('point_positions')
+                .select('position')
+                .eq('point_id', understandingPoint.id)
+                .eq('user_id', listenerProfileId)
+                .maybeSingle();
+              listenerPosition = (posRow as { position: string } | null)?.position ?? null;
+            }
 
             if (listenerPosition === 'agree' || listenerPosition === 'strongly_agree') {
               const result = await badgeService.insertBadgePoint({
                 userId: listenerProfileId,
                 pointId: understandingPoint.id,
-                storyId: selectedStoryData?.id ?? null,
+                storyId: selectedStoryData?.id ?? (current.selectedStoryId as string | undefined) ?? null,
                 verifiedBy: myProfileId,
                 sessionId: session?.id ?? '',
                 position: listenerPosition as 'agree' | 'strongly_agree',
