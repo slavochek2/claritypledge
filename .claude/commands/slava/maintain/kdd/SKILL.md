@@ -79,7 +79,11 @@ Recommendation: Remove from README.md, link to definitions.md instead.
    ```bash
    git branch --show-current
    git worktree list
+   pwd
    ```
+   If `pwd` output contains `.claude/worktrees`, **STOP immediately:**
+   > "KDD must run from the main repo root, not a worktree. CWD is [pwd output]. Switch to the main repo root and re-run /kdd."
+
    If the current branch is NOT `main`, **STOP. Do not write to any doc or commit anything. Do not switch branches yourself.**
 
    Tell the user:
