@@ -2,6 +2,26 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-13 [product]: Comprehension rating question — personalized with sender name and intention framing
+
+**Context:** Letter reading flow asked "How well do you believe you understand this story?" — generic, no sender reference, no framing of what "understanding" means.
+**Decision:** Question is now `"How well do you believe you understand [senderName]'s intention behind their story?"` — sender name is injected at render time from the `senderName` prop. Matches the `/live` pattern which asks "How well do you believe you understand [Partner]'s intention?" and adds "behind their story" for letter-specific context.
+**Alternatives rejected:** "How well do you understand this story in the way [senderName] meant it?" — more colloquial but less consistent with /live phrasing. Generic question — no personalization, misses the key framing that *intention* is what's being rated.
+**Consequences:** Any copy of this question elsewhere (e.g., letter-prediction-walk.tsx) should be reviewed for the same personalization. Submit button label was also simplified from "Submit My Rating" → "Submit" for consistency with all other phase buttons.
+**References:** [letter-flow-content.tsx](src/app/components/letters/letter-flow-content.tsx)
+
+---
+
+## 2026-04-13 [product]: Point-engage position selector — inside card, Submit in Drawer (Drawer-everywhere amended)
+
+**Context:** P696 Drawer-everywhere moved position selection into a Drawer, separating the point statement from its position buttons. This broke proximity — readers had to mentally connect the card at the top with buttons docked at the bottom. The gap was especially jarring when the card was short (less than half the viewport).
+**Decision:** Position selector buttons live inside `PointCardWithLinks` for `point-engage` and `remaining-point-engage` phases (restored via `onPositionSelect`/`selectedPosition` props, no `disablePositionButtons`/`hideActions`). Submit button stays in the bottom-docked Drawer — consistent with all other phases' action zone. `PositionSelector` component removed from this flow (buttons are now built into the card).
+**Alternatives rejected:** Fully inline Submit below the card — breaks spatial consistency; on tall phones Submit floats mid-screen while all other phases pin actions to the bottom. Keeping full Drawer (P696 state) — the position/card gap was the reported UX problem.
+**Consequences:** Drawer-everywhere rule is now: *content selectors that are tightly coupled to displayed content go inside the card; primary action (Submit/Next) always goes in the Drawer.* Future phases that add a multi-option selector should follow this split. `PositionSelector` is still used by `/live` — no changes needed there.
+**References:** [letter-flow-content.tsx](src/app/components/letters/letter-flow-content.tsx)
+
+---
+
 ## 2026-04-13 [technical]: Session resume guard must check story progress, not just currentStoryIndex
 
 **Context:** `useLetterReadingState` restores from sessionStorage only when `saved.currentStoryIndex > 0`. For single-story letters (or any case where the user completes all phases of story 0), the index stays 0 — so a page reload discards the saved state and shows the rating card again.
