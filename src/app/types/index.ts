@@ -763,6 +763,16 @@ export interface LiveSessionState {
 
   /** P600: Speaker's re-rated belief after hearing paraphrase (3rd number before sliders) */
   freeRerating?: number;
+
+  // ============================================================================
+  // P686: Badge auto-certification
+  // ============================================================================
+
+  /** true when a badge point was just earned this round */
+  badgePointEarned?: boolean;
+
+  /** total badge count after this round (for celebration display) */
+  badgeCount?: number;
 }
 
 /** Default initial state for new live sessions */
