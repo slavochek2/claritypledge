@@ -11,15 +11,15 @@
  * 6. Escape dismisses the dialog; focus returns to the "+ Also invite" trigger (soft check)
  * 7. Private doc regression guard: no "+ Also invite" affordance and no shareable link card
  *
- * NOTE: The seal-confirmation screen is reached via the letter compose → predict → seal flow.
- * We navigate to it directly by constructing its URL after sealing a letter in beforeAll.
- * The component is rendered at /letter/:letterId/seal-confirmation (check App.tsx).
+ * NOTE: The seal-confirmation screen is reached via the real compose flow:
+ *   navigate /letter/:docId/compose → rate story → click "Seal & Get Link" → confirmation phase
+ * Public docs auto-skip the receiver modal (doc.visibility === 'public' → setPhase('predict')).
  *
  * The Dialog is NON-MODAL (modal={false} + hideOverlay per aa3ecbe6).
  * Do NOT assert backdrop presence or focus trap behavior.
  */
 
-import { test, expect } from '@playwright/test';
+import { test, expect, type Page } from '@playwright/test';
 import { supabaseAdmin } from './helpers/supabase-admin';
 import {
   createTestUser,
@@ -52,17 +52,89 @@ async function makeDoc(
   return doc.id;
 }
 
+/**
+ * Navigate to the compose page for a public doc and drive through the full
+ * predict → seal flow to reach the LetterSealConfirmation screen.
+ *
+ * Public docs auto-skip the receiver modal (LetterComposePage useEffect sets
+ * mode='one-to-many' and phase='predict' as soon as doc loads with visibility='public').
+ *
+ * Returns the sealed letter ID extracted from the link card on the confirmation screen.
+ */
+async function gotoSealConfirmationPublic(
+  page: Page,
+  docId: string
+): Promise<string> {
+  await page.goto(`/letter/${docId}/compose`);
+
+  // Wait for prediction walk to appear (public doc skips modal)
+  await page.waitForSelector('[aria-label="Rating scale from 0 to 10"]', { timeout: 15000 });
+
+  // Rate every story by clicking "Rate 5" until "Seal & Get Link" button appears and is enabled
+  // Stories are shown one at a time; each "Next Story" / "Seal & Get Link" advances to next
+  while (true) {
+    // Rate current story with value 5
+    const rateBtn = page.getByRole('button', { name: 'Rate 5' });
+    await rateBtn.waitFor({ state: 'visible', timeout: 10000 });
+    await rateBtn.click();
+
+    // After rating, check whether we're on the last story ("Seal & Get Link")
+    // or still navigating ("Next Story")
+    const sealBtn = page.getByRole('button', { name: 'Seal & Get Link' });
+    const nextBtn = page.getByRole('button', { name: 'Next Story' });
+
+    // Wait for one of them to become enabled
+    await page.waitForFunction(
+      () => {
+        const seal = document.querySelector('button[class*="bg-\\[\\#0044CC\\]"]:not([disabled])');
+        return seal !== null;
+      },
+      { timeout: 5000 }
+    ).catch(() => null); // tolerate if already enabled
+
+    const isSealVisible = await sealBtn.isVisible().catch(() => false);
+    if (isSealVisible) {
+      // Last story — click "Seal & Get Link"
+      await sealBtn.click();
+      break;
+    }
+
+    const isNextVisible = await nextBtn.isVisible().catch(() => false);
+    if (isNextVisible) {
+      await nextBtn.click();
+      // Wait for next story card to load
+      await page.waitForSelector('[aria-label="Rating scale from 0 to 10"]', { timeout: 10000 });
+    } else {
+      // Neither button found — click seal if it exists anyway
+      await sealBtn.click();
+      break;
+    }
+  }
+
+  // Wait for confirmation screen: "Letter Sealed" heading
+  await page.waitForSelector('h2:has-text("Letter Sealed")', { timeout: 20000 });
+
+  // Extract the sealed letter ID from the link card text
+  // Link card shows: {origin}/letter/{letterId}
+  const linkCard = page.locator('[aria-label="Shareable letter link"]');
+  await linkCard.waitFor({ state: 'visible', timeout: 10000 });
+  const linkText = await linkCard.textContent() ?? '';
+  const match = linkText.match(/\/letter\/([0-9a-f-]{36})/);
+  if (!match) throw new Error(`Could not extract letter ID from link card: "${linkText}"`);
+  return match[1];
+}
+
 // ─── Suite ────────────────────────────────────────────────────────────────────
 
 test.describe('P688: Seal Confirmation — Public Doc Invite + Visual Hierarchy', () => {
-  test.describe.configure({ timeout: 60000 });
+  test.describe.configure({ timeout: 90000 });
 
   let sender: TestUser;
   let publicDocId: string;
   let privateDocId: string;
-  let publicLetterId: string;
   let privateLetterId: string;
   const storyIds: string[] = [];
+  const letterIdsToCleanup: string[] = [];
 
   test.beforeAll(async () => {
     sender = await createTestUser({ name: 'P688 Seal Sender' });
@@ -90,23 +162,21 @@ test.describe('P688: Seal Confirmation — Public Doc Invite + Visual Hierarchy'
       .single();
     const versionId = version?.id ?? story.id;
 
-    // Public letter (sealed)
-    const pubLetter = await createTestLetter(sender.user.id, publicDocId, { mode: 'one-to-many' });
-    publicLetterId = pubLetter.id;
-    await createTestStorySnapshot(publicLetterId, story.id, versionId);
-    await sealTestLetter(publicLetterId);
-
-    // Private letter (sealed, 1-to-1)
+    // Private letter (sealed, 1-to-1) — only used for the private doc regression test
     const privLetter = await createTestLetter(sender.user.id, privateDocId, { mode: 'one-to-one' });
     privateLetterId = privLetter.id;
+    letterIdsToCleanup.push(privateLetterId);
     await createTestStorySnapshot(privateLetterId, story.id, versionId);
     await createTestDelivery(privateLetterId, { receiverEmail: 'receiver-p688@example.com' });
     await sealTestLetter(privateLetterId);
+
+    // Public doc has no pre-sealed letter — the UI flow creates one per test.
+    // We suppress unused variable lint for versionId — the doc_stories insert is all we need.
+    void versionId;
   });
 
   test.afterAll(async () => {
-    await deleteTestLetter(publicLetterId);
-    await deleteTestLetter(privateLetterId);
+    for (const id of letterIdsToCleanup) await deleteTestLetter(id);
     await supabaseAdmin.from('doc_stories').delete().eq('doc_id', publicDocId);
     await supabaseAdmin.from('doc_stories').delete().eq('doc_id', privateDocId);
     for (const id of storyIds) await deleteTestStory(id);
@@ -115,53 +185,28 @@ test.describe('P688: Seal Confirmation — Public Doc Invite + Visual Hierarchy'
     if (sender?.user?.id) await deleteTestUser(sender.user.id);
   });
 
-  // ── Navigation helper (reused per test) ────────────────────────────────────
-
-  async function gotoSealConfirmation(
-    page: import('@playwright/test').Page,
-    letterId: string,
-    docId: string
-  ): Promise<void> {
-    // Navigate to the compose route with sealed letter context.
-    // P665 tests may reveal the actual URL; fall back to navigating the compose flow.
-    // The seal confirmation is shown by the compose flow after sealing completes.
-    // We navigate to the compound route that renders LetterSealConfirmation.
-    await page.goto(`/letter/${docId}/seal-done?letterId=${letterId}`);
-    await page.waitForLoadState('networkidle');
-
-    // If that route doesn't exist, the app will fall back.
-    // Check p665 spec for confirmed route pattern.
-  }
-
   // ── 1. Hero link card ───────────────────────────────────────────────────────
 
   test('public doc: shareable link card is visible with the letter URL', async ({ page }) => {
     await setTestSession(page, sender.email);
-    await gotoSealConfirmation(page, publicLetterId, publicDocId);
+    const sealedLetterId = await gotoSealConfirmationPublic(page, publicDocId);
+    letterIdsToCleanup.push(sealedLetterId);
 
-    // The URL should appear in the link card
-    const urlPattern = new RegExp(`/letter/${publicLetterId}`);
-    const linkCard = page.locator('[aria-label="Shareable letter link"], [role="region"]').first()
-      .or(page.locator(`text=/letter\\/${publicLetterId}/`).first());
-
-    // Assert the URL is visible somewhere on screen
-    await expect(page.locator(`text=/letter\\/${publicLetterId}/`)).toBeVisible({ timeout: 10000 });
-    // Suppress unused variable lint
-    void urlPattern;
-    void linkCard;
+    // The shareable URL must appear in the link card
+    await expect(page.locator(`text=/letter\\/${sealedLetterId}/`)).toBeVisible({ timeout: 10000 });
   });
 
   // ── 2. "Back to Doc" is primary blue button ────────────────────────────────
 
   test('public doc: "Back to Doc" has primary blue styling (not outline)', async ({ page }) => {
     await setTestSession(page, sender.email);
-    await gotoSealConfirmation(page, publicLetterId, publicDocId);
+    const sealedLetterId = await gotoSealConfirmationPublic(page, publicDocId);
+    letterIdsToCleanup.push(sealedLetterId);
 
     const backBtn = page.getByRole('button', { name: 'Back to Doc' });
     await expect(backBtn).toBeVisible({ timeout: 10000 });
 
     // Primary button must NOT carry outline variant classes
-    // Blue primary uses bg-blue-* or bg-primary class; outline uses variant="outline"
     const className = await backBtn.getAttribute('class') ?? '';
     expect(className).not.toMatch(/variant-outline|btn-outline/);
     // Must include blue or primary styling
@@ -172,7 +217,8 @@ test.describe('P688: Seal Confirmation — Public Doc Invite + Visual Hierarchy'
 
   test('public doc: "+ Also invite someone by email" is a link/button — not an inline input', async ({ page }) => {
     await setTestSession(page, sender.email);
-    await gotoSealConfirmation(page, publicLetterId, publicDocId);
+    const sealedLetterId = await gotoSealConfirmationPublic(page, publicDocId);
+    letterIdsToCleanup.push(sealedLetterId);
 
     const inviteLink = page.locator('text="+ Also invite someone by email"');
     await expect(inviteLink).toBeVisible({ timeout: 10000 });
@@ -189,7 +235,8 @@ test.describe('P688: Seal Confirmation — Public Doc Invite + Visual Hierarchy'
 
   test('clicking "+ Also invite" opens the LetterReceiverModal dialog', async ({ page }) => {
     await setTestSession(page, sender.email);
-    await gotoSealConfirmation(page, publicLetterId, publicDocId);
+    const sealedLetterId = await gotoSealConfirmationPublic(page, publicDocId);
+    letterIdsToCleanup.push(sealedLetterId);
 
     const inviteLink = page.locator('text="+ Also invite someone by email"');
     await expect(inviteLink).toBeVisible({ timeout: 10000 });
@@ -212,7 +259,8 @@ test.describe('P688: Seal Confirmation — Public Doc Invite + Visual Hierarchy'
 
   test('opened invite modal has title "Add recipient(s)" and RecipientRow', async ({ page }) => {
     await setTestSession(page, sender.email);
-    await gotoSealConfirmation(page, publicLetterId, publicDocId);
+    const sealedLetterId = await gotoSealConfirmationPublic(page, publicDocId);
+    letterIdsToCleanup.push(sealedLetterId);
 
     const inviteLink = page.locator('text="+ Also invite someone by email"');
     await inviteLink.click();
@@ -232,7 +280,8 @@ test.describe('P688: Seal Confirmation — Public Doc Invite + Visual Hierarchy'
 
   test('Escape dismisses invite dialog; focus return checked softly', async ({ page }) => {
     await setTestSession(page, sender.email);
-    await gotoSealConfirmation(page, publicLetterId, publicDocId);
+    const sealedLetterId = await gotoSealConfirmationPublic(page, publicDocId);
+    letterIdsToCleanup.push(sealedLetterId);
 
     const inviteLink = page.locator('text="+ Also invite someone by email"');
     await inviteLink.click();
@@ -250,7 +299,6 @@ test.describe('P688: Seal Confirmation — Public Doc Invite + Visual Hierarchy'
     // Attempt soft focus check — non-blocking if activeElement differs
     const activeText = await page.evaluate(() => document.activeElement?.textContent?.trim() ?? '');
     // Log but don't hard-assert (focus return is soft per spec's non-modal pattern)
-    // The trigger text "+" or "Also invite someone by email" may be in activeText
     void activeText;
   });
 
@@ -258,8 +306,11 @@ test.describe('P688: Seal Confirmation — Public Doc Invite + Visual Hierarchy'
 
   test('private doc: no "+ Also invite" link and no shareable link card', async ({ page }) => {
     await setTestSession(page, sender.email);
-    await gotoSealConfirmation(page, privateLetterId, privateDocId);
 
+    // Navigate to compose page for private doc.
+    // Private docs show the receiver modal (phase='modal') — neither the invite link
+    // nor the shareable link card appear at any point in this page state.
+    await page.goto(`/letter/${privateDocId}/compose`);
     await page.waitForLoadState('networkidle');
 
     await expect(

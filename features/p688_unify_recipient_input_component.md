@@ -1,11 +1,11 @@
 ---
-status: in-progress
+status: qa
 type: task
 rank: 1000688.0
 created_date: '2026-04-11'
 tags: [letters, refactor, recipients, unification]
-delivery_stage: dev
-pipeline_ran: [create-spec, ux, dev]
+delivery_stage: verify
+pipeline_ran: [create-spec, ux, dev, verify]
 ---
 
 # P688: Unify Recipient Input via RecipientRow
@@ -93,24 +93,24 @@ The compose flow already uses `RecipientRow`. Its behavior must be byte-identica
 
 ## Done-When
 
-- [ ] Sent tab → "Add recipient(s)" opens a dialog that uses `RecipientRow` (email + name fields, debounced lookup, name-lock on match).
-- [ ] Sent tab can add multiple recipients at once via "+ Add another person".
-- [ ] Each row in add-recipient mode fires `addRecipientToSealed()` on submit; success toast summarizes the batch.
-- [ ] `LetterSealConfirmation` no longer contains an inline `<input>` for email invite — it opens `LetterReceiverModal` instead.
-- [ ] `LetterSealConfirmation` visual hierarchy: shareable link is the most prominent element, "Back to Doc" is the primary button, "+ Also invite" is a text-link secondary action.
-- [ ] `letter-receiver-modal.tsx` has exactly one recipient-entry code path (the `RecipientRow`-based one). Old flat state and old single-recipient JSX are deleted.
-- [ ] P682 E2E suite (`e2e/p682-letter-multi-recipient.spec.ts`, `e2e/p682-smoke.spec.ts`) passes unchanged.
-- [ ] New or updated E2E coverage asserts: (a) Sent tab multi-recipient add flow end-to-end, (b) seal confirmation invite via modal end-to-end, (c) partial-failure batch error reporting.
-- [ ] Manual verification on private doc compose flow: behavior unchanged from P682.
+- [x] Sent tab → "Add recipient(s)" opens a dialog that uses `RecipientRow` (email + name fields, debounced lookup, name-lock on match).
+- [x] Sent tab can add multiple recipients at once via "+ Add another person".
+- [x] Each row in add-recipient mode fires `addRecipientToSealed()` on submit; success toast summarizes the batch.
+- [x] `LetterSealConfirmation` no longer contains an inline `<input>` for email invite — it opens `LetterReceiverModal` instead.
+- [x] `LetterSealConfirmation` visual hierarchy: shareable link is the most prominent element, "Back to Doc" is the primary button, "+ Also invite" is a text-link secondary action.
+- [x] `letter-receiver-modal.tsx` has exactly one recipient-entry code path (the `RecipientRow`-based one). Old flat state and old single-recipient JSX are deleted.
+- [x] P682 E2E suite (`e2e/p682-letter-multi-recipient.spec.ts`, `e2e/p682-smoke.spec.ts`) passes unchanged.
+- [x] New or updated E2E coverage asserts: (a) Sent tab multi-recipient add flow end-to-end, (b) seal confirmation invite via modal end-to-end, (c) partial-failure batch error reporting.
+- [x] Manual verification on private doc compose flow: behavior unchanged from P682.
 
 ## Acceptance Criteria
 
-- [ ] One canonical recipient input component (`RecipientRow`) used across compose, add-recipient, and seal-confirmation invite flows.
-- [ ] Users can enter both email AND full name (with lookup) in every place where they invite a letter recipient — no exceptions.
-- [ ] Sent tab "Add recipient(s)" supports adding multiple recipients in one dialog submission.
-- [ ] Seal confirmation shareable link is visually primary; "Back to Doc" is the primary button.
-- [ ] No regression in private-doc compose flow (P682).
-- [ ] Code diff shows net deletion of duplicated recipient-entry logic.
+- [x] One canonical recipient input component (`RecipientRow`) used across compose, add-recipient, and seal-confirmation invite flows.
+- [x] Users can enter both email AND full name (with lookup) in every place where they invite a letter recipient — no exceptions.
+- [x] Sent tab "Add recipient(s)" supports adding multiple recipients in one dialog submission.
+- [x] Seal confirmation shareable link is visually primary; "Back to Doc" is the primary button.
+- [x] No regression in private-doc compose flow (P682).
+- [x] Code diff shows net deletion of duplicated recipient-entry logic.
 
 ## UX Design
 
