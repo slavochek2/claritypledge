@@ -13,14 +13,16 @@
  * - UAT-11 (toast "Signed in as [Name]"): No toast in current signup flow.
  * - UAT-12 (magic link notice): Not implemented in BLOCK-3.
  *
- * Confirm flow is tested by generating a magic link server-side (bypassing Mailgun inbox)
- * and navigating to the confirm URL in the same browser context, preserving the
- * sessionStorage draft written by the reading page's onComplete handler.
+ * Confirm flow (UAT-13+15, UAT-14) is tested by injecting an auth session via
+ * setTestSession() and navigating directly to /letter/{id}/confirm. This preserves
+ * sessionStorage (the response draft) written by the reading page's onComplete handler
+ * without requiring a real OTP/magic-link flow (which would hit Supabase's rate limits
+ * and require localhost:5200 in the redirect URL allowlist).
  */
 
 import { test, expect } from '@playwright/test';
 import { supabaseAdmin } from './helpers/supabase-admin';
-import { createTestUser, deleteTestUser, generateMagicLinkUrl, type TestUser } from './helpers/test-user';
+import { createTestUser, deleteTestUser, setTestSession, type TestUser } from './helpers/test-user';
 import {
   createTestLetter,
   createTestStorySnapshot,
@@ -86,16 +88,6 @@ async function fillSignupForm(
 
 function uniqueTestEmail(): string {
   return `e2e-test-p684-${Date.now()}-${Math.random().toString(36).slice(2, 6)}@gmail.com`;
-}
-
-/** Look up the profile row for an email; returns null if not found. */
-async function findProfileByEmail(email: string) {
-  const { data } = await supabaseAdmin
-    .from('profiles')
-    .select('user_id, email')
-    .eq('email', email)
-    .maybeSingle();
-  return data;
 }
 
 // ---------------------------------------------------------------------------
@@ -219,35 +211,27 @@ test.describe('P684: Signup flow — end-of-letter gate', () => {
   // ==========================================================================
 
   test('UAT-13 + UAT-15: confirm flow saves rating with real listener_id and shows completion screen', async ({ page }) => {
-    const email = uniqueTestEmail();
-    let newUserId: string | undefined;
+    // Create a test reader with a confirmed profile. The confirm page needs an
+    // authenticated session — we inject one via setTestSession rather than going
+    // through the full magic link flow (which requires PKCE and a Supabase redirect
+    // URL allowlist entry for localhost:5200; tested by UAT-9 and p458 suite).
+    const reader = await createTestUser({ name: 'Confirm Reader P684' });
 
     try {
-      // 1. Rate letter → draft stored in sessionStorage.
+      // 1. Rate letter as unauthenticated reader → draft stored in sessionStorage.
       await openLetterAndRate(page, letterId);
-      // Capture baseUrl before navigating away from the letter page.
-      const baseUrl = new URL(page.url()).origin;
 
-      // 2. Bypass the signup form (form submission tested by UAT-9; skipped here to avoid
-      //    Supabase OTP rate limits when multiple tests run in the same suite).
-      //    Generate a magic link directly via admin API and navigate to the confirm page.
-      //    Profile is created when OTP is verified (magic link navigated to).
-      //    Must route through /auth/callback (not directly to confirm) — PKCE requires the
-      //    callback page to exchange the code for a session token first.
-      const confirmPath = `/letter/${letterId}/confirm`;
-      const callbackUrl = `${baseUrl}/auth/callback?source=signup&redirect=${encodeURIComponent(confirmPath)}&letterId=${letterId}`;
-      const actionLinkUrl = await generateMagicLinkUrl(email, callbackUrl);
-      await page.goto(actionLinkUrl);
+      // 2. Inject auth session. setTestSession navigates to '/' (same origin) so
+      //    the sessionStorage draft written in step 1 is preserved.
+      await setTestSession(page, reader.email);
+
+      // 3. Navigate to confirm page — session active + sessionStorage draft present.
+      await page.goto(`/letter/${letterId}/confirm`);
       await page.waitForLoadState('networkidle');
 
       // UAT-15: Completion screen text.
       await expect(page.getByText(/your responses have been shared with/i)).toBeVisible({ timeout: 20000 });
       await expect(page.getByText(/you can close this tab/i)).toBeVisible();
-
-      // Profile exists now (OTP verified → email_confirmed=true → profile trigger fired).
-      const profile = await findProfileByEmail(email);
-      expect(profile, 'Profile must exist after magic link verification').not.toBeNull();
-      newUserId = profile!.user_id;
 
       // UAT-15: No links that navigate away to the main app.
       const appLinks = page.getByRole('link').filter({ hasText: /explore|get started|try|open|sign up/i });
@@ -258,18 +242,17 @@ test.describe('P684: Signup flow — end-of-letter gate', () => {
       const { data: verifications } = await supabaseAdmin
         .from('story_verifications')
         .select('listener_id, listener_rating')
-        .eq('listener_id', newUserId)
+        .eq('listener_id', reader.user.id)
         .eq('source', 'letter');
       expect(verifications?.length, 'story_verifications row must exist for the confirmed reader').toBeGreaterThan(0);
       for (const row of verifications ?? []) {
         expect(row.listener_id).not.toBe(SENTINEL_UUID);
-        expect(row.listener_id).toBe(newUserId);
+        expect(row.listener_id).toBe(reader.user.id);
       }
     } finally {
-      if (newUserId) {
-        await supabaseAdmin.from('letter_deliveries').delete().eq('receiver_profile_id', newUserId);
-        await deleteTestUser(newUserId);
-      }
+      await supabaseAdmin.from('letter_deliveries').delete().eq('receiver_profile_id', reader.user.id);
+      await supabaseAdmin.from('story_verifications').delete().eq('listener_id', reader.user.id);
+      await deleteTestUser(reader.user.id);
     }
   });
 
@@ -278,19 +261,15 @@ test.describe('P684: Signup flow — end-of-letter gate', () => {
   // ==========================================================================
 
   test('UAT-14: existing user email links delivery to their existing profile', async ({ page }) => {
+    // Uses setTestSession (same approach as UAT-13+15) to avoid PKCE/redirect-URL
+    // constraints. The key assertion is delivery linking, not the auth flow.
     const existingUser = await createTestUser({ name: 'Existing P684 Reader' });
 
     try {
+      // Rate letter, inject existing user's session, confirm.
       await openLetterAndRate(page, letterId);
-      const baseUrl = new URL(page.url()).origin;
-
-      // Skip the form-submission step to avoid OTP rate limits (tested by UAT-9).
-      // UAT-14's assertion is purely about confirm-flow delivery linking for existing users.
-      // Directly generate a magic link for the existing user and navigate to the confirm page.
-      const confirmPath = `/letter/${letterId}/confirm`;
-      const callbackUrl = `${baseUrl}/auth/callback?source=signup&redirect=${encodeURIComponent(confirmPath)}&letterId=${letterId}`;
-      const actionLinkUrl = await generateMagicLinkUrl(existingUser.email, callbackUrl);
-      await page.goto(actionLinkUrl);
+      await setTestSession(page, existingUser.email);
+      await page.goto(`/letter/${letterId}/confirm`);
       await page.waitForLoadState('networkidle');
 
       await expect(page.getByText(/your responses have been shared with/i)).toBeVisible({ timeout: 20000 });
@@ -308,7 +287,7 @@ test.describe('P684: Signup flow — end-of-letter gate', () => {
       // No duplicate profiles created — exactly one profile for this email.
       const { data: profiles } = await supabaseAdmin
         .from('profiles')
-        .select('user_id')
+        .select('id')
         .eq('email', existingUser.email);
       expect(profiles?.length, 'Only one profile may exist for this email').toBe(1);
     } finally {
