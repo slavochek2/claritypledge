@@ -61,7 +61,7 @@ Session logs, architecture notes, and strategic commentary belong in [decisions.
 **Test:** First Pairs milestone — 3-5 free facilitated sessions. Measure: does the "holy shit" moment happen? Do they book session 2?
 **Transform if:** Gap doesn't surprise them, OR they find it interesting but not worth paying to prevent, OR zero pairs book session 2. Pre-committed (2026-03-16): if 5 pairs + <€200 combined donations → transform delivery method.
 **Status (2026-03-16):** 3 pairs run (A: Mar 13, C: Mar 14, B: Mar 16). Protocol works, value received. But: Pair B is pre-revenue (WTP untested), transcript corpus shows no "holy shit" moment observed. ICP learning: pre-revenue pairs validate protocol but not WTP — real ICP qualifier is cash + felt pain.
-**Update (2026-03-22):** First Clarity Partner Agreement signed publicly (Jan + Nejc — every 2 days, 15 min explain-back right). Agreement committed to; usage not yet observed. Key test: does the agreement artifact drive recurring practice without facilitator involvement?
+**Update (2026-03-22):** First Clarity Partner Agreement signed publicly (first co-founder pair — every 2 days, 15 min explain-back right). Agreement committed to; usage not yet observed. Key test: does the agreement artifact drive recurring practice without facilitator involvement?
 **Notes:** Session format: Slava facilitates explain-back on real decisions. Pairs don't learn /live — Slava uses it as diagnostic tool. Merges previous H-CoFounders-WillPay + H-AgreementRetention.
 
 ---
@@ -179,7 +179,7 @@ Waiting on upstream hypotheses. Each entry lists what must happen before testing
 **Reframe (2026-03-29):** Field data shows Partner Agreements only work with existing high-stakes relationships (boyfriend, co-founder) — not strangers. The community isn't a practice arena (strangers practicing together); it's a support group (practitioners sharing experiences from real relationships). This is testable NOW as a WhatsApp group or monthly call — doesn't need the product.
 **Test:** Run a monthly call with 5+ active Partner Agreement holders. Measure: do they report practicing more because of the group? Do they bring new pairs?
 **Transform if:** Group devolves into abstract discussion without practice reports.
-**Blocked by:** Need 5+ active Partner Agreements first. Partially unblocked — Jan+Nejc have one; more expected from workshops.
+**Blocked by:** Need 5+ active Partner Agreements first. Partially unblocked — first pair has one; more expected from workshops.
 
 ---
 

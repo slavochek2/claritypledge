@@ -2101,7 +2101,7 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ## 2026-03-18 [product]: Positioning shift — "co-founder de-risking" → "alignment on values, vision, and lean canvas"
 
-**Context:** Transcript analysis showed deepest sessions are about fears, values, and identity — not business strategy. David called it "like a counselor." Victoria shared social anxiety. Jan surfaced fear of repeating past patterns. Sessions positioned as business calibration stayed shallow. The energy is in relationship depth at the values layer.
+**Context:** Transcript analysis showed deepest sessions are about fears, values, and identity — not business strategy. One participant called it "like a counselor." Another shared social anxiety. A third surfaced fear of repeating past patterns. Sessions positioned as business calibration stayed shallow. The energy is in relationship depth at the values layer.
 **Decision:** Reposition ladischenski.com from fear-based "prevent co-founder split" to generative "get explicitly aligned on values, vision, lean canvas." Same ICP (co-founders with active decisions), different entry point (values, not strategy). Conflict-prevention proof points stay as supporting evidence, not the lead.
 **Alternatives rejected:** (1) Keep "de-risking" framing — fights against where the protocol naturally goes. (2) Pivot to "relationship tool" for all dyads — too broad, loses co-founder ICP specificity.
 **Consequences:** P545 tracks the ladischenski.com copy changes. Lean-canvas Customer Segments ICP qualifier should note: "facilitation dependency confirmed — self-serve pairs default to surface paraphrase."

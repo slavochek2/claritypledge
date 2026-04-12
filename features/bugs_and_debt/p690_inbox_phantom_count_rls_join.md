@@ -10,6 +10,7 @@ root_cause: clarity_docs SELECT RLS blocks receivers (not owner/public) so Postg
 resolution: Replaced PostgREST join queries in getInboxItems with a SECURITY DEFINER RPC (get_inbox_items) that bypasses RLS for the narrow inbox fields; authorization gate ensures caller can only query own inbox
 tags: []
 rank: 1000684.0
+created_date: 2026-04-11
 ---
 
 # P690: Inbox Phantom Count — RLS Join Drops Letter Rows

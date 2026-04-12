@@ -10,6 +10,7 @@ root_cause: letter-reading-page.tsx load effect always took the token branch whe
 resolution: Restructured load effect to authed-first — if currentUser exists, getLetterForReading (RLS-based) runs before the token RPC; token branch preserved for anon users; replay defense intact
 tags: []
 rank: 1000685.0
+created_date: 2026-04-11
 ---
 
 # P691: Letter Re-open Blocked After Token Consumed

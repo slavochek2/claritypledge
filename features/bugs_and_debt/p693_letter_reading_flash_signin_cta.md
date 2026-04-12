@@ -7,6 +7,9 @@ severity: medium
 delivery_stage: fix
 pipeline_ran: [fix]
 date_reported: 2026-04-11
+tags: []
+rank: 1000693.0
+created_date: 2026-04-11
 ---
 
 # P693: Flash of "Sign in to continue" CTA during one-to-one letter open

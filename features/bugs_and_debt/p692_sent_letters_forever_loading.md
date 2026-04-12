@@ -7,6 +7,9 @@ severity: high
 date_reported: 2026-04-11
 delivery_stage: fix
 pipeline_ran: [fix]
+tags: []
+rank: 1000692.0
+created_date: 2026-04-11
 ---
 
 # P692: Sent letters — forever-loading + mispositioned spinner

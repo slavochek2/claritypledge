@@ -25,7 +25,7 @@ flow: fix
 When an anonymous recipient opens a letter delivery link (`/letter/:deliveryId?token=...`), the page shows "Letter not found" instead of the letter content.
 
 **Reproduction:**
-1. Seal a letter with a recipient email (e.g., slava@inguro.com)
+1. Seal a letter with a recipient email (e.g., e2e-agent@claritypledge.com)
 2. Open the delivery link (from email or browser URL)
 3. Page shows "Letter not found"
 

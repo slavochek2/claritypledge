@@ -35,9 +35,9 @@ export function SignupPage() {
   const redirectParam = searchParams.get('redirect');
   const actionParam = searchParams.get('action');
 
-  // P458: Collect auth-gate params to forward through OAuth/magic-link callback
+  // P458 / P684: Collect auth-gate params to forward through OAuth/magic-link callback
   const authGateExtraParams: Record<string, string> = {};
-  for (const key of ['pointId', 'position', 'pointTitle']) {
+  for (const key of ['pointId', 'position', 'pointTitle', 'letterId']) {
     const val = searchParams.get(key);
     if (val) authGateExtraParams[key] = val;
   }
@@ -221,6 +221,16 @@ export function SignupPage() {
             <InfoIcon className="w-5 h-5 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
             <p className="text-sm text-blue-800 dark:text-blue-200">
               Create an account to share your story.
+            </p>
+          </div>
+        )}
+
+        {/* P684: Context banner for letter-response redirects */}
+        {searchParams.get('source') === 'letter-response' && (
+          <div role="alert" className="flex items-start gap-2 p-3 mb-6 bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-lg">
+            <InfoIcon className="w-5 h-5 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
+            <p className="text-sm text-blue-800 dark:text-blue-200">
+              Create an account to save your letter responses.
             </p>
           </div>
         )}
