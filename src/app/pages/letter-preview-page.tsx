@@ -26,8 +26,8 @@ import {
   DrawerTitle,
 } from '@/components/ui/drawer';
 import { useLetterReadingState } from '@/app/hooks/useLetterReadingState';
-import type { StoryPhase } from '@/app/hooks/useLetterReadingState';
 import { snapshotToStoryWithPoints, pointSummaryToProtoPoint } from '@/app/utils/letter-snapshot-mapper';
+import { calculateStoryProgress, countTotalPoints, estimateReadingMinutes } from '@/app/utils/letter-reading-utils';
 import { docsService } from '@/app/data/docs-service';
 import { pointsService } from '@/app/data/points-service';
 import { useAuth } from '@/auth';
@@ -149,7 +149,8 @@ export function LetterPreviewPage() {
             senderName={currentUser?.name ?? 'You'}
             receiverName="your recipient"
             storyCount={snapshots.length}
-            estimatedMinutes={Math.max(1, Math.ceil(snapshots.length * 2))}
+            pointCount={countTotalPoints(snapshots)}
+            estimatedMinutes={estimateReadingMinutes(snapshots.length, countTotalPoints(snapshots))}
             mode="one-to-one"
             isAuthenticated
             onOpen={() => setViewState('reading')}
@@ -163,52 +164,6 @@ export function LetterPreviewPage() {
       </CertificatePageShell>
     </>
   );
-}
-
-// ============================================================================
-// PROGRESS — calculates sub-fill fraction for current story segment
-// ============================================================================
-
-function calculateStoryProgress(
-  phase: StoryPhase,
-  currentPointIndex: number,
-  visiblePointCount: number
-): number {
-  if (visiblePointCount >= 2) {
-    const total = 4 + 2 * (visiblePointCount - 1);
-    let screen: number;
-    switch (phase) {
-      case 'point-engage':             screen = 0; break;
-      case 'point-revealed':           screen = 1; break;
-      case 'story-rate':               screen = 2; break;
-      case 'story-revealed':           screen = 3; break;
-      case 'remaining-point-engage':   screen = 4 + (currentPointIndex - 1) * 2; break;
-      case 'remaining-point-revealed': screen = 5 + (currentPointIndex - 1) * 2; break;
-      case 'transition':               screen = total; break;
-      default:                         screen = 0;
-    }
-    return Math.min(screen / total, 1);
-  }
-  if (visiblePointCount === 1) {
-    const total = 4;
-    let screen: number;
-    switch (phase) {
-      case 'story-rate':     screen = 0; break;
-      case 'story-revealed': screen = 1; break;
-      case 'point-engage':   screen = 2; break;
-      case 'point-revealed': screen = 3; break;
-      case 'transition':     screen = total; break;
-      default:               screen = 0;
-    }
-    return Math.min(screen / total, 1);
-  }
-  // 0 visible points: story-rate(0) → story-revealed(0.5) → transition(1)
-  switch (phase) {
-    case 'story-rate':     return 0;
-    case 'story-revealed': return 0.5;
-    case 'transition':     return 1;
-    default:               return 0;
-  }
 }
 
 // ============================================================================
@@ -385,7 +340,7 @@ function LetterPreviewFlow({
             story={storyWithPoints}
             hidePoints
             readOnly
-            className="w-full max-w-sm"
+            className="w-full max-w-sm mx-auto"
           />
           <Drawer open dismissible={false} modal={false}>
             <DrawerContent overlayClassName="bg-transparent">
@@ -415,7 +370,7 @@ function LetterPreviewFlow({
             displayPartnerName={senderName}
             checkerName={senderName}
             compact
-            className="w-full max-w-sm"
+            className="w-full max-w-sm mx-auto"
           />
           <GapBanner
             gap={gap}
@@ -427,7 +382,7 @@ function LetterPreviewFlow({
             story={storyWithPoints}
             hidePoints
             readOnly
-            className="w-full max-w-sm"
+            className="w-full max-w-sm mx-auto"
           />
           <Button
             onClick={advanceFromStoryReveal}

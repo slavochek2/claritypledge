@@ -155,7 +155,7 @@ export function DraftsTab({ userId }: DraftsTabProps) {
                 </div>
                 <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
                   <span>
-                    {doc.story_count} {doc.story_count === 1 ? 'story' : 'stories'}
+                    {doc.story_count} {doc.story_count === 1 ? 'story' : 'stories'} &middot; {doc.point_count} {doc.point_count === 1 ? 'point' : 'points'}
                   </span>
                   <span aria-hidden="true">&middot;</span>
                   <span>Updated {formatTimeAgo(doc.updated_at)} ago</span>

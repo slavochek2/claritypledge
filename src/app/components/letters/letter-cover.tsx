@@ -12,6 +12,7 @@ interface LetterCoverProps {
   senderName: string;
   receiverName: string;
   storyCount: number;
+  pointCount: number;
   estimatedMinutes: number;
   mode: LetterMode;
   onOpen: () => void;
@@ -27,6 +28,7 @@ export function LetterCover({
   senderName,
   receiverName,
   storyCount,
+  pointCount,
   estimatedMinutes,
   mode,
   onOpen,
@@ -65,7 +67,7 @@ export function LetterCover({
       </div>
 
       <p className={`text-sm text-[#1A1A1A]/50 transition-opacity duration-300 ${isAuthenticating ? 'opacity-50 pointer-events-none' : ''}`}>
-        {storyCount} {storyCount === 1 ? 'story' : 'stories'} &middot; ~{estimatedMinutes} {estimatedMinutes === 1 ? 'minute' : 'minutes'}
+        {storyCount} {storyCount === 1 ? 'story' : 'stories'} &middot; {pointCount} {pointCount === 1 ? 'point' : 'points'} &middot; ~{estimatedMinutes} {estimatedMinutes === 1 ? 'minute' : 'minutes'}
       </p>
 
       <span id={HINT_ID} className="sr-only">
