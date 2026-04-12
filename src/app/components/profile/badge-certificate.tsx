@@ -142,7 +142,7 @@ export function BadgeCertificate({
             CLARITY BADGE
           </h2>
           <p className="text-xs text-[#1A1A1A]/60 dark:text-muted-foreground uppercase tracking-[0.2em] font-sans">
-            [FOUNDER DECISION: subtitle]
+            Verified understanding of common knowledge creation
           </p>
         </div>
 

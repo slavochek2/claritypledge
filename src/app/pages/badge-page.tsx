@@ -282,15 +282,6 @@ export function BadgePage() {
             </div>
           )}
 
-          {/* Visitor headline */}
-          {!isOwner && (
-            <div className="mb-6">
-              <h2 className="text-xl font-semibold text-foreground">
-                {profile.name} is building calibrated alignment
-              </h2>
-            </div>
-          )}
-
           {/* Badge certificate */}
           <BadgeCertificate
             profile={{
@@ -308,22 +299,6 @@ export function BadgePage() {
             pointTitles={pointTitles}
           />
 
-          {/* Visitor CTA */}
-          {!isOwner && (
-            <div className="mt-8 p-6 rounded-lg border border-border bg-card text-center space-y-3">
-              <h3 className="text-lg font-semibold text-foreground">
-                Join the next Clarity Workshop
-              </h3>
-              <p className="text-sm text-muted-foreground">
-                Experience the same calibration process and get certified.
-              </p>
-              <Link to="/events">
-                <Button className="bg-blue-500 hover:bg-blue-600 text-white">
-                  View upcoming workshops
-                </Button>
-              </Link>
-            </div>
-          )}
         </div>
       </div>
 

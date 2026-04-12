@@ -929,17 +929,17 @@ export function ProfilePageV2() {
                 {badgeCount > 0 && (
                   <a
                     href={`/p/${profile.slug}/badge`}
-                    className="inline-flex items-center gap-1 text-sm text-blue-500 hover:text-blue-600 hover:underline mt-1"
+                    className="flex items-center gap-1 text-sm text-blue-500 hover:text-blue-600 hover:underline mt-1"
                   >
                     <Award className="h-4 w-4" aria-hidden="true" />
-                    {isOwner ? `My badge (${Math.min(badgeCount, 9)}/9)` : `See their badge (${Math.min(badgeCount, 9)}/9)`}
+                    {isOwner ? `My Clarity Badge (${Math.min(badgeCount, 9)}/9)` : `See their Clarity Badge (${Math.min(badgeCount, 9)}/9)`}
                   </a>
                 )}
                 {/* P462: Partners count — grouped with pledge link as navigation cluster */}
                 {agreementsLoading ? (
                   <div className="h-[44px]" />
                 ) : (
-                  <div className="animate-[clarity-appear_300ms_ease-out_forwards]">
+                  <div className="mt-2 animate-[clarity-appear_300ms_ease-out_forwards]">
                     <AgreementsMetadataLine
                       profileId={profile.id}
                       viewerProfileId={currentUser?.id ?? null}
