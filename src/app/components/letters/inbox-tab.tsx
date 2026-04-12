@@ -6,7 +6,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Mail, MailOpen, Link as LinkIcon, Inbox } from 'lucide-react';
+import { Mail, MailOpen, Link as LinkIcon, Inbox, Eye } from 'lucide-react';
 import { toast } from 'sonner';
 import { ClarityLoader } from '@/components/ui/clarity-loader';
 import { Button } from '@/components/ui/button';
@@ -152,11 +152,18 @@ export function InboxTab({ userId, onUnreadCountChange }: InboxTabProps) {
               <div className="flex-shrink-0">
                 <Button
                   size="sm"
-                  className="bg-blue-500 hover:bg-blue-600 text-white min-h-[44px]"
+                  className={item.type === 'received'
+                    ? 'bg-blue-500 hover:bg-blue-600 text-white min-h-[44px]'
+                    : 'min-h-[44px]'}
+                  variant={item.type === 'received' ? undefined : 'outline'}
                   disabled={isMarking}
                   onClick={() => handleAction(item)}
                 >
-                  {item.type === 'received' ? 'Read' : 'Results'}
+                  {item.type === 'received' ? (
+                    <><Mail className="w-4 h-4 mr-1.5" /> Read</>
+                  ) : (
+                    <><Eye className="w-4 h-4 mr-1.5" /> Results</>
+                  )}
                 </Button>
               </div>
             </div>
