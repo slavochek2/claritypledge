@@ -2,6 +2,42 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-13 [technical]: Badge display is data-driven earned-only list — CANONICAL_BADGE_STATIONS removed
+
+**Context:** Badge page originally rendered a hardcoded list of all 9 stations regardless of what the user actually earned. The export certificate followed the same pattern. This made the badge feel like a progress checklist rather than a credential of verified understanding.
+
+**Decision:** Removed `CANONICAL_BADGE_STATIONS` entirely. Badge page now fetches only the points the user has actually earned via `getBadgePointsWithDetails()`, groups by st-group (highest version per group), sorts by `verifiedAt`, and renders an expandable list with story excerpt + position pill + point statement. Export certificate shows all items expanded with inline styles (html-to-image compatible). The new `BadgePointDetail` interface extends `BadgePoint` with `pointStatement`, `stGroup`, `pointVersion`, and `storyContent`.
+
+**Alternatives rejected:** Keeping the hardcoded list but greying out unearned stations — makes the badge feel incomplete rather than credential-like. Showing all earned points without deduplication — users can earn multiple versions of the same station; badge should show the latest version per station, not every version.
+
+**Consequences:** Badge only displays what was actually earned. If a user has 0 badge points, the badge page shows an empty state. Future stations added to the curriculum appear automatically once earned — no code change needed. The `BadgePointDetail` batch-fetch pattern (single points query + single stories query, joined in-memory) is the reference for any future profile page that needs enriched point data.
+
+**References:** [p701 spec](features/done/22_mar_26/p701_points_restructure_badge_fix.md)
+
+## 2026-04-13 [product]: Clarity point teaching sequence reordered — st2=paraphrase, st3=estimates/Popper, st5=illusion/cognitive check
+
+**Context:** The original station order placed "my estimates are unreliable" (old st2) before "explain-back method" (old st3), creating a mismatch: you learn *why* to verify before you learn *how*. The Popper gap point (old st5: certainty requires proportional verification effort) also fit better after the mechanism (paraphrase) than before it.
+
+**Decision:** 3-way tag swap via `st_temp` intermediate (required to avoid collision): old-st2→st5, old-st3→st2, old-st5→st3. New reading order: st1 (3 types of understanding) → st2 (paraphrase method) → st3 (estimates + Popper gap) → st4 (same) → st5 (illusion of understanding / cognitive check prerequisite) → st6–st9 (unchanged). Simultaneously: ST1 v2 rewritten to I-language / 3-request reframe; ST5 v2 expanded with illusion framing + Popper proportionality argument.
+
+**Alternatives rejected:** Partial reorder (swap only st2/st3) — the Popper gap point still landed in the wrong place pedagogically. Keeping old order and only rewriting content — order conveys the argument structure; content alone can't fix the sequencing.
+
+**Consequences:** `/point/st2` now resolves to the paraphrase method (was cognitive check). `/point/st3` resolves to estimates/Popper. `/point/st5` resolves to illusion/cognitive check. All feed URLs and slugs are dynamically resolved via system_tags — no hardcoded UUIDs to update. Deprecated points (old v1) remain in DB with `deprecated` tag for continuity of positions held by other users. Future reading-order changes follow the same 3-way-swap-via-temp pattern for any circular rename.
+
+**References:** [p701 spec](features/done/22_mar_26/p701_points_restructure_badge_fix.md), [migration](supabase/migrations/20260413100000_p701_st_swap.sql)
+
+## 2026-04-13 [technical]: stories.title column permanently dropped — content.slice(0,100) was always the display source
+
+**Context:** `stories` and `story_versions` had a `title` column (made nullable in 2026-02-07 migration). All display code already used `story.content.slice(0, 100)` for titles — `story.title` was never populated in practice. The column added noise to type definitions, SELECT queries, and service mappers.
+
+**Decision:** Dropped `title` from both tables. Removed from `Story`, `DbStory`, `StoryVersion`, `DbStoryVersion` types. Removed from all SELECT queries in `stories-service-real.ts`. Story detail page now always uses `` `Story by ${story.authorName}` `` for the headline. Drop migration runs AFTER the code deploy (the pre-drop code still selected the column; reversed order would cause a runtime error on the already-deployed build).
+
+**Alternatives rejected:** Keeping the column as nullable — silent confusion for future agents who would waste time wondering if it's ever used.
+
+**Consequences:** Any future need for a story title must derive from `content`. The deploy-then-drop sequencing rule applies to any column removal where the running code still references the column in a SELECT.
+
+**References:** [p701 spec](features/done/22_mar_26/p701_points_restructure_badge_fix.md), [migration](supabase/migrations/20260413110000_p701_drop_story_title.sql)
+
 ## 2026-04-13 [product]: Desktop nav shows Letters (not Docs) — match mobile bottom-nav
 
 **Context:** Main branch refactored desktop `StaticNavLinks` to show Home / Docs / Events. Mobile `bottom-nav.tsx` shows Home / Letters (with unread badge) / Events / Profile. Merging main into `feature/letters-ship` surfaced the inconsistency — desktop showed Docs where mobile showed Letters.
