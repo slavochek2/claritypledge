@@ -77,7 +77,7 @@ export function LetterResponseConfirmPage() {
   // Redirect to letter results after success (brief pause so user sees confirmation)
   useEffect(() => {
     if (pageState !== 'complete' || !letterId) return;
-    const timer = setTimeout(() => navigate(`/letter/${letterId}`, { replace: true }), 2000);
+    const timer = setTimeout(() => navigate(`/letter/${letterId}`, { replace: true, state: { skipToComplete: true } }), 2000);
     return () => clearTimeout(timer);
   }, [pageState, letterId, navigate]);
 
@@ -168,12 +168,27 @@ export function LetterResponseConfirmPage() {
     };
 
     run()
-      .then((result) => {
+      .then(async (result) => {
         if ('ok' in result && result.ok) {
           setPageState('complete');
         } else {
           const err = (result as { error: string; message?: string }).error;
           if (err === 'expired' || err === 'invalid' || err === 'not_found') {
+            // P696: Check if user already completed this letter (second email click).
+            // If so, redirect to results instead of showing "expired".
+            if (session) {
+              const { data: existingDelivery } = await supabase
+                .from('letter_deliveries')
+                .select('id')
+                .eq('letter_id', letterId)
+                .eq('receiver_profile_id', session.user.id)
+                .eq('status', 'completed')
+                .maybeSingle();
+              if (existingDelivery) {
+                navigate(`/letter/${letterId}`, { replace: true, state: { skipToComplete: true } });
+                return;
+              }
+            }
             setPageState('expired');
           } else if (err === 'unauthenticated') {
             setPageState('unauthenticated');
@@ -187,7 +202,7 @@ export function LetterResponseConfirmPage() {
         console.error('[letter-response-confirm] confirmLetterResponse error:', err);
         setPageState('error');
       });
-  }, [sessionChecked, session, letterId]);
+  }, [sessionChecked, session, letterId, navigate]);
 
   // ---- State 7a / 7b: Loading / Saving ----
   if (pageState === 'waiting-for-session' || pageState === 'confirming') {

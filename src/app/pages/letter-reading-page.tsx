@@ -11,7 +11,7 @@
  */
 
 import { useEffect, useState, useCallback, useRef, type ReactNode } from 'react';
-import { useParams, useSearchParams, Link, useNavigate } from 'react-router-dom';
+import { useParams, useSearchParams, Link, useNavigate, useLocation } from 'react-router-dom';
 import { toast } from 'sonner';
 import { useAuth } from '@/auth';
 import { supabase } from '@/lib/supabase';
@@ -55,7 +55,11 @@ export function LetterReadingPage() {
   const [searchParams] = useSearchParams();
   const token = searchParams.get('token') ?? '';
   const navigate = useNavigate();
+  const location = useLocation();
   const { user: currentUser, session, sessionChecked, isLoading: authLoading } = useAuth();
+
+  // P696: skip cover when arriving from confirm page (avoids flash)
+  const skipToComplete = (location.state as { skipToComplete?: boolean } | null)?.skipToComplete === true;
 
   const [pageState, setPageState] = useState<PageState>('loading');
   const [viewState, setViewState] = useState<ViewState>('cover');
@@ -548,7 +552,8 @@ export function LetterReadingPage() {
 
     return (
       <CertificatePageShell className="min-h-screen py-6 space-y-6">
-        {viewState === 'cover' && (
+        {viewState === 'cover' && skipToComplete && <ClarityPageLoader />}
+        {viewState === 'cover' && !skipToComplete && (
           <LetterCover
             senderName={senderName}
             receiverName={receiverDisplayName}
@@ -638,7 +643,8 @@ export function LetterReadingPage() {
 
   return (
     <CertificatePageShell className="min-h-screen py-6 space-y-6">
-      {viewState === 'cover' && (
+      {viewState === 'cover' && skipToComplete && <ClarityPageLoader />}
+      {viewState === 'cover' && !skipToComplete && (
         <>
           <LetterCover
             senderName={senderName}
