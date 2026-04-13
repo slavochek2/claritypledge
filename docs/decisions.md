@@ -2,6 +2,16 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-13 [product]: Desktop nav shows Letters (not Docs) — match mobile bottom-nav
+
+**Context:** Main branch refactored desktop `StaticNavLinks` to show Home / Docs / Events. Mobile `bottom-nav.tsx` shows Home / Letters (with unread badge) / Events / Profile. Merging main into `feature/letters-ship` surfaced the inconsistency — desktop showed Docs where mobile showed Letters.
+**Decision:** Replace Docs with Letters in desktop `StaticNavLinks`, including the unread badge. Desktop and mobile nav links must be consistent — same items, same labels, same badge behavior.
+**Alternatives rejected:** Keep Docs in desktop — creates confusing UX where desktop users can't find Letters and mobile users can't find Docs. Add both Docs + Letters — too many nav items.
+**Consequences:** Desktop nav: Home / Letters (with badge) / Events / CTA / Avatar. Mobile bottom-nav: Home / Letters (with badge) / Events / Profile. Docs is accessible via dropdown menu only. Any future nav link additions must be mirrored in both `StaticNavLinks` and `bottom-nav.tsx`.
+**References:** [simple-navigation.tsx](src/app/components/layout/simple-navigation.tsx) | [bottom-nav.tsx](src/app/components/layout/bottom-nav.tsx)
+
+---
+
 ## 2026-04-13 [product]: Badge is workshop #1 propagation measurement instrument
 
 **Context:** Workshop #1 is imminent. The core experiment question is whether a clarity flip propagates through relationships — does a badged person share the insight with someone they're in a real relationship with? Without a shareable artifact that proves calibration happened, propagation is unmeasurable.
