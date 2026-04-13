@@ -3,8 +3,8 @@ status: qa
 type: task
 p_number: 701
 title: Points Restructure + Badge Display Fix
-delivery_stage: fix
-pipeline_ran: [fix]
+delivery_stage: ship
+pipeline_ran: [fix, ship]
 date_created: 2026-04-13
 ---
 
