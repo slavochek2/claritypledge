@@ -14,11 +14,12 @@ import {
   DropdownMenuContent,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { MenuIcon, XIcon, CalendarIcon, UserIcon, HomeIcon, MicIcon, FileTextIcon } from "lucide-react";
+import { MenuIcon, XIcon, CalendarIcon, UserIcon, HomeIcon, MicIcon, MailIcon } from "lucide-react";
 import { ClarityLogo } from "@/components/ui/clarity-logo";
 import { GravatarAvatar } from "@/components/ui/gravatar-avatar";
 import { analytics } from "@/lib/mixpanel";
 import { useNavAuthState } from "@/hooks/use-nav-auth-state";
+import { useUnreadLetterCount } from "@/app/hooks/useUnreadLetterCount";
 import { NavigationMenuItems } from "./navigation-menu-items";
 
 const MOBILE_MENU_ID = "mobile-navigation-menu";
@@ -44,6 +45,7 @@ export function SimpleNavigation() {
     sessionChecked,
     hasSession,
   } = useNavAuthState();
+  const { count: unreadLetterCount } = useUnreadLetterCount();
   // Close mobile menu on route change (e.g., bottom nav, back button, page links)
   useEffect(() => {
     setIsMobileMenuOpen(false);
@@ -84,15 +86,25 @@ export function SimpleNavigation() {
         <span className="text-xs mt-1 font-medium">Home</span>
       </Link>
       <Link
-        to="/docs"
+        to="/letters"
         className={`flex flex-col items-center justify-center px-4 py-2 min-w-[80px] rounded-md transition-colors ${
-          location.pathname.startsWith("/docs") || location.pathname.startsWith("/d/")
+          location.pathname.startsWith("/letters")
             ? "text-primary"
             : "text-muted-foreground hover:text-foreground hover:bg-accent"
         }`}
       >
-        <FileTextIcon className="w-5 h-5" />
-        <span className="text-xs mt-1 font-medium">Docs</span>
+        <span className="relative">
+          <MailIcon className="w-5 h-5" />
+          {unreadLetterCount > 0 && (
+            <span
+              data-badge
+              className="absolute -top-1.5 -right-2 min-w-[16px] h-4 px-1 text-[10px] font-bold leading-4 text-white bg-blue-500 rounded-full text-center"
+            >
+              {unreadLetterCount > 99 ? '99+' : unreadLetterCount}
+            </span>
+          )}
+        </span>
+        <span className="text-xs mt-1 font-medium">Letters</span>
       </Link>
       <Link
         to="/events"

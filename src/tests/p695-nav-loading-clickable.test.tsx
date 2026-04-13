@@ -46,9 +46,9 @@ describe('P695: nav links clickable during profile loading', () => {
       expect(screen.getByRole('link', { name: /home/i })).toBeInTheDocument();
     });
 
-    it('renders Docs link — not a skeleton', () => {
+    it('renders Letters link — not a skeleton', () => {
       render(<BrowserRouter><SimpleNavigation /></BrowserRouter>);
-      expect(screen.getByRole('link', { name: /docs/i })).toBeInTheDocument();
+      expect(screen.getByRole('link', { name: /letters/i })).toBeInTheDocument();
     });
 
     it('renders Events link — not a skeleton', () => {
