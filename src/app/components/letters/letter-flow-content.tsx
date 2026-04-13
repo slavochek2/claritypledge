@@ -24,6 +24,7 @@ import type { Position } from '@/app/components/shared/prototype-types';
 import { Button } from '@/components/ui/button';
 import type { UseLetterReadingStateReturn, StoryPhase } from '@/app/hooks/useLetterReadingState';
 import { snapshotToStoryWithPoints, pointSummaryToProtoPoint } from '@/app/utils/letter-snapshot-mapper';
+import { FixedBottomBar } from '@/app/components/shared/fixed-bottom-bar';
 import { calculateStoryProgress } from '@/app/utils/letter-reading-utils';
 import type { LetterStorySnapshot, PositionType } from '@/app/types';
 
@@ -198,7 +199,7 @@ export function LetterFlowContent({
                 selectedPosition={selectedPosition as Position}
               />
             </div>
-            <div className="fixed inset-x-0 bottom-0 z-50 flex flex-col items-center rounded-t-[10px] border bg-background p-4">
+            <FixedBottomBar>
               <Button
                 onClick={handleSubmitPosition}
                 disabled={!selectedPosition || isSubmitting}
@@ -206,7 +207,7 @@ export function LetterFlowContent({
               >
                 Submit
               </Button>
-            </div>
+            </FixedBottomBar>
           </>
         )}
 
@@ -222,14 +223,14 @@ export function LetterFlowContent({
               />
             </div>
             {showAdvanceButton && (
-              <div className="fixed inset-x-0 bottom-0 z-50 flex flex-col items-center rounded-t-[10px] border bg-background p-4">
+              <FixedBottomBar>
                 <Button
                   onClick={advanceFromPointReveal}
                   className="w-full max-w-[200px] bg-[#0044CC] hover:bg-[#0033AA] text-white min-h-[44px]"
                 >
                   Next
                 </Button>
-              </div>
+              </FixedBottomBar>
             )}
           </>
         )}
@@ -244,7 +245,7 @@ export function LetterFlowContent({
               className="w-full max-w-sm mx-auto"
             />
             {authGateAtStoryRate ?? (
-              <div className="fixed inset-x-0 bottom-0 z-50 flex flex-col items-center rounded-t-[10px] border bg-background p-4">
+              <FixedBottomBar>
                 <h2 className="sr-only">Rate this story</h2>
                 <p className="sr-only">Rate how well you understood this story.</p>
                 <ComprehensionRatingCard
@@ -253,7 +254,7 @@ export function LetterFlowContent({
                   disabled={isSubmitting || currentStory.rating !== null}
                   submitLabel="Submit"
                 />
-              </div>
+              </FixedBottomBar>
             )}
           </>
         )}
@@ -286,14 +287,14 @@ export function LetterFlowContent({
               className="w-full max-w-sm mx-auto"
             />
             {showAdvanceButton && (
-              <div className="fixed inset-x-0 bottom-0 z-50 flex flex-col items-center rounded-t-[10px] border bg-background p-4">
+              <FixedBottomBar>
                 <Button
                   onClick={isFinalStory ? nextStory : advanceFromStoryReveal}
                   className="w-full max-w-[200px] bg-[#0044CC] hover:bg-[#0033AA] text-white min-h-[44px]"
                 >
                   {isFinalStory ? 'Complete Letter' : 'Next Story'}
                 </Button>
-              </div>
+              </FixedBottomBar>
             )}
           </>
         )}
@@ -312,7 +313,7 @@ export function LetterFlowContent({
                 selectedPosition={selectedPosition as Position}
               />
             </div>
-            <div className="fixed inset-x-0 bottom-0 z-50 flex flex-col items-center rounded-t-[10px] border bg-background p-4">
+            <FixedBottomBar>
               <Button
                 onClick={handleSubmitPosition}
                 disabled={!selectedPosition || isSubmitting}
@@ -320,7 +321,7 @@ export function LetterFlowContent({
               >
                 Submit
               </Button>
-            </div>
+            </FixedBottomBar>
           </>
         )}
 
@@ -336,14 +337,14 @@ export function LetterFlowContent({
               />
             </div>
             {showAdvanceButton && (
-              <div className="fixed inset-x-0 bottom-0 z-50 flex flex-col items-center rounded-t-[10px] border bg-background p-4">
+              <FixedBottomBar>
                 <Button
                   onClick={advanceFromRemainingPointReveal}
                   className="w-full max-w-[200px] bg-[#0044CC] hover:bg-[#0033AA] text-white min-h-[44px]"
                 >
                   Next
                 </Button>
-              </div>
+              </FixedBottomBar>
             )}
           </>
         )}

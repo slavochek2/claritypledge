@@ -1415,6 +1415,30 @@ export interface InboxItem {
   read_at: string | null;
   /** P695: null for pending, ISO string when letter was completed by recipient */
   completed_at: string | null;
+  /** P699: stories rated so far (received letters only, in-progress) */
+  stories_rated?: number;
+  /** P699: total stories in the letter (received letters only) */
+  total_stories?: number;
+}
+
+/** P699: Single story in the story walk — normalized for both sender and receiver */
+export interface StoryWalkItem {
+  /** story_id from snapshot */
+  storyId: string;
+  /** 0-based position in the letter */
+  position: number;
+  /** Snapshot data (point_config, visibility) */
+  snapshot: LetterStorySnapshot;
+  /** Sender prediction (always present for sender perspective; present for receiver after they rated) */
+  prediction: number | undefined;
+  /** Receiver rating (present only when receiver has rated this story) */
+  rating: number | undefined;
+  /** Gap = |prediction - rating|; undefined when either is missing */
+  gap: number | undefined;
+  /** Whether sender overestimated receiver's understanding (prediction > rating) */
+  isOverconfident: boolean;
+  /** Point responses for this story's points (indexed by point_id) */
+  receiverPositions: Map<string, PositionType>;
 }
 
 export interface LetterStorySnapshot {

@@ -70,11 +70,15 @@ export function InboxTab({ userId, onUnreadCountChange }: InboxTabProps) {
       setMarkingRead(null);
     }
 
-    // Navigate based on item type
+    // Navigate based on item type and completion state
     if (item.type === 'received') {
-      // Note: invitation_token would ideally be on InboxItem for the full URL.
-      // Using delivery_id-based path; token must be added to InboxItem type if needed.
-      navigate(`/letter/${item.delivery_id}`);
+      if (item.completed_at) {
+        // Completed received letter → go straight to results (skip reading flow, skip celebration)
+        navigate(`/letter/${item.letter_id}/results?delivery=${item.delivery_id}`);
+      } else {
+        // In-progress received letter → open reading flow
+        navigate(`/letter/${item.delivery_id}`);
+      }
     } else {
       navigate(`/letter/${item.letter_id}/results`);
     }
@@ -148,6 +152,16 @@ export function InboxTab({ userId, onUnreadCountChange }: InboxTabProps) {
                 <p className="text-xs text-muted-foreground mt-0.5">
                   {formatTimeAgo(item.timestamp)} ago
                 </p>
+                {/* P699: progress text for in-progress received letters */}
+                {item.type === 'received' &&
+                  !item.completed_at &&
+                  item.stories_rated !== undefined &&
+                  item.total_stories !== undefined &&
+                  item.stories_rated > 0 && (
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Step {item.stories_rated} of {item.total_stories} completed
+                  </p>
+                )}
               </div>
               <div className="flex-shrink-0">
                 <Button

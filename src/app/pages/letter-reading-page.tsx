@@ -83,7 +83,7 @@ export function LetterReadingPage() {
   // P684: one-to-many public reading state
   const [publicPredictions, setPublicPredictions] = useState<Map<string, number> | undefined>();
   const [completedDeliveryId, setCompletedDeliveryId] = useState<string | null>(null);
-  const [wasAlreadyCompleted, setWasAlreadyCompleted] = useState(false);
+  const [_wasAlreadyCompleted, setWasAlreadyCompleted] = useState(false);
 
   // P683: TOS consent
   const [consentError, setConsentError] = useState<string | null>(null);
@@ -621,6 +621,7 @@ export function LetterReadingPage() {
         {viewState === 'complete' && !!currentUser && completedDeliveryId && (
           <LetterCompletionSummary
             deliveryId={completedDeliveryId}
+            letterId={letter.id}
             letterData={{
               snapshots,
               senderName,
@@ -628,7 +629,6 @@ export function LetterReadingPage() {
             }}
             isAuthenticated={true}
             senderName={senderName}
-            isRevisit={wasAlreadyCompleted}
           />
         )}
       </CertificatePageShell>
@@ -703,6 +703,7 @@ export function LetterReadingPage() {
       {viewState === 'complete' && (
         <LetterCompletionSummary
           deliveryId={delivery.id}
+          letterId={letter.id}
           letterData={{
             snapshots,
             senderName,
@@ -710,7 +711,6 @@ export function LetterReadingPage() {
           }}
           isAuthenticated={!!session}
           senderName={senderName}
-          isRevisit={wasAlreadyCompleted}
         />
       )}
     </CertificatePageShell>

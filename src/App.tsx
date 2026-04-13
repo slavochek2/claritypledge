@@ -653,11 +653,11 @@ export default function ClarityPledgeApp() {
           }
         />
 
-        {/* P665: Letter results page (chrome-free, sender view) — must be before /letter/:id */}
+        {/* P699: Letter results page (top menu visible) — must be before /letter/:id */}
         <Route
           path="/letter/:id/results"
           element={
-            <ClarityLandingLayout chromeFree>
+            <ClarityLandingLayout>
               <LazyRoute>
                 <LetterResultsPage />
               </LazyRoute>

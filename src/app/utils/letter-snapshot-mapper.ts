@@ -59,6 +59,27 @@ interface AuthorProfile {
 }
 
 /**
+ * P699: Post-process a StoryWithPoints to inject the other party's positions
+ * into profileSubjectPosition on each point.
+ *
+ * snapshotToStoryWithPoints() maps authorPosition → profileSubjectPosition.
+ * For sender perspective in the story walk, we want receiver positions there instead.
+ * Creates a new StoryWithPoints (no in-place mutation).
+ */
+export function injectReceiverPositions(
+  story: StoryWithPoints,
+  positionMap: Map<string, PositionType>
+): StoryWithPoints {
+  return {
+    ...story,
+    points: story.points.map(point => ({
+      ...point,
+      profileSubjectPosition: positionMap.get(point.id) ?? null,
+    })),
+  };
+}
+
+/**
  * Convert a LetterStorySnapshot into the StoryWithPoints shape
  * that LiveStoryCardExpanded expects.
  *

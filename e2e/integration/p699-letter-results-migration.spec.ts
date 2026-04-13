@@ -226,9 +226,9 @@ test.describe('P699 Migration — get_letter_results authorization', () => {
       p_delivery_id: null,
     });
 
-    expect(error).toBeNull(); // Should not throw — just return null
-    // NULL means unauthorized: caller is not sender or receiver
-    expect(data).toBeFalsy();
+    expect(error).toBeNull(); // Should not throw — just return empty
+    // PostgREST returns [] (not null) for RETURN; in TABLE-returning functions
+    expect(Array.isArray(data) && data.length === 0).toBe(true);
   });
 
   test('anonymous caller gets NULL from get_letter_results', async () => {
@@ -240,7 +240,7 @@ test.describe('P699 Migration — get_letter_results authorization', () => {
     });
 
     expect(error).toBeNull();
-    expect(data).toBeFalsy();
+    expect(Array.isArray(data) && data.length === 0).toBe(true);
   });
 
   // ── 2d. Receiver WITHOUT delivery_id cannot access (wrong perspective) ────
@@ -253,9 +253,9 @@ test.describe('P699 Migration — get_letter_results authorization', () => {
       p_delivery_id: null,
     });
 
-    // Receiver is not the sender — without delivery_id, should return null
+    // Receiver is not the sender — without delivery_id, returns empty (not sender)
     expect(error).toBeNull();
-    expect(data).toBeFalsy();
+    expect(Array.isArray(data) && data.length === 0).toBe(true);
   });
 });
 
@@ -319,7 +319,7 @@ test.describe('P699 Migration — get_letter_results requires sealed letter', ()
 
     expect(error).toBeNull();
     // Draft letters cannot be accessed via results — guards against premature reveal
-    expect(data).toBeFalsy();
+    expect(Array.isArray(data) && data.length === 0).toBe(true);
   });
 });
 
@@ -482,6 +482,6 @@ test.describe('P699 Migration — get_letter_results data shape', () => {
     });
 
     expect(error).toBeNull();
-    expect(data).toBeFalsy();
+    expect(Array.isArray(data) && data.length === 0).toBe(true);
   });
 });

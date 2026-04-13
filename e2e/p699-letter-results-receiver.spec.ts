@@ -98,8 +98,12 @@ test.describe('P699: Receiver Results — Story Walk', () => {
       position: 'agree',
     });
 
-    // Complete the delivery
+    // Complete the delivery and pre-mark as read so inbox navigation tests bypass markDeliveryRead
     await completeTestDelivery(deliveryId, 1);
+    await supabaseAdmin
+      .from('letter_deliveries')
+      .update({ read_at: new Date().toISOString() })
+      .eq('id', deliveryId);
   });
 
   test.afterAll(async () => {
@@ -203,9 +207,7 @@ test.describe('P699: Receiver Results — Story Walk', () => {
     await page.goto(`/letter/${letterId}/results?delivery=${deliveryId}`);
     await page.waitForLoadState('networkidle');
 
-    const gapBanner = page
-      .locator('[data-component="gap-banner"], [class*="gap-banner"], text=/gap/i')
-      .first();
+    const gapBanner = page.locator('text=/points gap|perfectly calibrated/i').first();
     await expect(gapBanner).toBeVisible({ timeout: 10000 });
   });
 
@@ -214,7 +216,8 @@ test.describe('P699: Receiver Results — Story Walk', () => {
     await page.goto(`/letter/${letterId}/results?delivery=${deliveryId}`);
     await page.waitForLoadState('networkidle');
 
-    const storyTitle = page.locator('text=/P699 Receiver Story/').first();
+    // Story card shows story body text (LiveStoryCardExpanded renders content, not title)
+    const storyTitle = page.locator('text=/Story for receiver results walk/').first();
     await expect(storyTitle).toBeVisible({ timeout: 10000 });
   });
 
@@ -289,7 +292,7 @@ test.describe('P699: Receiver Results — Story Walk', () => {
     }
 
     // Back to Letters secondary link should exist
-    const backLink = page.locator('a[href*="/letters"], text=/back to letters/i').first();
+    const backLink = page.locator('a[href*="/letters"]').first();
     await expect(backLink).toBeVisible({ timeout: 10000 });
   });
 

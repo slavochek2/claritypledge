@@ -16,6 +16,7 @@ import type {
   LetterMode,
   DeliveryStatus,
   InboxItem,
+  PositionType,
 } from '@/app/types';
 import { supabase } from '@/lib/supabase';
 
@@ -723,7 +724,7 @@ export async function getInboxItems(userId: string): Promise<InboxItem[]> {
   await requireAuth();
   log('getInboxItems:', userId);
 
-  const { data, error } = await supabase.rpc('get_inbox_items', { p_user_id: userId });
+  const { data, error } = await supabase.rpc('get_inbox_items');
 
   if (error) {
     logDbError('getInboxItems', error);
@@ -741,6 +742,8 @@ export async function getInboxItems(userId: string): Promise<InboxItem[]> {
     timestamp: row['timestamp'] as string,
     read_at: (row['read_at'] as string | null) ?? null,
     completed_at: (row['completed_at'] as string | null) ?? null,
+    stories_rated: row['stories_rated'] != null ? Number(row['stories_rated']) : undefined,
+    total_stories: row['total_stories'] != null ? Number(row['total_stories']) : undefined,
   }));
 }
 
@@ -1063,4 +1066,79 @@ export async function getUnreadLetterCount(userId: string): Promise<number> {
   }
 
   return (receivedCount ?? 0) + responsesCount;
+}
+
+// ============================================================================
+// P699: Letter Results RPC
+// ============================================================================
+
+export interface LetterResultsData {
+  perspective: 'sender' | 'receiver';
+  senderName: string;
+  receiverName: string | null;
+  snapshots: LetterStorySnapshot[];
+  predictions: Array<{ story_id: string; prediction: number }>;
+  ratings: Array<{ story_id: string; listener_rating: number }>;
+  pointResponses: Array<{ point_id: string; delivery_id: string; position: PositionType }>;
+}
+
+/**
+ * P699: Fetch full letter results via get_letter_results SECURITY DEFINER RPC.
+ * Works for both sender (no deliveryId) and receiver (with deliveryId).
+ * Returns null if unauthorized, letter not found, or not sealed.
+ */
+export async function getLetterResults(
+  letterId: string,
+  deliveryId?: string
+): Promise<LetterResultsData | null> {
+  await requireAuth();
+  log('getLetterResults:', letterId, deliveryId);
+
+  const params: Record<string, string> = { p_letter_id: letterId };
+  if (deliveryId) params['p_delivery_id'] = deliveryId;
+
+  const { data, error } = await supabase.rpc('get_letter_results', params);
+
+  if (error) {
+    logDbError('getLetterResults', error);
+    return null;
+  }
+
+  // RPC returns TABLE — data is an array; null/empty = unauthorized or not found
+  const rows = data as Array<Record<string, unknown>> | null;
+  if (!rows || rows.length === 0) return null;
+
+  const row = rows[0];
+
+  const snapshotRows = (row['snapshots'] as Array<Record<string, unknown>>) ?? [];
+  const predictionRows = (row['predictions'] as Array<Record<string, unknown>>) ?? [];
+  const ratingRows = (row['ratings'] as Array<Record<string, unknown>>) ?? [];
+  const responseRows = (row['point_responses'] as Array<Record<string, unknown>>) ?? [];
+
+  return {
+    perspective: row['perspective'] as 'sender' | 'receiver',
+    senderName: (row['sender_name'] as string) ?? '',
+    receiverName: (row['receiver_name'] as string | null) ?? null,
+    snapshots: snapshotRows.map(s => ({
+      letter_id: letterId,
+      story_id: s['story_id'] as string,
+      version_id: s['version_id'] as string,
+      position: s['position'] as number,
+      point_config: s['point_config'] as Record<string, unknown>,
+      visibility: s['visibility'] as string,
+    })),
+    predictions: predictionRows.map(p => ({
+      story_id: p['story_id'] as string,
+      prediction: p['prediction'] as number,
+    })),
+    ratings: ratingRows.map(r => ({
+      story_id: r['story_id'] as string,
+      listener_rating: r['listener_rating'] as number,
+    })),
+    pointResponses: responseRows.map(r => ({
+      point_id: r['point_id'] as string,
+      delivery_id: r['delivery_id'] as string,
+      position: r['position'] as PositionType,
+    })),
+  };
 }

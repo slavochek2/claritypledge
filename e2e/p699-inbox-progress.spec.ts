@@ -110,6 +110,11 @@ test.describe('P699: Inbox Progress Indicator', () => {
     completedLetterId = r2.letter.id;
     completedDeliveryId = r2.delivery.id;
     await completeTestDelivery(completedDeliveryId, 3);
+    // Pre-mark completed delivery as read so navigation tests don't hit markDeliveryRead RLS
+    await supabaseAdmin
+      .from('letter_deliveries')
+      .update({ read_at: new Date().toISOString() })
+      .eq('id', completedDeliveryId);
 
     // Letter 3: fresh / sent (0 of 3 rated)
     const r3 = await createFullTestLetter(
@@ -218,10 +223,10 @@ test.describe('P699: Inbox Progress Indicator', () => {
     await page.goto('/letters?tab=inbox');
     await page.waitForLoadState('networkidle');
 
-    // Fresh letter should have a "Read" button, not a progress indicator
+    // Fresh letter should have an "Open" button, not a progress indicator
     const readButton = page
-      .getByRole('button', { name: /^read$/i })
-      .or(page.getByRole('link', { name: /^read$/i }));
+      .getByRole('button', { name: /^open$/i })
+      .or(page.getByRole('link', { name: /^open$/i }));
 
     const count = await readButton.count();
     expect(count).toBeGreaterThanOrEqual(1);

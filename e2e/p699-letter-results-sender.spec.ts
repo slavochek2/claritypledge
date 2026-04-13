@@ -223,8 +223,8 @@ test.describe('P699: Sender Results — Story Walk', () => {
     await page.goto(`/letter/${letterId}/results`);
     await page.waitForLoadState('networkidle');
 
-    // GapBanner includes "gap" text or a gap magnitude badge
-    const gapBanner = page.locator('[data-component="gap-banner"], [class*="gap-banner"], text=/gap/i').first();
+    // GapBanner includes "N points gap" badge text
+    const gapBanner = page.locator('text=/points gap|perfectly calibrated/i').first();
     await expect(gapBanner).toBeVisible({ timeout: 10000 });
   });
 
@@ -233,8 +233,8 @@ test.describe('P699: Sender Results — Story Walk', () => {
     await page.goto(`/letter/${letterId}/results`);
     await page.waitForLoadState('networkidle');
 
-    // Story card should show the story title or content
-    const storyContent = page.locator('text=/P699 Story 1/').first();
+    // Story card shows story body text (LiveStoryCardExpanded renders content, not title)
+    const storyContent = page.locator('text=/First story for gap visualization/').first();
     await expect(storyContent).toBeVisible({ timeout: 10000 });
   });
 
@@ -333,7 +333,7 @@ test.describe('P699: Sender Results — Story Walk', () => {
       await page.waitForLoadState('networkidle');
     }
 
-    const backLink = page.locator('a[href*="/letters"], text=/back to letters/i').first();
+    const backLink = page.locator('a[href*="/letters"]').first();
     await expect(backLink).toBeVisible({ timeout: 10000 });
   });
 
@@ -346,7 +346,7 @@ test.describe('P699: Sender Results — Story Walk', () => {
 
     // ClarityLandingLayout shows the top nav/header
     // chromeFree layout hides it — this page should NOT be chromeFree
-    const topNav = page.locator('header, nav[aria-label*="main"], [data-component*="nav"]').first();
+    const topNav = page.locator('nav[data-nav="main"]').first();
     await expect(topNav).toBeVisible({ timeout: 10000 });
   });
 
