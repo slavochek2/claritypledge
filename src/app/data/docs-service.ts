@@ -28,7 +28,6 @@ interface DbDocStoryWithStory extends DbDocStory {
   story: {
     id: string;
     author_id: string;
-    title?: string;
     content: string;
     visibility: string;
     current_version: number;
@@ -64,7 +63,6 @@ interface DbDocStoryWithStory extends DbDocStory {
 interface DbStoryWithAuthor {
   id: string;
   author_id: string;
-  title?: string;
   content: string;
   visibility: string;
   current_version: number;
@@ -182,7 +180,6 @@ async function requireAuth(): Promise<string> {
 const STORY_WITH_AUTHOR_SELECT = `
   id,
   author_id,
-  title,
   content,
   visibility,
   current_version,
@@ -209,7 +206,6 @@ const STORY_WITH_AUTHOR_SELECT = `
 const STORY_WITH_AUTHOR_AND_POINTS_SELECT = `
   id,
   author_id,
-  title,
   content,
   visibility,
   current_version,
