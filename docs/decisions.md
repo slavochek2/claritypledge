@@ -2,6 +2,26 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-13 [technical]: point_config visible filter is `!p.hidden` (boolean), not `visibility === 'visible'`
+
+**Context:** `countTotalPoints` in `letter-reading-utils.ts` filtered `p.visibility === 'visible'` — always returned 0 because the DB stores `hidden: boolean` in `point_config.points[]`, not a visibility string. Cover pages showed "0 points".
+**Decision:** Filter visible points using `!p.hidden`. Interface uses `hidden?: boolean`. The authoritative reference is `snapshotToStoryWithPoints` in `letter-snapshot-mapper.ts` (line 78) — use it as the source of truth for point_config filtering.
+**Alternatives rejected:** `visibility === 'public'` — another wrong string. Keeping `visibility` field in the interface — the DB field is `hidden`, not `visibility`.
+**Consequences:** Any future code that filters visible points from `point_config` must use `!p.hidden`. The `PointConfigPoint` interface should declare `hidden?: boolean` (not `visibility`). Test fixtures for `countTotalPoints` must use `{ hidden: false }` / `{ hidden: true }` point objects.
+**References:** [letter-reading-utils.ts](src/app/utils/letter-reading-utils.ts) | [letter-snapshot-mapper.ts](src/app/utils/letter-snapshot-mapper.ts)
+
+---
+
+## 2026-04-13 [product]: Letter confirm page redirects to letter results (not "close this tab")
+
+**Context:** After `confirmLetterResponse` succeeded, the confirm page showed a dead-end "Your responses have been shared. You can close this tab." — no navigation, no app chrome, no way to see results.
+**Decision:** On `pageState === 'complete'`: show `CheckCircle2` + "Redirecting to your results…" for 2 seconds, then `navigate(/letter/:letterId, { replace: true })`. User lands on the letter page with app chrome visible, where they can see their responses and aggregate results.
+**Alternatives rejected:** Immediate redirect (too abrupt — no success confirmation). Static "close this tab" — dead-end; user has no path to results.
+**Consequences:** The confirm page is no longer a terminal screen — it's a transition screen. Any future confirm-style page should follow this pattern: brief success → redirect to results.
+**References:** [letter-response-confirm-page.tsx](src/app/pages/letter-response-confirm-page.tsx)
+
+---
+
 ## 2026-04-13 [technical]: P696 letter response — 2-step flow restored, token_hash applied to email URL (supersedes "atomic letter response" 2026-04-12)
 
 **Context:** The `create-and-respond-to-letter` single-step edge function was reverted. In the single-step flow readers never received an email — responses were saved inline and a session established server-side. Core problem: in the letters flow readers **self-report their email**. Skipping email verification enables phantom accounts — anyone could submit responses with a fabricated address.
