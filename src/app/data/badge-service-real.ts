@@ -1,4 +1,4 @@
-import type { BadgeService, BadgePoint, BadgePosition } from './badge-service.interface';
+import type { BadgeService, BadgePoint, BadgePosition, BadgePointDetail } from './badge-service.interface';
 import { supabase } from '@/lib/supabase';
 import { logDbError } from './db-error-logger';
 
@@ -80,6 +80,55 @@ export class RealBadgeService implements BadgeService {
     }
 
     return (data ?? []).map(row => mapDbRow(row as DbBadgePointRow));
+  }
+
+  async getBadgePointsWithDetails(userId: string): Promise<BadgePointDetail[]> {
+    const badgePoints = await this.getBadgePoints(userId);
+    if (badgePoints.length === 0) return [];
+
+    // Batch-fetch point details (statement + system_tags)
+    const pointIds = [...new Set(badgePoints.map(bp => bp.pointId))];
+    const { data: pointRows, error: pointError } = await supabase
+      .from('points')
+      .select('id, statement, system_tags')
+      .in('id', pointIds);
+    if (pointError) logDbError('getBadgePointsWithDetails:points', pointError);
+
+    const pointMap = new Map(
+      (pointRows ?? []).map(p => [
+        p.id as string,
+        { statement: p.statement as string, system_tags: p.system_tags as string[] },
+      ])
+    );
+
+    // Batch-fetch story content
+    const storyIds = [...new Set(badgePoints.map(bp => bp.storyId).filter(Boolean))] as string[];
+    const storyMap = new Map<string, string>();
+    if (storyIds.length > 0) {
+      const { data: storyRows, error: storyError } = await supabase
+        .from('stories')
+        .select('id, content')
+        .in('id', storyIds);
+      if (storyError) logDbError('getBadgePointsWithDetails:stories', storyError);
+      for (const row of storyRows ?? []) {
+        storyMap.set(row.id as string, row.content as string);
+      }
+    }
+
+    return badgePoints.map(bp => {
+      const point = pointMap.get(bp.pointId);
+      const systemTags = point?.system_tags ?? [];
+      const stGroup = systemTags.find(t => /^st\d+$/.test(t)) ?? 'st0';
+      const versionTag = systemTags.find(t => /^v\d+$/.test(t));
+      const pointVersion = versionTag ? parseInt(versionTag.slice(1), 10) : 1;
+      return {
+        ...bp,
+        pointStatement: point?.statement ?? '',
+        stGroup,
+        pointVersion,
+        storyContent: bp.storyId ? (storyMap.get(bp.storyId) ?? null) : null,
+      };
+    });
   }
 
   async getBadgeCount(userId: string): Promise<number> {
