@@ -15,7 +15,6 @@ flow: dev
 uat_file: features/uat/p467.md
 test_files:
   - e2e/p467-chat-context-header.spec.ts
-  - e2e/p467-smoke.spec.ts
   - e2e/a11y/p467-accessibility.spec.ts
 ---
 

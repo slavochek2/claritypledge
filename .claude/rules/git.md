@@ -48,6 +48,16 @@ git reset HEAD -- <file>        # unstage any bystanders
 
 This is the #1 cause of "wrong files in wrong commit" — a session stages all modified files instead of only its own changes.
 
+## Session start — clear the index before your first git add
+
+Before your first `git add` of the session:
+```bash
+git diff --cached --name-only   # inspect for prior-session leftovers
+git reset HEAD -- <file>        # unstage any bystanders before staging your own files
+```
+
+Do this **before** `git add`, not after. After `git add` both sets are mixed and the review looks correct — prior-session files are invisible among your own staged files. This is what causes the wrong-files-in-commit bug.
+
 ## Always use explicit file names
 
 ```bash
@@ -90,6 +100,12 @@ After a context compaction, run `git log --oneline -5` before staging anything. 
 git log --oneline -5          # check what's already committed
 git diff HEAD -- <file>       # verify the file actually has uncommitted changes before staging
 ```
+
+## Worktree Phantom Deletions
+
+Inside a worktree, `git status` may show phantom `D` entries for `scripts/` — these are symlink artifacts from the worktree setup, not real deletions. Use `git diff --name-only HEAD` to see only real changes.
+
+Never use `git add .` or `git add -A` in a worktree — use `git add src/` or explicit file paths. (This extends the existing `git add .` ban with a worktree-specific failure mode.)
 
 ## Cleaning up tracked files + .gitignore changes
 

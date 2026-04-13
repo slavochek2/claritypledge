@@ -42,6 +42,7 @@ export function SimpleNavigation() {
     signOut,
     isLoading,
     sessionChecked,
+    hasSession,
   } = useNavAuthState();
   // Close mobile menu on route change (e.g., bottom nav, back button, page links)
   useEffect(() => {
@@ -67,6 +68,45 @@ export function SimpleNavigation() {
   };
 
   const closeMobileMenu = () => setIsMobileMenuOpen(false);
+
+  // Static routes — no profile data needed, safe to render during profile loading phase
+  const StaticNavLinks = () => (
+    <>
+      <Link
+        to="/feed"
+        className={`flex flex-col items-center justify-center px-4 py-2 min-w-[80px] rounded-md transition-colors ${
+          location.pathname === "/feed"
+            ? "text-primary"
+            : "text-muted-foreground hover:text-foreground hover:bg-accent"
+        }`}
+      >
+        <HomeIcon className="w-5 h-5" />
+        <span className="text-xs mt-1 font-medium">Home</span>
+      </Link>
+      <Link
+        to="/docs"
+        className={`flex flex-col items-center justify-center px-4 py-2 min-w-[80px] rounded-md transition-colors ${
+          location.pathname.startsWith("/docs") || location.pathname.startsWith("/d/")
+            ? "text-primary"
+            : "text-muted-foreground hover:text-foreground hover:bg-accent"
+        }`}
+      >
+        <FileTextIcon className="w-5 h-5" />
+        <span className="text-xs mt-1 font-medium">Docs</span>
+      </Link>
+      <Link
+        to="/events"
+        className={`flex flex-col items-center justify-center px-4 py-2 min-w-[80px] rounded-md transition-colors ${
+          location.pathname === "/events" || location.pathname.startsWith("/events/")
+            ? "text-primary"
+            : "text-muted-foreground hover:text-foreground hover:bg-accent"
+        }`}
+      >
+        <CalendarIcon className="w-5 h-5" />
+        <span className="text-xs mt-1 font-medium">Events</span>
+      </Link>
+    </>
+  );
 
   return (
     <nav
@@ -98,9 +138,9 @@ export function SimpleNavigation() {
           {/* Desktop: Nav links + CTA + Menu */}
           <div className="hidden lg:flex items-center gap-3">
             {/* P113: Show icon nav for logged-in users, text links for logged-out */}
-            {/* Loading state: skeleton pills to prevent layout flicker */}
-            {!sessionChecked || isLoading ? (
-              /* Auth resolving: skeleton to prevent logged-out flash */
+            {/* P695: Three-phase gate — full skeleton → static links + profile skeleton → full nav */}
+            {!sessionChecked ? (
+              /* Phase 1: session check in flight (~10ms) — full skeleton to prevent logged-out flash */
               <>
                 <div className="animate-pulse flex items-center gap-3 transition-opacity duration-150">
                   <div className="h-10 w-[88px] bg-muted rounded-md" />
@@ -127,45 +167,36 @@ export function SimpleNavigation() {
                 {/* Avatar/hamburger skeleton */}
                 <div className="h-9 w-9 bg-muted rounded-full animate-pulse" />
               </>
-            ) : showUserMenu ? (
-              /* Logged-in: Icon nav with labels (LinkedIn-style) */
+            ) : hasSession && isLoading ? (
+              /* Phase 2: session known, profile fetching (100-500ms) — static links clickable */
               <div className="flex items-center gap-3 transition-opacity duration-150">
-                {/* Feed link */}
+                <StaticNavLinks />
+                {/* My Profile slot: skeleton until profile resolves */}
+                <div className="h-10 w-[88px] bg-muted rounded-md animate-pulse" />
+                {/* Start a Clarity Session CTA */}
                 <Link
-                  to="/feed"
-                  className={`flex flex-col items-center justify-center px-4 py-2 min-w-[80px] rounded-md transition-colors ${
-                    location.pathname === "/feed"
-                      ? "text-primary"
-                      : "text-muted-foreground hover:text-foreground hover:bg-accent"
-                  }`}
+                  to="/live"
+                  title="Start a live clarity session"
+                  className="inline-flex items-center justify-center whitespace-nowrap text-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring shadow h-10 rounded-md px-6 bg-blue-500 hover:bg-blue-600 text-white font-semibold gap-2"
+                  onClick={(e) => {
+                    analytics.track('nav_cta_clicked', { cta: 'try_meeting', device: 'desktop' });
+                    if (location.pathname.startsWith('/live')) {
+                      e.preventDefault();
+                      navigate('/live', { replace: true });
+                      window.location.reload();
+                    }
+                  }}
                 >
-                  <HomeIcon className="w-5 h-5" />
-                  <span className="text-xs mt-1 font-medium">Home</span>
+                  <MicIcon className="w-4 h-4" />
+                  Start a Clarity Session
                 </Link>
-                {/* Docs */}
-                <Link
-                  to="/docs"
-                  className={`flex flex-col items-center justify-center px-4 py-2 min-w-[80px] rounded-md transition-colors ${
-                    location.pathname.startsWith("/docs") || location.pathname.startsWith("/d/")
-                      ? "text-primary"
-                      : "text-muted-foreground hover:text-foreground hover:bg-accent"
-                  }`}
-                >
-                  <FileTextIcon className="w-5 h-5" />
-                  <span className="text-xs mt-1 font-medium">Docs</span>
-                </Link>
-                {/* Events */}
-                <Link
-                  to="/events"
-                  className={`flex flex-col items-center justify-center px-4 py-2 min-w-[80px] rounded-md transition-colors ${
-                    location.pathname === "/events" || location.pathname.startsWith("/events/")
-                      ? "text-primary"
-                      : "text-muted-foreground hover:text-foreground hover:bg-accent"
-                  }`}
-                >
-                  <CalendarIcon className="w-5 h-5" />
-                  <span className="text-xs mt-1 font-medium">Events</span>
-                </Link>
+                {/* Avatar skeleton */}
+                <div className="h-9 w-9 bg-muted rounded-full animate-pulse" />
+              </div>
+            ) : showUserMenu ? (
+              /* Phase 3a: Logged-in: Icon nav with labels (LinkedIn-style) */
+              <div className="flex items-center gap-3 transition-opacity duration-150">
+                <StaticNavLinks />
                 {/* My Profile */}
                 <Link
                   to={slug ? `/p/${slug}` : "/me"}
@@ -224,7 +255,7 @@ export function SimpleNavigation() {
                 </DropdownMenu>
               </div>
             ) : (
-              /* Logged-out: Only Events visible; rest in hamburger dropdown */
+              /* Phase 3b: Logged-out (or unverified): Only Events visible; rest in hamburger dropdown */
               <div className="flex items-center gap-3 transition-opacity duration-150">
                 <Link
                   to="/events"
@@ -284,8 +315,9 @@ export function SimpleNavigation() {
           </div>
 
           {/* Mobile: Start Session button + Menu Button */}
-          {/* Loading state: skeleton circle to prevent logged-out flash */}
-          {(!sessionChecked || isLoading) ? (
+          {/* P695: Two-phase gate — full skeleton (unknown auth) → hamburger available (profile loading) */}
+          {!sessionChecked ? (
+            /* Phase 1: session check in flight — skeleton to prevent logged-out flash */
             <div className="lg:hidden p-2">
               <div className="h-8 w-8 bg-muted rounded-full animate-pulse" />
             </div>

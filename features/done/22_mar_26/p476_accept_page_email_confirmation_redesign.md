@@ -13,7 +13,6 @@ flow: dev
 uat_file: features/uat/p476.md
 test_files:
   - e2e/p476-accept-confirmation.spec.ts
-  - e2e/p476-smoke.spec.ts
   - e2e/a11y/p476-accessibility.spec.ts
 ---
 

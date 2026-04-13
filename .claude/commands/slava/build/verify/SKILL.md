@@ -87,12 +87,19 @@ If no argument, infer from branch:
 git branch --show-current  # e.g., feature/p273-verification-gate → p273
 ```
 
+**Worktree-first resolution:** Before reading the spec, check if a worktree has a newer version:
+```bash
+git worktree list  # find worktree paths
+find /path/to/worktree/features -name "p{N}_*.md" 2>/dev/null
+```
+If found in a worktree → read from the worktree path (it is ahead of main by definition — has pipeline stamps, checked ACs, etc.). If not found in any worktree → read from the current working directory.
+
 Read the spec file completely. Also confirm what was actually shipped:
 ```bash
 git log --oneline -5 feature/p{N}-*  # what commits landed on this branch?
 ```
 
-Also check for a UAT file:
+Also check for a UAT file (same worktree-first rule applies):
 ```bash
 ls features/uat/p{N}.md 2>/dev/null
 ```
@@ -240,8 +247,10 @@ ls e2e/p{N}-*.spec.ts 2>/dev/null
 
 If specs exist → run them directly:
 ```bash
-npx playwright test e2e/p{N}-*.spec.ts --reporter=line
+npx playwright test e2e/p{N}-*.spec.ts --reporter=line --workers=1
 ```
+
+> **Always `--workers=1` when running p{N}-*.spec.ts.** Multiple spec files each create test users in `beforeAll` — parallel workers hit Supabase auth rate limits (429), producing false failures that mask real ones. See decisions.md 2026-04-12 [process].
 
 Skip to 3d (parse results).
 
@@ -293,7 +302,7 @@ expect(data.field).toBe('expected');
 
 Run the generated test:
 ```bash
-npx playwright test e2e/p{N}-verify.spec.ts --reporter=line
+npx playwright test e2e/p{N}-verify.spec.ts --reporter=line --workers=1
 ```
 
 #### 3d. Parse Results and Update Scorecard

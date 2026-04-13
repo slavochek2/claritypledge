@@ -8,7 +8,6 @@ tags: []
 uat_file: features/uat/p407.md
 test_files:
   - e2e/p407-story-detail-points.spec.ts
-  - e2e/p407-smoke.spec.ts
 locked_at: '2026-02-21T09:01:48.116Z'
 ---
 

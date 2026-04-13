@@ -8,7 +8,6 @@ tags: []
 uat_file: features/uat/p418.md
 test_files:
   - e2e/p418-banner-search-fallback.spec.ts
-  - e2e/p418-smoke.spec.ts
   - e2e/a11y/p418-accessibility.spec.ts
 locked_at: '2026-02-26T04:17:22.327Z'
 ---

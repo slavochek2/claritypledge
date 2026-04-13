@@ -19,7 +19,6 @@ test_files:
   - e2e/integration/p511-session-resilience-migration.spec.ts
   - e2e/p511-session-resilience.spec.ts
   - e2e/a11y/p511-accessibility.spec.ts
-  - e2e/p511-smoke.spec.ts
 created_date: 2026-03-14
 ---
 

@@ -10,7 +10,6 @@ uat_file: features/uat/p602.md
 test_files:
   - src/tests/p602-feed-filters.test.ts
   - e2e/p602-feed-multi-tag.spec.ts
-  - e2e/p602-feed-smoke.spec.ts
   - e2e/a11y/p602-accessibility.spec.ts
 flow: dev
 reviews:

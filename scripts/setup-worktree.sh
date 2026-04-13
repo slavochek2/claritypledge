@@ -45,8 +45,12 @@ symlink() {
 
 symlink "$MAIN_REPO/.env.local"      "$WORKTREE/.env.local"      ".env.local"
 symlink "$MAIN_REPO/node_modules"   "$WORKTREE/node_modules"   "node_modules"
+symlink "$MAIN_REPO/scripts"        "$WORKTREE/scripts"        "scripts"
 
 # .env.test.local is needed for integration tests (Playwright + supabase-admin)
 if [[ -f "$MAIN_REPO/.env.test.local" ]]; then
   symlink "$MAIN_REPO/.env.test.local" "$WORKTREE/.env.test.local" ".env.test.local"
 fi
+
+# Emit absolute worktree path so agents can use it as the path prefix for Write/Edit calls
+echo "Worktree root: $(cd "$WORKTREE" && pwd)"

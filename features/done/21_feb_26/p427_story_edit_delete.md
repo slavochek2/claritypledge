@@ -18,7 +18,6 @@ created_date: 2026-02-24T00:00:00.000Z
 uat_file: features/uat/p427.md
 test_files:
   - e2e/p427-story-edit-delete.spec.ts
-  - e2e/p427-smoke.spec.ts
   - e2e/integration/p427-migration.spec.ts
   - e2e/a11y/p427-accessibility.spec.ts
 locked_at: '2026-02-26T04:17:49.958Z'

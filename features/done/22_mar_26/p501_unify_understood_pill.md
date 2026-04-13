@@ -10,7 +10,6 @@ tags: []
 uat_file: features/uat/p501.md
 test_files:
   - e2e/p501-understood-pill.spec.ts
-  - e2e/p501-smoke.spec.ts
 ---
 
 # P501: Unify "X understood" pill — always show, single field name

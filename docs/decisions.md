@@ -2,6 +2,498 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-13 [technical]: point_config visible filter is `!p.hidden` (boolean), not `visibility === 'visible'`
+
+**Context:** `countTotalPoints` in `letter-reading-utils.ts` filtered `p.visibility === 'visible'` — always returned 0 because the DB stores `hidden: boolean` in `point_config.points[]`, not a visibility string. Cover pages showed "0 points".
+**Decision:** Filter visible points using `!p.hidden`. Interface uses `hidden?: boolean`. The authoritative reference is `snapshotToStoryWithPoints` in `letter-snapshot-mapper.ts` (line 78) — use it as the source of truth for point_config filtering.
+**Alternatives rejected:** `visibility === 'public'` — another wrong string. Keeping `visibility` field in the interface — the DB field is `hidden`, not `visibility`.
+**Consequences:** Any future code that filters visible points from `point_config` must use `!p.hidden`. The `PointConfigPoint` interface should declare `hidden?: boolean` (not `visibility`). Test fixtures for `countTotalPoints` must use `{ hidden: false }` / `{ hidden: true }` point objects.
+**References:** [letter-reading-utils.ts](src/app/utils/letter-reading-utils.ts) | [letter-snapshot-mapper.ts](src/app/utils/letter-snapshot-mapper.ts)
+
+---
+
+## 2026-04-13 [product]: Letter confirm page redirects to letter results (not "close this tab")
+
+**Context:** After `confirmLetterResponse` succeeded, the confirm page showed a dead-end "Your responses have been shared. You can close this tab." — no navigation, no app chrome, no way to see results.
+**Decision:** On `pageState === 'complete'`: show `CheckCircle2` + "Redirecting to your results…" for 2 seconds, then `navigate(/letter/:letterId, { replace: true })`. User lands on the letter page with app chrome visible, where they can see their responses and aggregate results.
+**Alternatives rejected:** Immediate redirect (too abrupt — no success confirmation). Static "close this tab" — dead-end; user has no path to results.
+**Consequences:** The confirm page is no longer a terminal screen — it's a transition screen. Any future confirm-style page should follow this pattern: brief success → redirect to results.
+**References:** [letter-response-confirm-page.tsx](src/app/pages/letter-response-confirm-page.tsx)
+
+---
+
+## 2026-04-13 [technical]: P696 letter response — 2-step flow restored, token_hash applied to email URL (supersedes "atomic letter response" 2026-04-12)
+
+**Context:** The `create-and-respond-to-letter` single-step edge function was reverted. In the single-step flow readers never received an email — responses were saved inline and a session established server-side. Core problem: in the letters flow readers **self-report their email**. Skipping email verification enables phantom accounts — anyone could submit responses with a fabricated address.
+**Decision:** Restore the 2-step flow: `request-letter-response-signin` writes pending row + sends magic link email → reader clicks → `letter-response-confirm-page.tsx` materializes responses. Two fixes applied to the restored flow: (1) **token_hash URL in email** — edge function now extracts `linkData.properties.hashed_token` and builds the email link as `/letter/:id/confirm?token_hash=<encoded>` (direct to confirm page; no Supabase verify redirect; confirm page already has `verifyOtp` code from P698). (2) **Profile creation for new users in edge function** — previously deferred to `AuthCallbackPage`. The token_hash flow bypasses `AuthCallbackPage` entirely; reader goes straight to the confirm page. `request-letter-response-signin` now creates profiles for ALL users (new + existing-with-missing-profile) using the same slug uniqueness loop as `create-and-sign` (P527). This avoids a FK violation when `confirm-letter-response` inserts into `letter_deliveries`.
+**Alternatives rejected:** Keep single-step flow — bypasses email verification, enables phantom accounts. Create profile in `confirm-letter-response` — adds complexity to materialization function; pre-creating in the signing step is cleaner.
+**Consequences:** (1) `request-letter-response-signin` is the **active** function — not legacy. The 2026-04-12 entry marking it "legacy-only" is superseded. (2) `create-and-respond-to-letter` edge function deleted. (3) "No Database Trigger for Profile Creation" applies to DB triggers only — explicit profile creation in edge functions is permitted (P527 established this; P696 confirms). (4) Any future magic link flow that bypasses `/auth/callback` must create the profile in the edge function before the confirm step runs. (5) `letter_response_pending` table remains active.
+**References:** [request-letter-response-signin/index.ts](supabase/functions/request-letter-response-signin/index.ts) | [letter-response-confirm-page.tsx](src/app/pages/letter-response-confirm-page.tsx) | [signup-page.tsx](src/app/pages/signup-page.tsx)
+
+---
+
+## 2026-04-12 [product]: Inbox is a unified feed — UNION ALL restored (supersedes "received letters only" decision below)
+
+**Context:** A prior session diagnosed "[Name] completed Test letter" items in the inbox as redundant (Sent tab shows completion counts). The UNION ALL responses branch was removed entirely. On review, the real bug was self-sent letters (sender = receiver) cluttering the inbox — not completion notifications. The inbox was designed as a unified feed with incoming/outgoing icons (ArrowDownLeft / ArrowUpRight) to distinguish received letters from completion results. Removing the responses branch broke that design.
+**Decision:** Restore the UNION ALL with both branches: (1) received letters (`WHERE ld.receiver_profile_id = p_user_id AND cl.sender_id != p_user_id`) and (2) completion responses (`WHERE cl.sender_id = p_user_id AND ld.status = 'completed' AND receiver != sender`). Self-sent exclusion applies to both branches. `InboxItem.type` restored to `'received' | 'recipient_responded' | 'link_respondent'`. UI switch cases and ArrowUpRight icons restored.
+**Alternatives rejected:** Keeping inbox as received-only — breaks the intended UX where senders see completion results without switching to the Sent tab.
+**Consequences:** The prior decision "Inbox = received letters only" (2026-04-12 below) is superseded. Any future inbox item types should use the UNION ALL pattern. The Sent tab remains a complementary view with expand/collapse detail, not the primary notification surface.
+**References:** [fix_inbox_restore_responses_branch.sql](supabase/migrations/) | [inbox-tab.tsx](src/app/components/letters/inbox-tab.tsx)
+
+---
+
+## 2026-04-12 [process]: Misdiagnosis pattern — verify the actual user complaint before coding a fix
+
+**Context:** A screenshot showed inbox items with a red arrow and "this is still there!?". The prior session interpreted this as "completion notifications shouldn't be in inbox" and built a plan to remove the UNION ALL responses branch. On closer inspection: all visible items were `type: 'received'` (correct format), the complaint was about self-sent test letters appearing, and the icons/message format for completion notifications were intentionally designed. The misdiagnosis led to removing a feature instead of fixing the filter.
+**Decision:** Before acting on a bug report with a screenshot: (1) read every visible item and classify its type, (2) identify exactly which item the annotation points to, (3) query the DB to see what data is actually returned, (4) confirm the root cause matches the user's complaint — not a plan written before the screenshot existed.
+**Alternatives rejected:** Trusting the plan file over the evidence — the plan was written based on a verbal description, not the screenshot.
+**Consequences:** Plans created before visual evidence should be re-validated when the evidence arrives. "Remove feature X" should trigger extra scrutiny vs. "filter feature X differently."
+
+---
+
+## 2026-04-12 [technical]: P696 atomic letter response — single edge function replaces pending table + email round-trip
+
+**Context:** The original one-to-many letter response flow (P684) had a 2-step pattern: `request-letter-response-signin` → write `letter_response_pending` row + send "click to confirm" magic-link email → reader clicks → `confirm-letter-response` materializes responses. This caused auth timing races (the P698 token_hash fix) and added irreversible latency — the reader had to check email before their responses were saved.
+**Decision:** Replace with a single `create-and-respond-to-letter` edge function: validate inputs → validate letter → self-send guard → create/look-up user + profile → generate `hashed_token` → idempotency check → materialize `letter_deliveries` + `story_verifications` + `letter_point_responses` + `terms_acceptances` atomically → fire-and-forget notification email → return `{ ok: true, hashedToken }`. Client calls `supabase.auth.verifyOtp({ token_hash, type: 'magiclink' })` inline — no email round-trip. Responses are saved before the email is sent. `letter_response_pending` table is no longer used for new submissions (kept for in-flight legacy emails). `request-letter-response-signin` is now legacy-only (reverted to `action_link` approach): still deployed to test/prod for users who already received emails from the old flow.
+**Alternatives rejected:** Keeping the 2-step flow with P698 fixes — auth races eliminated but the UX latency (check email to complete) remained. Making the confirm page handle both formats — too much complexity in a legacy page.
+**Consequences:** (1) `letter-response-confirm-page.tsx` stays intact for in-flight P698 emails (uses token_hash verifyOtp). (2) `request-letter-response-signin` is now legacy — do not add features to it. (3) Email notification copy must NOT contain a "click to confirm" CTA — responses are already saved; the email is informational only. (4) The token_hash rule ("all edge functions must use token_hash") applies to *new* flows; `request-letter-response-signin` is explicitly exempted as a legacy function. [FOUNDER DECISION open: email notification subject/body copy.]
+**References:** [create-and-respond-to-letter/index.ts](supabase/functions/create-and-respond-to-letter/index.ts) | [signup-page.tsx](src/app/pages/signup-page.tsx) | [letters-service.ts](src/app/data/letters-service.ts)
+
+---
+
+## 2026-04-12 [technical]: token_hash + verifyOtp pattern for edge-function magic links (supersedes hash-check guard)
+
+**Context:** When an edge function mints a magic link via `admin.generateLink`, the original approach used `options.redirectTo` pointing at `/auth/callback?redirect=...`. This still created a session race: Supabase processes the implicit-grant token asynchronously and `getSession()` in `AuthContext` fires before the hash token is written to localStorage. A prior decision documented a per-page hash-check guard as a workaround. P698 tested the `/auth/callback` redirect and found it insufficient.
+**Decision:** Edge functions that mint magic links must extract `linkData.properties.hashed_token` and embed it as `?token_hash=<encoded>` in the direct destination URL. The destination page calls `supabase.auth.verifyOtp({ token_hash, type: 'magiclink' })` synchronously when `?token_hash` is present and `session` is null. This establishes the session via RPC (not hash fragment), fires `onAuthStateChange`, and the page's effect re-runs with the real session. Token is removed from URL via `window.history.replaceState` after exchange (prevents leakage in history/logs). Works cross-browser — no PKCE verifier needed.
+**Alternatives rejected:** `/auth/callback?redirect=` route — still relies on hash token processing; race is not eliminated, just deferred. Hash-check guard (prior decision) — a workaround that kept the fundamental timing race alive. PKCE magic links — break when email opens in a different browser than where the flow started.
+**Consequences:** Every edge function that mints a magic link for a specific destination page must use this pattern. `options.redirectTo` on `generateLink` must not be used. The destination page must handle `?token_hash` in its mount effect. Pattern already established by P527 (create-and-sign). The prior hash-check guard decision (2026-04-12 "AuthContext sessionChecked fires before hash tokens are processed") is superseded — pages using that guard should migrate to token_hash instead.
+**References:** [request-letter-response-signin/index.ts](supabase/functions/request-letter-response-signin/index.ts) | [letter-response-confirm-page.tsx](src/app/pages/letter-response-confirm-page.tsx)
+
+---
+
+## 2026-04-12 [technical]: Self-sends blocked at seal, claim, and inbox — three-layer defence
+
+**Context:** During testing, letters sent to yourself (sender_id = receiver_profile_id) appeared in your own inbox. The inbox UNION fix (prior session) removed completion notifications but not self-delivered letters. Root cause: `seal_and_send_letter` didn't prevent a user from adding their own email as a recipient.
+**Decision:** Three layers: (1) `get_inbox_items` filters `AND cl.sender_id != p_user_id` — historical self-sent data stays invisible. (2) `seal_and_send_letter` raises an exception if `receiver_email` matches the sender's email in `auth.users` — self-sends are rejected at creation time. (3) `claim_letter_delivery` returns `{error: 'cannot_claim_own_letter'}` if `auth.uid() = sender_id` — edge-case guard if a delivery was created via other means.
+**Alternatives rejected:** Block only at the inbox query — masks the problem without preventing the data from being created. Block only at send — doesn't cover manually crafted tokens or future code paths that bypass `seal_and_send_letter`.
+**Consequences:** `seal_and_send_letter` now looks up the sender's email in `auth.users` on every call (one extra query per seal). Any future delivery creation path must enforce the same sender ≠ receiver constraint. The inbox filter remains as a permanent safety net for any historical data.
+**References:** [20260412134713_fix_inbox_exclude_self_sent.sql](supabase/migrations/20260412134713_fix_inbox_exclude_self_sent.sql) | [20260412135402_fix_block_self_send.sql](supabase/migrations/20260412135402_fix_block_self_send.sql)
+
+---
+
+## 2026-04-12 [technical]: Integration tests for auth-gated RPCs require a user-scoped client, not service role
+
+**Context:** `get_inbox_items` and `claim_letter_delivery` both check `p_user_id IS DISTINCT FROM auth.uid()` and raise exceptions when called via service role (where `auth.uid()` is NULL). Initial integration tests used `supabaseAdmin` to call these RPCs and all failed. The pre-existing `fix_inbox_remove_responses_branch` integration test has the same issue.
+**Decision:** For RPCs that have an `auth.uid()` gate, integration tests must: (1) create a test user, (2) sign in with `signInWithPassword` via a temporary anon-key client (to avoid polluting supabaseAdmin's in-memory session), (3) construct a user-scoped client with the resulting JWT, (4) call the RPC through the user-scoped client. Data setup (inserts/updates) still uses supabaseAdmin to bypass RLS.
+**Alternatives rejected:** Bypassing the auth gate in test mode — the gate is exactly what we're testing. Modifying the RPC to allow service role — weakens the security guarantee.
+**Consequences:** Any integration test for an RPC that checks `auth.uid()` must use this two-client pattern: supabaseAdmin for data, user-scoped client for RPC calls. The pattern is demonstrated in `e2e/integration/20260412134713_fix_inbox_exclude_self_sent.spec.ts`. The pre-existing `fix_inbox_remove_responses_branch` integration test should be updated to use this pattern in a future cleanup.
+**References:** [20260412134713_fix_inbox_exclude_self_sent.spec.ts](e2e/integration/20260412134713_fix_inbox_exclude_self_sent.spec.ts) | [20260412135402_fix_block_self_send.spec.ts](e2e/integration/20260412135402_fix_block_self_send.spec.ts)
+
+---
+
+## 2026-04-12 [technical]: AuthContext `sessionChecked` fires before hash tokens are processed — gate on hash in confirm page
+
+**Context:** Pages reached via magic link redirect (e.g., `/letter/:id/confirm`) land with `#access_token=...&refresh_token=...` in the URL hash. Supabase's `detectSessionFromUrl` is async — it runs in the client constructor but is not awaited. `AuthContext.initSession()` calls `getSession()` immediately (reads from localStorage only), which returns `null` before the hash has been written to storage. Result: `setSessionChecked(true)` fires with `session=null`, and pages that check `if (sessionChecked && !session)` set an error state before the real session arrives via `onAuthStateChange`.
+**Decision:** In the confirm page (the only page currently reached via OTP magic link redirect), guard the 'unauthenticated' branch with a hash check: `if (window.location.hash.includes('access_token')) return;` — keep showing spinner. When `onAuthStateChange` fires, `session` state updates, the effect re-runs (session is a dep), `confirmedRef.current` is still false, and the confirm flow proceeds. Supabase clears the hash after processing, so the guard is not sticky.
+**Alternatives rejected:** Fixing `AuthContext` (move `setSessionChecked(true)` into `onAuthStateChange`) — shared component with broad blast radius, could introduce regressions on other pages. Timeout delay — arbitrary and fragile.
+**Consequences:** Any page that gates on `sessionChecked && !session` to show an auth error MUST add the hash check if it can be reached via a magic link redirect. The pattern: check `window.location.hash.includes('access_token')` before concluding the user is unauthenticated. `AuthContext` remains unchanged — this is a call-site guard, not a framework fix.
+**References:** [letter-response-confirm-page.tsx](src/app/pages/letter-response-confirm-page.tsx) | [AuthContext.tsx](src/auth/AuthContext.tsx)
+
+---
+
+## 2026-04-12 [technical]: `PositionType` string→number conversion required before edge function calls + edge function error body key is `error` not `message`
+
+**Context:** Two bugs blocked the letter-response email path. (1) `PositionType` is a string union (`'agree' | 'disagree' | ...`). Positions are stored in sessionStorage as strings. The edge function validates `typeof item.position === 'number'` — strings fail. The code used `p.position as unknown as number` which is a TypeScript-only cast with zero runtime effect. (2) The edge function returns `{ error: '...' }` on failures, but `requestLetterResponseSignin` in `letters-service.ts` parsed errors as `body?.message ?? error.message` — `body.error` was never checked, so the user saw a generic Supabase error string and the form appeared to hang.
+**Decision:** (1) Use `POSITION_VALUES[p.position as PositionType] ?? 0` (already defined in `src/app/types/index.ts`) to convert string positions to their numeric equivalents at runtime before passing to the edge function. Both call sites: `signup-page.tsx` and `letter-response-confirm-page.tsx`. (2) Add `(body?.error as string)` to the error parse chain: `body?.message ?? body?.error ?? error.message ?? 'Request failed'`.
+**Alternatives rejected:** Converting positions in the edge function — the edge function is the contract boundary; callers must send valid types. Checking `body?.error` only — `message` is used by other edge functions, keep both.
+**Consequences:** Whenever passing user-facing position strings to any edge function or API that expects numeric positions, use `POSITION_VALUES[pos]`. Never use `as unknown as number` — it silently passes the wrong type at runtime. When parsing `FunctionsHttpError` body, always check both `body?.message` and `body?.error`.
+**References:** [POSITION_VALUES — src/app/types/index.ts:948](src/app/types/index.ts) | [signup-page.tsx](src/app/pages/signup-page.tsx) | [letters-service.ts](src/app/data/letters-service.ts)
+
+---
+
+## 2026-04-12 [product]: Inbox = received letters only — sender completion notifications removed
+
+**Context:** `get_inbox_items` had a UNION ALL "Responses" branch returning `recipient_responded` / `link_respondent` items when someone completed a letter *you sent*. These appeared in the sender's inbox as "[Name] completed Test letter", mixed in with received letters. The Sent tab already shows completion counts per letter, so this was redundant and visually confusing — senders couldn't distinguish "letter I need to act on" from "notification I can ignore."
+**Decision:** Drop the Responses UNION ALL branch entirely. Inbox = `WHERE ld.receiver_profile_id = p_user_id` only. The `InboxItem.type` union was simplified to `'received'` only; dead switch cases and unused import removed from `inbox-tab.tsx`.
+**Alternatives rejected:** Keeping notifications but visually separating them (e.g., a "Notifications" subsection) — adds UI complexity for information already visible on the Sent tab. Filtering on the client — server should not return data the client discards.
+**Consequences:** Inbox will only ever show items where the logged-in user is the receiver. Any future inbox item types (e.g., system alerts) must use the received branch pattern, not a UNION ALL. `InboxItem.type` is `'received'` — adding a new type requires explicit product decision + migration.
+**References:** [20260412201830_fix_inbox_remove_responses_branch.sql](supabase/migrations/20260412201830_fix_inbox_remove_responses_branch.sql) | [inbox-tab.tsx](src/app/components/letters/inbox-tab.tsx)
+
+---
+
+## 2026-04-12 [process]: deploy-manifest.json records attempted migrations, not confirmed DB state
+
+**Context:** After applying a `CREATE OR REPLACE FUNCTION` migration via `migrate.sh`, the deploy-manifest showed the migration as applied and the script reported success. But the live DB function may not have been updated — the manifest is written locally by the script and does not reflect the actual SQL execution outcome if the Management API call silently failed. The fix appeared to not work in the browser even after hard refresh + cookie clear, suggesting the function body was unchanged in the DB.
+**Decision:** After any `CREATE OR REPLACE FUNCTION` migration, verify the live function body directly:
+```sql
+SELECT prosrc FROM pg_proc WHERE proname = 'function_name';
+```
+If `UNION ALL`, old column names, or removed logic is visible — the migration did not apply. Re-execute the SQL directly via `mcp__supabase__execute_sql`. The deploy-manifest is a local bookkeeping file, not a DB health check.
+**Alternatives rejected:** Trusting the manifest — the script's exit code 0 does not mean the Management API POST returned 200 with a successful execution. The gap is silent.
+**Consequences:** Any time a migration modifying a function body doesn't produce visible results in the browser after refresh, the first debugging step is `SELECT prosrc FROM pg_proc WHERE proname = '...'` — before looking at frontend code, caching, or session state.
+**References:** [supabase/deploy-manifest.json](supabase/deploy-manifest.json) | [scripts/migrate.sh](scripts/migrate.sh)
+
+---
+
+## 2026-04-12 [technical]: Letter-response confirm: try direct confirm first, fall back to sessionStorage draft on not_found
+
+**Context:** Two auth paths reach `/letter-response-confirm`: (1) email link (edge function pre-creates the pending row before sending the magic link → row exists on arrival); (2) Google OAuth (no pending row yet → must write sessionStorage draft before confirming). The previous code always wrote from sessionStorage first, silently swallowing errors when sessionStorage was empty (OAuth user had no draft).
+**Decision:** Try `confirmLetterResponse(letterId)` directly first. If `{ok: true}` → done (email path). If `error: 'not_found'` → fall back to writing the draft from sessionStorage, then confirm (OAuth path). Any other error propagates. Signup page letter-response path now uses `requestLetterResponseSignin` (admin `generateLink` edge function) instead of PKCE magic links — fixes cross-browser auth failure when the email opens in a different browser than where signup happened.
+**Alternatives rejected:** Always-write-draft-first — fails silently when sessionStorage is empty (no draft key) and leaves the user stuck. Separate endpoints for email vs OAuth paths — overcomplicates routing.
+**Consequences:** The confirm page now handles both paths with a single try-first strategy. Error surface is explicit: only `not_found` triggers the fallback; all other errors propagate to the UI. `requestLetterResponseSignin` must be the default for any new letter-response signup flow — PKCE magic links are unreliable cross-browser.
+**References:** [letter-response-confirm-page.tsx](src/app/pages/letter-response-confirm-page.tsx) | [signup-page.tsx](src/app/pages/signup-page.tsx) | [letters-service.ts](src/app/data/letters-service.ts)
+
+---
+
+## 2026-04-12 [technical]: `invitation_expires_at` is a session-minting gate, not a reading gate
+
+**Context:** `create-and-open-letter` sets `invitation_expires_at = now()` on first open as replay defense (prevents reusing the token to mint fresh auth sessions). The `get_letter_for_reading` RPC checked `invitation_expires_at > now()`, causing every subsequent read to fail — the letter showed "Invalid or expired invitation" after the first open. P683 had already fixed this for the four engagement RPCs but missed the reading RPC.
+**Decision:** Drop the `invitation_expires_at` predicate from `get_letter_for_reading`, same pattern as P683. The column gates session minting only (in `create-and-open-letter`). Reading and engagement RPCs validate token existence + letter sealed status — that's sufficient.
+**Alternatives rejected:** Adding a separate `reading_expires_at` column — unnecessary complexity; the token is already consumed after first open, and the sealed-status check prevents reading draft letters.
+**Consequences:** Pattern for letter token RPCs: `invitation_expires_at` is checked ONLY in `create-and-open-letter` (session minting). All other RPCs (reading, engagement) validate `invitation_token` + `cl.status = 'sealed'` only. Any new RPC that accepts a token should follow this pattern.
+**References:** [20260412180000_fix_reading_rpc_drop_expiry_check.sql](supabase/migrations/20260412180000_fix_reading_rpc_drop_expiry_check.sql) | [P683 migration](supabase/migrations/20260411201933_p683_engagement_rpcs_drop_expiry_check.sql)
+
+---
+
+## 2026-04-12 [product]: Letter invitation email — minimal copy, no feature explanation
+
+**Context:** Letter email contained 5 paragraphs explaining what a Clarity Letter is, how to use it, expiry warnings, and onboarding reassurance. The recipient has no context for any of this — "calibrated predictions" is jargon, "expires in 7 days" creates urgency anxiety, and "you'll be able to create an account" over-explains.
+**Decision:** Strip email to: greeting, headline ("[Sender] sent you a Clarity Letter"), CTA button, privacy/removal line. No feature explanation, no expiry text, no onboarding instructions. The CTA does the work — the product explains itself when they open it.
+**Alternatives rejected:** Keeping a one-line description ("a collection of stories...") — still explains a concept the reader hasn't experienced yet. Removing the privacy line — legally needed since the sender shared the recipient's email without their consent.
+**Consequences:** Email template in `send-letter-emails` edge function is now 4 elements. Future email changes should resist the urge to add explanatory text — if the product needs explaining, fix the product, not the email.
+**References:** [send-letter-emails/index.ts](supabase/functions/send-letter-emails/index.ts)
+
+---
+
+## 2026-04-12 [technical]: Local mode must persist full LetterReadingState — not a stripped-down draft
+
+**Context:** Public (one-to-many) letter reading used "local mode" which saved a `LocalDraft` to localStorage — only ratings and positions, not the phase. Remote mode (authenticated 1:1) saved the full `LetterReadingState` including phase. On reload, local mode restored the rating (so buttons were disabled) but reset the phase to `story-rate` — readers were stuck: couldn't re-rate (disabled) and couldn't advance (wrong phase).
+**Decision:** Local mode now saves and loads the full `LetterReadingState` to localStorage — same shape as remote mode uses for sessionStorage. `LocalDraft`, `applyDraftToState`, and `deriveDraft` removed. Additionally, the reading page now auto-skips the "Open Letter" cover for public letters when localStorage has in-progress state — matching the existing auto-skip behavior for email (1:1) letters.
+**Alternatives rejected:** Deriving phase from restored data (if rating exists → set phase to `story-revealed`) — works for the rating case but would need per-phase derivation logic for every future phase. Saving full state is simpler and inherently correct for all phases.
+**Consequences:** Two storage strategies are now one: both local and remote modes persist the complete state machine. Any new phase or state field added to `LetterReadingState` is automatically persisted in both modes. Old `p684_letter_draft:*` localStorage keys are orphaned — users with mid-reading progress under the old key will start fresh (acceptable since they were stuck anyway). New key: `p684_letter_state:{letterId}`.
+**References:** [useLetterReadingState.ts](src/app/hooks/useLetterReadingState.ts) | [letter-reading-page.tsx](src/app/pages/letter-reading-page.tsx)
+
+---
+
+## 2026-04-12 [product]: Badge subtitle — "Verified understanding of common knowledge creation"
+
+**Context:** P686 badge certificate had a `[FOUNDER DECISION: subtitle]` placeholder under "CLARITY BADGE". The subtitle needed to answer: *what does this badge certify?* Options included role-based ("Calibrated Communication Practitioner"), process-based ("Certified by Live Session Verification"), and object-based framings.
+**Decision:** "Verified understanding of common knowledge creation." Six words. "Verified" = the certification act. "understanding" = cognitive, not just exposure — the badge requires demonstrating comprehension, not just agreeing. "common knowledge creation" = the domain (the value and process of creating shared understanding). Preferred over "calibrated communication" because it names the outcome (shared understanding) rather than the method.
+**Alternatives rejected:** "Calibrated Communication Practitioner" — role framing doesn't describe what was demonstrated. "Cognitive understanding of calibrated communication, verified" — uses product vocabulary ("calibrated communication") that is less universally legible. User's draft "verification of cognitive understanding of value and process of common knowledge creation" — correct meaning but too long for a badge subtitle (13 words).
+**Consequences:** This is the canonical public description of what the badge certifies. Use it consistently on the badge page, in OG meta descriptions, and in any future marketing copy about the badge. Do not shorten to "Verified Understanding" without the domain anchor.
+**References:** [badge-certificate.tsx](src/app/components/profile/badge-certificate.tsx)
+
+---
+
+## 2026-04-12 [product]: Badge certification requires certifier to have authored a story on the qualifying point
+
+**Context:** Manual testing of P686 revealed that the /live story picker (`story-search-picker.tsx`) only shows stories authored by the logged-in user. To certify a point, the certifier must select a story linked to a qualifying `#understanding` point. If the certifier hasn't authored such a story, none appear in the picker — certification is blocked.
+**Decision:** Accept this constraint for Step 1 (single certifier = Slava, who has authored the required stories). No fix needed now. Document as a Step 2 design requirement.
+**Alternatives rejected:** Showing all public stories in the picker — blurs who is speaking; the certifier must speak *their* story, not someone else's. Pre-creating stories for future certifiers — premature; Step 2 hasn't defined the certifier onboarding flow.
+**Consequences:** Step 2 certification (badge holders certify others) must include a story-creation gate: before a badge holder can run a certification session, they must have at least one story linked to a qualifying point. The certifier onboarding flow should prompt this. `story-search-picker.tsx` behaviour (own-stories-only) is intentional and correct — no change needed to the component.
+**References:** [story-search-picker.tsx](src/app/components/partners/story-search-picker.tsx) | [clarity-live-page.tsx](src/app/pages/clarity-live-page.tsx)
+
+---
+
+## 2026-04-12 [technical]: `get_letter_for_public_reading` must return all data anonymous users need in one call
+
+**Context:** One-to-many letter reading (anonymous) showed "Pending..." for the sender's prediction after every rating because `get_letter_for_public_reading` returned only `{letter, snapshots}`. Shared predictions (`delivery_id IS NULL`) existed in `letter_predictions` but RLS blocks anonymous users from querying that table directly, so no secondary client-side fetch was possible.
+**Decision:** Extended the RPC to return `{letter, snapshots, predictions}` — predictions filtered to `delivery_id IS NULL` are included in the same `jsonb_build_object` response. Client loads everything in one call on mount; predictions are stored in a `Map<storyId, number>` and injected into `useLetterReadingState` so they're available immediately when the reader rates.
+**Alternatives rejected:** Separate client-side prediction query — blocked by RLS for anonymous users (would require service-role key on client). Second SECURITY DEFINER RPC — adds an extra round-trip and a maintenance surface with no benefit.
+**Consequences:** Pattern for `SECURITY DEFINER` RPCs serving anonymous users: include all related data the client needs in the same `jsonb_build_object` return rather than expecting the client to do secondary queries that RLS would block. The typed return for `getLetterForPublicReading` in `letters-service.ts` must be updated whenever the RPC schema changes — the JSONB return is not type-safe at the DB boundary.
+**References:** `supabase/migrations/20260412170000_fix_public_reading_include_predictions.sql`, `src/app/data/letters-service.ts`, `src/app/hooks/useLetterReadingState.ts`
+
+## 2026-04-12 [technical]: Gap between prediction and rating must be `null`, not `0`, when prediction is absent
+
+**Context:** `GapBanner` rendered "Perfectly calibrated" (gap = 0) for one-to-many readers even before any prediction was loaded. Root cause: gap was initialized to `0` and only updated when a prediction arrived — so the zero-gap state was visually indistinguishable from a real zero gap.
+**Decision:** Compute gap as `rating !== null && prediction !== null ? Math.abs(rating - prediction) : null`. Wrap `GapBanner` in `{gap !== null && <GapBanner ... />}`. A null gap means "prediction not yet available"; the banner simply does not render. A zero gap is a meaningful result ("Perfectly calibrated") and renders only when both values are present.
+**Alternatives rejected:** Separate `predictionLoaded` boolean flag — adds state and branching for a condition already expressible via null. Sentinel value (e.g., -1) — type-unsafe and invisible to call sites.
+**Consequences:** Any future UI that computes a difference between two optional values must use `null` as the "not ready" sentinel, not `0`. Applies to any gap-reveal mechanic: rating vs prediction, self-rating vs peer-rating, etc.
+**References:** `src/app/pages/letter-reading-page.tsx`, `src/app/hooks/useLetterReadingState.ts`
+
+## 2026-04-12 [product]: Letter flow action buttons — compact centered (max-w-[200px]), cards centered (max-w-sm mx-auto)
+
+**Context:** Letter reading flow had two visual inconsistencies: (1) the story-rate Submit button was compact (~200px, centered via ComprehensionRatingCard internals) but all other phase action buttons were full-width edge-to-edge; (2) PointCardWithLinks and PositionComparisonCard floated left within the max-w-md container while story cards already used max-w-sm mx-auto.
+**Decision:** All action buttons in fixed bottom containers use `w-full max-w-[200px]` + container has `items-center`, making them compact and horizontally centered. All card-type content (point cards, comparison cards, story cards) uses a `w-full max-w-sm mx-auto` wrapper for consistent centered layout.
+**Alternatives rejected:** Full-width buttons throughout — visually heavy and inconsistent with the compact card widths. Per-component centering — the wrapper div pattern is reusable and doesn't require prop changes.
+**Consequences:** Any new phase added to `letter-flow-content.tsx` must follow both patterns: fixed bottom container with `items-center`, action button with `max-w-[200px]`, and card content wrapped in `max-w-sm mx-auto`. Do not mix full-width and compact buttons within the same flow.
+**References:** [letter-flow-content.tsx](src/app/components/letters/letter-flow-content.tsx)
+
+---
+
+## 2026-04-12 [product]: All letter recipients see gap summary on completion; revisits skip to summary directly
+
+**Context:** Recipients had three different end-states: 1:1 got a dead-end "You can close this tab" screen (`LetterRecipientDone`). Authenticated 1:many got the same dead-end inline. Only returning 1:many recipients on a revisit saw `LetterCompletionSummary`. The gap summary (celebration + story-by-story gap cards + /live CTA) is the most valuable output of reading a letter.
+**Decision:** `LetterCompletionSummary` is the universal completion screen for all recipient paths (1:1, 1:many authed first completion, revisits). `LetterRecipientDone` deleted. Revisits skip the celebration phase (`isRevisit` prop initialises `phase = 'summary'`, suppresses confetti) — they land directly on the gap cards. `getCompletionSummary` ratings query was also fixed: was querying by `session_id` (always null for letters) → now queries by `listener_id + story_id IN storyIds`.
+**Alternatives rejected:** Keeping `LetterRecipientDone` for 1:1 — provides no actionable data; the gap summary is always more useful. Showing celebration on revisit — the moment has passed; friction without value.
+**Consequences:** Any new recipient-facing completion screen must use `LetterCompletionSummary`. `isRevisit` must be passed as `true` when the delivery was already completed on page load (detected via `completed_at`). `getCompletionSummary` now requires `storyIds: string[]` as second argument — all callers must pass `letterData.snapshots.map(s => s.story_id)`.
+**References:** [letter-reading-page.tsx](src/app/pages/letter-reading-page.tsx) | [letter-completion-summary.tsx](src/app/components/letters/letter-completion-summary.tsx) | [letters-service.ts](src/app/data/letters-service.ts)
+
+---
+
+## 2026-04-12 [technical]: `completed_at` is the canonical letter completion signal — `status` can lag
+
+**Context:** A delivery had `status: 'opened'` but `completed_at` set, causing the letter page to show the cover instead of the summary (the page checked `status === 'completed'`). The inbox correctly used `completed_at` to show "Results". The divergence happens because some completion paths call `updateDeliveryStatus('completed')` (which sets both fields atomically) while others set `completed_at` via a different mechanism without updating `status`.
+**Decision:** Use `completed_at` as the authoritative completion signal everywhere in the letter reading page. `status` is a secondary field useful for filtering but unreliable as a completion gate. Pattern: `if (delivery.completed_at) { /* treat as completed */ }`.
+**Alternatives rejected:** Fixing the data so `status` is always consistent — doesn't help existing rows already in bad state; `completed_at` is the more durable field (it's a timestamp with no valid reason to be set unless complete).
+**Consequences:** Any code that needs to detect "has this delivery been completed?" must check `completed_at`, not `status`. The inbox RPC (`get_inbox_items`) already follows this — align all future letter-related checks. If `status` is needed for filtering queries, use it there; for page-level branching logic, use `completed_at`.
+**References:** [letter-reading-page.tsx](src/app/pages/letter-reading-page.tsx)
+
+---
+
+## 2026-04-13 [product]: Comprehension rating question — personalized with sender name and intention framing
+
+**Context:** Letter reading flow asked "How well do you believe you understand this story?" — generic, no sender reference, no framing of what "understanding" means.
+**Decision:** Question is now `"How well do you believe you understand [senderName]'s intention behind their story?"` — sender name is injected at render time from the `senderName` prop. Matches the `/live` pattern which asks "How well do you believe you understand [Partner]'s intention?" and adds "behind their story" for letter-specific context.
+**Alternatives rejected:** "How well do you understand this story in the way [senderName] meant it?" — more colloquial but less consistent with /live phrasing. Generic question — no personalization, misses the key framing that *intention* is what's being rated.
+**Consequences:** Any copy of this question elsewhere (e.g., letter-prediction-walk.tsx) should be reviewed for the same personalization. Submit button label was also simplified from "Submit My Rating" → "Submit" for consistency with all other phase buttons.
+**References:** [letter-flow-content.tsx](src/app/components/letters/letter-flow-content.tsx)
+
+---
+
+## 2026-04-13 [product]: Point-engage position selector — inside card, Submit in Drawer (Drawer-everywhere amended)
+
+**Context:** P696 Drawer-everywhere moved position selection into a Drawer, separating the point statement from its position buttons. This broke proximity — readers had to mentally connect the card at the top with buttons docked at the bottom. The gap was especially jarring when the card was short (less than half the viewport).
+**Decision:** Position selector buttons live inside `PointCardWithLinks` for `point-engage` and `remaining-point-engage` phases (restored via `onPositionSelect`/`selectedPosition` props, no `disablePositionButtons`/`hideActions`). Submit button stays in the bottom-docked Drawer — consistent with all other phases' action zone. `PositionSelector` component removed from this flow (buttons are now built into the card).
+**Alternatives rejected:** Fully inline Submit below the card — breaks spatial consistency; on tall phones Submit floats mid-screen while all other phases pin actions to the bottom. Keeping full Drawer (P696 state) — the position/card gap was the reported UX problem.
+**Consequences:** Drawer-everywhere rule is now: *content selectors that are tightly coupled to displayed content go inside the card; primary action (Submit/Next) always goes in the Drawer.* Future phases that add a multi-option selector should follow this split. `PositionSelector` is still used by `/live` — no changes needed there.
+**References:** [letter-flow-content.tsx](src/app/components/letters/letter-flow-content.tsx)
+
+---
+
+## 2026-04-13 [technical]: Session resume guard must check story progress, not just currentStoryIndex
+
+**Context:** `useLetterReadingState` restores from sessionStorage only when `saved.currentStoryIndex > 0`. For single-story letters (or any case where the user completes all phases of story 0), the index stays 0 — so a page reload discards the saved state and shows the rating card again.
+**Decision:** Add a `hasProgress` check alongside the index check: `saved.stories.some(s, i => s.rating !== null || s.phase !== initialPhase(snapshots[i]))`. Restore if `currentStoryIndex > 0 OR hasProgress`. "No progress" is now defined by both: still at story 0 AND rating null AND phase equals initial phase. This is correctly false for a fresh stale session.
+**Alternatives rejected:** Restoring any non-null saved state unconditionally — would restore a fresh session from a previous letter visit if the deliveryId collides (unlikely but possible with token reuse bugs).
+**Consequences:** Any future change to the session resume guard must preserve the `hasProgress` check. The `initialPhase()` helper (in the same file) is the authoritative source for "where a story begins" — its output determines whether a phase represents forward progress. Regression: `src/tests/session-resume-guard.test.ts`.
+**References:** [useLetterReadingState.ts](src/app/hooks/useLetterReadingState.ts)
+
+---
+
+## 2026-04-13 [technical]: Transparent Drawer overlay captures pointer events — always add pointer-events-none
+
+**Context:** `DrawerContent` with `overlayClassName="bg-transparent"` renders a full-viewport `fixed inset-0 z-50` div (via Vaul's `DrawerPrimitive.Overlay`). The div is visually invisible but still intercepts all mouse events — any element beneath (e.g., `ComprehensionRatingCard` rating buttons) receives no clicks. Symptom: buttons appear enabled (no opacity change) but do not respond to clicks.
+**Decision:** Whenever `overlayClassName` contains `bg-transparent`, apply `pointer-events-none` to the overlay — both the Vaul desktop path (`DrawerPrimitive.Overlay`) and the mobile portal path (`<div role="presentation">`). Implemented via `cn(overlayClassName, overlayClassName?.includes('bg-transparent') && 'pointer-events-none')` in `DrawerContent`. The Drawer content itself retains `pointer-events-auto` (Vaul default).
+**Alternatives rejected:** Removing the overlay entirely when transparent — the `<DrawerOverlay>` element is required by Vaul's internal focus-trap; omitting it causes accessibility regressions. Setting `pointer-events-none` on the Drawer wrapper — would also block the Drawer content, defeating the purpose.
+**Consequences:** Any `DrawerContent` with `overlayClassName="bg-transparent"` is now correctly non-blocking. New Drawer instances that need a transparent overlay must pass `overlayClassName="bg-transparent"` — do NOT inline `pointer-events-none` in the call site; the fix lives centrally in `drawer.tsx`. This bug is invisible in visual testing because the overlay is transparent; only interaction testing catches it.
+**References:** [drawer.tsx](src/components/ui/drawer.tsx)
+
+---
+
+## 2026-04-12 [technical]: Multi-path bugs need multi-path canaries — one fixed path ≠ all paths tested
+
+**Context:** P697 canary initially covered only `getLetterForReading` (the authenticated direct-query path where the explicit `.select('name')` change was made). The same bug existed in two RPC paths (`getLetterForReadingByToken` via `supabase.rpc('get_letter_for_reading')`, `getLetterForPublicReading` via `supabase.rpc('get_letter_for_public_reading')`). Both RPCs were fixed in the migration, but the unit test file had no coverage for either. A code review subagent flagged the gap; tests for both RPC paths were added.
+**Decision:** When a bug spans N code paths, the canary test file must exercise all N paths. The test for each path must verify the same symptom (user-visible field presence), not the implementation mechanism. For Supabase-backed services: direct table queries use `mockFrom`; RPC calls use `mockRpc` — these are separate Vitest mock targets and require separate `vi.hoisted()` declarations.
+**Alternatives rejected:** Single canary covering only the path with explicit code changes — leaves RPC paths unguarded; a future bug in the RPC body would pass all unit tests.
+**Consequences:** When writing a canary for a data-flow fix: (1) list all service functions that return the affected field, (2) group by mock type (from vs rpc), (3) add one test per group. Code review must explicitly ask "are all code paths covered?" — not just "does the test test the symptom?"
+**References:** [p697 test](src/tests/p697-sender-avatar-in-letter-reading.test.ts) | [p697 spec](features/bugs_and_debt/p697_sender_avatar_missing_in_letter_reading.md)
+
+## 2026-04-12 [technical]: Profile JOIN must SELECT all 4 avatar fields — not just name
+
+**Context:** P697 — `getLetterForReading` and both letter RPCs joined `profiles` for `sender_display_name` only. `avatar_url`, `avatar_color`, and `has_pledged` were silently omitted. Recipients saw initials; Google photo and pledge ring never appeared. The bug is invisible to TypeScript (the fields are optional) and invisible in unit tests unless a canary test explicitly asserts on all three fields.
+**Decision:** Any `FROM profiles` or `JOIN profiles` must SELECT the complete set: `name, avatar_url, avatar_color, has_pledged`. Partial selects (name-only) are a latent P697-class bug. The canary test pattern (`p697-sender-avatar-in-letter-reading.test.ts`) is the detection mechanism — write it before the fix.
+**Alternatives rejected:** Selecting all profile columns (`SELECT *`) — overfetches; name + 3 avatar fields is the correct minimal set for any display context.
+**Consequences:** Before adding any new `profiles` JOIN to a service or RPC, grep existing joins to confirm all 4 fields are selected. `src.md` already documents correct `GravatarAvatar` prop usage — this decision covers the upstream data-fetch layer. Failure mode: `senderProfileOwner` missing `avatarUrl`/`avatarColor`/`hasPledged` → `GravatarAvatar` renders initials only regardless of correct component usage.
+**References:** [letters-service.ts](src/app/data/letters-service.ts) | [p697 spec](features/bugs_and_debt/p697_sender_avatar_missing_in_letter_reading.md)
+
+## 2026-04-12 [process]: migrate.sh worktree fix is branch-specific — run from main
+
+**Context:** Clarification of the 2026-04-11 decision (migrate.sh auto-fallback for worktrees). The fix adding "Cannot find project ref" to `NEEDS_FALLBACK` was committed to main on 2026-04-11 (`ab114e2f`). Feature branches created before that date (e.g., `feature/letters-ship`) carry the OLD `migrate.sh` without the fix. Running `./scripts/migrate.sh` from such a worktree still fails with "Cannot find project ref" and exits 1 — the fallback trigger is not in the worktree's copy.
+**Decision:** Always run `./scripts/migrate.sh` from the main repo when on an old feature branch. Direct path: `../../scripts/migrate.sh` from inside a worktree at `.claude/worktrees/wN/`, or `cd /path/to/main/repo && ./scripts/migrate.sh`. If that's not convenient, apply the migration directly via Management API: `curl -s -X POST "https://api.supabase.com/v1/projects/$REF/database/query" -H "Authorization: Bearer $PAT" -H "Content-Type: application/json" -d "{\"query\": $(cat migration.sql | python3 -c 'import json,sys; print(json.dumps(sys.stdin.read()))') }"`.
+**Alternatives rejected:** Cherry-picking the fix to every old feature branch — too much churn; old branches are short-lived.
+**Consequences:** Long-lived feature branches (>3 days old) should expect their tooling scripts to drift. Pattern: when a script behaves unexpectedly in a worktree, compare it to main's version with `diff scripts/X.sh ../../../scripts/X.sh`. Eventual fix: symlink scripts/ like node_modules/ in setup-worktree.sh — but not yet done.
+**References:** [migrate.sh](scripts/migrate.sh) | [setup-worktree.sh](scripts/setup-worktree.sh)
+
+## 2026-04-12 [technical]: React 19 strips `<meta>` from react-helmet-async before mapChildrenToProps runs
+
+**Context:** P686 badge certificate page needed OG meta tags (`og:title`, `og:description`, `og:image`). They were added via the `<SEO>` component (react-helmet-async). Playwright E2E test read `content` from `meta[property="og:title"]` and got the default site-wide fallback value. Root cause: React 19 extracts `<meta>` children during reconciliation (React's new "hoisting" behavior for document metadata) before react-helmet-async's `mapChildrenToProps()` can process them — Helmet's `updateTags("meta", ...)` receives an empty array. `<title>` has a separate Helmet code path and still works.
+**Decision:** Rewrite `seo.tsx` to set `<meta property>` and `<meta name>` tags via `useEffect` + direct DOM `document.querySelector/setAttribute` calls. Helmet is kept only for `<title>` (works correctly) and `<script type="application/ld+json">`. Also removed duplicate static OG tags from `index.html` — they conflict with Helmet's `data-rh` tracking and produce double meta tags in the DOM.
+**Alternatives rejected:** Upgrading react-helmet-async (no React 19 fix available at time of writing). Switching to `next/head` (Next.js-only). Using a static fallback in `index.html` only (no per-page dynamic values).
+**Consequences:** Any OG/Twitter meta tag on a per-page basis must use `useEffect` + direct DOM writes — not JSX inside `<Helmet>`. The `<SEO>` component encapsulates this. Do not add `<meta>` children to `<Helmet>` directly anywhere in the codebase. `<title>` via Helmet is still fine. This constraint applies for as long as React 19's metadata hoisting behavior is active (i.e., until react-helmet-async publishes a React 19-compatible release).
+**References:** [seo.tsx](src/app/components/seo.tsx) | [index.html](index.html)
+
+---
+
+## 2026-04-12 [technical]: Badge certification DB fallback — in-memory /live state unavailable in E2E tests
+
+**Context:** P686 badge certification fires in `handleFreeRoundComplete()` in `clarity-live-page.tsx`. The logic reads `selectedStoryData` (which story the certifier picked) and `livePositionsJoiner` (listener's position on the point) from React in-memory state populated during the /live session. E2E tests inject state directly into the DB via service role (bypassing the UI), so `selectedStoryData` and `livePositions` are never populated in memory — the badge check silently skipped.
+**Decision:** Add DB fallback: when `selectedStoryData` is absent, query the `points` table using `selectedPointId` from liveState; when `livePositions` is absent, query `point_positions` for the listener's position. The fallback path is also correct for production scenarios where state rehydrates from DB on reconnect.
+**Alternatives rejected:** Populating in-memory state from within the test helper — would require exposing internal React state to tests, fragile coupling. Making the badge check test-only mockable — wrong direction; production correctness is the real goal.
+**Consequences:** Badge certification logic (`handleFreeRoundComplete`) is now resilient whether state arrived via live session UI interaction or DB rehydration. Any future certification logic that reads session state must follow this pattern: prefer in-memory, fall back to DB. The DB fallback path adds one async query per round completion — negligible latency.
+**References:** [clarity-live-page.tsx](src/app/pages/clarity-live-page.tsx) | [e2e/p686-badge-certification.spec.ts](e2e/p686-badge-certification.spec.ts)
+
+---
+
+## 2026-04-12 [technical]: setTestSession() bypass for magic-link confirm flows in E2E tests
+
+**Context:** P684 E2E tests needed to verify the confirm page flow (UAT-13+15, UAT-14) — a page only reachable after a magic link is clicked and auth completes. Initial approach used `admin.generateLink()` to create a server-side magic link and navigate to it. This failed: (1) Supabase's test project redirect URL allowlist includes `localhost:5001` but NOT `localhost:5200` (w2 worktree port) — PKCE exchange fails silently from unlisted ports; (2) the OTP email path has ~3/hour rate limit on the test project; (3) admin-generated links require PKCE code_verifier in localStorage, which Playwright can't inject into the Supabase auth flow mid-redirect.
+**Decision:** For E2E tests that need to verify auth-gated pages reached via magic link, use `setTestSession(page, email)` to inject auth directly, then navigate to the target URL. sessionStorage (where the letter response draft is written by the reading page) persists within the same browser tab across navigations, so the draft is available when the confirm page loads. Only the actual signup form test (UAT-9) should call `signInWithOtp` — one test, one OTP, well within rate limits.
+**Alternatives rejected:** Adding `localhost:5200` to Supabase redirect URL allowlist — would work but requires manual Supabase dashboard edit per worktree port, fragile as more worktrees are added. Mocking the PKCE exchange — deep Supabase auth internals, not testable at this level.
+**Consequences:** Any E2E test for a page that is "normally reached after email confirmation" should use `setTestSession()` + direct navigate, not a real OTP flow. The real OTP path (UAT-9 pattern) is tested once per feature to cover the form submission; the downstream effects (confirm page, DB writes) are tested via auth injection. Worktree ports (5100-5700) will never be in the Supabase redirect URL allowlist — treat admin magic links as unavailable in worktree E2E tests.
+**References:** [e2e/p684-signup-flow.spec.ts](e2e/p684-signup-flow.spec.ts) | [e2e/helpers/test-user.ts](e2e/helpers/test-user.ts)
+
+---
+
+## 2026-04-12 [product]: Drawer-everywhere — all letter reading actions in bottom-docked Drawer
+
+**Context:** P696 redesigned action positioning in the letter reading flow. The initial UX proposal kept inline buttons for 3 phases (point-engage, point-revealed, story-revealed) and used Drawer only for story-rate. Founder pushed back: "why not putting other buttons similar down into drawer?" — the spatial jump between mid-content buttons and bottom Drawer was unjustified inconsistency.
+**Decision:** All 6 action phases use a bottom-docked Drawer as the universal action zone. Content (cards, comparisons, calibration results) stays in the content area; actions always live in the Drawer. Drawer uses `dismissible={false}`, `modal={false}`, `overlayClassName="bg-transparent"` so content stays visible and scrollable.
+**Alternatives rejected:** Mixed positioning (inline + Drawer) — creates spatial inconsistency. The UX agent's "Drawer is a focus tool" justification didn't explain why other phases shouldn't also benefit from focus.
+**Consequences:** Any future reading flow phase that adds a primary action must render it in the Drawer, not inline. This is now a pattern, not a one-off. Drawer content should be minimal (selector + button, or just button) — never put long text or multiple cards inside.
+**References:** [P696 spec](features/p696_letter_reading_flow_polish_and_refactor.md) | AD4
+
+---
+
+## 2026-04-12 [technical]: LetterFlowContent extraction — parameterize 3 variants via props, not behavior deletion
+
+**Context:** Three near-identical flow components (`LetterPreviewFlow`, `LetterReadingFlow`, `LetterReadingFlowPublic`) each ~200 lines of duplicated phase-rendering JSX. Every fix (centering, Drawer, button labels) must be applied 3 times. The question: extract shared component or full rewrite?
+**Decision:** Extract into `LetterFlowContent` parameterized by 3 props: `showFocusHeader` (boolean), `authGateAtStoryRate` (ReactNode), `renderCompletion` (render prop). Each page file keeps its own `useLetterReadingState` invocation (3 different signatures) and passes the return value as `readingState` prop. This is pure structural extraction — no behavior change.
+**Alternatives rejected:** Full rewrite of reading flow (overkill — leaf components are well-structured; only orchestration layer needs extraction). Keeping 3 variants and fixing each independently (compounds maintenance cost with every future change).
+**Consequences:** New reading flow behaviors (new phases, new action patterns) are implemented once in `LetterFlowContent`. Page files become thin wrappers: hook invocation + LetterFlowContent render with variant config. The hook (`useLetterReadingState`) is explicitly NOT refactored — separate concern, different scope.
+**References:** [P696 spec](features/p696_letter_reading_flow_polish_and_refactor.md) | AD1
+
+---
+
+## 2026-04-12 [process]: sonnet-default for /dev after /decompose — opus only for multi-concern tasks
+
+**Context:** P684 had 11 decomposed tasks across DB migrations, edge functions, components, and routing. Question: run /dev subagents on opus (more capable, slower, costlier) or sonnet (faster, cheaper)?
+**Decision:** Default to sonnet for /dev subagents when /decompose has run. Each task is 1-3 files with one concern — well within sonnet's capability. Reserve opus for tasks that combine multiple concerns in one (e.g., token validation + RLS + account creation atomicity) or tasks touching 3+ files across state/UI/routing layers. Escalate per-task after testing, not preemptively.
+**Alternatives rejected:** Opus-for-all (unnecessary cost/time when tasks are atomic), sonnet-for-all-no-exceptions (misses genuinely complex tasks where opus reasoning matters).
+**Consequences:** /dev dispatch should accept a model parameter per task or a default model for the run. The decompose threshold (1-3 files, one concern) is also the sonnet-safe threshold. If a task fails on sonnet, re-run that single task on opus with the failure as context — targeted fix beats blind rewrite.
+
+---
+
+## 2026-04-12 [technical]: add-recipient never sent emails — invokeLetterEmails missing from submit handler
+
+**Context:** P688 unified the add-recipient flow through RecipientRow. Testing revealed delivery rows were created successfully but no invitation emails arrived. The compose flow (letter-compose-page.tsx) called `invokeLetterEmails(letterId)` after sealing, but the add-recipient path in letter-receiver-modal.tsx never did — it only called `addRecipientToSealed()` per row. The edge function was never triggered.
+**Decision:** Add `invokeLetterEmails(letterId)` after successful batch adds in the add-recipient submit handler. Fire once per batch (not per row) since the edge function processes all unsent deliveries for a letter.
+**Alternatives rejected:** Triggering email from inside the RPC (database trigger) — adds coupling between schema and edge functions, harder to debug, and the fire-and-forget pattern is already established client-side.
+**Consequences:** Any new flow that creates `letter_deliveries` rows must also call `invokeLetterEmails()`. The RPC creates data; the edge function sends notifications. These are deliberately decoupled — forgetting the second call is a recurring risk.
+**References:** [letter-receiver-modal.tsx](src/app/components/letters/letter-receiver-modal.tsx) | [letter-emails.ts](src/lib/letter-emails.ts)
+
+---
+
+## 2026-04-12 [technical]: invitation_token UUID/text type mismatch — copy-paste from agreements table
+
+**Context:** `add_recipient_to_sealed_letter` RPC failed on every call with "column 'invitation_token' is of type uuid but expression is of type text". The INSERT used `gen_random_uuid()::text` — copied from the `clarity_agreements` table where `invitation_token` IS `TEXT`. But `letter_deliveries.invitation_token` is `UUID` (defined in P581 migration). Bug present since P660, inherited by P664.
+**Decision:** Remove the `::text` cast. When copy-pasting INSERT statements between tables, verify column types match — especially for columns with the same name but different types across tables.
+**Alternatives rejected:** Changing the column to TEXT — would require migration, break existing token-based lookups that expect UUID format, and the column type is correct as-is.
+**Consequences:** Pattern to watch: `invitation_token` is TEXT in `clarity_agreements` but UUID in `letter_deliveries`. Any future RPC touching both tables must not assume the same cast works for both.
+**References:** [P581 migration](supabase/migrations/20260403224331_p581_clarity_letters.sql) | [P660 migration](supabase/migrations/20260406080000_p660_read_at_and_rpcs.sql) | [fix migration](supabase/migrations/20260412150407_fix_invitation_token_uuid_cast.sql)
+
+---
+
+## 2026-04-12 [technical]: P684 edge function architecture — three functions, three security boundaries, not consolidatable
+
+**Context:** P684 introduced two new edge functions (`request-letter-response-signin`, `confirm-letter-response`) alongside the existing `send-letter-emails`. Initial question: are these duplicates that should be refactored into one? Analysis showed they serve distinct security boundaries despite sharing boilerplate (CORS headers, HTML email template, Mailgun send, escapeHtml).
+**Decision:** Three separate functions are architecturally correct. `send-letter-emails` = fire-and-forget notification to known recipients (token-based auth model). `request-letter-response-signin` = anonymous caller, service-role operations (user creation, magic link minting, pending row write). `confirm-letter-response` = JWT-authenticated caller, atomic multi-table writes (delivery + verifications + point responses + terms). The shared boilerplate (CORS, email template, Mailgun, escapeHtml) should be extracted to `supabase/functions/_shared/` helpers.
+**Alternatives rejected:** Single consolidated function — would mix auth boundaries (anon vs JWT) in one handler, requiring complex branching and weakening the security model. Two functions (merging send-letter-emails into request-*) — different auth models (token-based links vs magic links) and different callers (authenticated sender vs anonymous reader).
+**Consequences:** Edge function count will grow with each new auth-boundary flow. The consolidation point is shared utilities (`_shared/`), not fewer functions. When reviewing "do we need a new function?" the test is: does this flow have a different caller identity or auth requirement? If yes, separate function.
+**References:** [request-letter-response-signin](supabase/functions/request-letter-response-signin/index.ts) | [confirm-letter-response](supabase/functions/confirm-letter-response/index.ts) | [send-letter-emails](supabase/functions/send-letter-emails/index.ts)
+
+---
+
+## 2026-04-12 [technical]: Supabase edge function 404 manifests as CORS error in browser — misleading symptom
+
+**Context:** P684 signup form showed "Failed to send a request to the Edge Function" with console CORS errors. Initial diagnosis pointed at CORS misconfiguration. Actual root cause: the edge function was not deployed to the test project — Supabase returns a 404 without CORS headers, and the browser reports the missing headers as a CORS violation rather than surfacing the 404.
+**Decision:** When debugging edge function CORS errors, always verify the function exists first: `curl -s -o /dev/null -w "%{http_code}" "https://<ref>.supabase.co/functions/v1/<name>"`. A 404 means "not deployed," not "CORS misconfigured." This check should precede any CORS header debugging.
+**Alternatives rejected:** Adding a catch-all CORS proxy — masks the real problem (missing deployment) and adds infrastructure.
+**Consequences:** Added to debugging mental model: CORS error + edge function = check deployment status first. The deploy manifest system (from P504) already catches this at ship time, but doesn't help during dev when functions are only deployed to test ad-hoc.
+**References:** [docs/technical/debugging.md](docs/technical/debugging.md)
+
+---
+
+## 2026-04-12 [product]: Inbox button hierarchy — filled primary for pending actions, outline secondary for completed browse
+
+**Context:** Letters inbox shows two item types in a flat chronological list: received letters awaiting reading ("Read") and sender-side completed responses ("Results"). Every row looked identical — same blue icon, same blue button — requiring users to read label text to classify each item. Goal: instant visual scannability without introducing new colors.
+**Decision:** Use button variant hierarchy (filled vs outline) plus a matching icon to create pre-attentive differentiation. "Read" button = `bg-blue-500` filled + Mail icon (primary — action waiting for the user). "Results" button = `variant="outline"` + Eye icon (secondary — completed work to browse at leisure). No new colors; stays within the existing blue + gray palette already used by the inbox.
+**Alternatives rejected:** Color coding (blue for unread, green for completed) — introduces a second action color, violates design system rule against green action buttons, and adds visual noise to a list that should feel calm. Row-level background tinting alone — already done (blue-500/5 tint for unread rows), but insufficient since both action buttons still look identical. Icon-only differentiation without variant change — icons are too small as the sole signal; filled vs outline is the stronger pre-attentive cue.
+**Consequences:** In any list where items can be in "awaiting your action" vs "completed, browse if interested" states, use filled primary button for the former and outline secondary for the latter. Both keep `min-h-[44px]` touch targets. Icons from lucide-react inside buttons (Mail, Eye) provide a secondary shape cue that works at peripheral vision distance. Pattern applies to future inbox-like UIs across the product.
+**References:** [inbox-tab.tsx](src/app/components/letters/inbox-tab.tsx) | [design-system.md](docs/design-system.md#button-hierarchy)
+
+---
+
+## 2026-04-12 [process]: Standalone smoke test files eliminated — smoke checks embedded in E2E feature files
+
+**Context:** `/generate-tests` generated a standalone `e2e/p{N}-smoke.spec.ts` for every feature. After 60+ features, 64 smoke files existed — all strict subsets of their paired feature E2E tests. Any E2E test that navigates and interacts already catches page-breaking errors; the smoke files added file count with near-zero unique coverage.
+**Decision:** Smoke assertions (page load, no console errors) go as the **first test** inside the E2E feature file, not a separate file. `/generate-tests` updated to embed smoke checks and never generate standalone smoke files again. `.claude/rules/tests.md` updated with the rule and the 4 non-P-number exceptions to keep (`app-boot-smoke`, `public-pages-smoke`, `content-detail-smoke`, `event-page-smoke` — framework-level, not feature-level).
+**Alternatives rejected:** Keeping standalone smoke files — pure duplication, adds 64 files to grep/glob noise and CI output with no unique signal. Backporting console error capture to all 53 existing E2E feature files — high churn, low value.
+**Consequences:** 64 P-numbered smoke files deleted. Future `/generate-tests` runs will never produce `p{N}-smoke.spec.ts`. Discovery phase (Phase 0) added to skill — checks existing test files before generating, so re-runs add/update rather than regenerate. The 4 non-P-number smoke files are permanent exceptions (framework bootstrap, batch route check).
+**References:** [.claude/rules/tests.md](.claude/rules/tests.md) | [.claude/commands/slava/build/generate-tests/SKILL.md](.claude/commands/slava/build/generate-tests/SKILL.md)
+
+---
+
+## 2026-04-12 [technical]: badge_points schema — story_id nullable, 16 points across 9 stations, clarity_sessions FK
+
+**Context:** P686 specified `story_id NOT NULL` in `badge_points`, but E2E test inserts omit `story_id` (the badge point is verified in the free-mode round, not tied to a specific story). Making it NOT NULL would break 5 of 8 migration tests. Separately, the spec referenced a `sessions` FK but the actual table is named `clarity_sessions`. Also: 16 points carry the `#understanding` system tag across 9 stations — not 9 points as initially assumed.
+**Decision:** (1) `story_id` is nullable in `badge_points` — test inserts and any future programmatic insert that lacks session context should omit it. (2) FK target is `clarity_sessions(id)`, not `sessions`. (3) Badge count display uses `Math.min(count, 9)` — there are 16 eligible points but only 9 stations, so the visual progress bar caps at 9. Step 2 will introduce proper station-based counting (one badge per station, not one per point).
+**Alternatives rejected:** Keeping story_id NOT NULL with a test fixture factory that always provides it — adds fixture complexity for a field that's semantically optional at the badge level. Making the badge count uncapped — confusing UX showing 12/9.
+**Consequences:** Any insert into badge_points can omit story_id. The display layer (`BadgeCertificate`, progress bar) must always cap at 9. When Step 2 introduces station-level deduplication, the cap logic moves from client to the DB query (COUNT DISTINCT station). `docs/technical/badge-points-reference.md` documents all 16 qualifying point IDs.
+**References:** [20260412000000_p686_badge_points.sql](supabase/migrations/20260412000000_p686_badge_points.sql) | [badge-points-reference.md](docs/technical/badge-points-reference.md) | [badge-service-real.ts](src/app/data/badge-service-real.ts)
+
+---
+
+## 2026-04-12 [technical]: Badge insert RLS — single-certifier trust model accepted for Step 1; Step 2 security debt
+
+**Context:** P686 Step 1 uses client-side Supabase inserts for badge_points. The RLS policy allows INSERT only where `auth.uid() = verified_by AND is_certifier = true`. `is_certifier` is a boolean column on `profiles`, seeded true only for Slava. This means the certifier (Slava) calls `supabase.from('badge_points').insert(...)` directly from the browser after a /live free-mode round where both parties rated 10/10.
+**Decision:** Accept client-side insert with is_certifier guard for Step 1 (single certifier). The risk is bounded: only one row in `profiles` has `is_certifier = true`, so only that user can insert. When Step 2 generalises certification (badge holders can certify others), the insert must move to an Edge Function with server-side validation of the /live session outcome — client-side trust becomes untenable with multiple certifiers.
+**Alternatives rejected:** Edge Function for Step 1 — added complexity with no security benefit when there is only one certifier whose account is controlled. Moving to Edge Function now as "future-proofing" — YAGNI; specifying the debt is sufficient.
+**Consequences:** `is_certifier` column on `profiles` is the Step 1 security perimeter. Any PR that sets `is_certifier = true` for more than one user triggers Step 2 (Edge Function migration). TypeScript `DbProfile` type does not include `is_certifier` — callers query it via a narrow Supabase select (`select('is_certifier')`) rather than extending the shared type. Extending the shared type is deferred to Step 2.
+**References:** [20260412000000_p686_badge_points.sql](supabase/migrations/20260412000000_p686_badge_points.sql) | [clarity-live-page.tsx](src/app/pages/clarity-live-page.tsx)
+
+---
+
+## 2026-04-13 [technical]: Radix Dialog with modal=false + hideOverlay closes on background interaction — use onInteractOutside preventDefault
+
+**Context:** P688 added `modal={false}` and `hideOverlay` to `LetterReceiverModal` so background letter content remains visible. Playwright E2E tests were intermittently failing with "element was detached from DOM" — the dialog was closing mid-test. Root cause: Radix Dialog fires `onInteractOutside` when pointer events land outside the dialog bounds and, by default, closes the dialog. With `modal={false}` there is no overlay to intercept those clicks, so any background interaction (including the browser itself positioning focus during test setup) triggers a close.
+**Decision:** Add `onInteractOutside={(e) => e.preventDefault()}` to every `DialogContent` that uses `modal={false}` or `hideOverlay`. This disables the auto-close without affecting keyboard dismissal (Escape still works) or any other close trigger.
+**Alternatives rejected:** Removing `modal={false}` — defeats the design intent of showing background context while the modal is open. Adding `pointer-events-none` to the page behind the dialog — breaks background scrolling and any link/button that should remain reachable.
+**Consequences:** Any Radix `DialogContent` with `hideOverlay` must include `onInteractOutside={(e) => e.preventDefault()}` or it will close unexpectedly during tests and real user interactions on touch devices. Symptom in Playwright: "element detached from DOM" or "element not stable" on assertions that run after a background click.
+**References:** [letter-receiver-modal.tsx](src/app/components/letters/letter-receiver-modal.tsx)
+
+---
+
+## 2026-04-13 [process]: Playwright toast assertions — use toContainText, not text="..." exact match
+
+**Context:** P688 E2E test asserted `page.getByText('No invitations sent')` — failed because the toast element's full text was `"No invitations sent. Check errors and try again."`. The `text=` selector in Playwright is an exact string match by default; partial substrings don't match.
+**Decision:** For toast/alert assertions, always use `page.getByRole('alert').toContainText('…')` or `expect(page.getByText('…', { exact: false }))`. Never rely on `text="..."` exact match for toasts whose content may carry punctuation, trailing instructions, or dynamic interpolation. The spec's canonical string should be the minimum unique prefix, not the full UI string.
+**Alternatives rejected:** Quoting the full toast string verbatim — creates a brittleness trap: any copy change breaks the test. Using `page.locator('[data-sonner-toast]')` — couples to the Sonner implementation detail; `getByRole('alert')` is semantics-stable.
+**Consequences:** E2E test pattern: `await expect(page.getByRole('alert')).toContainText('No invitations sent')`. Toast text in source code must include the full user-facing copy; the test asserts the minimal distinguishing fragment. Update `docs/technical/e2e-testing-guide.md` toast section if one exists.
+**References:** [e2e/p688-add-recipient-flow.spec.ts](e2e/p688-add-recipient-flow.spec.ts)
+
+---
+
+## 2026-04-13 [technical]: Multi-flow component disabled logic must branch on active flow, not unified canProceed
+
+**Context:** P688 unified `LetterReceiverModal` serves three flows: (a) private-doc compose (P682 behavior), (b) add-recipient from Sent tab, (c) public-doc seal-confirmation. P682 spec requires the submit button to always be enabled for private compose — validation errors show inline on submit, not by blocking the button. The new unified `canProceed` gate (derived from `recipientCanProceed`) disabled the button whenever name was empty, breaking P682 E2E tests 8 and 11 ("button not interactable").
+**Decision:** `disabled` prop must branch on active flow: `isAddRecipientMode ? (!canProceed || submitting) : isPrivateDoc ? submitting : (!canProceed || submitting)`. The `isPrivateDoc` branch only disables during submission — the button is always clickable otherwise.
+**Alternatives rejected:** Making all flows show inline validation (never disable button) — changes P688 add-recipient UX where disabling the Send button until a valid email+name is entered is the specified behavior. Inverting the guard (enable only during submission) for all flows — reverts P682 behavior to "can always submit with empty fields" which is confusing for new flows.
+**Consequences:** Any future flow added to this modal must explicitly classify itself as "submit-always-enabled" (validation-on-submit) or "gated" (disabled until valid) and add a branch in the disabled expression. The P682 regression test suite (`e2e/p682-letter-multi-recipient.spec.ts`) is the regression guard — keep it passing.
+**References:** [letter-receiver-modal.tsx](src/app/components/letters/letter-receiver-modal.tsx) | [e2e/p682-letter-multi-recipient.spec.ts](e2e/p682-letter-multi-recipient.spec.ts)
+
+---
+
+## 2026-04-12 [technical]: LetterSealConfirmation has no dedicated route — E2E tests must drive through compose flow
+
+**Context:** P688 `/verify` generated `e2e/p688-seal-confirmation-invite.spec.ts` with a `gotoSealConfirmation` helper that navigated to `/letter/${docId}/seal-done?letterId=...`. All 6 tests returned 404. `LetterSealConfirmation` is not at a URL — it's rendered inside `letter-compose-page.tsx` when `phase === 'confirmation'`, reached only after the prediction walk + seal action complete.
+**Decision:** E2E tests for `LetterSealConfirmation` must drive the real compose flow: (1) navigate to `/letter/:docId/compose`, (2) wait for prediction walk (public docs auto-skip modal via useEffect), (3) rate each story, (4) click "Seal & Get Link", (5) wait for `<h2>Letter Sealed</h2>`. The fixed helper `gotoSealConfirmationPublic` captures the sealed letter ID from the link card after sealing. Do not construct a direct URL — there is none.
+**Alternatives rejected:** Adding a dedicated `/letter/:letterId/seal-confirmation` route to `App.tsx` — would expose a bookmark-able screen that has no standalone meaning (letter is already sealed; screen is ceremonial). Testing `LetterSealConfirmation` in isolation via unit test — misses the integration: the component receives `letterId`, `docId`, `isPublicDoc`, and `onBack` from the compose orchestrator.
+**Consequences:** Any future test that needs to verify seal-confirmation behavior must go through the full compose flow for that doc type. Public docs auto-skip the receiver modal (P665 useEffect), so the test starts at the prediction walk. Private docs show the receiver modal first — tests would need to submit it before reaching prediction walk. The `gotoSealConfirmationPublic` helper in `e2e/p688-seal-confirmation-invite.spec.ts` is the reference implementation.
+**References:** [letter-compose-page.tsx](src/app/pages/letter-compose-page.tsx) | [letter-seal-confirmation.tsx](src/app/components/letters/letter-seal-confirmation.tsx) | [p688-seal-confirmation-invite.spec.ts](e2e/p688-seal-confirmation-invite.spec.ts)
+
+---
+
+## 2026-04-12 [process]: Running 4+ Playwright suites together triggers Supabase auth 429 — use --workers=1
+
+**Context:** P688 `/verify` ran 5 spec files in one `npx playwright test` command with the default `workers: 3` (from playwright.config.ts env var). The combined ~15 concurrent workers all called `signInWithPassword` in their `beforeAll` setup simultaneously. Supabase test project returned `AuthApiError: Request rate limit reached (status 429, code: over_request_rate_limit)`. 10 tests failed or were marked flaky — all due to auth setup, not code bugs.
+**Decision:** When running 3+ spec files together, always pass `--workers=1`. Individual suite runs (1-2 files) are fine with default workers. The rate limit is per-project on the Supabase free-tier test project; sequential auth calls never hit it.
+**Alternatives rejected:** Splitting into smaller batches without `--workers=1` — still fails if each batch has 3+ suites. Adding exponential retry to `setTestSession` — masks the root cause and makes test runs unpredictable.
+**Consequences:** `/verify` should always use `--workers=1` when running its full suite. The `playwright.config.ts` default of 3 workers is correct for single-suite development iteration; it should NOT be changed globally. Add `--workers=1` to any CI command that runs the full E2E suite. Symptom to recognise: `AuthApiError: Request rate limit reached` in `beforeAll` → not a code bug, reduce workers.
+**References:** [playwright.config.ts](playwright.config.ts) | [e2e/helpers/test-user.ts](e2e/helpers/test-user.ts)
+
+---
+
 ## 2026-04-12 [product]: H-AgentEpistemics — MCP epistemic verification as testable product hypothesis, article-as-demand-test pattern
 
 **Context:** `/claude-conversations-to-cp` analysis of 4 conversations (Apr 11-12) surfaced a recurring signal across 7 `[/cp]` markers: AI agents accumulate unverified assertions at scale and nobody is building verification infrastructure. The signal emerged from a live demonstration — Claude made 3 confident wrong assertions about the user's situation in one conversation, each caught and corrected using the same verification protocol ClarityPledge builds for humans. The mechanism maps directly to an MCP verification layer. Separately, an inverse Clarity Letter concept emerged: lead with "here is how I understand YOU" before sharing your own story/point.

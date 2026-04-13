@@ -14,7 +14,6 @@ test_files:
   - src/tests/p521-position-buttons-progressive.test.tsx
   - e2e/p521-position-buttons-progressive.spec.ts
   - e2e/a11y/p521-accessibility.spec.ts
-  - e2e/p521-smoke.spec.ts
 ---
 
 # P521: Position Buttons — Two-Step Progressive Disclosure

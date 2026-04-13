@@ -15,7 +15,6 @@ completed_at: 2026-03-15
 uat_file: features/uat/p510.md
 test_files:
   - e2e/p510-profile-banner-ux.spec.ts
-  - e2e/p510-smoke.spec.ts
   - e2e/a11y/p510-accessibility.spec.ts
 ---
 

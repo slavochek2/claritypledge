@@ -1,7 +1,7 @@
 # Done Features Index
 
 Quick reference for past completed work. Consult when starting work on a related topic.
-Last updated: 2026-04-09 (P679 Remove Session History from /live)
+Last updated: 2026-04-12 (P695 Fix nav clicks ignored during profile loading)
 
 ---
 
@@ -98,6 +98,7 @@ Last updated: 2026-04-09 (P679 Remove Session History from /live)
 
 ## Navigation & Routing
 
+- **P695** (Apr 26) Nav Clicks Ignored During Profile Loading — split monolithic `!sessionChecked || isLoading` skeleton gate into three phases; static routes (Feed/Docs/Events) need no profile data and can render immediately once session is known
 - **P409** (Feb 26) /live Page Router Crash — `useBrouter` must be within data router context; verify router provider wraps all page routes
 - **P76** (Jan 27) Navigation Redirect Fixes — preserve intended destination URL after auth redirect
 - **P115** (Feb 5) Navigation and Data Fixes — correct route params, link semantics, data consistency

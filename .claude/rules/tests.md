@@ -58,6 +58,20 @@ Never use `page.reload()` to sync state in two-party /live tests. Use `waitForUI
 
 Full guide: [e2e-testing-guide.md](docs/technical/e2e-testing-guide.md) (Two-Party Sessions section).
 
+## Smoke Checks — No Standalone Files
+
+Smoke assertions (page loads, no console errors, critical elements visible) belong in the **first `test()` block of the feature's E2E file** (`e2e/pN-*.spec.ts`), not in a separate `e2e/pN-smoke.spec.ts`.
+
+**Why:** A dedicated smoke file duplicates the feature file's setup, adds a second Playwright worker boot for trivial assertions, and fragments context — reviewers must open two files to understand coverage.
+
+**How:** Name the first test `'smoke: page loads and has no console errors'` inside the feature spec. Gate the rest of the file on this passing.
+
+**Allowed standalone smoke files (non-P-number only):**
+1. `e2e/auth-smoke.spec.ts` — cross-feature auth gate (login, redirect, session cookie)
+2. `e2e/a11y/*.spec.ts` — accessibility sweeps that span multiple routes
+3. `e2e/performance-smoke.spec.ts` — LCP/CLS budget checks not tied to one feature
+4. `e2e/api-contracts.spec.ts` — edge function response-shape checks that predate features
+
 ## Subagent Scope Constraint
 
 When a subagent is spawned to write tests, it MUST NOT modify source files.

@@ -1021,6 +1021,90 @@ The frontend detects the polish phase by regex: `/^here'?s? (?:is )?the polished
 
 `locator.or(otherLocator)` throws "strict mode violation" if both branches resolve to different elements simultaneously. Prefer `data-testid` over text-based fallbacks. Remove `or()` once `data-testid` is confirmed working.
 
+### Strict mode — `getByText` on heading text that also appears in a label
+
+`page.getByText('Save your responses')` matches both `<h3>Save your responses</h3>` AND a `<label>` whose full text contains the string as a substring (e.g., a consent label that says "...to save your responses"). Use `getByRole('heading', { name: 'Save your responses' })` to target the heading unambiguously.
+
+**Rule:** for any text that could plausibly appear in both a heading and a label/paragraph, prefer `getByRole('heading', ...)` over `getByText(...)`.
+
+### Form submit with disabled submit button — trigger via `page.evaluate()`
+
+When `canSubmit` gates on field validity (e.g., `isValidEmail(email)`), the submit button is disabled for invalid inputs. Clicking it does nothing — even with `{ force: true }` the native `disabled` attribute prevents the form submit event. To test validation error messages:
+
+```typescript
+// Dispatch native submit event — React's onSubmit fires, validateFields() runs
+await page.evaluate(() => {
+  const form = document.querySelector('form');
+  form?.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+});
+```
+
+React 17+ attaches listeners at the root element — native events bubble through and trigger React's `onSubmit` handler. `e.preventDefault()` in the handler still fires, so the page won't reload.
+
+---
+
+## Letter Reading Flow Patterns (P684+)
+
+### FK setup for one-to-many letter tests
+
+Three FK constraints that silently cause `beforeAll` failure if wrong values are passed:
+
+| Field | Table | Constraint | Wrong pattern | Correct pattern |
+|-------|-------|-----------|---------------|-----------------|
+| `source_doc_id` | `clarity_letters` | `REFERENCES clarity_docs(id)` | `sender.user.id` | Insert into `clarity_docs`, use returned `id` |
+| `version_id` | `letter_story_snapshots` | `REFERENCES story_versions(id)` | `story.id` | Query `story_versions` for `story_id`, use returned `id` |
+| `version_id` | `story_verifications` | `REFERENCES story_versions(id)` | `story.id` | Same — query `story_versions` |
+
+Also: `createTestStorySnapshot` defaults `point_config` to `{}`. `snapshotToStoryWithPoints` reads `point_config.storyTitle` and `point_config.storyText` to populate the story for display — if not passed, the rendered story has undefined title/text and `LiveStoryCardExpanded` shows nothing. Always pass `pointConfig`:
+
+```typescript
+await createTestStorySnapshot(letter.id, storyId, version.id, {
+  position: 0,
+  pointConfig: {
+    storyTitle: 'My test story',
+    storyText: 'The story body text that the reader will see.',
+    points: [],
+  },
+});
+```
+
+### Navigating to the end-of-letter signup form
+
+For 0-point stories, the reading flow is: `story-rate` → `story-revealed` → signup form. Tests that assert on the signup form must handle the `story-revealed` phase (shows `JourneyToUnderstanding` + "Continue" button) between submitting the rating and the form appearing:
+
+```typescript
+async function openLetterAndRate(page, letterId) {
+  await page.goto(`/letter/${letterId}`);
+  await page.waitForLoadState('networkidle');
+
+  const openBtn = page.getByRole('button', { name: /open.*letter/i });
+  if (await openBtn.isVisible({ timeout: 8000 })) {
+    await openBtn.click();
+    await page.waitForLoadState('networkidle');
+  }
+
+  // Rating drawer is a dialog (0-point story → immediately in story-rate phase)
+  await expect(page.getByRole('dialog').filter({ hasText: 'Rate this story' })).toBeVisible({ timeout: 10000 });
+  await page.getByRole('button', { name: 'Rate 7' }).click();
+  await page.getByRole('button', { name: 'Submit' }).click();
+
+  // story-revealed phase: JourneyToUnderstanding + "Continue" button
+  const continueBtn = page.getByRole('button', { name: /^continue$/i });
+  if (await continueBtn.isVisible({ timeout: 5000 }).catch(() => false)) {
+    await continueBtn.click();
+  }
+
+  // Signup form heading (use getByRole to avoid strict mode violation)
+  await expect(page.getByRole('heading', { name: 'Save your responses' })).toBeVisible({ timeout: 10000 });
+}
+```
+
+**Why `ComprehensionRatingCard` requires two clicks:** clicking a rating button SELECTs it (highlights it) — `onSelect` is called only when the "Submit" button is clicked. Single-click assertions on a rating button check selection state, not submission.
+
+### `LiveStoryCardExpanded` renders `story.content`, not `story.title`
+
+Test assertions for visible story text must use `story.content`, not `story.title`. Asserting on the title will always miss — the title is not rendered inside `LiveStoryCardExpanded`.
+
 ---
 
 ## Kanban Server Testing (tools/kanban)
@@ -1102,3 +1186,33 @@ npm run test:e2e       # Playwright (requires kanban server on port 9050)
 ### Kanban Playwright config
 
 Separate `playwright.config.ts` in `tools/kanban/` targeting port 9050 with `reuseExistingServer: true`. The root `playwright.config.ts` (app, port 5000) and the kanban config are independent.
+
+---
+
+## Off-screen Elements Break Playwright Strict Mode
+
+**Problem:** Components rendered off-screen for export (e.g. `position: absolute; left: -9999px`) stay in the DOM and are matched by `getByText()` or `getByRole()` locators — triggering "strict mode violation: resolved to 2 elements". P686: `ExportBadgeCertificate` was always rendered hidden for html2canvas access, creating a second "CLARITY BADGE" heading.
+
+**Fix:** Lazy-render export components behind a state flag — only mount them when the export is actually triggered:
+```tsx
+{showExportComponent && <ExportBadgeCertificate ... />}
+```
+
+**Rule:** Never keep an off-screen/hidden element mounted full-time if it duplicates visible text or role selectors. Use conditional rendering or portals with `visibility: hidden` + `aria-hidden="true"` if the element must stay in the DOM.
+
+---
+
+## `data-*` Attributes for Stateful UI Indicators
+
+**Problem:** CSS Tailwind ring classes and `class*=` selectors are fragile — a class rename breaks every test that targets it. P686: pledge ring was only identifiable via `class*="ring-"`, which didn't survive refactoring.
+
+**Pattern:** Add `data-*` attributes to stateful UI indicators so tests can query them semantically:
+```tsx
+// In GravatarAvatar
+<div {...(ringVisible ? { 'data-pledger': 'true' } : {})}>
+
+// In BadgeCheckmark
+<div aria-label={`Has Clarity Badge — ${count} of 9 points verified`}>
+```
+
+**Rule:** Any component that indicates user state (badge earned, pledge taken, verification level) must carry a `data-*` or `aria-label` attribute that tests can rely on. CSS class names are not test contracts.

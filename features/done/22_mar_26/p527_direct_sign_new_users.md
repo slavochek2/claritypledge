@@ -10,7 +10,6 @@ flow: dev
 uat_file: features/uat/p527.md
 test_files:
   - e2e/p527-direct-sign.spec.ts
-  - e2e/p527-smoke.spec.ts
 reviews:
   ux: null
   architect: null

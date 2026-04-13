@@ -14,7 +14,6 @@ uat_file: features/uat/p540.md
 test_files:
   - src/tests/p540-linkify-markdown.test.ts
   - e2e/p540-hyperlink-consistency.spec.ts
-  - e2e/p540-smoke.spec.ts
 ---
 
 # P540: Hyperlink Consistency Across All Text Surfaces

@@ -11,7 +11,6 @@ pipeline_skipped: [architect -- no schema changes; DB already supports multi-rec
 uat_file: features/uat/p682.md
 test_files:
   - e2e/p682-letter-multi-recipient.spec.ts
-  - e2e/p682-smoke.spec.ts
   - src/tests/p682-recipient-validation.test.ts
 ---
 
