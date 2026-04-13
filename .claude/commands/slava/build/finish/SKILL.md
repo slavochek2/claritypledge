@@ -74,13 +74,13 @@ For each review type, check for existing artifacts. Skip reviews that already co
 | Review key | Detection method |
 |---|---|
 | `uat` | `features/uat/p{N}.md` exists with passing marks in Test Execution Log |
-| `privacy` | `.privacy-reviewed` file exists AND timestamp is newer than last commit |
-| `code` | `.finish-reviewed` has `{"type":"code",...}` entry newer than last commit |
-| `skills` | `.finish-reviewed` has `{"type":"skills",...}` entry newer than last commit |
-| `rules` | `.finish-reviewed` has `{"type":"rules",...}` entry newer than last commit |
-| `migrations` | `.finish-reviewed` has `{"type":"migrations",...}` entry newer than last commit |
-| `docs` | `.finish-reviewed` has `{"type":"docs",...}` entry newer than last commit |
-| `specs` | `.finish-reviewed` has `{"type":"specs",...}` entry newer than last commit |
+| `privacy` | `.claude/.privacy-reviewed` file exists AND timestamp is newer than last commit |
+| `code` | `.claude/.finish-reviewed` has `{"type":"code",...}` entry newer than last commit |
+| `skills` | `.claude/.finish-reviewed` has `{"type":"skills",...}` entry newer than last commit |
+| `rules` | `.claude/.finish-reviewed` has `{"type":"rules",...}` entry newer than last commit |
+| `migrations` | `.claude/.finish-reviewed` has `{"type":"migrations",...}` entry newer than last commit |
+| `docs` | `.claude/.finish-reviewed` has `{"type":"docs",...}` entry newer than last commit |
+| `specs` | `.claude/.finish-reviewed` has `{"type":"specs",...}` entry newer than last commit |
 
 Report what was skipped: "Skipping uat — UAT scorecard p621.md exists (5/5 passing)."
 
@@ -155,7 +155,7 @@ If a fix is ambiguous or risky (could change behavior), flag it instead of auto-
 
 ## Step 6: Write Artifact
 
-After review completes, write `.finish-reviewed`:
+After review completes, write `.claude/.finish-reviewed`:
 
 ```json
 {"type":"code","timestamp":"2026-04-03T14:00:00Z","issues_found":2,"issues_fixed":2}

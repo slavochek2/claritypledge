@@ -1,5 +1,5 @@
 ---
-status: week
+status: backlog
 type: story
 rank: 4.75
 tags:
@@ -8,6 +8,7 @@ tags:
   - onboarding
 supersedes: p41
 created_date: 2026-03-18T00:00:00.000Z
+locked_at: '2026-04-07T11:24:58.350Z'
 ---
 # P547: AI Post-Session Coach — Transcript-Based Education Trigger
 

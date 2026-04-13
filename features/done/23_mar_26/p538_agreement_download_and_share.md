@@ -10,7 +10,6 @@ tags: []
 uat_file: features/uat/p538.md
 test_files:
   - e2e/p538-agreement-share.spec.ts
-  - e2e/p538-smoke.spec.ts
 ---
 
 # P538: Agreement Download Image & Share Dropdown

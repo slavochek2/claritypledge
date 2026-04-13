@@ -107,23 +107,19 @@ test.describe('P682: Multi-Recipient Receiver Modal', () => {
     await expect(emailInput).toBeVisible({ timeout: 8000 });
   });
 
-  // ── 2. Public doc: mode selector skipped — prediction walk shown directly ──
+  // ── 2. Public doc: mode selector still shown ───────────────────────────────
 
-  test('public doc: mode selector skipped — prediction walk shown directly', async ({ page }) => {
+  test('public doc: mode selector is still shown (regression guard)', async ({ page }) => {
     await setTestSession(page, sender.email);
     await page.goto(`/letter/${publicDocId}/compose`);
     await page.waitForLoadState('networkidle');
 
-    // Mode selector must NOT appear for public docs (auto-skipped)
+    // Mode selector must still appear for public docs
     const specificPeopleCard = page.locator('text=/specific people/i').first();
-    await expect(specificPeopleCard).not.toBeVisible({ timeout: 5000 });
+    await expect(specificPeopleCard).toBeVisible({ timeout: 8000 });
 
     const anyoneCard = page.locator('text=/anyone with a link/i').first();
-    await expect(anyoneCard).not.toBeVisible({ timeout: 2000 });
-
-    // Prediction walk must be shown directly
-    const storyCounter = page.locator('text=/story \\d+ of \\d+/i').first();
-    await expect(storyCounter).toBeVisible({ timeout: 8000 });
+    await expect(anyoneCard).toBeVisible({ timeout: 5000 });
   });
 
   // ── 3. Dialog title ────────────────────────────────────────────────────────

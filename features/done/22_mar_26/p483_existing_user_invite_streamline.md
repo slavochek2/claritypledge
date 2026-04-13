@@ -14,7 +14,6 @@ uat_file: features/uat/p483.md
 test_files:
   - src/tests/p483-existing-user-invite.test.ts
   - e2e/p483-existing-user-invite.spec.ts
-  - e2e/p483-smoke.spec.ts
 reviews:
   ux: null
   architect: null

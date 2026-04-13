@@ -38,8 +38,7 @@ import { type LiveSessionState, type GapType, type FlowType, type StoryWithPoint
 import { LiveSessionBanner } from './live-session-banner';
 import { getFirstName } from './shared';
 import { playCelebrationSound } from '@/hooks/use-sound';
-import { SessionHistoryList, PointCardPreview } from './live-content-cards';
-import { RoundSummaryScreen } from './round-summary-screen';
+import { PointCardPreview } from './live-content-cards';
 import { StorySearchPicker } from './story-search-picker';
 import { LiveStoryCardExpanded } from './live-story-card-expanded';
 import { GravatarAvatar } from '@/components/ui/gravatar-avatar';
@@ -47,6 +46,7 @@ import { FreeModeView } from './free-mode-view';
 import { GapBanner } from '@/app/components/shared/gap-banner';
 import { PositionBadge } from '@/app/components/shared';
 import { ComprehensionRatingCard } from '@/app/components/shared/comprehension-rating-card';
+import { MobileTooltip } from '@/app/components/shared/mobile-tooltip';
 import { storiesService } from '@/app/data/stories-service';
 import { pointsService } from '@/app/data/points-service';
 import { analytics } from '@/lib/mixpanel';
@@ -103,6 +103,141 @@ function RecordingIndicator({ isPrivate = false, uploadHealth }: { isPrivate?: b
 const CONTENT_LAYOUT = "flex-1 min-h-0 flex flex-col items-center justify-start pt-8 p-6 space-y-6 max-w-lg mx-auto w-full overflow-y-auto live-scroll";
 /** Content layout variant - vertically centered (for idle state without history) */
 const CONTENT_LAYOUT_CENTERED = "flex-1 min-h-0 flex flex-col items-center justify-center px-6 pb-6 pt-16 space-y-8 max-w-lg mx-auto w-full overflow-y-auto live-scroll";
+
+// ============================================================================
+// VIEW STATE DECISION FUNCTION — pure logic, no React
+// ============================================================================
+
+/** P638: Mode switcher state — computed by getViewState, not by a separate IIFE */
+export type ModeSwitcherState = 'enabled' | 'disabled' | 'hidden';
+
+/** Input for the view state decision function */
+export interface ViewStateInput {
+  sessionMode: string | undefined;
+  freePhase: string | undefined;
+  hasFreeSliderHandler: boolean;
+  waitingForPartner: boolean;
+  inCelebrationState: boolean;
+  isLocallyRating: boolean;
+  ratingPhase: string;
+  isChecker: boolean;
+  myRatingSubmitted: boolean | undefined;
+  partnerRatingSubmitted: boolean | undefined;
+  bothSubmitted: boolean;
+  checkerRating: number | undefined;
+  responderRating: number | undefined;
+  // P638: New fields for modeSwitcherState computation
+  ratingInitiatedBy: string | undefined;
+  hasSessionModeChangeHandler: boolean;
+  checkerName: string | undefined;
+}
+
+/** Discriminated union of all possible view states */
+export type ViewState =
+  | { view: 'free-mode' }
+  | { view: 'waiting-for-partner' }
+  | { view: 'local-rating'; showDrawer: boolean }
+  | { view: 'idle'; modeSwitcherState: ModeSwitcherState }
+  | { view: 'checker-rating' }
+  | { view: 'responder-drawer' }
+  | { view: 'understanding' }
+  | { view: 'idle-fallback'; modeSwitcherState: ModeSwitcherState };
+
+/**
+ * Pure function that determines which view to render based on session state.
+ * Encodes the 9-branch cascade priority in a single testable place.
+ * Order matters — each check is a higher-priority override of later checks.
+ */
+// eslint-disable-next-line react-refresh/only-export-components
+export function getViewState(input: ViewStateInput): ViewState {
+  const {
+    sessionMode, freePhase, hasFreeSliderHandler,
+    waitingForPartner, inCelebrationState,
+    isLocallyRating, ratingPhase, isChecker,
+    myRatingSubmitted, partnerRatingSubmitted, bothSubmitted,
+    checkerRating, responderRating,
+    ratingInitiatedBy, hasSessionModeChangeHandler, checkerName,
+  } = input;
+
+  // Branch 1: Free mode (highest priority — completely different UI)
+  if (sessionMode !== 'guided' && (freePhase === 'unlocked' || freePhase === 'success') && hasFreeSliderHandler) {
+    return { view: 'free-mode' };
+  }
+
+  // Branch 2: Waiting for partner to acknowledge celebration
+  if (waitingForPartner && !inCelebrationState) {
+    return { view: 'waiting-for-partner' };
+  }
+
+  // Branch 3: Local rating (I clicked Speak, haven't submitted yet)
+  if (isLocallyRating) {
+    const partnerAlreadySubmitted = !!(myRatingSubmitted === undefined && partnerRatingSubmitted);
+    return { view: 'local-rating', showDrawer: partnerAlreadySubmitted };
+  }
+
+  // Branch 4a: Submission mismatch — one person submitted, other hasn't.
+  // Must come BEFORE idle check: ratingPhase may still be 'idle' on the partner's
+  // side due to Realtime delivery delay, but submission flags arrive via the same
+  // liveState merge. Without this, the partner sees the Speak button instead of
+  // the responder drawer on the second round.
+  if (myRatingSubmitted !== partnerRatingSubmitted) {
+    const iHaveSubmitted = isChecker
+      ? checkerRating !== undefined
+      : responderRating !== undefined;
+
+    if (!iHaveSubmitted && partnerRatingSubmitted) {
+      return { view: 'responder-drawer' };
+    }
+    return { view: 'understanding' };
+  }
+
+  // Branch 4: Idle (default screen)
+  if (ratingPhase === 'idle') {
+    // P638: Compute modeSwitcherState — replaces the IIFE at IdleScreen
+    // P643: checkerName set → 'disabled' (not 'hidden') — listener may still be on idle
+    // while ratingPhase update is in transit via drift polling. Hiding the switcher
+    // causes it to vanish with no explanation; disabled + tooltip is correct.
+    const modeSwitcherState: ModeSwitcherState =
+      !hasSessionModeChangeHandler ? 'hidden'
+      : freePhase ? 'hidden'
+      : checkerName ? 'disabled'
+      : ratingInitiatedBy ? 'disabled'
+      : 'enabled';
+    return { view: 'idle', modeSwitcherState };
+  }
+
+  // Branch 5: Checker re-rating (after explain-back)
+  if (ratingPhase === 'rating' && isChecker && !myRatingSubmitted) {
+    return { view: 'checker-rating' };
+  }
+
+  // Branch 5a/5b: Waiting phase
+  if (ratingPhase === 'waiting') {
+    const iHaveSubmitted = isChecker
+      ? checkerRating !== undefined
+      : responderRating !== undefined;
+
+    if (!iHaveSubmitted && partnerRatingSubmitted) {
+      return { view: 'responder-drawer' };
+    }
+    return { view: 'understanding' };
+  }
+
+  // Branch 6: Results/revealed/explain-back
+  if (ratingPhase === 'results' || ratingPhase === 'revealed' || ratingPhase === 'explain-back' || bothSubmitted) {
+    return { view: 'understanding' };
+  }
+
+  // Fallback: safe idle
+  // P643: same fix as idle — checkerName in transit race → 'disabled' not 'hidden'
+  const fallbackModeSwitcherState: ModeSwitcherState =
+    !hasSessionModeChangeHandler ? 'hidden'
+    : freePhase ? 'hidden'
+    : checkerName ? 'disabled'
+    : ratingInitiatedBy ? 'disabled'
+    : 'enabled';
+  return { view: 'idle-fallback', modeSwitcherState: fallbackModeSwitcherState };
+}
 
 // ============================================================================
 // PARTNER LEFT SCREEN
@@ -313,6 +448,8 @@ interface LiveModeViewProps {
   onFreeDiscussAnother?: () => void;
   /** P562: Story title for free mode success screen */
   freeStoryTitle?: string;
+  /** P686: true when the current user is a certified certifier */
+  isCertifier?: boolean;
 }
 
 export function LiveModeView({
@@ -356,6 +493,7 @@ export function LiveModeView({
   onFreeRoundComplete,
   onFreeDiscussAnother,
   freeStoryTitle,
+  isCertifier,
 }: LiveModeViewProps) {
 
   // Hide site-wide navigation when live session is active.
@@ -537,9 +675,13 @@ export function LiveModeView({
 
     // Only show dialog to the OTHER user (not the one who skipped)
     // and only when there's a new skip (not on initial render or re-renders)
+    // P646: Use role-based check — name comparison breaks with same-name users
+    const isSkipFromPartner = liveState.skippedByIsCreator !== undefined
+      ? liveState.skippedByIsCreator !== isCreator
+      : (!!skippedBy && skippedBy !== currentUserName); // backward compat
     if (
       skippedBy &&
-      skippedBy !== currentUserName &&
+      isSkipFromPartner &&
       prevSkippedByRef.current !== skippedBy
     ) {
       const displayName = getFirstName(skippedBy);
@@ -548,7 +690,7 @@ export function LiveModeView({
     }
 
     prevSkippedByRef.current = skippedBy;
-  }, [liveState.skippedBy, currentUserName]);
+  }, [liveState.skippedBy, liveState.skippedByIsCreator, currentUserName, isCreator]);
 
   // V10: Handle dialog OK button - clear notification and close dialog
   const handleSkipDialogOk = () => {
@@ -654,165 +796,168 @@ export function LiveModeView({
   // Used to determine whether to show celebration waiting vs idle waiting
   const inCelebrationState = bothSubmitted && checkerRating === 10;
 
-  // P562: Free mode routing — after guided mode's first round completes,
-  // handleCelebrationComplete sets freePhase: 'unlocked'. Render FreeModeView
-  // only for unlocked + success phases (guided mode handles everything before).
-  if (liveState.sessionMode !== 'guided' && (liveState.freePhase === 'unlocked' || liveState.freePhase === 'success') && onFreeSliderChange) {
-    return (
-      <div className="flex flex-col h-full">
-        <LiveHeader partnerName={partnerName} onExit={onExitMeeting} isPrivate={isPrivate} uploadHealth={uploadHealth} />
-        <FreeModeView
-          liveState={liveState}
-          partnerName={partnerName}
-          isCreator={isCreator ?? false}
-          onSliderChange={onFreeSliderChange}
-          onSpeakFreely={() => handleRequestSkip('good-enough')}
-          onRoundComplete={onFreeRoundComplete as () => void}
-          onDiscussAnother={onFreeDiscussAnother as () => void}
-          storyTitle={freeStoryTitle}
-          selectedStory={selectedStory}
-        />
-        {/* Reuse guided mode's confirmation dialog for free mode "Speak freely" */}
-        {confirmSkipDialog}
-      </div>
-    );
-  }
+  // ── View state decision (pure function, tested separately) ──────────
+  const viewState = getViewState({
+    sessionMode: liveState.sessionMode,
+    freePhase: liveState.freePhase,
+    hasFreeSliderHandler: !!onFreeSliderChange,
+    waitingForPartner,
+    inCelebrationState,
+    isLocallyRating,
+    ratingPhase,
+    isChecker,
+    myRatingSubmitted,
+    partnerRatingSubmitted,
+    bothSubmitted,
+    checkerRating,
+    responderRating,
+    // P638: New fields for modeSwitcherState
+    ratingInitiatedBy: liveState.ratingInitiatedBy,
+    hasSessionModeChangeHandler: !!onSessionModeChange,
+    checkerName: liveState.checkerName,
+  });
 
-  // User clicked "Continue" but partner hasn't yet
-  // If in celebration state, let UnderstandingScreen handle the waiting UI
-  // If NOT in celebration state, show idle with disabled buttons
-  if (waitingForPartner && !inCelebrationState) {
-    return (
-      <>
-        <IdleScreen
-          partnerName={partnerName}
-          liveState={liveState}
-          onStartCheck={onStartCheck}
-          onStartProve={onStartProve}
-          onSkip={() => handleRequestSkip('good-enough')}
-          onExit={onExitMeeting}
-          hideHistory={true}
-          waitingForPartnerToContinue={true}
-          onClearStory={onClearStory}
-          selectedStory={selectedStory}
-          onPositionSelect={onPositionSelect}
-          isPrivate={isPrivate}
-          badgePersonName={badgePersonName}
-          badgePersonEarsCount={badgePersonEarsCount}
-          isStoryOwner={isAuthorOfSelected}
-          isGuest={isGuest}
-          currentUserName={currentUserName}
-          uploadHealth={uploadHealth}
-                  />
-        {skipNotificationDialog}
-        {confirmSkipDialog}
-      </>
-    );
-  }
+  // ── Render based on view state ─────────────────────────────────────
+  switch (viewState.view) {
+    case 'free-mode':
+      return (
+        <div className="flex flex-col h-full">
+          <LiveHeader partnerName={partnerName} onExit={onExitMeeting} isPrivate={isPrivate} uploadHealth={uploadHealth} />
+          <FreeModeView
+            liveState={liveState}
+            partnerName={partnerName}
+            isCreator={isCreator ?? false}
+            onSliderChange={onFreeSliderChange as (value: number) => void}
+            onSpeakFreely={() => handleRequestSkip('good-enough')}
+            onRoundComplete={onFreeRoundComplete as () => void}
+            onDiscussAnother={onFreeDiscussAnother as () => void}
+            storyTitle={freeStoryTitle}
+            selectedStory={selectedStory}
+            isCertifier={isCertifier}
+          />
+          {confirmSkipDialog}
+        </div>
+      );
 
-  // V10: Local rating - user tapped "I spoke" but hasn't submitted yet
-  // This check comes FIRST - local state takes priority over shared state
-  // This is purely local, doesn't affect partner's screen
-  // BUT: if partner already submitted, show the drawer notification on top
-  if (isLocallyRating) {
-    const partnerAlreadySubmitted = liveState.checkerSubmitted && !isChecker;
+    case 'waiting-for-partner':
+      return (
+        <>
+          <IdleScreen
+            partnerName={partnerName}
+            liveState={liveState}
+            onStartCheck={onStartCheck}
+            onStartProve={onStartProve}
+            onSkip={() => handleRequestSkip('good-enough')}
+            onExit={onExitMeeting}
+            hideHistory={true}
+            waitingForPartnerToContinue={true}
+            onClearStory={onClearStory}
+            selectedStory={selectedStory}
+            onPositionSelect={onPositionSelect}
+            isPrivate={isPrivate}
+            badgePersonName={badgePersonName}
+            badgePersonEarsCount={badgePersonEarsCount}
+            isStoryOwner={isAuthorOfSelected}
+            isGuest={isGuest}
+            currentUserName={currentUserName}
+            uploadHealth={uploadHealth}
+            modeSwitcherState="hidden"
+            isCreator={isCreator}
+          />
+          {skipNotificationDialog}
+          {confirmSkipDialog}
+        </>
+      );
 
-    return (
-      <>
-        <RatingScreenWithOptionalDrawer
-          partnerName={partnerName}
-          liveState={liveState}
-          onRatingSubmit={onRatingSubmit}
-          onBack={onCancelLocalRating}
-          showDrawer={partnerAlreadySubmitted}
-          selectedStory={selectedStory}
-          selectedPoint={selectedPoint}
-          onPositionSelect={onPositionSelect}
-          onClearStory={onClearStory}
-          onSkip={() => handleRequestSkip('decline')}
-          onExit={onExitMeeting}
-          localFlowType={localFlowType}
-          isPrivate={isPrivate}
-          badgePersonName={badgePersonName}
-          badgePersonEarsCount={badgePersonEarsCount}
-          isStoryOwner={isAuthorOfSelected}
-          isGuest={isGuest}
-          uploadHealth={uploadHealth}
-                  />
-        {skipNotificationDialog}
-        {confirmSkipDialog}
-      </>
-    );
-  }
+    case 'local-rating':
+      return (
+        <>
+          <RatingScreenWithOptionalDrawer
+            partnerName={partnerName}
+            liveState={liveState}
+            onRatingSubmit={onRatingSubmit}
+            onBack={onCancelLocalRating}
+            showDrawer={viewState.showDrawer}
+            selectedStory={selectedStory}
+            selectedPoint={selectedPoint}
+            onPositionSelect={onPositionSelect}
+            onClearStory={onClearStory}
+            onSkip={() => handleRequestSkip('decline')}
+            onExit={onExitMeeting}
+            localFlowType={localFlowType}
+            isPrivate={isPrivate}
+            badgePersonName={badgePersonName}
+            badgePersonEarsCount={badgePersonEarsCount}
+            isStoryOwner={isAuthorOfSelected}
+            isGuest={isGuest}
+            uploadHealth={uploadHealth}
+          />
+          {skipNotificationDialog}
+          {confirmSkipDialog}
+        </>
+      );
 
-  // Phase: Idle - show Check/Prove buttons (P23.2 start screen)
-  // IMPORTANT: Responder stays on idle until checker submits their rating
-  if (ratingPhase === 'idle') {
-    return (
-      <>
-        <IdleScreen
-          partnerName={partnerName}
-          liveState={liveState}
-          onStartCheck={onStartCheck}
-          onStartProve={onStartProve}
-          onSkip={() => handleRequestSkip('good-enough')}
-          onExit={onExitMeeting}
-          userId={userId}
-          onSelectStory={onSelectStory}
-          onSelectPoint={onSelectPoint}
-          onClearStory={onClearStory}
-          selectedStory={selectedStory}
-          onPositionSelect={onPositionSelect}
-          isPrivate={isPrivate}
-          badgePersonName={badgePersonName}
-          badgePersonEarsCount={badgePersonEarsCount}
-          isStoryOwner={isAuthorOfSelected}
-          isGuest={isGuest}
-          currentUserName={currentUserName}
-          uploadHealth={uploadHealth}
-          sessionMode={liveState.sessionMode}
-          onSessionModeChange={onSessionModeChange}
-                  />
-        {skipNotificationDialog}
-        {confirmSkipDialog}
-      </>
-    );
-  }
+    case 'idle':
+    case 'idle-fallback':
+      return (
+        <>
+          <IdleScreen
+            partnerName={partnerName}
+            liveState={liveState}
+            onStartCheck={onStartCheck}
+            onStartProve={onStartProve}
+            onSkip={() => handleRequestSkip('good-enough')}
+            onExit={onExitMeeting}
+            userId={userId}
+            onSelectStory={onSelectStory}
+            onSelectPoint={onSelectPoint}
+            onClearStory={onClearStory}
+            selectedStory={selectedStory}
+            onPositionSelect={onPositionSelect}
+            isPrivate={isPrivate}
+            badgePersonName={badgePersonName}
+            badgePersonEarsCount={badgePersonEarsCount}
+            isStoryOwner={isAuthorOfSelected}
+            isGuest={isGuest}
+            currentUserName={currentUserName}
+            uploadHealth={uploadHealth}
+            sessionMode={liveState.sessionMode}
+            onSessionModeChange={onSessionModeChange}
+            modeSwitcherState={viewState.modeSwitcherState}
+            isCreator={isCreator}
+          />
+          {skipNotificationDialog}
+          {confirmSkipDialog}
+        </>
+      );
 
-  // Phase: Rating - checker is re-rating (after change rating)
-  if (ratingPhase === 'rating' && isChecker && !myRatingSubmitted) {
-    return (
-      <>
-        <RatingScreen
-          partnerName={partnerName}
-          liveState={liveState}
-          isChecker={isChecker}
-          onRatingSubmit={onRatingSubmit}
-          onBack={onBackToIdle}
-          onExit={onExitMeeting}
-          selectedStory={selectedStory}
-          selectedPoint={selectedPoint}
-          onPositionSelect={onPositionSelect}
-          onClearStory={onClearStory}
-          isPrivate={isPrivate}
-          badgePersonName={badgePersonName}
-          badgePersonEarsCount={badgePersonEarsCount}
-          isStoryOwner={isAuthorOfSelected}
-          isGuest={isGuest}
-          uploadHealth={uploadHealth}
-                  />
-        {skipNotificationDialog}
-        {confirmSkipDialog}
-      </>
-    );
-  }
+    case 'checker-rating':
+      return (
+        <>
+          <RatingScreen
+            partnerName={partnerName}
+            liveState={liveState}
+            isChecker={isChecker}
+            onRatingSubmit={onRatingSubmit}
+            onBack={onBackToIdle}
+            onExit={onExitMeeting}
+            selectedStory={selectedStory}
+            selectedPoint={selectedPoint}
+            onPositionSelect={onPositionSelect}
+            onClearStory={onClearStory}
+            isPrivate={isPrivate}
+            badgePersonName={badgePersonName}
+            badgePersonEarsCount={badgePersonEarsCount}
+            isStoryOwner={isAuthorOfSelected}
+            isGuest={isGuest}
+            uploadHealth={uploadHealth}
+          />
+          {skipNotificationDialog}
+          {confirmSkipDialog}
+        </>
+      );
 
-  // Phase: Waiting (one user submitted, waiting for partner)
-  // Responder: hasn't submitted yet, checker has → show IdleScreen with drawer
-  if (ratingPhase === 'waiting' || (myRatingSubmitted !== partnerRatingSubmitted)) {
-    const iHaveSubmitted = (isChecker ? checkerRating : responderRating) !== undefined;
-
-    if (!iHaveSubmitted && partnerRatingSubmitted) {
+    case 'responder-drawer':
       return (
         <>
           <ResponderWaitingWithDrawer
@@ -833,123 +978,52 @@ export function LiveModeView({
             uploadHealth={uploadHealth}
             sessionMode={liveState.sessionMode}
             onSessionModeChange={onSessionModeChange}
-                      />
+            isCreator={isCreator}
+          />
           {skipNotificationDialog}
           {confirmSkipDialog}
         </>
       );
-    }
 
-    // User who submitted: show unified UnderstandingScreen in 'waiting' phase
-    return (
-      <>
-        <UnderstandingScreen
-          liveState={liveState}
-          currentUserName={currentUserName}
-          partnerName={partnerName}
-          isChecker={isChecker}
-          checkerRating={checkerRating}
-          responderRating={responderRating}
-          onExplainBackStart={onExplainBackStart}
-          onExplainBackRate={onExplainBackRate}
-          onExplainBackDone={onExplainBackDone}
-          onSkip={() => handleRequestSkip('skip')}
-          onBackToIdle={onBackToIdle}
-          onExit={onExitMeeting}
-          onCelebrationContinue={handleCelebrationContinue}
-          onSharePerspective={onSharePerspective}
-          onAskToExplainFirst={onAskToExplainFirst}
-          onContinueAsListener={onContinueAsListener}
-          onInsistToSpeak={onInsistToSpeak}
-          onLetThemSpeak={onLetThemSpeak}
-          onCancelNegotiation={onCancelNegotiation}
-          onClarifyStart={onClarifyStart}
-          onClarifyDone={onClarifyDone}
-          isPrivate={isPrivate}
-          selectedStory={selectedStory}
-          onPositionSelect={onPositionSelect}
-          onClearStory={onClearStory}
-          isGuest={isGuest}
-          isCreator={isCreator}
-          uploadHealth={uploadHealth}
-                  />
-        {skipNotificationDialog}
-        {confirmSkipDialog}
-      </>
-    );
+    case 'understanding':
+      return (
+        <>
+          <UnderstandingScreen
+            liveState={liveState}
+            currentUserName={currentUserName}
+            partnerName={partnerName}
+            isChecker={isChecker}
+            checkerRating={checkerRating}
+            responderRating={responderRating}
+            onExplainBackStart={onExplainBackStart}
+            onExplainBackRate={onExplainBackRate}
+            onExplainBackDone={onExplainBackDone}
+            onSkip={() => handleRequestSkip('good-enough')}
+            onBackToIdle={onBackToIdle}
+            onExit={onExitMeeting}
+            onCelebrationContinue={handleCelebrationContinue}
+            onSharePerspective={onSharePerspective}
+            onAskToExplainFirst={onAskToExplainFirst}
+            onContinueAsListener={onContinueAsListener}
+            onInsistToSpeak={onInsistToSpeak}
+            onLetThemSpeak={onLetThemSpeak}
+            onCancelNegotiation={onCancelNegotiation}
+            onClarifyStart={onClarifyStart}
+            onClarifyDone={onClarifyDone}
+            isPrivate={isPrivate}
+            selectedStory={selectedStory}
+            onPositionSelect={onPositionSelect}
+            onClearStory={onClearStory}
+            isStoryOwner={isAuthorOfSelected}
+            isGuest={isGuest}
+            isCreator={isCreator}
+            uploadHealth={uploadHealth}
+          />
+          {skipNotificationDialog}
+          {confirmSkipDialog}
+        </>
+      );
   }
-
-  // Phase: Results, Revealed, Explain-back - all handled by UnderstandingScreen
-  if (ratingPhase === 'results' || ratingPhase === 'revealed' || ratingPhase === 'explain-back' || bothSubmitted) {
-    return (
-      <>
-        <UnderstandingScreen
-          liveState={liveState}
-          currentUserName={currentUserName}
-          partnerName={partnerName}
-          isChecker={isChecker}
-          checkerRating={checkerRating}
-          responderRating={responderRating}
-          onExplainBackStart={onExplainBackStart}
-          onExplainBackRate={onExplainBackRate}
-          onExplainBackDone={onExplainBackDone}
-          onSkip={() => handleRequestSkip('good-enough')}
-          onBackToIdle={onBackToIdle}
-          onExit={onExitMeeting}
-          onCelebrationContinue={handleCelebrationContinue}
-          onSharePerspective={onSharePerspective}
-          onAskToExplainFirst={onAskToExplainFirst}
-          onContinueAsListener={onContinueAsListener}
-          onInsistToSpeak={onInsistToSpeak}
-          onLetThemSpeak={onLetThemSpeak}
-          onCancelNegotiation={onCancelNegotiation}
-          onClarifyStart={onClarifyStart}
-          onClarifyDone={onClarifyDone}
-          isPrivate={isPrivate}
-          selectedStory={selectedStory}
-          onPositionSelect={onPositionSelect}
-          onClearStory={onClearStory}
-          isStoryOwner={isAuthorOfSelected}
-          isGuest={isGuest}
-          isCreator={isCreator}
-          uploadHealth={uploadHealth}
-                  />
-        {skipNotificationDialog}
-        {confirmSkipDialog}
-      </>
-    );
-  }
-
-  // Fallback to idle screen
-  return (
-    <>
-      <IdleScreen
-        partnerName={partnerName}
-        liveState={liveState}
-        onStartCheck={onStartCheck}
-        onStartProve={onStartProve}
-        onSkip={() => handleRequestSkip('good-enough')}
-        onExit={onExitMeeting}
-        userId={userId}
-        onSelectStory={onSelectStory}
-        onSelectPoint={onSelectPoint}
-        onClearStory={onClearStory}
-        selectedStory={selectedStory}
-        onPositionSelect={onPositionSelect}
-        isPrivate={isPrivate}
-        badgePersonName={badgePersonName}
-        badgePersonEarsCount={badgePersonEarsCount}
-        isStoryOwner={isAuthorOfSelected}
-        isGuest={isGuest}
-        currentUserName={currentUserName}
-        uploadHealth={uploadHealth}
-        sessionMode={liveState.sessionMode}
-        onSessionModeChange={onSessionModeChange}
-              />
-      {skipNotificationDialog}
-      {confirmSkipDialog}
-    </>
-  );
 }
 
 // ============================================================================
@@ -1001,6 +1075,10 @@ interface IdleScreenProps {
   sessionMode?: 'guided' | 'free';
   /** P562: Mode toggle callback */
   onSessionModeChange?: (mode: 'guided' | 'free') => void;
+  /** P638: Pre-computed mode switcher state from getViewState */
+  modeSwitcherState?: ModeSwitcherState;
+  /** P646: Role identity — true if current user is session creator */
+  isCreator?: boolean;
 }
 
 function IdleScreen({
@@ -1024,11 +1102,13 @@ function IdleScreen({
   badgePersonName,
   badgePersonEarsCount,
   isStoryOwner = false,
-  _currentUserName,
+  currentUserName: _currentUserName,
   isGuest = false,
   uploadHealth,
   sessionMode,
   onSessionModeChange,
+  modeSwitcherState,
+  isCreator = false,
 }: IdleScreenProps) {
   const displayPartnerName = getFirstName(partnerName);
   const checkerName = liveState.checkerName ? getFirstName(liveState.checkerName) : '';
@@ -1046,16 +1126,6 @@ function IdleScreen({
     }
     prevSessionModeRef.current = sessionMode;
   }, [sessionMode]);
-
-  // P398: Selected history index for inline round summary
-  const [selectedHistoryIndex, setSelectedHistoryIndex] = useState<number | null>(null);
-
-  // P398: Auto-close summary when a new round starts
-  useEffect(() => {
-    if (liveState.ratingPhase !== 'idle') {
-      setSelectedHistoryIndex(null);
-    }
-  }, [liveState.ratingPhase]);
 
   // P600: Progressive disclosure — "Select your story" toggle
   const [showStoryPicker, setShowStoryPicker] = useState(false);
@@ -1132,10 +1202,21 @@ function IdleScreen({
     liveState.explainBackRatings.length > 0
   );
 
-  const sessionHistory = liveState.sessionHistory ?? [];
 
-  // Use top-aligned layout only when a story/point card is visible on screen
-  const hasScrollableContent = !!liveState.selectedStoryId || !!liveState.selectedStoryData || sessionHistory.length > 0;
+  // P617: Listener should not see story card until round starts (speaker submits).
+  // P646: Use role-based check (isCreator) instead of name comparison.
+  // Name comparison breaks when both users share the same display name.
+  const isListenerDuringLocalRating = liveState.ratingInitiatedByIsCreator !== undefined
+    && liveState.ratingInitiatedByIsCreator !== isCreator;
+  if (import.meta.env.DEV && (liveState.ratingInitiatedBy || liveState.ratingInitiatedByIsCreator !== undefined)) {
+    console.log(`[P646] isListenerDuringLocalRating=${isListenerDuringLocalRating}, ratingInitiatedByIsCreator=${liveState.ratingInitiatedByIsCreator}, isCreator=${isCreator}, ratingInitiatedBy=${liveState.ratingInitiatedBy}`);
+  }
+
+  // P670: Only the user who selected the story should get the layout shift.
+  // The picker only shows your own stories, so authorId matches the selector's userId.
+  // The partner receives selectedStoryData via Realtime but has no reason to change layout.
+  const isLocalStorySelection = !!liveState.selectedStoryData && liveState.selectedStoryData.authorId === userId;
+  const hasScrollableContent = isLocalStorySelection;
   // P600: Clean idle (no story, no ratings, no history) uses two-zone layout for stable button position
   const isCleanIdle = !hasScrollableContent && !showRatingDrawer && !hasRatingData;
   const layoutClass = isCleanIdle
@@ -1193,33 +1274,36 @@ function IdleScreen({
       <LiveHeader partnerName={partnerName} onExit={onExit} isPrivate={isPrivate} uploadHealth={uploadHealth} />
 
       {isCleanIdle ? (
-        /* P600: Two-zone layout — button stays fixed at ~40% mark, picker flows below */
+        /* P600/P667: Two-zone layout — button stays fixed at ~40% mark, content flows below.
+           P667: Always use justify-end and flex-[3] to prevent position jumps when
+           stories load async, partner state changes, or session history appears. */
         <>
-          {/* Top zone: button area. When bottom zone has content, push button to ~40% mark.
-              When bottom zone is empty, center the button vertically to avoid bare layout. */}
-          <div className={`flex-[2] flex flex-col items-center ${hasBottomContent ? 'justify-end' : 'justify-center'} pb-4 px-6 max-w-lg mx-auto w-full`}>
+          {/* Top zone: button area. Always justify-end to anchor button at ~40% mark. */}
+          <div className="flex-[2] flex flex-col items-center justify-end pb-4 px-6 max-w-lg mx-auto w-full">
             <div className="flex flex-col gap-1 w-full max-w-sm">
-              <Button
-                size="lg"
-                className="bg-blue-500 hover:bg-blue-600 w-full py-6"
-                onClick={handleStartCheckWithTracking}
-                disabled={waitingForPartnerToContinue}
-                data-testid="start-check"
-              >
-                <span className="flex flex-col items-center gap-1.5">
-                  <span className="text-xl font-semibold leading-none">Speak</span>
-                  <span className="text-[11px] font-normal text-white/90 leading-none">Did {displayPartnerName} understand you?</span>
-                </span>
-              </Button>
+              <MobileTooltip content={isListenerDuringLocalRating ? `Mode locked, waiting for ${displayPartnerName}` : ''}>
+                <Button
+                  size="lg"
+                  className="bg-blue-500 hover:bg-blue-600 w-full py-6"
+                  onClick={handleStartCheckWithTracking}
+                  disabled={waitingForPartnerToContinue || isListenerDuringLocalRating}
+                  data-testid="start-check"
+                >
+                  <span className="flex flex-col items-center gap-1.5">
+                    <span className="text-xl font-semibold leading-none">Speak</span>
+                    <span className="text-[11px] font-normal text-white/90 leading-none">Did {displayPartnerName} understand you?</span>
+                  </span>
+                </Button>
+              </MobileTooltip>
               {waitingForPartnerToContinue && (
                 <WaitingIndicator message={`Waiting for ${displayPartnerName} to continue...`} />
               )}
             </div>
           </div>
 
-          {/* Bottom zone: picker + story button. Only takes space when stories exist.
-              Collapses to flex-none otherwise — no empty 60% gap, no layout jump on load. */}
-          <div className={`${hasBottomContent ? 'flex-[3]' : 'flex-none'} flex flex-col items-center justify-start pt-2 px-6 max-w-lg mx-auto w-full overflow-y-auto live-scroll`}>
+          {/* Bottom zone: always flex-[3] to maintain stable layout. Contains story picker
+              and session history. P667: overflowAnchor + scrollContainerRef preserved. */}
+          <div ref={scrollContainerRef} className="flex-[3] flex flex-col items-center justify-start pt-2 px-6 max-w-lg mx-auto w-full overflow-y-auto live-scroll" style={{ overflowAnchor: 'none' }}>
             {hasBottomContent && (
               showStoryPicker ? (
                 <StorySearchPicker
@@ -1228,7 +1312,7 @@ function IdleScreen({
                   disabled={waitingForPartnerToContinue}
                   onCancel={() => setShowStoryPicker(false)}
                 />
-              ) : !waitingForPartnerToContinue && (
+              ) : !waitingForPartnerToContinue && !isListenerDuringLocalRating && (
                 <Button
                   variant="outline"
                   onClick={() => setShowStoryPicker(true)}
@@ -1238,17 +1322,11 @@ function IdleScreen({
                 </Button>
               )
             )}
+
           </div>
         </>
       ) : (
         <div ref={scrollContainerRef} className={layoutClass} style={{ overflowAnchor: 'none' }}>
-          {selectedHistoryIndex !== null && sessionHistory[selectedHistoryIndex] ? (
-            <RoundSummaryScreen
-              item={sessionHistory[selectedHistoryIndex]}
-              storyData={sessionHistory[selectedHistoryIndex].storyData}
-              onBack={() => setSelectedHistoryIndex(null)}
-            />
-          ) : (
             <>
               {/* Show journey card if there's rating history or drawer is open */}
               {(hasRatingData || showRatingDrawer) && (
@@ -1266,7 +1344,8 @@ function IdleScreen({
               )}
 
               {/* P272: Story card shown when story is selected */}
-              {selectedStory && (
+              {/* P617: Hide for listener while speaker is in local drawer */}
+              {selectedStory && !isListenerDuringLocalRating && (
                 <LiveStoryCardExpanded
                   story={selectedStory}
                   isOwnStory={isStoryOwner}
@@ -1280,40 +1359,36 @@ function IdleScreen({
               )}
 
               {/* Button for non-clean-idle cases (has session history or rating data) */}
-              {!selectedStory && !showRatingDrawer && (selectedHistoryIndex === null) && (
+              {/* P643 Layer 3: Also show (disabled) when listener is waiting for speaker's rating */}
+              {(!selectedStory || isListenerDuringLocalRating) && !showRatingDrawer && (
                 <div className="flex flex-col gap-1 w-full max-w-sm mx-auto">
-                  <Button
-                    size="lg"
-                    className="bg-blue-500 hover:bg-blue-600 w-full py-6"
-                    onClick={handleStartCheckWithTracking}
-                    disabled={waitingForPartnerToContinue}
-                    data-testid="start-check"
-                  >
-                    <span className="flex flex-col items-center gap-1">
-                      <span className="text-xl font-semibold">Speak</span>
-                      <span className="text-xs font-normal text-white/70">Did {displayPartnerName} understand you?</span>
-                    </span>
-                  </Button>
+                  <MobileTooltip content={isListenerDuringLocalRating ? `Mode locked, waiting for ${displayPartnerName}` : ''}>
+                    <Button
+                      size="lg"
+                      className="bg-blue-500 hover:bg-blue-600 w-full py-6"
+                      onClick={handleStartCheckWithTracking}
+                      disabled={waitingForPartnerToContinue || isListenerDuringLocalRating}
+                      data-testid="start-check"
+                    >
+                      <span className="flex flex-col items-center gap-1">
+                        <span className="text-xl font-semibold">Speak</span>
+                        <span className="text-xs font-normal text-white/70">Did {displayPartnerName} understand you?</span>
+                      </span>
+                    </Button>
+                  </MobileTooltip>
                   {waitingForPartnerToContinue && (
                     <WaitingIndicator message={`Waiting for ${displayPartnerName} to continue...`} />
                   )}
                 </div>
               )}
 
-              {/* P398: Session history — only on clean idle (no story selected, no active flow) */}
-              {sessionHistory.length > 0 && !selectedStory && !showRatingDrawer && (
-                <SessionHistoryList
-                  history={sessionHistory}
-                  onItemClick={(i) => setSelectedHistoryIndex(i)}
-                />
-              )}
             </>
-          )}
         </div>
       )}
 
       {/* P588: Sticky ActionArea OUTSIDE scroll container — only when story selected */}
-      {selectedStory && (selectedHistoryIndex === null || !sessionHistory[selectedHistoryIndex]) && (
+      {/* P617: Hide for listener while speaker is in local drawer */}
+      {selectedStory && !isListenerDuringLocalRating && (
         <ActionArea
           sticky={true}
           className={showRatingDrawer || hasRatingData ? '' : '!pt-0'}
@@ -1350,27 +1425,31 @@ function IdleScreen({
         </ActionArea>
       )}
 
-      {/* P562: Mode pill toggle — visible only on idle entry screen, hidden during rounds */}
-      {onSessionModeChange && !showRatingDrawer && !waitingForPartnerToContinue && liveState.ratingPhase === 'idle' && !liveState.freePhase && !liveState.checkerName && !liveState.ratingInitiatedBy && (
+      {/* P638: Mode pill toggle — state from getViewState, no IIFE */}
+      {modeSwitcherState && modeSwitcherState !== 'hidden' && onSessionModeChange && (
         <div className="flex justify-center py-4">
-          <div className="inline-flex bg-gray-100 rounded-full p-1 text-sm">
-            <button
-              onClick={() => onSessionModeChange('free')}
-              className={`px-4 py-1.5 rounded-full transition-all ${
-                (sessionMode === 'free' || !sessionMode) ? 'bg-blue-500 text-white shadow-sm font-medium' : 'text-gray-500'
-              }`}
-            >
-              Open mode
-            </button>
-            <button
-              onClick={() => onSessionModeChange('guided')}
-              className={`px-4 py-1.5 rounded-full transition-all ${
-                sessionMode === 'guided' ? 'bg-blue-500 text-white shadow-sm font-medium' : 'text-gray-500'
-              }`}
-            >
-              Guided mode
-            </button>
-          </div>
+          <MobileTooltip content={modeSwitcherState === 'disabled' ? 'Mode locked — your partner is rating' : ''}>
+            <div className={`inline-flex bg-gray-100 rounded-full p-1 text-sm ${modeSwitcherState === 'disabled' ? 'opacity-50 cursor-not-allowed' : ''}`}>
+              <button
+                onClick={() => modeSwitcherState === 'enabled' && onSessionModeChange('free')}
+                disabled={modeSwitcherState === 'disabled'}
+                className={`px-4 py-1.5 rounded-full transition-all ${
+                  (sessionMode === 'free' || !sessionMode) ? 'bg-blue-500 text-white shadow-sm font-medium' : 'text-gray-500'
+                } ${modeSwitcherState === 'disabled' ? 'pointer-events-none' : ''}`}
+              >
+                Open mode
+              </button>
+              <button
+                onClick={() => modeSwitcherState === 'enabled' && onSessionModeChange('guided')}
+                disabled={modeSwitcherState === 'disabled'}
+                className={`px-4 py-1.5 rounded-full transition-all ${
+                  sessionMode === 'guided' ? 'bg-blue-500 text-white shadow-sm font-medium' : 'text-gray-500'
+                } ${modeSwitcherState === 'disabled' ? 'pointer-events-none' : ''}`}
+              >
+                Guided mode
+              </button>
+            </div>
+          </MobileTooltip>
         </div>
       )}
 
@@ -1434,6 +1513,8 @@ interface ResponderWaitingWithDrawerProps {
   /** P614: Mode switcher props */
   sessionMode?: 'guided' | 'free';
   onSessionModeChange?: (mode: 'guided' | 'free') => void;
+  /** P646: Role identity */
+  isCreator?: boolean;
 }
 
 function ResponderWaitingWithDrawer({
@@ -1454,6 +1535,7 @@ function ResponderWaitingWithDrawer({
   uploadHealth,
   sessionMode,
   onSessionModeChange,
+  isCreator = false,
 }: ResponderWaitingWithDrawerProps) {
   return (
     <IdleScreen
@@ -1475,6 +1557,8 @@ function ResponderWaitingWithDrawer({
       uploadHealth={uploadHealth}
       sessionMode={sessionMode}
       onSessionModeChange={onSessionModeChange}
+      modeSwitcherState="hidden"
+      isCreator={isCreator}
           />
   );
 }
@@ -2419,7 +2503,11 @@ function UnderstandingScreen({
   const showInsistDialog = isChecker && negotiation?.state === 'listener-insists';
 
   // Listener waiting state: they clicked "I want to speak freely" and are waiting for speaker's decision
-  const listenerWaitingForNegotiation = !isChecker && negotiation?.state === 'pending' && negotiation?.requestedBy === currentUserName;
+  // P646: Use role-based check — name comparison breaks with same-name users
+  const iAmNegotiationRequester = negotiation?.requestedByIsCreator !== undefined
+    ? negotiation.requestedByIsCreator === isCreator
+    : negotiation?.requestedBy === currentUserName; // backward compat
+  const listenerWaitingForNegotiation = !isChecker && negotiation?.state === 'pending' && iAmNegotiationRequester;
 
   // Play celebration sound when entering perfect phase (only once per celebration)
   const prevPhaseRef = useRef<UnderstandingPhase | null>(null);
@@ -3325,7 +3413,7 @@ function UnderstandingScreen({
       <ActionArea
         title={isChecker && clarificationPhase === 'speaker-deciding' && hasExplainBackHappened
           ? `What is missing to a perfect 10?`
-          : !isChecker && clarificationPhase !== 'speaker-deciding' && !listenerWaitingForNegotiation && negotiation?.requestedBy !== currentUserName
+          : !isChecker && clarificationPhase !== 'speaker-deciding' && !listenerWaitingForNegotiation && !iAmNegotiationRequester
             ? `Help ${checkerName} understand you better. Withhold premature judgment.`
             : undefined}
       >

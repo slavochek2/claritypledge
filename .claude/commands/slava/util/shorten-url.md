@@ -5,6 +5,13 @@ when_to_use: "When creating or looking up a short URL."
 version: 1.0.0
 ---
 
+## Dispatch
+
+Spawn Agent tool: `model: "haiku"`, `subagent_type: "general-purpose"`.
+Prompt: the skill instructions below + any $ARGUMENTS.
+The subagent reads `src/app/data/short-links.ts` itself — no pre-reading needed.
+Report subagent output verbatim.
+
 # Shorten URL
 
 Look up short URLs using claritypledge.com's internal shortener.
@@ -24,10 +31,18 @@ Look up short URLs using claritypledge.com's internal shortener.
 
 ## What This Is
 
-This is a **lookup reference** for agents. When called:
+This is a **lookup reference** for agents. When called with a code:
 1. Check if code exists in `src/app/data/short-links.ts`
 2. If yes, return: `claritypledge.com/s/{code}`
 3. If no, suggest adding it
+
+## No-argument behavior
+
+When called with no argument, read `src/app/data/short-links.ts` and list all available codes in this format:
+```
+- `{code}` → claritypledge.com/s/{code}
+```
+One line per code. No extra explanation.
 
 ## Available Codes
 

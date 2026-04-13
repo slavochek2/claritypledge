@@ -530,7 +530,7 @@ describe('LiveModeView', () => {
   });
 
   describe('P128: Session History on /live idle screen', () => {
-    it('renders session history on /live idle screen', () => {
+    it('P679: session history is NOT shown on /live after rounds complete', () => {
       const stateWithHistory: LiveSessionState = {
         ...DEFAULT_LIVE_STATE,
         sessionHistory: [
@@ -546,11 +546,10 @@ describe('LiveModeView', () => {
         />
       );
 
-      // History is visible on /live
-      expect(screen.getByText('This session')).toBeInTheDocument();
-      expect(screen.getByText('The importance of feedback')).toBeInTheDocument();
-      expect(screen.getByText('Clear communication matters')).toBeInTheDocument();
-      // Primary action still visible
+      // P679: History no longer renders on /live — moved to /sessions
+      expect(screen.queryByText('This session')).not.toBeInTheDocument();
+      expect(screen.queryByText('The importance of feedback')).not.toBeInTheDocument();
+      // Primary action remains visible (story button not blocked by history layout switch)
       expect(screen.getByTestId('start-check')).toBeInTheDocument();
     });
 
@@ -597,8 +596,9 @@ describe('LiveModeView', () => {
         livePositions: {},
       };
 
+      // P670: userId must match authorId so hasScrollableContent treats this as a local story selection
       renderWithRouter(
-        <LiveModeView {...defaultProps} currentUserName="alice" liveState={state} />
+        <LiveModeView {...defaultProps} currentUserName="alice" userId="author-1" liveState={state} />
       );
 
       // Footer expand button must be present (story has 1 point)
@@ -616,8 +616,9 @@ describe('LiveModeView', () => {
         livePositions: { alice: { 'point-1': 'agree' } },
       };
 
+      // P670: userId must match authorId so hasScrollableContent treats this as a local story selection
       renderWithRouter(
-        <LiveModeView {...defaultProps} currentUserName="alice" liveState={state} />
+        <LiveModeView {...defaultProps} currentUserName="alice" userId="author-1" liveState={state} />
       );
 
       expect(screen.getByText(/1 point/i)).toBeInTheDocument();
@@ -671,7 +672,7 @@ describe('LiveModeView', () => {
   });
 
   describe('P398: Clickable session history on /live', () => {
-    it('"View round summary" button present for completed rounds on /live idle screen', () => {
+    it('P679: "View round summary" button is NOT present on /live — history moved to /sessions', () => {
       const state: LiveSessionState = {
         ...DEFAULT_LIVE_STATE,
         sessionHistory: [
@@ -683,9 +684,9 @@ describe('LiveModeView', () => {
         <LiveModeView {...defaultProps} currentUserName="alice" partnerName="bob" liveState={state} />
       );
 
-      // Clickable history entry with chevron present on /live
-      expect(screen.getByRole('button', { name: /View round summary: The bridge story/i })).toBeInTheDocument();
-      // Primary action still visible
+      // P679: Inline summary no longer exists on /live
+      expect(screen.queryByRole('button', { name: /View round summary: The bridge story/i })).not.toBeInTheDocument();
+      // Primary action still visible (layout not blocked by history)
       expect(screen.getByTestId('start-check')).toBeInTheDocument();
     });
   });

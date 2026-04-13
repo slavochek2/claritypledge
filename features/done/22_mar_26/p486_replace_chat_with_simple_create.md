@@ -10,7 +10,6 @@ tags: [simplification, story-creation]
 superseded_by: p487
 uat_file: features/uat/p486.md
 test_files:
-  - e2e/p486-smoke.spec.ts
   - e2e/p486-create-with-point.spec.ts
   - e2e/p486-accessibility.spec.ts
 ---

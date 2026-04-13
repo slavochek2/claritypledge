@@ -48,6 +48,8 @@ export interface FreeModeViewProps {
   storyTitle?: string;
   /** Selected story to display during the round */
   selectedStory?: StoryWithPoints | null;
+  /** P686: true when the current user is the certifier (not the badge earner) */
+  isCertifier?: boolean;
 }
 
 // ── FreeModeView ─────────────────────────────────────────────────────────────
@@ -62,6 +64,7 @@ export function FreeModeView({
   onDiscussAnother,
   storyTitle,
   selectedStory,
+  isCertifier,
 }: FreeModeViewProps) {
   const displayPartnerName = getFirstName(partnerName);
   const freePhase = liveState.freePhase as FreePhase;
@@ -82,36 +85,23 @@ export function FreeModeView({
     prevPhaseRef.current = freePhase;
   }, [freePhase, isCreator, liveState.freeSliderCreator, liveState.freeSliderJoiner]);
 
-  // ── 10/10 detection + 2-second hold timer (AD-4) ──────────────────────
+  // ── 10/10 detection — immediate transition (replaces AD-4 hold timer) ──
 
-  const holdTimerRef = useRef<ReturnType<typeof setTimeout>>();
   const partnerSliderValue = isCreator ? liveState.freeSliderJoiner : liveState.freeSliderCreator;
   const effectivePartnerValue = partnerSliderValue ?? 0;
   const bothAtTen = localSliderValue === 10 && effectivePartnerValue === 10;
-  const [showCelebration, setShowCelebration] = useState(false);
+  const showCelebration = freePhase === 'unlocked' && bothAtTen;
+  const roundCompleteFiredRef = useRef(false);
 
   useEffect(() => {
     if (freePhase !== 'unlocked') {
-      setShowCelebration(false);
+      roundCompleteFiredRef.current = false;
       return;
     }
-
-    if (bothAtTen) {
-      setShowCelebration(true);
-      holdTimerRef.current = setTimeout(() => {
-        onRoundComplete();
-      }, 2000);
-    } else {
-      setShowCelebration(false);
-      if (holdTimerRef.current) {
-        clearTimeout(holdTimerRef.current);
-        holdTimerRef.current = undefined;
-      }
+    if (bothAtTen && !roundCompleteFiredRef.current) {
+      roundCompleteFiredRef.current = true;
+      onRoundComplete();
     }
-
-    return () => {
-      if (holdTimerRef.current) clearTimeout(holdTimerRef.current);
-    };
   }, [bothAtTen, freePhase, onRoundComplete]);
 
   // ── Derived values ─────────────────────────────────────────────────────
@@ -145,6 +135,10 @@ export function FreeModeView({
         onContinue={onDiscussAnother}
         isWaiting={myAck}
         freeRerating={liveState.freeRerating}
+        badgePointEarned={liveState.badgePointEarned}
+        badgeCount={liveState.badgeCount}
+        isFullBadge={(liveState.badgeCount ?? 0) >= 9}
+        isCertifier={isCertifier}
       />
     );
   }

@@ -14,7 +14,6 @@ test_files:
   - src/tests/chunkUploadQueue.test.ts
   - e2e/p566-upload-reliability.spec.ts
   - e2e/a11y/p566-accessibility.spec.ts
-  - e2e/p566-smoke.spec.ts
 created_date: 2026-03-22
 ---
 

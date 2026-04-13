@@ -57,9 +57,15 @@ version: 1.0.0
 
 ---
 
+## Dispatch
+
+Spawn Agent tool: `model: "sonnet"`, `subagent_type: "general-purpose"`.
+Prompt: the Agent Directive below + spec path from $ARGUMENTS. Working dir: `/Users/slavochek/Projects/public/claritypledge`.
+Report subagent output verbatim.
+
 ## Agent Directive
 
-When invoked, spawn a general-purpose agent with this directive:
+When invoked, spawn a general-purpose agent (model: "sonnet") with this directive:
 
 **Step 1 — Read the spec**
 Read the feature spec at `{spec_file}`. Understand: what flows exist, what decisions have been made, what's bilateral vs. unilateral, what the key UX challenges are.

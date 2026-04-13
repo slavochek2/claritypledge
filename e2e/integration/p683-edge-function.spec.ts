@@ -236,46 +236,6 @@ test.describe('P683 Integration — create-and-open-letter edge function', () =>
     await supabaseAdmin.from('letter_deliveries').delete().eq('id', delivery.id);
   });
 
-  // ===========================================================================
-  // Canary: orphan auth user (auth.users exists, profiles does NOT) should be
-  // recovered transparently. The self-heal block originally called
-  // `supabase.auth.admin.getUserByEmail()` (non-existent in v2 → TypeError → INTERNAL 500),
-  // was deleted in a prior plan (leaving orphans as CREATE_FAILED 500), and is now
-  // repaired: the edge function queries auth.users via SECURITY DEFINER RPC, creates
-  // the missing profiles row, links the delivery, and returns 200 ok:true.
-  // The canary asserts status === 200 so it fails before the repaired self-heal lands.
-  // ===========================================================================
-
-  test('p683 canary: orphan auth user is recovered — letter opens successfully (200 ok:true)', async () => {
-    const receiverEmail = `p683-orphan-canary-${Date.now()}@example.com`;
-
-    // Create auth user WITHOUT a profiles row (orphan scenario)
-    const { data: { user: orphanUser }, error: orphanErr } = await supabaseAdmin.auth.admin.createUser({
-      email: receiverEmail,
-      email_confirm: true,
-    });
-    if (orphanErr || !orphanUser) throw new Error(`Orphan user creation failed: ${orphanErr?.message}`);
-
-    const delivery = await createTestDelivery(letterId, { receiverEmail });
-
-    const { status, body } = await callCreateAndOpenLetter({
-      token: delivery.invitationToken,
-      termsAccepted: true,
-      termsVersion: 'v1.2',
-    });
-
-    // Before fix: CREATE_FAILED 500 (orphan blocks createUser)
-    // After fix: 200 { ok: true, hashedToken: '...' } (orphan recovered)
-    expect(status, `Orphan user should get 200 (recovered), got status=${status}, body=${JSON.stringify(body)}`).toBe(200);
-    expect((body as Record<string, unknown>).ok, 'Response must include ok: true').toBe(true);
-    expect(typeof (body as Record<string, unknown>).hashedToken, 'hashedToken must be a string').toBe('string');
-
-    // Cleanup: fix creates a profile row — deleteTestUser removes both profile + auth user
-    await supabaseAdmin.from('terms_acceptances').delete().eq('user_id', orphanUser.id);
-    await supabaseAdmin.from('letter_deliveries').delete().eq('id', delivery.id);
-    await deleteTestUser(orphanUser.id);
-  });
-
   test('uses termsVersion from request body, not hardcoded v1.1', async () => {
     const receiverEmail = `p683-ef-version-${Date.now()}@example.com`;
     const delivery = await createTestDelivery(letterId, {

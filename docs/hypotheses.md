@@ -8,6 +8,7 @@ Session logs, architecture notes, and strategic commentary belong in [decisions.
 
 | ID | Hypothesis | Stage | Pri | Blocked by | Evidence (Mar 2026) |
 |----|-----------|-------|-----|------------|---------------------|
+| H-LetterAsProduct | Public Clarity Letter scales the flip async | Active | P0 | P581/P683/P684 shipping | New 2026-04-11 — driven by "room works, post-room breaks" observation |
 | H-WTP-Pain | Gap reveal produces urgency, not just curiosity | Active | P0 | — | 28 sessions, zero pairs named a cost. Warning sign. |
 | H-PairsReturn | Pairs recognize gap as costly and return | Active | P0 | — | 3 pairs run. Protocol works. No "holy shit" observed in transcripts. |
 | H-TopicDepthGate | Topic selection determines session value | Active | P1 | — | ~40% sessions failed due to topic inadequacy. |
@@ -17,6 +18,7 @@ Session logs, architecture notes, and strategic commentary belong in [decisions.
 | H-AICalib-EntryTeaser | AI demo lowers trust barrier before co-founder offer | Active | P2 | — | Parked until group acquisition phase. |
 | H-CoachChannel | Coaches adopt protocol as distribution channel | Active | P2 | H-PairsReturn | Falsification-tested. Market large. Key risk: commodification. |
 | H-Retainers-Sticky | Pairs retain monthly FCO retainers | Blocked | — | H-PairsReturn | Not yet testable. |
+| H-BadgePropagates | Badged participants share badge URL; recipients request /live | Active | P1 | P686 shipped | New 2026-04-13 — badge built as workshop #1 propagation instrument |
 | H-WorkshopFormat | 1-to-many workshops convert to sessions | Active | P1 | — | Unblocked: first workshop imminent. Testing actively. |
 | H-MetaEpistemic | Meta-epistemological briefing deepens sessions | Blocked | — | H-PairsReturn | Test passively. |
 | H-BriefingProtocol-ColdStart | Mirror agent invitation solves cold start | Blocked | — | H-PairsReturn + H-Stories-ColdStart | Two deps deep. |
@@ -28,6 +30,7 @@ Session logs, architecture notes, and strategic commentary belong in [decisions.
 | H-SpecsReachResearchers | Technical specs reach AI safety researchers | Blocked | — | H-Essays-BuildRecognition | Need baseline recognition first. |
 | H-StoriesAITrainingData | AI labs use verified stories as training data | Blocked | — | H-Essays-BuildRecognition + corpus | Long-term. Timing uncertain. |
 | H-AlignedFundersInbound | Recognition generates inbound from aligned funders | Blocked | — | H-Essays-BuildRecognition | Not revenue — opportunity unlock. |
+| H-AgentEpistemics | Epistemic verification for AI agent memory is a product | Blocked | P2 | H-LetterAsProduct | New 2026-04-12 — article-as-demand-test |
 
 **Parked (12+ months):** H-AgentCoordination, H-SalesTeamAdoption, H-TeamCommunication, H-ProtocolReachesScale, H-ToleranceAmplifies — see [Parked](#parked) section.
 
@@ -38,6 +41,17 @@ Session logs, architecture notes, and strategic commentary belong in [decisions.
 ## Active
 
 ### P0 — Must prove now
+
+#### H-LetterAsProduct: The public Clarity Letter scales the flip outside the room
+**Bet:** A completable public Clarity Letter (stories + points + anti-points + comprehension gate + position capture + badge issuance) produces the same in-room flip experience asynchronously, at the cost of a single read rather than a 90-minute workshop. If true, the letter — not the workshop — is the primary scale unit.
+**Test:** Ship first public Clarity Letter (P581 + P683 + P684). Distribute to 30+ readers (existing network, LinkedIn, communities). Measure: (a) completion rate, (b) badges earned, (c) position captures, (d) whether readers forward the letter to someone in a real relationship unprompted, (e) whether any completer can name what changed for them.
+**Transform if:** <3 completions after 30 days of active distribution, OR zero forwards to real relationships, OR completers cannot name the experience (illegibility confirmed at letter level, not just workshop level).
+**Status (2026-04-11):** New hypothesis. Driven by 30+ session observation: "product works in the room; conversion breaks after the room." Workshops produce flips but don't scale — the letter is the async carrier. Existing letter infrastructure (P581/P683/P684) is in-flight; once shipped, this hypothesis becomes testable.
+**Relationship to other hypotheses:** Partially supersedes the scaling path in H-WorkshopFormat — workshops remain valuable as high-intensity deployment but stop being the unit of scale. Feeds into H-ProtocolSpreadsWithoutTool (the letter IS the protocol in minimum shippable form).
+**Variant (2026-04-12):** Inverse Clarity Letter (private, one-to-one). Leads with "here is how I understand YOU" — sender/AI drafts the recipient's story and predicted point before sharing their own. Two sub-variants: (a) post-conversation (agent-drafted from recording, strong signal), (b) first-contact (author-drafted, weaker prediction, higher impact if accurate). "Nobody forgets receiving something that says 'I took the time to model your worldview before sharing mine.'" Spec candidate for status week — blocked by P581. Also: auto-generated clarity letters from recorded conversations as a distribution channel.
+**Point sequence restructured (2026-04-13):** Approved new ordering: ST1→ST3→ST5→ST4→ST2(expanded)→ST6→ST7→ST8→ST9. ST1 redefined: cognitive understanding as "I know you know I know." ST2 moves after ST5, absorbs illusion of common knowledge + Popper gap conclusion: "Certainty in your social coordination beliefs should be proportional to the effort you put into verifying cognitive understanding of others' strongest counterarguments. Without that effort, your certainty is structurally indistinguishable from the illusion of certainty." Scoring onset redesigned: ST1/ST3 unscored (narrative), scoring begins at ST5 — letter becomes self-demonstrating. Needs implementation spec (post-P581).
+
+---
 
 #### H-WTP-Pain: Gap reveal produces urgency, not just curiosity
 **Bet:** Participants find the gap reveal interesting but "interesting" doesn't open wallets. Without felt pain ("this cost us X"), WTP stays near zero.
@@ -53,6 +67,7 @@ Session logs, architecture notes, and strategic commentary belong in [decisions.
 **Test questions refined (2026-03-29):** Two concrete debrief questions: (1) "Can you share a past experience where a misunderstanding cost you something real?" — surfaces felt pain. (2) "How would you describe to a friend how our clarity session helped you?" — tests legibility (H-WTP-Pain depends on participants being able to name what they experienced).
 **Data point (2026-03-26):** Hostel encounter — stranger completed full 7-story protocol, signed pledge, named concrete past cost unprompted: "I lost a good, long-time friend because we didn't understand each other." Prevention-driven — wants to share to prevent future loss, not repair past one. Note: spontaneous motivation, not the engineered false-belief workshop mechanism. Counts as anecdotal evidence that pain exists in the wild, but does not count against the transform counter (which tracks the new active facilitation mechanism).
 **Watch for (2026-04-02):** Illegibility hypothesis may be self-sealing. If comprehension is verified and participants still don't pay, illegibility is falsified — bottleneck is something else (perceived value, urgency, price, trust). Track separately: "can they name what happened?" (legibility) vs "do they pay?" (WTP). If naming succeeds but payment doesn't, the blocker isn't legibility.
+**Test mechanism (2026-04-11):** Dual-currency model evolved into **value-anchored three-track pay-what-it's-worth** via private post-event form — the explicit instrument for testing WTP in workshops. Tracks: (1) contribution + testimonial (cash/equity/time), (2) invited (scarcity, no debt), (3) critical feedback only (explicitly elevated as highest-value for learning velocity). The form walks attendees through what-landed → what-didn't → self-assessed value → track choice, so the track follows from their own number. **Track 3 is the falsification signal** — an attendee who found the experience not worth the anchor AND can name 3 specific items is the highest-value contributor for this hypothesis. A workshop where 0 attendees select Track 3 means the social pressure wasn't inverted, not that the model succeeded. Mechanism in [facilitator-guide.md](facilitator-guide.md#workshop-pricing). Untested live.
 
 ---
 
@@ -94,6 +109,14 @@ Session logs, architecture notes, and strategic commentary belong in [decisions.
 
 ---
 
+#### H-BadgePropagates: Badged participants share badge URL; recipients request /live
+**Bet:** When a workshop participant earns a Calibration Badge, they share the badge URL with someone in a real relationship (co-founder, colleague, partner). The recipient — seeing evidence that someone they know has verified calibrated alignment — requests their own /live session. If true, each badge creates at least one organic referral, making the badge the primary growth mechanism.
+**Transform if:** After workshop #1, zero badged participants share their badge URL within 2 weeks. Or: shares happen but generate zero /live session requests from new users.
+**Status (2026-04-13):** New. P686 built badge infrastructure specifically to test this. Workshop #1 is the first live deployment — badge URLs in hand for the first time.
+**Measurement:** Track badge page visits from logged-out users (Mixpanel), outbound share events, and any new /live sessions that cite a badge as the entry point.
+
+---
+
 #### H-WorkshopFormat: 1-to-many workshops convert to sessions
 **Bet:** Workshop where participants calibrate against YOUR content (false-belief curriculum, P567) produces position switches and felt pain that convert to €950 de-risking sessions.
 **Transform if:** <10% conversion after 3 workshops.
@@ -102,6 +125,8 @@ Session logs, architecture notes, and strategic commentary belong in [decisions.
 **Test:** Run 3 workshops with P567 curriculum. Measure: position switches, reflection stories filed, conversion to de-risking.
 **Clarity Flip variant (2026-03-29):** "The Clarity Flip" is a 90-minute norm-inversion format that requires zero product features (physical cards, whiteboard). Topic IS understanding itself — participants calibrate against their beliefs about verification, not an external topic. Runs independently of P581. Could be tested before any product work ships. See P606.
 **Variant (2026-03-24):** Compressed three-letter workshop — Letters 1-3 + /live in one session. Letter 1 = pre-work/in-session reading; /live = gap verification; Letter 2 = "create your own" upsell; Letter 3 = PWIW + distributor CTA. Tests H-WorkshopFormat AND H-WTP-Pain simultaneously. Requires P581 shipped.
+**Measurement reframe (2026-04-11):** Primary flip-success metric shifts from personal-comfort delta to **leadership-accountability norm delta**. New before/after question: "How comfortable are you with a leader refusing a paraphrasing request without giving a reason?" (0-10, reverse-scored). This measures institutional-norm shift, not individual skill gain — the stronger propagation signal and the one that connects to the Locke-to-Ladischenski thesis. Personal comfort kept as secondary metric. See facilitator-guide.md §Workshop Metrics. Open question: flip durability — do 90-min shifts survive three weeks of social pressure? Self-concealing property (Lau et al. 2022) may apply to the flip itself.
+**Path 3 GTM + parallel-channel test (2026-04-11):** First workshop (P620) tests a compound hypothesis: does the universal positioning copy (`lean-canvas.md:128`) convert with a founder-filtered audience without frame-snap, AND does the three-track value-anchored model produce real contribution? Single event, two parallel outreach channels: (a) accelerators + warm network (cover email does founder-translation work; event stays universal), (b) one practice community (NVC / relational-practice / ops community using community-native language). The comparison is the learning — which channel produces higher Track 1 conversion, which produces more Track 3 signal, where the universal frame snaps. Decision rationale in `decisions.md` 2026-04-11 [product]. Open question: does the universal pitch land with accelerator-sent founders, or do they arrive expecting tactical co-founder advice and experience frame-snap?
 
 ---
 
@@ -129,6 +154,16 @@ Session logs, architecture notes, and strategic commentary belong in [decisions.
 **Transform if:** Zero adopt after training 5, OR coaches commodify to checkbox.
 **Status (2026-03-18):** Falsification-tested. $100B+ market, existing alignment vocabulary. Blocked by H-PairsReturn — Slava must demonstrate coaching first.
 **Sub-segment: Psychological safety practitioners (2026-04-02):** Positioning: "You built safety to speak. Now verify they heard." Psych safety works in low-stakes/homogeneous settings without verification. But in complex, emotional, or risky environments where differences are naturally high, unverified comprehension produces false agreement — people express freely but nobody checks reception. Verification makes psych safety work better and more predictably in high-stakes contexts. Entry: complementary tool, not framework replacement. Research: strong claim falsified (psych safety shows measured benefits without verification), weaker claim confirmed (false agreement as failure mode in high-difference environments).
+
+---
+
+#### H-AgentEpistemics: Epistemic verification infrastructure for AI agent memory
+**Bet:** AI agent memory systems accumulate unverified assertions at scale — "confidently remembering unverified things." An MCP verification layer that epistemically tags assertions (draft → verified → challenged → falsified) and exposes them to challenge via clarity letters is a product AI builders will pay for. The human verification protocol (badges, workshops) is the trust layer that makes agent verification credible.
+**Test:** Write article (Chief Clarity Officer + agent memory verification). Measure: (a) "I want this for my agents" responses vs. "interesting theory" responses, (b) inbound calls from AI builders, (c) presale interest before building. Article IS the demand test.
+**Transform if:** Article generates zero "I want this for my agents" responses after 30 days of active distribution, OR AI builders see it as a solved problem.
+**Status (2026-04-12):** New. Emerged from conversation where Claude demonstrated the failure mode 3 times live (confident wrong assertions about user's situation, caught and corrected via the verification protocol). Concrete mechanism identified: every AI chat generates unverified assertions; no one builds verification infrastructure for agent memory.
+**Positioning:** "Alignment between humans is a prerequisite for alignment between humans and AI." / "How would you verify that an AI agent's memory is epistemically sound?"
+**Blocked by:** H-LetterAsProduct (need the instrument working to demonstrate credibility).
 
 ---
 

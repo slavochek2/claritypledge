@@ -4,6 +4,18 @@ Three browser automation tools, each with a distinct purpose. No hierarchy — p
 
 ---
 
+## Screenshot Path Rule
+
+**Never write screenshots to the project directory.** Browser automation tools default to CWD (project root), creating clutter that accumulates silently.
+
+Always pass an absolute path:
+- **Transient QA screenshots:** `~/Screenshots/YYYY-MM-DD/{feature}/name.png`
+- **Committed docs screenshots:** `docs/reference/{feature}/name.png` (tracked in git)
+
+Pre-commit check #14 will **error** if PNG/JPG files are found in the project root.
+
+---
+
 ## Tool Overview
 
 | Tool | What It Is | Headless? | Needs User Browser? | CI? | Token Cost |
@@ -153,6 +165,36 @@ Requires: `claude --chrome` + Chrome with Claude extension installed.
 3. computer(screenshot) → see the page
 4. read_page(interactive) → check interactive elements
 ```
+
+### Visual QA (Chrome extension unavailable)
+
+When Claude in Chrome is not connected, use a node Playwright script directly:
+
+```javascript
+node -e "
+const { chromium } = require('./node_modules/@playwright/test');
+const os = require('os');
+async function main() {
+  const browser = await chromium.launch({ headless: true });
+  const viewports = [
+    { name: 'mobile-375', width: 375, height: 812 },
+    { name: 'desktop-1280', width: 1280, height: 900 },
+  ];
+  for (const vp of viewports) {
+    const page = await browser.newPage({ viewport: { width: vp.width, height: vp.height } });
+    await page.goto('http://localhost:5200/your-page', { waitUntil: 'networkidle' });
+    await page.waitForTimeout(1500);
+    await page.screenshot({ path: os.homedir() + '/Screenshots/qa-' + vp.name + '.png' });
+    await page.close();
+  }
+  await browser.close();
+}
+main().catch(e => { console.error(e); process.exit(1); });
+"
+```
+
+**Note:** Use `require('./node_modules/@playwright/test')` (not `playwright` or `@playwright/test` — those fail from project root without tsx). Screenshots land in `~/Screenshots/`.
+
 
 ### Debug performance
 ```

@@ -22,7 +22,6 @@ uat_file: features/uat/p502.md
 test_files:
   - src/tests/p502-anon-position.test.ts
   - e2e/p502-anon-position-optimistic.spec.ts
-  - e2e/p502-smoke.spec.ts
   - e2e/a11y/p502-accessibility.spec.ts
 created_date: 2026-03-13
 ---

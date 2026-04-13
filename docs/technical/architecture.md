@@ -384,6 +384,8 @@ Per-page meta tags, Open Graph, Twitter cards, canonical URLs, and JSON-LD are h
 
 **Do not reinstall** `react-helmet-async` — it's already a dependency. `index.html` holds the site-wide fallback meta; `<SEO>` overrides it per-page.
 
+**React 19 caveat:** React 19 hoists `<meta>` children out of the Helmet tree before `mapChildrenToProps` runs — `og:*` and `twitter:*` tags set as JSX inside `<Helmet>` are silently dropped. The `<SEO>` component works around this by writing `<meta property>` and `<meta name>` tags via `useEffect` + direct DOM `setAttribute`. **Do not add `<meta>` children to `<Helmet>` directly** — use `<SEO>` or a `useEffect` call. `<title>` via Helmet still works correctly.
+
 **Sitemap rule:** `public/sitemap.xml` must use canonical routes only — never redirect aliases. See `decisions.md` 2026-02-25 for the `/clarity-champions` gotcha.
 
 **Search Console:** Verified under personal Google account (see global CLAUDE.md) for `claritypledge.com`. Sitemap submitted Dec 18 2025, status: Success.

@@ -50,6 +50,29 @@ Listener-side conversational comprehension calibration — "I think I understood
 - Reader-side: self-assessed reading comprehension r=0.178 with actual (Yang et al. 2023, N=15,889)
 - Listener-side in conversation: **zero published measurement**
 
+## Enrichment Notes (from 2026-04-08 conversations)
+
+**Aumann's missing instrument:** Aumann proves you can't rationally agree to disagree — but assumes common knowledge exists. The Clarity Flip is the missing generation mechanism. Nobody has connected Aumann's assumption to a concrete instrument and then drawn the Popperian consequence for group epistemics.
+
+**The grading move (novel claim):** Post-verification disagreements are epistemically different IN KIND from pre-verification disagreements — and this is observable to the group. You can create a public epistemic filter: disagreements that survive verified comprehension across diversity are more robust. This is Popper's falsification with the noise of misunderstanding eliminated.
+
+**Curse of knowledge vs. illusion of common knowledge (preempts #1 objection):** Curse = individual bias (can't simulate ignorance). Illusion = group-level epistemic failure (I think we mutually know X, unverified). Curse is one cause of the illusion, but not the only one. The intervention differs: curse is hard to fix; illusion is puncturable by the Flip. Worth a clean paragraph in the article.
+
+**Habermas as closest predecessor:** Says "presuppose understanding." ClarityPledge says "verify it." He describes ideal conditions; this builds the measurement instrument.
+
+**Candidate opening line:** "How do you know you understood someone — if they don't know you did?"
+
+## Enrichment (2026-04-11)
+
+**Conversation:** Proving a clarity flip (2026-04-10)
+
+**What it adds:**
+
+1. **Measurement reframe — from personal comfort to institutional norm shift.** The original Clarity Flip metric ("how comfortable are you asking someone to paraphrase when you disagree?") measures individual skill. The stronger measurement target is leadership accountability: *"How comfortable are you with a leader refusing a paraphrasing request without giving a reason?"* Before/after an event, this delta measures whether people's standards for institutional legitimacy shifted in 90 minutes — not whether they got better at a conversational move. This folds Aumann's common-knowledge requirement into a concrete power-dynamics question the reader can picture.
+2. **Public letters + upvoting as visible propagation.** a9 currently frames the rate asymmetry as a measurement gap. The Clarity Letter as public instrument closes the loop: readers complete, positions are captured, reputation accrues to verifiers. What was measurable becomes publicly demonstrable — the rate asymmetry doesn't just get numbered, it becomes a visible social fact.
+3. **Open limitation: flip durability.** Honest caveat worth naming in the article: we don't yet know whether position shifts induced by a 90-minute Clarity Flip survive three weeks of social pressure. The self-concealing property (Lau et al. 2022) applies to the flip itself — people may not retain awareness that they flipped. Strengthens credibility by naming the threat; doesn't undermine the core thesis (the instrument still exists; its longitudinal effect is an open question).
+4. **Aumann bridge to a12.** Cross-article link: a9 names Aumann as the missing-instrument theorist; a12 (Locke to Ladischenski) now uses Aumann's common-knowledge assumption to argue for market-infrastructure applications (M&A fairness opinions, disclosure compliance, DAO governance votes). The rate asymmetry isn't just a rationalist curiosity — it's the uninstrumented precondition Nobel-winning market theory silently required.
+
 ## Novelty claim
 
 Nobody has framed this as a **rate asymmetry** between two measurable quantities, or connected it to a **missing verification protocol** at the interpersonal level as the root bottleneck. Sits in unclaimed intersection of Pinker, Chwe, and misinformation literature.

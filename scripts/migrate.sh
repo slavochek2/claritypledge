@@ -156,7 +156,7 @@ if [ "$ENV_NAME" != "prod" ]; then
   if echo "$PUSH_OUTPUT" | grep -q "Remote migration versions not found in local"; then
     NEEDS_FALLBACK=true
   fi
-  if echo "$PUSH_OUTPUT" | grep -q "Tenant or user not found\|unauthorized\|Unauthorized\|login role status\|password authentication failed"; then
+  if echo "$PUSH_OUTPUT" | grep -q "Tenant or user not found\|unauthorized\|Unauthorized\|login role status\|password authentication failed\|Cannot find project ref"; then
     NEEDS_FALLBACK=true
   fi
 

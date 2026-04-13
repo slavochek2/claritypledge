@@ -16,7 +16,6 @@ pipeline_ran: [change-request, architect, generate-tests, dev, fix]
 uat_file: features/uat/p665.md
 test_files:
   - e2e/p665-letter-immersive.spec.ts
-  - e2e/p665-smoke.spec.ts
   - e2e/a11y/p665-accessibility.spec.ts
 ---
 

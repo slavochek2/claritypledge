@@ -1,14 +1,14 @@
 ---
-status: qa
+status: week
 type: story
 rank: 1000683.0
 created_date: '2026-04-10'
 tags: [letters, compliance, gdpr, tos]
 flow: dev
-delivery_stage: fix
+delivery_stage: spec-review
 pipeline_plan: [create-spec, challenge-prd, ux, architect, ui, generate-tests, dev, verify]
 pipeline_skipped: [decompose -- under 5 files]
-pipeline_ran: [create-spec, challenge-prd, ux, architect, ui, generate-tests, spec-review, dev, fix]
+pipeline_ran: [create-spec, challenge-prd, ux, architect, ui, generate-tests, spec-review]
 ---
 
 # P683: One-to-One Letter TOS Consent
@@ -25,17 +25,18 @@ pipeline_ran: [create-spec, challenge-prd, ux, architect, ui, generate-tests, sp
 
 - **Blast radius:** Medium -- touches LetterCover component, letter-reading-page, letter-preview-page, and create-and-open-letter edge function. Does not change reading flow or rating mechanics.
 - **Reversibility:** Fully reversible -- all changes are additive. git revert restores previous behavior.
-- **Decision density:** Low -- key decisions already made: click-wrap consent disclosure under CTA, "We'll create an account so you can save your responses." disclosure text, "Done" button on results, preview starts from cover page.
+- **Decision density:** Low -- key decisions already made: checkbox always shown for unauthenticated users, "We'll create an account to save your responses" disclosure text, "Done" button on results, preview starts from cover page.
 
 ## Solution
 
 ### LetterCover changes
 
-- Click-wrap consent: a single disclosure paragraph **below** the "Open the Letter" button reads: "By opening, you agree to the Terms of Service and Privacy Policy. We'll create an account so you can save your responses."
-- Both ToS and Privacy Policy are linked underlines using existing brand styling
-- "Open the Letter" button is enabled immediately for unauthenticated users — clicking is the consent action (industry-standard click-wrap, comparable to Stripe / Vercel / Substack onboarding)
-- For authenticated users (existing accounts): no disclosure shown, button works immediately
-- Server-side audit row in `terms_acceptances` is unchanged — GDPR posture preserved
+- Add TOS checkbox for unauthenticated users: "I accept the [Terms] and [Privacy Policy]."
+- Add disclosure line below checkbox: "We'll create an account to save your responses." [FOUNDER DECISION: exact wording]
+- "Open the Letter" button disabled until checkbox is checked
+- Tooltip on disabled button explaining why
+- Add Privacy Policy link alongside existing Terms link
+- For authenticated users (existing accounts): no checkbox shown, button works immediately
 
 ### Edge function changes (create-and-open-letter)
 
@@ -81,8 +82,8 @@ pipeline_ran: [create-spec, challenge-prd, ux, architect, ui, generate-tests, sp
 
 ## Done-When
 
-- [ ] Unauthenticated users see click-wrap disclosure paragraph below "Open the Letter" button
-- [ ] "Open the Letter" button is enabled immediately for unauthenticated users (click-wrap consent)
+- [ ] Unauthenticated users see TOS checkbox + account disclosure on LetterCover
+- [ ] "Open the Letter" button is disabled until checkbox is checked
 - [ ] Privacy Policy link visible alongside Terms of Service link
 - [ ] Edge function refuses account creation without `termsAccepted: true`
 - [ ] `terms_acceptances` row created with IP hash and user agent on account creation
@@ -100,29 +101,28 @@ pipeline_ran: [create-spec, challenge-prd, ux, architect, ui, generate-tests, sp
 
 ## Acceptance Criteria
 
-- [x] GDPR Article 13 compliant: processing purpose (account creation) disclosed at point of collection
-- [x] Audit trail: `terms_acceptances` row exists for every new account created via letter flow
-- [x] Existing users can open letters without re-accepting TOS
-- [x] Preview flow gives senders accurate preview of recipient experience (minus TOS)
-- [x] Letter reading and rating mechanics unchanged
+- [ ] GDPR Article 13 compliant: processing purpose (account creation) disclosed at point of collection
+- [ ] Audit trail: `terms_acceptances` row exists for every new account created via letter flow
+- [ ] Existing users can open letters without re-accepting TOS
+- [ ] Preview flow gives senders accurate preview of recipient experience (minus TOS)
+- [ ] Letter reading and rating mechanics unchanged
 
 ## UX Notes
 
 States for LetterCover:
 
-- **New user (unauthenticated):** envelope + info + button enabled + disclosure paragraph below button. Click = consent action.
-- **New user (opening):** button shows spinner + "Opening..." (disclosure paragraph remains visible)
-- **Existing user (unauthenticated but has profile):** SAME as new user — always show disclosure for unauthenticated. Idempotent insert in terms_acceptances.
-- **Authenticated user (current terms):** no disclosure, button enabled immediately. Straight-through flow — they already accepted the current version via another app path, so no re-acceptance friction. Idempotent: opening multiple letters does not create duplicate `terms_acceptances` rows (UNIQUE `(user_id, terms_version)` constraint handles the DB side; the frontend does not even attempt a write for current-terms users).
+- **New user (unauthenticated, no checkbox checked):** envelope + info + checkbox unchecked + button disabled + tooltip
+- **New user (checkbox checked):** button enabled
+- **New user (opening):** button shows spinner + "Opening..." + checkbox dimmed
+- **Existing user (unauthenticated but has profile):** SAME as new user -- always show checkbox for unauthenticated. Idempotent insert in terms_acceptances.
+- **Authenticated user (current terms):** no checkbox, button enabled immediately. Straight-through flow — they already accepted the current version via another app path, so no re-acceptance friction. Idempotent: opening multiple letters does not create duplicate `terms_acceptances` rows (UNIQUE `(user_id, terms_version)` constraint handles the DB side; the frontend does not even attempt a write for current-terms users).
 - **Authenticated user (stale terms):** blocking `LetterStaleTermsModal` renders over the cover. "Our terms have been updated. Please review and accept to continue." with Terms + Privacy links, checkbox, and "Accept & continue" button. On accept, writes a new `terms_acceptances` row and updates `profiles.accepted_terms_version`, then the letter opens normally. This is the X3 resolution for stale-terms users — it replaces any "redundant re-acceptance" friction the original spec left underspecified.
-- **Preview (sender):** no disclosure (authenticated), button enabled, after click shows amber preview banner
+- **Preview (sender):** no checkbox (authenticated), button enabled, after click shows amber preview banner
 
 ## Pre-deploy Checklist
 
 ### Secrets to provision
-- [ ] `IP_HASH_SECRET` — generate via `openssl rand -hex 32`, then:
-      `supabase secrets set IP_HASH_SECRET=<value> --project-ref besjtuodziykmjidubzw`
-      (test ref `gfjctyxqlwexxwsmkakq` already provisioned)
+- [ ] `IP_HASH_SECRET` — env var for server-side hash-ip helper (if not already set): `vercel env add IP_HASH_SECRET production --token "$VERCEL_TOKEN"` AND `supabase secrets set IP_HASH_SECRET=<value> --project-ref besjtuodziykmjidubzw`
 
 ### Deploy commands
 - [ ] `supabase functions deploy create-and-open-letter --project-ref besjtuodziykmjidubzw --no-verify-jwt`
@@ -130,8 +130,7 @@ States for LetterCover:
 - [ ] Trigger Vercel redeploy (frontend `CURRENT_TERMS_VERSION` + `ACCEPTED_TERMS_VERSIONS` baked at build)
 
 ### Post-deploy verification
-- [ ] Open a test letter as unauthenticated user — disclosure paragraph appears below button, button enabled immediately
-- [ ] Click "Open the Letter" and confirm `create-and-open-letter` returns 200 (no 500)
+- [ ] Open a test letter as unauthenticated user — checkbox appears, button gated
 - [ ] Inspect `terms_acceptances` row after opening: correct `terms_version='v1.2'`, `ip_hash` not null, `user_agent` not null
 - [ ] Open a test letter as authenticated user with stale `accepted_terms_version='v1.1'` — re-accept modal appears, blocks until accepted
 - [ ] Check Sentry for new errors in first 10 minutes

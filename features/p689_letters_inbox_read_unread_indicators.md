@@ -1,13 +1,13 @@
 ---
-status: in-progress
+status: week
 type: story
 rank: 1000689.0
 workstream: letters
 created_date: '2026-04-11'
 tags: [letters, inbox, ui, a11y]
-delivery_stage: dev
+delivery_stage: create-spec
 pipeline_plan: [create-spec, dev, verify]
-pipeline_ran: [create-spec, dev]
+pipeline_ran: [create-spec]
 pipeline_skipped: [challenge-prd -- decisions resolved upstream, ux -- no net-new component, architect -- no schema/auth/structural change, generate-tests -- canary test written inside dev, decompose -- 1 file ~15 LOC, spec-review -- fresh spec, spec-compact -- fresh spec]
 flow: dev
 ---
@@ -82,7 +82,7 @@ A tinted `bg-blue-500/5` row background is therefore **color-consistent with the
 - [ ] Icon and text columns horizontally aligned across read and unread rows (no jitter)
 - [ ] Screen readers announce an "Unread" signal on unread rows (SR-only label, not relying on bold alone)
 - [ ] `data-unread` attribute still present on unread rows (e2e-stable selector)
-- [ ] Tint color is `bg-blue-500/5` — consistent with the component's existing raw palette usage (not `bg-primary/5`)
+- [ ] Tint color comes from a semantic Tailwind token, not a raw palette class
 - [ ] Light mode and dark mode both verified via browser screenshot
 - [ ] Mobile viewport (narrow) verified — CTA button does not wrap to a second line because of the new dot column
 - [ ] Canary unit test: renders `InboxTab` with mixed read/unread items, asserts dot element present on both, asserts `opacity-0`/`opacity-100` or equivalent toggled by `read_at`

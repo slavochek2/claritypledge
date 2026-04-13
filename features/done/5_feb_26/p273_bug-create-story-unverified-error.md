@@ -13,7 +13,6 @@ uat_file: features/uat/p273.md
 test_files:
   - src/tests/useVerificationGate.test.ts
   - e2e/p273-verification-gate.spec.ts
-  - e2e/p273-smoke.spec.ts
   - e2e/a11y/p273-accessibility.spec.ts
 ---
 

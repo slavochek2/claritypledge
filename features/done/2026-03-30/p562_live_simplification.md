@@ -18,7 +18,6 @@ uat_file: features/uat/p562.md
 test_files:
   - e2e/p562-free-mode.spec.ts
   - e2e/integration/p562-free-mode-state.spec.ts
-  - e2e/p562-smoke.spec.ts
   - src/tests/free-mode-phases.test.ts
 ---
 

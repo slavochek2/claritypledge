@@ -1,10 +1,15 @@
 ---
 status: week
 type: feature
-rank: 1000032.0
+rank: 0.196
 workstream: C1
-created_date: 2026-04-02
-tags: [grid, visualization, letters, live, p581-follow-up]
+created_date: 2026-04-02T00:00:00.000Z
+tags:
+  - grid
+  - visualization
+  - letters
+  - live
+  - p581-follow-up
 ---
 
 # P624: Understanding × Agreement Grid Visualization

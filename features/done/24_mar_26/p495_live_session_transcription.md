@@ -20,7 +20,6 @@ test_files:
   - e2e/integration/p495-transcription-migration.spec.ts
   - e2e/p495-transcription.spec.ts
   - e2e/a11y/p495-accessibility.spec.ts
-  - e2e/p495-smoke.spec.ts
 locked_at: '2026-03-18T08:10:26.420Z'
 ---
 

@@ -63,6 +63,8 @@ The format must work with:
 
 **Key design constraint from barber encounter:** The entry must be a concrete scenario people can relate to immediately, not an abstract concept. "She thinks she understood what 'a little shorter' means. You think she understood. Neither of you checked." — that's the entry. The taxonomy comes after, if at all.
 
+**Measurement target — leadership accountability norm (2026-04-11):** Even in the 10-minute format, capture the before/after leadership-accountability question alongside the personal-comfort question. *"How comfortable are you with a leader refusing a paraphrasing request without giving a reason?"* (0-10, reverse-scored). The 10-min flip succeeds when the group's norm around unexplained refusal shifts, not just when individual comfort with asking shifts. See `docs/facilitator-guide.md` §Workshop Metrics for full rationale. If the 10-min format cannot produce a measurable norm-shift delta, it's failing at what the full P606 is supposed to do — scope back to personal-comfort only or extend duration.
+
 ## Done-When
 
 - [ ] Written run sheet for 10-minute format with exact timing per step

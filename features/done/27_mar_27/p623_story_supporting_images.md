@@ -22,7 +22,6 @@ test_files:
   - e2e/integration/p591-story-image-migration.spec.ts
   - e2e/p591-story-supporting-images.spec.ts
   - e2e/a11y/p591-accessibility.spec.ts
-  - e2e/p591-smoke.spec.ts
 locked_at: '2026-03-26T14:22:34.875Z'
 ---
 

@@ -61,8 +61,10 @@ async function assertNoAuthRedirect(page: Page, sessionCode: string): Promise<vo
  */
 async function dismissTermsDialog(page: Page): Promise<void> {
   try {
-    await page.getByRole('button', { name: 'Continue' }).waitFor({ state: 'visible', timeout: 3000 });
-    await page.getByRole('button', { name: 'Continue' }).click();
+    // Use exact match to avoid matching "Continue with Google" button on the guest join form.
+    // The exact match excludes "Continue with Google" which briefly appears during auth loading.
+    await page.getByRole('button', { name: 'Continue', exact: true }).waitFor({ state: 'visible', timeout: 3000 });
+    await page.getByRole('button', { name: 'Continue', exact: true }).click();
   } catch {
     // No terms dialog — proceed
   }
@@ -124,7 +126,7 @@ export async function createTwoPartySession(
   // Step 1: Create two authenticated browser contexts in parallel.
   const [hostAuth, guestAuth] = await Promise.all([
     getTestAuthContext('host', browser, { name: hostName }),
-    getTestAuthContext('guest', browser, { name: guestName }),
+    getTestAuthContext('host', browser, { name: guestName }),
   ]);
 
   // Step 2: Create pages from both contexts.
@@ -228,7 +230,7 @@ export async function createTwoPartySessionRealistic(
   // Step 1: Create two authenticated browser contexts in parallel.
   const [hostAuth, guestAuth] = await Promise.all([
     getTestAuthContext('host', browser, { name: hostName }),
-    getTestAuthContext('guest', browser, { name: guestName }),
+    getTestAuthContext('host', browser, { name: guestName }),
   ]);
 
   const hostPage = await hostAuth.context.newPage();

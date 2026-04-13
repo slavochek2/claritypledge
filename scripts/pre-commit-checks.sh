@@ -110,8 +110,8 @@ SECRETS_STAGED_FILES=$(git diff --cached --name-only 2>/dev/null || git diff --n
 if [ -n "$SECRETS_STAGED_FILES" ]; then
     # 2a. Known secret patterns (API keys, tokens, password assignments)
     # Exclude files that legitimately discuss secret patterns (scanner config, docs, decisions log)
-    # Gitleaks (Layer 1) handles src/ and supabase/ with proper rules — grep only scans config/root files
-    GREP_SCAN_FILES=$(echo "$SECRETS_STAGED_FILES" | grep -vE '(\.gitleaks\.toml|pre-commit-checks\.sh|docs/decisions\.md|docs/technical/|supabase/functions/|supabase/migrations/|features/|src/|e2e/|\.claude/commands/|\.claude/rules/)' || true)
+    # Gitleaks (Layer 1) handles src/, supabase/, and scripts/ with proper rules — grep only scans config/root files
+    GREP_SCAN_FILES=$(echo "$SECRETS_STAGED_FILES" | grep -vE '(\.gitleaks\.toml|pre-commit-checks\.sh|docs/decisions\.md|docs/technical/|supabase/functions/|supabase/migrations/|features/|src/|e2e/|\.claude/commands/|\.claude/rules/|scripts/)' || true)
     SECRETS_FOUND=""
     if [ -n "$GREP_SCAN_FILES" ]; then
         SECRETS_FOUND=$(echo "$GREP_SCAN_FILES" | xargs grep -l -iE '(sk_live|pk_live|SUPABASE_SERVICE|api[_-]?key|apikey|secret[_-]?key|password\s*=|token\s*=)[^a-zA-Z]' 2>/dev/null || true)
@@ -346,9 +346,23 @@ else
 fi
 echo ""
 
-# 14. Root file pollution check (prevent agent-generated temp files)
+# 14. Root file pollution check (prevent agent-generated temp files and stray images)
 echo ">>> Checking for temporary files in project root..."
-ROOT_TEMP_FILES=$(ls -1 /*.md /*.json 2>/dev/null | grep -vE '(CLAUDE|GEMINI|README|CONTRIBUTING|SECURITY|CLA|components\.json|package\.json|package-lock\.json|tsconfig.*\.json|vercel\.json)' || true)
+
+# Check for PNG/JPG/JPEG images dumped to root (browser automation artifacts)
+ROOT_IMAGES=$(ls -1 ./*.png ./*.jpg ./*.jpeg 2>/dev/null || true)
+if [ -n "$ROOT_IMAGES" ]; then
+    echo -e "${RED}✗ Image files found in project root (browser automation artifacts):${NC}"
+    echo "$ROOT_IMAGES" | while read -r file; do
+        echo -e "${RED}  → $file${NC}"
+    done
+    echo -e "${RED}  Screenshots must go to ~/Screenshots/{date}/{feature}/, not project root.${NC}"
+    echo -e "${RED}  See docs/technical/browser-tools.md — 'Screenshot Path Rule'.${NC}"
+    ERRORS=$((ERRORS + 1))
+fi
+
+# Check for unexpected .md / .json files in project root
+ROOT_TEMP_FILES=$(ls -1 ./*.md ./*.json 2>/dev/null | grep -vE '(CLAUDE|GEMINI|README|CONTRIBUTING|SECURITY|CLA|components\.json|package\.json|package-lock\.json|tsconfig.*\.json|vercel\.json)' || true)
 
 if [ -n "$ROOT_TEMP_FILES" ]; then
     # Check if any match agent-generated patterns
@@ -369,7 +383,9 @@ if [ -n "$ROOT_TEMP_FILES" ]; then
         WARNINGS=$((WARNINGS + 1))
     fi
 else
-    echo -e "${GREEN}✓ No temporary files in project root${NC}"
+    if [ -z "$ROOT_IMAGES" ]; then
+        echo -e "${GREEN}✓ No temporary files in project root${NC}"
+    fi
 fi
 echo ""
 
@@ -436,10 +452,13 @@ sys.exit(0 if found else 1)
             fi
         fi
 
-        # If no P-number match (or no P-number), also check for any integration test
-        # that references the migration base name (covers non-P-numbered migrations)
+        # If no P-number match (or no P-number), check for a file named after the
+        # migration base name first (exact filename match), then fall back to
+        # content search (covers non-P-numbered migrations either way)
         if [ "$test_found" -eq 0 ]; then
-            if grep -rl "$mig_base" e2e/integration/ 2>/dev/null | grep -q .; then
+            if ls "e2e/integration/${mig_base}.spec.ts" 2>/dev/null | grep -q .; then
+                test_found=1
+            elif grep -rl "$mig_base" e2e/integration/ 2>/dev/null | grep -q .; then
                 test_found=1
             fi
         fi

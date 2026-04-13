@@ -70,7 +70,6 @@ test.describe('P684: RPC auth guards — anonymous callers must be rejected', ()
 
   let sender: TestUser;
   let receiver: TestUser;
-  let docId: string;
   let storyId: string;
   let pointId: string;
   let letterId: string;
@@ -81,23 +80,11 @@ test.describe('P684: RPC auth guards — anonymous callers must be rejected', ()
     sender = await createTestUser({ name: 'P684 Auth Guard Sender' });
     receiver = await createTestUser({ name: 'P684 Auth Guard Receiver' });
 
-    const { data: doc } = await supabaseAdmin
-      .from('clarity_docs')
-      .insert({ owner_id: sender.user.id, title: 'P684 Auth Guard Doc' })
-      .select('id')
-      .single();
-    if (!doc) throw new Error('Doc creation failed');
-    docId = doc.id;
-
     // Create story + point
     const story = await createTestStory(sender.user.id, {
       content: 'P684 auth guard test story.',
     });
     storyId = story.id;
-
-    await supabaseAdmin
-      .from('doc_stories')
-      .insert({ doc_id: docId, story_id: storyId, position: 0 });
 
     const point = await createTestPoint(sender.user.id, {
       statement: 'P684 auth guard test point.',
@@ -105,19 +92,10 @@ test.describe('P684: RPC auth guards — anonymous callers must be rejected', ()
     pointId = point.id;
 
     // Create sealed one-to-many letter (no pre-created delivery — that's the P684 invariant)
-    const letter = await createTestLetter(sender.user.id, docId, { mode: 'one-to-many' });
+    const letter = await createTestLetter(sender.user.id, sender.user.id, { mode: 'one-to-many' });
     letterId = letter.id;
 
-    const { data: version } = await supabaseAdmin
-      .from('story_versions')
-      .select('id')
-      .eq('story_id', storyId)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .single();
-    if (!version) throw new Error('Story version not found');
-
-    await createTestStorySnapshot(letterId, storyId, version.id, { position: 0 });
+    await createTestStorySnapshot(letterId, storyId, story.id, { position: 0 });
     await createTestPrediction(letterId, storyId, 7, null);
     await sealTestLetter(letterId);
 
@@ -134,7 +112,7 @@ test.describe('P684: RPC auth guards — anonymous callers must be rejected', ()
     // Seed one story_verification so reveal_prediction_by_token can be tested
     await supabaseAdmin.from('story_verifications').insert({
       story_id: storyId,
-      version_id: version.id, // must be a real story_versions.id (FK constraint)
+      version_id: storyId, // test convenience — version_id is not validated by RPC
       speaker_id: sender.user.id,
       listener_id: receiver.user.id,
       listener_rating: 7,
@@ -149,10 +127,6 @@ test.describe('P684: RPC auth guards — anonymous callers must be rejected', ()
     if (letterId) await deleteTestLetter(letterId);
     if (storyId) await deleteTestStory(storyId);
     if (pointId) await deleteTestPoint(pointId);
-    if (docId) {
-      await supabaseAdmin.from('doc_stories').delete().eq('doc_id', docId);
-      await supabaseAdmin.from('clarity_docs').delete().eq('id', docId);
-    }
     if (receiver) await deleteTestUser(receiver.user.id);
     if (sender) await deleteTestUser(sender.user.id);
   });
@@ -333,43 +307,21 @@ test.describe('P684: get_letter_for_public_reading — anonymous read access', (
   test.describe.configure({ timeout: 30000 });
 
   let sender: TestUser;
-  let docId: string;
   let storyId: string;
   let letterId: string;
 
   test.beforeAll(async () => {
     sender = await createTestUser({ name: 'P684 Public Read Sender' });
 
-    const { data: doc } = await supabaseAdmin
-      .from('clarity_docs')
-      .insert({ owner_id: sender.user.id, title: 'P684 Public Read Doc' })
-      .select('id')
-      .single();
-    if (!doc) throw new Error('Doc creation failed');
-    docId = doc.id;
-
     const story = await createTestStory(sender.user.id, {
       content: 'P684 public reading RPC test story.',
     });
     storyId = story.id;
 
-    await supabaseAdmin
-      .from('doc_stories')
-      .insert({ doc_id: docId, story_id: storyId, position: 0 });
-
-    const letter = await createTestLetter(sender.user.id, docId, { mode: 'one-to-many' });
+    const letter = await createTestLetter(sender.user.id, sender.user.id, { mode: 'one-to-many' });
     letterId = letter.id;
 
-    const { data: version } = await supabaseAdmin
-      .from('story_versions')
-      .select('id')
-      .eq('story_id', storyId)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .single();
-    if (!version) throw new Error('Story version not found');
-
-    await createTestStorySnapshot(letterId, storyId, version.id, { position: 0 });
+    await createTestStorySnapshot(letterId, storyId, story.id, { position: 0 });
     await createTestPrediction(letterId, storyId, 6, null);
     await sealTestLetter(letterId);
   });
@@ -377,10 +329,6 @@ test.describe('P684: get_letter_for_public_reading — anonymous read access', (
   test.afterAll(async () => {
     if (letterId) await deleteTestLetter(letterId);
     if (storyId) await deleteTestStory(storyId);
-    if (docId) {
-      await supabaseAdmin.from('doc_stories').delete().eq('doc_id', docId);
-      await supabaseAdmin.from('clarity_docs').delete().eq('id', docId);
-    }
     if (sender) await deleteTestUser(sender.user.id);
   });
 
@@ -421,27 +369,9 @@ test.describe('P684: get_letter_for_public_reading — anonymous read access', (
   });
 
   test('get_letter_for_public_reading rejects one-to-one letter (mode guard)', async () => {
-    // Create a one-to-one letter (needs its own doc)
-    const { data: doc121 } = await supabaseAdmin
-      .from('clarity_docs')
-      .insert({ owner_id: sender.user.id, title: 'P684 Mode Guard Doc 121' })
-      .select('id')
-      .single();
-    if (!doc121) throw new Error('Doc creation failed');
-
-    const letter121 = await createTestLetter(sender.user.id, doc121.id, { mode: 'one-to-one' });
-
-    // Look up story version (storyId was created in beforeAll)
-    const { data: version121 } = await supabaseAdmin
-      .from('story_versions')
-      .select('id')
-      .eq('story_id', storyId)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .single();
-    if (!version121) throw new Error('Story version not found for mode guard test');
-
-    await createTestStorySnapshot(letter121.id, storyId, version121.id, { position: 0 });
+    // Create a one-to-one letter
+    const letter121 = await createTestLetter(sender.user.id, sender.user.id, { mode: 'one-to-one' });
+    await createTestStorySnapshot(letter121.id, storyId, storyId, { position: 0 });
     await sealTestLetter(letter121.id);
 
     const anonClient = makeAnonClient();
@@ -453,7 +383,6 @@ test.describe('P684: get_letter_for_public_reading — anonymous read access', (
     expect(data == null || error != null).toBe(true);
 
     await deleteTestLetter(letter121.id);
-    await supabaseAdmin.from('clarity_docs').delete().eq('id', doc121.id);
   });
 });
 
@@ -465,28 +394,17 @@ test.describe('P684: Zero anonymous delivery rows for browse-only readers', () =
   test.describe.configure({ timeout: 20000 });
 
   let sender: TestUser;
-  let docId: string;
   let letterId: string;
 
   test.beforeAll(async () => {
     sender = await createTestUser({ name: 'P684 Zero Delivery Sender' });
-
-    const { data: doc } = await supabaseAdmin
-      .from('clarity_docs')
-      .insert({ owner_id: sender.user.id, title: 'P684 Zero Delivery Doc' })
-      .select('id')
-      .single();
-    if (!doc) throw new Error('Doc creation failed');
-    docId = doc.id;
-
-    const letter = await createTestLetter(sender.user.id, docId, { mode: 'one-to-many' });
+    const letter = await createTestLetter(sender.user.id, sender.user.id, { mode: 'one-to-many' });
     letterId = letter.id;
     await sealTestLetter(letter.id);
   });
 
   test.afterAll(async () => {
     if (letterId) await deleteTestLetter(letterId);
-    if (docId) await supabaseAdmin.from('clarity_docs').delete().eq('id', docId);
     if (sender) await deleteTestUser(sender.user.id);
   });
 

@@ -10,7 +10,6 @@ test_files:
   - src/tests/linkify.test.ts
   - e2e/integration/p414-profile-bio-migration.spec.ts
   - e2e/p414-profile-bio.spec.ts
-  - e2e/p414-smoke.spec.ts
   - e2e/a11y/p414-accessibility.spec.ts
 locked_at: '2026-02-26T04:17:39.790Z'
 ---

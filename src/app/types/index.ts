@@ -17,6 +17,7 @@ export interface PersonRef {
   avatarColor?: string; // Optional — PersonAvatar defaults to #3B82F6
   avatarUrl?: string | null;
   hasPledged: boolean; // ALWAYS present
+  badgeCount?: number; // P686: Number of verified badge points (0–9)
 }
 
 // ============================================================================
@@ -538,6 +539,7 @@ export type LiveStoryData = Pick<StoryWithAuthor,
     statement: string;
     context?: string;
     tags: string[];
+    systemTags?: string[]; // P686: for badge certification check
     positionCounts?: Record<string, number>;
     userPosition?: string | null;
     profileSubjectPosition?: string | null;
@@ -656,6 +658,8 @@ export interface LiveSessionState {
   // Skip notification - who clicked "Skip" or "Good enough"
   // When one user skips, partner sees a toast notification
   skippedBy?: string;
+  // P646: Role-based identity — true if creator skipped, false if joiner
+  skippedByIsCreator?: boolean;
 
   // Gated rating - listener must tap "Done Explaining" before speaker can rate
   // When listener taps "Done Explaining", this becomes true and speaker's rating UI unlocks
@@ -692,6 +696,8 @@ export interface LiveSessionState {
   roleSwitchNegotiation?: {
     // Who initiated the role switch request (the listener who wants to become speaker)
     requestedBy: string;
+    // P646: Role-based identity — true if creator requested, false if joiner
+    requestedByIsCreator?: boolean;
     // Current negotiation state
     state: 'pending' | 'speaker-asked-to-explain' | 'listener-insists';
   };
@@ -721,6 +727,8 @@ export interface LiveSessionState {
   // Signals partner to close history view immediately (before submission).
   // Cleared when the round resets to idle.
   ratingInitiatedBy?: string;
+  // P646: Role-based identity — true if creator initiated, false if joiner
+  ratingInitiatedByIsCreator?: boolean;
 
   // ============================================================================
   // P275: Live session point positions (stored here instead of point_positions table)
@@ -758,6 +766,16 @@ export interface LiveSessionState {
 
   /** P600: Speaker's re-rated belief after hearing paraphrase (3rd number before sliders) */
   freeRerating?: number;
+
+  // ============================================================================
+  // P686: Badge auto-certification
+  // ============================================================================
+
+  /** true when a badge point was just earned this round */
+  badgePointEarned?: boolean;
+
+  /** total badge count after this round (for celebration display) */
+  badgeCount?: number;
 }
 
 /** Default initial state for new live sessions */

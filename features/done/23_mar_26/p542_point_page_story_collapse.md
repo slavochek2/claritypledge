@@ -13,7 +13,6 @@ uat_file: features/uat/p542.md
 test_files:
   - e2e/p542-story-collapse.spec.ts
   - e2e/a11y/p542-accessibility.spec.ts
-  - e2e/p542-smoke.spec.ts
 ---
 
 # P542: Collapse stories behind chevron on point page position list

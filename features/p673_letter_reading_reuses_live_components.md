@@ -1,7 +1,7 @@
 ---
-status: qa
+status: today
 type: story
-rank: 1000073.0
+rank: 1000062
 tags:
   - letters
   - reading-flow
@@ -9,16 +9,27 @@ tags:
   - live
 created_date: '2026-04-07'
 superseded_by: p676
-delivery_stage: verify
-pipeline_plan: [create-spec, architect, generate-tests, dev, verify]
-pipeline_ran: [create-spec, architect, generate-tests, dev, verify]
-pipeline_skipped: [challenge-prd -- founder co-designed in conversation, ux -- reuses /live components verbatim, decompose -- single concern under 10 files]
+delivery_stage: generate-tests
+pipeline_plan:
+  - create-spec
+  - architect
+  - generate-tests
+  - dev
+  - verify
+pipeline_ran:
+  - create-spec
+  - architect
+  - generate-tests
+pipeline_skipped:
+  - challenge-prd -- founder co-designed in conversation
+  - ux -- reuses /live components verbatim
+  - decompose -- single concern under 10 files
 uat_file: features/uat/p673.md
 test_files:
   - src/tests/letter-snapshot-mapper.test.ts
   - e2e/p673-letter-reading-flow.spec.ts
-  - e2e/p673-smoke.spec.ts
   - e2e/a11y/p673-accessibility.spec.ts
+locked_at: '2026-04-07T11:25:43.748Z'
 ---
 
 # P673: Letter Reading Flow Reuses /live Components
@@ -108,28 +119,28 @@ Preview page composes the same /live components with `previewMode: true`. Rating
 
 ## Done-When
 
-- [x] Letter reading page shows story cards using `LiveStoryCardExpanded` (same card as /live, points hidden)
-- [x] Rating question appears in a bottom `Drawer` (same pattern as /live)
-- [x] After rating, `JourneyToUnderstanding` shows above story with sealed-bid reveal
-- [x] Gap banner shows point gap + insight message (same copy pattern as /live)
-- [x] Point engagement uses point cards with `PositionButtons` (same as /live)
-- [x] Anti-point lead: first visible point before story, rest after (2+ visible points)
-- [x] D36 preserved: 1 visible point = story first, then point
-- [x] No "I've read this" intermediate step — story and rating together
-- [x] Preview page (`/letter/:docId/preview`) renders identically to reading page
-- [x] Preview ratings are interactive but do not write to DB
-- [x] Chrome-free: no top nav or bottom nav on letter routes (carried from P665)
-- [x] `letter-story-reader.tsx`, `letter-gap-reveal.tsx`, `letter-point-engagement.tsx` deleted
-- [x] All existing P581/P661 tests updated to reflect new component structure
+- [ ] Letter reading page shows story cards using `LiveStoryCardExpanded` (same card as /live, points hidden)
+- [ ] Rating question appears in a bottom `Drawer` (same pattern as /live)
+- [ ] After rating, `JourneyToUnderstanding` shows above story with sealed-bid reveal
+- [ ] Gap banner shows point gap + insight message (same copy pattern as /live)
+- [ ] Point engagement uses point cards with `PositionButtons` (same as /live)
+- [ ] Anti-point lead: first visible point before story, rest after (2+ visible points)
+- [ ] D36 preserved: 1 visible point = story first, then point
+- [ ] No "I've read this" intermediate step — story and rating together
+- [ ] Preview page (`/letter/:docId/preview`) renders identically to reading page
+- [ ] Preview ratings are interactive but do not write to DB
+- [ ] Chrome-free: no top nav or bottom nav on letter routes (carried from P665)
+- [ ] `letter-story-reader.tsx`, `letter-gap-reveal.tsx`, `letter-point-engagement.tsx` deleted
+- [ ] All existing P581/P661 tests updated to reflect new component structure
 
 ## Acceptance Criteria
 
-- [x] Recipient sees story cards identical to /live (minus points section)
-- [x] Rating experience matches /live drawer pattern
-- [x] Gap reveal matches /live `JourneyToUnderstanding` + banner
-- [x] Sequential ritual preserved — one story at a time, forward-only, Submit → reveal → Continue
-- [x] Sender preview shows exact same experience as recipient reading
-- [x] Hidden points (in clarity doc) are not shown and not counted for anti-point lead
+- [ ] Recipient sees story cards identical to /live (minus points section)
+- [ ] Rating experience matches /live drawer pattern
+- [ ] Gap reveal matches /live `JourneyToUnderstanding` + banner
+- [ ] Sequential ritual preserved — one story at a time, forward-only, Submit → reveal → Continue
+- [ ] Sender preview shows exact same experience as recipient reading
+- [ ] Hidden points (in clarity doc) are not shown and not counted for anti-point lead
 
 ## UX Notes
 

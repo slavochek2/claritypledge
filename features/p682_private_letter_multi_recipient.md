@@ -1,17 +1,16 @@
 ---
-status: in-progress
+status: week
 type: story
 rank: 1000682.0
 created_date: '2026-04-10'
 tags: [letters, ux, recipients, private]
-delivery_stage: dev
+delivery_stage: generate-tests
 pipeline_plan: [create-spec, challenge-prd, ux, ui, generate-tests, dev, verify]
-pipeline_ran: [create-spec, challenge-prd, ux, ui, generate-tests, dev]
+pipeline_ran: [create-spec, challenge-prd, ux, ui, generate-tests]
 pipeline_skipped: [architect -- no schema changes; DB already supports multi-recipient via letter_deliveries table and seal_and_send_letter RPC, decompose -- under 5 files]
 uat_file: features/uat/p682.md
 test_files:
   - e2e/p682-letter-multi-recipient.spec.ts
-  - e2e/p682-smoke.spec.ts
   - src/tests/p682-recipient-validation.test.ts
 ---
 

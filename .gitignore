@@ -102,5 +102,5 @@ private/personal/
 content/sifter/sessions/
 
 .claude/.expected-branch
-.privacy-reviewed
-.finish-reviewed
+.claude/.privacy-reviewed
+.claude/.finish-reviewed

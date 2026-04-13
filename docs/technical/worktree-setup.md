@@ -53,6 +53,8 @@ Worktrees are the **default isolation mechanism** for all `/dev` and `/fix` work
 
 - **Supabase CLI not linked in worktrees.** `supabase` CLI is linked to the main repo directory (via `supabase link`). Running `./scripts/migrate.sh` from a worktree fails with "Cannot find project ref." **Workaround:** Copy the migration file to the main repo and run `./scripts/migrate.sh` from there, or run `supabase link` in the worktree (creates a `.supabase` dir).
 
+- **`git status` shows phantom `D` entries for `scripts/`.** The `scripts/` directory in every worktree is a symlink to the main repo's `scripts/`. Git sees the symlink target as deleted relative to the worktree's index and surfaces all main-branch script files as phantom `D` (deleted) entries. These are **not real deletions** — the scripts are intact. Use `git diff --name-only HEAD` to see only files actually changed on the worktree branch. Never use `git add .` or `git add -A` in a worktree — always use `git add src/` or explicit file paths to avoid accidentally staging the phantom deletions.
+
 ---
 
 ## Running a Dev Server in a Worktree

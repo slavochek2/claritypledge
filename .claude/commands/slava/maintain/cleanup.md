@@ -5,14 +5,26 @@ when_to_use: "When features/done/ has unorganized specs that need dated subfolde
 version: 1.0.0
 ---
 
+## Dispatch
+
+**Phase A — Discovery (spawn → present → wait for approval):**
+Spawn Agent tool: `model: "sonnet"`, `subagent_type: "general-purpose"`.
+Prompt: Steps 1 + 2 (discovery only) from the workflow below. Working dir: `/Users/slavochek/Projects/public/claritypledge`.
+Collect the output. Present the "Files to organize" report to the user. Ask: "Proceed with moving these files? (y/n)"
+
+**Phase B — Execute (only after user approves):**
+Spawn a second Agent tool: `model: "sonnet"`, `subagent_type: "general-purpose"`.
+Prompt: Steps 3–4 from the workflow below, with the exact file list from Phase A included inline.
+Report subagent output verbatim.
+
 # /cleanup
 
-Organize feature docs by moving `status: done` and `status: archived` files to dated subfolders.
+Organize feature docs by moving `status: all-done` and `status: rejected` files to dated subfolders.
 
 ## What It Does
 
-1. **Find** features with `status: done` → move to `features/done/{N}_{mon}_{yy}/`
-2. **Find** features with `status: archived` → move to `features/archive/{N}_{mon}_{yy}/`
+1. **Find** features with `status: all-done` → move to `features/done/{N}_{mon}_{yy}/`
+2. **Find** features with `status: rejected` → move to `features/archive/{N}_{mon}_{yy}/`
 3. **Use `git mv`** so history is preserved
 4. **Report** what was moved
 
@@ -28,7 +40,7 @@ Format: `{N}_{mon}_{yy}` (e.g., `5_feb_26`, `6_mar_26`)
 <workflow>
   <step n="1" goal="Discover files to organize">
     <action>Find the highest numbered folder in features/done/ and features/archive/ to determine next number</action>
-    <action>Scan features/*.md for frontmatter with status: done or status: archived</action>
+    <action>Scan features/*.md for frontmatter with status: all-done or status: rejected</action>
     <action>Build list of files to move with their destinations</action>
   </step>
 

@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: today
 type: change-request
 rank: 1000063
 changes: p673
@@ -9,8 +9,11 @@ tags:
   - letters
   - reading-flow
 created_date: '2026-04-07'
-delivery_stage: dev
-pipeline_ran: [change-request, architect, generate-tests, dev]
+delivery_stage: generate-tests
+pipeline_ran:
+  - change-request
+  - architect
+  - generate-tests
 test_files:
   - e2e/p676-visual-corrections.spec.ts
 uat_file: features/uat/p676.md
@@ -129,12 +132,12 @@ Code references: `src/app/pages/letter-reading-page.tsx`, `src/app/pages/letter-
 
 ## Acceptance Criteria
 
-- [x] Story card is fully visible (not dimmed) when rating Drawer is open
-- [x] Drawer styling (height, padding, corners, typography) matches /live's rating drawer
-- [x] After submitting rating/position, progression button reads "Continue" and is outside/below the card with secondary visual weight
-- [x] Position badges (Agrees/Disagrees) render inside the story card boundary on all pages
-- [x] Surfaces NOT in scope are visually unchanged
-- [x] All existing P673 tests still pass
+- [ ] Story card is fully visible (not dimmed) when rating Drawer is open
+- [ ] Drawer styling (height, padding, corners, typography) matches /live's rating drawer
+- [ ] After submitting rating/position, progression button reads "Continue" and is outside/below the card with secondary visual weight
+- [ ] Position badges (Agrees/Disagrees) render inside the story card boundary on all pages
+- [ ] Surfaces NOT in scope are visually unchanged
+- [ ] All existing P673 tests still pass
 - [ ] /live rating drawer behavior unchanged (regression check)
 - [ ] In-card action button during point-engage reads "Continue" (not "Submit")
 - [ ] "Continue" button sits inline-right of PositionButtons (same row, `ml-auto`)

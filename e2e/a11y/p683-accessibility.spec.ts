@@ -62,23 +62,6 @@ test.beforeAll(async () => {
   });
   invitationToken = delivery.invitationToken;
 
-  const { data: version } = await supabaseAdmin
-    .from('story_versions')
-    .select('id')
-    .eq('story_id', storyId)
-    .order('created_at', { ascending: false })
-    .limit(1)
-    .single();
-  if (!version) throw new Error('Story version not found');
-  await supabaseAdmin.from('letter_story_snapshots').insert({
-    letter_id: letterId,
-    story_id: storyId,
-    version_id: version.id,
-    position: 0,
-    visibility: 'public',
-    point_config: { storyText: 'test', storyTitle: 'P683 A11y Story', points: [] },
-  });
-
   await sealTestLetter(letterId);
 });
 
@@ -134,10 +117,10 @@ test.describe('P683 Accessibility — TOS checkbox label association', () => {
 
     const wasChecked = await checkbox.isChecked();
 
-    // Click the label at its leading edge (not the center, which may hit a Link with stopPropagation)
+    // Click the label text (not the checkbox input directly)
     const label = page.locator('label').filter({ hasText: /accept|terms/i }).first();
     if (await label.isVisible({ timeout: 3000 }).catch(() => false)) {
-      await label.click({ position: { x: 5, y: 10 } });
+      await label.click();
       const isNowChecked = await checkbox.isChecked();
       expect(isNowChecked).toBe(!wasChecked);
     }
@@ -179,7 +162,7 @@ test.describe('P683 Accessibility — Disabled Open Letter button', () => {
     if (describedBy) {
       // Verify the referenced element exists with meaningful text
       const tooltipEl = page.locator(`#${describedBy}`);
-      if ((await tooltipEl.count()) > 0) {
+      if (await tooltipEl.isAttached({ timeout: 2000 }).catch(() => false)) {
         const tooltipText = await tooltipEl.textContent();
         expect(tooltipText?.trim().length, 'Tooltip text must not be empty').toBeGreaterThan(0);
       }

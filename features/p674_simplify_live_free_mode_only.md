@@ -12,7 +12,6 @@ test_files:
   - src/tests/live-state-guard.test.ts
   - e2e/integration/p674-live-state-machine.spec.ts
   - e2e/p674-linear-flow.spec.ts
-  - e2e/p674-smoke.spec.ts
 tags:
   - live
   - realtime

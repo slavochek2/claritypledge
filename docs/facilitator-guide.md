@@ -71,6 +71,7 @@ Frame: lead with emotional wound (need to be understood), escalate through hones
 ### Post-Workshop
 
 - Ask the qualifying question verbally: "Did this reveal something you didn't know?" If yes: "How much could a misunderstanding like this cost you?"
+- **Propagation signal question:** "Who specifically would you want to do this with?" Count the names. This measures R₀ — the viral coefficient. If participants name 3-5 specific people, propagation is plausible even with high per-person time investment (~45 min). If 0-1 names, the flip doesn't create propagation motivation regardless of how frictionless the badge flow becomes. The number of names is a stronger signal than enthusiasm level.
 - For pairs: offer de-risking package — "I can do this with your co-founder, on your real decisions"
 - Filed participant stories = testimonials + calibration data + content flywheel
 
@@ -132,18 +133,25 @@ Compresses the full Clarity Letter acquisition sequence into one 90-120 min sess
 
 ### Before/After Comfort Score
 
-Measure at workshop OPEN and CLOSE:
+Measure at workshop OPEN and CLOSE. Two questions — record both:
+
+**(1) Personal comfort — existing metric:**
 
 > **"How comfortable are you asking someone to paraphrase when you disagree?"** (0-10 scale)
 
-Ask verbally, hands up or written. Record both numbers.
+**(2) Leadership accountability — new primary metric (2026-04-11):**
 
-**Why:** The delta IS the product proof. If someone moves from 3→7, they experienced the norm inversion. The group seeing its own aggregate delta creates common knowledge that verification works — not just individual conviction.
+> **"How comfortable are you with a leader refusing a paraphrasing request without giving a reason?"** (0-10 scale, reverse-scored — low comfort = high accountability norm)
+
+Ask verbally, hands up or written. Record all four numbers per participant (two questions × open/close).
+
+**Why question 2 is the stronger signal:** Question 1 measures personal skill — whether the participant feels more willing to request verification. Question 2 measures an institutional norm shift — whether the participant's standard for leadership legitimacy changed. The second delta is what propagates: a participant who now treats unexplained refusal as suspect will apply that standard to every authority relationship, not just conversations they personally lead. We're measuring "did people's standards for leadership accountability change in 90 minutes" — a norm shift, not a comfort shift. Connects directly to the Locke-to-Ladischenski thesis: consent without verified comprehension is theater, and refusal-without-reason is the observable signature.
 
 **How to use the data:**
-- Report the average delta as workshop outcome ("participants moved from X to Y on comfort with requesting paraphrase")
-- Individual deltas predict who will bring the protocol home (high delta = flip happened)
-- If delta is near zero after 3 workshops → H-WorkshopFormat is in trouble
+- Report both aggregate deltas as workshop outcome
+- Question 2 delta predicts institutional-norm propagation; question 1 delta predicts personal practice adoption
+- If question 2 delta is near zero after 3 workshops → the flip isn't crossing from personal skill to norm shift; P653/P606 need rework
+- Track both longitudinally per participant — position-flip durability is an open question (see [hypotheses.md](hypotheses.md) H-WorkshopFormat)
 
 ### Anxiety Reduction Score (Intrinsic Motivation Generator)
 
@@ -172,17 +180,48 @@ Ask verbally or written. Record the number.
 
 ---
 
-## Workshop Pricing (2026-04-02)
+## Workshop Pricing (2026-04-11)
 
-**Standard (outside Thailand):** €50 entry + voluntary time donation (0-10 hours) post-event.
+**Value-anchored three-track pay-what-it's-worth.** Supersedes the earlier €50-entry model. Extends the dual-currency model from `lean-canvas.md:129` — this is its operational form.
 
-- Money filters seriousness at entry. Time measures value at exit.
-- "Someone who says '6 hours' after 90 minutes is a stronger signal than any review."
-- Time donations are volunteering for ClarityPledge (content creation, translation, community building, testing).
+### Anchor the value (before + close)
 
-**Thailand (DTV constraint):** Free + voluntary time donation only (no monetary charge). See legal notes in goals.md.
+State the anchor explicitly at the start and once more at close, before the form:
+> "I believe this experience is worth [€X] — here's why: [comparable category, concrete outcomes, my cost]."
 
-**Separate from:** €950 de-risking package and FCO retainers (those are ladischenski.com services, not workshop pricing).
+The anchor is borrowed legitimacy. Name a comparable category (founder workshops €300–800, NVC trainings €150–400) until you have your own reference class. Without an anchor, pay-what-it's-worth collapses to "free."
+
+### The form IS the instrument
+
+Payment choice happens through a **private post-event form**, not an open conversation. The form does triple duty: it captures feedback, surfaces self-assessed value, and offers the track choice — all in the same interaction.
+
+**Why private:** A public conversation about value creates social pressure toward paying. A private form with Track 3 framed as "the most valuable contribution to me" inverts the pressure and makes an honest no genuinely selectable.
+
+**Form order (walks the attendee to their own answer):**
+1. **What landed** — 3 specific moments or insights from the session
+2. **What didn't land** — 3 specific items (required; vague politeness is not feedback)
+3. **Self-assessed value** — "What is this experience worth to you?" (number, rough is fine)
+4. **Track selection** — offered only after the attendee has answered the value question, so the choice follows from their own number
+
+### Tracks
+
+**Track 1 — Contribution + testimonial.** Cash, equity, or time donation to ClarityPledge (emerging nonprofit). Pay what it's worth to them. Time donations are concrete work (content creation, translation, community building, testing), not vapor. Testimonial expected alongside.
+
+**Track 2 — Invited.** For those who valued the experience but face real scarcity. No debt, no testimonial required. The seat is a gift. Optional soft ask: "pay it forward — send one person to the next event." Converts scarcity-case attendees into distribution without charging them.
+
+**Track 3 — Critical feedback only.** For those who did NOT find it worth the anchored value. The form already captured the feedback; no further payment. **Explicitly framed as the highest-value contribution for learning velocity — elevate it, never apologize for it.** Track 3 attendees are the only ones producing falsification signal; the model depends on them choosing it honestly.
+
+### Facilitator rules
+
+- **Do:** Name the anchor out loud, twice. State that Track 3 is the most valuable to you. Send the form privately (Google Form link, not open discussion).
+- **Don't:** Skip the anchor. Apologize for the ask. Pressure anyone toward a track. Accept vague "it was great" feedback in Track 3 — the contract is 3 specific items.
+- **Don't:** Confuse Track 2 (scarcity, no payment) with Track 3 (no value received). They serve different purposes and must not merge.
+
+### Regional exceptions
+
+**Thailand (DTV constraint):** Track 1 cash replaced by time-donation-only. Tracks 2 and 3 unchanged. Legal notes in goals.md.
+
+**Separate from:** ladischenski.com services (€950 de-risking, FCO retainers) have fixed pricing — they are not workshops. Workshop pricing is three-track; coaching services are fixed.
 
 ---
 

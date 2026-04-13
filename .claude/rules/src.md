@@ -64,6 +64,16 @@ const { data } = await supabase.from('profiles').select('*, witnesses(*)');
 - Never put dates in comments or documentation — use relative terms ("current", "recent")
 - Routes use `slug` (e.g., `/p/john-doe`), not UUID — use `getProfileBySlug()` for route params
 
+## Replacing or Removing Exported Functions
+
+Before replacing or removing any exported function: **grep all callers first**, then write the replacement.
+
+```bash
+grep -r "functionName" src/ --include="*.ts" --include="*.tsx"
+```
+
+Correct sequence: search → understand full impact → implement → update all call sites in the same commit. Writing the replacement before grepping silently breaks callers you didn't know existed.
+
 ## Navigation Pattern — Browse vs Focus Pages
 
 New pages must declare their type:

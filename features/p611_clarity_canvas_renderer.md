@@ -1,5 +1,5 @@
 ---
-status: week
+status: backlog
 type: story
 rank: 5
 tags:
@@ -9,7 +9,7 @@ tags:
   - ikigai
   - parallel
 created_date: 2026-03-30T00:00:00.000Z
-locked_at: '2026-04-03T13:49:30.213Z'
+locked_at: '2026-04-07T11:25:08.514Z'
 ---
 
 # P611: Clarity Canvas — File Content + Build Renderer

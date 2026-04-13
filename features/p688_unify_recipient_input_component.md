@@ -1,11 +1,14 @@
 ---
-status: qa
+status: week
 type: task
 rank: 1000688.0
 created_date: '2026-04-11'
 tags: [letters, refactor, recipients, unification]
-delivery_stage: verify
-pipeline_ran: [create-spec, ux, dev, verify]
+delivery_stage: generate-tests
+pipeline_ran: [create-spec, ux, generate-tests]
+test_files:
+  - e2e/p688-add-recipient-flow.spec.ts
+  - e2e/p688-seal-confirmation-invite.spec.ts
 ---
 
 # P688: Unify Recipient Input via RecipientRow
@@ -93,24 +96,24 @@ The compose flow already uses `RecipientRow`. Its behavior must be byte-identica
 
 ## Done-When
 
-- [x] Sent tab → "Add recipient(s)" opens a dialog that uses `RecipientRow` (email + name fields, debounced lookup, name-lock on match).
-- [x] Sent tab can add multiple recipients at once via "+ Add another person".
-- [x] Each row in add-recipient mode fires `addRecipientToSealed()` on submit; success toast summarizes the batch.
-- [x] `LetterSealConfirmation` no longer contains an inline `<input>` for email invite — it opens `LetterReceiverModal` instead.
-- [x] `LetterSealConfirmation` visual hierarchy: shareable link is the most prominent element, "Back to Doc" is the primary button, "+ Also invite" is a text-link secondary action.
-- [x] `letter-receiver-modal.tsx` has exactly one recipient-entry code path (the `RecipientRow`-based one). Old flat state and old single-recipient JSX are deleted.
-- [x] P682 E2E suite (`e2e/p682-letter-multi-recipient.spec.ts`, `e2e/p682-smoke.spec.ts`) passes unchanged.
-- [x] New or updated E2E coverage asserts: (a) Sent tab multi-recipient add flow end-to-end, (b) seal confirmation invite via modal end-to-end, (c) partial-failure batch error reporting.
-- [x] Manual verification on private doc compose flow: behavior unchanged from P682.
+- [ ] Sent tab → "Add recipient(s)" opens a dialog that uses `RecipientRow` (email + name fields, debounced lookup, name-lock on match).
+- [ ] Sent tab can add multiple recipients at once via "+ Add another person".
+- [ ] Each row in add-recipient mode fires `addRecipientToSealed()` on submit; success toast summarizes the batch.
+- [ ] `LetterSealConfirmation` no longer contains an inline `<input>` for email invite — it opens `LetterReceiverModal` instead.
+- [ ] `LetterSealConfirmation` visual hierarchy: shareable link is the most prominent element, "Back to Doc" is the primary button, "+ Also invite" is a text-link secondary action.
+- [ ] `letter-receiver-modal.tsx` has exactly one recipient-entry code path (the `RecipientRow`-based one). Old flat state and old single-recipient JSX are deleted.
+- [ ] P682 E2E suite (`e2e/p682-letter-multi-recipient.spec.ts`, `e2e/p682-smoke.spec.ts`) passes unchanged.
+- [ ] New or updated E2E coverage asserts: (a) Sent tab multi-recipient add flow end-to-end, (b) seal confirmation invite via modal end-to-end, (c) partial-failure batch error reporting.
+- [ ] Manual verification on private doc compose flow: behavior unchanged from P682.
 
 ## Acceptance Criteria
 
-- [x] One canonical recipient input component (`RecipientRow`) used across compose, add-recipient, and seal-confirmation invite flows.
-- [x] Users can enter both email AND full name (with lookup) in every place where they invite a letter recipient — no exceptions.
-- [x] Sent tab "Add recipient(s)" supports adding multiple recipients in one dialog submission.
-- [x] Seal confirmation shareable link is visually primary; "Back to Doc" is the primary button.
-- [x] No regression in private-doc compose flow (P682).
-- [x] Code diff shows net deletion of duplicated recipient-entry logic.
+- [ ] One canonical recipient input component (`RecipientRow`) used across compose, add-recipient, and seal-confirmation invite flows.
+- [ ] Users can enter both email AND full name (with lookup) in every place where they invite a letter recipient — no exceptions.
+- [ ] Sent tab "Add recipient(s)" supports adding multiple recipients in one dialog submission.
+- [ ] Seal confirmation shareable link is visually primary; "Back to Doc" is the primary button.
+- [ ] No regression in private-doc compose flow (P682).
+- [ ] Code diff shows net deletion of duplicated recipient-entry logic.
 
 ## UX Design
 
@@ -337,6 +340,48 @@ Per-screen specification, since both screens have interaction patterns that go b
 - `src/app/components/letters/letter-seal-confirmation.tsx` — delete inline invite form and its state; add `LetterReceiverModal` in add-recipient mode triggered by the "+ Also invite" link; rework visual hierarchy for link/primary-button prominence.
 - `e2e/*.spec.ts` — new or updated E2E tests for the two new call sites; P682 suite unchanged.
 
+## Test Coverage Strategy
+
+**Files generated** (in w2 / feature/letters-ship):
+
+| File | Tests | Purpose |
+|------|-------|---------|
+| `e2e/p688-add-recipient-flow.spec.ts` | 9 | Sent tab multi-recipient add flow — RecipientRow structure, submit label plurality, lookup hints, footer copy, all-fail path via route intercept |
+| `e2e/p688-seal-confirmation-invite.spec.ts` | 7 | Seal confirmation hero link + primary "Back to Doc" + "+ Also invite" opens modal (not inline input); private-doc regression guard |
+| `e2e/p688-smoke.spec.ts` | 3 | /letters + compose + Sent tab boot without console errors |
+
+**Regression guard:** `e2e/p682-letter-multi-recipient.spec.ts` runs unchanged. Any refactor that breaks the P682 compose suite fails `/dev`.
+
+**What's tested:**
+- Sent tab dialog uses `RecipientRow` (email + name, lookup hints, "+ Add another person", plural submit label)
+- Sent tab partial-failure UX (all-fail toast + red hints via RPC intercept)
+- Seal confirmation hero card + primary "Back to Doc" + invite-via-modal opens Dialog (not inline `<input>`)
+- Private-doc seal confirmation has no invite affordance
+- Soft focus return to "+ Also invite" trigger after escape (non-modal pattern, per aa3ecbe6)
+
+**What's NOT tested (rationale):**
+- ❌ **Unit tests** — no new pure functions. RecipientRow logic already covered by P682 unit tests (`src/tests/p682-recipient-validation.test.ts`).
+- ❌ **Integration tests** — no API/DB/RPC changes. Loops existing `addRecipientToSealed` per row client-side.
+- ❌ **Dedicated a11y file** — a11y assertions fold into E2E (escape dismiss, focus return, modal structure). No new interaction patterns.
+- ❌ **Partial-success toast** — only all-fail tested in automation; partial-success ("Sent 2 of 3...") is verified manually during /verify since constructing a deterministic partial-failure at the RPC layer is brittle.
+- ❌ **Visual hierarchy weight** (hero card size, primary button prominence) — manual /verify with screenshots against `/session` "Share your agreement" reference.
+
+**Test pyramid:**
+```
+     /\
+    /  \
+   /____\      19 E2E tests
+  /      \     (9 + 7 + 3)
+ /________\
+```
+
+**Total:** 19 automated E2E tests. Estimated run time: ~60s.
+
+**Known spec-to-test gaps to resolve in /dev:**
+1. Seal-confirmation route — tests use `/letter/:docId/seal-done?letterId=:letterId`; actual route is whatever `/dev` wires up (currently rendered inside compose flow state). Tests will fail until the route matches.
+2. `/dev` must emit the all-fail toast string verbatim: "No invitations sent. Check errors and try again." (spec line 132).
+3. `/dev` must change "Back to Doc" from `variant="outline"` to primary blue (`letter-seal-confirmation.tsx` line 150).
+
 ## Next Steps
 
-Run `/generate-tests` to lock the refactor behavior before implementation. The P682 E2E suite must remain the regression guard; new tests cover Sent tab multi-recipient add, seal-confirmation invite-via-modal, and partial-failure toast behavior.
+Run `/spec-review` next (auto-chained by /generate-tests but not executed — run manually), then `/dev features/p688_unify_recipient_input_component.md` in the w2 worktree to implement.

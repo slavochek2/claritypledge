@@ -92,7 +92,7 @@ Professionals who need a comprehension measurement tool — something DISC/MBTI/
 | Civic dialogue orgs (Braver Angels, etc.) | EXPLORE | $2B+ market. They know the problem; they lack measurement. Grant-fundable. |
 | Investor DD (pre-investment calibration) | PARKED | Investors lack team alignment signal. Pull, not push — let it emerge. See H-InvestorDD. |
 | AI alignment researchers | PARKED | Needs session data corpus. Revisit after 10+ case studies. |
-| Personal AI / digital twins | PARKED | Calibration as infrastructure for AI agent alignment. |
+| AI builders / agent memory verification | PARKED | AI agent memory systems store unverified assertions at scale. Epistemic verification layer (tag, challenge, falsify via clarity letters) for agent memory. "Alignment between humans is prerequisite for alignment between humans and AI." Human protocol is the trust layer; badges prove verification works on humans, making agent verification credible. Test: article-as-demand-test (see H-AgentEpistemics). |
 | Embeddable protocol (browser extension) | EXPLORED (P559) | Blocked by H-WTP-Pain + P523 validation. |
 
 ---
@@ -109,11 +109,15 @@ Open-source, free, community-driven. A practice, not a SaaS — like NVC or Vipa
 
 **Viral hook (2026-04-06):** "Experience the clarity gap." Three words for the entire growth strategy — everything else is explanation. The adversarial framing ("clarity threatens exploiters") tested and rejected: it makes distribution gatekeepers into enemies. The experience framing works because it asks nothing of the sharer except honesty. The Conjecture Events strategy, workshop gap reveals, and sealed-bid scores are all implementations of this single hook.
 
+**Pitch hook — one question (2026-04-08):** "How do you know you understood someone — if they don't know you did?" 13 words. The paradox is immediate: understanding without confirmation isn't verified understanding. Sits above the universal positioning copy as the 3-second entry point — the copy (in [facilitator-guide.md](facilitator-guide.md)) is the expanded version. Untested live — validate in next workshop before replacing existing copy.
+
 **Anxiety mechanism (2026-04-02):** The invisible gap produces chronic low-grade anxiety: two beliefs that contradict each other ("we're aligned" + "something's off") with no way to check which is true. Contradictions you can't see produce anxiety; contradictions you CAN see become choices. The protocol makes contradictions visible — that's why participants feel relief, not pain. The anxiety existed before; the session resolves it. Research basis: approach-avoidance conflict (Lewin/Miller 1935/1944), self-concept clarity (Campbell), ACT values clarification. Applies to decisional/existential anxiety, not all anxiety.
 
 **Meta-protocol framing (2026-03-27):** ClarityPledge is not a universal epistemology — it's a meta-protocol that sits underneath any epistemology valuing comprehension. A Christian and an atheist can disagree about God while both accepting: "before we debate, let's verify we understood each other's actual position." The protocol doesn't produce agreement — it increases the resolution of disagreement until what remains is either genuinely irreconcilable (and small) or clearly testable (and solvable). "Accurate disagreement" is the bridge, not consensus.
 
 **Illusion of common knowledge — addition to Pinker (2026-03-28):** Pinker identifies two epistemic states: shared knowledge and common knowledge. ClarityPledge's core theoretical contribution is a third state: the *illusion of common knowledge* — both parties believe they have common knowledge but don't. This is the default state of natural language comprehension. Pinker's examples of failed common knowledge are about *absence* (information never made public). Ours are about *illusion* (information exchanged, comprehension believed, but wrong). The instrument detects the illusion and transitions it to verified common knowledge. Four states: private → falsely common → shared → common. Literature: hindsight bias erases the evidence of change (Fischhoff), illusion of explanatory depth exposed by explanation attempts (Rozenblit & Keil 2002), extreme illusion of understanding — both wrongly believe communication succeeded and neither seeks correction (Lau et al. 2022).
+
+**Curse of knowledge vs. illusion of common knowledge (2026-04-08):** Preemptive distinction for the #1 objection ("isn't this just the curse of knowledge?"). Curse of knowledge (Camerer, Loewenstein, Weber 1989) = individual cognitive bias — I can't simulate your ignorance. Illusion of common knowledge (ClarityPledge term) = group-level epistemic failure — I believe we mutually know X, but that recursive structure hasn't been verified. The curse is one *cause* of the illusion, but so are politeness norms, time pressure, assumed context, and power dynamics. Critical difference: the curse is deep in cognition (hard to fix); the illusion is puncturable by verification (that's the product).
 
 ### Coaching *(ladischenski.com)*
 
@@ -125,7 +129,7 @@ The only alignment assessment that produces a number, not a feeling. Combines li
 
 **Identity (2026-03-28):** Independent applied epistemologist building instrumentation for false belief detection between humans. Not a startup founder, not an academic, not a coach — the person who builds the measurement instrument AND is the first practitioner who wields it. ladischenski.com is the R&D lab that funds and validates ClarityPledge: every paid session generates revenue, protocol refinements, and case studies. Discipline label stack: Title = Fractional Chief Clarity Officer; short = applied epistemology; precise = applied intersubjective metacognitive epistemology. One-liner: "I build instruments that detect false beliefs about whether people understand each other."
 
-**Dual-currency model (2026-03-29):** Payment can be monetary OR operational — running the protocol with others multiplies the work. Qualification-based: "tell me about your problem, and if I find it compelling, I invest my time." Replaces fixed pricing with a Work With Me funnel. Untested — needs validation alongside H-WTP-Pain.
+**Dual-currency model (2026-03-29, extended 2026-04-11):** Payment can be monetary OR operational — running the protocol with others multiplies the work. Qualification-based: "tell me about your problem, and if I find it compelling, I invest my time." Replaces fixed pricing with a Work With Me funnel. **Evolved 2026-04-11 into value-anchored three-track pay-what-it's-worth for workshops** — (1) contribution + testimonial (cash, equity, or time to ClarityPledge), (2) invited (scarcity, no debt), (3) critical feedback only (explicitly elevated as highest-value for learning velocity). Private post-event form is the instrument; it inverts the social pressure that otherwise collapses pay-what-it's-worth to Track 1. Operational form in [facilitator-guide.md](facilitator-guide.md#workshop-pricing). Untested — feeds H-WTP-Pain and H-WorkshopFormat directly.
 
 **Universal positioning copy (current version, 2026-04-02):** "Every person, including you, has a need to be understood. And almost no one gets enough of it — especially from the people who disagree with them. / We crave honesty in relationships that matter to us. But when people share honestly and are rarely understood the way they mean it, they stop sharing. Not because they lose courage. Because honesty without verification of understanding collapses from the inside. / What's left is a quiet anxiety you can't name — two contradictory beliefs with no way to check which one is true. The gap between what you meant and what others understood is often invisible to both sides. No one discovers it. No one sees a reason to measure understanding. / But how do you verify whether you truly understood — in the way they mean it? How do you prove it to them? And how do you empower those you care about — and those you depend on — to understand you, even when you have strong disagreements? / Come witness how verification of understanding becomes a new social norm. And discover what changes once the meanings you carry are finally given the care they deserve." — Evolved through 8+ iterations (2026-04-01) + anxiety mechanism research (2026-04-02). Three escalating questions (verify → prove → empower). Anxiety line names the felt symptom. Open to evidence-based revision — shipped, test before changing. Full version in [facilitator-guide.md](facilitator-guide.md).
 
@@ -150,15 +154,28 @@ A **practice system for calibrated communication** — evolving toward **Stories
 **Current:** Slava-facilitated calibration sessions using /live as diagnostic tool. Pairs don't need to learn the tool.
 **Next:** Progressive automation — transcript pipeline → AI gap detection → mirror agents.
 
+**Primary instrument framing (2026-04-11):** The Clarity Letter is the primary scale unit. The public letter is the product; the workshop proves the concept but does not scale — it produces position shifts in the room, and the conversion breaks *after* the room. The letter carries the full instrument (stories + points + anti-points + comprehension gate + position capture + badge issuance) into any setting without a facilitator present. A reader completes the letter, earns a badge, and the instrument replicates. Workshop is one deployment mode of the letter, not its successor. "Product works in the room; conversion breaks after the room — the letter closes that gap." See H-LetterAsProduct in [hypotheses.md](hypotheses.md).
+
 ### 0. Stories & Points Curriculum (Prerequisite)
 Your calibration content: three types of understanding, sender-receiver asymmetries, implications. This IS the workshop material and the demo simultaneously. When the room miscalibrates on your claims, the product sells itself. Filed content tested live, not perfected in isolation.
 
 **Triple-duty instrument (2026-03-26):** The 7 points serve simultaneously as: (a) theoretical foundation, (b) test content for the qualification pitch — "Here are 7 claims, rate them, verify you understood, look at the gaps," (c) behavioral assay for trust — engagement with the protocol on your content IS the trust filter. The test is the product; the qualification is the onboarding. No custom discovery needed for the first screen.
 
-### 1. The Pledge (Brand & Identity)
-A social contract that makes verification acceptable:
+### 1. Badge + Pledge (Adoption & Identity)
+
+**Badge (low-friction, propagation unit):** Earned by demonstrating comprehension of the protocol — read a Clarity Letter, get verified in /live, receive the badge. Badge = "I demonstrated I understand verified understanding." Binary, can't be revoked. Every badge holder can verify others, creating a trackable directed graph (who verified whom, chain length, verifier quality scores from spot-checks). The badge can't spread without the protocol spreading — every new badge requires at least one verification loop.
+
+**Pledge (optional commitment):** For people who, having earned the badge, also want to commit to ongoing practice:
 > **YOUR RIGHT:** Ask me to explain back what I understood.
 > **MY PROMISE:** I'll explain without judgment so you can confirm or correct.
+
+**Practical path:** Read any Clarity Letter → verified in /live → badged → share the SAME letter with someone else → verify their comprehension → they're badged, you're a recorded verifier → optional: create your OWN letter (Level 2: become a source, not just a verifier). No one needs to create their own letter to badge others.
+
+**Verification chain metrics:** Chain length (generations from origin), verifier quality score (% of verifiees who pass spot-checks), R₀ of clarity (does each badged person badge >1 others?). The graph IS the proof that recursive clarity propagation works.
+
+**Design principle (2026-04-06):** Badge is proof of practice (earned, not owed). Pledge is optional commitment. Badge spreads fast (low friction); Pledge spreads slower (real commitment). Measure both separately — comprehension propagation rate vs. practice adoption rate.
+
+**Structural symmetry (2026-04-11):** The badge-gates-pledge ordering mirrors the product's core insight. Pledge without badge = commitment to something you haven't demonstrated you understand — structurally identical to the illusion of common knowledge (both parties believe shared comprehension exists; neither has verified it). Pledge without badge IS false agreement about the act of agreeing. Enforcing badge-first is not a UX choice — it's the protocol applied to its own adoption ritual.
 
 ### 2. /live — Real-time Verification (Core Product)
 The core interaction, used in **any meeting** — team standup, 1:1, board meeting, workshop:
@@ -213,18 +230,22 @@ Track accuracy over time. Public credential for professional reputation. Behavio
 
 ## Channels & Flywheel
 
-**Primary flywheel (2026-03-29):**
+**Primary flywheel (2026-04-11, letter-as-product):**
 ```
-Workshop / Clarity Letter (P581)
-    → Participant experiences gap → brings it to their real relationship
-    → Partner Agreement with co-founder/partner (PRIMARY conversion action)
+Public Clarity Letter (P581 + P683/P684)
+    → Reader completes letter → experiences gap → badge earned
+    → Shares same letter with someone in a real relationship
+    → Verifies their comprehension → new badge → verifier graph grows
+    → Optional deep-dive: workshop / Partner Agreement / facilitated session
     → Practice in real relationship → stories filed (testimonials + data)
     → Support group for practitioners (P603) → accountability + new pairs
-    → Blog article from real experiences → Distribution (LinkedIn, communities)
-    → New pairs discover workshop/letter → Flywheel
+    → Blog articles from real experiences → Distribution (LinkedIn, communities)
+    → New readers discover the letter → Flywheel
 ```
 
-**Key learning (2026-03-29):** Partner Agreement (not Pledge) is the natural conversion. Agreement only works with existing high-stakes relationships — not strangers. Events demonstrate; conversion happens when participant brings it home. The Clarity Letter is the async vehicle. Pledge is currently decorative (11 pledgers, zero practice habits) — may become graduation milestone later (P604).
+**Supersedes (2026-04-11):** The earlier workshop-anchored flywheel (2026-03-29). Workshops remain a high-intensity deployment mode, but the letter is the scale unit — a workshop can only reach the people in a room; a letter can reach anyone it's forwarded to. Key learning: "the product works in the room; conversion breaks after the room." The letter closes that gap because it IS the in-room experience, reduced to an async instrument. See H-LetterAsProduct.
+
+**Key learning carried forward (2026-03-29):** Partner Agreement remains the natural high-intensity conversion. Agreement only works with existing high-stakes relationships — not strangers. Letters demonstrate; conversion happens when a reader brings it into a real relationship. Pledge is currently decorative (11 pledgers, zero practice habits); badge is the propagation unit.
 
 **Three-letter workshop compression (2026-03-24):**
 Workshop sessions can compress the full Clarity Letter sequence (P581) into one sitting:

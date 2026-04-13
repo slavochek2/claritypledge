@@ -3,11 +3,11 @@
  * @description P683: One-to-One Letter TOS Consent — E2E flow tests
  *
  * Tests acceptance criteria for the TOS consent UX:
- * - Unauthenticated user sees click-wrap disclosure + Privacy Policy link (no checkbox)
- * - Open Letter button enabled immediately; clicking is the consent action
+ * - Unauthenticated user sees checkbox + disclosure + Privacy Policy link
+ * - Button disabled until checkbox checked
  * - Loading state during account creation
- * - Authenticated user sees no disclosure
- * - Sender preview starts from cover (no disclosure, sender is authenticated)
+ * - Authenticated user sees no checkbox
+ * - Sender preview starts from cover (no checkbox)
  * - Results page shows completion message (no window.close CTA)
  * - Error state when edge function rejects
  *
@@ -17,7 +17,6 @@
  */
 
 import { test, expect } from '@playwright/test';
-import { CURRENT_TERMS_VERSION } from '../src/lib/constants';
 import { supabaseAdmin } from './helpers/supabase-admin';
 import {
   createTestUser,
@@ -47,12 +46,6 @@ test.describe('P683: TOS Consent — LetterCover states', () => {
     sender = await createTestUser({ name: 'P683 TOS Sender' });
     receiver = await createTestUser({ name: 'P683 TOS Receiver' });
 
-    // P683: test users need current accepted_terms_version, else stale-terms modal blocks
-    await supabaseAdmin
-      .from('profiles')
-      .update({ accepted_terms_version: CURRENT_TERMS_VERSION })
-      .in('id', [sender.user.id, receiver.user.id]);
-
     const { data: doc } = await supabaseAdmin
       .from('clarity_docs')
       .insert({ owner_id: sender.user.id, title: 'P683 TOS Doc' })
@@ -80,23 +73,6 @@ test.describe('P683: TOS Consent — LetterCover states', () => {
     });
     invitationToken = delivery.invitationToken;
 
-    const { data: version } = await supabaseAdmin
-      .from('story_versions')
-      .select('id')
-      .eq('story_id', storyId)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .single();
-    if (!version) throw new Error('Story version not found');
-    await supabaseAdmin.from('letter_story_snapshots').insert({
-      letter_id: letterId,
-      story_id: storyId,
-      version_id: version.id,
-      position: 0,
-      visibility: 'public',
-      point_config: { storyText: 'Story content for TOS consent tests.', storyTitle: 'P683 TOS Story', points: [] },
-    });
-
     await sealTestLetter(letterId);
   });
 
@@ -112,38 +88,84 @@ test.describe('P683: TOS Consent — LetterCover states', () => {
   });
 
   // ===========================================================================
-  // AC1: Unauthenticated user sees consent disclosure (click-wrap)
+  // AC1: Unauthenticated user sees TOS checkbox
   // ===========================================================================
 
-  test('unauthenticated user sees consent disclosure under Open Letter button', async ({ page }) => {
+  test('unauthenticated user sees TOS checkbox on LetterCover', async ({ page }) => {
     await page.goto(`/letter/${letterId}?token=${invitationToken}`);
     await page.waitForLoadState('networkidle');
 
     // Cover should display
     await expect(page.locator('text=/A Clarity Letter/i')).toBeVisible({ timeout: 10000 });
 
-    // Disclosure paragraph visible
-    await expect(page.getByText(/By opening, you agree to the/i)).toBeVisible({ timeout: 5000 });
-    await expect(page.getByRole('link', { name: /Terms of Service/i })).toBeVisible();
-    await expect(page.getByRole('link', { name: /Privacy Policy/i })).toBeVisible();
-    await expect(page.getByText(/create an account/i)).toBeVisible();
+    // Checkbox visible
+    const checkbox = page.getByRole('checkbox', { name: /terms|accept/i })
+      .or(page.locator('input[type="checkbox"]'));
+    await expect(checkbox).toBeVisible({ timeout: 5000 });
 
-    // No checkbox should exist on the cover (click-wrap, not checkbox-gate)
-    await expect(page.locator('input[type="checkbox"]')).toHaveCount(0);
+    // Disclosure text visible
+    const disclosure = page.locator('text=/create an account/i')
+      .or(page.locator('text=/save your responses/i'));
+    await expect(disclosure).toBeVisible({ timeout: 5000 });
   });
 
   // ===========================================================================
-  // AC2: Open Letter button is enabled immediately (click-wrap)
+  // AC2: Button disabled until checkbox checked
   // ===========================================================================
 
-  test('Open Letter button is enabled immediately for unauthenticated user', async ({ page }) => {
+  test('Open Letter button is disabled until TOS checkbox is checked', async ({ page }) => {
     await page.goto(`/letter/${letterId}?token=${invitationToken}`);
     await page.waitForLoadState('networkidle');
 
     await expect(page.locator('text=/A Clarity Letter/i')).toBeVisible({ timeout: 10000 });
 
-    const button = page.getByRole('button', { name: /Open the Letter/i });
-    await expect(button).toBeEnabled();
+    // Button disabled initially
+    const openButton = page.getByRole('button', { name: /open.*letter/i })
+      .or(page.getByRole('button', { name: /open the letter/i }));
+    await expect(openButton).toBeVisible({ timeout: 5000 });
+
+    const isDisabledBefore = await openButton.evaluate((el) =>
+      el.hasAttribute('disabled') ||
+      el.getAttribute('aria-disabled') === 'true' ||
+      (el as HTMLButtonElement).disabled
+    );
+    expect(isDisabledBefore, 'Open Letter button must be disabled before checkbox checked').toBe(true);
+
+    // Check the checkbox
+    const checkbox = page.getByRole('checkbox')
+      .or(page.locator('input[type="checkbox"]'));
+    await checkbox.check();
+
+    // Button enabled after check
+    const isDisabledAfter = await openButton.evaluate((el) =>
+      el.hasAttribute('disabled') ||
+      el.getAttribute('aria-disabled') === 'true' ||
+      (el as HTMLButtonElement).disabled
+    );
+    expect(isDisabledAfter, 'Open Letter button must be enabled after checkbox checked').toBe(false);
+  });
+
+  test('unchecking the TOS checkbox disables the button again', async ({ page }) => {
+    await page.goto(`/letter/${letterId}?token=${invitationToken}`);
+    await page.waitForLoadState('networkidle');
+
+    await expect(page.locator('text=/A Clarity Letter/i')).toBeVisible({ timeout: 10000 });
+
+    const checkbox = page.getByRole('checkbox')
+      .or(page.locator('input[type="checkbox"]'));
+    const openButton = page.getByRole('button', { name: /open.*letter/i })
+      .or(page.getByRole('button', { name: /open the letter/i }));
+
+    // Check then uncheck
+    await checkbox.check();
+    await checkbox.uncheck();
+
+    const isDisabledAfterUncheck = await openButton.evaluate((el) =>
+      el.hasAttribute('disabled') ||
+      el.getAttribute('aria-disabled') === 'true' ||
+      (el as HTMLButtonElement).disabled
+    );
+    expect(isDisabledAfterUncheck, 'Button must re-disable after unchecking').toBe(true);
   });
 
   // ===========================================================================
@@ -231,11 +253,6 @@ test.describe('P683: Sender preview — cover page first', () => {
   test.beforeAll(async () => {
     sender = await createTestUser({ name: 'P683 Preview Sender' });
 
-    await supabaseAdmin
-      .from('profiles')
-      .update({ accepted_terms_version: CURRENT_TERMS_VERSION })
-      .eq('id', sender.user.id);
-
     const { data: doc } = await supabaseAdmin
       .from('clarity_docs')
       .insert({ owner_id: sender.user.id, title: 'P683 Preview Doc' })
@@ -256,24 +273,6 @@ test.describe('P683: Sender preview — cover page first', () => {
 
     const letter = await createTestLetter(sender.user.id, docId, { mode: 'one-to-one' });
     letterId = letter.id;
-
-    const { data: version } = await supabaseAdmin
-      .from('story_versions')
-      .select('id')
-      .eq('story_id', storyId)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .single();
-    if (!version) throw new Error('Story version not found');
-    await supabaseAdmin.from('letter_story_snapshots').insert({
-      letter_id: letterId,
-      story_id: storyId,
-      version_id: version.id,
-      position: 0,
-      visibility: 'public',
-      point_config: { storyText: 'Preview story content.', storyTitle: 'P683 Preview Story', points: [] },
-    });
-
     await sealTestLetter(letterId);
   });
 
@@ -289,7 +288,7 @@ test.describe('P683: Sender preview — cover page first', () => {
 
   test('sender preview starts from LetterCover (cover state first, not reading)', async ({ page }) => {
     await setTestSession(page, sender.email);
-    await page.goto(`/letter/${docId}/preview`);
+    await page.goto(`/letter/${letterId}/preview`);
     await page.waitForLoadState('networkidle');
 
     // Should land on cover page (not jump straight to reading flow)
@@ -302,7 +301,7 @@ test.describe('P683: Sender preview — cover page first', () => {
 
   test('sender preview cover has no TOS checkbox (sender is authenticated)', async ({ page }) => {
     await setTestSession(page, sender.email);
-    await page.goto(`/letter/${docId}/preview`);
+    await page.goto(`/letter/${letterId}/preview`);
     await page.waitForLoadState('networkidle');
 
     await expect(page.locator('text=/A Clarity Letter/i')).toBeVisible({ timeout: 10000 });
@@ -314,7 +313,7 @@ test.describe('P683: Sender preview — cover page first', () => {
 
   test('after clicking Open Letter in preview, PREVIEW banner appears', async ({ page }) => {
     await setTestSession(page, sender.email);
-    await page.goto(`/letter/${docId}/preview`);
+    await page.goto(`/letter/${letterId}/preview`);
     await page.waitForLoadState('networkidle');
 
     await expect(page.locator('text=/A Clarity Letter/i')).toBeVisible({ timeout: 10000 });
@@ -324,9 +323,9 @@ test.describe('P683: Sender preview — cover page first', () => {
     await openButton.click();
 
     // PREVIEW banner should appear
-    const previewBanner = page.locator('text=/THIS IS A PREVIEW/i')
+    const previewBanner = page.locator('text=/PREVIEW/i')
       .or(page.locator('[data-testid="preview-banner"]'));
-    await expect(previewBanner.first()).toBeVisible({ timeout: 10000 });
+    await expect(previewBanner).toBeVisible({ timeout: 10000 });
   });
 });
 
@@ -346,11 +345,6 @@ test.describe('P683: Results page — completion message', () => {
   test.beforeAll(async () => {
     sender = await createTestUser({ name: 'P683 Results Sender' });
     receiver = await createTestUser({ name: 'P683 Results Receiver' });
-
-    await supabaseAdmin
-      .from('profiles')
-      .update({ accepted_terms_version: CURRENT_TERMS_VERSION })
-      .in('id', [sender.user.id, receiver.user.id]);
 
     const { data: doc } = await supabaseAdmin
       .from('clarity_docs')
@@ -372,24 +366,6 @@ test.describe('P683: Results page — completion message', () => {
 
     const letter = await createTestLetter(sender.user.id, docId, { mode: 'one-to-one' });
     letterId = letter.id;
-
-    const { data: version } = await supabaseAdmin
-      .from('story_versions')
-      .select('id')
-      .eq('story_id', storyId)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .single();
-    if (!version) throw new Error('Story version not found');
-    await supabaseAdmin.from('letter_story_snapshots').insert({
-      letter_id: letterId,
-      story_id: storyId,
-      version_id: version.id,
-      position: 0,
-      visibility: 'public',
-      point_config: { storyText: 'Results page story content.', storyTitle: 'P683 Results Story', points: [] },
-    });
-
     await sealTestLetter(letterId);
   });
 

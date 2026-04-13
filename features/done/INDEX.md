@@ -1,7 +1,7 @@
 # Done Features Index
 
 Quick reference for past completed work. Consult when starting work on a related topic.
-Last updated: 2026-04-07 (P661 Letter Composition UX Redesign)
+Last updated: 2026-04-13 (P686 Badge step 1 — auto-certification from /live)
 
 ---
 
@@ -12,6 +12,7 @@ Last updated: 2026-04-07 (P661 Letter Composition UX Redesign)
 - **P399** (Feb 26) Live state story race condition — full-overwrite merges carry stale data; use atomic partial `patch_live_state` RPC
 - **P525** (Mar 16) Live state deadlock prevention — two-party coordination fields must use per-role boolean keys (never shared arrays); JSONB `||` merge handles different keys atomically but overwrites same keys; UI reading coordination state must be role-aware (`isCreator` prop); reactive `useEffect` safety net catches simultaneous actions; zero Sentry coverage → full context+breadcrumbs+sanitized capture added
 - **P644** (Apr 04) Two-Party Test Infrastructure — postgres_changes DO propagate across Playwright contexts (false assumption for 5 sessions); `waitForUIUpdate()` replaces `page.reload()`; 16 drift detection gaps surfaced
+- **P679** (Apr 09) Remove Session History from /live — `hasScrollableContent` gates `isCleanIdle`; anything in it suppresses the two-zone layout and hides the story button
 - **P405** (Feb 26) My Sessions History — replace /live history block with global nav Sessions section
 - **P406** (Feb 26) Event Native Session Start — polling-based status updates; one-room-per-creator constraint
 - **P410** (Feb 26) Live Nav Guard — context prevents silent nav away; intercept bottom/top nav clicks with exit-confirm dialog
@@ -29,6 +30,7 @@ Last updated: 2026-04-07 (P661 Letter Composition UX Redesign)
 - **P584** (Mar 24) Session End Screen Redesign — `useBlocker` requires data router (use popstate+pushState); `?debugUpload`/`?debugRounds` params unlock localhost testing of prod-only states; session history only counts non-skipped rounds
 - **P562** (Mar 30) /live Free Mode — sealed bid → paraphrase → unlocked continuous sliders; spec shipped via P600 implementation, closed retroactively
 - **P600** (Mar 30) Free Mode Polish — speaker re-rating `freeRerating` stored separately (not as freeRound); two-zone idle layout prevents button shift; "Open mode" replaces "Free mode"; click-outside dismiss + progressive story picker
+- **P671** (Apr 09) Rating Submission Loop — guest RPC auth guard silently dropped writes (`NULL = NULL` is falsy in PostgreSQL); 4 client-side fix attempts failed because the write never reached the DB; DB query was the diagnostic, not code traces
 - **P609** (Mar 30) Free Mode Slider Sync — `confirmedLiveStateRef` not updated during in-flight Realtime merges; partner slider values overwrote on next optimistic write. Also shipped: P612 header CTA reload, P613 toast top-center, P614 mode switcher prop forwarding
 
 ## Clarity Docs
@@ -80,6 +82,7 @@ Last updated: 2026-04-07 (P661 Letter Composition UX Redesign)
 
 ## Database / RLS / Migrations
 
+- **P677** (Apr 09) Position History Trigger RLS Fix — `SECURITY DEFINER` can be silently stripped by `db push`; never rely on it alone for trigger RLS bypass
 - **P630** (Apr 03) Separate System Tags from User Tags — `system_tags` column isolates feed logic from user hashtags; `protect_system_tags` trigger prevents client mutation; `filterByTags` checks both arrays
 - **P586** (Mar 25) Visibility & Privacy Foundation — `content_visibility` enum, point visibility column, BEFORE triggers for immutability + cross-visibility, 8 tables RLS-hardened, amber=private color system
 - **P403** (Feb 26) Position Cascade DB Migrations — on position delete, trigger auto-unlinks stories and records in history table
@@ -95,6 +98,7 @@ Last updated: 2026-04-07 (P661 Letter Composition UX Redesign)
 
 ## Navigation & Routing
 
+- **P695** (Apr 26) Nav Clicks Ignored During Profile Loading — split monolithic `!sessionChecked || isLoading` skeleton gate into three phases; static routes (Feed/Docs/Events) need no profile data and can render immediately once session is known
 - **P409** (Feb 26) /live Page Router Crash — `useBrouter` must be within data router context; verify router provider wraps all page routes
 - **P76** (Jan 27) Navigation Redirect Fixes — preserve intended destination URL after auth redirect
 - **P115** (Feb 5) Navigation and Data Fixes — correct route params, link semantics, data consistency
@@ -134,6 +138,10 @@ Last updated: 2026-04-07 (P661 Letter Composition UX Redesign)
 - **P93** (Jan 27) Story-Point Display Refactor — consistent position button styles across all card types
 - **P103** (Jan 26) Point Quote Pattern — "Jordan agrees: [Point box]" — separate authorship from relationship in visual hierarchy
 - **P118** (Jan 26) Person Avatar Consolidation — unified avatar component with avatar_color + avatar_url
+
+## Badge & Certification
+
+- **P686** (Apr 13) Badge Step 1 — auto-cert from /live: badge-service interface pattern isolates real/mock; `free_mode_success` triggers certification inline; badge page at `/badge/:userId`; export to PNG via html2canvas; profile ring shows partial progress (N/9)
 
 ## Auth & Verification
 

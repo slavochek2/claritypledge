@@ -11,7 +11,6 @@ test_files:
   - src/tests/p459-agreements-visibility.test.ts
   - e2e/p459-connections-page.spec.ts
   - e2e/a11y/p459-accessibility.spec.ts
-  - e2e/p459-smoke.spec.ts
 locked_at: '2026-02-28T09:35:14.798Z'
 superseded_by: p481
 ---
