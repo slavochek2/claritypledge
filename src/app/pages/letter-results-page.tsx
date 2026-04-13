@@ -154,6 +154,8 @@ export function LetterResultsPage() {
       <StoryWalk
         stories={storyItems}
         perspective={resultsData.perspective}
+        senderProfile={resultsData.senderProfile}
+        receiverProfile={resultsData.receiverProfile}
         senderName={resultsData.senderName}
         receiverName={resultsData.receiverName}
       />

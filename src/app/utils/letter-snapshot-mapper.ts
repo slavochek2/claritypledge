@@ -54,6 +54,7 @@ interface AuthorProfile {
   name: string;
   avatarUrl?: string;
   avatarColor?: string;
+  role?: string;
   earsCount?: number;
   hasPledged?: boolean;
 }
@@ -124,6 +125,7 @@ export function snapshotToStoryWithPoints(
     authorSlug: '',
     authorAvatarUrl: authorProfile.avatarUrl,
     authorAvatarColor: authorProfile.avatarColor,
+    authorRole: authorProfile.role,
     authorEarsCount: authorProfile.earsCount ?? 0,
     authorHasPledged: authorProfile.hasPledged ?? false,
     points: visiblePoints,

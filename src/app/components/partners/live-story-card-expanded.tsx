@@ -30,12 +30,20 @@ interface LiveStoryCardExpandedProps {
   badgePersonName?: string;
   /** Ear count for badgePersonName — shown in badge when host view is active */
   badgePersonEarsCount?: number;
+  /** Avatar URL for badgePersonName — shown when badge person has a profile photo */
+  badgePersonAvatarUrl?: string;
+  /** Avatar color for badgePersonName — used as fallback when no photo */
+  badgePersonAvatarColor?: string;
+  /** Whether badge person has pledged — shows blue ring when true */
+  badgePersonHasPledged?: boolean;
   /** When true, points are expanded on first render — used for partner view so they can vote immediately */
   defaultExpanded?: boolean;
-  /** P661: When true, points auto-expand, PositionButtons hidden, story CTA hidden. Used in letter prediction walk. */
+  /** P661: When true, PositionButtons hidden, story CTA hidden. Does NOT auto-expand (use defaultExpanded for that). Used in letter prediction walk. */
   readOnly?: boolean;
   /** P673: When true, hide the points section entirely (footer trigger + expanded points). Used in letters where points are shown as separate step cards. */
   hidePoints?: boolean;
+  /** Slot rendered inside the card at the bottom — used for "Open Story" link in letter results */
+  footerSlot?: React.ReactNode;
 }
 
 const STORY_THRESHOLD = 100;
@@ -48,17 +56,21 @@ export function LiveStoryCardExpanded({
   className,
   badgePersonName,
   badgePersonEarsCount,
+  badgePersonAvatarUrl,
+  badgePersonAvatarColor,
+  badgePersonHasPledged,
   defaultExpanded = false,
   readOnly = false,
   hidePoints = false,
+  footerSlot,
 }: LiveStoryCardExpandedProps) {
-  const [isExpanded, setIsExpanded] = useState(defaultExpanded || readOnly);
+  const [isExpanded, setIsExpanded] = useState(defaultExpanded);
   const [storyExpanded, setStoryExpanded] = useState(readOnly);
 
   // Reset expand states when the story changes (phase change / story rotation)
   useEffect(() => {
     setStoryExpanded(readOnly);
-    setIsExpanded(defaultExpanded || readOnly);
+    setIsExpanded(defaultExpanded);
   }, [story.id, defaultExpanded, readOnly]);
 
   const strippedContent = stripHashtags(story.content, story.tags);
@@ -127,8 +139,8 @@ export function LiveStoryCardExpanded({
         )}
       </div>
 
-      {/* Footer — "N points" expand trigger (hidden in readOnly — always expanded; hidden when hidePoints) */}
-      {story.points.length > 0 && !readOnly && !hidePoints && (
+      {/* Footer — "N points" expand trigger (hidden when hidePoints) */}
+      {story.points.length > 0 && !hidePoints && (
         <div
           role="presentation"
           className="flex items-center pl-4 sm:pl-[52px] pr-4 py-2.5 border-t border-gray-100"
@@ -165,6 +177,9 @@ export function LiveStoryCardExpanded({
                   onPositionSelect={onPositionSelect}
                   badgePersonName={badgePersonName}
                   badgePersonEarsCount={badgePersonEarsCount}
+                  badgePersonAvatarUrl={badgePersonAvatarUrl}
+                  badgePersonAvatarColor={badgePersonAvatarColor}
+                  badgePersonHasPledged={badgePersonHasPledged}
                   isOwnStory={isOwnStory}
                   isGuest={isGuest}
                   readOnly={readOnly}
@@ -172,6 +187,12 @@ export function LiveStoryCardExpanded({
               </ThreadLineItem>
             ))}
           </ThreadLineGroup>
+        </div>
+      )}
+
+      {footerSlot && (
+        <div className="border-t border-gray-100">
+          {footerSlot}
         </div>
       )}
     </div>
@@ -188,6 +209,9 @@ export function PointRow({
   onPositionSelect,
   badgePersonName,
   badgePersonEarsCount,
+  badgePersonAvatarUrl,
+  badgePersonAvatarColor,
+  badgePersonHasPledged,
   isOwnStory = false,
   isGuest = false,
   readOnly = false,
@@ -204,6 +228,9 @@ export function PointRow({
   onPositionSelect?: (pointId: string, position: PositionType | null) => void;
   badgePersonName?: string;
   badgePersonEarsCount?: number;
+  badgePersonAvatarUrl?: string;
+  badgePersonAvatarColor?: string;
+  badgePersonHasPledged?: boolean;
   isOwnStory?: boolean;
   isGuest?: boolean;
   readOnly?: boolean;
@@ -240,9 +267,9 @@ export function PointRow({
         <div className="flex items-center gap-1.5 mb-1.5 text-sm text-gray-700">
           <GravatarAvatar
             name={badgePersonName ?? authorName}
-            photoUrl={badgePersonName ? undefined : authorAvatarUrl}
-            avatarColor={badgePersonName ? undefined : authorAvatarColor}
-            isPledger={badgePersonName ? false : (authorHasPledged ?? false)}
+            photoUrl={badgePersonName ? badgePersonAvatarUrl : authorAvatarUrl}
+            avatarColor={badgePersonName ? badgePersonAvatarColor : authorAvatarColor}
+            isPledger={badgePersonName ? (badgePersonHasPledged ?? false) : (authorHasPledged ?? false)}
             size="sm"
             className="!w-5 !h-5 !text-[10px]"
           />

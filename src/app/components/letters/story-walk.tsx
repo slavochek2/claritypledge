@@ -4,7 +4,7 @@
  * Used by both sender (/letter/:id/results) and receiver (same URL with ?delivery=).
  *
  * Per-story layout: counter → JourneyToUnderstanding → GapBanner → LiveStoryCardExpanded
- * Fixed bottom bar: Previous Story / Next Story or last-story /live CTA.
+ * Fixed bottom bar: Previous Story / Next Story or last-story Back to Letters.
  */
 
 import { useState, useEffect, useRef } from 'react';
@@ -17,6 +17,7 @@ import { FixedBottomBar } from '@/app/components/shared/fixed-bottom-bar';
 import { Button } from '@/components/ui/button';
 import { snapshotToStoryWithPoints, injectReceiverPositions } from '@/app/utils/letter-snapshot-mapper';
 import type { StoryWalkItem } from '@/app/types';
+import type { ResultsProfileData } from '@/app/data/letters-service';
 
 // ============================================================================
 // TYPES
@@ -25,7 +26,11 @@ import type { StoryWalkItem } from '@/app/types';
 interface StoryWalkProps {
   stories: StoryWalkItem[];
   perspective: 'sender' | 'receiver';
+  senderProfile: ResultsProfileData;
+  receiverProfile: ResultsProfileData | null;
+  /** Kept for convenience — callers may pass directly; derived from senderProfile.name */
   senderName: string;
+  /** Kept for convenience — callers may pass directly; derived from receiverProfile.name */
   receiverName: string | null;
 }
 
@@ -33,16 +38,13 @@ interface StoryWalkProps {
 // COMPONENT
 // ============================================================================
 
-export function StoryWalk({ stories, perspective, senderName, receiverName }: StoryWalkProps) {
+export function StoryWalk({ stories, perspective, senderProfile, receiverProfile, senderName, receiverName }: StoryWalkProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const counterRef = useRef<HTMLParagraphElement>(null);
 
   const current = stories[currentIndex];
   const isFirst = currentIndex === 0;
   const isLast = currentIndex === stories.length - 1;
-
-  // Any gap > 0 across all stories → show /live CTA on last story
-  const hasAnyGap = stories.some(s => s.gap !== undefined && s.gap > 0);
 
   function navigate(direction: 'prev' | 'next') {
     const next = direction === 'next' ? currentIndex + 1 : currentIndex - 1;
@@ -60,13 +62,16 @@ export function StoryWalk({ stories, perspective, senderName, receiverName }: St
 
   // Build the StoryWithPoints for the current story
   // Author of the story = sender (sender wrote the stories)
-  const baseStory = snapshotToStoryWithPoints(current.snapshot, senderName);
+  const baseStory = snapshotToStoryWithPoints(current.snapshot, senderProfile);
 
   // Inject the other party's positions into profileSubjectPosition
   // Sender sees receiver positions; receiver sees author (sender) positions (already in snapshot)
   const storyWithPoints = perspective === 'sender'
     ? injectReceiverPositions(baseStory, current.receiverPositions)
     : baseStory; // receiver: authorPosition already set in snapshotToStoryWithPoints
+
+  // Badge profile: the other party whose positions appear above each point
+  const badgeProfile = perspective === 'sender' ? receiverProfile : senderProfile;
 
   // JourneyToUnderstanding props differ by perspective:
   // - sender (isChecker=true): "Your belief" = prediction, "{receiverName}'s confidence" = rating
@@ -120,69 +125,55 @@ export function StoryWalk({ stories, perspective, senderName, receiverName }: St
           />
         )}
 
-        {/* Story card with points */}
+        {/* Story card with points + "Open Story" link inside card footer */}
         <LiveStoryCardExpanded
           story={storyWithPoints}
           readOnly
-          defaultExpanded
+          defaultExpanded={false}
           className="w-full max-w-sm mx-auto"
-          badgePersonName={
-            perspective === 'sender'
-              ? (receiverName ?? 'Recipient')
-              : senderName
-          }
-        />
-
-        {/* Open Story link */}
-        {current.snapshot.story_id && (
-          <div className="flex justify-center">
+          badgePersonName={badgeProfile?.name}
+          badgePersonAvatarUrl={badgeProfile?.avatarUrl}
+          badgePersonAvatarColor={badgeProfile?.avatarColor}
+          badgePersonHasPledged={badgeProfile?.hasPledged}
+          badgePersonEarsCount={badgeProfile?.earsCount}
+          footerSlot={current.snapshot.story_id ? (
             <Link
               to={`/story/${current.snapshot.story_id}`}
-              className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors min-h-[44px] px-2"
+              className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors min-h-[44px] px-4"
               aria-label="Open story in full view"
             >
               <ExternalLink size={14} />
               Open Story
             </Link>
-          </div>
-        )}
+          ) : undefined}
+        />
       </div>
 
       {/* Fixed bottom navigation bar */}
       <FixedBottomBar>
         {isLast ? (
-          /* Last story: /live CTA (when any gap > 0) + Back to Letters */
+          /* Last story: Previous Story (if not first) + Back to Letters */
           <div
-            className="w-full max-w-sm flex flex-col items-center gap-3"
+            className="w-full max-w-sm flex items-center justify-center gap-4"
             role="navigation"
             aria-label="Story navigation"
           >
-            {hasAnyGap && (
-              <Link
-                to="/live"
-                className="inline-flex items-center justify-center w-full max-w-[200px] bg-[#0044CC] hover:bg-[#0033AA] text-white rounded-md text-sm font-medium min-h-[44px] px-4 transition-colors"
+            {!isFirst && (
+              <Button
+                variant="ghost"
+                onClick={() => navigate('prev')}
+                className="min-h-[44px]"
+                aria-label="Previous story"
               >
-                Start /live conversation
-              </Link>
+                ← Previous Story
+              </Button>
             )}
-            <div className="flex items-center gap-4">
-              {!isFirst && (
-                <Button
-                  variant="ghost"
-                  onClick={() => navigate('prev')}
-                  className="min-h-[44px]"
-                  aria-label="Previous story"
-                >
-                  ← Previous Story
-                </Button>
-              )}
-              <Link
-                to="/letters"
-                className="text-sm text-muted-foreground hover:text-foreground transition-colors min-h-[44px] flex items-center"
-              >
-                Back to Letters
-              </Link>
-            </div>
+            <Link
+              to="/letters"
+              className="text-sm text-muted-foreground hover:text-foreground transition-colors min-h-[44px] flex items-center"
+            >
+              Back to Letters
+            </Link>
           </div>
         ) : (
           /* Normal story: Previous + Next */

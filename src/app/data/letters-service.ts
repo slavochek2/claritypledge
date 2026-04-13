@@ -1072,10 +1072,23 @@ export async function getUnreadLetterCount(userId: string): Promise<number> {
 // P699: Letter Results RPC
 // ============================================================================
 
+export interface ResultsProfileData {
+  name: string;
+  avatarUrl?: string;
+  avatarColor?: string;
+  role?: string;
+  hasPledged: boolean;
+  earsCount: number;
+}
+
 export interface LetterResultsData {
   perspective: 'sender' | 'receiver';
+  /** Convenience shorthand — extracted from senderProfile.name */
   senderName: string;
+  /** Convenience shorthand — extracted from receiverProfile.name, null when receiver unknown */
   receiverName: string | null;
+  senderProfile: ResultsProfileData;
+  receiverProfile: ResultsProfileData | null;
   snapshots: LetterStorySnapshot[];
   predictions: Array<{ story_id: string; prediction: number }>;
   ratings: Array<{ story_id: string; listener_rating: number }>;
@@ -1115,10 +1128,33 @@ export async function getLetterResults(
   const ratingRows = (row['ratings'] as Array<Record<string, unknown>>) ?? [];
   const responseRows = (row['point_responses'] as Array<Record<string, unknown>>) ?? [];
 
+  const rawSenderProfile = row['sender_profile'] as Record<string, unknown> | null ?? {};
+  const rawReceiverProfile = row['receiver_profile'] as Record<string, unknown> | null;
+
+  const senderProfile: ResultsProfileData = {
+    name: (rawSenderProfile['name'] as string) ?? '',
+    avatarUrl: (rawSenderProfile['avatar_url'] as string | null) ?? undefined,
+    avatarColor: (rawSenderProfile['avatar_color'] as string | null) ?? undefined,
+    role: (rawSenderProfile['role'] as string | null) ?? undefined,
+    hasPledged: (rawSenderProfile['has_pledged'] as boolean) ?? false,
+    earsCount: (rawSenderProfile['ears_count'] as number) ?? 0,
+  };
+
+  const receiverProfile: ResultsProfileData | null = rawReceiverProfile ? {
+    name: (rawReceiverProfile['name'] as string) ?? '',
+    avatarUrl: (rawReceiverProfile['avatar_url'] as string | null) ?? undefined,
+    avatarColor: (rawReceiverProfile['avatar_color'] as string | null) ?? undefined,
+    role: (rawReceiverProfile['role'] as string | null) ?? undefined,
+    hasPledged: (rawReceiverProfile['has_pledged'] as boolean) ?? false,
+    earsCount: (rawReceiverProfile['ears_count'] as number) ?? 0,
+  } : null;
+
   return {
     perspective: row['perspective'] as 'sender' | 'receiver',
-    senderName: (row['sender_name'] as string) ?? '',
-    receiverName: (row['receiver_name'] as string | null) ?? null,
+    senderName: senderProfile.name,
+    receiverName: receiverProfile?.name ?? null,
+    senderProfile,
+    receiverProfile,
     snapshots: snapshotRows.map(s => ({
       letter_id: letterId,
       story_id: s['story_id'] as string,
