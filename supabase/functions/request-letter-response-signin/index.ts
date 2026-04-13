@@ -367,11 +367,53 @@ serve(async (req: Request) => {
 
       userId = authData.user.id;
 
-      // Note: profile row creation is intentionally deferred to AuthCallbackPage
-      // (per CLAUDE.md: "No Database Trigger for Profile Creation"). The profile
-      // will be created when the reader clicks the magic link and lands on the
-      // confirm route, which triggers AuthCallbackPage's profile creation logic.
-      // The pending row uses user_id from auth.users, which exists at this point.
+      // Create profile immediately — the token_hash flow bypasses AuthCallbackPage,
+      // so confirm-letter-response needs the profile row to exist for the
+      // letter_deliveries FK constraint. Same pattern as orphan self-heal below
+      // and create-and-sign (P527 lines 196-213). This is NOT a DB trigger —
+      // it is explicit profile creation in an edge function.
+      const newUserAvatarColor = AVATAR_COLORS[Math.floor(Math.random() * AVATAR_COLORS.length)];
+      const newUserName = trimmedName || normalizedEmail.split('@')[0].replace(/[._-]+/g, ' ').trim().slice(0, 100) || 'Reader';
+
+      let newUserSlug = generateSlug(newUserName) || `user-${Date.now()}`;
+
+      const { data: newUserSlugConflict } = await supabase
+        .from('profiles')
+        .select('slug')
+        .eq('slug', newUserSlug)
+        .maybeSingle();
+
+      if (newUserSlugConflict) {
+        for (let i = 2; i <= 100; i++) {
+          const candidate = `${newUserSlug}-${i}`;
+          const { data: conflict } = await supabase
+            .from('profiles')
+            .select('slug')
+            .eq('slug', candidate)
+            .maybeSingle();
+          if (!conflict) {
+            newUserSlug = candidate;
+            break;
+          }
+        }
+      }
+
+      const { error: newUserProfileError } = await supabase.from('profiles').insert({
+        id: userId,
+        email: normalizedEmail,
+        name: newUserName,
+        slug: newUserSlug,
+        avatar_color: newUserAvatarColor,
+        is_verified: true,
+        has_pledged: false,
+        accepted_terms_version: termsVersion,
+        pledge_version: 2,
+      });
+
+      if (newUserProfileError) {
+        console.error('[request-letter-response-signin] new user profile insert failed:', newUserProfileError.message);
+        // Non-fatal: continue — the pending row and magic link still work
+      }
 
     } else {
       // ── Existing user: check for orphan profile (step 3b) ──────────────────
@@ -442,21 +484,23 @@ serve(async (req: Request) => {
     // ── Mint magic link (step 4) ───────────────────────────────────────────────
     // Called IDENTICALLY for new and existing user branches.
     // This equalizes timing and closes the enumeration oracle (BLOCK-4).
-    // Reference: create-and-open-letter line 416.
-    const redirectTo = `${appUrl}/auth/callback?redirect=/letter/${letterId}/confirm`;
-
+    //
+    // Pattern: extract hashed_token and build a direct link to the confirm page.
+    // The confirm page calls verifyOtp({ token_hash }) to establish the session
+    // synchronously — no implicit-grant #access_token race. Same pattern as
+    // create-and-sign (P527). Works cross-browser (no PKCE code verifier).
     const { data: linkData, error: linkError } = await supabase.auth.admin.generateLink({
       type: 'magiclink',
       email: normalizedEmail,
-      options: { redirectTo },
     });
 
-    if (linkError || !linkData?.properties?.action_link) {
+    if (linkError || !linkData?.properties?.hashed_token) {
       console.error('[request-letter-response-signin] generateLink failed:', linkError?.message);
       return jsonResponse({ error: 'Something went wrong. Please try again.' }, 500);
     }
 
-    const actionLink = linkData.properties.action_link;
+    const hashedToken = linkData.properties.hashed_token;
+    const actionLink = `${appUrl}/letter/${letterId}/confirm?token_hash=${encodeURIComponent(hashedToken)}`;
 
     // ── Write pending row (step 5) ─────────────────────────────────────────────
     // UPSERT on (user_id, letter_id) — safe for re-submissions (Flow 5).

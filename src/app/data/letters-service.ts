@@ -897,40 +897,6 @@ export async function confirmLetterResponse(
   return { ok: true };
 }
 
-/**
- * P696: Single-step letter response — calls create-and-respond-to-letter edge function.
- * Returns { ok: true, hashedToken } on success. Client calls verifyOtp with the token.
- *
- * FunctionsHttpError: parse via fnError.context (IS the Response) — not fnError.context.response. See P683 KDD.
- */
-export async function createAndRespondToLetter(params: {
-  letterId: string;
-  name: string;
-  email: string;
-  termsAccepted: boolean;
-  termsVersion: string;
-  ratings: Array<{ storyId: string; rating: number }>;
-  positions: Array<{ pointId: string; position: number }>;
-}): Promise<{ ok: true; hashedToken: string } | { error: string }> {
-  const { data, error } = await supabase.functions.invoke('create-and-respond-to-letter', {
-    body: params,
-  });
-
-  if (error) {
-    if (error instanceof FunctionsHttpError) {
-      let body: Record<string, unknown> = {};
-      try { body = await (error.context as Response).clone().json(); } catch { /* not JSON */ }
-      return { error: (body?.error as string) ?? (body?.message as string) ?? 'unknown' };
-    }
-    throw error;
-  }
-
-  if (!data?.ok || !data?.hashedToken) {
-    return { error: data?.error ?? 'unknown' };
-  }
-
-  return { ok: true, hashedToken: data.hashedToken as string };
-}
 
 interface RatingEntry { storyId: string; rating: number }
 interface PositionEntry { pointId: string; position: number | string }
