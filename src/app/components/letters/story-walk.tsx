@@ -116,7 +116,7 @@ export function StoryWalk({ stories, perspective, senderName, receiverName }: St
             gap={current.gap}
             senderName={senderName}
             isOverconfident={current.isOverconfident}
-            className="-mt-3"
+            className="-mt-3 mx-auto"
           />
         )}
 

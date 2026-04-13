@@ -1,13 +1,13 @@
 ---
-status: in-progress
+status: qa
 type: story
 rank: 1000699.0
 tags: [letters, results, ux, reading-flow]
 created_date: '2026-04-12'
 flow: dev
-delivery_stage: dev
+delivery_stage: verify
 pipeline_plan: [create-spec, challenge-prd, ux, architect, ui, generate-tests, decompose, dev, verify]
-pipeline_ran: [create-spec, challenge-prd, ux, architect, ui, generate-tests, spec-review, decompose, dev]
+pipeline_ran: [create-spec, challenge-prd, ux, architect, ui, generate-tests, spec-review, decompose, dev, verify]
 pipeline_skipped: []
 uat_file: features/uat/p699.md
 test_files:
