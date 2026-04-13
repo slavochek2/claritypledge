@@ -71,7 +71,7 @@ export function estimateReadingMinutes(storyCount: number, totalPointCount: numb
 // ---------------------------------------------------------------------------
 
 interface PointConfigPoint {
-  visibility?: string;
+  hidden?: boolean;
 }
 
 interface PointConfig {
@@ -82,7 +82,7 @@ export function countTotalPoints(snapshots: LetterStorySnapshot[]): number {
   return snapshots.reduce((total, snapshot) => {
     const config = (snapshot.point_config ?? {}) as PointConfig;
     const points = Array.isArray(config.points) ? config.points : [];
-    const visibleCount = points.filter((p) => p.visibility === 'visible').length;
+    const visibleCount = points.filter((p) => !p.hidden).length;
     return total + visibleCount;
   }, 0);
 }

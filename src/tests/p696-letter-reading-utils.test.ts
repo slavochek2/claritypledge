@@ -19,11 +19,11 @@ function makeSnapshot(visibleCount: number, hiddenCount = 0): LetterStorySnapsho
   const points = [
     ...Array.from({ length: visibleCount }, (_, i) => ({
       id: `visible-${i}`,
-      visibility: 'visible',
+      hidden: false,
     })),
     ...Array.from({ length: hiddenCount }, (_, i) => ({
       id: `hidden-${i}`,
-      visibility: 'hidden',
+      hidden: true,
     })),
   ];
   return {

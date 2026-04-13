@@ -15,10 +15,11 @@
  */
 
 import { useEffect, useState, useRef } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/auth';
 import { supabase } from '@/lib/supabase';
 import { ClarityLoader } from '@/components/ui/clarity-loader';
+import { CheckCircle2 } from 'lucide-react';
 import { LetterResponseLinkExpired } from '@/app/components/letters/letter-response-link-expired';
 import { CURRENT_TERMS_VERSION } from '@/lib/constants';
 import { POSITION_VALUES, type PositionType } from '@/app/types';
@@ -46,6 +47,7 @@ type PageState =
 
 export function LetterResponseConfirmPage() {
   const { letterId } = useParams<{ letterId: string }>();
+  const navigate = useNavigate();
   const { session, sessionChecked } = useAuth();
 
   const [pageState, setPageState] = useState<PageState>('waiting-for-session');
@@ -71,6 +73,13 @@ export function LetterResponseConfirmPage() {
         // Non-critical — fall back to "Someone"
       });
   }, [letterId]);
+
+  // Redirect to letter results after success (brief pause so user sees confirmation)
+  useEffect(() => {
+    if (pageState !== 'complete' || !letterId) return;
+    const timer = setTimeout(() => navigate(`/letter/${letterId}`, { replace: true }), 2000);
+    return () => clearTimeout(timer);
+  }, [pageState, letterId, navigate]);
 
   // Track whether verifyOtp is in flight to prevent duplicate calls
   const verifyingRef = useRef(false);
@@ -194,15 +203,16 @@ export function LetterResponseConfirmPage() {
     );
   }
 
-  // ---- State 8: Complete ----
+  // ---- State 8: Complete — brief success message, then redirect to letter results ----
   if (pageState === 'complete') {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center gap-3 px-4">
+        <CheckCircle2 className="w-12 h-12 text-green-600" />
         <p className="text-lg font-semibold text-center text-[#1A1A1A]">
           Your responses have been shared with {senderName}.
         </p>
         <p className="text-sm text-muted-foreground text-center">
-          You can close this tab.
+          Redirecting to your results…
         </p>
       </div>
     );

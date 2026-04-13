@@ -167,7 +167,7 @@ export async function getLetterForReading(
       .eq('id', deliveryId)
       .single();
 
-    if (deliveryError) {
+    if (deliveryError && deliveryError.code !== 'PGRST116') {
       logDbError('getLetterForReading.delivery', deliveryError);
     }
     delivery = (deliveryData as LetterDelivery) ?? null;
