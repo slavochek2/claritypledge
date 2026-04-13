@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: qa
 type: task
 p_number: 701
 title: Points Restructure + Badge Display Fix
