@@ -76,7 +76,7 @@ export function injectReceiverPositions(
     points: story.points.map(point => ({
       ...point,
       profileSubjectPosition: positionMap.get(point.id) ?? null,
-      userPosition: positionMap.get(point.id) ?? null,
+      userPosition: null,
     })),
   };
 }
