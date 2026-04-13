@@ -129,7 +129,7 @@ export function StoryWalk({ stories, perspective, senderProfile, receiverProfile
         <LiveStoryCardExpanded
           story={storyWithPoints}
           readOnly
-          defaultExpanded={false}
+          defaultExpanded={true}
           className="w-full max-w-sm mx-auto"
           badgePersonName={badgeProfile?.name}
           badgePersonAvatarUrl={badgeProfile?.avatarUrl}
@@ -160,7 +160,7 @@ export function StoryWalk({ stories, perspective, senderProfile, receiverProfile
           >
             {!isFirst && (
               <Button
-                variant="ghost"
+                variant="default"
                 onClick={() => navigate('prev')}
                 className="min-h-[44px]"
                 aria-label="Previous story"
@@ -168,12 +168,9 @@ export function StoryWalk({ stories, perspective, senderProfile, receiverProfile
                 ← Previous Story
               </Button>
             )}
-            <Link
-              to="/letters"
-              className="text-sm text-muted-foreground hover:text-foreground transition-colors min-h-[44px] flex items-center"
-            >
-              Back to Letters
-            </Link>
+            <Button variant="default" asChild className="min-h-[44px]">
+              <Link to="/letters">Back to Letters</Link>
+            </Button>
           </div>
         ) : (
           /* Normal story: Previous + Next */
@@ -184,7 +181,7 @@ export function StoryWalk({ stories, perspective, senderProfile, receiverProfile
           >
             {!isFirst ? (
               <Button
-                variant="ghost"
+                variant="default"
                 onClick={() => navigate('prev')}
                 className="min-h-[44px]"
                 aria-label="Previous story"
@@ -195,7 +192,7 @@ export function StoryWalk({ stories, perspective, senderProfile, receiverProfile
               <span />
             )}
             <Button
-              variant="ghost"
+              variant="default"
               onClick={() => navigate('next')}
               className="min-h-[44px]"
               aria-label="Next story"

@@ -296,16 +296,14 @@ export function PointRow({
         </div>
 
         {!letterMode && point.tags?.length > 0 && <TagPills tags={point.tags} context="live" className="mt-1" />}
-        {!readOnly && (
-          <PositionButtons
-            userPosition={userPosition}
-            counts={toSevenPointCounts(point.positionCounts)}
-            onPositionClick={handlePositionClick}
-            compact
-            narrow
-            disabled={disablePositionButtons}
-          />
-        )}
+        <PositionButtons
+          userPosition={userPosition}
+          counts={toSevenPointCounts(point.positionCounts)}
+          onPositionClick={handlePositionClick}
+          compact
+          narrow
+          disabled={readOnly || disablePositionButtons}
+        />
 
         {/* P490: Guest hint — positions are ephemeral, prompt to sign up */}
         {!letterMode && !readOnly && isGuest && userPosition && (
