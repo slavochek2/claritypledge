@@ -2,6 +2,16 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-13 [technical]: P696 letter response — 2-step flow restored, token_hash applied to email URL (supersedes "atomic letter response" 2026-04-12)
+
+**Context:** The `create-and-respond-to-letter` single-step edge function was reverted. In the single-step flow readers never received an email — responses were saved inline and a session established server-side. Core problem: in the letters flow readers **self-report their email**. Skipping email verification enables phantom accounts — anyone could submit responses with a fabricated address.
+**Decision:** Restore the 2-step flow: `request-letter-response-signin` writes pending row + sends magic link email → reader clicks → `letter-response-confirm-page.tsx` materializes responses. Two fixes applied to the restored flow: (1) **token_hash URL in email** — edge function now extracts `linkData.properties.hashed_token` and builds the email link as `/letter/:id/confirm?token_hash=<encoded>` (direct to confirm page; no Supabase verify redirect; confirm page already has `verifyOtp` code from P698). (2) **Profile creation for new users in edge function** — previously deferred to `AuthCallbackPage`. The token_hash flow bypasses `AuthCallbackPage` entirely; reader goes straight to the confirm page. `request-letter-response-signin` now creates profiles for ALL users (new + existing-with-missing-profile) using the same slug uniqueness loop as `create-and-sign` (P527). This avoids a FK violation when `confirm-letter-response` inserts into `letter_deliveries`.
+**Alternatives rejected:** Keep single-step flow — bypasses email verification, enables phantom accounts. Create profile in `confirm-letter-response` — adds complexity to materialization function; pre-creating in the signing step is cleaner.
+**Consequences:** (1) `request-letter-response-signin` is the **active** function — not legacy. The 2026-04-12 entry marking it "legacy-only" is superseded. (2) `create-and-respond-to-letter` edge function deleted. (3) "No Database Trigger for Profile Creation" applies to DB triggers only — explicit profile creation in edge functions is permitted (P527 established this; P696 confirms). (4) Any future magic link flow that bypasses `/auth/callback` must create the profile in the edge function before the confirm step runs. (5) `letter_response_pending` table remains active.
+**References:** [request-letter-response-signin/index.ts](supabase/functions/request-letter-response-signin/index.ts) | [letter-response-confirm-page.tsx](src/app/pages/letter-response-confirm-page.tsx) | [signup-page.tsx](src/app/pages/signup-page.tsx)
+
+---
+
 ## 2026-04-12 [product]: Inbox is a unified feed — UNION ALL restored (supersedes "received letters only" decision below)
 
 **Context:** A prior session diagnosed "[Name] completed Test letter" items in the inbox as redundant (Sent tab shows completion counts). The UNION ALL responses branch was removed entirely. On review, the real bug was self-sent letters (sender = receiver) cluttering the inbox — not completion notifications. The inbox was designed as a unified feed with incoming/outgoing icons (ArrowDownLeft / ArrowUpRight) to distinguish received letters from completion results. Removing the responses branch broke that design.
