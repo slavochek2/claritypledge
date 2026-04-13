@@ -73,6 +73,14 @@ Listener-side conversational comprehension calibration — "I think I understood
 3. **Open limitation: flip durability.** Honest caveat worth naming in the article: we don't yet know whether position shifts induced by a 90-minute Clarity Flip survive three weeks of social pressure. The self-concealing property (Lau et al. 2022) applies to the flip itself — people may not retain awareness that they flipped. Strengthens credibility by naming the threat; doesn't undermine the core thesis (the instrument still exists; its longitudinal effect is an open question).
 4. **Aumann bridge to a12.** Cross-article link: a9 names Aumann as the missing-instrument theorist; a12 (Locke to Ladischenski) now uses Aumann's common-knowledge assumption to argue for market-infrastructure applications (M&A fairness opinions, disclosure compliance, DAO governance votes). The rate asymmetry isn't just a rationalist curiosity — it's the uninstrumented precondition Nobel-winning market theory silently required.
 
+## Enrichment (2026-04-13)
+
+**Conversation:** System 3: meta cognition and shared understanding (2026-04-13)
+
+**What it adds:**
+
+5. **"Letter makes Popper work without making Popperians" — closing punchline.** The usual failure of critical rationalism isn't that people reject it — it's that people agree with it and then don't do it. Everyone nods at "seek falsification." Nobody has a method for ensuring the counterargument they're testing against is the actual one rather than their reconstruction. The letter gives them the method: verified comprehension of the counterargument before testing your belief against it. The epistemology follows from the practice, not the other way around. Strongest as a closing section — the article establishes the gap (rate asymmetry), names the instrument (verified comprehension), and ends with: this doesn't require you to accept a philosophy, just to use an instrument. The philosophy falls out of the usage.
+
 ## Novelty claim
 
 Nobody has framed this as a **rate asymmetry** between two measurable quantities, or connected it to a **missing verification protocol** at the interpersonal level as the root bottleneck. Sits in unclaimed intersection of Pinker, Chwe, and misinformation literature.

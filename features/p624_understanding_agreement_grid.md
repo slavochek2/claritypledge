@@ -1,8 +1,7 @@
 ---
-status: week
+status: rejected
 type: feature
 rank: 0.196
-workstream: C1
 created_date: 2026-04-02T00:00:00.000Z
 tags:
   - grid
@@ -10,6 +9,7 @@ tags:
   - letters
   - live
   - p581-follow-up
+superseded_by: p700
 ---
 
 # P624: Understanding × Agreement Grid Visualization
