@@ -1,7 +1,7 @@
 # Done Features Index
 
 Quick reference for past completed work. Consult when starting work on a related topic.
-Last updated: 2026-04-12 (P695 Fix nav clicks ignored during profile loading)
+Last updated: 2026-04-13 (P686 Badge step 1 — auto-certification from /live)
 
 ---
 
@@ -138,6 +138,10 @@ Last updated: 2026-04-12 (P695 Fix nav clicks ignored during profile loading)
 - **P93** (Jan 27) Story-Point Display Refactor — consistent position button styles across all card types
 - **P103** (Jan 26) Point Quote Pattern — "Jordan agrees: [Point box]" — separate authorship from relationship in visual hierarchy
 - **P118** (Jan 26) Person Avatar Consolidation — unified avatar component with avatar_color + avatar_url
+
+## Badge & Certification
+
+- **P686** (Apr 13) Badge Step 1 — auto-cert from /live: badge-service interface pattern isolates real/mock; `free_mode_success` triggers certification inline; badge page at `/badge/:userId`; export to PNG via html2canvas; profile ring shows partial progress (N/9)
 
 ## Auth & Verification
 

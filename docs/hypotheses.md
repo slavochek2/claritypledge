@@ -18,6 +18,7 @@ Session logs, architecture notes, and strategic commentary belong in [decisions.
 | H-AICalib-EntryTeaser | AI demo lowers trust barrier before co-founder offer | Active | P2 | — | Parked until group acquisition phase. |
 | H-CoachChannel | Coaches adopt protocol as distribution channel | Active | P2 | H-PairsReturn | Falsification-tested. Market large. Key risk: commodification. |
 | H-Retainers-Sticky | Pairs retain monthly FCO retainers | Blocked | — | H-PairsReturn | Not yet testable. |
+| H-BadgePropagates | Badged participants share badge URL; recipients request /live | Active | P1 | P686 shipped | New 2026-04-13 — badge built as workshop #1 propagation instrument |
 | H-WorkshopFormat | 1-to-many workshops convert to sessions | Active | P1 | — | Unblocked: first workshop imminent. Testing actively. |
 | H-MetaEpistemic | Meta-epistemological briefing deepens sessions | Blocked | — | H-PairsReturn | Test passively. |
 | H-BriefingProtocol-ColdStart | Mirror agent invitation solves cold start | Blocked | — | H-PairsReturn + H-Stories-ColdStart | Two deps deep. |
@@ -48,6 +49,7 @@ Session logs, architecture notes, and strategic commentary belong in [decisions.
 **Status (2026-04-11):** New hypothesis. Driven by 30+ session observation: "product works in the room; conversion breaks after the room." Workshops produce flips but don't scale — the letter is the async carrier. Existing letter infrastructure (P581/P683/P684) is in-flight; once shipped, this hypothesis becomes testable.
 **Relationship to other hypotheses:** Partially supersedes the scaling path in H-WorkshopFormat — workshops remain valuable as high-intensity deployment but stop being the unit of scale. Feeds into H-ProtocolSpreadsWithoutTool (the letter IS the protocol in minimum shippable form).
 **Variant (2026-04-12):** Inverse Clarity Letter (private, one-to-one). Leads with "here is how I understand YOU" — sender/AI drafts the recipient's story and predicted point before sharing their own. Two sub-variants: (a) post-conversation (agent-drafted from recording, strong signal), (b) first-contact (author-drafted, weaker prediction, higher impact if accurate). "Nobody forgets receiving something that says 'I took the time to model your worldview before sharing mine.'" Spec candidate for status week — blocked by P581. Also: auto-generated clarity letters from recorded conversations as a distribution channel.
+**Point sequence restructured (2026-04-13):** Approved new ordering: ST1→ST3→ST5→ST4→ST2(expanded)→ST6→ST7→ST8→ST9. ST1 redefined: cognitive understanding as "I know you know I know." ST2 moves after ST5, absorbs illusion of common knowledge + Popper gap conclusion: "Certainty in your social coordination beliefs should be proportional to the effort you put into verifying cognitive understanding of others' strongest counterarguments. Without that effort, your certainty is structurally indistinguishable from the illusion of certainty." Scoring onset redesigned: ST1/ST3 unscored (narrative), scoring begins at ST5 — letter becomes self-demonstrating. Needs implementation spec (post-P581).
 
 ---
 
@@ -104,6 +106,14 @@ Session logs, architecture notes, and strategic commentary belong in [decisions.
 **Transform if:** Filed content doesn't shape subsequent sessions — pairs always bring fresh topics regardless.
 **Status (2026-03-19):** Reframed by H-StoryFirst. Question shifts from "does filed content feed the FCO loop?" to "does story-first creation naturally produce content that feeds return?" The comprehension assessment creates a new trigger: author sees gap → wants to verify → schedules session.
 **Depends on:** H-PairsReturn (at least one facilitated pair).
+
+---
+
+#### H-BadgePropagates: Badged participants share badge URL; recipients request /live
+**Bet:** When a workshop participant earns a Calibration Badge, they share the badge URL with someone in a real relationship (co-founder, colleague, partner). The recipient — seeing evidence that someone they know has verified calibrated alignment — requests their own /live session. If true, each badge creates at least one organic referral, making the badge the primary growth mechanism.
+**Transform if:** After workshop #1, zero badged participants share their badge URL within 2 weeks. Or: shares happen but generate zero /live session requests from new users.
+**Status (2026-04-13):** New. P686 built badge infrastructure specifically to test this. Workshop #1 is the first live deployment — badge URLs in hand for the first time.
+**Measurement:** Track badge page visits from logged-out users (Mixpanel), outbound share events, and any new /live sessions that cite a badge as the entry point.
 
 ---
 

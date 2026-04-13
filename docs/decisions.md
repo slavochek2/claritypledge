@@ -2,6 +2,14 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-13 [product]: Badge is workshop #1 propagation measurement instrument
+
+**Context:** Workshop #1 is imminent. The core experiment question is whether a clarity flip propagates through relationships — does a badged person share the insight with someone they're in a real relationship with? Without a shareable artifact that proves calibration happened, propagation is unmeasurable.
+**Decision:** Build badge infrastructure before workshop #1 so that badged participants have a shareable URL they can show to someone in their network. The propagation signal: does anyone who receives the badge URL request their own /live session? Badge is the measurement instrument, not the product milestone. Step 1 is intentionally minimal (single certifier = Slava, manual 1:1 sessions) to get the artifact into hands fast.
+**Alternatives rejected:** Waiting until the badge was "fully automated" — would miss workshop #1 window and the propagation observation. Using the Pledge certificate as a proxy — Pledge is a promise, not evidence; it doesn't produce the "this already happened" framing that gives the badge referral power.
+**Consequences:** Workshop #1 produces badged participants. Track: do any of them share the badge URL? Does anyone request /live after seeing a badge? This is the primary p686 success metric, not completion rate.
+**References:** [p686 spec](features/done/22_mar_26/p686_badge_step1_manual_certification.md)
+
 ## 2026-04-13 [technical]: point_config visible filter is `!p.hidden` (boolean), not `visibility === 'visible'`
 
 **Context:** `countTotalPoints` in `letter-reading-utils.ts` filtered `p.visibility === 'visible'` — always returned 0 because the DB stores `hidden: boolean` in `point_config.points[]`, not a visibility string. Cover pages showed "0 points".
