@@ -16,8 +16,7 @@ import { Button } from "@/components/ui/button";
 import { ArrowLeft, LinkIcon, ChevronDownIcon, CopyIcon, CheckIcon, LinkedinIcon, DownloadIcon, LoaderIcon } from "lucide-react";
 import { ClarityPageLoader } from "@/components/ui/clarity-loader";
 import { useAuth } from "@/auth";
-import { badgeService, type BadgePoint } from "@/app/data/badge-service";
-import { supabase } from "@/lib/supabase";
+import { badgeService, type BadgePointDetail } from "@/app/data/badge-service";
 import { copyToClipboard } from "@/lib/utils";
 import { toast } from "sonner";
 import { toPng } from "html-to-image";
@@ -33,9 +32,8 @@ export function BadgePage() {
   const navigate = useNavigate();
 
   const [profile, setProfile] = useState<Profile | null>(null);
-  const [badgePoints, setBadgePoints] = useState<BadgePoint[]>([]);
+  const [badgePoints, setBadgePoints] = useState<BadgePointDetail[]>([]);
   const [certifierProfile, setCertifierProfile] = useState<Profile | null>(null);
-  const [pointTitles, setPointTitles] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
 
   const { session } = useAuth();
@@ -67,27 +65,25 @@ export function BadgePage() {
 
         setProfile(profileData);
 
-        // Load badge points for this profile
-        const points = await badgeService.getBadgePoints(profileData.id);
-        setBadgePoints(points);
+        // Load badge points with details (point statement, st-group, story content)
+        const details = await badgeService.getBadgePointsWithDetails(profileData.id);
 
-        // Fetch actual point titles for all earned badge points in a single query
-        if (points.length > 0) {
-          const pointIds = points.map((p) => p.pointId);
-          const { data: pointRows } = await supabase
-            .from("points")
-            .select("id, statement")
-            .in("id", pointIds);
-          if (pointRows) {
-            const titles: Record<string, string> = {};
-            for (const row of pointRows) {
-              titles[row.id] = row.statement;
-            }
-            setPointTitles(titles);
+        // Collapse by st-group: keep highest version per group, ordered by verified_at
+        const byStGroup = new Map<string, BadgePointDetail>();
+        for (const detail of details) {
+          const existing = byStGroup.get(detail.stGroup);
+          if (!existing || detail.pointVersion > existing.pointVersion) {
+            byStGroup.set(detail.stGroup, detail);
           }
+        }
+        const collapsed = Array.from(byStGroup.values()).sort(
+          (a, b) => new Date(a.verifiedAt).getTime() - new Date(b.verifiedAt).getTime()
+        );
+        setBadgePoints(collapsed);
 
-          // Load certifier profile from the first badge point's verifiedBy UUID
-          const certifierProfile = await getProfile(points[0].verifiedBy);
+        // Load certifier profile from the first badge point's verifiedBy UUID
+        if (details.length > 0) {
+          const certifierProfile = await getProfile(details[0].verifiedBy);
           setCertifierProfile(certifierProfile);
         }
       } catch (error) {
@@ -296,7 +292,6 @@ export function BadgePage() {
             certifierName={certifierName}
             certifierSlug={certifierSlug}
             badgeUrl={badgeUrl}
-            pointTitles={pointTitles}
           />
 
         </div>
@@ -328,6 +323,7 @@ export function BadgePage() {
             certifierSlug={certifierSlug}
             badgeUrl={badgeUrl}
           />
+
         </div>
       )}
     </>

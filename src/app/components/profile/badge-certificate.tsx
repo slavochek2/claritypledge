@@ -1,16 +1,11 @@
+import { useState } from "react";
 import { GravatarAvatar } from "@/components/ui/gravatar-avatar";
 import { QRCodeSVG } from "qrcode.react";
 import { ClarityLogoMark } from "@/components/ui/clarity-logo";
-import { Check, Circle } from "lucide-react";
-import type { BadgePoint } from "@/app/data/badge-service";
+import { ChevronDown, ChevronRight } from "lucide-react";
+import type { BadgePointDetail } from "@/app/data/badge-service";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
-
-export interface BadgePointReference {
-  stationTag: string; // e.g. 'st1'
-  pointId: string;    // canonical point ID for this station
-  title: string;      // point statement / title
-}
 
 export interface BadgeCertificateProps {
   profile: {
@@ -21,75 +16,13 @@ export interface BadgeCertificateProps {
     email?: string;
     role?: string;
   };
-  badgePoints: BadgePoint[];
+  /** Collapsed badge points (one per st-group, highest version). Ordered by verifiedAt. */
+  badgePoints: BadgePointDetail[];
   certifierName: string;
   certifierSlug: string;
-  badgePointsReference?: BadgePointReference[];
   /** Badge public URL for QR code */
   badgeUrl?: string;
-  /** Actual point titles fetched from DB, keyed by pointId */
-  pointTitles?: Record<string, string>;
 }
-
-// ── Canonical stations (9 total, one per station, simplest version) ────────────
-// Source: docs/technical/badge-points-reference.md
-
-const CANONICAL_BADGE_STATIONS: BadgePointReference[] = [
-  {
-    stationTag: "st1",
-    pointId: "6d253c2b-32b1-4a10-826c-4a4844b23e14",
-    title:
-      'Most people assume understanding is binary — you either get it or you don\'t. "Understand" covers at least three distinct cognitive states.',
-  },
-  {
-    stationTag: "st2",
-    pointId: "b8e371b7-52bc-4229-80a1-841c64aa03cd",
-    title:
-      "My estimates of how well I understand others are unreliable. Without verification, I have no error signal.",
-  },
-  {
-    stationTag: "st3",
-    pointId: "86fb9e04-e04d-4399-9928-83fd8da9ab03",
-    title:
-      "The speaker knows what they meant to communicate. The listener doesn't. The only way to verify cognitive understanding is to check.",
-  },
-  {
-    stationTag: "st4",
-    pointId: "a0096d98-768d-46c3-832d-ba104a31282c",
-    title:
-      "The listener explains back what they think the speaker meant. If they express judgment or criticism while doing so, verification fails.",
-  },
-  {
-    stationTag: "st5",
-    pointId: "cb114d49-21eb-409d-afb1-19e40b9ba36c",
-    title:
-      "Two people can hold exactly the same belief and be uncertain if the other holds it or not. That's a shared belief gap.",
-  },
-  {
-    stationTag: "st6",
-    pointId: "978f7a1e-5e80-41b7-aed5-35cfcd14a379",
-    title:
-      "When interests clash in a conversation and one party pursues agreement or emotional validation, understanding cannot be verified.",
-  },
-  {
-    stationTag: "st7",
-    pointId: "b5e50000-0000-4000-b000-000000000005",
-    title:
-      "Once two people both understand the process of how to reach verified cognitive understanding and both know the other knows, the conversation changes.",
-  },
-  {
-    stationTag: "st8",
-    pointId: "1fe66b60-0d82-43a9-8d71-437453da6b12",
-    title:
-      "I am highly motivated to increase my capacity to distinguish what I understand and what I don't understand in conversations.",
-  },
-  {
-    stationTag: "st9",
-    pointId: "b5e70000-0000-4000-b000-000000000007",
-    title:
-      "If you understand how cognitive understanding works and why it matters, the ClarityPledge is making that commitment public.",
-  },
-];
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -101,12 +34,18 @@ function formatDate(isoString: string): string {
   });
 }
 
-function getEarliestDate(badgePoints: BadgePoint[]): string | null {
+function getEarliestDate(badgePoints: BadgePointDetail[]): string | null {
   if (badgePoints.length === 0) return null;
-  const sorted = [...badgePoints].sort(
-    (a, b) => new Date(a.verifiedAt).getTime() - new Date(b.verifiedAt).getTime()
-  );
-  return sorted[0].verifiedAt;
+  return badgePoints[0].verifiedAt; // already sorted ascending by badge-page.tsx
+}
+
+function storyExcerpt(content: string, maxLen = 110): string {
+  const trimmed = content.trim();
+  return trimmed.length > maxLen ? trimmed.slice(0, maxLen).trimEnd() + "…" : trimmed;
+}
+
+function positionLabel(position: string): string {
+  return position === "strongly_agree" ? "Strongly Agrees" : "Agrees";
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
@@ -116,12 +55,19 @@ export function BadgeCertificate({
   badgePoints,
   certifierName,
   certifierSlug,
-  badgePointsReference = CANONICAL_BADGE_STATIONS,
   badgeUrl,
-  pointTitles = {},
 }: BadgeCertificateProps) {
   const verifiedCount = badgePoints.length;
   const earliestDate = getEarliestDate(badgePoints);
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+
+  const toggle = (id: string) =>
+    setExpandedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
 
   return (
     <div
@@ -191,86 +137,81 @@ export function BadgeCertificate({
           </p>
         </div>
 
-        {/* ── Point list ────────────────────────────────────────────────── */}
-        <ul aria-label="Clarity badge points" className="space-y-2">
-          {/* Earned badge points not matching any canonical station (e.g. custom points) */}
-          {badgePoints
-            .filter((bp) => !badgePointsReference.some((s) => s.pointId === bp.pointId))
-            .map((bp) => {
-              const title = pointTitles[bp.pointId] ?? "Verified clarity point";
-              return (
-                <li
-                  key={bp.id}
-                  aria-label={`Verified: ${title}, ${formatDate(bp.verifiedAt)}`}
-                  className="flex items-start gap-3 text-sm"
-                >
-                  <Check
-                    aria-hidden="true"
-                    className="mt-0.5 w-4 h-4 shrink-0 text-[#002B5C] dark:text-blue-400"
-                  />
-                  <span className="flex-1 leading-snug">
-                    <a
-                      href={`/point/${bp.pointId}`}
-                      className="text-[#1A1A1A] dark:text-foreground hover:text-[#0044CC] hover:underline transition-colors"
-                    >
-                      {title}
-                    </a>
-                    <span className="ml-2 text-xs text-[#1A1A1A]/50 dark:text-muted-foreground whitespace-nowrap">
-                      {formatDate(bp.verifiedAt)}
-                    </span>
-                  </span>
-                </li>
-              );
-            })}
-          {/* Canonical badge stations */}
-          {badgePointsReference.map((station) => {
-            const earned = badgePoints.find(
-              (bp) => bp.pointId === station.pointId
-            );
-            // Use actual DB title if available, otherwise fall back to canonical title
-            const displayTitle = earned && pointTitles[station.pointId]
-              ? pointTitles[station.pointId]
-              : station.title;
+        {/* ── Earned point list ─────────────────────────────────────────── */}
+        <ul aria-label="Clarity badge points" className="space-y-3">
+          {badgePoints.map(bp => {
+            const isExpanded = expandedIds.has(bp.id);
             return (
               <li
-                key={station.stationTag}
-                aria-label={
-                  earned
-                    ? `Verified: ${displayTitle}, ${formatDate(earned.verifiedAt)}`
-                    : `Not yet verified: ${station.title}`
-                }
-                className="flex items-start gap-3 text-sm"
+                key={bp.id}
+                className="rounded-lg border border-[#002B5C]/20 dark:border-border overflow-hidden"
               >
-                {earned ? (
-                  <Check
-                    aria-hidden="true"
-                    className="mt-0.5 w-4 h-4 shrink-0 text-[#002B5C] dark:text-blue-400"
-                  />
-                ) : (
-                  <Circle
-                    aria-hidden="true"
-                    className="mt-0.5 w-4 h-4 shrink-0 text-[#1A1A1A]/30 dark:text-muted-foreground/40"
-                  />
+                {/* Story excerpt — always visible */}
+                {bp.storyId && bp.storyContent && (
+                  <a
+                    href={`/story/${bp.storyId}`}
+                    className="block px-4 pt-3 pb-2 text-sm text-[#1A1A1A]/80 dark:text-foreground/80 italic leading-snug hover:text-[#0044CC] dark:hover:text-blue-400 transition-colors"
+                    aria-label="View story"
+                  >
+                    "{storyExcerpt(bp.storyContent)}"
+                  </a>
                 )}
-                <span className="flex-1 leading-snug">
-                  {earned ? (
-                    <a
-                      href={`/point/${station.pointId}`}
-                      className="text-[#1A1A1A] dark:text-foreground hover:text-[#0044CC] hover:underline transition-colors"
-                    >
-                      {displayTitle}
-                    </a>
+
+                {/* Toggle row */}
+                <button
+                  onClick={() => toggle(bp.id)}
+                  aria-expanded={isExpanded}
+                  className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-[#1A1A1A]/70 dark:text-muted-foreground hover:text-[#0044CC] dark:hover:text-blue-400 transition-colors border-t border-[#002B5C]/10 dark:border-border"
+                >
+                  {isExpanded ? (
+                    <ChevronDown size={14} aria-hidden="true" className="shrink-0" />
                   ) : (
-                    <span className="text-[#1A1A1A]/50 dark:text-muted-foreground">
-                      {station.title}
-                    </span>
+                    <ChevronRight size={14} aria-hidden="true" className="shrink-0" />
                   )}
-                  {earned && (
-                    <span className="ml-2 text-xs text-[#1A1A1A]/50 dark:text-muted-foreground whitespace-nowrap">
-                      {formatDate(earned.verifiedAt)}
-                    </span>
-                  )}
-                </span>
+                  <span>1 point</span>
+                  <span className="text-[#1A1A1A]/40 dark:text-muted-foreground/50">·</span>
+                  <span>
+                    Verified by{" "}
+                    <a
+                      href={`/p/${certifierSlug}`}
+                      className="underline hover:text-[#0044CC] transition-colors"
+                      onClick={e => e.stopPropagation()}
+                    >
+                      {certifierName}
+                    </a>
+                  </span>
+                  <span className="text-[#1A1A1A]/40 dark:text-muted-foreground/50">·</span>
+                  <span className="whitespace-nowrap">{formatDate(bp.verifiedAt)}</span>
+                </button>
+
+                {/* Expanded: position pill + point text */}
+                {isExpanded && (
+                  <div className="px-4 pb-4 pt-2 border-t border-[#002B5C]/10 dark:border-border bg-[#002B5C]/[0.03] dark:bg-muted/20">
+                    {/* Position row */}
+                    <div className="flex items-center gap-3 mb-3">
+                      <GravatarAvatar
+                        name={profile.name}
+                        photoUrl={profile.avatarUrl ?? undefined}
+                        avatarColor={profile.avatarColor}
+                        isPledger={false}
+                      />
+                      <span className="text-sm font-medium text-[#1A1A1A] dark:text-foreground">
+                        {profile.name}
+                      </span>
+                      <span className="ml-auto text-xs font-medium px-2.5 py-1 rounded-full bg-[#002B5C]/10 dark:bg-blue-900/30 text-[#002B5C] dark:text-blue-300">
+                        {positionLabel(bp.position)} ✓
+                      </span>
+                    </div>
+
+                    {/* Point statement */}
+                    <a
+                      href={`/point/${bp.pointId}`}
+                      className="block text-sm text-[#1A1A1A] dark:text-foreground leading-relaxed hover:text-[#0044CC] dark:hover:text-blue-400 hover:underline transition-colors"
+                    >
+                      "{bp.pointStatement}"
+                    </a>
+                  </div>
+                )}
               </li>
             );
           })}
@@ -280,12 +221,9 @@ export function BadgeCertificate({
         <div className="pt-8 border-t-2 border-[#002B5C] dark:border-border">
           {/* Mobile: stacked centered layout */}
           <div className="flex flex-col items-center gap-6 md:hidden">
-            {/* Seal */}
             <div className="w-20 h-20 rounded-full border-4 border-[#1A1A1A] dark:border-foreground flex items-center justify-center bg-[#FDFBF7] dark:bg-card shadow-lg">
               <ClarityLogoMark size={72} className="text-[#1A1A1A] dark:text-foreground" />
             </div>
-
-            {/* Name + role */}
             <div className="text-center">
               <a
                 href={`/p/${profile.slug}`}
@@ -299,8 +237,6 @@ export function BadgeCertificate({
                 </p>
               )}
             </div>
-
-            {/* Date */}
             {earliestDate && (
               <div className="text-center">
                 <p className="text-xs uppercase tracking-wide text-muted-foreground mb-1">
@@ -311,13 +247,10 @@ export function BadgeCertificate({
                 </p>
               </div>
             )}
-
-            {/* QR code — mobile hidden per spec (hidden md:block means desktop only) */}
           </div>
 
           {/* Desktop: horizontal balanced layout */}
           <div className="hidden md:flex items-center gap-8">
-            {/* Left: Avatar + name + role */}
             <div className="flex-1 flex items-center gap-4">
               <a href={`/p/${profile.slug}`} className="flex items-center gap-4 group/sig">
                 <GravatarAvatar
@@ -344,12 +277,10 @@ export function BadgeCertificate({
               </a>
             </div>
 
-            {/* Center: Seal */}
             <div className="w-20 h-20 rounded-full border-4 border-[#1A1A1A] dark:border-foreground flex items-center justify-center bg-[#FDFBF7] dark:bg-card shadow-lg flex-shrink-0">
               <ClarityLogoMark size={72} className="text-[#1A1A1A] dark:text-foreground" />
             </div>
 
-            {/* Right: QR code (desktop only per spec) */}
             {badgeUrl ? (
               <div className="flex-1 flex justify-end">
                 <div className="bg-white p-2 rounded">

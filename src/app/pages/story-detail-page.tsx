@@ -1202,13 +1202,13 @@ export function StoryDetailPage() {
     <div className="max-w-2xl mx-auto">
       {/* P504: SEO meta tags */}
       <SEO
-        title={story.title || `Story by ${story.authorName}`}
+        title={`Story by ${story.authorName}`}
         description={storyExcerpt || `A story shared on ClarityPledge by ${story.authorName}.`}
         url={`/story/${story.id}`}
         image={story.bannerUrl || undefined}
         type="article"
         article={{
-          headline: story.title || `Story by ${story.authorName}`,
+          headline: `Story by ${story.authorName}`,
           author: story.authorName,
           authorUrl: story.authorSlug ? `/p/${story.authorSlug}` : undefined,
           datePublished: story.createdAt,

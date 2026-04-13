@@ -28,7 +28,6 @@ const log = (...args: unknown[]) => DEBUG && console.log('[stories-service-real]
 interface DbStoryWithAuthor {
   id: string;
   author_id: string;
-  title?: string;
   content: string;
   visibility: StoryVisibility;
   current_version: number;
@@ -56,7 +55,6 @@ interface DbStoryVersionRow {
   id: string;
   story_id: string;
   version_number: number;
-  title: string;
   content: string;
   created_at: string;
 }
@@ -630,7 +628,7 @@ export const realStoriesService: StoriesService = {
 
     const { data, error } = await supabase
       .from('story_points')
-      .select('story_id, stories(id, author_id, title, content, visibility, current_version, understood_count, created_at, updated_at, tags)')
+      .select('story_id, stories(id, author_id, content, visibility, current_version, understood_count, created_at, updated_at, tags)')
       .eq('author_id', userId)
       .eq('point_id', pointId)
       .limit(1)
@@ -647,7 +645,7 @@ export const realStoriesService: StoriesService = {
     if (!data?.stories) return null;
 
     const s = data.stories as {
-      id: string; author_id: string; title?: string; content: string;
+      id: string; author_id: string; content: string;
       visibility: StoryVisibility; current_version: number; understood_count: number;
       created_at: string; updated_at: string; tags: string[]; banner_url?: string | null;
     };
@@ -655,7 +653,6 @@ export const realStoriesService: StoriesService = {
     return {
       id: s.id,
       authorId: s.author_id,
-      title: s.title,
       content: s.content,
       visibility: s.visibility ?? 'private',
       currentVersion: s.current_version ?? 1,
