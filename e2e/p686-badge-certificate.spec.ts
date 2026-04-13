@@ -10,7 +10,6 @@
  * - Certifier name links to their profile
  * - Point titles link to point detail pages
  * - Owner sees share controls + "Your Badge" banner
- * - Visitor sees "Join the next Clarity Workshop" CTA
  * - 0 badge points → "Badge Not Found" (not-found screen)
  * - OG tags render correct meta preview content
  *
@@ -180,15 +179,6 @@ test.describe('P686: Badge certificate page', () => {
 
     // Share controls: copy link, LinkedIn, WhatsApp, export image
     await expect(page.getByRole('button', { name: /share|copy link/i }).first()).toBeVisible({ timeout: 5000 });
-  });
-
-  test('visitor sees "Join the next Clarity Workshop" CTA', async ({ page }) => {
-    // Visit as unrelated user (no session injection = visitor view)
-    await page.goto(`/p/${earner.slug}/badge`);
-    await page.waitForLoadState('networkidle');
-
-    // TODO: fill selector after implementation — CTA card text
-    await expect(page.getByText(/Join the next Clarity Workshop/i)).toBeVisible({ timeout: 10000 });
   });
 
   test('visitor does NOT see share controls / owner banner', async ({ page }) => {

@@ -48,6 +48,7 @@ import {
 import { pointsService } from '@/app/data/points-service';
 import { eventsService } from '@/app/data/events-service';
 import { calibrationService } from '@/app/data/calibration-service';
+import { badgeService } from '@/app/data/badge-service';
 import { supabase } from '@/lib/supabase';
 import {
   Dialog,
@@ -1364,7 +1365,7 @@ export function ClarityLivePage() {
       } catch (err) {
         console.error('[Live Update] Failed to update state:', err);
         if (import.meta.env.DEV) {
-          console.log(`[LiveUpdate] Write FAILED + REVERTED: ${Object.keys(updates).join(', ')}`);
+          console.error(`[LiveUpdate] Write FAILED + REVERTED: ${Object.keys(updates).join(', ')}`);
         }
         // P525: Capture failure in Sentry with sanitized state snapshot
         try {
@@ -1412,6 +1413,8 @@ export function ClarityLivePage() {
   const [isLocallyRating, setIsLocallyRating] = useState(false);
   // P23.3: Track which flow type we're in locally ('check' = "Did you get it?", 'prove' = "Did I get it?")
   const [localFlowType, setLocalFlowType] = useState<'check' | 'prove'>('check');
+  // P686: Track whether the current user is a certified certifier (badge giver)
+  const [isCertifier, setIsCertifier] = useState(false);
 
   // P562: Free mode reuses guided mode's handleStartCheck — no separate handler needed.
   // The guided mode round runs identically; divergence happens in handleCelebrationComplete.
@@ -1520,15 +1523,118 @@ export function ClarityLivePage() {
   }, [updateLiveState]);
 
   /** P562: Round complete (10/10 auto-transition) */
-  const handleFreeRoundComplete = useCallback(() => {
+  const handleFreeRoundComplete = useCallback(async () => {
     // Guard: verify both sliders are at 10 in confirmed state before transitioning
     const current = confirmedLiveStateRef.current;
     if (current.freePhase !== 'unlocked') return;
     const creatorVal = current.freeSliderCreator ?? 0;
     const joinerVal = current.freeSliderJoiner ?? 0;
     if (creatorVal !== 10 || joinerVal !== 10) return;
-    updateLiveState({ freePhase: 'success' });
-  }, [updateLiveState]);
+
+    // P686: Badge certification check — runs only on the certifier's client
+    let badgePointEarned = false;
+    let newBadgeCount = 0;
+
+    try {
+      // Only proceed if: current user is logged in and the session has both profile IDs
+      const myUserId = user?.id;
+      const myProfileId = isCreator ? session?.creatorProfileId : session?.joinerProfileId;
+      const listenerProfileId = isCreator ? session?.joinerProfileId : session?.creatorProfileId;
+
+      if (myUserId && myProfileId && listenerProfileId) {
+        // Fetch current user's profile to check is_certifier flag
+        const { data: myProfile } = await supabase
+          .from('profiles')
+          .select('is_certifier')
+          .eq('id', myProfileId)
+          .maybeSingle();
+
+        if (myProfile?.is_certifier === true) {
+          setIsCertifier(true);
+          // Find the #understanding-tagged point in the current story.
+          // Primary path: read from selectedStoryData already in liveState.
+          // Fallback path: when selectedStoryData is absent (e.g. state injected
+          //   directly in tests or via DB write), query from selectedPointId if set,
+          //   or query points linked to selectedStoryId.
+          const selectedStoryData = current.selectedStoryData;
+          let understandingPoint: { id: string } | undefined = selectedStoryData?.points?.find(
+            (p) => p.systemTags?.includes('understanding')
+          );
+
+          if (!understandingPoint) {
+            // P686 fallback: resolve from DB when story data not in liveState
+            const pointIdFromState = current.selectedPointId as string | undefined;
+            const storyIdFromState = current.selectedStoryId as string | undefined;
+
+            if (pointIdFromState) {
+              // selectedPointId is set — check if it's an #understanding point
+              const { data: pointRow } = await supabase
+                .from('points')
+                .select('id, system_tags')
+                .eq('id', pointIdFromState)
+                .maybeSingle();
+              const tags: string[] = (pointRow as { id: string; system_tags: string[] | null } | null)?.system_tags ?? [];
+              if (tags.includes('understanding')) {
+                understandingPoint = { id: pointIdFromState };
+              }
+            } else if (storyIdFromState) {
+              // selectedStoryId is set — find first #understanding point via story_points join
+              const { data: spRows } = await supabase
+                .from('story_points')
+                .select('point_id, points!inner(id, system_tags)')
+                .eq('story_id', storyIdFromState);
+              const match = (spRows as Array<{ point_id: string; points: { id: string; system_tags: string[] | null } }> | null)
+                ?.find(row => row.points.system_tags?.includes('understanding'));
+              if (match) {
+                understandingPoint = { id: match.point_id };
+              }
+            }
+          }
+
+          if (understandingPoint) {
+            // Read listener's position from livePositions (top-level keys for JSONB safety).
+            // Fallback: query point_positions table when livePositions not populated.
+            let listenerPosition: string | null | undefined = isCreator
+              ? current.livePositionsJoiner?.[understandingPoint.id]
+              : current.livePositionsCreator?.[understandingPoint.id];
+
+            if (listenerPosition == null) {
+              // P686 fallback: resolve listener position from DB
+              const { data: posRow } = await supabase
+                .from('point_positions')
+                .select('position')
+                .eq('point_id', understandingPoint.id)
+                .eq('user_id', listenerProfileId)
+                .maybeSingle();
+              listenerPosition = (posRow as { position: string } | null)?.position ?? null;
+            }
+
+            if (listenerPosition === 'agree' || listenerPosition === 'strongly_agree') {
+              const result = await badgeService.insertBadgePoint({
+                userId: listenerProfileId,
+                pointId: understandingPoint.id,
+                storyId: selectedStoryData?.id ?? (current.selectedStoryId as string | undefined) ?? null,
+                verifiedBy: myProfileId,
+                sessionId: session?.id ?? '',
+                position: listenerPosition as 'agree' | 'strongly_agree',
+              });
+
+              if (result !== null) {
+                // Successfully earned (null = duplicate, not an error)
+                badgePointEarned = true;
+                newBadgeCount = await badgeService.getBadgeCount(listenerProfileId);
+              }
+            }
+          }
+        }
+      }
+    } catch (err) {
+      // Non-blocking — round completes regardless of badge check errors
+      console.error('[P686] Badge certification check failed:', err);
+    }
+
+    updateLiveState({ freePhase: 'success', badgePointEarned, badgeCount: newBadgeCount });
+  }, [updateLiveState, user?.id, isCreator, session?.creatorProfileId, session?.joinerProfileId, session?.id]);
 
   /** P562/P592: "Discuss another story" from free mode success — dual-ack pattern */
   const handleFreeDiscussAnother = useCallback(() => {
@@ -1564,6 +1670,9 @@ export function ClarityLivePage() {
         celebrationAcknowledgedByCreator: false,
         celebrationAcknowledgedByJoiner: false,
         celebrationAcknowledgedBy: [],
+        // P686: Clear badge state for next round
+        badgePointEarned: false,
+        badgeCount: 0,
         // P600: Clear content selection so idle screen shows fresh
         selectedStoryId: undefined,
         selectedStoryData: undefined,
@@ -1608,6 +1717,7 @@ export function ClarityLivePage() {
           statement: p.statement,
           context: p.context,
           tags: p.tags,
+          systemTags: p.systemTags, // P686: needed for badge certification check
           positionCounts: p.positionCounts,
           userPosition: p.userPosition,
           profileSubjectPosition: p.profileSubjectPosition,
@@ -3955,6 +4065,7 @@ export function ClarityLivePage() {
           onFreeRoundComplete={handleFreeRoundComplete}
           onFreeDiscussAnother={handleFreeDiscussAnother}
           freeStoryTitle={liveState.selectedContentTitle}
+          isCertifier={isCertifier}
         />
 
         {/* Remove position confirmation dialog */}

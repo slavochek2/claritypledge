@@ -1,4 +1,5 @@
 import { Helmet } from "react-helmet-async";
+import { useEffect } from "react";
 
 interface SEOProps {
   title?: string;
@@ -41,6 +42,30 @@ const organizationSchema = {
     "https://www.linkedin.com/company/claritypledge",
   ],
 };
+
+// ── Direct meta tag helpers (React 19 / react-helmet-async compatibility) ──────
+//
+// react-helmet-async v2 does not update <meta property="..."> tags in React 19
+// because React 19 extracts <meta> elements from the render tree before Helmet
+// can process them as children. We bypass this by using direct DOM manipulation
+// via useEffect for all <meta> tags. <title> is still handled by Helmet because
+// React 19 supports native title deduplication.
+
+function setMeta(attr: "name" | "property", key: string, value: string) {
+  let el = document.querySelector<HTMLMetaElement>(`meta[${attr}="${key}"]`);
+  if (!el) {
+    el = document.createElement("meta");
+    el.setAttribute(attr, key);
+    el.setAttribute("data-rh", "true");
+    document.head.appendChild(el);
+  }
+  el.setAttribute("content", value);
+}
+
+function removeMeta(attr: "name" | "property", key: string) {
+  const el = document.querySelector<HTMLMetaElement>(`meta[${attr}="${key}"][data-rh="true"]`);
+  if (el) el.remove();
+}
 
 export function SEO({
   title,
@@ -139,33 +164,69 @@ export function SEO({
     jsonLdSchemas.push(webSiteSchema);
   }
 
+  const imageWidth = image?.includes('/banners/') ? "1200" : "512";
+  const imageHeight = image?.includes('/banners/') ? "630" : "512";
+
+  // Apply meta tags directly to avoid react-helmet-async / React 19 incompatibility.
+  // React 19 extracts <meta> children from the Helmet render tree, so Helmet never
+  // gets to call updateTags() for them. Direct DOM manipulation is the reliable path.
+  useEffect(() => {
+    // name-based meta
+    setMeta("name", "title", fullTitle);
+    setMeta("name", "description", description);
+
+    // Open Graph
+    setMeta("property", "og:type", type);
+    setMeta("property", "og:url", fullUrl);
+    setMeta("property", "og:title", fullTitle);
+    setMeta("property", "og:description", description);
+    setMeta("property", "og:image", image ?? DEFAULT_IMAGE);
+    setMeta("property", "og:image:width", imageWidth);
+    setMeta("property", "og:image:height", imageHeight);
+    setMeta("property", "og:site_name", "Clarity Pledge");
+
+    // Twitter
+    setMeta("name", "twitter:card", "summary_large_image");
+    setMeta("name", "twitter:url", fullUrl);
+    setMeta("name", "twitter:title", fullTitle);
+    setMeta("name", "twitter:description", description);
+    setMeta("name", "twitter:image", image ?? DEFAULT_IMAGE);
+
+    if (noIndex) {
+      setMeta("name", "robots", "noindex, nofollow");
+    } else {
+      removeMeta("name", "robots");
+    }
+
+    return () => {
+      // On unmount, remove dynamically added meta tags so stale tags don't linger
+      // after SPA navigation. Only remove tags we added (data-rh="true").
+      removeMeta("name", "title");
+      removeMeta("name", "description");
+      removeMeta("property", "og:type");
+      removeMeta("property", "og:url");
+      removeMeta("property", "og:title");
+      removeMeta("property", "og:description");
+      removeMeta("property", "og:image");
+      removeMeta("property", "og:image:width");
+      removeMeta("property", "og:image:height");
+      removeMeta("property", "og:site_name");
+      removeMeta("name", "twitter:card");
+      removeMeta("name", "twitter:url");
+      removeMeta("name", "twitter:title");
+      removeMeta("name", "twitter:description");
+      removeMeta("name", "twitter:image");
+    };
+  }, [fullTitle, description, type, fullUrl, image, imageWidth, imageHeight, noIndex]);
+
   return (
     <Helmet>
-      {/* Primary Meta Tags */}
+      {/* <title> is handled by Helmet — React 19 natively dedupes title to <head> */}
       <title>{fullTitle}</title>
-      <meta name="title" content={fullTitle} />
-      <meta name="description" content={description} />
       <link rel="canonical" href={fullUrl} />
 
-      {/* Open Graph / Facebook */}
-      <meta property="og:type" content={type} />
-      <meta property="og:url" content={fullUrl} />
-      <meta property="og:title" content={fullTitle} />
-      <meta property="og:description" content={description} />
-      <meta property="og:image" content={image} />
-      <meta property="og:image:width" content={image?.includes('/banners/') ? "1200" : "512"} />
-      <meta property="og:image:height" content={image?.includes('/banners/') ? "630" : "512"} />
-      <meta property="og:site_name" content="Clarity Pledge" />
-
-      {/* Twitter */}
-      <meta name="twitter:card" content="summary_large_image" />
-      <meta name="twitter:url" content={fullUrl} />
-      <meta name="twitter:title" content={fullTitle} />
-      <meta name="twitter:description" content={description} />
-      <meta name="twitter:image" content={image} />
-
-      {/* Robots */}
-      {noIndex && <meta name="robots" content="noindex, nofollow" />}
+      {/* Robots (static pages only — dynamic noIndex handled via useEffect) */}
+      {!noIndex && <meta name="robots" content="index, follow" />}
 
       {/* JSON-LD Structured Data */}
       <script type="application/ld+json">

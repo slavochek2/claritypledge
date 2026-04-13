@@ -17,6 +17,7 @@ export interface PersonRef {
   avatarColor?: string; // Optional — PersonAvatar defaults to #3B82F6
   avatarUrl?: string | null;
   hasPledged: boolean; // ALWAYS present
+  badgeCount?: number; // P686: Number of verified badge points (0–9)
 }
 
 // ============================================================================
@@ -538,6 +539,7 @@ export type LiveStoryData = Pick<StoryWithAuthor,
     statement: string;
     context?: string;
     tags: string[];
+    systemTags?: string[]; // P686: for badge certification check
     positionCounts?: Record<string, number>;
     userPosition?: string | null;
     profileSubjectPosition?: string | null;
@@ -763,6 +765,16 @@ export interface LiveSessionState {
 
   /** P600: Speaker's re-rated belief after hearing paraphrase (3rd number before sliders) */
   freeRerating?: number;
+
+  // ============================================================================
+  // P686: Badge auto-certification
+  // ============================================================================
+
+  /** true when a badge point was just earned this round */
+  badgePointEarned?: boolean;
+
+  /** total badge count after this round (for celebration display) */
+  badgeCount?: number;
 }
 
 /** Default initial state for new live sessions */

@@ -14,6 +14,7 @@ const SignPledgePage = lazy(() => import("@/app/pages/sign-pledge-page").then(m 
 const PledgeConfirmationPage = lazy(() => import("@/app/pages/pledge-confirmation-page").then(m => ({ default: m.PledgeConfirmationPage })));
 const ProfilePageV2 = lazy(() => import("@/app/pages/profile-page-v2").then(m => ({ default: m.ProfilePageV2 })));
 const PledgePage = lazy(() => import("@/app/pages/pledge-page").then(m => ({ default: m.PledgePage })));
+const BadgePage = lazy(() => import("@/app/pages/badge-page").then(m => ({ default: m.BadgePage })));
 const MePage = lazy(() => import("@/app/pages/me-page").then(m => ({ default: m.MePage })));
 const ClarityPledgersPage = lazy(() => import("@/app/pages/clarity-pledgers-page").then(m => ({ default: m.ClarityPledgersPage })));
 const LoginPage = lazy(() => import("@/app/pages/login-page").then(m => ({ default: m.LoginPage })));
@@ -283,6 +284,15 @@ export default function ClarityPledgeApp() {
           element={
             <ClarityLandingLayout>
               <LazyRoute><ProfilePageV2 /></LazyRoute>
+            </ClarityLandingLayout>
+          }
+        />
+
+        <Route
+          path="/p/:id/badge"
+          element={
+            <ClarityLandingLayout>
+              <LazyRoute><BadgePage /></LazyRoute>
             </ClarityLandingLayout>
           }
         />

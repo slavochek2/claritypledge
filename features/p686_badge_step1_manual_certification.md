@@ -1,14 +1,14 @@
 ---
-status: backlog
+status: qa
 type: story
 rank: 1000686.0
 created_date: '2026-04-10'
 tags: [badge, certification, propagation, profile]
 flow: dev
-delivery_stage: decompose
+delivery_stage: verify
 pipeline_plan: [create-spec, challenge-prd, ux, architect, ui, generate-tests, spec-review, spec-compact, decompose, dev, verify]
 pipeline_skipped: [spec-review -- spec has been through challenge-prd + multiple manual review rounds]
-pipeline_ran: [create-spec, challenge-prd, ux, architect, ui, generate-tests, spec-compact, decompose]
+pipeline_ran: [create-spec, challenge-prd, ux, architect, ui, generate-tests, spec-compact, decompose, dev, verify]
 uat_file: features/uat/p686.md
 test_files:
   - e2e/integration/p686-badge-migration.spec.ts
@@ -647,7 +647,7 @@ With only Slava as certifier, this is acceptable. Step 2 requires an RPC with se
 - **Tests:** `e2e/integration/p686-badge-migration.spec.ts`
 - **Depends on:** None
 - **Verify:** `badge_points` table exists with all columns and UNIQUE(user_id, point_id); `is_certifier` on profiles; RLS allows public SELECT and certifier INSERT; Slava profile has `is_certifier = true`
-- [ ] Complete
+- [x] Complete
 
 ### Task 2: Badge service interface and types
 - **Files:** `src/app/data/badge-service.interface.ts` (create), `src/app/data/badge-service.ts` (create)
@@ -655,7 +655,7 @@ With only Slava as certifier, this is acceptable. Step 2 requires an RPC with se
 - **Tests:** `src/tests/p686-badge-service.test.ts`
 - **Depends on:** Task 1
 - **Verify:** `BadgePoint` type, `BadgeService` interface, and service export compile without errors; unit tests for interface shape pass
-- [ ] Complete
+- [x] Complete
 
 ### Task 3: Badge service implementation (Supabase)
 - **Files:** `src/app/data/badge-service-real.ts` (create)
@@ -663,7 +663,7 @@ With only Slava as certifier, this is acceptable. Step 2 requires an RPC with se
 - **Tests:** `src/tests/p686-badge-service.test.ts` (19 tests — badge count, position qualification, canCertify gates)
 - **Depends on:** Task 2
 - **Verify:** `insertBadgePoint()` (ON CONFLICT DO NOTHING), `getBadgePoints(userId)`, `getBadgeCount(userId)` all compile; unit tests pass (mocked Supabase client)
-- [ ] Complete
+- [x] Complete
 
 ### Task 4: Types — LiveSessionState badge fields + BadgePoint
 - **Files:** `src/app/types/index.ts` (modify)
@@ -671,7 +671,7 @@ With only Slava as certifier, this is acceptable. Step 2 requires an RPC with se
 - **Tests:** `src/tests/p686-badge-service.test.ts` (type checks)
 - **Depends on:** Task 2
 - **Verify:** `LiveSessionState` has `badgePointEarned?: boolean` and `badgeCount?: number`; TypeScript compiles with no errors
-- [ ] Complete
+- [x] Complete
 
 ### Task 5: /live — systemTags snapshot fix + badge certification logic
 - **Files:** `src/app/pages/clarity-live-page.tsx` (modify)
@@ -679,7 +679,7 @@ With only Slava as certifier, this is acceptable. Step 2 requires an RPC with se
 - **Tests:** `e2e/p686-badge-certification.spec.ts` (10 tests — happy path, 3 silent-skip paths, duplicate)
 - **Depends on:** Task 3, Task 4
 - **Verify:** Add `systemTags: p.systemTags` to snapshot at line ~1610; `handleFreeRoundComplete` checks certifier/listener/position/understanding-tag preconditions; badge insert fires on pass; `badgePointEarned`/`badgeCount` written to live state; cleared in dual-ack reset
-- [ ] Complete
+- [x] Complete
 
 ### Task 6: Celebration screen — badge headline
 - **Files:** `src/app/components/partners/free-mode-success.tsx` (modify)
@@ -687,7 +687,7 @@ With only Slava as certifier, this is acceptable. Step 2 requires an RPC with se
 - **Tests:** `e2e/p686-badge-certification.spec.ts` (celebration headline assertions)
 - **Depends on:** Task 4, Task 5
 - **Verify:** Badge headline renders above standard celebration when `badgePointEarned=true`; listener sees "Badge point earned! N/9"; certifier sees "You verified [name]!"; 9/9 shows "Full badge earned!"; no headline when `badgePointEarned=false`
-- [ ] Complete
+- [x] Complete
 
 ### Task 7: GravatarAvatar — showBadge prop
 - **Files:** `src/components/ui/gravatar-avatar.tsx` (modify)
@@ -695,7 +695,7 @@ With only Slava as certifier, this is acceptable. Step 2 requires an RPC with se
 - **Tests:** `e2e/p686-badge-profile.spec.ts` (checkmark assertions)
 - **Depends on:** None
 - **Verify:** `showBadge` prop renders checkmark overlay distinct from `showPledgeBadge`; correct sizing at sm/md/lg/xl; touch target >= 44px; ARIA label "Has Clarity Badge — N of 9 points verified"
-- [ ] Complete
+- [x] Complete
 
 ### Task 8: Profile page — badge link in navigation cluster + badge count fetch
 - **Files:** `src/app/pages/profile-page-v2.tsx` (modify)
@@ -703,7 +703,7 @@ With only Slava as certifier, this is acceptable. Step 2 requires an RPC with se
 - **Tests:** `e2e/p686-badge-profile.spec.ts` (10 tests — checkmark, badge link, pledge+badge coexistence)
 - **Depends on:** Task 3, Task 7
 - **Verify:** Badge count fetched on profile load; checkmark shows on avatar when badgeCount >= 1; "My badge (N/9)" / "See their badge (N/9)" link appears in nav cluster; pledge and badge links coexist independently; no link shown when badgeCount = 0
-- [ ] Complete
+- [x] Complete
 
 ### Task 9: BadgeCertificate component
 - **Files:** `src/app/components/profile/badge-certificate.tsx` (create)
@@ -711,7 +711,7 @@ With only Slava as certifier, this is acceptable. Step 2 requires an RPC with se
 - **Tests:** `e2e/p686-badge-certificate.spec.ts` (component-level assertions), `e2e/a11y/p686-badge-accessibility.spec.ts`
 - **Depends on:** Task 3
 - **Verify:** Progress bar renders with correct ARIA; all 9 points listed in canonical order; verified points show checkmark + title + date, unverified show muted circle + title; certifier name links to profile; verified point titles link to public point detail pages
-- [ ] Complete
+- [x] Complete
 
 ### Task 10: BadgeExportCertificate — 1080x1080 image export
 - **Files:** `src/app/components/profile/export-badge-certificate.tsx` (create)
@@ -719,7 +719,7 @@ With only Slava as certifier, this is acceptable. Step 2 requires an RPC with se
 - **Tests:** `e2e/p686-badge-certificate.spec.ts` (export assertions)
 - **Depends on:** Task 9
 - **Verify:** Fixed 1080x1080px; 3-column point grid; no dates in export; QR code embeds badge certificate URL; partial and complete badge render correctly
-- [ ] Complete
+- [x] Complete
 
 ### Task 11: badge-page.tsx — route, owner/visitor views, SEO, share
 - **Files:** `src/app/pages/badge-page.tsx` (create), `src/App.tsx` (modify)
@@ -727,7 +727,7 @@ With only Slava as certifier, this is acceptable. Step 2 requires an RPC with se
 - **Tests:** `e2e/p686-badge-certificate.spec.ts` (12 tests — page load, owner/visitor, OG meta, CTA), `e2e/p686-smoke.spec.ts`
 - **Depends on:** Task 9, Task 10
 - **Verify:** Route `/p/:slug/badge` registered in App.tsx; owner sees blue banner + ShareDropdown; visitor sees headline above + CTA card below; 0-badge shows "Badge Not Found"; OG tags render badge preview; public access (no login required)
-- [ ] Complete
+- [x] Complete
 
 ### Task 12: Pre-build data task — export point titles + verify understanding tags
 - **Files:** `docs/technical/badge-points-reference.md` (create)
@@ -735,7 +735,7 @@ With only Slava as certifier, this is acceptable. Step 2 requires an RPC with se
 - **Tests:** None (data verification only)
 - **Depends on:** Task 1
 - **Verify:** Reference file contains all 9 certification point titles; all 9 points have `understanding` in `system_tags` (or migration adds missing tags); file checked in
-- [ ] Complete
+- [x] Complete
 
 ### Task 13: definitions.md update
 - **Files:** `docs/definitions.md` (modify)
@@ -743,7 +743,7 @@ With only Slava as certifier, this is acceptable. Step 2 requires an RPC with se
 - **Tests:** None
 - **Depends on:** None
 - **Verify:** "Calibration Badge" definition in `definitions.md` reflects P686 badge concept (proof of calibrated alignment, auto-certification from /live, progress bar); old ≥10-sessions definition removed
-- [ ] Complete
+- [x] Complete
 
 ---
 
