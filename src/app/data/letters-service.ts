@@ -1090,6 +1090,7 @@ export async function getUnreadLetterCount(userId: string): Promise<number> {
 // ============================================================================
 
 export interface ResultsProfileData {
+  id: string;
   name: string;
   avatarUrl?: string;
   avatarColor?: string;
@@ -1149,6 +1150,7 @@ export async function getLetterResults(
   const rawReceiverProfile = row['receiver_profile'] as Record<string, unknown> | null;
 
   const senderProfile: ResultsProfileData = {
+    id: (rawSenderProfile['id'] as string) ?? '',
     name: (rawSenderProfile['name'] as string) ?? '',
     avatarUrl: (rawSenderProfile['avatar_url'] as string | null) ?? undefined,
     avatarColor: (rawSenderProfile['avatar_color'] as string | null) ?? undefined,
@@ -1158,6 +1160,7 @@ export async function getLetterResults(
   };
 
   const receiverProfile: ResultsProfileData | null = rawReceiverProfile ? {
+    id: (rawReceiverProfile['id'] as string) ?? '',
     name: (rawReceiverProfile['name'] as string) ?? '',
     avatarUrl: (rawReceiverProfile['avatar_url'] as string | null) ?? undefined,
     avatarColor: (rawReceiverProfile['avatar_color'] as string | null) ?? undefined,

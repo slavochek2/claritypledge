@@ -795,7 +795,18 @@ function mapSessionFromDb(dbSession: DbClaritySession): ClaritySession {
     isPrivate: dbSession.is_private ?? false,
     // P511: Last heartbeat timestamp (for zombie session detection)
     lastActivityAt: dbSession.last_activity_at ?? null,
+    // P703: Letter-sourced session fields
+    sourceStoryId: dbSession.source_story_id ?? null,
+    targetListenerId: dbSession.target_listener_id ?? null,
+    status: dbSession.status ?? null,
   };
+}
+
+/** P703: Optional letter-sourced fields for createClaritySession. */
+export interface LetterSessionOpts {
+  sourceLetterId: string;
+  sourceStoryId: string;
+  targetListenerId: string;
 }
 
 /**
@@ -804,13 +815,15 @@ function mapSessionFromDb(dbSession: DbClaritySession): ClaritySession {
  * @param creatorProfileId - Optional profile ID of the authenticated creator
  * @param isPrivate - When true, session skips audio/events upload for ML training
  * @param creatorNote - Optional note explaining why the partner is being invited
+ * @param letterOpts - P703: Letter-sourced session opts (pre-loaded /live)
  * @returns The created session
  */
 export async function createClaritySession(
   creatorName: string,
   creatorProfileId?: string,
   isPrivate = false,
-  creatorNote?: string
+  creatorNote?: string,
+  letterOpts?: LetterSessionOpts
 ): Promise<ClaritySession> {
   // Generate unique room code (retry if collision)
   let code = generateRoomCode();
@@ -818,6 +831,13 @@ export async function createClaritySession(
   const maxAttempts = 5;
 
   while (attempts < maxAttempts) {
+    const letterFields = letterOpts
+      ? {
+          source_letter_id: letterOpts.sourceLetterId,
+          source_story_id: letterOpts.sourceStoryId,
+          target_listener_id: letterOpts.targetListenerId,
+        }
+      : {};
     const { data, error } = await supabase
       .from('clarity_sessions')
       .insert({
@@ -829,6 +849,7 @@ export async function createClaritySession(
         demo_status: 'waiting',
         partnership_status: 'pending',
         is_private: isPrivate,
+        ...letterFields,
       })
       .select()
       .single();
@@ -3815,5 +3836,181 @@ export async function createTranscriptionJob(_sessionCode: string, sessionId: st
   if (error) {
     // Don't throw — transcription job creation failure shouldn't block session end
     console.error('[Transcription API] Error creating transcription job:', error);
+  }
+}
+
+// ============================================================================
+// P703: Letter-sourced /live API functions
+// ============================================================================
+
+export interface LiveInviteRecord {
+  id: string;
+  sessionId: string;
+  code: string;
+  targetUserId: string;
+  createdAt: string;
+  closedAt: string | null;
+}
+
+export interface BaselineRatings {
+  speakerRating: number | null;
+  listenerRating: number | null;
+}
+
+/**
+ * Inserts a clarity_live_invites row for the target listener.
+ * Returns the invite id.
+ */
+export async function createLiveInvite(
+  sessionId: string,
+  targetUserId: string
+): Promise<string> {
+  const { data, error } = await supabase
+    .from('clarity_live_invites')
+    .insert({ session_id: sessionId, target_user_id: targetUserId })
+    .select('id')
+    .single();
+  if (error || !data) {
+    console.error('[P703] Error creating live invite:', error?.message);
+    throw new Error(error?.message || 'Failed to create live invite');
+  }
+  return data.id;
+}
+
+/**
+ * Fetches the current user's open live invite (if any).
+ * Returns null if no open invite.
+ */
+export async function getOpenLiveInviteForUser(
+  userId: string
+): Promise<LiveInviteRecord | null> {
+  const { data, error } = await supabase
+    .from('clarity_live_invites')
+    .select('id, session_id, target_user_id, created_at, closed_at, clarity_sessions(code)')
+    .eq('target_user_id', userId)
+    .is('closed_at', null)
+    .limit(1)
+    .single();
+  if (error || !data) return null;
+  const sessionData = data.clarity_sessions as { code: string } | null;
+  return {
+    id: data.id,
+    sessionId: data.session_id,
+    code: sessionData?.code ?? '',
+    targetUserId: data.target_user_id,
+    createdAt: data.created_at,
+    closedAt: data.closed_at ?? null,
+  };
+}
+
+/**
+ * Fetches baseline ratings for a letter-sourced /live session (AD3).
+ * Returns { speakerRating, listenerRating } or null if either row is missing.
+ *
+ * speakerRating ← letter_predictions.prediction
+ * listenerRating ← story_verifications.listener_rating (source='letter')
+ */
+export async function getLetterBaselineRatings(
+  sourceLetterId: string,
+  sourceStoryId: string,
+  senderId: string,
+  receiverId: string
+): Promise<BaselineRatings | null> {
+  const [predictionsResult, verificationsResult] = await Promise.all([
+    supabase
+      .from('letter_predictions')
+      .select('prediction')
+      .eq('letter_id', sourceLetterId)
+      .eq('story_id', sourceStoryId)
+      .limit(1),
+    supabase
+      .from('story_verifications')
+      .select('listener_rating')
+      .eq('story_id', sourceStoryId)
+      .eq('source', 'letter')
+      .eq('speaker_id', senderId)
+      .eq('listener_id', receiverId)
+      .limit(1),
+  ]);
+
+  const predictionRow = predictionsResult.data?.[0];
+  const verificationRow = verificationsResult.data?.[0];
+
+  if (!predictionRow || !verificationRow) return null;
+
+  return {
+    speakerRating: predictionRow.prediction ?? null,
+    listenerRating: verificationRow.listener_rating ?? null,
+  };
+}
+
+/**
+ * Subscribes to the current user's live invites via Supabase realtime (AD4).
+ * Fires onInsert for new invites and onUpdate for closed invites.
+ * Returns an unsubscribe function.
+ */
+export function subscribeToLiveInvites(
+  userId: string,
+  onInsert: (payload: Record<string, unknown>) => void,
+  onUpdate: (payload: Record<string, unknown>) => void
+): () => void {
+  const channel = supabase
+    .channel(`live_invites:${userId}`)
+    .on(
+      'postgres_changes',
+      {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'clarity_live_invites',
+        filter: `target_user_id=eq.${userId}`,
+      },
+      (payload) => {
+        if (payload.new) onInsert(payload.new as Record<string, unknown>);
+      }
+    )
+    .on(
+      'postgres_changes',
+      {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'clarity_live_invites',
+        filter: `target_user_id=eq.${userId}`,
+      },
+      (payload) => {
+        if (payload.new) onUpdate(payload.new as Record<string, unknown>);
+      }
+    )
+    .subscribe();
+
+  return () => {
+    supabase.removeChannel(channel);
+  };
+}
+
+/**
+ * Closes the invite for a session without completing the session itself.
+ * Used when the facilitator cancels the room before the listener joins.
+ */
+export async function cancelLiveInvite(sessionId: string): Promise<void> {
+  const { error } = await supabase
+    .from('clarity_live_invites')
+    .update({ closed_at: new Date().toISOString() })
+    .eq('session_id', sessionId)
+    .is('closed_at', null);
+  if (error) {
+    console.error('[P703] Error cancelling live invite:', error?.message);
+  }
+}
+
+/**
+ * Atomically marks the session completed and closes linked invite (AD5).
+ */
+export async function completeClaritySession(sessionId: string): Promise<void> {
+  const { error } = await supabase.rpc('complete_clarity_session', {
+    p_session_id: sessionId,
+  });
+  if (error) {
+    console.error('[P703] Error completing clarity session:', error?.message);
+    throw new Error(error?.message || 'Failed to complete session');
   }
 }

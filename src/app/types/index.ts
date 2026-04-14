@@ -152,6 +152,10 @@ export interface ClaritySession {
   isPrivate?: boolean;
   // P511: Last heartbeat timestamp (for zombie session detection)
   lastActivityAt?: string | null;
+  // P703: Letter-sourced session fields
+  sourceStoryId?: string | null;
+  targetListenerId?: string | null;
+  status?: string | null;
 }
 
 export interface ClaritySessionState {
@@ -184,6 +188,10 @@ export interface DbClaritySession {
   is_private?: boolean;
   // P511: Last heartbeat timestamp
   last_activity_at?: string | null;
+  // P703: Letter-sourced session fields
+  source_story_id?: string | null;
+  target_listener_id?: string | null;
+  status?: string | null;
 }
 
 // ============================================================================
