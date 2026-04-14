@@ -1,12 +1,12 @@
 ---
-status: week
+status: backlog
 type: story
 rank: 1000700.0
 tags: [letters, results, one-to-many, grid, visualization, workshop, dispatch]
 created_date: '2026-04-12'
-delivery_stage: create-spec
+delivery_stage: challenge-prd
 pipeline_plan: [create-spec, challenge-prd, ux, architect, ui, generate-tests, spec-review, decompose, dev, verify]
-pipeline_ran: [create-spec]
+pipeline_ran: [create-spec, challenge-prd]
 pipeline_skipped: []
 ---
 
@@ -14,7 +14,7 @@ pipeline_skipped: []
 
 > **Depends on:** [P699](p699_letter_results_story_walk.md) (individual story walk — shares RPC pattern)
 > **Related:** [P624](p624_understanding_agreement_grid.md) (rejected — grid visualization folded into this spec), [P663](p663_letter_live_interleave.md) (rejected — pre-loaded /live concept folded into P702)
-> **Followed by:** [P702](p702_verify_live_from_dispatch.md) (pre-loaded /live + inbox invite — the action layer this board dispatches into)
+> **Followed by:** [P703](p703_verify_live_from_letter_results.md) (pre-loaded /live + inbox invite — absorbed P702)
 
 ## Problem
 
