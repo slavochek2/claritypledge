@@ -46,6 +46,9 @@ interface LiveStoryCardExpandedProps {
   hidePoints?: boolean;
   /** Slot rendered inside the card at the bottom — used for "Open Story" link in letter results */
   footerSlot?: React.ReactNode;
+  /** When true, suppresses the "Add your story" CTA in PointRow.
+   * Used on results page (post-hoc, not a live session). Does not affect other letterMode behaviors. */
+  hideStoryCTA?: boolean;
 }
 
 const STORY_THRESHOLD = 100;
@@ -66,6 +69,7 @@ export function LiveStoryCardExpanded({
   defaultStoryExpanded,
   hidePoints = false,
   footerSlot,
+  hideStoryCTA = false,
 }: LiveStoryCardExpandedProps) {
   // defaultStoryExpanded falls back to readOnly for backward compat (readOnly=true → story shown in full)
   const initialStoryExpanded = defaultStoryExpanded ?? readOnly;
@@ -189,6 +193,7 @@ export function LiveStoryCardExpanded({
                   isOwnStory={isOwnStory}
                   isGuest={isGuest}
                   readOnly={readOnly}
+                  hideStoryCTA={hideStoryCTA}
                 />
               </ThreadLineItem>
             ))}
@@ -223,6 +228,7 @@ export function PointRow({
   isGuest = false,
   readOnly = false,
   letterMode = false,
+  hideStoryCTA = false,
   disablePositionButtons = false,
   children,
 }: {
@@ -243,6 +249,8 @@ export function PointRow({
   readOnly?: boolean;
   /** Letter context: hides story CTA, guest hint, tag pills, visibility icon */
   letterMode?: boolean;
+  /** When true, suppresses the "Add your story" CTA regardless of letterMode. Used on results page. */
+  hideStoryCTA?: boolean;
   /** When true, position buttons render but are visually disabled (no hover/click) */
   disablePositionButtons?: boolean;
   /** Render slot after point content (e.g., Submit button, position reveal badges) */
@@ -323,7 +331,7 @@ export function PointRow({
         {/* P456: Disabled story CTA footer — visible but non-interactive in /live session.
             P487+: Hidden on own story — use shouldShowStoryCTA shared utility. */}
         {/* P560: Position no longer required for story CTA */}
-        {!letterMode && !readOnly && !isGuest && shouldShowStoryCTA({ userPosition, isOwnStory }) === 'show' && (() => {
+        {!letterMode && !readOnly && !isGuest && !hideStoryCTA && shouldShowStoryCTA({ userPosition, isOwnStory }) === 'show' && (() => {
           // Use position-specific copy when available, generic fallback otherwise
           const copy = userPosition
             ? getPositionCTACopy(getPositionGroup(userPosition))

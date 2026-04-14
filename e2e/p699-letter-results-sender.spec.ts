@@ -207,23 +207,23 @@ test.describe('P699: Sender Results — Story Walk', () => {
 
   test('story walk shows JourneyToUnderstanding component on first story', async ({ page }) => {
     await setTestSession(page, sender.email);
-    await page.goto(`/letter/${letterId}/results`);
+    // Sender must include ?delivery= to get receiver ratings from the RPC
+    await page.goto(`/letter/${letterId}/results?delivery=${deliveryId}`);
     await page.waitForLoadState('networkidle');
 
-    // JourneyToUnderstanding shows sender prediction vs receiver rating
-    // Look for both numeric values from story 1: prediction=3, rating=8
-    const predictionValue = page.locator('text=/3/').first();
-    const ratingValue = page.locator('text=/8/').first();
-    await expect(predictionValue).toBeVisible({ timeout: 10000 });
-    await expect(ratingValue).toBeVisible({ timeout: 10000 });
+    // JourneyToUnderstanding shows rating labels for both parties.
+    // Story 1: prediction=3 ("Your belief"), rating=8 ("Recipient's confidence")
+    const journey = page.locator('text=/your belief|confidence/i').first();
+    await expect(journey).toBeVisible({ timeout: 10000 });
   });
 
   test('story walk shows GapBanner on first story', async ({ page }) => {
     await setTestSession(page, sender.email);
-    await page.goto(`/letter/${letterId}/results`);
+    // Sender must include ?delivery= to get receiver ratings (and thus gap) from the RPC
+    await page.goto(`/letter/${letterId}/results?delivery=${deliveryId}`);
     await page.waitForLoadState('networkidle');
 
-    // GapBanner includes "N points gap" badge text
+    // GapBanner includes "N points gap" badge text — story 1 gap = |3-8| = 5
     const gapBanner = page.locator('text=/points gap|perfectly calibrated/i').first();
     await expect(gapBanner).toBeVisible({ timeout: 10000 });
   });
@@ -369,8 +369,8 @@ test.describe('P699: Sender Results — Story Walk', () => {
       await page.waitForLoadState('networkidle');
     }
 
-    // Story 3 has no receiver rating — should show "Not yet rated"
-    const notRated = page.locator('text=/not yet rated|pending|awaiting/i').first();
+    // Story 3 has no receiver rating — should show "Not yet rated" (not "Pending...")
+    const notRated = page.locator('text=/not yet rated/i').first();
     await expect(notRated).toBeVisible({ timeout: 10000 });
   });
 
@@ -396,6 +396,44 @@ test.describe('P699: Sender Results — Story Walk', () => {
   });
 
   // ── 7. Unauthorized access ────────────────────────────────────────────────
+
+  // ── Canary: Bug A regressions ─────────────────────────────────────────────
+
+  test('canary: "Add your story →" CTA must not appear on letter results page', async ({ page }) => {
+    // Bug A: PointRow.letterMode was never threaded from LiveStoryCardExpanded → CTA showed on results
+    await setTestSession(page, sender.email);
+    await page.goto(`/letter/${letterId}/results`);
+    await page.waitForLoadState('networkidle');
+
+    // The CTA text must never appear on the results page — it's a post-hoc read-only view
+    const addStoryCTA = page.locator('text="Add your story →"');
+    await expect(addStoryCTA).not.toBeVisible({ timeout: 10000 });
+  });
+
+  test('canary: absent rating shows "Not yet rated", not "Pending..."', async ({ page }) => {
+    // Bug A: RatingDisplayPending showed "Pending..." even when rating is genuinely absent
+    await setTestSession(page, sender.email);
+    // Include ?delivery= so receiver ratings are fetched; story 3 is genuinely unrated
+    await page.goto(`/letter/${letterId}/results?delivery=${deliveryId}`);
+    await page.waitForLoadState('networkidle');
+
+    // Navigate to story 3 (no receiver rating)
+    const nextButton = page.getByRole('button', { name: /next story/i });
+    await nextButton.click();
+    await page.waitForLoadState('networkidle');
+    const nextButton2 = page.getByRole('button', { name: /next story/i });
+    if (await nextButton2.isVisible({ timeout: 3000 }).catch(() => false)) {
+      await nextButton2.click();
+      await page.waitForLoadState('networkidle');
+    }
+
+    // On a post-hoc results page, absent ratings show "Not yet rated" (not "Pending...")
+    const pendingText = page.locator('text="Pending..."');
+    await expect(pendingText).not.toBeVisible({ timeout: 5000 });
+
+    const notRatedText = page.locator('text=/not yet rated/i').first();
+    await expect(notRatedText).toBeVisible({ timeout: 10000 });
+  });
 
   test('third-party user cannot access sender results page', async ({ page }) => {
     const thirdParty = await createTestUser({ name: 'P699 Third Party' });

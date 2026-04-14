@@ -1996,6 +1996,7 @@ export function JourneyToUnderstanding({
               ) : (
                 <RatingDisplayPending
                   label={<span className="text-muted-foreground">{displayPartnerName}'s confidence</span>}
+                  absent={!hasResponderRating && !hideUntilBothSubmitted}
                 />
               )}
               {hasCheckerRating && shouldRevealCheckerRating ? (
@@ -2006,6 +2007,7 @@ export function JourneyToUnderstanding({
               ) : (
                 <RatingDisplayPending
                   label={<b className="text-foreground">Your belief</b>}
+                  absent={!hasCheckerRating && !hideUntilBothSubmitted}
                 />
               )}
             </>
@@ -2020,6 +2022,7 @@ export function JourneyToUnderstanding({
               ) : (
                 <RatingDisplayPending
                   label={<span className="text-muted-foreground">Your confidence</span>}
+                  absent={!hasResponderRating && !hideUntilBothSubmitted}
                 />
               )}
               {hasCheckerRating && shouldRevealCheckerRating ? (
@@ -2030,6 +2033,7 @@ export function JourneyToUnderstanding({
               ) : (
                 <RatingDisplayPending
                   label={<b className="text-foreground">{checkerName}'s belief</b>}
+                  absent={!hasCheckerRating && !hideUntilBothSubmitted}
                 />
               )}
             </>
@@ -2089,6 +2093,7 @@ export function JourneyToUnderstanding({
                 ) : (
                   <RatingDisplayPending
                     label={<span className="text-muted-foreground">{displayPartnerName}'s confidence</span>}
+                    absent={!hasResponderRating && !hideUntilBothSubmitted}
                   />
                 )}
                 {hasCheckerRating && shouldRevealCheckerRating ? (
@@ -2099,6 +2104,7 @@ export function JourneyToUnderstanding({
                 ) : (
                   <RatingDisplayPending
                     label={<b className="text-foreground">Your belief</b>}
+                    absent={!hasCheckerRating && !hideUntilBothSubmitted}
                   />
                 )}
               </>
@@ -2113,6 +2119,7 @@ export function JourneyToUnderstanding({
                 ) : (
                   <RatingDisplayPending
                     label={<span className="text-muted-foreground">Your confidence</span>}
+                    absent={!hasResponderRating && !hideUntilBothSubmitted}
                   />
                 )}
                 {hasCheckerRating && shouldRevealCheckerRating ? (
@@ -2123,6 +2130,7 @@ export function JourneyToUnderstanding({
                 ) : (
                   <RatingDisplayPending
                     label={<b className="text-foreground">{checkerName}'s belief</b>}
+                    absent={!hasCheckerRating && !hideUntilBothSubmitted}
                   />
                 )}
               </>
@@ -2302,15 +2310,19 @@ function WaitingIndicator({ message, onSkip, skipLabel = "Speak freely", showBac
 
 interface RatingDisplayPendingProps {
   label: React.ReactNode;
+  /** When true, rating is genuinely absent (not sealed-bid). Shows "Not yet rated" without pulse dot. */
+  absent?: boolean;
 }
 
-function RatingDisplayPending({ label }: RatingDisplayPendingProps) {
+function RatingDisplayPending({ label, absent = false }: RatingDisplayPendingProps) {
   return (
     <div className="flex items-center justify-between gap-2">
       <span className="text-sm text-muted-foreground">{label}</span>
       <div className="flex items-center gap-2">
-        <span className="w-2 h-2 bg-blue-500 rounded-full animate-pulse" />
-        <span className="text-sm text-muted-foreground italic">Pending...</span>
+        {!absent && <span className="w-2 h-2 bg-blue-500 rounded-full animate-pulse" />}
+        <span className="text-sm text-muted-foreground italic">
+          {absent ? 'Not yet rated' : 'Pending...'}
+        </span>
       </div>
     </div>
   );
