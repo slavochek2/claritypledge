@@ -9,6 +9,7 @@ pipeline_ran: [fix]
 date_reported: 2026-04-11
 tags: []
 rank: 1000694.0
+created_date: 2026-04-11
 ---
 
 # P694: "Letter not found" flash on cold-load of letter reading page

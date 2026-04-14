@@ -11,6 +11,9 @@ root_cause: Client called *_by_token RPCs for anon one-to-many recipients; P684 
 resolution: bufferOnly predicate (letter.mode===one-to-many && !session) gates onOpen and reading render — uses LetterReadingFlowPublic (local mode) for anon one-to-many token path.
 branch: feature/letters-ship
 worktree: w2
+tags: []
+rank: 1000708.0
+created_date: 2026-04-14
 ---
 
 # P704: Anon One-to-Many Token Reading — HTTP 400 on Every Interaction

@@ -5,6 +5,7 @@ rank: 1
 tags: []
 delivery_stage: fix
 pipeline_ran: [fix]
+created_date: 2026-04-12
 ---
 
 # P698: Letter Response "Sign in required" Flash Fix
