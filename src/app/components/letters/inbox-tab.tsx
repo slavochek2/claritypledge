@@ -155,11 +155,11 @@ export function InboxTab({ userId, onUnreadCountChange }: InboxTabProps) {
                 {/* P699: progress text for in-progress received letters */}
                 {item.type === 'received' &&
                   !item.completed_at &&
-                  item.stories_rated !== undefined &&
-                  item.total_stories !== undefined &&
-                  item.stories_rated > 0 && (
+                  item.steps_completed !== undefined &&
+                  item.total_steps !== undefined &&
+                  item.steps_completed > 0 && (
                   <p className="text-xs text-muted-foreground mt-0.5">
-                    Step {item.stories_rated} of {item.total_stories} completed
+                    {item.steps_completed} of {item.total_steps} steps
                   </p>
                 )}
               </div>

@@ -560,21 +560,20 @@ export async function getDeliveriesForLetters(
   await requireAuth();
   log('getDeliveriesForLetters:', letterIds.length, 'letters');
 
+  // P699 Phase 2: use get_deliveries_with_progress to include steps_completed + total_steps
   const { data, error } = await supabase
-    .from('letter_deliveries')
-    .select('*')
-    .in('letter_id', letterIds)
-    .order('created_at', { ascending: true });
+    .rpc('get_deliveries_with_progress', { p_letter_ids: letterIds });
 
   if (error) {
     logDbError('getDeliveriesForLetters', error);
     return Object.fromEntries(letterIds.map((id) => [id, []]));
   }
 
+  const deliveries = (data ?? []) as LetterDelivery[];
   const grouped: Record<string, LetterDelivery[]> = Object.fromEntries(
     letterIds.map((id) => [id, []])
   );
-  for (const delivery of (data ?? []) as LetterDelivery[]) {
+  for (const delivery of deliveries) {
     grouped[delivery.letter_id]?.push(delivery);
   }
   return grouped;

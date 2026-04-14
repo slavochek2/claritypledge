@@ -1404,6 +1404,10 @@ export interface LetterDelivery {
   completed_at: string | null;
   read_at: string | null;
   created_at: string;
+  /** P699 Phase 2: stories_rated + points_positioned (present when loaded via get_deliveries_with_progress) */
+  steps_completed?: number;
+  /** P699 Phase 2: total_stories + total_points (present when loaded via get_deliveries_with_progress) */
+  total_steps?: number;
 }
 
 /** P660: Inbox item — received letters + outgoing responses (UNION ALL) */
@@ -1423,6 +1427,10 @@ export interface InboxItem {
   stories_rated?: number;
   /** P699: total stories in the letter (received letters only) */
   total_stories?: number;
+  /** P699 Phase 2: stories_rated + points_positioned (received letters only) */
+  steps_completed?: number;
+  /** P699 Phase 2: total_stories + total_points (received letters only) */
+  total_steps?: number;
 }
 
 /** P699: Single story in the story walk — normalized for both sender and receiver */

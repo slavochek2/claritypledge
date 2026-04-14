@@ -69,6 +69,10 @@ function RecipientRow({ delivery }: { delivery: LetterDelivery }) {
   // Recipient (has email) = envelope icon; link respondent (no email) = link icon
   const Icon = delivery.receiver_email ? Mail : Link2;
   const statusLabel = getStatusLabel(delivery.status);
+  const showProgress = delivery.status === 'in_progress'
+    && delivery.steps_completed !== undefined
+    && delivery.total_steps !== undefined
+    && delivery.steps_completed > 0;
 
   return (
     <div className="flex items-center gap-2 py-1.5 px-3 text-sm">
@@ -76,6 +80,11 @@ function RecipientRow({ delivery }: { delivery: LetterDelivery }) {
       <span className="text-foreground truncate">{displayName}</span>
       <span aria-hidden="true" className="text-muted-foreground">·</span>
       <span className="text-muted-foreground">{statusLabel}</span>
+      {showProgress && (
+        <span className="text-muted-foreground">
+          · {delivery.steps_completed} of {delivery.total_steps} steps
+        </span>
+      )}
     </div>
   );
 }
