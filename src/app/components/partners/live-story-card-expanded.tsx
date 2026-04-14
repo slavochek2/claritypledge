@@ -139,11 +139,11 @@ export function LiveStoryCardExpanded({
         )}
       </div>
 
-      {/* Footer — "N points" expand trigger (hidden when hidePoints) */}
+      {/* Footer — "N points" expand trigger + optional right action (hidden when hidePoints) */}
       {story.points.length > 0 && !hidePoints && (
         <div
           role="presentation"
-          className="flex items-center pl-4 sm:pl-[52px] pr-4 py-2.5 border-t border-gray-100"
+          className="flex items-center justify-between pl-4 sm:pl-[52px] pr-2 py-2.5 border-t border-gray-100"
           onClick={(e) => e.stopPropagation()}
         >
           <button
@@ -157,6 +157,7 @@ export function LiveStoryCardExpanded({
               {story.points.length} {story.points.length === 1 ? 'point' : 'points'}
             </span>
           </button>
+          {footerSlot}
         </div>
       )}
 
@@ -190,7 +191,8 @@ export function LiveStoryCardExpanded({
         </div>
       )}
 
-      {footerSlot && (
+      {/* footerSlot fallback — shown only when there are no points (inline slot handled above) */}
+      {footerSlot && (story.points.length === 0 || hidePoints) && (
         <div className="border-t border-gray-100">
           {footerSlot}
         </div>

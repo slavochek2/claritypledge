@@ -139,11 +139,10 @@ export function StoryWalk({ stories, perspective, senderProfile, receiverProfile
           footerSlot={current.snapshot.story_id ? (
             <Link
               to={`/story/${current.snapshot.story_id}`}
-              className="inline-flex items-center gap-1.5 text-sm text-blue-600 hover:text-blue-700 transition-colors min-h-[44px] px-4"
-              aria-label="Open story in full view"
+              className="min-w-[44px] min-h-[44px] flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors"
+              aria-label="Open story"
             >
-              <ExternalLink size={14} />
-              Open Story
+              <ExternalLink size={16} />
             </Link>
           ) : undefined}
         />
