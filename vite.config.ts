@@ -46,6 +46,12 @@ export default defineConfig({
   cacheDir: getCacheDir(),
   // Pre-bundle all heavy deps so Vite never re-optimizes mid-session (prevents 504 "Outdated Optimize Dep")
   optimizeDeps: {
+    // Crawl lazy-loaded entry points so their deps are discovered before any request arrives.
+    // Without this, dynamic imports only discovered at runtime trigger re-optimization mid-session.
+    entries: [
+      'src/App.tsx',
+      'src/app/pages/clarity-live-page.tsx',
+    ],
     include: [
       'react',
       'react-dom',
