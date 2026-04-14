@@ -40,6 +40,7 @@ Writes `view_locked: [path/to/view.tsx, path/to/view.demo.tsx]` to spec frontmat
 - Pure refactors (component structure, not appearance)
 - Single-file copy or config changes
 - Medium pipeline runs without a Component Strategy section
+- **Already-shipped UI you want to polish** — use `/change-request` to file a redesign spec, then run the `ui-heavy` flow (which includes `/view`) on that CR
 
 ---
 

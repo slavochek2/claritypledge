@@ -1,9 +1,10 @@
 ---
-status: backlog
+status: rejected
 type: change-request
 rank: 1000072.0
 created_date: 2026-04-07T00:00:00.000Z
 changes: p617
+superseded_by: p674
 tags:
   - live
   - ux

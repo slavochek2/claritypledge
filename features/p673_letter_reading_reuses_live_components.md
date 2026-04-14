@@ -1,5 +1,5 @@
 ---
-status: today
+status: rejected
 type: story
 rank: 1000062
 tags:

@@ -1,5 +1,5 @@
 ---
-status: today
+status: rejected
 type: task
 rank: 1
 severity: high
@@ -17,6 +17,8 @@ tags:
   - realtime
   - refactor
 ---
+
+> Rejected 2026-04-14 — failed attempt, not pursued.
 
 # P674: Simplify /live — Merge Guided+Free Into Single Linear Flow
 

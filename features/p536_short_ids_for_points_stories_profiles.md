@@ -1,9 +1,10 @@
 ---
-status: backlog
+status: rejected
 type: story
 rank: 500.0
 tags: [points, stories, profiles, ux]
 created_date: 2026-03-16
+superseded_by: p533
 ---
 
 # P536: Short Human-Readable IDs for Points, Stories, Profiles

@@ -1,8 +1,9 @@
 ---
-status: today
+status: rejected
 type: change-request
 rank: 1000063
 changes: p673
+superseded_by: p696
 tags:
   - redesign
   - p673
