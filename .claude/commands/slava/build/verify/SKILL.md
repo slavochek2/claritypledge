@@ -194,6 +194,10 @@ Resume detected: {N}/{total} already tested. Running remaining: {scenario-ids}.
 ```
 If all scenarios are already tested, skip to Step 6 and produce the final report from the scorecard.
 
+**Skip validation (mandatory before marking any scenario skip):** Never mark a scenario `skip` or "covered by existing spec" based on a label or assumption alone. Before writing `skip`:
+- If the claim is "untestable — underlying function handles X only": read the function body. RPCs and service functions often handle multiple paths; only one may be untestable.
+- If the claim is "covered by existing spec p{N}": run that spec (`npx playwright test e2e/p{N}-*.spec.ts --reporter=line --workers=1`) and confirm it passes. A spec file existing is not evidence of coverage.
+
 **CTA coverage check:** From the spec's acceptance criteria, identify every submission action introduced or modified by this feature (buttons that commit user intent — "Accept", "Create", "Submit", "Save", etc.). For each one, check whether a scenario both triggers it *and* verifies a specific expected outcome. If any feature-introduced submission action is missing coverage, add a scenario:
 ```
 Added UAT-{N}: CTA "[button label]" — missing outcome verification.
