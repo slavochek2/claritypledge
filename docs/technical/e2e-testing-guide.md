@@ -1017,6 +1017,28 @@ AI streaming can take 10–30s per round-trip. Use:
 
 The frontend detects the polish phase by regex: `/^here'?s? (?:is )?the polished version/i`. The system prompt must explicitly instruct the AI to use this exact prefix — without it the AI invents its own phrasing and detection fails. Same pattern applies to any future state transitions that rely on parsing AI output.
 
+### not.toBeVisible() on a missing element passes silently — always prove context first
+
+`not.toBeVisible()` passes if the element doesn't exist at all. A locator that matches zero elements is a silent no-op, not a test failure. This is the vacuous-pass trap: your canary appears green before the fix is applied.
+
+**Rule:** before any `not.toBeVisible()` or `not.toHaveText()` assertion, first assert that the surrounding container IS visible:
+
+```typescript
+// Wrong — if beliefRow doesn't exist yet, the next line silently passes
+await expect(page.getByText('Pending...')).not.toBeVisible();
+
+// Correct — prove the phase rendered, THEN assert the element is absent
+await expect(page.getByText("P705 Sender's belief")).toBeVisible({ timeout: 10_000 });
+await expect(page.getByText('Pending...')).not.toBeVisible();
+```
+
+**Secondary rule:** before writing any `getByText` locator, grep the component source for the exact rendered string. `"Pending"` and `"Pending..."` are different strings — `exact: true` requires the full element text to match.
+
+```bash
+grep -n "Pending" src/app/components/partners/live-mode-view.tsx
+# → line 2375: Pending...
+```
+
 ### Playwright strict mode with `or()` locators
 
 `locator.or(otherLocator)` throws "strict mode violation" if both branches resolve to different elements simultaneously. Prefer `data-testid` over text-based fallbacks. Remove `or()` once `data-testid` is confirmed working.
