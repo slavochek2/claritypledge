@@ -76,8 +76,9 @@ export function CardVisibilityCornerBadge({ visibility }: { visibility?: StoryVi
  * P586: Inline visibility icon for use within metadata lines or flex rows.
  * Renders a small globe (public, gray) or lock (private, amber) with tooltip.
  */
-export function InlineVisibilityIcon({ visibility }: { visibility: StoryVisibility }) {
-  const { icon: Icon, tooltip, colorClassName } = config[visibility];
+export function InlineVisibilityIcon({ visibility }: { visibility?: StoryVisibility }) {
+  const v = visibility ?? 'public';
+  const { icon: Icon, tooltip, colorClassName } = config[v];
 
   return (
     <MobileTooltip content={tooltip}>
