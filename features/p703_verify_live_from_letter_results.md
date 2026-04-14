@@ -529,7 +529,7 @@ Total automated: **43 tests**. Run time estimate: ~45s unit + ~90s integration +
   - `src/tests/p703-use-open-live-invite.test.ts` — all 6 unit tests
 - **Depends on:** Task 4 (`subscribeToLiveInvites` must exist in api.ts)
 - **Verify:** Hook returns `{ invite: null, loading: false }` when no open invite; returns correct shape when invite row seeded in test DB
-- [ ] Complete
+- [x] Complete
 
 ---
 
