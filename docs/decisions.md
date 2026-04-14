@@ -2,6 +2,26 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-14 [technical]: Proto routes must remove static imports at `/dev` integration — DEV guard only prevents rendering
+
+**Context:** `/view` skill adds a proto preview route to `src/App.tsx` guarded by `{import.meta.env.DEV && <Route .../>}`. The guard prevents the route from rendering in prod, but the demo component is statically imported at the top of the file (`import {FeatureName}Demo from '...'`). Vite bundles all static imports regardless of runtime guards — the demo file and its mock data ship in the production bundle on every feature that uses `/view` and is never cleaned up.
+
+**Decision:** `/dev` Step 9.6 explicitly removes both the static import line and the route entry from `src/App.tsx` after integrating the view into real containers. It also clears `view_locked` from spec frontmatter. This cleanup is the last act of integration, not a separate housekeeping step.
+
+**Alternatives rejected:** Lazy-importing the demo component (`React.lazy(() => import(...))`) — still discoverable by bundle analyzers and still ships dead code. Moving the import inside the JSX expression — `import.meta.env.DEV` is a compile-time constant but static imports are hoisted; bundler behaviour varies. Explicit removal is the only reliable approach.
+
+**Consequences:** Any `/_proto/` route that ships without cleanup is a prod bundle bloat issue. Review step after `/dev` integration should verify `src/App.tsx` has no `_proto` imports. The same rule applies to any future dev-only preview infrastructure added to `App.tsx`.
+
+**References:** [view.md](.claude/commands/slava/build/view.md) | [dev.md](.claude/commands/slava/build/dev.md) Step 9.6
+
+## 2026-04-14 [technical]: P581 AD3 sealed-bid scope — applies to letter_predictions only
+
+**Context:** During P705 /architect review, the architect agent recommended freezing sender's position during receiver reading for "sealed-bid reasons." This misreads P581 AD3. Sealed-bid prevents the sender from adjusting their *prediction of receiver understanding* after the receiver starts engaging — it protects `letter_predictions.prediction` specifically. It does not cover all sender-held values.
+**Decision:** Sealed-bid invariant (P581 AD3) applies only to `letter_predictions.prediction`. Not to `point_positions` (live state, separate concept). Not to `letter_ratings` values pre-reveal (those are the receiver's input, different asymmetry). When evaluating future changes that touch letter-related data, ask "does this change what a sender committed to predict about the receiver?" — only yes answers are sealed-bid territory.
+**Alternatives rejected:** Broad "freeze everything on the sender side until reveal" — too aggressive; conflates product invariants and creates spec contradictions (P705 Solution vs architect's initial D5).
+**Consequences:** P705 freely uses live `point_positions` for sender display in reading flow. Future specs touching letter data should cite this entry when making sealed-bid arguments. If the scope of sealed-bid genuinely needs to expand (e.g., new field added to the sealed envelope), that requires an explicit decision entry, not inference.
+**References:** `features/p705_letter_positions_live_everywhere.md` (D5 revised), `features/p581_letters_with_comprehension_assessment.md` (AD3)
+
 ## 2026-04-14 [product]: P705 supersedes D50 — positions are live everywhere, only letter content is frozen
 
 **Context:** On `/letter/:id/results`, position buttons rendered disabled and empty (P699 mockup expected filled+interactive). Root cause was architectural, not visual: D50 (2026-04-04) separated `letter_point_responses` (INSERT-only, forward-only) from `point_positions` (live, editable on `/story/[id]`), producing two mental models for the same user concept. The "freeze letter answers" intent was correct for *letter content* but wrong for *user state*.
