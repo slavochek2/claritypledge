@@ -279,8 +279,10 @@ Edit `src/App.tsx`:
 - Place alongside any other existing `/_proto/` routes if present; otherwise place before the catch-all route.
 
 **Step 10 — Write view_locked to spec**
-Edit {spec_file} frontmatter. Add after the `tags:` line:
-  `view_locked: [src/app/components/_proto/{feature}-view.tsx, src/app/components/_proto/{feature}-view.demo.tsx]`
+Edit {spec_file} frontmatter:
+- If `view_locked:` already exists: replace the existing line with the new value.
+- If absent: add after the `tags:` line.
+Value: `view_locked: [src/app/components/_proto/{feature}-view.tsx, src/app/components/_proto/{feature}-view.demo.tsx]`
 Format: inline YAML list of repo-root-relative literal path strings. No globs. No `../`. No absolute paths.
 
 **Step 11 — Build gate**

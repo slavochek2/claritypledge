@@ -89,7 +89,7 @@ pipeline_ran: [create-spec, challenge-prd, ux, architect]
 pipeline_skipped: [research-arch -- no novel tech, decompose -- under 5 files]
 ```
 
-- **`delivery_stage:`** — name of last skill that started running. Valid values: `create-spec`, `create-bug`, `change-request`, `challenge-prd`, `ux`, `research-arch`, `architect`, `ui`, `generate-tests`, `spec-review`, `decompose`, `dev`, `fix`, `verify`, `park`, `ship`. Legacy numbered values (`1-prd`, `2-ux-review`, `3-arch-review`, `3.5-ui-review`, `4-tests-ready`, `5-decomposed`, `uat`) accepted but deprecated.
+- **`delivery_stage:`** — name of last skill that started running. Valid values: `create-spec`, `create-bug`, `change-request`, `challenge-prd`, `ux`, `research-arch`, `architect`, `ui`, `view`, `generate-tests`, `spec-review`, `decompose`, `dev`, `fix`, `verify`, `park`, `ship`. Legacy numbered values (`1-prd`, `2-ux-review`, `3-arch-review`, `3.5-ui-review`, `4-tests-ready`, `5-decomposed`, `uat`) accepted but deprecated.
 - **`pipeline_plan:`** — ordered skill list for this spec's flow. Set by `/pick-flow` when user confirms. Never deleted.
 - **`pipeline_ran:`** — skills that started, in order. Each tracked skill appends on entry. Re-runs get `.2` suffix (`.3` for third, etc.). Matching is exact string only. Means "started" not "completed" — downstream skills verify upstream output sections exist.
 - **`pipeline_skipped:`** — skills intentionally skipped, each with `--` separator and reason. Set by `/pick-flow`. Never deleted.
