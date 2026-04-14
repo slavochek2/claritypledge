@@ -760,6 +760,8 @@ export async function getInboxItems(userId: string): Promise<InboxItem[]> {
     completed_at: (row['completed_at'] as string | null) ?? null,
     stories_rated: row['stories_rated'] != null ? Number(row['stories_rated']) : undefined,
     total_stories: row['total_stories'] != null ? Number(row['total_stories']) : undefined,
+    steps_completed: row['steps_completed'] != null ? Number(row['steps_completed']) : undefined,
+    total_steps: row['total_steps'] != null ? Number(row['total_steps']) : undefined,
   }));
 }
 

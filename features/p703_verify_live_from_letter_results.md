@@ -548,7 +548,7 @@ Total automated: **43 tests**. Run time estimate: ~45s unit + ~90s integration +
   - "Verifying: {story title} (from letter)" header visible to listener on first screen (UX note coverage)
   - End-session path routes through `completeClaritySession` for letter-sourced sessions
   - Paraphrase reveal guarded by `auth.uid() IN (creator_profile_id, target_listener_id)` client-side (defense-in-depth, Security §Data-2)
-- [ ] Complete
+- [x] Complete
 
 ---
 

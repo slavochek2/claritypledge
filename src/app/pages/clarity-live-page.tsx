@@ -35,6 +35,10 @@ import {
   recordSessionConsent,
   needsTermsAcceptance,
   createTranscriptionJob,
+  // P703: Letter-sourced session
+  getLetterBaselineRatings,
+  completeClaritySession,
+  resendLiveInvite,
 } from '@/app/data/api';
 import { TermsUpdateDialog } from '@/app/components/live-meeting/terms-update-dialog';
 import { analytics } from '@/lib/mixpanel';
@@ -296,6 +300,11 @@ export function ClarityLivePage() {
   // Partner departure state
   const [partnerLeft, setPartnerLeft] = useState(false); // Joiner left (creator sees this)
   const [sessionEnded, setSessionEnded] = useState(false); // Creator left (joiner sees this)
+
+  // P703: Letter-sourced session display state
+  const [listenerDisplayName, setListenerDisplayName] = useState<string | null>(null);
+  const [letterStoryTitle, setLetterStoryTitle] = useState<string | null>(null);
+  const [resendCooldown, setResendCooldown] = useState(false);
 
   // P511 Task 6: Grace period state — when set, shows ReconnectingCountdown instead of instant PartnerLeftScreen
   const [gracePeriodStart, setGracePeriodStart] = useState<Date | null>(null);
@@ -942,6 +951,34 @@ export function ClarityLivePage() {
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps -- rejoinSession?.sessionId is the stable identity; adding full object would re-subscribe on every state change
   }, [rejoinSession?.sessionId, clearActiveSession]);
+
+  // P703: Fetch listener display name for waiting screen invite panel
+  useEffect(() => {
+    if (!session?.targetListenerId) return;
+    supabase
+      .from('profiles')
+      .select('name')
+      .eq('id', session.targetListenerId)
+      .single()
+      .then(({ data }) => {
+        if (data && typeof data.name === 'string') setListenerDisplayName(data.name);
+      });
+  }, [session?.targetListenerId]);
+
+  // P703: Fetch story title for listener's "Verifying (from letter)" banner
+  useEffect(() => {
+    if (!session?.sourceStoryId) return;
+    supabase
+      .from('stories')
+      .select('content')
+      .eq('id', session.sourceStoryId)
+      .single()
+      .then(({ data }) => {
+        if (data && typeof data.content === 'string') {
+          setLetterStoryTitle(data.content.split('\n')[0].substring(0, 60));
+        }
+      });
+  }, [session?.sourceStoryId]);
 
   // Fetch host name when joining via link (for personalized "Join X's Session" title)
   useEffect(() => {
@@ -2664,6 +2701,39 @@ export function ClarityLivePage() {
     }
   };
 
+  // P703: Bootstrap letter-sourced session — writes explain-back phase + baseline ratings to DB.
+  // Called by the creator immediately after creating a letter-sourced session. The joiner
+  // inherits the phase from DB when they join (subscription delivers it within ~200ms).
+  const bootstrapLetterSourcedSession = useCallback(async (sess: ClaritySession) => {
+    if (!sess.targetListenerId || !sess.sourceStoryId || !sess.sourceLetterId || !sess.creatorProfileId) {
+      return;
+    }
+    try {
+      const ratings = await getLetterBaselineRatings(
+        sess.sourceLetterId,
+        sess.sourceStoryId,
+        sess.creatorProfileId,
+        sess.targetListenerId,
+      );
+      const bootstrapState: LiveSessionState = {
+        ...DEFAULT_LIVE_STATE,
+        ratingPhase: 'explain-back',
+        checkerRating: ratings?.speakerRating ?? undefined,
+        responderRating: ratings?.listenerRating ?? undefined,
+        checkerIsCreator: true,
+        checkerSubmitted: ratings != null,
+        responderSubmitted: ratings != null,
+        selectedStoryId: sess.sourceStoryId,
+      };
+      await updateClaritySessionLiveState(sess.id, bootstrapState);
+      setLiveState(bootstrapState);
+      confirmedLiveStateRef.current = bootstrapState;
+    } catch (err) {
+      console.error('[P703] Letter session bootstrap failed — session will start at idle:', err);
+      // Non-fatal: both parties will go through the normal rating flow
+    }
+  }, []);
+
   // MEDIUM: Name validation helper
   const validateName = (inputName: string): string | null => {
     const trimmed = inputName.trim();
@@ -2725,6 +2795,11 @@ export function ClarityLivePage() {
       analytics.track('live_session_created', {
         session_code: newSession.code,
       });
+
+      // P703: Bootstrap letter-sourced session (fire-and-forget — non-blocking for creator UX)
+      if (newSession.targetListenerId && newSession.sourceStoryId && newSession.sourceLetterId) {
+        void bootstrapLetterSourcedSession(newSession);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to create session');
     } finally {
@@ -3126,6 +3201,12 @@ export function ClarityLivePage() {
         if (isCreator) {
           // Creator leaving = session ends for everyone
           await endClaritySession(session.id);
+          // P703: Atomically close the live invite for letter-sourced sessions
+          if (session.targetListenerId) {
+            await completeClaritySession(session.id).catch((err) => {
+              console.error('[P703] completeClaritySession failed on exit:', err);
+            });
+          }
         } else {
           // Joiner leaving = clear their name so creator knows
           await clearSessionJoiner(session.id);
@@ -3866,6 +3947,27 @@ export function ClarityLivePage() {
     }
   };
 
+  // P703: Resend invite — bumps updated_at to re-ping recipient's realtime channel
+  const handleResendInvite = async () => {
+    if (!session || resendCooldown) return;
+    setResendCooldown(true);
+    try {
+      await resendLiveInvite(session.id);
+      analytics.track('live_invite_resent', { session_code: session.code });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : '';
+      if (msg.includes('rate limit')) {
+        // DB trigger enforced 30s window — show brief feedback
+        console.warn('[P703] Resend rate limit hit');
+      } else {
+        console.error('[P703] Resend failed:', err);
+      }
+    } finally {
+      // Re-enable after 30s to match server-side rate limit
+      setTimeout(() => setResendCooldown(false), 30000);
+    }
+  };
+
   if (view === 'waiting' && session) {
     // Display-friendly link (without https://)
     const displayLink = shareLink.replace('https://', '').replace('http://', '');
@@ -3893,27 +3995,48 @@ export function ClarityLivePage() {
               </>
             )}
 
-            {/* Link row with copy/share */}
-            <div className="flex items-center gap-2 p-2 bg-muted rounded-lg">
-              <span
-                data-testid="share-link"
-                className="text-sm font-mono text-muted-foreground truncate flex-1 text-left pl-2"
+            {/* P703: Letter-sourced — show invite status instead of share link */}
+            {session.targetListenerId ? (
+              <div
+                data-testid="invite-status-panel"
+                className="flex items-center justify-between p-3 bg-muted rounded-lg"
               >
-                {displayLink}
-              </span>
-              <Button
-                onClick={handleShare}
-                size="sm"
-                className="flex-shrink-0 bg-blue-500 hover:bg-blue-600"
-              >
-                {copied ? (
-                  <Check className="h-4 w-4 mr-1" />
-                ) : (
-                  <Share2 className="h-4 w-4 mr-1" />
-                )}
-                {copied ? 'Copied!' : 'Share'}
-              </Button>
-            </div>
+                <span className="text-sm text-muted-foreground">
+                  Invite sent to {listenerDisplayName ?? 'listener'}
+                </span>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => void handleResendInvite()}
+                  disabled={resendCooldown}
+                  className="text-blue-500 hover:text-blue-600 flex-shrink-0"
+                >
+                  {resendCooldown ? 'Sent' : 'Resend'}
+                </Button>
+              </div>
+            ) : (
+              /* Link row with copy/share */
+              <div className="flex items-center gap-2 p-2 bg-muted rounded-lg">
+                <span
+                  data-testid="share-link"
+                  className="text-sm font-mono text-muted-foreground truncate flex-1 text-left pl-2"
+                >
+                  {displayLink}
+                </span>
+                <Button
+                  onClick={handleShare}
+                  size="sm"
+                  className="flex-shrink-0 bg-blue-500 hover:bg-blue-600"
+                >
+                  {copied ? (
+                    <Check className="h-4 w-4 mr-1" />
+                  ) : (
+                    <Share2 className="h-4 w-4 mr-1" />
+                  )}
+                  {copied ? 'Copied!' : 'Share'}
+                </Button>
+              </div>
+            )}
 
             {/* P160: Recording status badge — display-only, locked once session created */}
             <div
@@ -3997,8 +4120,25 @@ export function ClarityLivePage() {
 
   // LIVE/REVIEW VIEW
   if ((view === 'live') && session && partnerName) {
+    // P703 defense-in-depth: letter-sourced session participants only (belt-and-braces for RLS)
+    const isLetterSourced = !!session.targetListenerId;
+    if (isLetterSourced && user?.id &&
+        user.id !== session.creatorProfileId &&
+        user.id !== session.targetListenerId) {
+      return null;
+    }
+
     return (
       <div className="flex flex-col h-screen overflow-hidden">
+        {/* P703: Listener context banner — "Verifying (from letter)" */}
+        {isLetterSourced && !isCreator && (
+          <div
+            data-testid="letter-source-banner"
+            className="bg-blue-50 border-b border-blue-200 px-4 py-2 text-xs text-blue-700 text-center"
+          >
+            Verifying: {letterStoryTitle ?? 'story'} (from letter)
+          </div>
+        )}
         <LiveModeView
           liveState={liveState}
           currentUserName={name}

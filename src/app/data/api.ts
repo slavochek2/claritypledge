@@ -796,6 +796,7 @@ function mapSessionFromDb(dbSession: DbClaritySession): ClaritySession {
     // P511: Last heartbeat timestamp (for zombie session detection)
     lastActivityAt: dbSession.last_activity_at ?? null,
     // P703: Letter-sourced session fields
+    sourceLetterId: dbSession.source_letter_id ?? null,
     sourceStoryId: dbSession.source_story_id ?? null,
     targetListenerId: dbSession.target_listener_id ?? null,
     status: dbSession.status ?? null,
@@ -3985,6 +3986,21 @@ export function subscribeToLiveInvites(
   return () => {
     supabase.removeChannel(channel);
   };
+}
+
+/**
+ * Bumps updated_at on the open invite to re-ping the recipient's realtime channel.
+ * Server-side trigger enforces a 30-second rate limit between resends.
+ */
+export async function resendLiveInvite(sessionId: string): Promise<void> {
+  const { error } = await supabase
+    .from('clarity_live_invites')
+    .update({ updated_at: new Date().toISOString() })
+    .eq('session_id', sessionId)
+    .is('closed_at', null);
+  if (error) {
+    throw new Error(error.message || 'Failed to resend invite');
+  }
 }
 
 /**
