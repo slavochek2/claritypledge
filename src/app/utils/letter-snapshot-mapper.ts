@@ -60,6 +60,27 @@ interface AuthorProfile {
 }
 
 /**
+ * P705: Post-process a StoryWithPoints to inject the viewer's own live positions
+ * from point_positions into userPosition on each point.
+ *
+ * The base snapshotToStoryWithPoints() hardcodes userPosition: null.
+ * This injector overwrites it with live data from a Map<pointId, PositionType>.
+ * Creates a new StoryWithPoints (no in-place mutation).
+ */
+export function injectUserPositions(
+  story: StoryWithPoints,
+  positionMap: Map<string, PositionType>
+): StoryWithPoints {
+  return {
+    ...story,
+    points: story.points.map(point => ({
+      ...point,
+      userPosition: positionMap.get(point.id) ?? null,
+    })),
+  };
+}
+
+/**
  * P699: Post-process a StoryWithPoints to inject the other party's positions
  * into profileSubjectPosition on each point.
  *

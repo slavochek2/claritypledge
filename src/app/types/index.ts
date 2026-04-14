@@ -1435,6 +1435,8 @@ export interface StoryWalkItem {
   isOverconfident: boolean;
   /** Point responses for this story's points (indexed by point_id) */
   receiverPositions: Map<string, PositionType>;
+  /** P705: Viewer's own live positions from point_positions (indexed by point_id) */
+  viewerPositions?: Map<string, PositionType>;
 }
 
 export interface LetterStorySnapshot {

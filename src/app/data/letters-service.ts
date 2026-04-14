@@ -365,6 +365,7 @@ export async function submitPointResponse(
   // tokens on data calls, so the insert itself will work if the session is valid.
   log('submitPointResponse:', { deliveryId, pointId, position });
 
+  // P705: Staging buffer — always write to letter_point_responses first (INSERT-only audit).
   const { error } = await supabase.from('letter_point_responses').insert({
     delivery_id: deliveryId,
     point_id: pointId,
@@ -374,6 +375,22 @@ export async function submitPointResponse(
   if (error) {
     logDbError('submitPointResponse', error);
     throw new Error(`Failed to submit point response: ${error.message}`);
+  }
+
+  // P705: Live display store — upsert into point_positions for authenticated+verified users.
+  // RLS requires auth.uid() = user_id AND is_verified = true; silently fails for unverified
+  // users (their positions replay into point_positions via persist_anonymous_completion at
+  // registration/verification). Do NOT throw on failure — staging write already succeeded.
+  const { data: { session } } = await supabase.auth.getSession();
+  if (session?.user?.id) {
+    const { error: posErr } = await supabase.from('point_positions').upsert(
+      { point_id: pointId, user_id: session.user.id, position },
+      { onConflict: 'point_id,user_id' }
+    );
+    if (posErr) {
+      // Non-fatal: unverified users will fail RLS here; their positions land via replay.
+      log('submitPointResponse: point_positions upsert skipped (RLS/unverified):', posErr.message);
+    }
   }
 }
 

@@ -13,6 +13,7 @@ import { ClarityPageLoader } from '@/components/ui/clarity-loader';
 import { useAuth } from '@/auth';
 import { analytics } from '@/lib/mixpanel';
 import { getLetterResults } from '@/app/data/letters-service';
+import { pointsService } from '@/app/data/points-service';
 import { StoryWalk } from '@/app/components/letters/story-walk';
 import type { StoryWalkItem, LetterStorySnapshot, PositionType } from '@/app/types';
 import type { LetterResultsData } from '@/app/data/letters-service';
@@ -21,7 +22,10 @@ import type { LetterResultsData } from '@/app/data/letters-service';
 // DATA MAPPER
 // ============================================================================
 
-function mapToStoryWalkItems(data: LetterResultsData): StoryWalkItem[] {
+function mapToStoryWalkItems(
+  data: LetterResultsData,
+  viewerPositions: Map<string, PositionType>
+): StoryWalkItem[] {
   const predictionMap = new Map(data.predictions.map(p => [p.story_id, p.prediction]));
   const ratingMap = new Map(data.ratings.map(r => [r.story_id, r.listener_rating]));
 
@@ -36,13 +40,23 @@ function mapToStoryWalkItems(data: LetterResultsData): StoryWalkItem[] {
     }
   }
 
-  // Group responses by story
+  // Group other-party responses by story (letter_point_responses = receiver answers for sender view,
+  // or sender frozen answers for receiver view, per existing P699 logic)
   const positionsByStory = new Map<string, Map<string, PositionType>>();
   for (const resp of data.pointResponses) {
     const storyId = pointToStory.get(resp.point_id);
     if (!storyId) continue;
     if (!positionsByStory.has(storyId)) positionsByStory.set(storyId, new Map());
     positionsByStory.get(storyId)?.set(resp.point_id, resp.position);
+  }
+
+  // P705: Group viewer's own live positions by story (from point_positions)
+  const viewerByStory = new Map<string, Map<string, PositionType>>();
+  for (const [pointId, position] of viewerPositions) {
+    const storyId = pointToStory.get(pointId);
+    if (!storyId) continue;
+    if (!viewerByStory.has(storyId)) viewerByStory.set(storyId, new Map());
+    viewerByStory.get(storyId)?.set(pointId, position);
   }
 
   return data.snapshots
@@ -67,6 +81,7 @@ function mapToStoryWalkItems(data: LetterResultsData): StoryWalkItem[] {
         gap,
         isOverconfident,
         receiverPositions: positionsByStory.get(snap.story_id) ?? new Map(),
+        viewerPositions: viewerByStory.get(snap.story_id) ?? new Map(),
       };
     });
 }
@@ -87,6 +102,9 @@ export function LetterResultsPage() {
   const [pageState, setPageState] = useState<PageState>('loading');
   const [resultsData, setResultsData] = useState<LetterResultsData | null>(null);
   const [storyItems, setStoryItems] = useState<StoryWalkItem[]>([]);
+  // P705: Viewer's live positions from point_positions (mutable on this page).
+  // Only read via functional update (prev) in handleResultsPositionChange — hence _ prefix.
+  const [_viewerPositions, setViewerPositions] = useState<Map<string, PositionType>>(new Map());
 
   // Auth gate
   useEffect(() => {
@@ -103,8 +121,25 @@ export function LetterResultsPage() {
         setPageState('not-found');
         return;
       }
+
+      // P705: Collect all point IDs in this letter for a single batched position fetch
+      const allPointIds: string[] = [];
+      for (const snap of result.snapshots) {
+        const config = snap.point_config as { points?: Array<{ id: string }> };
+        for (const pt of config.points ?? []) {
+          allPointIds.push(pt.id);
+        }
+      }
+
+      // Fetch viewer's live positions from point_positions (mirrors story-detail-page.tsx:728)
+      const livePositionsMap = await pointsService.getMyPositionsForPoints(allPointIds, user.id);
+      const livePositions = new Map<string, PositionType>(
+        Array.from(livePositionsMap.entries()).map(([pid, pos]) => [pid, pos.position as PositionType])
+      );
+
       setResultsData(result);
-      setStoryItems(mapToStoryWalkItems(result));
+      setViewerPositions(livePositions);
+      setStoryItems(mapToStoryWalkItems(result, livePositions));
       setPageState('ready');
       analytics.track('letter_results_viewed', {
         letter_id: letterId,
@@ -119,6 +154,34 @@ export function LetterResultsPage() {
   useEffect(() => {
     if (user) fetchData();
   }, [user, fetchData]);
+
+  // P705: Handle position changes on the results page — update point_positions and local state
+  const handleResultsPositionChange = useCallback(async (pointId: string, position: PositionType | null) => {
+    if (!user) return;
+    try {
+      if (position === null) {
+        await pointsService.removePosition(pointId, user.id);
+      } else {
+        await pointsService.setPosition(pointId, user.id, position);
+      }
+      // Update local viewerPositions and rebuild storyItems so gap recomputes
+      setViewerPositions(prev => {
+        const next = new Map(prev);
+        if (position === null) {
+          next.delete(pointId);
+        } else {
+          next.set(pointId, position);
+        }
+        if (resultsData) {
+          setStoryItems(mapToStoryWalkItems(resultsData, next));
+        }
+        return next;
+      });
+    } catch (err) {
+      // Non-fatal: position update failed, UI stays in its current state
+      console.error('[LetterResultsPage] position change failed:', err);
+    }
+  }, [user, resultsData]);
 
   if (!sessionChecked || pageState === 'loading') {
     return <ClarityPageLoader />;
@@ -158,6 +221,7 @@ export function LetterResultsPage() {
         receiverProfile={resultsData.receiverProfile}
         senderName={resultsData.senderName}
         receiverName={resultsData.receiverName}
+        onPositionSelect={handleResultsPositionChange}
       />
     </main>
   );

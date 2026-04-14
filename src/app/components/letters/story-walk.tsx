@@ -15,8 +15,8 @@ import { GapBanner } from '@/app/components/shared/gap-banner';
 import { LiveStoryCardExpanded } from '@/app/components/partners/live-story-card-expanded';
 import { FixedBottomBar } from '@/app/components/shared/fixed-bottom-bar';
 import { Button } from '@/components/ui/button';
-import { snapshotToStoryWithPoints, injectReceiverPositions } from '@/app/utils/letter-snapshot-mapper';
-import type { StoryWalkItem } from '@/app/types';
+import { snapshotToStoryWithPoints, injectReceiverPositions, injectUserPositions } from '@/app/utils/letter-snapshot-mapper';
+import type { StoryWalkItem, PositionType } from '@/app/types';
 import type { ResultsProfileData } from '@/app/data/letters-service';
 
 // ============================================================================
@@ -32,13 +32,15 @@ interface StoryWalkProps {
   senderName: string;
   /** Kept for convenience — callers may pass directly; derived from receiverProfile.name */
   receiverName: string | null;
+  /** P705: Handler for viewer position changes on the results page */
+  onPositionSelect?: (pointId: string, position: PositionType | null) => void;
 }
 
 // ============================================================================
 // COMPONENT
 // ============================================================================
 
-export function StoryWalk({ stories, perspective, senderProfile, receiverProfile, senderName, receiverName }: StoryWalkProps) {
+export function StoryWalk({ stories, perspective, senderProfile, receiverProfile, senderName, receiverName, onPositionSelect }: StoryWalkProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const counterRef = useRef<HTMLParagraphElement>(null);
 
@@ -66,9 +68,15 @@ export function StoryWalk({ stories, perspective, senderProfile, receiverProfile
 
   // Inject the other party's positions into profileSubjectPosition
   // Sender sees receiver positions; receiver sees author (sender) positions (already in snapshot)
-  const storyWithPoints = perspective === 'sender'
+  const storyWithOtherParty = perspective === 'sender'
     ? injectReceiverPositions(baseStory, current.receiverPositions)
     : baseStory; // receiver: authorPosition already set in snapshotToStoryWithPoints
+
+  // P705: Inject viewer's own live positions from point_positions into userPosition.
+  // When onPositionSelect is present (results page), positions are interactive.
+  const storyWithPoints = current.viewerPositions
+    ? injectUserPositions(storyWithOtherParty, current.viewerPositions)
+    : storyWithOtherParty;
 
   // Badge profile: the other party whose positions appear above each point
   const badgeProfile = perspective === 'sender' ? receiverProfile : senderProfile;
@@ -126,10 +134,13 @@ export function StoryWalk({ stories, perspective, senderProfile, receiverProfile
         )}
 
         {/* Story card with points + "Open Story" link inside card footer */}
+        {/* P705: readOnly removed — positions are now interactive on results page.
+            defaultExpanded=true shows points immediately (no expand tap needed).
+            onPositionSelect wires position buttons to the results-page handler. */}
         <LiveStoryCardExpanded
           story={storyWithPoints}
-          readOnly
-          defaultExpanded={false}
+          defaultExpanded={true}
+          onPositionSelect={onPositionSelect}
           className="w-full max-w-sm mx-auto"
           badgePersonName={badgeProfile?.name}
           badgePersonAvatarUrl={badgeProfile?.avatarUrl}

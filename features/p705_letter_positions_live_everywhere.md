@@ -6,8 +6,9 @@ workstream: C2
 created_date: '2026-04-14'
 tags: [letters, positions, refactor, supersedes-d50]
 feature_type: backend
-delivery_stage: architect
-pipeline_ran: [create-spec, challenge-prd, architect]
+delivery_stage: dev
+status: in-progress
+pipeline_ran: [create-spec, challenge-prd, architect, dev]
 ---
 
 # P705: Letter positions live everywhere — supersede D50
