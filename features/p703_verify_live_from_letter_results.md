@@ -317,12 +317,13 @@ Same as above, but Alice is at her desk. She sees the invite badge on her phone 
 - **Trade-off:** 24h orphan window. Acceptable — the index blocks duplicate invites to the same listener, so worst case is "facilitator waits up to 24h before retrying"; cron runs hourly so practical wait is ≤1h. Short-window variants (5m / 1h) over-close legitimately-open rooms.
 - **Alternative rejected:** DB trigger on `clarity_sessions.status` change to cascade `closed_at` onto invites. More magic, less observable. The RPC is the explicit contract.
 
-**AD7 — StoryWalk placement + P699 last-story CTA removal in the same diff.**
+**AD7 — StoryWalk placement (P699 last-story /live CTA no longer exists on w2).**
 
-- **Chosen:** Add `StartClaritySessionButton` as a new component rendered inside `StoryWalk`'s per-story region, BELOW `LiveStoryCardExpanded` and ABOVE the fixed bottom prev/next nav. Delete the branch in `StoryWalk` that renders the last-story primary /live CTA (P699's existing button). The per-story button is author-only: gate with `letter.senderId === currentUser.id` from existing letter-results context.
-- **Rationale:** D10 explicitly sequenced: "P699 must ship first OR P703 removes inline." We choose the in-diff removal because (a) P699 is actively shipping on `feature/letters-ship`, (b) the new per-story CTA is strictly more useful than the last-story CTA and the spec mandates replacement, (c) keeping both for any interim period creates two confusing buttons on the last story.
-- **Trade-off:** P703's diff touches P699's StoryWalk file. Merge-conflict risk if P699 re-designs StoryWalk before P703 merges. Mitigated by landing P703 as a single commit and rebasing onto latest main at merge time.
-- **Alternative rejected:** Ship P703 without touching P699's last-story CTA and land a follow-up cleanup. Doubles touches on the same file and leaves the UX confused in the interim.
+- **Chosen:** Add `StartClaritySessionButton` as a new component rendered inside `StoryWalk`'s per-story region, BELOW `LiveStoryCardExpanded` and ABOVE the `FixedBottomBar`. Insert inside the `<div className="px-4 pb-28 space-y-6">` block after `LiveStoryCardExpanded`. Per-story button is author-only — gate using StoryWalk's existing `perspective === 'sender'` prop (no extra prop needed for the gate itself).
+- **Rationale:** Integration check post-P705 (2026-04-14) confirmed the current `story-walk.tsx` on `feature/letters-ship` never rendered a last-story /live CTA — the last-story branch only shows "Previous Story + Back to Letters." The removal step from D10 is therefore moot. Per-story placement remains correct: pairs the button with the story it would start a session about.
+- **Prop surface dependency:** `ResultsProfileData` (in `letters-service.ts`) currently exposes `name/avatar/hasPledged/earsCount` but **no `id`**. P703 needs `senderId` + `receiverId` for `createClaritySession({ target_listener_id })` and `getLetterBaselineRatings(…, senderId, receiverId)`. Task 8 extends `ResultsProfileData` with `id: string`, threads through `letter-results-page.tsx`, and passes IDs down to StoryWalk as new props (`senderId`, `receiverId: string | null`).
+- **Trade-off:** P703's diff extends a shared type (`ResultsProfileData`) and the letters-page → StoryWalk prop surface. Low risk — additive field + additive props.
+- **Alternative rejected:** Look up IDs inside `StartClaritySessionButton` via a separate fetch. Adds a redundant round-trip when the page already has the data in `LetterResultsData`.
 
 ### Security Review
 
@@ -379,7 +380,7 @@ Same as above, but Alice is at her desk. She sees the invite badge on her phone 
 6. **/live state-machine branch.** In `clarity-live-page.tsx` session-load effect:
    - If `session.targetListenerId != null && session.sourceStoryId != null`: fetch baseline ratings (AD3 step 2), initialize `liveState` with pre-loaded ratings + `ratingPhase: 'explain-back'`.
    - Conditionally hide the Share button + swap the waiting panel copy to "Invite sent to {listener} · [Resend]" when `targetListenerId != null`.
-7. **StoryWalk button.** Add `StartClaritySessionButton` component; wire to a handler that: creates session → inserts invite → navigates to `/live/<code>`. Remove last-story /live CTA in the same edit.
+7. **StoryWalk button.** Extend `ResultsProfileData` with `id: string` (populate in `getLetterResults()`), thread `senderId`/`receiverId` from `letter-results-page.tsx` into `StoryWalk` as new props, add `StartClaritySessionButton` rendered per-story under `LiveStoryCardExpanded` (author-only via `perspective === 'sender'`), wire handler: creates session → inserts invite → navigates to `/live/<code>`. (Post-P705 check confirmed no last-story /live CTA exists on w2 — nothing to remove.)
 8. **Tests.** RLS canaries (each must fail with 42501/403): (a) non-recipient UPDATE letter-sourced session, (b) unauthenticated SELECT letter-sourced session, (c) non-author INSERT session with someone else's `source_letter_id`, (d) author INSERTing invite for non-recipient listener, (e) `complete_clarity_session` called by non-participant. Integration test for atomicity of `complete_clarity_session`. Resend rate-limit test (two calls within 30s → second rejected). Playwright flow: facilitator starts from StoryWalk → listener sees inbox invite → both land in `/live/<code>` with `explain-back` as the first phase. Client-side defense-in-depth: paraphrase-reveal component guarded by `auth.uid() IN (creator_profile_id, target_listener_id)`.
 
 #### Files to Create
@@ -571,20 +572,27 @@ Total automated: **43 tests**. Run time estimate: ~45s unit + ~90s integration +
 
 ---
 
-### Task 8 — StoryWalk Button + P699 Last-Story CTA Removal
+### Task 8 — StoryWalk Button + Prop-Surface Extension
 
 - **Files:**
   - `src/app/components/letters/start-clarity-session-button.tsx` (new)
-  - `src/app/components/letters/story-walk.tsx` on `feature/letters-ship` (modify)
-- **Spec refs:** `#### Build Sequence > Step 7` (line ~382); `### Architecture Decisions > AD7` (lines ~320–325); `## Solution > The action` (lines ~43–54)
+  - `src/app/components/letters/story-walk.tsx` on `feature/letters-ship` (modify — add per-story button)
+  - `src/app/data/letters-service.ts` on `feature/letters-ship` (modify — extend `ResultsProfileData` with `id: string`)
+  - `src/app/pages/letter-results-page.tsx` on `feature/letters-ship` (modify — thread `senderId`/`receiverId` into StoryWalk)
+- **Spec refs:** `#### Build Sequence > Step 7` (line ~382); `### Architecture Decisions > AD7`; `## Solution > The action` (lines ~43–54)
 - **Tests:**
   - `e2e/p703-letter-sourced-live.spec.ts` — tests 9–10 (start button visible, author-only gate)
   - `e2e/integration/p703-letter-sourced-live-migration.spec.ts` — RLS-2 canary (non-author INSERT blocked)
 - **Depends on:** Task 4 (`createClaritySession` extended signature; `cancelLiveInvite`), Task 2 (migration deployed — INSERT policy active)
+- **Integration notes (post-P705 check, 2026-04-14):**
+  - **No last-story CTA exists to remove.** Current `story-walk.tsx` last-story branch only renders "Previous Story + Back to Letters." D10's removal step is moot — skip it.
+  - **P705's `onPositionSelect?` prop is orthogonal** to the new button. No conflict.
+  - **`ResultsProfileData` lacks `id`.** Extend the interface with `id: string` and populate in `getLetterResults()` (one extra field in the existing query). Then add two new props to `StoryWalk`: `senderId: string` and `receiverId: string | null`, and pass them from `letter-results-page.tsx` (use `senderProfile.id` / `receiverProfile?.id ?? null`).
+  - **Author gate uses `perspective === 'sender'`** (StoryWalk already has this prop) — don't re-derive from ID comparison.
+  - **Insertion point:** inside `<div className="px-4 pb-28 space-y-6">`, after `LiveStoryCardExpanded`, gated on `perspective === 'sender'`.
 - **Verify:**
   - Button "Start a clarity session" appears below story card for letter author only (not visible to receiver viewing own results)
   - Tapping: creates session with `source_letter_id`, `source_story_id`, `target_listener_id` populated; inserts `clarity_live_invites` row; navigates facilitator to `/live/<code>`
-  - P699's last-story /live CTA branch is removed; no duplicate button on last story
   - Button is disabled (tooltip "Invite already pending") when an open invite exists for this listener (unique partial index enforcement via client-side check on existing invite)
 - [ ] Complete
 

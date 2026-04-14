@@ -2,6 +2,18 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-14 [process]: Post-predecessor-merge integration check before `/dev` (not a full pipeline re-run)
+
+**Context:** P703 (letter-sourced /live) depends on `story-walk.tsx` which P705 was actively modifying on worktree w2. After P705 shipped to w2 tip, the question surfaced: "should we re-read the whole data flow and update P703 before `/dev`?" Full re-run of pipeline skills is expensive; skipping verification risks stale spec assumptions against a newly-shipped predecessor surface.
+
+**Decision:** When a dependent feature's spec references files that a predecessor just modified on a shared worktree, run a **narrow integration check** against only the touched files before `/dev` — not a full pipeline re-run. Concretely: (1) diff the predecessor's changes to the referenced files (`git diff main..HEAD -- <file>` on the worktree), (2) reconcile the spec's assumptions about those files (insertion points, prop surfaces, assumed UI elements) with the actual current state, (3) patch only the affected task(s) in `## Implementation Tasks` + the corresponding architecture decision section, (4) proceed to `/dev`. In the P703 case this surfaced two concrete drifts: the "last-story /live CTA" the spec planned to remove never existed in the shipped code, and `ResultsProfileData` lacked an `id` field the new component needed.
+
+**Alternatives rejected:** (A) Full `/spec-review` + `/architect` re-run after every predecessor merge — burns hours for changes that usually need a 3-line patch. (B) Skip the check and let `/dev` discover drift at implementation time — burns a subagent context and forces a mid-run spec edit, which `/dev` orchestrator handles poorly. (C) Lock specs from referencing unshipped predecessor work — blocks parallel spec authoring, the main reason the pipeline exists.
+
+**Consequences:** When predecessor P_(N) ships and dependent P_(N+k) is pre-`/dev`, the default next step is a targeted integration check, not a re-run. The check produces small Edit-scoped patches to `## Architecture Decisions` and `## Implementation Tasks` — never touches earlier layers (Problem/Solution/Appetite). If the check surfaces a structural drift (data flow changed, not just surface), that's the signal to escalate to `/spec-review`.
+
+**References:** [features/p703_verify_live_from_letter_results.md](../features/p703_verify_live_from_letter_results.md) AD7 + Task 8, [features/p705_letter_positions_live_everywhere.md](../features/p705_letter_positions_live_everywhere.md)
+
 ## 2026-04-14 [process]: `/critique-ux` skill — post-ship UX critique (distinct from rejected 2026-04-05 `/design-critique`)
 
 **Context:** After shipping P699 the founder felt the result "felt off" (alignment, button placement, step-to-step pacing) but didn't want to micromanage inline fixes. No skill existed for structured post-ship UX critique. The 2026-04-05 decision rejected a standalone `/design-critique` skill for use *inside `/dev`* (iteration loop needs dev server context; better folded into step 8.9). That rationale does not cover the different need surfaced here: critiquing a feature that is already implemented and integrated, where the output should feed `/create-spec` or `/change-request` rather than an inline fix loop.
