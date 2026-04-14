@@ -203,7 +203,7 @@ export function LetterFlowContent({
               <Button
                 onClick={handleSubmitPosition}
                 disabled={!selectedPosition || isSubmitting}
-                className="w-full max-w-[200px] bg-[#0044CC] hover:bg-[#0033AA] text-white min-h-[44px]"
+                className="w-full max-w-[200px] bg-blue-500 hover:bg-blue-600 text-white min-h-[44px]"
               >
                 Submit
               </Button>
@@ -226,7 +226,7 @@ export function LetterFlowContent({
               <FixedBottomBar>
                 <Button
                   onClick={advanceFromPointReveal}
-                  className="w-full max-w-[200px] bg-[#0044CC] hover:bg-[#0033AA] text-white min-h-[44px]"
+                  className="w-full max-w-[200px] bg-blue-500 hover:bg-blue-600 text-white min-h-[44px]"
                 >
                   Next
                 </Button>
@@ -290,7 +290,7 @@ export function LetterFlowContent({
               <FixedBottomBar>
                 <Button
                   onClick={isFinalStory ? nextStory : advanceFromStoryReveal}
-                  className="w-full max-w-[200px] bg-[#0044CC] hover:bg-[#0033AA] text-white min-h-[44px]"
+                  className="w-full max-w-[200px] bg-blue-500 hover:bg-blue-600 text-white min-h-[44px]"
                 >
                   {isFinalStory ? 'Complete Letter' : 'Next Story'}
                 </Button>
@@ -317,7 +317,7 @@ export function LetterFlowContent({
               <Button
                 onClick={handleSubmitPosition}
                 disabled={!selectedPosition || isSubmitting}
-                className="w-full max-w-[200px] bg-[#0044CC] hover:bg-[#0033AA] text-white min-h-[44px]"
+                className="w-full max-w-[200px] bg-blue-500 hover:bg-blue-600 text-white min-h-[44px]"
               >
                 Submit
               </Button>
@@ -340,7 +340,7 @@ export function LetterFlowContent({
               <FixedBottomBar>
                 <Button
                   onClick={advanceFromRemainingPointReveal}
-                  className="w-full max-w-[200px] bg-[#0044CC] hover:bg-[#0033AA] text-white min-h-[44px]"
+                  className="w-full max-w-[200px] bg-blue-500 hover:bg-blue-600 text-white min-h-[44px]"
                 >
                   Next
                 </Button>
