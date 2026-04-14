@@ -8,12 +8,28 @@
  * It's a straightforward, single-purpose page designed to get users authenticated quickly.
  */
 import { useEffect } from "react";
-import { useLocation } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { LoginForm } from "@/app/components/pledge/login-form";
 import { analytics } from "@/lib/mixpanel";
+import { useAuth } from "@/auth/AuthContext";
 
 export function LoginPage() {
   const location = useLocation();
+  const navigate = useNavigate();
+  const { user, sessionChecked, isLoading } = useAuth();
+
+  // Already logged in → bounce out of /login
+  useEffect(() => {
+    if (!sessionChecked || isLoading) return;
+    if (user) {
+      const redirectParam = new URLSearchParams(location.search).get('redirect');
+      const safeRedirect =
+        redirectParam && !redirectParam.startsWith('/login') && !redirectParam.startsWith('/signup')
+          ? redirectParam
+          : (user.slug ? `/p/${user.slug}` : '/');
+      navigate(safeRedirect, { replace: true });
+    }
+  }, [user, sessionChecked, isLoading, navigate, location.search]);
 
   // P76: Read redirect and action params for post-auth navigation
   const searchParams = new URLSearchParams(location.search);

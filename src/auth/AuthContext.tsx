@@ -147,16 +147,22 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
         setIsLoading(false);
       } else {
-        // No session = no user, loading complete
         setUser(null);
         previousUserRef.current = null;
-        setIsLoading(false);
+        // Only flip loading false when we've confirmed there is no session.
+        // On mount, userId is briefly undefined before Effect 1's getSession
+        // resolves — in that window, isLoading must stay true or protected-page
+        // guards will see sessionChecked=true+isLoading=false+user=null and
+        // redirect to /login.
+        if (sessionChecked) {
+          setIsLoading(false);
+        }
       }
     };
 
     fetchProfile();
     return () => { isMounted = false; };
-  }, [userId, fetchProfileForUser]);
+  }, [userId, fetchProfileForUser, sessionChecked]);
 
   // P537: useCallback keeps refreshProfile reference stable across renders
   const refreshProfile = useCallback(async () => {

@@ -31,7 +31,11 @@ export function AnonPositionCTA({ pointId, position, isEmbed }: AnonPositionCTAP
     action: 'set-position',
     pointId,
     position: authGatePosition,
-    redirect: isEmbed ? `/point/${pointId}` : window.location.pathname + window.location.search,
+    redirect: isEmbed
+      ? `/point/${pointId}`
+      : (window.location.pathname === '/login' || window.location.pathname === '/signup')
+        ? '/'
+        : window.location.pathname + window.location.search,
   });
 
   const loginUrl = signupUrl.replace('/signup?', '/login?');
