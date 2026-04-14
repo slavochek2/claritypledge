@@ -248,6 +248,16 @@ export function LetterReadingPage() {
             return;
           }
 
+          // P705: fetch shared predictions for anon one-to-many token path
+          if (readData.letter.mode === 'one-to-many' && !currentUser) {
+            try {
+              const publicData = await getLetterForPublicReading(readData.letter.id as string);
+              if (!cancelled && publicData?.predictions) {
+                setPublicPredictionsSafe(publicData.predictions);
+              }
+            } catch { /* non-fatal */ }
+          }
+
           setSafe('ready');
         } else {
           // No currentUser AND no token — try one-to-many public reading
@@ -730,6 +740,7 @@ export function LetterReadingPage() {
             snapshots={snapshots}
             senderName={senderName}
             isAuthenticated={false}
+            publicPredictions={publicPredictions}
             onComplete={(draft) => {
               const letterId = letter.id;
               const draftKey = `letter-response-draft-${letterId}`;
