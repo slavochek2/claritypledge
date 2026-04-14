@@ -42,7 +42,7 @@ import type { ClarityLetter, LetterStorySnapshot, LetterDelivery } from '@/app/t
 // TYPES
 // ============================================================================
 
-type PageState = 'loading' | 'invalid' | 'unauthenticated' | 'wrong_user' | 'expired' | 'ready' | 'ready_public';
+type PageState = 'loading' | 'invalid' | 'unauthenticated' | 'wrong_user' | 'expired' | 'expired-token' | 'ready' | 'ready_public';
 
 type ViewState = 'cover' | 'reading' | 'complete';
 
@@ -207,7 +207,8 @@ export function LetterReadingPage() {
           const readData = await getLetterForReadingByToken(token);
           if (cancelled) return;
           if (!readData) {
-            setSafe('invalid');
+            // Token was present but invalid/consumed — show specific expired-link error
+            setSafe('expired-token');
             return;
           }
 
@@ -501,6 +502,25 @@ export function LetterReadingPage() {
           className="text-sm text-[#0044CC] hover:underline mt-2"
         >
           Return home
+        </Link>
+      </div>
+    );
+  }
+
+  if (pageState === 'expired-token') {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center gap-4 px-4 text-center">
+        <h1 className="text-xl font-semibold text-[#1A1A1A]">
+          This letter link has expired or has already been used
+        </h1>
+        <p className="text-sm text-[#1A1A1A]/60 max-w-sm">
+          Letter links can only be opened once. Ask {senderName !== 'Someone' ? senderName : 'the sender'} to send a new link.
+        </p>
+        <Link
+          to="/"
+          className="inline-flex items-center justify-center px-4 py-2 text-sm font-medium text-white bg-blue-500 hover:bg-blue-600 rounded-md mt-2 min-h-[40px]"
+        >
+          Back to home
         </Link>
       </div>
     );
