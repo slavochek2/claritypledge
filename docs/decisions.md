@@ -2,6 +2,18 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-14 [technical]: bufferOnly render path requires two RPCs — getLetterForReadingByToken + getLetterForPublicReading
+
+**Context:** P704 routed anon one-to-many token recipients through `bufferOnly=true` → `<LetterReadingFlowPublic>`. P705 discovered that after submitting a rating, the sender's prediction row showed "Pending..." — because `getLetterForReadingByToken` returns letter/delivery/snapshot data but does NOT include `letter_predictions`. Only `getLetterForPublicReading` returns shared predictions (`delivery_id IS NULL` rows from `letter_predictions`).
+
+**Decision:** When `mode=one-to-many && !currentUser` in the token path, call `getLetterForPublicReading(letter.id)` after the token fetch and pass its `predictions` to `setPublicPredictionsSafe`. `LetterReadingFlowPublic` already accepts `publicPredictions?: Map<string, number>` — the prop just wasn't being populated. The prediction fetch is non-fatal (wrapped in try/catch) so a failed public fetch doesn't block the letter from loading.
+
+**Alternatives rejected:** Merging both datasets into `getLetterForReadingByToken` RPC — that RPC is used for one-to-one letters too; adding predictions to it would return irrelevant data for the common case.
+
+**Consequences:** Any future data needed by the `bufferOnly` render path (e.g. new per-story metadata) must be checked: does `getLetterForReadingByToken` return it? If not, a separate `getLetterForPublicReading` call is needed. The split is intentional: token RPC returns delivery-scoped data; public RPC returns letter-scoped shared data.
+
+**References:** [letter-reading-page.tsx](src/app/pages/letter-reading-page.tsx) | [fix commit on feature/letters-ship](https://github.com/slavochek2/claritypledge/commits/feature/letters-ship)
+
 ## 2026-04-13 [technical]: Badge display is data-driven earned-only list — CANONICAL_BADGE_STATIONS removed
 
 **Context:** Badge page originally rendered a hardcoded list of all 9 stations regardless of what the user actually earned. The export certificate followed the same pattern. This made the badge feel like a progress checklist rather than a credential of verified understanding.
