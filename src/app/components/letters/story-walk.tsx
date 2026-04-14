@@ -139,7 +139,7 @@ export function StoryWalk({ stories, perspective, senderProfile, receiverProfile
           footerSlot={current.snapshot.story_id ? (
             <Link
               to={`/story/${current.snapshot.story_id}`}
-              className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors min-h-[44px] px-4"
+              className="inline-flex items-center gap-1.5 text-sm text-blue-600 hover:text-blue-700 transition-colors min-h-[44px] px-4"
               aria-label="Open story in full view"
             >
               <ExternalLink size={14} />
@@ -160,15 +160,14 @@ export function StoryWalk({ stories, perspective, senderProfile, receiverProfile
           >
             {!isFirst && (
               <Button
-                variant="default"
                 onClick={() => navigate('prev')}
-                className="min-h-[44px]"
+                className="min-h-[44px] bg-blue-500 hover:bg-blue-600 text-white"
                 aria-label="Previous story"
               >
                 ← Previous Story
               </Button>
             )}
-            <Button variant="default" asChild className="min-h-[44px]">
+            <Button asChild className="min-h-[44px] bg-blue-500 hover:bg-blue-600 text-white">
               <Link to="/letters">Back to Letters</Link>
             </Button>
           </div>
@@ -181,18 +180,16 @@ export function StoryWalk({ stories, perspective, senderProfile, receiverProfile
           >
             {!isFirst && (
               <Button
-                variant="default"
                 onClick={() => navigate('prev')}
-                className="min-h-[44px]"
+                className="min-h-[44px] bg-blue-500 hover:bg-blue-600 text-white"
                 aria-label="Previous story"
               >
                 ← Previous Story
               </Button>
             )}
             <Button
-              variant="default"
               onClick={() => navigate('next')}
-              className="min-h-[44px]"
+              className="min-h-[44px] bg-blue-500 hover:bg-blue-600 text-white"
               aria-label="Next story"
             >
               Next Story →
