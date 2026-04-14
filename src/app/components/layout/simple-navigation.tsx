@@ -20,6 +20,7 @@ import { GravatarAvatar } from "@/components/ui/gravatar-avatar";
 import { analytics } from "@/lib/mixpanel";
 import { useNavAuthState } from "@/hooks/use-nav-auth-state";
 import { useUnreadLetterCount } from "@/app/hooks/useUnreadLetterCount";
+import { useOpenLiveInvite } from "@/app/hooks/useOpenLiveInvite";
 import { NavigationMenuItems } from "./navigation-menu-items";
 
 const MOBILE_MENU_ID = "mobile-navigation-menu";
@@ -46,6 +47,8 @@ export function SimpleNavigation() {
     hasSession,
   } = useNavAuthState();
   const { count: unreadLetterCount } = useUnreadLetterCount();
+  const { invite } = useOpenLiveInvite();
+  const lettersBadgeCount = unreadLetterCount + (invite ? 1 : 0);
   // Close mobile menu on route change (e.g., bottom nav, back button, page links)
   useEffect(() => {
     setIsMobileMenuOpen(false);
@@ -95,12 +98,12 @@ export function SimpleNavigation() {
       >
         <span className="relative">
           <MailIcon className="w-5 h-5" />
-          {unreadLetterCount > 0 && (
+          {lettersBadgeCount > 0 && (
             <span
               data-badge
               className="absolute -top-1.5 -right-2 min-w-[16px] h-4 px-1 text-[10px] font-bold leading-4 text-white bg-blue-500 rounded-full text-center"
             >
-              {unreadLetterCount > 99 ? '99+' : unreadLetterCount}
+              {lettersBadgeCount > 99 ? '99+' : lettersBadgeCount}
             </span>
           )}
         </span>

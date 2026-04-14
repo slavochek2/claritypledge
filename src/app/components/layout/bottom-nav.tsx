@@ -10,6 +10,7 @@ import { CalendarIcon, UserIcon, MailIcon, HomeIcon } from "lucide-react";
 import { useNavAuthState } from "@/hooks/use-nav-auth-state";
 import { useLiveSession } from "@/app/contexts/live-session-context";
 import { useUnreadLetterCount } from "@/app/hooks/useUnreadLetterCount";
+import { useOpenLiveInvite } from "@/app/hooks/useOpenLiveInvite";
 
 interface NavItem {
   icon: typeof CalendarIcon;
@@ -24,6 +25,7 @@ export function BottomNav() {
   const { showUserMenu, slug } = useNavAuthState();
   const { isLive } = useLiveSession();
   const { count: unreadLetterCount } = useUnreadLetterCount();
+  const { invite } = useOpenLiveInvite();
 
   // Only show for logged-in users
   if (!showUserMenu) {
@@ -104,7 +106,10 @@ export function BottomNav() {
           const itemClass = `flex flex-col items-center justify-center gap-1 flex-1 py-2 transition-colors ${
             active ? "text-blue-500" : "text-muted-foreground hover:text-foreground"
           }`;
-          const showBadge = item.to === "/letters" && unreadLetterCount > 0;
+          const lettersBadgeCount = item.to === "/letters"
+            ? unreadLetterCount + (invite ? 1 : 0)
+            : 0;
+          const showBadge = lettersBadgeCount > 0;
           const itemInner = (
             <>
               <span className="relative">
@@ -114,7 +119,7 @@ export function BottomNav() {
                     data-badge
                     className="absolute -top-1.5 -right-2 min-w-[16px] h-4 px-1 text-[10px] font-bold leading-4 text-white bg-blue-500 rounded-full text-center"
                   >
-                    {unreadLetterCount > 99 ? '99+' : unreadLetterCount}
+                    {lettersBadgeCount > 99 ? '99+' : lettersBadgeCount}
                   </span>
                 )}
               </span>
@@ -124,7 +129,7 @@ export function BottomNav() {
           );
 
           if (!item.to) return null; // Non-disabled items always have `to`; guard satisfies TS
-          const ariaLabel = showBadge ? `${item.label}, ${unreadLetterCount} unread` : undefined;
+          const ariaLabel = showBadge ? `${item.label}, ${lettersBadgeCount} unread` : undefined;
           return (
             <Link
               key={item.label}

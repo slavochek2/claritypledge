@@ -17,6 +17,7 @@ import { DraftsTab } from '@/app/components/letters/drafts-tab';
 import { SentTab } from '@/app/components/letters/sent-tab';
 import { InboxTab } from '@/app/components/letters/inbox-tab';
 import { useUnreadLetterCount } from '@/app/hooks/useUnreadLetterCount';
+import { useOpenLiveInvite } from '@/app/hooks/useOpenLiveInvite';
 import { docsService } from '@/app/data/docs-service';
 import type { ContentVisibility } from '@/app/types';
 
@@ -28,6 +29,7 @@ export function LettersPage() {
   const { user, isLoading, sessionChecked } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const { count: unreadCount } = useUnreadLetterCount();
+  const { invite: openInvite } = useOpenLiveInvite();
   const [creating, setCreating] = useState(false);
 
   // Determine active tab from URL
@@ -46,8 +48,10 @@ export function LettersPage() {
 
   // Auth gate
   useEffect(() => {
+    console.log('[AUTH-TRACE] LettersPage guard evaluate', performance.now().toFixed(1), 'sessionChecked=', sessionChecked, 'isLoading=', isLoading, 'hasUser=', !!user);
     if (!sessionChecked || isLoading) return;
     if (!user) {
+      console.log('[AUTH-TRACE] LettersPage NAVIGATE TO /login', performance.now().toFixed(1));
       navigate('/login?redirect=/letters', { replace: true });
     }
   }, [user, isLoading, sessionChecked, navigate]);
@@ -150,7 +154,7 @@ export function LettersPage() {
           </TabsContent>
 
           <TabsContent value="inbox" className="mt-4">
-            <InboxTab userId={user.id} />
+            <InboxTab userId={user.id} openInvite={openInvite} />
           </TabsContent>
         </Tabs>
       </div>

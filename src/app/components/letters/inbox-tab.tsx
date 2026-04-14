@@ -6,20 +6,22 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Mail, ArrowDownLeft, ArrowUpRight, Inbox, Eye } from 'lucide-react';
+import { Mail, ArrowDownLeft, ArrowUpRight, Inbox, Eye, Video } from 'lucide-react';
 import { toast } from 'sonner';
 import { ClarityLoader } from '@/components/ui/clarity-loader';
 import { Button } from '@/components/ui/button';
 import { getInboxItems, markDeliveryRead } from '@/app/data/letters-service';
 import { formatTimeAgo } from '@/app/utils/format-time';
 import type { InboxItem } from '@/app/types';
+import type { OpenLiveInvite } from '@/app/hooks/useOpenLiveInvite';
 
 interface InboxTabProps {
   userId: string;
   onUnreadCountChange?: (count: number) => void;
+  openInvite?: OpenLiveInvite | null;
 }
 
-export function InboxTab({ userId, onUnreadCountChange }: InboxTabProps) {
+export function InboxTab({ userId, onUnreadCountChange, openInvite }: InboxTabProps) {
   const navigate = useNavigate();
   const [items, setItems] = useState<InboxItem[]>([]);
   const [fetchState, setFetchState] = useState<'idle' | 'loading' | 'done' | 'error'>('idle');
@@ -116,6 +118,39 @@ export function InboxTab({ userId, onUnreadCountChange }: InboxTabProps) {
 
   return (
     <div className="flex flex-col gap-3">
+      {/* P703: Live invite row — rendered above unread letters, disappears when closed_at set */}
+      {openInvite && !openInvite.closedAt && (
+        <div
+          data-testid="live-invite-row"
+          className="rounded-lg border p-4 bg-blue-500/5 hover:bg-accent/50 transition-colors"
+        >
+          <div className="flex items-center gap-3">
+            <span className="sr-only">Unread. </span>
+            <div className="flex-shrink-0 w-2 flex items-center justify-center">
+              <span className="block w-2 h-2 rounded-full bg-blue-500" aria-hidden="true" />
+            </div>
+            <div className="flex-shrink-0">
+              <Video className="w-5 h-5 text-blue-500" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold text-foreground line-clamp-2">
+                <span className="font-medium">{openInvite.authorName || 'Someone'}</span>
+                {' invited you to verify '}
+                <span className="italic">{openInvite.storyTitle || 'a story'}</span>
+              </p>
+            </div>
+            <div className="flex-shrink-0">
+              <Button
+                size="sm"
+                className="bg-blue-500 hover:bg-blue-600 text-white min-h-[44px]"
+                onClick={() => navigate(`/live/${openInvite.code}`)}
+              >
+                Join
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
       {items.map((item) => {
         const isUnread = !item.read_at;
         const isMarking = markingRead === item.delivery_id;

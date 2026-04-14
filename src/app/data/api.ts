@@ -3851,6 +3851,8 @@ export interface LiveInviteRecord {
   targetUserId: string;
   createdAt: string;
   closedAt: string | null;
+  authorName: string;
+  storyTitle: string;
 }
 
 export interface BaselineRatings {
@@ -3887,13 +3889,21 @@ export async function getOpenLiveInviteForUser(
 ): Promise<LiveInviteRecord | null> {
   const { data, error } = await supabase
     .from('clarity_live_invites')
-    .select('id, session_id, target_user_id, created_at, closed_at, clarity_sessions(code)')
+    .select(
+      'id, session_id, target_user_id, created_at, closed_at, clarity_sessions(code, creator_name, stories!clarity_sessions_source_story_id_fkey(content))'
+    )
     .eq('target_user_id', userId)
     .is('closed_at', null)
     .limit(1)
     .single();
   if (error || !data) return null;
-  const sessionData = data.clarity_sessions as { code: string } | null;
+  const sessionData = data.clarity_sessions as {
+    code: string;
+    creator_name: string | null;
+    stories: { content: string } | null;
+  } | null;
+  const rawStoryContent = sessionData?.stories?.content ?? '';
+  const storyTitle = rawStoryContent ? rawStoryContent.split('\n')[0].substring(0, 60) : '';
   return {
     id: data.id,
     sessionId: data.session_id,
@@ -3901,6 +3911,8 @@ export async function getOpenLiveInviteForUser(
     targetUserId: data.target_user_id,
     createdAt: data.created_at,
     closedAt: data.closed_at ?? null,
+    authorName: sessionData?.creator_name ?? '',
+    storyTitle,
   };
 }
 

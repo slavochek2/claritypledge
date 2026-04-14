@@ -120,12 +120,8 @@ function mapRecord(record: LiveInviteRecord): OpenLiveInvite {
   return {
     sessionId: record.sessionId,
     code: record.code,
-    // authorName and storyTitle are not in the raw invite record; they require
-    // joins to profiles + stories. The invite row will carry them via the
-    // joined query in getOpenLiveInviteForUser once the join is added.
-    // For now, use placeholders — the inbox display component will enrich.
-    authorName: '',
-    storyTitle: '',
+    authorName: record.authorName,
+    storyTitle: record.storyTitle,
     closedAt: record.closedAt,
   };
 }
