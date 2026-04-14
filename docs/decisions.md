@@ -2,6 +2,18 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-14 [technical]: P705 results page — focus-refetch over realtime/polling for cross-tab position staleness
+
+**Context:** After P705 made position buttons interactive on `/letter/:id/results`, a cross-tab staleness gap remained: if a user updated their position on `/story/:id` in another tab and switched back to results, the buttons still showed the pre-update state. The initial `/dev` only fetched on mount.
+
+**Decision:** Add a `visibilitychange` listener that re-invokes the existing `fetchData` callback when `document.visibilityState === 'visible'`. Same pattern as `useUnreadLetterCount` (already in production). No realtime subscription, no polling.
+
+**Alternatives rejected:** (1) Realtime `postgres_changes` subscription — adds subscription lifecycle (unsub on unmount, reconnect-on-reauth) for a page users don't live on; overkill. (2) Polling interval — burns cycles while tab is hidden. (3) Refetch on every tab switch globally (e.g., from router) — too broad; only the results page has this cross-tab update scenario currently.
+
+**Consequences:** `fetchData` is idempotent (reads + overwrites state, no DB writes, no side-effects) so refetching on focus is safe. The `fetchData` callback is already `useCallback`-memoized with stable deps — the effect adds no re-render cost. Pattern is now used in two places in the app; if a third surface needs it, extract to `useVisibilityRefetch(callback, deps)`.
+
+**References:** `src/app/pages/letter-results-page.tsx` (visibilitychange effect), `src/app/hooks/useUnreadLetterCount.ts:38-53` (reference pattern), `src/tests/p705-results-visibility-refetch.test.tsx` (regression canary)
+
 ## 2026-04-14 [process]: Post-predecessor-merge integration check before `/dev` (not a full pipeline re-run)
 
 **Context:** P703 (letter-sourced /live) depends on `story-walk.tsx` which P705 was actively modifying on worktree w2. After P705 shipped to w2 tip, the question surfaced: "should we re-read the whole data flow and update P703 before `/dev`?" Full re-run of pipeline skills is expensive; skipping verification risks stale spec assumptions against a newly-shipped predecessor surface.
