@@ -2,6 +2,22 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-14 [product]: P705 supersedes D50 — positions are live everywhere, only letter content is frozen
+
+**Context:** On `/letter/:id/results`, position buttons rendered disabled and empty (P699 mockup expected filled+interactive). Root cause was architectural, not visual: D50 (2026-04-04) separated `letter_point_responses` (INSERT-only, forward-only) from `point_positions` (live, editable on `/story/[id]`), producing two mental models for the same user concept. The "freeze letter answers" intent was correct for *letter content* but wrong for *user state*.
+**Decision:** H2 model — letters freeze content (story text, predictions, author's sent-time snapshot); positions are live state and are shown as live across all surfaces (reading flow, results page, `/story/[id]`). `point_position_history` already captures every change via DB trigger, so "rupture of trust if stance changes" concerns are addressable by surfacing history, not by duplicating tables. P581 AD3 sealed-bid concerns `letter_predictions`, not `point_positions` — positions are not part of the sealed envelope.
+**Alternatives rejected:** (A) Keep D50 and hide results buttons — preserves audit but abandons P699's symmetry and keeps the two-table mental model. (B) Show viewer's own frozen letter answer as read-only badge — adds a third UI pattern (badge-frozen-self / badge-other / button-live), too many concepts. (C) Freeze sender's position during receiver reading for sealed-bid reasons — conflates predictions (sealed) with positions (state).
+**Consequences:** D50 is superseded. `letter_point_responses` is NOT deprecated — security review revealed it has an ongoing role as the staging buffer (see next entry). Reversal trigger: "users consistently report the mutable stance erodes trust in historical letters." If that fires, surface history view first before reverting to table separation. (Status: in-implementation via P705 — spec at architect stage, /dev pending)
+**References:** `features/p705_letter_positions_live_everywhere.md`, prior D50 entry (2026-04-04), `supabase/migrations/20260204_stories_points_calibration.sql` (point_position_history trigger)
+
+## 2026-04-14 [technical]: Staging+replay pattern for RLS-gated tables with deferred write access
+
+**Context:** `point_positions` INSERT RLS requires `auth.uid() = user_id AND profiles.is_verified = true`. P705 needs to land letter receivers' positions in `point_positions`, but two receiver populations lack write access at submit time: anonymous 1:1 readers (no account yet — `claim_letter_delivery` is authenticated-only) and P684 fresh-on-read accounts (created but not yet verified). Naive solutions either break anon reading (force auth pre-engagement) or add SECURITY DEFINER bypasses that erode the RLS invariant globally.
+**Decision:** Use a two-table staging+replay pattern: (1) staging table (`letter_point_responses`) accepts writes from all populations via its own RLS + SECURITY DEFINER RPC; (2) live table (`point_positions`) only accepts writes from users who pass RLS; (3) on registration or verification, a replay function (`persist_anonymous_completion`) upserts from staging into live using the now-writeable identity. Users without write access see empty buttons on results with a nudge ("register to save your positions"); after they earn write access, replay fills in.
+**Alternatives rejected:** (A) SECURITY DEFINER RPC on auth path — second write pattern with no gain; staging+replay already covers the unverified case uniformly. (B) Drop `is_verified` check on `point_positions` — weakens a global spam-prevention invariant to solve a letter-specific problem. (C) Force registration before per-point engagement — regresses P642's frictionless anon reading.
+**Consequences:** Any future RLS-gated table where some writer populations lack access should follow this pattern — staging table accepts everyone, replay function at identity-earn time lands into the live table. `letter_point_responses` keeps its RLS envelope (forward-only stays correct for staging; UPDATE semantics belong only on the live table). Anon-only viewers permanently see empty results buttons — accepted tradeoff until registration.
+**References:** `features/p705_letter_positions_live_everywhere.md` (D1, D4 revised), `supabase/migrations/20260403224331_p581_clarity_letters.sql` (persist_anonymous_completion), security review findings in P705 Technical Architecture
+
 ## 2026-04-14 [technical]: AuthContext race window — setIsLoading(false) must be gated on sessionChecked
 
 **Context:** Logged-in users sometimes landed on `/login` (Welcome Back form) after a page refresh. Menu and data-fetching worked correctly (real user UUID present), confirming auth was valid. Root cause: AuthContext Effect 2 runs when `userId` changes. On mount `userId=undefined`, so the else-branch fired `setIsLoading(false)` before Effect 1's `getSession()` resolved. This opened a window where `isLoading=false`, `sessionChecked=false`, `user=null` — protected-page guards evaluated this as "logged out" and called `navigate('/login?redirect=...')`.
@@ -26,7 +42,7 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 **References:** [vite.config.ts](vite.config.ts)
 
-## 2026-04-14 [process]: Pipeline needs a dedicated visual-polish step — `/view` between `/ui` and `/dev` (Status: proposed)
+## 2026-04-14 [process]: Pipeline has a dedicated visual-polish step — `/view` between `/ui` and `/dev`
 
 **Context:** P699 shipped with functionally-correct but visually-unpolished UI, requiring 5 follow-up commits for basic polish (alignment, button colors, default-expanded state, link treatments). Root cause: `/ux` produces text wireframes, `/ui` produces component inventory, `/dev` implements mechanically — no agent in the chain owns "does this look polished within our design system." Manual one-shot Claude prompts per feature are not repeatable and require prompt craftsmanship the founder doesn't want to invest in each time.
 
