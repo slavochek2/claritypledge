@@ -172,9 +172,8 @@ BEGIN
   END LOOP;
 
   -- P705: Replay staged positions into point_positions (live display store).
-  -- Copies all letter_point_responses for this delivery into point_positions under
-  -- v_caller_id. This is how anon 1:1 readers and previously-unverified accounts
-  -- get their positions into the live table after registration/verification.
+  -- Seeds initial values only — DO NOTHING on conflict so live edits made after
+  -- registration (e.g. user changes position on results page) are never overwritten.
   -- Only replays valid position_type enum values to avoid cast errors.
   INSERT INTO point_positions (point_id, user_id, position)
   SELECT
@@ -187,8 +186,7 @@ BEGIN
       'strongly_disagree', 'disagree', 'slightly_disagree', 'neutral',
       'slightly_agree', 'agree', 'strongly_agree'
     )
-  ON CONFLICT (point_id, user_id) DO UPDATE
-    SET position = EXCLUDED.position, updated_at = now();
+  ON CONFLICT (point_id, user_id) DO NOTHING;
 
   -- Mark delivery as completed
   UPDATE letter_deliveries

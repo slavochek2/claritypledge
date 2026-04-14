@@ -97,7 +97,8 @@ export function injectReceiverPositions(
     points: story.points.map(point => ({
       ...point,
       profileSubjectPosition: positionMap.get(point.id) ?? null,
-      userPosition: null,
+      // P705: userPosition intentionally not touched — injectUserPositions owns that field.
+      // Nulling it here would create call-order dependency with injectUserPositions.
     })),
   };
 }

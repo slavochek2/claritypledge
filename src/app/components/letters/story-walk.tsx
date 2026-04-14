@@ -140,6 +140,7 @@ export function StoryWalk({ stories, perspective, senderProfile, receiverProfile
         <LiveStoryCardExpanded
           story={storyWithPoints}
           defaultExpanded={true}
+          defaultStoryExpanded={true}
           onPositionSelect={onPositionSelect}
           className="w-full max-w-sm mx-auto"
           badgePersonName={badgeProfile?.name}

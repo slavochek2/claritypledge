@@ -40,6 +40,8 @@ interface LiveStoryCardExpandedProps {
   defaultExpanded?: boolean;
   /** P661: When true, PositionButtons hidden, story CTA hidden. Does NOT auto-expand (use defaultExpanded for that). Used in letter prediction walk. */
   readOnly?: boolean;
+  /** P705: When true, story text starts expanded (full text visible). Defaults to readOnly for backward compat. */
+  defaultStoryExpanded?: boolean;
   /** P673: When true, hide the points section entirely (footer trigger + expanded points). Used in letters where points are shown as separate step cards. */
   hidePoints?: boolean;
   /** Slot rendered inside the card at the bottom — used for "Open Story" link in letter results */
@@ -61,17 +63,20 @@ export function LiveStoryCardExpanded({
   badgePersonHasPledged,
   defaultExpanded = false,
   readOnly = false,
+  defaultStoryExpanded,
   hidePoints = false,
   footerSlot,
 }: LiveStoryCardExpandedProps) {
+  // defaultStoryExpanded falls back to readOnly for backward compat (readOnly=true → story shown in full)
+  const initialStoryExpanded = defaultStoryExpanded ?? readOnly;
   const [isExpanded, setIsExpanded] = useState(defaultExpanded);
-  const [storyExpanded, setStoryExpanded] = useState(readOnly);
+  const [storyExpanded, setStoryExpanded] = useState(initialStoryExpanded);
 
   // Reset expand states when the story changes (phase change / story rotation)
   useEffect(() => {
-    setStoryExpanded(readOnly);
+    setStoryExpanded(defaultStoryExpanded ?? readOnly);
     setIsExpanded(defaultExpanded);
-  }, [story.id, defaultExpanded, readOnly]);
+  }, [story.id, defaultExpanded, readOnly, defaultStoryExpanded]);
 
   const strippedContent = stripHashtags(story.content, story.tags);
   const isLongStory = strippedContent.length > STORY_THRESHOLD;
@@ -254,10 +259,9 @@ export function PointRow({
 
   const handlePositionClick = (position: PositionType) => {
     const next = userPosition === position ? null : position; // toggle same position off
-    // Only optimistically update for selection; removal waits for dialog confirm
-    if (next !== null) {
-      setUserPosition(next);
-    }
+    // Optimistically update immediately (both select and deselect).
+    // /live sessions with confirm dialogs rely on useEffect sync from liveState after confirm.
+    setUserPosition(next);
     onPositionSelect?.(point.id, next);
     // P451: Story CTA intentionally omitted here — /live has its own post-session story entry point
   };
