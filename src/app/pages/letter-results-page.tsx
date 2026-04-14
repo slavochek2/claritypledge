@@ -155,6 +155,20 @@ export function LetterResultsPage() {
     if (user) fetchData();
   }, [user, fetchData]);
 
+  // P705: Refetch on visibilitychange — user may have updated their position in another tab
+  useEffect(() => {
+    if (!user) return;
+    function handleVisibilityChange() {
+      if (document.visibilityState === 'visible') {
+        fetchData();
+      }
+    }
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [user, fetchData]);
+
   // P705: Handle position changes on the results page — update point_positions and local state
   const handleResultsPositionChange = useCallback(async (pointId: string, position: PositionType | null) => {
     if (!user) return;
