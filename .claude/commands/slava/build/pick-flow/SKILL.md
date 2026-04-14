@@ -74,6 +74,7 @@ Look at the spec, conversation, and code. Name 1-3 concrete risks — not catego
 - "5+ files or 3+ independent concerns" → `/decompose`
 - "Conditional rendering, state changes, business logic" → `/generate-tests`
 - "Spec has grown past 100 lines with pipeline residue" → `/spec-compact`
+- "Feature is a new visual surface where polish will splinter across /dev iterations" → `/view` (between `/ui` and `/generate-tests`)
 
 **If you cannot name a risk that a step addresses, don't include that step.**
 
@@ -129,6 +130,6 @@ Look at the spec, conversation, and code. Name 1-3 concrete risks — not catego
 
 ## Available commands (sequence order)
 
-`/create-spec` · `/challenge-prd` · `/ux` · `/architect` · `/ui` · `/generate-tests` · `/spec-review` · `/spec-compact` · `/decompose` · `/dev` · `/verify` · `/park` · `/kdd`
+`/create-spec` · `/challenge-prd` · `/ux` · `/architect` · `/ui` · `/view` · `/generate-tests` · `/spec-review` · `/spec-compact` · `/decompose` · `/dev` · `/verify` · `/park` · `/kdd`
 
 Also: `/fix` (bugs) · `/change-request` (redesigns) · `/create-bug` (bug without P-number) · `/dd:frame-analyze` (unclear root cause) · `/park` (done on branch, merge later)

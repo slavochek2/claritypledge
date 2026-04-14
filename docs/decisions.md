@@ -2,6 +2,30 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-14 [technical]: AuthContext race window — setIsLoading(false) must be gated on sessionChecked
+
+**Context:** Logged-in users sometimes landed on `/login` (Welcome Back form) after a page refresh. Menu and data-fetching worked correctly (real user UUID present), confirming auth was valid. Root cause: AuthContext Effect 2 runs when `userId` changes. On mount `userId=undefined`, so the else-branch fired `setIsLoading(false)` before Effect 1's `getSession()` resolved. This opened a window where `isLoading=false`, `sessionChecked=false`, `user=null` — protected-page guards evaluated this as "logged out" and called `navigate('/login?redirect=...')`.
+
+**Decision:** Gate `setIsLoading(false)` in Effect 2's else-branch on `sessionChecked`. Add `sessionChecked` to the effect's dependency array so the deferred `setIsLoading(false)` still fires for genuinely-logged-out users when `getSession()` completes with `null`. Defense-in-depth: add "already-authed → bounce out" guard to `LoginPage` (stale `/login` URLs never render Welcome Back for logged-in users). Sanitize redirect param in `anon-position-cta.tsx` — if pathname is `/login` or `/signup`, default to `/` to break recursive loops.
+
+**Alternatives rejected:** Refactoring Effect 1/2 structure — adds complexity without addressing the root cause. Adding a new `isHydrated` flag — unnecessary; `sessionChecked` already expresses the same invariant.
+
+**Consequences:** Protected-page guards can only fire after `sessionChecked=true`. Genuinely-logged-out users are still redirected correctly. Regression test `src/tests/p705-auth-race-no-premature-login-redirect.test.tsx` covers both adversarial-timing (authed) and genuine-logout cases deterministically. The `[AUTH-TRACE]` diagnostic logs added to `letters-page.tsx` and `AuthContext.tsx` during investigation still exist on `feature/letters-ship` and must be reverted when that branch merges.
+
+**References:** [AuthContext.tsx](src/auth/AuthContext.tsx) | [login-page.tsx](src/app/pages/login-page.tsx) | [anon-position-cta.tsx](src/app/components/shared/anon-position-cta.tsx)
+
+## 2026-04-14 [technical]: Vite lazy-loaded pages need explicit optimizeDeps.entries — not just include
+
+**Context:** `/live` occasionally showed "Module load failed / 504 Gateway Timeout" on a dynamic import in dev. Vite pre-bundles everything in `optimizeDeps.include` and `holdUntilCrawlEnd: true` was already set, yet the 504 still occurred. Root cause: Vite only crawls `index.html` by default. `ClarityLivePage` is lazy-loaded — never reached during the initial crawl. If a dep is first discovered at runtime, Vite triggers mid-session re-optimization and returns 504 to signal "reload now". `holdUntilCrawlEnd` only prevents 504s for deps found *within* the crawl; it can't help if the entry file itself wasn't crawled.
+
+**Decision:** Add `src/app/pages/clarity-live-page.tsx` to `optimizeDeps.entries`. Vite crawls these files at startup, ensuring all transitive deps are pre-bundled before any browser request arrives.
+
+**Alternatives rejected:** Making `ClarityLivePage` an eager import — increases initial bundle for all users; most never visit `/live`. Adding more packages to `include` manually — all packages were already listed; the issue was crawl coverage, not the include list.
+
+**Consequences:** Any future lazy-loaded page that uses deps not imported by eagerly-loaded pages should be added to `optimizeDeps.entries`. Rule of thumb: if a route isn't reachable from the landing page without authentication, add it to entries.
+
+**References:** [vite.config.ts](vite.config.ts)
+
 ## 2026-04-14 [process]: Pipeline needs a dedicated visual-polish step — `/view` between `/ui` and `/dev` (Status: proposed)
 
 **Context:** P699 shipped with functionally-correct but visually-unpolished UI, requiring 5 follow-up commits for basic polish (alignment, button colors, default-expanded state, link treatments). Root cause: `/ux` produces text wireframes, `/ui` produces component inventory, `/dev` implements mechanically — no agent in the chain owns "does this look polished within our design system." Manual one-shot Claude prompts per feature are not repeatable and require prompt craftsmanship the founder doesn't want to invest in each time.

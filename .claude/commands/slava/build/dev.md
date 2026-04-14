@@ -140,6 +140,7 @@ Skip if no spec exists (inline description mode like `/dev refactor the auth mod
    5. If this skill is NOT in `pipeline_plan` → warn: "This skill wasn't in the planned flow. Proceed anyway?"
 1. **Read tests** — UAT scenarios, E2E test stubs, acceptance criteria
 1.5. **Read Component Strategy** — If spec has `## Component Strategy`, read the Component Map table. Every Reuse/Extend/Extract/New classification is a constraint — follow it. Do not create new components when the map says Reuse or Extend. If the Extraction Plan lists a prerequisite refactor, do it first.
+1.6. **Read view_locked** — If spec frontmatter has `view_locked: [path1, path2, ...]`, treat each path as read-only for the remainder of this run. Paths are literal strings resolved relative to the repo root — do NOT interpret them as globs or regex. Reject any entry containing `..`, starting with `/`, or otherwise escaping the repo root (mistyped entries must fail loudly, not silently disable the guard). Before any Write or Edit call, normalize the target file path (repo-root-relative) and check literal equality against every view_locked entry. If a write to a locked path is attempted, STOP and report: "Attempted to edit locked view file {path}. /view owns this file. Options: (A) re-run /view to update the view, (B) remove path from view_locked if ownership has changed, (C) edit a different file." Continue only after founder confirms. If view_locked is absent, proceed with current behavior (backward-compatible).
 2. **Verify context** — Confirm Step -1 context is loaded (re-read spec if post-compaction or if >10 tool calls since Step -1). Key check: can you state (a) the top constraint from Decisions, (b) what "done" looks like from Acceptance Criteria, and (c) the next unchecked task? If not, re-read now. Every decision is a constraint, not a suggestion — if you can't name what the spec rules out, you haven't internalized it.
 3. **Implement** — Feature code + fill in test stubs. **For UI features (.tsx changes):** get tests passing before applying visual refinement (spacing, shadows, animation). Don't polish a broken feature.
 3.5. **Adjacent bug rule** — If you discover a bug OUTSIDE this feature's acceptance criteria (e.g., a pre-existing bug in a shared function), do NOT fix it inline. Call `/fix "description"` — it will auto-file a `/create-bug` spec and proceed with TDD (canary test → fix → verify). Bugs INSIDE this feature's acceptance criteria are covered by this feature's own tests.
@@ -421,6 +422,7 @@ The dev agent runs a comprehensive checklist before marking work complete:
 - [ ] No console errors
 - [ ] Code follows style guide
 - [ ] Pre-commit checks pass
+- [ ] No locked view files modified (if view_locked present in spec)
 
 ---
 
