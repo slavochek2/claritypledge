@@ -129,7 +129,7 @@ export function StoryWalk({ stories, perspective, senderProfile, receiverProfile
         <LiveStoryCardExpanded
           story={storyWithPoints}
           readOnly
-          defaultExpanded={true}
+          defaultExpanded={false}
           className="w-full max-w-sm mx-auto"
           badgePersonName={badgeProfile?.name}
           badgePersonAvatarUrl={badgeProfile?.avatarUrl}
@@ -175,11 +175,11 @@ export function StoryWalk({ stories, perspective, senderProfile, receiverProfile
         ) : (
           /* Normal story: Previous + Next */
           <div
-            className="w-full max-w-sm flex items-center justify-between"
+            className="w-full max-w-sm flex items-center justify-center gap-4"
             role="navigation"
             aria-label="Story navigation"
           >
-            {!isFirst ? (
+            {!isFirst && (
               <Button
                 variant="default"
                 onClick={() => navigate('prev')}
@@ -188,8 +188,6 @@ export function StoryWalk({ stories, perspective, senderProfile, receiverProfile
               >
                 ← Previous Story
               </Button>
-            ) : (
-              <span />
             )}
             <Button
               variant="default"
