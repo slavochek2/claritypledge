@@ -2,6 +2,18 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-14 [technical]: P705 implementation — `injectUserPositions` and `defaultStoryExpanded` patterns
+
+**Context:** P705 wired interactive positions into `StoryWalk` on `/letter/:id/results`. Two patterns emerged during implementation that apply beyond P705.
+
+**Decision:** (1) `injectUserPositions(story, Map<pointId, PositionType>)` in `letter-snapshot-mapper.ts` — symmetric counterpart to `injectReceiverPositions`. Owns `userPosition` exclusively; `injectReceiverPositions` was corrected to not touch `userPosition` (it owns only `profileSubjectPosition`). Prevents call-order dependency between the two injectors. (2) `defaultStoryExpanded` prop on `LiveStoryCardExpanded` decouples story-text expansion from `readOnly`. Previously, `readOnly=true` served double duty: disabled buttons AND auto-expanded story text. P705 removes `readOnly` from `StoryWalk` (positions are interactive) but still needs story text pre-expanded — `defaultStoryExpanded={true}` handles this without leaking read-only semantics.
+
+**Alternatives rejected:** Single `readOnly` flag for both concerns — created implicit coupling; changing button interactivity required changing text display. Nulling `userPosition` inside `injectReceiverPositions` — introduced call-order dependency between the two inject functions.
+
+**Consequences:** Future callers of `LiveStoryCardExpanded` that need story text pre-expanded should pass `defaultStoryExpanded={true}` independently of `readOnly`. Future snapshot mappers should own exactly one field family each — symmetry is the invariant. `injectReceiverPositions` owns `profileSubjectPosition`; `injectUserPositions` owns `userPosition`; neither touches the other's field.
+
+**References:** `src/app/utils/letter-snapshot-mapper.ts` | `src/app/components/partners/live-story-card-expanded.tsx` | `src/app/components/letters/story-walk.tsx`
+
 ## 2026-04-14 [technical]: Proto routes must remove static imports at `/dev` integration — DEV guard only prevents rendering
 
 **Context:** `/view` skill adds a proto preview route to `src/App.tsx` guarded by `{import.meta.env.DEV && <Route .../>}`. The guard prevents the route from rendering in prod, but the demo component is statically imported at the top of the file (`import {FeatureName}Demo from '...'`). Vite bundles all static imports regardless of runtime guards — the demo file and its mock data ship in the production bundle on every feature that uses `/view` and is never cleaned up.
@@ -27,7 +39,7 @@ Append-only log of architectural and product decisions. Newest entries at top.
 **Context:** On `/letter/:id/results`, position buttons rendered disabled and empty (P699 mockup expected filled+interactive). Root cause was architectural, not visual: D50 (2026-04-04) separated `letter_point_responses` (INSERT-only, forward-only) from `point_positions` (live, editable on `/story/[id]`), producing two mental models for the same user concept. The "freeze letter answers" intent was correct for *letter content* but wrong for *user state*.
 **Decision:** H2 model — letters freeze content (story text, predictions, author's sent-time snapshot); positions are live state and are shown as live across all surfaces (reading flow, results page, `/story/[id]`). `point_position_history` already captures every change via DB trigger, so "rupture of trust if stance changes" concerns are addressable by surfacing history, not by duplicating tables. P581 AD3 sealed-bid concerns `letter_predictions`, not `point_positions` — positions are not part of the sealed envelope.
 **Alternatives rejected:** (A) Keep D50 and hide results buttons — preserves audit but abandons P699's symmetry and keeps the two-table mental model. (B) Show viewer's own frozen letter answer as read-only badge — adds a third UI pattern (badge-frozen-self / badge-other / button-live), too many concepts. (C) Freeze sender's position during receiver reading for sealed-bid reasons — conflates predictions (sealed) with positions (state).
-**Consequences:** D50 is superseded. `letter_point_responses` is NOT deprecated — security review revealed it has an ongoing role as the staging buffer (see next entry). Reversal trigger: "users consistently report the mutable stance erodes trust in historical letters." If that fires, surface history view first before reverting to table separation. (Status: in-implementation via P705 — spec at architect stage, /dev pending)
+**Consequences:** D50 is superseded. `letter_point_responses` is NOT deprecated — security review revealed it has an ongoing role as the staging buffer (see next entry). Reversal trigger: "users consistently report the mutable stance erodes trust in historical letters." If that fires, surface history view first before reverting to table separation. P705 /dev complete — positions are now interactive on results page; awaiting UAT.
 **References:** `features/p705_letter_positions_live_everywhere.md`, prior D50 entry (2026-04-04), `supabase/migrations/20260204_stories_points_calibration.sql` (point_position_history trigger)
 
 ## 2026-04-14 [technical]: Staging+replay pattern for RLS-gated tables with deferred write access
