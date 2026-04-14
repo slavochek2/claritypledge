@@ -2,6 +2,18 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-14 [process]: Pipeline needs a dedicated visual-polish step — `/view` between `/ui` and `/dev` (Status: proposed)
+
+**Context:** P699 shipped with functionally-correct but visually-unpolished UI, requiring 5 follow-up commits for basic polish (alignment, button colors, default-expanded state, link treatments). Root cause: `/ux` produces text wireframes, `/ui` produces component inventory, `/dev` implements mechanically — no agent in the chain owns "does this look polished within our design system." Manual one-shot Claude prompts per feature are not repeatable and require prompt craftsmanship the founder doesn't want to invest in each time.
+
+**Decision:** Add a `/view` skill between `/ui` and `/dev` in a new `ui-heavy` flow variant. `/view` produces a locked view component + demo wrapper at `src/app/components/_proto/{feature}-view.tsx`, writes `view_locked: [path]` to spec frontmatter, and `/dev` treats those paths as forbidden-edit (prompt-level constraint + programmatic pre-write check). Constraint model is inverted from the public `frontend-design` skill: NO new fonts/colors/patterns, match adjacent production pages precisely — polish is the only variable. Prop verification (multi-line JSX scan + source grep) + build gate prevent prop hallucination (real failure mode from w1 experiment: agent invented `footerSlot` on `LiveStoryCardExpanded`). Full spec: P706.
+
+**Alternatives rejected:** Modify `/ui` to produce the view directly — conflates inventory + design roles, breaks the founder-approval loop. Use `frontend-design` as-is — its bold-distinction model is wrong for a shipping product with an established design system. Keep doing it manually — not repeatable. Build a separate `/slice` skill to split frontend/backend first — adds infra without payoff; the split is implicit in `/view`'s I/O boundary.
+
+**Consequences:** UI-heavy features pick up a new pipeline step; backend-only and medium flows skip it. Existing specs without `view_locked` get unchanged `/dev` behavior (backward-compatible). `/pick-flow` gains one new risk example + adds `/view` to the sequence. If prompt-level `view_locked` respect proves insufficient in practice, a pre-write hook at `.claude/hooks/` is a separate follow-up. Validation criterion: re-run p699 through the productionized `/view` on a clean worktree and compare output quality against `.claude/worktrees/w1/src/app/components/_proto/story-walk-view.tsx` reference artifact.
+
+**References:** [P706 spec](features/p706_view_skill_visual_polish.md), [.claude/worktrees/w1](.claude/worktrees/w1) experiment artifact
+
 ## 2026-04-14 [technical]: bufferOnly render path requires two RPCs — getLetterForReadingByToken + getLetterForPublicReading
 
 **Context:** P704 routed anon one-to-many token recipients through `bufferOnly=true` → `<LetterReadingFlowPublic>`. P705 discovered that after submitting a rating, the sender's prediction row showed "Pending..." — because `getLetterForReadingByToken` returns letter/delivery/snapshot data but does NOT include `letter_predictions`. Only `getLetterForPublicReading` returns shared predictions (`delivery_id IS NULL` rows from `letter_predictions`).
