@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: qa
 type: task
 rank: 1000679.0
 created_date: '2026-04-10'
