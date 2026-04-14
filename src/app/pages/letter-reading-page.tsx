@@ -661,6 +661,10 @@ export function LetterReadingPage() {
     return <ClarityPageLoader />;
   }
 
+  // P704: anon one-to-many recipients must NOT call *_by_token RPCs — P684 guards block them.
+  // Buffer responses locally and submit via confirm-letter-response after signup (same as ready_public).
+  const bufferOnly = letter.mode === 'one-to-many' && !session;
+
   return (
     <CertificatePageShell className="min-h-screen py-6 space-y-6">
       {viewState === 'cover' && skipToComplete && <ClarityPageLoader />}
@@ -680,6 +684,16 @@ export function LetterReadingPage() {
             onOpen={() => {
               if (letter.mode === 'one-to-one' && token && !currentUser) {
                 handleOneToOneOpen();
+              } else if (bufferOnly) {
+                // Anon one-to-many: skip updateDeliveryStatusByToken — P684 guard blocks it.
+                // Just transition to reading; responses are buffered until post-signup confirm.
+                setViewState('reading');
+                analytics.track('letter_opened', {
+                  delivery_id: delivery.id,
+                  letter_id: letter.id,
+                  mode: letter.mode,
+                  story_count: snapshots.length,
+                });
               } else {
                 if (currentUser && !staleTermsResolved) {
                   setShowStaleTerms(true);
@@ -709,15 +723,37 @@ export function LetterReadingPage() {
       )}
 
       {viewState === 'reading' && (
-        <LetterReadingFlow
-          letter={letter}
-          snapshots={snapshots}
-          delivery={delivery}
-          senderName={senderName}
-          token={token || undefined}
-          isAuthenticated={!!session}
-          onComplete={() => setViewState('complete')}
-        />
+        bufferOnly ? (
+          // P704: Anon one-to-many — use local mode (no RPCs); buffer responses for post-signup confirm.
+          <LetterReadingFlowPublic
+            letter={letter}
+            snapshots={snapshots}
+            senderName={senderName}
+            isAuthenticated={false}
+            onComplete={(draft) => {
+              const letterId = letter.id;
+              const draftKey = `letter-response-draft-${letterId}`;
+              sessionStorage.setItem(draftKey, JSON.stringify({
+                letterId,
+                ratings: draft.ratings,
+                positions: draft.positions.map((p) => ({ pointId: p.pointId, position: p.position })),
+              }));
+              localStorage.removeItem(`p684_letter_state:${letterId}`);
+              const confirmRedirect = `/letter/${letterId}/confirm`;
+              navigate(`/signup?source=letter-response&letterId=${letterId}&senderName=${encodeURIComponent(senderName)}&redirect=${encodeURIComponent(confirmRedirect)}`);
+            }}
+          />
+        ) : (
+          <LetterReadingFlow
+            letter={letter}
+            snapshots={snapshots}
+            delivery={delivery}
+            senderName={senderName}
+            token={token || undefined}
+            isAuthenticated={!!session}
+            onComplete={() => setViewState('complete')}
+          />
+        )
       )}
 
       {viewState === 'complete' && (
