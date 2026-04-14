@@ -997,7 +997,6 @@ export type ContentVisibility = 'public' | 'private';
 export interface Story {
   id: string;
   authorId: string;
-  title?: string;
   content: string;
   visibility: StoryVisibility;
   currentVersion: number;
@@ -1029,7 +1028,6 @@ export interface StoryWithPoints extends StoryWithAuthor {
 export interface DbStory {
   id: string;
   author_id: string;
-  title?: string;
   content: string;
   visibility: StoryVisibility;
   current_version: number;
@@ -1050,7 +1048,6 @@ export interface StoryVersion {
   id: string;
   storyId: string;
   versionNumber: number;
-  title?: string;
   content: string;
   createdAt: string;
 }
@@ -1059,7 +1056,6 @@ export interface DbStoryVersion {
   id: string;
   story_id: string;
   version_number: number;
-  title?: string;
   content: string;
   created_at: string;
 }
