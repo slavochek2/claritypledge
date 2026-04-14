@@ -2,6 +2,18 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-14 [process]: `/critique-ux` skill — post-ship UX critique (distinct from rejected 2026-04-05 `/design-critique`)
+
+**Context:** After shipping P699 the founder felt the result "felt off" (alignment, button placement, step-to-step pacing) but didn't want to micromanage inline fixes. No skill existed for structured post-ship UX critique. The 2026-04-05 decision rejected a standalone `/design-critique` skill for use *inside `/dev`* (iteration loop needs dev server context; better folded into step 8.9). That rationale does not cover the different need surfaced here: critiquing a feature that is already implemented and integrated, where the output should feed `/create-spec` or `/change-request` rather than an inline fix loop.
+
+**Decision:** Added `/slava:build:critique-ux` — a standalone skill that (1) captures screenshots across states × breakpoints, (2) spawns a blind subagent with screenshots + visual spec + `visual-qa.md` checklist only (no code, no implementation intent) to prevent confirmation bias, (3) returns a ranked punch list (severity, where, observed, why it matters, confidence), (4) routes each picked item to `/create-spec`, `/change-request`, or `/create-bug`. The skill never implements fixes — it stops at the punch list and hands off to the existing pipeline.
+
+**Alternatives rejected:** (A) Micromanage improvements inline during open conversation — what the founder explicitly wants to avoid; produces ad-hoc changes with no spec trail. (B) Combined `/improve-ux` skill that critiques AND proposes fixes — same agent diagnosing and treating re-introduces the confirmation bias `visual-qa.md` exists to prevent. (C) Fold into `/dev` step 8.9 — wrong phase; `/dev`'s QA loop runs during implementation, not after a feature has lived for a while and surfaced friction.
+
+**Consequences:** When a shipped feature "feels off," invoke `/critique-ux pN` instead of reacting per-detail. The blind-critic pattern (screenshots + spec only, no code) is now explicit in a reusable place — future skills that need design review should follow the same anti-confirmation-bias shape. The 2026-04-05 rejection remains valid for its original scope (inline iteration during `/dev`); this skill occupies a different slot (post-ship triage into the spec pipeline).
+
+**References:** [.claude/commands/slava/build/critique-ux.md](.claude/commands/slava/build/critique-ux.md), [.claude/rules/visual-qa.md](.claude/rules/visual-qa.md), 2026-04-05 [process]: `/design-critique` as a standalone skill rejected (prior, different scope)
+
 ## 2026-04-14 [technical]: P705 implementation — `injectUserPositions` and `defaultStoryExpanded` patterns
 
 **Context:** P705 wired interactive positions into `StoryWalk` on `/letter/:id/results`. Two patterns emerged during implementation that apply beyond P705.
