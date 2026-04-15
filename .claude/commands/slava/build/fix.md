@@ -171,6 +171,7 @@ After worktree setup (so CWD resolves to the correct branch):
 2. Read the source file(s) mentioned in the spec or user description — verify current state matches your assumptions
 3. If bug involves DB: check the actual schema (`curl` REST API with `?select=column&limit=1`)
 4. If spec has mixed `[x]`/`[ ]` acceptance criteria (rewritten matryoshka bug): announce which layers are done and which remain. Focus on unchecked items.
+5. **If bug involves token-based RPCs or token-gated flows:** identify the manual verification path now — before writing code. State: "Fresh token source: [UI path / service-role query / Playwright canary]". Consumed or RLS-blocked tokens are a common dead end at UAT time.
 
 Skip steps 1 and 3 in inline mode (`/fix "description"`) — but always do step 2 (using the user description to identify source files).
 
@@ -518,7 +519,7 @@ After commit succeeds:
    **If pre-commit hook blocks on a test failure:**
    1. Run the failing test against `main` to classify: `git stash && npm test -- <failing-test-file> && git stash pop`
    2. Present to user:
-      - **(A) Pre-existing (fails on main too):** Do NOT use `--no-verify`. Create a deferred bug ticket for the pre-existing failure now, then commit after user confirms.
+      - **(A) Pre-existing (fails on main too):** Create a deferred bug spec via `/create-spec` for the pre-existing failure (get a P-number). Then, with user explicit approval, use `--no-verify` and include `(skips --no-verify: pre-existing P{N} failure)` in the commit message body. The P-number is the trail — no ticket = no bypass.
       - **(B) Introduced by this fix (passes on main):** Return to Phase 3 — fix the code.
       - **(C) Can't determine:** Report "Cannot classify failure — run `/debugging` before committing." Do not commit.
    3. Wait for user choice. Never commit a blocked pre-commit without user explicit approval.
