@@ -1,6 +1,6 @@
 ---
 id: p710
-status: in-progress
+status: qa
 type: story
 delivery_stage: fix
 pipeline_ran: [fix]
