@@ -60,6 +60,35 @@ Generate comprehensive test strategy: unit, integration, E2E, accessibility, smo
 
 ---
 
+## Lean Mode
+
+**Trigger:** User invokes with the word `lean` as an argument.
+Example: `/generate-tests features/p142.md lean`
+
+**Decision protocol:**
+1. Check invocation for `lean` argument.
+2. If present: announce "Lean mode — skipping A11y + visual test generation. This is a founder-asserted skip, not a verified clean run."
+3. Proceed with reduced scope below.
+4. Label output section to preserve signal/confidence distinction.
+
+**When lean is appropriate (founder judges, skill does not):**
+- Feature has been manually reviewed by founder
+- Change is scoped + understood (copy, styling, refactor within one file)
+- Founder accepts responsibility for skipped coverage
+
+**When lean is NOT appropriate:**
+- New data model / table / column
+- New auth surface or route
+- New external API call or LLM prompt
+- Unfamiliar area of codebase
+
+**Lean scope reduction:**
+- Skipped: A11y test generation, UI/visual test scaffolds
+- Retained: unit tests, basic e2e stub, uat checklist
+- Output labeled: `## Test Plan (Lean — skipped A11y + visual regression)`
+
+---
+
 ## What This Skill Does
 
 **Intelligently generates test files across the test pyramid:**

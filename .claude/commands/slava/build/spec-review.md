@@ -28,6 +28,35 @@ Pre-dev spec quality audit — catches redundancy, consistency gaps, blindspots,
 
 ---
 
+## Lean Mode
+
+**Trigger:** User invokes with the word `lean` as an argument.
+Example: `/spec-review features/p142.md lean`
+
+**Decision protocol:**
+1. Check invocation for `lean` argument.
+2. If present: announce "Lean mode — skipping deep cross-layer audit dimensions. This is a founder-asserted skip, not a verified clean run."
+3. Proceed with reduced scope below.
+4. Label output section to preserve signal/confidence distinction.
+
+**When lean is appropriate (founder judges, skill does not):**
+- Feature has been manually reviewed by founder
+- Change is scoped + understood (copy, styling, refactor within one file)
+- Founder accepts responsibility for skipped coverage
+
+**When lean is NOT appropriate:**
+- New data model / table / column
+- New auth surface or route
+- New external API call or LLM prompt
+- Unfamiliar area of codebase
+
+**Lean scope reduction:**
+- Skipped: Dimensions 3 (Gaps), 4 (Blindspots), 5 (Under-specification), 8 (Cross-spec conflicts), 9 (Prior decisions conflict)
+- Retained: Layer presence checks + Dimensions 1 (Redundancy), 2 (Consistency), 6 (Over-specification), 7 (Component Strategy)
+- Output labeled: `## Spec Review (Lean — structural only)`
+
+---
+
 ## What This Skill Does
 
 Reads the fully prepared spec (Business + UX + Technical + Component Strategy + Tests) and audits it across nine dimensions. Returns a structured findings report with severity ratings. Does NOT auto-fix — surfaces issues for the user to decide.

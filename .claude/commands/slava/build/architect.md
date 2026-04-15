@@ -28,6 +28,41 @@ Adds Technical layer to feature spec:
 
 ---
 
+## Lean Mode
+
+**Trigger:** User invokes with the word `lean` as an argument.
+Example: `/architect features/p142.md lean`
+
+**Decision protocol:**
+1. Check invocation for `lean` argument.
+2. If present: announce "Lean mode — skipping Security subagent. This is a founder-asserted skip, not a verified clean run."
+3. Proceed with reduced scope below.
+4. Label output section to preserve signal/confidence distinction.
+
+**When lean is appropriate (founder judges, skill does not):**
+- Feature has been manually reviewed by founder
+- Change is scoped + understood (copy, styling, refactor within one file)
+- Founder accepts responsibility for skipped coverage
+
+**When lean is NOT appropriate:**
+- New data model / table / column
+- New auth surface or route
+- New external API call or LLM prompt
+- Unfamiliar area of codebase
+
+**Lean scope reduction:**
+- Skipped: Security subagent spawn
+- Replaced by: Architect agent writes `### Security Self-Check (Lean — NOT a full review)` inline with 6-item checklist:
+  - [ ] No new tables/columns/RLS policies
+  - [ ] No new auth or authorization surface
+  - [ ] No new user input reaching DB or LLM
+  - [ ] No new API routes or external calls
+  - [ ] No new secrets or env variables
+  - [ ] No PII newly exposed
+- Label stays in spec so `/spec-review` sees the skip: "Lean — NOT a full review"
+
+---
+
 ## When to Use
 
 ✅ **Use /architect for:**
