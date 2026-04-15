@@ -2,6 +2,18 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-15 [process]: Opt-in lean mode for token-heavy skills — explicit `lean` arg, labeled output, default always-spawn
+
+**Context:** `/architect`, `/generate-tests`, `/spec-review` unconditionally spawn expensive subagents (Security agent, A11y tests, deep cross-layer audit) even on trivial features. Auto-gating by diff size or frontmatter signals was proposed and rejected during planning.
+
+**Decision:** Each skill accepts `lean` as an explicit argument. When present: (1) announce the skip and what was skipped, (2) proceed with reduced scope (Security subagent → inline 6-item self-check; A11y/visual tests → skipped; deep spec-review dimensions 3,4,5,8,9 → skipped), (3) label every output section "Lean — NOT a full review" so subsequent skills and human readers see the skip. Default path (no `lean`) is unchanged — always-spawn. The founder judges appropriateness, the skill does not.
+
+**Alternatives rejected:** Auto-gating by diff size, absence of RLS keywords, or frontmatter signals — rejected because absence-based gates fail silently on under-specified specs, a "clean gate" log creates false confidence, and `/architect` runs before any diff exists.
+
+**Consequences:** Token savings materialize only on explicit invocations. Labeled output ensures `/spec-review` and future readers distinguish "lean security check" from "full Security agent review." When lean is NOT appropriate: new data model, new auth surface, new external API call, unfamiliar codebase area.
+
+**References:** `.claude/commands/slava/build/architect.md`, `.claude/commands/slava/build/generate-tests/SKILL.md`, `.claude/commands/slava/build/spec-review.md`
+
 ## 2026-04-15 [technical]: Per-screenshot patching = missing abstraction signal (drift → unify, don't patch)
 
 **Context:** P711 (letter point display) — the letter reading flow rendered the same "point with two parties' stances" concept through three parallel components: `PointRow` (engage phases), `PositionComparisonCard` (revealed phases), results-page `StoryWalk → PointRow`. Successive fixes (P708) patched individual symptoms per screenshot — author-badge leak in engage, divider, alignment, asymmetric revealed layout — without addressing the missing abstraction. Each patch matched one screenshot; none converged the visual language across surfaces. A 4th surface (compose/prediction-walk, `readOnly` on same component) surfaced after `/architect` — reactively, from a screenshot, not proactively from the surface inventory.
