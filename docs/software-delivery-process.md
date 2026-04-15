@@ -25,6 +25,21 @@ Most dev processes are checklists you run in your head. Ours is a sequence of AI
 
 Not every task runs every step. `/pick-flow` reads your task and recommends which steps apply, which are safe to skip, and what risk you accept by skipping.
 
+## Post-Ship Visual QA Loop
+
+After a feature ships, a separate loop handles visual polish without reopening the full pipeline:
+
+| Phase | Key Skill | What It Does |
+|-------|-----------|--------------|
+| **Critique** | [`/critique-ux`](../.claude/commands/slava/build/critique-ux.md) | Blind UX/UI review — spawns a subagent with screenshots + spec only (no code), returns a ranked punch list |
+| **Polish** | [`/polish`](../.claude/commands/slava/build/polish.md) | Implements punch list items: per-item decision gate, atomic commits, blind visual QA subagent, founder approval per item |
+
+Routing from the punch list:
+- Visual fix on shipped UI → `/polish`
+- Redesign touching shared components or page structure → `/change-request` (re-enters full pipeline)
+- Net-new capability → `/create-spec`
+- Broken code (not design) → `/fix`
+
 ## Core Principles
 
 These live in [PRINCIPLES.md](../.claude/commands/slava/PRINCIPLES.md) and guide every agent:
