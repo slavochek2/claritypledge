@@ -137,6 +137,8 @@ When the user pushes back: name what would change your view. Update explicitly w
 
 In plan mode: explore code, ask questions, outline approaches (brief bullets OK). Do NOT write spec content into the plan file.
 
+When creating a plan file, record `**Base commit:** \`{sha}\`` and `**Branch/worktree:** {branch}` at the top of the Context section. Lets `/fix` and `/dev` run `git diff {sha} HEAD -- <file>` to detect plan staleness before acting.
+
 If asked to write a spec in plan mode: say "I'm in plan mode — please approve the ExitPlanMode prompt." Call `ExitPlanMode` immediately.
 
 ---
