@@ -971,6 +971,7 @@ export async function submitLetterResponseAuthenticated(
       receiver_email: user.email ?? null,
       status: 'completed',
       completed_at: new Date().toISOString(),
+      stories_rated: ratings.length,
     })
     .select('id')
     .single();
