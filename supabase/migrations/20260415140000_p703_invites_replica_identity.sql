@@ -1,0 +1,15 @@
+-- P703: Enable REPLICA IDENTITY FULL on clarity_live_invites
+--
+-- Problem: Supabase Realtime UPDATE events with column-level filters
+-- (e.g. target_user_id=eq.{userId}) require REPLICA IDENTITY FULL to
+-- deliver the OLD row values. Without it, filtered UPDATE events are
+-- silently dropped — the listener never sees the invite disappear when
+-- closed_at is set by complete_clarity_session.
+--
+-- Why FULL (not USING INDEX): The filter is on target_user_id (not a PK
+-- column) and the payload needs the full row to populate authorName and
+-- storyTitle in useOpenLiveInvite's UPDATE handler.
+--
+-- Impact: Minimal. clarity_live_invites is low-volume (one row per
+-- active session). The extra WAL overhead is negligible.
+ALTER TABLE clarity_live_invites REPLICA IDENTITY FULL;
