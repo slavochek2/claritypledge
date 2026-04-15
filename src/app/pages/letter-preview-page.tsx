@@ -6,7 +6,7 @@
  */
 
 import { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, type NavigateFunction } from 'react-router-dom';
 import { AlertCircle, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { CertificatePageShell } from '@/app/components/layout/certificate-page-shell';
@@ -20,6 +20,11 @@ import { docsService } from '@/app/data/docs-service';
 import { pointsService } from '@/app/data/points-service';
 import { useAuth } from '@/auth';
 import type { DocStory, LetterStorySnapshot } from '@/app/types';
+
+function closePreview(navigate: NavigateFunction): void {
+  if (window.history.length <= 1) window.close();
+  else navigate(-1);
+}
 
 /**
  * Convert DocStory to LetterStorySnapshot shape.
@@ -119,11 +124,6 @@ export function LetterPreviewPage() {
     );
   }
 
-  const closePreview = () => {
-    if (window.history.length <= 1) window.close();
-    else navigate(-1);
-  };
-
   return (
     <>
       {/* Preview banner */}
@@ -135,7 +135,7 @@ export function LetterPreviewPage() {
         <Button
           size="sm"
           className="ml-auto gap-1 bg-blue-500 hover:bg-blue-600 text-white"
-          onClick={closePreview}
+          onClick={() => closePreview(navigate)}
         >
           <X className="h-3.5 w-3.5" />
           Close preview
@@ -178,11 +178,6 @@ function LetterPreviewFlow({
   snapshots: LetterStorySnapshot[];
 }) {
   const navigate = useNavigate();
-
-  const closePreview = () => {
-    if (window.history.length <= 1) window.close();
-    else navigate(-1);
-  };
 
   // Read author's predictions from localStorage (written by compose page during prediction walk)
   const [previewPredictions] = useState<Map<string, number> | undefined>(() => {
@@ -232,7 +227,7 @@ function LetterPreviewFlow({
           This is what the receiver will experience.
         </p>
         <Button
-          onClick={closePreview}
+          onClick={() => closePreview(navigate)}
           className="bg-[#0044CC] hover:bg-[#0033AA] text-white"
         >
           Close preview
