@@ -681,7 +681,7 @@ export default function ClarityPledgeApp() {
         <Route
           path="/letter/:id"
           element={
-            <ClarityLandingLayout chromeFree>
+            <ClarityLandingLayout>
               <LazyRoute>
                 <LetterReadingPage />
               </LazyRoute>
