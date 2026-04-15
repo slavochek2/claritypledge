@@ -58,16 +58,20 @@ git reset HEAD -- <file>        # unstage any bystanders before staging your own
 
 Do this **before** `git add`, not after. After `git add` both sets are mixed and the review looks correct — prior-session files are invisible among your own staged files. This is what causes the wrong-files-in-commit bug.
 
-## Always use explicit file names
+## Always use explicit file names — on both `git add` AND `git commit`
 
 ```bash
 # ✅ Correct
 git add src/app/pages/MyPage.tsx src/components/Button.tsx
+git commit -m "fix: preview persistence" -- src/app/pages/MyPage.tsx src/components/Button.tsx
 
 # ❌ Never
 git add .
 git add -A
+git commit -m "fix: ..."   # without explicit file list when sharing a worktree
 ```
+
+**Why `git commit -- <files>` matters:** When multiple sessions share a worktree, each session stages its own files independently. A plain `git commit` sweeps ALL staged files into your commit — including files staged by other sessions. Listing files explicitly on the commit command limits the commit to only those paths, even if other files are staged. The other sessions' files stay staged but uncommitted.
 
 ## Files that must NEVER be committed
 
