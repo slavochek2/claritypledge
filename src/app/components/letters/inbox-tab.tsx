@@ -190,11 +190,8 @@ export function InboxTab({ userId, onUnreadCountChange, openInvite }: InboxTabPr
                 <p className="text-xs text-muted-foreground mt-0.5">
                   {formatTimeAgo(item.timestamp)} ago
                 </p>
-                {/* P699: step progress — received letters and in-progress sender rows */}
-                {(item.type === 'received' ||
-                  item.type === 'recipient_in_progress' ||
-                  item.type === 'link_respondent_in_progress') &&
-                  item.steps_completed !== undefined &&
+                {/* P699: step progress — all rows where fields are present (received + all sender variants) */}
+                {item.steps_completed !== undefined &&
                   item.total_steps !== undefined && (
                   <p className="text-xs text-muted-foreground mt-0.5">
                     {item.steps_completed} of {item.total_steps} steps

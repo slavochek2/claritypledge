@@ -176,8 +176,8 @@ test.describe('P699: Inbox Progress Indicator', () => {
     await page.goto('/letters?tab=inbox');
     await page.waitForLoadState('networkidle');
 
-    // Look for progress text pattern "Step N of M" or "N of M stories"
-    const progressText = page.locator('text=/step\\s+1\\s+of\\s+3|1\\s+of\\s+3\\s+stories|1\\s*\\/\\s*3/i').first();
+    // Look for progress text pattern "1 of 3 steps" (P699 step-granular format)
+    const progressText = page.locator('text=/1\\s+of\\s+3\\s+steps/i').first();
     await expect(progressText).toBeVisible({ timeout: 10000 });
   });
 
@@ -254,5 +254,25 @@ test.describe('P699: Inbox Progress Indicator', () => {
       // Completed items shouldn't show step text — they're done
       await expect(stepText).not.toBeVisible({ timeout: 2000 }).catch(() => {});
     }
+  });
+
+  // ── 6. Sender: completed recipient row shows step count ───────────────────
+
+  test('CANARY(p699): sender inbox shows step count on completed recipient row', async ({
+    page,
+  }) => {
+    // Bug: recipient_responded rows excluded from step-count render gate in inbox-tab.tsx.
+    // Fix: remove type gate; rely on field presence (steps_completed + total_steps).
+    //
+    // Before fix: no step text on completed sender rows.
+    // After fix:  "3 of 3 steps" appears under "receiver completed Letter Title" row.
+    await setTestSession(page, sender.email);
+    await page.goto('/letters?tab=inbox');
+    await page.waitForLoadState('networkidle');
+
+    // Sender inbox must show the step count for the completed recipient row.
+    // completedDeliveryId has stories_rated=3, 3 story snapshots, 0 point responses → "3 of 3 steps".
+    const stepText = page.locator('text=/3\\s+of\\s+3\\s+steps/i').first();
+    await expect(stepText).toBeVisible({ timeout: 10000 });
   });
 });
