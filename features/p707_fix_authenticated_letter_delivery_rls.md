@@ -11,6 +11,7 @@ pipeline_ran: [fix]
 delivery_stage: fix
 root_cause: No SECURITY DEFINER RPC existed for the authenticated letter submission path. letter_deliveries has WITH CHECK(false) RLS — all client inserts are permanently blocked. The submitLetterResponseAuthenticated function was calling supabase.from('letter_deliveries').insert() directly, which always failed with 42501.
 resolution: Added create_letter_delivery SECURITY DEFINER function (migration 20260415160000) + unique index on (letter_id, receiver_profile_id) with concurrent unique_violation handler. Updated submitLetterResponseAuthenticated to call supabase.rpc('create_letter_delivery') instead of direct insert. Added Sentry capture for sender-guard errors and all other RPC failures.
+created_date: 2026-04-15
 ---
 
 # P707: submitLetterResponseAuthenticated silently fails — letter_deliveries RLS blocks all client inserts
