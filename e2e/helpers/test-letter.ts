@@ -111,9 +111,16 @@ export async function createTestDelivery(
     receiverProfileId?: string;
     status?: 'sent' | 'opened' | 'in_progress' | 'completed';
     invitationExpiresAt?: string;
+    completedAt?: string;
   } = {}
 ): Promise<TestDelivery> {
   console.log(`[TEST HELPER] Creating test delivery for letter: ${letterId}`);
+
+  const status = options.status ?? 'sent';
+  // completed_at_status_sync constraint: completed_at IS NULL iff status != 'completed'
+  const completedAt = status === 'completed'
+    ? (options.completedAt ?? new Date().toISOString())
+    : null;
 
   const { data, error } = await supabaseAdmin
     .from('letter_deliveries')
@@ -121,7 +128,8 @@ export async function createTestDelivery(
       letter_id: letterId,
       receiver_email: options.receiverEmail ?? null,
       receiver_profile_id: options.receiverProfileId ?? null,
-      status: options.status ?? 'sent',
+      status,
+      ...(completedAt && { completed_at: completedAt }),
       ...(options.invitationExpiresAt && {
         invitation_expires_at: options.invitationExpiresAt,
       }),

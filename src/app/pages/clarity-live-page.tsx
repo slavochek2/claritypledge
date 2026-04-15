@@ -39,6 +39,7 @@ import {
   getLetterBaselineRatings,
   completeClaritySession,
   resendLiveInvite,
+  checkSessionRequiresAuth,
 } from '@/app/data/api';
 import { TermsUpdateDialog } from '@/app/components/live-meeting/terms-update-dialog';
 import { analytics } from '@/lib/mixpanel';
@@ -350,6 +351,8 @@ export function ClarityLivePage() {
   const [isPrivate, setIsPrivate] = useState(() => searchParams.get('insights') === 'off');
   // P160: Recording state for join-via-link flow (fetched from session data)
   const [joinSessionIsPrivate, setJoinSessionIsPrivate] = useState(false);
+  // P703: True when the join-via-link session is letter-sourced (requires authentication)
+  const [joinSessionIsLetterSourced, setJoinSessionIsLetterSourced] = useState(false);
 
   const [departedPartnerName, setDepartedPartnerName] = useState<string | null>(null);
 
@@ -699,6 +702,12 @@ export function ClarityLivePage() {
     if (isAuthLoading) return;
     if (isRestoring) return; // Don't redirect while checking for saved session
     if (user) return;
+    // P703: Letter-sourced sessions require the specific authenticated listener — redirect to login
+    if (isJoinViaLink && joinSessionIsLetterSourced) {
+      const redirectTo = encodeURIComponent(window.location.pathname + window.location.search);
+      navigate(`/login?redirect=${redirectTo}`, { replace: true });
+      return;
+    }
     if (isJoinViaLink) return;
     // Check for a stored session — guest may have refreshed mid-session (sessionStorage)
     const storedCode = storage?.getItem(STORAGE_KEYS.SESSION_CODE);
@@ -707,7 +716,7 @@ export function ClarityLivePage() {
     const activeStored = getActiveSessionFromStorage();
     if (activeStored) return; // Rejoin prompt effect will handle this
     navigate('/signup');
-  }, [isAuthLoading, isRestoring, user, isJoinViaLink, navigate]);
+  }, [isAuthLoading, isRestoring, user, isJoinViaLink, joinSessionIsLetterSourced, navigate]);
 
   // Pre-fill name from logged-in user, or from last guest session (localStorage)
   useEffect(() => {
@@ -986,12 +995,18 @@ export function ClarityLivePage() {
 
     const fetchHostName = async () => {
       try {
-        const sessionInfo = await getClaritySession(urlCode.toUpperCase());
+        const [sessionInfo, requiresAuth] = await Promise.all([
+          getClaritySession(urlCode.toUpperCase()),
+          // P703: Check via public SECURITY DEFINER RPC — works even when unauthenticated
+          checkSessionRequiresAuth(urlCode.toUpperCase()),
+        ]);
         if (sessionInfo?.creatorName) {
           setHostName(sessionInfo.creatorName);
         }
         // P160: Capture session's recording state for joiner UI
         setJoinSessionIsPrivate(sessionInfo?.isPrivate ?? false);
+        // P703: Set auth requirement flag — triggers redirect in auth guard for anon users
+        setJoinSessionIsLetterSourced(requiresAuth);
       } catch (err) {
         console.error('[Live] Failed to fetch host name:', err);
       }
@@ -2796,9 +2811,10 @@ export function ClarityLivePage() {
         session_code: newSession.code,
       });
 
-      // P703: Bootstrap letter-sourced session (fire-and-forget — non-blocking for creator UX)
+      // P703: Bootstrap letter-sourced session — await so ratingPhase is set
+      // before both parties see the /live UI (prevents explain-back race condition).
       if (newSession.targetListenerId && newSession.sourceStoryId && newSession.sourceLetterId) {
-        void bootstrapLetterSourcedSession(newSession);
+        await bootstrapLetterSourcedSession(newSession);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to create session');

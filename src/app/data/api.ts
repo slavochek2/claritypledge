@@ -3957,46 +3957,100 @@ export async function getLetterBaselineRatings(
   };
 }
 
+// ─── Live invite channel registry ────────────────────────────────────────────
+// Multiple components (nav, letters-page) each call useOpenLiveInvite(), which
+// calls subscribeToLiveInvites(). If each call created its own channel and called
+// .subscribe(), the second .subscribe() on the same-named channel would throw
+// (channel is already in JOINING state) → CHANNEL_ERROR. We avoid this by
+// keeping a single channel per userId and multiplexing all callbacks through it.
+type InviteHandler = {
+  onInsert: (payload: Record<string, unknown>) => void;
+  onUpdate: (payload: Record<string, unknown>) => void;
+};
+
+const liveInviteChannels = new Map<
+  string,
+  { channel: ReturnType<(typeof supabase)['channel']>; handlers: InviteHandler[] }
+>();
+
 /**
  * Subscribes to the current user's live invites via Supabase realtime (AD4).
  * Fires onInsert for new invites and onUpdate for closed invites.
  * Returns an unsubscribe function.
+ *
+ * Channel is ref-counted per userId: only one Supabase channel is created per
+ * user regardless of how many components call this. Removed when the last
+ * subscriber unsubscribes.
+ *
+ * UPDATE events require REPLICA IDENTITY FULL on clarity_live_invites.
+ * Applied by migration 20260415140000_p703_invites_replica_identity.sql.
  */
 export function subscribeToLiveInvites(
   userId: string,
   onInsert: (payload: Record<string, unknown>) => void,
   onUpdate: (payload: Record<string, unknown>) => void
 ): () => void {
-  const channel = supabase
-    .channel(`live_invites:${userId}`)
-    .on(
-      'postgres_changes',
-      {
-        event: 'INSERT',
-        schema: 'public',
-        table: 'clarity_live_invites',
-        filter: `target_user_id=eq.${userId}`,
-      },
-      (payload) => {
-        if (payload.new) onInsert(payload.new as Record<string, unknown>);
-      }
-    )
-    .on(
-      'postgres_changes',
-      {
-        event: 'UPDATE',
-        schema: 'public',
-        table: 'clarity_live_invites',
-        filter: `target_user_id=eq.${userId}`,
-      },
-      (payload) => {
-        if (payload.new) onUpdate(payload.new as Record<string, unknown>);
-      }
-    )
-    .subscribe();
+  let entry = liveInviteChannels.get(userId);
+
+  if (!entry) {
+    const handlers: InviteHandler[] = [];
+    const channel = supabase
+      .channel(`live_invites:${userId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'clarity_live_invites',
+          filter: `target_user_id=eq.${userId}`,
+        },
+        (payload) => {
+          if (payload.new) {
+            const raw = payload.new as Record<string, unknown>;
+            handlers.forEach((h) => h.onInsert(raw));
+          }
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'clarity_live_invites',
+          filter: `target_user_id=eq.${userId}`,
+        },
+        (payload) => {
+          if (payload.new) {
+            const raw = payload.new as Record<string, unknown>;
+            handlers.forEach((h) => h.onUpdate(raw));
+          }
+        }
+      )
+      .subscribe((status) => {
+        // Log errors and timeouts; suppress SUBSCRIBED/CLOSED noise in production
+        if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+          console.warn(`[live_invites_sub] ${status} for user ${userId}`);
+        }
+      });
+
+    entry = { channel, handlers };
+    liveInviteChannels.set(userId, entry);
+  }
+
+  const handler: InviteHandler = { onInsert, onUpdate };
+  entry.handlers.push(handler);
 
   return () => {
-    supabase.removeChannel(channel);
+    if (!entry) return;
+    // Splice in-place so channel callbacks (which close over the same array reference)
+    // immediately stop seeing this handler. filter+reassign would create a new array and
+    // break the closure — removed handlers would still fire, new pushes would be invisible.
+    const idx = entry.handlers.indexOf(handler);
+    if (idx >= 0) entry.handlers.splice(idx, 1);
+    if (entry.handlers.length === 0) {
+      supabase.removeChannel(entry.channel);
+      liveInviteChannels.delete(userId);
+    }
   };
 }
 
@@ -4056,4 +4110,20 @@ export async function completeClaritySession(sessionId: string): Promise<void> {
     console.error('[P703] Error completing clarity session:', error?.message);
     throw new Error(error?.message || 'Failed to complete session');
   }
+}
+
+/**
+ * P703: Returns true if the session with the given code requires authentication
+ * before joining (i.e., it is letter-sourced with a target_listener_id).
+ * Callable by unauthenticated users — uses a SECURITY DEFINER RPC.
+ */
+export async function checkSessionRequiresAuth(code: string): Promise<boolean> {
+  const { data, error } = await supabase.rpc('check_session_requires_auth', {
+    p_code: code,
+  });
+  if (error) {
+    console.warn('[P703] check_session_requires_auth error:', error?.message);
+    return false; // Fail open: don't block public sessions on RPC error
+  }
+  return !!data;
 }

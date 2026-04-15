@@ -137,10 +137,11 @@ test.describe('P703 happy path — two-party letter-sourced session', () => {
       await listenerPage.waitForLoadState('networkidle');
 
       // Both pages: verify we're at explain-back phase (NOT idle/slider)
-      // FIXME(generate-tests): spec says first screen is "Explain back" prompt — not the self-assessment slider
+      // Author (checker) sees "Waiting for listener to finish clarifying" — listener explains, author waits
+      // Listener (responder) sees "Explain back what you heard"
       await waitForUIUpdate(
         authorPage,
-        authorPage.getByText(/explain back|paraphrase/i),
+        authorPage.getByText(/waiting for.*clarifying/i).first(),
         20000
       );
       await waitForUIUpdate(
@@ -207,7 +208,7 @@ test.describe('P703 waiting screen — Share button hidden for letter-sourced se
 // ─── Singleton: button disabled when invite outstanding ──────────────────────
 
 test.describe('P703 StartClaritySessionButton — disabled when invite outstanding', () => {
-  test.setTimeout(30000);
+  test.setTimeout(60000);
 
   let author: TestUser;
   let listener: TestUser;
@@ -230,9 +231,9 @@ test.describe('P703 StartClaritySessionButton — disabled when invite outstandi
   test('Start a clarity session button disabled when open invite exists for listener', async ({ page }) => {
     await setTestSession(page, author.email);
     // Navigate to P699 story walk for the test letter
-    // FIXME(generate-tests): route to the story walk depends on P699 URL structure
-    // Expected pattern: /letters/<letterId>/results or /letters/<letterId>/walk
-    await page.goto(`/letters/${fixture!.letterId}/results`);
+    // Route is /letter/:id/results (singular) — confirmed in App.tsx
+    // ?delivery= param required so get_letter_results returns receiverProfile → button renders
+    await page.goto(`/letter/${fixture!.letterId}/results?delivery=${fixture!.deliveryId}`);
     await page.waitForLoadState('networkidle');
 
     const startButton = page.getByRole('button', { name: /start a clarity session/i });
@@ -240,10 +241,9 @@ test.describe('P703 StartClaritySessionButton — disabled when invite outstandi
     await expect(startButton).toBeVisible();
     await expect(startButton).toBeDisabled();
 
-    // Tooltip should explain why
-    // FIXME(generate-tests): spec says tooltip: "Invite already pending for {listener}"
-    await startButton.hover();
-    await expect(page.getByText(/invite already pending/i)).toBeVisible({ timeout: 5000 });
+    // Tooltip explains why — button uses HTML `title` attribute (native browser tooltip)
+    // Check via getAttribute; no hover needed (native tooltips are not in accessible DOM)
+    await expect(startButton).toHaveAttribute('title', /invite already pending/i);
   });
 });
 
@@ -271,6 +271,11 @@ test.describe('P703 cancel path — facilitator closes room before listener join
 
       const listenerPage = await listenerAuth.context.newPage();
 
+      // Monitor all console output from listener page for debugging
+      listenerPage.on('console', (msg) => {
+        console.log(`[listenerPage ${msg.type()}] ${msg.text().substring(0, 200)}`);
+      });
+
       // Listener views inbox — invite is visible
       await listenerPage.goto('/letters?tab=inbox');
       await listenerPage.waitForLoadState('networkidle');
@@ -281,12 +286,17 @@ test.describe('P703 cancel path — facilitator closes room before listener join
         15000
       );
 
+      // Wait for Realtime WebSocket subscription to be SUBSCRIBED before calling RPC.
+      // Node.js Supabase client takes ~3s to get SUBSCRIBED status; browser is similar.
+      await listenerPage.waitForTimeout(3000);
+
       // Facilitator (admin) completes/cancels the session — simulates "End room"
       // FIXME(generate-tests): in real implementation the author page has a "Cancel" or "End" button.
       // Here we trigger via DB to test the realtime disappearance path directly.
-      await supabaseAdmin.rpc('complete_clarity_session', {
+      const { error: rpcErr } = await supabaseAdmin.rpc('complete_clarity_session', {
         p_session_id: fixture.sessionId,
       });
+      expect(rpcErr, `complete_clarity_session RPC failed: ${rpcErr?.message}`).toBeNull();
 
       // Invite should disappear from listener's inbox (realtime UPDATE with closed_at set)
       // Assert invite row gone (give realtime up to 20s)

@@ -1,13 +1,13 @@
 ---
-status: in-progress
+status: qa
 type: story
 rank: 1000703.0
 tags: [letters, live, verification, practice-room, inbox, notifications]
 created_date: '2026-04-14'
 flow: dev
-delivery_stage: dev
+delivery_stage: verify
 pipeline_plan: [create-spec, challenge-prd, architect, generate-tests, spec-review, decompose, dev, verify]
-pipeline_ran: [create-spec, challenge-prd, architect, generate-tests, spec-review, decompose, dev]
+pipeline_ran: [create-spec, challenge-prd, architect, generate-tests, spec-review, decompose, dev, verify]
 uat_file: features/uat/p703.md
 test_files:
   - e2e/integration/p703-letter-sourced-live-migration.spec.ts
