@@ -117,7 +117,7 @@ export function StoryWalk({ stories, perspective, senderProfile, receiverProfile
           className="text-sm text-muted-foreground text-center outline-none"
           aria-live="polite"
         >
-          Story {current.position + 1} of {stories.length}
+          Story {currentIndex + 1} of {stories.length}
         </p>
 
         {/* Journey */}
