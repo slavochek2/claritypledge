@@ -2,6 +2,14 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-15 [technical]: View-layer shortcuts that bypass state machine routing cause silent phase-skipping bugs (P712)
+
+**Context:** `letter-flow-content.tsx` `story-revealed` phase used `isFinalStory ? nextStory : advanceFromStoryReveal` for the advance button. For single-story letters, `isFinalStory` is always `true`, so the button always called `nextStory()` directly — bypassing `advanceFromStoryReveal()` entirely. The state machine (`useLetterReadingState`) already routed correctly to `point-engage` for 1-visible-point stories; the bug was purely the view calling the wrong function.
+**Decision:** The advance button in `story-revealed` always calls `advanceFromStoryReveal()`. Button label is derived from `hasRemainingPoints + isFinalStory` combination — not used to select the handler. State machine owns routing; view owns labeling only.
+**Alternatives rejected:** (A) Making `advanceFromStoryReveal` aware of `isFinalStory` and calling `nextStory` internally — leaks view concerns into state machine; (B) Keeping the `isFinalStory` dispatch but also checking `visiblePoints.length` — adds another conditional that diverges from the state machine's source of truth.
+**Consequences:** Any new conditional in `letter-flow-content.tsx` that dispatches to a *different handler* based on view-level context (currentIndex, story count, phase) is a red flag. The state machine is the router — the view should call the single correct advance function and let the hook decide what comes next. The only safe view-layer conditional is on the button *label*.
+**References:** [letter-flow-content.tsx](src/app/components/letters/letter-flow-content.tsx) | [useLetterReadingState.ts](src/app/hooks/useLetterReadingState.ts) | [features/p712](features/p712_receiver_skips_point_engage_single_story.md)
+
 ## 2026-04-15 [process]: Opt-in lean mode for token-heavy skills — explicit `lean` arg, labeled output, default always-spawn
 
 **Context:** `/architect`, `/generate-tests`, `/spec-review` unconditionally spawn expensive subagents (Security agent, A11y tests, deep cross-layer audit) even on trivial features. Auto-gating by diff size or frontmatter signals was proposed and rejected during planning.

@@ -114,3 +114,18 @@ Your task: [specific test task].
 Write only to [test file paths]. Do NOT modify src/, lib/types.ts, or any non-test file.
 If you believe a source change is required, report it and stop — do not make it.
 ```
+
+## userEvent + vi.useFakeTimers — incompatible
+
+Never use `userEvent.*` in tests that call `vi.useFakeTimers()`. `userEvent` uses internal `setTimeout` which hangs indefinitely under fake timers, causing the test to time out.
+
+Use `fireEvent` instead for synchronous interactions:
+```typescript
+fireEvent.click(button); // works under fake timers
+```
+
+If async `userEvent` behavior is specifically needed, configure it to advance fake timers:
+```typescript
+const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime.bind(vi) });
+await user.click(button);
+```
