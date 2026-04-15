@@ -568,7 +568,7 @@ Total automated: **43 tests**. Run time estimate: ~45s unit + ~90s integration +
   - Inbox row renders "{author name} invited you to verify **{story title}** — Join" above unread letters
   - Tapping Join navigates to `/live/<code>`
   - Badge decrements when `closed_at` is set (realtime update)
-- [ ] Complete
+- [x] Complete
 
 ---
 
@@ -594,7 +594,7 @@ Total automated: **43 tests**. Run time estimate: ~45s unit + ~90s integration +
   - Button "Start a clarity session" appears below story card for letter author only (not visible to receiver viewing own results)
   - Tapping: creates session with `source_letter_id`, `source_story_id`, `target_listener_id` populated; inserts `clarity_live_invites` row; navigates facilitator to `/live/<code>`
   - Button is disabled (tooltip "Invite already pending") when an open invite exists for this listener (unique partial index enforcement via client-side check on existing invite)
-- [ ] Complete
+- [x] Complete
 
 ---
 

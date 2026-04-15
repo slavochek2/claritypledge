@@ -159,6 +159,44 @@ Five tables for async comprehension assessment via letters.
 
 **Migrations:** `supabase/migrations/20260403224331_p581_clarity_letters.sql`, `20260404*_p642_*.sql` (4 files — reading RPC, seal denormalization, claim delivery, anon engagement RPCs)
 
+### P703 — Letter-Sourced /live Sessions
+
+Adds inbox-invite delivery for letter-sourced Clarity Sessions (pre-loaded baseline ratings, phase skip).
+
+**New columns on `clarity_sessions`:**
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `source_story_id` | uuid FK → stories | Story being verified in this session |
+| `target_listener_id` | uuid FK → profiles | Designated recipient; gates session access when set |
+
+(Note: `source_letter_id` was added by P581 — see column additions entry above.)
+
+**New table: `clarity_live_invites`**
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `id` | uuid PK | Row id |
+| `session_id` | uuid FK → clarity_sessions (CASCADE DELETE) | The session the invite points to |
+| `target_user_id` | uuid FK → profiles | Recipient of the invite |
+| `created_at` | timestamptz | Invite creation time |
+| `updated_at` | timestamptz | Bumped by `resendLiveInvite()` to re-ping Realtime |
+| `closed_at` | timestamptz | Set by `complete_clarity_session` RPC when session ends |
+
+**Constraints:**
+- `clarity_live_invites_open_unique` — partial unique index on `(target_user_id) WHERE closed_at IS NULL`. One open invite per recipient at a time.
+- Server trigger: `trg_resend_rate_limit` — rejects `updated_at` bumps more than once per 30s.
+
+**RLS on `clarity_live_invites`:**
+- SELECT: recipient (`target_user_id = auth.uid()`) or session creator
+- INSERT: session creator only
+- UPDATE: session creator only (for resend bump + close)
+
+**RPCs:**
+- `complete_clarity_session(p_session_id uuid)` — SECURITY DEFINER; atomically sets `clarity_sessions.status = 'completed'` and `clarity_live_invites.closed_at = now()`. Called on session end for letter-sourced sessions.
+
+**Migrations:** `supabase/migrations/20260414100001_p703_letter_sourced_live.sql`, `20260414100002_p703_live_invites_cron.sql`
+
 ---
 
 ## Row Level Security (RLS)
