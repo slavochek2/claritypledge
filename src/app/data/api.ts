@@ -3895,7 +3895,7 @@ export async function getOpenLiveInviteForUser(
     .eq('target_user_id', userId)
     .is('closed_at', null)
     .limit(1)
-    .single();
+    .maybeSingle();
   if (error || !data) return null;
   const sessionData = data.clarity_sessions as {
     code: string;
