@@ -7,13 +7,12 @@
  * - T10: Pure structural extraction — handles all 6 phases + completion
  * - T13: Drawer-everywhere — every action phase uses a bottom-docked Drawer
  * - T14: PositionSelector in Drawer for point-engage phases; 400ms reveal delay
- * - T15: Semantic button labels; PositionComparisonCard for point-revealed phases
+ * - T15: Semantic button labels; PointRow (revealed=true) for point-revealed phases (P711)
  */
 
 import { useState, useEffect, useRef, type ReactNode } from 'react';
 import { FocusHeader } from '@/app/components/layout/focus-header';
 import { LetterProgressBar } from '@/app/components/letters/letter-progress-bar';
-import { PositionComparisonCard } from '@/app/components/letters/position-comparison-card';
 import { LiveStoryCardExpanded, PointRow } from '@/app/components/partners/live-story-card-expanded';
 import { JourneyToUnderstanding } from '@/app/components/partners/live-mode-view';
 import { GapBanner } from '@/app/components/shared/gap-banner';
@@ -47,6 +46,9 @@ export interface LetterFlowContentProps {
   renderCompletion: () => ReactNode;
   // Optional analytics
   onStoryRated?: (index: number, rating: number) => void;
+  /** P711: Post-reveal position writes — calls pointsService.setPosition directly (does not transition phase).
+   * Omit in preview (no writes) and public/local modes. */
+  onLivePositionChange?: (pointId: string, position: PositionType | null) => void;
 }
 
 // ============================================================================
@@ -72,6 +74,7 @@ export function LetterFlowContent({
   authGateAtStoryRate,
   renderCompletion,
   onStoryRated,
+  onLivePositionChange,
 }: LetterFlowContentProps) {
   const { state, currentPhase, submitPointPosition, submitStoryRating, advanceFromPointReveal,
     advanceFromStoryReveal, advanceFromRemainingPointReveal, nextStory, isSubmitting } = readingState;
@@ -193,7 +196,9 @@ export function LetterFlowContent({
                 authorAvatarUrl={senderProfileOwner.avatarUrl}
                 authorAvatarColor={senderProfileOwner.avatarColor}
                 authorHasPledged={senderProfileOwner.hasPledged}
+                authorEarsCount={senderProfileOwner.ear}
                 letterMode
+                revealed={false}
                 onPositionSelect={(_pointId, position) => setSelectedPosition(position)}
               />
             </div>
@@ -213,11 +218,16 @@ export function LetterFlowContent({
         {currentPhase === 'point-revealed' && currentPoint && (
           <>
             <div className="w-full max-w-sm mx-auto">
-              <PositionComparisonCard
-                readerPosition={currentStory.positions[currentPoint.id] as PositionType}
-                authorPosition={currentPoint.profileSubjectPosition as PositionType}
+              <PointRow
+                point={{ ...currentPoint, userPosition: (currentStory.positions[currentPoint.id] ?? null) as PositionType | null }}
                 authorName={senderName}
-                pointStatement={currentPoint.statement}
+                authorAvatarUrl={senderProfileOwner.avatarUrl}
+                authorAvatarColor={senderProfileOwner.avatarColor}
+                authorHasPledged={senderProfileOwner.hasPledged}
+                authorEarsCount={senderProfileOwner.ear}
+                letterMode
+                revealed={true}
+                onPositionSelect={onLivePositionChange}
               />
             </div>
             {showAdvanceButton && (
@@ -307,7 +317,9 @@ export function LetterFlowContent({
                 authorAvatarUrl={senderProfileOwner.avatarUrl}
                 authorAvatarColor={senderProfileOwner.avatarColor}
                 authorHasPledged={senderProfileOwner.hasPledged}
+                authorEarsCount={senderProfileOwner.ear}
                 letterMode
+                revealed={false}
                 onPositionSelect={(_pointId, position) => setSelectedPosition(position)}
               />
             </div>
@@ -327,11 +339,16 @@ export function LetterFlowContent({
         {currentPhase === 'remaining-point-revealed' && currentPoint && (
           <>
             <div className="w-full max-w-sm mx-auto">
-              <PositionComparisonCard
-                readerPosition={currentStory.positions[currentPoint.id] as PositionType}
-                authorPosition={currentPoint.profileSubjectPosition as PositionType}
+              <PointRow
+                point={{ ...currentPoint, userPosition: (currentStory.positions[currentPoint.id] ?? null) as PositionType | null }}
                 authorName={senderName}
-                pointStatement={currentPoint.statement}
+                authorAvatarUrl={senderProfileOwner.avatarUrl}
+                authorAvatarColor={senderProfileOwner.avatarColor}
+                authorHasPledged={senderProfileOwner.hasPledged}
+                authorEarsCount={senderProfileOwner.ear}
+                letterMode
+                revealed={true}
+                onPositionSelect={onLivePositionChange}
               />
             </div>
             {showAdvanceButton && (

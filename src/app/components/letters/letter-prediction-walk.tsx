@@ -5,13 +5,15 @@
  * Same pacing as the receiver's reading flow, but with prediction prompt instead of rating.
  */
 
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { LiveStoryCardExpanded } from '@/app/components/partners/live-story-card-expanded';
 import { RatingButtons } from '@/app/components/partners/shared';
 import { LetterProgressBar } from './letter-progress-bar';
-import type { DocStory } from '@/app/types';
+import type { DocStory, PositionType } from '@/app/types';
+import { useAuth } from '@/auth';
+import { pointsService } from '@/app/data/points-service';
 
 interface LetterPredictionWalkProps {
   stories: DocStory[];
@@ -34,6 +36,21 @@ export function LetterPredictionWalk({
 }: LetterPredictionWalkProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const currentStory = stories[currentIndex];
+  const { user } = useAuth();
+
+  // P711: Author's own positions are live (P705 H2) — write to point_positions while composing.
+  const handlePositionSelect = useCallback(async (pointId: string, position: PositionType | null) => {
+    if (!user) return;
+    try {
+      if (position === null) {
+        await pointsService.removePosition(pointId, user.id);
+      } else {
+        await pointsService.setPosition(pointId, user.id, position);
+      }
+    } catch {
+      // Non-fatal — optimistic UI update already applied
+    }
+  }, [user]);
 
   if (!currentStory) return null;
 
@@ -77,8 +94,9 @@ export function LetterPredictionWalk({
         <div className="max-w-2xl mx-auto space-y-6">
           <LiveStoryCardExpanded
             story={currentStory.story}
-            readOnly
             defaultExpanded
+            revealed={false}
+            onPositionSelect={handlePositionSelect}
           />
 
           {/* Prediction prompt */}

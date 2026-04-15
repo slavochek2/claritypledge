@@ -49,6 +49,9 @@ interface LiveStoryCardExpandedProps {
   /** When true, suppresses the "Add your story" CTA in PointRow.
    * Used on results page (post-hoc, not a live session). Does not affect other letterMode behaviors. */
   hideStoryCTA?: boolean;
+  /** P711: When false (default true), hides author PositionBadge in letter-mode headers.
+   * Non-letter callers always show badge when profileSubjectPosition exists. */
+  revealed?: boolean;
 }
 
 const STORY_THRESHOLD = 100;
@@ -70,6 +73,7 @@ export function LiveStoryCardExpanded({
   hidePoints = false,
   footerSlot,
   hideStoryCTA = false,
+  revealed = true,
 }: LiveStoryCardExpandedProps) {
   // defaultStoryExpanded falls back to readOnly for backward compat (readOnly=true → story shown in full)
   const initialStoryExpanded = defaultStoryExpanded ?? readOnly;
@@ -194,6 +198,7 @@ export function LiveStoryCardExpanded({
                   isGuest={isGuest}
                   readOnly={readOnly}
                   hideStoryCTA={hideStoryCTA}
+                  revealed={revealed}
                 />
               </ThreadLineItem>
             ))}
@@ -230,6 +235,7 @@ export function PointRow({
   letterMode = false,
   hideStoryCTA = false,
   disablePositionButtons = false,
+  revealed = false,
   children,
 }: {
   point: PointSummary;
@@ -253,6 +259,9 @@ export function PointRow({
   hideStoryCTA?: boolean;
   /** When true, position buttons render but are visually disabled (no hover/click) */
   disablePositionButtons?: boolean;
+  /** P711: When true (with letterMode), shows author PositionBadge. Default false (engage = no badge).
+   * In non-letter mode, badge always shows when profileSubjectPosition exists. */
+  revealed?: boolean;
   /** Render slot after point content (e.g., Submit button, position reveal badges) */
   children?: React.ReactNode;
 }) {
@@ -276,8 +285,10 @@ export function PointRow({
 
   return (
     <div className="w-full text-left">
-      {/* Position badge above point — shows badge person's stance (author for partner view, partner for host view) */}
-      {point.profileSubjectPosition && (
+      {/* Position badge above point — shows badge person's stance (author for partner view, partner for host view).
+          In letter mode: always renders when authorName exists (identity visible in engage; badge gated by revealed).
+          In non-letter mode: renders only when profileSubjectPosition exists (unchanged behavior). */}
+      {((letterMode && authorName) || point.profileSubjectPosition) && (
         <div className="flex items-center gap-1.5 mb-1.5 text-sm text-gray-700">
           <GravatarAvatar
             name={badgePersonName ?? authorName}
@@ -288,13 +299,13 @@ export function PointRow({
             className="!w-5 !h-5 !text-[10px]"
           />
           <span className="font-medium">{badgePersonName ?? authorName}</span>
-          {!letterMode && (
-            <span className="inline-flex items-center gap-0.5 text-gray-600 text-xs">
-              <Ear size={12} />
-              {badgePersonName ? (badgePersonEarsCount ?? 0) : (authorEarsCount ?? 0)}
-            </span>
+          <span className="inline-flex items-center gap-0.5 text-gray-600 text-xs">
+            <Ear size={12} />
+            {badgePersonName ? (badgePersonEarsCount ?? 0) : (authorEarsCount ?? 0)}
+          </span>
+          {point.profileSubjectPosition && (!letterMode || revealed) && (
+            <PositionBadge position={point.profileSubjectPosition} />
           )}
-          <PositionBadge position={point.profileSubjectPosition} />
         </div>
       )}
 

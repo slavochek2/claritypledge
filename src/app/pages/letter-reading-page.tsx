@@ -37,7 +37,8 @@ import {
   submitLetterResponseAuthenticated,
 } from '@/app/data/letters-service';
 import { analytics } from '@/lib/mixpanel';
-import type { ClarityLetter, LetterStorySnapshot, LetterDelivery } from '@/app/types';
+import type { ClarityLetter, LetterStorySnapshot, LetterDelivery, PositionType } from '@/app/types';
+import { pointsService } from '@/app/data/points-service';
 
 // ============================================================================
 // TYPES
@@ -905,6 +906,22 @@ function LetterReadingFlow({
 }) {
   const readingState = useLetterReadingState(delivery.id, letter.sender_id, snapshots, token);
   const { state, currentPhase, nextStory, tokenExpired } = readingState;
+  const { user } = useAuth();
+
+  // P711: Post-reveal position edits — writes directly to point_positions (does not transition phase).
+  // Mirrors handleResultsPositionChange in letter-results-page.tsx. Auth-only; anon path no-ops.
+  const handleLivePositionChange = useCallback(async (pointId: string, position: PositionType | null) => {
+    if (!user) return;
+    try {
+      if (position === null) {
+        await pointsService.removePosition(pointId, user.id);
+      } else {
+        await pointsService.setPosition(pointId, user.id, position);
+      }
+    } catch {
+      // Non-fatal — UI already reflects optimistic update from PointRow local state
+    }
+  }, [user]);
 
   // When the state machine reports complete, notify parent
   useEffect(() => {
@@ -971,6 +988,7 @@ function LetterReadingFlow({
       authGateAtStoryRate={authGateNode}
       renderCompletion={() => null}
       onStoryRated={onStoryRated}
+      onLivePositionChange={handleLivePositionChange}
     />
   );
 }
