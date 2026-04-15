@@ -78,6 +78,11 @@ export interface UseLetterReadingStateReturn {
    * the reading page should render the signup form. Always false in remote mode.
    */
   isLocalCompleted: boolean;
+  /**
+   * True when submitPointResponseByToken returned false (RPC rejected the point).
+   * Parent should render the expired-token view. Only set in remote mode with token.
+   */
+  tokenExpired: boolean;
 }
 
 // ============================================================================
@@ -269,6 +274,7 @@ export function useLetterReadingState(
   const resumedRef = useRef(false);
 
   const [isLocalCompleted, setIsLocalCompleted] = useState(false);
+  const [tokenExpired, setTokenExpired] = useState(false);
 
   const [state, setState] = useState<LetterReadingState>(() => {
     const freshState: LetterReadingState = {
@@ -317,7 +323,11 @@ export function useLetterReadingState(
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Preview mode: purge any legacy persisted entry (pre-fix hygiene for existing users).
+  // Preview mode: remove any legacy persisted entry left by pre-fix code.
+  // NOTE: this effect fires after useState() initialisation, so it cannot prevent
+  // a stale entry from being loaded. The actual protection is the `!previewMode`
+  // guard in the useState initialiser above. This effect only cleans up the orphaned
+  // entry so it does not linger in storage after a preview walk.
   useEffect(() => {
     if (previewMode && deliveryId) {
       try {
@@ -417,6 +427,12 @@ export function useLetterReadingState(
           if (willComplete) {
             setIsLocalCompleted(true);
           }
+        }
+      } catch (err) {
+        if (err instanceof Error && err.message === 'Invalid or expired token') {
+          setTokenExpired(true);
+        } else {
+          throw err;
         }
       } finally {
         setIsSubmitting(false);
@@ -570,5 +586,6 @@ export function useLetterReadingState(
     nextStory,
     isSubmitting,
     isLocalCompleted,
+    tokenExpired,
   };
 }
