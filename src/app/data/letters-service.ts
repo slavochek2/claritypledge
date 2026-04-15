@@ -1051,40 +1051,47 @@ export async function submitLetterResponseAuthenticated(
 /**
  * P660 AD7: Get unread inbox count for badge display.
  * Counts: received letters with no read_at + completed responses to my letters with no read_at.
+ * P709: Excludes self-sent letters from received count (mirrors get_inbox_items RPC filter).
  */
 export async function getUnreadLetterCount(userId: string): Promise<number> {
   log('getUnreadLetterCount:', userId);
 
-  // Count received unread
-  const { count: receivedCount, error: err1 } = await supabase
+  // Fetch letters the user sent — used by both branches below.
+  // Select status too so Branch 2 can filter to sealed without a second DB call.
+  const { data: ownLetters, error: errOwn } = await supabase
+    .from('clarity_letters')
+    .select('id, status')
+    .eq('sender_id', userId);
+
+  if (errOwn) logDbError('getUnreadLetterCount.ownLetters', errOwn);
+  const ownLetterIds = ownLetters?.map(l => l.id) ?? [];
+
+  // Branch 1: Count received unread, excluding self-sent deliveries.
+  let receivedQuery = supabase
     .from('letter_deliveries')
     .select('id', { count: 'exact', head: true })
     .eq('receiver_profile_id', userId)
     .is('read_at', null);
-
+  if (ownLetterIds.length > 0) {
+    receivedQuery = receivedQuery.not('letter_id', 'in', `(${ownLetterIds.join(',')})`);
+  }
+  const { count: receivedCount, error: err1 } = await receivedQuery;
   if (err1) logDbError('getUnreadLetterCount.received', err1);
 
-  // Count unread responses to my letters
-  const { data: myLetterIds, error: err2 } = await supabase
-    .from('clarity_letters')
-    .select('id')
-    .eq('sender_id', userId)
-    .eq('status', 'sealed');
-
-  if (err2) logDbError('getUnreadLetterCount.myLetters', err2);
-
+  // Branch 2: Count unread responses to my sealed letters.
+  // Reuses ownLetters from above — no second DB call.
+  const sealedIds = ownLetters?.filter(l => l.status === 'sealed').map(l => l.id) ?? [];
   let responsesCount = 0;
-  if (myLetterIds?.length) {
-    const ids = myLetterIds.map(l => l.id);
-    const { count, error: err3 } = await supabase
+  if (sealedIds.length > 0) {
+    const { count, error: err2 } = await supabase
       .from('letter_deliveries')
       .select('id', { count: 'exact', head: true })
-      .in('letter_id', ids)
+      .in('letter_id', sealedIds)
       .eq('status', 'completed')
       .neq('receiver_profile_id', userId)
       .is('read_at', null);
 
-    if (err3) logDbError('getUnreadLetterCount.responses', err3);
+    if (err2) logDbError('getUnreadLetterCount.responses', err2);
     responsesCount = count ?? 0;
   }
 
