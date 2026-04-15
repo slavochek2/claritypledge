@@ -1025,6 +1025,34 @@ export async function submitLetterResponseAuthenticated(
       logDbError('submitLetterResponseAuthenticated.positions', positionsError);
       throw new Error(`Failed to insert positions: ${positionsError.message}`);
     }
+
+    // 4b. P708: Dual-write to point_positions (live display store).
+    // Mirror pattern from submitPointResponse. RLS requires auth.uid() = user_id
+    // AND is_verified = true — silently fails for unverified users; their positions
+    // replay into point_positions via persist_anonymous_completion at verification.
+    // Do NOT throw on failure — staging write above already succeeded.
+    const VALID_POSITION_TYPES = new Set([
+      'strongly_disagree', 'disagree', 'somewhat_disagree', 'unsure',
+      'somewhat_agree', 'agree', 'strongly_agree',
+    ]);
+    const pointPositionRows = positions
+      .filter((p) => VALID_POSITION_TYPES.has(String(p.position)))
+      .map((p) => ({
+        point_id: p.pointId,
+        user_id: user.id,
+        position: String(p.position),
+      }));
+
+    if (pointPositionRows.length > 0) {
+      const { error: ppError } = await supabase
+        .from('point_positions')
+        .upsert(pointPositionRows, { onConflict: 'point_id,user_id' });
+
+      if (ppError) {
+        logDbError('submitLetterResponseAuthenticated.point_positions', ppError);
+        // Non-fatal: unverified users fail RLS here; positions replay at verification.
+      }
+    }
   }
 
   // 5. Insert terms_acceptances row (ignore duplicate on (user_id, terms_version))

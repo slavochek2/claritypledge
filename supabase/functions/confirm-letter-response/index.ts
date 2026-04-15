@@ -263,6 +263,10 @@ serve(async (req: Request) => {
 
     // ── Step 7c: Insert letter_point_responses from positions_json ────────────
     // position is stored as TEXT in the schema (PositionType value).
+    // NOTE: positions_json stores numeric values (-3..3) converted via POSITION_VALUES
+    // at the client (letter-response-confirm-page.tsx). String(p.position) here produces
+    // "-3".."3" strings — invalid position_type enum values in the staging buffer.
+    // This is a pre-existing bug tracked separately; the insert uses TEXT, so it succeeds.
     const positions = pendingRow.positions_json as PositionEntry[];
 
     if (positions.length > 0) {
@@ -279,6 +283,40 @@ serve(async (req: Request) => {
       if (pointResponseInsertError) {
         console.error('[confirm-letter-response] letter_point_responses insert error:', pointResponseInsertError.message);
         return jsonResponse({ error: 'Something went wrong. Please try again.' }, 500);
+      }
+
+      // ── Step 7c.2: P708 dual-write — upsert point_positions (live display store) ──
+      // positions_json stores POSITION_VALUES numeric values (-3..3); convert to the
+      // canonical position_type enum strings before upserting. serviceClient bypasses
+      // RLS (SECURITY DEFINER context) — the user is authenticated via magic link.
+      // Non-fatal: log but do not block — staging write above already succeeded.
+      const NUMERIC_TO_POSITION_TYPE = new Map<number, string>([
+        [-3, 'strongly_disagree'],
+        [-2, 'disagree'],
+        [-1, 'somewhat_disagree'],
+        [0, 'unsure'],
+        [1, 'somewhat_agree'],
+        [2, 'agree'],
+        [3, 'strongly_agree'],
+      ]);
+
+      const pointPositionRows = positions
+        .map((p) => ({
+          point_id: p.pointId,
+          user_id: user.id,
+          position: NUMERIC_TO_POSITION_TYPE.get(p.position as number),
+        }))
+        .filter((r): r is { point_id: string; user_id: string; position: string } => r.position !== undefined);
+
+      if (pointPositionRows.length > 0) {
+        const { error: ppUpsertError } = await serviceClient
+          .from('point_positions')
+          .upsert(pointPositionRows, { onConflict: 'point_id,user_id' });
+
+        if (ppUpsertError) {
+          console.error('[confirm-letter-response] point_positions upsert error:', ppUpsertError.message);
+          // Non-fatal: do not return error — staging write already succeeded.
+        }
       }
     }
 
