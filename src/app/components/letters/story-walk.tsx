@@ -195,9 +195,12 @@ export function StoryWalk({ stories, perspective, senderProfile, receiverProfile
                 ← Previous Story
               </Button>
             )}
-            <Button asChild className="min-h-[44px] bg-blue-500 hover:bg-blue-600 text-white">
-              <Link to="/letters">Back to Letters</Link>
-            </Button>
+            <Link
+              to="/letters"
+              className="text-sm text-muted-foreground underline-offset-4 hover:underline hover:text-foreground transition-colors min-h-[44px] flex items-center"
+            >
+              Back to Letters
+            </Link>
           </div>
         ) : (
           /* Normal story: Previous + Next */
