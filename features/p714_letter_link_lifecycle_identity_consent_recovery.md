@@ -1,5 +1,5 @@
 ---
-status: week
+status: qa
 type: bug
 rank: 1000708.0
 severity: high
@@ -7,8 +7,8 @@ workstream: letters
 date_reported: '2026-04-15'
 created_date: '2026-04-15'
 tags: [letters, private-letter, auth, token, recovery]
-delivery_stage: create-bug
-pipeline_ran: [create-bug]
+delivery_stage: fix
+pipeline_ran: [create-bug, fix]
 ---
 
 # P714: Letter link lifecycle — identity, consent, and recovery

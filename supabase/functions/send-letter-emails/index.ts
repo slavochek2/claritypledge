@@ -238,13 +238,19 @@ serve(async (req: Request) => {
           <p style="margin:0 0 16px;font-size:16px;color:#111827;">${greeting}</p>
           <h1 style="margin:0 0 24px;font-size:24px;font-weight:700;color:#111827;">${safeSenderName} sent you a Clarity Letter</h1>
           ${button('Open the Letter', ctaUrl)}
+          <p style="margin:12px 0 0;font-size:12px;color:#6b7280;">
+            By opening this letter, you'll create a Clarity Pledge account.
+            <a href="https://claritypledge.com/terms-of-service" style="color:#6b7280;">Terms of Service</a>
+            &middot;
+            <a href="https://claritypledge.com/privacy-policy" style="color:#6b7280;">Privacy Policy</a>
+          </p>
           <p style="margin:20px 0 0;font-size:11px;color:#d1d5db;">
             Your email was shared by ${safeSenderName}. Remove: <a href="mailto:privacy@claritypledge.com" style="color:#d1d5db;">privacy@claritypledge.com</a>
           </p>
         `);
 
         const textGreeting = receiverFirstName ? `Hi ${receiverFirstName},\n\n` : '';
-        const text = `${textGreeting}${senderName} sent you a Clarity Letter.\n\nOpen the Letter: ${ctaUrl}\n\nYour email was shared by ${senderName}. Remove: privacy@claritypledge.com`;
+        const text = `${textGreeting}${senderName} sent you a Clarity Letter.\n\nOpen the Letter: ${ctaUrl}\n\nBy opening this letter, you'll create a Clarity Pledge account.\nTerms: https://claritypledge.com/terms-of-service | Privacy: https://claritypledge.com/privacy-policy\n\nYour email was shared by ${senderName}. Remove: privacy@claritypledge.com`;
 
         await sendEmail({ to: delivery.receiver_email, subject, html, text });
       })

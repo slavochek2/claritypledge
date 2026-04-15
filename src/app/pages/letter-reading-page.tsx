@@ -22,7 +22,6 @@ import { LetterCover } from '@/app/components/letters/letter-cover';
 import { LetterCompletionSummary } from '@/app/components/letters/letter-completion-summary';
 import { LetterStaleTermsModal } from '@/app/components/letters/letter-stale-terms-modal';
 import { LetterFlowContent } from '@/app/components/letters/letter-flow-content';
-import { LetterResponseLinkExpired } from '@/app/components/letters/letter-response-link-expired';
 import type { PointProfileOwner } from '@/app/components/social/point-card-with-links';
 import { CURRENT_TERMS_VERSION, ACCEPTED_TERMS_VERSIONS } from '@/lib/constants';
 import { useLetterReadingState, loadState as loadReadingState, loadLocalState } from '@/app/hooks/useLetterReadingState';
@@ -859,7 +858,7 @@ export function LetterReadingPage() {
             snapshots={snapshots}
             delivery={delivery}
             senderName={senderName}
-            token={token || undefined}
+            token={session ? undefined : (token || undefined)}
             isAuthenticated={!!session}
             onComplete={() => setViewState('complete')}
           />
@@ -904,7 +903,11 @@ function LetterReadingFlow({
   isAuthenticated: boolean;
   onComplete: () => void;
 }) {
-  const readingState = useLetterReadingState(delivery.id, letter.sender_id, snapshots, token);
+  const navigate = useNavigate();
+  // P714: Once a session exists the token is consumed — pass undefined so the hook
+  // uses the authed (deliveryId) RPC path instead of the now-expired token path.
+  const effectiveToken = isAuthenticated ? undefined : token;
+  const readingState = useLetterReadingState(delivery.id, letter.sender_id, snapshots, effectiveToken);
   const { state, currentPhase, nextStory, tokenExpired } = readingState;
   const { user } = useAuth();
 
@@ -937,14 +940,15 @@ function LetterReadingFlow({
     }
   }, [currentPhase, nextStory]);
 
-  // Defensive UX: if a position submit returned "Invalid or expired token", show the expired view
-  if (tokenExpired) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <LetterResponseLinkExpired letterId={letter.id} senderName={senderName} />
-      </div>
-    );
-  }
+  // P714: If token-path submit fails (defensive — should not happen after isAuthenticated fix),
+  // redirect to signup-page "Save your responses" recovery instead of dead-end expired screen.
+  useEffect(() => {
+    if (!tokenExpired) return;
+    const recoveryUrl = `/signup?source=letter-response&letterId=${encodeURIComponent(letter.id)}&senderName=${encodeURIComponent(senderName)}`;
+    navigate(recoveryUrl, { replace: true });
+  }, [tokenExpired, letter.id, senderName, navigate]);
+
+  if (tokenExpired) return null;
 
   // P676: Build profileOwner for LetterFlowContent — sender data from letter record
   const senderProfileOwner: PointProfileOwner = {

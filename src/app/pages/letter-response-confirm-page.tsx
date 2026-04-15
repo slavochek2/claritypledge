@@ -20,7 +20,6 @@ import { useAuth } from '@/auth';
 import { supabase } from '@/lib/supabase';
 import { ClarityLoader } from '@/components/ui/clarity-loader';
 import { CheckCircle2 } from 'lucide-react';
-import { LetterResponseLinkExpired } from '@/app/components/letters/letter-response-link-expired';
 import { CURRENT_TERMS_VERSION } from '@/lib/constants';
 import { POSITION_VALUES, type PositionType } from '@/app/types';
 import {
@@ -204,6 +203,15 @@ export function LetterResponseConfirmPage() {
       });
   }, [sessionChecked, session, letterId, navigate]);
 
+  // P714: When expired, navigate to signup-page "Save your responses" recovery.
+  // Must be before early returns (rules-of-hooks). useEffect ensures no side-effect in
+  // render and waits for senderName to resolve before navigating.
+  useEffect(() => {
+    if (pageState !== 'expired') return;
+    const recoveryUrl = `/signup?source=letter-response&letterId=${encodeURIComponent(letterId ?? '')}&senderName=${encodeURIComponent(senderName)}`;
+    navigate(recoveryUrl, { replace: true });
+  }, [pageState, letterId, senderName, navigate]);
+
   // ---- State 7a / 7b: Loading / Saving ----
   if (pageState === 'waiting-for-session' || pageState === 'confirming') {
     return (
@@ -234,13 +242,7 @@ export function LetterResponseConfirmPage() {
   }
 
   // ---- State 9: Expired / pending row missing ----
-  if (pageState === 'expired') {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <LetterResponseLinkExpired letterId={letterId ?? ''} senderName={senderName} />
-      </div>
-    );
-  }
+  if (pageState === 'expired') return null;
 
   // ---- Unauthenticated (should not happen post-verifyOtp, defensive only) ----
   if (pageState === 'unauthenticated') {
