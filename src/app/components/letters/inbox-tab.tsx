@@ -187,14 +187,12 @@ export function InboxTab({ userId, onUnreadCountChange, openInvite }: InboxTabPr
                 <p className="text-xs text-muted-foreground mt-0.5">
                   {formatTimeAgo(item.timestamp)} ago
                 </p>
-                {/* P699: progress text for in-progress received letters */}
+                {/* P699: per-story progress for received letters */}
                 {item.type === 'received' &&
-                  !item.completed_at &&
-                  item.steps_completed !== undefined &&
-                  item.total_steps !== undefined &&
-                  item.steps_completed > 0 && (
+                  item.stories_rated !== undefined &&
+                  item.total_stories !== undefined && (
                   <p className="text-xs text-muted-foreground mt-0.5">
-                    {item.steps_completed} of {item.total_steps} steps
+                    {item.stories_rated} of {item.total_stories} stories complete
                   </p>
                 )}
               </div>
