@@ -6,9 +6,9 @@ severity: high
 delivery_stage: fix
 pipeline_ran: [fix]
 date_reported: 2026-04-14
-date_resolved: 2026-04-14
-root_cause: Client called *_by_token RPCs for anon one-to-many recipients; P684 guard blocks these with 400.
-resolution: bufferOnly predicate (letter.mode===one-to-many && !session) gates onOpen and reading render — uses LetterReadingFlowPublic (local mode) for anon one-to-many token path.
+date_resolved: 2026-04-15
+root_cause: Client called *_by_token RPCs for anon one-to-many recipients; P684 guard blocks these with 400. Additionally, P705 authorization guard in submit_point_response_by_token validated against live story_points instead of sealed point_config, causing "Invalid or expired token" for 1:1 anon readers whose points were in point_config but not story_points.
+resolution: bufferOnly predicate (letter.mode===one-to-many && !session) gates onOpen and reading render — uses LetterReadingFlowPublic (local mode) for anon one-to-many token path. P705 guard fixed via migration 20260415143000 to consult letter_story_snapshots.point_config. Defensive UX added via tokenExpired state in useLetterReadingState (renders LetterResponseLinkExpired on guard rejection).
 branch: feature/letters-ship
 worktree: w2
 tags: []

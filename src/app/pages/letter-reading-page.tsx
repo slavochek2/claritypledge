@@ -22,6 +22,7 @@ import { LetterCover } from '@/app/components/letters/letter-cover';
 import { LetterCompletionSummary } from '@/app/components/letters/letter-completion-summary';
 import { LetterStaleTermsModal } from '@/app/components/letters/letter-stale-terms-modal';
 import { LetterFlowContent } from '@/app/components/letters/letter-flow-content';
+import { LetterResponseLinkExpired } from '@/app/components/letters/letter-response-link-expired';
 import type { PointProfileOwner } from '@/app/components/social/point-card-with-links';
 import { CURRENT_TERMS_VERSION, ACCEPTED_TERMS_VERSIONS } from '@/lib/constants';
 import { useLetterReadingState, loadState as loadReadingState, loadLocalState } from '@/app/hooks/useLetterReadingState';
@@ -867,7 +868,7 @@ function LetterReadingFlow({
   onComplete: () => void;
 }) {
   const readingState = useLetterReadingState(delivery.id, letter.sender_id, snapshots, token);
-  const { state, currentPhase, nextStory } = readingState;
+  const { state, currentPhase, nextStory, tokenExpired } = readingState;
 
   // When the state machine reports complete, notify parent
   useEffect(() => {
@@ -882,6 +883,15 @@ function LetterReadingFlow({
       nextStory();
     }
   }, [currentPhase, nextStory]);
+
+  // Defensive UX: if a position submit returned "Invalid or expired token", show the expired view
+  if (tokenExpired) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <LetterResponseLinkExpired letterId={letter.id} senderName={senderName} />
+      </div>
+    );
+  }
 
   // P676: Build profileOwner for LetterFlowContent — sender data from letter record
   const senderProfileOwner: PointProfileOwner = {

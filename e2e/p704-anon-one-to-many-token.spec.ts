@@ -10,6 +10,12 @@
  *
  * AFTER FIX: bufferOnly=true → no token RPCs fired → no console errors; position updates
  *   local state only, responses buffered for confirm-letter-response after signup.
+ *
+ * Also contains the P705-regression canary (second describe block):
+ *   submit_point_response_by_token must use the sealed point_config snapshot as the
+ *   authorization source, not live story_points. The P705 migration initially checked
+ *   story_points, which fails for any point present in point_config but absent from
+ *   story_points (e.g. point deleted from story after seal, or test setup without linking).
  */
 
 import { test, expect } from '@playwright/test';
@@ -215,5 +221,158 @@ test.describe('P704: Anon one-to-many token reading — no authentication errors
       authErrors,
       `Expected no "Authentication required" errors after position submit. Got: ${authErrors.join(' | ')}`
     ).toHaveLength(0);
+  });
+});
+
+// ============================================================================
+// P705-regression canary: guard must use sealed point_config, not live story_points
+// ============================================================================
+
+/**
+ * The P705 migration added an authorization guard to submit_point_response_by_token
+ * that validates p_point_id against story_points JOIN letter_story_snapshots. This
+ * is too strict: letters are immutable snapshots, so the sealed point_config is the
+ * authoritative source of which points belong to the letter — not live story_points,
+ * which can diverge after seal (point deleted from story, test seeder without linking).
+ *
+ * BEFORE FIX: RPC returns false → client throws "Invalid or expired token".
+ * AFTER FIX:  RPC returns true  → letter_point_responses row written.
+ */
+test.describe('P705-regression: submit_point_response_by_token uses point_config not story_points', () => {
+  test.describe.configure({ timeout: 30_000 });
+
+  let regrSender: TestUser;
+  let regrDocId: string;
+  let regrStoryId: string;
+  let regrPointId: string;
+  let regrLetterId: string;
+  let regrDeliveryId: string;
+  let regrDeliveryToken: string;
+
+  test.beforeAll(async () => {
+    regrSender = await createTestUser({ name: 'P705 Regression Sender' });
+
+    const { data: doc, error: docError } = await supabaseAdmin
+      .from('clarity_docs')
+      .insert({ owner_id: regrSender.user.id, title: 'P705 Regression Doc', visibility: 'public' })
+      .select('id')
+      .single();
+    if (!doc || docError) throw new Error(`Doc creation failed: ${docError?.message}`);
+    regrDocId = doc.id;
+
+    const story = await createTestStory(regrSender.user.id, {
+      title: 'P705 Regression Story',
+      content: 'Guard should consult sealed point_config, not live story_points.',
+    });
+    regrStoryId = story.id;
+
+    // Intentionally create point WITHOUT storyId → no story_points row inserted.
+    // This is the critical precondition: the point exists in point_config but not story_points.
+    const point = await createTestPoint(regrSender.user.id, {
+      statement: 'P705 regression: point sealed into letter but absent from story_points.',
+    });
+    regrPointId = point.id;
+
+    const { data: version, error: versionError } = await supabaseAdmin
+      .from('story_versions')
+      .select('id')
+      .eq('story_id', regrStoryId)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .single();
+    if (!version || versionError) throw new Error(`Story version not found: ${versionError?.message}`);
+
+    const { data: letter, error: letterError } = await supabaseAdmin
+      .from('clarity_letters')
+      .insert({
+        source_doc_id: regrDocId,
+        sender_id: regrSender.user.id,
+        mode: 'one-to-one',
+        status: 'sealed',
+        sealed_at: new Date().toISOString(),
+      })
+      .select('id')
+      .single();
+    if (!letter || letterError) throw new Error(`Letter creation failed: ${letterError?.message}`);
+    regrLetterId = letter.id;
+
+    const { error: snapshotError } = await supabaseAdmin
+      .from('letter_story_snapshots')
+      .insert({
+        letter_id: regrLetterId,
+        story_id: regrStoryId,
+        version_id: version.id,
+        position: 0,
+        visibility: 'public',
+        point_config: {
+          storyTitle: 'P705 Regression Story',
+          storyText: 'Guard should consult sealed point_config, not live story_points.',
+          points: [
+            {
+              id: regrPointId,
+              text: 'P705 regression: point sealed into letter but absent from story_points.',
+              authorPosition: 'agree',
+            },
+          ],
+        },
+      });
+    if (snapshotError) throw new Error(`Snapshot creation failed: ${snapshotError.message}`);
+
+    const { data: delivery, error: deliveryError } = await supabaseAdmin
+      .from('letter_deliveries')
+      .insert({ letter_id: regrLetterId, receiver_email: null, receiver_profile_id: null, status: 'sent' })
+      .select('id, invitation_token')
+      .single();
+    if (!delivery || deliveryError) throw new Error(`Delivery creation failed: ${deliveryError?.message}`);
+    regrDeliveryId = delivery.id;
+    regrDeliveryToken = delivery.invitation_token;
+  });
+
+  test.afterAll(async () => {
+    if (regrDeliveryId) {
+      await supabaseAdmin.from('letter_point_responses').delete().eq('delivery_id', regrDeliveryId);
+    }
+    if (regrLetterId) await supabaseAdmin.from('clarity_letters').delete().eq('id', regrLetterId);
+    if (regrDocId) await supabaseAdmin.from('clarity_docs').delete().eq('id', regrDocId);
+    if (regrPointId) await deleteTestPoint(regrPointId);
+    if (regrStoryId) await deleteTestStory(regrStoryId);
+    if (regrSender?.user?.id) await deleteTestUser(regrSender.user.id);
+  });
+
+  test('submit_point_response_by_token returns true for a point in point_config when no story_points row exists', async () => {
+    // Precondition: confirm no story_points row for this point+story
+    const { data: spRow } = await supabaseAdmin
+      .from('story_points')
+      .select('point_id')
+      .eq('story_id', regrStoryId)
+      .eq('point_id', regrPointId)
+      .maybeSingle();
+    expect(spRow, 'story_points row must NOT exist — this is the bug precondition').toBeNull();
+
+    // Call the RPC. Before fix: returns false (P705 guard hits story_points and finds nothing).
+    // After fix: returns true (guard uses point_config which contains the point).
+    const { data: rpcResult, error: rpcError } = await supabaseAdmin.rpc(
+      'submit_point_response_by_token',
+      {
+        p_token: regrDeliveryToken,
+        p_point_id: regrPointId,
+        p_position: 'agree',
+      }
+    );
+
+    expect(rpcError, `RPC must not error: ${rpcError?.message}`).toBeNull();
+    expect(
+      rpcResult,
+      'RPC must return true: point is sealed into point_config even though story_points row is absent'
+    ).toBe(true);
+
+    // Verify staging buffer was written
+    const { data: stagingRow } = await supabaseAdmin
+      .from('letter_point_responses')
+      .select('position')
+      .eq('delivery_id', regrDeliveryId)
+      .eq('point_id', regrPointId)
+      .single();
+    expect(stagingRow?.position, 'letter_point_responses must have a row after a successful RPC call').toBe('agree');
   });
 });
