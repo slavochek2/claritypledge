@@ -128,8 +128,8 @@ export function StoryWalk({ stories, perspective, senderProfile, receiverProfile
           className="w-full max-w-sm mx-auto"
         />
 
-        {/* Gap banner — only when story is complete */}
-        {current.gap !== undefined && (
+        {/* Gap banner — only when story is complete (rating present) */}
+        {current.rating != null && current.gap !== undefined && (
           <GapBanner
             gap={current.gap}
             senderName={senderName}
