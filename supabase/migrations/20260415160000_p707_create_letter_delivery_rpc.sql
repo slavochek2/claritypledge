@@ -7,8 +7,10 @@
 -- One-to-one path uses UPDATE on a pre-existing invitation row — do NOT use
 -- this function for that path.
 
--- Deduplicate any existing rows before creating the unique index (test data cleanup).
--- Keep the most recent delivery per (letter_id, receiver_profile_id) pair.
+-- Deduplicate any existing rows before creating the unique index.
+-- Keeps the most recent delivery per (letter_id, receiver_profile_id) pair.
+-- Only deletes rows that have no FK children — avoids cascading data loss on
+-- letter_point_responses and letter_predictions (both have ON DELETE CASCADE).
 WITH ranked AS (
   SELECT id,
          ROW_NUMBER() OVER (
@@ -18,9 +20,14 @@ WITH ranked AS (
   FROM letter_deliveries
   WHERE receiver_profile_id IS NOT NULL
 )
-DELETE FROM letter_deliveries WHERE id IN (
-  SELECT id FROM ranked WHERE rn > 1
-);
+DELETE FROM letter_deliveries
+WHERE id IN (SELECT id FROM ranked WHERE rn > 1)
+  AND NOT EXISTS (
+    SELECT 1 FROM letter_point_responses WHERE delivery_id = letter_deliveries.id
+  )
+  AND NOT EXISTS (
+    SELECT 1 FROM letter_predictions WHERE delivery_id = letter_deliveries.id
+  );
 
 -- Unique index: prevent duplicate deliveries for the same authenticated recipient.
 -- Also acts as an idempotency guard against double-submits and race conditions.
@@ -92,7 +99,8 @@ EXCEPTION
   WHEN unique_violation THEN
     SELECT id INTO v_delivery_id
     FROM letter_deliveries
-    WHERE letter_id = p_letter_id AND receiver_profile_id = v_recipient_id;
+    WHERE letter_id = p_letter_id AND receiver_profile_id = v_recipient_id
+    LIMIT 1;
     RETURN v_delivery_id;
 END;
 $$;
