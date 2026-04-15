@@ -94,6 +94,32 @@ export function LetterReadingPage() {
   const [showStaleTerms, setShowStaleTerms] = useState(false);
   const [staleTermsResolved, setStaleTermsResolved] = useState(false);
 
+  // P710: PKCE client does not extract implicit-flow hash tokens automatically.
+  // If a magic-link CTA brought the user here, the session is in the URL hash.
+  // Detect it synchronously (useState initializer) so the load effect is blocked
+  // until setSession() stores the tokens and auth propagates through AuthContext.
+  const [magicLinkProcessing, setMagicLinkProcessing] = useState(() => {
+    const hash = window.location.hash;
+    return hash.includes('access_token=') && hash.includes('type=magiclink');
+  });
+
+  useEffect(() => {
+    if (!magicLinkProcessing) return;
+    const params = new URLSearchParams(window.location.hash.substring(1));
+    const accessToken = params.get('access_token');
+    const refreshToken = params.get('refresh_token');
+    const cleanup = () => {
+      window.history.replaceState(null, '', window.location.pathname + window.location.search);
+      setMagicLinkProcessing(false);
+    };
+    if (accessToken && refreshToken) {
+      supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken })
+        .then(cleanup).catch(cleanup);
+    } else {
+      cleanup();
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Load data on mount (skip re-load if already past cover — avoids flash after verifyOtp auth)
   // P691: authed-first branch — if user has a session, trust RLS via getLetterForReading.
   // The token is a single-use bootstrap for first-open only; once the receiver has a session,
@@ -103,8 +129,9 @@ export function LetterReadingPage() {
   // 1. authLoading gate: don't run until auth fully settles (prevents transient user=null window).
   // 2. pageStateRef guard: skip re-load if already ready (covers currentUser?.id dep change).
   // 3. Cancellation flag: stale async runs cannot mutate state after a newer run starts.
+  // P710: 4. magicLinkProcessing gate: block load until magic-link hash session is established.
   useEffect(() => {
-    if (!sessionChecked || authLoading || !deliveryId) return;
+    if (!sessionChecked || authLoading || !deliveryId || magicLinkProcessing) return;
     if (viewState !== 'cover') return;
     if (pageStateRef.current === 'ready' || pageStateRef.current === 'ready_public' || pageStateRef.current === 'own_letter') return; // already loaded
 
@@ -322,7 +349,7 @@ export function LetterReadingPage() {
 
     load();
     return () => { cancelled = true; };
-  }, [sessionChecked, authLoading, deliveryId, token, currentUser?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [sessionChecked, authLoading, deliveryId, token, currentUser?.id, magicLinkProcessing]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Cleanup auth delay timer
   useEffect(() => {
