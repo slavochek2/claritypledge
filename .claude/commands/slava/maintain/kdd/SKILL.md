@@ -268,7 +268,7 @@ Recommendation: Remove from README.md, link to definitions.md instead.
    Present all selected items to the user — never auto-apply anything. The agent surfaces and recommends; the user decides what to act on.
 
    For each item, classify and format as follows:
-   - **Trivial / obvious fix**: single clear action, no real trade-off → report as: `- [What happened] → recommended action: [exact action + where]`
+   - **Trivial / obvious fix**: single clear action, no real trade-off → report as: `- [What happened] → recommended action: [exact command or file change + where]` *(directions are not actions — "untangle before X" is not sufficient; write the exact command)*
    - **Requires decision**: multiple legitimate options with real trade-offs → generate a `/simplify` block (see 7.3)
    - **No obvious fix, worth tracking**: problem is understood but no action is clear yet → report as: `- [What happened] → recommended: add to decisions.md as (Status: proposed)` — use standard decisions.md format with tag, append `(Status: proposed)` to title. When resolved: update the entry title to remove `(Status: proposed)` and fill in the Decision/Consequences fields.
 
