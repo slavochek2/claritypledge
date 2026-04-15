@@ -106,7 +106,8 @@ Present the punch list unedited. Then ask:
 Which items do you want to act on?
 
 Routing:
-- Shipped design change → /slava:build:change-request p{N}
+- Visual fix on shipped UI (spec-answered or needs a decision) → /slava:build:polish p{N}
+- Redesign that touches shared components or page structure → /slava:build:change-request p{N}
 - Net-new improvement → /slava:build:create-spec
 - Bug (broken, not just ugly) → /slava:build:create-bug
 
@@ -144,7 +145,8 @@ Triage?
 
 ## Related
 
+- `/slava:build:polish` — implements the punch list: per-item decisions, atomic commits, blind QA, approval gate
 - `/slava:build:create-spec` — for net-new improvements
-- `/slava:build:change-request` — for changes to already-shipped designs
+- `/slava:build:change-request` — for redesigns that touch shared components or page structure
 - `/slava:build:verify` — visual QA on a specific fix (different job: this skill finds issues, `/verify` confirms one is resolved)
 - `.claude/rules/visual-qa.md` — checklist used by the critic
