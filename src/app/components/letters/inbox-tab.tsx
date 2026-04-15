@@ -82,7 +82,10 @@ export function InboxTab({ userId, onUnreadCountChange, openInvite }: InboxTabPr
         navigate(`/letter/${item.delivery_id}`);
       }
     } else {
-      navigate(`/letter/${item.letter_id}/results`);
+      const deliveryParam = (item.type === 'recipient_in_progress' || item.type === 'link_respondent_in_progress')
+        ? `?delivery=${item.delivery_id}`
+        : '';
+      navigate(`/letter/${item.letter_id}/results${deliveryParam}`);
     }
   };
 
@@ -187,12 +190,14 @@ export function InboxTab({ userId, onUnreadCountChange, openInvite }: InboxTabPr
                 <p className="text-xs text-muted-foreground mt-0.5">
                   {formatTimeAgo(item.timestamp)} ago
                 </p>
-                {/* P699: per-story progress for received letters */}
-                {item.type === 'received' &&
-                  item.stories_rated !== undefined &&
-                  item.total_stories !== undefined && (
+                {/* P699: step progress — received letters and in-progress sender rows */}
+                {(item.type === 'received' ||
+                  item.type === 'recipient_in_progress' ||
+                  item.type === 'link_respondent_in_progress') &&
+                  item.steps_completed !== undefined &&
+                  item.total_steps !== undefined && (
                   <p className="text-xs text-muted-foreground mt-0.5">
-                    {item.stories_rated} of {item.total_stories} stories complete
+                    {item.steps_completed} of {item.total_steps} steps
                   </p>
                 )}
               </div>
@@ -229,6 +234,8 @@ function ItemIcon({ type, completed }: { type: InboxItem['type']; completed: boo
         : <Mail className="w-5 h-5 text-blue-500" />;
     case 'recipient_responded':
     case 'link_respondent':
+    case 'recipient_in_progress':
+    case 'link_respondent_in_progress':
       return <ArrowUpRight className="w-5 h-5 text-blue-500" />;
   }
 }
@@ -254,6 +261,14 @@ function ItemMessage({ item }: { item: InboxItem }) {
         <>
           Someone responded to <span className="italic">{item.title}</span>
         </>
+      );
+    case 'recipient_in_progress':
+      return (
+        <><span className="font-medium">{item.actor_name}</span> is reading <span className="italic">{item.title}</span></>
+      );
+    case 'link_respondent_in_progress':
+      return (
+        <>Someone is responding to <span className="italic">{item.title}</span></>
       );
   }
 }

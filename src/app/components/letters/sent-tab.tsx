@@ -116,7 +116,7 @@ function LetterCard({
 
   const summaryParts: string[] = [
     `Sealed ${sealedDate}`,
-    `${completedCount} of ${totalCount} completed`,
+    `${completedCount} of ${totalCount} recipients completed`,
   ];
   if (isPublic && respondents.length > 0) {
     summaryParts.push(`${respondents.length} ${respondents.length === 1 ? 'response' : 'responses'}`);

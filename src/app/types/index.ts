@@ -1414,7 +1414,7 @@ export interface LetterDelivery {
 
 /** P660: Inbox item — received letters + outgoing responses (UNION ALL) */
 export interface InboxItem {
-  type: 'received' | 'recipient_responded' | 'link_respondent';
+  type: 'received' | 'recipient_responded' | 'link_respondent' | 'recipient_in_progress' | 'link_respondent_in_progress';
   delivery_id: string;
   letter_id: string;
   /** Title of the source doc/draft */
