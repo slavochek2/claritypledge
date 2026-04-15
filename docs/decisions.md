@@ -2,6 +2,34 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-15 [technical]: getDoc() never joins point_positions — pages rendering PositionButtons must enrich userPosition separately (P713)
+
+**Context:** P713 — `docsService.getDoc()` fetches `story_points → points` but has no `point_positions` subquery, so `userPosition` is always `undefined` on every point it returns. In `letter-compose-page.tsx`, this meant the author's existing positions were never shown on the position buttons when the compose flow opened. `letter-preview-page.tsx` already had the fix (added during a previous session) — it calls `pointsService.getMyPositionsForPoints()` after `getDoc()` and merges results into the stories before render.
+
+**Decision:** Any page that (a) calls `getDoc()` and (b) renders `PositionButtons` or `PointRow` must also bulk-fetch positions via `getMyPositionsForPoints(allPointIds, userId)` and merge `userPosition` into the stories data. The enrichment pattern lives in the page component, not in `getDoc()` (adding it to the service would force all callers to pass `userId` and would silently return no positions for unauthenticated callers). Grep `getDoc` callers when adding new pages that show point cards.
+
+**Alternatives rejected:** Adding `point_positions` subquery to `STORY_WITH_AUTHOR_AND_POINTS_SELECT` — forces all callers to pass `userId`; unauthenticated callers get no positions silently; adds complexity to a reused select string.
+
+**Consequences:** Checklist when creating a new page that calls `getDoc()` and renders points: (1) does the page show the current user's own positions? If yes → add `getMyPositionsForPoints` enrichment step, same pattern as `letter-preview-page.tsx:87-102`. Current confirmed callers with enrichment: `letter-preview-page.tsx`, `letter-compose-page.tsx`. Callers without (no position display needed): `letters-page.tsx`, `docs-list-page.tsx`.
+
+**References:** `src/app/pages/letter-compose-page.tsx` | `src/app/pages/letter-preview-page.tsx:87-102` | `features/p713_compose_positions_not_preselected.md`
+
+---
+
+## 2026-04-15 [technical]: hideStoryCTA is required on every non-/live surface — readOnly does not suppress the story CTA (P711 UAT)
+
+**Context:** P711 UAT — `letter-prediction-walk.tsx` removed `readOnly` from `LiveStoryCardExpanded` (correct: `readOnly` was suppressing the position buttons, not just the CTA). This exposed the "Add your story → Available after the session" CTA in the compose flow. The CTA is controlled by a separate `hideStoryCTA` prop, not by `readOnly`. `readOnly` disables button interactivity; it does not gate CTA visibility.
+
+**Decision:** Any non-`/live` surface that renders `LiveStoryCardExpanded` or `PointRow` must pass `hideStoryCTA={true}`. The story CTA is only meaningful inside a `/live` session where the user can immediately add a story. Non-`/live` surfaces: letters (reading/revealed phases), compose/prediction-walk, preview, results. `readOnly` must never be used as a proxy for this — the two props control orthogonal behaviors.
+
+**Alternatives rejected:** Inferring CTA suppression from `readOnly` — conflates two distinct concerns (interactivity vs. contextual availability of a feature).
+
+**Consequences:** SURFACE RULE comment added to the CTA conditional in `PointRow` and `hideStoryCTA` JSDoc updated. Future agents adding a new surface: check if it's a `/live` context; if not, always pass `hideStoryCTA={true}` or `letterMode={true}` to PointRow.
+
+**References:** `src/app/components/partners/live-story-card-expanded.tsx` (SURFACE RULE comment at line ~342) | `features/p711_unified_letter_point_display.md`
+
+---
+
 ## 2026-04-15 [technical]: View-layer shortcuts that bypass state machine routing cause silent phase-skipping bugs (P712)
 
 **Context:** `letter-flow-content.tsx` `story-revealed` phase used `isFinalStory ? nextStory : advanceFromStoryReveal` for the advance button. For single-story letters, `isFinalStory` is always `true`, so the button always called `nextStory()` directly — bypassing `advanceFromStoryReveal()` entirely. The state machine (`useLetterReadingState`) already routed correctly to `point-engage` for 1-visible-point stories; the bug was purely the view calling the wrong function.
