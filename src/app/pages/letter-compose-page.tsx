@@ -20,6 +20,7 @@ import { LetterReceiverModal, type ReceiverSetupResult } from '@/app/components/
 import { LetterPredictionWalk } from '@/app/components/letters/letter-prediction-walk';
 import { LetterReviewScreen } from '@/app/components/letters/letter-review-screen';
 import { LetterSealConfirmation } from '@/app/components/letters/letter-seal-confirmation';
+import { pointsService } from '@/app/data/points-service';
 import type { ClarityDoc, DocStory, LetterMode } from '@/app/types';
 
 type ComposePhase = 'modal' | 'predict' | 'review' | 'sealing' | 'confirmation';
@@ -68,14 +69,32 @@ export function LetterComposePage() {
           setFetchState('not-found');
           return;
         }
+
+        // P713: Enrich points with author's existing positions so buttons preselect on load.
+        const allPointIds = result.stories.flatMap(s => s.story.points.map(p => p.id));
+        const positionsMap = (allPointIds.length > 0 && user?.id)
+          ? await pointsService.getMyPositionsForPoints(allPointIds, user.id)
+          : new Map();
+
+        const enrichedStories = result.stories.map(s => ({
+          ...s,
+          story: {
+            ...s.story,
+            points: s.story.points.map(p => ({
+              ...p,
+              userPosition: positionsMap.get(p.id)?.position ?? null,
+            })),
+          },
+        }));
+
         setDoc(result.doc);
-        setStories(result.stories);
+        setStories(enrichedStories as DocStory[]);
         setFetchState('done');
       } catch {
         setFetchState('not-found');
       }
     })();
-  }, [docId]);
+  }, [docId, user?.id]);
 
   // Edge case: doc has no stories
   useEffect(() => {
