@@ -14,16 +14,14 @@ import { useState, useEffect, useRef, type ReactNode } from 'react';
 import { FocusHeader } from '@/app/components/layout/focus-header';
 import { LetterProgressBar } from '@/app/components/letters/letter-progress-bar';
 import { PositionComparisonCard } from '@/app/components/letters/position-comparison-card';
-import { LiveStoryCardExpanded } from '@/app/components/partners/live-story-card-expanded';
+import { LiveStoryCardExpanded, PointRow } from '@/app/components/partners/live-story-card-expanded';
 import { JourneyToUnderstanding } from '@/app/components/partners/live-mode-view';
 import { GapBanner } from '@/app/components/shared/gap-banner';
 import { ComprehensionRatingCard } from '@/app/components/shared/comprehension-rating-card';
-import { PointCardWithLinks } from '@/app/components/social/point-card-with-links';
 import type { PointProfileOwner } from '@/app/components/social/point-card-with-links';
-import type { Position } from '@/app/components/shared/prototype-types';
 import { Button } from '@/components/ui/button';
 import type { UseLetterReadingStateReturn, StoryPhase } from '@/app/hooks/useLetterReadingState';
-import { snapshotToStoryWithPoints, pointSummaryToProtoPoint } from '@/app/utils/letter-snapshot-mapper';
+import { snapshotToStoryWithPoints } from '@/app/utils/letter-snapshot-mapper';
 import { FixedBottomBar } from '@/app/components/shared/fixed-bottom-bar';
 import { calculateStoryProgress } from '@/app/utils/letter-reading-utils';
 import type { LetterStorySnapshot, PositionType } from '@/app/types';
@@ -189,14 +187,14 @@ export function LetterFlowContent({
         {currentPhase === 'point-engage' && currentPoint && (
           <>
             <div className="w-full max-w-sm mx-auto">
-              <PointCardWithLinks
-                point={pointSummaryToProtoPoint(currentPoint)}
-                profileOwner={senderProfileOwner}
-                liveSessionMode
-                disableNavigation
-                currentUserId="__receiver__"
-                onPositionSelect={(pos) => setSelectedPosition(pos as PositionType | null)}
-                selectedPosition={selectedPosition as Position}
+              <PointRow
+                point={{ ...currentPoint, userPosition: selectedPosition }}
+                authorName={senderName}
+                authorAvatarUrl={senderProfileOwner.avatarUrl}
+                authorAvatarColor={senderProfileOwner.avatarColor}
+                authorHasPledged={senderProfileOwner.hasPledged}
+                letterMode
+                onPositionSelect={(_pointId, position) => setSelectedPosition(position)}
               />
             </div>
             <FixedBottomBar>
@@ -277,7 +275,7 @@ export function LetterFlowContent({
                 gap={gap}
                 senderName={senderName}
                 isOverconfident={isOverconfident}
-                className="-mt-3"
+                className="-mt-3 mx-auto"
               />
             )}
             <LiveStoryCardExpanded
@@ -303,14 +301,14 @@ export function LetterFlowContent({
         {currentPhase === 'remaining-point-engage' && currentPoint && (
           <>
             <div className="w-full max-w-sm mx-auto">
-              <PointCardWithLinks
-                point={pointSummaryToProtoPoint(currentPoint)}
-                profileOwner={senderProfileOwner}
-                liveSessionMode
-                disableNavigation
-                currentUserId="__receiver__"
-                onPositionSelect={(pos) => setSelectedPosition(pos as PositionType | null)}
-                selectedPosition={selectedPosition as Position}
+              <PointRow
+                point={{ ...currentPoint, userPosition: selectedPosition }}
+                authorName={senderName}
+                authorAvatarUrl={senderProfileOwner.avatarUrl}
+                authorAvatarColor={senderProfileOwner.avatarColor}
+                authorHasPledged={senderProfileOwner.hasPledged}
+                letterMode
+                onPositionSelect={(_pointId, position) => setSelectedPosition(position)}
               />
             </div>
             <FixedBottomBar>
