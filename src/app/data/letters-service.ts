@@ -962,25 +962,29 @@ export async function submitLetterResponseAuthenticated(
     throw new Error(`Failed to fetch letter: ${letterError?.message}`);
   }
 
-  // 2. Insert letter_deliveries row (status='completed', receiver_profile_id=user.id)
-  const { data: delivery, error: deliveryError } = await supabase
-    .from('letter_deliveries')
-    .insert({
-      letter_id: letterId,
-      receiver_profile_id: user.id,
-      receiver_email: user.email ?? null,
-      status: 'completed',
-      completed_at: new Date().toISOString(),
-      stories_rated: ratings.length,
-    })
-    .select('id')
-    .single();
+  // 2. Create delivery via SECURITY DEFINER RPC
+  //    (letter_deliveries has WITH CHECK(false) RLS; direct client inserts always fail)
+  //    RPC is idempotent: returns existing delivery_id if already submitted.
+  const { data: deliveryId, error: deliveryError } = await supabase
+    .rpc('create_letter_delivery', {
+      p_letter_id: letterId,
+      p_stories_rated: ratings.length,
+    });
 
-  if (deliveryError || !delivery) {
+  if (deliveryError || !deliveryId) {
+    if (deliveryError?.message?.includes('Sender cannot submit')) {
+      Sentry.captureMessage('submitLetterResponseAuthenticated: sender attempted own letter submission', {
+        level: 'warning',
+        extra: { letterId, error: deliveryError?.message },
+      });
+    } else {
+      Sentry.captureMessage('submitLetterResponseAuthenticated: create_letter_delivery RPC failed', {
+        level: 'error',
+        extra: { letterId, error: deliveryError?.message ?? 'null delivery ID returned' },
+      });
+    }
     throw new Error(`Failed to create delivery: ${deliveryError?.message}`);
   }
-
-  const deliveryId = delivery.id;
 
   // 3. Insert story_verifications rows from ratings
   if (ratings.length > 0) {
