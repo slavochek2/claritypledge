@@ -97,6 +97,18 @@ Rank by severity, then by user impact within severity. Do NOT propose fixes — 
 End with: "States NOT reviewed: [list, or 'none']."
 ```
 
+After the subagent returns, append its full punch list output to the feature spec. Find `features/p{N}*.md` (or `features/uat/p{N}.md` if it exists). Append at the end of the file:
+
+```markdown
+## Punch List
+
+{subagent output verbatim — do not edit or filter}
+
+> Source: /critique-ux session {YYYY-MM-DD}. Triage in Step 5.
+```
+
+If no spec file exists (freeform route critique), skip this step and note it.
+
 ---
 
 ### Step 5: Triage with User
