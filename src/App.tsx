@@ -677,11 +677,11 @@ export default function ClarityPledgeApp() {
           }
         />
 
-        {/* P665: Letter reading flow (chrome-free) */}
+        {/* Letter reading flow — compact nav (logo + avatar only, no links/CTA) */}
         <Route
           path="/letter/:id"
           element={
-            <ClarityLandingLayout>
+            <ClarityLandingLayout compact>
               <LazyRoute>
                 <LetterReadingPage />
               </LazyRoute>

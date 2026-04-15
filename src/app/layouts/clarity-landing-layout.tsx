@@ -15,9 +15,11 @@ interface ClarityLandingLayoutProps {
   children: ReactNode;
   /** P665: When true, render children inside LiveSessionProvider with Toaster but without nav/footer/padding */
   chromeFree?: boolean;
+  /** When true, nav shows only logo + avatar — hides nav links, CTA, and hamburger. Used on /letter/:id. */
+  compact?: boolean;
 }
 
-export function ClarityLandingLayout({ children, chromeFree }: ClarityLandingLayoutProps) {
+export function ClarityLandingLayout({ children, chromeFree, compact }: ClarityLandingLayoutProps) {
   const [searchParams] = useSearchParams();
 
   // Embed mode: strip all page chrome (nav, footer, bottom nav)
@@ -42,7 +44,7 @@ export function ClarityLandingLayout({ children, chromeFree }: ClarityLandingLay
 
   return (
     <LiveSessionProvider>
-      <ClarityLandingLayoutInner>{children}</ClarityLandingLayoutInner>
+      <ClarityLandingLayoutInner compact={compact}>{children}</ClarityLandingLayoutInner>
     </LiveSessionProvider>
   );
 }
@@ -51,7 +53,7 @@ export function ClarityLandingLayout({ children, chromeFree }: ClarityLandingLay
  * Inner layout component — must be inside LiveSessionProvider
  * so useActiveSession can access the session context.
  */
-function ClarityLandingLayoutInner({ children }: { children: ReactNode }) {
+function ClarityLandingLayoutInner({ children, compact }: { children: ReactNode; compact?: boolean }) {
   const location = useLocation();
   const { showUserMenu } = useNavAuthState();
 
@@ -75,7 +77,7 @@ function ClarityLandingLayoutInner({ children }: { children: ReactNode }) {
     <div className={`${isLivePage ? 'h-screen overflow-hidden' : 'min-h-screen'} bg-background text-foreground flex flex-col`}>
       <OfflineBanner />
       {!hasOwnNavigation && (
-        <SimpleNavigation />
+        <SimpleNavigation compact={compact} />
       )}
       <main className={`flex-1 min-h-0 ${isLivePage ? "overflow-hidden" : ""} ${needsTopPadding ? "pt-16 lg:pt-20" : ""} ${needsBottomPadding ? "pb-20 lg:pb-0" : ""}`}>
         {hasActiveSession && !isLivePage && <ActiveSessionBanner />}

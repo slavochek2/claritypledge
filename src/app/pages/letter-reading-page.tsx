@@ -42,7 +42,7 @@ import type { ClarityLetter, LetterStorySnapshot, LetterDelivery } from '@/app/t
 // TYPES
 // ============================================================================
 
-type PageState = 'loading' | 'invalid' | 'unauthenticated' | 'wrong_user' | 'expired' | 'expired-token' | 'ready' | 'ready_public';
+type PageState = 'loading' | 'invalid' | 'unauthenticated' | 'wrong_user' | 'expired' | 'expired-token' | 'ready' | 'ready_public' | 'own_letter';
 
 type ViewState = 'cover' | 'reading' | 'complete';
 
@@ -79,6 +79,9 @@ export function LetterReadingPage() {
   const [isAuthenticating, setIsAuthenticating] = useState(false);
   const [authDelayed, setAuthDelayed] = useState(false);
   const authDelayTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Author interception: when sender opens own letter, tracks which state to restore on Preview
+  const [previewState, setPreviewState] = useState<'ready' | 'ready_public' | null>(null);
 
   // P684: one-to-many public reading state
   const [publicPredictions, setPublicPredictions] = useState<Map<string, number> | undefined>();
@@ -129,6 +132,15 @@ export function LetterReadingPage() {
             const isSender = readData.letter.sender_id === currentUser.id;
             if (isSender && token) {
               // fall through to token path below
+            } else if (isSender) {
+              // Author opening their own letter without a token — intercept before reading flow
+              setLetterSafe(readData.letter);
+              setSnapshotsSafe(readData.snapshots);
+              setDeliverySafe(readData.delivery);
+              setSenderNameSafe(readData.letter.sender_display_name || 'Someone');
+              if (!cancelled) setPreviewState('ready');
+              setSafe('own_letter');
+              return;
             } else if (
               readData.delivery?.receiver_profile_id &&
               readData.delivery.receiver_profile_id !== currentUser.id
@@ -171,6 +183,20 @@ export function LetterReadingPage() {
               if (cancelled) return;
               if (publicData?.letter && publicData.letter.mode === 'one-to-many') {
                 const letterObj = publicData.letter;
+
+                // Author opening their own one-to-many letter — intercept
+                const letterSenderId = (letterObj as unknown as ClarityLetter).sender_id;
+                if (letterSenderId === currentUser.id) {
+                  setLetterSafe(letterObj as unknown as ClarityLetter);
+                  setSnapshotsSafe(publicData.snapshots);
+                  setDeliverySafe(null);
+                  setSenderNameSafe((letterObj.sender_display_name as string) ?? 'Someone');
+                  setPublicPredictionsSafe(publicData.predictions);
+                  if (!cancelled) setPreviewState('ready_public');
+                  setSafe('own_letter');
+                  return;
+                }
+
                 setLetterSafe(letterObj as unknown as ClarityLetter);
                 setSnapshotsSafe(publicData.snapshots);
                 setDeliverySafe(null);
@@ -570,6 +596,38 @@ export function LetterReadingPage() {
         >
           Sign in
         </Link>
+      </div>
+    );
+  }
+
+  // ---- Own letter screen ----
+
+  if (pageState === 'own_letter') {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center gap-4 px-4 text-center">
+        <h1 className="text-xl font-semibold text-[#1A1A1A]">
+          This is your letter
+        </h1>
+        <p className="text-sm text-[#1A1A1A]/60 max-w-sm">
+          You sent this letter. To see how it looks to recipients, you can preview it.
+        </p>
+        <div className="flex gap-3 mt-2">
+          <Link
+            to="/letters"
+            className="inline-flex items-center justify-center px-4 py-2 text-sm font-medium border border-gray-200 hover:bg-gray-50 transition-colors rounded-md min-h-[40px]"
+          >
+            Go to my letters
+          </Link>
+          {previewState && (
+            <button
+              type="button"
+              onClick={() => setPageState(previewState)}
+              className="inline-flex items-center justify-center px-4 py-2 text-sm font-medium text-white bg-blue-500 hover:bg-blue-600 rounded-md min-h-[40px]"
+            >
+              Preview
+            </button>
+          )}
+        </div>
       </div>
     );
   }
