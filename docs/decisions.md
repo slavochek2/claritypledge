@@ -2,6 +2,20 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-15 [technical]: Per-screenshot patching = missing abstraction signal (drift → unify, don't patch)
+
+**Context:** P711 (letter point display) — the letter reading flow rendered the same "point with two parties' stances" concept through three parallel components: `PointRow` (engage phases), `PositionComparisonCard` (revealed phases), results-page `StoryWalk → PointRow`. Successive fixes (P708) patched individual symptoms per screenshot — author-badge leak in engage, divider, alignment, asymmetric revealed layout — without addressing the missing abstraction. Each patch matched one screenshot; none converged the visual language across surfaces. A 4th surface (compose/prediction-walk, `readOnly` on same component) surfaced after `/architect` — reactively, from a screenshot, not proactively from the surface inventory.
+
+**Decision:** When the same concept renders through 2+ visibly-different components and we've patched the same surface area more than once, the fix is **collapse to one shared contract**, not patch N+1. Pattern: enumerate every surface that renders the concept first (engage, revealed, results, preview, compose, …), name the shared molecule, then introduce a single prop (e.g., `revealed: boolean`) that encodes the phase-specific variation. Delete the parallel components.
+
+**Alternatives rejected:** Continuing per-screenshot patches — each match ships but visual drift reopens on the next surface. Adding a 3rd/4th variant component — compounds drift.
+
+**Consequences:** `/architect` for change-requests on UI surfaces should include an explicit "Surface Inventory" step listing every component/route that renders the concept, not just the reported ones. A `/critique-ux` or `/spec-review` check can look for "N components rendering semantically similar headers" as a drift signal.
+
+**References:** `features/p711_unified_letter_point_display.md` | `features/done/22_mar_26/p708_letter_flow_visual_polish.md` (patched predecessor)
+
+---
+
 ## 2026-04-15 [technical]: Supabase Realtime channel singleton — one channel per userId, handlers mutated in-place
 
 **Context:** P703 — `useOpenLiveInvite` hook is called by three components simultaneously (`simple-navigation.tsx`, `bottom-nav.tsx`, `letters-page.tsx`). Each call reached `subscribeToLiveInvites()`, which previously called `supabase.channel('live_invites:userId')` and `.subscribe()` independently. Supabase returns the same channel object for the same topic name, so the second `.subscribe()` call fired while the channel was in JOINING state → `CHANNEL_ERROR`, subscription never reached `SUBSCRIBED`. Additionally: the original unsubscribe used `entry.handlers = entry.handlers.filter(...)` — this creates a new array, breaking the closure held by the channel's event callbacks (which captured the original array reference). Removed handlers kept firing; handlers added after the first unsubscribe were invisible to callbacks.
