@@ -6,8 +6,10 @@
  *   Before fix: Branch 1 counts ALL received unread with no self-sent exclusion.
  *               - supabase.from('letter_deliveries') chain has NO .not() call
  *               - Test asserting .not() was called → FAILS
+ *               - count returns 1 (the self-sent delivery counted) → FAILS
  *   After fix:  Branch 1 fetches own letter IDs first, then excludes via .not().
  *               - .not('letter_id', 'in', '(own-letter-uuid)') called → PASSES
+ *               - count returns 0 (filtered builder resolves to 0) → PASSES
  *               - clarity_letters queried exactly once (Branch 2 consolidation) → PASSES
  */
 
@@ -49,7 +51,7 @@ const mockFrom = vi.mocked(supabase.from);
  */
 function makeQueryBuilder(resolvedValue: { data?: unknown; count?: number | null; error: null }) {
   const builder: Record<string, unknown> = {};
-  const chainMethods = ['select', 'eq', 'neq', 'is', 'not', 'in', 'filter', 'order', 'limit'];
+  const chainMethods = ['select', 'eq', 'neq', 'is', 'in', 'filter', 'order', 'limit'];
   for (const method of chainMethods) {
     builder[method] = vi.fn().mockReturnValue(builder);
   }
@@ -61,6 +63,7 @@ function makeQueryBuilder(resolvedValue: { data?: unknown; count?: number | null
 
 describe('getUnreadLetterCount', () => {
   let deliveriesBuilder: ReturnType<typeof makeQueryBuilder>;
+  let filteredDeliveriesBuilder: ReturnType<typeof makeQueryBuilder>;
   let lettersBuilder: ReturnType<typeof makeQueryBuilder>;
 
   beforeEach(() => {
@@ -69,8 +72,12 @@ describe('getUnreadLetterCount', () => {
     // clarity_letters: user sent one letter (OWN_LETTER_ID), not sealed
     lettersBuilder = makeQueryBuilder({ data: [{ id: OWN_LETTER_ID, status: 'draft' }], error: null });
 
-    // letter_deliveries count: 1 delivery exists (the self-sent one)
+    // Pre-filter deliveries builder: returns count: 1 (the self-sent delivery)
+    // After .not() is applied, resolves to filteredDeliveriesBuilder which returns count: 0
+    filteredDeliveriesBuilder = makeQueryBuilder({ count: 0, error: null });
     deliveriesBuilder = makeQueryBuilder({ count: 1, error: null });
+    // .not() returns a new builder that resolves to 0 — simulates the filter working
+    deliveriesBuilder['not'] = vi.fn().mockReturnValue(filteredDeliveriesBuilder);
 
     mockFrom.mockImplementation((tableName: string) => {
       if (tableName === 'clarity_letters') return lettersBuilder as never;
@@ -80,16 +87,21 @@ describe('getUnreadLetterCount', () => {
   });
 
   it('CANARY: excludes self-sent letters from received unread count via .not() filter', async () => {
-    await getUnreadLetterCount(USER_ID);
+    const count = await getUnreadLetterCount(USER_ID);
 
     // The letter_deliveries query MUST have .not() called with the own letter ID
-    // Before fix: this assertion fails (no .not() call exists)
-    // After fix:  .not('letter_id', 'in', `(${OWN_LETTER_ID})`) is called → passes
+    // Before fix: no .not() call → assertion fails
+    // After fix:  .not('letter_id', 'in', `(${OWN_LETTER_ID})`) called → passes
     expect(deliveriesBuilder.not).toHaveBeenCalledWith(
       'letter_id',
       'in',
       `(${OWN_LETTER_ID})`
     );
+
+    // The filtered result (0) must be returned, not the unfiltered count (1)
+    // Before fix: count = 1 (self-sent delivery included) → fails
+    // After fix:  count = 0 (self-sent excluded via .not()) → passes
+    expect(count).toBe(0);
   });
 
   it('CANARY: fetches clarity_letters once (Branch 2 consolidation)', async () => {
@@ -105,26 +117,51 @@ describe('getUnreadLetterCount', () => {
   it('skips .not() filter when user has never sent any letters', async () => {
     // Override: clarity_letters returns empty array
     lettersBuilder = makeQueryBuilder({ data: [], error: null });
-    deliveriesBuilder = makeQueryBuilder({ count: 3, error: null });
+    const directDeliveriesBuilder = makeQueryBuilder({ count: 3, error: null });
+    directDeliveriesBuilder['not'] = vi.fn().mockReturnValue(makeQueryBuilder({ count: 0, error: null }));
     mockFrom.mockImplementation((tableName: string) => {
       if (tableName === 'clarity_letters') return lettersBuilder as never;
-      return deliveriesBuilder as never;
+      return directDeliveriesBuilder as never;
     });
 
-    const count = await getUnreadLetterCount(USER_ID);
+    await getUnreadLetterCount(USER_ID);
 
     // No .not() call when ownIds is empty
-    expect(deliveriesBuilder.not).not.toHaveBeenCalled();
-    // Still returns the full count (no filter applied)
-    expect(count).toBeGreaterThanOrEqual(0);
+    expect(directDeliveriesBuilder.not).not.toHaveBeenCalled();
+  });
+
+  it('Branch 2: counts in_progress responses (not just completed)', async () => {
+    // User has a sealed letter — recipient has started but not finished (in_progress)
+    const SEALED_LETTER_ID = 'sealed-letter-uuid-222';
+    lettersBuilder = makeQueryBuilder({
+      data: [{ id: SEALED_LETTER_ID, status: 'sealed' }],
+      error: null,
+    });
+
+    const responsesBuilder = makeQueryBuilder({ count: 1, error: null });
+    responsesBuilder['not'] = vi.fn().mockReturnValue(responsesBuilder);
+
+    mockFrom.mockImplementation((tableName: string) => {
+      if (tableName === 'clarity_letters') return lettersBuilder as never;
+      return responsesBuilder as never;
+    });
+
+    await getUnreadLetterCount(USER_ID);
+
+    // Branch 2 must use .in('status', [...]) not .eq('status', 'completed')
+    // This verifies in_progress deliveries are included
+    expect(responsesBuilder.in).toHaveBeenCalledWith(
+      'status',
+      ['in_progress', 'completed']
+    );
   });
 
   it('returns 0 when no unread deliveries after self-sent exclusion', async () => {
-    // Delivery builder returns count: 0 (all excluded or none present)
-    deliveriesBuilder = makeQueryBuilder({ count: 0, error: null });
+    const emptyBuilder = makeQueryBuilder({ count: 0, error: null });
+    emptyBuilder['not'] = vi.fn().mockReturnValue(makeQueryBuilder({ count: 0, error: null }));
     mockFrom.mockImplementation((tableName: string) => {
       if (tableName === 'clarity_letters') return lettersBuilder as never;
-      return deliveriesBuilder as never;
+      return emptyBuilder as never;
     });
 
     const count = await getUnreadLetterCount(USER_ID);

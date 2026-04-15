@@ -1078,7 +1078,8 @@ export async function getUnreadLetterCount(userId: string): Promise<number> {
   const { count: receivedCount, error: err1 } = await receivedQuery;
   if (err1) logDbError('getUnreadLetterCount.received', err1);
 
-  // Branch 2: Count unread responses to my sealed letters.
+  // Branch 2: Count unread responses to my sealed letters (in_progress or completed).
+  // Mirrors get_inbox_items which surfaces status IN ('in_progress', 'completed').
   // Reuses ownLetters from above — no second DB call.
   const sealedIds = ownLetters?.filter(l => l.status === 'sealed').map(l => l.id) ?? [];
   let responsesCount = 0;
@@ -1087,7 +1088,7 @@ export async function getUnreadLetterCount(userId: string): Promise<number> {
       .from('letter_deliveries')
       .select('id', { count: 'exact', head: true })
       .in('letter_id', sealedIds)
-      .eq('status', 'completed')
+      .in('status', ['in_progress', 'completed'])
       .neq('receiver_profile_id', userId)
       .is('read_at', null);
 
