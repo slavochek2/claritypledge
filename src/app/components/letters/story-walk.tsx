@@ -143,6 +143,7 @@ export function StoryWalk({ stories, perspective, senderProfile, receiverProfile
             defaultExpanded=true shows points immediately (no expand tap needed).
             onPositionSelect wires position buttons to the results-page handler. */}
         <LiveStoryCardExpanded
+          key={currentIndex}
           story={storyWithPoints}
           defaultExpanded={true}
           defaultStoryExpanded={true}
