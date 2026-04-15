@@ -2,6 +2,30 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-15 [process]: DB bug reproduction must be an actual DB call, not code analysis (Status: proposed)
+
+**Context:** During P707 investigation, agent traced the code path and RLS policy and presented it as near-confirmation of the bug. User had to explicitly ask "did you reproduce the bug?" before the agent made the actual curl call that returned `42501`. Three failed JWT attempts followed before finding the e2e test helper password already in the codebase.
+
+**Decision:** Reproduction of a DB-level bug is the DB returning the error — not a code trace. For any bug involving a DB operation, the reproduction checklist is: (1) check `e2e/helpers/` for existing test account credentials before any auth workaround; (2) execute the actual operation against the test DB; (3) paste the raw error response. Code analysis belongs in root cause, not in reproduction. The two must stay visually separate in any bug investigation writeup.
+
+**Alternatives rejected:** Accepting code trace as sufficient — masks cases where the code path is correct but a config, migration, or permission diverges from what code implies.
+
+**Consequences:** When a future agent presents "analysis confirms this would fail," push back immediately: "Show me the DB error." The test password `test-password-12345` is the default for all e2e test accounts in the test DB — grep `e2e/helpers/` for it first.
+
+**References:** P707 investigation session 2026-04-15
+
+## 2026-04-15 [technical]: letter_deliveries authenticated insertion path — SECURITY DEFINER RPC required (P707)
+
+**Context:** `submitLetterResponseAuthenticated` in `letters-service.ts` does a direct client INSERT into `letter_deliveries` using the anon-key client + user JWT. The table has `CREATE POLICY "Deliveries insert blocked" WITH CHECK (false)` by architectural intent (migration comment: "created only by SECURITY DEFINER RPCs"). Every authenticated one-to-many letter submission silently fails with `42501`. Reproduced 2026-04-15 against test DB with a real authenticated JWT. The false-completion-screen bug (fixed: `setViewState('complete')` was synchronous, before the async write completed) masked this entirely.
+
+**Decision:** Fix tracked as P707. The `confirm-letter-response` edge function (SECURITY DEFINER) handles only the anon→signup path. A new `create_letter_delivery` SECURITY DEFINER PostgreSQL function handles the already-authenticated path. The function: (1) validates `auth.uid()` ≠ sender, (2) checks letter exists, (3) is idempotent (returns existing delivery_id on duplicate call), (4) unique index `(letter_id, receiver_profile_id)` prevents race-condition duplicates. Steps 3–5 of `submitLetterResponseAuthenticated` (story_verifications, letter_point_responses, terms_acceptances) remain client-side — their RLS policies allow `authenticated` inserts. An open architectural question: move all 4 inserts into one atomic SECURITY DEFINER RPC to match `confirm-letter-response` (see P707 spec for decision checkbox).
+
+**Alternatives rejected:** (A) Relax `WITH CHECK (false)` to allow `authenticated` role — removes the architectural guard; any future RPC bypass would be invisible. (B) Route authenticated users through `confirm-letter-response` edge function — that function creates a magic link flow; repurposing it would break its contract with the anon path.
+
+**Consequences:** Rule: all `letter_deliveries` INSERT paths — authenticated or anon — must go through SECURITY DEFINER functions. No direct client `.from('letter_deliveries').insert(...)` call will ever succeed. Pattern: pair `WITH CHECK(false)` with an explicit comment naming the exact SECURITY DEFINER function that owns the insert path. Also: when an async DB write is followed by a state transition (`setViewState('complete')`), the state transition must live in `.then()`, never as the next synchronous line.
+
+**References:** [features/p707_fix_authenticated_letter_delivery_rls.md](../features/p707_fix_authenticated_letter_delivery_rls.md), [src/app/data/letters-service.ts](../src/app/data/letters-service.ts)
+
 ## 2026-04-15 [process]: `/polish` skill — closes the `/critique-ux → implementation` gap
 
 **Context:** After shipping `/critique-ux`, the pipeline was `/critique-ux → ???`. The skill produced a punch list but no destination existed for visual fixes. `/fix` has no visual loop (no before/after screenshots, no blind QA, no per-item approval gate). `/change-request` defers implementation to a full pipeline run. The 2026-04-14 `/critique-ux` decision said it "routes each picked item to `/create-spec`, `/change-request`, or `/create-bug`" — but this left visual fixes without a fast-path implementation skill.
