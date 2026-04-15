@@ -2,6 +2,50 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-15 [technical]: Letter engage phases use PointRow with letterMode, not PointCardWithLinks
+
+**Context:** P708 audit found `LetterFlowContent` was rendering `PointCardWithLinks` in `point-engage` and `remaining-point-engage` phases. `PointCardWithLinks` is a social card designed for profile and point-detail pages — it renders "Add your story" CTAs, hashtag pills, visibility icons, and guest-hint text. All of this is wrong in a letter reading context where the receiver should see only the point statement and position buttons.
+
+**Decision:** Letter engage phases must use `PointRow` (exported from `live-story-card-expanded.tsx`) with `letterMode={true}`. The `letterMode` prop is the designated suppression flag for social noise in letter and live session contexts — it was built exactly for this use case. `PointCardWithLinks` is never correct inside `LetterFlowContent`.
+
+**Alternatives rejected:** Adding a `liveSessionMode`/`disableNavigation` combination to `PointCardWithLinks` — this was the old approach and still rendered social noise. Forking a new letter-specific point card — unnecessary; `PointRow` + `letterMode` already covers the semantics.
+
+**Consequences:** Any new point-rendering phase added to `LetterFlowContent` must use `PointRow` with `letterMode`, not `PointCardWithLinks`. The distinction: `PointCardWithLinks` = social/profile context; `PointRow` = live session and letter context.
+
+**References:** `src/app/components/letters/letter-flow-content.tsx` | `src/app/components/partners/live-story-card-expanded.tsx` (PointRow export, line ~214)
+
+---
+
+## 2026-04-15 [technical]: Dedup DELETEs in migrations must guard against ON DELETE CASCADE children
+
+**Context:** P707 migration (`20260415160000`) needed to remove duplicate `letter_deliveries` rows before creating a unique index. The initial DELETE CTE selected all non-first rows by `created_at` and deleted them. Code review flagged that `letter_point_responses` and `letter_predictions` both carry `ON DELETE CASCADE` on `delivery_id` — a silent cascade that would permanently delete response data for duplicated deliveries.
+
+**Decision:** Any dedup DELETE that targets a table with FK children carrying `ON DELETE CASCADE` must include `AND NOT EXISTS (SELECT 1 FROM <child_table> WHERE delivery_id = <parent>.id)` guards for each child table. This converts potential cascade data loss into a skipped-duplicate — the row stays, the unique index creation may still fail if the non-deletable duplicate exists, but data is never silently destroyed.
+
+**Alternatives rejected:** Relying on the database to cascade cleanly — the cascade wipes child rows that represent real user data (position responses, story verifications). Even if empty in test, prod state is unknown at migration time.
+
+**Consequences:** Before writing any dedup DELETE, enumerate FK relationships on the target table. For each FK with `ON DELETE CASCADE`, add a NOT EXISTS guard. If all duplicates are unguardable (all have children), fail the migration with `RAISE EXCEPTION` so the issue surfaces explicitly rather than silently skipping.
+
+**References:** `supabase/migrations/20260415160000_p707_create_letter_delivery_rpc.sql` (dedup CTE with guards)
+
+---
+
+## 2026-04-15 [technical]: SELECT-then-INSERT idempotency in SECURITY DEFINER functions requires a `unique_violation` exception handler
+
+**Context:** P707's `create_letter_delivery` uses a SELECT-before-INSERT pattern to return an existing row if already submitted. Code review identified a race window: two concurrent calls can both pass the SELECT (no row found), both attempt INSERT, and the second INSERT raises `unique_violation` from the partial unique index. Without a handler the second caller gets a 500 despite the delivery being successfully created.
+
+**Decision:** Any SECURITY DEFINER function using SELECT-then-INSERT for idempotency must include an `EXCEPTION WHEN unique_violation THEN` block that re-SELECTs and returns the now-existing row. Pattern: `SELECT id INTO v_id FROM table WHERE key = param LIMIT 1; RETURN v_id;`. The `LIMIT 1` makes defensive intent explicit even when the unique index guarantees exactly one row.
+
+**Alternatives rejected:** Application-layer retry — pushes complexity to the client; error message reveals nothing about idempotency. Advisory locks — heavier, requires cleanup.
+
+**Consequences:** SELECT-before-INSERT without this handler is always incomplete where concurrent calls are possible (double-tap, network retry, parallel requests). Must be paired with a unique constraint/index — without it, `unique_violation` never fires.
+
+**Related — Sentry severity convention:** When a SECURITY DEFINER guard raises an expected exception (e.g., sender trying to respond to own letter), capture at `warning` level (expected misuse). When the RPC fails unexpectedly (null result, network/DB error), capture at `error` level (infrastructure failure). This prevents paging on predictable misuse while surfacing real failures.
+
+**References:** `supabase/migrations/20260415160000_p707_create_letter_delivery_rpc.sql` | `src/app/data/letters-service.ts` (`submitLetterResponseAuthenticated` Sentry severity split)
+
+---
+
 ## 2026-04-15 [technical]: Client-side count functions must mirror their RPC filter set exactly — P709 contract
 
 **Context:** P709 — `getUnreadLetterCount` Branch 1 counted `letter_deliveries WHERE receiver_profile_id = userId AND read_at IS NULL` with no self-sent exclusion. `get_inbox_items` RPC had gained `AND cl.sender_id != v_user_id` (migration `20260412134713`) and `status IN ('in_progress', 'completed')` (migration `20260415180000`). The count function was never updated to match either filter. Result: badge showed "(1)" but inbox list was empty, and `in_progress` responses (recipient started but not finished) were invisible to the badge.
