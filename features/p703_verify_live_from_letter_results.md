@@ -606,7 +606,7 @@ Total automated: **43 tests**. Run time estimate: ~45s unit + ~90s integration +
 - **Tests:** none (doc task)
 - **Depends on:** Task 2 (confirmed column names from migration)
 - **Verify:** `clarity_live_invites` table documented; `clarity_sessions` entries for `source_story_id` and `target_listener_id` added; `complete_clarity_session` RPC noted
-- [ ] Complete
+- [x] Complete
 
 ---
 
