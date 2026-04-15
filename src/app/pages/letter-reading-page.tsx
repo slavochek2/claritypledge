@@ -331,6 +331,15 @@ export function LetterReadingPage() {
     };
   }, []);
 
+  // P710: Late-auth claim — if the user authenticates after the initial load
+  // (e.g. magic-link hash processed after the anon-token path already ran),
+  // claim the delivery so write operations can proceed.
+  useEffect(() => {
+    if (!currentUser || !token || !delivery) return;
+    if (delivery.receiver_profile_id) return; // already claimed
+    claimLetterDelivery(token).catch(() => {});
+  }, [currentUser?.id, token, delivery?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // 1-to-1 auth handler: calls create-and-open-letter edge function → verifyOtp
   const handleOneToOneOpen = useCallback(async () => {
     if (!token || !delivery) return;

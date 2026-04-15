@@ -199,7 +199,30 @@ serve(async (req: Request) => {
       deliveries.map(async (delivery) => {
         if (!delivery.receiver_email || !delivery.invitation_token) return;
 
-        const ctaUrl = `${appUrl}/letter/${delivery.id}?token=${delivery.invitation_token}`;
+        // P710: For registered recipients, generate a magic link so they land already authenticated.
+        // Falls back to plain token URL if lookup or link generation fails.
+        let ctaUrl = `${appUrl}/letter/${delivery.id}?token=${delivery.invitation_token}`;
+        try {
+          const normalizedEmail = delivery.receiver_email.toLowerCase();
+          const { data: authUserRows } = await supabase.rpc('get_auth_user_by_email', {
+            p_email: normalizedEmail,
+          });
+          const isRegistered = Array.isArray(authUserRows) && authUserRows.length > 0;
+          if (isRegistered) {
+            const { data: linkData, error: linkError } = await supabase.auth.admin.generateLink({
+              type: 'magiclink',
+              email: normalizedEmail,
+              options: {
+                redirectTo: `${appUrl}/letter/${delivery.id}?token=${delivery.invitation_token}`,
+              },
+            });
+            if (!linkError && linkData?.properties?.action_link) {
+              ctaUrl = linkData.properties.action_link;
+            }
+          }
+        } catch (e) {
+          console.warn('P710: magic-link generation failed, using plain token URL:', e);
+        }
         const safeSenderName = esc(senderName);
 
         // Personalized greeting using receiver_name first name
