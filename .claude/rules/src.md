@@ -64,6 +64,14 @@ const { data } = await supabase.from('profiles').select('*, witnesses(*)');
 - Never put dates in comments or documentation — use relative terms ("current", "recent")
 - Routes use `slug` (e.g., `/p/john-doe`), not UUID — use `getProfileBySlug()` for route params
 
+## DRY Trigger — Module-Level Helpers
+
+Before defining a helper function inside a component, check if the same (or near-identical) function already exists elsewhere in the same file.
+
+**If you are about to write the same helper in 2 or more components within the same file:** STOP. Propose moving it to module-level (above all components) instead.
+
+This overrides plan literalism — even if the spec says "add X to component A" and "add X to component B," define it once at module scope and reference it from both. State the change before applying: "Promoting `helperName` to module-level — appears in both ComponentA and ComponentB."
+
 ## Replacing or Removing Exported Functions
 
 Before replacing or removing any exported function: **grep all callers first**, then write the replacement.

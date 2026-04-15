@@ -393,7 +393,7 @@ Fix: Use form data reference instead of event target
 - [ ] Regression test passes (proves bug is fixed)
 - [ ] Smoke tests pass (fast regression check)
 - [ ] Full test suite passes (no new bugs introduced)
-- [ ] **Browser verification (required for any UI change)** — navigate to affected route, screenshot, confirm fix visually. Use Chrome DevTools MCP (headless) or Claude in Chrome (authenticated). "Tests pass" is not sufficient.
+- [ ] **Browser verification — HARD GATE for any `*.tsx` diff.** Before proceeding to commit: provide screenshot path (e.g. `~/Screenshots/p123-fix.png`) OR write explicit `N/A: [reason]` (e.g. "N/A: layout-only constant, no rendered state change"). Use Chrome DevTools MCP (headless) or Claude in Chrome (authenticated). "Tests pass" is not sufficient and does not satisfy this gate.
 - [ ] Bug spec updated with resolution details
 
 **Steps:**
@@ -514,8 +514,17 @@ After commit succeeds:
 1. **Review** — Spawn `/finish code` as a subagent with: "Review all code changes on this branch vs main. Spec: [spec path if exists]. Proceed directly — no scope confirmation needed." Present HIGH/MEDIUM findings. Ask: "Fix issues before closing? (all HIGH / select / skip)". Apply approved fixes and commit them.
 2. Update frontmatter: `status: qa` (keep `delivery_stage: fix` — do not clear it). **If the spec was moved (e.g., to a subfolder) in this session, Edit its frontmatter at the new location AFTER the `git mv` is staged — never Edit before staging the rename, or the frontmatter change lands in a separate commit.**
 3. Commit: `chore: pN ready for QA — {title}`
+
+   **If pre-commit hook blocks on a test failure:**
+   1. Run the failing test against `main` to classify: `git stash && npm test -- <failing-test-file> && git stash pop`
+   2. Present to user:
+      - **(A) Pre-existing (fails on main too):** Do NOT use `--no-verify`. Create a deferred bug ticket for the pre-existing failure now, then commit after user confirms.
+      - **(B) Introduced by this fix (passes on main):** Return to Phase 3 — fix the code.
+      - **(C) Can't determine:** Report "Cannot classify failure — run `/debugging` before committing." Do not commit.
+   3. Wait for user choice. Never commit a blocked pre-commit without user explicit approval.
+
 4. Invoke `/slava:maintain:fix-kanban` — fixes frontmatter drift + refreshes kanban
-5. If `*.tsx` files changed: Run browser check automatically — navigate to affected route, screenshot, report. If Chrome MCP unavailable, state "browser check skipped — run `/verify` manually."
+5. **`*.tsx` diff present — HARD GATE before this step:** Provide screenshot path or explicit `N/A: [reason]`. Attempt Claude in Chrome first; if unavailable, state: "browser check blocked — run `/verify` before `/ship`." Do NOT advance to step 6 without one of these two.
 6. Tell user: "Fix ready for QA on branch `feature/pN-xxx`. Run `/ship pN` when satisfied to merge to prod and close the spec."
 
 ---
