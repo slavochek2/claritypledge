@@ -7,7 +7,8 @@
  * 2. "THIS IS A PREVIEW" banner visible
  * 3. Story content rendered (/live components visible)
  * 4. Rating dots interactive but non-persistent (no DB writes)
- * 5. "Back to composition" link present
+ * 5. Preview never resumes from prior session (canary: always starts at cover)
+ * 6. "Back to composition" link present
  *
  * Uses authenticated sender session.
  */
@@ -169,7 +170,59 @@ test.describe('P661: Letter Preview — /letter/:docId/preview', () => {
     expect(predCount ?? 0).toBe(0);
   });
 
-  // ── 5. Back to composition link ───────────────────────────────────────
+  // ── 5. Preview never resumes from prior session ────────────────────────
+
+  test('preview always starts at cover even when stale localStorage exists', async ({ page }) => {
+    await setTestSession(page, sender.email);
+
+    // Prime the cover so the page mounts once (ensures the component and docId are stable)
+    await page.goto(`/letter/${docId}/preview`);
+    await page.waitForLoadState('networkidle');
+
+    // Inject stale reading progress into localStorage, simulating a prior preview walk.
+    // Storage key from storageKey() in useLetterReadingState.ts:
+    //   `clarity-letter-reading-${deliveryId}` where deliveryId = `preview-${docId}`
+    const storageKey = `clarity-letter-reading-preview-${docId}`;
+    await page.evaluate(([key, numStories]: [string, number]) => {
+      const staleState = {
+        currentStoryIndex: numStories - 1,
+        stories: Array.from({ length: numStories }, (_: unknown, i: number) => ({
+          phase: i < numStories - 1 ? 'transition' : 'story-rate',
+          rating: i < numStories - 1 ? 4 : null,
+          prediction: i < numStories - 1 ? 70 : null,
+          positions: {},
+          currentPointIndex: 0,
+        })),
+        isComplete: false,
+      };
+      localStorage.setItem(key, JSON.stringify(staleState));
+      sessionStorage.setItem(key, JSON.stringify(staleState));
+    }, [storageKey, storyIds.length] as [string, number]);
+
+    // Hard navigate away then back to simulate a fresh mount
+    // (SPA nav preserves in-memory state; goto forces a full component remount)
+    await page.goto('/');
+    await page.goto(`/letter/${docId}/preview`);
+    await page.waitForLoadState('networkidle');
+
+    // BUG (pre-fix): page would restore to last story — "End of preview" shows, no cover
+    // EXPECTED (post-fix): cover renders, no resume toast, no "End of preview"
+
+    // Cover CTA must be visible
+    await expect(page.locator('text=Open the Letter')).toBeVisible({ timeout: 10000 });
+
+    // "End of preview" must NOT be visible
+    await expect(page.locator('text=End of preview')).not.toBeVisible({ timeout: 3000 });
+
+    // "Welcome back" resume toast must NOT appear
+    await expect(page.locator('text=/Welcome back/i')).not.toBeVisible({ timeout: 3000 });
+
+    // localStorage entry must be cleared by the purge effect (Edit 3)
+    const stored = await page.evaluate((key: string) => localStorage.getItem(key), storageKey);
+    expect(stored).toBeNull();
+  });
+
+  // ── 6. Back to composition link ───────────────────────────────────────
 
   test('preview has "Back to composition" link', async ({ page }) => {
     await setTestSession(page, sender.email);

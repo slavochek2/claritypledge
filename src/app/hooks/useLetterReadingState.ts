@@ -294,8 +294,9 @@ export function useLetterReadingState(
       return freshState;
     }
 
-    // Remote mode: try to restore from sessionStorage
-    if (deliveryId) {
+    // Remote mode: try to restore from sessionStorage.
+    // Preview mode is ephemeral — never restore prior progress.
+    if (deliveryId && !previewMode) {
       const saved = loadState(deliveryId);
       const hasProgress = saved?.stories.some(
         (s, i) => s.rating !== null || s.phase !== initialPhase(snapshots[i]),
@@ -316,6 +317,16 @@ export function useLetterReadingState(
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Preview mode: purge any legacy persisted entry (pre-fix hygiene for existing users).
+  useEffect(() => {
+    if (previewMode && deliveryId) {
+      try {
+        sessionStorage.removeItem(`clarity-letter-reading-${deliveryId}`);
+        localStorage.removeItem(`clarity-letter-reading-${deliveryId}`);
+      } catch { /* storage unavailable */ }
+    }
+  }, [previewMode, deliveryId]);
+
   // Persist state changes
   useEffect(() => {
     if (!initRef.current) {
@@ -328,11 +339,11 @@ export function useLetterReadingState(
         saveLocalState(letterId, state);
       }
     } else {
-      if (deliveryId) {
+      if (deliveryId && !previewMode) {
         saveState(deliveryId, state);
       }
     }
-  }, [mode, deliveryId, letterId, state]);
+  }, [mode, deliveryId, letterId, state, previewMode]);
 
   const currentStory = state.stories[state.currentStoryIndex];
   const currentSnapshot = snapshots[state.currentStoryIndex];

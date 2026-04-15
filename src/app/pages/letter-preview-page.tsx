@@ -54,6 +54,20 @@ export function LetterPreviewPage() {
   const [fetchState, setFetchState] = useState<'loading' | 'done' | 'not-found'>('loading');
   const [viewState, setViewState] = useState<'cover' | 'reading'>('cover');
 
+  // Purge any legacy preview reading state on every preview load (pre-fix hygiene).
+  // Preview is ephemeral — stale entries from prior sessions must never resurface.
+  // Key derivation: useLetterReadingState is called with deliveryId='preview-${docId}',
+  // and the hook prefixes with 'clarity-letter-reading-' → 'clarity-letter-reading-preview-${docId}'.
+  // If the hook's key prefix changes, update this key to match.
+  useEffect(() => {
+    if (!docId) return;
+    try {
+      const key = `clarity-letter-reading-preview-${docId}`;
+      sessionStorage.removeItem(key);
+      localStorage.removeItem(key);
+    } catch { /* storage unavailable */ }
+  }, [docId]);
+
   useEffect(() => {
     if (!docId) return;
     (async () => {
@@ -105,6 +119,11 @@ export function LetterPreviewPage() {
     );
   }
 
+  const closePreview = () => {
+    if (window.history.length <= 1) window.close();
+    else navigate(-1);
+  };
+
   return (
     <>
       {/* Preview banner */}
@@ -116,13 +135,7 @@ export function LetterPreviewPage() {
         <Button
           size="sm"
           className="ml-auto gap-1 bg-blue-500 hover:bg-blue-600 text-white"
-          onClick={() => {
-            if (window.history.length <= 1) {
-              window.close();
-            } else {
-              navigate(-1);
-            }
-          }}
+          onClick={closePreview}
         >
           <X className="h-3.5 w-3.5" />
           Close preview
@@ -165,6 +178,11 @@ function LetterPreviewFlow({
   snapshots: LetterStorySnapshot[];
 }) {
   const navigate = useNavigate();
+
+  const closePreview = () => {
+    if (window.history.length <= 1) window.close();
+    else navigate(-1);
+  };
 
   // Read author's predictions from localStorage (written by compose page during prediction walk)
   const [previewPredictions] = useState<Map<string, number> | undefined>(() => {
@@ -214,7 +232,7 @@ function LetterPreviewFlow({
           This is what the receiver will experience.
         </p>
         <Button
-          onClick={() => navigate(`/letter/${docId}/compose`)}
+          onClick={closePreview}
           className="bg-[#0044CC] hover:bg-[#0033AA] text-white"
         >
           Close preview

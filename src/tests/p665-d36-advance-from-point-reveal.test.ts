@@ -121,7 +121,7 @@ describe('P665: D36 advanceFromPointReveal — infinite loop regression', () => 
 
     const snapshots = [makePlaceholderSnapshot(), makeD36Snapshot()];
     const { result } = renderHook(() =>
-      useLetterReadingState(DELIVERY_ID, 'sender-1', snapshots, undefined, true)
+      useLetterReadingState(DELIVERY_ID, 'sender-1', snapshots)
     );
 
     // Verify we're in point-revealed (as set)
@@ -162,7 +162,7 @@ describe('P665: D36 advanceFromPointReveal — infinite loop regression', () => 
 
     const snapshots = [makePlaceholderSnapshot(), makeMultiPointSnapshot()];
     const { result } = renderHook(() =>
-      useLetterReadingState(DELIVERY_ID, 'sender-1', snapshots, undefined, true)
+      useLetterReadingState(DELIVERY_ID, 'sender-1', snapshots)
     );
 
     expect(result.current.currentPhase).toBe('point-revealed');
