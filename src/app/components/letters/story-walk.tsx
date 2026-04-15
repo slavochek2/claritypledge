@@ -18,6 +18,7 @@ import { Button } from '@/components/ui/button';
 import { snapshotToStoryWithPoints, injectReceiverPositions, injectUserPositions } from '@/app/utils/letter-snapshot-mapper';
 import type { StoryWalkItem, PositionType } from '@/app/types';
 import type { ResultsProfileData } from '@/app/data/letters-service';
+import { StartClaritySessionButton } from './start-clarity-session-button';
 
 // ============================================================================
 // TYPES
@@ -34,13 +35,17 @@ interface StoryWalkProps {
   receiverName: string | null;
   /** P705: Handler for viewer position changes on the results page */
   onPositionSelect?: (pointId: string, position: PositionType | null) => void;
+  /** P703: Sender profile id — enables "Start a clarity session" button */
+  senderId?: string;
+  /** P703: Receiver profile id — target for the live invite */
+  receiverId?: string | null;
 }
 
 // ============================================================================
 // COMPONENT
 // ============================================================================
 
-export function StoryWalk({ stories, perspective, senderProfile, receiverProfile, senderName, receiverName, onPositionSelect }: StoryWalkProps) {
+export function StoryWalk({ stories, perspective, senderProfile, receiverProfile, senderName, receiverName, onPositionSelect, senderId, receiverId }: StoryWalkProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const counterRef = useRef<HTMLParagraphElement>(null);
 
@@ -159,6 +164,17 @@ export function StoryWalk({ stories, perspective, senderProfile, receiverProfile
             </Link>
           ) : undefined}
         />
+
+        {/* P703: Start a clarity session — letter author only */}
+        {perspective === 'sender' && senderId && receiverId && (
+          <StartClaritySessionButton
+            senderId={senderId}
+            receiverId={receiverId}
+            letterId={current.snapshot.letter_id}
+            storyId={current.snapshot.story_id}
+            senderName={senderName}
+          />
+        )}
       </div>
 
       {/* Fixed bottom navigation bar */}

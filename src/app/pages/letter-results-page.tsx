@@ -236,6 +236,8 @@ export function LetterResultsPage() {
         senderName={resultsData.senderName}
         receiverName={resultsData.receiverName}
         onPositionSelect={handleResultsPositionChange}
+        senderId={resultsData.senderProfile.id}
+        receiverId={resultsData.receiverProfile?.id ?? null}
       />
     </main>
   );

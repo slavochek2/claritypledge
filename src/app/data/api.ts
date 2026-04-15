@@ -4016,6 +4016,21 @@ export async function resendLiveInvite(sessionId: string): Promise<void> {
 }
 
 /**
+ * P703: Returns true if an open (closed_at IS NULL) invite exists for the given receiver.
+ * Used by StartClaritySessionButton to disable the button when an invite is already pending.
+ * RLS allows the session creator to see their own invites.
+ */
+export async function checkOpenInviteForReceiver(receiverId: string): Promise<boolean> {
+  const { data } = await supabase
+    .from('clarity_live_invites')
+    .select('id')
+    .eq('target_user_id', receiverId)
+    .is('closed_at', null)
+    .limit(1);
+  return (data?.length ?? 0) > 0;
+}
+
+/**
  * Closes the invite for a session without completing the session itself.
  * Used when the facilitator cancels the room before the listener joins.
  */
