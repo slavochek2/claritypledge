@@ -17,6 +17,7 @@ import { useAuth } from '@/auth';
 import { supabase } from '@/lib/supabase';
 import { FunctionsHttpError } from '@supabase/supabase-js';
 import { CertificatePageShell } from '@/app/components/layout/certificate-page-shell';
+import { GravatarAvatar } from '@/components/ui/gravatar-avatar';
 import { ClarityPageLoader, ClarityLoader } from '@/components/ui/clarity-loader';
 import { LetterCover } from '@/app/components/letters/letter-cover';
 import { LetterCompletionSummary } from '@/app/components/letters/letter-completion-summary';
@@ -56,7 +57,7 @@ export function LetterReadingPage() {
   const token = searchParams.get('token') ?? '';
   const navigate = useNavigate();
   const location = useLocation();
-  const { user: currentUser, session, sessionChecked, isLoading: authLoading } = useAuth();
+  const { user: currentUser, session, sessionChecked, isLoading: authLoading, signOut } = useAuth();
 
   // P696: skip cover when arriving from confirm page (avoids flash)
   const skipToComplete = (location.state as { skipToComplete?: boolean } | null)?.skipToComplete === true;
@@ -581,7 +582,9 @@ export function LetterReadingPage() {
     if (!letter || snapshots.length === 0) return <ClarityPageLoader />;
 
     return (
-      <CertificatePageShell className="min-h-screen py-6 space-y-6">
+      <>
+        <LetterAuthStrip user={currentUser} onSignOut={signOut} />
+        <CertificatePageShell className={`min-h-screen py-6 space-y-6${currentUser ? ' pt-12' : ''}`}>
         {viewState === 'cover' && skipToComplete && <ClarityPageLoader />}
         {viewState === 'cover' && !skipToComplete && (
           <LetterCover
@@ -662,6 +665,7 @@ export function LetterReadingPage() {
           />
         )}
       </CertificatePageShell>
+      </>
     );
   }
 
@@ -676,7 +680,9 @@ export function LetterReadingPage() {
   const bufferOnly = letter.mode === 'one-to-many' && !session;
 
   return (
-    <CertificatePageShell className="min-h-screen py-6 space-y-6">
+    <>
+      <LetterAuthStrip user={currentUser} onSignOut={signOut} />
+      <CertificatePageShell className="min-h-screen py-6 space-y-6 pt-12">
       {viewState === 'cover' && skipToComplete && <ClarityPageLoader />}
       {viewState === 'cover' && !skipToComplete && (
         <>
@@ -781,6 +787,38 @@ export function LetterReadingPage() {
         />
       )}
     </CertificatePageShell>
+    </>
+  );
+}
+
+// ============================================================================
+// AUTH IDENTITY STRIP — thin fixed bar showing who is logged in on letter pages
+// ============================================================================
+
+function LetterAuthStrip({ user, onSignOut }: { user: { name: string; avatarUrl?: string | null; avatarColor?: string; hasPledged: boolean } | null; onSignOut: () => void }) {
+  if (!user) return null;
+  return (
+    <div className="fixed top-0 left-0 right-0 z-50 bg-white/90 backdrop-blur-sm border-b border-gray-100 px-4 py-2">
+      <div className="max-w-3xl mx-auto flex items-center gap-2 text-sm text-gray-600">
+        <GravatarAvatar
+          name={user.name}
+          photoUrl={user.avatarUrl ?? undefined}
+          avatarColor={user.avatarColor}
+          isPledger={user.hasPledged}
+          size="sm"
+          className="!w-6 !h-6 !text-[10px]"
+        />
+        <span>{user.name}</span>
+        <span aria-hidden="true" className="text-gray-300">·</span>
+        <button
+          type="button"
+          onClick={onSignOut}
+          className="text-gray-400 hover:text-gray-600 transition-colors"
+        >
+          Not you? Sign out
+        </button>
+      </div>
+    </div>
   );
 }
 
