@@ -844,3 +844,47 @@ T8 (chromeFree removal) — parallel, deploy with T5
 **Parallelizable:** T1 and T2 can run simultaneously. T8 can be done at any time.
 
 **Critical path:** T1 → T3 → T4 → T5 → T6
+
+---
+
+## Punch List
+
+From /critique-ux session, 2026-04-15. 5 items confirmed for /polish. 3 items triaged out (see notes).
+
+### 1. Story counter off-by-one
+- **Severity:** blocker
+- **Where:** Story Walk screen, top counter label — all states, desktop + mobile
+- **Observed:** Counter shows "Story 4 of 3" on last story (displays storyIndex + 1 without clamping to total)
+- **Spec ref:** `#### Story Counter` — "Story [current] of [total]" where current = 1-indexed position, max = total
+
+### 2. "Back to Letters" renders as primary button, not link
+- **Severity:** major
+- **Where:** Fixed bottom bar, last story state — desktop + mobile
+- **Observed:** "Back to Letters" appears as a solid primary button; should be a plain text link
+- **Spec ref:** `#### Fixed Bottom Bar` — "Back to Letters link (not button) — plain text, left-aligned"
+
+### 3. GapBanner visible on incomplete stories
+- **Severity:** major
+- **Where:** Story Walk screen, sender perspective, story with no receiver ratings yet
+- **Observed:** GapBanner renders on incomplete stories; spec says hidden until both sides have answered
+- **Spec ref:** `#### Per-Story States` — "incomplete: GapBanner hidden, replaced by pending state message"
+
+### 4. Story 2 not expanded by default
+- **Severity:** major
+- **Where:** Story Walk screen, story 2 (non-first stories)
+- **Observed:** Story 2 loads collapsed; only story 1 auto-expands. All stories should open expanded by default.
+- **Spec ref:** `#### Story Walk Screen` — "defaultStoryExpanded: true for all stories in walk mode"
+
+### 5. Inbox per-story progress text missing
+- **Severity:** major
+- **Where:** Inbox list, letter rows — desktop + mobile
+- **Observed:** No per-story progress text shown (e.g. "2 of 3 stories complete"); only letter-level status visible
+- **Spec ref:** `#### Inbox Progress Indicator` — "show X of Y stories complete per letter row"
+
+---
+
+### Triaged Out (not for /polish)
+
+- **Item 6 (inbox title truncation):** Pre-existing issue, not P699 regression → /change-request if prioritized
+- **Item 7 (GapBanner visual weight on pending rows):** Touches GapBanner used across 10+ routes → /change-request required for cross-feature consistency
+- **Item 8 (no partner identity on results page):** Net-new feature, not in spec → /create-spec if prioritized
