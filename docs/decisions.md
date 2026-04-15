@@ -2,6 +2,20 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-15 [technical]: Client-side count functions must mirror their RPC filter set exactly — P709 contract
+
+**Context:** P709 — `getUnreadLetterCount` Branch 1 counted `letter_deliveries WHERE receiver_profile_id = userId AND read_at IS NULL` with no self-sent exclusion. `get_inbox_items` RPC had gained `AND cl.sender_id != v_user_id` (migration `20260412134713`) and `status IN ('in_progress', 'completed')` (migration `20260415180000`). The count function was never updated to match either filter. Result: badge showed "(1)" but inbox list was empty, and `in_progress` responses (recipient started but not finished) were invisible to the badge.
+
+**Decision:** Two changes: (1) Self-sent exclusion — two-step client pattern: fetch own letter IDs (`clarity_letters WHERE sender_id = userId, SELECT id + status`) upfront, then conditionally call `.not('letter_id', 'in', '(ids)')` on the `letter_deliveries` count query. If `ownLetterIds.length === 0`, skip the filter entirely. (2) Branch 2 (responses to my sealed letters) uses `.in('status', ['in_progress', 'completed'])` — mirrors the RPC which counts both `in_progress` (recipient engaged, not finished) and `completed`. An `in_progress` response IS unread from the sender's perspective. Fetching `id + status` from `clarity_letters` in one query lets Branch 2 reuse the result rather than making a second DB call.
+
+**Alternatives rejected:** PostgREST embed-filter (`clarity_letters!inner` + `.neq`) — RLS risk when the query runs as authenticated user; inner join silently drops rows if `clarity_letters` RLS restricts access. Two separate `clarity_letters` fetches (original plan) — consolidated into one to save a round-trip.
+
+**Consequences:** Any time `get_inbox_items` gains a new filter, `getUnreadLetterCount` must be co-updated — badge counts diverge silently otherwise. The diagnostic signal is always the same: badge shows N, list shows 0. Canary test pattern: `.not()` should return a *separate* builder (not `this`) so the mock chain can resolve to a different count and assert the filter outcome, not just the call shape.
+
+**References:** `src/app/data/letters-service.ts` `getUnreadLetterCount` | `src/tests/p709-unread-count-self-sent.test.ts` | `features/p709_inbox_unread_badge_counts_self_sent.md`
+
+---
+
 ## 2026-04-15 [technical]: SECURITY DEFINER RPCs that validate point membership must use sealed snapshot, not live tables
 
 **Context:** `submit_point_response_by_token`'s P705 authorization guard joined live `story_points` to confirm `p_point_id` belongs to the letter. This caused the RPC to return `false` for any point that was in `point_config` (sealed at send time) but absent from `story_points` (deleted from story post-seal, or test setups that create points without linking them to a story). Anon 1:1 readers hit "Invalid or expired token" on every position submit.
