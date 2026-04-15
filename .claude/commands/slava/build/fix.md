@@ -102,6 +102,8 @@ Bug reported
 
 ### Phase 0.pre: Ensure spec exists (BEFORE worktree setup)
 
+If `/fix` was called with a **plan file path** (e.g. `~/.claude/plans/*.md`): treat it as architect context, extract the title as the bug description, and auto-invoke `/create-bug` with that title to file a tracked spec before proceeding. Plan files are not specs.
+
 If `/fix` was called with a description string (not a P-number or spec path):
 
 1. **You must be on main (w0).** If in a worktree, switch to main first: `cd ~/Projects/public/claritypledge`
@@ -170,6 +172,7 @@ After worktree setup (so CWD resolves to the correct branch):
    **Status gate:** if `status: qa` or `status: done` → stop immediately: "P{N} is already at {status}. Nothing to fix. Run `/ship pN` to merge." Do not continue.
 2. Read the source file(s) mentioned in the spec or user description — verify current state matches your assumptions
 3. If bug involves DB: check the actual schema (`curl` REST API with `?select=column&limit=1`)
+   **If bug involves a client-side count function** (badge, summary, etc.): grep the corresponding SECURITY DEFINER RPC migration to confirm the full filter set (`status IN (...)`, exclusion predicates, etc.) before writing any fix code. Count functions silently under- or over-count when their filter set diverges from the RPC.
 4. If spec has mixed `[x]`/`[ ]` acceptance criteria (rewritten matryoshka bug): announce which layers are done and which remain. Focus on unchecked items.
 5. **If bug involves token-based RPCs or token-gated flows:** identify the manual verification path now — before writing code. State: "Fresh token source: [UI path / service-role query / Playwright canary]". Consumed or RLS-blocked tokens are a common dead end at UAT time.
 

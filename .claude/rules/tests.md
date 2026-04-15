@@ -72,6 +72,24 @@ Smoke assertions (page loads, no console errors, critical elements visible) belo
 3. `e2e/performance-smoke.spec.ts` — LCP/CLS budget checks not tied to one feature
 4. `e2e/api-contracts.spec.ts` — edge function response-shape checks that predate features
 
+## Count-Query Mock Fidelity
+
+When mocking a Supabase count query that conditionally applies `.not()` (or any filter):
+- `.not()` must return a **separate builder** that resolves to a **different count** than the unfiltered builder
+- Returning `this` from `.not()` makes every chain resolve the same value — the test only proves the method was called, not that the filter changed the outcome
+
+```typescript
+// ✅ Correct — filter effect is provable
+const filteredBuilder = makeQueryBuilder({ count: 0, error: null });
+deliveriesBuilder['not'] = vi.fn().mockReturnValue(filteredBuilder);
+// now: without fix → count: 1; with fix → .not() called → count: 0
+
+// ❌ Wrong — test is call-shape only
+deliveriesBuilder['not'] = vi.fn().mockReturnValue(deliveriesBuilder); // same count either way
+```
+
+This applies to any conditional filter in a count function (`.not`, `.in`, `.neq`, `.filter`).
+
 ## Subagent Scope Constraint
 
 When a subagent is spawned to write tests, it MUST NOT modify source files.
