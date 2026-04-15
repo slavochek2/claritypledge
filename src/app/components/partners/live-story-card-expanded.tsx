@@ -47,7 +47,9 @@ interface LiveStoryCardExpandedProps {
   /** Slot rendered inside the card at the bottom — used for "Open Story" link in letter results */
   footerSlot?: React.ReactNode;
   /** When true, suppresses the "Add your story" CTA in PointRow.
-   * Used on results page (post-hoc, not a live session). Does not affect other letterMode behaviors. */
+   * REQUIRED on every non-/live surface: letters, results, compose/prediction-walk, preview.
+   * The CTA is only meaningful in /live sessions where the user can immediately add a story.
+   * Do NOT use readOnly as a proxy — it controls buttons, not the CTA. */
   hideStoryCTA?: boolean;
   /** P711: When false (default true), hides author PositionBadge in letter-mode headers.
    * Non-letter callers always show badge when profileSubjectPosition exists. */
@@ -340,7 +342,11 @@ export function PointRow({
         )}
 
         {/* P456: Disabled story CTA footer — visible but non-interactive in /live session.
-            P487+: Hidden on own story — use shouldShowStoryCTA shared utility. */}
+            P487+: Hidden on own story — use shouldShowStoryCTA shared utility.
+            SURFACE RULE: this CTA is /live-session-only context. Any non-/live surface that renders
+            PointRow (letters, results, compose/prediction-walk, preview) MUST pass hideStoryCTA={true}
+            to LiveStoryCardExpanded, or letterMode={true} to PointRow directly. Do NOT rely on readOnly
+            to suppress it — readOnly controls button interactivity, not CTA visibility. */}
         {/* P560: Position no longer required for story CTA */}
         {!letterMode && !readOnly && !isGuest && !hideStoryCTA && shouldShowStoryCTA({ userPosition, isOwnStory }) === 'show' && (() => {
           // Use position-specific copy when available, generic fallback otherwise
