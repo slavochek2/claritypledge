@@ -105,7 +105,7 @@ export function LetterReadingPage() {
   useEffect(() => {
     if (!sessionChecked || authLoading || !deliveryId) return;
     if (viewState !== 'cover') return;
-    if (pageStateRef.current === 'ready' || pageStateRef.current === 'ready_public') return; // already loaded
+    if (pageStateRef.current === 'ready' || pageStateRef.current === 'ready_public' || pageStateRef.current === 'own_letter') return; // already loaded
 
     let cancelled = false;
     const setSafe = (s: PageState) => { if (!cancelled) setPageState(s); };
@@ -670,7 +670,8 @@ export function LetterReadingPage() {
             publicPredictions={publicPredictions}
             onComplete={(draft) => {
               if (currentUser) {
-                // Authenticated one-to-many reader: submit directly, skip signup form
+                // Authenticated one-to-many reader: submit directly, skip signup form.
+                // setViewState('complete') is inside .then() — must not fire before the write resolves.
                 submitLetterResponseAuthenticated(
                   letter.id,
                   draft.ratings,
@@ -678,9 +679,12 @@ export function LetterReadingPage() {
                   CURRENT_TERMS_VERSION,
                 ).then((newDeliveryId) => {
                   setCompletedDeliveryId(newDeliveryId);
+                  setViewState('complete');
                 }).catch((err: unknown) => {
                   console.error('[letter-reading] submitLetterResponseAuthenticated error:', err);
+                  toast.error('Something went wrong saving your response. Please try again.');
                 });
+                return;
               } else {
                 // Persist draft client-side so the confirm page can write the pending row
                 const draftKey = `letter-response-draft-${deliveryId}`;
@@ -695,7 +699,6 @@ export function LetterReadingPage() {
                 navigate(`/signup?source=letter-response&letterId=${deliveryId}&senderName=${encodeURIComponent(senderName)}&redirect=${encodeURIComponent(confirmRedirect)}`);
                 return;
               }
-              setViewState('complete');
             }}
           />
         )}
