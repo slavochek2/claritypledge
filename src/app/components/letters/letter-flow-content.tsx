@@ -77,7 +77,7 @@ export function LetterFlowContent({
   onLivePositionChange,
 }: LetterFlowContentProps) {
   const { state, currentPhase, submitPointPosition, submitStoryRating, advanceFromPointReveal,
-    advanceFromStoryReveal, advanceFromRemainingPointReveal, nextStory, isSubmitting } = readingState;
+    advanceFromStoryReveal, advanceFromRemainingPointReveal, isSubmitting } = readingState;
 
   // ── Local state ────────────────────────────────────────────────────────────
 
@@ -294,16 +294,20 @@ export function LetterFlowContent({
               readOnly
               className="w-full max-w-sm mx-auto"
             />
-            {showAdvanceButton && (
-              <FixedBottomBar>
-                <Button
-                  onClick={isFinalStory ? nextStory : advanceFromStoryReveal}
-                  className="w-full max-w-[200px] bg-blue-500 hover:bg-blue-600 text-white min-h-[44px]"
-                >
-                  {isFinalStory ? 'Complete Letter' : 'Next Story'}
-                </Button>
-              </FixedBottomBar>
-            )}
+            {showAdvanceButton && (() => {
+              const hasRemainingPoints = visiblePoints.length > 0;
+              const isLastStep = isFinalStory && !hasRemainingPoints;
+              return (
+                <FixedBottomBar>
+                  <Button
+                    onClick={advanceFromStoryReveal}
+                    className="w-full max-w-[200px] bg-blue-500 hover:bg-blue-600 text-white min-h-[44px]"
+                  >
+                    {isLastStep ? 'Complete Letter' : hasRemainingPoints ? 'Next' : 'Next Story'}
+                  </Button>
+                </FixedBottomBar>
+              );
+            })()}
           </>
         )}
 
