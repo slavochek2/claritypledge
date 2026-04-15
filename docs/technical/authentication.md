@@ -305,9 +305,15 @@ If magic links redirect to the wrong place, check these settings.
 
 ## `sessionChecked` vs hash token timing
 
-`AuthContext.initSession()` calls `getSession()` (reads localStorage) and sets `sessionChecked=true` immediately. Supabase's `detectSessionFromUrl` is async and runs concurrently — when a page loads via magic link redirect with `#access_token=...` in the URL, `sessionChecked` can become `true` with `session=null` before the hash is processed.
+`AuthContext.initSession()` calls `getSession()` (reads localStorage) and sets `sessionChecked=true` immediately. When a page loads via magic link redirect with `#access_token=...` in the URL, `sessionChecked` can become `true` with `session=null` before the hash is processed.
 
-**Pattern for pages reached via magic link redirect:** Before showing an auth-error state, check the hash:
+**Important: PKCE `flowType` does NOT auto-process hash tokens.**
+
+`supabase.ts` uses `flowType: 'pkce'`. This means `detectSessionInUrl` only handles PKCE code-exchange params (`?code=...`) — it ignores `#access_token=...` hash tokens entirely. Pages that receive a user via a Supabase admin magic link (which produces implicit-flow hash tokens) must call `supabase.auth.setSession()` manually.
+
+**Pattern A — pages that rely on `onAuthStateChange` (implicit flow only):**
+
+Used when `detectSessionFromUrl` was active (implicit flow). Still applies to pages where the auth state is secondary (not a hard gate on page load):
 
 ```typescript
 if (!session) {
@@ -317,4 +323,42 @@ if (!session) {
 }
 ```
 
-When `onAuthStateChange` fires with the session, the hash is cleared by Supabase and `session` state updates — the effect re-runs and the guard no longer blocks. See `letter-response-confirm-page.tsx` and `decisions.md` for full rationale.
+When `onAuthStateChange` fires, the hash is cleared and `session` updates — the effect re-runs and the guard no longer blocks. See `letter-response-confirm-page.tsx`.
+
+**Pattern B — pages that must be auth-gated before loading data (PKCE + admin magic links):**
+
+When a page's load effect requires an authenticated user (e.g., letter reading page with RLS-gated fetch), use a `magicLinkProcessing` state gate to block the load until `setSession()` propagates:
+
+```typescript
+// Synchronously detect hash in useState initializer so the load effect is blocked immediately.
+const [magicLinkProcessing, setMagicLinkProcessing] = useState(() => {
+  const hash = window.location.hash;
+  return hash.includes('access_token=') && hash.includes('type=magiclink');
+});
+
+// Extract tokens from hash and call setSession — clears hash on completion.
+useEffect(() => {
+  if (!magicLinkProcessing) return;
+  const params = new URLSearchParams(window.location.hash.substring(1));
+  const accessToken = params.get('access_token');
+  const refreshToken = params.get('refresh_token');
+  const cleanup = () => {
+    window.history.replaceState(null, '', window.location.pathname + window.location.search);
+    setMagicLinkProcessing(false);
+  };
+  if (accessToken && refreshToken) {
+    supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken })
+      .then(cleanup).catch(cleanup);
+  } else {
+    cleanup();
+  }
+}, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+// Load effect: gate on magicLinkProcessing so it doesn't run as anon during hash processing.
+useEffect(() => {
+  if (!sessionChecked || authLoading || magicLinkProcessing) return;
+  // ... fetch data ...
+}, [sessionChecked, authLoading, magicLinkProcessing, ...]);
+```
+
+After `setSession()`, `onAuthStateChange` fires → profile fetch → `currentUser` populated → `authLoading = false` → load effect runs as authenticated user. See `letter-reading-page.tsx` (P710).

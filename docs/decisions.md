@@ -2,6 +2,20 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-15 [technical]: PKCE client requires explicit setSession() for admin magic-link hash tokens
+
+**Context:** P710 — registered letter recipients arrive via a Supabase admin magic link (`generateLink` type `magiclink`). The link redirects to the letter page with `#access_token=...&type=magiclink` in the hash. The PKCE `flowType` client (`supabase.ts`) only processes `?code=...` PKCE params via `detectSessionInUrl` — it ignores implicit-flow hash tokens entirely. The letter load effect ran as anonymous, fetching the anon (unregistered) path instead of the authenticated path.
+
+**Decision:** Pages that receive admin magic-link redirects (hash-based tokens) with PKCE `flowType` must: (1) synchronously detect the hash in a `useState` initializer to set a `magicLinkProcessing` gate, (2) call `supabase.auth.setSession({ access_token, refresh_token })` from a run-once `useEffect`, (3) gate any data-loading effect on `magicLinkProcessing === false`. The `setSession()` call triggers `onAuthStateChange` → profile fetch → `currentUser` populated → load effect runs as authenticated.
+
+**Alternatives rejected:** Switching `supabase.ts` to implicit flow — would remove PKCE's ATP-scan protection (P608). Relying on `onAuthStateChange` alone without a gate — load effect fires as anon before auth propagates, wrong data path.
+
+**Consequences:** Any new page that may be reached via admin magic link with a PKCE client must implement Pattern B from `docs/technical/authentication.md`. The gate is low-cost (one `useState` + one `useEffect`) and has no effect on normal page loads (hash detection returns false immediately). See `letter-reading-page.tsx` for reference implementation.
+
+**References:** `src/app/pages/letter-reading-page.tsx` | `docs/technical/authentication.md` (Pattern B) | `supabase/functions/send-letter-emails/index.ts`
+
+---
+
 ## 2026-04-15 [technical]: Use field-presence gates, not type-tag allowlists, for data-driven conditional rendering
 
 **Context:** P699 Phase 2 — `inbox-tab.tsx` rendered step-count text (`"N of M steps"`) only when `item.type === 'received' || 'recipient_in_progress' || 'link_respondent_in_progress'`. When the SQL Branch 2 was extended to emit `steps_completed`/`total_steps` on completed sender rows (`recipient_responded`, `link_respondent`), the UI never surfaced them — the type allowlist was never updated. The canary confirmed: element not found (not a data problem; the RPC returned the fields correctly).
