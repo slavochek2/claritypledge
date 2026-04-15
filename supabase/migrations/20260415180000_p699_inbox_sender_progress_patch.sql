@@ -1,27 +1,11 @@
--- P699 Phase 2b: Extend get_inbox_items Branch 2 to include in-progress recipients.
+-- P699 Phase 2b patch: Fix two issues found in code review of 20260415170000.
 --
--- Bugs fixed:
---   Bug 1: Branch 2 had `AND ld.status = 'completed'` — in-progress deliveries were excluded.
---   Bug 2: Frontend used stories_rated/total_stories with "stories complete" label.
---          (Fixed in frontend; migration adds step fields to Branch 2 to support it.)
---   Bug 3: Sent tab summary copy — frontend-only fix.
+-- Fix 1: Branch 2 was missing `completed_at` — required by InboxItem TypeScript type.
+--         For in-progress rows completed_at is NULL; for completed rows it's set.
+-- Fix 2: Both branches: COALESCE(stories_rated, 0) to guard against NULL stories_rated
+--         on legacy rows where the DEFAULT 0 was not backfilled.
 --
--- Changes:
---   1. Branch 2 now includes status IN ('in_progress', 'completed') — excludes 'sent'/'opened'
---      (those have no recipient activity yet).
---   2. Branch 2 emits four type variants:
---        'recipient_in_progress'       — named recipient, started but not finished
---        'link_respondent_in_progress' — anonymous link respondent, started but not finished
---        'recipient_responded'         — named recipient, completed
---        'link_respondent'             — anonymous link respondent, completed
---   3. Branch 2 gains steps_completed + total_steps using same subqueries as Branch 1.
---   4. In-progress timestamp: ld.created_at (letter_deliveries has no updated_at column).
---
--- Note: letter_deliveries.updated_at does not exist; ld.created_at used as timestamp fallback
---       for in-progress rows. This means in-progress rows appear at letter creation time,
---       not at the time the recipient last engaged. Acceptable for this release.
---
--- Idempotency: DROP FUNCTION IF EXISTS + CREATE OR REPLACE — safe to run twice.
+-- Idempotent: DROP FUNCTION IF EXISTS + CREATE OR REPLACE.
 
 DROP FUNCTION IF EXISTS get_inbox_items();
 
