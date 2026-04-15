@@ -6,6 +6,9 @@ title: Points Restructure + Badge Display Fix
 pipeline_ran: [fix, ship]
 date_created: 2026-04-13
 completed_at: "2026-04-13"
+tags: []
+rank: 1000706.0
+created_date: 2026-04-13
 ---
 
 # P701: Clarity Points Restructuring + Badge Display Fix

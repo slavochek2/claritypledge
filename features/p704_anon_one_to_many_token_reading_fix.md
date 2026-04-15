@@ -8,6 +8,9 @@ pipeline_ran: [fix]
 date_reported: 2026-04-14
 branch: feature/letters-ship
 worktree: w2
+tags: []
+rank: 1000707.0
+created_date: 2026-04-14
 ---
 
 # P704: Anon One-to-Many Token Reading — HTTP 400 on Every Interaction

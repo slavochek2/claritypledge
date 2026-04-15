@@ -2,6 +2,58 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-15 [technical]: SECURITY DEFINER RPCs that validate point membership must use sealed snapshot, not live tables
+
+**Context:** `submit_point_response_by_token`'s P705 authorization guard joined live `story_points` to confirm `p_point_id` belongs to the letter. This caused the RPC to return `false` for any point that was in `point_config` (sealed at send time) but absent from `story_points` (deleted from story post-seal, or test setups that create points without linking them to a story). Anon 1:1 readers hit "Invalid or expired token" on every position submit.
+
+**Decision:** All token-based RPCs that validate point membership must scan `letter_story_snapshots.point_config->'points'` via `jsonb_array_elements`, not live tables. The sealed snapshot is the authoritative and immutable record of what points belong to a letter. Live join tables (`story_points`, etc.) can diverge after seal and must never be used as the validation source.
+
+**Alternatives rejected:** Joining `story_points` — diverges post-seal. Skipping the authorization guard — would allow any point_id to be submitted against any valid token.
+
+**Consequences:** Any future RPC that needs to confirm a point or story belongs to a sealed letter must read from `letter_story_snapshots.point_config`, not from live tables. Pattern: `FROM letter_story_snapshots lss, jsonb_array_elements(lss.point_config->'points') pt WHERE lss.letter_id = v_letter_id AND (pt->>'id')::uuid = p_point_id`.
+
+**References:** `supabase/migrations/20260415143000_p705_fix_point_guard_use_snapshot.sql`, `features/p704_anon_one_to_many_token_reading_fix.md`
+
+---
+
+## 2026-04-15 [technical]: `jsonb_array_elements` requires null-safety guard in SECURITY DEFINER functions
+
+**Context:** `jsonb_array_elements(expr)` throws `ERROR 22023: cannot call jsonb_array_elements on a scalar` if its argument is a non-array value (e.g. missing key returns `null`, malformed value returns a scalar). While `seal_and_send_letter` always writes a well-formed `point_config->'points'` array, defensive code prevents runtime exceptions from unexpected data.
+
+**Decision:** Wrap any `jsonb_array_elements` call in SECURITY DEFINER functions with: `CASE WHEN jsonb_typeof(expr) = 'array' THEN expr ELSE '[]'::jsonb END`. This ensures the function always receives a valid array, returning zero rows (not an exception) for missing or malformed keys.
+
+**Alternatives rejected:** Relying on upstream write correctness alone — violates defensive DB programming; a single malformed row would fail every call for that letter.
+
+**Consequences:** All new migrations that use `jsonb_array_elements` on JSONB fields must include this guard. Existing usages in older migrations are grandfathered but should be patched if the function is ever `CREATE OR REPLACE`-d.
+
+**References:** `supabase/migrations/20260415160001_p705_fix_point_guard_null_safe.sql`
+
+---
+
+## 2026-04-15 [technical]: Parent component is the only safe place for pre-mount storage cleanup
+
+**Context:** The letter preview persistence bug fix (feature/letters-ship) put a purge `useEffect` inside `useLetterReadingState`. The canary test still failed after the hook edit because: (1) React `useEffect` fires *after* `useState()` initialization completes synchronously, so the purge can never prevent a stale entry from being read on that mount; (2) `LetterPreviewFlow` (which calls the hook) only mounts when `viewState === 'reading'` — the cover screen never mounts the hook at all, so the hook-level purge never fired on preview navigation.
+
+**Decision:** When storage must be cleared before a hook's `useState` initializer can read it, the cleanup belongs in the *parent* component as a `useEffect` — not in the hook. The hook-level effect is still useful for belt-and-suspenders cleanup of lingering entries after they've already been safely skipped, but it cannot substitute for parent-level cleanup. Rule: if the invariant is "never read stale data on mount", the guard must be in `useState(() => {...})` (synchronous) or in the parent before the child mounts.
+
+**Alternatives rejected:** Separate hook for preview that doesn't read storage — larger diff, duplicates logic. Relying solely on the `!previewMode` load gate without any purge — leaves orphaned entries in localStorage permanently.
+
+**Consequences:** Before adding a purge `useEffect` to a hook, ask: "does this hook always mount when the user navigates to this route?" If the hook is behind a conditional render (e.g., `viewState === 'reading'`), the parent component must own the cleanup. Add a comment to hook-level cleanup effects noting they run after state init and cannot prevent a read.
+
+**References:** `src/app/pages/letter-preview-page.tsx` (page-level purge), `src/app/hooks/useLetterReadingState.ts` (hook-level purge comment), feature/letters-ship
+
+## 2026-04-15 [technical]: Mode flags must gate all side effects of the same class, not a subset
+
+**Context:** `useLetterReadingState` had `previewMode` gating DB writes (submitRating, updateDeliveryStatus, etc. — lines with `if (!previewMode)` added in P673). Storage reads and writes (`loadState`, `saveState` via sessionStorage/localStorage) had no `previewMode` guard. This caused preview sessions to resume from a prior walk instead of starting fresh, because the hook restored from localStorage on mount.
+
+**Decision:** When a mode flag is introduced to suppress one type of side effect, it must consistently suppress all side effects of the same class. DB writes and client storage writes are both "persistence side effects" — if `previewMode` disables DB persistence, it must also disable storage persistence. The contract for `previewMode` is now: no DB writes, no storage reads, no storage writes. Before adding a new write path to this hook, check whether it should be gated on `!previewMode`.
+
+**Alternatives rejected:** Separate deliveryId namespace for preview (e.g., `preview-${docId}` vs real UUID) — still leaks across author sessions; doesn't express the invariant that preview is fully ephemeral. Gate only the load path — preview would still pollute storage, causing cross-session leakage.
+
+**Consequences:** Any future side effect added to `useLetterReadingState` must declare its relationship to `previewMode` explicitly. The same principle applies to other mode flags in the codebase (`localMode`, `demoMode`, etc.) — a new side effect category added to a mode-gated hook should be audited against all existing modes, not just the one currently being worked on.
+
+**References:** `src/app/hooks/useLetterReadingState.ts` (load gate line ~299, save gate line ~344), feature/letters-ship
+
 ## 2026-04-15 [process]: DB bug reproduction must be an actual DB call, not code analysis (Status: proposed)
 
 **Context:** During P707 investigation, agent traced the code path and RLS policy and presented it as near-confirmation of the bug. User had to explicitly ask "did you reproduce the bug?" before the agent made the actual curl call that returned `42501`. Three failed JWT attempts followed before finding the e2e test helper password already in the codebase.
