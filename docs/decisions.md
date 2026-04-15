@@ -2,6 +2,34 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-15 [technical]: Supabase Realtime channel singleton — one channel per userId, handlers mutated in-place
+
+**Context:** P703 — `useOpenLiveInvite` hook is called by three components simultaneously (`simple-navigation.tsx`, `bottom-nav.tsx`, `letters-page.tsx`). Each call reached `subscribeToLiveInvites()`, which previously called `supabase.channel('live_invites:userId')` and `.subscribe()` independently. Supabase returns the same channel object for the same topic name, so the second `.subscribe()` call fired while the channel was in JOINING state → `CHANNEL_ERROR`, subscription never reached `SUBSCRIBED`. Additionally: the original unsubscribe used `entry.handlers = entry.handlers.filter(...)` — this creates a new array, breaking the closure held by the channel's event callbacks (which captured the original array reference). Removed handlers kept firing; handlers added after the first unsubscribe were invisible to callbacks.
+
+**Decision:** When a Realtime subscription function may be called by multiple React components simultaneously, use a **module-level Map keyed by userId** to ensure only one `supabase.channel().subscribe()` call is made per user. Multiplex all component callbacks through a shared `handlers` array. Unsubscribe must **mutate the array in-place** (`splice`) — not reassign it (`filter`) — because event callbacks close over the original array reference at channel-creation time, not the `entry.handlers` property. Pattern: `const idx = handlers.indexOf(h); if (idx >= 0) handlers.splice(idx, 1)`. Cleanup the channel only when `handlers.length === 0`.
+
+**Alternatives rejected:** Per-component channel with deduplication via `supabase.getChannels()` — works but requires async state tracking of channel close lifecycle to avoid the rapid-remount race. Module Map is synchronous and simpler.
+
+**Consequences:** Any subscription function that may be mounted by multiple concurrent components must use the module-level Map singleton pattern. Callers that use `Array.filter()` to remove a handler from a registry that event callbacks close over will silently keep firing the removed handler — always use `splice` for in-place removal. The module Map persists across React remounts (intentionally); it's cleaned up only when the last subscriber unmounts.
+
+**References:** `src/app/data/api.ts` (subscribeToLiveInvites, liveInviteChannels Map) | `src/app/hooks/useOpenLiveInvite.ts`
+
+---
+
+## 2026-04-15 [technical]: RLS UPDATE policy silently drops rows — E2E tests must assert row state, not error return
+
+**Context:** P703 integration tests — the RLS canary for "stranger cannot UPDATE a letter-sourced session" originally asserted `expect(error).not.toBeNull()`. The test always passed (error was always null). PostgREST UPDATE against a row excluded by an RLS `USING` clause returns HTTP 200 with zero rows affected and no error — it silently does nothing. The stranger's write appeared to succeed because no error was thrown.
+
+**Decision:** E2E RLS tests for UPDATE operations must **verify row state via admin client** after the restricted write, not inspect the error return. Pattern: (1) stranger attempts write via user-scoped client, (2) admin client reads the row, (3) assert the sensitive column is still `null` / unchanged. The Supabase REST API (PostgREST) returns no error for RLS-filtered UPDATEs — it models them as "0 rows matched your filter."
+
+**Alternatives rejected:** Checking HTTP status code — PostgREST returns 200 regardless of rows affected for UPDATE. Checking `.count` on the response — depends on `Prefer: return=representation` header which test clients don't set by default.
+
+**Consequences:** All existing RLS canary tests for UPDATE should be audited — any that assert `error !== null` are false negatives. New RLS tests must seed a sentinel value, attempt the restricted write, and assert the sentinel is unchanged (not null, which may be the initial value).
+
+**References:** `e2e/integration/p703-letter-sourced-live-migration.spec.ts` (RLS canary test) | `docs/technical/e2e-testing-guide.md`
+
+---
+
 ## 2026-04-15 [technical]: PKCE client requires explicit setSession() for admin magic-link hash tokens
 
 **Context:** P710 — registered letter recipients arrive via a Supabase admin magic link (`generateLink` type `magiclink`). The link redirects to the letter page with `#access_token=...&type=magiclink` in the hash. The PKCE `flowType` client (`supabase.ts`) only processes `?code=...` PKCE params via `detectSessionInUrl` — it ignores implicit-flow hash tokens entirely. The letter load effect ran as anonymous, fetching the anon (unregistered) path instead of the authenticated path.
