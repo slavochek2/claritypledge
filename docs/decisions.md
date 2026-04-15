@@ -2,6 +2,30 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-15 [technical]: Use field-presence gates, not type-tag allowlists, for data-driven conditional rendering
+
+**Context:** P699 Phase 2 — `inbox-tab.tsx` rendered step-count text (`"N of M steps"`) only when `item.type === 'received' || 'recipient_in_progress' || 'link_respondent_in_progress'`. When the SQL Branch 2 was extended to emit `steps_completed`/`total_steps` on completed sender rows (`recipient_responded`, `link_respondent`), the UI never surfaced them — the type allowlist was never updated. The canary confirmed: element not found (not a data problem; the RPC returned the fields correctly).
+
+**Decision:** Gate conditional rendering on **field presence**, not item type, when the condition is "does the data exist to render this?" Pattern:
+
+```tsx
+// Before (brittle — every new type with step data must be manually listed):
+{(item.type === 'received' || item.type === 'recipient_in_progress') && item.steps_completed !== undefined && ...}
+
+// After (resilient — renders for any item the RPC equips with step data):
+{item.steps_completed !== undefined && item.total_steps !== undefined && ...}
+```
+
+Use a type-tag gate only when the **behaviour differs by type** (e.g., different copy, different action). If the behaviour is identical and gating is purely "does the field exist?", field-presence is correct.
+
+**Alternatives rejected:** Continuing to maintain an exhaustive type allowlist — brittle; breaks silently every time a new type variant is added with the same data shape.
+
+**Consequences:** When adding a new `InboxItem.type` variant that carries step data, no UI change is required — the progress label renders automatically. When adding a variant with *different* step semantics, a type check is appropriate. As of this entry `InboxItem.type` is: `'received' | 'recipient_responded' | 'link_respondent' | 'recipient_in_progress' | 'link_respondent_in_progress'`. The last two types were added by the `20260415190000_p699_inbox_order_and_case_align` migration.
+
+**References:** `src/app/components/letters/inbox-tab.tsx:193` | `supabase/migrations/20260415190000_p699_inbox_order_and_case_align.sql` | `src/app/types/index.ts:1417`
+
+---
+
 ## 2026-04-15 [technical]: Letter engage phases use PointRow with letterMode, not PointCardWithLinks
 
 **Context:** P708 audit found `LetterFlowContent` was rendering `PointCardWithLinks` in `point-engage` and `remaining-point-engage` phases. `PointCardWithLinks` is a social card designed for profile and point-detail pages — it renders "Add your story" CTAs, hashtag pills, visibility icons, and guest-hint text. All of this is wrong in a letter reading context where the receiver should see only the point statement and position buttons.
