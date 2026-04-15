@@ -2,6 +2,18 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-15 [process]: `/polish` skill — closes the `/critique-ux → implementation` gap
+
+**Context:** After shipping `/critique-ux`, the pipeline was `/critique-ux → ???`. The skill produced a punch list but no destination existed for visual fixes. `/fix` has no visual loop (no before/after screenshots, no blind QA, no per-item approval gate). `/change-request` defers implementation to a full pipeline run. The 2026-04-14 `/critique-ux` decision said it "routes each picked item to `/create-spec`, `/change-request`, or `/create-bug`" — but this left visual fixes without a fast-path implementation skill.
+
+**Decision:** Added `/polish` — a post-critique visual fix loop. Per item: (1) ownership-based scope check (if any usage of a touched component is outside this feature's route tree → /change-request; route-count is not the criterion, ownership is), (2) design decision gate (spec-answered → cite exact spec line; spec-silent → ask founder open-ended, no inferred A/B/C options), (3) screenshot before → implement → build gate → E2E selector check → commit → screenshot after, (4) blind visual QA subagent (before+after screenshots only, no code diff passed — anti-confirmation-bias), (5) founder approval gate per item. One commit per item; rollback is `git revert`, not `git reset`. All visual issues from `/critique-ux` go to `/polish`, including spec-answered ones — the value is the screenshot loop and blind QA, not just the decision gate. Updated `/critique-ux` Step 5: visual fix → `/polish`; redesigns touching shared components → `/change-request`; net-new → `/create-spec`; broken code → `/create-bug`.
+
+**Alternatives rejected:** (A) Route spec-answered visual items to `/fix` — `/fix` has no visual verification loop; "tests pass" is not evidence for UI correctness. (B) Extend `/view` with `--post-critique` flag — `/view` creates new components pre-build; conflating pre-build and post-ship blurs its purpose. (C) Route all items through full pipeline (`/change-request → /ux → /architect → /dev`) — 3–4 handoffs for what is often a one-line change with a clear spec answer.
+
+**Consequences:** `/critique-ux` punch list must be written to the spec file (as `## Punch List` section with `severity:`, `where:`, `observed:` fields) for `/polish` Step 1 to read. Currently `/critique-ux` produces the list in conversation only — this is a gap; Step 4 of `/critique-ux` should auto-append the punch list to the spec. `/fix` is now reserved for pure code bugs with no visual decision component. Shared component changes are explicitly routed out of `/polish` to `/change-request`.
+
+**References:** [.claude/commands/slava/build/polish.md](.claude/commands/slava/build/polish.md), [.claude/commands/slava/build/critique-ux.md](.claude/commands/slava/build/critique-ux.md), 2026-04-14 [process]: `/critique-ux` skill
+
 ## 2026-04-14 [technical]: P705 results page — focus-refetch over realtime/polling for cross-tab position staleness
 
 **Context:** After P705 made position buttons interactive on `/letter/:id/results`, a cross-tab staleness gap remained: if a user updated their position on `/story/:id` in another tab and switched back to results, the buttons still showed the pre-update state. The initial `/dev` only fetched on mount.
