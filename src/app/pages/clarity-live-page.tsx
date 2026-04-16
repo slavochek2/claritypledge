@@ -2708,6 +2708,12 @@ export function ClarityLivePage() {
     if (!sess.targetListenerId || !sess.sourceStoryId || !sess.sourceLetterId || !sess.creatorProfileId) {
       return;
     }
+    // Idempotency guard: if session already has a phase > idle, skip DB write to avoid
+    // overwriting in-progress state (e.g. creator page-refreshes mid-session)
+    const existingPhase = (sess.liveState as { ratingPhase?: string } | undefined)?.ratingPhase;
+    if (existingPhase && existingPhase !== 'idle') {
+      return;
+    }
     try {
       const [ratings, storyData] = await Promise.all([
         getLetterBaselineRatings(

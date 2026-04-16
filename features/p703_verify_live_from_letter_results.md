@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: qa
 type: story
 rank: 1000703.0
 tags: [letters, live, verification, practice-room, inbox, notifications]
