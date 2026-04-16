@@ -6,7 +6,7 @@ severity: medium
 workstream: letters
 date_reported: '2026-04-16'
 created_date: '2026-04-16'
-tags: [letters, inbox, sent-tab, realtime]
+tags: [letters, inbox, sent-tab, polling]
 delivery_stage: reproduce
 pipeline_ran: [create-bug, reproduce]
 reproduce_artifact:
@@ -50,10 +50,14 @@ useEffect(() => {
 }, [fetchItems]);
 ```
 
-No Supabase real-time subscription is set up for `letter_deliveries` changes.
-When a recipient submits a step, `letter_deliveries.status` changes to
-`in_progress` and `get_deliveries_with_progress` RPC would return updated
-`steps_completed` — but the sender's tab never re-queries.
+When a recipient submits a step, the DB updates but both tabs have no mechanism
+to learn about it — the sender must manually refresh.
+
+## Why Not Supabase Realtime
+
+Realtime was evaluated and rejected:
+- `letter_deliveries` has no `sender_id` column (it's on `clarity_letters` via join) — cannot filter the subscription server-side for the sender. Unfiltered subscriptions leak event metadata across all users' WebSockets.
+- Step counts (`steps_completed`, `total_steps`) are computed by the `get_deliveries_with_progress` RPC from `story_ratings` and `point_responses` child tables. A `letter_deliveries` subscription never fires when a recipient completes a step — step counts stay frozen.
 
 ## Reproduction
 
@@ -64,17 +68,39 @@ When a recipient submits a step, `letter_deliveries.status` changes to
 4. Sender observes their Sent tab — **no update appears** (stale status remains)
 5. Sender manually refreshes page — sent card now shows "In progress" + step count
 
+## Solution
+
+Add **polling + visibility API** to both components. Same pattern in both files:
+
+```tsx
+useEffect(() => {
+  fetchData(); // or fetchItems() in inbox-tab
+  const interval = setInterval(fetchData, 15_000);
+  const onVisible = () => { if (document.visibilityState === 'visible') fetchData(); };
+  document.addEventListener('visibilitychange', onVisible);
+  return () => {
+    clearInterval(interval);
+    document.removeEventListener('visibilitychange', onVisible);
+  };
+}, [fetchData]); // fetchData/fetchItems identity is stable via useCallback
+```
+
+- 15s poll catches delivery status transitions AND step count updates from child tables
+- Visibility handler re-fetches immediately when user returns to the tab
+- Cleanup on unmount prevents memory leaks and setState-on-unmounted-component
+
 ## Affected Files
 
 | File | Change needed |
 |------|--------------|
-| `src/app/components/letters/sent-tab.tsx` | Add Supabase real-time subscription on `letter_deliveries` for sender's letters; call `fetchData()` on INSERT/UPDATE |
-| `src/app/components/letters/inbox-tab.tsx` | Add Supabase real-time subscription; call `fetchItems()` on relevant changes |
+| `src/app/components/letters/sent-tab.tsx` | Replace mount-only `useEffect` with polling + visibility pattern |
+| `src/app/components/letters/inbox-tab.tsx` | Same replacement |
 
 ## Acceptance Criteria
 
 - [ ] Sent tab updates delivery status (Sent → In progress → Completed) without page refresh when recipient interacts
 - [ ] "x of y steps" progress counter appears in sent tab `RecipientRow` without page refresh when recipient makes progress
 - [ ] Inbox tab shows new `recipient_responded` / `recipient_in_progress` items without page refresh
-- [ ] No duplicate subscription on component re-renders (cleanup on unmount)
+- [ ] Cleanup on unmount: interval + visibilitychange listener both removed
+- [ ] Canary test `e2e/p720-sent-tab-realtime.spec.ts` passes
 - [ ] `npm test` passes
