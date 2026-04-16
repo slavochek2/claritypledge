@@ -2,6 +2,27 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-16 [technical]: Negative waitFor assertions are false-green canaries — wait for positive load signal first
+
+**Context:** P722 canary test — `waitFor(() => expect(el).not.toBeInTheDocument())` passed immediately even though the bug was present. The component starts in `pageState='loading'` (loader visible). The absence assertion is true at that moment, so `waitFor` resolves on its first poll — before the async fetch fires and renders the buggy content.
+
+**Decision:** Never write a canary assertion as a negative `waitFor` without first anchoring on a positive load signal. Pattern:
+```typescript
+// Step 1: wait for loading to finish (positive — loader disappears)
+await waitFor(() => expect(screen.queryByTestId('loader')).not.toBeInTheDocument());
+// Step 2: check absence (now meaningful — async load has completed)
+expect(screen.queryByTestId('buggy-element')).not.toBeInTheDocument();
+```
+Step 2 uses a plain `expect` (not `waitFor`) because the page is already settled. Using `waitFor` in Step 2 would re-introduce the early-resolve problem.
+
+**Alternatives rejected:** Single `waitFor` with negative assertion — resolves immediately when element is not yet in DOM (before async load). Using `waitForElementToBeRemoved` — only works when element was already in DOM and then removed.
+
+**Consequences:** All canary tests asserting absence of a component must follow the two-step pattern. The `data-testid="loader"` on `ClarityPageLoader` is load-state's positive signal — mock it as a real element (not null) so tests can anchor on it. A canary test that passes before the fix is wrong by definition — this rule prevents the false-green class.
+
+**References:** `src/tests/p722-reproduce.test.tsx` — first test to apply this pattern
+
+---
+
 ## 2026-04-16 [technical]: Letter-sourced /live bootstrap — two call sites required, idempotency guard on liveState.ratingPhase
 
 **Context:** P703 initial implementation called `bootstrapLetterSourcedSession` only from `handleCreate` (the /live start screen "Create" button). `StartClaritySessionButton` bypasses that path: it calls `createClaritySession` directly then navigates to `/live/<code>`. The auto-join effect detected the creator but didn't bootstrap. Result: session stayed at `ratingPhase: 'idle'` and the story card never rendered.
