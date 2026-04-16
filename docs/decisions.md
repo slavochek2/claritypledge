@@ -2,6 +2,48 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-16 [technical]: All letter submission writer paths must dual-write to point_positions — audit required on new paths (P708)
+
+**Context:** P705 rolled out the staging+replay dual-write pattern but enumerated only two writer paths: `submitPointResponse` (RPC-based, single position) and `persist_anonymous_completion` (replay function). Two paths were missed: `submitLetterResponseAuthenticated` (client-auth, bulk completion) and the `confirm-letter-response` edge function (email round-trip). Both wrote only to `letter_point_responses` (staging buffer), leaving `point_positions` empty for all authenticated letter completions — results-page pills showed unselected and profiles showed no positions.
+
+**Decision:** Fixed in P708. When adding a new letter submission path or extending an existing one: (1) check if it writes to `letter_point_responses` and (2) if yes, add a matching non-fatal upsert to `point_positions` with `onConflict: 'point_id,user_id'`. Failure must be non-fatal — unverified users fail RLS and their positions replay via `persist_anonymous_completion` at verification. Validate position strings against the `position_type` enum before upserting to prevent 22P02 cast errors.
+
+**Alternatives rejected:** Moving all writes into a single atomic SECURITY DEFINER RPC — deferred per P707 spec decision; staging buffer must remain separately writable.
+
+**Consequences:** Current confirmed dual-write paths: `submitPointResponse` (P705), `submitLetterResponseAuthenticated` (P708), `confirm-letter-response` edge function (P708). New letter submission paths must add to this list. The `persist_anonymous_completion` replay covers positions that failed RLS at write time — do not remove it even when client-path writes succeed.
+
+**References:** `src/app/data/letters-service.ts` (`submitLetterResponseAuthenticated`) | `supabase/functions/confirm-letter-response/index.ts` | `src/tests/p708-authenticated-letter-position-dual-write.test.ts`
+
+---
+
+## 2026-04-16 [technical] (Status: proposed): confirm-letter-response stages invalid position_type strings — persist_anonymous_completion silently skips them
+
+**Context:** The email round-trip path converts string positions to integers (POSITION_VALUES[-3..3]) at the client before calling the edge function (decision at 2026-04-10). The edge function stores `String(p.position)` in `letter_point_responses.position` (TEXT column), producing "-3".."2" etc. `persist_anonymous_completion` has a valid-enum filter (`WHERE lpr.position IN ('strongly_disagree',...)`), so these rows are silently skipped — positions from the email path never reach `point_positions` via replay. The P708 fix added a direct upsert to `point_positions` in the edge function (numeric → enum string via Map), bypassing the broken staging path. But `letter_point_responses` still contains invalid strings for this path.
+
+**Decision:** Unresolved. The staging buffer for the email path stores data that cannot be replayed by `persist_anonymous_completion`. Fix options: (A) store enum strings in `positions_json` instead of integers (requires changing client conversion + edge function); (B) add a numeric-string-to-enum conversion inside `persist_anonymous_completion`; (C) accept the staging buffer as non-replayable for this path (P708 direct upsert makes replay moot for already-verified users).
+
+**Alternatives rejected:** None chosen yet.
+
+**Consequences:** For verified email-round-trip completions, P708's direct upsert ensures `point_positions` is populated. For unverified email-round-trip completions, `persist_anonymous_completion` replay will still skip invalid strings — positions are lost for that population. Scope of impact: anon readers who complete a letter via email link but don't yet have a verified account.
+
+**References:** `supabase/functions/confirm-letter-response/index.ts` | `supabase/migrations/` (valid-enum filter in `persist_anonymous_completion`)
+
+---
+
+## 2026-04-16 [technical]: Use maybeSingle() instead of single() when 0 rows is a valid PostgREST result (P699)
+
+**Context:** `getOpenLiveInviteForUser` used `.single()` to fetch the current user's open live invite. PostgREST returns HTTP 406 Not Acceptable when `.single()` finds 0 rows — the expected state for any user not currently in an active session. The `useOpenLiveInvite` hook mounts in 3 components (`bottom-nav`, `simple-navigation`, `letters-page`), so every page load fired 3–5 concurrent 406 errors into the browser console. Traced via Playwright trace zip (`0-trace.network` NDJSON extraction) — all 5× 406s came from the `clarity_live_invites` query.
+
+**Decision:** Use `.maybeSingle()` when the query returning 0 rows is a normal, expected outcome. `.single()` is only appropriate when 0 rows should be treated as an error (e.g., fetching a record by primary key that must exist). `.maybeSingle()` returns `null` for 0 rows and raises an error only when >1 row is returned.
+
+**Alternatives rejected:** Suppressing the 406 via `.throwOnError(false)` — masks real errors. Filtering 406s in the smoke test — wrong; the test correctly flags unexpected console errors.
+
+**Consequences:** Grep for `.single()` in `src/app/data/api.ts` before any new query — confirm the call site cannot legitimately return 0 rows before using it. The smoke test `p699-inbox-progress.spec.ts` asserts zero critical console errors on page load; this is the regression guard.
+
+**References:** `src/app/data/api.ts` (`getOpenLiveInviteForUser`) | `src/app/hooks/useOpenLiveInvite.ts` | `e2e/p699-inbox-progress.spec.ts`
+
+---
+
 ## 2026-04-15 [technical]: getDoc() never joins point_positions — pages rendering PositionButtons must enrich userPosition separately (P713)
 
 **Context:** P713 — `docsService.getDoc()` fetches `story_points → points` but has no `point_positions` subquery, so `userPosition` is always `undefined` on every point it returns. In `letter-compose-page.tsx`, this meant the author's existing positions were never shown on the position buttons when the compose flow opened. `letter-preview-page.tsx` already had the fix (added during a previous session) — it calls `pointsService.getMyPositionsForPoints()` after `getDoc()` and merges results into the stories before render.
