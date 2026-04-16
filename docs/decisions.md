@@ -2,6 +2,48 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-16 [technical]: REPLICA IDENTITY FULL required for Realtime UPDATE events filtered on non-PK columns
+
+**Context:** P703 — `useOpenLiveInvite` subscribes to `clarity_live_invites` filtered by `target_user_id=eq.{userId}`. When `complete_clarity_session` set `closed_at`, the UI invite row never disappeared. Realtime UPDATE events with column-level filters require the OLD row values to match the filter. Without `REPLICA IDENTITY FULL`, Postgres only logs the changed columns + PK in the WAL — the OLD row is incomplete, so Realtime cannot evaluate the filter and silently drops the event.
+
+**Decision:** Any table whose Realtime subscriptions filter on a non-PK column (e.g. `target_user_id`, `session_id`) must have `ALTER TABLE <name> REPLICA IDENTITY FULL` applied. The default `DEFAULT` identity logs only PK columns in OLD — sufficient for PK-filtered subscriptions but not for column-level filters. `FULL` logs all columns, enabling Realtime to evaluate any filter predicate.
+
+**Alternatives rejected:** `USING INDEX` — works for indexed columns only; the column still must be in the index and the subscription filter must match it exactly. `FULL` is simpler and the overhead is negligible for low-volume tables.
+
+**Consequences:** When adding a new Realtime subscription with a non-PK filter, check whether `REPLICA IDENTITY FULL` is set on the table. If not, add a migration. Omitting it produces a silent failure — UPDATE events simply never arrive at the subscriber; no error is logged anywhere.
+
+**References:** `supabase/migrations/20260415140000_p703_invites_replica_identity.sql`
+
+---
+
+## 2026-04-16 [technical]: SECURITY DEFINER RPCs — auth.uid() returns NULL for service_role callers; treat NULL as trusted
+
+**Context:** P703 — `complete_clarity_session(p_session_id)` authorized callers via `NOT EXISTS (SELECT 1 FROM clarity_sessions WHERE id = p_session_id AND auth.uid() IN (...))`. E2E tests called this via the Supabase admin client (service_role key). `auth.uid()` returns NULL when called outside a user JWT context (e.g. service_role, pg_cron, server-side scripts). NULL never equals any UUID, so the `NOT EXISTS` guard always evaluated true → `RAISE EXCEPTION 'not authorized'` → tests failed and the invite was never closed.
+
+**Decision:** In SECURITY DEFINER functions that authorize based on `auth.uid()`: add an explicit `auth.uid() IS NULL` bypass as the first check — a NULL uid means the call originated from a service_role or internal context, which SECURITY DEFINER already protects from untrusted code. Pattern: `IF auth.uid() IS NOT NULL AND NOT EXISTS (...) THEN RAISE EXCEPTION 'not authorized'; END IF;`
+
+**Alternatives rejected:** Requiring the admin client to impersonate a user JWT — adds complexity for test infrastructure; service_role callers should not need to fabricate a user context. Removing the authorization check — not acceptable for user-facing functions.
+
+**Consequences:** All SECURITY DEFINER RPCs that check `auth.uid()` in an authorization guard should follow this pattern. The NULL bypass is safe because SECURITY DEFINER prevents untrusted callers from invoking the function; service_role + pg_cron + edge functions are the only non-user paths.
+
+**References:** `supabase/migrations/20260415130000_p703_complete_session_closes_invites.sql`
+
+---
+
+## 2026-04-16 [technical]: Trigger rate-limit on updated_at — first UPDATE after INSERT is always within window; guard against it
+
+**Context:** P703 — `trg_live_invite_resend_rate_limit` checked `OLD.updated_at > now() - interval '30 seconds'` to block rapid resends. On a fresh INSERT, `updated_at = created_at`. The first resend (e.g. immediately after sending) triggered the trigger, found `OLD.updated_at` was within 30 seconds of INSERT time, and raised an exception — blocking the first legitimate resend.
+
+**Decision:** Rate-limit triggers that check `updated_at` must gate on whether the row has been updated before: `IF OLD.updated_at IS DISTINCT FROM OLD.created_at THEN [apply window check] END IF`. This allows the first resend unconditionally; subsequent resends are rate-limited. General rule: when writing a "throttle on update" trigger, always test the first-update-after-insert path explicitly — `OLD.updated_at` starts equal to `OLD.created_at` and the first update lands within the window by construction.
+
+**Alternatives rejected:** Initializing `updated_at` to `'-infinity'` on INSERT — technically correct but surprising default value; the `IS DISTINCT FROM created_at` check is more semantically clear and doesn't require schema changes.
+
+**Consequences:** Any trigger that rate-limits based on an `updated_at` timestamp must include the `IS DISTINCT FROM created_at` guard. Write a canary test: (1) INSERT row, (2) immediately UPDATE → expect success (first resend), (3) UPDATE again within 30s → expect rate-limit rejection.
+
+**References:** `supabase/migrations/20260415120000_p703_rls_fixes.sql` (check_live_invite_resend_rate_limit)
+
+---
+
 ## 2026-04-16 [process]: /reproduce introduced as mandatory first step in the bug pipeline — reverses 2026-04-06 decision
 
 **Context:** The 2026-04-06 decision rejected `/reproduce` as a standalone skill, reasoning that it would duplicate logic already in `/fix` Phase 1, add maintenance cost, and be skipped anyway. Evidence from P714: 8 code fixes shipped in a single session without a single canary test; the QA gate was set with all 9 AC items unchecked. The diagnosis: phases built *inside* `/fix` are treated as implementation steps that the agent can reorder or skip. A failing test artifact that *must exist before `/fix` can start* is structurally different from a checklist inside `/fix`.
