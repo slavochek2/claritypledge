@@ -57,7 +57,7 @@ export function LetterReadingPage() {
   const token = searchParams.get('token') ?? '';
   const navigate = useNavigate();
   const location = useLocation();
-  const { user: currentUser, session, sessionChecked, isLoading: authLoading } = useAuth();
+  const { user: currentUser, session, sessionChecked, isLoading: authLoading, signOut } = useAuth();
 
   // P696: skip cover when arriving from confirm page (avoids flash)
   const skipToComplete = (location.state as { skipToComplete?: boolean } | null)?.skipToComplete === true;
@@ -271,6 +271,18 @@ export function LetterReadingPage() {
             const expiresAt = new Date(readData.delivery.access_token_expires_at);
             if (expiresAt < new Date()) {
               setSafe('expired');
+              return;
+            }
+          }
+
+          // P717: Guard against wrong authenticated user claiming a delivery.
+          // Unclaimed deliveries have receiver_profile_id = null, so the existing
+          // receiver_profile_id check doesn't fire. Compare emails instead.
+          if (currentUser && readData.delivery?.receiver_email) {
+            const intendedEmail = readData.delivery.receiver_email.toLowerCase();
+            const currentEmail = (currentUser.email ?? '').toLowerCase();
+            if (currentEmail !== intendedEmail) {
+              setSafe('wrong_user');
               return;
             }
           }
@@ -603,17 +615,31 @@ export function LetterReadingPage() {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center gap-4 px-4 text-center">
         <h1 className="text-xl font-semibold text-[#1A1A1A]">
-          This letter wasn&apos;t sent to you
+          This link is for a different account
         </h1>
         <p className="text-sm text-[#1A1A1A]/60 max-w-sm">
-          This letter is addressed to a different person.
+          Sign out and reopen the link to receive it as the intended recipient.
         </p>
-        <Link
-          to="/docs"
-          className="inline-flex items-center justify-center px-4 py-2 text-sm font-medium text-white bg-blue-500 hover:bg-blue-600 rounded-md mt-2 min-h-[40px]"
-        >
-          Back to docs
-        </Link>
+        <div className="flex gap-3 mt-2">
+          <Link
+            to="/"
+            className="inline-flex items-center justify-center px-4 py-2 text-sm font-medium border border-gray-200 hover:bg-gray-50 transition-colors rounded-md min-h-[40px]"
+          >
+            Go home
+          </Link>
+          <button
+            type="button"
+            onClick={async () => {
+              if (currentUser) {
+                await signOut();
+                navigate(`/letter/${deliveryId}?token=${token}`);
+              }
+            }}
+            className="inline-flex items-center justify-center px-4 py-2 text-sm font-medium text-white bg-[#0044CC] hover:bg-[#0033AA] transition-colors rounded-md min-h-[40px]"
+          >
+            Sign out
+          </button>
+        </div>
       </div>
     );
   }
