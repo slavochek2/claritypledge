@@ -10,7 +10,7 @@
  * This test calls the actual RPC as the sender, so the fix is what makes it pass.
  */
 
-import { test, expect, createClient } from '@playwright/test';
+import { test, expect } from '@playwright/test';
 import {
   createTestUser,
   setTestSession,
@@ -35,8 +35,9 @@ async function createAuthClientForUser(email: string) {
     email,
     password: 'test-password-12345',
   });
+  if (!data.session) throw new Error(`signInWithPassword failed for ${email}`);
   return mkClient(supabaseUrl, supabaseAnonKey, {
-    global: { headers: { Authorization: `Bearer ${data.session!.access_token}` } },
+    global: { headers: { Authorization: `Bearer ${data.session.access_token}` } },
     auth: { autoRefreshToken: false, persistSession: false },
   });
 }
@@ -71,6 +72,18 @@ test.describe('P731: Inbox letter arrival after send', () => {
       p_email: receiver.email,
     });
     if (error) throw new Error(`RPC failed: ${error.message}`);
+
+    // Pin the root cause fix: delivery must have receiver_profile_id set immediately.
+    const { data: delivery } = await supabaseAdmin
+      .from('letter_deliveries')
+      .select('receiver_profile_id')
+      .eq('letter_id', letterId)
+      .single();
+    if (delivery?.receiver_profile_id !== receiver.user.id) {
+      throw new Error(
+        `receiver_profile_id not set at insert time: got ${delivery?.receiver_profile_id}`
+      );
+    }
   });
 
   test.afterAll(async () => {

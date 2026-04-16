@@ -801,7 +801,10 @@ export async function addRecipientToSealed(
 
   if (error) {
     logDbError('addRecipientToSealed', error);
-    if (error.message?.includes('idx_letter_deliveries_unique_email')) {
+    if (
+      error.message?.includes('idx_letter_deliveries_unique_email') ||
+      error.message?.includes('idx_letter_deliveries_one_per_recipient')
+    ) {
       throw new Error('This person has already been invited to this letter.');
     }
     throw new Error(`Failed to add recipient: ${error.message}`);
