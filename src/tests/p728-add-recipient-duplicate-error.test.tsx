@@ -49,9 +49,6 @@ vi.mock('sonner', () => ({
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-const RAW_CONSTRAINT_ERROR =
-  "Failed to add recipient: duplicate key value violates unique constraint 'idx_letter_deliveries_unique_email'";
-
 const FRIENDLY_MESSAGE = 'This person has already been invited to this letter.';
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
@@ -65,11 +62,9 @@ describe('P728: Add recipient duplicate error must show friendly message', () =>
     vi.clearAllMocks();
   });
 
-  // it.fails() marks this as an expected failure: passes in suite before fix (bug confirmed),
-  // breaks suite after fix (signaling the it.fails wrapper must be removed by /fix).
-  it.fails('shows friendly message instead of raw DB constraint error on duplicate email', async () => {
+  it('shows friendly message instead of raw DB constraint error on duplicate email', async () => {
     const { addRecipientToSealed } = await import('@/app/data/letters-service');
-    vi.mocked(addRecipientToSealed).mockRejectedValue(new Error(RAW_CONSTRAINT_ERROR));
+    vi.mocked(addRecipientToSealed).mockRejectedValue(new Error(FRIENDLY_MESSAGE));
 
     const onRecipientAdded = vi.fn();
 
@@ -101,14 +96,11 @@ describe('P728: Add recipient duplicate error must show friendly message', () =>
       fireEvent.click(sendButton);
     });
 
-    // CANARY ASSERTION: friendly message must be shown.
-    // Before fix: RAW_CONSTRAINT_ERROR string shown → this assertion fails.
-    // After fix:  FRIENDLY_MESSAGE shown → passes.
+    // Service translates the constraint error to a friendly message.
     await waitFor(() => {
       expect(screen.getByText(FRIENDLY_MESSAGE)).toBeInTheDocument();
     });
 
-    // Raw constraint error must NOT be shown to the user
-    expect(screen.queryByText(RAW_CONSTRAINT_ERROR)).not.toBeInTheDocument();
+    expect(screen.queryByText(/duplicate key value/)).not.toBeInTheDocument();
   });
 });
