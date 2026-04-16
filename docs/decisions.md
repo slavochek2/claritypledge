@@ -2,6 +2,65 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-16 [technical]: DB unique constraint errors must be translated to user-friendly messages at the service layer
+
+**Context:** P728 — `addRecipientToSealed` threw a raw Postgres error verbatim: `"duplicate key value violates unique constraint 'idx_letter_deliveries_unique_email'"`. The modal displayed this string directly in the recipient row hint text. Users saw internal DB error language instead of actionable guidance.
+
+**Decision:** Catch known constraint errors in the service layer and re-throw with a user-friendly message. The modal passes through whatever the service throws — it must not display raw Postgres strings. Pattern:
+```ts
+if (error) {
+  if (error.message?.includes('idx_letter_deliveries_unique_email')) {
+    throw new Error('This person has already been invited to this letter.');
+  }
+  throw new Error(`Failed to add recipient: ${error.message}`);
+}
+```
+
+**Alternatives rejected:** Catch in the modal UI — the raw error string reaches the modal from the service, so catching there is possible but means every caller has to repeat the translation logic. Service layer is the right place: one translation, all callers get friendly errors automatically.
+
+**Consequences:** Any service function that wraps a Postgres call with a known unique constraint must translate the specific constraint name to a friendly message before re-throwing. Error translation belongs in the service layer, not in components. Tests should mock the service throwing the friendly message — not the raw Postgres string — since the service owns the translation.
+
+**References:** `src/app/data/letters-service.ts` (`addRecipientToSealed`), `features/p728_add_recipient_duplicate_raw_error.md`
+
+---
+
+## 2026-04-16 [process]: vi.spyOn(window, 'setInterval') does not intercept component calls in vitest forks pool — use visibilitychange instead
+
+**Context:** P727 canary — needed to trigger a background poll to confirm the loading-screen-replacement bug. Tried `vi.spyOn(window, 'setInterval').mockImplementation(cb => {...})` to capture the poll callback. Despite the spy being set up before render, calling the captured callback never invoked `getInboxItems` (call count stayed at 1). Multiple approaches (`act`, `flushSync`, sync act) all failed to prove the bug was present — the test gave false passes.
+
+**Decision:** Do not spy on `setInterval` to trigger component background polls in vitest unit tests. In the `forks` pool with jsdom, `vi.spyOn(window, 'setInterval')` does not intercept calls made inside component `useEffect` closures. Instead: use the `visibilitychange` event pathway that the polling useEffect already listens to. Dispatch `hidden` then `visible` to call the fetch directly:
+```ts
+Object.defineProperty(document, 'visibilityState', { value: 'hidden', writable: true, configurable: true });
+document.dispatchEvent(new Event('visibilitychange'));
+Object.defineProperty(document, 'visibilityState', { value: 'visible', writable: true, configurable: true });
+document.dispatchEvent(new Event('visibilitychange'));
+```
+This calls the registered `onVisible` handler directly and triggers `fetchItems()` without needing timer control.
+
+**Alternatives rejected:** (A) `vi.useFakeTimers()` — `waitFor` uses `setInterval` internally; fake timers break `waitFor`'s polling loop. (B) `vi.useFakeTimers({ shouldAdvanceTime: true })` — real-time advancing works but `vi.advanceTimersByTimeAsync(15000)` still doesn't flush React 18's state updates reliably. (C) `flushSync` inside `act` — `flushSync` wrapping an async function call (which returns a Promise) does not guarantee the async body runs before `flushSync` returns.
+
+**Consequences:** For any polling component that uses `visibilitychange` to reset its interval, the `visibilitychange` dispatch is the canonical test trigger. Canary tests that need to commit before the fix: use `it.fails()` — the test "passes" in the suite (expected failure), and breaks when the fix is applied (signaling the wrapper must be removed).
+
+**References:** `src/tests/p727-letters-polling-loading-interrupts-ui.test.tsx`, `features/p727_letters_polling_loading_interrupts_ui.md`
+
+---
+
+## 2026-04-16 [technical]: Background polling must not reset list to loading state — functional updater pattern
+
+**Context:** P727 — both InboxTab and SentTab called `setFetchState('loading')` unconditionally at the top of their fetch callback. Every 15s background poll replaced the list with a full ClarityLoader spinner, destroying any open modal or partially-typed input. The P723 fix (interval reset + terminal stop) didn't address the loading state itself.
+
+**Decision:** Only show the loading spinner on the first fetch, never on background refreshes.
+- **InboxTab** (initial state `'idle'`): use functional updater — `setFetchState((prev) => prev === 'idle' ? 'loading' : prev)`. Background polls leave state as `'done'`; error retries leave state as `'error'`.
+- **SentTab** (initial state `'loading'`): remove the `setFetchState('loading')` call entirely. The initial state handles the first render; all subsequent polls complete silently and transition to `'done'` or `'error'`.
+
+**Alternatives rejected:** `useRef` guard (`hasLoadedRef`) — fails silently when `userId` prop changes (ref is stale, new user's data loads without a loading indicator) and causes loading→error flicker on error-retry polling cycles. Functional updater avoids both because `useState` resets on remount and the updater naturally ignores non-initial states.
+
+**Consequences:** Any list component with background polling should start state at `'idle'` and use the functional updater to gate loading. `'loading'` as an initial state is also valid when the initial render should show a spinner — just remove the unconditional `setFetchState('loading')` from the fetch callback. The rule: the fetch callback must never unconditionally set loading state.
+
+**References:** `src/app/components/letters/inbox-tab.tsx`, `src/app/components/letters/sent-tab.tsx`, `features/p727_letters_polling_loading_interrupts_ui.md`
+
+---
+
 ## 2026-04-16 [process]: post_fix_timeout — handoff contract between /reproduce and /fix for staleness canary tests
 
 **Context:** P720 canary used a tight 5s timeout to prove delivery status did NOT update within 5s (staleness bug). After the fix added 15s polling, /fix ran the canary and it failed — the test's 5s assertion timeout was now wrong, but the fix was correct. The timeout needed to be updated to `polling_interval + 5s` (20s). This was discovered manually; no signal existed in the spec to tell /fix that the timeout was a sentinel, not a UX budget.

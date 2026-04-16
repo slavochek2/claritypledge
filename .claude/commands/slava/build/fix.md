@@ -506,7 +506,14 @@ After commit succeeds:
 3. Commit: `chore: pN ready for QA — {title}`
 
    **If pre-commit hook blocks on a test failure:**
-   1. Run the failing test against `main` to classify: `git stash && npm test -- <failing-test-file> && git stash pop`
+   1. Run the failing test against `main` to classify using the wip-commit pattern (never `git stash` — banned):
+      ```bash
+      git commit -m "wip: in-progress fix before pre-existing failure check"
+      git checkout main
+      npm test -- <failing-test-file>
+      git checkout -
+      git reset HEAD~1
+      ```
    2. Present to user:
       - **(A) Pre-existing (fails on main too):** Create a deferred bug spec via `/create-spec` for the pre-existing failure (get a P-number). Then, with user explicit approval, use `--no-verify` and include `(skips --no-verify: pre-existing P{N} failure)` in the commit message body. The P-number is the trail — no ticket = no bypass.
       - **(B) Introduced by this fix (passes on main):** Return to Phase 3 — fix the code.
