@@ -52,6 +52,7 @@ import {
 } from '@/app/types';
 import { pointsService } from '@/app/data/points-service';
 import { eventsService } from '@/app/data/events-service';
+import { storiesService } from '@/app/data/stories-service';
 import { calibrationService } from '@/app/data/calibration-service';
 import { badgeService } from '@/app/data/badge-service';
 import { supabase } from '@/lib/supabase';
@@ -304,7 +305,6 @@ export function ClarityLivePage() {
 
   // P703: Letter-sourced session display state
   const [listenerDisplayName, setListenerDisplayName] = useState<string | null>(null);
-  const [letterStoryTitle, setLetterStoryTitle] = useState<string | null>(null);
   const [resendCooldown, setResendCooldown] = useState(false);
 
   // P511 Task 6: Grace period state — when set, shows ReconnectingCountdown instead of instant PartnerLeftScreen
@@ -973,21 +973,6 @@ export function ClarityLivePage() {
         if (data && typeof data.name === 'string') setListenerDisplayName(data.name);
       });
   }, [session?.targetListenerId]);
-
-  // P703: Fetch story title for listener's "Verifying (from letter)" banner
-  useEffect(() => {
-    if (!session?.sourceStoryId) return;
-    supabase
-      .from('stories')
-      .select('content')
-      .eq('id', session.sourceStoryId)
-      .single()
-      .then(({ data }) => {
-        if (data && typeof data.content === 'string') {
-          setLetterStoryTitle(data.content.split('\n')[0].substring(0, 60));
-        }
-      });
-  }, [session?.sourceStoryId]);
 
   // Fetch host name when joining via link (for personalized "Join X's Session" title)
   useEffect(() => {
@@ -2724,12 +2709,43 @@ export function ClarityLivePage() {
       return;
     }
     try {
-      const ratings = await getLetterBaselineRatings(
-        sess.sourceLetterId,
-        sess.sourceStoryId,
-        sess.creatorProfileId,
-        sess.targetListenerId,
-      );
+      const [ratings, storyData] = await Promise.all([
+        getLetterBaselineRatings(
+          sess.sourceLetterId,
+          sess.sourceStoryId,
+          sess.creatorProfileId,
+          sess.targetListenerId,
+        ),
+        storiesService.getStoryWithPoints(sess.sourceStoryId),
+      ]);
+
+      const storyTitle = storyData?.content.split('\n')[0].substring(0, 80) ?? '';
+      const liveStoryData = storyData ? {
+        id: storyData.id,
+        authorId: storyData.authorId,
+        content: storyData.content,
+        points: storyData.points.map(p => ({
+          id: p.id,
+          statement: p.statement,
+          context: p.context,
+          tags: p.tags,
+          systemTags: p.systemTags,
+          positionCounts: p.positionCounts,
+          userPosition: p.userPosition,
+          profileSubjectPosition: p.profileSubjectPosition,
+          visibility: p.visibility,
+        })),
+        authorName: storyData.authorName,
+        authorSlug: storyData.authorSlug,
+        authorAvatarColor: storyData.authorAvatarColor,
+        authorAvatarUrl: storyData.authorAvatarUrl,
+        authorRole: storyData.authorRole,
+        authorEarsCount: storyData.authorEarsCount,
+        authorHasPledged: storyData.authorHasPledged,
+        visibility: storyData.visibility,
+        createdAt: storyData.createdAt,
+      } : undefined;
+
       const bootstrapState: LiveSessionState = {
         ...DEFAULT_LIVE_STATE,
         ratingPhase: 'explain-back',
@@ -2738,7 +2754,12 @@ export function ClarityLivePage() {
         checkerIsCreator: true,
         checkerSubmitted: ratings != null,
         responderSubmitted: ratings != null,
+        checkerName: sess.creatorName,
         selectedStoryId: sess.sourceStoryId,
+        selectedStoryData: liveStoryData,
+        selectedContentTitle: storyTitle,
+        ratingInitiatedBy: sess.creatorName,
+        ratingInitiatedByIsCreator: true,
       };
       await updateClaritySessionLiveState(sess.id, bootstrapState);
       setLiveState(bootstrapState);
@@ -3033,6 +3054,10 @@ export function ClarityLivePage() {
           setName(creatorName);
           setIsCreator(true);
           saveSessionToStorage(code, creatorName, true);
+          // P703: Bootstrap letter-sourced session when creator arrives via direct URL
+          if (sessionInfo.targetListenerId && sessionInfo.sourceStoryId && sessionInfo.sourceLetterId) {
+            await bootstrapLetterSourcedSession(sessionInfo);
+          }
           if (sessionInfo.joinerName) {
             setPendingLiveTransition(true);
           } else {
@@ -4002,6 +4027,8 @@ export function ClarityLivePage() {
                   They can join by:
                 </p>
               </>
+            ) : session.targetListenerId ? (
+              <h2 className="text-2xl font-semibold">Waiting for {listenerDisplayName ?? 'listener'}...</h2>
             ) : (
               <>
                 <h2 className="text-2xl font-semibold">Invite Your Partner</h2>
@@ -4054,51 +4081,55 @@ export function ClarityLivePage() {
               </div>
             )}
 
-            {/* P160: Recording status badge — display-only, locked once session created */}
-            <div
-              aria-live="polite"
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg border w-full ${
-                isPrivate
-                  ? 'bg-muted border-border'
-                  : 'bg-blue-50 border-blue-200'
-              }`}
-            >
-              {isPrivate ? (
-                <>
-                  <ShieldOff className="w-4 h-4 text-muted-foreground flex-shrink-0" />
-                  <div>
-                    <div className="text-sm font-medium text-muted-foreground">Private session</div>
-                    <div className="text-xs text-muted-foreground">AI insights disabled</div>
-                  </div>
-                </>
-              ) : (
-                <>
-                  <Sparkles className="w-4 h-4 text-blue-500 flex-shrink-0" />
-                  <div className="text-sm text-blue-700">Session recorded for AI Insights</div>
-                </>
-              )}
-            </div>
+            {!session.targetListenerId && (
+              <>
+                {/* P160: Recording status badge — display-only, locked once session created */}
+                <div
+                  aria-live="polite"
+                  className={`flex items-center gap-2 px-4 py-2 rounded-lg border w-full ${
+                    isPrivate
+                      ? 'bg-muted border-border'
+                      : 'bg-blue-50 border-blue-200'
+                  }`}
+                >
+                  {isPrivate ? (
+                    <>
+                      <ShieldOff className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                      <div>
+                        <div className="text-sm font-medium text-muted-foreground">Private session</div>
+                        <div className="text-xs text-muted-foreground">AI insights disabled</div>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="w-4 h-4 text-blue-500 flex-shrink-0" />
+                      <div className="text-sm text-blue-700">Session recorded for AI Insights</div>
+                    </>
+                  )}
+                </div>
 
-            {isFromEvent ? (
-              <p className="text-xs text-muted-foreground">
-                • Tapping "Join" on the event page<br />
-                • Scanning this QR code<br />
-                • Using this link
-              </p>
-            ) : (
-              <p className="text-xs text-muted-foreground">
-                Or show them this QR code:
-              </p>
+                {isFromEvent ? (
+                  <p className="text-xs text-muted-foreground">
+                    • Tapping "Join" on the event page<br />
+                    • Scanning this QR code<br />
+                    • Using this link
+                  </p>
+                ) : (
+                  <p className="text-xs text-muted-foreground">
+                    Or show them this QR code:
+                  </p>
+                )}
+
+                {/* QR Code */}
+                <div className="p-4 bg-white rounded-lg border inline-block">
+                  <QRCodeSVG
+                    value={shareLink}
+                    size={160}
+                    level="M"
+                  />
+                </div>
+              </>
             )}
-
-            {/* QR Code */}
-            <div className="p-4 bg-white rounded-lg border inline-block">
-              <QRCodeSVG
-                value={shareLink}
-                size={160}
-                level="M"
-              />
-            </div>
 
             {returnTo && (
               <Button
@@ -4146,15 +4177,6 @@ export function ClarityLivePage() {
 
     return (
       <div className="flex flex-col h-screen overflow-hidden">
-        {/* P703: Listener context banner — "Verifying (from letter)" */}
-        {isLetterSourced && !isCreator && (
-          <div
-            data-testid="letter-source-banner"
-            className="bg-blue-50 border-b border-blue-200 px-4 py-2 text-xs text-blue-700 text-center"
-          >
-            Verifying: {letterStoryTitle ?? 'story'} (from letter)
-          </div>
-        )}
         <LiveModeView
           liveState={liveState}
           currentUserName={name}

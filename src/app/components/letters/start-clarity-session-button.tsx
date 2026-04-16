@@ -10,7 +10,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Video } from 'lucide-react';
+import { Video, ShieldOff, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { analytics } from '@/lib/mixpanel';
 import {
@@ -37,6 +37,7 @@ export function StartClaritySessionButton({
   const navigate = useNavigate();
   const [invitePending, setInvitePending] = useState(false);
   const [creating, setCreating] = useState(false);
+  const [isPrivate, setIsPrivate] = useState(false);
 
   const checkInvite = useCallback(async () => {
     const exists = await checkOpenInviteForReceiver(receiverId);
@@ -51,7 +52,7 @@ export function StartClaritySessionButton({
     if (creating || invitePending) return;
     setCreating(true);
     try {
-      const session = await createClaritySession(senderName, senderId, false, undefined, {
+      const session = await createClaritySession(senderName, senderId, isPrivate, undefined, {
         sourceLetterId: letterId,
         sourceStoryId: storyId,
         targetListenerId: receiverId,
@@ -73,7 +74,25 @@ export function StartClaritySessionButton({
   const tooltipText = invitePending ? 'Invite already pending' : undefined;
 
   return (
-    <div className="flex justify-center">
+    <div className="flex flex-col items-center gap-3">
+      <button
+        type="button"
+        onClick={() => setIsPrivate(prev => !prev)}
+        className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+        data-testid="recording-toggle"
+      >
+        {isPrivate ? (
+          <>
+            <ShieldOff className="w-4 h-4" />
+            <span>Private session (no AI insights)</span>
+          </>
+        ) : (
+          <>
+            <Sparkles className="w-4 h-4 text-blue-500" />
+            <span className="text-blue-600">Session recorded for AI Insights</span>
+          </>
+        )}
+      </button>
       <Button
         onClick={() => void handleStart()}
         disabled={isDisabled}
