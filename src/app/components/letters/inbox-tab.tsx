@@ -43,8 +43,14 @@ export function InboxTab({ userId, onUnreadCountChange, openInvite }: InboxTabPr
 
   useEffect(() => {
     fetchItems();
-    const interval = setInterval(fetchItems, 15_000);
-    const onVisible = () => { if (document.visibilityState === 'visible') fetchItems(); };
+    let interval: ReturnType<typeof setInterval> = setInterval(fetchItems, 15_000);
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') {
+        fetchItems();
+        clearInterval(interval);
+        interval = setInterval(fetchItems, 15_000);
+      }
+    };
     document.addEventListener('visibilitychange', onVisible);
     return () => {
       clearInterval(interval);

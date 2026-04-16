@@ -8,7 +8,7 @@
  * Replaces PublicLinkRow with "Copy public link" in ⋯ menu.
  */
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { MoreHorizontal, ChevronRight, ChevronDown, Mail, Link2 } from 'lucide-react';
 import {
@@ -303,6 +303,7 @@ function LetterCard({
 export function SentTab({ userId }: SentTabProps) {
   const [cards, setCards] = useState<LetterCardData[]>([]);
   const [fetchState, setFetchState] = useState<'loading' | 'done' | 'error'>('loading');
+  const allTerminalRef = useRef(false);
 
   const fetchData = useCallback(async () => {
     setFetchState('loading');
@@ -323,9 +324,25 @@ export function SentTab({ userId }: SentTabProps) {
   }, [userId]);
 
   useEffect(() => {
+    allTerminalRef.current =
+      cards.length > 0 &&
+      cards.every((c) => c.deliveries.every((d) => d.status === 'completed'));
+  }, [cards]);
+
+  useEffect(() => {
     fetchData();
-    const interval = setInterval(fetchData, 15_000);
-    const onVisible = () => { if (document.visibilityState === 'visible') fetchData(); };
+    let interval: ReturnType<typeof setInterval> = setInterval(() => {
+      if (!allTerminalRef.current) fetchData();
+    }, 15_000);
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') {
+        fetchData();
+        clearInterval(interval);
+        interval = setInterval(() => {
+          if (!allTerminalRef.current) fetchData();
+        }, 15_000);
+      }
+    };
     document.addEventListener('visibilitychange', onVisible);
     return () => {
       clearInterval(interval);
