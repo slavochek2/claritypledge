@@ -2,6 +2,20 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-17 [technical]: PostgreSQL CREATE OR REPLACE with a changed signature creates a new overload, not a replacement — DROP the old signature first
+
+**Context:** P731 — P660 created `add_recipient_to_sealed_letter(p_letter_id UUID, p_email TEXT)`. P664 used `CREATE OR REPLACE FUNCTION` with an added `p_receiver_name TEXT DEFAULT NULL` parameter. Because the signatures differ, Postgres created a new overload rather than replacing — both coexisted in the DB. Calling the RPC with two named params threw: *"could not choose the best candidate function between..."*.
+
+**Decision:** When changing a PostgreSQL function's signature (adding, removing, or retyping parameters), always `DROP FUNCTION IF EXISTS old_signature(param_types)` in the same migration before the `CREATE OR REPLACE`. `CREATE OR REPLACE` only replaces a function with an identical signature — any parameter change creates a new overload silently.
+
+**Alternatives rejected:** Rename the function for the new signature — breaks all callers.
+
+**Consequences:** Any migration that changes a function's parameter list must include a `DROP FUNCTION IF EXISTS` for the old signature. When diagnosing "could not choose best candidate function" errors, query `pg_proc` for duplicate function names with different argtypes.
+
+**References:** `supabase/migrations/20260416210000_p731_set_receiver_profile_id_on_add_recipient.sql`
+
+---
+
 ## 2026-04-17 [technical]: Supabase Realtime INSERT payload only contains the table's own columns — joined-table columns absent
 
 **Context:** P730 — `useOpenLiveInvite` used `mapRaw(raw)` on Realtime INSERT events for `clarity_live_invites`. The initial REST fetch used a JOIN (`clarity_sessions`, `profiles`, `stories`) and worked correctly. But `clarity_live_invites` has no `code`, `author_name`, or `story_title` columns — those come from joined tables. The Realtime INSERT payload only carries the columns of the subscribed table. `mapRaw` fell back to `code: ''` → "Join" navigated to `/live/` with an empty code → generic form instead of auto-join.
