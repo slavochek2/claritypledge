@@ -415,6 +415,7 @@ test('authenticated user can access /live', async ({ browser }) => {
 - `getTestAuthContext()` — tests that need a full authenticated browser (page navigation, visual assertions)
 - `setTestSession()` — tests that already have a page and just need to inject auth
 - `createTestUser()` — tests that only need DB-level user setup (no browser)
+- `createAuthClientForUser(email)` — tests that need to call a Supabase RPC as a specific authenticated user (non-browser). See `e2e/p523-point-creation-responses.spec.ts` lines 401–416 for the full implementation (signs in with `test-password-12345`, returns a client with the JWT set in headers).
 
 ---
 

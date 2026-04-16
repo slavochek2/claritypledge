@@ -188,6 +188,7 @@ After worktree setup (so CWD resolves to the correct branch):
 **Context load (always):**
 1. If a P-number spec exists: read it fully (reproduction steps, root cause if documented, acceptance criteria)
    **Status gate:** if `status: qa` or `status: done` → stop immediately: "P{N} is already at {status}. Nothing to fix. Run `/ship pN` to merge." Do not continue.
+   **Exception — QA-phase bug:** If the user explicitly invokes `/fix pN <bug description>` on a `status: qa` spec, treat it as a QA-phase discovery. Proceed, surface the gate bypass ("QA-phase fix — user-directed, bypassing status gate"), reset status to `in-progress`, suffix `pipeline_ran` entry as `fix.2` (or `.3`, etc.).
 2. Read the source file(s) mentioned in the spec or user description — verify current state matches your assumptions
 3. If bug involves DB: check the actual schema (`curl` REST API with `?select=column&limit=1`)
    **If bug involves a client-side count function** (badge, summary, etc.): grep the corresponding SECURITY DEFINER RPC migration to confirm the full filter set (`status IN (...)`, exclusion predicates, etc.) before writing any fix code. Count functions silently under- or over-count when their filter set diverges from the RPC.
@@ -345,6 +346,8 @@ Test proves bug exists. Ready to fix.
 - Don't refactor while fixing (fix first, refactor separately)
 - Add defensive checks if bug was due to missing validation
 - Document WHY fix works (not just WHAT changed)
+
+**DB-layer canary gate:** If the bug is in a DB function or migration (RPC, trigger, policy), the canary from `/reproduce` likely simulated the bug by inserting the broken state directly (e.g., inserting a row with `NULL` where the fix sets a value). After applying the fix, rewrite the canary to call the actual changed code path (the RPC, the edge function, etc.) so the test proves the fix works — not just that the correct state is readable. Also add a direct DB assertion on the column or value the fix changes: `expect(row.column).toBe(expected)` via `supabaseAdmin`. Without this, the canary passes whether or not the migration was applied.
 
 **Example fix:**
 ```typescript
