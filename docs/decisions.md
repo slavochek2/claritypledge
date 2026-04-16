@@ -156,17 +156,17 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
-## 2026-04-16 [technical] (Status: proposed): confirm-letter-response stages invalid position_type strings — persist_anonymous_completion silently skips them
+## 2026-04-16 [technical]: confirm-letter-response stores PositionType labels at write time, not numerics (P718)
 
-**Context:** The email round-trip path converts string positions to integers (POSITION_VALUES[-3..3]) at the client before calling the edge function (decision at 2026-04-10). The edge function stores `String(p.position)` in `letter_point_responses.position` (TEXT column), producing "-3".."2" etc. `persist_anonymous_completion` has a valid-enum filter (`WHERE lpr.position IN ('strongly_disagree',...)`), so these rows are silently skipped — positions from the email path never reach `point_positions` via replay. The P708 fix added a direct upsert to `point_positions` in the edge function (numeric → enum string via Map), bypassing the broken staging path. But `letter_point_responses` still contains invalid strings for this path.
+**Context:** The email round-trip path converts string positions to integers (POSITION_VALUES[-3..3]) at the client before calling the edge function. The edge function stored `String(p.position)` in `letter_point_responses.position`, producing "2" instead of "agree". The results page casts position back to PositionType — "2" matched nothing, so recipient positions appeared blank. Same bug existed in `submitLetterResponseAuthenticated`. Backfill migration corrected existing corrupt rows.
 
-**Decision:** Unresolved. The staging buffer for the email path stores data that cannot be replayed by `persist_anonymous_completion`. Fix options: (A) store enum strings in `positions_json` instead of integers (requires changing client conversion + edge function); (B) add a numeric-string-to-enum conversion inside `persist_anonymous_completion`; (C) accept the staging buffer as non-replayable for this path (P708 direct upsert makes replay moot for already-verified users).
+**Decision:** Option A chosen (P718): convert numeric → PositionType label at write time using `NUMERIC_TO_POSITION_TYPE` map in both the edge function and the authenticated client path. `letter_point_responses.position` always stores valid PositionType labels. This also fixes the `persist_anonymous_completion` replay gap — stored rows now pass the valid-enum filter.
 
-**Alternatives rejected:** None chosen yet.
+**Alternatives rejected:** (B) numeric-string conversion inside `persist_anonymous_completion` — treats the symptom not the source; (C) accept non-replayable staging — ruled out by P718 user impact (blank results for verified users).
 
-**Consequences:** For verified email-round-trip completions, P708's direct upsert ensures `point_positions` is populated. For unverified email-round-trip completions, `persist_anonymous_completion` replay will still skip invalid strings — positions are lost for that population. Scope of impact: anon readers who complete a letter via email link but don't yet have a verified account.
+**Consequences:** All current writer paths for `letter_point_responses` store valid PositionType labels. `persist_anonymous_completion` replay now works for email-round-trip completions. Backfill migration `20260416160000_p718_backfill_letter_point_responses_position.sql` corrected existing rows. Rule: any new path writing to `letter_point_responses.position` MUST convert POSITION_VALUES integers to labels before insert.
 
-**References:** `supabase/functions/confirm-letter-response/index.ts` | `supabase/migrations/` (valid-enum filter in `persist_anonymous_completion`)
+**References:** `supabase/functions/confirm-letter-response/index.ts` | `src/app/data/letters-service.ts` (`submitLetterResponseAuthenticated`) | `supabase/migrations/20260416160000_p718_backfill_letter_point_responses_position.sql`
 
 ---
 
