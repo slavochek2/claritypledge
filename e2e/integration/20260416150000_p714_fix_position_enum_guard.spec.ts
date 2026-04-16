@@ -85,11 +85,12 @@ test.describe('Migration fix: position enum guard in submit_point_response_by_to
     letterId = letter.id;
 
     // Create story snapshot with the real point ID in point_config
-    await supabaseAdmin.from('letter_story_snapshots').insert({
+    const { error: snapshotError } = await supabaseAdmin.from('letter_story_snapshots').insert({
       letter_id: letterId,
       story_id: storyId,
       version_id: versionId,
       position: 0,
+      visibility: 'public',
       point_config: {
         storyTitle: 'Enum guard test story',
         storyText: 'Test story content for enum guard verification.',
@@ -98,6 +99,8 @@ test.describe('Migration fix: position enum guard in submit_point_response_by_to
         ],
       },
     });
+
+    if (snapshotError) throw new Error(`Snapshot creation failed: ${snapshotError.message}`);
 
     // Create delivery with auto-generated invitation_token
     const { data: delivery } = await supabaseAdmin
