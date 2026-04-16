@@ -75,7 +75,7 @@ The `get_letter_results` RPC (`p_delivery_id DEFAULT NULL`) has NULL guards at s
 
 ## Confirmed Data State
 
-- Delivery `af9c686e-c745-40b4-9fb1-6164f558d5ed` (Test Recipient, `p716-fixture@example.com`)
+- Delivery `af9c686e-c745-40b4-9fb1-6164f558d5ed` (test recipient, status: completed)
 - Letter `315ec9f2-69f4-4402-8c97-1f95ab8f66e2`, `mode: one-to-one`, `status: sealed`
 - Delivery `status: completed`
 - Recipient's own results page: shows COMPLETE data

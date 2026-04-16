@@ -9,6 +9,9 @@ pipeline_ran: [reproduce, fix, fix.2]
 date_resolved: 2026-04-16
 root_cause: get_letter_for_reading RPC omitted receiver_email; email guards in letter-reading-page.tsx always checked undefined
 resolution: Migration adds receiver_email to RPC delivery JSON; email guards now fire correctly on both authed-first and token paths
+tags: []
+rank: 1000721.0
+created_date: 2026-04-16
 ---
 
 ## Summary
@@ -29,7 +32,7 @@ When user A is logged in and visits a token-based letter invitation link intende
 
 **Layer 2 (found during fix.2 browser verification):** The fix added email-based guards to both the authed-first and token paths, but both silently skip because `delivery.receiver_email` is always `undefined` at runtime. The `get_letter_for_reading` RPC (`supabase/migrations/20260412180000_fix_reading_rpc_drop_expiry_check.sql`, line 70) deliberately omits `receiver_email` from the delivery JSON it returns — comment reads "NO receiver_email (redacted)". The authed-first path (`getLetterForReading`) also doesn't surface it when the sender reads — though `select('*')` is used, RLS or the sender's read path is irrelevant because the guard still checks a field that is undefined. Unit tests passed because mocks hardcode `receiver_email: 'bob@example.com'` — they don't reflect the real RPC response shape.
 
-**Confirmed via browser (2026-04-16):** Navigated to unclaimed delivery (`receiver_email: p717-fixture@example.com`) while logged in as sender (Vyacheslav). Saw "Open the Letter" — no wrong_user screen.
+**Confirmed via browser (2026-04-16):** Navigated to unclaimed delivery while logged in as the sender. Saw "Open the Letter" — no wrong_user screen.
 
 ## Affected Files
 
@@ -69,9 +72,8 @@ reproduce_artifact:
   confidence: high
   browser_reproduced: true
   browser_evidence: >
-    Navigated to /letter/2efedc38?token=722c8a29 while logged in as sender
-    (Vyacheslav). Delivery receiver_email=p717-fixture@example.com,
-    receiver_profile_id=null. Saw letter cover ("Open the Letter"),
+    Navigated to /letter/2efedc38?token=722c8a29 while logged in as sender.
+    Delivery receiver_profile_id=null. Saw letter cover ("Open the Letter"),
     not wrong_user screen. Screenshot captured 2026-04-16 17:06.
   unit_test_caveat: >
     All 4 unit tests pass because mocks hardcode receiver_email on the

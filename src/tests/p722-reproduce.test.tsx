@@ -193,7 +193,7 @@ describe('P722: anon/race-condition user must not see confetti on completed 1-to
       signOut: vi.fn().mockResolvedValue(undefined),
     } as ReturnType<typeof useAuth>);
 
-    // Token returns completed delivery — test-recipient already read this letter
+    // Token returns completed delivery — recipient already read this letter
     mockGetLetterForReadingByToken.mockResolvedValue({
       letter: makeLetter() as unknown as import('@/app/types').ClarityLetter,
       snapshots: makeSnapshots() as unknown as import('@/app/types').LetterStorySnapshot[],
