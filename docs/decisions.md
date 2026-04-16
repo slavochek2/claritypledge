@@ -2,6 +2,48 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-16 [technical]: invitation_token is a stable delivery UUID — it is never consumed by auth flows (P714/P716)
+
+**Context:** P714 stripped `invitation_token` from the hook for authenticated users, reasoning that "the token is consumed by `create-and-open-letter`." This assumption was wrong. P714 confused two distinct identifiers: (1) `invitation_token` — a stable `UUID` column in `letter_deliveries`, set once at delivery creation, never reset; (2) the OTP hash — an ephemeral credential passed to `verifyOtp` during the magic-link auth flow. `create-and-open-letter` sets `invitation_expires_at = now()` to prevent session-minting replay, but `invitation_token` itself is unchanged and valid for all subsequent engagement RPCs.
+
+**Decision:** `invitation_token` is always safe to pass to engagement RPCs after a session is established. Stripping it for authenticated users forces the authed-RLS path, which requires `receiver_profile_id` to be set on the delivery — a condition that can fail in a race (delivery not yet claimed). The correct architecture: pass `invitation_token` regardless of auth state; let `useLetterReadingState` route to the token RPC when available, falling back to the RLS path only when no token is present.
+
+**Alternatives rejected:** Keeping P714's token-strip — incorrect premise; forces an RLS path that has a real failure mode. Using a separate "claimed" flag to gate — unnecessary complexity.
+
+**Consequences:** Any component that receives `invitation_token` via URL must pass it unchanged to hooks and service calls, regardless of `isAuthenticated` state. The only thing `invitation_expires_at` gates is new session minting (inside `create-and-open-letter`). Engagement RPCs (P683) validate `invitation_token` + `cl.status = 'sealed'` — sufficient. If a developer sees `token=undefined` being passed to the hook when an authenticated user has a token in the URL, that is a bug.
+
+**References:** `src/app/pages/letter-reading-page.tsx` (LetterReadingFlow) | `src/app/hooks/useLetterReadingState.ts` | `supabase/migrations/20260411201933_p683_engagement_rpcs_drop_expiry_check.sql`
+
+---
+
+## 2026-04-16 [technical]: SECURITY DEFINER CREATE OR REPLACE must carry forward ALL guards from the previous version (P716)
+
+**Context:** The P716 initial migration used `CREATE OR REPLACE FUNCTION submit_point_response_by_token(...)` rebuilt from the P683 baseline. P705 had added four guards between P683 and P716: NULL check on `p_point_id`, enum validation on `p_position`, P684 anon-auth guard for one-to-many letters, and an authorization scope guard (p_point_id must belong to this letter via `letter_story_snapshots`). The P716 migration silently dropped all four. The authorization guard is particularly critical under SECURITY DEFINER — without it, any holder of a valid token could write a position for any `point_id` in the database. Caught by code review; patched in a second migration before shipping.
+
+**Decision:** When `CREATE OR REPLACE`-ing any SECURITY DEFINER function: (1) find the most recent migration that defines that function, (2) copy its full body as the baseline, (3) apply only the intended delta. Do not rebuild from an older migration. If rebuilding from scratch, explicitly diff the new body against the previous body and confirm all security/validation guards are present.
+
+**Alternatives rejected:** Trusting `CREATE OR REPLACE` to merge with the existing function — it completely replaces the body; there is no merge. Relying on the CI test suite to catch missing guards — guards that return `false` on bad input are not tested by unit tests that pass valid input.
+
+**Consequences:** Before committing any migration that `CREATE OR REPLACE`s an existing function: grep migration history for the previous definition, compare bodies, ensure all `IF ... THEN RETURN false; END IF` blocks are preserved. Security/authorization guards must transfer explicitly — they are invisible to the DB once overwritten.
+
+**References:** `supabase/migrations/20260414000000_p705_dual_write_point_positions.sql` (baseline with guards) | `supabase/migrations/20260416120000_p716_token_rpc_dual_write.sql` (guards dropped) | `supabase/migrations/20260416130000_p716_token_rpc_restore_guards.sql` (guards restored)
+
+---
+
+## 2026-04-16 [technical]: Letter TOS consent and account creation must gate on delivery channel, not letter privacy type (P715)
+
+**Context:** Three conditions in the letter reading page all checked `letter.mode === 'one-to-one'` to decide whether to show TOS, call `create-and-open-letter`, and skip the anonymous buffer path. This meant public letters (`mode = 'one-to-many'`) sent via email (with `invitation_token` + `receiver_email`) got none of those behaviors — recipients saw no TOS, got no account created, and were silently routed to the `bufferOnly` path where responses are held in sessionStorage until a manual signup.
+
+**Decision:** TOS consent, account creation via `create-and-open-letter`, and `bufferOnly` exclusion must all be conditioned on **delivery channel** (`!!token` = email delivery), not letter privacy type. Public letters sent via email are email deliveries and must behave identically to private letter email deliveries for auth/TOS purposes.
+
+**Alternatives rejected:** Adding a separate `isEmailDelivery` field to the letter record — delivery channel is already encoded in `letter_deliveries` and available as `!!token` at the reading page.
+
+**Consequences:** When adding new behavior that differs by delivery channel vs. letter type: use `!!token` as the signal for "this recipient was directly invited via email." Use `letter.mode` only for letter-structure concerns (one belief set vs. open). These are orthogonal — a public letter can be sent by email, and a private letter can be accessed by anonymous link.
+
+**References:** `src/app/pages/letter-reading-page.tsx` (bufferOnly, handleOneToOneOpen, LetterCover) | `src/app/components/letters/letter-cover.tsx` (needsConsent → isEmailDelivery prop) | `features/p715_email_delivery_account_creation_and_tos.md`
+
+---
+
 ## 2026-04-16 [technical]: All letter submission writer paths must dual-write to point_positions — audit required on new paths (P708)
 
 **Context:** P705 rolled out the staging+replay dual-write pattern but enumerated only two writer paths: `submitPointResponse` (RPC-based, single position) and `persist_anonymous_completion` (replay function). Two paths were missed: `submitLetterResponseAuthenticated` (client-auth, bulk completion) and the `confirm-letter-response` edge function (email round-trip). Both wrote only to `letter_point_responses` (staging buffer), leaving `point_positions` empty for all authenticated letter completions — results-page pills showed unselected and profiles showed no positions.
@@ -27,6 +69,20 @@ Append-only log of architectural and product decisions. Newest entries at top.
 **Consequences:** For verified email-round-trip completions, P708's direct upsert ensures `point_positions` is populated. For unverified email-round-trip completions, `persist_anonymous_completion` replay will still skip invalid strings — positions are lost for that population. Scope of impact: anon readers who complete a letter via email link but don't yet have a verified account.
 
 **References:** `supabase/functions/confirm-letter-response/index.ts` | `supabase/migrations/` (valid-enum filter in `persist_anonymous_completion`)
+
+---
+
+## 2026-04-16 [technical]: submit_point_response_by_token added to confirmed dual-write paths (P716)
+
+**Context:** P708 established the dual-write rule and listed confirmed paths. P716 extended the token-based RPC (`submit_point_response_by_token`) to also upsert into `point_positions` when `auth.uid() IS NOT NULL`. Condition uses the current caller's auth identity rather than `receiver_profile_id` (the P705 approach) — intentional, to handle unclaimed deliveries where `receiver_profile_id` is still NULL.
+
+**Decision:** Updated confirmed dual-write paths: `submitPointResponse` (P705), `submitLetterResponseAuthenticated` (P708), `confirm-letter-response` edge function (P708), `submit_point_response_by_token` RPC (P716). The token RPC upsert uses `auth.uid()` not `v_receiver_id` — it covers the gap where the delivery hasn't been claimed yet. The P705 `is_verified` gate is absent: SECURITY DEFINER bypasses RLS, so all authenticated callers write immediately; unverified users' writes propagate to live display without waiting for verification replay.
+
+**Alternatives rejected:** Using `v_receiver_id + is_verified` (P705 pattern) — would skip the upsert when `receiver_profile_id` is still NULL, which is exactly the failing case.
+
+**Consequences:** None beyond P708 entry. The `is_verified` difference between the token RPC path and the direct client path is intentional and acceptable. If future work re-gates this, update `submit_point_response_by_token` and document why.
+
+**References:** `supabase/migrations/20260416130000_p716_token_rpc_restore_guards.sql` | P708 entry above
 
 ---
 
