@@ -2,6 +2,34 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-16 [process]: Canary tests must import/render actual production code — not inline logic copies (P716)
+
+**Context:** P716 canary was written as a `.ts` file with inline helper functions that reproduced the navigation logic verbatim from `inbox-tab.tsx`. The test correctly asserted the expected URL — but because it tested a copy of the logic, not the production code, reverting the fix in `inbox-tab.tsx` would not have caused the test to fail.
+
+**Decision:** Canary regression tests must target the actual production module. For component-level navigation bugs (click handler fires `navigate()` with wrong URL): render the actual component with React Testing Library, mock `useNavigate`, and assert on the captured `navigate()` call. For pure utility functions: import the actual exported function. An inline helper that mirrors production logic is a documentation comment dressed as a test — it does not protect against regressions.
+
+**Alternatives rejected:** Inline logic copies — proved unreliable in this session; false sense of protection. E2E Playwright tests for every navigation assertion — E2E setup cost is high when RTL can exercise the same click path.
+
+**Consequences:** When writing a canary for a navigation bug: the test file must `import` from the production module (component or util), not redefine the logic. If the production code is not importable (logic buried in a closure), extract a minimal pure helper and test that. Test passes before fix = test is wrong.
+
+**References:** `src/tests/p716-results-navigation.test.tsx` (RTL component test) | `src/app/components/letters/inbox-tab.tsx`
+
+---
+
+## 2026-04-16 [technical]: get_letter_results RPC is NULL-guard strict — p_delivery_id=NULL means "no delivery in scope" (P716)
+
+**Context:** The sender's results view showed "Not yet rated" and no recipient positions even though the recipient had completed the letter and all data was correctly saved. The `get_letter_results` SECURITY DEFINER RPC has explicit `IF v_actual_delivery_id IS NOT NULL` guards at steps 6 (ratings) and 7 (point_responses). When called without `p_delivery_id`, these guards fire and both return `'[]'::jsonb`. This is intentional — the RPC is SECURITY DEFINER and being explicit about scope is correct. The bug was that all four sender-initiated navigation paths to `/results` omitted the `?delivery=` URL parameter.
+
+**Decision:** Any navigation to `/letter/:id/results` from a sender context must include `?delivery=<deliveryId>` to get recipient data. This applies to: sent-tab "Results" button, sent-tab mobile dropdown, RecipientRow click, and inbox sender items. The RPC's NULL-guard behavior is correct by design — do not change it to auto-resolve a single delivery when `p_delivery_id` is NULL.
+
+**Alternatives rejected:** Making the RPC auto-resolve a single delivery when `p_delivery_id` is NULL — trades explicitness for convenience under a SECURITY DEFINER context; the current NULL-guard is the safer default.
+
+**Consequences:** Every sender navigation surface that links to results must carry the deliveryId. For one-to-one letters: use the single completed delivery. For one-to-many: use `deliveries.find(d => d.status === 'completed')` for the top-level "Results" button; individual RecipientRows pass their own `delivery.id`. Guard: if no completed delivery exists, skip navigation (`if (!completedDelivery) return`).
+
+**References:** `supabase/migrations/20260413100000_p699_get_letter_results.sql` (steps 6–7 NULL guards) | `src/app/components/letters/sent-tab.tsx` | `src/app/components/letters/inbox-tab.tsx`
+
+---
+
 ## 2026-04-16 [technical]: invitation_token is a stable delivery UUID — it is never consumed by auth flows (P714/P716)
 
 **Context:** P714 stripped `invitation_token` from the hook for authenticated users, reasoning that "the token is consumed by `create-and-open-letter`." This assumption was wrong. P714 confused two distinct identifiers: (1) `invitation_token` — a stable `UUID` column in `letter_deliveries`, set once at delivery creation, never reset; (2) the OTP hash — an ephemeral credential passed to `verifyOtp` during the magic-link auth flow. `create-and-open-letter` sets `invitation_expires_at = now()` to prevent session-minting replay, but `invitation_token` itself is unchanged and valid for all subsequent engagement RPCs.

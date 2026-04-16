@@ -609,6 +609,33 @@ await setTestSession(page, testUser.email); // Too late!
 
 ---
 
+### Orphaned e2e-test profiles causing beforeAll timeout (P699)
+
+**Symptom:** `beforeAll` takes 30s+ and times out. Tests were passing previously. No schema changes.
+
+**Cause:** Failed previous runs left orphaned `e2e-test-*@gmail.com` profiles in the test DB. The `profiles_slug_unique` constraint or trigger overhead on thousands of orphaned rows can cause insert/delete operations in `beforeAll` to time out.
+
+**Diagnosis:** Run via Supabase Management API:
+```sql
+SELECT COUNT(*) FROM auth.users WHERE email LIKE 'e2e-test-%@gmail.com';
+```
+If count is in the hundreds or thousands — orphaned data is the cause.
+
+**Fix:** Clean up via Management API (sandbox cannot reach test DB REST directly):
+```sql
+DO $$
+BEGIN
+  SET session_replication_role = replica;
+  DELETE FROM auth.users WHERE email LIKE 'e2e-test-%@gmail.com';
+  SET session_replication_role = DEFAULT;
+END$$;
+```
+`session_replication_role = replica` bypasses triggers that block cascaded deletes.
+
+**Prevention:** Ensure `afterAll` in every spec file deletes created `auth.users` rows — not just `profiles` rows. The trigger cascade only runs top-down from `auth.users`.
+
+---
+
 ### Unique Constraint on letter_deliveries (P651)
 
 **Symptom:** `beforeAll` silently fails — insert returns null, all tests in the describe block fail with "Auth delivery creation failed" or similar.
