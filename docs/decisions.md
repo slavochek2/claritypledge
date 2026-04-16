@@ -2,6 +2,48 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-17 [technical]: Supabase Realtime INSERT payload only contains the table's own columns — joined-table columns absent
+
+**Context:** P730 — `useOpenLiveInvite` used `mapRaw(raw)` on Realtime INSERT events for `clarity_live_invites`. The initial REST fetch used a JOIN (`clarity_sessions`, `profiles`, `stories`) and worked correctly. But `clarity_live_invites` has no `code`, `author_name`, or `story_title` columns — those come from joined tables. The Realtime INSERT payload only carries the columns of the subscribed table. `mapRaw` fell back to `code: ''` → "Join" navigated to `/live/` with an empty code → generic form instead of auto-join.
+
+**Decision:** When a Realtime INSERT subscription fires on a table whose payload is missing joined-table columns needed downstream, fetch those columns separately after the INSERT event arrives. Use the FK from the Realtime payload as the key for the secondary fetch. Do NOT rely on `mapRaw`-style fallback to empty string — make empty string a hard abort (log + return).
+
+**Alternatives rejected:** Denormalizing `code` etc. into `clarity_live_invites` — unnecessary duplication. Switching to a Realtime subscription on `clarity_sessions` — wrong table, misses per-user scoping.
+
+**Consequences:** Any hook subscribing to Realtime INSERT events that needs joined-table fields must follow the pattern: (1) extract the FK from the raw payload, (2) fetch the joined table by that FK, (3) dispatch from the fetch result. `mapRaw`-style `''` fallbacks for non-existent columns should never be dispatched — guard: abort if the critical field is missing after the secondary fetch.
+
+**References:** [p730](../features/p730_inbox_live_invite_join_navigates_to_empty_code.md)
+
+---
+
+## 2026-04-17 [technical]: TypeScript `as` cast on supabase.rpc() does not wrap scalar values at runtime — use typeof guard
+
+**Context:** P729 — `reveal_prediction` RPC returns `RETURNS SMALLINT` (plain scalar). `revealPrediction()` did `return data as { prediction: number } | null`. TypeScript accepted this; at runtime `data` was `4` and `(4).prediction === undefined`. Display fell back to "Not yet rated". `revealPredictionByToken` was unaffected — its RPC returns `RETURNS JSONB` with `jsonb_build_object('prediction', v_prediction)`.
+
+**Decision:** Never use `data as SomeObjectType` when the RPC may return a scalar at runtime. When `supabase.rpc()` calls a function returning a scalar type (SMALLINT, INTEGER, TEXT, BOOLEAN), wrap explicitly: `typeof data === 'number' ? { field: data } : null`. This also handles `data = 0` correctly — `if (data)` treats 0 as falsy.
+
+**Alternatives rejected:** Changing the RPC to return JSONB — valid but migration-level; pure TS fix is sufficient. Using `data != null` — unsafe when 0 is a valid value.
+
+**Consequences:** Any `rpc()` call returning a scalar type that is cast to an object with `as` has this bug latently. The `as` cast passes TS silently — invisible until runtime. Audit pattern: grep for `data as {` in service files after adding a scalar-return RPC. Fix pattern: `typeof data === 'number'` / `typeof data === 'string'` / `typeof data === 'boolean'`.
+
+**References:** [p729](../features/p729_reveal_prediction_scalar_cast_shows_not_rated.md)
+
+---
+
+## 2026-04-17 [technical]: PostgreSQL CREATE OR REPLACE with a changed signature creates a new overload, not a replacement — DROP the old signature first
+
+**Context:** P731 fix — P660 created `add_recipient_to_sealed_letter(p_letter_id UUID, p_email TEXT)`. P664 used `CREATE OR REPLACE FUNCTION add_recipient_to_sealed_letter(p_letter_id UUID, p_email TEXT, p_receiver_name TEXT DEFAULT NULL)` to add a parameter. Because the signatures differ, Postgres treated this as a new overload rather than a replacement. Both functions coexisted in the DB. When the RPC was called with two named params, Postgres threw: *"could not choose the best candidate function between..."*.
+
+**Decision:** When changing a PostgreSQL function's signature (adding, removing, or retyping parameters), always `DROP FUNCTION IF EXISTS old_signature(param_types)` in the same migration before the `CREATE OR REPLACE`. `CREATE OR REPLACE` only replaces a function with an identical signature — any parameter change creates a new overload silently.
+
+**Alternatives rejected:** Rename the function for the new signature — breaks all callers.
+
+**Consequences:** Any migration that changes a function's parameter list must include a `DROP FUNCTION IF EXISTS` for the old signature. When diagnosing "could not choose best candidate function" errors, query `pg_proc` for duplicate function names with different argtypes.
+
+**References:** `supabase/migrations/20260416210000_p731_set_receiver_profile_id_on_add_recipient.sql`, `supabase/migrations/20260406080000_p660_read_at_and_rpcs.sql`, `supabase/migrations/20260409150000_p664_add_receiver_name_to_sealed_rpc.sql`
+
+---
+
 ## 2026-04-17 [product]: "Add your story" CTA removed from PointRow — hideStoryCTA prop no longer exists (supersedes 2026-04-15 entry)
 
 **Context:** P456 added a disabled "Add your story → Available after the session" footer CTA to `PointRow` in `/live` sessions, gated by `hideStoryCTA` prop. Every non-`/live` surface had to pass `hideStoryCTA={true}` to suppress it. P711 UAT surfaced this as brittle: removing `readOnly` from a surface accidentally re-exposed the CTA. P733 removed the CTA entirely.
