@@ -2,6 +2,48 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-16 [process]: post_fix_timeout — handoff contract between /reproduce and /fix for staleness canary tests
+
+**Context:** P720 canary used a tight 5s timeout to prove delivery status did NOT update within 5s (staleness bug). After the fix added 15s polling, /fix ran the canary and it failed — the test's 5s assertion timeout was now wrong, but the fix was correct. The timeout needed to be updated to `polling_interval + 5s` (20s). This was discovered manually; no signal existed in the spec to tell /fix that the timeout was a sentinel, not a UX budget.
+
+**Decision:** Add optional `post_fix_timeout` field to `reproduce_artifact` in spec frontmatter. /reproduce sets it whenever a tight timeout was used to prove no-update. /fix reads it and updates the canary assertion timeout before running the test. This is documented as the canonical handoff contract in both skill files.
+
+**Alternatives rejected:** (A) Don't update the timeout — /fix keeps a failing canary and can't verify the fix. (B) Update in /fix without a spec field — relies on agent memory across sessions, not a reliable signal.
+
+**Consequences:** /reproduce must set `post_fix_timeout: N` any time a `toBeVisible/toHaveText` timeout ≤ 6000ms is used as a staleness proof. /fix reads and applies it before running. Pattern is now in both skill files.
+
+**References:** `.claude/commands/slava/build/reproduce/SKILL.md`, `.claude/commands/slava/build/fix.md`
+
+---
+
+## 2026-04-16 [technical]: Polling should reset interval on visibility + stop when all terminal
+
+**Context:** P720 added 15s setInterval polling to sent-tab and inbox-tab. Opus critique found two gaps: (1) returning at second 14 meant a 14s extra wait before first refresh — interval wasn't reset on visibilitychange. (2) Once all sent-letter deliveries are `completed`, polling kept firing every 15s forever — wasted requests with no possible new data.
+
+**Decision:** On visibilitychange (tab becomes visible): call fetchData immediately + clearInterval + start a fresh interval. On sent-tab only: track `allTerminalRef` (useRef) synced via a useEffect on `cards`; skip the fetch in the interval callback when all deliveries are `completed`. No terminal stop on inbox-tab — inbox is a live feed where new items can always arrive.
+
+**Alternatives rejected:** (A) Supabase Realtime subscription — added complexity, connection management, reconnect logic; polling is sufficient for this latency requirement. (B) Stop polling on inbox too — wrong, inbox can receive new letters at any time.
+
+**Consequences:** `useRef` + syncing `useEffect` pattern is the standard approach for interval guards that depend on state without adding the state to effect dependencies.
+
+**References:** `src/app/components/letters/sent-tab.tsx`, `src/app/components/letters/inbox-tab.tsx`, `features/p723_polling_interval_reset_and_terminal_stop.md`
+
+---
+
+## 2026-04-16 [process]: Untracked canary test files cause async setState bleed across the full test suite
+
+**Context:** P722 canary `src/tests/p722-reproduce.test.tsx` was committed but did not mock `useUnreadLetterCount`. That hook fires an async setState after unmount. When vitest runs the full suite, the unhandled rejection from P722's test environment bled into `navigation-acceptance-full.test.tsx` as `window is not defined`. The test passed in isolation but failed in the full suite — a false-positive block on unrelated P721 work.
+
+**Decision:** Any canary test that renders a full page component (e.g., `LetterReadingPage`) must mock all hooks that fire async effects after unmount. `useUnreadLetterCount` is a known offender — always mock it in page-level unit tests.
+
+**Alternatives rejected:** (A) Ignore — causes indefinite false blocks on unrelated commits. (B) Fix vitest environment isolation globally — too broad, masks real failures.
+
+**Consequences:** When writing canary tests that render full page components, grep for `useEffect` hooks in the component tree and mock any that fire async network calls. `useUnreadLetterCount` → always mock.
+
+**References:** `src/tests/p722-reproduce.test.tsx`, `src/app/hooks/useUnreadLetterCount.ts`
+
+---
+
 ## 2026-04-16 [technical]: Async `void` onClick handlers — E2E tests must wait for network settle before asserting
 
 **Context:** P703 cancel-path canary test: after clicking the Cancel button (whose `onClick` used `() => void handleCancelWaiting()`), the test immediately navigated back with `goto(...)`. The `void` pattern fires the async chain but the click event resolves synchronously — Playwright's `click()` resolves when the DOM event fires, not when the async handler completes. The subsequent `goto` could race against the in-flight Supabase PATCH (`cancelLiveInvite`), causing a false-green assertion (button appears re-enabled not because the invite was closed, but because the test navigated before the DB write landed).
