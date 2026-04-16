@@ -1,16 +1,16 @@
 /**
  * @file p731-inbox-letter-arrival.spec.ts
- * @description Canary: letter sent to known user appears in their inbox without claiming.
+ * @description Regression: letter sent to known user appears in their inbox without claiming.
  *
- * Bug: add_recipient_to_sealed_letter creates delivery with receiver_profile_id=NULL.
- * get_inbox_items Branch 1 requires receiver_profile_id=v_user_id — so the letter is
- * invisible in inbox until claim_letter_delivery is called (recipient opens via link).
+ * Bug: add_recipient_to_sealed_letter created delivery with receiver_profile_id=NULL.
+ * get_inbox_items Branch 1 requires receiver_profile_id=v_user_id — letter was invisible
+ * in inbox until claim_letter_delivery was called (recipient opened via link).
  *
- * Fix: look up profiles by email at send time, set receiver_profile_id if found.
- * This test FAILS with current code and PASSES after the fix.
+ * Fix: RPC now looks up profiles by email and sets receiver_profile_id at insert time.
+ * This test calls the actual RPC as the sender, so the fix is what makes it pass.
  */
 
-import { test, expect } from '@playwright/test';
+import { test, expect, createClient } from '@playwright/test';
 import {
   createTestUser,
   setTestSession,
@@ -20,10 +20,26 @@ import {
 import { supabaseAdmin } from './helpers/supabase-admin';
 import {
   createTestLetter,
-  createTestDelivery,
   sealTestLetter,
   deleteTestLetter,
 } from './helpers/test-letter';
+
+async function createAuthClientForUser(email: string) {
+  const { createClient: mkClient } = await import('@supabase/supabase-js');
+  const supabaseUrl = process.env.VITE_SUPABASE_URL!;
+  const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY!;
+  const tempClient = mkClient(supabaseUrl, supabaseAnonKey, {
+    auth: { autoRefreshToken: false, persistSession: false },
+  });
+  const { data } = await tempClient.auth.signInWithPassword({
+    email,
+    password: 'test-password-12345',
+  });
+  return mkClient(supabaseUrl, supabaseAnonKey, {
+    global: { headers: { Authorization: `Bearer ${data.session!.access_token}` } },
+    auth: { autoRefreshToken: false, persistSession: false },
+  });
+}
 
 test.describe('P731: Inbox letter arrival after send', () => {
   test.describe.configure({ timeout: 60000 });
@@ -48,13 +64,13 @@ test.describe('P731: Inbox letter arrival after send', () => {
     letterId = letter.id;
     await sealTestLetter(letterId);
 
-    // Simulate what add_recipient_to_sealed_letter does:
-    // creates delivery with receiver_email set but receiver_profile_id = NULL.
-    await createTestDelivery(letterId, {
-      receiverEmail: receiver.email,
-      receiverProfileId: undefined, // NULL — this is the bug trigger
-      status: 'sent',
+    // Call the actual RPC as the sender — the fix makes it set receiver_profile_id.
+    const senderClient = await createAuthClientForUser(sender.email);
+    const { error } = await senderClient.rpc('add_recipient_to_sealed_letter', {
+      p_letter_id: letterId,
+      p_email: receiver.email,
     });
+    if (error) throw new Error(`RPC failed: ${error.message}`);
   });
 
   test.afterAll(async () => {
@@ -69,8 +85,6 @@ test.describe('P731: Inbox letter arrival after send', () => {
     await page.goto('/letters?tab=inbox');
     await page.waitForLoadState('networkidle');
 
-    // Recipient should see the letter in inbox — currently FAILS because
-    // receiver_profile_id is NULL and get_inbox_items Branch 1 skips it.
     await expect(page.getByText('P731 Test Letter')).toBeVisible({ timeout: 6000 });
   });
 });
