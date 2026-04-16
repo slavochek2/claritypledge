@@ -129,12 +129,12 @@ test.describe('P720: Sent tab real-time delivery status updates', () => {
         .eq('id', delivery.id);
       if (error) throw new Error(`DB update failed: ${error.message}`);
 
-      // Sent tab should update WITHOUT a page refresh within 5 seconds.
-      // BUG (P720): This assertion times out because sent-tab.tsx has no
-      // real-time subscription — the UI stays stale until manual refresh.
+      // Sent tab should update WITHOUT a page refresh within 20 seconds.
+      // Fix (P720): sent-tab.tsx polls every 15s — the status change becomes
+      // visible within one poll cycle. 20s gives the poller a full cycle + margin.
       await expect(
         senderPage.getByText(/1 of 1 recipients? completed/i)
-      ).toBeVisible({ timeout: 5_000 });
+      ).toBeVisible({ timeout: 20_000 });
     } finally {
       await senderContext.close();
     }

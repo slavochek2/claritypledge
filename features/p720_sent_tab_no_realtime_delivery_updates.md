@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: qa
 type: bug
 rank: 1000720.0
 severity: medium
@@ -7,8 +7,11 @@ workstream: letters
 date_reported: '2026-04-16'
 created_date: '2026-04-16'
 tags: [letters, inbox, sent-tab, polling]
-delivery_stage: reproduce
-pipeline_ran: [create-bug, reproduce]
+delivery_stage: fix
+pipeline_ran: [create-bug, reproduce, fix]
+date_resolved: '2026-04-16'
+root_cause: sent-tab.tsx and inbox-tab.tsx called fetchData/fetchItems once on mount with no polling or subscription; DB changes from recipient interactions were invisible until manual page refresh
+resolution: Added 15s setInterval polling + visibilitychange listener to both SentTab and InboxTab useEffects, with cleanup on unmount; canary test updated to 20s timeout to match polling cycle
 reproduce_artifact:
   test_file: e2e/p720-sent-tab-realtime.spec.ts
   root_cause: "sent-tab.tsx has no Supabase real-time subscription — fetchData() called once on mount; delivery status changes in DB are invisible until manual page refresh"
@@ -98,9 +101,9 @@ useEffect(() => {
 
 ## Acceptance Criteria
 
-- [ ] Sent tab updates delivery status (Sent → In progress → Completed) without page refresh when recipient interacts
-- [ ] "x of y steps" progress counter appears in sent tab `RecipientRow` without page refresh when recipient makes progress
-- [ ] Inbox tab shows new `recipient_responded` / `recipient_in_progress` items without page refresh
-- [ ] Cleanup on unmount: interval + visibilitychange listener both removed
-- [ ] Canary test `e2e/p720-sent-tab-realtime.spec.ts` passes
+- [x] Sent tab updates delivery status (Sent → In progress → Completed) without page refresh when recipient interacts
+- [x] "x of y steps" progress counter appears in sent tab `RecipientRow` without page refresh when recipient makes progress
+- [x] Inbox tab shows new `recipient_responded` / `recipient_in_progress` items without page refresh
+- [x] Cleanup on unmount: interval + visibilitychange listener both removed
+- [x] Canary test `e2e/p720-sent-tab-realtime.spec.ts` passes
 - [ ] `npm test` passes

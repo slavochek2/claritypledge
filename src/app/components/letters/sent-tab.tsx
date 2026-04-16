@@ -324,6 +324,13 @@ export function SentTab({ userId }: SentTabProps) {
 
   useEffect(() => {
     fetchData();
+    const interval = setInterval(fetchData, 15_000);
+    const onVisible = () => { if (document.visibilityState === 'visible') fetchData(); };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
   }, [fetchData]);
 
   if (fetchState === 'loading') {
