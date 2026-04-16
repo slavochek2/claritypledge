@@ -116,6 +116,7 @@ vi.mock('@/lib/constants', () => ({
   ACCEPTED_TERMS_VERSIONS: ['v1'],
 }));
 vi.mock('sonner', () => ({ toast: { error: vi.fn(), info: vi.fn() } }));
+vi.mock('@/app/hooks/useUnreadLetterCount', () => ({ useUnreadLetterCount: () => ({ count: 0, loading: false }) }));
 
 // ── Component + service imports (after vi.mock hoisting) ─────────────────────
 
