@@ -258,6 +258,7 @@ serve(async (req: Request) => {
     try {
       body = await req.json() as RequestBody;
     } catch {
+      console.warn('[P719-DIAG] validation_fail: PARSE_BODY');
       return validationError();
     }
 
@@ -268,44 +269,53 @@ serve(async (req: Request) => {
 
     // letterId: must be a valid UUID
     if (typeof letterId !== 'string' || !UUID_REGEX.test(letterId)) {
+      console.warn('[P719-DIAG] validation_fail: LETTER_ID');
       return validationError();
     }
 
     // termsAccepted: strict boolean true (not truthy string coercion)
     if (termsAccepted !== true) {
+      console.warn('[P719-DIAG] validation_fail: TERMS_ACCEPTED');
       return validationError();
     }
 
     // termsVersion: must be in allowlist
     if (!isAcceptedTermsVersion(termsVersion)) {
+      console.warn('[P719-DIAG] validation_fail: TERMS_VERSION');
       return validationError();
     }
 
     // email: format + normalize
     if (typeof email !== 'string') {
+      console.warn('[P719-DIAG] validation_fail: EMAIL_TYPE');
       return validationError();
     }
     const normalizedEmail = email.trim().toLowerCase();
     if (!EMAIL_REGEX.test(normalizedEmail)) {
+      console.warn('[P719-DIAG] validation_fail: EMAIL_FORMAT');
       return validationError();
     }
 
     // name: sanitize + reject if empty
     if (typeof name !== 'string') {
+      console.warn('[P719-DIAG] validation_fail: NAME_TYPE');
       return validationError();
     }
     const trimmedName = name.trim().slice(0, 100);
     if (!trimmedName) {
+      console.warn('[P719-DIAG] validation_fail: NAME_EMPTY');
       return validationError();
     }
 
     // ratings: shape validation
     if (!isValidRatingsArray(ratings)) {
+      console.warn('[P719-DIAG] validation_fail: RATINGS_SHAPE');
       return validationError();
     }
 
     // positions: shape validation
     if (!isValidPositionsArray(positions)) {
+      console.warn('[P719-DIAG] validation_fail: POSITIONS_SHAPE');
       return validationError();
     }
 
