@@ -8,6 +8,13 @@ pipeline_plan: [reproduce, fix]
 pipeline_ran: [reproduce]
 tags: [auth, letters, race-condition]
 rank: 1
+reproduce_artifact:
+  test_file: src/tests/p722-reproduce.test.tsx
+  root_cause: "P695 completion shortcut (line 322) has no currentUser guard — anon/race user with currentUser=null skips P717 email guard and hits the status='completed' check directly, setting viewState='complete' and showing confetti"
+  confidence: high
+  scenarios_in_scope: [scenario-3-race-null-user, scenario-4-anon-unverified]
+  scenarios_deferred: []
+  reproduced_at: 2026-04-16
 ---
 
 ## Problem
@@ -130,6 +137,12 @@ settled. Prevents the race window entirely. Simpler cleanup: just strip the erro
 hash on mount without blocking (since auth should recover on its own).
 
 Validate during /reproduce which fix is sufficient and whether both are needed.
+
+## Root Cause (Confirmed)
+
+`getLetterForReadingByToken` returns data for the delivery. At line 292 of `letter-reading-page.tsx`, the P717 email guard is `if (currentUser && readData.delivery?.receiver_email)` — when `currentUser` is null (transient SIGNED_OUT race), this guard is skipped entirely. Code then hits line 322: `if (readData.delivery?.status === 'completed')` which has no `currentUser` check — sets `pageState='ready'` and `viewState='complete'`, causing `LetterCompletionSummary` (confetti) to render.
+
+The fix is a one-line change: add `currentUser &&` to line 322.
 
 ## Branch
 
