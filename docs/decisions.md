@@ -2,6 +2,34 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-16 [process]: Unit test mocks do not validate RPC response shape — integration test required for field-dependent guards
+
+**Context:** P717 — the wrong-user guard in `letter-reading-page.tsx` compared `delivery.receiver_email` to `currentUser.email`. The canary test mocked `getLetterForReadingByToken` returning `{delivery: {receiver_email: 'bob@example.com'}}`. Four unit tests passed. The real `get_letter_for_reading` RPC never included `receiver_email` in its response. Two fix commits shipped with a green test suite; the guard silently skipped on every real request. Root cause found only via browser verification.
+
+**Decision:** When a frontend guard depends on a specific field sourced from an RPC (not a direct table query), add an integration test that calls the real RPC via `supabaseAdmin.rpc()` and asserts the field is present with the expected value. Unit tests verify guard logic; integration tests verify data availability. Both are required. Pattern: `e2e/integration/p{N}-db-schema.spec.ts` calling `supabaseAdmin.rpc('rpc_name', ...)` and asserting `data.delivery.receiver_email` is defined.
+
+**Alternatives rejected:** Expanding unit tests to verify mock shape — mock shape is arbitrary; it proves nothing about the real RPC. TypeScript types on RPC return — types can lag migrations (P697 precedent: optional fields are invisible to TypeScript). Browser testing as the sole gate — too slow and not automated.
+
+**Consequences:** Extend the P270 integration-test-per-migration rule: when a migration adds or removes a field from an RPC response, the integration test must assert that field's presence or absence. The pre-commit hook already warns when a migration has no integration test — this makes the field-assertion requirement explicit.
+
+**References:** `e2e/integration/p717-db-schema.spec.ts` | `supabase/migrations/20260416170000_p717_add_receiver_email_to_reading_rpc.sql`
+
+---
+
+## 2026-04-16 [technical]: RPC field omissions can silently block frontend security guards — privacy redaction must account for guard use cases
+
+**Context:** P717 — wrong authenticated user could open a token letter link for a different recipient. Frontend guards in `letter-reading-page.tsx` checked `delivery.receiver_email` to detect the mismatch. The `get_letter_for_reading` RPC had `receiver_email` deliberately omitted (comment: "NO receiver_email (redacted)") as a privacy measure — preventing a token holder from seeing the email. Guards always checked `undefined`, silently skipped.
+
+**Decision:** Restore `receiver_email` to the RPC delivery response. The privacy argument for omission assumed the token holder shouldn't know the email; the counter-argument: the token link was sent to that email — the holder already knows it. The field is safe to return. Principle: when omitting a field from an RPC for privacy, note what guard logic that omission would prevent. Without that note, a downstream guard will silently fail without any error.
+
+**Alternatives rejected:** Guard by `sender_id` — sender ≠ intended recipient; doesn't distinguish wrong authenticated user from unclaimed recipient. Guard by `receiver_profile_id` alone — null on unclaimed deliveries, exactly the case requiring the guard.
+
+**Consequences:** `receiver_email` is now present in `get_letter_for_reading` delivery JSON. When adding privacy redactions to RPC responses, document the use-case impact in a comment alongside the omission. Security guards that depend on RPC-sourced fields must be verified in the browser, not assumed from passing unit tests.
+
+**References:** `supabase/migrations/20260416170000_p717_add_receiver_email_to_reading_rpc.sql` | `src/app/pages/letter-reading-page.tsx`
+
+---
+
 ## 2026-04-16 [technical]: REPLICA IDENTITY FULL required for Realtime UPDATE events filtered on non-PK columns
 
 **Context:** P703 — `useOpenLiveInvite` subscribes to `clarity_live_invites` filtered by `target_user_id=eq.{userId}`. When `complete_clarity_session` set `closed_at`, the UI invite row never disappeared. Realtime UPDATE events with column-level filters require the OLD row values to match the filter. Without `REPLICA IDENTITY FULL`, Postgres only logs the changed columns + PK in the WAL — the OLD row is incomplete, so Realtime cannot evaluate the filter and silently drops the event.
