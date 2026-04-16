@@ -2,6 +2,24 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-16 [technical]: Letter-sourced /live bootstrap — two call sites required, idempotency guard on liveState.ratingPhase
+
+**Context:** P703 initial implementation called `bootstrapLetterSourcedSession` only from `handleCreate` (the /live start screen "Create" button). `StartClaritySessionButton` bypasses that path: it calls `createClaritySession` directly then navigates to `/live/<code>`. The auto-join effect detected the creator but didn't bootstrap. Result: session stayed at `ratingPhase: 'idle'` and the story card never rendered.
+
+A second issue: the bootstrap only set `selectedStoryId` but not `selectedStoryData`, `checkerName`, `selectedContentTitle`, `ratingInitiatedBy`, `ratingInitiatedByIsCreator`. Without `selectedStoryData`, the story card renders empty even if phase is correct. These fields must be fetched (via `storiesService.getStoryWithPoints`) and set atomically in the same `updateClaritySessionLiveState` call.
+
+A third issue: the bootstrap was not idempotent — a creator page-refresh mid-session would call bootstrap again (via auto-join effect) and overwrite in-progress live state back to `explain-back`.
+
+**Decision:** (1) Auto-join effect calls `bootstrapLetterSourcedSession(sessionInfo)` when `sessionInfo.targetListenerId && sourceStoryId && sourceLetterId`. (2) Bootstrap fetches `StoryWithPoints` in parallel with baseline ratings and sets all required fields. (3) Guard at bootstrap entry: if `sess.liveState?.ratingPhase` exists and is not `'idle'`, skip the DB write entirely — session is already bootstrapped.
+
+**Alternatives rejected:** Calling bootstrap from `StartClaritySessionButton` directly — duplicates logic across two files and doesn't handle the page-refresh case. Per-flag `bootstrapped` column on `clarity_sessions` — heavier; the existing `liveState.ratingPhase` is sufficient.
+
+**Consequences:** Any future "pre-seeded" /live session type (e.g., seeded from an assessment, a practice library) must follow the same pattern: bootstrap in auto-join effect, guard on `liveState.ratingPhase !== 'idle'`, fetch all state fields needed by the first phase in a single parallel call. The `storiesService` import is now a dependency of `clarity-live-page.tsx`.
+
+**References:** [p703 spec](features/p703_verify_live_from_letter_results.md) | [clarity-live-page.tsx](src/app/pages/clarity-live-page.tsx)
+
+---
+
 ## 2026-04-16 [process]: Scenario Audit before fixing auth/flow bugs — enumerate all trigger paths, not just reported one
 
 **Context:** P717 went through reproduce → fix → fix.2 and the wrong-user guard still had a live failure mode. Each fix addressed one scenario (missing receiver_profile_id check, then missing receiver_email in RPC) but left other trigger paths unexamined. A third scenario emerged in P722: transient SIGNED_OUT from an expired magic link hash briefly clears `currentUser`, bypassing every guard that requires `currentUser !== null`. The P717 canary test passed because it only tested the settled-auth path.
