@@ -301,7 +301,12 @@ reproduce_artifact:
   surfaces_in_scope: [profile-points, profile-stories]
   surfaces_deferred: [P720, P721]
   reproduced_at: 2026-04-16
+  post_fix_timeout: 20000   # optional (ms). Set when canary uses a tight timeout
+                             # to prove staleness/no-update bug. /fix reads this
+                             # and updates the assertion timeout before running.
 ```
+
+> **`post_fix_timeout` rule:** When the canary assertion uses `toBeVisible({ timeout: N })` or `toHaveText()` with a short N (≤ 6000ms) to prove that an update does NOT appear within N ms — set `post_fix_timeout` to `expected_polling_interval + 5000`. This signals to /fix that the timeout is a staleness sentinel, not a UX budget.
 
 Update spec body — add or update `## Root Cause` section with the confirmed hypothesis.
 

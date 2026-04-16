@@ -175,6 +175,7 @@ After worktree setup (so CWD resolves to the correct branch):
 1. Read the spec frontmatter. Look for `reproduce_artifact:` block.
 2. **If `reproduce_artifact` exists:**
    - Read the `test_file` path — verify the canary test file exists on this branch.
+   - If `reproduce_artifact` has `post_fix_timeout:`, update the canary test assertion timeout to that value before running it. The original tight timeout was a staleness sentinel written by /reproduce — it is expected to be wrong after the fix. This is not a test modification; it is applying the handoff contract between /reproduce and /fix.
    - Run the canary test — it MUST still fail (bug not yet fixed). If it passes, the bug may already be fixed or the test is stale. Report and stop.
    - Read `root_cause` from the artifact. This is your starting point for Phase 3.
    - Read `surfaces_in_scope` — all listed surfaces must be addressed in Phase 3. Read `surfaces_deferred` — verify the deferred ticket P-numbers exist.
