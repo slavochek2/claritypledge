@@ -130,6 +130,10 @@ const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime.bind(vi) })
 await user.click(button);
 ```
 
+## vi.mock Stable Refs for useEffect Dependencies
+
+- **vi.mock stable refs:** Objects returned from a vi.mock factory that are used as useEffect deps must be created as a const inside the factory closure — inline object literals create a new reference each call, triggering an infinite effect loop.
+
 ## Gitleaks — JWT Fixture Allowlist
 
 If a test fixture contains a JWT-shaped string (`eyJ...`), add `// gitleaks:allow` on that line to prevent a false-positive pre-commit block.
