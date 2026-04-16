@@ -1010,12 +1010,31 @@ export async function submitLetterResponseAuthenticated(
   }
 
   // 4. Insert letter_point_responses rows from positions
+  // positions come from letter-response-confirm-page.tsx as POSITION_VALUES numerics (-3..3).
+  // Convert back to PositionType labels before storing so results page can highlight correctly.
+  const NUMERIC_TO_POSITION_TYPE_AUTH = new Map<number, string>([
+    [-3, 'strongly_disagree'],
+    [-2, 'disagree'],
+    [-1, 'somewhat_disagree'],
+    [0, 'unsure'],
+    [1, 'somewhat_agree'],
+    [2, 'agree'],
+    [3, 'strongly_agree'],
+  ]);
+  const VALID_POSITION_TYPES = new Set(NUMERIC_TO_POSITION_TYPE_AUTH.values());
+
   if (positions.length > 0) {
-    const positionRows = positions.map((p) => ({
-      delivery_id: deliveryId,
-      point_id: p.pointId,
-      position: String(p.position),
-    }));
+    const positionRows = positions.map((p) => {
+      const positionLabel =
+        typeof p.position === 'number'
+          ? (NUMERIC_TO_POSITION_TYPE_AUTH.get(p.position) ?? String(p.position))
+          : p.position;
+      return {
+        delivery_id: deliveryId,
+        point_id: p.pointId,
+        position: positionLabel,
+      };
+    });
 
     const { error: positionsError } = await supabase
       .from('letter_point_responses')
@@ -1031,16 +1050,19 @@ export async function submitLetterResponseAuthenticated(
     // AND is_verified = true — silently fails for unverified users; their positions
     // replay into point_positions via persist_anonymous_completion at verification.
     // Do NOT throw on failure — staging write above already succeeded.
-    const VALID_POSITION_TYPES = new Set([
-      'strongly_disagree', 'disagree', 'somewhat_disagree', 'unsure',
-      'somewhat_agree', 'agree', 'strongly_agree',
-    ]);
     const pointPositionRows = positions
-      .filter((p) => VALID_POSITION_TYPES.has(String(p.position)))
+      .filter((p) =>
+        typeof p.position === 'number'
+          ? NUMERIC_TO_POSITION_TYPE_AUTH.has(p.position)
+          : VALID_POSITION_TYPES.has(String(p.position))
+      )
       .map((p) => ({
         point_id: p.pointId,
         user_id: user.id,
-        position: String(p.position),
+        position:
+          typeof p.position === 'number'
+            ? (NUMERIC_TO_POSITION_TYPE_AUTH.get(p.position) ?? String(p.position))
+            : String(p.position),
       }));
 
     if (pointPositionRows.length > 0) {

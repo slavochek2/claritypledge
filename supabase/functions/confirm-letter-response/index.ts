@@ -262,19 +262,34 @@ serve(async (req: Request) => {
     }
 
     // ── Step 7c: Insert letter_point_responses from positions_json ────────────
-    // position is stored as TEXT in the schema (PositionType value).
-    // NOTE: positions_json stores numeric values (-3..3) converted via POSITION_VALUES
-    // at the client (letter-response-confirm-page.tsx). String(p.position) here produces
-    // "-3".."3" strings — invalid position_type enum values in the staging buffer.
-    // This is a pre-existing bug tracked separately; the insert uses TEXT, so it succeeds.
+    // positions_json stores POSITION_VALUES numeric values (-3..3) set by the client
+    // (letter-response-confirm-page.tsx). Convert back to PositionType labels before
+    // storing — letter_point_responses.position is TEXT and the results page casts it
+    // back to PositionType, so it must contain "agree" not "2".
+    const NUMERIC_TO_POSITION_TYPE = new Map<number, string>([
+      [-3, 'strongly_disagree'],
+      [-2, 'disagree'],
+      [-1, 'somewhat_disagree'],
+      [0, 'unsure'],
+      [1, 'somewhat_agree'],
+      [2, 'agree'],
+      [3, 'strongly_agree'],
+    ]);
+
     const positions = pendingRow.positions_json as PositionEntry[];
 
     if (positions.length > 0) {
-      const pointResponseRows = positions.map((p) => ({
-        delivery_id: deliveryId,
-        point_id: p.pointId,
-        position: String(p.position),
-      }));
+      const pointResponseRows = positions.map((p) => {
+        const positionLabel = NUMERIC_TO_POSITION_TYPE.get(p.position as number);
+        if (!positionLabel) {
+          console.error('[confirm-letter-response] unknown numeric position value:', p.position);
+        }
+        return {
+          delivery_id: deliveryId,
+          point_id: p.pointId,
+          position: positionLabel ?? String(p.position),
+        };
+      });
 
       const { error: pointResponseInsertError } = await serviceClient
         .from('letter_point_responses')
@@ -286,19 +301,9 @@ serve(async (req: Request) => {
       }
 
       // ── Step 7c.2: P708 dual-write — upsert point_positions (live display store) ──
-      // positions_json stores POSITION_VALUES numeric values (-3..3); convert to the
-      // canonical position_type enum strings before upserting. serviceClient bypasses
-      // RLS (SECURITY DEFINER context) — the user is authenticated via magic link.
+      // NUMERIC_TO_POSITION_TYPE already declared above — reuse it here.
+      // serviceClient bypasses RLS (SECURITY DEFINER context) — user authenticated via magic link.
       // Non-fatal: log but do not block — staging write above already succeeded.
-      const NUMERIC_TO_POSITION_TYPE = new Map<number, string>([
-        [-3, 'strongly_disagree'],
-        [-2, 'disagree'],
-        [-1, 'somewhat_disagree'],
-        [0, 'unsure'],
-        [1, 'somewhat_agree'],
-        [2, 'agree'],
-        [3, 'strongly_agree'],
-      ]);
 
       const pointPositionRows = positions
         .map((p) => ({
