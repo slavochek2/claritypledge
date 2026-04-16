@@ -129,3 +129,7 @@ If async `userEvent` behavior is specifically needed, configure it to advance fa
 const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime.bind(vi) });
 await user.click(button);
 ```
+
+## Gitleaks — JWT Fixture Allowlist
+
+If a test fixture contains a JWT-shaped string (`eyJ...`), add `// gitleaks:allow` on that line to prevent a false-positive pre-commit block.

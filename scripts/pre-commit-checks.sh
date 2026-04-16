@@ -14,6 +14,12 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
+# Warn if nothing is staged — gitleaks and other staged-content checks will be vacuously skipped
+if git diff --cached --quiet; then
+  echo -e "${YELLOW}⚠ Nothing staged. Gitleaks and staged-content checks will be skipped.${NC}"
+  echo ""
+fi
+
 ERRORS=0
 WARNINGS=0
 
