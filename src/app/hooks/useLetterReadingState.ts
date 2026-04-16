@@ -272,6 +272,7 @@ export function useLetterReadingState(
   const initRef = useRef(false);
 
   const resumedRef = useRef(false);
+  const hasMarkedInProgress = useRef(false);
 
   const [isLocalCompleted, setIsLocalCompleted] = useState(false);
   const [tokenExpired, setTokenExpired] = useState(false);
@@ -294,6 +295,7 @@ export function useLetterReadingState(
         );
         if (saved && saved.stories.length === snapshots.length && hasProgress) {
           resumedRef.current = true;
+          hasMarkedInProgress.current = true;
           return saved;
         }
       }
@@ -309,6 +311,7 @@ export function useLetterReadingState(
       );
       if (saved && saved.stories.length === snapshots.length && (saved.currentStoryIndex > 0 || hasProgress)) {
         resumedRef.current = true;
+        hasMarkedInProgress.current = true;
         return saved;
       }
     }
@@ -377,6 +380,17 @@ export function useLetterReadingState(
       setIsSubmitting(true);
       try {
         if (mode !== 'local' && !previewMode) {
+          if (!hasMarkedInProgress.current) {
+            if (token) {
+              updateDeliveryStatusByToken(token, 'in_progress')
+                .then(() => { hasMarkedInProgress.current = true; })
+                .catch(() => {});
+            } else if (deliveryId) {
+              updateDeliveryStatus(deliveryId, 'in_progress')
+                .then(() => { hasMarkedInProgress.current = true; })
+                .catch(() => {});
+            }
+          }
           if (token) {
             await submitPointResponseByToken(token, pointId, position);
           } else if (deliveryId) {
@@ -472,6 +486,11 @@ export function useLetterReadingState(
             phase: 'story-revealed',
           }));
         } else if (token) {
+          if (!hasMarkedInProgress.current) {
+            updateDeliveryStatusByToken(token, 'in_progress')
+              .then(() => { hasMarkedInProgress.current = true; })
+              .catch(() => {});
+          }
           await submitRatingByToken(token, currentSnapshot.story_id, rating);
           const prediction = await revealPredictionByToken(token, currentSnapshot.story_id);
           updateCurrentStory((prev) => ({
@@ -481,6 +500,11 @@ export function useLetterReadingState(
             phase: 'story-revealed',
           }));
         } else if (deliveryId) {
+          if (!hasMarkedInProgress.current) {
+            updateDeliveryStatus(deliveryId, 'in_progress')
+              .then(() => { hasMarkedInProgress.current = true; })
+              .catch(() => {});
+          }
           await submitRating(deliveryId, currentSnapshot.story_id, rating, senderId, currentSnapshot.version_id);
           const prediction = await revealPrediction(deliveryId, currentSnapshot.story_id);
           updateCurrentStory((prev) => ({
@@ -562,14 +586,6 @@ export function useLetterReadingState(
           setIsLocalCompleted(true);
         }
         return { ...prev, isComplete: true };
-      }
-      // Mark delivery as in_progress if this is the first advance
-      if (mode !== 'local' && !previewMode && prev.currentStoryIndex === 0) {
-        if (token) {
-          updateDeliveryStatusByToken(token, 'in_progress').catch(() => {});
-        } else if (deliveryId) {
-          updateDeliveryStatus(deliveryId, 'in_progress').catch(() => {});
-        }
       }
       return { ...prev, currentStoryIndex: nextIndex };
     });

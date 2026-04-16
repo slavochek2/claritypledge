@@ -108,8 +108,9 @@ test.describe('P732: Delivery reaches in_progress on first step', () => {
     await page.waitForLoadState('networkidle');
 
     // Recipient is now at point-engage phase (2-point letter = anti-point lead)
-    // Submit first position answer — click "Agree"
+    // Select position then click Submit — clicking Agree alone only selects, does not submit
     await page.getByRole('button', { name: 'Agree' }).first().click();
+    await page.getByRole('button', { name: 'Submit' }).click();
     await page.waitForLoadState('networkidle');
 
     // Check delivery status in DB — should be 'in_progress', currently stays 'opened'
