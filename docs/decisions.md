@@ -2,6 +2,34 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-16 [process]: Scenario Audit before fixing auth/flow bugs — enumerate all trigger paths, not just reported one
+
+**Context:** P717 went through reproduce → fix → fix.2 and the wrong-user guard still had a live failure mode. Each fix addressed one scenario (missing receiver_profile_id check, then missing receiver_email in RPC) but left other trigger paths unexamined. A third scenario emerged in P722: transient SIGNED_OUT from an expired magic link hash briefly clears `currentUser`, bypassing every guard that requires `currentUser !== null`. The P717 canary test passed because it only tested the settled-auth path.
+
+**Decision:** For any bug involving auth state, tokens, URL parameters, async timing, or access guards — run a Scenario Audit (new /reproduce Phase 2b Track B) before writing any fix code. The audit enumerates all trigger combinations: who is logged in (correct / wrong / anon / briefly-anon), what URL state is present (token, error hash, redirect param), what data state variations exist (null field, completed, unclaimed). Map each scenario to the specific guard line that would fire. Identify unguarded scenarios before touching code. The canary test must cover all in-scope scenarios, not just the reported one.
+
+**Alternatives rejected:** Fixing the reported scenario and re-testing after each complaint — causes repeated fix rounds on the same invariant. Adding scenarios to the canary test after the fix — testing what you just wrote, not what fails before.
+
+**Consequences:** /reproduce Phase 2b now has two tracks: Track A (surface audit for UI bugs) and Track B (scenario audit for auth/flow bugs). The audit output feeds directly into the canary test scope — if the test doesn't cover a scenario listed in the audit, it's not ready. This adds ~15 minutes to reproduce but eliminates fix rounds.
+
+**References:** `/reproduce SKILL.md` Phase 2b | [p722 spec](features/bugs_and_debt/p722_wrong_user_confetti_race_condition.md)
+
+---
+
+## 2026-04-16 [technical]: Token path P695 completion shortcut requires auth check — anon load skips all guards
+
+**Context:** P722 — `letter-reading-page.tsx` has a "skip to completion" shortcut (line 322, tagged P695) in the anon token path that jumps directly to `viewState('complete')` when `delivery.status === 'completed'`. The path runs when `currentUser` is null — which can happen legitimately (anon user) or transiently (brief SIGNED_OUT from an expired OTP redirect hash). All email guards in the token path are gated on `if (currentUser && ...)`, so when `currentUser` is null the wrong-user check is silently skipped and the completion screen is shown to an unverified visitor.
+
+**Decision:** The P695 completion shortcut in the token path must require `currentUser`: `if (currentUser && readData.delivery?.status === 'completed')`. An anon user who hasn't been verified as the intended recipient must never see the completed delivery view — they should reach the cover screen at most, where auth is required to proceed. Belt-and-suspenders: also clear `#error=access_denied` hash on mount (alongside existing `access_token=` handling) so auth flicker from failed OTP redirects doesn't create a race window.
+
+**Alternatives rejected:** Removing the P695 shortcut entirely — legitimate returning recipients (correct user, already completed) would lose the skip-to-results UX. Moving the completion check above the email guard — same problem; guard hasn't run yet.
+
+**Consequences:** Rule for `letter-reading-page.tsx` token path: any branch that advances `viewState` beyond `cover` or reveals letter content must first confirm `currentUser` is set. The email guard (`currentUser && receiver_email check`) is not sufficient alone — the completion shortcut is a separate early-return that precedes it. Any future "skip" shortcuts must follow the same pattern: auth check first, then state check.
+
+**References:** [p722 spec](features/bugs_and_debt/p722_wrong_user_confetti_race_condition.md) | `src/app/pages/letter-reading-page.tsx` line 322
+
+---
+
 ## 2026-04-16 [technical]: Unreproducible timing-dependent bug — add server-side validation codes, convert canary to regression
 
 **Context:** P719 — intermittent 400 "Invalid request" on signup after completing a public letter. The edge function `request-letter-response-signin` returns the same generic `validationError()` for 8 different failure points. The Supabase client fires `SIGNED_OUT` and clears the stale session before the form submission reaches the edge function, so the race window is too narrow to trigger reliably in Playwright. Three reproduction attempts failed.

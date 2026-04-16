@@ -152,9 +152,15 @@ Refined reproduction steps:
 
 ---
 
-### Phase 2b: Surface Audit
+### Phase 2b: Surface + Scenario Audit
 
-**Goal:** Find every place in the codebase where this symptom exists — not just the reported one.
+**Goal:** Find every place and every way this bug can occur — not just the reported one.
+
+This phase has two tracks. Run the one that fits the bug type; run both if the bug straddles both.
+
+---
+
+#### Track A — Surface Audit (UI/layout/rendering bugs)
 
 **Why:** UI behavior bugs almost always affect multiple components. Fixing only the reported surface leaves the bug alive elsewhere and you file it again next month.
 
@@ -182,16 +188,54 @@ Which do you want fixed in this ticket?
 5. Wait for user confirmation before proceeding.
 6. For deferred surfaces: create bug tickets NOW via `./scripts/next-p-number.sh`. "Out of scope" without a ticket number is not allowed.
 
+**Skip Track A for:** Infrastructure bugs (build, CI, migrations), pure logic bugs with zero UI behavior.
+
+---
+
+#### Track B — Scenario Audit (auth/flow/async/security bugs)
+
+**Why:** Guards that work for one scenario can be bypassed by a different trigger sequence. Fixing one scenario leaves identical guards broken in others — same bug, different path. This is how "it worked once, then broke again" happens.
+
+**Use Track B when the bug involves:** authentication state, tokens, URL parameters, async timing, race conditions, multi-party flows, or any guard that checks a condition before allowing access.
+
+**Steps:**
+1. **Enumerate trigger scenarios** — all the ways a user could arrive at this code path. Ask:
+   - Who could be logged in? (correct user / wrong user / anon / briefly-anon due to race)
+   - What URL state could be present? (token, hash fragment, redirect param, error hash, expired token)
+   - What async timing windows exist? (auth settling, SIGNED_OUT→SIGNED_IN flicker, RPC delay)
+   - What data state variations exist? (null field, already-completed, unclaimed, mode=one-to-many vs 1-to-1)
+
+2. **Map scenarios to guards** — for each scenario, trace which guard would fire. Name the exact line/condition.
+
+3. **Find unguarded scenarios** — scenarios where no guard fires or the guard condition is false:
+
+```
+Scenario audit: [guard being tested]
+
+Scenario 1: Wrong user, receiver_email set, auth settled        → guard fires (line 292) ✓
+Scenario 2: Wrong user, receiver_email null                     → guard skipped (null check) ✗
+Scenario 3: Wrong user, auth briefly null (race condition)      → guard skipped (currentUser null) ✗
+Scenario 4: Wrong user, hash error fragment from expired OTP    → [need to trace] ?
+
+Unguarded: scenarios 2, 3, 4 — all must be covered by fix or explicitly deferred with tickets.
+```
+
+4. Wait for user confirmation on scope before proceeding.
+5. For deferred scenarios: create bug tickets NOW. "Out of scope" without a ticket number is not allowed.
+
 **Output:**
 ```
-Surface audit complete.
-In scope for this ticket: [list]
-Deferred (tickets created): [P-XXX: surface, P-YYY: surface]
+Scenario audit complete.
+In scope for this ticket: [scenario 1, 2, 3]
+Deferred (tickets created): [P-XXX: scenario 4]
+Canary test must cover: [all in-scope scenarios]
 ```
 
-**Skip only for:** Infrastructure bugs (build, CI, migrations), pure logic bugs with zero UI behavior.
+**Skip Track B for:** Pure UI/layout bugs with no guard logic, no async state, no auth.
 
-> **Note:** This is the authoritative surface audit. `/fix` Phase 1b references this phase as fallback for legacy specs.
+---
+
+> **Note:** This is the authoritative surface/scenario audit. `/fix` Phase 1b references this phase as fallback for legacy specs. The canary test in Phase 3 must cover all in-scope items from both tracks.
 
 ---
 

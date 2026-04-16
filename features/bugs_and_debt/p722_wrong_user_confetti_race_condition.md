@@ -2,10 +2,10 @@
 id: P722
 title: Wrong user sees confetti (completed state) when clicking expired magic link
 type: bug
-status: today
-delivery_stage: create-bug
+status: in-progress
+delivery_stage: reproduce
 pipeline_plan: [reproduce, fix]
-pipeline_ran: []
+pipeline_ran: [reproduce]
 tags: [auth, letters, race-condition]
 rank: 1
 ---
