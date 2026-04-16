@@ -2,6 +2,20 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-16 [technical]: add_recipient_to_sealed_letter must set receiver_profile_id at send time for known users
+
+**Context:** P731 — after a sender added a recipient via the "Add recipient" flow, the letter was invisible in the recipient's Inbox tab. `get_inbox_items` Branch 1 requires `ld.receiver_profile_id = v_user_id`. `add_recipient_to_sealed_letter` always inserts the delivery with `receiver_profile_id = NULL` (only `receiver_email` set). `receiver_profile_id` is only written by `claim_letter_delivery`, which fires when the recipient opens the letter via the email link. Until then, the letter is invisible in the in-app inbox regardless of polling.
+
+**Decision:** In `add_recipient_to_sealed_letter`, look up `profiles.id` by `p_email` at insert time. If a matching profile exists, set `receiver_profile_id` in the delivery row. This makes the letter appear in the recipient's inbox immediately on the next poll without requiring them to click the email link first. The `claim_letter_delivery` idempotency guard (`receiver_profile_id` already set → no-op update) handles the case where the recipient later opens the link anyway.
+
+**Alternatives rejected:** Modify `get_inbox_items` to match on `receiver_email` — requires a join to `auth.users` for the caller's email and adds a second code path that diverges from the rest of the RLS model (which is all `receiver_profile_id`-based). Email-based matching also breaks for users who change their email after receiving a letter.
+
+**Consequences:** `add_recipient_to_sealed_letter` always does a `SELECT id FROM profiles WHERE email = p_email` before insert. If found, sets `receiver_profile_id`. If not found (new user, no account yet), leaves it NULL as before — letter appears after they claim via link. This is purely additive: the existing claim flow is unchanged. The unique index `idx_letter_deliveries_one_per_recipient` already guards against duplicate `(letter_id, receiver_profile_id)` deliveries for authenticated recipients.
+
+**References:** `supabase/migrations/20260412150407_fix_invitation_token_uuid_cast.sql` (`add_recipient_to_sealed_letter`), `supabase/migrations/20260415160000_p707_create_letter_delivery_rpc.sql`, `features/p731_inbox_letter_not_arriving_after_send.md`
+
+---
+
 ## 2026-04-16 [technical]: DB unique constraint errors must be translated to user-friendly messages at the service layer
 
 **Context:** P728 — `addRecipientToSealed` threw a raw Postgres error verbatim: `"duplicate key value violates unique constraint 'idx_letter_deliveries_unique_email'"`. The modal displayed this string directly in the recipient row hint text. Users saw internal DB error language instead of actionable guidance.
