@@ -177,6 +177,17 @@ export function LetterReadingPage() {
               setSafe('wrong_user');
               return;
             } else {
+              // P717: email guard for unclaimed deliveries (receiver_profile_id = null).
+              // receiver_profile_id is null until claimed, so the existing guard above
+              // never fires — wrong authenticated user would fall through to 'ready'.
+              if (readData.delivery?.receiver_email) {
+                const intendedEmail = readData.delivery.receiver_email.toLowerCase();
+                const currentEmail = (currentUser.email ?? '').toLowerCase();
+                if (currentEmail !== intendedEmail) {
+                  setSafe('wrong_user');
+                  return;
+                }
+              }
               // Receiver (or sender without token viewing their own letter)
               setLetterSafe(readData.letter);
               setSnapshotsSafe(readData.snapshots);

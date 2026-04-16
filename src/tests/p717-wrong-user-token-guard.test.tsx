@@ -120,12 +120,13 @@ vi.mock('sonner', () => ({ toast: { error: vi.fn(), info: vi.fn() } }));
 // ── Component + service imports (after vi.mock hoisting) ─────────────────────
 
 import { useAuth } from '@/auth';
-import { getLetterForReadingByToken } from '@/app/data/letters-service';
+import { getLetterForReading, getLetterForReadingByToken } from '@/app/data/letters-service';
 import { LetterReadingPage } from '@/app/pages/letter-reading-page';
 import userEvent from '@testing-library/user-event';
 
 const mockUseAuth = vi.mocked(useAuth);
 const mockGetLetterForReadingByToken = vi.mocked(getLetterForReadingByToken);
+const mockGetLetterForReading = vi.mocked(getLetterForReading);
 
 function makeDelivery(overrides: Record<string, unknown> = {}) {
   return {
@@ -258,6 +259,37 @@ describe('P717: wrong authenticated user on token link', () => {
     // Correct user should reach the letter cover
     await waitFor(() => {
       expect(screen.getByText(/Open the Letter/i)).toBeInTheDocument();
+    });
+  });
+
+  it('authed-first path: shows wrong-account screen when getLetterForReading returns data for wrong user', async () => {
+    // Scenario: RLS allows authed read (receiver_profile_id is null, so RLS passes)
+    // but the current user's email doesn't match delivery.receiver_email.
+    // Before fix: falls through to pageState='ready'. After fix: pageState='wrong_user'.
+    mockGetLetterForReading.mockResolvedValue({
+      letter: makeLetter() as unknown as import('@/app/types').ClarityLetter,
+      snapshots: [
+        {
+          letter_id: LETTER_ID,
+          story_id: 'story-1',
+          version_id: 'v1',
+          position: 0,
+          point_config: { storyText: 'text', storyTitle: 'title', points: [] },
+        },
+      ],
+      delivery: makeDelivery() as unknown as import('@/app/types').LetterDelivery,
+    });
+
+    renderPage();
+
+    await waitFor(() => {
+      expect(screen.queryByText(/Open the Letter/i)).toBeNull();
+    });
+
+    await waitFor(() => {
+      expect(
+        screen.getByText(/different account|wasn't sent to you|not addressed to you/i)
+      ).toBeInTheDocument();
     });
   });
 });
