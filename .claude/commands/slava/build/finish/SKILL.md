@@ -102,6 +102,7 @@ For each review type that needs a subagent:
 Agent(
   description="{type} review",
   subagent_type="general-purpose",
+  model="sonnet",
   prompt="You are reviewing {type} changes for ClarityPledge.
 
 [CRITERIA FILE CONTENT INLINED]

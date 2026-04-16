@@ -243,7 +243,7 @@ Before spawning the subagent, the main agent MUST:
    - `docs/philosophy.md`
 3. Pass all file contents inline in the subagent prompt below
 
-Then spawn a general-purpose agent with this directive (with file contents inlined):
+Then spawn a general-purpose agent (`model: "sonnet"`) with this directive (with file contents inlined):
 
 ```
 You are a Spec Challenger. Your job is to BREAK this spec — find the fatal flaw,

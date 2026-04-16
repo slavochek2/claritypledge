@@ -344,7 +344,7 @@ This section looks backward at what happened since `$SINCE`. Gather data, then s
 **2a. Gather**
 
 Use the git log, activity log, KDD check, and CLAUDE.md change data already collected in Wave 1 (no additional tool calls needed).
-If CLAUDE.md/rules were changed (per Wave 1 output), spawn a single `/slava:maintain:claude-md` subagent. Get: VALID / NEEDS REVISION + recommendation.
+If CLAUDE.md/rules were changed (per Wave 1 output), spawn a single `/slava:maintain:claude-md` subagent (`model: "sonnet"`). Get: VALID / NEEDS REVISION + recommendation.
 
 **2b. KDD reminder check**
 

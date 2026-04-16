@@ -119,7 +119,7 @@ Before any other work in this skill:
 
 ## Agent Directive
 
-When invoked, spawn a general-purpose agent with this directive:
+When invoked, spawn a general-purpose agent (`model: "sonnet"`) with this directive:
 
 ```
 You are a spec auditor. Your job is to catch issues that will cause rework during implementation.

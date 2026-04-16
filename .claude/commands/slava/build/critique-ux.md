@@ -61,7 +61,7 @@ Read these yourself — you'll pass the content inline to the subagent (subagent
 
 ### Step 4: Spawn Blind Critic Subagent
 
-Use the Agent tool, `subagent_type: general-purpose`. Prompt shape:
+Use the Agent tool, `subagent_type: general-purpose`, `model: "sonnet"`. Prompt shape:
 
 ```
 You are a senior UX/UI critic reviewing a shipped feature. You do NOT have access to the code or the implementation intent — only screenshots and the product's visual spec. Your job is to find problems, not confirm quality.

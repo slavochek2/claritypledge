@@ -253,7 +253,7 @@ The /ui agent:
 
 ## Implementation
 
-When invoked, this skill spawns a general-purpose agent with the following directive:
+When invoked, this skill spawns a general-purpose agent (`model: "sonnet"`) with the following directive:
 
 ```
 You are a UI Component Strategist. Your job is to map UX designs and architecture decisions to concrete component choices, maximizing reuse of the existing design system (shadcn/ui + Radix + Tailwind).

@@ -69,7 +69,7 @@ ls features/p{N}_*.md 2>/dev/null
 
 ### Step 2: Predecessor analysis (subagent)
 
-Spawn a subagent to deeply analyze the predecessor spec:
+Spawn a subagent (`model: "sonnet"`) to deeply analyze the predecessor spec:
 
 ```
 You are a product analyst. Read the spec at {path} in full.

@@ -256,7 +256,7 @@ Recommendation: Remove from README.md, link to definitions.md instead.
 
    Before spawning, collect key session events (files edited, errors encountered, decisions made, back-and-forth exchanges) as a concise summary. Also read the last 50 lines of `docs/decisions.md` for cross-reference context. Pass both inline in the subagent prompt: "Here is the session summary: [summary]. Here are recent decisions for cross-reference (do not duplicate these): [decisions.md excerpt]."
 
-   Spawn a `general-purpose` subagent with this task:
+   Spawn a `general-purpose` subagent (`model: "sonnet"`) with this task:
    > "From the session summary and decisions context provided above, extract problems, friction points, mistakes, and inefficiencies. Consolidate near-identical incidents into one item. Cap at 10 items max. Exclude routine tool calls and confirmations — only report things a human would call a mistake or waste. For each item identify: (1) what happened — be concrete: name the P-number, file path, or exact claim that was wrong, not just the abstract category, (2) category: wrong-assumption / unnecessary-question / repeated-step / missed-signal / scope-creep / tool-fumble / missing-context / process-gap, (3) severity: minor / moderate / significant. Return a structured list only — no solutions yet. Do NOT edit files, stage, or commit anything."
 
    **7.2 Triage each extracted problem:**

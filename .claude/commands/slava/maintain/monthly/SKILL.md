@@ -76,7 +76,7 @@ touch -t $(date -j -f "%Y-%m-%d" "$SINCE" "+%Y%m%d0000" 2>/dev/null || date -d "
 
 ### 2. Parallel Subagent Analyses
 
-Spawn all 3 agents simultaneously. Do not wait for one before starting the next.
+Spawn all 3 agents simultaneously with `model: "sonnet"`. Do not wait for one before starting the next.
 
 ---
 
@@ -159,7 +159,7 @@ OUTPUT FORMAT:
 ```
 You are a senior engineering lead doing a devil's advocate review of a CLAUDE.md file.
 
-Read: /Users/slavochek/Projects/public/claritypledge/CLAUDE.md
+Read: ./CLAUDE.md
 
 For EACH named principle/rule/section, give:
 - ✓ Sound | ⚠️ Needs nuance | ✗ Potentially wrong

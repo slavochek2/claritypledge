@@ -34,8 +34,8 @@ Before doing any file work, answer three questions from the conversation context
 2. **Clear trigger?** Can you write a one-sentence `when_to_use` that unambiguously distinguishes when to invoke this skill vs not? If not, the skill boundary is unclear — ask.
 3. **Duplication check:** Scan existing skills for overlap:
    ```bash
-   ls /Users/slavochek/Projects/public/claritypledge/.claude/commands/slava/**/*.md 2>/dev/null
-   grep -r "name:" /Users/slavochek/Projects/public/claritypledge/.claude/commands/slava/ --include="*.md" | grep -v archive
+   ls ./.claude/commands/slava/**/*.md 2>/dev/null
+   grep -r "name:" ./.claude/commands/slava/ --include="*.md" | grep -v archive
    ```
    If an existing skill covers >50% of the intended scope, name it and ask whether to extend that skill instead.
 
@@ -62,14 +62,14 @@ No skill without a namespace. If none fits, propose a new one and wait for appro
 
 Check actual filenames in the target namespace before deciding:
 ```bash
-ls /Users/slavochek/Projects/public/claritypledge/.claude/commands/slava/{namespace}/
+ls ./.claude/commands/slava/{namespace}/
 ```
 
 ---
 
 ### Step 3: Read existing skills in the target namespace (subagent)
 
-Spawn a subagent to analyze 2-3 existing skills in the same namespace for conventions and quality bar:
+Spawn a subagent (`model: "sonnet"`) to analyze 2-3 existing skills in the same namespace for conventions and quality bar:
 
 ```
 You are a skill analyst. Read these skill files in full:
@@ -132,7 +132,7 @@ Does this match what you designed? Any sections missing or wrong?
 
 ### Step 5: Write the skill file
 
-**Path:** `/Users/slavochek/Projects/public/claritypledge/.claude/commands/slava/{namespace}/{filename}.md`
+**Path:** `./.claude/commands/slava/{namespace}/{filename}.md`
 
 **Required frontmatter:**
 

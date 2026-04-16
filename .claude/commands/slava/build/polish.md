@@ -172,7 +172,7 @@ Save to: `~/Screenshots/{YYYY-MM-DD}/polish-{feature}/{item-N}-after-{viewport}.
 
 ### Step 6 — Blind Visual QA (per item)
 
-Spawn a separate subagent with ONLY the before/after screenshots + the visual-qa checklist. Do NOT pass the code diff or decision to the subagent. The subagent's job is to find problems, not confirm quality.
+Spawn a separate subagent (`model: "sonnet"`) with ONLY the before/after screenshots + the visual-qa checklist. Do NOT pass the code diff or decision to the subagent. The subagent's job is to find problems, not confirm quality.
 
 Subagent prompt shape:
 ```

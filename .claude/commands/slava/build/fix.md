@@ -389,7 +389,7 @@ Fix: Use form data reference instead of event target
 1. Run regression test → MUST pass
 2. Run smoke tests → MUST pass
 3. Run full test suite → MUST pass
-4. **Once tests pass, spawn in parallel (do not wait for one before starting the other):**
+4. **Once tests pass, spawn in parallel (do not wait for one before starting the other), both with `model: "sonnet"`:**
    - **Code review agent** — review tests + implementation together. Prompt: "Review tests AND implementation for [bug]. Check: missing surface coverage, threshold/logic bugs, accessibility gaps, stale state risks."
    - **Browser verify agent** (UI bugs only) — navigate to affected route, screenshot, confirm fix visually.
    - Apply any HIGH findings from code review before committing.
@@ -500,7 +500,7 @@ After commit succeeds:
       - [ ] {item 1}
       - [ ] {item 2}
      Fix remaining items or update the spec before closing."
-1. **Review** — Spawn `/finish code` as a subagent with: "Review all code changes on this branch vs main. Spec: [spec path if exists]. Proceed directly — no scope confirmation needed." Present HIGH/MEDIUM findings. Ask: "Fix issues before closing? (all HIGH / select / skip)". Apply approved fixes and commit them.
+1. **Review** — Spawn `/finish code` as a subagent (`model: "sonnet"`) with: "Review all code changes on this branch vs main. Spec: [spec path if exists]. Proceed directly — no scope confirmation needed." Present HIGH/MEDIUM findings. Ask: "Fix issues before closing? (all HIGH / select / skip)". Apply approved fixes and commit them.
 2. Update frontmatter: `status: qa` (keep `delivery_stage: fix` — do not clear it). **If the spec was moved (e.g., to a subfolder) in this session, Edit its frontmatter at the new location AFTER the `git mv` is staged — never Edit before staging the rename, or the frontmatter change lands in a separate commit.**
 3. Commit: `chore: pN ready for QA — {title}`
 

@@ -204,7 +204,7 @@ The purpose: distinguish deliberate evolution from silent drift. Don't expand �
 
 ### 2.7 Prompt Pattern Mining (subagent, runs in background)
 
-Spawn a subagent in background while you continue to step 3. It scans session logs since `$SINCE` and returns skill gap candidates.
+Spawn a subagent (`model: "sonnet"`) in background while you continue to step 3. It scans session logs since `$SINCE` and returns skill gap candidates.
 
 **Subagent prompt:**
 ```
@@ -247,7 +247,7 @@ This handles: Mixpanel session check → login if needed → Supabase user healt
 
 ### 2.9.1 Mixpanel Event Audit (subagent, runs in background — parallel with 2.7 and 2.8)
 
-Spawn a subagent in background while you continue to step 3.
+Spawn a subagent (`model: "sonnet"`) in background while you continue to step 3.
 
 **Subagent prompt:**
 ```
@@ -278,7 +278,7 @@ If no feature commits this week: `MIXPANEL: no new features — nothing to audit
 
 ### 2.10 Privacy Scan (subagent, runs in background — parallel with 2.7 and 2.8)
 
-Spawn a subagent to scan docs changed this week for PII and sensitive content that the pre-commit hook may have missed.
+Spawn a subagent (`model: "sonnet"`) to scan docs changed this week for PII and sensitive content that the pre-commit hook may have missed.
 
 **Subagent prompt:**
 ```
@@ -307,7 +307,7 @@ If hard flags found: surface them in Questions as "Privacy issue in [file] — f
 
 ### 2.8 Code Health Scan (subagent, runs in background — parallel with 2.7)
 
-Spawn a subagent in background while you continue to step 3.
+Spawn a subagent (`model: "sonnet"`) in background while you continue to step 3.
 
 **Subagent prompt:**
 ```
@@ -341,7 +341,7 @@ If verdict is ❌: add to questions "Code health degraded — worth a fix sessio
 
 ### 2.11 Ops Email Triage (subagent, runs in background — parallel with 2.7, 2.8, 2.9.1)
 
-Spawn a subagent in background to check `ops@claritypledge.com` and surface only emails that need a decision or action.
+Spawn a subagent (`model: "sonnet"`) in background to check `ops@claritypledge.com` and surface only emails that need a decision or action.
 
 **Subagent prompt:**
 ```

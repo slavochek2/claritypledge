@@ -18,7 +18,7 @@ If the spec contains `## Implementation Tasks`, /dev operates as an orchestrator
 1. Read ONLY the `## Implementation Tasks` section (not the full spec)
 2. Find all unchecked tasks: `- [ ] Complete`
 3. For each unchecked task in dependency order:
-   a. Spawn a subagent with: task title + files list + spec refs (read only those lines from the spec, not the full file)
+   a. Spawn a subagent (`model: "sonnet"`) with: task title + files list + spec refs (read only those lines from the spec, not the full file)
    b. Subagent implements the task and runs its verification step
    c. On success: mark `- [x] Complete` in the spec
    d. Commit the task's changes before moving to next task
@@ -151,7 +151,7 @@ Skip if no spec exists (inline description mode like `/dev refactor the auth mod
 8. **Check** — Run `./scripts/pre-commit-checks.sh`
 8.5. **Spec fidelity check (mandatory for UI features)** — If `.tsx` files were modified AND the spec has a `## UI Contract` section:
    a. Read the UI Contract table from the spec
-   b. Spawn a SEPARATE subagent with ONLY the UI Contract table + the code diff (not implementation rationale). Prompt: "For each row in this UI Contract, verify the exact value exists in the code diff. Report PASS/FAIL per row with the line of code where found or 'NOT FOUND'."
+   b. Spawn a SEPARATE subagent (`model: "sonnet"`) with ONLY the UI Contract table + the code diff (not implementation rationale). Prompt: "For each row in this UI Contract, verify the exact value exists in the code diff. Report PASS/FAIL per row with the line of code where found or 'NOT FOUND'."
    c. Any FAIL → fix the code, re-run check. Max 3 iterations.
    d. Skip this step if no `## UI Contract` section exists (non-UI features, older specs).
 8.9. **Verification toll gate (HARD GATE)** — Before committing, paste proof the change works:
@@ -161,7 +161,7 @@ Skip if no spec exists (inline description mode like `/dev refactor the auth mod
    - **Config/infra change:** paste command output confirming the change took effect
    - "It should work because [reasoning]" is NOT evidence. Run it and paste the result.
 9. **Commit** — Only if ALL tests pass AND verification evidence is produced
-9.5. **Review** — Spawn `/finish code` as a subagent with this explicit instruction: "Review all code changes on this branch vs main. Spec: [current spec path]. Proceed directly — no scope confirmation needed." Present HIGH/MEDIUM findings to user. Ask: "Fix issues before closing? (all HIGH / select / skip)". Apply approved fixes and commit them.
+9.5. **Review** — Spawn `/finish code` as a subagent (`model: "sonnet"`) with this explicit instruction: "Review all code changes on this branch vs main. Spec: [current spec path]. Proceed directly — no scope confirmation needed." Present HIGH/MEDIUM findings to user. Ask: "Fix issues before closing? (all HIGH / select / skip)". Apply approved fixes and commit them.
 9.6. **Proto route cleanup** — If spec frontmatter has `view_locked`, the `/view` skill added a preview route and a static import to `src/App.tsx`. After integration (when the view component is wired into real containers), remove: (1) the `import {FeatureName}Demo from './components/_proto/{feature}-view.demo'` line, (2) the `{import.meta.env.DEV && <Route path="/_proto/{feature}" .../>}` route entry. Also remove `view_locked` from spec frontmatter — it served its purpose. Skip if `view_locked` is absent.
 9.7. **Pre-deploy checklist** — If spec has a `## Pre-deploy Checklist` section, execute each item on the target environment now. Verify edge functions are deployed, secrets are set, and migrations are applied — don't defer to `/ship`. Report what was provisioned.
 9.8. **Prod verification (optional)** — After deploy, if the feature touches DB/auth/edge functions, run a Playwright prod verification test using `e2e-agent@claritypledge.com`. See `e2e/verify-prod-agreements.spec.ts` as template. Command: `VERIFY_PROD=1 PROD_SERVICE_ROLE_KEY="<srk>" npx playwright test e2e/verify-prod-<feature>.spec.ts`
@@ -696,7 +696,7 @@ After successful commit, mark the feature ready for UAT — do NOT move to `feat
    - Take screenshots at 3 viewports: desktop (1280px), tablet (768px), mobile (390px)
    - Read the visual QA checklist from `.claude/rules/visual-qa.md`
    - **Check for Visual Specification:** If spec has `## Component Strategy` with a Visual Specification subsection, read it. This provides design intent (hierarchy, register, spacing, animation) that the QA subagent should evaluate against.
-   - **Spawn a SEPARATE visual QA subagent** (anti-confirmation-bias: it must NOT see the code diff):
+   - **Spawn a SEPARATE visual QA subagent (`model: "sonnet"`)** (anti-confirmation-bias: it must NOT see the code diff):
      ```
      You are a visual QA reviewer. You succeed by FINDING problems, not confirming quality.
 

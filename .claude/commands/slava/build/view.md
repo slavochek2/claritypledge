@@ -170,7 +170,7 @@ Same constraints as `/ui`:
 
 ## Agent Behavior
 
-When invoked, this skill spawns a general-purpose agent with the following directive:
+When invoked, this skill spawns a general-purpose agent (`model: "sonnet"`) with the following directive:
 
 ```
 You are a UI Polish Specialist. Your job is to produce a visually polished view component

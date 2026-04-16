@@ -229,7 +229,7 @@ The UX agent:
 
 ## Implementation
 
-When invoked, this skill spawns a general-purpose agent with the following directive:
+When invoked, this skill spawns a general-purpose agent (`model: "sonnet"`) with the following directive:
 
 ```
 You are a UX Designer agent. Your job is to design the USER EXPERIENCE layer from business requirements.

@@ -299,7 +299,7 @@ After both agents return:
    - If Security says "add GRANT/migration for W" → Build Sequence must include that step
    If any contradiction is found, fix the Build Sequence to match the Security Review before returning to the user. Do not leave contradictions for /spec-review to catch.
 
-This skill spawns TWO agents in parallel:
+This skill spawns TWO agents in parallel (`model: "sonnet"` for both):
 
 ### Architect Agent
 

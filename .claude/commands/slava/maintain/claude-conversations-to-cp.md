@@ -170,7 +170,7 @@ JSONL format: each line is a JSON object. Conversation messages have `type: "use
 
     <if condition="file count > 15">
       <action>Estimate average file size. If average > 100KB: use chunks of 3-5 files. If < 50KB average: use chunks of 10-12 files. Report chunk count before spawning.</action>
-      <action>Spawn one Explore agent per chunk with this prompt:
+      <action>Spawn one Explore agent (`model: "sonnet"`) per chunk with this prompt:
 
         "You are analyzing Claude conversation logs to extract strategic signals for a product called ClarityPledge (calibrated communication practice for co-founders).
 

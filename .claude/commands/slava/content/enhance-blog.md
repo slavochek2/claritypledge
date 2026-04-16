@@ -73,7 +73,7 @@ Sections:
 
 ### Step 2: Brainstorm (subagent, 60 ideas)
 
-Spawn a `general-purpose` subagent:
+Spawn a `general-purpose` subagent (`model: "sonnet"`):
 
 > "You are a data visualization designer and interactive media specialist. Here is a blog article broken into sections:
 >
@@ -100,7 +100,7 @@ Spawn a `general-purpose` subagent:
 
 ### Step 3: Falsify (subagent, kills weak ones)
 
-Spawn a second `general-purpose` subagent:
+Spawn a second `general-purpose` subagent (`model: "sonnet"`):
 
 > "You are a ruthless editorial critic and UX designer. Here are 60 visual enhancement ideas for a blog article. The article tone is {tone}. The visual budget is {N} blocks maximum.
 >
@@ -157,14 +157,14 @@ Wait for user selection. If "none" → stop.
 
 ### Step 5: Build (parallel subagents)
 
-For each selected block, spawn a subagent:
+For each selected block, spawn a subagent (`model: "sonnet"`):
 
 > "Create a self-contained HTML block for embedding in a Ghost blog post via Ghost's HTML card. Requirements:
 > - Completely self-contained: inline `<style>` and `<script>`, no external dependencies
 > - Responsive: works 320px-720px (Ghost content column width)
 > - {specific requirements for this block type from the approved concept}
 > - Initial opacity via CSS (not inline style) — inline `style='opacity:0'` breaks CSS class transitions due to specificity
-> - Write to: `/Users/slavochek/Projects/public/claritypledge/.private/blog-visuals/block-{N}-{slug}.html`
+> - Write to: `./.private/blog-visuals/block-{N}-{slug}.html`
 > - File contains ONLY the HTML for a Ghost HTML card — no doctype, no head, no body wrapper"
 
 Run all builders in parallel.

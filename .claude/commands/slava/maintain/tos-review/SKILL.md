@@ -74,7 +74,7 @@ Cross-reference Stage 1 vs Stage 2. Identify:
 
 **Before spawning:** Read `src/app/content/tos.md` in full. In the prompt below, replace `[ToS file content]` with the full file text and `[Gap analysis]` with your Stage 3 structured list.
 
-Spawn a general-purpose agent with this prompt:
+Spawn a general-purpose agent (`model: "sonnet"`) with this prompt:
 
 ```
 You are a legal drafter specializing in SaaS and GDPR-compliant terms of service for European startups.
@@ -99,7 +99,7 @@ Be minimal — don't rewrite sections that don't need it. Only close the gaps.
 
 **Before spawning:** Use the same `[ToS file content]` read in Stage 4. Replace `[Stage 4 output]` with the full output from the Stage 4 agent.
 
-Spawn a second general-purpose agent with this prompt:
+Spawn a second general-purpose agent (`model: "sonnet"`) with this prompt:
 
 ```
 You are a GDPR compliance advisor and devil's advocate reviewer for SaaS terms of service.

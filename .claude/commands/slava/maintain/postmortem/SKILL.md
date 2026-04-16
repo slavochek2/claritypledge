@@ -101,7 +101,7 @@ Category breakdown:
 
 ### Step 2: ANALYZE — Parallel pipeline gap analysis
 
-For each category with 2+ issues, spawn a parallel analysis agent (max 6).
+For each category with 2+ issues, spawn a parallel analysis agent (`model: "sonnet"`, max 6).
 
 **Agent prompt template:**
 
@@ -136,7 +136,7 @@ Collect all analysis results.
 
 ### Step 3: RECOMMEND — Concrete fixes
 
-Spawn a single synthesis agent with all analysis results.
+Spawn a single synthesis agent (`model: "sonnet"`) with all analysis results.
 
 **Agent prompt:**
 
