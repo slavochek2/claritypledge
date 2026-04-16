@@ -2,6 +2,43 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-16 [process]: Spawn Opus critic before implementing async/infra patterns — catches schema and approach blockers before code is written
+
+**Context:** P720 — planned to add Supabase Realtime subscriptions to `sent-tab.tsx` and `inbox-tab.tsx`. Before writing any code, an Opus agent was given the plan + schema context and asked to find edge cases, blindspots, and risks. It returned two P0 blockers in under a minute: `letter_deliveries` has no `sender_id` column (can't filter server-side) and step counts come from child tables (subscription would miss them). Both would have been caught only in QA without the critique step.
+
+**Decision:** Before implementing any Realtime subscription, polling strategy, webhook handler, or caching layer — spawn an Opus critic with: (1) the proposed implementation approach, (2) the relevant schema columns/tables, (3) the question "find edge cases, blindspots, schema mismatches, and risk areas." The prompt should ask for problems, not validation. This is a 10-minute step before any code phase.
+
+**Alternatives rejected:** Starting implementation and catching issues in QA — too expensive. Relying solely on the canary test — tests verify the symptom, not whether the implementation approach is correct. Trusting type definitions for schema facts — types can lag migrations (P697, P717 precedent).
+
+**Consequences:** Add critique step to the standard flow for async pattern work: approach confirmed via Opus critic → /fix or /dev code phase. When the critique returns schema facts (e.g. "column X doesn't exist"), verify against migration files before accepting.
+
+**References:** `features/p720_sent_tab_no_realtime_delivery_updates.md`
+
+---
+
+## 2026-04-16 [technical]: Polling + visibility API over Supabase Realtime for letter tab updates — letter_deliveries schema blocks server-side filtering
+
+**Context:** P720 — `sent-tab.tsx` and `inbox-tab.tsx` fetch only on mount; recipients' delivery progress is invisible to senders until page refresh. Supabase Realtime was the natural fix candidate.
+
+**Decision:** Use polling (15s interval) + `visibilitychange` event instead of Supabase Realtime for both tabs. Pattern:
+```tsx
+useEffect(() => {
+  fetchData();
+  const interval = setInterval(fetchData, 15_000);
+  const onVisible = () => { if (document.visibilityState === 'visible') fetchData(); };
+  document.addEventListener('visibilitychange', onVisible);
+  return () => { clearInterval(interval); document.removeEventListener('visibilitychange', onVisible); };
+}, [fetchData]);
+```
+
+**Alternatives rejected:** Supabase Realtime — two structural blockers: (1) `letter_deliveries` has no `sender_id` column (it's on `clarity_letters` via join); without server-side filtering by sender, all users' WebSockets receive all delivery events — an event metadata leak. (2) Step counts (`steps_completed`, `total_steps`) are computed by `get_deliveries_with_progress` RPC from `story_ratings` and `point_responses` child tables. A `letter_deliveries` subscription never fires on child table inserts — step counts stay frozen even with Realtime active.
+
+**Consequences:** Polling is the standard for any letter tab that needs live delivery data. If `letter_deliveries` gains a direct `sender_id` column in future, Realtime becomes viable again — but verify child table coverage before switching. The 15s interval is sufficient for async letter exchange; reduce only if UX feedback demands faster updates.
+
+**References:** `features/p720_sent_tab_no_realtime_delivery_updates.md` | `supabase/migrations/20260403224331_p581_clarity_letters.sql` (letter_deliveries schema)
+
+---
+
 ## 2026-04-16 [process]: Unit test mocks do not validate RPC response shape — integration test required for field-dependent guards
 
 **Context:** P717 — the wrong-user guard in `letter-reading-page.tsx` compared `delivery.receiver_email` to `currentUser.email`. The canary test mocked `getLetterForReadingByToken` returning `{delivery: {receiver_email: 'bob@example.com'}}`. Four unit tests passed. The real `get_letter_for_reading` RPC never included `receiver_email` in its response. Two fix commits shipped with a green test suite; the guard silently skipped on every real request. Root cause found only via browser verification.
