@@ -148,7 +148,6 @@ export function StoryWalk({ stories, perspective, senderProfile, receiverProfile
           defaultExpanded={true}
           defaultStoryExpanded={true}
           onPositionSelect={onPositionSelect}
-          hideStoryCTA={true}
           className="w-full max-w-sm mx-auto"
           badgePersonName={badgeProfile?.name}
           badgePersonAvatarUrl={badgeProfile?.avatarUrl}

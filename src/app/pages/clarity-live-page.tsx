@@ -2726,6 +2726,17 @@ export function ClarityLivePage() {
         storiesService.getStoryWithPoints(sess.sourceStoryId),
       ]);
 
+      const pointIds = (storyData?.points ?? []).map(p => p.id);
+      const [creatorPositions, joinerPositions] = pointIds.length > 0
+        ? await Promise.all([
+            pointsService.getMyPositionsForPoints(pointIds, sess.creatorProfileId),
+            pointsService.getMyPositionsForPoints(pointIds, sess.targetListenerId),
+          ])
+        : [new Map<string, { position: PositionType }>(), new Map<string, { position: PositionType }>()];
+
+      const toPositionRecord = (map: Map<string, { position: PositionType }>): Record<string, PositionType> =>
+        Object.fromEntries([...map.entries()].map(([id, v]) => [id, v.position]));
+
       const storyTitle = storyData?.content.split('\n')[0].substring(0, 80) ?? '';
       const liveStoryData = storyData ? {
         id: storyData.id,
@@ -2767,6 +2778,8 @@ export function ClarityLivePage() {
         selectedContentTitle: storyTitle,
         ratingInitiatedBy: sess.creatorName,
         ratingInitiatedByIsCreator: true,
+        livePositionsCreator: toPositionRecord(creatorPositions),
+        livePositionsJoiner: toPositionRecord(joinerPositions),
       };
       await updateClaritySessionLiveState(sess.id, bootstrapState);
       setLiveState(bootstrapState);

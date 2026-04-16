@@ -97,7 +97,6 @@ export function LetterPredictionWalk({
             defaultExpanded
             revealed={false}
             onPositionSelect={handlePositionSelect}
-            hideStoryCTA
           />
 
           {/* Prediction prompt */}

@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { ChevronDown, ChevronRight, Pin, Ear } from 'lucide-react';
 import type { StoryWithPoints, PointSummary, PositionType } from '@/app/types';
-import { getPositionGroup, getPositionCTACopy, shouldShowStoryCTA, toSevenPointCounts } from '@/app/utils/position-helpers';
+import { toSevenPointCounts } from '@/app/utils/position-helpers';
 import { formatTimeAgo } from '@/app/utils/format-time';
 import { GravatarAvatar } from '@/components/ui/gravatar-avatar';
 import { InlineVisibilityIcon } from '@/app/components/shared/visibility-badge';
@@ -20,7 +20,7 @@ import { stripHashtags } from '@/lib/utils';
 
 interface LiveStoryCardExpandedProps {
   story: StoryWithPoints;
-  /** When true, the current user owns this story — suppresses the "Tell your story" CTA */
+  /** When true, the current user owns this story (accepted but no-op after P733 CTA removal) */
   isOwnStory?: boolean;
   /** P490: When true, user is a guest (unauthenticated) — shows "sign up to save" hint instead of CTA */
   isGuest?: boolean;
@@ -46,11 +46,6 @@ interface LiveStoryCardExpandedProps {
   hidePoints?: boolean;
   /** Slot rendered inside the card at the bottom — used for "Open Story" link in letter results */
   footerSlot?: React.ReactNode;
-  /** When true, suppresses the "Add your story" CTA in PointRow.
-   * REQUIRED on every non-/live surface: letters, results, compose/prediction-walk, preview.
-   * The CTA is only meaningful in /live sessions where the user can immediately add a story.
-   * Do NOT use readOnly as a proxy — it controls buttons, not the CTA. */
-  hideStoryCTA?: boolean;
   /** P711: When false (default true), hides author PositionBadge in letter-mode headers.
    * Non-letter callers always show badge when profileSubjectPosition exists. */
   revealed?: boolean;
@@ -60,7 +55,6 @@ const STORY_THRESHOLD = 100;
 
 export function LiveStoryCardExpanded({
   story,
-  isOwnStory = false,
   isGuest = false,
   onPositionSelect,
   className,
@@ -74,7 +68,6 @@ export function LiveStoryCardExpanded({
   defaultStoryExpanded,
   hidePoints = false,
   footerSlot,
-  hideStoryCTA = false,
   revealed = true,
 }: LiveStoryCardExpandedProps) {
   // defaultStoryExpanded falls back to readOnly for backward compat (readOnly=true → story shown in full)
@@ -196,10 +189,8 @@ export function LiveStoryCardExpanded({
                   badgePersonAvatarUrl={badgePersonAvatarUrl}
                   badgePersonAvatarColor={badgePersonAvatarColor}
                   badgePersonHasPledged={badgePersonHasPledged}
-                  isOwnStory={isOwnStory}
                   isGuest={isGuest}
                   readOnly={readOnly}
-                  hideStoryCTA={hideStoryCTA}
                   revealed={revealed}
                 />
               </ThreadLineItem>
@@ -231,11 +222,9 @@ export function PointRow({
   badgePersonAvatarUrl,
   badgePersonAvatarColor,
   badgePersonHasPledged,
-  isOwnStory = false,
   isGuest = false,
   readOnly = false,
   letterMode = false,
-  hideStoryCTA = false,
   disablePositionButtons = false,
   revealed = false,
   children,
@@ -252,13 +241,10 @@ export function PointRow({
   badgePersonAvatarUrl?: string;
   badgePersonAvatarColor?: string;
   badgePersonHasPledged?: boolean;
-  isOwnStory?: boolean;
   isGuest?: boolean;
   readOnly?: boolean;
   /** Letter context: hides story CTA, guest hint, tag pills, visibility icon */
   letterMode?: boolean;
-  /** When true, suppresses the "Add your story" CTA regardless of letterMode. Used on results page. */
-  hideStoryCTA?: boolean;
   /** When true, position buttons render but are visually disabled (no hover/click) */
   disablePositionButtons?: boolean;
   /** P711: When true (with letterMode), shows author PositionBadge. Default false (engage = no badge).
@@ -340,42 +326,6 @@ export function PointRow({
             </p>
           </div>
         )}
-
-        {/* P456: Disabled story CTA footer — visible but non-interactive in /live session.
-            P487+: Hidden on own story — use shouldShowStoryCTA shared utility.
-            SURFACE RULE: this CTA is /live-session-only context. Any non-/live surface that renders
-            PointRow (letters, results, compose/prediction-walk, preview) MUST pass hideStoryCTA={true}
-            to LiveStoryCardExpanded, or letterMode={true} to PointRow directly. Do NOT rely on readOnly
-            to suppress it — readOnly controls button interactivity, not CTA visibility. */}
-        {/* P560: Position no longer required for story CTA */}
-        {!letterMode && !readOnly && !isGuest && !hideStoryCTA && shouldShowStoryCTA({ userPosition, isOwnStory }) === 'show' && (() => {
-          // Use position-specific copy when available, generic fallback otherwise
-          const copy = userPosition
-            ? getPositionCTACopy(getPositionGroup(userPosition))
-            : null;
-
-          return (
-            <div className="border-t border-gray-200 pt-2">
-              {/* CTA row — disabled, decorative only */}
-              <div className="flex items-center gap-1 opacity-50 pointer-events-none">
-                {copy && (
-                  <>
-                    <span aria-hidden="true" className="text-sm text-gray-600">{copy.symbol}</span>
-                    <span className="text-sm text-gray-600">{copy.label}</span>
-                    <span aria-hidden="true" className="text-sm text-gray-400"> · </span>
-                  </>
-                )}
-                <span className="text-sm font-medium text-blue-600">
-                  Add your story →
-                </span>
-              </div>
-              {/* Hint row */}
-              <p id={`live-cta-hint-${point.id}`} className="text-xs text-gray-400 mt-1">
-                Available after the session
-              </p>
-            </div>
-          );
-        })()}
 
         {/* Render slot for letter-specific content (Submit button, position reveal) */}
         {children}
