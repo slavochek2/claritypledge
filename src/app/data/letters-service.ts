@@ -348,7 +348,7 @@ export async function revealPrediction(
     return null;
   }
 
-  return data as { prediction: number } | null;
+  return typeof data === 'number' ? { prediction: data } : null;
 }
 
 /**

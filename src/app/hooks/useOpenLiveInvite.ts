@@ -7,6 +7,7 @@ import {
   subscribeToLiveInvites,
   type LiveInviteRecord,
 } from '@/app/data/api';
+import { supabase } from '@/lib/supabase';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -90,8 +91,30 @@ export function useOpenLiveInvite(): { invite: OpenLiveInvite | null; loading: b
       userId,
       (raw) => {
         if (cancelled) return;
-        const invite = mapRaw(raw);
-        if (invite) dispatch({ type: 'INSERT', payload: invite });
+        const sessionId = raw['session_id'] as string | undefined;
+        if (!sessionId) return;
+        // Realtime payload only has clarity_live_invites columns — no code, author_name,
+        // or story_title (all from joined tables). Fetch from clarity_sessions directly.
+        if (raw['closed_at']) return;
+        supabase
+          .from('clarity_sessions')
+          .select('code, creator_name, stories!clarity_sessions_source_story_id_fkey(content)')
+          .eq('id', sessionId)
+          .maybeSingle()
+          .then(({ data: session }) => {
+            if (cancelled || !session) return;
+            const rawContent = (session.stories as { content: string } | null)?.content ?? '';
+            dispatch({
+              type: 'INSERT',
+              payload: {
+                sessionId,
+                code: session.code ?? '',
+                authorName: session.creator_name ?? '',
+                storyTitle: rawContent ? rawContent.split('\n')[0].substring(0, 60) : '',
+                closedAt: null,
+              },
+            });
+          });
       },
       (raw) => {
         if (cancelled) return;
