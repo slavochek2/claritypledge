@@ -2,6 +2,48 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-17 [product]: "Add your story" CTA removed from PointRow — hideStoryCTA prop no longer exists (supersedes 2026-04-15 entry)
+
+**Context:** P456 added a disabled "Add your story → Available after the session" footer CTA to `PointRow` in `/live` sessions, gated by `hideStoryCTA` prop. Every non-`/live` surface had to pass `hideStoryCTA={true}` to suppress it. P711 UAT surfaced this as brittle: removing `readOnly` from a surface accidentally re-exposed the CTA. P733 removed the CTA entirely.
+
+**Decision:** The story CTA is gone from `PointRow` and `LiveStoryCardExpanded`. The `hideStoryCTA` and `isOwnStory` props have been removed from both components. No surface needs to pass these props — they no longer exist. The "Add your story" entry point in `/live` sessions is handled separately (post-session flow, not inline disabled hint).
+
+**Alternatives rejected:** Keeping the CTA as an enabled post-session action inside `/live` — adds complexity without validated demand. Keeping it disabled with better visual treatment — still distracting with no clear action path.
+
+**Consequences:** Any future spec that references `hideStoryCTA` is describing a deleted prop — ignore the reference. The pattern "pass hideStoryCTA={true} on letter surfaces" from the 2026-04-15 entry is obsolete. `shouldShowStoryCTA` and `getPositionCTACopy` remain in `position-helpers.ts` (used by social card components on the feed), but are no longer referenced from `/live` components.
+
+**References:** [p733](../features/p733_letter_sourced_live_preload_positions.md)
+
+---
+
+## 2026-04-17 [technical]: bootstrapLetterSourcedSession must write livePositionsCreator and livePositionsJoiner — bootstrap is the only pre-seed opportunity
+
+**Context:** P733 — letter-sourced `/live` sessions started with all position buttons empty even when both participants had submitted positions in the letter. `bootstrapLetterSourcedSession` fetched the story via `getStoryWithPoints` (which maps zero position fields) but never fetched `point_positions` for either party. The `livePositionsCreator`/`livePositionsJoiner` keys were absent from the bootstrap write, so both parties saw empty state at session start with no recovery path.
+
+**Decision:** Bootstrap fetches both parties' positions in parallel via `pointsService.getMyPositionsForPoints(pointIds, userId)` immediately after the story fetch, then writes `livePositionsCreator` and `livePositionsJoiner` into `bootstrapState`. The idempotency guard (`liveState.ratingPhase !== 'idle'`) prevents re-bootstrap on page refresh — positions are only pre-seeded once.
+
+**Alternatives rejected:** Fetching positions on first render client-side (after join) — introduces a visible flash and race condition if the joiner joins before the creator's position fetch resolves. Including positions in the `getStoryWithPoints` call — that function is used by many callers that don't need positions; adding `userId` as a parameter would force all call sites to change.
+
+**Consequences:** The bootstrap write is the single canonical opportunity to pre-seed `/live` state from external sources. Any future letter-sourced session type (e.g., from an assessment or structured exercise) must include all state the first phase needs in the same bootstrap call — including any "imported" data (positions, predictions, scores). The pattern: fetch all sources in parallel, convert to the correct live-state shape, write once.
+
+**References:** [p733](../features/p733_letter_sourced_live_preload_positions.md), see also 2026-04-16 entry "Letter-sourced /live bootstrap — two call sites required"
+
+---
+
+## 2026-04-17 [technical]: PostgreSQL CREATE OR REPLACE with a changed signature creates a new overload, not a replacement — DROP the old signature first
+
+**Context:** P731 fix — P660 created `add_recipient_to_sealed_letter(p_letter_id UUID, p_email TEXT)`. P664 used `CREATE OR REPLACE FUNCTION add_recipient_to_sealed_letter(p_letter_id UUID, p_email TEXT, p_receiver_name TEXT DEFAULT NULL)` to add a parameter. Because the signatures differ, Postgres treated this as a new overload rather than a replacement. Both functions coexisted in the DB. When the RPC was called with two named params, Postgres threw: *"could not choose the best candidate function between: public.add_recipient_to_sealed_letter(p_letter_id => uuid, p_email => text), public.add_recipient_to_sealed_letter(p_letter_id => uuid, p_email => text, p_receiver_name => text)"*.
+
+**Decision:** When changing a PostgreSQL function's signature (adding, removing, or retyping parameters), always `DROP FUNCTION IF EXISTS old_signature(param_types)` in the same migration before the `CREATE OR REPLACE`. `CREATE OR REPLACE` only replaces a function with an identical signature — any parameter change creates a new overload silently.
+
+**Alternatives rejected:** Rename the function for the new signature — breaks all callers; not a real option for a widely-used RPC.
+
+**Consequences:** Any migration that changes a function's parameter list must include a `DROP FUNCTION IF EXISTS` for the old signature. Code review for SQL migrations should flag `CREATE OR REPLACE FUNCTION` on functions that already exist with a different signature. When diagnosing "could not choose best candidate function" errors, the first check is `pg_proc` for duplicate function names with different argtypes.
+
+**References:** `supabase/migrations/20260416210000_p731_set_receiver_profile_id_on_add_recipient.sql`, `supabase/migrations/20260406080000_p660_read_at_and_rpcs.sql`, `supabase/migrations/20260409150000_p664_add_receiver_name_to_sealed_rpc.sql`
+
+---
+
 ## 2026-04-17 [technical]: All letter_deliveries creation paths must pre-claim receiver_profile_id for registered users
 
 **Context:** Two separate delivery-creation paths (`send-letter-emails` edge function and `add_recipient_to_sealed_letter` RPC) both created rows with `receiver_profile_id = NULL` for registered recipients. `get_inbox_items` Branch 1 filters `WHERE ld.receiver_profile_id = v_user_id` — NULL rows are invisible until `claim_letter_delivery` fires on email-link click. P731 fixed the RPC path; P710 QA gap fixed the edge function path.
