@@ -2,6 +2,27 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-16 [technical]: IF FOUND guard required after ON CONFLICT DO NOTHING — never increment unconditionally
+
+**Context:** P721 — `submit_rating_by_token` was rewritten in P683/P684 and silently lost the `IF FOUND` guard added in P651. The rewrite preserved `ON CONFLICT DO NOTHING` on the `story_verifications` INSERT but incremented `stories_rated` unconditionally after it. Duplicate calls (retries, double-submits) inflated the counter past the real story count, producing "9 of 8 steps" in the inbox.
+
+**Decision:** Any PL/pgSQL function that uses `INSERT ... ON CONFLICT DO NOTHING` to gate a side-effect (counter increment, status update, audit write) MUST gate the side-effect behind `IF FOUND`. `ON CONFLICT DO NOTHING` sets the implicit `FOUND` variable to `false` when the insert was a no-op — use it. Pattern:
+```sql
+INSERT INTO table (...) VALUES (...) ON CONFLICT DO NOTHING;
+IF FOUND THEN
+  UPDATE counters SET val = val + 1 WHERE id = ...;
+END IF;
+```
+Additionally: when rewriting a function, read the full original for guard comments before starting. Guards added for subtle reasons (P651's "avoids drift on duplicate submits") are invisible in the new version unless explicitly carried over. The comment is the signal — don't drop it.
+
+**Alternatives rejected:** Upsert (`ON CONFLICT DO UPDATE`) — changes the semantic from "skip duplicate" to "overwrite". A BEFORE trigger on the counter — adds indirection that's harder to reason about than an explicit `IF FOUND` in the same function body.
+
+**Consequences:** Three-layer defence adopted for data integrity bugs: (1) fix the RPC guard (primary), (2) data repair migration for existing dirty rows, (3) `LEAST(computed, cap)` in every query that surfaces the value. Frontend also caps with `Math.min` as a last-resort display guard. Apply this pattern to any future counter RPCs.
+
+**References:** `supabase/migrations/20260416180000_p721_fix_stories_rated_guard.sql` | `supabase/migrations/20260405051035_p651_letter_onboarding_fixes.sql` (original guard)
+
+---
+
 ## 2026-04-16 [technical]: Negative waitFor assertions are false-green canaries — wait for positive load signal first
 
 **Context:** P722 canary test — `waitFor(() => expect(el).not.toBeInTheDocument())` passed immediately even though the bug was present. The component starts in `pageState='loading'` (loader visible). The absence assertion is true at that moment, so `waitFor` resolves on its first poll — before the async fetch fires and renders the buggy content.
