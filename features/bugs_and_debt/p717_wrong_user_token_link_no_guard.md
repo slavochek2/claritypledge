@@ -2,7 +2,7 @@
 id: P717
 title: Wrong authenticated user can open token-based letter link without warning
 type: bug
-status: in-progress
+status: qa
 delivery_stage: fix
 pipeline_plan: [reproduce, fix]
 pipeline_ran: [reproduce, fix]
