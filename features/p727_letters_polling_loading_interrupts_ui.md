@@ -2,11 +2,14 @@
 id: P727
 title: Letters polling replaces list with full loading screen on every background refresh
 type: bug
-status: in-progress
-delivery_stage: reproduce
+status: qa
+delivery_stage: fix
 pipeline_plan: [reproduce, fix, ship]
-pipeline_ran: [reproduce]
+pipeline_ran: [reproduce, fix]
 created: 2026-04-16
+date_resolved: 2026-04-16
+root_cause: setFetchState('loading') called on every poll cycle in both InboxTab and SentTab, including background refreshes
+resolution: InboxTab — functional state update (only loads on 'idle'); SentTab — removed unconditional setFetchState('loading') (initial state handles first render, polls update silently)
 ---
 
 ## Problem
