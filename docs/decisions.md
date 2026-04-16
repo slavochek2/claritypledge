@@ -2,6 +2,34 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-17 [technical]: Letter reading E2E — position button selects; Submit button submits
+
+**Context:** P732 canary test clicked "Agree" and then checked the DB for `status = 'in_progress'`. The assertion always failed — `submitPointPosition` was never called. Root cause: in the point-engage phase UI, clicking Agree/Disagree/Unsure only *selects* the position into local state (`setSelectedPosition`). A separate "Submit" button calls `handleSubmitPosition → submitPointPosition`. The test was missing the Submit click.
+
+**Decision:** In E2E tests for letter reading, point submission requires two interactions: (1) click the position button (Agree / Disagree / Unsure), (2) click the "Submit" button. Only step 2 triggers `submitPointPosition` and the DB write. Story rating is a single click (rating drawer button calls `submitStoryRating` directly).
+
+**Alternatives rejected:** None — this is the designed two-step UX pattern, not a bug.
+
+**Consequences:** Any Playwright spec that needs to assert on delivery status or DB state after a point submission must include both clicks. "Networkidle" after just the position click will resolve before any DB write occurs. Template: `await page.getByRole('button', { name: 'Agree' }).first().click(); await page.getByRole('button', { name: 'Submit' }).click();`
+
+**References:** `e2e/p732-inbox-results-on-first-step.spec.ts`
+
+---
+
+## 2026-04-17 [technical]: Fire-once hook status update — useRef flag with resume pre-set
+
+**Context:** P732 — `updateDeliveryStatus('in_progress')` needed to fire exactly once on the recipient's first answer, regardless of which code path they took (submitPointPosition vs submitStoryRating, token vs deliveryId). It also must not re-fire on session resume when the delivery is already `in_progress`.
+
+**Decision:** Use `const hasMarkedInProgress = useRef(false)` declared alongside other refs. Each code path that can trigger the status checks `!hasMarkedInProgress.current` → sets it `true` → fires the update (fire-and-forget `.catch(() => {})`). In the `useState` initializer, wherever `resumedRef.current = true` is set (prior progress restored from storage), also set `hasMarkedInProgress.current = true` — prevents a redundant DB round-trip on resume. The ref is initialized before the `useState` lazy initializer runs, so the assignment inside the initializer works correctly.
+
+**Alternatives rejected:** Deriving from state (`status !== 'opened'` guard before firing) — requires an extra DB read or stale state assumption. Duplicating the call in every branch without a guard — fires multiple times on rapid submits (though `isSubmitting` would prevent this in practice).
+
+**Consequences:** Pattern for any hook that needs a side-effect to fire exactly once across multiple code paths, including safe behavior on resume. The pre-set in the `useState` initializer is the non-obvious part — document it when reusing.
+
+**References:** `src/app/hooks/useLetterReadingState.ts`, [p732](../features/p732_inbox_results_arrive_on_first_step.md)
+
+---
+
 ## 2026-04-17 [technical]: PostgreSQL CREATE OR REPLACE with a changed signature creates a new overload, not a replacement — DROP the old signature first
 
 **Context:** P731 — P660 created `add_recipient_to_sealed_letter(p_letter_id UUID, p_email TEXT)`. P664 used `CREATE OR REPLACE FUNCTION` with an added `p_receiver_name TEXT DEFAULT NULL` parameter. Because the signatures differ, Postgres created a new overload rather than replacing — both coexisted in the DB. Calling the RPC with two named params threw: *"could not choose the best candidate function between..."*.
