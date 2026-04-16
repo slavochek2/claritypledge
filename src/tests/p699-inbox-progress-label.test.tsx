@@ -123,6 +123,44 @@ describe('P699 Bug 2: InboxTab progress label uses "steps" not "stories complete
   });
 });
 
+// ─── Bug 4 (P721): Overflow guard — steps_completed must never exceed total_steps ─
+
+describe('P721: InboxTab caps steps_completed at total_steps (overflow guard)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('CANARY: when steps_completed > total_steps, label shows total_steps not the raw count', async () => {
+    const { getInboxItems } = await import('@/app/data/letters-service');
+    vi.mocked(getInboxItems).mockResolvedValueOnce([
+      {
+        type: 'received',
+        delivery_id: 'delivery-overflow',
+        letter_id: 'letter-overflow',
+        title: 'Overflow Letter',
+        actor_name: 'Bob',
+        timestamp: new Date().toISOString(),
+        read_at: null,
+        completed_at: null,
+        stories_rated: 9,
+        total_stories: 8,
+        steps_completed: 9,
+        total_steps: 8,
+      },
+    ]);
+
+    const { InboxTab } = await import('@/app/components/letters/inbox-tab');
+    render(<InboxTab userId="user-overflow" />);
+
+    await screen.findByRole('button');
+
+    // CANARY: Before fix, renders "9 of 8 steps" — this assertion fails.
+    // After fix, renders "8 of 8 steps" — assertion passes.
+    expect(screen.getByText('8 of 8 steps')).toBeInTheDocument();
+    expect(screen.queryByText('9 of 8 steps')).toBeNull();
+  });
+});
+
 // ─── Bug 3: Sent tab summary copy ─────────────────────────────────────────────
 
 describe('P699 Bug 3: Sent tab summary uses "recipients completed"', () => {

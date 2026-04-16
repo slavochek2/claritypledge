@@ -94,7 +94,7 @@ function RecipientRow({ delivery, letterId }: { delivery: LetterDelivery; letter
       <span className="text-muted-foreground">{statusLabel}</span>
       {showProgress && (
         <span className="text-muted-foreground">
-          · {delivery.steps_completed} of {delivery.total_steps} steps
+          · {Math.min(delivery.steps_completed, delivery.total_steps)} of {delivery.total_steps} steps
         </span>
       )}
     </div>

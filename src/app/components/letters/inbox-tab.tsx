@@ -198,7 +198,7 @@ export function InboxTab({ userId, onUnreadCountChange, openInvite }: InboxTabPr
                 {item.steps_completed !== undefined &&
                   item.total_steps !== undefined && (
                   <p className="text-xs text-muted-foreground mt-0.5">
-                    {item.steps_completed} of {item.total_steps} steps
+                    {Math.min(item.steps_completed, item.total_steps)} of {item.total_steps} steps
                   </p>
                 )}
               </div>
