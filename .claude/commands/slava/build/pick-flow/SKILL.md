@@ -45,8 +45,9 @@ Skip for: bugs, refactors, infrastructure, and when user has confirmed the use c
 |-----------|-------------|
 | **Feature** (no spec) | `/create-spec` → risk assessment (Step 1) |
 | **Feature** (spec exists) | Check `pipeline_plan`/`pipeline_ran` → resume from first unrun step. If absent, check `delivery_stage:` (legacy). If neither → Step 1 |
-| **Bug** (root cause known) | `/fix` → done |
-| **Bug** (root cause unclear) | `/dd:frame-analyze` → `/fix` → done |
+| **Bug** (trivial, self-evident cause) | `/fix` → done |
+| **Bug** (root cause known, needs proof) | `/reproduce` → `/fix` → done |
+| **Bug** (root cause unclear) | `/dd:frame-analyze` → `/reproduce` → `/fix` → done |
 | **Redesign** (design was wrong, code works) | `/change-request` → `/challenge-prd` → risk assessment (Step 1) |
 | **Refactor** (no behavior change) | `/create-spec` (type: task) → `/dev` |
 | **Data migration** | `/create-spec` (type: task) → `/generate-tests` → `/dev` |
@@ -132,4 +133,4 @@ Look at the spec, conversation, and code. Name 1-3 concrete risks — not catego
 
 `/create-spec` · `/challenge-prd` · `/ux` · `/architect` · `/ui` · `/view` · `/generate-tests` · `/spec-review` · `/spec-compact` · `/decompose` · `/dev` · `/verify` · `/park` · `/kdd`
 
-Also: `/fix` (bugs) · `/change-request` (redesigns) · `/create-bug` (bug without P-number) · `/dd:frame-analyze` (unclear root cause) · `/park` (done on branch, merge later)
+Also: `/reproduce` (bug confirmation + failing test) · `/fix` (bugs) · `/change-request` (redesigns) · `/create-bug` (bug without P-number) · `/dd:frame-analyze` (unclear root cause) · `/park` (done on branch, merge later)

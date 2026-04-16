@@ -431,22 +431,33 @@ Tell the user:
 Created: features/p{N}_{slug}.md
 
 Severity: {severity}
-Next step: Run `/fix features/p{N}_{slug}.md` to implement the fix.
-Or: Run `/fix p{N}` (short form).
+Next step: Run `/reproduce p{N}` to confirm the bug and write a failing test.
+Then: `/fix p{N}` to implement the fix.
 ```
 
 If root cause is unknown, add:
 ```
-Root cause marked "Under investigation" — run /fix to begin reproduction and diagnosis.
+Root cause marked "Under investigation" — run /reproduce to form hypotheses and confirm with evidence.
+```
+
+If bug is trivial (self-evident one-liner), add:
+```
+This looks trivial enough to skip /reproduce. Run `/fix p{N}` directly — it will ask you to confirm the override.
 ```
 
 ---
 
 ## Related Skills
 
-- `/fix` — Implement the fix from this spec (reproduce → test → fix → verify)
+- `/reproduce` — Confirm the bug with evidence: root cause hypothesis, failing test, surface audit. **Default next step.**
+- `/fix` — Implement the fix from this spec (reads reproduce artifact → fix → verify)
 - `/create-spec` — Structured spec with 5-field skeleton (use for features, not bugs)
 - `/kdd` — Capture learnings after fix is complete
+
+**Flow:**
+```
+/create-bug → /reproduce → /fix → /ship
+```
 
 ---
 

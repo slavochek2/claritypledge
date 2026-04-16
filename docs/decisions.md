@@ -2,6 +2,34 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-16 [process]: /reproduce introduced as mandatory first step in the bug pipeline — reverses 2026-04-06 decision
+
+**Context:** The 2026-04-06 decision rejected `/reproduce` as a standalone skill, reasoning that it would duplicate logic already in `/fix` Phase 1, add maintenance cost, and be skipped anyway. Evidence from P714: 8 code fixes shipped in a single session without a single canary test; the QA gate was set with all 9 AC items unchecked. The diagnosis: phases built *inside* `/fix` are treated as implementation steps that the agent can reorder or skip. A failing test artifact that *must exist before `/fix` can start* is structurally different from a checklist inside `/fix`.
+
+**Decision:** Introduce `/reproduce` as a separate, mandatory skill that `/fix` gates on. The skill produces a `reproduce_artifact` written to spec frontmatter (`root_cause_hypothesis`, `surfaces_in_scope`, `canary_test`, `confidence`). `/fix` refuses to start without this artifact (override flag `--skip-reproduce` exists for trivial 1-line typo bugs only). The key insight that changed the decision: the 2026-04-06 "no standalone skill" argument was correct about duplication but wrong about enforcement. An artifact-based gate (frontmatter field checked by `/fix`) is not the same as an optional checklist phase — it is structurally enforced, not discipline-enforced.
+
+**Alternatives rejected:** (A) Keep hardening `/fix` Phase 1 further — already tried with the 2026-04-06 gate; P714 evidence shows it doesn't hold under implementation pressure. (B) Pre-commit hook that checks for canary test file — catches file absence but not test quality (test that passes without the fix still gets through). (C) Require failing test before `/create-bug` — wrong seam; the bug filer may not have enough root-cause detail to write a test at filing time.
+
+**Consequences:** Pipeline is now `/create-bug → /reproduce → /fix → /ship`. `/reproduce` runs on main, writes the artifact to the spec. `/fix` enters the worktree and reads `reproduce_artifact` from spec frontmatter before writing any code. Canary test file must be named `p{N}-reproduce.spec.ts` and must fail before the fix. The P659 stamp pattern (pipeline stamps in spec frontmatter) applies here. Surface Audit (Playwright, Chrome extension, DevTools, multi-party) lives authoritatively in `/reproduce`; `/fix` references it.
+
+**References:** `.claude/commands/slava/build/reproduce/SKILL.md` | `.claude/commands/slava/build/fix.md` (reproduce gate, Phase 0) | `.claude/commands/slava/build/pick-flow/SKILL.md` | `.claude/commands/slava/build/create-bug.md` | [prior decision reversed](#2026-04-06-process-no-standalone-reproduce-skill--harden-fix-phase-1-with-mandatory-reproduction-gate)
+
+---
+
+## 2026-04-16 [technical]: position_type enum has three non-obvious middle labels — validate against DB, not assumed names (P716)
+
+**Context:** The `position_type` PostgreSQL enum (defined in `20260204_stories_points_calibration.sql`) uses `somewhat_disagree`, `unsure`, `somewhat_agree` for the middle three values. Both the P705 and P716 migrations wrote the validation guard in `submit_point_response_by_token` using `slightly_disagree`, `neutral`, `slightly_agree` — labels that look plausible but are not in the enum. Any user submitting one of those three positions received `RETURN false`, which the client interpreted as token-expired and redirected to `/signup` mid-reading. Fixed in migration `20260416150000`.
+
+**Decision:** When writing any validation guard (SQL `NOT IN`, TypeScript `if p_position NOT IN (...)`, Zod enum, etc.) against `position_type` values, always verify the labels by reading the enum DDL in the migration files — not by guessing from product copy ("Unsure" → "unsure" is correct; "Neutral" → "neutral" is wrong). The full enum: `strongly_disagree`, `disagree`, `somewhat_disagree`, `unsure`, `somewhat_agree`, `agree`, `strongly_agree`.
+
+**Alternatives rejected:** Trusting UI label strings as enum values — UI labels are user-facing and may differ (e.g., "Unsure" maps to `unsure`; a hypothetical "Neutral" label in UI would map to `unsure` in the DB, not `neutral`).
+
+**Consequences:** Any migration or service layer code that validates `position_type` values must import the enum definition from `docs/technical/database.md` or `20260204_stories_points_calibration.sql` as the canonical reference. The `(Status: proposed)` entry below about `confirm-letter-response` staging invalid strings is a separate but related issue — fixing the labels here does not fix the staging buffer conversion problem.
+
+**References:** `supabase/migrations/20260416150000_p714_fix_position_enum_guard.sql` | `supabase/migrations/20260204_stories_points_calibration.sql` | `e2e/integration/20260416150000_p714_fix_position_enum_guard.spec.ts`
+
+---
+
 ## 2026-04-16 [process]: Canary tests must import/render actual production code — not inline logic copies (P716)
 
 **Context:** P716 canary was written as a `.ts` file with inline helper functions that reproduced the navigation logic verbatim from `inbox-tab.tsx`. The test correctly asserted the expected URL — but because it tested a copy of the logic, not the production code, reverting the fix in `inbox-tab.tsx` would not have caused the test to fail.

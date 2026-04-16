@@ -27,8 +27,10 @@ Systematic bug remediation workflow (reproduce → test → fix → verify).
 When called with a description string instead of a P-number, `/fix` auto-invokes `/create-bug` to file a tracked spec BEFORE any fix work begins. See Phase 0.pre below.
 
 **When to use /fix:**
-- ✅ Use `/fix` when bug is reproducible and cause is known
-- ⚠️ For complex bugs (unclear cause, hard to reproduce): Investigate using debugging protocol (see docs/technical/debugging.md) before running /fix
+- ✅ Use `/fix` when `/reproduce` has already confirmed the bug (spec has `reproduce_artifact`)
+- ✅ Use `/fix` directly for trivial bugs where root cause is self-evident (one-liner fixes)
+- ⚠️ For bugs without reproduction: run `/reproduce` first — `/fix` will refuse without `reproduce_artifact` unless overridden
+- ⚠️ For complex bugs (unclear cause, hard to reproduce): Investigate using debugging protocol (see docs/technical/debugging.md) before running /reproduce
 
 ---
 
@@ -165,9 +167,24 @@ Do NOT proceed until user chooses. Skip if already in a worktree (isolation is s
 
 ---
 
-### Phase -1: Context Load (NEVER SKIP)
+### Phase -1: Reproduce Gate + Context Load (NEVER SKIP)
 
 After worktree setup (so CWD resolves to the correct branch):
+
+**Reproduce gate (check FIRST):**
+1. Read the spec frontmatter. Look for `reproduce_artifact:` block.
+2. **If `reproduce_artifact` exists:**
+   - Read the `test_file` path — verify the canary test file exists on this branch.
+   - Run the canary test — it MUST still fail (bug not yet fixed). If it passes, the bug may already be fixed or the test is stale. Report and stop.
+   - Read `root_cause` from the artifact. This is your starting point for Phase 3.
+   - Read `surfaces_in_scope` — all listed surfaces must be addressed in Phase 3. Read `surfaces_deferred` — verify the deferred ticket P-numbers exist.
+   - If `confidence: medium` — warn: "Root cause confidence is medium. Consider additional verification before committing the fix."
+   - **Skip Phases 1, 1b, and 2** — reproduction is already done. Jump to Phase 3.
+3. **If `reproduce_artifact` is missing:**
+   - **For type: bug specs:** STOP. Tell user: "P{N} has no reproduce artifact. Run `/reproduce p{N}` first to confirm the bug and write a failing test."
+   - **Override:** If user explicitly says "skip reproduce" or bug is a trivial one-liner (e.g., typo, obvious logic inversion) — proceed to Phase 1 as fallback. Note: "Proceeding without /reproduce — user override."
+
+**Context load (always):**
 1. If a P-number spec exists: read it fully (reproduction steps, root cause if documented, acceptance criteria)
    **Status gate:** if `status: qa` or `status: done` → stop immediately: "P{N} is already at {status}. Nothing to fix. Run `/ship pN` to merge." Do not continue.
 2. Read the source file(s) mentioned in the spec or user description — verify current state matches your assumptions
@@ -176,7 +193,7 @@ After worktree setup (so CWD resolves to the correct branch):
 4. If spec has mixed `[x]`/`[ ]` acceptance criteria (rewritten matryoshka bug): announce which layers are done and which remain. Focus on unchecked items.
 5. **If bug involves token-based RPCs or token-gated flows:** identify the manual verification path now — before writing code. State: "Fresh token source: [UI path / service-role query / Playwright canary]". Consumed or RLS-blocked tokens are a common dead end at UAT time.
 
-Skip steps 1 and 3 in inline mode (`/fix "description"`) — but always do step 2 (using the user description to identify source files).
+Skip context load steps 1 and 3 in inline mode (`/fix "description"`) — but always do step 2 (using the user description to identify source files).
 
 ---
 
@@ -215,9 +232,10 @@ Skip silently if no feature file exists (inline description mode, e.g. `/fix "Lo
 
 ---
 
-### Phase 1: Reproduce the Issue
+### Phase 1: Reproduce the Issue (FALLBACK — skip if `reproduce_artifact` exists)
 
-**Goal:** Confirm the bug exists and understand how to trigger it
+**Goal:** Confirm the bug exists and understand how to trigger it.
+**Note:** This phase is a fallback for legacy specs or user-override mode. For new bugs, `/reproduce` handles this with better tooling and a failing test output.
 
 **Steps:**
 1. Confirm Phase -1 context is loaded (re-read spec if post-compaction). Focus on reproduction steps.
@@ -244,54 +262,21 @@ Actual: [What actually happens]
 
 ---
 
-### Phase 1b: Surface Audit
+### Phase 1b: Surface Audit (FALLBACK — skip if `reproduce_artifact` exists)
 
-**Goal:** Find every place in the codebase where this symptom exists — not just the reported one.
+**Fallback only.** When `reproduce_artifact` exists, the surface audit was already done by `/reproduce` Phase 2b — read `surfaces_in_scope` and `surfaces_deferred` from the artifact instead.
 
-**Why this phase exists:** Bugs about UI behavior (counts, highlighting, persistence, state) almost always affect multiple components. Fixing only the reported surface leaves the bug alive elsewhere and you file it again next week.
+For the full surface audit protocol (when running without `/reproduce`), see `/reproduce` Phase 2b. The short version: grep for the symptom pattern across the codebase, list all affected surfaces, get user confirmation on scope, file deferred tickets immediately.
 
-**Steps:**
-1. Identify the core symptom as a grep pattern. Examples:
-   - "position counts show 0" → grep for `PositionButtons`, `positionCounts`, `userPosition`
-   - "button not highlighted" → grep for `useState.*null` near position rendering
-2. Search codebase for every component that renders the affected behavior
-3. For each match, quickly assess: is the bug present here too? (look for the same pattern — hardcoded zeros, missing DB call, no initial state load)
-4. Present the full list to the user:
-
-```
-Surface audit for: "position counts show 0"
-
-Found this symptom on 3 surfaces:
-  1. Profile → Points tab          (reported)
-  2. Profile → Stories tab expanded (QuotedPointCard — hardcoded zeros)
-  3. Point detail page              (userPosition never loaded on mount)
-
-Which do you want fixed in this ticket?
-- Fix all 3 now?
-- Fix 1 now, defer 2 and 3? (I'll create tickets for them immediately)
-```
-
-5. Wait for explicit user confirmation before proceeding.
-6. For any surface the user defers: create a bug ticket NOW before moving on. Run `./scripts/next-p-number.sh` from repo root to get the next P-number, create `features/p{N}_{surface_slug}.md`, and include the P-number in your summary to the user. "Out of scope" without a ticket number is not allowed.
-
-**Output:**
-```
-Surface audit complete.
-In scope for this ticket: [list]
-Deferred (tickets created): [P-XXX: surface, P-YYY: surface]
-
-Proceeding with confirmed scope.
-```
-
-**Skip this phase only for:**
-- Bugs clearly isolated to infrastructure (build errors, DB migrations, CI config)
-- Bugs with zero UI behavior (pure logic, no rendering)
+**Skip for:** Infrastructure bugs, pure logic bugs with zero UI behavior.
 
 ---
 
-### Phase 2: Write Canary Test (Regression Gate)
+### Phase 2: Write Canary Test (FALLBACK — skip if `reproduce_artifact` exists)
 
 **Goal:** Create test that FAILS before fix, PASSES after fix — testing the USER-VISIBLE SYMPTOM, not the fix mechanism. This is the canary: if it doesn't fail before the fix, you don't understand the bug. If it doesn't pass after, you didn't fix it.
+
+**Note:** When `reproduce_artifact` exists, the canary test was already written by `/reproduce`. Skip this phase — just verify the existing test still fails before proceeding to Phase 3.
 
 **Hard gate:** Run the canary test BEFORE writing any fix code. It MUST fail. If it passes, the test is wrong or the bug isn't what you think. Do not proceed until the canary fails for the right reason.
 
@@ -314,7 +299,7 @@ Proceeding with confirmed scope.
    - Unit test if bug is in isolated function/logic
 2. Write test that asserts the visible symptom (a number, a highlight, a state the user sees)
 3. Run test → should FAIL (proves bug exists)
-4. Document test location: `e2e/p{N}-bug-fix.spec.ts` or `src/tests/bug-fix.test.ts`
+4. Document test location: `e2e/p{N}-reproduce.spec.ts` or `src/tests/p{N}-reproduce.test.ts`
 5. For bugs affecting multiple surfaces (from Phase 1b): the test must cover ALL confirmed in-scope surfaces
 
 **Example E2E regression test:**
@@ -536,13 +521,19 @@ After commit succeeds:
 ## Relationship to Other Skills
 
 **Before /fix:**
-- Debugging protocol (docs/technical/debugging.md) - Use first if bug cause is unclear
+- `/reproduce` — confirms the bug, writes a failing canary test, stamps `reproduce_artifact` in spec. **Default prerequisite for all bugs.**
+- Debugging protocol (docs/technical/debugging.md) — use before `/reproduce` if even hypotheses are hard to form
 
 **After /fix:**
 - `/kdd` - Capture learnings (optional, if bug revealed patterns)
 
 **Parallel:**
 - `/simplify` - If fix requires complex decision
+
+**Flow:**
+```
+/create-bug → /reproduce → /fix → /ship
+```
 
 ---
 
