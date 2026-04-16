@@ -310,6 +310,56 @@ test.describe('P703 cancel path — facilitator closes room before listener join
       if (listener) await deleteTestUser(listener.user.id).catch(() => {});
     }
   });
+
+  test(
+    'when facilitator cancels from /live waiting screen, Start button re-enables on return to letter',
+    async ({ browser }: { browser: Browser }) => {
+      let author: TestUser | undefined;
+      let listener: TestUser | undefined;
+      let fixture: LetterSessionFixture | undefined;
+
+      try {
+        const authorAuth = await getTestAuthContext('host', browser, { name: 'P703 Cancel Reopen Author' });
+        listener = await createTestUser({ name: 'P703 Cancel Reopen Listener' });
+        author = authorAuth.user;
+
+        fixture = await createLetterSessionFixture(author, listener);
+
+        const authorPage = await authorAuth.context.newPage();
+
+        // Author navigates to the letter's results page (story walk with StartClaritySessionButton)
+        await authorPage.goto(`/letter/${fixture.letterId}/results?delivery=${fixture.deliveryId}`);
+        await authorPage.waitForLoadState('networkidle');
+
+        // Button should be enabled (no open invite yet)
+        const startBtn = authorPage.getByTestId('start-clarity-session-btn');
+        await expect(startBtn).toBeEnabled({ timeout: 10000 });
+        await startBtn.click();
+
+        // Author lands on /live waiting screen
+        await authorPage.waitForURL(/\/live\//);
+
+        // Author cancels — handleCancelWaiting must call cancelLiveInvite
+        const cancelBtn = authorPage.getByRole('button', { name: /cancel/i });
+        await cancelBtn.click();
+        // Wait for the async cancelLiveInvite PATCH to complete before navigating
+        await authorPage.waitForLoadState('networkidle');
+
+        // Author navigates back to the letter
+        await authorPage.goto(`/letter/${fixture.letterId}/results?delivery=${fixture.deliveryId}`);
+        await authorPage.waitForLoadState('networkidle');
+
+        // Button must be enabled — invite was closed on cancel, no orphaned invite
+        await expect(authorPage.getByTestId('start-clarity-session-btn')).toBeEnabled({ timeout: 10000 });
+
+        await authorAuth.cleanup();
+      } finally {
+        if (fixture) await deleteLetterSessionFixture(fixture);
+        if (author) await deleteTestUser(author.user.id).catch(() => {});
+        if (listener) await deleteTestUser(listener.user.id).catch(() => {});
+      }
+    }
+  );
 });
 
 // ─── Logged-out listener deep-link → login redirect ──────────────────────────

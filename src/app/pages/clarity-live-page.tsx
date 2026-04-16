@@ -38,6 +38,7 @@ import {
   // P703: Letter-sourced session
   getLetterBaselineRatings,
   completeClaritySession,
+  cancelLiveInvite,
   resendLiveInvite,
   checkSessionRequiresAuth,
 } from '@/app/data/api';
@@ -3082,13 +3083,21 @@ export function ClarityLivePage() {
   }, [isJoinViaLink, urlCode, isAuthLoading, isRestoring, user?.id, view]);
 
   // Cancel waiting and go back to start
-  const handleCancelWaiting = () => {
+  const handleCancelWaiting = async () => {
     // P106: Track session abandoned before partner joined
     if (session) {
       analytics.track('live_session_abandoned', {
         session_code: session.code,
         waited_seconds: Math.floor((Date.now() - new Date(session.created_at).getTime()) / 1000),
       });
+      // P703: Close the letter-sourced invite so the author's Start button re-enables
+      if (session.targetListenerId) {
+        try {
+          await cancelLiveInvite(session.id);
+        } catch (err) {
+          console.error('[P703] cancelLiveInvite failed — invite may still be open:', err);
+        }
+      }
     }
     clearStoredSession();
     setSession(null);
@@ -4151,7 +4160,7 @@ export function ClarityLivePage() {
             <Button
               variant="ghost"
               size="sm"
-              onClick={handleCancelWaiting}
+              onClick={() => void handleCancelWaiting()}
               className="text-muted-foreground w-full"
             >
               Cancel

@@ -4095,7 +4095,7 @@ export async function cancelLiveInvite(sessionId: string): Promise<void> {
     .eq('session_id', sessionId)
     .is('closed_at', null);
   if (error) {
-    console.error('[P703] Error cancelling live invite:', error?.message);
+    throw error;
   }
 }
 

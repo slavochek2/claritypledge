@@ -7,7 +7,7 @@ created_date: '2026-04-14'
 flow: dev
 delivery_stage: fix
 pipeline_plan: [create-spec, challenge-prd, architect, generate-tests, spec-review, decompose, dev, verify]
-pipeline_ran: [create-spec, challenge-prd, architect, generate-tests, spec-review, decompose, dev, verify, fix]
+pipeline_ran: [create-spec, challenge-prd, architect, generate-tests, spec-review, decompose, dev, verify, fix, fix.2]
 uat_file: features/uat/p703.md
 test_files:
   - e2e/integration/p703-letter-sourced-live-migration.spec.ts
@@ -144,12 +144,12 @@ The invite reuses existing notification infrastructure:
 
 ## Acceptance Criteria
 
-- [ ] Facilitator can start a pre-loaded /live from any story card in P699 results walk
-- [ ] Remote listener receives and can act on the inbox invite from the same device they use for letters
-- [ ] /live never prompts for author prediction or listener self-assessment in a letter-sourced session
-- [ ] Verification outcome (understanding score, position) persists on `story_verifications` as normal
-- [ ] Cancelling the room before listener joins leaves no orphaned verification data
-- [ ] Works when listener is co-present (same room) and when listener is remote (different device)
+- [x] Facilitator can start a pre-loaded /live from any story card in P699 results walk
+- [x] Remote listener receives and can act on the inbox invite from the same device they use for letters
+- [x] /live never prompts for author prediction or listener self-assessment in a letter-sourced session
+- [x] Verification outcome (understanding score, position) persists on `story_verifications` as normal
+- [x] Cancelling the room before listener joins leaves no orphaned verification data
+- [x] Works when listener is co-present (same room) and when listener is remote (different device)
 
 ## UX Notes
 
