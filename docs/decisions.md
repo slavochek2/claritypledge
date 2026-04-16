@@ -2,6 +2,20 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-17 [technical]: All letter_deliveries creation paths must pre-claim receiver_profile_id for registered users
+
+**Context:** Two separate delivery-creation paths (`send-letter-emails` edge function and `add_recipient_to_sealed_letter` RPC) both created rows with `receiver_profile_id = NULL` for registered recipients. `get_inbox_items` Branch 1 filters `WHERE ld.receiver_profile_id = v_user_id` — NULL rows are invisible until `claim_letter_delivery` fires on email-link click. P731 fixed the RPC path; P710 QA gap fixed the edge function path.
+
+**Decision:** Every code path that inserts a `letter_deliveries` row must check at insert time whether the `receiver_email` belongs to a registered user and, if so, populate `receiver_profile_id` immediately. For DB functions: `SELECT id FROM profiles WHERE email = p_email`. For edge functions: call `get_auth_user_by_email` RPC (already used by P710 for magic-link generation). If no registered user is found, leave `receiver_profile_id = NULL` — the claim-on-link-click flow handles new users. The `claim_letter_delivery` idempotency guard (same user → no-op UPDATE) handles the case where the recipient later clicks the email link anyway.
+
+**Alternatives rejected:** Modify `get_inbox_items` to fall back to email matching — adds a join to `auth.users`, creates a divergent code path, and breaks for users who change their email after receiving a letter. All inbox visibility must go through `receiver_profile_id`.
+
+**Consequences:** Before implementing any new delivery-creation path, verify it pre-claims `receiver_profile_id` for registered users. Current paths: (1) `add_recipient_to_sealed_letter` SQL function, (2) `send-letter-emails` edge function. Future paths (batch sends, resends, admin flows) must follow the same pattern. This is now a required invariant — failure produces a silent inbox-invisible bug with no error, only an empty inbox.
+
+**References:** `supabase/functions/send-letter-emails/index.ts` (P710 fix), `supabase/migrations/*_p581_clarity_letters.sql` (`add_recipient_to_sealed_letter`), `features/p710_auto_login_registered_letter_recipient.md`, `features/p731_inbox_letter_not_arriving_after_send.md`
+
+---
+
 ## 2026-04-16 [technical]: add_recipient_to_sealed_letter must set receiver_profile_id at send time for known users
 
 **Context:** P731 — after a sender added a recipient via the "Add recipient" flow, the letter was invisible in the recipient's Inbox tab. `get_inbox_items` Branch 1 requires `ld.receiver_profile_id = v_user_id`. `add_recipient_to_sealed_letter` always inserts the delivery with `receiver_profile_id = NULL` (only `receiver_email` set). `receiver_profile_id` is only written by `claim_letter_delivery`, which fires when the recipient opens the letter via the email link. Until then, the letter is invisible in the in-app inbox regardless of polling.
