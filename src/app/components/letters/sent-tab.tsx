@@ -306,7 +306,6 @@ export function SentTab({ userId }: SentTabProps) {
   const allTerminalRef = useRef(false);
 
   const fetchData = useCallback(async () => {
-    setFetchState('loading');
     try {
       const letters = await getAllSentLetters(userId);
       if (letters.length === 0) {

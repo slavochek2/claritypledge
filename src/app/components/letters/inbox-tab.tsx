@@ -28,7 +28,7 @@ export function InboxTab({ userId, onUnreadCountChange, openInvite }: InboxTabPr
   const [markingRead, setMarkingRead] = useState<string | null>(null);
 
   const fetchItems = useCallback(async () => {
-    setFetchState('loading');
+    setFetchState((prev) => prev === 'idle' ? 'loading' : prev);
     try {
       const result = await getInboxItems(userId);
       setItems(result);

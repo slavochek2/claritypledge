@@ -20,7 +20,6 @@
 import { render, screen, waitFor, act } from '@testing-library/react';
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { MemoryRouter } from 'react-router-dom';
-import React from 'react';
 import { InboxTab } from '@/app/components/letters/inbox-tab';
 import type { InboxItem } from '@/app/types';
 
@@ -71,9 +70,7 @@ describe('P727: InboxTab background poll must not replace list with loading scre
     });
   });
 
-  // it.fails() marks this as an expected failure: passes in suite before fix (bug confirmed),
-  // breaks suite after fix (signaling the it.fails wrapper must be removed by /fix).
-  it.fails('keeps items visible while background poll is in flight', async () => {
+  it('keeps items visible while background poll is in flight', async () => {
     const { getInboxItems } = await import('@/app/data/letters-service');
     const mockFetch = vi.mocked(getInboxItems);
 
