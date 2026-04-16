@@ -82,10 +82,7 @@ export function InboxTab({ userId, onUnreadCountChange, openInvite }: InboxTabPr
         navigate(`/letter/${item.delivery_id}`);
       }
     } else {
-      const deliveryParam = (item.type === 'recipient_in_progress' || item.type === 'link_respondent_in_progress')
-        ? `?delivery=${item.delivery_id}`
-        : '';
-      navigate(`/letter/${item.letter_id}/results${deliveryParam}`);
+      navigate(`/letter/${item.letter_id}/results?delivery=${item.delivery_id}`);
     }
   };
 

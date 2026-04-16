@@ -64,7 +64,8 @@ function getStatusLabel(status: LetterDelivery['status']): string {
 // RECIPIENT ROW — expanded view
 // ============================================================================
 
-function RecipientRow({ delivery }: { delivery: LetterDelivery }) {
+function RecipientRow({ delivery, letterId }: { delivery: LetterDelivery; letterId: string }) {
+  const navigate = useNavigate();
   const displayName = delivery.receiver_name || delivery.receiver_email || 'Anonymous';
   // Recipient (has email) = envelope icon; link respondent (no email) = link icon
   const Icon = delivery.receiver_email ? Mail : Link2;
@@ -73,9 +74,20 @@ function RecipientRow({ delivery }: { delivery: LetterDelivery }) {
     && delivery.steps_completed !== undefined
     && delivery.total_steps !== undefined
     && delivery.steps_completed > 0;
+  const isCompleted = delivery.status === 'completed';
+
+  const handleClick = () => navigate(`/letter/${letterId}/results?delivery=${delivery.id}`);
 
   return (
-    <div className="flex items-center gap-2 py-1.5 px-3 text-sm">
+    <div
+      className={`flex items-center gap-2 py-1.5 px-3 text-sm${isCompleted ? ' cursor-pointer hover:bg-accent/30 transition-colors' : ''}`}
+      {...(isCompleted ? {
+        role: 'button' as const,
+        tabIndex: 0,
+        onClick: handleClick,
+        onKeyDown: (e: React.KeyboardEvent) => { if (e.key === 'Enter' || e.key === ' ') handleClick(); },
+      } : {})}
+    >
       <Icon className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" aria-hidden="true" />
       <span className="text-foreground truncate">{displayName}</span>
       <span aria-hidden="true" className="text-muted-foreground">·</span>
@@ -142,7 +154,9 @@ function LetterCard({
 
   const handleResults = (e: React.MouseEvent) => {
     e.stopPropagation();
-    navigate(`/letter/${letter.id}/results`);
+    const completedDelivery = deliveries.find((d) => d.status === 'completed');
+    if (!completedDelivery) return;
+    navigate(`/letter/${letter.id}/results?delivery=${completedDelivery.id}`);
   };
 
   const handleToggle = () => {
@@ -218,7 +232,10 @@ function LetterCard({
                   {completedCount > 0 && (
                     <DropdownMenuItem
                       className="sm:hidden"
-                      onClick={() => navigate(`/letter/${letter.id}/results`)}
+                      onClick={() => {
+                        const d = deliveries.find((del) => del.status === 'completed');
+                        if (d) navigate(`/letter/${letter.id}/results?delivery=${d.id}`);
+                      }}
                     >
                       View results
                     </DropdownMenuItem>
@@ -246,7 +263,7 @@ function LetterCard({
             <div className="mx-3 my-2 border-t border-dashed border-border/40" />
             {recipients.length > 0 ? (
               recipients.map((d) => (
-                <RecipientRow key={d.id} delivery={d} />
+                <RecipientRow key={d.id} delivery={d} letterId={letter.id} />
               ))
             ) : (
               <p className="text-xs text-muted-foreground px-3 py-1">No recipients yet.</p>
@@ -256,7 +273,7 @@ function LetterCard({
               <>
                 <div className="mx-3 my-1 border-t border-dashed border-border/40" />
                 {respondents.map((d) => (
-                  <RecipientRow key={d.id} delivery={d} />
+                  <RecipientRow key={d.id} delivery={d} letterId={letter.id} />
                 ))}
               </>
             )}

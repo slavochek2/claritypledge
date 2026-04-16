@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: qa
 type: bug
 rank: 1000716.0
 severity: high
@@ -8,7 +8,10 @@ date_reported: '2026-04-16'
 created_date: '2026-04-16'
 tags: [letters, results, data-fetch]
 delivery_stage: fix
-pipeline_ran: [create-bug]
+pipeline_ran: [create-bug, fix]
+date_resolved: '2026-04-16'
+root_cause: Sender navigation to /results omits ?delivery= URL param; get_letter_results RPC receives p_delivery_id=NULL and skips ratings + point_responses
+resolution: Pass ?delivery= on all 4 sender navigation paths (sent-tab handleResults, mobile dropdown, RecipientRow click, inbox-tab sender items)
 ---
 
 # P716: Sender's results view missing recipient's confidence and positions
@@ -112,11 +115,11 @@ No RPC changes. No migration. No new files.
 
 ## Acceptance Criteria
 
-- [ ] Sender's results view for a **one-to-one** letter shows recipient's confidence rating (filled stars matching what recipient submitted)
-- [ ] Sender's results view for a **one-to-one** letter shows recipient's position choices alongside sender's positions
-- [ ] Sender clicking "Results" on a **one-to-many** letter navigates to the first completed delivery's results (not a blank page)
-- [ ] Completed `RecipientRow` entries in expanded sent-tab are clickable and navigate to that delivery's results
-- [ ] Sender inbox items of type `recipient_responded` and `link_respondent` navigate to results with `?delivery=` param
-- [ ] Recipient's own results view unchanged (still complete)
-- [ ] No navigation occurs when zero deliveries are completed (guard)
-- [ ] `npm test` passes
+- [x] Sender's results view for a **one-to-one** letter shows recipient's confidence rating (filled stars matching what recipient submitted)
+- [x] Sender's results view for a **one-to-one** letter shows recipient's position choices alongside sender's positions
+- [x] Sender clicking "Results" on a **one-to-many** letter navigates to the first completed delivery's results (not a blank page)
+- [x] Completed `RecipientRow` entries in expanded sent-tab are clickable and navigate to that delivery's results
+- [x] Sender inbox items of type `recipient_responded` and `link_respondent` navigate to results with `?delivery=` param
+- [x] Recipient's own results view unchanged (still complete)
+- [x] No navigation occurs when zero deliveries are completed (guard)
+- [x] `npm test` passes
