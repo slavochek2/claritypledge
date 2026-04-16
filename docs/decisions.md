@@ -2,6 +2,20 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-16 [technical]: Async `void` onClick handlers — E2E tests must wait for network settle before asserting
+
+**Context:** P703 cancel-path canary test: after clicking the Cancel button (whose `onClick` used `() => void handleCancelWaiting()`), the test immediately navigated back with `goto(...)`. The `void` pattern fires the async chain but the click event resolves synchronously — Playwright's `click()` resolves when the DOM event fires, not when the async handler completes. The subsequent `goto` could race against the in-flight Supabase PATCH (`cancelLiveInvite`), causing a false-green assertion (button appears re-enabled not because the invite was closed, but because the test navigated before the DB write landed).
+
+**Decision:** After clicking any button whose `onClick` uses `() => void asyncFn()`, add `await page.waitForLoadState('networkidle')` before asserting post-action state or navigating. This waits for all pending network requests to complete, ensuring the async handler's DB write (or any other XHR) has settled before the next assertion runs.
+
+**Alternatives rejected:** `await cancelBtn.click()` — Playwright's `click()` resolves when the DOM event fires, not when async handlers complete; does not help. `waitForSelector` on a DOM signal — works for actions that produce a visible DOM change, but the cancel path navigates away, leaving no persistent DOM signal to anchor on. `waitForResponse(/.*/)` — too broad and brittle across test environments.
+
+**Consequences:** Any E2E test that clicks an async handler using the React `void` pattern must follow the click with `await page.waitForLoadState('networkidle')`. This is the canonical wait for buttons that trigger XHR/fetch. Use DOM signals only when the action produces a stable element (e.g., a success toast). The rule applies across the codebase — search for `onClick={() => void` when adding new E2E coverage.
+
+**References:** `e2e/p703-letter-sourced-live.spec.ts` — cancel-path canary test; `src/app/pages/clarity-live-page.tsx` — `handleCancelWaiting`
+
+---
+
 ## 2026-04-16 [technical]: IF FOUND guard required after ON CONFLICT DO NOTHING — never increment unconditionally
 
 **Context:** P721 — `submit_rating_by_token` was rewritten in P683/P684 and silently lost the `IF FOUND` guard added in P651. The rewrite preserved `ON CONFLICT DO NOTHING` on the `story_verifications` INSERT but incremented `stories_rated` unconditionally after it. Duplicate calls (retries, double-submits) inflated the counter past the real story count, producing "9 of 8 steps" in the inbox.
