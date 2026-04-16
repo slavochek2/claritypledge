@@ -1,27 +1,28 @@
 /**
  * @file p714-letter-link-lifecycle.test.ts
- * @description P714: Regression tests for letter link lifecycle —
- * identity, consent, and recovery.
+ * @description P714/P716: Regression tests for letter reading hook routing.
  *
- * Bug: After create-and-open-letter mints a session and consumes the token
- * (sets invitation_expires_at=NOW()), letter-reading-page.tsx passes the
- * original URL token to LetterReadingFlow unconditionally. The hook then
- * calls submitPointResponseByToken with the consumed token, which returns
- * "Invalid or expired token", setting tokenExpired=true and blocking the reader.
+ * History: P714 stripped the invitation token from authenticated users
+ * (effectiveToken = isAuthenticated ? undefined : token) to prevent calling
+ * submitPointResponseByToken with what it assumed was a "consumed" token.
+ * That assumption was wrong: invitation_token (a stable UUID in letter_deliveries)
+ * is not the one-time OTP hash consumed by create-and-open-letter.
  *
- * Fix: letter-reading-page.tsx:907 — pass `isAuthenticated ? undefined : token`
- * to useLetterReadingState so that once a session exists, all writes take
- * the authed (deliveryId) path.
+ * P683 already removed the expiry check from all engagement RPCs, so
+ * submitPointResponseByToken is safe to call for authenticated users.
+ * P716 reverts the token-strip and adds point_positions dual-write to the RPC
+ * so live display works identically to the authed path.
  *
- * Canary:
- *   Test A (bug mechanism): hook called with a token that is "expired" →
- *     submitPointResponseByToken is called → throws → tokenExpired=true.
- *     This test always passes; it documents the failure mode that the component
- *     fix prevents from being reachable in production.
+ * These tests verify the hook's internal routing logic:
  *
- *   Test B (fix target): hook called with token=undefined (the post-fix state) →
- *     submitPointResponse is called (authed RPC) → tokenExpired stays false.
- *     This is the assertion that proves the fix works end-to-end.
+ *   Test A (failure mode): when the hook receives an invalid token (e.g., letter
+ *     unsealed or delivery deleted), submitPointResponseByToken throws
+ *     "Invalid or expired token" and tokenExpired=true is set. This is the fallback
+ *     surface that lets the UI show a recovery message.
+ *
+ *   Test B (no-token path): when the hook receives no token (anonymous link access,
+ *     no delivery token), it routes to submitPointResponse (authed RLS path).
+ *     tokenExpired stays false throughout.
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
@@ -92,12 +93,12 @@ describe('P714: letter link lifecycle — token vs authed RPC path', () => {
     sessionStorage.clear();
   });
 
-  it('Test A (bug mechanism): hook with consumed token triggers tokenExpired on submit', async () => {
-    // This documents the failure mode: when the URL token is passed to the hook
-    // after create-and-open-letter has consumed it, the first position submit
-    // calls submitPointResponseByToken → rejects → tokenExpired=true.
-    // The component fix prevents this scenario from being reached in production
-    // by passing token=undefined when session exists.
+  it('Test A (failure mode): hook with invalid token triggers tokenExpired on submit', async () => {
+    // Documents the failure surface: if submitPointResponseByToken throws
+    // "Invalid or expired token" (e.g., letter unsealed between page load and submit),
+    // the hook sets tokenExpired=true so the UI can show a recovery message.
+    // In normal operation (P683 removed expiry check, token UUID is stable), this
+    // code path is not reached.
     const snapshots = [makeSnapshot()];
     const { result } = renderHook(() =>
       useLetterReadingState(DELIVERY_ID, SENDER_ID, snapshots, CONSUMED_TOKEN)
@@ -111,9 +112,8 @@ describe('P714: letter link lifecycle — token vs authed RPC path', () => {
     expect(result.current.tokenExpired).toBe(true);
   });
 
-  it('Test B (fix target): hook with no token uses authed RPC — tokenExpired stays false', async () => {
-    // Post-fix: the component passes token=undefined when isAuthenticated=true.
-    // The hook sees no token and routes all writes to the deliveryId (authed) path.
+  it('Test B (no-token path): hook with no token uses authed RLS path — tokenExpired stays false', async () => {
+    // Anonymous link access (no delivery token) — hook routes to submitPointResponse.
     // tokenExpired must stay false so the reader can complete the letter.
     const snapshots = [makeSnapshot()];
     const { result } = renderHook(() =>

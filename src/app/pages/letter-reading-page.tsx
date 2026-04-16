@@ -863,7 +863,7 @@ export function LetterReadingPage() {
             snapshots={snapshots}
             delivery={delivery}
             senderName={senderName}
-            token={session ? undefined : (token || undefined)}
+            token={token || undefined}
             isAuthenticated={!!session}
             onComplete={() => setViewState('complete')}
           />
@@ -909,9 +909,11 @@ function LetterReadingFlow({
   onComplete: () => void;
 }) {
   const navigate = useNavigate();
-  // P714: Once a session exists the token is consumed — pass undefined so the hook
-  // uses the authed (deliveryId) RPC path instead of the now-expired token path.
-  const effectiveToken = isAuthenticated ? undefined : token;
+  // Pass the invitation token if present — the hook routes to the token-based RPC
+  // (SECURITY DEFINER, no expiry check since P683) when available, falling back to
+  // the authed RLS path when not. P714's token-drop assumption was wrong: invitation_token
+  // is a stable UUID, not the one-time OTP hash consumed by create-and-open-letter.
+  const effectiveToken = token;
   const readingState = useLetterReadingState(delivery.id, letter.sender_id, snapshots, effectiveToken);
   const { state, currentPhase, nextStory, tokenExpired } = readingState;
   const { user } = useAuth();
