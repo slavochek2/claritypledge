@@ -2,6 +2,34 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-16 [technical]: Unreproducible timing-dependent bug — add server-side validation codes, convert canary to regression
+
+**Context:** P719 — intermittent 400 "Invalid request" on signup after completing a public letter. The edge function `request-letter-response-signin` returns the same generic `validationError()` for 8 different failure points. The Supabase client fires `SIGNED_OUT` and clears the stale session before the form submission reaches the edge function, so the race window is too narrow to trigger reliably in Playwright. Three reproduction attempts failed.
+
+**Decision:** Two-part response to a bug that cannot be reproduced in tests: (1) Add `console.warn('[BUG_ID-DIAG] validation_fail: <CODE>')` immediately before each `return validationError()` call — server-side only, no client-visible change, no field values in the log. The code identifies which check fired without leaking which field failed to end users. On next prod occurrence, filter edge function logs for the prefix to identify root cause. (2) Convert the canary test (which was asserting the failing state) to a regression test for the happy path — it guards against future regressions even though it couldn't prove the bug. Document the limitation inline in the test.
+
+**Alternatives rejected:** (1) Expanding the validationError message to include the field name — leaks information to clients (shape oracle prevention). (2) Adding a separate error code field in the 400 response body — same client-visibility problem. (3) Blocking the fix until the bug is reproduced — wrong trade-off when the fix is purely additive (zero risk) and production observability is the blocker.
+
+**Consequences:** Pattern applies to any edge function with a unified generic error response (`validationError()`, `{ error: 'Something went wrong' }`): add uniquely-prefixed `console.warn` codes before each return site before shipping. The prefix (`[P719-DIAG]`, `[BUG_ID-DIAG]`) makes the signal searchable in Supabase edge function logs. When the next prod occurrence fires, the code in the log maps directly to the failing check → root cause → targeted fix.
+
+**References:** [p719 spec](features/p719_signup_invalid_request_after_public_letter.md) | [edge function](supabase/functions/request-letter-response-signin/index.ts)
+
+## 2026-04-16 [technical]: Letter-sourced /live bootstrap — two call sites required, idempotency guard on liveState.ratingPhase
+
+**Context:** P703 initial implementation called `bootstrapLetterSourcedSession` only from `handleCreate` (the /live start screen "Create" button). `StartClaritySessionButton` bypasses that path: it calls `createClaritySession` directly then navigates to `/live/<code>`. The auto-join effect detected the creator but didn't bootstrap. Result: session stayed at `ratingPhase: 'idle'` and the story card never rendered.
+
+A second issue: the bootstrap only set `selectedStoryId` but not `selectedStoryData`, `checkerName`, `selectedContentTitle`, `ratingInitiatedBy`, `ratingInitiatedByIsCreator`. Without `selectedStoryData`, the story card renders empty even if phase is correct. These fields must be fetched (via `storiesService.getStoryWithPoints`) and set atomically in the same `updateClaritySessionLiveState` call.
+
+A third issue: the bootstrap was not idempotent — a creator page-refresh mid-session would call bootstrap again (via auto-join effect) and overwrite in-progress live state back to `explain-back`.
+
+**Decision:** (1) Auto-join effect calls `bootstrapLetterSourcedSession(sessionInfo)` when `sessionInfo.targetListenerId && sourceStoryId && sourceLetterId`. (2) Bootstrap fetches `StoryWithPoints` in parallel with baseline ratings and sets all required fields. (3) Guard at bootstrap entry: if `sess.liveState?.ratingPhase` exists and is not `'idle'`, skip the DB write entirely — session is already bootstrapped.
+
+**Alternatives rejected:** Calling bootstrap from `StartClaritySessionButton` directly — duplicates logic across two files and doesn't handle the page-refresh case. Per-flag `bootstrapped` column on `clarity_sessions` — heavier; the existing `liveState.ratingPhase` is sufficient.
+
+**Consequences:** Any future "pre-seeded" /live session type (e.g., seeded from an assessment, a practice library) must follow the same pattern: bootstrap in auto-join effect, guard on `liveState.ratingPhase !== 'idle'`, fetch all state fields needed by the first phase in a single parallel call. The `storiesService` import is now a dependency of `clarity-live-page.tsx`.
+
+**References:** [p703 spec](features/p703_verify_live_from_letter_results.md) | [clarity-live-page.tsx](src/app/pages/clarity-live-page.tsx) | plan: `~/.claude/plans/stateless-sparking-patterson.md`
+
 ## 2026-04-16 [process]: Spawn Opus critic before implementing async/infra patterns — catches schema and approach blockers before code is written
 
 **Context:** P720 — planned to add Supabase Realtime subscriptions to `sent-tab.tsx` and `inbox-tab.tsx`. Before writing any code, an Opus agent was given the plan + schema context and asked to find edge cases, blindspots, and risks. It returned two P0 blockers in under a minute: `letter_deliveries` has no `sender_id` column (can't filter server-side) and step counts come from child tables (subscription would miss them). Both would have been caught only in QA without the critique step.
