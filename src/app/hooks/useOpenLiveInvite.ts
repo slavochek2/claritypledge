@@ -103,12 +103,13 @@ export function useOpenLiveInvite(): { invite: OpenLiveInvite | null; loading: b
           .maybeSingle()
           .then(({ data: session }) => {
             if (cancelled || !session) return;
+            if (!session.code) return; // NOT NULL in schema; guard against constraint violation
             const rawContent = (session.stories as { content: string } | null)?.content ?? '';
             dispatch({
               type: 'INSERT',
               payload: {
                 sessionId,
-                code: session.code ?? '',
+                code: session.code,
                 authorName: session.creator_name ?? '',
                 storyTitle: rawContent ? rawContent.split('\n')[0].substring(0, 60) : '',
                 closedAt: null,
@@ -119,9 +120,12 @@ export function useOpenLiveInvite(): { invite: OpenLiveInvite | null; loading: b
       (raw) => {
         if (cancelled) return;
         const invite = mapRaw(raw);
+        // UPDATE payloads always carry closed_at (the only mutation on this table is closure).
+        // When closed_at is set, the reducer clears the invite — code:'' from mapRaw is safe.
+        // A non-close UPDATE would overwrite the invite with code:'', but that never occurs.
         if (invite) dispatch({ type: 'UPDATE', payload: invite });
         else {
-          // closed_at set but no code in payload — remove by session_id
+          // closed_at set but no session_id in payload — remove by session_id
           const sessionId = raw['session_id'] as string | undefined;
           if (sessionId) dispatch({ type: 'DELETE', payload: { sessionId } });
         }
