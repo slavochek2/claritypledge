@@ -66,7 +66,7 @@ Bug fixes are not just code changes — they're opportunities to prevent entire 
 
 - UI behavior bugs almost always exist in more than one component
 - Fixing one surface without checking others = filing the same bug again next month
-- Always grep for the pattern, not just the reported location
+- **Hard gate: run the grep and paste the output before Phase 3 opens.** The output is the proof it happened. No output = gate not passed.
 - If you find other surfaces: surface them to the user explicitly. Never decide silently.
 
 **Apply all four before marking bug as fixed.**
