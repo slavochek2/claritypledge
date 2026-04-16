@@ -17,6 +17,7 @@ interface LetterCoverProps {
   mode: LetterMode;
   onOpen: () => void;
   isAuthenticated?: boolean;
+  isEmailDelivery?: boolean;
   isAuthenticating?: boolean;
   authDelayed?: boolean;
   errorMessage?: string | null;
@@ -30,14 +31,17 @@ export function LetterCover({
   storyCount,
   pointCount,
   estimatedMinutes,
-  mode,
   onOpen,
   isAuthenticated = false,
+  isEmailDelivery = false,
   isAuthenticating = false,
   authDelayed = false,
   errorMessage = null,
 }: LetterCoverProps) {
-  const needsConsent = mode === 'one-to-one' && !isAuthenticated;
+  // P715: TOS consent fires for any email delivery (token present) to an unauthenticated
+  // recipient, regardless of letter privacy type. Previously gated on mode === 'one-to-one'
+  // which skipped TOS for public letters delivered by email.
+  const needsConsent = isEmailDelivery && !isAuthenticated;
   const isDisabled = isAuthenticating;
 
   const handleOpen = () => {

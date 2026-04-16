@@ -771,7 +771,9 @@ export function LetterReadingPage() {
 
   // P704: anon one-to-many recipients must NOT call *_by_token RPCs — P684 guards block them.
   // Buffer responses locally and submit via confirm-letter-response after signup (same as ready_public).
-  const bufferOnly = letter.mode === 'one-to-many' && !session;
+  // P715: bufferOnly only for truly anonymous link access (no token).
+  // Email deliveries (token present) go through handleOneToOneOpen() regardless of letter mode.
+  const bufferOnly = letter.mode === 'one-to-many' && !session && !token;
 
   return (
     <CertificatePageShell className="min-h-screen py-6 space-y-6">
@@ -786,11 +788,14 @@ export function LetterReadingPage() {
             estimatedMinutes={estimateReadingMinutes(snapshots.length, countTotalPoints(snapshots))}
             mode={letter.mode}
             isAuthenticated={!!session}
+            isEmailDelivery={!!token}
             isAuthenticating={isAuthenticating}
             authDelayed={authDelayed}
             errorMessage={consentError}
             onOpen={() => {
-              if (letter.mode === 'one-to-one' && token && !currentUser) {
+              // P715: fire account-creation for any email delivery (token present),
+              // regardless of letter mode (private or public).
+              if (token && !currentUser) {
                 handleOneToOneOpen();
               } else if (bufferOnly) {
                 // Anon one-to-many: skip updateDeliveryStatusByToken — P684 guard blocks it.
