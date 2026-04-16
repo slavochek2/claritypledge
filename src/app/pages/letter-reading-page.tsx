@@ -318,8 +318,10 @@ export function LetterReadingPage() {
             setReceiverDisplayNameSafe(currentUser.user_metadata.name);
           }
 
-          // P695: skip to completion view if delivery is already completed
-          if (readData.delivery?.status === 'completed') {
+          // P695: skip to completion view if delivery is already completed.
+          // P722: guard requires currentUser — anon/race user (currentUser=null)
+          // must not see confetti for a delivery they haven't been verified for.
+          if (currentUser && readData.delivery?.status === 'completed') {
             setSafe('ready');
             if (!cancelled) setViewState('complete');
             return;
