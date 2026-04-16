@@ -209,6 +209,24 @@ serve(async (req: Request) => {
           });
           const isRegistered = Array.isArray(authUserRows) && authUserRows.length > 0;
           if (isRegistered) {
+            const registeredUserId = authUserRows[0].id;
+
+            // P710 QA fix: pre-claim the delivery so the recipient sees it in their inbox
+            // immediately — without having to click the email link first.
+            // get_inbox_items filters WHERE receiver_profile_id = auth.uid(); without this
+            // UPDATE the row stays unclaimed (NULL) and the inbox appears empty.
+            // claim_letter_delivery is idempotent for the same user, so the email-link
+            // click still works correctly after this pre-claim.
+            try {
+              await supabase
+                .from('letter_deliveries')
+                .update({ receiver_profile_id: registeredUserId })
+                .eq('id', delivery.id)
+                .is('receiver_profile_id', null); // only if not already claimed
+            } catch (updateErr) {
+              console.warn('P710: receiver_profile_id pre-claim failed (non-fatal):', updateErr);
+            }
+
             const { data: linkData, error: linkError } = await supabase.auth.admin.generateLink({
               type: 'magiclink',
               email: normalizedEmail,

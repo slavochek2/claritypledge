@@ -3,8 +3,11 @@ id: p710
 status: qa
 type: story
 delivery_stage: fix
-pipeline_ran: [fix]
+pipeline_ran: [fix, fix.2]
 created_at: 2026-04-15
+tags: []
+rank: 1000722.0
+created_date: 2026-04-15
 ---
 
 # P710: Auto-login existing users from letter invite email
@@ -36,6 +39,24 @@ Unregistered recipients: no change — keep plain token URL, existing anon→TOS
 - [x] Expired OTP fallback: user lands on cover as anon-with-token (cover + TOS shown, no white screen)
 - [x] Already-authenticated user who revisits the email link — page loads correctly
 - [x] Late auth settlement: delivery is claimed when currentUser appears after initial load
+- [x] Registered recipient sees letter in Inbox BEFORE clicking the email link
+
+## QA Fix (2026-04-16)
+
+**Root cause discovered during QA:** `send-letter-emails` created the delivery row with
+`receiver_profile_id = NULL`. `get_inbox_items()` filters `WHERE receiver_profile_id = auth.uid()`
+so the row was invisible until the email link was clicked and `claim_letter_delivery` ran.
+
+**Fix:** When `isRegistered=true` and the auth user's ID is available, immediately UPDATE
+`letter_deliveries SET receiver_profile_id = <userId>` at send time (guarded with
+`.is('receiver_profile_id', null)` for idempotency). `claim_letter_delivery` on email click
+remains idempotent — already handles same-user re-claim.
+
+**Unregistered recipients:** No change — no account yet, can't see inbox anyway.
+
+**Files changed:**
+- `supabase/functions/send-letter-emails/index.ts` — pre-claim UPDATE after `isRegistered` check
+- `src/tests/p710-inbox-registered-recipient.test.ts` — regression tests (4 pass)
 
 ## Verification
 
