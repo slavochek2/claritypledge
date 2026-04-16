@@ -10,6 +10,8 @@ Worktrees are the **default isolation mechanism** for all `/dev` and `/fix` work
 
 **Vite cache isolation:** All worktrees symlink `node_modules/` to main. `vite.config.ts` sets `cacheDir` per worktree slot (`node_modules/.vite-w1`, `.vite-w2`, etc.) so concurrent dev servers don't corrupt each other's pre-bundled dependencies. See [decisions.md 2026-03-13](../decisions.md).
 
+**Slot exclusivity:** Each worktree slot (w1, w2, …) has one shared git index. Two concurrent agent sessions in the same slot contaminate each other's staged files — Session B's commit can pull in Session A's staged work as bystanders. Protocol: concurrent sessions must use different slot numbers. If you discover shared-slot contamination at commit time, run `git diff --cached --name-only`, reset non-owned files with `git reset HEAD -- <files>`, then re-stage and commit only the intended files.
+
 ---
 
 ## When Worktrees Are Created
