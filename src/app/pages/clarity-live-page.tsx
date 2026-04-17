@@ -3276,7 +3276,9 @@ export function ClarityLivePage() {
       try {
         if (isCreator) {
           // Creator leaving = session ends for everyone
-          await endClaritySession(session.id);
+          await endClaritySession(session.id).catch((err) => {
+            console.error('[Live] endClaritySession failed on exit:', err);
+          });
           // P703: Atomically close the live invite for letter-sourced sessions
           if (session.targetListenerId) {
             await completeClaritySession(session.id).catch((err) => {
@@ -3285,7 +3287,9 @@ export function ClarityLivePage() {
           }
         } else {
           // Joiner leaving = clear their name so creator knows
-          await clearSessionJoiner(session.id);
+          await clearSessionJoiner(session.id).catch((err) => {
+            console.error('[Live] clearSessionJoiner failed on joiner exit:', err);
+          });
           // P740: Close letter-sourced invite when joiner exits
           if (session.targetListenerId) {
             await completeClaritySession(session.id).catch((err) => {

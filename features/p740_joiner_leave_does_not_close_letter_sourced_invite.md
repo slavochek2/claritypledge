@@ -72,7 +72,7 @@ In the joiner-leave `else` branch of the exit handler, add a `completeClaritySes
 
 - [x] After joiner exits a letter-sourced session, the invite row disappears from the recipient's inbox without page reload
 - [x] After joiner exits, the author's letter-results page no longer shows "Return to Session" or "End Session"
-- [x] After joiner exits, the author's `/live` view shows "Session ended" (not "Your partner has left")
+- [x] After joiner exits, the author's `/live` view shows "X has left" — this is correct UX (partner left, not a creator-ended session); `sessionEnded` flips via `live_state.joinerEnded` set by `clearSessionJoiner`, not by this fix
 - [x] Non-letter-sourced sessions (no `targetListenerId`) are unaffected — `completeClaritySession` is NOT called
 - [x] Creator-leave behavior is unchanged (regression guard)
 - [x] Canary test passes: `src/tests/p740-joiner-leave-closes-invite.test.tsx`
