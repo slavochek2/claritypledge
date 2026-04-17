@@ -15,7 +15,7 @@ export interface MergeInFlightArgs {
   confirmedRef: LiveSessionState;
   myKey: 'freeSliderCreator' | 'freeSliderJoiner';
   myPositionKey: 'livePositionsCreator' | 'livePositionsJoiner';
-  isPhaseRegression: (server: string | undefined, local: string | undefined) => boolean;
+  isPhaseRegression: (local: string | undefined, incoming: string | undefined) => boolean;
 }
 
 export interface MergeInFlightResult {
@@ -36,13 +36,13 @@ export function mergeInFlight(args: MergeInFlightArgs): MergeInFlightResult {
     }
   }
 
-  const phaseToUse = isPhaseRegression(incoming.ratingPhase, prev.ratingPhase)
-    ? (incoming.ratingPhase ?? prev.ratingPhase)
-    : prev.ratingPhase;
+  const phaseToUse = isPhaseRegression(prev.ratingPhase, incoming.ratingPhase)
+    ? prev.ratingPhase                                    // incoming is behind local → keep local
+    : (incoming.ratingPhase ?? prev.ratingPhase);        // server is ahead → advance
 
-  const confirmedPhase = isPhaseRegression(incoming.ratingPhase, confirmedRef.ratingPhase)
-    ? (incoming.ratingPhase ?? confirmedRef.ratingPhase)
-    : confirmedRef.ratingPhase;
+  const confirmedPhase = isPhaseRegression(confirmedRef.ratingPhase, incoming.ratingPhase)
+    ? confirmedRef.ratingPhase                            // incoming is behind confirmed → keep confirmed
+    : (incoming.ratingPhase ?? confirmedRef.ratingPhase);
 
   return {
     nextState: { ...incoming, ...prev, ...partnerUpdates, ratingPhase: phaseToUse } as LiveSessionState,

@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { mergeInFlight, PARTNER_OWNED_KEYS } from '@/app/lib/live-state-merge';
+import { isPhaseRegression } from '@/app/pages/clarity-live-page';
 import type { LiveSessionState } from '@/app/types';
 
 /**
@@ -98,7 +99,10 @@ describe('P609/P741: mergeInFlight — partner-key preservation', () => {
     expect(result.nextConfirmedRef.freeSliderCreator).toBe(9);
   });
 
-  // P671 guard: ratingPhase monotonic — these two cases prevent regressions of P671.
+  // P671 guard: ratingPhase monotonic — these cases prevent regressions of P671.
+  // Convention: isPhaseRegression(local, incoming) → true when incoming is BEHIND local (regression).
+  // noPhaseRegression (→false): incoming is not behind → server is ahead → advance.
+  // alwaysPhaseRegression (→true): incoming is behind → regression → keep local.
 
   it('ratingPhase advances when server is ahead (P671 guard)', () => {
     const result = mergeInFlight({
@@ -107,7 +111,7 @@ describe('P609/P741: mergeInFlight — partner-key preservation', () => {
       confirmedRef: { ...baseState, ratingPhase: 'waiting' },
       myKey: 'freeSliderCreator',
       myPositionKey: 'livePositionsCreator',
-      isPhaseRegression: alwaysPhaseRegression,  // server 'revealed' > local 'waiting'
+      isPhaseRegression: noPhaseRegression,  // 'revealed' not behind 'waiting' → advance
     });
     expect(result.nextState.ratingPhase).toBe('revealed');
     expect(result.nextConfirmedRef.ratingPhase).toBe('revealed');
@@ -120,10 +124,32 @@ describe('P609/P741: mergeInFlight — partner-key preservation', () => {
       confirmedRef: { ...baseState, ratingPhase: 'revealed' },
       myKey: 'freeSliderCreator',
       myPositionKey: 'livePositionsCreator',
-      isPhaseRegression: noPhaseRegression,  // server 'waiting' < local 'revealed' — no advancement
+      isPhaseRegression: alwaysPhaseRegression,  // 'waiting' behind 'revealed' → keep local
     });
     expect(result.nextState.ratingPhase).toBe('revealed');
     expect(result.nextConfirmedRef.ratingPhase).toBe('revealed');
+  });
+
+  it('ratingPhase monotonic with real isPhaseRegression — catches argument order bugs', () => {
+    const resultAdvance = mergeInFlight({
+      incoming: { ...baseState, ratingPhase: 'revealed' },
+      prev: { ...baseState, ratingPhase: 'waiting' },
+      confirmedRef: { ...baseState, ratingPhase: 'waiting' },
+      myKey: 'freeSliderCreator',
+      myPositionKey: 'livePositionsCreator',
+      isPhaseRegression,
+    });
+    expect(resultAdvance.nextState.ratingPhase).toBe('revealed');
+
+    const resultHold = mergeInFlight({
+      incoming: { ...baseState, ratingPhase: 'waiting' },
+      prev: { ...baseState, ratingPhase: 'revealed' },
+      confirmedRef: { ...baseState, ratingPhase: 'revealed' },
+      myKey: 'freeSliderCreator',
+      myPositionKey: 'livePositionsCreator',
+      isPhaseRegression,
+    });
+    expect(resultHold.nextState.ratingPhase).toBe('revealed');
   });
 
   it('PARTNER_OWNED_KEYS covers expected fields', () => {
