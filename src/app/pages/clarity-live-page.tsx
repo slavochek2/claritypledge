@@ -3074,6 +3074,7 @@ export function ClarityLivePage() {
           setName(creatorName);
           setIsCreator(true);
           saveSessionToStorage(code, creatorName, true);
+          setActiveSession(code, null, 'creator');
           // P703: Bootstrap letter-sourced session when creator arrives via direct URL
           if (sessionInfo.targetListenerId && sessionInfo.sourceStoryId && sessionInfo.sourceLetterId) {
             await bootstrapLetterSourcedSession(sessionInfo);
@@ -3113,6 +3114,7 @@ export function ClarityLivePage() {
       }
     }
     clearStoredSession();
+    clearActiveSession();
     setSession(null);
     setView('start');
     setRoomCode('');
