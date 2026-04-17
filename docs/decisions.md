@@ -2,6 +2,48 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-17 [process]: Grep-verify architectural claims in `docs/technical/*.md` against code before using them to shape specs
+
+**Context:** During P736 spec work (enforce `profiles.slug NOT NULL`), an agent read `docs/technical/authentication.md:128-176` — the "Guest / Unverified Users" section documenting a three-state auth model where `/live` guests create `profiles` rows with `is_verified=false, slug=null` via `getOrCreateGuestUser()`. The agent used this doc to conclude NOT NULL would break the guest flow and flipped the P736 plan toward "close as rejected." A second-opinion Opus agent verified the claim against code: `getOrCreateGuestUser` has been deleted from `src/` (zero hits), P396 eliminated the unverified-profile state on 2026-02-19, and `AuthCallbackPage.tsx:95` has a comment stating `source=live` is "currently not used." The doc is stale by ~2 months. The original P736 plan was closer to correct; the "correction" was wrong.
+
+**Decision:** Before using any architectural claim from `docs/technical/*.md` to shape a spec decision (close/redesign/de-scope), grep `src/` (and `supabase/functions/`) for the symbols the doc references — function names, flag names, table columns, enum values. If symbols are absent, treat the doc as stale and verify against code. If symbols are present, still spot-check that current usage matches the doc's claim. This applies to any existential claim the doc makes ("users of type X exist", "flow Y creates row Z") — not prescriptive rules like code-style guidance.
+
+**Alternatives rejected:** (A) Trust the doc as source of truth — fails when docs survive refactors that delete the code they describe. (B) Regenerate docs from code periodically — higher cost, requires tooling, delays when the drift surfaces. (C) Add `last_verified: YYYY-MM-DD` to all docs — helps but doesn't stop staler-than-you-think cases from landing in specs.
+
+**Consequences:** CLAUDE.md's "Verify assumptions before building" principle extends explicitly to `docs/technical/*.md` — the doc is not a free pass. When an agent uses a doc claim to argue for a material spec change (scope, closure, architecture), it should cite the grep result alongside the doc reference. Doc staleness found this way gets its own P-number (e.g., P742 files the authentication.md fix uncovered here).
+
+**References:** [features/p736_enforce_profiles_slug_not_null.md](../features/p736_enforce_profiles_slug_not_null.md) · [features/p742_update_stale_authentication_doc.md](../features/p742_update_stale_authentication_doc.md) · [features/done/5_feb_26/p396_eliminate-unverified-user-state.md](../features/done/5_feb_26/p396_eliminate-unverified-user-state.md)
+
+---
+
+## 2026-04-17 [process]: Second-opinion agent on spec-review findings before applying fixes
+
+**Context:** P725 spec-review produced 8 findings (3 BLOCKs, 5 WARNs). Before applying them, an Opus agent was asked to verify each finding against the source files. It identified 1 false BLOCK (P731 DROP-first rule misapplied to a JSONB payload addition — not a parameter signature change), improved resolution text on 4 WARNs with exact replacement copy, and downgraded 1 WARN to INFO. Without the second pass, the false BLOCK would have been applied to the spec, misleading the dev agent about a migration requirement that didn't exist.
+
+**Decision:** After running /spec-review on any spec with DB migration decisions, spawn a second-opinion agent (Opus) on the findings before applying them. Pass the spec path and findings list; ask the agent to verify each finding against source files and identify false alarms. Apply the improved findings, not the raw ones.
+
+**Alternatives rejected:** Applying spec-review findings directly without verification — fast but introduced a false BLOCK in this session. Running spec-review with Opus directly — Sonnet is sufficient for finding generation; the second pass is a targeted falsification step, not a full re-run.
+
+**Consequences:** The second-opinion step adds ~3 minutes but catches false alarms before they land in the spec. Most valuable when spec-review references standing `[technical]` rules (P731, RLS patterns, FK behavior) — those are the areas most prone to misapplication. For specs with no DB migration decisions, the second-opinion step is optional.
+
+**References:** [features/p725_letter_other_participant_identity.md](../features/p725_letter_other_participant_identity.md)
+
+---
+
+## 2026-04-17 [technical]: P731 DROP-first rule applies to parameter list changes only — JSONB payload additions are safe with CREATE OR REPLACE
+
+**Context:** P725 spec-review flagged `get_deliveries_with_progress` as a BLOCK, citing the P731 rule: "PostgreSQL CREATE OR REPLACE with a changed signature creates a new overload." The auditor inferred that adding `receiver_slug` to the function's JSONB output constituted a signature change requiring DROP. Verification against the migration showed the function returns `RETURNS JSONB` (a single JSONB value), not `RETURNS TABLE(col1, col2, ...)`. Adding a key to `jsonb_build_object(...)` inside the function body changes the payload but not the function's SQL signature.
+
+**Decision:** The P731 DROP-first rule is scoped to **parameter list changes** (adding, removing, or retyping SQL parameters) and **RETURNS TABLE column changes**. It does NOT apply to adding keys to a `jsonb_build_object` return value. `CREATE OR REPLACE` is safe for JSONB payload additions because the function's signature (name + param types + return type) is unchanged — Postgres sees an identical signature and replaces in-place.
+
+**Alternatives rejected:** None — this is a clarification of scope, not a new decision.
+
+**Consequences:** When reviewing migrations that extend JSONB-returning RPCs (e.g., `get_inbox_items`, `get_letter_results`, `get_deliveries_with_progress`, reading RPCs), do not require DROP. The `jsonb_build_object` payload is data, not signature. Only flag DROP-first when a param is added/removed/retyped, or when a `RETURNS TABLE(...)` column list changes. Spec-review agents citing the P731 rule against a JSONB extension should be challenged.
+
+**References:** [docs/decisions.md P731 entry](../docs/decisions.md) · [features/p725_letter_other_participant_identity.md](../features/p725_letter_other_participant_identity.md)
+
+---
+
 ## 2026-04-17 [technical]: In-flight merge rewrites must restore partner-key extraction — extract to a pure helper
 
 **Context:** P671 (commit `fb48a64d`) rewrote the in-flight Realtime/drift-poll merge block in `clarity-live-page.tsx` to add a monotonic `ratingPhase` guard. The rewrite used `{ ...mergedState, ...prev }` spread order, which lets local state (`prev`) win for every key — including partner-owned keys (`freeSliderCreator`, `freeSliderJoiner`, `livePositionsCreator`, `livePositionsJoiner`). This silently re-introduced the P609 regression: partner slider values are overridden by stale local values during the in-flight window. The P609 test file tested an internal mock helper, not the production function, so it passed throughout. The regression went undetected until P741.
