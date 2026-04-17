@@ -58,6 +58,6 @@ The `cancelled` flag must be checked inside the `.then()` callback to avoid disp
 
 - [ ] When invite arrives via Realtime INSERT, inbox row shows correct join link (with code)
 - [ ] Clicking "Join" navigates to `/live/<code>` and auto-joins (not generic start form)
-- [ ] Invite closure (UPDATE with `closed_at`) still dismisses the row correctly
-- [ ] No regression on the initial page-load fetch of open invites
-- [ ] Unit test: INSERT handler with missing `code` triggers `clarity_sessions` fetch and dispatches correct code
+- [x] Invite closure (UPDATE with `closed_at`) still dismisses the row correctly — unit test passes
+- [x] No regression on the initial page-load fetch of open invites — full suite 1863 tests pass
+- [x] Unit test: INSERT handler with missing `code` triggers `clarity_sessions` fetch and dispatches correct code — `src/tests/p730-inbox-live-invite-realtime.test.tsx`

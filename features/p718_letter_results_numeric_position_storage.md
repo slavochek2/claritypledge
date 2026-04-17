@@ -8,6 +8,9 @@ date_reported: 2026-04-16
 delivery_stage: fix
 pipeline_ran: [fix]
 pipeline_plan: [fix, ship]
+tags: []
+rank: 1000723.0
+created_date: 2026-04-16
 ---
 
 # P718: Letter results — recipient position not shown (stored as numeric string)

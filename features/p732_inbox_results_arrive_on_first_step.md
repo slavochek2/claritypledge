@@ -12,6 +12,9 @@ reproduce_artifact:
   reproduced_at: 2026-04-16
 date_resolved: 2026-04-17
 resolution: "Added hasMarkedInProgress ref; fires updateDeliveryStatus('in_progress') on first submitPointPosition or submitStoryRating call (remote/token path). Removed the redundant in_progress block from nextStory()."
+tags: []
+rank: 1000735.0
+created_date: 2026-04-17
 ---
 
 ## Problem
