@@ -75,7 +75,7 @@ export function LetterCompletionSummary({
       </p>
       {/* P725: identity row shows who the letter was from — consistent with cover and results. */}
       <LetterParticipantRow
-        name={senderName || letterData.senderName}
+        name={senderName}
         slug={senderSlug}
         avatarUrl={senderAvatarUrl}
         avatarColor={senderAvatarColor}

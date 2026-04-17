@@ -236,8 +236,9 @@ Deleted profile FK — `letter_deliveries.receiver_profile_id REFERENCES profile
 **AD5 — Identity row component: new shared component `LetterParticipantRow`**
 
 - Chosen: Create `src/app/components/letters/letter-participant-row.tsx`. Props: `name: string`, `slug?: string | null`, `avatarUrl?: string | null`, `avatarColor?: string`, `hasPledged?: boolean`, `roleLabel: string` (e.g. "Letter from" or "Letter to"). Renders `PersonAvatar` (sm) + role label + name (linked when slug present, plain text otherwise). `stopPropagation` on the name link.
-- Rationale: Used on results page identity row, letter-reading page header, and potentially inbox/sent cards. Single component eliminates drift between surfaces. Spec's consistency rule requires identical behaviour everywhere.
-- Trade-off: A new file vs. inline JSX — justified here because the same JSX would appear in 4+ places.
+- Rationale: Used on results page identity row, letter-reading page (cover + completion summary), and potentially other avatar-bearing surfaces. Single component eliminates drift between avatar-bearing surfaces. Spec's consistency rule requires identical behaviour across those.
+- **Scope clarification:** `LetterParticipantRow` owns the *avatar-bearing* surfaces only. Inbox/sent rows render name + link inline without an avatar (AD6) and therefore keep their own `Link` markup. They share the truncation (`max-w-[24ch] sm:max-w-[40ch] truncate`) and touch-target (`min-h-[40px]`) classes with this component; the two patterns intentionally use the same utility classes so visual consistency survives even without a shared component.
+- Trade-off: A new file vs. inline JSX — justified here because the same avatar+link JSX would appear in 4+ places.
 - Alternative rejected: Inline JSX per surface — copy-drift risk on the fallback chain and `stopPropagation` discipline.
 
 **AD6 — `PersonRef` shape for inbox/sent name links**
