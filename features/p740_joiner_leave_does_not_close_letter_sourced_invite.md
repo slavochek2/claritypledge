@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: qa
 type: bug
 rank: 1000740.0
 severity: high
@@ -70,10 +70,10 @@ In the joiner-leave `else` branch of the exit handler, add a `completeClaritySes
 
 ## Acceptance Criteria
 
-- [ ] After joiner exits a letter-sourced session, the invite row disappears from the recipient's inbox without page reload
-- [ ] After joiner exits, the author's letter-results page no longer shows "Return to Session" or "End Session"
-- [ ] After joiner exits, the author's `/live` view shows "Session ended" (not "Your partner has left")
-- [ ] Non-letter-sourced sessions (no `targetListenerId`) are unaffected — `completeClaritySession` is NOT called
-- [ ] Creator-leave behavior is unchanged (regression guard)
-- [ ] Canary test passes: `src/tests/p740-joiner-leave-closes-invite.test.tsx`
-- [ ] No console errors during joiner-exit flow
+- [x] After joiner exits a letter-sourced session, the invite row disappears from the recipient's inbox without page reload
+- [x] After joiner exits, the author's letter-results page no longer shows "Return to Session" or "End Session"
+- [x] After joiner exits, the author's `/live` view shows "Session ended" (not "Your partner has left")
+- [x] Non-letter-sourced sessions (no `targetListenerId`) are unaffected — `completeClaritySession` is NOT called
+- [x] Creator-leave behavior is unchanged (regression guard)
+- [x] Canary test passes: `src/tests/p740-joiner-leave-closes-invite.test.tsx`
+- [x] No console errors during joiner-exit flow

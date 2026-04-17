@@ -3286,6 +3286,12 @@ export function ClarityLivePage() {
         } else {
           // Joiner leaving = clear their name so creator knows
           await clearSessionJoiner(session.id);
+          // P740: Close letter-sourced invite when joiner exits
+          if (session.targetListenerId) {
+            await completeClaritySession(session.id).catch((err) => {
+              console.error('[P740] completeClaritySession failed on joiner exit:', err);
+            });
+          }
         }
       } catch (err) {
         console.error('[Live] Error updating session on exit:', err);
