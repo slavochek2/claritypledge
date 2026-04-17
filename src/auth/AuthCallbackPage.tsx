@@ -212,11 +212,10 @@ export function AuthCallbackPage() {
       // P63: Prefer Google's full_name for new users, fallback to existing patterns
       const name = existingProfile?.name || user_metadata.full_name || user_metadata.name || 'Anonymous';
 
-      // P50: For /live registrations, don't generate slug (they're not pledgers)
-      // For existing users, preserve their slug
-      // For new pledge signups, generate slug as usual
+      // P736: All authed registrations generate a slug (including /live).
+      // For existing users, preserve their slug.
       let slug: string | null = existingProfile?.slug || null;
-      if (!isLiveRegistration && !slug) {
+      if (!slug) {
         slug = generateSlug(name);
       }
 
