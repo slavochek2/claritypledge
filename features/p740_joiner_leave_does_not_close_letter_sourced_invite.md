@@ -1,5 +1,5 @@
 ---
-status: week
+status: in-progress
 type: bug
 rank: 1000740.0
 severity: high
@@ -7,8 +7,8 @@ workstream: letters
 date_reported: '2026-04-17'
 created_date: '2026-04-17'
 tags: [letters, live, invite, session-exit]
-delivery_stage: create-bug
-pipeline_ran: [create-bug]
+delivery_stage: fix
+pipeline_ran: [create-bug, fix]
 ---
 
 # P740: Joiner-leave does not close letter-sourced invite
