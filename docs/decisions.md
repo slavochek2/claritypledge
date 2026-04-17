@@ -2,6 +2,71 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-17 [process]: Destructive SQL safeguards — ALWAYS-ASK expansion + hard-stop block in db-access.md
+
+**Context:** An agent deleted 788 `clarity_sessions` rows and dependent `story_verifications` on the test DB after the user said "kill all active clarity sessions." Intent was to UPDATE status to closed (reversible). Three failures: (1) ambiguous verb "kill" interpreted as DELETE; (2) FK constraint treated as obstacle — agent deleted child rows to unblock; (3) execution path was Management API raw SQL curl, not covered by the existing REST mutation rule in db-access.md. The prior ALWAYS-ASK rule only covered "delete prod data" — leaving test DB unprotected.
+
+**Decision:** Two changes: (1) `CLAUDE.md` ALWAYS-ASK list: replaced "delete prod data" (prod-scoped, REST-framed) with "DELETE/TRUNCATE/DROP on any DB (any env)" — covers all environments and all execution paths at the policy level. (2) `.claude/rules/db-access.md`: added "Destructive SQL — Hard Stop" section requiring agents to (a) disambiguate ambiguous verbs by stating what will be destroyed and asking if UPDATE was intended, and (b) confirm environment before any DELETE/TRUNCATE/DROP regardless of execution path (MCP, curl, psql, Management API).
+
+**Alternatives rejected:** (A) Script-based snapshot before each destructive op — normalizes deletion as safe; existing daily GCS backup + citing last backup timestamp is sufficient. (B) Rule in CLAUDE.md only — path-scoped db-access.md fires exactly when needed and has no line budget constraint. (C) Ambiguous verbs list in CLAUDE.md — pattern is too broad for universal load; belongs in the path-scoped file.
+
+**Consequences:** Any DELETE/TRUNCATE/DROP SQL — regardless of surface — requires intent disambiguation + explicit confirmation. Test data is treated with the same protection as prod. FK violations during execution must be reported and paused, never auto-unblocked via child row deletion.
+
+**References:** [CLAUDE.md](../CLAUDE.md) · [.claude/rules/db-access.md](../.claude/rules/db-access.md)
+
+## 2026-04-17 [technical]: `prevCodeRef` pattern — detect "value cleared" transitions in React effects
+
+**Context:** P735 — `StartClaritySessionButton` needed to re-fetch invite state when the global `activeSessionCode` cleared (partner ended session from their side). The naive effect `useEffect(() => { if (openInvite && activeSessionCode === null) { checkInvite(); } }, [activeSessionCode, openInvite, checkInvite])` fired spuriously on the first render when `openInvite` changed from null → value while `activeSessionCode` was already null — consuming mock calls in tests and causing a double-fetch in production.
+
+**Decision:** When an effect should fire only on a `non-null → null` transition of a reactive value (not just when it equals null), track the previous value in a ref and compare inside the effect. Include only the reactive value and stable callbacks in deps — not the other reactive values you're reading:
+
+```typescript
+const prevCodeRef = useRef(activeSessionCode);
+useEffect(() => {
+  const prev = prevCodeRef.current;
+  prevCodeRef.current = activeSessionCode;
+  if (prev !== null && activeSessionCode === null) {
+    checkInvite();
+  }
+}, [activeSessionCode, checkInvite]);
+```
+
+**Alternatives rejected:** Including `openInvite` in deps — causes spurious fires when `openInvite` first populates. Using `useCallback` with a closure over prev — harder to reason about.
+
+**Consequences:** Any effect that needs to react to a value being "cleared" (not just "being null") should use this pattern. The ref update must happen unconditionally on every render so `prev` is always the previous render's value, not the initial value.
+
+**References:** `src/app/components/letters/start-clarity-session-button.tsx`
+
+---
+
+## 2026-04-17 [technical]: `setActiveSession` must be called at every code path that places a creator on `/live/<code>`
+
+**Context:** P734 Bug 1 — `StartClaritySessionButton` called `saveSessionToStorage` before navigating to `/live/${code}`, but not `setActiveSession`. `ActiveSessionBanner` reads from `useLiveSession()` context (populated by `setActiveSession`), not from localStorage directly. When the creator navigated back from `/live` to the letter page, `hasActiveSession` was false and the banner never appeared.
+
+**Decision:** `saveSessionToStorage` (localStorage) and `setActiveSession` (React context) are two separate writes that must both happen when a creator enters a live session. `saveSessionToStorage` alone is not sufficient — `ActiveSessionBanner` and any context consumer won't see the session. Always call `setActiveSession(code, null, 'creator')` alongside `saveSessionToStorage` at every code path that programmatically places the creator on a `/live/<code>` route.
+
+**Alternatives rejected:** Having `ActiveSessionBanner` read directly from localStorage — bypasses the React state system and breaks reactivity.
+
+**Consequences:** Any new entry point to `/live/<code>` for a creator (deep link, redirect, letter CTA) must call both. The test for this: navigate away from `/live` and back to any page — the banner must appear.
+
+**References:** `src/app/components/letters/start-clarity-session-button.tsx`, `src/app/contexts/live-session-context.tsx`
+
+---
+
+## 2026-04-17 [technical]: `complete_clarity_session` RPC is the canonical atomic close — do not sequence component-level calls
+
+**Context:** P735 / P734 Bug 2 — `ActiveSessionBanner.handleEndSession` called `endClaritySession` (sets a JSON flag) + `cancelLiveInvite` (closes the invite row) sequentially. If `endClaritySession` failed or the component unmounted mid-call, `cancelLiveInvite` was never reached, leaving `closed_at IS NULL` on the invite row. The recipient's inbox continued showing the "Join" button.
+
+**Decision:** Use `completeClaritySession` (calls `complete_clarity_session` SECURITY DEFINER RPC) as the single call for all session teardown. The RPC atomically sets `status='completed'` on the session AND sets `closed_at` on linked invites in one transaction — no intermediate failure state. Call it with the `sessionId` from the invite record directly; do not rely on `getClaritySession` lookups that can silently return null. Fallback: if RPC raises "not authorized" (sender is neither creator/joiner/target_listener), call `cancelLiveInvite` as secondary.
+
+**Alternatives rejected:** Sequencing `endClaritySession` + `cancelLiveInvite` — non-atomic, leaves stale invite on partial failure. Polling for invite closure — latency and complexity.
+
+**Consequences:** Any component that needs to end a clarity session should call `completeClaritySession(sessionId)` — not a sequence of individual calls. The `sessionId` should come from the invite's own `session_id` column, not from a separate session lookup.
+
+**References:** `src/app/data/api.ts` (`completeClaritySession`), `src/app/components/letters/start-clarity-session-button.tsx`, `supabase/migrations/` (`complete_clarity_session` RPC)
+
+---
+
 ## 2026-04-17 [technical]: Letter reading E2E — position button selects; Submit button submits
 
 **Context:** P732 canary test clicked "Agree" and then checked the DB for `status = 'in_progress'`. The assertion always failed — `submitPointPosition` was never called. Root cause: in the point-engage phase UI, clicking Agree/Disagree/Unsure only *selects* the position into local state (`setSelectedPosition`). A separate "Submit" button calls `handleSubmitPosition → submitPointPosition`. The test was missing the Submit click.
