@@ -2,6 +2,27 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-17 [technical]: P743 — ActiveSessionBanner has no Realtime path; only a 30s poll outside /live
+
+**Context:** After fixing P740, a screenshot showed the joiner's "In session with…" banner staying active for several seconds after the creator ended the session. Opus 4.7 traced the full code path.
+
+**Decision:** Acknowledged architectural gap — `useActiveSession` (`src/hooks/use-active-session.ts`) drives the banner on all non-`/live` pages via a 30 s poll (`POLL_INTERVAL_MS = 30_000`) and a visibility-change handler. There is intentionally no Realtime subscription to `clarity_sessions` outside of `/live` itself. The banner can lag up to ~30 s after session end, or dismiss immediately on tab focus/regain.
+
+The correct fix (P743) is to add `subscribeToClaritySession` inside `useActiveSession` when `activeSessionCode` is non-null — call `clearActiveSession()` on `live_state.sessionEnded` or `joinerEnded`. Requires extending `StoredActiveSession` to include `sessionId` alongside `code`.
+
+**Alternatives rejected:**
+- Shorten the poll interval — reduces worst-case but adds DB load; doesn't eliminate the lag.
+- Server-side trigger to `clarity_live_invites` — reuses existing per-user channel but invasive (trigger + RLS changes) and wrong direction for this surface.
+
+**Consequences:**
+- "5–10 s" user report was likely the visibility handler (tab switch), not the poll. Worst-case with focus held is ~30 s.
+- `useOpenLiveInvite` / `subscribeToLiveInvites` is a red herring — it watches `clarity_live_invites`, not `clarity_sessions`. Creator's `endClaritySession` writes `clarity_sessions` only.
+- Before fixing P743: reproduce with timestamps (focus held vs tab-switch) to confirm which mechanism is actually dismissing the banner.
+
+**References:** `src/hooks/use-active-session.ts`, `src/app/components/session/active-session-banner.tsx`, `src/app/layouts/clarity-landing-layout.tsx:61`, `~/.claude/plans/joiner-banner-stale-after-creator-end.md`
+
+---
+
 ## 2026-04-17 [technical]: P740 — Independent DB exit calls each need their own `.catch`
 
 **Context:** `confirmExitMeeting` in `clarity-live-page.tsx` makes two DB writes on exit: a primary signal call (`clearSessionJoiner` / `endClaritySession`) followed by `completeClaritySession` to close the letter-sourced invite. Both were inside a single `try/catch`, so if the first call threw, the second never ran.
