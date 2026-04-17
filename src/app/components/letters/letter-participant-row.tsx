@@ -5,23 +5,64 @@
  * has a public handle; falls back to plain text when slug is null/missing.
  * Null guard kept defensively: RPC type is string|null even though DB enforces NOT NULL (P736).
  *
+ * Visual order: role label → compact avatar → name. The avatar is rendered inline
+ * at 24px (bypasses PersonAvatar since the 40px `size="sm"` reads as a standalone
+ * profile avatar in this context). Pledge ring is intentionally omitted at this
+ * size — it's a decorative indicator that clips/overwhelms at 24px.
+ *
  * Consistency rule (AD5): one component owns the fallback chain, truncation, and
  * stopPropagation discipline — no per-surface copies.
  */
 
 import { Link } from 'react-router-dom';
-import { PersonAvatar } from '@/components/ui/person-avatar';
-import type { PersonRef } from '@/app/types';
 
 interface LetterParticipantRowProps {
   name: string | null | undefined;
   slug?: string | null;
   avatarUrl?: string | null;
   avatarColor?: string;
+  /** Kept for API stability; not rendered at compact inline size (ring clips). */
   hasPledged?: boolean;
   /** "Letter from" (recipient view), "Letter to" (author view), or "From" (reading cover). */
   roleLabel: string;
   className?: string;
+}
+
+function CompactAvatar({
+  name,
+  avatarUrl,
+  avatarColor,
+}: {
+  name: string;
+  avatarUrl?: string | null;
+  avatarColor?: string;
+}) {
+  if (avatarUrl) {
+    return (
+      <img
+        src={avatarUrl}
+        alt=""
+        aria-hidden="true"
+        className="w-6 h-6 rounded-full object-cover flex-shrink-0"
+      />
+    );
+  }
+  const initials = name
+    .split(/\s+/)
+    .map((w) => w[0])
+    .filter(Boolean)
+    .slice(0, 2)
+    .join('')
+    .toUpperCase();
+  return (
+    <div
+      aria-hidden="true"
+      className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-medium text-white flex-shrink-0"
+      style={{ backgroundColor: avatarColor ?? '#3B82F6' }}
+    >
+      {initials || '?'}
+    </div>
+  );
 }
 
 export function LetterParticipantRow({
@@ -29,20 +70,11 @@ export function LetterParticipantRow({
   slug,
   avatarUrl,
   avatarColor,
-  hasPledged = false,
   roleLabel,
   className,
 }: LetterParticipantRowProps) {
   // Fallback chain: full_name → slug → "Someone" (never email prefix).
   const displayName = (name && name.trim()) || slug || 'Someone';
-
-  const person: PersonRef = {
-    name: displayName,
-    slug: slug ?? undefined,
-    avatarColor,
-    avatarUrl: avatarUrl ?? null,
-    hasPledged,
-  };
 
   const nameClass = 'font-medium text-foreground max-w-[24ch] sm:max-w-[40ch] truncate';
 
@@ -51,8 +83,8 @@ export function LetterParticipantRow({
       className={`flex items-center gap-2 ${className ?? ''}`}
       aria-label={`${roleLabel} ${displayName}`}
     >
-      <PersonAvatar person={person} size="sm" />
       <span className="text-sm text-muted-foreground">{roleLabel}</span>
+      <CompactAvatar name={displayName} avatarUrl={avatarUrl} avatarColor={avatarColor} />
       {slug ? (
         <Link
           to={`/p/${slug}`}
