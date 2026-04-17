@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { ChevronDown, ChevronRight, Pin, Ear } from 'lucide-react';
 import type { StoryWithPoints, PointSummary, PositionType } from '@/app/types';
-import { getPositionGroup, getPositionCTACopy, shouldShowStoryCTA, toSevenPointCounts } from '@/app/utils/position-helpers';
+import { toSevenPointCounts } from '@/app/utils/position-helpers';
 import { formatTimeAgo } from '@/app/utils/format-time';
 import { GravatarAvatar } from '@/components/ui/gravatar-avatar';
 import { InlineVisibilityIcon } from '@/app/components/shared/visibility-badge';
@@ -20,7 +20,7 @@ import { stripHashtags } from '@/lib/utils';
 
 interface LiveStoryCardExpandedProps {
   story: StoryWithPoints;
-  /** When true, the current user owns this story — suppresses the "Tell your story" CTA */
+  /** When true, the current user owns this story (accepted but no-op after P733 CTA removal) */
   isOwnStory?: boolean;
   /** P490: When true, user is a guest (unauthenticated) — shows "sign up to save" hint instead of CTA */
   isGuest?: boolean;
@@ -30,30 +30,56 @@ interface LiveStoryCardExpandedProps {
   badgePersonName?: string;
   /** Ear count for badgePersonName — shown in badge when host view is active */
   badgePersonEarsCount?: number;
+  /** Avatar URL for badgePersonName — shown when badge person has a profile photo */
+  badgePersonAvatarUrl?: string;
+  /** Avatar color for badgePersonName — used as fallback when no photo */
+  badgePersonAvatarColor?: string;
+  /** Whether badge person has pledged — shows blue ring when true */
+  badgePersonHasPledged?: boolean;
   /** When true, points are expanded on first render — used for partner view so they can vote immediately */
   defaultExpanded?: boolean;
+  /** P661: When true, PositionButtons hidden, story CTA hidden. Does NOT auto-expand (use defaultExpanded for that). Used in letter prediction walk. */
+  readOnly?: boolean;
+  /** P705: When true, story text starts expanded (full text visible). Defaults to readOnly for backward compat. */
+  defaultStoryExpanded?: boolean;
+  /** P673: When true, hide the points section entirely (footer trigger + expanded points). Used in letters where points are shown as separate step cards. */
+  hidePoints?: boolean;
+  /** Slot rendered inside the card at the bottom — used for "Open Story" link in letter results */
+  footerSlot?: React.ReactNode;
+  /** P711: When false (default true), hides author PositionBadge in letter-mode headers.
+   * Non-letter callers always show badge when profileSubjectPosition exists. */
+  revealed?: boolean;
 }
 
 const STORY_THRESHOLD = 100;
 
 export function LiveStoryCardExpanded({
   story,
-  isOwnStory = false,
   isGuest = false,
   onPositionSelect,
   className,
   badgePersonName,
   badgePersonEarsCount,
+  badgePersonAvatarUrl,
+  badgePersonAvatarColor,
+  badgePersonHasPledged,
   defaultExpanded = false,
+  readOnly = false,
+  defaultStoryExpanded,
+  hidePoints = false,
+  footerSlot,
+  revealed = true,
 }: LiveStoryCardExpandedProps) {
+  // defaultStoryExpanded falls back to readOnly for backward compat (readOnly=true → story shown in full)
+  const initialStoryExpanded = defaultStoryExpanded ?? readOnly;
   const [isExpanded, setIsExpanded] = useState(defaultExpanded);
-  const [storyExpanded, setStoryExpanded] = useState(false);
+  const [storyExpanded, setStoryExpanded] = useState(initialStoryExpanded);
 
   // Reset expand states when the story changes (phase change / story rotation)
   useEffect(() => {
-    setStoryExpanded(false);
+    setStoryExpanded(defaultStoryExpanded ?? readOnly);
     setIsExpanded(defaultExpanded);
-  }, [story.id, defaultExpanded]);
+  }, [story.id, defaultExpanded, readOnly, defaultStoryExpanded]);
 
   const strippedContent = stripHashtags(story.content, story.tags);
   const isLongStory = strippedContent.length > STORY_THRESHOLD;
@@ -65,7 +91,7 @@ export function LiveStoryCardExpanded({
   return (
     <div
       data-testid="live-story-card-expanded"
-      className={`rounded-lg border-l-4 border-l-blue-500 border border-gray-200 bg-white shadow-sm shrink-0 ${className ?? ''}`}
+      className={`rounded-lg border-l-4 border-l-blue-500 border border-gray-200 bg-white shadow-sm shrink-0 overflow-hidden ${className ?? ''}`}
     >
       {/* Main content */}
       <div className="p-4">
@@ -81,7 +107,7 @@ export function LiveStoryCardExpanded({
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-1.5 mb-0.5">
               <span className="font-semibold text-gray-900 text-sm">{story.authorName}</span>
-              <span className="inline-flex items-center gap-0.5 text-gray-500 text-xs">
+              <span className="inline-flex items-center gap-0.5 text-xs font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded-full px-1.5 py-0.5">
                 <Ear size={12} />
                 {story.authorEarsCount ?? 0}
               </span>
@@ -121,11 +147,11 @@ export function LiveStoryCardExpanded({
         )}
       </div>
 
-      {/* Footer — "N points" expand trigger */}
-      {story.points.length > 0 && (
+      {/* Footer — "N points" expand trigger + optional right action (hidden when hidePoints) */}
+      {story.points.length > 0 && !hidePoints && (
         <div
           role="presentation"
-          className="flex items-center pl-4 sm:pl-[52px] pr-4 py-2.5 border-t border-gray-100"
+          className="flex items-center justify-between pl-4 sm:pl-[52px] pr-2 py-2.5 border-t border-gray-100"
           onClick={(e) => e.stopPropagation()}
         >
           <button
@@ -139,12 +165,13 @@ export function LiveStoryCardExpanded({
               {story.points.length} {story.points.length === 1 ? 'point' : 'points'}
             </span>
           </button>
+          {footerSlot}
         </div>
       )}
 
       {/* Expanded points — ThreadLine for all counts (even single point needs
           the connecting line to visually anchor it to the parent story card). */}
-      {isExpanded && story.points.length > 0 && (
+      {isExpanded && story.points.length > 0 && !hidePoints && (
         <div className="px-3 pb-3">
           <ThreadLineGroup>
             {story.points.map((point, index) => (
@@ -159,19 +186,30 @@ export function LiveStoryCardExpanded({
                   onPositionSelect={onPositionSelect}
                   badgePersonName={badgePersonName}
                   badgePersonEarsCount={badgePersonEarsCount}
-                  isOwnStory={isOwnStory}
+                  badgePersonAvatarUrl={badgePersonAvatarUrl}
+                  badgePersonAvatarColor={badgePersonAvatarColor}
+                  badgePersonHasPledged={badgePersonHasPledged}
                   isGuest={isGuest}
+                  readOnly={readOnly}
+                  revealed={revealed}
                 />
               </ThreadLineItem>
             ))}
           </ThreadLineGroup>
         </div>
       )}
+
+      {/* footerSlot fallback — shown only when there are no points (inline slot handled above) */}
+      {footerSlot && (story.points.length === 0 || hidePoints) && (
+        <div className="border-t border-gray-100">
+          {footerSlot}
+        </div>
+      )}
     </div>
   );
 }
 
-function PointRow({
+export function PointRow({
   point,
   authorName,
   authorAvatarUrl,
@@ -181,8 +219,15 @@ function PointRow({
   onPositionSelect,
   badgePersonName,
   badgePersonEarsCount,
-  isOwnStory = false,
+  badgePersonAvatarUrl,
+  badgePersonAvatarColor,
+  badgePersonHasPledged,
   isGuest = false,
+  readOnly = false,
+  letterMode = false,
+  disablePositionButtons = false,
+  revealed = false,
+  children,
 }: {
   point: PointSummary;
   authorName: string;
@@ -193,8 +238,20 @@ function PointRow({
   onPositionSelect?: (pointId: string, position: PositionType | null) => void;
   badgePersonName?: string;
   badgePersonEarsCount?: number;
-  isOwnStory?: boolean;
+  badgePersonAvatarUrl?: string;
+  badgePersonAvatarColor?: string;
+  badgePersonHasPledged?: boolean;
   isGuest?: boolean;
+  readOnly?: boolean;
+  /** Letter context: hides story CTA, guest hint, tag pills, visibility icon */
+  letterMode?: boolean;
+  /** When true, position buttons render but are visually disabled (no hover/click) */
+  disablePositionButtons?: boolean;
+  /** P711: When true (with letterMode), shows author PositionBadge. Default false (engage = no badge).
+   * In non-letter mode, badge always shows when profileSubjectPosition exists. */
+  revealed?: boolean;
+  /** Render slot after point content (e.g., Submit button, position reveal badges) */
+  children?: React.ReactNode;
 }) {
   // Local state so button highlights immediately on click, independent of the
   // frozen selectedStoryData snapshot. Echoes to onPositionSelect for liveState sync.
@@ -207,24 +264,25 @@ function PointRow({
 
   const handlePositionClick = (position: PositionType) => {
     const next = userPosition === position ? null : position; // toggle same position off
-    // Only optimistically update for selection; removal waits for dialog confirm
-    if (next !== null) {
-      setUserPosition(next);
-    }
+    // Optimistically update immediately (both select and deselect).
+    // /live sessions with confirm dialogs rely on useEffect sync from liveState after confirm.
+    setUserPosition(next);
     onPositionSelect?.(point.id, next);
     // P451: Story CTA intentionally omitted here — /live has its own post-session story entry point
   };
 
   return (
     <div className="w-full text-left">
-      {/* Position badge above point — shows badge person's stance (author for partner view, partner for host view) */}
-      {point.profileSubjectPosition && (
+      {/* Position badge above point — shows badge person's stance (author for partner view, partner for host view).
+          In letter mode: always renders when authorName exists (identity visible in engage; badge gated by revealed).
+          In non-letter mode: renders only when profileSubjectPosition exists (unchanged behavior). */}
+      {((letterMode && authorName) || point.profileSubjectPosition) && (
         <div className="flex items-center gap-1.5 mb-1.5 text-sm text-gray-700">
           <GravatarAvatar
             name={badgePersonName ?? authorName}
-            photoUrl={badgePersonName ? undefined : authorAvatarUrl}
-            avatarColor={badgePersonName ? undefined : authorAvatarColor}
-            isPledger={badgePersonName ? false : (authorHasPledged ?? false)}
+            photoUrl={badgePersonName ? badgePersonAvatarUrl : authorAvatarUrl}
+            avatarColor={badgePersonName ? badgePersonAvatarColor : authorAvatarColor}
+            isPledger={badgePersonName ? (badgePersonHasPledged ?? false) : (authorHasPledged ?? false)}
             size="sm"
             className="!w-5 !h-5 !text-[10px]"
           />
@@ -233,7 +291,9 @@ function PointRow({
             <Ear size={12} />
             {badgePersonName ? (badgePersonEarsCount ?? 0) : (authorEarsCount ?? 0)}
           </span>
-          <PositionBadge position={point.profileSubjectPosition} />
+          {point.profileSubjectPosition && (!letterMode || revealed) && (
+            <PositionBadge position={point.profileSubjectPosition} />
+          )}
         </div>
       )}
 
@@ -244,21 +304,22 @@ function PointRow({
             <Pin size={12} className="rotate-45" />
           </div>
           <p className="text-sm text-gray-800 flex-1 min-w-0 break-words">
-            <InlineVisibilityIcon visibility={point.visibility} />{' '}{linkifyText(stripHashtags(point.statement, point.tags))}
+            {!letterMode && <InlineVisibilityIcon visibility={point.visibility} />}{!letterMode && ' '}{linkifyText(stripHashtags(point.statement, point.tags))}
           </p>
         </div>
 
-        {point.tags?.length > 0 && <TagPills tags={point.tags} context="live" className="mt-1" />}
+        {!letterMode && point.tags?.length > 0 && <TagPills tags={point.tags} context="live" className="mt-1" />}
         <PositionButtons
           userPosition={userPosition}
           counts={toSevenPointCounts(point.positionCounts)}
           onPositionClick={handlePositionClick}
           compact
           narrow
+          disabled={readOnly || disablePositionButtons}
         />
 
         {/* P490: Guest hint — positions are ephemeral, prompt to sign up */}
-        {isGuest && userPosition && (
+        {!letterMode && !readOnly && isGuest && userPosition && (
           <div className="border-t border-gray-200 pt-2">
             <p className="text-xs text-gray-500">
               Position shared live — sign up to save it
@@ -266,37 +327,8 @@ function PointRow({
           </div>
         )}
 
-        {/* P456: Disabled story CTA footer — visible but non-interactive in /live session.
-            P487+: Hidden on own story — use shouldShowStoryCTA shared utility. */}
-        {/* P560: Position no longer required for story CTA */}
-        {!isGuest && shouldShowStoryCTA({ userPosition, isOwnStory }) === 'show' && (() => {
-          // Use position-specific copy when available, generic fallback otherwise
-          const copy = userPosition
-            ? getPositionCTACopy(getPositionGroup(userPosition))
-            : null;
-
-          return (
-            <div className="border-t border-gray-200 pt-2">
-              {/* CTA row — disabled, decorative only */}
-              <div className="flex items-center gap-1 opacity-50 pointer-events-none">
-                {copy && (
-                  <>
-                    <span aria-hidden="true" className="text-sm text-gray-600">{copy.symbol}</span>
-                    <span className="text-sm text-gray-600">{copy.label}</span>
-                    <span aria-hidden="true" className="text-sm text-gray-400"> · </span>
-                  </>
-                )}
-                <span className="text-sm font-medium text-blue-600">
-                  Add your story →
-                </span>
-              </div>
-              {/* Hint row */}
-              <p id={`live-cta-hint-${point.id}`} className="text-xs text-gray-400 mt-1">
-                Available after the session
-              </p>
-            </div>
-          );
-        })()}
+        {/* Render slot for letter-specific content (Submit button, position reveal) */}
+        {children}
       </div>
     </div>
   );

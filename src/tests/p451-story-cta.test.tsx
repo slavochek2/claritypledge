@@ -42,6 +42,7 @@ const linkedPoint: Point = {
   createdAt: '2026-01-01T00:00:00Z',
   positions: {},
   linkedStoryIds: [],
+  visibility: 'public',
 };
 
 const linkedPointWithPosition: Point = {
@@ -124,6 +125,8 @@ const mockPointSummary: PointSummary = {
   id: POINT_ID,
   statement: 'Remote work is more productive',
   tags: [],
+  systemTags: [],
+  visibility: 'public',
 };
 
 const positionCounts = new Map<string, Record<PositionType, number>>([

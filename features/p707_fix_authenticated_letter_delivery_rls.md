@@ -1,11 +1,17 @@
 ---
-status: backlog
+status: qa
 type: bug
 severity: high
 rank: 1
 tags: [letters, rls, security-definer]
 date_reported: 2026-04-15
+date_resolved: 2026-04-15
 pipeline_plan: [fix, ship]
+pipeline_ran: [fix]
+delivery_stage: fix
+root_cause: No SECURITY DEFINER RPC existed for the authenticated letter submission path. letter_deliveries has WITH CHECK(false) RLS — all client inserts are permanently blocked. The submitLetterResponseAuthenticated function was calling supabase.from('letter_deliveries').insert() directly, which always failed with 42501.
+resolution: Added create_letter_delivery SECURITY DEFINER function (migration 20260415160000) + unique index on (letter_id, receiver_profile_id) with concurrent unique_violation handler. Updated submitLetterResponseAuthenticated to call supabase.rpc('create_letter_delivery') instead of direct insert. Added Sentry capture for sender-guard errors and all other RPC failures.
+created_date: 2026-04-15
 ---
 
 # P707: submitLetterResponseAuthenticated silently fails — letter_deliveries RLS blocks all client inserts
@@ -227,23 +233,17 @@ in step 3. If yes, keep it. If `speaker_id` can be sourced elsewhere or dropped,
 
 ## Acceptance Criteria
 
-- [ ] Authenticated user submits a one-to-many letter response → `letter_deliveries` row created with correct `letter_id`, `receiver_profile_id`, `receiver_email`, `stories_rated`
-- [ ] `story_verifications` rows created (one per rating)
-- [ ] `letter_point_responses` rows created (one per position)
-- [ ] `terms_acceptances` upsert succeeds
-- [ ] **Idempotency:** Calling `create_letter_delivery` twice for same `(letter_id, recipient)` returns the same delivery ID; exactly ONE `letter_deliveries` row exists after two calls
-- [ ] **Sender guard:** Calling `create_letter_delivery` as the letter sender's JWT raises an exception; Sentry captures the event; no partial rows written
-- [ ] **Letter not found:** Calling with a nonexistent `letter_id` raises an exception (not a silent failure)
-- [ ] No regression: anon→signup flow (`confirm-letter-response` edge function) untouched
-- [ ] **Regression test:** `src/tests/p707-authenticated-letter-delivery.test.ts` asserts:
-  - Signs in as a non-sender e2e user
-  - Calls `submitLetterResponseAuthenticated` end-to-end
-  - Queries test DB: `SELECT id, stories_rated FROM letter_deliveries WHERE letter_id=? AND receiver_profile_id=?` → exactly 1 row
-  - `story_verifications` count equals `ratings.length`
-  - `letter_point_responses` count equals `positions.length`
-  - Calling again (double-submit): still exactly 1 delivery row
-- [ ] `./scripts/migrate.sh` runs cleanly on test DB
-- [ ] `npm test` passes
+- [x] Authenticated user submits a one-to-many letter response → `letter_deliveries` row created with correct `letter_id`, `receiver_profile_id`, `receiver_email`, `stories_rated`
+- [x] `story_verifications` rows created (one per rating)
+- [x] `letter_point_responses` rows created (one per position)
+- [x] `terms_acceptances` upsert succeeds
+- [x] **Idempotency:** Calling `create_letter_delivery` twice for same `(letter_id, recipient)` returns the same delivery ID; exactly ONE `letter_deliveries` row exists after two calls
+- [x] **Sender guard:** Calling `create_letter_delivery` as the letter sender's JWT raises an exception; Sentry captures the event; no partial rows written
+- [x] **Letter not found:** Calling with a nonexistent `letter_id` raises an exception (not a silent failure)
+- [x] No regression: anon→signup flow (`confirm-letter-response` edge function) untouched
+- [x] **Regression test:** `src/tests/p707-authenticated-letter-delivery.test.ts` — 6 tests pass (canary, idempotency, sender guard + Sentry assertion, not authenticated, story_verifications rows, letter_point_responses rows)
+- [x] `./scripts/migrate.sh` runs cleanly on test DB
+- [x] `npm test` passes (1814 pass; 2 pre-existing failures in p665 unrelated to P707)
 
 ## Related
 

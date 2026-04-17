@@ -84,17 +84,23 @@ test.describe('P665: Chrome-Free Letter Routes — Accessibility', () => {
       page.locator('text=THIS IS A PREVIEW')
     ).toBeVisible({ timeout: 10000 });
 
-    // Tab through the page — focus should move through interactive elements
-    // without getting stuck (no orphaned skip-nav or hidden nav elements trapping focus)
+    // Tab through the page — focus should move to interactive elements
+    // without getting stuck on hidden nav remnants
     await page.keyboard.press('Tab');
     const firstFocused = await page.evaluate(() => document.activeElement?.tagName);
     expect(firstFocused).toBeDefined();
+    // First tab should reach an interactive element (not stuck on body)
+    expect(firstFocused).not.toBe('BODY');
 
-    // Tab a few more times — focus should keep moving
+    // Tab again — focus should move to a different element (not trapped)
+    const firstFocusedId = await page.evaluate(() =>
+      `${document.activeElement?.tagName}-${document.activeElement?.textContent?.slice(0, 20)}`
+    );
     await page.keyboard.press('Tab');
-    await page.keyboard.press('Tab');
-    const thirdFocused = await page.evaluate(() => document.activeElement?.tagName);
-    // Should not be stuck on body (which would mean focus was lost)
-    expect(thirdFocused).not.toBe('BODY');
+    const secondFocusedId = await page.evaluate(() =>
+      `${document.activeElement?.tagName}-${document.activeElement?.textContent?.slice(0, 20)}`
+    );
+    // Focus moved (not trapped on same element)
+    expect(secondFocusedId).not.toBe(firstFocusedId);
   });
 });

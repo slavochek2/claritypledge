@@ -1,15 +1,15 @@
 /**
  * @file p581-letter-composition.spec.ts
- * @description P581: Letter Composition — E2E tests for the sender flow
+ * @description P661: Letter Composition — prediction walk flow
  *
- * Tests the full composition wizard:
- * 1. Mode selector (1-to-1 vs 1-to-many)
- * 2. Email input for 1-to-1 (chip display, user lookup)
- * 3. Per-story prediction input (0-10 dot picker)
- * 4. Preview with "This is a preview" banner (D42)
- * 5. Seal & Send (snapshots story content, creates predictions + deliveries)
- * 6. Private doc disables "Anyone with a link" mode
- * 7. Composition accessible from doc page header ("Prepare a Letter" button)
+ * Tests the redesigned composition flow (P661 replaces P581 wizard):
+ * 1. "Prepare a Letter" opens receiver modal (not wizard navigation)
+ * 2. Modal: mode selector ("Specific people" / "Anyone with a link")
+ * 3. Prediction walk: one story at a time using LiveStoryCardExpanded
+ * 4. RatingButtons (0-10) per story with prediction prompt
+ * 5. Review screen: prediction summary + preview link + Seal & Send
+ * 6. Seal confirmation: "Letter Sealed" + "Back to Doc"
+ * 7. Private doc disables "Anyone with a link" in modal
  *
  * Uses authenticated sender session throughout.
  */
@@ -24,7 +24,7 @@ import {
 } from './helpers/test-user';
 import { createTestStory, deleteTestStory } from './helpers/test-story';
 
-test.describe('P581: Letter Composition — sender creates letter from doc', () => {
+test.describe('P661: Letter Composition — prediction walk flow', () => {
   test.describe.configure({ timeout: 45000 });
 
   let sender: TestUser;
@@ -33,15 +33,15 @@ test.describe('P581: Letter Composition — sender creates letter from doc', () 
   const storyIds: string[] = [];
 
   test.beforeAll(async () => {
-    sender = await createTestUser({ name: 'P581 Compose Sender' });
-    receiver = await createTestUser({ name: 'P581 Compose Receiver' });
+    sender = await createTestUser({ name: 'P661 Compose Sender' });
+    receiver = await createTestUser({ name: 'P661 Compose Receiver' });
 
     // Create a public doc with 2 stories
     const { data: doc } = await supabaseAdmin
       .from('clarity_docs')
       .insert({
         owner_id: sender.user.id,
-        title: 'Composition Test Doc',
+        title: 'P661 Composition Test Doc',
         visibility: 'public',
       })
       .select('id')
@@ -51,8 +51,8 @@ test.describe('P581: Letter Composition — sender creates letter from doc', () 
 
     for (let i = 0; i < 2; i++) {
       const story = await createTestStory(sender.user.id, {
-        title: `Composition Story ${i + 1}`,
-        content: `Test story content for composition test ${i + 1}.`,
+        title: `P661 Composition Story ${i + 1}`,
+        content: `Test story content for P661 composition test ${i + 1}.`,
       });
       storyIds.push(story.id);
 
@@ -76,9 +76,9 @@ test.describe('P581: Letter Composition — sender creates letter from doc', () 
     if (receiver?.user?.id) await deleteTestUser(receiver.user.id);
   });
 
-  // ── 1. Navigate from doc to composition ───────────────────────────────
+  // ── 1. Entry point: "Prepare a Letter" opens modal ─────────────────────
 
-  test('clicking "Prepare a Letter" on doc page navigates to composition wizard', async ({ page }) => {
+  test('"Prepare a Letter" on doc page opens receiver modal, not wizard navigation', async ({ page }) => {
     await setTestSession(page, sender.email);
     await page.goto(`/d/${docId}`);
     await page.waitForLoadState('networkidle');
@@ -89,114 +89,78 @@ test.describe('P581: Letter Composition — sender creates letter from doc', () 
     await expect(prepareBtn).toBeVisible({ timeout: 10000 });
     await prepareBtn.click();
 
-    // Should navigate to composition page
-    await page.waitForLoadState('networkidle');
-    expect(page.url()).toContain('/compose');
+    // Should open a modal, NOT navigate away from the doc page
+    // The modal heading "Who is your letter for?" should appear
+    await expect(
+      page.locator('text=Who is your letter for?')
+    ).toBeVisible({ timeout: 5000 });
+
+    // URL should still be the doc page (not /compose)
+    expect(page.url()).toContain(`/d/${docId}`);
   });
 
-  // ── 2. Mode selector ─────────────────────────────────────────────────
+  // ── 2. Modal content ───────────────────────────────────────────────────
 
-  test('Step 1: mode selector shows "Specific people" and "Anyone with a link"', async ({ page }) => {
+  test('modal shows "Who is your letter for?" heading', async ({ page }) => {
     await setTestSession(page, sender.email);
-    await page.goto(`/letter/${docId}/compose`);
+    await page.goto(`/d/${docId}`);
     await page.waitForLoadState('networkidle');
 
-    // Both mode options should be visible
-    await expect(
-      page.locator('text=/specific people/i')
-    ).toBeVisible({ timeout: 10000 });
+    const prepareBtn = page.getByRole('button', { name: /prepare a letter/i })
+      .or(page.locator('a:has-text("Prepare a Letter")'));
+    await expect(prepareBtn).toBeVisible({ timeout: 10000 });
+    await prepareBtn.click();
 
-    await expect(
-      page.locator('text=/anyone with a link/i')
-    ).toBeVisible({ timeout: 10000 });
+    const heading = page.locator('text=Who is your letter for?');
+    await expect(heading).toBeVisible({ timeout: 5000 });
   });
 
-  test('Step 1: selecting "Specific people" shows email input', async ({ page }) => {
+  test('modal shows mode selector: "Specific people" and "Anyone with a link"', async ({ page }) => {
     await setTestSession(page, sender.email);
-    await page.goto(`/letter/${docId}/compose`);
+    await page.goto(`/d/${docId}`);
     await page.waitForLoadState('networkidle');
+
+    const prepareBtn = page.getByRole('button', { name: /prepare a letter/i })
+      .or(page.locator('a:has-text("Prepare a Letter")'));
+    await expect(prepareBtn).toBeVisible({ timeout: 10000 });
+    await prepareBtn.click();
+
+    await expect(
+      page.locator('text=Specific people')
+    ).toBeVisible({ timeout: 5000 });
+
+    await expect(
+      page.locator('text=Anyone with a link')
+    ).toBeVisible({ timeout: 5000 });
+  });
+
+  test('selecting "Specific people" shows email input in modal', async ({ page }) => {
+    await setTestSession(page, sender.email);
+    await page.goto(`/d/${docId}`);
+    await page.waitForLoadState('networkidle');
+
+    const prepareBtn = page.getByRole('button', { name: /prepare a letter/i })
+      .or(page.locator('a:has-text("Prepare a Letter")'));
+    await expect(prepareBtn).toBeVisible({ timeout: 10000 });
+    await prepareBtn.click();
 
     // Click "Specific people"
-    await page.locator('text=/specific people/i').first().click();
+    await page.locator('text=Specific people').first().click();
 
     // Email input should appear
     const emailInput = page.locator('input[type="email"], input[placeholder*="email" i]');
     await expect(emailInput).toBeVisible({ timeout: 5000 });
   });
 
-  // ── 3. Prediction input ───────────────────────────────────────────────
+  // ── 3. Private doc disables 1-to-many ──────────────────────────────────
 
-  test('Step 2: per-story prediction shows rating buttons (0-10)', async ({ page }) => {
-    await setTestSession(page, sender.email);
-    await page.goto(`/letter/${docId}/compose`);
-    await page.waitForLoadState('networkidle');
-
-    // Select "Anyone with a link" mode (simpler, no email needed)
-    await page.locator('text=/anyone with a link/i').first().click();
-
-    // Click Continue/Next to get to predictions step
-    const continueBtn = page.getByRole('button', { name: /continue|next/i }).first();
-    if (await continueBtn.isVisible()) {
-      await continueBtn.click();
-    }
-
-    // Prediction step should show rating prompt
-    await expect(
-      page.locator('text=/how well will.*understand/i').or(
-        page.locator('text=/prediction/i')
-      )
-    ).toBeVisible({ timeout: 10000 });
-
-    // Rating buttons (0-10) should be visible
-    const ratingButtons = page.locator('[role="group"] button, [data-testid*="rating"]');
-    // At least some rating buttons should be present
-    await expect(ratingButtons.first()).toBeVisible({ timeout: 5000 });
-  });
-
-  // ── 4. Preview banner ────────────────────────────────────────────────
-
-  test('Step 3: preview shows "This is a preview" banner (D42)', async ({ page }) => {
-    await setTestSession(page, sender.email);
-    await page.goto(`/letter/${docId}/compose`);
-    await page.waitForLoadState('networkidle');
-
-    // Navigate through wizard steps to preview
-    // Select mode
-    await page.locator('text=/anyone with a link/i').first().click();
-
-    // Continue to predictions
-    const continueBtn = page.getByRole('button', { name: /continue|next/i }).first();
-    if (await continueBtn.isVisible()) await continueBtn.click();
-
-    // Set a prediction and continue to preview
-    const firstRatingBtn = page.locator('[role="group"] button, [data-testid*="rating"]').nth(5);
-    if (await firstRatingBtn.isVisible({ timeout: 5000 })) {
-      await firstRatingBtn.click();
-    }
-
-    // Try to navigate to preview step
-    const nextStoryBtn = page.getByRole('button', { name: /next|preview|continue/i }).first();
-    if (await nextStoryBtn.isVisible({ timeout: 3000 })) {
-      await nextStoryBtn.click();
-    }
-
-    // Preview banner should be visible at some point in the flow
-    const previewBanner = page.locator('text=/this is a preview/i');
-    // If we reached preview step, the banner should be there
-    if (await previewBanner.isVisible({ timeout: 5000 }).catch(() => false)) {
-      await expect(previewBanner).toBeVisible();
-    }
-  });
-
-  // ── 5. Private doc disables 1-to-many mode ───────────────────────────
-
-  test('private doc disables "Anyone with a link" mode option', async ({ page }) => {
+  test('private doc disables "Anyone with a link" in modal', async ({ page }) => {
     // Create a private doc
     const { data: privateDoc } = await supabaseAdmin
       .from('clarity_docs')
       .insert({
         owner_id: sender.user.id,
-        title: 'Private Composition Doc',
+        title: 'P661 Private Composition Doc',
         visibility: 'private',
       })
       .select('id')
@@ -207,50 +171,398 @@ test.describe('P581: Letter Composition — sender creates letter from doc', () 
       return;
     }
 
+    // Private doc needs at least one story for "Prepare a Letter" to appear
+    const privateStory = await createTestStory(sender.user.id, {
+      title: 'P661 Private Doc Story',
+      content: 'Test story for private doc composition test.',
+    });
+    await supabaseAdmin
+      .from('doc_stories')
+      .insert({ doc_id: privateDoc.id, story_id: privateStory.id, position: 0 });
+
     try {
       await setTestSession(page, sender.email);
-      await page.goto(`/letter/${privateDoc.id}/compose`);
+      await page.goto(`/d/${privateDoc.id}`);
       await page.waitForLoadState('networkidle');
 
-      // "Anyone with a link" should be disabled for private docs (D45)
-      const linkOption = page.locator('text=/anyone with a link/i').first();
-      if (await linkOption.isVisible({ timeout: 5000 })) {
-        // Check if the button/card is disabled
-        const parentButton = linkOption.locator('xpath=ancestor::button').first();
-        const isDisabled = await parentButton.isDisabled().catch(() => false);
-        // Should be disabled or visually indicated as unavailable
-        expect(isDisabled || true).toBeTruthy(); // Truthy check — implementation may use aria-disabled or visual cue
-      }
+      const prepareBtn = page.getByRole('button', { name: /prepare a letter/i })
+        .or(page.locator('a:has-text("Prepare a Letter")'));
+      await expect(prepareBtn).toBeVisible({ timeout: 10000 });
+      await prepareBtn.click();
+
+      // "Anyone with a link" should be disabled for private docs
+      const linkOption = page.locator('text=Anyone with a link').first();
+      await expect(linkOption).toBeVisible({ timeout: 5000 });
+
+      // Check if the button/card containing it is disabled
+      const parentButton = linkOption.locator('xpath=ancestor::button').first();
+      const isDisabled = await parentButton.isDisabled().catch(() => false);
+      const hasAriaDisabled = await parentButton.getAttribute('aria-disabled')
+        .then(v => v === 'true')
+        .catch(() => false);
+
+      expect(isDisabled || hasAriaDisabled).toBeTruthy();
     } finally {
+      await supabaseAdmin.from('doc_stories').delete().eq('doc_id', privateDoc.id);
+      await deleteTestStory(privateStory.id);
       await supabaseAdmin.from('clarity_docs').delete().eq('id', privateDoc.id);
     }
   });
 
-  // ── 6. Seal & Send creates DB records ─────────────────────────────────
+  // ── 4. Prediction walk — full-screen sequential flow ───────────────────
 
-  test('sealing a letter creates clarity_letters + letter_deliveries rows', async ({ page }) => {
+  test('after modal submit, enters full-screen prediction walk', async ({ page }) => {
     await setTestSession(page, sender.email);
-    await page.goto(`/letter/${docId}/compose`);
+    await page.goto(`/d/${docId}`);
     await page.waitForLoadState('networkidle');
 
-    // Full wizard flow: select mode → set predictions → preview → seal
-    // This test verifies the DB side-effects after the full flow completes
+    // Open modal
+    const prepareBtn = page.getByRole('button', { name: /prepare a letter/i })
+      .or(page.locator('a:has-text("Prepare a Letter")'));
+    await expect(prepareBtn).toBeVisible({ timeout: 10000 });
+    await prepareBtn.click();
 
-    // For now, verify the composition page loaded correctly
-    // Full seal flow requires the complete wizard implementation
-    const wizardContent = page.locator('text=/who receives|step 1|prepare/i');
-    await expect(wizardContent.first()).toBeVisible({ timeout: 10000 });
+    // Select "Anyone with a link" (simpler — no email needed)
+    await page.locator('text=Anyone with a link').first().click();
 
-    // Verify no letters exist yet for this doc from this test session
-    const { data: existingLetters } = await supabaseAdmin
-      .from('clarity_letters')
-      .select('id')
-      .eq('source_doc_id', docId)
-      .eq('sender_id', sender.user.id);
+    // Submit the modal (Continue / Next / Start)
+    const continueBtn = page.getByRole('button', { name: /continue|next|start/i }).first();
+    await expect(continueBtn).toBeVisible({ timeout: 5000 });
+    await continueBtn.click();
 
-    // Note: actual seal verification requires completing the full wizard flow
-    // which depends on the composition UI implementation. This test validates
-    // the composition entry point is accessible and functional.
-    expect(existingLetters).toBeDefined();
+    // Should now be in prediction walk — look for story progress indicator
+    await expect(
+      page.locator('text=/story 1 of/i').or(page.locator('text=/1 of 2/i'))
+    ).toBeVisible({ timeout: 10000 });
+  });
+
+  test('prediction walk shows one story at a time (story 1 visible, story 2 not)', async ({ page }) => {
+    await setTestSession(page, sender.email);
+    await page.goto(`/d/${docId}`);
+    await page.waitForLoadState('networkidle');
+
+    // Open modal → select mode → submit
+    const prepareBtn = page.getByRole('button', { name: /prepare a letter/i })
+      .or(page.locator('a:has-text("Prepare a Letter")'));
+    await expect(prepareBtn).toBeVisible({ timeout: 10000 });
+    await prepareBtn.click();
+    await page.locator('text=Anyone with a link').first().click();
+    const continueBtn = page.getByRole('button', { name: /continue|next|start/i }).first();
+    await expect(continueBtn).toBeVisible({ timeout: 5000 });
+    await continueBtn.click();
+
+    // Story 1 content should be visible
+    await expect(
+      page.locator('text=P661 Composition Story 1').or(
+        page.locator('text=Test story content for P661 composition test 1')
+      )
+    ).toBeVisible({ timeout: 10000 });
+
+    // Story 2 content should NOT be visible yet
+    await expect(
+      page.locator('text=P661 Composition Story 2')
+    ).not.toBeVisible({ timeout: 3000 });
+  });
+
+  test('prediction walk displays LiveStoryCardExpanded', async ({ page }) => {
+    await setTestSession(page, sender.email);
+    await page.goto(`/d/${docId}`);
+    await page.waitForLoadState('networkidle');
+
+    // Open modal → select mode → submit
+    const prepareBtn = page.getByRole('button', { name: /prepare a letter/i })
+      .or(page.locator('a:has-text("Prepare a Letter")'));
+    await expect(prepareBtn).toBeVisible({ timeout: 10000 });
+    await prepareBtn.click();
+    await page.locator('text=Anyone with a link').first().click();
+    const continueBtn = page.getByRole('button', { name: /continue|next|start/i }).first();
+    await expect(continueBtn).toBeVisible({ timeout: 5000 });
+    await continueBtn.click();
+
+    // LiveStoryCardExpanded should be rendered
+    const storyCard = page.locator('[data-testid="live-story-card-expanded"]');
+    await expect(storyCard).toBeVisible({ timeout: 10000 });
+  });
+
+  test('prediction walk shows prompt "How well do you believe [Name] understands your story?"', async ({ page }) => {
+    await setTestSession(page, sender.email);
+    await page.goto(`/d/${docId}`);
+    await page.waitForLoadState('networkidle');
+
+    // Open modal → select mode → submit
+    const prepareBtn = page.getByRole('button', { name: /prepare a letter/i })
+      .or(page.locator('a:has-text("Prepare a Letter")'));
+    await expect(prepareBtn).toBeVisible({ timeout: 10000 });
+    await prepareBtn.click();
+    await page.locator('text=Anyone with a link').first().click();
+    const continueBtn = page.getByRole('button', { name: /continue|next|start/i }).first();
+    await expect(continueBtn).toBeVisible({ timeout: 5000 });
+    await continueBtn.click();
+
+    // Prediction prompt should contain the expected text
+    await expect(
+      page.locator('text=/how well do you believe/i')
+    ).toBeVisible({ timeout: 10000 });
+
+    await expect(
+      page.locator('text=/understand your story/i')
+    ).toBeVisible({ timeout: 10000 });
+  });
+
+  test('RatingButtons (0-10) visible during prediction walk', async ({ page }) => {
+    await setTestSession(page, sender.email);
+    await page.goto(`/d/${docId}`);
+    await page.waitForLoadState('networkidle');
+
+    // Open modal → select mode → submit
+    const prepareBtn = page.getByRole('button', { name: /prepare a letter/i })
+      .or(page.locator('a:has-text("Prepare a Letter")'));
+    await expect(prepareBtn).toBeVisible({ timeout: 10000 });
+    await prepareBtn.click();
+    await page.locator('text=Anyone with a link').first().click();
+    const continueBtn = page.getByRole('button', { name: /continue|next|start/i }).first();
+    await expect(continueBtn).toBeVisible({ timeout: 5000 });
+    await continueBtn.click();
+
+    // Rating buttons (0-10) should be visible
+    const ratingButtons = page.locator('[data-testid*="rating"] button, [role="group"] button');
+    await expect(ratingButtons.first()).toBeVisible({ timeout: 10000 });
+
+    // Should have at least 11 buttons (0 through 10)
+    const count = await ratingButtons.count();
+    expect(count).toBeGreaterThanOrEqual(11);
+  });
+
+  test('after rating + "Next Story", advances to story 2 of N', async ({ page }) => {
+    await setTestSession(page, sender.email);
+    await page.goto(`/d/${docId}`);
+    await page.waitForLoadState('networkidle');
+
+    // Open modal → select mode → submit
+    const prepareBtn = page.getByRole('button', { name: /prepare a letter/i })
+      .or(page.locator('a:has-text("Prepare a Letter")'));
+    await expect(prepareBtn).toBeVisible({ timeout: 10000 });
+    await prepareBtn.click();
+    await page.locator('text=Anyone with a link').first().click();
+    const continueBtn = page.getByRole('button', { name: /continue|next|start/i }).first();
+    await expect(continueBtn).toBeVisible({ timeout: 5000 });
+    await continueBtn.click();
+
+    // Wait for prediction walk to load
+    await expect(
+      page.locator('[data-testid="live-story-card-expanded"]')
+    ).toBeVisible({ timeout: 10000 });
+
+    // Click a rating (e.g., 7)
+    const ratingButtons = page.locator('[data-testid*="rating"] button, [role="group"] button');
+    await expect(ratingButtons.first()).toBeVisible({ timeout: 5000 });
+    // Click the 8th button (index 7 = rating value 7)
+    await ratingButtons.nth(7).click();
+
+    // Click "Next Story"
+    const nextBtn = page.getByRole('button', { name: /next story/i });
+    await expect(nextBtn).toBeVisible({ timeout: 5000 });
+    await nextBtn.click();
+
+    // Story 2 should now be visible
+    await expect(
+      page.locator('text=P661 Composition Story 2').or(
+        page.locator('text=Test story content for P661 composition test 2')
+      )
+    ).toBeVisible({ timeout: 10000 });
+
+    // Progress should show story 2
+    await expect(
+      page.locator('text=/story 2 of/i').or(page.locator('text=/2 of 2/i'))
+    ).toBeVisible({ timeout: 5000 });
+  });
+
+  // ── 5. Review screen ──────────────────────────────────────────────────
+
+  test('after last story, shows review screen with prediction summary', async ({ page }) => {
+    await setTestSession(page, sender.email);
+    await page.goto(`/d/${docId}`);
+    await page.waitForLoadState('networkidle');
+
+    // Open modal → select mode → submit
+    const prepareBtn = page.getByRole('button', { name: /prepare a letter/i })
+      .or(page.locator('a:has-text("Prepare a Letter")'));
+    await expect(prepareBtn).toBeVisible({ timeout: 10000 });
+    await prepareBtn.click();
+    await page.locator('text=Anyone with a link').first().click();
+    const continueBtn = page.getByRole('button', { name: /continue|next|start/i }).first();
+    await expect(continueBtn).toBeVisible({ timeout: 5000 });
+    await continueBtn.click();
+
+    // Story 1: rate and advance
+    const ratingButtons = page.locator('[data-testid*="rating"] button, [role="group"] button');
+    await expect(ratingButtons.first()).toBeVisible({ timeout: 10000 });
+    await ratingButtons.nth(7).click();
+    await page.getByRole('button', { name: /next story/i }).click();
+
+    // Story 2: rate (last story — should lead to review)
+    await expect(ratingButtons.first()).toBeVisible({ timeout: 10000 });
+    await ratingButtons.nth(5).click();
+
+    // After last story, look for a finish/review button
+    const finishBtn = page.getByRole('button', { name: /review|finish|next/i }).first();
+    await expect(finishBtn).toBeVisible({ timeout: 5000 });
+    await finishBtn.click();
+
+    // Review screen should show "Ready to send" heading
+    await expect(
+      page.getByRole('heading', { name: /ready to send/i })
+    ).toBeVisible({ timeout: 10000 });
+  });
+
+  test('review screen shows "Preview as [Name]" link', async ({ page }) => {
+    await setTestSession(page, sender.email);
+    await page.goto(`/d/${docId}`);
+    await page.waitForLoadState('networkidle');
+
+    // Full flow: modal → predictions → review
+    const prepareBtn = page.getByRole('button', { name: /prepare a letter/i })
+      .or(page.locator('a:has-text("Prepare a Letter")'));
+    await expect(prepareBtn).toBeVisible({ timeout: 10000 });
+    await prepareBtn.click();
+    await page.locator('text=Anyone with a link').first().click();
+    const continueBtn = page.getByRole('button', { name: /continue|next|start/i }).first();
+    await expect(continueBtn).toBeVisible({ timeout: 5000 });
+    await continueBtn.click();
+
+    // Rate story 1 and advance
+    const ratingButtons = page.locator('[data-testid*="rating"] button, [role="group"] button');
+    await expect(ratingButtons.first()).toBeVisible({ timeout: 10000 });
+    await ratingButtons.nth(7).click();
+    await page.getByRole('button', { name: /next story/i }).click();
+
+    // Rate story 2 and advance to review
+    await expect(ratingButtons.first()).toBeVisible({ timeout: 10000 });
+    await ratingButtons.nth(5).click();
+    const finishBtn = page.getByRole('button', { name: /review|finish|next/i }).first();
+    await expect(finishBtn).toBeVisible({ timeout: 5000 });
+    await finishBtn.click();
+
+    // "Preview as ..." link should be visible
+    await expect(
+      page.locator('text=/preview as/i').or(page.locator('a[href*="preview"]'))
+    ).toBeVisible({ timeout: 10000 });
+  });
+
+  test('review screen shows "Seal & Send" button', async ({ page }) => {
+    await setTestSession(page, sender.email);
+    await page.goto(`/d/${docId}`);
+    await page.waitForLoadState('networkidle');
+
+    // Full flow: modal → predictions → review
+    const prepareBtn = page.getByRole('button', { name: /prepare a letter/i })
+      .or(page.locator('a:has-text("Prepare a Letter")'));
+    await expect(prepareBtn).toBeVisible({ timeout: 10000 });
+    await prepareBtn.click();
+    await page.locator('text=Anyone with a link').first().click();
+    const continueBtn = page.getByRole('button', { name: /continue|next|start/i }).first();
+    await expect(continueBtn).toBeVisible({ timeout: 5000 });
+    await continueBtn.click();
+
+    // Rate story 1 and advance
+    const ratingButtons = page.locator('[data-testid*="rating"] button, [role="group"] button');
+    await expect(ratingButtons.first()).toBeVisible({ timeout: 10000 });
+    await ratingButtons.nth(7).click();
+    await page.getByRole('button', { name: /next story/i }).click();
+
+    // Rate story 2 and advance to review
+    await expect(ratingButtons.first()).toBeVisible({ timeout: 10000 });
+    await ratingButtons.nth(5).click();
+    const finishBtn = page.getByRole('button', { name: /review|finish|next/i }).first();
+    await expect(finishBtn).toBeVisible({ timeout: 5000 });
+    await finishBtn.click();
+
+    // "Seal & Send" button should be visible
+    await expect(
+      page.getByRole('button', { name: /seal.*send/i })
+    ).toBeVisible({ timeout: 10000 });
+  });
+
+  // ── 6. Seal & Send → Confirmation ──────────────────────────────────────
+
+  test('"Seal & Send" shows confirmation with "Letter Sealed" text', async ({ page }) => {
+    await setTestSession(page, sender.email);
+    await page.goto(`/d/${docId}`);
+    await page.waitForLoadState('networkidle');
+
+    // Full flow: modal → predictions → review → seal
+    const prepareBtn = page.getByRole('button', { name: /prepare a letter/i })
+      .or(page.locator('a:has-text("Prepare a Letter")'));
+    await expect(prepareBtn).toBeVisible({ timeout: 10000 });
+    await prepareBtn.click();
+    await page.locator('text=Anyone with a link').first().click();
+    const continueBtn = page.getByRole('button', { name: /continue|next|start/i }).first();
+    await expect(continueBtn).toBeVisible({ timeout: 5000 });
+    await continueBtn.click();
+
+    // Rate story 1 and advance
+    const ratingButtons = page.locator('[data-testid*="rating"] button, [role="group"] button');
+    await expect(ratingButtons.first()).toBeVisible({ timeout: 10000 });
+    await ratingButtons.nth(7).click();
+    await page.getByRole('button', { name: /next story/i }).click();
+
+    // Rate story 2 and advance to review
+    await expect(ratingButtons.first()).toBeVisible({ timeout: 10000 });
+    await ratingButtons.nth(5).click();
+    const finishBtn = page.getByRole('button', { name: /review|finish|next/i }).first();
+    await expect(finishBtn).toBeVisible({ timeout: 5000 });
+    await finishBtn.click();
+
+    // Click "Seal & Send"
+    const sealBtn = page.getByRole('button', { name: /seal.*send/i });
+    await expect(sealBtn).toBeVisible({ timeout: 10000 });
+    await sealBtn.click();
+
+    // Confirmation should show "Letter Sealed"
+    await expect(
+      page.getByRole('heading', { name: 'Letter Sealed' })
+    ).toBeVisible({ timeout: 10000 });
+  });
+
+  test('confirmation has "Back to Doc" link', async ({ page }) => {
+    await setTestSession(page, sender.email);
+    await page.goto(`/d/${docId}`);
+    await page.waitForLoadState('networkidle');
+
+    // Full flow: modal → predictions → review → seal → confirmation
+    const prepareBtn = page.getByRole('button', { name: /prepare a letter/i })
+      .or(page.locator('a:has-text("Prepare a Letter")'));
+    await expect(prepareBtn).toBeVisible({ timeout: 10000 });
+    await prepareBtn.click();
+    await page.locator('text=Anyone with a link').first().click();
+    const continueBtn = page.getByRole('button', { name: /continue|next|start/i }).first();
+    await expect(continueBtn).toBeVisible({ timeout: 5000 });
+    await continueBtn.click();
+
+    // Rate story 1 and advance
+    const ratingButtons = page.locator('[data-testid*="rating"] button, [role="group"] button');
+    await expect(ratingButtons.first()).toBeVisible({ timeout: 10000 });
+    await ratingButtons.nth(7).click();
+    await page.getByRole('button', { name: /next story/i }).click();
+
+    // Rate story 2 and advance to review
+    await expect(ratingButtons.first()).toBeVisible({ timeout: 10000 });
+    await ratingButtons.nth(5).click();
+    const finishBtn = page.getByRole('button', { name: /review|finish|next/i }).first();
+    await expect(finishBtn).toBeVisible({ timeout: 5000 });
+    await finishBtn.click();
+
+    // Seal
+    const sealBtn = page.getByRole('button', { name: /seal.*send/i });
+    await expect(sealBtn).toBeVisible({ timeout: 10000 });
+    await sealBtn.click();
+
+    // Wait for confirmation
+    await expect(page.getByRole('heading', { name: 'Letter Sealed' })).toBeVisible({ timeout: 10000 });
+
+    // "Back to Doc" link should be visible
+    const backLink = page.locator('text=Back to Doc')
+      .or(page.locator('a:has-text("Back to Doc")'));
+    await expect(backLink).toBeVisible({ timeout: 5000 });
   });
 });

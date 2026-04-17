@@ -4,7 +4,8 @@ import {
   getActiveSessionFromStorage,
   clearActiveSessionFromStorage,
 } from '@/app/contexts/live-session-context';
-import { getActiveSessionByCode } from '@/app/data/api';
+import { getActiveSessionByCode, subscribeToClaritySession } from '@/app/data/api';
+import type { ClaritySession } from '@/app/types';
 
 /** Poll interval for checking if session is still active (30s) */
 const POLL_INTERVAL_MS = 30 * 1000;
@@ -33,12 +34,14 @@ export function useActiveSession() {
 
   const [isLoading, setIsLoading] = useState(true);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const sessionIdRef = useRef<string | null>(null);
 
   const validateSession = useCallback(async () => {
     const stored = getActiveSessionFromStorage();
 
     if (!stored) {
       clearActiveSession();
+      sessionIdRef.current = null;
       return false;
     }
 
@@ -48,13 +51,15 @@ export function useActiveSession() {
       const session = await getActiveSessionByCode(stored.code);
 
       if (session) {
-        // Session is still active — restore/keep context
+        // Session is still active — restore/keep context and capture ID for Realtime
         setActiveSession(stored.code, stored.partnerName, stored.role, stored.guestDisplayName);
+        sessionIdRef.current = session.id;
         return true;
       } else {
         // Session ended, expired, or not found — clean up
         clearActiveSessionFromStorage();
         clearActiveSession();
+        sessionIdRef.current = null;
         return false;
       }
     } catch {
@@ -63,20 +68,38 @@ export function useActiveSession() {
     }
   }, [setActiveSession, clearActiveSession]);
 
-  // Initial validation + start polling
+  // Initial validation + polling + Realtime subscription
   useEffect(() => {
     let cancelled = false;
+    let unsubscribe: (() => void) | null = null;
 
     async function init() {
       await validateSession();
-      if (!cancelled) {
-        setIsLoading(false);
+      if (cancelled) return;
+      setIsLoading(false);
+
+      // P743: subscribe to Realtime so creator-end dismisses banner in <1s
+      // instead of waiting up to 30s for the next poll cycle.
+      if (sessionIdRef.current) {
+        unsubscribe = subscribeToClaritySession(
+          sessionIdRef.current,
+          (updated: ClaritySession) => {
+            const ls = updated.liveState;
+            // Guard: no-op if already cleared (poll and Realtime may fire together)
+            if (!sessionIdRef.current) return;
+            if (ls?.sessionEnded === true || ls?.joinerEnded === true) {
+              sessionIdRef.current = null;
+              clearActiveSessionFromStorage();
+              clearActiveSession();
+            }
+          }
+        );
       }
     }
 
     init();
 
-    // Start polling
+    // Polling remains as fallback for missed Realtime events
     intervalRef.current = setInterval(() => {
       validateSession();
     }, POLL_INTERVAL_MS);
@@ -97,8 +120,12 @@ export function useActiveSession() {
         intervalRef.current = null;
       }
       document.removeEventListener('visibilitychange', handleVisibilityChange);
+      if (unsubscribe) {
+        unsubscribe();
+        unsubscribe = null;
+      }
     };
-  }, [validateSession]);
+  }, [validateSession, clearActiveSession]);
 
   return {
     hasActiveSession: activeSessionCode !== null,

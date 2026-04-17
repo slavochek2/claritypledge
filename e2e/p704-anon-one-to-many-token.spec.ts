@@ -1,0 +1,378 @@
+/**
+ * @file p704-anon-one-to-many-token.spec.ts
+ * @description P704 canary: anonymous one-to-many token reading must NOT call token RPCs
+ * that the P684 guard blocks for anon callers.
+ *
+ * BEFORE FIX: Clicking "Open Letter" fires updateDeliveryStatusByToken → 400 →
+ *   console.error "[db-error] updateDeliveryStatusByToken: ..." containing
+ *   "Authentication required for one-to-many responses".
+ *   Clicking a position button fires submitPointResponseByToken → 400 → same error + page error.
+ *
+ * AFTER FIX: bufferOnly=true → no token RPCs fired → no console errors; position updates
+ *   local state only, responses buffered for confirm-letter-response after signup.
+ *
+ * Also contains the P705-regression canary (second describe block):
+ *   submit_point_response_by_token must use the sealed point_config snapshot as the
+ *   authorization source, not live story_points. The P705 migration initially checked
+ *   story_points, which fails for any point present in point_config but absent from
+ *   story_points (e.g. point deleted from story after seal, or test setup without linking).
+ */
+
+import { test, expect } from '@playwright/test';
+import { supabaseAdmin } from './helpers/supabase-admin';
+import { createTestUser, deleteTestUser, type TestUser } from './helpers/test-user';
+import { createTestStory, deleteTestStory } from './helpers/test-story';
+import { createTestPoint, deleteTestPoint } from './helpers/test-point';
+
+test.describe('P704: Anon one-to-many token reading — no authentication errors', () => {
+  test.describe.configure({ timeout: 60_000 });
+
+  let sender: TestUser;
+  let docId: string;
+  let storyId: string;
+  let point1Id: string;
+  let point2Id: string;
+  let letterId: string;
+  let deliveryId: string;
+  let deliveryToken: string;
+
+  test.beforeAll(async () => {
+    sender = await createTestUser({ name: 'P704 Sender' });
+
+    // Create story + 2 points (2 visible points → point-engage phase on open)
+    const story = await createTestStory(sender.user.id, {
+      title: 'P704 False Consensus Test',
+      content: 'Testing anon one-to-many reading without 400 errors.',
+    });
+    storyId = story.id;
+
+    const point1 = await createTestPoint(sender.user.id, {
+      statement: 'P704 Point 1: Leaders avoid hard conversations.',
+    });
+    point1Id = point1.id;
+
+    const point2 = await createTestPoint(sender.user.id, {
+      statement: 'P704 Point 2: Clarity requires courage.',
+    });
+    point2Id = point2.id;
+
+    // Set sender positions so the story is display-ready
+    await supabaseAdmin.from('point_positions').upsert([
+      { point_id: point1Id, user_id: sender.user.id, position: 'agree' },
+      { point_id: point2Id, user_id: sender.user.id, position: 'agree' },
+    ]);
+
+    // Get auto-generated story version
+    const { data: version, error: versionError } = await supabaseAdmin
+      .from('story_versions')
+      .select('id')
+      .eq('story_id', storyId)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .single();
+    if (!version || versionError) throw new Error(`Story version not found: ${versionError?.message}`);
+
+    // Create sealed one-to-many doc (required for letter)
+    const { data: doc, error: docError } = await supabaseAdmin
+      .from('clarity_docs')
+      .insert({ owner_id: sender.user.id, title: 'P704 Doc', visibility: 'public' })
+      .select('id')
+      .single();
+    if (!doc || docError) throw new Error(`Doc creation failed: ${docError?.message}`);
+    docId = doc.id;
+
+    // Create sealed one-to-many letter
+    const { data: letter, error: letterError } = await supabaseAdmin
+      .from('clarity_letters')
+      .insert({
+        source_doc_id: doc.id,
+        sender_id: sender.user.id,
+        mode: 'one-to-many',
+        status: 'sealed',
+        sealed_at: new Date().toISOString(),
+      })
+      .select('id')
+      .single();
+    if (!letter || letterError) throw new Error(`Letter creation failed: ${letterError?.message}`);
+    letterId = letter.id;
+
+    // Create snapshot with 2 visible points → triggers point-engage phase
+    const { error: snapshotError } = await supabaseAdmin
+      .from('letter_story_snapshots')
+      .insert({
+        letter_id: letterId,
+        story_id: storyId,
+        version_id: version.id,
+        position: 0,
+        visibility: 'public',
+        point_config: {
+          storyTitle: 'P704 False Consensus Test',
+          storyText: 'Testing anon one-to-many reading without 400 errors.',
+          points: [
+            { id: point1Id, text: 'P704 Point 1: Leaders avoid hard conversations.', authorPosition: 'agree' },
+            { id: point2Id, text: 'P704 Point 2: Clarity requires courage.', authorPosition: 'agree' },
+          ],
+        },
+      });
+    if (snapshotError) throw new Error(`Snapshot creation failed: ${snapshotError.message}`);
+
+    // Create delivery (invitation_token auto-generated by DB)
+    const { data: delivery, error: deliveryError } = await supabaseAdmin
+      .from('letter_deliveries')
+      .insert({ letter_id: letterId, receiver_email: null, receiver_profile_id: null, status: 'sent' })
+      .select('id, invitation_token')
+      .single();
+    if (!delivery || deliveryError) throw new Error(`Delivery creation failed: ${deliveryError?.message}`);
+    deliveryId = delivery.id;
+    deliveryToken = delivery.invitation_token;
+  });
+
+  test.afterAll(async () => {
+    if (letterId) {
+      const { data: deliveries } = await supabaseAdmin
+        .from('letter_deliveries')
+        .select('id')
+        .eq('letter_id', letterId);
+      if (deliveries?.length) {
+        await supabaseAdmin
+          .from('letter_point_responses')
+          .delete()
+          .in('delivery_id', deliveries.map((d) => d.id));
+      }
+      await supabaseAdmin
+        .from('story_verifications')
+        .delete()
+        .eq('story_id', storyId)
+        .eq('source', 'letter');
+      await supabaseAdmin.from('clarity_letters').delete().eq('id', letterId);
+    }
+    if (docId) await supabaseAdmin.from('clarity_docs').delete().eq('id', docId);
+    if (point1Id) await deleteTestPoint(point1Id);
+    if (point2Id) await deleteTestPoint(point2Id);
+    if (storyId) await deleteTestStory(storyId);
+    if (sender?.user?.id) await deleteTestUser(sender.user.id);
+  });
+
+  test('smoke: anon recipient sees cover page via one-to-many token', async ({ page }) => {
+    await page.goto(`/letter/${deliveryId}?token=${deliveryToken}`);
+    await page.waitForLoadState('networkidle');
+
+    await expect(page.getByRole('button', { name: /open the letter/i })).toBeVisible({ timeout: 10_000 });
+  });
+
+  test('opening letter does not produce authentication errors in console', async ({ page }) => {
+    const consoleErrors: string[] = [];
+    page.on('console', (msg) => {
+      if (msg.type() === 'error') consoleErrors.push(msg.text());
+    });
+    page.on('pageerror', (err) => consoleErrors.push(err.message));
+
+    // Navigate as anonymous (no setTestSession)
+    await page.goto(`/letter/${deliveryId}?token=${deliveryToken}`);
+    await page.waitForLoadState('networkidle');
+
+    const openBtn = page.getByRole('button', { name: /open the letter/i });
+    await expect(openBtn).toBeVisible({ timeout: 10_000 });
+
+    // Before fix: clicking Open fires updateDeliveryStatusByToken → 400 → console.error
+    await openBtn.click();
+
+    // Allow async RPC to settle
+    await page.waitForTimeout(2000);
+
+    const authErrors = consoleErrors.filter((e) =>
+      e.includes('Authentication required for one-to-many responses')
+    );
+    expect(
+      authErrors,
+      `Expected no "Authentication required" errors. Got: ${authErrors.join(' | ')}`
+    ).toHaveLength(0);
+  });
+
+  test('submitting a point position does not produce authentication errors', async ({ page }) => {
+    const consoleErrors: string[] = [];
+    page.on('console', (msg) => {
+      if (msg.type() === 'error') consoleErrors.push(msg.text());
+    });
+    page.on('pageerror', (err) => consoleErrors.push(err.message));
+
+    await page.goto(`/letter/${deliveryId}?token=${deliveryToken}`);
+    await page.waitForLoadState('networkidle');
+
+    const openBtn = page.getByRole('button', { name: /open the letter/i });
+    await expect(openBtn).toBeVisible({ timeout: 10_000 });
+    await openBtn.click();
+
+    // With 2 visible points, flow starts at point-engage phase immediately.
+    // Position buttons (Agree/Disagree/Neutral) should appear.
+    const agreeBtn = page.getByRole('button', { name: /^agree$/i }).first();
+    await expect(agreeBtn).toBeVisible({ timeout: 10_000 });
+
+    // Before fix: clicking triggers submitPointResponseByToken → 400 → console.error + page error
+    await agreeBtn.click();
+
+    // Allow async RPC (or skipped RPC after fix) to settle
+    await page.waitForTimeout(2000);
+
+    const authErrors = consoleErrors.filter((e) =>
+      e.includes('Authentication required for one-to-many responses')
+    );
+    expect(
+      authErrors,
+      `Expected no "Authentication required" errors after position submit. Got: ${authErrors.join(' | ')}`
+    ).toHaveLength(0);
+  });
+});
+
+// ============================================================================
+// P705-regression canary: guard must use sealed point_config, not live story_points
+// ============================================================================
+
+/**
+ * The P705 migration added an authorization guard to submit_point_response_by_token
+ * that validates p_point_id against story_points JOIN letter_story_snapshots. This
+ * is too strict: letters are immutable snapshots, so the sealed point_config is the
+ * authoritative source of which points belong to the letter — not live story_points,
+ * which can diverge after seal (point deleted from story, test seeder without linking).
+ *
+ * BEFORE FIX: RPC returns false → client throws "Invalid or expired token".
+ * AFTER FIX:  RPC returns true  → letter_point_responses row written.
+ */
+test.describe('P705-regression: submit_point_response_by_token uses point_config not story_points', () => {
+  test.describe.configure({ timeout: 30_000 });
+
+  let regrSender: TestUser;
+  let regrDocId: string;
+  let regrStoryId: string;
+  let regrPointId: string;
+  let regrLetterId: string;
+  let regrDeliveryId: string;
+  let regrDeliveryToken: string;
+
+  test.beforeAll(async () => {
+    regrSender = await createTestUser({ name: 'P705 Regression Sender' });
+
+    const { data: doc, error: docError } = await supabaseAdmin
+      .from('clarity_docs')
+      .insert({ owner_id: regrSender.user.id, title: 'P705 Regression Doc', visibility: 'public' })
+      .select('id')
+      .single();
+    if (!doc || docError) throw new Error(`Doc creation failed: ${docError?.message}`);
+    regrDocId = doc.id;
+
+    const story = await createTestStory(regrSender.user.id, {
+      title: 'P705 Regression Story',
+      content: 'Guard should consult sealed point_config, not live story_points.',
+    });
+    regrStoryId = story.id;
+
+    // Intentionally create point WITHOUT storyId → no story_points row inserted.
+    // This is the critical precondition: the point exists in point_config but not story_points.
+    const point = await createTestPoint(regrSender.user.id, {
+      statement: 'P705 regression: point sealed into letter but absent from story_points.',
+    });
+    regrPointId = point.id;
+
+    const { data: version, error: versionError } = await supabaseAdmin
+      .from('story_versions')
+      .select('id')
+      .eq('story_id', regrStoryId)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .single();
+    if (!version || versionError) throw new Error(`Story version not found: ${versionError?.message}`);
+
+    const { data: letter, error: letterError } = await supabaseAdmin
+      .from('clarity_letters')
+      .insert({
+        source_doc_id: regrDocId,
+        sender_id: regrSender.user.id,
+        mode: 'one-to-one',
+        status: 'sealed',
+        sealed_at: new Date().toISOString(),
+      })
+      .select('id')
+      .single();
+    if (!letter || letterError) throw new Error(`Letter creation failed: ${letterError?.message}`);
+    regrLetterId = letter.id;
+
+    const { error: snapshotError } = await supabaseAdmin
+      .from('letter_story_snapshots')
+      .insert({
+        letter_id: regrLetterId,
+        story_id: regrStoryId,
+        version_id: version.id,
+        position: 0,
+        visibility: 'public',
+        point_config: {
+          storyTitle: 'P705 Regression Story',
+          storyText: 'Guard should consult sealed point_config, not live story_points.',
+          points: [
+            {
+              id: regrPointId,
+              text: 'P705 regression: point sealed into letter but absent from story_points.',
+              authorPosition: 'agree',
+            },
+          ],
+        },
+      });
+    if (snapshotError) throw new Error(`Snapshot creation failed: ${snapshotError.message}`);
+
+    const { data: delivery, error: deliveryError } = await supabaseAdmin
+      .from('letter_deliveries')
+      .insert({ letter_id: regrLetterId, receiver_email: null, receiver_profile_id: null, status: 'sent' })
+      .select('id, invitation_token')
+      .single();
+    if (!delivery || deliveryError) throw new Error(`Delivery creation failed: ${deliveryError?.message}`);
+    regrDeliveryId = delivery.id;
+    regrDeliveryToken = delivery.invitation_token;
+  });
+
+  test.afterAll(async () => {
+    if (regrDeliveryId) {
+      await supabaseAdmin.from('letter_point_responses').delete().eq('delivery_id', regrDeliveryId);
+    }
+    if (regrLetterId) await supabaseAdmin.from('clarity_letters').delete().eq('id', regrLetterId);
+    if (regrDocId) await supabaseAdmin.from('clarity_docs').delete().eq('id', regrDocId);
+    if (regrPointId) await deleteTestPoint(regrPointId);
+    if (regrStoryId) await deleteTestStory(regrStoryId);
+    if (regrSender?.user?.id) await deleteTestUser(regrSender.user.id);
+  });
+
+  test('submit_point_response_by_token returns true for a point in point_config when no story_points row exists', async () => {
+    // Precondition: confirm no story_points row for this point+story
+    const { data: spRow } = await supabaseAdmin
+      .from('story_points')
+      .select('point_id')
+      .eq('story_id', regrStoryId)
+      .eq('point_id', regrPointId)
+      .maybeSingle();
+    expect(spRow, 'story_points row must NOT exist — this is the bug precondition').toBeNull();
+
+    // Call the RPC. Before fix: returns false (P705 guard hits story_points and finds nothing).
+    // After fix: returns true (guard uses point_config which contains the point).
+    const { data: rpcResult, error: rpcError } = await supabaseAdmin.rpc(
+      'submit_point_response_by_token',
+      {
+        p_token: regrDeliveryToken,
+        p_point_id: regrPointId,
+        p_position: 'agree',
+      }
+    );
+
+    expect(rpcError, `RPC must not error: ${rpcError?.message}`).toBeNull();
+    expect(
+      rpcResult,
+      'RPC must return true: point is sealed into point_config even though story_points row is absent'
+    ).toBe(true);
+
+    // Verify staging buffer was written
+    const { data: stagingRow } = await supabaseAdmin
+      .from('letter_point_responses')
+      .select('position')
+      .eq('delivery_id', regrDeliveryId)
+      .eq('point_id', regrPointId)
+      .single();
+    expect(stagingRow?.position, 'letter_point_responses must have a row after a successful RPC call').toBe('agree');
+  });
+});

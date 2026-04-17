@@ -52,6 +52,8 @@ export interface LetterSessionFixture {
   inviteId: string;
   /** clarity_letters row id */
   letterId: string;
+  /** letter_deliveries row id — use with ?delivery= param for sender's results page */
+  deliveryId: string;
   /** stories row id */
   storyId: string;
   /** clarity_docs row id (owned by author) */
@@ -71,7 +73,7 @@ function generateSessionCode(): string {
   for (let i = 0; i < 6; i++) {
     code += SESSION_CODE_ALPHABET[Math.floor(Math.random() * SESSION_CODE_ALPHABET.length)];
   }
-  return `P703${code}`; // Prefix for easy identification in DB
+  return code; // Must be exactly 6 chars — extractCodeFromInput() rejects anything else
 }
 
 // ─── seedLetterVerificationRow ────────────────────────────────────────────────
@@ -94,8 +96,8 @@ async function seedLetterVerificationRow(opts: {
     .from('story_verifications')
     .insert({
       story_id: opts.storyId,
-      speaker_profile_id: opts.speakerProfileId,
-      listener_profile_id: opts.listenerProfileId,
+      speaker_id: opts.speakerProfileId,
+      listener_id: opts.listenerProfileId,
       speaker_rating: opts.speakerRating ?? 7,
       listener_rating: opts.listenerRating ?? 4,
       source: 'letter',
@@ -143,8 +145,18 @@ export async function createLetterSessionFixture(
   });
 
   // 3. Create and seal the letter (with snapshot + prediction)
+  // Fetch the auto-created story_versions row (trigger fires on story INSERT)
+  const { data: version, error: versionError } = await supabaseAdmin
+    .from('story_versions')
+    .select('id')
+    .eq('story_id', story.id)
+    .order('version_number', { ascending: true })
+    .limit(1)
+    .single();
+  if (versionError || !version) throw new Error(`Failed to fetch story version: ${versionError?.message}`);
+
   const letter = await createTestLetter(author.user.id, doc.id, { mode: 'one-to-one' });
-  await createTestStorySnapshot(letter.id, story.id, story.id /* versionId placeholder */, { position: 0 });
+  await createTestStorySnapshot(letter.id, story.id, version.id, { position: 0 });
   const delivery = await createTestDelivery(letter.id, {
     receiverEmail: listener.email,
     receiverProfileId: listener.user.id,
@@ -163,6 +175,19 @@ export async function createLetterSessionFixture(
   });
 
   // 5. Create the clarity_sessions row (letter-sourced)
+  // Pre-write the bootstrap state so both parties see explain-back phase immediately.
+  // In production, bootstrapLetterSourcedSession() writes this from handleCreate().
+  // Fixture bypasses handleCreate, so we write the equivalent state directly.
+  const bootstrapLiveState = {
+    checksCount: 0,
+    ratingPhase: 'explain-back',
+    checkerRating: opts.speakerRating ?? 7,
+    responderRating: opts.listenerRating ?? 4,
+    checkerIsCreator: true,
+    checkerSubmitted: true,
+    responderSubmitted: true,
+    selectedStoryId: story.id,
+  };
   const sessionCode = generateSessionCode();
   const { data: session, error: sessionError } = await supabaseAdmin
     .from('clarity_sessions')
@@ -173,7 +198,7 @@ export async function createLetterSessionFixture(
       source_letter_id: letter.id,
       source_story_id: story.id,
       target_listener_id: listener.user.id,
-      live_state: { checksCount: 0 },
+      live_state: bootstrapLiveState,
       last_activity_at: new Date().toISOString(),
     })
     .select('id, code')
@@ -195,6 +220,7 @@ export async function createLetterSessionFixture(
     sessionCode: session.code,
     inviteId: invite.id,
     letterId: letter.id,
+    deliveryId: delivery.id,
     storyId: story.id,
     docId: doc.id,
     authorId: author.user.id,

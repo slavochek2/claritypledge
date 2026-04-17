@@ -111,9 +111,16 @@ export async function createTestDelivery(
     receiverProfileId?: string;
     status?: 'sent' | 'opened' | 'in_progress' | 'completed';
     invitationExpiresAt?: string;
+    completedAt?: string;
   } = {}
 ): Promise<TestDelivery> {
   console.log(`[TEST HELPER] Creating test delivery for letter: ${letterId}`);
+
+  const status = options.status ?? 'sent';
+  // completed_at_status_sync constraint: completed_at IS NULL iff status != 'completed'
+  const completedAt = status === 'completed'
+    ? (options.completedAt ?? new Date().toISOString())
+    : null;
 
   const { data, error } = await supabaseAdmin
     .from('letter_deliveries')
@@ -121,7 +128,8 @@ export async function createTestDelivery(
       letter_id: letterId,
       receiver_email: options.receiverEmail ?? null,
       receiver_profile_id: options.receiverProfileId ?? null,
-      status: options.status ?? 'sent',
+      status,
+      ...(completedAt && { completed_at: completedAt }),
       ...(options.invitationExpiresAt && {
         invitation_expires_at: options.invitationExpiresAt,
       }),
@@ -302,11 +310,49 @@ export async function createFullTestLetter(
   // 1. Create the letter
   const letter = await createTestLetter(senderId, sourceDocId, { mode });
 
-  // 2. Create story snapshots
+  // 2. Create story snapshots — populate point_config with story content + linked points
   for (let i = 0; i < stories.length; i++) {
     const s = stories[i];
+
+    // Fetch story content for point_config.storyTitle / storyText
+    const { data: storyData, error: storyError } = await supabaseAdmin
+      .from('stories')
+      .select('title, content')
+      .eq('id', s.storyId)
+      .single();
+    if (storyError) console.warn(`[TEST HELPER] story fetch warning for ${s.storyId}:`, storyError.message);
+
+    // Fetch linked points for point_config.points (two queries to avoid PostgREST join issues)
+    const { data: storyPointRows } = await supabaseAdmin
+      .from('story_points')
+      .select('point_id')
+      .eq('story_id', s.storyId);
+
+    const linkedPointIds = (storyPointRows ?? []).map((sp) => sp.point_id as string);
+    let configPoints: Array<{ id: string; text: string; authorPosition: null }> = [];
+
+    if (linkedPointIds.length > 0) {
+      const { data: pointRows } = await supabaseAdmin
+        .from('points')
+        .select('id, statement')
+        .in('id', linkedPointIds);
+      configPoints = (pointRows ?? []).map((p) => ({
+        id: p.id as string,
+        text: p.statement as string,
+        authorPosition: null,
+      }));
+    }
+
+
+    const pointConfig = {
+      storyTitle: storyData?.title,
+      storyText: storyData?.content,
+      points: configPoints,
+    };
+
     await createTestStorySnapshot(letter.id, s.storyId, s.versionId, {
       position: s.position ?? i,
+      pointConfig,
     });
   }
 

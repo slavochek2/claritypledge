@@ -795,7 +795,19 @@ function mapSessionFromDb(dbSession: DbClaritySession): ClaritySession {
     isPrivate: dbSession.is_private ?? false,
     // P511: Last heartbeat timestamp (for zombie session detection)
     lastActivityAt: dbSession.last_activity_at ?? null,
+    // P703: Letter-sourced session fields
+    sourceLetterId: dbSession.source_letter_id ?? null,
+    sourceStoryId: dbSession.source_story_id ?? null,
+    targetListenerId: dbSession.target_listener_id ?? null,
+    status: dbSession.status ?? null,
   };
+}
+
+/** P703: Optional letter-sourced fields for createClaritySession. */
+export interface LetterSessionOpts {
+  sourceLetterId: string;
+  sourceStoryId: string;
+  targetListenerId: string;
 }
 
 /**
@@ -804,13 +816,15 @@ function mapSessionFromDb(dbSession: DbClaritySession): ClaritySession {
  * @param creatorProfileId - Optional profile ID of the authenticated creator
  * @param isPrivate - When true, session skips audio/events upload for ML training
  * @param creatorNote - Optional note explaining why the partner is being invited
+ * @param letterOpts - P703: Letter-sourced session opts (pre-loaded /live)
  * @returns The created session
  */
 export async function createClaritySession(
   creatorName: string,
   creatorProfileId?: string,
   isPrivate = false,
-  creatorNote?: string
+  creatorNote?: string,
+  letterOpts?: LetterSessionOpts
 ): Promise<ClaritySession> {
   // Generate unique room code (retry if collision)
   let code = generateRoomCode();
@@ -818,6 +832,13 @@ export async function createClaritySession(
   const maxAttempts = 5;
 
   while (attempts < maxAttempts) {
+    const letterFields = letterOpts
+      ? {
+          source_letter_id: letterOpts.sourceLetterId,
+          source_story_id: letterOpts.sourceStoryId,
+          target_listener_id: letterOpts.targetListenerId,
+        }
+      : {};
     const { data, error } = await supabase
       .from('clarity_sessions')
       .insert({
@@ -829,6 +850,7 @@ export async function createClaritySession(
         demo_status: 'waiting',
         partnership_status: 'pending',
         is_private: isPrivate,
+        ...letterFields,
       })
       .select()
       .single();
@@ -3816,4 +3838,337 @@ export async function createTranscriptionJob(_sessionCode: string, sessionId: st
     // Don't throw — transcription job creation failure shouldn't block session end
     console.error('[Transcription API] Error creating transcription job:', error);
   }
+}
+
+// ============================================================================
+// P703: Letter-sourced /live API functions
+// ============================================================================
+
+export interface LiveInviteRecord {
+  id: string;
+  sessionId: string;
+  code: string;
+  targetUserId: string;
+  createdAt: string;
+  closedAt: string | null;
+  authorName: string;
+  storyTitle: string;
+}
+
+export interface BaselineRatings {
+  speakerRating: number | null;
+  listenerRating: number | null;
+}
+
+/**
+ * Inserts a clarity_live_invites row for the target listener.
+ * Returns the invite id.
+ */
+export async function createLiveInvite(
+  sessionId: string,
+  targetUserId: string
+): Promise<string> {
+  const { data, error } = await supabase
+    .from('clarity_live_invites')
+    .insert({ session_id: sessionId, target_user_id: targetUserId })
+    .select('id')
+    .single();
+  if (error || !data) {
+    console.error('[P703] Error creating live invite:', error?.message);
+    throw new Error(error?.message || 'Failed to create live invite');
+  }
+  return data.id;
+}
+
+/**
+ * Fetches the current user's open live invite (if any).
+ * Returns null if no open invite.
+ */
+export async function getOpenLiveInviteForUser(
+  userId: string
+): Promise<LiveInviteRecord | null> {
+  const { data, error } = await supabase
+    .from('clarity_live_invites')
+    .select(
+      'id, session_id, target_user_id, created_at, closed_at, clarity_sessions(code, creator_name, stories!clarity_sessions_source_story_id_fkey(content))'
+    )
+    .eq('target_user_id', userId)
+    .is('closed_at', null)
+    .limit(1)
+    .maybeSingle();
+  if (error || !data) return null;
+  const sessionData = data.clarity_sessions as {
+    code: string;
+    creator_name: string | null;
+    stories: { content: string } | null;
+  } | null;
+  const rawStoryContent = sessionData?.stories?.content ?? '';
+  const storyTitle = rawStoryContent ? rawStoryContent.split('\n')[0].substring(0, 60) : '';
+  return {
+    id: data.id,
+    sessionId: data.session_id,
+    code: sessionData?.code ?? '',
+    targetUserId: data.target_user_id,
+    createdAt: data.created_at,
+    closedAt: data.closed_at ?? null,
+    authorName: sessionData?.creator_name ?? '',
+    storyTitle,
+  };
+}
+
+/**
+ * Fetches baseline ratings for a letter-sourced /live session (AD3).
+ * Returns { speakerRating, listenerRating } or null if either row is missing.
+ *
+ * speakerRating ← letter_predictions.prediction
+ * listenerRating ← story_verifications.listener_rating (source='letter')
+ */
+export async function getLetterBaselineRatings(
+  sourceLetterId: string,
+  sourceStoryId: string,
+  senderId: string,
+  receiverId: string
+): Promise<BaselineRatings | null> {
+  const [predictionsResult, verificationsResult] = await Promise.all([
+    supabase
+      .from('letter_predictions')
+      .select('prediction')
+      .eq('letter_id', sourceLetterId)
+      .eq('story_id', sourceStoryId)
+      .limit(1),
+    supabase
+      .from('story_verifications')
+      .select('listener_rating')
+      .eq('story_id', sourceStoryId)
+      .eq('source', 'letter')
+      .eq('speaker_id', senderId)
+      .eq('listener_id', receiverId)
+      .limit(1),
+  ]);
+
+  const predictionRow = predictionsResult.data?.[0];
+  const verificationRow = verificationsResult.data?.[0];
+
+  if (!predictionRow || !verificationRow) return null;
+
+  return {
+    speakerRating: predictionRow.prediction ?? null,
+    listenerRating: verificationRow.listener_rating ?? null,
+  };
+}
+
+// ─── Live invite channel registry ────────────────────────────────────────────
+// Multiple components (nav, letters-page) each call useOpenLiveInvite(), which
+// calls subscribeToLiveInvites(). If each call created its own channel and called
+// .subscribe(), the second .subscribe() on the same-named channel would throw
+// (channel is already in JOINING state) → CHANNEL_ERROR. We avoid this by
+// keeping a single channel per userId and multiplexing all callbacks through it.
+type InviteHandler = {
+  onInsert: (payload: Record<string, unknown>) => void;
+  onUpdate: (payload: Record<string, unknown>) => void;
+};
+
+const liveInviteChannels = new Map<
+  string,
+  { channel: ReturnType<(typeof supabase)['channel']>; handlers: InviteHandler[] }
+>();
+
+/**
+ * Subscribes to the current user's live invites via Supabase realtime (AD4).
+ * Fires onInsert for new invites and onUpdate for closed invites.
+ * Returns an unsubscribe function.
+ *
+ * Channel is ref-counted per userId: only one Supabase channel is created per
+ * user regardless of how many components call this. Removed when the last
+ * subscriber unsubscribes.
+ *
+ * UPDATE events require REPLICA IDENTITY FULL on clarity_live_invites.
+ * Applied by migration 20260415140000_p703_invites_replica_identity.sql.
+ */
+export function subscribeToLiveInvites(
+  userId: string,
+  onInsert: (payload: Record<string, unknown>) => void,
+  onUpdate: (payload: Record<string, unknown>) => void
+): () => void {
+  let entry = liveInviteChannels.get(userId);
+
+  if (!entry) {
+    const handlers: InviteHandler[] = [];
+    const channel = supabase
+      .channel(`live_invites:${userId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'clarity_live_invites',
+          filter: `target_user_id=eq.${userId}`,
+        },
+        (payload) => {
+          if (payload.new) {
+            const raw = payload.new as Record<string, unknown>;
+            handlers.forEach((h) => h.onInsert(raw));
+          }
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'clarity_live_invites',
+          filter: `target_user_id=eq.${userId}`,
+        },
+        (payload) => {
+          if (payload.new) {
+            const raw = payload.new as Record<string, unknown>;
+            handlers.forEach((h) => h.onUpdate(raw));
+          }
+        }
+      )
+      .subscribe((status) => {
+        // Log errors and timeouts; suppress SUBSCRIBED/CLOSED noise in production
+        if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+          console.warn(`[live_invites_sub] ${status} for user ${userId}`);
+        }
+      });
+
+    entry = { channel, handlers };
+    liveInviteChannels.set(userId, entry);
+  }
+
+  const handler: InviteHandler = { onInsert, onUpdate };
+  entry.handlers.push(handler);
+
+  return () => {
+    if (!entry) return;
+    // Splice in-place so channel callbacks (which close over the same array reference)
+    // immediately stop seeing this handler. filter+reassign would create a new array and
+    // break the closure — removed handlers would still fire, new pushes would be invisible.
+    const idx = entry.handlers.indexOf(handler);
+    if (idx >= 0) entry.handlers.splice(idx, 1);
+    if (entry.handlers.length === 0) {
+      supabase.removeChannel(entry.channel);
+      liveInviteChannels.delete(userId);
+    }
+  };
+}
+
+/**
+ * Bumps updated_at on the open invite to re-ping the recipient's realtime channel.
+ * Server-side trigger enforces a 30-second rate limit between resends.
+ */
+export async function resendLiveInvite(sessionId: string): Promise<void> {
+  const { error } = await supabase
+    .from('clarity_live_invites')
+    .update({ updated_at: new Date().toISOString() })
+    .eq('session_id', sessionId)
+    .is('closed_at', null);
+  if (error) {
+    throw new Error(error.message || 'Failed to resend invite');
+  }
+}
+
+/**
+ * P703: Returns true if an open (closed_at IS NULL) invite exists for the given receiver.
+ * Used by StartClaritySessionButton to disable the button when an invite is already pending.
+ * RLS allows the session creator to see their own invites.
+ */
+export async function checkOpenInviteForReceiver(receiverId: string): Promise<boolean> {
+  const { data } = await supabase
+    .from('clarity_live_invites')
+    .select('id')
+    .eq('target_user_id', receiverId)
+    .is('closed_at', null)
+    .limit(1);
+  return (data?.length ?? 0) > 0;
+}
+
+export interface OpenInviteDetails {
+  sessionId: string;
+  code: string;
+}
+
+/**
+ * P735: Returns the open invite (closed_at IS NULL) for a given receiver,
+ * including the joined session code. Used by StartClaritySessionButton to
+ * render Rejoin + End instead of a disabled Start.
+ *
+ * RLS: Visible to the session creator via live_invites_creator_select policy.
+ * Returns null for unauthenticated callers, non-creators, or when no open invite exists.
+ */
+export async function getOpenInviteForSender(
+  receiverId: string
+): Promise<OpenInviteDetails | null> {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return null;
+
+  const { data, error } = await supabase
+    .from('clarity_live_invites')
+    .select('session_id, clarity_sessions!inner(code)')
+    .eq('target_user_id', receiverId)
+    .is('closed_at', null)
+    .maybeSingle();
+
+  if (error) {
+    console.warn('[P735] getOpenInviteForSender:', error.message);
+    return null;
+  }
+  if (!data) return null;
+
+  const sessions = data.clarity_sessions as
+    | { code: string }
+    | { code: string }[]
+    | null;
+  if (!sessions) return null;
+  const sessionData = Array.isArray(sessions) ? sessions[0] : sessions;
+  if (!sessionData?.code) return null;
+
+  return { sessionId: data.session_id, code: sessionData.code };
+}
+
+/**
+ * Closes the invite for a session without completing the session itself.
+ * Used when the facilitator cancels the room before the listener joins.
+ */
+export async function cancelLiveInvite(sessionId: string): Promise<void> {
+  const { error } = await supabase
+    .from('clarity_live_invites')
+    .update({ closed_at: new Date().toISOString() })
+    .eq('session_id', sessionId)
+    .is('closed_at', null);
+  if (error) {
+    throw error;
+  }
+}
+
+/**
+ * Atomically marks the session completed and closes linked invite (AD5).
+ */
+export async function completeClaritySession(sessionId: string): Promise<void> {
+  const { error } = await supabase.rpc('complete_clarity_session', {
+    p_session_id: sessionId,
+  });
+  if (error) {
+    console.error('[P703] Error completing clarity session:', error?.message);
+    throw new Error(error?.message || 'Failed to complete session');
+  }
+}
+
+/**
+ * P703: Returns true if the session with the given code requires authentication
+ * before joining (i.e., it is letter-sourced with a target_listener_id).
+ * Callable by unauthenticated users — uses a SECURITY DEFINER RPC.
+ */
+export async function checkSessionRequiresAuth(code: string): Promise<boolean> {
+  const { data, error } = await supabase.rpc('check_session_requires_auth', {
+    p_code: code,
+  });
+  if (error) {
+    console.warn('[P703] check_session_requires_auth error:', error?.message);
+    return false; // Fail open: don't block public sessions on RPC error
+  }
+  return !!data;
 }

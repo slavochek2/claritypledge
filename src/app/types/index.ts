@@ -152,6 +152,11 @@ export interface ClaritySession {
   isPrivate?: boolean;
   // P511: Last heartbeat timestamp (for zombie session detection)
   lastActivityAt?: string | null;
+  // P703: Letter-sourced session fields
+  sourceLetterId?: string | null;
+  sourceStoryId?: string | null;
+  targetListenerId?: string | null;
+  status?: string | null;
 }
 
 export interface ClaritySessionState {
@@ -184,6 +189,11 @@ export interface DbClaritySession {
   is_private?: boolean;
   // P511: Last heartbeat timestamp
   last_activity_at?: string | null;
+  // P703: Letter-sourced session fields
+  source_letter_id?: string | null;
+  source_story_id?: string | null;
+  target_listener_id?: string | null;
+  status?: string | null;
 }
 
 // ============================================================================
@@ -543,6 +553,7 @@ export type LiveStoryData = Pick<StoryWithAuthor,
     positionCounts?: Record<string, number>;
     userPosition?: string | null;
     profileSubjectPosition?: string | null;
+    visibility?: string; // P681: optional because old live_state JSON lacks it
   }>;
   createdAt?: string;
 };
@@ -1073,7 +1084,7 @@ export interface Point {
   tags: string[];
   systemTags: string[]; // P630: System tags (st-group, version, category)
   bannerUrl?: string; // P504: AI-generated banner image
-  visibility?: ContentVisibility; // P586: public/private visibility
+  visibility: ContentVisibility; // P586: public/private visibility — REQUIRED (P681)
 }
 
 /** Point summary for embedding in other views */
@@ -1086,7 +1097,7 @@ export interface PointSummary {
   positionCounts?: Record<string, number>;
   userPosition?: PositionType | null;
   profileSubjectPosition?: PositionType | null;
-  visibility?: ContentVisibility; // P586: public/private visibility
+  visibility: ContentVisibility; // P586: public/private visibility — REQUIRED (P681)
 }
 
 /** Point with creator profile info */
@@ -1210,6 +1221,9 @@ export interface StoryVerification {
   listenerRating: number; // 0-10
   accuracyAchieved: boolean; // true if speakerRating >= 8
   createdAt: string;
+  source?: string; // default 'live'
+  verified?: boolean; // default true
+  sortOrder?: number | null;
 }
 
 /** Verification with profile info for display */
@@ -1320,6 +1334,8 @@ export interface DbDocStory {
 /** App-level doc type with computed fields */
 export interface ClarityDoc extends DbClarityDoc {
   story_count: number;
+  point_count: number;
+  has_sent_letters: boolean;
 }
 
 /** App-level doc story with resolved story data (includes linked points) */
@@ -1352,4 +1368,123 @@ export interface SessionTranscript {
 }
 
 export type TranscriptionJobStatus = 'pending' | 'processing' | 'completed' | 'failed' | null;
+
+// ============================================================================
+// CLARITY LETTERS TYPES (P581)
+// ============================================================================
+
+export type LetterStatus = 'draft' | 'sealed' | 'expired';
+export type DeliveryStatus = 'sent' | 'opened' | 'in_progress' | 'completed';
+export type LetterMode = 'one-to-one' | 'one-to-many';
+
+export interface ClarityLetter {
+  id: string;
+  source_doc_id: string;
+  sender_id: string;
+  sender_display_name?: string;
+  sender_slug?: string | null;
+  sender_avatar_url?: string;
+  sender_avatar_color?: string;
+  sender_has_pledged?: boolean;
+  mode: LetterMode;
+  status: LetterStatus;
+  sealed_at: string | null;
+  created_at: string;
+}
+
+export interface LetterDelivery {
+  id: string;
+  letter_id: string;
+  receiver_email: string | null;
+  receiver_profile_id: string | null;
+  receiver_name: string | null;
+  /** P725: public handle of the receiver profile (null when anonymous link_respondent) */
+  receiver_slug?: string | null;
+  invitation_token: string;
+  invitation_expires_at: string | null;
+  access_token_expires_at: string | null;
+  status: DeliveryStatus;
+  stories_rated: number;
+  opened_at: string | null;
+  completed_at: string | null;
+  read_at: string | null;
+  created_at: string;
+  /** P699 Phase 2: stories_rated + points_positioned (present when loaded via get_deliveries_with_progress) */
+  steps_completed?: number;
+  /** P699 Phase 2: total_stories + total_points (present when loaded via get_deliveries_with_progress) */
+  total_steps?: number;
+}
+
+/** P660: Inbox item — received letters + outgoing responses (UNION ALL) */
+export interface InboxItem {
+  type: 'received' | 'recipient_responded' | 'link_respondent' | 'recipient_in_progress' | 'link_respondent_in_progress';
+  delivery_id: string;
+  letter_id: string;
+  /** Title of the source doc/draft */
+  title: string;
+  /** Sender name (for received letters) or responder name (for responses) */
+  actor_name: string;
+  /** P725: public handle of the actor profile (null for anonymous link respondents) */
+  actor_slug?: string | null;
+  timestamp: string;
+  read_at: string | null;
+  /** P695: null for pending, ISO string when letter was completed by recipient */
+  completed_at: string | null;
+  /** P699: stories rated so far (received letters only, in-progress) */
+  stories_rated?: number;
+  /** P699: total stories in the letter (received letters only) */
+  total_stories?: number;
+  /** P699 Phase 2: stories_rated + points_positioned (received letters only) */
+  steps_completed?: number;
+  /** P699 Phase 2: total_stories + total_points (received letters only) */
+  total_steps?: number;
+}
+
+/** P699: Single story in the story walk — normalized for both sender and receiver */
+export interface StoryWalkItem {
+  /** story_id from snapshot */
+  storyId: string;
+  /** 0-based position in the letter */
+  position: number;
+  /** Snapshot data (point_config, visibility) */
+  snapshot: LetterStorySnapshot;
+  /** Sender prediction (always present for sender perspective; present for receiver after they rated) */
+  prediction: number | undefined;
+  /** Receiver rating (present only when receiver has rated this story) */
+  rating: number | undefined;
+  /** Gap = |prediction - rating|; undefined when either is missing */
+  gap: number | undefined;
+  /** Whether sender overestimated receiver's understanding (prediction > rating) */
+  isOverconfident: boolean;
+  /** Point responses for this story's points (indexed by point_id) */
+  receiverPositions: Map<string, PositionType>;
+  /** P705: Viewer's own live positions from point_positions (indexed by point_id) */
+  viewerPositions?: Map<string, PositionType>;
+}
+
+export interface LetterStorySnapshot {
+  letter_id: string;
+  story_id: string;
+  version_id: string;
+  position: number;
+  point_config: Record<string, unknown>;
+  visibility: string;
+}
+
+export interface LetterPrediction {
+  id: string;
+  letter_id: string;
+  delivery_id: string | null;
+  story_id: string;
+  prediction: number;
+  created_at: string;
+}
+
+export interface LetterPointResponse {
+  id: string;
+  delivery_id: string;
+  point_id: string;
+  position: string; // PositionType value
+  created_at: string;
+}
 

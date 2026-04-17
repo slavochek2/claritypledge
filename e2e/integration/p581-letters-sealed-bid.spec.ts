@@ -261,16 +261,26 @@ test.describe('P581: Sealed-bid guarantee — prediction visibility', () => {
 
   // ── 3. Receiver CAN see predictions after completing ──────────────────
 
-  test('receiver CAN query predictions after delivery status = completed', async () => {
-    // Transition to 'completed'
-    await supabaseAdmin
-      .from('letter_deliveries')
-      .update({
-        status: 'completed',
-        stories_rated: 1,
-        completed_at: new Date().toISOString(),
-      })
-      .eq('id', deliveryId);
+  test('receiver CAN query predictions after rating the story (per-story reveal)', async () => {
+    // Per AD3: receiver sees prediction for a specific story ONLY after they have rated it
+    // (matching story_verifications row with source='letter' exists)
+    // Insert a story_verifications row for this story+receiver (simulating the receiver rating)
+    const { error: verifyInsertError } = await supabaseAdmin
+      .from('story_verifications')
+      .insert({
+        story_id: storyId,
+        speaker_id: sender.user.id,
+        listener_id: receiver.user.id,
+        speaker_rating: 4,
+        listener_rating: 7,
+        source: 'letter',
+        verified: false,
+      });
+
+    if (verifyInsertError) {
+      console.error('VERIFY INSERT ERROR:', JSON.stringify(verifyInsertError));
+    }
+    expect(verifyInsertError).toBeNull();
 
     const receiverClient = makeUserClient(receiverToken);
 

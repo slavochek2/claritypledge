@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: qa
 type: bug
 rank: 1000715.0
 severity: high
@@ -82,10 +82,10 @@ const needsConsent = isEmailDelivery && !isAuthenticated;
 
 ## Acceptance Criteria
 
-- [ ] Public letter sent via email: TOS text shown on cover for unauthenticated recipient
-- [ ] Public letter sent via email: clicking "Open the Letter" calls `create-and-open-letter` and mints a session
+- [x] Public letter sent via email: TOS text shown on cover for unauthenticated recipient
+- [x] Public letter sent via email: clicking "Open the Letter" calls `create-and-open-letter` and mints a session
 - [ ] Public letter sent via email: recipient engages letter without being redirected to "Save your responses"
 - [ ] Public letter sent via email: sender sees delivery arriving in inbox with "in progress" step count
-- [ ] Public letter accessed via anonymous link (no token): unchanged behavior (bufferOnly → save responses)
-- [ ] Private letter email delivery: unchanged behavior (already working)
-- [ ] `npm test` passes with no new failures
+- [x] Public letter accessed via anonymous link (no token): unchanged behavior (bufferOnly → save responses)
+- [x] Private letter email delivery: unchanged behavior (already working)
+- [x] `npm test` passes with no new failures

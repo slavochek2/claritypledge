@@ -2,7 +2,7 @@
 id: p697
 title: Sender avatar missing when recipient reads a letter
 type: bug
-status: in-progress
+status: qa
 severity: medium
 delivery_stage: fix
 pipeline_ran: [fix]

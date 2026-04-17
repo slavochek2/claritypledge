@@ -300,11 +300,15 @@ test.describe('P581: Letter Completion — summary + sender results', () => {
     await page.goto(`/d/${docId}`);
     await page.waitForLoadState('networkidle');
 
-    // Should show completion status indicator
-    const statusIndicator = page.locator(
-      `text=/completed|${receiver.name}|✓/i`
-    ).first();
-    await expect(statusIndicator).toBeVisible({ timeout: 10000 });
+    // Letters tab navigates to /letters/ page — check it shows the doc's letter
+    const lettersTab = page.getByRole('button', { name: /letters/i }).first();
+    await expect(lettersTab).toBeVisible({ timeout: 10000 });
+    await lettersTab.click();
+
+    // On the Letters page, the doc title should be visible in the Sent tab
+    await expect(
+      page.locator('text=Completion Test Doc')
+    ).toBeVisible({ timeout: 10000 });
   });
 });
 

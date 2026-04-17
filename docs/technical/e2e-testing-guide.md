@@ -417,6 +417,11 @@ test('authenticated user can access /live', async ({ browser }) => {
 - `createTestUser()` — tests that only need DB-level user setup (no browser)
 - `createAuthClientForUser(email)` — tests that need to call a Supabase RPC as a specific authenticated user (non-browser). See `e2e/p523-point-creation-responses.spec.ts` lines 401–416 for the full implementation (signs in with `test-password-12345`, returns a client with the JWT set in headers).
 
+**Never use admin-generated magic links to simulate auth in PKCE mode.**
+`supabaseAdmin.auth.admin.generateLink({ type: 'magiclink' })` generates a token tied to a different PKCE challenge than the one the browser stored from any prior `signInWithOtp` call. Navigating to the admin link results in "Link Expired or Invalid" — the code exchange fails because `code_verifier` doesn't match.
+
+Use `setTestSession()` instead. It uses password-based auth (no PKCE), injects the session directly into localStorage, and works reliably across all confirm/callback flows.
+
 ---
 
 ### Multi-User Tests

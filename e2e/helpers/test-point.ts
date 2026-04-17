@@ -30,20 +30,35 @@ export interface TestPosition {
   position: 'agree' | 'disagree' | 'unsure' | null;
 }
 
+type PointOptions = {
+  statement?: string;
+  context?: string;
+  tags?: string[];
+  visibility?: 'public' | 'private';
+};
+
 /**
- * Creates a test point in the database
- * @param firstValidatorId - User ID of the first validator (must be verified user)
- * @param options - Optional overrides for point properties
+ * Creates a test point in the database.
+ * Supports two call signatures:
+ *   createTestPoint(firstValidatorId, options?)
+ *   createTestPoint(firstValidatorId, storyId, options?) — also links point to story
  */
 export async function createTestPoint(
   firstValidatorId: string,
-  options: {
-    statement?: string;
-    context?: string;
-    tags?: string[];
-    visibility?: 'public' | 'private';
-  } = {}
+  storyIdOrOptions?: string | PointOptions,
+  extraOptions?: PointOptions
 ): Promise<TestPoint> {
+  let storyId: string | undefined;
+  let options: PointOptions;
+
+  if (typeof storyIdOrOptions === 'string') {
+    storyId = storyIdOrOptions;
+    options = extraOptions ?? {};
+  } else {
+    storyId = undefined;
+    options = storyIdOrOptions ?? {};
+  }
+
   const statement = options.statement || `E2E Test Point: ${Date.now()}`;
   const context = options.context || 'Testing point functionality';
   const tags = options.tags || ['test'];
@@ -68,6 +83,22 @@ export async function createTestPoint(
   }
 
   console.log(`[TEST HELPER] Test point created: ${data.id}`);
+
+  // If storyId provided, link the point to the story
+  if (storyId) {
+    const { error: linkError } = await supabaseAdmin
+      .from('story_points')
+      .insert({
+        story_id: storyId,
+        point_id: data.id,
+        author_id: firstValidatorId,
+      });
+    if (linkError) {
+      console.error('[TEST HELPER] Failed to link point to story:', linkError);
+      throw new Error(`Failed to link point to story: ${linkError.message}`);
+    }
+    console.log(`[TEST HELPER] Point linked to story: ${storyId}`);
+  }
 
   return {
     id: data.id,

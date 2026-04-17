@@ -40,6 +40,7 @@ function makeStory(overrides: {
         tags: [],
         userPosition: overrides.userPosition ?? null,
         profileSubjectPosition: overrides.profileSubjectPosition ?? null,
+        visibility: 'public',
       },
     ],
   } as StoryWithPoints;
@@ -89,13 +90,13 @@ describe('P490: Guest position CTA in LiveStoryCardExpanded', () => {
   });
 
   describe('Authenticated user (isGuest=false or undefined)', () => {
-    it('shows "Add your story" CTA when position is set', () => {
+    it('does NOT show "Add your story" CTA (P733: CTA removed from PointRow)', () => {
       renderCard({
         story: makeStory({ userPosition: 'agree' }),
         isGuest: false,
       });
 
-      expect(screen.getByText(/Add your story/i)).toBeInTheDocument();
+      expect(screen.queryByText(/Add your story/i)).not.toBeInTheDocument();
     });
 
     it('hides CTA on own story (isOwnStory=true)', () => {
@@ -115,7 +116,8 @@ describe('P490: Guest position CTA in LiveStoryCardExpanded', () => {
         // isGuest not passed — should default to false
       });
 
-      expect(screen.getByText(/Add your story/i)).toBeInTheDocument();
+      // P733: CTA removed — no "Add your story" text anywhere
+      expect(screen.queryByText(/Add your story/i)).not.toBeInTheDocument();
       expect(screen.queryByText(/sign up to save/i)).not.toBeInTheDocument();
     });
   });

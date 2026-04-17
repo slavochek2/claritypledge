@@ -3,7 +3,7 @@
  * @description P665: Letter Routes — Chrome-Free + Preview Reuses Reading Components
  *
  * Tests the two core changes:
- * 1. Preview page reuses LetterStoryReader (not LiveStoryCardExpanded) with previewMode
+ * 1. Preview page composes /live components (P673: LiveStoryCardExpanded + Drawer + GapBanner)
  * 2. Letter routes are chrome-free (no top nav, no bottom nav)
  *
  * Uses authenticated sender session for preview tests.
@@ -110,22 +110,16 @@ test.describe('P665: Letter Routes — Chrome-Free + Preview Reuses Reading Comp
   });
 
   // ========================================================================
-  // AC1: Preview page renders LetterStoryReader with previewMode: true
+  // AC1: Preview page renders /live components (P673)
   // ========================================================================
 
-  test('AC1: preview page uses LetterStoryReader (not LiveStoryCardExpanded)', async ({ page }) => {
+  test('AC1: preview page uses /live components (LiveStoryCardExpanded)', async ({ page }) => {
     await setTestSession(page, sender.email);
     await page.goto(`/letter/${docId}/preview`);
     await page.waitForLoadState('networkidle');
 
-    // LetterStoryReader renders phase-based UI (anti-point, story, rate, etc.)
-    // LiveStoryCardExpanded uses data-testid="live-story-card-expanded"
-    // After P665, preview should NOT have LiveStoryCardExpanded
-    const liveStoryCard = page.locator('[data-testid="live-story-card-expanded"]');
-    await expect(liveStoryCard).not.toBeVisible({ timeout: 5000 });
-
-    // Preview should show story content through LetterStoryReader's phase UI
-    // which includes story text and phase-appropriate controls
+    // P673: Preview now composes LiveStoryCardExpanded (with hidePoints)
+    // Preview banner must be visible
     await expect(
       page.locator('text=THIS IS A PREVIEW')
     ).toBeVisible({ timeout: 10000 });
@@ -140,15 +134,9 @@ test.describe('P665: Letter Routes — Chrome-Free + Preview Reuses Reading Comp
     await page.goto(`/letter/${docId}/preview`);
     await page.waitForLoadState('networkidle');
 
-    // CertificatePageShell with parchment prop applies a distinctive background
-    // Check for the parchment-related CSS class or background style
-    const shell = page.locator('[data-testid="certificate-page-shell"]')
-      .or(page.locator('.bg-amber-50\\/30'))
-      .or(page.locator('[class*="parchment"]'))
-      .or(page.locator('[class*="certificate"]'));
-
-    // The parchment shell or a styled main element should be present
-    await expect(shell.or(page.locator('main').first())).toBeVisible({ timeout: 10000 });
+    // CertificatePageShell with parchment prop applies data-testid and bg-[#F5F3EF]
+    const shell = page.locator('[data-testid="certificate-page-shell"]');
+    await expect(shell).toBeVisible({ timeout: 10000 });
   });
 
   // ========================================================================
@@ -161,14 +149,14 @@ test.describe('P665: Letter Routes — Chrome-Free + Preview Reuses Reading Comp
     await page.waitForLoadState('networkidle');
 
     // Wait for some interactive element to appear (rating buttons or position buttons)
-    // LetterStoryReader shows different phases — the first phase may be anti-point or story
+    // P673: phase-based flow — the first phase may be point-engage or story-rate
     const interactiveElement = page.locator('button').filter({ hasText: /agree|disagree|unsure/i })
       .or(page.locator('[data-testid*="rating"] button'))
       .or(page.locator('[role="group"] button'));
 
     // Navigate through story phases until rating buttons appear
     // (may need to advance through anti-point and story phases first)
-    const advanceButton = page.locator('button').filter({ hasText: /continue|read this story|next/i });
+    const advanceButton = page.locator('button').filter({ hasText: /continue|submit|next/i });
     for (let attempt = 0; attempt < 5; attempt++) {
       const ratingVisible = await interactiveElement.first().isVisible().catch(() => false);
       if (ratingVisible) break;
@@ -186,20 +174,13 @@ test.describe('P665: Letter Routes — Chrome-Free + Preview Reuses Reading Comp
       }
     }
 
-    // Check no story_verifications were created for this story in preview
-    const { data: verifications } = await supabaseAdmin
-      .from('story_verifications')
-      .select('id')
-      .eq('story_id', storyIds[0])
-      .eq('source', 'letter');
-
-    // Filter to only those created by sender (preview) — should be zero
-    // since preview mode should not write to DB
-    const senderVerifications = verifications?.filter(() => true) ?? [];
-    // Note: We check that no NEW verifications were created.
-    // The exact count depends on whether other tests created data,
-    // so we snapshot before and compare after.
-    const countBefore = senderVerifications.length;
+    // Snapshot letter_predictions count BEFORE clicking rating
+    // Preview uses synthetic delivery ID "preview-{docId}" which has no FK row,
+    // so DB writes would fail at constraint level.
+    const { count: predBefore } = await supabaseAdmin
+      .from('letter_predictions')
+      .select('*', { count: 'exact', head: true })
+      .eq('story_id', storyIds[0]);
 
     // Try clicking a rating if visible
     const ratingBtn = page.locator('[data-testid*="rating"] button, [role="group"] button').first();
@@ -209,14 +190,13 @@ test.describe('P665: Letter Routes — Chrome-Free + Preview Reuses Reading Comp
       await page.waitForTimeout(1000);
     }
 
-    // Verify no NEW verification rows were created
-    const { data: verificationsAfter } = await supabaseAdmin
-      .from('story_verifications')
-      .select('id')
-      .eq('story_id', storyIds[0])
-      .eq('source', 'letter');
+    // Verify no NEW prediction or response rows were created
+    const { count: predAfter } = await supabaseAdmin
+      .from('letter_predictions')
+      .select('*', { count: 'exact', head: true })
+      .eq('story_id', storyIds[0]);
 
-    expect((verificationsAfter ?? []).length).toBe(countBefore);
+    expect(predAfter ?? 0).toBe(predBefore ?? 0);
   });
 
   // ========================================================================
@@ -358,7 +338,7 @@ test.describe('P665: Letter Routes — Chrome-Free + Preview Reuses Reading Comp
 
       // Try clicking advance buttons (Continue, I've read this story, Next story, etc.)
       const advanceBtn = page.locator('button').filter({
-        hasText: /continue|read this story|next story|complete letter/i,
+        hasText: /continue|submit|next story|complete letter/i,
       }).first();
       if (await advanceBtn.isVisible().catch(() => false)) {
         await advanceBtn.click();
@@ -427,13 +407,9 @@ test.describe('P665: Letter Routes — Chrome-Free + Preview Reuses Reading Comp
     ).toBeVisible({ timeout: 10000 });
 
     // Story content is still rendered (just via different component now)
+    // /live components shows story index text ("Story 1 of N") on the preview flow
     await expect(
-      page.locator('text=P665 Story 1').or(
-        page.locator('text=Immersive test story content 1')
-      ).or(
-        // LetterStoryReader may show phase content rather than story title
-        page.locator('text=/story 1 of/i')
-      )
+      page.locator('text=/story 1 of/i').first()
     ).toBeVisible({ timeout: 10000 });
   });
 
@@ -455,7 +431,7 @@ test.describe('P665: Letter Routes — Chrome-Free + Preview Reuses Reading Comp
     const liveStoryCard = page.locator('[data-testid="live-story-card-expanded"]');
     await expect(liveStoryCard).not.toBeVisible({ timeout: 3000 });
 
-    // The preview should render phase-based UI matching LetterStoryReader
+    // The preview should render phase-based UI matching /live components
     // which uses buttons like "Continue", "I've read this story", position buttons
     // These are the same controls as the reading page
     const phaseControls = page.locator('button').filter({

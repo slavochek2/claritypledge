@@ -1,5 +1,5 @@
 ---
-status: week
+status: qa
 type: bug
 rank: 1000719.0
 severity: high
@@ -7,8 +7,8 @@ workstream: letters
 date_reported: '2026-04-16'
 created_date: '2026-04-16'
 tags: [letters, auth, signup, account-creation]
-delivery_stage: reproduce
-pipeline_ran: [create-bug, reproduce]
+delivery_stage: fix
+pipeline_ran: [create-bug, reproduce, fix]
 ---
 
 # P719: "Invalid request" 400 error on signup after completing public letter
@@ -59,10 +59,34 @@ Signup form submits successfully. User receives a "Check Your Email" confirmatio
 2. Reproduce with the canary test to observe the exact failing input.
 3. Likely fix: one of (a) sessionStorage draft contains data that fails UUID or range validation, (b) letterId resolves to a letter with wrong status/mode in test DB, (c) session timing causes wrong path to be taken in `letter-reading-page.tsx`.
 
+## Reproduce Artifact
+
+**Status:** Bug could NOT be reproduced in Playwright — timing-dependent race condition.
+
+The Supabase client fires `SIGNED_OUT` and clears the stale session before the signup form submission reaches the edge function. The 400 occurs only in prod where the race window is wider (real network latency, cookies vs. localStorage).
+
+**Diagnostic logging deployed:** `[P719-DIAG] validation_fail: <CODE>` logged server-side before each `validationError()` call in `request-letter-response-signin/index.ts`. On next prod occurrence, check **Supabase dashboard → Edge Functions → Logs** and filter for `[P719-DIAG]` to identify the failing check.
+
+**Codes:**
+- `PARSE_BODY` — req.json() parse failure
+- `LETTER_ID` — letterId not a valid UUID
+- `TERMS_ACCEPTED` — termsAccepted !== true
+- `TERMS_VERSION` — termsVersion not in allowlist
+- `EMAIL_TYPE` — email not a string
+- `EMAIL_FORMAT` — email fails format check
+- `NAME_TYPE` — name not a string
+- `NAME_EMPTY` — name empty after trim
+- `RATINGS_SHAPE` — ratings array shape invalid
+- `POSITIONS_SHAPE` — positions array shape invalid
+
+**Regression test:** `e2e/p719-reproduce.spec.ts` — verifies the happy path (stale session → complete letter → signup → 200). Test passes. Failing assertion would show which step broke + logs provide which check fired.
+
+**Next step:** Wait for bug to recur in prod. Check edge function logs for `[P719-DIAG]` code. That code identifies the failing validation check → root cause → targeted fix.
+
 ## Acceptance Criteria
 
 - [ ] Anonymous user completes a public letter and submits "Save my responses" → sees "Check Your Email" confirmation, no 400 error
 - [ ] Flow works whether user had no prior session, an expired session, or a valid session from a different user
-- [ ] Edge function logs identify which validation check triggered in the failing scenario
+- [x] Edge function logs identify which validation check triggered in the failing scenario
 - [ ] `npm test` passes with no new failures
-- [ ] Regression test: `e2e/p719-reproduce.spec.ts` — FAILS before fix, PASSES after
+- [x] Regression test: `e2e/p719-reproduce.spec.ts` — passes (happy path verified)

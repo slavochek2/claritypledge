@@ -32,8 +32,8 @@ export function DocPrivacyBanner({ visibility, subtitle }: DocPrivacyBannerProps
             <Lock size={14} className="text-amber-600 flex-shrink-0" />
             <span className="text-amber-800 font-medium">PRIVATE</span>
             <span className="text-amber-700">
-              <span className="hidden sm:inline">&middot; Only you can see this Clarity Doc</span>
-              <span className="sm:hidden">&middot; Only you</span>
+              <span className="hidden sm:inline">&middot; Only people you share with can see this</span>
+              <span className="sm:hidden">&middot; Only people you share with can see this</span>
             </span>
           </>
         ) : (

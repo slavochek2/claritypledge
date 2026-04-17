@@ -1,13 +1,13 @@
 ---
-status: week
+status: qa
 type: story
 rank: 1000703.0
 tags: [letters, live, verification, practice-room, inbox, notifications]
 created_date: '2026-04-14'
 flow: dev
-delivery_stage: decompose
+delivery_stage: fix
 pipeline_plan: [create-spec, challenge-prd, architect, generate-tests, spec-review, decompose, dev, verify]
-pipeline_ran: [create-spec, challenge-prd, architect, generate-tests, spec-review, decompose]
+pipeline_ran: [create-spec, challenge-prd, architect, generate-tests, spec-review, decompose, dev, verify, fix, fix.2]
 uat_file: features/uat/p703.md
 test_files:
   - e2e/integration/p703-letter-sourced-live-migration.spec.ts
@@ -144,12 +144,12 @@ The invite reuses existing notification infrastructure:
 
 ## Acceptance Criteria
 
-- [ ] Facilitator can start a pre-loaded /live from any story card in P699 results walk
-- [ ] Remote listener receives and can act on the inbox invite from the same device they use for letters
-- [ ] /live never prompts for author prediction or listener self-assessment in a letter-sourced session
-- [ ] Verification outcome (understanding score, position) persists on `story_verifications` as normal
-- [ ] Cancelling the room before listener joins leaves no orphaned verification data
-- [ ] Works when listener is co-present (same room) and when listener is remote (different device)
+- [x] Facilitator can start a pre-loaded /live from any story card in P699 results walk
+- [x] Remote listener receives and can act on the inbox invite from the same device they use for letters
+- [x] /live never prompts for author prediction or listener self-assessment in a letter-sourced session
+- [x] Verification outcome (understanding score, position) persists on `story_verifications` as normal
+- [x] Cancelling the room before listener joins leaves no orphaned verification data
+- [x] Works when listener is co-present (same room) and when listener is remote (different device)
 
 ## UX Notes
 
@@ -470,7 +470,7 @@ Total automated: **43 tests**. Run time estimate: ~45s unit + ~90s integration +
 - **Tests:** `e2e/integration/p703-letter-sourced-live-migration.spec.ts` — canary for `letter_predictions` SELECT gate if policy is tightened
 - **Depends on:** nothing
 - **Verify:** Query `letter_predictions` RLS in Supabase; confirm speaker-always / listener-after-reveal gate is active or write it. Document result (tightened or confirmed-ok) in a comment at the top of the Step 1 migration.
-- [ ] Complete
+- [x] Complete
 
 ---
 
@@ -486,7 +486,7 @@ Total automated: **43 tests**. Run time estimate: ~45s unit + ~90s integration +
   - `mcp__supabase__list_tables` shows `clarity_live_invites`
   - `curl` GET on `clarity_live_invites` with no auth returns 0 rows (RLS gate active)
   - `mcp__supabase__list_tables` confirms `clarity_sessions` has `source_story_id`, `target_listener_id` columns
-- [ ] Complete
+- [x] Complete
 
 ---
 
@@ -498,7 +498,7 @@ Total automated: **43 tests**. Run time estimate: ~45s unit + ~90s integration +
 - **Tests:** `e2e/integration/p703-letter-sourced-live-migration.spec.ts` — cron coverage note: seed stale row, assert cron SQL would match it (does not invoke cron directly)
 - **Depends on:** Task 2 (table must exist before scheduling cron)
 - **Verify:** Migration runs clean on test DB; `pg_cron` job appears in `cron.job` table
-- [ ] Complete
+- [x] Complete
 
 ---
 
@@ -516,7 +516,7 @@ Total automated: **43 tests**. Run time estimate: ~45s unit + ~90s integration +
   - `getLetterBaselineRatings` returns `{ speakerRating, listenerRating }` from test fixture data seeded in migration spec
   - `createClaritySession` with letter opts inserts correct FK columns
   - TypeScript compiles with no errors on modified types
-- [ ] Complete
+- [x] Complete
 
 ---
 
@@ -529,7 +529,7 @@ Total automated: **43 tests**. Run time estimate: ~45s unit + ~90s integration +
   - `src/tests/p703-use-open-live-invite.test.ts` — all 6 unit tests
 - **Depends on:** Task 4 (`subscribeToLiveInvites` must exist in api.ts)
 - **Verify:** Hook returns `{ invite: null, loading: false }` when no open invite; returns correct shape when invite row seeded in test DB
-- [ ] Complete
+- [x] Complete
 
 ---
 
@@ -548,7 +548,7 @@ Total automated: **43 tests**. Run time estimate: ~45s unit + ~90s integration +
   - "Verifying: {story title} (from letter)" header visible to listener on first screen (UX note coverage)
   - End-session path routes through `completeClaritySession` for letter-sourced sessions
   - Paraphrase reveal guarded by `auth.uid() IN (creator_profile_id, target_listener_id)` client-side (defense-in-depth, Security §Data-2)
-- [ ] Complete
+- [x] Complete
 
 ---
 
@@ -568,7 +568,7 @@ Total automated: **43 tests**. Run time estimate: ~45s unit + ~90s integration +
   - Inbox row renders "{author name} invited you to verify **{story title}** — Join" above unread letters
   - Tapping Join navigates to `/live/<code>`
   - Badge decrements when `closed_at` is set (realtime update)
-- [ ] Complete
+- [x] Complete
 
 ---
 
@@ -594,7 +594,7 @@ Total automated: **43 tests**. Run time estimate: ~45s unit + ~90s integration +
   - Button "Start a clarity session" appears below story card for letter author only (not visible to receiver viewing own results)
   - Tapping: creates session with `source_letter_id`, `source_story_id`, `target_listener_id` populated; inserts `clarity_live_invites` row; navigates facilitator to `/live/<code>`
   - Button is disabled (tooltip "Invite already pending") when an open invite exists for this listener (unique partial index enforcement via client-side check on existing invite)
-- [ ] Complete
+- [x] Complete
 
 ---
 
@@ -606,7 +606,7 @@ Total automated: **43 tests**. Run time estimate: ~45s unit + ~90s integration +
 - **Tests:** none (doc task)
 - **Depends on:** Task 2 (confirmed column names from migration)
 - **Verify:** `clarity_live_invites` table documented; `clarity_sessions` entries for `source_story_id` and `target_listener_id` added; `complete_clarity_session` RPC noted
-- [ ] Complete
+- [x] Complete
 
 ---
 

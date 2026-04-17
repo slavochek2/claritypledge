@@ -227,7 +227,9 @@ test.describe('P581: Letter Reading — receiver experience', () => {
     await openBtn.click();
 
     // Progress bar with aria-label or visible text
-    const progressBar = page.locator('[aria-label*="Story"], text=/story.*of/i').first();
+    const progressBar = page.locator('[aria-label*="Story"]')
+      .or(page.locator('text=/story.*of/i'))
+      .first();
     await expect(progressBar).toBeVisible({ timeout: 10000 });
   });
 

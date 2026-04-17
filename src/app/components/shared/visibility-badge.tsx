@@ -19,7 +19,7 @@ const config: Record<StoryVisibility, {
   colorClassName: string;
 }> = {
   public: { icon: Globe, label: 'Public', description: 'Anyone can view this.', tooltip: 'Visible to everyone', labelClassName: 'text-muted-foreground bg-muted', colorClassName: 'text-muted-foreground' },
-  private: { icon: Lock, label: 'Private', description: 'Only people you explicitly share with can view this.', tooltip: 'Private — only you can see it', labelClassName: 'text-muted-foreground bg-muted', colorClassName: 'text-amber-600' },
+  private: { icon: Lock, label: 'Private', description: 'Only people you share with can see this.', tooltip: 'Only people you share with can see this.', labelClassName: 'text-muted-foreground bg-muted', colorClassName: 'text-amber-600' },
 };
 
 export function VisibilityBadge({ visibility, showLabel = false, size = 12 }: VisibilityBadgeProps) {

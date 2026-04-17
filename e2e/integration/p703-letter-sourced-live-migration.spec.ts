@@ -204,16 +204,24 @@ test.describe('P703 RLS canary (a) — non-recipient cannot UPDATE letter-source
     const token = await signIn(stranger.email);
     const strangerClient = makeUserClient(token);
 
-    const { error } = await strangerClient
+    // RLS USING clause silently blocks — no error is thrown, but 0 rows are updated.
+    // Verify by checking the row state: joiner_profile_id must still be null.
+    await strangerClient
       .from('clarity_sessions')
       .update({ joiner_name: 'Intruder', joiner_profile_id: stranger.user.id })
       .eq('id', sessionId!);
 
+    const { data: row } = await supabaseAdmin
+      .from('clarity_sessions')
+      .select('joiner_profile_id')
+      .eq('id', sessionId!)
+      .single();
+
     expect(
-      error,
+      row?.joiner_profile_id,
       `RLS-1 not enforced: stranger joined a letter-sourced session. ` +
       `target_listener_id predicate missing from UPDATE WITH CHECK.`
-    ).not.toBeNull();
+    ).toBeNull();
   });
 
   test('target listener CAN UPDATE the letter-sourced session (positive)', async () => {

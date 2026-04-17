@@ -60,6 +60,9 @@ function mapVerificationFromDb(row: {
   listener_rating: number;
   accuracy_achieved: boolean;
   created_at: string;
+  source?: string | null;
+  verified?: boolean | null;
+  sort_order?: number | null;
 }): StoryVerification {
   return {
     id: row.id,
@@ -72,6 +75,9 @@ function mapVerificationFromDb(row: {
     listenerRating: row.listener_rating,
     accuracyAchieved: row.accuracy_achieved,
     createdAt: row.created_at,
+    source: row.source ?? 'live',
+    verified: row.verified ?? true,
+    sortOrder: row.sort_order ?? null,
   };
 }
 

@@ -1,5 +1,5 @@
 ---
-status: week
+status: qa
 type: bug
 rank: 1000720.0
 severity: high
@@ -7,8 +7,8 @@ workstream: letters
 date_reported: '2026-04-16'
 created_date: '2026-04-16'
 tags: [letter-delivery, rpc, stories-rated, data-integrity]
-delivery_stage: create-bug
-pipeline_ran: [create-bug]
+delivery_stage: fix
+pipeline_ran: [create-bug, fix]
 ---
 
 # P721: stories_rated Guard Regression — inbox shows "9 of 8 steps"
@@ -56,8 +56,8 @@ The inbox displays "9 of 8 steps" for a letter because `submit_rating_by_token` 
 
 ## Acceptance Criteria
 
-- [ ] Submitting a rating twice for the same story does not increment `stories_rated` more than once
-- [ ] Inbox label never displays more steps completed than total steps (e.g., no "9 of 8 steps")
-- [ ] Existing dirty data repaired: affected deliveries show correct count after migration
-- [ ] Unit test: inbox label with `steps_completed: 9, total_steps: 8` renders as "8 of 8 steps"
-- [ ] No console errors during rating submission flow
+- [x] Submitting a rating twice for the same story does not increment `stories_rated` more than once
+- [x] Inbox label never displays more steps completed than total steps (e.g., no "9 of 8 steps")
+- [x] Existing dirty data repaired: affected deliveries show correct count after migration
+- [x] Unit test: inbox label with `steps_completed: 9, total_steps: 8` renders as "8 of 8 steps"
+- [x] No console errors during rating submission flow

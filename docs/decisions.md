@@ -2784,13 +2784,24 @@ If `UNION ALL`, old column names, or removed logic is visible — the migration 
 **Consequences:** Any future table with cross-referential RLS should follow this helper function pattern. Cost: two extra function calls per row-level check, but they're simple PK lookups.
 **References:** `supabase/migrations/20260403224331_p581_clarity_letters.sql`
 
-## 2026-04-04 [technical]: P581 Letters — forward-only positions in separate table
+## 2026-04-04 [technical]: P581 Letters — forward-only positions in separate table [SUPERSEDED by P705]
 
 **Context:** D50 specifies positions taken during letter reading cannot be revised. Existing `point_positions` table has UPDATE policies allowing any user to overwrite their own position.
 **Decision:** Created `letter_point_responses` as a separate table with INSERT-only RLS (no UPDATE policy). `UNIQUE(delivery_id, point_id)` prevents duplicates. Forward-only by design — no trigger or source-tag needed.
 **Alternatives rejected:** Adding `source` column + trigger to `point_positions` to reject updates where `source='letter'` — more complex, pollutes existing table, trigger maintenance burden.
 **Consequences:** Letter positions and /live positions are in different tables. Comparison views (P624 grid) will need to join both. Clean separation means each table's RLS is simple and independent.
 **References:** `supabase/migrations/20260403224331_p581_clarity_letters.sql`, `features/p581_letters_with_comprehension_assessment.md` (Security gap #5)
+**Superseded by:** P705 (see below). `letter_point_responses` retained as staging buffer; `point_positions` is now the live display store.
+
+## 2026-04-14 [technical]: P705 — Letter positions live everywhere (supersedes D50)
+
+**Context:** D50's two-table separation caused position buttons on `/letter/:id/results` to render disabled and empty. Root cause: `letter_point_responses` (INSERT-only, D50) and `point_positions` (live, editable) never synced. P699 UX expected filled buttons; the implementation had no data path for viewer's own position.
+**Decision:** Collapse letter-answer storage into `point_positions` as the single source of truth for displayed positions. `letter_point_responses` is retained as a **staging buffer** — always written on submit, but `point_positions` is the live display store read by the UI. Positions are state, not content; they are live and mutable everywhere (H2 model). Dual-write transition keeps `letter_point_responses` populated for rollback safety.
+**Write path:** (1) Auth+verified path: `submitPointResponse` writes `letter_point_responses` first, then upserts `point_positions` (RLS passes for verified users; silently fails for unverified, deferred to replay). (2) Anon/token path: `submit_point_response_by_token` SECURITY DEFINER RPC conditionally upserts `point_positions` when `receiver_profile_id IS NOT NULL AND is_verified = true`. (3) Registration/verification replay: `persist_anonymous_completion` extended to copy staged `letter_point_responses` into `point_positions` under the new user_id.
+**Read path:** `letter-results-page.tsx` fetches viewer's positions via `pointsService.getMyPositionsForPoints`; `injectUserPositions` sets `userPosition` on each point; `StoryWalk` removes `readOnly` and wires `onPositionSelect` to a live upsert handler.
+**Rollback:** Code-only — flip reads on results page back to `letter_point_responses`, restore `userPosition: null` in mapper, restore `readOnly` in `StoryWalk`. `letter_point_responses` stays populated throughout. Named revert trigger: receiver reports that a changed position caused confusion → surface `point_position_history` (separate spec; data already captured by `trg_position_history`).
+**Alternatives rejected:** (a) Keep D50 + hide buttons on results (badge-only) — loses per-point symmetry P699 designed. (b) Keep D50 + show frozen letter answer as read-only badge — adds a third UI pattern, too many concepts. (c) Drop `letter_point_responses` immediately — removes the staging safety net.
+**References:** `features/p705_letter_positions_live_everywhere.md`, `supabase/migrations/20260414000000_p705_dual_write_point_positions.sql`
 
 ## 2026-04-04 [technical]: Security audit follow-up — 4 remaining findings fixed, secret rotated
 

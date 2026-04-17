@@ -13,7 +13,7 @@ rank: 1000690.0
 created_date: 2026-04-12
 ---
 
-# P695: Fix nav clicks ignored during profile loading
+# P706: Fix nav clicks ignored during profile loading
 
 ## Bug Description
 

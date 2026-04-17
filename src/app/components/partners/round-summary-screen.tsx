@@ -7,7 +7,7 @@ import { useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { JourneyToUnderstanding } from './live-mode-view';
 import { LiveStoryCardExpanded } from './live-story-card-expanded';
-import type { SessionHistoryItem, LiveStoryData, StoryWithPoints, PointSummary, PositionType } from '@/app/types';
+import type { SessionHistoryItem, LiveStoryData, StoryWithPoints, PositionType, ContentVisibility } from '@/app/types';
 import { getFirstName } from './shared';
 
 interface RoundSummaryScreenProps {
@@ -38,7 +38,10 @@ function toStoryWithPoints(data: LiveStoryData): StoryWithPoints {
     authorRole: data.authorRole,
     authorEarsCount: data.authorEarsCount,
     authorHasPledged: data.authorHasPledged,
-    points: data.points as PointSummary[],
+    points: data.points.map(p => ({
+      ...p,
+      visibility: ((p.visibility ?? 'public') as ContentVisibility),
+    })),
   };
 }
 

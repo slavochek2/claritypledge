@@ -1,5 +1,4 @@
 ---
-status: week
 type: bug
 rank: 1000727.0
 severity: high
@@ -7,8 +6,9 @@ workstream: letters
 date_reported: '2026-04-16'
 created_date: '2026-04-16'
 tags: [letters, rpc, type-cast, prediction]
-delivery_stage: create-bug
-pipeline_ran: [create-bug]
+delivery_stage: fix
+pipeline_ran: [create-bug, fix]
+status: qa
 ---
 
 # P729: Sender's revealed prediction always shows "Not yet rated" after receiver rates story
@@ -64,6 +64,6 @@ return typeof data === 'number' ? { prediction: data } : null;
 ## Acceptance Criteria
 
 - [ ] Sender sees the numeric prediction value after receiver has rated — not "Not yet rated"
-- [ ] `prediction = 0` is shown correctly (not treated as falsy/null)
-- [ ] `revealPredictionByToken` behavior unchanged
-- [ ] Unit tests pass: `revealPrediction` returns `{ prediction: N }` for scalar N, `null` for null
+- [x] `prediction = 0` is shown correctly (not treated as falsy/null) — unit test passes
+- [x] `revealPredictionByToken` behavior unchanged — code untouched, RPC still returns JSONB
+- [x] Unit tests pass: `revealPrediction` returns `{ prediction: N }` for scalar N, `null` for null — `src/tests/p729-reveal-prediction-scalar.test.ts`

@@ -7,7 +7,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { FileText, Plus, Lock, Globe, MoreHorizontal, Trash2, Share2 } from 'lucide-react';
 import { toast } from 'sonner';
-import { ClarityPageLoader } from '@/components/ui/clarity-loader';
+import { ClarityPageLoader, ClarityLoader } from '@/components/ui/clarity-loader';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 import {
@@ -29,6 +29,7 @@ import { docsService } from '@/app/data/docs-service';
 import { InlineVisibilityIcon } from '@/app/components/shared/visibility-badge';
 import { formatTimeAgo } from '@/app/utils/format-time';
 import { ShareDialog } from '@/app/components/shared/ShareDialog';
+import { ReceivedLettersSection } from '@/app/components/letters/letters-section';
 import type { ClarityDoc, ContentVisibility } from '@/app/types';
 
 export function DocsListPage() {
@@ -134,7 +135,7 @@ export function DocsListPage() {
                 <Lock size={16} className="text-amber-600 flex-shrink-0" />
                 <div>
                   <div className="font-medium">Private Doc</div>
-                  <div className="text-xs text-muted-foreground">Only you can see this</div>
+                  <div className="text-xs text-muted-foreground">Only people you share with can see this</div>
                 </div>
               </button>
               <button
@@ -177,7 +178,7 @@ export function DocsListPage() {
                 <Lock size={16} className="text-amber-600 flex-shrink-0" />
                 <div>
                   <div className="font-medium">Private Doc</div>
-                  <div className="text-xs text-muted-foreground">Only you can see this</div>
+                  <div className="text-xs text-muted-foreground">Only people you share with can see this</div>
                 </div>
               </button>
               <button
@@ -198,7 +199,7 @@ export function DocsListPage() {
         {/* Loading state for fetch */}
         {fetchState === 'loading' && (
           <div className="flex justify-center py-12">
-            <ClarityPageLoader />
+            <ClarityLoader size="lg" />
           </div>
         )}
 
@@ -262,6 +263,13 @@ export function DocsListPage() {
                 </div>
               </div>
             ))}
+          </div>
+        )}
+
+        {/* P581: Received letters section */}
+        {user?.id && (
+          <div className="mt-8">
+            <ReceivedLettersSection userId={user.id} />
           </div>
         )}
       </div>

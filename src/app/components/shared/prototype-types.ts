@@ -54,5 +54,5 @@ export interface Point {
   createdAt: string;
   positions: Record<string, PositionEntry | null>;
   linkedStoryIds: string[];
-  visibility?: IdeaVisibility;
+  visibility: IdeaVisibility;
 }

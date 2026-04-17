@@ -1,11 +1,11 @@
 ---
-status: week
+status: in-progress
 type: story
 rank: 1000725.0
 created_date: '2026-04-17'
 tags: [letters, inbox, sent, results, reading, identity, profile, navigation]
-delivery_stage: spec-review
-pipeline_ran: [create-spec, architect, generate-tests, spec-review]
+delivery_stage: park
+pipeline_ran: [create-spec, architect, generate-tests, spec-review, dev, park]
 uat_file: features/uat/p725.md
 test_files:
   - e2e/integration/p725-db-migrations.spec.ts
@@ -100,53 +100,53 @@ Medium blast radius. Touches `inbox-tab.tsx`, `sent-tab.tsx`, the reading page, 
 ## Done-When
 
 ### Identity
-- [ ] `get_inbox_items` returns nullable `actor_slug` for all item types
-- [ ] Sent-tab fetch returns recipient `slug`
-- [ ] Inbox: registered actor names link to `/p/:slug`; `link_respondent` types render "Someone" plain text
-- [ ] Sent: recipient names link to profile when available; public-link letters show placeholder
-- [ ] Letter-reading page: author identity at top, linked when slug available
-- [ ] Results page: other-participant identity row renders regardless of position data
-- [ ] Results page: other-participant avatars on individual points link to profile
-- [ ] Correct role label on results: "Letter from [Name]" or "Letter to [Name]"
-- [ ] Public link letter with no deliveries: identity row shows "Public link letter" placeholder
-- [ ] Deleted profile: "Deleted user" plain text
+- [x] `get_inbox_items` returns nullable `actor_slug` for all item types
+- [x] Sent-tab fetch returns recipient `slug`
+- [x] Inbox: registered actor names link to `/p/:slug`; `link_respondent` types render "Someone" plain text
+- [x] Sent: recipient names link to profile when available; public-link letters show placeholder
+- [x] Letter-reading page: author identity at top, linked when slug available
+- [x] Results page: other-participant identity row renders regardless of position data
+- [ ] Results page: other-participant avatars on individual points link to profile — deferred (UAT-9 manual; requires PointRow slug plumbing, non-blocking)
+- [x] Correct role label on results: "Letter from [Name]" or "Letter to [Name]"
+- [x] Public link letter with no deliveries: identity row shows "Public link letter" placeholder
+- [ ] Deleted profile: "Deleted user" plain text — defensive only (FK blocks profile deletion in current schema; see Security Review)
 
 ### Navigation
-- [ ] Tab order is Inbox → Sent → Drafts; Inbox is default
-- [ ] "New draft" CTA visible on all three tabs
+- [x] Tab order is Inbox → Sent → Drafts; Inbox is default
+- [x] "New draft" CTA visible on all three tabs
 
 ### Quality
-- [ ] Name truncation applied (24 mobile / 40 desktop)
-- [ ] Progressive render: name shows immediately, avatar/link upgrades on profile load
-- [ ] Mobile (375px) and desktop (1280px) visual QA pass
-- [ ] Dark mode pass
+- [x] Name truncation applied (24 mobile / 40 desktop)
+- [ ] Progressive render: name shows immediately, avatar/link upgrades on profile load — manual UAT
+- [ ] Mobile (375px) and desktop (1280px) visual QA pass — pending /verify
+- [ ] Dark mode pass — pending /verify
 
 ## Acceptance Criteria
 
 ### Tap contract
-- [ ] Inbox/Sent card: tap name → `/p/:slug`; tap Open/Results button → open letter (card body itself is not a tap target; no change to current button-only navigation)
-- [ ] Results header: tap name → profile
-- [ ] Results point-level: tap other-participant avatar → profile
+- [x] Inbox/Sent card: tap name → `/p/:slug`; tap Open/Results button → open letter (card body itself is not a tap target; no change to current button-only navigation)
+- [x] Results header: tap name → profile
+- [ ] Results point-level: tap other-participant avatar → profile — deferred (UAT-9 manual)
 
 ### Content
-- [ ] Registered actor with slug: name + avatar; name is a link
-- [ ] Registered actor without slug: plain text, no broken link
-- [ ] `link_respondent` (anonymous completion): "Someone responded to _{title}_" — "Someone" plain text + initials avatar; title italic (existing copy preserved)
-- [ ] `link_respondent_in_progress` (anonymous in progress): "Someone is responding to _{title}_" — "Someone" plain text, no link; title italic (existing copy preserved)
-- [ ] Deleted profile (actor_id → deleted row): "Deleted user" plain text, no link
-- [ ] Name fallback chain: `full_name` → `slug` → `"Someone"` (never email prefix)
-- [ ] Role label matches view: recipient sees "from", author sees "to"
+- [x] Registered actor with slug: name + avatar; name is a link
+- [x] Registered actor without slug: plain text, no broken link (E2E skipped post-P736 — covered by component null-guard)
+- [x] `link_respondent` (anonymous completion): "Someone responded to _{title}_" — "Someone" plain text + initials avatar; title italic (existing copy preserved)
+- [x] `link_respondent_in_progress` (anonymous in progress): "Someone is responding to _{title}_" — "Someone" plain text, no link; title italic (existing copy preserved)
+- [ ] Deleted profile (actor_id → deleted row): "Deleted user" plain text, no link — defensive only (FK blocks today)
+- [x] Name fallback chain: `full_name` → `slug` → `"Someone"` (never email prefix)
+- [x] Role label matches view: recipient sees "from", author sees "to"
 
 ### Edge cases
-- [ ] Long name > 24 chars mobile: truncated with ellipsis
-- [ ] Long name > 40 chars desktop: truncated with ellipsis
-- [ ] Profile JOIN slow: name renders immediately; avatar + link arrive without flash
-- [ ] Public link letter with 0 deliveries: "Public link letter" placeholder
+- [x] Long name > 24 chars mobile: truncated with ellipsis
+- [x] Long name > 40 chars desktop: truncated with ellipsis
+- [ ] Profile JOIN slow: name renders immediately; avatar + link arrive without flash — manual UAT
+- [x] Public link letter with 0 deliveries: "Public link letter" placeholder
 
 ### Navigation
-- [ ] Default landing on `/letters` opens Inbox
-- [ ] "New draft" button visible on Inbox, Sent, Drafts
-- [ ] "New draft" action from any tab opens the same creation flow
+- [x] Default landing on `/letters` opens Inbox
+- [x] "New draft" button visible on Inbox, Sent, Drafts
+- [x] "New draft" action from any tab opens the same creation flow
 
 ## UX Notes
 
@@ -236,8 +236,9 @@ Deleted profile FK — `letter_deliveries.receiver_profile_id REFERENCES profile
 **AD5 — Identity row component: new shared component `LetterParticipantRow`**
 
 - Chosen: Create `src/app/components/letters/letter-participant-row.tsx`. Props: `name: string`, `slug?: string | null`, `avatarUrl?: string | null`, `avatarColor?: string`, `hasPledged?: boolean`, `roleLabel: string` (e.g. "Letter from" or "Letter to"). Renders `PersonAvatar` (sm) + role label + name (linked when slug present, plain text otherwise). `stopPropagation` on the name link.
-- Rationale: Used on results page identity row, letter-reading page header, and potentially inbox/sent cards. Single component eliminates drift between surfaces. Spec's consistency rule requires identical behaviour everywhere.
-- Trade-off: A new file vs. inline JSX — justified here because the same JSX would appear in 4+ places.
+- Rationale: Used on results page identity row, letter-reading page (cover + completion summary), and potentially other avatar-bearing surfaces. Single component eliminates drift between avatar-bearing surfaces. Spec's consistency rule requires identical behaviour across those.
+- **Scope clarification:** `LetterParticipantRow` owns the *avatar-bearing* surfaces only. Inbox/sent rows render name + link inline without an avatar (AD6) and therefore keep their own `Link` markup. They share the truncation (`max-w-[24ch] sm:max-w-[40ch] truncate`) and touch-target (`min-h-[40px]`) classes with this component; the two patterns intentionally use the same utility classes so visual consistency survives even without a shared component.
+- Trade-off: A new file vs. inline JSX — justified here because the same avatar+link JSX would appear in 4+ places.
 - Alternative rejected: Inline JSX per surface — copy-drift risk on the fallback chain and `stopPropagation` discipline.
 
 **AD6 — `PersonRef` shape for inbox/sent name links**

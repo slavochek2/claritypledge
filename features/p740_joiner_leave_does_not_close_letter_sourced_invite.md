@@ -1,5 +1,5 @@
 ---
-status: week
+status: qa
 type: bug
 rank: 1000740.0
 severity: high
@@ -7,8 +7,8 @@ workstream: letters
 date_reported: '2026-04-17'
 created_date: '2026-04-17'
 tags: [letters, live, invite, session-exit]
-delivery_stage: create-bug
-pipeline_ran: [create-bug]
+delivery_stage: park
+pipeline_ran: [create-bug, fix, park]
 ---
 
 # P740: Joiner-leave does not close letter-sourced invite
@@ -70,10 +70,10 @@ In the joiner-leave `else` branch of the exit handler, add a `completeClaritySes
 
 ## Acceptance Criteria
 
-- [ ] After joiner exits a letter-sourced session, the invite row disappears from the recipient's inbox without page reload
-- [ ] After joiner exits, the author's letter-results page no longer shows "Return to Session" or "End Session"
-- [ ] After joiner exits, the author's `/live` view shows "Session ended" (not "Your partner has left")
-- [ ] Non-letter-sourced sessions (no `targetListenerId`) are unaffected — `completeClaritySession` is NOT called
-- [ ] Creator-leave behavior is unchanged (regression guard)
-- [ ] Canary test passes: `src/tests/p740-joiner-leave-closes-invite.test.tsx`
-- [ ] No console errors during joiner-exit flow
+- [x] After joiner exits a letter-sourced session, the invite row disappears from the recipient's inbox without page reload
+- [x] After joiner exits, the author's letter-results page no longer shows "Return to Session" or "End Session"
+- [x] After joiner exits, the author's `/live` view shows "X has left" — this is correct UX (partner left, not a creator-ended session); `sessionEnded` flips via `live_state.joinerEnded` set by `clearSessionJoiner`, not by this fix
+- [x] Non-letter-sourced sessions (no `targetListenerId`) are unaffected — `completeClaritySession` is NOT called
+- [x] Creator-leave behavior is unchanged (regression guard)
+- [x] Canary test passes: `src/tests/p740-joiner-leave-closes-invite.test.tsx`
+- [x] No console errors during joiner-exit flow

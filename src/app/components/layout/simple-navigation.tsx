@@ -14,16 +14,18 @@ import {
   DropdownMenuContent,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { MenuIcon, XIcon, CalendarIcon, UserIcon, HomeIcon, MicIcon, FileTextIcon } from "lucide-react";
+import { MenuIcon, XIcon, CalendarIcon, UserIcon, HomeIcon, MicIcon, MailIcon } from "lucide-react";
 import { ClarityLogo } from "@/components/ui/clarity-logo";
 import { GravatarAvatar } from "@/components/ui/gravatar-avatar";
 import { analytics } from "@/lib/mixpanel";
 import { useNavAuthState } from "@/hooks/use-nav-auth-state";
+import { useUnreadLetterCount } from "@/app/hooks/useUnreadLetterCount";
+import { useOpenLiveInvite } from "@/app/hooks/useOpenLiveInvite";
 import { NavigationMenuItems } from "./navigation-menu-items";
 
 const MOBILE_MENU_ID = "mobile-navigation-menu";
 
-export function SimpleNavigation() {
+export function SimpleNavigation({ compact }: { compact?: boolean }) {
   const navigate = useNavigate();
   const location = useLocation();
   const [isScrolled, setIsScrolled] = useState(false);
@@ -44,6 +46,9 @@ export function SimpleNavigation() {
     sessionChecked,
     hasSession,
   } = useNavAuthState();
+  const { count: unreadLetterCount } = useUnreadLetterCount();
+  const { invite } = useOpenLiveInvite();
+  const lettersBadgeCount = unreadLetterCount + (invite ? 1 : 0);
   // Close mobile menu on route change (e.g., bottom nav, back button, page links)
   useEffect(() => {
     setIsMobileMenuOpen(false);
@@ -84,15 +89,25 @@ export function SimpleNavigation() {
         <span className="text-xs mt-1 font-medium">Home</span>
       </Link>
       <Link
-        to="/docs"
+        to="/letters"
         className={`flex flex-col items-center justify-center px-4 py-2 min-w-[80px] rounded-md transition-colors ${
-          location.pathname.startsWith("/docs") || location.pathname.startsWith("/d/")
+          location.pathname.startsWith("/letters")
             ? "text-primary"
             : "text-muted-foreground hover:text-foreground hover:bg-accent"
         }`}
       >
-        <FileTextIcon className="w-5 h-5" />
-        <span className="text-xs mt-1 font-medium">Docs</span>
+        <span className="relative">
+          <MailIcon className="w-5 h-5" />
+          {lettersBadgeCount > 0 && (
+            <span
+              data-badge
+              className="absolute -top-1.5 -right-2 min-w-[16px] h-4 px-1 text-[10px] font-bold leading-4 text-white bg-blue-500 rounded-full text-center"
+            >
+              {lettersBadgeCount > 99 ? '99+' : lettersBadgeCount}
+            </span>
+          )}
+        </span>
+        <span className="text-xs mt-1 font-medium">Letters</span>
       </Link>
       <Link
         to="/events"
@@ -141,91 +156,103 @@ export function SimpleNavigation() {
             {/* P695: Three-phase gate — full skeleton → static links + profile skeleton → full nav */}
             {!sessionChecked ? (
               /* Phase 1: session check in flight (~10ms) — full skeleton to prevent logged-out flash */
-              <>
-                <div className="animate-pulse flex items-center gap-3 transition-opacity duration-150">
-                  <div className="h-10 w-[88px] bg-muted rounded-md" />
-                  <div className="h-10 w-[80px] bg-muted rounded-md" />
-                  <div className="h-10 w-[80px] bg-muted rounded-md" />
-                </div>
-                {/* Start a Clarity Session CTA — always visible, exists in both auth states */}
-                <Link
-                  to="/live"
-                  title="Start a live clarity session"
-                  className="inline-flex items-center justify-center whitespace-nowrap text-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring shadow h-10 rounded-md px-6 bg-blue-500 hover:bg-blue-600 text-white font-semibold gap-2"
-                  onClick={(e) => {
-                    analytics.track('nav_cta_clicked', { cta: 'try_meeting', device: 'desktop' });
-                    if (location.pathname.startsWith('/live')) {
-                      e.preventDefault();
-                      navigate('/live', { replace: true });
-                      window.location.reload();
-                    }
-                  }}
-                >
-                  <MicIcon className="w-4 h-4" />
-                  Start a Clarity Session
-                </Link>
-                {/* Avatar/hamburger skeleton */}
+              compact ? (
                 <div className="h-9 w-9 bg-muted rounded-full animate-pulse" />
-              </>
+              ) : (
+                <>
+                  <div className="animate-pulse flex items-center gap-3 transition-opacity duration-150">
+                    <div className="h-10 w-[88px] bg-muted rounded-md" />
+                    <div className="h-10 w-[80px] bg-muted rounded-md" />
+                    <div className="h-10 w-[80px] bg-muted rounded-md" />
+                  </div>
+                  {/* Start a Clarity Session CTA — always visible, exists in both auth states */}
+                  <Link
+                    to="/live"
+                    title="Start a live clarity session"
+                    className="inline-flex items-center justify-center whitespace-nowrap text-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring shadow h-10 rounded-md px-6 bg-blue-500 hover:bg-blue-600 text-white font-semibold gap-2"
+                    onClick={(e) => {
+                      analytics.track('nav_cta_clicked', { cta: 'try_meeting', device: 'desktop' });
+                      if (location.pathname.startsWith('/live')) {
+                        e.preventDefault();
+                        navigate('/live', { replace: true });
+                        window.location.reload();
+                      }
+                    }}
+                  >
+                    <MicIcon className="w-4 h-4" />
+                    Start a Clarity Session
+                  </Link>
+                  {/* Avatar/hamburger skeleton */}
+                  <div className="h-9 w-9 bg-muted rounded-full animate-pulse" />
+                </>
+              )
             ) : hasSession && isLoading ? (
               /* Phase 2: session known, profile fetching (100-500ms) — static links clickable */
-              <div className="flex items-center gap-3 transition-opacity duration-150">
-                <StaticNavLinks />
-                {/* My Profile slot: skeleton until profile resolves */}
-                <div className="h-10 w-[88px] bg-muted rounded-md animate-pulse" />
-                {/* Start a Clarity Session CTA */}
-                <Link
-                  to="/live"
-                  title="Start a live clarity session"
-                  className="inline-flex items-center justify-center whitespace-nowrap text-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring shadow h-10 rounded-md px-6 bg-blue-500 hover:bg-blue-600 text-white font-semibold gap-2"
-                  onClick={(e) => {
-                    analytics.track('nav_cta_clicked', { cta: 'try_meeting', device: 'desktop' });
-                    if (location.pathname.startsWith('/live')) {
-                      e.preventDefault();
-                      navigate('/live', { replace: true });
-                      window.location.reload();
-                    }
-                  }}
-                >
-                  <MicIcon className="w-4 h-4" />
-                  Start a Clarity Session
-                </Link>
-                {/* Avatar skeleton */}
+              compact ? (
                 <div className="h-9 w-9 bg-muted rounded-full animate-pulse" />
-              </div>
+              ) : (
+                <div className="flex items-center gap-3 transition-opacity duration-150">
+                  <StaticNavLinks />
+                  {/* My Profile slot: skeleton until profile resolves */}
+                  <div className="h-10 w-[88px] bg-muted rounded-md animate-pulse" />
+                  {/* Start a Clarity Session CTA */}
+                  <Link
+                    to="/live"
+                    title="Start a live clarity session"
+                    className="inline-flex items-center justify-center whitespace-nowrap text-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring shadow h-10 rounded-md px-6 bg-blue-500 hover:bg-blue-600 text-white font-semibold gap-2"
+                    onClick={(e) => {
+                      analytics.track('nav_cta_clicked', { cta: 'try_meeting', device: 'desktop' });
+                      if (location.pathname.startsWith('/live')) {
+                        e.preventDefault();
+                        navigate('/live', { replace: true });
+                        window.location.reload();
+                      }
+                    }}
+                  >
+                    <MicIcon className="w-4 h-4" />
+                    Start a Clarity Session
+                  </Link>
+                  {/* Avatar skeleton */}
+                  <div className="h-9 w-9 bg-muted rounded-full animate-pulse" />
+                </div>
+              )
             ) : showUserMenu ? (
               /* Phase 3a: Logged-in: Icon nav with labels (LinkedIn-style) */
               <div className="flex items-center gap-3 transition-opacity duration-150">
-                <StaticNavLinks />
+                {!compact && <StaticNavLinks />}
                 {/* My Profile */}
-                <Link
-                  to={slug ? `/p/${slug}` : "/me"}
-                  className={`flex flex-col items-center justify-center px-4 py-2 min-w-[80px] rounded-md transition-colors ${
-                    location.pathname.startsWith("/p/") || location.pathname === "/me"
-                      ? "text-primary"
-                      : "text-muted-foreground hover:text-foreground hover:bg-accent"
-                  }`}
-                >
-                  <UserIcon className="w-5 h-5" />
-                  <span className="text-xs mt-1 font-medium">My Profile</span>
-                </Link>
+                {!compact && (
+                  <Link
+                    to={slug ? `/p/${slug}` : "/me"}
+                    className={`flex flex-col items-center justify-center px-4 py-2 min-w-[80px] rounded-md transition-colors ${
+                      location.pathname.startsWith("/p/") || location.pathname === "/me"
+                        ? "text-primary"
+                        : "text-muted-foreground hover:text-foreground hover:bg-accent"
+                    }`}
+                  >
+                    <UserIcon className="w-5 h-5" />
+                    <span className="text-xs mt-1 font-medium">My Profile</span>
+                  </Link>
+                )}
                 {/* Start a Clarity Session CTA */}
-                <Link
-                  to="/live"
-                  title="Start a live clarity session"
-                  className="inline-flex items-center justify-center whitespace-nowrap text-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring shadow h-10 rounded-md px-6 bg-blue-500 hover:bg-blue-600 text-white font-semibold gap-2"
-                  onClick={(e) => {
-                    analytics.track('nav_cta_clicked', { cta: 'try_meeting', device: 'desktop' });
-                    if (location.pathname.startsWith('/live')) {
-                      e.preventDefault();
-                      navigate('/live', { replace: true });
-                      window.location.reload();
-                    }
-                  }}
-                >
-                  <MicIcon className="w-4 h-4" />
-                  Start a Clarity Session
-                </Link>
+                {!compact && (
+                  <Link
+                    to="/live"
+                    title="Start a live clarity session"
+                    className="inline-flex items-center justify-center whitespace-nowrap text-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring shadow h-10 rounded-md px-6 bg-blue-500 hover:bg-blue-600 text-white font-semibold gap-2"
+                    onClick={(e) => {
+                      analytics.track('nav_cta_clicked', { cta: 'try_meeting', device: 'desktop' });
+                      if (location.pathname.startsWith('/live')) {
+                        e.preventDefault();
+                        navigate('/live', { replace: true });
+                        window.location.reload();
+                      }
+                    }}
+                  >
+                    <MicIcon className="w-4 h-4" />
+                    Start a Clarity Session
+                  </Link>
+                )}
                 {/* Menu Trigger - P67: Avatar for verified users */}
                 <DropdownMenu modal={false} onOpenChange={(open) => {
                   if (open) {
@@ -254,7 +281,7 @@ export function SimpleNavigation() {
                   </DropdownMenuContent>
                 </DropdownMenu>
               </div>
-            ) : (
+            ) : compact ? null : (
               /* Phase 3b: Logged-out (or unverified): Only Events visible; rest in hamburger dropdown */
               <div className="flex items-center gap-3 transition-opacity duration-150">
                 <Link
@@ -323,8 +350,8 @@ export function SimpleNavigation() {
             </div>
           ) : (
             <div className="lg:hidden flex items-center gap-2">
-              {/* Mobile Start Session CTA — only for authenticated users */}
-              {showUserMenu && (
+              {/* Mobile Start Session CTA — only for authenticated users, hidden in compact mode */}
+              {showUserMenu && !compact && (
                 <Link
                   to="/live"
                   title="Start a live clarity session"
@@ -335,37 +362,40 @@ export function SimpleNavigation() {
                   Start a Session
                 </Link>
               )}
-            <button
-              onClick={() => {
-                const wasOpen = isMobileMenuOpen;
-                setIsMobileMenuOpen(!isMobileMenuOpen);
-                // Track opening (not closing)
-                if (!wasOpen) {
-                  analytics.track('nav_menu_opened', {
-                    trigger: showUserMenu && user ? 'avatar' : 'hamburger',
-                    device: 'mobile',
-                  });
-                }
-              }}
-              className="p-2"
-              aria-expanded={isMobileMenuOpen}
-              aria-controls={MOBILE_MENU_ID}
-              aria-label={isMobileMenuOpen ? "Close menu" : "Open menu"}
-            >
-              {isMobileMenuOpen ? (
-                <XIcon className="w-6 h-6" />
-              ) : showUserMenu && user ? (
-                <GravatarAvatar
-                  name={user.name}
-                  avatarColor={user.avatarColor}
-                  photoUrl={user.avatarUrl}
-                  size="sm"
-                  isPledger={hasPledged}
-                />
-              ) : (
-                <MenuIcon className="w-6 h-6" />
+              {/* Avatar (logged in) or hamburger (logged out) — hide hamburger in compact mode */}
+              {(showUserMenu || !compact) && (
+                <button
+                  onClick={() => {
+                    const wasOpen = isMobileMenuOpen;
+                    setIsMobileMenuOpen(!isMobileMenuOpen);
+                    // Track opening (not closing)
+                    if (!wasOpen) {
+                      analytics.track('nav_menu_opened', {
+                        trigger: showUserMenu && user ? 'avatar' : 'hamburger',
+                        device: 'mobile',
+                      });
+                    }
+                  }}
+                  className="p-2"
+                  aria-expanded={isMobileMenuOpen}
+                  aria-controls={MOBILE_MENU_ID}
+                  aria-label={isMobileMenuOpen ? "Close menu" : "Open menu"}
+                >
+                  {isMobileMenuOpen ? (
+                    <XIcon className="w-6 h-6" />
+                  ) : showUserMenu && user ? (
+                    <GravatarAvatar
+                      name={user.name}
+                      avatarColor={user.avatarColor}
+                      photoUrl={user.avatarUrl}
+                      size="sm"
+                      isPledger={hasPledged}
+                    />
+                  ) : (
+                    <MenuIcon className="w-6 h-6" />
+                  )}
+                </button>
               )}
-            </button>
             </div>
           )}
         </div>
@@ -377,22 +407,25 @@ export function SimpleNavigation() {
             className="lg:hidden py-4 pb-6 border-t border-border bg-background shadow-lg"
           >
             <div className="flex flex-col gap-3">
-              {/* Primary CTA - P114: consistent text */}
+              {/* Primary CTA — hidden in compact mode */}
               {/* Analytics: Keep 'try_meeting' event name for historical continuity (P66 decision) */}
-              <Link
-                to="/live"
-                title="Start a live clarity session"
-                className="inline-flex items-center justify-center whitespace-nowrap text-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring shadow h-11 rounded-md px-8 bg-blue-500 hover:bg-blue-600 text-white font-semibold w-full gap-2"
-                onClick={() => {
-                  analytics.track('nav_cta_clicked', { cta: 'try_meeting', device: 'mobile' });
-                  closeMobileMenu();
-                }}
-              >
-                <MicIcon className="w-4 h-4" />
-                Start a Clarity Session
-              </Link>
-
-              <div className="border-t border-border my-2"></div>
+              {!compact && (
+                <>
+                  <Link
+                    to="/live"
+                    title="Start a live clarity session"
+                    className="inline-flex items-center justify-center whitespace-nowrap text-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring shadow h-11 rounded-md px-8 bg-blue-500 hover:bg-blue-600 text-white font-semibold w-full gap-2"
+                    onClick={() => {
+                      analytics.track('nav_cta_clicked', { cta: 'try_meeting', device: 'mobile' });
+                      closeMobileMenu();
+                    }}
+                  >
+                    <MicIcon className="w-4 h-4" />
+                    Start a Clarity Session
+                  </Link>
+                  <div className="border-t border-border my-2"></div>
+                </>
+              )}
 
               {/* Mobile menu - Events and Create Story removed (available in bottom nav) */}
               {/* All content navigation (Pledgers, Manifesto, Blog, About) now in NavigationMenuItems */}

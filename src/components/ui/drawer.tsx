@@ -110,7 +110,9 @@ const DrawerContent = React.forwardRef<
         {/* Overlay - only dismissible if dismissible prop is true */}
         <div
           role="presentation"
-          className={overlayClassName ?? "fixed inset-0 z-50 bg-black/80 animate-in fade-in-0"}
+          className={cn(
+            overlayClassName ?? "fixed inset-0 z-50 bg-black/80 animate-in fade-in-0",
+          )}
           onClick={dismissible ? () => onOpenChange(false) : undefined}
         />
         {/* Drawer content */}

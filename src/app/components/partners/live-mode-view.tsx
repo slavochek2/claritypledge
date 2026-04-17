@@ -10,7 +10,7 @@
  * Key Components:
  * - IdleScreen: Start screen with "Did you get me?" / "Did I get you?" buttons
  * - RatingScreen: Rating input (0-10 scale)
- * - RatingCard: Reusable rating question + scale component
+ * - ComprehensionRatingCard: Reusable rating question + scale component (shared)
  * - JourneyToUnderstanding: Shows rating history across rounds
  * - UnderstandingScreen: Unified component for waiting, gap-revealed, explain-back, results, and celebration phases
  */
@@ -36,14 +36,16 @@ import {
 } from '@/components/ui/dialog';
 import { type LiveSessionState, type GapType, type FlowType, type StoryWithPoints, type PointWithCreator, type PointWithUserPosition, type PositionType } from '@/app/types';
 import { LiveSessionBanner } from './live-session-banner';
-import { getFirstName, RatingButtons } from './shared';
+import { getFirstName } from './shared';
 import { playCelebrationSound } from '@/hooks/use-sound';
 import { PointCardPreview } from './live-content-cards';
 import { StorySearchPicker } from './story-search-picker';
 import { LiveStoryCardExpanded } from './live-story-card-expanded';
 import { GravatarAvatar } from '@/components/ui/gravatar-avatar';
 import { FreeModeView } from './free-mode-view';
+import { GapBanner } from '@/app/components/shared/gap-banner';
 import { PositionBadge } from '@/app/components/shared';
+import { ComprehensionRatingCard } from '@/app/components/shared/comprehension-rating-card';
 import { MobileTooltip } from '@/app/components/shared/mobile-tooltip';
 import { storiesService } from '@/app/data/stories-service';
 import { pointsService } from '@/app/data/points-service';
@@ -1470,7 +1472,7 @@ function IdleScreen({
               </DrawerTitle>
             </DrawerHeader>
             <div className="px-4 pb-8 pt-4 space-y-4">
-              <RatingCard
+              <ComprehensionRatingCard
                 question={isProverInitiated
                   ? `How well do you believe ${proverName} understands you?`
                   : `How confident are you that you understand ${checkerName}?`}
@@ -1677,15 +1679,16 @@ function RatingScreen({
 
       {/* Rating drawer - always open by design for focused rating UX.
           dismissible={false} prevents accidental swipe/overlay close.
+          modal={false} removes pointer-event lock so page behind remains interactive.
           overlayClassName="bg-transparent" keeps story card visible behind drawer. */}
-      <Drawer open={true} dismissible={false}>
+      <Drawer open={true} dismissible={false} modal={false}>
         <DrawerContent overlayClassName="bg-transparent">
           <DrawerHeader className="sr-only">
             <DrawerTitle>Rate your understanding</DrawerTitle>
             <DrawerDescription>Submit your rating on the scale below</DrawerDescription>
           </DrawerHeader>
           <div className="px-4 pb-8 pt-4 space-y-4">
-            <RatingCard
+            <ComprehensionRatingCard
               question={prompt}
               onSelect={onRatingSubmit}
               onBack={onBack}
@@ -1824,15 +1827,16 @@ function RatingScreenWithOptionalDrawer({
 
       {/* Rating drawer - always open by design for focused rating UX.
           dismissible={false} prevents accidental swipe/overlay close.
+          modal={false} removes pointer-event lock so page behind remains interactive.
           overlayClassName="bg-transparent" keeps story card visible behind drawer. */}
-      <Drawer open={true} dismissible={false}>
+      <Drawer open={true} dismissible={false} modal={false}>
         <DrawerContent overlayClassName="bg-transparent">
           <DrawerHeader className="sr-only">
             <DrawerTitle>Rate your understanding</DrawerTitle>
             <DrawerDescription>Submit your rating on the scale below</DrawerDescription>
           </DrawerHeader>
           <div className="px-4 pb-8 pt-4 space-y-4">
-            <RatingCard
+            <ComprehensionRatingCard
               question={prompt}
               onSelect={onRatingSubmit}
               onSkip={showDrawer ? onSkip : undefined}
@@ -1855,73 +1859,7 @@ function RatingScreenWithOptionalDrawer({
 // Uses select + submit pattern: tap to select, then tap Submit to confirm
 // ============================================================================
 
-interface RatingCardProps {
-  question?: string;
-  onSelect: (rating: number) => void;
-  className?: string;
-  /** Optional skip handler - when provided, shows Skip button inside the card */
-  onSkip?: () => void;
-  /** Label for the skip button (default: "Skip") */
-  skipLabel?: string;
-  /** Optional back handler - when provided, shows Back button inside the card */
-  onBack?: () => void;
-}
-
-function RatingCard({ question, onSelect, className = '', onSkip, skipLabel = 'Speak freely', onBack }: RatingCardProps) {
-  const [selectedRating, setSelectedRating] = useState<number | null>(null);
-
-  const handleSubmit = () => {
-    if (selectedRating !== null) {
-      onSelect(selectedRating);
-    }
-  };
-
-  return (
-    <div className={`bg-white rounded-lg p-5 space-y-4 shadow-sm border-l-4 border-l-blue-500 ${className}`}>
-      {question && (
-        <h2 className="text-lg font-semibold text-center">
-          {question}
-        </h2>
-      )}
-
-      <div className={`flex flex-col items-center space-y-3 ${question ? 'pt-3 border-t' : ''}`}>
-        <div className="flex justify-between text-xs text-muted-foreground w-full max-w-sm">
-          <span>Not at all</span>
-          <span>Complete cognitive understanding</span>
-        </div>
-        <RatingButtons selectedValue={selectedRating} onSelect={setSelectedRating} />
-        <Button
-          size="sm"
-          className="bg-blue-500 hover:bg-blue-600 w-full max-w-[200px] mt-2"
-          disabled={selectedRating === null}
-          onClick={handleSubmit}
-        >
-          Submit
-        </Button>
-        {onSkip && (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={onSkip}
-            className="text-muted-foreground min-h-[44px]"
-          >
-            {skipLabel}
-          </Button>
-        )}
-        {onBack && (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={onBack}
-            className="text-muted-foreground"
-          >
-            Back
-          </Button>
-        )}
-      </div>
-    </div>
-  );
-}
+// ComprehensionRatingCard — extracted to @/app/components/shared/comprehension-rating-card.tsx
 
 // ============================================================================
 // JOURNEY TO UNDERSTANDING - Shows rating history across rounds
@@ -2058,6 +1996,7 @@ export function JourneyToUnderstanding({
               ) : (
                 <RatingDisplayPending
                   label={<span className="text-muted-foreground">{displayPartnerName}'s confidence</span>}
+                  absent={!hasResponderRating && !hideUntilBothSubmitted}
                 />
               )}
               {hasCheckerRating && shouldRevealCheckerRating ? (
@@ -2068,6 +2007,7 @@ export function JourneyToUnderstanding({
               ) : (
                 <RatingDisplayPending
                   label={<b className="text-foreground">Your belief</b>}
+                  absent={!hasCheckerRating && !hideUntilBothSubmitted}
                 />
               )}
             </>
@@ -2082,6 +2022,7 @@ export function JourneyToUnderstanding({
               ) : (
                 <RatingDisplayPending
                   label={<span className="text-muted-foreground">Your confidence</span>}
+                  absent={!hasResponderRating && !hideUntilBothSubmitted}
                 />
               )}
               {hasCheckerRating && shouldRevealCheckerRating ? (
@@ -2092,6 +2033,7 @@ export function JourneyToUnderstanding({
               ) : (
                 <RatingDisplayPending
                   label={<b className="text-foreground">{checkerName}'s belief</b>}
+                  absent={!hasCheckerRating && !hideUntilBothSubmitted}
                 />
               )}
             </>
@@ -2151,6 +2093,7 @@ export function JourneyToUnderstanding({
                 ) : (
                   <RatingDisplayPending
                     label={<span className="text-muted-foreground">{displayPartnerName}'s confidence</span>}
+                    absent={!hasResponderRating && !hideUntilBothSubmitted}
                   />
                 )}
                 {hasCheckerRating && shouldRevealCheckerRating ? (
@@ -2161,6 +2104,7 @@ export function JourneyToUnderstanding({
                 ) : (
                   <RatingDisplayPending
                     label={<b className="text-foreground">Your belief</b>}
+                    absent={!hasCheckerRating && !hideUntilBothSubmitted}
                   />
                 )}
               </>
@@ -2175,6 +2119,7 @@ export function JourneyToUnderstanding({
                 ) : (
                   <RatingDisplayPending
                     label={<span className="text-muted-foreground">Your confidence</span>}
+                    absent={!hasResponderRating && !hideUntilBothSubmitted}
                   />
                 )}
                 {hasCheckerRating && shouldRevealCheckerRating ? (
@@ -2185,6 +2130,7 @@ export function JourneyToUnderstanding({
                 ) : (
                   <RatingDisplayPending
                     label={<b className="text-foreground">{checkerName}'s belief</b>}
+                    absent={!hasCheckerRating && !hideUntilBothSubmitted}
                   />
                 )}
               </>
@@ -2364,15 +2310,19 @@ function WaitingIndicator({ message, onSkip, skipLabel = "Speak freely", showBac
 
 interface RatingDisplayPendingProps {
   label: React.ReactNode;
+  /** When true, rating is genuinely absent (not sealed-bid). Shows "Not yet rated" without pulse dot. */
+  absent?: boolean;
 }
 
-function RatingDisplayPending({ label }: RatingDisplayPendingProps) {
+function RatingDisplayPending({ label, absent = false }: RatingDisplayPendingProps) {
   return (
     <div className="flex items-center justify-between gap-2">
       <span className="text-sm text-muted-foreground">{label}</span>
       <div className="flex items-center gap-2">
-        <span className="w-2 h-2 bg-blue-500 rounded-full animate-pulse" />
-        <span className="text-sm text-muted-foreground italic">Pending...</span>
+        {!absent && <span className="w-2 h-2 bg-blue-500 rounded-full animate-pulse" />}
+        <span className="text-sm text-muted-foreground italic">
+          {absent ? 'Not yet rated' : 'Pending...'}
+        </span>
       </div>
     </div>
   );
@@ -2691,15 +2641,16 @@ function UnderstandingScreen({
 
           {/* Rating drawer - always open by design for focused rating UX.
               dismissible={false} prevents accidental swipe/overlay close.
+              modal={false} removes pointer-event lock so page behind remains interactive.
               User must tap explicit skip button to end the round. */}
-          <Drawer open={true} dismissible={false}>
+          <Drawer open={true} dismissible={false} modal={false}>
             <DrawerContent overlayClassName="bg-transparent">
               <DrawerHeader className="sr-only">
                 <DrawerTitle>Rate understanding</DrawerTitle>
                 <DrawerDescription>Submit your rating on the scale below</DrawerDescription>
               </DrawerHeader>
               <div className="px-4 pb-8 pt-4 space-y-4">
-                <RatingCard
+                <ComprehensionRatingCard
                   question={explainBackPrompt}
                   onSelect={onExplainBackRate}
                   onSkip={onSkip}
@@ -3042,18 +2993,6 @@ function UnderstandingScreen({
   // PHASE: GAP-REVEALED (gap detected, offer explain-back)
   // ============================================================================
   if (phase === 'gap-revealed') {
-    const pointLabel = gapPoints === 1 ? 'point' : 'points';
-    // Insight message without the gap number (shown separately as badge)
-    // Uses JSX to highlight "less"/"more" like we highlight "I"/"you" in idle buttons
-    const insightMessage = gapType === 'overconfidence'
-      ? (isChecker
-          ? <>You think {displayPartnerName} understands <span className="font-bold">less</span> than they think</>
-          : <>{checkerName} thinks you understand <span className="font-bold">less</span> than you think</>)
-      : (isChecker
-          ? <>You think {displayPartnerName} understands <span className="font-bold">more</span> than they think</>
-          : <>{checkerName} thinks you understand <span className="font-bold">more</span> than you think</>);
-    const gapBadgeText = `${gapPoints} ${pointLabel} gap`;
-
     return (
       <div className="flex flex-col h-full min-h-0">
         <LiveHeader partnerName={partnerName} onExit={onExit} isPrivate={isPrivate} uploadHealth={uploadHealth} />
@@ -3069,12 +3008,13 @@ function UnderstandingScreen({
             proverName={liveState.proverName ? getFirstName(liveState.proverName) : undefined}
             className="w-full max-w-sm"
           />
-          <div className="border border-blue-200 bg-blue-50 rounded-lg px-4 py-3 w-full max-w-sm -mt-3">
-            <div className="flex items-center justify-center gap-2 mb-1">
-              <span className="bg-blue-500 text-white text-xs font-semibold px-2 py-0.5 rounded-full">{gapBadgeText}</span>
-            </div>
-            <p className="text-blue-700 text-sm text-center">{insightMessage}</p>
-          </div>
+          <GapBanner
+            gap={gapPoints}
+            senderName={isChecker ? displayPartnerName : checkerName}
+            isOverconfident={gapType === 'overconfidence'}
+            isChecker={isChecker}
+            className="-mt-3"
+          />
           {/* P272: Story card visible throughout round */}
           {selectedStory && (
             <LiveStoryCardExpanded
@@ -3187,11 +3127,6 @@ function UnderstandingScreen({
   // Same UX as gap-revealed: listener gets "Listen actively" button, speaker waits
   // ============================================================================
   if (phase === 'calibrated') {
-    // Insight message matching the gap-revealed pattern but for calibrated state
-    const insightMessage = isChecker
-      ? <>You believe {displayPartnerName} understands <span className="font-bold">exactly as much</span> as they think</>
-      : <>{checkerName} believes you understand <span className="font-bold">exactly as much</span> as you think</>;
-
     return (
       <div className="flex flex-col h-full min-h-0">
         <LiveHeader partnerName={partnerName} onExit={onExit} isPrivate={isPrivate} uploadHealth={uploadHealth} />
@@ -3207,12 +3142,13 @@ function UnderstandingScreen({
             proverName={liveState.proverName ? getFirstName(liveState.proverName) : undefined}
             className="w-full max-w-sm"
           />
-          <div className="border border-input bg-muted/50 rounded-lg px-4 py-3 w-full max-w-sm -mt-3">
-            <div className="flex items-center justify-center gap-2 mb-1">
-              <span className="bg-green-500 text-white text-xs font-semibold px-2 py-0.5 rounded-full">Perfectly calibrated</span>
-            </div>
-            <p className="text-muted-foreground text-sm text-center">{insightMessage}</p>
-          </div>
+          <GapBanner
+            gap={0}
+            senderName={isChecker ? displayPartnerName : checkerName}
+            isOverconfident={false}
+            isChecker={isChecker}
+            className="-mt-3"
+          />
           {/* P272: Story card visible throughout round */}
           {selectedStory && (
             <LiveStoryCardExpanded

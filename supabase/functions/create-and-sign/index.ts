@@ -11,8 +11,16 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
+import { hashIp, extractClientIp } from '../_shared/hash-ip.ts';
 
 const AVATAR_COLORS = ['#0044CC', '#002B5C', '#FFD700', '#FF6B6B', '#4ECDC4'];
+
+const ACCEPTED_TERMS_VERSIONS = ['v1.2'] as const;
+type AcceptedTermsVersion = (typeof ACCEPTED_TERMS_VERSIONS)[number];
+
+function isAcceptedTermsVersion(v: unknown): v is AcceptedTermsVersion {
+  return typeof v === 'string' && (ACCEPTED_TERMS_VERSIONS as readonly string[]).includes(v);
+}
 
 const ALLOWED_ORIGIN = Deno.env.get('ALLOWED_ORIGIN') ?? 'https://claritypledge.com';
 
@@ -53,16 +61,30 @@ serve(async (req: Request) => {
 
     const supabase = createClient(supabaseUrl, serviceRoleKey);
 
-    const { agreementId, token, partnerName } = await req.json() as {
+    const ipHashSecret = Deno.env.get('IP_HASH_SECRET');
+    if (!ipHashSecret) {
+      console.error('[create-and-sign] IP_HASH_SECRET not configured');
+      return jsonResponse({ error: 'INTERNAL', message: 'Server misconfiguration' }, 500);
+    }
+
+    const { agreementId, token, partnerName, termsVersion } = await req.json() as {
       agreementId?: string;
       token?: string;
       partnerName?: string;
+      termsVersion?: unknown;
     };
 
     // ── Input validation ──────────────────────────────────────────────────
 
     if (!agreementId || !token || !partnerName?.trim()) {
       return jsonResponse({ error: 'INVALID_INPUT', message: 'Missing required fields' }, 400);
+    }
+
+    if (!isAcceptedTermsVersion(termsVersion)) {
+      return jsonResponse(
+        { error: 'INVALID_TERMS_VERSION', message: 'Unsupported or missing terms version' },
+        400,
+      );
     }
 
     const trimmedName = partnerName.trim().slice(0, 100);
@@ -181,13 +203,29 @@ serve(async (req: Request) => {
         avatar_color: avatarColor,
         is_verified: true,
         has_pledged: false,
-        accepted_terms_version: 'v1.1',
+        accepted_terms_version: termsVersion,
         pledge_version: 2,
       });
 
     if (profileError) {
       console.error('[create-and-sign] profile insert failed:', profileError.message);
       return jsonResponse({ error: 'PROFILE_FAILED', message: 'Sign-up failed' }, 500);
+    }
+
+    // ── Record terms acceptance audit row ─────────────────────────────────
+
+    const clientIp = extractClientIp(req);
+    const userAgent = req.headers.get('user-agent') ?? 'unknown';
+    const ipHash = await hashIp(clientIp, ipHashSecret);
+
+    const { error: acceptError } = await supabase.from('terms_acceptances').insert({
+      user_id: newUserId,
+      terms_version: termsVersion,
+      ip_hash: ipHash,
+      user_agent: userAgent,
+    });
+    if (acceptError && acceptError.code !== '23505') {
+      console.error('[create-and-sign] terms_acceptances insert failed:', acceptError.message);
     }
 
     // ── Accept agreement via RPC ──────────────────────────────────────────

@@ -1,42 +1,35 @@
 ---
-status: backlog
+status: in-progress
 type: task
 rank: 1000736.0
 created_date: '2026-04-17'
 tags: [profiles, database, migration, cleanup]
-delivery_stage: create-spec
-pipeline_ran: [create-spec]
+delivery_stage: fix
+pipeline_ran: [create-spec, fix]
 ---
 
 # P736: Enforce `profiles.slug NOT NULL`
 
 ## Problem
 
-**Situation:** `profiles.slug` is `text UNIQUE` (nullable). Current prod: **23 of 70 profiles (33%) have `slug IS NULL`**. All 23 are legacy orphans; no active code path produces new NULL rows.
+**Situation:** `profiles.slug` is `text UNIQUE` (nullable). Current prod: **23 of 70 profiles (33%) have `slug IS NULL`**. Two origins identified:
 
-**Origin of the 23 rows:**
+1. **Legacy (pre-2025-12-04):** the old `on_auth_user_created` trigger created profiles with NULL slugs (auth metadata didn't include one). Trigger removed; rows remain. Documented in `supabase/migrations/20250101_initial_schema.sql:70-75`.
+2. **Active source — P50:** `AuthCallbackPage.tsx:218-221` intentionally skips slug generation for `source=live` registrations (`!isLiveRegistration && !slug` guard). These users have email + name + verified account but no slug, so ongoing NULL rows keep accruing.
 
-1. **Pre-2025-12-04 trigger:** the old `on_auth_user_created` trigger created profiles with NULL slugs (auth metadata didn't include one). Removed; rows remain. Documented in `supabase/migrations/20250101_initial_schema.sql:70-75`.
-2. **Pre-P396 guest profiles (before 2026-02-19):** `/live` guest onboarding via the deleted `getOrCreateGuestUser()` function created `profiles` rows with `is_verified=false, slug=null` for unverified guests. [P396](done/5_feb_26/p396_eliminate-unverified-user-state.md) eliminated this model entirely — guests now use anonymous Supabase auth with **no profile row**.
+**Not a source:** pure anonymous guests at `/live` (`isGuest={!user}` in `clarity-live-page.tsx:3511`). They never hit `AuthCallbackPage`, never create a `profiles` row. Enforcement does not affect this flow.
 
-**Active code paths that could theoretically produce NULL slugs (all effectively dead):**
-
-- `AuthCallbackPage.tsx:218-221` — P50 `!isLiveRegistration` guard skips slug generation. Line 95 comment: *"source=live → user signed up via /live (non-pledger) - currently not used as /live uses anonymous auth"*. Dead code.
-- `AuthCallbackPage.tsx:384` — recovery `.insert(backup)` from sessionStorage. Backup comes from migration-delete path (also `isLiveRegistration`-gated). Post-P396 largely unreachable; remaining edge case is acceptable (error is captured by Sentry).
-
-**Not a source:** post-P396 `/live` guests use anonymous Supabase auth and create **no `profiles` row** at all. Enforcement does not affect this flow. Note: `docs/technical/authentication.md:128-176` documents the pre-P396 guest-profile model as if current — that doc is stale and should be fixed alongside (separate spec).
-
-**Complication:** Every UI surface that links to `/p/:slug` must carry a null fallback branch. P725 adds this fallback to 5 surfaces. Without enforcement, the fallback is permanent overhead and mis-rendered registered users remain invisible.
+**Complication:** Every UI surface that links to `/p/:slug` must carry a null fallback branch (plain text, no link). P725 alone adds this fallback to 5 surfaces. Without enforcement, the fallback is permanent overhead and mis-rendered registered users remain invisible.
 
 **Question:** What is the safe path to enforce `slug NOT NULL` on the profiles table and eliminate the cross-surface null fallback?
 
 ## Appetite
 
-Small blast radius — single table, single constraint, with a dead-code cleanup. Steps: (1) remove dead P50 `isLiveRegistration` branches, (2) audit the 23 NULL rows, (3) backfill, (4) constraint. Reversible: drop the constraint and the column stays functional.
+Small blast radius — single table, single constraint, one code-path fix. Requires: (1) stop the bleeding in `AuthCallbackPage`, (2) audit the 23 NULL rows, (3) backfill, (4) constraint. Reversible: drop the constraint and the column stays functional.
 
 ## Solution
 
-1. **Remove dead code:** delete all `isLiveRegistration` references in `src/auth/AuthCallbackPage.tsx` (4 hits: lines 101, 116, 219, 243) and the migration-delete branch at line 116-170 that depends on it. Line 95's comment explicitly marks this code as unused in production. Include a small canary test confirming `/auth/callback` with arbitrary `source=` query params still generates a slug.
+1. **Stop the bleeding first:** drop the `!isLiveRegistration` guard at `src/auth/AuthCallbackPage.tsx:219`. `/live`-registered users already have `name` + `email`; generating a slug for them is trivial and their `/p/:slug` page is valid (possibly empty, which is fine). Guest flow is unaffected — guests never reach this code. Without this fix, NOT NULL will break new `/live` signups.
 2. **Audit:** run this query against prod (read-only, see `.claude/rules/db-access.md`) and paste the result table:
 
    ```sql
@@ -57,34 +50,47 @@ Small blast radius — single table, single constraint, with a dead-code cleanup
    ORDER BY p.created_at DESC;
    ```
 
-   Classify each row as: **active** (any letters/stories/sessions OR `has_pledged=true`), **test** (email matches `*@claritypledge.com`, `*+test@*`, or obvious placeholder), **orphan** (everything else, no activity, no pledge). Paste classification back into this spec under a new `## Audit Result` section before proceeding to step 3. **Expectation:** most or all should be `orphan` or `test` — they are pre-P396 legacy guest profiles.
+   Classify each row as: **active** (any letters/stories/sessions OR `has_pledged=true`), **test** (email matches `*@claritypledge.com`, `*+test@*`, or obvious placeholder), **orphan** (everything else, no activity, no pledge). Paste classification back into this spec under a new `## Audit Result` section before proceeding to step 3.
 3. **Decide backfill strategy** [FOUNDER DECISION]:
    - Deterministic backfill from `name` (slugified, with numeric suffix on collision — matches existing retry logic at `AuthCallbackPage.tsx:313-344`)?
    - Timestamp fallback for accounts with no usable name (matches existing final-fallback at `AuthCallbackPage.tsx:353-356`)?
-   - Delete pre-P396 orphans instead of backfilling (they're guest leftovers with no real user)?
-4. **Migration:** backfill/delete per strategy, then `ALTER TABLE profiles ALTER COLUMN slug SET NOT NULL`.
-5. **Code cleanup (post-migration):** grep for `slug ??`, `slug: string | null`, and null-slug fallback branches. Remove in a follow-up commit (not in the same migration PR). **Coordination with P725:** P725 is not yet shipped; its 5 fallback branches can be either (a) removed from P725 before it ships if P736 lands first, or (b) cleaned up in the follow-up PR if P725 ships first.
+   - Skip and archive orphans first?
+4. **Migration:** backfill remaining NULLs, then `ALTER TABLE profiles ALTER COLUMN slug SET NOT NULL`.
+5. **Code cleanup (post-migration):** grep for `slug ??`, `slug: string | null`, and null-slug fallback branches. Remove in a follow-up commit (not in the same migration PR).
+
+## Audit Result
+
+Queried prod 2026-04-17. All 23 NULL-slug rows are from Jan–Feb 2026 (P50 era — the legacy trigger was already removed). **No legacy pre-2025-12-04 rows found.**
+
+| Classification | Count | Notes |
+|---|---|---|
+| **active** | 0 | No NULL-slug user has stories, sessions, or pledge |
+| **test** | 1 | `test-agent@claritypledge.com` — E2E test account |
+| **orphan** | 22 | All unverified (`is_verified=false`), not pledged, zero activity |
+
+All orphans include 5 personal `test+*@example.com` test addresses and 17 external users who signed up via `/live` but never verified or engaged. None require user notification before backfill (spec §Risks: email only when active AND slug differs from `generateSlug(name)`).
+
+**Backfill is safe to proceed with no user emails.**
 
 ## Risks / Non-Goals
 
 ### Risks
 - **Uniqueness conflicts during backfill** — 2+ accounts with the same name → need a tiebreaker (numeric suffix matching the existing retry logic, or ID prefix).
-- **A NULL-slug account actively being used** — sudden slug assignment may surprise the user. Email the affected user before backfill **only when both**: (a) the audit classified them as `active`, AND (b) the chosen slug differs from `generateSlug(their name)`. Skip the email for `test` and `orphan` rows regardless.
-- **Recovery-backup insert edge case** — `AuthCallbackPage.tsx:384` could insert a row with `slug=null` from sessionStorage backup. Post-NOT-NULL, this insert will fail with a constraint violation. Existing Sentry capture (line 389) logs it. Acceptable — the path is post-P396 largely unreachable, and a loud failure is better than silent NULL.
+- **A NULL-slug account actively being used** — sudden slug assignment may surprise the user. Email the affected user before backfill **only when both**: (a) the audit classified them as `active`, AND (b) the chosen slug differs from `generateSlug(their name)` (e.g., a numeric-suffix tiebreaker or timestamp fallback was used). Skip the email for `test` and `orphan` rows regardless, and for `active` rows where the slug matches `generateSlug(name)` exactly.
+- **AuthCallbackPage regression** — step 1 of the solution IS this fix. NOT NULL must not ship until step 1 is merged and verified, otherwise the next `/live` signup crashes.
 
 ### Non-Goals
 - No redesign of `/p/:slug` page.
 - No change to slug format / length rules.
 - Not in scope: enforcing slug uniqueness on login identity (out of band).
-- Not in scope: fixing `docs/technical/authentication.md` staleness (separate spec).
-- **Not affected:** post-P396 anonymous `/live` guests (no `profiles` row created).
+- **Not affected:** pure anonymous `/live` guests (no `profiles` row created). Their flow is untouched.
 
 ## Done-When
 
-- [ ] All `isLiveRegistration` references removed from `src/auth/AuthCallbackPage.tsx` (dead code)
-- [ ] Canary test: `/auth/callback` with any `source=` param generates a slug
-- [ ] Audit complete: origin + classification of 23 NULL-slug rows documented
-- [ ] Backfill/delete strategy approved by founder
-- [ ] Migration applied to prod — 0 NULL-slug rows remain
-- [ ] `profiles.slug` has `NOT NULL` constraint enforced
-- [ ] Null-slug fallback code branches removed (coordinated with P725 ship order)
+- [x] `AuthCallbackPage.tsx:219` `!isLiveRegistration` guard dropped — all authed registrations generate a slug
+- [x] Canary test: `source=live` signup produces a non-null slug
+- [x] Audit complete: origin of 23 NULL-slug rows documented (legacy vs P50-era)
+- [x] Backfill strategy approved by founder (Option B timestamp slug; orphans deleted)
+- [x] Migration applied to prod — 0 NULL-slug rows remain (48 profiles total)
+- [x] `profiles.slug` has `NOT NULL` constraint enforced
+- [x] Null-slug fallback branches in P725's surfaces — intentionally kept (RPC types still declare `slug: string | null`; guards protect against deleted actors, system rows, and future RPC changes with no runtime alarm). Comments added to mark intent.

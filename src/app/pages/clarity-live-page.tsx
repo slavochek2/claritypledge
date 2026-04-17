@@ -35,6 +35,12 @@ import {
   recordSessionConsent,
   needsTermsAcceptance,
   createTranscriptionJob,
+  // P703: Letter-sourced session
+  getLetterBaselineRatings,
+  completeClaritySession,
+  cancelLiveInvite,
+  resendLiveInvite,
+  checkSessionRequiresAuth,
 } from '@/app/data/api';
 import { TermsUpdateDialog } from '@/app/components/live-meeting/terms-update-dialog';
 import { analytics } from '@/lib/mixpanel';
@@ -47,9 +53,11 @@ import {
 } from '@/app/types';
 import { pointsService } from '@/app/data/points-service';
 import { eventsService } from '@/app/data/events-service';
+import { storiesService } from '@/app/data/stories-service';
 import { calibrationService } from '@/app/data/calibration-service';
 import { badgeService } from '@/app/data/badge-service';
 import { supabase } from '@/lib/supabase';
+import { mergeInFlight } from '@/app/lib/live-state-merge';
 import {
   Dialog,
   DialogContent,
@@ -297,6 +305,10 @@ export function ClarityLivePage() {
   const [partnerLeft, setPartnerLeft] = useState(false); // Joiner left (creator sees this)
   const [sessionEnded, setSessionEnded] = useState(false); // Creator left (joiner sees this)
 
+  // P703: Letter-sourced session display state
+  const [listenerDisplayName, setListenerDisplayName] = useState<string | null>(null);
+  const [resendCooldown, setResendCooldown] = useState(false);
+
   // P511 Task 6: Grace period state — when set, shows ReconnectingCountdown instead of instant PartnerLeftScreen
   const [gracePeriodStart, setGracePeriodStart] = useState<Date | null>(null);
 
@@ -341,6 +353,8 @@ export function ClarityLivePage() {
   const [isPrivate, setIsPrivate] = useState(() => searchParams.get('insights') === 'off');
   // P160: Recording state for join-via-link flow (fetched from session data)
   const [joinSessionIsPrivate, setJoinSessionIsPrivate] = useState(false);
+  // P703: True when the join-via-link session is letter-sourced (requires authentication)
+  const [joinSessionIsLetterSourced, setJoinSessionIsLetterSourced] = useState(false);
 
   const [departedPartnerName, setDepartedPartnerName] = useState<string | null>(null);
 
@@ -690,6 +704,12 @@ export function ClarityLivePage() {
     if (isAuthLoading) return;
     if (isRestoring) return; // Don't redirect while checking for saved session
     if (user) return;
+    // P703: Letter-sourced sessions require the specific authenticated listener — redirect to login
+    if (isJoinViaLink && joinSessionIsLetterSourced) {
+      const redirectTo = encodeURIComponent(window.location.pathname + window.location.search);
+      navigate(`/login?redirect=${redirectTo}`, { replace: true });
+      return;
+    }
     if (isJoinViaLink) return;
     // Check for a stored session — guest may have refreshed mid-session (sessionStorage)
     const storedCode = storage?.getItem(STORAGE_KEYS.SESSION_CODE);
@@ -698,7 +718,7 @@ export function ClarityLivePage() {
     const activeStored = getActiveSessionFromStorage();
     if (activeStored) return; // Rejoin prompt effect will handle this
     navigate('/signup');
-  }, [isAuthLoading, isRestoring, user, isJoinViaLink, navigate]);
+  }, [isAuthLoading, isRestoring, user, isJoinViaLink, joinSessionIsLetterSourced, navigate]);
 
   // Pre-fill name from logged-in user, or from last guest session (localStorage)
   useEffect(() => {
@@ -943,18 +963,37 @@ export function ClarityLivePage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps -- rejoinSession?.sessionId is the stable identity; adding full object would re-subscribe on every state change
   }, [rejoinSession?.sessionId, clearActiveSession]);
 
+  // P703: Fetch listener display name for waiting screen invite panel
+  useEffect(() => {
+    if (!session?.targetListenerId) return;
+    supabase
+      .from('profiles')
+      .select('name')
+      .eq('id', session.targetListenerId)
+      .single()
+      .then(({ data }) => {
+        if (data && typeof data.name === 'string') setListenerDisplayName(data.name);
+      });
+  }, [session?.targetListenerId]);
+
   // Fetch host name when joining via link (for personalized "Join X's Session" title)
   useEffect(() => {
     if (!isJoinViaLink || !urlCode) return;
 
     const fetchHostName = async () => {
       try {
-        const sessionInfo = await getClaritySession(urlCode.toUpperCase());
+        const [sessionInfo, requiresAuth] = await Promise.all([
+          getClaritySession(urlCode.toUpperCase()),
+          // P703: Check via public SECURITY DEFINER RPC — works even when unauthenticated
+          checkSessionRequiresAuth(urlCode.toUpperCase()),
+        ]);
         if (sessionInfo?.creatorName) {
           setHostName(sessionInfo.creatorName);
         }
         // P160: Capture session's recording state for joiner UI
         setJoinSessionIsPrivate(sessionInfo?.isPrivate ?? false);
+        // P703: Set auth requirement flag — triggers redirect in auth guard for anon users
+        setJoinSessionIsLetterSourced(requiresAuth);
       } catch (err) {
         console.error('[Live] Failed to fetch host name:', err);
       }
@@ -1088,19 +1127,20 @@ export function ClarityLivePage() {
           // Stale echo — skip state application entirely.
           // The next Realtime event (or drift poll) will carry the correct state.
         } else if (updateInFlightRef.current) {
-          // P671: Field-aware merge during in-flight writes.
-          // ratingPhase: take the HIGHER value (server's 'revealed' beats local 'waiting').
-          // All other fields: local wins (preserves optimistic checkerRating, *Submitted, etc.).
-          setLiveState(prev => {
-            const phaseToUse = isPhaseRegression(mergedState.ratingPhase, prev.ratingPhase)
-              ? mergedState.ratingPhase  // server is ahead
-              : prev.ratingPhase;        // local is ahead or equal
-            return { ...mergedState, ...prev, ratingPhase: phaseToUse };
+          // P609/P741: Field-aware merge — partner-owned keys preserved, ratingPhase monotonic (P671).
+          const myKey = isCreator ? 'freeSliderCreator' : 'freeSliderJoiner';
+          const myPositionKey = isCreator ? 'livePositionsCreator' : 'livePositionsJoiner';
+          const snapshot = confirmedLiveStateRef.current;
+          const merged = mergeInFlight({
+            incoming: mergedState,
+            prev: liveState,
+            confirmedRef: snapshot,
+            myKey,
+            myPositionKey,
+            isPhaseRegression,
           });
-          const confirmedPhase = isPhaseRegression(mergedState.ratingPhase, confirmedLiveStateRef.current.ratingPhase)
-            ? mergedState.ratingPhase
-            : confirmedLiveStateRef.current.ratingPhase;
-          confirmedLiveStateRef.current = { ...mergedState, ...confirmedLiveStateRef.current, ratingPhase: confirmedPhase };
+          setLiveState(merged.nextState);
+          confirmedLiveStateRef.current = merged.nextConfirmedRef;
         } else {
           // Normal: wholesale replace
           setLiveState(mergedState);
@@ -1303,17 +1343,20 @@ export function ClarityLivePage() {
 
           const mergedState = { ...DEFAULT_LIVE_STATE, ...serverState };
           if (updateInFlightRef.current) {
-            // P671: Field-aware merge — ratingPhase takes higher value, rest keeps local
-            setLiveState(prev => {
-              const phaseToUse = isPhaseRegression(mergedState.ratingPhase, prev.ratingPhase)
-                ? mergedState.ratingPhase
-                : prev.ratingPhase;
-              return { ...mergedState, ...prev, ratingPhase: phaseToUse };
+            // P609/P741: Field-aware merge — partner-owned keys preserved, ratingPhase monotonic (P671).
+            const myKey = isCreator ? 'freeSliderCreator' : 'freeSliderJoiner';
+            const myPositionKey = isCreator ? 'livePositionsCreator' : 'livePositionsJoiner';
+            const snapshot = confirmedLiveStateRef.current;
+            const merged = mergeInFlight({
+              incoming: mergedState,
+              prev: liveState,
+              confirmedRef: snapshot,
+              myKey,
+              myPositionKey,
+              isPhaseRegression,
             });
-            const confirmedPhase = isPhaseRegression(mergedState.ratingPhase, confirmedLiveStateRef.current.ratingPhase)
-              ? mergedState.ratingPhase
-              : confirmedLiveStateRef.current.ratingPhase;
-            confirmedLiveStateRef.current = { ...mergedState, ...confirmedLiveStateRef.current, ratingPhase: confirmedPhase };
+            setLiveState(merged.nextState);
+            confirmedLiveStateRef.current = merged.nextConfirmedRef;
           } else {
             setLiveState(mergedState);
             confirmedLiveStateRef.current = mergedState;
@@ -1721,6 +1764,7 @@ export function ClarityLivePage() {
           positionCounts: p.positionCounts,
           userPosition: p.userPosition,
           profileSubjectPosition: p.profileSubjectPosition,
+          visibility: p.visibility,
         })),
         authorName: storyData.authorName,
         authorSlug: storyData.authorSlug,
@@ -2663,6 +2707,94 @@ export function ClarityLivePage() {
     }
   };
 
+  // P703: Bootstrap letter-sourced session — writes explain-back phase + baseline ratings to DB.
+  // Called by the creator immediately after creating a letter-sourced session. The joiner
+  // inherits the phase from DB when they join (subscription delivers it within ~200ms).
+  const bootstrapLetterSourcedSession = useCallback(async (sess: ClaritySession) => {
+    if (!sess.targetListenerId || !sess.sourceStoryId || !sess.sourceLetterId || !sess.creatorProfileId) {
+      return;
+    }
+    // Idempotency guard: if session already has a phase > idle, skip DB write to avoid
+    // overwriting in-progress state (e.g. creator page-refreshes mid-session)
+    const existingPhase = (sess.liveState as { ratingPhase?: string } | undefined)?.ratingPhase;
+    if (existingPhase && existingPhase !== 'idle') {
+      return;
+    }
+    try {
+      const [ratings, storyData] = await Promise.all([
+        getLetterBaselineRatings(
+          sess.sourceLetterId,
+          sess.sourceStoryId,
+          sess.creatorProfileId,
+          sess.targetListenerId,
+        ),
+        storiesService.getStoryWithPoints(sess.sourceStoryId),
+      ]);
+
+      const pointIds = (storyData?.points ?? []).map(p => p.id);
+      const [creatorPositions, joinerPositions] = pointIds.length > 0
+        ? await Promise.all([
+            pointsService.getMyPositionsForPoints(pointIds, sess.creatorProfileId),
+            pointsService.getMyPositionsForPoints(pointIds, sess.targetListenerId),
+          ])
+        : [new Map<string, { position: PositionType }>(), new Map<string, { position: PositionType }>()];
+
+      const toPositionRecord = (map: Map<string, { position: PositionType }>): Record<string, PositionType> =>
+        Object.fromEntries([...map.entries()].map(([id, v]) => [id, v.position]));
+
+      const storyTitle = storyData?.content.split('\n')[0].substring(0, 80) ?? '';
+      const liveStoryData = storyData ? {
+        id: storyData.id,
+        authorId: storyData.authorId,
+        content: storyData.content,
+        points: storyData.points.map(p => ({
+          id: p.id,
+          statement: p.statement,
+          context: p.context,
+          tags: p.tags,
+          systemTags: p.systemTags,
+          positionCounts: p.positionCounts,
+          userPosition: p.userPosition,
+          profileSubjectPosition: p.profileSubjectPosition,
+          visibility: p.visibility,
+        })),
+        authorName: storyData.authorName,
+        authorSlug: storyData.authorSlug,
+        authorAvatarColor: storyData.authorAvatarColor,
+        authorAvatarUrl: storyData.authorAvatarUrl,
+        authorRole: storyData.authorRole,
+        authorEarsCount: storyData.authorEarsCount,
+        authorHasPledged: storyData.authorHasPledged,
+        visibility: storyData.visibility,
+        createdAt: storyData.createdAt,
+      } : undefined;
+
+      const bootstrapState: LiveSessionState = {
+        ...DEFAULT_LIVE_STATE,
+        ratingPhase: 'explain-back',
+        checkerRating: ratings?.speakerRating ?? undefined,
+        responderRating: ratings?.listenerRating ?? undefined,
+        checkerIsCreator: true,
+        checkerSubmitted: ratings != null,
+        responderSubmitted: ratings != null,
+        checkerName: sess.creatorName,
+        selectedStoryId: sess.sourceStoryId,
+        selectedStoryData: liveStoryData,
+        selectedContentTitle: storyTitle,
+        ratingInitiatedBy: sess.creatorName,
+        ratingInitiatedByIsCreator: true,
+        livePositionsCreator: toPositionRecord(creatorPositions),
+        livePositionsJoiner: toPositionRecord(joinerPositions),
+      };
+      await updateClaritySessionLiveState(sess.id, bootstrapState);
+      setLiveState(bootstrapState);
+      confirmedLiveStateRef.current = bootstrapState;
+    } catch (err) {
+      console.error('[P703] Letter session bootstrap failed — session will start at idle:', err);
+      // Non-fatal: both parties will go through the normal rating flow
+    }
+  }, []);
+
   // MEDIUM: Name validation helper
   const validateName = (inputName: string): string | null => {
     const trimmed = inputName.trim();
@@ -2724,6 +2856,12 @@ export function ClarityLivePage() {
       analytics.track('live_session_created', {
         session_code: newSession.code,
       });
+
+      // P703: Bootstrap letter-sourced session — await so ratingPhase is set
+      // before both parties see the /live UI (prevents explain-back race condition).
+      if (newSession.targetListenerId && newSession.sourceStoryId && newSession.sourceLetterId) {
+        await bootstrapLetterSourcedSession(newSession);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to create session');
     } finally {
@@ -2941,6 +3079,11 @@ export function ClarityLivePage() {
           setName(creatorName);
           setIsCreator(true);
           saveSessionToStorage(code, creatorName, true);
+          setActiveSession(code, null, 'creator');
+          // P703: Bootstrap letter-sourced session when creator arrives via direct URL
+          if (sessionInfo.targetListenerId && sessionInfo.sourceStoryId && sessionInfo.sourceLetterId) {
+            await bootstrapLetterSourcedSession(sessionInfo);
+          }
           if (sessionInfo.joinerName) {
             setPendingLiveTransition(true);
           } else {
@@ -2959,15 +3102,24 @@ export function ClarityLivePage() {
   }, [isJoinViaLink, urlCode, isAuthLoading, isRestoring, user?.id, view]);
 
   // Cancel waiting and go back to start
-  const handleCancelWaiting = () => {
+  const handleCancelWaiting = async () => {
     // P106: Track session abandoned before partner joined
     if (session) {
       analytics.track('live_session_abandoned', {
         session_code: session.code,
         waited_seconds: Math.floor((Date.now() - new Date(session.created_at).getTime()) / 1000),
       });
+      // P703: Close the letter-sourced invite so the author's Start button re-enables
+      if (session.targetListenerId) {
+        try {
+          await cancelLiveInvite(session.id);
+        } catch (err) {
+          console.error('[P703] cancelLiveInvite failed — invite may still be open:', err);
+        }
+      }
     }
     clearStoredSession();
+    clearActiveSession();
     setSession(null);
     setView('start');
     setRoomCode('');
@@ -3124,10 +3276,26 @@ export function ClarityLivePage() {
       try {
         if (isCreator) {
           // Creator leaving = session ends for everyone
-          await endClaritySession(session.id);
+          await endClaritySession(session.id).catch((err) => {
+            console.error('[Live] endClaritySession failed on exit:', err);
+          });
+          // P703: Atomically close the live invite for letter-sourced sessions
+          if (session.targetListenerId) {
+            await completeClaritySession(session.id).catch((err) => {
+              console.error('[P703] completeClaritySession failed on exit:', err);
+            });
+          }
         } else {
           // Joiner leaving = clear their name so creator knows
-          await clearSessionJoiner(session.id);
+          await clearSessionJoiner(session.id).catch((err) => {
+            console.error('[Live] clearSessionJoiner failed on joiner exit:', err);
+          });
+          // P740: Close letter-sourced invite when joiner exits
+          if (session.targetListenerId) {
+            await completeClaritySession(session.id).catch((err) => {
+              console.error('[P740] completeClaritySession failed on joiner exit:', err);
+            });
+          }
         }
       } catch (err) {
         console.error('[Live] Error updating session on exit:', err);
@@ -3865,6 +4033,27 @@ export function ClarityLivePage() {
     }
   };
 
+  // P703: Resend invite — bumps updated_at to re-ping recipient's realtime channel
+  const handleResendInvite = async () => {
+    if (!session || resendCooldown) return;
+    setResendCooldown(true);
+    try {
+      await resendLiveInvite(session.id);
+      analytics.track('live_invite_resent', { session_code: session.code });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : '';
+      if (msg.includes('rate limit')) {
+        // DB trigger enforced 30s window — show brief feedback
+        console.warn('[P703] Resend rate limit hit');
+      } else {
+        console.error('[P703] Resend failed:', err);
+      }
+    } finally {
+      // Re-enable after 30s to match server-side rate limit
+      setTimeout(() => setResendCooldown(false), 30000);
+    }
+  };
+
   if (view === 'waiting' && session) {
     // Display-friendly link (without https://)
     const displayLink = shareLink.replace('https://', '').replace('http://', '');
@@ -3883,6 +4072,8 @@ export function ClarityLivePage() {
                   They can join by:
                 </p>
               </>
+            ) : session.targetListenerId ? (
+              <h2 className="text-2xl font-semibold">Waiting for {listenerDisplayName ?? 'listener'}...</h2>
             ) : (
               <>
                 <h2 className="text-2xl font-semibold">Invite Your Partner</h2>
@@ -3892,73 +4083,98 @@ export function ClarityLivePage() {
               </>
             )}
 
-            {/* Link row with copy/share */}
-            <div className="flex items-center gap-2 p-2 bg-muted rounded-lg">
-              <span
-                data-testid="share-link"
-                className="text-sm font-mono text-muted-foreground truncate flex-1 text-left pl-2"
+            {/* P703: Letter-sourced — show invite status instead of share link */}
+            {session.targetListenerId ? (
+              <div
+                data-testid="invite-status-panel"
+                className="flex items-center justify-between p-3 bg-muted rounded-lg"
               >
-                {displayLink}
-              </span>
-              <Button
-                onClick={handleShare}
-                size="sm"
-                className="flex-shrink-0 bg-blue-500 hover:bg-blue-600"
-              >
-                {copied ? (
-                  <Check className="h-4 w-4 mr-1" />
-                ) : (
-                  <Share2 className="h-4 w-4 mr-1" />
-                )}
-                {copied ? 'Copied!' : 'Share'}
-              </Button>
-            </div>
-
-            {/* P160: Recording status badge — display-only, locked once session created */}
-            <div
-              aria-live="polite"
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg border w-full ${
-                isPrivate
-                  ? 'bg-muted border-border'
-                  : 'bg-blue-50 border-blue-200'
-              }`}
-            >
-              {isPrivate ? (
-                <>
-                  <ShieldOff className="w-4 h-4 text-muted-foreground flex-shrink-0" />
-                  <div>
-                    <div className="text-sm font-medium text-muted-foreground">Private session</div>
-                    <div className="text-xs text-muted-foreground">AI insights disabled</div>
-                  </div>
-                </>
-              ) : (
-                <>
-                  <Sparkles className="w-4 h-4 text-blue-500 flex-shrink-0" />
-                  <div className="text-sm text-blue-700">Session recorded for AI Insights</div>
-                </>
-              )}
-            </div>
-
-            {isFromEvent ? (
-              <p className="text-xs text-muted-foreground">
-                • Tapping "Join" on the event page<br />
-                • Scanning this QR code<br />
-                • Using this link
-              </p>
+                <span className="text-sm text-muted-foreground">
+                  Invite sent to {listenerDisplayName ?? 'listener'}
+                </span>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => void handleResendInvite()}
+                  disabled={resendCooldown}
+                  className="text-blue-500 hover:text-blue-600 flex-shrink-0"
+                >
+                  {resendCooldown ? 'Sent' : 'Resend'}
+                </Button>
+              </div>
             ) : (
-              <p className="text-xs text-muted-foreground">
-                Or show them this QR code:
-              </p>
+              /* Link row with copy/share */
+              <div className="flex items-center gap-2 p-2 bg-muted rounded-lg">
+                <span
+                  data-testid="share-link"
+                  className="text-sm font-mono text-muted-foreground truncate flex-1 text-left pl-2"
+                >
+                  {displayLink}
+                </span>
+                <Button
+                  onClick={handleShare}
+                  size="sm"
+                  className="flex-shrink-0 bg-blue-500 hover:bg-blue-600"
+                >
+                  {copied ? (
+                    <Check className="h-4 w-4 mr-1" />
+                  ) : (
+                    <Share2 className="h-4 w-4 mr-1" />
+                  )}
+                  {copied ? 'Copied!' : 'Share'}
+                </Button>
+              </div>
             )}
 
-            {/* QR Code */}
-            <div className="p-4 bg-white rounded-lg border inline-block">
-              <QRCodeSVG
-                value={shareLink}
-                size={160}
-                level="M"
-              />
-            </div>
+            {!session.targetListenerId && (
+              <>
+                {/* P160: Recording status badge — display-only, locked once session created */}
+                <div
+                  aria-live="polite"
+                  className={`flex items-center gap-2 px-4 py-2 rounded-lg border w-full ${
+                    isPrivate
+                      ? 'bg-muted border-border'
+                      : 'bg-blue-50 border-blue-200'
+                  }`}
+                >
+                  {isPrivate ? (
+                    <>
+                      <ShieldOff className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                      <div>
+                        <div className="text-sm font-medium text-muted-foreground">Private session</div>
+                        <div className="text-xs text-muted-foreground">AI insights disabled</div>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="w-4 h-4 text-blue-500 flex-shrink-0" />
+                      <div className="text-sm text-blue-700">Session recorded for AI Insights</div>
+                    </>
+                  )}
+                </div>
+
+                {isFromEvent ? (
+                  <p className="text-xs text-muted-foreground">
+                    • Tapping "Join" on the event page<br />
+                    • Scanning this QR code<br />
+                    • Using this link
+                  </p>
+                ) : (
+                  <p className="text-xs text-muted-foreground">
+                    Or show them this QR code:
+                  </p>
+                )}
+
+                {/* QR Code */}
+                <div className="p-4 bg-white rounded-lg border inline-block">
+                  <QRCodeSVG
+                    value={shareLink}
+                    size={160}
+                    level="M"
+                  />
+                </div>
+              </>
+            )}
 
             {returnTo && (
               <Button
@@ -3974,7 +4190,7 @@ export function ClarityLivePage() {
             <Button
               variant="ghost"
               size="sm"
-              onClick={handleCancelWaiting}
+              onClick={() => void handleCancelWaiting()}
               className="text-muted-foreground w-full"
             >
               Cancel
@@ -3996,6 +4212,14 @@ export function ClarityLivePage() {
 
   // LIVE/REVIEW VIEW
   if ((view === 'live') && session && partnerName) {
+    // P703 defense-in-depth: letter-sourced session participants only (belt-and-braces for RLS)
+    const isLetterSourced = !!session.targetListenerId;
+    if (isLetterSourced && user?.id &&
+        user.id !== session.creatorProfileId &&
+        user.id !== session.targetListenerId) {
+      return null;
+    }
+
     return (
       <div className="flex flex-col h-screen overflow-hidden">
         <LiveModeView

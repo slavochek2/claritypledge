@@ -5,10 +5,29 @@
  * including security constraints from the architecture review.
  */
 
-import { describe, it } from 'vitest';
+import { describe, it, expect } from 'vitest';
+import { snapshotToStoryWithPoints, pointSummaryToProtoPoint } from '@/app/utils/letter-snapshot-mapper';
+import type { LetterStorySnapshot, PointSummary } from '@/app/types';
 
-// TODO: Import from src/app/utils/letter-snapshot-mapper.ts once created
-// import { snapshotToStoryWithPoints } from '@/app/utils/letter-snapshot-mapper';
+function makeSnapshot(overrides: Partial<LetterStorySnapshot> = {}): LetterStorySnapshot {
+  return {
+    letter_id: 'letter-1',
+    story_id: 'story-1',
+    version_id: 'version-1',
+    position: 0,
+    point_config: {
+      storyText: 'Test story content',
+      storyTitle: 'Test Title',
+      points: [
+        { id: 'p1', text: 'First point', authorPosition: 'agree' },
+        { id: 'p2', text: 'Second point', authorPosition: 'disagree' },
+        { id: 'p3', text: 'Third point', authorPosition: null },
+      ],
+    },
+    visibility: 'published',
+    ...overrides,
+  };
+}
 
 describe('snapshotToStoryWithPoints', () => {
   // =========================================================================
@@ -16,27 +35,40 @@ describe('snapshotToStoryWithPoints', () => {
   // =========================================================================
 
   it('maps point_config.storyText to StoryWithPoints.content', () => {
-    // TODO: Create snapshot with storyText, assert content matches
+    const result = snapshotToStoryWithPoints(makeSnapshot(), 'Alice');
+    expect(result.content).toBe('Test story content');
   });
 
   it('maps point_config.storyTitle to StoryWithPoints.title', () => {
-    // TODO: Create snapshot with storyTitle, assert title matches
+    const result = snapshotToStoryWithPoints(makeSnapshot(), 'Alice');
+    expect(result.title).toBe('Test Title');
   });
 
   it('maps point_config.points array to StoryWithPoints.points', () => {
-    // TODO: Create snapshot with 3 points, assert all mapped with id, text, authorPosition
+    const result = snapshotToStoryWithPoints(makeSnapshot(), 'Alice');
+    expect(result.points).toHaveLength(3);
+    expect(result.points[0].id).toBe('p1');
+    expect(result.points[0].statement).toBe('First point');
+    expect(result.points[0].profileSubjectPosition).toBe('agree');
+    expect(result.points[1].id).toBe('p2');
+    expect(result.points[1].statement).toBe('Second point');
+    expect(result.points[2].id).toBe('p3');
   });
 
   it('uses senderName param for authorName', () => {
-    // TODO: Pass senderName='Alice', assert authorName='Alice'
+    const result = snapshotToStoryWithPoints(makeSnapshot(), 'Alice');
+    expect(result.authorName).toBe('Alice');
   });
 
   it('uses story_id from snapshot as StoryWithPoints.id', () => {
-    // TODO: Assert id matches snapshot.story_id
+    const result = snapshotToStoryWithPoints(makeSnapshot({ story_id: 'custom-id' }), 'Alice');
+    expect(result.id).toBe('custom-id');
   });
 
   it('sets sensible defaults for optional fields (authorEarsCount, authorHasPledged)', () => {
-    // TODO: Assert authorEarsCount=0, authorHasPledged=false
+    const result = snapshotToStoryWithPoints(makeSnapshot(), 'Alice');
+    expect(result.authorEarsCount).toBe(0);
+    expect(result.authorHasPledged).toBe(false);
   });
 
   // =========================================================================
@@ -44,9 +76,10 @@ describe('snapshotToStoryWithPoints', () => {
   // =========================================================================
 
   it('sets positionCounts to empty objects for all points', () => {
-    // SECURITY: Community position counts must NOT be exposed to letter recipients.
-    // The adapter must not fetch live data — positionCounts must be empty/zeroed.
-    // TODO: Create snapshot with 2 points, assert each point.positionCounts is empty
+    const result = snapshotToStoryWithPoints(makeSnapshot(), 'Alice');
+    for (const point of result.points) {
+      expect(point.positionCounts).toEqual({});
+    }
   });
 
   // =========================================================================
@@ -54,13 +87,33 @@ describe('snapshotToStoryWithPoints', () => {
   // =========================================================================
 
   it('filters hidden points from the output', () => {
-    // SECURITY: Points marked as hidden by the sender in the clarity doc
-    // must not appear in StoryWithPoints.points array.
-    // TODO: Create snapshot with 3 points where 1 is hidden, assert only 2 in output
+    const snapshot = makeSnapshot({
+      point_config: {
+        storyText: 'Story',
+        points: [
+          { id: 'p1', text: 'Visible', authorPosition: null },
+          { id: 'p2', text: 'Hidden', authorPosition: null, hidden: true },
+          { id: 'p3', text: 'Also visible', authorPosition: null },
+        ],
+      },
+    });
+    const result = snapshotToStoryWithPoints(snapshot, 'Alice');
+    expect(result.points).toHaveLength(2);
+    expect(result.points.map((p) => p.id)).toEqual(['p1', 'p3']);
   });
 
   it('returns empty points array when all points are hidden', () => {
-    // TODO: Create snapshot with 2 hidden points, assert points=[]
+    const snapshot = makeSnapshot({
+      point_config: {
+        storyText: 'Story',
+        points: [
+          { id: 'p1', text: 'Hidden 1', authorPosition: null, hidden: true },
+          { id: 'p2', text: 'Hidden 2', authorPosition: null, hidden: true },
+        ],
+      },
+    });
+    const result = snapshotToStoryWithPoints(snapshot, 'Alice');
+    expect(result.points).toEqual([]);
   });
 
   // =========================================================================
@@ -68,9 +121,17 @@ describe('snapshotToStoryWithPoints', () => {
   // =========================================================================
 
   it('does not require any fields beyond point_config, story_id, and position', () => {
-    // SECURITY: Mapper must work with minimal snapshot — letter_id, version_id
-    // can be empty strings (preview mode uses these).
-    // TODO: Create snapshot with letter_id='', version_id='', assert no error
+    const snapshot: LetterStorySnapshot = {
+      letter_id: '',
+      story_id: 'story-1',
+      version_id: '',
+      position: 0,
+      point_config: { storyText: 'Minimal' },
+      visibility: 'published',
+    };
+    const result = snapshotToStoryWithPoints(snapshot, 'Alice');
+    expect(result.content).toBe('Minimal');
+    expect(result.points).toEqual([]);
   });
 
   // =========================================================================
@@ -78,15 +139,30 @@ describe('snapshotToStoryWithPoints', () => {
   // =========================================================================
 
   it('handles snapshot with 0 points', () => {
-    // TODO: Create snapshot with empty points array, assert StoryWithPoints.points=[]
+    const snapshot = makeSnapshot({
+      point_config: { storyText: 'No points story', points: [] },
+    });
+    const result = snapshotToStoryWithPoints(snapshot, 'Alice');
+    expect(result.points).toEqual([]);
   });
 
   it('handles snapshot with missing storyText gracefully', () => {
-    // TODO: Create snapshot where point_config has no storyText, assert content=''
+    const snapshot = makeSnapshot({
+      point_config: { points: [] },
+    });
+    const result = snapshotToStoryWithPoints(snapshot, 'Alice');
+    expect(result.content).toBe('');
   });
 
   it('handles null authorPosition on points', () => {
-    // TODO: Create point with authorPosition=null, assert mapped correctly
+    const snapshot = makeSnapshot({
+      point_config: {
+        storyText: 'Story',
+        points: [{ id: 'p1', text: 'Point', authorPosition: null }],
+      },
+    });
+    const result = snapshotToStoryWithPoints(snapshot, 'Alice');
+    expect(result.points[0].profileSubjectPosition).toBeNull();
   });
 
   // =========================================================================
@@ -94,10 +170,118 @@ describe('snapshotToStoryWithPoints', () => {
   // =========================================================================
 
   it('returns correct visible point count for anti-point lead decisions', () => {
-    // The consumer uses points.length to decide flow:
-    // 0 visible → story first, no points
-    // 1 visible → story first (D36), then point
-    // 2+ visible → anti-point lead (first point before story)
-    // TODO: Verify with 4 points (2 hidden, 2 visible) → points.length === 2
+    const snapshot = makeSnapshot({
+      point_config: {
+        storyText: 'Story',
+        points: [
+          { id: 'p1', text: 'Visible 1', authorPosition: null },
+          { id: 'p2', text: 'Hidden', authorPosition: null, hidden: true },
+          { id: 'p3', text: 'Visible 2', authorPosition: null },
+          { id: 'p4', text: 'Hidden 2', authorPosition: null, hidden: true },
+        ],
+      },
+    });
+    const result = snapshotToStoryWithPoints(snapshot, 'Alice');
+    expect(result.points).toHaveLength(2);
+  });
+
+  // =========================================================================
+  // P681: VISIBILITY PROPAGATION
+  // =========================================================================
+
+  describe('visibility propagation', () => {
+    it('uses snapshot.visibility for story visibility (not hardcoded public)', () => {
+      const result = snapshotToStoryWithPoints(makeSnapshot({ visibility: 'private' }), 'Alice');
+      expect(result.visibility).toBe('private');
+    });
+
+    it('maps per-point visibility from point_config when present', () => {
+      const snapshot = makeSnapshot({
+        point_config: {
+          storyText: 'Story',
+          points: [
+            { id: 'p1', text: 'Private point', authorPosition: null, visibility: 'private' },
+            { id: 'p2', text: 'Public point', authorPosition: null, visibility: 'public' },
+          ],
+        },
+      });
+      const result = snapshotToStoryWithPoints(snapshot, 'Alice');
+      expect(result.points[0].visibility).toBe('private');
+      expect(result.points[1].visibility).toBe('public');
+    });
+
+    it('falls back to snapshot.visibility when point has no visibility (legacy data)', () => {
+      const snapshot = makeSnapshot({
+        visibility: 'private',
+        point_config: {
+          storyText: 'Story',
+          points: [{ id: 'p1', text: 'Legacy point', authorPosition: null }],
+        },
+      });
+      const result = snapshotToStoryWithPoints(snapshot, 'Alice');
+      expect(result.points[0].visibility).toBe('private');
+    });
+
+    it('defaults to public when neither point nor snapshot has visibility', () => {
+      const snapshot: LetterStorySnapshot = {
+        letter_id: '', story_id: 'story-1', version_id: '', position: 0,
+        point_config: { storyText: 'S', points: [{ id: 'p1', text: 'P', authorPosition: null }] },
+        visibility: '',  // empty string = falsy
+      };
+      const result = snapshotToStoryWithPoints(snapshot, 'Alice');
+      expect(result.points[0].visibility).toBe('public');
+    });
+  });
+});
+
+// =========================================================================
+// pointSummaryToProtoPoint — P676 regression tests
+// =========================================================================
+
+function makePointSummary(overrides: Partial<PointSummary> = {}): PointSummary {
+  return {
+    id: 'point-1',
+    statement: 'Test statement',
+    tags: [],
+    systemTags: [],
+    positionCounts: {},
+    userPosition: null,
+    profileSubjectPosition: null,
+    visibility: 'public',
+    ...overrides,
+  };
+}
+
+describe('pointSummaryToProtoPoint', () => {
+  it('maps id and statement to Point.id and Point.text', () => {
+    const result = pointSummaryToProtoPoint(makePointSummary({ id: 'p1', statement: 'Hello' }));
+    expect(result.id).toBe('p1');
+    expect(result.text).toBe('Hello');
+  });
+
+  it('returns empty positions when no receiverPosition provided', () => {
+    const result = pointSummaryToProtoPoint(makePointSummary());
+    expect(result.positions).toEqual({});
+  });
+
+  it('returns empty positions when receiverPosition is null', () => {
+    const result = pointSummaryToProtoPoint(makePointSummary(), null);
+    expect(result.positions).toEqual({});
+  });
+
+  it('injects __receiver__ position when receiverPosition is provided', () => {
+    const result = pointSummaryToProtoPoint(makePointSummary(), 'agree');
+    expect(result.positions['__receiver__']).toBeDefined();
+    expect(result.positions['__receiver__']?.position).toBe('agree');
+  });
+
+  it('returns empty linkedStoryIds', () => {
+    const result = pointSummaryToProtoPoint(makePointSummary());
+    expect(result.linkedStoryIds).toEqual([]);
+  });
+
+  it('carries visibility from PointSummary to Point (P681)', () => {
+    const result = pointSummaryToProtoPoint(makePointSummary({ visibility: 'private' }));
+    expect(result.visibility).toBe('private');
   });
 });

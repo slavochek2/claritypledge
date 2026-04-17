@@ -1,10 +1,10 @@
 ---
-status: week
+status: qa
 type: task
 rank: 1000680.0
 created_date: '2026-04-10'
 tags: [visibility, data-integrity, retrofit, letters]
-delivery_stage: challenge-prd
+delivery_stage: fix
 pipeline_ran: [create-spec, challenge-prd]
 ---
 

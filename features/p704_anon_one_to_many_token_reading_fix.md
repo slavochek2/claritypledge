@@ -1,15 +1,18 @@
 ---
 id: p704
 type: bug
-status: in-progress
+status: qa
 severity: high
 delivery_stage: fix
 pipeline_ran: [fix]
 date_reported: 2026-04-14
+date_resolved: 2026-04-15
+root_cause: Client called *_by_token RPCs for anon one-to-many recipients; P684 guard blocks these with 400. Additionally, P705 authorization guard in submit_point_response_by_token validated against live story_points instead of sealed point_config, causing "Invalid or expired token" for 1:1 anon readers whose points were in point_config but not story_points.
+resolution: bufferOnly predicate (letter.mode===one-to-many && !session) gates onOpen and reading render — uses LetterReadingFlowPublic (local mode) for anon one-to-many token path. P705 guard fixed via migration 20260415143000 to consult letter_story_snapshots.point_config. Defensive UX added via tokenExpired state in useLetterReadingState (renders LetterResponseLinkExpired on guard rejection).
 branch: feature/letters-ship
 worktree: w2
 tags: []
-rank: 1000707.0
+rank: 1000708.0
 created_date: 2026-04-14
 ---
 
@@ -58,11 +61,11 @@ The `confirm-letter-response` path and `letter-response-confirm-page.tsx` work a
 
 ## Acceptance Criteria
 
-- [ ] Anon one-to-many token recipient: no 400 errors; positions + ratings update UI silently;
+- [x] Anon one-to-many token recipient: no 400 errors; positions + ratings update UI silently;
       Submit triggers signup; after magic-link, `confirm-letter-response` persists all responses.
-- [ ] Anon one-to-one token recipient: existing `handleOneToOneOpen` + token RPCs unchanged.
-- [ ] Authenticated one-to-many reader: existing `submitLetterResponseAuthenticated` flow unchanged.
-- [ ] Canary test `e2e/p704-anon-one-to-many-token.spec.ts` passes.
+- [x] Anon one-to-one token recipient: existing `handleOneToOneOpen` + token RPCs unchanged.
+- [x] Authenticated one-to-many reader: existing `submitLetterResponseAuthenticated` flow unchanged.
+- [x] Canary test `e2e/p704-anon-one-to-many-token.spec.ts` passes.
 
 ## Files Changed
 

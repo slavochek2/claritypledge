@@ -68,11 +68,11 @@ export function DocHeader({ doc, isOwner, onDocUpdated, children }: DocHeaderPro
     <div className="space-y-3">
       {/* Back link */}
       <button
-        onClick={() => navigate('/docs')}
+        onClick={() => navigate('/letters?tab=drafts')}
         className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors"
       >
         <ArrowLeft size={16} />
-        <span>Back</span>
+        <span>Letters</span>
       </button>
 
       {/* Title + action buttons row */}

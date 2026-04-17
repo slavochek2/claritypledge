@@ -1,5 +1,5 @@
 ---
-status: week
+status: qa
 type: bug
 rank: 1000708.0
 severity: high
@@ -7,8 +7,8 @@ workstream: letters
 date_reported: '2026-04-15'
 created_date: '2026-04-15'
 tags: [letters, private-letter, auth, token, recovery]
-delivery_stage: create-bug
-pipeline_ran: [create-bug]
+delivery_stage: fix
+pipeline_ran: [create-bug, fix]
 ---
 
 # P714: Letter link lifecycle — identity, consent, and recovery
@@ -68,6 +68,18 @@ Three coordinated changes (sequence matters):
 **Change 2 (dead-end recovery):** Replace both `<LetterResponseLinkExpired />` render sites with navigation to `signup-page` parametrized by `source=letter-response&letterId=...&senderName=...`. The signup-page already handles this source with "Save your responses" copy and OTP re-issue. Delete `letter-response-link-expired.tsx` if no other consumers.
 
 **Change 3 (email TOS):** Add one line below the "Open the Letter" button in the email template: "By opening this letter, you'll create a Clarity Pledge account. [Terms of Service] · [Privacy Policy]."
+
+## Additional Root Cause (found during golden-path UAT — 2026-04-16)
+
+**Wrong position enum values in `submit_point_response_by_token` guard.**
+
+P705 and P716 migrations introduced an enum validation guard using `slightly_disagree`, `neutral`, `slightly_agree` — none of which are valid `position_type` enum values. Correct values are `somewhat_disagree`, `unsure`, `somewhat_agree`.
+
+When a user submits any of these three positions, the RPC returns `false` → frontend catches it as `'Invalid or expired token'` → sets `tokenExpired=true` → redirects to `/signup?source=letter-response&...` mid-flow, making it look like an auth failure.
+
+**Fix:** Migration `20260416150000_p714_fix_position_enum_guard.sql` — corrects the three wrong labels. Applied to test DB.
+
+**Surface extent:** affects `submit_point_response_by_token` only. `submit_rating_by_token` and `update_delivery_status_by_token` do not accept position values.
 
 ## Acceptance Criteria
 

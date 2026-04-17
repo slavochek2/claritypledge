@@ -2,14 +2,19 @@
 id: P732
 title: Inbox results arrive on first step, not only on completion
 type: bug
-status: in-progress
-delivery_stage: reproduce
-pipeline_ran: [reproduce]
+status: qa
+delivery_stage: fix
+pipeline_ran: [reproduce, fix]
 reproduce_artifact:
-  test_file: src/tests/p732-inbox-results-on-first-step.test.ts
+  test_file: e2e/p732-inbox-results-on-first-step.spec.ts
   root_cause: "updateDeliveryStatus('in_progress') only fires in nextStory() at story-0→1 transition; single-story letters skip it entirely, going straight to completed"
   confidence: high
   reproduced_at: 2026-04-16
+date_resolved: 2026-04-17
+resolution: "Added hasMarkedInProgress ref; fires updateDeliveryStatus('in_progress') on first submitPointPosition or submitStoryRating call (remote/token path). Removed the redundant in_progress block from nextStory()."
+tags: []
+rank: 1000735.0
+created_date: 2026-04-17
 ---
 
 ## Problem

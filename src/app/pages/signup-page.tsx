@@ -12,6 +12,9 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { CheckCircle2Icon, InfoIcon, RefreshCwIcon } from "lucide-react";
 import { signInWithEmail } from "@/app/data/api";
+import { requestLetterResponseSignin } from "@/app/data/letters-service";
+import { CURRENT_TERMS_VERSION } from "@/lib/constants";
+import { POSITION_VALUES, type PositionType } from "@/app/types";
 import { analytics } from "@/lib/mixpanel";
 import { getPositionVerb } from "@/lib/auth-gate-utils";
 import { GoogleAuthButton } from "@/app/components/auth/google-auth-button";
@@ -35,9 +38,9 @@ export function SignupPage() {
   const redirectParam = searchParams.get('redirect');
   const actionParam = searchParams.get('action');
 
-  // P458: Collect auth-gate params to forward through OAuth/magic-link callback
+  // P458 / P684: Collect auth-gate params to forward through OAuth/magic-link callback
   const authGateExtraParams: Record<string, string> = {};
-  for (const key of ['pointId', 'position', 'pointTitle']) {
+  for (const key of ['pointId', 'position', 'pointTitle', 'letterId']) {
     const val = searchParams.get(key);
     if (val) authGateExtraParams[key] = val;
   }
@@ -80,31 +83,61 @@ export function SignupPage() {
     setIsSubmitting(true);
     setError("");
 
-    try {
-      // Send magic link with source=signup so callback knows to set has_pledged=false
-      // P76: Include redirect and action params for post-auth navigation
-      // Pass name for profile creation
-      const { error } = await signInWithEmail(email, 'signup', {
-        redirect: redirectParam || undefined,
-        action: actionParam || undefined,
-        name: name.trim(),
-        extraParams: Object.keys(authGateExtraParams).length > 0 ? authGateExtraParams : undefined,
-      });
+    // P684: Letter-response path uses the edge function (admin generateLink → OTP, cross-browser).
+    // Standard PKCE magic links fail when email opens in a different browser from the signup tab.
+    const isLetterResponse = searchParams.get('source') === 'letter-response';
 
-      if (error) {
-        analytics.track('signup_magic_link_error', {
-          error_type: error.message.includes('rate') ? 'rate_limited' : 'unknown',
+    try {
+      if (isLetterResponse) {
+        const letterId = searchParams.get('letterId') ?? '';
+        const draftJson = sessionStorage.getItem(`letter-response-draft-${letterId}`);
+        const draft = draftJson
+          ? (JSON.parse(draftJson) as {
+              ratings: Array<{ storyId: string; rating: number }>;
+              positions: Array<{ pointId: string; position: string }>;
+            })
+          : { ratings: [], positions: [] };
+
+        await requestLetterResponseSignin({
+          letterId,
+          name: name.trim(),
+          email: email.trim(),
+          termsAccepted: true,
+          termsVersion: CURRENT_TERMS_VERSION,
+          ratings: draft.ratings,
+          positions: draft.positions.map((p) => ({
+            pointId: p.pointId,
+            position: POSITION_VALUES[p.position as PositionType] ?? 0,
+          })),
         });
-        setError(error.message);
-        setIsSubmitting(false);
-      } else {
-        analytics.track('signup_magic_link_sent');
+
+        analytics.track('signup_magic_link_sent', { source: 'letter-response' });
         setIsSubmitting(false);
         setIsSubmitted(true);
+      } else {
+        // Standard signup: PKCE magic link
+        const { error } = await signInWithEmail(email, 'signup', {
+          redirect: redirectParam || undefined,
+          action: actionParam || undefined,
+          name: name.trim(),
+          extraParams: Object.keys(authGateExtraParams).length > 0 ? authGateExtraParams : undefined,
+        });
+
+        if (error) {
+          analytics.track('signup_magic_link_error', {
+            error_type: error.message.includes('rate') ? 'rate_limited' : 'unknown',
+          });
+          setError(error.message);
+          setIsSubmitting(false);
+        } else {
+          analytics.track('signup_magic_link_sent');
+          setIsSubmitting(false);
+          setIsSubmitted(true);
+        }
       }
-    } catch {
+    } catch (err: unknown) {
       analytics.track('signup_magic_link_error', { error_type: 'network_error' });
-      setError("An unexpected error occurred. Please try again.");
+      setError(err instanceof Error ? err.message : "An unexpected error occurred. Please try again.");
       setIsSubmitting(false);
     }
   };
@@ -193,7 +226,18 @@ export function SignupPage() {
   return (
     <div className="container mx-auto px-4 py-8 md:py-12 max-w-lg">
       <div className="bg-card border border-border rounded-lg shadow-sm p-6 md:p-8">
-        <h1 className="text-2xl md:text-3xl font-bold text-center mb-6">Create Account</h1>
+        <h1 className="text-2xl md:text-3xl font-bold text-center mb-2">
+          {searchParams.get('source') === 'letter-response' ? 'Save your responses' : 'Create Account'}
+        </h1>
+        {searchParams.get('source') === 'letter-response' && (
+          <p className="text-sm text-muted-foreground text-center mb-6">
+            {searchParams.get('senderName') ? (
+              <>One last step so <strong className="text-foreground">{searchParams.get('senderName')}</strong> can see your responses.</>
+            ) : (
+              'One last step so the sender can see your responses.'
+            )}
+          </p>
+        )}
 
         {/* P64: Show message if redirected from login */}
         {message === 'no-account' && (
@@ -322,7 +366,7 @@ export function SignupPage() {
               size="lg"
               disabled={isSubmitting || !termsAccepted || !name.trim() || !email.trim()}
             >
-              {isSubmitting ? "Sending..." : "Create Account"}
+              {isSubmitting ? "Sending..." : searchParams.get('source') === 'letter-response' ? "Save my responses" : "Create Account"}
             </Button>
 
             <div className="text-center">

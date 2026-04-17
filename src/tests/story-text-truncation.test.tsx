@@ -41,6 +41,7 @@ const BASE_POINT: Point = {
   createdAt: new Date().toISOString(),
   positions: {},
   linkedStoryIds: ['story-1'],
+  visibility: 'public',
 };
 
 function renderCard(text: string, compact: boolean) {
