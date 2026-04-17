@@ -2,6 +2,34 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-17 [technical]: In-flight merge rewrites must restore partner-key extraction — extract to a pure helper
+
+**Context:** P671 (commit `fb48a64d`) rewrote the in-flight Realtime/drift-poll merge block in `clarity-live-page.tsx` to add a monotonic `ratingPhase` guard. The rewrite used `{ ...mergedState, ...prev }` spread order, which lets local state (`prev`) win for every key — including partner-owned keys (`freeSliderCreator`, `freeSliderJoiner`, `livePositionsCreator`, `livePositionsJoiner`). This silently re-introduced the P609 regression: partner slider values are overridden by stale local values during the in-flight window. The P609 test file tested an internal mock helper, not the production function, so it passed throughout. The regression went undetected until P741.
+
+**Decision:** Any rewrite of an in-flight merge block must: (1) extract the logic into a pure helper in `src/app/lib/` (no React/Supabase imports) that takes `{ incoming, prev, confirmedRef, myKey, myPositionKey, isPhaseRegression }` and returns `{ nextState, nextConfirmedRef }`; (2) explicitly preserve partner-owned keys via a `partnerUpdates` extraction step that excludes the caller's own keys; (3) be tested by importing the real production function — not an inline mock. Merge order: `{ ...incoming, ...prev, ...partnerUpdates, ratingPhase: phaseToUse }` — incoming fills gaps, prev guards optimistic writes, partnerUpdates re-overlays partner values, ratingPhase last for monotonic guard.
+
+**Alternatives rejected:** Inline correction without extraction — impossible to unit-test without importing a React component; both call sites diverge independently over time. Testing the outer handler via E2E — too slow for a pure logic invariant, and concurrency timing makes it unreliable.
+
+**Consequences:** `src/app/lib/live-state-merge.ts` is the canonical home for in-flight merge logic. Both the Realtime handler and the drift-poll handler call `mergeInFlight()`. `src/tests/p609-free-slider-sync.test.ts` imports `mergeInFlight` and `PARTNER_OWNED_KEYS` directly. When adding new partner-owned keys to the data model, add them to `PARTNER_OWNED_KEYS` in `live-state-merge.ts` — both call sites inherit the update automatically. Write-success ref merge (line ~1399 in `clarity-live-page.tsx`) is a separate operation and must not be folded into `mergeInFlight`.
+
+**References:** [features/p741_partner_key_preservation_regression.md](../features/p741_partner_key_preservation_regression.md) · [src/app/lib/live-state-merge.ts](../src/app/lib/live-state-merge.ts) · [src/tests/p609-free-slider-sync.test.ts](../src/tests/p609-free-slider-sync.test.ts)
+
+---
+
+## 2026-04-17 [technical]: isPhaseRegression arg convention — parameter names in type interfaces must match the outer function
+
+**Context:** When `mergeInFlight`'s `MergeInFlightArgs` interface was first drafted, the `isPhaseRegression` function type was written as `(server: string | undefined, local: string | undefined) => boolean`. The outer production function is `isPhaseRegression(localPhase, incomingPhase)` — note reversed argument roles. The discrepancy was a latent inversion risk: a caller reading only the type signature would pass `(serverPhase, localPhase)` in the wrong order, silently applying the monotonic guard backwards (holding phase when server is ahead, advancing when server is behind).
+
+**Decision:** Type interface parameter names must match the outer function's `(local, incoming)` convention exactly. Final type: `isPhaseRegression: (local: string | undefined, incoming: string | undefined) => boolean`. Call sites: `isPhaseRegression(prev.ratingPhase, incoming.ratingPhase)` → `true` = incoming is behind local = keep `prev`; `false` = incoming is not behind = use `incoming`. This convention is the canonical reference for all future callers.
+
+**Alternatives rejected:** Renaming the outer function to match an "incoming, local" ordering — the outer function is a named export used in multiple call sites; renaming is higher blast radius than fixing the type param name.
+
+**Consequences:** Any future wrapper or adapter that accepts `isPhaseRegression` as a parameter must use `(local, incoming)` parameter names in its type definition. Reviewer finding: if parameter names differ from `(local, incoming)`, treat it as a bug, not a cosmetic issue — the monotonic guard silently inverts.
+
+**References:** [src/app/lib/live-state-merge.ts](../src/app/lib/live-state-merge.ts) · [src/app/pages/clarity-live-page.tsx](../src/app/pages/clarity-live-page.tsx)
+
+---
+
 ## 2026-04-17 [process]: Cross-check existing specs before carving out a new P-number from a follow-up list
 
 **Context:** P725 listed "Require profile creation on save for public letter responses" in its follow-up bullets and it was filed as P737 the same day. P684 (drafted 2026-04-10) already fully spec'd the same behavior: end-of-letter signup form, no skip option, response persistence tied to account creation. P684 and P737 share tags (`letters`, `public-link`) and live in the same workstream. The duplicate was caught only after manual cross-check by the founder; P737 was rejected and archived.
