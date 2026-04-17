@@ -4,8 +4,8 @@ type: story
 rank: 1000725.0
 created_date: '2026-04-17'
 tags: [letters, inbox, sent, results, reading, identity, profile, navigation]
-delivery_stage: dev
-pipeline_ran: [create-spec, architect, generate-tests, spec-review, dev]
+delivery_stage: park
+pipeline_ran: [create-spec, architect, generate-tests, spec-review, dev, park]
 uat_file: features/uat/p725.md
 test_files:
   - e2e/integration/p725-db-migrations.spec.ts
