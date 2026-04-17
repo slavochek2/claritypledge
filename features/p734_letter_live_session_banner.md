@@ -7,6 +7,9 @@ severity: high
 date_reported: 2026-04-17
 delivery_stage: fix
 pipeline_ran: [fix]
+tags: []
+rank: 1000736.0
+created_date: 2026-04-17
 ---
 
 # P734: Letter-Sourced /live Session Lifecycle — Banner + End Session
