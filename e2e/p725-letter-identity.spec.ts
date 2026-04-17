@@ -33,6 +33,7 @@ import {
   createTestDelivery,
   completeTestDelivery,
   deleteTestLetter,
+  sealTestLetter,
 } from './helpers/test-letter';
 
 test.describe('P725: Letter identity surfaces', () => {
@@ -169,6 +170,8 @@ test.describe('P725: Letter identity surfaces', () => {
       mode: 'one-to-many',
     });
     publicLinkLetterId = plLetter.id;
+    // getAllSentLetters filters status='sealed' — unsealed letters don't appear on sent tab.
+    await sealTestLetter(publicLinkLetterId);
   });
 
   test.afterAll(async () => {
@@ -387,7 +390,7 @@ test.describe('P725: Letter identity surfaces', () => {
 
   test('results page: identity row visible (sender perspective)', async ({ page }) => {
     await setTestSession(page, sender.email);
-    await page.goto(`/letter/${letterId}/results`);
+    await page.goto(`/letter/${letterId}/results?delivery=${deliveryId}`);
     await page.waitForLoadState('networkidle');
 
     const receiverName = page.getByText(receiver.name).first();
@@ -409,7 +412,7 @@ test.describe('P725: Letter identity surfaces', () => {
 
   test('results page: identity row has profile link (sender perspective)', async ({ page }) => {
     await setTestSession(page, sender.email);
-    await page.goto(`/letter/${letterId}/results`);
+    await page.goto(`/letter/${letterId}/results?delivery=${deliveryId}`);
     await page.waitForLoadState('networkidle');
 
     const receiverLink = page.locator(`a[href*="/p/${receiver.slug}"]`).first();
@@ -433,7 +436,7 @@ test.describe('P725: Letter identity surfaces', () => {
 
   test('results role label: author sees "Letter to [Name]"', async ({ page }) => {
     await setTestSession(page, sender.email);
-    await page.goto(`/letter/${letterId}/results`);
+    await page.goto(`/letter/${letterId}/results?delivery=${deliveryId}`);
     await page.waitForLoadState('networkidle');
 
     const roleLabel = page.getByText(/letter to/i).first();
@@ -544,7 +547,11 @@ test.describe('P725: Letter identity surfaces', () => {
 
   // ── 11. Boundary: null-slug sender renders plain text, no link ────────────
 
-  test('null-slug sender: name renders as plain text without link in inbox', async ({ page }) => {
+  // Skipped after P736 enforced profiles.slug NOT NULL — the setup UPDATE silently fails
+  // against the new constraint, so nullSlugSender keeps its generated slug and the assertion
+  // always fails. The UI fallback (plain text when slug is null) is still correct defensively,
+  // but the scenario is no longer reachable end-to-end. Defensive branch covered by unit tests.
+  test.skip('null-slug sender: name renders as plain text without link in inbox', async ({ page }) => {
     await setTestSession(page, receiver.email);
     await page.goto('/letters');
     await page.waitForLoadState('networkidle');
@@ -578,7 +585,7 @@ test.describe('P725: Letter identity surfaces', () => {
 
   test('long name truncation: identity row name applies overflow ellipsis', async ({ page }) => {
     await setTestSession(page, sender.email);
-    await page.goto(`/letter/${letterId}/results`);
+    await page.goto(`/letter/${letterId}/results?delivery=${deliveryId}`);
     await page.waitForLoadState('networkidle');
 
     const nameLinkOrSpan = page

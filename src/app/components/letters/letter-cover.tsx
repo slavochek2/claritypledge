@@ -6,10 +6,17 @@
 import { Mail, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Link } from 'react-router-dom';
+import { LetterParticipantRow } from './letter-participant-row';
 import type { LetterMode } from '@/app/types';
 
 interface LetterCoverProps {
   senderName: string;
+  /** P725: public handle of the sender profile — enables /p/:slug link on the cover. */
+  senderSlug?: string | null;
+  /** P725: sender avatar url / color / pledge state — surfaced by the reading RPC. */
+  senderAvatarUrl?: string | null;
+  senderAvatarColor?: string;
+  senderHasPledged?: boolean;
   receiverName: string;
   storyCount: number;
   pointCount: number;
@@ -27,6 +34,10 @@ const HINT_ID = 'letter-cover-open-hint';
 
 export function LetterCover({
   senderName,
+  senderSlug,
+  senderAvatarUrl,
+  senderAvatarColor,
+  senderHasPledged,
   receiverName,
   storyCount,
   pointCount,
@@ -65,9 +76,16 @@ export function LetterCover({
         >
           For {receiverName}
         </h1>
-        <p className="text-sm text-[#1A1A1A]/60">
-          From {senderName}
-        </p>
+        {/* P725: identity row replaces plain-text "From {senderName}" line — links to /p/:slug when available. */}
+        <LetterParticipantRow
+          name={senderName}
+          slug={senderSlug}
+          avatarUrl={senderAvatarUrl}
+          avatarColor={senderAvatarColor}
+          hasPledged={senderHasPledged}
+          roleLabel="From"
+          className="justify-center"
+        />
       </div>
 
       <p className={`text-sm text-[#1A1A1A]/50 transition-opacity duration-300 ${isAuthenticating ? 'opacity-50 pointer-events-none' : ''}`}>

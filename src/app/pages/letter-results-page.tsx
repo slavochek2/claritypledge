@@ -15,6 +15,7 @@ import { analytics } from '@/lib/mixpanel';
 import { getLetterResults } from '@/app/data/letters-service';
 import { pointsService } from '@/app/data/points-service';
 import { StoryWalk } from '@/app/components/letters/story-walk';
+import { LetterParticipantRow } from '@/app/components/letters/letter-participant-row';
 import type { StoryWalkItem, LetterStorySnapshot, PositionType } from '@/app/types';
 import type { LetterResultsData } from '@/app/data/letters-service';
 
@@ -226,8 +227,33 @@ export function LetterResultsPage() {
     );
   }
 
+  // P725: identity row showing the OTHER participant in this letter exchange.
+  // Sender viewing results → show receiver ("Letter to [Name]").
+  // Receiver viewing results → show sender ("Letter from [Name]").
+  // Public link letter with no deliveries (sender view) → placeholder.
+  const otherParty = resultsData.perspective === 'sender'
+    ? resultsData.receiverProfile
+    : resultsData.senderProfile;
+  const otherLabel = resultsData.perspective === 'sender' ? 'Letter to' : 'Letter from';
+
   return (
     <main aria-label="Letter Results" className="min-h-screen bg-background pt-4">
+      <div className="max-w-sm mx-auto px-4 pb-3">
+        {otherParty ? (
+          <LetterParticipantRow
+            name={otherParty.name}
+            slug={otherParty.slug}
+            avatarUrl={otherParty.avatarUrl}
+            avatarColor={otherParty.avatarColor}
+            hasPledged={otherParty.hasPledged}
+            roleLabel={otherLabel}
+          />
+        ) : (
+          <div className="text-sm text-muted-foreground" aria-label="Public link letter">
+            Public link letter
+          </div>
+        )}
+      </div>
       <StoryWalk
         stories={storyItems}
         perspective={resultsData.perspective}

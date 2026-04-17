@@ -104,7 +104,7 @@ test.describe('P725: Accessibility — identity links and navigation', () => {
 
   test('results page: identity link is reachable via Tab key', async ({ page }) => {
     await setTestSession(page, sender.email);
-    await page.goto(`/letter/${letterId}/results`);
+    await page.goto(`/letter/${letterId}/results?delivery=${deliveryId}`);
     await page.waitForLoadState('networkidle');
 
     let identityLinkFocused = false;
@@ -135,7 +135,7 @@ test.describe('P725: Accessibility — identity links and navigation', () => {
 
   test('results page: Enter key on focused identity link navigates to profile', async ({ page }) => {
     await setTestSession(page, sender.email);
-    await page.goto(`/letter/${letterId}/results`);
+    await page.goto(`/letter/${letterId}/results?delivery=${deliveryId}`);
     await page.waitForLoadState('networkidle');
 
     const identityLink = page.locator(`a[href*="/p/${receiver.slug}"]`).first();
@@ -177,7 +177,7 @@ test.describe('P725: Accessibility — identity links and navigation', () => {
 
   test('results page: identity link has accessible label (not empty)', async ({ page }) => {
     await setTestSession(page, sender.email);
-    await page.goto(`/letter/${letterId}/results`);
+    await page.goto(`/letter/${letterId}/results?delivery=${deliveryId}`);
     await page.waitForLoadState('networkidle');
 
     const identityLink = page.locator(`a[href*="/p/${receiver.slug}"]`).first();
@@ -304,7 +304,7 @@ test.describe('P725: Accessibility — identity links and navigation', () => {
 
   test('results page: identity row has semantic structure for screen readers', async ({ page }) => {
     await setTestSession(page, sender.email);
-    await page.goto(`/letter/${letterId}/results`);
+    await page.goto(`/letter/${letterId}/results?delivery=${deliveryId}`);
     await page.waitForLoadState('networkidle');
 
     const hasSemanticContainer = await page.evaluate(() => {
@@ -348,7 +348,7 @@ test.describe('P725: Accessibility — identity links and navigation', () => {
 
   test('results page: identity link meets 40px minimum touch target height', async ({ page }) => {
     await setTestSession(page, sender.email);
-    await page.goto(`/letter/${letterId}/results`);
+    await page.goto(`/letter/${letterId}/results?delivery=${deliveryId}`);
     await page.waitForLoadState('networkidle');
 
     const identityLink = page.locator(`a[href*="/p/${receiver.slug}"]`).first();

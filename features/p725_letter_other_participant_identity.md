@@ -100,53 +100,53 @@ Medium blast radius. Touches `inbox-tab.tsx`, `sent-tab.tsx`, the reading page, 
 ## Done-When
 
 ### Identity
-- [ ] `get_inbox_items` returns nullable `actor_slug` for all item types
-- [ ] Sent-tab fetch returns recipient `slug`
-- [ ] Inbox: registered actor names link to `/p/:slug`; `link_respondent` types render "Someone" plain text
-- [ ] Sent: recipient names link to profile when available; public-link letters show placeholder
-- [ ] Letter-reading page: author identity at top, linked when slug available
-- [ ] Results page: other-participant identity row renders regardless of position data
-- [ ] Results page: other-participant avatars on individual points link to profile
-- [ ] Correct role label on results: "Letter from [Name]" or "Letter to [Name]"
-- [ ] Public link letter with no deliveries: identity row shows "Public link letter" placeholder
-- [ ] Deleted profile: "Deleted user" plain text
+- [x] `get_inbox_items` returns nullable `actor_slug` for all item types
+- [x] Sent-tab fetch returns recipient `slug`
+- [x] Inbox: registered actor names link to `/p/:slug`; `link_respondent` types render "Someone" plain text
+- [x] Sent: recipient names link to profile when available; public-link letters show placeholder
+- [x] Letter-reading page: author identity at top, linked when slug available
+- [x] Results page: other-participant identity row renders regardless of position data
+- [ ] Results page: other-participant avatars on individual points link to profile — deferred (UAT-9 manual; requires PointRow slug plumbing, non-blocking)
+- [x] Correct role label on results: "Letter from [Name]" or "Letter to [Name]"
+- [x] Public link letter with no deliveries: identity row shows "Public link letter" placeholder
+- [ ] Deleted profile: "Deleted user" plain text — defensive only (FK blocks profile deletion in current schema; see Security Review)
 
 ### Navigation
-- [ ] Tab order is Inbox → Sent → Drafts; Inbox is default
-- [ ] "New draft" CTA visible on all three tabs
+- [x] Tab order is Inbox → Sent → Drafts; Inbox is default
+- [x] "New draft" CTA visible on all three tabs
 
 ### Quality
-- [ ] Name truncation applied (24 mobile / 40 desktop)
-- [ ] Progressive render: name shows immediately, avatar/link upgrades on profile load
-- [ ] Mobile (375px) and desktop (1280px) visual QA pass
-- [ ] Dark mode pass
+- [x] Name truncation applied (24 mobile / 40 desktop)
+- [ ] Progressive render: name shows immediately, avatar/link upgrades on profile load — manual UAT
+- [ ] Mobile (375px) and desktop (1280px) visual QA pass — pending /verify
+- [ ] Dark mode pass — pending /verify
 
 ## Acceptance Criteria
 
 ### Tap contract
-- [ ] Inbox/Sent card: tap name → `/p/:slug`; tap Open/Results button → open letter (card body itself is not a tap target; no change to current button-only navigation)
-- [ ] Results header: tap name → profile
-- [ ] Results point-level: tap other-participant avatar → profile
+- [x] Inbox/Sent card: tap name → `/p/:slug`; tap Open/Results button → open letter (card body itself is not a tap target; no change to current button-only navigation)
+- [x] Results header: tap name → profile
+- [ ] Results point-level: tap other-participant avatar → profile — deferred (UAT-9 manual)
 
 ### Content
-- [ ] Registered actor with slug: name + avatar; name is a link
-- [ ] Registered actor without slug: plain text, no broken link
-- [ ] `link_respondent` (anonymous completion): "Someone responded to _{title}_" — "Someone" plain text + initials avatar; title italic (existing copy preserved)
-- [ ] `link_respondent_in_progress` (anonymous in progress): "Someone is responding to _{title}_" — "Someone" plain text, no link; title italic (existing copy preserved)
-- [ ] Deleted profile (actor_id → deleted row): "Deleted user" plain text, no link
-- [ ] Name fallback chain: `full_name` → `slug` → `"Someone"` (never email prefix)
-- [ ] Role label matches view: recipient sees "from", author sees "to"
+- [x] Registered actor with slug: name + avatar; name is a link
+- [x] Registered actor without slug: plain text, no broken link (E2E skipped post-P736 — covered by component null-guard)
+- [x] `link_respondent` (anonymous completion): "Someone responded to _{title}_" — "Someone" plain text + initials avatar; title italic (existing copy preserved)
+- [x] `link_respondent_in_progress` (anonymous in progress): "Someone is responding to _{title}_" — "Someone" plain text, no link; title italic (existing copy preserved)
+- [ ] Deleted profile (actor_id → deleted row): "Deleted user" plain text, no link — defensive only (FK blocks today)
+- [x] Name fallback chain: `full_name` → `slug` → `"Someone"` (never email prefix)
+- [x] Role label matches view: recipient sees "from", author sees "to"
 
 ### Edge cases
-- [ ] Long name > 24 chars mobile: truncated with ellipsis
-- [ ] Long name > 40 chars desktop: truncated with ellipsis
-- [ ] Profile JOIN slow: name renders immediately; avatar + link arrive without flash
-- [ ] Public link letter with 0 deliveries: "Public link letter" placeholder
+- [x] Long name > 24 chars mobile: truncated with ellipsis
+- [x] Long name > 40 chars desktop: truncated with ellipsis
+- [ ] Profile JOIN slow: name renders immediately; avatar + link arrive without flash — manual UAT
+- [x] Public link letter with 0 deliveries: "Public link letter" placeholder
 
 ### Navigation
-- [ ] Default landing on `/letters` opens Inbox
-- [ ] "New draft" button visible on Inbox, Sent, Drafts
-- [ ] "New draft" action from any tab opens the same creation flow
+- [x] Default landing on `/letters` opens Inbox
+- [x] "New draft" button visible on Inbox, Sent, Drafts
+- [x] "New draft" action from any tab opens the same creation flow
 
 ## UX Notes
 

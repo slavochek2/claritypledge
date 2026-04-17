@@ -9,6 +9,7 @@ import { useNavigate } from 'react-router-dom';
 import { triggerConfetti } from '@/lib/confetti';
 import { analytics } from '@/lib/mixpanel';
 import { Button } from '@/components/ui/button';
+import { LetterParticipantRow } from './letter-participant-row';
 
 // ============================================================================
 // TYPES
@@ -26,6 +27,11 @@ interface LetterCompletionSummaryProps {
   };
   isAuthenticated: boolean;
   senderName: string;
+  /** P725: sender slug + avatar — surface identity on the completion celebration. */
+  senderSlug?: string | null;
+  senderAvatarUrl?: string | null;
+  senderAvatarColor?: string;
+  senderHasPledged?: boolean;
   isRevisit?: boolean;
 }
 
@@ -38,6 +44,11 @@ export function LetterCompletionSummary({
   letterId,
   letterData,
   isAuthenticated,
+  senderName,
+  senderSlug,
+  senderAvatarUrl,
+  senderAvatarColor,
+  senderHasPledged,
 }: LetterCompletionSummaryProps) {
   const navigate = useNavigate();
 
@@ -62,6 +73,16 @@ export function LetterCompletionSummary({
       >
         &#10022; You&apos;ve completed it. &#10022;
       </p>
+      {/* P725: identity row shows who the letter was from — consistent with cover and results. */}
+      <LetterParticipantRow
+        name={senderName || letterData.senderName}
+        slug={senderSlug}
+        avatarUrl={senderAvatarUrl}
+        avatarColor={senderAvatarColor}
+        hasPledged={senderHasPledged}
+        roleLabel="From"
+        className="justify-center"
+      />
       <p className="text-sm text-[#1A1A1A]/60">
         {totalStoriesRead} {totalStoriesRead === 1 ? 'story' : 'stories'} read.
       </p>

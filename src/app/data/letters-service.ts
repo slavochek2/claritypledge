@@ -195,16 +195,17 @@ export async function getLetterForReading(
     return null;
   }
 
-  // Resolve sender profile (name + avatar fields)
+  // Resolve sender profile (name + avatar + P725 slug for /p/:slug link)
   const { data: senderProfile } = await supabase
     .from('profiles')
-    .select('name, avatar_url, avatar_color, has_pledged')
+    .select('name, slug, avatar_url, avatar_color, has_pledged')
     .eq('id', letterData.sender_id)
     .single();
 
   const letterWithSender = {
     ...letterData,
     sender_display_name: senderProfile?.name || 'Someone',
+    sender_slug: senderProfile?.slug ?? null,
     sender_avatar_url: senderProfile?.avatar_url ?? undefined,
     sender_avatar_color: senderProfile?.avatar_color ?? undefined,
     sender_has_pledged: senderProfile?.has_pledged ?? false,
@@ -755,6 +756,7 @@ export async function getInboxItems(userId: string): Promise<InboxItem[]> {
     letter_id: row['letter_id'] as string,
     title: (row['title'] as string) ?? 'Untitled',
     actor_name: (row['actor_name'] as string) ?? 'Someone',
+    actor_slug: (row['actor_slug'] as string | null) ?? null,
     timestamp: row['timestamp'] as string,
     read_at: (row['read_at'] as string | null) ?? null,
     completed_at: (row['completed_at'] as string | null) ?? null,
@@ -1162,6 +1164,8 @@ export async function getUnreadLetterCount(userId: string): Promise<number> {
 export interface ResultsProfileData {
   id: string;
   name: string;
+  /** P725: public handle for linking to /p/:slug (null when profile has no slug yet) */
+  slug?: string | null;
   avatarUrl?: string;
   avatarColor?: string;
   role?: string;
@@ -1222,6 +1226,7 @@ export async function getLetterResults(
   const senderProfile: ResultsProfileData = {
     id: (rawSenderProfile['id'] as string) ?? '',
     name: (rawSenderProfile['name'] as string) ?? '',
+    slug: (rawSenderProfile['slug'] as string | null) ?? null,
     avatarUrl: (rawSenderProfile['avatar_url'] as string | null) ?? undefined,
     avatarColor: (rawSenderProfile['avatar_color'] as string | null) ?? undefined,
     role: (rawSenderProfile['role'] as string | null) ?? undefined,
@@ -1232,6 +1237,7 @@ export async function getLetterResults(
   const receiverProfile: ResultsProfileData | null = rawReceiverProfile ? {
     id: (rawReceiverProfile['id'] as string) ?? '',
     name: (rawReceiverProfile['name'] as string) ?? '',
+    slug: (rawReceiverProfile['slug'] as string | null) ?? null,
     avatarUrl: (rawReceiverProfile['avatar_url'] as string | null) ?? undefined,
     avatarColor: (rawReceiverProfile['avatar_color'] as string | null) ?? undefined,
     role: (rawReceiverProfile['role'] as string | null) ?? undefined,

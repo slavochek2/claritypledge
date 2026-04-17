@@ -33,11 +33,12 @@ export function LettersPage() {
   const [creating, setCreating] = useState(false);
 
   // Determine active tab from URL
+  // P725: default landing tab is Inbox (was Drafts) to prioritise incoming letters.
   const tabParam = searchParams.get('tab');
   const activeTab: TabValue =
     tabParam && VALID_TABS.includes(tabParam as TabValue)
       ? (tabParam as TabValue)
-      : 'drafts';
+      : 'inbox';
 
   const handleTabChange = useCallback(
     (value: string) => {
@@ -88,12 +89,14 @@ export function LettersPage() {
 
         <Tabs value={activeTab} onValueChange={handleTabChange}>
           <div className="flex items-end justify-between sticky top-0 z-10 bg-background">
+            {/* P725: tab order Inbox → Sent → Drafts. */}
             <TabsList className="w-auto justify-start border-b rounded-none h-auto p-0">
               <TabsTrigger
-                value="drafts"
+                value="inbox"
+                aria-label={inboxAriaLabel}
                 className="rounded-none border-b-2 border-transparent data-[state=active]:border-blue-500 data-[state=active]:shadow-none px-4 py-3"
               >
-                Drafts
+                {inboxLabel}
               </TabsTrigger>
               <TabsTrigger
                 value="sent"
@@ -102,59 +105,57 @@ export function LettersPage() {
                 Sent
               </TabsTrigger>
               <TabsTrigger
-                value="inbox"
-                aria-label={inboxAriaLabel}
+                value="drafts"
                 className="rounded-none border-b-2 border-transparent data-[state=active]:border-blue-500 data-[state=active]:shadow-none px-4 py-3"
               >
-                {inboxLabel}
+                Drafts
               </TabsTrigger>
             </TabsList>
-            {activeTab === 'drafts' && (
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button size="sm" className="bg-blue-500 hover:bg-blue-600 text-white mb-1">
-                    <Plus className="w-4 h-4" />
-                    New Draft
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent align="end" className="w-64 p-2">
-                  <button
-                    onClick={() => handleCreate('private')}
-                    disabled={creating}
-                    className="w-full flex items-center gap-3 rounded-md px-3 py-2.5 text-sm hover:bg-accent transition-colors text-left"
-                  >
-                    <Lock size={16} className="text-muted-foreground flex-shrink-0" />
-                    <div>
-                      <div className="font-medium">Private Draft</div>
-                      <div className="text-xs text-muted-foreground">Only people you share with can see this</div>
-                    </div>
-                  </button>
-                  <button
-                    onClick={() => handleCreate('public')}
-                    disabled={creating}
-                    className="w-full flex items-center gap-3 rounded-md px-3 py-2.5 text-sm hover:bg-accent transition-colors text-left"
-                  >
-                    <Globe size={16} className="text-muted-foreground flex-shrink-0" />
-                    <div>
-                      <div className="font-medium">Public Draft</div>
-                      <div className="text-xs text-muted-foreground">Visible on your profile</div>
-                    </div>
-                  </button>
-                </PopoverContent>
-              </Popover>
-            )}
+            {/* P725: persistent "New Draft" CTA — visible on all three tabs, not gated by activeTab. */}
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button size="sm" className="bg-blue-500 hover:bg-blue-600 text-white mb-1">
+                  <Plus className="w-4 h-4" />
+                  New Draft
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent align="end" className="w-64 p-2">
+                <button
+                  onClick={() => handleCreate('private')}
+                  disabled={creating}
+                  className="w-full flex items-center gap-3 rounded-md px-3 py-2.5 text-sm hover:bg-accent transition-colors text-left"
+                >
+                  <Lock size={16} className="text-muted-foreground flex-shrink-0" />
+                  <div>
+                    <div className="font-medium">Private Draft</div>
+                    <div className="text-xs text-muted-foreground">Only people you share with can see this</div>
+                  </div>
+                </button>
+                <button
+                  onClick={() => handleCreate('public')}
+                  disabled={creating}
+                  className="w-full flex items-center gap-3 rounded-md px-3 py-2.5 text-sm hover:bg-accent transition-colors text-left"
+                >
+                  <Globe size={16} className="text-muted-foreground flex-shrink-0" />
+                  <div>
+                    <div className="font-medium">Public Draft</div>
+                    <div className="text-xs text-muted-foreground">Visible on your profile</div>
+                  </div>
+                </button>
+              </PopoverContent>
+            </Popover>
           </div>
 
-          <TabsContent value="drafts" className="mt-4">
-            <DraftsTab userId={user.id} />
+          <TabsContent value="inbox" className="mt-4">
+            <InboxTab userId={user.id} openInvite={openInvite} />
           </TabsContent>
 
           <TabsContent value="sent" className="mt-4">
             <SentTab userId={user.id} />
           </TabsContent>
 
-          <TabsContent value="inbox" className="mt-4">
-            <InboxTab userId={user.id} openInvite={openInvite} />
+          <TabsContent value="drafts" className="mt-4">
+            <DraftsTab userId={user.id} />
           </TabsContent>
         </Tabs>
       </div>

@@ -720,6 +720,10 @@ export function LetterReadingPage() {
         {viewState === 'cover' && !skipToComplete && (
           <LetterCover
             senderName={senderName}
+            senderSlug={letter.sender_slug}
+            senderAvatarUrl={letter.sender_avatar_url}
+            senderAvatarColor={letter.sender_avatar_color}
+            senderHasPledged={letter.sender_has_pledged}
             receiverName={receiverDisplayName}
             storyCount={snapshots.length}
             pointCount={countTotalPoints(snapshots)}
@@ -796,6 +800,10 @@ export function LetterReadingPage() {
             }}
             isAuthenticated={true}
             senderName={senderName}
+            senderSlug={letter.sender_slug}
+            senderAvatarUrl={letter.sender_avatar_url}
+            senderAvatarColor={letter.sender_avatar_color}
+            senderHasPledged={letter.sender_has_pledged}
           />
         )}
       </CertificatePageShell>
@@ -821,6 +829,10 @@ export function LetterReadingPage() {
         <>
           <LetterCover
             senderName={senderName}
+            senderSlug={letter.sender_slug}
+            senderAvatarUrl={letter.sender_avatar_url}
+            senderAvatarColor={letter.sender_avatar_color}
+            senderHasPledged={letter.sender_has_pledged}
             receiverName={receiverDisplayName}
             storyCount={snapshots.length}
             pointCount={countTotalPoints(snapshots)}
@@ -920,6 +932,10 @@ export function LetterReadingPage() {
           }}
           isAuthenticated={!!session}
           senderName={senderName}
+          senderSlug={letter.sender_slug}
+          senderAvatarUrl={letter.sender_avatar_url}
+          senderAvatarColor={letter.sender_avatar_color}
+          senderHasPledged={letter.sender_has_pledged}
         />
       )}
     </CertificatePageShell>

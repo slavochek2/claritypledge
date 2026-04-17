@@ -1382,6 +1382,7 @@ export interface ClarityLetter {
   source_doc_id: string;
   sender_id: string;
   sender_display_name?: string;
+  sender_slug?: string | null;
   sender_avatar_url?: string;
   sender_avatar_color?: string;
   sender_has_pledged?: boolean;
@@ -1397,6 +1398,8 @@ export interface LetterDelivery {
   receiver_email: string | null;
   receiver_profile_id: string | null;
   receiver_name: string | null;
+  /** P725: public handle of the receiver profile (null when anonymous link_respondent) */
+  receiver_slug?: string | null;
   invitation_token: string;
   invitation_expires_at: string | null;
   access_token_expires_at: string | null;
@@ -1421,6 +1424,8 @@ export interface InboxItem {
   title: string;
   /** Sender name (for received letters) or responder name (for responses) */
   actor_name: string;
+  /** P725: public handle of the actor profile (null for anonymous link respondents) */
+  actor_slug?: string | null;
   timestamp: string;
   read_at: string | null;
   /** P695: null for pending, ISO string when letter was completed by recipient */

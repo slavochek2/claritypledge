@@ -332,6 +332,9 @@ test.describe('P725 Migrations — shared fixture setup', () => {
   // ── Migration 4: get_letter_for_reading returns sender_slug ───────────────
 
   test.describe('Migration 4 — get_letter_for_reading returns sender_slug', () => {
+    // NOTE: get_letter_for_reading returns a nested envelope `{ letter, snapshots, delivery }`.
+    // The sender_slug field lives inside `result.letter` alongside sender_display_name,
+    // sender_avatar_url, etc. (matches P697 pattern; consumers read readData.letter.sender_*).
     test('sender_slug field exists in reading RPC response (service_role path)', async () => {
       const { data, error } = await supabaseAdmin.rpc('get_letter_for_reading', {
         p_token: invitationToken,
@@ -341,9 +344,11 @@ test.describe('P725 Migrations — shared fixture setup', () => {
       expect(data, 'Expected data from get_letter_for_reading').not.toBeNull();
 
       const result = data as Record<string, unknown>;
+      const letter = result['letter'] as Record<string, unknown> | null;
+      expect(letter, 'Expected `letter` envelope in RPC response').toBeTruthy();
       expect(
-        'sender_slug' in result,
-        `sender_slug field missing from get_letter_for_reading response. Keys: ${Object.keys(result).join(', ')}\nRun ./scripts/migrate.sh to apply P725 reading RPC migration.`
+        'sender_slug' in (letter ?? {}),
+        `sender_slug field missing from get_letter_for_reading letter envelope. Keys: ${Object.keys(letter ?? {}).join(', ')}\nRun ./scripts/migrate.sh to apply P725 reading RPC migration.`
       ).toBe(true);
     });
 
@@ -355,10 +360,10 @@ test.describe('P725 Migrations — shared fixture setup', () => {
       expect(error).toBeNull();
       if (!data) return;
 
-      const result = data as Record<string, unknown>;
-      if (!('sender_slug' in result)) return;
+      const letter = (data as Record<string, unknown>)['letter'] as Record<string, unknown> | null;
+      if (!letter || !('sender_slug' in letter)) return;
 
-      expect(result['sender_slug']).toBe(sender.slug);
+      expect(letter['sender_slug']).toBe(sender.slug);
     });
 
     test('receiver can call get_letter_for_reading and get sender_slug (JWT path)', async () => {
@@ -370,11 +375,11 @@ test.describe('P725 Migrations — shared fixture setup', () => {
       expect(error).toBeNull();
       if (!data) return;
 
-      const result = data as Record<string, unknown>;
-      if (!('sender_slug' in result)) return;
+      const letter = (data as Record<string, unknown>)['letter'] as Record<string, unknown> | null;
+      if (!letter || !('sender_slug' in letter)) return;
 
       expect(
-        typeof result['sender_slug'] === 'string' || result['sender_slug'] === null,
+        typeof letter['sender_slug'] === 'string' || letter['sender_slug'] === null,
         'sender_slug must be string or null'
       ).toBe(true);
     });
