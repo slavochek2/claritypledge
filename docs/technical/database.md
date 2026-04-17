@@ -13,7 +13,7 @@ The Clarity Pledge uses Supabase (PostgreSQL) with Row Level Security (RLS). All
 | Column | Type | Description |
 |--------|------|-------------|
 | id | uuid | Primary key (matches auth.users.id) |
-| slug | text | Unique URL-friendly identifier (e.g., `john-doe`) |
+| slug | text NOT NULL | Unique URL-friendly identifier (e.g., `john-doe`). NOT NULL enforced since P736 (2026-04-17). |
 | email | text | User's email |
 | name | text | User's full name |
 | role | text | Job title/role (optional) |

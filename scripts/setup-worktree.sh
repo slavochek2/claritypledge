@@ -52,5 +52,15 @@ if [[ -f "$MAIN_REPO/.env.test.local" ]]; then
   symlink "$MAIN_REPO/.env.test.local" "$WORKTREE/.env.test.local" ".env.test.local"
 fi
 
+# Copy any feature specs that exist on main but not yet in the worktree.
+# Agents frequently need a spec that was filed on main to start feature work in a worktree.
+for spec in "$MAIN_REPO"/features/p*.md; do
+  fname="$(basename "$spec")"
+  if [[ ! -f "$WORKTREE/features/$fname" ]]; then
+    cp "$spec" "$WORKTREE/features/$fname"
+    echo "Copied  features/$fname"
+  fi
+done
+
 # Emit absolute worktree path so agents can use it as the path prefix for Write/Edit calls
 echo "Worktree root: $(cd "$WORKTREE" && pwd)"

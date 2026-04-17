@@ -2,6 +2,34 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-17 [technical]: P736 — timestamp slug over deterministic backfill; null-slug UI guards kept intentionally
+
+**Context:** P736 migration needed to backfill 23 NULL-slug profiles on prod before enforcing NOT NULL. Opus 4.7 consulted on two options: (A) deterministic `generateSlug(name)` from the TS function ported to SQL, (B) `user-YYYYMMDDHH24MISS-{8-char-id}` timestamp placeholder. On the UI side, P725 added null-slug fallback branches in 5 letter surfaces; after NOT NULL was enforced, question arose whether to delete them.
+
+**Decision:** (1) **Option B (timestamp slug)** for backfill — the TS `generateSlug()` uses 6 chained operations that are non-trivial to replicate faithfully in SQL (dash-collapse, `'user'` fallback, trim); a faithful port was already incomplete in the spec's proposed SQL. Timestamp slug has zero collision risk, is idempotent, and is identifiable as backfilled by `user-` prefix for later cleanup. (2) **Delete orphan profiles** (unverified, no activity, no pledge) instead of backfilling them — 22 of 23 NULL-slug rows qualified; keeps slug namespace clean. (3) **Keep null-slug UI guards** in letter surfaces — RPC return types still declare `slug: string | null` (Supabase type-gen reflects function signature, not downstream DB constraint). Guards protect against deleted-actor LEFT JOIN nulls, system rows, and future RPC changes with no runtime alarm or Sentry signal.
+
+**Alternatives rejected:** (A) Deterministic backfill from name — SQL/TS divergence trap; also squats desirable slug namespace for junk orphans (e.g. `anonymous`, `slavochek` for test stubs). Removing null guards — tightening prop types forces non-null assertions at call sites, which is worse than keeping the ternary.
+
+**Consequences:** `profiles.slug` is `NOT NULL` on prod as of 2026-04-17. Timestamp-backfilled rows are identifiable by `user-YYYYMMDDHH24MISS-` prefix. Null-slug guards in letter surfaces are intentional defensive code, not dead code — annotated with `// Defensive: RPC type is nullable even though DB enforces NOT NULL (P736)`. Any future RPC type regeneration that widens `slug` back to nullable will be consistent with the UI already handling it.
+
+**References:** [features/p736_enforce_profiles_slug_not_null.md](../features/p736_enforce_profiles_slug_not_null.md) · `supabase/migrations/20260417174354_p736_enforce_slug_not_null.sql`
+
+---
+
+## 2026-04-17 [process]: Always trigger manual DB backup before destructive migration on prod
+
+**Context:** P736 migration included a `DELETE FROM profiles WHERE slug IS NULL AND ...` clause — permanent row deletion. Prod has a daily automated backup (3am UTC via `.github/workflows/db-backup.yml` → GCS), but the migration ran mid-afternoon, 11+ hours after the last scheduled backup.
+
+**Decision:** Before any migration that includes `DELETE`, `TRUNCATE`, or `DROP` on prod, trigger `gh workflow run db-backup.yml --repo slavochek2/claritypledge` and verify `gh run list` shows `completed success` before proceeding. This gives a fresh point-in-time backup regardless of when the last scheduled backup ran.
+
+**Alternatives rejected:** Relying on the last scheduled backup — acceptable for reversible migrations, not for row deletions where the window matters. Pg_dump locally — slower, requires DB credentials in shell, doesn't benefit from the existing WIF auth pipeline.
+
+**Consequences:** Pre-migration backup is now a required step in the ALWAYS-ASK gate for destructive SQL. Add to the mental checklist: backup confirmed → destructive SQL approved → migrate test → verify → migrate prod. The backup workflow supports `workflow_dispatch` and completes in ~2.5 min.
+
+**References:** `.github/workflows/db-backup.yml` · `docs/technical/database.md`
+
+---
+
 ## 2026-04-17 [technical]: P743 fix — sessionIdRef inside hook, no StoredActiveSession extension needed; double-clear race guard
 
 **Context:** Implementing the P743 fix (Realtime subscription in `useActiveSession`). Prior planning entry predicted the fix would require extending `StoredActiveSession` to include `sessionId` alongside `code`.

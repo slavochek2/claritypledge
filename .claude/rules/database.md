@@ -58,6 +58,19 @@ When writing SQL to insert/update stories, points, or related content:
 - **Idempotency:** Use `INSERT ... ON CONFLICT DO UPDATE` so the same script runs on both test (empty) and prod (existing data)
 - **Schema:** Read `docs/technical/database.md` + relevant migration files before writing INSERTs — see `.claude/rules/db-access.md` for full schema discovery rules.
 
+## Migration DELETE with Row Overrides — Trigger Side-Effect Check
+
+Before adding an explicit-row override to a migration `DELETE` (e.g. `OR email = 'specific@example.com'`), verify the target row has no trigger side-effects:
+
+```sql
+SELECT trigger_name, event_manipulation, action_statement
+FROM information_schema.triggers
+WHERE event_object_table = '<table>'
+  AND event_manipulation = 'DELETE';
+```
+
+Run on **test DB first**. If triggers exist (e.g. `log_position_change()` logging to a history table), the explicit-row delete may cascade into FK violations on orphaned child rows. Safer: rely on the activity guard conditions instead of hardcoding row identifiers.
+
 ## Seed and Sync Scripts — Never Override User-Set State
 
 Seeds and sync scripts must be idempotent **and** non-destructive to values the user has explicitly set. Before writing a value, check if it already exists.
