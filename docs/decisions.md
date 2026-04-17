@@ -2,6 +2,23 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-17 [technical]: Data-mutation scripts — role-gated protections bypass for free; replay-detect before mutating
+
+**Context:** P701 st-tag reorder was recorded as applied but prod ended up in an intermediate state one step before target. Re-running the 3-cycle permutation restored target — but only because 3-cycles have order 3 (C³ = identity). For arbitrary transforms, a blind re-run compounds the error. Two things surfaced as reusable principles while designing `/slava:maintain:mutate-stories`:
+
+1. **`protect_system_tags()` is role-gated, not trigger-gated.** It fires on every `UPDATE`, but the body is `IF current_setting('role', true) = 'authenticated' THEN revert; END IF;`. Under `postgres` (Management API) or `service_role` (PostgREST PATCH), the trigger executes and no-ops. `SET session_replication_role = replica` is cargo-cult for those paths — it costs nothing to include but masks the real protection model. Replica mode is only required when the blocking check is *trigger-gated* (trigger exists, no role check) AND the executing role would be blocked.
+2. **Replay detection belongs before the mutation, not after.** If ≥50% of candidate rows are already at the target state, the script has likely been partially applied — halt and require explicit acknowledgement before re-running. Relying on "did I apply this?" memory (migration recorded in `schema_migrations`, CI green) is not sufficient when the production write path diverges from the recorded path.
+
+**Decision:** Any data-mutation script (not schema migration) that touches role-gated columns on prod follows the `/slava:maintain:mutate-stories` v1.1+ procedure: (a) state env explicitly, (b) read current state via `service_role` REST (anon returns `[]` for RLS-filtered rows), (c) classify rows by target-state match — halt if ≥50% already at-target, (d) derive delta from observed state, not assumed pre-state, (e) enumerate triggers on affected tables and decide replica mode per the role-gated/trigger-gated distinction above, (f) dry-run via `BEGIN; mutate; CREATE TEMP TABLE snapshot; SELECT before/after join; ROLLBACK;` returning row counts as evidence, (g) explicit COMMIT approval, (h) verify via `service_role` read.
+
+**Alternatives rejected:** (A) Treating every mutation as a schema migration — overhead discourages small data fixes and migrations don't natively support the BEGIN/ROLLBACK evidence gate. (B) Always-on replica mode for "safety" — hides the role model, bloats scripts, and creates false confidence that other protections are bypassed too. (C) Relying on `schema_migrations` bookkeeping to detect re-runs — migration table records intent, not observed end-state.
+
+**Consequences:** `/slava:maintain:mutate-stories` is the canonical procedure for stories/points/tag/position mutations on prod. The 3-cycle-via-sentinel pattern (`array_replace` with `st_temp`) remains correct for collision-free permutations. For content edits, inline-hashtag renames, story↔point membership (note: `story_points` has no position column — junction table only, PK `(story_id, point_id)` + `author_id NOT NULL`), and Likert position changes (ENUM, not integer ordering), use the per-type playbook in the skill. When reviewing a proposed data-mutation PR, reject it if the replay-detection step is missing.
+
+**References:** [.claude/commands/slava/maintain/mutate-stories/SKILL.md](../.claude/commands/slava/maintain/mutate-stories/SKILL.md) · `supabase/migrations/20260403120000_p630_system_tags.sql` (protect_system_tags definition) · `supabase/migrations/20260403120000_p701_st_swap.sql` (3-cycle example) · [p701 spec](../features/done/22_mar_26/p701_points_restructure_badge_fix.md)
+
+---
+
 ## 2026-04-17 [technical]: Explicit field-maps silently drop additive JSONB fields
 
 **Context:** P725 added `actor_slug` to the `get_inbox_items` RPC (additive field inside a `jsonb_build_object` row). `getInboxItems` in `letters-service.ts` maps the RPC rows with an explicit field list — `{ type: row['type'], actor_name: row['actor_name'], ... }` — not a spread. The new `actor_slug` landed in the RPC response, was silently absent from the mapped `InboxItem` object, and the UI rendered plain text for every registered-user actor because `item.actor_slug` was always `undefined`. TypeScript did not catch the drop: the interface field was added as an optional `string | null`, so missing it from the map produced `undefined` at runtime with no compile error. E2E caught it only because assertions run against rendered DOM; a service-layer unit test with an identity map would have passed silently.
