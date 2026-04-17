@@ -57,6 +57,7 @@ import { storiesService } from '@/app/data/stories-service';
 import { calibrationService } from '@/app/data/calibration-service';
 import { badgeService } from '@/app/data/badge-service';
 import { supabase } from '@/lib/supabase';
+import { mergeInFlight } from '@/app/lib/live-state-merge';
 import {
   Dialog,
   DialogContent,
@@ -1126,19 +1127,20 @@ export function ClarityLivePage() {
           // Stale echo — skip state application entirely.
           // The next Realtime event (or drift poll) will carry the correct state.
         } else if (updateInFlightRef.current) {
-          // P671: Field-aware merge during in-flight writes.
-          // ratingPhase: take the HIGHER value (server's 'revealed' beats local 'waiting').
-          // All other fields: local wins (preserves optimistic checkerRating, *Submitted, etc.).
-          setLiveState(prev => {
-            const phaseToUse = isPhaseRegression(mergedState.ratingPhase, prev.ratingPhase)
-              ? mergedState.ratingPhase  // server is ahead
-              : prev.ratingPhase;        // local is ahead or equal
-            return { ...mergedState, ...prev, ratingPhase: phaseToUse };
+          // P609/P741: Field-aware merge — partner-owned keys preserved, ratingPhase monotonic (P671).
+          const myKey = isCreator ? 'freeSliderCreator' : 'freeSliderJoiner';
+          const myPositionKey = isCreator ? 'livePositionsCreator' : 'livePositionsJoiner';
+          const snapshot = confirmedLiveStateRef.current;
+          const merged = mergeInFlight({
+            incoming: mergedState,
+            prev: liveState,
+            confirmedRef: snapshot,
+            myKey,
+            myPositionKey,
+            isPhaseRegression,
           });
-          const confirmedPhase = isPhaseRegression(mergedState.ratingPhase, confirmedLiveStateRef.current.ratingPhase)
-            ? mergedState.ratingPhase
-            : confirmedLiveStateRef.current.ratingPhase;
-          confirmedLiveStateRef.current = { ...mergedState, ...confirmedLiveStateRef.current, ratingPhase: confirmedPhase };
+          setLiveState(merged.nextState);
+          confirmedLiveStateRef.current = merged.nextConfirmedRef;
         } else {
           // Normal: wholesale replace
           setLiveState(mergedState);
@@ -1341,17 +1343,20 @@ export function ClarityLivePage() {
 
           const mergedState = { ...DEFAULT_LIVE_STATE, ...serverState };
           if (updateInFlightRef.current) {
-            // P671: Field-aware merge — ratingPhase takes higher value, rest keeps local
-            setLiveState(prev => {
-              const phaseToUse = isPhaseRegression(mergedState.ratingPhase, prev.ratingPhase)
-                ? mergedState.ratingPhase
-                : prev.ratingPhase;
-              return { ...mergedState, ...prev, ratingPhase: phaseToUse };
+            // P609/P741: Field-aware merge — partner-owned keys preserved, ratingPhase monotonic (P671).
+            const myKey = isCreator ? 'freeSliderCreator' : 'freeSliderJoiner';
+            const myPositionKey = isCreator ? 'livePositionsCreator' : 'livePositionsJoiner';
+            const snapshot = confirmedLiveStateRef.current;
+            const merged = mergeInFlight({
+              incoming: mergedState,
+              prev: liveState,
+              confirmedRef: snapshot,
+              myKey,
+              myPositionKey,
+              isPhaseRegression,
             });
-            const confirmedPhase = isPhaseRegression(mergedState.ratingPhase, confirmedLiveStateRef.current.ratingPhase)
-              ? mergedState.ratingPhase
-              : confirmedLiveStateRef.current.ratingPhase;
-            confirmedLiveStateRef.current = { ...mergedState, ...confirmedLiveStateRef.current, ratingPhase: confirmedPhase };
+            setLiveState(merged.nextState);
+            confirmedLiveStateRef.current = merged.nextConfirmedRef;
           } else {
             setLiveState(mergedState);
             confirmedLiveStateRef.current = mergedState;
