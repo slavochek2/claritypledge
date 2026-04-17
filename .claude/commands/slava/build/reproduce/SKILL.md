@@ -270,6 +270,7 @@ const recipientPage = await recipientContext.newPage();
 ```
 
 **Steps:**
+0. **Before writing the test:** name where the function-under-test is invoked from in the UI (`grep -r "functionName" src/` — paste the result). If the call site is more than one step removed from the user action (e.g., button → handler → submitX), trace the chain explicitly. A test that never reaches the call site cannot prove the bug.
 1. Write the test asserting the expected (correct) behavior.
 2. Run it: `npx playwright test e2e/p{N}-reproduce.spec.ts` or `npm test -- src/tests/p{N}-reproduce.test.ts`
 3. Confirm it FAILS with the right error (symptom-related, not setup-related).
