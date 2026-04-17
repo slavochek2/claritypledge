@@ -1,14 +1,16 @@
 ---
-status: week
+status: qa
 type: bug
 rank: 1000743.0
 severity: medium
 workstream: live
 date_reported: '2026-04-17'
 created_date: '2026-04-17'
+date_resolved: '2026-04-17'
+root_cause: No Realtime subscription in useActiveSession — only a 30s poll and visibility-change handler dismissed the banner after creator ended.
 tags: [active-session, banner, realtime, live-session]
-delivery_stage: create-bug
-pipeline_ran: [create-bug]
+delivery_stage: fix
+pipeline_ran: [create-bug, fix]
 ---
 
 # P743: Joiner's "In session with…" banner takes up to 30s to dismiss after creator ends session
