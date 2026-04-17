@@ -16,7 +16,7 @@ Core concepts of the Clarity Pledge platform. This is the product's conceptual f
 
 **The calibration problem:** People carry an implicit self-assessment of how well they understand others. Without verification, there is no error signal — the self-assessment defaults to "I understood." The ratio of perceived understanding to actual understanding stays unchallenged. The explain-back protocol is the only mechanism that provides this error signal in ordinary conversation.
 
-**Relationship to stories/points:** Story st2 encodes this as a personal admission ("my estimates are unreliable"). The calibration display on profiles is the quantitative version — measured gap between self-assessed and speaker-verified understanding.
+**Relationship to stories/points:** Point st5 encodes this as a personal admission ("my estimates are unreliable" bundled with the illusion-of-understanding and Popper proportionality framing since P701, 2026-04-13). The calibration display on profiles is the quantitative version — measured gap between self-assessed and speaker-verified understanding.
 
 *See also: [philosophy.md](philosophy.md), [theory-of-change.md](theory-of-change.md)*
 

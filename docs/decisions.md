@@ -1402,11 +1402,11 @@ Use a type-tag gate only when the **behaviour differs by type** (e.g., different
 
 **References:** [p701 spec](features/done/22_mar_26/p701_points_restructure_badge_fix.md)
 
-## 2026-04-13 [product]: Clarity point teaching sequence reordered — st2=paraphrase, st3=estimates/Popper, st5=illusion/cognitive check
+## 2026-04-13 [product]: Clarity point teaching sequence reordered — st2=paraphrase, st3=shared vs common belief, st5=estimates+illusion+Popper
 
-**Context:** The original station order placed "my estimates are unreliable" (old st2) before "explain-back method" (old st3), creating a mismatch: you learn *why* to verify before you learn *how*. The Popper gap point (old st5: certainty requires proportional verification effort) also fit better after the mechanism (paraphrase) than before it.
+**Context:** The original station order placed "my estimates are unreliable" (old st2) before "explain-back method" (old st3), creating a mismatch: you learn *why* to verify before you learn *how*. The estimates/illusion/Popper point also fit better at the end (post-mechanism) than before it.
 
-**Decision:** 3-way tag swap via `st_temp` intermediate (required to avoid collision): old-st2→st5, old-st3→st2, old-st5→st3. New reading order: st1 (3 types of understanding) → st2 (paraphrase method) → st3 (estimates + Popper gap) → st4 (same) → st5 (illusion of understanding / cognitive check prerequisite) → st6–st9 (unchanged). Simultaneously: ST1 v2 rewritten to I-language / 3-request reframe; ST5 v2 expanded with illusion framing + Popper proportionality argument.
+**Decision:** 3-way tag swap via `st_temp` intermediate (required to avoid collision): old-st2→st5, old-st3→st2, old-st5→st3. New reading order: st1 (3 types of understanding) → st2 (paraphrase method) → st3 (shared vs common belief) → st4 (same) → st5 (estimates + illusion of understanding + Popper gap) → st6–st9 (unchanged). Simultaneously: ST1 v2 rewritten to I-language / 3-request reframe; ST5 v2 expanded to bundle calibration (estimates), illusion-of-understanding framing, and Popper proportionality argument into one point.
 
 **Alternatives rejected:** Partial reorder (swap only st2/st3) — the Popper gap point still landed in the wrong place pedagogically. Keeping old order and only rewriting content — order conveys the argument structure; content alone can't fix the sequencing.
 
