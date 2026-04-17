@@ -1,54 +1,49 @@
--- SUPERSEDED BY 20260417180000_p701_scrub_title_references.sql (2026-04-17)
+-- P701 cleanup: scrub title references from PL/pgSQL function bodies.
 --
--- This migration cannot run as-written after 20260413110000_p701_drop_story_title.sql
--- (stories.title and story_versions.title were dropped). The backfill UPDATE at the
--- bottom references sv.title and fails with "column does not exist" on prod.
+-- Fix: P701 (20260413110000_p701_drop_story_title.sql) dropped stories.title
+-- and story_versions.title columns but left THREE PL/pgSQL bodies referencing
+-- them. PL/pgSQL deferred symbol resolution meant CREATE OR REPLACE succeeded
+-- at migration time; the functions raise "column does not exist" at first call.
 --
--- The function-redefine block would also produce a body that references a dropped
--- column — PL/pgSQL CREATE OR REPLACE would succeed at apply time (deferred symbol
--- resolution), but calling the function would error at runtime.
+-- Three affected bodies:
+-- 1. seal_and_send_letter — last redefined by 20260412135402_fix_block_self_send.sql
+--    (before column drop); body's letter_story_snapshots INSERT references sv.title.
+-- 2. create_initial_story_version — AFTER INSERT trigger on stories, inserts
+--    NEW.title into story_versions.
+-- 3. create_story_version_on_update — BEFORE UPDATE trigger on stories, compares
+--    OLD.title / NEW.title and inserts into story_versions.
 --
--- Supersede resolution:
--- - 20260417180000 redefines seal_and_send_letter WITHOUT sv.title.
--- - The backfill UPDATE is skipped: SELECT count(*) FROM clarity_letters WHERE
---   sealed_at IS NOT NULL = 0 on prod (nothing to backfill).
--- - 20260410090000 is recorded as applied in supabase_migrations.schema_migrations
---   via a one-time INSERT so migrate.sh no longer re-attempts it.
+-- Impact on prod: dormant until triggered. Zero letters sealed on prod means
+-- seal_and_send_letter hasn't hit the broken path. But create_initial_story_version
+-- fires on any stories INSERT — story creation was broken on prod until this migration.
 --
--- Keeping the file in the repo for history. The early-exit guard below makes
--- manual re-runs a no-op.
+-- Supersedes: 20260410090000_fix_seal_denormalize_regression.sql
+--   That migration's function-redefine is re-done here with sv.title removed.
+--   Its backfill UPDATE is skipped — SELECT COUNT(*) FROM clarity_letters
+--   WHERE sealed_at IS NOT NULL = 0 on prod (nothing to backfill).
+--   The superseded file is annotated with RAISE EXCEPTION to prevent re-run.
 
-DO $$
-BEGIN
-  RAISE EXCEPTION 'Migration 20260410090000 is SUPERSEDED by 20260417180000_p701_scrub_title_references.sql. Do not re-run.';
-END $$;
-
--- Fix: P651 clobbered P642's seal_and_send_letter denormalization.
---
--- P651 replaced the enriched jsonb_build_object(...) in the snapshot INSERT
--- with bare ds.point_config (raw ordering metadata). Any letter sealed after P651
--- has an empty storyText and zero points in the sent/public view.
---
--- This migration:
--- 1. Restores the P642 enrichment block (storyText, storyTitle, points[])
--- 2. Preserves all P651 additions (receiver_name, duplicate guard)
--- 3. Backfills existing broken snapshots where storyText is missing
+BEGIN;
 
 -- ============================================================================
--- 1. Replace seal_and_send_letter — restore P642 enrichment + keep P651 additions
+-- 1. seal_and_send_letter — remove storyTitle from point_config jsonb
+-- Base: 20260412135402_fix_block_self_send.sql + 20260410091421 visibility field
+-- Diff from current prod: only removes `'storyTitle', COALESCE(sv.title, ''),` line
 -- ============================================================================
-CREATE OR REPLACE FUNCTION seal_and_send_letter(
-  p_letter_id UUID,
-  p_predictions JSONB DEFAULT '[]'::jsonb,
-  p_deliveries JSONB DEFAULT '[]'::jsonb
+
+CREATE OR REPLACE FUNCTION public.seal_and_send_letter(
+  p_letter_id uuid,
+  p_predictions jsonb DEFAULT '[]'::jsonb,
+  p_deliveries jsonb DEFAULT '[]'::jsonb
 )
-RETURNS BOOLEAN
+RETURNS boolean
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = public
-AS $$
+SET search_path TO 'public'
+AS $function$
 DECLARE
   v_sender_id UUID;
+  v_sender_email TEXT;
   v_mode TEXT;
   v_letter_status TEXT;
   v_source_doc_id UUID;
@@ -74,6 +69,11 @@ BEGIN
     RAISE EXCEPTION 'Letter is already sealed or expired (status: %)', v_letter_status;
   END IF;
 
+  -- Look up sender's email for self-send guard
+  SELECT email INTO v_sender_email
+  FROM auth.users
+  WHERE id = v_sender_id;
+
   -- Snapshot story_versions + doc_stories into letter_story_snapshots.
   -- Denormalize story content into point_config for immutable reading (P642).
   -- For 1-to-many: enforce only public-visibility stories.
@@ -85,7 +85,6 @@ BEGIN
     ds.position,
     jsonb_build_object(
       'storyText', COALESCE(sv.content, ''),
-      'storyTitle', COALESCE(sv.title, ''),
       'points', COALESCE(
         (SELECT jsonb_agg(
           jsonb_build_object(
@@ -96,7 +95,8 @@ BEGIN
               FROM point_positions pp
               WHERE pp.point_id = pt.id AND pp.user_id = v_sender_id
               LIMIT 1
-            )
+            ),
+            'visibility', pt.visibility::text
           ) ORDER BY sp.created_at
         )
         FROM story_points sp
@@ -131,9 +131,13 @@ BEGIN
     ON CONFLICT ON CONSTRAINT letter_predictions_unique DO NOTHING;
   END LOOP;
 
-  -- Create deliveries — accepts receiver_name, with duplicate guard (P651)
+  -- Create deliveries — block self-sends, accepts receiver_name, with duplicate guard (P651)
   FOR v_del IN SELECT * FROM jsonb_array_elements(p_deliveries)
   LOOP
+    IF v_del->>'receiver_email' = v_sender_email THEN
+      RAISE EXCEPTION 'Cannot send a letter to yourself (receiver_email matches sender)';
+    END IF;
+
     INSERT INTO letter_deliveries (letter_id, receiver_email, receiver_name, invitation_expires_at)
     VALUES (
       p_letter_id,
@@ -151,45 +155,48 @@ BEGIN
 
   RETURN true;
 END;
-$$;
+$function$;
 
 GRANT EXECUTE ON FUNCTION seal_and_send_letter(UUID, JSONB, JSONB) TO authenticated;
 
 -- ============================================================================
--- 2. Backfill existing broken snapshots (sealed after P651, before this fix)
--- Only touches rows where storyText is missing (the broken ones).
+-- 2. create_initial_story_version — drop title column from INSERT
+-- Trigger: AFTER INSERT ON stories (trg_story_initial_version)
 -- ============================================================================
--- clarity_letters joined via comma + WHERE (not JOIN) because lss is the UPDATE target
--- and PostgreSQL disallows referencing the UPDATE target table in FROM-clause JOIN conditions.
-UPDATE letter_story_snapshots lss
-SET point_config = jsonb_build_object(
-  'storyText', COALESCE(sv.content, ''),
-  'storyTitle', COALESCE(sv.title, ''),
-  'points', COALESCE(
-    (SELECT jsonb_agg(
-      jsonb_build_object(
-        'id', pt.id::text,
-        'text', pt.statement,
-        'authorPosition', (
-          SELECT pp.position::text
-          FROM point_positions pp
-          WHERE pp.point_id = pt.id AND pp.user_id = cl.sender_id
-          LIMIT 1
-        )
-      ) ORDER BY sp.created_at
-    )
-    FROM story_points sp
-    JOIN points pt ON pt.id = sp.point_id
-    WHERE sp.story_id = lss.story_id
-    ), '[]'::jsonb
-  ),
-  'order', COALESCE(lss.point_config->'order', '[]'::jsonb),
-  'hidden', COALESCE(lss.point_config->'hidden', '[]'::jsonb)
-)
-FROM stories s,
-  story_versions sv,
-  clarity_letters cl
-WHERE s.id = lss.story_id
-  AND sv.story_id = s.id AND sv.version_number = s.current_version
-  AND cl.id = lss.letter_id
-  AND (lss.point_config->>'storyText') IS NULL;
+
+CREATE OR REPLACE FUNCTION public.create_initial_story_version()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO 'public'
+AS $function$
+BEGIN
+  INSERT INTO story_versions (story_id, version_number, content)
+  VALUES (NEW.id, 1, NEW.content);
+  RETURN NEW;
+END;
+$function$;
+
+-- ============================================================================
+-- 3. create_story_version_on_update — drop title comparison + INSERT column
+-- Trigger: BEFORE UPDATE ON stories (trg_story_version_on_update)
+-- Only content changes trigger a new version now (title no longer exists).
+-- ============================================================================
+
+CREATE OR REPLACE FUNCTION public.create_story_version_on_update()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO 'public'
+AS $function$
+BEGIN
+  IF OLD.content IS DISTINCT FROM NEW.content THEN
+    NEW.current_version = OLD.current_version + 1;
+    INSERT INTO story_versions (story_id, version_number, content)
+    VALUES (NEW.id, NEW.current_version, NEW.content);
+  END IF;
+  RETURN NEW;
+END;
+$function$;
+
+COMMIT;
