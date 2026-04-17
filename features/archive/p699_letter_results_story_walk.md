@@ -1,5 +1,5 @@
 ---
-status: week
+status: rejected
 type: story
 rank: 1000699.0
 tags: [letters, results, ux, reading-flow]
