@@ -33,6 +33,17 @@ If local schema doesn't match prod, that's a migration bug — not a reason to q
 
 **Key rule:** Everything read-only should require zero approval prompts. If you're about to use a tool that needs user approval just to *look* at something, you're using the wrong tool.
 
+## Destructive SQL — Hard Stop Before Executing
+
+Before running any SQL containing `DELETE`, `TRUNCATE`, or `DROP` — regardless of execution path (MCP, curl Management API, psql) — stop and do both:
+
+1. **Disambiguate intent:** State what will be destroyed: "This will permanently delete N rows from `table`. If the intent is to close/deactivate them, I should run UPDATE instead." Wait for explicit confirmation.
+2. **State the environment:** "Running on **test** DB" or "Running on **prod** DB." If not specified, ask — never default.
+
+This applies to **all environments**, including test. Lost test data disrupts active debugging sessions.
+
+**"Kill / reset / clear / close"** are ambiguous. Treat as UPDATE (state mutation) unless the user explicitly says "delete rows" or "remove permanently."
+
 ## Supabase MCP = Test DB Only
 
 The Supabase MCP in `.mcp.json` points at `gfjctyxqlwexxwsmkakq` (**test** project). Every `mcp__supabase__*` call hits test, not prod.

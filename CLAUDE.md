@@ -109,7 +109,7 @@ When asked for an opinion — give one. "It depends" when you have a view is a f
 
 ALWAYS-ACT (never ask): code changes on a branch, lint/format fixes, creating files in `.private/`, local git commits, running tests, reading/searching code, reverting uncommitted changes, npm install (devDependencies).
 
-ALWAYS-ASK (never skip): `git push`, deploy to prod, send email/message/social post, delete prod data, merge to main, run migrations on prod, modify `.env.prod`, create/modify GitHub PR, publish anything.
+ALWAYS-ASK (never skip): `git push`, deploy to prod, send email/message/social post, DELETE/TRUNCATE/DROP on any DB (any env), merge to main, run migrations on prod, modify `.env.prod`, create/modify GitHub PR, publish anything.
 
 JUDGMENT (use context): npm install (dependencies), DB migrations on test, modifying shared config (`CLAUDE.md`, `.claude/rules/`), bulk file operations (5+ files), infrastructure changes.
 
