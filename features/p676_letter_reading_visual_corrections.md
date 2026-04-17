@@ -1,5 +1,5 @@
 ---
-status: today
+status: qa
 type: change-request
 rank: 1000063
 changes: p673
@@ -9,7 +9,7 @@ tags:
   - letters
   - reading-flow
 created_date: '2026-04-07'
-delivery_stage: generate-tests
+delivery_stage: fix
 pipeline_ran:
   - change-request
   - architect

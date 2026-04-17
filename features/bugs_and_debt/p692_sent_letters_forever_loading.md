@@ -2,7 +2,7 @@
 p_number: 692
 title: "Sent letters: forever-loading + mispositioned spinner"
 type: bug
-status: in-progress
+status: qa
 severity: high
 date_reported: 2026-04-11
 delivery_stage: fix

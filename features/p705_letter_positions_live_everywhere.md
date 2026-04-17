@@ -6,7 +6,7 @@ created_date: '2026-04-14'
 tags: [letters, positions, refactor, supersedes-d50]
 feature_type: backend
 delivery_stage: fix
-status: in-progress
+status: qa
 pipeline_ran: [create-spec, challenge-prd, architect, dev, fix]
 ---
 

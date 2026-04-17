@@ -8,7 +8,7 @@ created_date: '2026-04-16'
 tags: [letters, inbox, realtime, live-invite, navigation]
 delivery_stage: fix
 pipeline_ran: [create-bug, fix]
-status: in-progress
+status: qa
 ---
 
 # P730: Inbox "Join" live invite navigates to `/live/` (empty code) when invite arrives via Realtime

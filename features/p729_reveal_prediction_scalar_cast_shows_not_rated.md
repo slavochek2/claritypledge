@@ -8,7 +8,7 @@ created_date: '2026-04-16'
 tags: [letters, rpc, type-cast, prediction]
 delivery_stage: fix
 pipeline_ran: [create-bug, fix]
-status: in-progress
+status: qa
 ---
 
 # P729: Sender's revealed prediction always shows "Not yet rated" after receiver rates story
