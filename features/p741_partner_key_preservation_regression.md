@@ -7,8 +7,8 @@ workstream: live
 date_reported: '2026-04-17'
 created_date: '2026-04-17'
 tags: [live, free-mode, realtime, state-merge, regression]
-delivery_stage: fix
-pipeline_ran: [create-bug, fix]
+delivery_stage: park
+pipeline_ran: [create-bug, fix, park]
 ---
 
 # P741: Partner Slider Preservation Lost During In-Flight Write (P671 Regression)
