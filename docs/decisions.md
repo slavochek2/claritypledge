@@ -2,6 +2,26 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-17 [technical]: Explicit field-maps silently drop additive JSONB fields
+
+**Context:** P725 added `actor_slug` to the `get_inbox_items` RPC (additive field inside a `jsonb_build_object` row). `getInboxItems` in `letters-service.ts` maps the RPC rows with an explicit field list — `{ type: row['type'], actor_name: row['actor_name'], ... }` — not a spread. The new `actor_slug` landed in the RPC response, was silently absent from the mapped `InboxItem` object, and the UI rendered plain text for every registered-user actor because `item.actor_slug` was always `undefined`. TypeScript did not catch the drop: the interface field was added as an optional `string | null`, so missing it from the map produced `undefined` at runtime with no compile error. E2E caught it only because assertions run against rendered DOM; a service-layer unit test with an identity map would have passed silently.
+
+**Decision:** Treat the explicit field-map pattern as the actual failure mode. Three alternatives to evaluate when this recurs, in order of robustness:
+
+1. **Generate the mapping from the RPC response type** — a codegen step (e.g., a small script that reads the TS interface and emits the `.map(row => ({...}))` body) removes the authoring gap entirely. Additive fields flow through by construction. Highest one-time cost, lowest ongoing cost.
+2. **Runtime schema check in dev** — a Zod `.strict()` (or similar) parser on the RPC response in development logs any unexpected key. Catches drops the next time a developer loads the relevant surface. Medium cost; guards the entry point but not the mapping output.
+3. **Typed-spread utility that preserves the shape** — a helper like `pick<T>(row, keys)` or a `fromSnakeCase<T>(row)` wrapper keeps the explicit subset selection but derives keys from the target type — a missing field becomes a compile error rather than a runtime `undefined`.
+
+No single option is adopted repo-wide here — the pattern surfaces once every few months and cost/benefit depends on the surface. Surface-specific choice when extending an RPC: if the consumer uses explicit field-maps, pick one of the three before adding the migration.
+
+**Alternatives rejected:** (A) A pre-commit grep gate for `supabase.rpc.*<function_name>` call sites — misses wrapped callers (helpers, hooks), false-positives on legitimate subset selections, and is easily skipped. The gate treats the symptom, not the pattern. (B) Switching all consumers to spread (`...row`) — loses the ability to re-key snake_case → camelCase at the boundary and leaks fields we don't want in the typed object.
+
+**Consequences:** The observation — explicit field-map + additive JSONB = silent runtime drop — now lives here. The mitigation (codegen / Zod dev-check / typed-spread utility) is a design choice per surface, not a blanket rule. Future review agents reading this entry should not prescribe a grep gate; they should surface the mapping pattern and ask which of the three the surface wants.
+
+**References:** [src/app/data/letters-service.ts#L739-L766](src/app/data/letters-service.ts) — `getInboxItems` mapping that dropped `actor_slug`.
+
+---
+
 ## 2026-04-17 [technical]: P736 — timestamp slug over deterministic backfill; null-slug UI guards kept intentionally
 
 **Context:** P736 migration needed to backfill 23 NULL-slug profiles on prod before enforcing NOT NULL. Opus 4.7 consulted on two options: (A) deterministic `generateSlug(name)` from the TS function ported to SQL, (B) `user-YYYYMMDDHH24MISS-{8-char-id}` timestamp placeholder. On the UI side, P725 added null-slug fallback branches in 5 letter surfaces; after NOT NULL was enforced, question arose whether to delete them.
