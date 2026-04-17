@@ -1,5 +1,4 @@
 ---
-status: week
 type: bug
 rank: 1000728.0
 severity: high

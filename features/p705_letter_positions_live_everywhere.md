@@ -1,5 +1,4 @@
 ---
-status: week
 type: task
 rank: 1000704.0
 workstream: C2
