@@ -2,6 +2,54 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-17 [technical]: P743 fix — sessionIdRef inside hook, no StoredActiveSession extension needed; double-clear race guard
+
+**Context:** Implementing the P743 fix (Realtime subscription in `useActiveSession`). Prior planning entry predicted the fix would require extending `StoredActiveSession` to include `sessionId` alongside `code`.
+
+**Decision:** No type extension needed. `getActiveSessionByCode` already returns a `ClaritySession` with `id`. Capture it in a `sessionIdRef = useRef<string | null>(null)` inside the hook — populated on first successful `validateSession()` call. Subscribe using that ref value after init completes.
+
+Race guard: in the Realtime callback, check `if (!sessionIdRef.current) return;` before clearing, then set `sessionIdRef.current = null` atomically. This prevents double-clear if the 30s poll and a Realtime event fire near-simultaneously.
+
+**Alternatives rejected:**
+- Extend `StoredActiveSession` with `sessionId` — unnecessary; the hook already has the session object in memory from the `getActiveSessionByCode` call. Writing to localStorage for a value that's already in memory adds complexity with no benefit.
+
+**Consequences:**
+- `StoredActiveSession` stays minimal (`code`, `partnerName`, `role`, `timestamp`, `guestDisplayName`).
+- Pattern for future Realtime hooks: capture UUIDs in refs, not storage, when the hook already has them from a one-shot lookup.
+- P743 fix is on `feature/letters-ship` (w2); spec status: `qa`.
+
+**References:** `src/hooks/use-active-session.ts`, `src/tests/p743-joiner-banner-stale.test.tsx`
+
+---
+
+## 2026-04-17 [technical]: Vitest `vi.hoisted()` required when mock factories close over module-scope variables
+
+**Context:** Writing the P743 canary test. Initial version declared `const mockClearActiveSession = vi.fn()` at module scope, then referenced it inside a `vi.mock(...)` factory. Vitest hoists `vi.mock` calls to the top of the file before variable declarations execute — causing `ReferenceError: Cannot access 'mockClearActiveSession' before initialization`.
+
+**Decision:** Use `vi.hoisted(() => ({ ... }))` to declare shared mock functions. The returned object is initialized before any factory runs.
+
+```typescript
+const mocks = vi.hoisted(() => ({
+  clearActiveSession: vi.fn(),
+  subscribeToClaritySession: vi.fn(),
+  // ...
+}));
+
+vi.mock('@/app/data/api', () => ({
+  subscribeToClaritySession: mocks.subscribeToClaritySession,
+}));
+```
+
+**Alternatives rejected:**
+- Import the mocked module after `vi.mock` and use `vi.mocked()` — works for asserting calls but doesn't give factory access to the same fn references.
+- Inline `vi.fn()` everywhere — loses the ability to `mockImplementation` inside `beforeEach` from a shared reference.
+
+**Consequences:** All tests that need to assert on mock fns referenced inside `vi.mock` factories should follow this pattern. Existing tests that work without it likely use the module-import approach or don't need cross-factory sharing.
+
+**References:** `src/tests/p743-joiner-banner-stale.test.tsx`
+
+---
+
 ## 2026-04-17 [technical]: P743 — ActiveSessionBanner has no Realtime path; only a 30s poll outside /live
 
 **Context:** After fixing P740, a screenshot showed the joiner's "In session with…" banner staying active for several seconds after the creator ended the session. Opus 4.7 traced the full code path.
