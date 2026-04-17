@@ -2,6 +2,34 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-17 [process]: Cross-check existing specs before carving out a new P-number from a follow-up list
+
+**Context:** P725 listed "Require profile creation on save for public letter responses" in its follow-up bullets and it was filed as P737 the same day. P684 (drafted 2026-04-10) already fully spec'd the same behavior: end-of-letter signup form, no skip option, response persistence tied to account creation. P684 and P737 share tags (`letters`, `public-link`) and live in the same workstream. The duplicate was caught only after manual cross-check by the founder; P737 was rejected and archived.
+
+**Decision:** Before `/create-spec` files a new P-number from a follow-up/Non-Goals list, search `features/` (including `features/done/` and active worktrees) for specs with overlapping tags and title keywords. Surface any hits to the founder with a "not a duplicate?" confirmation step. Skip creation if the founder confirms duplication. This is a process-level gate, not a one-time correction.
+
+**Alternatives rejected:** Filing all follow-up bullets as Ps then reconciling later — produces rejected specs and pollutes the P-number sequence. Relying on tag search alone — tags can drift; title keyword grep is more reliable for catching same-topic specs.
+
+**Consequences:** When `/create-spec` is invoked from a follow-up bullet (any spec's "Non-Goals", "follow-up", or "Out of Scope" section), the agent must run: `grep -ril "<keyword>" features/ features/done/ features/archive/` before creating. If any hits exist with `status` not `rejected`, show them and ask "Is this a duplicate?" P737 (`features/archive/p737_require_profile_on_public_letter_response.md`) is the canonical example. The `link_respondent` anonymous-completed branch in `get_inbox_items` is a post-P684 cleanup task, not a new product spec.
+
+**References:** [features/archive/p737_require_profile_on_public_letter_response.md](../features/archive/p737_require_profile_on_public_letter_response.md) · [features/p684_one_to_many_letter_post_reading_account_creation.md](../features/p684_one_to_many_letter_post_reading_account_creation.md) · [features/p725_letter_other_participant_identity.md](../features/p725_letter_other_participant_identity.md)
+
+---
+
+## 2026-04-17 [process]: Spec prep workflow before merging a long-running branch
+
+**Context:** `feature/letters-ship` accumulated 269 commits over several weeks. Many spec files had stale `status:` fields (fix commits existed on branch but status still showed `in-progress`/`week`), 3 specs had duplicate `status:` YAML keys (corruption from kanban manual edits on top of automated frontmatter), and 6 uncommitted spec edits sat in the working tree.
+
+**Decision:** Before merge planning on any long-running branch, run a spec prep pass as separate commits: (1) commit pending spec edits as-is, (2) fix corrupted YAML (duplicate keys — keep later value, remove earlier), (3) bump stale spec status to `qa` for all P-numbers with confirmed fix commits on branch. Do NOT attempt to UAT or run `/verify` during prep — prep is about frontmatter accuracy, not feature validation.
+
+**Alternatives rejected:** Rolling spec cleanup into the merge commit — makes the merge diff noisy and hard to review. Skipping prep — leaves kanban reflecting wrong state for the person doing the merge.
+
+**Consequences:** After any spec prep pass: verify with `for p in <list>; do grep "^status:" features/${p}_*.md; done`. Specs can live in `features/`, `features/bugs_and_debt/`, or `features/archive/` — always use `find features/ -name "${p}_*.md"` not glob. Skip specs already at `all-done` — do not regress. Duplicate `status:` keys arise when the kanban writes a `status:` line at the bottom of frontmatter without removing the existing top-level one; fix by deleting the older line.
+
+**References:** `feature/letters-ship` branch prep, 2026-04-17
+
+---
+
 ## 2026-04-17 [process]: Destructive SQL safeguards — ALWAYS-ASK expansion + hard-stop block in db-access.md
 
 **Context:** An agent deleted 788 `clarity_sessions` rows and dependent `story_verifications` on the test DB after the user said "kill all active clarity sessions." Intent was to UPDATE status to closed (reversible). Three failures: (1) ambiguous verb "kill" interpreted as DELETE; (2) FK constraint treated as obstacle — agent deleted child rows to unblock; (3) execution path was Management API raw SQL curl, not covered by the existing REST mutation rule in db-access.md. The prior ALWAYS-ASK rule only covered "delete prod data" — leaving test DB unprotected.
