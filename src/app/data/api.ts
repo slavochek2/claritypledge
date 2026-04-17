@@ -4084,6 +4084,51 @@ export async function checkOpenInviteForReceiver(receiverId: string): Promise<bo
   return (data?.length ?? 0) > 0;
 }
 
+export interface OpenInviteDetails {
+  sessionId: string;
+  code: string;
+}
+
+/**
+ * P735: Returns the open invite (closed_at IS NULL) for a given receiver,
+ * including the joined session code. Used by StartClaritySessionButton to
+ * render Rejoin + End instead of a disabled Start.
+ *
+ * RLS: Visible to the session creator via live_invites_creator_select policy.
+ * Returns null for unauthenticated callers, non-creators, or when no open invite exists.
+ */
+export async function getOpenInviteForSender(
+  receiverId: string
+): Promise<OpenInviteDetails | null> {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return null;
+
+  const { data, error } = await supabase
+    .from('clarity_live_invites')
+    .select('session_id, clarity_sessions!inner(code)')
+    .eq('target_user_id', receiverId)
+    .is('closed_at', null)
+    .maybeSingle();
+
+  if (error) {
+    console.warn('[P735] getOpenInviteForSender:', error.message);
+    return null;
+  }
+  if (!data) return null;
+
+  const sessions = data.clarity_sessions as
+    | { code: string }
+    | { code: string }[]
+    | null;
+  if (!sessions) return null;
+  const sessionData = Array.isArray(sessions) ? sessions[0] : sessions;
+  if (!sessionData?.code) return null;
+
+  return { sessionId: data.session_id, code: sessionData.code };
+}
+
 /**
  * Closes the invite for a session without completing the session itself.
  * Used when the facilitator cancels the room before the listener joins.
