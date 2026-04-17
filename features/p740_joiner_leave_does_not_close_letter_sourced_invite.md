@@ -7,8 +7,8 @@ workstream: letters
 date_reported: '2026-04-17'
 created_date: '2026-04-17'
 tags: [letters, live, invite, session-exit]
-delivery_stage: fix
-pipeline_ran: [create-bug, fix]
+delivery_stage: park
+pipeline_ran: [create-bug, fix, park]
 ---
 
 # P740: Joiner-leave does not close letter-sourced invite
