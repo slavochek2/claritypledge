@@ -4,8 +4,13 @@ type: story
 rank: 1000725.0
 created_date: '2026-04-17'
 tags: [letters, inbox, sent, results, reading, identity, profile, navigation]
-delivery_stage: architect
-pipeline_ran: [create-spec, architect]
+delivery_stage: spec-review
+pipeline_ran: [create-spec, architect, generate-tests, spec-review]
+uat_file: features/uat/p725.md
+test_files:
+  - e2e/integration/p725-db-migrations.spec.ts
+  - e2e/p725-letter-identity.spec.ts
+  - e2e/a11y/p725-accessibility.spec.ts
 ---
 
 # P725: Other participant identity across letter surfaces
@@ -31,7 +36,7 @@ Medium blast radius. Touches `inbox-tab.tsx`, `sent-tab.tsx`, the reading page, 
 ## Solution
 
 **Shared primitives (used in every part):**
-- Component: `PersonAvatar` wrapper (shape source data to `PersonRef`) — avoids forgetting `isPledger`.
+- Component: `PersonAvatar` wrapper **on surfaces that render an avatar** (reading page, results page identity row, results point-level avatars) — avoids forgetting `isPledger`. Inbox/sent rows are name-only, no avatar; see AD6.
 - Name fallback chain: `full_name` → `slug` → `"Someone"`.
 - Null/missing slug → plain text, no link.
 - Deleted profile → "Deleted user" plain text, no link.
@@ -48,9 +53,11 @@ Medium blast radius. Touches `inbox-tab.tsx`, `sent-tab.tsx`, the reading page, 
 
 ### Part 2 — Letter-reading page (`/letter/:id`)
 
-1. Show author name + avatar near the top of the reading surface.
-2. Name links to `/p/:slug` when available.
-3. Same fallback chain and `stopPropagation` rules as Part 1.
+1. **Placement:** replace the plain-text "From {senderName}" line inside `LetterCover` (currently `letter-cover.tsx` lines 68-70) with `<LetterParticipantRow>`. Pass `roleLabel="From"` to match existing copy.
+2. Extend `LetterCover` props: `senderSlug?: string | null`, `senderAvatarUrl?: string | null`, `senderAvatarColor?: string`, `senderHasPledged?: boolean`. Reading page surfaces these from `letter.sender_slug` / `sender_avatar_url` / etc. after the reading RPC returns them (AD3).
+3. Post-open (`LetterReadingFlow`) already surfaces sender via the focus header — no additional identity row needed there.
+4. Name links to `/p/:slug` when available.
+5. Same fallback chain and `stopPropagation` rules as Part 1.
 
 ### Part 3 — Results page: identity header + linked point avatars
 
@@ -117,15 +124,15 @@ Medium blast radius. Touches `inbox-tab.tsx`, `sent-tab.tsx`, the reading page, 
 ## Acceptance Criteria
 
 ### Tap contract
-- [ ] Inbox/Sent card: tap name → `/p/:slug`; tap card body → open letter
+- [ ] Inbox/Sent card: tap name → `/p/:slug`; tap Open/Results button → open letter (card body itself is not a tap target; no change to current button-only navigation)
 - [ ] Results header: tap name → profile
 - [ ] Results point-level: tap other-participant avatar → profile
 
 ### Content
 - [ ] Registered actor with slug: name + avatar; name is a link
 - [ ] Registered actor without slug: plain text, no broken link
-- [ ] `link_respondent` (anonymous completion): "Someone" plain text + initials avatar
-- [ ] `link_respondent_in_progress` (anonymous in progress): "Someone is responding to…" plain text
+- [ ] `link_respondent` (anonymous completion): "Someone responded to _{title}_" — "Someone" plain text + initials avatar; title italic (existing copy preserved)
+- [ ] `link_respondent_in_progress` (anonymous in progress): "Someone is responding to _{title}_" — "Someone" plain text, no link; title italic (existing copy preserved)
 - [ ] Deleted profile (actor_id → deleted row): "Deleted user" plain text, no link
 - [ ] Name fallback chain: `full_name` → `slug` → `"Someone"` (never email prefix)
 - [ ] Role label matches view: recipient sees "from", author sees "to"
@@ -146,7 +153,7 @@ Medium blast radius. Touches `inbox-tab.tsx`, `sent-tab.tsx`, the reading page, 
 - **Consistency rule:** the other participant's name and avatar are always clickable when a slug exists. No surface-specific exceptions.
 - **Role label phrasing:** "Letter from [Name]" / "Letter to [Name]" — confirm matches existing letter copy elsewhere in the app; adjust if the codebase uses different phrasing for this relationship.
 - **Never render an email prefix** as a name fallback. Slug is the public handle the user chose.
-- **Avatar component:** always use `PersonAvatar` wrapper (not `GravatarAvatar` directly) so `isPledger` is never forgotten. Blue pledge ring comes for free.
+- **Avatar component:** when an avatar is rendered (reading page, results page identity row, results point-level avatars), always use `PersonAvatar` wrapper (not `GravatarAvatar` directly) so `isPledger` is never forgotten. Blue pledge ring comes for free. Inbox/sent rows do not render avatars — see AD6.
 - **Tab order change** may feel disruptive to existing users. Ship without a tooltip unless data suggests otherwise.
 - **`stopPropagation` discipline:** every name link inside a clickable card needs it. Cover in tests — regression risk is easy to miss visually.
 
@@ -326,7 +333,54 @@ Deleted profile FK — `letter_deliveries.receiver_profile_id REFERENCES profile
 - `src/app/data/letters-service.ts` — add `slug?: string | null` to `ResultsProfileData`; update `getLetterResults()` mapping; update `LetterDelivery` mapping in `getDeliveriesForLetters()`
 - `src/app/components/letters/inbox-tab.tsx` — update `ItemMessage` to link actor name when `actor_slug` present
 - `src/app/components/letters/sent-tab.tsx` — update `RecipientRow` to link name when `receiver_slug` present; add "Public link letter" placeholder
-- `src/app/components/letters/story-walk.tsx` — accept `senderSlug?: string | null` and `receiverSlug?: string | null` props; pass to `badgeProfile` link; wire per-point avatar links
-- `src/app/pages/letter-results-page.tsx` — add `LetterParticipantRow` above `StoryWalk`; pass slug props from `resultsData`
-- `src/app/pages/letter-reading-page.tsx` — add `LetterParticipantRow` showing sender; surface `sender_slug` from loaded letter data
+- `src/app/components/letters/story-walk.tsx` — no new slug props needed; `slug` is now on `senderProfile`/`receiverProfile` via `ResultsProfileData` (AD4). Wrap the per-point `badgeProfile` avatar with `<Link to="/p/:slug">` when `badgeProfile.slug` is present. If the avatar link lives inside `LiveStoryCardExpanded`, add a `badgePersonSlug?: string | null` prop to that component instead.
+- `src/app/pages/letter-results-page.tsx` — add `LetterParticipantRow` above `StoryWalk`; read slug from `resultsData.senderProfile.slug` / `resultsData.receiverProfile?.slug`
+- `src/app/pages/letter-reading-page.tsx` — pass new sender-identity props (`senderSlug`, `senderAvatarUrl`, `senderAvatarColor`, `senderHasPledged`) to `LetterCover`; surface `sender_slug` from loaded letter data (AD3)
+- `src/app/components/letters/letter-cover.tsx` — accept new sender-identity props; render `LetterParticipantRow` in place of plain-text "From {senderName}" line (lines 68-70)
 - `src/app/pages/letters-page.tsx` — reorder tabs (Inbox → Sent → Drafts), change default to `'inbox'`, make "New Draft" CTA persistent
+
+## Test Coverage Strategy
+
+**What's Tested:**
+- ✅ All 4 DB migrations — integration tests verify `actor_slug`, `receiver_slug`, `slug` (profiles), `sender_slug` exist in RPC responses before and after (two-client pattern: service role + JWT)
+- ✅ Inbox sender link — E2E verifies name is an `<a href="/p/:slug">` link
+- ✅ Inbox tap contract — E2E: name → profile; card body → letter (stopPropagation regression risk per spec)
+- ✅ Inbox anonymous "Someone" — E2E: text not inside an anchor element
+- ✅ Sent recipient link — E2E verifies `/p/:slug` link in sent tab
+- ✅ Sent tap contract — E2E: name link → profile page
+- ✅ Sent public link placeholder — E2E: "Public link letter" text visible
+- ✅ Reading page sender identity — E2E: name visible, linked to `/p/:slug`
+- ✅ Results identity row — E2E: renders for both sender and receiver perspectives
+- ✅ Results role labels — E2E: "Letter from" (recipient), "Letter to" (author)
+- ✅ Navigation: default Inbox, tab order Inbox→Sent→Drafts, New Draft on all 3 tabs
+- ✅ Null-slug boundary — E2E: no link rendered when slug=null (seeded via supabaseAdmin UPDATE)
+- ✅ Truncation CSS — E2E: overflow ellipsis CSS verified via getComputedStyle
+- ✅ Keyboard accessibility — a11y: Tab reachability, Enter navigation, focusable links
+- ✅ Accessible link labels — a11y: non-empty, non-generic accessible names
+- ✅ Touch target size — a11y: ≥40px height on identity links
+
+**What's NOT Tested (rationale):**
+- ❌ Deleted profile "Deleted user" — FK blocks real profile deletion in current schema; defensive UI branch untestable in E2E without schema change (P520 not shipped)
+- ❌ Progressive render (name before avatar) — requires network throttling simulation; covered in UAT-manual
+- ❌ Avatar pledge ring — visual CSS decoration; covered in UAT-manual
+- ❌ stopPropagation on mobile touch — touch events differ from pointer events; covered in UAT-17/18 manual
+- ❌ Dark mode visual pass — requires visual comparison tool; covered in UAT-20 manual
+- ❌ Results point-avatar links — `StoryWalk` internal avatars require completed delivery with positions data; covered in UAT-9 manual
+
+**Test Pyramid:**
+```
+       /\
+      /  \   27 E2E
+     /____\
+    / 11 INT \
+   /__________\
+   11 A11y + 21 UAT
+```
+
+**Files generated:**
+- `e2e/integration/p725-db-migrations.spec.ts` — 11 integration tests
+- `e2e/p725-letter-identity.spec.ts` — 27 E2E tests
+- `e2e/a11y/p725-accessibility.spec.ts` — 11 a11y tests
+- `features/uat/p725.md` — 21 UAT scenarios
+
+**Estimated run time:** ~45–60 seconds (E2E + integration, parallel workers)

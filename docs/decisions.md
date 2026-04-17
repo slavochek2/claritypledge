@@ -2,6 +2,48 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-17 [technical]: P740 — Independent DB exit calls each need their own `.catch`
+
+**Context:** `confirmExitMeeting` in `clarity-live-page.tsx` makes two DB writes on exit: a primary signal call (`clearSessionJoiner` / `endClaritySession`) followed by `completeClaritySession` to close the letter-sourced invite. Both were inside a single `try/catch`, so if the first call threw, the second never ran.
+
+**Decision:** Each DB call in the exit handler gets its own `.catch` so both always attempt to run regardless of first-call failure. Pattern:
+```tsx
+await clearSessionJoiner(id).catch(err => console.error('[Live] clearSessionJoiner failed:', err));
+if (session.targetListenerId) {
+  await completeClaritySession(id).catch(err => console.error('[P740] completeClaritySession failed:', err));
+}
+```
+
+**Alternatives rejected:**
+- Shared `try/catch` wrapping both — silently skips the second call when first throws; acceptable for atomic operations but wrong when both calls serve different surfaces.
+- Single RPC combining both — over-engineering for this fix; the two calls target different tables and have different authorization contexts.
+
+**Consequences:**
+- Same pattern should apply any time two independent DB writes must both succeed on a user action. Each gets its own `.catch`; the outer `try/catch` becomes a last-resort catch for unexpected failures only.
+- Applies symmetrically to both creator-leave and joiner-leave branches — both were updated in the same commit.
+
+**References:** `src/app/pages/clarity-live-page.tsx` lines 3277-3295, `features/p740_joiner_leave_does_not_close_letter_sourced_invite.md`
+
+---
+
+## 2026-04-17 [process]: Two-agent code review catches spec overreach that single-pass misses
+
+**Context:** After the P740 fix, ran a standard code review agent (Sonnet). It flagged AC#3 ("creator sees 'Session ended'") as possibly unmet at 82% confidence. Then spawned Opus 4.7 for a second opinion with deeper context.
+
+**Decision:** For bug fixes touching session state or realtime subscriptions, run a second-opinion Opus agent after the first code review. Pass it: (1) the fix diff, (2) the first review's findings with confidence scores, (3) explicit questions about the uncertain items. The second agent traces the actual code path and either confirms or resolves the ambiguity.
+
+**Alternatives rejected:**
+- Manual UAT for every ambiguous AC — slower and requires two test accounts in a live session.
+- Single review agent — missed that AC#3 was a spec wording bug, not a code bug; would have sent to UAT with a false-failing criterion.
+
+**Consequences:**
+- AC#3 was correctly downgraded: "X has left" is the right UX when the joiner exits (partner left, not creator-ended session). `sessionEnded` is set via `live_state.joinerEnded` from `clearSessionJoiner`, not from `completeClaritySession`.
+- Second opinion is cheap (one agent spawn) vs the cost of a wrong UAT criterion blocking a correct fix.
+
+**References:** `src/app/components/partners/live-mode-view.tsx` (PartnerLeftScreen), `clarity-live-page.tsx` lines 1054-1068 (joinerEnded subscription handler)
+
+---
+
 ## 2026-04-17 [process]: Grep-verify architectural claims in `docs/technical/*.md` against code before using them to shape specs
 
 **Context:** During P736 spec work (enforce `profiles.slug NOT NULL`), an agent read `docs/technical/authentication.md:128-176` — the "Guest / Unverified Users" section documenting a three-state auth model where `/live` guests create `profiles` rows with `is_verified=false, slug=null` via `getOrCreateGuestUser()`. The agent used this doc to conclude NOT NULL would break the guest flow and flipped the P736 plan toward "close as rejected." A second-opinion Opus agent verified the claim against code: `getOrCreateGuestUser` has been deleted from `src/` (zero hits), P396 eliminated the unverified-profile state on 2026-02-19, and `AuthCallbackPage.tsx:95` has a comment stating `source=live` is "currently not used." The doc is stale by ~2 months. The original P736 plan was closer to correct; the "correction" was wrong.
