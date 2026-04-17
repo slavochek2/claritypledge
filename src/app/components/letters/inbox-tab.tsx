@@ -5,7 +5,7 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { Mail, ArrowDownLeft, ArrowUpRight, Inbox, Eye, Video } from 'lucide-react';
 import { toast } from 'sonner';
 import { ClarityLoader } from '@/components/ui/clarity-loader';
@@ -247,19 +247,39 @@ function ItemIcon({ type, completed }: { type: InboxItem['type']; completed: boo
   }
 }
 
+function ActorName({ name, slug }: { name: string; slug?: string | null }) {
+  // P725: registered actors link to /p/:slug; null slug → plain text.
+  // Defensive: RPC type is string|null even though DB enforces NOT NULL (P736).
+  // Guards against deleted-actor rows, system actors, and future RPC changes.
+  // `inline-flex min-h-[40px]` gives the 40px touch target required by AC.
+  if (!slug) {
+    return <span className="font-medium max-w-[24ch] sm:max-w-[40ch] truncate inline-block align-middle">{name}</span>;
+  }
+  return (
+    <Link
+      to={`/p/${slug}`}
+      onClick={(e) => e.stopPropagation()}
+      title={name}
+      className="font-medium hover:underline inline-flex items-center min-h-[40px] max-w-[24ch] sm:max-w-[40ch] truncate"
+    >
+      {name}
+    </Link>
+  );
+}
+
 function ItemMessage({ item }: { item: InboxItem }) {
   switch (item.type) {
     case 'received':
       return (
         <>
-          <span className="font-medium">{item.actor_name}</span> sent you{' '}
+          <ActorName name={item.actor_name} slug={item.actor_slug} /> sent you{' '}
           <span className="italic">{item.title}</span>
         </>
       );
     case 'recipient_responded':
       return (
         <>
-          <span className="font-medium">{item.actor_name}</span> completed{' '}
+          <ActorName name={item.actor_name} slug={item.actor_slug} /> completed{' '}
           <span className="italic">{item.title}</span>
         </>
       );
@@ -271,7 +291,7 @@ function ItemMessage({ item }: { item: InboxItem }) {
       );
     case 'recipient_in_progress':
       return (
-        <><span className="font-medium">{item.actor_name}</span> is reading <span className="italic">{item.title}</span></>
+        <><ActorName name={item.actor_name} slug={item.actor_slug} /> is reading <span className="italic">{item.title}</span></>
       );
     case 'link_respondent_in_progress':
       return (

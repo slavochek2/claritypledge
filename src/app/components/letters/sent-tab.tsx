@@ -9,7 +9,7 @@
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { MoreHorizontal, ChevronRight, ChevronDown, Mail, Link2 } from 'lucide-react';
 import {
   getAllSentLetters,
@@ -89,7 +89,20 @@ function RecipientRow({ delivery, letterId }: { delivery: LetterDelivery; letter
       } : {})}
     >
       <Icon className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" aria-hidden="true" />
-      <span className="text-foreground truncate">{displayName}</span>
+      {delivery.receiver_slug ? (
+        // P725: link registered recipient to their profile. Defensive null check kept:
+        // RPC type is string|null even though DB enforces NOT NULL (P736).
+        <Link
+          to={`/p/${delivery.receiver_slug}`}
+          onClick={(e) => e.stopPropagation()}
+          className="text-foreground hover:underline truncate max-w-[24ch] sm:max-w-[40ch] min-h-[40px] inline-flex items-center"
+          title={displayName}
+        >
+          {displayName}
+        </Link>
+      ) : (
+        <span className="text-foreground truncate max-w-[24ch] sm:max-w-[40ch]" title={displayName}>{displayName}</span>
+      )}
       <span aria-hidden="true" className="text-muted-foreground">·</span>
       <span className="text-muted-foreground">{statusLabel}</span>
       {showProgress && (
@@ -114,7 +127,8 @@ function LetterCard({
 }) {
   const { letter, deliveries } = data;
   const navigate = useNavigate();
-  const [isExpanded, setIsExpanded] = useState(false);
+  // P725: expand cards by default so recipient identity surfaces without an extra tap.
+  const [isExpanded, setIsExpanded] = useState(true);
   const [addRecipientOpen, setAddRecipientOpen] = useState(false);
 
   const isPublic = letter.mode === 'one-to-many';
@@ -126,10 +140,16 @@ function LetterCard({
   const completedCount = deliveries.filter((d) => d.status === 'completed').length;
   const totalCount = recipients.length; // total invited recipients
 
-  const summaryParts: string[] = [
-    `Sealed ${sealedDate}`,
-    `${completedCount} of ${totalCount} recipients completed`,
-  ];
+  const summaryParts: string[] = [];
+  // P725: "Public link letter" indicator for one-to-many letters — visible without expanding,
+  // and serves as the placeholder when there are no specific recipients yet.
+  if (isPublic) {
+    summaryParts.push('Public link letter');
+  }
+  summaryParts.push(`Sealed ${sealedDate}`);
+  if (recipients.length > 0) {
+    summaryParts.push(`${completedCount} of ${totalCount} recipients completed`);
+  }
   if (isPublic && respondents.length > 0) {
     summaryParts.push(`${respondents.length} ${respondents.length === 1 ? 'response' : 'responses'}`);
   }

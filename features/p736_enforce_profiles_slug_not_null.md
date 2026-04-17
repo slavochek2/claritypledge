@@ -93,4 +93,4 @@ All orphans include 5 personal `test+*@example.com` test addresses and 17 extern
 - [x] Backfill strategy approved by founder (Option B timestamp slug; orphans deleted)
 - [x] Migration applied to prod — 0 NULL-slug rows remain (48 profiles total)
 - [x] `profiles.slug` has `NOT NULL` constraint enforced
-- [ ] Null-slug fallback code branches in P725's surfaces can be removed (follow-up PR)
+- [x] Null-slug fallback branches in P725's surfaces — intentionally kept (RPC types still declare `slug: string | null`; guards protect against deleted actors, system rows, and future RPC changes with no runtime alarm). Comments added to mark intent.
