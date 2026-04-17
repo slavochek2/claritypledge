@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: qa
 type: bug
 rank: 1000741.0
 severity: high
@@ -68,9 +68,9 @@ See architect plan: `~/.claude/plans/create-a-plan-here-serialized-scott.md`
 
 ## Acceptance Criteria
 
-- [ ] Canary test `partner slider update preserved during in-flight write` fails before fix, passes after
-- [ ] `ratingPhase` monotonic guard (P671) still passes: server-ahead advances phase, server-behind holds phase
-- [ ] Echo of own partner-owned key is not re-applied (local optimistic value wins)
-- [ ] Full unit test suite passes — no regressions in P671 / drift / bootstrap behavior
-- [ ] `npx tsc --noEmit` passes with no new errors
-- [ ] Write-success ref merge at `clarity-live-page.tsx:1395` is untouched
+- [x] Canary test `partner slider update preserved during in-flight write` fails before fix, passes after
+- [x] `ratingPhase` monotonic guard (P671) still passes: server-ahead advances phase, server-behind holds phase
+- [x] Echo of own partner-owned key is not re-applied (local optimistic value wins)
+- [x] Full unit test suite passes — no regressions in P671 / drift / bootstrap behavior
+- [x] `npx tsc --noEmit` passes with no new errors
+- [x] Write-success ref merge at `clarity-live-page.tsx:1395` is untouched
