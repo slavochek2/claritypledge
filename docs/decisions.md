@@ -14,6 +14,20 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 **References:** [CLAUDE.md](../CLAUDE.md) · [.claude/rules/db-access.md](../.claude/rules/db-access.md)
 
+## 2026-04-17 [technical]: When establishing a canonical close path, audit ALL exit branches immediately
+
+**Context:** P735 established `completeClaritySession` as the canonical atomic close and fixed the author's "End Session" button. P740 (filed same session) found that the joiner-leave branch in `clarity-live-page.tsx` still calls only `clearSessionJoiner` — never `completeClaritySession`. Three UI surfaces (inbox invite row, letter-results button, `/live` ended state) remained stuck because `closed_at` was never set.
+
+**Decision:** When you establish or change a canonical operation (close, complete, archive, etc.), immediately grep all call sites of the OLD approach and verify each one migrates. For clarity session teardown: search for `clearSessionJoiner`, `endClaritySession`, `cancelLiveInvite` uses that are NOT followed by `completeClaritySession` — each is a missed exit path.
+
+**Alternatives rejected:** Fixing one path at a time as bugs surface — leads to a series of P734/P735/P740-style sequential patches on the same root cause.
+
+**Consequences:** After any "canonical close" refactor, run: `grep -rn "oldCloseFunction\|relatedFunction" src/ --include="*.ts" --include="*.tsx"` to enumerate all remaining call sites. File deferred bugs for any not addressed in the current spec.
+
+**References:** `src/app/pages/clarity-live-page.tsx` (joiner-leave branch), [p740](../features/p740_joiner_leave_does_not_close_letter_sourced_invite.md)
+
+---
+
 ## 2026-04-17 [technical]: `prevCodeRef` pattern — detect "value cleared" transitions in React effects
 
 **Context:** P735 — `StartClaritySessionButton` needed to re-fetch invite state when the global `activeSessionCode` cleared (partner ended session from their side). The naive effect `useEffect(() => { if (openInvite && activeSessionCode === null) { checkInvite(); } }, [activeSessionCode, openInvite, checkInvite])` fired spuriously on the first render when `openInvite` changed from null → value while `activeSessionCode` was already null — consuming mock calls in tests and causing a double-fetch in production.
