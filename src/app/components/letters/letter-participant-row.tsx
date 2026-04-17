@@ -21,7 +21,11 @@ interface LetterParticipantRowProps {
   slug?: string | null;
   avatarUrl?: string | null;
   avatarColor?: string;
-  /** Kept for API stability; not rendered at compact inline size (ring clips). */
+  /**
+   * @deprecated P725 — compact 24px avatar drops the pledge ring (ring-offset clips at this size).
+   * Kept in the prop list so call sites don't break; restore the ring visual by adding an `xs`
+   * size to the shared PersonAvatar/GravatarAvatar system.
+   */
   hasPledged?: boolean;
   /** "Letter from" (recipient view), "Letter to" (author view), or "From" (reading cover). */
   roleLabel: string;
@@ -47,10 +51,12 @@ function CompactAvatar({
       />
     );
   }
+  // Spread-index the first word glyph so emoji and multi-codepoint scripts
+  // (surrogate pairs) aren't split into broken half-characters.
   const initials = name
     .split(/\s+/)
-    .map((w) => w[0])
-    .filter(Boolean)
+    .map((w) => [...w][0])
+    .filter((c): c is string => Boolean(c))
     .slice(0, 2)
     .join('')
     .toUpperCase();
