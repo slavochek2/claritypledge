@@ -1,13 +1,13 @@
 ---
-status: in-progress
+status: all-done
 type: bug
 rank: 1000750.0
 severity: high
 workstream: C1
 date_reported: '2026-04-18'
 created_date: '2026-04-18'
+completed_at: '2026-04-18'
 tags: [letter-flow, story-images, seal-rpc, snapshot]
-delivery_stage: ship
 pipeline_ran: [create-bug, fix, ship]
 ---
 
