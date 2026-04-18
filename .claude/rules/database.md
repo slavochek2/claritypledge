@@ -80,3 +80,20 @@ Seeds and sync scripts must be idempotent **and** non-destructive to values the 
 - Never assume the DB is in a factory/default state
 
 **Why:** A deploy that silently resets a value the user deliberately changed is a trust violation, not expected behavior. If a safety constraint requires rejecting a user-set value, reject it explicitly — never auto-revert silently.
+
+## Commit Migrations from the Worktree, Not from Main
+
+When working in a worktree, always commit migration files from the **worktree branch** — never from `main`.
+
+`supabase/migrations/` is symlinked in worktrees, so new migration files are visible when you `git status` from either the worktree or the main repo. This creates a false impression that committing from `main` is fine. It is not: committing from `main` puts the migration on `main` before the feature is ready to ship.
+
+The same rule applies to `supabase/deploy-manifest.json`.
+
+```bash
+# ✅ Correct — from inside the worktree branch
+git add supabase/migrations/YYYYMMDDHHMMSS_description.sql
+git commit -m "feat(pN): add migration for ..."
+
+# ❌ Wrong — committing from main while the feature is on a worktree branch
+# (the file appears in git status on main due to the symlink, but belongs on the feature branch)
+```

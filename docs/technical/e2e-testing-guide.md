@@ -326,6 +326,41 @@ test.afterEach(async () => {
 
 ---
 
+### Test Independence Within a describe Block
+
+In a parallel-mode `describe` block, each `test()` must be self-sufficient given only `beforeAll`/`beforeEach` state. Never write a `test()` that reads a variable mutated by a sibling `test()` — Playwright retries, `--grep` filtering, and shard splits all break ordering assumptions silently.
+
+**Wrong (ordering dependency):**
+```typescript
+let letterId: string;
+
+test('creates letter', async () => {
+  letterId = (await createLetter()).id; // sets shared var
+});
+
+test('letter appears in inbox', async () => {
+  // fails on isolated retry — letterId is undefined
+  expect(inbox).toContain(letterId);
+});
+```
+
+**Correct: move shared setup into `beforeAll`:**
+```typescript
+let letterId: string;
+
+test.beforeAll(async () => {
+  letterId = (await createLetter()).id;
+});
+
+test('letter appears in inbox', async () => {
+  expect(inbox).toContain(letterId); // always defined
+});
+```
+
+**Exception:** `test.describe.configure({ mode: 'serial' })` explicitly allows ordered mutation between tests — use it when setup-verify-teardown must share state across steps.
+
+---
+
 ### Testing Conditional Rendering
 
 When testing components with conditional UI (ternaries, if/else blocks), write tests for **both branches** to catch duplicate elements and ensure each path renders correctly.

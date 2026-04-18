@@ -2,6 +2,20 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-18 [process]: Two-round devil's advocate critique — second round targets first round's diagnoses
+
+**Context:** P757 session postmortem ran one round of Opus devil's advocate critique, then ran a second round where Opus critiqued its own recommendations from round 1. Round 1 produced 4 recommendations that were directionally correct. Round 2 found that 3 of the 4 root cause diagnoses were wrong — the correct conclusion was being proposed for the wrong reason (e.g., "commit from worktree" was right, but "symlink tempted the agent" was the stated cause; the real gap was the rule fired too late). One claim was falsified entirely (`stamp-deploy-manifest.sh` was claimed to force a main commit; reading the 118-line script found zero git calls).
+
+**Decision:** When running devil's advocate critique on postmortem findings, always run a second round that specifically targets the first round's root cause diagnoses — not just its recommendations. A recommendation can be correct while its stated reason is false. Without the second round, you act on the right fix for the wrong reason, which produces brittle documentation (the rule doesn't generalize correctly). The second round must read the actual files implicated by each claim before accepting or rejecting it.
+
+**Alternatives rejected:** Single-round critique — directionally useful but leaves wrong root cause diagnoses in the docs, which makes future rules less generalizable and easier to accidentally violate.
+
+**Consequences:** Postmortem workflow now has two explicit phases: (1) identify problems and recommendations, (2) falsify each diagnosis by reading actual files. The fix applied from round 2: `git diff --name-only HEAD` documented workaround is broken (`--diff-filter=d` needed); "commit from worktree" rule already existed in `ship.md` but fires too late — added to `database.md` where migrations are written.
+
+**References:** [worktree-setup.md](docs/technical/worktree-setup.md), [database.md](.claude/rules/database.md), [e2e-testing-guide.md](docs/technical/e2e-testing-guide.md)
+
+---
+
 ## 2026-04-18 [process]: Pipeline stamps must self-verify after write (P759)
 
 **Context:** `/fix` Phase 0.3 stamped `delivery_stage: fix` and appended `fix` to `pipeline_ran`, but the write silently failed in at least one session (P752, worktree w3). The spec's frontmatter stayed at `delivery_stage: reproduce` after `/fix` completed. Root cause: the stamp writes to a file path resolved relative to CWD — in a worktree context, CWD is the worktree root, but if the model uses the wrong path the edit lands nowhere or on the wrong copy (worktree vs main have separate copies of feature files).
