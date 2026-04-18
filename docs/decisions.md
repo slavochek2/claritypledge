@@ -2,6 +2,20 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-18 [process]: Grep siblings before finalizing any hook fix plan
+
+**Context:** The P760 fix plan for `useUnreadLetterCount` was written without grepping for the same pattern in sibling hooks. Opus 4.7 critique found `usePointsForDisplay.ts` (lines 62, 126) and `useLetterReadingState.ts` (lines 451, 517) have the identical `finally { setLoading(false) }` unguarded pattern — discoverable in 15 seconds with `grep -rn "finally" src/app/hooks/`. Without the grep, P760 would close while three more hooks remained broken.
+
+**Decision:** Before finalizing a fix plan for any async-state bug in a hook, run `grep -rn "<symptom-pattern>" src/app/hooks/` (or the relevant directory). Document siblings as either in-scope (same risk level, same fix session) or explicitly out-of-scope tech debt (different risk, separate spec). Never leave siblings undocumented — unnamed siblings become the next session's rediscovery. *A fix that patches one instance of a pattern without grepping for siblings is a reservation to rediscover the bug.*
+
+**Alternatives rejected:** Adding this as a named Phase -1 step in `/fix` — checklist inflation. It's a single grep command, not a new phase. The rule belongs in plan-writing habit, not the skill.
+
+**Consequences:** `usePointsForDisplay.ts` (mount-time effects, high risk) → filed as separate fix at `~/.claude/plans/create-a-plan-steady-walrus.md`. `useLetterReadingState.ts` (action handlers, lower risk) → explicitly out of scope. KDD step 7.1b now runs Opus critique on Sonnet's meta-reflection triage — Opus identified this grep-siblings miss as the only item worth acting on out of 6.
+
+**References:** [usePointsForDisplay.ts](src/app/hooks/usePointsForDisplay.ts), [useLetterReadingState.ts](src/app/hooks/useLetterReadingState.ts)
+
+---
+
 ## 2026-04-18 [technical]: Privacy gate architecture — audit-privacy.sh as shared scanner with allowlist and sentinel-file override
 
 **Context:** 297+4 commits leaked personal identifiers (email, username, absolute path, third-party name) to `origin/main` despite an existing pre-commit check. Root causes: (1) BSD grep `\b` word boundaries silently fail on macOS, making the regex a no-op that always passes. (2) The hard-PII check was WARNING-severity, not ERROR — it logged but allowed the commit. (3) Missing patterns (username, path, alias, fixture name). (4) No content scan at push time; pre-push only checked a docs-review stamp. (5) Commit messages were never scanned.
