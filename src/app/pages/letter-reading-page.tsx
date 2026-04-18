@@ -971,7 +971,6 @@ function LetterReadingFlow({
   const returnFromLive = searchParams.get('returnFromLive') === '1';
   const { invite } = useOpenLiveInvite();
   const [liveSessionCode, setLiveSessionCode] = useState<string | null>(null);
-  const [dismissedSessionId, setDismissedSessionId] = useState<string | null>(null);
   // Tracks whether the receiver has ever opened the overlay — survives manual close so the
   // completion toast still fires when the author ends the session after the receiver left.
   const hasJoinedRef = useRef(false);
@@ -1056,10 +1055,6 @@ function LetterReadingFlow({
     setLiveSessionCode(invite.code);
   }, [invite]);
 
-  const handleLater = useCallback(() => {
-    if (!invite) return;
-    setDismissedSessionId(invite.sessionId);
-  }, [invite]);
 
   if (tokenExpired) return null;
 
@@ -1098,7 +1093,7 @@ function LetterReadingFlow({
   const showBanner = invite
     && invite.closedAt === null
     && liveSessionCode === null
-    && invite.sessionId !== dismissedSessionId;
+;
 
   return (
     <>
@@ -1106,7 +1101,7 @@ function LetterReadingFlow({
         <LetterLiveOverlay sessionCode={liveSessionCode} onClose={() => setLiveSessionCode(null)} />
       )}
       {showBanner && (
-        <LetterLiveBanner invite={invite} onJoin={handleJoin} onLater={handleLater} />
+        <LetterLiveBanner invite={invite} onJoin={handleJoin} />
       )}
       <LetterFlowContent
         snapshots={snapshots}
