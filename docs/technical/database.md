@@ -153,7 +153,7 @@ Five tables for async comprehension assessment via letters.
 
 **Circular RLS pattern:** `_is_letter_sender()` and `_is_letter_receiver()` SECURITY DEFINER helpers break cross-table RLS recursion (letters↔deliveries). See decisions.md 2026-04-04.
 
-**`letter_deliveries` insertion contract:** `WITH CHECK (false)` on all INSERT paths — no direct client insert ever succeeds. Two SECURITY DEFINER paths: (1) `confirm-letter-response` edge function (anon→signup flow), (2) `create_letter_delivery` PostgreSQL function (already-authenticated one-to-many path, P707). Never add a permissive INSERT policy — all new insertion paths must be SECURITY DEFINER.
+**`letter_deliveries` insertion contract:** `WITH CHECK (false)` on all INSERT paths — no direct client insert ever succeeds. Four SECURITY DEFINER write paths: (1) `seal_and_send_letter` (seal-time delivery creation, P757 — lower() email→profile lookup), (2) `add_recipient_to_sealed_letter` (post-seal recipient addition, P731 — exact-match email→profile lookup), (3) `create_letter_delivery` (already-authenticated one-to-many path, P707 — uses `auth.uid()` directly), (4) `confirm-letter-response` edge function (anon→signup flow). Never add a permissive INSERT policy. **`receiver_profile_id` invariant:** every write path must attempt the profile lookup and populate `receiver_profile_id` when a match exists — NULL rows are invisible to `get_inbox_items` Branch 1. See decisions.md 2026-04-18.
 
 **`get_inbox_items()` RPC — return shape contract** (SECURITY DEFINER, returns JSONB array, authoritative as of P755):
 

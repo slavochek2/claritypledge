@@ -2,6 +2,20 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-18 [technical]: Every letter_deliveries write path must populate receiver_profile_id when recipient profile exists
+
+**Context:** P757 found that `seal_and_send_letter` inserted `letter_deliveries` rows with `receiver_profile_id = NULL`. `get_inbox_items` Branch 1 filters `WHERE ld.receiver_profile_id = v_user_id` — NULL rows are permanently invisible without the email link. P731 (add_recipient_to_sealed_letter) fixed one path on 2026-04-16 but missed the seal-time path. The same silent failure affects `_is_letter_receiver` RLS helper (used by letter_point_responses, letter_predictions, letter_story_snapshots).
+
+**Decision:** At every `letter_deliveries` INSERT, look up `profiles.id` by `receiver_email` (case-insensitive: `lower(email) = lower(input)`) and populate `receiver_profile_id` when a match exists. NULL is acceptable only for genuinely unregistered recipients — they recover via `claim_letter_delivery` when opening the email link. New write paths must include the lookup before shipping. Backfill pattern: accompany each fix with `UPDATE letter_deliveries SET receiver_profile_id = p.id FROM profiles p WHERE receiver_profile_id IS NULL AND lower(receiver_email) = lower(p.email)`.
+
+**Alternatives rejected:** Relying on `claim_letter_delivery` recovery for all cases — claim is only called when the recipient opens the email link; private letters sent to profile users were permanently invisible if the email was missed/blocked.
+
+**Consequences:** All four current write paths are now correct: `seal_and_send_letter` (P757, lower() match), `add_recipient_to_sealed_letter` (P731, exact match — known inconsistency, lower() not yet backported), `create_letter_delivery` (P707, uses `auth.uid()` directly — always correct), `claim_letter_delivery` (recovery path — always correct). `database.md` insertion contract updated. Any new write path to `letter_deliveries` must follow this invariant before merging.
+
+**References:** [20260418210000_p757_set_receiver_profile_id_on_seal.sql](supabase/migrations/20260418210000_p757_set_receiver_profile_id_on_seal.sql), [20260416210000_p731_set_receiver_profile_id_on_add_recipient.sql](supabase/migrations/20260416210000_p731_set_receiver_profile_id_on_add_recipient.sql)
+
+---
+
 ## 2026-04-18 [product]: Letter pre-collects data; /live with the story author is the flip
 
 **Context:** P745 challenge-prd surfaced that H-LetterAsProduct was ambiguous — "async letter scaling" could be read as the letter *replacing* /live rather than *enabling* it. The hypothesis was rewritten and lean-canvas flywheel updated to resolve this.
