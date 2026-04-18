@@ -2,6 +2,7 @@
 -- story_versions.title was dropped by P701; P701-scrub removed the reference;
 -- P757 was authored from an older base and re-regressed it.
 -- This migration is P757's full function body with the sv.title line removed.
+-- diffed against: 20260418210000_p757_set_receiver_profile_id_on_seal.sql
 
 CREATE OR REPLACE FUNCTION seal_and_send_letter(
   p_letter_id UUID,

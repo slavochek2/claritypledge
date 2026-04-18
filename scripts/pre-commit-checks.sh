@@ -492,6 +492,29 @@ sys.exit(0 if found else 1)
         echo -e "${YELLOW}  See docs/technical/e2e-testing-guide.md#integration-tests-p270--db-migration-layer${NC}"
         # Already counted in WARNINGS above; no additional increment needed
     fi
+
+    # CREATE OR REPLACE FUNCTION diff annotation check.
+    # PL/pgSQL defers symbol resolution — a broken function body applies cleanly and fails at
+    # call time. Any migration redefining an existing function must include a header comment
+    # proving the author diffed against the prior version. New functions use "-- new function".
+    # See decisions.md: "PL/pgSQL defers symbol resolution" (2026-04-18).
+    UNDIFFED=0
+    while IFS= read -r mig; do
+        if grep -qiE 'CREATE OR REPLACE FUNCTION' "$mig" 2>/dev/null; then
+            if ! grep -qiE 'diffed against:|-- new function' "$mig" 2>/dev/null; then
+                echo -e "${RED}  ✗ $mig redefines a function but has no diff annotation.${NC}"
+                echo -e "${RED}    Add to the migration header:${NC}"
+                echo -e "${RED}      -- diffed against: <prior-migration-filename>.sql${NC}"
+                echo -e "${RED}    Or for a brand-new function:${NC}"
+                echo -e "${RED}      -- new function${NC}"
+                UNDIFFED=$((UNDIFFED + 1))
+            fi
+        fi
+    done <<< "$STAGED_MIGRATIONS"
+    if [ "$UNDIFFED" -gt 0 ]; then
+        echo -e "${RED}✗ $UNDIFFED migration(s) redefine functions without a diff annotation (hard block).${NC}"
+        ERRORS=$((ERRORS + 1))
+    fi
 else
     echo -e "${GREEN}✓ No new migrations staged${NC}"
 fi
