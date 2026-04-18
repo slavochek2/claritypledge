@@ -2,6 +2,39 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-18 [technical]: Privacy gate architecture — audit-privacy.sh as shared scanner with allowlist and sentinel-file override
+
+**Context:** 297+4 commits leaked personal identifiers (email, username, absolute path, third-party name) to `origin/main` despite an existing pre-commit check. Root causes: (1) BSD grep `\b` word boundaries silently fail on macOS, making the regex a no-op that always passes. (2) The hard-PII check was WARNING-severity, not ERROR — it logged but allowed the commit. (3) Missing patterns (username, path, alias, fixture name). (4) No content scan at push time; pre-push only checked a docs-review stamp. (5) Commit messages were never scanned.
+
+**Decision:** Centralize all PII scanning in `scripts/audit-privacy.sh` (single source of truth for patterns), called by three hooks: pre-commit (error-level), commit-msg (new hook), and pre-push (content scan runs before push-enable flag check — push-enable cannot bypass privacy). Push override mechanism: `touch .allow-pii-next-push` (sentinel file, deleted after one use, gitignored). Commit override: `CP_ALLOW_PII_COMMIT=1` env var (local-only, acceptable because commits are not public until pushed). Missing audit script = hard block at commit and push. Allowlist (`.privacy-allowlist`) uses exact-path or prefix match — not substring — to prevent sibling-file bypass (e.g., `audit-privacy.sh.bak` must not inherit the allowlist for `audit-privacy.sh`). Allowlist filter requires a real `--- ` line before any `+++ b/` to prevent content-injection attacks where a file line starting with `+++ b/<allowlisted-path>` fakes a diff header and silences subsequent PII lines.
+
+**Alternatives rejected:** Per-hook pattern duplication — patterns drift. Warning-level hard-PII — already proven ineffective. `~/.push-enabled` flag as bypass for PII gate — agents can set env vars/flags silently; sentinel file requires an affirmative filesystem action by the human. Substring allowlist match — `.sh.bak` inherited allowlist from `.sh`; confirmed exploitable.
+
+**Consequences:** All PII pattern changes go in `scripts/audit-privacy.sh` header only. Commit messages are scanned in range mode via `git log --format='%B'` (separate from `+`-line diff scan — commit messages don't appear as `+` lines in `git log -p`). Test suite (`scripts/test-audit-privacy.sh`) covers both `--msg` mode and range mode, including allowlist injection and sibling-match attacks.
+
+**References:** [audit-privacy.sh](scripts/audit-privacy.sh), [test-audit-privacy.sh](scripts/test-audit-privacy.sh), [pre-commit-checks.sh](scripts/pre-commit-checks.sh)
+
+---
+
+## 2026-04-18 [technical]: BSD grep ERE hazards on macOS — portable shell pattern checklist
+
+**Context:** Writing `scripts/audit-privacy.sh` with patterns that need to work on macOS BSD grep (not GNU grep). Three separate BSD grep bugs triggered during implementation: (1) `\b` word boundaries in ERE — BSD grep silently emits "repetition-operator operand invalid" on some patterns and reports no matches (false pass). (2) `\+` in ERE mode (`grep -E`) — BSD grep may interpret `\+` as a repetition operator on nothing, causing "repetition-operator operand invalid". (3) `\+\+\+` in BRE mode (`grep -v`) — same repetition error.
+
+**Decision:** BSD-portable grep pattern checklist for macOS shell scripts:
+- Word boundaries: `[[:<:]]...[[:>:]]` (POSIX bracket-class, works on both BSD and GNU grep with `-E`). Never use `\b`.
+- Literal `+` in ERE: `[+]` (character class). Never `\+` with `-E`.
+- Literal `+++` in BRE: `'^+++'` (BRE treats `+` as literal). Never `'\+\+\+'`.
+- Literal phrase with spaces: `grep -iF 'phrase'` in a separate call (ERE alternation with spaces in heredoc is fragile).
+- Validate every pattern in isolation with `echo "test" | grep -E '<pattern>' 2>&1` before integrating.
+
+**Alternatives rejected:** GNU grep via Homebrew as a dependency — adds an install requirement that breaks in minimal CI environments. Using `awk` for all matching — correct but much higher complexity.
+
+**Consequences:** All shell scripts in this repo that use `grep -E` should follow this checklist. The `\+` issue is particularly silent — grep may still return matches while also emitting the warning to stderr, making it easy to miss during happy-path testing. Always test with `2>&1` captured.
+
+**References:** [audit-privacy.sh](scripts/audit-privacy.sh)
+
+---
+
 ## 2026-04-18 [technical]: Two-layer fix for async hook state-update-after-unmount crashes
 
 **Context:** `useUnreadLetterCount` fires an async `getUnreadLetterCount` fetch on mount. In the full Vitest suite, `navigation-acceptance-full.test.tsx` mounts navigation components containing this hook. When the test ends and jsdom tears down, the in-flight promise resolves in the `finally` block → `setLoading(false)` → React DOM accesses `window` → already gone → `ReferenceError: window is not defined` (unhandled rejection). Opus 4.7 critique of the initial fix plan revealed: the immediate fix is mocking the hook in the test (test hygiene), not patching the hook.
