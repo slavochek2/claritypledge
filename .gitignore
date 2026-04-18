@@ -104,3 +104,6 @@ content/sifter/sessions/
 .claude/.expected-branch
 .claude/.privacy-reviewed
 .claude/.finish-reviewed
+
+# Privacy-gate override (one-shot, created by human)
+.allow-pii-next-push

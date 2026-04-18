@@ -524,34 +524,35 @@ echo ""
 # 17. Privacy check — personal identifiers that must not appear in public files
 echo ">>> Privacy check (personal identifiers)..."
 STAGED_FILES_ALL=$(git diff --cached --name-only 2>/dev/null || echo "")
-if [ -n "$STAGED_FILES_ALL" ]; then
-    # Patterns: owner's personal email addresses (project emails like ops@/slava@ are OK)
-    # Add new patterns here if owner acquires new personal addresses
-    STAGED_DIFF=$(echo "$STAGED_FILES_ALL" | xargs -I{} git diff --cached -- {} 2>/dev/null | \
-        grep -E '^\+' | grep -v '^\+\+\+' || true)
-
-    # Hard: personal email addresses (project emails ops@/slava@claritypledge are OK)
-    PII_HITS=$(echo "$STAGED_DIFF" | grep -iE '(slavochek@|@inguro\.com|@googlemail\.com)' || true)
-    if [ -n "$PII_HITS" ]; then
-        echo -e "${YELLOW}⚠ Personal email address found in staged changes:${NC}"
-        echo "$PII_HITS" | head -5
-        echo -e "${YELLOW}  → Personal identifiers belong in .private/docs/ (gitignored), not public files${NC}"
-        echo -e "${YELLOW}  → Replace with: \"see .private/docs/accounts.md\"${NC}"
-        WARNINGS=$((WARNINGS + 1))
+AUDIT_SCRIPT="$(git rev-parse --show-toplevel)/scripts/audit-privacy.sh"
+if [ ! -x "$AUDIT_SCRIPT" ]; then
+    echo -e "${RED}✗ scripts/audit-privacy.sh missing or not executable — blocking commit${NC}"
+    ERRORS=$((ERRORS + 1))
+elif ! "$AUDIT_SCRIPT" --staged > /tmp/cp-pii-commit.log 2>&1; then
+    echo -e "${RED}✗ Personal identifiers found in staged changes:${NC}"
+    head -15 /tmp/cp-pii-commit.log
+    echo -e "${RED}  → Move personal data to .private/docs/ (gitignored)${NC}"
+    echo -e "${RED}  → Or add path to .privacy-allowlist if it's a known-safe historical reference${NC}"
+    if [ -z "${CP_ALLOW_PII_COMMIT:-}" ]; then
+        echo -e "${RED}  → One-off override: CP_ALLOW_PII_COMMIT=1 git commit ...${NC}"
+        ERRORS=$((ERRORS + 1))
     else
-        echo -e "${GREEN}✓ No personal email addresses detected${NC}"
+        echo -e "${YELLOW}  → CP_ALLOW_PII_COMMIT=1 set — proceeding (WARN)${NC}"
+        WARNINGS=$((WARNINGS + 1))
     fi
+else
+    echo -e "${GREEN}✓ No personal identifiers in staged changes${NC}"
+fi
 
-    # Soft: docs/features/.claude only — named individuals or personal context from conversations
+if [ -n "$STAGED_FILES_ALL" ]; then
     SOFT_FILES=$(echo "$STAGED_FILES_ALL" | grep -E '^(docs/|features/|\.claude/commands/)' || true)
     if [ -n "$SOFT_FILES" ]; then
-        # Flag if changes to these files came from a claude-conversations synthesis session
-        # (mechanical patterns only — nuanced review requires /maintain:privacy)
+        # Portable: no \b, use [[:<:]]...[[:>:]] via grep -E
         NAMED_HITS=$(echo "$SOFT_FILES" | xargs -I{} git diff --cached -- {} 2>/dev/null | \
-            grep -E '^\+' | grep -v '^\+\+\+' | \
-            grep -iE '\b(slavochek|googlemail|experiment fails because [A-Z][a-z]+ (has|have|doesn|didn))\b' || true)
+            grep -E '^[+]' | grep -v '^+++' | \
+            grep -iE '[[:<:]](slavochek|googlemail)[[:>:]]' || true)
         if [ -n "$NAMED_HITS" ]; then
-            echo -e "${YELLOW}⚠ Possible named individual in docs/features — run /maintain:privacy before pushing:${NC}"
+            echo -e "${YELLOW}⚠ Possible personal identifier in docs/features — run /maintain:privacy:${NC}"
             echo "$NAMED_HITS" | head -3
             WARNINGS=$((WARNINGS + 1))
         fi
@@ -561,8 +562,6 @@ if [ -n "$STAGED_FILES_ALL" ]; then
             echo -e "${YELLOW}ℹ Strategic docs changed — if source was claude-conversations, run /maintain:privacy before git push${NC}"
         fi
     fi
-else
-    echo -e "${GREEN}✓ No staged files${NC}"
 fi
 echo ""
 

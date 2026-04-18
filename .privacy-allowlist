@@ -1,0 +1,11 @@
+# .privacy-allowlist — file-path substrings that skip PII scanning.
+# One substring per line (matched anywhere in the path).
+# Use sparingly — prefer fixing the content.
+# Lines starting with # are comments.
+# Examples:
+#   docs/kdd/P731.md
+#   supabase/migrations/20260410090000_fix_seal_denormalize_regression.sql
+
+# Privacy audit scripts contain intentional pattern definitions and test fixtures
+scripts/audit-privacy.sh
+scripts/test-audit-privacy.sh

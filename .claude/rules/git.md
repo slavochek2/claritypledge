@@ -22,6 +22,8 @@ paths:
 | `git push --force` to main/master | Destructive; always warn user |
 | `git commit` from inside a subagent | Subagent staging state does not transfer to the main session's git index; commits issued from subagents will be empty or wrong |
 | `git cherry-pick --abort` (mid-sequence) | Reverts ALL prior commits in the sequence, not just the conflicting one; use `--skip` to drop only the offending commit, or resolve and `--continue` |
+| `git commit --no-verify` | Bypasses `pre-commit-checks.sh` and `audit-privacy.sh` silently |
+| `git push --no-verify` | Bypasses push hooks including the privacy gate silently |
 
 ## Commits must come from the main session
 
@@ -73,6 +75,10 @@ git commit -m "fix: ..."   # without explicit file list when sharing a worktree
 ```
 
 **Why `git commit -- <files>` matters:** When multiple sessions share a worktree, each session stages its own files independently. A plain `git commit` sweeps ALL staged files into your commit — including files staged by other sessions. Listing files explicitly on the commit command limits the commit to only those paths, even if other files are staged. The other sessions' files stay staged but uncommitted.
+
+## Privacy Gate
+
+Commit and push hooks run `scripts/audit-privacy.sh` to scan for PII patterns. Never bypass with `--no-verify`. If the gate blocks a legitimate commit, override instructions are in the script's header — do not infer or guess at the override mechanism.
 
 ## Files that must NEVER be committed
 
