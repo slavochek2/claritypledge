@@ -1,15 +1,15 @@
 ---
-status: qa
+status: all-done
 type: bug
 rank: 1000750.0
 severity: high
 workstream: live
 date_reported: '2026-04-18'
 created_date: '2026-04-18'
+completed_at: '2026-04-18'
 tags: [live, free-mode, realtime, drift-poll, regression]
 changes: p741
 flow: fix
-delivery_stage: ship
 pipeline_ran: [create-bug, fix, ship]
 root_cause: 'Drift-poll comparator in clarity-live-page.tsx omitted freeSliderCreator/freeSliderJoiner. When Realtime dropped a slider event, the 1s fallback ran but never detected the slider change, leaving local state stale indefinitely.'
 resolution: 'Added freeSliderCreatorDrift/freeSliderJoinerDrift to the drift-poll comparator OR chain (normalized with ?? 0 to match display semantics) and to the live_state_drift_detected Mixpanel payload. Removed both fields from KNOWN_UNCOVERED in p637-drift-detection-completeness. Canary test added with both code-shape (declaration) and wiring (OR-chain) assertions.'
