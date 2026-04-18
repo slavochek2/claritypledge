@@ -1,10 +1,7 @@
 /**
  * P762 Canary — Symptom 1: useActiveSession must clear banner when Realtime fires
- * with an empty/stale liveState (clarity_sessions lacks REPLICA IDENTITY FULL, so
- * payload.new.live_state may not carry sessionEnded: true).
- *
- * Fix: when Realtime callback fires and liveState does NOT have ended flags,
- * call validateSession() as a fallback — it re-fetches and detects the ended state.
+ * with sessionEnded: true. subscribeToClaritySession now does a fresh DB SELECT on
+ * every UPDATE, so the callback always receives authoritative liveState.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook, waitFor } from '@testing-library/react';
@@ -54,7 +51,7 @@ const baseSession: ClaritySession = {
   liveState: {},
 };
 
-describe('P762: useActiveSession — Realtime fallback for REPLICA IDENTITY gap', () => {
+describe('P762: useActiveSession — Realtime clears banner on sessionEnded', () => {
   let capturedCallback: ((session: ClaritySession) => void) | null = null;
 
   beforeEach(() => {
@@ -67,7 +64,6 @@ describe('P762: useActiveSession — Realtime fallback for REPLICA IDENTITY gap'
       role: 'joiner' as const,
       timestamp: new Date().toISOString(),
     });
-    // Initial validateSession: session still active
     mocks.getActiveSessionByCode.mockResolvedValue(baseSession);
     mocks.subscribeToClaritySession.mockImplementation(
       (_id: string, cb: (session: ClaritySession) => void) => {
@@ -77,21 +73,15 @@ describe('P762: useActiveSession — Realtime fallback for REPLICA IDENTITY gap'
     );
   });
 
-  it('clears session when Realtime fires with empty liveState but DB shows session ended', async () => {
-    // Simulate REPLICA IDENTITY gap: Realtime fires with {} liveState (no sessionEnded),
-    // but DB re-fetch returns null (session ended)
-    mocks.getActiveSessionByCode
-      .mockResolvedValueOnce(baseSession)  // initial validateSession
-      .mockResolvedValueOnce(null);        // re-fetch after stale Realtime update
-
+  it('clears banner when Realtime fires with sessionEnded: true', async () => {
+    // subscribeToClaritySession now does a fresh DB SELECT — the callback always
+    // receives current liveState. Simulate creator ending session.
     renderHook(() => useActiveSession());
 
     await waitFor(() => { expect(capturedCallback).not.toBeNull(); });
 
-    // Fire Realtime with empty liveState — simulates REPLICA IDENTITY gap
-    capturedCallback!({ ...baseSession, liveState: {} });
+    capturedCallback!({ ...baseSession, liveState: { sessionEnded: true } });
 
-    // Expect the hook to call validateSession() → getActiveSessionByCode → null → clear
     await waitFor(
       () => { expect(mocks.clearActiveSession).toHaveBeenCalled(); },
       { timeout: 200 }
@@ -99,9 +89,35 @@ describe('P762: useActiveSession — Realtime fallback for REPLICA IDENTITY gap'
     expect(mocks.clearActiveSessionFromStorage).toHaveBeenCalled();
   });
 
-  it('does not re-populate state when Realtime fires with stale liveState on already-cleared session', async () => {
-    // Session is already cleared (sessionIdRef is null after initial clear)
-    mocks.getActiveSessionFromStorage.mockReturnValueOnce(null); // no session in storage
+  it('clears banner when Realtime fires with joinerEnded: true', async () => {
+    renderHook(() => useActiveSession());
+
+    await waitFor(() => { expect(capturedCallback).not.toBeNull(); });
+
+    capturedCallback!({ ...baseSession, liveState: { joinerEnded: true } });
+
+    await waitFor(
+      () => { expect(mocks.clearActiveSession).toHaveBeenCalled(); },
+      { timeout: 200 }
+    );
+    expect(mocks.clearActiveSessionFromStorage).toHaveBeenCalled();
+  });
+
+  it('does not clear banner on non-ended Realtime updates (demo steps, live state mutations)', async () => {
+    renderHook(() => useActiveSession());
+
+    await waitFor(() => { expect(capturedCallback).not.toBeNull(); });
+
+    // Fire with active liveState — no ended flags
+    capturedCallback!({ ...baseSession, liveState: { demoStep: 2 } as ClaritySession['liveState'] });
+
+    // Banner should stay — no spurious clear
+    expect(mocks.clearActiveSession).not.toHaveBeenCalled();
+    expect(mocks.clearActiveSessionFromStorage).not.toHaveBeenCalled();
+  });
+
+  it('does not re-populate state when session was already cleared', async () => {
+    mocks.getActiveSessionFromStorage.mockReturnValue(null);
 
     renderHook(() => useActiveSession());
 
@@ -109,13 +125,10 @@ describe('P762: useActiveSession — Realtime fallback for REPLICA IDENTITY gap'
       expect(mocks.clearActiveSession).toHaveBeenCalled();
     });
 
-    // Even if capturedCallback fires (shouldn't since session never initialized),
-    // no re-population should happen
     if (capturedCallback) {
-      capturedCallback({ ...baseSession, liveState: {} });
+      capturedCallback({ ...baseSession, liveState: { sessionEnded: true } });
     }
 
-    // setActiveSession should never be called — banner must stay gone
     expect(mocks.setActiveSession).not.toHaveBeenCalled();
   });
 });
