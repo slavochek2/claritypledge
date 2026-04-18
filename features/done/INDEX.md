@@ -1,7 +1,7 @@
 # Done Features Index
 
 Quick reference for past completed work. Consult when starting work on a related topic.
-Last updated: 2026-04-18 (P761 usePointsForDisplay unmount guard)
+Last updated: 2026-04-18 (P745 letter-hosted /live injection)
 
 ---
 
@@ -33,6 +33,7 @@ Last updated: 2026-04-18 (P761 usePointsForDisplay unmount guard)
 - **P562** (Mar 30) /live Free Mode — sealed bid → paraphrase → unlocked continuous sliders; spec shipped via P600 implementation, closed retroactively
 - **P600** (Mar 30) Free Mode Polish — speaker re-rating `freeRerating` stored separately (not as freeRound); two-zone idle layout prevents button shift; "Open mode" replaces "Free mode"; click-outside dismiss + progressive story picker
 - **P671** (Apr 09) Rating Submission Loop — guest RPC auth guard silently dropped writes (`NULL = NULL` is falsy in PostgreSQL); 4 client-side fix attempts failed because the write never reached the DB; DB query was the diagnostic, not code traces
+- **P745** (Apr 18) Letter-hosted /live injection — conflict-resolved SELECT helpers may carry null defaults for the chosen query's fields; always audit `mapRecord()` after resolving SELECT conflicts; Sentry over `console.warn` for enrichment failures
 - **P609** (Mar 30) Free Mode Slider Sync — `confirmedLiveStateRef` not updated during in-flight Realtime merges; partner slider values overwrote on next optimistic write. Also shipped: P612 header CTA reload, P613 toast top-center, P614 mode switcher prop forwarding
 
 ## Clarity Docs

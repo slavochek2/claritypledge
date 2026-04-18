@@ -2,6 +2,32 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-18 [process]: Conflict-resolved SELECT query — always re-verify the mapping helper
+
+**Context:** During the P745 cherry-pick into main, two competing implementations of `useOpenLiveInvite` were in conflict. The HEAD version used direct columns on `clarity_sessions` (`creator_photo_url`, `creator_avatar_color`, `creator_is_pledger`, `delivery_id`). The branch version used a `profiles` JOIN. HEAD's SELECT was chosen as the fixed version. However, HEAD's `mapRecord` helper had been written for a pre-P745 type shape and hardcoded `inviterPhotoUrl: null`, `inviterAvatarColor: null`, `inviterIsPledger: false`, `deliveryId: null` — silently discarding the data returned by `getOpenLiveInviteForUser` on initial page load. The initial fetch worked; the helper zeroed out its output. Caught by post-merge Opus code review.
+
+**Decision:** When resolving a SELECT query conflict (taking one branch's `.select(...)` over the other), immediately cross-check every helper function that maps the query's result. Mapping helpers do not conflict in git — they are silently chosen from one branch — and may carry null defaults or field names that no longer match the chosen SELECT columns.
+
+**Alternatives rejected:** Relying on type-checking to catch this — TypeScript did not surface it because both branches returned a valid `OpenLiveInvite` shape; the fields were optional or defaulted, not missing.
+
+**Consequences:** Any SELECT-conflict resolution should include a manual audit of the associated `mapX()`, `mapRecord()`, or data-to-domain transform function in the same file. A test that only exercises the realtime INSERT path (not the initial fetch) will not catch this class of bug.
+
+**References:** [useOpenLiveInvite.ts](src/app/hooks/useOpenLiveInvite.ts)
+
+---
+
+## 2026-04-18 [process]: Concurrent /ship sessions — HEAD moves between abort and retry
+
+**Context:** During the P745 ship, a concurrent P760 `/ship` session was cherry-picking onto main simultaneously. When the P745 session encountered a conflict and ran `git cherry-pick --abort`, the index.lock was held by P760's concurrent commit. After the lock cleared, P760's commits had landed on main, moving HEAD forward. This caused the P745 spec stamp (committed before cherry-pick) to be superseded — the spec file appeared un-stamped from P760's perspective, and re-committing it was needed. The concurrent session caused two wasted abort/retry cycles and required a post-merge re-stamp.
+
+**Decision:** Before retrying a cherry-pick after `--abort`, run `git log --oneline -5` to check whether HEAD moved since the abort. If new commits appeared (from another concurrent session), re-verify which of your stamps are still on main and re-commit any that are missing before proceeding.
+
+**Alternatives rejected:** Serializing all ship sessions — infeasible in practice. Detecting the lock before aborting — lock ownership is not exposed by git CLI.
+
+**Consequences:** When `/ship` is running and another feature is being shipped concurrently, always check `git log` after any `--abort`. A spec stamp committed before cherry-pick may need to be re-committed after concurrent commits land. The stamp commit is idempotent (same content, no functional change) so re-committing is always safe.
+
+---
+
 ## 2026-04-18 [process]: Enforce CREATE OR REPLACE FUNCTION diff via pre-commit annotation, not docs alone
 
 **Context:** The "diff against prior version before redefining a function" rule was written twice in decisions.md (P725→P755 KDD, P757 KDD) and violated between each write. Doc-only rules depend on the author remembering them; they have failed twice on the same day.
