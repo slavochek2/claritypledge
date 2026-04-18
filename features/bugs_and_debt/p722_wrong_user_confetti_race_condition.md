@@ -15,6 +15,7 @@ reproduce_artifact:
   scenarios_in_scope: [scenario-3-race-null-user, scenario-4-anon-unverified]
   scenarios_deferred: []
   reproduced_at: 2026-04-16
+created_date: 2026-04-16
 ---
 
 ## Problem

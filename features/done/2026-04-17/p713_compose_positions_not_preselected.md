@@ -7,6 +7,9 @@ completed_at: 2026-04-17
 severity: medium
 date_reported: 2026-04-15
 pipeline_ran: [fix]
+tags: []
+rank: 1000752.0
+created_date: 2026-04-15
 ---
 
 # P713: Compose flow does not preselect author's existing point positions

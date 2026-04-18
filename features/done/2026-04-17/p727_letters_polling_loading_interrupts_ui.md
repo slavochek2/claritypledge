@@ -10,6 +10,9 @@ created: 2026-04-16
 date_resolved: 2026-04-16
 root_cause: setFetchState('loading') called on every poll cycle in both InboxTab and SentTab, including background refreshes
 resolution: InboxTab — functional state update (only loads on 'idle'); SentTab — removed unconditional setFetchState('loading') (initial state handles first render, polls update silently)
+tags: []
+rank: 1000753.0
+created_date: 2026-04-16
 ---
 
 ## Problem
