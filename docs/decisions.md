@@ -2,6 +2,20 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-18 [product]: Letter pre-collects data; /live with the story author is the flip
+
+**Context:** P745 challenge-prd surfaced that H-LetterAsProduct was ambiguous — "async letter scaling" could be read as the letter *replacing* /live rather than *enabling* it. The hypothesis was rewritten and lean-canvas flywheel updated to resolve this.
+
+**Decision:** The letter and /live are complementary, not alternatives. The letter pre-collects the data /live operates on (positions on points/anti-points, sealed-bid comprehension guesses, per-story self-ratings). /live with the story author is the verification moment (paraphrase + confirm) — the actual flip. Badge issuance requires /live (auto-certified from /live sessions, per definitions.md). The scale unit is letter + author-present /live, not letter alone. "The letter reduces /live from a 90-minute workshop to a targeted paraphrase check."
+
+**Alternatives rejected:** Letter-as-standalone-flip — the letter surfaces the gap but cannot verify comprehension without the author present (the author is the ground truth, not a facilitator role). Workshop-as-primary-scale-unit — the letter absorbs workshop preparation overhead so only the verification moment requires both people.
+
+**Consequences:** Any spec or hypothesis that frames the letter as eliminating /live is wrong. The letter's job is to make /live reachable at scale by front-loading data collection. P745 (letter-hosted /live injection) is the natural completion of this pipeline. H-LetterAsProduct hypothesis and lean-canvas primary flywheel updated to reflect this explicitly.
+
+**References:** [hypotheses.md H-LetterAsProduct](docs/hypotheses.md), [lean-canvas.md primary instrument framing](docs/lean-canvas.md), [P745 Resolved Decision #1](features/p745_letter_hosted_live_injection.md)
+
+---
+
 ## 2026-04-18 [technical]: Cancel is the only valid exit from the invite waiting room
 
 **Context:** P756. The waiting room had two exit buttons alongside Cancel: "Resend" (bumped `updated_at` to re-ping via realtime) and "← Back to event" (navigated to `returnTo`). P745 moved invite delivery from email to Supabase Realtime push — Resend became dead UI. Back-to-event was always broken: it navigated away WITHOUT closing the invite row (`closed_at` stayed NULL), orphaning the invite permanently — receiver's banner stayed visible, author's trigger stayed disabled.

@@ -5,90 +5,194 @@ rank: 1000746.0
 workstream: C2
 created_date: '2026-04-17'
 tags: [letters, sent, aggregate, inbox]
-delivery_stage: create-spec
-pipeline_ran: [create-spec]
+delivery_stage: challenge-prd
+flow: dev
+pipeline_plan: [create-spec, challenge-prd, ascii-flows, ux, architect, ui, view, generate-tests, dev, verify]
+pipeline_ran: [create-spec, challenge-prd, ascii-flows]
+pipeline_skipped: [spec-review -- fresh spec not CR, spec-compact -- under 100 lines, decompose -- reconsider after architect names file count]
 ---
 
-# P746: Letter sent — aggregate view per snapshot
+# P746: Letter sent — per-letter overview (text list) + deep-link to recipient story
 
 ## Problem
 
-**Situation:** The inbox RPC (`get_inbox_items`, P699) already returns both received letters and per-delivery rows for letters the sender sent. For one-to-many (public) letters, each anonymous fill produces a `link_respondent` / `link_respondent_in_progress` row. Authored one-to-one letters produce `recipient_in_progress` / `recipient_responded` rows per named recipient.
+**Situation:** The sent tab (P664) already groups by letter. Each `LetterCard` lists registered recipients and respondent fills as children, with a click-through to the per-delivery results page. `get_inbox_items` returns received letters only — the sent tab is the author's own view of outbound work.
 
-**Complication:** When a sender broadcasts a public letter or a workshop sender shares one letter with 10 participants, the inbox shows a flat list of per-delivery rows. There is no single view that answers *"across everyone who filled this letter, how did they respond?"* — which is the author's primary question when reviewing cohort output.
+**Complication:** Three gaps remain:
+1. **No per-letter aggregate view.** The author sees each recipient's results in isolation. There is no view that answers *"across everyone who filled this letter, how did the ratings and positions distribute?"* — the author's primary question when reviewing cohort output.
+2. **Cards default expanded on load.** With several sent letters, the initial render is visually noisy; every recipient list is open before the author has picked a letter to review.
+3. **No deep-link to a specific story for a specific recipient.** To inspect "what did recipient Y say about story X," the author must open Y's full results page and scroll.
 
-**Question:** How does the sender see aggregate responses for one letter across all of its recipients, and drill into an individual when they want to act?
+**Question:** Where does aggregate data live (sent tab is wrong — too dense for a card), and how does the author jump from the aggregate straight to a specific story of a specific recipient?
 
 ## Appetite
 
-Low blast radius (new view in the sent tab; no schema changes; no new RPCs beyond an aggregation helper over existing tables). Fully reversible (remove the view; data untouched). Low decision density — re-grouping of data already in `letter_deliveries` + `letter_point_responses` + `story_verifications`.
+Small: enhance `LetterCard` (default-collapse + inline CTA matching drafts-tab pattern), add one new page + route (Letter Overview rendered as a plain text list), reuse `get_letter_results` where possible. No schema changes, no visualization library, no new interaction patterns. Fully reversible — remove the route and the CTA; sent tab reverts to P664 shape.
 
 ## Solution
 
-Add a *Snapshot* view in the sent tab that groups deliveries by `letter_id` (one row per sent letter). Each row shows:
+Three changes, all KISS:
 
-- Letter title and snapshot metadata (story count, point count)
-- Counts per status (sent / opened / in-progress / completed)
-- Aggregate stats across completed fills: mean point position per point, mean story self-rating per story, response distribution
-- A *View recipients* drill-in that lists individual deliveries (registered recipient name, or guest label with nickname once P747 lands)
-- Drill into an individual → existing per-delivery results page
+**Sent tab (navigation surface):**
+1. **Default-collapsed cards** on first load and reload. Expansion state is session-ephemeral.
+2. **`Open overview` inline CTA** on each card, matching the drafts-tab `Prepare Letter` pattern:
+   - Desktop: solid blue button, right-aligned in the card header, placed **before** the `[···]` menu
+   - Mobile: moved into the `[···]` dropdown as a menu item
+   - Navigates to `/letter/{letterId}/overview`; shown on every card regardless of completion count
+3. Existing recipient list and per-delivery drill-in unchanged.
 
-The aggregation query is computed server-side over `letter_point_responses` and `story_verifications` filtered to completed deliveries of the letter.
+**New Letter Overview page** (`/letter/{letterId}/overview`) — **plain text list, no charts, no axes, no colors**:
+4. **Stories section** — one sub-heading per story; under each, one line per completed fill: `{recipient name} — {rating 0..10}`.
+5. **Points section** — one sub-heading per point; under each, one line per completed fill: `{recipient name} — {±N} {label}` where label is `agree` / `antipoint` / `neutral` (mapping: +1..+3 = `agree`, 0 = `neutral`, -1..-3 = `antipoint`).
+6. **Deep-link** — each recipient name on the overview is a link to `/letter/{letterId}/results?delivery={deliveryId}&story={storyId}` (story row) or `&point={pointId}` (point row).
+
+Aggregation is a server-side read over `letter_point_responses` and `story_verifications` filtered to completed deliveries. Reuse `get_letter_results` if feasible; thin aggregation helper if not — decided at `/architect`.
 
 ## Risks / Non-Goals
 
 ### Risks
-- **Aggregate query performance** for letters with hundreds of recipients. **Mitigation:** query is limited to `delivery.status IN ('completed', 'in_progress')`; add an index hint if needed; the N for the MVP audience is small (workshops ≤ 20, public letters ≤ few dozen).
-- **Mixed registered + anonymous recipients** look odd side-by-side. **Mitigation:** F3/P747 provides nicknames; until then, anonymous recipients show as *Guest — {short hash}*.
+- **Deep-link anchor fragility.** Results page must support scroll-to-story / scroll-to-point via URL param. **Mitigation:** `/architect` confirms or adds the anchor.
+- **Overview page is a new surface** — needs its own empty/loading/error states. **Mitigation:** mirror existing results-page patterns; no novel interaction model.
+- **Long lists at scale.** 30+ recipients per element on one page means a long scroll. **Mitigation:** MVP audience is small; revisit when counts grow.
 
 ### Non-Goals
-- **Do NOT** introduce a cohort / group / tag concept — grouping is by letter snapshot only
-- **Do NOT** add workshop-pacing controls (release letter 2 after X% finish letter 1) — separate future work
-- **Do NOT** change existing per-delivery rows in inbox — this is an additive view, not a replacement
-- **Do NOT** add export / CSV — future consideration
-- **Do NOT** modify `get_inbox_items` contract — add a sibling RPC for the aggregate view
+- **Do NOT** render charts, axes, dot plots, histograms, or any visualization on the overview — plain text list only.
+- **Do NOT** color-code or badge recipients — names as-is, no legend.
+- **Do NOT** compute means, medians, or any aggregate summary — list raw per-recipient values only.
+- **Do NOT** render aggregate data inline in sent-tab cards — sent tab stays a lean navigation surface.
+- **Do NOT** reintroduce a "By recipient / By letter" toggle — the flat list was deliberately removed in P664.
+- **Do NOT** introduce a new guest label. Keep the current `receiver_name || receiver_email || 'Anonymous'` fallback. P747 owns identity.
+- **Do NOT** modify `get_inbox_items` contract.
+- **Do NOT** persist card-collapse state across sessions or in URL.
+- **Do NOT** add export / CSV — future consideration.
+- **Do NOT** add workshop-pacing controls — separate future work.
 
 ## Done-When
 
-- [ ] Sent tab has a *Snapshot* toggle / sub-view showing one row per sent letter
-- [ ] Each row displays status counts across deliveries
-- [ ] Each row shows mean point position per point and mean story rating per story across completed fills
-- [ ] Clicking a row opens a list of individual deliveries; clicking a delivery opens its existing per-delivery results page
-- [ ] Anonymous fills are displayed with a stable placeholder label (nickname support lands later via P747)
-- [ ] Regression: the existing flat-list inbox view remains intact and unchanged
+**Sent tab:**
+- [ ] Cards default to **collapsed** on first load and on reload
+- [ ] Each card (collapsed) shows `{N} sent · {M} completed · {P} in progress`
+- [ ] Desktop: solid blue `Open overview` button sits inline in the card header, right-aligned, before the `[···]` dropdown (same visual placement as `Prepare Letter` in drafts-tab)
+- [ ] Mobile: `Open overview` moves into the `[···]` dropdown menu
+- [ ] Button navigates to `/letter/{letterId}/overview`
+- [ ] Shown on every card regardless of completion count
+- [ ] Expanding a card still reveals the existing P664 recipient list (unchanged)
+- [ ] Clicking an existing recipient row still opens the per-delivery results page (unchanged)
+
+**Letter Overview page (new):**
+- [ ] Route `/letter/{letterId}/overview` renders for the letter's author
+- [ ] Header shows letter title + status line `{N} sent · {M} completed · {P} in progress` + back link to sent tab
+- [ ] Page has two sections: `Stories` and `Points`
+- [ ] Each story in the letter has a sub-heading; under it, one line per completed fill: `{recipient name} — {rating 0..10}`
+- [ ] Each point in the letter has a sub-heading; under it, one line per completed fill: `{recipient name} — {signed value} {label}` where label ∈ {agree, antipoint, neutral}
+- [ ] Recipient name on each line is a link to `/letter/{letterId}/results?delivery={deliveryId}&story={storyId}` (story) or `&point={pointId}` (point)
+- [ ] Zero completed: stories/points sub-headings render, each with `Waiting for first completion` placeholder; no recipient lines
+- [ ] Non-author access to overview is blocked (RLS / route guard — decided at `/architect`)
 
 ## UX Notes
 
-**Entry point:** existing sent tab gains a view toggle: *By recipient* (current flat list) / *By letter* (new snapshot aggregate).
+**Sent tab default state:** all cards collapsed on mount. Collapsed card shows title + status line + `[Open overview]` CTA (desktop) or `[···]` menu holding `Open overview` (mobile). No recipient list until expanded.
 
-**Snapshot row:**
-- Primary line: letter title
-- Secondary line: `{N} sent · {M} completed · {P} in progress`
-- Expandable panel: per-point mean bar + per-story rating pill
+**Sent tab CTA placement (desktop):** inline in the header row, right-aligned. Order from left to right: chevron + title + status-line block · flexible gap · `[Open overview]` solid blue button · `[···]` ghost dropdown. Mirrors drafts-tab `Prepare Letter` / `[···]` layout.
 
-**Drill-in:**
-- Row click → slide-in or sub-page listing individual deliveries
-- Delivery click → existing per-delivery results page (unchanged surface)
+**Sent tab CTA placement (mobile):** dropdown menu item inside `[···]`, label `Open overview`. Matches drafts-tab mobile pattern.
 
-**Empty/edge states:**
-- Zero completed fills: show counts only, no aggregates
-- One completed fill: show the single value, not a distribution
+**Letter Overview page layout — plain text list:**
+
+```
+← Sent
+Honest Feedback Before Q3
+3 sent · 2 completed · 1 in progress
+
+Stories
+  Calibrated expectations
+    Anna Müller — 7
+    Tom Reiner — 6
+    (Anonymous) — 3
+
+  Under pressure
+    Anna Müller — 4
+
+Points
+  I act before thinking
+    Anna Müller — +1 agree
+    Tom Reiner — −2 antipoint
+    (Anonymous) — 0 neutral
+
+  I avoid giving negative feedback
+    Anna Müller — −3 antipoint
+```
+
+- No charts, axes, colors, or legends
+- Recipient names are inline links (blue, underline on hover) — click opens the per-delivery results anchored to that story/point
+- Point labels: `+1..+3 agree`, `0 neutral`, `−1..−3 antipoint`
+
+**Empty / edge states:**
+- Zero completed fills on a story: show the story sub-heading with `Waiting for first completion` in muted text, no recipient lines
+- Zero completed fills overall: every sub-heading shows the `Waiting for first completion` placeholder
+- One completed fill: single line under the sub-heading; no different from many fills except count
 
 ## Acceptance Criteria
 
-- [ ] User with a sent one-to-many letter sees an aggregate row for that letter
-- [ ] User with multiple sent letters sees one row per letter
-- [ ] Aggregate values match a spot-check against the underlying per-delivery data
-- [ ] Drilling into a row surfaces individual recipients
-- [ ] Guest recipients are labelled consistently
-- [ ] View-toggle state persists within the tab for the session
+- [ ] Sent tab cards are all collapsed on first mount and after reload
+- [ ] Desktop `[Open overview]` button is solid blue, matches `Prepare Letter` chrome, sits before `[···]`
+- [ ] Mobile: `Open overview` appears in the `[···]` dropdown
+- [ ] Clicking `Open overview` navigates to `/letter/{letterId}/overview`
+- [ ] Overview page renders the letter title, status counts, and back-link
+- [ ] Stories section lists each story with completed fills as `name — rating` lines
+- [ ] Points section lists each point with completed fills as `name — signed value label` lines
+- [ ] Clicking a recipient name under a story lands on that recipient's results anchored to that story
+- [ ] Clicking a recipient name under a point lands on that recipient's results anchored to that point
+- [ ] Zero completed fills overall: every sub-heading shows `Waiting for first completion`
+- [ ] Values spot-check against the underlying per-delivery data
+- [ ] Anonymous respondents show as `(Anonymous)` (no new label scheme)
+- [ ] Non-author visiting the overview route is redirected or blocked
+- [ ] Existing drill-in from a recipient row in sent-tab still works
 
 ## UI Contract
 
 | Element | Value | Context |
 |---------|-------|---------|
-| View toggle labels | `By recipient` / `By letter` | Sent tab |
-| Status line | `{N} sent · {M} completed · {P} in progress` | Snapshot row secondary |
-| Aggregate label | `Mean across completed fills` | Expanded snapshot panel |
-| Guest placeholder | `Guest — {shortHash}` | Recipient list until P747 |
-| Empty aggregate copy | `Waiting for first completion` | Row with zero completed fills |
+| Status line | `{N} sent · {M} completed · {P} in progress` | Card header (sent tab) + overview header |
+| Default collapsed state | all cards collapsed | On sent-tab mount / reload |
+| Sent-tab desktop CTA | `Open overview` · solid blue Button · before `[···]` | Card header, right-aligned |
+| Sent-tab mobile CTA | `Open overview` menu item in `[···]` dropdown | Card header |
+| Overview route | `/letter/{letterId}/overview` | New page |
+| Overview section headers | `Stories`, `Points` | Top-level on overview |
+| Story sub-heading | story title (existing) | One per story |
+| Point sub-heading | point title (existing) | One per point |
+| Story line format | `{recipient name} — {rating}` | Rating is integer 0..10 |
+| Point line format | `{recipient name} — {signed value} {label}` | `+N agree` \| `0 neutral` \| `−N antipoint` |
+| Empty per sub-heading | `Waiting for first completion` (muted) | Rendered when no completed fills for that element |
+| Anonymous line label | `(Anonymous)` | Respondents without a stored name |
+| Deep-link URL | `/letter/{letterId}/results?delivery={deliveryId}&story={storyId}` | Recipient name click under a story |
+| Deep-link URL | `/letter/{letterId}/results?delivery={deliveryId}&point={pointId}` | Recipient name click under a point |
+
+## Resolved Decisions
+
+| # | Source | Finding | Resolution | Rationale |
+|---|--------|---------|-----------|-----------|
+| 1 | /challenge-prd | [BLOCK] Problem described state that doesn't exist — `get_inbox_items` dropped sender rows 2026-04-12; sent tab is already letter-grouped via P664 | Rewrote Problem against current state | Original spec was based on a stale mental model; new scope is additive to P664 |
+| 2 | /challenge-prd | [BLOCK] "By recipient / By letter" toggle solves a non-problem | Removed the toggle from scope; added explicit non-goal | The flat list was deliberately removed; no user has asked for it back |
+| 3 | /challenge-prd | [BLOCK] Done-when #1 ("one row per sent letter") was already current behavior | Replaced with default-collapsed + aggregate panel + deep-link criteria | Matches the author's actual gap |
+| 4 | /challenge-prd | [WARN] Mean point position destroys polarization signal in bimodal distributions | Show distributions (per-recipient markers on axis), never means | Workshop insight depends on seeing disagreement, not averaging it away |
+| 5 | /challenge-prd | [WARN] Story self-rating aggregation contradicts "screening, not verification" | Show distribution of individual ratings; no averaged "verification score" | Rating stays a per-person screening signal, surfaced together for pattern-spotting |
+| 6 | /challenge-prd | [WARN] Guest labelling introduces three-way migration debt pending P747 | Keep existing `receiver_name \|\| receiver_email \|\| 'Anonymous'` fallback | P747 owns identity; no interim scheme |
+| 7 | /challenge-prd | [WARN] Aggregation RPC under-specified | Deferred to `/architect` — reuse `get_letter_results` if feasible; thin helper if not | Architect is the right layer for RPC signature + security model |
+| 8 | founder directive | Default-expanded cards are visually noisy on load | Default-collapsed on load and reload; session-ephemeral expansion state | Author picks which letter to review rather than scanning all at once |
+| 9 | founder directive | Author needs to jump from aggregate directly to a specific story of a specific recipient | Added deep-link URL with `delivery` + `story`/`point` params | Removes the "open recipient → scroll to story" friction |
+| 10 | founder directive (KISS) | Distributions are too dense to render inside sent-tab cards | Aggregate lives on a new Letter Overview page at `/letter/{letterId}/overview`; sent tab gets a "Open overview" CTA | Sent tab = navigation; overview = data. Mirrors the existing pattern (per-delivery results is already its own page) |
+| 11 | /ascii-flows | 30 variants scored; F30 hybrid (4.85) wins | Dot plot on fixed axis + color-per-recipient + direct deep-link (hover shows destination, click navigates) + stacked-dot collision with popover | Polarization legible at a glance; no mean destroys signal; no two-step popover adds friction; color replaces "pin a recipient" interaction |
+| 12 | founder directive (KISS, post-ASCII) | F30 hybrid is still too complex for MVP | Overridden. Overview renders as a plain text list — per story, per point, one line per recipient with name+value. Recipient name is the deep-link. No axes, no dots, no colors, no hover tooltips, no collision handling. | User's words: "too complicated — I just need to see a list and numbers/positions (e.g. 'antipoint agree; story 7; point disagree')." Simpler ships; we can add viz later if the text list proves insufficient |
+| 13 | founder directive | Sent-tab CTA placement | Desktop: solid blue `[Open overview]` Button inline in card header, right-aligned, **before** `[···]` — matches drafts-tab `Prepare Letter` pattern. Mobile: top item in `[···]` dropdown. | Authors already know this placement from drafts-tab; zero new affordance to learn |
+
+## ASCII Flow
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│ ▶ 🔒 Honest Feedback Before Q3         [Open overview]  [···]  │
+│    3 sent · 2 completed · 1 in progress                         │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+Overview page layout → see UX Notes.

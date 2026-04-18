@@ -154,7 +154,7 @@ A **practice system for calibrated communication** — evolving toward **Stories
 **Current:** Slava-facilitated calibration sessions using /live as diagnostic tool. Pairs don't need to learn the tool.
 **Next:** Progressive automation — transcript pipeline → AI gap detection → mirror agents.
 
-**Primary instrument framing (2026-04-11):** The Clarity Letter is the primary scale unit. The public letter is the product; the workshop proves the concept but does not scale — it produces position shifts in the room, and the conversion breaks *after* the room. The letter carries the full instrument (stories + points + anti-points + comprehension gate + position capture + badge issuance) into any setting without a facilitator present. A reader completes the letter, earns a badge, and the instrument replicates. Workshop is one deployment mode of the letter, not its successor. "Product works in the room; conversion breaks after the room — the letter closes that gap." See H-LetterAsProduct in [hypotheses.md](hypotheses.md).
+**Primary instrument framing (2026-04-11):** The Clarity Letter is the primary scale unit. The public letter is the product; the workshop proves the concept but does not scale — it produces position shifts in the room, and the conversion breaks *after* the room. The letter carries the full instrument (stories + points + anti-points + comprehension gate + position capture) into any setting without a professional facilitator. The story author still joins /live to verify understanding — that role is structural (the author is the ground truth), not coaching. Badge issuance requires /live (per [definitions.md](definitions.md) — auto-certified from /live sessions). The letter reduces /live from a 90-minute workshop to a targeted paraphrase check; it does not eliminate /live. "Product works in the room; conversion breaks after the room — the letter closes that gap by pre-collecting the data /live needs." See H-LetterAsProduct in [hypotheses.md](hypotheses.md).
 
 ### 0. Stories & Points Curriculum (Prerequisite)
 Your calibration content: three types of understanding, sender-receiver asymmetries, implications. This IS the workshop material and the demo simultaneously. When the room miscalibrates on your claims, the product sells itself. Filed content tested live, not perfected in isolation.
@@ -233,10 +233,13 @@ Track accuracy over time. Public credential for professional reputation. Behavio
 **Primary flywheel (2026-04-11, letter-as-product):**
 ```
 Public Clarity Letter (P581 + P683/P684)
-    → Reader completes letter → experiences gap → badge earned
+    → Reader completes letter → gap surfaces (sealed-bid miscalibration visible)
+    → /live with story author (paraphrase + verify) → flip
+    → Badge earned (per /live session rating)
     → Shares same letter with someone in a real relationship
-    → Verifies their comprehension → new badge → verifier graph grows
-    → Optional deep-dive: workshop / Partner Agreement / facilitated session
+    → Recipient completes letter → /live with author → flip → new badge
+    → Verifier graph grows
+    → Optional deep-dive: workshop / Partner Agreement / FCO retainer
     → Practice in real relationship → stories filed (testimonials + data)
     → Support group for practitioners (P603) → accountability + new pairs
     → Blog articles from real experiences → Distribution (LinkedIn, communities)
