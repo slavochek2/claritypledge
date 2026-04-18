@@ -2,6 +2,34 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-18 [technical]: Detect Supabase Realtime state changes via a REPLICA IDENTITY FULL table, not the one lacking it
+
+**Context:** P745 LetterLiveOverlay initially subscribed to `clarity_sessions` UPDATE events to detect session completion (`status: 'completed'`). `clarity_sessions` does not have `REPLICA IDENTITY FULL` — UPDATE realtime payloads from it carry only the primary key, not the changed column values. The completion signal was silently invisible.
+
+**Decision:** When a feature needs to detect a state change via Supabase Realtime, first check whether the target table has `REPLICA IDENTITY FULL` (search migrations for `ALTER TABLE … REPLICA IDENTITY FULL`). If it does not, pivot to a related table that does. For P745, completion is detected via `clarity_live_invites` (which HAS REPLICA IDENTITY FULL from P703's migration): when the invite is closed by the session-complete trigger, `useOpenLiveInvite` dispatches UPDATE → invite becomes null → the overlay auto-dismisses. Pattern: watch the REPLICA IDENTITY FULL table whose state change is caused by the target table's state change.
+
+**Alternatives rejected:** Adding `REPLICA IDENTITY FULL` to `clarity_sessions` — wide table, high WAL overhead, not needed for other features. Polling `clarity_sessions` on an interval — adds latency, unnecessary DB load when a push mechanism already exists via invites.
+
+**Consequences:** `LetterLiveOverlay` is now a pure iframe wrapper with no Supabase subscription. Completion detection lives in `LetterReadingFlow` via `useEffect(() => { if (liveSessionCode && !invite) { setLiveSessionCode(null); toast.success(…); } }, [invite, liveSessionCode])`. Any future feature needing realtime detection from `clarity_sessions` must either add REPLICA IDENTITY FULL explicitly or use the same proxy-table pattern.
+
+**References:** [useOpenLiveInvite.ts](src/app/hooks/useOpenLiveInvite.ts), [letter-live-overlay.tsx](src/app/components/letters/letter-live-overlay.tsx), [letter-reading-page.tsx](src/app/pages/letter-reading-page.tsx), [20260213000000_p703_clarity_live_invite.sql](supabase/migrations/20260213000000_p703_clarity_live_invite.sql)
+
+---
+
+## 2026-04-18 [technical]: Use .order().limit(1) instead of .maybeSingle() when >1 rows may match
+
+**Context:** P745 secondary lookup fetched the most recent `letter_deliveries` row for a given `letter_id + receiver_profile_id`. Initial implementation used `.maybeSingle()`, which returns a 406 PostgREST error when the query matches more than one row — a real possibility when a letter is resent or when duplicate delivery rows exist.
+
+**Decision:** When a query is expected to return 0 or 1 rows but could return more due to data conditions (resends, deduplication gaps, historical rows), use `.order('created_at', { ascending: false }).limit(1)` and read `data?.[0]`. Never use `.maybeSingle()` for such queries. `.maybeSingle()` is safe only when uniqueness is enforced by a DB constraint (UNIQUE index, PRIMARY KEY, or RPC contract).
+
+**Alternatives rejected:** Adding a UNIQUE constraint to enforce one delivery per `letter_id + receiver_profile_id` — breaks legitimate resend and multi-attempt scenarios.
+
+**Consequences:** Both `api.ts` (`getOpenLiveInviteForUser`) and `useOpenLiveInvite.ts` (INSERT handler) use `.order('created_at', {ascending: false}).limit(1)` for the `letter_deliveries` lookup. Any future query with "get the latest matching row" semantics should follow this pattern. Mock chains in tests must support `.order().limit()` rather than `.maybeSingle()`.
+
+**References:** [api.ts](src/app/data/api.ts), [useOpenLiveInvite.ts](src/app/hooks/useOpenLiveInvite.ts)
+
+---
+
 ## 2026-04-18 [technical]: Every letter_deliveries write path must populate receiver_profile_id when recipient profile exists
 
 **Context:** P757 found that `seal_and_send_letter` inserted `letter_deliveries` rows with `receiver_profile_id = NULL`. `get_inbox_items` Branch 1 filters `WHERE ld.receiver_profile_id = v_user_id` — NULL rows are permanently invisible without the email link. P731 (add_recipient_to_sealed_letter) fixed one path on 2026-04-16 but missed the seal-time path. The same silent failure affects `_is_letter_receiver` RLS helper (used by letter_point_responses, letter_predictions, letter_story_snapshots).
