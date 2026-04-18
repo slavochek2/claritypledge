@@ -2,6 +2,24 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-18 [technical]: handleFreeRoundComplete guard — check only partner's confirmed key, not own
+
+**Context:** P763 regression (commit `1b317878`, March 31): replacing the 2-second hold timer in `FreeModeView` with an immediate `onRoundComplete()` call + a confirmed-state guard in `handleFreeRoundComplete`. The guard checked both `freeSliderCreator` and `freeSliderJoiner` in `confirmedLiveStateRef.current`. Own-slider value is debounced 300ms before `updateLiveState` fires; partner slider arrives via Realtime and is committed synchronously. Result: when the user drags last, guard reads stale own-key → returns early → `roundCompleteFiredRef = true` prevents any retry → session stuck.
+
+**Decision:** The guard in `handleFreeRoundComplete` (and any similar "both parties must be ready" guard) must NOT check the own-side key. The own slider at 10 is already guaranteed by `bothAtTen` in `FreeModeView` (uses `localSliderValue`, immediate). The partner key comes via Realtime → synchronous `confirmedRef` update → no timing gap. Guard: `if ((confirmedRef[partnerKey] ?? 0) !== 10) return;`
+
+**Alternatives rejected:**
+- Await the debounce (delay the guard by 300ms): fragile, adds latency, breaks if debounce interval changes
+- Remove the guard entirely: unsafe — could transition before Realtime confirms partner's value
+
+**Consequences:**
+- Pattern generalizes: any guard on `confirmedLiveStateRef` for a debounced own-side key is incorrect. Check `localSliderValue` inline or use a ref updated synchronously at drag time, not via debounce.
+- `isCreator` must be in `useCallback` deps (already was).
+
+**References:** `src/app/pages/clarity-live-page.tsx:1573`, `features/p763_free_mode_slider_10_stuck.md`
+
+---
+
 ## 2026-04-18 [process]: Conflict-resolved SELECT query — always re-verify the mapping helper
 
 **Context:** During the P745 cherry-pick into main, two competing implementations of `useOpenLiveInvite` were in conflict. The HEAD version used direct columns on `clarity_sessions` (`creator_photo_url`, `creator_avatar_color`, `creator_is_pledger`, `delivery_id`). The branch version used a `profiles` JOIN. HEAD's SELECT was chosen as the fixed version. However, HEAD's `mapRecord` helper had been written for a pre-P745 type shape and hardcoded `inviterPhotoUrl: null`, `inviterAvatarColor: null`, `inviterIsPledger: false`, `deliveryId: null` — silently discarding the data returned by `getOpenLiveInviteForUser` on initial page load. The initial fetch worked; the helper zeroed out its output. Caught by post-merge Opus code review.
