@@ -3912,16 +3912,18 @@ export async function getOpenLiveInviteForUser(
   const rawStoryContent = sessionData?.stories?.content ?? '';
   const storyTitle = rawStoryContent ? rawStoryContent.split('\n')[0].substring(0, 60) : '';
 
-  // Secondary lookup: find the delivery for this receiver + letter
+  // Secondary lookup: find the delivery for this receiver + letter.
+  // Use limit(1) not maybeSingle() — maybeSingle() returns 406 on >1 rows.
   let deliveryId: string | null = null;
   if (sessionData?.source_letter_id) {
-    const { data: delivery } = await supabase
+    const { data: deliveries } = await supabase
       .from('letter_deliveries')
       .select('id')
       .eq('letter_id', sessionData.source_letter_id)
       .eq('receiver_profile_id', userId)
-      .maybeSingle();
-    deliveryId = delivery?.id ?? null;
+      .order('created_at', { ascending: false })
+      .limit(1);
+    deliveryId = deliveries?.[0]?.id ?? null;
   }
 
   return {

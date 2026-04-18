@@ -39,6 +39,7 @@ import {
 import { useOpenLiveInvite } from '@/app/hooks/useOpenLiveInvite';
 import { LetterLiveBanner } from '@/app/components/letters/letter-live-banner';
 import { LetterLiveOverlay } from '@/app/components/letters/letter-live-overlay';
+import * as Sentry from '@sentry/react';
 import { analytics } from '@/lib/mixpanel';
 import type { ClarityLetter, LetterStorySnapshot, LetterDelivery, PositionType } from '@/app/types';
 import { pointsService } from '@/app/data/points-service';
@@ -971,6 +972,17 @@ function LetterReadingFlow({
   const { invite } = useOpenLiveInvite();
   const [liveSessionCode, setLiveSessionCode] = useState<string | null>(null);
   const [dismissedSessionId, setDismissedSessionId] = useState<string | null>(null);
+
+  // P745: Detect session completion via invite closure (clarity_live_invites has REPLICA IDENTITY FULL;
+  // clarity_sessions does not — UPDATE payloads from clarity_sessions don't carry new column values).
+  // When the overlay is open and the invite disappears (closed_at set → reducer removes invite),
+  // the session ended — return to letter and show resume toast.
+  useEffect(() => {
+    if (liveSessionCode && !invite) {
+      setLiveSessionCode(null);
+      toast.success('Welcome back — continuing your letter');
+    }
+  }, [invite, liveSessionCode]);
   // Pass the invitation token if present — the hook routes to the token-based RPC
   // (SECURITY DEFINER, no expiry check since P683) when available, falling back to
   // the authed RLS path when not. P714's token-drop assumption was wrong: invitation_token
@@ -1022,7 +1034,9 @@ function LetterReadingFlow({
     if (!invite) return;
     const storyIndex = state.currentStoryIndex;
     if (invite.deliveryId) {
-      await saveLetterPauseState(invite.deliveryId, storyIndex).catch(() => {});
+      await saveLetterPauseState(invite.deliveryId, storyIndex).catch((err) => {
+        Sentry.captureException(err, { extra: { deliveryId: invite.deliveryId, storyIndex } });
+      });
     }
     setLiveSessionCode(invite.code);
   }, [invite, state.currentStoryIndex]);
@@ -1031,11 +1045,6 @@ function LetterReadingFlow({
     if (!invite) return;
     setDismissedSessionId(invite.sessionId);
   }, [invite]);
-
-  const handleOverlayComplete = useCallback(() => {
-    setLiveSessionCode(null);
-    toast.success('Welcome back — continuing your letter');
-  }, []);
 
   if (tokenExpired) return null;
 
@@ -1079,7 +1088,7 @@ function LetterReadingFlow({
   return (
     <>
       {liveSessionCode && (
-        <LetterLiveOverlay sessionCode={liveSessionCode} onComplete={handleOverlayComplete} />
+        <LetterLiveOverlay sessionCode={liveSessionCode} />
       )}
       {showBanner && (
         <LetterLiveBanner invite={invite} onJoin={handleJoin} onLater={handleLater} />
