@@ -1574,9 +1574,8 @@ export function ClarityLivePage() {
     // Guard: verify both sliders are at 10 in confirmed state before transitioning
     const current = confirmedLiveStateRef.current;
     if (current.freePhase !== 'unlocked') return;
-    const creatorVal = current.freeSliderCreator ?? 0;
-    const joinerVal = current.freeSliderJoiner ?? 0;
-    if (creatorVal !== 10 || joinerVal !== 10) return;
+    const partnerKey = isCreator ? 'freeSliderJoiner' : 'freeSliderCreator';
+    if ((current[partnerKey] ?? 0) !== 10) return;
 
     // P686: Badge certification check — runs only on the certifier's client
     let badgePointEarned = false;
