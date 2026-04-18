@@ -284,6 +284,7 @@ export function PartnerLeftScreen({ partnerName, sessionEnded, onStartNew, isGue
   const uploadDone = !uploadProgress || uploadProgress.status === 'complete' || uploadProgress.status === 'failed';
   const uploadFailed = uploadProgress?.status === 'failed';
   const isRetrying = uploadProgress?.state === 'retrying';
+  const isStalled = uploadProgress?.state === 'stalled';
   const uploadedCount = (uploadProgress?.total ?? 0) - (uploadProgress?.pending ?? 0);
   const uploadPercent = uploadProgress && uploadProgress.total > 0
     ? Math.round((uploadedCount / uploadProgress.total) * 100)
@@ -309,6 +310,12 @@ export function PartnerLeftScreen({ partnerName, sessionEnded, onStartNew, isGue
               // H3: queue retrying a failed chunk upload
               <>
                 <p className="text-sm font-medium">Retrying upload…</p>
+                <p className="text-sm text-muted-foreground">Don&apos;t close this tab yet.</p>
+              </>
+            ) : isStalled ? (
+              // H3b: chunk exhausted all retries — drain timeout will flip to 'failed'
+              <>
+                <p className="text-sm font-medium">Upload stalled — retrying…</p>
                 <p className="text-sm text-muted-foreground">Don&apos;t close this tab yet.</p>
               </>
             ) : (
