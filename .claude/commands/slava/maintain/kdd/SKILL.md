@@ -156,6 +156,15 @@ Recommendation: Remove from README.md, link to definitions.md instead.
    - Keep them accurate to current implementation
    - These are Claude's context shortcuts — save future re-reading
 
+4.4. **Commit immediately after writing** — do not leave KDD changes staged or unstaged:
+
+   ```bash
+   git add docs/decisions.md docs/hypotheses.md features/done/INDEX.md  # whichever were edited
+   git commit -m "docs: [topic] KDD — [one-line summary]"
+   ```
+
+   If the commit fails (pre-commit hook), fix the blocker and retry — never leave KDD changes uncommitted. Staged-but-uncommitted edits are lost if the worktree or session ends before commit.
+
 4.5. **Flag decisions with follow-up work:**
 
    After writing new entries to `decisions.md`, scan each new entry's **Consequences** field for actionable language:
@@ -257,7 +266,7 @@ Recommendation: Remove from README.md, link to definitions.md instead.
    Before spawning, collect key session events (files edited, errors encountered, decisions made, back-and-forth exchanges) as a concise summary. Also read the last 50 lines of `docs/decisions.md` for cross-reference context. Pass both inline in the subagent prompt: "Here is the session summary: [summary]. Here are recent decisions for cross-reference (do not duplicate these): [decisions.md excerpt]."
 
    Spawn a `general-purpose` subagent (`model: "sonnet"`) with this task:
-   > "From the session summary and decisions context provided above, extract problems, friction points, mistakes, and inefficiencies. Consolidate near-identical incidents into one item. Cap at 10 items max. Exclude routine tool calls and confirmations — only report things a human would call a mistake or waste. For each item identify: (1) what happened — be concrete: name the P-number, file path, or exact claim that was wrong, not just the abstract category, (2) category: wrong-assumption / unnecessary-question / repeated-step / missed-signal / scope-creep / tool-fumble / missing-context / process-gap, (3) severity: minor / moderate / significant. Return a structured list only — no solutions yet. Do NOT edit files, stage, or commit anything."
+   > "From the session summary and decisions context provided above, extract problems, friction points, mistakes, and inefficiencies. Consolidate near-identical incidents into one item. Cap at 10 items max. Exclude routine tool calls and confirmations — only report things a human would call a mistake or waste. For each item identify: (1) what happened — be concrete: name the P-number, file path, or exact claim that was wrong, not just the abstract category, (2) category: wrong-assumption / unnecessary-question / repeated-step / missed-signal / scope-creep / tool-fumble / missing-context / process-gap, (3) severity: minor / moderate / significant. **Write the full list to `.claude/meta-reflections/YYYY-MM-DD.md` (today's date) before returning** — this file survives session compaction. Then return the same list as your response."
 
    **7.2 Triage each extracted problem:**
 

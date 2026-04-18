@@ -128,8 +128,14 @@ Cherry-picking...
    git branch --show-current  # must be "main"
    ```
    If not on `main`, run `git checkout main`. This prevents the main worktree from drifting to a feature branch after branch-only fixes that don't use worktrees.
-8. **Ask — two questions in one message:**
-    "Run post-deploy smoke test? (y = `/verify pN` against prod after you push — recommended for UI changes / n = skip)
+8. **Push and branch cleanup** — pre-approved by ship invocation, run without asking:
+   ```bash
+   git push origin main
+   git branch -d feature/pN-*
+   ```
+
+9. **Ask — two questions in one message:**
+    "Run post-deploy smoke test? (y = `/verify pN` against prod — recommended for UI changes / n = skip)
     Capture learnings with /kdd? (y/n)"
 
     If user picks y for smoke test → invoke `/verify p{N}` (will auto-detect PRODUCTION mode on main).
@@ -163,7 +169,8 @@ For small work committed directly to main, just say "push" — no need for /ship
 
 - The spec is closed by /ship step 5 — /dev leaves it at `delivery_stage: dev`, NOT done. If the spec is still in `features/` after /ship completes, step 5 failed — investigate before continuing.
 - Step 8 offers a post-deploy smoke test (`/verify` in production mode). Recommended for UI changes, skippable for backend-only.
-- To deploy: `git push origin main` — push is blocked by a global hook, the user runs it explicitly. Vercel auto-deploys after push.
+- **Push and branch cleanup are pre-approved by `/ship` invocation** — run `git push origin main` and `git branch -d feature/pN-*` without asking. The user approved ship; these are its completion steps. Vercel auto-deploys after push.
+- **Prod migrate is NOT pre-approved** — `./scripts/migrate.sh --env prod` has its own blast radius (schema changes, RLS). Always gate it separately.
 
 ---
 
