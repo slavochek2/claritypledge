@@ -17,6 +17,11 @@ export interface OpenLiveInvite {
   authorName: string;
   storyTitle: string;
   closedAt: string | null;
+  // P745: inviter avatar + delivery context
+  inviterPhotoUrl: string | null;
+  inviterAvatarColor: string | null;
+  inviterIsPledger: boolean;
+  deliveryId: string | null;
 }
 
 interface InviteState {
@@ -98,7 +103,7 @@ export function useOpenLiveInvite(): { invite: OpenLiveInvite | null; loading: b
         if (raw['closed_at']) return;
         supabase
           .from('clarity_sessions')
-          .select('code, creator_name, stories!clarity_sessions_source_story_id_fkey(content)')
+          .select('code, creator_name, creator_photo_url, creator_avatar_color, creator_is_pledger, delivery_id, stories!clarity_sessions_source_story_id_fkey(content)')
           .eq('id', sessionId)
           .maybeSingle()
           .then(({ data: session }) => {
@@ -113,6 +118,10 @@ export function useOpenLiveInvite(): { invite: OpenLiveInvite | null; loading: b
                 authorName: session.creator_name ?? '',
                 storyTitle: rawContent ? rawContent.split('\n')[0].substring(0, 60) : '',
                 closedAt: null,
+                inviterPhotoUrl: (session.creator_photo_url as string | null) ?? null,
+                inviterAvatarColor: (session.creator_avatar_color as string | null) ?? null,
+                inviterIsPledger: (session.creator_is_pledger as boolean | null) ?? false,
+                deliveryId: (session.delivery_id as string | null) ?? null,
               },
             });
           });
@@ -150,6 +159,10 @@ function mapRecord(record: LiveInviteRecord): OpenLiveInvite {
     authorName: record.authorName,
     storyTitle: record.storyTitle,
     closedAt: record.closedAt,
+    inviterPhotoUrl: null,
+    inviterAvatarColor: null,
+    inviterIsPledger: false,
+    deliveryId: null,
   };
 }
 
@@ -162,5 +175,9 @@ function mapRaw(raw: Record<string, unknown>): OpenLiveInvite | null {
     authorName: (raw['author_name'] as string | undefined) ?? '',
     storyTitle: (raw['story_title'] as string | undefined) ?? '',
     closedAt: (raw['closed_at'] as string | null | undefined) ?? null,
+    inviterPhotoUrl: null,
+    inviterAvatarColor: null,
+    inviterIsPledger: false,
+    deliveryId: null,
   };
 }

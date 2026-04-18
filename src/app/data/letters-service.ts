@@ -1274,3 +1274,15 @@ export async function getLetterResults(
     })),
   };
 }
+
+// P745: persist the story index the recipient paused on so the letter can resume
+export async function saveLetterPauseState(deliveryId: string, storyIndex: number): Promise<void> {
+  if (storyIndex < 0 || storyIndex > 999) {
+    throw new RangeError(`storyIndex ${storyIndex} out of bounds (0–999)`);
+  }
+  const { error } = await supabase
+    .from('letter_deliveries')
+    .update({ saved_story_index: storyIndex })
+    .eq('id', deliveryId);
+  if (error) throw new Error(`saveLetterPauseState failed: ${error.message}`);
+}
