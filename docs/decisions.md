@@ -2,6 +2,20 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-18 [technical]: ClarityLivePage exit points must check `returnTo` before defaulting to `/live`
+
+**Context:** P754 follow-up UAT revealed that Cancel from the waiting room navigated to `/live` instead of `/letters?tab=inbox` where the user originated. `returnTo` was already read at `clarity-live-page.tsx:276` and used in the session-end path (`~line 3364`). The cancel-waiting path didn't use it — a missed wiring, not a missing mechanism.
+
+**Decision:** Any navigation exit on ClarityLivePage (cancel, error, timeout, session-end) must check `returnTo` first, then fall back to the default (e.g. `/live`). Entry points that navigate into `/live` from a specific origin (e.g. letters inbox) must append `?returnTo=<encoded-origin>` to the URL. Pattern: `navigate(`/live/${code}?returnTo=${encodeURIComponent('/letters?tab=inbox')}`)`.
+
+**Alternatives rejected:** Tracking origin in component state — lost on hard refresh; doesn't survive the URL-based navigation chain. Storing in sessionStorage — adds a hidden dependency; URL param is self-documenting and survives tab restore.
+
+**Consequences:** `start-clarity-session-button.tsx` now appends returnTo for the letters entry point. `handleCancelWaiting` checks `returnTo` before `isJoinViaLink`. Future entry points (events page, profile page starting a live session) should follow the same pattern. Check `clarity-live-page.tsx:276` — `returnTo` is already in scope; just wire it into the new exit branch.
+
+**References:** [clarity-live-page.tsx](src/app/pages/clarity-live-page.tsx), [start-clarity-session-button.tsx](src/app/components/letters/start-clarity-session-button.tsx)
+
+---
+
 ## 2026-04-18 [technical]: Surface queue-internal state to UI via optional field on the UI-facing type
 
 **Context:** P752 — post-session upload bar showed 0% even when chunks were uploading or retrying. `ChunkUploadQueue` tracked `state: 'idle' | 'uploading' | 'retrying' | 'stalled'` internally but `UploadProgressState` (the UI type) exposed only `status: 'uploading' | 'complete' | 'failed'`. The retry branch was invisible to the user.
