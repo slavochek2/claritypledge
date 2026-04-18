@@ -16,38 +16,15 @@ import type { PointProfileOwner } from '@/app/components/social/point-card-with-
 import { ClarityPageLoader } from '@/components/ui/clarity-loader';
 import { useLetterReadingState } from '@/app/hooks/useLetterReadingState';
 import { countTotalPoints, estimateReadingMinutes } from '@/app/utils/letter-reading-utils';
+import { docStoryToSnapshot } from '@/app/utils/letter-snapshot-mapper';
 import { docsService } from '@/app/data/docs-service';
 import { pointsService } from '@/app/data/points-service';
 import { useAuth } from '@/auth';
-import type { DocStory, LetterStorySnapshot } from '@/app/types';
+import type { LetterStorySnapshot } from '@/app/types';
 
 function closePreview(navigate: NavigateFunction): void {
   if (window.history.length <= 1) window.close();
   else navigate(-1);
-}
-
-/**
- * Convert DocStory to LetterStorySnapshot shape.
- * Builds the enriched point_config that the server normally creates at seal time.
- */
-function docStoryToSnapshot(docStory: DocStory): LetterStorySnapshot {
-  return {
-    letter_id: '',
-    story_id: docStory.story_id,
-    version_id: '',
-    position: docStory.position,
-    point_config: {
-      storyText: docStory.story.content,
-      imageUrl: docStory.story.imageUrl,
-      points: docStory.story.points.map((p) => ({
-        id: p.id,
-        text: p.statement,
-        authorPosition: p.userPosition ?? null,
-        visibility: p.visibility,
-      })),
-    },
-    visibility: docStory.story.visibility ?? 'public',
-  };
 }
 
 export function LetterPreviewPage() {

@@ -1,5 +1,4 @@
 ---
-status: week
 type: bug
 rank: 1000749.0
 severity: high
@@ -7,8 +6,9 @@ workstream: Letters
 date_reported: '2026-04-18'
 created_date: '2026-04-18'
 tags: [letters, privacy, preview, seal-rpc]
-delivery_stage: create-bug
-pipeline_ran: [create-bug]
+delivery_stage: ship
+status: qa
+pipeline_ran: [create-bug, fix, ship]
 ---
 
 # P749: Hidden points leak into letter preview and sealed letter reading
@@ -76,10 +76,28 @@ Canary before fix: create draft with 2 points, hide 1, open `/letter/:docId/prev
 
 ## Acceptance Criteria
 
-- [ ] Preview at `/letter/:docId/preview` renders only non-hidden points (hidden ones are absent from the walk and from point counts)
-- [ ] Recipient opening a sealed letter (fresh seal after fix) sees only non-hidden points
-- [ ] Recipient opening a sealed letter from an existing pre-fix snapshot (top-level `hidden` array only, no per-point flag) also sees only non-hidden points — no backfill required
-- [ ] Author's draft editor view (`/d/:docId` as owner) still shows all points with eye toggles — unchanged
-- [ ] Non-owner shared-doc view at `/d/:docId` still filters hidden points via existing path — unchanged
-- [ ] Regression test passes: `e2e/p749-hidden-points-letter-leak.spec.ts` (or equivalent unit test for the mapper)
-- [ ] No console errors during either flow
+- [x] Preview at `/letter/:docId/preview` renders only non-hidden points (hidden ones are absent from the walk and from point counts) — Cases A, B, D in `src/tests/p749-hidden-points-snapshot-mapper.test.ts`; preview path now routes through extracted `docStoryToSnapshot` which populates per-point `hidden`
+- [x] Recipient opening a sealed letter (fresh seal after fix) sees only non-hidden points — migration `20260418144500_p749_seal_rpc_hidden_per_point.sql` writes per-point `hidden`; reader filter at `letter-snapshot-mapper.ts:128` consumes it
+- [x] Recipient opening a sealed letter from an existing pre-fix snapshot (top-level `hidden` array only, no per-point flag) also sees only non-hidden points — no backfill required — Case B; mapper back-compat reads `config.hidden: string[]`
+- [x] Author's draft editor view (`/d/:docId` as owner) still shows all points with eye toggles — unchanged — `doc-detail-page.tsx` not in fix scope; verified by review
+- [x] Non-owner shared-doc view at `/d/:docId` still filters hidden points via existing path — unchanged — same file untouched
+- [x] Regression test passes: `src/tests/p749-hidden-points-snapshot-mapper.test.ts` — 4 cases passing, 1904 total tests pass, no regressions
+- [x] No console errors during either flow — browser smoke confirmed; compose page follow-on fix applied
+
+## Resolution
+
+**Fixed:** 2026-04-18
+**Root cause:** Two independent leaks, same missing plumbing — the per-point `hidden` boolean that the mapper filter expects was never populated. (1) Preview builder `docStoryToSnapshot` in `letter-preview-page.tsx` ignored `docStory.point_config.hidden`. (2) Latest seal RPC stored `hidden` as a top-level array in `point_config` but the mapper only inspected per-point booleans.
+
+**Resolution:** Four atomic changes:
+1. Extracted `docStoryToSnapshot` from `letter-preview-page.tsx` into `letter-snapshot-mapper.ts` (co-located with the reader to make shape drift visible at review time); populated per-point `hidden` from `docStory.point_config.hidden`.
+2. New migration `20260418144500_p749_seal_rpc_hidden_per_point.sql` adds per-point `'hidden'` field to `seal_and_send_letter` JSON output, derived from `doc_stories.point_config.hidden`.
+3. Mapper back-compat: `snapshotToStoryWithPoints` now also filters points whose id appears in top-level `config.hidden: string[]`. Permanent — covers letters sealed before this fix.
+4. `countTotalPoints` mirrors the same back-compat fallback so cover counts stay honest for pre-fix letters.
+
+**Files changed:**
+- `src/app/utils/letter-snapshot-mapper.ts` — added `docStoryToSnapshot` export + top-level-array back-compat in reader
+- `src/app/utils/letter-reading-utils.ts` — top-level-array back-compat in count helper
+- `src/app/pages/letter-preview-page.tsx` — import swap (removed local builder)
+- `supabase/migrations/20260418144500_p749_seal_rpc_hidden_per_point.sql` — new
+- `src/tests/p749-hidden-points-snapshot-mapper.test.ts` — Cases A (sanity), B (top-level filter), C (count helper), D (builder→reader round-trip)
