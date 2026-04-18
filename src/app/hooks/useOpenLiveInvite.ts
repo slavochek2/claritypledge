@@ -1,6 +1,7 @@
 'use client';
 
 import { useReducer, useEffect } from 'react';
+import * as Sentry from '@sentry/react';
 import { useAuth } from '@/auth';
 import {
   getOpenLiveInviteForUser,
@@ -86,10 +87,15 @@ export function useOpenLiveInvite(): { invite: OpenLiveInvite | null; loading: b
     let cancelled = false;
 
     // Initial fetch
-    getOpenLiveInviteForUser(userId).then((record) => {
-      if (cancelled) return;
-      dispatch({ type: 'LOADED', payload: record ? mapRecord(record) : null });
-    });
+    getOpenLiveInviteForUser(userId)
+      .then((record) => {
+        if (cancelled) return;
+        dispatch({ type: 'LOADED', payload: record ? mapRecord(record) : null });
+      })
+      .catch((err) => {
+        Sentry.captureException(err, { tags: { source: 'useOpenLiveInvite.initialFetch' } });
+        if (!cancelled) dispatch({ type: 'LOADED', payload: null });
+      });
 
     // Realtime subscription
     const unsubscribe = subscribeToLiveInvites(
@@ -106,12 +112,11 @@ export function useOpenLiveInvite(): { invite: OpenLiveInvite | null; loading: b
           .select('code, creator_name, creator_photo_url, creator_avatar_color, creator_is_pledger, delivery_id, stories!clarity_sessions_source_story_id_fkey(content)')
           .eq('id', sessionId)
           .maybeSingle()
-          .then(async ({ data: session }) => {
+          .then(({ data: session }) => {
             if (cancelled || !session) return;
             if (!session.code) return;
             const rawContent = (session.stories as { content: string } | null)?.content ?? '';
 
-            if (cancelled) return;
             dispatch({
               type: 'INSERT',
               payload: {
@@ -128,7 +133,7 @@ export function useOpenLiveInvite(): { invite: OpenLiveInvite | null; loading: b
             });
           })
           .catch((err) => {
-            console.warn('[P745] invite enrichment failed', err);
+            Sentry.captureException(err, { tags: { source: 'useOpenLiveInvite.enrichment' } });
           });
       },
       (raw) => {
@@ -164,10 +169,10 @@ function mapRecord(record: LiveInviteRecord): OpenLiveInvite {
     authorName: record.authorName,
     storyTitle: record.storyTitle,
     closedAt: record.closedAt,
-    inviterPhotoUrl: null,
-    inviterAvatarColor: null,
-    inviterIsPledger: false,
-    deliveryId: null,
+    inviterPhotoUrl: record.inviterPhotoUrl,
+    inviterAvatarColor: record.inviterAvatarColor,
+    inviterIsPledger: record.inviterIsPledger,
+    deliveryId: record.deliveryId,
   };
 }
 
