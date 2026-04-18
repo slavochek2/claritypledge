@@ -10,7 +10,9 @@
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
+# Derive project dir from git root of CWD — works correctly from worktrees.
+# SCRIPT_DIR follows symlinks and always resolves to main repo; do NOT use it for PROJECT_DIR.
+PROJECT_DIR="$(git -C "$(pwd)" rev-parse --show-toplevel 2>/dev/null || dirname "$SCRIPT_DIR")"
 MANIFEST="$PROJECT_DIR/supabase/deploy-manifest.json"
 FUNCTIONS_DIR="$PROJECT_DIR/supabase/functions"
 
@@ -37,6 +39,11 @@ else
   ENV_FILE="$PROJECT_DIR/.env.local"
 fi
 
+if [ ! -f "$ENV_FILE" ] && [ "$ENV_NAME" = "prod" ]; then
+  # .env.prod is gitignored — only exists in the main repo, not in worktrees.
+  # Fall back to the main repo copy so prod deploys work from any worktree.
+  ENV_FILE="$(dirname "$SCRIPT_DIR")/.env.prod"
+fi
 if [ ! -f "$ENV_FILE" ]; then
   echo "ERROR: $ENV_FILE not found"
   exit 1

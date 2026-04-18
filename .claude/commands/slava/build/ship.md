@@ -36,7 +36,7 @@ Run all gates, collect results. Only prompt the user on failures. The happy path
 1. **Find the branch** — looks for `feature/pN*` or `feature/pN-*`
 
 **1a. Divergence check** — run `git rev-list --count main..feature/pN-*` (ahead) and `git rev-list --count feature/pN-*..main` (behind).
-- If behind-count ≤ 20: record `✓ {behind} commits behind main (will sync)` — proceed silently.
+- If behind-count ≤ 20: record `✓ {behind} commits behind main (cherry-pick handles it)` — proceed silently.
 - If behind-count > 20: **STOP** — warn "Branch is N commits behind main — rebase or manual merge needed." Propose:
   **(A) Rebase:** `git rebase main` on feature branch, resolve conflicts, then proceed normally.
   **(B) Already merged manually:** Verify by running `git log --oneline main | grep <tip-sha>` (where `<tip-sha>` is the feature branch tip from `git rev-parse feature/pN-*`). Only declare "already merged" if the SHA appears in main's log — never infer from the feature branch log. If confirmed, reply 'spec-only' to run spec closure + branch cleanup only (steps 5-7), skipping the merge.
@@ -77,20 +77,26 @@ Run all gates, collect results. Only prompt the user on failures. The happy path
   ✓ Pre-commit checks passed
   ✓ No pre-deploy checklist
   ✓ No deploy drift
-  ✓ 3 commits behind main (syncing)
-Merging...
+  ✓ 3 commits behind main (cherry-pick handles it)
+Cherry-picking...
 ```
 
 ### Merge Phase
 
-3.7. **Sync main into feature branch** — before merging to main, bring main's changes into the feature branch to prevent silent content loss in shared docs:
+3.7. **Collect feature commits** — get the list of commits to cherry-pick onto main:
    ```bash
-   git status --short   # must be clean before merging — commit or stash any open edits first
-   git merge main
+   # From inside the worktree / feature branch:
+   git log --oneline main..HEAD
    ```
-   If `git status --short` shows uncommitted changes, commit them before proceeding — `git checkout main` later will fail with an "overwritten by checkout" error otherwise.
-   If conflicts arise, resolve them now — these are changes made to main while the worktree was active. Resolving here is correct; skipping this step causes git to silently drop content added to main since the worktree was created.
-4. **Merge to main** — `git merge feature/pN --no-ff` (preserves branch history)
+   Note the SHAs in order (oldest first). These are the commits that will land on main.
+
+4. **Cherry-pick onto main** — switch to main, cherry-pick each feature commit in order:
+   ```bash
+   git checkout main   # (from main repo root if in a worktree: cd ~/Projects/public/claritypledge)
+   git cherry-pick <sha1> <sha2> ...   # oldest → newest
+   ```
+   Cherry-pick is safe regardless of main's working tree state — it never touches uncommitted changes in other worktrees or staged index files. If a conflict arises, resolve it, `git add`, and `git cherry-pick --continue`.
+   After cherry-pick: `git branch -D feature/pN` (force-delete is expected — the branch tip was never merged, only its commits were replayed).
 5. **Close the spec** — move spec to `features/done/`, update frontmatter:
    - `status: all-done`
    - `completed_at: YYYY-MM-DD`
