@@ -96,6 +96,7 @@ Last updated: 2026-04-18 (P753 Story image upload CORS — two independent confi
 
 ## Letters
 
+- **P749** (Apr 18) Hidden points leak in preview + sealed — every `DocStory`→visible-points path (preview builder, compose walk, reading, results) must filter `point_config.hidden`; co-locate `docStoryToSnapshot` with reader to prevent shape drift
 - **P751** (Apr 18) Letter story images missing + card width mismatch — `seal_and_send_letter` RPC, `PointConfig` interface, and preview shim must all be updated together when adding a story field to the letter flow
 - **P661** (Apr 07) Letter Composition UX Redesign — preview must reuse reading components (not parallel UI); `LiveStoryCardExpanded` in prediction walk, `LetterStoryReader` in preview/reading; superseded by P665 for chrome-free + preview rewrite
 

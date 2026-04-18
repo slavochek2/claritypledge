@@ -2,6 +2,20 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-18 [technical]: P749 — hidden-point filter must be applied on every DocStory→visible-points conversion path
+
+**Context:** P749 fixed a privacy leak where points marked hidden by the author appeared in `/letter/:docId/preview` and in the sealed recipient letter. After the initial fix (extracted `docStoryToSnapshot` to the mapper with hidden plumbing, new seal RPC migration), the bug still showed on `/letter/:docId/compose` — the prediction walk was passing raw `DocStory[]` to `LetterPredictionWalk` without filtering `point_config.hidden`.
+
+**Decision:** Every path that converts a `DocStory` to a visible-points list must filter `point_config.hidden`. Four surfaces confirmed and fixed: (1) preview builder — `docStoryToSnapshot` in `letter-snapshot-mapper.ts` reads `docStory.point_config.hidden` and sets per-point `hidden`; (2) compose prediction walk — `enrichedStories` in `letter-compose-page.tsx` filters hidden IDs before passing to `LetterPredictionWalk`; (3) recipient reading — `snapshotToStoryWithPoints` in mapper filters per-point `p.hidden` and top-level `config.hidden[]` (back-compat); (4) results page — same mapper path. Co-locating `docStoryToSnapshot` with `snapshotToStoryWithPoints` in the mapper is the structural enforcement: shape changes to one are visible at review time to the other.
+
+**Alternatives rejected:** Filtering in individual page components — too easy to miss a new surface. Filtering in `LetterPredictionWalk` itself — it receives `StoryWithPoints`, not raw `DocStory`, so filtering must happen upstream where `point_config.hidden` is available.
+
+**Consequences:** Any new letter surface that converts `DocStory` → display must call `docStoryToSnapshot` → `snapshotToStoryWithPoints`, or replicate the hidden filter. The `point_config.hidden` array is the authoritative source; per-point booleans are a derived convenience. Sealed pre-fix snapshots that carry only the top-level array are handled by mapper back-compat (permanent).
+
+**References:** `src/app/utils/letter-snapshot-mapper.ts`, `src/app/pages/letter-compose-page.tsx`, `supabase/migrations/20260418144500_p749_seal_rpc_hidden_per_point.sql`
+
+---
+
 ## 2026-04-18 [technical]: st-tag renumber migrations must rewrite `stories.content` in the same transaction
 
 **Context:** P701's April 13 migration swapped st-tags via `array_replace` on `stories.system_tags` but did not touch `stories.content`. Story search pickers use `ilike('%#stN%')` on content — so the search returned stale results pointing at the wrong stories. 3 rows drifted; detected and fixed April 18 via id-targeted UPDATE with `LIKE '%#stN%'` guards and a temp-pivot to handle the cyclic swap (st2→st5, st5→st3, st3→st2).
