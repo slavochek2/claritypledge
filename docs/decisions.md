@@ -2,6 +2,20 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-18 [technical]: Surface queue-internal state to UI via optional field on the UI-facing type
+
+**Context:** P752 — post-session upload bar showed 0% even when chunks were uploading or retrying. `ChunkUploadQueue` tracked `state: 'idle' | 'uploading' | 'retrying' | 'stalled'` internally but `UploadProgressState` (the UI type) exposed only `status: 'uploading' | 'complete' | 'failed'`. The retry branch was invisible to the user.
+
+**Decision:** When a background service (queue, worker, poll loop) has meaningful internal sub-states the UI needs to distinguish, add an optional `state?` field to the UI-facing type rather than widening `status` or adding a parallel state variable. The optional field preserves backwards compatibility (callers that don't read it are unaffected) while letting the service publish its internal state as a first-class field.
+
+**Alternatives rejected:** Widening `status` to include `'retrying' | 'stalled'` — would break every switch/if on `status` that expected only 3 values. Adding a separate `isRetrying: boolean` prop — two fields diverge over time (both could be true simultaneously if poorly maintained).
+
+**Consequences:** `UploadProgressState.state` is now the canonical field for queue sub-state. `status` remains the top-level lifecycle field. UI renders distinct messages for retrying, stalled, finishing-up, and normal upload — all from a single type. Pattern applies to any future background service that exposes a coarse status but has richer internal phases.
+
+**References:** [live-mode-view.tsx](src/app/components/partners/live-mode-view.tsx), [chunk-upload-queue.ts](src/lib/chunk-upload-queue.ts)
+
+---
+
 ## 2026-04-18 [process]: No QA-phase bypass for canary-first rule in /fix
 
 **Context:** P753 Layer 2 fix introduced a new `buildCorsHeaders` function with regex branching logic. The agent skipped Phase 2 (failing canary test) citing "QA-phase fix" designation. MEMORY.md already records `feedback_canary_test_first`. This was the second recorded skip.
