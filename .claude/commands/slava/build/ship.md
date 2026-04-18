@@ -66,6 +66,7 @@ Run all gates, collect results. Only prompt the user on failures. The happy path
 3.6. **Deploy manifest check** — run `./scripts/check-deploy-manifest.sh --env prod`.
    - No drift → record `✓ No deploy drift` — proceed silently.
    - Drift detected → **STOP** — show output and fix commands. Ask: "Deploy these before merging? (y = run the fix commands now / n = stop, I'll handle it manually)". If user says "y", run the suggested commands, re-run check to confirm. Do NOT merge with drift.
+   - **Manifest stamp ordering:** If deploying migrations produces an updated `supabase/deploy-manifest.json`, commit that stamp on the **feature branch** (from inside the worktree), NOT directly on main. Stamping to main before merge creates a manifest conflict when the feature branch is later rebased onto main — a predictable failure every time. The stamp travels to main naturally via the merge in step 4.
 
 **Gate report** — if all gates passed, print the summary and proceed immediately (no prompt):
 ```

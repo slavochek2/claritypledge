@@ -334,6 +334,12 @@ Test proves bug exists. Ready to fix.
 
 **Goal:** Fix the bug without breaking other functionality
 
+**Migration pre-flight (P270 rule):** Before writing any fix code, check if this bug requires a new migration:
+```bash
+ls supabase/migrations/ | tail -5   # does a new .sql file need to be created?
+```
+If yes — write the integration test for that migration NOW, before the migration itself. The test lives at `e2e/integration/<timestamp>_p{N}_<slug>.spec.ts`. Writing it first forces you to think about what the migration must guarantee. The pre-commit hook enforces this (P270), so failing to do it proactively just causes a blocked commit later.
+
 **Steps:**
 1. Identify root cause (from reproduction + test)
 2. Make minimal fix to code

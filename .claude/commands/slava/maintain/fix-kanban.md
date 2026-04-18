@@ -61,6 +61,8 @@ Runs `scripts/fix-frontmatter.sh` against all `features/` files (including `done
      done
      ```
 
+   **Archive commit guard:** `git mv` stages BOTH sides of a rename (destination add + source delete). When committing, you MUST include the original source paths in the commit command — listing only `features/archive/pN_*.md` leaves the source deletions staged-but-uncommitted, causing a downstream `git merge` to refuse with "local changes would be overwritten." Always verify with `git diff --cached --name-only` and include every staged path.
+
 3. Bust the kanban cache so cards appear immediately:
    ```bash
    curl -s "http://localhost:9050/api/features?refresh=true" > /dev/null 2>&1 && echo "✓ Kanban cache refreshed" || echo "(Kanban not running — open it and use the ↻ button to refresh)"
