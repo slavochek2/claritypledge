@@ -4081,21 +4081,6 @@ export function subscribeToLiveInvites(
 }
 
 /**
- * Bumps updated_at on the open invite to re-ping the recipient's realtime channel.
- * Server-side trigger enforces a 30-second rate limit between resends.
- */
-export async function resendLiveInvite(sessionId: string): Promise<void> {
-  const { error } = await supabase
-    .from('clarity_live_invites')
-    .update({ updated_at: new Date().toISOString() })
-    .eq('session_id', sessionId)
-    .is('closed_at', null);
-  if (error) {
-    throw new Error(error.message || 'Failed to resend invite');
-  }
-}
-
-/**
  * P703: Returns true if an open (closed_at IS NULL) invite exists for the given receiver.
  * Used by StartClaritySessionButton to disable the button when an invite is already pending.
  * RLS allows the session creator to see their own invites.

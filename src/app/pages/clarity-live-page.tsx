@@ -39,7 +39,6 @@ import {
   getLetterBaselineRatings,
   completeClaritySession,
   cancelLiveInvite,
-  resendLiveInvite,
   checkSessionRequiresAuth,
 } from '@/app/data/api';
 import { TermsUpdateDialog } from '@/app/components/live-meeting/terms-update-dialog';
@@ -307,7 +306,6 @@ export function ClarityLivePage() {
 
   // P703: Letter-sourced session display state
   const [listenerDisplayName, setListenerDisplayName] = useState<string | null>(null);
-  const [resendCooldown, setResendCooldown] = useState(false);
 
   // P511 Task 6: Grace period state — when set, shows ReconnectingCountdown instead of instant PartnerLeftScreen
   const [gracePeriodStart, setGracePeriodStart] = useState<Date | null>(null);
@@ -3138,6 +3136,14 @@ export function ClarityLivePage() {
     hasJoinerRef.current = false;
     lastJoinerNameRef.current = null;
     gracePeriodStartRef.current = null;
+    autoJoinFiredRef.current = false;
+    // P754: prefer returnTo (e.g. letter inbox) over /live; always escape join-via-link URL
+    // so isJoinViaLink becomes false and the start view doesn't re-show the spinner.
+    if (returnTo) {
+      navigate(returnTo, { replace: true });
+    } else if (isJoinViaLink) {
+      navigate('/live', { replace: true });
+    }
   };
 
   // P28.1: Stop recording and upload final chunk + events
@@ -4040,27 +4046,6 @@ export function ClarityLivePage() {
     }
   };
 
-  // P703: Resend invite — bumps updated_at to re-ping recipient's realtime channel
-  const handleResendInvite = async () => {
-    if (!session || resendCooldown) return;
-    setResendCooldown(true);
-    try {
-      await resendLiveInvite(session.id);
-      analytics.track('live_invite_resent', { session_code: session.code });
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : '';
-      if (msg.includes('rate limit')) {
-        // DB trigger enforced 30s window — show brief feedback
-        console.warn('[P703] Resend rate limit hit');
-      } else {
-        console.error('[P703] Resend failed:', err);
-      }
-    } finally {
-      // Re-enable after 30s to match server-side rate limit
-      setTimeout(() => setResendCooldown(false), 30000);
-    }
-  };
-
   if (view === 'waiting' && session) {
     // Display-friendly link (without https://)
     const displayLink = shareLink.replace('https://', '').replace('http://', '');
@@ -4094,20 +4079,11 @@ export function ClarityLivePage() {
             {session.targetListenerId ? (
               <div
                 data-testid="invite-status-panel"
-                className="flex items-center justify-between p-3 bg-muted rounded-lg"
+                className="flex items-center justify-center p-3 bg-muted rounded-lg"
               >
                 <span className="text-sm text-muted-foreground">
                   Invite sent to {listenerDisplayName ?? 'listener'}
                 </span>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => void handleResendInvite()}
-                  disabled={resendCooldown}
-                  className="text-blue-500 hover:text-blue-600 flex-shrink-0"
-                >
-                  {resendCooldown ? 'Sent' : 'Resend'}
-                </Button>
               </div>
             ) : (
               /* Link row with copy/share */
@@ -4181,17 +4157,6 @@ export function ClarityLivePage() {
                   />
                 </div>
               </>
-            )}
-
-            {returnTo && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => navigate(returnTo)}
-                className="w-full"
-              >
-                ← Back to event
-              </Button>
             )}
 
             <Button

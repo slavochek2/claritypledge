@@ -230,7 +230,6 @@ vi.mock('@/app/data/api', () => ({
   createTranscriptionJob: vi.fn().mockResolvedValue(undefined),
   getLetterBaselineRatings: vi.fn().mockResolvedValue({}),
   cancelLiveInvite: vi.fn().mockResolvedValue(undefined),
-  resendLiveInvite: vi.fn().mockResolvedValue(undefined),
   uploadSessionRecording: vi.fn().mockResolvedValue(undefined),
   uploadEventsSnapshot: vi.fn().mockResolvedValue(undefined),
   uploadSingleChunk: vi.fn().mockResolvedValue(undefined),
