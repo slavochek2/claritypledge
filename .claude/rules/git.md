@@ -4,6 +4,8 @@ paths:
   - "scripts/**"
   - "**/*.sh"
   - ".gitignore"
+  - "e2e/**"
+  - "features/**"
 ---
 
 # Git Safety (Firewall)
@@ -117,6 +119,23 @@ git diff HEAD -- <file>       # verify the file actually has uncommitted changes
 Inside a worktree, `git status` may show phantom `D` entries for `scripts/` — these are symlink artifacts from the worktree setup, not real deletions. Use `git diff --name-only HEAD` to see only real changes.
 
 Never use `git add .` or `git add -A` in a worktree — use `git add src/` or explicit file paths. (This extends the existing `git add .` ban with a worktree-specific failure mode.)
+
+## File Creation Inside Worktrees
+
+When running inside a worktree (cwd contains `.claude/worktrees/wN`), every new file created with Write or Edit **must use the worktree-rooted absolute path** — never the main repo path.
+
+**Why:** The worktree is a separate git repository. A file written to the main repo path (e.g. `/Users/.../claritypledge/e2e/foo.spec.ts`) while inside w2 is outside w2's repository boundary. `git add` will fail with `fatal: pathspec is beyond a symbolic link` or `fatal: is outside repository`.
+
+**Derive the correct root before writing:**
+```bash
+git rev-parse --show-toplevel   # → /Users/.../claritypledge/.claude/worktrees/w2
+```
+
+Prefix all new file paths with that output, not with the main repo root.
+
+**Common failure pattern:** Agent in `.claude/worktrees/w2` writes to `/Users/.../claritypledge/e2e/canary.spec.ts` (main repo) → `git add` fails → requires `cp` to worktree + `rm` from main (2–4 wasted tool calls).
+
+The Supabase CLI migration exception (copy migration to main repo, run `migrate.sh` from there) is separate — see `docs/technical/worktree-setup.md`.
 
 ## Cleaning up tracked files + .gitignore changes
 
