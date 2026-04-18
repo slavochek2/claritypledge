@@ -2,6 +2,34 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-18 [technical]: Two-layer fix for async hook state-update-after-unmount crashes
+
+**Context:** `useUnreadLetterCount` fires an async `getUnreadLetterCount` fetch on mount. In the full Vitest suite, `navigation-acceptance-full.test.tsx` mounts navigation components containing this hook. When the test ends and jsdom tears down, the in-flight promise resolves in the `finally` block → `setLoading(false)` → React DOM accesses `window` → already gone → `ReferenceError: window is not defined` (unhandled rejection). Opus 4.7 critique of the initial fix plan revealed: the immediate fix is mocking the hook in the test (test hygiene), not patching the hook.
+
+**Decision:** Two-layer fix pattern for this class of bug: **(A) Mock in test** — nav tests don't care about unread counts; running the real fetch path is test pollution. Mirror the mock already used in `p722-reproduce.test.tsx`. **(B) Unmount guard in hook** — add `isMountedRef = useRef(true)`, reset to `true` in effect body (required for StrictMode remount cycle where prior cleanup set it to `false`), set to `false` on cleanup. Guard all `setCount`/`setLoading` calls. Layer A is the minimum correct fix; Layer B is defensive hardening for tests that forget to mock. Canary: write a deterministic unit test that renders the hook, unmounts before fetch resolves, asserts no unhandled rejection — not a full-suite grep.
+
+**Alternatives rejected:** Full-suite grep as canary — too weak, doesn't prove causality; flakiness risk under CI load. Hook fix alone without test mock — leaves nav tests running real fetch paths they don't care about.
+
+**Consequences:** `navigation-acceptance-full.test.tsx` gets the mock. `useUnreadLetterCount.ts` gets the unmount guard. Sibling hooks with the same pattern (`usePointsForDisplay`, `useLetterReadingState`) noted as tech debt — out of scope for this fix. Plan file: `~/.claude/plans/create-a-plan-for-lively-kitten.md`.
+
+**References:** [useUnreadLetterCount.ts](src/app/hooks/useUnreadLetterCount.ts), [navigation-acceptance-full.test.tsx](src/tests/navigation-acceptance-full.test.tsx)
+
+---
+
+## 2026-04-18 [process]: --no-verify banned — use P-number exception path, not silent bypass
+
+**Context:** A pre-existing `window is not defined` unhandled rejection in the full Vitest suite blocked the postmortem doc commit today. Used `--no-verify` with user approval after verifying the failure pre-existed on main. Separately, `audit-privacy.sh` was added as a commit/push hook to scan for PII patterns — bypassing hooks with `--no-verify` silently skips the privacy gate.
+
+**Decision:** `git commit --no-verify` and `git push --no-verify` are banned and added to the banned-commands table in `.claude/rules/git.md`. The correct path when a pre-existing test failure blocks a legitimate commit: (1) verify failure pre-exists on main, (2) create a bug spec to get a P-number, (3) commit with a message body that names the P-number as justification. The pre-commit script has an explicit override mechanism — use it; don't guess or use `--no-verify`.
+
+**Alternatives rejected:** Allow `--no-verify` with user approval case-by-case — creates a precedent too easy to invoke that also silently bypasses the privacy gate. The P-number requirement forces tracking; an anonymous bypass does not.
+
+**Consequences:** When a hook blocks on a legitimate commit, the only exit is to classify and track the failure. Adds ~5 minutes but prevents silent PII leakage bypasses. Today's session committed the doc fixes with `--no-verify`  before this ban was formalized — the pre-existing test failure needs a proper spec (`useUnreadLetterCount` unmount bug, plan at `~/.claude/plans/create-a-plan-for-lively-kitten.md`).
+
+**References:** [git.md](.claude/rules/git.md)
+
+---
+
 ## 2026-04-18 [process]: Two-round devil's advocate critique — second round targets first round's diagnoses
 
 **Context:** P757 session postmortem ran one round of Opus devil's advocate critique, then ran a second round where Opus critiqued its own recommendations from round 1. Round 1 produced 4 recommendations that were directionally correct. Round 2 found that 3 of the 4 root cause diagnoses were wrong — the correct conclusion was being proposed for the wrong reason (e.g., "commit from worktree" was right, but "symlink tempted the agent" was the stated cause; the real gap was the rule fired too late). One claim was falsified entirely (`stamp-deploy-manifest.sh` was claimed to force a main commit; reading the 118-line script found zero git calls).
