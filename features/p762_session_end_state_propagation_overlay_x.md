@@ -21,7 +21,7 @@ Three session-end UX failures surfaced together during P745 visual QA: (1) creat
 
 **Symptoms 1 & 2 — shared root:** `clarity_sessions` lacks `REPLICA IDENTITY FULL` (only `clarity_live_invites` has it, via P703 migration). When `endClaritySession` writes `sessionEnded: true`, Supabase Realtime fires an UPDATE event but `payload.new.live_state` does not carry the updated value. `subscribeToClaritySession` (api.ts) was passing `payload.new` directly to `mapSessionFromDb`, so all subscribers received `liveState: {}` — H1 guard in `use-active-session.ts` never triggered, and `clarity-live-page.tsx` never flipped `sessionEnded`. Both sides remained stale.
 
-Fix: `subscribeToClaritySession` now ignores `payload.new.live_state` and does a fresh DB SELECT on any UPDATE event. Belt-and-suspenders: `use-active-session.ts` Realtime callback now calls `validateSession()` when the payload lacks ended flags.
+Fix: `subscribeToClaritySession` now ignores `payload.new` entirely and does a fresh DB SELECT on any UPDATE event, guaranteeing subscribers always receive current `live_state`. A `cancelled` flag prevents the callback firing after unsubscribe; fetch errors are logged rather than silently swallowed.
 
 **Symptom 3 — Redundant overlay X:** `letter-live-overlay.tsx` rendered a top-right `✕` button via `onClose?` prop. The overlay closes automatically when the invite disappears (P745 `clarity_live_invites` Realtime watcher in `letter-reading-page.tsx:982-988`). The X was a second, divergent exit that bypassed session cleanup.
 
@@ -53,7 +53,7 @@ Fix: `subscribeToClaritySession` now ignores `payload.new.live_state` and does a
 ## Affected Files
 
 - `src/app/data/api.ts` — `subscribeToClaritySession`: was passing `payload.new` directly; now does fresh DB SELECT on UPDATE
-- `src/hooks/use-active-session.ts:86-97` — Realtime callback: now calls `validateSession()` on stale payload as fallback
+- `src/hooks/use-active-session.ts:86-94` — Realtime callback: clears session on `sessionEnded/joinerEnded`; 30s poll remains as fallback
 - `src/app/components/letters/letter-live-overlay.tsx` — removed `onClose?` prop, Escape handler, and ✕ button block
 - `src/app/pages/letter-reading-page.tsx` — removed `onClose` prop passthrough
 
@@ -65,7 +65,7 @@ Fix: `subscribeToClaritySession` now ignores `payload.new.live_state` and does a
 
 **Symptom 3:** Removed `onClose?` prop, Escape key listener, and ✕ button block from `LetterLiveOverlay`. Overlay closes automatically via the invite-watcher `useEffect` in `letter-reading-page.tsx:982-988` (P745 mechanism).
 
-**Symptoms 1 & 2:** `subscribeToClaritySession` (api.ts) now ignores `payload.new` and does a fresh `SELECT *` on the session ID from any UPDATE event. This guarantees subscribers always receive current `live_state` regardless of REPLICA IDENTITY. Belt-and-suspenders: `use-active-session.ts` Realtime callback now calls `validateSession()` when the payload lacks `sessionEnded/joinerEnded` flags.
+**Symptoms 1 & 2:** `subscribeToClaritySession` (api.ts) ignores `payload.new` entirely and does a fresh `SELECT *` on the session ID from any UPDATE event. This guarantees subscribers always receive current `live_state` regardless of REPLICA IDENTITY. The redundant `validateSession()` else-branch was removed in a second-pass review — the fresh SELECT is authoritative; the 30s poll covers any missed events.
 
 Reference pattern: `src/tests/p743-joiner-banner-stale.test.tsx`.
 
