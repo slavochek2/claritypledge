@@ -2,6 +2,20 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-18 [technical]: Edge function CORS and GCS bucket CORS are independent configs — reverses 2026-03-28 deferral
+
+**Context:** P753 exposed two separate CORS layers for story image upload. Layer 1: `generate-story-image-url` edge function has its own `ALLOWED_ORIGIN` env var controlling the preflight `Access-Control-Allow-Origin` header. Layer 2: `gs://claritypledge-story-images` bucket has its own CORS config (set via `gsutil cors set`) that independently controls PUT preflight responses. These configs have no relationship — fixing one doesn't fix the other. The bug was deferred in P591 (2026-03-28) with the decision to "update ALLOWED_ORIGIN secret to match port" and rejected dynamic CORS allowlist as over-engineering for one prod domain. That deferral worked for prod but blocked all worktrees except w3 from uploading story images. The bug also had a second hidden layer: the GCS bucket had a hardcoded 3-origin allowlist (prod, 5001, 5300) that blocked all other worktree ports regardless of the edge function fix.
+
+**Decision:** Reversed. Dynamic per-request CORS allowlist replaces the static `ALLOWED_ORIGIN` env var for `generate-story-image-url`. The function now reflects the `Origin` header when it matches an allowlist (exact prod domain, localhost `5001|5[1-7]\d{2}|58\d{2}` regex, Vercel preview pattern). Unknown origins fall back to the `ALLOWED_ORIGIN` env var (still the safe default, not echoed). GCS bucket CORS config (`scripts/gcs-cors.json`) is now checked in as source of truth and applied via `scripts/set-gcs-cors.sh`. `scripts/verify-gcs-cors.sh` is the canary for future regression checks.
+
+**Alternatives rejected:** (1) Update `ALLOWED_ORIGIN` secret to `*` — disables the allowlist for all 13 edge functions sharing the pattern; sets a precedent for prod. (2) Migrate all 13 functions to a shared `_shared/cors.ts` helper at once — right end state, wrong scope for a blocked toast; tracked as follow-up.
+
+**Consequences:** When adding a new dev worktree port outside `5001/5100–5799/5800–5899`, update the regex in `generate-story-image-url/index.ts` AND add the port to `scripts/gcs-cors.json` + re-run `set-gcs-cors.sh`. The two configs are independent — one file edit isn't enough. The other 12 edge functions still use the static `ALLOWED_ORIGIN` pattern and block non-w3 worktrees; this is tracked as a separate follow-up (shared CORS helper). The 2026-03-28 decision's "over-engineering" concern no longer applies now that multi-worktree is the standard dev mode.
+
+**References:** `supabase/functions/generate-story-image-url/index.ts`, `scripts/gcs-cors.json`, `scripts/set-gcs-cors.sh`, `scripts/verify-gcs-cors.sh`, [P753 spec](features/done/2026-04-18/p753_story_image_upload_cors_multi_origin.md), prior decision: 2026-03-28 "Edge function CORS — ALLOWED_ORIGIN port mismatch"
+
+---
+
 ## 2026-04-18 [technical]: P751 — seal_and_send_letter is a three-layer write contract (RPC + mapper + preview shim)
 
 **Context:** P751 found that story images were present in authoring/draft but missing in all sealed-letter surfaces (preview, recipient, results, /live story-rate). Root cause: `seal_and_send_letter` builds `point_config` JSONB but the `imageUrl` key was simply absent from the `jsonb_build_object` call. Downstream, `letter-snapshot-mapper.ts` (`PointConfig` interface) and the preview-side `docStoryToSnapshot()` shim also lacked `imageUrl`, completing the silent drop.

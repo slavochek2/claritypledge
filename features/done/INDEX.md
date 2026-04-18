@@ -1,7 +1,7 @@
 # Done Features Index
 
 Quick reference for past completed work. Consult when starting work on a related topic.
-Last updated: 2026-04-18 (P751 Letter story images missing + card width mismatch)
+Last updated: 2026-04-18 (P753 Story image upload CORS — two independent configs)
 
 ---
 
@@ -198,6 +198,7 @@ Last updated: 2026-04-18 (P751 Letter story images missing + card width mismatch
 
 ## Infrastructure / Process
 
+- **P753** (Apr 18) Story Image Upload CORS — edge function CORS and GCS bucket CORS are independent configs; fixing one doesn't fix the other; dynamic per-request allowlist replaces static env var
 - **P666** (Apr 07) Testing Infrastructure Gaps Phase 1 — `assertNoAuthRedirect` needs `networkidle` not `domcontentloaded`; auth "race condition" was misdiagnosed (tests just predated P644 helpers)
 - **P650** (Apr 04) Ship/Fix Skill Flow — 3 bugs: verify merge via main's log (not feature branch), enforce git-mv-then-Edit ordering for 1-commit spec close, pre-checkout status guard
 - **P645** (Apr 04) Kanban Prunable Worktrees — `git worktree list --porcelain` includes prunable entries; skip blocks with `prunable` line or agent-* paths fall through to `name="main"` fallback
