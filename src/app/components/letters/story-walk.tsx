@@ -148,7 +148,7 @@ export function StoryWalk({ stories, perspective, senderProfile, receiverProfile
           defaultExpanded={true}
           defaultStoryExpanded={true}
           onPositionSelect={onPositionSelect}
-          className="w-full max-w-sm mx-auto"
+          className="w-full max-w-2xl mx-auto"
           badgePersonName={badgeProfile?.name}
           badgePersonAvatarUrl={badgeProfile?.avatarUrl}
           badgePersonAvatarColor={badgeProfile?.avatarColor}

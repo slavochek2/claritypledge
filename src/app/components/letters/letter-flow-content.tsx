@@ -184,12 +184,12 @@ export function LetterFlowContent({
         storyProgress={storyProgress}
       />
 
-      <div className="max-w-md mx-auto w-full space-y-6">
+      <div className="max-w-2xl mx-auto w-full space-y-6">
 
         {/* ── PHASE: point-engage ─────────────────────────────────────────── */}
         {currentPhase === 'point-engage' && currentPoint && (
           <>
-            <div className="w-full max-w-sm mx-auto">
+            <div className="w-full max-w-2xl mx-auto">
               <PointRow
                 point={{ ...currentPoint, userPosition: selectedPosition }}
                 authorName={senderName}
@@ -217,7 +217,7 @@ export function LetterFlowContent({
         {/* ── PHASE: point-revealed ───────────────────────────────────────── */}
         {currentPhase === 'point-revealed' && currentPoint && (
           <>
-            <div className="w-full max-w-sm mx-auto">
+            <div className="w-full max-w-2xl mx-auto">
               <PointRow
                 point={{ ...currentPoint, userPosition: (currentStory.positions[currentPoint.id] ?? null) as PositionType | null }}
                 authorName={senderName}
@@ -250,7 +250,7 @@ export function LetterFlowContent({
               story={storyWithPoints}
               hidePoints
               readOnly
-              className="w-full max-w-sm mx-auto"
+              className="w-full max-w-2xl mx-auto"
             />
             {authGateAtStoryRate ?? (
               <FixedBottomBar>
@@ -278,7 +278,7 @@ export function LetterFlowContent({
               displayPartnerName={senderName}
               checkerName={senderName}
               compact
-              className="w-full max-w-sm mx-auto"
+              className="w-full max-w-2xl mx-auto"
             />
             {gap !== null && (
               <GapBanner
@@ -292,7 +292,7 @@ export function LetterFlowContent({
               story={storyWithPoints}
               hidePoints
               readOnly
-              className="w-full max-w-sm mx-auto"
+              className="w-full max-w-2xl mx-auto"
             />
             {showAdvanceButton && (() => {
               const hasRemainingPoints = visiblePoints.length > 0;
@@ -314,7 +314,7 @@ export function LetterFlowContent({
         {/* ── PHASE: remaining-point-engage ───────────────────────────────── */}
         {currentPhase === 'remaining-point-engage' && currentPoint && (
           <>
-            <div className="w-full max-w-sm mx-auto">
+            <div className="w-full max-w-2xl mx-auto">
               <PointRow
                 point={{ ...currentPoint, userPosition: selectedPosition }}
                 authorName={senderName}
@@ -342,7 +342,7 @@ export function LetterFlowContent({
         {/* ── PHASE: remaining-point-revealed ─────────────────────────────── */}
         {currentPhase === 'remaining-point-revealed' && currentPoint && (
           <>
-            <div className="w-full max-w-sm mx-auto">
+            <div className="w-full max-w-2xl mx-auto">
               <PointRow
                 point={{ ...currentPoint, userPosition: (currentStory.positions[currentPoint.id] ?? null) as PositionType | null }}
                 authorName={senderName}

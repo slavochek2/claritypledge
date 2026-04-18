@@ -38,7 +38,7 @@ function docStoryToSnapshot(docStory: DocStory): LetterStorySnapshot {
     position: docStory.position,
     point_config: {
       storyText: docStory.story.content,
-      storyTitle: docStory.story.title ?? '',
+      imageUrl: docStory.story.imageUrl,
       points: docStory.story.points.map((p) => ({
         id: p.id,
         text: p.statement,
