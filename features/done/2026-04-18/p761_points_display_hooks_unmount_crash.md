@@ -1,14 +1,14 @@
 ---
-status: week
+status: all-done
 type: bug
 rank: 1000760.0
 severity: medium
 workstream: core
 date_reported: '2026-04-18'
 created_date: '2026-04-18'
+completed_at: '2026-04-18'
 tags: [hooks, unmount, async, regression]
-delivery_stage: create-bug
-pipeline_ran: [create-bug]
+pipeline_ran: [create-bug, ship]
 ---
 
 # P761: usePointsForProfile and usePointsForFeed crash on unmount — unguarded async state updates
