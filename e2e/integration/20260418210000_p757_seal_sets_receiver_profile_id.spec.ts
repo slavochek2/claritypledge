@@ -141,4 +141,42 @@ test.describe('P757: seal_and_send_letter sets receiver_profile_id', () => {
     );
     expect(found, `Letter ${letterIdForKnown} not found in inbox — receiver_profile_id likely NULL`).toBeDefined();
   });
+
+  test('scenario 4: case-mismatch email still resolves receiver_profile_id', async () => {
+    // Supabase auth normalizes emails to lowercase, but guards the lower() lookup against
+    // any residual case variation. Construct a mixed-case version of receiverEmail and verify
+    // the lookup still resolves to the correct profile.
+    const mixedCaseEmail = receiverEmail.replace(/^(\w)/, (c) => c.toUpperCase());
+
+    const { data: letter, error: letterError } = await supabaseAdmin
+      .from('clarity_letters')
+      .insert({ source_doc_id: docId, sender_id: senderUserId, mode: 'one-to-one' })
+      .select('id')
+      .single();
+    expect(letterError, `letter insert failed: ${letterError?.message}`).toBeNull();
+    const letterIdForCase = letter!.id;
+
+    try {
+      const { data, error } = await senderClient.rpc('seal_and_send_letter', {
+        p_letter_id: letterIdForCase,
+        p_predictions: [],
+        p_deliveries: [{ receiver_email: mixedCaseEmail, receiver_name: 'CasedReceiver' }],
+      });
+
+      expect(error, `seal_and_send_letter failed: ${error?.message}`).toBeNull();
+      expect(data).toBe(true);
+
+      const { data: delivery, error: deliveryError } = await supabaseAdmin
+        .from('letter_deliveries')
+        .select('receiver_profile_id')
+        .eq('letter_id', letterIdForCase)
+        .ilike('receiver_email', mixedCaseEmail)
+        .single();
+
+      expect(deliveryError, `delivery query failed: ${deliveryError?.message}`).toBeNull();
+      expect(delivery?.receiver_profile_id).toBe(receiverUserId);
+    } finally {
+      await supabaseAdmin.from('clarity_letters').delete().eq('id', letterIdForCase);
+    }
+  });
 });
