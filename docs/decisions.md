@@ -2,6 +2,20 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-18 [process]: /fix Phase 0.pre auto-create-bug is wrong for execution-ready plan files
+
+**Context:** `/fix` was called with `~/.claude/plans/streamed-bouncing-rabin.md` — a P752 retrospective plan with 4 concrete items to execute immediately. Phase 0.pre says "treat plan as architect context, extract title as bug description, auto-invoke /create-bug." This created P758 ("Process Improvements from P752 Retrospective") — a tracking card for work that was already done by the time the card existed. Had to be immediately deleted (2 wasted commits).
+
+**Decision:** Phase 0.pre's auto-/create-bug trigger is wrong when the plan IS the execution context. Skip it when all plan items are immediate actions (edit X, run Y, file Z). Only invoke /create-bug from a plan file when the plan describes a bug to investigate — not when it's a ready-to-run checklist. Plans in `~/.claude/plans/` are architect notes; they don't need a P-number wrapper.
+
+**Alternatives rejected:** Keep Phase 0.pre as-is — creates circular overhead (spec for "execute this spec" filed and deleted in the same session).
+
+**Consequences:** `/fix` SKILL.md Phase 0.pre needs an exception clause: "if all plan items are immediate actions, skip auto-/create-bug." Update before next `/fix` invocation on a plan file. P759 (pipeline stamp bug, item #3 of the same plan) was correct — it was a real tracked bug, not a wrapper for the plan itself.
+
+**References:** [fix.md](.claude/commands/slava/build/fix.md) Phase 0.pre
+
+---
+
 ## 2026-04-18 [technical]: Detect Supabase Realtime state changes via a REPLICA IDENTITY FULL table, not the one lacking it
 
 **Context:** P745 LetterLiveOverlay initially subscribed to `clarity_sessions` UPDATE events to detect session completion (`status: 'completed'`). `clarity_sessions` does not have `REPLICA IDENTITY FULL` — UPDATE realtime payloads from it carry only the primary key, not the changed column values. The completion signal was silently invisible.
