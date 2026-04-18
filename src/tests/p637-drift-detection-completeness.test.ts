@@ -117,8 +117,6 @@ const KNOWN_UNCOVERED: Record<string, string> = {
   livePositionsJoiner: 'P562 replacement for nested livePositions',
   sessionMode: 'Free mode switch — entire UI changes, critical to add',
   freePhase: 'Free mode phase transitions — no drift coverage at all',
-  freeSliderCreator: 'Live slider position — real-time, high drift risk',
-  freeSliderJoiner: 'Live slider position — real-time, high drift risk',
   freeRounds: 'Journey display — grows monotonically',
   freeRerating: 'Speaker re-rated belief — transient per round',
 };

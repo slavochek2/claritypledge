@@ -1315,8 +1315,12 @@ export function ClarityLivePage() {
         const livePositionsDrift = JSON.stringify(serverState.livePositions ?? {}) !== JSON.stringify(localState.livePositions ?? {});
         // P637: ratingInitiatedBy was missing — partner's mode switcher never disabled when Realtime dropped
         const ratingInitiatedByDrift = (serverState.ratingInitiatedBy ?? '') !== (localState.ratingInitiatedBy ?? '');
+        // P750: Free-mode slider positions were missing — missed Realtime slider events left partner dots stale indefinitely.
+        // Normalize with `?? 0` to align with the display semantics at line ~1578 (`current.freeSliderCreator ?? 0`) — avoids spurious drift events when server has explicit 0 and local is still undefined.
+        const freeSliderCreatorDrift = (serverState.freeSliderCreator ?? 0) !== (localState.freeSliderCreator ?? 0);
+        const freeSliderJoinerDrift = (serverState.freeSliderJoiner ?? 0) !== (localState.freeSliderJoiner ?? 0);
 
-        const serverHasUpdate = phaseDrift || checkerNameDrift || checkerDrift || checkerRatingDrift || responderDrift || responderRatingDrift || explainBackDoneDrift || checksCountDrift || clarificationPhaseDrift || roleSwitchNegotiationDrift || selectedStoryIdDrift || selectedStoryDataDrift || selectedContentTitleDrift || celebrationAcknowledgedByDrift || livePositionsDrift || ratingInitiatedByDrift;
+        const serverHasUpdate = phaseDrift || checkerNameDrift || checkerDrift || checkerRatingDrift || responderDrift || responderRatingDrift || explainBackDoneDrift || checksCountDrift || clarificationPhaseDrift || roleSwitchNegotiationDrift || selectedStoryIdDrift || selectedStoryDataDrift || selectedContentTitleDrift || celebrationAcknowledgedByDrift || livePositionsDrift || ratingInitiatedByDrift || freeSliderCreatorDrift || freeSliderJoinerDrift;
 
         if (import.meta.env.DEV) {
           console.log(`[Drift Poll] server.ratingInitiatedBy=${serverState.ratingInitiatedBy}, local.ratingInitiatedBy=${localState.ratingInitiatedBy}, drift=${ratingInitiatedByDrift}, serverHasUpdate=${serverHasUpdate}`);
@@ -1335,6 +1339,8 @@ export function ClarityLivePage() {
               explainBackDoneDrift,
               livePositionsDrift,
               ratingInitiatedByDrift,
+              freeSliderCreatorDrift,
+              freeSliderJoinerDrift,
             });
           } catch (err) {
             // Analytics failure shouldn't break the app, but log for visibility
