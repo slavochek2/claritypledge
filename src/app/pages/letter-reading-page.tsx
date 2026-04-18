@@ -34,7 +34,11 @@ import {
   updateDeliveryStatus,
   updateDeliveryStatusByToken,
   submitLetterResponseAuthenticated,
+  saveLetterPauseState,
 } from '@/app/data/letters-service';
+import { useOpenLiveInvite } from '@/app/hooks/useOpenLiveInvite';
+import { LetterLiveBanner } from '@/app/components/letters/letter-live-banner';
+import { LetterLiveOverlay } from '@/app/components/letters/letter-live-overlay';
 import { analytics } from '@/lib/mixpanel';
 import type { ClarityLetter, LetterStorySnapshot, LetterDelivery, PositionType } from '@/app/types';
 import { pointsService } from '@/app/data/points-service';
@@ -964,6 +968,9 @@ function LetterReadingFlow({
   onComplete: () => void;
 }) {
   const navigate = useNavigate();
+  const { invite } = useOpenLiveInvite();
+  const [liveSessionCode, setLiveSessionCode] = useState<string | null>(null);
+  const [dismissedSessionId, setDismissedSessionId] = useState<string | null>(null);
   // Pass the invitation token if present — the hook routes to the token-based RPC
   // (SECURITY DEFINER, no expiry check since P683) when available, falling back to
   // the authed RLS path when not. P714's token-drop assumption was wrong: invitation_token
@@ -1010,6 +1017,26 @@ function LetterReadingFlow({
     navigate(recoveryUrl, { replace: true });
   }, [tokenExpired, letter.id, senderName, navigate]);
 
+  // P745: live invite handlers — must be declared before early return
+  const handleJoin = useCallback(async () => {
+    if (!invite) return;
+    const storyIndex = state.currentStoryIndex;
+    if (invite.deliveryId) {
+      await saveLetterPauseState(invite.deliveryId, storyIndex).catch(() => {});
+    }
+    setLiveSessionCode(invite.code);
+  }, [invite, state.currentStoryIndex]);
+
+  const handleLater = useCallback(() => {
+    if (!invite) return;
+    setDismissedSessionId(invite.sessionId);
+  }, [invite]);
+
+  const handleOverlayComplete = useCallback(() => {
+    setLiveSessionCode(null);
+    toast.success('Welcome back — continuing your letter');
+  }, []);
+
   if (tokenExpired) return null;
 
   // P676: Build profileOwner for LetterFlowContent — sender data from letter record
@@ -1044,18 +1071,31 @@ function LetterReadingFlow({
     });
   };
 
+  const showBanner = invite
+    && invite.closedAt === null
+    && liveSessionCode === null
+    && invite.sessionId !== dismissedSessionId;
+
   return (
-    <LetterFlowContent
-      snapshots={snapshots}
-      senderName={senderName}
-      senderProfileOwner={senderProfileOwner}
-      readingState={readingState}
-      showFocusHeader={true}
-      authGateAtStoryRate={authGateNode}
-      renderCompletion={() => null}
-      onStoryRated={onStoryRated}
-      onLivePositionChange={handleLivePositionChange}
-    />
+    <>
+      {liveSessionCode && (
+        <LetterLiveOverlay sessionCode={liveSessionCode} onComplete={handleOverlayComplete} />
+      )}
+      {showBanner && (
+        <LetterLiveBanner invite={invite} onJoin={handleJoin} onLater={handleLater} />
+      )}
+      <LetterFlowContent
+        snapshots={snapshots}
+        senderName={senderName}
+        senderProfileOwner={senderProfileOwner}
+        readingState={readingState}
+        showFocusHeader={true}
+        authGateAtStoryRate={authGateNode}
+        renderCompletion={() => null}
+        onStoryRated={onStoryRated}
+        onLivePositionChange={handleLivePositionChange}
+      />
+    </>
   );
 }
 

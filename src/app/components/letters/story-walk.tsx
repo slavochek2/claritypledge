@@ -39,13 +39,15 @@ interface StoryWalkProps {
   senderId?: string;
   /** P703: Receiver profile id — target for the live invite */
   receiverId?: string | null;
+  /** P745: Delivery id — enables mid-letter "Start Clarity Live now" mode */
+  deliveryId?: string;
 }
 
 // ============================================================================
 // COMPONENT
 // ============================================================================
 
-export function StoryWalk({ stories, perspective, senderProfile, receiverProfile, senderName, receiverName, onPositionSelect, senderId, receiverId }: StoryWalkProps) {
+export function StoryWalk({ stories, perspective, senderProfile, receiverProfile, senderName, receiverName, onPositionSelect, senderId, receiverId, deliveryId }: StoryWalkProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const counterRef = useRef<HTMLParagraphElement>(null);
 
@@ -165,7 +167,7 @@ export function StoryWalk({ stories, perspective, senderProfile, receiverProfile
           ) : undefined}
         />
 
-        {/* P703: Start a clarity session — letter author only */}
+        {/* P703/P745: Start a clarity session — letter author only */}
         {perspective === 'sender' && senderId && receiverId && (
           <StartClaritySessionButton
             senderId={senderId}
@@ -173,6 +175,7 @@ export function StoryWalk({ stories, perspective, senderProfile, receiverProfile
             letterId={current.snapshot.letter_id}
             storyId={current.snapshot.story_id}
             senderName={senderName}
+            deliveryId={deliveryId}
           />
         )}
       </div>

@@ -22,6 +22,7 @@ interface StartClaritySessionButtonProps {
   letterId: string;
   storyId: string;
   senderName: string;
+  deliveryId?: string;
 }
 
 export function StartClaritySessionButton({
@@ -30,7 +31,9 @@ export function StartClaritySessionButton({
   letterId,
   storyId,
   senderName,
+  deliveryId,
 }: StartClaritySessionButtonProps) {
+  const midLetterMode = !!deliveryId;
   const navigate = useNavigate();
   const { activeSessionCode, clearActiveSession } = useLiveSession();
   const [openInvite, setOpenInvite] = useState<OpenInviteDetails | null>(null);
@@ -176,11 +179,12 @@ export function StartClaritySessionButton({
       <Button
         onClick={() => void handleStart()}
         disabled={creating}
+        title={midLetterMode && openInvite ? 'Invite already pending' : undefined}
         className="bg-blue-500 hover:bg-blue-600 text-white min-h-[44px] gap-2"
         data-testid="start-clarity-session-btn"
       >
         <Video className="w-4 h-4" />
-        Start a clarity session
+        {midLetterMode ? 'Start Clarity Live now' : 'Start a clarity session'}
       </Button>
     </div>
   );
