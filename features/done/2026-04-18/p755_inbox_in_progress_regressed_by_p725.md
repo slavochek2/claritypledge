@@ -2,10 +2,10 @@
 id: P755
 title: Inbox sender view loses in-progress state and progress fields after P725 migration
 type: bug
-status: in-progress
-delivery_stage: fix
+status: all-done
+completed_at: 2026-04-18
 pipeline_plan: [fix]
-pipeline_ran: [fix]
+pipeline_ran: [fix, ship]
 tags: [letters, inbox, rpc, regression]
 rank: 1
 created_date: 2026-04-18
