@@ -26,6 +26,7 @@ INGURO_EXTRA='[a-zA-Z0-9._-]+@inguro\.com'
 INGURO_ALLOW='slava@inguro\.com'
 
 MODE="${1:-}"
+MSGS=""  # commit messages for range mode (scanned separately, no allowlist)
 case "$MODE" in
   --staged)
     DIFF=$(git diff --cached -- . ':(exclude)package-lock.json' ':(exclude)*.lock' 2>/dev/null)
@@ -54,70 +55,94 @@ case "$MODE" in
         }
     }
     DIFF=$(git log -p "$MODE" -- . ':(exclude)package-lock.json' ':(exclude)*.lock' 2>/dev/null)
+    # Commit messages are not prefixed with + in git log -p output — scan them separately
+    MSGS=$(git log --format='%B' "$MODE" 2>/dev/null | tr -d '\r')
     ;;
 esac
 
-# Strip CR (defends against CRLF files bypassing ^\+ match)
+# Strip CR (defends against CRLF files bypassing ^[+] match)
 DIFF=$(printf '%s' "$DIFF" | tr -d '\r')
 
-# For --msg mode: the whole file is the target, no `^\+` filter
+# For --msg mode: the whole file is the target, no ^[+] filter
 if [ "$MODE" = "--msg" ]; then
   ADDED="$DIFF"
 else
   ADDED=$(printf '%s\n' "$DIFF" | grep -E '^[+]' | grep -v '^+++' || true)
 fi
 
-# Apply allowlist: drop lines whose source file matches any allowlisted substring
+# Apply allowlist: drop lines whose source file matches any allowlisted path.
+# Security: a real `+++ b/<path>` header is ALWAYS preceded by a `--- ` line in unified diff.
+# We track the previous line type to reject content lines that start with `+++ b/`
+# (which would otherwise be parsed as a fake header, granting allowlist to lines below).
 if [ -f "$ALLOWLIST" ] && [ -s "$ALLOWLIST" ] && [ "$MODE" != "--msg" ]; then
   FILTERED=""
   CURRENT_FILE=""
   SKIP=0
+  PREV_KIND=""  # "dash" after seeing "--- " line; anything else resets
   while IFS= read -r line; do
     case "$line" in
+      '--- '*)
+        PREV_KIND="dash"
+        ;;
       '+++ b/'*)
-        CURRENT_FILE="${line#+++ b/}"
-        SKIP=0
-        while IFS= read -r allowed_path; do
-          [ -z "$allowed_path" ] && continue
-          case "$allowed_path" in '#'*) continue ;; esac
-          case "$CURRENT_FILE" in
-            *"$allowed_path"*) SKIP=1; break ;;
-          esac
-        done < "$ALLOWLIST"
+        if [ "$PREV_KIND" = "dash" ]; then
+          # Real file header — update current file and allowlist check
+          CURRENT_FILE="${line#+++ b/}"
+          SKIP=0
+          while IFS= read -r allowed_path; do
+            [ -z "$allowed_path" ] && continue
+            case "$allowed_path" in '#'*) continue ;; esac
+            # Exact file match OR directory prefix (not substring — prevents .sh.bak bypass)
+            case "$CURRENT_FILE" in
+              "$allowed_path"|"$allowed_path"/*) SKIP=1; break ;;
+            esac
+          done < "$ALLOWLIST"
+          PREV_KIND=""
+        else
+          # Content line that starts with `+++ b/` — treat as added content, not a header
+          [ "$SKIP" != "1" ] && FILTERED="${FILTERED}${line}"$'\n'
+          PREV_KIND=""
+        fi
         ;;
       '+'*)
-        if [ "$SKIP" != "1" ]; then
-          FILTERED="${FILTERED}${line}
-"
-        fi
+        [ "$SKIP" != "1" ] && FILTERED="${FILTERED}${line}"$'\n'
+        PREV_KIND=""
+        ;;
+      *)
+        PREV_KIND=""
         ;;
     esac
   done < <(printf '%s\n' "$DIFF")
   ADDED="$FILTERED"
 fi
 
-# Run all hard patterns. Collect hits.
-HITS=""
-while IFS= read -r pat; do
-  [ -z "$pat" ] && continue
-  MATCH=$(printf '%s\n' "$ADDED" | grep -iE "$pat" || true)
-  [ -n "$MATCH" ] && HITS="${HITS}${MATCH}
-"
-done <<< "$HARD_PATTERNS"
+# Scan helper: run all hard patterns against a string, collect hits
+scan_content() {
+  local content="$1"
+  local local_hits=""
+  while IFS= read -r pat; do
+    [ -z "$pat" ] && continue
+    MATCH=$(printf '%s\n' "$content" | grep -iE "$pat" || true)
+    [ -n "$MATCH" ] && local_hits="${local_hits}${MATCH}"$'\n'
+  done <<< "$HARD_PATTERNS"
+  KAKA=$(printf '%s\n' "$content" | grep -iF 'Kaka Mukaka' || true)
+  [ -n "$KAKA" ] && local_hits="${local_hits}${KAKA}"$'\n'
+  INGURO_ALL=$(printf '%s\n' "$content" | grep -iE "$INGURO_EXTRA" || true)
+  INGURO_HITS=$(printf '%s\n' "$INGURO_ALL" | grep -ivE "$INGURO_ALLOW" || true)
+  [ -n "$INGURO_HITS" ] && local_hits="${local_hits}${INGURO_HITS}"$'\n'
+  printf '%s' "$local_hits"
+}
 
-# Literal-phrase patterns (separated because they contain spaces)
-KAKA=$(printf '%s\n' "$ADDED" | grep -iF 'Kaka Mukaka' || true)
-[ -n "$KAKA" ] && HITS="${HITS}${KAKA}
-"
+HITS=$(scan_content "$ADDED")
 
-# @inguro.com: find all, filter out allowed
-INGURO_ALL=$(printf '%s\n' "$ADDED" | grep -iE "$INGURO_EXTRA" || true)
-INGURO_HITS=$(printf '%s\n' "$INGURO_ALL" | grep -ivE "$INGURO_ALLOW" || true)
-[ -n "$INGURO_HITS" ] && HITS="${HITS}${INGURO_HITS}
-"
+# Also scan commit messages for range mode (no allowlist — messages have no file path)
+if [ -n "$MSGS" ]; then
+  MSG_HITS=$(scan_content "$MSGS")
+  [ -n "$MSG_HITS" ] && HITS="${HITS}${MSG_HITS}"
+fi
 
 if [ -n "$HITS" ]; then
-  echo "$HITS" | head -20
+  printf '%s\n' "$HITS" | head -20
   exit 1
 fi
 

@@ -38,7 +38,84 @@ assert_allows() {
   rm -f "$tmpfile"
 }
 
-echo "=== Hard blocks ==="
+# Run audit script in range mode inside a throwaway git repo
+# Usage: assert_range_blocks <label> <commit-msg> <file-path> <file-content>
+# Creates a repo, commits a file, runs audit on HEAD~1..HEAD
+TMPDIR_REPO=""
+
+setup_tmp_repo() {
+  TMPDIR_REPO=$(mktemp -d)
+  git -C "$TMPDIR_REPO" init -q
+  git -C "$TMPDIR_REPO" config user.email "test@example.com"
+  git -C "$TMPDIR_REPO" config user.name "Test"
+  # Initial empty commit so we can use HEAD~1..HEAD
+  git -C "$TMPDIR_REPO" commit -q --allow-empty -m "init"
+}
+
+teardown_tmp_repo() {
+  rm -rf "$TMPDIR_REPO"
+  TMPDIR_REPO=""
+}
+
+assert_range_blocks() {
+  local label="$1"
+  local commit_msg="$2"
+  local file_path="$3"
+  local file_content="$4"
+  local allowlist_content="${5:-}"
+
+  setup_tmp_repo
+  # Copy audit script into the tmp repo so it can find itself
+  cp "$AUDIT" "$TMPDIR_REPO/audit-privacy.sh"
+  chmod +x "$TMPDIR_REPO/audit-privacy.sh"
+  if [ -n "$allowlist_content" ]; then
+    printf '%s\n' "$allowlist_content" > "$TMPDIR_REPO/.privacy-allowlist"
+  fi
+  mkdir -p "$TMPDIR_REPO/$(dirname "$file_path")"
+  printf '%s\n' "$file_content" > "$TMPDIR_REPO/$file_path"
+  git -C "$TMPDIR_REPO" add "$file_path" 2>/dev/null
+  git -C "$TMPDIR_REPO" commit -q --allow-empty -m "$commit_msg"
+
+  # Run audit from inside the tmp repo
+  if (cd "$TMPDIR_REPO" && bash audit-privacy.sh "HEAD~1..HEAD" >/dev/null 2>&1); then
+    echo "  ✗ $label — expected block, got pass"
+    FAIL=$((FAIL+1))
+  else
+    echo "  ✓ $label — blocked"
+    PASS=$((PASS+1))
+  fi
+  teardown_tmp_repo
+}
+
+assert_range_allows() {
+  local label="$1"
+  local commit_msg="$2"
+  local file_path="$3"
+  local file_content="$4"
+  local allowlist_content="${5:-}"
+
+  setup_tmp_repo
+  cp "$AUDIT" "$TMPDIR_REPO/audit-privacy.sh"
+  chmod +x "$TMPDIR_REPO/audit-privacy.sh"
+  if [ -n "$allowlist_content" ]; then
+    printf '%s\n' "$allowlist_content" > "$TMPDIR_REPO/.privacy-allowlist"
+  fi
+  mkdir -p "$TMPDIR_REPO/$(dirname "$file_path")"
+  printf '%s\n' "$file_content" > "$TMPDIR_REPO/$file_path"
+  git -C "$TMPDIR_REPO" add "$file_path" 2>/dev/null
+  git -C "$TMPDIR_REPO" commit -q --allow-empty -m "$commit_msg"
+
+  if (cd "$TMPDIR_REPO" && bash audit-privacy.sh "HEAD~1..HEAD" >/dev/null 2>&1); then
+    echo "  ✓ $label — allowed"
+    PASS=$((PASS+1))
+  else
+    echo "  ✗ $label — expected pass, got block"
+    FAIL=$((FAIL+1))
+  fi
+  teardown_tmp_repo
+}
+
+echo "=== Hard blocks (--msg mode) ==="
 assert_blocks "bare googlemail" "see slavochek@googlemail.com"
 assert_blocks "alias +98723" "fixture: slavochek+98723@googlemail.com"
 assert_blocks "slavochek246 username" "recipient slavochek246 logged in"
@@ -47,12 +124,38 @@ assert_blocks "absolute path" "see /Users/slavochek/Projects/foo"
 assert_blocks "@inguro extra" "contact bob@inguro.com"
 
 echo ""
-echo "=== Safe allows ==="
+echo "=== Safe allows (--msg mode) ==="
 assert_allows "github URL" "repo at github.com/slavochek2/claritypledge"
 assert_allows "slava@inguro.com allowed" "mail slava@inguro.com"
 assert_allows "synthetic fixture" "receiver: test-recipient@example.com"
 assert_allows "slavochek2 bounded (not 246)" "github.com/slavochek2/foo"
 assert_allows "empty" ""
+
+echo ""
+echo "=== Range mode: file content ==="
+assert_range_blocks "range: PII in file content" \
+  "add file" "docs/notes.md" "contact slavochek@googlemail.com"
+
+assert_range_blocks "range: commit message PII" \
+  "fix slavochek246 login bug" "docs/notes.md" "safe content"
+
+assert_range_allows "range: safe file + safe message" \
+  "add doc" "docs/notes.md" "safe content here"
+
+echo ""
+echo "=== Allowlist: correct behavior ==="
+assert_range_allows "allowlist: exact file match allows PII" \
+  "add script" "scripts/audit-privacy.sh" "pattern: slavochek@googlemail.com" \
+  "scripts/audit-privacy.sh"
+
+assert_range_blocks "allowlist: sibling .bak is NOT allowed" \
+  "add backup" "scripts/audit-privacy.sh.bak" "pattern: slavochek@googlemail.com" \
+  "scripts/audit-privacy.sh"
+
+assert_range_blocks "allowlist: content injection attack blocked" \
+  "add poison" "docs/poison.md" "+++ b/scripts/audit-privacy.sh
+slavochek@googlemail.com" \
+  "scripts/audit-privacy.sh"
 
 echo ""
 echo "=== Summary ==="
