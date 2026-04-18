@@ -2,6 +2,16 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-18 [process]: Worktree `git status` dirty-state is a false alarm for symlinked dirs
+
+**Context:** `/ship` Gate 2 checks for a dirty worktree before cherry-picking. W3's `git status --short` showed 150+ ` D` entries for `scripts/` and `supabase/migrations/` — both are symlinks to the main repo. Git sees the tracked files as "missing" (replaced by a directory symlink) and reports them as deleted in the working tree. No actual uncommitted work was present.
+
+**Decision:** When Gate 2 fires on a worktree and ALL dirty entries are ` D` (unstaged deletions) for `scripts/` or `supabase/migrations/`, treat it as a symlink artifact — not real uncommitted work. The cherry-pick only replays committed changes; symlink-artifact deletions never travel. Safe to proceed after confirming the dirty entries are exclusively from these two symlinked dirs and no actual `.ts`/`.tsx`/`.md` modifications exist.
+
+**Alternatives rejected:** Blocking the ship on symlink artifacts — prevents shipping clean fixes from worktrees without any real risk mitigation.
+
+**Consequences:** `/ship` Gate 2 should distinguish symlink-artifact dirty state from real uncommitted work. Manual workaround: scan the dirty list for `.ts`/`.tsx`/`.md` files — if only `scripts/` and `supabase/migrations/` ` D` entries remain, it's safe.
+
 ## 2026-04-18 [process]: Grep siblings before finalizing any hook fix plan
 
 **Context:** The P760 fix plan for `useUnreadLetterCount` was written without grepping for the same pattern in sibling hooks. Opus 4.7 critique found `usePointsForDisplay.ts` (lines 62, 126) and `useLetterReadingState.ts` (lines 451, 517) have the identical `finally { setLoading(false) }` unguarded pattern — discoverable in 15 seconds with `grep -rn "finally" src/app/hooks/`. Without the grep, P760 would close while three more hooks remained broken.
