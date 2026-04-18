@@ -155,6 +155,26 @@ Five tables for async comprehension assessment via letters.
 
 **`letter_deliveries` insertion contract:** `WITH CHECK (false)` on all INSERT paths — no direct client insert ever succeeds. Two SECURITY DEFINER paths: (1) `confirm-letter-response` edge function (anon→signup flow), (2) `create_letter_delivery` PostgreSQL function (already-authenticated one-to-many path, P707). Never add a permissive INSERT policy — all new insertion paths must be SECURITY DEFINER.
 
+**`get_inbox_items()` RPC — return shape contract** (SECURITY DEFINER, returns JSONB array, authoritative as of P755):
+
+| Field | Branch 1 (`received`) | Branch 2 (sender view) |
+|---|---|---|
+| `type` | `'received'` | `'recipient_in_progress'` / `'link_respondent_in_progress'` / `'recipient_responded'` / `'link_respondent'` |
+| `delivery_id` | uuid | uuid |
+| `letter_id` | uuid | uuid |
+| `title` | string | string |
+| `actor_name` | string (sender name) | string (receiver name) |
+| `actor_slug` | string (sender slug) | string or null (null for link respondents) |
+| `timestamp` | `created_at` | `COALESCE(completed_at, created_at)` |
+| `read_at` | timestamptz or null | timestamptz or null |
+| `completed_at` | timestamptz or null | timestamptz or null |
+| `stories_rated` | integer | — |
+| `total_stories` | integer | — |
+| `steps_completed` | integer | integer |
+| `total_steps` | integer | integer |
+
+Branch 2 WHERE: `cl.sender_id = v_user_id AND (ld.completed_at IS NOT NULL OR ld.status = 'in_progress') AND receiver_profile_id != v_user_id`. LIMIT 20, ORDER BY `(item->>'timestamp')::timestamptz DESC`. **When replacing this RPC, diff every field against this table — P725 silently dropped 5 fields by omission. See decisions.md 2026-04-18.**
+
 **RPCs:** `get_letter_by_token`, `seal_and_send_letter` (atomic seal + content denormalization + public story filter), `reveal_prediction`, `persist_anonymous_completion`, `get_letter_for_reading` (anon-safe, token-validated), `claim_letter_delivery` (sets receiver_profile_id), `submit_point_response_by_token`, `submit_rating_by_token`, `reveal_prediction_by_token`, `update_delivery_status_by_token`.
 
 **Anonymous engagement:** Token-based RPCs bypass RLS for anonymous recipients. Positions work anonymously; rating requires authentication (`story_verifications.listener_id` FK to profiles). `seal_and_send_letter` denormalizes `story_versions.content` + `story_points` + `point_positions` into `letter_story_snapshots.point_config` JSONB at seal time.

@@ -2,6 +2,20 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-18 [technical]: CREATE OR REPLACE on existing RPCs must diff against prior version
+
+**Context:** P725 added `actor_slug` to `get_inbox_items()` via `CREATE OR REPLACE` and stated the change was "purely additive." It silently dropped `steps_completed`, `total_steps`, `completed_at`, the two `in_progress` CASE arms, and the in-progress WHERE gate from the P699 version. The regression was caught the next day (P755).
+
+**Decision:** Any migration that uses `CREATE OR REPLACE` on an existing multi-field RPC must include a diff comment in the header listing: (1) what is kept, (2) what is added, (3) what is intentionally removed. "Purely additive" claims require reading both versions side-by-side before writing the header. The authoritative prior version is the most recent migration that defines the function — find it with `grep -r "CREATE.*FUNCTION get_rpc_name" supabase/migrations/`.
+
+**Alternatives rejected:** Relying on tests to catch silent drops — the inbox RPC had no field-coverage test until P699's canary, which P725 also disabled by changing the WHERE gate. Relying on code review — `CREATE OR REPLACE` with a different body reads as "same function" at a glance; only a field-by-field diff reveals drops.
+
+**Consequences:** Future `CREATE OR REPLACE` migrations on multi-field RPCs must include a diff summary comment. `e2e/integration/p699-sender-inbox-in-progress.spec.ts` and `e2e/integration/p755-db-schema.spec.ts` now guard `get_inbox_items` against future silent drops. See `get_inbox_items` return shape in `docs/technical/database.md`.
+
+**References:** [20260417100000_p725_inbox_actor_slug.sql](supabase/migrations/20260417100000_p725_inbox_actor_slug.sql), [20260418200000_p755_restore_inbox_in_progress_rpc.sql](supabase/migrations/20260418200000_p755_restore_inbox_in_progress_rpc.sql)
+
+---
+
 ## 2026-04-18 [technical]: ClarityLivePage exit points must check `returnTo` before defaulting to `/live`
 
 **Context:** P754 follow-up UAT revealed that Cancel from the waiting room navigated to `/live` instead of `/letters?tab=inbox` where the user originated. `returnTo` was already read at `clarity-live-page.tsx:276` and used in the session-end path (`~line 3364`). The cancel-waiting path didn't use it — a missed wiring, not a missing mechanism.
