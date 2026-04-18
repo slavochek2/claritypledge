@@ -7,8 +7,8 @@ workstream: C1
 date_reported: '2026-04-18'
 created_date: '2026-04-18'
 tags: [letter-flow, story-images, seal-rpc, snapshot]
-delivery_stage: fix
-pipeline_ran: [create-bug, fix]
+delivery_stage: ship
+pipeline_ran: [create-bug, fix, ship]
 ---
 
 # P751: Letter story images missing + card width too narrow in letter/results flow
