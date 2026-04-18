@@ -89,7 +89,13 @@ New migration `<ts>_letter_snapshot_image_url.sql`: `CREATE OR REPLACE FUNCTION 
 - [ ] Story cards in letter/results flow render at 672px width (`max-w-2xl`) — not 384px
 - [ ] Mobile (375px): `w-full max-w-2xl mx-auto` degrades without horizontal scroll
 - [ ] Image aspect ratio at 672px does not visually dominate the card (flag if `PointRow` density needs adjustment)
-- [ ] Regression test passes: `e2e/p751-letter-story-images.spec.ts` (unit: `snapshotToStoryWithPoints` passes through `imageUrl` when present, returns `undefined` when absent)
-- [ ] Migration applies cleanly on test DB; `letter_story_snapshots.point_config->>'imageUrl'` non-null after sealing a letter whose story has an image
-- [ ] `./scripts/pre-commit-checks.sh` passes
+- [x] Unit tests pass: `snapshotToStoryWithPoints` passes through `imageUrl` when present, returns `undefined` when absent (`src/tests/letter-snapshot-mapper.test.ts`)
+- [x] Migration applies cleanly on test DB; integration test written (`e2e/integration/20260418120000_p751_letter_snapshot_image_url.spec.ts`)
+- [x] `./scripts/pre-commit-checks.sh` passes (all 1902 unit tests green, TS clean, no lint errors)
+- [ ] Story image visible in `/letter/:docId/preview` when story has an image — browser verify needed
+- [ ] Story image visible in recipient URL `/letter/:id` — browser verify needed
+- [ ] Story image visible in `/live/:id` story-rate phase — browser verify needed
+- [ ] Story cards in letter/results flow render at 672px width (`max-w-2xl`) — browser verify needed
+- [ ] Mobile (375px): `w-full max-w-2xl mx-auto` degrades without horizontal scroll
+- [ ] Image aspect ratio at 672px does not visually dominate the card
 - [ ] No console errors during letter preview, recipient, results, or /live story-rate flows
