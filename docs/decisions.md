@@ -2,6 +2,32 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-18 [process]: No QA-phase bypass for canary-first rule in /fix
+
+**Context:** P753 Layer 2 fix introduced a new `buildCorsHeaders` function with regex branching logic. The agent skipped Phase 2 (failing canary test) citing "QA-phase fix" designation. MEMORY.md already records `feedback_canary_test_first`. This was the second recorded skip.
+
+**Decision:** There is no QA-phase fix bypass for canary-first. If a fix is worth writing, it is worth a failing test first. The feature spec's `status` field (backlog/in-progress/qa) does not gate Phase 2 of /fix. No line-count threshold, no "new function" carve-out — the bypass category does not exist.
+
+**Alternatives rejected:** Adding a complexity threshold (>5 lines, new function) — thresholds invite gaming ("this is 4 lines, no canary needed"). Adding a label-based bypass vocabulary makes the rule weaker, not stronger.
+
+**Consequences:** Any invocation of /fix that skips Phase 2 is a protocol violation regardless of how the spec is labeled. The only valid skip is user-explicit override ("skip reproduce") for single-expression typo fixes.
+
+---
+
+## 2026-04-18 [process]: Generated manifests are end-state — resolve cherry-pick conflicts via checkout, not merge resolution
+
+**Context:** During P753 ship, cherry-picking feature branch commits onto main conflicted on `supabase/deploy-manifest.json` because intermediate stamp commits (60eebc71, bf077fe8) were included in the cherry-pick set alongside the code commits.
+
+**Decision:** Generated manifests (e.g., `supabase/deploy-manifest.json`) represent computed end-state, not logical diffs. When cherry-picking a feature branch into main and manifest conflicts appear, take the feature branch's final file state directly: `git checkout feature/pN -- supabase/deploy-manifest.json`. Do not attempt to resolve intermediate stamp commits one-by-one — they conflict by construction when main has received other stamps since the branch was cut.
+
+**Alternatives rejected:** Including intermediate stamp commits in the cherry-pick set — they conflict predictably. Manually resolving each conflict — wastes time; the correct end-state is always "whichever branch's stamp came last."
+
+**Consequences:** Cherry-pick only meaningful code commits. If the feature branch has a final correct manifest stamp, take it wholesale. If main's manifest is newer (other features shipped after branch cut), re-run `stamp-deploy-manifest.sh` after cherry-pick completes.
+
+**References:** [deploy-manifest.json](supabase/deploy-manifest.json), [stamp-deploy-manifest.sh](scripts/stamp-deploy-manifest.sh)
+
+---
+
 ## 2026-04-18 [process]: /ship defaults to cherry-pick; git merge --no-ff retired
 
 **Context:** During P753 ship, `git merge feature/p753 --no-ff` failed because main had staged in-progress P745 changes. `merge.autoStash=false` also failed ("local changes would be overwritten"). The workaround was cherry-picking 3 commits individually and taking the manifest directly via `git checkout branch -- file`.
