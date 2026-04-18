@@ -7,8 +7,8 @@ workstream: Live
 date_reported: '2026-04-18'
 created_date: '2026-04-18'
 tags: [live, audio-upload, p566, progress-ui]
-delivery_stage: reproduce
-pipeline_ran: [create-bug, reproduce]
+delivery_stage: ship
+pipeline_ran: [create-bug, reproduce, fix, ship]
 flow: fix
 reproduce_artifact:
   test_file: src/tests/p752-reproduce.test.tsx
