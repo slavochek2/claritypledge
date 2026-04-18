@@ -2,6 +2,20 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-18 [technical]: P751 — seal_and_send_letter is a three-layer write contract (RPC + mapper + preview shim)
+
+**Context:** P751 found that story images were present in authoring/draft but missing in all sealed-letter surfaces (preview, recipient, results, /live story-rate). Root cause: `seal_and_send_letter` builds `point_config` JSONB but the `imageUrl` key was simply absent from the `jsonb_build_object` call. Downstream, `letter-snapshot-mapper.ts` (`PointConfig` interface) and the preview-side `docStoryToSnapshot()` shim also lacked `imageUrl`, completing the silent drop.
+
+**Decision:** Any field on `stories` that must appear in the letter flow requires THREE coordinated changes: (1) `seal_and_send_letter` migration — add to `jsonb_build_object`; (2) `letter-snapshot-mapper.ts` — add to `PointConfig` interface + mapper return object; (3) `letter-preview-page.tsx` `docStoryToSnapshot()` shim — mirror the same field for draft preview. The RPC, the mapper, and the shim must stay in sync. The `StoryWithPoints` type already has the field; the gap is always in the pipeline that populates it.
+
+**Alternatives rejected:** Fetching story data at render time instead of reading from sealed snapshot — violates the sealed=frozen contract; the snapshot must be the single source of truth for what was sealed.
+
+**Consequences:** Checklist for any new story field entering the letter flow: (a) add to `seal_and_send_letter` `jsonb_build_object`, (b) add to `PointConfig` + mapper output, (c) add to `docStoryToSnapshot()`. A backfill migration may be needed for pre-existing sealed letters (`scripts/archive/migrations/20260418-backfill-letter-snapshot-image-url.sql` — gated on founder confirmation because it uses current `stories.image_url` which may differ from the sealed-time value).
+
+**References:** `supabase/migrations/20260418120000_p751_letter_snapshot_image_url.sql`, `src/app/utils/letter-snapshot-mapper.ts`, `src/app/pages/letter-preview-page.tsx`
+
+---
+
 ## 2026-04-18 [technical]: Partner-key coverage has two independent surfaces — in-flight merge AND drift-poll
 
 **Context:** P750 (commit `64f9d63a`) fixed the exact same bug shape as P490 (Mar 12): a UI-affecting field landed on `live_state` but was not added to the drift-poll comparator in `clarity-live-page.tsx`, so when Supabase Realtime dropped an update the 1s fallback never caught the drift and local state stayed stale indefinitely. P490 was `livePositions`; P750 was `freeSliderCreator`/`freeSliderJoiner`. Between the two, P741 (`mergeInFlight` + `PARTNER_OWNED_KEYS` extraction, 2026-04-17) fixed the Realtime-handler path for the same fields — yet the drift-poll path was untouched because the two surfaces are literally separate code blocks. A field in `PARTNER_OWNED_KEYS` does not imply drift-poll coverage. The `p637-drift-detection-completeness.test.ts` guard exists (since P644) but has a `KNOWN_UNCOVERED` escape hatch: `freeSliderCreator`/`freeSliderJoiner` were parked there with the comment *"Live slider position — real-time, high drift risk"* — a self-documenting bug that the test accepted.

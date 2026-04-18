@@ -1,7 +1,7 @@
 # Done Features Index
 
 Quick reference for past completed work. Consult when starting work on a related topic.
-Last updated: 2026-04-18 (P750 Partner Slider Drift-Poll Coverage Gap)
+Last updated: 2026-04-18 (P751 Letter story images missing + card width mismatch)
 
 ---
 
@@ -96,6 +96,7 @@ Last updated: 2026-04-18 (P750 Partner Slider Drift-Poll Coverage Gap)
 
 ## Letters
 
+- **P751** (Apr 18) Letter story images missing + card width mismatch — `seal_and_send_letter` RPC, `PointConfig` interface, and preview shim must all be updated together when adding a story field to the letter flow
 - **P661** (Apr 07) Letter Composition UX Redesign — preview must reuse reading components (not parallel UI); `LiveStoryCardExpanded` in prediction walk, `LetterStoryReader` in preview/reading; superseded by P665 for chrome-free + preview rewrite
 
 ## Navigation & Routing
