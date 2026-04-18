@@ -7,7 +7,7 @@
  * error states, and automatically refetch when auth context changes.
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/auth';
 import { pointsService } from '@/app/data/points-service';
 import type { PointWithUserPosition } from '@/app/types';
@@ -46,8 +46,15 @@ export function usePointsForProfile(profileId: string): UsePointsForProfileResul
   const [points, setPoints] = useState<PointWithUserPosition[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
+  const isMountedRef = useRef(true);
+
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => { isMountedRef.current = false; };
+  }, []);
 
   const load = async () => {
+    if (!isMountedRef.current) return;
     setLoading(true);
     setError(null);
     try {
@@ -55,12 +62,12 @@ export function usePointsForProfile(profileId: string): UsePointsForProfileResul
         profileId,
         user?.id
       );
-      setPoints(data);
+      if (isMountedRef.current) setPoints(data);
     } catch (err) {
       console.error('Failed to load points for profile:', err);
-      setError(err as Error);
+      if (isMountedRef.current) setError(err as Error);
     } finally {
-      setLoading(false);
+      if (isMountedRef.current) setLoading(false);
     }
   };
 
@@ -109,8 +116,15 @@ export function usePointsForFeed(
   const [points, setPoints] = useState<PointWithUserPosition[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
+  const isMountedRef = useRef(true);
+
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => { isMountedRef.current = false; };
+  }, []);
 
   const load = async () => {
+    if (!isMountedRef.current) return;
     setLoading(true);
     setError(null);
     try {
@@ -119,12 +133,12 @@ export function usePointsForFeed(
         offset,
         user?.id
       );
-      setPoints(data);
+      if (isMountedRef.current) setPoints(data);
     } catch (err) {
       console.error('Failed to load points for feed:', err);
-      setError(err as Error);
+      if (isMountedRef.current) setError(err as Error);
     } finally {
-      setLoading(false);
+      if (isMountedRef.current) setLoading(false);
     }
   };
 
