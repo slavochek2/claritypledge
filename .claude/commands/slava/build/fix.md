@@ -24,6 +24,11 @@ Systematic bug remediation workflow (reproduce → test → fix → verify).
 /fix "Login button broken on Safari"    # Auto-files via /create-bug, then proceeds
 ```
 
+**Architect plan mode:**
+```bash
+/fix ~/.claude/plans/last-3-754-*.md   # Treat plan as architect context; extract title → auto-file via /create-bug
+```
+
 When called with a description string instead of a P-number, `/fix` auto-invokes `/create-bug` to file a tracked spec BEFORE any fix work begins. See Phase 0.pre below.
 
 **When to use /fix:**
@@ -146,7 +151,7 @@ git worktree add .claude/worktrees/w1 -b feature/pN-short-description
 ./scripts/setup-worktree.sh .claude/worktrees/w1
 cd .claude/worktrees/w1
 ```
-Use the first available slot (`w1`, `w2`). Check `git worktree list` first — if both slots are occupied, STOP and ask: "Both worktree slots are in use (w1: feature/pX, w2: feature/pY). Remove one or proceed on a branch?" Report: "Created worktree {slot} on branch feature/pN-... — dev server will run on port {5100 for w1, 5200 for w2}."
+Use the first available slot (`w1`, `w2`, `w3`, …). Slots are unlimited — check `git worktree list` to find the next free wN. If a plan file referenced a specific slot that is now occupied by a different feature, name the conflict ("plan expected w2, w2 is now feature/pX") and propose the next free slot. Do not ask A/B/C — just name the situation and propose. Report: "Created worktree {slot} on branch feature/pN-... — dev server will run on port {5100 for w1, 5200 for w2, 5300 for w3}."
 
 **Exception — skip worktree if ALL of these are true:** (a) fix is a trivial single-file change, (b) no other features are in progress on the index, (c) user explicitly says "just do it inline." In that case, create a feature branch instead: `git checkout -b feature/pN-short-description`.
 
