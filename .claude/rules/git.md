@@ -21,6 +21,7 @@ paths:
 | `git reset HEAD` (no args) | Resets entire index; use `git reset HEAD -- file1 file2` |
 | `git push --force` to main/master | Destructive; always warn user |
 | `git commit` from inside a subagent | Subagent staging state does not transfer to the main session's git index; commits issued from subagents will be empty or wrong |
+| `git cherry-pick --abort` (mid-sequence) | Reverts ALL prior commits in the sequence, not just the conflicting one; use `--skip` to drop only the offending commit, or resolve and `--continue` |
 
 ## Commits must come from the main session
 

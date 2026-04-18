@@ -134,6 +134,16 @@ await user.click(button);
 
 - **vi.mock stable refs:** Objects returned from a vi.mock factory that are used as useEffect deps must be created as a const inside the factory closure — inline object literals create a new reference each call, triggering an infinite effect loop.
 
+## UI Conditional Branch Coverage
+
+When writing or reviewing tests that cover a UI component with a conditional render tree (if/else chains, ternaries with 3+ branches):
+
+1. List every rendered branch in the diff
+2. Write one assertion per branch — what the user sees, not the internal flag
+3. Do NOT mark the canary step complete until all branches have at least one assertion
+
+This applies in /fix Phase 2 (canary) and Phase 4 (verify). Discovering a missing branch during code review counts as a failed Phase 2.
+
 ## Gitleaks — JWT Fixture Allowlist
 
 If a test fixture contains a JWT-shaped string (`eyJ...`), add `// gitleaks:allow` on that line to prevent a false-positive pre-commit block.

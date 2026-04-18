@@ -117,6 +117,14 @@ Reproduce first. Then:
 - [x] No regression on existing success path: guest post-session flow (P492), session-ended vs partner-left titles (P584) still render correctly.
 - [ ] No console errors on any of the three flows (healthy / retrying / failed).
 
+## Deferred Verification
+
+These items were not verified at ship time. Spec stays `status: all-done`; this section is a follow-up checklist, not a gate.
+
+- [ ] Mixpanel `audio_chunk_upload_failed` count last 24h — query EU Mixpanel project 3968494; if failures > 0/session on average, file a separate reliability spec
+- [ ] `e2e/p566-upload-reliability.spec.ts` confirmed to exercise real GCS path (not mocks only), or updated to do so
+- [ ] No console errors on healthy / retrying / failed upload flows (runtime verification on prod)
+
 ## Verification
 
 1. Reproduce with DevTools Network + Console open on prod.
