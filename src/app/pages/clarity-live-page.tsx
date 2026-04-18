@@ -3156,7 +3156,7 @@ export function ClarityLivePage() {
       // P566: Drain the upload queue (wait for all chunks to finish uploading)
       const queue = uploadQueueRef.current;
       if (queue) {
-        setUploadProgress({ pending: queue.getPendingCount(), total: queue.getTotalCount(), status: 'uploading' });
+        setUploadProgress({ pending: queue.getPendingCount(), total: queue.getTotalCount(), status: 'uploading', state: queue.getState() });
 
         // Subscribe to progress updates for the drain phase
         const originalOnProgress = queue.onProgress;
@@ -3166,6 +3166,7 @@ export function ClarityLivePage() {
             pending: progress.total - progress.uploaded,
             total: progress.total,
             status: 'uploading',
+            state: queue.getState(),
           });
         };
 

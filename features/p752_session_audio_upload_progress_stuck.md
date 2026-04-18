@@ -108,13 +108,13 @@ Reproduce first. Then:
 
 ## Acceptance Criteria
 
-- [ ] Canary tests for H1, H2, H3 exist and were red before the fix, green after.
-- [ ] Short session (no 30s tick ever fired) ends without ever showing 0% with "Don't close this tab yet." — either skips straight to complete or shows the final chunk progressing.
-- [ ] Long session with intentionally-failing GCS PUT (test-only mock) shows a "Retrying…" state within the first retry window; distinguishable from a healthy upload.
-- [ ] Successful long session shows visibly advancing progress (either byte-level or chunk-count text).
+- [x] Canary tests for H1, H2, H3 exist and were red before the fix, green after.
+- [x] Short session (no 30s tick ever fired) ends without ever showing 0% with "Don't close this tab yet." — either skips straight to complete or shows the final chunk progressing.
+- [x] Long session with intentionally-failing GCS PUT (test-only mock) shows a "Retrying…" state within the first retry window; distinguishable from a healthy upload.
+- [x] Successful long session shows visibly advancing progress (either byte-level or chunk-count text).
 - [ ] Mixpanel evidence captured for H4: `audio_chunk_upload_failed` count last 24h + one live session network trace. If failures > 0 per session on average, file follow-up reliability spec (separate P-number).
 - [ ] `e2e/p566-upload-reliability.spec.ts` confirmed to exercise real GCS path (not mocks only), or updated to do so.
-- [ ] No regression on existing success path: guest post-session flow (P492), session-ended vs partner-left titles (P584) still render correctly.
+- [x] No regression on existing success path: guest post-session flow (P492), session-ended vs partner-left titles (P584) still render correctly.
 - [ ] No console errors on any of the three flows (healthy / retrying / failed).
 
 ## Verification

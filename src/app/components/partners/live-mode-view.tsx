@@ -248,6 +248,8 @@ export interface UploadProgressState {
   pending: number;
   total: number;
   status: 'uploading' | 'complete' | 'failed';
+  /** P752: Queue internal state — surfaced to show retry/stall to user */
+  state?: 'uploading' | 'retrying' | 'stalled';
 }
 
 interface PartnerLeftScreenProps {
@@ -281,8 +283,10 @@ export function PartnerLeftScreen({ partnerName, sessionEnded, onStartNew, isGue
   const isUploading = uploadProgress?.status === 'uploading';
   const uploadDone = !uploadProgress || uploadProgress.status === 'complete' || uploadProgress.status === 'failed';
   const uploadFailed = uploadProgress?.status === 'failed';
+  const isRetrying = uploadProgress?.state === 'retrying';
+  const uploadedCount = (uploadProgress?.total ?? 0) - (uploadProgress?.pending ?? 0);
   const uploadPercent = uploadProgress && uploadProgress.total > 0
-    ? Math.round(((uploadProgress.total - uploadProgress.pending) / uploadProgress.total) * 100)
+    ? Math.round((uploadedCount / uploadProgress.total) * 100)
     : 0;
 
   return (
@@ -295,22 +299,38 @@ export function PartnerLeftScreen({ partnerName, sessionEnded, onStartNew, isGue
 
         <h2 className="text-xl font-semibold">{title}</h2>
 
-        {/* P584: Upload progress — shown for ALL users including guests */}
+        {/* P752: Upload progress — shown for ALL users including guests */}
         {isUploading && (
           <div className="w-full space-y-2">
-            <p className="text-sm font-medium">Uploading session audio...</p>
-            <div className="w-full bg-muted rounded-full h-2">
-              <div
-                className="bg-blue-500 rounded-full h-2 transition-all duration-300"
-                style={{ width: `${uploadPercent}%` }}
-                role="progressbar"
-                aria-valuenow={(uploadProgress?.total ?? 0) - (uploadProgress?.pending ?? 0)}
-                aria-valuemin={0}
-                aria-valuemax={uploadProgress?.total ?? 0}
-              />
-            </div>
-            <p className="text-sm text-muted-foreground">{uploadPercent}%</p>
-            <p className="text-sm text-muted-foreground">Don&apos;t close this tab yet.</p>
+            {(uploadProgress?.total ?? 0) === 0 ? (
+              // H1: nothing enqueued yet (final chunk still saving to IndexedDB)
+              <p className="text-sm text-muted-foreground">Finishing up…</p>
+            ) : isRetrying ? (
+              // H3: queue retrying a failed chunk upload
+              <>
+                <p className="text-sm font-medium">Retrying upload…</p>
+                <p className="text-sm text-muted-foreground">Don&apos;t close this tab yet.</p>
+              </>
+            ) : (
+              // H2: normal upload — chunk-level progress instead of frozen 0%
+              <>
+                <p className="text-sm font-medium">
+                  Uploading chunk {Math.min(uploadedCount + 1, uploadProgress?.total ?? 0)} of {uploadProgress?.total ?? 0}
+                </p>
+                <div className="w-full bg-muted rounded-full h-2">
+                  <div
+                    className="bg-blue-500 rounded-full h-2 transition-all duration-300"
+                    style={{ width: `${uploadPercent}%` }}
+                    role="progressbar"
+                    aria-valuenow={uploadedCount}
+                    aria-valuemin={0}
+                    aria-valuemax={uploadProgress?.total ?? 0}
+                  />
+                </div>
+                <p className="text-sm text-muted-foreground">{uploadPercent}%</p>
+                <p className="text-sm text-muted-foreground">Don&apos;t close this tab yet.</p>
+              </>
+            )}
           </div>
         )}
 

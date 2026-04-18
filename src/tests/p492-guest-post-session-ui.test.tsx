@@ -121,7 +121,7 @@ describe('P584: PartnerLeftScreen redesign', () => {
         uploadProgress: { status: 'uploading', pending: 3, total: 10 },
       });
 
-      expect(screen.getByText(/uploading session audio/i)).toBeInTheDocument();
+      expect(screen.getByText(/uploading chunk 8 of 10/i)).toBeInTheDocument();
       expect(screen.getByText("Don't close this tab yet.")).toBeInTheDocument();
       expect(screen.getByRole('progressbar')).toBeInTheDocument();
     });
@@ -132,7 +132,7 @@ describe('P584: PartnerLeftScreen redesign', () => {
         uploadProgress: { status: 'uploading', pending: 5, total: 20 },
       });
 
-      expect(screen.getByText(/uploading session audio/i)).toBeInTheDocument();
+      expect(screen.getByText(/uploading chunk 16 of 20/i)).toBeInTheDocument();
       expect(screen.getByText('75%')).toBeInTheDocument();
     });
 
