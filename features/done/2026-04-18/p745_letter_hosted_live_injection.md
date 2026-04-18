@@ -1,11 +1,11 @@
 ---
-status: qa
+status: all-done
+completed_at: '2026-04-18'
 type: story
 rank: 1000745.0
 workstream: C2
 created_date: '2026-04-17'
 tags: [letters, live, injection, author-trigger]
-delivery_stage: ship
 flow: dev
 pipeline_plan: [create-spec, challenge-prd, architect, generate-tests, dev, verify]
 pipeline_skipped: [ux -- reuses ActiveSessionBanner pattern, ui -- copy change only, view -- additive to existing surface, decompose -- under 5 files expected, spec-review -- fresh spec, spec-compact -- under 100 lines]
