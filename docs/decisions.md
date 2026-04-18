@@ -2,6 +2,20 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-18 [process]: Pipeline stamps must self-verify after write (P759)
+
+**Context:** `/fix` Phase 0.3 stamped `delivery_stage: fix` and appended `fix` to `pipeline_ran`, but the write silently failed in at least one session (P752, worktree w3). The spec's frontmatter stayed at `delivery_stage: reproduce` after `/fix` completed. Root cause: the stamp writes to a file path resolved relative to CWD — in a worktree context, CWD is the worktree root, but if the model uses the wrong path the edit lands nowhere or on the wrong copy (worktree vs main have separate copies of feature files).
+
+**Decision:** Every pipeline skill that stamps frontmatter must immediately re-read the spec and assert the stamp landed before continuing. Write → verify is the contract; write alone is not enough. Added as Phase 0.3 step 7 in `/fix`: re-read spec, assert `delivery_stage == fix` and `fix in pipeline_ran`, stop with actionable error + path guidance if assertion fails.
+
+**Alternatives rejected:** Adding a post-commit hook to validate stamp presence — catches it too late (after commit), doesn't prevent the silent failure mid-session.
+
+**Consequences:** Phase 0.3 is now self-auditing. Same pattern should propagate to `/dev`, `/reproduce`, and other pipeline-stamping skills when they next have incidents. Path note embedded in skill: worktree runs must resolve spec path relative to worktree root, not main.
+
+**References:** [fix.md](.claude/commands/slava/build/fix.md) Phase 0.3 step 7
+
+---
+
 ## 2026-04-18 [process]: /fix Phase 0.pre auto-create-bug is wrong for execution-ready plan files
 
 **Context:** `/fix` was called with `~/.claude/plans/streamed-bouncing-rabin.md` — a P752 retrospective plan with 4 concrete items to execute immediately. Phase 0.pre says "treat plan as architect context, extract title as bug description, auto-invoke /create-bug." This created P758 ("Process Improvements from P752 Retrospective") — a tracking card for work that was already done by the time the card existed. Had to be immediately deleted (2 wasted commits).
