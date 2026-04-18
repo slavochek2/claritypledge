@@ -85,3 +85,4 @@ describe('P745: saveLetterPauseState()', () => {
     expect(updateArg['saved_story_index']).toBe(5);
   });
 });
+

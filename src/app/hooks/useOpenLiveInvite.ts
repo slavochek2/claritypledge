@@ -126,6 +126,9 @@ export function useOpenLiveInvite(): { invite: OpenLiveInvite | null; loading: b
                 deliveryId: (session.delivery_id as string | null) ?? null,
               },
             });
+          })
+          .catch((err) => {
+            console.warn('[P745] invite enrichment failed', err);
           });
       },
       (raw) => {

@@ -163,6 +163,7 @@ describe('P745: useOpenLiveInvite — extended interface (inviter avatar + deliv
   });
 });
 
+
 // ─── Tests: Hook-level (mocked) — INSERT handler fetches extended fields ──────
 
 vi.mock('@/auth', () => {

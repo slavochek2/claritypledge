@@ -9,7 +9,7 @@ delivery_stage: ship
 flow: dev
 pipeline_plan: [create-spec, challenge-prd, architect, generate-tests, dev, verify]
 pipeline_skipped: [ux -- reuses ActiveSessionBanner pattern, ui -- copy change only, view -- additive to existing surface, decompose -- under 5 files expected, spec-review -- fresh spec, spec-compact -- under 100 lines]
-pipeline_ran: [create-spec, challenge-prd, architect, generate-tests, decompose, dev, ship]
+pipeline_ran: [create-spec, challenge-prd, architect, generate-tests, decompose, dev, fix, ship]
 uat_file: features/uat/p745.md
 test_files:
   - src/tests/p745-use-open-live-invite-extension.test.ts
@@ -43,10 +43,9 @@ Medium blast radius (new banner surface in letter reader; letter reader gains a 
 This spec adds: author trigger on the per-recipient surface, **new pause-state column on `letter_deliveries`** (no existing column serves this), one-outstanding-invite guard, pause/resume hydration on letter re-entry.
 
 1. **Author trigger:** From the sender's letter-progress view (inbox row or results page for a specific recipient), add an action: *Start Clarity Live with this reader now*. Creates a `clarity_live_invite` row tied to the delivery.
-2. **Receiver banner:** Reuse the global `ActiveSessionBanner` surface (already rendered on all non-/live pages). When `useOpenLiveInvite` reports a pending invite, show inviter avatar + name with copy *"{senderName} is inviting you to Clarity"* and primary *Join* / secondary *Later*. Delivery is realtime via the existing `clarity_live_invite` subscription.
+2. **Receiver banner:** Reuse the global `ActiveSessionBanner` surface (already rendered on all non-/live pages). When `useOpenLiveInvite` reports a pending invite, show inviter avatar + name with copy *"{senderName} is inviting you to Clarity"* and primary *Join* only. Delivery is realtime via the existing `clarity_live_invite` subscription.
 3. **Pause/resume:** When the receiver accepts, record the current story index on the delivery, open /live (leveraging existing P703 / P733 preload for registered users). When /live completes, redirect back into the letter at the saved position with a brief *Welcome back* affordance.
-4. **Decline/defer:** If the receiver chooses *Later*, dismiss the banner locally but leave the invite open so they can still find it in inbox after the letter.
-5. **Cancel:** Author can cancel an outstanding invite from the same surface that created it.
+4. **Cancel:** Author can cancel an outstanding invite from the same surface that created it.
 
 ## Risks / Non-Goals
 
@@ -67,7 +66,6 @@ This spec adds: author trigger on the per-recipient surface, **new pause-state c
 - [ ] Registered receiver reading a letter sees the banner in realtime when the author triggers an invite for that delivery
 - [ ] Accepting the banner opens /live preloaded from letter data (via existing P703/P733 path); the letter reader component does not unmount — its state (current story index, scroll position) survives the /live round-trip
 - [ ] Completing /live returns the receiver to the same letter at the same story index they were on when they accepted
-- [ ] Deferring the banner dismisses it locally and the invite remains findable via inbox
 - [ ] Author can cancel a pending invite; the banner disappears on the receiver side in realtime
 - [ ] Only one outstanding invite exists per delivery at any time
 - [ ] Unverified guest on a public letter sees **no** injection banner (guest path is explicitly out of scope here)
@@ -77,8 +75,7 @@ This spec adds: author trigger on the per-recipient surface, **new pause-state c
 **Banner surface:** Reuses the existing global `ActiveSessionBanner` slot (already rendered above all non-/live pages, including letter reader). No new placement logic. Copy swaps when an invite is pending vs. an active session is in progress.
 
 **Banner states:**
-- *Pending*: inviter avatar + `{senderName} is inviting you to Clarity` — primary *Join*, secondary *Later*
-- *Dismissed*: hidden, restored if the author re-triggers
+- *Pending*: inviter avatar + `{senderName} is inviting you to Clarity` — primary *Join* only
 - *Cancelled by author*: banner disappears in realtime, no persistent UI
 
 **Pause/resume UX:**
@@ -93,7 +90,6 @@ This spec adds: author trigger on the per-recipient surface, **new pause-state c
 - [ ] Author can start a /live session for an identified registered recipient from a per-recipient surface
 - [ ] Receiver sees the banner while actively reading the letter
 - [ ] Accept → /live runs with preloaded positions → return to letter at saved position
-- [ ] Defer → banner dismisses locally; invite persists
 - [ ] Cancel → banner disappears on receiver side
 - [ ] Exactly one outstanding invite per delivery
 - [ ] Regression: inbox-based invite flow (P703) continues to work unchanged for letters the receiver has already completed
@@ -105,7 +101,6 @@ This spec adds: author trigger on the per-recipient surface, **new pause-state c
 | Banner title | `{senderName} is inviting you to Clarity` | Global banner, when invite pending |
 | Inviter avatar | `GravatarAvatar` — `name`, `photoUrl`, `avatarColor`, `isPledger` from inviter profile | Left of banner title |
 | Primary button | `Join` | Banner |
-| Secondary button | `Later` | Banner |
 | Author trigger label | `Start Clarity Live now` | Sender per-recipient surface |
 | Author trigger disabled tooltip | `Invite already pending` | When invite exists |
 | Return affordance on letter re-entry | `Welcome back — continuing your letter` | After /live completes |
