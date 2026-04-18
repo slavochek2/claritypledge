@@ -1,13 +1,13 @@
 ---
-status: qa
+status: all-done
 type: bug
 rank: 1000751.0
 severity: medium
 workstream: story
 date_reported: '2026-04-18'
 created_date: '2026-04-18'
+completed_at: '2026-04-18'
 tags: [cors, edge-function, dev-experience, story-editor]
-delivery_stage: ship
 pipeline_ran: [create-bug, fix, fix.2, ship]
 ---
 
