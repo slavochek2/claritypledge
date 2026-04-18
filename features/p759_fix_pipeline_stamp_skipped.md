@@ -1,5 +1,5 @@
 ---
-status: week
+status: qa
 type: bug
 rank: 1000759.0
 severity: medium
@@ -7,8 +7,11 @@ workstream: Process
 date_reported: '2026-04-18'
 created_date: '2026-04-18'
 tags: [process, fix-skill, pipeline-stamp, p659]
-delivery_stage: create-bug
-pipeline_ran: [create-bug]
+delivery_stage: fix
+pipeline_ran: [create-bug, fix]
+date_resolved: '2026-04-18'
+root_cause: Phase 0.3 lacked verification after writing frontmatter — silent failure when spec path resolved to wrong copy (worktree vs main). Also Phase 0.pre created circular spec for execution-ready plan files.
+resolution: Added self-check step 7 to Phase 0.3 (re-reads spec, asserts stamp landed, stops with actionable error + path note if not). Added execution-ready plan classification to Phase 0.pre to skip auto-/create-bug for checklist-style plans.
 ---
 
 # P759: /fix Phase 0.3 pipeline stamp skipped
@@ -57,6 +60,6 @@ Spec frontmatter unchanged after `/fix` completes. P752 shipped with stale `deli
 
 ## Acceptance Criteria
 
-- [ ] Root cause identified: was Phase 0.3 reached? Was the spec path resolved correctly from worktree context?
-- [ ] `/fix` stamps `delivery_stage: fix` and appends `fix` to `pipeline_ran` when run from a worktree
-- [ ] Regression test or self-check added so stamp failure is surfaced, not silent
+- [x] Root cause identified: was Phase 0.3 reached? Was the spec path resolved correctly from worktree context?
+- [x] `/fix` stamps `delivery_stage: fix` and appends `fix` to `pipeline_ran` when run from a worktree
+- [x] Regression test or self-check added so stamp failure is surfaced, not silent

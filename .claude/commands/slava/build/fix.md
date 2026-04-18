@@ -109,7 +109,11 @@ Bug reported
 
 ### Phase 0.pre: Ensure spec exists (BEFORE worktree setup)
 
-If `/fix` was called with a **plan file path** (e.g. `~/.claude/plans/*.md`): treat it as architect context, extract the title as the bug description, and auto-invoke `/create-bug` with that title to file a tracked spec before proceeding. Plan files are not specs.
+If `/fix` was called with a **plan file path** (e.g. `~/.claude/plans/*.md`): read the plan first. Then classify:
+- **Bug-investigation plan** (plan describes a bug to investigate, root cause unknown, no immediate actions to run): treat as architect context, extract title, auto-invoke `/create-bug`, and proceed.
+- **Execution-ready plan** (plan items are immediate actions — "edit X", "run Y", "file Z", "stamp frontmatter"): **skip auto-/create-bug entirely.** Execute the plan items directly. Creating a spec for "execute this checklist" generates a circular card that must be immediately deleted (P758 incident). Plans in `~/.claude/plans/` are architect notes, not bugs.
+
+If ambiguous (mixed): default to execution-ready and note: "Treated plan as execution-ready — no tracking spec created. If a P-number is needed, run `/create-bug` manually."
 
 If `/fix` was called with a description string (not a P-number or spec path):
 
@@ -236,6 +240,11 @@ If a P-number spec was provided (file path or short form like `p99`):
 4. **Predecessor check:** If `pipeline_plan` exists, find the skill before `fix` in the plan. If that skill is NOT in `pipeline_ran` (exact match) → stop: "Run `/{predecessor}` first." Skip check if: (a) `pipeline_plan` absent, (b) this skill is first in plan, (c) `pipeline_ran` absent/empty and this is first planned skill.
 5. If this skill is NOT in `pipeline_plan` → warn: "This skill wasn't in the planned flow. Proceed anyway?"
 6. Report: "Marked pN as in-progress in kanban."
+7. **Self-check (P759 guard):** Immediately re-read the spec frontmatter from the same path used in step 1. Assert:
+   - `delivery_stage` == `fix`
+   - `fix` is present in `pipeline_ran`
+   If either assertion fails → stop: "Pipeline stamp failed on pN — spec at [path] was not updated. Check spec path (worktree vs main) and re-stamp manually before continuing."
+   **Path note:** When running from a worktree (`.claude/worktrees/wN`), resolve the spec path relative to the worktree root (i.e. `features/pN_*.md` from the worktree CWD), not from main. Stamping the wrong copy is the most common cause of this failure.
 
 Skip silently if no feature file exists (inline description mode, e.g. `/fix "Login button broken"`).
 
