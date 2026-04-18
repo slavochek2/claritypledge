@@ -6,9 +6,9 @@ workstream: Letters
 date_reported: '2026-04-18'
 created_date: '2026-04-18'
 tags: [letters, privacy, preview, seal-rpc]
-delivery_stage: fix
+delivery_stage: ship
 status: qa
-pipeline_ran: [create-bug, fix]
+pipeline_ran: [create-bug, fix, ship]
 ---
 
 # P749: Hidden points leak into letter preview and sealed letter reading
