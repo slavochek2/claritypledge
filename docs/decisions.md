@@ -2,6 +2,34 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-18 [process]: /ship defaults to cherry-pick; git merge --no-ff retired
+
+**Context:** During P753 ship, `git merge feature/p753 --no-ff` failed because main had staged in-progress P745 changes. `merge.autoStash=false` also failed ("local changes would be overwritten"). The workaround was cherry-picking 3 commits individually and taking the manifest directly via `git checkout branch -- file`.
+
+**Decision:** `/ship` now defaults to cherry-pick as the merge strategy. Collect SHAs via `git log --oneline main..HEAD`, checkout main, cherry-pick in oldest-to-newest order. `git branch -D` force-delete is expected and correct after cherry-pick (the branch tip was never merged, only its commits were replayed). `git merge --no-ff` retired from the skill.
+
+**Alternatives rejected:** `merge.autoStash=true` — still fails when main has staged index changes. WIP commit + soft-reset — dangerous, discards uncommitted changes if interrupted. Per-ship branch cleanup to guarantee clean main — adds friction to the common case.
+
+**Consequences:** Cherry-pick is safe regardless of main's working-tree state. Same-file concurrency conflicts (two branches editing the same spec field) require spec-scoping resolution, not merge-strategy fixes. `/ship` skill updated: steps 3.7 and 4 rewritten.
+
+**References:** [ship.md](.claude/commands/slava/build/ship.md)
+
+---
+
+## 2026-04-18 [process]: deploy-functions.sh must derive PROJECT_DIR from git root of CWD, not SCRIPT_DIR
+
+**Context:** `scripts/` in worktrees is a symlink to the main repo's scripts dir. `SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"` follows the symlink and always resolves to the main repo, regardless of where the script was invoked. `PROJECT_DIR` was derived from `SCRIPT_DIR`, so `FUNCTIONS_DIR` always pointed at the main repo's `supabase/functions/` — meaning `deploy-functions.sh` deployed main's code even when run from a worktree.
+
+**Decision:** `PROJECT_DIR` is now derived from `git -C "$(pwd)" rev-parse --show-toplevel` — the git root of the caller's CWD. This correctly resolves to the worktree's root when called from a worktree. `.env.prod` falls back to `dirname "$SCRIPT_DIR"` (main repo) when not found in `PROJECT_DIR`, since `.env.prod` is gitignored and only exists in the main repo.
+
+**Alternatives rejected:** Passing `--project-dir` arg explicitly — works, but requires every caller to know to pass it. Symlink detection + dereferencing — fragile, platform-dependent.
+
+**Consequences:** `deploy-functions.sh --env prod` called from any worktree now deploys that worktree's functions, not main's. The `.env.prod` fallback ensures prod PAT is always found. `SCRIPT_DIR` is kept only for calling sibling scripts (`stamp-deploy-manifest.sh`).
+
+**References:** [deploy-functions.sh](scripts/deploy-functions.sh)
+
+---
+
 ## 2026-04-18 [technical]: P749 — hidden-point filter must be applied on every DocStory→visible-points conversion path
 
 **Context:** P749 fixed a privacy leak where points marked hidden by the author appeared in `/letter/:docId/preview` and in the sealed recipient letter. After the initial fix (extracted `docStoryToSnapshot` to the mapper with hidden plumbing, new seal RPC migration), the bug still showed on `/letter/:docId/compose` — the prediction walk was passing raw `DocStory[]` to `LetterPredictionWalk` without filtering `point_config.hidden`.
