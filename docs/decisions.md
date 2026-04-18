@@ -2,6 +2,20 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-18 [technical]: PL/pgSQL defers symbol resolution — dropped-column references pass migration, fail at call time
+
+**Context:** P757 used `CREATE OR REPLACE` on `seal_and_send_letter` authored from an older function base. It reintroduced `sv.title` (line 73: `'storyTitle', COALESCE(sv.title, '')`) — a column dropped by P701 and explicitly removed by the P701-scrub migration (20260417180000). The migration applied without error in Supabase (`CREATE OR REPLACE` always succeeds for valid PL/pgSQL syntax). The error (`column sv.title does not exist`) only surfaced when a user tried to seal a letter in prod.
+
+**Decision:** PL/pgSQL function bodies are not validated against the live schema at `CREATE OR REPLACE` time — symbol resolution is deferred to execution. A function body referencing a non-existent column will create successfully and fail only when called. This means: (1) migration application success is not evidence of correctness for PL/pgSQL bodies, (2) any `CREATE OR REPLACE` that copies a prior version must be diffed against the *most recent* migration that defines the function — not just any prior version.
+
+**Alternatives rejected:** Relying on migration success as a correctness signal — proven ineffective for PL/pgSQL. Waiting for test coverage to catch it — the seal flow had no integration test at the time of regression.
+
+**Consequences:** When writing a `CREATE OR REPLACE` migration on any existing function, run: `grep -rn "CREATE.*FUNCTION <name>" supabase/migrations/` to find the most recent defining migration and diff the body line-by-line before committing. Related: see 2026-04-18 `CREATE OR REPLACE on existing RPCs must diff against prior version` (silent drop of return fields, same root pattern).
+
+**References:** [20260418210000_p757_set_receiver_profile_id_on_seal.sql](supabase/migrations/20260418210000_p757_set_receiver_profile_id_on_seal.sql), [20260418220000_fix_p757_svtitle_regression.sql](supabase/migrations/20260418220000_fix_p757_svtitle_regression.sql)
+
+---
+
 ## 2026-04-18 [process]: Worktree `git status` dirty-state is a false alarm for symlinked dirs
 
 **Context:** `/ship` Gate 2 checks for a dirty worktree before cherry-picking. W3's `git status --short` showed 150+ ` D` entries for `scripts/` and `supabase/migrations/` — both are symlinks to the main repo. Git sees the tracked files as "missing" (replaced by a directory symlink) and reports them as deleted in the working tree. No actual uncommitted work was present.

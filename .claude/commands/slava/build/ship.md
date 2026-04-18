@@ -90,12 +90,30 @@ Cherry-picking...
    ```
    Note the SHAs in order (oldest first). These are the commits that will land on main.
 
+3.8. **Pre-cherry-pick collision sweep** — untracked files in main's working tree that overlap with the incoming commits cause cherry-pick to abort. Check before switching branches:
+   ```bash
+   # From feature branch: files the cherry-pick will write
+   INCOMING=$(git diff --name-only main..HEAD)
+   # From main repo root: untracked files
+   UNTRACKED=$(git -C ~/Projects/public/claritypledge ls-files --others --exclude-standard)
+   # Intersection
+   COLLISIONS=$(comm -12 <(sort <<<"$INCOMING") <(sort <<<"$UNTRACKED"))
+   ```
+   For each collision:
+   - Check if gitignored: `git check-ignore -q <path>` → if yes, skip (cherry-pick won't touch it).
+   - Compare content: `diff <(cat ~/Projects/public/claritypledge/<path>) <(git show HEAD:<path>)`
+     - **Identical** → `rm ~/Projects/public/claritypledge/<path>` and log: `Removed stale untracked <path> (matches incoming)` — this is the common case when a spec was created in main's WD during /fix and committed on the feature branch.
+     - **Different** → **STOP** — show the diff, ask: "Untracked main/<path> differs from incoming commit. (keep-main / replace-with-incoming / abort)". Never silently overwrite.
+   - If `COLLISIONS` is empty: record `✓ No untracked collisions` and proceed silently.
+
+   **Note:** `scripts/` and `supabase/migrations/` are symlinked in worktrees — they cannot collide. This check is primarily for `features/`, `src/`, `e2e/`, and `docs/`.
+
 4. **Cherry-pick onto main** — switch to main, cherry-pick each feature commit in order:
    ```bash
    git checkout main   # (from main repo root if in a worktree: cd ~/Projects/public/claritypledge)
    git cherry-pick <sha1> <sha2> ...   # oldest → newest
    ```
-   Cherry-pick is safe regardless of main's working tree state — it never touches uncommitted changes in other worktrees or staged index files. If a conflict arises, resolve it, `git add`, and `git cherry-pick --continue`.
+   Cherry-pick will not touch staged files or other worktrees' uncommitted changes, but CAN fail on untracked files — step 3.8 handles that. If a conflict arises, resolve it, `git add`, and `git cherry-pick --continue`.
    After cherry-pick: `git branch -D feature/pN` (force-delete is expected — the branch tip was never merged, only its commits were replayed).
 5. **Close the spec** — move spec to `features/done/`, update frontmatter:
    - `status: all-done`
