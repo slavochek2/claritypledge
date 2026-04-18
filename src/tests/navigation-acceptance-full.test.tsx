@@ -19,6 +19,12 @@ vi.mock('@/auth', () => ({
   useAuth: () => mockUseAuth(),
 }));
 
+// Nav tests cover menu visibility, auth states, and avatar behaviour — not unread counts.
+// Running the real fetch path here couples nav tests to letter-service behaviour.
+vi.mock('@/app/hooks/useUnreadLetterCount', () => ({
+  useUnreadLetterCount: () => ({ count: 0, loading: false }),
+}));
+
 // Mock analytics
 const mockTrack = vi.fn();
 vi.mock('@/lib/mixpanel', () => ({
