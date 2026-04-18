@@ -76,16 +76,23 @@ export function LetterComposePage() {
           ? await pointsService.getMyPositionsForPoints(allPointIds, user.id)
           : new Map();
 
-        const enrichedStories = result.stories.map(s => ({
-          ...s,
-          story: {
-            ...s.story,
-            points: s.story.points.map(p => ({
-              ...p,
-              userPosition: positionsMap.get(p.id)?.position ?? null,
-            })),
-          },
-        }));
+        const enrichedStories = result.stories.map(s => {
+          const hiddenIds = Array.isArray(s.point_config?.hidden)
+            ? new Set(s.point_config.hidden)
+            : null;
+          return {
+            ...s,
+            story: {
+              ...s.story,
+              points: s.story.points
+                .filter(p => !hiddenIds || !hiddenIds.has(p.id))
+                .map(p => ({
+                  ...p,
+                  userPosition: positionsMap.get(p.id)?.position ?? null,
+                })),
+            },
+          };
+        });
 
         setDoc(result.doc);
         setStories(enrichedStories as DocStory[]);

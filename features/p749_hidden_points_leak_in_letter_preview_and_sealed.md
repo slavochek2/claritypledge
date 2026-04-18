@@ -7,7 +7,7 @@ date_reported: '2026-04-18'
 created_date: '2026-04-18'
 tags: [letters, privacy, preview, seal-rpc]
 delivery_stage: fix
-status: in-progress
+status: qa
 pipeline_ran: [create-bug, fix]
 ---
 
@@ -82,7 +82,7 @@ Canary before fix: create draft with 2 points, hide 1, open `/letter/:docId/prev
 - [x] Author's draft editor view (`/d/:docId` as owner) still shows all points with eye toggles — unchanged — `doc-detail-page.tsx` not in fix scope; verified by review
 - [x] Non-owner shared-doc view at `/d/:docId` still filters hidden points via existing path — unchanged — same file untouched
 - [x] Regression test passes: `src/tests/p749-hidden-points-snapshot-mapper.test.ts` — 4 cases passing, 1904 total tests pass, no regressions
-- [ ] No console errors during either flow — pending browser smoke (run `/verify p749`)
+- [x] No console errors during either flow — browser smoke confirmed; compose page follow-on fix applied
 
 ## Resolution
 
