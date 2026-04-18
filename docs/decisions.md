@@ -2,6 +2,22 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-18 [process]: /ship step 3.8 — pre-cherry-pick collision sweep (features/ not symlinked)
+
+**Context:** Cherry-pick aborted with "untracked files would be overwritten" when `features/p761_*.md` existed in main's working tree — the spec had been created during `/fix` in the worktree, committed on the feature branch, but left as an untracked file in main (since `features/` is not symlinked, unlike `scripts/` and `supabase/migrations/`). Proposed fix A (symlink `features/`) and fix B (Gate 2 allowlist for symlink artifact ` D` entries) were both critiqued by Opus and rejected or narrowed.
+
+**Decision:** Add step 3.8 to `/ship` — a targeted pre-cherry-pick collision sweep that intersects the incoming changeset with main's untracked files. Only removes files that are BOTH in the incoming commits AND untracked in main AND have identical content. Different content → STOP + show diff. This is path-agnostic (covers `src/`, `e2e/`, `docs/` too, not just `features/`). Two alternatives rejected:
+- **Symlink `features/`** — breaks spec isolation between parallel worktrees: editing a spec in w2 would instantly appear in w3's working tree; `git mv` in step 5 would modify main's checkout mid-ship; `features/` is write-heavy across branches, unlike `scripts/`.
+- **Gate 2 symlink allowlist** — confuses location with cause; a legitimate `git rm supabase/migrations/foo.sql` would silently bypass Gate 2; weakens a safety rail without mechanical correctness.
+
+**Alternatives rejected:** See above.
+
+**Consequences:** `/ship` step 3.8 runs before the checkout-to-main. `features/` remains per-worktree (not symlinked). The known pattern "spec created in main's WD during `/fix`, committed only on feature branch" is now handled mechanically.
+
+**References:** [ship.md](.claude/commands/slava/build/ship.md)
+
+---
+
 ## 2026-04-18 [technical]: PL/pgSQL defers symbol resolution — dropped-column references pass migration, fail at call time
 
 **Context:** P757 used `CREATE OR REPLACE` on `seal_and_send_letter` authored from an older function base. It reintroduced `sv.title` (line 73: `'storyTitle', COALESCE(sv.title, '')`) — a column dropped by P701 and explicitly removed by the P701-scrub migration (20260417180000). The migration applied without error in Supabase (`CREATE OR REPLACE` always succeeds for valid PL/pgSQL syntax). The error (`column sv.title does not exist`) only surfaced when a user tried to seal a letter in prod.
