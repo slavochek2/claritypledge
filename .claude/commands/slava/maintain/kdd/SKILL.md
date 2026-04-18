@@ -268,6 +268,21 @@ Recommendation: Remove from README.md, link to definitions.md instead.
    Spawn a `general-purpose` subagent (`model: "sonnet"`) with this task:
    > "From the session summary and decisions context provided above, extract problems, friction points, mistakes, and inefficiencies. Consolidate near-identical incidents into one item. Cap at 10 items max. Exclude routine tool calls and confirmations — only report things a human would call a mistake or waste. For each item identify: (1) what happened — be concrete: name the P-number, file path, or exact claim that was wrong, not just the abstract category, (2) category: wrong-assumption / unnecessary-question / repeated-step / missed-signal / scope-creep / tool-fumble / missing-context / process-gap, (3) severity: minor / moderate / significant. **Write the full list to `.claude/meta-reflections/YYYY-MM-DD.md` (today's date) before returning** — this file survives session compaction. Then return the same list as your response."
 
+   **7.1b Second-round critique — falsify root cause diagnoses (Opus):**
+
+   After 7.1 returns its list, spawn a second `general-purpose` subagent (`model: "opus"`) with this task:
+
+   > "You are a devil's advocate critic. For each item below, challenge the root cause diagnosis — not the recommendation. A recommendation can be directionally correct while its stated root cause is wrong. For each item: (1) read any file the claim is about before accepting or rejecting it, (2) state whether the root cause SURVIVES, is WEAKENED, or is FALSIFIED. If weakened or falsified, provide the corrected diagnosis. Be concrete — name the file, line number, or command. Vague endorsements ('this sounds right') are not acceptable critiques.
+   >
+   > Items: [paste 7.1 output here]"
+
+   Pass the 7.1 output inline. The second agent must read actual files — not critique from prose alone.
+
+   After second-round critique returns:
+   - For WEAKENED items: replace the root cause in your triage with the corrected diagnosis
+   - For FALSIFIED items: drop the item from triage entirely, note it was falsified
+   - For SURVIVES items: proceed as-is
+
    **7.2 Triage each extracted problem:**
 
    If subagent finds no problems — output "Clean session." and stop.
