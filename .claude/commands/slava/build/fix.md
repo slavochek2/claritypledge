@@ -157,6 +157,8 @@ Use the first available slot (`w1`, `w2`, `w3`, …). Slots are unlimited — ch
 
 Skip entirely if already in a worktree on the correct feature branch, or if task is a non-P-number fix (infra, docs, urgent prod hotfix).
 
+**Scope/branch shortcut rule:** If the user overrides the worktree/branch recommendation ("just do it in w1", "use this branch"), name the shipping consequence in one sentence before proceeding: e.g. "This means Phase 3 commits will need cherry-picking to the correct branch at /ship time." Require acknowledgement (implicit "ok" counts). Never silently absorb a scope change.
+
 ---
 
 ### Phase 0.1: Collision check
@@ -343,7 +345,7 @@ Test proves bug exists. Ready to fix.
 ```bash
 ls supabase/migrations/ | tail -5   # does a new .sql file need to be created?
 ```
-If yes — write the integration test for that migration NOW, before the migration itself. The test lives at `e2e/integration/<timestamp>_p{N}_<slug>.spec.ts`. Writing it first forces you to think about what the migration must guarantee. The pre-commit hook enforces this (P270), so failing to do it proactively just causes a blocked commit later.
+If yes — write the integration test for that migration NOW, before the migration itself. The test lives at `e2e/integration/<timestamp>_p{N}_<slug>.spec.ts`. Writing it first forces you to think about what the migration must guarantee. The pre-commit hook enforces this (P270), so failing to do it proactively just causes a blocked commit later. After writing the migration and integration test, run `./scripts/stamp-deploy-manifest.sh --env test --migrations-only` before committing — the pre-commit hook checks the manifest is up to date.
 
 **Steps:**
 1. Identify root cause (from reproduction + test)
@@ -505,16 +507,21 @@ resolution: What was fixed  # Added after fix
 
 ## Feature QA Gate
 
-After commit succeeds:
+Before updating frontmatter:
 
-0. **AC completeness check (HARD GATE):**
-   Count unchecked `[ ]` items in `## Acceptance Criteria`.
+0. **Deferred-work check:** Scan the session for "deferred", "follow-up", "defer to", "part 3", "future spec", "not in scope" language. For each match, verify a P-number exists. If not: file via `/create-bug` before proceeding. A deferral without a ticket is invisible.
+
+0.5. **AC completeness check (HARD GATE):**
+   Count unchecked `[ ]` items in `## Acceptance Criteria` **before editing the spec**.
    - All `[x]`: proceed to step 1.
-   - Any `[ ]`: **STOP.** Do NOT set `status: qa`. Report:
+   - Any `[ ]`: **STOP.** Do NOT edit the spec to `status: qa`. Report:
      "Cannot set qa — {N} acceptance criteria still unchecked:
       - [ ] {item 1}
       - [ ] {item 2}
      Fix remaining items or update the spec before closing."
+
+After both gate checks pass:
+
 1. **Review** — Spawn `/finish code` as a subagent (`model: "sonnet"`) with: "Review all code changes on this branch vs main. Spec: [spec path if exists]. Proceed directly — no scope confirmation needed." Present HIGH/MEDIUM findings. Ask: "Fix issues before closing? (all HIGH / select / skip)". Apply approved fixes and commit them.
 2. Update frontmatter: `status: qa` (keep `delivery_stage: fix` — do not clear it). **If the spec was moved (e.g., to a subfolder) in this session, Edit its frontmatter at the new location AFTER the `git mv` is staged — never Edit before staging the rename, or the frontmatter change lands in a separate commit.**
 3. Commit: `chore: pN ready for QA — {title}`
