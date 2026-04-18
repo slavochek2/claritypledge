@@ -8,7 +8,7 @@
  * 3. Hidden points filtered from output
  */
 
-import type { LetterStorySnapshot, StoryWithPoints, PointSummary, PositionType, ContentVisibility, StoryVisibility } from '@/app/types';
+import type { LetterStorySnapshot, StoryWithPoints, PointSummary, PositionType, ContentVisibility, StoryVisibility, DocStory } from '@/app/types';
 import type { Point, PositionEntry } from '@/app/components/shared/prototype-types';
 
 interface PointConfigPoint {
@@ -23,6 +23,7 @@ interface PointConfig {
   storyText?: string;
   storyTitle?: string;
   points?: PointConfigPoint[];
+  hidden?: string[];
 }
 
 /**
@@ -117,10 +118,14 @@ export function snapshotToStoryWithPoints(
   const authorProfile: AuthorProfile = typeof author === 'string' ? { name: author } : author;
   const config = (snapshot.point_config ?? {}) as PointConfig;
   const rawPoints = Array.isArray(config.points) ? config.points : [];
+  const topLevelHidden = Array.isArray(config.hidden) ? new Set(config.hidden) : null;
 
-  // Filter hidden points — they must not appear in the UI or count for anti-point lead
+  // Filter hidden points — they must not appear in the UI or count for anti-point lead.
+  // Two source shapes are honored:
+  //   per-point boolean (`p.hidden`) — written by the post-fix preview builder + future seal RPCs
+  //   top-level id array (`config.hidden`) — written by the seal RPC for already-sealed letters
   const visiblePoints: PointSummary[] = rawPoints
-    .filter((p) => !p.hidden)
+    .filter((p) => !p.hidden && !(topLevelHidden && p.id && topLevelHidden.has(p.id)))
     .map((p) => ({
       id: p.id ?? '',
       statement: p.text ?? '',
@@ -152,5 +157,39 @@ export function snapshotToStoryWithPoints(
     authorEarsCount: authorProfile.earsCount ?? 0,
     authorHasPledged: authorProfile.hasPledged ?? false,
     points: visiblePoints,
+  };
+}
+
+/**
+ * Convert a DocStory (live doc state) into a LetterStorySnapshot for the preview path.
+ *
+ * Co-located with snapshotToStoryWithPoints so the snapshot shape stays consistent
+ * across the builder (preview) and reader (sealed letter) — the original shape drift
+ * between the two was the root cause of P749 (hidden points leaked into preview).
+ *
+ * Populates per-point `hidden` from `docStory.point_config.hidden`, allowing the reader's
+ * existing per-point filter to fire without any preview-specific code path.
+ */
+export function docStoryToSnapshot(docStory: DocStory): LetterStorySnapshot {
+  const hiddenIds = Array.isArray(docStory.point_config?.hidden)
+    ? new Set(docStory.point_config.hidden)
+    : null;
+  return {
+    letter_id: '',
+    story_id: docStory.story_id,
+    version_id: '',
+    position: docStory.position,
+    point_config: {
+      storyText: docStory.story.content,
+      storyTitle: docStory.story.title ?? '',
+      points: docStory.story.points.map((p) => ({
+        id: p.id,
+        text: p.statement,
+        authorPosition: p.userPosition ?? null,
+        visibility: p.visibility,
+        hidden: hiddenIds ? hiddenIds.has(p.id) : false,
+      })),
+    },
+    visibility: docStory.story.visibility ?? 'public',
   };
 }

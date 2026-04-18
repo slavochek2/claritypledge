@@ -71,18 +71,23 @@ export function estimateReadingMinutes(storyCount: number, totalPointCount: numb
 // ---------------------------------------------------------------------------
 
 interface PointConfigPoint {
+  id?: string;
   hidden?: boolean;
 }
 
 interface PointConfig {
   points?: PointConfigPoint[];
+  hidden?: string[];
 }
 
 export function countTotalPoints(snapshots: LetterStorySnapshot[]): number {
   return snapshots.reduce((total, snapshot) => {
     const config = (snapshot.point_config ?? {}) as PointConfig;
     const points = Array.isArray(config.points) ? config.points : [];
-    const visibleCount = points.filter((p) => !p.hidden).length;
+    const topLevelHidden = Array.isArray(config.hidden) ? new Set(config.hidden) : null;
+    const visibleCount = points.filter(
+      (p) => !p.hidden && !(topLevelHidden && p.id && topLevelHidden.has(p.id))
+    ).length;
     return total + visibleCount;
   }, 0);
 }
