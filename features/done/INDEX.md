@@ -41,7 +41,7 @@ Last updated: 2026-04-18 (P753 Story image upload CORS — two independent confi
 
 ## Points & Stories
 
-- **P701** (Apr 13) Points Restructure + Badge Display Fix — 3-way st-tag swap via `st_temp` intermediate; badge switches from hardcoded 9-station list to earned-only data-driven; `stories.title` dropped (always empty, content.slice used everywhere)
+- **P701** (Apr 13) Points Restructure + Badge Display Fix — 3-way st-tag swap via `st_temp` intermediate; badge switches from hardcoded 9-station list to earned-only data-driven; `stories.title` dropped (always empty, content.slice used everywhere). **Follow-up (Apr 18):** `array_replace` on `system_tags` did NOT rewrite `stories.content` — search pickers returned wrong stories; future st-tag renumbers must touch both in the same migration (see decisions.md 2026-04-18)
 - **P662** (Apr 06) Story Slug Resolution — parity with point slugs; `resolveStorySlug` is simpler (no `-a` suffix); story detail page shows `content` not `title` (test gotcha)
 - **P633** (Apr 03) Unlink Inside QuotedPoint on Story Detail — ownership model determines surface: story owns the link → action goes on story-detail page. Three scope rewrites (P616→P621→P633) before landing on correct surface. First action button inside QuotedPoint.
 - **P621** (Apr 03) Unlink on Point Detail Page — secondary surface for unlink (stats row of expanded story card). Proven pattern: `onUnlinkPoint` callback prop + page-owned dialog. Bug found during verify: must clear `linkedStories` map alongside `viewerStory` state.

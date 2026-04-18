@@ -2,6 +2,20 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-18 [technical]: st-tag renumber migrations must rewrite `stories.content` in the same transaction
+
+**Context:** P701's April 13 migration swapped st-tags via `array_replace` on `stories.system_tags` but did not touch `stories.content`. Story search pickers use `ilike('%#stN%')` on content — so the search returned stale results pointing at the wrong stories. 3 rows drifted; detected and fixed April 18 via id-targeted UPDATE with `LIKE '%#stN%'` guards and a temp-pivot to handle the cyclic swap (st2→st5, st5→st3, st3→st2).
+
+**Decision:** Any migration that renumbers st-tags MUST rewrite `stories.content` (and `points.statement`/`context` if they embed `#stN`) in the same transaction as the `system_tags` `array_replace`. An `array_replace`-only swap is incomplete. When tags form a cycle, use a temp pivot (`#st_temp`) to avoid mid-cycle collisions.
+
+**Alternatives rejected:** Post-hoc separate migration — leaves a window where search pickers return wrong results in prod. Trigger-only fix — `trg_stories_extract_hashtags` only fires on story UPDATE, can't fix already-drifted rows.
+
+**Consequences:** The `/sync-hashtags` skill now includes Step 1b (content drift scan) and Step 3b (cycle-safe fix template) as standard checks. Future st-tag renumber PRs must include a content rewrite step — reviewers should reject `array_replace`-only migrations that touch `system_tags`.
+
+**References:** `supabase/migrations/20260418130000_p701_story_content_st_swap.sql`, `.claude/commands/slava/maintain/sync-hashtags.md`
+
+---
+
 ## 2026-04-18 [technical]: Edge function CORS and GCS bucket CORS are independent configs — reverses 2026-03-28 deferral
 
 **Context:** P753 exposed two separate CORS layers for story image upload. Layer 1: `generate-story-image-url` edge function has its own `ALLOWED_ORIGIN` env var controlling the preflight `Access-Control-Allow-Origin` header. Layer 2: `gs://claritypledge-story-images` bucket has its own CORS config (set via `gsutil cors set`) that independently controls PUT preflight responses. These configs have no relationship — fixing one doesn't fix the other. The bug was deferred in P591 (2026-03-28) with the decision to "update ALLOWED_ORIGIN secret to match port" and rejected dynamic CORS allowlist as over-engineering for one prod domain. That deferral worked for prod but blocked all worktrees except w3 from uploading story images. The bug also had a second hidden layer: the GCS bucket had a hardcoded 3-origin allowlist (prod, 5001, 5300) that blocked all other worktree ports regardless of the edge function fix.
