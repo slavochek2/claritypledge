@@ -7,8 +7,8 @@ workstream: dx
 date_reported: '2026-04-18'
 created_date: '2026-04-18'
 tags: [testing, hooks, vitest, navigation]
-delivery_stage: fix
-pipeline_ran: [create-bug, fix]
+delivery_stage: ship
+pipeline_ran: [create-bug, fix, ship]
 ---
 
 # P760: useUnreadLetterCount unmount crash fails full Vitest suite
