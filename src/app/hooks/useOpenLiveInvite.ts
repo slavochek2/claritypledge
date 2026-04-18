@@ -106,16 +106,18 @@ export function useOpenLiveInvite(): { invite: OpenLiveInvite | null; loading: b
           .select('code, creator_name, creator_photo_url, creator_avatar_color, creator_is_pledger, delivery_id, stories!clarity_sessions_source_story_id_fkey(content)')
           .eq('id', sessionId)
           .maybeSingle()
-          .then(({ data: session }) => {
+          .then(async ({ data: session }) => {
             if (cancelled || !session) return;
-            if (!session.code) return; // NOT NULL in schema; guard against constraint violation
+            if (!session.code) return;
             const rawContent = (session.stories as { content: string } | null)?.content ?? '';
+
+            if (cancelled) return;
             dispatch({
               type: 'INSERT',
               payload: {
                 sessionId,
                 code: session.code,
-                authorName: session.creator_name ?? '',
+                authorName: (session.creator_name as string | null) ?? '',
                 storyTitle: rawContent ? rawContent.split('\n')[0].substring(0, 60) : '',
                 closedAt: null,
                 inviterPhotoUrl: (session.creator_photo_url as string | null) ?? null,

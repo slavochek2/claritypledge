@@ -3853,6 +3853,11 @@ export interface LiveInviteRecord {
   closedAt: string | null;
   authorName: string;
   storyTitle: string;
+  // P745: inviter avatar + delivery context
+  inviterPhotoUrl: string | null;
+  inviterAvatarColor: string | null;
+  inviterIsPledger: boolean;
+  deliveryId: string | null;
 }
 
 export interface BaselineRatings {
@@ -3890,7 +3895,7 @@ export async function getOpenLiveInviteForUser(
   const { data, error } = await supabase
     .from('clarity_live_invites')
     .select(
-      'id, session_id, target_user_id, created_at, closed_at, clarity_sessions(code, creator_name, stories!clarity_sessions_source_story_id_fkey(content))'
+      'id, session_id, target_user_id, created_at, closed_at, clarity_sessions(code, creator_name, source_letter_id, profiles!clarity_sessions_creator_profile_id_fkey(avatar_url, avatar_color, has_pledged), stories!clarity_sessions_source_story_id_fkey(content))'
     )
     .eq('target_user_id', userId)
     .is('closed_at', null)
@@ -3900,10 +3905,25 @@ export async function getOpenLiveInviteForUser(
   const sessionData = data.clarity_sessions as {
     code: string;
     creator_name: string | null;
+    source_letter_id: string | null;
+    profiles: { avatar_url: string | null; avatar_color: string | null; has_pledged: boolean | null } | null;
     stories: { content: string } | null;
   } | null;
   const rawStoryContent = sessionData?.stories?.content ?? '';
   const storyTitle = rawStoryContent ? rawStoryContent.split('\n')[0].substring(0, 60) : '';
+
+  // Secondary lookup: find the delivery for this receiver + letter
+  let deliveryId: string | null = null;
+  if (sessionData?.source_letter_id) {
+    const { data: delivery } = await supabase
+      .from('letter_deliveries')
+      .select('id')
+      .eq('letter_id', sessionData.source_letter_id)
+      .eq('receiver_profile_id', userId)
+      .maybeSingle();
+    deliveryId = delivery?.id ?? null;
+  }
+
   return {
     id: data.id,
     sessionId: data.session_id,
@@ -3913,6 +3933,10 @@ export async function getOpenLiveInviteForUser(
     closedAt: data.closed_at ?? null,
     authorName: sessionData?.creator_name ?? '',
     storyTitle,
+    inviterPhotoUrl: sessionData?.profiles?.avatar_url ?? null,
+    inviterAvatarColor: sessionData?.profiles?.avatar_color ?? null,
+    inviterIsPledger: sessionData?.profiles?.has_pledged ?? false,
+    deliveryId,
   };
 }
 

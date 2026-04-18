@@ -9,7 +9,7 @@ delivery_stage: ship
 flow: dev
 pipeline_plan: [create-spec, challenge-prd, architect, generate-tests, dev, verify]
 pipeline_skipped: [ux -- reuses ActiveSessionBanner pattern, ui -- copy change only, view -- additive to existing surface, decompose -- under 5 files expected, spec-review -- fresh spec, spec-compact -- under 100 lines]
-pipeline_ran: [create-spec, challenge-prd, architect, generate-tests, decompose, ship]
+pipeline_ran: [create-spec, challenge-prd, architect, generate-tests, decompose, dev, ship]
 uat_file: features/uat/p745.md
 test_files:
   - src/tests/p745-use-open-live-invite-extension.test.ts
