@@ -91,6 +91,11 @@ export function useActiveSession() {
               sessionIdRef.current = null;
               clearActiveSessionFromStorage();
               clearActiveSession();
+            } else {
+              // subscribeToClaritySession now does a fresh fetch, but as belt-and-suspenders:
+              // if live_state still lacks ended flags after the fetch, re-validate via poll path
+              // to detect session ends that arrive as empty payloads.
+              validateSession();
             }
           }
         );

@@ -1223,9 +1223,18 @@ export function subscribeToClaritySession(
       },
       (payload) => {
         console.log('📡 Session update received:', payload);
-        if (payload.new) {
-          onUpdate(mapSessionFromDb(payload.new as DbClaritySession));
-        }
+        // clarity_sessions lacks REPLICA IDENTITY FULL — payload.new.live_state may be stale.
+        // Re-fetch to guarantee current values reach all subscribers.
+        const id = (payload.new as { id?: string })?.id;
+        if (!id) return;
+        supabase
+          .from('clarity_sessions')
+          .select('*')
+          .eq('id', id)
+          .single()
+          .then(({ data }) => {
+            if (data) onUpdate(mapSessionFromDb(data as DbClaritySession));
+          });
       }
     )
     .subscribe((status) => {

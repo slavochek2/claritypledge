@@ -1098,7 +1098,7 @@ function LetterReadingFlow({
   return (
     <>
       {liveSessionCode && (
-        <LetterLiveOverlay sessionCode={liveSessionCode} onClose={() => setLiveSessionCode(null)} />
+        <LetterLiveOverlay sessionCode={liveSessionCode} />
       )}
       {showBanner && (
         <LetterLiveBanner invite={invite} onJoin={handleJoin} />
