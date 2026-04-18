@@ -6,7 +6,7 @@ import type { OpenLiveInvite } from '@/app/hooks/useOpenLiveInvite';
 interface LetterLiveBannerProps {
   invite: OpenLiveInvite;
   onJoin: () => void;
-  onLater: () => void;
+  onLater?: () => void;
 }
 
 export function LetterLiveBanner({ invite, onJoin, onLater }: LetterLiveBannerProps) {
@@ -31,16 +31,18 @@ export function LetterLiveBanner({ invite, onJoin, onLater }: LetterLiveBannerPr
         <div className="flex items-center gap-3">
           <button
             onClick={onJoin}
-            className="w-full sm:w-auto bg-blue-500 text-white text-sm font-medium rounded-md h-8 px-4 hover:bg-blue-600 transition-colors"
+            className="w-full sm:w-auto bg-blue-500 text-white text-sm font-medium rounded-md min-h-[44px] px-4 hover:bg-blue-600 transition-colors"
           >
             Join
           </button>
-          <button
-            onClick={onLater}
-            className="text-sm text-blue-700 hover:underline h-8 px-3 sm:ml-0 ml-auto"
-          >
-            Later
-          </button>
+          {onLater && (
+            <button
+              onClick={onLater}
+              className="text-sm text-blue-700 hover:text-blue-900 min-h-[44px] px-2 transition-colors"
+            >
+              Later
+            </button>
+          )}
         </div>
       </div>
     </div>

@@ -202,6 +202,11 @@ export interface UseLetterReadingStateParams {
    * Keyed by story_id. Loaded from getLetterForPublicReading RPC.
    */
   publicPredictions?: Map<string, number>;
+  /**
+   * P745: DB-persisted story index from delivery.saved_story_index.
+   * Used as fallback when sessionStorage has no state (e.g. after returning from /live overlay).
+   */
+  savedStoryIndex?: number;
 }
 
 // ============================================================================
@@ -268,6 +273,10 @@ export function useLetterReadingState(
     ? deliveryIdOrParams.publicPredictions
     : undefined;
 
+  const savedStoryIndex: number | undefined = isParamsObject
+    ? deliveryIdOrParams.savedStoryIndex
+    : undefined;
+
   const [isSubmitting, setIsSubmitting] = useState(false);
   const initRef = useRef(false);
 
@@ -314,6 +323,14 @@ export function useLetterReadingState(
         hasMarkedInProgress.current = true;
         return saved;
       }
+    }
+    // P745: fallback to DB-persisted index (set when receiver paused to join /live)
+    if (savedStoryIndex !== undefined && savedStoryIndex > 0 && savedStoryIndex < snapshots.length) {
+      return {
+        currentStoryIndex: savedStoryIndex,
+        stories: snapshots.map((snap) => createInitialStoryState(snap, previewPredictions?.get(snap.story_id))),
+        isComplete: false,
+      };
     }
     return freshState;
   });

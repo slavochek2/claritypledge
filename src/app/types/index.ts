@@ -1413,6 +1413,8 @@ export interface LetterDelivery {
   steps_completed?: number;
   /** P699 Phase 2: total_stories + total_points (present when loaded via get_deliveries_with_progress) */
   total_steps?: number;
+  /** P745: story index saved when receiver pauses to join /live */
+  saved_story_index?: number | null;
 }
 
 /** P660: Inbox item — received letters + outgoing responses (UNION ALL) */

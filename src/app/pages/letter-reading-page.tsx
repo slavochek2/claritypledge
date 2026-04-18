@@ -34,12 +34,10 @@ import {
   updateDeliveryStatus,
   updateDeliveryStatusByToken,
   submitLetterResponseAuthenticated,
-  saveLetterPauseState,
 } from '@/app/data/letters-service';
 import { useOpenLiveInvite } from '@/app/hooks/useOpenLiveInvite';
 import { LetterLiveBanner } from '@/app/components/letters/letter-live-banner';
 import { LetterLiveOverlay } from '@/app/components/letters/letter-live-overlay';
-import * as Sentry from '@sentry/react';
 import { analytics } from '@/lib/mixpanel';
 import type { ClarityLetter, LetterStorySnapshot, LetterDelivery, PositionType } from '@/app/types';
 import { pointsService } from '@/app/data/points-service';
@@ -969,26 +967,48 @@ function LetterReadingFlow({
   onComplete: () => void;
 }) {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const returnFromLive = searchParams.get('returnFromLive') === '1';
   const { invite } = useOpenLiveInvite();
   const [liveSessionCode, setLiveSessionCode] = useState<string | null>(null);
   const [dismissedSessionId, setDismissedSessionId] = useState<string | null>(null);
+  // Tracks whether the receiver has ever opened the overlay — survives manual close so the
+  // completion toast still fires when the author ends the session after the receiver left.
+  const hasJoinedRef = useRef(false);
 
   // P745: Detect session completion via invite closure (clarity_live_invites has REPLICA IDENTITY FULL;
   // clarity_sessions does not — UPDATE payloads from clarity_sessions don't carry new column values).
-  // When the overlay is open and the invite disappears (closed_at set → reducer removes invite),
-  // the session ended — return to letter and show resume toast.
+  // When the invite disappears (closed_at set → reducer removes invite), the session ended —
+  // return to letter and show resume toast regardless of whether overlay is still visible.
   useEffect(() => {
-    if (liveSessionCode && !invite) {
+    if (hasJoinedRef.current && !invite) {
+      hasJoinedRef.current = false;
       setLiveSessionCode(null);
       toast.success('Welcome back — continuing your letter');
     }
-  }, [invite, liveSessionCode]);
+  }, [invite]);
+
+  // P745: also fire resume toast when navigating back via ?returnFromLive=1
+  useEffect(() => {
+    if (returnFromLive) {
+      toast.success('Welcome back — continuing your letter');
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // mount-only — param is stable
+
   // Pass the invitation token if present — the hook routes to the token-based RPC
   // (SECURITY DEFINER, no expiry check since P683) when available, falling back to
   // the authed RLS path when not. P714's token-drop assumption was wrong: invitation_token
   // is a stable UUID, not the one-time OTP hash consumed by create-and-open-letter.
   const effectiveToken = token;
-  const readingState = useLetterReadingState(delivery.id, letter.sender_id, snapshots, effectiveToken);
+  const readingState = useLetterReadingState({
+    mode: 'remote',
+    deliveryId: delivery.id,
+    senderId: letter.sender_id,
+    snapshots,
+    token: effectiveToken,
+    savedStoryIndex: delivery.saved_story_index ?? undefined,
+  });
   const { state, currentPhase, nextStory, tokenExpired } = readingState;
   const { user } = useAuth();
 
@@ -1030,16 +1050,11 @@ function LetterReadingFlow({
   }, [tokenExpired, letter.id, senderName, navigate]);
 
   // P745: live invite handlers — must be declared before early return
-  const handleJoin = useCallback(async () => {
+  const handleJoin = useCallback(() => {
     if (!invite) return;
-    const storyIndex = state.currentStoryIndex;
-    if (invite.deliveryId) {
-      await saveLetterPauseState(invite.deliveryId, storyIndex).catch((err) => {
-        Sentry.captureException(err, { extra: { deliveryId: invite.deliveryId, storyIndex } });
-      });
-    }
+    hasJoinedRef.current = true;
     setLiveSessionCode(invite.code);
-  }, [invite, state.currentStoryIndex]);
+  }, [invite]);
 
   const handleLater = useCallback(() => {
     if (!invite) return;
@@ -1088,7 +1103,7 @@ function LetterReadingFlow({
   return (
     <>
       {liveSessionCode && (
-        <LetterLiveOverlay sessionCode={liveSessionCode} />
+        <LetterLiveOverlay sessionCode={liveSessionCode} onClose={() => setLiveSessionCode(null)} />
       )}
       {showBanner && (
         <LetterLiveBanner invite={invite} onJoin={handleJoin} onLater={handleLater} />

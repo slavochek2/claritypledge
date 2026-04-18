@@ -75,7 +75,7 @@ export function StartClaritySessionButton({
         story_id: storyId,
         session_code: session.code,
       });
-      navigate(`/live/${session.code}`);
+      navigate(`/live/${session.code}?returnTo=${encodeURIComponent('/letters?tab=inbox')}`);
     } catch (err) {
       console.error('[P703] Failed to start letter-sourced session:', err);
       setCreating(false);
@@ -109,6 +109,20 @@ export function StartClaritySessionButton({
       setIsEnding(false);
     }
   };
+
+  if (midLetterMode && openInvite) {
+    return (
+      <Button
+        disabled
+        title="Invite already pending"
+        aria-label="Invite already pending"
+        className="w-full"
+      >
+        <Video className="mr-2 h-4 w-4" />
+        Start Clarity Live now
+      </Button>
+    );
+  }
 
   if (openInvite) {
     const bannerOwnsThisSession = activeSessionCode === openInvite.code;
@@ -179,7 +193,6 @@ export function StartClaritySessionButton({
       <Button
         onClick={() => void handleStart()}
         disabled={creating}
-        title={midLetterMode && openInvite ? 'Invite already pending' : undefined}
         className="bg-blue-500 hover:bg-blue-600 text-white min-h-[44px] gap-2"
         data-testid="start-clarity-session-btn"
       >
