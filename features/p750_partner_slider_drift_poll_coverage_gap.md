@@ -1,5 +1,5 @@
 ---
-status: week
+status: qa
 type: bug
 rank: 1000750.0
 severity: high
@@ -9,8 +9,10 @@ created_date: '2026-04-18'
 tags: [live, free-mode, realtime, drift-poll, regression]
 changes: p741
 flow: fix
-delivery_stage: create-bug
-pipeline_ran: [create-bug]
+delivery_stage: ship
+pipeline_ran: [create-bug, fix, ship]
+root_cause: 'Drift-poll comparator in clarity-live-page.tsx omitted freeSliderCreator/freeSliderJoiner. When Realtime dropped a slider event, the 1s fallback ran but never detected the slider change, leaving local state stale indefinitely.'
+resolution: 'Added freeSliderCreatorDrift/freeSliderJoinerDrift to the drift-poll comparator OR chain (normalized with ?? 0 to match display semantics) and to the live_state_drift_detected Mixpanel payload. Removed both fields from KNOWN_UNCOVERED in p637-drift-detection-completeness. Canary test added with both code-shape (declaration) and wiring (OR-chain) assertions.'
 ---
 
 # P750: Partner slider drift-poll coverage gap
@@ -83,10 +85,17 @@ No change to `mergeInFlight`, `isPhaseRegression`, or the Realtime subscription 
 
 ## Acceptance Criteria
 
-- [ ] Canary test `p750-drift-poll-slider-catchup.test.ts` fails on main, passes after fix
-- [ ] `src/tests/p637-drift-detection-completeness.test.ts` passes with `freeSliderCreator`/`freeSliderJoiner` removed from `KNOWN_UNCOVERED`
-- [ ] `src/tests/p609-free-slider-sync.test.ts` and any `p741-*.test.ts` still pass — no regression to in-flight merge behavior
-- [ ] Manual Chrome↔Brave repro with Realtime blocked: partner slider updates propagate within 2 s via drift-poll
-- [ ] `npx tsc --noEmit` clean
-- [ ] No changes to `mergeInFlight`, `isPhaseRegression`, or the Realtime subscription handler
-- [ ] No console errors during /live Speak Freely flow on either browser
+Programmatic (verified before QA gate):
+
+- [x] Canary test `p750-drift-poll-slider-catchup.test.ts` fails on main, passes after fix
+- [x] `src/tests/p637-drift-detection-completeness.test.ts` passes with `freeSliderCreator`/`freeSliderJoiner` removed from `KNOWN_UNCOVERED`
+- [x] `src/tests/p609-free-slider-sync.test.ts` and `src/tests/p671-field-aware-merge.test.ts` still pass — no regression to in-flight merge behavior (P741 is covered by p609 — no separate p741-*.test.ts exists)
+- [x] `npx tsc --noEmit` clean
+- [x] No changes to `mergeInFlight`, `isPhaseRegression`, or the Realtime subscription handler
+- [x] Full unit suite green (1898 passed / 0 failed on post-fix branch)
+
+## Manual QA (before `/ship p750`)
+
+- [ ] Chrome↔Brave live session, `freePhase: 'unlocked'`. In Brave, DevTools → Network → right-click Supabase WS → Block URL. Move slider in Chrome to 7. Brave partner-dot row catches up to 7 within ~1–2 s via drift-poll.
+- [ ] Unblock the WS, move slider again in Chrome — instant update resumes.
+- [ ] No console errors during /live Speak Freely flow on either browser.
