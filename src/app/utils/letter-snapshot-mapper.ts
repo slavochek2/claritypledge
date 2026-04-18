@@ -22,6 +22,7 @@ interface PointConfigPoint {
 interface PointConfig {
   storyText?: string;
   storyTitle?: string;
+  imageUrl?: string;
   points?: PointConfigPoint[];
 }
 
@@ -135,8 +136,8 @@ export function snapshotToStoryWithPoints(
   return {
     id: snapshot.story_id,
     authorId: '',
-    title: config.storyTitle,
     content: config.storyText ?? '',
+    imageUrl: config.imageUrl || undefined,
     visibility: (snapshot.visibility === 'private' ? 'private' : 'public') as StoryVisibility,
     currentVersion: 1,
     understoodCount: 0,

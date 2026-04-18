@@ -39,9 +39,9 @@ describe('snapshotToStoryWithPoints', () => {
     expect(result.content).toBe('Test story content');
   });
 
-  it('maps point_config.storyTitle to StoryWithPoints.title', () => {
+  it('p751: title is undefined — storyTitle column dropped in P701', () => {
     const result = snapshotToStoryWithPoints(makeSnapshot(), 'Alice');
-    expect(result.title).toBe('Test Title');
+    expect(result.title).toBeUndefined();
   });
 
   it('maps point_config.points array to StoryWithPoints.points', () => {
@@ -183,6 +183,26 @@ describe('snapshotToStoryWithPoints', () => {
     });
     const result = snapshotToStoryWithPoints(snapshot, 'Alice');
     expect(result.points).toHaveLength(2);
+  });
+
+  // =========================================================================
+  // P751: IMAGE URL PASSTHROUGH
+  // =========================================================================
+
+  it('p751: passes imageUrl through from point_config when present', () => {
+    const snapshot = makeSnapshot({
+      point_config: {
+        storyText: 'Story',
+        imageUrl: 'https://example.com/image.png',
+      },
+    });
+    const result = snapshotToStoryWithPoints(snapshot, 'Alice');
+    expect(result.imageUrl).toBe('https://example.com/image.png');
+  });
+
+  it('p751: returns undefined imageUrl when point_config has no imageUrl', () => {
+    const result = snapshotToStoryWithPoints(makeSnapshot(), 'Alice');
+    expect(result.imageUrl).toBeUndefined();
   });
 
   // =========================================================================
