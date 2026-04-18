@@ -2,6 +2,20 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-18 [technical]: Cancel is the only valid exit from the invite waiting room
+
+**Context:** P756. The waiting room had two exit buttons alongside Cancel: "Resend" (bumped `updated_at` to re-ping via realtime) and "← Back to event" (navigated to `returnTo`). P745 moved invite delivery from email to Supabase Realtime push — Resend became dead UI. Back-to-event was always broken: it navigated away WITHOUT closing the invite row (`closed_at` stayed NULL), orphaning the invite permanently — receiver's banner stayed visible, author's trigger stayed disabled.
+
+**Decision:** Cancel (`handleCancelWaiting`) is the only valid exit from the invite waiting room. It closes the invite row AND navigates to `returnTo ?? '/live'`. Any future button or link that exits the waiting room must either (a) call `cancelLiveInvite` first, or (b) not exist. Remove competing exits rather than wire them correctly — competing exits create user confusion about which one closes the invite.
+
+**Alternatives rejected:** Wiring Back-to-event to also call `cancelLiveInvite` — creates two buttons that do the same thing, and the visual distinction ("back" vs "cancel") misleads users about invite state.
+
+**Consequences:** The invite-status panel now shows only "Invite sent to {name}" text and the Cancel button. `resendLiveInvite` removed from `api.ts`. DB trigger `trg_live_invite_resend_rate_limit` is now inert (no code bumps `updated_at`) — leave it, no migration needed. Any new waiting-room surface must enforce this invariant at design time.
+
+**References:** [clarity-live-page.tsx](src/app/pages/clarity-live-page.tsx), [P754 decision](docs/decisions.md) (returnTo wiring), [features/p756_resend_back_to_event_broken.md](features/p756_resend_back_to_event_broken.md)
+
+---
+
 ## 2026-04-18 [technical]: CREATE OR REPLACE on existing RPCs must diff against prior version
 
 **Context:** P725 added `actor_slug` to `get_inbox_items()` via `CREATE OR REPLACE` and stated the change was "purely additive." It silently dropped `steps_completed`, `total_steps`, `completed_at`, the two `in_progress` CASE arms, and the in-progress WHERE gate from the P699 version. The regression was caught the next day (P755).
