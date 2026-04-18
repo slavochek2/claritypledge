@@ -2,6 +2,20 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-18 [process]: Enforce CREATE OR REPLACE FUNCTION diff via pre-commit annotation, not docs alone
+
+**Context:** The "diff against prior version before redefining a function" rule was written twice in decisions.md (P725→P755 KDD, P757 KDD) and violated between each write. Doc-only rules depend on the author remembering them; they have failed twice on the same day.
+
+**Decision:** Added a hard-block check to `pre-commit-checks.sh`: any staged migration containing `CREATE OR REPLACE FUNCTION` must include `-- diffed against: <prior-file>.sql` or `-- new function` in the header. The commit is rejected otherwise. Pattern: `grep -iE 'diffed against:|-- new function'`.
+
+**Alternatives rejected:** Adding to CLAUDE.md instructions — visible to agents but not enforced at commit time. KDD-only — has now failed twice in one day.
+
+**Consequences:** All future migrations redefining existing functions must carry a diff annotation. New functions use `-- new function`. This is mechanical — no discipline required at authoring time beyond running `git commit`.
+
+**References:** [pre-commit-checks.sh](scripts/pre-commit-checks.sh)
+
+---
+
 ## 2026-04-18 [process]: /ship step 3.8 — pre-cherry-pick collision sweep (features/ not symlinked)
 
 **Context:** Cherry-pick aborted with "untracked files would be overwritten" when `features/p761_*.md` existed in main's working tree — the spec had been created during `/fix` in the worktree, committed on the feature branch, but left as an untracked file in main (since `features/` is not symlinked, unlike `scripts/` and `supabase/migrations/`). Proposed fix A (symlink `features/`) and fix B (Gate 2 allowlist for symlink artifact ` D` entries) were both critiqued by Opus and rejected or narrowed.
