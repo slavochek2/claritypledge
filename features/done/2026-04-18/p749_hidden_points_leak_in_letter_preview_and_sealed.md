@@ -6,8 +6,8 @@ workstream: Letters
 date_reported: '2026-04-18'
 created_date: '2026-04-18'
 tags: [letters, privacy, preview, seal-rpc]
-delivery_stage: ship
-status: qa
+status: all-done
+completed_at: '2026-04-18'
 pipeline_ran: [create-bug, fix, ship]
 ---
 
