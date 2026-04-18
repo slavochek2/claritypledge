@@ -1,14 +1,17 @@
 ---
-status: week
+status: qa
 type: bug
 rank: 1000757.0
 severity: high
 workstream: letter
 date_reported: '2026-04-18'
 created_date: '2026-04-18'
+date_resolved: '2026-04-18'
+root_cause: seal_and_send_letter deliveries loop INSERT omitted receiver_profile_id; P731 patched add_recipient_to_sealed_letter but missed this path
+resolution: CREATE OR REPLACE adds profiles.id lookup (lower() match) before each delivery INSERT; backfill UPDATE fixes existing NULL rows
 tags: [letter-delivery, inbox, rls, db-function]
-delivery_stage: create-bug
-pipeline_ran: [create-bug]
+delivery_stage: fix
+pipeline_ran: [create-bug, fix]
 ---
 
 # P757: `seal_and_send_letter` inserts letter_deliveries with NULL receiver_profile_id — private letters invisible in inbox
@@ -62,9 +65,9 @@ Mirror the P731 pattern into `seal_and_send_letter`: `CREATE OR REPLACE` the fun
 
 ## Acceptance Criteria
 
-- [ ] After sealing a private letter to a registered email, `letter_deliveries.receiver_profile_id` is non-NULL immediately (no email link required)
-- [ ] Recipient's inbox shows the sealed letter within one poll cycle (≤15s) without opening the email link
-- [ ] Existing NULL rows for recipients with matching profiles are backfilled to the correct `profile_id` after migration runs
-- [ ] Sealing a letter to an unregistered email still inserts with `receiver_profile_id = NULL` (no error)
-- [ ] Regression test passes: `e2e/integration/20260418210000_p757_seal_sets_receiver_profile_id.spec.ts`
-- [ ] No console errors during the seal flow
+- [x] After sealing a private letter to a registered email, `letter_deliveries.receiver_profile_id` is non-NULL immediately (no email link required)
+- [x] Recipient's inbox shows the sealed letter within one poll cycle (≤15s) without opening the email link
+- [x] Existing NULL rows for recipients with matching profiles are backfilled to the correct `profile_id` after migration runs
+- [x] Sealing a letter to an unregistered email still inserts with `receiver_profile_id = NULL` (no error)
+- [x] Regression test passes: `e2e/integration/20260418210000_p757_seal_sets_receiver_profile_id.spec.ts`
+- [x] No console errors during the seal flow (DB-only fix, no UI path changed)
