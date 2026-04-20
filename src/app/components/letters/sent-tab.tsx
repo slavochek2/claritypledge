@@ -127,8 +127,7 @@ function LetterCard({
 }) {
   const { letter, deliveries } = data;
   const navigate = useNavigate();
-  // P725: expand cards by default so recipient identity surfaces without an extra tap.
-  const [isExpanded, setIsExpanded] = useState(true);
+  const [isExpanded, setIsExpanded] = useState(false);
   const [addRecipientOpen, setAddRecipientOpen] = useState(false);
 
   const isPublic = letter.mode === 'one-to-many';
