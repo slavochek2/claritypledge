@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useLiveSession } from '@/app/contexts/live-session-context';
-import { getClaritySession, endClaritySession, cancelLiveInvite } from '@/app/data/api';
+import { getClaritySession } from '@/app/data/api';
+import { useTerminateSession } from '@/hooks/use-terminate-session';
 
 /**
  * P511: Global banner shown on all non-/live pages when user has an active session.
@@ -10,6 +11,7 @@ import { getClaritySession, endClaritySession, cancelLiveInvite } from '@/app/da
 export function ActiveSessionBanner() {
   const navigate = useNavigate();
   const { activeSessionCode, activeSessionPartnerName, clearActiveSession } = useLiveSession();
+  const terminate = useTerminateSession();
   const [isEnding, setIsEnding] = useState(false);
 
   if (!activeSessionCode) return null;
@@ -26,21 +28,17 @@ export function ActiveSessionBanner() {
   async function handleEndSession() {
     if (isEnding || !activeSessionCode) return;
     setIsEnding(true);
-
-    let session: Awaited<ReturnType<typeof getClaritySession>> = null;
     try {
-      session = await getClaritySession(activeSessionCode);
+      const session = await getClaritySession(activeSessionCode);
       if (session) {
-        await endClaritySession(session.id);
+        await terminate(session.id);
+      } else {
+        clearActiveSession();
       }
     } catch (err) {
       console.error('[ActiveSessionBanner] Failed to end session:', err);
-    } finally {
-      // Cancel invite regardless of whether endClaritySession succeeded — re-enables Start button
-      if (session?.targetListenerId) {
-        try { await cancelLiveInvite(session.id); } catch { /* best effort */ }
-      }
       clearActiveSession();
+    } finally {
       setIsEnding(false);
     }
   }

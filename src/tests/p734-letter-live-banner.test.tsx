@@ -1,9 +1,12 @@
 /**
  * P734: Letter-sourced /live session lifecycle — banner + End Session
  *
+ * P769 update: ActiveSessionBanner now uses useTerminateSession() which calls
+ * completeClaritySession (extended RPC) atomically for all sessions. The separate
+ * cancelLiveInvite + endClaritySession sequence no longer exists.
+ *
  * Canary tests for:
- * - Bug 1: setActiveSession called when creator arrives via URL (live-page integration)
- * - Bug 2: cancelLiveInvite called on End Session for letter-sourced sessions
+ * - Bug 2 (updated): completeClaritySession called on End Session (atomic termination)
  * - Bug 3: clearActiveSession called in handleCancelWaiting (live-page integration)
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
@@ -26,13 +29,11 @@ vi.mock('@/app/contexts/live-session-context', () => ({
 }));
 
 const mockGetClaritySession = vi.fn();
-const mockEndClaritySession = vi.fn();
-const mockCancelLiveInvite = vi.fn();
+const mockCompleteClaritySession = vi.fn();
 
 vi.mock('@/app/data/api', () => ({
   getClaritySession: (...args: unknown[]) => mockGetClaritySession(...args),
-  endClaritySession: (...args: unknown[]) => mockEndClaritySession(...args),
-  cancelLiveInvite: (...args: unknown[]) => mockCancelLiveInvite(...args),
+  completeClaritySession: (...args: unknown[]) => mockCompleteClaritySession(...args),
 }));
 
 const renderBanner = () =>
@@ -45,12 +46,12 @@ const renderBanner = () =>
 describe('P734: ActiveSessionBanner — End Session lifecycle', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockEndClaritySession.mockResolvedValue(undefined);
-    mockCancelLiveInvite.mockResolvedValue(undefined);
+    mockCompleteClaritySession.mockResolvedValue(undefined);
   });
 
-  // Bug 2 canary: letter-sourced sessions must cancel the invite on End Session
-  it('calls cancelLiveInvite when session has targetListenerId (letter-sourced)', async () => {
+  // P769: All End Session paths use terminateSession → completeClaritySession (atomic RPC).
+  // Invite closure is handled inside the extended RPC — no separate cancelLiveInvite call.
+  it('calls completeClaritySession atomically for letter-sourced session', async () => {
     const user = userEvent.setup();
     mockGetClaritySession.mockResolvedValue({
       id: 'session-id-1',
@@ -64,12 +65,12 @@ describe('P734: ActiveSessionBanner — End Session lifecycle', () => {
     await user.click(endButton);
 
     await waitFor(() => {
-      expect(mockCancelLiveInvite).toHaveBeenCalledWith('session-id-1');
+      expect(mockCompleteClaritySession).toHaveBeenCalledWith('session-id-1');
     });
   });
 
-  // Regression guard: non-letter sessions must NOT call cancelLiveInvite
-  it('does NOT call cancelLiveInvite when session has no targetListenerId', async () => {
+  // P769: Non-letter sessions also call completeClaritySession (RPC is a no-op for invite closure).
+  it('calls completeClaritySession for non-letter session', async () => {
     const user = userEvent.setup();
     mockGetClaritySession.mockResolvedValue({
       id: 'session-id-2',
@@ -83,27 +84,26 @@ describe('P734: ActiveSessionBanner — End Session lifecycle', () => {
     await user.click(endButton);
 
     await waitFor(() => {
-      expect(mockEndClaritySession).toHaveBeenCalled();
+      expect(mockCompleteClaritySession).toHaveBeenCalledWith('session-id-2');
     });
-    expect(mockCancelLiveInvite).not.toHaveBeenCalled();
   });
 
-  // Bug 2 resilience: cancelLiveInvite called even when endClaritySession fails
-  it('calls cancelLiveInvite even when endClaritySession throws (letter-sourced)', async () => {
+  // Resilience: clearActiveSession called even when completeClaritySession throws.
+  it('calls clearActiveSession even when completeClaritySession throws', async () => {
     const user = userEvent.setup();
     mockGetClaritySession.mockResolvedValue({
       id: 'session-id-err',
       code: 'ABC123',
       targetListenerId: 'listener-user-id',
     });
-    mockEndClaritySession.mockRejectedValue(new Error('network error'));
+    mockCompleteClaritySession.mockRejectedValue(new Error('network error'));
 
     renderBanner();
 
     await user.click(screen.getByRole('button', { name: /end session/i }));
 
     await waitFor(() => {
-      expect(mockCancelLiveInvite).toHaveBeenCalledWith('session-id-err');
+      expect(mockClearActiveSession).toHaveBeenCalled();
     });
   });
 

@@ -213,6 +213,7 @@ const mockRecordSessionConsent = vi.fn();
 const mockSubscribeToClaritySession = vi.fn();
 const mockCheckSessionRequiresAuth = vi.fn();
 const mockEndClaritySession = vi.fn();
+const mockCancelLiveInvite = vi.fn();
 
 vi.mock('@/app/data/api', () => ({
   joinClaritySession: (...args: unknown[]) => mockJoinClaritySession(...args),
@@ -229,7 +230,7 @@ vi.mock('@/app/data/api', () => ({
   patchClaritySessionLiveState: vi.fn().mockResolvedValue(undefined),
   createTranscriptionJob: vi.fn().mockResolvedValue(undefined),
   getLetterBaselineRatings: vi.fn().mockResolvedValue({}),
-  cancelLiveInvite: vi.fn().mockResolvedValue(undefined),
+  cancelLiveInvite: (...args: unknown[]) => mockCancelLiveInvite(...args),
   uploadSessionRecording: vi.fn().mockResolvedValue(undefined),
   uploadEventsSnapshot: vi.fn().mockResolvedValue(undefined),
   uploadSingleChunk: vi.fn().mockResolvedValue(undefined),
@@ -287,13 +288,16 @@ describe('P740: joiner-leave closes letter-sourced invite', () => {
     mockSubscribeToClaritySession.mockReturnValue(vi.fn()); // unsubscribe fn
     mockClearSessionJoiner.mockResolvedValue(undefined);
     mockCompleteClaritySession.mockResolvedValue(undefined);
+    mockCancelLiveInvite.mockResolvedValue(undefined);
     mockCheckSessionRequiresAuth.mockResolvedValue(false);
     mockEndClaritySession.mockResolvedValue(undefined);
   });
 
-  it('T1 (canary): joiner exit from letter-sourced session calls completeClaritySession', async () => {
-    // Pre-fix: completeClaritySession is NOT called in joiner else-branch → assertion FAILS
-    // Post-fix: completeClaritySession IS called with targetListenerId guard → assertion PASSES
+  it('T1 (canary): joiner exit from letter-sourced session calls cancelLiveInvite', async () => {
+    // P769: joiner exit uses cancelLiveInvite (not completeClaritySession) to close the invite.
+    // completeClaritySession now sets sessionEnded=true which is wrong for joiner exits
+    // (the creator's session should continue). cancelLiveInvite closes the invite without
+    // ending the session.
     const user = userEvent.setup();
     renderLivePage();
 
@@ -303,8 +307,11 @@ describe('P740: joiner-leave closes letter-sourced invite', () => {
     await user.click(leaveButton);
 
     await waitFor(() => {
-      expect(mockCompleteClaritySession).toHaveBeenCalledWith('session-letter-abc');
+      expect(mockCancelLiveInvite).toHaveBeenCalledWith('session-letter-abc');
     }, { timeout: 3000 });
+
+    // completeClaritySession must NOT be called on joiner exit (would wrongly set sessionEnded)
+    expect(mockCompleteClaritySession).not.toHaveBeenCalled();
   });
 
   it('T2: clearSessionJoiner is still called (partner-left signal regression guard)', async () => {
@@ -319,7 +326,8 @@ describe('P740: joiner-leave closes letter-sourced invite', () => {
     }, { timeout: 3000 });
   });
 
-  it('T3: non-letter session does NOT call completeClaritySession on joiner exit', async () => {
+  it('T3: non-letter session does NOT call cancelLiveInvite on joiner exit', async () => {
+    // P769: joiner exit is guarded by targetListenerId — non-letter sessions skip invite closure.
     mockGetClaritySession.mockResolvedValue(NON_LETTER_SESSION);
     mockJoinClaritySession.mockResolvedValue(NON_LETTER_SESSION);
 
@@ -333,6 +341,7 @@ describe('P740: joiner-leave closes letter-sourced invite', () => {
       expect(mockClearSessionJoiner).toHaveBeenCalled();
     }, { timeout: 3000 });
 
+    expect(mockCancelLiveInvite).not.toHaveBeenCalled();
     expect(mockCompleteClaritySession).not.toHaveBeenCalled();
   });
 

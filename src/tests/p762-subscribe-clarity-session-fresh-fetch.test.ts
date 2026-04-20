@@ -47,7 +47,7 @@ vi.mock('@/lib/supabase', () => ({
 }));
 
 // Import AFTER mock is set up
-import { subscribeToClaritySession } from '@/app/data/api';
+import { subscribeToClaritySession, _clearSessionChannelRegistryForTesting } from '@/app/data/api';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -77,6 +77,7 @@ const staleRealtimePayload = {
 describe('P762: subscribeToClaritySession — fresh DB SELECT on UPDATE', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    _clearSessionChannelRegistryForTesting();
     // Chain: supabase.from().select().eq().single() → freshDbRow
     mocks.single.mockResolvedValue({ data: freshDbRow, error: null });
     mocks.eq.mockReturnValue({ single: mocks.single });

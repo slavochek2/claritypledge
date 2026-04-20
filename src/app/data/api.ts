@@ -1199,56 +1199,90 @@ export async function endClaritySession(sessionId: string): Promise<void> {
   }
 }
 
+type SessionUpdateHandler = (session: ClaritySession) => void;
+
+interface SessionChannelEntry {
+  channel: ReturnType<(typeof supabase)['channel']> | null;
+  handlers: SessionUpdateHandler[];
+  cancelled: boolean;
+}
+
+const claritySessionChannels = new Map<string, SessionChannelEntry>();
+
+/** Resets subscription registry between tests — do not call in production. */
+export function _clearSessionChannelRegistryForTesting(): void {
+  claritySessionChannels.clear();
+}
+
 /**
  * Subscribes to realtime changes for a session.
+ * Channel is ref-counted per sessionId: only one Supabase channel is created per
+ * session regardless of how many components call this. Removed when the last
+ * subscriber unsubscribes.
  * @param sessionId - The session UUID
  * @param onUpdate - Callback when session updates
  * @returns Unsubscribe function
  */
 export function subscribeToClaritySession(
   sessionId: string,
-  onUpdate: (session: ClaritySession) => void
+  onUpdate: SessionUpdateHandler
 ): () => void {
-  console.log('📡 Setting up realtime subscription for session:', sessionId);
-  let cancelled = false;
+  let entry = claritySessionChannels.get(sessionId);
 
-  const channel = supabase
-    .channel(`clarity_session:${sessionId}`)
-    .on(
-      'postgres_changes',
-      {
-        event: 'UPDATE',
-        schema: 'public',
-        table: 'clarity_sessions',
-        filter: `id=eq.${sessionId}`,
-      },
-      (payload) => {
-        console.log('📡 Session update received:', payload);
-        const id = (payload.new as { id?: string })?.id;
-        if (!id) return;
-        supabase
-          .from('clarity_sessions')
-          .select('*')
-          .eq('id', id)
-          .single()
-          .then(({ data, error }) => {
-            if (cancelled) return;
-            if (error) {
-              console.error('📡 Re-fetch failed:', error);
-              return;
-            }
-            if (data) onUpdate(mapSessionFromDb(data as DbClaritySession));
-          });
-      }
-    )
-    .subscribe((status) => {
-      console.log('📡 Subscription status:', status);
-    });
+  if (!entry) {
+    const handlers: SessionUpdateHandler[] = [];
+    const newEntry: SessionChannelEntry = { channel: null, handlers, cancelled: false };
+
+    const channel = supabase
+      .channel(`clarity_session:${sessionId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'clarity_sessions',
+          filter: `id=eq.${sessionId}`,
+        },
+        (payload) => {
+          const id = (payload.new as { id?: string })?.id;
+          if (!id) return;
+          supabase
+            .from('clarity_sessions')
+            .select('*')
+            .eq('id', id)
+            .single()
+            .then(({ data, error }) => {
+              if (newEntry.cancelled) return;
+              if (error) {
+                console.error('📡 Re-fetch failed:', error);
+                return;
+              }
+              if (data) newEntry.handlers.forEach(h => h(mapSessionFromDb(data as DbClaritySession)));
+            });
+        }
+      )
+      .subscribe((status) => {
+        if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+          console.warn(`[clarity_session_sub] ${status} for session ${sessionId}`);
+        }
+      });
+
+    newEntry.channel = channel;
+    claritySessionChannels.set(sessionId, newEntry);
+    entry = newEntry;
+  }
+
+  entry.handlers.push(onUpdate);
 
   return () => {
-    cancelled = true;
-    console.log('📡 Unsubscribing from session:', sessionId);
-    supabase.removeChannel(channel);
+    if (!entry) return;
+    const idx = entry.handlers.indexOf(onUpdate);
+    if (idx >= 0) entry.handlers.splice(idx, 1);
+    if (entry.handlers.length === 0) {
+      entry.cancelled = true;
+      if (entry.channel) supabase.removeChannel(entry.channel);
+      claritySessionChannels.delete(sessionId);
+    }
   };
 }
 

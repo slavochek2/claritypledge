@@ -22,7 +22,6 @@ import {
   updateClaritySessionLiveState,
   patchClaritySessionLiveState,
   clearSessionJoiner,
-  endClaritySession,
   uploadSessionRecording,
   // uploadAudioChunk is replaced by uploadSingleChunk + queue (P566)
   uploadEventsSnapshot,
@@ -2960,7 +2959,7 @@ export function ClarityLivePage() {
   const handleEndFromRejoin = async () => {
     if (!rejoinSession) return;
     try {
-      await endClaritySession(rejoinSession.sessionId);
+      await completeClaritySession(rejoinSession.sessionId);
       clearActiveSessionFromStorage();
       clearActiveSession();
       clearStoredSession();
@@ -3287,25 +3286,19 @@ export function ClarityLivePage() {
       // Notify partner by updating the database
       try {
         if (isCreator) {
-          // Creator leaving = session ends for everyone
-          await endClaritySession(session.id).catch((err) => {
-            console.error('[Live] endClaritySession failed on exit:', err);
+          // P769: completeClaritySession atomically sets sessionEnded + closes invite
+          await completeClaritySession(session.id).catch((err) => {
+            console.error('[Live] completeClaritySession failed on creator exit:', err);
           });
-          // P703: Atomically close the live invite for letter-sourced sessions
-          if (session.targetListenerId) {
-            await completeClaritySession(session.id).catch((err) => {
-              console.error('[P703] completeClaritySession failed on exit:', err);
-            });
-          }
         } else {
           // Joiner leaving = clear their name so creator knows
           await clearSessionJoiner(session.id).catch((err) => {
             console.error('[Live] clearSessionJoiner failed on joiner exit:', err);
           });
-          // P740: Close letter-sourced invite when joiner exits
+          // P769: cancelLiveInvite (not completeClaritySession) — creator's session continues
           if (session.targetListenerId) {
-            await completeClaritySession(session.id).catch((err) => {
-              console.error('[P740] completeClaritySession failed on joiner exit:', err);
+            await cancelLiveInvite(session.id).catch((err) => {
+              console.error('[P769] cancelLiveInvite failed on joiner exit:', err);
             });
           }
         }
