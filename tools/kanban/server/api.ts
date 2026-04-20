@@ -187,7 +187,8 @@ async function parseFeatureFile(filePath: string): Promise<Feature | null> {
       locked_at: typeof data.locked_at === 'string' ? data.locked_at : undefined,
       flow,
     }
-  } catch {
+  } catch (err) {
+    console.error(`[kanban] parseFeatureFile failed for ${filePath}:`, err)
     return null
   }
 }
@@ -213,8 +214,11 @@ async function getFeatures(worktreePath?: string): Promise<Feature[]> {
           if (feature) features.push(feature)
         }
       }
-    } catch {
-      // Directory doesn't exist, skip
+    } catch (err) {
+      const e = err as NodeJS.ErrnoException
+      if (e?.code !== 'ENOENT') {
+        console.error(`[kanban] scanDir failed for ${dir}:`, err)
+      }
     }
   }
 
@@ -362,7 +366,8 @@ app.get('/api/features', async (req, res) => {
 
     const features = await getCachedFeatures(worktreePath)
     res.json(features)
-  } catch {
+  } catch (err) {
+    console.error('[kanban] GET /api/features failed:', err)
     res.status(500).json({ error: 'Failed to read features' })
   }
 })
