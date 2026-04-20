@@ -2,6 +2,67 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-20 [process]: Multi-symptom screenshots — merge into one spec when shared upstream is plausible
+
+**Context:** P764 was originally written for one symptom (stale banner after refresh). A second screenshot (stranded /live) was added during `/screenshot-debug`. Both symptoms were explainable by the same upstream failure ("partner did not observe the UPDATE"). Filing a second bug was considered.
+
+**Decision:** When two screenshots show different symptoms that share a plausible upstream root cause, merge into the existing spec (update Summary + Reproduction Steps, add the second screenshot reference) rather than filing a second bug. Two specs for one root cause create duplicate investigation overhead and split the fix context.
+
+**Alternatives rejected:** Filing a second bug — creates two parallel investigations that converge on the same root cause; fix may land in one spec and leave the other stale.
+
+**Consequences:** When running `/screenshot-debug` mid-spec and a new symptom emerges, check whether a shared upstream explains both before creating a new spec. The test: "Would fixing X also fix Y?" — if yes, merge.
+
+**References:** [features/p764_session_end_banner_reappears_on_partner_refresh.md](features/p764_session_end_banner_reappears_on_partner_refresh.md)
+
+---
+
+## 2026-04-20 [process]: Enrich-and-close for blocked `/reproduce` — preserve investigation, reset pipeline stamp
+
+**Context:** P764 `/reproduce` was blocked at Phase 3 because the two-party E2E infra (helper `test-session.ts:282`) crashes before any assertion fires. Continuing the canary against broken infra wastes work. Simply reverting spec status without recording what was learned would force re-discovery next session.
+
+**Decision:** When `/reproduce` is blocked by external infra (setup crash, not assertion failure): (1) revert the pipeline stamp (`delivery_stage`) to the pre-reproduce state so kanban shows correct status; (2) enrich the spec body with what the session learned: falsifications of the original root cause, refined hypotheses, blocker description with the exact error, and a concrete resume plan. Commit the enriched spec. Do NOT leave the spec in a mid-reproduce state.
+
+**Alternatives rejected:** Leaving the spec as-is and stopping — next session repeats the same falsification work from scratch, costing 30–60 minutes. Pushing through with a hacked canary that avoids the infra crash — tests the wrong thing; false-green canary is worse than no canary.
+
+**Consequences:** After any blocked `/reproduce`, the spec becomes a self-contained brief for the next session. Resume plan must name: the infra prerequisite (e.g., "confirm `e2e/p666-two-party-infra-proof.spec.ts` passes"), the falsified hypotheses (so they aren't re-tried), and the refined hypothesis to test.
+
+**References:** [features/p764_session_end_banner_reappears_on_partner_refresh.md](features/p764_session_end_banner_reappears_on_partner_refresh.md)
+
+---
+
+## 2026-04-20 [process]: Canary setup failure ≠ canary assertion failure — run infra proof test first
+
+**Context:** P764 Phase 3 canary (`e2e/p764-reproduce.spec.ts`) crashed at `SETUP` — `helpers/test-session.ts:282` hit an error boundary before any test assertion. This is a pre-existing two-party E2E infra issue. The canary could not distinguish "bug confirmed" from "infra broken."
+
+**Decision:** `/reproduce` Phase 3 must distinguish two failure modes: (A) test fails at assertion — the bug is proven; (B) test fails at setup — the infra is broken. When setup fails, do NOT hack the canary to work around the setup. Stop and run the dedicated infra proof test (`e2e/p666-two-party-infra-proof.spec.ts`) first. A canary that can't reach its assertions proves nothing about the bug.
+
+**Alternatives rejected:** Hacking the canary to skip broken setup — produces a test that passes for the wrong reason, masking both the infra issue and the actual bug.
+
+**Consequences:** Before writing a two-party canary, confirm `p666-two-party-infra-proof.spec.ts` passes locally. If it fails, the infra must be fixed (P666) before any two-party reproduce canary is valid. This is a prerequisite check, not a workaround.
+
+**References:** [e2e/p666-two-party-infra-proof.spec.ts](e2e/p666-two-party-infra-proof.spec.ts), [features/p764_session_end_banner_reappears_on_partner_refresh.md](features/p764_session_end_banner_reappears_on_partner_refresh.md)
+
+---
+
+## 2026-04-20 [process]: Falsify spec's root cause before writing Phase 3 canary in `/reproduce`
+
+**Context:** P764's spec (written in `create-bug` phase) stated three root cause hypotheses: (1) `isLoading` flash causes stale banner; (2) `mapSessionFromDb` drops a field; (3) Realtime subscription delivers a partial payload. Phase 1–2 code review falsified all three in ~20 minutes by reading 4 files. If the canary had been written first, it would have tested the wrong mechanism and either false-passed or cost an hour to debug.
+
+**Concrete falsifications this session:**
+- "isLoading flash" — falsified: `live-session-context.tsx:95` inits `activeSessionCode` to `null`; banner gates on null, can't flash.
+- "mapSessionFromDb drops field" — falsified: `api.ts:793` preserves JSON intact.
+- "subscription shape" — falsified: `api.ts:1208` `postgres_changes` delivers full row via `payload.new`.
+
+**Decision:** When a spec's Root Cause was written in the `create-bug` phase (without live code review), treat it as an unverified hypothesis at the start of `/reproduce`. Phase 1–2 must read the 3–5 files that the hypothesis depends on and explicitly confirm or falsify before writing the canary. Reading files takes 5 minutes; writing a canary against a false root cause costs an hour.
+
+**Alternatives rejected:** Writing the canary immediately from the spec's stated hypothesis — fast to start, but wastes significant effort when the hypothesis is wrong (common for create-bug specs).
+
+**Consequences:** `/reproduce` Phase 1–2 is not a formality — it is the falsification gate. If Phase 1–2 falsifies the root cause, update the spec's Root Cause section before writing the canary. Never write a canary that tests a mechanism you haven't verified exists in the current code.
+
+**References:** [features/p764_session_end_banner_reappears_on_partner_refresh.md](features/p764_session_end_banner_reappears_on_partner_refresh.md), [src/app/contexts/live-session-context.tsx](src/app/contexts/live-session-context.tsx), [src/app/data/api.ts](src/app/data/api.ts)
+
+---
+
 ## 2026-04-20 [process]: Code review process/skill files as code — catches bugs that concept critique misses
 
 **Context:** After applying two process improvements to `ship.md` and `tests.md` (concurrent-session HEAD drift detection, hook test coverage rule), a code review agent found 3 bugs: (1) `HEAD_BEFORE` captured before `git checkout main` — held feature branch tip, making the drift check always fire; (2) `--abort` instruction contradicted `git.md`'s banned-command entry; (3) `tests.md` rule fired on single-path hooks with no realtime subscription. The Opus devil's advocate critique that ran before implementation reviewed the proposals conceptually and did not catch any of these.
