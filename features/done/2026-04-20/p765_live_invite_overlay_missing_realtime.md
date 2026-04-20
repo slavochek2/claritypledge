@@ -1,5 +1,6 @@
 ---
-status: in-progress
+status: all-done
+completed_at: '2026-04-20'
 type: bug
 rank: 31251.781
 severity: high
@@ -11,8 +12,7 @@ tags:
   - live
   - invite
   - letter-reading
-delivery_stage: fix
-pipeline_ran: [create-bug, reproduce, fix]
+pipeline_ran: [create-bug, reproduce, fix, ship]
 reproduce_artifact:
   test_file: e2e/p765-invite-overlay-realtime.spec.ts
   root_cause: >-
