@@ -80,17 +80,21 @@ export function LetterComposePage() {
           const hiddenIds = Array.isArray(s.point_config?.hidden)
             ? new Set(s.point_config.hidden)
             : null;
+          let points = s.story.points
+            .filter(p => !hiddenIds || !hiddenIds.has(p.id))
+            .map(p => ({
+              ...p,
+              userPosition: positionsMap.get(p.id)?.position ?? null,
+            }));
+          if (Array.isArray(s.point_config?.order) && s.point_config.order.length > 0) {
+            const orderMap = new Map(s.point_config.order.map((id, i) => [id, i]));
+            points = [...points].sort((a, b) =>
+              (orderMap.get(a.id) ?? Number.MAX_SAFE_INTEGER) - (orderMap.get(b.id) ?? Number.MAX_SAFE_INTEGER)
+            );
+          }
           return {
             ...s,
-            story: {
-              ...s.story,
-              points: s.story.points
-                .filter(p => !hiddenIds || !hiddenIds.has(p.id))
-                .map(p => ({
-                  ...p,
-                  userPosition: positionsMap.get(p.id)?.position ?? null,
-                })),
-            },
+            story: { ...s.story, points },
           };
         });
 
