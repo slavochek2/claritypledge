@@ -262,8 +262,9 @@ test('receiver sees banner when author seeds invite — exact UI copy from spec'
     const joinButton = receiverPage.getByRole('button', { name: 'Join' });
     await expect(joinButton).toBeVisible({ timeout: 5000 });
 
-    const laterButton = receiverPage.getByRole('button', { name: 'Later' });
-    await expect(laterButton).toBeVisible({ timeout: 5000 });
+    // Note: No "Later" button on letter reading page — LetterLiveBanner is
+    // used with only the `onJoin` prop (see letter-reading-page.tsx and
+    // src/tests/p745-letter-live-components.test.tsx "Join only, no Later button").
   } finally {
     if (inviteId) await closeInvite(inviteId);
     if (sessionId) await supabaseAdmin.from('clarity_sessions').delete().eq('id', sessionId);
