@@ -110,10 +110,22 @@ Cherry-picking...
 
 4. **Cherry-pick onto main** — switch to main, cherry-pick each feature commit in order:
    ```bash
+   HEAD_BEFORE=$(git rev-parse HEAD)
    git checkout main   # (from main repo root if in a worktree: cd ~/Projects/public/claritypledge)
    git cherry-pick <sha1> <sha2> ...   # oldest → newest
    ```
    Cherry-pick will not touch staged files or other worktrees' uncommitted changes, but CAN fail on untracked files — step 3.8 handles that. If a conflict arises, resolve it, `git add`, and `git cherry-pick --continue`.
+
+   **If you run `git cherry-pick --abort`** (to restart or resolve a conflict differently):
+   ```bash
+   HEAD_AFTER=$(git rev-parse HEAD)
+   if [ "$HEAD_BEFORE" != "$HEAD_AFTER" ]; then
+     echo "HEAD moved — concurrent session landed commits. Re-verify pre-cherry-pick stamps."
+     git log --oneline "$HEAD_BEFORE"..HEAD  # show what the concurrent session added
+   fi
+   ```
+   If HEAD moved: re-check that every commit you made to main before the cherry-pick (spec stamps, manifest updates) is still present. Re-commit any that are missing — these stamps are idempotent, so re-committing is always safe.
+
    After cherry-pick: `git branch -D feature/pN` (force-delete is expected — the branch tip was never merged, only its commits were replayed).
 5. **Close the spec** — move spec to `features/done/`, update frontmatter:
    - `status: all-done`

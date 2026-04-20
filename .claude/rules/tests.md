@@ -144,6 +144,15 @@ When writing or reviewing tests that cover a UI component with a conditional ren
 
 This applies in /fix Phase 2 (canary) and Phase 4 (verify). Discovering a missing branch during code review counts as a failed Phase 2.
 
+## Hook Domain-Type Coverage — Both Fetch Paths Required
+
+Any hook that returns a domain type assembled from a DB query (e.g. `OpenLiveInvite`, `LiveInviteRecord`) must have unit tests for **both** data delivery paths:
+
+1. **Initial fetch path** — the `getX()` call on mount; verify the domain type fields are populated from the returned record (not defaulted to null/false)
+2. **Realtime path** — the INSERT/UPDATE subscriber; verify the same fields are populated from the enrichment query
+
+A test suite that mocks `getX()` to `null` and only exercises the realtime path will not catch mapping helpers (`mapRecord`, `mapX`) that hardcode null defaults — the initial-fetch data is silently discarded.
+
 ## Gitleaks — JWT Fixture Allowlist
 
 If a test fixture contains a JWT-shaped string (`eyJ...`), add `// gitleaks:allow` on that line to prevent a false-positive pre-commit block.
