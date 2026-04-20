@@ -2,6 +2,20 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-20 [process]: Code review process/skill files as code — catches bugs that concept critique misses
+
+**Context:** After applying two process improvements to `ship.md` and `tests.md` (concurrent-session HEAD drift detection, hook test coverage rule), a code review agent found 3 bugs: (1) `HEAD_BEFORE` captured before `git checkout main` — held feature branch tip, making the drift check always fire; (2) `--abort` instruction contradicted `git.md`'s banned-command entry; (3) `tests.md` rule fired on single-path hooks with no realtime subscription. The Opus devil's advocate critique that ran before implementation reviewed the proposals conceptually and did not catch any of these.
+
+**Decision:** Skill and rules files (`.claude/commands/`, `.claude/rules/`) contain shell snippets and agent instructions that have real logic bugs — shell variable scoping, contradiction with other rules, scope ambiguity. They must be code-reviewed after every edit, not just conceptually critiqued. A file-reading code review agent catches bugs that a prose-level devil's advocate misses because it actually runs against the files.
+
+**Alternatives rejected:** Relying on devil's advocate critique alone — proven insufficient; conceptual critique operates on the stated intent, not the implemented logic.
+
+**Consequences:** After applying any non-trivial change to a skill or rules file, run the code reviewer agent (as was done in this session). The review should pass the file content directly, not just a prose description of the change.
+
+**References:** `.claude/commands/slava/build/ship.md`, `.claude/rules/tests.md`
+
+---
+
 ## 2026-04-18 [technical]: handleFreeRoundComplete guard — check only partner's confirmed key, not own
 
 **Context:** P763 regression (commit `1b317878`, March 31): replacing the 2-second hold timer in `FreeModeView` with an immediate `onRoundComplete()` call + a confirmed-state guard in `handleFreeRoundComplete`. The guard checked both `freeSliderCreator` and `freeSliderJoiner` in `confirmedLiveStateRef.current`. Own-slider value is debounced 300ms before `updateLiveState` fires; partner slider arrives via Realtime and is committed synchronously. Result: when the user drags last, guard reads stale own-key → returns early → `roundCompleteFiredRef = true` prevents any retry → session stuck.
