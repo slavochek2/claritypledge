@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: all-done
 type: change-request
 rank: 1000762.0
 changes: p511
@@ -10,8 +10,8 @@ tags:
   - live
   - realtime
 created_date: '2026-04-20'
-delivery_stage: dev
-pipeline_ran: [change-request, architect, generate-tests, spec-review, dev]
+completed_at: '2026-04-20'
+pipeline_ran: [change-request, architect, generate-tests, spec-review, dev, ship]
 uat_file: features/uat/p769.md
 test_files:
   - src/tests/p769-terminate-session.test.ts
