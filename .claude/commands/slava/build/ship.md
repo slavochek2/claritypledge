@@ -110,13 +110,13 @@ Cherry-picking...
 
 4. **Cherry-pick onto main** — switch to main, cherry-pick each feature commit in order:
    ```bash
-   HEAD_BEFORE=$(git rev-parse HEAD)
    git checkout main   # (from main repo root if in a worktree: cd ~/Projects/public/claritypledge)
+   HEAD_BEFORE=$(git rev-parse HEAD)   # capture main's tip — used for concurrent-session drift detection
    git cherry-pick <sha1> <sha2> ...   # oldest → newest
    ```
    Cherry-pick will not touch staged files or other worktrees' uncommitted changes, but CAN fail on untracked files — step 3.8 handles that. If a conflict arises, resolve it, `git add`, and `git cherry-pick --continue`.
 
-   **If you run `git cherry-pick --abort`** (to restart or resolve a conflict differently):
+   **If `--abort` was run** (by you on user instruction, or by a concurrent session — `--abort` is banned per git.md without explicit user instruction):
    ```bash
    HEAD_AFTER=$(git rev-parse HEAD)
    if [ "$HEAD_BEFORE" != "$HEAD_AFTER" ]; then

@@ -146,10 +146,12 @@ This applies in /fix Phase 2 (canary) and Phase 4 (verify). Discovering a missin
 
 ## Hook Domain-Type Coverage — Both Fetch Paths Required
 
-Any hook that returns a domain type assembled from a DB query (e.g. `OpenLiveInvite`, `LiveInviteRecord`) must have unit tests for **both** data delivery paths:
+Any hook that returns a domain type assembled from a DB query AND uses a realtime subscription must have unit tests for **both** data delivery paths:
 
 1. **Initial fetch path** — the `getX()` call on mount; verify the domain type fields are populated from the returned record (not defaulted to null/false)
 2. **Realtime path** — the INSERT/UPDATE subscriber; verify the same fields are populated from the enrichment query
+
+If the hook has no realtime subscriber, only path 1 applies.
 
 A test suite that mocks `getX()` to `null` and only exercises the realtime path will not catch mapping helpers (`mapRecord`, `mapX`) that hardcode null defaults — the initial-fetch data is silently discarded.
 
