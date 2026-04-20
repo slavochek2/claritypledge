@@ -89,7 +89,7 @@ export function LettersPage() {
 
         <Tabs value={activeTab} onValueChange={handleTabChange}>
           <div className="flex items-end justify-between sticky top-0 z-10 bg-background">
-            {/* P725: tab order Inbox → Sent → Drafts. */}
+            {/* P770: tab order Inbox → Drafts → Published. */}
             <TabsList className="w-auto justify-start border-b rounded-none h-auto p-0">
               <TabsTrigger
                 value="inbox"
@@ -99,16 +99,16 @@ export function LettersPage() {
                 {inboxLabel}
               </TabsTrigger>
               <TabsTrigger
-                value="sent"
-                className="rounded-none border-b-2 border-transparent data-[state=active]:border-blue-500 data-[state=active]:shadow-none px-4 py-3"
-              >
-                Published
-              </TabsTrigger>
-              <TabsTrigger
                 value="drafts"
                 className="rounded-none border-b-2 border-transparent data-[state=active]:border-blue-500 data-[state=active]:shadow-none px-4 py-3"
               >
                 Drafts
+              </TabsTrigger>
+              <TabsTrigger
+                value="sent"
+                className="rounded-none border-b-2 border-transparent data-[state=active]:border-blue-500 data-[state=active]:shadow-none px-4 py-3"
+              >
+                Published
               </TabsTrigger>
             </TabsList>
             {/* P725: persistent "New Draft" CTA — visible on all three tabs, not gated by activeTab. */}
