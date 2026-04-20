@@ -2,9 +2,9 @@
 id: p695
 title: Completed letter revisit shows reading flow instead of results
 type: bug
-status: qa
+status: all-done
+completed_at: '2026-04-20'
 severity: high
-delivery_stage: fix
 pipeline_ran: [fix]
 date_reported: 2026-04-12
 tags: []

@@ -1,10 +1,10 @@
 ---
-status: qa
+status: all-done
+completed_at: '2026-04-20'
 type: bug
 severity: high
 date_reported: 2026-04-11
 date_resolved: 2026-04-11
-delivery_stage: fix
 pipeline_ran: [fix]
 root_cause: clarity_docs SELECT RLS blocks receivers (not owner/public) so PostgREST inner-join silently dropped every row; getUnreadLetterCount queried letter_deliveries directly and still saw rows
 resolution: Replaced PostgREST join queries in getInboxItems with a SECURITY DEFINER RPC (get_inbox_items) that bypasses RLS for the narrow inbox fields; authorization gate ensures caller can only query own inbox

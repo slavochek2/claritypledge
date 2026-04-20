@@ -1,5 +1,6 @@
 ---
-status: qa
+status: all-done
+completed_at: '2026-04-20'
 type: bug
 rank: 1000757.0
 severity: high
@@ -10,7 +11,6 @@ date_resolved: '2026-04-18'
 root_cause: seal_and_send_letter deliveries loop INSERT omitted receiver_profile_id; P731 patched add_recipient_to_sealed_letter but missed this path
 resolution: CREATE OR REPLACE adds profiles.id lookup (lower() match) before each delivery INSERT; backfill UPDATE fixes existing NULL rows
 tags: [letter-delivery, inbox, rls, db-function]
-delivery_stage: fix
 pipeline_ran: [create-bug, fix]
 ---
 

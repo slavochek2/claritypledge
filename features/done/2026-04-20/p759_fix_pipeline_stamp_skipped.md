@@ -1,5 +1,6 @@
 ---
-status: qa
+status: all-done
+completed_at: '2026-04-20'
 type: bug
 rank: 1000759.0
 severity: medium
@@ -7,7 +8,6 @@ workstream: Process
 date_reported: '2026-04-18'
 created_date: '2026-04-18'
 tags: [process, fix-skill, pipeline-stamp, p659]
-delivery_stage: fix
 pipeline_ran: [create-bug, fix]
 date_resolved: '2026-04-18'
 root_cause: Phase 0.3 lacked verification after writing frontmatter — silent failure when spec path resolved to wrong copy (worktree vs main). Also Phase 0.pre created circular spec for execution-ready plan files.

@@ -2,9 +2,9 @@
 id: p693
 title: Flash of "Sign in to continue" CTA during one-to-one letter open
 type: bug
-status: qa
+status: all-done
+completed_at: '2026-04-20'
 severity: medium
-delivery_stage: fix
 pipeline_ran: [fix]
 date_reported: 2026-04-11
 tags: []

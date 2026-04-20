@@ -1,10 +1,10 @@
 ---
-status: qa
+status: all-done
+completed_at: '2026-04-20'
 type: bug
 severity: high
 date_reported: 2026-04-11
 date_resolved: 2026-04-11
-delivery_stage: fix
 pipeline_ran: [fix]
 root_cause: letter-reading-page.tsx load effect always took the token branch when ?token= was present; invitation_expires_at=now() on first open burned the token, leaving no fallback for authenticated re-visits
 resolution: Restructured load effect to authed-first — if currentUser exists, getLetterForReading (RLS-based) runs before the token RPC; token branch preserved for anon users; replay defense intact
