@@ -22,5 +22,7 @@ cleanup() {
 trap cleanup EXIT INT TERM
 
 # Start the servers
+# Tee output to /tmp/kanban.log so intermittent 500 errors are captured for post-mortem diagnosis
 echo "Starting kanban on port $PORT..."
-npx concurrently "npm run dev:server" "npm run dev:client"
+echo "Server logs also being written to /tmp/kanban.log"
+npx concurrently "npm run dev:server" "npm run dev:client" 2>&1 | tee /tmp/kanban.log
