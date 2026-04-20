@@ -1,19 +1,30 @@
 ---
 status: in-progress
 type: bug
-rank: 1000762.0
+rank: 750543.75
 severity: high
 workstream: live
 date_reported: '2026-04-20'
 created_date: '2026-04-20'
-tags: [realtime, live, invite, letter-reading]
+tags:
+  - realtime
+  - live
+  - invite
+  - letter-reading
 delivery_stage: reproduce
-pipeline_ran: [create-bug, reproduce]
+pipeline_ran:
+  - create-bug
+  - reproduce
 reproduce_artifact:
   test_file: src/tests/p765-invite-overlay-realtime.test.ts
-  root_cause: "inviteReducer LOADED action unconditionally replaces invite — when the slow initial fetch resolves null after INSERT dispatch, it wipes the invite and overlay disappears. Secondary: clarity_sessions secondary fetch returns null silently (H-B) with no Sentry log or retry."
+  root_cause: >-
+    inviteReducer LOADED action unconditionally replaces invite — when the slow
+    initial fetch resolves null after INSERT dispatch, it wipes the invite and
+    overlay disappears. Secondary: clarity_sessions secondary fetch returns null
+    silently (H-B) with no Sentry log or retry.
   confidence: high
-  surfaces_in_scope: [letter-reading-page]
+  surfaces_in_scope:
+    - letter-reading-page
   surfaces_deferred: []
   reproduced_at: '2026-04-20'
 ---

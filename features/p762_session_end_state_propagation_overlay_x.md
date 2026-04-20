@@ -1,14 +1,21 @@
 ---
-status: in-progress
+status: today
 type: bug
-rank: 1000760.0
+rank: 500028.5
 severity: high
 workstream: live
 date_reported: '2026-04-18'
 created_date: '2026-04-18'
-tags: [session-end, realtime, live, letter-live-overlay]
+tags:
+  - session-end
+  - realtime
+  - live
+  - letter-live-overlay
 delivery_stage: fix
-pipeline_ran: [create-bug, fix]
+pipeline_ran:
+  - create-bug
+  - fix
+locked_at: '2026-04-20T09:02:42.523Z'
 ---
 
 # P762: Session-end state propagation regression + overlay X redundancy

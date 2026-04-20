@@ -1,14 +1,19 @@
 ---
 status: week
 type: bug
-rank: 1000761.0
+rank: 500362.5
 severity: low
 workstream: live
 date_reported: '2026-04-18'
 created_date: '2026-04-18'
-tags: [session-end, realtime, live, banner]
+tags:
+  - session-end
+  - realtime
+  - live
+  - banner
 delivery_stage: create-bug
-pipeline_ran: [create-bug]
+pipeline_ran:
+  - create-bug
 ---
 
 # P764: creator-end propagation to partner is unreliable (stranded /live + stale banner)

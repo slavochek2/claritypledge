@@ -1,6 +1,7 @@
 ---
 title: "The Illusion of Common Knowledge"
-status: preparing
+status: draft-ready
+ghost_post_id: 69e5e1929483b600016ca091
 ---
 
 # The Illusion of Common Knowledge
