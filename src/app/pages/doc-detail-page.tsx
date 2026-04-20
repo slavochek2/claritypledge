@@ -7,7 +7,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { FileText, Lock, Globe } from 'lucide-react';
+import { FileText, Lock, Globe, ChevronDown, Send } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   DndContext,
@@ -28,6 +28,12 @@ import { CSS } from '@dnd-kit/utilities';
 import { DocStoryPicker } from '@/app/components/docs/doc-story-picker';
 import { ClarityPageLoader } from '@/components/ui/clarity-loader';
 import { Button } from '@/components/ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+} from '@/components/ui/dropdown-menu';
 import { useAuth } from '@/auth';
 import { analytics } from '@/lib/mixpanel';
 import { docsService } from '@/app/data/docs-service';
@@ -461,14 +467,32 @@ export function DocDetailPage() {
           <div className="flex items-center gap-2 flex-shrink-0">
             {isOwner && (
               <>
-                <Button variant="outline" size="sm" onClick={() => setPickerOpen(true)}>
-                  Select your story
-                </Button>
-                <Button asChild size="sm" className="bg-blue-500 hover:bg-blue-600 text-white">
-                  <Link to={`/create?docId=${doc.id}`}>
-                    {doc.visibility === 'private' ? <Lock size={16} /> : <Globe size={16} />}
-                    Write a story
-                  </Link>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" size="sm">
+                      Compose
+                      <ChevronDown className="w-4 h-4 ml-1" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem onClick={() => setPickerOpen(true)}>
+                      Select a story
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <Link to={`/create?docId=${doc.id}`}>
+                        {doc.visibility === 'private' ? <Lock size={16} /> : <Globe size={16} />}
+                        Share a story
+                      </Link>
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+                <Button
+                  size="sm"
+                  className="bg-blue-500 hover:bg-blue-600 text-white"
+                  onClick={() => navigate(`/letter/${doc.id}/compose`)}
+                >
+                  <Send className="w-4 h-4 mr-1" />
+                  Prepare letter
                 </Button>
               </>
             )}
