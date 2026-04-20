@@ -149,10 +149,21 @@ export function loadState(deliveryId: string): LetterReadingState | null {
 // HELPERS
 // ============================================================================
 
+function getVisiblePoints(snapshot: LetterStorySnapshot) {
+  return snapshotToStoryWithPoints(snapshot, '').points;
+}
+
 function getVisiblePointCount(snapshot: LetterStorySnapshot): number {
-  // Use the mapper to get visible points (hidden ones are filtered)
-  const mapped = snapshotToStoryWithPoints(snapshot, '');
-  return mapped.points.length;
+  return getVisiblePoints(snapshot).length;
+}
+
+function isPointAnswered(
+  snapshot: LetterStorySnapshot,
+  idx: number,
+  positions: Record<string, string>,
+): boolean {
+  const point = getVisiblePoints(snapshot)[idx];
+  return !!point && !!positions[point.id];
 }
 
 function initialPhase(snapshot: LetterStorySnapshot): StoryPhase {
@@ -181,7 +192,7 @@ function seedStoryWithPriorPositions(
   snapshot: LetterStorySnapshot,
   priorPositions: Record<string, string>,
 ): StoryState {
-  const visiblePoints = snapshotToStoryWithPoints(snapshot, '').points;
+  const visiblePoints = getVisiblePoints(snapshot);
   if (visiblePoints.length === 0) return storyState;
 
   const seededPositions: Record<string, string> = { ...storyState.positions };
@@ -622,9 +633,16 @@ export function useLetterReadingState(
     const visibleCount = getVisiblePointCount(currentSnapshot);
 
     updateCurrentStory((prev) => {
-      // For 2+ visible points: first point was before story, remaining start at index 1
+      // For 2+ visible points: first point was before story, remaining start at index 1.
+      // Skip to revealed if that point is already answered (prevents 409 on duplicate submit).
       if (visibleCount >= 2) {
-        return { ...prev, phase: 'remaining-point-engage', currentPointIndex: 1 };
+        const nextIdx = 1;
+        const answered = isPointAnswered(currentSnapshot, nextIdx, prev.positions);
+        return {
+          ...prev,
+          phase: answered ? 'remaining-point-revealed' : 'remaining-point-engage',
+          currentPointIndex: nextIdx,
+        };
       }
       // For 1 visible point (D36): point comes after story
       if (visibleCount === 1) {
@@ -645,7 +663,12 @@ export function useLetterReadingState(
       if (nextIdx >= visibleCount) {
         return { ...prev, phase: 'transition' };
       }
-      return { ...prev, phase: 'remaining-point-engage', currentPointIndex: nextIdx };
+      const answered = isPointAnswered(currentSnapshot, nextIdx, prev.positions);
+      return {
+        ...prev,
+        phase: answered ? 'remaining-point-revealed' : 'remaining-point-engage',
+        currentPointIndex: nextIdx,
+      };
     });
   }, [currentSnapshot, updateCurrentStory]);
 
