@@ -75,27 +75,15 @@ Recommendation: Remove from README.md, link to definitions.md instead.
 
 ## Workflow
 
-0. **Branch check — before writing anything:**
+0. **Branch check (non-blocking):**
    ```bash
    git branch --show-current
-   git worktree list
-   pwd
    ```
-   If `pwd` output contains `.claude/worktrees`, **STOP immediately:**
-   > "KDD must run from the main repo root, not a worktree. CWD is [pwd output]. Switch to the main repo root and re-run /kdd."
+   KDD writes and commits on the current branch. Doc entries (decisions.md, INDEX.md, technical docs) ride to main when the feature merges, like any tracked file.
 
-   If the current branch is NOT `main`, **STOP. Do not write to any doc or commit anything. Do not switch branches yourself.**
+   **Exception — skill files.** KDD does not edit `.claude/commands/slava/**/*.md`. If a session surfaces a skill-file change, handle it as a separate edit following `.claude/rules/skills.md` Branch Guard.
 
-   Tell the user:
-   > "KDD must run on main. You're on [{branch}]. Switch to main and re-run /kdd."
-
-   **Hard stop.** Terminate this /kdd invocation immediately. Do not execute git commands (no stash, no checkout, no commit). Do not proceed. The user switches branches and re-invokes.
-
-   **Anti-bypass:** Do not work around this guard by passing the main repo path in Bash flags, `git -C`, explicit `cd`, or absolute paths to main repo docs. If you catch yourself constructing any command that targets the main repo while the session CWD is still inside a worktree — that is the bypass this guard exists to prevent. Stop and hand control back to the user.
-
-   If the current branch IS `main` but `git worktree list` shows active worktrees with uncommitted work, warn (non-blocking):
-
-   > "Warning: Active worktree(s) detected on [{branches}]. If this KDD session was triggered from a worktree context, confirm you are writing from the correct branch. KDD commits on main are correct only if the learning is not worktree-specific."
+   **Park/reject risk:** If the current branch is about to be `/park`'d or deleted without merging, cherry-pick KDD edits to main first — otherwise entries are lost.
 
 1. **Review recent work:**
    ```bash
