@@ -7,8 +7,8 @@ workstream: core
 date_reported: '2026-04-18'
 created_date: '2026-04-18'
 tags: [free-mode, slider, realtime, timing]
-delivery_stage: fix
-pipeline_ran: [create-bug, fix]
+delivery_stage: ship
+pipeline_ran: [create-bug, fix, ship]
 ---
 
 # P763: Free mode 10/10 slider stuck — handleFreeRoundComplete guard reads stale confirmedRef for own slider

@@ -1571,7 +1571,7 @@ export function ClarityLivePage() {
 
   /** P562: Round complete (10/10 auto-transition) */
   const handleFreeRoundComplete = useCallback(async () => {
-    // Guard: verify both sliders are at 10 in confirmed state before transitioning
+    // Guard: verify partner's slider is at 10 in confirmed state (own slider guaranteed by bothAtTen which reads localSliderValue directly, no debounce)
     const current = confirmedLiveStateRef.current;
     if (current.freePhase !== 'unlocked') return;
     const partnerKey = isCreator ? 'freeSliderJoiner' : 'freeSliderCreator';
