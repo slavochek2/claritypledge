@@ -99,7 +99,6 @@ export function useOpenLiveInvite(): { invite: OpenLiveInvite | null; loading: b
     const userId = user.id;
     let cancelled = false;
 
-    // Initial fetch
     getOpenLiveInviteForUser(userId)
       .then((record) => {
         if (cancelled) return;
@@ -110,30 +109,33 @@ export function useOpenLiveInvite(): { invite: OpenLiveInvite | null; loading: b
         if (!cancelled) dispatch({ type: 'LOADED', payload: null });
       });
 
-    // Realtime subscription
     const unsubscribe = subscribeToLiveInvites(
       userId,
       (raw) => {
         if (cancelled) return;
         const sessionId = raw['session_id'] as string | undefined;
         if (!sessionId) return;
-        // Realtime payload only has clarity_live_invites columns — no code, author_name,
-        // or story_title (all from joined tables). Fetch from clarity_sessions directly.
         if (raw['closed_at']) return;
+        // P765: mirror getOpenLiveInviteForUser's shape — avatar fields live on profiles,
+        // not on clarity_sessions. Prior flat columns (creator_photo_url, etc.) do not exist,
+        // and `delivery_id` is not a column either — deliveryId is resolved via a secondary
+        // lookup on letter_deliveries keyed by source_letter_id + receiver_profile_id.
         supabase
           .from('clarity_sessions')
-          .select('code, creator_name, creator_photo_url, creator_avatar_color, creator_is_pledger, delivery_id, stories!clarity_sessions_source_story_id_fkey(content)')
+          .select(
+            'code, creator_name, source_letter_id, profiles!clarity_sessions_creator_profile_id_fkey(avatar_url, avatar_color, has_pledged), stories!clarity_sessions_source_story_id_fkey(content)',
+          )
           .eq('id', sessionId)
           .maybeSingle()
-          .then(({ data: session }) => {
+          .then(async ({ data: session, error }) => {
             if (cancelled) return;
-            if (!session) {
+            if (error || !session) {
               Sentry.captureMessage(
                 'useOpenLiveInvite: secondary session fetch returned null',
                 {
                   level: 'warning',
                   tags: { source: 'useOpenLiveInvite.enrichment' },
-                  extra: { sessionId },
+                  extra: { sessionId, error: error?.message },
                 },
               );
               return;
@@ -149,20 +151,41 @@ export function useOpenLiveInvite(): { invite: OpenLiveInvite | null; loading: b
               );
               return;
             }
-            const rawContent = (session.stories as { content: string } | null)?.content ?? '';
+
+            const profile = Array.isArray(session.profiles)
+              ? session.profiles[0]
+              : (session.profiles as { avatar_url?: string | null; avatar_color?: string | null; has_pledged?: boolean | null } | null);
+            const story = Array.isArray(session.stories)
+              ? session.stories[0]
+              : (session.stories as { content?: string } | null);
+            const rawContent = story?.content ?? '';
+
+            let deliveryId: string | null = null;
+            const sourceLetterId = (session as { source_letter_id?: string | null }).source_letter_id ?? null;
+            if (sourceLetterId) {
+              const { data: deliveries } = await supabase
+                .from('letter_deliveries')
+                .select('id')
+                .eq('letter_id', sourceLetterId)
+                .eq('receiver_profile_id', userId)
+                .order('created_at', { ascending: false })
+                .limit(1);
+              if (cancelled) return;
+              deliveryId = deliveries?.[0]?.id ?? null;
+            }
 
             dispatch({
               type: 'INSERT',
               payload: {
                 sessionId,
-                code: session.code,
+                code: session.code as string,
                 authorName: (session.creator_name as string | null) ?? '',
                 storyTitle: rawContent ? rawContent.split('\n')[0].substring(0, 60) : '',
                 closedAt: null,
-                inviterPhotoUrl: (session.creator_photo_url as string | null) ?? null,
-                inviterAvatarColor: (session.creator_avatar_color as string | null) ?? null,
-                inviterIsPledger: (session.creator_is_pledger as boolean | null) ?? false,
-                deliveryId: (session.delivery_id as string | null) ?? null,
+                inviterPhotoUrl: (profile?.avatar_url as string | null | undefined) ?? null,
+                inviterAvatarColor: (profile?.avatar_color as string | null | undefined) ?? null,
+                inviterIsPledger: (profile?.has_pledged as boolean | null | undefined) ?? false,
+                deliveryId,
               },
             });
           })
@@ -178,7 +201,6 @@ export function useOpenLiveInvite(): { invite: OpenLiveInvite | null; loading: b
         // A non-close UPDATE would overwrite the invite with code:'', but that never occurs.
         if (invite) dispatch({ type: 'UPDATE', payload: invite });
         else {
-          // closed_at set but no session_id in payload — remove by session_id
           const sessionId = raw['session_id'] as string | undefined;
           if (sessionId) dispatch({ type: 'DELETE', payload: { sessionId } });
         }

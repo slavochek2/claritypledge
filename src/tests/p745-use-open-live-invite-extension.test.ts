@@ -219,6 +219,9 @@ function mockClaritySessionsWithProfileResponse(opts: {
   creator_is_pledger?: boolean;
   delivery_id?: string | null;
 }) {
+  // P765: real query returns source_letter_id (not delivery_id). Hook resolves
+  // deliveryId via a secondary SELECT on letter_deliveries. Mock both from() calls.
+  const sourceLetterId = opts.delivery_id ? `letter-for-${opts.delivery_id}` : null;
   mockFrom.mockImplementation((table: string) => {
     if (table === 'clarity_sessions') {
       return {
@@ -228,13 +231,31 @@ function mockClaritySessionsWithProfileResponse(opts: {
               data: {
                 code: opts.code,
                 creator_name: opts.creator_name,
+                source_letter_id: sourceLetterId,
+                profiles: {
+                  avatar_url: opts.creator_photo_url ?? null,
+                  avatar_color: opts.creator_avatar_color ?? null,
+                  has_pledged: opts.creator_is_pledger ?? false,
+                },
                 stories: opts.stories,
-                creator_photo_url: opts.creator_photo_url ?? null,
-                creator_avatar_color: opts.creator_avatar_color ?? null,
-                creator_is_pledger: opts.creator_is_pledger ?? false,
-                delivery_id: opts.delivery_id ?? null,
               },
               error: null,
+            }),
+          }),
+        }),
+      } as never;
+    }
+    if (table === 'letter_deliveries') {
+      return {
+        select: () => ({
+          eq: () => ({
+            eq: () => ({
+              order: () => ({
+                limit: () => Promise.resolve({
+                  data: opts.delivery_id ? [{ id: opts.delivery_id }] : [],
+                  error: null,
+                }),
+              }),
             }),
           }),
         }),

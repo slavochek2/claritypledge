@@ -1,12 +1,11 @@
 /**
- * P765 Canary — invite overlay missing via Realtime.
+ * P765 defense-in-depth: LOADED(null) must not wipe an invite that realtime
+ * INSERT already populated.
  *
- * Root cause: `inviteReducer` LOADED action unconditionally replaces invite
- * with payload. When initial fetch resolves null AFTER an INSERT event has
- * already dispatched an invite, the slow LOADED(null) wipes the invite and
- * the overlay disappears.
- *
- * Reverting the LOADED guard in inviteReducer must make this test fail.
+ * This covers the reducer-level race originally hypothesized as the P765 root
+ * cause. The real root cause was a missing-column enrichment SELECT in the
+ * hook (see `e2e/p765-invite-overlay-realtime.spec.ts`); this guard stays in
+ * place because the LOADED/INSERT order is not otherwise ordered by the hook.
  */
 import { describe, it, expect } from 'vitest';
 import { inviteReducer } from '@/app/hooks/useOpenLiveInvite';

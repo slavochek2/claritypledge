@@ -239,6 +239,13 @@ test('receiver sees banner when author seeds invite — exact UI copy from spec'
     await receiverPage.goto(`/letter/${deliveryId}`);
     await receiverPage.waitForLoadState('networkidle');
 
+    // Enter reading view — LetterLiveBanner lives inside LetterReadingFlow,
+    // which only mounts when viewState === 'reading' (not on the cover).
+    const openButton = receiverPage.getByRole('button', { name: 'Open the Letter' });
+    await expect(openButton).toBeVisible({ timeout: 10000 });
+    await openButton.click();
+    await expect(openButton).not.toBeVisible({ timeout: 10000 });
+
     // Seed invite AFTER receiver is on the page (realtime delivery test)
     const seeded = await seedOpenInvite({
       creatorProfileId: author.user.id,
@@ -283,6 +290,12 @@ test('receiver banner disappears when author cancels invite (realtime)', async (
     await setTestSession(receiverPage, receiver.email);
     await receiverPage.goto(`/letter/${deliveryId}`);
     await receiverPage.waitForLoadState('networkidle');
+
+    // Enter reading view so LetterLiveBanner mounts.
+    const openButton = receiverPage.getByRole('button', { name: 'Open the Letter' });
+    await expect(openButton).toBeVisible({ timeout: 10000 });
+    await openButton.click();
+    await expect(openButton).not.toBeVisible({ timeout: 10000 });
 
     const bannerTitle = receiverPage.getByText('P745 E2E Author is inviting you to Clarity');
     await expect(bannerTitle).toBeVisible({ timeout: 15000 });

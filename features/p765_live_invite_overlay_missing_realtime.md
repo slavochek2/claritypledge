@@ -14,13 +14,14 @@ tags:
 delivery_stage: fix
 pipeline_ran: [create-bug, reproduce, fix]
 reproduce_artifact:
-  test_file: src/tests/p765-invite-overlay-realtime.test.ts
+  test_file: e2e/p765-invite-overlay-realtime.spec.ts
   root_cause: >-
-    inviteReducer LOADED action unconditionally replaces invite — when the slow
-    initial fetch resolves null after INSERT dispatch, it wipes the invite and
-    overlay disappears. Secondary: clarity_sessions secondary fetch returns null
-    silently (H-B) with no Sentry log or retry.
-  confidence: high
+    The realtime INSERT handler in useOpenLiveInvite enriches via a SELECT on
+    clarity_sessions for columns that do not exist on that table
+    (creator_photo_url, creator_avatar_color, creator_is_pledger). PostgREST
+    returns 42703 "column does not exist", session resolves null, and the hook
+    bails before dispatch — banner never renders.
+  confidence: confirmed
   surfaces_in_scope:
     - letter-reading-page
   surfaces_deferred: []
@@ -36,27 +37,34 @@ When the author starts a /live session, the partner's letter reading page does n
 
 ## Root Cause
 
-**Confirmed primary cause — LOADED(null) race in `inviteReducer`:**
+**Confirmed — realtime INSERT enrichment SELECT queries columns that do not exist on `clarity_sessions`.**
 
-`inviteReducer`'s `LOADED` action (line 44) unconditionally replaces `invite` with `action.payload`:
+In `useOpenLiveInvite.ts`, the INSERT handler enriches the incoming `clarity_live_invites` row by selecting from `clarity_sessions`:
 
 ```typescript
-case 'LOADED':
-  return { invite: action.payload, loading: false };
+.from('clarity_sessions')
+.select(
+  'code, creator_name, creator_photo_url, creator_avatar_color, creator_is_pledger, delivery_id, stories!...(content)',
+)
 ```
 
-Race sequence (reproduces ~100% when author starts within ~1s of page load):
-1. `useOpenLiveInvite` mounts → initial fetch fires (`getOpenLiveInviteForUser`, async) → handler registered
-2. Author starts session → INSERT fires → INSERT handler fires → secondary `clarity_sessions` SELECT → INSERT dispatch → `state.invite = invite` (overlay appears)
-3. Initial fetch resolves (it was sent before the invite existed → returns null) → LOADED(null) → `state.invite = null` → overlay disappears silently
+`creator_photo_url`, `creator_avatar_color`, and `creator_is_pledger` **are not columns on `clarity_sessions`**. PostgREST returns:
 
-Force-refresh works because the initial fetch runs fresh after the invite is in DB, so LOADED(invite) applies correctly.
+```
+{ code: "42703", message: 'column clarity_sessions.creator_photo_url does not exist' }
+```
 
-**Confirmed secondary cause — H-B, silent failure in secondary fetch:**
+The hook's `.maybeSingle()` resolves with `data: null, error: <42703>`. The handler then hits its `if (!session) return` branch, logs a Sentry warning (in prod only), and bails **before calling `dispatch`**. The overlay never renders.
 
-In the INSERT handler (`useOpenLiveInvite.ts`, line 115-116), if the secondary `clarity_sessions` SELECT returns null (network hiccup, RLS mismatch, or transaction timing), the code silently returns with no Sentry log, no retry, and no dispatch. Overlay never appears.
+Force-refresh works because it goes through `getOpenLiveInviteForUser` (in `src/app/data/api.ts`), which uses the correct nested join: `profiles!clarity_sessions_creator_profile_id_fkey(avatar_url, avatar_color, has_pledged)`. The realtime path did not mirror that shape.
 
-Observed: invite IS in DB immediately after session start (force-refresh confirms) — so the invite creation is not the issue.
+**Why this wasn't caught earlier:**
+- `src/tests/p745-use-open-live-invite-extension.test.ts` mocks the Supabase client and fabricates a `session` object with the non-existent column names — the mock validates call-shape, not column existence.
+- Sentry is prod-only; local UAT failures never surfaced a captured message.
+
+### Disproven hypothesis — LOADED(null) reducer race
+
+An earlier iteration proposed that `inviteReducer`'s `LOADED` action wiped an invite populated by INSERT when a slow initial fetch resolved null afterwards. The reducer guard added in that iteration (commit `b980782c`) is correct defense-in-depth and is retained, but the LOADED(null) race does **not** fire because INSERT never dispatches — the enrichment SELECT fails first.
 
 ## Reproduction Steps
 
@@ -89,16 +97,57 @@ No overlay appears. Partner must force-refresh to see the invite.
 
 ## Fix Applied
 
-**Primary (`inviteReducer` LOADED guard):** LOADED(null) no longer wipes a populated invite. When `state.invite !== null` and `action.payload === null`, the reducer keeps the invite and just clears `loading`. Non-null LOADED payloads still apply. Revocation is unaffected — it flows via UPDATE (closed_at set) or DELETE, not LOADED.
+**Primary — realtime enrichment SELECT rewritten to mirror `getOpenLiveInviteForUser`:**
 
-**Structural reset (`RESET` action):** Sign-out path (`!user`) now dispatches `RESET` instead of `LOADED(null)` — unconditional clear. LOADED and RESET are decoupled: the LOADED guard preserves invite across race, RESET always clears. Sign-out cannot trigger the race (no invite for a signed-out user).
+`useOpenLiveInvite`'s INSERT handler now mirrors `getOpenLiveInviteForUser` — nested FK join for avatar fields, and a secondary lookup on `letter_deliveries` for `deliveryId` (since `clarity_sessions.delivery_id` is also not a column):
 
-**Secondary (H-B — silent enrichment failure):** `INSERT` handler's secondary `clarity_sessions` SELECT now emits Sentry warnings when `!session` or `!session.code`, instead of silently returning. Surfaces the failure mode if RLS/timing regresses.
+```typescript
+.from('clarity_sessions')
+.select(
+  'code, creator_name, source_letter_id, ' +
+  'profiles!clarity_sessions_creator_profile_id_fkey(avatar_url, avatar_color, has_pledged), ' +
+  'stories!clarity_sessions_source_story_id_fkey(content)',
+)
+.eq('id', sessionId)
+.maybeSingle()
+
+// then, if source_letter_id present:
+.from('letter_deliveries')
+.select('id')
+.eq('letter_id', sourceLetterId)
+.eq('receiver_profile_id', userId)
+.order('created_at', { ascending: false })
+.limit(1)
+```
+
+Dispatch payload reads from the joined `profiles` object (normalized for array-or-object PostgREST shape) and from the secondary deliveries lookup:
+
+```typescript
+const profile = Array.isArray(session.profiles) ? session.profiles[0] : session.profiles;
+// ...
+inviterPhotoUrl: profile?.avatar_url ?? null,
+inviterAvatarColor: profile?.avatar_color ?? null,
+inviterIsPledger: profile?.has_pledged ?? false,
+deliveryId,  // from letter_deliveries lookup
+```
+
+Columns `profiles.avatar_url`, `profiles.avatar_color`, and `profiles.has_pledged` exist and are the canonical source used by the RPCs introduced in P697, P725, and the working `getOpenLiveInviteForUser` path.
+
+**Defense-in-depth — reducer guard + RESET action (retained from prior iteration):**
+
+- `inviteReducer`'s LOADED(null) no longer wipes a populated invite — prevents a theoretical stale-fetch race from ever mattering once INSERT is dispatching correctly.
+- Sign-out path dispatches `RESET` instead of `LOADED(null)` — unconditional clear with no guard interference.
+
+**Sentry observability retained:** the enrichment-bail branch still records a Sentry warning (now with the PostgREST error message attached) so a future column/RLS regression surfaces in prod immediately rather than silently breaking the overlay.
+
+**Test mock fixed:** `src/tests/p745-use-open-live-invite-extension.test.ts` previously fabricated `session.creator_photo_url` / `creator_avatar_color` / `creator_is_pledger` — the exact shape that cannot exist in the real DB. It now mocks the nested `profiles: { avatar_url, avatar_color, has_pledged }` shape, matching the real query response.
 
 ## Acceptance Criteria
 
-- [ ] Partner is on letter reading page; author starts session → overlay appears within ~2s, no refresh needed *(two-party UAT)*
-- [ ] Overlay appears even if author started session within 1s of partner loading the page *(two-party UAT)*
-- [ ] No console errors during the invite delivery flow *(two-party UAT)*
-- [ ] Force-refresh still works as fallback (no regression) *(two-party UAT)*
-- [x] Regression test: `src/tests/p765-invite-overlay-realtime.test.ts` passes (4 cases: INSERT→LOADED(null) race, normal mount, empty LOADED(null), RESET on sign-out)
+- [x] Partner is on letter reading page; author starts session → overlay appears within ~2s, no refresh needed *(covered by `e2e/p765-invite-overlay-realtime.spec.ts`)*
+- [x] Overlay appears even if author started session within 1s of partner loading the page *(seeded invite arrives after navigation; test asserts banner visible in realtime)*
+- [x] No console errors during the invite delivery flow *(enrichment no longer emits 42703)*
+- [ ] Force-refresh still works as fallback (no regression) *(two-party UAT — `getOpenLiveInviteForUser` is unchanged)*
+- [x] Regression test: `e2e/p765-invite-overlay-realtime.spec.ts` passes — asserts both banner text (dispatch reached) and avatar color rgb(162, 28, 175) (nested profiles join populated)
+- [x] Regression test: `src/tests/p765-invite-overlay-realtime.test.ts` — reducer LOADED-guard defense-in-depth still green
+- [x] Regression test: `src/tests/p745-use-open-live-invite-extension.test.ts` — mock rewritten to nested profiles shape; extended interface fields still populated on INSERT
