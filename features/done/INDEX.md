@@ -1,7 +1,7 @@
 # Done Features Index
 
 Quick reference for past completed work. Consult when starting work on a related topic.
-Last updated: 2026-04-20 (P765 live invite overlay Realtime fix)
+Last updated: 2026-04-20 (P768 letter submit 409 rehydration fix)
 
 ---
 
@@ -88,6 +88,7 @@ Last updated: 2026-04-20 (P765 live invite overlay Realtime fix)
 
 ## Database / RLS / Migrations
 
+- **P768** (Apr 20) Anon-token read RPC for `letter_point_responses` — `position` is a reserved word in `RETURNS TABLE`; use alias `response_position`; mirror `submit_point_response_by_token` SECURITY DEFINER pattern
 - **P677** (Apr 09) Position History Trigger RLS Fix — `SECURITY DEFINER` can be silently stripped by `db push`; never rely on it alone for trigger RLS bypass
 - **P630** (Apr 03) Separate System Tags from User Tags — `system_tags` column isolates feed logic from user hashtags; `protect_system_tags` trigger prevents client mutation; `filterByTags` checks both arrays
 - **P586** (Mar 25) Visibility & Privacy Foundation — `content_visibility` enum, point visibility column, BEFORE triggers for immutability + cross-visibility, 8 tables RLS-hardened, amber=private color system
@@ -100,6 +101,7 @@ Last updated: 2026-04-20 (P765 live invite overlay Realtime fix)
 
 ## Letters
 
+- **P768** (Apr 20) Letter submit 409 on re-open — rehydrate `letter_point_responses` BEFORE hook init; rehydration param, not post-mount useEffect, prevents flash of point-engage
 - **P749** (Apr 18) Hidden points leak in preview + sealed — every `DocStory`→visible-points path (preview builder, compose walk, reading, results) must filter `point_config.hidden`; co-locate `docStoryToSnapshot` with reader to prevent shape drift
 - **P751** (Apr 18) Letter story images missing + card width mismatch — `seal_and_send_letter` RPC, `PointConfig` interface, and preview shim must all be updated together when adding a story field to the letter flow
 - **P661** (Apr 07) Letter Composition UX Redesign — preview must reuse reading components (not parallel UI); `LiveStoryCardExpanded` in prediction walk, `LetterStoryReader` in preview/reading; superseded by P665 for chrome-free + preview rewrite
