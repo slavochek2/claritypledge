@@ -1,12 +1,12 @@
 ---
-status: week
+status: qa
 type: story
 rank: 1000763.0
 workstream: letters
 created_date: '2026-04-20'
 tags: [letters, ui, delete, tab]
-delivery_stage: create-spec
-pipeline_ran: [create-spec]
+delivery_stage: fix
+pipeline_ran: [create-spec, fix]
 ---
 
 # P770: Published Tab Rename + Delete for Zero-Delivery Sealed Letters

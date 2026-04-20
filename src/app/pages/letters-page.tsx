@@ -102,7 +102,7 @@ export function LettersPage() {
                 value="sent"
                 className="rounded-none border-b-2 border-transparent data-[state=active]:border-blue-500 data-[state=active]:shadow-none px-4 py-3"
               >
-                Sent
+                Published
               </TabsTrigger>
               <TabsTrigger
                 value="drafts"

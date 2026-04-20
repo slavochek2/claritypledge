@@ -834,6 +834,37 @@ export async function markDeliveryRead(deliveryId: string): Promise<void> {
 }
 
 /**
+ * P770: Delete a sealed letter with zero deliveries.
+ * Server-side guard re-checks delivery count before deleting — client-side
+ * gate can be stale if deliveries arrived after the tab loaded.
+ * Throws 'DELIVERIES_EXIST' if any delivery records exist.
+ */
+export async function deleteLetter(letterId: string): Promise<void> {
+  await requireAuth();
+  log('deleteLetter:', letterId);
+
+  const { data: deliveries } = await supabase
+    .from('letter_deliveries')
+    .select('id')
+    .eq('letter_id', letterId)
+    .limit(1);
+
+  if (deliveries && deliveries.length > 0) {
+    throw new Error('DELIVERIES_EXIST');
+  }
+
+  const { error } = await supabase
+    .from('clarity_letters')
+    .delete()
+    .eq('id', letterId);
+
+  if (error) {
+    logDbError('deleteLetter', error);
+    throw new Error(`Failed to delete letter: ${error.message}`);
+  }
+}
+
+/**
  * P660: Add a recipient to an existing sealed letter (calls RPC).
  * P664: receiverName parameter added — passes p_receiver_name to RPC (DEFAULT NULL, backward compat).
  */

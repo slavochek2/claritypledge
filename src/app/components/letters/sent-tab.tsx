@@ -14,6 +14,7 @@ import { MoreHorizontal, ChevronRight, ChevronDown, Mail, Link2, Eye } from 'luc
 import {
   getAllSentLetters,
   getDeliveriesForLetters,
+  deleteLetter,
 } from '@/app/data/letters-service';
 import { formatTimeAgo } from '@/app/utils/format-time';
 import { Button } from '@/components/ui/button';
@@ -23,6 +24,20 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
 } from '@/components/ui/dropdown-menu';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { InlineVisibilityIcon } from '@/app/components/shared/visibility-badge';
 import { LetterReceiverModal } from './letter-receiver-modal';
 import { toast } from 'sonner';
@@ -145,6 +160,8 @@ function LetterCard({
   const { letter, deliveries } = data;
   const [isExpanded, setIsExpanded] = useState(false);
   const [addRecipientOpen, setAddRecipientOpen] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [deletePending, setDeletePending] = useState(false);
 
   const isPublic = letter.mode === 'one-to-many';
   const sealedDate = letter.sealed_at ? formatTimeAgo(letter.sealed_at) : 'Unknown';
@@ -185,6 +202,20 @@ function LetterCard({
 
   const handlePreview = () => {
     window.open(`/letter/${letter.source_doc_id}/preview`, '_blank', 'noopener,noreferrer');
+  };
+
+  const handleDelete = async () => {
+    setDeletePending(true);
+    try {
+      await deleteLetter(letter.id);
+      toast.success('Letter deleted.');
+      setDeleteDialogOpen(false);
+      onRefresh();
+    } catch {
+      toast.error("Couldn't delete letter.");
+    } finally {
+      setDeletePending(false);
+    }
   };
 
   const handleToggle = () => {
@@ -256,6 +287,28 @@ function LetterCard({
                       Copy public link
                     </DropdownMenuItem>
                   )}
+                  <hr className="my-1 border-border" />
+                  {deliveries.length > 0 ? (
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span>
+                            <DropdownMenuItem disabled>
+                              Delete letter
+                            </DropdownMenuItem>
+                          </span>
+                        </TooltipTrigger>
+                        <TooltipContent>Can't delete — letter has been shared.</TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  ) : (
+                    <DropdownMenuItem
+                      className="text-destructive"
+                      onSelect={() => setDeleteDialogOpen(true)}
+                    >
+                      Delete letter
+                    </DropdownMenuItem>
+                  )}
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>
@@ -297,6 +350,26 @@ function LetterCard({
           onRefresh();
         }}
       />
+
+      {/* Delete confirmation dialog */}
+      <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <DialogContent hideCloseButton>
+          <DialogHeader>
+            <DialogTitle>Delete letter?</DialogTitle>
+            <DialogDescription>
+              This will remove the published letter and its public link permanently.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button variant="destructive" disabled={deletePending} onClick={handleDelete}>
+              Delete
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }
@@ -377,7 +450,7 @@ export function SentTab({ userId }: SentTabProps) {
     return (
       <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
         <p className="text-sm text-muted-foreground">
-          No letters sent yet. Create a draft and send your first letter.
+          No published letters yet.
         </p>
       </div>
     );
