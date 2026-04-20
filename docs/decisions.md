@@ -2,6 +2,62 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-20 [product]: Letter point responses are immutable audit records — first write per (delivery_id, point_id) wins
+
+**Context:** P768 reproduce session. The letter Submit button threw a 409 duplicate-key error on re-open. Investigation traced it to `letter_point_responses_unique` constraint (migration `20260403224331_p581_clarity_letters.sql:92`) — the table is `INSERT`-only with no `UPDATE` path. The UI was not aware of this and attempted a fresh insert on every open.
+
+**Decision:** `letter_point_responses` is an immutable audit table. The UNIQUE constraint `letter_point_responses_unique` on `(delivery_id, point_id)` makes first write the canonical position. No edit, overwrite, or re-insert path exists or should be added. Product reason: the letter captures the receiver's pre-call position; `/live` is where the flip happens. Allowing edits would destroy the before/after delta that makes the session meaningful. The migration comment "INSERT-only audit" is the authoritative statement of intent.
+
+**Alternatives rejected:** Making `letter_point_responses` mutable (UPDATE path) — destroys the delta. Using `ON CONFLICT DO UPDATE` client-side — violates the audit guarantee; the server RPC (`submit_point_response_by_token`) deliberately uses `ON CONFLICT DO NOTHING` to enforce this. Fix track: rehydrate existing responses on mount so the UI never attempts a duplicate insert (Track 1).
+
+**Consequences:** Any new letter submission code path must treat `letter_point_responses` as write-once. If a receiver re-opens a letter, the UI must load existing responses from the DB and skip the insert for already-answered points. The server-side RPC contract (`ON CONFLICT DO NOTHING`) is correct; only the client needs fixing.
+
+**References:** `supabase/migrations/20260403224331_p581_clarity_letters.sql` (constraint at line 92) | [features/p768_letter_submit_409_duplicate_key.md](../features/p768_letter_submit_409_duplicate_key.md) | [reference_letter_vs_live_roles.md](memory/reference_letter_vs_live_roles.md)
+
+---
+
+## 2026-04-20 [technical]: Schema-defended immutability must be matched by client-side rehydration — plain insert without conflict handling crashes on re-open
+
+**Context:** P768. `submit_point_response_by_token` (server RPC) uses `ON CONFLICT ON CONSTRAINT letter_point_responses_unique DO NOTHING` — schema-level immutability enforced. `submitPointResponse` in `src/app/data/letters-service.ts:370` (authenticated client path) uses a plain `.insert()` with no conflict handling. The schema is defended server-side but crashes client-side on re-open with a 409. `useLetterReadingState` initializes `positions: {}` and restores only from sessionStorage — it never reads `letter_point_responses` on mount.
+
+**Decision:** When a DB table has immutability semantics enforced by a UNIQUE constraint with `ON CONFLICT DO NOTHING`, the client hook that drives UI for that table must rehydrate from the DB on mount — not solely from client-side cache. Failure to do so produces duplicate-insert crashes when the user re-opens a flow. Rehydration must happen before the hook's initial render (via param from the parent page, not post-mount `useEffect`) to avoid flashing wrong UI state.
+
+**Alternatives rejected:** Adding `ON CONFLICT DO NOTHING` to the client insert path without rehydrating — suppresses the error but leaves the UI in the wrong visual state (re-asking answered questions). Rehydrating via post-mount `useEffect` — causes a render with empty positions before the data arrives, which may flash wrong UI.
+
+**Consequences:** Any hook whose underlying DB table has a UNIQUE constraint and is INSERT-only must read existing rows on mount and seed hook state before first render. Pattern to watch: two code paths that write to the same table where one uses conflict handling and the other does not — the one without conflict handling will crash on any re-entry by the user.
+
+**References:** `src/app/data/letters-service.ts` (line ~370, `submitPointResponse`) | `supabase/migrations/20260403224331_p581_clarity_letters.sql` | [features/p768_letter_submit_409_duplicate_key.md](../features/p768_letter_submit_409_duplicate_key.md)
+
+---
+
+## 2026-04-20 [process]: Write canaries against user-visible invariants, not implementation function names
+
+**Context:** P768 canary asserts "Submit button not visible on already-answered point after re-open." This invariant survives any implementation of Track 1 (seed positions + advance phase, gate render at letter-flow-content level, or a different seeding approach). The prior canary failure pattern (P765) used assertions coupled to specific function names and reducer internals — those break when the fixer chooses an equivalent-but-different mechanism.
+
+**Decision:** Canary assertions must be written against user-visible invariants (element presence/absence, text content, visible state), not internal function signatures, reducer action types, or component names. A canary that passes only when a specific function is called is brittle — it fails for equivalent fixes and punishes the fixer for choosing a better approach.
+
+**Alternatives rejected:** Coupling assertions to implementation details for specificity — trades specificity for brittleness. The canary already encodes the symptom; that is sufficient.
+
+**Consequences:** When reviewing a `reproduce_artifact`, check: "Does this assertion pass under any correct fix, or only under the specific fix I'm imagining?" If the latter, rewrite. This complements the P765 canary-layer rule (the layer must match the symptom) — the invariant must also be implementation-agnostic.
+
+**References:** [features/p768_letter_submit_409_duplicate_key.md](../features/p768_letter_submit_409_duplicate_key.md) | [decisions.md § 2026-04-20 process: Canary must match the layer](../docs/decisions.md)
+
+---
+
+## 2026-04-20 [process]: When migration comment + schema contradict UI behavior, the schema wins — fix the UI
+
+**Context:** P768 root cause became obvious once two artifacts were found together: migration comment "INSERT-only audit" and `letter_point_responses_unique` UNIQUE constraint. No product debate was needed about whether positions should be editable — the schema already settled it. The fix track (rehydrate UI from DB) followed directly.
+
+**Decision:** When a migration comment states an invariant ("INSERT-only", "no UPDATE", "append-only") and a UNIQUE or CHECK constraint enforces it, that is authoritative. The UI must match the schema, not the other way around. Only open a product debate if the schema is genuinely ambiguous or the invariant is absent.
+
+**Alternatives rejected:** Treating the 409 as a schema design question and debating editability — wastes time when the schema already has a clear position. Starting from the UI behavior and assuming the schema should accommodate it — inverts the authority chain.
+
+**Consequences:** Before debating whether a table's semantics should change, read the migration DDL and comments. If the comments are unambiguous and constraints enforce them, the fix is always "fix the caller." Save the product debate for cases where the schema has no comment or the constraint is too broad to be specific.
+
+**References:** `supabase/migrations/20260403224331_p581_clarity_letters.sql` | [features/p768_letter_submit_409_duplicate_key.md](../features/p768_letter_submit_409_duplicate_key.md)
+
+---
+
 ## 2026-04-20 [process]: Canary must match the layer where the bug manifests — reducer unit test is not proof for a hook/realtime bug
 
 **Context:** P765 symptom was UI-level — the /live invite overlay doesn't appear via Realtime on the partner's letter reading page. `/reproduce` wrote a **Vitest unit test on `inviteReducer`** that synthetically dispatched `INSERT` then `LOADED(null)` and asserted the invite survived. Reproduce marked this artifact `confidence: high`. `/fix` guarded the LOADED action, the unit test passed, the full suite passed, TypeScript was clean, and the code reviewer explicitly flagged — **as Finding 2** — that "the canary proves the reducer is correct, but the actual race condition involves timing between the promise and the subscription callback in the hook — that coupling is untested." The fix was committed anyway with the finding noted as "known limitation." UAT failed: overlay still missing in the real two-party flow. The reducer guard may or may not matter in practice; the bug might live entirely in H-A (channel handler registration race) or H-B (silent enrichment fetch) — both of which the reducer canary cannot touch.

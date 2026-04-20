@@ -145,7 +145,7 @@ Five tables for async comprehension assessment via letters.
 | `letter_deliveries` | Per-receiver tracking (token, status, progress) |
 | `letter_story_snapshots` | Immutable story+version snapshots at seal time |
 | `letter_predictions` | Sender's predictions per story (**sealed-bid**: receiver sees only after rating) |
-| `letter_point_responses` | Forward-only receiver positions (INSERT only, no UPDATE) |
+| `letter_point_responses` | Forward-only receiver positions (INSERT only, no UPDATE). UNIQUE constraint `letter_point_responses_unique` on `(delivery_id, point_id)` — first write wins. |
 
 **Column additions:** `story_verifications.source` (TEXT, default 'live'), `.verified` (BOOLEAN, default true), `.sort_order` (INTEGER), `clarity_sessions.source_letter_id` (UUID FK).
 
@@ -178,6 +178,8 @@ Branch 2 WHERE: `cl.sender_id = v_user_id AND (ld.completed_at IS NOT NULL OR ld
 **RPCs:** `get_letter_by_token`, `seal_and_send_letter` (atomic seal + content denormalization + public story filter), `reveal_prediction`, `persist_anonymous_completion`, `get_letter_for_reading` (anon-safe, token-validated), `claim_letter_delivery` (sets receiver_profile_id), `submit_point_response_by_token`, `submit_rating_by_token`, `reveal_prediction_by_token`, `update_delivery_status_by_token`.
 
 **Anonymous engagement:** Token-based RPCs bypass RLS for anonymous recipients. Positions work anonymously; rating requires authentication (`story_verifications.listener_id` FK to profiles). `seal_and_send_letter` denormalizes `story_versions.content` + `story_points` + `point_positions` into `letter_story_snapshots.point_config` JSONB at seal time.
+
+**`letter_point_responses` conflict handling divergence (P768):** `submit_point_response_by_token` (token RPC) uses `ON CONFLICT ON CONSTRAINT letter_point_responses_unique DO NOTHING` — crash-safe on re-open. `submitPointResponse` in `letters-service.ts` (authenticated path) uses plain `.insert()` with no conflict handling — throws 409 on re-open. Any new write path to this table must use `ON CONFLICT DO NOTHING`. Hooks that drive UI for this table must rehydrate existing rows from the DB on mount (before first render) so the insert is never attempted for already-answered points. See decisions.md 2026-04-20 [technical].
 
 **Migrations:** `supabase/migrations/20260403224331_p581_clarity_letters.sql`, `20260404*_p642_*.sql` (4 files — reading RPC, seal denormalization, claim delivery, anon engagement RPCs)
 
