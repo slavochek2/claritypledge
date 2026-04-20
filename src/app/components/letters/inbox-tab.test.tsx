@@ -206,13 +206,13 @@ describe('InboxTab — P695 completed letter button', () => {
     expect(button?.className).toContain('bg-blue-500');
   });
 
-  it('completed received item shows "Results" button with outline variant (not blue fill)', async () => {
+  it('completed received item shows "Results" button with blue fill (matches sent-tab)', async () => {
     vi.mocked(getInboxItems).mockResolvedValue([completedReceivedItem]);
     const { container } = render(<InboxTab userId="test-user" />, { wrapper });
     await screen.findByText(/Carol/);
 
     const button = container.querySelector('button');
     expect(button?.textContent).toContain('Results');
-    expect(button?.className).not.toContain('bg-blue-500');
+    expect(button?.className).toContain('bg-blue-500');
   });
 });

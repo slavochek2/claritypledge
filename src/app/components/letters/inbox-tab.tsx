@@ -211,10 +211,7 @@ export function InboxTab({ userId, onUnreadCountChange, openInvite }: InboxTabPr
               <div className="flex-shrink-0">
                 <Button
                   size="sm"
-                  className={item.type === 'received' && !item.completed_at
-                    ? 'bg-blue-500 hover:bg-blue-600 text-white min-h-[44px]'
-                    : 'min-h-[44px]'}
-                  variant={item.type === 'received' && !item.completed_at ? undefined : 'outline'}
+                  className="bg-blue-500 hover:bg-blue-600 text-white min-h-[44px]"
                   disabled={isMarking}
                   onClick={() => handleAction(item)}
                 >
