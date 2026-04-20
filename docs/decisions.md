@@ -2,6 +2,20 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-20 [process]: Cross-session commit collision on main is an accepted residual risk — race window survives `git reset` pre-flight
+
+**Context:** P768 session. A parallel Claude session's commit (`6f7c0ad8`, P765 KDD) swept the P768 migration file (`20260420120000_p768_*.sql`) into its commit as a bystander. Both sessions used `git add <explicit files>` per the `git.md` rule. The P768 session even ran `git reset HEAD -- <bystanders>` before staging — but the P765 session's `git commit` won the ref-lock race after P768's pre-commit hook finished and before P768's `git commit` ran. The net effect: the P768 migration landed in the P765 KDD commit, not the P768 feature commit.
+
+**Decision:** The `git.md` "session start — clear the index before your first git add" rule is correct and sufficient for the common case (stale index from a prior session). It does NOT prevent the narrower race where: (1) two live sessions run pre-commit concurrently, (2) one session's `git commit` acquires the ref lock first, and (3) the other session's staged files become bystanders in the winner's commit. This race window exists between pre-commit finishing and `git commit` acquiring the ref lock — it is inherent to Git's single-lock-per-repo model and is not fixable without serializing commits across sessions. Accepted as residual risk.
+
+**Alternatives rejected:** Requiring sessions to serialize all commits through a coordinator — impractical overhead for the frequency of this event. Worktrees per session — already the default for feature work; this collision happened in the shared main repo during KDD-style doc commits, which don't use worktrees by design.
+
+**Consequences:** If a migration or feature file lands in the wrong commit, rewrite history is NOT the fix — the file is in the correct on-disk state. Use `git log -- <file>` to verify the file is present and correct on the target branch, and move on. The `git.md` rule remains authoritative for preventing the more common case (stale index bystanders); this entry documents the narrower race as known and accepted.
+
+**References:** `.claude/rules/git.md` (Session start — clear the index before your first git add) | `6f7c0ad8` (P765 KDD commit that swept P768 migration)
+
+---
+
 ## 2026-04-20 [technical]: Unit test mocks for hooks must derive their shape from the real DB schema, not from the hook's internal call-signature
 
 **Context:** P765 `/fix` iteration 1 wrote a unit test for `useOpenLiveInvite`'s INSERT handler. The mock used `creator_photo_url`, `creator_avatar_color`, `creator_is_pledger`, `delivery_id` as top-level `clarity_sessions` columns — precisely the columns the buggy query was selecting. The test passed because it validated the wrong query shape: the mock mirrored the broken SELECT, not what the DB would actually return. PostgREST returned `42703` (column does not exist) at runtime because those columns are not on `clarity_sessions` — they live on `profiles` (via FK join) and `letter_deliveries`. The unit test gave `confidence: high` to a fix that reproduced the bug instead of fixing it.

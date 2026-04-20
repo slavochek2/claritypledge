@@ -466,3 +466,5 @@ curl -s "https://<project-ref>.supabase.co/rest/v1/<table>?select=<column>&limit
 ```
 
 **Rule:** one file per day, or use 14-digit timestamps (`YYYYMMDDHHMMSS`) if you need multiple same-day migrations. All migration SQL must be idempotent (`CREATE OR REPLACE`, `IF NOT EXISTS`, `ON CONFLICT DO NOTHING`). See [cli-tools.md](cli-tools.md) for details.
+
+**`RETURNS TABLE` column name gotcha — `position` is reserved.** When writing a `RETURNS TABLE (...)` signature in a PostgreSQL function, `position` is a reserved keyword and causes a parse error if used as a column name. Use an alias: e.g., `response_position TEXT` instead of `position TEXT`. The alias must then be referenced consistently in the `SELECT` clause (`SELECT lpr.position::TEXT AS response_position`). Confirmed in P768 migration `20260420120000_p768_get_letter_point_responses_by_token.sql`.
