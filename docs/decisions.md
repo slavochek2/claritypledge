@@ -2,6 +2,65 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-20 [process]: KDD runs on current branch — no main-branch hard-stop
+
+**Context:** KDD's Step 0 had a hard-stop guard refusing to run unless CWD was the main repo root AND current branch was `main`, with an anti-bypass clause forbidding `git -C`/`cd`/absolute paths. With simultaneous worktrees per feature plus the main repo routinely occupied by active feature work, KDD was effectively never runnable without branch-switching ceremony. Devil's-advocate analysis (Opus): every recent KDD commit landed directly on main — but that's what the guard *produces*, not evidence it was *necessary*. The "stranded on deleted branch" concern applies to skill files (loaded by other sessions NOW), not doc files that only matter at ship time.
+
+**Decision:** Drop KDD's Step 0 hard-stop. KDD writes and commits on the current branch; doc entries (decisions.md, INDEX.md, technical docs) ride to main when the feature merges, like any tracked file. Skill-file edits remain governed by `.claude/rules/skills.md` Branch Guard — skill files must commit on main because they're loaded by concurrent sessions.
+
+**Alternatives rejected:** (A) Keep guard — blocks every KDD invocation for friction theater. (B) Migrate to per-day decisions file (`docs/decisions/YYYY-MM-DD-slug.md`) to eliminate append-at-top merge conflicts — deferred until conflicts actually bite.
+
+**Consequences:** `/kdd` is always invokable. Main risk: concurrent feature merges each appending to decisions.md top create merge conflicts (10-second resolve). Park/reject risk: if a feature branch is discarded without merging, its KDD entries are lost — cherry-pick to main before park/reject.
+
+**References:** `.claude/commands/slava/maintain/kdd/SKILL.md` (Step 0), commit `dff05042`
+
+---
+
+## 2026-04-20 [process]: Feature branch inheriting a wip commit — diagnose via `git log main..HEAD`, fix with stash → reset --hard main → pop
+
+**Context:** P772 branch was cut from a point that included `wip: p769 in-progress — will reset after p771 cherry-pick` (4bd7f9ff). That wip commit carried 3 test-breaking changes. Pre-commit's `npm test` failed on every P772 commit attempt. A sibling agent diagnosed "main has a wip commit" — wrong. Main's tip was clean; the wip lived only on the feature branch, inherited through the branch-off point.
+
+**Decision:** When `npm test` fails on a feature branch with tests unrelated to current work, run `git log main..HEAD` to look for inherited wip commits before assuming main is dirty. To drop an inherited wip while preserving current uncommitted work: `git stash push -u` → `git reset --hard main` → `git stash pop`. Verify first that the wip's tree matches main's tree for files the current work touches (`git diff main <wip-sha> -- <files>`) — if clean, stash-pop will apply without conflicts.
+
+**Alternatives rejected:** (A) `git reset --mixed main` — when the wip's tree diverges from main (deleted files, stale versions), all divergences surface as unstaged changes, entangling current work with wip spillage. (B) Interactive rebase drop — heavier than needed for a single inherited commit.
+
+**Consequences:** Feature branches cut from ad-hoc wip commits should be reset onto current main *before* starting work, not at blocker time. If a wip message says "will reset", it's disposable — treat it that way from the outset.
+
+**References:** `.claude/rules/skills.md` (related: wip-commit pattern for branch-switch), P772 session log
+
+---
+
+## 2026-04-20 [technical]: P772 — `/letter/:id` uses `clarity_letters.id` for one-to-many public reads
+
+**Context:** P772 added a Supabase RPC (`resolve_letter_shortcode`) to resolve shortcodes like `/letter/st5` to a UUID. The original RPC joined `letter_deliveries` and returned `ld.id`, assuming the route consumed a delivery ID. After shipping, shortcodes redirected to auth-gated pages.
+
+**Decision:** The `/letter/:id` route param is `clarity_letters.id` for one-to-many letters (comment at line 368 of `letter-reading-page.tsx`: "deliveryId param doubles as letterId for one-to-many public letters"). The RPC must return `cl.id`, and the `letter_deliveries` join is unnecessary for shortcode resolution.
+
+**Alternatives rejected:**
+- Return `ld.id` and adjust `LetterReadingPage` — reading page has dual-path logic (1-to-1 token vs 1-to-many public); changing it would couple shortcode logic to reader internals.
+
+**Consequences:**
+- Any future RPC or service that resolves a shareable one-to-many letter URL must return `clarity_letters.id`, not `letter_deliveries.id`.
+- `getLetterForPublicReading(id)` is the correct downstream call; it accepts letter ID, not delivery ID.
+
+---
+
+## 2026-04-20 [technical]: P772 — FOUNDER_SLUG constant scopes shortcodes to one sender
+
+**Context:** Letter shortcodes (`/letter/st5`) needed to resolve to the latest sealed letter with a matching doc title. `clarity_docs.title` has no uniqueness constraint — any user could create a doc titled "st5".
+
+**Decision:** Scope RPC to a hardcoded `FOUNDER_SLUG = "slava"` constant in `App.tsx`. Shortcodes are a founder-only feature, not multi-tenant.
+
+**Alternatives rejected:**
+- Per-user shortcodes via subdomain or path prefix (`/letter/slava/st5`) — overengineered for current scale.
+- Unique title constraint per sender — migrations are costly; uniqueness isn't needed elsewhere.
+
+**Consequences:**
+- `FOUNDER_SLUG` must be updated if the founder's profile slug ever changes.
+- If shortcodes ever go multi-tenant, the constant becomes a route param and the RPC signature changes.
+
+---
+
 ## 2026-04-20 [technical]: P769 — Joiner exit uses `cancelLiveInvite`, never `useTerminateSession` or `completeClaritySession`
 
 **Context:** P769 extended `complete_clarity_session` RPC to atomically set `live_state.sessionEnded=true` alongside `status='completed'`. This makes `useTerminateSession` the canonical end-session path. But a joiner who leaves a session is not ending the session — the creator's session continues. Calling `terminateSession` (or `completeClaritySession` directly) from joiner exit would wrongly broadcast `sessionEnded=true` to the creator's realtime subscription, collapsing their active session.

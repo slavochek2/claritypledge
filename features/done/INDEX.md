@@ -1,7 +1,7 @@
 # Done Features Index
 
 Quick reference for past completed work. Consult when starting work on a related topic.
-Last updated: 2026-04-20 (P771 letter 409 on partial prior responses)
+Last updated: 2026-04-20 (P772 letter shortcode resolution)
 
 ---
 
@@ -102,6 +102,7 @@ Last updated: 2026-04-20 (P771 letter 409 on partial prior responses)
 
 ## Letters
 
+- **P772** (Apr 20) Letter shortcode resolution — `/letter/:id` uses `clarity_letters.id` for one-to-many; RPC must NOT join `letter_deliveries`
 - **P771** (Apr 20) Letter submit 409 partial prior responses — mount-time phase-entry invariants (`seedStoryWithPriorPositions`) must be mirrored in runtime transitions; extract shared `isPointAnswered` helper
 - **P770** (Apr 20) Published tab rename + sealed letter delete — PostgREST DELETE silently succeeds when RLS blocks it; chain `.select('id')` on delete to detect zero affected rows; expand RLS policy atomically to avoid TOCTOU race
 - **P768** (Apr 20) Letter submit 409 on re-open — rehydrate `letter_point_responses` BEFORE hook init; rehydration param, not post-mount useEffect, prevents flash of point-engage
