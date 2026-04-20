@@ -2,14 +2,16 @@
 id: p694
 title: '"Letter not found" flash on cold-load of letter reading page'
 type: bug
-status: all-done
+status: rejected
 completed_at: '2026-04-20'
 severity: high
-pipeline_ran: [fix]
-date_reported: 2026-04-11
+pipeline_ran:
+  - fix
+date_reported: 2026-04-11T00:00:00.000Z
 tags: []
-rank: 1000694.0
-created_date: 2026-04-11
+rank: 1000694
+created_date: 2026-04-11T00:00:00.000Z
+locked_at: '2026-04-20T09:56:48.858Z'
 ---
 
 # P694: "Letter not found" flash on cold-load of letter reading page

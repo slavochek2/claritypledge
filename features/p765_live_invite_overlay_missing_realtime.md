@@ -1,7 +1,7 @@
 ---
-status: in-progress
+status: today
 type: bug
-rank: 750543.75
+rank: 31251.781
 severity: high
 workstream: live
 date_reported: '2026-04-20'
@@ -27,6 +27,7 @@ reproduce_artifact:
     - letter-reading-page
   surfaces_deferred: []
   reproduced_at: '2026-04-20'
+locked_at: '2026-04-20T09:44:01.138Z'
 ---
 
 # P765: Live invite overlay does not appear via Realtime on partner's letter reading page

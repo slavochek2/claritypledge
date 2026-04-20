@@ -1,15 +1,17 @@
 ---
 p_number: 692
-title: "Sent letters: forever-loading + mispositioned spinner"
+title: 'Sent letters: forever-loading + mispositioned spinner'
 type: bug
 status: all-done
 completed_at: '2026-04-20'
 severity: high
-date_reported: 2026-04-11
-pipeline_ran: [fix]
+date_reported: 2026-04-11T00:00:00.000Z
+pipeline_ran:
+  - fix
 tags: []
-rank: 1000692.0
-created_date: 2026-04-11
+rank: 1000692
+created_date: 2026-04-11T00:00:00.000Z
+locked_at: '2026-04-20T09:56:20.209Z'
 ---
 
 # P692: Sent letters — forever-loading + mispositioned spinner

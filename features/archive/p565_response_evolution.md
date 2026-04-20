@@ -1,5 +1,5 @@
 ---
-status: week
+status: rejected
 type: story
 rank: 2.364
 tags:
@@ -9,7 +9,7 @@ tags:
   - evolution
 flow: dev
 created_date: 2026-03-21T00:00:00.000Z
-locked_at: '2026-04-07T11:26:49.611Z'
+locked_at: '2026-04-20T09:48:47.828Z'
 ---
 
 # P565: Response Evolution — Stories Bridging Points

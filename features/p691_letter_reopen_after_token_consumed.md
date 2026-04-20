@@ -3,14 +3,22 @@ status: all-done
 completed_at: '2026-04-20'
 type: bug
 severity: high
-date_reported: 2026-04-11
-date_resolved: 2026-04-11
-pipeline_ran: [fix]
-root_cause: letter-reading-page.tsx load effect always took the token branch when ?token= was present; invitation_expires_at=now() on first open burned the token, leaving no fallback for authenticated re-visits
-resolution: Restructured load effect to authed-first — if currentUser exists, getLetterForReading (RLS-based) runs before the token RPC; token branch preserved for anon users; replay defense intact
+date_reported: 2026-04-11T00:00:00.000Z
+date_resolved: 2026-04-11T00:00:00.000Z
+pipeline_ran:
+  - fix
+root_cause: >-
+  letter-reading-page.tsx load effect always took the token branch when ?token=
+  was present; invitation_expires_at=now() on first open burned the token,
+  leaving no fallback for authenticated re-visits
+resolution: >-
+  Restructured load effect to authed-first — if currentUser exists,
+  getLetterForReading (RLS-based) runs before the token RPC; token branch
+  preserved for anon users; replay defense intact
 tags: []
-rank: 1000685.0
-created_date: 2026-04-11
+rank: 1000685
+created_date: 2026-04-11T00:00:00.000Z
+locked_at: '2026-04-20T09:56:14.342Z'
 ---
 
 # P691: Letter Re-open Blocked After Token Consumed

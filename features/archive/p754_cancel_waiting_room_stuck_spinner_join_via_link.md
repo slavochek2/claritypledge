@@ -1,14 +1,21 @@
 ---
-status: in-progress
+status: rejected
 type: bug
-rank: 1000749.0
+rank: 1000749
 severity: medium
 workstream: live
 date_reported: '2026-04-18'
 created_date: '2026-04-18'
-tags: [live, waiting-room, navigation, join-via-link]
+tags:
+  - live
+  - waiting-room
+  - navigation
+  - join-via-link
 delivery_stage: fix
-pipeline_ran: [create-bug, fix]
+pipeline_ran:
+  - create-bug
+  - fix
+locked_at: '2026-04-20T09:45:41.705Z'
 ---
 
 # P754: Cancel from waiting room shows stuck "Joining session..." spinner on join-via-link URL

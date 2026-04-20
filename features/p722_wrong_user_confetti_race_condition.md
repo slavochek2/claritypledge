@@ -4,18 +4,32 @@ title: Wrong user sees confetti (completed state) when clicking expired magic li
 type: bug
 status: all-done
 completed_at: '2026-04-20'
-pipeline_plan: [reproduce, fix]
-pipeline_ran: [reproduce, fix]
-tags: [auth, letters, race-condition]
+pipeline_plan:
+  - reproduce
+  - fix
+pipeline_ran:
+  - reproduce
+  - fix
+tags:
+  - auth
+  - letters
+  - race-condition
 rank: 1
 reproduce_artifact:
   test_file: src/tests/p722-reproduce.test.tsx
-  root_cause: "P695 completion shortcut (line 322) has no currentUser guard — anon/race user with currentUser=null skips P717 email guard and hits the status='completed' check directly, setting viewState='complete' and showing confetti"
+  root_cause: >-
+    P695 completion shortcut (line 322) has no currentUser guard — anon/race
+    user with currentUser=null skips P717 email guard and hits the
+    status='completed' check directly, setting viewState='complete' and showing
+    confetti
   confidence: high
-  scenarios_in_scope: [scenario-3-race-null-user, scenario-4-anon-unverified]
+  scenarios_in_scope:
+    - scenario-3-race-null-user
+    - scenario-4-anon-unverified
   scenarios_deferred: []
-  reproduced_at: 2026-04-16
-created_date: 2026-04-16
+  reproduced_at: 2026-04-16T00:00:00.000Z
+created_date: 2026-04-16T00:00:00.000Z
+locked_at: '2026-04-20T09:55:49.750Z'
 ---
 
 ## Problem

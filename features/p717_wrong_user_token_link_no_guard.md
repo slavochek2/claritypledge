@@ -3,15 +3,24 @@ id: P717
 title: Wrong authenticated user can open token-based letter link without warning
 type: bug
 status: all-done
-completed_at: '2026-04-20'
-pipeline_plan: [reproduce, fix]
-pipeline_ran: [reproduce, fix, fix.2]
-date_resolved: 2026-04-16
-root_cause: get_letter_for_reading RPC omitted receiver_email; email guards in letter-reading-page.tsx always checked undefined
-resolution: Migration adds receiver_email to RPC delivery JSON; email guards now fire correctly on both authed-first and token paths
+pipeline_plan:
+  - reproduce
+  - fix
+pipeline_ran:
+  - reproduce
+  - fix
+  - fix.2
+date_resolved: 2026-04-16T00:00:00.000Z
+root_cause: >-
+  get_letter_for_reading RPC omitted receiver_email; email guards in
+  letter-reading-page.tsx always checked undefined
+resolution: >-
+  Migration adds receiver_email to RPC delivery JSON; email guards now fire
+  correctly on both authed-first and token paths
 tags: []
-rank: 1000721.0
-created_date: 2026-04-16
+rank: 1000721
+created_date: 2026-04-16T00:00:00.000Z
+locked_at: '2026-04-20T09:56:42.840Z'
 ---
 
 ## Summary

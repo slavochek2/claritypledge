@@ -1,12 +1,19 @@
 ---
 status: week
 type: story
-rank: 1000747.0
+rank: 0.049
 workstream: C2
 created_date: '2026-04-17'
-tags: [letters, live, guest, nickname, claim, badges]
+tags:
+  - letters
+  - live
+  - guest
+  - nickname
+  - claim
+  - badges
 delivery_stage: create-spec
-pipeline_ran: [create-spec]
+pipeline_ran:
+  - create-spec
 ---
 
 # P747: Guest /live from letter + save-with-badges at session end

@@ -1,7 +1,7 @@
 ---
-status: qa
+status: all-done
 type: change-request
-rank: 1000066.0
+rank: 1000066
 changes: p661
 chain_root: p581
 tags:
@@ -12,11 +12,17 @@ tags:
   - chrome-free
 created_date: 2026-04-06T00:00:00.000Z
 delivery_stage: fix
-pipeline_ran: [change-request, architect, generate-tests, dev, fix]
+pipeline_ran:
+  - change-request
+  - architect
+  - generate-tests
+  - dev
+  - fix
 uat_file: features/uat/p665.md
 test_files:
   - e2e/p665-letter-immersive.spec.ts
   - e2e/a11y/p665-accessibility.spec.ts
+locked_at: '2026-04-20T09:56:03.061Z'
 ---
 
 # P665: Letter Routes — Chrome-Free + Preview Reuses Reading Components

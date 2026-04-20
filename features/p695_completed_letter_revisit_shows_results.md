@@ -5,11 +5,13 @@ type: bug
 status: all-done
 completed_at: '2026-04-20'
 severity: high
-pipeline_ran: [fix]
-date_reported: 2026-04-12
+pipeline_ran:
+  - fix
+date_reported: 2026-04-12T00:00:00.000Z
 tags: []
-rank: 1000695.0
-created_date: 2026-04-12
+rank: 1000695
+created_date: 2026-04-12T00:00:00.000Z
+locked_at: '2026-04-20T09:56:30.362Z'
 ---
 
 # P695: Completed Letter Revisit — Show Results Instead of Re-Reading

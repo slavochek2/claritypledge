@@ -1,11 +1,19 @@
 ---
-status: in-progress
+status: all-done
 type: task
-rank: 1000748.0
+rank: 1000748
 created_date: '2026-04-14'
-tags: [infrastructure, skills, ui, design-system]
+tags:
+  - infrastructure
+  - skills
+  - ui
+  - design-system
 delivery_stage: dev
-pipeline_ran: [create-spec, architect, dev]
+pipeline_ran:
+  - create-spec
+  - architect
+  - dev
+locked_at: '2026-04-20T09:44:53.603Z'
 ---
 
 # P748: `/view` skill — visual polish agent before /dev

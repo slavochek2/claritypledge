@@ -1,15 +1,31 @@
 ---
-status: week
+status: rejected
 type: story
-rank: 1000689.0
+rank: 1000689
 workstream: letters
 created_date: '2026-04-11'
-tags: [letters, inbox, ui, a11y]
+tags:
+  - letters
+  - inbox
+  - ui
+  - a11y
 delivery_stage: create-spec
-pipeline_plan: [create-spec, dev, verify]
-pipeline_ran: [create-spec]
-pipeline_skipped: [challenge-prd -- decisions resolved upstream, ux -- no net-new component, architect -- no schema/auth/structural change, generate-tests -- canary test written inside dev, decompose -- 1 file ~15 LOC, spec-review -- fresh spec, spec-compact -- fresh spec]
+pipeline_plan:
+  - create-spec
+  - dev
+  - verify
+pipeline_ran:
+  - create-spec
+pipeline_skipped:
+  - challenge-prd -- decisions resolved upstream
+  - ux -- no net-new component
+  - architect -- no schema/auth/structural change
+  - generate-tests -- canary test written inside dev
+  - decompose -- 1 file ~15 LOC
+  - spec-review -- fresh spec
+  - spec-compact -- fresh spec
 flow: dev
+locked_at: '2026-04-20T09:51:52.230Z'
 ---
 
 # P689: Letters Inbox Per-Row Read/Unread Indicators

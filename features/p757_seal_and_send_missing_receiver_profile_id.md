@@ -2,16 +2,27 @@
 status: all-done
 completed_at: '2026-04-20'
 type: bug
-rank: 1000757.0
+rank: 1000757
 severity: high
 workstream: letter
 date_reported: '2026-04-18'
 created_date: '2026-04-18'
 date_resolved: '2026-04-18'
-root_cause: seal_and_send_letter deliveries loop INSERT omitted receiver_profile_id; P731 patched add_recipient_to_sealed_letter but missed this path
-resolution: CREATE OR REPLACE adds profiles.id lookup (lower() match) before each delivery INSERT; backfill UPDATE fixes existing NULL rows
-tags: [letter-delivery, inbox, rls, db-function]
-pipeline_ran: [create-bug, fix]
+root_cause: >-
+  seal_and_send_letter deliveries loop INSERT omitted receiver_profile_id; P731
+  patched add_recipient_to_sealed_letter but missed this path
+resolution: >-
+  CREATE OR REPLACE adds profiles.id lookup (lower() match) before each delivery
+  INSERT; backfill UPDATE fixes existing NULL rows
+tags:
+  - letter-delivery
+  - inbox
+  - rls
+  - db-function
+pipeline_ran:
+  - create-bug
+  - fix
+locked_at: '2026-04-20T09:57:23.097Z'
 ---
 
 # P757: `seal_and_send_letter` inserts letter_deliveries with NULL receiver_profile_id — private letters invisible in inbox

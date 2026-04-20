@@ -3,14 +3,22 @@ status: all-done
 completed_at: '2026-04-20'
 type: bug
 severity: high
-date_reported: 2026-04-11
-date_resolved: 2026-04-11
-pipeline_ran: [fix]
-root_cause: clarity_docs SELECT RLS blocks receivers (not owner/public) so PostgREST inner-join silently dropped every row; getUnreadLetterCount queried letter_deliveries directly and still saw rows
-resolution: Replaced PostgREST join queries in getInboxItems with a SECURITY DEFINER RPC (get_inbox_items) that bypasses RLS for the narrow inbox fields; authorization gate ensures caller can only query own inbox
+date_reported: 2026-04-11T00:00:00.000Z
+date_resolved: 2026-04-11T00:00:00.000Z
+pipeline_ran:
+  - fix
+root_cause: >-
+  clarity_docs SELECT RLS blocks receivers (not owner/public) so PostgREST
+  inner-join silently dropped every row; getUnreadLetterCount queried
+  letter_deliveries directly and still saw rows
+resolution: >-
+  Replaced PostgREST join queries in getInboxItems with a SECURITY DEFINER RPC
+  (get_inbox_items) that bypasses RLS for the narrow inbox fields; authorization
+  gate ensures caller can only query own inbox
 tags: []
-rank: 1000684.0
-created_date: 2026-04-11
+rank: 1000684
+created_date: 2026-04-11T00:00:00.000Z
+locked_at: '2026-04-20T09:56:08.786Z'
 ---
 
 # P690: Inbox Phantom Count — RLS Join Drops Letter Rows

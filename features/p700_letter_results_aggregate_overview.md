@@ -1,19 +1,42 @@
 ---
 status: week
 type: story
-rank: 1000700.0
+rank: 0.013
 workstream: C2
-tags: [letters, results, one-to-many, overview, workshop]
+tags:
+  - letters
+  - results
+  - one-to-many
+  - overview
+  - workshop
 created_date: '2026-04-12'
 flow: dev
-pipeline_plan: [create-spec, challenge-prd, ascii-flows, ux, architect, ui, generate-tests, dev, verify]
-pipeline_ran: [create-spec, challenge-prd, ascii-flows, ux, architect, ui, generate-tests, spec-review]
+pipeline_plan:
+  - create-spec
+  - challenge-prd
+  - ascii-flows
+  - ux
+  - architect
+  - ui
+  - generate-tests
+  - dev
+  - verify
+pipeline_ran:
+  - create-spec
+  - challenge-prd
+  - ascii-flows
+  - ux
+  - architect
+  - ui
+  - generate-tests
+  - spec-review
 uat_file: features/uat/p700.md
 test_files:
   - e2e/p700-letter-overview.spec.ts
   - e2e/a11y/p700-letter-overview-accessibility.spec.ts
 delivery_stage: spec-review
-pipeline_skipped: [view -- no net-new visual polish beyond ui]
+pipeline_skipped:
+  - view -- no net-new visual polish beyond ui
 ---
 
 # P700: Letter Overview — per-letter author view (list-first, two selectors)

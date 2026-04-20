@@ -1,5 +1,5 @@
 ---
-status: week
+status: rejected
 type: story
 rank: 1.837
 tags:
@@ -8,7 +8,7 @@ tags:
   - provenance
 flow: dev
 created_date: 2026-03-21T00:00:00.000Z
-locked_at: '2026-04-07T11:26:47.543Z'
+locked_at: '2026-04-20T09:48:16.706Z'
 ---
 
 # P563: Position Provenance — Engagement Depth Visibility

@@ -1,16 +1,31 @@
 ---
-status: in-progress
+status: week
 type: story
-rank: 1000725.0
+rank: 1000704.5
 created_date: '2026-04-17'
-tags: [letters, inbox, sent, results, reading, identity, profile, navigation]
+tags:
+  - letters
+  - inbox
+  - sent
+  - results
+  - reading
+  - identity
+  - profile
+  - navigation
 delivery_stage: park
-pipeline_ran: [create-spec, architect, generate-tests, spec-review, dev, park]
+pipeline_ran:
+  - create-spec
+  - architect
+  - generate-tests
+  - spec-review
+  - dev
+  - park
 uat_file: features/uat/p725.md
 test_files:
   - e2e/integration/p725-db-migrations.spec.ts
   - e2e/p725-letter-identity.spec.ts
   - e2e/a11y/p725-accessibility.spec.ts
+locked_at: '2026-04-20T10:01:42.845Z'
 ---
 
 # P725: Other participant identity across letter surfaces

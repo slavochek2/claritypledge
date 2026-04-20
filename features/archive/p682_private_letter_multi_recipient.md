@@ -1,17 +1,38 @@
 ---
-status: week
+status: rejected
 type: story
-rank: 1000682.0
+rank: 1000682
 created_date: '2026-04-10'
-tags: [letters, ux, recipients, private]
+tags:
+  - letters
+  - ux
+  - recipients
+  - private
 delivery_stage: generate-tests
-pipeline_plan: [create-spec, challenge-prd, ux, ui, generate-tests, dev, verify]
-pipeline_ran: [create-spec, challenge-prd, ux, ui, generate-tests]
-pipeline_skipped: [architect -- no schema changes; DB already supports multi-recipient via letter_deliveries table and seal_and_send_letter RPC, decompose -- under 5 files]
+pipeline_plan:
+  - create-spec
+  - challenge-prd
+  - ux
+  - ui
+  - generate-tests
+  - dev
+  - verify
+pipeline_ran:
+  - create-spec
+  - challenge-prd
+  - ux
+  - ui
+  - generate-tests
+pipeline_skipped:
+  - >-
+    architect -- no schema changes; DB already supports multi-recipient via
+    letter_deliveries table and seal_and_send_letter RPC
+  - decompose -- under 5 files
 uat_file: features/uat/p682.md
 test_files:
   - e2e/p682-letter-multi-recipient.spec.ts
   - src/tests/p682-recipient-validation.test.ts
+locked_at: '2026-04-20T09:50:02.611Z'
 ---
 
 # P682: Private Letter — Multi-Recipient & Simplified Flow

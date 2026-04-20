@@ -2,16 +2,30 @@
 status: all-done
 completed_at: '2026-04-20'
 type: bug
-rank: 1000759.0
+rank: 1000759
 severity: medium
 workstream: Process
 date_reported: '2026-04-18'
 created_date: '2026-04-18'
-tags: [process, fix-skill, pipeline-stamp, p659]
-pipeline_ran: [create-bug, fix]
+tags:
+  - process
+  - fix-skill
+  - pipeline-stamp
+  - p659
+pipeline_ran:
+  - create-bug
+  - fix
 date_resolved: '2026-04-18'
-root_cause: Phase 0.3 lacked verification after writing frontmatter — silent failure when spec path resolved to wrong copy (worktree vs main). Also Phase 0.pre created circular spec for execution-ready plan files.
-resolution: Added self-check step 7 to Phase 0.3 (re-reads spec, asserts stamp landed, stops with actionable error + path note if not). Added execution-ready plan classification to Phase 0.pre to skip auto-/create-bug for checklist-style plans.
+root_cause: >-
+  Phase 0.3 lacked verification after writing frontmatter — silent failure when
+  spec path resolved to wrong copy (worktree vs main). Also Phase 0.pre created
+  circular spec for execution-ready plan files.
+resolution: >-
+  Added self-check step 7 to Phase 0.3 (re-reads spec, asserts stamp landed,
+  stops with actionable error + path note if not). Added execution-ready plan
+  classification to Phase 0.pre to skip auto-/create-bug for checklist-style
+  plans.
+locked_at: '2026-04-20T09:57:27.448Z'
 ---
 
 # P759: /fix Phase 0.3 pipeline stamp skipped

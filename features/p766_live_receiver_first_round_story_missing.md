@@ -1,21 +1,33 @@
 ---
-status: in-progress
+status: today
 type: bug
-rank: 1000763.0
+rank: 250014.25
 severity: high
 workstream: live
 date_reported: '2026-04-20'
 created_date: '2026-04-20'
-tags: [live, realtime, receiver, race-condition]
+tags:
+  - live
+  - realtime
+  - receiver
+  - race-condition
 delivery_stage: reproduce
-pipeline_ran: [create-bug, reproduce]
+pipeline_ran:
+  - create-bug
+  - reproduce
 reproduce_artifact:
   test_file: e2e/p766-reproduce.spec.ts
-  root_cause: "isListenerDuringLocalRating gate at live-mode-view.tsx:1236 stays true for the entire rating phase — design intent (P617) was 'hide until speaker submits', but the gate uses ratingInitiatedByIsCreator which only clears at end of round."
+  root_cause: >-
+    isListenerDuringLocalRating gate at live-mode-view.tsx:1236 stays true for
+    the entire rating phase — design intent (P617) was 'hide until speaker
+    submits', but the gate uses ratingInitiatedByIsCreator which only clears at
+    end of round.
   confidence: high
-  surfaces_in_scope: [live-mode-view.tsx]
+  surfaces_in_scope:
+    - live-mode-view.tsx
   surfaces_deferred: []
-  reproduced_at: 2026-04-20
+  reproduced_at: 2026-04-20T00:00:00.000Z
+locked_at: '2026-04-20T09:17:51.116Z'
 ---
 
 # P766: Receiver sees confidence slider without story card on first /live round

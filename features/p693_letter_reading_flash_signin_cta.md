@@ -5,11 +5,13 @@ type: bug
 status: all-done
 completed_at: '2026-04-20'
 severity: medium
-pipeline_ran: [fix]
-date_reported: 2026-04-11
+pipeline_ran:
+  - fix
+date_reported: 2026-04-11T00:00:00.000Z
 tags: []
-rank: 1000693.0
-created_date: 2026-04-11
+rank: 1000693
+created_date: 2026-04-11T00:00:00.000Z
+locked_at: '2026-04-20T09:56:25.671Z'
 ---
 
 # P693: Flash of "Sign in to continue" CTA during one-to-one letter open

@@ -1,14 +1,22 @@
 ---
-status: week
+status: all-done
 type: task
-rank: 1000688.0
+rank: 0.5
 created_date: '2026-04-11'
-tags: [letters, refactor, recipients, unification]
+tags:
+  - letters
+  - refactor
+  - recipients
+  - unification
 delivery_stage: generate-tests
-pipeline_ran: [create-spec, ux, generate-tests]
+pipeline_ran:
+  - create-spec
+  - ux
+  - generate-tests
 test_files:
   - e2e/p688-add-recipient-flow.spec.ts
   - e2e/p688-seal-confirmation-invite.spec.ts
+locked_at: '2026-04-20T10:02:01.519Z'
 ---
 
 # P688: Unify Recipient Input via RecipientRow

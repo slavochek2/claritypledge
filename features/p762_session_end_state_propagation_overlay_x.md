@@ -1,7 +1,7 @@
 ---
 status: today
 type: bug
-rank: 500028.5
+rank: 62503.563
 severity: high
 workstream: live
 date_reported: '2026-04-18'

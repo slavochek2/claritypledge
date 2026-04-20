@@ -1,15 +1,16 @@
 ---
-status: qa
+status: all-done
 type: bug
-rank: 1000053.0
+rank: 1000053
 severity: medium
-date_reported: 2026-04-04
-created_date: 2026-04-04
+date_reported: 2026-04-04T00:00:00.000Z
+created_date: 2026-04-04T00:00:00.000Z
 tags:
   - letters
   - tests
   - p642
 flow: fix
+locked_at: '2026-04-20T09:55:55.810Z'
 ---
 
 # BUG: P642 Auth Rating E2E Test Fails — Test Data Isolation
