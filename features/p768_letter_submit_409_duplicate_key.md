@@ -7,8 +7,8 @@ workstream: letter
 date_reported: '2026-04-20'
 created_date: '2026-04-20'
 tags: [letter, submit, duplicate-key, re-submit]
-delivery_stage: fix
-pipeline_ran: [create-bug, reproduce, fix]
+delivery_stage: ship
+pipeline_ran: [create-bug, reproduce, fix, ship]
 reproduce_artifact:
   test_file: e2e/p768-reproduce.spec.ts
   root_cause: "useLetterReadingState never rehydrates prior letter_point_responses on mount — positions start empty, phase renders point-engage for already-answered points, Submit click hits 409 on the INSERT-only audit constraint"
