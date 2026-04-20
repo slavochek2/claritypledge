@@ -2,6 +2,24 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-20 [process]: Canary must match the layer where the bug manifests — reducer unit test is not proof for a hook/realtime bug
+
+**Context:** P765 symptom was UI-level — the /live invite overlay doesn't appear via Realtime on the partner's letter reading page. `/reproduce` wrote a **Vitest unit test on `inviteReducer`** that synthetically dispatched `INSERT` then `LOADED(null)` and asserted the invite survived. Reproduce marked this artifact `confidence: high`. `/fix` guarded the LOADED action, the unit test passed, the full suite passed, TypeScript was clean, and the code reviewer explicitly flagged — **as Finding 2** — that "the canary proves the reducer is correct, but the actual race condition involves timing between the promise and the subscription callback in the hook — that coupling is untested." The fix was committed anyway with the finding noted as "known limitation." UAT failed: overlay still missing in the real two-party flow. The reducer guard may or may not matter in practice; the bug might live entirely in H-A (channel handler registration race) or H-B (silent enrichment fetch) — both of which the reducer canary cannot touch.
+
+**Decision:** A canary must exercise the layer where the bug's user-visible symptom is produced. For bugs whose symptom surfaces through async + subscription + effect wiring (hooks that combine an initial fetch with a realtime subscription), a pure-function unit test on any intermediate helper (reducer, mapper, selector) is **insufficient evidence of fix** — regardless of how cleanly it simulates the race. The canary must either (a) render the hook via `renderHook` + mocked subscription handle, asserting the hook's returned state after a scripted INSERT→LOADED sequence, or (b) be a Playwright integration test driving the real subscription. A reducer-layer test is allowed as a supplementary case, but is never the sole proof-of-fix for a hook-integration bug.
+
+**Alternatives rejected:** Trusting pure-function canaries when the code reviewer flags layer-mismatch — what happened here. Treating the reviewer finding as "known limitation" is the anti-pattern: it converts a blocking coverage gap into a soft caveat that nobody acts on.
+
+**Consequences:**
+- `/reproduce` should record the layer of its canary (e.g., `canary_layer: reducer | hook | e2e`) and the symptom's layer. When they diverge, it must either (i) escalate to the correct layer, or (ii) downgrade `confidence` to `medium` with an explicit gap note. The current `confidence: high` on P765's `reproduce_artifact` was not earned.
+- `/fix` must not QA-stamp a bug when its canary layer is shallower than the symptom layer — treat this as a hard gate, not a reviewer caveat.
+- When the code reviewer flags a coverage gap at the QA gate (Finding with "canary does not cover X"), halt. Do not ship with "known limitation" language — either write the missing canary or explicitly hand back to `/reproduce` with the layer gap named.
+- Status: proposed — enforcement in `/reproduce` and `/fix` skills needs a follow-up spec to add the layer field and the gate check.
+
+**References:** [features/p765_live_invite_overlay_missing_realtime.md](../features/p765_live_invite_overlay_missing_realtime.md), [src/tests/p765-invite-overlay-realtime.test.ts](../src/tests/p765-invite-overlay-realtime.test.ts), [src/app/hooks/useOpenLiveInvite.ts](../src/app/hooks/useOpenLiveInvite.ts)
+
+---
+
 ## 2026-04-20 [process]: Two-party canaries need settle-wait before `advanceSessionState`
 
 **Context:** P766 `/reproduce` wrote a two-party canary that called `advanceSessionState()` immediately after `createTwoPartySession()`. The guest page dropped into a React error boundary ("Something went wrong") before any assertion fired. Root cause: the guest page had not yet rendered session UI when the DB write landed; the Realtime delivery triggered a state update against an un-initialized component tree.
