@@ -2,6 +2,48 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-20 [process]: Shipping a worktree feature branch when main has diverged — merge from main repo, not rebase from worktree
+
+**Context:** Letters UI polish batch (4 commits on `feature/letters-ui-polish-batch` in w4). At ship time, `main` had advanced with p767/p768 commits since the worktree forked. Attempted `git merge --ff-only` → refused ("diverging branches"). Attempted `git rebase main` from inside w4 → refused ("You have unstaged changes") because w4's `git status` shows ~200 ` D` entries for `scripts/` and `supabase/migrations/` — symlink artifacts, not real deletions (per decision #295 on Gate 2). Phantom deletions block rebase even when they block no real work. Falling back to `git merge --no-ff feature/letters-ui-polish-batch` from the main repo succeeded and created a merge commit cleanly.
+
+**Decision:** When shipping a worktree feature branch and `main` has diverged (non-fast-forward), the safe path is `git merge --no-ff <feature-branch>` from the **main repo root**, not `git rebase main` from the worktree. Phantom symlink deletions in the worktree's working tree unconditionally block rebase — the tree never looks "clean" to git regardless of which files you've actually modified. A merge commit is acceptable trade: linear history is ideal but not worth fighting symlink reality over.
+
+**Alternatives rejected:** Remove w4 worktree → rebase in main → recreate w4 — too invasive, kills in-flight dev server and browser state. `git rebase -X ours main` — does not bypass the unstaged-changes check; the check runs before strategy options apply. Fixing symlink setup to avoid phantom deletions — orthogonal; the symlinks exist by design (see decision #295, `worktree-setup.md`).
+
+**Consequences:** Any ship-from-worktree flow that requires reconciling with advanced main should expect a merge commit, not a linear fast-forward. `/ship` already handles the cherry-pick path; this entry covers the manual path when `/ship` isn't invoked (plan-driven batches with no P-number). The merge commit message should summarize the squashed scope so `git log --oneline main` stays scannable.
+
+**References:** [decisions.md § 2026-04-18 process: Worktree `git status` dirty-state is a false alarm](#2026-04-18-process-worktree-git-status-dirty-state-is-a-false-alarm-for-symlinked-dirs) | `.claude/rules/git.md` (Worktree Phantom Deletions)
+
+---
+
+## 2026-04-20 [process]: Cross-session staged files in the shared main repo block merge — unstage, merge, re-stage
+
+**Context:** Same ship session. The main repo had staged files from another parallel session (`features/p770_published_tab_rename_and_delete.md` added with `git add`, `supabase/migrations/20260420120000_p768_*.sql` likewise). `git merge --no-ff feature/letters-ui-polish-batch` refused with "Your local changes to the following files would be overwritten by merge: features/p770…md" — even though p770 was in neither branch's tree. Git's index reconciliation treats any staged change as "local changes" it must preserve, and will abort if the merge's index rewrite would disturb them. The `ort` strategy then also silently unstaged the other staged file (p768 migration) despite the merge commit not touching it.
+
+**Decision:** Before merging a feature branch into `main` when the main repo is shared with other live sessions, check `git diff --cached --name-only` and temporarily unstage any file that isn't part of the current merge scope (`git reset HEAD -- <path>` — file stays on disk). Run the merge. After merge completes, re-stage the preserved files (`git add <path>`) to restore the other session's WIP state. Never commit a file another session staged — unstaging is reversible; a stray commit to someone else's WIP is not.
+
+**Alternatives rejected:** `git stash --include-untracked` before merge — stash is banned (`.claude/rules/git.md`) for exactly this class of context-loss failure. Committing the other session's staged files as part of the merge — violates "only stage files YOU changed in THIS session" and attributes work to the wrong commit. Coordinating across sessions to pause — not mechanical; forgettable.
+
+**Consequences:** Multi-session main-repo workflows should expect this dance on every merge. The sequence (inspect → unstage → merge → re-stage) is mechanical and takes ~10 seconds. Any `ort`-strategy merge may also reset untouched staged entries — always diff the cached index after merge and re-stage what got dropped.
+
+**References:** `.claude/rules/git.md` (Only stage files YOU changed in THIS session)
+
+---
+
+## 2026-04-20 [technical]: P767 — point_config.order must be applied on every DocStory→display conversion path (same rule as point_config.hidden)
+
+**Context:** P767: author-set point order was ignored in preview and sealed letter. The seal RPC (P757) already persisted `point_config.order`. The fix was needed in two places: `letter-snapshot-mapper.ts` (sort `visiblePoints` by orderMap in `snapshotToStoryWithPoints`, and propagate `order` in `docStoryToSnapshot`) and `letter-compose-page.tsx` (sort `enrichedStories` points before passing to `LetterPredictionWalk`). PostgREST `story_points` join returns rows in non-insertion order — the same story's points came back reversed between test runs, which caused the bug to manifest 100% of the time.
+
+**Decision:** `point_config.order` follows the exact same "apply everywhere" rule as `point_config.hidden` (P749). Every surface that converts `DocStory` → visible-points list must apply both: (1) filter `point_config.hidden`, (2) sort by `point_config.order`. The compose prediction walk was missed in the initial scope because `StoryCardDetail` (draft editor) handles ordering via an explicit `pointOrder` prop, but `LiveStoryCardExpanded` (used in prediction walk) has no such prop — the sort must happen upstream in the `enrichedStories` mapping before points reach the component.
+
+**Alternatives rejected:** Adding `pointOrder` prop to `LiveStoryCardExpanded` — shifts the sorting responsibility to each caller, same surface-miss risk as before. Sorting in `LetterPredictionWalk` — it receives `DocStory[]` not raw `point_config`, so the sort would need to be duplicated rather than living in one place.
+
+**Consequences:** Any new surface using `LiveStoryCardExpanded` with `DocStory` input must pre-sort points by `point_config.order`. Surfaces using `StoryCardDetail` pass `pointOrder={s.point_config.order}` as a prop — already handled. Never rely on PostgREST join order for `story_points` — the order is non-deterministic and diverges from `created_at` insertion order.
+
+**References:** `src/app/utils/letter-snapshot-mapper.ts`, `src/app/pages/letter-compose-page.tsx`
+
+---
+
 ## 2026-04-20 [product]: Letter point responses are immutable audit records — first write per (delivery_id, point_id) wins
 
 **Context:** P768 reproduce session. The letter Submit button threw a 409 duplicate-key error on re-open. Investigation traced it to `letter_point_responses_unique` constraint (migration `20260403224331_p581_clarity_letters.sql:92`) — the table is `INSERT`-only with no `UPDATE` path. The UI was not aware of this and attempted a fresh insert on every open.
