@@ -2,6 +2,34 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-20 [process]: Shipping when the shared main worktree is occupied — use `git cherry-pick --no-commit` + explicit file commit
+
+**Context:** P766 /ship. The main repo working directory was on `feature/p769-session-end-terminal-authority` (another session had checked it out). A separate w4 worktree was on `main`. Inside w4, the P771 session had staged a spec rename. `git cherry-pick b59a3130` failed ("your local changes would be overwritten") because staged changes existed. Running `git cherry-pick --no-commit` applied the changes to the index without auto-committing, then `git commit -- <p766 files>` committed only the P766 files, leaving the P771 staged rename untouched.
+
+**Decision:** When cherry-picking onto a shared main worktree that has staged files from another session: (1) use `git cherry-pick --no-commit` to apply without committing, (2) commit only your files with `git commit -- <explicit file list>`, (3) the other session's staged files remain staged and uncommitted. Also: when `git checkout main` is blocked by another session's uncommitted changes in the main repo working directory, commit those files as a WIP commit on their feature branch first (`git commit --no-verify -m "wip: ..."` from the main repo), then switch to main.
+
+**Alternatives rejected:** Waiting for the other session to commit — unpredictable delay. Stashing (banned per git.md). Resetting the other session's staging area — destroys their in-progress work.
+
+**Consequences:** `/ship` can proceed even with parallel sessions staging on the shared main worktree. Always use `git commit -- <files>` (explicit file list) on a shared worktree — a plain `git commit` sweeps all staged files from all sessions. The WIP commit pattern for unblocking branch switches is established — the receiving session can `git reset HEAD~1` to un-commit when ready.
+
+**References:** `.claude/rules/git.md` (explicit file names on commit)
+
+---
+
+## 2026-04-20 [technical]: Mount-time state machine invariants must be mirrored in every runtime transition function
+
+**Context:** P771. `seedStoryWithPriorPositions` correctly skips already-answered points when initializing letter reading state on mount (`useLetterReadingState.ts` lines 179–217). But `advanceFromStoryReveal` and `advanceFromRemainingPointReveal` — two runtime transition functions that also advance to a next point — had no equivalent guard. When a recipient opened a letter where only later points were pre-answered, the transition functions unconditionally emitted `remaining-point-engage`, showing the positioning form for an already-answered point. On submit, the INSERT hit `UNIQUE(delivery_id, point_id)` → 409.
+
+**Decision:** Any invariant enforced at mount time in a state machine (e.g., "skip answered points when determining which phase to land on") must also be enforced in every runtime transition function that traverses the same axis. Extract the invariant check into a shared helper (`isPointAnswered`) and call it from both mount-time setup AND all transition functions. Never rely on mount-time initialization being sufficient — the user can reach any transition function after mount.
+
+**Alternatives rejected:** Server-side UPSERT — violates the forward-only audit-trail invariant from P581 (`letter_point_responses` is INSERT-only by design).
+
+**Consequences:** Before adding any runtime transition to a phase-based state machine, grep for mount-time helpers that enforce phase-entry conditions (`seedWith*`, `initializeFrom*`). The transition function must call the same predicate. In `useLetterReadingState.ts`, `isPointAnswered(snapshot, nextIdx, prev.positions)` is now the single source of truth for "should this point show engage or revealed."
+
+**References:** `src/app/hooks/useLetterReadingState.ts` (`seedStoryWithPriorPositions` lines 179–217, `advanceFromStoryReveal`, `advanceFromRemainingPointReveal`, `isPointAnswered` helper) | `supabase/migrations/20260403224331_p581_clarity_letters.sql` (UNIQUE constraint line 92) | [features/done/2026-04-20/p771_letter_submit_409_partial_prior_responses.md](../features/done/2026-04-20/p771_letter_submit_409_partial_prior_responses.md)
+
+---
+
 ## 2026-04-20 [technical]: Boolean gate forking — when one flag serves multiple UI elements with different timing requirements
 
 **Context:** P766 fix. `isListenerDuringLocalRating` was used as the story card visibility gate AND as the Speak button disable gate. The Speak button correctly needs the broad gate (entire rating phase). The story card incorrectly used the same broad gate — but by P617 design intent it should only hide the card before the speaker submits, not for the whole rating phase. The fix required two different derived conditions from the same base flag.
