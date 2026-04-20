@@ -79,6 +79,8 @@ No overlay appears. Partner must force-refresh to see the invite.
 
 ## Fix Approach
 
+> **Session note (2026-04-20):** Fix plan drafted and critiqued twice by Opus. Both rounds found structural problems (RESET/LOADED guard coupling breaks legitimate revocation; canary tests reducer not hook; H-A dismissal unverified). Plan scrapped. Next session: restart from `reproduce_artifact` + fresh `/fix` — do not revive the plan.
+
 Confirm which hypothesis is the real cause first (`/reproduce`). Then:
 
 **For Hypothesis A:** After registering a new handler on an already-SUBSCRIBED channel, immediately re-fetch (`getOpenLiveInviteForUser`) to catch events missed during registration. This closes the window between channel SUBSCRIBED and handler registration.
