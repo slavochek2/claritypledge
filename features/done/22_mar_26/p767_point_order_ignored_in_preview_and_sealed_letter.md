@@ -1,5 +1,6 @@
 ---
-status: qa
+status: all-done
+completed_at: '2026-04-20'
 type: bug
 rank: 1000760.0
 severity: high
@@ -7,7 +8,6 @@ workstream: letters
 date_reported: '2026-04-20'
 created_date: '2026-04-20'
 tags: [letters, points, ordering, snapshot-mapper]
-delivery_stage: ship
 pipeline_ran: [create-bug, fix, ship]
 ---
 
