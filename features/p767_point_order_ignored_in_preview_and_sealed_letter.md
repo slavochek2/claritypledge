@@ -7,8 +7,8 @@ workstream: letters
 date_reported: '2026-04-20'
 created_date: '2026-04-20'
 tags: [letters, points, ordering, snapshot-mapper]
-delivery_stage: fix
-pipeline_ran: [create-bug, fix]
+delivery_stage: ship
+pipeline_ran: [create-bug, fix, ship]
 ---
 
 # P767: Point order chosen in draft not reflected in preview or sealed letter
