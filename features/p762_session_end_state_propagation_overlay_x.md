@@ -1,5 +1,5 @@
 ---
-status: qa
+status: in-progress
 type: bug
 rank: 1000760.0
 severity: high
@@ -7,8 +7,8 @@ workstream: live
 date_reported: '2026-04-18'
 created_date: '2026-04-18'
 tags: [session-end, realtime, live, letter-live-overlay]
-delivery_stage: ship
-pipeline_ran: [create-bug, fix, ship]
+delivery_stage: fix
+pipeline_ran: [create-bug, fix]
 ---
 
 # P762: Session-end state propagation regression + overlay X redundancy
