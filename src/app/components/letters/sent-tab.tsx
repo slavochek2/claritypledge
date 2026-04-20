@@ -10,7 +10,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { MoreHorizontal, ChevronRight, ChevronDown, Mail, Link2 } from 'lucide-react';
+import { MoreHorizontal, ChevronRight, ChevronDown, Mail, Link2, Eye } from 'lucide-react';
 import {
   getAllSentLetters,
   getDeliveriesForLetters,
@@ -74,14 +74,18 @@ function RecipientRow({ delivery, letterId }: { delivery: LetterDelivery; letter
     && delivery.steps_completed !== undefined
     && delivery.total_steps !== undefined
     && delivery.steps_completed > 0;
-  const isCompleted = delivery.status === 'completed';
+  const hasResults =
+    delivery.status === 'completed' ||
+    (delivery.status === 'in_progress' &&
+      delivery.steps_completed !== undefined &&
+      delivery.steps_completed > 0);
 
   const handleClick = () => navigate(`/letter/${letterId}/results?delivery=${delivery.id}`);
 
   return (
     <div
-      className={`flex items-center gap-2 py-1.5 px-3 text-sm${isCompleted ? ' cursor-pointer hover:bg-accent/30 transition-colors' : ''}`}
-      {...(isCompleted ? {
+      className={`flex items-center gap-2 py-1.5 px-3 text-sm${hasResults ? ' cursor-pointer hover:bg-accent/30 transition-colors' : ''}`}
+      {...(hasResults ? {
         role: 'button' as const,
         tabIndex: 0,
         onClick: handleClick,
@@ -110,6 +114,19 @@ function RecipientRow({ delivery, letterId }: { delivery: LetterDelivery; letter
           · {Math.min(delivery.steps_completed, delivery.total_steps)} of {delivery.total_steps} steps
         </span>
       )}
+      {hasResults && (
+        <Button
+          size="sm"
+          onClick={(e) => {
+            e.stopPropagation();
+            handleClick();
+          }}
+          className="hidden sm:inline-flex ml-auto bg-blue-500 hover:bg-blue-600 text-white min-h-[44px]"
+        >
+          <Eye className="w-4 h-4 mr-1" />
+          Results
+        </Button>
+      )}
     </div>
   );
 }
@@ -126,9 +143,7 @@ function LetterCard({
   onRefresh: () => void;
 }) {
   const { letter, deliveries } = data;
-  const navigate = useNavigate();
-  // P725: expand cards by default so recipient identity surfaces without an extra tap.
-  const [isExpanded, setIsExpanded] = useState(true);
+  const [isExpanded, setIsExpanded] = useState(false);
   const [addRecipientOpen, setAddRecipientOpen] = useState(false);
 
   const isPublic = letter.mode === 'one-to-many';
@@ -170,13 +185,6 @@ function LetterCard({
 
   const handlePreview = () => {
     window.open(`/letter/${letter.source_doc_id}/preview`, '_blank', 'noopener,noreferrer');
-  };
-
-  const handleResults = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    const completedDelivery = deliveries.find((d) => d.status === 'completed');
-    if (!completedDelivery) return;
-    navigate(`/letter/${letter.id}/results?delivery=${completedDelivery.id}`);
   };
 
   const handleToggle = () => {
@@ -248,31 +256,8 @@ function LetterCard({
                       Copy public link
                     </DropdownMenuItem>
                   )}
-                  {/* Mobile: Results in dropdown when no Results button shown */}
-                  {completedCount > 0 && (
-                    <DropdownMenuItem
-                      className="sm:hidden"
-                      onClick={() => {
-                        const d = deliveries.find((del) => del.status === 'completed');
-                        if (d) navigate(`/letter/${letter.id}/results?delivery=${d.id}`);
-                      }}
-                    >
-                      View results
-                    </DropdownMenuItem>
-                  )}
                 </DropdownMenuContent>
               </DropdownMenu>
-
-              {/* [Results] button — desktop only, only when >= 1 completed */}
-              {completedCount > 0 && (
-                <Button
-                  size="sm"
-                  className="hidden sm:inline-flex bg-blue-500 hover:bg-blue-600 text-white min-h-[44px]"
-                  onClick={handleResults}
-                >
-                  Results
-                </Button>
-              )}
             </div>
           </div>
         </div>
