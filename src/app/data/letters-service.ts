@@ -1377,3 +1377,15 @@ export async function saveLetterPauseState(deliveryId: string, storyIndex: numbe
     .eq('id', deliveryId);
   if (error) throw new Error(`saveLetterPauseState failed: ${error.message}`);
 }
+
+// P772: resolve a shortcode like "st5" to the latest sealed delivery UUID for a sender slug
+export async function resolveLetterShortcode(
+  code: string,
+  senderSlug: string
+): Promise<string | null> {
+  const { data } = await supabase.rpc('resolve_letter_shortcode', {
+    p_code: code,
+    p_sender_slug: senderSlug,
+  });
+  return data ?? null;
+}

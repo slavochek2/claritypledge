@@ -1,5 +1,5 @@
 import { BrowserRouter as Router, Routes, Route, Navigate, useSearchParams, useParams } from "react-router-dom";
-import { lazy, Suspense, Component, ReactNode } from "react";
+import { lazy, Suspense, Component, ReactNode, useState, useEffect } from "react";
 import { ClarityPageLoader } from "@/components/ui/clarity-loader";
 import * as Sentry from "@sentry/react";
 import { HelmetProvider } from "react-helmet-async";
@@ -7,6 +7,7 @@ import { ClarityLandingLayout } from "@/app/layouts/clarity-landing-layout";
 import { AuthCallbackPage, AuthProvider, useAuth } from "@/auth";
 import { ScrollToTop } from "@/app/components/scroll-to-top";
 import { PwaInstallProvider } from "@/hooks/use-pwa-install";
+import { resolveLetterShortcode } from "@/app/data/letters-service";
 
 // P553: All pages lazy-loaded to reduce initial bundle size
 const ClarityPledgeLanding = lazy(() => import("@/app/pages/clarity-pledge-landing").then(m => ({ default: m.ClarityPledgeLanding })));
@@ -112,6 +113,33 @@ function DocDetailRedirect() {
 function FeedTagRedirect() {
   const { tag } = useParams();
   return <Navigate to={`/feed?tag=${encodeURIComponent(tag || '')}&sort=oldest&version=latest`} replace />;
+}
+
+// P772: resolve shortcodes like /letter/st5 to the latest sealed delivery UUID
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const FOUNDER_SLUG = "slava";
+
+export function LetterRoute() {
+  const { id = "" } = useParams<{ id: string }>();
+  const [resolved, setResolved] = useState<string | null>(null);
+  const [notFound, setNotFound] = useState(false);
+  const isUUID = UUID_RE.test(id);
+
+  useEffect(() => {
+    if (isUUID) return;
+    resolveLetterShortcode(id, FOUNDER_SLUG).then((uuid) => {
+      if (uuid) setResolved(uuid);
+      else setNotFound(true);
+    });
+  }, [id, isUUID]);
+
+  if (!isUUID && resolved) return <Navigate to={`/letter/${resolved}`} replace />;
+  if (!isUUID && !notFound) return <ClarityPageLoader />;
+  return (
+    <ClarityLandingLayout compact>
+      <LazyRoute><LetterReadingPage /></LazyRoute>
+    </ClarityLandingLayout>
+  );
 }
 
 // Loading fallback for lazy routes
@@ -678,16 +706,8 @@ export default function ClarityPledgeApp() {
         />
 
         {/* Letter reading flow — compact nav (logo + avatar only, no links/CTA) */}
-        <Route
-          path="/letter/:id"
-          element={
-            <ClarityLandingLayout compact>
-              <LazyRoute>
-                <LetterReadingPage />
-              </LazyRoute>
-            </ClarityLandingLayout>
-          }
-        />
+        {/* P772: LetterRoute handles shortcodes like /letter/st5 → resolves to UUID */}
+        <Route path="/letter/:id" element={<LetterRoute />} />
 
         {/* ============================================================
             PROTOTYPES - Isolated experimental features under /tree
