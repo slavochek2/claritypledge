@@ -211,8 +211,12 @@ function LetterCard({
       toast.success('Letter deleted.');
       setDeleteDialogOpen(false);
       onRefresh();
-    } catch {
-      toast.error("Couldn't delete letter.");
+    } catch (err) {
+      if (err instanceof Error && err.message === 'DELIVERIES_EXIST') {
+        toast.error("Can't delete — letter has been shared.");
+      } else {
+        toast.error("Couldn't delete letter.");
+      }
     } finally {
       setDeletePending(false);
     }

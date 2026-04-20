@@ -843,24 +843,34 @@ export async function deleteLetter(letterId: string): Promise<void> {
   await requireAuth();
   log('deleteLetter:', letterId);
 
-  const { data: deliveries } = await supabase
+  const { data: deliveries, error: checkErr } = await supabase
     .from('letter_deliveries')
     .select('id')
     .eq('letter_id', letterId)
     .limit(1);
 
+  if (checkErr) {
+    logDbError('deleteLetter/check', checkErr);
+    throw new Error(`Failed to check deliveries: ${checkErr.message}`);
+  }
+
   if (deliveries && deliveries.length > 0) {
     throw new Error('DELIVERIES_EXIST');
   }
 
-  const { error } = await supabase
+  const { data: deleted, error } = await supabase
     .from('clarity_letters')
     .delete()
-    .eq('id', letterId);
+    .eq('id', letterId)
+    .select('id');
 
   if (error) {
     logDbError('deleteLetter', error);
     throw new Error(`Failed to delete letter: ${error.message}`);
+  }
+
+  if (!deleted || deleted.length === 0) {
+    throw new Error('DELETE_FAILED');
   }
 }
 
