@@ -1,11 +1,11 @@
 ---
-status: qa
+status: all-done
+completed_at: '2026-04-20'
 type: story
 rank: 1000763.0
 workstream: letters
 created_date: '2026-04-20'
 tags: [letters, ui, delete, tab]
-delivery_stage: ship
 pipeline_ran: [create-spec, fix, ship]
 ---
 
