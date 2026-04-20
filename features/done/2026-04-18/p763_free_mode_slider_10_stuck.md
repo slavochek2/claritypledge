@@ -1,5 +1,6 @@
 ---
-status: qa
+status: all-done
+completed_at: '2026-04-20'
 type: bug
 rank: 1000761.0
 severity: high
@@ -7,7 +8,6 @@ workstream: core
 date_reported: '2026-04-18'
 created_date: '2026-04-18'
 tags: [free-mode, slider, realtime, timing]
-delivery_stage: ship
 pipeline_ran: [create-bug, fix, ship]
 ---
 
