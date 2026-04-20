@@ -1,7 +1,7 @@
 # Done Features Index
 
 Quick reference for past completed work. Consult when starting work on a related topic.
-Last updated: 2026-04-20 (P768 letter submit 409 rehydration fix)
+Last updated: 2026-04-20 (P770 Published tab + sealed letter delete)
 
 ---
 
@@ -101,6 +101,7 @@ Last updated: 2026-04-20 (P768 letter submit 409 rehydration fix)
 
 ## Letters
 
+- **P770** (Apr 20) Published tab rename + sealed letter delete — PostgREST DELETE silently succeeds when RLS blocks it; chain `.select('id')` on delete to detect zero affected rows; expand RLS policy atomically to avoid TOCTOU race
 - **P768** (Apr 20) Letter submit 409 on re-open — rehydrate `letter_point_responses` BEFORE hook init; rehydration param, not post-mount useEffect, prevents flash of point-engage
 - **P749** (Apr 18) Hidden points leak in preview + sealed — every `DocStory`→visible-points path (preview builder, compose walk, reading, results) must filter `point_config.hidden`; co-locate `docStoryToSnapshot` with reader to prevent shape drift
 - **P751** (Apr 18) Letter story images missing + card width mismatch — `seal_and_send_letter` RPC, `PointConfig` interface, and preview shim must all be updated together when adding a story field to the letter flow

@@ -2,6 +2,26 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-20 [technical]: PostgREST DELETE is silently blocked by RLS — detect via `.select('id')` on the delete call
+
+**Context:** P770 — `deleteLetter()` called `.delete().eq('id', id)` on `clarity_letters`. The original RLS DELETE policy only allowed `status='draft'`; sealed letters were excluded. PostgREST returned HTTP 200 with no error — the delete appeared to succeed, a success toast fired, but the letter reappeared on the next 15-second poll. The same silent-success behavior already documented for UPDATE (see 2026-04-15 entry) applies identically to DELETE.
+
+**Decision:** Any `supabase.from(table).delete()` call that must detect whether the row was actually deleted must chain `.select('id')` (or any column) to request the deleted rows back. If the returned array is empty, the delete was blocked by RLS or no row matched — treat as failure. Pattern:
+```typescript
+const { data, error } = await supabase.from('table').delete().eq('id', id).select('id');
+if (error) throw new Error('DELETE_FAILED');
+if (!data || data.length === 0) throw new Error('DELETE_FAILED'); // RLS block or not found
+```
+The server-side fix (RLS policy expansion or SECURITY DEFINER function) is always required alongside this client-side detection — the detection prevents silent success, the policy fix allows legitimate deletes.
+
+**Alternatives rejected:** Checking `error` alone — PostgREST returns `null` error for RLS-blocked DELETEs. `Prefer: count=exact` header on the delete — not set by default on the Supabase JS client; `.select()` is simpler and already returns count implicitly via array length. Moving all deletes to SECURITY DEFINER RPCs — overkill for simple owner-delete patterns; RLS expansion is lighter.
+
+**Consequences:** Every service-layer delete that must produce an error on RLS block must chain `.select('id')`. Deletes where silent failure is acceptable (best-effort cleanup) may omit it. The existing 2026-04-15 UPDATE entry covers the same behavior for UPDATE operations — the detection mechanism there is verifying row state via admin read; for DELETE the `.select()` pattern is faster. Audit existing `deleteLetter`-style functions across the codebase for this pattern.
+
+**References:** `src/app/data/letters-service.ts` (`deleteLetter`), `supabase/migrations/20260420130000_p770_delete_sealed_letter_rls.sql`
+
+---
+
 ## 2026-04-20 [process]: Cross-session commit collision on main is an accepted residual risk — race window survives `git reset` pre-flight
 
 **Context:** P768 session. A parallel Claude session's commit (`6f7c0ad8`, P765 KDD) swept the P768 migration file (`20260420120000_p768_*.sql`) into its commit as a bystander. Both sessions used `git add <explicit files>` per the `git.md` rule. The P768 session even ran `git reset HEAD -- <bystanders>` before staging — but the P765 session's `git commit` won the ref-lock race after P768's pre-commit hook finished and before P768's `git commit` ran. The net effect: the P768 migration landed in the P765 KDD commit, not the P768 feature commit.
