@@ -980,6 +980,28 @@ await advanceSessionState(session.sessionCode, checkerSubmittedState('Alice', 7)
 await waitForUIUpdate(guest.page, guest.page.getByText('understand you'), 20000);
 ```
 
+#### Settle-wait guard before `advanceSessionState`
+
+**Always wait for both pages to show session UI before calling `advanceSessionState()`.** If the DB write lands before the guest's component tree is initialized, the Realtime event triggers a state update against an un-mounted tree — crashing the guest page into a React error boundary.
+
+```typescript
+// ✅ REQUIRED: settle both pages before advancing state
+const { host, guest, sessionCode: code } = session;
+
+await expect(
+  host.page.locator(`text=/${code}|Speak|Waiting|End Session/i`).first()
+).toBeVisible({ timeout: 10_000 });
+await expect(
+  guest.page.locator(`text=/${code}|Speak|Waiting|End Session/i`).first()
+).toBeVisible({ timeout: 10_000 });
+
+// THEN advance state — both pages are ready
+await advanceSessionState(code, postRoundIdleState());
+await waitForUIUpdate(host.page, host.page.getByText('Speak'), 20_000);
+```
+
+This pattern is identical to the guard in `e2e/p666-two-party-infra-proof.spec.ts`. Use that file as the canonical reference. Skipping the guard produces a React error boundary crash at SETUP, not an assertion failure — the test gives no signal about the bug under test.
+
 **Available presets:**
 - `speakerInitiatedState(name)` — after speaker clicks Speak
 - `postRoundIdleState()` — after full round, back to idle

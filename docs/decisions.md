@@ -2,6 +2,45 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-20 [process]: Two-party canaries need settle-wait before `advanceSessionState`
+
+**Context:** P766 `/reproduce` wrote a two-party canary that called `advanceSessionState()` immediately after `createTwoPartySession()`. The guest page dropped into a React error boundary ("Something went wrong") before any assertion fired. Root cause: the guest page had not yet rendered session UI when the DB write landed; the Realtime delivery triggered a state update against an un-initialized component tree.
+
+**Decision:** In any two-party canary, wait for both the host and guest pages to show session UI before calling `advanceSessionState()`. The minimal pattern (matching `p666-two-party-infra-proof.spec.ts`):
+```ts
+await expect(
+  session.host.page.locator(`text=/${code}|Speak|Waiting|End Session/i`).first()
+).toBeVisible({ timeout: 10_000 });
+await expect(
+  session.guest.page.locator(`text=/${code}|Speak|Waiting|End Session/i`).first()
+).toBeVisible({ timeout: 10_000 });
+// THEN advance state
+await advanceSessionState(session.sessionCode, someState());
+```
+This prevents Realtime events from arriving before the guest's component tree is ready.
+
+**Alternatives rejected:** Skipping the guard and relying on the Playwright timeout — the test crashes at the React error boundary, which is not an assertion failure; it gives no signal about the bug under test.
+
+**Consequences:** All two-party canaries must include this settle-wait block after session creation and before any `advanceSessionState()` call. The pattern is identical to the guard in `p666-two-party-infra-proof.spec.ts` — use that file as the canonical reference. This same gap caused P764's canary to crash at SETUP (documented separately). The fix is now baked into the documented pattern.
+
+**References:** [e2e/p666-two-party-infra-proof.spec.ts](e2e/p666-two-party-infra-proof.spec.ts), [docs/technical/e2e-testing-guide.md](docs/technical/e2e-testing-guide.md)
+
+---
+
+## 2026-04-20 [technical]: Comment–implementation divergence in visibility gates — check both
+
+**Context:** P766 root cause investigation found `live-mode-view.tsx:1236` with a comment: "P617: Listener should not see story card until round starts (speaker submits)." The implementation used `ratingInitiatedByIsCreator` as the gate, which stays `true` through the entire rating phase — not just until submit. The comment documented the intended contract (hide until speaker submits), but the gate condition was wider than intended, hiding the card for the whole rating phase.
+
+**Decision:** When debugging a visibility gate bug, always compare the comment's stated intent with the actual gate condition. Comments on gates often document the design contract ("show/hide when X"); the implementation may have drifted. Neither the comment nor the code is automatically correct — verify each against the product intent. If they diverge, the comment is the intended contract until proven otherwise.
+
+**Alternatives rejected:** Trusting only the code and ignoring comments — misses intent drift that turns up in bugs. Trusting only the comment without verifying the condition — may accept an outdated comment as ground truth.
+
+**Consequences:** Gate bug fixes should include: (1) verify the comment matches the intended UX behavior, (2) verify the condition matches the comment, (3) fix whichever is wrong, (4) update the comment if the intended behavior changed. This applies to any boolean gate guarded by a named flag (e.g., `ratingInitiatedBy*`, `isLocallyRating`, `viewState`).
+
+**References:** [src/app/components/live/live-mode-view.tsx](src/app/components/live/live-mode-view.tsx), [features/p766_receiver_story_card_missing_in_live.md](features/p766_receiver_story_card_missing_in_live.md)
+
+---
+
 ## 2026-04-20 [process]: Multi-symptom screenshots — merge into one spec when shared upstream is plausible
 
 **Context:** P764 was originally written for one symptom (stale banner after refresh). A second screenshot (stranded /live) was added during `/screenshot-debug`. Both symptoms were explainable by the same upstream failure ("partner did not observe the UPDATE"). Filing a second bug was considered.
