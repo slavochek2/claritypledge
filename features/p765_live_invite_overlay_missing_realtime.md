@@ -1,5 +1,5 @@
 ---
-status: week
+status: in-progress
 type: bug
 rank: 1000762.0
 severity: high
@@ -7,8 +7,15 @@ workstream: live
 date_reported: '2026-04-20'
 created_date: '2026-04-20'
 tags: [realtime, live, invite, letter-reading]
-delivery_stage: create-bug
-pipeline_ran: [create-bug]
+delivery_stage: reproduce
+pipeline_ran: [create-bug, reproduce]
+reproduce_artifact:
+  test_file: src/tests/p765-invite-overlay-realtime.test.ts
+  root_cause: "inviteReducer LOADED action unconditionally replaces invite — when the slow initial fetch resolves null after INSERT dispatch, it wipes the invite and overlay disappears. Secondary: clarity_sessions secondary fetch returns null silently (H-B) with no Sentry log or retry."
+  confidence: high
+  surfaces_in_scope: [letter-reading-page]
+  surfaces_deferred: []
+  reproduced_at: '2026-04-20'
 ---
 
 # P765: Live invite overlay does not appear via Realtime on partner's letter reading page
@@ -19,11 +26,25 @@ When the author starts a /live session, the partner's letter reading page does n
 
 ## Root Cause
 
-Two plausible causes, to be confirmed by `/reproduce`:
+**Confirmed primary cause — LOADED(null) race in `inviteReducer`:**
 
-**Hypothesis A — handler registration race (primary suspect):** `subscribeToLiveInvites` maintains a single Supabase channel per userId, multiplexed across components (`bottom-nav`, `letter-reading-page`, etc.). If the INSERT event fires AFTER `bottom-nav` subscribes but BEFORE `letter-reading-page` adds its handler to the shared channel (i.e., during page load), only `bottom-nav`'s handler fires. `letter-reading-page` misses the event entirely. Force-refresh → `getOpenLiveInviteForUser` initial fetch catches the now-present invite.
+`inviteReducer`'s `LOADED` action (line 44) unconditionally replaces `invite` with `action.payload`:
 
-**Hypothesis B — silent failure in secondary fetch:** The INSERT handler in `useOpenLiveInvite` (line 115-116 of hook) does a secondary `clarity_sessions` SELECT to enrich the payload. If that fetch returns `null` (e.g., network hiccup, RLS mismatch, or `session_id` resolves to no row), the dispatch is silently skipped and the overlay never appears.
+```typescript
+case 'LOADED':
+  return { invite: action.payload, loading: false };
+```
+
+Race sequence (reproduces ~100% when author starts within ~1s of page load):
+1. `useOpenLiveInvite` mounts → initial fetch fires (`getOpenLiveInviteForUser`, async) → handler registered
+2. Author starts session → INSERT fires → INSERT handler fires → secondary `clarity_sessions` SELECT → INSERT dispatch → `state.invite = invite` (overlay appears)
+3. Initial fetch resolves (it was sent before the invite existed → returns null) → LOADED(null) → `state.invite = null` → overlay disappears silently
+
+Force-refresh works because the initial fetch runs fresh after the invite is in DB, so LOADED(invite) applies correctly.
+
+**Confirmed secondary cause — H-B, silent failure in secondary fetch:**
+
+In the INSERT handler (`useOpenLiveInvite.ts`, line 115-116), if the secondary `clarity_sessions` SELECT returns null (network hiccup, RLS mismatch, or transaction timing), the code silently returns with no Sentry log, no retry, and no dispatch. Overlay never appears.
 
 Observed: invite IS in DB immediately after session start (force-refresh confirms) — so the invite creation is not the issue.
 
