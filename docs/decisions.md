@@ -2,6 +2,28 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-20 [technical]: Boolean gate forking — when one flag serves multiple UI elements with different timing requirements
+
+**Context:** P766 fix. `isListenerDuringLocalRating` was used as the story card visibility gate AND as the Speak button disable gate. The Speak button correctly needs the broad gate (entire rating phase). The story card incorrectly used the same broad gate — but by P617 design intent it should only hide the card before the speaker submits, not for the whole rating phase. The fix required two different derived conditions from the same base flag.
+
+**Decision:** When a boolean gate derived from shared state serves multiple UI surfaces with different timing requirements, fork into a composed narrow version for the surfaces that need the tighter window — do not modify the original flag or its primary consumers. Pattern:
+```tsx
+// broad gate — used for Speak button (entire rating phase)
+const isListenerDuringLocalRating = ratingInitiatedByIsCreator !== undefined
+  && ratingInitiatedByIsCreator !== isCreator;
+// narrow gate — used for story card (only before speaker submits)
+const isListenerBeforeSpeakerSubmits = isListenerDuringLocalRating && !liveState.checkerSubmitted;
+```
+The narrow gate composes the broad gate with an additional state flag — it cannot be true when the broad gate is false, so the Speak button behavior is unchanged. Story card surfaces use the narrow gate; Speak button surfaces keep the broad gate.
+
+**Alternatives rejected:** Replacing the broad gate everywhere — would re-expose the story card before speaker submits (P617 regression) on surfaces that used it correctly (Speak button). Introducing a separate DB state flag — unnecessary; `checkerSubmitted` is already written atomically and is the correct predicate.
+
+**Consequences:** When a new UI surface has a visibility requirement that differs from an existing gate by a narrower timing window, always fork — do not widen or replace the original. Grep for all usages of the original flag before forking, and explicitly decide which surfaces keep the broad gate. `surfaces_in_scope` in the reproduce artifact should call out this distinction.
+
+**References:** `src/app/components/partners/live-mode-view.tsx` (`isListenerDuringLocalRating`, `isListenerBeforeSpeakerSubmits`), `features/p766_live_receiver_first_round_story_missing.md`
+
+---
+
 ## 2026-04-20 [technical]: PostgREST DELETE is silently blocked by RLS — detect via `.select('id')` on the delete call
 
 **Context:** P770 — `deleteLetter()` called `.delete().eq('id', id)` on `clarity_letters`. The original RLS DELETE policy only allowed `status='draft'`; sealed letters were excluded. PostgREST returned HTTP 200 with no error — the delete appeared to succeed, a success toast fired, but the letter reappeared on the next 15-second poll. The same silent-success behavior already documented for UPDATE (see 2026-04-15 entry) applies identically to DELETE.
