@@ -173,6 +173,49 @@ function createInitialStoryState(snapshot: LetterStorySnapshot, prediction?: num
   };
 }
 
+// P768: Seed a story's positions / currentPointIndex / phase from DB-rehydrated
+// prior responses. Invariant 4: only point-position data is rehydrated —
+// story-rate / story-revealed inference is out of scope.
+function seedStoryWithPriorPositions(
+  storyState: StoryState,
+  snapshot: LetterStorySnapshot,
+  priorPositions: Record<string, string>,
+): StoryState {
+  const visiblePoints = snapshotToStoryWithPoints(snapshot, '').points;
+  if (visiblePoints.length === 0) return storyState;
+
+  const seededPositions: Record<string, string> = { ...storyState.positions };
+  let hasAny = false;
+  for (const point of visiblePoints) {
+    const prior = priorPositions[point.id];
+    if (prior !== undefined) {
+      seededPositions[point.id] = prior;
+      hasAny = true;
+    }
+  }
+  if (!hasAny) return storyState;
+
+  const firstUnansweredIdx = visiblePoints.findIndex((p) => seededPositions[p.id] === undefined);
+  const nextIndex = firstUnansweredIdx === -1 ? visiblePoints.length - 1 : firstUnansweredIdx;
+  const landedPoint = visiblePoints[nextIndex];
+  const landedAnswered = landedPoint && seededPositions[landedPoint.id] !== undefined;
+
+  // Phase: if the landed point is already answered AND we started in point-engage,
+  // advance to point-revealed. Any other phase (story-rate, etc.) is left as-is —
+  // see Invariant 4.
+  const nextPhase: StoryPhase =
+    landedAnswered && storyState.phase === 'point-engage'
+      ? 'point-revealed'
+      : storyState.phase;
+
+  return {
+    ...storyState,
+    positions: seededPositions,
+    currentPointIndex: nextIndex,
+    phase: nextPhase,
+  };
+}
+
 
 // ============================================================================
 // HOOK PARAMS
@@ -207,6 +250,13 @@ export interface UseLetterReadingStateParams {
    * Used as fallback when sessionStorage has no state (e.g. after returning from /live overlay).
    */
   savedStoryIndex?: number;
+  /**
+   * P768: Prior point responses rehydrated from DB on mount (pointId → position).
+   * Seeded into the fresh-state branch only — sessionStorage/savedStoryIndex resumes
+   * carry forward their own state. Prevents `point-engage` from rendering for points
+   * that already have a response (which would 409 on Submit). Never set in preview mode.
+   */
+  priorPositions?: Record<string, string>;
 }
 
 // ============================================================================
@@ -277,6 +327,10 @@ export function useLetterReadingState(
     ? deliveryIdOrParams.savedStoryIndex
     : undefined;
 
+  const priorPositions: Record<string, string> | undefined = isParamsObject
+    ? deliveryIdOrParams.priorPositions
+    : undefined;
+
   const [isSubmitting, setIsSubmitting] = useState(false);
   const initRef = useRef(false);
 
@@ -287,11 +341,21 @@ export function useLetterReadingState(
   const [tokenExpired, setTokenExpired] = useState(false);
 
   const [state, setState] = useState<LetterReadingState>(() => {
+    // P768: Seed positions from DB-rehydrated responses on fresh mount.
+    // Preview mode and local mode never use priorPositions (Invariant 4 scope).
+    const priorToApply: Record<string, string> | null =
+      mode === 'remote' && !previewMode && priorPositions && Object.keys(priorPositions).length > 0
+        ? priorPositions
+        : null;
+
+    const freshStories: StoryState[] = snapshots.map((snap) => {
+      const base = createInitialStoryState(snap, previewPredictions?.get(snap.story_id));
+      return priorToApply ? seedStoryWithPriorPositions(base, snap, priorToApply) : base;
+    });
+
     const freshState: LetterReadingState = {
       currentStoryIndex: 0,
-      stories: snapshots.map((snap) =>
-        createInitialStoryState(snap, previewPredictions?.get(snap.story_id))
-      ),
+      stories: freshStories,
       isComplete: false,
     };
 
@@ -328,7 +392,7 @@ export function useLetterReadingState(
     if (savedStoryIndex !== undefined && savedStoryIndex > 0 && savedStoryIndex < snapshots.length) {
       return {
         currentStoryIndex: savedStoryIndex,
-        stories: snapshots.map((snap) => createInitialStoryState(snap, previewPredictions?.get(snap.story_id))),
+        stories: freshStories, // P768: use priorPositions-seeded stories here too
         isComplete: false,
       };
     }

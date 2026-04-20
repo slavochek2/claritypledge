@@ -100,12 +100,26 @@ test.describe('P768: letter submit does not 409 on re-open', () => {
       .single();
 
     if (version) {
+      // point_config mirrors the enriched shape the seal_and_send_letter RPC
+      // (P642) writes. Raw inserts bypass that RPC, so without populating
+      // point_config here getVisiblePointCount() returns 0 and initialPhase()
+      // returns 'story-rate' instead of 'point-engage' — making the canary
+      // unable to exercise the bug. See point-engage vs. story-rate (D36).
       await supabaseAdmin.from('letter_story_snapshots').insert({
         letter_id: letterId,
         story_id: storyId,
         version_id: version.id,
         position: 0,
         visibility: 'public',
+        point_config: {
+          storyText: 'Story used to exercise point-engage rehydration.',
+          points: [
+            { id: pointAId, text: 'P768 canary point A.', hidden: false, visibility: 'public' },
+            { id: pointBId, text: 'P768 canary point B.', hidden: false, visibility: 'public' },
+          ],
+          order: [pointAId, pointBId],
+          hidden: [],
+        },
       });
     }
 
@@ -131,12 +145,15 @@ test.describe('P768: letter submit does not 409 on re-open', () => {
       prediction: 3,
     });
 
-    // SEED: prior response for pointA — simulates "user already submitted, now re-opens".
-    await supabaseAdmin.from('letter_point_responses').insert({
-      delivery_id: deliveryId,
-      point_id: pointAId,
-      position: 'agree',
-    });
+    // SEED: prior responses for BOTH points — simulates "user already submitted
+    // every point, now re-opens". With the fix, seedStoryWithPriorPositions
+    // advances currentPointIndex to the last point AND flips phase to
+    // point-revealed (landed point is answered). Without the fix, positions
+    // start empty, phase is point-engage for pointA → enabled Submit visible.
+    await supabaseAdmin.from('letter_point_responses').insert([
+      { delivery_id: deliveryId, point_id: pointAId, position: 'agree' },
+      { delivery_id: deliveryId, point_id: pointBId, position: 'disagree' },
+    ]);
   });
 
   test.afterAll(async () => {
@@ -184,20 +201,17 @@ test.describe('P768: letter submit does not 409 on re-open', () => {
     // the already-answered pointA in point-engage phase.
     await page.waitForLoadState('networkidle');
 
-    // Symptom assertion: with a prior response for the first-visible point,
-    // the UI must NOT render a Submit button — that phase belongs to
-    // `point-engage` only, which should be skipped once rehydration works.
-    // Under current bug: phase is point-engage → Submit is visible → FAIL.
-    // After fix (Track 1 rehydrate-on-mount): phase is point-revealed or
-    // later → no Submit button → PASS.
-    const submitBtn = page.locator('button:has-text("Submit")').first();
-    const submitVisible = await submitBtn
-      .isVisible({ timeout: 3000 })
-      .catch(() => false);
-    expect(
-      submitVisible,
-      'Submit button must NOT be visible for an already-answered point after re-opening',
-    ).toBe(false);
+    // Symptom assertion: with prior responses for every visible point, the UI
+    // must land on `point-revealed` for the last point (which is already
+    // answered). That phase renders a "Next" button. Pre-fix positions start
+    // empty → phase stays `point-engage` for pointA → "Next" button never
+    // rendered → FAIL. Post-fix seedStoryWithPriorPositions advances phase to
+    // `point-revealed` → "Next" rendered → PASS.
+    const nextBtn = page.getByRole('button', { name: 'Next', exact: true });
+    await expect(
+      nextBtn,
+      'After re-open with all points answered, expected "Next" button from point-revealed phase — not point-engage',
+    ).toBeVisible({ timeout: 5000 });
 
     // Belt-and-suspenders: no 409 / duplicate-key error should have fired
     // during load either. This would catch a variant fix that keeps the

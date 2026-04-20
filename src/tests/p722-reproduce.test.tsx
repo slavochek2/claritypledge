@@ -43,6 +43,8 @@ vi.mock('@/app/data/letters-service', () => ({
   updateDeliveryStatus: vi.fn().mockResolvedValue(undefined),
   updateDeliveryStatusByToken: vi.fn().mockResolvedValue(undefined),
   submitLetterResponseAuthenticated: vi.fn(),
+  getLetterPointResponses: vi.fn().mockResolvedValue({}),
+  getLetterPointResponsesByToken: vi.fn().mockResolvedValue({}),
 }));
 
 // ── Supabase mock ────────────────────────────────────────────────────────────

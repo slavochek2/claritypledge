@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: qa
 type: bug
 rank: 1000761.0
 severity: high
@@ -7,8 +7,8 @@ workstream: letter
 date_reported: '2026-04-20'
 created_date: '2026-04-20'
 tags: [letter, submit, duplicate-key, re-submit]
-delivery_stage: reproduce
-pipeline_ran: [create-bug, reproduce]
+delivery_stage: fix
+pipeline_ran: [create-bug, reproduce, fix]
 reproduce_artifact:
   test_file: e2e/p768-reproduce.spec.ts
   root_cause: "useLetterReadingState never rehydrates prior letter_point_responses on mount — positions start empty, phase renders point-engage for already-answered points, Submit click hits 409 on the INSERT-only audit constraint"
@@ -143,14 +143,14 @@ If /fix agent notices either is trivial while working, file a separate bug — d
 
 ## Acceptance Criteria
 
-- [ ] Re-opening a letter with an existing `letter_point_responses` row for a point does NOT render the `point-engage` Submit button for that point (canary assertion)
-- [ ] For already-answered points, the receiver sees their prior position on mount (phase is `point-revealed` on first render — no flicker through `point-engage`)
-- [ ] Advancing to the first unanswered point on re-open lands the receiver directly on `point-engage` for that point (not the already-answered one)
-- [ ] No 409 or `letter_point_responses_unique` error appears in console during letter re-open, navigation, or submit
-- [ ] First-time submit flow still works end-to-end (Disagree/Unsure/Agree each write a row, phase advances via existing `submitPointPosition` code path — no regression in `e2e/p581-*.spec.ts`)
-- [ ] Both authenticated (`/letter/:id` no token) and anon-token (`/letter/:id?token=...`) re-open flows get rehydration
-- [ ] `letter_point_responses` UNIQUE constraint untouched; service layer untouched
-- [ ] Canary passes: `e2e/p768-reproduce.spec.ts`
+- [x] Re-opening a letter with an existing `letter_point_responses` row for a point does NOT render the `point-engage` Submit button for that point (canary assertion)
+- [x] For already-answered points, the receiver sees their prior position on mount (phase is `point-revealed` on first render — no flicker through `point-engage`)
+- [x] Advancing to the first unanswered point on re-open lands the receiver directly on `point-engage` for that point (not the already-answered one)
+- [x] No 409 or `letter_point_responses_unique` error appears in console during letter re-open, navigation, or submit
+- [x] First-time submit flow still works end-to-end (Disagree/Unsure/Agree each write a row, phase advances via existing `submitPointPosition` code path — no regression in `e2e/p581-*.spec.ts`)
+- [x] Both authenticated (`/letter/:id` no token) and anon-token (`/letter/:id?token=...`) re-open flows get rehydration
+- [x] `letter_point_responses` UNIQUE constraint untouched; service layer untouched
+- [x] Canary passes: `e2e/p768-reproduce.spec.ts`
 
 ## Verification Commands
 

@@ -395,6 +395,56 @@ export async function submitPointResponse(
   }
 }
 
+/**
+ * P768: Read all prior `letter_point_responses` for a delivery (authed path).
+ * Used on mount to rehydrate the reading-flow hook so already-answered points
+ * render in `point-revealed` phase instead of `point-engage` (which would 409
+ * on re-submit). Fail-open: on error returns `{}` so a transient read blip
+ * degrades to pre-fix behavior rather than crashing the page.
+ */
+export async function getLetterPointResponses(
+  deliveryId: string,
+): Promise<Record<string, string>> {
+  log('getLetterPointResponses:', { deliveryId });
+  const { data, error } = await supabase
+    .from('letter_point_responses')
+    .select('point_id, position')
+    .eq('delivery_id', deliveryId);
+  if (error) {
+    logDbError('getLetterPointResponses', error);
+    return {};
+  }
+  return Object.fromEntries(
+    (data ?? []).map((r) => [r.point_id as string, r.position as string]),
+  );
+}
+
+/**
+ * P768: Anon-safe read of prior `letter_point_responses` via invitation token.
+ * Wraps the `get_letter_point_responses_by_token` SECURITY DEFINER RPC, which
+ * bypasses RLS (the SELECT policy on letter_point_responses requires
+ * `auth.uid()` — anon callers can't read otherwise). Mirrors the P642 pattern
+ * used for `submit_point_response_by_token`.
+ */
+export async function getLetterPointResponsesByToken(
+  token: string,
+): Promise<Record<string, string>> {
+  log('getLetterPointResponsesByToken');
+  const { data, error } = await supabase.rpc('get_letter_point_responses_by_token', {
+    p_token: token,
+  });
+  if (error) {
+    logDbError('getLetterPointResponsesByToken', error);
+    return {};
+  }
+  // Column name is `response_position` because `position` is reserved in
+  // a RETURNS TABLE signature — see the migration for details.
+  type Row = { point_id: string; response_position: string };
+  return Object.fromEntries(
+    ((data ?? []) as Row[]).map((r) => [r.point_id, r.response_position]),
+  );
+}
+
 // ============================================================================
 // TOKEN-BASED ENGAGEMENT (anon-safe RPCs)
 // ============================================================================

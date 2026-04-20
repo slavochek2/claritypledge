@@ -30,6 +30,8 @@ import {
   getLetterForReading,
   getLetterForReadingByToken,
   getLetterForPublicReading,
+  getLetterPointResponses,
+  getLetterPointResponsesByToken,
   claimLetterDelivery,
   updateDeliveryStatus,
   updateDeliveryStatusByToken,
@@ -86,6 +88,11 @@ export function LetterReadingPage() {
 
   // Author interception: when sender opens own letter, tracks which state to restore on Preview
   const [previewState, setPreviewState] = useState<'ready' | 'ready_public' | null>(null);
+
+  // P768: Prior point responses rehydrated from DB. Fetched alongside letter
+  // data so the reading-flow hook mounts with full state on first render —
+  // avoids a flash of `point-engage` for already-answered points (Invariant 2).
+  const [priorPositions, setPriorPositions] = useState<Record<string, string>>({});
 
   // P684: one-to-many public reading state
   const [publicPredictions, setPublicPredictions] = useState<Map<string, number> | undefined>();
@@ -210,6 +217,14 @@ export function LetterReadingPage() {
                 setSafe('ready');
                 if (!cancelled) { setWasAlreadyCompleted(true); setViewState('complete'); }
                 return;
+              }
+
+              // P768: rehydrate prior point responses BEFORE flipping to 'ready'
+              // so the reading-flow hook mounts with full state on first render.
+              if (readData.delivery?.id) {
+                const prior = await getLetterPointResponses(readData.delivery.id);
+                if (cancelled) return;
+                setPriorPositions(prior);
               }
 
               setSafe('ready');
@@ -339,6 +354,13 @@ export function LetterReadingPage() {
               }
             } catch { /* non-fatal */ }
           }
+
+          // P768: rehydrate prior point responses BEFORE flipping to 'ready'.
+          // Token path: use the SECURITY DEFINER RPC so anon callers can read
+          // their prior responses (RLS SELECT requires auth.uid()).
+          const prior = await getLetterPointResponsesByToken(token);
+          if (cancelled) return;
+          setPriorPositions(prior);
 
           setSafe('ready');
         } else {
@@ -919,6 +941,7 @@ export function LetterReadingPage() {
             senderName={senderName}
             token={token || undefined}
             isAuthenticated={!!session}
+            priorPositions={priorPositions}
             onComplete={() => setViewState('complete')}
           />
         )
@@ -956,6 +979,7 @@ function LetterReadingFlow({
   senderName,
   token,
   isAuthenticated,
+  priorPositions,
   onComplete,
 }: {
   letter: ClarityLetter;
@@ -964,6 +988,7 @@ function LetterReadingFlow({
   senderName: string;
   token?: string;
   isAuthenticated: boolean;
+  priorPositions?: Record<string, string>;
   onComplete: () => void;
 }) {
   const navigate = useNavigate();
@@ -1007,6 +1032,7 @@ function LetterReadingFlow({
     snapshots,
     token: effectiveToken,
     savedStoryIndex: delivery.saved_story_index ?? undefined,
+    priorPositions,
   });
   const { state, currentPhase, nextStory, tokenExpired } = readingState;
   const { user } = useAuth();
