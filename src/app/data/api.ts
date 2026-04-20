@@ -1210,6 +1210,7 @@ export function subscribeToClaritySession(
   onUpdate: (session: ClaritySession) => void
 ): () => void {
   console.log('📡 Setting up realtime subscription for session:', sessionId);
+  let cancelled = false;
 
   const channel = supabase
     .channel(`clarity_session:${sessionId}`)
@@ -1223,9 +1224,21 @@ export function subscribeToClaritySession(
       },
       (payload) => {
         console.log('📡 Session update received:', payload);
-        if (payload.new) {
-          onUpdate(mapSessionFromDb(payload.new as DbClaritySession));
-        }
+        const id = (payload.new as { id?: string })?.id;
+        if (!id) return;
+        supabase
+          .from('clarity_sessions')
+          .select('*')
+          .eq('id', id)
+          .single()
+          .then(({ data, error }) => {
+            if (cancelled) return;
+            if (error) {
+              console.error('📡 Re-fetch failed:', error);
+              return;
+            }
+            if (data) onUpdate(mapSessionFromDb(data as DbClaritySession));
+          });
       }
     )
     .subscribe((status) => {
@@ -1233,6 +1246,7 @@ export function subscribeToClaritySession(
     });
 
   return () => {
+    cancelled = true;
     console.log('📡 Unsubscribing from session:', sessionId);
     supabase.removeChannel(channel);
   };

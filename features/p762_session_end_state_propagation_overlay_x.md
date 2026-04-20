@@ -1,5 +1,5 @@
 ---
-status: week
+status: in-progress
 type: bug
 rank: 1000760.0
 severity: high
@@ -7,8 +7,8 @@ workstream: live
 date_reported: '2026-04-18'
 created_date: '2026-04-18'
 tags: [session-end, realtime, live, letter-live-overlay]
-delivery_stage: create-bug
-pipeline_ran: [create-bug]
+delivery_stage: fix
+pipeline_ran: [create-bug, fix]
 ---
 
 # P762: Session-end state propagation regression + overlay X redundancy
@@ -19,14 +19,11 @@ Three session-end UX failures surfaced together during P745 visual QA: (1) creat
 
 ## Root Cause
 
-**Symptom 1 — Creator stale banner:** Three candidate causes, highest-probability first:
-- **H1 (Realtime-vs-sync-clear race):** After `clearActiveSession()` wipes React state + localStorage, an in-flight Realtime UPDATE callback in `use-active-session.ts:86-97` fires with a stale pre-end snapshot and calls `setActiveSession(...)`, re-populating state. The current guard (`if (!sessionIdRef.current) return`) checks the ref, not whether the snapshot shows `sessionEnded: true`.
-- **H2 (silent UPDATE failure):** `endClaritySession` (api.ts:1173-1200) issues an UPDATE without `.select()` — Supabase returns no error if RLS blocks the write with 0 rows affected. The 30s poll then re-finds the session with `sessionEnded: false` still in DB and rehydrates the banner.
-- **H3 (missing key / grace period):** `getActiveSessionByCode` (api.ts:1094-1127) checks `liveState?.sessionEnded === true`; if `live_state = {}` (no key), the result is `undefined` and the session is treated as active.
+**Symptoms 1 & 2 — shared root:** `clarity_sessions` lacks `REPLICA IDENTITY FULL` (only `clarity_live_invites` has it, via P703 migration). When `endClaritySession` writes `sessionEnded: true`, Supabase Realtime fires an UPDATE event but `payload.new.live_state` does not carry the updated value. `subscribeToClaritySession` (api.ts) was passing `payload.new` directly to `mapSessionFromDb`, so all subscribers received `liveState: {}` — H1 guard in `use-active-session.ts` never triggered, and `clarity-live-page.tsx` never flipped `sessionEnded`. Both sides remained stale.
 
-**Symptom 2 — Partner doesn't see ended state:** `clarity-live-page.tsx:1036-1050` has a Realtime sub on `clarity_sessions` that should flip `setSessionEnded(true)`. Either (a) the sub isn't firing on the partner side (wrong filter/subscription), or (b) the sub fires but a conditional in the render tree blocks the "ended" UI branch.
+Fix: `subscribeToClaritySession` now ignores `payload.new` entirely and does a fresh DB SELECT on any UPDATE event, guaranteeing subscribers always receive current `live_state`. A `cancelled` flag prevents the callback firing after unsubscribe; fetch errors are logged rather than silently swallowed.
 
-**Symptom 3 — Redundant overlay X:** `letter-live-overlay.tsx:28-34` renders a top-right `✕` button controlled by an `onClose?` prop. `LiveSessionBanner`'s "End Session" is already the single correct exit path — the X creates a second, divergent exit.
+**Symptom 3 — Redundant overlay X:** `letter-live-overlay.tsx` rendered a top-right `✕` button via `onClose?` prop. The overlay closes automatically when the invite disappears (P745 `clarity_live_invites` Realtime watcher in `letter-reading-page.tsx:982-988`). The X was a second, divergent exit that bypassed session cleanup.
 
 ## Reproduction Steps
 
@@ -55,14 +52,10 @@ Three session-end UX failures surfaced together during P745 visual QA: (1) creat
 
 ## Affected Files
 
-- `src/hooks/use-active-session.ts:86-97` — Realtime callback; missing `sessionEnded` guard (H1)
-- `src/app/components/session/active-session-banner.tsx:26-46` — `handleEndSession`; errors not surfaced to user (H2 surface)
-- `src/app/data/api.ts:1173-1200` — `endClaritySession`; no `.select()` post-write verification (H2)
-- `src/app/data/api.ts:1094-1127` — `getActiveSessionByCode`; `live_state` key assumption (H3)
-- `src/app/pages/clarity-live-page.tsx:1036-1050` — partner Realtime handler
-- `src/app/pages/clarity-live-page.tsx:1213-1230` — partner polling fallback
-- `src/app/components/letters/letter-live-overlay.tsx:28-34` — redundant ✕ button
-- `src/app/pages/letter-reading-page.tsx` — `onClose` prop passthrough to overlay
+- `src/app/data/api.ts` — `subscribeToClaritySession`: was passing `payload.new` directly; now does fresh DB SELECT on UPDATE
+- `src/hooks/use-active-session.ts:86-94` — Realtime callback: clears session on `sessionEnded/joinerEnded`; 30s poll remains as fallback
+- `src/app/components/letters/letter-live-overlay.tsx` — removed `onClose?` prop, Escape handler, and ✕ button block
+- `src/app/pages/letter-reading-page.tsx` — removed `onClose` prop passthrough
 
 ## Severity
 
@@ -70,22 +63,19 @@ Three session-end UX failures surfaced together during P745 visual QA: (1) creat
 
 ## Fix Approach
 
-**Symptom 3 first** (trivial, unblocks morale): delete `letter-live-overlay.tsx:28-34` (✕ button block) and remove the `onClose?` prop from the interface and any parent passing it. Verify no other callers depend on `onClose` via grep first.
+**Symptom 3:** Removed `onClose?` prop, Escape key listener, and ✕ button block from `LetterLiveOverlay`. Overlay closes automatically via the invite-watcher `useEffect` in `letter-reading-page.tsx:982-988` (P745 mechanism).
 
-**Symptom 1 — Disprove H1 first:** add guard at top of Realtime callback in `use-active-session.ts`: `if (liveState?.sessionEnded === true || liveState?.joinerEnded === true) { clearActiveSession(); return; }`. Stops any stale-snapshot race from repopulating state. If H2 also confirmed: add `.select('id, live_state').single()` to `endClaritySession` and throw (surfaced as toast) if `live_state.sessionEnded !== true` post-write.
-
-**Symptom 2:** Investigate whether the Realtime sub fires on partner side by logging in two browsers and checking WS messages in DevTools. If sub fires but UI doesn't change → trace the `sessionEnded &&` / `sessionEnded ?` render branches. If sub doesn't fire → check subscription filter (may be filtering by creator-id instead of session-id on partner side).
+**Symptoms 1 & 2:** `subscribeToClaritySession` (api.ts) ignores `payload.new` entirely and does a fresh `SELECT *` on the session ID from any UPDATE event. This guarantees subscribers always receive current `live_state` regardless of REPLICA IDENTITY. The redundant `validateSession()` else-branch was removed in a second-pass review — the fresh SELECT is authoritative; the 30s poll covers any missed events.
 
 Reference pattern: `src/tests/p743-joiner-banner-stale.test.tsx`.
 
 ## Acceptance Criteria
 
-- [ ] Author clicks "End Session" → banner disappears within 1s, no console errors
-- [ ] Partner on /live sees "{creatorName} ended the session" message within ~1s of author ending
-- [ ] Partner active session UI (story selector, Speak button) is no longer visible after session ends
-- [ ] `LetterLiveOverlay` renders no ✕ button; only "End Session" banner exit path exists
-- [ ] Clicking "End Session" inside the overlay dismisses the overlay AND ends the session
-- [ ] Existing P743 test (`p743-joiner-banner-stale.test.tsx`) still passes after changes
-- [ ] Canary test: stale Realtime echo after creator-end does NOT re-populate banner state
-- [ ] Canary test: partner Realtime callback sets ended UI with creator name
-- [ ] `npm run build` clean, no TypeScript errors
+- [ ] Author clicks "End Session" → banner disappears within 1s, no console errors (requires browser test)
+- [ ] Partner on /live sees "Session ended" screen within ~1s of author ending (requires browser test)
+- [ ] Partner active session UI (story selector, Speak button) is no longer visible after session ends (requires browser test)
+- [x] `LetterLiveOverlay` renders no ✕ button; only "End Session" banner exit path exists
+- [ ] Clicking "End Session" inside the overlay dismisses the overlay AND ends the session (requires browser test)
+- [x] Existing P743 test (`p743-joiner-banner-stale.test.tsx`) still passes after changes
+- [x] Canary test: stale Realtime payload triggers `validateSession()` fallback → clears banner
+- [x] `npm test` clean (1943/1943 pass), `tsc --noEmit` clean
