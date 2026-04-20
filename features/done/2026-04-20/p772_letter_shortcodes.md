@@ -2,10 +2,10 @@
 id: p772
 title: Letter shortcode resolution
 type: story
-status: qa
-delivery_stage: ship
+status: all-done
 pipeline_ran: [ship]
 created_at: 2026-04-20
+completed_at: 2026-04-20
 ---
 
 ## Problem
