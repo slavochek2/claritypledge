@@ -36,7 +36,6 @@ import {
   createTranscriptionJob,
   // P703: Letter-sourced session
   getLetterBaselineRatings,
-  completeClaritySession,
   cancelLiveInvite,
   checkSessionRequiresAuth,
 } from '@/app/data/api';
@@ -66,6 +65,7 @@ import {
 import { LiveModeView, PartnerLeftScreen, type UploadProgressState } from '@/app/components/partners/live-mode-view';
 import { ReconnectingCountdown } from '@/app/components/session/reconnecting-countdown';
 import { RejoinPrompt } from '@/app/components/session/rejoin-prompt';
+import { SessionEndedScreen } from '@/app/components/session/session-ended-screen';
 import { useAudioRecorder } from '@/hooks/use-audio-recorder';
 import { useMicrophonePermission } from '@/hooks/useMicrophonePermission';
 import { MicrophonePermissionDialog } from '@/app/components/live-meeting/microphone-permission-dialog';
@@ -78,6 +78,7 @@ import { useSessionHeartbeat } from '@/hooks/use-session-heartbeat';
 import { createChunkStore, type ChunkStore, type ChunkMetadata } from '@/lib/chunk-store';
 import { ChunkUploadQueue } from '@/lib/chunk-upload-queue';
 import { useUploadHealth } from '@/hooks/use-upload-health';
+import { useTerminateSession } from '@/hooks/use-terminate-session';
 
 type ViewState = 'start' | 'waiting' | 'live';
 
@@ -269,6 +270,7 @@ export function ClarityLivePage() {
   const [searchParams] = useSearchParams();
   const isJoinViaLink = !!urlCode;
   const { setIsLive, setActiveSession, clearActiveSession } = useLiveSession();
+  const terminate = useTerminateSession();
 
   // P124: Get event context from URL params
   const returnTo = searchParams.get('returnTo');
@@ -302,6 +304,7 @@ export function ClarityLivePage() {
   // Partner departure state
   const [partnerLeft, setPartnerLeft] = useState(false); // Joiner left (creator sees this)
   const [sessionEnded, setSessionEnded] = useState(false); // Creator left (joiner sees this)
+  const [sessionEndedOnLoad, setSessionEndedOnLoad] = useState(false); // P769: cold-start after session ended
 
   // P703: Letter-sourced session display state
   const [listenerDisplayName, setListenerDisplayName] = useState<string | null>(null);
@@ -911,9 +914,10 @@ export function ClarityLivePage() {
             sessionId: activeSession.id,
           });
         } else {
-          // Session expired or ended — clear stale localStorage silently
+          // P769: Session ended — show "This session has ended" screen instead of create-landing
           clearActiveSessionFromStorage();
           clearActiveSession();
+          setSessionEndedOnLoad(true);
         }
       } catch {
         // Network error — don't show rejoin prompt, fall through to normal landing
@@ -2959,9 +2963,7 @@ export function ClarityLivePage() {
   const handleEndFromRejoin = async () => {
     if (!rejoinSession) return;
     try {
-      await completeClaritySession(rejoinSession.sessionId);
-      clearActiveSessionFromStorage();
-      clearActiveSession();
+      await terminate(rejoinSession.sessionId);
       clearStoredSession();
       setRejoinSession(null);
       analytics.track('live_session_ended_from_rejoin', {
@@ -3286,9 +3288,9 @@ export function ClarityLivePage() {
       // Notify partner by updating the database
       try {
         if (isCreator) {
-          // P769: completeClaritySession atomically sets sessionEnded + closes invite
-          await completeClaritySession(session.id).catch((err) => {
-            console.error('[Live] completeClaritySession failed on creator exit:', err);
+          // P769: terminate atomically sets sessionEnded + closes invite + clears sessionStorage
+          await terminate(session.id).catch((err) => {
+            console.error('[Live] terminate failed on creator exit:', err);
           });
         } else {
           // Joiner leaving = clear their name so creator knows
@@ -3323,7 +3325,7 @@ export function ClarityLivePage() {
     sessionEndedRef.current = true;
     setSessionEnded(true);
     setIsExiting(false);
-  }, [session, liveState.checksCount, liveState.sessionHistory, isCreator, isFromEvent, stopAndUploadRecording, clearActiveSession, isExiting]);
+  }, [session, liveState.checksCount, liveState.sessionHistory, isCreator, isFromEvent, stopAndUploadRecording, clearActiveSession, isExiting, terminate]);
 
   // P511: Exit directly — no confirmation dialog (session can be resumed via heartbeat)
   const handleExitMeeting = useCallback(() => {
@@ -3765,7 +3767,7 @@ export function ClarityLivePage() {
     }
 
     // P511 Task 10: Show rejoin prompt if active session detected in localStorage
-    if (rejoinSession || isCheckingRejoin) {
+    if (isCheckingRejoin || rejoinSession || sessionEndedOnLoad) {
       return (
         <div className="flex flex-col min-h-[calc(100vh-9rem)] lg:min-h-[calc(100vh-5rem)]">
           <div className="flex-1 container mx-auto px-4 flex flex-col justify-center">
@@ -3773,6 +3775,9 @@ export function ClarityLivePage() {
               <div className="flex items-center justify-center">
                 <div className="animate-pulse text-muted-foreground">Checking session...</div>
               </div>
+            ) : sessionEndedOnLoad ? (
+              // P769: Cold-start after session ended — show explicit ended screen (AC4)
+              <SessionEndedScreen />
             ) : rejoinSession ? (
               <RejoinPrompt
                 sessionCode={rejoinSession.code}
