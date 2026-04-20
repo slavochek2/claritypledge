@@ -34,13 +34,20 @@ type InviteAction =
   | { type: 'LOADED'; payload: OpenLiveInvite | null }
   | { type: 'INSERT'; payload: OpenLiveInvite }
   | { type: 'UPDATE'; payload: OpenLiveInvite }
-  | { type: 'DELETE'; payload: { sessionId: string } };
+  | { type: 'DELETE'; payload: { sessionId: string } }
+  | { type: 'RESET' };
 
 // ─── Reducer (pure — exported for unit tests) ─────────────────────────────────
 
 export function inviteReducer(state: InviteState, action: InviteAction): InviteState {
   switch (action.type) {
     case 'LOADED':
+      // If a realtime INSERT already populated invite, don't let a null-resolving
+      // initial fetch (raced before the invite existed in DB) wipe it.
+      // Revocation always goes through UPDATE/DELETE, not LOADED.
+      if (action.payload === null && state.invite !== null) {
+        return { ...state, loading: false };
+      }
       return { invite: action.payload, loading: false };
 
     case 'INSERT':
@@ -61,6 +68,12 @@ export function inviteReducer(state: InviteState, action: InviteAction): InviteS
       }
       return state;
 
+    case 'RESET':
+      // Unconditional clear — used when the auth identity goes away (sign-out).
+      // LOADED(null) can't be used here because its guard preserves a populated
+      // invite across a stale fetch race.
+      return { invite: null, loading: false };
+
     default:
       return state;
   }
@@ -79,7 +92,7 @@ export function useOpenLiveInvite(): { invite: OpenLiveInvite | null; loading: b
 
   useEffect(() => {
     if (!user) {
-      dispatch({ type: 'LOADED', payload: null });
+      dispatch({ type: 'RESET' });
       return;
     }
 
@@ -113,8 +126,29 @@ export function useOpenLiveInvite(): { invite: OpenLiveInvite | null; loading: b
           .eq('id', sessionId)
           .maybeSingle()
           .then(({ data: session }) => {
-            if (cancelled || !session) return;
-            if (!session.code) return;
+            if (cancelled) return;
+            if (!session) {
+              Sentry.captureMessage(
+                'useOpenLiveInvite: secondary session fetch returned null',
+                {
+                  level: 'warning',
+                  tags: { source: 'useOpenLiveInvite.enrichment' },
+                  extra: { sessionId },
+                },
+              );
+              return;
+            }
+            if (!session.code) {
+              Sentry.captureMessage(
+                'useOpenLiveInvite: session found but missing code',
+                {
+                  level: 'warning',
+                  tags: { source: 'useOpenLiveInvite.enrichment' },
+                  extra: { sessionId },
+                },
+              );
+              return;
+            }
             const rawContent = (session.stories as { content: string } | null)?.content ?? '';
 
             dispatch({

@@ -26,7 +26,7 @@ const mockInvite: OpenLiveInvite = {
 
 describe('P765: invite overlay missing via Realtime — LOADED(null) race', () => {
   // Canary: confirmed FAILING before fix (run: npm test -- p765). Unskip in /fix.
-  it.skip('INSERT sets invite; subsequent LOADED(null) must not wipe it', () => {
+  it('INSERT sets invite; subsequent LOADED(null) must not wipe it', () => {
     // Simulate: hook mounts, initial fetch in-flight (loading: true)
     const initial = { invite: null as OpenLiveInvite | null, loading: true };
 
@@ -56,5 +56,12 @@ describe('P765: invite overlay missing via Realtime — LOADED(null) race', () =
     const afterLoad = inviteReducer(initial, { type: 'LOADED', payload: null });
     expect(afterLoad.invite).toBeNull();
     expect(afterLoad.loading).toBe(false);
+  });
+
+  it('RESET clears a populated invite (sign-out path)', () => {
+    const initial = { invite: mockInvite, loading: false };
+    const afterReset = inviteReducer(initial, { type: 'RESET' });
+    expect(afterReset.invite).toBeNull();
+    expect(afterReset.loading).toBe(false);
   });
 });

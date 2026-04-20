@@ -1,5 +1,5 @@
 ---
-status: today
+status: in-progress
 type: bug
 rank: 31251.781
 severity: high
@@ -11,10 +11,8 @@ tags:
   - live
   - invite
   - letter-reading
-delivery_stage: reproduce
-pipeline_ran:
-  - create-bug
-  - reproduce
+delivery_stage: fix
+pipeline_ran: [create-bug, reproduce, fix]
 reproduce_artifact:
   test_file: src/tests/p765-invite-overlay-realtime.test.ts
   root_cause: >-
@@ -89,22 +87,18 @@ No overlay appears. Partner must force-refresh to see the invite.
 
 **High** — partner cannot join a /live session without refreshing; breaks the seamless real-time invite delivery that is central to the /live flow.
 
-## Fix Approach
+## Fix Applied
 
-> **Session note (2026-04-20):** Fix plan drafted and critiqued twice by Opus. Both rounds found structural problems (RESET/LOADED guard coupling breaks legitimate revocation; canary tests reducer not hook; H-A dismissal unverified). Plan scrapped. Next session: restart from `reproduce_artifact` + fresh `/fix` — do not revive the plan.
+**Primary (`inviteReducer` LOADED guard):** LOADED(null) no longer wipes a populated invite. When `state.invite !== null` and `action.payload === null`, the reducer keeps the invite and just clears `loading`. Non-null LOADED payloads still apply. Revocation is unaffected — it flows via UPDATE (closed_at set) or DELETE, not LOADED.
 
-Confirm which hypothesis is the real cause first (`/reproduce`). Then:
+**Structural reset (`RESET` action):** Sign-out path (`!user`) now dispatches `RESET` instead of `LOADED(null)` — unconditional clear. LOADED and RESET are decoupled: the LOADED guard preserves invite across race, RESET always clears. Sign-out cannot trigger the race (no invite for a signed-out user).
 
-**For Hypothesis A:** After registering a new handler on an already-SUBSCRIBED channel, immediately re-fetch (`getOpenLiveInviteForUser`) to catch events missed during registration. This closes the window between channel SUBSCRIBED and handler registration.
-
-**For Hypothesis B:** Add error logging to the secondary clarity_sessions fetch; if `!session`, log the session_id and a warning so failures are visible in Sentry rather than silent.
-
-Both fixes may be needed simultaneously.
+**Secondary (H-B — silent enrichment failure):** `INSERT` handler's secondary `clarity_sessions` SELECT now emits Sentry warnings when `!session` or `!session.code`, instead of silently returning. Surfaces the failure mode if RLS/timing regresses.
 
 ## Acceptance Criteria
 
-- [ ] Partner is on letter reading page; author starts session → overlay appears within ~2s, no refresh needed
-- [ ] Overlay appears even if author started session within 1s of partner loading the page
-- [ ] No console errors during the invite delivery flow
-- [ ] Force-refresh still works as fallback (no regression)
-- [ ] Regression test: `src/tests/p765-invite-overlay-realtime.test.tsx` passes
+- [ ] Partner is on letter reading page; author starts session → overlay appears within ~2s, no refresh needed *(two-party UAT)*
+- [ ] Overlay appears even if author started session within 1s of partner loading the page *(two-party UAT)*
+- [ ] No console errors during the invite delivery flow *(two-party UAT)*
+- [ ] Force-refresh still works as fallback (no regression) *(two-party UAT)*
+- [x] Regression test: `src/tests/p765-invite-overlay-realtime.test.ts` passes (4 cases: INSERT→LOADED(null) race, normal mount, empty LOADED(null), RESET on sign-out)
