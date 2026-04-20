@@ -11,62 +11,82 @@ delivery_stage: create-bug
 pipeline_ran: [create-bug]
 ---
 
-# P764: "End Session" banner re-appears on partner page refresh after session ends
+# P764: creator-end propagation to partner is unreliable (stranded /live + stale banner)
 
 ## Summary
 
-After a session ends, if the partner refreshes their page within the Realtime lag window (~10s), the "End Session" banner briefly re-appears instead of showing a clean state.
+After the creator ends a session, the partner fails to observe the end reliably. Two symptoms, likely shared root cause:
 
-## Root Cause
-
-Race between `endClaritySession` DB write and `useActiveSession`'s mount validation:
-
-1. Creator calls `endClaritySession` → writes `live_state.sessionEnded: true` to `clarity_sessions`
-2. Supabase Realtime fires UPDATE → partner's `subscribeToClaritySession` eventually clears their localStorage and banner (P762 fix)
-3. If partner refreshes **before** the Realtime event arrives (~10s window), `useActiveSession` runs on mount: reads localStorage (still has session code) → calls `getActiveSessionByCode` → the fresh SELECT may return the row with `live_state.sessionEnded: true` and correctly clear, BUT there is a brief flash while `isLoading` is `true` where the component may render the banner before validation completes
-
-Alternatively, if the partner refreshes before the DB write fully propagates (rare — sub-100ms), `getActiveSessionByCode` reads the session as still active and sets the banner, which then persists until the next poll (30s) or page reload.
-
-Surfaced during P762 QA — Screenshot at Apr 18 21-17-24.
+- **Symptom 1 — stranded on /live:** Partner sits on `/live/{code}` after the creator ends the session. No redirect, no "Session ended" screen. Partner keeps interacting with a dead session. (Screenshot: Apr 18 21-44-14.)
+- **Symptom 2 — stale banner after refresh:** Partner left `/live` for `/letters`, creator ends, partner refreshes within the Realtime propagation window. Fresh SELECT reads the row as still-live; `ActiveSessionBanner` renders and persists up to 30s. (Screenshot: Apr 18 21-17-24.)
 
 ## Reproduction Steps
 
-1. Open app in two browsers — author (Browser A, verified), partner (Browser B, verified)
-2. Author starts a session from a letter; partner joins via /live
-3. Author clicks "End Session"
-4. Within 5–10 seconds of clicking (before Realtime propagates), partner **refreshes** their page
-5. **Observe:** Partner sees the "End Session" banner re-appear on the refreshed page
+**Symptom 1:**
+1. Browser A (author) and Browser B (partner) both on `/live/{code}`.
+2. A clicks "End Session".
+3. B stays on `/live/{code}` — no "Session ended" screen appears (or appears much later than expected).
 
-**Reproduction rate:** Intermittent — requires refresh within the Realtime lag window (~5–10s after session end)
+**Symptom 2:**
+1. Same two-party setup; B leaves `/live` for `/letters`.
+2. A clicks "End Session".
+3. B refreshes `/letters` within ~5s of A ending.
+4. B sees `ActiveSessionBanner` re-appear; it persists until the 30s poll or another reload.
 
-## Expected Behavior
+Reproduction rate: intermittent (timing-dependent).
 
-After session ends, partner refreshes → no banner, no active session UI. `getActiveSessionByCode` reads `live_state.sessionEnded: true` and clears localStorage on mount.
+## Root Cause (partial — hypotheses refined, not yet confirmed)
 
-## Actual Behavior
+What code review in this session **falsified**:
 
-"End Session" banner re-appears on partner's page after refresh. Clears on the next page reload (self-correcting) or after the 30s poll fires.
+- **Not a `mapSessionFromDb` bug.** `src/app/data/api.ts:793` preserves `live_state` JSON intact (`liveState: dbSession.live_state`). A shared mapping helper is not dropping the `sessionEnded` flag.
+- **Not an `isLoading` flash in `ActiveSessionBanner`.** `src/app/contexts/live-session-context.tsx:95` initializes `activeSessionCode` to `null`. The banner renders `null` when `!activeSessionCode` (`active-session-banner.tsx:15`). `activeSessionCode` is only set by `setActiveSession()` inside `validateSession` **after** the DB confirms a live session. There is no render path where the banner flashes before validation completes. Prior spec's "Option A" fix is invalid.
+- **Not a subscription-shape bug.** `subscribeToClaritySession` in `api.ts:1208` uses `postgres_changes` UPDATE with full `payload.new` — it receives the entire row, including `live_state`.
 
-## Affected Files
+Remaining hypothesis (unverified):
 
-- `src/hooks/use-active-session.ts` — mount validation (`validateSession`) runs after render; banner may flash during `isLoading` transition
-- `src/app/data/api.ts` — `getActiveSessionByCode`: correctly checks `live_state.sessionEnded` but can't defend against a refresh that races the DB write
+- **Creator's `sessionEnded` UPDATE is not delivered to partner's Realtime subscription reliably.** Both symptoms reduce to "partner did not observe the UPDATE". For Symptom 1, /live page's own subscription (`clarity-live-page.tsx:1021`) should flip `sessionEnded` state → render `PartnerLeftScreen` (`clarity-live-page.tsx:3525`). For Symptom 2, after partner leaves `/live`, the fresh mount-SELECT in `getActiveSessionByCode` can race a sub-100ms write and read the row as live.
+
+Both symptoms need live-data reproduction before fix.
+
+## Affected Files (to investigate)
+
+- `src/hooks/use-active-session.ts` — mount validation, 30s polling, Realtime subscription lifecycle
+- `src/app/data/api.ts` — `getActiveSessionByCode` (SELECT vs UPDATE race), `subscribeToClaritySession` (delivery reliability)
+- `src/app/pages/clarity-live-page.tsx` — subscription + polling on /live; `sessionEnded` state flip; `PartnerLeftScreen` render gate
+- `src/app/components/partners/live-mode-view.tsx:277` — "Session ended" title render
 
 ## Severity
 
-**Low** — intermittent (narrow ~10s window), self-corrects on next reload, no data loss or session corruption.
+**Low** — intermittent; self-corrects on next reload or 30s poll. No data loss. But user-visible confusion: partner continues interacting with a dead session (Symptom 1) or sees a ghost banner (Symptom 2).
 
-## Fix Approach
+## Fix Approach (sketch — pending reproduction)
 
-Two options:
-- **Option A (simple):** In `useActiveSession`, don't render `hasActiveSession: true` until `isLoading` is false — ensures no banner flash during mount validation. Check if `ActiveSessionBanner` already gates on `isLoading`.
-- **Option B (robust):** On mount, if `getActiveSessionByCode` returns an active session, do a short retry (1–2s) before setting the banner — gives the DB write time to propagate. Higher complexity, marginal gain.
-
-Option A is the right first step. Grep `isLoading` usage in `ActiveSessionBanner` before implementing.
+- **Symptom 2:** In `useActiveSession` mount validation, when `getActiveSessionByCode` returns a live session from localStorage hydration, re-read after ~400ms before calling `setActiveSession`. Defeats the sub-100ms SELECT/UPDATE race. Low risk.
+- **Symptom 1:** Diagnose why `/live` page's subscription misses the `sessionEnded` UPDATE. Candidates: subscription set up before row exists, subscription lost on tab-background, `postgres_changes` filter mismatch. Needs live instrumentation before proposing a fix.
 
 ## Acceptance Criteria
 
-- [ ] Partner refreshes page immediately after author ends session → banner does not appear (or disappears within 1s)
-- [ ] Partner refreshes page 15s+ after author ends session → no banner appears
-- [ ] Author's banner behavior unaffected
-- [ ] No console errors during the refresh flow
+- [ ] Partner on `/live` sees "Session ended" within 3s of creator ending
+- [ ] Partner on `/letters` refreshing within 5s of creator ending does NOT see `ActiveSessionBanner` reappear
+- [ ] Partner refreshing 15s+ after end sees no banner (existing behavior)
+- [ ] Author's UI unaffected
+- [ ] No console errors
+
+## Reproduce Blocker (2026-04-18)
+
+`/reproduce` was attempted and stopped at Phase 3 (canary). Blocker:
+
+- `createTwoPartySessionRealistic` (`e2e/helpers/test-session.ts:223`) crashes host `/live` with an error boundary ("Something went wrong") **before** any canary assertion runs. Failure is at `helpers/test-session.ts:282` — the first sanity expect on host page.
+- This is a pre-existing two-party E2E infra issue, not something introduced by this work.
+- The failing canary (`e2e/p764-reproduce.spec.ts`) was deleted to avoid polluting the suite.
+
+**Next attempt (resume `/reproduce`):**
+
+1. Run `e2e/p666-two-party-infra-proof.spec.ts` first — confirms whether `createTwoPartySessionRealistic` is broken across the board, or just for this session shape.
+2. If broken across the board → separate infra bug ticket; use `createTwoPartySession` (simpler helper, pre-inserts both users as joined) for P764 canary.
+3. If only broken for a specific setup path → fix the path before writing P764 canary.
+4. Canary targets:
+   - **Symptom 1:** Guest on `/live/{code}`; write `live_state.sessionEnded: true` via `advanceSessionState`; expect "Session ended" heading within 3s.
+   - **Symptom 2:** Guest on `/letters` with active banner visible; write `sessionEnded: true`; reload; expect banner NOT to reappear within 3s.
+5. Both must FAIL before any fix is written.
