@@ -1,14 +1,14 @@
 ---
-status: qa
+status: all-done
 type: bug
 rank: 1000763.0
 severity: high
 workstream: letters
 date_reported: '2026-04-20'
 created_date: '2026-04-20'
+completed_at: '2026-04-20'
 tags: [letters, rehydration, 409, point-responses]
-delivery_stage: fix
-pipeline_ran: [create-bug, fix]
+pipeline_ran: [create-bug, fix, ship]
 root_cause: advanceFromStoryReveal and advanceFromRemainingPointReveal emitted remaining-point-engage unconditionally without checking prev.positions for pre-answered points
 date_resolved: '2026-04-20'
 ---
