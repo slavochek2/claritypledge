@@ -2,6 +2,20 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-20 [technical]: Unit test mocks for hooks must derive their shape from the real DB schema, not from the hook's internal call-signature
+
+**Context:** P765 `/fix` iteration 1 wrote a unit test for `useOpenLiveInvite`'s INSERT handler. The mock used `creator_photo_url`, `creator_avatar_color`, `creator_is_pledger`, `delivery_id` as top-level `clarity_sessions` columns — precisely the columns the buggy query was selecting. The test passed because it validated the wrong query shape: the mock mirrored the broken SELECT, not what the DB would actually return. PostgREST returned `42703` (column does not exist) at runtime because those columns are not on `clarity_sessions` — they live on `profiles` (via FK join) and `letter_deliveries`. The unit test gave `confidence: high` to a fix that reproduced the bug instead of fixing it.
+
+**Decision:** When a hook assembles a domain object from a Supabase query, the test mock for that query must be derived from the actual DB schema — column names must exist on the table being queried, not just on the TypeScript domain type. For nested FK joins (e.g., `profiles` data via `clarity_sessions.creator_id`), the mock must use the nested shape: `{ profiles: { photo_url, avatar_color, is_pledger } }`, not flattened top-level column names. Verification path: grep `CREATE TABLE <table>` in `supabase/migrations/` before writing the mock. If the expected columns don't appear there, the query (not the mock) is wrong.
+
+**Alternatives rejected:** Accepting mocks that match the TypeScript type shape alone — types are maintained by hand and can diverge from the schema (as they did here: the type had `creator_photo_url` even though the column never existed). Generated Supabase types (`supabase gen types`) would have caught this, but the project doesn't run type generation on every migration.
+
+**Consequences:** Before writing any unit-test mock for a Supabase query, the author must confirm column existence in `supabase/migrations/` (or `docs/technical/database.md`). Mocks that flatten FK-joined data into top-level column names should be treated as suspect — verify the query uses `?select=col1,...,foreign_table(col2,col3)` (nested join) and mirror that structure in the mock. Running `supabase gen types` after each migration would catch this class of bug at compile time; worth adding as a future CI step.
+
+**References:** `src/app/hooks/useOpenLiveInvite.ts`, `src/tests/p765-invite-overlay-realtime.test.ts`, `supabase/migrations/20260415140000_p703_invites_replica_identity.sql` (clarity_live_invites schema), `supabase/migrations/20260404091744_p642_letter_reading_rpc.sql` (clarity_sessions schema)
+
+---
+
 ## 2026-04-20 [process]: Shipping a worktree feature branch when main has diverged — merge from main repo, not rebase from worktree
 
 **Context:** Letters UI polish batch (4 commits on `feature/letters-ui-polish-batch` in w4). At ship time, `main` had advanced with p767/p768 commits since the worktree forked. Attempted `git merge --ff-only` → refused ("diverging branches"). Attempted `git rebase main` from inside w4 → refused ("You have unstaged changes") because w4's `git status` shows ~200 ` D` entries for `scripts/` and `supabase/migrations/` — symlink artifacts, not real deletions (per decision #295 on Gate 2). Phantom deletions block rebase even when they block no real work. Falling back to `git merge --no-ff feature/letters-ui-polish-batch` from the main repo succeeded and created a merge commit cleanly.
