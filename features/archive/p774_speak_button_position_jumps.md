@@ -17,7 +17,7 @@ absorbs: p670
 locked_at: '2026-04-20T09:42:42.474Z'
 ---
 
-# P667: /live — Speak Button Position Jumps + Story Selector Disappears
+# P774: /live — Speak Button Position Jumps + Story Selector Disappears
 
 ## Summary
 

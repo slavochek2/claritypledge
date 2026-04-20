@@ -28,7 +28,7 @@ pipeline_skipped:
 locked_at: '2026-04-20T09:43:29.670Z'
 ---
 
-# P664: Letters Visual Hierarchy Polish — Sent Tab & Preview
+# P773: Letters Visual Hierarchy Polish — Sent Tab & Preview
 
 > **Redesign of:** [P660: Letters Navigation Architecture](p660_letters_navigation_architecture.md)
 > **What was wrong:** During UAT of P660/P661 on w2, two visual hierarchy issues surfaced in the Sent tab: (1) colored status badges compete with the Results action button for attention, (2) Private/Public indicator uses a corner pill badge inconsistent with Drafts tab's inline lock/globe icon. Preview page issues (exit UX, counter bug) are now handled by P665.
