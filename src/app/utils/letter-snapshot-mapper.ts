@@ -25,6 +25,7 @@ interface PointConfig {
   imageUrl?: string;
   points?: PointConfigPoint[];
   hidden?: string[];
+  order?: string[];
 }
 
 /**
@@ -138,6 +139,16 @@ export function snapshotToStoryWithPoints(
       visibility: ((p.visibility || snapshot.visibility || 'public') as ContentVisibility),
     }));
 
+  if (Array.isArray(config.order) && config.order.length > 0) {
+    const orderMap = new Map(config.order.map((id, i) => [id, i]));
+    // Unlisted points tail in their original insertion order — relies on stable sort (V8/Node 11+, all modern browsers).
+    visiblePoints.sort((a, b) => {
+      const ai = orderMap.get(a.id) ?? Number.MAX_SAFE_INTEGER;
+      const bi = orderMap.get(b.id) ?? Number.MAX_SAFE_INTEGER;
+      return ai - bi;
+    });
+  }
+
   return {
     id: snapshot.story_id,
     authorId: '',
@@ -191,6 +202,7 @@ export function docStoryToSnapshot(docStory: DocStory): LetterStorySnapshot {
         visibility: p.visibility,
         hidden: hiddenIds ? hiddenIds.has(p.id) : false,
       })),
+      order: Array.isArray(docStory.point_config?.order) ? docStory.point_config.order : undefined,
     },
     visibility: docStory.story.visibility ?? 'public',
   };
