@@ -12,6 +12,13 @@
 
 set -e
 
+# Guard: must run from main repo root, not from inside a worktree
+if [[ "$PWD" == *".claude/worktrees"* ]]; then
+  echo "ERROR: stamp-deploy-manifest.sh must run from the main repo root, not from a worktree."
+  echo "Run: cd ~/Projects/public/claritypledge && ./scripts/stamp-deploy-manifest.sh $*"
+  exit 1
+fi
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 MANIFEST="$PROJECT_DIR/supabase/deploy-manifest.json"
