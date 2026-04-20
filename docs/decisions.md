@@ -2,6 +2,34 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-20 [technical]: P769 — Joiner exit uses `cancelLiveInvite`, never `useTerminateSession` or `completeClaritySession`
+
+**Context:** P769 extended `complete_clarity_session` RPC to atomically set `live_state.sessionEnded=true` alongside `status='completed'`. This makes `useTerminateSession` the canonical end-session path. But a joiner who leaves a session is not ending the session — the creator's session continues. Calling `terminateSession` (or `completeClaritySession` directly) from joiner exit would wrongly broadcast `sessionEnded=true` to the creator's realtime subscription, collapsing their active session.
+
+**Decision:** Joiner exit always calls `cancelLiveInvite(session.id)` (guarded by `session.targetListenerId`) — never `useTerminateSession` or `completeClaritySession`. Creator exit calls `useTerminateSession`. The distinction: `cancelLiveInvite` closes the invite row only; `complete_clarity_session` sets `live_state.sessionEnded=true` and is a terminal signal for the whole session.
+
+**Alternatives rejected:** Single exit handler for both roles — roles have asymmetric authority; joiner is a guest, not the session owner.
+
+**Consequences:** Any new joiner-exit code path must use `cancelLiveInvite`, not `terminateSession`. When adding new "leave session" surfaces, grep for `useTerminateSession` calls and verify the role before reusing them. The invariant is enforced in `clarity-live-page.tsx` via the `isCreator` branch on `confirmExitMeeting`.
+
+**References:** `src/app/pages/clarity-live-page.tsx` (`confirmExitMeeting`), `src/hooks/use-terminate-session.ts`, `supabase/migrations/20260420140000_p769_complete_clarity_session_sets_session_ended.sql`
+
+---
+
+## 2026-04-20 [technical]: P769 — `useTerminateSession` is the single-termination service; all End Session paths route through it
+
+**Context:** Before P769, "End Session" was composed ad-hoc at each call site: some callers called `endClaritySession`, some called `completeClaritySession`, some forgot `clearActiveSession` or `clearSessionStorage`. P769 introduced `complete_clarity_session` RPC extension (atomically sets `live_state.sessionEnded=true + sessionEndedAt + status='completed' + invites.closed_at`), making the need for a single canonical exit path explicit.
+
+**Decision:** `useTerminateSession` (3-step: `terminateSessionDb` → `clearSessionStorage` → `clearActiveSession`) is the single termination service. All "End Session" entry points — `ActiveSessionBanner`, `RejoinPrompt` end button, creator exit in `confirmExitMeeting` — call `useTerminateSession`. The hook throws on DB failure; callers may catch and fall through to `clearActiveSession()` as a last-resort local cleanup.
+
+**Alternatives rejected:** Keep ad-hoc composition at each call site — diverged silently over P511/P740/P769; different callers forgot different cleanup steps. RPC-only (no client-side cleanup) — `live_state.sessionEnded` is the authority for remote partners; local storage and context state still need explicit clearing.
+
+**Consequences:** When adding any new surface that can end a session: import `useTerminateSession`, pass the `sessionId`. Do not compose `completeClaritySession + clearActiveSession` manually. When the cleanup sequence needs a new step (e.g., clearing a future local cache), add it inside `useTerminateSession` — call sites get it for free. The `endClaritySession` helper (the old non-atomic version) is now unused by session-end flows and should be treated as legacy.
+
+**References:** `src/hooks/use-terminate-session.ts`, `src/app/components/session/active-session-banner.tsx`, `src/app/pages/clarity-live-page.tsx` (creator exit, `handleEndFromRejoin`), `supabase/migrations/20260420140000_p769_complete_clarity_session_sets_session_ended.sql`
+
+---
+
 ## 2026-04-20 [process]: Shipping when the shared main worktree is occupied — use `git cherry-pick --no-commit` + explicit file commit
 
 **Context:** P766 /ship. The main repo working directory was on `feature/p769-session-end-terminal-authority` (another session had checked it out). A separate w4 worktree was on `main`. Inside w4, the P771 session had staged a spec rename. `git cherry-pick b59a3130` failed ("your local changes would be overwritten") because staged changes existed. Running `git cherry-pick --no-commit` applied the changes to the index without auto-committing, then `git commit -- <p766 files>` committed only the P766 files, leaving the P771 staged rename untouched.
