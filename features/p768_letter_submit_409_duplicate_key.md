@@ -34,6 +34,15 @@ Two layers, one underlying gap:
 
 **Decision (locked for this fix):** responses are **immutable audit records** — Track 1. The DB schema is authoritative; the product model (letter captures pre-call position, `/live` is where the flip happens) matches. Fix layer 1 and the 409 becomes unreachable from the UI. Do not change the service layer — the 409 is a correct defensive guard.
 
+## Invariants
+
+Persist across future layers — architectural constraints future fixes must respect:
+
+1. **`letter_point_responses` is an immutable append-only audit log.** First write per `(delivery_id, point_id)` wins. The DB UNIQUE constraint is authoritative; no schema change is acceptable.
+2. **Any UI phase that offers a "record your position" action for a point MUST first verify no prior response exists for that `(delivery_id, point_id)` pair.** `point-engage` is such a phase. This check runs BEFORE initial phase/state is computed — never via a post-mount `useEffect` (flash of wrong UI).
+3. **Both authenticated and anon-token reading paths share the same UI state machine.** A rehydration fix MUST cover both. Anon-token submit is server-safe (RPC uses `ON CONFLICT DO NOTHING`), but the UX of re-engaging an already-answered point is still wrong on that path.
+4. **Point-position rehydration is scoped to `letter_point_responses`.** Story rating / story phase rehydration is a separate concern — do not expand scope into it within this fix.
+
 ## Reproduction Steps
 
 1. As an authenticated user (letter recipient), open a letter-reading URL, e.g. `/letter/6235ac99-e584-410e-9793-8e8d39ac75a7`
@@ -67,18 +76,92 @@ Submit click triggers a network request to `letter_point_responses?on_conflict=.
 
 ## Fix Approach
 
-Track 1 (immutable) — locked by product decision:
+Track 1 (immutable) — locked by product decision.
 
-1. Add a fetcher for prior responses on the delivery (e.g. `getLetterPointResponses(deliveryId)` in `letters-service.ts`) — one `SELECT point_id, position FROM letter_point_responses WHERE delivery_id = ?` per letter open.
-2. Seed `useLetterReadingState` initial state: for each snapshot, populate `positions[pointId]` from the DB result and set initial phase to `point-revealed` (or later) for points that already have a response. Fall back to `initialPhase(snapshot)` only when no response exists.
-3. Do not change `submitPointResponse` — the 409 stays as a correct defensive guard.
-4. Optional polish (not required for fix to pass AC): add a toast on any unexpected `submitPointResponse` throw so future schema-level failures never silent-fail again. Punt to separate spec if scope grows.
+### 1. Add a fetcher in `letters-service.ts`
+
+```ts
+// Add near the existing reads at :510 / :1048
+export async function getLetterPointResponses(
+  deliveryId: string,
+): Promise<Record<string, string>> {
+  const { data, error } = await supabase
+    .from('letter_point_responses')
+    .select('point_id, position')
+    .eq('delivery_id', deliveryId);
+  if (error) {
+    logDbError('getLetterPointResponses', error);
+    return {};          // fail-open: worst case → unchanged (buggy) behavior, not crash
+  }
+  return Object.fromEntries((data ?? []).map((r) => [r.point_id, r.position]));
+}
+```
+
+Same shape for the anon-token path — add a companion `getLetterPointResponsesByToken(token)` that wraps the equivalent RPC or a filtered select that RLS permits. If no anon-safe read exists yet, a SECURITY DEFINER RPC is the right pattern (mirrors `submit_point_response_by_token`).
+
+### 2. Fetch in the parent page, pass as a hook param
+
+In `src/app/pages/letter-reading-page.tsx` near line 1003, before mounting `useLetterReadingState`, fetch existing responses alongside the existing `getLetterForReading(ByToken)` call. Await both (Promise.all) so the hook mounts with full state on the first render — no flash of wrong UI (Invariant 2).
+
+Add a new param to `UseLetterReadingStateParams`:
+
+```ts
+priorPositions?: Record<string, string>;   // pointId → position
+```
+
+Do the same for the local-mode call at :1143 (preview / public reading) — pass `{}` or omit; preview mode must not rehydrate from DB (see Invariant 4 / preview-mode note at hook:316).
+
+### 3. Seed the hook's initial state from `priorPositions`
+
+In `useLetterReadingState` (~line 289, the `useState` initializer), after computing `freshState`:
+
+- For each `snapshot` in `snapshots`, check which of its visible `point_id`s are present in `priorPositions`.
+- Populate `state.stories[i].positions[pointId] = priorPositions[pointId]` for those.
+- **Advance past already-answered points:** set `state.stories[i].currentPointIndex` to the index of the first unanswered visible point. If all visible points are answered → `currentPointIndex = visibleCount - 1` (stays on last point, but phase must NOT be `point-engage`).
+- **Initial phase selection:** if the point at `currentPointIndex` is answered, phase = `point-revealed`. Otherwise use existing `initialPhase(snapshot)` logic. **Do not** attempt to infer `story-rate` / `story-revealed` — that depends on story ratings (out of scope, Invariant 4).
+
+Keep `sessionStorage` and `savedStoryIndex` resume paths intact — they already handle "resume where you left off" for mid-session cases. DB rehydration is the cross-session / cross-device authority.
+
+### 4. Do NOT change the service layer
+
+`submitPointResponse` (service:370) stays a plain `.insert()`. The 409 is a correct defensive guard (Invariant 1). After the rehydration fix, the UI never calls it twice for the same `(delivery_id, point_id)`.
+
+### 5. Optional polish (out of scope for this fix)
+
+- Toast on unexpected `submitPointResponse` throw so future schema failures aren't silent.
+- Story-rating rehydration.
+
+If /fix agent notices either is trivial while working, file a separate bug — do not expand this fix.
+
+## Non-Goals
+
+- Changing `submitPointResponse` (service layer stays untouched; 409 remains as defensive guard)
+- Any schema change to `letter_point_responses` or its UNIQUE constraint
+- Rehydrating story ratings or reconstructing `story-rate` / `story-revealed` phases from DB
+- Adding a user-facing toast on submit errors (punt to separate spec if wanted)
+- Touching `submit_point_response_by_token` RPC (already server-safe)
 
 ## Acceptance Criteria
 
-- [ ] Re-opening a letter with an existing `letter_point_responses` row for a point does NOT render the `point-engage` Submit button for that point
-- [ ] For already-answered points, the receiver sees their prior position (phase is `point-revealed` or later — matches the post-submit experience)
-- [ ] No 409 or `letter_point_responses_unique` error appears in console during letter re-open or navigation
-- [ ] First-time submit flow still works end-to-end (Disagree/Unsure/Agree each write a row, phase advances)
-- [ ] `letter_point_responses` unique constraint remains intact (no schema change)
-- [ ] Canary test passes: `e2e/p768-reproduce.spec.ts`
+- [ ] Re-opening a letter with an existing `letter_point_responses` row for a point does NOT render the `point-engage` Submit button for that point (canary assertion)
+- [ ] For already-answered points, the receiver sees their prior position on mount (phase is `point-revealed` on first render — no flicker through `point-engage`)
+- [ ] Advancing to the first unanswered point on re-open lands the receiver directly on `point-engage` for that point (not the already-answered one)
+- [ ] No 409 or `letter_point_responses_unique` error appears in console during letter re-open, navigation, or submit
+- [ ] First-time submit flow still works end-to-end (Disagree/Unsure/Agree each write a row, phase advances via existing `submitPointPosition` code path — no regression in `e2e/p581-*.spec.ts`)
+- [ ] Both authenticated (`/letter/:id` no token) and anon-token (`/letter/:id?token=...`) re-open flows get rehydration
+- [ ] `letter_point_responses` UNIQUE constraint untouched; service layer untouched
+- [ ] Canary passes: `e2e/p768-reproduce.spec.ts`
+
+## Verification Commands
+
+```bash
+# Canary must pass (currently fails)
+npx playwright test e2e/p768-reproduce.spec.ts
+
+# Regression guard — existing letter reading tests
+npx playwright test e2e/p581-letter-reading.spec.ts
+npx playwright test e2e/p665-letter-immersive.spec.ts
+
+# Type + lint + build
+./scripts/pre-commit-checks.sh
+```
