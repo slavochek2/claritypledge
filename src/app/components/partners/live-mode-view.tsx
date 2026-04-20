@@ -1235,6 +1235,9 @@ function IdleScreen({
   // Name comparison breaks when both users share the same display name.
   const isListenerDuringLocalRating = liveState.ratingInitiatedByIsCreator !== undefined
     && liveState.ratingInitiatedByIsCreator !== isCreator;
+  // P766: Narrow gate for story card — only hide before speaker submits their rating.
+  // isListenerDuringLocalRating stays true for the whole rating phase (used to disable Speak button).
+  const isListenerBeforeSpeakerSubmits = isListenerDuringLocalRating && !liveState.checkerSubmitted;
   if (import.meta.env.DEV && (liveState.ratingInitiatedBy || liveState.ratingInitiatedByIsCreator !== undefined)) {
     console.log(`[P646] isListenerDuringLocalRating=${isListenerDuringLocalRating}, ratingInitiatedByIsCreator=${liveState.ratingInitiatedByIsCreator}, isCreator=${isCreator}, ratingInitiatedBy=${liveState.ratingInitiatedBy}`);
   }
@@ -1371,8 +1374,8 @@ function IdleScreen({
               )}
 
               {/* P272: Story card shown when story is selected */}
-              {/* P617: Hide for listener while speaker is in local drawer */}
-              {selectedStory && !isListenerDuringLocalRating && (
+              {/* P617/P766: Hide for listener only before speaker submits — visible once speaker submits */}
+              {selectedStory && !isListenerBeforeSpeakerSubmits && (
                 <LiveStoryCardExpanded
                   story={selectedStory}
                   isOwnStory={isStoryOwner}
@@ -1414,8 +1417,8 @@ function IdleScreen({
       )}
 
       {/* P588: Sticky ActionArea OUTSIDE scroll container — only when story selected */}
-      {/* P617: Hide for listener while speaker is in local drawer */}
-      {selectedStory && !isListenerDuringLocalRating && (
+      {/* P617/P766: Hide for listener only before speaker submits */}
+      {selectedStory && !isListenerBeforeSpeakerSubmits && (
         <ActionArea
           sticky={true}
           className={showRatingDrawer || hasRatingData ? '' : '!pt-0'}

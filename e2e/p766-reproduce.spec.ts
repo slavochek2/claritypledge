@@ -106,7 +106,7 @@ test.describe('P766: receiver sees story card after speaker submits rating', () 
       await expect(guestStoryCard).toBeVisible({ timeout: 3000 });
 
       // Sanity: the story body should be in the card the listener can read.
-      await expect(guestStoryCard).toContainText(story.title);
+      await expect(guestStoryCard).toContainText(story.content);
     } finally {
       if (storyId) await deleteTestStory(storyId);
       await session.cleanup();

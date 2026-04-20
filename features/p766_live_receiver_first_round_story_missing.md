@@ -1,5 +1,5 @@
 ---
-status: today
+status: qa
 type: bug
 rank: 250014.25
 severity: high
@@ -11,10 +11,8 @@ tags:
   - realtime
   - receiver
   - race-condition
-delivery_stage: reproduce
-pipeline_ran:
-  - create-bug
-  - reproduce
+delivery_stage: fix
+pipeline_ran: [create-bug, reproduce, fix]
 reproduce_artifact:
   test_file: e2e/p766-reproduce.spec.ts
   root_cause: >-
@@ -105,9 +103,9 @@ Apply to both render sites (line 1375 and line 1418) and the mirror condition on
 
 ## Acceptance Criteria
 
-- [ ] Canary Playwright test `e2e/p766-reproduce.spec.ts` PASSES after fix (FAILS before)
-- [ ] On the receiver's first round, the story card (title + body) is visible within 1000ms of the confidence slider appearing
-- [ ] Story card remains visible on rounds 2+ (no regression)
-- [ ] Speaker-side rendering is unchanged on any round
-- [ ] Story card is still hidden for the listener in the narrow window where the speaker is in their own drawer before submitting (preserves P617 intent)
-- [ ] No console errors on either participant's screen during the first round
+- [x] Canary Playwright test `e2e/p766-reproduce.spec.ts` PASSES after fix (FAILS before)
+- [x] On the receiver's first round, the story card (title + body) is visible within 1000ms of the confidence slider appearing
+- [x] Story card remains visible on rounds 2+ (no regression)
+- [x] Speaker-side rendering is unchanged on any round
+- [x] Story card is still hidden for the listener in the narrow window where the speaker is in their own drawer before submitting (preserves P617 intent)
+- [x] No console errors on either participant's screen during the first round
