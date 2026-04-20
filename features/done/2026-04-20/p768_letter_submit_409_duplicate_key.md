@@ -1,13 +1,13 @@
 ---
-status: qa
+status: all-done
 type: bug
 rank: 1000761.0
 severity: high
 workstream: letter
 date_reported: '2026-04-20'
 created_date: '2026-04-20'
+completed_at: '2026-04-20'
 tags: [letter, submit, duplicate-key, re-submit]
-delivery_stage: ship
 pipeline_ran: [create-bug, reproduce, fix, ship]
 reproduce_artifact:
   test_file: e2e/p768-reproduce.spec.ts
