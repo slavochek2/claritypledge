@@ -256,6 +256,7 @@ export default defineConfig({
       '**/.claude/**',
       '**/.local/**',
       '**/tools/**', // Exclude tools (kanban has its own test suite)
+      '**/supabase/functions/**', // Deno modules — not compatible with vitest/Node
     ],
   },
 })
