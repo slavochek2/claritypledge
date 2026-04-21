@@ -2,6 +2,31 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-04-21 [technical]: `useAuth().user` is a Profile — never read `user_metadata` on it (Status: proposed)
+
+**Context:** P778 shipped "For {first-name}" on public letters for authed non-senders and was cherry-picked to main (`a39dfb5e`, `211e7e84`). Visible behavior is still broken — the cover shows "For you" for every logged-in viewer. Root cause: `letter-reading-page.tsx` reads `currentUser.user_metadata?.name` at three sites (lines 210-211, 273-274, 341-342). `currentUser` comes from `useAuth()`, which returns a `Profile` object sourced from the `profiles` table (`AuthContext.tsx:22,128`). `Profile` has `name: string` at the top level (`src/app/types/index.ts:37`) — it has no `user_metadata` field. At runtime, `currentUser.user_metadata` is always `undefined`, so the display-name setter never fires and the default `'you'` remains.
+
+Test coverage did not catch this: `p778-public-letter-authed-parity.test.tsx` mocked `currentUser` as `{ user_metadata: { name: READER_NAME } }` — a Supabase-auth-user shape, not a `Profile`. The mock matched the broken code, so the AC "Name on cover shows first name" passed against a fiction. TypeScript did not flag `.user_metadata` on `Profile` because optional chaining plus `as string | undefined` casts suppressed what should have been a property-does-not-exist error.
+
+**Decision:** When reading the current user's display name in any component, read `currentUser.name` directly. Never read `currentUser.user_metadata.*` — `currentUser` from `useAuth()` is always a `Profile`, and `Profile.name` is the canonical display-name source. It is non-optional and always populated at profile creation via the fallback chain `existingProfile?.name || user_metadata.full_name || user_metadata.name || 'Anonymous'` (`AuthCallbackPage.tsx:213`).
+
+Distinct from `session.user.user_metadata.*` — `session.user` (from `useAuth()`) IS a Supabase auth user and `.user_metadata` is valid there (e.g. `AuthCallbackPage.tsx`, `letter-response-confirm-page.tsx:146`). The rule is: the shape depends on which variable, not which hook.
+
+**Test mocks must match runtime shape.** Any test that mocks `useAuth()` must return `{ user: <Profile-shaped>, session: <Session-shaped>, ... }` — not `{ user: { user_metadata: {...} } }`. A mock that matches broken code hides the bug.
+
+**Alternatives rejected:**
+- Read `session?.user?.user_metadata?.name` instead — works, but couples display-name reads to OAuth payload shape. `Profile.name` is the stable contract; `user_metadata` is a third-party payload. Re-introduces the same class of bug in a new form.
+- Rename `currentUser` → `currentProfile` codebase-wide (~50 sites) — clarity improvement, not a bug fix. Out of scope for the corrective patch; separate track if pursued.
+
+**Consequences:**
+- New P-number spec will fix all three call sites in `letter-reading-page.tsx` plus the test mock shape and add an e2e reproduce canary (plan: `~/.claude/plans/right-and-does-it-mutable-deer.md`). Canary must fail before the fix lands.
+- Follow-up (not blocking): investigate why `tsc` did not catch `.user_metadata` on `Profile` — candidate causes are widening to `any` upstream or absence of `noUncheckedIndexedAccess` / structural-type slack. If `tsc` could catch this class at compile time, it would prevent the next occurrence mechanically. File a separate note when the corrective fix lands.
+- Status: proposed — this entry will be updated to remove `(Status: proposed)` and fill in confirmed Consequences after the corrective spec ships and the fix is verified against a live authed non-sender reading a public letter.
+
+**References:** `src/app/pages/letter-reading-page.tsx` (lines 210-211, 273-274, 341-342) | `src/auth/AuthContext.tsx:22,128` | `src/app/types/index.ts:35-56` | `src/auth/AuthCallbackPage.tsx:213` | [P778 spec](features/done/2026-04-21/p778_public_letter_authed_reader_parity.md) | plan: `~/.claude/plans/right-and-does-it-mutable-deer.md`
+
+---
+
 ## 2026-04-21 [technical]: Edge function supabase client type — use `ReturnType<typeof createClient<any>>`
 
 **Context:** 5 edge functions failed `deno check` with `TS2339/TS2769/TS2345` errors on DB query results. Root cause: `ReturnType<typeof createClient>` (no generic) resolves `Database` to `never`, propagating to all `.from()` row types. The 8 P776 functions were unaffected because they call `.from()` directly on a top-level `const client` without passing it through typed function parameters.

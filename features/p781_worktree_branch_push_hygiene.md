@@ -4,8 +4,8 @@ type: task
 rank: 1000751.0
 created_date: '2026-04-21'
 tags: [infrastructure, worktrees, git, skills, process]
-delivery_stage: create-spec
-pipeline_ran: [create-spec]
+delivery_stage: decompose
+pipeline_ran: [create-spec, decompose]
 architect_plan: ~/.claude/plans/and-what-about-push-wild-pony.md
 base_commit: a10dfd38
 ---
@@ -138,3 +138,254 @@ Per architect plan section F + rollout step 7:
 - [ ] One full `/ship` run on a real P-number: pre-flight → main.lock → stamp → journal-recorded cherry-pick → branch delete → lock release → "Ready to push." (no auto-push)
 - [ ] User explicit push succeeds; Vercel deploys
 - [ ] `/kdd` captures the "C.3 dropped because existing hook was better" and "journal beats SHA-set for cherry-pick idempotency" decisions
+
+## Implementation Tasks
+
+> **Deviation note:** The external architect plan at `~/.claude/plans/and-what-about-push-wild-pony.md` was overwritten prior to decompose running. Its content had been repurposed for a follow-up spec (pre-commit hook check-only). The decompose is derived entirely from the spec's inline content: `## Done-When`, `## Risks / Non-Goals`, `## Rollback Strategy`, `## Migration Plan`, and `## Alternatives Considered`. The spec's Solution section summarizes the plan's subcommand surface, lockfile fields, and migration approach in sufficient detail to produce a complete manifest. Plan section references below cite spec sections as `"Spec: <section heading>"`.
+
+> **Pre-flight deviations noted:**
+> 1. `## Technical Architecture` section absent in spec — architect plan was external file; plan file has been overwritten. Waived per founder instruction.
+> 2. `/spec-review` READY gate not run. Waived per founder instruction.
+> 3. No `## Test Coverage Strategy` in spec — `/generate-tests` has not run.
+
+> ⚠️ Run `/generate-tests` before `/dev` — test files not yet generated.
+
+---
+
+### Consistency Check Summary
+
+**Check 1: Acceptance Criteria Coverage**
+
+All 16 Done-When checkboxes map to at least one task in this manifest:
+- Code/infra items (items 1–6): covered by Tasks 1–10
+- Skill/rule items (items 7–11): covered by Tasks 11–16
+- Regression tests (items 12–19): covered by Tasks 1–10 (each task includes inline Verify lines)
+- In-place migration items (items 20–22): covered by Tasks 8–9
+- End-to-end items (items 23–25): covered by Task 17
+
+All criteria mapped. No unmapped items.
+
+**Check 2: UX–Architecture Drift**
+Not applicable — no UX section exists in this infrastructure spec. Skipped.
+
+**Check 3: Security Blockers in Build Sequence**
+Risks reviewed: lockfile PID recycling (mitigated in Task 2 lockfile design), migration divergence (mitigated in Task 8 pre-check step), wrapper chokepoint (mitigated in Task 17 smoke test). The residual `git push --no-verify` gap is explicitly out of scope (separate P-number, non-blocking). No unresolved security risks that must precede implementation.
+
+---
+
+### T01 — `.gitignore` check: add `.claude/worktrees/` entry
+
+**Source:** Spec: Done-When > Code & infrastructure (item 6)
+**Files:** `.gitignore`
+**What:** Verify `.claude/worktrees/*` is not already tracked by git. Add `.claude/worktrees/` to `.gitignore` if absent. Commit the `.gitignore` change alone.
+**Why first:** All subsequent tasks write lockfiles and journal files under `.claude/worktrees/`; those paths must be ignored before any `.lock` file is created.
+**Dependencies:** None — can start immediately.
+Verify: `git check-ignore -v .claude/worktrees/w1/.lock` returns a match after this commit.
+
+---
+
+### T02 — `git-ops.sh`: claim / status / release subcommands
+
+**Source:** Spec: Done-When > Code & infrastructure (item 1); Spec: Solution
+**Files:** `scripts/git-ops.sh` (create)
+**What:** Create `scripts/git-ops.sh` with three subcommands:
+- `claim <p-number> <slug>` — finds next free slot, creates worktree + branch, writes lockfile (PID + `PID_START_TIME` from `ps -o lstart=` + 64-bit nonce + `SESSION_ID` + heartbeat)
+- `status [slot]` — prints slot occupancy table or single-slot detail; detects stale locks (PID recycled = PID match but `PID_START_TIME` mismatch)
+- `release <slot>` — removes lockfile, does NOT delete worktree (that's `abandon`)
+**Why:** Lockfile identity (PID + start-time + nonce) must be established before any other subcommand is built on top of it.
+**Dependencies:** T01 (`.gitignore` must be in place before `claim` writes `.lock`).
+Verify: `./scripts/git-ops.sh claim p999 smoketest` creates next free slot + branch + lockfile.
+
+---
+
+### T03 — `git-ops.sh`: gc / abandon / reconcile subcommands
+
+**Source:** Spec: Solution; Spec: Done-When > Code & infrastructure (item 1)
+**Files:** `scripts/git-ops.sh` (extend)
+**What:**
+- `gc [--dry-run|--yes --delete-branches]` — lists orphan branches (no lockfile, no recent activity); dry-run default; two-flag requirement on branch deletion
+- `abandon <slot>` — removes lockfile AND worktree, does NOT delete branch (branch is preserved for manual review)
+- `reconcile` — cross-checks active lockfiles against `git worktree list` output; surfaces any slot where they disagree
+**Dependencies:** T02 (claim/status/release must exist first for gc/abandon to reason about lock state).
+
+---
+
+### T04 — `git-ops.sh`: commit-to-main + switch-safe subcommands
+
+**Source:** Spec: Solution; Spec: Done-When > Code & infrastructure (item 1)
+**Files:** `scripts/git-ops.sh` (extend)
+**What:**
+- `commit-to-main <message> [files...]` — acquires `main.lock`, runs `git commit`, releases lock; serializes concurrent main commits
+- `switch-safe <branch>` — checks that target branch has no uncommitted changes not attributable to caller's lock before switching; refuses if another session's lock is active on the slot
+**Why separate task:** `commit-to-main` requires `main.lock` file (distinct from slot `.lock`); `switch-safe` requires understanding of lock identity. Both are independently testable.
+**Dependencies:** T02.
+Verify: Two concurrent `commit-to-main` calls serialize with "held by session X" message; `switch-safe main` refuses when main has uncommitted changes from a different lock.
+
+---
+
+### T05 — `git-ops.sh`: sync subcommand
+
+**Source:** Spec: Done-When > Code & infrastructure (item 1); Spec: Risks / Non-Goals > Non-Goals
+**Files:** `scripts/git-ops.sh` (extend)
+**What:** `sync` — rebases current slot's branch onto main, but only when the branch does NOT exist on `origin`. Refuses on any branch that has a remote counterpart (push was never pre-approved, so a pushed branch must be handled manually).
+**Dependencies:** T02.
+Verify: `git-ops.sh sync` refuses on any branch that exists on `origin`.
+
+---
+
+### T06 — `git-ops.sh`: ship subcommand (journal-based idempotent)
+
+**Source:** Spec: Done-When > Skill & rule updates (item 7); Spec: Risks / Non-Goals > Alternatives Considered (SHA-set rejected)
+**Files:** `scripts/git-ops.sh` (extend)
+**What:** `ship <p-number>` — acquires `main.lock`, cherry-picks commits from the feature branch onto main, writes `.ship-state` journal per step (source SHA → landed SHA mappings), skips already-landed commits on resume (idempotent), deletes feature branch on success, releases `main.lock`. Stops at "Ready to push." — NEVER auto-pushes.
+**Why journal:** cherry-pick bumps SHAs (committer date changes), so SHA-set checks lie. Journal of step-completion + mappings is robust against empty-commit skips, partial ranges, and any batch size.
+**Dependencies:** T04 (requires `commit-to-main` pattern for `main.lock` acquisition).
+Verify: `/ship` resumes correctly after kill between cherry-picks via `.ship-state` journal (no double-apply, no skipped commit).
+
+---
+
+### T07 — `scripts/pre-flight.sh` (create)
+
+**Source:** Spec: Done-When > Code & infrastructure (item 2)
+**Files:** `scripts/pre-flight.sh` (create)
+**What:** Create `pre-flight.sh` — callable from `/ship`, `/dev`, `/fix`, `/park`, and from `git-ops.sh claim/abandon/ship/park`. Checks: lockfile valid for caller's session, slot branch matches expected, working tree clean, `main` up to date with remote (read-only check — no fetch). Exits non-zero with a clear message on any failure.
+**Dependencies:** T02 (reads lockfile format established there).
+Verify: `scripts/pre-flight.sh` callable without arguments; exits 0 on clean state, non-zero with message on stale lock.
+
+---
+
+### T08 — `scripts/migrate-existing-slot.sh` (create)
+
+**Source:** Spec: Done-When > Code & infrastructure (item 3); Spec: Migration Plan
+**Files:** `scripts/migrate-existing-slot.sh` (create)
+**What:** Create `migrate-existing-slot.sh`:
+1. Pre-check (read-only): for each path (`scripts/`, `supabase/migrations/`), run `git diff main..HEAD -- <path>`; abort with error if any diff found
+2. Write lockfile for the slot
+3. Replace symlinks: `rm symlink`, then `git checkout -- <path>` from the slot's branch
+4. Verify: slot still points at its branch, `git status` unchanged, build still passes
+5. Fallback on verification failure: restore symlinks, surface error
+6. `--restore-symlinks` flag for rollback
+**Dependencies:** T01 (`.gitignore`), T02 (lockfile format).
+Verify: `./scripts/migrate-existing-slot.sh --dry-run w1` dry-run passes on w1; if migration pre-check surfaces divergence, plan stops.
+
+---
+
+### T09 — Migrate w1 and w3 in place
+
+**Source:** Spec: Done-When > In-place migration (items 20–22)
+**Files:** `.claude/worktrees/w1/` and `.claude/worktrees/w3/` (symlinks replaced, no file creates in git)
+**What:** Run `migrate-existing-slot.sh` on w1 (chore/kanban-logging) and w3 (feature/p772-letter-shortcodes):
+1. Dry-run on both: surface any diffs in `scripts/` or `supabase/migrations/`
+2. If clean: execute migration on w1, verify, then execute on w3, verify
+3. If pre-check fails on either: stop, report, do not proceed
+**Dependencies:** T08 (migration script must exist), T01 (`.gitignore` must be in place).
+Verify: w1 migrated without destroying context (branch, HEAD, port mapping preserved; `git status` unchanged); w3 same; if divergence detected, plan stops with clear message.
+
+---
+
+### T10 — `scripts/pre-commit-checks.sh`: scoping (skip when no build-affecting file staged)
+
+**Source:** Spec: Done-When > Code & infrastructure (item 5); Spec: Risks > `pre-commit-checks.sh` whitelist regression
+**Files:** `scripts/pre-commit-checks.sh`
+**What:** Gate sections 1 (tsc), 3 (build), 4 (tests) behind a staged-file whitelist check. Whitelist: `*.ts`, `*.tsx`, `*.js`, `package.json`, `*.config.*`, lockfile patterns (`package-lock.json`, `yarn.lock`), `public/` assets. Docs-only commits (`**/*.md`, `*.json` config files not in whitelist) skip all three sections.
+**Why separate from T07:** This change to `pre-commit-checks.sh` must be committed before any worktree migration (`T09`) so that migration commits (which are chore/docs commits) don't accidentally trigger whole-repo tests.
+**Dependencies:** T01 (`.gitignore` commit must land first).
+Verify: staging `vite.config.ts` alone triggers build; staging `docs/**/*.md` alone skips build (regression tests 6 and 7 from original plan).
+
+---
+
+### T11 — `scripts/setup-worktree.sh`: break `scripts/` and `supabase/migrations/` symlinks
+
+**Source:** Spec: Done-When > Code & infrastructure (item 4)
+**Files:** `scripts/setup-worktree.sh`
+**What:** Remove the lines that create symlinks for `scripts/` and `supabase/migrations/`. Keep symlinks for `.env.local`, `.env.test.local`, `node_modules` (per Non-Goals). Add `git checkout -- scripts/ supabase/migrations/` after worktree creation to hydrate native copies from the slot's branch.
+**Dependencies:** T09 (existing w1/w3 already migrated, so new worktrees created after this edit will be correct from birth).
+Verify: Create a test worktree with `git-ops.sh claim p999 test`; confirm `scripts/` and `supabase/migrations/` are real directories (not symlinks); confirm `.env.local` is still a symlink.
+
+---
+
+### T12 — `.claude/commands/slava/build/ship.md`: rewrite for `git-ops.sh` + journal + pre-flight
+
+**Source:** Spec: Done-When > Skill & rule updates (item 7)
+**Files:** `.claude/commands/slava/build/ship.md`
+**What:**
+- Add step 0: call `pre-flight.sh`
+- Acquire `main.lock` for the whole sequence via `git-ops.sh`
+- Replace direct `git cherry-pick` calls with `git-ops.sh ship <p-number>`
+- Journal-based idempotent recovery via `.ship-state`
+- Remove ALL `git push origin main` references
+- Remove "push cleanup pre-approved" language
+- End sequence at "Ready to push." — no push, no flag, no override
+**Dependencies:** T06 (ship subcommand), T07 (pre-flight).
+
+---
+
+### T13 — `.claude/commands/slava/build/park.md`: stamp frontmatter before KDD cherry-pick + journal
+
+**Source:** Spec: Done-When > Skill & rule updates (item 8)
+**Files:** `.claude/commands/slava/build/park.md`
+**What:**
+- Move frontmatter stamp step to BEFORE any KDD cherry-pick (prevents the stamp commit from being missed if cherry-pick fails)
+- Replace direct `git commit` for KDD commits with `git-ops.sh commit-to-main`
+- Add `.park-state` journal write so resume is safe after interruption
+**Dependencies:** T04 (commit-to-main), T07 (pre-flight).
+
+---
+
+### T14 — `.claude/commands/slava/build/dev.md` and `fix.md`: delegate to `git-ops.sh claim`
+
+**Source:** Spec: Done-When > Skill & rule updates (item 9)
+**Files:** `.claude/commands/slava/build/dev.md`, `.claude/commands/slava/build/fix.md`
+**What:** Replace direct `git worktree add` + `git checkout -b` calls with `git-ops.sh claim <p-number> <slug>`. Add `pre-flight.sh` call at session start. Both skills acquire a lockfile via claim; the lockfile is valid for the session's duration.
+**Dependencies:** T02 (claim), T07 (pre-flight).
+
+---
+
+### T15 — `.claude/rules/git.md` edit via `/claude-md` gate
+
+**Source:** Spec: Done-When > Skill & rule updates (item 10)
+**Files:** `.claude/rules/git.md` (via `/claude-md` gate — MUST use the gate, not direct edit)
+**What:** Add to git.md:
+1. Ban list additions: direct `git worktree add`, direct `git checkout -b` (use `git-ops.sh claim`), direct `git branch -D` (use `git-ops.sh abandon`), `rm -rf .claude/worktrees/*` (use `git-ops.sh release`/`abandon`)
+2. Merge-strategy matrix (e.g., single-commit features → cherry-pick, multi-commit features → merge, long-running batches → documented exception)
+3. One-worktree = one-branch invariant: a slot must never have more than one branch checked out; switching branches inside a slot without `switch-safe` is banned
+4. "Pushes are never pre-approved" statement: no skill, comment, or agent prompt may claim push is pre-approved
+**Note:** This task MUST invoke `/claude-md "add worktree/branch/push rules to git.md"` first. Do not edit the file directly.
+**Dependencies:** T12, T13, T14 (skill edits should land before the rule banning direct calls — otherwise the rule fires against old skills during the migration commit).
+
+---
+
+### T16 — `docs/technical/worktree-setup.md` edit
+
+**Source:** Spec: Done-When > Skill & rule updates (item 11)
+**Files:** `docs/technical/worktree-setup.md`
+**What:**
+- Drop the "trivial fixes can go directly on main" exception (replaced by the one-worktree = one-branch invariant)
+- Document lockfile protocol: fields, identity rules, stale detection (PID + `PID_START_TIME` + nonce), heartbeat format
+- Document `git-ops.sh status` output format
+- Document 1:1 slot-to-branch invariant
+- Document `migrate-existing-slot.sh` usage and `--restore-symlinks` flag
+**Dependencies:** T11 (setup-worktree.sh changes finalized), T02 (lockfile format finalized).
+
+---
+
+### T17 — End-to-end `/ship` validation on a real P-number
+
+**Source:** Spec: Done-When > End-to-end (items 23–25)
+**Files:** None — validation only; updates spec Done-When checkboxes
+**What:** Run one full `/ship` on a real (non-p999 smoke) P-number. Required sequence:
+1. `pre-flight.sh` → passes
+2. `main.lock` acquired
+3. Frontmatter stamp applied
+4. `.ship-state` journal records each cherry-pick
+5. Feature branch deleted
+6. Lock released
+7. Output: "Ready to push." (no auto-push)
+8. User explicit push succeeds; Vercel deploys
+9. `/kdd` captures "C.3 dropped because existing hook was better" and "journal beats SHA-set for cherry-pick idempotency" decisions
+**Dependencies:** T12 (ship.md), T15 (git.md rule bans direct push), all other tasks complete.
+Verify: `Spec: Done-When > End-to-end` — all three checkboxes observable.
+
+---
+
+**Total tasks:** 17 | **Can parallelize:** T02/T03/T04/T05 can start in parallel once T01 is done; T07/T08/T10 can parallelize after T01; T11 must wait for T09; T12/T13/T14 can parallelize after T06/T07; T15/T16 can parallelize after T12/T13/T14 | **Must be sequential:** T01 → T02 → T06 → T12 → T17; T08 → T09 → T11
