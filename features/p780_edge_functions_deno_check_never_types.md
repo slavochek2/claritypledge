@@ -7,8 +7,8 @@ workstream: infra
 date_reported: '2026-04-21'
 created_date: '2026-04-21'
 tags: [deno, typescript, edge-functions, types]
-delivery_stage: fix
-pipeline_ran: [create-bug, fix]
+delivery_stage: ship
+pipeline_ran: [create-bug, fix, ship]
 ---
 
 # P780: 5 edge functions fail `deno check` — DB query results typed as `never`
