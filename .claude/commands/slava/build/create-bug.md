@@ -442,8 +442,15 @@ Root cause marked "Under investigation" — run /reproduce to form hypotheses an
 
 If bug is trivial (self-evident one-liner), add:
 ```
-This looks trivial enough to skip /reproduce. Run `/fix p{N}` directly — it will ask you to confirm the override.
+This looks trivial enough to skip /reproduce. To skip it, say "skip reproduce" when you run `/fix p{N}`. Silence will route you through `/reproduce` by default.
 ```
+
+**Never** add a "skip /reproduce" hint based on:
+- An architect plan being referenced (plan ≠ observed-failing canary)
+- A `pipeline_plan` that omits `/reproduce` (pipeline_plan may have been stamped without `/pick-flow` classifying)
+- "The root cause is visible in the code" (visible ≠ trivial; race conditions and RLS bugs often have root cause visible but require non-trivial reproduction)
+
+Only add the skip hint when the fix is a literal one-line change AND the user has shown intent to skip.
 
 ---
 
