@@ -127,30 +127,41 @@ Find all specific issues (expect 3-15 for typical changes). If genuinely clean, 
 
 ---
 
-## Step 5: Fix Issues and Report
+## Step 5: Present Findings and Apply Approved Fixes
 
 After all subagents complete:
 
-1. **Fix all issues automatically.** Do not ask for approval — the user invoked `/finish` to get things fixed, not to review a report. Apply all fixes directly.
-
-2. **Report concisely.** For each issue fixed, one line:
+1. **Present concisely.** For each issue found, one line:
    - What was wrong (the issue)
-   - Why it matters (what would have happened without the fix)
-   - What the fix did
+   - Why it matters (what would happen without the fix)
+   - What the fix would do
+
+2. **Ask for decision:**
+   "Fix issues before closing? (all HIGH / select / skip)"
+   - `all HIGH` — apply fixes for every HIGH issue; leave MEDIUM for user review.
+   - `select` — user picks which issues to fix by number.
+   - `skip` — no fixes applied; findings recorded in stamp with `issues_fixed: 0`.
+
+3. **Apply only what user approved.** Never auto-apply without explicit consent — this is the user's decision point.
+
+4. **Flag ambiguous issues separately.** If a fix could change behavior beyond the stated issue (e.g., tightens a validator in a way that might reject prior-valid input), present it as "Flagged — needs your decision because [reason]" and do NOT include it in `all HIGH` bulk-apply.
 
 **Example output:**
 ```
-/finish — 4 issues found, 4 fixed.
+/finish — 4 issues found.
 
-1. Stale `/review-all` ref in dev.md:459 — would route to archived skill. Updated to `/finish`.
-2. Third-party names in p581:72 — PII in public repo. Anonymized.
-3. Missing null check in story-card.tsx:67 — would crash on deleted points. Added optional chaining.
-4. Unreleased pricing in p599:33 — competitive exposure. Replaced with [FOUNDER DECISION].
+HIGH:
+1. Stale `/review-all` ref in dev.md:459 — would route to archived skill. Fix: update to `/finish`.
+2. Missing null check in story-card.tsx:67 — would crash on deleted points. Fix: add optional chaining.
 
-Pre-commit: PASS
+MEDIUM:
+3. Third-party names in p581:72 — PII risk in public repo. Fix: anonymize.
+4. Unreleased pricing in p599:33 — competitive exposure. Fix: replace with [FOUNDER DECISION].
+
+Fix issues before closing? (all HIGH / select / skip)
 ```
 
-If a fix is ambiguous or risky (could change behavior), flag it instead of auto-fixing: "Flagged: [issue] — needs your decision because [reason]."
+After user decision, apply approved fixes and proceed to Step 6.
 
 ---
 
@@ -170,7 +181,7 @@ JSON-lines format — one line per review type. Append (don't overwrite) so part
 ## Notes
 
 - **Parallel = fast.** All subagent reviews run simultaneously.
-- **Auto-fix by default.** Only flag genuinely ambiguous issues.
+- **User-approved fixes.** `/finish` presents findings and asks before applying. This matches how `/dev` and `/fix` use it (they inherit the same approval gate).
 - **Partial results OK.** If one subagent times out, fix what was found and note what was skipped.
 - **Re-run is cheap.** `/finish` after fixes will skip already-reviewed types (checks `.finish-reviewed` timestamps).
 

@@ -573,7 +573,13 @@ Before updating frontmatter:
 
 After both gate checks pass:
 
-1. **Review** — Spawn `/finish code` as a subagent (`model: "sonnet"`) with: "Review all code changes on this branch vs main. Spec: [spec path if exists]. Proceed directly — no scope confirmation needed." Present HIGH/MEDIUM findings. Ask: "Fix issues before closing? (all HIGH / select / skip)". Apply approved fixes and commit them.
+1. **Review** — Spawn `/finish code` as a subagent (`model: "sonnet"`) with: "Review all code changes on this branch vs main. Spec: [spec path if exists]. Proceed directly — no scope confirmation needed. Return findings as a structured list with count of HIGH and MEDIUM issues — the caller needs these counts for the review stamp." Present HIGH/MEDIUM findings. Ask: "Fix issues before closing? (all HIGH / select / skip)". Apply approved fixes and commit them.
+
+1a. **Write review stamp** — after the approval gate in step 1 completes, append one JSON line to `.claude/.finish-reviewed`:
+   ```bash
+   echo "{\"type\":\"code\",\"timestamp\":\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\",\"issues_found\":N,\"issues_fixed\":M}" >> .claude/.finish-reviewed
+   ```
+   Substitute `N` = HIGH+MEDIUM issues from the subagent, `M` = issues approved. This stamp satisfies `/ship` gate 2.7.
 2. Update frontmatter: `status: qa` (keep `delivery_stage: fix` — do not clear it). **If the spec was moved (e.g., to a subfolder) in this session, Edit its frontmatter at the new location AFTER the `git mv` is staged — never Edit before staging the rename, or the frontmatter change lands in a separate commit.**
 3. Commit: `chore: pN ready for QA — {title}`
 
